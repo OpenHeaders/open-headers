@@ -1,3 +1,5 @@
+import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
+
 export type DetailSection =
   | 'headers'
   | 'payload'
@@ -30,36 +32,39 @@ export interface ClosedTab {
   closedAt: number;
 }
 
-export function buildInspectorTab(
-  req: { id: string; method: string; url: string; statusCode?: number; timestamp: number; displayId: number },
-  source: TabSource = 'network',
-): InspectorTab {
+export interface BuildInspectorTabInput {
+  lifecycle: RequestLifecycle;
+  displayId: number;
+}
+
+export function buildInspectorTab(input: BuildInspectorTabInput, source: TabSource = 'network'): InspectorTab {
+  const lc = input.lifecycle;
   let hostname: string;
   let path: string;
   try {
-    const parsed = new URL(req.url);
+    const parsed = new URL(lc.url);
     hostname = parsed.hostname;
-    // Don't show trailing "/" for root URLs — matches Chrome's Network tab
+    // Don't show trailing "/" for root URLs — matches the native Network tab.
     path = parsed.pathname === '/' ? '' : parsed.pathname;
   } catch {
     hostname = '';
-    path = req.url;
+    path = lc.url;
   }
 
-  const domainPart = hostname.length > 20 ? `\u2026${hostname.slice(-17)}` : hostname;
-  const pathPart = path.length > 24 ? `\u2026${path.slice(-21)}` : path;
-  const label = `#${req.displayId} ${domainPart}${pathPart}`;
+  const domainPart = hostname.length > 20 ? `…${hostname.slice(-17)}` : hostname;
+  const pathPart = path.length > 24 ? `…${path.slice(-21)}` : path;
+  const label = `#${input.displayId} ${domainPart}${pathPart}`;
 
   return {
-    id: req.id,
+    id: lc.requestId,
     label,
-    method: req.method,
-    statusCode: req.statusCode,
-    url: req.url,
+    method: lc.method,
+    ...(lc.statusCode != null ? { statusCode: lc.statusCode } : {}),
+    url: lc.url,
     activeSection: 'headers',
-    requestId: req.id,
-    timestamp: req.timestamp,
+    requestId: lc.requestId,
+    timestamp: lc.startedAtMs,
     source,
-    displayId: req.displayId,
+    displayId: input.displayId,
   };
 }

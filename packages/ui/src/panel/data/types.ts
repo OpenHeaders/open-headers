@@ -1,29 +1,28 @@
 /**
  * Shared types for the DevTools Inspector panel.
  *
- * The traffic list is driven SOLELY by HAR entries forwarded from the
- * devtools_page, so it matches Chrome's native Network panel 1:1 — no
- * phantom rows, no "half-correlated" states. Rule-fire data is an
- * augmentation layer: fires attach to HAR entries when their URL
- * matches, or surface as "off-HAR rule activity" (dangling fires)
- * when the request didn't produce a HAR entry (e.g. a block rule
- * cancelled it before response, a service worker handled it, or the
- * request fired before DevTools was open to capture it).
+ * Row data lives on `InspectorRow` / `InspectorRowWithFires`
+ * (see `inspector-facet.ts` and `inspector-row-projection.ts`); the
+ * lifecycle itself comes from `@openheaders/core/request-lifecycle`.
+ * This file is now scoped to the fire-attribution layer.
+ *
+ * Fires augment rows when their URL matches a rule. Unmatched fires
+ * (request blocked before HAR landed, served from cache without DNR
+ * feedback, scriptable-only fires) surface as "dangling" — same
+ * `InspectorFire` shape, no row.
  */
 
-import type { InspectorHarEntry, InspectorNavTiming, RequestRecord, RuleSnapshot } from '@openheaders/core/types';
-
-export type { InspectorNavTiming };
+import type { RequestRecord, RuleSnapshot } from '@openheaders/core/types';
 
 /**
- * Per-rule fire attached to an `InspectorRequest`. `authoritative`
- * distinguishes `onRuleMatchedDebug` fires (Chrome/Edge only — Chrome
- * told us this rule actually executed) from tab-telemetry's inferred
- * URL-matching path.
+ * Per-rule fire attached to an inspector row. `authoritative`
+ * distinguishes engine-confirmed DNR fires (Chrome/Edge only — the
+ * platform told us this rule actually executed) from tab-telemetry's
+ * inferred URL-matching path.
  *
  * `requestId` is the host's network-request identifier — present for
  * every network-observed fire and used as the deterministic join key to
- * the HAR entry. Absent only for scriptable fires reported from the
+ * the lifecycle. Absent only for scriptable fires reported from the
  * in-page fire-bridge.
  */
 export interface InspectorFire {
@@ -45,18 +44,11 @@ export interface InspectorFire {
  * "Rule actually ran" predicate. True when we have ground-truth evidence
  * the action executed — either:
  *
- *   - `authoritative`: Chrome's `onRuleMatchedDebug` reported this DNR
- *     rule executed on the wire.
+ *   - `authoritative`: the engine reported this DNR rule executed on the wire.
  *   - `evidence === 'confirmed'`: the in-page fire-bridge reported the
  *     scriptable action ran inside the page.
  *
- * Both signals are equivalently strong from the user's POV — "yes, my
- * rule fired." `evidence: 'matched'` and `'matched-fallback'` are
- * inferred from URL pattern matching alone and don't qualify.
- *
- * Use this everywhere the UI answers the user question "did my rule
- * apply on this row?" so the answer is the same regardless of which
- * channel (DNR vs scriptable) the rule used.
+ * Both signals are equivalently strong from the user's POV.
  */
 export function isAppliedFire(fire: InspectorFire): boolean {
   return fire.authoritative || fire.evidence === 'confirmed';
@@ -87,12 +79,6 @@ export function strongerEvidence(
  * fold the stronger `authoritative` flag and the stronger `evidence`
  * tier into the existing record. Returns the same reference when no
  * upgrade is needed so callers can short-circuit equality checks.
- *
- * The two channels (Chrome's `onRuleMatchedDebug` and the in-page
- * fire-bridge) race in dev mode. Whichever arrives first must not
- * down-grade the row's badge later. Symmetrically — when the second
- * arrival is the stronger signal, it must overwrite. This helper makes
- * both cases race-independent.
  */
 export function mergeFireEvidence<T extends InspectorFire>(existing: T, incoming: InspectorFire): T {
   const auth = existing.authoritative || incoming.authoritative;
@@ -111,111 +97,4 @@ export function mergeFireEvidence<T extends InspectorFire>(existing: T, incoming
     evidence: ev,
     ...(snap ? { ruleSnapshot: snap } : {}),
   };
-}
-
-/**
- * A rule fire that couldn't be joined to any HAR entry. Typically
- * means the request was blocked / cancelled / cached / handled by a
- * service worker so DevTools never produced a HAR entry for it, but
- * the extension still saw the URL match a rule's conditions. Rendered
- * in the "Rule Activity" view as a separate list so power users can
- * audit rule behavior on requests that don't show up in the primary
- * traffic list.
- */
-export interface DanglingFire extends InspectorFire {
-  /** URL the rule fired on. */
-  url: string;
-}
-
-/**
- * Canonical request row — exactly one per HAR entry. Mirrors the
- * shape of Chrome's Network tab row-by-row; the augmentation is the
- * `fires` array, which lists every Open Headers rule that matched
- * this request (empty when no rule matched).
- */
-export interface InspectorRequest {
-  /** Stable id — synthetic from `method + url + startedDateTime`. */
-  id: string;
-  /** Full HAR entry captured by the host's network inspector. */
-  harEntry: InspectorHarEntry;
-  /**
-   * Network-request identifier attached by the background after
-   * correlating the HAR with the per-URL FIFO of in-flight observations.
-   * Present whenever the request was observed by the host's network
-   * monitor while tab-telemetry was tracking the tab; absent for HAR rows
-   * that landed before tracking started or for unobserved fetches.
-   */
-  chromeRequestId?: string;
-  /** Convenience projections off the HAR entry. Read from `harEntry` where possible. */
-  method: string;
-  url: string;
-  /** Wall-clock ms parsed from `harEntry.startedDateTime`. */
-  timestamp: number;
-  statusCode?: number;
-  statusText?: string;
-  mimeType?: string;
-  responseSize?: number;
-  duration?: number;
-  resourceType?: string;
-  /** Response body, attached asynchronously when the `har-body` message arrives. */
-  responseBody?: string;
-  responseBodyEncoding?: string;
-  /** Rule fires attached to this entry, ordered by arrival. */
-  fires: InspectorFire[];
-  /** Monotonic counter — used as a stable render order tiebreaker. */
-  arrivalIndex: number;
-  /** Sequential display id (1, 2, 3, ...) — reset on clear. Shown in UI. */
-  displayId: number;
-  /** HAR `pageref` — id of the `InspectorPage` this entry belongs to.
-   *  Populated by the store via `PageTracker.ensurePage` at ingest. */
-  pageref?: string;
-  /**
-   * True for rows minted from `chrome.webRequest.onBeforeRequest` that
-   * have not yet been resolved by a HAR or error event. Mirrors the
-   * "request in flight" state Chrome's Network panel renders the
-   * moment a request starts (via CDP `requestWillBeSent`). Cleared in
-   * place when `ingestHarEntry` or `ingestRequestError` supersede the
-   * row. Skipped from HAR export — no completion data to serialize.
-   */
-  pending?: boolean;
-  /**
-   * Set when the row represents a `chrome.webRequest.onErrorOccurred`
-   * event — a request blocked, canceled, or failed before producing a
-   * HAR-shaped response. The host's HAR pipeline never sees these, so
-   * the panel synthesizes a minimal `harEntry` shell (no `response`,
-   * `statusCode: 0`) and stamps the real Chromium/Firefox error code
-   * here. HAR exports skip these rows so the file stays consumer-
-   * compatible with Chrome's HAR. The detail pane swaps in an
-   * error-only view when this is set.
-   */
-  error?: {
-    /** Raw error code from the host (`net::ERR_*` on Chromium,
-     *  `NS_ERROR_*` on Firefox). */
-    code: string;
-    /** Short human-readable summary, e.g. `blocked`, `failed`,
-     *  `canceled`. Drives the status-column text. */
-    reason: string;
-  };
-}
-
-/** Type guard — row is an error placeholder, not a real HAR row. */
-export function isErrorRequest(
-  r: InspectorRequest,
-): r is InspectorRequest & { error: NonNullable<InspectorRequest['error']> } {
-  return r.error != null;
-}
-
-/**
- * Type guard — row has not yet been resolved by any signal.
- *
- * A row stays "pending" while its final status is unknown. Once
- * `webRequest.onCompleted` arrives we know the status code and the row
- * is no longer pending for UI purposes (the classifier renders the
- * real status). The `pending` flag itself stays set as an internal
- * "still synthetic, replace me with a real HAR if one arrives" marker
- * — but HAR export should include those rows, so the predicate
- * gates on absent `statusCode` rather than the raw flag.
- */
-export function isPendingRequest(r: InspectorRequest): boolean {
-  return r.pending === true && r.statusCode == null;
 }

@@ -4,11 +4,19 @@
  * Each section's body lives in its own component under `./detail/`.
  */
 
+import type { Page } from '@openheaders/core/page-stream';
+import type { RequestError, RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { ConnectionReuseInfo } from '../data/connection-reuse';
 import { type AnnotatedHeader, attributeHeaders } from '../data/header-attribution';
 import type { DetailSection } from '../data/inspector-tab';
-import type { InspectorPage } from '../data/pages';
+import {
+  currentHarEntry,
+  type InspectorRowWithFires,
+  isFailedLifecycle,
+  lifecycleMimeType,
+} from '../data/inspector-row-projection';
 import { findRuleCollectionId } from '../data/rule-collection';
 import {
   buildBlockDraftFromRequest,
@@ -19,7 +27,7 @@ import {
   buildReplaceUrlPartDraftFromRequest,
   handOffRuleDraft,
 } from '../data/rule-draft-bridge';
-import { type InspectorRequest, isErrorRequest } from '../data/types';
+import type { RepeatStats } from '../data/timing-repeats';
 import type { RulesByUid } from '../data/use-rules-lookup';
 import CookiesView from './detail/CookiesView';
 import { ErrorView } from './detail/ErrorView';
@@ -34,16 +42,16 @@ import TimingView from './detail/TimingView';
 import { ResponseBodyView } from './ResponseBodyView';
 
 interface InspectorDetailContentProps {
-  request: InspectorRequest;
+  row: InspectorRowWithFires;
   rulesByUid: RulesByUid;
-  pages: readonly InspectorPage[];
-  getInitiatorChildren: (url: string) => readonly InspectorRequest[];
-  getConnectionReuse: (request: InspectorRequest) => import('../data/connection-reuse').ConnectionReuseInfo;
-  getRepeatStats: (request: InspectorRequest) => import('../data/timing-repeats').RepeatStats | null;
+  pages: readonly Page[];
+  getInitiatorChildren: (url: string) => readonly InspectorRowWithFires[];
+  getConnectionReuse: (lifecycle: RequestLifecycle) => ConnectionReuseInfo;
+  getRepeatStats: (lifecycle: RequestLifecycle) => RepeatStats | null;
   baselineMs: number | null;
   pageOrigin: string | null;
-  onOpenRequest?: (entryId: string) => void;
-  getRequestByUrl: (url: string) => InspectorRequest | null;
+  onOpenRequest?: (requestId: string) => void;
+  getRowByUrl: (url: string) => InspectorRowWithFires | null;
   cacheBypassEnabled: boolean;
   liveRulesMode: boolean;
   activeSection: DetailSection;
@@ -60,18 +68,20 @@ const MESSAGES_SECTION: { key: DetailSection; label: string } = { key: 'messages
 const EVENTSTREAM_SECTION: { key: DetailSection; label: string } = { key: 'eventstream', label: 'EventStream' };
 const RAWDATA_SECTION: { key: DetailSection; label: string } = { key: 'rawdata', label: 'Raw Data' };
 
-function hasPayload(har: InspectorDetailContentProps['request']['harEntry']): boolean {
+function hasPayload(har: ReturnType<typeof currentHarEntry>): boolean {
+  if (!har) return false;
   if (har.request?.queryString && har.request.queryString.length > 0) return true;
   return !!har.request?.postData?.text;
 }
 
-function hasCookies(har: InspectorDetailContentProps['request']['harEntry']): boolean {
+function hasCookies(har: ReturnType<typeof currentHarEntry>): boolean {
+  if (!har) return false;
   if (har.request?.cookies && har.request.cookies.length > 0) return true;
   return (har.response?.headers ?? []).some((h) => h.name.toLowerCase() === 'set-cookie');
 }
 
 export function InspectorDetailContent({
-  request,
+  row,
   rulesByUid,
   pages,
   getInitiatorChildren,
@@ -80,7 +90,7 @@ export function InspectorDetailContent({
   baselineMs,
   pageOrigin,
   onOpenRequest,
-  getRequestByUrl,
+  getRowByUrl,
   cacheBypassEnabled,
   liveRulesMode,
   activeSection,
@@ -94,11 +104,15 @@ export function InspectorDetailContent({
   const rootRef = useRef<HTMLDivElement>(null);
   const tabBodyRef = useRef<HTMLDivElement>(null);
   const { localCollections } = useRules();
+  const lc = row.lifecycle;
 
-  // Error rows have no HAR response to attribute, no timing to chart,
-  // no cookies to enrich — short-circuit before doing any of that work
-  // and render the dedicated single-pane view.
-  if (isErrorRequest(request)) {
+  // Failed lifecycles have no HAR response to attribute, no timing to
+  // chart, no cookies to enrich — short-circuit and render the
+  // dedicated single-pane view.
+  if (isFailedLifecycle(lc) && lc.error) {
+    const errorRow = row as InspectorRowWithFires & {
+      lifecycle: RequestLifecycle & { error: RequestError };
+    };
     return (
       <div ref={rootRef} style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
         <div className="dt-detail-sections" role="tablist">
@@ -107,7 +121,7 @@ export function InspectorDetailContent({
           </button>
         </div>
         <div className="dt-tab-body" ref={tabBodyRef}>
-          <ErrorView request={request} />
+          <ErrorView row={errorRow} />
         </div>
       </div>
     );
@@ -137,14 +151,14 @@ export function InspectorDetailContent({
     });
   }, [searchHighlight, searchLineNumber]);
 
-  const har = request.harEntry;
+  const har = currentHarEntry(lc);
   // Live Rules Mode system-attribution gate: yellow the cache-bypass
   // request headers when a user header rule fired and didn't itself
   // touch Cache-Control. Mirrors the DNR-side gate in header-builder.
   const liveRulesFired = useMemo<boolean>(() => {
     if (!liveRulesMode) return false;
     const seen = new Set<string>();
-    for (const fire of request.fires) {
+    for (const fire of row.fires) {
       if (seen.has(fire.ruleUid)) continue;
       seen.add(fire.ruleUid);
       const rule = rulesByUid.get(fire.ruleUid);
@@ -157,23 +171,23 @@ export function InspectorDetailContent({
       if (!userTouchesCacheControl) return true;
     }
     return false;
-  }, [liveRulesMode, request.fires, rulesByUid]);
+  }, [liveRulesMode, row.fires, rulesByUid]);
 
   const requestHeaders = useMemo<readonly AnnotatedHeader[]>(
     () =>
-      attributeHeaders(har.request?.headers ?? [], request.fires, 'request', rulesByUid, {
+      attributeHeaders(har?.request?.headers ?? [], row.fires, 'request', rulesByUid, {
         cacheBypassEnabled,
         liveRulesFired,
       }),
-    [har.request?.headers, request.fires, rulesByUid, cacheBypassEnabled, liveRulesFired],
+    [har?.request?.headers, row.fires, rulesByUid, cacheBypassEnabled, liveRulesFired],
   );
   const responseHeaders = useMemo<readonly AnnotatedHeader[]>(
     () =>
-      attributeHeaders(har.response?.headers ?? [], request.fires, 'response', rulesByUid, {
+      attributeHeaders(har?.response?.headers ?? [], row.fires, 'response', rulesByUid, {
         cacheBypassEnabled,
         liveRulesFired,
       }),
-    [har.response?.headers, request.fires, rulesByUid, cacheBypassEnabled, liveRulesFired],
+    [har?.response?.headers, row.fires, rulesByUid, cacheBypassEnabled, liveRulesFired],
   );
 
   const handOff = async (build: () => ReturnType<typeof buildHeaderDraftFromRequest> | unknown): Promise<void> => {
@@ -187,17 +201,18 @@ export function InspectorDetailContent({
   };
 
   const createHeaderRule = (direction: 'request' | 'response', headerName: string, value?: string): void => {
-    void handOff(() => buildHeaderDraftFromRequest(request, { direction, headerName, value }));
+    void handOff(() => buildHeaderDraftFromRequest(lc, { direction, headerName, value }));
   };
-  const createRedirect = (): void => void handOff(() => buildRedirectDraftFromRequest(request));
-  const createReplaceHost = (): void => void handOff(() => buildReplaceHostDraftFromRequest(request));
-  const createReplaceUrlPart = (): void => void handOff(() => buildReplaceUrlPartDraftFromRequest(request));
-  const createDelay = (): void => void handOff(() => buildDelayDraftFromRequest(request));
-  const createCancel = (): void => void handOff(() => buildBlockDraftFromRequest(request));
+  const createRedirect = (): void => void handOff(() => buildRedirectDraftFromRequest(lc));
+  const createReplaceHost = (): void => void handOff(() => buildReplaceHostDraftFromRequest(lc));
+  const createReplaceUrlPart = (): void => void handOff(() => buildReplaceUrlPartDraftFromRequest(lc));
+  const createDelay = (): void => void handOff(() => buildDelayDraftFromRequest(lc));
+  const createCancel = (): void => void handOff(() => buildBlockDraftFromRequest(lc));
 
   const section = activeSection;
-  const showMessages = hasWebSocketMessages(har);
-  const showEventStream = isEventStream(request.mimeType);
+  const showMessages = har != null && hasWebSocketMessages(har);
+  const mime = lifecycleMimeType(lc);
+  const showEventStream = isEventStream(mime);
   const sections: Array<{ key: DetailSection; label: string }> = [
     { key: 'headers', label: 'Headers' },
     ...(showMessages ? [MESSAGES_SECTION] : []),
@@ -241,7 +256,7 @@ export function InspectorDetailContent({
       >
         {section === 'headers' && (
           <HeadersView
-            request={request}
+            row={row}
             requestHeaders={requestHeaders}
             responseHeaders={responseHeaders}
             rulesByUid={rulesByUid}
@@ -258,19 +273,19 @@ export function InspectorDetailContent({
           />
         )}
 
-        {section === 'payload' && (
+        {section === 'payload' && har && (
           <PayloadView har={har} searchHighlight={searchHighlight} searchSection={searchSection} />
         )}
 
-        {section === 'messages' && showMessages && <MessagesView har={har} />}
+        {section === 'messages' && showMessages && har && <MessagesView har={har} />}
 
-        {section === 'eventstream' && showEventStream && <EventStreamView request={request} />}
+        {section === 'eventstream' && showEventStream && <EventStreamView row={row} />}
 
         {section === 'initiator' && (
           <InitiatorView
-            request={request}
+            row={row}
             getInitiatorChildren={getInitiatorChildren}
-            getRequestByUrl={getRequestByUrl}
+            getRowByUrl={getRowByUrl}
             pageOrigin={pageOrigin}
             onOpenRequest={onOpenRequest}
           />
@@ -278,27 +293,27 @@ export function InspectorDetailContent({
 
         {section === 'timing' && (
           <TimingView
-            request={request}
-            connectionReuse={getConnectionReuse(request)}
-            repeatStats={getRepeatStats(request)}
+            row={row}
+            connectionReuse={getConnectionReuse(lc)}
+            repeatStats={getRepeatStats(lc)}
             baselineMs={baselineMs}
           />
         )}
 
         {section === 'cookies' && (
-          <CookiesView request={request} pageOrigin={pageOrigin} onCreateHeaderRule={createHeaderRule} />
+          <CookiesView row={row} pageOrigin={pageOrigin} onCreateHeaderRule={createHeaderRule} />
         )}
 
         {section === 'rawdata' && (
-          <RawDataView request={request} requestHeaders={requestHeaders} pages={pages} />
+          <RawDataView row={row} requestHeaders={requestHeaders} pages={pages} />
         )}
       </div>
 
-      {section === 'preview' && <PreviewView request={request} />}
+      {section === 'preview' && <PreviewView row={row} />}
 
       {section === 'response' && (
         <ResponseBodyView
-          request={request}
+          row={row}
           searchHighlight={searchSection === 'Response' ? searchHighlight : undefined}
           searchLineNumber={searchSection === 'Response' ? searchLineNumber : undefined}
           searchMatchIndex={searchSection === 'Response' ? searchMatchIndex : undefined}

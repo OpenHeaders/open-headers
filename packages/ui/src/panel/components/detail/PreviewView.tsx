@@ -1,11 +1,15 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  currentHarEntry,
+  type InspectorRowWithFires,
+  lifecycleBodySize,
+  lifecycleMimeType,
+} from '../../data/inspector-row-projection';
 import { classifyBodyState } from '../../data/response-body-state';
-import type { InspectorRequest } from '../../data/types';
 import { JsonTree } from '../JsonTree';
 import Skeleton from './Skeleton';
 
 // Lazy-loaded — keeps Monaco out of the panel's initial chunk graph.
-// See TextBodyViewer for the same pattern.
 const CodeViewer = lazy(() => import('./CodeViewer'));
 
 function isJsonMime(mime: string): boolean {
@@ -98,7 +102,7 @@ function ImagePreview({
         dimensions && (
           <>
             <span>
-              {dimensions.w} {'\u00d7'} {dimensions.h}
+              {dimensions.w} {'×'} {dimensions.h}
             </span>
             <span>{aspectRatio(dimensions.w, dimensions.h)}</span>
           </>
@@ -109,7 +113,7 @@ function ImagePreview({
 }
 
 interface PreviewViewProps {
-  request: InspectorRequest;
+  row: InspectorRowWithFires;
 }
 
 function PreviewNotice({ title, detail }: { title: string; detail: string }) {
@@ -121,10 +125,12 @@ function PreviewNotice({ title, detail }: { title: string; detail: string }) {
   );
 }
 
-export default function PreviewView({ request }: PreviewViewProps) {
-  const mime = request.mimeType ?? request.harEntry?.response?.content?.mimeType ?? '';
-  const size = request.responseSize ?? request.harEntry?.response?.content?.size ?? 0;
-  const state = useMemo(() => classifyBodyState(request), [request]);
+export default function PreviewView({ row }: PreviewViewProps) {
+  const lc = row.lifecycle;
+  const har = currentHarEntry(lc);
+  const mime = lifecycleMimeType(lc) ?? har?.response?.content?.mimeType ?? '';
+  const size = lifecycleBodySize(lc) ?? har?.response?.content?.size ?? 0;
+  const state = useMemo(() => classifyBodyState(lc), [lc]);
 
   const textContent = useMemo(() => {
     if (state.kind === 'text') return state.content;

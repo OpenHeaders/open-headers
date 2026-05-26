@@ -27,6 +27,7 @@
  * via the host-installed CookieJarFetcher seam.
  */
 
+import type { InspectorHarEntry } from '@openheaders/core/types';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useMeasuredCssHeights } from '@openheaders/ui/shared/hooks/useMeasuredStickyOffset';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
@@ -40,20 +41,25 @@ import {
   type CookieInsightAction,
 } from '../../data/cookie-insights';
 import type { CookieRow as CookieRowModel } from '../../data/cookie-model';
-import type { InspectorRequest } from '../../data/types';
+import { currentHarEntry, type InspectorRowWithFires } from '../../data/inspector-row-projection';
 import { useCookieJar } from '../../data/use-cookie-jar';
 import { CookieInsightCard } from './cookies/CookieInsightCard';
 import { CookieMoreFiltersMenu, CookieViewMenu } from './cookies/CookieMenus';
 import { CookieSection } from './cookies/CookieSection';
 
 export interface CookiesViewProps {
-  request: InspectorRequest;
+  row: InspectorRowWithFires;
   pageOrigin: string | null;
   onCreateHeaderRule: (direction: 'request' | 'response', headerName: string, value?: string) => void;
 }
 
-export default function CookiesView({ request, pageOrigin, onCreateHeaderRule }: CookiesViewProps) {
-  const har = request.harEntry;
+// Empty HAR placeholder for lifecycles that haven't landed a HAR shell yet —
+// the cookie enrichment helpers expect a defined shape with optional fields.
+const EMPTY_HAR = { request: undefined, response: undefined } as unknown as InspectorHarEntry;
+
+export default function CookiesView({ row, pageOrigin, onCreateHeaderRule }: CookiesViewProps) {
+  const lc = row.lifecycle;
+  const har = currentHarEntry(lc) ?? EMPTY_HAR;
 
   // ── Settings ────────────────────────────────────────────────────
   const [filter, setFilter] = useState('');
@@ -78,24 +84,24 @@ export default function CookiesView({ request, pageOrigin, onCreateHeaderRule }:
   const toggleGroupByRole = useCallback(() => setGroupByRole(!groupByRole), [groupByRole, setGroupByRole]);
 
   // ── Jar lookup ─────────────────────────────────────────────────
-  const jar = useCookieJar(request.url);
+  const jar = useCookieJar(lc.url);
 
   // ── Enrichment ─────────────────────────────────────────────────
   const { request: requestRows, response: responseRows, requestBytes, responseBytes } = useMemo(
-    () => enrichCookies({ url: request.url, har, jar, showFilteredOut }),
-    [request.url, har, jar, showFilteredOut],
+    () => enrichCookies({ url: lc.url, har, jar, showFilteredOut }),
+    [lc.url, har, jar, showFilteredOut],
   );
 
   // ── Insights + derived problem / dropped sets ──────────────────
   const insights = useMemo<readonly CookieInsight[]>(
     () =>
       computeCookieInsights({
-        url: request.url,
+        url: lc.url,
         request: requestRows,
         response: responseRows,
         pageOrigin,
       }),
-    [request.url, requestRows, responseRows, pageOrigin],
+    [lc.url, requestRows, responseRows, pageOrigin],
   );
   const problemNames = useMemo(() => problemCookieNames(insights), [insights]);
   const droppedNames = useMemo(() => droppedCookieNames(insights), [insights]);
@@ -135,8 +141,8 @@ export default function CookiesView({ request, pageOrigin, onCreateHeaderRule }:
     else if (action.kind === 'override-cookie-header') onCreateHeaderRule('request', 'Cookie');
   };
 
-  const onMakeRule = (row: CookieRowModel): void => {
-    if (row.direction === 'request') onCreateHeaderRule('request', 'Cookie');
+  const onMakeRule = (cookie: CookieRowModel): void => {
+    if (cookie.direction === 'request') onCreateHeaderRule('request', 'Cookie');
     else onCreateHeaderRule('response', 'Set-Cookie');
   };
 

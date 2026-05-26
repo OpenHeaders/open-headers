@@ -65,6 +65,34 @@ export function isFailedLifecycle(
 }
 
 /**
+ * Best-known duration in milliseconds: HAR `time` when the current hop
+ * has landed; otherwise `completedAtMs - startedAtMs` for a terminated
+ * lifecycle. Returns `null` while still in flight — no synthesized zero.
+ */
+export function lifecycleDurationMs(lifecycle: RequestLifecycle): number | null {
+  const harTime = currentHarEntry(lifecycle)?.time;
+  if (typeof harTime === 'number' && harTime > 0) return harTime;
+  if (lifecycle.completedAtMs != null) {
+    const d = lifecycle.completedAtMs - lifecycle.startedAtMs;
+    if (d > 0) return d;
+  }
+  return null;
+}
+
+/** Effective MIME type — first non-empty of HAR response content / request post-data. */
+export function lifecycleMimeType(lifecycle: RequestLifecycle): string | null {
+  const har = currentHarEntry(lifecycle);
+  const mime = har?.response?.content?.mimeType ?? har?.request?.postData?.mimeType;
+  return mime && mime.length > 0 ? mime : null;
+}
+
+/** Transferred body size in bytes when known. Returns `null` for pending / cached / missing rows. */
+export function lifecycleBodySize(lifecycle: RequestLifecycle): number | null {
+  const size = currentHarEntry(lifecycle)?.response?.bodySize;
+  return typeof size === 'number' && size > 0 ? size : null;
+}
+
+/**
  * Resolve a lifecycle's `pageref` — id of the `Page` it belongs to.
  *
  * Picks the page whose `startedAtMs` is the latest one not greater

@@ -25,7 +25,12 @@ import { type HeaderFilterToken, parseHeaderQuery } from '../../data/header-filt
 import { computeHeaderFootprint, formatHeaderFootprint } from '../../data/header-footprint';
 import { computeHeaderInsights, type HeaderInsight, type HeaderInsightAction } from '../../data/header-insights';
 import { formatHttpVersion } from '../../data/http-version';
-import type { InspectorRequest } from '../../data/types';
+import {
+  currentHarEntry,
+  type InspectorRowWithFires,
+  lifecycleBodySize,
+  lifecycleMimeType,
+} from '../../data/inspector-row-projection';
 import type { RulesByUid } from '../../data/use-rules-lookup';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import { GeneralRow } from './headers/GeneralRow';
@@ -37,7 +42,7 @@ import { formatBytes } from './headers/utils';
 export type { HeaderLayoutMode, HeaderSortMode } from './headers/types';
 
 export interface HeadersViewProps {
-  request: InspectorRequest;
+  row: InspectorRowWithFires;
   requestHeaders: readonly AnnotatedHeader[];
   responseHeaders: readonly AnnotatedHeader[];
   rulesByUid: RulesByUid;
@@ -60,7 +65,7 @@ export interface HeadersViewProps {
 }
 
 export function HeadersView({
-  request,
+  row,
   requestHeaders,
   responseHeaders,
   rulesByUid,
@@ -75,6 +80,8 @@ export function HeadersView({
   searchSection,
   searchLineNumber,
 }: HeadersViewProps) {
+  const lc = row.lifecycle;
+  const har = currentHarEntry(lc);
   // Filter text stays per-tab — it's request-specific scratch state.
   const [filter, setFilter] = useState('');
   // Everything below is panel-wide and persisted via the shared
@@ -109,16 +116,15 @@ export function HeadersView({
   }, [filter, ruleOnly, securityOnly, overridableOnly]);
 
   // Drift detection (rule-edit only — value/var drift is computed in the
-  // row so we can read the resolver there). Powers `is:drifted` filter
-  // and footprint counts.
+  // row so we can read the resolver there).
   const driftedRows = useMemo<ReadonlySet<AnnotatedHeader>>(() => {
     const out = new Set<AnnotatedHeader>();
     const consider = (rows: readonly AnnotatedHeader[]): void => {
-      for (const row of rows) {
-        const a = row.attribution;
+      for (const h of rows) {
+        const a = h.attribution;
         if (a.kind === 'server' || a.kind === 'system') continue;
         const liveRule = rulesByUid.get(a.ctx.ruleUid) ?? null;
-        if (isAttributionEdited(liveRule, a.ctx)) out.add(row);
+        if (isAttributionEdited(liveRule, a.ctx)) out.add(h);
       }
     };
     consider(requestHeaders);
@@ -126,20 +132,17 @@ export function HeadersView({
     return out;
   }, [requestHeaders, responseHeaders, rulesByUid]);
 
-  // Insights run against the post-rule effective headers, not the raw
-  // HAR — once the user adds a rule that fixes the nudged condition
-  // (e.g. "Add a baseline CSP"), the insight should go quiet because
-  // the thing it was nudging for is now present in the live response.
+  const mime = lifecycleMimeType(lc);
   const insights = useMemo<readonly HeaderInsight[]>(
     () =>
       computeHeaderInsights({
-        url: request.url,
-        mimeType: request.mimeType ?? null,
-        statusCode: request.statusCode ?? null,
+        url: lc.url,
+        mimeType: mime,
+        statusCode: lc.statusCode ?? null,
         requestHeaders,
         responseHeaders,
       }),
-    [request.url, request.mimeType, request.statusCode, requestHeaders, responseHeaders],
+    [lc.url, mime, lc.statusCode, requestHeaders, responseHeaders],
   );
 
   const footprint = useMemo(
@@ -160,9 +163,6 @@ export function HeadersView({
   };
 
   // Measured sticky offsets — see `.dt-headers-pane` in panel-detail.css.
-  // `--oh-headers-toolbar-h` feeds the section summaries' `top:` value
-  // and `--oh-headers-sticky-offset` (the composed scroll-margin-top
-  // base, also consumed by search-result `scrollIntoView`).
   const paneRef = useRef<HTMLDivElement | null>(null);
   const toolbarRef = useRef<HTMLDivElement | null>(null);
   const firstSummaryRef = useRef<HTMLElement | null>(null);
@@ -171,13 +171,13 @@ export function HeadersView({
     { ref: firstSummaryRef, cssVar: '--oh-headers-summary-h' },
   ]);
 
-  const statusOk = request.statusCode != null && request.statusCode < 400;
-  const httpVersion = request.harEntry.response?.httpVersion ?? request.harEntry.request?.httpVersion;
+  const statusOk = lc.statusCode != null && lc.statusCode < 400;
+  const httpVersion = har?.response?.httpVersion ?? har?.request?.httpVersion;
   const referrerPolicy = responseHeaders.find((h) => h.name.toLowerCase() === 'referrer-policy')?.value;
   const contentEncoding = responseHeaders.find((h) => h.name.toLowerCase() === 'content-encoding')?.value;
-  const bytesIn = request.harEntry.response?.bodySize;
-  const decodedSize = request.harEntry.response?.content?.size;
-  const remoteAddr = request.harEntry.serverIPAddress;
+  const bytesIn = lifecycleBodySize(lc);
+  const decodedSize = har?.response?.content?.size;
+  const remoteAddr = har?.serverIPAddress;
 
   return (
     <div className="dt-headers-pane" ref={paneRef}>
@@ -252,15 +252,15 @@ export function HeadersView({
       <details className="dt-section" open>
         <summary ref={firstSummaryRef}>General</summary>
         <GeneralRow label="Request URL" infoKey="request-url">
-          <span className="dt-kv-val" style={{ wordBreak: 'break-all' }}>{request.url}</span>
+          <span className="dt-kv-val" style={{ wordBreak: 'break-all' }}>{lc.url}</span>
         </GeneralRow>
         <GeneralRow label="Request Method" infoKey="request-method">
-          <span className="dt-kv-val">{request.method}</span>
+          <span className="dt-kv-val">{lc.method}</span>
         </GeneralRow>
-        {request.statusCode != null && (
+        {lc.statusCode != null && (
           <GeneralRow label="Status Code" infoKey="status-code">
             <span className={`dt-kv-val ${statusOk ? 'dt-kv-val--status-ok' : 'dt-kv-val--status-err'}`}>
-              {request.statusCode} {request.statusText ?? ''}
+              {lc.statusCode} {lc.statusText ?? ''}
             </span>
           </GeneralRow>
         )}
@@ -298,7 +298,7 @@ export function HeadersView({
         label="Response Headers"
         direction="response"
         rows={responseHeaders}
-        request={request}
+        row={row}
         rulesByUid={rulesByUid}
         collectionIdFor={collectionIdFor}
         compiledQuery={compiledQuery}
@@ -318,7 +318,7 @@ export function HeadersView({
         label="Request Headers"
         direction="request"
         rows={requestHeaders}
-        request={request}
+        row={row}
         rulesByUid={rulesByUid}
         collectionIdFor={collectionIdFor}
         compiledQuery={compiledQuery}

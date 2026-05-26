@@ -1,11 +1,12 @@
-import { useMemo } from 'react';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
-import { type DanglingFire, type InspectorRequest, isAppliedFire } from '../data/types';
+import { useMemo } from 'react';
+import type { InspectorRowWithFires } from '../data/inspector-row-projection';
+import { type InspectorFire, isAppliedFire } from '../data/types';
 
 interface RuleExecutionsProps {
-  entries: readonly InspectorRequest[];
-  danglingFires: readonly DanglingFire[];
-  onRequestClick: (id: string) => void;
+  rows: readonly InspectorRowWithFires[];
+  danglingFires: readonly InspectorFire[];
+  onRequestClick: (requestId: string) => void;
   onHide: () => void;
 }
 
@@ -18,18 +19,17 @@ interface RuleGroup {
   ruleUid: string;
   totalHits: number;
   /** Hits where the rule is known to have actually run — authoritative
-   *  (Chrome confirmed DNR) or `evidence: 'confirmed'` (in-page reporter
-   *  confirmed the scriptable action). */
+   *  or `evidence: 'confirmed'`. */
   appliedHits: number;
-  attachedHits: Array<{ entryId: string; url: string; t: number }>;
+  attachedHits: Array<{ requestId: string; url: string; t: number }>;
   danglingHits: Array<{ url: string; t: number }>;
 }
 
-export function RuleExecutions({ entries, danglingFires, onRequestClick, onHide }: RuleExecutionsProps) {
+export function RuleExecutions({ rows, danglingFires, onRequestClick, onHide }: RuleExecutionsProps) {
   const groups = useMemo<RuleGroup[]>(() => {
     const byRule: Map<string, RuleGroup> = new Map();
-    for (const e of entries) {
-      for (const f of e.fires) {
+    for (const r of rows) {
+      for (const f of r.fires) {
         let g = byRule.get(f.ruleUid);
         if (!g) {
           g = { ruleUid: f.ruleUid, totalHits: 0, appliedHits: 0, attachedHits: [], danglingHits: [] };
@@ -38,7 +38,7 @@ export function RuleExecutions({ entries, danglingFires, onRequestClick, onHide 
         g.totalHits++;
         if (isAppliedFire(f)) g.appliedHits++;
         if (g.attachedHits.length < 10) {
-          g.attachedHits.push({ entryId: e.id, url: e.url, t: f.t });
+          g.attachedHits.push({ requestId: r.lifecycle.requestId, url: r.lifecycle.url, t: f.t });
         }
       }
     }
@@ -51,11 +51,14 @@ export function RuleExecutions({ entries, danglingFires, onRequestClick, onHide 
       g.totalHits++;
       if (isAppliedFire(d)) g.appliedHits++;
       if (g.danglingHits.length < 10) {
-        g.danglingHits.push({ url: d.url, t: d.t });
+        // Dangling fires don't carry a `url` field on the new InspectorFire
+        // shape — fall back to the pattern when present so the panel still
+        // surfaces a useful identifier.
+        g.danglingHits.push({ url: d.pattern || '(off-HAR)', t: d.t });
       }
     }
     return Array.from(byRule.values()).sort((a, b) => b.totalHits - a.totalHits);
-  }, [entries, danglingFires]);
+  }, [rows, danglingFires]);
 
   if (groups.length === 0) {
     return (
@@ -71,10 +74,10 @@ export function RuleExecutions({ entries, danglingFires, onRequestClick, onHide 
       <RuleActivityHeader onHide={onHide} />
       <div className="dt-executions">
         <div className="dt-executions-hint" style={{ marginBottom: 6 }}>
-          <strong>Applied</strong> fires are confirmed to have run — either Chrome&apos;s declarativeNetRequest feedback
-          confirmed the DNR rule executed, or the in-page reporter confirmed a scriptable action ran.{' '}
+          <strong>Applied</strong> fires are confirmed to have run — either the rule engine reported the DNR rule
+          executed, or the in-page reporter confirmed a scriptable action ran.{' '}
           <strong>Inferred</strong> fires match your rule patterns against observed requests but couldn&apos;t be
-          confirmed. <strong>Off-HAR</strong> fires are rule matches on requests DevTools didn&apos;t capture.
+          confirmed. <strong>Off-HAR</strong> fires are rule matches on requests the panel didn&apos;t capture.
         </div>
         {groups.map((group) => (
           <details key={group.ruleUid} className="dt-exec-group" open>
@@ -92,10 +95,10 @@ export function RuleExecutions({ entries, danglingFires, onRequestClick, onHide 
             </summary>
             {group.attachedHits.map((h, i) => (
               <button
-                key={`att-${i}-${h.entryId}`}
+                key={`att-${i}-${h.requestId}`}
                 type="button"
                 className="dt-exec-url"
-                onClick={() => onRequestClick(h.entryId)}
+                onClick={() => onRequestClick(h.requestId)}
               >
                 {h.url}
               </button>
@@ -104,7 +107,7 @@ export function RuleExecutions({ entries, danglingFires, onRequestClick, onHide 
               <div
                 key={`dng-${i}-${h.url}`}
                 className="dt-exec-url dt-exec-url--muted"
-                title="Off-HAR — DevTools didn't capture this request"
+                title="Off-HAR — the panel didn't capture a HAR shell for this fire"
               >
                 {h.url} (off-HAR)
               </div>

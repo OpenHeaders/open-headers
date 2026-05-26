@@ -1,11 +1,12 @@
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import { useMeasuredCssHeights } from '@openheaders/ui/shared/hooks/useMeasuredStickyOffset';
 import { useStickyAncestors } from '@openheaders/ui/shared/hooks/useStickyAncestors';
+import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { computeCascadeInsights } from '../../../data/cascade-insights';
 import { computeCascadeSummary } from '../../../data/cascade-summary';
 import { parseCascadeQuery } from '../../../data/cascade-filter';
-import type { InspectorRequest } from '../../../data/types';
+import type { InspectorRowWithFires } from '../../../data/inspector-row-projection';
 import ResourceIcon from '../../traffic/ResourceIcon';
 import { HighlightedText } from '../HighlightedText';
 import { CascadeSummaryHeader } from './CascadeSummaryHeader';
@@ -16,15 +17,15 @@ import { buildTree, flattenTree, type FlatRow } from './tree-model';
 import { shortUrl } from './utils';
 
 export function InitiatorTreeView({
-  request,
+  row,
   getChildren,
   pageOrigin,
   onOpenRequest,
 }: {
-  request: InspectorRequest;
-  getChildren: (url: string) => readonly InspectorRequest[];
+  row: InspectorRowWithFires;
+  getChildren: (url: string) => readonly InspectorRowWithFires[];
   pageOrigin: string | null;
-  onOpenRequest?: (entryId: string) => void;
+  onOpenRequest?: (requestId: string) => void;
 }) {
   const [filter, setFilter] = useState('');
   // Filter text stays per-tab (request-specific); the toggles + sort
@@ -40,13 +41,21 @@ export function InitiatorTreeView({
   );
   const toggleShowInsights = useCallback(() => setShowInsights(!showInsights), [showInsights, setShowInsights]);
   const [expanded, setExpanded] = useState<ReadonlyMap<string, boolean>>(() => new Map());
-  const [focusedKey, setFocusedKey] = useState<string>(request.id);
+  const [focusedKey, setFocusedKey] = useState<string>(row.lifecycle.requestId);
   const rowRefs = useRef(new Map<string, HTMLDivElement>());
   const lastFocusedRef = useRef<string>(focusedKey);
 
+  // Adapter — cascade-summary works on the pure lifecycle layer; we
+  // project the row-shaped children resolver down to lifecycles so the
+  // summary helper doesn't need to know about the fires layer.
+  const getChildLifecycles = useCallback(
+    (url: string): readonly RequestLifecycle[] => getChildren(url).map((r) => r.lifecycle),
+    [getChildren],
+  );
+
   const summary = useMemo(
-    () => computeCascadeSummary(request, getChildren, pageOrigin),
-    [request, getChildren, pageOrigin],
+    () => computeCascadeSummary(row.lifecycle, getChildLifecycles, pageOrigin),
+    [row.lifecycle, getChildLifecycles, pageOrigin],
   );
   const insights = useMemo(() => computeCascadeInsights(summary), [summary]);
 
@@ -60,8 +69,8 @@ export function InitiatorTreeView({
   }, [filter, failuresOnly, thirdPartyOnly]);
 
   const tree = useMemo(
-    () => buildTree(request, getChildren, pageOrigin, compiledQuery, sortMode, summary.subtreeStats),
-    [request, getChildren, pageOrigin, compiledQuery, sortMode, summary.subtreeStats],
+    () => buildTree(row, getChildren, pageOrigin, compiledQuery, sortMode, summary.subtreeStats),
+    [row, getChildren, pageOrigin, compiledQuery, sortMode, summary.subtreeStats],
   );
   const filtering = compiledQuery.length > 0;
   const rows = useMemo(
@@ -70,20 +79,14 @@ export function InitiatorTreeView({
   );
 
   // Sticky-ancestor stack: as the user scrolls, the chain of ancestors
-  // for the row currently at the top of the viewport renders as a
-  // stack at the top of the tree (VS Code-style "sticky scroll").
-  // Empty when the root row is still visible — nothing above to stick.
-  // Derivation lives in `useStickyAncestors`; this component owns the
-  // refs it needs (chrome heights + scroll container resolver).
+  // for the row currently at the top of the viewport renders as a stack
+  // at the top of the tree (VS Code-style "sticky scroll"). Empty when
+  // the root row is still visible — nothing above to stick.
   const paneRef = useRef<HTMLDivElement | null>(null);
   const summaryRef = useRef<HTMLElement | null>(null);
   const toolbarRef = useRef<HTMLDivElement | null>(null);
   const stickyStackRef = useRef<HTMLDivElement | null>(null);
 
-  // Publish summary/toolbar/stack heights as CSS variables on the
-  // pane — see `panel-detail.css` (`.dt-initiator-pane`) for how the
-  // sticky `top:` offsets and `--oh-init-sticky-offset` derive from
-  // them. This replaces the hand-measured 24/30/55px constants.
   useMeasuredCssHeights(paneRef, [
     { ref: summaryRef, cssVar: '--oh-init-summary-h' },
     { ref: toolbarRef, cssVar: '--oh-init-toolbar-h' },
@@ -119,9 +122,6 @@ export function InitiatorTreeView({
     if (lastFocusedRef.current === focusedKey) return;
     lastFocusedRef.current = focusedKey;
     const el = rowRefs.current.get(focusedKey);
-    // Rows carry `scroll-margin-top: var(--oh-init-sticky-offset)`, so
-    // `block: 'nearest'` lands focus below the sticky chrome without
-    // any extra math here.
     if (el) el.scrollIntoView({ block: 'nearest' });
   }, [focusedKey]);
 
@@ -174,7 +174,7 @@ export function InitiatorTreeView({
         case 'Enter':
           if (onOpenRequest && !focusedRow.isAnchor) {
             e.preventDefault();
-            onOpenRequest(focusedRow.request.id);
+            onOpenRequest(focusedRow.row.lifecycle.requestId);
           } else if (focusedRow.hasChildren) {
             e.preventDefault();
             setExpandedFor(focusedRow.key, !focusedRow.expanded);
@@ -229,25 +229,19 @@ export function InitiatorTreeView({
           {stickyAncestorKeys.length > 0 && (
             <div ref={stickyStackRef} className="dt-initiator-sticky-stack" aria-hidden="true">
               {stickyAncestorKeys.map((key, indexInStack) => {
-                const row = rowsByKey.get(key);
-                if (!row) return null;
+                const ancestor = rowsByKey.get(key);
+                if (!ancestor) return null;
                 return (
                   <button
                     key={`sticky-${key}`}
                     type="button"
                     className="dt-initiator-sticky-row"
-                    style={{ paddingLeft: 4 + row.depth * 16 }}
-                    title={row.url}
+                    style={{ paddingLeft: 4 + ancestor.depth * 16 }}
+                    title={ancestor.url}
                     onClick={() => {
                       const targetEl = rowRefs.current.get(key);
                       const scroll = targetEl?.closest('.dt-tab-body') as HTMLElement | null;
                       if (!targetEl || !scroll) return;
-                      // The target row's `scroll-margin-top` reflects the
-                      // CURRENT stack height — but after this click the
-                      // stack shrinks (ancestors below the clicked row
-                      // drop out). Compute the post-click offset ourselves
-                      // from measured chrome: summary + toolbar + the
-                      // ancestors that REMAIN above the clicked row.
                       const stackEl = stickyStackRef.current;
                       const currentStackLen = stickyAncestorKeys.length;
                       const stickyRowH = stackEl && currentStackLen > 0 ? stackEl.offsetHeight / currentStackLen : 22;
@@ -258,83 +252,79 @@ export function InitiatorTreeView({
                       const targetTop = targetEl.getBoundingClientRect().top;
                       const scrollTop = scroll.getBoundingClientRect().top;
                       scroll.scrollBy({ top: targetTop - scrollTop - offset, behavior: 'smooth' });
-                      // No manual chain override: the convergent scroll
-                      // listener iterates to the correct chain for the
-                      // new scroll position on its own (threshold no
-                      // longer depends on the DOM-measured stack height).
                       setFocusedKey(key);
                     }}
                   >
                     <span className="dt-initiator-chain-toggle" aria-hidden="true">
-                      {row.expanded ? '▼' : '▶'}
+                      {ancestor.expanded ? '▼' : '▶'}
                     </span>
-                    {!row.isAnchor && row.request.resourceType && (
+                    {!ancestor.isAnchor && ancestor.row.lifecycle.resourceType && (
                       <span className="dt-initiator-row-icon" aria-hidden="true">
-                        <ResourceIcon type={row.request.resourceType} />
+                        <ResourceIcon type={ancestor.row.lifecycle.resourceType} />
                       </span>
                     )}
-                    <span className="dt-initiator-chain-url" title={row.url}>
-                      {shortUrl(row.url)}
+                    <span className="dt-initiator-chain-url" title={ancestor.url}>
+                      {shortUrl(ancestor.url)}
                     </span>
                   </button>
                 );
               })}
             </div>
           )}
-          {rows.map((row) => {
-            const isFocused = row.key === focusedKey;
+          {rows.map((flat) => {
+            const isFocused = flat.key === focusedKey;
             const urlClass = [
               'dt-initiator-chain-url',
-              row.isAnchor ? 'dt-initiator-chain-url--anchor' : null,
-              row.meta.isFailed ? 'dt-initiator-chain-url--failed' : null,
+              flat.isAnchor ? 'dt-initiator-chain-url--anchor' : null,
+              flat.meta.isFailed ? 'dt-initiator-chain-url--failed' : null,
             ]
               .filter(Boolean)
               .join(' ');
             return (
               <div
-                key={row.key}
+                key={flat.key}
                 ref={(el) => {
-                  if (el) rowRefs.current.set(row.key, el);
-                  else rowRefs.current.delete(row.key);
+                  if (el) rowRefs.current.set(flat.key, el);
+                  else rowRefs.current.delete(flat.key);
                 }}
                 role="treeitem"
                 tabIndex={isFocused ? 0 : -1}
-                aria-level={row.depth + 1}
-                aria-expanded={row.hasChildren ? row.expanded : undefined}
+                aria-level={flat.depth + 1}
+                aria-expanded={flat.hasChildren ? flat.expanded : undefined}
                 aria-selected={isFocused}
                 className={`dt-initiator-chain-row${isFocused ? ' dt-initiator-chain-row--focused' : ''}`}
-                style={{ paddingLeft: 4 + row.depth * 16 }}
+                style={{ paddingLeft: 4 + flat.depth * 16 }}
                 onClick={() => {
-                  setFocusedKey(row.key);
-                  if (onOpenRequest && !row.isAnchor) onOpenRequest(row.request.id);
+                  setFocusedKey(flat.key);
+                  if (onOpenRequest && !flat.isAnchor) onOpenRequest(flat.row.lifecycle.requestId);
                 }}
-                onFocus={() => setFocusedKey(row.key)}
+                onFocus={() => setFocusedKey(flat.key)}
               >
-                {row.hasChildren ? (
+                {flat.hasChildren ? (
                   <button
                     type="button"
                     tabIndex={-1}
                     className="dt-initiator-chain-toggle"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setExpandedFor(row.key, !row.expanded);
+                      setExpandedFor(flat.key, !flat.expanded);
                     }}
-                    aria-label={row.expanded ? 'Collapse' : 'Expand'}
+                    aria-label={flat.expanded ? 'Collapse' : 'Expand'}
                   >
-                    {row.expanded ? '▼' : '▶'}
+                    {flat.expanded ? '▼' : '▶'}
                   </button>
                 ) : (
                   <span className="dt-initiator-chain-toggle dt-initiator-chain-toggle--leaf" aria-hidden="true" />
                 )}
-                {!row.isAnchor && row.request.resourceType && (
+                {!flat.isAnchor && flat.row.lifecycle.resourceType && (
                   <span className="dt-initiator-row-icon" aria-hidden="true">
-                    <ResourceIcon type={row.request.resourceType} />
+                    <ResourceIcon type={flat.row.lifecycle.resourceType} />
                   </span>
                 )}
-                <span className={urlClass} title={row.url}>
-                  <HighlightedText text={shortUrl(row.url)} query={filter.trim() ? filter.trim() : undefined} />
+                <span className={urlClass} title={flat.url}>
+                  <HighlightedText text={shortUrl(flat.url)} query={filter.trim() ? filter.trim() : undefined} />
                 </span>
-                <RowChips meta={row.meta} subtree={row.subtree} />
+                <RowChips meta={flat.meta} subtree={flat.subtree} />
               </div>
             );
           })}

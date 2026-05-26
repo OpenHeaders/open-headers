@@ -11,8 +11,8 @@ import {
 } from '../../../data/header-category';
 import { type HeaderFilterToken, type HeaderRowMeta, matchesHeaderQuery } from '../../../data/header-filter';
 import { type HeaderNameCase, formatHeaderName } from '../../../data/header-name-case';
+import type { InspectorRowWithFires } from '../../../data/inspector-row-projection';
 import { formatHeadersBlock, formatCurl, formatFetch } from '../../../data/request-formatters';
-import type { InspectorRequest } from '../../../data/types';
 import type { RulesByUid } from '../../../data/use-rules-lookup';
 import { AttributedHeaderRow } from './HeaderRow';
 import { HiddenNoiseHint, type RowItem } from './HiddenNoiseHint';
@@ -23,7 +23,7 @@ interface HeaderSectionProps {
   label: SectionLabel;
   direction: 'request' | 'response';
   rows: readonly AnnotatedHeader[];
-  request: InspectorRequest;
+  row: InspectorRowWithFires;
   rulesByUid: RulesByUid;
   collectionIdFor: (h: AnnotatedHeader) => string | undefined;
   compiledQuery: readonly HeaderFilterToken[];
@@ -60,7 +60,7 @@ export function HeaderSection({
   label,
   direction,
   rows,
-  request,
+  row,
   rulesByUid,
   collectionIdFor,
   compiledQuery,
@@ -83,45 +83,40 @@ export function HeaderSection({
   // can still locate the right row after the user reorders / hides.
   const rowMetas = useMemo<RowItem[]>(
     () =>
-      rows.map((row, originalIndex) => {
+      rows.map((header, originalIndex) => {
         const meta: HeaderRowMeta = {
-          name: row.name,
-          value: row.value,
+          name: header.name,
+          value: header.value,
           direction,
-          origin: originOf(row.attribution),
-          category: categorizeHeader(row.name),
-          protectedHeader: !validateHeaderName(row.name, direction === 'response').valid,
-          drifted: driftedRows.has(row),
+          origin: originOf(header.attribution),
+          category: categorizeHeader(header.name),
+          protectedHeader: !validateHeaderName(header.name, direction === 'response').valid,
+          drifted: driftedRows.has(header),
         };
-        return { row, meta, originalIndex };
+        return { row: header, meta, originalIndex };
       }),
     [rows, direction, driftedRows],
   );
 
-  // Two-stage filter so we know exactly what `hide noise` is hiding
-  // (the popover under the hint lists the actual names — no guessing).
   const filteredByQuery = useMemo(
     () => rowMetas.filter(({ meta }) => compiledQuery.length === 0 || matchesHeaderQuery(meta, compiledQuery)),
     [rowMetas, compiledQuery],
   );
   const hiddenNoiseItems = useMemo<RowItem[]>(
     () =>
-      hideNoise ? filteredByQuery.filter(({ row, meta }) => meta.origin === 'server' && isNoiseHeader(row.name)) : [],
+      hideNoise ? filteredByQuery.filter(({ row: header, meta }) => meta.origin === 'server' && isNoiseHeader(header.name)) : [],
     [filteredByQuery, hideNoise],
   );
   const filtered = useMemo(
     () =>
       hideNoise
-        ? filteredByQuery.filter(({ row, meta }) => !(meta.origin === 'server' && isNoiseHeader(row.name)))
+        ? filteredByQuery.filter(({ row: header, meta }) => !(meta.origin === 'server' && isNoiseHeader(header.name)))
         : filteredByQuery,
     [filteredByQuery, hideNoise],
   );
 
-  // Sort the visible items per the chosen mode.
   const sortedItems = useMemo(() => sortRows(filtered, sortMode), [filtered, sortMode]);
 
-  // Group by category for the grouped layout. Items within a group
-  // keep the sort order applied above.
   const grouped = useMemo(() => {
     const byCat = new Map<HeaderCategory, RowItem[]>();
     for (const item of sortedItems) {
@@ -137,11 +132,12 @@ export function HeaderSection({
   }, [sortedItems]);
 
   const hiddenByFilter = rows.length - filtered.length;
+  const lc = row.lifecycle;
 
   const handleCopy = async (mode: 'all' | 'filtered' | 'curl' | 'fetch'): Promise<void> => {
     let text = '';
-    if (mode === 'curl') text = formatCurl(request);
-    else if (mode === 'fetch') text = formatFetch(request);
+    if (mode === 'curl') text = formatCurl(lc);
+    else if (mode === 'fetch') text = formatFetch(lc);
     else if (mode === 'all') text = formatHeadersBlock(rows);
     else text = formatHeadersBlock(filtered.map((f) => f.row));
     try {
@@ -235,18 +231,18 @@ export function HeaderSection({
             <div className="dt-kv dt-col-muted">No headers match the filter.</div>
           ) : layout === 'flat' ? (
             <div className="dt-header-category">
-              {sortedItems.map(({ row, meta, originalIndex }) => (
+              {sortedItems.map(({ row: header, meta, originalIndex }) => (
                 <AttributedHeaderRow
-                  key={`${direction}-flat-${originalIndex}-${row.name}`}
-                  row={row}
+                  key={`${direction}-flat-${originalIndex}-${header.name}`}
+                  row={header}
                   meta={meta}
                   index={originalIndex}
                   sectionLabel={label}
                   searchSection={searchSection}
                   searchLineNumber={searchLineNumber}
                   searchHighlight={searchHighlight}
-                  ruleCollectionId={collectionIdFor(row)}
-                  requestUrl={request.url}
+                  ruleCollectionId={collectionIdFor(header)}
+                  requestUrl={lc.url}
                   rulesByUid={rulesByUid}
                   nameCase={nameCase}
                   showChips={showChips}
@@ -261,18 +257,18 @@ export function HeaderSection({
                   <span className="dt-header-category-label">{HEADER_CATEGORY_LABEL[cat]}</span>
                   <span className="dt-header-category-count">{items.length}</span>
                 </div>
-                {items.map(({ row, meta, originalIndex }) => (
+                {items.map(({ row: header, meta, originalIndex }) => (
                   <AttributedHeaderRow
-                    key={`${direction}-${cat}-${originalIndex}-${row.name}`}
-                    row={row}
+                    key={`${direction}-${cat}-${originalIndex}-${header.name}`}
+                    row={header}
                     meta={meta}
                     index={originalIndex}
                     sectionLabel={label}
                     searchSection={searchSection}
                     searchLineNumber={searchLineNumber}
                     searchHighlight={searchHighlight}
-                    ruleCollectionId={collectionIdFor(row)}
-                    requestUrl={request.url}
+                    ruleCollectionId={collectionIdFor(header)}
+                    requestUrl={lc.url}
                     rulesByUid={rulesByUid}
                     nameCase={nameCase}
                     showChips={showChips}

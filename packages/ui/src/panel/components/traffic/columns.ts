@@ -14,40 +14,22 @@
  *     stretchy column converts it to a fixed-width column for the
  *     duration of the session.
  *   - `align` — `'left' | 'right'` for right-justified numeric columns
- *   - `getSortValue` — value the sort comparator reads when this
- *     column is the sort key (nullish / missing normalises to `-1`)
- *   - `extract` — derivation from an `InspectorRequest` to the cell's
- *     string/number content; `null` when the cell should render nothing
+ *   - `extract` — derivation from an `InspectorRowWithFires` to the
+ *     cell's string/number content; `null` when the cell should render
+ *     nothing
  *
- * This indirection is what makes column visibility, reordering, and
- * sorting a pure data concern the TrafficList can consume without
- * growing N special cases per column.
+ * Sort values are owned by `data/network-columns.ts` so the comparator
+ * chain doesn't need to import the React-side registry; `getSortValue`
+ * here delegates 1:1 to that pure module.
  */
 
 import { formatHttpVersion } from '../../data/http-version';
-import type { InspectorRequest } from '../../data/types';
+import { currentHarEntry, type InspectorRowWithFires } from '../../data/inspector-row-projection';
+import { getColumnSortValue, type SortableColumnKey } from '../../data/network-columns';
 import { formatDuration, formatInitiator, formatSize, formatTimestamp } from './formatters';
 import { normalizeResourceType, RESOURCE_LABEL } from './resource-types';
 
-export type ColumnKey =
-  | 'name'
-  | 'method'
-  | 'path'
-  | 'url'
-  | 'status'
-  | 'protocol'
-  | 'scheme'
-  | 'domain'
-  | 'remoteAddress'
-  | 'type'
-  | 'initiator'
-  | 'cookies'
-  | 'setCookies'
-  | 'size'
-  | 'time'
-  | 'priority'
-  | 'timestamp'
-  | 'waterfall';
+export type ColumnKey = SortableColumnKey;
 
 export interface ColumnDef {
   key: ColumnKey;
@@ -56,11 +38,7 @@ export interface ColumnDef {
   defaultWidth: number;
   /** Hard floor for user resizing. Defaults to 40 when omitted. */
   minWidth?: number;
-  /** When true, the column absorbs remaining space up to `maxWidth`.
-   * Without a cap, a single long-content row (e.g. a 1.5 KB URL in the
-   * Name column) would push the grid template wider than every other
-   * row, breaking column alignment under the shared-width scroll
-   * wrapper. The cap also gives long values somewhere to ellipsize. */
+  /** When true, the column absorbs remaining space up to `maxWidth`. */
   stretch?: boolean;
   /** Upper bound for stretchy columns. Ignored for non-stretchy
    * columns. Defaults to `defaultWidth * 3` when omitted. */
@@ -68,8 +46,8 @@ export interface ColumnDef {
   align?: 'left' | 'right';
   /** Whether this column participates in sorting. */
   sortable: boolean;
-  extract: (entry: InspectorRequest) => string | number | null;
-  getSortValue: (entry: InspectorRequest) => string | number;
+  extract: (row: InspectorRowWithFires) => string | number | null;
+  getSortValue: (row: InspectorRowWithFires) => string | number;
 }
 
 export const DEFAULT_COLUMN_MIN_WIDTH = 40;
@@ -83,11 +61,6 @@ export const DEFAULT_COLUMN_MIN_WIDTH = 40;
 export function columnTrack(col: ColumnDef, override: number | undefined, compact: boolean = false): string {
   if (override != null) return `${Math.max(override, col.minWidth ?? DEFAULT_COLUMN_MIN_WIDTH)}px`;
   if (col.stretch) {
-    // Compact mode drops the maxWidth cap so stretchy columns absorb
-    // remaining viewport space, which (combined with the outer table
-    // grid being viewport-bounded) is what makes the table fit without
-    // horizontal scroll. Normal mode caps so a single long-content row
-    // can't blow the column past `maxWidth`.
     if (compact) return `minmax(${col.minWidth ?? col.defaultWidth}px, 1fr)`;
     const max = col.maxWidth ?? col.defaultWidth * 3;
     return `minmax(${col.defaultWidth}px, ${max}px)`;
@@ -120,21 +93,23 @@ function safePath(url: string): string {
   }
 }
 
-function countSetCookies(entry: InspectorRequest): number {
-  const headers = entry.harEntry.response?.headers ?? [];
+function countSetCookies(row: InspectorRowWithFires): number {
+  const headers = currentHarEntry(row.lifecycle)?.response?.headers ?? [];
   let n = 0;
   for (const h of headers) if (h.name.toLowerCase() === 'set-cookie') n++;
   return n;
 }
 
-function countRequestCookies(entry: InspectorRequest): number {
-  return entry.harEntry.request?.cookies?.length ?? 0;
+function countRequestCookies(row: InspectorRowWithFires): number {
+  return currentHarEntry(row.lifecycle)?.request?.cookies?.length ?? 0;
 }
 
-function priority(entry: InspectorRequest): string {
-  const p = entry.harEntry._priority;
+function priority(row: InspectorRowWithFires): string {
+  const p = currentHarEntry(row.lifecycle)?._priority;
   return typeof p === 'string' ? p : '';
 }
+
+const delegateSort = (key: ColumnKey) => (row: InspectorRowWithFires) => getColumnSortValue(key, row);
 
 export const COLUMN_DEFS: Record<ColumnKey, ColumnDef> = {
   name: {
@@ -145,19 +120,17 @@ export const COLUMN_DEFS: Record<ColumnKey, ColumnDef> = {
     stretch: true,
     maxWidth: 320,
     sortable: true,
-    extract: (e) => e.url,
-    getSortValue: (e) => e.url.toLowerCase(),
+    extract: (r) => r.lifecycle.url,
+    getSortValue: delegateSort('name'),
   },
   method: {
-    // Default wide enough to fit "POST + Preflight" (the CORS label
-    // the Method cell shows when this row has a matching preflight).
     key: 'method',
     label: 'Method',
     defaultWidth: 120,
     minWidth: 52,
     sortable: true,
-    extract: (e) => e.method,
-    getSortValue: (e) => e.method,
+    extract: (r) => r.lifecycle.method,
+    getSortValue: delegateSort('method'),
   },
   path: {
     key: 'path',
@@ -165,8 +138,8 @@ export const COLUMN_DEFS: Record<ColumnKey, ColumnDef> = {
     defaultWidth: 200,
     minWidth: 80,
     sortable: true,
-    extract: (e) => safePath(e.url),
-    getSortValue: (e) => safePath(e.url),
+    extract: (r) => safePath(r.lifecycle.url),
+    getSortValue: delegateSort('path'),
   },
   url: {
     key: 'url',
@@ -174,36 +147,29 @@ export const COLUMN_DEFS: Record<ColumnKey, ColumnDef> = {
     defaultWidth: 260,
     minWidth: 120,
     sortable: true,
-    extract: (e) => e.url,
-    getSortValue: (e) => e.url.toLowerCase(),
+    extract: (r) => r.lifecycle.url,
+    getSortValue: delegateSort('url'),
   },
   status: {
-    // Default wide enough to fit the common blocked statuses —
-    // "(blocked)", "(canceled)", "(net::ERR_BLOCKED_BY_CLIENT)" —
-    // following the same "size for worst common content" rule as the
-    // Method column. Longer strings still truncate with a tooltip
-    // rather than widening further.
     key: 'status',
     label: 'Status',
     defaultWidth: 120,
     minWidth: 48,
     sortable: true,
-    extract: (e) => e.statusCode ?? null,
-    getSortValue: (e) => e.statusCode ?? -1,
+    extract: (r) => r.lifecycle.statusCode ?? null,
+    getSortValue: delegateSort('status'),
   },
   protocol: {
     key: 'protocol',
     label: 'Protocol',
-    // Wide enough for the longest friendly label (`HTTP/1.1`).
     defaultWidth: 80,
     minWidth: 52,
     sortable: true,
-    // Humanise `h2`/`h3`/QUIC at extraction time so the cell, the
-    // context-menu labels, and any future consumers (e.g. column
-    // filters) see the same string. Raw value is preserved for sort
-    // so Chrome's ALPN-order (h2 < h3) stays stable.
-    extract: (e) => formatHttpVersion(e.harEntry.response?.httpVersion ?? e.harEntry.request?.httpVersion ?? ''),
-    getSortValue: (e) => e.harEntry.response?.httpVersion ?? '',
+    extract: (r) => {
+      const har = currentHarEntry(r.lifecycle);
+      return formatHttpVersion(har?.response?.httpVersion ?? har?.request?.httpVersion ?? '');
+    },
+    getSortValue: delegateSort('protocol'),
   },
   scheme: {
     key: 'scheme',
@@ -211,8 +177,8 @@ export const COLUMN_DEFS: Record<ColumnKey, ColumnDef> = {
     defaultWidth: 72,
     minWidth: 48,
     sortable: true,
-    extract: (e) => safeScheme(e.url),
-    getSortValue: (e) => safeScheme(e.url),
+    extract: (r) => safeScheme(r.lifecycle.url),
+    getSortValue: delegateSort('scheme'),
   },
   domain: {
     key: 'domain',
@@ -220,8 +186,8 @@ export const COLUMN_DEFS: Record<ColumnKey, ColumnDef> = {
     defaultWidth: 160,
     minWidth: 80,
     sortable: true,
-    extract: (e) => safeHost(e.url),
-    getSortValue: (e) => safeHost(e.url),
+    extract: (r) => safeHost(r.lifecycle.url),
+    getSortValue: delegateSort('domain'),
   },
   remoteAddress: {
     key: 'remoteAddress',
@@ -229,8 +195,8 @@ export const COLUMN_DEFS: Record<ColumnKey, ColumnDef> = {
     defaultWidth: 140,
     minWidth: 100,
     sortable: true,
-    extract: (e) => e.harEntry.serverIPAddress ?? '',
-    getSortValue: (e) => e.harEntry.serverIPAddress ?? '',
+    extract: (r) => currentHarEntry(r.lifecycle)?.serverIPAddress ?? '',
+    getSortValue: delegateSort('remoteAddress'),
   },
   type: {
     key: 'type',
@@ -238,8 +204,8 @@ export const COLUMN_DEFS: Record<ColumnKey, ColumnDef> = {
     defaultWidth: 80,
     minWidth: 56,
     sortable: true,
-    extract: (e) => RESOURCE_LABEL[normalizeResourceType(e.resourceType)] ?? 'other',
-    getSortValue: (e) => RESOURCE_LABEL[normalizeResourceType(e.resourceType)] ?? 'other',
+    extract: (r) => RESOURCE_LABEL[normalizeResourceType(r.lifecycle.resourceType)] ?? 'other',
+    getSortValue: delegateSort('type'),
   },
   initiator: {
     key: 'initiator',
@@ -247,8 +213,8 @@ export const COLUMN_DEFS: Record<ColumnKey, ColumnDef> = {
     defaultWidth: 140,
     minWidth: 72,
     sortable: true,
-    extract: (e) => formatInitiator(e.harEntry._initiator),
-    getSortValue: (e) => formatInitiator(e.harEntry._initiator).toLowerCase(),
+    extract: (r) => formatInitiator(currentHarEntry(r.lifecycle)?._initiator),
+    getSortValue: delegateSort('initiator'),
   },
   cookies: {
     key: 'cookies',
@@ -257,11 +223,11 @@ export const COLUMN_DEFS: Record<ColumnKey, ColumnDef> = {
     minWidth: 56,
     align: 'right',
     sortable: true,
-    extract: (e) => {
-      const n = countRequestCookies(e);
+    extract: (r) => {
+      const n = countRequestCookies(r);
       return n > 0 ? n : null;
     },
-    getSortValue: (e) => countRequestCookies(e),
+    getSortValue: delegateSort('cookies'),
   },
   setCookies: {
     key: 'setCookies',
@@ -270,30 +236,24 @@ export const COLUMN_DEFS: Record<ColumnKey, ColumnDef> = {
     minWidth: 64,
     align: 'right',
     sortable: true,
-    extract: (e) => {
-      const n = countSetCookies(e);
+    extract: (r) => {
+      const n = countSetCookies(r);
       return n > 0 ? n : null;
     },
-    getSortValue: (e) => countSetCookies(e),
+    getSortValue: delegateSort('setCookies'),
   },
   size: {
     key: 'size',
     label: 'Size',
-    // Two-number form `13 kB / 42 kB` (transferred / resource) eats a
-    // bit more horizontal space than a single number — default wide
-    // enough to read both without truncation on typical bundles.
     defaultWidth: 110,
     minWidth: 72,
     align: 'right',
     sortable: true,
-    // `extract` is a string fallback used when the rich renderer in
-    // TrafficList doesn't override. The live path drives off
-    // `getSizeInfo(entry, state)` so pending / cached / two-number
-    // display is handled in the cell renderer.
-    extract: (e) => formatSize(e.responseSize) || null,
-    // Sort by wire-bytes (what the user paid for); -1 for pending /
-    // cached rows so they sort to the bottom.
-    getSortValue: (e) => (typeof e.responseSize === 'number' ? e.responseSize : -1),
+    extract: (r) => {
+      const bs = currentHarEntry(r.lifecycle)?.response?.bodySize;
+      return formatSize(bs) || null;
+    },
+    getSortValue: delegateSort('size'),
   },
   time: {
     key: 'time',
@@ -302,8 +262,18 @@ export const COLUMN_DEFS: Record<ColumnKey, ColumnDef> = {
     minWidth: 56,
     align: 'right',
     sortable: true,
-    extract: (e) => formatDuration(e.duration) || null,
-    getSortValue: (e) => e.duration ?? -1,
+    extract: (r) => {
+      const har = currentHarEntry(r.lifecycle);
+      const harTime = har?.time;
+      if (typeof harTime === 'number' && harTime > 0) return formatDuration(harTime) || null;
+      const lc = r.lifecycle;
+      if (lc.completedAtMs != null) {
+        const d = lc.completedAtMs - lc.startedAtMs;
+        if (d > 0) return formatDuration(d) || null;
+      }
+      return null;
+    },
+    getSortValue: delegateSort('time'),
   },
   priority: {
     key: 'priority',
@@ -311,8 +281,8 @@ export const COLUMN_DEFS: Record<ColumnKey, ColumnDef> = {
     defaultWidth: 92,
     minWidth: 64,
     sortable: true,
-    extract: (e) => priority(e) || null,
-    getSortValue: (e) => priority(e),
+    extract: (r) => priority(r) || null,
+    getSortValue: delegateSort('priority'),
   },
   timestamp: {
     key: 'timestamp',
@@ -320,8 +290,8 @@ export const COLUMN_DEFS: Record<ColumnKey, ColumnDef> = {
     defaultWidth: 108,
     minWidth: 80,
     sortable: true,
-    extract: (e) => formatTimestamp(e.timestamp),
-    getSortValue: (e) => e.timestamp,
+    extract: (r) => formatTimestamp(r.lifecycle.startedAtMs),
+    getSortValue: delegateSort('timestamp'),
   },
   waterfall: {
     key: 'waterfall',
@@ -331,10 +301,8 @@ export const COLUMN_DEFS: Record<ColumnKey, ColumnDef> = {
     stretch: true,
     maxWidth: 280,
     sortable: false,
-    // Waterfall is rendered by a dedicated component — extract/sort
-    // are unused but present for registry uniformity.
     extract: () => null,
-    getSortValue: (e) => e.timestamp,
+    getSortValue: delegateSort('waterfall'),
   },
 };
 

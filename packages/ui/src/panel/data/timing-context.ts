@@ -6,15 +6,16 @@
  * protocol, connection reuse, cache source, priority, request offset
  * from navigation start, and the server IP.
  *
- * Pure helper — takes the entry, a precomputed connection-reuse result,
- * and an optional baseline timestamp; returns plain data the view
- * renders into the strip.
+ * Pure helper — takes the lifecycle, a precomputed connection-reuse
+ * result, and an optional baseline timestamp; returns plain data the
+ * view renders into the strip.
  */
 
-import { formatHttpVersion } from './http-version';
+import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { ConnectionReuseInfo } from './connection-reuse';
+import { formatHttpVersion } from './http-version';
+import { currentHarEntry } from './inspector-row-projection';
 import { classifyRequestState, type RequestState } from './request-state';
-import type { InspectorRequest } from './types';
 
 export type CacheLabel = 'miss' | 'memory cache' | 'disk cache' | 'service worker';
 
@@ -41,20 +42,21 @@ function cacheLabel(state: RequestState): CacheLabel | null {
 }
 
 export function computeTimingContext(
-  entry: InspectorRequest,
+  lifecycle: RequestLifecycle,
   connectionReuse: ConnectionReuseInfo,
   baselineMs: number | null,
 ): TimingContext {
-  const state = classifyRequestState(entry);
-  const httpRaw = entry.harEntry.response?.httpVersion ?? null;
+  const state = classifyRequestState(lifecycle);
+  const har = currentHarEntry(lifecycle);
+  const httpRaw = har?.response?.httpVersion ?? null;
   const httpVersion = httpRaw ? formatHttpVersion(httpRaw) || null : null;
-  const startedAtMs = baselineMs != null ? entry.timestamp - baselineMs : null;
+  const startedAtMs = baselineMs != null ? lifecycle.startedAtMs - baselineMs : null;
   return {
     httpVersion,
     connectionReuse,
     cache: cacheLabel(state),
-    priority: entry.harEntry._priority ?? null,
+    priority: har?._priority ?? null,
     startedAtMs: startedAtMs != null && startedAtMs >= 0 ? startedAtMs : null,
-    serverIp: entry.harEntry.serverIPAddress ?? null,
+    serverIp: har?.serverIPAddress ?? null,
   };
 }

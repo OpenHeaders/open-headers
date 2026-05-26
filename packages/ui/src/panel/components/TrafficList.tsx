@@ -1,34 +1,36 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { hostNavigation } from '@openheaders/core/navigation';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import type {
   DevpanelNetworkSortBySetting,
   DevpanelNetworkSortDirSetting,
+  NetworkCustomNestedLevel,
 } from '@openheaders/ui/workbench/settings/schema/devpanel-network';
-import { NetworkViewMenu } from './traffic/NetworkViewMenu';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { FilterConfig, FilterToken } from '../data/filter-engine';
+import { matchesUrlFilter, passesRowFilters } from '../data/filter-engine';
+import type { InspectorRowWithFires } from '../data/inspector-row-projection';
+import { lifecycleDurationMs } from '../data/inspector-row-projection';
 import {
   buildCustomNestedComparator,
   NETWORK_SORT_MODE_COMPARATORS,
   type NetworkSortMode,
 } from '../data/network-sort-modes';
-import type { NetworkCustomNestedLevel } from '@openheaders/ui/workbench/settings/schema/devpanel-network';
-import type { FilterConfig, FilterToken } from '../data/filter-engine';
-import { matchesUrlFilter, passesRowFilters } from '../data/filter-engine';
 import { classifyRequestState, type RequestState, rowStateClass, statusText } from '../data/request-state';
 import { formatSizeInfo, getSizeInfo, type SizeInfo } from '../data/size-info';
-import { type InspectorRequest, isAppliedFire } from '../data/types';
+import { isAppliedFire } from '../data/types';
 import { FilterInput } from './FilterInput';
 import { ResourceFilter } from './ResourceFilter';
 import { ColumnHeaderContextMenu, type ColumnHeaderContextMenuState } from './traffic/ColumnHeaderContextMenu';
 import type { ColumnDef, ColumnKey } from './traffic/columns';
 import { COLUMN_DEFS, columnTrack, DEFAULT_COLUMN_MIN_WIDTH, DEFAULT_VISIBLE_COLUMNS } from './traffic/columns';
-import { hostNavigation } from '@openheaders/core/navigation';
 import { extractName, formatInitiator, formatTimestamp, getInitiatorFrame, statusClass } from './traffic/formatters';
+import { NetworkViewMenu } from './traffic/NetworkViewMenu';
 import { derivePreflightPairs, getRole, type PreflightIndex } from './traffic/preflight-pairs';
-import { deriveRedirectPairs, type RedirectIndex } from './traffic/redirect-pairs';
 import { RequestContextMenu, type RequestContextMenuState } from './traffic/RequestContextMenu';
 import ResourceIcon from './traffic/ResourceIcon';
 import { matchesResourceType, normalizeResourceType, RESOURCE_LABEL } from './traffic/resource-types';
+import { currentHarEntry } from '../data/inspector-row-projection';
 import { WaterfallBar } from './traffic/WaterfallBar';
 
 type SortDir = DevpanelNetworkSortDirSetting;
@@ -40,15 +42,15 @@ type SortDir = DevpanelNetworkSortDirSetting;
  */
 type SortTarget = DevpanelNetworkSortBySetting;
 
-function sortValueOf(entry: InspectorRequest, target: SortTarget): string | number {
-  if (target === 'id') return entry.arrivalIndex;
-  return COLUMN_DEFS[target].getSortValue(entry);
+function sortValueOf(row: InspectorRowWithFires, target: SortTarget): string | number {
+  if (target === 'id') return row.displayId;
+  return COLUMN_DEFS[target].getSortValue(row);
 }
 
 interface TrafficListProps {
-  entries: readonly InspectorRequest[];
+  rows: readonly InspectorRowWithFires[];
   selectedId: string | null;
-  onSelect: (id: string) => void;
+  onSelect: (requestId: string) => void;
   filter: ReadonlySet<string>;
   onFilterChange: (next: Set<string>) => void;
   filterTokens: FilterToken[];
@@ -67,7 +69,7 @@ interface TrafficListProps {
   onReloadPage: () => void;
   visibleColumns: ReadonlySet<ColumnKey>;
   onVisibleColumnsChange: (next: Set<ColumnKey>) => void;
-  onSaveAsHar: (entry: InspectorRequest) => void;
+  onSaveAsHar: (row: InspectorRowWithFires) => void;
   onSaveAllAsHar: () => void;
   onCopyAllAsHar: () => void;
   onHide: () => void;
@@ -83,27 +85,11 @@ interface NetworkPanelHeaderProps {
   onToggleDocs: () => void;
   filter: ReadonlySet<string>;
   onFilterChange: (next: Set<string>) => void;
-  /** When on, the header's action slot hosts the full filter row
-   *  (input + (i) + compact resource pills + More ▾). When off, the
-   *  header falls back to a quiet "Network" title. Toggled by the
-   *  filter icon on the top toolbar. */
   showFilter: boolean;
   onHide: () => void;
   viewMenu: React.ReactNode;
 }
 
-/**
- * Network panel's header row — lives on the card itself (not the
- * top-level toolbar) so the filter input + resource pills travel with
- * the panel when it's hidden/shown. Giving the whole 32px band to
- * the filter controls saves vertical real estate. The filter row
- * mounts in the `title` slot rather than `actions`: the title slot
- * already has `flex: 1` baked into the shared stylesheet, so a
- * flex-grow input inside it expands predictably. When the user toggles
- * the filter off on the top toolbar, we collapse the header to a
- * neutral "Network" title so the card stays identifiable without
- * occupying the row with controls the user just chose to hide.
- */
 function NetworkPanelHeader({
   urlFilter,
   onUrlFilterChange,
@@ -174,10 +160,10 @@ function sortIndicator(
   active: boolean,
 ): string {
   if (!active || col !== sortKey) return '';
-  return sortDir === 'asc' ? ' \u25b4' : ' \u25be';
+  return sortDir === 'asc' ? ' ▴' : ' ▾';
 }
 
-function sortCompare(a: InspectorRequest, b: InspectorRequest, target: SortTarget, dir: SortDir): number {
+function sortCompare(a: InspectorRowWithFires, b: InspectorRowWithFires, target: SortTarget, dir: SortDir): number {
   const va = sortValueOf(a, target);
   const vb = sortValueOf(b, target);
   let cmp: number;
@@ -187,40 +173,34 @@ function sortCompare(a: InspectorRequest, b: InspectorRequest, target: SortTarge
     cmp = String(va).localeCompare(String(vb));
   }
   if (cmp !== 0) return dir === 'asc' ? cmp : -cmp;
-  // Tiebreak by request-start order regardless of the active sort
-  // direction. Many resources start in the same millisecond (typical
-  // HTML/CSS bundle dispatch) — without a stable tiebreak the affected
-  // rows shuffle every render and the visual order disagrees with
-  // Chrome's, which always falls back to start-order on ties. The
-  // direction stays ascending here so a `desc` sort still presents
-  // each tie group in arrival order rather than reversing it.
-  return a.arrivalIndex - b.arrivalIndex;
+  // Stable tiebreak: arrival order via `displayId`. Always ascending so
+  // a `desc` sort still presents each tie group in arrival order rather
+  // than reversing it.
+  return a.displayId - b.displayId;
 }
 
 interface CellContext {
   waterfall: { t0: number; tMax: number };
   preflight: PreflightIndex;
-  redirect: RedirectIndex;
-  onJumpTo: (id: string) => void;
+  onJumpTo: (requestId: string) => void;
 }
 
 /**
- * Render the cell for a specific column — kept as a function so the
- * Name column (which needs the resource icon + extracted name/detail)
- * and the Status column (which colors by status code) can branch off
- * the default `col.extract` path cleanly.
+ * Render the cell for a specific column.
  */
 function renderCell(
   col: ColumnDef,
-  entry: InspectorRequest,
+  row: InspectorRowWithFires,
   state: RequestState,
   sizeInfo: SizeInfo,
   ctx: CellContext,
 ) {
-  const role = getRole(ctx.preflight, entry.id);
+  const lc = row.lifecycle;
+  const requestId = lc.requestId;
+  const role = getRole(ctx.preflight, requestId);
   if (col.key === 'name') {
-    const rawType = normalizeResourceType(entry.resourceType);
-    const { name } = extractName(entry.url);
+    const rawType = normalizeResourceType(lc.resourceType);
+    const { name } = extractName(lc.url);
     return (
       <span className="dt-col-name">
         <ResourceIcon type={rawType} />
@@ -230,11 +210,11 @@ function renderCell(
   }
   if (col.key === 'method') {
     // "<METHOD> + Preflight" on the parent, with the "Preflight" text
-    // linking back to the preflight row. Matches Chrome DevTools.
+    // linking back to the preflight row.
     if (role.kind === 'parent') {
       return (
         <span>
-          {entry.method}
+          {lc.method}
           {' + '}
           <button
             type="button"
@@ -250,31 +230,26 @@ function renderCell(
         </span>
       );
     }
-    return <span>{entry.method}</span>;
+    return <span>{lc.method}</span>;
   }
   if (col.key === 'status') {
-    // Text + colour derive from the state taxonomy — `(pending)`,
-    // `(blocked)`, `(failed)`, `200`, `302`, etc. The compact column
-    // can still overflow long `net::ERR_*` messages; the tooltip
-    // surfaces the full text.
-    const text = statusText(state, entry);
+    const text = statusText(state, lc);
     return (
-      <span className={statusClass(state, entry.statusCode)} title={text}>
+      <span className={statusClass(state, lc.statusCode)} title={text}>
         {text}
       </span>
     );
   }
   if (col.key === 'timestamp') {
-    return <span className="dt-col-muted">{formatTimestamp(entry.timestamp)}</span>;
+    return <span className="dt-col-muted">{formatTimestamp(lc.startedAtMs)}</span>;
   }
   if (col.key === 'type') {
-    const rawType = normalizeResourceType(entry.resourceType);
+    const rawType = normalizeResourceType(lc.resourceType);
     return <span>{RESOURCE_LABEL[rawType] ?? rawType}</span>;
   }
   if (col.key === 'initiator') {
-    // Preflight rows take priority: Chrome shows "Preflight" linking to
-    // the parent CORS request instead of the JS stack that initiated it,
-    // with an info glyph whose tooltip explains the action.
+    // Preflight rows take priority: show "Preflight" linking to the
+    // parent CORS request instead of the JS stack that initiated it.
     if (role.kind === 'preflight') {
       return (
         <span className="dt-col-muted">
@@ -299,34 +274,13 @@ function renderCell(
         </span>
       );
     }
-    // Redirect-target rows show the source's 3xx status as a jump link
-    // (Chrome's Network panel convention). Same scroll+flash UX as the
-    // preflight pair.
-    const redir = ctx.redirect.get(entry.id);
-    if (redir) {
-      return (
-        <span className="dt-col-muted">
-          <button
-            type="button"
-            className="dt-btn-link"
-            onClick={(e) => {
-              e.stopPropagation();
-              ctx.onJumpTo(redir.sourceId);
-            }}
-            title="Select the request that issued the redirect"
-          >
-            {redir.sourceStatus}
-          </button>
-        </span>
-      );
-    }
     // JS-initiated rows: render the call-site as a clickable link that
-    // opens the host's Sources panel at the right line, mirroring
-    // Chrome's behavior and matching what the request-metadata detail
-    // pane's Initiator tab already does for the call stack.
-    const frame = getInitiatorFrame(entry.harEntry._initiator);
+    // opens the host's Sources panel at the right line.
+    const har = currentHarEntry(lc);
+    const initiator = har?._initiator;
+    const frame = getInitiatorFrame(initiator);
     if (frame) {
-      const label = formatInitiator(entry.harEntry._initiator);
+      const label = formatInitiator(initiator);
       return (
         <span className="dt-col-muted">
           <button
@@ -343,18 +297,12 @@ function renderCell(
         </span>
       );
     }
-    return <span className="dt-col-muted">{formatInitiator(entry.harEntry._initiator)}</span>;
+    return <span className="dt-col-muted">{formatInitiator(initiator)}</span>;
   }
   if (col.key === 'waterfall') {
-    return <WaterfallBar entry={entry} t0={ctx.waterfall.t0} tMax={ctx.waterfall.tMax} />;
+    return <WaterfallBar row={row} t0={ctx.waterfall.t0} tMax={ctx.waterfall.tMax} />;
   }
   if (col.key === 'size') {
-    // The size column collapses three concerns into one:
-    //   - pending responses show `Pending…`
-    //   - cached responses show `(disk cache)` / `(memory cache)` /
-    //     `(ServiceWorker)` in muted italics — matches Chrome
-    //   - wire responses show `transferred / resource` when
-    //     compressed, or a single number otherwise
     if (sizeInfo.kind === 'pending') {
       return (
         <span className="dt-col-right dt-col-cache" title="Response body not received yet">
@@ -373,9 +321,6 @@ function renderCell(
     const { transferred, resource } = sizeInfo;
     if (transferred == null && resource == null) return <span className="dt-col-right" />;
     if (transferred != null && resource != null && resource > transferred) {
-      // Two-number display — primary is wire-bytes, secondary is
-      // decoded. Users care about both: transferred = what the network
-      // paid, resource = what the page parses.
       return (
         <span className="dt-col-right" title={`Transferred: ${transferred} B · Resource: ${resource} B`}>
           {formatSizeInfo(sizeInfo)}
@@ -384,13 +329,13 @@ function renderCell(
     }
     return <span className="dt-col-right">{formatSizeInfo(sizeInfo)}</span>;
   }
-  const value = col.extract(entry);
+  const value = col.extract(row);
   const className = col.align === 'right' ? 'dt-col-right' : '';
   return <span className={className}>{value == null ? '' : value}</span>;
 }
 
 export function TrafficList({
-  entries,
+  rows,
   selectedId,
   onSelect,
   filter,
@@ -420,10 +365,7 @@ export function TrafficList({
   const [sortKey, setSortKey] = useSetting('devpanelNetwork.sortBy');
   const [sortDir, setSortDir] = useSetting('devpanelNetwork.sortDir');
   const [showFireDots, setShowFireDots] = useSetting('devpanelNetwork.showFireDots');
-  // Custom-nested levels are session-scoped scratch state (the
-  // settings registry doesn't carry arbitrary JSON). If the persisted
-  // sortKind is 'customNested' but the levels array is empty after a
-  // panel reload, the comparator falls back to plain arrival.
+  // Custom-nested levels are session-scoped scratch state.
   const [customNested, setCustomNested] = useState<NetworkCustomNestedLevel[]>([]);
   const compact = layout === 'compact';
   const toggleShowFireDots = useCallback(() => setShowFireDots(!showFireDots), [showFireDots, setShowFireDots]);
@@ -481,17 +423,14 @@ export function TrafficList({
     };
   }, []);
   const handleJumpTo = useCallback(
-    (id: string) => {
-      onSelect(id);
-      // Scroll target into view + 1s yellow flash that fades out — matches
-      // the affordance Chrome's Network panel applies when jumping between
-      // a preflight and its parent request.
+    (requestId: string) => {
+      onSelect(requestId);
       const root = tableRef.current;
       if (root) {
-        const row = root.querySelector<HTMLElement>(`[data-row-id="${CSS.escape(id)}"]`);
-        if (row) row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        const r = root.querySelector<HTMLElement>(`[data-row-id="${CSS.escape(requestId)}"]`);
+        if (r) r.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
       }
-      setFlashId(id);
+      setFlashId(requestId);
       if (flashTimerRef.current != null) clearTimeout(flashTimerRef.current);
       flashTimerRef.current = setTimeout(() => setFlashId(null), 1000);
     },
@@ -502,20 +441,9 @@ export function TrafficList({
   const [colMenu, setColMenu] = useState<ColumnHeaderContextMenuState | null>(null);
 
   // ── Column widths (user-resizable) ──────────────────────────
-  //
-  // We store user overrides as `Partial<Record<ColumnKey, number>>`.
-  // A column with no override uses its registry default (or `1fr` for
-  // stretchy columns). Resetting via the column menu clears overrides,
-  // which restores the stretch-based layout. Widths are session-scoped
-  // — matches Chrome's Network tab behaviour where resizes don't
-  // persist across DevTools re-opens.
   const [columnWidths, setColumnWidths] = useState<Partial<Record<ColumnKey, number>>>({});
 
   const columns = useMemo<ColumnDef[]>(() => {
-    // Preserve the order defined in DEFAULT_VISIBLE_COLUMNS so we get
-    // Timestamp → Method → Name → ... regardless of toggle order. Any
-    // column not in the default list (e.g. Path, URL, Scheme) appends
-    // after the defaults in registry order.
     const order: ColumnKey[] = [];
     for (const k of DEFAULT_VISIBLE_COLUMNS) if (visibleColumns.has(k)) order.push(k);
     for (const k of Object.keys(COLUMN_DEFS) as ColumnKey[]) {
@@ -525,9 +453,6 @@ export function TrafficList({
   }, [visibleColumns]);
 
   const gridTemplate = useMemo(() => {
-    // Leading fixed columns: rule-fire dot (empty or colored, gated by
-    // the showFireDots setting) then the sequential display id. Keep
-    // them narrow — status surface only, not content-driven.
     const tracks: string[] = [];
     if (showFireDots) tracks.push('14px');
     tracks.push('32px');
@@ -535,12 +460,6 @@ export function TrafficList({
     return tracks.join(' ');
   }, [columns, columnWidths, compact, showFireDots]);
 
-  // Per-column-header refs. A Map rather than an object so the "set
-  // callback ref" closure doesn't depend on the key set at compile
-  // time — this lets us register a ref for any ColumnKey as columns
-  // become visible. The ref is the header-cell wrapper, whose rendered
-  // width is authoritative for stretchy columns (their width is
-  // browser-computed from `1fr`, not registry-default).
   const cellRefs = useRef<Map<ColumnKey, HTMLDivElement>>(new Map());
   const registerCellRef = useCallback(
     (key: ColumnKey) => (el: HTMLDivElement | null) => {
@@ -550,10 +469,6 @@ export function TrafficList({
     [],
   );
 
-  // Resize a column by dragging its right-edge grip. We measure the
-  // live rendered width from the cell's ref (so stretchy columns
-  // convert to their actual pixel size at the moment drag starts, not
-  // their registry default) and apply deltas live. Esc aborts.
   const beginResize = useCallback((e: React.PointerEvent<HTMLElement>, columnKey: ColumnKey) => {
     e.preventDefault();
     e.stopPropagation();
@@ -598,9 +513,6 @@ export function TrafficList({
   }, []);
 
   const handleSortTarget = (target: SortTarget) => {
-    // Any column-header click pulls the table out of mode-sort and
-    // into column-sort. The previously-active mode is left intact so
-    // the user can switch back to it from the View menu.
     setSortKind('column');
     if (sortKind === 'column' && target === sortKey) {
       setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
@@ -616,13 +528,14 @@ export function TrafficList({
   };
 
   const filtered = useMemo(() => {
-    return entries.filter((e) => {
-      if (!passesRowFilters(e, filterConfig)) return false;
-      if (!matchesResourceType(e.resourceType, filter)) return false;
-      if (filterTokens.length > 0 && !matchesUrlFilter(e, filterTokens, filterConfig)) return false;
+    return rows.filter((r) => {
+      const lc = r.lifecycle;
+      if (!passesRowFilters(lc, filterConfig)) return false;
+      if (!matchesResourceType(lc.resourceType, filter)) return false;
+      if (filterTokens.length > 0 && !matchesUrlFilter(lc, filterTokens, filterConfig)) return false;
       return true;
     });
-  }, [entries, filter, filterTokens, filterConfig]);
+  }, [rows, filter, filterTokens, filterConfig]);
 
   const sorted = useMemo(() => {
     const arr = [...filtered];
@@ -631,33 +544,26 @@ export function TrafficList({
     } else if (sortKind === 'customNested' && customNested.length > 0) {
       arr.sort(buildCustomNestedComparator(customNested));
     } else {
-      // 'mode', or 'customNested' with an empty level list (e.g. after
-      // a panel reload that lost the session state) — fall back to the
-      // configured mode comparator.
       arr.sort(NETWORK_SORT_MODE_COMPARATORS[sortMode]);
     }
     return arr;
   }, [filtered, sortKind, sortKey, sortDir, sortMode, customNested]);
 
-  // Preflight pairing — derived from all entries (not filtered) so a
+  // Preflight pairing — derived from all rows (not filtered) so a
   // preflight whose parent is filtered out still renders as "preflight"
-  // with a dead link resolver. Kept at the full-entry scope so the
-  // parent lookup is stable across filter changes.
-  const preflight = useMemo(() => derivePreflightPairs(entries), [entries]);
-  // Redirect-target → source pairing, same scope/lifecycle as preflight
-  // so a follow-up still resolves even when its source is filtered out.
-  const redirect = useMemo(() => deriveRedirectPairs(entries), [entries]);
+  // with a dead link resolver.
+  const preflight = useMemo(() => derivePreflightPairs(rows), [rows]);
 
-  // Waterfall reference window: earliest start vs. latest finish across
-  // the visible, sorted rows. Recomputed with the rows so the bars
-  // re-scale as filters change.
+  // Waterfall reference window.
   const [t0, tMax] = useMemo(() => {
     if (sorted.length === 0) return [0, 1];
     let min = Number.POSITIVE_INFINITY;
     let max = 0;
-    for (const e of sorted) {
-      if (e.timestamp < min) min = e.timestamp;
-      const end = e.timestamp + (e.duration && e.duration > 0 ? e.duration : 0);
+    for (const r of sorted) {
+      const start = r.lifecycle.startedAtMs;
+      if (start < min) min = start;
+      const dur = lifecycleDurationMs(r.lifecycle) ?? 0;
+      const end = start + (dur > 0 ? dur : 0);
       if (end > max) max = end;
     }
     if (!Number.isFinite(min)) min = 0;
@@ -682,7 +588,6 @@ export function TrafficList({
     const next = new Set(visibleColumns);
     if (next.has(key)) next.delete(key);
     else next.add(key);
-    // Name is mandatory — safety net even though the menu disables it.
     next.add('name');
     onVisibleColumnsChange(next);
   };
@@ -693,12 +598,12 @@ export function TrafficList({
   };
 
   if (filtered.length === 0) {
-    if (entries.length === 0) {
+    if (rows.length === 0) {
       return (
         <div className="dt-panel">
           <NetworkPanelHeader {...headerProps} />
           <div className="dt-empty-hero">
-            <strong>{recording ? 'Recording network activity\u2026' : 'No network activity recorded'}</strong>
+            <strong>{recording ? 'Recording network activity…' : 'No network activity recorded'}</strong>
             <span className="dt-empty-hero-sub">
               {recording ? 'Perform a request or reload the page.' : 'Record network log to display network activity.'}
             </span>
@@ -721,14 +626,11 @@ export function TrafficList({
     );
   }
 
-  const selectedEntry = rowMenu ? sorted.find((e) => e.id === rowMenu.requestId) : undefined;
+  const selectedRow = rowMenu ? sorted.find((r) => r.lifecycle.requestId === rowMenu.requestId) : undefined;
 
   return (
     <div className="dt-panel">
       <NetworkPanelHeader {...headerProps} />
-      {/* Header + rows share one scroll container so horizontal scroll
-          moves them in lockstep — the header uses `position: sticky`
-          on its top edge to stay pinned against vertical scroll. */}
       <div className={`dt-table${compact ? ' dt-table--compact' : ''}`} ref={tableRef}>
         {/* biome-ignore lint/a11y/noStaticElementInteractions: header row has a right-click menu but no primary action */}
         <div
@@ -759,11 +661,6 @@ export function TrafficList({
                 {col.label}
                 {col.sortable && sortIndicator(col.key, sortKey, sortDir, sortKind === 'column')}
               </button>
-              {/* Resize grip — every column is resizable; double-click
-                  restores the registry default width. Modeled as a
-                  presentation-role button so it's focusable for keyboard
-                  navigation without participating in the header's semantic
-                  grid row. */}
               <button
                 type="button"
                 tabIndex={-1}
@@ -775,54 +672,52 @@ export function TrafficList({
             </div>
           ))}
         </div>
-        {sorted.map((entry) => {
-          // One classifier pass per row; cells + row class branch off
-          // the same `RequestState` so they can never disagree. Size
-          // info is a companion derivation that reuses the state.
-          const state = classifyRequestState(entry);
-          const sizeInfo = getSizeInfo(entry, state);
+        {sorted.map((row) => {
+          const state = classifyRequestState(row.lifecycle);
+          const sizeInfo = getSizeInfo(row.lifecycle, state);
           const stateClass = rowStateClass(state);
+          const requestId = row.lifecycle.requestId;
           return (
             <button
-              key={entry.id}
+              key={requestId}
               type="button"
-              className={`dt-row dt-cols${stateClass ? ` ${stateClass}` : ''}${entry.id === flashId ? ' dt-row--flash' : ''}`}
-              data-selected={entry.id === selectedId}
-              data-row-id={entry.id}
-              onClick={() => onSelect(entry.id)}
+              className={`dt-row dt-cols${stateClass ? ` ${stateClass}` : ''}${requestId === flashId ? ' dt-row--flash' : ''}`}
+              data-selected={requestId === selectedId}
+              data-row-id={requestId}
+              onClick={() => onSelect(requestId)}
               onContextMenu={(e) => {
                 e.preventDefault();
-                setRowMenu({ x: e.clientX, y: e.clientY, requestId: entry.id });
+                setRowMenu({ x: e.clientX, y: e.clientY, requestId });
               }}
-              title={entry.url}
+              title={row.lifecycle.url}
               style={{ gridTemplateColumns: gridTemplate }}
             >
               {showFireDots && (
                 <span className="dt-col-dot">
-                  {entry.fires.length > 0 && (
+                  {row.fires.length > 0 && (
                     <span
-                      className={`dt-fire-dot ${entry.fires.some(isAppliedFire) ? 'dt-fire-dot--auth' : 'dt-fire-dot--inferred'}`}
+                      className={`dt-fire-dot ${row.fires.some(isAppliedFire) ? 'dt-fire-dot--auth' : 'dt-fire-dot--inferred'}`}
                     />
                   )}
                 </span>
               )}
               <span className="dt-col-muted" style={{ textAlign: 'right' }}>
-                {entry.displayId}
+                {row.displayId}
               </span>
               {columns.map((col) => (
                 <span key={col.key}>
-                  {renderCell(col, entry, state, sizeInfo, { waterfall: { t0, tMax }, preflight, redirect, onJumpTo: handleJumpTo })}
+                  {renderCell(col, row, state, sizeInfo, { waterfall: { t0, tMax }, preflight, onJumpTo: handleJumpTo })}
                 </span>
               ))}
             </button>
           );
         })}
       </div>
-      {rowMenu && selectedEntry && (
+      {rowMenu && selectedRow && (
         <RequestContextMenu
           state={rowMenu}
-          request={selectedEntry}
-          allEntries={entries}
+          row={selectedRow}
+          allRows={rows}
           onClose={() => setRowMenu(null)}
           onSaveAsHar={onSaveAsHar}
           onSaveAllAsHar={onSaveAllAsHar}

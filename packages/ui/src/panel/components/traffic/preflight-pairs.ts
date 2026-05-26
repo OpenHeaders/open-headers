@@ -1,24 +1,22 @@
 /**
  * Preflight pair derivation.
  *
- * Chrome emits CORS preflight OPTIONS requests as standalone HAR entries
- * with `_resourceType === 'preflight'`. The native Network tab renders
- * these specially:
+ * The browser emits CORS preflight OPTIONS requests as standalone
+ * lifecycles. The traffic list renders these specially:
  *
  *   - The preflight row shows Method `OPTIONS`, Type `preflight`,
  *     Initiator "Preflight" linking to the actual request.
- *   - The actual (CORS) request row shows Method as "<METHOD> + Preflight"
- *     with the "Preflight" text linking back to the preflight entry.
+ *   - The actual (CORS) request row shows Method as
+ *     "<METHOD> + Preflight" with the "Preflight" text linking back
+ *     to the preflight entry.
  *
- * Since the HAR entries don't embed cross-references, we derive the
- * pairing here: pair each preflight entry with the nearest subsequent
- * non-OPTIONS entry on the same URL (typically within a few hundred
- * milliseconds, but we don't bound it — if two preflights fire for the
- * same URL in quick succession, each pairs with its own child by
- * arrival order).
+ * Lifecycles don't embed cross-references, so the pairing is derived
+ * here: pair each preflight with the nearest subsequent non-OPTIONS
+ * lifecycle on the same URL. Bucket by URL → sort by `startedAtMs`
+ * with `displayId` as tiebreak → forward-scan for the parent.
  */
 
-import type { InspectorRequest } from '../../data/types';
+import { currentHarEntry, type InspectorRowWithFires } from '../../data/inspector-row-projection';
 
 export type PreflightRole =
   | { kind: 'none' }
@@ -27,41 +25,34 @@ export type PreflightRole =
 
 export type PreflightIndex = ReadonlyMap<string, PreflightRole>;
 
-function isPreflight(entry: InspectorRequest): boolean {
-  const rt = (entry.resourceType ?? '').toLowerCase();
+function isPreflight(row: InspectorRowWithFires): boolean {
+  const lc = row.lifecycle;
+  const rt = (lc.resourceType ?? '').toLowerCase();
   if (rt === 'preflight') return true;
   // Defensive fallback — some browsers/engines surface OPTIONS without
   // the `_resourceType: preflight` annotation. Treat as preflight only
   // when it also carries the Access-Control-Request-Method header on
   // the request side (the canonical CORS preflight signature).
-  if (entry.method.toUpperCase() !== 'OPTIONS') return false;
-  const headers = entry.harEntry.request?.headers ?? [];
+  if (lc.method.toUpperCase() !== 'OPTIONS') return false;
+  const headers = currentHarEntry(lc)?.request?.headers ?? [];
   return headers.some((h) => h.name.toLowerCase() === 'access-control-request-method');
 }
 
-export function derivePreflightPairs(entries: readonly InspectorRequest[]): PreflightIndex {
-  // Bucket entries by URL so pairing stays O(n). We then walk entries
-  // in arrival order: each preflight looks ahead in its URL bucket for
-  // the next non-OPTIONS entry that hasn't already been claimed.
-  const byUrl = new Map<string, InspectorRequest[]>();
-  for (const e of entries) {
-    let bucket = byUrl.get(e.url);
+export function derivePreflightPairs(rows: readonly InspectorRowWithFires[]): PreflightIndex {
+  const byUrl = new Map<string, InspectorRowWithFires[]>();
+  for (const r of rows) {
+    let bucket = byUrl.get(r.lifecycle.url);
     if (!bucket) {
       bucket = [];
-      byUrl.set(e.url, bucket);
+      byUrl.set(r.lifecycle.url, bucket);
     }
-    bucket.push(e);
+    bucket.push(r);
   }
-  // Sort each bucket by wire-execution time, not panel arrival order.
-  // Preflight OPTIONS always dispatches before its parent on the wire,
-  // but our pending rows are minted from `onBeforeRequest`, which fires
-  // the parent first and the internally-generated preflight second.
-  // `timestamp` (parsed from HAR's `startedDateTime`) reflects what the
-  // network actually did, so the preflight reliably sorts ahead of its
-  // parent and the forward-scan pairing below finds it. Ties fall back
-  // to `arrivalIndex` for a stable order.
+  // Sort each bucket by wire-execution time. Preflight OPTIONS always
+  // dispatches before its parent on the wire. `displayId` is the stable
+  // arrival-order tiebreak (1-indexed, monotonic from the inspector facet).
   for (const bucket of byUrl.values()) {
-    bucket.sort((a, b) => a.timestamp - b.timestamp || a.arrivalIndex - b.arrivalIndex);
+    bucket.sort((a, b) => a.lifecycle.startedAtMs - b.lifecycle.startedAtMs || a.displayId - b.displayId);
   }
 
   const out = new Map<string, PreflightRole>();
@@ -71,21 +62,22 @@ export function derivePreflightPairs(entries: readonly InspectorRequest[]): Pref
     for (let i = 0; i < bucket.length; i++) {
       const pre = bucket[i];
       if (!isPreflight(pre)) continue;
-      if (claimed.has(pre.id)) continue;
-      // Find the next non-OPTIONS same-URL entry after this one.
-      let parent: InspectorRequest | undefined;
+      const preId = pre.lifecycle.requestId;
+      if (claimed.has(preId)) continue;
+      let parent: InspectorRowWithFires | undefined;
       for (let j = i + 1; j < bucket.length; j++) {
         const cand = bucket[j];
-        if (claimed.has(cand.id)) continue;
-        if (cand.method.toUpperCase() === 'OPTIONS') continue;
+        if (claimed.has(cand.lifecycle.requestId)) continue;
+        if (cand.lifecycle.method.toUpperCase() === 'OPTIONS') continue;
         parent = cand;
         break;
       }
       if (!parent) continue;
-      out.set(pre.id, { kind: 'preflight', peerId: parent.id });
-      out.set(parent.id, { kind: 'parent', peerId: pre.id });
-      claimed.add(pre.id);
-      claimed.add(parent.id);
+      const parentId = parent.lifecycle.requestId;
+      out.set(preId, { kind: 'preflight', peerId: parentId });
+      out.set(parentId, { kind: 'parent', peerId: preId });
+      claimed.add(preId);
+      claimed.add(parentId);
     }
   }
   return out;

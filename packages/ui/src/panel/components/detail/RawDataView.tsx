@@ -6,7 +6,7 @@
  *   1. Snippet generator. Pick a format (curl, fetch, python, …), tick
  *      the include / redact / rule-mode toggles, and copy the result.
  *      Defaults are conservative (redact ON; post-rule values) so that
- *      a one-click copy → paste into Slack doesn't leak a bearer token.
+ *      a one-click copy → paste doesn't leak a bearer token.
  *
  *   2. Raw JSON tree. Full HAR entry, collapsible. The power-user
  *      fallback for fields we don't surface elsewhere. Curated metadata
@@ -14,14 +14,18 @@
  *      not here — duplicating it would just split user attention.
  */
 
+import type { Page } from '@openheaders/core/page-stream';
 import type { InspectorHarEntry } from '@openheaders/core/types';
 import { InfoTrigger, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { Popover } from 'antd';
 import { useMemo, useState } from 'react';
 import { buildHarFromEntries } from '../../data/har-export';
 import type { AnnotatedHeader } from '../../data/header-attribution';
-import type { InspectorPage } from '../../data/pages';
-import type { InspectorRequest } from '../../data/types';
+import {
+  currentHarEntry,
+  type InspectorRowWithFires,
+  resolvePageref,
+} from '../../data/inspector-row-projection';
 import { maybeRedactHeaderValue } from './raw-data/redact';
 import { generateSnippet, SNIPPET_FORMATS, type SnippetFormat } from './raw-data/snippet-generators';
 import TextBodyViewer from './TextBodyViewer';
@@ -35,17 +39,15 @@ const HAR_INFO: InfoPopoverContent = {
 };
 
 interface RawDataViewProps {
-  request: InspectorRequest;
+  row: InspectorRowWithFires;
   /** Post-rule, annotated request headers from the parent. We only use
    *  the annotation to derive pre-rule ("original") values when the
    *  rule-mode toggle is flipped — the post-rule snippet reads directly
-   *  off `request.harEntry`. */
+   *  off the current HAR entry. */
   requestHeaders: readonly AnnotatedHeader[];
-  /** All known pages from the store. We only include the entry's own
-   *  `pageref` in the exported envelope (single-entry HAR shouldn't
-   *  carry pages it has no entries for) — the projection happens
-   *  inside `buildHarFromEntries`. */
-  pages: readonly InspectorPage[];
+  /** All known pages from the page-stream snapshot. Only the entry's
+   *  resolved `pageref` survives into the exported envelope. */
+  pages: readonly Page[];
 }
 
 interface HeaderPair {
@@ -55,8 +57,8 @@ interface HeaderPair {
 
 type RuleMode = 'post' | 'original';
 
-function derivePostRuleHeaders(har: InspectorHarEntry): HeaderPair[] {
-  return (har.request?.headers ?? []).map((h) => ({ name: h.name, value: h.value }));
+function derivePostRuleHeaders(har: InspectorHarEntry | null): HeaderPair[] {
+  return (har?.request?.headers ?? []).map((h) => ({ name: h.name, value: h.value }));
 }
 
 function deriveOriginalHeaders(annotated: readonly AnnotatedHeader[]): HeaderPair[] {
@@ -80,8 +82,10 @@ function applyRedaction(headers: readonly HeaderPair[], redact: boolean): Header
   return headers.map((h) => ({ name: h.name, value: maybeRedactHeaderValue(h.name, h.value, true) }));
 }
 
-export default function RawDataView({ request, requestHeaders, pages }: RawDataViewProps) {
-  const har = request.harEntry;
+export default function RawDataView({ row, requestHeaders, pages }: RawDataViewProps) {
+  const lc = row.lifecycle;
+  const har = currentHarEntry(lc);
+  const pageref = useMemo(() => resolvePageref(lc, pages) ?? undefined, [lc, pages]);
 
   const [format, setFormat] = useState<SnippetFormat>('curl-unix');
   const [includeHeaders, setIncludeHeaders] = useState(true);
@@ -93,8 +97,8 @@ export default function RawDataView({ request, requestHeaders, pages }: RawDataV
   const [harOpen, setHarOpen] = useState(true);
   const [exportOpen, setExportOpen] = useState(true);
 
-  const ruleFired = request.fires.length > 0;
-  const hasBody = !!har.request?.postData?.text;
+  const ruleFired = row.fires.length > 0;
+  const hasBody = !!har?.request?.postData?.text;
 
   // Badge non-default toggles in the View menu — matches the Timing /
   // Headers / Cookies pattern, so the user always sees at a glance
@@ -112,16 +116,18 @@ export default function RawDataView({ request, requestHeaders, pages }: RawDataV
 
   const snippet = useMemo(
     () =>
-      generateSnippet({
-        harEntry: har,
-        headers: headersForSnippet,
-        format,
-        includeHeaders,
-        includeBody,
-        pageref: request.pageref,
-        pages,
-      }),
-    [har, headersForSnippet, format, includeHeaders, includeBody, request.pageref, pages],
+      har
+        ? generateSnippet({
+            harEntry: har,
+            headers: headersForSnippet,
+            format,
+            includeHeaders,
+            includeBody,
+            pageref,
+            pages,
+          })
+        : '(no request data yet)',
+    [har, headersForSnippet, format, includeHeaders, includeBody, pageref, pages],
   );
 
   const copy = async (): Promise<void> => {
@@ -136,8 +142,11 @@ export default function RawDataView({ request, requestHeaders, pages }: RawDataV
   };
 
   const harJson = useMemo(
-    () => JSON.stringify(buildHarFromEntries([{ harEntry: har, pageref: request.pageref }], pages), null, 2),
-    [har, request.pageref, pages],
+    () =>
+      har
+        ? JSON.stringify(buildHarFromEntries([{ harEntry: har, pageref }], pages), null, 2)
+        : '{}',
+    [har, pageref, pages],
   );
 
   const copyHar = async (): Promise<void> => {
@@ -156,11 +165,11 @@ export default function RawDataView({ request, requestHeaders, pages }: RawDataV
     a.href = URL.createObjectURL(blob);
     let host = 'request';
     try {
-      host = new URL(har.request?.url ?? '').hostname;
+      host = new URL(lc.url).hostname || host;
     } catch {
       // leave default
     }
-    a.download = `${host}-${request.displayId}.har`;
+    a.download = `${host}-${row.displayId}.har`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -178,8 +187,6 @@ export default function RawDataView({ request, requestHeaders, pages }: RawDataV
           <span className="dt-rawdata-summary-label">Export snippet</span>
           <span
             className="dt-rawdata-summary-controls"
-            // Clicks inside the controls otherwise bubble to <summary>
-            // and toggle the disclosure, eating dropdown/popover clicks.
             onClick={(e) => e.stopPropagation()}
           >
           <label className="dt-rawdata-field">

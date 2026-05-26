@@ -1,31 +1,40 @@
+import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import { useMemo } from 'react';
-import { computeUpstreamChain } from '../../../data/upstream-chain';
 import { computeInitiatorRowMeta } from '../../../data/initiator-row-meta';
-import type { InspectorRequest } from '../../../data/types';
+import type { InspectorRowWithFires } from '../../../data/inspector-row-projection';
+import { computeUpstreamChain } from '../../../data/upstream-chain';
 import ResourceIcon from '../../traffic/ResourceIcon';
 import { RowChips } from './RowChips';
 
 export function UpstreamChain({
-  request,
-  getRequestByUrl,
+  row,
+  getRowByUrl,
   pageOrigin,
   onOpenRequest,
 }: {
-  request: InspectorRequest;
-  getRequestByUrl: (url: string) => InspectorRequest | null;
+  row: InspectorRowWithFires;
+  getRowByUrl: (url: string) => InspectorRowWithFires | null;
   pageOrigin: string | null;
-  onOpenRequest?: (entryId: string) => void;
+  onOpenRequest?: (requestId: string) => void;
 }) {
-  const chain = useMemo(() => computeUpstreamChain(request, getRequestByUrl), [request, getRequestByUrl]);
+  const lookupLifecycle = useMemo(
+    () =>
+      (url: string): RequestLifecycle | null => getRowByUrl(url)?.lifecycle ?? null,
+    [getRowByUrl],
+  );
+  const chain = useMemo(
+    () => computeUpstreamChain(row.lifecycle, lookupLifecycle),
+    [row.lifecycle, lookupLifecycle],
+  );
   if (chain.length <= 1) return null; // No ancestors — nothing to show.
   return (
     <details className="dt-section" open>
       <summary>Request initiator chain</summary>
       <div className="dt-initiator-chain">
         {chain.map((entry, i) => {
-          const isCurrent = entry.request?.id === request.id;
-          const openable = !!onOpenRequest && !!entry.request && !isCurrent;
-          const meta = entry.request ? computeInitiatorRowMeta(entry.request, pageOrigin) : null;
+          const isCurrent = entry.lifecycle?.requestId === row.lifecycle.requestId;
+          const openable = !!onOpenRequest && !!entry.lifecycle && !isCurrent;
+          const meta = entry.lifecycle ? computeInitiatorRowMeta(entry.lifecycle, pageOrigin) : null;
           const urlClass = [
             'dt-initiator-chain-url',
             isCurrent ? 'dt-initiator-chain-url--anchor' : null,
@@ -33,19 +42,20 @@ export function UpstreamChain({
           ]
             .filter(Boolean)
             .join(' ');
+          const targetId = entry.lifecycle?.requestId;
           return (
             <div
               key={`${entry.url}-${i}`}
               className={`dt-initiator-chain-row${isCurrent ? ' dt-initiator-chain-row--focused' : ''}`}
               style={{ paddingLeft: 4 + i * 16, cursor: openable ? 'pointer' : 'default' }}
               onClick={() => {
-                if (openable) onOpenRequest?.(entry.request!.id);
+                if (openable && targetId) onOpenRequest?.(targetId);
               }}
             >
               <span className="dt-initiator-chain-toggle dt-initiator-chain-toggle--leaf" aria-hidden="true" />
-              {entry.request?.resourceType ? (
+              {entry.lifecycle?.resourceType ? (
                 <span className="dt-initiator-row-icon" aria-hidden="true">
-                  <ResourceIcon type={entry.request.resourceType} />
+                  <ResourceIcon type={entry.lifecycle.resourceType} />
                 </span>
               ) : null}
               <span className={urlClass} title={entry.url}>

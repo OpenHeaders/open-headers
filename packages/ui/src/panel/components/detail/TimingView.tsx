@@ -1,13 +1,13 @@
 import { useCallback, useRef } from 'react';
 import { useMeasuredCssHeights } from '@openheaders/ui/shared/hooks/useMeasuredStickyOffset';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
-import { computeTimingContext, type CacheLabel } from '../../data/timing-context';
 import type { ConnectionReuseInfo } from '../../data/connection-reuse';
+import { currentHarEntry, type InspectorRowWithFires } from '../../data/inspector-row-projection';
 import { parseServerTiming, type ServerTimingMetric } from '../../data/server-timing';
+import { computeTimingContext, type CacheLabel } from '../../data/timing-context';
 import { computeTimingPhases, type TimingGroup } from '../../data/timing-phases';
 import { computeTransferRate, findBottleneck, findWarnings } from '../../data/timing-insight';
 import type { RepeatStats } from '../../data/timing-repeats';
-import type { InspectorRequest } from '../../data/types';
 import { TimingViewMenu } from './timing/TimingMenus';
 
 const GROUP_LABEL: Record<TimingGroup, string> = {
@@ -37,14 +37,15 @@ function formatRelativeStart(ms: number): string {
 }
 
 interface TimingViewProps {
-  request: InspectorRequest;
+  row: InspectorRowWithFires;
   connectionReuse: ConnectionReuseInfo;
   repeatStats: RepeatStats | null;
   /** Session-baseline ms (typically the timestamp of the first observed entry). */
   baselineMs: number | null;
 }
 
-export default function TimingView({ request, connectionReuse, repeatStats, baselineMs }: TimingViewProps) {
+export default function TimingView({ row, connectionReuse, repeatStats, baselineMs }: TimingViewProps) {
+  const lc = row.lifecycle;
   const [showInsights, setShowInsights] = useSetting('devpanelTiming.showInsights');
   const [showContextStrip, setShowContextStrip] = useSetting('devpanelTiming.showContextStrip');
   const [showPhaseGroups, setShowPhaseGroups] = useSetting('devpanelTiming.showPhaseGroups');
@@ -67,10 +68,6 @@ export default function TimingView({ request, connectionReuse, repeatStats, base
   );
   const toggleShowRepeats = useCallback(() => setShowRepeats(!showRepeats), [showRepeats, setShowRepeats]);
 
-  // The sticky toolbar publishes its measured height as
-  // `--oh-timing-toolbar-h`, which `.dt-timing-view` reads into
-  // `--dt-section-sticky-top` so phase-group summaries slot flush
-  // under the toolbar.
   const paneRef = useRef<HTMLDivElement | null>(null);
   const toolbarRef = useRef<HTMLDivElement | null>(null);
   useMeasuredCssHeights(paneRef, [{ ref: toolbarRef, cssVar: '--oh-timing-toolbar-h' }]);
@@ -95,8 +92,8 @@ export default function TimingView({ request, connectionReuse, repeatStats, base
     </div>
   );
 
-  const har = request.harEntry;
-  const data = computeTimingPhases(har);
+  const har = currentHarEntry(lc);
+  const data = har ? computeTimingPhases(har) : null;
   if (!data) {
     return (
       <div className="dt-timing-view" ref={paneRef}>
@@ -108,13 +105,13 @@ export default function TimingView({ request, connectionReuse, repeatStats, base
     );
   }
 
-  const context = computeTimingContext(request, connectionReuse, baselineMs);
+  const context = computeTimingContext(lc, connectionReuse, baselineMs);
   const bottleneck = findBottleneck(data.phases, data.totalMs);
   const warnings = findWarnings(data.phases, bottleneck?.phase ?? null);
-  const serverTiming = parseServerTiming(har.response?.headers);
+  const serverTiming = parseServerTiming(har?.response?.headers);
   const receivePhase = data.phases.find((p) => p.key === 'receive');
   const transferRate = receivePhase
-    ? computeTransferRate(receivePhase.ms, har.response?.content?.size ?? har.response?.bodySize)
+    ? computeTransferRate(receivePhase.ms, har?.response?.content?.size ?? har?.response?.bodySize)
     : null;
   const barTotal = Math.max(data.totalMs, 1);
 
@@ -212,7 +209,7 @@ export default function TimingView({ request, connectionReuse, repeatStats, base
 
       {showServerTiming && serverTiming.length > 0 && <ServerTimingSection metrics={serverTiming} />}
 
-      {showRepeats && repeatStats && <RepeatStatsSection stats={repeatStats} url={request.url} />}
+      {showRepeats && repeatStats && <RepeatStatsSection stats={repeatStats} url={lc.url} />}
     </div>
   );
 }

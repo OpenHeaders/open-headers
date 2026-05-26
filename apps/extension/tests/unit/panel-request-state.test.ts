@@ -4,7 +4,7 @@ import { classifyRequestState, isErrorState, statusText } from '@openheaders/ui/
 import { describe, expect, it } from 'vitest';
 
 function makeLifecycle(
-  opts: Partial<RequestLifecycle> & { har?: Partial<InspectorHarEntry> } = {},
+  opts: Omit<Partial<RequestLifecycle>, 'har'> & { har?: Partial<InspectorHarEntry> } = {},
 ): RequestLifecycle {
   const url = opts.url ?? 'https://api.openheaders.io/x';
   const har: InspectorHarEntry = {

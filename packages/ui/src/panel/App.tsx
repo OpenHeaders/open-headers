@@ -52,19 +52,21 @@ import type { ColumnKey } from './components/traffic/columns';
 import { DEFAULT_VISIBLE_COLUMNS } from './components/traffic/columns';
 import type { FilterConfig } from './data/filter-engine';
 import { DEFAULT_FILTER_CONFIG, hasFilterError, parseFilter } from './data/filter-engine';
-import { computeConnectionReuse } from './data/connection-reuse';
 import { focusStore, setFocusedDock, setFocusedRegion } from './data/focus-store';
-import { computeRepeatStats } from './data/timing-repeats';
 import { serializeHar, suggestHarFilename } from './data/har-export';
+import type { InspectorRowWithFires } from './data/inspector-row-projection';
 import type { DetailSection } from './data/inspector-tab';
 import { buildInspectorTab } from './data/inspector-tab';
-import { PANEL_TOOL_WINDOW_MAP, type PanelToolWindowId } from './data/tool-windows';
-import type { InspectorRequest } from './data/types';
-import { useCacheBypass } from './data/use-cache-bypass';
 import { useParityDebugHook } from './data/parity-debug-hook';
-import { useInspector } from './data/use-inspector';
+import { PANEL_TOOL_WINDOW_MAP, type PanelToolWindowId } from './data/tool-windows';
+import { useFireClient } from './data/use-fire-client';
 import { useInspectorEditorGroups } from './data/use-inspector-editor-groups';
+import { useLifecycleClient } from './data/use-lifecycle-client';
+import { usePageClient } from './data/use-page-client';
+import { usePanelData } from './data/use-panel-data';
 import { type PanelViewState, usePanelEditingScopeViewState, usePanelToolLayout } from './data/use-panel-tool-layout';
+import { usePanelUiState } from './data/use-panel-ui-state';
+import { useCacheBypass } from './data/use-cache-bypass';
 import { useRulesLookup } from './data/use-rules-lookup';
 import { useSearchSession } from './data/use-search-session';
 
@@ -83,36 +85,10 @@ function formatBytes(total: number): string {
   return `${(total / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function formatTransferredSize(entries: readonly InspectorRequest[]): string {
-  let total = 0;
-  for (const e of entries) {
-    const bs = e.harEntry.response?.bodySize;
-    if (typeof bs === 'number' && bs > 0) {
-      total += bs;
-    } else if (e.responseSize && e.responseSize > 0) {
-      total += e.responseSize;
-    }
-  }
-  return formatBytes(total);
-}
-
-function formatResourceSize(entries: readonly InspectorRequest[]): string {
-  let total = 0;
-  for (const e of entries) {
-    const size = e.harEntry.response?.content?.size;
-    if (typeof size === 'number' && size > 0) total += size;
-  }
-  return formatBytes(total);
-}
-
-function formatFinishTime(entries: readonly { duration?: number }[]): string {
-  let max = 0;
-  for (const e of entries) {
-    if (e.duration != null && e.duration > max) max = e.duration;
-  }
-  if (max === 0) return '';
-  if (max < 1000) return `${Math.round(max)} ms`;
-  return `${(max / 1000).toFixed(2)} s`;
+function formatFinishTime(finishMs: number): string {
+  if (finishMs <= 0) return '';
+  if (finishMs < 1000) return `${Math.round(finishMs)} ms`;
+  return `${(finishMs / 1000).toFixed(2)} s`;
 }
 
 // ── Shell event bus (created once, stable across renders) ────────────
@@ -147,30 +123,10 @@ interface AppProps {
 }
 
 export default function App({ resolveIdentity }: AppProps) {
-  // Per-panel identity. Each DevTools panel page is its own JS realm, so
-  // the host resolver runs once per panel lifetime. Its navigation
-  // handle resolves the inspected tab so other surfaces can switch the
-  // user back to the page whose DevTools hosts this panel.
   const devPanelIdentity = useMemo(() => resolveIdentity(), [resolveIdentity]);
-  // Active workspace drives the lifeline `bind` message so the SW
-  // refcount-acquires this surface's `WorkspaceServiceState` while the
-  // DevTools panel is open (design § 4.0.7). DevPanel always reads
-  // Active per § 4.0.3 — no per-tab editing scope here.
   const workspaceId = useActiveWorkspaceId();
   return (
     <AwarenessIdentityProvider value={devPanelIdentity} workspaceId={workspaceId}>
-      {/*
-       * Devpanel awareness foundation — same shape as the workbench
-       * (Session 1+):
-       *   - `ActiveTabEntity`     ← `RuleHoverPopover` writes when
-       *                             visible+rule, clears on unmount
-       *   - `ActiveFieldFocus`    ← `<EntityField>` focus capture in
-       *                             popover inputs
-       *   - `ActiveEditorDirty`   ← `useEditorDirty` from the popover
-       *
-       * `<SurfaceAwarenessPublisher>` is the sole `useAwareness` caller
-       * for this surface — drops the popover's per-component publish.
-       */}
       <ActiveFieldFocusProvider>
         <ActiveEditorDirtyProvider>
           <ActiveTabEntityProvider>
@@ -217,8 +173,6 @@ export default function App({ resolveIdentity }: AppProps) {
   );
 }
 
-// Pulls the active workspace id from the same hook the popover uses,
-// so the publisher's `workspaceId` follows the panel's environment.
 function DevPanelAwarenessPublisher(): React.ReactElement {
   const workspaceId = useActiveWorkspaceId();
   return <SurfaceAwarenessPublisher workspaceId={workspaceId} migratedEntityTypes={[RULE_ENTITY_TYPE]} />;
@@ -235,62 +189,37 @@ function PanelContent() {
 }
 
 function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelViewState> }) {
-  const {
-    entries,
-    danglingFires,
-    navTiming,
-    initiatorChildren,
-    pages,
-    clear: clearStore,
-    preserveLog,
-    setPreserveLog,
-    recording,
-    setRecording,
-  } = useInspector();
-  // Lookup table used by `getInitiatorChildren` to resolve child entry
-  // ids (from the store's inverted initiator index) into full
-  // `InspectorRequest` rows the InitiatorView can render. Built once per
-  // entries-array identity — the store hands us a fresh slice on every
-  // bump so the dependency is sound.
-  const entriesById = useMemo(() => {
-    const m = new Map<string, InspectorRequest>();
-    for (const e of entries) m.set(e.id, e);
-    return m;
-  }, [entries]);
-  // URL → entry for upstream-chain ancestor lookups. First arrival wins
-  // when duplicates exist (matches the cascade-summary tree-build
-  // semantics — we walk upstream from the first observed parent).
-  const entriesByUrl = useMemo(() => {
-    const m = new Map<string, InspectorRequest>();
-    for (const e of entries) if (!m.has(e.url)) m.set(e.url, e);
-    return m;
-  }, [entries]);
-  const getRequestByUrl = useCallback((url: string) => entriesByUrl.get(url) ?? null, [entriesByUrl]);
-  // Resolver passed down to InitiatorView. Pure projection over the
-  // store-owned index — no traversal of `entries` at render time, no
-  // graph computation in the leaf component.
-  const getInitiatorChildren = useCallback(
-    (url: string): readonly InspectorRequest[] => {
-      const ids = initiatorChildren.get(url);
-      if (!ids || ids.length === 0) return [];
-      const out: InspectorRequest[] = [];
-      for (const id of ids) {
-        const e = entriesById.get(id);
-        if (e) out.push(e);
-      }
-      return out;
-    },
-    [entriesById, initiatorChildren],
+  // Four-hook composition replacing the legacy `useInspector`. The
+  // three port-bound clients live alongside `usePanelUiState`, which
+  // owns the panel-local toggles (preserveLog / recording) and the
+  // `clear()` action that fans out to every registered store.
+  const lifecycleClient = useLifecycleClient();
+  const pageClient = usePageClient();
+  const fireClient = useFireClient();
+  const ui = usePanelUiState({
+    resettables: useMemo(
+      () => [lifecycleClient.store, pageClient.store, fireClient.store],
+      [lifecycleClient.store, pageClient.store, fireClient.store],
+    ),
+  });
+  const data = usePanelData({
+    lifecycle: lifecycleClient.snapshot,
+    page: pageClient.snapshot,
+    fire: fireClient.snapshot,
+    opts: useMemo(() => ({ consolidateRetries: !ui.preserveLog }), [ui.preserveLog]),
+  });
+
+  // Resolver passed down to detail panes — pure projection over the
+  // panel-data lookup map, no traversal at render time.
+  const getRowByUrl = useCallback(
+    (url: string): InspectorRowWithFires | null => data.lookupByUrl.get(url) ?? null,
+    [data.lookupByUrl],
   );
-  // Timing-tab lookups — App owns the closure over `entries` so the
-  // leaf view stays decoupled from the global list (same pattern as
-  // `getInitiatorChildren`).
-  const getConnectionReuse = useCallback((req: InspectorRequest) => computeConnectionReuse(req, entries), [entries]);
-  const getRepeatStats = useCallback((req: InspectorRequest) => computeRepeatStats(req, entries), [entries]);
-  // Session baseline for "Started +X ms" — first observed entry's
-  // timestamp. Resets when `clear()` empties the entries list.
-  const baselineMs = useMemo(() => (entries.length > 0 ? entries[0].timestamp : null), [entries]);
-  useParityDebugHook(entries, clearStore);
+
+  // Parity capture loop reads lifecycles directly — strictly better
+  // signal than the denormalized rows the legacy hook took.
+  useParityDebugHook(lifecycleClient.snapshot.ordered, ui.clear);
+
   const groups = useInspectorEditorGroups({ perTab });
   const tl = usePanelToolLayout(perTab);
   // Make `openDocs(sectionId)` from anywhere in the panel tree open the
@@ -310,7 +239,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   // Search session lives at the panel level — SearchPanel itself
   // mounts/unmounts as the user toggles the Search tool window, and
   // we don't want that to discard the user's query and results.
-  const searchSession = useSearchSession(entries);
+  const searchSession = useSearchSession(data.rows);
   // Rules registry — needed to attribute which request/response
   // headers were added / modified / removed by an Open Headers rule.
   const rulesByUid = useRulesLookup();
@@ -320,23 +249,15 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   // (yellow) for request headers on any request that matched a user
   // header rule without explicit Cache-Control handling.
   const [liveRulesMode] = useSetting('rulesEngine.liveRulesMode');
-  // Environment switcher feed for the panel top bar. Panel mounts the
-  // env-switcher provider without `collectionContext`, so the service
-  // degrades to plain manual-pick (setManualEnv + setActiveEnvironment)
-  // which is exactly what the panel needs — it has no collection/tab
-  // navigation and thus no collection-mode side effects to apply.
   const envApi = useEnvironments();
   const { pickActiveEnvironment: handlePanelSwitchEnv } = useEnvSwitcher();
 
   const clear = useCallback(() => {
-    clearStore();
+    ui.clear();
     groups.closeAllTabs();
-  }, [clearStore, groups]);
+  }, [ui, groups]);
 
   // ── Layout settings (persisted via settings store) ────────────
-  // The panel has its own namespace (`devpanelLayout.*`) so the user
-  // can keep the workspace's wider defaults while the narrower DevTools
-  // surface stays compact. Labels default to off here for that reason.
   const [activityLabels, setActivityLabels] = useSetting('devpanelLayout.showToolWindowLabels');
   const [bottomPanelAlignment] = useSetting('devpanelLayout.bottomPanelAlignment');
   const [sidebarLayout] = useSetting('devpanelLayout.sidebarLayout');
@@ -360,21 +281,19 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   const [searchHighlight, setSearchHighlight] = useState<string | undefined>(undefined);
   const [searchSection, setSearchSection] = useState<string | undefined>(undefined);
   const [searchLineNumber, setSearchLineNumber] = useState<number | undefined>(undefined);
-  /** N-th match within the searched section (0-based). Lets the viewer
-   *  scroll to this specific occurrence, not just the first. */
   const [searchMatchIndex, setSearchMatchIndex] = useState<number | undefined>(undefined);
   const [, setSearchNonce] = useState(0);
   const [visibleColumns, setVisibleColumns] = useState<Set<ColumnKey>>(() => new Set(DEFAULT_VISIBLE_COLUMNS));
 
   // Sync inspected-window origin into filter config so "Hide 3rd party"
-  // has a baseline to compare against. Coming from the nav-timing port
-  // message avoids a second round-trip over inspectedWindow.eval.
+  // has a baseline to compare against.
   useLayoutEffect(() => {
+    const navTiming = data.navTiming;
     if (!navTiming) return;
     setFilterConfig((prev) =>
       prev.pageOrigin === navTiming.pageOrigin ? prev : { ...prev, pageOrigin: navTiming.pageOrigin },
     );
-  }, [navTiming]);
+  }, [data.navTiming]);
 
   // ── Shell event bus + focus region ─────────────────────────
   const shellRef = useRef<HTMLDivElement>(null);
@@ -404,35 +323,33 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
 
   // ── Open request as tab ────────────────────────────────────
   const handleSelect = useCallback(
-    (id: string) => {
-      const entry = entries.find((e) => e.id === id);
-      if (!entry) return;
-      const tab = buildInspectorTab(entry, 'network');
-      tab.statusCode = entry.statusCode;
+    (requestId: string) => {
+      const row = data.lookupByRequestId.get(requestId);
+      if (!row) return;
+      const tab = buildInspectorTab({ lifecycle: row.lifecycle, displayId: row.displayId }, 'network');
       tab.activeSection = lastSectionRef.current;
       groups.addTab(tab);
       setSearchHighlight(undefined);
       setSearchSection(undefined);
       setSearchLineNumber(undefined);
     },
-    [entries, groups],
+    [data.lookupByRequestId, groups],
   );
 
   const handleCrossNav = useCallback(
-    (id: string) => {
+    (requestId: string) => {
       tl.activateWindow('network');
-      handleSelect(id);
+      handleSelect(requestId);
     },
     [tl, handleSelect],
   );
 
   const handleSearchResult = useCallback(
-    (entryId: string, highlight: string, section: string, lineNumber: number, matchIndex: number) => {
-      const entry = entries.find((e) => e.id === entryId);
-      if (!entry) return;
-      const tab = buildInspectorTab(entry, 'network');
+    (requestId: string, highlight: string, section: string, lineNumber: number, matchIndex: number) => {
+      const row = data.lookupByRequestId.get(requestId);
+      if (!row) return;
+      const tab = buildInspectorTab({ lifecycle: row.lifecycle, displayId: row.displayId }, 'network');
       tab.activeSection = sectionToTab(section);
-      tab.statusCode = entry.statusCode;
       groups.addTab(tab);
       groups.updateTab(tab.id, { activeSection: sectionToTab(section) });
       setSearchHighlight(highlight);
@@ -441,29 +358,29 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       setSearchMatchIndex(matchIndex);
       setSearchNonce((n) => n + 1);
     },
-    [entries, groups],
+    [data.lookupByRequestId, groups],
   );
 
   // ── Editor group tab body ──────────────────────────────────
   const renderTabBody = useCallback(
     ({ tab }: { tab: ReturnType<typeof buildInspectorTab>; leafId: string; isFocusedLeaf: boolean }) => {
-      const request = entries.find((e) => e.id === tab.requestId);
-      if (!request) {
+      const row = data.lookupByRequestId.get(tab.requestId);
+      if (!row) {
         return <div className="dt-editor-empty">Request no longer available (cleared or navigated away)</div>;
       }
       const isActiveTab = tab.id === groups.activeTabId;
       return (
         <InspectorDetailContent
-          request={request}
+          row={row}
           rulesByUid={rulesByUid}
-          pages={pages}
-          getInitiatorChildren={getInitiatorChildren}
-          getConnectionReuse={getConnectionReuse}
-          getRepeatStats={getRepeatStats}
-          baselineMs={baselineMs}
+          pages={data.pages}
+          getInitiatorChildren={data.getInitiatorChildren}
+          getConnectionReuse={data.getConnectionReuse}
+          getRepeatStats={data.getRepeatStats}
+          baselineMs={data.baselineMs}
           pageOrigin={filterConfig.pageOrigin}
           onOpenRequest={handleCrossNav}
-          getRequestByUrl={getRequestByUrl}
+          getRowByUrl={getRowByUrl}
           cacheBypassEnabled={cacheBypass.enabled}
           liveRulesMode={liveRulesMode}
           activeSection={tab.activeSection}
@@ -479,17 +396,17 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       );
     },
     [
-      entries,
+      data.lookupByRequestId,
+      data.pages,
+      data.getInitiatorChildren,
+      data.getConnectionReuse,
+      data.getRepeatStats,
+      data.baselineMs,
       groups,
       rulesByUid,
-      pages,
-      getInitiatorChildren,
-      getConnectionReuse,
-      getRepeatStats,
-      baselineMs,
       filterConfig.pageOrigin,
       handleCrossNav,
-      getRequestByUrl,
+      getRowByUrl,
       cacheBypass.enabled,
       liveRulesMode,
       searchHighlight,
@@ -506,14 +423,14 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
 
   const activeTab = groups.focusedLeaf.tabs.find((t) => t.id === groups.activeTabId);
   const selectedId = activeTab?.requestId ?? null;
-  const transferredSize = useMemo(() => formatTransferredSize(entries), [entries]);
-  const resourceSize = useMemo(() => formatResourceSize(entries), [entries]);
-  const finishTime = useMemo(() => formatFinishTime(entries), [entries]);
+  const transferredSize = useMemo(() => formatBytes(data.totalBytesTransferred), [data.totalBytesTransferred]);
+  const resourceSize = useMemo(() => formatBytes(data.totalResourceSize), [data.totalResourceSize]);
+  const finishTime = useMemo(() => formatFinishTime(data.finishTimeMs), [data.finishTimeMs]);
 
   // ── HAR export helpers ─────────────────────────────────────
   const downloadHar = useCallback(
-    (subset: readonly InspectorRequest[], filename: string) => {
-      const json = serializeHar(subset, pages);
+    (subset: readonly InspectorRowWithFires[], filename: string) => {
+      const json = serializeHar(subset, data.pages);
       const blob = new Blob([json], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -524,29 +441,29 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 0);
     },
-    [pages],
+    [data.pages],
   );
 
   const handleSaveAllAsHar = useCallback(() => {
-    downloadHar(entries, suggestHarFilename(entries));
-  }, [entries, downloadHar]);
+    downloadHar(data.rows, suggestHarFilename(data.rows));
+  }, [data.rows, downloadHar]);
 
   const handleSaveAsHar = useCallback(
-    (entry: InspectorRequest) => {
-      const single: readonly InspectorRequest[] = [entry];
+    (row: InspectorRowWithFires) => {
+      const single: readonly InspectorRowWithFires[] = [row];
       downloadHar(single, suggestHarFilename(single));
     },
     [downloadHar],
   );
 
   const handleCopyAllAsHar = useCallback(async () => {
-    const json = serializeHar(entries, pages);
+    const json = serializeHar(data.rows, data.pages);
     try {
       await navigator.clipboard.writeText(json);
     } catch {
       // Best-effort — clipboard may be gated in some DevTools contexts.
     }
-  }, [entries, pages]);
+  }, [data.rows, data.pages]);
 
   // ── Tool window content ────────────────────────────────────
   const renderToolWindow = useCallback(
@@ -555,7 +472,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
         case 'network':
           return (
             <TrafficList
-              entries={entries}
+              rows={data.rows}
               selectedId={selectedId}
               onSelect={handleSelect}
               filter={filter}
@@ -569,8 +486,8 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
               onToggleDocs={() => tl.toggleWindow('docs')}
               docsActive={iconState('docs') !== undefined}
               showFilter={showFilter}
-              recording={recording}
-              onStartRecording={() => setRecording(true)}
+              recording={ui.recording}
+              onStartRecording={() => ui.setRecording(true)}
               onReloadPage={() => hostNavigation.reloadInspectedTab()}
               visibleColumns={visibleColumns}
               onVisibleColumnsChange={setVisibleColumns}
@@ -583,8 +500,8 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
         case 'rules':
           return (
             <RuleExecutions
-              entries={entries}
-              danglingFires={danglingFires}
+              rows={data.rows}
+              danglingFires={data.dangling}
               onRequestClick={handleCrossNav}
               onHide={() => tl.toggleWindow('rules')}
             />
@@ -608,10 +525,10 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
             />
           );
         case 'matched-rules': {
-          const selectedRequest = selectedId ? (entries.find((e) => e.id === selectedId) ?? null) : null;
+          const selectedRow = selectedId ? data.lookupByRequestId.get(selectedId) ?? null : null;
           return (
             <MatchedRulesPanel
-              request={selectedRequest}
+              row={selectedRow}
               rulesByUid={rulesByUid}
               onClose={() => tl.toggleWindow('matched-rules')}
             />
@@ -620,7 +537,9 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       }
     },
     [
-      entries,
+      data.rows,
+      data.dangling,
+      data.lookupByRequestId,
       selectedId,
       handleSelect,
       filter,
@@ -629,9 +548,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       filterError,
       showFilter,
       urlFilter,
-      recording,
-      setRecording,
-      danglingFires,
+      ui,
       handleCrossNav,
       handleSearchResult,
       tl,
@@ -694,21 +611,21 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   return (
     <div className="dt-panel-root" ref={shellRef}>
       <PanelToolbar
-        recording={recording}
-        onToggleRecording={() => setRecording(!recording)}
+        recording={ui.recording}
+        onToggleRecording={() => ui.setRecording(!ui.recording)}
         onClear={clear}
         showFilter={showFilter}
         onToggleFilter={() => setShowFilter(!showFilter)}
         searchActive={iconState('search') !== undefined}
         onToggleSearch={() => tl.toggleWindow('search')}
-        preserveLog={preserveLog}
-        onPreserveLogChange={setPreserveLog}
+        preserveLog={ui.preserveLog}
+        onPreserveLogChange={ui.setPreserveLog}
         rulesVisible={rulesVisible}
         filterConfig={filterConfig}
         onFilterConfigChange={setFilterConfig}
         onExportHar={handleSaveAllAsHar}
         onCopyAllHar={handleCopyAllAsHar}
-        canExport={entries.length > 0}
+        canExport={data.rows.length > 0}
         cacheBypassEnabled={cacheBypass.enabled}
         onToggleCacheBypass={cacheBypass.toggle}
         showToolWindowLabels={activityLabels}
@@ -739,12 +656,12 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       />
 
       <PanelStatusBar
-        requestCount={entries.length}
+        requestCount={data.rows.length}
         transferredSize={transferredSize}
         resourceSize={resourceSize}
         finishTime={finishTime}
-        dclMs={navTiming?.dclMs}
-        loadMs={navTiming?.loadMs}
+        dclMs={data.navTiming?.dclMs}
+        loadMs={data.navTiming?.loadMs}
         tabCount={groups.allTabs.length}
       />
     </div>

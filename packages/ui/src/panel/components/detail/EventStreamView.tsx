@@ -10,14 +10,13 @@
  *   - `retry: <ms>`
  *   - lines starting with `:` are comments
  *
- * We parse the stored response body rather than streaming — the HAR
- * API hands us the full body text once the request finishes. For
- * long-running streams that never finish during the DevTools session,
- * the body may be empty; we show an empty-state explaining that.
+ * The host's body API hands us the full body text once the request
+ * finishes; for long-running streams that never finish during the
+ * DevTools session the body may be empty.
  */
 
 import { useMemo } from 'react';
-import type { InspectorRequest } from '../../data/types';
+import { currentResponseBody, type InspectorRowWithFires } from '../../data/inspector-row-projection';
 
 interface SseEvent {
   id?: string;
@@ -51,22 +50,23 @@ function parseSse(body: string): SseEvent[] {
   return out;
 }
 
-export function isEventStream(mimeType: string | undefined): boolean {
+export function isEventStream(mimeType: string | undefined | null): boolean {
   if (!mimeType) return false;
   return mimeType.toLowerCase().startsWith('text/event-stream');
 }
 
 interface EventStreamViewProps {
-  request: InspectorRequest;
+  row: InspectorRowWithFires;
 }
 
-export default function EventStreamView({ request }: EventStreamViewProps) {
-  const events = useMemo(() => parseSse(request.responseBody ?? ''), [request.responseBody]);
+export default function EventStreamView({ row }: EventStreamViewProps) {
+  const body = currentResponseBody(row.lifecycle)?.content ?? '';
+  const events = useMemo(() => parseSse(body), [body]);
 
   if (events.length === 0) {
     return (
       <div className="dt-empty" style={{ padding: 24, textAlign: 'center' }}>
-        {request.responseBody
+        {body
           ? 'No parseable SSE events in the response body.'
           : 'No events captured. Server-sent streams are only materialized once the request finishes; long-running streams may not populate here until the connection closes.'}
       </div>

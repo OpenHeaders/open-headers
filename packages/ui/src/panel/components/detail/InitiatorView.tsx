@@ -13,12 +13,14 @@
  *   - panel/data/                (cascade summary, insights, filter)
  */
 
-import type { InspectorHarEntry } from '@openheaders/core/types';
+import {
+  currentHarEntry,
+  type InspectorRowWithFires,
+} from '../../data/inspector-row-projection';
 import { CallStack, type StackTrace } from './initiator/CallStack';
 import { InitiatorTreeView } from './initiator/InitiatorTree';
 import { UpstreamChain } from './initiator/UpstreamChain';
 import { extractFilename } from './initiator/utils';
-import type { InspectorRequest } from '../../data/types';
 
 interface Initiator {
   type?: string;
@@ -28,23 +30,23 @@ interface Initiator {
 }
 
 interface InitiatorViewProps {
-  request: InspectorRequest;
-  getInitiatorChildren: (url: string) => readonly InspectorRequest[];
-  getRequestByUrl: (url: string) => InspectorRequest | null;
+  row: InspectorRowWithFires;
+  getInitiatorChildren: (url: string) => readonly InspectorRowWithFires[];
+  getRowByUrl: (url: string) => InspectorRowWithFires | null;
   pageOrigin: string | null;
-  onOpenRequest?: (entryId: string) => void;
+  onOpenRequest?: (requestId: string) => void;
 }
 
 export default function InitiatorView({
-  request,
+  row,
   getInitiatorChildren,
-  getRequestByUrl,
+  getRowByUrl,
   pageOrigin,
   onOpenRequest,
 }: InitiatorViewProps) {
-  const har: InspectorHarEntry = request.harEntry;
-  const raw = har._initiator as Initiator | undefined;
-  const hasChildren = getInitiatorChildren(request.url).length > 0;
+  const lc = row.lifecycle;
+  const raw = currentHarEntry(lc)?._initiator as Initiator | undefined;
+  const hasChildren = getInitiatorChildren(lc.url).length > 0;
 
   if (!raw && !hasChildren) {
     return (
@@ -59,15 +61,15 @@ export default function InitiatorView({
       {raw?.stack && <CallStack stack={raw.stack} pageOrigin={pageOrigin} />}
 
       <UpstreamChain
-        request={request}
-        getRequestByUrl={getRequestByUrl}
+        row={row}
+        getRowByUrl={getRowByUrl}
         pageOrigin={pageOrigin}
         onOpenRequest={onOpenRequest}
       />
 
       {hasChildren && (
         <InitiatorTreeView
-          request={request}
+          row={row}
           getChildren={getInitiatorChildren}
           pageOrigin={pageOrigin}
           onOpenRequest={onOpenRequest}

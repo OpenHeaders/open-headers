@@ -7,9 +7,9 @@
  * format-specific escaping and shape.
  */
 
+import type { Page } from '@openheaders/core/page-stream';
 import type { InspectorHarEntry } from '@openheaders/core/types';
 import { buildHarFromEntries } from '../../../data/har-export';
-import type { InspectorPage } from '../../../data/pages';
 
 export type SnippetFormat =
   | 'curl-unix'
@@ -53,7 +53,7 @@ export interface SnippetOptions {
   /** Only consulted by the `har` format — used to emit `log.pages[]`
    *  + entry `pageref` so the snippet matches Chrome's exported HAR. */
   pageref?: string;
-  pages?: readonly InspectorPage[];
+  pages?: readonly Page[];
 }
 
 export function generateSnippet(opts: SnippetOptions): string {

@@ -1,7 +1,12 @@
 import { useMemo, useState } from 'react';
+import {
+  currentHarEntry,
+  type InspectorRowWithFires,
+  lifecycleBodySize,
+  lifecycleMimeType,
+} from '../data/inspector-row-projection';
 import { isTextMime } from '../data/mime';
 import { classifyBodyState } from '../data/response-body-state';
-import type { InspectorRequest } from '../data/types';
 import HexViewer from './detail/HexViewer';
 import ResponseViewerToolbar, { type ViewMode } from './detail/ResponseViewerToolbar';
 import Skeleton from './detail/Skeleton';
@@ -15,7 +20,7 @@ function base64ToBytes(b64: string): Uint8Array {
 }
 
 interface ResponseBodyViewProps {
-  request: InspectorRequest;
+  row: InspectorRowWithFires;
   searchHighlight?: string;
   searchLineNumber?: number;
   /** N-th occurrence of `searchHighlight` in this body (0-based). */
@@ -24,8 +29,7 @@ interface ResponseBodyViewProps {
 
 /**
  * Center a short explanatory message when the response body is
- * deliberately absent or unreachable. Matches Chrome's
- * "Failed to load response data / <reason>" layout.
+ * deliberately absent or unreachable.
  */
 function ResponseNotice({ title, detail }: { title: string; detail: string }) {
   return (
@@ -36,9 +40,11 @@ function ResponseNotice({ title, detail }: { title: string; detail: string }) {
   );
 }
 
-export function ResponseBodyView({ request, searchHighlight, searchMatchIndex }: ResponseBodyViewProps) {
-  const declaredMime = request.mimeType ?? request.harEntry?.response?.content?.mimeType ?? '';
-  const state = useMemo(() => classifyBodyState(request), [request]);
+export function ResponseBodyView({ row, searchHighlight, searchMatchIndex }: ResponseBodyViewProps) {
+  const lc = row.lifecycle;
+  const declaredMime =
+    lifecycleMimeType(lc) ?? currentHarEntry(lc)?.response?.content?.mimeType ?? '';
+  const state = useMemo(() => classifyBodyState(lc), [lc]);
   const highlight = searchHighlight ?? '';
 
   const [viewMode, setViewMode] = useState<ViewMode>('hex');
@@ -95,7 +101,7 @@ export function ResponseBodyView({ request, searchHighlight, searchMatchIndex }:
     } else if (bytes) {
       content = <HexViewer data={bytes} />;
     } else {
-      content = <span className="dt-col-muted">Binary payload ({request.responseSize ?? 0} bytes).</span>;
+      content = <span className="dt-col-muted">Binary payload ({lifecycleBodySize(lc) ?? 0} bytes).</span>;
     }
 
     // Binary bodies whose MIME is text-ish (e.g. base64-encoded JSON)

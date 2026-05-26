@@ -7,21 +7,25 @@
  *             (reference zero of the waterfall)
  *   - `tMax`  absolute wall-clock ms of the latest visible row's
  *             finish time (reference right edge)
- *   - `entry` the row being rendered
+ *   - `row`   the row being rendered
  *
  * The bar is absolute-positioned inside a track sized to the
- * `[t0, tMax]` window. Request start is `entry.timestamp - t0` and
- * request end is `start + (entry.duration ?? 0)`. When timings data is
- * available the inner phases (blocked/dns/connect/ssl/send/wait/receive)
- * are rendered as stacked colored segments, matching the color palette
- * used in the Timing detail view.
+ * `[t0, tMax]` window. Request start is `row.lifecycle.startedAtMs - t0`
+ * and request end derives from the lifecycle's best-known duration.
+ * When timings data is available the inner phases
+ * (blocked/dns/connect/ssl/send/wait/receive) are rendered as stacked
+ * colored segments, matching the Timing detail view's palette.
  */
 
 import type { InspectorHarEntry } from '@openheaders/core/types';
-import type { InspectorRequest } from '../../data/types';
+import {
+  currentHarEntry,
+  type InspectorRowWithFires,
+  lifecycleDurationMs,
+} from '../../data/inspector-row-projection';
 
 interface WaterfallBarProps {
-  entry: InspectorRequest;
+  row: InspectorRowWithFires;
   t0: number;
   tMax: number;
 }
@@ -55,14 +59,15 @@ function positivePhases(timings: NonNullable<InspectorHarEntry['timings']>): Arr
   return out;
 }
 
-export function WaterfallBar({ entry, t0, tMax }: WaterfallBarProps) {
+export function WaterfallBar({ row, t0, tMax }: WaterfallBarProps) {
+  const lc = row.lifecycle;
   const span = Math.max(tMax - t0, 1);
-  const start = Math.max(entry.timestamp - t0, 0);
-  const duration = entry.duration && entry.duration > 0 ? entry.duration : 1;
+  const start = Math.max(lc.startedAtMs - t0, 0);
+  const duration = lifecycleDurationMs(lc) ?? 1;
   const leftPct = (start / span) * 100;
   const widthPct = Math.max((duration / span) * 100, 0.25);
 
-  const timings = entry.harEntry.timings;
+  const timings = currentHarEntry(lc)?.timings;
   const phases = timings ? positivePhases(timings) : [];
   const phaseTotal = phases.reduce((s, p) => s + p.ms, 0);
 

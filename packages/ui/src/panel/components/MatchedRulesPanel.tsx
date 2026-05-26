@@ -10,15 +10,16 @@
  *     case it only shows up here.
  */
 
-import { useMemo } from 'react';
 import type { Rule } from '@openheaders/core/types';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
-import { type InspectorFire, type InspectorRequest, isAppliedFire } from '../data/types';
+import { useMemo } from 'react';
+import type { InspectorRowWithFires } from '../data/inspector-row-projection';
+import { type InspectorFire, isAppliedFire } from '../data/types';
 import type { RulesByUid } from '../data/use-rules-lookup';
 import { useRulePopover } from './RulePopoverHost';
 
 interface MatchedRulesPanelProps {
-  request: InspectorRequest | null;
+  row: InspectorRowWithFires | null;
   rulesByUid: RulesByUid;
   onClose: () => void;
 }
@@ -48,14 +49,6 @@ function formatRuleTypeFromSnapshot(type: Rule['type']): string {
   }
 }
 
-/**
- * Describe the header modifications a rule applied to *this* fire.
- * Reads from `fire.ruleSnapshot` first — those are the mods that
- * actually ran. Falls back to the live rule when the fire predates the
- * snapshotter (legacy ring-buffer entries). Without the snapshot
- * preference, editing a rule would silently rewrite the action lines
- * shown for past fires.
- */
 function describeHeaderActions(fire: InspectorFire, rule: Rule | undefined): string[] {
   const snapshot = fire.ruleSnapshot;
   if (snapshot && snapshot.type === 'header' && snapshot.headerMods) {
@@ -83,8 +76,6 @@ interface FireRowProps {
   rule: Rule | undefined;
 }
 
-/** Power-user evidence label — distinguishes the *source* of the
- *  applied/inferred verdict for diagnostic readers. */
 function evidenceLabel(fire: InspectorFire): string {
   if (fire.authoritative) return 'authoritative';
   switch (fire.evidence) {
@@ -101,7 +92,7 @@ function evidenceLabel(fire: InspectorFire): string {
 
 function evidenceTitle(fire: InspectorFire): string {
   if (fire.authoritative) {
-    return "Confirmed by Chrome's onRuleMatchedDebug — this DNR rule actually executed on the request.";
+    return 'Authoritative — the rule engine confirmed this DNR rule executed on the request.';
   }
   switch (fire.evidence) {
     case 'confirmed':
@@ -116,8 +107,6 @@ function evidenceTitle(fire: InspectorFire): string {
 }
 
 function FireRow({ fire, rule }: FireRowProps) {
-  // Identity prefers the snapshot — for a deleted rule we still want to
-  // display the name the rule had when it fired, not the bare uid.
   const label = rule?.name ?? fire.ruleSnapshot?.name ?? fire.ruleUid;
   const type = rule
     ? formatRuleType(rule)
@@ -166,7 +155,7 @@ function FireRow({ fire, rule }: FireRowProps) {
   );
 }
 
-export function MatchedRulesPanel({ request, rulesByUid, onClose }: MatchedRulesPanelProps) {
+export function MatchedRulesPanel({ row, rulesByUid, onClose }: MatchedRulesPanelProps) {
   const wiring = useMemo(() => createPanelHeaderWiring({ onHide: onClose }), [onClose]);
   return (
     <div className="dt-panel dt-matched-rules-panel">
@@ -175,22 +164,22 @@ export function MatchedRulesPanel({ request, rulesByUid, onClose }: MatchedRules
         title={
           <>
             <strong>Matched Rules</strong>
-            {request && <span className="dt-panel-title-sub">· {request.method}</span>}
+            {row && <span className="dt-panel-title-sub">· {row.lifecycle.method}</span>}
           </>
         }
       />
       <div className="dt-matched-rules-panel-body">
-        {!request && (
+        {!row && (
           <div className="dt-empty" style={{ fontSize: 11, padding: 12 }}>
             Select a request to see matched rules.
           </div>
         )}
-        {request && request.fires.length === 0 && (
+        {row && row.fires.length === 0 && (
           <div className="dt-empty" style={{ fontSize: 11, padding: 12 }}>
             No rules matched this request.
           </div>
         )}
-        {request?.fires.map((f, i) => (
+        {row?.fires.map((f, i) => (
           <FireRow key={`${f.ruleUid}-${i}`} fire={f} rule={rulesByUid.get(f.ruleUid)} />
         ))}
       </div>

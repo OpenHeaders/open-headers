@@ -1,7 +1,7 @@
 /**
  * Right-click menu on a traffic list row.
  *
- * Mirrors the Chrome DevTools Network tab's row menu:
+ * Mirrors the native network row menu pattern:
  *
  *   - Open in new tab
  *   - Copy > ... (per-row and bulk variants)
@@ -11,13 +11,13 @@
  * The menu closes on outside click or Esc via the shared close-on-
  * outside pattern. Clipboard operations go through `navigator.clipboard`
  * and fall back to `document.execCommand('copy')` on failure for hosts
- * where the clipboard API is gated (historically some dev env iframes).
+ * where the clipboard API is gated.
  */
 
 import { useEffect, useRef, useState } from 'react';
+import { currentResponseBody, type InspectorRowWithFires } from '../../data/inspector-row-projection';
 import { formatCurl, formatFetch, formatRequestHeaders, formatResponseHeaders } from '../../data/request-formatters';
 import { handOffRuleDraft } from '../../data/rule-draft-bridge';
-import type { InspectorRequest } from '../../data/types';
 
 export interface RequestContextMenuState {
   x: number;
@@ -27,10 +27,10 @@ export interface RequestContextMenuState {
 
 interface RequestContextMenuProps {
   state: RequestContextMenuState;
-  request: InspectorRequest;
-  allEntries: readonly InspectorRequest[];
+  row: InspectorRowWithFires;
+  allRows: readonly InspectorRowWithFires[];
   onClose: () => void;
-  onSaveAsHar: (entry: InspectorRequest) => void;
+  onSaveAsHar: (row: InspectorRowWithFires) => void;
   onSaveAllAsHar: () => void;
   onCopyAllAsHar: () => void;
 }
@@ -55,26 +55,26 @@ async function copyText(text: string): Promise<void> {
   }
 }
 
-async function blockRequest(request: InspectorRequest, scope: 'url' | 'domain'): Promise<void> {
-  let url = request.url;
+async function blockRequest(url: string, scope: 'url' | 'domain'): Promise<void> {
+  let pattern = url;
   if (scope === 'domain') {
     try {
-      const u = new URL(request.url);
-      url = `${u.protocol}//${u.hostname}/*`;
+      const u = new URL(url);
+      pattern = `${u.protocol}//${u.hostname}/*`;
     } catch {
       // Fall back to raw URL.
     }
   }
   await handOffRuleDraft({
     type: 'block',
-    url,
+    url: pattern,
   });
 }
 
 export function RequestContextMenu({
   state,
-  request,
-  allEntries,
+  row,
+  allRows,
   onClose,
   onSaveAsHar,
   onSaveAllAsHar,
@@ -114,17 +114,18 @@ export function RequestContextMenu({
     </button>
   );
 
+  const lc = row.lifecycle;
   const openInNewTab = () => {
     try {
-      window.open(request.url, '_blank', 'noopener,noreferrer');
+      window.open(lc.url, '_blank', 'noopener,noreferrer');
     } catch {
       // window.open may be blocked inside some DevTools contexts.
     }
   };
 
-  const responseBody = request.responseBody ?? '';
-  const allUrls = allEntries.map((e) => e.url).join('\n');
-  const allCurls = allEntries.map((e) => formatCurl(e)).join('\n\n');
+  const responseBody = currentResponseBody(lc)?.content ?? '';
+  const allUrls = allRows.map((r) => r.lifecycle.url).join('\n');
+  const allCurls = allRows.map((r) => formatCurl(r.lifecycle)).join('\n\n');
 
   return (
     <div ref={menuRef} className="dt-ctx-menu" style={{ left: state.x, top: state.y }}>
@@ -137,19 +138,19 @@ export function RequestContextMenu({
         onMouseEnter={() => setCopyOpen(true)}
         onMouseLeave={() => setCopyOpen(false)}
       >
-        Copy {'\u25B8'}
+        Copy {'▸'}
         {copyOpen && (
           <div className="dt-ctx-menu dt-ctx-submenu">
-            {item('Copy URL', () => copyText(request.url))}
-            {item('Copy as cURL', () => copyText(formatCurl(request)))}
-            {item('Copy as fetch', () => copyText(formatFetch(request)))}
-            {item('Copy request headers', () => copyText(formatRequestHeaders(request)))}
-            {item('Copy response headers', () => copyText(formatResponseHeaders(request)))}
+            {item('Copy URL', () => copyText(lc.url))}
+            {item('Copy as cURL', () => copyText(formatCurl(lc)))}
+            {item('Copy as fetch', () => copyText(formatFetch(lc)))}
+            {item('Copy request headers', () => copyText(formatRequestHeaders(lc)))}
+            {item('Copy response headers', () => copyText(formatResponseHeaders(lc)))}
             {item('Copy response', () => copyText(responseBody), responseBody.length === 0)}
             <div className="dt-ctx-sep" />
-            {item('Copy all URLs', () => copyText(allUrls), allEntries.length === 0)}
-            {item('Copy all as cURL', () => copyText(allCurls), allEntries.length === 0)}
-            {item('Copy all as HAR', onCopyAllAsHar, allEntries.length === 0)}
+            {item('Copy all URLs', () => copyText(allUrls), allRows.length === 0)}
+            {item('Copy all as cURL', () => copyText(allCurls), allRows.length === 0)}
+            {item('Copy all as HAR', onCopyAllAsHar, allRows.length === 0)}
           </div>
         )}
       </div>
@@ -160,11 +161,11 @@ export function RequestContextMenu({
         onMouseEnter={() => setBlockOpen(true)}
         onMouseLeave={() => setBlockOpen(false)}
       >
-        Block requests {'\u25B8'}
+        Block requests {'▸'}
         {blockOpen && (
           <div className="dt-ctx-menu dt-ctx-submenu">
-            {item('Block request URL', () => blockRequest(request, 'url'))}
-            {item('Block request domain', () => blockRequest(request, 'domain'))}
+            {item('Block request URL', () => blockRequest(lc.url, 'url'))}
+            {item('Block request domain', () => blockRequest(lc.url, 'domain'))}
           </div>
         )}
       </div>
@@ -176,11 +177,11 @@ export function RequestContextMenu({
         onMouseEnter={() => setSaveOpen(true)}
         onMouseLeave={() => setSaveOpen(false)}
       >
-        Save as... {'\u25B8'}
+        Save as... {'▸'}
         {saveOpen && (
           <div className="dt-ctx-menu dt-ctx-submenu">
-            {item('Save this as HAR', () => onSaveAsHar(request))}
-            {item('Save all as HAR', onSaveAllAsHar, allEntries.length === 0)}
+            {item('Save this as HAR', () => onSaveAsHar(row))}
+            {item('Save all as HAR', onSaveAllAsHar, allRows.length === 0)}
           </div>
         )}
       </div>
