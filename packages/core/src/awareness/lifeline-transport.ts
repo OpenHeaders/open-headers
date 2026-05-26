@@ -7,9 +7,10 @@
  * for a surface's lifetime; the host treats its disconnect as the
  * canonical "this surface is gone" signal (connection-bound liveness
  * instead of heartbeat-with-TTL polling). The same primitive also backs
- * connection-scoped host→renderer data streams — the DevTools inspector
- * opens a `devtools-inspector:<tabId>` port and the host streams request
- * records down it for as long as the panel holds the port open.
+ * connection-scoped host→renderer data streams — the panel opens
+ * lifecycle / page / rule-fire ports (e.g. `oh-lifecycle:<tabId>`) and
+ * the host streams records down them for as long as the panel holds
+ * the port open.
  *
  * Each app installs its own implementation once at boot via
  * {@link setLifelineTransport}:

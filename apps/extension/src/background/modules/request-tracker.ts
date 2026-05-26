@@ -73,7 +73,7 @@ let isRevalidating = false;
  * subscriber invariant holds (oracle owns the state, the host owns
  * the chrome bindings that mutate it). Re-exported here under the
  * historical name so existing call sites in this module and in
- * sibling modules (request-monitor, tab-listeners) keep working.
+ * sibling modules (tab-listeners, correlator-host) keep working.
  */
 export const tabsWithActiveRules = oracleTabsWithActiveRules;
 
@@ -145,7 +145,7 @@ export interface MatchingRuleHeaderOp {
 }
 
 /**
- * A single rule that matched a request — the minimum info request-monitor
+ * A single rule that matched a request — the minimum info the fire-recorder
  * needs to drive tab-telemetry ingestion AND shadow arbitration.
  */
 export interface MatchingRule {
@@ -228,8 +228,8 @@ function extractHeaderOps(rule: HeaderRule): MatchingRuleHeaderOp[] {
 
 /**
  * Return every enabled, complete rule whose URL conditions match this URL.
- * Used by the tab-telemetry ingestion path in request-monitor to attribute
- * each observed request to the specific rule uids that would have matched.
+ * Used by the fire-recorder (rule-engine-driver) to attribute each
+ * observed request to the specific rule uids that would have matched.
  * The `pattern` field is the literal pattern string from the first matching
  * condition — callers pass it through to tab-telemetry so the expand panel
  * can highlight which condition matched. `name` is included so shadow

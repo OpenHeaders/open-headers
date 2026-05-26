@@ -48,7 +48,8 @@
  *
  * Fires flow into the tab-telemetry service via the two always-on ingestion
  * paths (scriptable fire-bridge content script + DNR probable-fires derived
- * from webRequest matching in request-monitor). The runner subscribes to
+ * from the lifecycle pipeline's started updates via fire-recorder). The
+ * runner subscribes to
  * `tab-telemetry.subscribeFires(tabId)` filtered to scope uids and updates
  * `liveFireCount`. There is no polling, no per-run bridge, no
  * `getMatchedRules` call.

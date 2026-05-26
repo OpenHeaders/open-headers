@@ -461,9 +461,9 @@ export function recordScriptableFire(
 
 /**
  * Back-fill the delivery mode on every record for a given requestId.
- * Called from request-monitor's `onCompleted` listener once Chrome
- * reports whether the response was cache-served. Walks each place a
- * record can live (pending main-frame queue, pending fallback buffer,
+ * Called from the tab-telemetry-source projection once the lifecycle
+ * pipeline reports whether the response was cache-served. Walks each
+ * place a record can live (pending main-frame queue, pending fallback buffer,
  * chronological fire log, per-rule LRU maps) and updates in place.
  *
  * Safe no-op when the tab isn't tracked or no record exists yet for

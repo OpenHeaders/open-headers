@@ -7,7 +7,7 @@
  * module owns the wire-shaped data the engine produces and every
  * consumer (panel, popup, rule-engine) reduces against.
  *
- * Invariants (asserted by tests in `tests/unit/request-lifecycle/`):
+ * Invariants (asserted by tests in `packages/core/tests/request-lifecycle/`):
  *   1. Identity = `(tabId, requestId)`, stable across redirects.
  *   2. Tab-scoped; lifecycles die with the tab.
  *   3. Phase monotonic: `pending` → `headers-received` → `completed | failed`.

@@ -45,10 +45,12 @@ export interface RequestCorrelator {
 
   /**
    * Subscribe to ordered lifecycle updates across all attached tabs.
-   * Multiple subscribers receive every update; the store is one such
-   * subscriber, but in-process consumers (rule-engine, tab-telemetry)
-   * may subscribe directly when they need correlator-level ordering
-   * without store reduction.
+   * Multiple subscribers receive every update; in production the
+   * lifecycle host attaches the store as the sole consumer here, and
+   * downstream consumers (panel forwarder, tab-telemetry projection,
+   * rule-engine driver) subscribe to the store instead. The seam stays
+   * multi-subscriber so tests and future consumers can opt into
+   * correlator-level ordering without store reduction.
    *
    * The returned function removes the listener. Subscribers are
    * notified synchronously in subscription order.

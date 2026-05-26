@@ -50,8 +50,7 @@ export function currentResponseBody(lifecycle: RequestLifecycle): InspectorHarBo
 /**
  * Pending verdict — true when the lifecycle has been observed at
  * request-start (`pending` phase) but no terminal phase has landed.
- * Matches the legacy `InspectorRequest.pending` flag's UI semantics:
- * the row should render as a skeleton placeholder.
+ * Rows in this state render as skeleton placeholders in the panel.
  */
 export function isPendingLifecycle(lifecycle: RequestLifecycle): boolean {
   return lifecycle.phase === 'pending' && lifecycle.statusCode == null;

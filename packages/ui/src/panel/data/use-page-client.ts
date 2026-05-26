@@ -3,11 +3,9 @@
  * the panel's lifetime and exposes a stable `PageClientSnapshot` via
  * `useSyncExternalStore`.
  *
- * Sibling of `useLifecycleClient`. Same parallel-path discipline: the
- * legacy `nav` / `nav-timing` messages still arrive on the
- * `devtools-inspector:<tabId>` port for the legacy store; this hook
- * does not depend on them. The renderer migration (R1) flips consumers
- * onto this hook + the lifecycle hook.
+ * Sibling of `useLifecycleClient`. Owns the page-stream port end-to-end;
+ * nav-timing fields arrive in the same envelopes and are projected into
+ * the snapshot rather than living on a separate channel.
  *
  * Replay-on-reconnect: every `ready` envelope clears the store before
  * replay updates land, so a reconnect after SW eviction does not

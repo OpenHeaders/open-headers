@@ -189,10 +189,10 @@ function PanelContent() {
 }
 
 function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelViewState> }) {
-  // Four-hook composition replacing the legacy `useInspector`. The
-  // three port-bound clients live alongside `usePanelUiState`, which
-  // owns the panel-local toggles (preserveLog / recording) and the
-  // `clear()` action that fans out to every registered store.
+  // Three port-bound clients (lifecycle / page / fire) plus
+  // `usePanelUiState`, which owns the panel-local toggles
+  // (preserveLog / recording) and the `clear()` action that fans out
+  // to every registered store.
   const lifecycleClient = useLifecycleClient();
   const pageClient = usePageClient();
   const fireClient = useFireClient();

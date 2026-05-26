@@ -740,8 +740,8 @@ async function initializeExtension(): Promise<void> {
   startPagePortHost({ hub: pageHub });
   startDevtoolsPageNavBridge({ hub: pageHub });
   // Rule-fire pipe (W-a): per-tab broadcaster fed by tab-telemetry's
-  // cross-tab fire stream + the DNR-debug authoritative path. Replaces
-  // the legacy `devtools-inspector:` port's fire variant.
+  // cross-tab fire stream + the DNR-debug authoritative path. Carries
+  // rule-fire envelopes to panel clients over `oh-rule-fire:<tabId>`.
   const ruleFireHub = new RuleFireHub();
   startRuleFirePortHost({ hub: ruleFireHub });
   const firesBridge = startTabTelemetryFiresBridge({ hub: ruleFireHub });

@@ -23,12 +23,11 @@ import type { CdpNetworkEvent } from './events';
 const secondsToMs = (t: number): number => Math.round(t * 1000);
 
 /**
- * Project a CDP event into lifecycle updates. The caller supplies the
- * current state (`prev`) — `undefined` means "no lifecycle tracked
- * yet". Decision to emit `started` vs `redirect` is taken from CDP's
- * own `redirectResponse` carve-out, not from `prev`'s existence, so a
- * malformed trace (redirect with no prior `started`) still emits a
- * `redirect` and lets the store reject it as `unknown-request`.
+ * Project a CDP event into lifecycle updates. The decision to emit
+ * `started` vs `redirect` is taken from CDP's own `redirectResponse`
+ * carve-out, so a malformed trace (redirect with no prior `started`)
+ * still emits a `redirect` and lets the store reject it as
+ * `unknown-request`.
  */
 export function cdpEventToUpdates(event: CdpNetworkEvent): readonly RequestLifecycleUpdate[] {
   switch (event.method) {

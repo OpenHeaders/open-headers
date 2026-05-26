@@ -9,14 +9,16 @@
  *   - `onCompleted`         → `phase: 'completed'`
  *   - `onErrorOccurred`     → `phase: 'failed'`
  *
- * H1 deliberately NOT handled here (own sessions):
- *   - `onSendHeaders` — emits nothing yet. CORS classification (H5) and
- *     request-header capture attach here. Kept in the type union so the
- *     adapter still subscribes (invariant 7's "exactly one webRequest
- *     subscriber" only holds if all six are owned by the adapter).
+ * Not handled in this pure mapper:
+ *   - `onSendHeaders` — emits nothing. CORS classification (H5) and
+ *     request-header capture attach here in the correlator, not in the
+ *     mapper. Kept in the type union so the adapter still subscribes
+ *     (invariant 7's "exactly one webRequest subscriber" only holds if
+ *     all six are owned by the adapter).
  *   - HAR closest-timestamp join (H2/H3), per-URL FIFO matching (H4),
  *     CORS verdict (H5/H6), late-arrival buffer (H7), per-hop HAR / body
- *     attachment (H8/H9).
+ *     attachment (H8/H9) — all live in the correlator, which calls this
+ *     mapper for the base projection and layers refinements on top.
  *
  * This module is the engine-shaped side of the seam — it knows nothing
  * about `chrome.webRequest`; the SW adapter wires actual listener

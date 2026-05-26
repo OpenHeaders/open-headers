@@ -143,12 +143,12 @@ function getBrowsingDataApi(): BrowsingDataApi | null {
 }
 
 /**
- * The extension's own webRequest listeners (see `request-monitor`) feed
- * the DevTools inspector's rule-attribution panel. Chrome caches
- * webRequest handler decisions; after a rule state transition we want
- * the panel to pick up the new shape on the very next request, not the
- * one after cache turnover. `handlerBehaviorChanged` flushes that
- * internal cache — cheap when used sparingly.
+ * The webRequest pipeline (see `correlator-host/chrome-webrequest-source`)
+ * feeds the panel's rule-attribution view. Chrome caches webRequest
+ * handler decisions; after a rule state transition we want the panel
+ * to pick up the new shape on the very next request, not the one
+ * after cache turnover. `handlerBehaviorChanged` flushes that internal
+ * cache — cheap when used sparingly.
  */
 function notifyWebRequestCacheChanged(): void {
   const c = globalThis as unknown as {

@@ -6,11 +6,9 @@
  * into the oracle-shaped {@link WebRequestEvent}, and fan out to
  * subscribers.
  *
- * This is the only place in the codebase that may call
+ * This is the only place in the codebase that calls
  * `chrome.webRequest.*.addListener` for the lifecycle pipeline
- * (invariant 7). The legacy `request-monitor.ts` retains its own
- * subscribers until rows RM3–RM6 in `REQUEST_LIFECYCLE_STATUS.md`
- * retire them; once that lands, this adapter is the lone subscriber.
+ * (invariant 7) — the sole webRequest subscriber across the extension.
  *
  * Cross-browser: uses `getBrowserAPI()` for Firefox/Chrome/Safari/Edge.
  * The polyfill exposes the chrome-shaped API everywhere.

@@ -35,11 +35,11 @@ export interface RequestLifecycleStoreOptions {
    */
   readonly onReject?: (update: RequestLifecycleUpdate, reason: ReducerRejection) => void;
   /**
-   * Called when an LRU eviction drops a lifecycle. Used by the SW
-   * adapter to keep parallel facet maps in sync. The store does NOT
-   * emit a `gone` update on eviction — eviction is a memory-bound
-   * housekeeping signal, not a lifecycle termination. Defaults to a
-   * no-op.
+   * Called when an LRU eviction drops a lifecycle. Available for hosts
+   * that need to keep parallel facet maps in sync with eviction; no
+   * production wiring uses it today. The store does NOT emit a `gone`
+   * update on eviction — eviction is a memory-bound housekeeping
+   * signal, not a lifecycle termination. Defaults to a no-op.
    */
   readonly onEvict?: (evicted: RequestLifecycle) => void;
 }

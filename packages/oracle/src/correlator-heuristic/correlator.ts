@@ -33,7 +33,7 @@
  *     map.                                                            ✓
  *
  * Deliberately deferred (own future sessions):
- *   - H4 per-URL FIFO matching refinements beyond the verbatim port
+ *   - H4 per-URL FIFO matching refinements on top of the current FIFO
  */
 
 import type {

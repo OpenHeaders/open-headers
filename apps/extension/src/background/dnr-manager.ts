@@ -167,11 +167,12 @@ export function markTabForDelayBypass(tabId: number, targetUrl: string): Promise
  *
  * Telemetry attribution for the delay firing is NOT done here. The
  * follow-up navigation (the `location.replace` from delay.html) goes
- * through webRequest normally, request-monitor matches the delay rule
- * against its URL, tab-telemetry records the observed fire with the
- * new requestId, and `onPageCommit` promotes it into the destination
- * page's bucket when the commit lands. Recording an additional fire here
- * would double-count.
+ * through webRequest normally; the heuristic correlator emits a
+ * `started` update, the rule-engine-driver matches the delay rule
+ * against its URL, and the fire-recorder hands tab-telemetry an
+ * observed fire with the new requestId. `onPageCommit` then promotes
+ * it into the destination page's bucket when the commit lands.
+ * Recording an additional fire here would double-count.
  */
 export function resolveDelayBypass(tabId: number, committedUrl: string): void {
   const entry = pendingDelayBypass.get(tabId);

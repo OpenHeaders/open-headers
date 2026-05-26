@@ -38,7 +38,7 @@ interface WebRequestEventBase {
   readonly type: string;
   /** Top-level frame origin / extension origin / undefined. */
   readonly initiator?: string;
-  /** `frameId` — kept for future H5 CORS classification. */
+  /** webRequest `frameId`; carried through for downstream consumers that need it. */
   readonly frameId?: number;
 }
 

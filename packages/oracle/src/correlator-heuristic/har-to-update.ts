@@ -5,12 +5,13 @@
  * the join (per-URL FIFO + body-join map) and then hands the resolved
  * `(requestId, hopIndex)` to these helpers to mint the update.
  *
- * H2/H3 scope: `hopIndex` is always `0`. Per-hop attribution is H8/H9
- * — see `REQUEST_LIFECYCLE_STATUS.md`. A redirect chain produces one
- * HAR per source URL but the lifecycle's `redirectHopCount` at attach
- * time does NOT identify which hop the HAR belongs to (HAR for an
- * earlier hop arrives after webRequest has already moved on), so the
- * conservative emission is hop 0 until H8 lands per-hop bookkeeping.
+ * Per-hop attribution is the correlator's job: it stamps `hopIndex` into
+ * its FIFO and body-join map at record time and threads it through these
+ * helpers. A redirect chain produces one HAR per source URL but the
+ * lifecycle's `redirectHopCount` at attach time does not identify which
+ * hop the HAR belongs to (HAR for an earlier hop arrives after webRequest
+ * has already moved on), which is why the correlator carries the cursor
+ * rather than reading it off the lifecycle.
  */
 
 import type { RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle';
