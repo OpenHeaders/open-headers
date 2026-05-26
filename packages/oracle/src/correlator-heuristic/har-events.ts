@@ -47,8 +47,8 @@ export interface HarEventSource {
 
 /**
  * HAR feed becoming active or inactive for a tab. Used by hosts that
- * keep per-tab session state tied to whether a HAR pipeline is alive
- * (e.g. legacy inspector-port broadcast). The correlator does not care.
+ * keep per-tab session state tied to whether a HAR pipeline is alive.
+ * The correlator does not care.
  */
 export type HarPresenceEvent =
   | { readonly kind: 'tab-har-active'; readonly tabId: number }

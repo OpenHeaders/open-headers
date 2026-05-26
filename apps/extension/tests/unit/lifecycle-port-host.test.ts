@@ -155,6 +155,40 @@ describe('acceptLifecyclePort', () => {
     expect((port.posted[1] as { kind: string }).kind).toBe('lifecycle-update');
   });
 
+  it('raises panel-watching tracking on accept and releases it on disconnect', () => {
+    const store = new RequestLifecycleStore();
+    const hub = new RequestLifecycleHub({ store });
+    const port = fakePort(lifecyclePortName(11));
+    const start = vi.fn();
+    const stop = vi.fn();
+    const accepted = acceptLifecyclePort(hub, port as unknown as chrome.runtime.Port, {
+      trackerDeps: { start, stop },
+    });
+    expect(accepted).toBe(true);
+    expect(start).toHaveBeenCalledTimes(1);
+    expect(start.mock.calls[0]?.[0]).toBe(11);
+    const reason = start.mock.calls[0]?.[1];
+    expect(reason).toMatch(/^panel-watching:11:\d+$/);
+    expect(stop).not.toHaveBeenCalled();
+
+    for (const fn of port.disconnectListeners) fn();
+    expect(stop).toHaveBeenCalledTimes(1);
+    expect(stop.mock.calls[0]).toEqual([11, reason]);
+  });
+
+  it('does NOT raise tracking when the port name is rejected', () => {
+    const store = new RequestLifecycleStore();
+    const hub = new RequestLifecycleHub({ store });
+    const port = fakePort('devtools-inspector:1');
+    const start = vi.fn();
+    const stop = vi.fn();
+    acceptLifecyclePort(hub, port as unknown as chrome.runtime.Port, {
+      trackerDeps: { start, stop },
+    });
+    expect(start).not.toHaveBeenCalled();
+    expect(stop).not.toHaveBeenCalled();
+  });
+
   it('onDisconnect detaches: subsequent updates do not reach the port', () => {
     const store = new RequestLifecycleStore();
     const hub = new RequestLifecycleHub({ store });

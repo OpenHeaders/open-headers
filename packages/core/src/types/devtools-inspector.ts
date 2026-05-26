@@ -1,15 +1,20 @@
 /**
- * DevTools inspector wire types.
+ * DevTools HAR-source wire types.
  *
- * The extension's devtools port relays HAR + nav messages between the
- * devtools page, the background, and the panel React store. The
- * background re-emits a subset of the source format to inspector
- * panels; both contracts live here so the panel's data layer can parse
- * against them without depending on engine internals.
+ * The devtools_page injected into a tab forwards HAR entries, HAR
+ * bodies, and navigation signals to the background over the
+ * `devtools-har-source:<tabId>` port. The shapes live in core because
+ * both the chrome adapter (`ChromeHarEventSource`, nav bridge) and the
+ * panel data layer (HAR projections, snippet generators, waterfall)
+ * parse against them.
  *
- * Rule fires are no longer carried here — the engine-side
- * `@openheaders/oracle/rule-fire-hub` owns that pipe via the
- * `oh-fires:<tabId>` port.
+ * Rule fires travel via `@openheaders/oracle/rule-fire-hub`
+ * (`oh-fires:<tabId>`). Request lifecycle (started/completed/redirect/
+ * error) travels via `@openheaders/oracle/request-lifecycle-hub`
+ * (`oh-lifecycle:<tabId>`) as structured `RequestLifecycle`, not as
+ * standalone wire messages — error refinement (`oh:cors-*` codes,
+ * structured `CorsVerdict`) is produced by the oracle correlator and
+ * carried on the lifecycle, not synthesized by the host.
  */
 
 /**
@@ -122,142 +127,14 @@ export interface InspectorNavTiming {
 }
 
 /**
- * A blocked/canceled/failed network request the host's HAR pipeline
- * never sees. `chrome.webRequest.onErrorOccurred` is the canonical
- * signal — Chrome's own Network tab uses it to render rows that
- * `devtools.network.onRequestFinished` skips. Surfaced as inline rows
- * in the panel so our request count matches Chrome's.
+ * Wire format from the devtools_page HAR source port (`devtools-har-source:<tabId>`).
+ * Two adapters cohabit on this port, each consuming a disjoint subset:
+ *   - `ChromeHarEventSource` reads `har` / `har-body` → oracle correlator;
+ *   - `startDevtoolsPageNavBridge` reads `nav` / `nav-timing` → page stream hub.
  *
- * `requestId` joins to the in-flight observations the same way the HAR
- * variant's `chromeRequestId` does. The error is emitted before the
- * (now never-arriving) HAR, so the join key is observation-side only.
- */
-export interface InspectorRequestError {
-  requestId: string;
-  url: string;
-  method: string;
-  /** Chrome's resourceType (e.g. 'xmlhttprequest', 'image'). */
-  resourceType: string;
-  /** ISO timestamp of the error event. */
-  timestamp: string;
-  /** Raw Chromium error code, e.g. `net::ERR_BLOCKED_BY_CLIENT`. */
-  error: string;
-  /** Page initiating the request. */
-  initiator?: string;
-  /** True when response headers had already been received before the
-   *  error fired (rare; the request technically reached the wire). */
-  fromCache: boolean;
-}
-
-/**
- * A network request the host's net stack observed at start
- * (`chrome.webRequest.onBeforeRequest`) but for which neither a HAR
- * entry nor an `onErrorOccurred` has yet arrived. The panel mints a
- * `pending` row immediately on this signal so the user sees in-flight
- * activity (matching Chrome's Network panel, which renders rows from
- * the moment the request starts via CDP `requestWillBeSent`). The row
- * is later superseded in place — by a HAR row if it completes, by an
- * error row if it fails, or by an "(unknown)" placeholder on the next
- * navigation if it does neither (Chrome's "abandoned mid-flight"
- * semantics, which the extension APIs would otherwise miss because
- * `onErrorOccurred` doesn't always fire for nav-canceled subresources).
- */
-export interface InspectorRequestStarted {
-  requestId: string;
-  url: string;
-  method: string;
-  /** webRequest resource type (e.g. `xmlhttprequest`, `image`, `main_frame`). */
-  resourceType: string;
-  /** Document the request was initiated from. */
-  initiator?: string;
-  /** ISO timestamp at the moment `onBeforeRequest` fired. */
-  timestamp: string;
-}
-
-/**
- * A network request the host's net stack observed reaching completion
- * (`chrome.webRequest.onCompleted`). The panel uses this as a secondary
- * resolution signal for pending rows whose HAR never arrives —
- * `chrome.devtools.network.onRequestFinished` has known coverage gaps
- * for lazy-loaded modulepreload chunks and certain speculative loads,
- * which Chrome's own HAR exporter happily includes via CDP. Subscribing
- * to webRequest's completion event recovers them; rows that already
- * had a HAR ignore the event so we don't double-count.
- */
-export interface InspectorRequestCompleted {
-  requestId: string;
-  url: string;
-  method: string;
-  resourceType: string;
-  statusCode: number;
-  statusLine: string;
-  /** ISO timestamp of the completion event. */
-  timestamp: string;
-  /** True when the response was served from a local cache layer. */
-  fromCache: boolean;
-}
-
-/**
- * A redirect hop synthesized from `chrome.webRequest.onBeforeRedirect`.
- *
- * Chrome's `chrome.devtools.network.onRequestFinished` HAR pipeline is
- * inconsistent for redirect rows — for some status codes it omits the
- * source hop entirely, for others it reports the source row with the
- * follow-up's 2xx status. webRequest's redirect signal, by contrast,
- * fires reliably once per hop with the actual 3xx status code, so we
- * use it to authoritatively mint or upgrade the source row.
- *
- * The panel ingests this by finding the pending row for
- * `(requestId, sourceUrl)` (created at the corresponding
- * `onBeforeRequest`) and stamping it with the 3xx response. If no
- * pending row exists yet, a resolved row is minted directly. A later
- * HAR for the same source hop is ignored for status purposes — the
- * status captured here wins.
- */
-export interface InspectorRequestRedirect {
-  requestId: string;
-  /** URL of the request that produced the 3xx response (the source hop). */
-  sourceUrl: string;
-  method: string;
-  /** webRequest resource type (e.g. `main_frame`, `xmlhttprequest`). */
-  resourceType: string;
-  /** HTTP status code of the redirect (301/302/303/307/308). */
-  statusCode: number;
-  /** Resolved Location header target — the next hop's URL. */
-  redirectUrl: string;
-  /** ISO timestamp of the redirect event. */
-  timestamp: string;
-}
-
-/**
- * Wire format for messages posted over the inspector port. Discriminated
- * union keyed by `type`. The panel's data layer parses incoming messages
- * against this shape.
- *
- * `chromeRequestId` on the `har` variant is the deterministic join key
- * the background attaches by correlating the HAR with the per-URL FIFO
- * of in-flight webRequest observations. Optional because very early
- * requests on a cold tab may land before the in-flight queue has a
- * matching entry — the panel falls back to URL + window matching for
- * those rows.
- */
-export type InspectorPortMessage =
-  | { type: 'har'; entry: InspectorHarEntry; chromeRequestId?: string }
-  | { type: 'har-body'; body: InspectorHarBody }
-  | { type: 'request-started'; event: InspectorRequestStarted }
-  | { type: 'request-completed'; event: InspectorRequestCompleted }
-  | { type: 'request-redirect'; event: InspectorRequestRedirect }
-  | { type: 'request-error'; error: InspectorRequestError }
-  | { type: 'nav'; url: string }
-  | { type: 'nav-timing'; timing: InspectorNavTiming }
-  | { type: 'ready'; tabId: number };
-
-/**
- * Wire format from the devtools_page HAR source port. The background
- * re-emits a subset of these (translated to `InspectorPortMessage`) to
- * inspector panels. `har-body` carries its payload flat (not under a
- * nested `body` key) because the devtools_page posts the fields inline
- * — history we keep to avoid churning that contract.
+ * `har-body` carries its payload flat (not under a nested `body` key)
+ * because the devtools_page posts the fields inline — history kept to
+ * avoid churning that contract.
  */
 export type HarSourceMessage =
   | { type: 'har'; entry: InspectorHarEntry }

@@ -1,15 +1,12 @@
 /**
  * Per-URL FIFO of in-flight webRequest observations awaiting their HAR
- * row — the join-key bookkeeping H3 ports verbatim from the legacy
- * `apps/extension/src/background/modules/devtools-inspector-port.ts`
- * (lines 142–294). Logic is unchanged; only the surface moves from a
- * `TabSession`-scoped struct to an `InFlightFifo` instance whose state
- * is partitioned per tab.
+ * row. State is partitioned per tab in an `InFlightFifo` instance; the
+ * correlator pops the closest-timestamp match per `(tabId, url, method)`
+ * at HAR-arrival time.
  *
- * Constants, sweep order, LRU eviction policy, and closest-timestamp +
- * method-gated matching all match the legacy implementation byte-for-
- * byte. See the in-line comments below; they explain *why* this exact
- * shape (rather than head-pop) is correct.
+ * Sweep order, LRU eviction policy, and closest-timestamp + method-
+ * gated matching are documented inline below — they explain *why* this
+ * exact shape (rather than head-pop) is correct.
  */
 
 /**

@@ -194,17 +194,12 @@ export type {
 // ── Request execution ──────────────────────────────────────────────
 export type { ExecutedRequestSnapshot } from './request-execution';
 
-// ── DevTools inspector wire ────────────────────────────────────────
+// ── DevTools HAR-source wire ───────────────────────────────────────
 export type {
   HarSourceMessage,
   InspectorHarBody,
   InspectorHarEntry,
   InspectorNavTiming,
-  InspectorPortMessage,
-  InspectorRequestCompleted,
-  InspectorRequestError,
-  InspectorRequestRedirect,
-  InspectorRequestStarted,
 } from './devtools-inspector';
 
 // ── Workspace import dedup ─────────────────────────────────────────

@@ -1,9 +1,6 @@
 /**
- * `InFlightFifo` — verbatim port from
- * `apps/extension/src/background/modules/devtools-inspector-port.ts`,
- * extended in H8/H9 to carry `hopIndex` per entry. The tests cover the
- * legacy join semantics (closest-timestamp, method gating, staleness
- * sweep, per-tab LRU) AND the new per-hop attribution: each `record`
+ * `InFlightFifo` join semantics: closest-timestamp matching, method
+ * gating, staleness sweep, per-tab LRU. H8/H9 extension: each `record`
  * stamps the hop the URL belongs to, and `popMatching` returns
  * `{ requestId, hopIndex }` so the caller can mint per-hop HAR + body
  * attachments without re-deriving the hop later.

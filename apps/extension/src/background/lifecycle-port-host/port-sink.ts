@@ -7,9 +7,7 @@
  *
  * `postMessage` failure handling: a throw on a chrome port is, in
  * practice, only raised when the port is dead. We swallow it — the
- * disconnect handler runs next and tears down the attachment. This
- * mirrors the convention in the legacy `devtools-inspector-port.ts`
- * broadcast loop.
+ * disconnect handler runs next and tears down the attachment.
  */
 
 import type { LifecycleWireMessage, Sink } from '@openheaders/oracle/request-lifecycle-hub';

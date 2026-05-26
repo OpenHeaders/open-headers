@@ -4,11 +4,8 @@
  * Wires `chrome.runtime.onConnect` so panel / popup / future surfaces
  * can open `oh-lifecycle:<tabId>` and receive `LifecycleWireMessage`
  * envelopes (a `ready` then the tab's lifecycle replay + live updates).
- *
- * Coexists with the legacy `setupDevtoolsInspectorPorts` pipe; the two
- * use different port-name prefixes and own different state. W-b retires
- * the legacy pipe after consumers migrate (P1-P6) and the legacy
- * webRequest listeners go away (RM-b).
+ * Acceptance also raises the panel-watching ref on `tab-telemetry` so
+ * webrequest ingestion stays live while a panel is connected.
  */
 
 import { logger } from '@utils/logger';

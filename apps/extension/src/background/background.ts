@@ -58,7 +58,6 @@ import {
 import { setupInjectListener } from './inject-manager';
 import { updateExtensionBadge } from './modules/badge-manager';
 import { forgetCacheBypassForTab, rehydrateCacheBypassFromSessionRules } from './modules/cache-bypass';
-import { setupDevtoolsInspectorPorts } from './modules/devtools-inspector-port';
 // Module-load side effect: registers `liveChainAdapter` with the live
 // scheduler via `__setLiveRefreshAdapter`. Import for its side effect
 // even though we don't name anything from it here — the scheduler's
@@ -723,15 +722,13 @@ async function initializeExtension(): Promise<void> {
   // Request-lifecycle pipeline (H1): chrome.webRequest → HeuristicCorrelator →
   // RequestLifecycleStore. Invariant 7a (no rule-engine module subscribes
   // to chrome.webRequest.* directly) is held by routing rule-engine and
-  // tab-telemetry through the store via the two drivers below; the legacy
-  // devtools-inspector listeners remain (7b) until the panel pipe lands.
+  // tab-telemetry through the store via the two drivers below.
   const lifecycleHost = startLifecycleHost();
   startRuleEngineDriver({ store: lifecycleHost.store, updateBadge: debouncedUpdateBadge });
   startTabTelemetrySource({ store: lifecycleHost.store });
   // Lifecycle subscriber hub (U1-U5) + chrome port adapter (W-a). Publishes
   // `LifecycleWireMessage` envelopes on `oh-lifecycle:<tabId>` ports for the
-  // panel client cache (P1-P6) to consume. Coexists with the legacy
-  // `setupDevtoolsInspectorPorts` pipe below until W-b retirement.
+  // panel client cache (P1-P6) to consume.
   const lifecycleHub = new RequestLifecycleHub({ store: lifecycleHost.store });
   startLifecyclePortHost({ hub: lifecycleHub });
   // Page stream hub + chrome port adapter, sibling of the lifecycle pipe.
@@ -769,7 +766,6 @@ async function initializeExtension(): Promise<void> {
   setupInjectListener();
   setupDelayBypassCleanup();
   setupTestRunnerPorts();
-  setupDevtoolsInspectorPorts();
   // Awareness lifeline ports + workspace-coord runner are attached
   // inside `bootSyncEngine` below.
   setupOnRuleMatchedDebugBridge({

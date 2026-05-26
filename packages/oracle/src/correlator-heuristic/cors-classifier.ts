@@ -17,9 +17,6 @@
  *     differ from the response URL.
  *   - `Access-Control-Allow-Origin` (response) — must equal the origin
  *     or `*` for the response to pass the browser's CORS check.
- *
- * Ported verbatim (in posture, not in mutation style) from the legacy
- * `apps/extension/src/background/modules/devtools-inspector-cors.ts`.
  */
 
 import type { CorsVerdict } from '@openheaders/core/request-lifecycle';

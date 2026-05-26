@@ -8,14 +8,13 @@
  * emit `tab-har-active` / `tab-har-inactive` presence events on port
  * open / close.
  *
- * Cohabitation: legacy `apps/extension/src/background/modules/devtools-
- * inspector-port.ts` also registers a `chrome.runtime.onConnect` listener
- * for the same port name. Chrome dispatches both listeners on every
- * connect with the same `Port` object; the two paths process their own
- * message handlers independently. This is the same parallel-path
- * discipline H1 used for `chrome.webRequest.*` until rows RM3–RM6 retire
- * the legacy duplicate; a future RM-style row will retire the legacy
- * HAR ingestion here.
+ * Cohabitation: `startDevtoolsPageNavBridge` (page-port-host) also
+ * registers a `chrome.runtime.onConnect` listener for the same port
+ * name. Chrome dispatches both listeners on every connect with the
+ * same `Port` object; each adapter consumes a disjoint subset of
+ * {@link HarSourceMessage} (this one reads `har` / `har-body`, the
+ * bridge reads `nav` / `nav-timing`). Single-purpose adapters by
+ * design — no shared state, no ordering coupling.
  *
  * Cross-browser: uses `getBrowserAPI()` for Firefox/Chrome/Safari/Edge.
  */
@@ -128,8 +127,8 @@ export class ChromeHarEventSource implements HarEventSource, HarPresenceSource {
       return;
     }
     // `nav` and `nav-timing` are not lifecycle-relevant — drop here.
-    // The legacy inspector-port path still consumes them via its own
-    // listener for the panel UI.
+    // The page-stream-hub path consumes them via `startDevtoolsPageNavBridge`
+    // (cohabitating on this same port name, disjoint message subset).
   }
 
   private fanHar(event: HarEvent): void {
