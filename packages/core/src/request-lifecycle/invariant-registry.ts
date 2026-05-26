@@ -125,6 +125,10 @@ export const REQUEST_LIFECYCLE_INVARIANTS: readonly InvariantEntry[] = [
         path: 'packages/oracle/tests/request-lifecycle-store/reducer.test.ts',
         marker: "describe('reducer — invariant 5 (monotonic information content)'",
       },
+      {
+        path: 'packages/oracle/tests/request-lifecycle-store/invariant-5-monotonic-info.test.ts',
+        marker: "describe('invariant 5 — monotonic information content (property)'",
+      },
     ],
   },
   {
