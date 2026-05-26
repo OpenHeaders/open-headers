@@ -754,7 +754,7 @@ async function initializeExtension(): Promise<void> {
       ruleFireHub.forgetTab(tabId);
     });
   }
-  setupTabListeners(debouncedUpdateBadge);
+  setupTabListeners({ updateBadge: debouncedUpdateBadge, lifecycleStore: lifecycleHost.store });
   setupPeriodicCleanup();
   initializeActiveTabTracking();
   // Workspace tab ordinals must be live before the first intent

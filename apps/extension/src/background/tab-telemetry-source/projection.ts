@@ -16,13 +16,11 @@ import type { TrackedResourceType } from '@/types/browser';
 import {
   isTracked as isTabTracked,
   onMainFrameError,
-  onMainFrameRedirect,
-  onMainFrameRequest,
   recordRequestObservation,
   recordRequestRedirect,
   updateRequestDeliveryMode,
 } from '../modules/tab-telemetry';
-import { isTrackableUrl, normalizeUrlForTracking } from '../modules/url-utils';
+import { isTrackableUrl } from '../modules/url-utils';
 
 export interface ProjectionOptions {
   readonly store: RequestLifecycleStore;
@@ -48,7 +46,6 @@ function projectStarted(lifecycle: RequestLifecycle): void {
   const { tabId, requestId, url, method, resourceType, initiator, startedAtMs } = lifecycle;
   if (tabId === -1 || !isTabTracked(tabId)) return;
   if (!isTrackableUrl(url)) return;
-  const normalized = normalizeUrlForTracking(url);
   recordRequestObservation(tabId, {
     requestId,
     method,
@@ -57,9 +54,6 @@ function projectStarted(lifecycle: RequestLifecycle): void {
     ...(initiator !== undefined ? { initiator } : {}),
     timestamp: startedAtMs,
   });
-  if (resourceType === 'main_frame') {
-    onMainFrameRequest(tabId, requestId, normalized);
-  }
 }
 
 function projectRedirect(
@@ -72,7 +66,6 @@ function projectRedirect(
   const lifecycle = options.store.get(tabId, requestId);
   if (!lifecycle) return;
   const resourceType = lifecycle.resourceType as TrackedResourceType;
-  const normalized = normalizeUrlForTracking(nextUrl);
   recordRequestObservation(tabId, {
     requestId,
     method: lifecycle.method,
@@ -89,9 +82,6 @@ function projectRedirect(
     redirectUrl: hop.redirectUrl,
     timestamp: hop.timestampMs,
   });
-  if (resourceType === 'main_frame') {
-    onMainFrameRedirect(tabId, requestId, normalized);
-  }
 }
 
 function projectPhase(

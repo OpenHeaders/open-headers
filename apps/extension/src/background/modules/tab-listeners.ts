@@ -4,8 +4,10 @@
 
 import { runtime, tabs, webNavigation, windows } from '@utils/browser-api.js';
 import { logger } from '@utils/logger';
+import type { RequestLifecycleStore } from '@openheaders/oracle/request-lifecycle-store';
 import type { ObservationSource } from '@/types/browser';
 import { checkIfUrlMatchesAnyRule, tabsWithActiveRules } from './request-tracker';
+import { mainFrameRequestIdsMatchingCommit } from '../tab-telemetry-source/main-frame-chain';
 import {
   clearTab as tabTelemetryClearTab,
   onPageCommit as tabTelemetryOnPageCommit,
@@ -83,10 +85,16 @@ export function initializeActiveTabTracking(): void {
   });
 }
 
+export interface SetupTabListenersOptions {
+  readonly updateBadge: () => void;
+  readonly lifecycleStore: RequestLifecycleStore;
+}
+
 /**
  * Set up all tab-related listeners
  */
-export function setupTabListeners(updateBadgeCallback: () => void): void {
+export function setupTabListeners(options: SetupTabListenersOptions): void {
+  const { updateBadge: updateBadgeCallback, lifecycleStore } = options;
   // Listen for tab updates and activations
   tabs.onActivated?.addListener((activeInfo: { tabId: number; windowId: number }) => {
     // Hand telemetry tracking to the newly-active tab in this window.
@@ -320,13 +328,19 @@ export function setupTabListeners(updateBadgeCallback: () => void): void {
           logger.debug('TabListeners', 'Navigation committed:', details.tabId, details.url);
         }
 
-        // Page-context swap in tab-telemetry. onPageCommit promotes any
-        // pending fires whose requestId led to this URL (e.g. delay chain
+        // Page-context swap in tab-telemetry. The matching-requestIds set
+        // is derived from the lifecycle store — main-frame lifecycles whose
+        // navigation chain contains the committed URL. onPageCommit promotes
+        // any pending fires for those requestIds (e.g. delay chain
         // example.com → delay.html → example.com records a fire against
         // the initial example.com request, and the final commit of
         // example.com promotes it into the new page's bucket instead of
         // wiping it). Unrelated pending fires are dropped.
-        tabTelemetryOnPageCommit(details.tabId, details.url);
+        const matchingRequestIds = mainFrameRequestIdsMatchingCommit(
+          lifecycleStore.snapshotTab(details.tabId),
+          details.url,
+        );
+        tabTelemetryOnPageCommit(details.tabId, details.url, matchingRequestIds);
         lastMainFrameUrlByTab.set(details.tabId, details.url);
 
         // If this is a test-session tab landing on its real target (not
@@ -372,10 +386,10 @@ export function setupTabListeners(updateBadgeCallback: () => void): void {
             lastMainFrameUrlByTab.set(details.tabId, details.url);
             // SPA pushState/replaceState: no webRequest redirect chain to
             // promote from (the URL didn't go through the network) — just
-            // swap the page context. Pending fires (if any) will be
-            // dropped, which is correct for a pushState that replaces
-            // the whole document.
-            tabTelemetryOnPageCommit(details.tabId, details.url);
+            // swap the page context with an empty matching set. Pending
+            // fires (if any) will be dropped, which is correct for a
+            // pushState that replaces the whole document.
+            tabTelemetryOnPageCommit(details.tabId, details.url, new Set());
           }
 
           // Re-evaluate if this URL should be tracked

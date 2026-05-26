@@ -19,8 +19,6 @@
  *                           the tail and evidence may be upgraded.
  *   - `fires`             — chronological ring buffer (MAX_FIRES_PER_TAB).
  *                           Kept for test-runner's session result payload.
- *   - `mainFrameChains`   — per-requestId main-frame navigation chains used
- *                           to attribute pre-commit fires to the right page.
  *   - `pendingFires`      — observed main-frame fires awaiting commit.
  *   - `pendingFallback`   — observed sub-resource fires for rule types that
  *                           *might* also emit a scriptable fire. Buffered for
@@ -121,11 +119,6 @@ interface PendingFire {
   record: RequestRecord;
 }
 
-interface MainFrameChain {
-  requestId: string;
-  urls: Set<string>;
-}
-
 interface PendingFallback {
   record: RequestRecord;
   timer: ReturnType<typeof setTimeout>;
@@ -139,7 +132,6 @@ interface TabState {
   counters: Map<string, number>;
   uniquesByRule: Map<string, Map<string, RequestRecord>>;
   pendingFires: PendingFire[];
-  mainFrameChains: Map<string, MainFrameChain>;
   pendingFallback: Map<string, PendingFallback>;
   /** Map<`${uid}:${normalizedUrl}`, expiryMs>. Suppresses late observed fires. */
   recentScriptable: Map<string, number>;
@@ -217,7 +209,6 @@ function emptyState(tabId: number): TabState {
     counters: new Map(),
     uniquesByRule: new Map(),
     pendingFires: [],
-    mainFrameChains: new Map(),
     pendingFallback: new Map(),
     recentScriptable: new Map(),
     seen: new Set(),
@@ -628,72 +619,32 @@ export function updateRequestDeliveryMode(tabId: number, requestId: string, mode
   }
 }
 
-// ── Main-frame chain tracking ───────────────────────────────────────
-
-export function onMainFrameRequest(tabId: number, requestId: string, url: string): void {
-  const state = tabs.get(tabId);
-  if (!state) return;
-  state.mainFrameChains.set(requestId, { requestId, urls: new Set([normalizeForAttribution(url)]) });
-}
-
-export function onMainFrameRedirect(tabId: number, requestId: string, newUrl: string): void {
-  const state = tabs.get(tabId);
-  if (!state) return;
-  const chain = state.mainFrameChains.get(requestId);
-  if (!chain) return;
-  chain.urls.add(normalizeForAttribution(newUrl));
-}
-
-/**
- * Extension page URL detection. Covers every MV3 browser we ship to:
- *   - Chrome / Opera / Brave: `chrome-extension://`
- *   - Edge: `extension://`
- *   - Firefox: `moz-extension://`
- *   - Safari: `safari-web-extension://`
- */
-function isExtensionUrl(url: string): boolean {
-  return (
-    url.startsWith('chrome-extension://') ||
-    url.startsWith('extension://') ||
-    url.startsWith('moz-extension://') ||
-    url.startsWith('safari-web-extension://')
-  );
-}
-
 /**
  * Called from tab-listeners on webNavigation.onCommitted (main frame only).
  *
  * Atomic page swap:
- *   - Identifies in-flight requestIds whose chain contains the committed URL
- *     and promotes their `pendingFires` records into the current page's
+ *   - Promotes every pending main-frame fire whose requestId is in the
+ *     caller-supplied `matchingRequestIds` set into the current page's
  *     state with evidence='matched'.
  *   - Drops every other pending fire and resets the rest of page state
  *     (uniquesByRule, counters, fires ring, scriptable suppression).
  *
- * **Extension URL commits are a special case.** Intermediate commits to
- * chrome-extension:// pages (the delay.html page during the delay chain)
- * are transient — the final user-visible destination is whatever the
- * extension page navigates to next. Extension-URL commits reset the page
- * as normal but do NOT promote pending fires — they're abandoned along
- * with the previous page.
+ * The caller derives `matchingRequestIds` from the lifecycle store via
+ * `mainFrameRequestIdsMatchingCommit` — this module no longer maintains
+ * a parallel chain index. Extension-URL commits (chrome-extension://,
+ * etc.) are handled inside that helper, which returns an empty set so
+ * the promotion loop is a no-op while the rest of the reset proceeds.
  */
-export function onPageCommit(tabId: number, committedUrl: string): void {
+export function onPageCommit(
+  tabId: number,
+  committedUrl: string,
+  matchingRequestIds: ReadonlySet<string>,
+): void {
   const state = tabs.get(tabId);
   if (!state) return;
 
   const normalized = normalizeForAttribution(committedUrl);
-  const shouldPromote = !isExtensionUrl(normalized);
-
-  const matchingRequestIds = new Set<string>();
-  if (shouldPromote) {
-    for (const [requestId, chain] of state.mainFrameChains) {
-      if (chain.urls.has(normalized)) matchingRequestIds.add(requestId);
-    }
-  }
-
-  const promoted: PendingFire[] = shouldPromote
-    ? state.pendingFires.filter((f) => matchingRequestIds.has(f.requestId))
-    : [];
+  const promoted: PendingFire[] = state.pendingFires.filter((f) => matchingRequestIds.has(f.requestId));
 
   // Reset for the new page. Counters start fresh; the promoted fires
   // seed the new page. Cancel any in-flight fallback timers — the old
@@ -706,7 +657,6 @@ export function onPageCommit(tabId: number, committedUrl: string): void {
   state.counters.clear();
   state.uniquesByRule.clear();
   state.pendingFires = [];
-  state.mainFrameChains.clear();
   state.pendingFallback.clear();
   state.recentScriptable.clear();
   state.seen.clear();
@@ -731,15 +681,12 @@ export function onPageCommit(tabId: number, committedUrl: string): void {
  * with a block rule on the target URL would surface the block as
  * `no-fire` because no commit ever lands and `onPageCommit` never runs.
  *
- * The mainFrameChain entry is then released so the chain map doesn't
- * leak across the tab's lifetime.
  */
 export function onMainFrameError(tabId: number, requestId: string): void {
   const state = tabs.get(tabId);
   if (!state) return;
   const promoted = state.pendingFires.filter((f) => f.requestId === requestId);
   state.pendingFires = state.pendingFires.filter((f) => f.requestId !== requestId);
-  state.mainFrameChains.delete(requestId);
   for (const p of promoted) {
     appendFire(state, p.record);
     state.seen.add(`${p.record.ruleUid}:${p.requestId}`);

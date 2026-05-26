@@ -12,10 +12,12 @@ import type { RequestLifecycle, RequestLifecycleUpdate } from '@openheaders/core
 import { RequestLifecycleStore } from '@openheaders/oracle/request-lifecycle-store';
 
 import { startTabTelemetrySource } from '@/background/tab-telemetry-source';
+import { mainFrameRequestIdsMatchingCommit } from '@/background/tab-telemetry-source/main-frame-chain';
 import { deriveObservedUrls } from '@/background/tab-telemetry-source/observed-urls';
 import {
   __resetForTests,
   getTabSnapshot,
+  onPageCommit,
   recordObservedFire,
   startTracking,
   subscribeRequestEvents,
@@ -111,7 +113,7 @@ describe('tab-telemetry-source — started projection', () => {
     expect(events[0]).not.toHaveProperty('initiator');
   });
 
-  it('main_frame lifecycle starts a main-frame chain (clears pending fires on onPageCommit)', () => {
+  it('main_frame lifecycle keeps observed fires buffered until commit', () => {
     startTracking(1, 'test:t1');
     store.apply({
       kind: 'started',
@@ -122,14 +124,11 @@ describe('tab-telemetry-source — started projection', () => {
         resourceType: 'main_frame',
       }),
     });
-    // Inject a pending main-frame fire keyed to this requestId; if the chain
-    // wasn't recorded by the projection, onPageCommit would drop it.
     recordObservedFire(1, 'rule-mf', 'https://openheaders.io/', 'mf-1', 2_000, {
       resourceType: 'main_frame',
       pattern: 'https://openheaders.io/',
       deferred: false,
     });
-    // No commit yet — fire is still buffered.
     expect(getTabSnapshot(1).fires).toHaveLength(0);
   });
 });
@@ -244,6 +243,75 @@ describe('tab-telemetry-source — phase projection', () => {
       patch: { phase: 'headers-received', statusCode: 200 },
     });
     expect(getTabSnapshot(1).fires[0].deliveryMode).toBeUndefined();
+  });
+});
+
+describe('tab-telemetry-source — main-frame chain via store snapshot', () => {
+  it('redirect → commit on original URL: pending fires promote via the derived requestId set', () => {
+    startTracking(1, 'test:t1');
+    // Main-frame nav starts at openheaders.io/ and a delay-rule observation
+    // is buffered for the same requestId.
+    store.apply({
+      kind: 'started',
+      lifecycle: makeLifecycle({
+        tabId: 1,
+        requestId: 'mf-1',
+        url: 'https://openheaders.io/',
+        resourceType: 'main_frame',
+        startedAtMs: 1_000,
+      }),
+    });
+    recordObservedFire(1, 'rule-delay', 'https://openheaders.io/', 'mf-1', 1_000, {
+      resourceType: 'main_frame',
+      pattern: 'https://openheaders.io/',
+      deferred: false,
+    });
+
+    // Redirect through a delay shim and back to the original URL — the
+    // intermediate chrome-extension:// commit is transient.
+    store.apply({
+      kind: 'redirect',
+      tabId: 1,
+      requestId: 'mf-1',
+      hop: {
+        sourceUrl: 'https://openheaders.io/',
+        redirectUrl: 'chrome-extension://abc/delay.html#https://openheaders.io/',
+        statusCode: 302,
+        timestampMs: 1_100,
+      },
+      nextUrl: 'chrome-extension://abc/delay.html#https://openheaders.io/',
+    });
+
+    // Caller (tab-listeners) computes the matching set from the store and
+    // hands it to onPageCommit. The store reflects the redirect already.
+    const matches = mainFrameRequestIdsMatchingCommit(store.snapshotTab(1), 'https://openheaders.io/');
+    expect([...matches]).toEqual(['mf-1']);
+
+    onPageCommit(1, 'https://openheaders.io/', matches);
+    expect(getTabSnapshot(1).counters['rule-delay']).toBe(1);
+  });
+
+  it('commit landing on an unrelated URL drops the buffered fire', () => {
+    startTracking(1, 'test:t1');
+    store.apply({
+      kind: 'started',
+      lifecycle: makeLifecycle({
+        tabId: 1,
+        requestId: 'mf-1',
+        url: 'https://openheaders.io/page',
+        resourceType: 'main_frame',
+      }),
+    });
+    recordObservedFire(1, 'rule-a', 'https://openheaders.io/page', 'mf-1', 1_000, {
+      resourceType: 'main_frame',
+      pattern: 'https://openheaders.io/*',
+      deferred: false,
+    });
+
+    const matches = mainFrameRequestIdsMatchingCommit(store.snapshotTab(1), 'https://elsewhere.example/');
+    expect(matches.size).toBe(0);
+    onPageCommit(1, 'https://elsewhere.example/', matches);
+    expect(getTabSnapshot(1).fires).toHaveLength(0);
   });
 });
 

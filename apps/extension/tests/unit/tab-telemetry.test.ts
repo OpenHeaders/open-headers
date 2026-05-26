@@ -8,8 +8,6 @@ import {
   getTabSnapshotForScope,
   isTracked,
   onMainFrameError,
-  onMainFrameRedirect,
-  onMainFrameRequest,
   onPageCommit,
   recordObservedFire,
   recordScriptableFire,
@@ -201,7 +199,6 @@ describe('tab-telemetry — observed fires (non-deferred rule types)', () => {
 
   it('main-frame observed fires are buffered until commit', () => {
     startTracking(1, 'active-popup');
-    onMainFrameRequest(1, 'req-mainframe', 'https://openheaders.io/');
     recordObservedFire(1, 'rule-delay', 'https://openheaders.io/', 'req-mainframe', 100, MAIN_FRAME_META);
 
     expect(getTabSnapshot(1).fires).toHaveLength(0);
@@ -333,13 +330,12 @@ describe('tab-telemetry — deferred observed + 500ms scriptable fallback', () =
 // ── Page-context attribution ─────────────────────────────────────────
 
 describe('tab-telemetry — page-context attribution', () => {
-  it('onPageCommit promotes pending fires whose requestId matches the committed URL', () => {
+  it('onPageCommit promotes pending fires whose requestId is in the supplied matching set', () => {
     startTracking(1, 'active-popup');
 
-    onMainFrameRequest(1, 'req-1', 'https://openheaders.io/');
     recordObservedFire(1, 'rule-delay', 'https://openheaders.io/', 'req-1', 100, MAIN_FRAME_META);
 
-    onPageCommit(1, 'https://openheaders.io/');
+    onPageCommit(1, 'https://openheaders.io/', new Set(['req-1']));
 
     const snap = getTabSnapshot(1);
     expect(snap.fires).toHaveLength(1);
@@ -347,32 +343,10 @@ describe('tab-telemetry — page-context attribution', () => {
     expect(snap.counters).toEqual({ 'rule-delay': 1 });
   });
 
-  it('delay chain: redirect extends the chain and promotes fires on commit', () => {
+  it('onPageCommit drops pending fires whose requestId is not in the supplied matching set', () => {
     startTracking(1, 'active-popup');
-
-    onMainFrameRequest(1, 'req-1', 'https://openheaders.io/');
-    recordObservedFire(1, 'rule-delay', 'https://openheaders.io/', 'req-1', 100, MAIN_FRAME_META);
-    onMainFrameRedirect(1, 'req-1', 'chrome-extension://abc/delay.html?ms=5000#https://openheaders.io/');
-    onPageCommit(1, 'https://openheaders.io/');
-
-    const snap = getTabSnapshot(1);
-    expect(snap.counters['rule-delay']).toBe(1);
-  });
-
-  it('trailing slash is normalized between pending and committed URLs', () => {
-    startTracking(1, 'active-popup');
-    onMainFrameRequest(1, 'req-1', 'https://openheaders.io');
-    recordObservedFire(1, 'rule-a', 'https://openheaders.io', 'req-1', 100, MAIN_FRAME_META);
-    onPageCommit(1, 'https://openheaders.io/');
-
-    expect(getTabSnapshot(1).counters['rule-a']).toBe(1);
-  });
-
-  it('onPageCommit drops pending fires whose requestId does not match the committed URL', () => {
-    startTracking(1, 'active-popup');
-    onMainFrameRequest(1, 'req-a', 'https://openheaders.io/a');
     recordObservedFire(1, 'rule-a', 'https://openheaders.io/a', 'req-a', 100, MAIN_FRAME_META);
-    onPageCommit(1, 'https://other-site.example/');
+    onPageCommit(1, 'https://other-site.example/', new Set());
     expect(getTabSnapshot(1).fires).toHaveLength(0);
   });
 
@@ -381,7 +355,7 @@ describe('tab-telemetry — page-context attribution', () => {
     recordScriptableFire(1, 'rule-a', 'https://openheaders.io/', 100, SCRIPTABLE_META);
     expect(getTabSnapshot(1).counters['rule-a']).toBe(1);
 
-    onPageCommit(1, 'https://openheaders.io/other');
+    onPageCommit(1, 'https://openheaders.io/other', new Set());
 
     const snap = getTabSnapshot(1);
     expect(snap.fires).toHaveLength(0);
@@ -392,21 +366,22 @@ describe('tab-telemetry — page-context attribution', () => {
   it('onPageCommit cancels any in-flight fallback timers', () => {
     startTracking(1, 'active-popup');
     recordObservedFire(1, 'rule-mock', 'https://api.openheaders.io/x', 'req-1', 100, DEFERRED_META);
-    onPageCommit(1, 'https://openheaders.io/new');
+    onPageCommit(1, 'https://openheaders.io/new', new Set());
     vi.advanceTimersByTime(1000);
     // Timer was cancelled — the abandoned observation must not appear in the new page.
     expect(getTabSnapshot(1).fires).toHaveLength(0);
   });
 
-  it('onMainFrameError releases the chain slot and drops pending fires', () => {
+  it('onMainFrameError promotes pending fires for the failed requestId without needing a chain', () => {
     startTracking(1, 'active-popup');
-    onMainFrameRequest(1, 'req-1', 'https://openheaders.io/');
     recordObservedFire(1, 'rule-a', 'https://openheaders.io/', 'req-1', 100, MAIN_FRAME_META);
 
     onMainFrameError(1, 'req-1');
 
-    onPageCommit(1, 'https://openheaders.io/');
-    expect(getTabSnapshot(1).fires).toHaveLength(0);
+    const snap = getTabSnapshot(1);
+    expect(snap.fires).toHaveLength(1);
+    expect(snap.fires[0]).toMatchObject({ ruleUid: 'rule-a', evidence: 'matched' });
+    expect(snap.counters).toEqual({ 'rule-a': 1 });
   });
 });
 
@@ -545,14 +520,13 @@ describe('delivery mode + updateRequestDeliveryMode', () => {
 
   it('back-fill reaches main-frame pending records too', () => {
     startTracking(1, 'active-popup');
-    onMainFrameRequest(1, 'req-mf', 'https://openheaders.io/');
     // Main-frame fires queue into pendingFires until commit.
     recordObservedFire(1, 'rule-a', 'https://openheaders.io/', 'req-mf', 100, MAIN_FRAME_META);
 
     updateRequestDeliveryMode(1, 'req-mf', 'network');
     // Before commit, no snapshot view of pending — but the commit path
     // must carry the back-filled mode through into fires.
-    onPageCommit(1, 'https://openheaders.io/');
+    onPageCommit(1, 'https://openheaders.io/', new Set(['req-mf']));
 
     expect(getTabSnapshot(1).fires[0]?.deliveryMode).toBe('network');
   });
