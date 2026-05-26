@@ -36,3 +36,11 @@ export {
   parseLifecyclePortName,
 } from './wire';
 export type { LifecycleWireMessage } from './wire';
+
+export { REQUEST_LIFECYCLE_INVARIANTS } from './invariant-registry';
+export type {
+  InvariantAssertion,
+  InvariantEntry,
+  InvariantId,
+  InvariantPending,
+} from './invariant-registry';
