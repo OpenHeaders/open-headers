@@ -17,7 +17,7 @@ import { IdbActivityMuteStore } from './idb-activity-mute-store';
 import { IdbMutationLog } from './idb-mutation-log';
 import { IdbPendingIntents } from './idb-pending-intents';
 import { IdbPendingOutQueue } from './idb-pending-out-queue';
-import type { SyncPersistenceProvider } from './sync-persistence-provider';
+import type { SyncPersistenceProvider } from '@openheaders/oracle/sync/sync-persistence-provider';
 
 export function createIdbSyncPersistenceProvider(): SyncPersistenceProvider {
   let pendingOut: IdbPendingOutQueue | null = null;

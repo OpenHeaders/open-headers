@@ -41,8 +41,8 @@ import {
   onEnvironmentStoreChange,
 } from '@openheaders/oracle/entity/environment-store';
 import { listFiles, onFilesStoreChange } from '@openheaders/oracle/entity/files-store';
-import { IdbAuditLog } from '@openheaders/oracle/sync/idb-audit-log';
-import { createIdbSyncPersistenceProvider } from '@openheaders/oracle/sync/idb-sync-persistence';
+import { IdbAuditLog } from '@openheaders/oracle-host-browser/sync/idb-audit-log';
+import { createIdbSyncPersistenceProvider } from '@openheaders/oracle-host-browser/sync/idb-sync-persistence';
 import { setSyncPersistenceProvider } from '@openheaders/oracle/sync/sync-persistence-provider';
 import { report as reportStatus, subscribe as subscribeStatus } from '@openheaders/ui/shared/status';
 import { get as getSetting, subscribeKey } from '@openheaders/ui/workbench/settings/store';
@@ -68,7 +68,7 @@ import { forgetCacheBypassForTab, rehydrateCacheBypassFromSessionRules } from '.
 import './modules/live-chain-adapter';
 import { setLockObserver } from '@openheaders/oracle/coordination';
 import { setBlobBackend } from '@openheaders/oracle/files';
-import { IdbBlobBackend } from '@openheaders/oracle/files/idb-blob-backend';
+import { IdbBlobBackend } from '@openheaders/oracle-host-browser/files/idb-blob-backend';
 import { bootSyncEngine } from '@openheaders/oracle/host-runtime';
 
 setBlobBackend(new IdbBlobBackend());

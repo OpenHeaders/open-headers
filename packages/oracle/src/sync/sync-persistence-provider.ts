@@ -7,7 +7,7 @@
  * on sync-service init. The concrete backend is platform-specific:
  *
  *   - **Browser extension** — deep-imports `createIdbSyncPersistenceProvider`
- *     from `@openheaders/oracle/sync/idb-sync-persistence` and installs
+ *     from `@openheaders/oracle-host-browser/sync/idb-sync-persistence` and installs
  *     at boot.
  *   - **Electron desktop** — installs a Node/SQLite-backed provider once
  *     at main-process boot.

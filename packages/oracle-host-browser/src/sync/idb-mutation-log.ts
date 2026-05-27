@@ -23,7 +23,7 @@
  */
 
 import { hlcToString, type MutationEnvelope } from '@openheaders/core/sync';
-import type { MutationLog } from './mutation-log';
+import type { MutationLog } from '@openheaders/oracle/sync/mutation-log';
 
 const DB_NAME = 'oh.sync.mutations';
 const DB_VERSION = 2;

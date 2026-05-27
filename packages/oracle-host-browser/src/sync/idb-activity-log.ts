@@ -31,7 +31,7 @@ import {
   type ActivityEntryKind,
 } from '@openheaders/core/sync';
 
-import type { ActivityLog, ActivityLogListOptions } from './activity-log';
+import type { ActivityLog, ActivityLogListOptions } from '@openheaders/oracle/sync/activity-log';
 
 const DB_NAME = 'oh.sync.activity';
 const DB_VERSION = 1;

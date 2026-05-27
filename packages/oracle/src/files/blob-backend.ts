@@ -4,8 +4,8 @@
  * `blob-store.ts`'s free functions delegate through.
  *
  * Every host installs its backend explicitly at boot:
- *   - Browser hosts deep-import {@link IdbBlobBackend} from
- *     `@openheaders/oracle/files/idb-blob-backend`.
+ *   - Browser hosts deep-import `IdbBlobBackend` from
+ *     `@openheaders/oracle-host-browser/files/idb-blob-backend`.
  *   - Node hosts deep-import `FileSystemBlobBackend` from
  *     `@openheaders/oracle-host-node/files/fs-blob-backend`.
  * Either way the choice is the caller's — this module owns no runtime

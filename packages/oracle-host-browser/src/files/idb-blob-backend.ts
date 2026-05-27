@@ -31,8 +31,8 @@
  */
 
 import { type FileRef, newFileId } from '@openheaders/core/files';
-import type { BlobBackend } from './blob-backend';
-import { hashBlob } from './hash';
+import type { BlobBackend } from '@openheaders/oracle/files/blob-backend';
+import { hashBlob } from '@openheaders/oracle/files/hash';
 
 const DB_NAME = 'oh.files';
 const DB_VERSION = 2;

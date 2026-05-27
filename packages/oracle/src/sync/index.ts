@@ -70,8 +70,9 @@ export {
   requireActiveWorkspaceId,
   setOracleHostHooks,
 } from './host-hooks';
-// Browser-coupled IDB-backed durable stores live behind deep imports
-// (`@openheaders/oracle/sync/idb-*`) so this barrel stays host-neutral.
+// Browser-coupled IDB-backed durable stores live in
+// `@openheaders/oracle-host-browser/sync/idb-*` so this barrel stays
+// host-neutral.
 // See `docs/ORACLE_HOST_NEUTRALITY_AUDIT.md` §F-1.P.1.
 export {
   type ApplyRestoreDeps,

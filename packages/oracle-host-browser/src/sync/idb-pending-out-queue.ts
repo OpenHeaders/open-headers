@@ -18,7 +18,7 @@
  */
 import { hlcToString, type MutationEnvelope } from '@openheaders/core/sync';
 
-import type { PendingOutQueue } from './pending-out-queue';
+import type { PendingOutQueue } from '@openheaders/oracle/sync/pending-out-queue';
 
 const DB_NAME = 'oh.sync.pending-out';
 const DB_VERSION = 1;

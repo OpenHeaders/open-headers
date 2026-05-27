@@ -11,7 +11,7 @@
  */
 
 import { compareHlc, type SideEffectIntent } from '@openheaders/core/sync';
-import type { PendingIntents } from './pending-intents';
+import type { PendingIntents } from '@openheaders/oracle/sync/pending-intents';
 
 const DB_NAME = 'oh.sync.intents';
 const DB_VERSION = 1;

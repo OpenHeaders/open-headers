@@ -22,7 +22,7 @@ import type {
   AuditLog,
   AuditLogAppendInput,
   AuditLogListOptions,
-} from './audit-log';
+} from '@openheaders/oracle/sync/audit-log';
 
 const DB_NAME = 'oh.identity.audit';
 const DB_VERSION = 1;
