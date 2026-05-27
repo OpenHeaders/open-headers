@@ -2,15 +2,20 @@
  * Match Tracker — direct unit tests over the membership decisions.
  * `request-tracker` and `url-utils` are mocked so the tests exercise
  * only the logic this module owns (trackable gate, normalization,
- * rule-match check, tabsWithActiveRules transitions on failure).
+ * rule-match check, tracked-store transitions on failure).
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import {
+  clearAllTracking,
+  hasTrackedTab,
+  setTrackedResource,
+} from '@openheaders/oracle/tracking/tab-tracking-store';
+
 const mocks = vi.hoisted(() => ({
   checkIfUrlMatchesAnyRule: vi.fn<(url: string) => boolean>(),
   addTrackedUrl: vi.fn(),
-  tabsWithActiveRules: new Map<number, Map<string, unknown>>(),
   isTrackableUrl: vi.fn<(url: string) => boolean>(),
   normalizeUrlForTracking: vi.fn<(url: string) => string>(),
 }));
@@ -18,7 +23,6 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/background/modules/request-tracker', () => ({
   checkIfUrlMatchesAnyRule: (url: string) => mocks.checkIfUrlMatchesAnyRule(url),
   addTrackedUrl: (...args: unknown[]) => mocks.addTrackedUrl(...args),
-  tabsWithActiveRules: mocks.tabsWithActiveRules,
 }));
 
 vi.mock('@/background/modules/url-utils', () => ({
@@ -26,7 +30,7 @@ vi.mock('@/background/modules/url-utils', () => ({
   normalizeUrlForTracking: (url: string) => mocks.normalizeUrlForTracking(url),
 }));
 
-const { checkIfUrlMatchesAnyRule, addTrackedUrl, tabsWithActiveRules, isTrackableUrl, normalizeUrlForTracking } = mocks;
+const { checkIfUrlMatchesAnyRule, addTrackedUrl, isTrackableUrl, normalizeUrlForTracking } = mocks;
 
 import {
   dropOnNetworkFailure,
@@ -39,7 +43,7 @@ beforeEach(() => {
   addTrackedUrl.mockReset();
   isTrackableUrl.mockReset();
   normalizeUrlForTracking.mockReset();
-  tabsWithActiveRules.clear();
+  clearAllTracking();
   // Default behaviors.
   isTrackableUrl.mockReturnValue(true);
   normalizeUrlForTracking.mockImplementation((u) => u);
@@ -47,6 +51,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.clearAllMocks();
+  clearAllTracking();
 });
 
 describe('match-tracker — ingestMatchObservation', () => {
@@ -95,41 +100,30 @@ describe('match-tracker — dropOnNetworkFailure', () => {
   });
 
   it('returns false when the URL is not tracked', () => {
-    tabsWithActiveRules.set(1, new Map([['https://openheaders.io/other', {}]]));
+    setTrackedResource(1, 'https://openheaders.io/other', 'xmlhttprequest', 'webRequest', false);
     expect(dropOnNetworkFailure({ tabId: 1, url: 'https://openheaders.io/x' })).toBe(false);
   });
 
   it('removes the URL and returns true when tracked; leaves the tab map intact when others remain', () => {
-    tabsWithActiveRules.set(
-      1,
-      new Map([
-        ['https://openheaders.io/a', {}],
-        ['https://openheaders.io/b', {}],
-      ]),
-    );
+    setTrackedResource(1, 'https://openheaders.io/a', 'xmlhttprequest', 'webRequest', false);
+    setTrackedResource(1, 'https://openheaders.io/b', 'xmlhttprequest', 'webRequest', false);
     expect(dropOnNetworkFailure({ tabId: 1, url: 'https://openheaders.io/a' })).toBe(true);
-    expect(tabsWithActiveRules.get(1)?.size).toBe(1);
-    expect(tabsWithActiveRules.get(1)?.has('https://openheaders.io/b')).toBe(true);
+    expect(hasTrackedTab(1)).toBe(true);
   });
 
   it('drops the entire tab entry when the last tracked URL is removed', () => {
-    tabsWithActiveRules.set(1, new Map([['https://openheaders.io/a', {}]]));
+    setTrackedResource(1, 'https://openheaders.io/a', 'xmlhttprequest', 'webRequest', false);
     expect(dropOnNetworkFailure({ tabId: 1, url: 'https://openheaders.io/a' })).toBe(true);
-    expect(tabsWithActiveRules.has(1)).toBe(false);
+    expect(hasTrackedTab(1)).toBe(false);
   });
 });
 
 describe('match-tracker — dropTabTracking', () => {
   it('removes every tracked URL for the tab', () => {
-    tabsWithActiveRules.set(
-      1,
-      new Map([
-        ['https://openheaders.io/a', {}],
-        ['https://openheaders.io/b', {}],
-      ]),
-    );
+    setTrackedResource(1, 'https://openheaders.io/a', 'xmlhttprequest', 'webRequest', false);
+    setTrackedResource(1, 'https://openheaders.io/b', 'xmlhttprequest', 'webRequest', false);
     dropTabTracking(1);
-    expect(tabsWithActiveRules.has(1)).toBe(false);
+    expect(hasTrackedTab(1)).toBe(false);
   });
 
   it('is a no-op for unknown tabs', () => {

@@ -27,13 +27,17 @@ vi.mock('@utils/logger', () => ({
 }));
 
 import {
+  clearAllTracking,
+  getTrackedResourceMap,
+  hasTrackedTab,
+} from '@openheaders/oracle/tracking/tab-tracking-store';
+import {
   addTrackedUrl,
   checkIfUrlMatchesAnyRule,
   getActiveRulesForTab,
   ingestPerfEntries,
   matchRulesToRequest,
   precompileRulePatterns,
-  tabsWithActiveRules,
 } from '@/background/modules/request-tracker';
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -69,7 +73,7 @@ function seedRules(rules: Rule[]): void {
 describe('getActiveRulesForTab', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    tabsWithActiveRules.clear();
+    clearAllTracking();
     mockGetRules.mockReturnValue([]);
   });
 
@@ -243,7 +247,7 @@ describe('getActiveRulesForTab', () => {
 describe('checkIfUrlMatchesAnyRule', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    tabsWithActiveRules.clear();
+    clearAllTracking();
     mockGetRules.mockReturnValue([]);
   });
 
@@ -385,7 +389,7 @@ describe('matchRulesToRequest', () => {
 describe('addTrackedUrl', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    tabsWithActiveRules.clear();
+    clearAllTracking();
   });
 
   it('adds a URL with a timestamp and resource type', () => {
@@ -393,7 +397,7 @@ describe('addTrackedUrl', () => {
     addTrackedUrl(1, 'https://api.openheaders.io/v2', 'xmlhttprequest');
     const after = Date.now();
 
-    const tracked = tabsWithActiveRules.get(1)!;
+    const tracked = getTrackedResourceMap(1)!;
     expect(tracked.has('https://api.openheaders.io/v2')).toBe(true);
     const res = tracked.get('https://api.openheaders.io/v2')!;
     expect(res.timestamp).toBeGreaterThanOrEqual(before);
@@ -416,28 +420,28 @@ describe('addTrackedUrl', () => {
   });
 
   it('creates tab entry if it does not exist', () => {
-    expect(tabsWithActiveRules.has(42)).toBe(false);
+    expect(hasTrackedTab(42)).toBe(false);
     addTrackedUrl(42, 'https://openheaders.io');
-    expect(tabsWithActiveRules.has(42)).toBe(true);
+    expect(hasTrackedTab(42)).toBe(true);
   });
 
   it('tracks all URLs without a cap', () => {
     for (let i = 0; i < 100; i++) {
       addTrackedUrl(1, `https://openheaders.io/page/${i}`);
     }
-    expect(tabsWithActiveRules.get(1)!.size).toBe(100);
+    expect(getTrackedResourceMap(1)!.size).toBe(100);
 
     addTrackedUrl(1, 'https://openheaders.io/page/new');
-    expect(tabsWithActiveRules.get(1)!.size).toBe(101);
-    expect(tabsWithActiveRules.get(1)!.has('https://openheaders.io/page/0')).toBe(true);
-    expect(tabsWithActiveRules.get(1)!.has('https://openheaders.io/page/new')).toBe(true);
+    expect(getTrackedResourceMap(1)!.size).toBe(101);
+    expect(getTrackedResourceMap(1)!.has('https://openheaders.io/page/0')).toBe(true);
+    expect(getTrackedResourceMap(1)!.has('https://openheaders.io/page/new')).toBe(true);
   });
 });
 
 describe('ingestPerfEntries', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    tabsWithActiveRules.clear();
+    clearAllTracking();
     mockGetRules.mockReturnValue([]);
   });
 
@@ -447,7 +451,7 @@ describe('ingestPerfEntries', () => {
       { url: 'https://assets.cdn.openheaders.io/chunk.js', initiatorType: 'script', servedFromCache: true },
     ]);
     expect(count).toBe(1);
-    const tracked = tabsWithActiveRules.get(5)!;
+    const tracked = getTrackedResourceMap(5)!;
     const entry = [...tracked.values()][0]!;
     expect(entry.sources.has('perfObserver')).toBe(true);
     expect(entry.servedFromCache).toBe(true);
@@ -460,7 +464,7 @@ describe('ingestPerfEntries', () => {
       { url: 'https://unrelated.com/chunk.js', initiatorType: 'script', servedFromCache: true },
     ]);
     expect(count).toBe(0);
-    expect(tabsWithActiveRules.has(5)).toBe(false);
+    expect(hasTrackedTab(5)).toBe(false);
   });
 
   it('skips non-trackable URLs (chrome://, etc.)', () => {
@@ -479,7 +483,7 @@ describe('ingestPerfEntries', () => {
       { url: 'https://a.openheaders.io/z.css', initiatorType: 'css', servedFromCache: false },
       { url: 'https://a.openheaders.io/api', initiatorType: 'fetch', servedFromCache: false },
     ]);
-    const tracked = tabsWithActiveRules.get(5)!;
+    const tracked = getTrackedResourceMap(5)!;
     const byType = [...tracked.values()].reduce<Record<string, number>>((acc, r) => {
       acc[r.resourceType] = (acc[r.resourceType] ?? 0) + 1;
       return acc;
@@ -491,7 +495,7 @@ describe('ingestPerfEntries', () => {
     seedRules([makeHeaderRule({ conditions: hostConditions(['*.openheaders.io']) })]);
     addTrackedUrl(5, 'https://api.openheaders.io/v2', 'xmlhttprequest');
     ingestPerfEntries(5, [{ url: 'https://api.openheaders.io/v2', initiatorType: 'fetch', servedFromCache: true }]);
-    const entry = tabsWithActiveRules.get(5)!.get('https://api.openheaders.io/v2')!;
+    const entry = getTrackedResourceMap(5)!.get('https://api.openheaders.io/v2')!;
     expect(entry.sources.has('webRequest')).toBe(true);
     expect(entry.sources.has('perfObserver')).toBe(true);
     // servedFromCache was false from webRequest path — a subsequent

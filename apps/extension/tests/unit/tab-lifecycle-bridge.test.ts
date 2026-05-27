@@ -9,7 +9,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { RequestLifecycleStore } from '@openheaders/oracle/request-lifecycle-store';
 import { TabLifecycleBus } from '@openheaders/oracle/tab-lifecycle-bus';
-import { tabsWithActiveRules } from '@openheaders/oracle/tracking/tab-tracking-store';
+import {
+  clearAllTracking,
+  hasTrackedTab,
+  setTrackedResource,
+} from '@openheaders/oracle/tracking/tab-tracking-store';
 
 import { installTabLifecycleBridge } from '@/background/correlator-host/tab-lifecycle-bridge';
 import { startRuleEngineDriver } from '@/background/rule-engine-driver';
@@ -32,7 +36,7 @@ const detachTab = vi.fn();
 
 beforeEach(() => {
   __resetForTests();
-  tabsWithActiveRules.clear();
+  clearAllTracking();
   detachTab.mockReset();
   (chrome.tabs.onRemoved.addListener as ReturnType<typeof vi.fn>).mockClear();
 
@@ -52,12 +56,12 @@ afterEach(() => {
   disposeTelemetry();
   disposeRule();
   detachBridge();
-  tabsWithActiveRules.clear();
+  clearAllTracking();
 });
 
 describe('tab-lifecycle-bridge — chrome.tabs.onRemoved → bus chain', () => {
   it('fires both drivers via the bus and respects ordering', () => {
-    tabsWithActiveRules.set(42, new Map());
+    setTrackedResource(42, 'https://openheaders.io/a', 'main_frame', 'webRequest', false);
     startTracking(42, 'test:42');
     expect(__internals.getState(42)).toBeDefined();
 
@@ -67,7 +71,7 @@ describe('tab-lifecycle-bridge — chrome.tabs.onRemoved → bus chain', () => {
     onRemoved(42);
 
     expect(detachTab).toHaveBeenCalledWith(42);
-    expect(tabsWithActiveRules.has(42)).toBe(false);
+    expect(hasTrackedTab(42)).toBe(false);
     expect(__internals.getState(42)).toBeUndefined();
     expect(forgetTab).toHaveBeenCalledWith(42);
 

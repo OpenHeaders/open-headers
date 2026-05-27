@@ -11,15 +11,14 @@
  *
  * Also subscribes to the cross-driver `TabLifecycleBus` so it can drop
  * a tab's tracked-URL set on `tab-forgotten` without the bridge calling
- * us directly. Typed mutator for `tabsWithActiveRules` arrives in
- * session 53 — raw Map.delete call for now.
+ * us directly.
  */
 
 import { logger } from '@utils/logger';
 import type { RequestLifecycleStore } from '@openheaders/oracle/request-lifecycle-store';
 import type { TabLifecycleBus } from '@openheaders/oracle/tab-lifecycle-bus';
+import { dropTab } from '@openheaders/oracle/tracking/tab-tracking-store';
 
-import { tabsWithActiveRules } from '../modules/request-tracker';
 import { type UpdateBadge } from './badge-trigger';
 import { installLifecycleSubscription } from './lifecycle-subscription';
 import { installNavCleanup } from './nav-cleanup';
@@ -39,7 +38,7 @@ export function startRuleEngineDriver(options: RuleEngineDriverOptions): RuleEng
   const detachNav = installNavCleanup(options);
   const detachBus = options.bus.subscribe((event) => {
     if (event.kind !== 'tab-forgotten') return;
-    tabsWithActiveRules.delete(event.tabId);
+    dropTab(event.tabId);
   });
   logger.info('RuleEngineDriver', 'rule-engine driver online');
   return {

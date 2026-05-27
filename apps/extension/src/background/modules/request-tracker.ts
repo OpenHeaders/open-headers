@@ -25,8 +25,11 @@ import { getRules as getRawRules } from '@openheaders/oracle/entity/rule-store';
 import { getResolvedRules, getUnresolvableRuleUids } from '@openheaders/oracle/rule-engine/variables-resolver';
 import {
   clearAllTracking as clearAllTrackingState,
+  getTrackedResourceMap,
+  iterateTrackedEntries,
+  mergeTrackedResources,
+  replaceTabResources,
   setTrackedResource,
-  tabsWithActiveRules as oracleTabsWithActiveRules,
 } from '@openheaders/oracle/tracking/tab-tracking-store';
 
 /** Read the current rule list in resolved form, falling back to the
@@ -66,16 +69,6 @@ function doesUrlMatchEntry(url: string, entry: MatchPattern): boolean {
 
 const REVALIDATION_QUEUE = new Set<number>();
 let isRevalidating = false;
-
-/**
- * Per-tab tracked-resource attribution. The Map itself lives in
- * `@openheaders/oracle/tracking/tab-tracking-store` so the FE-thin-
- * subscriber invariant holds (oracle owns the state, the host owns
- * the chrome bindings that mutate it). Re-exported here under the
- * historical name so existing call sites in this module and in
- * sibling modules (tab-listeners, correlator-host) keep working.
- */
-export const tabsWithActiveRules = oracleTabsWithActiveRules;
 
 // ── Pattern precompilation ────────────────────────────────────────
 
@@ -290,9 +283,12 @@ export function getActiveRulesForTab(tabId: number | undefined, tabUrl: string):
   }
 
   const trackedResources: Map<string, TrackedResource> = new Map();
-  if (tabId && tabsWithActiveRules.has(tabId)) {
-    for (const [url, res] of tabsWithActiveRules.get(tabId)!) {
-      trackedResources.set(url, res);
+  if (tabId) {
+    const existing = getTrackedResourceMap(tabId);
+    if (existing) {
+      for (const [url, res] of existing) {
+        trackedResources.set(url, res);
+      }
     }
   }
 
@@ -382,11 +378,11 @@ export async function revalidateTrackedRequests(): Promise<void> {
     const rules = getRules();
 
     if (rules.length === 0) {
-      tabsWithActiveRules.clear();
+      clearAllTrackingState();
       return;
     }
 
-    for (const [tabId, trackedUrls] of tabsWithActiveRules.entries()) {
+    for (const [tabId, trackedUrls] of [...iterateTrackedEntries()]) {
       const validUrls = new Map<string, TrackedResource>();
 
       for (const [url, res] of trackedUrls) {
@@ -406,11 +402,7 @@ export async function revalidateTrackedRequests(): Promise<void> {
         }
       }
 
-      if (validUrls.size > 0) {
-        tabsWithActiveRules.set(tabId, validUrls);
-      } else {
-        tabsWithActiveRules.delete(tabId);
-      }
+      replaceTabResources(tabId, validUrls);
     }
   } finally {
     isRevalidating = false;
@@ -429,18 +421,7 @@ export async function restoreTrackingState(updateBadgeCallback: () => void): Pro
     for (const tab of allTabs) {
       if (tab.url && tab.id && isTrackableUrl(tab.url)) {
         if (checkIfUrlMatchesAnyRule(tab.url)) {
-          if (!tabsWithActiveRules.has(tab.id)) {
-            tabsWithActiveRules.set(tab.id, new Map());
-          }
-          const normalized = normalizeUrlForTracking(tab.url);
-          const now = Date.now();
-          tabsWithActiveRules.get(tab.id)!.set(normalized, {
-            firstSeenTs: now,
-            lastSeenTs: now,
-            timestamp: now,
-            resourceType: 'main_frame',
-            sources: new Set<ObservationSource>(['webRequest']),
-          });
+          setTrackedResource(tab.id, normalizeUrlForTracking(tab.url), 'main_frame', 'webRequest', false);
         }
       }
     }
@@ -548,7 +529,7 @@ async function persistTabTracking(): Promise<void> {
   const session = getSessionStorage();
   if (!session) return;
   const payload: PersistedPayload = {};
-  for (const [tabId, urlMap] of tabsWithActiveRules) {
+  for (const [tabId, urlMap] of iterateTrackedEntries()) {
     // LRU-bound the per-tab payload by lastSeenTs so a long-lived SPA
     // doesn't balloon the persisted blob past the storage quota.
     const entries = [...urlMap.entries()]
@@ -609,21 +590,21 @@ export async function rehydrateTabTracking(): Promise<void> {
     for (const [tabIdStr, urlMap] of Object.entries(raw)) {
       const tabId = Number(tabIdStr);
       if (!Number.isFinite(tabId)) continue;
-      if (!tabsWithActiveRules.has(tabId)) {
-        tabsWithActiveRules.set(tabId, new Map());
-      }
-      const dest = tabsWithActiveRules.get(tabId)!;
+      const entries: Array<[string, TrackedResource]> = [];
       for (const [url, res] of Object.entries(urlMap)) {
-        if (dest.has(url)) continue;
-        dest.set(url, {
-          firstSeenTs: res.firstSeenTs,
-          lastSeenTs: res.lastSeenTs,
-          timestamp: res.lastSeenTs,
-          resourceType: res.resourceType,
-          sources: new Set<ObservationSource>(res.sources),
-          servedFromCache: res.servedFromCache,
-        });
+        entries.push([
+          url,
+          {
+            firstSeenTs: res.firstSeenTs,
+            lastSeenTs: res.lastSeenTs,
+            timestamp: res.lastSeenTs,
+            resourceType: res.resourceType,
+            sources: new Set<ObservationSource>(res.sources),
+            servedFromCache: res.servedFromCache,
+          },
+        ]);
       }
+      mergeTrackedResources(tabId, entries);
     }
   } catch {
     /* Bad payload — skip rehydration, the SW will rebuild from scratch. */

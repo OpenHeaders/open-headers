@@ -1,12 +1,14 @@
 /**
- * Match Tracker — owns the `tabsWithActiveRules` membership decisions
+ * Match Tracker — owns the tracked-resource membership decisions
  * driven by lifecycle updates. Decides whether a given URL on a given
  * tab matches any enabled rule and updates the tracked set accordingly;
  * handles cleanup when a tracked URL fails at the network layer before
  * any rule could have acted on it.
  */
 
-import { addTrackedUrl, checkIfUrlMatchesAnyRule, tabsWithActiveRules } from '../modules/request-tracker';
+import { dropTab, dropTrackedUrl } from '@openheaders/oracle/tracking/tab-tracking-store';
+
+import { addTrackedUrl, checkIfUrlMatchesAnyRule } from '../modules/request-tracker';
 import { isTrackableUrl, normalizeUrlForTracking } from '../modules/url-utils';
 import type { TrackedResourceType } from '@/types/browser';
 
@@ -40,16 +42,10 @@ export interface NetworkFailureInput {
  * removed so the caller can trigger a badge refresh.
  */
 export function dropOnNetworkFailure({ tabId, url }: NetworkFailureInput): boolean {
-  if (!tabsWithActiveRules.has(tabId)) return false;
-  const normalized = normalizeUrlForTracking(url);
-  const tracked = tabsWithActiveRules.get(tabId)!;
-  if (!tracked.has(normalized)) return false;
-  tracked.delete(normalized);
-  if (tracked.size === 0) tabsWithActiveRules.delete(tabId);
-  return true;
+  return dropTrackedUrl(tabId, normalizeUrlForTracking(url));
 }
 
 /** Drop every tracked URL for a tab — used on main-frame navigation. */
 export function dropTabTracking(tabId: number): void {
-  tabsWithActiveRules.delete(tabId);
+  dropTab(tabId);
 }

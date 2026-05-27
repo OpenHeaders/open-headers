@@ -5,8 +5,17 @@
 import { runtime, tabs, webNavigation, windows } from '@utils/browser-api.js';
 import { logger } from '@utils/logger';
 import type { RequestLifecycleStore } from '@openheaders/oracle/request-lifecycle-store';
-import type { ObservationSource } from '@/types/browser';
-import { checkIfUrlMatchesAnyRule, tabsWithActiveRules } from './request-tracker';
+import {
+  clearAllTracking,
+  dropTab,
+  getTrackedResourceMap,
+  getTrackedTabCount,
+  iterateTrackedEntries,
+  setTrackedResource,
+  transferTabTracking,
+} from '@openheaders/oracle/tracking/tab-tracking-store';
+
+import { checkIfUrlMatchesAnyRule } from './request-tracker';
 import { mainFrameRequestIdsMatchingCommit } from '../tab-telemetry-source/main-frame-chain';
 import {
   onPageCommit as tabTelemetryOnPageCommit,
@@ -113,8 +122,8 @@ export function setupTabListeners(options: SetupTabListenersOptions): void {
         logger.info('TabListeners', `Detected potential SPA navigation in tab ${tabId}`);
 
         // Check if this is a significant navigation (different origin or path)
-        if (tabsWithActiveRules.has(tabId)) {
-          const trackedUrls = tabsWithActiveRules.get(tabId)!;
+        const trackedUrls = getTrackedResourceMap(tabId);
+        if (trackedUrls) {
           const normalizedNewUrl = normalizeUrlForTracking(changeInfo.url);
 
           // Parse URLs to check if it's a significant navigation
@@ -141,18 +150,18 @@ export function setupTabListeners(options: SetupTabListenersOptions): void {
                 'TabListeners',
                 `Significant SPA navigation detected, clearing tracked requests for tab ${tabId}`,
               );
-              tabsWithActiveRules.delete(tabId);
+              dropTab(tabId);
             }
           } catch (_e) {
             // If URL parsing fails, clear to be safe
-            tabsWithActiveRules.delete(tabId);
+            dropTab(tabId);
           }
         }
       }
 
       // Clear tracking when URL changes (main navigation)
-      if (changeInfo.url && tabsWithActiveRules.has(tabId)) {
-        const trackedUrls = tabsWithActiveRules.get(tabId)!;
+      if (changeInfo.url) {
+        const trackedUrls = getTrackedResourceMap(tabId);
         if (trackedUrls && trackedUrls.size > 0) {
           // Check if new URL is different origin than tracked URLs
           try {
@@ -173,11 +182,11 @@ export function setupTabListeners(options: SetupTabListenersOptions): void {
 
             if (differentOrigin) {
               logger.info('TabListeners', `Tab ${tabId} navigated to different origin, clearing tracked requests`);
-              tabsWithActiveRules.delete(tabId);
+              dropTab(tabId);
             }
           } catch (_e) {
             // Invalid URL, clear tracking to be safe
-            tabsWithActiveRules.delete(tabId);
+            dropTab(tabId);
           }
         }
       }
@@ -214,11 +223,7 @@ export function setupTabListeners(options: SetupTabListenersOptions): void {
     logger.info('TabListeners', `Tab ${removedTabId} replaced by ${addedTabId}, transferring tracking`);
 
     // Transfer tracking from old tab to new tab if any exists
-    if (tabsWithActiveRules.has(removedTabId)) {
-      const trackedUrls = tabsWithActiveRules.get(removedTabId)!;
-      tabsWithActiveRules.set(addedTabId, trackedUrls);
-      tabsWithActiveRules.delete(removedTabId);
-
+    if (transferTabTracking(removedTabId, addedTabId)) {
       // Update badge if this is the active tab
       tabs.query({ active: true, currentWindow: true }, (tabsList: chrome.tabs.Tab[]) => {
         if (tabsList[0] && tabsList[0].id === addedTabId) {
@@ -233,20 +238,7 @@ export function setupTabListeners(options: SetupTabListenersOptions): void {
     // When a new tab is created, check if it should be tracked
     if (tab.url && tab.id && isTrackableUrl(tab.url)) {
       if (checkIfUrlMatchesAnyRule(tab.url)) {
-        if (!tabsWithActiveRules.has(tab.id!)) {
-          tabsWithActiveRules.set(tab.id!, new Map());
-        }
-        {
-          const normalized = normalizeUrlForTracking(tab.url!);
-          const now = Date.now();
-          tabsWithActiveRules.get(tab.id!)!.set(normalized, {
-            firstSeenTs: now,
-            lastSeenTs: now,
-            timestamp: now,
-            resourceType: 'main_frame',
-            sources: new Set<ObservationSource>(['webRequest']),
-          });
-        }
+        setTrackedResource(tab.id, normalizeUrlForTracking(tab.url), 'main_frame', 'webRequest', false);
         logger.info('TabListeners', `New tab ${tab.id} created with URL that matches rules`);
 
         if (tab.active) {
@@ -272,7 +264,7 @@ export function setupTabListeners(options: SetupTabListenersOptions): void {
   // Handle extension suspend/resume
   runtime.onSuspend?.addListener(() => {
     logger.info('TabListeners', 'Extension suspending, clearing tracked requests');
-    tabsWithActiveRules.clear();
+    clearAllTracking();
   });
 
   // Refresh badge whenever a UI surface (popup or sidepanel) closes —
@@ -393,22 +385,9 @@ export function setupTabListeners(options: SetupTabListenersOptions): void {
           }
 
           // Re-evaluate if this URL should be tracked
-          const matches = checkIfUrlMatchesAnyRule(normalizeUrlForTracking(details.url));
-          if (matches) {
-            if (!tabsWithActiveRules.has(details.tabId)) {
-              tabsWithActiveRules.set(details.tabId, new Map());
-            }
-            {
-              const normalized = normalizeUrlForTracking(details.url);
-              const now = Date.now();
-              tabsWithActiveRules.get(details.tabId)!.set(normalized, {
-                firstSeenTs: now,
-                lastSeenTs: now,
-                timestamp: now,
-                resourceType: 'main_frame',
-                sources: new Set<ObservationSource>(['webRequest']),
-              });
-            }
+          const normalized = normalizeUrlForTracking(details.url);
+          if (checkIfUrlMatchesAnyRule(normalized)) {
+            setTrackedResource(details.tabId, normalized, 'main_frame', 'webRequest', false);
           }
 
           // Update badge
@@ -441,12 +420,9 @@ export function setupTabListeners(options: SetupTabListenersOptions): void {
       logger.info('TabListeners', `Tab ${details.replacedTabId} replaced with ${details.tabId} (likely pre-render)`);
 
       // Transfer any tracking from the old tab to the new one
-      if (tabsWithActiveRules.has(details.replacedTabId)) {
-        const trackedUrls = tabsWithActiveRules.get(details.replacedTabId)!;
-        tabsWithActiveRules.set(details.tabId, trackedUrls);
-        tabsWithActiveRules.delete(details.replacedTabId);
-
-        logger.info('TabListeners', `Transferred ${trackedUrls.size} tracked URLs to new tab`);
+      const transferredSize = getTrackedResourceMap(details.replacedTabId)?.size;
+      if (transferTabTracking(details.replacedTabId, details.tabId)) {
+        logger.info('TabListeners', `Transferred ${transferredSize ?? 0} tracked URLs to new tab`);
 
         // Update badge if needed
         tabs.query({ active: true, currentWindow: true }, (tabsList: chrome.tabs.Tab[]) => {
@@ -465,14 +441,14 @@ export function setupTabListeners(options: SetupTabListenersOptions): void {
 export function setupPeriodicCleanup(): void {
   // Periodic cleanup of stale tab tracking (tabs that might have been closed without proper cleanup)
   setInterval(() => {
-    if (tabsWithActiveRules.size > 0) {
+    if (getTrackedTabCount() > 0) {
       tabs.query({}, (allTabs: chrome.tabs.Tab[]) => {
         const activeTabIds = new Set(allTabs.map((tab) => tab.id));
         let cleaned = 0;
 
-        for (const [tabId] of tabsWithActiveRules) {
+        for (const [tabId] of [...iterateTrackedEntries()]) {
           if (!activeTabIds.has(tabId)) {
-            tabsWithActiveRules.delete(tabId);
+            dropTab(tabId);
             cleaned++;
           }
         }
