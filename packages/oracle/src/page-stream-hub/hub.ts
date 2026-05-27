@@ -1,9 +1,9 @@
 /**
  * `PageStreamHub` — per-tab navigation broadcaster.
  *
- * Combines a tiny per-tab store (sequential page ids + the page list)
- * with the lifecycle-hub fanout pattern. Kept as one class because the
- * page model is small (three update kinds, no monotonic-phase rules);
+ * Hub owns the per-tab page state (sequential page ids + the page list);
+ * the per-tab sink fanout substrate is delegated to `TabSinkRegistry`.
+ * Page model is small (three update kinds, no monotonic-phase rules);
  * splitting into store + hub + replay would be more boilerplate than
  * signal.
  *
@@ -30,28 +30,29 @@
 import type { InspectorNavTiming } from '@openheaders/core/types';
 import type { Page, PageStreamUpdate } from '@openheaders/core/page-stream';
 
+import { TabSinkRegistry } from '../tab-sink-registry';
+
 import type { AttachmentHandle, Sink } from './types';
 
 export class PageStreamHub {
   private readonly pagesByTab = new Map<number, Page[]>();
   private readonly counters = new Map<number, number>();
-  private readonly attachments = new Map<number, Set<Sink>>();
-  private disposed = false;
+  private readonly registry = new TabSinkRegistry<PageStreamUpdate>('PageStreamHub');
 
   notifyNavStarted(tabId: number, startedAtMs: number, url: string | null = null): Page {
-    this.guardDisposed();
+    this.registry.guardDisposed();
     const list = this.pagesByTab.get(tabId) ?? [];
     if (list.length === 0) this.pagesByTab.set(tabId, list);
     const next = (this.counters.get(tabId) ?? 0) + 1;
     this.counters.set(tabId, next);
     const page: Page = { id: `page_${next}`, startedAtMs, url };
     list.push(page);
-    this.broadcast(tabId, { kind: 'page-started', tabId, page });
+    this.registry.broadcast(tabId, { kind: 'page-started', tabId, page });
     return page;
   }
 
   notifyNavTimingAttached(tabId: number, timing: InspectorNavTiming): void {
-    this.guardDisposed();
+    this.registry.guardDisposed();
     const list = this.pagesByTab.get(tabId);
     if (!list || list.length === 0) return;
     const idx = list.length - 1;
@@ -75,15 +76,15 @@ export class PageStreamHub {
       return;
     }
     list[idx] = next;
-    this.broadcast(tabId, { kind: 'nav-timing-attached', tabId, pageId: next.id, timing });
+    this.registry.broadcast(tabId, { kind: 'nav-timing-attached', tabId, pageId: next.id, timing });
   }
 
   forgetTab(tabId: number): void {
-    this.guardDisposed();
+    this.registry.guardDisposed();
     if (!this.pagesByTab.has(tabId) && !this.counters.has(tabId)) return;
     this.pagesByTab.delete(tabId);
     this.counters.delete(tabId);
-    this.broadcast(tabId, { kind: 'tab-cleared', tabId });
+    this.registry.broadcast(tabId, { kind: 'tab-cleared', tabId });
   }
 
   /** Read-only snapshot — used by `attach` for replay; exposed for tests. */
@@ -92,79 +93,32 @@ export class PageStreamHub {
   }
 
   attach(tabId: number, sink: Sink): AttachmentHandle {
-    if (this.disposed) throw new Error('PageStreamHub: attach after dispose');
-    let sinks = this.attachments.get(tabId);
-    if (sinks === undefined) {
-      sinks = new Set();
-      this.attachments.set(tabId, sinks);
-    }
-    sinks.add(sink);
-
-    sink.deliverReady(tabId);
-    const pages = this.snapshotTab(tabId);
-    for (const page of pages) {
-      sink.deliverUpdate({ kind: 'page-started', tabId, page });
-    }
-    for (const page of pages) {
-      // Only emit nav-timing-attached when there is actual timing data —
-      // `url` alone is already carried by the page-started replay above.
-      if (page.dclMs == null && page.loadMs == null) continue;
-      sink.deliverUpdate({
-        kind: 'nav-timing-attached',
-        tabId,
-        pageId: page.id,
-        timing: {
-          pageOrigin: page.url,
-          ...(page.dclMs != null ? { dclMs: page.dclMs } : {}),
-          ...(page.loadMs != null ? { loadMs: page.loadMs } : {}),
-        },
-      });
-    }
-
-    let detached = false;
-    return {
-      tabId,
-      detach: () => {
-        if (detached) return;
-        detached = true;
-        const set = this.attachments.get(tabId);
-        if (set === undefined) return;
-        set.delete(sink);
-        if (set.size === 0) this.attachments.delete(tabId);
-      },
-    };
+    return this.registry.attach(tabId, sink, (s) => {
+      const pages = this.snapshotTab(tabId);
+      for (const page of pages) {
+        s.deliverUpdate({ kind: 'page-started', tabId, page });
+      }
+      for (const page of pages) {
+        // Only emit nav-timing-attached when there is actual timing data —
+        // `url` alone is already carried by the page-started replay above.
+        if (page.dclMs == null && page.loadMs == null) continue;
+        s.deliverUpdate({
+          kind: 'nav-timing-attached',
+          tabId,
+          pageId: page.id,
+          timing: {
+            pageOrigin: page.url,
+            ...(page.dclMs != null ? { dclMs: page.dclMs } : {}),
+            ...(page.loadMs != null ? { loadMs: page.loadMs } : {}),
+          },
+        });
+      }
+    });
   }
 
   dispose(): void {
-    if (this.disposed) return;
-    this.disposed = true;
-    for (const sinks of this.attachments.values()) {
-      for (const sink of sinks) {
-        try {
-          sink.close();
-        } catch {
-          /* sink close is best-effort */
-        }
-      }
-    }
-    this.attachments.clear();
+    this.registry.dispose();
     this.pagesByTab.clear();
     this.counters.clear();
-  }
-
-  private broadcast(tabId: number, update: PageStreamUpdate): void {
-    const sinks = this.attachments.get(tabId);
-    if (sinks === undefined) return;
-    for (const sink of sinks) {
-      try {
-        sink.deliverUpdate(update);
-      } catch {
-        /* sink delivery is best-effort */
-      }
-    }
-  }
-
-  private guardDisposed(): void {
-    if (this.disposed) throw new Error('PageStreamHub: operation after dispose');
   }
 }

@@ -1,9 +1,10 @@
 /**
  * `RuleFireHub` — per-tab broadcaster for rule fire observations.
  *
- * Combines an internal `RuleFireStore` (dedup + merge + ring cap) with
- * the lifecycle-hub fanout pattern. Notify verbs are the engine inputs;
- * `attach`/`detach` are the consumer outputs.
+ * Hub owns an internal `RuleFireStore` (dedup + merge + ring cap); the
+ * per-tab sink fanout substrate is delegated to `TabSinkRegistry`.
+ * Notify verbs are the engine inputs; `attach`/`detach` are the
+ * consumer outputs.
  *
  * Notify verbs:
  *   - `notifyHeuristicFire(tabId, record)` — fire inferred by tab
@@ -26,12 +27,14 @@
  * notify verbs mutate + broadcast synchronously, so no live update
  * interleaves between snapshot read and replay emit.
  *
- * Failure isolation: a `deliverUpdate` throw from one sink does not stop
- * fanout to siblings.
+ * Failure isolation: registry catches per-sink `deliverUpdate` throws
+ * so one failure does not stop fanout to siblings.
  */
 
 import type { RequestRecord } from '@openheaders/core/types';
 import type { RuleFireUpdate } from '@openheaders/core/rule-fire-stream';
+
+import { TabSinkRegistry } from '../tab-sink-registry';
 
 import { snapshotToUpdates } from './replay';
 import { RuleFireStore } from './store';
@@ -39,8 +42,7 @@ import type { AttachmentHandle, Sink } from './types';
 
 export class RuleFireHub {
   private readonly store = new RuleFireStore();
-  private readonly attachments = new Map<number, Set<Sink>>();
-  private disposed = false;
+  private readonly registry = new TabSinkRegistry<RuleFireUpdate>('RuleFireHub');
 
   notifyHeuristicFire(tabId: number, record: RequestRecord): void {
     this.ingestAndBroadcast(tabId, record, false);
@@ -51,9 +53,9 @@ export class RuleFireHub {
   }
 
   forgetTab(tabId: number): void {
-    this.guardDisposed();
+    this.registry.guardDisposed();
     if (!this.store.forgetTab(tabId)) return;
-    this.broadcast(tabId, { kind: 'tab-cleared', tabId });
+    this.registry.broadcast(tabId, { kind: 'tab-cleared', tabId });
   }
 
   /** Read-only snapshot — exposed for tests + parity tooling. */
@@ -62,73 +64,26 @@ export class RuleFireHub {
   }
 
   attach(tabId: number, sink: Sink): AttachmentHandle {
-    if (this.disposed) throw new Error('RuleFireHub: attach after dispose');
-    let sinks = this.attachments.get(tabId);
-    if (sinks === undefined) {
-      sinks = new Set();
-      this.attachments.set(tabId, sinks);
-    }
-    sinks.add(sink);
-
-    sink.deliverReady(tabId);
-    for (const update of snapshotToUpdates(tabId, this.store.snapshotTab(tabId))) {
-      sink.deliverUpdate(update);
-    }
-
-    let detached = false;
-    return {
-      tabId,
-      detach: () => {
-        if (detached) return;
-        detached = true;
-        const set = this.attachments.get(tabId);
-        if (set === undefined) return;
-        set.delete(sink);
-        if (set.size === 0) this.attachments.delete(tabId);
-      },
-    };
+    return this.registry.attach(tabId, sink, (s) => {
+      for (const update of snapshotToUpdates(tabId, this.store.snapshotTab(tabId))) {
+        s.deliverUpdate(update);
+      }
+    });
   }
 
   dispose(): void {
-    if (this.disposed) return;
-    this.disposed = true;
-    for (const sinks of this.attachments.values()) {
-      for (const sink of sinks) {
-        try {
-          sink.close();
-        } catch {
-          /* close is best-effort */
-        }
-      }
-    }
-    this.attachments.clear();
+    this.registry.dispose();
   }
 
   private ingestAndBroadcast(tabId: number, record: RequestRecord, authoritative: boolean): void {
-    this.guardDisposed();
+    this.registry.guardDisposed();
     const merged = this.store.ingest(tabId, record, authoritative);
     if (merged === null) return;
-    this.broadcast(tabId, {
+    this.registry.broadcast(tabId, {
       kind: 'fire',
       tabId,
       record: merged.record,
       authoritative: merged.authoritative,
     });
-  }
-
-  private broadcast(tabId: number, update: RuleFireUpdate): void {
-    const sinks = this.attachments.get(tabId);
-    if (sinks === undefined) return;
-    for (const sink of sinks) {
-      try {
-        sink.deliverUpdate(update);
-      } catch {
-        /* sink delivery is best-effort */
-      }
-    }
-  }
-
-  private guardDisposed(): void {
-    if (this.disposed) throw new Error('RuleFireHub: operation after dispose');
   }
 }
