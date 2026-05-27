@@ -4,7 +4,8 @@
  * attachment handle guards re-entry).
  */
 
-import { parseRuleFirePortName, type RuleFireHub } from '@openheaders/oracle/rule-fire-hub';
+import { parseRuleFirePortName } from '@openheaders/core/rule-fire-stream';
+import type { RuleFireHub } from '@openheaders/oracle/rule-fire-hub';
 
 import { createPortSink } from './port-sink';
 

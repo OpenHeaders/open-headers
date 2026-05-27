@@ -5,14 +5,5 @@
  * transport in `Sink` and call `hub.attach(tabId, sink)`.
  */
 
-export { tabIdOf } from './filter';
 export { RequestLifecycleHub } from './hub';
-export type { RequestLifecycleHubOptions } from './hub';
-export {
-  LIFECYCLE_PORT_PREFIX,
-  lifecyclePortName,
-  parseLifecyclePortName,
-} from '@openheaders/core/request-lifecycle';
-export type { LifecycleWireMessage } from '@openheaders/core/request-lifecycle';
-export { snapshotToUpdates } from './replay';
-export type { AttachmentHandle, Sink } from './types';
+export type { Sink } from './types';

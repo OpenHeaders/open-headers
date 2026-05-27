@@ -15,11 +15,6 @@ import { logger } from '@utils/logger';
 import type { PageStreamHub } from '@openheaders/oracle/page-stream-hub';
 import { acceptPagePort } from './accept-port';
 
-export {
-  PAGE_PORT_PREFIX,
-  pagePortName,
-  parsePagePortName,
-} from '@openheaders/oracle/page-stream-hub';
 export { startDevtoolsPageNavBridge } from './devtools-page-nav-bridge';
 export type { DevtoolsPageNavBridge, DevtoolsPageNavBridgeOptions } from './devtools-page-nav-bridge';
 

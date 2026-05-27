@@ -16,12 +16,6 @@ import type { RuleFireHub } from '@openheaders/oracle/rule-fire-hub';
 
 import { acceptRuleFirePort } from './accept-port';
 
-export {
-  RULE_FIRE_PORT_PREFIX,
-  parseRuleFirePortName,
-  ruleFirePortName,
-} from '@openheaders/oracle/rule-fire-hub';
-
 export interface RuleFirePortHost {
   /** Detach the onConnect listener. Tests / SW shutdown only. */
   dispose(): void;

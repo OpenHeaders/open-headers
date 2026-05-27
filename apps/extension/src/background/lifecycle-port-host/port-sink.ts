@@ -10,8 +10,8 @@
  * disconnect handler runs next and tears down the attachment.
  */
 
-import type { LifecycleWireMessage, Sink } from '@openheaders/oracle/request-lifecycle-hub';
-import type { RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle';
+import type { LifecycleWireMessage, RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle';
+import type { Sink } from '@openheaders/oracle/request-lifecycle-hub';
 
 export function createPortSink(port: chrome.runtime.Port): Sink {
   const post = (msg: LifecycleWireMessage): void => {

@@ -13,8 +13,8 @@ import {
   LIFECYCLE_PORT_PREFIX,
   lifecyclePortName,
   parseLifecyclePortName,
-  RequestLifecycleHub,
-} from '@openheaders/oracle/request-lifecycle-hub';
+} from '@openheaders/core/request-lifecycle';
+import { RequestLifecycleHub } from '@openheaders/oracle/request-lifecycle-hub';
 import { RequestLifecycleStore } from '@openheaders/oracle/request-lifecycle-store';
 
 import { acceptLifecyclePort } from '@/background/lifecycle-port-host/accept-port';

@@ -7,10 +7,10 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   PAGE_PORT_PREFIX,
-  PageStreamHub,
   pagePortName,
   parsePagePortName,
-} from '@openheaders/oracle/page-stream-hub';
+} from '@openheaders/core/page-stream';
+import { PageStreamHub } from '@openheaders/oracle/page-stream-hub';
 
 import { acceptPagePort } from '@/background/page-port-host/accept-port';
 import { createPortSink } from '@/background/page-port-host/port-sink';

@@ -13,7 +13,8 @@
  * panel's lifetime, not independent watchers.
  */
 
-import { parseLifecyclePortName, type RequestLifecycleHub } from '@openheaders/oracle/request-lifecycle-hub';
+import { parseLifecyclePortName } from '@openheaders/core/request-lifecycle';
+import type { RequestLifecycleHub } from '@openheaders/oracle/request-lifecycle-hub';
 import { startTracking, stopTracking } from '../modules/tab-telemetry';
 import { attachPanelWatchingTracker, type PanelWatchingTrackerDeps } from './panel-watching-tracker';
 import { createPortSink } from './port-sink';

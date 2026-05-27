@@ -6,11 +6,4 @@
  */
 
 export { PageStreamHub } from './hub';
-export type { PageStreamHubOptions } from './hub';
-export {
-  PAGE_PORT_PREFIX,
-  pagePortName,
-  parsePagePortName,
-  type PageWireMessage,
-} from '@openheaders/core/page-stream';
-export type { AttachmentHandle, Sink } from './types';
+export type { Sink } from './types';

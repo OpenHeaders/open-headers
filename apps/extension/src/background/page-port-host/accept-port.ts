@@ -4,7 +4,8 @@
  * on detach (the attachment handle guards re-entry).
  */
 
-import { parsePagePortName, type PageStreamHub } from '@openheaders/oracle/page-stream-hub';
+import { parsePagePortName } from '@openheaders/core/page-stream';
+import type { PageStreamHub } from '@openheaders/oracle/page-stream-hub';
 import { createPortSink } from './port-sink';
 
 export function acceptPagePort(hub: PageStreamHub, port: chrome.runtime.Port): boolean {
