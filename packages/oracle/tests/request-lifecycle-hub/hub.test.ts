@@ -5,11 +5,13 @@ import type { RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle
 import { RequestLifecycleHub } from '../../src/request-lifecycle-hub/hub';
 import type { Sink } from '../../src/request-lifecycle-hub/types';
 import { RequestLifecycleStore } from '../../src/request-lifecycle-store/store';
+import { TabLifecycleBus } from '../../src/tab-lifecycle-bus/bus';
 import { makeLifecycle } from '../request-lifecycle-store/factories';
 
 interface RecordingSink extends Sink {
   ready: number[];
   updates: RequestLifecycleUpdate[];
+  cleared: number[];
   closed: number;
 }
 
@@ -17,12 +19,16 @@ function recordingSink(): RecordingSink {
   const sink: RecordingSink = {
     ready: [],
     updates: [],
+    cleared: [],
     closed: 0,
     deliverReady(tabId) {
       sink.ready.push(tabId);
     },
     deliverUpdate(update) {
       sink.updates.push(update);
+    },
+    deliverTabCleared(tabId) {
+      sink.cleared.push(tabId);
     },
     close() {
       sink.closed++;
@@ -139,6 +145,7 @@ describe('RequestLifecycleHub — broadcast', () => {
       deliverUpdate: () => {
         throw new Error('sink boom');
       },
+      deliverTabCleared: () => {},
       close: () => {},
     };
     const good = recordingSink();
@@ -229,6 +236,53 @@ describe('RequestLifecycleHub — dispose', () => {
     const hub = new RequestLifecycleHub({ store: new RequestLifecycleStore() });
     hub.dispose();
     expect(() => hub.dispose()).not.toThrow();
+  });
+});
+
+describe('RequestLifecycleHub — bus integration', () => {
+  it('forwards bus `tab-forgotten` to matching sinks as deliverTabCleared', () => {
+    const store = new RequestLifecycleStore();
+    const bus = new TabLifecycleBus();
+    const hub = new RequestLifecycleHub({ store, bus });
+    const sinkA = recordingSink();
+    const sinkB = recordingSink();
+    hub.attach(1, sinkA);
+    hub.attach(2, sinkB);
+
+    bus.notifyTabForgotten(1);
+    expect(sinkA.cleared).toEqual([1]);
+    expect(sinkB.cleared).toEqual([]);
+  });
+
+  it('skips sinks attached to other tabs', () => {
+    const store = new RequestLifecycleStore();
+    const bus = new TabLifecycleBus();
+    const hub = new RequestLifecycleHub({ store, bus });
+    const sink = recordingSink();
+    hub.attach(1, sink);
+
+    bus.notifyTabForgotten(99);
+    expect(sink.cleared).toEqual([]);
+  });
+
+  it('unsubscribes from the bus on dispose', () => {
+    const store = new RequestLifecycleStore();
+    const bus = new TabLifecycleBus();
+    const hub = new RequestLifecycleHub({ store, bus });
+    const sink = recordingSink();
+    hub.attach(1, sink);
+    hub.dispose();
+    bus.notifyTabForgotten(1);
+    expect(sink.cleared).toEqual([]);
+  });
+
+  it('works without a bus (back-compat)', () => {
+    const store = new RequestLifecycleStore();
+    const hub = new RequestLifecycleHub({ store });
+    const sink = recordingSink();
+    hub.attach(1, sink);
+    expect(sink.cleared).toEqual([]);
+    hub.dispose();
   });
 });
 

@@ -28,6 +28,7 @@ import type { RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle
 
 import type { RequestLifecycleStore } from '../request-lifecycle-store';
 import { TabSinkRegistry } from '../tab-sink-registry';
+import type { TabLifecycleBus } from '../tab-lifecycle-bus';
 
 import { tabIdOf } from './filter';
 import { snapshotToUpdates } from './replay';
@@ -35,18 +36,27 @@ import type { AttachmentHandle, Sink } from './types';
 
 export interface RequestLifecycleHubOptions {
   readonly store: RequestLifecycleStore;
+  readonly bus?: TabLifecycleBus;
 }
 
 export class RequestLifecycleHub {
   private readonly store: RequestLifecycleStore;
   private readonly registry = new TabSinkRegistry<RequestLifecycleUpdate>('RequestLifecycleHub');
   private readonly unsubscribeStore: () => void;
+  private readonly unsubscribeBus: (() => void) | null;
 
   constructor(options: RequestLifecycleHubOptions) {
     this.store = options.store;
     this.unsubscribeStore = this.store.subscribe((update) => {
       this.registry.broadcast(tabIdOf(update), update);
     });
+    this.unsubscribeBus = options.bus
+      ? options.bus.subscribe((event) => {
+          if (event.kind === 'tab-forgotten') {
+            this.registry.broadcastTabCleared(event.tabId);
+          }
+        })
+      : null;
   }
 
   attach(tabId: number, sink: Sink): AttachmentHandle {
@@ -61,6 +71,7 @@ export class RequestLifecycleHub {
   dispose(): void {
     if (this.registry.isDisposed) return;
     this.unsubscribeStore();
+    this.unsubscribeBus?.();
     this.registry.dispose();
   }
 }

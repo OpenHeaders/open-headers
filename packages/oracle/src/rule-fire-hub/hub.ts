@@ -34,15 +34,29 @@
 import type { RequestRecord } from '@openheaders/core/types';
 import type { RuleFireUpdate } from '@openheaders/core/rule-fire-stream';
 
+import type { TabLifecycleBus } from '../tab-lifecycle-bus';
 import { TabSinkRegistry } from '../tab-sink-registry';
 
 import { snapshotToUpdates } from './replay';
 import { RuleFireStore } from './store';
 import type { AttachmentHandle, Sink } from './types';
 
+export interface RuleFireHubOptions {
+  readonly bus?: TabLifecycleBus;
+}
+
 export class RuleFireHub {
   private readonly store = new RuleFireStore();
   private readonly registry = new TabSinkRegistry<RuleFireUpdate>('RuleFireHub');
+  private readonly unsubscribeBus: (() => void) | null;
+
+  constructor(options: RuleFireHubOptions = {}) {
+    this.unsubscribeBus = options.bus
+      ? options.bus.subscribe((event) => {
+          if (event.kind === 'tab-forgotten') this.forgetTab(event.tabId);
+        })
+      : null;
+  }
 
   notifyHeuristicFire(tabId: number, record: RequestRecord): void {
     this.ingestAndBroadcast(tabId, record, false);
@@ -72,6 +86,7 @@ export class RuleFireHub {
   }
 
   dispose(): void {
+    this.unsubscribeBus?.();
     this.registry.dispose();
   }
 

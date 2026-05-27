@@ -6,6 +6,7 @@
  */
 
 export { PageStreamHub } from './hub';
+export type { PageStreamHubOptions } from './hub';
 export {
   PAGE_PORT_PREFIX,
   pagePortName,

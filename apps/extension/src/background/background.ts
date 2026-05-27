@@ -735,31 +735,22 @@ async function initializeExtension(): Promise<void> {
   // Lifecycle subscriber hub (U1-U5) + chrome port adapter (W-a). Publishes
   // `LifecycleWireMessage` envelopes on `oh-lifecycle:<tabId>` ports for the
   // panel client cache (P1-P6) to consume.
-  const lifecycleHub = new RequestLifecycleHub({ store: lifecycleHost.store });
+  const lifecycleHub = new RequestLifecycleHub({ store: lifecycleHost.store, bus: tabLifecycleBus });
   startLifecyclePortHost({ hub: lifecycleHub });
   // Page stream hub + chrome port adapter, sibling of the lifecycle pipe.
   // Publishes `PageWireMessage` envelopes on `oh-page:<tabId>` ports. The
   // devtools_page is the single source of nav events; its inbound half
   // is `startDevtoolsPageNavBridge`, which listens on the same chrome
   // port `ChromeHarEventSource` uses (`devtools-har-source:<tabId>`).
-  const pageHub = new PageStreamHub();
+  const pageHub = new PageStreamHub({ bus: tabLifecycleBus });
   startPagePortHost({ hub: pageHub });
   startDevtoolsPageNavBridge({ hub: pageHub });
   // Rule-fire pipe (W-a): per-tab broadcaster fed by tab-telemetry's
   // cross-tab fire stream + the DNR-debug authoritative path. Carries
   // rule-fire envelopes to panel clients over `oh-rule-fire:<tabId>`.
-  const ruleFireHub = new RuleFireHub();
+  const ruleFireHub = new RuleFireHub({ bus: tabLifecycleBus });
   startRuleFirePortHost({ hub: ruleFireHub });
   const firesBridge = startTabTelemetryFiresBridge({ hub: ruleFireHub });
-  // Drop the tab's page list + fire log when the tab dies. Sibling of
-  // `RequestLifecycleStore`'s `forgetTab` driver — co-located here
-  // because the hubs are the authoritative owners of their per-tab state.
-  if (chrome?.tabs?.onRemoved?.addListener) {
-    chrome.tabs.onRemoved.addListener((tabId: number) => {
-      pageHub.forgetTab(tabId);
-      ruleFireHub.forgetTab(tabId);
-    });
-  }
   setupTabListeners({ updateBadge: debouncedUpdateBadge, lifecycleStore: lifecycleHost.store });
   setupPeriodicCleanup();
   initializeActiveTabTracking();

@@ -96,6 +96,13 @@ describe('createPortSink', () => {
     ]);
   });
 
+  it('posts tab-cleared envelope on deliverTabCleared', () => {
+    const port = fakePort('oh-lifecycle:1');
+    const sink = createPortSink(port as unknown as chrome.runtime.Port);
+    sink.deliverTabCleared(1);
+    expect(port.posted).toEqual([{ kind: 'tab-cleared', tabId: 1 }]);
+  });
+
   it('swallows postMessage throws (dead port)', () => {
     const port = fakePort('oh-lifecycle:1', () => {
       throw new Error('port dead');

@@ -30,14 +30,28 @@
 import type { InspectorNavTiming } from '@openheaders/core/types';
 import type { Page, PageStreamUpdate } from '@openheaders/core/page-stream';
 
+import type { TabLifecycleBus } from '../tab-lifecycle-bus';
 import { TabSinkRegistry } from '../tab-sink-registry';
 
 import type { AttachmentHandle, Sink } from './types';
+
+export interface PageStreamHubOptions {
+  readonly bus?: TabLifecycleBus;
+}
 
 export class PageStreamHub {
   private readonly pagesByTab = new Map<number, Page[]>();
   private readonly counters = new Map<number, number>();
   private readonly registry = new TabSinkRegistry<PageStreamUpdate>('PageStreamHub');
+  private readonly unsubscribeBus: (() => void) | null;
+
+  constructor(options: PageStreamHubOptions = {}) {
+    this.unsubscribeBus = options.bus
+      ? options.bus.subscribe((event) => {
+          if (event.kind === 'tab-forgotten') this.forgetTab(event.tabId);
+        })
+      : null;
+  }
 
   notifyNavStarted(tabId: number, startedAtMs: number, url: string | null = null): Page {
     this.registry.guardDisposed();
@@ -117,6 +131,7 @@ export class PageStreamHub {
   }
 
   dispose(): void {
+    this.unsubscribeBus?.();
     this.registry.dispose();
     this.pagesByTab.clear();
     this.counters.clear();

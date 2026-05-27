@@ -14,6 +14,14 @@
 export interface FanoutSink<TUpdate> {
   deliverReady(tabId: number): void;
   deliverUpdate(update: TUpdate): void;
+  /**
+   * Substrate-level tab-cleared signal. Optional because hubs whose
+   * `TUpdate` already carries a `tab-cleared` variant route it through
+   * `deliverUpdate`; only the request-lifecycle pipe needs a separate
+   * channel (its `RequestLifecycleUpdate` is the engine→store contract
+   * and must stay pure).
+   */
+  deliverTabCleared?(tabId: number): void;
   close(): void;
 }
 
@@ -77,6 +85,18 @@ export class TabSinkRegistry<TUpdate> {
         sink.deliverUpdate(update);
       } catch {
         /* sink delivery is best-effort — a throw must not block siblings */
+      }
+    }
+  }
+
+  broadcastTabCleared(tabId: number): void {
+    const sinks = this.tabs.get(tabId);
+    if (sinks === undefined) return;
+    for (const sink of sinks) {
+      try {
+        sink.deliverTabCleared?.(tabId);
+      } catch {
+        /* best-effort */
       }
     }
   }

@@ -18,7 +18,8 @@ import type { RequestLifecycleUpdate } from './types';
 
 export type LifecycleWireMessage =
   | { kind: 'ready'; tabId: number }
-  | { kind: 'lifecycle-update'; update: RequestLifecycleUpdate };
+  | { kind: 'lifecycle-update'; update: RequestLifecycleUpdate }
+  | { kind: 'tab-cleared'; tabId: number };
 
 /** Channel-name prefix for the per-tab lifecycle pipe. */
 export const LIFECYCLE_PORT_PREFIX = 'oh-lifecycle:';

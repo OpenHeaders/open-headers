@@ -27,6 +27,14 @@ export interface Sink {
    */
   deliverUpdate(update: RequestLifecycleUpdate): void;
   /**
+   * Tab-cleared signal: the tab the sink attached to has been forgotten
+   * upstream. Lifecycles live in a separate union (`RequestLifecycleUpdate`)
+   * that stays pure for the engine→store contract, so tab-cleared is
+   * delivered on its own seam and carried by the `tab-cleared` envelope
+   * kind on the wire.
+   */
+  deliverTabCleared(tabId: number): void;
+  /**
    * Hub-initiated close. The adapter MAY ignore (e.g. if the underlying
    * transport disconnects itself); the hub uses this to signal "you've
    * been detached," not the other way around.

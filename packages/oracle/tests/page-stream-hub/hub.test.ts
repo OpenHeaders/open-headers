@@ -4,6 +4,7 @@ import type { PageStreamUpdate } from '@openheaders/core/page-stream';
 
 import { PageStreamHub } from '../../src/page-stream-hub/hub';
 import type { Sink } from '../../src/page-stream-hub/types';
+import { TabLifecycleBus } from '../../src/tab-lifecycle-bus/bus';
 
 interface RecordingSink extends Sink {
   ready: number[];
@@ -133,5 +134,38 @@ describe('PageStreamHub — attach replay', () => {
     hub.attach(1, sink);
     hub.dispose();
     expect(sink.closed).toBe(1);
+  });
+});
+
+describe('PageStreamHub — bus integration', () => {
+  it('drops the tab page list and broadcasts tab-cleared when the bus fires', () => {
+    const bus = new TabLifecycleBus();
+    const hub = new PageStreamHub({ bus });
+    const sink = recordingSink();
+    hub.attach(1, sink);
+    hub.notifyNavStarted(1, 100, 'https://openheaders.io/a');
+    sink.updates.length = 0;
+
+    bus.notifyTabForgotten(1);
+    expect(sink.updates.map((u) => u.kind)).toEqual(['tab-cleared']);
+    expect(hub.snapshotTab(1)).toEqual([]);
+  });
+
+  it('does not double-broadcast on bus fire (single tab-cleared)', () => {
+    const bus = new TabLifecycleBus();
+    const hub = new PageStreamHub({ bus });
+    const sink = recordingSink();
+    hub.attach(1, sink);
+    hub.notifyNavStarted(1, 100, null);
+    sink.updates.length = 0;
+    bus.notifyTabForgotten(1);
+    expect(sink.updates).toHaveLength(1);
+  });
+
+  it('unsubscribes from the bus on dispose', () => {
+    const bus = new TabLifecycleBus();
+    const hub = new PageStreamHub({ bus });
+    hub.dispose();
+    expect(() => bus.notifyTabForgotten(1)).not.toThrow();
   });
 });

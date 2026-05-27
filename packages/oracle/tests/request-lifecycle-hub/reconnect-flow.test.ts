@@ -45,6 +45,9 @@ function recordingSink(): RecordingSink {
     deliverUpdate(update) {
       sink.updates.push(update);
     },
+    deliverTabCleared() {
+      /* unused in this suite */
+    },
     close() {
       sink.closed++;
     },

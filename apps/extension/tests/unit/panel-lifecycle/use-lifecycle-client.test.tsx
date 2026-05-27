@@ -183,6 +183,43 @@ describe('useLifecycleClient', () => {
     expect(container.querySelector('li')).toBeNull();
   });
 
+  it('clears store state on `tab-cleared` envelope from upstream tab close', () => {
+    installNavigation(5);
+    const port = fakePort(lifecyclePortName(5));
+    installTransport(() => port);
+
+    const { container } = render(<Probe />);
+    act(() => {
+      port.emit({ kind: 'ready', tabId: 5 });
+      port.emit({
+        kind: 'lifecycle-update',
+        update: {
+          kind: 'started',
+          lifecycle: {
+            tabId: 5,
+            requestId: 'r-clear',
+            url: 'https://openheaders.io/x',
+            method: 'GET',
+            resourceType: 'xmlhttprequest',
+            phase: 'pending',
+            redirectHopCount: 0,
+            redirectHops: [],
+            startedAtMs: 1,
+            hopStartedAtMs: 1,
+            har: new Map(),
+            harBodyByHop: new Map(),
+          },
+        },
+      });
+    });
+    expect(container.querySelector('li')?.textContent).toBe('r-clear:pending');
+
+    act(() => {
+      port.emit({ kind: 'tab-cleared', tabId: 5 });
+    });
+    expect(container.querySelector('li')).toBeNull();
+  });
+
   it('reconnects after a disconnect using the documented 250ms backoff', () => {
     installNavigation(9);
     const first = fakePort(lifecyclePortName(9));

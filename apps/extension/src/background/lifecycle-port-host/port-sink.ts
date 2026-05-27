@@ -28,6 +28,9 @@ export function createPortSink(port: chrome.runtime.Port): Sink {
     deliverUpdate(update: RequestLifecycleUpdate): void {
       post({ kind: 'lifecycle-update', update });
     },
+    deliverTabCleared(tabId: number): void {
+      post({ kind: 'tab-cleared', tabId });
+    },
     close(): void {
       try {
         port.disconnect();

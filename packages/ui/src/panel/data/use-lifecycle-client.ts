@@ -54,6 +54,11 @@ export function useLifecycleClient(): UseLifecycleClientResult {
         case 'lifecycle-update':
           store.apply(msg.update);
           break;
+        case 'tab-cleared':
+          // Upstream tab forgotten — drop the cache so we don't render
+          // stale lifecycles against a tab that's gone.
+          store.clear();
+          break;
         default: {
           const _exhaustive: never = msg;
           void _exhaustive;

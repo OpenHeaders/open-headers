@@ -5,6 +5,7 @@ import type { RuleFireUpdate } from '@openheaders/core/rule-fire-stream';
 
 import { RuleFireHub } from '../../src/rule-fire-hub/hub';
 import type { Sink } from '../../src/rule-fire-hub/types';
+import { TabLifecycleBus } from '../../src/tab-lifecycle-bus/bus';
 
 interface RecordingSink extends Sink {
   ready: number[];
@@ -158,5 +159,27 @@ describe('RuleFireHub — attach replay', () => {
     hub.attach(1, calm);
     hub.notifyHeuristicFire(1, rec());
     expect(calm.updates.filter((u) => u.kind === 'fire')).toHaveLength(1);
+  });
+});
+
+describe('RuleFireHub — bus integration', () => {
+  it('drops the tab fire log and broadcasts a single tab-cleared on bus fire', () => {
+    const bus = new TabLifecycleBus();
+    const hub = new RuleFireHub({ bus });
+    const sink = recordingSink();
+    hub.attach(1, sink);
+    hub.notifyHeuristicFire(1, rec());
+    sink.updates.length = 0;
+
+    bus.notifyTabForgotten(1);
+    expect(sink.updates.map((u) => u.kind)).toEqual(['tab-cleared']);
+    expect(hub.snapshotTab(1)).toEqual([]);
+  });
+
+  it('unsubscribes from the bus on dispose', () => {
+    const bus = new TabLifecycleBus();
+    const hub = new RuleFireHub({ bus });
+    hub.dispose();
+    expect(() => bus.notifyTabForgotten(1)).not.toThrow();
   });
 });
