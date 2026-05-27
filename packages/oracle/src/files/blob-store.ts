@@ -18,14 +18,12 @@
 
 import type { FileRef } from '@openheaders/core/files';
 import { getBlobBackend } from './blob-backend';
-import { IdbBlobBackend } from './idb-blob-backend';
 
 export { hashBlob } from './hash';
 
 /** Reset cached connection state on the installed backend. Test hook. */
-export function __resetBlobStoreForTests(): void {
-  const backend = getBlobBackend();
-  if (backend instanceof IdbBlobBackend) backend.reset();
+export function __resetBlobStoreForTests(): void | Promise<void> {
+  return getBlobBackend().reset?.();
 }
 
 export function putBlob(

@@ -6,29 +6,21 @@
  * `__global__` sentinel) and the oracle materializes one pair per scope
  * on sync-service init. The concrete backend is platform-specific:
  *
- *   - **Browser extension** — IndexedDB (`IdbMutationLog` /
- *     `IdbPendingIntents`). This is the shipped default, so the
- *     extension and every test that boots a sync service need no
- *     install call.
- *   - **Electron desktop** — a Node-backed store (file / SQLite),
- *     installed once at main-process boot via
- *     {@link setSyncPersistenceProvider}. `indexedDB` does not exist in
- *     a Node context, so the IDB default cannot run there.
+ *   - **Browser extension** — deep-imports `createIdbSyncPersistenceProvider`
+ *     from `@openheaders/oracle/sync/idb-sync-persistence` and installs
+ *     at boot.
+ *   - **Electron desktop** — installs a Node/SQLite-backed provider once
+ *     at main-process boot.
  *   - **Tests** — drive in-memory stores directly through the sync
  *     service's `__init…ForTests` deps; they never touch this seam.
  *
- * Mirrors the `setLockRuntime` install seam in `coordination/with-lock`:
- * the browser default ships inline, hosts that need a different backend
- * swap it at boot.
+ * Mirrors the `setLockRuntime` install seam in `coordination/with-lock`,
+ * but every host installs explicitly — no implicit IDB default lives in
+ * this module so it stays host-neutral.
  */
 
 import type { ActivityLog } from './activity-log';
 import type { ActivityMuteStore } from './activity-mute-store';
-import { IdbActivityLog } from './idb-activity-log';
-import { IdbActivityMuteStore } from './idb-activity-mute-store';
-import { IdbMutationLog } from './idb-mutation-log';
-import { IdbPendingIntents } from './idb-pending-intents';
-import { IdbPendingOutQueue } from './idb-pending-out-queue';
 import type { MutationLog } from './mutation-log';
 import type { PendingIntents } from './pending-intents';
 import type { PendingOutQueue } from './pending-out-queue';
@@ -71,44 +63,23 @@ export interface SyncPersistenceProvider {
   createActivityMuteStore?(): ActivityMuteStore;
 }
 
-/**
- * Default provider — IndexedDB-backed. An unwired host (the browser
- * extension) runs on this as-is; only hosts without `indexedDB` need to
- * install a replacement.
- */
-let idbPendingOutSingleton: IdbPendingOutQueue | null = null;
-let idbActivityLogSingleton: IdbActivityLog | null = null;
-let idbActivityMuteSingleton: IdbActivityMuteStore | null = null;
-
-const IDB_SYNC_PERSISTENCE: SyncPersistenceProvider = {
-  createMutationLog: (scope) => new IdbMutationLog(scope),
-  createPendingIntents: (scope) => new IdbPendingIntents(scope),
-  createPendingOutQueue: () => {
-    if (!idbPendingOutSingleton) idbPendingOutSingleton = new IdbPendingOutQueue();
-    return idbPendingOutSingleton;
-  },
-  createActivityLog: () => {
-    if (!idbActivityLogSingleton) idbActivityLogSingleton = new IdbActivityLog();
-    return idbActivityLogSingleton;
-  },
-  createActivityMuteStore: () => {
-    if (!idbActivityMuteSingleton) idbActivityMuteSingleton = new IdbActivityMuteStore();
-    return idbActivityMuteSingleton;
-  },
-};
-
-let installed: SyncPersistenceProvider = IDB_SYNC_PERSISTENCE;
+let installed: SyncPersistenceProvider | null = null;
 
 /**
- * Install (or replace) the sync-persistence provider. Hosts call this
- * once at boot before the sync service is initialized. The browser
- * extension never calls it — the IDB default already fits.
+ * Install (or replace) the sync-persistence provider. Every host calls
+ * this once at boot before the sync service is initialized.
  */
 export function setSyncPersistenceProvider(provider: SyncPersistenceProvider): void {
   installed = provider;
 }
 
-/** Returns the installed provider (the IDB default when unwired). */
+/** Returns the installed provider. Throws if no host wired one up. */
 export function getSyncPersistenceProvider(): SyncPersistenceProvider {
+  if (installed === null) {
+    throw new Error(
+      'SyncPersistenceProvider not installed — call setSyncPersistenceProvider() ' +
+        'during host boot (e.g. createIdbSyncPersistenceProvider in browser hosts)',
+    );
+  }
   return installed;
 }

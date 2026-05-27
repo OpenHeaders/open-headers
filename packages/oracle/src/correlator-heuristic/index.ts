@@ -13,22 +13,20 @@ export { HeuristicCorrelator } from './correlator';
 export type { HeuristicCorrelatorSources } from './correlator';
 export { webRequestEventToUpdates } from './webrequest-to-update';
 export { harAttachedUpdate, bodyAttachedUpdate, harEntryJoinFields, harEntryTimestamp } from './har-to-update';
-export { InFlightFifo, IN_FLIGHT_MAX_AGE_MS, POP_FUTURE_SKEW_MS, MAX_IN_FLIGHT_URLS_PER_TAB } from './in-flight-fifo';
+export { InFlightFifo, IN_FLIGHT_MAX_AGE_MS, POP_FUTURE_SKEW_MS } from './in-flight-fifo';
 export type { FifoEvictionLogger, InFlightMatch } from './in-flight-fifo';
-export { BodyJoinMap, MAX_BODY_JOIN_KEYS_PER_TAB } from './body-join-map';
+export { BodyJoinMap } from './body-join-map';
 export { HarWaitingBuffer } from './har-waiting-buffer';
 export type { HarDrainResult, HarRetry, HarRetryMatch, HarWaitingDropLogger } from './har-waiting-buffer';
 export { HopCursor } from './hop-cursor';
 export type { HopCursorDropLogger, HopCursorDropReason } from './hop-cursor';
-export { MAX_HOP_CURSORS_PER_TAB } from './hop-cursor-constants';
 export { FinalizedRetention } from './finalized-retention';
-export { LATE_ARRIVAL_WINDOW_MS, MAX_HAR_WAITING_PER_TAB } from './late-arrival-constants';
+export { LATE_ARRIVAL_WINDOW_MS } from './late-arrival-constants';
 export { classifyCors, extractHeader, isCrossOrigin } from './cors-classifier';
 export type { ClassifyCorsInput } from './cors-classifier';
 export { CorsContextStore } from './cors-context-store';
 export type { CorsContextDropLogger, CorsContextDropReason } from './cors-context-store';
 export { refineUpdateWithCors } from './cors-error-refinement';
-export { MAX_CORS_ENTRIES_PER_TAB } from './cors-constants';
 export type {
   OnBeforeRedirectEvent,
   OnBeforeRequestEvent,

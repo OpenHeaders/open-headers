@@ -340,9 +340,6 @@ importers:
       '@types/better-sqlite3':
         specifier: ^7.6.13
         version: 7.6.13
-      '@types/chrome':
-        specifier: ^0.1.38
-        version: 0.1.38
       '@types/node':
         specifier: ^22.19.15
         version: 22.19.15

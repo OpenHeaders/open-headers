@@ -1,13 +1,11 @@
 /**
  * `@openheaders/oracle/correlator-cdp` — typechecked-only second
- * implementation of {@link RequestCorrelator}.
+ * implementation of {@link RequestCorrelator}. Types-only public surface;
+ * the stub + projector are deep-imported by tests to enforce the seam.
  *
- * Exists to enforce the correlation seam is real. See
- * `docs/REQUEST_LIFECYCLE_DESIGN.md` §6.2.
+ * See `docs/REQUEST_LIFECYCLE_DESIGN.md` §6.2.
  */
 
-export { cdpEventToUpdates } from './cdp-to-update';
-export { CdpCorrelatorStub, NotImplementedError } from './correlator';
 export type {
   CdpEventSource,
   CdpInitiator,

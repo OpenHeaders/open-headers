@@ -13,7 +13,7 @@ import type { MutationEnvelope } from '@openheaders/core/sync';
 import {
   SqlitePendingOutQueue,
   ensurePendingOutQueueSchema,
-} from '@openheaders/oracle/sync';
+} from '@openheaders/oracle/sync/sqlite-pending-out-queue';
 
 let db: Database.Database;
 let q: SqlitePendingOutQueue;

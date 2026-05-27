@@ -70,10 +70,9 @@ export {
   requireActiveWorkspaceId,
   setOracleHostHooks,
 } from './host-hooks';
-export { __closeIdbActivityLogForTests, IdbActivityLog } from './idb-activity-log';
-export { __closeIdbActivityMuteStoreForTests, IdbActivityMuteStore } from './idb-activity-mute-store';
-export { __closeIdbAuditLogForTests, IdbAuditLog } from './idb-audit-log';
-export { __closeIdbPendingOutQueueForTests, IdbPendingOutQueue } from './idb-pending-out-queue';
+// Browser-coupled IDB-backed durable stores live behind deep imports
+// (`@openheaders/oracle/sync/idb-*`) so this barrel stays host-neutral.
+// See `docs/ORACLE_HOST_NEUTRALITY_AUDIT.md` §F-1.P.1.
 export {
   type ApplyRestoreDeps,
   applyDiscardRestoreArchive,
@@ -127,7 +126,7 @@ export {
   computeSnapshotThresholdInputsForWorkspace,
   computeSnapshotThresholdInputsFromLog,
 } from './snapshot-threshold-reader';
-export { ensureActivityLogSchema, SqliteActivityLog } from './sqlite-activity-log';
-export { ensureActivityMuteSchema, SqliteActivityMuteStore } from './sqlite-activity-mute-store';
-export { ensurePendingOutQueueSchema, SqlitePendingOutQueue } from './sqlite-pending-out-queue';
+// Node-coupled SQLite-backed durable stores live behind deep imports
+// (`@openheaders/oracle/sync/sqlite-*`) so this barrel stays host-neutral.
+// See `docs/ORACLE_HOST_NEUTRALITY_AUDIT.md` §F-1.P.1.
 export { computeStateVectorFromLog, readWorkspaceStateVector } from './state-vector-reader';

@@ -3,7 +3,7 @@
   "compilerOptions": {
     "noEmit": true,
     "rootDir": ".",
-    "types": ["chrome", "node"]
+    "types": ["node"]
   },
   "include": ["src", "tests", "vitest.config.ts"]
 }

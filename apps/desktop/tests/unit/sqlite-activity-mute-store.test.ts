@@ -8,7 +8,10 @@
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { SqliteActivityMuteStore, ensureActivityMuteSchema } from '@openheaders/oracle/sync';
+import {
+  SqliteActivityMuteStore,
+  ensureActivityMuteSchema,
+} from '@openheaders/oracle/sync/sqlite-activity-mute-store';
 
 const WS = '0193a8ff-c000-7000-8000-000000000001';
 const WS2 = '0193a8ff-c000-7000-8000-000000000002';
