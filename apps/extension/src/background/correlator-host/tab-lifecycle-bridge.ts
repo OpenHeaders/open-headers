@@ -21,6 +21,7 @@
 
 import type { HeuristicCorrelator } from '@openheaders/oracle/correlator-heuristic';
 import type { RequestLifecycleStore } from '@openheaders/oracle/request-lifecycle-store';
+import type { TabLifecycleBus } from '@openheaders/oracle/tab-lifecycle-bus';
 
 import { getBrowserAPI } from '@/types/browser';
 import { logger } from '@utils/logger';
@@ -28,11 +29,12 @@ import { logger } from '@utils/logger';
 export interface TabLifecycleBridgeOptions {
   readonly correlator: Pick<HeuristicCorrelator, 'attachTab' | 'detachTab'>;
   readonly store: Pick<RequestLifecycleStore, 'forgetTab'>;
+  readonly bus: Pick<TabLifecycleBus, 'notifyTabForgotten'>;
 }
 
 /** Install the bridge. Returns a function that removes both listeners. */
 export function installTabLifecycleBridge(options: TabLifecycleBridgeOptions): () => void {
-  const { correlator, store } = options;
+  const { correlator, store, bus } = options;
   const tabs = getBrowserAPI().tabs;
   if (!tabs) {
     logger.info('LifecycleHost', 'chrome.tabs unavailable; tab bridge inert');
@@ -43,8 +45,13 @@ export function installTabLifecycleBridge(options: TabLifecycleBridgeOptions): (
     if (typeof tab.id === 'number') correlator.attachTab(tab.id);
   };
 
+  // Tab-close ordering (locked in session 50): detach correlator → fan out
+  // `tab-forgotten` on the bus (drivers clear their per-tab state
+  // synchronously while the store partition is still readable) → drop the
+  // store partition.
   const onRemoved = (tabId: number): void => {
     correlator.detachTab(tabId);
+    bus.notifyTabForgotten(tabId);
     store.forgetTab(tabId);
   };
 

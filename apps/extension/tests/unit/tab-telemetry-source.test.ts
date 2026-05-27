@@ -13,6 +13,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import { RequestLifecycleStore } from '@openheaders/oracle/request-lifecycle-store';
+import { TabLifecycleBus } from '@openheaders/oracle/tab-lifecycle-bus';
 
 import { startTabTelemetrySource } from '@/background/tab-telemetry-source';
 import { mainFrameRequestIdsMatchingCommit } from '@/background/tab-telemetry-source/main-frame-chain';
@@ -49,12 +50,14 @@ function makeLifecycle(overrides: Partial<RequestLifecycle> = {}): RequestLifecy
 }
 
 let store: RequestLifecycleStore;
+let bus: TabLifecycleBus;
 let dispose: () => void;
 
 beforeEach(() => {
   __resetForTests();
   store = new RequestLifecycleStore();
-  const handle = startTabTelemetrySource({ store });
+  bus = new TabLifecycleBus();
+  const handle = startTabTelemetrySource({ store, bus });
   dispose = handle.dispose;
 });
 
@@ -282,6 +285,45 @@ describe('tab-telemetry-source — main-frame chain via store snapshot', () => {
     expect(matches.size).toBe(0);
     onPageCommit(1, 'https://elsewhere.example/', matches);
     expect(getTabSnapshot(1).fires).toHaveLength(0);
+  });
+});
+
+describe('tab-telemetry-source — tab-forgotten via bus', () => {
+  it('clears tab-telemetry state when the bus fires tab-forgotten', () => {
+    startTracking(1, 'test:t1');
+    store.apply({
+      kind: 'started',
+      lifecycle: makeLifecycle({ tabId: 1, requestId: 'r1', url: 'https://api.openheaders.io/x' }),
+    });
+    recordObservedFire(1, 'rule-a', 'https://api.openheaders.io/x', 'r1', 1_000, {
+      resourceType: 'xmlhttprequest',
+      pattern: '*://*.openheaders.io/*',
+      deferred: false,
+    });
+    expect(__internals.getState(1)).toBeDefined();
+
+    bus.notifyTabForgotten(1);
+
+    expect(__internals.getState(1)).toBeUndefined();
+  });
+
+  it('dispose detaches the bus subscription', () => {
+    startTracking(2, 'test:t2');
+    store.apply({
+      kind: 'started',
+      lifecycle: makeLifecycle({ tabId: 2, requestId: 'r2', url: 'https://api.openheaders.io/y' }),
+    });
+    recordObservedFire(2, 'rule-b', 'https://api.openheaders.io/y', 'r2', 1_000, {
+      resourceType: 'xmlhttprequest',
+      pattern: '*://*.openheaders.io/*',
+      deferred: false,
+    });
+
+    dispose();
+    dispose = () => {};
+
+    bus.notifyTabForgotten(2);
+    expect(__internals.getState(2)).toBeDefined();
   });
 });
 

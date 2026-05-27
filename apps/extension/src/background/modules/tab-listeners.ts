@@ -9,7 +9,6 @@ import type { ObservationSource } from '@/types/browser';
 import { checkIfUrlMatchesAnyRule, tabsWithActiveRules } from './request-tracker';
 import { mainFrameRequestIdsMatchingCommit } from '../tab-telemetry-source/main-frame-chain';
 import {
-  clearTab as tabTelemetryClearTab,
   onPageCommit as tabTelemetryOnPageCommit,
   startTracking as tabTelemetryStartTracking,
   stopTracking as tabTelemetryStopTracking,
@@ -197,12 +196,13 @@ export function setupTabListeners(options: SetupTabListenersOptions): void {
     }
   });
 
-  // Clean up tracking when tabs are closed
+  // Clean up tracking when tabs are closed. `tabsWithActiveRules` and the
+  // `tab-telemetry.clearTab(tabId)` call are driven by the rule-engine
+  // driver + tab-telemetry source via `TabLifecycleBus` (session 51) —
+  // this listener owns only the bookkeeping that's still local here.
   tabs.onRemoved?.addListener((tabId: number) => {
-    tabsWithActiveRules.delete(tabId);
     lastMainFrameUrlByTab.delete(tabId);
     releaseIfActive(tabId);
-    tabTelemetryClearTab(tabId);
     // If a test session was watching this tab, finish it so DNR session rules
     // clear and the pending promise resolves instead of waiting for ceiling.
     testRunnerOnTabRemoved(tabId);

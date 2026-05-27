@@ -71,6 +71,10 @@ const tabsMock = {
     addListener: vi.fn(),
     removeListener: vi.fn(),
   },
+  onCreated: {
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+  },
 };
 
 const alarmsMock = {

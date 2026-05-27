@@ -417,6 +417,7 @@ import { auditHostPermissions } from './modules/permissions-audit';
 import { PageStreamHub } from '@openheaders/oracle/page-stream-hub';
 import { RequestLifecycleHub } from '@openheaders/oracle/request-lifecycle-hub';
 import { RuleFireHub } from '@openheaders/oracle/rule-fire-hub';
+import { TabLifecycleBus } from '@openheaders/oracle/tab-lifecycle-bus';
 import { startLifecycleHost } from './correlator-host';
 import { startLifecyclePortHost } from './lifecycle-port-host';
 import { startDevtoolsPageNavBridge, startPagePortHost } from './page-port-host';
@@ -723,9 +724,14 @@ async function initializeExtension(): Promise<void> {
   // RequestLifecycleStore. Invariant 7a (no rule-engine module subscribes
   // to chrome.webRequest.* directly) is held by routing rule-engine and
   // tab-telemetry through the store via the two drivers below.
-  const lifecycleHost = startLifecycleHost();
-  startRuleEngineDriver({ store: lifecycleHost.store, updateBadge: debouncedUpdateBadge });
-  startTabTelemetrySource({ store: lifecycleHost.store });
+  // Cross-driver tab-lifecycle bus (session 51): the correlator bridge
+  // fires `tab-forgotten` on tab close; rule-engine driver +
+  // tab-telemetry source subscribe and run their per-tab cleanup
+  // synchronously before the store partition is dropped.
+  const tabLifecycleBus = new TabLifecycleBus();
+  const lifecycleHost = startLifecycleHost({ bus: tabLifecycleBus });
+  startRuleEngineDriver({ store: lifecycleHost.store, updateBadge: debouncedUpdateBadge, bus: tabLifecycleBus });
+  startTabTelemetrySource({ store: lifecycleHost.store, bus: tabLifecycleBus });
   // Lifecycle subscriber hub (U1-U5) + chrome port adapter (W-a). Publishes
   // `LifecycleWireMessage` envelopes on `oh-lifecycle:<tabId>` ports for the
   // panel client cache (P1-P6) to consume.

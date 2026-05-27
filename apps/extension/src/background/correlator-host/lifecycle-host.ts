@@ -21,11 +21,16 @@
 
 import { HeuristicCorrelator } from '@openheaders/oracle/correlator-heuristic';
 import { RequestLifecycleStore } from '@openheaders/oracle/request-lifecycle-store';
+import type { TabLifecycleBus } from '@openheaders/oracle/tab-lifecycle-bus';
 import { logger } from '@utils/logger';
 
 import { ChromeHarEventSource } from './chrome-har-source';
 import { ChromeWebRequestEventSource } from './chrome-webrequest-source';
 import { installTabLifecycleBridge } from './tab-lifecycle-bridge';
+
+export interface LifecycleHostOptions {
+  readonly bus: TabLifecycleBus;
+}
 
 export interface LifecycleHost {
   readonly webRequestSource: ChromeWebRequestEventSource;
@@ -51,7 +56,7 @@ export interface LifecycleHost {
  *
  * Plus the per-tab `tab-lifecycle-bridge` (S6).
  */
-export function startLifecycleHost(): LifecycleHost {
+export function startLifecycleHost(options: LifecycleHostOptions): LifecycleHost {
   const webRequestSource = new ChromeWebRequestEventSource();
   const harSource = new ChromeHarEventSource();
   const correlator = new HeuristicCorrelator({
@@ -69,7 +74,7 @@ export function startLifecycleHost(): LifecycleHost {
   // through `correlator.subscribe(...)` in their own modules.
   correlator.subscribe((update) => store.apply(update));
 
-  const detachBridge = installTabLifecycleBridge({ correlator, store });
+  const detachBridge = installTabLifecycleBridge({ correlator, store, bus: options.bus });
 
   logger.info('LifecycleHost', 'request lifecycle pipeline online');
 
