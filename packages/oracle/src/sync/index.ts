@@ -126,7 +126,7 @@ export {
   computeSnapshotThresholdInputsForWorkspace,
   computeSnapshotThresholdInputsFromLog,
 } from './snapshot-threshold-reader';
-// Node-coupled SQLite-backed durable stores live behind deep imports
-// (`@openheaders/oracle/sync/sqlite-*`) so this barrel stays host-neutral.
-// See `docs/ORACLE_HOST_NEUTRALITY_AUDIT.md` §F-1.P.1.
+// Node-coupled SQLite-backed durable stores live in
+// `@openheaders/oracle-host-node/sync/sqlite-*` so this barrel — and
+// oracle as a whole — stays host-neutral.
 export { computeStateVectorFromLog, readWorkspaceStateVector } from './state-vector-reader';

@@ -7,7 +7,7 @@
  *   - Browser hosts deep-import {@link IdbBlobBackend} from
  *     `@openheaders/oracle/files/idb-blob-backend`.
  *   - Node hosts deep-import `FileSystemBlobBackend` from
- *     `@openheaders/oracle/files/fs-blob-backend`.
+ *     `@openheaders/oracle-host-node/files/fs-blob-backend`.
  * Either way the choice is the caller's — this module owns no runtime
  * dependency on a specific backend.
  */

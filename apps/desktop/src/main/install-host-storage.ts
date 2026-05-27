@@ -26,7 +26,6 @@
 import { app, ipcMain, webContents } from 'electron';
 import {
   createHostStorageDispatcher,
-  FileBackedHostStorage,
   type HostStorageDispatcher,
   type SecretCipher,
   type StorageGetManyRequest,
@@ -37,6 +36,7 @@ import {
   type StorageSubscribeRequest,
   type StorageUnsubscribeRequest,
 } from '@openheaders/oracle/host-storage';
+import { FileBackedHostStorage } from '@openheaders/oracle-host-node/host-storage';
 import { hostLogger as logger } from '@openheaders/core/logger';
 import * as path from 'node:path';
 import { safeStorageCipher } from './safe-storage-cipher';

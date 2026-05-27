@@ -51,7 +51,7 @@
 
 import { hlcToString, type MutationEnvelope } from '@openheaders/core/sync';
 import type Database from 'better-sqlite3';
-import type { MutationLog } from './mutation-log';
+import type { MutationLog } from '@openheaders/oracle/sync/mutation-log';
 
 const SCHEMA_STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS mutation_log (

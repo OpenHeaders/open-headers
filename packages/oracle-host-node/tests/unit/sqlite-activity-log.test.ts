@@ -10,7 +10,7 @@ import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { activityEntryId, type ActivityEntry, type ActivityEntryKind } from '@openheaders/core/sync';
-import { SqliteActivityLog, ensureActivityLogSchema } from '@openheaders/oracle/sync/sqlite-activity-log';
+import { SqliteActivityLog, ensureActivityLogSchema } from '@openheaders/oracle-host-node/sync/sqlite-activity-log';
 
 const WS = '0193a8ff-c000-7000-8000-000000000001';
 

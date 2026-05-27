@@ -49,7 +49,7 @@ import {
 } from '@openheaders/core/sync';
 import type Database from 'better-sqlite3';
 
-import type { ActivityLog, ActivityLogListOptions } from './activity-log';
+import type { ActivityLog, ActivityLogListOptions } from '@openheaders/oracle/sync/activity-log';
 
 const SCHEMA_STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS activity_log (

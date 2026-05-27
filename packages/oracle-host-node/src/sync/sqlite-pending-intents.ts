@@ -30,7 +30,7 @@
 
 import { compareHlc, type SideEffectIntent } from '@openheaders/core/sync';
 import type Database from 'better-sqlite3';
-import type { PendingIntents } from './pending-intents';
+import type { PendingIntents } from '@openheaders/oracle/sync/pending-intents';
 
 const SCHEMA_STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS pending_intents (

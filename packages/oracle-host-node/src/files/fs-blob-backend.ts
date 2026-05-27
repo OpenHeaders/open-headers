@@ -49,8 +49,8 @@ import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import { type FileRef, newFileId } from '@openheaders/core/files';
 import type Database from 'better-sqlite3';
-import type { BlobBackend } from './blob-backend';
-import { hashBlob } from './hash';
+import type { BlobBackend } from '@openheaders/oracle/files/blob-backend';
+import { hashBlob } from '@openheaders/oracle/files/hash';
 
 const SCHEMA_STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS blob_metadata (

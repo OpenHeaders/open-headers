@@ -22,7 +22,7 @@ import {
   type OracleWsServer,
   type OracleWsServerOptions,
   startOracleWsServer,
-} from '@openheaders/oracle/host-runtime/ws-server';
+} from '@openheaders/oracle-host-node/host-runtime/ws-server';
 
 const SCOPE = 'DaemonBindSupervisor';
 

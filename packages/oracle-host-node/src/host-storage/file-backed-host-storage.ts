@@ -34,7 +34,7 @@ import * as path from 'node:path';
 import { type ParseEntityOptions, parseEntity, parseEntityArray } from '@openheaders/core/schemas';
 import type { HostStorage, StorageKey } from '@openheaders/core/storage';
 import type * as v from 'valibot';
-import type { SecretCipher } from './secret-cipher';
+import type { SecretCipher } from '@openheaders/oracle/host-storage';
 
 const ENVELOPE_VERSION = 1;
 

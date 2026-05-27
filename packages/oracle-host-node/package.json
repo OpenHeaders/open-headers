@@ -1,0 +1,54 @@
+{
+  "name": "@openheaders/oracle-host-node",
+  "version": "2026.5.0",
+  "private": true,
+  "description": "Node host adapter for @openheaders/oracle — SQLite-backed sync persistence, WebSocket server, file-backed host storage",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./host-runtime/pairing-http": {
+      "import": "./src/host-runtime/pairing-http.ts",
+      "default": "./dist/host-runtime/pairing-http.js"
+    },
+    "./host-runtime/ws-server": {
+      "import": "./src/host-runtime/ws-server.ts",
+      "default": "./dist/host-runtime/ws-server.js"
+    },
+    "./host-storage": {
+      "import": "./src/host-storage/index.ts",
+      "default": "./dist/host-storage/index.js"
+    },
+    "./host-storage/*": {
+      "import": "./src/host-storage/*.ts",
+      "default": "./dist/host-storage/*.js"
+    },
+    "./files/fs-blob-backend": {
+      "import": "./src/files/fs-blob-backend.ts",
+      "default": "./dist/files/fs-blob-backend.js"
+    },
+    "./sync/*": {
+      "import": "./src/sync/*.ts",
+      "default": "./dist/sync/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@openheaders/core": "workspace:*",
+    "@openheaders/oracle": "workspace:*",
+    "better-sqlite3": "^12.10.0",
+    "valibot": "^1.3.1",
+    "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.19.15",
+    "@types/ws": "^8.18.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.0"
+  }
+}

@@ -3,8 +3,8 @@
  * of desktop / daemon" pipe (`docs/refactor-status.md` Desktop host #2
  * Stage 2 commit 9; `.notes/oracle-arc.md` Mode 2 / Mode 3).
  *
- * Lives in `@openheaders/oracle/host-runtime` rather than apps/desktop
- * so any Node host can reuse it — Electron main today, a headless Node
+ * Lives in `@openheaders/oracle-host-node/host-runtime` rather than
+ * apps/desktop so any Node host can reuse it — Electron main today, a headless Node
  * daemon tomorrow, the cloud daemon eventually. The Electron-specific
  * glue is just composition (where to listen + how to fan
  * `OracleHostHooks.broadcast*` to both renderers and connected WS
@@ -64,10 +64,14 @@ import {
 } from '@openheaders/core/protocol';
 import { getHostStorage, OH } from '@openheaders/core/storage';
 import { type RawData, WebSocket, WebSocketServer } from 'ws';
-import { dispatchSyncRpc } from '../rpc';
-import { evaluateHello, handleStateVector, type LocalHandshakeIdentity } from '../rpc/handshake-dispatch';
+import {
+  dispatchSyncRpc,
+  evaluateHello,
+  handleStateVector,
+  type LocalHandshakeIdentity,
+} from '@openheaders/oracle/rpc';
+import { createPeerConnection, type PeerConnection } from '@openheaders/oracle/host-runtime/peer-connection';
 import type { PairingHttpHandler } from './pairing-http';
-import { createPeerConnection, type PeerConnection } from './peer-connection';
 
 const SCOPE = 'OracleWsServer';
 const HANDSHAKE_TIMEOUT_MS = 5_000;

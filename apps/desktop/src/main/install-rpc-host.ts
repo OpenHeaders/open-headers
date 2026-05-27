@@ -76,15 +76,16 @@ import {
 import { logger as consoleLogger } from '@openheaders/core/utils';
 import { setLockRuntime } from '@openheaders/oracle/coordination';
 import { setBlobBackend } from '@openheaders/oracle/files';
-// Node-only backend lives behind a deep import so the browser-facing
-// barrel (`@openheaders/oracle/files`) stays free of `node:fs` / `node:path`.
-import { FileSystemBlobBackend } from '@openheaders/oracle/files/fs-blob-backend';
+// Node-only backends live in `@openheaders/oracle-host-node`; oracle
+// itself is host-neutral and ships no `node:*` / `better-sqlite3` / `ws`
+// runtime dependency.
+import { FileSystemBlobBackend } from '@openheaders/oracle-host-node/files/fs-blob-backend';
 import { bootSyncEngine } from '@openheaders/oracle/host-runtime';
-import { createPairingHttpHandler } from '@openheaders/oracle/host-runtime/pairing-http';
-import type { OracleWsServer } from '@openheaders/oracle/host-runtime/ws-server';
+import { createPairingHttpHandler } from '@openheaders/oracle-host-node/host-runtime/pairing-http';
+import type { OracleWsServer } from '@openheaders/oracle-host-node/host-runtime/ws-server';
 import { dispatchSyncRpc } from '@openheaders/oracle/rpc';
 import { setActivityMuteStore, setOracleHostHooks, subscribeActivityMuteChanges } from '@openheaders/oracle/sync';
-import { createSqliteSyncPersistence } from '@openheaders/oracle/sync/sqlite-sync-persistence';
+import { createSqliteSyncPersistence } from '@openheaders/oracle-host-node/sync/sqlite-sync-persistence';
 import { setSyncPersistenceProvider } from '@openheaders/oracle/sync/sync-persistence-provider';
 import {
   bootstrap as bootstrapWorkspaces,

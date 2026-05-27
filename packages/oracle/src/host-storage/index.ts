@@ -1,10 +1,8 @@
 /**
  * Cross-host persistence layer for the renderer-facing {@link HostStorage}
- * contract. Three pieces:
+ * contract. Host-neutral pieces only — Node-bound implementations live
+ * in `@openheaders/oracle-host-node/host-storage`.
  *
- *   - {@link FileBackedHostStorage} — pure-Node KV impl backed by a
- *     single JSON file. Used by Electron main today, by future headless
- *     daemons, and (via `runOnce`) by the CLI.
  *   - {@link SecretCipher} — encryption seam for slots flagged
  *     `sensitive: true`. Electron wires `safeStorage`; daemons wire
  *     keytar / KMS / passphrase derivations.
@@ -16,10 +14,6 @@
  * protocol is identical across hosts; only the transport differs.
  */
 
-export {
-  FileBackedHostStorage,
-  type FileBackedHostStorageOptions,
-} from './file-backed-host-storage';
 export {
   createHostStorageDispatcher,
   type HostStorageDispatcher,

@@ -37,7 +37,7 @@
 import { hlcToString, type MutationEnvelope } from '@openheaders/core/sync';
 import type Database from 'better-sqlite3';
 
-import type { PendingOutQueue } from './pending-out-queue';
+import type { PendingOutQueue } from '@openheaders/oracle/sync/pending-out-queue';
 
 const SCHEMA_STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS pending_out_queue (

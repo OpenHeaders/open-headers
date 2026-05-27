@@ -27,7 +27,7 @@
 import type { OracleSyncBroadcastEvent } from '@openheaders/oracle/sync';
 import { hasRecentlyApplied } from '@openheaders/oracle/sync';
 import { SYNC_MUTATION_TYPE, type SyncMutationMessage } from '@openheaders/core/protocol';
-import type { OracleWsServer } from '@openheaders/oracle/host-runtime/ws-server';
+import type { OracleWsServer } from '@openheaders/oracle-host-node/host-runtime/ws-server';
 
 let wsServer: OracleWsServer | null = null;
 

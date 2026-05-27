@@ -25,17 +25,17 @@
 import Database from 'better-sqlite3';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { ActivityLog } from './activity-log';
-import type { ActivityMuteStore } from './activity-mute-store';
-import type { MutationLog } from './mutation-log';
-import type { PendingIntents } from './pending-intents';
-import type { PendingOutQueue } from './pending-out-queue';
+import type { ActivityLog } from '@openheaders/oracle/sync/activity-log';
+import type { ActivityMuteStore } from '@openheaders/oracle/sync/activity-mute-store';
+import type { MutationLog } from '@openheaders/oracle/sync/mutation-log';
+import type { PendingIntents } from '@openheaders/oracle/sync/pending-intents';
+import type { PendingOutQueue } from '@openheaders/oracle/sync/pending-out-queue';
+import type { SyncPersistenceProvider } from '@openheaders/oracle/sync/sync-persistence-provider';
 import { ensureActivityLogSchema, SqliteActivityLog } from './sqlite-activity-log';
 import { ensureActivityMuteSchema, SqliteActivityMuteStore } from './sqlite-activity-mute-store';
 import { ensureMutationLogSchema, SqliteMutationLog } from './sqlite-mutation-log';
 import { ensurePendingIntentsSchema, SqlitePendingIntents } from './sqlite-pending-intents';
 import { ensurePendingOutQueueSchema, SqlitePendingOutQueue } from './sqlite-pending-out-queue';
-import type { SyncPersistenceProvider } from './sync-persistence-provider';
 
 export interface SqliteSyncPersistenceOptions {
   /** Absolute path to the SQLite database file. */
