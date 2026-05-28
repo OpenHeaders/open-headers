@@ -29,6 +29,7 @@
 
 import { app } from 'electron';
 import { installRpcHost } from './main/install-rpc-host';
+import { installAboutPanel } from './main/bootstrap/about-panel';
 import { installApplicationMenu } from './main/bootstrap/application-menu';
 import { installChromiumSwitches } from './main/bootstrap/cli-switches';
 import {
@@ -74,6 +75,7 @@ installProtocolHandler();
 
 void app.whenReady().then(() => {
   registerAsProtocolHandler();
+  installAboutPanel();
   installApplicationMenu();
 
   createMainWindow();
