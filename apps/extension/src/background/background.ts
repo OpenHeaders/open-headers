@@ -7,8 +7,6 @@
  * from the desktop app land in v2 through `workspace-orchestrator.ts`.
  */
 
-declare const browser: typeof chrome | undefined;
-
 import '@/host/install-host-storage';
 import '@/host/install-host-bridge';
 import '@/host/install-host-logger';
@@ -29,7 +27,6 @@ import {
   setWorkspaceOrgResolver,
 } from '@openheaders/core/sync';
 import type { TreeNode } from '@openheaders/core/types';
-import { isRuleEffective } from '@openheaders/core/utils';
 import {
   getActiveEnvironmentId,
   getCollectionEnvOverrides,
@@ -47,19 +44,16 @@ import { setSyncPersistenceProvider } from '@openheaders/oracle/sync/sync-persis
 import { report as reportStatus, subscribe as subscribeStatus } from '@openheaders/ui/shared/status';
 import { get as getSetting, subscribeKey } from '@openheaders/ui/workbench/settings/store';
 import { broadcast } from '@utils/bridge';
-import { alarms, isChrome, isEdge, isFirefox, isSafari, runtime, storage, tabs } from '@utils/browser-api';
+import { alarms, isChrome, isEdge, isFirefox, isSafari, runtime, storage } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { bootstrapSettings } from '@utils/settings-bootstrap';
-import {
-  forgetDelayBypassForTab,
-  getRulesPaused,
-  markTabForDelayBypass,
-  resolveDelayBypass,
-  setRulesPaused,
-} from './dnr-manager';
+import { getRulesPaused, markTabForDelayBypass, setRulesPaused } from './dnr-manager';
 import { setupInjectListener } from './inject-manager';
 import { updateExtensionBadge } from './modules/badge-manager';
-import { forgetCacheBypassForTab, rehydrateCacheBypassFromSessionRules } from './modules/cache-bypass';
+import { rehydrateCacheBypassFromSessionRules } from './modules/cache-bypass';
+import { backgroundReady, resolveBackgroundReady } from './bootstrap/background-ready';
+import { debouncedUpdateBadge, updateBadgeForCurrentTab } from './bootstrap/badge-update';
+import { setupDelayBypassCleanup } from './bootstrap/delay-bypass-cleanup';
 // Module-load side effect: registers `liveChainAdapter` with the live
 // scheduler via `__setLiveRefreshAdapter`. Import for its side effect
 // even though we don't name anything from it here — the scheduler's
@@ -407,16 +401,11 @@ setOracleHostHooks({
   },
 });
 
-import { getPauseMarkers } from '@openheaders/oracle/entity/pause-markers-store';
 import { applyExternalSnapshot as applyRequestScriptsReviewSnapshot } from '@openheaders/oracle/entity/request-scripts-review-store';
 import { getRequests, onRequestStoreChange } from '@openheaders/oracle/entity/request-store';
 import { getCollectionTrees, getRules, onStoreChange } from '@openheaders/oracle/entity/rule-store';
 import { getTemplates, onTemplateStoreChange } from '@openheaders/oracle/entity/template-store';
-import {
-  __setSyncWarmRunner,
-  getUnresolvableRuleUids,
-  hydrateLiveCacheMirror,
-} from '@openheaders/oracle/rule-engine/variables-resolver';
+import { __setSyncWarmRunner, hydrateLiveCacheMirror } from '@openheaders/oracle/rule-engine/variables-resolver';
 import { markBootPhase } from '@openheaders/oracle/sync/boot-telemetry';
 import { pruneOrphanOwners } from '@openheaders/oracle/test-run/test-run-store';
 import { setupOnRuleMatchedDebugBridge } from './modules/on-rule-matched-debug';
@@ -433,7 +422,6 @@ import { startTabTelemetryFiresBridge } from './modules/tab-telemetry-fires-brid
 import { startRuleEngineDriver } from './rule-engine-driver';
 import { startTabTelemetrySource } from './tab-telemetry-source';
 import {
-  getActiveRulesForTab,
   precompileRulePatterns,
   rehydrateTabTracking,
   restoreTrackingState,
@@ -518,86 +506,9 @@ function pruneOrphanTestRunOwnersFromStore(): void {
   void pruneOrphanOwners(liveRules, liveEntities);
 }
 
-// ── Badge update ──────────────────────────────────────────────────
-
-async function updateBadgeForCurrentTab(): Promise<void> {
-  const isConnected = isWebSocketConnected();
-  const attempts = getReconnectAttempts();
-  const isPaused = getSetting('rulesEngine.paused');
-
-  tabs.query({ active: true, currentWindow: true }, async (tabList: chrome.tabs.Tab[]) => {
-    const currentTab = tabList[0];
-
-    const markers = getPauseMarkers();
-    // Currently-effective rules: enabled + complete + not paused at any
-    // level + engine not paused + refs resolve — the single canonical
-    // filter that every consumer (DNR compile loop, rule-state
-    // observer, this badge filter) must share. NOT filtered by tab
-    // URL: a rule targeting a subresource domain (e.g.
-    // api.example.com) still counts when the tab is on example.com —
-    // its counter increments via the subresource request.
-    //
-    // `getUnresolvableRuleUids` mirrors the DNR compile's hard gate:
-    // rules with unresolved `{{ref}}`s aren't shipped to Chrome, so
-    // they shouldn't inflate the badge either.
-    const unresolvable = getUnresolvableRuleUids();
-    const effectiveRules = getRules().filter((r) => isRuleEffective(r, markers, isPaused) && !unresolvable.has(r.uid));
-    const effectiveUids = new Set(effectiveRules.map((r) => r.uid));
-
-    // Badge count = rules pointed at this tab with a concrete signal.
-    // Delegates to the verdict engine for consistency with the popup:
-    // anything the engine labels `firing`, `silent`, or `page` counts
-    // (firing = action ran; silent = matched but cache-suppressed;
-    // page = pattern matches the tab URL, will fire on next request).
-    // `related` (sibling-domain heuristic) is excluded — it's too weak
-    // a signal to turn into a badge number that reads "N rules active
-    // on this page."
-    let matchedRuleCount = 0;
-    if (currentTab?.id != null && currentTab.url) {
-      const { activeRules } = getActiveRulesForTab(currentTab.id, currentTab.url);
-      for (const rule of activeRules) {
-        if (!effectiveUids.has(rule.id)) continue;
-        if (rule.verdict === 'firing' || rule.verdict === 'silent' || rule.verdict === 'page') {
-          matchedRuleCount++;
-        }
-      }
-    }
-    await updateExtensionBadge({
-      connected: isConnected,
-      isPaused,
-      reconnectAttempts: attempts,
-      matchedRuleCount,
-      configuredRuleCount: effectiveRules.length,
-    });
-  });
-}
-
-const debouncedUpdateBadge = (() => {
-  let timer: ReturnType<typeof setTimeout> | null = null;
-  return () => {
-    if (timer) clearTimeout(timer);
-    timer = setTimeout(() => {
-      timer = null;
-      void updateBadgeForCurrentTab();
-    }, 100);
-  };
-})();
-
 // ── Initialization ────────────────────────────────────────────────
 
 let extensionInitialized = false;
-// Hydration barrier — resolves once `initializeExtension` finishes
-// the first (real) init pass for this SW lifetime. The alarm
-// dispatch below awaits this before routing live / OAuth / TOTP
-// alarms so their handlers never read an empty in-memory store on
-// SW cold wake (an overdue live-refresh alarm that fires before
-// hydration would otherwise mis-identify the workflow as "deleted"
-// and cancel the alarm permanently). Non-hydration-dependent alarms
-// (updateBadge, wsReconnect) keep their fast path.
-let resolveBackgroundReady: () => void = () => {};
-const backgroundReady: Promise<void> = new Promise((resolve) => {
-  resolveBackgroundReady = resolve;
-});
 
 /**
  * Human-readable name of the browser running this service worker — the
@@ -1269,45 +1180,6 @@ runtime.onInstalled.addListener((details: chrome.runtime.InstalledDetails) => {
   void initializeExtension();
 });
 
-/**
- * Clear a tab's delay-bypass entry once the specific navigation we stashed
- * for it actually lands. Matching on (tabId, committedUrl) means an unrelated
- * Back-button or sibling navigation in the same tab leaves the bypass alone
- * until the real target commits (or errors out, or the tab is closed, or the
- * 30-second TTL expires).
- */
-function setupDelayBypassCleanup(): void {
-  const api = typeof browser !== 'undefined' ? browser : chrome;
-
-  if (api.webNavigation?.onCommitted) {
-    api.webNavigation.onCommitted.addListener(
-      (details: chrome.webNavigation.WebNavigationTransitionCallbackDetails) => {
-        if (details.frameId !== 0) return;
-        // Ignore commits of delay.html itself — we only care about the
-        // follow-up navigation to the real target.
-        if (details.url.startsWith(api.runtime.getURL('delay.html'))) return;
-        resolveDelayBypass(details.tabId, details.url);
-      },
-    );
-  }
-
-  // Navigation failed (DNS error, aborted, network offline, etc.) — clear
-  // the bypass so the tab isn't stuck exempt until TTL.
-  if (api.webNavigation?.onErrorOccurred) {
-    api.webNavigation.onErrorOccurred.addListener((details: { tabId: number; frameId: number; url: string }) => {
-      if (details.frameId !== 0) return;
-      resolveDelayBypass(details.tabId, details.url);
-    });
-  }
-
-  // Tab closed — drop any stashed entry.
-  if (api.tabs?.onRemoved) {
-    api.tabs.onRemoved.addListener((tabId: number) => {
-      forgetDelayBypassForTab(tabId);
-      void forgetCacheBypassForTab(tabId);
-    });
-  }
-}
 
 logger.info('Background', 'Background script started');
 // Release the hydration barrier even if init fails — we'd rather
