@@ -79,6 +79,17 @@ export interface Capabilities {
    * UI no-ops via `getCapability(...)?.()`.
    */
   closeSurface?: () => void;
+
+  /**
+   * Fire-and-forget notification that the surface just mounted and
+   * would like a fresh broadcast of host state. Extension surfaces
+   * use this to kick the SW into emitting current rules / connection /
+   * workspaces in case the surface load raced past an earlier event.
+   * Desktop doesn't need this — the mirror snapshot fetches on mount
+   * already cover the resync — so it doesn't register the capability
+   * and shared UI no-ops via `getCapability(...)?.()`.
+   */
+  announceSurfaceReady?: () => Promise<void>;
 }
 
 type CapabilityName = keyof Capabilities;

@@ -1,4 +1,5 @@
 import { hostBridge } from '@openheaders/core/bridge';
+import { getCapability } from '@openheaders/core/capabilities';
 import { hostLogger as logger } from '@openheaders/core/logger';
 import { hostStorage, UI } from '@openheaders/core/storage';
 import ErrorBoundary from '@openheaders/ui/components/ErrorBoundary';
@@ -114,11 +115,13 @@ const AppContent: React.FC<AppContentProps> = ({ resolveIdentity }) => {
     // lifecycle.
     const disposePresence = hostBridge.presence(surface.presenceName);
 
-    // Announce popupOpen so the SW reports connection status + rule set
-    // in one round-trip. Fire-and-forget: the periodic poll in
-    // RuleContext will refresh if this first call loses the race.
-    hostBridge.call('popupOpen').catch((error: Error) => {
-      logger.info(surface.mode, 'popupOpen RPC failed:', error.message);
+    // Tell the host this surface just mounted so it rebroadcasts
+    // current state in one round-trip. Fire-and-forget: the periodic
+    // poll in RuleContext will refresh if this first call loses the
+    // race. Hosts that don't register the capability (e.g. desktop —
+    // mirror snapshots already cover the resync) cleanly skip.
+    getCapability('announceSurfaceReady')?.().catch((error: Error) => {
+      logger.info(surface.mode, 'announceSurfaceReady failed:', error.message);
     });
 
     return disposePresence;

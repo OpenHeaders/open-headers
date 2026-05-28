@@ -24,6 +24,13 @@ registerCapability('getActiveWorkspaceId', () =>
   })),
 );
 
+// Kicks the SW into rebroadcasting current state to the just-mounted
+// surface. Reuses the SW's existing `popupOpen` handler (also called by
+// `getActiveWorkspaceId` above — the SW response carries both pieces).
+registerCapability('announceSurfaceReady', () =>
+  hostBridge.call('popupOpen').then(() => undefined),
+);
+
 // External links route through the SW's existing `openTab` handler so
 // the new tab inherits the user's session / cookies / extension trust.
 // Reshape the `{ success, tabId? }` response into the capability's
