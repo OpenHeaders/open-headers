@@ -13,7 +13,7 @@
 import { app, Menu, type MenuItemConstructorOptions, shell } from 'electron';
 
 const HOMEPAGE_URL = 'https://openheaders.io';
-const ISSUES_URL = 'https://github.com/OpenHeaders/open-headers-app/issues';
+const ISSUES_URL = 'https://github.com/OpenHeaders/open-headers-app/issues/new';
 
 function template(): MenuItemConstructorOptions[] {
   const isMac = process.platform === 'darwin';

@@ -32,6 +32,7 @@ import { installRpcHost } from './main/install-rpc-host';
 import { installAboutPanel } from './main/bootstrap/about-panel';
 import { installApplicationMenu } from './main/bootstrap/application-menu';
 import { installChromiumSwitches } from './main/bootstrap/cli-switches';
+import { installExternalLinkHandler } from './main/bootstrap/external-links';
 import {
   drainPendingProtocolUrls,
   installProtocolHandler,
@@ -71,6 +72,7 @@ app.setName(APP_DISPLAY_NAME);
 enforceSingleInstanceLock();
 installStartupDataBridge();
 const { signalEngineReady } = installRpcQueue();
+installExternalLinkHandler();
 installProtocolHandler();
 
 void app.whenReady().then(() => {
