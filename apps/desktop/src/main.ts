@@ -3,7 +3,11 @@
  * wiring lives under `./main/bootstrap/`.
  *
  * Eval-time ordering matters:
- *   - `enforceSingleInstanceLock`     — must come first; lost races quit.
+ *   - `installChromiumSwitches`       — must precede `app` init; Chromium
+ *                                       reads switches once at network-stack
+ *                                       construction.
+ *   - `enforceSingleInstanceLock`     — must come first among app-level calls;
+ *                                       lost races quit.
  *   - `installStartupDataBridge`      — sync IPC must be registered before
  *                                       the preload's `sendSync` fires
  *                                       (preload runs on window load).
@@ -26,6 +30,7 @@
 import { app } from 'electron';
 import { installRpcHost } from './main/install-rpc-host';
 import { installApplicationMenu } from './main/bootstrap/application-menu';
+import { installChromiumSwitches } from './main/bootstrap/cli-switches';
 import {
   drainPendingProtocolUrls,
   installProtocolHandler,
@@ -46,7 +51,11 @@ const logger = createLogger('main');
 
 // ── Eval-time wiring ──────────────────────────────────────────────
 
-// Logger first so every subsequent bootstrap call lands in
+// Chromium command-line switches must precede `app` initialization —
+// they're consumed once at network-stack construction.
+installChromiumSwitches();
+
+// Logger next so every subsequent bootstrap call lands in
 // `<userData>/logs/main.log`.
 installMainLogger();
 
