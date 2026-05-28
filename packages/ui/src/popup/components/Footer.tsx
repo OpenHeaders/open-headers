@@ -1,5 +1,5 @@
 import { BugOutlined, GlobalOutlined, StarOutlined } from '@ant-design/icons';
-import { BridgeError, hostBridge } from '@openheaders/core/bridge';
+import { getCapability } from '@openheaders/core/capabilities';
 import { hostNavigation } from '@openheaders/core/navigation';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import type { StatusPillProps } from '@openheaders/ui/shared/status';
@@ -23,12 +23,10 @@ const Footer: React.FC = () => {
   const _workspaceLabel = usePopupShortcutLabel('open-workspace');
 
   const handleOpenWebsite = async () => {
-    try {
-      const response = await hostBridge.call('openTab', { url: 'https://openheaders.io' });
-      if (response.success) window.close();
-    } catch (error) {
-      if (!(error instanceof BridgeError)) throw error;
-    }
+    const openExternal = getCapability('openExternalUrl');
+    if (!openExternal) return;
+    const result = await openExternal('https://openheaders.io');
+    if (result.ok) getCapability('closeSurface')?.();
   };
 
   const handleOpenWorkspace = useCallback(() => {

@@ -23,3 +23,14 @@ registerCapability('getActiveWorkspaceId', () =>
     activeWorkspaceId: resp.activeWorkspaceId ?? null,
   })),
 );
+
+// External links route through the SW's existing `openTab` handler so
+// the new tab inherits the user's session / cookies / extension trust.
+// Reshape the `{ success, tabId? }` response into the capability's
+// `{ ok, error? }` shape.
+registerCapability('openExternalUrl', (url) =>
+  hostBridge
+    .call('openTab', { url })
+    .then((resp) => ({ ok: resp.success, error: resp.error }))
+    .catch((err: Error) => ({ ok: false, error: err.message })),
+);

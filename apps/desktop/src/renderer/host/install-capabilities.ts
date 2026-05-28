@@ -16,3 +16,11 @@ import { registerCapability } from '@openheaders/core/capabilities';
 registerCapability('getActiveWorkspaceId', () =>
   hostBridge.call('getActiveWorkspaceId'),
 );
+
+// Desktop opens external URLs in the OS default browser via the
+// main-process `shell.openExternal` allowlist (http(s) + mailto). The
+// preload bridge takes care of marshalling.
+registerCapability('openExternalUrl', (url) => window.oh.openExternal(url));
+
+// No `closeSurface` registration — the workbench window is the long-
+// lived primary; nothing in shared UI should close it implicitly.

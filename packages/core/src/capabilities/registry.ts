@@ -61,6 +61,24 @@ export interface Capabilities {
    * (fresh install, no seed yet).
    */
   getActiveWorkspaceId?: () => Promise<{ activeWorkspaceId: string | null }>;
+
+  /**
+   * Open a URL outside the current surface — the user's default
+   * browser on desktop, a new tab on the extension. Implementations
+   * decide which schemes to allow (typically http(s) + mailto).
+   * Resolves with `{ ok: false, error }` when the URL is rejected or
+   * the OS handoff fails.
+   */
+  openExternalUrl?: (url: string) => Promise<{ ok: boolean; error?: string }>;
+
+  /**
+   * Dismiss the current surface — the extension popup closes its own
+   * window; the extension sidepanel can self-close. Desktop windows
+   * have no equivalent (the workbench is long-lived), so the desktop
+   * shell intentionally doesn't register this capability and shared
+   * UI no-ops via `getCapability(...)?.()`.
+   */
+  closeSurface?: () => void;
 }
 
 type CapabilityName = keyof Capabilities;
