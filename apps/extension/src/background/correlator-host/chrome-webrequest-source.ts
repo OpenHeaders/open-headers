@@ -15,6 +15,7 @@
  */
 
 import { getBrowserAPI } from '@/types/browser';
+import { isFirefox } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 
 import type {
@@ -71,21 +72,27 @@ export class ChromeWebRequestEventSource implements WebRequestEventSource {
     }
 
     this.bind(wr.onBeforeRequest, (details) => this.fan(mapOnBeforeRequest(details)));
-    // `extraHeaders` is REQUIRED to see the `Origin` request header and
-    // `Access-Control-Allow-Origin` response header — Chrome treats both
-    // as "security-sensitive" and hides them from webRequest unless the
-    // listener explicitly opts in. Without this opt-in, `Origin` reads
-    // as null and the H5 CORS classifier sees every request as
+    // `extraHeaders` is REQUIRED on Chromium to see the `Origin` request
+    // header and `Access-Control-Allow-Origin` response header — Chrome
+    // treats both as "security-sensitive" and hides them from webRequest
+    // unless the listener explicitly opts in. Without this opt-in, `Origin`
+    // reads as null and the H5 CORS classifier sees every request as
     // same-origin. The opt-in is paid only on the two events that need
     // it; `onBeforeRedirect` keeps just `responseHeaders` since its
     // verdict is overwritten on the next hop's `onSendHeaders`.
+    //
+    // Firefox does NOT recognize the `'extraHeaders'` enum value at all —
+    // passing it throws a TypeError that crashes extension init. Firefox
+    // surfaces those headers without an opt-in, so dropping the spec entry
+    // there is both required and correct.
+    const securitySensitive: string[] = isFirefox ? [] : ['extraHeaders'];
     this.bind(wr.onSendHeaders, (details) => this.fan(mapOnSendHeaders(details)), [
       'requestHeaders',
-      'extraHeaders',
+      ...securitySensitive,
     ]);
     this.bind(wr.onHeadersReceived, (details) => this.fan(mapOnHeadersReceived(details)), [
       'responseHeaders',
-      'extraHeaders',
+      ...securitySensitive,
     ]);
     this.bind(wr.onBeforeRedirect, (details) => this.fan(mapOnBeforeRedirect(details)), [
       'responseHeaders',
@@ -110,7 +117,15 @@ export class ChromeWebRequestEventSource implements WebRequestEventSource {
       if ((details as { tabId: number }).tabId === -1) return;
       handler(details);
     };
-    event.addListener(wrapped, ALL_URLS_FILTER, extraInfoSpec);
+    // Firefox rejects an explicit `extraInfoSpec` arg on events that don't
+    // accept one (e.g. `onErrorOccurred`) — even an empty array throws
+    // "Incorrect argument types". Pass the third arg only when the caller
+    // actually opted into something.
+    if (extraInfoSpec.length > 0) {
+      event.addListener(wrapped, ALL_URLS_FILTER, extraInfoSpec);
+    } else {
+      event.addListener(wrapped, ALL_URLS_FILTER);
+    }
     this.unsubscribes.push(() => event.removeListener(wrapped));
   }
 

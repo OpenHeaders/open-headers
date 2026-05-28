@@ -48,8 +48,12 @@ export async function applyTemplateUpdate(
   opts: TemplateWriteOptions,
 ): Promise<TemplateMutationResult> {
   const mirror = resolveMirror(opts, getTemplateSyncMirrorForWorkspace);
-  const entry = mirror.getTemplateMirror(templateUid);
+  // Hydration must complete before the mirror read — on a fresh boot
+  // the user's first save can fire before the storage→mirror hydrate
+  // resolves, and reading too early surfaces a spurious "deleted from
+  // another tab" toast even though the entity is healthy.
   await mirror.hydrated;
+  const entry = mirror.getTemplateMirror(templateUid);
   if (!entry) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   // Renderer-side adapter: combine the mirror's order keys with the

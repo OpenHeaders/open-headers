@@ -121,6 +121,10 @@
       "import": "./src/shared/sync/*.ts",
       "default": "./dist/shared/sync/*.js"
     },
+    "./shared/status/store": {
+      "import": "./src/shared/status/store.ts",
+      "default": "./dist/shared/status/store.js"
+    },
     "./shared/hooks/*": {
       "import": "./src/shared/hooks/*.ts",
       "default": "./dist/shared/hooks/*.js"

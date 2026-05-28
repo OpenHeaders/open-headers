@@ -23,7 +23,7 @@
    * Internal dock layout and tab bodies manage their own scrolling
    * — nothing inside relies on the root letting content overflow. */
   overflow: hidden;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, '.SFNSText-Regular', sans-serif;
+  font-family: system-ui, sans-serif;
   font-size: 11px;
   line-height: 1.4;
   background: var(--dt-frame-bg);

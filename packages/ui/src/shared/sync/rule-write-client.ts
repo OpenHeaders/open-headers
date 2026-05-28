@@ -68,8 +68,12 @@ export async function applyRuleUpdate(
   opts: RuleWriteOptions,
 ): Promise<RuleMutationResult> {
   const mirror = resolveMirror(opts, getRuleSyncMirrorForWorkspace);
-  const entry = mirror.getRuleMirror(ruleUid);
+  // Hydration must complete before the mirror read — on a fresh boot
+  // the user's first save can fire before the storage→mirror hydrate
+  // resolves, and reading too early surfaces a spurious "deleted from
+  // another tab" toast even though the entity is healthy.
   await mirror.hydrated;
+  const entry = mirror.getRuleMirror(ruleUid);
   if (!entry) return { ok: false, reason: 'not-found' };
   // Auto-unpublish on first runtime-affecting edit of a published rule
   // (publication-gate symmetry). The single batch ensures side-effect

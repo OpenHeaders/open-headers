@@ -34,7 +34,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "cross-env ELECTRON_RUN_AS_NODE=1 electron ./node_modules/vitest/vitest.mjs run",
     "clean": "rm -rf dist"
   },
   "dependencies": {
@@ -48,6 +48,8 @@
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.19.15",
     "@types/ws": "^8.18.1",
+    "cross-env": "^7.0.3",
+    "electron": "^39.2.7",
     "typescript": "^5.9.3",
     "vitest": "^4.1.0"
   }

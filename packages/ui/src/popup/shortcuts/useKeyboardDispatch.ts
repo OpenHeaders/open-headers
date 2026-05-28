@@ -52,9 +52,13 @@ function isInputFocused(): boolean {
 }
 
 function isOverlayOpen(): boolean {
+  // Captures every Ant Design overlay primitive whose Esc dismissal is
+  // supposed to stay inside the popup. `.ant-tour` covers the onboarding
+  // tour — without it, Firefox's popup-window Esc handler fires first and
+  // closes the entire popup instead of advancing/closing the tour.
   return (
     document.querySelector(
-      '.ant-popconfirm, .ant-popover:not(.ant-popover-hidden), .ant-modal-root, .ant-dropdown:not(.ant-dropdown-hidden)',
+      '.ant-popconfirm, .ant-popover:not(.ant-popover-hidden), .ant-modal-root, .ant-dropdown:not(.ant-dropdown-hidden), .ant-tour',
     ) !== null
   );
 }

@@ -113,6 +113,33 @@ export interface OracleWsServerOptions {
   httpRequestHandler?: PairingHttpHandler;
 }
 
+/**
+ * Lightweight snapshot of a connected peer — what status reporters and
+ * admin surfaces need to know without holding a reference to the
+ * underlying {@link PeerConnection}.
+ *
+ * `isLoopback` is the same trust-model classifier the HELLO gate uses:
+ * a loopback-origin socket is by-construction same-device, regardless
+ * of whether the server is bound to `127.0.0.1` or `0.0.0.0`.
+ */
+export interface PeerSummary {
+  readonly peerId: string;
+  readonly role: string;
+  readonly agent: string;
+  readonly workspaceId: string;
+  readonly tokenId: string | null;
+  readonly isLoopback: boolean;
+}
+
+export type PeerChangeKind = 'connect' | 'disconnect';
+
+export interface PeerChangeEvent {
+  readonly kind: PeerChangeKind;
+  readonly peer: PeerSummary;
+}
+
+export type PeerChangeListener = (event: PeerChangeEvent) => void;
+
 export interface OracleWsServer {
   /** Fan a typed broadcast to every connected peer past handshake. */
   broadcast(type: string, payload: unknown): void;
@@ -134,6 +161,17 @@ export interface OracleWsServer {
    * and are excluded. Feeds the admin "Known devices" surface (U3.4).
    */
   connectedTokenIds(): ReadonlySet<string>;
+  /**
+   * Snapshot of every connected peer past handshake. Used by status
+   * reporters that bootstrap from the current state before subscribing.
+   */
+  listConnectedPeers(): readonly PeerSummary[];
+  /**
+   * Subscribe to peer connect/disconnect events. Fired AFTER the peer
+   * registry update so a `listConnectedPeers()` call inside the listener
+   * reflects the post-event state. Returns an unsubscribe function.
+   */
+  subscribePeerChange(listener: PeerChangeListener): () => void;
   /** Stop accepting connections and close all open ones. Idempotent. */
   close(): Promise<void>;
 }
@@ -223,7 +261,24 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
   // PeerConnection per socket — every accepted connection has one.
   // Created on successful HELLO; disposed on socket close.
   const peerBySocket = new Map<WebSocket, PeerConnection>();
+  // PeerSummary mirror — used by listConnectedPeers + emitted on
+  // subscribePeerChange. Mirrors `peerBySocket` 1:1 so the snapshot
+  // read path doesn't touch `PeerConnection` internals.
+  const summaryBySocket = new Map<WebSocket, PeerSummary>();
+  const peerChangeListeners = new Set<PeerChangeListener>();
   let closed = false;
+
+  function emitPeerChange(event: PeerChangeEvent): void {
+    for (const listener of peerChangeListeners) {
+      try {
+        listener(event);
+      } catch (err) {
+        // A misbehaving listener must not prevent other listeners (or
+        // the server's own bookkeeping) from completing.
+        logger.warn(SCOPE, 'peer-change listener threw', err);
+      }
+    }
+  }
 
   function send(socket: WebSocket, payload: unknown): void {
     if (socket.readyState !== WebSocket.OPEN) return;
@@ -239,7 +294,8 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
     // trust-by-process even on a LAN bind; only non-loopback peers must
     // present a token. A pure loopback bind only ever sees loopback
     // remotes, so this collapses to "no auth" there with no special case.
-    const requireAuth = !isLoopbackRemote(request.socket.remoteAddress);
+    const isLoopback = isLoopbackRemote(request.socket.remoteAddress);
+    const requireAuth = !isLoopback;
     let handshakeDone = false;
     const handshakeTimer = setTimeout(() => {
       if (handshakeDone) return;
@@ -341,6 +397,15 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
             },
           });
           peerBySocket.set(socket, peerConn);
+          const summary: PeerSummary = {
+            peerId: peerConn.peerId,
+            role: peerConn.role,
+            agent: peerConn.agent,
+            workspaceId: peerConn.workspaceId,
+            tokenId: peerConn.tokenId,
+            isLoopback,
+          };
+          summaryBySocket.set(socket, summary);
           handshakeDone = true;
           clearTimeout(handshakeTimer);
           ready.add(socket);
@@ -348,6 +413,7 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
             SCOPE,
             `peer connected (role=${peerConn.role} agent=${peerConn.agent} ws=${peerConn.workspaceId} node=${peerConn.nodeId} protocol=v${peerConn.protocolVersion})`,
           );
+          emitPeerChange({ kind: 'connect', peer: summary });
           return;
         }
 
@@ -404,6 +470,11 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
         // on the next `reply.send`.
         peerConn.close();
       }
+      const summary = summaryBySocket.get(socket);
+      if (summary) {
+        summaryBySocket.delete(socket);
+        emitPeerChange({ kind: 'disconnect', peer: summary });
+      }
     });
 
     socket.on('error', (err) => {
@@ -441,11 +512,28 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
       }
       return ids;
     },
+    listConnectedPeers() {
+      return [...summaryBySocket.values()];
+    },
+    subscribePeerChange(listener) {
+      peerChangeListeners.add(listener);
+      return () => {
+        peerChangeListeners.delete(listener);
+      };
+    },
     async close() {
       if (closed) return;
       closed = true;
       for (const peerConn of peerBySocket.values()) peerConn.close(1001, 'server shutting down');
       peerBySocket.clear();
+      // Fan a disconnect event per outstanding peer so status reporters
+      // settle to "no peers" instead of holding the last known count
+      // across a rebind / shutdown.
+      for (const summary of summaryBySocket.values()) {
+        emitPeerChange({ kind: 'disconnect', peer: summary });
+      }
+      summaryBySocket.clear();
+      peerChangeListeners.clear();
       for (const socket of ready) {
         try {
           socket.close(1001, 'server shutting down');

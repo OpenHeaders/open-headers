@@ -3,16 +3,7 @@
  *
  * Keeps product copy OUT of the generic `StatusPill` component — the
  * pill exposes a `renderSubsystemExtras` hook, and this module is the
- * single place extension surfaces import to get a consistent set of
- * callouts across the popup, sidepanel, and workspace footer.
- *
- * Current callouts:
- *   - `sync` — note that the desktop app isn't shipped yet. The
- *     `sync` subsystem ALWAYS reports green "Desktop sync disabled"
- *     (the extension turns off `autoConnect` when there's no desktop
- *     to connect to) — the extra here makes the product timeline
- *     explicit instead of leaving users guessing whether the extension
- *     is broken.
+ * single place that contributes cross-surface callouts.
  *
  * Add new subsystem callouts here as they arise; the `StatusPill`'s
  * own API doesn't need to change.
@@ -36,12 +27,7 @@ import { useBootRegression } from './use-boot-regression';
  */
 export function productStatusExtras(subsystem: StatusSubsystem, _entry: StatusEntry | undefined): React.ReactNode {
   if (subsystem === 'sync') {
-    return (
-      <>
-        <ExtrasRow tagColor="blue" label="Desktop App" message="coming soon" />
-        <BootRegressionCallout />
-      </>
-    );
+    return <BootRegressionCallout />;
   }
   return null;
 }

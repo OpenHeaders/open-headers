@@ -88,6 +88,11 @@ import { setActivityMuteStore, setOracleHostHooks, subscribeActivityMuteChanges 
 import { createSqliteSyncPersistence } from '@openheaders/oracle-host-node/sync/sqlite-sync-persistence';
 import { setSyncPersistenceProvider } from '@openheaders/oracle/sync/sync-persistence-provider';
 import {
+  clearStatus as clearStatusStore,
+  getStatusSnapshot as peekStatusSnapshot,
+  subscribe as subscribeStatusStore,
+} from '@openheaders/ui/shared/status/store';
+import {
   bootstrap as bootstrapWorkspaces,
   getActiveWorkspaceId,
   getWorkspace,
@@ -102,9 +107,11 @@ import { type DaemonBindSupervisor, startDaemonBindSupervisor } from './daemon-b
 import { installHostStorage } from './install-host-storage';
 import { installLifelineServer } from './install-lifeline-server';
 import { listLanIpv4Addresses } from './lan-addresses';
+import { installObservabilityLog, type ObservabilityLogHandle } from './observability-log';
 import { singleProcessLockRuntime } from './single-process-lock-runtime';
 import { observeForActivityFeed, setActivityLog, subscribeActivityEntries } from './sync-activity-installer';
 import { forwardMutationToWsPeers, setMutationForwarderWsServer } from './sync-mutation-forwarder';
+import { installSyncStatusReporter, type InstallSyncStatusReporterHandle } from './sync-status-reporter';
 
 const BROADCAST_CHANNEL = 'oh:broadcast';
 
@@ -207,6 +214,21 @@ export async function installRpcHost(): Promise<void> {
     dbPath: path.join(app.getPath('userData'), 'oracle.db'),
   });
   setSyncPersistenceProvider(syncPersistence);
+  // Structured observability log — rides the same SQLite handle so a bug
+  // report filed days after the event still contains the triage context.
+  // Subsystem call sites land in their own slices; this is the seam.
+  const observabilityLog: ObservabilityLogHandle = installObservabilityLog({
+    db: syncPersistence.db,
+    appVersion: app.getVersion(),
+    broadcast: (type, payload) => broadcastToAllRenderers(type, payload),
+  });
+  // Status snapshot — the shared store in `@openheaders/ui/shared/status`
+  // is the single vocabulary for both hosts. Main owns the writes (no
+  // subsystems wired yet), renderer mirrors via `useStatus` over the
+  // `statusUpdated` broadcast.
+  const unsubscribeStatus = subscribeStatusStore((snapshot) => {
+    broadcastToAllRenderers('statusUpdated', snapshot);
+  });
   // Activity Feed log — workspace-wide, SQLite-backed. The installer
   // tolerates a missing log (counts drops) until this resolves, so
   // ordering here is for readability rather than correctness.
@@ -357,6 +379,18 @@ export async function installRpcHost(): Promise<void> {
     if (type === 'getActiveWorkspaceId') {
       return { activeWorkspaceId: getActiveWorkspaceId() ?? null };
     }
+    // Universal host-bridge RPCs — desktop genuinely has these, so they
+    // ride the same seam as the extension SW (no capability gating).
+    if (type === 'getStatusSnapshot') {
+      return { snapshot: peekStatusSnapshot() };
+    }
+    if (type === 'getObservabilityLog') {
+      return { entries: observabilityLog.getAll() };
+    }
+    if (type === 'clearObservabilityLog') {
+      observabilityLog.clear();
+      return { success: true };
+    }
     if (type === 'oh.daemon.pairing.start') {
       try {
         const deviceLabel =
@@ -424,6 +458,10 @@ export async function installRpcHost(): Promise<void> {
   //    the IPC engine keeps serving the renderer, and the supervisor
   //    retries on the next setting change.
   let bindSupervisor: DaemonBindSupervisor | null = null;
+  // Status reporter handle tracks the CURRENT bind's subscription so a
+  // rebind (loopback ↔ LAN flip) tears down the old one before
+  // attaching to the new server. Null while between binds.
+  let syncStatusReporter: InstallSyncStatusReporterHandle | null = null;
   try {
     bindSupervisor = await startDaemonBindSupervisor({
       handshakeIdentity: {
@@ -439,6 +477,8 @@ export async function installRpcHost(): Promise<void> {
       onServerChange: (next) => {
         wsServer = next;
         setMutationForwarderWsServer(next);
+        syncStatusReporter?.dispose();
+        syncStatusReporter = next ? installSyncStatusReporter(next) : null;
       },
     });
   } catch (err) {
@@ -454,11 +494,15 @@ export async function installRpcHost(): Promise<void> {
   //    is removed there.
   app.on('before-quit', () => {
     stopActivityPruneScheduler();
+    unsubscribeStatus();
+    clearStatusStore();
     rpcDispatcher = null;
     setMutationForwarderWsServer(null);
     setActivityLog(null);
     setActivityMuteStore(null);
     pairingService.dispose();
+    syncStatusReporter?.dispose();
+    syncStatusReporter = null;
     void bindSupervisor?.dispose();
     bindSupervisor = null;
     wsServer = null;

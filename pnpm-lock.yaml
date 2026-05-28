@@ -390,6 +390,12 @@ importers:
       '@types/ws':
         specifier: ^8.18.1
         version: 8.18.1
+      cross-env:
+        specifier: ^7.0.3
+        version: 7.0.3
+      electron:
+        specifier: ^39.2.7
+        version: 39.8.5
       typescript:
         specifier: ^5.9.3
         version: 5.9.3

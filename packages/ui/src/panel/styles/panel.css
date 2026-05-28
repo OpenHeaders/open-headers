@@ -146,7 +146,7 @@ body {
   /* ThemeContext writes `--oh-ui-font-family` on :root from the active
      `appearance.fontFamilyPreset`. Routing the body through the variable
      keeps plain HTML in step with the AntD token. */
-  font-family: var(--oh-ui-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+  font-family: var(--oh-ui-font-family, system-ui, sans-serif);
 }
 
 #root {

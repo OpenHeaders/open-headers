@@ -42,7 +42,7 @@ export const SUBSYSTEM_ORDER: StatusSubsystem[] = [
 /**
  * Fixed tag width shared by every row in the Status popover —
  * built-in subsystems AND product-level extras. Sized to fit the
- * longest label ("Permissions" / "Desktop App") at `fontSize: 10`
+ * longest label ("Permissions") at `fontSize: 10`
  * with Ant's default horizontal padding, so right-side messages
  * align to the same x-offset across the whole panel.
  */
