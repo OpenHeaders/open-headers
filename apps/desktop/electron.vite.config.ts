@@ -76,8 +76,11 @@ export default defineConfig({
   // Preload script
   preload: {
     plugins: [
+      // `electron-log` must be inlined: sandboxed preloads can only
+      // `require` electron / events / timers / url, so an externalized
+      // `electron-log/preload` would fail to load at runtime.
       externalizeDepsPlugin({
-        exclude: ['@openheaders/core'],
+        exclude: ['@openheaders/core', 'electron-log'],
       }),
     ],
     build: {
