@@ -11,49 +11,31 @@ import '@/host/install-host-storage';
 import '@/host/install-host-bridge';
 import '@/host/install-host-logger';
 import '@/host/install-lifeline-server';
-import {
-  consumedOrgIds,
-  ensureSyntheticIdentity,
-  ensureWorkspaceRoleAssignments,
-  getIdentitySnapshot,
-  recordJoinedOrg,
-  refreshIdentitySnapshotFromHostStorage,
-  setAuditSink,
-} from '@openheaders/core/identity';
+import { consumedOrgIds, getIdentitySnapshot, recordJoinedOrg } from '@openheaders/core/identity';
 import { getHostStorage, OH } from '@openheaders/core/storage';
-import {
-  EXTENSION_WORKSPACE_GLOBAL_SCOPE,
-  invalidateAllWorkspaceOrgCache,
-  setWorkspaceOrgResolver,
-} from '@openheaders/core/sync';
-import type { TreeNode } from '@openheaders/core/types';
-import {
-  getActiveEnvironmentId,
-  getCollectionEnvOverrides,
-  getDefaultEnvironmentId,
-  getEnvironments,
-  getManualEnvId,
-  getVault,
-  getWorkspaceVariables,
-  onEnvironmentStoreChange,
-} from '@openheaders/oracle/entity/environment-store';
-import { listFiles, onFilesStoreChange } from '@openheaders/oracle/entity/files-store';
-import { IdbAuditLog } from '@openheaders/oracle-host-browser/sync/idb-audit-log';
-import { createIdbSyncPersistenceProvider } from '@openheaders/oracle-host-browser/sync/idb-sync-persistence';
+import { getActiveEnvironmentId } from '@openheaders/oracle/entity/environment-store';
 import { setSyncPersistenceProvider } from '@openheaders/oracle/sync/sync-persistence-provider';
+import { createIdbSyncPersistenceProvider } from '@openheaders/oracle-host-browser/sync/idb-sync-persistence';
 import { report as reportStatus, subscribe as subscribeStatus } from '@openheaders/ui/shared/status';
 import { get as getSetting, subscribeKey } from '@openheaders/ui/workbench/settings/store';
 import { broadcast } from '@utils/bridge';
-import { alarms, isChrome, isEdge, isFirefox, isSafari, runtime, storage } from '@utils/browser-api';
+import { isChrome, isEdge, isFirefox, isSafari, runtime } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { bootstrapSettings } from '@utils/settings-bootstrap';
-import { getRulesPaused, markTabForDelayBypass, setRulesPaused } from './dnr-manager';
+import { installAlarmDispatch } from './bootstrap/alarm-dispatch';
+import { resolveBackgroundReady } from './bootstrap/background-ready';
+import { debouncedUpdateBadge } from './bootstrap/badge-update';
+import { setupDelayBypassCleanup } from './bootstrap/delay-bypass-cleanup';
+import { bootstrapIdentity } from './bootstrap/identity-init';
+import { startLifecyclePipeline } from './bootstrap/lifecycle-pipeline';
+import { installMessageRouting } from './bootstrap/message-routing';
+import { installNetworkEventHandlers } from './bootstrap/network-events';
+import { installStorageListeners } from './bootstrap/storage-listeners';
+import { installStoreBroadcasts } from './bootstrap/store-broadcasts';
+import { getRulesPaused, setRulesPaused } from './dnr-manager';
 import { setupInjectListener } from './inject-manager';
 import { updateExtensionBadge } from './modules/badge-manager';
 import { rehydrateCacheBypassFromSessionRules } from './modules/cache-bypass';
-import { backgroundReady, resolveBackgroundReady } from './bootstrap/background-ready';
-import { debouncedUpdateBadge, updateBadgeForCurrentTab } from './bootstrap/badge-update';
-import { setupDelayBypassCleanup } from './bootstrap/delay-bypass-cleanup';
 // Module-load side effect: registers `liveChainAdapter` with the live
 // scheduler via `__setLiveRefreshAdapter`. Import for its side effect
 // even though we don't name anything from it here — the scheduler's
@@ -62,14 +44,12 @@ import { setupDelayBypassCleanup } from './bootstrap/delay-bypass-cleanup';
 import './modules/live-chain-adapter';
 import { setLockObserver } from '@openheaders/oracle/coordination';
 import { setBlobBackend } from '@openheaders/oracle/files';
-import { IdbBlobBackend } from '@openheaders/oracle-host-browser/files/idb-blob-backend';
 import { bootSyncEngine } from '@openheaders/oracle/host-runtime';
+import { IdbBlobBackend } from '@openheaders/oracle-host-browser/files/idb-blob-backend';
 
 setBlobBackend(new IdbBlobBackend());
 setSyncPersistenceProvider(createIdbSyncPersistenceProvider());
-import { onLiveCacheStoreChange } from '@openheaders/oracle/live/live-cache-store';
-import { getLiveVariables, onLiveVariableStoreChange } from '@openheaders/oracle/live/live-variable-store';
-import { getLiveWorkflows, onLiveWorkflowStoreChange } from '@openheaders/oracle/live/live-workflow-store';
+
 import { disposeResolverStateForWorkspace } from '@openheaders/oracle/rule-engine/variables-resolver';
 import {
   applyWorkspaceSnapshot,
@@ -82,11 +62,7 @@ import {
 } from '@openheaders/oracle/sync';
 import { getOrCreateWorkspaceService, releaseWorkspaceService } from '@openheaders/oracle/sync/service';
 import { getSyncPersistenceProvider } from '@openheaders/oracle/sync/sync-persistence-provider';
-import {
-  handleActivityPruneAlarm,
-  installActivityPruneScheduler,
-  isActivityPruneAlarm,
-} from './activity-prune-scheduler';
+import { installActivityPruneScheduler } from './activity-prune-scheduler';
 import { installActivityStatusReporter } from './activity-status-reporter';
 import { forwardAwarenessToBackend, forwardCurrentAwarenessOnConnect } from './awareness-forwarder';
 import { handleIncomingAwarenessFrame } from './awareness-receiver';
@@ -348,20 +324,12 @@ subscribeActivityMuteChanges((change) => {
 });
 
 import {
-  handleLiveAlarm,
-  isLiveRefreshAlarm,
   kickActiveContextRefresh,
   reconcileLiveSchedules,
   refreshLiveWorkflowSynchronously,
   startLiveScheduler,
 } from './modules/live-refresh-scheduler';
-import { handleGeneralMessage } from './modules/message-handler';
-import {
-  handleOAuthAlarm,
-  isOAuthRefreshAlarm,
-  reconcileOAuthSchedules,
-  startOAuthScheduler,
-} from './modules/oauth-refresh-scheduler';
+import { reconcileOAuthSchedules, startOAuthScheduler } from './modules/oauth-refresh-scheduler';
 import { hydrateObservabilityLog, recordLog } from './modules/observability-log';
 import { scheduleUpdate as scheduleRuleEngineUpdate } from './modules/rule-engine';
 
@@ -401,32 +369,11 @@ setOracleHostHooks({
   },
 });
 
-import { applyExternalSnapshot as applyRequestScriptsReviewSnapshot } from '@openheaders/oracle/entity/request-scripts-review-store';
-import { getRequests, onRequestStoreChange } from '@openheaders/oracle/entity/request-store';
-import { getCollectionTrees, getRules, onStoreChange } from '@openheaders/oracle/entity/rule-store';
-import { getTemplates, onTemplateStoreChange } from '@openheaders/oracle/entity/template-store';
+import { getRules } from '@openheaders/oracle/entity/rule-store';
 import { __setSyncWarmRunner, hydrateLiveCacheMirror } from '@openheaders/oracle/rule-engine/variables-resolver';
 import { markBootPhase } from '@openheaders/oracle/sync/boot-telemetry';
-import { pruneOrphanOwners } from '@openheaders/oracle/test-run/test-run-store';
-import { setupOnRuleMatchedDebugBridge } from './modules/on-rule-matched-debug';
 import { auditHostPermissions } from './modules/permissions-audit';
-import { PageStreamHub } from '@openheaders/oracle/page-stream-hub';
-import { RequestLifecycleHub } from '@openheaders/oracle/request-lifecycle-hub';
-import { RuleFireHub } from '@openheaders/oracle/rule-fire-hub';
-import { TabLifecycleBus } from '@openheaders/oracle/tab-lifecycle-bus';
-import { startLifecycleHost } from './correlator-host';
-import { startLifecyclePortHost } from './lifecycle-port-host';
-import { startDevtoolsPageNavBridge, startPagePortHost } from './page-port-host';
-import { startRuleFirePortHost } from './rule-fire-port-host';
-import { startTabTelemetryFiresBridge } from './modules/tab-telemetry-fires-bridge';
-import { startRuleEngineDriver } from './rule-engine-driver';
-import { startTabTelemetrySource } from './tab-telemetry-source';
-import {
-  precompileRulePatterns,
-  rehydrateTabTracking,
-  restoreTrackingState,
-  revalidateTrackedRequests,
-} from './modules/request-tracker';
+import { precompileRulePatterns, rehydrateTabTracking, restoreTrackingState } from './modules/request-tracker';
 import { scheduleUpdate } from './modules/rule-engine';
 import {
   rehydrateFromStorage as rehydrateObserverFromStorage,
@@ -434,9 +381,8 @@ import {
 } from './modules/rule-state-observer';
 import { initializeActiveTabTracking, setupPeriodicCleanup, setupTabListeners } from './modules/tab-listeners';
 import { setupTestRunnerPorts } from './modules/test-runner';
-import { bootstrapTotpScheduler, getCachedTotpCodes, handleTotpAlarm, isTotpAlarm } from './modules/totp-scheduler';
+import { bootstrapTotpScheduler, getCachedTotpCodes } from './modules/totp-scheduler';
 import { initializeViewMode } from './modules/view-mode';
-import { isHandoffSweepAlarm, sweepExpiredHandoffs } from './modules/workspace-export-handoff-store';
 import { hydrateActiveWorkspaceStores } from './modules/workspace-orchestrator';
 import {
   bootstrap as bootstrapWorkspaces,
@@ -444,19 +390,11 @@ import {
   getWorkspace,
   listWorkspaces,
   onActiveWorkspaceChange,
-  onWorkspaceStoreChange,
   peekActiveWorkspaceId,
   setActiveWorkspaceById,
 } from './modules/workspace-store';
 import { setupWorkspaceTabRegistry } from './modules/workspace-tab-registry';
-import {
-  connectWebSocket,
-  getReconnectAttempts,
-  isWebSocketConnected,
-  isWebSocketConnecting,
-  sendViaWebSocket,
-  shouldAttemptBackendConnection,
-} from './websocket';
+import { connectWebSocket, isWebSocketConnected, sendViaWebSocket, shouldAttemptBackendConnection } from './websocket';
 
 // Workspace list must be bootstrapped first — every per-workspace store
 // keys its reads off the active workspace id. Settings + per-workspace
@@ -481,47 +419,9 @@ const settingsReady = workspacesReady.then(bootstrapSettings).then(() => {
   subscribeKey('rulesEngine.evaluationStrategy', rebuildOnPrefChange);
 });
 
-/**
- * Compute the live rule + entity (folder/collection) id sets and ask the
- * test-run store to drop any owner bucket whose target is gone. Called
- * after every rule-store change so deletions cascade-clean orphan
- * test-run buckets.
- */
-function pruneOrphanTestRunOwnersFromStore(): void {
-  const liveRules = new Set<string>();
-  const liveEntities = new Set<string>();
-  for (const r of getRules()) liveRules.add(r.uid);
-  for (const c of getCollectionTrees()) {
-    liveEntities.add(c.uid);
-    const walk = (nodes: TreeNode[]): void => {
-      for (const n of nodes) {
-        if (n.type === 'folder') {
-          liveEntities.add(n.uid);
-          walk(n.children);
-        }
-      }
-    };
-    walk(c.tree);
-  }
-  void pruneOrphanOwners(liveRules, liveEntities);
-}
-
 // ── Initialization ────────────────────────────────────────────────
 
 let extensionInitialized = false;
-
-/**
- * Human-readable name of the browser running this service worker — the
- * descriptive name stamped on the private home Org at first boot so a
- * joined peer can tell one host's Org from another's.
- */
-function browserDisplayName(): string {
-  if (isFirefox) return 'Firefox';
-  if (isChrome) return 'Chrome';
-  if (isEdge) return 'Edge';
-  if (isSafari) return 'Safari';
-  return 'Browser';
-}
 
 async function initializeExtension(): Promise<void> {
   // All init paths must wait for the settings store so the first DNR
@@ -533,80 +433,7 @@ async function initializeExtension(): Promise<void> {
   }
   extensionInitialized = true;
 
-  // U1.6 — materialize the synthetic identity-row tuple before any
-  // privileged-path code runs (UNIFIED_ORACLE_MODEL.md §5.2 / §12 step 2).
-  // Idempotent across SW cold-wakes; first-boot mints `host-install-id`
-  // too. `hostKind: 'browser'` + the browser name as the local-org name
-  // make this host's Org distinguishable from a joined peer's. Browsers
-  // don't surface an OS username from the SW context, so the synthetic
-  // User keeps the default `displayName: 'Local'`, updated only via
-  // promotion (§5.4 step 1) — never touching `User.id`. Failures here
-  // are logged, not fatal — the SW still boots so header-rule delivery
-  // is unaffected. While the snapshot is absent the resolver denies
-  // privileged sync actions (`no-current-user`); the next cold-wake
-  // re-runs this idempotently.
-  await ensureSyntheticIdentity({ hostKind: 'browser', orgName: browserDisplayName() }).catch((err: unknown) => {
-    logger.warn('Background', 'ensureSyntheticIdentity failed', err);
-  });
-  // U1.8 — every workspace owns an owner-role WRA for the synthetic
-  // principal. `bootstrapWorkspaces` already resolved (it chains
-  // ahead of `settingsReady`) so the workspace list is hydrated;
-  // reconcile once here, then again on every workspace-store change
-  // below to cover creates / deletes during the SW lifetime.
-  await ensureWorkspaceRoleAssignments(listWorkspaces().map((w) => w.id)).catch((err: unknown) => {
-    logger.warn('Background', 'ensureWorkspaceRoleAssignments failed', err);
-  });
-  // U2.1 — hydrate the in-memory identity snapshot the resolver reads
-  // from (`getIdentitySnapshot()`). One refresh after both ensure-* runs
-  // is enough; the workspace-store listener below repeats it on changes.
-  await refreshIdentitySnapshotFromHostStorage().catch((err: unknown) => {
-    logger.warn('Background', 'refreshIdentitySnapshotFromHostStorage failed', err);
-  });
-
-  // Bug B 2c — the home Org is renamable from the UI (`renameHomeOrg`
-  // writes `OH.syntheticIdentity` directly, the UI-editor tier). The SW
-  // is the reactor: re-hydrate the in-memory snapshot whenever the slot
-  // changes so the resolver and org-catalogue read the new name without
-  // waiting for a cold-wake.
-  getHostStorage()?.subscribe(OH.syntheticIdentity, () => {
-    void refreshIdentitySnapshotFromHostStorage().catch((err: unknown) => {
-      logger.warn('Background', 'identity snapshot refresh after rename failed', err);
-    });
-  });
-
-  // U2.6 — install the workspaceId → orgId resolver consulted by every
-  // envelope mint site (UNIFIED_ORACLE_MODEL.md §6.1). Per-workspace
-  // mutations resolve through `workspace.orgId`; global-scope metadata
-  // mutations ride the user's home-org channel per §6.5. The resolver
-  // is invalidated on every workspace-store change (see listener below).
-  setWorkspaceOrgResolver((workspaceId) => {
-    const snapshot = getIdentitySnapshot();
-    if (workspaceId === EXTENSION_WORKSPACE_GLOBAL_SCOPE) {
-      return snapshot?.user.homeOrgId;
-    }
-    return getWorkspace(workspaceId)?.orgId ?? snapshot?.user.homeOrgId;
-  });
-
-  // U2.4 — install the durable audit-log sink. Every capability decision
-  // the resolver emits gets persisted into `oh.identity.audit` via the
-  // `audit_counters`-keyed IDB pattern from UNIFIED_ORACLE_MODEL.md §9.5.
-  // Failures during append are logged but never throw — audit must not
-  // tear down the call chain it observes.
-  const auditLog = new IdbAuditLog();
-  setAuditSink((entry) => {
-    void auditLog
-      .append({
-        orgId: entry.orgId,
-        actorUserId: entry.actorUserId,
-        capability: entry.capability,
-        ...(entry.workspaceId ? { workspaceId: entry.workspaceId } : {}),
-        decision: entry.decision,
-        occurredAt: entry.occurredAt,
-      })
-      .catch((err: unknown) => {
-        logger.warn('Background', 'audit log append failed', err);
-      });
-  });
+  await bootstrapIdentity();
 
   // Pull the observability ring back into memory before subsystems
   // record their first post-wake events — a dropped startup window
@@ -638,175 +465,19 @@ async function initializeExtension(): Promise<void> {
     matchedRuleCount: 0,
     configuredRuleCount: 0,
   });
-  // Request-lifecycle pipeline (H1): chrome.webRequest → HeuristicCorrelator →
-  // RequestLifecycleStore. Invariant 7a (no rule-engine module subscribes
-  // to chrome.webRequest.* directly) is held by routing rule-engine and
-  // tab-telemetry through the store via the two drivers below.
-  // Cross-driver tab-lifecycle bus (session 51): the correlator bridge
-  // fires `tab-forgotten` on tab close; rule-engine driver +
-  // tab-telemetry source subscribe and run their per-tab cleanup
-  // synchronously before the store partition is dropped.
-  const tabLifecycleBus = new TabLifecycleBus();
-  const lifecycleHost = startLifecycleHost({ bus: tabLifecycleBus });
-  startRuleEngineDriver({ store: lifecycleHost.store, updateBadge: debouncedUpdateBadge, bus: tabLifecycleBus });
-  startTabTelemetrySource({ store: lifecycleHost.store, bus: tabLifecycleBus });
-  // Lifecycle subscriber hub (U1-U5) + chrome port adapter (W-a). Publishes
-  // `LifecycleWireMessage` envelopes on `oh-lifecycle:<tabId>` ports for the
-  // panel client cache (P1-P6) to consume.
-  const lifecycleHub = new RequestLifecycleHub({ store: lifecycleHost.store, bus: tabLifecycleBus });
-  startLifecyclePortHost({ hub: lifecycleHub });
-  // Page stream hub + chrome port adapter, sibling of the lifecycle pipe.
-  // Publishes `PageWireMessage` envelopes on `oh-page:<tabId>` ports. The
-  // devtools_page is the single source of nav events; its inbound half
-  // is `startDevtoolsPageNavBridge`, which listens on the same chrome
-  // port `ChromeHarEventSource` uses (`devtools-har-source:<tabId>`).
-  const pageHub = new PageStreamHub({ bus: tabLifecycleBus });
-  startPagePortHost({ hub: pageHub });
-  startDevtoolsPageNavBridge({ hub: pageHub });
-  // Rule-fire pipe (W-a): per-tab broadcaster fed by tab-telemetry's
-  // cross-tab fire stream + the DNR-debug authoritative path. Carries
-  // rule-fire envelopes to panel clients over `oh-rule-fire:<tabId>`.
-  const ruleFireHub = new RuleFireHub({ bus: tabLifecycleBus });
-  startRuleFirePortHost({ hub: ruleFireHub });
-  const firesBridge = startTabTelemetryFiresBridge({ hub: ruleFireHub });
-  setupTabListeners({ updateBadge: debouncedUpdateBadge, lifecycleStore: lifecycleHost.store });
+  const { lifecycleStore } = startLifecyclePipeline();
+  setupTabListeners({ updateBadge: debouncedUpdateBadge, lifecycleStore });
   setupPeriodicCleanup();
   initializeActiveTabTracking();
-  // Workspace tab ordinals must be live before the first intent
-  // dispatch so the navigator's cold/warm logs can stamp `#<n>`.
-  // The setup also runs a one-shot bootstrap against existing tabs
-  // so ordinals repopulate after SW wake.
   setupWorkspaceTabRegistry();
   void initializeViewMode();
   setupInjectListener();
   setupDelayBypassCleanup();
-  setupTestRunnerPorts({ lifecycleStore: lifecycleHost.store });
-  // Awareness lifeline ports + workspace-coord runner are attached
-  // inside `bootSyncEngine` below.
-  setupOnRuleMatchedDebugBridge({
-    onAuthoritativeFire: (tabId, record) => firesBridge.notifyAuthoritativeFire(tabId, record),
-  });
+  setupTestRunnerPorts({ lifecycleStore });
 
-  // Broadcast rule changes to all open extension pages (popup, workspace)
-  // and prune any orphaned test-run owner buckets. The prune covers the
-  // WebSocket-driven path where the desktop deletes rules/folders without
-  // going through message-handler's local CRUD handlers.
-  onStoreChange(() => {
-    broadcast('rulesUpdated', { rules: getRules() });
-    pruneOrphanTestRunOwnersFromStore();
-  });
-
-  // Broadcast template changes to all open extension pages
-  onTemplateStoreChange(() => {
-    broadcast('templatesUpdated', { templates: getTemplates() });
-  });
-
-  // Broadcast request changes — request-store doesn't feed DNR (requests
-  // are executed ad-hoc via the runner), so no scheduleUpdate here.
-  onRequestStoreChange(() => {
-    broadcast('requestsUpdated', { requests: getRequests() });
-  });
-
-  // Broadcast workspace list changes (every metadata mutation —
-  // create/rename/color/reorder, plus active-flip + delete). Cross-store
-  // follow-up work (per-workspace store swap on active flip,
-  // per-workspace data purge on removal) is driven by the
-  // SWAP_PER_WORKSPACE_STORES + PURGE_WORKSPACE_DATA side-effect intents
-  // emitted by the ExtensionWorkspace mutators; the `workspace-coord-
-  // runner` registered below drains them and runs the orchestrator's
-  // helpers + sync-engine reinit + bridge re-seeds. This listener stays
-  // metadata-broadcast-only so renames don't pay the reinit cost.
-  onWorkspaceStoreChange(() => {
-    broadcast('workspaceChanged', {
-      workspaces: listWorkspaces(),
-      activeWorkspaceId: getActiveWorkspaceId(),
-    });
-    // U1.8 — keep the WRA list in lockstep with the live workspace
-    // set. New workspaces get an owner-role WRA; deleted workspaces'
-    // WRAs are pruned. Fire-and-forget — the next reconcile retries
-    // on the next mutation if this one rejects.
-    void ensureWorkspaceRoleAssignments(listWorkspaces().map((w) => w.id))
-      .then(() => refreshIdentitySnapshotFromHostStorage())
-      .catch((err: unknown) => {
-        logger.warn('Background', 'ensureWorkspaceRoleAssignments reconcile failed', err);
-      });
-    // U2.6 — workspace metadata may have shifted (rename, reorder, or a
-    // future orgId flip per §6.5). Drop the workspaceId → orgId cache so
-    // the next envelope mint reads through.
-    invalidateAllWorkspaceOrgCache();
-    // U5.9 — a join's backend workspaces may have just synced down;
-    // promote the pending adopt target if it has now landed.
-    tryAdoptPendingWorkspace();
-    // U6.4 — the `__global__` workspace list lands as MUTATION frames
-    // applied after the handshake's enumeration; re-run the fan-out so
-    // a late-arriving consumed workspace still gets its data catch-up.
-    syncHandshakeInitiator.refreshFanOut();
-  });
-
-  // Env / workspace vars / vault / active-env mutations drive DNR
-  // recompilation — resolved rule values depend on every scope above.
-  // One listener covers all four because environment-store fires
-  // `onEnvironmentStoreChange` after every mutation. The broadcast lets
-  // UI surfaces (TopBar selector, Inspector Variables panel, sidebar
-  // Environments section) refresh without each subscribing to four
-  // separate channels.
-  onEnvironmentStoreChange(() => {
-    scheduleUpdate('vars', { immediate: true });
-    broadcast('environmentsChanged', {
-      environments: getEnvironments(),
-      activeEnvironmentId: getActiveEnvironmentId(),
-      defaultEnvironmentId: getDefaultEnvironmentId(),
-      workspaceVariables: getWorkspaceVariables(),
-      vault: getVault(),
-      collectionEnvOverrides: getCollectionEnvOverrides(),
-      manualEnvId: getManualEnvId(),
-    });
-  });
-
-  // Files (Phase 12.4b) — broadcast after every put / delete / purge
-  // so sibling workspace tabs and the multipart body editor's file
-  // picker see the new list immediately. `listFiles` reads IDB
-  // (async) so we await before firing; the listener callback is
-  // sync-void, so we kick a fire-and-forget async task here.
-  onFilesStoreChange(() => {
-    void (async () => {
-      const files = await listFiles().catch(() => []);
-      broadcast('filesChanged', { files });
-    })();
-  });
-
-  // OAuth tokens (Phase 13) — renderer subscribes `wsKeys(ws).oauth` directly
-  // (MWPT-FULL § 8.3.10); chrome.storage.local.onChanged is per-workspace correct
-  // by construction, so no broadcast plumbing is required.
-
-  // Live Variables + Workflows (Phase B) — broadcast after every
-  // definition mutation so the sidebar + editors + rule-editor variable
-  // picker stay in sync. Cache broadcasts carry the workflowUid so
-  // consumers can filter to a single workflow's countdown without
-  // re-reading every cached run.
-  onLiveWorkflowStoreChange(() => {
-    broadcast('liveWorkflowsChanged', { workflows: getLiveWorkflows() });
-  });
-  onLiveVariableStoreChange(() => {
-    // LV name / enable / manualOverride changes flip what
-    // `{{live.X}}` resolves to, so recompile DNR. The batch-by-hash
-    // guard in `scheduleUpdate` no-ops when the emitted rule set is
-    // unchanged — cheap on the no-referrers common case.
-    scheduleUpdate('live-vars', { immediate: true });
-    broadcast('liveVariablesChanged', { variables: getLiveVariables() });
-  });
-  onLiveCacheStoreChange((_workspaceId, workflowUid, _runs) => {
-    // New cached captures land in the LiveRegistry on the next
-    // compile. Rebuild now so DNR values follow the workflow's
-    // refresh cadence (Phase C fires the alarm → Phase D adapter
-    // writes captures → this listener rebuilds DNR → the user's
-    // `Authorization: {{live.token}}` rule picks up the new token
-    // within one debounce cycle). The resolver's own listener fires
-    // earlier in this same synchronous loop and installs `runs` into
-    // `cachedLiveRuns` before the rebuild below reads it, so the
-    // compile always sees the post-write snapshot.
-    scheduleUpdate('live-cache', { immediate: true });
-    broadcast('liveCacheChanged', { workflowUid });
+  installStoreBroadcasts({
+    refreshFanOut: () => syncHandshakeInitiator.refreshFanOut(),
+    tryAdoptPendingWorkspace,
   });
 
   // Alarm-driven OAuth refresh (Phase 14 §20). Subscribe to store
@@ -946,222 +617,10 @@ async function initializeExtension(): Promise<void> {
   }, 1000);
 }
 
-// ── Alarms ────────────────────────────────────────────────────────
-//
-// `updateBadge` is always-on — the icon badge is a core UX surface.
-// `wsReconnect` is conditional on `backend.autoConnect`
-// because its *only* job is to retry the websocket to the desktop
-// companion; when the feature is off it's pure wake-up noise (every
-// 30 s the SW would spin up just to log "skipping" and bail). We
-// register/unregister the alarm when the setting flips so users who
-// don't use desktop sync get a quiet, battery-friendly SW.
-const WS_RECONNECT_ALARM = 'wsReconnect';
-
-function applyWsReconnectAlarm(enabled: boolean): void {
-  if (enabled) {
-    alarms!.create(WS_RECONNECT_ALARM, { periodInMinutes: 0.5 });
-  } else {
-    alarms!.clear(WS_RECONNECT_ALARM);
-  }
-}
-
-applyWsReconnectAlarm(shouldAttemptBackendConnection());
-alarms!.create('updateBadge', { delayInMinutes: 0.01, periodInMinutes: 0.033 });
-
-// ── Network online/offline recovery ────────────────────────────────
-//
-// The SW global exposes `navigator.onLine` + fires 'online' / 'offline'
-// events when the platform observes a connectivity change (WiFi toggle,
-// Ethernet plug-in, VPN tunnel up/down). These are best-effort signals
-// — navigator.onLine specifically can be "true" while the browser is
-// genuinely offline (the OS only flips it when it's sure) — but the
-// 'online' transition is a reliable lower bound: once we see it, there
-// IS connectivity. Treat it as an opportunistic kick for:
-//   • the live scheduler's reconcile (re-computes nextAttemptAt for
-//     every workflow; circuits with pending backoff stay paused, but
-//     any workflow whose math now says "fire ASAP" gets an alarm at
-//     the MV3 floor),
-//   • kickActiveContextRefresh for the active (ws, env), which runs
-//     `refreshLiveWorkflowSynchronously` inline for stale workflows —
-//     the exact same primitive we use on SW cold-wake after laptop
-//     sleep. Users get a fresh token within one network round-trip
-//     of the connection coming back.
-//
-// Why not wrap the reconcile in its own retry loop after 'online':
-// the scheduler's existing store-change + `backgroundReady` barrier
-// already handle the "SW just woke up" case. 'online' is the
-// complementary signal for "network just came back while SW was
-// already alive." One handler, one kick per transition.
-self.addEventListener('online', () => {
-  logger.info('Background', 'Network online — reconciling live + OAuth schedulers + catching up stale workflows');
-  void backgroundReady.then(async () => {
-    await Promise.all([
-      reconcileLiveSchedules().catch((err: unknown) => {
-        logger.warn('Background', 'Live reconcile after online event failed', err);
-      }),
-      reconcileOAuthSchedules().catch((err: unknown) => {
-        logger.warn('Background', 'OAuth reconcile after online event failed', err);
-      }),
-    ]);
-    // Fire-and-forget — kick is idempotent (no-ops for fresh caches)
-    // and the RefreshScheduler's per-host rate limiter prevents a
-    // thundering herd when many workflows want to refresh at once.
-    await kickActiveContextRefresh(getActiveWorkspaceId(), getActiveEnvironmentId()).catch((err: unknown) => {
-      logger.warn('Background', 'Wake-up catch-up after online event failed', err);
-    });
-  });
-});
-
-self.addEventListener('offline', () => {
-  // Purely informational. Alarms that fire during offline and fail
-  // feed the circuit breaker's failure counter the same as any other
-  // failure — the pre-breaker retry tier (5s ± 5s) covers the common
-  // "DHCP just dropped, back in 2s" case, and the full backoff curve
-  // handles longer outages. The 'online' handler above drives catch-up
-  // when connectivity returns.
-  logger.info('Background', 'Network offline — refreshes in flight will likely fail and enter backoff');
-});
-
-// Keep the `wsReconnect` SW-eviction safety-net alarm in lockstep with
-// whether a backend connection is wanted. The connection itself —
-// including the immediate (re)connect on a setting flip — is owned
-// solely by `websocket.ts`, which subscribes to the same settings and
-// drives the transport directly; this gate touches only the alarm.
-function syncWsReconnectAlarm(): void {
-  applyWsReconnectAlarm(shouldAttemptBackendConnection());
-}
-subscribeKey('backend.autoConnect', syncWsReconnectAlarm);
-subscribeKey('backend.mode', syncWsReconnectAlarm);
-
-alarms!.onAlarm.addListener(async (alarm: chrome.alarms.Alarm) => {
-  // Fast path — alarms that don't depend on hydrated in-memory state
-  // run immediately. `updateBadge` + `wsReconnect` keep firing every
-  // few seconds to mask SW eviction; blocking them on init would
-  // turn the barrier into a cold-start latency bomb.
-  if (alarm.name === WS_RECONNECT_ALARM) {
-    // Guard against a stale alarm firing after the gate flipped off
-    // between `onAlarm` scheduling and this handler running.
-    if (!shouldAttemptBackendConnection()) return;
-    if (!isWebSocketConnected() && !isWebSocketConnecting()) {
-      const attempts = getReconnectAttempts();
-      const log = attempts <= 1 ? logger.info : logger.debug;
-      log.call(logger, 'Background', 'WebSocket disconnected, reconnecting...');
-      try {
-        await connectWebSocket();
-      } catch (error) {
-        logger.debug('Background', 'Failed to reconnect:', (error as Error).message);
-      }
-    }
-    return;
-  }
-  if (alarm.name === 'updateBadge') {
-    void updateBadgeForCurrentTab();
-    return;
-  }
-  // Hydration barrier — live / OAuth / TOTP handlers all read
-  // in-memory stores (workflows, variables, credentials, vault)
-  // that are only populated by `hydrateActiveWorkspaceStores`. On SW
-  // cold wake (e.g. an overdue alarm waking us from eviction) the
-  // listener fires in parallel with `initializeExtension`; without
-  // this await, `handleLiveAlarm` sees an empty `getLiveWorkflows()`,
-  // mis-identifies the workflow as "deleted between scheduling and
-  // firing," and calls `chrome.alarms.clear` — permanently killing
-  // the scheduled refresh until the user manually clicks Refresh.
-  // The await always resolves in the happy path (either init
-  // succeeded, or the finally-handler released the barrier after
-  // init threw).
-  await backgroundReady;
-  if (isOAuthRefreshAlarm(alarm)) {
-    await handleOAuthAlarm(alarm);
-  } else if (isLiveRefreshAlarm(alarm)) {
-    await handleLiveAlarm(alarm);
-  } else if (isTotpAlarm(alarm)) {
-    await handleTotpAlarm();
-  } else if (isHandoffSweepAlarm(alarm)) {
-    await sweepExpiredHandoffs();
-  } else if (isActivityPruneAlarm(alarm)) {
-    await handleActivityPruneAlarm();
-  }
-});
-
-// ── Storage listeners ─────────────────────────────────────────────
-
-storage.onChanged.addListener((changes: { [key: string]: chrome.storage.StorageChange }, area: string) => {
-  // Collection/folder pause markers — workspace-scoped key. Only react
-  // to changes for the currently active workspace; other workspaces'
-  // markers don't drive the DNR engine until they become active.
-  if (area === 'local' && extensionInitialized) {
-    const activeKey = `oh.ws.${getActiveWorkspaceId()}.pauseMarkers`;
-    if (changes[activeKey]) {
-      // The pause-markers cache owns persistence + drives the in-memory
-      // mirror via broadcast; the dnr-intent runner schedules recompile
-      // off the same broadcast (RECOMPILE_DNR keyed by the singleton id).
-      // The renderer-side `hostStorage.subscribe` listener in
-      // RuleContext.tsx still picks up the storage change directly. Only
-      // remaining side-effect on this listener is the badge refresh.
-      debouncedUpdateBadge();
-    }
-    const scriptsReviewKey = `oh.ws.${getActiveWorkspaceId()}.requestScriptsReviewPending`;
-    if (changes[scriptsReviewKey]) {
-      const next = changes[scriptsReviewKey].newValue;
-      const uids = Array.isArray(next) ? next.filter((v): v is string => typeof v === 'string') : [];
-      applyRequestScriptsReviewSnapshot(uids);
-    }
-  }
-});
-
-// ── Message listener ──────────────────────────────────────────────
-
-runtime.onMessage.addListener(
-  (message: unknown, sender: chrome.runtime.MessageSender, sendResponse: (response?: unknown) => void) => {
-    const msg = message as Record<string, unknown>;
-
-    // Delay-page bypass: the delay page finished its countdown and is about
-    // to navigate to the real target. Mark the tab so the delay DNR rule is
-    // suppressed for it, then respond only AFTER Chrome has committed the
-    // updated DNR rules so the follow-up navigation cannot race the rule
-    // update and re-enter the delay loop. The target URL is stashed so the
-    // bypass only clears when THAT specific navigation commits — not on an
-    // unrelated Back-button or sibling navigation in the same tab.
-    if (msg.type === 'oh-delay-bypass') {
-      const tabId = sender.tab?.id;
-      const target = typeof msg.target === 'string' ? msg.target : null;
-      if (typeof tabId === 'number' && tabId >= 0 && target) {
-        markTabForDelayBypass(tabId, target)
-          .then(() => {
-            try {
-              sendResponse({ ok: true });
-            } catch {
-              /* channel closed — nothing to do */
-            }
-          })
-          .catch((e: Error) => {
-            logger.error('Background', 'Delay bypass failed:', e.message);
-            try {
-              sendResponse({ ok: false });
-            } catch {
-              /* channel closed */
-            }
-          });
-        return true; // keep the message channel open for the async response
-      }
-      try {
-        sendResponse({ ok: false });
-      } catch {
-        /* channel closed */
-      }
-      return false;
-    }
-
-    return handleGeneralMessage(msg, sender, sendResponse, {
-      isWebSocketConnected,
-      sendViaWebSocket,
-      scheduleUpdate,
-      revalidateTrackedRequests,
-      updateBadgeCallback: debouncedUpdateBadge,
-    });
-  },
-);
+installAlarmDispatch();
+installNetworkEventHandlers();
+installStorageListeners({ isExtensionInitialized: () => extensionInitialized });
+installMessageRouting();
 
 // ── Startup ───────────────────────────────────────────────────────
 
@@ -1179,7 +638,6 @@ runtime.onInstalled.addListener((details: chrome.runtime.InstalledDetails) => {
   );
   void initializeExtension();
 });
-
 
 logger.info('Background', 'Background script started');
 // Release the hydration barrier even if init fails — we'd rather
