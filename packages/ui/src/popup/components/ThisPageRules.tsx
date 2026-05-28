@@ -11,6 +11,7 @@ import {
   SortAscendingOutlined,
 } from '@ant-design/icons';
 import { hostBridge } from '@openheaders/core/bridge';
+import { getCapability } from '@openheaders/core/capabilities';
 import { hostNavigation } from '@openheaders/core/navigation';
 import type { SilentMatchRecord } from '@openheaders/core/types';
 import { resolvePauseState } from '@openheaders/core/utils';
@@ -647,7 +648,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
       void ruleMutator.toggleRule(record.id, !isEnabled).then((resp) => {
         if (resp.ok) {
           // Nudge the SW to revalidate tracked requests + rebuild DNR
-          void hostBridge.call('rulesUpdated').catch(() => undefined);
+          void getCapability('notifyRulesChanged')?.().catch(() => undefined);
         } else {
           setActiveRules((prev) => prev.map((r) => (r.id === record.id ? { ...r, isEnabled } : r)));
         }
@@ -961,7 +962,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
               setActiveRules((prev) => prev.map((r) => (r.id === record.id ? { ...r, isEnabled: !isEnabled } : r)));
               void ruleMutator.toggleRule(record.id, !isEnabled).then((resp) => {
                 if (resp.ok) {
-                  void hostBridge.call('rulesUpdated').catch(() => undefined);
+                  void getCapability('notifyRulesChanged')?.().catch(() => undefined);
                 } else {
                   setActiveRules((prev) => prev.map((r) => (r.id === record.id ? { ...r, isEnabled } : r)));
                   void message.error('Failed to toggle rule');

@@ -31,6 +31,13 @@ registerCapability('announceSurfaceReady', () =>
   hostBridge.call('popupOpen').then(() => undefined),
 );
 
+// Nudges the SW to revalidate tracked requests + rebuild DNR after a
+// rule mutation. Sync already propagated the data; this is the
+// extension-only secondary signal for the out-of-band DNR engine.
+registerCapability('notifyRulesChanged', () =>
+  hostBridge.call('rulesUpdated').then(() => undefined),
+);
+
 // External links route through the SW's existing `openTab` handler so
 // the new tab inherits the user's session / cookies / extension trust.
 // Reshape the `{ success, tabId? }` response into the capability's

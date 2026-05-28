@@ -90,6 +90,18 @@ export interface Capabilities {
    * and shared UI no-ops via `getCapability(...)?.()`.
    */
   announceSurfaceReady?: () => Promise<void>;
+
+  /**
+   * Tell the host that rule data changed and any out-of-band rule
+   * engine (extension `declarativeNetRequest`, future native proxy
+   * rebuild paths) should refresh. The sync mutation itself already
+   * propagated the data — this is the secondary nudge for engines
+   * that live outside the sync data plane. Desktop's header / proxy
+   * pipeline reads rules live from the engine state, so it doesn't
+   * register this capability and shared UI no-ops via
+   * `getCapability(...)?.()`.
+   */
+  notifyRulesChanged?: () => Promise<void>;
 }
 
 type CapabilityName = keyof Capabilities;
