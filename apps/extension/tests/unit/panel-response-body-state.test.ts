@@ -59,8 +59,8 @@ function makeLifecycle(opts: LifecycleOpts = {}): RequestLifecycle {
     statusCode: 'statusCode' in opts ? opts.statusCode : har.response?.status ?? 200,
     statusText: 'statusText' in opts ? opts.statusText : har.response?.statusText,
     fromCache: opts.fromCache,
-    har: new Map([[0, har]]),
-    harBodyByHop: harBody ? new Map([[0, harBody]]) : new Map(),
+    har: [har],
+    harBodyByHop: harBody ? [harBody] : [],
   };
 }
 

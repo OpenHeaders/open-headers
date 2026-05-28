@@ -33,8 +33,8 @@ function lifecycle(
     hopStartedAtMs: startedAtMs,
     ...(opts.duration != null ? { completedAtMs: startedAtMs + opts.duration } : {}),
     statusCode: opts.status ?? 200,
-    har: new Map([[0, har]]),
-    harBodyByHop: new Map(),
+    har: [har],
+    harBodyByHop: [],
   };
 }
 

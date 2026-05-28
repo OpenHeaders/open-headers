@@ -150,9 +150,7 @@ function reduceHarAttached(
   har: InspectorHarEntry,
 ): ReducerResult {
   if (prev === undefined) return { kind: 'reject', reason: 'unknown-request' };
-  const nextHar = new Map(prev.har);
-  nextHar.set(hopIndex, har);
-  return { kind: 'update', next: { ...prev, har: nextHar } };
+  return { kind: 'update', next: { ...prev, har: setHopSlot(prev.har, hopIndex, har) } };
 }
 
 function reduceBodyAttached(
@@ -161,9 +159,17 @@ function reduceBodyAttached(
   body: InspectorHarBody,
 ): ReducerResult {
   if (prev === undefined) return { kind: 'reject', reason: 'unknown-request' };
-  const nextBody = new Map(prev.harBodyByHop);
-  nextBody.set(hopIndex, body);
-  return { kind: 'update', next: { ...prev, harBodyByHop: nextBody } };
+  return { kind: 'update', next: { ...prev, harBodyByHop: setHopSlot(prev.harBodyByHop, hopIndex, body) } };
+}
+
+// Per-hop slot copy-and-set. Pads with `null` for any skipped hop so
+// the result stays a dense array (no JSON.stringify holes-as-null
+// surprises across the chrome.runtime.Port wire).
+function setHopSlot<T>(prev: readonly (T | null)[], hopIndex: number, value: T): (T | null)[] {
+  const next = prev.slice();
+  while (next.length <= hopIndex) next.push(null);
+  next[hopIndex] = value;
+  return next;
 }
 
 function applyPatch(prev: RequestLifecycle, patch: RequestLifecyclePatch): RequestLifecycle {

@@ -27,8 +27,8 @@ function makeLifecycle(
     hopStartedAtMs: 0,
     statusCode: 200,
     statusText: 'OK',
-    har: new Map([[0, har]]),
-    harBodyByHop: new Map(),
+    har: [har],
+    harBodyByHop: [],
     ...rest,
   };
 }

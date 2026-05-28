@@ -60,8 +60,8 @@ function row(id: string, responseBody: string, displayId = 1): InspectorRow {
     startedAtMs: 0,
     hopStartedAtMs: 0,
     statusCode: 200,
-    har: new Map([[0, har]]),
-    harBodyByHop: new Map([[0, body]]),
+    har: [har],
+    harBodyByHop: [body],
   };
   return { lifecycle: lc, displayId, consolidatedRetryOf: [] };
 }

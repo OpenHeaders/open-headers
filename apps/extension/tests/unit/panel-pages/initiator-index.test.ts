@@ -27,8 +27,8 @@ function lifecycle(requestId: string, url: string, initiatorUrl: string | null):
     redirectHops: [],
     startedAtMs: 0,
     hopStartedAtMs: 0,
-    har: new Map([[0, harWithInitiator(url, initiatorUrl)]]),
-    harBodyByHop: new Map(),
+    har: [harWithInitiator(url, initiatorUrl)],
+    harBodyByHop: [],
   };
 }
 
@@ -47,7 +47,7 @@ describe('buildInitiatorIndex', () => {
   });
 
   it('skips lifecycles missing hop 0 har', () => {
-    const lc: RequestLifecycle = { ...lifecycle('a', 'https://openheaders.io/x', null), har: new Map() };
+    const lc: RequestLifecycle = { ...lifecycle('a', 'https://openheaders.io/x', null), har: [] };
     expect(buildInitiatorIndex([lc])).toEqual(new Map());
   });
 

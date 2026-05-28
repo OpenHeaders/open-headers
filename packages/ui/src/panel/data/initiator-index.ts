@@ -30,7 +30,7 @@ export function buildInitiatorIndex(lifecycles: readonly RequestLifecycle[]): In
   if (lifecycles.length === 0) return EMPTY;
   const out = new Map<string, string[]>();
   for (const lifecycle of lifecycles) {
-    const hop0 = lifecycle.har.get(0);
+    const hop0 = lifecycle.har[0];
     if (!hop0) continue;
     const parent = resolveInitiatorRootUrl(hop0);
     if (!parent || parent === lifecycle.url) continue;

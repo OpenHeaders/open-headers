@@ -101,11 +101,11 @@ export interface LifecycleOverrides {
   initiator?: string;
   redirectHopCount?: number;
   redirectHops?: RequestLifecycle['redirectHops'];
-  har?: ReadonlyMap<number, InspectorHarEntry>;
-  harBodyByHop?: ReadonlyMap<number, InspectorHarBody>;
+  har?: readonly (InspectorHarEntry | null)[];
+  harBodyByHop?: readonly (InspectorHarBody | null)[];
   /**
    * Convenience for tests that only need to tweak a few fields on hop 0
-   * without rebuilding the whole `har` map. Ignored when `har` is also
+   * without rebuilding the whole `har` array. Ignored when `har` is also
    * supplied.
    */
   harOverrides?: HarOverrides;
@@ -116,7 +116,7 @@ export function makeLifecycle(over: LifecycleOverrides = {}): RequestLifecycle {
   const requestId = over.requestId ?? nextId('req');
   const startedAtMs = over.startedAtMs ?? 1000;
   const phase = over.phase ?? (over.completedAtMs != null ? 'completed' : over.error ? 'failed' : 'pending');
-  const har = over.har ?? new Map([[0, makeHar(url, { method: over.method, ...over.harOverrides })]]);
+  const har = over.har ?? [makeHar(url, { method: over.method, ...over.harOverrides })];
   return {
     tabId: over.tabId ?? 1,
     requestId,
@@ -135,7 +135,7 @@ export function makeLifecycle(over: LifecycleOverrides = {}): RequestLifecycle {
     ...(over.fromCache != null ? { fromCache: over.fromCache } : {}),
     ...(over.error ? { error: over.error } : {}),
     har,
-    harBodyByHop: over.harBodyByHop ?? new Map(),
+    harBodyByHop: over.harBodyByHop ?? [],
   };
 }
 

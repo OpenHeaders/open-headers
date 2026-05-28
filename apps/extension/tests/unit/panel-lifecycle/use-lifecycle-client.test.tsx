@@ -137,8 +137,8 @@ describe('useLifecycleClient', () => {
             redirectHops: [],
             startedAtMs: 1,
             hopStartedAtMs: 1,
-            har: new Map(),
-            harBodyByHop: new Map(),
+            har: [],
+            harBodyByHop: [],
           },
         },
       });
@@ -169,8 +169,8 @@ describe('useLifecycleClient', () => {
             redirectHops: [],
             startedAtMs: 1,
             hopStartedAtMs: 1,
-            har: new Map(),
-            harBodyByHop: new Map(),
+            har: [],
+            harBodyByHop: [],
           },
         },
       });
@@ -206,8 +206,8 @@ describe('useLifecycleClient', () => {
             redirectHops: [],
             startedAtMs: 1,
             hopStartedAtMs: 1,
-            har: new Map(),
-            harBodyByHop: new Map(),
+            har: [],
+            harBodyByHop: [],
           },
         },
       });

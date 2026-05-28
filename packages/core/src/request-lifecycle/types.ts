@@ -90,22 +90,54 @@ export interface RequestLifecycle {
   readonly error?: RequestError;
 
   /**
-   * Per-hop HAR shell forwarded from the devtools_page. Hop 0 is the
-   * original request; hop N is the request after the Nth redirect.
-   *
-   * Per-hop because a redirect chain accumulates one HAR per source URL.
-   * The legacy panel store synthesized redirect rows by special-casing
-   * `redirectURL`; this map replaces that synthesis.
+   * Per-hop HAR shell forwarded from the devtools_page. Index = hop
+   * number; hop 0 is the original request, hop N is the request after
+   * the Nth redirect. Slots for hops whose HAR has not landed yet hold
+   * `null` (an array, not a Map, because chrome.runtime.Port serializes
+   * across processes via JSON — see the JSON-safe pin below).
    */
-  readonly har: ReadonlyMap<number, InspectorHarEntry>;
+  readonly har: readonly (InspectorHarEntry | null)[];
 
   /**
    * Per-hop response bodies, indexed separately because body delivery is
    * async (HAR `getContent`) and orthogonal to the phase invariants
-   * (invariant 8's exception).
+   * (invariant 8's exception). Same shape rationale as `har`.
    */
-  readonly harBodyByHop: ReadonlyMap<number, InspectorHarBody>;
+  readonly harBodyByHop: readonly (InspectorHarBody | null)[];
 }
+
+// ── JSON-safe wire contract ──────────────────────────────────────────
+// chrome.runtime.Port.postMessage uses JSON across process boundaries
+// (service worker ↔ devtools panel). RequestLifecycle must remain
+// structurally JSON-safe — no Map / Set / Date / RegExp / class
+// instances / functions. The recursive check below errors at compile
+// time if a non-safe field is added; the runtime round-trip test in
+// `packages/core/tests/request-lifecycle/json-safe.test.ts` is the
+// belt-and-suspenders backstop.
+
+type NonJsonSafe =
+  | Map<unknown, unknown>
+  | Set<unknown>
+  | Date
+  | RegExp
+  | ((...args: never[]) => unknown);
+
+type ContainsNonJsonSafe<T> = T extends NonJsonSafe
+  ? true
+  : T extends readonly (infer U)[]
+    ? ContainsNonJsonSafe<U>
+    : T extends object
+      ? { [K in keyof T]-?: ContainsNonJsonSafe<NonNullable<T[K]>> }[keyof T]
+      : false;
+
+/**
+ * Compile-time proof that `RequestLifecycle` is JSON-safe. Resolves to
+ * `true` when safe, to a descriptive string when not. Imported by the
+ * round-trip test for a static assertion that the contract holds.
+ */
+export type RequestLifecycleJsonSafeProof = ContainsNonJsonSafe<RequestLifecycle> extends false
+  ? true
+  : 'RequestLifecycle has a non-JSON-safe field — chrome.runtime.Port serializes via JSON across processes';
 
 /**
  * Refined error surface. `code` is the Chromium net-stack string

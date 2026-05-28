@@ -53,8 +53,8 @@ function makeLifecycle(
     hopStartedAtMs: Date.parse(har.startedDateTime),
     statusCode: har.response?.status,
     statusText: har.response?.statusText,
-    har: new Map([[0, har]]),
-    harBodyByHop: new Map(),
+    har: [har],
+    harBodyByHop: [],
   };
 }
 

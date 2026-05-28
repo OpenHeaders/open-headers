@@ -35,8 +35,8 @@ function lifecycle(
     startedAtMs,
     hopStartedAtMs: startedAtMs,
     completedAtMs,
-    har: new Map([[0, har]]),
-    harBodyByHop: new Map(),
+    har: [har],
+    harBodyByHop: [],
   };
 }
 

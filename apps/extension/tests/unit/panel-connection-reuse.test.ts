@@ -26,8 +26,8 @@ function lifecycle(url: string, connection?: string, startedAtMs?: number): Requ
     redirectHops: [],
     startedAtMs: t,
     hopStartedAtMs: t,
-    har: new Map([[0, har]]),
-    harBodyByHop: new Map(),
+    har: [har],
+    harBodyByHop: [],
   };
 }
 

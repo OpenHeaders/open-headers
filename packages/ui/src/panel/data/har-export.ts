@@ -51,6 +51,11 @@ function withPageref(har: InspectorHarEntry, pageref: string | undefined): Inspe
   return pageref ? { ...har, pageref } : har;
 }
 
+function hasAnyHopEntry(har: readonly (InspectorHarEntry | null)[]): boolean {
+  for (const entry of har) if (entry !== null) return true;
+  return false;
+}
+
 function collectRefs(entries: readonly { pageref?: string }[]): Set<string> {
   const refs = new Set<string>();
   for (const e of entries) if (e.pageref) refs.add(e.pageref);
@@ -58,15 +63,18 @@ function collectRefs(entries: readonly { pageref?: string }[]): Set<string> {
 }
 
 /**
- * Walk every hop of a lifecycle's `har` map in ascending hop order,
- * stamping the resolved pageref onto each hop's entry. Hop 0 is the
- * original request; hop N is the request after the Nth redirect.
+ * Walk every hop of a lifecycle's `har` array in hop order, stamping
+ * the resolved pageref onto each hop's entry. Hop 0 is the original
+ * request; hop N is the request after the Nth redirect. Empty slots
+ * (null, for hops whose HAR has not landed) are skipped.
  */
 function lifecycleHopEntries(lc: RequestLifecycle, pageref: string | null): InspectorHarEntry[] {
-  if (lc.har.size === 0) return [];
   const ref = pageref ?? undefined;
-  const sortedHops = [...lc.har.keys()].sort((a, b) => a - b);
-  return sortedHops.map((hop) => withPageref(lc.har.get(hop) as InspectorHarEntry, ref));
+  const out: InspectorHarEntry[] = [];
+  for (const entry of lc.har) {
+    if (entry !== null) out.push(withPageref(entry, ref));
+  }
+  return out;
 }
 
 export function buildHar(
@@ -79,7 +87,7 @@ export function buildHar(
     const lc = row.lifecycle;
     // Skip rows with no HAR shell at all (pure pending / blocked-
     // before-headers placeholders). Nothing to serialise.
-    if (lc.har.size === 0) continue;
+    if (!hasAnyHopEntry(lc.har)) continue;
     const pageref = resolvePageref(lc, pages);
     if (pageref) refs.add(pageref);
     for (const entry of lifecycleHopEntries(lc, pageref)) entries.push(entry);

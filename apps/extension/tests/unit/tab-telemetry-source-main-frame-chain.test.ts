@@ -23,8 +23,8 @@ function makeLifecycle(overrides: Partial<RequestLifecycle> = {}): RequestLifecy
     redirectHops: [],
     startedAtMs: 1_000,
     hopStartedAtMs: 1_000,
-    har: new Map(),
-    harBodyByHop: new Map(),
+    har: [],
+    harBodyByHop: [],
     ...overrides,
   };
 }

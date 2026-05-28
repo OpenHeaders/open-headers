@@ -25,8 +25,8 @@ function row(url: string, idx = 0, overrides: Partial<RequestLifecycle> = {}): I
     hopStartedAtMs: startedAtMs,
     completedAtMs: startedAtMs + 50,
     statusCode: 200,
-    har: new Map([[0, har]]),
-    harBodyByHop: new Map(),
+    har: [har],
+    harBodyByHop: [],
     ...overrides,
   };
   return { lifecycle: lc, displayId: idx + 1, consolidatedRetryOf: [], fires: [] };
@@ -52,7 +52,7 @@ describe('buildHar', () => {
     const ok = row('https://api.openheaders.io/a');
     const pendingPlaceholder = row('https://blocked.openheaders.io/b', 1, {
       phase: 'pending',
-      har: new Map(),
+      har: [],
       statusCode: undefined,
     });
     const doc = buildHar([ok, pendingPlaceholder]);
@@ -85,11 +85,8 @@ describe('buildHar', () => {
       hopStartedAtMs: 100,
       completedAtMs: 150,
       statusCode: 200,
-      har: new Map([
-        [0, hop0],
-        [1, hop1],
-      ]),
-      harBodyByHop: new Map(),
+      har: [hop0, hop1],
+      harBodyByHop: [],
     };
     const r: InspectorRowWithFires = { lifecycle: lc, displayId: 1, consolidatedRetryOf: [], fires: [] };
     const doc = buildHar([r]);

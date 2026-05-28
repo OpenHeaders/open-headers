@@ -32,7 +32,7 @@ import type { InspectorFire } from './types';
  */
 export function currentHarEntry(lifecycle: RequestLifecycle): InspectorHarEntry | null {
   const idx = lifecycle.redirectHopCount;
-  return lifecycle.har.get(idx) ?? null;
+  return lifecycle.har[idx] ?? null;
 }
 
 /**
@@ -44,7 +44,7 @@ export function currentHarEntry(lifecycle: RequestLifecycle): InspectorHarEntry 
  */
 export function currentResponseBody(lifecycle: RequestLifecycle): InspectorHarBody | null {
   const idx = lifecycle.redirectHopCount;
-  return lifecycle.harBodyByHop.get(idx) ?? null;
+  return lifecycle.harBodyByHop[idx] ?? null;
 }
 
 /**

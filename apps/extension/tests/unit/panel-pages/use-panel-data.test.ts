@@ -79,17 +79,14 @@ function lifecycle(
     startedAtMs,
     hopStartedAtMs: startedAtMs,
     ...(overrides.completedAtMs != null ? { completedAtMs: overrides.completedAtMs } : {}),
-    har: new Map([
-      [
-        0,
-        har(url, {
-          ...(overrides.initiatorUrl ? { initiatorUrl: overrides.initiatorUrl } : {}),
-          ...(overrides.bodySize != null ? { bodySize: overrides.bodySize } : {}),
-          ...(overrides.contentSize != null ? { contentSize: overrides.contentSize } : {}),
-        }),
-      ],
-    ]),
-    harBodyByHop: new Map(),
+    har: [
+      har(url, {
+        ...(overrides.initiatorUrl ? { initiatorUrl: overrides.initiatorUrl } : {}),
+        ...(overrides.bodySize != null ? { bodySize: overrides.bodySize } : {}),
+        ...(overrides.contentSize != null ? { contentSize: overrides.contentSize } : {}),
+      }),
+    ],
+    harBodyByHop: [],
   };
 }
 
@@ -260,8 +257,8 @@ describe('usePanelData', () => {
     const b = lifecycle('b', 'https://openheaders.io/b', { startedAtMs: 200 });
     // Stamp a shared HAR connection id on both — reuse should detect it.
     const connId = 'CONN-1';
-    a.har.get(0)!.connection = connId;
-    b.har.get(0)!.connection = connId;
+    a.har[0]!.connection = connId;
+    b.har[0]!.connection = connId;
     const { result } = renderHook(() => usePanelData(snapshots([a, b])));
     expect(result.current.getConnectionReuse(a).reused).toBe(false);
     expect(result.current.getConnectionReuse(b).reused).toBe(true);

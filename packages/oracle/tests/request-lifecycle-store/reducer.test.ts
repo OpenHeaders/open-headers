@@ -223,7 +223,7 @@ describe('reducer — har / body attachment', () => {
     });
     expect(r.kind).toBe('update');
     if (r.kind !== 'update') return;
-    expect(r.next.har.size).toBe(1);
-    expect(r.next.har.has(0)).toBe(true);
+    expect(r.next.har.length).toBe(1);
+    expect(r.next.har[0]).not.toBeNull();
   });
 });

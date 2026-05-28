@@ -24,8 +24,8 @@ function lifecycle(over: Partial<RequestLifecycle> = {}): RequestLifecycle {
     redirectHops: [],
     startedAtMs: 1_700_000_000_000,
     hopStartedAtMs: 1_700_000_000_000,
-    har: new Map(),
-    harBodyByHop: new Map(),
+    har: [],
+    harBodyByHop: [],
     ...over,
   };
 }

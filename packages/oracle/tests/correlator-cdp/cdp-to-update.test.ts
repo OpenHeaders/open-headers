@@ -160,7 +160,7 @@ describe('cdpEventToUpdates — full trace produces a coherent update stream', (
     const u = updates[0];
     if (u?.kind !== 'started') throw new Error('expected started');
     const lc: RequestLifecycle = u.lifecycle;
-    expect(lc.har.size).toBe(0);
-    expect(lc.harBodyByHop.size).toBe(0);
+    expect(lc.har.length).toBe(0);
+    expect(lc.harBodyByHop.length).toBe(0);
   });
 });

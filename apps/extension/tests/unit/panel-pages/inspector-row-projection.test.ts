@@ -40,8 +40,8 @@ function lifecycle(over: Partial<RequestLifecycle> = {}): RequestLifecycle {
     redirectHops: [],
     startedAtMs: 1000,
     hopStartedAtMs: 1000,
-    har: new Map(),
-    harBodyByHop: new Map(),
+    har: [],
+    harBodyByHop: [],
     ...over,
   };
 }
@@ -69,11 +69,11 @@ describe('currentHarEntry / currentResponseBody', () => {
   });
 
   it('returns the current hop entry/body, not hop 0', () => {
-    const har = new Map<number, InspectorHarEntry>([
-      [0, harEntry('https://openheaders.io/a')],
-      [1, harEntry('https://openheaders.io/b')],
-    ]);
-    const bodies = new Map<number, InspectorHarBody>([[1, harBody('hop1')]]);
+    const har: (InspectorHarEntry | null)[] = [
+      harEntry('https://openheaders.io/a'),
+      harEntry('https://openheaders.io/b'),
+    ];
+    const bodies: (InspectorHarBody | null)[] = [null, harBody('hop1')];
     const lc = lifecycle({ redirectHopCount: 1, har, harBodyByHop: bodies });
     expect(currentHarEntry(lc)?.request?.url).toBe('https://openheaders.io/b');
     expect(currentResponseBody(lc)?.content).toBe('hop1');

@@ -86,8 +86,8 @@ describe('createPortSink', () => {
         redirectHops: [],
         startedAtMs: 1,
         hopStartedAtMs: 1,
-        har: new Map(),
-        harBodyByHop: new Map(),
+        har: [],
+        harBodyByHop: [],
       },
     });
     expect(port.posted).toEqual([
@@ -149,8 +149,8 @@ describe('acceptLifecyclePort', () => {
         redirectHops: [],
         startedAtMs: 1,
         hopStartedAtMs: 1,
-        har: new Map(),
-        harBodyByHop: new Map(),
+        har: [],
+        harBodyByHop: [],
       },
     });
     const hub = new RequestLifecycleHub({ store });
@@ -219,8 +219,8 @@ describe('acceptLifecyclePort', () => {
         redirectHops: [],
         startedAtMs: 1,
         hopStartedAtMs: 1,
-        har: new Map(),
-        harBodyByHop: new Map(),
+        har: [],
+        harBodyByHop: [],
       },
     });
     expect(port.posted.length).toBe(before);

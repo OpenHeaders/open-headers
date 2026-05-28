@@ -72,8 +72,8 @@ function startedUpdate(
     redirectHops: [],
     startedAtMs: event.timeStamp,
     hopStartedAtMs: event.timeStamp,
-    har: new Map(),
-    harBodyByHop: new Map(),
+    har: [],
+    harBodyByHop: [],
   };
   return { kind: 'started', lifecycle };
 }

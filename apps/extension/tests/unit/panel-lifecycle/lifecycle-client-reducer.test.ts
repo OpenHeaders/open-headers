@@ -21,8 +21,8 @@ function makeLifecycle(over: Partial<RequestLifecycle> = {}): RequestLifecycle {
     redirectHops: [],
     startedAtMs: 100,
     hopStartedAtMs: 100,
-    har: new Map(),
-    harBodyByHop: new Map(),
+    har: [],
+    harBodyByHop: [],
     ...over,
   };
 }
@@ -93,7 +93,7 @@ describe('reduceClientUpdate — redirect', () => {
 });
 
 describe('reduceClientUpdate — har-attached / body-attached', () => {
-  it('stores HAR under hopIndex, copying the map (no shared mutation)', () => {
+  it('stores HAR at hopIndex, copying the array (no shared mutation)', () => {
     const prev = makeLifecycle();
     const harEntry = { request: {}, response: {} } as never;
     const result = reduceClientUpdate(prev, {
@@ -104,7 +104,7 @@ describe('reduceClientUpdate — har-attached / body-attached', () => {
       har: harEntry,
     });
     const next = result as RequestLifecycle;
-    expect(next.har.get(0)).toBe(harEntry);
+    expect(next.har[0]).toBe(harEntry);
     expect(next.har).not.toBe(prev.har);
   });
 
@@ -119,7 +119,7 @@ describe('reduceClientUpdate — har-attached / body-attached', () => {
       body,
     });
     const next = result as RequestLifecycle;
-    expect(next.harBodyByHop.get(0)).toBe(body);
+    expect(next.harBodyByHop[0]).toBe(body);
   });
 });
 

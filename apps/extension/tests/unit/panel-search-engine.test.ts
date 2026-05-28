@@ -38,15 +38,15 @@ function makeRow(opts: {
       content: { size: 0, mimeType: 'application/json' },
     },
   } as InspectorHarEntry;
-  const harBodyByHop = new Map<number, InspectorHarBody>();
+  const harBodyByHop: (InspectorHarBody | null)[] = [];
   if (opts.responseBody !== undefined) {
-    harBodyByHop.set(0, {
+    harBodyByHop[0] = {
       method: opts.method ?? 'GET',
       url,
       startedDateTime: '2026-04-16T00:00:00.000Z',
       content: opts.responseBody,
       encoding: '',
-    });
+    };
   }
   const lc: RequestLifecycle = {
     tabId: 1,
@@ -60,7 +60,7 @@ function makeRow(opts: {
     startedAtMs: 0,
     hopStartedAtMs: 0,
     statusCode: opts.statusCode ?? 200,
-    har: new Map([[0, har]]),
+    har: [har],
     harBodyByHop,
   };
   return { lifecycle: lc, displayId: opts.displayId ?? 1, consolidatedRetryOf: [] };

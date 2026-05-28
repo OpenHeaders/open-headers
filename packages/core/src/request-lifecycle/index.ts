@@ -11,6 +11,7 @@ export type {
   RedirectHop,
   RequestError,
   RequestLifecycle,
+  RequestLifecycleJsonSafeProof,
   RequestLifecyclePatch,
   RequestLifecycleUpdate,
   RequestPhase,

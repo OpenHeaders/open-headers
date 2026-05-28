@@ -12,8 +12,8 @@ export function makeLifecycle(overrides: Partial<RequestLifecycle> = {}): Reques
     redirectHops: [],
     startedAtMs: 1_000,
     hopStartedAtMs: 1_000,
-    har: new Map(),
-    harBodyByHop: new Map(),
+    har: [],
+    harBodyByHop: [],
     ...overrides,
   };
 }

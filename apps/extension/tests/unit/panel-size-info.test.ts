@@ -24,8 +24,8 @@ function makeLifecycle(harOverrides: Partial<InspectorHarEntry> = {}): RequestLi
     startedAtMs: 0,
     hopStartedAtMs: 0,
     statusCode: 200,
-    har: new Map([[0, har]]),
-    harBodyByHop: new Map(),
+    har: [har],
+    harBodyByHop: [],
   };
 }
 

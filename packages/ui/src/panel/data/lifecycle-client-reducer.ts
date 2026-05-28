@@ -80,13 +80,20 @@ function applyRedirect(prev: RequestLifecycle, hop: RedirectHop, nextUrl: string
 }
 
 function attachHar(prev: RequestLifecycle, hopIndex: number, har: InspectorHarEntry): RequestLifecycle {
-  const nextHar = new Map(prev.har);
-  nextHar.set(hopIndex, har);
-  return { ...prev, har: nextHar };
+  return { ...prev, har: setHopSlot(prev.har, hopIndex, har) };
 }
 
 function attachBody(prev: RequestLifecycle, hopIndex: number, body: InspectorHarBody): RequestLifecycle {
-  const nextBody = new Map(prev.harBodyByHop);
-  nextBody.set(hopIndex, body);
-  return { ...prev, harBodyByHop: nextBody };
+  return { ...prev, harBodyByHop: setHopSlot(prev.harBodyByHop, hopIndex, body) };
+}
+
+// Mirror of the engine-side helper in `oracle/request-lifecycle-store/reducer`.
+// Kept inline (4 lines) rather than abstracted into core — the two call
+// sites have different state shapes and zero shared invariants beyond
+// "copy-and-set with null padding."
+function setHopSlot<T>(prev: readonly (T | null)[], hopIndex: number, value: T): (T | null)[] {
+  const next = prev.slice();
+  while (next.length <= hopIndex) next.push(null);
+  next[hopIndex] = value;
+  return next;
 }

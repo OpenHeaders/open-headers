@@ -60,8 +60,8 @@ function startedUpdate(
     redirectHops: [],
     startedAtMs,
     hopStartedAtMs: startedAtMs,
-    har: new Map(),
-    harBodyByHop: new Map(),
+    har: [],
+    harBodyByHop: [],
   };
   return { kind: 'started', lifecycle };
 }
