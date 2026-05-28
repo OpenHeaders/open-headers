@@ -96,7 +96,7 @@ import {
   peekActiveWorkspaceId,
 } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { hydrateActiveWorkspaceStores } from '@openheaders/oracle/workspace/workspace-coordinator';
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow } from 'electron';
 import { installActivityPruneScheduler } from './activity-prune-scheduler';
 import { type DaemonBindSupervisor, startDaemonBindSupervisor } from './daemon-bind-supervisor';
 import { installHostStorage } from './install-host-storage';
@@ -106,8 +106,19 @@ import { singleProcessLockRuntime } from './single-process-lock-runtime';
 import { observeForActivityFeed, setActivityLog, subscribeActivityEntries } from './sync-activity-installer';
 import { forwardMutationToWsPeers, setMutationForwarderWsServer } from './sync-mutation-forwarder';
 
-const RPC_CHANNEL = 'oh:rpc';
 const BROADCAST_CHANNEL = 'oh:broadcast';
+
+export type OhRpcDispatcher = (raw: unknown) => Promise<unknown>;
+
+// Exposed via getter so `main.ts` can keep `ipcMain.handle('oh:rpc')`
+// registered before the engine boots. Pre-engine renderer calls queue
+// on the engine-ready promise; once `installRpcHost` populates this,
+// they drain through the same dispatcher real RPCs use.
+let rpcDispatcher: OhRpcDispatcher | null = null;
+
+export function getOhRpcDispatcher(): OhRpcDispatcher | null {
+  return rpcDispatcher;
+}
 
 /**
  * Best-effort OS username for seeding the synthetic User's
@@ -337,7 +348,7 @@ export async function installRpcHost(): Promise<void> {
   //    `dispatchSyncRpc` — they're admin-only renderer RPCs, not part
   //    of the sync+awareness channels, so we don't pollute the
   //    sync dispatcher with surface-specific routes.
-  ipcMain.handle(RPC_CHANNEL, async (_event, raw: unknown) => {
+  rpcDispatcher = async (raw: unknown) => {
     const message = (raw ?? {}) as Record<string, unknown>;
     const type = message.type;
     if (type === 'oh.daemon.pairing.start') {
@@ -394,7 +405,7 @@ export async function installRpcHost(): Promise<void> {
     }
     if (result.kind === 'sync') return result.response;
     return await result.promise;
-  });
+  };
 
   // 6. WS server — the extension-as-client pipe. The supervisor owns
   //    the bind lifecycle so the user-controlled `backend.bindAddress`
@@ -432,12 +443,12 @@ export async function installRpcHost(): Promise<void> {
     );
   }
 
-  // 7. Clean up the renderer-bound dispatch + WS server on app quit so a
-  //    reload cycle doesn't leak a stale ipcMain.handle registration or
-  //    a half-open server socket.
+  // 7. Clean up engine-owned resources on app quit. The `oh:rpc` channel
+  //    is registered in `main.ts` (so it can queue pre-engine calls) and
+  //    is removed there.
   app.on('before-quit', () => {
     stopActivityPruneScheduler();
-    ipcMain.removeHandler(RPC_CHANNEL);
+    rpcDispatcher = null;
     setMutationForwarderWsServer(null);
     setActivityLog(null);
     setActivityMuteStore(null);

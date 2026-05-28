@@ -74,11 +74,47 @@
       .rules-topbar .rules-panel-toggle {
         -webkit-app-region: no-drag;
       }
+
+      /*
+       * Boot shell — painted inside #root so React's createRoot.render()
+       * naturally replaces it on mount. Themed via prefers-color-scheme
+       * (overridden by [data-oh-theme] which preload sets from
+       * `nativeTheme.shouldUseDarkColors` before HTML scripts run).
+       * Goal: window's `ready-to-show` fires on this paint, not on the
+       * React bundle's first paint — so the window appears in well under
+       * a second instead of waiting on Vite / bundle parse / initial RPCs.
+       */
+      html, body { margin: 0; height: 100%; background: #ffffff; color: #1d1d1f; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+      html[data-oh-theme='dark'], html[data-oh-theme='dark'] body { background: #1f1f1f; color: #e6e6e6; }
+      @media (prefers-color-scheme: dark) {
+        html:not([data-oh-theme='light']), html:not([data-oh-theme='light']) body { background: #1f1f1f; color: #e6e6e6; }
+      }
+      #root { height: 100%; }
+      .oh-boot-shell { display: flex; align-items: center; justify-content: center; height: 100vh; flex-direction: column; gap: 14px; -webkit-app-region: drag; user-select: none; }
+      .oh-boot-shell__mark { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; opacity: 0.92; }
+      .oh-boot-shell__spinner { width: 22px; height: 22px; border-radius: 50%; border: 2px solid currentColor; border-top-color: transparent; opacity: 0.6; animation: oh-boot-spin 720ms linear infinite; }
+      .oh-boot-shell__hint { font-size: 12px; opacity: 0.55; }
+      @keyframes oh-boot-spin { to { transform: rotate(360deg); } }
     </style>
+    <script>
+      // Apply theme before first paint so the boot shell doesn't flash
+      // the wrong palette. `window.oh.startupData` is populated by the
+      // preload via `sendSync` and is available before HTML scripts run.
+      (function () {
+        var theme = window.oh && window.oh.startupData && window.oh.startupData.theme;
+        if (theme === 'dark' || theme === 'light') document.documentElement.setAttribute('data-oh-theme', theme);
+      })();
+    </script>
   </head>
   <body>
     <div class="oh-titlebar-drag-region" aria-hidden="true"></div>
-    <div id="root"></div>
+    <div id="root">
+      <div class="oh-boot-shell" role="status" aria-live="polite">
+        <div class="oh-boot-shell__spinner" aria-hidden="true"></div>
+        <div class="oh-boot-shell__mark">Open Headers</div>
+        <div class="oh-boot-shell__hint">Starting…</div>
+      </div>
+    </div>
     <script type="module" src="./index.tsx"></script>
   </body>
 </html>
