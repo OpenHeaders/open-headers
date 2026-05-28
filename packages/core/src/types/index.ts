@@ -8,42 +8,6 @@ export type {
 } from './common';
 export { errorMessage, toError } from './common';
 
-// ── Recording ──────────────────────────────────────────────────────
-export type {
-  ConsoleArg,
-  ConsoleArgObject,
-  ConsoleRecord,
-  CookieAttributes,
-  DomNode,
-  NavigationEntry,
-  NetworkRecord,
-  NetworkTimingData,
-  PageTransition,
-  PreprocessedRecording,
-  PreprocessOptions,
-  PreprocessProgressDetails,
-  RawRecordingRecord,
-  Recording,
-  RecordingEvent,
-  RecordingEventData,
-  RecordingMetadata,
-  RRWebAdd,
-  RRWebEvent,
-  RRWebInnerData,
-  RRWebPlayerConstructor,
-  RRWebPlayerInstance,
-  RRWebPlayerProps,
-  Snapshot,
-  StaticResources,
-  StorageCookieMetadata,
-  StorageRecord,
-  TimeEvent,
-  TimeEventType,
-  WorkflowRecordingEntry,
-  WorkflowRecordingFileMetadata,
-  WorkflowTag,
-} from './recording';
-
 // ── Collection ─────────────────────────────────────────────────────
 export type {
   Collection,

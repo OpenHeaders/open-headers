@@ -152,16 +152,6 @@ export default defineConfig({
             src: 'src/renderer/images/*',
             dest: 'dist-webpack/renderer/images',
           },
-          {
-            src: 'node_modules/rrweb-player/dist/rrweb-player.umd.cjs',
-            dest: 'dist-webpack/renderer/lib',
-            rename: 'rrweb-player.js',
-          },
-          {
-            src: 'node_modules/rrweb-player/dist/style.css',
-            dest: 'dist-webpack/renderer/lib',
-            rename: 'rrweb-player.css',
-          },
         ],
         hook: 'writeBundle',
       }),

@@ -16,14 +16,8 @@ export {
 } from './awareness-bridge';
 export type { SyncAwarenessPresenceMessage } from './awareness-stream';
 export { SYNC_AWARENESS_PRESENCE_TYPE, SyncAwarenessPresenceMessageSchema } from './awareness-stream';
-export type {
-  MessageType,
-  RecordingStateType,
-} from './constants';
 export {
-  MESSAGE_TYPES,
   PROTOCOL_NAME,
-  RECORDING_STATES,
   WS_PORT,
   WS_SERVER_URL,
 } from './constants';
@@ -55,32 +49,7 @@ export {
   SyncSyncedMessageSchema,
   SyncWelcomeMessageSchema,
 } from './handshake';
-export type {
-  AppNavigationIntent,
-  BrowserDisplayInfo,
-  BrowserInfoMessage,
-  DisplayBounds,
-  DisplayContext,
-  FocusAppMessage,
-  GetRecordingHotkeyMessage,
-  GetVideoRecordingStateMessage,
-  NavigationAction,
-  RecordingHotkeyChangedMessage,
-  RecordingHotkeyPressedMessage,
-  RecordingHotkeyResponseMessage,
-  RulesUpdateMessage,
-  SaveWorkflowMessage,
-  SettingsTabId,
-  StartSyncRecordingMessage,
-  StopSyncRecordingMessage,
-  ToggleAllRulesMessage,
-  ToggleRecordingHotkeyMessage,
-  ToggleRuleMessage,
-  ToggleVideoRecordingMessage,
-  VideoRecordingStateChangedMessage,
-  WorkflowRecordingPayload,
-  WorkflowRecordingRecord,
-} from './messages';
+export type { AppNavigationIntent, NavigationAction, SettingsTabId } from './messages';
 export type {
   SyncMutationBatchMessage,
   SyncMutationMessage,
