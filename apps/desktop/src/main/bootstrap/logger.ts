@@ -53,6 +53,12 @@ export function installMainLogger(): void {
   log.transports.file.maxSize = MAX_FILE_SIZE;
   log.transports.file.level = 'info';
   log.transports.console.level = 'info';
+
+  // Register the IPC handler that receives messages from `electron-log/renderer`
+  // (wired via `electron-log/preload`). Renderer lines flow through the same
+  // file + console transports as main, so `<userData>/logs/main.log` ends up
+  // with a single interleaved stream.
+  log.initialize();
 }
 
 export function setGlobalLogLevel(level: string): void {

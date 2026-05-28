@@ -7,6 +7,7 @@
  * `ipcRenderer` directly.
  */
 
+import 'electron-log/preload';
 import { contextBridge } from 'electron';
 import { lifeline } from './preload/lifeline';
 import { rpc, type BroadcastEnvelope } from './preload/rpc';
