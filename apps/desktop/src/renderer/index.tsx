@@ -3,6 +3,7 @@ import './host/install-protocol-host';
 import './host/install-rpc-fallback';
 import './host/install-host-storage';
 import './host/install-host-bridge';
+import './host/install-capabilities';
 import './host/install-build-info';
 import './host/install-navigation-host';
 import './host/install-assets-host';

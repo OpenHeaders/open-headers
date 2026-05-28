@@ -30,6 +30,16 @@ export interface WorkspaceRpc {
     req: Record<string, never>;
     res: { workspace: ExtensionWorkspace };
   };
+  /**
+   * Host-neutral resolver consumed by the `getActiveWorkspaceId`
+   * capability. Returns `null` on a host with no active workspace
+   * (fresh install, no seed). Cheaper than `getActiveWorkspace` for
+   * callers that only need the id (eager-mirror init).
+   */
+  getActiveWorkspaceId: {
+    req: Record<string, never>;
+    res: { activeWorkspaceId: string | null };
+  };
   duplicateWorkspace: {
     req: {
       id: string;

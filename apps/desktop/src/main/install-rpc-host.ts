@@ -351,6 +351,12 @@ export async function installRpcHost(): Promise<void> {
   rpcDispatcher = async (raw: unknown) => {
     const message = (raw ?? {}) as Record<string, unknown>;
     const type = message.type;
+    // Host-neutral capability backing — shared `@openheaders/ui` calls
+    // this from `eagerInitRendererMirrors`. Returns the runtime-active
+    // workspace id (or null on a fresh install).
+    if (type === 'getActiveWorkspaceId') {
+      return { activeWorkspaceId: getActiveWorkspaceId() ?? null };
+    }
     if (type === 'oh.daemon.pairing.start') {
       try {
         const deviceLabel =

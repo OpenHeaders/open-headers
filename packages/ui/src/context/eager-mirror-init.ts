@@ -46,8 +46,8 @@
  * never call write-clients and never hit the lazy-init race.
  */
 
+import { getCapability } from '@openheaders/core/capabilities';
 import { hostLogger as logger } from '@openheaders/core/logger';
-import { hostBridge } from '@openheaders/core/bridge';
 import { getActiveAwarenessMirror } from './awareness-mirror';
 import { getCollectionSyncMirrorForWorkspace } from './collection-sync-mirror';
 import { getEnvSyncMirrorForWorkspace } from './env-sync-mirror';
@@ -96,11 +96,16 @@ function instantiateMirrorsForWorkspace(workspaceId: string): void {
 /**
  * Fire-and-forget eager-init. Awareness and the global extension-workspace
  * mirror instantiate synchronously (no workspace dependency); the
- * per-workspace mirrors are seeded once `popupOpen` resolves the
- * runtime-Active workspaceId. Surfaces that import this never need to
- * await — the returned mirror lookups remain race-free for the
- * runtime-Active workspace via the synchronous `subscribe` ordering in
- * the shared mirror cores.
+ * per-workspace mirrors are seeded once the host's
+ * `getActiveWorkspaceId` capability resolves. Surfaces that import this
+ * never need to await — the returned mirror lookups remain race-free
+ * for the runtime-Active workspace via the synchronous `subscribe`
+ * ordering in the shared mirror cores.
+ *
+ * Hosts that don't register `getActiveWorkspaceId` (a stripped-down
+ * shell, a test harness, …) skip the per-workspace seed cleanly; only
+ * the workspace-independent mirrors come up. Lazy instantiation on
+ * first read still works.
  */
 export function eagerInitRendererMirrors(): void {
   // Workspace-independent mirrors — synchronous.
@@ -108,17 +113,19 @@ export function eagerInitRendererMirrors(): void {
   getActiveExtensionWorkspaceSyncMirror();
 
   // Per-workspace mirrors — bind to the runtime-Active workspace as
-  // soon as `popupOpen` resolves. Surfaces that diverge (workbench
+  // soon as the capability resolves. Surfaces that diverge (workbench
   // per-tab editing scope) lazily instantiate their workspace's
   // mirrors on first read; the same race-free property holds because
   // the per-mirror subscription opens synchronously in the core.
-  hostBridge.call('popupOpen')
+  const probe = getCapability('getActiveWorkspaceId');
+  if (!probe) return;
+  probe()
     .then((resp) => {
       const id = resp.activeWorkspaceId;
       if (!id) return;
       instantiateMirrorsForWorkspace(id);
     })
     .catch((err: Error) => {
-      logger.info('eagerInitRendererMirrors', `popupOpen failed: ${err.message}`);
+      logger.info('eagerInitRendererMirrors', `getActiveWorkspaceId failed: ${err.message}`);
     });
 }
