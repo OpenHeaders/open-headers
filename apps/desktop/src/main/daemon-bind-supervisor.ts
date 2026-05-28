@@ -31,6 +31,25 @@ const ALL_INTERFACES: BindAddress = '0.0.0.0';
 
 type BindAddress = '127.0.0.1' | '0.0.0.0';
 
+/**
+ * Bind lifecycle transition reported through {@link SupervisorOptions.onBindStateChange}.
+ * Distinct from {@link SupervisorOptions.onServerChange}, which only
+ * carries the server handle: `onServerChange(null)` fires both during a
+ * healthy rebind (transient) and on a terminal bind failure, so it can't
+ * tell a status reporter which one happened. This signal disambiguates:
+ *
+ *   - `binding` — a bind attempt is in flight (initial boot or a rebind
+ *     after the `backend.bindAddress` setting flipped).
+ *   - `bound`   — the socket is listening on `host`.
+ *   - `failed`  — the bind threw (port held by another instance / process);
+ *     the daemon stays offline until the setting changes and a new bind
+ *     is attempted. `error` carries the underlying cause for diagnostics.
+ */
+export type DaemonBindState =
+  | { kind: 'binding'; host: BindAddress }
+  | { kind: 'bound'; host: BindAddress }
+  | { kind: 'failed'; host: BindAddress; error: unknown };
+
 interface SupervisorOptions {
   /** Identity announced in WELCOME frames; passes straight through to `startOracleWsServer`. */
   handshakeIdentity: OracleWsServerOptions['handshakeIdentity'];
@@ -47,6 +66,13 @@ interface SupervisorOptions {
    * boot-wiring's local `wsServer` reference.
    */
   onServerChange: (server: OracleWsServer | null) => void;
+  /**
+   * Receives every bind lifecycle transition. Unlike `onServerChange`,
+   * this distinguishes a transient rebind from a terminal failure so a
+   * status reporter can show "reconnecting" vs "offline" correctly.
+   * Optional — callers that only need the server handle can omit it.
+   */
+  onBindStateChange?: (state: DaemonBindState) => void;
 }
 
 export interface DaemonBindSupervisor {
@@ -79,6 +105,10 @@ export async function startDaemonBindSupervisor(options: SupervisorOptions): Pro
     options.onServerChange(next);
   }
 
+  function emitBindState(state: DaemonBindState): void {
+    options.onBindStateChange?.(state);
+  }
+
   async function reconcile(): Promise<void> {
     if (disposed) return;
     if (currentBind === desiredBind && currentServer) return;
@@ -94,6 +124,7 @@ export async function startDaemonBindSupervisor(options: SupervisorOptions): Pro
       }
     }
     if (disposed) return;
+    emitBindState({ kind: 'binding', host: target });
     try {
       const next = await startOracleWsServer({
         host: target,
@@ -106,6 +137,7 @@ export async function startDaemonBindSupervisor(options: SupervisorOptions): Pro
       }
       currentBind = target;
       setServer(next);
+      emitBindState({ kind: 'bound', host: target });
       // If the desired bind flipped again while we were starting, fall
       // through one more reconcile pass so the user-visible state always
       // converges to whatever the setting says now.
@@ -116,6 +148,7 @@ export async function startDaemonBindSupervisor(options: SupervisorOptions): Pro
       logger.error(SCOPE, `failed to bind on ${target}; daemon is offline until the setting is corrected`, err);
       currentBind = null;
       setServer(null);
+      emitBindState({ kind: 'failed', host: target, error: err });
     }
   }
 

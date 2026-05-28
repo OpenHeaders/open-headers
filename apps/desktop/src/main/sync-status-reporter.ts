@@ -3,61 +3,121 @@
  *
  * Sibling to the extension SW's handshake-status reporter — same `sync`
  * subsystem, opposite vantage point. The extension reports whether IT
- * is talking to a back-end; the desktop reports how many extensions
- * (and same-device vs LAN) are talking to IT.
+ * is talking to a back-end; the desktop reports how reachable IT is and
+ * how many extensions (same-device vs LAN) are talking to it.
  *
- * Steady-state classification:
- *   - 0 peers → green "Idle — no extensions connected"
- *   - N peers, all loopback → green "Connected to N extension(s) on this device"
- *   - N peers with one or more LAN → green "Connected to N extension(s) (L on LAN)"
+ * The reporter is long-lived (one instance per boot) and folds two
+ * inputs into a single `sync` entry:
+ *
+ *   1. Bind lifecycle — from the {@link DaemonBindState} the bind
+ *      supervisor emits. A failed bind (port held by another instance)
+ *      is RED and overrides everything: there is no live pipe. A bind
+ *      attempt with no server yet (initial boot / mid-rebind) is a
+ *      transient YELLOW.
+ *   2. Peer set — once a server is bound, classify by connected peers:
+ *        - 0 peers → green "Idle — no extensions connected"
+ *        - N peers, all loopback → green "Connected to N … on this device"
+ *        - N peers with one or more LAN → green "Connected to N … (L on LAN)"
  *
  * "Idle" stays green: the desktop app can be used standalone, so an
  * empty peer set is a healthy steady state — not a degraded one.
  *
- * Reads the current peer list once via `listConnectedPeers()` on attach
- * (so the pill reflects state if the reporter is wired AFTER a peer
- * already connected), then re-reports on every connect/disconnect.
+ * Wiring (see install-rpc-host): the supervisor's `onServerChange` drives
+ * {@link SyncStatusReporter.attachServer} / `detachServer`, and its
+ * `onBindStateChange` drives {@link SyncStatusReporter.setBindState}.
  */
 
+import type { OracleWsServer } from '@openheaders/oracle-host-node/host-runtime/ws-server';
 import { report as reportStatus } from '@openheaders/ui/shared/status/store';
-import type { OracleWsServer, PeerSummary } from '@openheaders/oracle-host-node/host-runtime/ws-server';
+import type { DaemonBindState } from './daemon-bind-supervisor';
 
-export interface InstallSyncStatusReporterHandle {
-  /** Drop the subscription. Idempotent. */
+export interface SyncStatusReporter {
+  /** Apply a bind lifecycle transition from the supervisor. */
+  setBindState(state: DaemonBindState): void;
+  /** A server became listening — subscribe to its peer changes and switch to peer classification. */
+  attachServer(server: OracleWsServer): void;
+  /** The current server went away (rebind / teardown) — stop tracking peers. */
+  detachServer(): void;
+  /** Drop all subscriptions and stop emitting. Idempotent. */
   dispose(): void;
 }
 
-export function installSyncStatusReporter(server: OracleWsServer): InstallSyncStatusReporterHandle {
+export function installSyncStatusReporter(): SyncStatusReporter {
   let disposed = false;
+  let bindState: DaemonBindState | null = null;
+  let server: OracleWsServer | null = null;
+  let peerUnsubscribe: (() => void) | null = null;
 
-  function emit(peers: readonly PeerSummary[]): void {
+  function emit(): void {
     if (disposed) return;
+
+    // A failed bind overrides peer state entirely — there is no live
+    // pipe, so an extension can't be connected regardless of the last
+    // known peer set.
+    if (bindState?.kind === 'failed') {
+      reportStatus({
+        subsystem: 'sync',
+        state: 'red',
+        message: `Extension pipe offline — couldn't bind on ${bindState.host}`,
+        context: { bindHost: bindState.host, error: errorMessage(bindState.error) },
+      });
+      return;
+    }
+
+    // No bound server yet: either the initial bind is in flight or we're
+    // between binds during a loopback↔LAN flip. Surface a transient
+    // yellow rather than a stale green so the pill doesn't claim peers
+    // are connected while the socket is down.
+    if (!server) {
+      reportStatus({
+        subsystem: 'sync',
+        state: 'yellow',
+        message: bindState?.kind === 'binding' ? 'Starting extension pipe…' : 'Extension pipe restarting…',
+        context: bindState ? { bindHost: bindState.host } : undefined,
+      });
+      return;
+    }
+
+    // Bound and serving — classify by who's connected right now.
+    const peers = server.listConnectedPeers();
     const total = peers.length;
     const lan = peers.filter((p) => !p.isLoopback).length;
-    const message = describe(total, lan);
     reportStatus({
       subsystem: 'sync',
       state: 'green',
-      message,
+      message: describe(total, lan),
       context: { peerCount: total, lanCount: lan, loopbackCount: total - lan },
     });
   }
 
-  // Initial snapshot — covers the case where a peer connected before
-  // this reporter attached (e.g. during the WS supervisor's first bind).
-  emit(server.listConnectedPeers());
-
-  const unsubscribe = server.subscribePeerChange(() => {
-    // The peer-change event is fired AFTER the registry update, so
-    // `listConnectedPeers()` reflects the post-event truth.
-    emit(server.listConnectedPeers());
-  });
-
   return {
+    setBindState(state: DaemonBindState): void {
+      if (disposed) return;
+      bindState = state;
+      emit();
+    },
+    attachServer(next: OracleWsServer): void {
+      if (disposed) return;
+      peerUnsubscribe?.();
+      server = next;
+      // The peer-change event is fired AFTER the registry update, so
+      // `listConnectedPeers()` reflects the post-event truth.
+      peerUnsubscribe = next.subscribePeerChange(() => emit());
+      emit();
+    },
+    detachServer(): void {
+      if (disposed) return;
+      peerUnsubscribe?.();
+      peerUnsubscribe = null;
+      server = null;
+      emit();
+    },
     dispose(): void {
       if (disposed) return;
       disposed = true;
-      unsubscribe();
+      peerUnsubscribe?.();
+      peerUnsubscribe = null;
+      server = null;
     },
   };
 }
@@ -65,14 +125,14 @@ export function installSyncStatusReporter(server: OracleWsServer): InstallSyncSt
 function describe(total: number, lan: number): string {
   if (total === 0) return 'Idle — no extensions connected';
   if (lan === 0) {
-    return total === 1
-      ? 'Connected to 1 extension on this device'
-      : `Connected to ${total} extensions on this device`;
+    return total === 1 ? 'Connected to 1 extension on this device' : `Connected to ${total} extensions on this device`;
   }
   if (lan === total) {
-    return total === 1
-      ? 'Connected to 1 extension on LAN'
-      : `Connected to ${total} extensions on LAN`;
+    return total === 1 ? 'Connected to 1 extension on LAN' : `Connected to ${total} extensions on LAN`;
   }
   return `Connected to ${total} extension${total === 1 ? '' : 's'} (${lan} on LAN)`;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }

@@ -76,22 +76,10 @@ import {
 import { logger as consoleLogger } from '@openheaders/core/utils';
 import { setLockRuntime } from '@openheaders/oracle/coordination';
 import { setBlobBackend } from '@openheaders/oracle/files';
-// Node-only backends live in `@openheaders/oracle-host-node`; oracle
-// itself is host-neutral and ships no `node:*` / `better-sqlite3` / `ws`
-// runtime dependency.
-import { FileSystemBlobBackend } from '@openheaders/oracle-host-node/files/fs-blob-backend';
 import { bootSyncEngine } from '@openheaders/oracle/host-runtime';
-import { createPairingHttpHandler } from '@openheaders/oracle-host-node/host-runtime/pairing-http';
-import type { OracleWsServer } from '@openheaders/oracle-host-node/host-runtime/ws-server';
 import { dispatchSyncRpc } from '@openheaders/oracle/rpc';
 import { setActivityMuteStore, setOracleHostHooks, subscribeActivityMuteChanges } from '@openheaders/oracle/sync';
-import { createSqliteSyncPersistence } from '@openheaders/oracle-host-node/sync/sqlite-sync-persistence';
 import { setSyncPersistenceProvider } from '@openheaders/oracle/sync/sync-persistence-provider';
-import {
-  clearStatus as clearStatusStore,
-  getStatusSnapshot as peekStatusSnapshot,
-  subscribe as subscribeStatusStore,
-} from '@openheaders/ui/shared/status/store';
 import {
   bootstrap as bootstrapWorkspaces,
   getActiveWorkspaceId,
@@ -101,6 +89,18 @@ import {
   peekActiveWorkspaceId,
 } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { hydrateActiveWorkspaceStores } from '@openheaders/oracle/workspace/workspace-coordinator';
+// Node-only backends live in `@openheaders/oracle-host-node`; oracle
+// itself is host-neutral and ships no `node:*` / `better-sqlite3` / `ws`
+// runtime dependency.
+import { FileSystemBlobBackend } from '@openheaders/oracle-host-node/files/fs-blob-backend';
+import { createPairingHttpHandler } from '@openheaders/oracle-host-node/host-runtime/pairing-http';
+import type { OracleWsServer } from '@openheaders/oracle-host-node/host-runtime/ws-server';
+import { createSqliteSyncPersistence } from '@openheaders/oracle-host-node/sync/sqlite-sync-persistence';
+import {
+  clearStatus as clearStatusStore,
+  getStatusSnapshot as peekStatusSnapshot,
+  subscribe as subscribeStatusStore,
+} from '@openheaders/ui/shared/status/store';
 import { app, BrowserWindow } from 'electron';
 import { installActivityPruneScheduler } from './activity-prune-scheduler';
 import { type DaemonBindSupervisor, startDaemonBindSupervisor } from './daemon-bind-supervisor';
@@ -111,7 +111,7 @@ import { installObservabilityLog, type ObservabilityLogHandle } from './observab
 import { singleProcessLockRuntime } from './single-process-lock-runtime';
 import { observeForActivityFeed, setActivityLog, subscribeActivityEntries } from './sync-activity-installer';
 import { forwardMutationToWsPeers, setMutationForwarderWsServer } from './sync-mutation-forwarder';
-import { installSyncStatusReporter, type InstallSyncStatusReporterHandle } from './sync-status-reporter';
+import { installSyncStatusReporter, type SyncStatusReporter } from './sync-status-reporter';
 
 const BROADCAST_CHANNEL = 'oh:broadcast';
 
@@ -458,10 +458,11 @@ export async function installRpcHost(): Promise<void> {
   //    the IPC engine keeps serving the renderer, and the supervisor
   //    retries on the next setting change.
   let bindSupervisor: DaemonBindSupervisor | null = null;
-  // Status reporter handle tracks the CURRENT bind's subscription so a
-  // rebind (loopback ↔ LAN flip) tears down the old one before
-  // attaching to the new server. Null while between binds.
-  let syncStatusReporter: InstallSyncStatusReporterHandle | null = null;
+  // One long-lived reporter for the whole boot. It folds the supervisor's
+  // bind lifecycle (binding / bound / failed) and the active server's peer
+  // set into a single `sync` status entry, so a failed bind shows RED and
+  // a healthy rebind shows a transient YELLOW rather than going silent.
+  const syncStatusReporter: SyncStatusReporter = installSyncStatusReporter();
   try {
     bindSupervisor = await startDaemonBindSupervisor({
       handshakeIdentity: {
@@ -477,8 +478,11 @@ export async function installRpcHost(): Promise<void> {
       onServerChange: (next) => {
         wsServer = next;
         setMutationForwarderWsServer(next);
-        syncStatusReporter?.dispose();
-        syncStatusReporter = next ? installSyncStatusReporter(next) : null;
+        if (next) syncStatusReporter.attachServer(next);
+        else syncStatusReporter.detachServer();
+      },
+      onBindStateChange: (state) => {
+        syncStatusReporter.setBindState(state);
       },
     });
   } catch (err) {
@@ -501,8 +505,7 @@ export async function installRpcHost(): Promise<void> {
     setActivityLog(null);
     setActivityMuteStore(null);
     pairingService.dispose();
-    syncStatusReporter?.dispose();
-    syncStatusReporter = null;
+    syncStatusReporter.dispose();
     void bindSupervisor?.dispose();
     bindSupervisor = null;
     wsServer = null;
