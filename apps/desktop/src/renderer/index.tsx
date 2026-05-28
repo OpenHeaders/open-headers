@@ -1,4 +1,5 @@
 import './host/install-host-logger';
+import './host/install-protocol-host';
 import './host/install-rpc-fallback';
 import './host/install-host-storage';
 import './host/install-host-bridge';

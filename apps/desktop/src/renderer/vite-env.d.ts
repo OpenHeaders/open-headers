@@ -72,6 +72,10 @@ declare global {
           handler: (envelope: { portId: string; errorMessage?: string }) => void,
         ): () => void;
       };
+      openExternal(url: string): Promise<{ ok: boolean; error?: string }>;
+      protocol: {
+        onUrl(handler: (url: string) => void): () => void;
+      };
     };
   }
 }

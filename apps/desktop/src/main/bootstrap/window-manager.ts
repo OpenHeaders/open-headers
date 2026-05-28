@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { app, BrowserWindow, screen } from 'electron';
 import { shouldLaunchHidden } from './launch-flags';
 import { attachRendererDiagnostics } from './process-diagnostics';
+import { markRendererReadyAndDrain, resetRendererReady } from './protocol';
 import { isQuitting } from './quit-state';
 import { attachWindowSecurity } from './security';
 import { attachWindowStateTracking, loadWindowState } from './window-state';
@@ -71,6 +72,13 @@ export function createMainWindow(): BrowserWindow {
   attachWindowSecurity(win);
   attachWindowStateTracking(win);
   attachRendererDiagnostics(win);
+
+  // Renderer is ready to receive `oh:protocol:url` once its load
+  // completes (preload's `ipcRenderer.on` is wired before this fires).
+  // Dev hot-reload re-fires this — `markRendererReadyAndDrain` is
+  // idempotent and re-flushes anything queued during the reload.
+  win.webContents.on('did-finish-load', markRendererReadyAndDrain);
+  win.webContents.on('destroyed', resetRendererReady);
 
   const devUrl = process.env.ELECTRON_RENDERER_URL;
   if (devUrl) {

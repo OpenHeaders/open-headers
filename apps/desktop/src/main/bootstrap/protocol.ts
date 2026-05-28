@@ -4,20 +4,28 @@
  * with a URL routes through the running instance via `second-instance`
  * (works because the single-instance lock owns the original process).
  *
- * URLs received before the renderer-side handler is wired are buffered
- * and drained when the window exists; v5's invite / env-import flows
- * land in a later slice.
+ * URLs received before the renderer is ready to receive (no window yet,
+ * or the renderer's `did-finish-load` hasn't fired) are buffered. The
+ * window-manager calls `markRendererReadyAndDrain()` once the renderer
+ * load completes; from then on every incoming URL is forwarded to the
+ * `oh:protocol:url` channel directly.
+ *
+ * When the window hides + reshows, the renderer keeps its IPC
+ * subscription, so we leave `rendererReady` true until the webContents
+ * is replaced (window destroyed and recreated).
  */
 
-import { app } from 'electron';
+import { app, type BrowserWindow } from 'electron';
 import { createLogger } from './logger';
 import { getMainWindow, showMainWindow } from './window-manager';
 
 const logger = createLogger('protocol');
 
 const PROTOCOL_SCHEME = 'openheaders';
+const PROTOCOL_URL_CHANNEL = 'oh:protocol:url';
 
 const pendingProtocolUrls: string[] = [];
+let rendererReady = false;
 
 function rememberProtocolUrl(url: string | undefined): void {
   if (!url || !url.startsWith(`${PROTOCOL_SCHEME}://`)) return;
@@ -28,13 +36,39 @@ function findProtocolUrlInArgv(argv: readonly string[]): string | undefined {
   return argv.find((arg) => arg.startsWith(`${PROTOCOL_SCHEME}://`));
 }
 
+function sendUrlToWindow(win: BrowserWindow, url: string): void {
+  if (win.isDestroyed() || win.webContents.isDestroyed()) return;
+  win.webContents.send(PROTOCOL_URL_CHANNEL, url);
+}
+
 export function drainPendingProtocolUrls(): void {
-  if (pendingProtocolUrls.length === 0) return;
+  if (!rendererReady || pendingProtocolUrls.length === 0) return;
   const win = getMainWindow();
   if (!win || win.isDestroyed()) return;
   for (const url of pendingProtocolUrls.splice(0)) {
-    logger.info('protocol url received:', url);
+    logger.info('dispatching protocol url to renderer', url);
+    sendUrlToWindow(win, url);
   }
+}
+
+/**
+ * Called by the window-manager from `webContents.on('did-finish-load')`
+ * once the renderer's IPC subscription is in place. Idempotent — fires
+ * again on dev hot-reload reloads, which is the right time to re-flush
+ * anything queued during the reload window.
+ */
+export function markRendererReadyAndDrain(): void {
+  rendererReady = true;
+  drainPendingProtocolUrls();
+}
+
+/**
+ * Reset when the window's webContents is gone (close + recreate path
+ * from `showMainWindow` after a hard destroy). The next renderer load
+ * will call `markRendererReadyAndDrain` again.
+ */
+export function resetRendererReady(): void {
+  rendererReady = false;
 }
 
 export function installProtocolHandler(): void {

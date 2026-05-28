@@ -11,6 +11,7 @@ import 'electron-log/preload';
 import { contextBridge } from 'electron';
 import { externalLinks } from './preload/external-links';
 import { lifeline } from './preload/lifeline';
+import { protocol } from './preload/protocol';
 import { rpc, type BroadcastEnvelope } from './preload/rpc';
 import { startupData, type StartupData } from './preload/startup-data';
 import { storage, type StorageChangeEnvelope } from './preload/storage';
@@ -30,6 +31,7 @@ const api = {
   storage,
   lifeline,
   openExternal: externalLinks.openExternal,
+  protocol,
 };
 
 contextBridge.exposeInMainWorld('oh', api);
