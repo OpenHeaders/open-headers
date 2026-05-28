@@ -11,6 +11,7 @@
  */
 
 import { app, Menu, type MenuItemConstructorOptions, shell } from 'electron';
+import { createChildWindow } from './window-manager';
 
 const HOMEPAGE_URL = 'https://openheaders.io';
 const ISSUES_URL = 'https://github.com/OpenHeaders/open-headers-app/issues/new';
@@ -41,7 +42,17 @@ function template(): MenuItemConstructorOptions[] {
     ...macAppMenu,
     {
       label: 'File',
-      submenu: [isMac ? { role: 'close' } : { role: 'quit' }],
+      submenu: [
+        {
+          label: 'New Window',
+          accelerator: 'CommandOrControl+Shift+N',
+          click: () => {
+            createChildWindow();
+          },
+        },
+        { type: 'separator' },
+        isMac ? { role: 'close' } : { role: 'quit' },
+      ],
     },
     {
       label: 'Edit',

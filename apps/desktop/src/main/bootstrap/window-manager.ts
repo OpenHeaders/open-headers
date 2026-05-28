@@ -118,6 +118,69 @@ export function showMainWindow(): void {
 }
 
 /**
+ * Open an additional window. Unlike the tray-resident primary, child
+ * windows are destroyable on close, skip the launch-hidden gate, and
+ * don't participate in window-state persistence (their bounds reset on
+ * each open — a richer per-window persistence story can land later).
+ *
+ * They share the same React bundle and preload, so all the existing
+ * mirror / RPC machinery works without changes. macOS lists each
+ * window in the application Window menu automatically by title.
+ *
+ * Deep-link drain stays attached to the primary window only — secondary
+ * windows are intentionally outside the `openheaders://` target until
+ * we have a routing story.
+ */
+export function createChildWindow(): BrowserWindow {
+  const platformChrome =
+    process.platform === 'darwin'
+      ? {
+          titleBarStyle: 'hiddenInset' as const,
+          trafficLightPosition: { x: 14, y: 14 },
+        }
+      : {
+          titleBarStyle: 'hidden' as const,
+          titleBarOverlay: {
+            color: '#ffffff',
+            symbolColor: '#1d1d1f',
+            height: 40,
+          },
+        };
+
+  const { width: workW, height: workH } = screen.getPrimaryDisplay().workAreaSize;
+  const width = Math.max(MIN_WIDTH, Math.floor(workW * DEFAULT_WINDOW_FRACTION));
+  const height = Math.max(MIN_HEIGHT, Math.floor(workH * DEFAULT_WINDOW_FRACTION));
+
+  const win = new BrowserWindow({
+    width,
+    height,
+    minWidth: MIN_WIDTH,
+    minHeight: MIN_HEIGHT,
+    title: app.getName(),
+    show: false,
+    ...platformChrome,
+    webPreferences: {
+      preload: join(__dirname, '..', 'preload', 'index.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+
+  attachWindowSecurity(win);
+  attachRendererDiagnostics(win);
+
+  const devUrl = process.env.ELECTRON_RENDERER_URL;
+  if (devUrl) {
+    void win.loadURL(devUrl);
+  } else {
+    void win.loadFile(join(__dirname, '..', 'renderer', 'index.html'));
+  }
+
+  win.once('ready-to-show', () => win.show());
+  return win;
+}
+
+/**
  * Resolve a path inside `apps/desktop/build/` for both dev and packaged
  * runs. `extraResources` in `package.json` copies `build/*.png` to the
  * root of `process.resourcesPath` at pack time.
