@@ -2,11 +2,13 @@
  * Daemon "Known devices" admin surface (U3.4,
  * `UNIFIED_ORACLE_MODEL.md` §4.2 step 4 + `DATA_PLANE_TOPOLOGIES.md` §11.4).
  *
- * Visible only on the desktop daemon's LAN-peers section while
- * `backend.bindAddress === '0.0.0.0'` — when the daemon is loopback-only
- * there's no token gate to administer. Each access token is one device;
- * the list highlights tokens whose peer is connected right now and
- * offers a per-device rotate (mint a replacement, revoke the old one).
+ * Visible whenever the desktop is the active back-end (it owns the
+ * daemon). Pairing is the universal connection floor — every peer,
+ * loopback or LAN, presents a paired token (WS-A1) — so device
+ * management can't be gated on a non-loopback bind anymore. Each access
+ * token is one device; the list highlights tokens whose peer is
+ * connected right now and offers a per-device rotate (mint a
+ * replacement, revoke the old one).
  *
  * The connected-peer set is runtime ws-server state, polled over the
  * `oh.daemon.tokens.connected` RPC. The token ledger itself lives in
@@ -175,7 +177,7 @@ const DaemonTokensSection: React.FC = () => {
             color: themeToken.colorTextSecondary,
           }}
         >
-          Known devices
+          Paired devices
         </h3>
         <div style={{ fontSize: 11, color: themeToken.colorTextTertiary, marginTop: 1 }}>
           Each device that connects to this daemon authenticates with an access token. Connected devices are
@@ -212,13 +214,13 @@ const DaemonTokensSection: React.FC = () => {
         </Form>
         <div style={{ fontSize: 11, color: themeToken.colorTextTertiary, marginBottom: tokens.length > 0 ? 12 : 0 }}>
           Both add a token below. <strong>Generate token</strong> shows you the secret to copy and paste into the
-          device yourself. <strong>Pair a device</strong> shows a link the device opens in a browser to collect its
-          own token — use it when someone else sets up the device.
+          device yourself. <strong>Pair a device</strong> shows a short code the device enters under Settings →
+          Backend → Pair with a code (or opens a link, as a fallback) — use it when someone else sets up the device.
         </div>
         {tokens.length === 0 ? (
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-            No devices yet. Generate a token and paste it into the peer's Settings → Backend → Daemon auth token, or
-            pair a device to walk it through a browser.
+            No devices yet. Generate a token and paste it into the device's Settings → Backend, or pair a device and
+            have it enter the code there.
           </Typography.Text>
         ) : (
           <List

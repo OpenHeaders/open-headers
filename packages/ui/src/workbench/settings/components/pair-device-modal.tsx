@@ -2,22 +2,25 @@
  * Daemon-side pairing modal (U3.3, `DATA_PLANE_TOPOLOGIES.md` §11.4
  * hybrid pattern).
  *
- * The admin clicks "Pair a device" on the daemon's LAN-peers settings.
- * This modal allocates a fresh 6-digit code via the
- * `oh.daemon.pairing.start` RPC, displays it alongside every reachable
- * URL + a QR rendering, and polls `oh.daemon.pairing.list` once per
- * second to flip into the "Paired" state when the peer confirms in
- * their browser.
+ * The admin clicks "Pair a device" on the daemon's Paired-devices
+ * surface. This modal allocates a fresh 6-digit code via the
+ * `oh.daemon.pairing.start` RPC, displays it with a 5-minute countdown,
+ * and polls `oh.daemon.pairing.list` once per second to flip into the
+ * "Paired" state when the peer confirms.
  *
- * The secret itself NEVER reaches this modal — it's emitted in the
- * peer's confirm-page HTML response and the peer pastes it into their
- * own Settings → Backend → Daemon auth token. The daemon-side ledger
- * records only the hash (same path as the manual "Generate token"
- * flow); the admin sees the new token row appear in `DaemonTokensSection`
- * once polling reports `confirmed`/`consumed`.
+ * Primary path (WS-A2): the peer types this code into their own
+ * Settings → Backend → "Pair with a code", which exchanges it for a
+ * token in-app — no page to open, nothing to hand-copy. The daemon-served
+ * link + QR remain a fallback for a device without that affordance: it
+ * opens an HTML confirm page that surfaces a token to paste by hand.
+ *
+ * Either way the secret NEVER reaches this modal — the daemon-side
+ * ledger records only the hash (same path as the manual "Generate
+ * token" flow); the admin sees the new token row appear in
+ * `DaemonTokensSection` once polling reports `confirmed`/`consumed`.
  */
 
-import { App as AntApp, Alert, Button, Input, Modal, QRCode, Space, Tag, Typography, theme } from 'antd';
+import { App as AntApp, Alert, Button, Divider, Input, Modal, QRCode, Space, Tag, Typography, theme } from 'antd';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type React from 'react';
 import { hostBridge } from '@openheaders/core/bridge';
@@ -189,85 +192,81 @@ const PairDeviceModal: React.FC<Props> = ({ open, onClose }) => {
           type="success"
           showIcon
           message="Paired"
-          description="The peer confirmed in their browser. A fresh access token has been added to the list below; the secret was shown to the peer once. If they lost it, revoke the new entry and pair again."
+          description="The device confirmed the code. A fresh access token was issued and saved on that device; it appears in the list below. If the device can't connect, revoke the entry and pair again."
         />
       )}
 
       {status === 'pending' && active && primary && (
         <div>
-          <Typography.Paragraph style={{ marginBottom: 8 }}>
-            Hand the URL or QR below to whoever is setting up the other
-            device. On <em>that</em> device:
-          </Typography.Paragraph>
-          <ol style={{ margin: '0 0 12px', paddingLeft: 20, fontSize: 13, lineHeight: 1.6 }}>
-            <li>
-              Open the pairing URL in a web browser (scan the QR, paste
-              the URL, or type it with the {active.code.length}-digit
-              code on the end). It opens a page served by this daemon —
-              nothing to install.
-            </li>
-            <li>Optionally name the device, then click <strong>Confirm pairing</strong>.</li>
-            <li>The page shows an access token — copy it.</li>
-            <li>
-              Paste that token into the device's Open Headers app under
-              Settings → Backend → Daemon auth token.
-            </li>
-          </ol>
-          <Typography.Paragraph type="secondary" style={{ marginBottom: 8, fontSize: 12 }}>
-            There is no code to type into a field — the code is already
-            part of the URL. Reading the code aloud only helps if the
-            other person is typing the URL by hand.
+          <Typography.Paragraph style={{ marginBottom: 12 }}>
+            On the other device, open <strong>Settings → Backend</strong>, point
+            its <strong>Backend address</strong> at this app, then click{' '}
+            <strong>Pair with a code</strong> and enter:
           </Typography.Paragraph>
 
           <div
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: 16,
+              textAlign: 'center',
+              padding: '14px 16px',
               borderRadius: 10,
               border: `1px solid ${token.colorBorderSecondary}`,
               marginBottom: 12,
             }}
           >
-            <div>
-              <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.4, color: token.colorTextTertiary }}>
-                Pairing code
-              </div>
-              <div
-                style={{
-                  fontSize: 36,
-                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-                  fontWeight: 600,
-                  letterSpacing: 4,
-                  marginTop: 2,
-                }}
-              >
-                {active.code}
-              </div>
-              <div style={{ fontSize: 12, color: token.colorTextTertiary, marginTop: 4 }}>
-                expires in {formatRemaining(active.expiresAt, tick)}
-              </div>
+            <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.4, color: token.colorTextTertiary }}>
+              Pairing code
             </div>
-            <QRCode value={primary.url} size={128} bordered={false} />
+            <div
+              style={{
+                fontSize: 40,
+                fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                fontWeight: 600,
+                letterSpacing: 6,
+                marginTop: 2,
+              }}
+            >
+              {active.code}
+            </div>
+            <div style={{ fontSize: 12, color: token.colorTextTertiary, marginTop: 4 }}>
+              expires in {formatRemaining(active.expiresAt, tick)}
+            </div>
           </div>
 
           <div style={{ fontSize: 12, color: token.colorTextSecondary, marginBottom: 4 }}>
-            Pairing URLs
+            Backend address for this app
           </div>
           <Space direction="vertical" size={6} style={{ width: '100%' }}>
-            {active.pairingUrls.map((u) => (
-              <div key={u.host} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <Input value={u.url} readOnly size="small" style={{ fontFamily: 'monospace', fontSize: 12 }} />
-                {u.iface ? (
-                  <Tag style={{ marginInlineEnd: 0 }}>{u.iface}</Tag>
-                ) : (
-                  <Tag style={{ marginInlineEnd: 0 }}>loopback</Tag>
-                )}
-                <Button size="small" onClick={() => void copyToClipboard(u.url)}>Copy</Button>
-              </div>
-            ))}
+            {active.pairingUrls.map((u) => {
+              const wsUrl = `ws://${u.host}:${active.port}`;
+              return (
+                <div key={u.host} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <Input value={wsUrl} readOnly size="small" style={{ fontFamily: 'monospace', fontSize: 12 }} />
+                  <Tag style={{ marginInlineEnd: 0 }}>{u.iface ?? 'loopback'}</Tag>
+                  <Button size="small" onClick={() => void copyToClipboard(wsUrl)}>Copy</Button>
+                </div>
+              );
+            })}
           </Space>
+
+          <Divider style={{ margin: '14px 0 12px' }} />
+
+          <Typography.Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 8 }}>
+            No <strong>Pair with a code</strong> option on that device? Open one of
+            these links there instead — it serves a page that hands over a token to
+            paste by hand.
+          </Typography.Paragraph>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+            <Space direction="vertical" size={6} style={{ flex: 1, minWidth: 0 }}>
+              {active.pairingUrls.map((u) => (
+                <div key={u.host} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <Input value={u.url} readOnly size="small" style={{ fontFamily: 'monospace', fontSize: 12 }} />
+                  <Tag style={{ marginInlineEnd: 0 }}>{u.iface ?? 'loopback'}</Tag>
+                  <Button size="small" onClick={() => void copyToClipboard(u.url)}>Copy</Button>
+                </div>
+              ))}
+            </Space>
+            <QRCode value={primary.url} size={96} bordered={false} />
+          </div>
         </div>
       )}
     </Modal>

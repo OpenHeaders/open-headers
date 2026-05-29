@@ -750,18 +750,6 @@ const SUBSECTION_BLURB: Record<string, string> = {
   'lan-peers': 'Who outside this machine can reach the daemon.',
 };
 
-/**
- * Token issuance only matters when the daemon is bound non-loopback —
- * loopback peers are trust-by-process. Subscribing inline keeps the
- * section reactive to the LAN-peers toggle without lifting state into
- * ConfigPanel.
- */
-const DaemonTokensGate: React.FC = () => {
-  const bindAddress = useSettingValue('backend.bindAddress');
-  if (bindAddress !== '0.0.0.0') return null;
-  return <DaemonTokensSection />;
-};
-
 const ConfigPanel: React.FC<{
   pending: boolean;
   mode: BackendMode;
@@ -792,9 +780,9 @@ const ConfigPanel: React.FC<{
   }
 
   // Two "host IS the back-end" cases: there's no outbound wire to tune,
-  // but the desktop daemon still has inbound-side knobs (bind address
-  // and, later, the auth token surface) for peers reaching IN. Render
-  // just those rows — every other config field is outbound.
+  // but the desktop daemon still has inbound-side surfaces (the bind
+  // address and the Paired-devices token management) for peers reaching
+  // IN. Render just those — every other config field is outbound.
   if (hostIsTheBackend(mode, host)) {
     // LAN-peers config is meaningful only on the desktop daemon. Gate
     // the whole section at the branch level; strip each row's `when`
@@ -852,7 +840,7 @@ const ConfigPanel: React.FC<{
             </div>
           </section>
         )}
-        {isDaemonContext && <DaemonTokensGate />}
+        {isDaemonContext && <DaemonTokensSection />}
       </>
     );
   }
