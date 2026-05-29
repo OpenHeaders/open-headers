@@ -22,14 +22,15 @@ import { ArrowRightOutlined, ExperimentOutlined, SwapOutlined } from '@ant-desig
 import { Alert, App as AntApp, Button, theme, Typography } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
+import { hasCapability } from '@openheaders/core/capabilities';
 import { generateUid } from '@openheaders/core/utils';
 import { probeBackendConnection } from '../../../shared/backend/probe-connection';
 import { getCurrentHost, type Host } from '../../../shared/host-vocabulary';
-import { getStatusSnapshot, subscribe as subscribeStatus } from '../../../shared/status';
+import { getStatusSnapshot, type StatusEntry, subscribe as subscribeStatus } from '../../../shared/status';
 import { useOptionalInspectorNav } from '../../hooks/useInspectorNav';
 import type { BackendMode } from '../schema/backend';
 import { backendModeIsPending, backendModeNeedsConnection } from '../schema/backend';
-import { useSettingValue } from '../hooks';
+import { useSetting, useSettingValue } from '../hooks';
 import { useBackendModeSwitch } from './backend-mode-switch';
 import type { CategoryDef, CategoryPaneProps, SettingDef, SubcategoryDef } from '../types';
 import SettingRow from '../fields/SettingRow';
@@ -37,6 +38,7 @@ import { BackendDetailDiagram } from './backend-details';
 import { type BackendIconKey, BackendIcon } from './backend-icons';
 import { BackendTierCard } from './backend-tier-card';
 import DaemonTokensSection from './daemon-tokens-section';
+import { PairPopover } from './pair-popover';
 
 interface ScenarioDescriptor {
   mode: BackendMode;
@@ -167,6 +169,8 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
           {HOST_INTRO[host]} <DocsLink />
         </div>
       </header>
+
+      <RePairBanner mode={activeScenario.mode} host={host} />
 
       <ModePicker
         scenarios={SCENARIOS}
@@ -700,17 +704,73 @@ function isHostImplicitlyLive(mode: BackendMode, host: Host): boolean {
   return false;
 }
 
-function computeLive(
-  mode: BackendMode,
-  host: Host,
-  sync: import('../../../shared/status').StatusEntry | undefined,
-): boolean {
+function computeLive(mode: BackendMode, host: Host, sync: StatusEntry | undefined): boolean {
   if (isHostImplicitlyLive(mode, host)) return true;
   if (!sync) return false;
   if (sync.state !== 'green') return false;
   if (mode === 'in-browser') return sync.message === 'Running in this browser';
   return sync.message === 'Connected to back-end';
 }
+
+// ── Re-pair banner (WS-A6) ─────────────────────────────────────────
+
+/**
+ * `true` when the active back-end rejected this device's saved token
+ * (`auth-required`). Derived from the same `sync` Status entry
+ * `useBackendLive` reads — the handshake reporter stamps the reject
+ * reason into `context.reason`, so no new SW/protocol channel is needed.
+ *
+ * Only meaningful for client modes (the host dials an external
+ * back-end). When the host IS the back-end, there's no token wire to
+ * reject. Flaps with the red state during reconnect backoff, which is
+ * fine: it drives a banner show/hide, not a modal.
+ */
+function useBackendAuthRequired(mode: BackendMode, host: Host): boolean {
+  const [authRequired, setAuthRequired] = useState(() =>
+    computeAuthRequired(mode, host, getStatusSnapshot().sync),
+  );
+  useEffect(() => {
+    setAuthRequired(computeAuthRequired(mode, host, getStatusSnapshot().sync));
+    return subscribeStatus(() => {
+      setAuthRequired(computeAuthRequired(mode, host, getStatusSnapshot().sync));
+    });
+  }, [mode, host]);
+  return authRequired;
+}
+
+function computeAuthRequired(mode: BackendMode, host: Host, sync: StatusEntry | undefined): boolean {
+  if (isHostImplicitlyLive(mode, host)) return false;
+  if (!backendModeNeedsConnection(mode)) return false;
+  if (!sync) return false;
+  return sync.state === 'red' && sync.context?.reason === 'auth-required';
+}
+
+/**
+ * Surfaced when the active back-end rejects the saved token. The token
+ * is KEPT (a daemon restart re-reads its ledger and the token may still
+ * be valid) — pairing with a fresh code overwrites it via `onPaired`.
+ * The configured back-end address (A3) is never touched. Manual,
+ * prominent: a primary "Pair with a code" CTA, not an auto-popup.
+ *
+ * Hidden when the running host can't pair by code — that host recovers
+ * by another gesture, so a code popover would dead-end.
+ */
+const RePairBanner: React.FC<{ mode: BackendMode; host: Host }> = ({ mode, host }) => {
+  const authRequired = useBackendAuthRequired(mode, host);
+  const url = useSettingValue('backend.url');
+  const [, setToken] = useSetting('backend.authToken');
+  if (!authRequired || !hasCapability('pairWithCode')) return null;
+  return (
+    <Alert
+      type="warning"
+      showIcon
+      message="Re-pair needed"
+      description="The back-end rejected this device's saved token. Pair again with a fresh code — your configured back-end address stays as is."
+      action={<PairPopover url={url} onPaired={setToken} buttonType="primary" />}
+      style={{ marginBottom: 14 }}
+    />
+  );
+};
 
 // ── Docs link ──────────────────────────────────────────────────────
 
