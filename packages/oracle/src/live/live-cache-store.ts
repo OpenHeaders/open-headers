@@ -244,6 +244,10 @@ export async function applySyncedLiveValues(
             extractedAt: value.extractedAt,
             expiresAt: value.expiresAt,
             lastSyncedValueAt: mergedAt,
+            // A fresh remote value is the backend coming back to life —
+            // clear any C9 exclusive-degraded mark so the pill drops out
+            // of "reconnect the desktop" the instant the value lands.
+            exclusiveDegradedSince: undefined,
           }
         : {
             workflowUid: value.workflowUid,
@@ -449,6 +453,10 @@ export async function recordRefreshError(input: RefreshErrorInput, workspaceId?:
       // recently arrived — a connected peer should keep deferring to the
       // backend rather than treat its own failure as taking over (C8).
       lastSyncedValueAt: previous?.lastSyncedValueAt,
+      // Likewise a failed own refresh doesn't mean the backend is back —
+      // preserve the C9 exclusive-degraded mark until a genuinely fresh
+      // remote value (or an own success) clears it.
+      exclusiveDegradedSince: previous?.exclusiveDegradedSince,
     };
     const next: LiveCacheBlob = {
       schemaVersion: current.schemaVersion,
@@ -494,6 +502,45 @@ export async function markProbeStartForRun(
     const transitioned = transitionOpenToHalfOpen(previous.circuit, nowMs);
     if (transitioned === previous.circuit) return; // no-op
     latest = { ...previous, circuit: transitioned };
+    const next: LiveCacheBlob = {
+      schemaVersion: current.schemaVersion,
+      version: current.version + 1,
+      runs: { ...current.runs, [key]: latest },
+    };
+    await writeBlob(wsId, next);
+    postWriteRuns = Object.values(next.runs);
+  });
+  if (latest) notifyChange(wsId, workflowUid, postWriteRuns);
+  return latest;
+}
+
+/**
+ * Mark a run's *exclusive* credential as degraded because a connected peer
+ * declined to self-refresh it at the near-expiry escape hatch (WS-C C9) —
+ * the backend that was producing this remote-sourced value went silent and
+ * a self-refresh would burn the single-use code / trip OAuth reuse-detection.
+ *
+ * Idempotent: once marked, a re-mark is a no-op (preserves the original
+ * `since` and avoids notify churn on the steady-state re-check poll). No
+ * row → null (nothing to degrade). The mark is cleared by a fresh remote
+ * value (`applySyncedLiveValues`) or this host producing the value itself
+ * (`putWorkflowRunCache` writes a row without the field).
+ */
+export async function markExclusiveDegradedForRun(
+  workflowUid: string,
+  environmentId: string | null,
+  sinceMs: number = Date.now(),
+  workspaceId?: string,
+): Promise<WorkflowRunCache | null> {
+  const wsId = resolveWorkspaceId(workspaceId);
+  const key = runKey(workflowUid, environmentId);
+  let latest: WorkflowRunCache | null = null;
+  let postWriteRuns: WorkflowRunCache[] = [];
+  await withCacheLock(wsId, async () => {
+    const current = await readBlob(wsId);
+    const previous: WorkflowRunCache | undefined = current.runs[key];
+    if (!previous || previous.exclusiveDegradedSince != null) return; // absent or already degraded
+    latest = { ...previous, exclusiveDegradedSince: sinceMs };
     const next: LiveCacheBlob = {
       schemaVersion: current.schemaVersion,
       version: current.version + 1,

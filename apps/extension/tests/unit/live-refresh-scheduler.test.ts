@@ -24,6 +24,10 @@ const alarmsClearMock = vi.fn<(name: string) => void>();
 const alarmsGetAllMock = vi.fn<() => Promise<chrome.alarms.Alarm[]>>();
 const recordLogMock = vi.fn();
 const recordRefreshErrorMock = vi.fn();
+const markExclusiveDegradedForRunMock = vi.fn<(...args: unknown[]) => Promise<unknown>>(async () => null);
+const deriveExecutionPolicyForWorkflowMock = vi.fn<() => { policy: 'idempotent' | 'exclusive'; reasons: unknown[] }>(
+  () => ({ policy: 'idempotent', reasons: [] }),
+);
 const clearWorkflowRunCacheMock = vi.fn<(...args: unknown[]) => Promise<number>>(async () => 0);
 const clearWorkflowRunCacheForEnvironmentMock = vi.fn<(...args: unknown[]) => Promise<boolean>>(async () => true);
 const markWorkflowDefinitionallyStaleMock = vi.fn<(...args: unknown[]) => Promise<number>>(async () => 0);
@@ -179,6 +183,16 @@ vi.mock('@openheaders/oracle/live/live-cache-store', () => ({
   clearWorkflowRunCacheForEnvironment: (...args: unknown[]) => clearWorkflowRunCacheForEnvironmentMock(...args),
   markWorkflowDefinitionallyStale: (...args: unknown[]) => markWorkflowDefinitionallyStaleMock(...args),
   markRunDefinitionallyStale: (...args: unknown[]) => markRunDefinitionallyStaleMock(...args),
+  markExclusiveDegradedForRun: (...args: unknown[]) => markExclusiveDegradedForRunMock(...args),
+}));
+
+// Isolate the scheduler's C9 escape-hatch branch from the policy
+// assembler — the assembler's store-reading is covered by its own test;
+// here we drive the policy verdict directly. Default idempotent so every
+// pre-C9 test (and the C8 idempotent escape hatch) behaves unchanged.
+vi.mock('@openheaders/oracle/live/execution-policy-resolver', () => ({
+  deriveExecutionPolicyForWorkflow: (...args: unknown[]) =>
+    (deriveExecutionPolicyForWorkflowMock as unknown as (...a: unknown[]) => unknown)(...args),
 }));
 
 // Active-pointer change listeners — the scheduler subscribes to these
@@ -317,6 +331,9 @@ beforeEach(async () => {
   clearWorkflowRunCacheForEnvironmentMock.mockClear();
   markWorkflowDefinitionallyStaleMock.mockClear();
   markRunDefinitionallyStaleMock.mockClear();
+  markExclusiveDegradedForRunMock.mockClear();
+  deriveExecutionPolicyForWorkflowMock.mockReset();
+  deriveExecutionPolicyForWorkflowMock.mockReturnValue({ policy: 'idempotent', reasons: [] });
   storeState = {
     workflows: [],
     variables: [],
@@ -2595,5 +2612,130 @@ describe('cadence ownership — peer defer (C8)', () => {
     } as chrome.alarms.Alarm);
 
     expect(refreshSpy).toHaveBeenCalledOnce();
+  });
+});
+
+// ── Near-expiry escape hatch — exclusive class (C9) ────────────────
+
+describe('near-expiry escape hatch — exclusive class (C9)', () => {
+  beforeEach(() => {
+    Object.defineProperty(globalThis.navigator, 'onLine', { value: true, configurable: true, writable: true });
+  });
+
+  /** A remote-sourced row sitting inside the 30s near-expiry hatch window. */
+  function hatchedCache(now: number): TestCacheRow {
+    return {
+      workflowUid: 'wflow001',
+      environmentId: null,
+      stepCaptures: {},
+      extractedAt: now,
+      expiresAt: now + 5_000, // inside the 30s hatch
+      stepResponseBytes: {},
+      consecutiveFailures: 0,
+      lastExtractorOk: true,
+      lastSyncedValueAt: now,
+    };
+  }
+
+  async function fireHatch(now: number): Promise<void> {
+    storeState.workflows = [makeWorkflow()];
+    storeState.variables = [makeVariable()];
+    storeState.caches = [hatchedCache(now)];
+    await scheduler.handleLiveAlarm({
+      name: scheduler.buildAlarmName('ws-live', 'wflow001', null),
+      scheduledTime: now,
+    } as chrome.alarms.Alarm);
+  }
+
+  it('does NOT self-refresh an exclusive cred — marks it degraded + logs ExclusiveDeferred', async () => {
+    const refreshSpy = vi.fn<() => Promise<void>>(async () => {});
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
+    scheduler.setBackendConnectionProbe(() => true);
+    deriveExecutionPolicyForWorkflowMock.mockReturnValue({
+      policy: 'exclusive',
+      reasons: [{ kind: 'totp', vaultName: 'otp' }],
+    });
+    const now = Date.now();
+
+    await fireHatch(now);
+
+    // Did not burn the single-use cred.
+    expect(refreshSpy).not.toHaveBeenCalled();
+    // No failure counter bump — this is a deliberate skip, not a failure.
+    expect(recordRefreshErrorMock).not.toHaveBeenCalled();
+    // Row marked degraded so the Status pill can say "reconnect the desktop".
+    expect(markExclusiveDegradedForRunMock).toHaveBeenCalledTimes(1);
+    const [uid, envId, , ws] = markExclusiveDegradedForRunMock.mock.calls[0];
+    expect(uid).toBe('wflow001');
+    expect(envId).toBeNull();
+    expect(ws).toBe('ws-live');
+    // Logged as a no-op skip, not an error.
+    const failed = recordLogMock.mock.calls
+      .map((c) => c[0] as { op: string; level: string; context?: { errorClass?: string } })
+      .find((e) => e.op === 'refresh-failed');
+    expect(failed?.context?.errorClass).toBe('ExclusiveDeferred');
+    expect(failed?.level).toBe('info');
+  });
+
+  it('still self-refreshes an idempotent cred in the same window (preserves 401-safety)', async () => {
+    const refreshSpy = vi.fn<() => Promise<void>>(async () => {});
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
+    scheduler.setBackendConnectionProbe(() => true);
+    // Default mock verdict is idempotent.
+    const now = Date.now();
+
+    await fireHatch(now);
+
+    expect(refreshSpy).toHaveBeenCalledOnce();
+    expect(markExclusiveDegradedForRunMock).not.toHaveBeenCalled();
+  });
+
+  it('self-refreshes an exclusive cred when NO backend is connected (sole runner, not a peer)', async () => {
+    const refreshSpy = vi.fn<() => Promise<void>>(async () => {});
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
+    // No probe → isBackendConnected() false → the defer block is skipped
+    // entirely; an exclusive Mode-1 runner is the legitimate sole runner.
+    deriveExecutionPolicyForWorkflowMock.mockReturnValue({
+      policy: 'exclusive',
+      reasons: [{ kind: 'totp', vaultName: 'otp' }],
+    });
+    const now = Date.now();
+
+    await fireHatch(now);
+
+    expect(refreshSpy).toHaveBeenCalledOnce();
+    expect(markExclusiveDegradedForRunMock).not.toHaveBeenCalled();
+    // Policy is never even consulted when there's no backend to defer to.
+    expect(deriveExecutionPolicyForWorkflowMock).not.toHaveBeenCalled();
+  });
+
+  it('re-defers (not degrades) an exclusive cred that is still fresh — outside the hatch', async () => {
+    const refreshSpy = vi.fn<() => Promise<void>>(async () => {});
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
+    scheduler.setBackendConnectionProbe(() => true);
+    deriveExecutionPolicyForWorkflowMock.mockReturnValue({
+      policy: 'exclusive',
+      reasons: [{ kind: 'totp', vaultName: 'otp' }],
+    });
+    const now = Date.now();
+    storeState.workflows = [makeWorkflow()];
+    storeState.variables = [makeVariable()];
+    storeState.caches = [
+      { ...hatchedCache(now), expiresAt: now + 3_600_000 }, // far from expiry
+    ];
+
+    await scheduler.handleLiveAlarm({
+      name: scheduler.buildAlarmName('ws-live', 'wflow001', null),
+      scheduledTime: now,
+    } as chrome.alarms.Alarm);
+
+    // The plain C8 defer wins before the policy check is reached.
+    expect(refreshSpy).not.toHaveBeenCalled();
+    expect(markExclusiveDegradedForRunMock).not.toHaveBeenCalled();
+    expect(deriveExecutionPolicyForWorkflowMock).not.toHaveBeenCalled();
+    const failed = recordLogMock.mock.calls
+      .map((c) => c[0] as { op: string; context?: { errorClass?: string } })
+      .find((e) => e.op === 'refresh-failed');
+    expect(failed?.context?.errorClass).toBe('Deferred');
   });
 });

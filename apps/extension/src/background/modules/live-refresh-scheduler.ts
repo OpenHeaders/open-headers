@@ -64,9 +64,11 @@ import {
   startDefinitionalFreshness,
   stopDefinitionalFreshness,
 } from '@openheaders/oracle/live/definitional-freshness';
+import { deriveExecutionPolicyForWorkflow } from '@openheaders/oracle/live/execution-policy-resolver';
 import {
   listCachesForWorkflow,
   listWorkflowRunCaches,
+  markExclusiveDegradedForRun,
   markProbeStartForRun,
   onLiveCacheStoreChange,
   recordRefreshError,
@@ -426,25 +428,39 @@ const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | 
     if (!isNetworkOnline()) {
       throw new OfflineError(`offline: workflow ${payload.u} refresh skipped (navigator.onLine=false)`);
     }
-    // Cadence-ownership defer gate (WS-C C8). This alarm is the
+    // Cadence-ownership defer gate (WS-C C8 + C9). This alarm is the
     // near-expiry SAFETY fire `applyDeferOverride` armed for a connected
-    // peer holding a remote-sourced value. If it fires while the value is
-    // still comfortably fresh — a Chrome early-wake, or a fresher synced
-    // value is mid-flight before its store-change reconcile re-armed us —
-    // re-defer instead of refreshing (re-arm via `recordFailure`, like
-    // the circuit/offline skips). At/after the near-expiry threshold with
-    // nothing fresher, fall through and self-refresh: the C9 escape
-    // hatch's idempotent branch. (C9 adds the exclusive "banner, don't
-    // self-refresh" branch here; C8 self-refreshes every class — a strict
-    // improvement over both hosts double-firing on their own cadences.)
+    // peer holding a remote-sourced value.
     const now = Date.now();
-    if (
-      isBackendConnected() &&
-      entry.cache?.lastSyncedValueAt != null &&
-      entry.cache.expiresAt != null &&
-      !isWithinDeferHatchWindow(entry.cache.expiresAt, now)
-    ) {
-      throw new DeferredError(`deferred: workflow ${payload.u} — backend owns cadence, synced value still fresh`);
+    if (isBackendConnected() && entry.cache?.lastSyncedValueAt != null && entry.cache.expiresAt != null) {
+      if (!isWithinDeferHatchWindow(entry.cache.expiresAt, now)) {
+        // Still comfortably fresh — a Chrome early-wake, or a fresher
+        // synced value mid-flight before its store-change reconcile
+        // re-armed us. Re-defer instead of refreshing (re-arm via
+        // `recordFailure`, like the circuit/offline skips).
+        throw new DeferredError(`deferred: workflow ${payload.u} — backend owns cadence, synced value still fresh`);
+      }
+      // In the near-expiry escape-hatch window with the backend still
+      // marked connected — i.e. the backend that was producing this value
+      // has gone silent/failing (a healthy backend keeps pushing expiry
+      // out, so the safety fire never lands). C9 splits the hatch by
+      // execution policy:
+      //   • idempotent → fall through and self-refresh (preserves the
+      //     401-safety the feature sells — N concurrent mints are at
+      //     worst wasteful).
+      //   • exclusive → do NOT self-refresh (a concurrent run burns a
+      //     single-use TOTP code / trips OAuth reuse-detection and
+      //     silently revokes the session). Mark the row degraded so the
+      //     Status pill says "reconnect the desktop," and re-defer
+      //     (re-arm, no self-refresh) until a fresh synced value lands or
+      //     the backend reconnects.
+      const { policy } = deriveExecutionPolicyForWorkflow(entry.workspaceId, entry.workflow, entry.environmentId);
+      if (policy === 'exclusive') {
+        await markExclusiveDegradedForRun(payload.u, payload.e, now, payload.w);
+        throw new ExclusiveDeferredError(
+          `exclusive-deferred: workflow ${payload.u} — exclusive cred, backend silent near expiry; degrading instead of racing`,
+        );
+      }
     }
     // Circuit-aware attempt gate. If the cache says the circuit is
     // OPEN and we haven't reached `nextAttemptAt` yet, bail out of
@@ -488,8 +504,18 @@ const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | 
     // deferred safety alarm fired but a fresher synced value is still in
     // play. No probe happened, no counter bump — just re-arm so the next
     // fire lines up with the (possibly newly-pushed-out) near-expiry
-    // threshold.
-    if (err instanceof CircuitBlockedError || err instanceof OfflineError || err instanceof DeferredError) {
+    // threshold. `ExclusiveDeferredError` (WS-C C9) joins it too: the peer
+    // declined to self-refresh an exclusive cred while the backend is
+    // silent — re-arm at the cadence floor (≥30s, like the offline poll)
+    // so the degraded banner clears promptly once the backend returns and
+    // a fresh value lands. No freshness precondition — it is "waiting for
+    // rescue," not "deferring to a live producer."
+    if (
+      err instanceof CircuitBlockedError ||
+      err instanceof OfflineError ||
+      err instanceof DeferredError ||
+      err instanceof ExclusiveDeferredError
+    ) {
       if (job) {
         void scheduler.schedule(job).catch((e) => logger.warn('LiveScheduler', 'Re-schedule after skip failed', e));
       }
@@ -570,7 +596,8 @@ const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | 
     const isBlocked = err instanceof CircuitBlockedError;
     const isOffline = err instanceof OfflineError;
     const isDeferred = err instanceof DeferredError;
-    const isNoOp = isBlocked || isOffline || isDeferred;
+    const isExclusiveDeferred = err instanceof ExclusiveDeferredError;
+    const isNoOp = isBlocked || isOffline || isDeferred || isExclusiveDeferred;
     recordLog({
       subsystem: 'live',
       op: 'refresh-failed',
@@ -580,26 +607,30 @@ const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | 
       level: isNoOp ? 'info' : isStub ? 'warn' : 'error',
       message: isOffline
         ? `Offline — refresh deferred for workflow ${payload.u}`
-        : isDeferred
-          ? `Backend owns cadence for workflow ${payload.u} — peer refresh deferred`
-          : isBlocked
-            ? `Circuit open for workflow ${payload.u} — refresh declined`
-            : isStub
-              ? `No refresh adapter for workflow ${payload.u} (Phase D not yet wired)`
-              : `Refresh failed for ${payload.u}: ${err.message}`,
+        : isExclusiveDeferred
+          ? `Exclusive cred degraded for workflow ${payload.u} — backend silent, peer won't race (reconnect the desktop)`
+          : isDeferred
+            ? `Backend owns cadence for workflow ${payload.u} — peer refresh deferred`
+            : isBlocked
+              ? `Circuit open for workflow ${payload.u} — refresh declined`
+              : isStub
+                ? `No refresh adapter for workflow ${payload.u} (Phase D not yet wired)`
+                : `Refresh failed for ${payload.u}: ${err.message}`,
       context: {
         workspaceId: payload.w,
         workflowUid: payload.u,
         environmentId: payload.e,
         errorClass: isOffline
           ? 'Offline'
-          : isDeferred
-            ? 'Deferred'
-            : isBlocked
-              ? 'CircuitBlocked'
-              : isStub
-                ? 'SchedulerNotReady'
-                : err.name,
+          : isExclusiveDeferred
+            ? 'ExclusiveDeferred'
+            : isDeferred
+              ? 'Deferred'
+              : isBlocked
+                ? 'CircuitBlocked'
+                : isStub
+                  ? 'SchedulerNotReady'
+                  : err.name,
       },
     });
   },
@@ -647,6 +678,24 @@ class DeferredError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'Deferred';
+  }
+}
+
+/**
+ * Sentinel thrown by the C9 near-expiry escape hatch when a connected peer
+ * declines to self-refresh an *exclusive* credential whose producing backend
+ * has gone silent near expiry. Not a failure — refreshing would burn the
+ * single-use code / trip OAuth reuse-detection. `provider.refresh` has
+ * already marked the row degraded (`markExclusiveDegradedForRun`) so the
+ * Status pill surfaces "reconnect the desktop"; this only routes the no-op:
+ * `recordFailure` re-arms at the cadence floor without touching the circuit,
+ * and `onFailed` logs it at info. A class (not a string match) so the
+ * narrowing in those branches stays exhaustive.
+ */
+class ExclusiveDeferredError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ExclusiveDeferred';
   }
 }
 
@@ -1024,13 +1073,25 @@ async function recomputeLiveStatus(): Promise<void> {
   }
   let red = 0;
   let yellow = 0;
+  let degraded = 0;
   let firstRed: string | undefined;
   let firstYellow: string | undefined;
+  let firstDegraded: string | undefined;
   const now = Date.now();
   for (const run of runs) {
     if (run.consecutiveFailures >= RED_FAILURE_THRESHOLD) {
       red++;
       firstRed ??= run.workflowUid;
+      continue;
+    }
+    // C9: a connected peer declined to refresh this exclusive credential
+    // because its backend went silent. Surface the actionable "reconnect"
+    // message ahead of the generic stale-yellow — the value will expire,
+    // but a self-refresh would burn the cred, so the user must bring the
+    // backend back rather than wait for this host to recover it.
+    if (run.exclusiveDegradedSince != null) {
+      degraded++;
+      firstDegraded ??= run.workflowUid;
       continue;
     }
     if (run.consecutiveFailures > 0 || !run.lastExtractorOk) {
@@ -1052,6 +1113,15 @@ async function recomputeLiveStatus(): Promise<void> {
       state: 'red',
       message: `${red} workflow${red === 1 ? '' : 's'} failing (${RED_FAILURE_THRESHOLD}+ consecutive)`,
       context: { red, yellow, firstRed },
+    });
+    return;
+  }
+  if (degraded > 0) {
+    reportStatus({
+      subsystem: 'live',
+      state: 'yellow',
+      message: `${degraded} exclusive credential${degraded === 1 ? '' : 's'} can't refresh — reconnect the desktop app`,
+      context: { degraded, firstDegraded },
     });
     return;
   }

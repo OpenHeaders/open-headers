@@ -20,6 +20,7 @@ import {
   applySyncedLiveValues,
   clearWorkflowRunCache,
   getWorkflowRunCache,
+  markExclusiveDegradedForRun,
   onLiveCacheStoreChange,
   putWorkflowRunCache,
   recordRefreshError,
@@ -187,6 +188,76 @@ describe('applySyncedLiveValues — receive side', () => {
     // A failed self-refresh must not erase the recent-remote-value fact.
     await recordRefreshError({ workflowUid: WF, environmentId: null, message: 'boom' }, WS);
     expect((await getWorkflowRunCache(WF, null, WS))?.lastSyncedValueAt).toBe(marked);
+  });
+});
+
+describe('exclusiveDegradedSince — C9 escape-hatch marker', () => {
+  it('marks an existing remote-sourced row degraded', async () => {
+    await applySyncedLiveValues(WS, { [runKey(WF, null)]: value() });
+    const before = Date.now();
+
+    await markExclusiveDegradedForRun(WF, null, before, WS);
+
+    expect((await getWorkflowRunCache(WF, null, WS))?.exclusiveDegradedSince).toBe(before);
+  });
+
+  it('is idempotent — a re-mark preserves the original since and does not notify', async () => {
+    await applySyncedLiveValues(WS, { [runKey(WF, null)]: value() });
+    await markExclusiveDegradedForRun(WF, null, 1234, WS);
+
+    const changes: string[] = [];
+    const off = onLiveCacheStoreChange((_ws, uid) => changes.push(uid ?? '*'));
+    const result = await markExclusiveDegradedForRun(WF, null, 9999, WS);
+    off();
+
+    expect(result).toBeNull(); // no write on the steady-state re-check poll
+    expect(changes).toEqual([]);
+    expect((await getWorkflowRunCache(WF, null, WS))?.exclusiveDegradedSince).toBe(1234);
+  });
+
+  it('returns null for an absent row (nothing to degrade)', async () => {
+    expect(await markExclusiveDegradedForRun(WF, null, 1234, WS)).toBeNull();
+  });
+
+  it('clears the mark when a fresh remote value lands (backend back)', async () => {
+    await applySyncedLiveValues(WS, { [runKey(WF, null)]: value() });
+    await markExclusiveDegradedForRun(WF, null, 1234, WS);
+    expect((await getWorkflowRunCache(WF, null, WS))?.exclusiveDegradedSince).toBe(1234);
+
+    // A genuinely-different remote value arrives → backend is producing again.
+    await applySyncedLiveValues(WS, {
+      [runKey(WF, null)]: value({ stepCaptures: { s1: { token: 'fresher' } }, extractedAt: 9000, expiresAt: 9900 }),
+    });
+
+    expect((await getWorkflowRunCache(WF, null, WS))?.exclusiveDegradedSince).toBeUndefined();
+  });
+
+  it('clears the mark when THIS host produces the value itself', async () => {
+    await applySyncedLiveValues(WS, { [runKey(WF, null)]: value() });
+    await markExclusiveDegradedForRun(WF, null, 1234, WS);
+
+    await putWorkflowRunCache(
+      {
+        workflowUid: WF,
+        environmentId: null,
+        stepCaptures: { s1: { token: 'local' } },
+        stepResponseBytes: {},
+        extractedAt: 12_000,
+        expiresAt: 20_000,
+      },
+      WS,
+    );
+
+    expect((await getWorkflowRunCache(WF, null, WS))?.exclusiveDegradedSince).toBeUndefined();
+  });
+
+  it('preserves the mark through a failed OWN refresh (backend not proven back)', async () => {
+    await applySyncedLiveValues(WS, { [runKey(WF, null)]: value() });
+    await markExclusiveDegradedForRun(WF, null, 1234, WS);
+
+    await recordRefreshError({ workflowUid: WF, environmentId: null, message: 'boom' }, WS);
+
+    expect((await getWorkflowRunCache(WF, null, WS))?.exclusiveDegradedSince).toBe(1234);
   });
 });
 

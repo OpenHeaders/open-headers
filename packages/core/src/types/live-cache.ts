@@ -74,6 +74,20 @@ export interface WorkflowRunCache {
    * bookkeeping — never enters {@link LiveValueRecord}, never syncs.
    */
   lastSyncedValueAt?: number;
+  /**
+   * Wall-clock ms when a connected peer declined to self-refresh this
+   * row's *exclusive* credential at the near-expiry escape hatch
+   * (WS-C C9). Set when the backend that was producing this remote-sourced
+   * value went silent near expiry AND the workflow is `exclusive` (a
+   * self-refresh would burn a single-use TOTP code / trip OAuth
+   * reuse-detection) — so the peer degrades rather than races. The `live`
+   * Status pill reads it to surface "reconnect the desktop app to refresh
+   * X" instead of a generic stale-yellow. Cleared the moment a fresh
+   * remote value lands (`applySyncedLiveValues`) or this host produces the
+   * value itself (`putWorkflowRunCache`). Like {@link lastSyncedValueAt},
+   * host-local runner bookkeeping — never enters {@link LiveValueRecord}.
+   */
+  exclusiveDegradedSince?: number;
 }
 
 /**

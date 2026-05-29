@@ -52,8 +52,8 @@ vi.mock('@openheaders/oracle/live/live-cache-store', () => ({
   recordRefreshError: vi.fn(() => Promise.resolve()),
 }));
 
-import * as scheduler from '@/background/modules/live-refresh-scheduler';
 import { __resetStatusForTests, getStatusSnapshot } from '@openheaders/ui/shared/status';
+import * as scheduler from '@/background/modules/live-refresh-scheduler';
 import { installBackingStorage } from '../helpers/chrome-storage-backing';
 
 // ── Harness ────────────────────────────────────────────────────────
@@ -83,6 +83,7 @@ function makeRun(overrides: {
   lastExtractorOk?: boolean;
   extractedAt?: number;
   expiresAt?: number | null;
+  exclusiveDegradedSince?: number;
 }) {
   return {
     workflowUid: overrides.workflowUid ?? 'wflow001',
@@ -93,6 +94,7 @@ function makeRun(overrides: {
     stepResponseBytes: { login: 10 },
     consecutiveFailures: overrides.consecutiveFailures ?? 0,
     lastExtractorOk: overrides.lastExtractorOk ?? true,
+    exclusiveDegradedSince: overrides.exclusiveDegradedSince,
   };
 }
 
@@ -168,6 +170,39 @@ describe('live Status pill', () => {
     listWorkflowRunCachesMock.mockResolvedValue([
       makeRun({ consecutiveFailures: 3, workflowUid: 'yellow-wf' }),
       makeRun({ consecutiveFailures: 6, workflowUid: 'red-wf' }),
+    ]);
+    scheduler.startLiveScheduler();
+    await new Promise((r) => setTimeout(r, 10));
+    expect(getStatusSnapshot().live?.state).toBe('red');
+  });
+
+  it('yellow + "reconnect the desktop" when an exclusive cred is degraded (C9)', async () => {
+    listWorkflowRunCachesMock.mockResolvedValue([
+      makeRun({ workflowUid: 'totp-wf', exclusiveDegradedSince: Date.now() }),
+    ]);
+    scheduler.startLiveScheduler();
+    await new Promise((r) => setTimeout(r, 10));
+    const snap = getStatusSnapshot();
+    expect(snap.live?.state).toBe('yellow');
+    expect(snap.live?.message).toContain('reconnect the desktop');
+    expect(snap.live?.context?.degraded).toBe(1);
+    expect(snap.live?.context?.firstDegraded).toBe('totp-wf');
+  });
+
+  it('the degraded message takes precedence over generic stale-yellow', async () => {
+    listWorkflowRunCachesMock.mockResolvedValue([
+      makeRun({ workflowUid: 'stale-wf', consecutiveFailures: 2 }),
+      makeRun({ workflowUid: 'degraded-wf', exclusiveDegradedSince: Date.now() }),
+    ]);
+    scheduler.startLiveScheduler();
+    await new Promise((r) => setTimeout(r, 10));
+    expect(getStatusSnapshot().live?.message).toContain('reconnect the desktop');
+  });
+
+  it('red dominates a degraded row', async () => {
+    listWorkflowRunCachesMock.mockResolvedValue([
+      makeRun({ workflowUid: 'degraded-wf', exclusiveDegradedSince: Date.now() }),
+      makeRun({ workflowUid: 'red-wf', consecutiveFailures: 6 }),
     ]);
     scheduler.startLiveScheduler();
     await new Promise((r) => setTimeout(r, 10));
