@@ -72,6 +72,61 @@ export const DEFAULT_REFRESH_LEAD_MS = 60_000;
 /** Cap on exponential backoff in seconds. 60·2^(n-1) grows fast. */
 export const MAX_BACKOFF_SECONDS = 3600;
 
+/**
+ * Cadence-ownership peer lead (WS-C C8/C9). When a peer with a connected
+ * backend holds a *remote-sourced* value, it suspends its normal
+ * lead-time cadence and arms a single near-expiry *safety* fire at
+ * `expiresAt − this`, trusting the backend (which fires earlier, at its
+ * own larger lead ≈T−60s) plus §4 propagation to refresh the value
+ * first. The peer's safety fire only lands if the backend went silent —
+ * that's the C9 escape-hatch moment.
+ *
+ * Smaller than {@link DEFAULT_REFRESH_LEAD_MS} on purpose: the peer
+ * waits as late as is still safe (giving the backend maximum room),
+ * but never inside the time it needs to run its own chain + recompile.
+ * Provisional — C11 owns the *measured* freshness budget (worst-case
+ * SW-wake + reconnect + catch-up + recompile) and the precise gap below
+ * the backend's lead.
+ */
+export const DEFAULT_PEER_DEFER_LEAD_MS = 30_000;
+
+// ── Cadence ownership (peer defer) ─────────────────────────────────
+
+/**
+ * The near-expiry safety fire a deferring peer arms instead of its
+ * normal lead-time refresh (WS-C C8). Returns the absolute wall-clock ms
+ * `expiresAt − deferLeadMs`, never earlier than the MV3 alarm floor.
+ *
+ * Pure expiry math — host-neutral. The *decision* to use this (peer is
+ * connected to a backend and the row is remote-sourced) lives in the
+ * host scheduler; this only computes the threshold so C8 (arm) and C9
+ * (the escape-hatch branch) share one definition with {@link
+ * isWithinDeferHatchWindow}.
+ */
+export function computeDeferredFireAt(
+  expiresAt: number,
+  nowMs: number,
+  deferLeadMs: number = DEFAULT_PEER_DEFER_LEAD_MS,
+): number {
+  return Math.max(expiresAt - deferLeadMs, nowMs + MIN_ALARM_DELAY_MS);
+}
+
+/**
+ * True once `nowMs` has reached the near-expiry escape-hatch threshold
+ * (`expiresAt − deferLeadMs`) — the point at which a deferring peer must
+ * stop waiting on the backend and act on its own (C9: idempotent →
+ * self-refresh; exclusive → banner). Before this point a deferred alarm
+ * that fires (Chrome early-wake, or a fresher value mid-flight) should
+ * re-defer rather than refresh.
+ */
+export function isWithinDeferHatchWindow(
+  expiresAt: number,
+  nowMs: number,
+  deferLeadMs: number = DEFAULT_PEER_DEFER_LEAD_MS,
+): boolean {
+  return nowMs >= expiresAt - deferLeadMs;
+}
+
 // ── computeNextFireAt ─────────────────────────────────────────────
 
 /**

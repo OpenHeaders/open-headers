@@ -61,9 +61,12 @@ export type { PriorityValue } from './priority-evaluator';
 export { comparePriority, PRIORITY_LAST, priorityValue } from './priority-evaluator';
 export type { CacheSummary } from './refresh-cadence';
 export {
+  computeDeferredFireAt,
   computeNextFireAt,
+  DEFAULT_PEER_DEFER_LEAD_MS,
   DEFAULT_REFRESH_LEAD_MS,
   deriveExpiresAt,
+  isWithinDeferHatchWindow,
   MAX_BACKOFF_SECONDS,
   MIN_ALARM_DELAY_MS,
 } from './refresh-cadence';

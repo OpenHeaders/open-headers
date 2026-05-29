@@ -61,6 +61,19 @@ export interface WorkflowRunCache {
    * this flag, clearing it.
    */
   definitionallyStale?: boolean;
+  /**
+   * Wall-clock ms when this row's value last arrived from a *remote*
+   * paired peer over §4 — the cadence-ownership marker (WS-C C8). Set by
+   * the receive-side merge when a genuinely-different remote value lands
+   * (the producer's own echo is an identical no-op and never stamps it);
+   * cleared when *this* host produces the value itself
+   * (`putWorkflowRunCache`). Its presence means "the value here is
+   * remote-sourced," which a connected peer reads to defer its own
+   * cadence to the backend (the peer arms only a near-expiry safety
+   * fire instead of the normal lead-time refresh). Host-local runner
+   * bookkeeping — never enters {@link LiveValueRecord}, never syncs.
+   */
+  lastSyncedValueAt?: number;
 }
 
 /**
@@ -68,8 +81,9 @@ export interface WorkflowRunCache {
  * the *value* subset that rides §4 to paired peers (WS-C C6). Only the
  * derived value crosses the wire; every other `WorkflowRunCache` field
  * (`circuit`, `consecutiveFailures`, `lastError*`, `lastExtractorOk`,
- * `stepResponseBytes`, `definitionallyStale`) is per-host *runner*
- * bookkeeping that each host derives for itself and never syncs.
+ * `stepResponseBytes`, `definitionallyStale`, `lastSyncedValueAt`) is
+ * per-host *runner* bookkeeping that each host derives for itself and
+ * never syncs.
  *
  * `workflowUid` + `environmentId` are carried explicitly (not only in
  * the set itemId / run-key) so the receiving host can re-key into its

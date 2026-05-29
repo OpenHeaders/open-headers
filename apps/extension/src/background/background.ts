@@ -56,6 +56,7 @@ import {
   kickActiveContextRefresh,
   reconcileLiveSchedules,
   refreshLiveWorkflowSynchronously,
+  setBackendConnectionProbe,
   startLiveScheduler,
 } from './modules/live-refresh-scheduler';
 import { reconcileOAuthSchedules, startOAuthScheduler } from './modules/oauth-refresh-scheduler';
@@ -74,7 +75,13 @@ import {
   getActiveWorkspaceId,
 } from './modules/workspace-store';
 import { setupWorkspaceTabRegistry } from './modules/workspace-tab-registry';
-import { connectWebSocket, isWebSocketConnected, shouldAttemptBackendConnection } from './websocket';
+import {
+  connectWebSocket,
+  isWebSocketConnected,
+  shouldAttemptBackendConnection,
+  subscribeOnWebSocketClose,
+  subscribeOnWebSocketOpen,
+} from './websocket';
 
 // ── Eval-time wiring ──────────────────────────────────────────────
 
@@ -165,6 +172,25 @@ async function initializeExtension(): Promise<void> {
   // `collectEntries` reads in-memory workflow/variable stores populated by
   // hydration, and running reconcile early would wipe every alarm as orphan.
   startLiveScheduler();
+  // Cadence ownership (WS-C C8): give the live scheduler a live read of
+  // the backend socket so a connected peer defers its own cadence to the
+  // backend's runner, and re-reconcile the moment connectivity flips —
+  // socket close → drop back to the peer's own (earlier) cadence; socket
+  // open → re-defer as synced values land and re-stamp the rows. These
+  // callbacks only fire on real socket events (well after hydration), so
+  // registering them here doesn't trip the early-reconcile orphan-wipe
+  // hazard the deferred `reconcileLiveSchedules` below guards against.
+  setBackendConnectionProbe(isWebSocketConnected);
+  subscribeOnWebSocketOpen(() => {
+    void reconcileLiveSchedules().catch((err: unknown) =>
+      logger.warn('Background', 'Live reconcile after socket open failed', err),
+    );
+  });
+  subscribeOnWebSocketClose(() => {
+    void reconcileLiveSchedules().catch((err: unknown) =>
+      logger.warn('Background', 'Live reconcile after socket close failed', err),
+    );
+  });
   __setSyncWarmRunner(refreshLiveWorkflowSynchronously);
 
   setTimeout(() => restoreTrackingState(debouncedUpdateBadge), 1000);

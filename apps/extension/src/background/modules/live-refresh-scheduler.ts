@@ -41,9 +41,11 @@
 import {
   type CacheSummary,
   canAttempt as canCircuitAttempt,
+  computeDeferredFireAt,
   computeNextFireAt as computeNextFireAtCore,
   initialCircuitSnapshot,
   isLiveVariableEffective,
+  isWithinDeferHatchWindow,
   MAX_BACKOFF_SECONDS,
   MIN_ALARM_DELAY_MS,
 } from '@openheaders/core/live';
@@ -216,6 +218,66 @@ export function __setLiveRefreshAdapter(adapter: LiveRefreshAdapter | null): voi
   refreshAdapter = adapter;
 }
 
+// ── Cadence ownership: backend-connection probe (WS-C C8) ─────────
+//
+// A peer with a connected backend defers its own cadence for any
+// (workflow, env) whose value is remote-sourced, letting the backend be
+// the sole runner (coherence for the idempotent class; correctness for
+// the exclusive class). The scheduler must NOT import `websocket.ts` (a
+// host transport concern) — instead the bootstrap injects a probe, the
+// same inversion `__setLiveRefreshAdapter` uses. Until a probe is
+// installed (e.g. in-browser-only mode, or tests) `isBackendConnected`
+// is false and deferral is entirely off — the scheduler behaves exactly
+// as a self-sufficient Mode-1 runner.
+//
+// The bootstrap also re-`reconcile`s on every socket open/close so the
+// arm/defer choice re-evaluates the instant connectivity flips: on close
+// a deferring peer drops back to its normal (earlier) cadence; on open
+// it re-defers once synced values start landing (which re-stamp
+// `lastSyncedValueAt`).
+
+let backendConnectionProbe: (() => boolean) | null = null;
+
+/**
+ * Install (or clear) the backend-connection probe. The bootstrap wires
+ * this to `isWebSocketConnected`; tests install a stub. `null` disables
+ * deferral (no backend → self-sufficient runner).
+ */
+export function setBackendConnectionProbe(probe: (() => boolean) | null): void {
+  backendConnectionProbe = probe;
+}
+
+function isBackendConnected(): boolean {
+  try {
+    return backendConnectionProbe?.() ?? false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Cadence-ownership override (WS-C C8). Given the *normal* lead-time fire
+ * the core cadence math computed, decide whether this peer should instead
+ * arm the later near-expiry safety fire and defer to the backend.
+ *
+ * Defers only a **healthy, remote-sourced** row while **connected**: a
+ * row this host is failing on (circuit non-closed / `consecutiveFailures`)
+ * stays on its backoff curve, a definitionally-stale row keeps its
+ * fire-ASAP, and a locally-produced row (no `lastSyncedValueAt`) keeps
+ * its own cadence. The deferred fire is used only when it lands *later*
+ * than the normal cadence — never pull a refresh earlier — so the backend
+ * (which fires at its own larger lead) gets the first shot.
+ */
+function applyDeferOverride(cache: WorkflowRunCache | null, normalFireAt: number | null, nowMs: number): number | null {
+  if (normalFireAt == null) return normalFireAt; // manual / unschedulable — never defer
+  if (!isBackendConnected()) return normalFireAt;
+  if (!cache || cache.lastSyncedValueAt == null || cache.expiresAt == null) return normalFireAt;
+  if (cache.consecutiveFailures > 0 || cache.definitionallyStale) return normalFireAt;
+  if (cache.circuit && cache.circuit.state !== 'closed') return normalFireAt;
+  const deferred = computeDeferredFireAt(cache.expiresAt, nowMs);
+  return deferred > normalFireAt ? deferred : normalFireAt;
+}
+
 // ── Cache summary projection ──────────────────────────────────────
 //
 // The schedulability gate (`canScheduleWorkflow`) is host-neutral and
@@ -344,7 +406,8 @@ const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | 
       environmentId: payload.e,
     };
   },
-  computeNextFireAt: (entry, nowMs) => computeNextFireAtCore(entry.workflow, toCacheSummary(entry.cache), nowMs),
+  computeNextFireAt: (entry, nowMs) =>
+    applyDeferOverride(entry.cache, computeNextFireAtCore(entry.workflow, toCacheSummary(entry.cache), nowMs), nowMs),
   canSchedule: (entry) => canScheduleWorkflow(entry.workflow, entry.boundVariables),
   computeDependencies: (entries) => computeWorkflowDependencies(entries, (w, u, e) => codec.encode({ w, u, e })),
   async refresh(entry, payload) {
@@ -363,6 +426,26 @@ const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | 
     if (!isNetworkOnline()) {
       throw new OfflineError(`offline: workflow ${payload.u} refresh skipped (navigator.onLine=false)`);
     }
+    // Cadence-ownership defer gate (WS-C C8). This alarm is the
+    // near-expiry SAFETY fire `applyDeferOverride` armed for a connected
+    // peer holding a remote-sourced value. If it fires while the value is
+    // still comfortably fresh — a Chrome early-wake, or a fresher synced
+    // value is mid-flight before its store-change reconcile re-armed us —
+    // re-defer instead of refreshing (re-arm via `recordFailure`, like
+    // the circuit/offline skips). At/after the near-expiry threshold with
+    // nothing fresher, fall through and self-refresh: the C9 escape
+    // hatch's idempotent branch. (C9 adds the exclusive "banner, don't
+    // self-refresh" branch here; C8 self-refreshes every class — a strict
+    // improvement over both hosts double-firing on their own cadences.)
+    const now = Date.now();
+    if (
+      isBackendConnected() &&
+      entry.cache?.lastSyncedValueAt != null &&
+      entry.cache.expiresAt != null &&
+      !isWithinDeferHatchWindow(entry.cache.expiresAt, now)
+    ) {
+      throw new DeferredError(`deferred: workflow ${payload.u} — backend owns cadence, synced value still fresh`);
+    }
     // Circuit-aware attempt gate. If the cache says the circuit is
     // OPEN and we haven't reached `nextAttemptAt` yet, bail out of
     // the dispatch — Chrome alarms can wake us "early" on some
@@ -371,7 +454,6 @@ const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | 
     // neutral error routes through `onFailed` → `recordFailure`; the
     // provider's `recordFailure` consults the circuit and applies the
     // right transition without double-counting.
-    const now = Date.now();
     const cacheCircuit = entry.cache?.circuit ?? null;
     if (cacheCircuit && !canCircuitAttempt(cacheCircuit, now)) {
       throw new CircuitBlockedError(
@@ -402,7 +484,12 @@ const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | 
     // offline, `nextAttemptAt` for circuit-blocked). Explicit
     // schedule call because skipping the cache write also skipped
     // the store-change reconcile loop that normally re-arms alarms.
-    if (err instanceof CircuitBlockedError || err instanceof OfflineError) {
+    // `DeferredError` joins this skip-and-rearm family (WS-C C8): the
+    // deferred safety alarm fired but a fresher synced value is still in
+    // play. No probe happened, no counter bump — just re-arm so the next
+    // fire lines up with the (possibly newly-pushed-out) near-expiry
+    // threshold.
+    if (err instanceof CircuitBlockedError || err instanceof OfflineError || err instanceof DeferredError) {
       if (job) {
         void scheduler.schedule(job).catch((e) => logger.warn('LiveScheduler', 'Re-schedule after skip failed', e));
       }
@@ -482,26 +569,37 @@ const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | 
     const isStub = err instanceof LiveSchedulerNotReadyError;
     const isBlocked = err instanceof CircuitBlockedError;
     const isOffline = err instanceof OfflineError;
-    const isNoOp = isBlocked || isOffline;
+    const isDeferred = err instanceof DeferredError;
+    const isNoOp = isBlocked || isOffline || isDeferred;
     recordLog({
       subsystem: 'live',
       op: 'refresh-failed',
       // Observability LogLevel is ('info' | 'warn' | 'error') — no
-      // debug tier. No-op skips (circuit-blocked, offline) fold into
-      // 'info'. A real adapter failure stays at 'error'.
+      // debug tier. No-op skips (circuit-blocked, offline, deferred)
+      // fold into 'info'. A real adapter failure stays at 'error'.
       level: isNoOp ? 'info' : isStub ? 'warn' : 'error',
       message: isOffline
         ? `Offline — refresh deferred for workflow ${payload.u}`
-        : isBlocked
-          ? `Circuit open for workflow ${payload.u} — refresh declined`
-          : isStub
-            ? `No refresh adapter for workflow ${payload.u} (Phase D not yet wired)`
-            : `Refresh failed for ${payload.u}: ${err.message}`,
+        : isDeferred
+          ? `Backend owns cadence for workflow ${payload.u} — peer refresh deferred`
+          : isBlocked
+            ? `Circuit open for workflow ${payload.u} — refresh declined`
+            : isStub
+              ? `No refresh adapter for workflow ${payload.u} (Phase D not yet wired)`
+              : `Refresh failed for ${payload.u}: ${err.message}`,
       context: {
         workspaceId: payload.w,
         workflowUid: payload.u,
         environmentId: payload.e,
-        errorClass: isOffline ? 'Offline' : isBlocked ? 'CircuitBlocked' : isStub ? 'SchedulerNotReady' : err.name,
+        errorClass: isOffline
+          ? 'Offline'
+          : isDeferred
+            ? 'Deferred'
+            : isBlocked
+              ? 'CircuitBlocked'
+              : isStub
+                ? 'SchedulerNotReady'
+                : err.name,
       },
     });
   },
@@ -533,6 +631,22 @@ class CircuitBlockedError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'CircuitBlocked';
+  }
+}
+
+/**
+ * Sentinel thrown when the cadence-ownership defer gate (WS-C C8)
+ * declines a fire: this peer is connected to a backend and holds a
+ * remote-sourced value that is still comfortably fresh, so the backend
+ * owns the cadence. Not a failure — `recordFailure` re-arms the
+ * (near-expiry) alarm without touching the circuit, and `onFailed` logs
+ * it at info. A class (not a string match) so the narrowing in those two
+ * branches is exhaustive.
+ */
+class DeferredError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'Deferred';
   }
 }
 

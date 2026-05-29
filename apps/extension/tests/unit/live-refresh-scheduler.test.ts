@@ -77,6 +77,8 @@ interface TestCacheRow {
   lastErrorMessage?: string;
   lastErrorStepId?: string;
   lastExtractorOk: boolean;
+  definitionallyStale?: boolean;
+  lastSyncedValueAt?: number;
   circuit?: {
     state: 'closed' | 'half-open' | 'open';
     consecutiveFailures: number;
@@ -345,6 +347,7 @@ beforeEach(async () => {
   });
   scheduler = await import('@/background/modules/live-refresh-scheduler');
   scheduler.__setLiveRefreshAdapter(null);
+  scheduler.setBackendConnectionProbe(null);
 });
 
 afterEach(() => {
@@ -2421,5 +2424,176 @@ describe('offline gate', () => {
       scheduledTime: NOW,
     } as chrome.alarms.Alarm);
     expect(alarmsCreateMock).toHaveBeenCalled();
+  });
+});
+
+// ── Cadence ownership — peer defer (C8) ───────────────────────────
+
+describe('cadence ownership — peer defer (C8)', () => {
+  // The `offline gate` suite leaves `navigator.onLine = false` as an own
+  // property (its restore is a no-op — happy-dom defines `onLine` on the
+  // prototype, so the captured descriptor is undefined). Force it online
+  // here so the refresh-path tests reach the defer gate, not the offline
+  // short-circuit that runs ahead of it.
+  beforeEach(() => {
+    Object.defineProperty(globalThis.navigator, 'onLine', { value: true, configurable: true, writable: true });
+  });
+
+  const CLOSED_CIRCUIT = {
+    state: 'closed' as const,
+    consecutiveFailures: 0,
+    consecutiveOpenings: 0,
+    nextAttemptAt: null,
+    halfOpenAttempts: 0,
+    lastSuccessAt: null,
+    lastErrorAt: null,
+  };
+
+  function makeCache(over: Partial<WorkflowRunCache> = {}): WorkflowRunCache {
+    return {
+      workflowUid: 'wflow001',
+      environmentId: null,
+      stepCaptures: {},
+      extractedAt: NOW,
+      expiresAt: NOW + 600_000,
+      stepResponseBytes: {},
+      consecutiveFailures: 0,
+      lastExtractorOk: true,
+      circuit: CLOSED_CIRCUIT,
+      ...over,
+    };
+  }
+
+  function scheduleWith(cache: WorkflowRunCache): Promise<boolean> {
+    return scheduler.scheduleLiveWorkflowRefresh(
+      {
+        workspaceId: 'ws-live',
+        workflow: makeWorkflow({ refresh: { kind: 'interval', seconds: 300 } }),
+        boundVariables: [makeVariable()],
+        cache,
+        environmentId: null,
+      },
+      NOW,
+    );
+  }
+
+  it('arms the near-expiry safety fire when connected + the value is remote-sourced', async () => {
+    scheduler.setBackendConnectionProbe(() => true);
+    const expiresAt = NOW + 600_000;
+    const scheduled = await scheduleWith(makeCache({ extractedAt: NOW, expiresAt, lastSyncedValueAt: NOW }));
+    expect(scheduled).toBe(true);
+    // expiresAt − 30s peer lead — well past the normal interval fire
+    // (NOW + 300s), so the backend gets the first shot.
+    const [, info] = alarmsCreateMock.mock.calls[0];
+    expect(info.when).toBe(expiresAt - 30_000);
+  });
+
+  it('keeps its own cadence when no backend is connected', async () => {
+    // No probe installed → isBackendConnected() is false.
+    await scheduleWith(makeCache({ extractedAt: NOW, expiresAt: NOW + 600_000, lastSyncedValueAt: NOW }));
+    const [, info] = alarmsCreateMock.mock.calls[0];
+    expect(info.when).toBe(NOW + 300_000);
+  });
+
+  it('keeps its own cadence for a locally-produced value (no remote marker)', async () => {
+    scheduler.setBackendConnectionProbe(() => true);
+    await scheduleWith(makeCache({ extractedAt: NOW, expiresAt: NOW + 600_000 /* no lastSyncedValueAt */ }));
+    const [, info] = alarmsCreateMock.mock.calls[0];
+    expect(info.when).toBe(NOW + 300_000);
+  });
+
+  it('does not defer a row this host is failing on (open circuit keeps its backoff)', async () => {
+    scheduler.setBackendConnectionProbe(() => true);
+    const scheduled = await scheduleWith(
+      makeCache({
+        extractedAt: NOW,
+        expiresAt: NOW + 600_000,
+        lastSyncedValueAt: NOW,
+        consecutiveFailures: 3,
+        circuit: {
+          state: 'open',
+          consecutiveFailures: 3,
+          consecutiveOpenings: 1,
+          nextAttemptAt: NOW + 120_000,
+          halfOpenAttempts: 0,
+          lastSuccessAt: null,
+          lastErrorAt: NOW,
+        },
+      }),
+    );
+    expect(scheduled).toBe(true);
+    // The open circuit's nextAttemptAt wins — not the deferred 570s fire.
+    const [, info] = alarmsCreateMock.mock.calls[0];
+    expect(info.when).toBe(NOW + 120_000);
+  });
+
+  it('does not defer a definitionally-stale row (fire-ASAP wins)', async () => {
+    scheduler.setBackendConnectionProbe(() => true);
+    await scheduleWith(
+      makeCache({ extractedAt: NOW, expiresAt: NOW + 600_000, lastSyncedValueAt: NOW, definitionallyStale: true }),
+    );
+    const [, info] = alarmsCreateMock.mock.calls[0];
+    expect(info.when).toBe(NOW + scheduler.MIN_ALARM_DELAY_MS);
+  });
+
+  it('re-defers (no self-refresh) when the safety alarm fires while the synced value is fresh', async () => {
+    const refreshSpy = vi.fn<() => Promise<void>>(async () => {});
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
+    scheduler.setBackendConnectionProbe(() => true);
+    const now = Date.now();
+    storeState.workflows = [makeWorkflow()];
+    storeState.variables = [makeVariable()];
+    storeState.caches = [
+      {
+        workflowUid: 'wflow001',
+        environmentId: null,
+        stepCaptures: {},
+        extractedAt: now,
+        expiresAt: now + 3_600_000, // far from expiry → outside the hatch window
+        stepResponseBytes: {},
+        consecutiveFailures: 0,
+        lastExtractorOk: true,
+        lastSyncedValueAt: now,
+      },
+    ];
+    await scheduler.handleLiveAlarm({
+      name: scheduler.buildAlarmName('ws-live', 'wflow001', null),
+      scheduledTime: now,
+    } as chrome.alarms.Alarm);
+
+    expect(refreshSpy).not.toHaveBeenCalled();
+    expect(recordRefreshErrorMock).not.toHaveBeenCalled();
+    const failed = recordLogMock.mock.calls
+      .map((c) => c[0] as { op: string; context?: { errorClass?: string } })
+      .find((e) => e.op === 'refresh-failed');
+    expect(failed?.context?.errorClass).toBe('Deferred');
+  });
+
+  it('self-refreshes (escape hatch) when the safety alarm fires inside the near-expiry window', async () => {
+    const refreshSpy = vi.fn<() => Promise<void>>(async () => {});
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
+    scheduler.setBackendConnectionProbe(() => true);
+    const now = Date.now();
+    storeState.workflows = [makeWorkflow()];
+    storeState.variables = [makeVariable()];
+    storeState.caches = [
+      {
+        workflowUid: 'wflow001',
+        environmentId: null,
+        stepCaptures: {},
+        extractedAt: now,
+        expiresAt: now + 5_000, // inside the 30s hatch → the peer acts
+        stepResponseBytes: {},
+        consecutiveFailures: 0,
+        lastExtractorOk: true,
+        lastSyncedValueAt: now,
+      },
+    ];
+    await scheduler.handleLiveAlarm({
+      name: scheduler.buildAlarmName('ws-live', 'wflow001', null),
+      scheduledTime: now,
+    } as chrome.alarms.Alarm);
+
+    expect(refreshSpy).toHaveBeenCalledOnce();
   });
 });

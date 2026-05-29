@@ -149,6 +149,45 @@ describe('applySyncedLiveValues — receive side', () => {
 
     expect(changes).toEqual([]);
   });
+
+  it('stamps lastSyncedValueAt (C8 remote-sourced marker) on a merged remote value', async () => {
+    const before = Date.now();
+    await applySyncedLiveValues(WS, { [runKey(WF, null)]: value() });
+
+    const row = await getWorkflowRunCache(WF, null, WS);
+    expect(row?.lastSyncedValueAt).toBeGreaterThanOrEqual(before);
+  });
+
+  it('clears the marker when THIS host produces the value (own put is not remote-sourced)', async () => {
+    // A remote value arrives first → row is marked remote-sourced.
+    await applySyncedLiveValues(WS, { [runKey(WF, null)]: value() });
+    expect((await getWorkflowRunCache(WF, null, WS))?.lastSyncedValueAt).not.toBeUndefined();
+
+    // This host then runs the workflow itself — the fresh row is local,
+    // so the marker is gone and the peer stops deferring.
+    await putWorkflowRunCache(
+      {
+        workflowUid: WF,
+        environmentId: null,
+        stepCaptures: { s1: { token: 'local' } },
+        stepResponseBytes: {},
+        extractedAt: 12_000,
+        expiresAt: 20_000,
+      },
+      WS,
+    );
+    expect((await getWorkflowRunCache(WF, null, WS))?.lastSyncedValueAt).toBeUndefined();
+  });
+
+  it('preserves the marker through a failed OWN refresh (peer keeps deferring)', async () => {
+    await applySyncedLiveValues(WS, { [runKey(WF, null)]: value() });
+    const marked = (await getWorkflowRunCache(WF, null, WS))?.lastSyncedValueAt;
+    expect(marked).not.toBeUndefined();
+
+    // A failed self-refresh must not erase the recent-remote-value fact.
+    await recordRefreshError({ workflowUid: WF, environmentId: null, message: 'boom' }, WS);
+    expect((await getWorkflowRunCache(WF, null, WS))?.lastSyncedValueAt).toBe(marked);
+  });
 });
 
 describe('clearWorkflowRunCache → remover', () => {

@@ -204,6 +204,10 @@ export function setLiveValueRemover(fn: LiveValueRemover | null): void {
  * absent from `values` are left untouched — deletion is the
  * delete-cascade's job, not this additive merge.
  *
+ * Each merged row is stamped `lastSyncedValueAt` (the WS-C C8 cadence-
+ * ownership marker) so a connected peer knows the value is remote-sourced
+ * and can defer its own cadence to the backend.
+ *
  * No-ops (no write, no notify) when nothing actually changed, which is
  * what makes the producer's own apply-echo cheap: the value it just
  * wrote via {@link putWorkflowRunCache} is already identical here.
@@ -217,6 +221,11 @@ export async function applySyncedLiveValues(
   await withCacheLock(workspaceId, async () => {
     const current = await readBlob(workspaceId);
     const nextRuns: Record<string, WorkflowRunCache> = { ...current.runs };
+    // Wall-clock of this merge — stamped onto every row a genuinely-
+    // different remote value lands on, as the WS-C C8 cadence-ownership
+    // marker. The producer's own echo hits the `continue` skip below, so
+    // a host never marks its own production remote-sourced.
+    const mergedAt = Date.now();
     for (const [key, value] of Object.entries(values)) {
       const previous = current.runs[key];
       if (
@@ -229,7 +238,13 @@ export async function applySyncedLiveValues(
       }
       changed = true;
       nextRuns[key] = previous
-        ? { ...previous, stepCaptures: value.stepCaptures, extractedAt: value.extractedAt, expiresAt: value.expiresAt }
+        ? {
+            ...previous,
+            stepCaptures: value.stepCaptures,
+            extractedAt: value.extractedAt,
+            expiresAt: value.expiresAt,
+            lastSyncedValueAt: mergedAt,
+          }
         : {
             workflowUid: value.workflowUid,
             environmentId: value.environmentId,
@@ -240,6 +255,7 @@ export async function applySyncedLiveValues(
             consecutiveFailures: 0,
             lastExtractorOk: true,
             circuit: initialCircuitSnapshot(),
+            lastSyncedValueAt: mergedAt,
           };
     }
     if (!changed) return;
@@ -429,6 +445,10 @@ export async function recordRefreshError(input: RefreshErrorInput, workspaceId?:
       // staleness flag must survive — only a successful `putWorkflowRun
       // Cache` clears it.
       definitionallyStale: previous?.definitionallyStale,
+      // A failed *own* refresh doesn't erase the fact that a remote value
+      // recently arrived — a connected peer should keep deferring to the
+      // backend rather than treat its own failure as taking over (C8).
+      lastSyncedValueAt: previous?.lastSyncedValueAt,
     };
     const next: LiveCacheBlob = {
       schemaVersion: current.schemaVersion,

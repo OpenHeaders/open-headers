@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   type CacheSummary,
+  computeDeferredFireAt,
   computeNextFireAt,
+  DEFAULT_PEER_DEFER_LEAD_MS,
+  isWithinDeferHatchWindow,
   MAX_BACKOFF_SECONDS,
   MIN_ALARM_DELAY_MS,
 } from '../../src/live/refresh-cadence';
@@ -186,5 +189,40 @@ describe('computeNextFireAt — definitionally stale', () => {
     // Without precedence the flag would hot-loop a failing workflow at
     // the alarm floor; the backoff tick (60s) must win.
     expect(computeNextFireAt(wf, cache, NOW)).toBe(NOW + 60_000);
+  });
+});
+
+describe('cadence ownership — computeDeferredFireAt / isWithinDeferHatchWindow', () => {
+  it('arms the safety fire at expiresAt − default peer lead when expiry is far', () => {
+    const expiresAt = NOW + 3_600_000; // 1h out
+    expect(computeDeferredFireAt(expiresAt, NOW)).toBe(expiresAt - DEFAULT_PEER_DEFER_LEAD_MS);
+  });
+
+  it('fires later than a typical lead-time cadence (peer waits closer to expiry)', () => {
+    const expiresAt = NOW + 3_600_000;
+    // A normal expires-in fire at the 60s default lead vs. the deferred
+    // 30s lead — the deferred fire is strictly later, giving the backend
+    // (which fires at its own larger lead) the first shot.
+    const normalLeadFire = expiresAt - 60_000;
+    expect(computeDeferredFireAt(expiresAt, NOW)).toBeGreaterThan(normalLeadFire);
+  });
+
+  it('clamps to the MV3 alarm floor when expiry is already near', () => {
+    const expiresAt = NOW + 10_000; // 10s out — inside the 30s lead
+    expect(computeDeferredFireAt(expiresAt, NOW)).toBe(NOW + MIN_ALARM_DELAY_MS);
+  });
+
+  it('honours an explicit lead override', () => {
+    const expiresAt = NOW + 3_600_000;
+    expect(computeDeferredFireAt(expiresAt, NOW, 90_000)).toBe(expiresAt - 90_000);
+  });
+
+  it('isWithinDeferHatchWindow is false before the threshold, true at/after it', () => {
+    const expiresAt = NOW + 100_000;
+    expect(isWithinDeferHatchWindow(expiresAt, NOW)).toBe(false);
+    // At exactly expiresAt − lead the hatch opens.
+    expect(isWithinDeferHatchWindow(expiresAt, expiresAt - DEFAULT_PEER_DEFER_LEAD_MS)).toBe(true);
+    // And past it.
+    expect(isWithinDeferHatchWindow(expiresAt, expiresAt - 5_000)).toBe(true);
   });
 });
