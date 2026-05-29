@@ -2739,3 +2739,121 @@ describe('near-expiry escape hatch — exclusive class (C9)', () => {
     expect(failed?.context?.errorClass).toBe('Deferred');
   });
 });
+
+// ── Connect-time fence — exclusive class (C10) ─────────────────────
+
+describe('connect-time fence — exclusive class (C10)', () => {
+  beforeEach(() => {
+    Object.defineProperty(globalThis.navigator, 'onLine', { value: true, configurable: true, writable: true });
+  });
+
+  /**
+   * A fresh, LOCALLY-produced row (no `lastSyncedValueAt`) — the Mode-1
+   * connect edge: this host has never received a §4 value for the row, so
+   * a connected peer can't yet trust the backend to be producing it.
+   */
+  function unsyncedCache(now: number, over: Partial<TestCacheRow> = {}): TestCacheRow {
+    return {
+      workflowUid: 'wflow001',
+      environmentId: null,
+      stepCaptures: {},
+      extractedAt: now,
+      expiresAt: now + 600_000,
+      stepResponseBytes: {},
+      consecutiveFailures: 0,
+      lastExtractorOk: true,
+      // deliberately NO lastSyncedValueAt
+      ...over,
+    };
+  }
+
+  async function fireWith(now: number, cache: TestCacheRow): Promise<void> {
+    storeState.workflows = [makeWorkflow()];
+    storeState.variables = [makeVariable()];
+    storeState.caches = [cache];
+    await scheduler.handleLiveAlarm({
+      name: scheduler.buildAlarmName('ws-live', 'wflow001', null),
+      scheduledTime: now,
+    } as chrome.alarms.Alarm);
+  }
+
+  it('fences an exclusive cred while connected before any synced value lands — no refresh, no degrade', async () => {
+    const refreshSpy = vi.fn<() => Promise<void>>(async () => {});
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
+    scheduler.setBackendConnectionProbe(() => true);
+    deriveExecutionPolicyForWorkflowMock.mockReturnValue({
+      policy: 'exclusive',
+      reasons: [{ kind: 'totp', vaultName: 'otp' }],
+    });
+    const now = Date.now();
+
+    await fireWith(now, unsyncedCache(now));
+
+    // Did not race the freshly-connected backend's first run.
+    expect(refreshSpy).not.toHaveBeenCalled();
+    // No failure-counter bump — a deliberate skip, not a failure.
+    expect(recordRefreshErrorMock).not.toHaveBeenCalled();
+    // Unlike C9, the fence does NOT degrade the row — the gap is expected
+    // (catch-up in flight) and must not flap the "reconnect" banner.
+    expect(markExclusiveDegradedForRunMock).not.toHaveBeenCalled();
+    // Logged as a no-op skip at info, errorClass ConnectFenced.
+    const failed = recordLogMock.mock.calls
+      .map((c) => c[0] as { op: string; level: string; context?: { errorClass?: string } })
+      .find((e) => e.op === 'refresh-failed');
+    expect(failed?.context?.errorClass).toBe('ConnectFenced');
+    expect(failed?.level).toBe('info');
+  });
+
+  it('still self-refreshes an idempotent cred while connected before a synced value (warm on connect)', async () => {
+    const refreshSpy = vi.fn<() => Promise<void>>(async () => {});
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
+    scheduler.setBackendConnectionProbe(() => true);
+    // Default mock verdict is idempotent.
+    const now = Date.now();
+
+    await fireWith(now, unsyncedCache(now));
+
+    expect(refreshSpy).toHaveBeenCalledOnce();
+    expect(markExclusiveDegradedForRunMock).not.toHaveBeenCalled();
+  });
+
+  it('fences an exclusive synced value with no derivable expiry (rather than self-refreshing)', async () => {
+    const refreshSpy = vi.fn<() => Promise<void>>(async () => {});
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
+    scheduler.setBackendConnectionProbe(() => true);
+    deriveExecutionPolicyForWorkflowMock.mockReturnValue({
+      policy: 'exclusive',
+      reasons: [{ kind: 'totp', vaultName: 'otp' }],
+    });
+    const now = Date.now();
+
+    // Synced (lastSyncedValueAt set) but expiresAt null — C8/C9 can't reason
+    // about freshness, so the unified guard fences rather than self-refresh.
+    await fireWith(now, unsyncedCache(now, { lastSyncedValueAt: now, expiresAt: null }));
+
+    expect(refreshSpy).not.toHaveBeenCalled();
+    // No proof of imminent expiry → fence (silent), not C9's degrade.
+    expect(markExclusiveDegradedForRunMock).not.toHaveBeenCalled();
+    const failed = recordLogMock.mock.calls
+      .map((c) => c[0] as { op: string; context?: { errorClass?: string } })
+      .find((e) => e.op === 'refresh-failed');
+    expect(failed?.context?.errorClass).toBe('ConnectFenced');
+  });
+
+  it('self-refreshes an exclusive cred when NO backend is connected (sole runner)', async () => {
+    const refreshSpy = vi.fn<() => Promise<void>>(async () => {});
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
+    // No probe → isBackendConnected() false → the whole guard is skipped.
+    deriveExecutionPolicyForWorkflowMock.mockReturnValue({
+      policy: 'exclusive',
+      reasons: [{ kind: 'totp', vaultName: 'otp' }],
+    });
+    const now = Date.now();
+
+    await fireWith(now, unsyncedCache(now));
+
+    expect(refreshSpy).toHaveBeenCalledOnce();
+    expect(markExclusiveDegradedForRunMock).not.toHaveBeenCalled();
+    expect(deriveExecutionPolicyForWorkflowMock).not.toHaveBeenCalled();
+  });
+});

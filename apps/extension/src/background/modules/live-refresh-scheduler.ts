@@ -428,37 +428,55 @@ const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | 
     if (!isNetworkOnline()) {
       throw new OfflineError(`offline: workflow ${payload.u} refresh skipped (navigator.onLine=false)`);
     }
-    // Cadence-ownership defer gate (WS-C C8 + C9). This alarm is the
-    // near-expiry SAFETY fire `applyDeferOverride` armed for a connected
-    // peer holding a remote-sourced value.
+    // Cadence-ownership guard (WS-C C8 + C9 + C10). While a backend is
+    // connected it owns the cadence, and the load-bearing invariant is:
+    // a peer NEVER self-refreshes an *exclusive* credential while
+    // connected (a concurrent run burns a single-use TOTP code / trips
+    // OAuth reuse-detection and silently revokes the session). The
+    // backend is the sole runner; the peer defers, degrades, or fences
+    // — three exits keyed on freshness + proof + execution policy.
     const now = Date.now();
-    if (isBackendConnected() && entry.cache?.lastSyncedValueAt != null && entry.cache.expiresAt != null) {
-      if (!isWithinDeferHatchWindow(entry.cache.expiresAt, now)) {
-        // Still comfortably fresh — a Chrome early-wake, or a fresher
-        // synced value mid-flight before its store-change reconcile
-        // re-armed us. Re-defer instead of refreshing (re-arm via
-        // `recordFailure`, like the circuit/offline skips).
+    if (isBackendConnected()) {
+      const expiresAt = entry.cache?.expiresAt ?? null;
+      const synced = entry.cache?.lastSyncedValueAt != null;
+      // (1) C8 — fresh remote-sourced value. The near-expiry SAFETY fire
+      //     `applyDeferOverride` armed fired early (Chrome early-wake, or a
+      //     fresher synced value mid-flight before its store-change
+      //     reconcile re-armed us). Re-defer for every class; the backend's
+      //     next push reschedules us later.
+      if (synced && expiresAt != null && !isWithinDeferHatchWindow(expiresAt, now)) {
         throw new DeferredError(`deferred: workflow ${payload.u} — backend owns cadence, synced value still fresh`);
       }
-      // In the near-expiry escape-hatch window with the backend still
-      // marked connected — i.e. the backend that was producing this value
-      // has gone silent/failing (a healthy backend keeps pushing expiry
-      // out, so the safety fire never lands). C9 splits the hatch by
-      // execution policy:
-      //   • idempotent → fall through and self-refresh (preserves the
-      //     401-safety the feature sells — N concurrent mints are at
-      //     worst wasteful).
-      //   • exclusive → do NOT self-refresh (a concurrent run burns a
-      //     single-use TOTP code / trips OAuth reuse-detection and
-      //     silently revokes the session). Mark the row degraded so the
-      //     Status pill says "reconnect the desktop," and re-defer
-      //     (re-arm, no self-refresh) until a fresh synced value lands or
-      //     the backend reconnects.
+      // Not comfortably fresh. Idempotent rows fall through and self-refresh
+      // (preserves the 401-safety the feature sells — N concurrent mints are
+      // at worst wasteful); only the exclusive class is held back.
       const { policy } = deriveExecutionPolicyForWorkflow(entry.workspaceId, entry.workflow, entry.environmentId);
       if (policy === 'exclusive') {
-        await markExclusiveDegradedForRun(payload.u, payload.e, now, payload.w);
-        throw new ExclusiveDeferredError(
-          `exclusive-deferred: workflow ${payload.u} — exclusive cred, backend silent near expiry; degrading instead of racing`,
+        if (synced && expiresAt != null) {
+          // (2) C9 — we had PROOF the backend was producing this value (a
+          //     remote value landed, with a derivable expiry) and it has now
+          //     reached the near-expiry window with nothing fresher: the
+          //     backend went silent/failing (a healthy backend keeps pushing
+          //     expiry out, so the safety fire never lands). Mark the row
+          //     degraded so the Status pill says "reconnect the desktop,"
+          //     and re-defer rather than race.
+          await markExclusiveDegradedForRun(payload.u, payload.e, now, payload.w);
+          throw new ExclusiveDeferredError(
+            `exclusive-deferred: workflow ${payload.u} — exclusive cred, backend silent near expiry; degrading instead of racing`,
+          );
+        }
+        // (3) C10 — no proof yet: this host has never received a §4 value
+        //     for the row (`lastSyncedValueAt == null`), or the synced value
+        //     carries no derivable expiry. Either the backend's first
+        //     catch-up value is still in flight (the Mode-1 connect edge a
+        //     mid-cycle exclusive alarm would otherwise race) or the backend
+        //     simply doesn't run this workflow. Decline to be the first
+        //     runner of an exclusive cred while a backend is present; wait
+        //     for its value. Stay SILENT — a transient catch-up gap mustn't
+        //     flap the degraded banner, and a persistent gap surfaces via
+        //     the generic stale-yellow path (C7/C14 own the messaging).
+        throw new ConnectFenceError(
+          `connect-fenced: workflow ${payload.u} — exclusive cred, backend connected but no synced value yet; declining to race`,
         );
       }
     }
@@ -509,12 +527,18 @@ const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | 
     // silent — re-arm at the cadence floor (≥30s, like the offline poll)
     // so the degraded banner clears promptly once the backend returns and
     // a fresh value lands. No freshness precondition — it is "waiting for
-    // rescue," not "deferring to a live producer."
+    // rescue," not "deferring to a live producer." `ConnectFenceError`
+    // (WS-C C10) joins it as well: a connected peer declined to be the
+    // first runner of an exclusive cred before any §4 value has landed.
+    // Re-arm so a later tick re-checks; the row clears the moment the
+    // backend's first synced value arrives (the store-change reconcile
+    // beats any re-armed poll).
     if (
       err instanceof CircuitBlockedError ||
       err instanceof OfflineError ||
       err instanceof DeferredError ||
-      err instanceof ExclusiveDeferredError
+      err instanceof ExclusiveDeferredError ||
+      err instanceof ConnectFenceError
     ) {
       if (job) {
         void scheduler.schedule(job).catch((e) => logger.warn('LiveScheduler', 'Re-schedule after skip failed', e));
@@ -597,7 +621,8 @@ const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | 
     const isOffline = err instanceof OfflineError;
     const isDeferred = err instanceof DeferredError;
     const isExclusiveDeferred = err instanceof ExclusiveDeferredError;
-    const isNoOp = isBlocked || isOffline || isDeferred || isExclusiveDeferred;
+    const isConnectFenced = err instanceof ConnectFenceError;
+    const isNoOp = isBlocked || isOffline || isDeferred || isExclusiveDeferred || isConnectFenced;
     recordLog({
       subsystem: 'live',
       op: 'refresh-failed',
@@ -609,13 +634,15 @@ const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | 
         ? `Offline — refresh deferred for workflow ${payload.u}`
         : isExclusiveDeferred
           ? `Exclusive cred degraded for workflow ${payload.u} — backend silent, peer won't race (reconnect the desktop)`
-          : isDeferred
-            ? `Backend owns cadence for workflow ${payload.u} — peer refresh deferred`
-            : isBlocked
-              ? `Circuit open for workflow ${payload.u} — refresh declined`
-              : isStub
-                ? `No refresh adapter for workflow ${payload.u} (Phase D not yet wired)`
-                : `Refresh failed for ${payload.u}: ${err.message}`,
+          : isConnectFenced
+            ? `Backend connected but not yet producing for workflow ${payload.u} — peer won't race the first exclusive run`
+            : isDeferred
+              ? `Backend owns cadence for workflow ${payload.u} — peer refresh deferred`
+              : isBlocked
+                ? `Circuit open for workflow ${payload.u} — refresh declined`
+                : isStub
+                  ? `No refresh adapter for workflow ${payload.u} (Phase D not yet wired)`
+                  : `Refresh failed for ${payload.u}: ${err.message}`,
       context: {
         workspaceId: payload.w,
         workflowUid: payload.u,
@@ -624,13 +651,15 @@ const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | 
           ? 'Offline'
           : isExclusiveDeferred
             ? 'ExclusiveDeferred'
-            : isDeferred
-              ? 'Deferred'
-              : isBlocked
-                ? 'CircuitBlocked'
-                : isStub
-                  ? 'SchedulerNotReady'
-                  : err.name,
+            : isConnectFenced
+              ? 'ConnectFenced'
+              : isDeferred
+                ? 'Deferred'
+                : isBlocked
+                  ? 'CircuitBlocked'
+                  : isStub
+                    ? 'SchedulerNotReady'
+                    : err.name,
       },
     });
   },
@@ -696,6 +725,29 @@ class ExclusiveDeferredError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'ExclusiveDeferred';
+  }
+}
+
+/**
+ * Sentinel thrown by the C10 connect-time fence when a connected peer
+ * declines to be the *first* runner of an *exclusive* credential before
+ * any §4 value has landed for the row (`lastSyncedValueAt == null`, or a
+ * synced value with no derivable expiry). Closes the Mode-1 connect edge:
+ * a mid-cycle exclusive alarm that would otherwise self-refresh, racing
+ * the freshly-connected backend's first run (TOTP burn / OAuth
+ * reuse-detection), is held back until the backend proves it is producing.
+ * Not a failure — `recordFailure` re-arms without touching the circuit,
+ * and `onFailed` logs it at info. Unlike C9 it does NOT degrade the row:
+ * the gap is expected (catch-up in flight) and self-heals when the first
+ * synced value lands; a persistent gap surfaces via the generic
+ * stale-yellow path rather than a possibly-misleading "reconnect" banner.
+ * A class (not a string match) so the narrowing in those branches stays
+ * exhaustive.
+ */
+class ConnectFenceError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ConnectFenced';
   }
 }
 
