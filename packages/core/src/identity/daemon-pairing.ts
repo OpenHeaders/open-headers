@@ -18,6 +18,20 @@
  * The service is host-neutral — it makes no assumption about whether
  * the transport is HTTP, IPC, or anything else. Callers wire it into
  * whatever surface they own.
+ *
+ * Brute-force floor. A 6-digit code is ~20 bits; on loopback an attacker
+ * can fire thousands of guesses/sec, so the 5-min window is long enough
+ * to sweep the space without a limiter. The guard lives here — not in any
+ * one transport — so every surface (HTTP, future IPC) inherits it, and it
+ * covers BOTH lookups: `confirm` (POST) *and* `peek` (the GET confirm
+ * page, which is the cheaper enumeration oracle since a pending code
+ * answers differently from an unknown one). It is a single GLOBAL budget
+ * on *failed* (unknown-code) lookups, not per-code — a sweep varies the
+ * code, so per-code counting never trips — and not per-IP, since loopback
+ * collapses every attacker to `127.0.0.1`. Counting only unknown-code
+ * lookups keeps a legitimate human (one valid GET + one valid POST) off
+ * the meter entirely; once the budget trips, the whole surface fails
+ * closed for a short cooldown (uniform "unknown" — no oracle leak).
  */
 
 import { mintDaemonAuthToken } from './daemon-auth-tokens';
@@ -28,6 +42,14 @@ const CODE_DIGITS = '0123456789';
 // Cap concurrent pending pairs so a misbehaving caller can't exhaust
 // the 6-digit space (1M codes) and lock out legitimate pairings.
 const MAX_PENDING = 32;
+// Brute-force budget: how many unknown-code lookups inside the rolling
+// window trip the lockout. ~1 pending code in 1M means each guess lands
+// with p ≈ 1e-6; capping bursts at 50/min and locking 60s caps a sweep
+// at ~150 guesses across a 5-min code lifetime (p_hit ≈ 1.5e-4) while a
+// real human (valid GET + valid POST) never registers a failure.
+const DEFAULT_MAX_FAILED_LOOKUPS = 50;
+const DEFAULT_FAILURE_WINDOW_MS = 60 * 1000;
+const DEFAULT_LOCKOUT_MS = 60 * 1000;
 
 export type PendingPairStatus = 'pending' | 'confirmed' | 'expired' | 'consumed';
 
@@ -58,6 +80,15 @@ export interface DaemonPairingServiceOptions {
   ttlMs?: number;
   /** Length of the generated numeric code. Defaults to 6. */
   codeLength?: number;
+  /**
+   * Unknown-code lookups (across `peek` + `confirm`) inside
+   * {@link failureWindowMs} before the surface locks out. Defaults to 50.
+   */
+  maxFailedLookups?: number;
+  /** Rolling window over which failed lookups accumulate. Defaults to 60s. */
+  failureWindowMs?: number;
+  /** How long the surface stays locked once the budget trips. Defaults to 60s. */
+  lockoutMs?: number;
   /** Test seam — defaults to `Date.now()`. */
   now?: () => number;
   /**
@@ -104,8 +135,8 @@ export interface DaemonPairingService {
 function defaultGenerateCode(length: number): string {
   // Cryptographic randomness so codes can't be guessed from a clock
   // value or a per-process counter. 6 digits = 20 bits of entropy; the
-  // TTL + per-code lookup-only HTTP route is what bounds the brute-force
-  // surface, not the entropy.
+  // TTL plus the failed-lookup limiter (see the service's module doc) are
+  // what bound the brute-force surface, not the entropy alone.
   const bytes = new Uint8Array(length);
   crypto.getRandomValues(bytes);
   let out = '';
@@ -121,9 +152,36 @@ export function createDaemonPairingService(options: DaemonPairingServiceOptions 
   const now = options.now ?? Date.now;
   const generateCode = options.generateCode ?? (() => defaultGenerateCode(codeLength));
   const mintToken = options.mintToken ?? mintDaemonAuthToken;
+  const maxFailedLookups = options.maxFailedLookups ?? DEFAULT_MAX_FAILED_LOOKUPS;
+  const failureWindowMs = options.failureWindowMs ?? DEFAULT_FAILURE_WINDOW_MS;
+  const lockoutMs = options.lockoutMs ?? DEFAULT_LOCKOUT_MS;
 
   const pending = new Map<string, PendingPair>();
+  // Brute-force guard state (see module doc). `failureTimes` holds the
+  // timestamps of recent unknown-code lookups within the rolling window;
+  // `lockedUntil` is the cooldown deadline once the budget trips.
+  const failureTimes: number[] = [];
+  let lockedUntil = 0;
   let disposed = false;
+
+  function isLocked(t: number): boolean {
+    return t < lockedUntil;
+  }
+
+  // Record one unknown-code lookup and trip the lockout if the rolling
+  // window is now over budget. Shared by `peek` and `confirm` so a
+  // GET-then-POST sweep draws from a single budget.
+  function recordFailedLookup(t: number): void {
+    const cutoff = t - failureWindowMs;
+    while (failureTimes.length > 0 && failureTimes[0] <= cutoff) failureTimes.shift();
+    failureTimes.push(t);
+    if (failureTimes.length >= maxFailedLookups) {
+      lockedUntil = t + lockoutMs;
+      // The lockout now governs; clear the window so post-cooldown traffic
+      // starts from a clean budget rather than re-tripping immediately.
+      failureTimes.length = 0;
+    }
+  }
 
   function sweep(): void {
     if (disposed) return;
@@ -172,14 +230,30 @@ export function createDaemonPairingService(options: DaemonPairingServiceOptions 
     },
 
     peek(code) {
+      const t = now();
       sweep();
-      return pending.get(code) ?? null;
+      // Fail closed during a lockout: every lookup answers "unknown" so a
+      // sweep can't resume probing, and a real code is indistinguishable.
+      if (isLocked(t)) return null;
+      const entry = pending.get(code);
+      if (!entry) {
+        recordFailedLookup(t);
+        return null;
+      }
+      return entry;
     },
 
     async confirm(code, input) {
+      const t = now();
       sweep();
+      // Fail closed during a lockout — uniform "unknown", same as `peek`,
+      // so a sweep gains nothing by switching from GET probes to POSTs.
+      if (isLocked(t)) return { ok: false, reason: 'unknown' };
       const entry = pending.get(code);
-      if (!entry) return { ok: false, reason: 'unknown' };
+      if (!entry) {
+        recordFailedLookup(t);
+        return { ok: false, reason: 'unknown' };
+      }
       if (entry.status === 'expired') return { ok: false, reason: 'expired' };
       if (entry.status === 'consumed' || entry.status === 'confirmed') {
         return { ok: false, reason: 'consumed' };

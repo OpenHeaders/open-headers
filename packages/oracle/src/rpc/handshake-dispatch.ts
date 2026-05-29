@@ -84,7 +84,8 @@ export type EvaluateHelloOutcome =
       readonly welcome: SyncWelcomeMessage;
       /**
        * The `DaemonAuthToken` id the peer authenticated with, or null
-       * when the bind is loopback (`requireAuth` off — trust-by-process).
+       * when `requireAuth` is off (the gate's no-op path — only reached
+       * by tests now that the host requires auth on every connection).
        * The host stamps this onto the {@link PeerConnection} so the
        * admin "Known devices" surface can join live peers to the ledger.
        */
@@ -97,16 +98,17 @@ export type EvaluateHelloOutcome =
     };
 
 /**
- * Per-handshake gating options. When `requireAuth` is true (set by the
- * host when its bind address is non-loopback per
- * `UNIFIED_ORACLE_MODEL.md` §4.2), the dispatcher hashes
- * `hello.authToken` and constant-time-compares against the persisted
- * daemon auth-token ledger. A miss becomes a WELCOME with
+ * Per-handshake gating options. When `requireAuth` is true (the host
+ * sets it on every connection per `UNIFIED_ORACLE_MODEL.md` §4.2), the
+ * dispatcher hashes `hello.authToken` and constant-time-compares against
+ * the persisted daemon auth-token ledger. A miss becomes a WELCOME with
  * `reason: 'auth-required'` — the peer surfaces "this daemon requires
  * pairing" rather than a generic protocol-incompatible close.
  *
- * Loopback bind (`127.0.0.1`) stays trust-by-process — the host passes
- * `requireAuth: false` and the gate is a no-op.
+ * `requireAuth: false` makes the gate a no-op — retained only as a test
+ * seam; production hosts pass `true` for loopback and LAN alike, because
+ * loopback is reachable cross-user on a shared box and TCP blocks OS
+ * peer-cred.
  *
  * `validate` is an optional test seam — swap in a stubbed validator to
  * exercise dispatch wiring without round-tripping `hostStorage`.

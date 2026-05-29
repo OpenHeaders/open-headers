@@ -35,9 +35,10 @@ export type BackendMode = (typeof BACKEND_MODES)[number];
 
 /**
  * Bind address for the desktop daemon's WebSocket server (UNIFIED_ORACLE_MODEL.md §4.2).
- * `127.0.0.1` keeps the daemon loopback-only (trust-by-process); `0.0.0.0` opens it to
- * every local interface. Auth is then decided per-connection: loopback-origin peers
- * stay trust-by-process, non-loopback peers must present a token on HELLO.
+ * `127.0.0.1` keeps the daemon loopback-only; `0.0.0.0` opens it to every local
+ * interface. The bind controls reachability only — auth is mandatory on every
+ * connection regardless of origin (loopback included), so a paired token is required
+ * on HELLO either way.
  */
 export const BACKEND_BIND_ADDRESSES = ['127.0.0.1', '0.0.0.0'] as const;
 export type BackendBindAddress = (typeof BACKEND_BIND_ADDRESSES)[number];
@@ -86,7 +87,11 @@ registerSetting({
   tags: ['mode', 'host', 'in-browser', 'desktop', 'daemon', 'self-hosted'],
   scope: 'user',
   enumOptions: [
-    { value: 'in-browser', label: 'In this browser', description: 'Service worker — zero setup. No cross-browser, no cross-device.' },
+    {
+      value: 'in-browser',
+      label: 'In this browser',
+      description: 'Service worker — zero setup. No cross-browser, no cross-device.',
+    },
     {
       value: 'desktop-app',
       label: 'Desktop app on this machine',
@@ -124,7 +129,11 @@ registerSetting({
   scope: 'user',
   enumOptions: [
     { value: '127.0.0.1', label: 'Loopback only (127.0.0.1)', description: 'Only this machine can connect. Default.' },
-    { value: '0.0.0.0', label: 'All interfaces (LAN)', description: 'Other devices on the local network can connect. Requires the auth token from U3.2.' },
+    {
+      value: '0.0.0.0',
+      label: 'All interfaces (LAN)',
+      description: 'Other devices on the local network can connect. Requires the auth token from U3.2.',
+    },
   ],
   // Surface only on the desktop host while previewing/active mode is
   // `desktop-app` — the only (host, mode) pair where this process IS the
@@ -159,15 +168,17 @@ registerSetting({
   key: 'backend.authToken',
   type: 'string',
   default: '',
-  // Empty string is allowed for loopback peers (trust-by-process); the
-  // daemon's `requireAuth` flip only enforces presence on non-loopback
-  // binds. We don't constrain the format here because tokens may be
-  // pasted from a future device-flow surface (U3.3) whose shape this
-  // client doesn't dictate.
+  // Empty string is the pre-pairing state — the field exists before the
+  // user holds a token. It is no longer a valid *connected* state: the
+  // daemon now requires a paired token on every HELLO (loopback
+  // included), so an empty token yields an `auth-required` reject. We
+  // don't constrain the format here because tokens may be pasted from a
+  // future device-flow surface (U3.3) whose shape this client doesn't
+  // dictate.
   schema: v.string(),
   label: 'Daemon auth token',
   description:
-    'Long-lived token issued by the daemon when LAN peers are allowed. Paste the value the daemon admin shared with you; the desktop / extension sends it on every HELLO.',
+    'Long-lived token the daemon issues when you pair this device. Paste the value the daemon admin shared with you; the desktop / extension sends it on every HELLO.',
   category: 'backend',
   subcategory: 'connection',
   tags: ['auth', 'token', 'pair', 'daemon', 'secret'],

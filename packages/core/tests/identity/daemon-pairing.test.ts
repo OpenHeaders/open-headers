@@ -130,4 +130,80 @@ describe('daemon pairing service', () => {
     svc.dispose();
     expect(() => svc.startPair()).toThrow();
   });
+
+  describe('brute-force lockout', () => {
+    it('locks the surface after the failed-lookup budget and fails closed', async () => {
+      let now = 1_000_000;
+      const svc = createDaemonPairingService({
+        now: () => now,
+        generateCode: () => '314159',
+        maxFailedLookups: 5,
+        failureWindowMs: 60_000,
+        lockoutMs: 60_000,
+      });
+      svc.startPair();
+      // The real pending code is reachable before the budget trips.
+      expect(svc.peek('314159')?.status).toBe('pending');
+      // Five unknown-code probes exhaust the budget.
+      for (let i = 0; i < 5; i++) expect(svc.peek('000000')).toBeNull();
+      // Fail closed: even the valid code is hidden and confirm refuses.
+      expect(svc.peek('314159')).toBeNull();
+      const blocked = await svc.confirm('314159');
+      expect(blocked.ok).toBe(false);
+      if (!blocked.ok) expect(blocked.reason).toBe('unknown');
+      // After the cooldown elapses the valid code confirms again.
+      now += 60_001;
+      const ok = await svc.confirm('314159');
+      expect(ok.ok).toBe(true);
+    });
+
+    it('shares one budget across peek and confirm probes', async () => {
+      const now = 2_000_000;
+      const svc = createDaemonPairingService({
+        now: () => now,
+        generateCode: () => '271828',
+        maxFailedLookups: 4,
+      });
+      svc.startPair();
+      // Two GET probes + two POST probes = four unknown lookups → locked.
+      expect(svc.peek('100000')).toBeNull();
+      expect(svc.peek('200000')).toBeNull();
+      expect((await svc.confirm('300000')).ok).toBe(false);
+      expect((await svc.confirm('400000')).ok).toBe(false);
+      // Budget drawn down across both surfaces — the real code is hidden.
+      expect(svc.peek('271828')).toBeNull();
+    });
+
+    it('ages failed lookups out of the rolling window so spread-out misses never trip', () => {
+      let now = 3_000_000;
+      const svc = createDaemonPairingService({
+        now: () => now,
+        generateCode: () => '161803',
+        maxFailedLookups: 3,
+        failureWindowMs: 1000,
+      });
+      svc.startPair();
+      // One miss every 600ms: the window only ever holds two, never three.
+      for (let i = 0; i < 10; i++) {
+        expect(svc.peek('000001')).toBeNull();
+        now += 600;
+      }
+      // Never locked — the real code stays reachable throughout.
+      expect(svc.peek('161803')?.status).toBe('pending');
+    });
+
+    it('never counts a valid lookup toward the budget', async () => {
+      const now = 4_000_000;
+      const svc = createDaemonPairingService({
+        now: () => now,
+        generateCode: () => '141421',
+        // A single failure would lock — prove valid traffic is exempt.
+        maxFailedLookups: 1,
+      });
+      svc.startPair();
+      expect(svc.peek('141421')?.status).toBe('pending');
+      const ok = await svc.confirm('141421');
+      expect(ok.ok).toBe(true);
+    });
+  });
 });

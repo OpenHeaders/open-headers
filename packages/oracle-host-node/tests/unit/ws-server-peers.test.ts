@@ -3,11 +3,12 @@
  *
  * Exercises `listConnectedPeers()` / `subscribePeerChange()` end-to-end
  * against a real bound server: a loopback `ws` client completes the
- * HELLO handshake (trust-by-process, no token), and we assert the peer
- * shows up in the snapshot and fires a connect event, then drops on
- * disconnect. Loopback handshakes need no identity/storage setup —
- * `evaluateHello` skips the token gate and tolerates a null identity
- * snapshot.
+ * HELLO handshake and we assert the peer shows up in the snapshot and
+ * fires a connect event, then drops on disconnect. Auth is mandatory on
+ * every connection — loopback included — so each client presents a
+ * paired token; we mint a real `DaemonAuthToken` against an in-memory
+ * `HostStorage` fake and pass its secret as `hello.authToken`, then
+ * assert the connected peer carries the minted token id.
  *
  * Runs under Electron's Node ABI via this package's test script (the
  * `ws` dependency is pure JS, but the server shares the build with the
@@ -15,8 +16,10 @@
  */
 
 import { createServer } from 'node:net';
+import { mintDaemonAuthToken } from '@openheaders/core/identity';
 import { setHostLogger } from '@openheaders/core/logger';
 import { PROTOCOL_VERSION, SYNC_HELLO_TYPE, SYNC_WELCOME_TYPE } from '@openheaders/core/protocol';
+import { setHostStorage } from '@openheaders/core/storage';
 import {
   type OracleWsServer,
   type PeerChangeEvent,
@@ -24,11 +27,14 @@ import {
 } from '@openheaders/oracle-host-node/host-runtime/ws-server';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { WebSocket } from 'ws';
+import { createHostStorageFake } from './_host-storage-fake';
 
 const IDENTITY = { role: 'desktop' as const, nodeId: 'host-node-1', agent: '@openheaders/desktop@test' };
 
 let server: OracleWsServer | null = null;
 const clients: WebSocket[] = [];
+let authSecret = '';
+let authTokenId = '';
 
 async function freePort(): Promise<number> {
   return new Promise<number>((resolve, reject) => {
@@ -50,6 +56,7 @@ function hello(overrides: Record<string, unknown> = {}): string {
     nodeId: 'ext-node-1',
     workspaceId: 'ws-1',
     agent: '@openheaders/extension@test',
+    authToken: authSecret,
     ...overrides,
   });
 }
@@ -91,9 +98,15 @@ beforeAll(() => {
   setHostLogger({ error() {}, warn() {}, info() {}, debug() {} });
 });
 
-beforeEach(() => {
+beforeEach(async () => {
   server = null;
   clients.length = 0;
+  // Mandatory auth: provision a fresh token ledger + one paired token
+  // whose secret the test clients present in HELLO.
+  setHostStorage(createHostStorageFake());
+  const minted = await mintDaemonAuthToken({ label: 'peer-test' });
+  authSecret = minted.secret;
+  authTokenId = minted.record.id;
 });
 
 afterEach(async () => {
@@ -120,7 +133,7 @@ describe('OracleWsServer — peer registry', () => {
 
     expect(event.peer.role).toBe('extension');
     expect(event.peer.isLoopback).toBe(true);
-    expect(event.peer.tokenId).toBeNull();
+    expect(event.peer.tokenId).toBe(authTokenId);
 
     const peers = server.listConnectedPeers();
     expect(peers).toHaveLength(1);
@@ -129,7 +142,7 @@ describe('OracleWsServer — peer registry', () => {
       agent: '@openheaders/extension@test',
       workspaceId: 'ws-1',
       isLoopback: true,
-      tokenId: null,
+      tokenId: authTokenId,
     });
     expect(server.connectedCount()).toBe(1);
   });
@@ -169,6 +182,51 @@ describe('OracleWsServer — peer registry', () => {
     expect(peers).toHaveLength(2);
     expect(peers.every((p) => p.isLoopback)).toBe(true);
     expect(new Set(peers.map((p) => p.workspaceId))).toEqual(new Set(['ws-1', 'ws-2']));
+  });
+
+  it('rejects a loopback HELLO that presents no paired token (mandatory auth)', async () => {
+    const port = await freePort();
+    server = await startOracleWsServer({ host: '127.0.0.1', port, handshakeIdentity: IDENTITY });
+
+    const client = new WebSocket(`ws://127.0.0.1:${port}`);
+    clients.push(client);
+    await new Promise<void>((resolve, reject) => {
+      client.once('open', () => resolve());
+      client.once('error', reject);
+    });
+    const welcome = await new Promise<{ accepted: boolean; reason?: string }>((resolve) => {
+      client.on('message', (raw) => {
+        const msg = JSON.parse(raw.toString());
+        if (msg.type === SYNC_WELCOME_TYPE) resolve(msg);
+      });
+      // No token — trust-by-process is gone, so even loopback is gated.
+      client.send(hello({ authToken: undefined }));
+    });
+    expect(welcome.accepted).toBe(false);
+    expect(welcome.reason).toBe('auth-required');
+    expect(server.connectedCount()).toBe(0);
+  });
+
+  it('rejects a loopback HELLO that presents an unknown token', async () => {
+    const port = await freePort();
+    server = await startOracleWsServer({ host: '127.0.0.1', port, handshakeIdentity: IDENTITY });
+
+    const client = new WebSocket(`ws://127.0.0.1:${port}`);
+    clients.push(client);
+    await new Promise<void>((resolve, reject) => {
+      client.once('open', () => resolve());
+      client.once('error', reject);
+    });
+    const welcome = await new Promise<{ accepted: boolean; reason?: string }>((resolve) => {
+      client.on('message', (raw) => {
+        const msg = JSON.parse(raw.toString());
+        if (msg.type === SYNC_WELCOME_TYPE) resolve(msg);
+      });
+      client.send(hello({ authToken: 'oh_not-a-real-token' }));
+    });
+    expect(welcome.accepted).toBe(false);
+    expect(welcome.reason).toBe('auth-required');
+    expect(server.connectedCount()).toBe(0);
   });
 
   it('stops notifying after the subscription is dropped', async () => {

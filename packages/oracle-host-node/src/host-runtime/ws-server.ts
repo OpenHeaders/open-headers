@@ -47,8 +47,11 @@
  * upgrade requests) cover that — no separate HTTP server needed.
  *
  * Bind address: defaults to `127.0.0.1` (localhost-only). LAN/tunneled
- * deployments override with `host: '0.0.0.0'`; auth is then enforced
- * per-connection on HELLO for non-loopback peers (see `isLoopbackRemote`).
+ * deployments override with `host: '0.0.0.0'`. Auth is mandatory on every
+ * connection regardless of bind or remote address: loopback is reachable
+ * cross-user on a shared box and TCP blocks OS peer-cred, so
+ * trust-by-process isn't a sound floor. Every peer presents a paired
+ * token at HELLO.
  */
 
 import { randomUUID } from 'node:crypto';
@@ -63,14 +66,14 @@ import {
   WS_PORT,
 } from '@openheaders/core/protocol';
 import { getHostStorage, OH } from '@openheaders/core/storage';
-import { type RawData, WebSocket, WebSocketServer } from 'ws';
+import { createPeerConnection, type PeerConnection } from '@openheaders/oracle/host-runtime/peer-connection';
 import {
   dispatchSyncRpc,
   evaluateHello,
   handleStateVector,
   type LocalHandshakeIdentity,
 } from '@openheaders/oracle/rpc';
-import { createPeerConnection, type PeerConnection } from '@openheaders/oracle/host-runtime/peer-connection';
+import { type RawData, WebSocket, WebSocketServer } from 'ws';
 import type { PairingHttpHandler } from './pairing-http';
 
 const SCOPE = 'OracleWsServer';
@@ -118,9 +121,10 @@ export interface OracleWsServerOptions {
  * admin surfaces need to know without holding a reference to the
  * underlying {@link PeerConnection}.
  *
- * `isLoopback` is the same trust-model classifier the HELLO gate uses:
- * a loopback-origin socket is by-construction same-device, regardless
- * of whether the server is bound to `127.0.0.1` or `0.0.0.0`.
+ * `isLoopback` classifies the socket's origin for reporting + reach
+ * decisions (e.g. same-device secret sync). It no longer gates auth —
+ * every peer authenticates regardless of origin — but admin surfaces
+ * still distinguish a same-device peer from a LAN one.
  */
 export interface PeerSummary {
   readonly peerId: string;
@@ -157,8 +161,10 @@ export interface OracleWsServer {
   /**
    * The set of `DaemonAuthToken` ids that map to a peer connected
    * right now. Derived live from the peer registry — no independent
-   * bookkeeping. Loopback peers (no token gate) carry a null tokenId
-   * and are excluded. Feeds the admin "Known devices" surface (U3.4).
+   * bookkeeping. Every authenticated peer carries a tokenId now that
+   * auth is mandatory; a null tokenId only arises on the `requireAuth`-
+   * off test seam and is excluded. Feeds the admin "Known devices"
+   * surface (U3.4).
    */
   connectedTokenIds(): ReadonlySet<string>;
   /**
@@ -290,12 +296,12 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
   }
 
   wss.on('connection', (socket, request) => {
-    // Auth posture is per-connection: a loopback-origin socket stays
-    // trust-by-process even on a LAN bind; only non-loopback peers must
-    // present a token. A pure loopback bind only ever sees loopback
-    // remotes, so this collapses to "no auth" there with no special case.
+    // Auth is mandatory on every connection. Loopback is reachable
+    // cross-user on a shared box and TCP blocks OS peer-cred, so
+    // trust-by-process is not a sound floor — every peer presents a
+    // paired token. `isLoopback` is kept for reporting + reach, not auth.
     const isLoopback = isLoopbackRemote(request.socket.remoteAddress);
-    const requireAuth = !isLoopback;
+    const requireAuth = true;
     let handshakeDone = false;
     const handshakeTimer = setTimeout(() => {
       if (handshakeDone) return;
