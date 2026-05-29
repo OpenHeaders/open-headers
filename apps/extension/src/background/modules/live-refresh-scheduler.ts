@@ -38,44 +38,34 @@
  * Phase G).
  */
 
-import type { VariableFingerprint } from '@openheaders/core/live';
 import {
   type CacheSummary,
   canAttempt as canCircuitAttempt,
-  collectRequestTemplateStrings,
   computeNextFireAt as computeNextFireAtCore,
   initialCircuitSnapshot,
   isLiveVariableEffective,
-  isWorkflowEffective,
   MAX_BACKOFF_SECONDS,
   MIN_ALARM_DELAY_MS,
-  requestExecutableFingerprint,
-  scanTemplateReferencesMany,
-  workflowDefinitionFingerprint,
-  workflowVariableFingerprint,
 } from '@openheaders/core/live';
 import type { LiveVariable, LiveWorkflow } from '@openheaders/core/types';
+import { getActiveEnvironmentId, onActiveEnvironmentChange } from '@openheaders/oracle/entity/environment-store';
+import { onRequestStoreChange } from '@openheaders/oracle/entity/request-store';
+// LF1–LF4 definitional-freshness detectors are host-neutral; this
+// module wires them via the `refreshNow` seam and re-exports the
+// test/maintenance helpers below.
 import {
-  getActiveEnvironmentId,
-  getEnvironments,
-  getVault,
-  getWorkspaceVariables,
-  onActiveEnvironmentChange,
-  onEnvironmentStoreChange,
-} from '@openheaders/oracle/entity/environment-store';
+  __resetLiveCascadeBaseline,
+  __resetWorkflowDefinitionBaseline,
+  __setLiveCascadeRefreshDebounceMs,
+  __setRequestEditRefreshDebounceMs,
+  __setVariableEditRefreshDebounceMs,
+  startDefinitionalFreshness,
+  stopDefinitionalFreshness,
+} from '@openheaders/oracle/live/definitional-freshness';
 import {
-  getRequest,
-  getRequestCollections,
-  isRequestStoreHydrated,
-  onRequestStoreChange,
-} from '@openheaders/oracle/entity/request-store';
-import {
-  clearWorkflowRunCache,
   listCachesForWorkflow,
   listWorkflowRunCaches,
   markProbeStartForRun,
-  markRunDefinitionallyStale,
-  markWorkflowDefinitionallyStale,
   onLiveCacheStoreChange,
   recordRefreshError,
   resetCircuitForRun,
@@ -92,6 +82,8 @@ import {
   getLiveWorkflows,
   onLiveWorkflowStoreChange,
 } from '@openheaders/oracle/live/live-workflow-store';
+import { canScheduleWorkflow } from '@openheaders/oracle/live/scheduling-gate';
+import { computeWorkflowDependencies } from '@openheaders/oracle/live/workflow-dependency-graph';
 import { hostStorage, OH } from '@openheaders/oracle/storage';
 import { getOrCreateWorkspaceService, releaseWorkspaceService } from '@openheaders/oracle/sync/service';
 import { report as reportStatus } from '@openheaders/ui/shared/status';
@@ -100,6 +92,18 @@ import { logger } from '@utils/logger';
 import { recordLog } from './observability-log';
 import { createAlarmNameCodec, type RefreshProvider, RefreshScheduler } from './refresh-scheduler';
 import { getActiveWorkspaceId, onActiveWorkspaceChange } from './workspace-store';
+
+// Re-export the lifted gate + definitional-freshness maintenance hooks
+// so the scheduler's existing external callers + unit tests keep their
+// import surface (the implementations now live host-neutral in oracle).
+export {
+  __resetLiveCascadeBaseline,
+  __resetWorkflowDefinitionBaseline,
+  __setLiveCascadeRefreshDebounceMs,
+  __setRequestEditRefreshDebounceMs,
+  __setVariableEditRefreshDebounceMs,
+  canScheduleWorkflow,
+};
 
 /**
  * Defensive workspace-service bracket for refresh entry points
@@ -212,32 +216,11 @@ export function __setLiveRefreshAdapter(adapter: LiveRefreshAdapter | null): voi
   refreshAdapter = adapter;
 }
 
-// ── Can-refresh gate + cache summary ──────────────────────────────
-
-/**
- * Decide whether a workflow should have an alarm at all. A workflow
- * is schedulable when it's enabled, has manual bindings that want
- * fresh values, and has at least one enabled LV pointing at it (the
- * v1 reference-count heuristic). Returns `true` even for `manual`
- * refresh policies — `computeNextFireAt` declines a fire in that case
- * but we still want `scheduleLiveWorkflowRefresh` to clear a stale
- * alarm through `cancelLiveWorkflowRefresh`.
- */
-export function canScheduleWorkflow(workflow: LiveWorkflow, boundVariables: LiveVariable[]): boolean {
-  if (!isWorkflowEffective(workflow)) return false;
-  const hasEffectiveBinding = boundVariables.some((v) => isLiveVariableEffective(v));
-  if (!hasEffectiveBinding) return false;
-  // A step whose backing request was deleted can never run — drop the
-  // workflow from scheduling rather than firing alarms that fail every
-  // cycle. Skipped until the request store has hydrated (cold-wake
-  // window) so a transient empty store never strips a live alarm.
-  if (isRequestStoreHydrated()) {
-    for (const step of workflow.steps) {
-      if (step.requestUid.length > 0 && !getRequest(step.requestUid)) return false;
-    }
-  }
-  return true;
-}
+// ── Cache summary projection ──────────────────────────────────────
+//
+// The schedulability gate (`canScheduleWorkflow`) is host-neutral and
+// lives in `@openheaders/oracle/live/scheduling-gate`; this module
+// re-exports it (see imports) for its external callers + tests.
 
 /**
  * Project a `WorkflowRunCache` down to the `CacheSummary` the core
@@ -323,830 +306,6 @@ async function collectEntries(): Promise<LiveEntry[]> {
   return out;
 }
 
-// ── Dependency graph ─────────────────────────────────────────────
-//
-// Workflow A depends on Workflow B when A's step requests reference a
-// `{{live.X}}` whose LV binds to B. The shared `RefreshScheduler`
-// reconcile uses this graph to depth-sort alarms so downstream
-// refreshes fire AFTER upstream on the same wake wave, and to spread
-// the cohort across the per-host rate limiter's budget.
-//
-// All entries belong to the active workspace (active-workspace-only
-// scheduling — see `collectEntries`). Step requests resolve through
-// `request-store.getRequest`'s synchronous active-workspace view; a
-// missing lookup degrades to "no deps for this entry," equivalent to
-// scheduling in definition order (the plan's documented fallback when
-// a graph can't be resolved).
-
-/**
- * Index every effective live variable by name → its producer workflow
- * uid. Only effective LVs (published + enabled) produce values that
- * would trigger a rebuild of the consuming rule set, so a draft /
- * disabled binding doesn't warrant a dependency edge.
- */
-function buildEffectiveLvNameToWorkflowIndex(): Map<string, string> {
-  const out = new Map<string, string>();
-  for (const lv of getLiveVariables()) {
-    if (isLiveVariableEffective(lv)) out.set(lv.name, lv.workflowUid);
-  }
-  return out;
-}
-
-/**
- * The producer workflow uids whose `{{live.X}}` values a workflow's
- * step requests consume. A self-reference never forms an edge — a
- * workflow can't be its own upstream.
- */
-function collectWorkflowLiveParentUids(
-  workflow: LiveWorkflow,
-  lvNameToWorkflow: ReadonlyMap<string, string>,
-): Set<string> {
-  const parents = new Set<string>();
-  for (const step of workflow.steps) {
-    const request = getRequest(step.requestUid);
-    if (!request) continue;
-    const templates = collectRequestTemplateStrings(request);
-    if (templates.length === 0) continue;
-    const { live } = scanTemplateReferencesMany(templates);
-    for (const name of live) {
-      const producerUid = lvNameToWorkflow.get(name);
-      if (producerUid && producerUid !== workflow.uid) parents.add(producerUid);
-    }
-  }
-  return parents;
-}
-
-function computeWorkflowDependencies(entries: LiveEntry[]): Map<string, string[]> {
-  const out = new Map<string, string[]>();
-  if (entries.length === 0) return out;
-
-  const lvNameToWorkflow = buildEffectiveLvNameToWorkflowIndex();
-  if (lvNameToWorkflow.size === 0) return out;
-
-  const entryAlarmByWorkflowKey = new Map<string, string>();
-  for (const entry of entries) {
-    const alarm = codec.encode({ w: entry.workspaceId, u: entry.workflow.uid, e: entry.environmentId });
-    // Key by (workspace, workflow) — same workflow in different envs
-    // gets distinct alarms but shares the dependency edges (the step
-    // requests are identical; the cache is what varies).
-    entryAlarmByWorkflowKey.set(`${entry.workspaceId}:${entry.workflow.uid}`, alarm);
-  }
-
-  for (const entry of entries) {
-    const parentUids = collectWorkflowLiveParentUids(entry.workflow, lvNameToWorkflow);
-    if (parentUids.size === 0) continue;
-    const parents: string[] = [];
-    for (const producerUid of parentUids) {
-      const parentAlarm = entryAlarmByWorkflowKey.get(`${entry.workspaceId}:${producerUid}`);
-      if (parentAlarm) parents.push(parentAlarm);
-    }
-    if (parents.length === 0) continue;
-    const selfAlarm = codec.encode({ w: entry.workspaceId, u: entry.workflow.uid, e: entry.environmentId });
-    out.set(selfAlarm, parents);
-  }
-
-  return out;
-}
-
-/**
- * Map each workflow uid to the set of workflow uids DOWNSTREAM of it —
- * the workflows whose step requests consume a `{{live.X}}` bound to it.
- * This is the inverse of the upstream edges `computeWorkflowDependencies`
- * derives; the LF4 cascade walks it to find the consumers a workflow's
- * just-refreshed live value made stale. Active-workspace view only
- * (`getLiveWorkflows` / `getRequest` are the active-workspace stores).
- */
-function computeWorkflowDownstreamMap(): Map<string, Set<string>> {
-  const downstream = new Map<string, Set<string>>();
-  const lvNameToWorkflow = buildEffectiveLvNameToWorkflowIndex();
-  if (lvNameToWorkflow.size === 0) return downstream;
-  for (const workflow of getLiveWorkflows()) {
-    for (const parentUid of collectWorkflowLiveParentUids(workflow, lvNameToWorkflow)) {
-      let children = downstream.get(parentUid);
-      if (!children) {
-        children = new Set();
-        downstream.set(parentUid, children);
-      }
-      children.add(workflow.uid);
-    }
-  }
-  return downstream;
-}
-
-/**
- * True when `target` is reachable downstream from `from` by walking
- * the downstream edge map. Used as the LF4 cycle guard — an edge
- * `upstream → child` is a cycle back-edge when the child can itself
- * reach the upstream, and the cascade refuses to traverse it.
- */
-function canReachDownstream(from: string, target: string, downstream: ReadonlyMap<string, Set<string>>): boolean {
-  const stack: string[] = [from];
-  const seen = new Set<string>([from]);
-  while (stack.length > 0) {
-    const node = stack.pop();
-    if (node === undefined) break;
-    const children = downstream.get(node);
-    if (!children) continue;
-    for (const child of children) {
-      if (child === target) return true;
-      if (!seen.has(child)) {
-        seen.add(child);
-        stack.push(child);
-      }
-    }
-  }
-  return false;
-}
-
-// ── Definitional-freshness — material request-edit detector ───────
-//
-// A workflow's cached token is a function of the request its steps
-// embed. When that request's EXECUTABLE surface changes (URL, headers,
-// auth, body, scripts — see `requestExecutableFingerprint`), every
-// value the workflow cached was minted by a recipe that no longer
-// exists. Waiting for the next cadence tick re-runs only the new
-// recipe — until then, live traffic carries a wrong-recipe token for
-// up to a full refresh interval. For env-gated auth that is a hard
-// blocker, not stale-but-fine.
-//
-// A material request edit therefore flags every embedding workflow's
-// env cache rows definitionally stale (`markWorkflowDefinitionallyStale`).
-// The flag does double duty: the LV picker / inspector badge "needs
-// re-run", AND `computeNextFireAt` treats a flagged row as due now, so
-// the reconcile + cadence path refreshes every flagged row as soon as
-// the alarm floor allows — including the non-active envs, and including
-// a workflow that is not runnable at the moment of the edit (disabled /
-// unpublished) but becomes schedulable later. A successful refresh
-// clears the flag.
-//
-// On top of the flag, a non-manual workflow that IS runnable right now
-// also gets an immediate refresh of the ACTIVE env — the old value
-// keeps serving until that refresh lands, so the env the user is
-// actually resolving has no wrong-recipe window rather than waiting out
-// the ~30s alarm floor.
-//
-// Manual-trigger workflows must NOT auto-run — the user opted out of
-// automation. The flag is their whole treatment: `computeNextFireAt`
-// returns null for a manual policy regardless, so the row is badged but
-// never auto-refreshed; a successful manual refresh clears it. Cosmetic
-// edits (rename, description, folder move) never change the
-// fingerprint, so they never reach this path at all.
-
-/** Debounce window collapsing a burst of request saves into one pass. */
-let requestEditRefreshDebounceMs = 600;
-
-/** Test-only: shrink the debounce so settle runs on the next macrotask. */
-export function __setRequestEditRefreshDebounceMs(ms: number): void {
-  requestEditRefreshDebounceMs = ms;
-}
-
-// Per-workspace fingerprint of every request embedded by that
-// workspace's workflows, as of its last settled pass. Keyed by
-// workspaceId so a baseline survives a workspace switch: an edit made
-// just before switching away is still diffed against the correct
-// pre-edit baseline when the user returns. Within a workspace, a uid
-// present with a changed fingerprint is a material edit; a uid absent
-// (newly referenced, or the first pass after SW wake) is adopted
-// without a trigger. The first settle for a workspace self-primes off
-// its hydration broadcast, which always precedes any human edit.
-let requestExecBaseline = new Map<string, Map<string, string>>();
-let requestEditDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-
-/** Fingerprint each request embedded by an active-workspace workflow. */
-function snapshotActiveRequestFingerprints(): Map<string, string> {
-  const out = new Map<string, string>();
-  for (const workflow of getLiveWorkflows()) {
-    for (const step of workflow.steps) {
-      if (out.has(step.requestUid)) continue;
-      const request = getRequest(step.requestUid);
-      if (request) out.set(step.requestUid, requestExecutableFingerprint(request));
-    }
-  }
-  return out;
-}
-
-/** Debounced entry point — (re)arm the settle timer on every request-store change. */
-function onRequestStoreChangeForRefresh(): void {
-  if (requestEditDebounceTimer) clearTimeout(requestEditDebounceTimer);
-  requestEditDebounceTimer = setTimeout(() => {
-    requestEditDebounceTimer = null;
-    void settleRequestEditRefresh().catch((err) => {
-      logger.info('LiveScheduler', `request-edit refresh settle failed: ${(err as Error).message}`);
-    });
-  }, requestEditRefreshDebounceMs);
-}
-
-/** Diff fingerprints against the active workspace's baseline; refresh workflows whose embedded request materially changed. */
-async function settleRequestEditRefresh(): Promise<void> {
-  let workspaceId: string;
-  try {
-    workspaceId = getActiveWorkspaceId();
-  } catch {
-    return; // bootstrap race — workspace pointer not hydrated, can't key the baseline
-  }
-  const current = snapshotActiveRequestFingerprints();
-  const prevForWs = requestExecBaseline.get(workspaceId);
-  requestExecBaseline.set(workspaceId, current);
-  // First settle for this workspace — adopt its snapshot without a
-  // trigger (the hydration broadcast precedes any human edit).
-  if (!prevForWs) return;
-  const changed = new Set<string>();
-  for (const [uid, fingerprint] of current) {
-    const prev = prevForWs.get(uid);
-    if (prev !== undefined && prev !== fingerprint) changed.add(uid);
-  }
-  if (changed.size === 0) return;
-  await refreshWorkflowsForChangedRequests(changed);
-}
-
-/** Flag every embedding workflow definitionally stale; refresh the active env of those runnable now. */
-async function refreshWorkflowsForChangedRequests(changedRequestUids: ReadonlySet<string>): Promise<void> {
-  let workspaceId: string;
-  try {
-    workspaceId = getActiveWorkspaceId();
-  } catch {
-    return; // bootstrap race — workspace pointer not hydrated yet
-  }
-  const activeEnvironmentId = getActiveEnvironmentId();
-  for (const workflow of getLiveWorkflows()) {
-    if (!workflow.steps.some((step) => changedRequestUids.has(step.requestUid))) continue;
-    // Flag every env cache row definitionally stale. This surfaces the
-    // "needs re-run" badge AND — via `computeNextFireAt` — makes each
-    // row due now, so the reconcile + cadence path refreshes it even
-    // for a workflow that can't run at this instant (disabled,
-    // unpublished) but becomes schedulable later.
-    try {
-      await markWorkflowDefinitionallyStale(workflow.uid, workspaceId);
-    } catch (err) {
-      logger.info('LiveScheduler', `definitional-stale flag failed for ${workflow.uid}: ${(err as Error).message}`);
-    }
-    // Manual workflows never auto-run — the flag is the whole treatment
-    // (`computeNextFireAt` returns null for a manual policy).
-    if (workflow.refresh.kind === 'manual') continue;
-    // Non-manual + runnable now: refresh the ACTIVE env immediately so
-    // the value the user is actually resolving has no wrong-recipe
-    // window. Non-active envs — and a workflow not schedulable right
-    // now — re-warm via the due-now alarm the flag drives.
-    const boundVariables = getLiveVariablesForWorkflow(workflow.uid);
-    if (!canScheduleWorkflow(workflow, boundVariables)) continue;
-    void refreshLiveWorkflowSynchronously(workspaceId, workflow.uid, activeEnvironmentId).catch((err) => {
-      logger.info('LiveScheduler', `request-edit refresh failed for ${workflow.uid}: ${(err as Error).message}`);
-    });
-  }
-}
-
-// ── Definitional-freshness — variable-edit detector (LF2) ──────────
-//
-// A workflow's cached token is minted not only from the request its
-// steps embed but from the VALUES that request's `{{var}}` references
-// resolve to. When a referenced variable changes — an `{{env.X}}` /
-// `{{vault.X}}` / `{{workspace.X}}` / `{{collection.X}}` edit — every
-// value the workflow cached was minted by a recipe that no longer
-// exists. The DNR resolver keeps serving that wrong-recipe token until
-// the next cadence tick.
-//
-// `{{env.X}}` resolves per environment, so each (workflow, env) pair
-// is fingerprinted independently: an edit to a non-active env's
-// variables makes only that env's cache row stale, even while the user
-// sits in another env. `{{vault/workspace/collection.X}}` are
-// environment-independent and flip every env row at once.
-//
-// The fingerprint is split (`refsKey` / `valuesKey`, see
-// `@openheaders/core/live/variable-scan`). A request edit that adds or
-// drops a `{{var}}` reference shifts `refsKey` — that is LF1's path,
-// not LF2's, so a `refsKey` change re-baselines silently. Only a
-// `valuesKey` change under a stable `refsKey` is a variable edit.
-//
-// The treatment mirrors LF1 (`refreshWorkflowsForChangedRequests`):
-// every affected (workflow, env) cache row is flagged definitionally
-// stale — manual or not, schedulable now or not. The flag surfaces the
-// "needs re-run" badge AND, via `computeNextFireAt`, makes the row due
-// now, so a workflow that can't run at the moment of the edit
-// (disabled, unpublished, deleted-request step) still re-warms once it
-// becomes schedulable again. On top of the flag, a non-manual workflow
-// runnable right now gets an immediate refresh of the ACTIVE env when
-// that env's variables changed — the old value keeps serving until the
-// refresh lands, so there is no wrong-recipe gap. Manual workflows
-// never auto-run; the flag is their whole treatment.
-
-/** Debounce window collapsing a burst of variable saves into one pass. */
-let variableEditRefreshDebounceMs = 600;
-
-/** Test-only: shrink the debounce so settle runs on the next macrotask. */
-export function __setVariableEditRefreshDebounceMs(ms: number): void {
-  variableEditRefreshDebounceMs = ms;
-}
-
-// Per-workspace, per-(workflow, env) variable-surface fingerprint as of
-// that workspace's last settled pass. Keyed by workspaceId so a baseline
-// survives a workspace switch (same reasoning as `requestExecBaseline`):
-// a variable edit made just before switching away is still diffed
-// against the correct pre-edit baseline on return. The first settle for
-// a workspace self-primes off its hydration broadcast; within a
-// workspace, a (workflow, env) absent from the baseline is adopted
-// without a trigger.
-let variableSurfaceBaseline = new Map<string, Map<string, Map<string | null, VariableFingerprint>>>();
-let variableEditDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-
-/** Reduce the vault to name → recipe — a TOTP entry contributes its seed + params, never the rotating code. */
-function snapshotVaultVars(): Map<string, string> {
-  const out = new Map<string, string>();
-  for (const secret of getVault().secrets) {
-    out.set(
-      secret.name,
-      secret.kind === 'string'
-        ? secret.value
-        : `totp:${secret.seed}:${secret.algorithm}:${secret.digits}:${secret.period}`,
-    );
-  }
-  return out;
-}
-
-/** Map a flat variable list to name → value (later entries win on a duplicate name). */
-function toVarMap(variables: ReadonlyArray<{ name: string; value: string }>): Map<string, string> {
-  const out = new Map<string, string>();
-  for (const v of variables) out.set(v.name, v.value);
-  return out;
-}
-
-/** Merge every request collection's variables into one name → value map. */
-function snapshotCollectionVars(): Map<string, string> {
-  const out = new Map<string, string>();
-  for (const collection of getRequestCollections()) {
-    for (const v of collection.variables ?? []) out.set(v.name, v.value);
-  }
-  return out;
-}
-
-/** Fingerprint every active-workspace workflow's variable surface, per environment (incl. "No environment"). */
-function snapshotWorkflowVariableFingerprints(): Map<string, Map<string | null, VariableFingerprint>> {
-  const out = new Map<string, Map<string | null, VariableFingerprint>>();
-  const workflows = getLiveWorkflows();
-  if (workflows.length === 0) return out;
-
-  // Environment-independent scopes — computed once, shared across envs.
-  const vaultVars = snapshotVaultVars();
-  const workspaceVars = toVarMap(getWorkspaceVariables().variables);
-  const collectionVars = snapshotCollectionVars();
-  // The "No environment" state plus every defined environment — each
-  // has its own cache row, so each is fingerprinted independently.
-  const envContexts: Array<{ id: string | null; vars: Map<string, string> }> = [{ id: null, vars: new Map() }];
-  for (const env of getEnvironments()) envContexts.push({ id: env.uid, vars: toVarMap(env.variables) });
-
-  for (const workflow of workflows) {
-    const templates: string[] = [];
-    for (const step of workflow.steps) {
-      const request = getRequest(step.requestUid);
-      if (request) templates.push(...collectRequestTemplateStrings(request));
-    }
-    const perEnv = new Map<string | null, VariableFingerprint>();
-    for (const ctx of envContexts) {
-      perEnv.set(
-        ctx.id,
-        workflowVariableFingerprint(templates, { envVars: ctx.vars, vaultVars, workspaceVars, collectionVars }),
-      );
-    }
-    out.set(workflow.uid, perEnv);
-  }
-  return out;
-}
-
-/** Debounced entry point — (re)arm the settle timer on every variable / collection store change. */
-function onVariableStoreChangeForRefresh(): void {
-  if (variableEditDebounceTimer) clearTimeout(variableEditDebounceTimer);
-  variableEditDebounceTimer = setTimeout(() => {
-    variableEditDebounceTimer = null;
-    void settleVariableEditRefresh().catch((err) => {
-      logger.info('LiveScheduler', `variable-edit refresh settle failed: ${(err as Error).message}`);
-    });
-  }, variableEditRefreshDebounceMs);
-}
-
-/** One changed (workflow, env) pair — a variable its embedded request resolves was edited. */
-interface ChangedWorkflowEnv {
-  workflowUid: string;
-  environmentId: string | null;
-}
-
-/** Diff the variable surface against the active workspace's baseline; act on workflows whose resolved variables changed. */
-async function settleVariableEditRefresh(): Promise<void> {
-  let workspaceId: string;
-  try {
-    workspaceId = getActiveWorkspaceId();
-  } catch {
-    return; // bootstrap race — workspace pointer not hydrated, can't key the baseline
-  }
-  const current = snapshotWorkflowVariableFingerprints();
-  const prevForWs = variableSurfaceBaseline.get(workspaceId);
-  variableSurfaceBaseline.set(workspaceId, current);
-  // First settle for this workspace — adopt without a trigger.
-  if (!prevForWs) return;
-  const changed: ChangedWorkflowEnv[] = [];
-  for (const [workflowUid, perEnv] of current) {
-    const prevPerEnv = prevForWs.get(workflowUid);
-    if (!prevPerEnv) continue; // first sight — adopt without a trigger
-    for (const [environmentId, fingerprint] of perEnv) {
-      const prev = prevPerEnv.get(environmentId);
-      if (!prev) continue;
-      // A `refsKey` shift means the embedded request gained or lost a
-      // `{{var}}` reference — LF1's request-edit path already handled
-      // it. Re-baseline silently; only a value change is LF2's.
-      if (prev.refsKey !== fingerprint.refsKey) continue;
-      if (prev.valuesKey !== fingerprint.valuesKey) changed.push({ workflowUid, environmentId });
-    }
-  }
-  if (changed.length === 0) return;
-  await refreshWorkflowsForChangedVariables(changed);
-}
-
-/** Flag every affected (workflow, env) row definitionally stale; refresh the active env of those runnable now. */
-async function refreshWorkflowsForChangedVariables(changed: ReadonlyArray<ChangedWorkflowEnv>): Promise<void> {
-  let workspaceId: string;
-  try {
-    workspaceId = getActiveWorkspaceId();
-  } catch {
-    return; // bootstrap race — workspace pointer not hydrated yet
-  }
-  const activeEnvironmentId = getActiveEnvironmentId();
-
-  // Group the changed envs by workflow so each workflow is gated once.
-  const byWorkflow = new Map<string, Array<string | null>>();
-  for (const { workflowUid, environmentId } of changed) {
-    const envs = byWorkflow.get(workflowUid);
-    if (envs) envs.push(environmentId);
-    else byWorkflow.set(workflowUid, [environmentId]);
-  }
-
-  const workflowsByUid = new Map(getLiveWorkflows().map((w) => [w.uid, w]));
-  for (const [workflowUid, environmentIds] of byWorkflow) {
-    const workflow = workflowsByUid.get(workflowUid);
-    if (!workflow) continue;
-    // Flag every changed env cache row definitionally stale, before any
-    // gate. This is the whole treatment for manual workflows and for a
-    // workflow not schedulable right now (disabled, unpublished,
-    // deleted-request step) — `computeNextFireAt` honors the flag, so a
-    // flagged row is due as soon as the workflow can run again. A
-    // successful refresh clears the flag.
-    for (const environmentId of environmentIds) {
-      try {
-        await markRunDefinitionallyStale(workflowUid, environmentId, workspaceId);
-      } catch (err) {
-        logger.info('LiveScheduler', `definitional-stale flag failed for ${workflowUid}: ${(err as Error).message}`);
-      }
-    }
-    // Manual workflows never auto-run on an edit — the flag is the
-    // whole treatment (`computeNextFireAt` returns null for a manual
-    // policy regardless).
-    if (workflow.refresh.kind === 'manual') continue;
-    // Non-manual + runnable now: refresh the ACTIVE env immediately when
-    // its variables changed, so the value the user is resolving has no
-    // wrong-recipe window. Non-active envs — and a workflow not
-    // schedulable right now — re-warm via the due-now alarm the flag
-    // drives.
-    const boundVariables = getLiveVariablesForWorkflow(workflowUid);
-    if (!canScheduleWorkflow(workflow, boundVariables)) continue;
-    if (environmentIds.includes(activeEnvironmentId)) {
-      void refreshLiveWorkflowSynchronously(workspaceId, workflowUid, activeEnvironmentId).catch((err) => {
-        logger.info('LiveScheduler', `variable-edit refresh failed for ${workflowUid}: ${(err as Error).message}`);
-      });
-    }
-  }
-}
-
-// ── Definitional-freshness — workflow delete + definition edit (LF3) ─
-//
-// A workflow's cached token is minted from a third recipe input beyond
-// the request its steps embed (LF1) and the variables that request
-// resolves (LF2): the workflow DEFINITION itself — which steps run, in
-// what order, under what gates, capturing what. Two definition changes
-// invalidate that token:
-//
-//   • Delete — the workflow is gone; its `liveCache` rows are orphaned.
-//     A bound `{{live.X}}` would otherwise resolve a frozen, never-
-//     refreshed value forever (the cadence timer never reaches a
-//     deleted workflow). Every env-keyed cache row it owns is purged.
-//   • Definition edit — re-pointing a step at a different request,
-//     changing a step's extractor, adding / removing / reordering
-//     steps. The cached value was minted by a recipe that no longer
-//     exists, exactly like a material request edit (LF1) — so the
-//     treatment is LF1's: flag every env row definitionally stale
-//     (`computeNextFireAt` then makes each due now, re-warming even a
-//     workflow not runnable at the instant of the edit) and, for a
-//     non-manual workflow runnable now, refresh the active env at once.
-//
-// Both are detected off the same `onLiveWorkflowStoreChange` broadcast
-// against one workspace-tagged baseline of `uid → workflowDefinition
-// Fingerprint`. The fingerprint excludes cosmetic + scheduling fields
-// (`name`, `description`, `enabled`, `published`, `refresh`), so a
-// rename / enable-toggle / cadence change never fires. The baseline
-// self-primes off the first broadcast (hydration always precedes a
-// human change); a workspace switch swaps the whole map and re-primes
-// silently (`getLiveWorkflows()` is the active-workspace view). No
-// debounce — a delete or a save is atomic, not a keystroke burst.
-
-let workflowDefinitionBaseline: { workspaceId: string; defs: Map<string, string> } | null = null;
-
-/** Test-only: drop the workflow-definition baseline so the next change re-primes. */
-export function __resetWorkflowDefinitionBaseline(): void {
-  workflowDefinitionBaseline = null;
-}
-
-/** Fingerprint every active-workspace workflow's executable definition. */
-function snapshotWorkflowDefinitions(): Map<string, string> {
-  const out = new Map<string, string>();
-  for (const wf of getLiveWorkflows()) out.set(wf.uid, workflowDefinitionFingerprint(wf));
-  return out;
-}
-
-/** Diff the active workspace's workflow definitions; purge deletes, refresh edits. */
-async function settleWorkflowDefinitionChanges(): Promise<void> {
-  let workspaceId: string;
-  try {
-    workspaceId = getActiveWorkspaceId();
-  } catch {
-    return; // bootstrap race — workspace pointer not hydrated yet
-  }
-  const current = snapshotWorkflowDefinitions();
-  // First sight, or a workspace switch — adopt the new map without
-  // acting (any vanished uid belongs to the other workspace, not a
-  // delete; any fingerprint shift is the hydration broadcast).
-  if (!workflowDefinitionBaseline || workflowDefinitionBaseline.workspaceId !== workspaceId) {
-    workflowDefinitionBaseline = { workspaceId, defs: current };
-    return;
-  }
-  const deleted: string[] = [];
-  const edited: string[] = [];
-  for (const [uid, fingerprint] of workflowDefinitionBaseline.defs) {
-    const next = current.get(uid);
-    if (next === undefined) deleted.push(uid);
-    else if (next !== fingerprint) edited.push(uid);
-  }
-  workflowDefinitionBaseline = { workspaceId, defs: current };
-
-  for (const uid of deleted) {
-    void clearWorkflowRunCache(uid, workspaceId).catch((err) => {
-      logger.info('LiveScheduler', `workflow-delete cache purge failed for ${uid}: ${(err as Error).message}`);
-    });
-  }
-  if (edited.length > 0) await refreshWorkflowsForChangedDefinitions(edited, workspaceId);
-}
-
-/** Flag every edited workflow definitionally stale; refresh the active env of those runnable now. */
-async function refreshWorkflowsForChangedDefinitions(
-  editedUids: readonly string[],
-  workspaceId: string,
-): Promise<void> {
-  const activeEnvironmentId = getActiveEnvironmentId();
-  const workflowsByUid = new Map(getLiveWorkflows().map((w) => [w.uid, w]));
-  for (const uid of editedUids) {
-    const workflow = workflowsByUid.get(uid);
-    if (!workflow) continue;
-    // Flag every env cache row definitionally stale, before any gate —
-    // the whole treatment for manual workflows and for one not
-    // schedulable right now; `computeNextFireAt` honors the flag so a
-    // flagged row is due as soon as the workflow can run again.
-    try {
-      await markWorkflowDefinitionallyStale(uid, workspaceId);
-    } catch (err) {
-      logger.info('LiveScheduler', `definitional-stale flag failed for ${uid}: ${(err as Error).message}`);
-    }
-    // Manual workflows never auto-run — the flag is the whole treatment.
-    if (workflow.refresh.kind === 'manual') continue;
-    // Non-manual + runnable now: refresh the ACTIVE env immediately so
-    // the value the user is resolving has no wrong-recipe window.
-    const boundVariables = getLiveVariablesForWorkflow(uid);
-    if (!canScheduleWorkflow(workflow, boundVariables)) continue;
-    void refreshLiveWorkflowSynchronously(workspaceId, uid, activeEnvironmentId).catch((err) => {
-      logger.info('LiveScheduler', `workflow-definition refresh failed for ${uid}: ${(err as Error).message}`);
-    });
-  }
-}
-
-// ── Definitional-freshness — chained-workflow cascade (LF4) ────────
-//
-// A workflow's cached token is minted not only from its request's
-// executable surface (LF1) and the variables that request resolves
-// (LF2), but from any UPSTREAM live value its request embeds. When
-// workflow A's `liveCache` row is rewritten by a real refresh, every
-// workflow B whose step request resolves a `{{live.X}}` bound to A is
-// downstream-stale: B's cached token was extracted from a request that
-// carried A's OLD value. The DNR resolver keeps serving that wrong-
-// input token until B's own cadence tick.
-//
-// Detection: the cache-store change broadcast carries the full post-
-// write run list. A row whose `extractedAt` ADVANCED since the last
-// settled baseline was rewritten by a successful `putWorkflowRunCache`
-// — a real new value. Failures (`recordRefreshError`), probe-start
-// transitions, and invalidations all preserve `extractedAt`, so they
-// never spuriously cascade.
-//
-// Per-(workflow, env) precision (like LF2): `{{live.X}}` resolves
-// against A's cache row for the resolution env, so A's env-`e` refresh
-// only makes B's env-`e` row stale. The downstream action mirrors LF2's
-// post-audit shape — every affected env row is flagged definitionally
-// stale BEFORE any gate (the whole treatment for a manual workflow and
-// for one not schedulable at the instant of the cascade — disabled,
-// unpublished, deleted-request step); then, for a non-manual workflow
-// runnable now, the ACTIVE env is refreshed immediately. The flag — not
-// a cache drop — is the non-active-env treatment: the row keeps serving
-// AND stays scheduled, so `computeNextFireAt`'s due-now override re-warms
-// it on the next reconcile (advancing `extractedAt`, which re-fires this
-// cascade onward) rather than only on the next env switch. Dropping the
-// row would strip it from `collectEntries`, so the non-active env would
-// go dark and the cascade would stop dead at one hop.
-//
-// Propagation is HOP-BY-HOP: a cascade refresh of B writes B's cache,
-// which fires this same broadcast, which walks downstream of B to C.
-// A chain A→B→C refreshes in topological order because each hop only
-// fires once its upstream's new value has actually landed — no topo-
-// sort, no await-chain. A dependency cycle has no convergent fixpoint;
-// the cycle guard (`canReachDownstream`) refuses to traverse a back-
-// edge so the walk always terminates, and the cadence timer still
-// refreshes every workflow in the cycle on its own schedule.
-
-/** Debounce window collapsing a burst of upstream refreshes into one cascade pass. */
-let liveCascadeRefreshDebounceMs = 600;
-
-/** Test-only: shrink the debounce so the cascade settles on the next macrotask. */
-export function __setLiveCascadeRefreshDebounceMs(ms: number): void {
-  liveCascadeRefreshDebounceMs = ms;
-}
-
-/** Per-workspace, per-(workflow, env) `extractedAt` as of that workspace's last settled pass. */
-let liveValueExtractedAtBaseline = new Map<string, Map<string, number>>();
-let cascadeDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-/**
- * Upstream (workflow, env) pairs whose live value advanced since the
- * last settle, bucketed by workspaceId. A bucket survives a switch away
- * from its workspace and is drained when that workspace is active again
- * — both the debounced cascade settle and the workspace-switch hook
- * settle only the active workspace's bucket.
- */
-let pendingCascadeUpstreams = new Map<string, ChangedWorkflowEnv[]>();
-
-/** Test-only: drop the cascade baseline so the next cache change re-primes. */
-export function __resetLiveCascadeBaseline(): void {
-  liveValueExtractedAtBaseline = new Map();
-}
-
-function cascadeRowKey(workflowUid: string, environmentId: string | null): string {
-  return `${workflowUid}::${environmentId ?? '__none__'}`;
-}
-
-/**
- * LF4 detector — on every live-cache change, diff the changed
- * workflow's rows against the `extractedAt` baseline; a row that
- * advanced is a real refresh whose consumers must cascade-refresh.
- */
-function onLiveCacheChangeForCascade(
-  workspaceId: string,
-  workflowUid: string | null,
-  runs: readonly WorkflowRunCache[],
-): void {
-  let activeWorkspaceId: string;
-  try {
-    activeWorkspaceId = getActiveWorkspaceId();
-  } catch {
-    return; // bootstrap race — workspace pointer not hydrated yet
-  }
-  // Active-workspace-only: a write to another workspace's cache can't
-  // be cascaded — the workflow / request stores are the active view.
-  if (workspaceId !== activeWorkspaceId) return;
-
-  const current = new Map<string, number>();
-  for (const run of runs) current.set(cascadeRowKey(run.workflowUid, run.environmentId), run.extractedAt ?? 0);
-
-  // First sight of this workspace — adopt its baseline without a
-  // cascade (any apparent advance is the hydration broadcast that
-  // always precedes a human action).
-  const prevForWs = liveValueExtractedAtBaseline.get(workspaceId);
-  liveValueExtractedAtBaseline.set(workspaceId, current);
-  if (!prevForWs) return;
-
-  // `workflowUid === null` is a bulk mutation (workspace purge) — no
-  // single upstream to cascade from; the baseline was re-synced above.
-  const bucket = pendingCascadeUpstreams.get(workspaceId) ?? [];
-  if (workflowUid !== null) {
-    for (const run of runs) {
-      if (run.workflowUid !== workflowUid) continue;
-      const key = cascadeRowKey(run.workflowUid, run.environmentId);
-      const prev = prevForWs.get(key) ?? 0;
-      const next = run.extractedAt ?? 0;
-      // `extractedAt` advanced — a successful `putWorkflowRunCache`
-      // minted a new value (a row's first-ever write counts: `prev`
-      // defaults to 0). A failed first refresh writes `extractedAt: 0`,
-      // so `next > 0` also screens that out.
-      if (next > prev) {
-        bucket.push({ workflowUid: run.workflowUid, environmentId: run.environmentId });
-      }
-    }
-  }
-
-  if (bucket.length === 0) return;
-  pendingCascadeUpstreams.set(workspaceId, bucket);
-  if (cascadeDebounceTimer) clearTimeout(cascadeDebounceTimer);
-  cascadeDebounceTimer = setTimeout(() => {
-    cascadeDebounceTimer = null;
-    void settleLiveValueCascade().catch((err) => {
-      logger.info('LiveScheduler', `live-value cascade settle failed: ${(err as Error).message}`);
-    });
-  }, liveCascadeRefreshDebounceMs);
-}
-
-/**
- * Walk downstream of each refreshed upstream (workflow, env) for the
- * active workspace; flag / refresh the consumers. Drains only the
- * active workspace's `pendingCascadeUpstreams` bucket — a bucket for a
- * workspace switched away from waits in the map and is drained by the
- * `onActiveWorkspaceChange` hook once that workspace is active again,
- * so a cascade detected just before a switch is never lost.
- */
-async function settleLiveValueCascade(): Promise<void> {
-  let workspaceId: string;
-  try {
-    workspaceId = getActiveWorkspaceId();
-  } catch {
-    return; // bootstrap race — workspace pointer not hydrated yet
-  }
-  const upstreams = pendingCascadeUpstreams.get(workspaceId);
-  if (!upstreams || upstreams.length === 0) return;
-  pendingCascadeUpstreams.delete(workspaceId);
-  const downstream = computeWorkflowDownstreamMap();
-  if (downstream.size === 0) return;
-
-  // Collect the affected downstream (workflow, env) pairs, deduped — a
-  // consumer of two upstreams that both refreshed is acted on once.
-  const affected = new Map<string, Set<string | null>>();
-  let skippedCycle = false;
-  for (const { workflowUid: upstreamUid, environmentId } of upstreams) {
-    const children = downstream.get(upstreamUid);
-    if (!children) continue;
-    for (const childUid of children) {
-      // Cycle guard: an `upstream → child` edge is a back-edge when the
-      // child can itself reach the upstream downstream. A cyclic live-
-      // workflow config has no convergent fixpoint — refuse to traverse
-      // the cycle so the hop-by-hop walk terminates. Each workflow in
-      // the cycle still refreshes on its own cadence timer.
-      if (canReachDownstream(childUid, upstreamUid, downstream)) {
-        skippedCycle = true;
-        continue;
-      }
-      let envs = affected.get(childUid);
-      if (!envs) {
-        envs = new Set();
-        affected.set(childUid, envs);
-      }
-      envs.add(environmentId);
-    }
-  }
-  if (skippedCycle) {
-    logger.info('LiveScheduler', 'live-value cascade skipped a workflow dependency cycle');
-  }
-  if (affected.size === 0) return;
-
-  const activeEnvironmentId = getActiveEnvironmentId();
-  const workflowsByUid = new Map(getLiveWorkflows().map((w) => [w.uid, w]));
-  for (const [childUid, environmentIds] of affected) {
-    const workflow = workflowsByUid.get(childUid);
-    if (!workflow) continue;
-    // Flag every affected env cache row definitionally stale, before any
-    // gate. This is the whole treatment for a manual workflow and for one
-    // not schedulable at this instant (disabled, unpublished,
-    // deleted-request step) — `computeNextFireAt` honors the flag, so a
-    // flagged row is due as soon as the workflow can run again. The row
-    // is KEPT (it keeps serving so live traffic doesn't gap, and it stays
-    // in `collectEntries` so a non-active env re-warms via the due-now
-    // reconcile alarm). A successful refresh clears the flag.
-    for (const environmentId of environmentIds) {
-      try {
-        await markRunDefinitionallyStale(childUid, environmentId, workspaceId);
-      } catch (err) {
-        logger.info(
-          'LiveScheduler',
-          `cascade definitional-stale flag failed for ${childUid}: ${(err as Error).message}`,
-        );
-      }
-    }
-    // Manual workflows never auto-run on an upstream refresh — the flag
-    // is the whole treatment (`computeNextFireAt` returns null for a
-    // manual policy regardless).
-    if (workflow.refresh.kind === 'manual') continue;
-    // Non-manual + runnable now: refresh the ACTIVE env immediately when
-    // its upstream value changed, so the value the user is resolving has
-    // no wrong-input window. The stale row keeps serving until the new
-    // value lands; the resulting cache write fires the next hop of the
-    // cascade. Non-active envs re-warm via the due-now alarm the flag
-    // drives.
-    const boundVariables = getLiveVariablesForWorkflow(childUid);
-    if (!canScheduleWorkflow(workflow, boundVariables)) continue;
-    if (environmentIds.has(activeEnvironmentId)) {
-      void refreshLiveWorkflowSynchronously(workspaceId, childUid, activeEnvironmentId).catch((err) => {
-        logger.info('LiveScheduler', `live-value cascade refresh failed for ${childUid}: ${(err as Error).message}`);
-      });
-    }
-  }
-}
-
 // ── Provider — fills in the subsystem-specific bits ───────────────
 
 const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | null> = {
@@ -1187,7 +346,7 @@ const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | 
   },
   computeNextFireAt: (entry, nowMs) => computeNextFireAtCore(entry.workflow, toCacheSummary(entry.cache), nowMs),
   canSchedule: (entry) => canScheduleWorkflow(entry.workflow, entry.boundVariables),
-  computeDependencies: (entries) => computeWorkflowDependencies(entries),
+  computeDependencies: (entries) => computeWorkflowDependencies(entries, (w, u, e) => codec.encode({ w, u, e })),
   async refresh(entry, payload) {
     if (!refreshAdapter) {
       // Phase C shipped before Phase D. Record a scheduler-not-ready
@@ -1266,81 +425,32 @@ const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | 
     );
   },
   onStoreChange(callback) {
-    // Every live store mutation drives two things: (1) the scheduler's
-    // reconcile (its `callback` argument), and (2) the `live` Status
-    // pill recompute. Folding both into one listener per store keeps
-    // the subscription count at exactly one per store — which is also
-    // what the scheduler's unit tests assert.
+    // Every live store mutation drives two things: the scheduler's
+    // reconcile (its `callback` argument) and the `live` Status pill
+    // recompute. Folding both into one listener per store keeps the
+    // scheduler's subscription count at exactly one per store — which
+    // is what the scheduler's unit tests assert. The LF1–LF4
+    // definitional-freshness detectors are a separate concern: they
+    // live host-neutral in `@openheaders/oracle/live/definitional-
+    // freshness` and own their OWN store subscriptions (installed by
+    // `startDefinitionalFreshness` in `startLiveScheduler`), so they
+    // are deliberately NOT wired here.
     const combined = (): void => {
       callback();
       void recomputeLiveStatus().catch(() => {});
-      // A workflow-definition edit can re-point a step at a different
-      // request, shifting the variable-surface `refsKey`. Re-baseline
-      // (no trigger — a `refsKey` shift is LF1's path) so a later
-      // variable edit's diff isn't masked.
-      onVariableStoreChangeForRefresh();
     };
     const unsubscribers: Array<() => void> = [
-      // A workflow-store change drives the shared reconcile plus the
-      // LF3 delete + definition-edit detector: a workflow that vanished
-      // has its `liveCache` rows purged (no frozen orphaned value); a
-      // workflow whose executable definition changed is flagged
-      // definitionally stale + refreshed.
-      onLiveWorkflowStoreChange(() => {
-        combined();
-        void settleWorkflowDefinitionChanges().catch((err) => {
-          logger.info('LiveScheduler', `workflow-definition settle failed: ${(err as Error).message}`);
-        });
-      }),
+      onLiveWorkflowStoreChange(combined),
       onLiveVariableStoreChange(combined),
-      // A live-cache change drives the shared reconcile + status
-      // recompute, plus the LF4 chained-workflow cascade: a workflow
-      // whose live value was rewritten by a real refresh cascade-
-      // refreshes the downstream workflows that embed `{{live.X}}`.
-      onLiveCacheStoreChange((workspaceId, workflowUid, runs) => {
-        combined();
-        onLiveCacheChangeForCascade(workspaceId, workflowUid, runs);
-      }),
-      // A request edit drives three things. (1) It can add or drop a
-      // `{{live.X}}` template ref, reshaping the cross-workflow
-      // dependency DAG `computeWorkflowDependencies` derives from each
-      // step's request — `callback` reconciles to re-derive the edges
-      // (no status recompute; a request edit touches no cache row).
-      // (2) A *material* edit (executable surface changed) makes every
-      // cached value for the embedding workflows definitionally stale —
-      // `onRequestStoreChangeForRefresh` debounces, fingerprint-diffs,
-      // and refreshes them (LF1). (3) A request-collection variable
-      // edit changes the resolved value behind a `{{collection.X}}`
-      // reference — `onVariableStoreChangeForRefresh` picks it up (LF2).
-      onRequestStoreChange(() => {
-        callback();
-        onRequestStoreChangeForRefresh();
-        onVariableStoreChangeForRefresh();
-      }),
-      // An environment / vault / workspace-variable edit changes the
-      // resolved value behind an `{{env.X}}` / `{{vault.X}}` /
-      // `{{workspace.X}}` reference — the LF2 variable-edit detector.
-      onEnvironmentStoreChange(onVariableStoreChangeForRefresh),
+      onLiveCacheStoreChange(combined),
+      // A request edit can add or drop a `{{live.X}}` template ref,
+      // reshaping the cross-workflow dependency DAG `computeWorkflow
+      // Dependencies` derives — reconcile re-derives the edges. (No
+      // status recompute; a request edit touches no cache row.)
+      onRequestStoreChange(callback),
     ];
     return () => {
       for (const unsub of unsubscribers) unsub();
-      if (requestEditDebounceTimer) {
-        clearTimeout(requestEditDebounceTimer);
-        requestEditDebounceTimer = null;
-      }
-      requestExecBaseline = new Map();
-      if (variableEditDebounceTimer) {
-        clearTimeout(variableEditDebounceTimer);
-        variableEditDebounceTimer = null;
-      }
-      variableSurfaceBaseline = new Map();
-      workflowDefinitionBaseline = null;
-      if (cascadeDebounceTimer) {
-        clearTimeout(cascadeDebounceTimer);
-        cascadeDebounceTimer = null;
-      }
-      pendingCascadeUpstreams = new Map();
-      liveValueExtractedAtBaseline = new Map();
     };
   },
   onFired(payload) {
@@ -1870,12 +980,19 @@ async function recomputeLiveStatus(): Promise<void> {
  */
 export function startLiveScheduler(): void {
   scheduler.start();
+  // The host-neutral definitional-freshness detectors (LF1–LF4) own
+  // their own store subscriptions; the only host-specific seam is
+  // `refreshNow` — the sync-warm adapter path the alarm dispatch uses,
+  // so an edit-triggered active-env refresh carries the same cache-write
+  // discipline + circuit handling.
+  startDefinitionalFreshness({ refreshNow: refreshLiveWorkflowSynchronously });
   installSwitchWarmSubscriptions();
   void recomputeLiveStatus().catch(() => {});
 }
 
 export function stopLiveScheduler(): void {
   scheduler.stop();
+  stopDefinitionalFreshness();
   removeSwitchWarmSubscriptions();
 }
 
@@ -1895,18 +1012,10 @@ function installSwitchWarmSubscriptions(): void {
     void kickActiveContextRefresh(newWsId, getActiveEnvironmentId()).catch((err) => {
       logger.info('LiveScheduler', `kickActiveContextRefresh after workspace switch failed: ${(err as Error).message}`);
     });
-    // A chained-workflow cascade detected just before a switch away
-    // from `newWsId` stays queued in its per-workspace bucket. Now that
-    // the workspace is active again, drain it — `settleLiveValueCascade`
-    // settles the active workspace's bucket.
-    if ((pendingCascadeUpstreams.get(newWsId)?.length ?? 0) > 0) {
-      void settleLiveValueCascade().catch((err) => {
-        logger.info(
-          'LiveScheduler',
-          `deferred cascade settle after workspace switch failed: ${(err as Error).message}`,
-        );
-      });
-    }
+    // A chained-workflow cascade queued just before a switch away is
+    // drained by the definitional-freshness module's own
+    // `onActiveWorkspaceChange` subscription — no longer this module's
+    // concern.
   });
   const onEnv = onActiveEnvironmentChange((newEnvId) => {
     // Workspace doesn't change on an env switch — read the current

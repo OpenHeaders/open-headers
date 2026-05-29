@@ -18,15 +18,14 @@
  *     store-change events (workflow / variable / cache / environment /
  *     request / workspace), debounced to collapse bursts.
  *
- * Scope of this slice (deliberately lean — see
- * `docs/LIVE_RUNNER_OWNERSHIP_PLAN.md` §C.1): the pure cadence loop only.
- * The extension's definitional-freshness suite (LF1–LF4 immediate
- * refresh-on-edit + the chained-workflow cascade + the cross-workflow
- * dependency depth-sort) is NOT ported here — those exist to stop a
- * value CONSUMER being served a wrong-recipe token before the next tick,
- * and the desktop has no consumer until value propagation lands (C6,
- * which itself depends on WS-A). The cache still self-corrects on the
- * next cadence tick. They get ported in the slice where they matter.
+ * This module owns the pure cadence loop. The definitional-freshness
+ * suite (LF1–LF4 immediate refresh-on-edit + the chained-workflow
+ * cascade) is host-neutral in `@openheaders/oracle/live/definitional-
+ * freshness` and wired here via the `refreshNow` seam (the gated
+ * `fire`): now that the desktop is a value PRODUCER for deferring peers
+ * (C6+), a request / variable / definition / upstream edit must
+ * re-mint this host's value immediately rather than propagating a
+ * wrong-recipe token until the next cadence tick.
  *
  * Active-workspace-only, exactly like the extension: only the workspace
  * the user is currently using has live timers. A workspace switch
@@ -40,13 +39,12 @@ import {
   canAttempt as canCircuitAttempt,
   computeNextFireAt,
   initialCircuitSnapshot,
-  isLiveVariableEffective,
-  isWorkflowEffective,
 } from '@openheaders/core/live';
 import type { LiveVariable, LiveWorkflow } from '@openheaders/core/types';
 import { logger } from '@openheaders/core/utils';
 import { getActiveEnvironmentId, onEnvironmentStoreChange } from '@openheaders/oracle/entity/environment-store';
-import { getRequest, isRequestStoreHydrated, onRequestStoreChange } from '@openheaders/oracle/entity/request-store';
+import { onRequestStoreChange } from '@openheaders/oracle/entity/request-store';
+import { startDefinitionalFreshness, stopDefinitionalFreshness } from '@openheaders/oracle/live/definitional-freshness';
 import {
   listCachesForWorkflow,
   markProbeStartForRun,
@@ -63,6 +61,7 @@ import {
   getLiveWorkflows,
   onLiveWorkflowStoreChange,
 } from '@openheaders/oracle/live/live-workflow-store';
+import { canScheduleWorkflow } from '@openheaders/oracle/live/scheduling-gate';
 import { getActiveWorkspaceId, onWorkspaceStoreChange } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { runDesktopWorkflowRefresh } from './chain-runner';
 import { recomputeDesktopLiveStatus } from './live-status';
@@ -106,24 +105,11 @@ function entryKey(workspaceId: string, workflowUid: string, environmentId: strin
   return JSON.stringify([workspaceId, workflowUid, environmentId]);
 }
 
-// ── Gating + cache projection (mirrors the extension provider) ─────
-
-/**
- * Whether a workflow should hold a timer: enabled, with ≥1 effective
- * bound LV, and every step's backing request still present. The
- * request-existence check is skipped until the request store has
- * hydrated so a cold-boot empty store never strips a live timer.
- */
-function canSchedule(workflow: LiveWorkflow, boundVariables: LiveVariable[]): boolean {
-  if (!isWorkflowEffective(workflow)) return false;
-  if (!boundVariables.some((v) => isLiveVariableEffective(v))) return false;
-  if (isRequestStoreHydrated()) {
-    for (const step of workflow.steps) {
-      if (step.requestUid.length > 0 && !getRequest(step.requestUid)) return false;
-    }
-  }
-  return true;
-}
+// ── Cache projection ──────────────────────────────────────────────
+//
+// The schedulability gate (`canScheduleWorkflow`) is host-neutral and
+// shared with the extension scheduler via
+// `@openheaders/oracle/live/scheduling-gate`.
 
 /** Project a cache row down to the `CacheSummary` the cadence math reads. */
 function toCacheSummary(run: WorkflowRunCache | null): CacheSummary | null {
@@ -187,7 +173,7 @@ function armTimer(workspaceId: string, workflowUid: string, environmentId: strin
 /** Arm (or clear) the timer for one entry against the current cadence. */
 function scheduleEntry(entry: LiveEntry, now: number): void {
   const { workspaceId, workflow, boundVariables, cache, environmentId } = entry;
-  if (!canSchedule(workflow, boundVariables)) {
+  if (!canScheduleWorkflow(workflow, boundVariables)) {
     cancel(workspaceId, workflow.uid, environmentId);
     return;
   }
@@ -228,7 +214,7 @@ async function fire(workspaceId: string, workflowUid: string, environmentId: str
     const workflow = getLiveWorkflowInWorkspace(workflowUid, workspaceId);
     if (!workflow) return;
     const boundVariables = getLiveVariablesForWorkflowInWorkspace(workflowUid, workspaceId);
-    if (!canSchedule(workflow, boundVariables)) return;
+    if (!canScheduleWorkflow(workflow, boundVariables)) return;
 
     const runs = await listCachesForWorkflow(workflowUid, workspaceId);
     const cache = runs.find((r) => r.environmentId === environmentId) ?? null;
@@ -355,6 +341,17 @@ export function startDesktopLiveRunner(): void {
     onRequestStoreChange(scheduleReconcile),
     onWorkspaceStoreChange(scheduleReconcile),
   ];
+  // The host-neutral definitional-freshness detectors (LF1–LF4) own
+  // their own store subscriptions; the only host-specific seam is
+  // `refreshNow` — the desktop's gated `fire`, so an edit-triggered
+  // active-env refresh carries the same circuit handling + cache-write
+  // discipline as a cadence fire. Now that the desktop is a value
+  // PRODUCER for deferring peers (C6+), it must self-correct a
+  // wrong-recipe value on edit rather than propagating it until the
+  // next cadence tick.
+  startDefinitionalFreshness({
+    refreshNow: (workspaceId, workflowUid, environmentId) => fire(workspaceId, workflowUid, environmentId),
+  });
   void reconcile().catch((e) => logger.warn(LOG, `initial reconcile failed: ${(e as Error).message}`));
 }
 
@@ -362,6 +359,7 @@ export function startDesktopLiveRunner(): void {
 export function stopDesktopLiveRunner(): void {
   if (!started) return;
   started = false;
+  stopDefinitionalFreshness();
   for (const unsub of unsubscribers) unsub();
   unsubscribers = [];
   if (reconcileTimer) {

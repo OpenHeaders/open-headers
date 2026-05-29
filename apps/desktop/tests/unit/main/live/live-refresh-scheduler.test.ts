@@ -36,6 +36,12 @@ const h = vi.hoisted(() => ({
   getRequest: vi.fn(),
   isRequestStoreHydrated: vi.fn(),
   onRequestStoreChange: vi.fn(),
+  // lifted scheduling gate + host-neutral definitional-freshness module
+  // (the latter is exhaustively covered by the extension suite; here it
+  // is stubbed so the desktop scheduler test stays on its own plumbing).
+  canScheduleWorkflow: vi.fn(),
+  startDefinitionalFreshness: vi.fn(),
+  stopDefinitionalFreshness: vi.fn(),
   // runner
   runDesktopWorkflowRefresh: vi.fn(),
   // status
@@ -80,6 +86,13 @@ vi.mock('@openheaders/oracle/entity/request-store', () => ({
   isRequestStoreHydrated: h.isRequestStoreHydrated,
   onRequestStoreChange: h.onRequestStoreChange,
 }));
+vi.mock('@openheaders/oracle/live/scheduling-gate', () => ({
+  canScheduleWorkflow: h.canScheduleWorkflow,
+}));
+vi.mock('@openheaders/oracle/live/definitional-freshness', () => ({
+  startDefinitionalFreshness: h.startDefinitionalFreshness,
+  stopDefinitionalFreshness: h.stopDefinitionalFreshness,
+}));
 vi.mock('../../../../src/main/live/chain-runner', () => ({
   runDesktopWorkflowRefresh: h.runDesktopWorkflowRefresh,
 }));
@@ -109,6 +122,7 @@ beforeEach(() => {
   // Effective + schedulable by default; cache empty; cadence 1s out.
   h.isWorkflowEffective.mockReturnValue(true);
   h.isLiveVariableEffective.mockReturnValue(true);
+  h.canScheduleWorkflow.mockReturnValue(true);
   h.canAttempt.mockReturnValue(true);
   h.initialCircuitSnapshot.mockReturnValue({});
   h.computeNextFireAt.mockImplementation((_wf: unknown, _cache: unknown, now: number) => now + 1000);
@@ -179,7 +193,7 @@ describe('startDesktopLiveRunner', () => {
   });
 
   it('does not schedule an ineffective workflow', async () => {
-    h.isWorkflowEffective.mockReturnValue(false);
+    h.canScheduleWorkflow.mockReturnValue(false);
     startDesktopLiveRunner();
     await vi.advanceTimersByTimeAsync(5000);
     expect(h.runDesktopWorkflowRefresh).not.toHaveBeenCalled();

@@ -193,17 +193,28 @@ const activeSwitchState = {
 // leave it at the default `'ws-live'`.
 let ACTIVE_WORKSPACE_ID = 'ws-live';
 
-vi.mock('@/background/modules/workspace-store', () => ({
-  // The scheduler reads the active workspace synchronously from this
-  // sync accessor when an env-switch event fires (workspace doesn't
-  // change on env-switch but the listener doesn't carry it). Tests
-  // that don't assert env-switch behavior don't need to override.
-  getActiveWorkspaceId: () => ACTIVE_WORKSPACE_ID,
-  onActiveWorkspaceChange: (fn: (newId: string, prevId: string | null) => void) => {
-    activeSwitchState.workspaceListeners.add(fn);
-    return () => activeSwitchState.workspaceListeners.delete(fn);
-  },
-}));
+// Both the shim (`@/background/modules/workspace-store`, what the
+// scheduler imports) and the canonical path (what the lifted
+// definitional-freshness module imports) resolve to the same accessors;
+// mock both against the one `activeSwitchState` closure so a workspace
+// subscription from either side lands in the same set.
+// Hoisted function declaration (not a `const`) so the hoisted `vi.mock`
+// calls below can reference it without hitting the temporal dead zone.
+function workspaceStoreMock() {
+  return {
+    // The scheduler reads the active workspace synchronously from this
+    // sync accessor when an env-switch event fires (workspace doesn't
+    // change on env-switch but the listener doesn't carry it). Tests
+    // that don't assert env-switch behavior don't need to override.
+    getActiveWorkspaceId: () => ACTIVE_WORKSPACE_ID,
+    onActiveWorkspaceChange: (fn: (newId: string, prevId: string | null) => void) => {
+      activeSwitchState.workspaceListeners.add(fn);
+      return () => activeSwitchState.workspaceListeners.delete(fn);
+    },
+  };
+}
+vi.mock('@/background/modules/workspace-store', workspaceStoreMock);
+vi.mock('@openheaders/oracle/workspace/extension-workspace-store', workspaceStoreMock);
 
 vi.mock('@openheaders/oracle/entity/environment-store', () => ({
   getActiveEnvironmentId: () => activeSwitchState.activeEnvId,
@@ -691,10 +702,13 @@ describe('startLiveScheduler', () => {
     storeState.workflows = [makeWorkflow()];
     storeState.variables = [makeVariable()];
     scheduler.startLiveScheduler();
-    expect(storeState.listeners.workflow.size).toBe(1);
-    expect(storeState.listeners.variable.size).toBe(1);
-    expect(storeState.listeners.cache.size).toBe(1);
-    expect(storeState.listeners.request.size).toBe(1);
+    // Two subscribers per shared store now: the scheduler's own
+    // reconcile + status listener, and the lifted definitional-freshness
+    // module (LF1–LF4), which owns its own subscriptions.
+    expect(storeState.listeners.workflow.size).toBe(2);
+    expect(storeState.listeners.variable.size).toBe(2);
+    expect(storeState.listeners.cache.size).toBe(2);
+    expect(storeState.listeners.request.size).toBe(2);
 
     alarmsCreateMock.mockClear();
     // Simulate a workflow-store mutation.
@@ -708,7 +722,7 @@ describe('startLiveScheduler', () => {
     storeState.workflows = [makeWorkflow()];
     storeState.variables = [makeVariable()];
     scheduler.startLiveScheduler();
-    expect(storeState.listeners.request.size).toBe(1);
+    expect(storeState.listeners.request.size).toBe(2);
 
     alarmsCreateMock.mockClear();
     // Simulate a request edit (e.g. a `{{live.X}}` ref added/removed).
@@ -719,7 +733,7 @@ describe('startLiveScheduler', () => {
 
   it('stopLiveScheduler tears down every listener', () => {
     scheduler.startLiveScheduler();
-    expect(storeState.listeners.workflow.size).toBe(1);
+    expect(storeState.listeners.workflow.size).toBe(2);
     scheduler.stopLiveScheduler();
     expect(storeState.listeners.workflow.size).toBe(0);
     expect(storeState.listeners.variable.size).toBe(0);
@@ -730,12 +744,15 @@ describe('startLiveScheduler', () => {
   it('is idempotent — a second start call does not double-subscribe', () => {
     scheduler.startLiveScheduler();
     scheduler.startLiveScheduler();
-    expect(storeState.listeners.workflow.size).toBe(1);
+    expect(storeState.listeners.workflow.size).toBe(2);
   });
 
   it('subscribes to active-workspace + active-env switch events', () => {
     scheduler.startLiveScheduler();
-    expect(activeSwitchState.workspaceListeners.size).toBe(1);
+    // Two workspace subscribers: the scheduler's switch-warm pass + the
+    // freshness module's deferred-cascade drain. Only the scheduler
+    // watches active-env switches.
+    expect(activeSwitchState.workspaceListeners.size).toBe(2);
     expect(activeSwitchState.envListeners.size).toBe(1);
     scheduler.stopLiveScheduler();
     expect(activeSwitchState.workspaceListeners.size).toBe(0);
