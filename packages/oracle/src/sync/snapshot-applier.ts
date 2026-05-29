@@ -39,6 +39,7 @@ import {
   type SyncFilesPostState,
   type SyncFolderPostState,
   type SyncLayoutStatePostState,
+  type SyncLiveValuePostState,
   type SyncLiveVariablePostState,
   type SyncLiveWorkflowPostState,
   type SyncOAuthBundlePostState,
@@ -60,6 +61,7 @@ import { seedEnvironment } from '@openheaders/core/sync-builders/env-projection'
 import { seedFiles } from '@openheaders/core/sync-builders/files-projection';
 import { seedFolder } from '@openheaders/core/sync-builders/folder-projection';
 import { seedLayoutState } from '@openheaders/core/sync-builders/layout-state-projection';
+import { seedLiveValues } from '@openheaders/core/sync-builders/live-value-projection';
 import { seedLiveVariable } from '@openheaders/core/sync-builders/live-variable-projection';
 import { seedLiveWorkflow } from '@openheaders/core/sync-builders/live-workflow-projection';
 import { seedOAuthBundle } from '@openheaders/core/sync-builders/oauth-bundle-projection';
@@ -144,6 +146,9 @@ export async function applyWorkspaceSnapshot(
   await seedEach<SyncTemplatePostState>('templates', snapshot.templates, (p, ctx) => seedTemplate(p.template, ctx));
   await seedEach<SyncLiveVariablePostState>('liveVariables', snapshot.liveVariables, (p, ctx) => seedLiveVariable(p.liveVariable, ctx));
   await seedEach<SyncLiveWorkflowPostState>('liveWorkflows', snapshot.liveWorkflows, (p, ctx) => seedLiveWorkflow(p.workflow, ctx));
+  await seedEach<SyncLiveValuePostState>('liveValues', snapshot.liveValues, (p, ctx) =>
+    seedLiveValues({ schemaVersion: 5, values: p.values }, ctx),
+  );
 
   // Singletons — exactly one item per array when populated.
   await seedEach<SyncWorkspaceVariablesPostState>('workspaceVariables', snapshot.workspaceVariables, (p, ctx) => seedWorkspaceVariables(p.workspaceVariables, ctx));

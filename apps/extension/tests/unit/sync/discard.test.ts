@@ -43,6 +43,7 @@ function makeSnapshot(workspaceId: string, overrides: Partial<WorkspaceSnapshot>
     templateFolders: [],
     liveVariables: [],
     liveWorkflows: [],
+    liveValues: [],
     oauthBundles: [],
     pauseMarkers: [],
     layoutState: [],

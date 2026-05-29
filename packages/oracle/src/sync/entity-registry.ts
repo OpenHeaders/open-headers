@@ -38,6 +38,8 @@ import {
   FILES_REFS_PATH,
   FOLDER_ENTITY_TYPE,
   LAYOUT_STATE_ENTITY_TYPE,
+  LIVE_VALUE_ENTITY_TYPE,
+  LIVE_VALUE_VALUES_PATH,
   LIVE_VARIABLE_ENTITY_TYPE,
   LIVE_WORKFLOW_ENTITY_TYPE,
   OAUTH_BUNDLE_ENTITY_TYPE,
@@ -80,6 +82,8 @@ import { createFolderCache } from './folder-cache';
 import { projectFolderByUid, projectFolderPostState } from './folder-post-state';
 import { createLayoutStateCache } from './layout-state-cache';
 import { projectLayoutStatePostState, projectLayoutStateSingleton } from './layout-state-post-state';
+import { createLiveValueCache } from './live-value-cache';
+import { projectLiveValuePostState, projectLiveValueSingleton } from './live-value-post-state';
 import { createLiveVariableCache } from './live-variable-cache';
 import { projectLiveVariableByUid, projectLiveVariablePostState } from './live-variable-post-state';
 import { createLiveWorkflowCache } from './live-workflow-cache';
@@ -361,6 +365,15 @@ export const LIVE_WORKFLOW_REGISTRATION = flatEntity({
   projectByUid: projectLiveWorkflowByUid,
 });
 
+export const LIVE_VALUE_REGISTRATION = singletonEntity({
+  entityType: LIVE_VALUE_ENTITY_TYPE,
+  createCache: createLiveValueCache,
+  postStateKey: 'liveValuePostState',
+  projectPostState: projectLiveValuePostState,
+  projectSingleton: projectLiveValueSingleton,
+  setPaths: [LIVE_VALUE_VALUES_PATH],
+});
+
 export const OAUTH_BUNDLE_REGISTRATION = singletonEntity({
   entityType: OAUTH_BUNDLE_ENTITY_TYPE,
   createCache: createOAuthBundleCache,
@@ -427,6 +440,7 @@ export const WORKSPACE_REGISTRY: EntityRegistration[] = [
   TEMPLATE_FOLDER_REGISTRATION,
   LIVE_VARIABLE_REGISTRATION,
   LIVE_WORKFLOW_REGISTRATION,
+  LIVE_VALUE_REGISTRATION,
   OAUTH_BUNDLE_REGISTRATION,
   PAUSE_MARKERS_REGISTRATION,
   LAYOUT_STATE_REGISTRATION,

@@ -45,6 +45,7 @@ import {
   type ChainRunFailure,
   type ChainRunOutcome,
   type ChainRunSuccess,
+  deriveExpiresAt,
   type FetchAdapter,
   runChain,
 } from '@openheaders/core/live';
@@ -329,42 +330,6 @@ export class ChainRefreshError extends Error {
     this.name = 'ChainRefreshError';
     this.failedStepId = context.failedStepId;
     this.failedPhase = context.failedPhase;
-  }
-}
-
-// ── Expiry derivation ─────────────────────────────────────────────
-
-/**
- * Compute the wall-clock ms at which the just-written captures should
- * be considered stale. Pure function of the policy + captures — the
- * scheduler re-reads via `CacheSummary.expiresAt` when deciding the
- * next fire. Returns `null` when the policy is manual OR the chosen
- * capture is unreadable (matches `computeNextFireAt`'s "no schedule"
- * semantics).
- */
-function deriveExpiresAt(
-  workflow: LiveWorkflow,
-  stepCaptures: Record<string, Record<string, string>>,
-  extractedAt: number,
-): number | null {
-  const policy = workflow.refresh;
-  switch (policy.kind) {
-    case 'manual':
-      return null;
-    case 'interval':
-      return extractedAt + policy.seconds * 1000;
-    case 'expires-in': {
-      const raw = stepCaptures[policy.stepId]?.[policy.captureName];
-      const seconds = Number(raw);
-      if (raw === undefined || !Number.isFinite(seconds)) return null;
-      return extractedAt + seconds * 1000;
-    }
-    case 'expires-at': {
-      const raw = stepCaptures[policy.stepId]?.[policy.captureName];
-      const absoluteMs = Number(raw);
-      if (raw === undefined || !Number.isFinite(absoluteMs)) return null;
-      return absoluteMs;
-    }
   }
 }
 

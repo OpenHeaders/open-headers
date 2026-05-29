@@ -226,7 +226,8 @@ interface DuplicateOptions {
  * Secrets-strip: `vault` + `oauthBundles` post-states are cleared from
  * the snapshot when `!includeSecrets`. OAuth tokens are bound to a
  * specific consent grant; copying them across workspace identities
- * would let two duplicates race on refresh-rotation.
+ * would let two duplicates race on refresh-rotation. `liveValues` are
+ * always cleared (ephemeral cache keyed by regenerated workflow uids).
  *
  * Test runs, open editor tabs, and panel layout are NOT carried — runs
  * belong to the original, and the new workspace should open with a
@@ -259,6 +260,11 @@ export async function duplicateWorkspace(
     ...snapshot,
     workspaceId: newMeta.id,
     ...(includeSecrets ? {} : { vault: [], oauthBundles: [] }),
+    // Live values are ephemeral cache keyed by run-key; the duplicate
+    // regenerates workflow uids, so carrying them verbatim would key a
+    // value to a workflow that no longer exists. Always dropped — the
+    // copy warms its own cache on first refresh (matches `liveCache`).
+    liveValues: [],
   };
 
   const svc = getOrCreateWorkspaceService(newMeta.id);

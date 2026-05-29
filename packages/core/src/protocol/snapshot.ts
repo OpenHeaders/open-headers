@@ -47,6 +47,7 @@ import type {
   SyncFilesPostState,
   SyncFolderPostState,
   SyncLayoutStatePostState,
+  SyncLiveValuePostState,
   SyncLiveVariablePostState,
   SyncLiveWorkflowPostState,
   SyncOAuthBundlePostState,
@@ -89,6 +90,9 @@ export interface WorkspaceSnapshot {
   templateFolders: SyncTemplateFolderPostState[];
   liveVariables: SyncLiveVariablePostState[];
   liveWorkflows: SyncLiveWorkflowPostState[];
+  /** Resolved live-workflow values (WS-C C6). Sensitive — redacted on
+   *  transports crossing a trust zone; converges same-machine. */
+  liveValues: SyncLiveValuePostState[];
   oauthBundles: SyncOAuthBundlePostState[];
   pauseMarkers: SyncPauseMarkersPostState[];
   layoutState: SyncLayoutStatePostState[];
@@ -120,6 +124,7 @@ export const WorkspaceSnapshotSchema = v.object({
   templateFolders: v.array(v.unknown()),
   liveVariables: v.array(v.unknown()),
   liveWorkflows: v.array(v.unknown()),
+  liveValues: v.array(v.unknown()),
   oauthBundles: v.array(v.unknown()),
   pauseMarkers: v.array(v.unknown()),
   layoutState: v.array(v.unknown()),
@@ -158,7 +163,7 @@ export const SyncSnapshotMessageSchema = v.object({
  * in v1). Listed as a constant so the producer + transport layers
  * don't drift.
  */
-export const SENSITIVE_SNAPSHOT_KEYS = ['vault', 'oauthBundles'] as const satisfies ReadonlyArray<keyof WorkspaceSnapshot>;
+export const SENSITIVE_SNAPSHOT_KEYS = ['vault', 'oauthBundles', 'liveValues'] as const satisfies ReadonlyArray<keyof WorkspaceSnapshot>;
 
 export type SensitiveSnapshotKey = (typeof SENSITIVE_SNAPSHOT_KEYS)[number];
 
@@ -172,5 +177,5 @@ export type SensitiveSnapshotKey = (typeof SENSITIVE_SNAPSHOT_KEYS)[number];
  * skip this — the strip is about transport, not storage.
  */
 export function redactSensitiveSnapshotKeys(snapshot: WorkspaceSnapshot): WorkspaceSnapshot {
-  return { ...snapshot, vault: [], oauthBundles: [] };
+  return { ...snapshot, vault: [], oauthBundles: [], liveValues: [] };
 }

@@ -48,7 +48,7 @@ import {
   resetCircuit as resetCircuitSnapshot,
   transitionOpenToHalfOpen,
 } from '@openheaders/core/live';
-import type { WorkflowRunCache } from '@openheaders/core/types';
+import type { LiveValueRecord, WorkflowRunCache } from '@openheaders/core/types';
 import { logger } from '@openheaders/core/utils';
 import { entityLockName, withLock } from '@openheaders/oracle/coordination';
 import { hostStorage, OH, wsKeys } from '@openheaders/oracle/storage';
@@ -164,6 +164,115 @@ function notifyChange(workspaceId: string, workflowUid: string | null, runs: rea
   for (const fn of listeners) fn(workspaceId, workflowUid, runs);
 }
 
+// ── §4 value propagation hooks (WS-C C6) ────────────────────────────
+
+/**
+ * The value subset of one cache row, projected for §4 propagation.
+ * Carries only what crosses the wire — `circuit` / failure counters /
+ * response bytes / definitional-staleness are host-local bookkeeping
+ * and never travel.
+ */
+export type LiveValuePropagator = (input: { runKey: string; value: LiveValueRecord }, workspaceId: string) => void;
+export type LiveValueRemover = (runKeys: readonly string[], workspaceId: string) => void;
+
+let propagator: LiveValuePropagator | null = null;
+let remover: LiveValueRemover | null = null;
+
+/**
+ * Register the §4 value-propagation sink. Wired once at boot by
+ * `live-value-store.ts` (the sync-engine bridge). Until then — and on
+ * hosts that never connect a backend — the cache is a pure host-local
+ * store and these are no-ops. Inverting the dependency this way keeps
+ * `live-cache-store` free of any `@openheaders/oracle/sync` import cycle:
+ * the sync side reaches IN, the cache never reaches OUT.
+ */
+export function setLiveValuePropagator(fn: LiveValuePropagator | null): void {
+  propagator = fn;
+}
+
+export function setLiveValueRemover(fn: LiveValueRemover | null): void {
+  remover = fn;
+}
+
+/**
+ * Overlay a synced value subset onto the host-local cache blob — the
+ * receive side of §4 value propagation. For each run-key the value
+ * fields (`stepCaptures` / `extractedAt` / `expiresAt`) are merged onto
+ * the existing row, **preserving that host's own runner bookkeeping**
+ * (circuit / failures / response bytes / definitional-staleness); a
+ * run-key with no existing row is created with default bookkeeping. Rows
+ * absent from `values` are left untouched — deletion is the
+ * delete-cascade's job, not this additive merge.
+ *
+ * No-ops (no write, no notify) when nothing actually changed, which is
+ * what makes the producer's own apply-echo cheap: the value it just
+ * wrote via {@link putWorkflowRunCache} is already identical here.
+ */
+export async function applySyncedLiveValues(
+  workspaceId: string,
+  values: Record<string, LiveValueRecord>,
+): Promise<void> {
+  let changed = false;
+  let postWriteRuns: WorkflowRunCache[] = [];
+  await withCacheLock(workspaceId, async () => {
+    const current = await readBlob(workspaceId);
+    const nextRuns: Record<string, WorkflowRunCache> = { ...current.runs };
+    for (const [key, value] of Object.entries(values)) {
+      const previous = current.runs[key];
+      if (
+        previous &&
+        previous.extractedAt === value.extractedAt &&
+        previous.expiresAt === value.expiresAt &&
+        sameCaptures(previous.stepCaptures, value.stepCaptures)
+      ) {
+        continue; // identical value — skip (producer echo / re-seed)
+      }
+      changed = true;
+      nextRuns[key] = previous
+        ? { ...previous, stepCaptures: value.stepCaptures, extractedAt: value.extractedAt, expiresAt: value.expiresAt }
+        : {
+            workflowUid: value.workflowUid,
+            environmentId: value.environmentId,
+            stepCaptures: value.stepCaptures,
+            stepResponseBytes: {},
+            extractedAt: value.extractedAt,
+            expiresAt: value.expiresAt,
+            consecutiveFailures: 0,
+            lastExtractorOk: true,
+            circuit: initialCircuitSnapshot(),
+          };
+    }
+    if (!changed) return;
+    const next: LiveCacheBlob = {
+      schemaVersion: current.schemaVersion,
+      version: current.version + 1,
+      runs: nextRuns,
+    };
+    await writeBlob(workspaceId, next);
+    postWriteRuns = Object.values(next.runs);
+  });
+  if (changed) notifyChange(workspaceId, null, postWriteRuns);
+}
+
+function sameCaptures(
+  a: Record<string, Record<string, string>>,
+  b: Record<string, Record<string, string>>,
+): boolean {
+  const aKeys = Object.keys(a);
+  if (aKeys.length !== Object.keys(b).length) return false;
+  for (const stepId of aKeys) {
+    const aStep = a[stepId];
+    const bStep = b[stepId];
+    if (!bStep) return false;
+    const aCapKeys = Object.keys(aStep);
+    if (aCapKeys.length !== Object.keys(bStep).length) return false;
+    for (const cap of aCapKeys) {
+      if (aStep[cap] !== bStep[cap]) return false;
+    }
+  }
+  return true;
+}
+
 // ── Reads ──────────────────────────────────────────────────────────
 
 export async function getWorkflowRunCache(
@@ -251,6 +360,23 @@ export async function putWorkflowRunCache(input: SuccessfulRunInput, workspaceId
     );
   });
   notifyChange(wsId, input.workflowUid, postWriteRuns);
+  // §4 value propagation (WS-C C6): the local blob write above is this
+  // host's own materialization; the propagator (when a backend bridge
+  // is wired) additionally commits the value subset through the oracle
+  // so it rides §4 to paired peers. Host-local bookkeeping never leaves.
+  propagator?.(
+    {
+      runKey: key,
+      value: {
+        workflowUid: input.workflowUid,
+        environmentId: input.environmentId,
+        stepCaptures: input.stepCaptures,
+        extractedAt: input.extractedAt,
+        expiresAt: input.expiresAt,
+      },
+    },
+    wsId,
+  );
   return entry;
 }
 
@@ -480,6 +606,7 @@ export async function clearWorkflowRunCache(
 ): Promise<number> {
   const wsId = resolveWorkspaceId(workspaceId);
   let removed = 0;
+  const removedKeys: string[] = [];
   let postWriteRuns: WorkflowRunCache[] = [];
   await withCacheLock(wsId, async () => {
     const current = await readBlob(wsId);
@@ -491,6 +618,7 @@ export async function clearWorkflowRunCache(
           continue;
         }
         removed++;
+        removedKeys.push(key);
         continue;
       }
       nextRuns[key] = entry;
@@ -505,7 +633,12 @@ export async function clearWorkflowRunCache(
     postWriteRuns = Object.values(next.runs);
     logger.debug('LiveCacheStore', `Cleared ${removed} cache entry(ies) for workflow ${workflowUid}`);
   });
-  if (removed > 0) notifyChange(wsId, workflowUid, postWriteRuns);
+  if (removed > 0) {
+    notifyChange(wsId, workflowUid, postWriteRuns);
+    // Drop the synced value rows too, so a paired peer stops serving an
+    // orphaned value for a workflow that no longer exists here.
+    remover?.(removedKeys, wsId);
+  }
   return removed;
 }
 
@@ -587,7 +720,10 @@ export async function clearWorkflowRunCacheForEnvironment(
     removed = true;
     logger.debug('LiveCacheStore', `Cleared cache entry for ${workflowUid} (env=${envKey(environmentId)}, ws=${wsId})`);
   });
-  if (removed) notifyChange(wsId, workflowUid, postWriteRuns);
+  if (removed) {
+    notifyChange(wsId, workflowUid, postWriteRuns);
+    remover?.([key], wsId);
+  }
   return removed;
 }
 

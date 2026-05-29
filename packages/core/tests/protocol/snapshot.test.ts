@@ -31,6 +31,7 @@ function makeSnapshot(overrides: Partial<WorkspaceSnapshot> = {}): WorkspaceSnap
     templateFolders: [],
     liveVariables: [],
     liveWorkflows: [],
+    liveValues: [],
     oauthBundles: [],
     pauseMarkers: [],
     layoutState: [],
@@ -103,6 +104,20 @@ describe('redactSensitiveSnapshotKeys', () => {
           configs: {},
           refreshErrors: {},
           credentialRefs: ['ref1'],
+        },
+      ],
+      liveValues: [
+        {
+          values: {
+            'wf1:__none__': {
+              workflowUid: 'wf1',
+              environmentId: null,
+              stepCaptures: { s1: { token: 'secret' } },
+              extractedAt: 1,
+              expiresAt: null,
+            },
+          },
+          runKeys: ['wf1:__none__'],
         },
       ],
     });

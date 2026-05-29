@@ -173,7 +173,7 @@ export type { DedupMatchEntry, DedupMatchesResult, FindMatchesArgs } from './wor
 export type { ExportSelection } from './workspace-export-selection';
 
 // ── Live cache row ─────────────────────────────────────────────────
-export type { WorkflowRunCache } from './live-cache';
+export type { LiveValueRecord, WorkflowRunCache } from './live-cache';
 
 // ── Observability (local-first log ring) ──────────────────────────
 export type { LogEntry, LogEntryContext, LogLevel, LogSubsystem } from './observability';

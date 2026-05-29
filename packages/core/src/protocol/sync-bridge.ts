@@ -11,7 +11,7 @@
  */
 
 import type { FieldOrigin, MutationBatch, MutationEnvelope, MutatorOutcome, SideEffectIntent } from '../sync';
-import type { Collection, Environment, ExtensionWorkspace, FileRef, Folder, LiveVariable, LiveWorkflow, OAuth2Auth, Request, Rule, Template, Vault, WorkspaceVariables } from '../types';
+import type { Collection, Environment, ExtensionWorkspace, FileRef, Folder, LiveValueRecord, LiveVariable, LiveWorkflow, OAuth2Auth, Request, Rule, Template, Vault, WorkspaceVariables } from '../types';
 /** Surface → oracle: apply this batch all-or-nothing under the per-entity lock. */
 export interface SyncApplyRequest {
   type: 'oh.sync.apply';
@@ -300,6 +300,24 @@ export interface SyncLiveWorkflowPostState {
 }
 
 /**
+ * Post-commit projection for a live-value envelope. Singleton entity per
+ * workspace — one materialized record at the fixed id `live-value`. The
+ * single set-modeled path `values` is projected back into a Record keyed
+ * by run-key so the live-layer bridge can merge each record into the
+ * host's `liveCache` blob without iterating arrays.
+ *
+ * Sensitive in full (a resolved capture set can hold an access token);
+ * stripped from snapshots crossing a trust-zone boundary (§12.3). It
+ * still converges across same-machine paired-loopback surfaces.
+ */
+export interface SyncLiveValuePostState {
+  /** Per-run-key value-subset record map. */
+  values: Record<string, LiveValueRecord>;
+  /** Sorted run-keys — convenient for consumers iterating deterministically. */
+  runKeys: string[];
+}
+
+/**
  * Post-commit projection for an oauth-bundle envelope. Singleton entity
  * per workspace — one materialized record at the fixed id `oauth`. The
  * three set-modeled paths (`tokens`, `configs`, `refreshErrors`) are
@@ -515,6 +533,12 @@ export interface SyncBroadcastEvent {
    * batches leave it `undefined`.
    */
   liveWorkflowPostState?: SyncLiveWorkflowPostState;
+  /**
+   * Populated for live-value envelopes whose batch left a materialized
+   * record in place. Tombstoned (singleton deletion is a workspace-level
+   * teardown gesture only) and rolled-back batches leave it `undefined`.
+   */
+  liveValuePostState?: SyncLiveValuePostState;
   /**
    * Populated for oauth-bundle envelopes whose batch left a materialized
    * record in place. Tombstoned (singleton deletion is a workspace-level

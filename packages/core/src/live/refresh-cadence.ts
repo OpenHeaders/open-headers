@@ -186,3 +186,48 @@ export function computeNextFireAt(workflow: LiveWorkflow, cache: CacheSummary | 
     }
   }
 }
+
+// ── deriveExpiresAt ───────────────────────────────────────────────
+
+/**
+ * Wall-clock ms at which a just-extracted capture set goes stale —
+ * the absolute expiry a cache row stamps on a successful refresh, which
+ * {@link computeNextFireAt} then reads back via `CacheSummary` to plan
+ * the next fire. Pure function of the refresh policy + the captures.
+ *
+ * Returns `null` for a `manual` policy or an unreadable / non-numeric
+ * `expires-in` / `expires-at` capture (matches `computeNextFireAt`'s
+ * "no schedule" semantics). Unlike `computeNextFireAt` this is the raw
+ * expiry — no lead-time subtraction, no alarm floor — because it is the
+ * value persisted on the row and synced to peers; the lead-time is the
+ * scheduler's concern, not the value's.
+ *
+ * Both live runners (extension `live-chain-adapter`, desktop
+ * `chain-runner`) and the §4 value-propagation write path derive expiry
+ * through this one definition.
+ */
+export function deriveExpiresAt(
+  workflow: LiveWorkflow,
+  stepCaptures: Record<string, Record<string, string>>,
+  extractedAt: number,
+): number | null {
+  const policy = workflow.refresh;
+  switch (policy.kind) {
+    case 'manual':
+      return null;
+    case 'interval':
+      return extractedAt + policy.seconds * 1000;
+    case 'expires-in': {
+      const raw = stepCaptures[policy.stepId]?.[policy.captureName];
+      const seconds = Number(raw);
+      if (raw === undefined || !Number.isFinite(seconds)) return null;
+      return extractedAt + seconds * 1000;
+    }
+    case 'expires-at': {
+      const raw = stepCaptures[policy.stepId]?.[policy.captureName];
+      const absoluteMs = Number(raw);
+      if (raw === undefined || !Number.isFinite(absoluteMs)) return null;
+      return absoluteMs;
+    }
+  }
+}

@@ -31,7 +31,13 @@
  * `runChain` never returns a partial capture set.
  */
 
-import { type ChainRunFailure, type ChainRunOutcome, type ChainRunSuccess, runChain } from '@openheaders/core/live';
+import {
+  type ChainRunFailure,
+  type ChainRunOutcome,
+  type ChainRunSuccess,
+  deriveExpiresAt,
+  runChain,
+} from '@openheaders/core/live';
 import type { LiveWorkflow } from '@openheaders/core/types';
 import { logger } from '@openheaders/core/utils';
 import { putWorkflowRunCache, recordRefreshError } from '@openheaders/oracle/live/live-cache-store';
@@ -140,40 +146,3 @@ async function commitFailure(
   );
 }
 
-/**
- * Wall-clock ms at which the just-written captures go stale. Pure
- * function of the refresh policy + captures; the scheduler re-reads it
- * via `CacheSummary.expiresAt` to compute the next fire. Returns `null`
- * for a manual policy or an unreadable capture (matches
- * `computeNextFireAt`'s "no schedule" semantics).
- *
- * NOTE: this mirrors the extension adapter's `deriveExpiresAt`. It is a
- * pure function of core types and a clean candidate to lift into
- * `@openheaders/core/live` in a later convergence slice; kept local here
- * to keep C3/C4 self-contained in `apps/desktop`.
- */
-function deriveExpiresAt(
-  workflow: LiveWorkflow,
-  stepCaptures: Record<string, Record<string, string>>,
-  extractedAt: number,
-): number | null {
-  const policy = workflow.refresh;
-  switch (policy.kind) {
-    case 'manual':
-      return null;
-    case 'interval':
-      return extractedAt + policy.seconds * 1000;
-    case 'expires-in': {
-      const raw = stepCaptures[policy.stepId]?.[policy.captureName];
-      const seconds = Number(raw);
-      if (raw === undefined || !Number.isFinite(seconds)) return null;
-      return extractedAt + seconds * 1000;
-    }
-    case 'expires-at': {
-      const raw = stepCaptures[policy.stepId]?.[policy.captureName];
-      const absoluteMs = Number(raw);
-      if (raw === undefined || !Number.isFinite(absoluteMs)) return null;
-      return absoluteMs;
-    }
-  }
-}

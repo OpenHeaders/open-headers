@@ -85,6 +85,7 @@ export type {
   SyncFilesPostState,
   SyncFolderPostState,
   SyncLayoutStatePostState,
+  SyncLiveValuePostState,
   SyncLiveVariablePostState,
   SyncLiveWorkflowPostState,
   SyncOAuthBundlePostState,

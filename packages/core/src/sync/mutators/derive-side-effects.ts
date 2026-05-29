@@ -94,7 +94,10 @@ export function deriveSideEffectsForEnvelope(envelope: MutationEnvelope): SideEf
       return deriveRequestCollectionSideEffects(envelope);
     default:
       // Entity types with no host-local side effect (folder, request,
-      // template, files, oauth-bundle, layout-state) map to no intents.
+      // template, files, oauth-bundle, layout-state, live-value) map to
+      // no intents. The live-value (resolved-token) consumer lights up
+      // via the live-layer bridge's `onLiveCacheStoreChange` notify, not
+      // a §4 side-effect — the same path a local refresh already uses.
       return [];
   }
 }

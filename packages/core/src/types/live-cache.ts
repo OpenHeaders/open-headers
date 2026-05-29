@@ -62,3 +62,30 @@ export interface WorkflowRunCache {
    */
   definitionallyStale?: boolean;
 }
+
+/**
+ * The cross-host-synced projection of a {@link WorkflowRunCache} row —
+ * the *value* subset that rides §4 to paired peers (WS-C C6). Only the
+ * derived value crosses the wire; every other `WorkflowRunCache` field
+ * (`circuit`, `consecutiveFailures`, `lastError*`, `lastExtractorOk`,
+ * `stepResponseBytes`, `definitionallyStale`) is per-host *runner*
+ * bookkeeping that each host derives for itself and never syncs.
+ *
+ * `workflowUid` + `environmentId` are carried explicitly (not only in
+ * the set itemId / run-key) so the receiving host can re-key into its
+ * own cache without parsing the composite key.
+ *
+ * Flagged sensitive at rest + in the snapshot transport: a resolved
+ * capture set can hold an access token (a derived secret).
+ */
+export interface LiveValueRecord {
+  workflowUid: string;
+  /** Active env uid at extraction time; `null` for the "No environment" state. */
+  environmentId: string | null;
+  /** `stepId → captureName → extractedValue` across every step. */
+  stepCaptures: Record<string, Record<string, string>>;
+  /** Wall-clock ms when the last successful extraction completed. */
+  extractedAt: number;
+  /** Derived expiry (from refresh policy / `expires-in` / `expires-at`), or null if none. */
+  expiresAt: number | null;
+}

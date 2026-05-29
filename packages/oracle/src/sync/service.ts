@@ -46,6 +46,7 @@ import type {
   SyncFilesPostState,
   SyncFolderPostState,
   SyncLayoutStatePostState,
+  SyncLiveValuePostState,
   SyncLiveVariablePostState,
   SyncLiveWorkflowPostState,
   SyncOAuthBundlePostState,
@@ -64,6 +65,7 @@ import {
   COLLECTION_ENTITY_TYPE,
   ENVIRONMENT_ENTITY_TYPE,
   EXTENSION_WORKSPACE_ENTITY_TYPE,
+  LIVE_VALUE_ENTITY_TYPE,
   LIVE_VARIABLE_ENTITY_TYPE,
   LIVE_WORKFLOW_ENTITY_TYPE,
   OAUTH_BUNDLE_ENTITY_TYPE,
@@ -93,6 +95,7 @@ import {
   FOLDER_REGISTRATION,
   flatSnapshot,
   LAYOUT_STATE_REGISTRATION,
+  LIVE_VALUE_REGISTRATION,
   LIVE_VARIABLE_REGISTRATION,
   LIVE_WORKFLOW_REGISTRATION,
   OAUTH_BUNDLE_REGISTRATION,
@@ -664,6 +667,11 @@ export function snapshotLiveWorkflowPostStates(workspaceId?: string): SyncLiveWo
   return o ? flatSnapshot(o, LIVE_WORKFLOW_REGISTRATION) : [];
 }
 
+export function snapshotLiveValuePostStates(workspaceId?: string): SyncLiveValuePostState[] {
+  const o = oracleForWorkspace(workspaceId);
+  return o ? singletonSnapshot(o, LIVE_VALUE_REGISTRATION) : [];
+}
+
 export function snapshotOAuthBundlePostStates(workspaceId?: string): SyncOAuthBundlePostState[] {
   const o = oracleForWorkspace(workspaceId);
   return o ? singletonSnapshot(o, OAUTH_BUNDLE_REGISTRATION) : [];
@@ -898,10 +906,11 @@ function buildService(deps: WireDeps): WorkspaceServiceState {
   const awareness = createAwarenessStore({
     workspaceId: deps.workspaceId,
     emit: deps.awarenessSink,
-    // Vault + OAuth bundles are §12.1 schema-marked sensitive — entity-level
-    // awareness only; per-secret-name / per-credentialRef presence would
-    // leak the secret namespace and access patterns (§14.4).
-    sensitiveEntityTypes: new Set<string>([VAULT_ENTITY_TYPE, OAUTH_BUNDLE_ENTITY_TYPE]),
+    // Vault + OAuth bundles + live values are §12.1 schema-marked
+    // sensitive — entity-level awareness only; per-secret-name /
+    // per-credentialRef / per-run-key presence would leak the secret
+    // namespace and access patterns (§14.4).
+    sensitiveEntityTypes: new Set<string>([VAULT_ENTITY_TYPE, OAUTH_BUNDLE_ENTITY_TYPE, LIVE_VALUE_ENTITY_TYPE]),
   });
 
   // Bridge multi-broadcast aggregator: every resident workspace's

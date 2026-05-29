@@ -173,6 +173,7 @@ describe('installHandshakeStatusReporter', () => {
         templateFolders: [],
         liveVariables: [],
         liveWorkflows: [],
+        liveValues: [],
         oauthBundles: [],
         pauseMarkers: [],
         layoutState: [],

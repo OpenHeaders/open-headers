@@ -18,7 +18,13 @@ const h = vi.hoisted(() => ({
   recordRefreshError: vi.fn(),
 }));
 
-vi.mock('@openheaders/core/live', () => ({ runChain: h.runChain }));
+// `deriveExpiresAt` is pure and lifted into core/live; keep the real one
+// so the policy-derived expiry assertions stay meaningful. Only `runChain`
+// (the network/DAG executor) is mocked.
+vi.mock('@openheaders/core/live', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@openheaders/core/live')>()),
+  runChain: h.runChain,
+}));
 vi.mock('@openheaders/oracle/live/request-exec/chain-adapter', () => ({
   buildChainFetchAdapter: vi.fn(() => ({ executeStep: vi.fn() })),
 }));

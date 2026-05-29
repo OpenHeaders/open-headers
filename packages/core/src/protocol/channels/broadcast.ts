@@ -24,6 +24,7 @@ import type {
   SyncFilesPostState,
   SyncFolderPostState,
   SyncLayoutStatePostState,
+  SyncLiveValuePostState,
   SyncLiveVariablePostState,
   SyncLiveWorkflowPostState,
   SyncOAuthBundlePostState,
@@ -263,6 +264,12 @@ export interface BridgeBroadcastContract {
      * `steps` rides as a whole-array scalar — no itemId map.
      */
     liveWorkflowPostState?: SyncLiveWorkflowPostState;
+    /**
+     * Post-commit projection for live-value envelopes (WS-C C6).
+     * Singleton entity. Sensitive — stripped from snapshots crossing a
+     * trust zone, but converges across same-machine surfaces.
+     */
+    liveValuePostState?: SyncLiveValuePostState;
     /**
      * Post-commit projection for oauth-bundle envelopes (Phase B).
      * Singleton entity. Local-only by §12.3 — never crosses any sync

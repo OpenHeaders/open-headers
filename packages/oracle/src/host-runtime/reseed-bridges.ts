@@ -39,6 +39,7 @@ import {
   bridgeTemplateFolderSyncEngine,
   bridgeTemplateSyncEngine,
 } from '../entity/template-store';
+import { bridgeLiveValueSyncEngine } from '../live/live-value-store';
 import {
   bridgeLiveVariableSyncEngine,
 } from '../live/live-variable-store';
@@ -73,6 +74,7 @@ export async function reseedAllPerWorkspaceBridges(opts: ReseedOptions = {}): Pr
       .then(bridgeTemplateSyncEngine)
       .catch(catchFor('bridgeTemplate/Collection/Folder')),
     bridgeLiveWorkflowSyncEngine().then(bridgeLiveVariableSyncEngine).catch(catchFor('bridgeLiveWorkflow/LiveVariable')),
+    bridgeLiveValueSyncEngine().catch(catchFor('bridgeLiveValueSyncEngine')),
     bridgeOAuthSyncEngine().catch(catchFor('bridgeOAuthSyncEngine')),
     bridgePauseMarkersSyncEngine().catch(catchFor('bridgePauseMarkersSyncEngine')),
     bridgeLayoutStateSyncEngine().catch(catchFor('bridgeLayoutStateSyncEngine')),

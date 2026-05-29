@@ -78,6 +78,7 @@ function emptySnapshot(workspaceId: string): WorkspaceSnapshot {
     templateFolders: [],
     liveVariables: [],
     liveWorkflows: [],
+    liveValues: [],
     oauthBundles: [],
     pauseMarkers: [],
     layoutState: [],
