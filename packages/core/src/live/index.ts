@@ -46,6 +46,14 @@ export {
   stripDraftSteps,
   toDraftCapture,
 } from './editor-draft';
+export type {
+  ExclusivityReason,
+  ExecutionPolicy,
+  ExecutionPolicyInput,
+  ExecutionPolicyResult,
+  RefreshableOAuthFlow,
+} from './execution-policy';
+export { deriveExecutionPolicy } from './execution-policy';
 export type { ExtractorFailureKind, ExtractorResult, StepResponse, StepResponseHeader } from './extractor';
 export { applyExtractor } from './extractor';
 export { evaluateClause, evaluateGate, matchStatus } from './gate-evaluator';
