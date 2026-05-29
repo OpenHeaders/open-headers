@@ -1,0 +1,142 @@
+/**
+ * runStepRequest — end-to-end chain-step orchestration over the REAL
+ * resolver + wire executor (only the entity-store leaves are mocked).
+ * This is the integration the chain adapter + both host transports sit
+ * on, so it proves the moved resolve logic still resolves variables,
+ * folds auth, and gates TOTP reuse on the desktop's code path.
+ */
+
+import type { Request, Vault, WorkspaceVariables } from '@openheaders/core/types';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { runStepRequest } from '../../../src/live/request-exec/run-step-request';
+import type { RequestTransport, TransportRequest, TransportResponse } from '../../../src/live/request-exec/transport';
+
+// ── Entity-store leaves (the only host-state the resolver reads) ──────
+
+const wsVars = vi.fn<() => WorkspaceVariables>(() => ({ schemaVersion: 5, variables: [] }));
+const vault = vi.fn<() => Vault>(() => ({ schemaVersion: 5, secrets: [] }));
+const checkCooldownMock = vi.fn(() => ({ inCooldown: false }) as { inCooldown: boolean; remainingSeconds?: number });
+const recordUsageMock = vi.fn();
+
+vi.mock('../../../src/entity/environment-store', () => ({
+  getActiveEnvironmentId: () => null,
+  getDefaultEnvironmentId: () => null,
+  getDefaultEnvironmentIdForWorkspace: async () => null,
+  getEnvironments: () => [],
+  getEnvironmentsForWorkspace: () => [],
+  getVault: () => vault(),
+  getVaultForWorkspace: () => vault(),
+  getWorkspaceVariables: () => wsVars(),
+  getWorkspaceVariablesForWorkspace: () => wsVars(),
+}));
+vi.mock('../../../src/entity/request-store', () => ({
+  getRequest: () => null,
+  getRequestInWorkspace: () => null,
+  getRequestCollections: () => [],
+  getRequestCollectionsForWorkspace: () => [],
+}));
+vi.mock('../../../src/entity/rule-store', () => ({
+  getCollections: () => [],
+  getCollectionsForWorkspace: () => [],
+}));
+vi.mock('../../../src/entity/template-store', () => ({
+  getTemplateCollections: () => [],
+  getTemplateCollectionsForWorkspace: () => [],
+}));
+vi.mock('../../../src/entity/files-store', () => ({
+  getFileBlob: async () => null,
+  listFiles: async () => [],
+}));
+vi.mock('../../../src/rule-engine/variables-resolver', () => ({
+  getLiveRegistrySnapshot: () => new Map(),
+  getLiveRegistrySnapshotForWorkspace: () => new Map(),
+}));
+vi.mock('../../../src/entity/oauth-token-store', () => ({
+  getTokenBundle: async () => null,
+}));
+vi.mock('../../../src/entity/totp-cooldown-store', () => ({
+  checkCooldown: (...args: unknown[]) => checkCooldownMock(...(args as [])),
+  recordUsage: (...args: unknown[]) => recordUsageMock(...args),
+}));
+
+function makeRequest(overrides: Partial<Request> = {}): Request {
+  return {
+    schemaVersion: 5,
+    uid: 'r1',
+    path: 'requests/default/r1',
+    name: 'R',
+    method: 'GET',
+    url: 'https://api.openheaders.io/ping',
+    headers: [],
+    params: [],
+    auth: { type: 'none' },
+    body: { type: 'none' },
+    ...overrides,
+  };
+}
+
+function captureTransport(): { transport: RequestTransport; sent: () => TransportRequest; calls: () => number } {
+  let captured: TransportRequest | undefined;
+  let n = 0;
+  const transport: RequestTransport = {
+    async send(req): Promise<TransportResponse> {
+      captured = req;
+      n += 1;
+      return { status: 200, statusText: 'OK', url: req.url, headers: [], body: '{}' };
+    },
+  };
+  return {
+    transport,
+    sent: () => {
+      if (!captured) throw new Error('transport.send not called');
+      return captured;
+    },
+    calls: () => n,
+  };
+}
+
+const opts = (transport: RequestTransport) => ({ workspaceId: 'ws-1', environmentId: null, transport });
+
+beforeEach(() => {
+  wsVars.mockReturnValue({ schemaVersion: 5, variables: [] });
+  vault.mockReturnValue({ schemaVersion: 5, secrets: [] });
+  checkCooldownMock.mockReturnValue({ inCooldown: false });
+  recordUsageMock.mockReset();
+});
+
+afterEach(() => {
+  vi.clearAllMocks();
+});
+
+describe('runStepRequest (integration over the real resolver + executor)', () => {
+  it('resolves workspace variables in the URL', async () => {
+    wsVars.mockReturnValue({
+      schemaVersion: 5,
+      variables: [{ uid: '1abc6d8c', name: 'HOST', value: 'api.openheaders.io', type: 'default' }],
+    });
+    const { transport, sent } = captureTransport();
+    const snap = await runStepRequest(makeRequest({ url: 'https://{{HOST}}/ping' }), opts(transport));
+    expect(snap.error).toBeNull();
+    expect(sent().url).toBe('https://api.openheaders.io/ping');
+  });
+
+  it('folds basic auth into an Authorization header (UTF-8 base64)', async () => {
+    const { transport, sent } = captureTransport();
+    await runStepRequest(makeRequest({ auth: { type: 'basic', username: 'user', password: 'pä55' } }), opts(transport));
+    const auth = sent().headers.find((h) => h.key === 'Authorization');
+    expect(auth?.value).toBe(`Basic ${Buffer.from('user:pä55', 'utf-8').toString('base64')}`);
+  });
+
+  it('returns a structured error (no wire call) when a variable is unresolved', async () => {
+    const { transport, calls } = captureTransport();
+    const snap = await runStepRequest(makeRequest({ url: 'https://{{MISSING}}/x' }), opts(transport));
+    expect(snap.error).toMatch(/unresolved variables/i);
+    expect(calls()).toBe(0);
+  });
+
+  it('does not record TOTP usage when the request uses no TOTP code', async () => {
+    const { transport } = captureTransport();
+    await runStepRequest(makeRequest(), opts(transport));
+    expect(recordUsageMock).not.toHaveBeenCalled();
+  });
+});

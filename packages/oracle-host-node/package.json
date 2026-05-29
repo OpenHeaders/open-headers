@@ -26,6 +26,10 @@
       "import": "./src/files/fs-blob-backend.ts",
       "default": "./dist/files/fs-blob-backend.js"
     },
+    "./live/node-request-transport": {
+      "import": "./src/live/node-request-transport.ts",
+      "default": "./dist/live/node-request-transport.js"
+    },
     "./sync/*": {
       "import": "./src/sync/*.ts",
       "default": "./dist/sync/*.js"

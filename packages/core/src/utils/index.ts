@@ -39,6 +39,7 @@ export {
   validateConditionValues,
   validateDomainValues,
 } from './condition-validation';
+export { ensureScheme, inferSchemeForBareHost, needsSchemeNormalization } from './ensure-scheme';
 export type {
   HeaderDirection,
   HeaderNameValidation,

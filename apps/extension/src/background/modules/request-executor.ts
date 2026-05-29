@@ -29,14 +29,24 @@
 import { isExpired as isOAuthTokenExpired } from '@openheaders/core/oauth';
 import type { RequestMutation, RequestSnapshot, ResponseSnapshot, TestAssertion } from '@openheaders/core/scripts';
 import { generateTotp } from '@openheaders/core/totp';
-import type { AuthConfig, BodyType, Collection, CredentialsMode, Environment, ExecutedRequestSnapshot, FormField, HttpMethod, MultipartPart, Request, RequestBody, Vault, VaultSecretTotp, WorkspaceVariables } from '@openheaders/core/types';
+import type {
+  AuthConfig,
+  BodyType,
+  Collection,
+  CredentialsMode,
+  Environment,
+  ExecutedRequestSnapshot,
+  FormField,
+  HttpMethod,
+  MultipartPart,
+  Request,
+  RequestBody,
+  Vault,
+  VaultSecretTotp,
+  WorkspaceVariables,
+} from '@openheaders/core/types';
 import { appendQueryParams, generateUid, isRequestResolvable } from '@openheaders/core/utils';
 import { resolveTemplate, type TotpRegistry, VariableResolver } from '@openheaders/core/variables';
-import { logger } from '@utils/logger';
-import { ensureScheme } from '@openheaders/ui/shared/fetch';
-import { withHostAccess } from '@/shared/fetch/with-host-access';
-import { report as reportStatus } from '@openheaders/ui/shared/status';
-import { feedCollectionVariablesToResolver } from '@openheaders/ui/shared/variables';
 import {
   getActiveEnvironmentId,
   getDefaultEnvironmentId,
@@ -49,10 +59,7 @@ import {
   getWorkspaceVariablesForWorkspace,
 } from '@openheaders/oracle/entity/environment-store';
 import { getFileBlob, listFiles } from '@openheaders/oracle/entity/files-store';
-import { OAuth2FlowError, performRefresh as performOAuthRefresh } from './oauth-flow';
 import { getTokenBundle as getOAuthTokenBundle } from '@openheaders/oracle/entity/oauth-token-store';
-import { recordLog } from './observability-log';
-import { __setExecuteRequestDraft, isOffscreenSupported, runScript } from './offscreen-host';
 import {
   getRequest,
   getRequestCollections,
@@ -64,8 +71,24 @@ import {
   getCollectionsForWorkspace as getRuleCollectionsForWorkspace,
 } from '@openheaders/oracle/entity/rule-store';
 import { getTemplateCollections, getTemplateCollectionsForWorkspace } from '@openheaders/oracle/entity/template-store';
-import { checkCooldown as checkTotpCooldown, recordUsage as recordTotpUsage } from '@openheaders/oracle/entity/totp-cooldown-store';
-import { getLiveRegistrySnapshot, getLiveRegistrySnapshotForWorkspace } from '@openheaders/oracle/rule-engine/variables-resolver';
+import {
+  checkCooldown as checkTotpCooldown,
+  recordUsage as recordTotpUsage,
+} from '@openheaders/oracle/entity/totp-cooldown-store';
+import { runStepRequest } from '@openheaders/oracle/live/request-exec/run-step-request';
+import {
+  getLiveRegistrySnapshot,
+  getLiveRegistrySnapshotForWorkspace,
+} from '@openheaders/oracle/rule-engine/variables-resolver';
+import { ensureScheme } from '@openheaders/ui/shared/fetch';
+import { report as reportStatus } from '@openheaders/ui/shared/status';
+import { feedCollectionVariablesToResolver } from '@openheaders/ui/shared/variables';
+import { logger } from '@utils/logger';
+import { withHostAccess } from '@/shared/fetch/with-host-access';
+import { browserRequestTransport } from './browser-request-transport';
+import { OAuth2FlowError, performRefresh as performOAuthRefresh } from './oauth-flow';
+import { recordLog } from './observability-log';
+import { __setExecuteRequestDraft, isOffscreenSupported, runScript } from './offscreen-host';
 import { getActiveWorkspaceId } from './workspace-store';
 
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
@@ -331,12 +354,26 @@ export async function executeForLiveChain(
       },
     ],
   };
-  return executeRequestDraft(stamped, {
+  // Chain steps run on the host-neutral request executor (the same code
+  // the desktop runner uses), with the SW's fetch as the transport. No
+  // scripts + no Status-pill report are implicit in `runStepRequest`
+  // (chain refreshes belong to the `live` subsystem). The OAuth-refresh
+  // hook maps a recoverable `OAuth2FlowError` to `null` (attach the stale
+  // bundle → the target's 401 is the signal); any other error propagates
+  // as a fetch-phase failure, matching the prior executor semantics.
+  return runStepRequest(stamped, {
     workspaceId: options.workspaceId,
-    environmentId: options.environmentId ?? undefined,
+    environmentId: options.environmentId,
     stepCaptures: options.stepCaptures,
-    skipScripts: true,
-    silentStatus: true,
+    transport: browserRequestTransport,
+    refreshOAuth: (auth) =>
+      performOAuthRefresh(auth, options.workspaceId).catch((err) => {
+        if (err instanceof OAuth2FlowError) {
+          logger.info('RequestExecutor', `OAuth refresh failed for ${auth.credentialRef}: ${err.message}`);
+          return null;
+        }
+        throw err;
+      }),
   });
 }
 
