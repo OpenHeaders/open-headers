@@ -29,6 +29,7 @@ import { registerSetting } from '../registry';
 // re-imports BackendMode/backendModeIsPending from this file).
 const BackendModeFieldEditor = lazy(() => import('../components/backend-mode-switch'));
 const LanPeersToggleEditor = lazy(() => import('../components/lan-peers-toggle'));
+const BackendUrlFieldEditor = lazy(() => import('../components/backend-url-field'));
 const BackendAuthTokenFieldEditor = lazy(() => import('../components/backend-auth-token-field'));
 
 export const BACKEND_MODES = ['in-browser', 'desktop-app', 'local-self-hosted', 'remote-self-hosted'] as const;
@@ -156,13 +157,17 @@ registerSetting({
   type: 'string',
   default: 'ws://127.0.0.1:8137',
   schema: urlSchema,
-  label: 'Backend URL',
-  description: 'WebSocket address of the back-end. `ws://` for local hosts, `wss://` for remote.',
+  label: 'Backend address',
+  description: 'Where this client dials the back-end. `ws://` for local / LAN hosts, `wss://` for remote.',
   category: 'backend',
   subcategory: 'connection',
   tags: ['url', 'websocket', 'address', 'port', 'host'],
   scope: 'user',
   when: (get) => backendModeNeedsConnection(get('backend.mode')),
+  // Custom editor splits the canonical `ws://host:port` string into the
+  // scheme / Address / Port parts the user thinks in, while persisting
+  // the literal URL every dialer reads (WS-A3).
+  customEditor: BackendUrlFieldEditor,
 });
 
 registerSetting({

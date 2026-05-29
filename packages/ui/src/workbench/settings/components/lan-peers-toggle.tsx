@@ -57,11 +57,10 @@ const LanPeersToggleEditor: React.FC<{ def: SettingDef }> = ({ def }) => {
       content: (
         <Typography.Paragraph style={{ marginBottom: 0 }}>
           The desktop daemon will bind every local network interface so other
-          devices on your network can connect. Connections from non-loopback
-          peers are rejected until you issue an auth token from the "Known
-          devices" section below and they paste it into their Settings →
-          Backend → Daemon auth token. Clients on this machine (loopback) stay
-          trust-by-process and need no token.
+          devices on your network can connect. Every connection — LAN or
+          loopback — must present a paired auth token; there is no token-free
+          path. Devices pair with the code the daemon shows (or paste a token
+          into Settings → Backend → Daemon auth token).
         </Typography.Paragraph>
       ),
       onOk: () => {
