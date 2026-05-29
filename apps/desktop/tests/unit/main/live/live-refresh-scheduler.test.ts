@@ -38,6 +38,8 @@ const h = vi.hoisted(() => ({
   onRequestStoreChange: vi.fn(),
   // runner
   runDesktopWorkflowRefresh: vi.fn(),
+  // status
+  recomputeDesktopLiveStatus: vi.fn(),
 }));
 
 vi.mock('@openheaders/core/live', () => ({
@@ -80,6 +82,9 @@ vi.mock('@openheaders/oracle/entity/request-store', () => ({
 }));
 vi.mock('../../../../src/main/live/chain-runner', () => ({
   runDesktopWorkflowRefresh: h.runDesktopWorkflowRefresh,
+}));
+vi.mock('../../../../src/main/live/live-status', () => ({
+  recomputeDesktopLiveStatus: h.recomputeDesktopLiveStatus,
 }));
 
 const WF: LiveWorkflow = {
@@ -128,6 +133,7 @@ beforeEach(() => {
     on.mockReturnValue(() => {});
   }
   h.runDesktopWorkflowRefresh.mockResolvedValue({ ok: true, skippedStepIds: [] });
+  h.recomputeDesktopLiveStatus.mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -158,6 +164,18 @@ describe('startDesktopLiveRunner', () => {
       workflow: WF,
       environmentId: null,
     });
+  });
+
+  it('recomputes the live status pill on each reconcile pass', async () => {
+    startDesktopLiveRunner();
+    await vi.advanceTimersByTimeAsync(0); // settle the initial reconcile
+    expect(h.recomputeDesktopLiveStatus).toHaveBeenCalledTimes(1);
+
+    // A store-change event drives a debounced reconcile → second recompute.
+    const onCache = h.onLiveCacheStoreChange.mock.calls[0]?.[0] as () => void;
+    onCache();
+    await vi.advanceTimersByTimeAsync(50);
+    expect(h.recomputeDesktopLiveStatus).toHaveBeenCalledTimes(2);
   });
 
   it('does not schedule an ineffective workflow', async () => {

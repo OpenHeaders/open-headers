@@ -65,6 +65,7 @@ import {
 } from '@openheaders/oracle/live/live-workflow-store';
 import { getActiveWorkspaceId, onWorkspaceStoreChange } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { runDesktopWorkflowRefresh } from './chain-runner';
+import { recomputeDesktopLiveStatus } from './live-status';
 
 const LOG = 'DesktopLiveRunner';
 
@@ -317,6 +318,15 @@ async function reconcile(): Promise<void> {
     if (t) clearTimeout(t);
     timers.delete(key);
   }
+
+  // Refresh the live pill off the same pass. The status output is a pure
+  // function of the active-workspace cache rows, which change on exactly
+  // the events that drive reconcile (a fire's cache write, a delete, a
+  // workspace switch's re-hydration), so folding it in here reuses this
+  // debounced trigger rather than adding a second subscription + timer.
+  await recomputeDesktopLiveStatus().catch((e) =>
+    logger.warn(LOG, `live status recompute failed: ${(e as Error).message}`),
+  );
 }
 
 function scheduleReconcile(): void {
