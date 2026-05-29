@@ -107,6 +107,7 @@ import { type DaemonBindSupervisor, startDaemonBindSupervisor } from './daemon-b
 import { installHostStorage } from './install-host-storage';
 import { installLifelineServer } from './install-lifeline-server';
 import { listLanIpv4Addresses } from './lan-addresses';
+import { startDesktopLiveRunner, stopDesktopLiveRunner } from './live/live-refresh-scheduler';
 import { installObservabilityLog, type ObservabilityLogHandle } from './observability-log';
 import { singleProcessLockRuntime } from './single-process-lock-runtime';
 import { observeForActivityFeed, setActivityLog, subscribeActivityEntries } from './sync-activity-installer';
@@ -359,6 +360,16 @@ export async function installRpcHost(): Promise<void> {
   await hydrateActiveWorkspaceStores();
   await bootSyncEngine();
 
+  // 4a. WS-C C3/C4 — desktop live runner. With the active workspace's
+  //     stores hydrated and the sync engine up, start the cadence
+  //     scheduler: a `setTimeout` map keyed by (workspace, workflow, env)
+  //     that warms THIS host's own live-workflow cache on a timer —
+  //     reusing the C1 host-neutral resolve→execute core over the Node
+  //     transport — and reconciles off the oracle store-change events.
+  //     Lights real data into the desktop `live` status pill (C5). Torn
+  //     down on `before-quit` (step 7).
+  startDesktopLiveRunner();
+
   // 4b. Daemon device-flow pairing surface (U3.3). One service instance
   //     per process; the HTTP handler is rebuilt with that service and
   //     handed to every bind the supervisor opens. Polling-only IPC
@@ -497,6 +508,7 @@ export async function installRpcHost(): Promise<void> {
   //    is registered in `main.ts` (so it can queue pre-engine calls) and
   //    is removed there.
   app.on('before-quit', () => {
+    stopDesktopLiveRunner();
     stopActivityPruneScheduler();
     unsubscribeStatus();
     clearStatusStore();
