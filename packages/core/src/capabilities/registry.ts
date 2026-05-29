@@ -45,6 +45,34 @@
  */
 
 /**
+ * Input to {@link Capabilities.pairWithCode}. `url` is the back-end's
+ * WebSocket URL exactly as the user configured it (`backend.url`); the
+ * host implementation derives the matching HTTP origin for the daemon's
+ * `/pair/<code>/confirm` route, which rides the same bound socket.
+ */
+export interface PairWithCodeInput {
+  /** The configured back-end WebSocket URL, e.g. `ws://127.0.0.1:8137`. */
+  readonly url: string;
+  /** The numeric pairing code the daemon displayed. */
+  readonly code: string;
+  /** Optional label recorded against the minted token (Known devices, A6). */
+  readonly deviceLabel?: string;
+}
+
+/**
+ * Result of a code→token exchange. `unknown`/`expired`/`consumed` mirror
+ * the daemon's pairing-state reasons; `unreachable`/`error` are
+ * client-side transport faults (back-end down, bad URL, non-JSON reply).
+ */
+export type PairWithCodeResult =
+  | { readonly ok: true; readonly token: string; readonly tokenId: string }
+  | {
+      readonly ok: false;
+      readonly reason: 'unknown' | 'expired' | 'consumed' | 'unreachable' | 'error';
+      readonly message?: string;
+    };
+
+/**
  * The universe of capabilities. Optional members (`name?:`) are
  * host-specific; required members are universal contracts every host
  * must implement.
@@ -102,6 +130,18 @@ export interface Capabilities {
    * `getCapability(...)?.()`.
    */
   notifyRulesChanged?: () => Promise<void>;
+
+  /**
+   * Exchange a daemon pairing code for a long-lived auth token (WS-A2).
+   * Host-specific because the wire is a localhost/LAN HTTP fetch to the
+   * back-end's `/pair/<code>/confirm` route, which only a host with the
+   * reachability + permission to dial that origin can perform — the
+   * extension surfaces register it; the chrome-free UI calls it and
+   * writes the returned token into `backend.authToken`. Hosts that pair
+   * by some other gesture (or not at all) simply don't register it, and
+   * the UI hides the in-app pairing affordance via `hasCapability`.
+   */
+  pairWithCode?: (input: PairWithCodeInput) => Promise<PairWithCodeResult>;
 }
 
 type CapabilityName = keyof Capabilities;
@@ -116,10 +156,7 @@ const installed = new Map<CapabilityName, unknown>();
  * every capability they support. Calling twice replaces the prior
  * implementation; tests use this to swap fakes.
  */
-export function registerCapability<K extends CapabilityName>(
-  name: K,
-  impl: NonNullable<Capabilities[K]>,
-): void {
+export function registerCapability<K extends CapabilityName>(name: K, impl: NonNullable<Capabilities[K]>): void {
   installed.set(name, impl);
 }
 

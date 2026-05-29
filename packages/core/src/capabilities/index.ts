@@ -1,4 +1,4 @@
-export type { Capabilities } from './registry';
+export type { Capabilities, PairWithCodeInput, PairWithCodeResult } from './registry';
 export {
   getCapability,
   hasCapability,

@@ -29,6 +29,7 @@ import { registerSetting } from '../registry';
 // re-imports BackendMode/backendModeIsPending from this file).
 const BackendModeFieldEditor = lazy(() => import('../components/backend-mode-switch'));
 const LanPeersToggleEditor = lazy(() => import('../components/lan-peers-toggle'));
+const BackendAuthTokenFieldEditor = lazy(() => import('../components/backend-auth-token-field'));
 
 export const BACKEND_MODES = ['in-browser', 'desktop-app', 'local-self-hosted', 'remote-self-hosted'] as const;
 export type BackendMode = (typeof BACKEND_MODES)[number];
@@ -178,12 +179,17 @@ registerSetting({
   schema: v.string(),
   label: 'Daemon auth token',
   description:
-    'Long-lived token the daemon issues when you pair this device. Paste the value the daemon admin shared with you; the desktop / extension sends it on every HELLO.',
+    'Long-lived token the daemon issues when you pair this device. Pair with the code the back-end shows, or paste a token directly; this client sends it on every HELLO.',
   category: 'backend',
   subcategory: 'connection',
   tags: ['auth', 'token', 'pair', 'daemon', 'secret'],
   scope: 'user',
   when: (get) => backendModeNeedsConnection(get('backend.mode')),
+  // Custom editor adds the in-app "Pair with a code" affordance (WS-A2)
+  // beside the raw token input — typing the daemon's 6-digit code
+  // exchanges it for a token through the `pairWithCode` capability and
+  // writes the result straight into this setting.
+  customEditor: BackendAuthTokenFieldEditor,
 });
 
 registerSetting({

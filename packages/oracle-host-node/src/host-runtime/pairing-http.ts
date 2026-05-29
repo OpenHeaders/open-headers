@@ -16,7 +16,11 @@
  *     calls {@link DaemonPairingService.confirm}, which mints a real
  *     {@link DaemonAuthToken}, and renders the secret as the response
  *     body. The page is one-shot: subsequent GETs render the "already
- *     paired" state.
+ *     paired" state. A client that sends `Accept: application/json`
+ *     (the extension's in-app code-entry flow, A2) gets the same
+ *     one-shot confirm as a `{ ok, secret, tokenId }` / `{ ok, reason }`
+ *     JSON body instead of the HTML page — same `confirm()` call, same
+ *     A5 brute-force budget, just a machine representation.
  *
  * Anything else returns 404. We deliberately don't emit a hint about
  * what *would* be a valid path; the daemon's reachability check is
@@ -73,7 +77,7 @@ function escapeHtml(input: string): string {
     .replace(/'/g, '&#39;');
 }
 
-function readFormBody(req: IncomingMessage, maxBytes = 4096): Promise<Map<string, string>> {
+function readRawBody(req: IncomingMessage, maxBytes = 4096): Promise<string> {
   return new Promise((resolve, reject) => {
     let size = 0;
     const chunks: Buffer[] = [];
@@ -86,15 +90,46 @@ function readFormBody(req: IncomingMessage, maxBytes = 4096): Promise<Map<string
       }
       chunks.push(chunk);
     });
-    req.on('end', () => {
-      const text = Buffer.concat(chunks).toString('utf-8');
-      const params = new URLSearchParams(text);
-      const out = new Map<string, string>();
-      for (const [k, v] of params) out.set(k, v);
-      resolve(out);
-    });
+    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
     req.on('error', (err) => reject(err));
   });
+}
+
+/**
+ * Pull the optional `deviceLabel` out of the request body, accepting
+ * both the HTML form's `application/x-www-form-urlencoded` and the
+ * programmatic client's `application/json` — the only field either
+ * confirm path carries. A malformed/empty body yields `undefined`,
+ * which is fine: the pending pair's own `deviceLabel` then stands.
+ */
+async function readDeviceLabel(req: IncomingMessage): Promise<string | undefined> {
+  const raw = await readRawBody(req).catch(() => '');
+  if (!raw) return undefined;
+  const contentType = req.headers['content-type'] ?? '';
+  if (contentType.includes('application/json')) {
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object' && 'deviceLabel' in parsed) {
+        const label = (parsed as { deviceLabel?: unknown }).deviceLabel;
+        return typeof label === 'string' ? label.trim() || undefined : undefined;
+      }
+    } catch {
+      return undefined;
+    }
+    return undefined;
+  }
+  return new URLSearchParams(raw).get('deviceLabel')?.trim() || undefined;
+}
+
+/**
+ * Programmatic clients (the extension's in-app pairing, A2) opt into a
+ * JSON representation by asking for it explicitly. Browser navigations
+ * and form POSTs send `Accept: text/html,…` without `application/json`,
+ * so they keep getting the rendered page — content negotiation, default
+ * HTML.
+ */
+function wantsJson(req: IncomingMessage): boolean {
+  return (req.headers.accept ?? '').includes('application/json');
 }
 
 const PAGE_CSS = `
@@ -187,6 +222,21 @@ function htmlResponse(res: ServerResponse, statusCode: number, body: string): vo
   res.end(body);
 }
 
+type ConfirmJson =
+  | { readonly ok: true; readonly secret: string; readonly tokenId: string }
+  | { readonly ok: false; readonly reason: 'unknown' | 'expired' | 'consumed' };
+
+function jsonResponse(res: ServerResponse, statusCode: number, payload: ConfirmJson): void {
+  res.statusCode = statusCode;
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  // Same no-store / no-sniff hardening as the HTML surface — a success
+  // body carries the one-shot secret.
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.end(JSON.stringify(payload));
+}
+
 export interface PairingHttpHandlerOptions {
   readonly pairing: DaemonPairingService;
 }
@@ -254,16 +304,24 @@ export function createPairingHttpHandler(options: PairingHttpHandlerOptions): Pa
       return true;
     }
     if (req.method === 'POST' && route.kind === 'confirm') {
+      const asJson = wantsJson(req);
       void (async () => {
         try {
-          const form = await readFormBody(req).catch(() => new Map<string, string>());
-          const deviceLabel = form.get('deviceLabel')?.trim() || undefined;
+          const deviceLabel = await readDeviceLabel(req);
           const result = await pairing.confirm(route.code, { deviceLabel });
           if (result.ok) {
+            if (asJson) {
+              jsonResponse(res, 200, { ok: true, secret: result.secret, tokenId: result.tokenId });
+              return;
+            }
             htmlResponse(res, 200, renderSuccess(result.secret));
             return;
           }
           if (result.reason === 'expired') {
+            if (asJson) {
+              jsonResponse(res, 410, { ok: false, reason: 'expired' });
+              return;
+            }
             htmlResponse(
               res,
               410,
@@ -276,6 +334,10 @@ export function createPairingHttpHandler(options: PairingHttpHandlerOptions): Pa
             return;
           }
           if (result.reason === 'consumed') {
+            if (asJson) {
+              jsonResponse(res, 410, { ok: false, reason: 'consumed' });
+              return;
+            }
             htmlResponse(
               res,
               410,
@@ -287,6 +349,10 @@ export function createPairingHttpHandler(options: PairingHttpHandlerOptions): Pa
             );
             return;
           }
+          if (asJson) {
+            jsonResponse(res, 404, { ok: false, reason: 'unknown' });
+            return;
+          }
           htmlResponse(
             res,
             404,
@@ -294,6 +360,14 @@ export function createPairingHttpHandler(options: PairingHttpHandlerOptions): Pa
           );
         } catch (err) {
           logger.warn(SCOPE, 'confirm failed', err);
+          if (asJson) {
+            // A mint failure is a server fault, not a code-state fault;
+            // surface it as `unknown` (the JSON contract has no 5xx
+            // variant) with a 500 so the client retries rather than
+            // treating the code as spent.
+            jsonResponse(res, 500, { ok: false, reason: 'unknown' });
+            return;
+          }
           htmlResponse(
             res,
             500,
