@@ -40,7 +40,7 @@
 
 import * as v from 'valibot';
 
-import { StateVectorSchema, type StateVector } from '../sync/state-vector';
+import { type StateVector, StateVectorSchema } from '../sync/state-vector';
 import type {
   SyncCollectionPostState,
   SyncEnvironmentPostState,
@@ -163,7 +163,9 @@ export const SyncSnapshotMessageSchema = v.object({
  * in v1). Listed as a constant so the producer + transport layers
  * don't drift.
  */
-export const SENSITIVE_SNAPSHOT_KEYS = ['vault', 'oauthBundles', 'liveValues'] as const satisfies ReadonlyArray<keyof WorkspaceSnapshot>;
+export const SENSITIVE_SNAPSHOT_KEYS = ['vault', 'oauthBundles', 'liveValues'] as const satisfies ReadonlyArray<
+  keyof WorkspaceSnapshot
+>;
 
 export type SensitiveSnapshotKey = (typeof SENSITIVE_SNAPSHOT_KEYS)[number];
 
@@ -178,4 +180,31 @@ export type SensitiveSnapshotKey = (typeof SENSITIVE_SNAPSHOT_KEYS)[number];
  */
 export function redactSensitiveSnapshotKeys(snapshot: WorkspaceSnapshot): WorkspaceSnapshot {
   return { ...snapshot, vault: [], oauthBundles: [], liveValues: [] };
+}
+
+/**
+ * Snapshot keys carrying a *same-device-only* secret — the vault, whose
+ * entries hold root secrets (TOTP seeds) that must never leave the
+ * device. A strict subset of {@link SENSITIVE_SNAPSHOT_KEYS}: OAuth
+ * bundles + live values are derived artifacts whose boundary is the
+ * user's trust zone (paired devices, possibly LAN), not the device, so
+ * they are NOT stripped here. Mirrors `isSameDeviceOnlyEntityType` in
+ * `@openheaders/core/sync` at the snapshot-array granularity.
+ */
+export const SAME_DEVICE_ONLY_SNAPSHOT_KEYS = ['vault'] as const satisfies ReadonlyArray<keyof WorkspaceSnapshot>;
+
+export type SameDeviceOnlySnapshotKey = (typeof SAME_DEVICE_ONLY_SNAPSHOT_KEYS)[number];
+
+/**
+ * Return a copy of `snapshot` with every {@link SAME_DEVICE_ONLY_SNAPSHOT_KEYS}
+ * array replaced by an empty array. Pure; the input is not mutated.
+ *
+ * Call site: the state-vector catch-up responder, when the receiving
+ * peer is off-device (non-loopback) — the WS-B reach gate. Unlike
+ * {@link redactSensitiveSnapshotKeys} (cross-trust-zone, strips all
+ * sensitive entities), this strips only the vault, so a paired LAN peer
+ * still bootstraps derived OAuth/live values.
+ */
+export function redactSameDeviceOnlySnapshotKeys(snapshot: WorkspaceSnapshot): WorkspaceSnapshot {
+  return { ...snapshot, vault: [] };
 }

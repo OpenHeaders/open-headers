@@ -16,10 +16,18 @@
  * stop iterating; the workspace service refcount around the reads
  * makes a partial drain safe (the next handshake re-walks the log).
  *
- * **Sensitivity (Phase D seam).** `options.redactSensitive` strips
- * vault + oauth-bundle arrays from the snapshot before send for
- * cross-trust-zone transports per `docs/DATA_PLANE_TOPOLOGIES.md §11.1`.
- * Phase C localhost is same-user same-process — defaults to off.
+ * **Reach gate (WS-B B1).** `options.offDevicePeer` strips the vault
+ * (same-device-only root secrets) from BOTH the snapshot blob and the
+ * delta stream when the receiving peer is off-device (non-loopback), so
+ * a reconnecting LAN peer can't bootstrap or replay seed history. The
+ * transport sets it from the socket's loopback classification.
+ *
+ * **Sensitivity (Phase D seam).** `options.redactSensitive` is the
+ * broader cross-trust-zone strip — vault + oauth-bundle (+ live values)
+ * from the snapshot per `docs/DATA_PLANE_TOPOLOGIES.md §11.1`. Distinct
+ * from `offDevicePeer`: that gate is reach-scoped (vault only); this one
+ * is trust-zone-scoped (all sensitive entities). Phase C localhost is
+ * same-user same-process — defaults to off.
  *
  * **What this does NOT do:**
  *   - validate the inbound message (the caller already did, against
@@ -36,10 +44,11 @@
  *     SYNCED; this responder is the responding peer
  */
 import {
+  redactSameDeviceOnlySnapshotKeys,
+  redactSensitiveSnapshotKeys,
   SYNC_MUTATION_TYPE,
   SYNC_SNAPSHOT_TYPE,
   SYNC_SYNCED_TYPE,
-  redactSensitiveSnapshotKeys,
   type SyncMutationMessage,
   type SyncSnapshotMessage,
   type SyncStateVectorMessage,
@@ -48,8 +57,9 @@ import {
 } from '@openheaders/core/protocol';
 import {
   DEFAULT_SNAPSHOT_THRESHOLDS,
-  shouldBootstrapWithSnapshot,
+  isSameDeviceOnlyMutation,
   type SnapshotThresholds,
+  shouldBootstrapWithSnapshot,
 } from '@openheaders/core/sync';
 
 import { readWorkspaceDeltaStream } from './delta-stream-reader';
@@ -75,6 +85,15 @@ export interface RespondToStateVectorOptions {
    * localhost is same-user same-process.
    */
   readonly redactSensitive?: boolean;
+  /**
+   * Peer is off-device (non-loopback). Strips same-device-only secrets
+   * (the vault) from both the snapshot blob and the delta stream — the
+   * WS-B reach gate (B1). Distinct from {@link redactSensitive}, which
+   * is the broader cross-trust-zone strip (vault + OAuth + live values);
+   * an off-device peer still bootstraps derived OAuth/live values, only
+   * the root-secret vault is withheld. Defaults to `false`.
+   */
+  readonly offDevicePeer?: boolean;
   /**
    * Override the snapshot-vs-delta threshold. Defaults to
    * {@link DEFAULT_SNAPSHOT_THRESHOLDS}. Test seam + future per-peer
@@ -124,6 +143,7 @@ export async function respondToStateVector(
     if (built !== null) {
       let snapshot: WorkspaceSnapshot = built;
       if (options.redactSensitive) snapshot = redactSensitiveSnapshotKeys(snapshot);
+      else if (options.offDevicePeer) snapshot = redactSameDeviceOnlySnapshotKeys(snapshot);
       const snapshotFrame: SyncSnapshotMessage = {
         type: SYNC_SNAPSHOT_TYPE,
         workspaceId,
@@ -138,6 +158,11 @@ export async function respondToStateVector(
   }
 
   for await (const envelope of readWorkspaceDeltaStream(workspaceId, resumeFromVector)) {
+    // WS-B reach gate: an off-device peer's catch-up delta must omit
+    // same-device-only secrets (vault), matching the snapshot strip above
+    // and the live-broadcast gate — otherwise a reconnecting LAN peer
+    // pulls seed history through the delta stream.
+    if (options.offDevicePeer && isSameDeviceOnlyMutation(envelope)) continue;
     const frame: SyncMutationMessage = {
       type: SYNC_MUTATION_TYPE,
       workspaceId,

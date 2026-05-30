@@ -18,6 +18,7 @@ export * from './mode-switch';
 export * from './mutators';
 export * from './order';
 export * from './path';
+export * from './reach-scope';
 export * from './schema';
 export * from './state-vector';
 export * from './store';

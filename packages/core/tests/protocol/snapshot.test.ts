@@ -3,13 +3,15 @@ import { describe, expect, it } from 'vitest';
 
 import {
   MIN_SNAPSHOT_SCHEMA_VERSION,
+  redactSameDeviceOnlySnapshotKeys,
+  redactSensitiveSnapshotKeys,
+  SAME_DEVICE_ONLY_SNAPSHOT_KEYS,
   SENSITIVE_SNAPSHOT_KEYS,
   SNAPSHOT_SCHEMA_VERSION,
   SYNC_SNAPSHOT_TYPE,
   SyncSnapshotMessageSchema,
-  WorkspaceSnapshotSchema,
-  redactSensitiveSnapshotKeys,
   type WorkspaceSnapshot,
+  WorkspaceSnapshotSchema,
 } from '../../src/protocol';
 
 function makeSnapshot(overrides: Partial<WorkspaceSnapshot> = {}): WorkspaceSnapshot {
@@ -138,6 +140,41 @@ describe('redactSensitiveSnapshotKeys', () => {
     });
     const before = JSON.parse(JSON.stringify(snap));
     redactSensitiveSnapshotKeys(snap);
+    expect(snap).toEqual(before);
+  });
+});
+
+describe('redactSameDeviceOnlySnapshotKeys', () => {
+  it('only lists the vault as same-device-only (strict subset of sensitive keys)', () => {
+    expect(SAME_DEVICE_ONLY_SNAPSHOT_KEYS).toEqual(['vault']);
+    for (const key of SAME_DEVICE_ONLY_SNAPSHOT_KEYS) {
+      expect(SENSITIVE_SNAPSHOT_KEYS).toContain(key);
+    }
+  });
+
+  it('blanks the vault but keeps derived OAuth + live values flowing', () => {
+    const oauthBundles = [
+      { tokens: { ref1: { token: 'secret' } }, configs: {}, refreshErrors: {}, credentialRefs: ['ref1'] },
+    ] as unknown as WorkspaceSnapshot['oauthBundles'];
+    const liveValues = [{ values: {}, runKeys: [] }] as unknown as WorkspaceSnapshot['liveValues'];
+    const snap = makeSnapshot({
+      vault: [{ vault: { uid: 'v' }, secretUids: ['s1'] } as unknown as WorkspaceSnapshot['vault'][number]],
+      oauthBundles,
+      liveValues,
+    });
+    const redacted = redactSameDeviceOnlySnapshotKeys(snap);
+    expect(redacted.vault).toEqual([]);
+    // OAuth + live values are trust-zone-scoped, not device-scoped — untouched.
+    expect(redacted.oauthBundles).toBe(oauthBundles);
+    expect(redacted.liveValues).toBe(liveValues);
+  });
+
+  it('does not mutate the input', () => {
+    const snap = makeSnapshot({
+      vault: [{ vault: { uid: 'v' } } as unknown as WorkspaceSnapshot['vault'][number]],
+    });
+    const before = JSON.parse(JSON.stringify(snap));
+    redactSameDeviceOnlySnapshotKeys(snap);
     expect(snap).toEqual(before);
   });
 });

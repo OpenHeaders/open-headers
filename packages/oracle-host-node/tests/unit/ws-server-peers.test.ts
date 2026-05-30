@@ -81,6 +81,15 @@ async function connectAccepted(port: number, helloFrame: string): Promise<WebSoc
   return client;
 }
 
+function waitForFrame(client: WebSocket, type: string): Promise<Record<string, unknown>> {
+  return new Promise<Record<string, unknown>>((resolve) => {
+    client.on('message', (raw) => {
+      const msg = JSON.parse(raw.toString());
+      if (msg.type === type) resolve(msg);
+    });
+  });
+}
+
 function nextEvent(srv: OracleWsServer, kind: PeerChangeEvent['kind']): Promise<PeerChangeEvent> {
   return new Promise<PeerChangeEvent>((resolve) => {
     const unsubscribe = srv.subscribePeerChange((event) => {
@@ -244,5 +253,51 @@ describe('OracleWsServer — peer registry', () => {
     await connected;
 
     expect(calls).toBe(0);
+  });
+});
+
+describe('OracleWsServer — WS-B reach gate (loopbackOnly broadcast)', () => {
+  it('delivers a loopback-only frame to a same-device peer', async () => {
+    const port = await freePort();
+    server = await startOracleWsServer({ host: '127.0.0.1', port, handshakeIdentity: IDENTITY });
+
+    const connected = nextEvent(server, 'connect');
+    const client = await connectAccepted(port, hello());
+    expect((await connected).peer.isLoopback).toBe(true);
+
+    const got = waitForFrame(client, 'test.vault');
+    server.broadcastFrame({ type: 'test.vault', secret: 'seed' }, { loopbackOnly: true });
+    expect((await got).secret).toBe('seed');
+  });
+
+  it('withholds a loopback-only frame from an off-device peer but still delivers unrestricted frames', async () => {
+    const port = await freePort();
+    // Inject an off-device classification so a real loopback client is
+    // treated as a LAN/WAN peer (plan §10 fault injection).
+    server = await startOracleWsServer({
+      host: '127.0.0.1',
+      port,
+      handshakeIdentity: IDENTITY,
+      classifyLoopback: () => false,
+    });
+
+    const connected = nextEvent(server, 'connect');
+    const client = await connectAccepted(port, hello());
+    expect((await connected).peer.isLoopback).toBe(false);
+
+    const received: string[] = [];
+    client.on('message', (raw) => {
+      const msg = JSON.parse(raw.toString());
+      if (msg.type === 'test.vault' || msg.type === 'test.rule') received.push(msg.type);
+    });
+
+    // Restricted frame goes first; the unrestricted sentinel follows on the
+    // same ordered socket. If the gate holds, only the sentinel arrives.
+    const sentinel = waitForFrame(client, 'test.rule');
+    server.broadcastFrame({ type: 'test.vault', secret: 'seed' }, { loopbackOnly: true });
+    server.broadcastFrame({ type: 'test.rule', id: 'r1' }, { loopbackOnly: false });
+    await sentinel;
+
+    expect(received).toEqual(['test.rule']);
   });
 });

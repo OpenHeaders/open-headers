@@ -114,6 +114,14 @@ export interface OracleWsServerOptions {
    * without spinning a second port. See {@link createPairingHttpHandler}.
    */
   httpRequestHandler?: PairingHttpHandler;
+  /**
+   * Override the per-connection loopback classification. Defaults to
+   * {@link isLoopbackRemote} over the socket's remote address. A real
+   * bind always sees `127.0.0.1` for same-host clients, so this seam
+   * lets fault-injection tests simulate an off-device (LAN/WAN) peer to
+   * exercise the WS-B reach gate (plan §10). Production never sets it.
+   */
+  classifyLoopback?: (remoteAddress: string | undefined) => boolean;
 }
 
 /**
@@ -154,8 +162,14 @@ export interface OracleWsServer {
    * `workspaceId` + `envelope` at the top level). The frame must
    * already include a top-level `type` field; this method does not
    * wrap or rename anything.
+   *
+   * `opts.loopbackOnly` restricts the fan-out to same-device (loopback)
+   * peers — the WS-B reach gate for frames carrying a same-device-only
+   * secret (vault mutations). Off-device (LAN/WAN) peers are skipped.
+   * Defaults to all peers; the caller classifies the frame (it owns the
+   * typed envelope) and this transport enforces per-socket reach.
    */
-  broadcastFrame(frame: Record<string, unknown>): void;
+  broadcastFrame(frame: Record<string, unknown>, opts?: { loopbackOnly?: boolean }): void;
   /** Number of connected peers past handshake — used for status logs. */
   connectedCount(): number;
   /**
@@ -221,6 +235,7 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
   const port = options.port ?? WS_PORT;
   const handshakeIdentity = options.handshakeIdentity;
   const httpRequestHandler = options.httpRequestHandler;
+  const classifyLoopback = options.classifyLoopback ?? isLoopbackRemote;
 
   // Own the underlying http.Server so the pairing surface (U3.3) can
   // attach to non-upgrade `request` events on the same bind. Without
@@ -300,7 +315,7 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
     // cross-user on a shared box and TCP blocks OS peer-cred, so
     // trust-by-process is not a sound floor — every peer presents a
     // paired token. `isLoopback` is kept for reporting + reach, not auth.
-    const isLoopback = isLoopbackRemote(request.socket.remoteAddress);
+    const isLoopback = classifyLoopback(request.socket.remoteAddress);
     const requireAuth = true;
     let handshakeDone = false;
     const handshakeTimer = setTimeout(() => {
@@ -439,7 +454,13 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
             logger.warn(SCOPE, 'STATE_VECTOR from a peer that connected via legacy browserInfo; dropping');
             return;
           }
-          void handleStateVector(parsed as Record<string, unknown>, peerConn).catch((err) => {
+          void handleStateVector(parsed as Record<string, unknown>, peerConn, {
+            // WS-B reach gate on the catch-up path: an off-device peer's
+            // snapshot bootstrap + delta replay must omit same-device-only
+            // secrets (vault), mirroring the live-broadcast gate so a
+            // reconnecting LAN peer can't pull seed history.
+            responder: { offDevicePeer: !isLoopback },
+          }).catch((err) => {
             logger.warn(SCOPE, `handleStateVector threw for peer ${peerConn.peerId}`, err);
           });
           return;
@@ -488,9 +509,15 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
     });
   });
 
-  function sendFrameToReady(serialized: string): void {
+  function sendFrameToReady(serialized: string, loopbackOnly: boolean): void {
     for (const socket of ready) {
       if (socket.readyState !== WebSocket.OPEN) continue;
+      if (loopbackOnly && !summaryBySocket.get(socket)?.isLoopback) {
+        // WS-B reach gate: a same-device-only frame (vault mutation)
+        // must not reach an off-device peer. Per-socket reach is only
+        // known here, at the transport.
+        continue;
+      }
       try {
         socket.send(serialized);
       } catch (err) {
@@ -502,11 +529,11 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
   return {
     broadcast(type, payload) {
       if (closed) return;
-      sendFrameToReady(JSON.stringify({ type, payload }));
+      sendFrameToReady(JSON.stringify({ type, payload }), false);
     },
-    broadcastFrame(frame) {
+    broadcastFrame(frame, opts) {
       if (closed) return;
-      sendFrameToReady(JSON.stringify(frame));
+      sendFrameToReady(JSON.stringify(frame), opts?.loopbackOnly ?? false);
     },
     connectedCount() {
       return ready.size;

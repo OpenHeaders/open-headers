@@ -62,10 +62,17 @@ export {
   SyncMutationMessageSchema,
   SyncMutationStreamMessageSchema,
 } from './mutation-stream';
-export type { SensitiveSnapshotKey, SyncSnapshotMessage, WorkspaceSnapshot } from './snapshot';
+export type {
+  SameDeviceOnlySnapshotKey,
+  SensitiveSnapshotKey,
+  SyncSnapshotMessage,
+  WorkspaceSnapshot,
+} from './snapshot';
 export {
   MIN_SNAPSHOT_SCHEMA_VERSION,
+  redactSameDeviceOnlySnapshotKeys,
   redactSensitiveSnapshotKeys,
+  SAME_DEVICE_ONLY_SNAPSHOT_KEYS,
   SENSITIVE_SNAPSHOT_KEYS,
   SNAPSHOT_SCHEMA_VERSION,
   SYNC_SNAPSHOT_TYPE,

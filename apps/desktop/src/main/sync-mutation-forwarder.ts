@@ -24,9 +24,11 @@
  * neighbors as a fresh broadcast. The seen-set is host-process-wide,
  * shared between receive + forward sides.
  */
+
+import { SYNC_MUTATION_TYPE, type SyncMutationMessage } from '@openheaders/core/protocol';
+import { isSameDeviceOnlyMutation } from '@openheaders/core/sync';
 import type { OracleSyncBroadcastEvent } from '@openheaders/oracle/sync';
 import { hasRecentlyApplied } from '@openheaders/oracle/sync';
-import { SYNC_MUTATION_TYPE, type SyncMutationMessage } from '@openheaders/core/protocol';
 import type { OracleWsServer } from '@openheaders/oracle-host-node/host-runtime/ws-server';
 
 let wsServer: OracleWsServer | null = null;
@@ -44,5 +46,10 @@ export function forwardMutationToWsPeers(event: OracleSyncBroadcastEvent): void 
     workspaceId: event.envelope.workspaceId,
     envelope: event.envelope,
   };
-  wsServer.broadcastFrame(frame as unknown as Record<string, unknown>);
+  // WS-B reach gate: a vault mutation carries a root secret (TOTP seed)
+  // in its payload and must reach same-device (loopback) peers only.
+  // Classify here (we hold the typed envelope); the transport enforces
+  // the per-socket reach.
+  const loopbackOnly = isSameDeviceOnlyMutation(event.envelope);
+  wsServer.broadcastFrame(frame as unknown as Record<string, unknown>, { loopbackOnly });
 }
