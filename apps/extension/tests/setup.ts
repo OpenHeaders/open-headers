@@ -1,3 +1,9 @@
+// Polyfill IndexedDB on the global scope (jsdom ships none). The browser
+// host's per-host at-rest cipher (`idb-key-store`) provisions its AES-GCM
+// key in IndexedDB, so any sensitive-slot round-trip through the real
+// `extensionStorage` singleton needs it. Installed on `globalThis`, it
+// survives the `vi.resetModules()` SW-kill simulations.
+import 'fake-indexeddb/auto';
 import { setHostBridge } from '@openheaders/core/bridge';
 import { setHostLogger } from '@openheaders/core/logger';
 import { setHostStorage } from '@openheaders/core/storage';

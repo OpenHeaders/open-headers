@@ -23,6 +23,7 @@
  */
 
 import type { vi } from 'vitest';
+import { type BrowserSecretCipher, createBrowserSecretCipher } from '@/host/browser-secret-cipher';
 import { chrome } from '../__mocks__/chrome';
 
 // Module-level Map — one per test file. `install()` clears it so each
@@ -124,6 +125,23 @@ export function seedStorage(key: string, value: unknown): void {
 /** Seed many keys in one call. */
 export function seedStorageMany(entries: Record<string, unknown>): void {
   for (const [key, value] of Object.entries(entries)) backing.set(key, value);
+}
+
+// Lazily-built cipher over the same per-host key the production singleton
+// uses (both resolve `loadOrCreateAtRestKey` from the shared fake-indexeddb),
+// so a sealed seed decrypts on the hydrate path.
+let seedCipher: BrowserSecretCipher | null = null;
+
+/**
+ * Seed a `sensitive: true` slot. The value is sealed through the real
+ * per-host cipher and stored as the at-rest blob — matching what a prior
+ * SW lifetime would have persisted. Plaintext seeds of sensitive slots
+ * read back as empty (a non-blob fails to decrypt), so use this for any
+ * vault / OAuth / token slot whose contents a test asserts.
+ */
+export async function seedSensitiveStorage(key: string, value: unknown): Promise<void> {
+  seedCipher ??= createBrowserSecretCipher();
+  backing.set(key, await seedCipher.encrypt(JSON.stringify(value)));
 }
 
 /** Read the backing store directly — used to assert writes from a test. */

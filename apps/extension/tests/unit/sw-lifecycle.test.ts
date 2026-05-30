@@ -29,6 +29,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   installBackingStorage,
   installHostStorage,
+  seedSensitiveStorage,
   seedStorage,
   seedStorageMany,
 } from '../helpers/chrome-storage-backing';
@@ -138,11 +139,12 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
         version: 1,
         variables: [{ uid: 'b2fb4b0b', name: 'API_URL', value: 'https://api.openheaders.io', type: 'default' }],
       },
-      [`oh.ws.${activeWs}.vault`]: {
-        schemaVersion: 5,
-        
-        secrets: [{ uid: '32209dbc', kind: 'string', name: 'TOKEN', value: 'abc' }],
-      },
+    });
+    // The vault is a `sensitive: true` slot — sealed at rest by the per-host
+    // cipher (WS-B B2), so seed it as an at-rest blob, not plaintext.
+    await seedSensitiveStorage(`oh.ws.${activeWs}.vault`, {
+      schemaVersion: 5,
+      secrets: [{ uid: '32209dbc', kind: 'string', name: 'TOKEN', value: 'abc' }],
     });
 
     let ws = await import('@/background/modules/workspace-store');

@@ -13,11 +13,16 @@
  *   - promisifies Chrome's callback-style API
  *   - narrows return types via the key's phantom payload
  *   - dedupes `onChanged` subscriptions per (area, key) pair
+ *   - seals `sensitive: true` slots at rest through a per-host
+ *     {@link BrowserSecretCipher} (WS-B B2) — secrets are never persisted
+ *     as plain JSON; a vault seed replicated to this host (WS-B B1) lands
+ *     encrypted under a key only this host can use.
  */
 
 import { type ParseEntityOptions, parseEntity, parseEntityArray } from '@openheaders/core/schemas';
 import type { HostStorage, StorageArea, StorageKey } from '@openheaders/core/storage';
 import type * as v from 'valibot';
+import { type BrowserSecretCipher, createBrowserSecretCipher } from './browser-secret-cipher';
 
 // Cross-browser API resolver. Firefox exposes the WebExtension surface
 // as `browser`; everywhere else it's `chrome`. Kept inline (rather than
@@ -91,10 +96,47 @@ function areaRemove(area: StorageArea, keys: string[]): Promise<void> {
 // ── Adapter ─────────────────────────────────────────────────────────
 
 export class ExtensionStorage implements HostStorage {
+  private readonly cipher: BrowserSecretCipher;
+
+  constructor(cipher: BrowserSecretCipher) {
+    this.cipher = cipher;
+  }
+
+  /**
+   * Seal a sensitive value for at-rest storage. Throws when the cipher is
+   * unavailable rather than silently downgrading to plaintext — mirrors the
+   * desktop's `FileBackedHostStorage` invariant: a sensitive slot is never
+   * written in the clear.
+   */
+  private async sealSlot<T>(value: T): Promise<string> {
+    if (!this.cipher.isAvailable()) {
+      throw new Error('ExtensionStorage: cipher unavailable; refusing to write sensitive slot in plaintext');
+    }
+    return this.cipher.encrypt(JSON.stringify(value));
+  }
+
+  /**
+   * Open an at-rest blob. Returns `undefined` (never throws) on a missing
+   * cipher or a decrypt failure — a corrupt / undecryptable slot reads as
+   * empty and the caller falls through to a default, matching the desktop
+   * read-fault tolerance.
+   */
+  private async openSlot<T>(raw: unknown): Promise<T | undefined> {
+    if (typeof raw !== 'string' || !this.cipher.isAvailable()) return undefined;
+    try {
+      return JSON.parse(await this.cipher.decrypt(raw)) as T;
+    } catch {
+      return undefined;
+    }
+  }
+
   /** Read a single key. Returns `undefined` when the slot is empty. */
   async get<T>(spec: StorageKey<T>): Promise<T | undefined> {
     const items = await areaGet(spec.area, [spec.key]);
-    return items[spec.key] as T | undefined;
+    const raw = items[spec.key];
+    if (raw === undefined) return undefined;
+    if (spec.sensitive === true) return this.openSlot<T>(raw);
+    return raw as T;
   }
 
   /**
@@ -120,15 +162,19 @@ export class ExtensionStorage implements HostStorage {
       }),
     );
     const out: Record<string, unknown> = {};
-    for (const [name, spec] of Object.entries(specs) as [keyof M, StorageKey<unknown>][]) {
-      out[name as string] = merged[spec.key];
-    }
+    await Promise.all(
+      (Object.entries(specs) as [keyof M, StorageKey<unknown>][]).map(async ([name, spec]) => {
+        const raw = merged[spec.key];
+        out[name as string] = spec.sensitive === true && raw !== undefined ? await this.openSlot(raw) : raw;
+      }),
+    );
     return out as { [K in keyof M]: M[K] extends StorageKey<infer V> ? V | undefined : never };
   }
 
   /** Write a single key. */
-  set<T>(spec: StorageKey<T>, value: T): Promise<void> {
-    return areaSet(spec.area, { [spec.key]: value as unknown });
+  async set<T>(spec: StorageKey<T>, value: T): Promise<void> {
+    const stored = spec.sensitive === true ? await this.sealSlot(value) : (value as unknown);
+    return areaSet(spec.area, { [spec.key]: stored });
   }
 
   /** Write multiple keys atomically within their area. Keys from different
@@ -136,8 +182,9 @@ export class ExtensionStorage implements HostStorage {
   async setMany(writes: ReadonlyArray<readonly [StorageKey<unknown>, unknown]>): Promise<void> {
     const byArea = new Map<StorageArea, Record<string, unknown>>();
     for (const [spec, value] of writes) {
+      const stored = spec.sensitive === true ? await this.sealSlot(value) : value;
       const bucket = byArea.get(spec.area) ?? {};
-      bucket[spec.key] = value;
+      bucket[spec.key] = stored;
       byArea.set(spec.area, bucket);
     }
     await Promise.all([...byArea.entries()].map(([area, items]) => areaSet(area, items)));
@@ -198,18 +245,30 @@ export class ExtensionStorage implements HostStorage {
    * Subscribe to changes for a single key. Fires with the new value
    * (or `undefined` on removal). Returns a disposer that unregisters
    * the underlying `chrome.storage.onChanged` listener.
+   *
+   * Sensitive slots carry an at-rest blob in `newValue`; it is decrypted
+   * before `fn` fires. Decryption is async, so for a sensitive slot `fn`
+   * runs a microtask after the change event — back-to-back writes to one
+   * sensitive key may resolve out of order (acceptable: these are
+   * low-frequency secret slots, never hot paths).
    */
   subscribe<T>(spec: StorageKey<T>, fn: (next: T | undefined) => void): () => void {
     const listener = (changes: Record<string, chrome.storage.StorageChange>, areaName: string): void => {
       if (areaName !== spec.area) return;
       const change = changes[spec.key];
       if (!change) return;
-      fn(change.newValue as T | undefined);
+      const next = change.newValue;
+      if (spec.sensitive === true && next !== undefined) {
+        void this.openSlot<T>(next).then(fn);
+        return;
+      }
+      fn(next as T | undefined);
     };
     rawOnChanged().addListener(listener);
     return () => rawOnChanged().removeListener(listener);
   }
 }
 
-/** Module-level singleton. Tests can replace this via `configure(...)` if needed. */
-export const extensionStorage = new ExtensionStorage();
+/** Module-level singleton wired with the per-host at-rest cipher. Tests
+ *  construct their own `new ExtensionStorage(cipher)` with a stub cipher. */
+export const extensionStorage = new ExtensionStorage(createBrowserSecretCipher());
