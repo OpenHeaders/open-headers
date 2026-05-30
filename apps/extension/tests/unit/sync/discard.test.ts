@@ -8,16 +8,9 @@
  * `tests/unit/install-backup-writer.test.ts`.
  */
 
-import type {
-  DiscardBackupArchive,
-  DiscardResult,
-} from '@openheaders/core/sync';
-import {
-  collectDiscardArchive,
-  orchestrateDiscardWithBackup,
-  setBackupWriter,
-} from '@openheaders/oracle/sync';
 import type { WorkspaceSnapshot } from '@openheaders/core/protocol';
+import type { DiscardBackupArchive, DiscardResult } from '@openheaders/core/sync';
+import { collectDiscardArchive, orchestrateDiscardWithBackup, setBackupWriter } from '@openheaders/oracle/sync';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const WS_A = '0193a8ff-c000-7000-8000-00000000000a';
@@ -44,6 +37,7 @@ function makeSnapshot(workspaceId: string, overrides: Partial<WorkspaceSnapshot>
     liveVariables: [],
     liveWorkflows: [],
     liveValues: [],
+    liveFallbackPriority: [],
     oauthBundles: [],
     pauseMarkers: [],
     layoutState: [],
@@ -209,10 +203,7 @@ describe('orchestrateDiscardWithBackup', () => {
   it('counts user-content entities via enumerateSnapshotEntities (singletons excluded)', async () => {
     setBackupWriter(async () => ({ backupPath: '/p.json' }));
     const snap = makeSnapshot(WS_A, {
-      rules: [
-        { rule: { uid: 'r-1' } },
-        { rule: { uid: 'r-2' } },
-      ] as unknown as WorkspaceSnapshot['rules'],
+      rules: [{ rule: { uid: 'r-1' } }, { rule: { uid: 'r-2' } }] as unknown as WorkspaceSnapshot['rules'],
       requests: [{ request: { uid: 'req-1' } }] as unknown as WorkspaceSnapshot['requests'],
     });
     const result = await orchestrateDiscardWithBackup({
@@ -243,9 +234,7 @@ describe('orchestrateDiscardWithBackup', () => {
     });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.discardedWorkspaces).toEqual([
-      { workspaceId: WS_A, workspaceName: 'Alpha', entityCount: 0 },
-    ]);
+    expect(result.discardedWorkspaces).toEqual([{ workspaceId: WS_A, workspaceName: 'Alpha', entityCount: 0 }]);
     expect(deleteWorkspace).toHaveBeenCalledTimes(1);
     expect(deleteWorkspace).toHaveBeenCalledWith(WS_A);
   });
@@ -357,12 +346,8 @@ describe('summarizeDiscard toast copy', () => {
 
   it('renders a distinct line per failure reason and mentions data safety where applicable', async () => {
     const { summarizeDiscardFailure } = await import('@openheaders/ui/shared/mode-switch');
-    expect(summarizeDiscardFailure({ ok: false, reason: 'backup-writer-unavailable' })).toContain(
-      'intact',
-    );
-    expect(summarizeDiscardFailure({ ok: false, reason: 'no-source-data' })).toContain(
-      'No source data',
-    );
+    expect(summarizeDiscardFailure({ ok: false, reason: 'backup-writer-unavailable' })).toContain('intact');
+    expect(summarizeDiscardFailure({ ok: false, reason: 'no-source-data' })).toContain('No source data');
     expect(summarizeDiscardFailure({ ok: false, reason: 'backup-failed' })).toContain('intact');
     expect(
       summarizeDiscardFailure({

@@ -39,6 +39,7 @@ import {
   type SyncFilesPostState,
   type SyncFolderPostState,
   type SyncLayoutStatePostState,
+  type SyncLiveFallbackPriorityPostState,
   type SyncLiveValuePostState,
   type SyncLiveVariablePostState,
   type SyncLiveWorkflowPostState,
@@ -61,18 +62,19 @@ import { seedEnvironment } from '@openheaders/core/sync-builders/env-projection'
 import { seedFiles } from '@openheaders/core/sync-builders/files-projection';
 import { seedFolder } from '@openheaders/core/sync-builders/folder-projection';
 import { seedLayoutState } from '@openheaders/core/sync-builders/layout-state-projection';
+import { seedLiveFallbackPriority } from '@openheaders/core/sync-builders/live-fallback-priority-projection';
 import { seedLiveValues } from '@openheaders/core/sync-builders/live-value-projection';
 import { seedLiveVariable } from '@openheaders/core/sync-builders/live-variable-projection';
 import { seedLiveWorkflow } from '@openheaders/core/sync-builders/live-workflow-projection';
 import { seedOAuthBundle } from '@openheaders/core/sync-builders/oauth-bundle-projection';
 import { seedPauseMarkers } from '@openheaders/core/sync-builders/pause-markers-projection';
-import { seedRequest } from '@openheaders/core/sync-builders/request-projection';
 import { seedRequestCollection } from '@openheaders/core/sync-builders/request-collection-projection';
 import { seedRequestFolder } from '@openheaders/core/sync-builders/request-folder-projection';
+import { seedRequest } from '@openheaders/core/sync-builders/request-projection';
 import { seedRule } from '@openheaders/core/sync-builders/rule-projection';
-import { seedTemplate } from '@openheaders/core/sync-builders/template-projection';
 import { seedTemplateCollection } from '@openheaders/core/sync-builders/template-collection-projection';
 import { seedTemplateFolder } from '@openheaders/core/sync-builders/template-folder-projection';
+import { seedTemplate } from '@openheaders/core/sync-builders/template-projection';
 import { seedVault } from '@openheaders/core/sync-builders/vault-projection';
 import { seedWorkspaceVariables } from '@openheaders/core/sync-builders/workspace-variables-projection';
 
@@ -134,24 +136,45 @@ export async function applyWorkspaceSnapshot(
   // Order matters only weakly here: parents before children eases the
   // post-apply broadcast (fewer "parent yet to seed" deferrals in
   // folder caches), but apply itself is convergent regardless.
-  await seedEach<SyncCollectionPostState>('collections', snapshot.collections, (p, ctx) => seedCollection(p.collection, ctx));
-  await seedEach<SyncEnvironmentPostState>('environments', snapshot.environments, (p, ctx) => seedEnvironment(p.environment, ctx));
+  await seedEach<SyncCollectionPostState>('collections', snapshot.collections, (p, ctx) =>
+    seedCollection(p.collection, ctx),
+  );
+  await seedEach<SyncEnvironmentPostState>('environments', snapshot.environments, (p, ctx) =>
+    seedEnvironment(p.environment, ctx),
+  );
   await seedEach<SyncFolderPostState>('folders', snapshot.folders, (p, ctx) => seedFolder(p.folder, ctx));
   await seedEach<SyncRulePostState>('rules', snapshot.rules, (p, ctx) => seedRule(p.rule, ctx));
-  await seedEach<SyncRequestCollectionPostState>('requestCollections', snapshot.requestCollections, (p, ctx) => seedRequestCollection(p.collection, ctx));
-  await seedEach<SyncRequestFolderPostState>('requestFolders', snapshot.requestFolders, (p, ctx) => seedRequestFolder(p.folder, ctx));
+  await seedEach<SyncRequestCollectionPostState>('requestCollections', snapshot.requestCollections, (p, ctx) =>
+    seedRequestCollection(p.collection, ctx),
+  );
+  await seedEach<SyncRequestFolderPostState>('requestFolders', snapshot.requestFolders, (p, ctx) =>
+    seedRequestFolder(p.folder, ctx),
+  );
   await seedEach<SyncRequestPostState>('requests', snapshot.requests, (p, ctx) => seedRequest(p.request, ctx));
-  await seedEach<SyncTemplateCollectionPostState>('templateCollections', snapshot.templateCollections, (p, ctx) => seedTemplateCollection(p.collection, ctx));
-  await seedEach<SyncTemplateFolderPostState>('templateFolders', snapshot.templateFolders, (p, ctx) => seedTemplateFolder(p.folder, ctx));
+  await seedEach<SyncTemplateCollectionPostState>('templateCollections', snapshot.templateCollections, (p, ctx) =>
+    seedTemplateCollection(p.collection, ctx),
+  );
+  await seedEach<SyncTemplateFolderPostState>('templateFolders', snapshot.templateFolders, (p, ctx) =>
+    seedTemplateFolder(p.folder, ctx),
+  );
   await seedEach<SyncTemplatePostState>('templates', snapshot.templates, (p, ctx) => seedTemplate(p.template, ctx));
-  await seedEach<SyncLiveVariablePostState>('liveVariables', snapshot.liveVariables, (p, ctx) => seedLiveVariable(p.liveVariable, ctx));
-  await seedEach<SyncLiveWorkflowPostState>('liveWorkflows', snapshot.liveWorkflows, (p, ctx) => seedLiveWorkflow(p.workflow, ctx));
+  await seedEach<SyncLiveVariablePostState>('liveVariables', snapshot.liveVariables, (p, ctx) =>
+    seedLiveVariable(p.liveVariable, ctx),
+  );
+  await seedEach<SyncLiveWorkflowPostState>('liveWorkflows', snapshot.liveWorkflows, (p, ctx) =>
+    seedLiveWorkflow(p.workflow, ctx),
+  );
   await seedEach<SyncLiveValuePostState>('liveValues', snapshot.liveValues, (p, ctx) =>
     seedLiveValues({ schemaVersion: 5, values: p.values }, ctx),
   );
+  await seedEach<SyncLiveFallbackPriorityPostState>('liveFallbackPriority', snapshot.liveFallbackPriority, (p, ctx) =>
+    seedLiveFallbackPriority({ schemaVersion: 5, members: p.members }, ctx),
+  );
 
   // Singletons — exactly one item per array when populated.
-  await seedEach<SyncWorkspaceVariablesPostState>('workspaceVariables', snapshot.workspaceVariables, (p, ctx) => seedWorkspaceVariables(p.workspaceVariables, ctx));
+  await seedEach<SyncWorkspaceVariablesPostState>('workspaceVariables', snapshot.workspaceVariables, (p, ctx) =>
+    seedWorkspaceVariables(p.workspaceVariables, ctx),
+  );
   await seedEach<SyncVaultPostState>('vault', snapshot.vault, (p, ctx) => seedVault(p.vault, ctx));
   await seedEach<SyncOAuthBundlePostState>('oauthBundles', snapshot.oauthBundles, (p, ctx) =>
     seedOAuthBundle(
@@ -165,8 +188,12 @@ export async function applyWorkspaceSnapshot(
       ctx,
     ),
   );
-  await seedEach<SyncPauseMarkersPostState>('pauseMarkers', snapshot.pauseMarkers, (p, ctx) => seedPauseMarkers(p.markers, ctx));
-  await seedEach<SyncLayoutStatePostState>('layoutState', snapshot.layoutState, (p, ctx) => seedLayoutState(p.layout, ctx));
+  await seedEach<SyncPauseMarkersPostState>('pauseMarkers', snapshot.pauseMarkers, (p, ctx) =>
+    seedPauseMarkers(p.markers, ctx),
+  );
+  await seedEach<SyncLayoutStatePostState>('layoutState', snapshot.layoutState, (p, ctx) =>
+    seedLayoutState(p.layout, ctx),
+  );
   await seedEach<SyncFilesPostState>('files', snapshot.files, (p, ctx) => seedFiles(p.refs, ctx));
 
   return { entitiesApplied, byType };

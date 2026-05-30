@@ -25,6 +25,10 @@ import { getHostStorage, OH } from '@openheaders/core/storage';
 import { getActiveEnvironmentId } from '@openheaders/oracle/entity/environment-store';
 import { getRules } from '@openheaders/oracle/entity/rule-store';
 import { bootSyncEngine } from '@openheaders/oracle/host-runtime';
+import {
+  getFallbackPriorityForWorkspace,
+  maybeEnlistSelfInFallbackPriority,
+} from '@openheaders/oracle/live/fallback-priority-store';
 import { __setSyncWarmRunner, hydrateLiveCacheMirror } from '@openheaders/oracle/rule-engine/variables-resolver';
 import { markBootPhase } from '@openheaders/oracle/sync/boot-telemetry';
 import { get as getSetting, subscribeKey } from '@openheaders/ui/workbench/settings/store';
@@ -181,22 +185,39 @@ async function initializeExtension(): Promise<void> {
   // hazard the deferred `reconcileLiveSchedules` below guards against.
   setBackendConnectionProbe(isWebSocketConnected);
   // Offline fallback (WS-C C14): give the live scheduler a read of the
-  // frozen priority list + this host's identity so an *exclusive* workflow
-  // whose configured backend is offline runs on exactly one elected peer
-  // instead of racing across the partitioned browsers. Pure Mode-1 (no
-  // backend attached) returns null → the gate stays off and the SW remains
-  // the self-sufficient sole runner (plan §8). The `order` is empty until
-  // C14 commit 2 wires the synced priority entity + auto-seed; an empty
-  // list is the safe default (no host elected → "reconnect the desktop"
-  // banner, never a race).
-  setFallbackPriorityProbe(() => {
+  // workspace's frozen priority list + this host's identity so an
+  // *exclusive* workflow whose configured backend is offline runs on
+  // exactly one elected peer instead of racing across the partitioned
+  // browsers. Pure Mode-1 (no backend attached) returns null → the gate
+  // stays off and the SW remains the self-sufficient sole runner (plan §8).
+  // An empty `order` is the safe default (no host elected → "reconnect the
+  // desktop" banner, never a race).
+  setFallbackPriorityProbe((workspaceId) => {
     if (getSetting('backend.mode') === 'in-browser') return null;
-    return { order: [], selfPrincipalId: getIdentitySnapshot()?.principal.id ?? null };
+    return {
+      order: getFallbackPriorityForWorkspace(workspaceId),
+      selfPrincipalId: getIdentitySnapshot()?.principal.id ?? null,
+    };
   });
+  // Auto-seed (WS-C C14): enlist this host in the active workspace's
+  // offline-fallback ranking when it holds an exclusive workflow's consumed
+  // seed and isn't already listed. Gated on a live, non-in-browser backend
+  // so the seed has caught up and the enlist mutation can sync up. The list
+  // only has to be correct by the time the backend next goes offline, so
+  // running this on every (re)connect is sufficient — the enlist itself is
+  // idempotent (a no-op when already listed or ineligible).
+  const enlistActiveWorkspaceFallbackPriority = (): void => {
+    if (getSetting('backend.mode') === 'in-browser') return;
+    if (!isWebSocketConnected()) return;
+    void maybeEnlistSelfInFallbackPriority(getActiveWorkspaceId()).catch((err: unknown) =>
+      logger.warn('Background', 'Fallback-priority enlist failed', err),
+    );
+  };
   subscribeOnWebSocketOpen(() => {
     void reconcileLiveSchedules().catch((err: unknown) =>
       logger.warn('Background', 'Live reconcile after socket open failed', err),
     );
+    enlistActiveWorkspaceFallbackPriority();
   });
   subscribeOnWebSocketClose(() => {
     void reconcileLiveSchedules().catch((err: unknown) =>
@@ -222,6 +243,10 @@ async function initializeExtension(): Promise<void> {
   void reconcileLiveSchedules().catch((err: unknown) => {
     logger.warn('Background', 'Live scheduler reconcile failed', err);
   });
+  // Cold-wake enlist: an SW that restarts while the backend is already
+  // connected won't see a fresh socket-open, so enlist here too (gated on
+  // a live connection inside the helper).
+  enlistActiveWorkspaceFallbackPriority();
   // Cold-wake catch-up — reconcile alone schedules the next alarm at the
   // MV3 30 s floor, so anything already-overdue needs an inline refresh
   // to repopulate the cache within one network round-trip of wake-up.

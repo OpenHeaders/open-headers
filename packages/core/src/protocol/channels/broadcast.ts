@@ -24,6 +24,7 @@ import type {
   SyncFilesPostState,
   SyncFolderPostState,
   SyncLayoutStatePostState,
+  SyncLiveFallbackPriorityPostState,
   SyncLiveValuePostState,
   SyncLiveVariablePostState,
   SyncLiveWorkflowPostState,
@@ -270,6 +271,12 @@ export interface BridgeBroadcastContract {
      * trust zone, but converges across same-machine surfaces.
      */
     liveValuePostState?: SyncLiveValuePostState;
+    /**
+     * Post-commit projection for live-fallback-priority envelopes (WS-C
+     * C14). Singleton entity. Not sensitive — members carry only
+     * `Principal.id`s, so it rides the normal trust-zone-wide forwarder.
+     */
+    liveFallbackPriorityPostState?: SyncLiveFallbackPriorityPostState;
     /**
      * Post-commit projection for oauth-bundle envelopes (Phase B).
      * Singleton entity. Local-only by §12.3 — never crosses any sync

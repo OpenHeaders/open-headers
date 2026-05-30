@@ -46,6 +46,7 @@ import type {
   SyncFilesPostState,
   SyncFolderPostState,
   SyncLayoutStatePostState,
+  SyncLiveFallbackPriorityPostState,
   SyncLiveValuePostState,
   SyncLiveVariablePostState,
   SyncLiveWorkflowPostState,
@@ -95,6 +96,7 @@ import {
   FOLDER_REGISTRATION,
   flatSnapshot,
   LAYOUT_STATE_REGISTRATION,
+  LIVE_FALLBACK_PRIORITY_REGISTRATION,
   LIVE_VALUE_REGISTRATION,
   LIVE_VARIABLE_REGISTRATION,
   LIVE_WORKFLOW_REGISTRATION,
@@ -670,6 +672,11 @@ export function snapshotLiveWorkflowPostStates(workspaceId?: string): SyncLiveWo
 export function snapshotLiveValuePostStates(workspaceId?: string): SyncLiveValuePostState[] {
   const o = oracleForWorkspace(workspaceId);
   return o ? singletonSnapshot(o, LIVE_VALUE_REGISTRATION) : [];
+}
+
+export function snapshotLiveFallbackPriorityPostStates(workspaceId?: string): SyncLiveFallbackPriorityPostState[] {
+  const o = oracleForWorkspace(workspaceId);
+  return o ? singletonSnapshot(o, LIVE_FALLBACK_PRIORITY_REGISTRATION) : [];
 }
 
 export function snapshotOAuthBundlePostStates(workspaceId?: string): SyncOAuthBundlePostState[] {

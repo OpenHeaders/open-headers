@@ -10,7 +10,14 @@
  * The classifier's own taint/dedup internals are covered in core.
  */
 
-import type { Collection, Environment, Request, Vault, WorkspaceVariables } from '@openheaders/core/types';
+import type {
+  Collection,
+  Environment,
+  LiveWorkflow,
+  Request,
+  Vault,
+  WorkspaceVariables,
+} from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const stores = {
@@ -19,6 +26,7 @@ const stores = {
   workspaceVars: { schemaVersion: 5, variables: [] } as WorkspaceVariables,
   collections: [] as Collection[],
   requests: new Map<string, Request>(),
+  liveWorkflows: [] as LiveWorkflow[],
 };
 
 vi.mock('../../src/entity/environment-store', () => ({
@@ -32,10 +40,15 @@ vi.mock('../../src/entity/request-store', () => ({
   getRequestCollectionsForWorkspace: () => stores.collections,
 }));
 
+vi.mock('../../src/live/live-workflow-store', () => ({
+  getLiveWorkflowsForWorkspace: () => stores.liveWorkflows,
+}));
+
 import type { ExclusivityReason } from '@openheaders/core/live';
 import {
   deriveExecutionPolicyForWorkflow,
   isFallbackEligibleForWorkflow,
+  workspaceHoldsExclusiveFallbackSeed,
 } from '../../src/live/execution-policy-resolver';
 
 const WS = 'ws-1';
@@ -90,6 +103,7 @@ beforeEach(() => {
   stores.workspaceVars = { schemaVersion: 5, variables: [] };
   stores.collections = [];
   stores.requests = new Map();
+  stores.liveWorkflows = [];
 });
 
 afterEach(() => {
@@ -210,5 +224,41 @@ describe('isFallbackEligibleForWorkflow (WS-C C15)', () => {
     expect(isFallbackEligibleForWorkflow(WS, [totp('otp'), oauth('cred-1')])).toBe(false);
     stores.vault = { schemaVersion: 5, secrets: [TOTP_SECRET] };
     expect(isFallbackEligibleForWorkflow(WS, [totp('otp'), oauth('cred-1')])).toBe(true);
+  });
+});
+
+describe('workspaceHoldsExclusiveFallbackSeed (WS-C C14 auto-seed gate)', () => {
+  function totpStep(): void {
+    stores.vault = { schemaVersion: 5, secrets: [TOTP_SECRET] };
+    stores.requests.set(
+      'req-1',
+      makeRequest({ headers: [{ uid: 'h1', key: 'X-OTP', value: '{{vault.otp}}', enabled: true }] }),
+    );
+  }
+
+  it('false when the workspace has no live workflows', () => {
+    expect(workspaceHoldsExclusiveFallbackSeed(WS)).toBe(false);
+  });
+
+  it('false when every workflow is idempotent (no exclusive credential)', () => {
+    stores.requests.set('req-1', makeRequest());
+    stores.liveWorkflows = [workflowWith('req-1') as LiveWorkflow];
+    expect(workspaceHoldsExclusiveFallbackSeed(WS)).toBe(false);
+  });
+
+  it('true when ≥1 exclusive workflow consumes a seed the local vault holds', () => {
+    totpStep();
+    stores.liveWorkflows = [workflowWith('req-1') as LiveWorkflow];
+    expect(workspaceHoldsExclusiveFallbackSeed(WS)).toBe(true);
+  });
+
+  it('false when the workflow is exclusive but the consumed seed is absent (cross-device host)', () => {
+    stores.requests.set(
+      'req-1',
+      makeRequest({ headers: [{ uid: 'h1', key: 'X-OTP', value: '{{vault.otp}}', enabled: true }] }),
+    );
+    stores.vault = { schemaVersion: 5, secrets: [] }; // seed lives only on the desktop
+    stores.liveWorkflows = [workflowWith('req-1') as LiveWorkflow];
+    expect(workspaceHoldsExclusiveFallbackSeed(WS)).toBe(false);
   });
 });

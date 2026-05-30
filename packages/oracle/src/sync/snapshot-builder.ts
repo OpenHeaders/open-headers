@@ -40,10 +40,7 @@
  * that here because it doesn't know the transport's trust posture.
  */
 import { authorizedOrgIds, getIdentitySnapshot } from '@openheaders/core/identity';
-import {
-  SNAPSHOT_SCHEMA_VERSION,
-  type WorkspaceSnapshot,
-} from '@openheaders/core/protocol';
+import { SNAPSHOT_SCHEMA_VERSION, type WorkspaceSnapshot } from '@openheaders/core/protocol';
 import { EXTENSION_WORKSPACE_GLOBAL_SCOPE, resolveWorkspaceOrgId } from '@openheaders/core/sync';
 
 import {
@@ -54,6 +51,7 @@ import {
   snapshotFilesPostStates,
   snapshotFolderPostStates,
   snapshotLayoutStatePostStates,
+  snapshotLiveFallbackPriorityPostStates,
   snapshotLiveValuePostStates,
   snapshotLiveVariablePostStates,
   snapshotLiveWorkflowPostStates,
@@ -132,6 +130,7 @@ export function buildSnapshotFromOracle(
     liveVariables: snapshotLiveVariablePostStates(workspaceId),
     liveWorkflows: snapshotLiveWorkflowPostStates(workspaceId),
     liveValues: snapshotLiveValuePostStates(workspaceId),
+    liveFallbackPriority: snapshotLiveFallbackPriorityPostStates(workspaceId),
     oauthBundles: snapshotOAuthBundlePostStates(workspaceId),
     pauseMarkers: snapshotPauseMarkersPostStates(workspaceId),
     layoutState: snapshotLayoutStatePostStates(workspaceId),

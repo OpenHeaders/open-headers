@@ -290,8 +290,8 @@ function applyDeferOverride(cache: WorkflowRunCache | null, normalFireAt: number
 // refreshed by exactly one host across the now-partitioned browsers (a
 // concurrent run burns the single-use cred). Each peer decides locally
 // from its frozen, last-synced priority list + its own seed eligibility
-// (`electOfflineFallbackRunner`). The list + this host's identity come
-// from the data plane (C14 commit 2 wires the synced entity + auto-seed);
+// (`electOfflineFallbackRunner`). The per-workspace list + this host's identity come
+// from the synced `live-fallback-priority` entity + the auto-seed;
 // the scheduler reaches them through this injected probe — the same
 // inversion `setBackendConnectionProbe` uses, so the scheduler never
 // imports the backend-settings or identity layers.
@@ -307,27 +307,31 @@ function applyDeferOverride(cache: WorkflowRunCache | null, normalFireAt: number
 //     peer banners rather than racing (`no-list`).
 
 export interface FallbackPrioritySnapshot {
-  /** Frozen last-synced priority order — ordered `Principal.id`s. Empty until C14 commit 2 wires the synced entity. */
+  /** Frozen last-synced priority order — ordered `Principal.id`s. Empty when no host has enlisted yet (safe `no-list`). */
   order: readonly string[];
   /** This host's stable `Principal.id` (derived from `hostInstallId`), or null if not yet known. */
   selfPrincipalId: string | null;
 }
 
-let fallbackPriorityProbe: (() => FallbackPrioritySnapshot | null) | null = null;
+let fallbackPriorityProbe: ((workspaceId: string) => FallbackPrioritySnapshot | null) | null = null;
 
 /**
  * Install (or clear) the offline-fallback priority probe. The bootstrap
  * wires this to the configured backend's frozen priority list + this
- * host's identity; tests install a stub. `null` (or a probe returning
- * `null`) disables the gate — pure Mode-1 self-refreshes every class.
+ * host's identity; tests install a stub. The list is per-workspace, so
+ * the probe takes the dispatching entry's `workspaceId`. `null` (or a
+ * probe returning `null`) disables the gate — pure Mode-1 self-refreshes
+ * every class.
  */
-export function setFallbackPriorityProbe(probe: (() => FallbackPrioritySnapshot | null) | null): void {
+export function setFallbackPriorityProbe(
+  probe: ((workspaceId: string) => FallbackPrioritySnapshot | null) | null,
+): void {
   fallbackPriorityProbe = probe;
 }
 
-function readFallbackPriority(): FallbackPrioritySnapshot | null {
+function readFallbackPriority(workspaceId: string): FallbackPrioritySnapshot | null {
   try {
-    return fallbackPriorityProbe?.() ?? null;
+    return fallbackPriorityProbe?.(workspaceId) ?? null;
   } catch {
     return null;
   }
@@ -541,7 +545,7 @@ const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | 
       // partitioned browsers race the single-use cred. Pure Mode-1 (probe
       // returns null) is deliberately NOT gated: the SW is the legitimate
       // sole runner (plan §8 — Mode-1 keeps its self-sufficient runner).
-      const fallback = readFallbackPriority();
+      const fallback = readFallbackPriority(entry.workspaceId);
       if (fallback) {
         const { policy, reasons } = deriveExecutionPolicyForWorkflow(
           entry.workspaceId,

@@ -27,6 +27,7 @@ import type {
   DaemonConfig,
   Environment,
   ExtensionWorkspace,
+  LiveFallbackPrioritySnapshot,
   LiveVariable,
   LiveWorkflow,
   LogEntry,
@@ -332,6 +333,15 @@ export interface WorkspaceKeys {
    */
   liveCache: StorageKey<unknown>;
   /**
+   * Offline-fallback host ranking (WS-C C14). The synced set of
+   * `Principal.id`s eligible to become the single offline fallback runner
+   * for an exclusive Live Workflow, ordered by user-assigned rank. The
+   * scheduler's offline election reads the *frozen, last-synced* copy from
+   * here. Not sensitive — members carry only identity hashes. Ephemeral:
+   * never committed to git, purged on workspace delete.
+   */
+  liveFallbackPriority: StorageKey<LiveFallbackPrioritySnapshot>;
+  /**
    * Recently-inserted `{{scope.name}}` references from the TemplateInput
    * autocomplete popover. LRU-capped at 8 per workspace; surfaced at the
    * top of the suggestion list when the user opens the popover with an
@@ -450,6 +460,7 @@ export function wsKeys(workspaceId: string): WorkspaceKeys {
     liveWorkflows: storageKey<LiveWorkflow[]>(`${p}.liveWorkflows`),
     liveVariables: storageKey<LiveVariable[]>(`${p}.liveVariables`),
     liveCache: storageKey<unknown>(`${p}.liveCache`),
+    liveFallbackPriority: storageKey<LiveFallbackPrioritySnapshot>(`${p}.liveFallbackPriority`),
     variableRecents: storageKey<unknown>(`${p}.variableRecents`),
     requestScriptsReviewPending: storageKey<string[]>(`${p}.requestScriptsReviewPending`),
     lastImportedSnapshots: storageKey<Record<string, string>>(`${p}.lastImportedSnapshots`),

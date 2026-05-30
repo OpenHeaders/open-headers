@@ -8,13 +8,10 @@
  * discard.test.ts.
  */
 
-import type {
-  DiscardBackupArchive,
-  RestoreResult,
-} from '@openheaders/core/sync';
+import type { WorkspaceSnapshot } from '@openheaders/core/protocol';
+import type { DiscardBackupArchive, RestoreResult } from '@openheaders/core/sync';
 import { isDiscardBackupArchiveShape } from '@openheaders/core/sync';
 import { applyDiscardRestoreArchive } from '@openheaders/oracle/sync';
-import type { WorkspaceSnapshot } from '@openheaders/core/protocol';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const WS_A = '0193a8ff-c000-7000-8000-00000000000a';
@@ -43,6 +40,7 @@ function makeSnapshot(workspaceId: string, overrides: Partial<WorkspaceSnapshot>
     liveVariables: [],
     liveWorkflows: [],
     liveValues: [],
+    liveFallbackPriority: [],
     oauthBundles: [],
     pauseMarkers: [],
     layoutState: [],
@@ -81,12 +79,8 @@ describe('isDiscardBackupArchiveShape', () => {
   });
 
   it('rejects wrong schemaVersion', () => {
-    expect(
-      isDiscardBackupArchiveShape({ schemaVersion: 2, generatedAt: FIXED_NOW, workspaces: [] }),
-    ).toBe(false);
-    expect(
-      isDiscardBackupArchiveShape({ schemaVersion: '1', generatedAt: FIXED_NOW, workspaces: [] }),
-    ).toBe(false);
+    expect(isDiscardBackupArchiveShape({ schemaVersion: 2, generatedAt: FIXED_NOW, workspaces: [] })).toBe(false);
+    expect(isDiscardBackupArchiveShape({ schemaVersion: '1', generatedAt: FIXED_NOW, workspaces: [] })).toBe(false);
   });
 
   it('rejects missing generatedAt', () => {
@@ -111,10 +105,12 @@ describe('isDiscardBackupArchiveShape', () => {
 });
 
 describe('applyDiscardRestoreArchive', () => {
-  function deps(overrides: Partial<{
-    createWorkspace: (input: { name: string }) => Promise<{ id: string; name: string }>;
-    applySnapshot: (snapshot: WorkspaceSnapshot) => Promise<{ entitiesApplied: number }>;
-  }> = {}) {
+  function deps(
+    overrides: Partial<{
+      createWorkspace: (input: { name: string }) => Promise<{ id: string; name: string }>;
+      applySnapshot: (snapshot: WorkspaceSnapshot) => Promise<{ entitiesApplied: number }>;
+    }> = {},
+  ) {
     const ids = [NEW_A, NEW_B];
     let i = 0;
     return {
@@ -208,10 +204,7 @@ describe('applyDiscardRestoreArchive', () => {
     const d = deps({
       applySnapshot: () => Promise.reject(new Error('first-fail')),
     });
-    const result = await applyDiscardRestoreArchive(
-      makeArchive([{ workspaceId: WS_A, workspaceName: 'Alpha' }]),
-      d,
-    );
+    const result = await applyDiscardRestoreArchive(makeArchive([{ workspaceId: WS_A, workspaceName: 'Alpha' }]), d);
     expect(result).toMatchObject({ ok: false, reason: 'apply-failed' });
     if (result.ok) return;
     expect(result.restoredWorkspaces).toEqual([]);
@@ -221,10 +214,7 @@ describe('applyDiscardRestoreArchive', () => {
     const d = deps({
       applySnapshot: () => Promise.reject('nope'),
     });
-    const result = await applyDiscardRestoreArchive(
-      makeArchive([{ workspaceId: WS_A, workspaceName: 'Alpha' }]),
-      d,
-    );
+    const result = await applyDiscardRestoreArchive(makeArchive([{ workspaceId: WS_A, workspaceName: 'Alpha' }]), d);
     expect(result).toMatchObject({ ok: false, reason: 'apply-failed', detail: 'Alpha: nope' });
   });
 });

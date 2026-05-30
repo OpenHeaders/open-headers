@@ -79,6 +79,7 @@ function emptySnapshot(workspaceId: string): WorkspaceSnapshot {
     liveVariables: [],
     liveWorkflows: [],
     liveValues: [],
+    liveFallbackPriority: [],
     oauthBundles: [],
     pauseMarkers: [],
     layoutState: [],

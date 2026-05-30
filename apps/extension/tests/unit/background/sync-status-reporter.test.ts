@@ -174,6 +174,7 @@ describe('installHandshakeStatusReporter', () => {
         liveVariables: [],
         liveWorkflows: [],
         liveValues: [],
+        liveFallbackPriority: [],
         oauthBundles: [],
         pauseMarkers: [],
         layoutState: [],

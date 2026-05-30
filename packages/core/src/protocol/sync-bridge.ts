@@ -11,7 +11,23 @@
  */
 
 import type { FieldOrigin, MutationBatch, MutationEnvelope, MutatorOutcome, SideEffectIntent } from '../sync';
-import type { Collection, Environment, ExtensionWorkspace, FileRef, Folder, LiveValueRecord, LiveVariable, LiveWorkflow, OAuth2Auth, Request, Rule, Template, Vault, WorkspaceVariables } from '../types';
+import type {
+  Collection,
+  Environment,
+  ExtensionWorkspace,
+  FileRef,
+  Folder,
+  LiveFallbackPriorityMember,
+  LiveValueRecord,
+  LiveVariable,
+  LiveWorkflow,
+  OAuth2Auth,
+  Request,
+  Rule,
+  Template,
+  Vault,
+  WorkspaceVariables,
+} from '../types';
 /** Surface → oracle: apply this batch all-or-nothing under the per-entity lock. */
 export interface SyncApplyRequest {
   type: 'oh.sync.apply';
@@ -318,6 +334,24 @@ export interface SyncLiveValuePostState {
 }
 
 /**
+ * Post-commit projection for a live-fallback-priority envelope (WS-C
+ * C14). Singleton entity per workspace — one materialized record at the
+ * fixed id `live-fallback-priority`. The single set-modeled path
+ * `members` is projected back into a Record keyed by `principalId`, plus
+ * the derived `principalIds` ranking (sorted `(order, principalId)`) the
+ * offline election consumes directly.
+ *
+ * Not sensitive — members carry only `Principal.id`s, no secret; the
+ * list rides the normal trust-zone-wide forwarder.
+ */
+export interface SyncLiveFallbackPriorityPostState {
+  /** Ranked-host members keyed by `principalId`. */
+  members: Record<string, LiveFallbackPriorityMember>;
+  /** Derived ranking — `Principal.id`s sorted `(order, principalId)`. */
+  principalIds: string[];
+}
+
+/**
  * Post-commit projection for an oauth-bundle envelope. Singleton entity
  * per workspace — one materialized record at the fixed id `oauth`. The
  * three set-modeled paths (`tokens`, `configs`, `refreshErrors`) are
@@ -539,6 +573,12 @@ export interface SyncBroadcastEvent {
    * teardown gesture only) and rolled-back batches leave it `undefined`.
    */
   liveValuePostState?: SyncLiveValuePostState;
+  /**
+   * Populated for live-fallback-priority envelopes whose batch left a
+   * materialized record in place (WS-C C14). Tombstoned and rolled-back
+   * batches leave it `undefined`.
+   */
+  liveFallbackPriorityPostState?: SyncLiveFallbackPriorityPostState;
   /**
    * Populated for oauth-bundle envelopes whose batch left a materialized
    * record in place. Tombstoned (singleton deletion is a workspace-level

@@ -34,6 +34,7 @@ function makeSnapshot(overrides: Partial<WorkspaceSnapshot> = {}): WorkspaceSnap
     liveVariables: [],
     liveWorkflows: [],
     liveValues: [],
+    liveFallbackPriority: [],
     oauthBundles: [],
     pauseMarkers: [],
     layoutState: [],

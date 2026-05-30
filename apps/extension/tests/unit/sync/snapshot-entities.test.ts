@@ -31,6 +31,7 @@ function makeSnapshot(workspaceId: string, overrides: Partial<WorkspaceSnapshot>
     liveVariables: [],
     liveWorkflows: [],
     liveValues: [],
+    liveFallbackPriority: [],
     oauthBundles: [],
     pauseMarkers: [],
     layoutState: [],
@@ -67,6 +68,7 @@ describe('enumerateSnapshotEntities', () => {
   it('surfaces oauth-bundle keyed by workspaceId when the bundle is populated', () => {
     const snap = makeSnapshot(WS_A, {
       liveValues: [],
+      liveFallbackPriority: [],
       oauthBundles: [{ tokens: [], configs: [], refreshErrors: [] }] as unknown as WorkspaceSnapshot['oauthBundles'],
     });
     expect(enumerateSnapshotEntities(snap)).toContainEqual({ type: 'oauth-bundle', id: WS_A });

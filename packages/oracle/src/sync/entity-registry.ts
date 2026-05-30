@@ -38,6 +38,8 @@ import {
   FILES_REFS_PATH,
   FOLDER_ENTITY_TYPE,
   LAYOUT_STATE_ENTITY_TYPE,
+  LIVE_FALLBACK_PRIORITY_ENTITY_TYPE,
+  LIVE_FALLBACK_PRIORITY_MEMBERS_PATH,
   LIVE_VALUE_ENTITY_TYPE,
   LIVE_VALUE_VALUES_PATH,
   LIVE_VARIABLE_ENTITY_TYPE,
@@ -82,6 +84,11 @@ import { createFolderCache } from './folder-cache';
 import { projectFolderByUid, projectFolderPostState } from './folder-post-state';
 import { createLayoutStateCache } from './layout-state-cache';
 import { projectLayoutStatePostState, projectLayoutStateSingleton } from './layout-state-post-state';
+import { createLiveFallbackPriorityCache } from './live-fallback-priority-cache';
+import {
+  projectLiveFallbackPriorityPostState,
+  projectLiveFallbackPrioritySingleton,
+} from './live-fallback-priority-post-state';
 import { createLiveValueCache } from './live-value-cache';
 import { projectLiveValuePostState, projectLiveValueSingleton } from './live-value-post-state';
 import { createLiveVariableCache } from './live-variable-cache';
@@ -374,6 +381,15 @@ export const LIVE_VALUE_REGISTRATION = singletonEntity({
   setPaths: [LIVE_VALUE_VALUES_PATH],
 });
 
+export const LIVE_FALLBACK_PRIORITY_REGISTRATION = singletonEntity({
+  entityType: LIVE_FALLBACK_PRIORITY_ENTITY_TYPE,
+  createCache: createLiveFallbackPriorityCache,
+  postStateKey: 'liveFallbackPriorityPostState',
+  projectPostState: projectLiveFallbackPriorityPostState,
+  projectSingleton: projectLiveFallbackPrioritySingleton,
+  setPaths: [LIVE_FALLBACK_PRIORITY_MEMBERS_PATH],
+});
+
 export const OAUTH_BUNDLE_REGISTRATION = singletonEntity({
   entityType: OAUTH_BUNDLE_ENTITY_TYPE,
   createCache: createOAuthBundleCache,
@@ -441,6 +457,7 @@ export const WORKSPACE_REGISTRY: EntityRegistration[] = [
   LIVE_VARIABLE_REGISTRATION,
   LIVE_WORKFLOW_REGISTRATION,
   LIVE_VALUE_REGISTRATION,
+  LIVE_FALLBACK_PRIORITY_REGISTRATION,
   OAUTH_BUNDLE_REGISTRATION,
   PAUSE_MARKERS_REGISTRATION,
   LAYOUT_STATE_REGISTRATION,

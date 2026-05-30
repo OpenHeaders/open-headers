@@ -47,6 +47,7 @@ import type {
   SyncFilesPostState,
   SyncFolderPostState,
   SyncLayoutStatePostState,
+  SyncLiveFallbackPriorityPostState,
   SyncLiveValuePostState,
   SyncLiveVariablePostState,
   SyncLiveWorkflowPostState,
@@ -93,6 +94,9 @@ export interface WorkspaceSnapshot {
   /** Resolved live-workflow values (WS-C C6). Sensitive — redacted on
    *  transports crossing a trust zone; converges same-machine. */
   liveValues: SyncLiveValuePostState[];
+  /** Offline-fallback host ranking (WS-C C14). Not sensitive — rides
+   *  trust-zone-wide, never redacted. */
+  liveFallbackPriority: SyncLiveFallbackPriorityPostState[];
   oauthBundles: SyncOAuthBundlePostState[];
   pauseMarkers: SyncPauseMarkersPostState[];
   layoutState: SyncLayoutStatePostState[];
@@ -125,6 +129,7 @@ export const WorkspaceSnapshotSchema = v.object({
   liveVariables: v.array(v.unknown()),
   liveWorkflows: v.array(v.unknown()),
   liveValues: v.array(v.unknown()),
+  liveFallbackPriority: v.array(v.unknown()),
   oauthBundles: v.array(v.unknown()),
   pauseMarkers: v.array(v.unknown()),
   layoutState: v.array(v.unknown()),

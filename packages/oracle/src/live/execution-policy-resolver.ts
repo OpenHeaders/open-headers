@@ -33,6 +33,7 @@ import {
   getWorkspaceVariablesForWorkspace,
 } from '../entity/environment-store';
 import { getRequestCollectionsForWorkspace, getRequestInWorkspace } from '../entity/request-store';
+import { getLiveWorkflowsForWorkspace } from './live-workflow-store';
 
 /** Flat `{name, value}` list → name → value map (later entries win on a duplicate name). */
 function toVarMap(variables: ReadonlyArray<{ name: string; value: string }>): Map<string, string> {
@@ -137,4 +138,26 @@ export function isFallbackEligibleForWorkflow(workspaceId: string, reasons: read
   }
 
   return isFallbackEligible(reasons, { vaultNames, oauthCredentialRefs });
+}
+
+/**
+ * Workspace-level rollup of {@link isFallbackEligibleForWorkflow}: does
+ * THIS host hold the consumed seed for **at least one** exclusive Live
+ * Workflow in the workspace? The auto-seed (WS-C C14) gate — only a host
+ * that can actually run an exclusive credential enlists itself in the
+ * offline-fallback priority list.
+ *
+ * Evaluated at `environmentId = null`: a workflow's exclusivity reasons
+ * (consumed TOTP vault entry / rotating-OAuth ref) come from its steps +
+ * the workspace vault, both env-independent, so the null-env classification
+ * is the right workspace-wide signal. A host holding a seed that backs no
+ * exclusive workflow does NOT enlist (the precise C15 predicate, not a raw
+ * "holds any seed" check).
+ */
+export function workspaceHoldsExclusiveFallbackSeed(workspaceId: string): boolean {
+  for (const workflow of getLiveWorkflowsForWorkspace(workspaceId)) {
+    const { policy, reasons } = deriveExecutionPolicyForWorkflow(workspaceId, workflow, null);
+    if (policy === 'exclusive' && isFallbackEligibleForWorkflow(workspaceId, reasons)) return true;
+  }
+  return false;
 }

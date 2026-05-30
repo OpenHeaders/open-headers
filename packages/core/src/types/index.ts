@@ -89,6 +89,8 @@ export type {
 } from './live';
 // ── Live cache row ─────────────────────────────────────────────────
 export type { LiveValueRecord, RefreshHealth, WorkflowRunCache } from './live-cache';
+// ── Offline-fallback priority list (WS-C C14) ──────────────────────
+export type { LiveFallbackPriorityMember, LiveFallbackPrioritySnapshot } from './live-fallback-priority';
 // ── Observability (local-first log ring) ──────────────────────────
 export type { LogEntry, LogEntryContext, LogLevel, LogSubsystem } from './observability';
 // ── Resource-timing wire projection ────────────────────────────────
