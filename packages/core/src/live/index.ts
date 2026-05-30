@@ -78,6 +78,8 @@ export {
   DEFAULT_PEER_DEFER_LEAD_MS,
   DEFAULT_REFRESH_LEAD_MS,
   deriveExpiresAt,
+  FRESHNESS_PROPAGATION_BUDGET_MS,
+  isFreshnessBudgetSound,
   isWithinDeferHatchWindow,
   MAX_BACKOFF_SECONDS,
   MIN_ALARM_DELAY_MS,

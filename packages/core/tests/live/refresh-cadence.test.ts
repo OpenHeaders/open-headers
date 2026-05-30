@@ -4,6 +4,9 @@ import {
   computeDeferredFireAt,
   computeNextFireAt,
   DEFAULT_PEER_DEFER_LEAD_MS,
+  DEFAULT_REFRESH_LEAD_MS,
+  FRESHNESS_PROPAGATION_BUDGET_MS,
+  isFreshnessBudgetSound,
   isWithinDeferHatchWindow,
   MAX_BACKOFF_SECONDS,
   MIN_ALARM_DELAY_MS,
@@ -198,13 +201,13 @@ describe('cadence ownership — computeDeferredFireAt / isWithinDeferHatchWindow
     expect(computeDeferredFireAt(expiresAt, NOW)).toBe(expiresAt - DEFAULT_PEER_DEFER_LEAD_MS);
   });
 
-  it('fires later than a typical lead-time cadence (peer waits closer to expiry)', () => {
+  it('fires later than the backend producer lead (peer waits closer to expiry)', () => {
     const expiresAt = NOW + 3_600_000;
-    // A normal expires-in fire at the 60s default lead vs. the deferred
-    // 30s lead — the deferred fire is strictly later, giving the backend
-    // (which fires at its own larger lead) the first shot.
-    const normalLeadFire = expiresAt - 60_000;
-    expect(computeDeferredFireAt(expiresAt, NOW)).toBeGreaterThan(normalLeadFire);
+    // The backend fires at its larger DEFAULT_REFRESH_LEAD_MS; the peer's
+    // deferred safety fire (smaller DEFAULT_PEER_DEFER_LEAD_MS) is strictly
+    // later, so the backend gets the first shot in steady state.
+    const backendLeadFire = expiresAt - DEFAULT_REFRESH_LEAD_MS;
+    expect(computeDeferredFireAt(expiresAt, NOW)).toBeGreaterThan(backendLeadFire);
   });
 
   it('clamps to the MV3 alarm floor when expiry is already near', () => {
@@ -224,5 +227,28 @@ describe('cadence ownership — computeDeferredFireAt / isWithinDeferHatchWindow
     expect(isWithinDeferHatchWindow(expiresAt, expiresAt - DEFAULT_PEER_DEFER_LEAD_MS)).toBe(true);
     // And past it.
     expect(isWithinDeferHatchWindow(expiresAt, expiresAt - 5_000)).toBe(true);
+  });
+});
+
+describe('freshness budget (WS-C C11)', () => {
+  it('backend lead covers the full propagation budget', () => {
+    // The producer must fire early enough to outrun an evicted consumer's
+    // wake + reconnect + catch-up + recompile.
+    expect(DEFAULT_REFRESH_LEAD_MS).toBeGreaterThanOrEqual(FRESHNESS_PROPAGATION_BUDGET_MS);
+  });
+
+  it('peer self-rescue lead sits strictly below the backend lead', () => {
+    // The race-safety invariant: the backend always fires first, so the
+    // peer's safety fire only lands when the backend has gone silent.
+    expect(DEFAULT_PEER_DEFER_LEAD_MS).toBeLessThan(DEFAULT_REFRESH_LEAD_MS);
+  });
+
+  it('peer lead is never below the MV3 alarm floor', () => {
+    // A lead under the floor would clamp away, collapsing the gap.
+    expect(DEFAULT_PEER_DEFER_LEAD_MS).toBeGreaterThanOrEqual(MIN_ALARM_DELAY_MS);
+  });
+
+  it('isFreshnessBudgetSound holds for the shipped constants', () => {
+    expect(isFreshnessBudgetSound()).toBe(true);
   });
 });

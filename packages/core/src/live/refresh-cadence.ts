@@ -60,12 +60,40 @@ export interface CacheSummary {
 /** Chrome packed MV3 builds clamp alarms to a 30-second floor. */
 export const MIN_ALARM_DELAY_MS = 30_000;
 
+// ── Freshness budget (WS-C C11) ───────────────────────────────────
+//
+// Centralizing the runner on the backend inserts a propagation hop onto
+// the 401 margin: the backend fires, the value crosses §4, and an
+// evicted consumer must wake + reconnect + catch up + recompile before
+// it can serve the value. The hop budgets below are reasoned upper
+// bounds from platform limits, NOT telemetry — the dominant term is a
+// fixed floor (the MV3 alarm granularity), and a budget must survive the
+// adversarial cold case an observed p99 never captures.
+
+/** Evicted-SW wake latency — bounded by the alarm floor; the dominant hop. */
+const SW_WAKE_BUDGET_MS = MIN_ALARM_DELAY_MS;
+/** Reachability probe + socket open + HELLO/WELCOME, allowing one retry (~2× the 3s connect timeout). */
+const RECONNECT_BUDGET_MS = 6_000;
+/** STATE_VECTOR → SNAPSHOT/delta → SYNCED catch-up on a freshly-woken peer. */
+const CATCHUP_BUDGET_MS = 6_000;
+/** scheduleUpdate debounce + DNR recompile so the synced value is actually served. */
+const RECOMPILE_BUDGET_MS = 3_000;
+
 /**
- * Healthy-path defaults: refresh this far before the computed expiry
- * to avoid racing a just-expired value against the next request. The
- * user can override via `RefreshPolicy.leadSeconds`; the constant
- * exists so the scheduler has a sensible default in logs when a user
- * picks `0`.
+ * Worst-case propagation a centralized refresh must outrun: the sum of
+ * every hop between the backend firing and an evicted consumer serving
+ * the fresh value. {@link DEFAULT_REFRESH_LEAD_MS} must be ≥ this.
+ */
+export const FRESHNESS_PROPAGATION_BUDGET_MS =
+  SW_WAKE_BUDGET_MS + RECONNECT_BUDGET_MS + CATCHUP_BUDGET_MS + RECOMPILE_BUDGET_MS;
+
+/**
+ * Backend producer lead — fire this far before the computed expiry.
+ * Covers the full {@link FRESHNESS_PROPAGATION_BUDGET_MS} (≈45s) with
+ * headroom so an evicted consumer SW wakes + catches up before the value
+ * 401s, and avoids racing a just-expired value against the next request.
+ * Users may override per workflow via `RefreshPolicy.leadSeconds`; this
+ * is the sensible default (and the value logged when a user picks `0`).
  */
 export const DEFAULT_REFRESH_LEAD_MS = 60_000;
 
@@ -73,22 +101,41 @@ export const DEFAULT_REFRESH_LEAD_MS = 60_000;
 export const MAX_BACKOFF_SECONDS = 3600;
 
 /**
- * Cadence-ownership peer lead (WS-C C8/C9). When a peer with a connected
- * backend holds a *remote-sourced* value, it suspends its normal
- * lead-time cadence and arms a single near-expiry *safety* fire at
+ * Cadence-ownership peer lead (WS-C C8/C9/C11). When a peer with a
+ * connected backend holds a *remote-sourced* value, it suspends its
+ * normal lead-time cadence and arms a single near-expiry *safety* fire at
  * `expiresAt − this`, trusting the backend (which fires earlier, at its
- * own larger lead ≈T−60s) plus §4 propagation to refresh the value
- * first. The peer's safety fire only lands if the backend went silent —
- * that's the C9 escape-hatch moment.
+ * own larger {@link DEFAULT_REFRESH_LEAD_MS}) plus §4 propagation to
+ * refresh the value first. The peer's safety fire only lands if the
+ * backend went silent — that's the C9 escape-hatch moment.
  *
- * Smaller than {@link DEFAULT_REFRESH_LEAD_MS} on purpose: the peer
- * waits as late as is still safe (giving the backend maximum room),
- * but never inside the time it needs to run its own chain + recompile.
- * Provisional — C11 owns the *measured* freshness budget (worst-case
- * SW-wake + reconnect + catch-up + recompile) and the precise gap below
- * the backend's lead.
+ * This is a *self-rescue* floor, not a propagation budget: when it fires
+ * the peer is already awake (it owns the alarm) and refreshes itself, so
+ * it pays no SW-wake / reconnect / catch-up — only its own chain run +
+ * DNR recompile. Sized strictly below {@link DEFAULT_REFRESH_LEAD_MS} so
+ * the backend always wins the steady-state race (asserted by
+ * {@link isFreshnessBudgetSound}); the peer waits as late as is
+ * still safe, maximizing the backend's room without firing inside the
+ * time it needs to produce + serve a value itself.
  */
-export const DEFAULT_PEER_DEFER_LEAD_MS = 30_000;
+export const DEFAULT_PEER_DEFER_LEAD_MS = RECONNECT_BUDGET_MS + CATCHUP_BUDGET_MS + RECOMPILE_BUDGET_MS + 15_000;
+
+/**
+ * Invariant the freshness budget rests on (WS-C C11): the peer's
+ * self-rescue safety fire must sit strictly *later* than the backend's
+ * producer fire (i.e. a smaller lead), so a healthy backend always
+ * refreshes first and the peer's fire only lands when the backend has
+ * gone silent. Encoded as a derived relationship rather than two
+ * independent magic numbers, so neither can drift into a race. Pure
+ * predicate (no throw) — host schedulers/tests assert it explicitly.
+ */
+export function isFreshnessBudgetSound(): boolean {
+  return (
+    DEFAULT_REFRESH_LEAD_MS >= FRESHNESS_PROPAGATION_BUDGET_MS &&
+    DEFAULT_PEER_DEFER_LEAD_MS < DEFAULT_REFRESH_LEAD_MS &&
+    DEFAULT_PEER_DEFER_LEAD_MS >= MIN_ALARM_DELAY_MS
+  );
+}
 
 // ── Cadence ownership (peer defer) ─────────────────────────────────
 
