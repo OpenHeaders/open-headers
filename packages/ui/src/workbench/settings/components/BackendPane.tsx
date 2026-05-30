@@ -38,6 +38,7 @@ import { BackendDetailDiagram } from './backend-details';
 import { type BackendIconKey, BackendIcon } from './backend-icons';
 import { BackendTierCard } from './backend-tier-card';
 import DaemonTokensSection from './daemon-tokens-section';
+import OfflineFallbackOrderSection from './offline-fallback-order-section';
 import { PairPopover } from './pair-popover';
 
 interface ScenarioDescriptor {
@@ -976,6 +977,12 @@ const ConfigPanel: React.FC<{
           </section>
         ),
       )}
+      {/* Offline-fallback runner order — an extension-peer concern: when
+          the configured backend drops, one browser self-refreshes an
+          exclusive workflow's credential, chosen by this ranking. The
+          desktop daemon is the authoritative runner, so it has nothing to
+          elect. */}
+      {host === 'extension' && <OfflineFallbackOrderSection />}
     </>
   );
 };

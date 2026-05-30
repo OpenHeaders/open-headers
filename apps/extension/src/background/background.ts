@@ -78,6 +78,7 @@ import { initializeViewMode } from './modules/view-mode';
 import { hydrateActiveWorkspaceStores } from './modules/workspace-orchestrator';
 import { bootstrap as bootstrapWorkspaces, getActiveWorkspaceId } from './modules/workspace-store';
 import { setupWorkspaceTabRegistry } from './modules/workspace-tab-registry';
+import { selfHostLabel } from './self-host-label';
 import {
   connectWebSocket,
   isWebSocketConnected,
@@ -209,7 +210,7 @@ async function initializeExtension(): Promise<void> {
   const enlistActiveWorkspaceFallbackPriority = (): void => {
     if (getSetting('backend.mode') === 'in-browser') return;
     if (!isWebSocketConnected()) return;
-    void maybeEnlistSelfInFallbackPriority(getActiveWorkspaceId()).catch((err: unknown) =>
+    void maybeEnlistSelfInFallbackPriority(getActiveWorkspaceId(), selfHostLabel()).catch((err: unknown) =>
       logger.warn('Background', 'Fallback-priority enlist failed', err),
     );
   };

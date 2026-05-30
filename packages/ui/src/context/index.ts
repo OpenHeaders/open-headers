@@ -33,6 +33,7 @@ export * from './folder-sync-mirror';
 export * from './LiveVariablesContext';
 export * from './LiveWorkflowsContext';
 export * from './layout-state-sync-mirror';
+export * from './live-fallback-priority-sync-mirror';
 export * from './live-variable-sync-mirror';
 export * from './live-workflow-sync-mirror';
 export * from './OAuthBundlesContext';

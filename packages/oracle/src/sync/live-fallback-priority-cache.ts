@@ -8,8 +8,9 @@
  * scheduler reads its *frozen, last-synced* copy from once the backend
  * goes offline).
  *
- * Not sensitive — members carry only `Principal.id`s, so the slot is
- * plain JSON and the entity rides the normal trust-zone-wide forwarder.
+ * Not sensitive — members carry a `Principal.id` plus a self-reported
+ * host label, no secret, so the slot is plain JSON and the entity rides
+ * the normal trust-zone-wide forwarder.
  */
 
 import { LIVE_FALLBACK_PRIORITY_ENTITY_TYPE } from '@openheaders/core/sync';
@@ -48,7 +49,9 @@ function normalizeSnapshot(raw: unknown): LiveFallbackPrioritySnapshot | null {
     if (!value || typeof value !== 'object') continue;
     const order = (value as { order?: unknown }).order;
     if (typeof order !== 'number') continue;
-    members[principalId] = { principalId, order };
+    const rawLabel = (value as { label?: unknown }).label;
+    const label = typeof rawLabel === 'string' ? rawLabel : '';
+    members[principalId] = { principalId, order, label };
   }
   return { schemaVersion: 5, members };
 }

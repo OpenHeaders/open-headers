@@ -14,9 +14,13 @@
  * making concurrent same-`order` appends converge identically on every
  * host (see `offline-fallback-election.ts`).
  *
- * Not sensitive — a member carries only a `Principal.id` (an opaque
- * synthetic-identity hash, no secret), so the list rides the normal
- * trust-zone-wide forwarder, unlike the loopback-gated vault (WS-B B1).
+ * Not sensitive — a member carries a `Principal.id` (an opaque
+ * synthetic-identity hash, no secret) plus a self-reported friendly host
+ * `label`. The label is a display string the enlisting host stamps for
+ * itself (browser + platform, e.g. `"Chrome · macOS"`); it is no more
+ * sensitive than the presence labels the awareness plane already forwards
+ * same-trust-zone, so the list still rides the normal trust-zone-wide
+ * forwarder, unlike the loopback-gated vault (WS-B B1).
  */
 
 /** One ranked host in the offline-fallback priority list. */
@@ -25,6 +29,14 @@ export interface LiveFallbackPriorityMember {
   principalId: string;
   /** Rank ordinal — lower runs first. Appends take `max(existing) + 1`. */
   order: number;
+  /**
+   * Friendly host label the enlisting host self-stamps so the management
+   * UI can name each ranked host without a live peer (the list is read
+   * offline). Display-only — never an identity key; resolution still
+   * goes through `principalId`. Captured at enlist time, so it can go
+   * stale on a host rename (benign; a re-enlist refreshes it).
+   */
+  label: string;
 }
 
 /** In-memory + at-rest shape of the singleton: members keyed by `principalId`. */

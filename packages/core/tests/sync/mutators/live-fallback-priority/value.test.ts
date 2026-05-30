@@ -6,6 +6,8 @@ import {
   LIVE_FALLBACK_PRIORITY_MEMBERS_PATH,
   LIVE_FALLBACK_PRIORITY_MUTATOR_VERSION,
   type MutatorContext,
+  pruneFallbackPriorityMember,
+  reorderFallbackPriorityMembers,
 } from '../../../../src/sync';
 import {
   maxFallbackPriorityOrder,
@@ -23,7 +25,11 @@ const ctx = (overrides: Partial<MutatorContext> = {}): MutatorContext => ({
   ...overrides,
 });
 
-const member = (principalId: string, order: number): LiveFallbackPriorityMember => ({ principalId, order });
+const member = (principalId: string, order: number, label = `host-${principalId}`): LiveFallbackPriorityMember => ({
+  principalId,
+  order,
+  label,
+});
 
 describe('enlistFallbackPriorityMember', () => {
   it('emits one addToSet(members) keyed by principalId, no side-effects', () => {
@@ -38,6 +44,47 @@ describe('enlistFallbackPriorityMember', () => {
       path: LIVE_FALLBACK_PRIORITY_MEMBERS_PATH,
       itemId: 'p-a',
       item: { principalId: 'p-a', order: 0 },
+    });
+  });
+});
+
+describe('reorderFallbackPriorityMembers', () => {
+  it('re-emits every member as addToSet with order re-stamped from array index', () => {
+    const intent = reorderFallbackPriorityMembers(ctx(), {
+      orderedMembers: [member('p-b', 5, 'Firefox'), member('p-a', 2, 'Chrome'), member('p-c', 9, 'Edge')],
+    });
+    expect(intent.sideEffects).toEqual([]);
+    expect(intent.batch.mutations).toHaveLength(3);
+    expect(intent.batch.mutations.map((m) => m.body)).toEqual([
+      expect.objectContaining({
+        kind: 'addToSet',
+        type: LIVE_FALLBACK_PRIORITY_ENTITY_TYPE,
+        id: LIVE_FALLBACK_PRIORITY_ID,
+        path: LIVE_FALLBACK_PRIORITY_MEMBERS_PATH,
+        itemId: 'p-b',
+        item: { principalId: 'p-b', order: 0, label: 'Firefox' },
+      }),
+      expect.objectContaining({ itemId: 'p-a', item: { principalId: 'p-a', order: 1, label: 'Chrome' } }),
+      expect.objectContaining({ itemId: 'p-c', item: { principalId: 'p-c', order: 2, label: 'Edge' } }),
+    ]);
+  });
+
+  it('emits an empty batch for an empty list', () => {
+    expect(reorderFallbackPriorityMembers(ctx(), { orderedMembers: [] }).batch.mutations).toHaveLength(0);
+  });
+});
+
+describe('pruneFallbackPriorityMember', () => {
+  it('emits one removeFromSet tombstone keyed by principalId, no side-effects', () => {
+    const intent = pruneFallbackPriorityMember(ctx(), { principalId: 'p-a' });
+    expect(intent.sideEffects).toEqual([]);
+    expect(intent.batch.mutations).toHaveLength(1);
+    expect(intent.batch.mutations[0].body).toEqual({
+      kind: 'removeFromSet',
+      type: LIVE_FALLBACK_PRIORITY_ENTITY_TYPE,
+      id: LIVE_FALLBACK_PRIORITY_ID,
+      path: LIVE_FALLBACK_PRIORITY_MEMBERS_PATH,
+      itemId: 'p-a',
     });
   });
 });
@@ -88,8 +135,8 @@ describe('maxFallbackPriorityOrder', () => {
   });
 
   it('returns the highest order present', () => {
-    expect(maxFallbackPriorityOrder({ 'p-a': member('p-a', 0), 'p-b': member('p-b', 4), 'p-c': member('p-c', 2) })).toBe(
-      4,
-    );
+    expect(
+      maxFallbackPriorityOrder({ 'p-a': member('p-a', 0), 'p-b': member('p-b', 4), 'p-c': member('p-c', 2) }),
+    ).toBe(4);
   });
 });

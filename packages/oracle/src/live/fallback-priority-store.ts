@@ -64,9 +64,12 @@ export function getFallbackPriorityForWorkspace(workspaceId: string): string[] {
  * Idempotent: a no-op when this host is already a member, holds no
  * exclusive workflow's seed, has no known identity, or the workspace has
  * no materialized oracle. The caller is responsible for the
- * "backend configured + connected" gate.
+ * "backend configured + connected" gate and supplies `selfLabel` — the
+ * host-specific friendly name (browser + platform) the list shows in its
+ * management UI. The label is display-only; identity is always the
+ * `principalId`.
  */
-export async function maybeEnlistSelfInFallbackPriority(workspaceId: string): Promise<boolean> {
+export async function maybeEnlistSelfInFallbackPriority(workspaceId: string, selfLabel: string): Promise<boolean> {
   const principalId = getIdentitySnapshot()?.principal.id ?? null;
   if (!principalId) return false;
 
@@ -77,7 +80,9 @@ export async function maybeEnlistSelfInFallbackPriority(workspaceId: string): Pr
   if (!workspaceHoldsExclusiveFallbackSeed(workspaceId)) return false;
 
   const order = maxFallbackPriorityOrder(members) + 1;
-  return applyEnlist(workspaceId, (ctx) => buildEnlistFallbackPriorityBatch({ member: { principalId, order } }, ctx));
+  return applyEnlist(workspaceId, (ctx) =>
+    buildEnlistFallbackPriorityBatch({ member: { principalId, order, label: selfLabel } }, ctx),
+  );
 }
 
 async function applyEnlist(

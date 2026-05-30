@@ -55,6 +55,7 @@ import { getActiveExtensionWorkspaceSyncMirror } from './extension-workspace-syn
 import { getFilesSyncMirrorForWorkspace } from './files-sync-mirror';
 import { getFolderSyncMirrorForWorkspace } from './folder-sync-mirror';
 import { getLayoutStateSyncMirrorForWorkspace } from './layout-state-sync-mirror';
+import { getLiveFallbackPrioritySyncMirrorForWorkspace } from './live-fallback-priority-sync-mirror';
 import { getLiveVariableSyncMirrorForWorkspace } from './live-variable-sync-mirror';
 import { getLiveWorkflowSyncMirrorForWorkspace } from './live-workflow-sync-mirror';
 import { getPauseMarkersSyncMirrorForWorkspace } from './pause-markers-sync-mirror';
@@ -79,6 +80,7 @@ function instantiateMirrorsForWorkspace(workspaceId: string): void {
   getFilesSyncMirrorForWorkspace(workspaceId);
   getFolderSyncMirrorForWorkspace(workspaceId);
   getLayoutStateSyncMirrorForWorkspace(workspaceId);
+  getLiveFallbackPrioritySyncMirrorForWorkspace(workspaceId);
   getLiveVariableSyncMirrorForWorkspace(workspaceId);
   getLiveWorkflowSyncMirrorForWorkspace(workspaceId);
   getPauseMarkersSyncMirrorForWorkspace(workspaceId);

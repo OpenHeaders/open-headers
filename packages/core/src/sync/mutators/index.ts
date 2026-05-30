@@ -98,6 +98,10 @@ export {
   LIVE_FALLBACK_PRIORITY_ID,
   LIVE_FALLBACK_PRIORITY_MEMBERS_PATH,
   LIVE_FALLBACK_PRIORITY_MUTATOR_VERSION,
+  type PruneFallbackPriorityMemberArgs,
+  pruneFallbackPriorityMember,
+  type ReorderFallbackPriorityMembersArgs,
+  reorderFallbackPriorityMembers,
 } from './live-fallback-priority';
 export {
   LIVE_VALUE_ENTITY_TYPE,

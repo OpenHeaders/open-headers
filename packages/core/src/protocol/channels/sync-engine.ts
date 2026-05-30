@@ -13,6 +13,7 @@ import type {
   SyncFilesPostState,
   SyncFolderPostState,
   SyncLayoutStatePostState,
+  SyncLiveFallbackPriorityPostState,
   SyncLiveVariablePostState,
   SyncLiveWorkflowPostState,
   SyncOAuthBundlePostState,
@@ -213,6 +214,18 @@ export interface SyncEngineRpc {
   'oh.sync.snapshotLayoutState': {
     req: { workspaceId?: string };
     res: { entries: SyncLayoutStatePostState[] };
+  };
+  /**
+   * Snapshot the active workspace's singleton live-fallback-priority
+   * oracle state (WS-C C14). Same semantics as
+   * `oh.sync.snapshotPauseMarkers` — singleton `entries` carries 0 or 1
+   * element. The renderer management UI's mirror calls this on mount
+   * before the first broadcast lands. Not sensitive — members carry a
+   * `Principal.id` + a self-reported host label, no secret.
+   */
+  'oh.sync.snapshotFallbackPriority': {
+    req: { workspaceId?: string };
+    res: { entries: SyncLiveFallbackPriorityPostState[] };
   };
   /**
    * Snapshot the active workspace's singleton files oracle state. Same

@@ -12,11 +12,12 @@
  * exclusive credential — from this frozen, last-synced ranking — instead
  * of racing (`offline-fallback-election.ts`).
  *
- * Not sensitive: a member carries only a `Principal.id`, never a secret,
- * so the entity is NOT schema-marked sensitive and is NOT loopback-gated
- * (WS-B B1) — it rides the normal trust-zone-wide forwarder exactly like
- * the OAuth bundle. A cross-device paired host therefore receives the
- * list, reads itself as `not-listed`, and banners — the correct outcome.
+ * Not sensitive: a member carries a `Principal.id` plus a self-reported
+ * friendly host `label`, never a secret, so the entity is NOT
+ * schema-marked sensitive and is NOT loopback-gated (WS-B B1) — it rides
+ * the normal trust-zone-wide forwarder exactly like the OAuth bundle. A
+ * cross-device paired host therefore receives the list, reads itself as
+ * `not-listed`, and banners — the correct outcome.
  *
  * Side-effects: none routed through the §4 side-effect dispatcher. The
  * sole consumer is the live-refresh scheduler's offline election, which

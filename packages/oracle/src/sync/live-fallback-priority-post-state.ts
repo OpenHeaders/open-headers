@@ -7,9 +7,9 @@
  * callback uses `oracle.liveSetItems` to recover the members, then
  * `orderFallbackPriorityMembers` to derive the sorted `Principal.id[]`.
  *
- * Not sensitive — members carry only `Principal.id`s; this projection
- * feeds the same-machine broadcast + the snapshot builder and is never
- * redacted.
+ * Not sensitive — members carry a `Principal.id` + a self-reported host
+ * label, no secret; this projection feeds the same-machine broadcast +
+ * the snapshot builder and is never redacted.
  */
 
 import type { SyncLiveFallbackPriorityPostState } from '@openheaders/core/protocol';
