@@ -57,6 +57,18 @@ export { deriveExecutionPolicy } from './execution-policy';
 export type { ExtractorFailureKind, ExtractorResult, StepResponse, StepResponseHeader } from './extractor';
 export { applyExtractor } from './extractor';
 export { evaluateClause, evaluateGate, matchStatus } from './gate-evaluator';
+export type {
+  ElectOfflineFallbackInput,
+  FallbackElectionVerdict,
+  FallbackNotElectedReason,
+  LocalSecretAvailability,
+  RequiredFallbackSecrets,
+} from './offline-fallback-election';
+export {
+  electOfflineFallbackRunner,
+  isFallbackEligible,
+  requiredFallbackSecrets,
+} from './offline-fallback-election';
 export type { PriorityValue } from './priority-evaluator';
 export { comparePriority, PRIORITY_LAST, priorityValue } from './priority-evaluator';
 export type { CacheSummary } from './refresh-cadence';

@@ -32,7 +32,11 @@ vi.mock('../../src/entity/request-store', () => ({
   getRequestCollectionsForWorkspace: () => stores.collections,
 }));
 
-import { deriveExecutionPolicyForWorkflow } from '../../src/live/execution-policy-resolver';
+import type { ExclusivityReason } from '@openheaders/core/live';
+import {
+  deriveExecutionPolicyForWorkflow,
+  isFallbackEligibleForWorkflow,
+} from '../../src/live/execution-policy-resolver';
 
 const WS = 'ws-1';
 
@@ -171,5 +175,40 @@ describe('deriveExecutionPolicyForWorkflow', () => {
     stores.requests.set('req-1', makeRequest());
     const result = deriveExecutionPolicyForWorkflow(WS, workflowWith('req-missing', 'req-1'), null);
     expect(result.policy).toBe('idempotent');
+  });
+});
+
+describe('isFallbackEligibleForWorkflow (WS-C C15)', () => {
+  const totp = (vaultName: string): ExclusivityReason => ({ kind: 'totp', vaultName });
+  const oauth = (credentialRef: string): ExclusivityReason => ({
+    kind: 'rotating-oauth',
+    credentialRef,
+    flow: 'authorization-code-pkce',
+  });
+
+  it('eligible when the local vault holds the consumed TOTP seed (same-device host)', () => {
+    stores.vault = { schemaVersion: 5, secrets: [TOTP_SECRET] };
+    expect(isFallbackEligibleForWorkflow(WS, [totp('otp')])).toBe(true);
+  });
+
+  it('ineligible when the consumed TOTP seed is absent (cross-device host)', () => {
+    stores.vault = { schemaVersion: 5, secrets: [] };
+    expect(isFallbackEligibleForWorkflow(WS, [totp('otp')])).toBe(false);
+  });
+
+  it('eligible for rotating-OAuth — the token bundle syncs trust-zone-wide', () => {
+    stores.vault = { schemaVersion: 5, secrets: [] };
+    expect(isFallbackEligibleForWorkflow(WS, [oauth('cred-1')])).toBe(true);
+  });
+
+  it('opt-in-only exclusivity requires nothing local — eligible', () => {
+    expect(isFallbackEligibleForWorkflow(WS, [{ kind: 'opt-in' }])).toBe(true);
+  });
+
+  it('mixed TOTP + OAuth: ineligible unless the vault seed is resident', () => {
+    stores.vault = { schemaVersion: 5, secrets: [] };
+    expect(isFallbackEligibleForWorkflow(WS, [totp('otp'), oauth('cred-1')])).toBe(false);
+    stores.vault = { schemaVersion: 5, secrets: [TOTP_SECRET] };
+    expect(isFallbackEligibleForWorkflow(WS, [totp('otp'), oauth('cred-1')])).toBe(true);
   });
 });

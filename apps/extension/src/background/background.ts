@@ -20,6 +20,7 @@ import '@/host/install-host-logger';
 import '@/host/install-lifeline-server';
 import './modules/live-chain-adapter';
 
+import { getIdentitySnapshot } from '@openheaders/core/identity';
 import { getHostStorage, OH } from '@openheaders/core/storage';
 import { getActiveEnvironmentId } from '@openheaders/oracle/entity/environment-store';
 import { getRules } from '@openheaders/oracle/entity/rule-store';
@@ -36,8 +37,8 @@ import { installAlarmDispatch } from './bootstrap/alarm-dispatch';
 import { resolveBackgroundReady } from './bootstrap/background-ready';
 import { debouncedUpdateBadge } from './bootstrap/badge-update';
 import { setupDelayBypassCleanup } from './bootstrap/delay-bypass-cleanup';
-import { bootstrapIdentity } from './bootstrap/identity-init';
 import { installHostAdapters } from './bootstrap/host-install';
+import { bootstrapIdentity } from './bootstrap/identity-init';
 import { startLifecyclePipeline } from './bootstrap/lifecycle-pipeline';
 import { installMessageRouting } from './bootstrap/message-routing';
 import { installNetworkEventHandlers } from './bootstrap/network-events';
@@ -57,6 +58,7 @@ import {
   reconcileLiveSchedules,
   refreshLiveWorkflowSynchronously,
   setBackendConnectionProbe,
+  setFallbackPriorityProbe,
   startLiveScheduler,
 } from './modules/live-refresh-scheduler';
 import { reconcileOAuthSchedules, startOAuthScheduler } from './modules/oauth-refresh-scheduler';
@@ -70,10 +72,7 @@ import { setupTestRunnerPorts } from './modules/test-runner';
 import { bootstrapTotpScheduler } from './modules/totp-scheduler';
 import { initializeViewMode } from './modules/view-mode';
 import { hydrateActiveWorkspaceStores } from './modules/workspace-orchestrator';
-import {
-  bootstrap as bootstrapWorkspaces,
-  getActiveWorkspaceId,
-} from './modules/workspace-store';
+import { bootstrap as bootstrapWorkspaces, getActiveWorkspaceId } from './modules/workspace-store';
 import { setupWorkspaceTabRegistry } from './modules/workspace-tab-registry';
 import {
   connectWebSocket,
@@ -181,6 +180,19 @@ async function initializeExtension(): Promise<void> {
   // registering them here doesn't trip the early-reconcile orphan-wipe
   // hazard the deferred `reconcileLiveSchedules` below guards against.
   setBackendConnectionProbe(isWebSocketConnected);
+  // Offline fallback (WS-C C14): give the live scheduler a read of the
+  // frozen priority list + this host's identity so an *exclusive* workflow
+  // whose configured backend is offline runs on exactly one elected peer
+  // instead of racing across the partitioned browsers. Pure Mode-1 (no
+  // backend attached) returns null → the gate stays off and the SW remains
+  // the self-sufficient sole runner (plan §8). The `order` is empty until
+  // C14 commit 2 wires the synced priority entity + auto-seed; an empty
+  // list is the safe default (no host elected → "reconnect the desktop"
+  // banner, never a race).
+  setFallbackPriorityProbe(() => {
+    if (getSetting('backend.mode') === 'in-browser') return null;
+    return { order: [], selfPrincipalId: getIdentitySnapshot()?.principal.id ?? null };
+  });
   subscribeOnWebSocketOpen(() => {
     void reconcileLiveSchedules().catch((err: unknown) =>
       logger.warn('Background', 'Live reconcile after socket open failed', err),

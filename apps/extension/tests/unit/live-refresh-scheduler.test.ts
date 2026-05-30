@@ -28,6 +28,7 @@ const markExclusiveDegradedForRunMock = vi.fn<(...args: unknown[]) => Promise<un
 const deriveExecutionPolicyForWorkflowMock = vi.fn<() => { policy: 'idempotent' | 'exclusive'; reasons: unknown[] }>(
   () => ({ policy: 'idempotent', reasons: [] }),
 );
+const isFallbackEligibleForWorkflowMock = vi.fn<() => boolean>(() => true);
 const clearWorkflowRunCacheMock = vi.fn<(...args: unknown[]) => Promise<number>>(async () => 0);
 const clearWorkflowRunCacheForEnvironmentMock = vi.fn<(...args: unknown[]) => Promise<boolean>>(async () => true);
 const markWorkflowDefinitionallyStaleMock = vi.fn<(...args: unknown[]) => Promise<number>>(async () => 0);
@@ -193,6 +194,8 @@ vi.mock('@openheaders/oracle/live/live-cache-store', () => ({
 vi.mock('@openheaders/oracle/live/execution-policy-resolver', () => ({
   deriveExecutionPolicyForWorkflow: (...args: unknown[]) =>
     (deriveExecutionPolicyForWorkflowMock as unknown as (...a: unknown[]) => unknown)(...args),
+  isFallbackEligibleForWorkflow: (...args: unknown[]) =>
+    (isFallbackEligibleForWorkflowMock as unknown as (...a: unknown[]) => unknown)(...args),
 }));
 
 // Active-pointer change listeners — the scheduler subscribes to these
@@ -334,6 +337,8 @@ beforeEach(async () => {
   markExclusiveDegradedForRunMock.mockClear();
   deriveExecutionPolicyForWorkflowMock.mockReset();
   deriveExecutionPolicyForWorkflowMock.mockReturnValue({ policy: 'idempotent', reasons: [] });
+  isFallbackEligibleForWorkflowMock.mockReset();
+  isFallbackEligibleForWorkflowMock.mockReturnValue(true);
   storeState = {
     workflows: [],
     variables: [],
@@ -365,6 +370,7 @@ beforeEach(async () => {
   scheduler = await import('@/background/modules/live-refresh-scheduler');
   scheduler.__setLiveRefreshAdapter(null);
   scheduler.setBackendConnectionProbe(null);
+  scheduler.setFallbackPriorityProbe(null);
 });
 
 afterEach(() => {
@@ -2851,6 +2857,142 @@ describe('connect-time fence — exclusive class (C10)', () => {
     const now = Date.now();
 
     await fireWith(now, unsyncedCache(now));
+
+    expect(refreshSpy).toHaveBeenCalledOnce();
+    expect(markExclusiveDegradedForRunMock).not.toHaveBeenCalled();
+    expect(deriveExecutionPolicyForWorkflowMock).not.toHaveBeenCalled();
+  });
+});
+
+// ── Offline fallback election — exclusive class (C14) ──────────────
+
+describe('offline fallback election — exclusive class (C14)', () => {
+  beforeEach(() => {
+    Object.defineProperty(globalThis.navigator, 'onLine', { value: true, configurable: true, writable: true });
+  });
+
+  /** A schedulable row for a configured-but-offline backend (no defer when disconnected). */
+  function offlineCache(now: number): TestCacheRow {
+    return {
+      workflowUid: 'wflow001',
+      environmentId: null,
+      stepCaptures: {},
+      extractedAt: now,
+      expiresAt: now + 600_000,
+      stepResponseBytes: {},
+      consecutiveFailures: 0,
+      lastExtractorOk: true,
+      lastSyncedValueAt: now,
+    };
+  }
+
+  async function fire(now: number): Promise<void> {
+    storeState.workflows = [makeWorkflow()];
+    storeState.variables = [makeVariable()];
+    storeState.caches = [offlineCache(now)];
+    await scheduler.handleLiveAlarm({
+      name: scheduler.buildAlarmName('ws-live', 'wflow001', null),
+      scheduledTime: now,
+    } as chrome.alarms.Alarm);
+  }
+
+  /** Configured backend, currently OFFLINE. */
+  function setupOfflineExclusive(refreshSpy: () => Promise<void>): void {
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
+    scheduler.setBackendConnectionProbe(() => false);
+    deriveExecutionPolicyForWorkflowMock.mockReturnValue({
+      policy: 'exclusive',
+      reasons: [{ kind: 'totp', vaultName: 'otp' }],
+    });
+  }
+
+  function lastFailed(): { level?: string; context?: { errorClass?: string } } | undefined {
+    return recordLogMock.mock.calls
+      .map((c) => c[0] as { op: string; level: string; context?: { errorClass?: string } })
+      .find((e) => e.op === 'refresh-failed');
+  }
+
+  it('elected rank-0 eligible host self-refreshes as the single fallback runner', async () => {
+    const refreshSpy = vi.fn<() => Promise<void>>(async () => {});
+    setupOfflineExclusive(refreshSpy);
+    scheduler.setFallbackPriorityProbe(() => ({ order: ['p-self', 'p-other'], selfPrincipalId: 'p-self' }));
+
+    await fire(Date.now());
+
+    expect(refreshSpy).toHaveBeenCalledOnce();
+    expect(markExclusiveDegradedForRunMock).not.toHaveBeenCalled();
+  });
+
+  it('outranked host does NOT refresh — degrades + logs FallbackNotElected', async () => {
+    const refreshSpy = vi.fn<() => Promise<void>>(async () => {});
+    setupOfflineExclusive(refreshSpy);
+    scheduler.setFallbackPriorityProbe(() => ({ order: ['p-other', 'p-self'], selfPrincipalId: 'p-self' }));
+
+    await fire(Date.now());
+
+    expect(refreshSpy).not.toHaveBeenCalled();
+    // Deliberate skip, not a failure.
+    expect(recordRefreshErrorMock).not.toHaveBeenCalled();
+    // Degraded so the Status pill says "reconnect the desktop".
+    expect(markExclusiveDegradedForRunMock).toHaveBeenCalledTimes(1);
+    const [uid, envId, , ws] = markExclusiveDegradedForRunMock.mock.calls[0];
+    expect(uid).toBe('wflow001');
+    expect(envId).toBeNull();
+    expect(ws).toBe('ws-live');
+    expect(lastFailed()?.context?.errorClass).toBe('FallbackNotElected');
+    expect(lastFailed()?.level).toBe('info');
+  });
+
+  it('ineligible (cross-device, lacks the seed) host does NOT refresh even at rank-0', async () => {
+    const refreshSpy = vi.fn<() => Promise<void>>(async () => {});
+    setupOfflineExclusive(refreshSpy);
+    // Would be rank-0, but the local seed gate overrides the ranking.
+    isFallbackEligibleForWorkflowMock.mockReturnValue(false);
+    scheduler.setFallbackPriorityProbe(() => ({ order: ['p-self'], selfPrincipalId: 'p-self' }));
+
+    await fire(Date.now());
+
+    expect(refreshSpy).not.toHaveBeenCalled();
+    expect(markExclusiveDegradedForRunMock).toHaveBeenCalledTimes(1);
+    expect(lastFailed()?.context?.errorClass).toBe('FallbackNotElected');
+  });
+
+  it('empty priority list is the SAFE default — banner, never a free-for-all race', async () => {
+    const refreshSpy = vi.fn<() => Promise<void>>(async () => {});
+    setupOfflineExclusive(refreshSpy);
+    scheduler.setFallbackPriorityProbe(() => ({ order: [], selfPrincipalId: 'p-self' }));
+
+    await fire(Date.now());
+
+    expect(refreshSpy).not.toHaveBeenCalled();
+    expect(markExclusiveDegradedForRunMock).toHaveBeenCalledTimes(1);
+    expect(lastFailed()?.context?.errorClass).toBe('FallbackNotElected');
+  });
+
+  it('idempotent rows self-refresh on every offline peer (no election, harmless)', async () => {
+    const refreshSpy = vi.fn<() => Promise<void>>(async () => {});
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
+    scheduler.setBackendConnectionProbe(() => false);
+    // Default mock verdict is idempotent.
+    scheduler.setFallbackPriorityProbe(() => ({ order: ['p-other'], selfPrincipalId: 'p-self' }));
+
+    await fire(Date.now());
+
+    expect(refreshSpy).toHaveBeenCalledOnce();
+    expect(markExclusiveDegradedForRunMock).not.toHaveBeenCalled();
+  });
+
+  it('pure Mode-1 (no backend configured) self-refreshes exclusive — gate dormant, policy never consulted', async () => {
+    const refreshSpy = vi.fn<() => Promise<void>>(async () => {});
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
+    // No backend probe AND no fallback probe → the probe returns null →
+    // the SW is the legitimate sole runner (plan §8).
+    deriveExecutionPolicyForWorkflowMock.mockReturnValue({
+      policy: 'exclusive',
+      reasons: [{ kind: 'totp', vaultName: 'otp' }],
+    });
+
+    await fire(Date.now());
 
     expect(refreshSpy).toHaveBeenCalledOnce();
     expect(markExclusiveDegradedForRunMock).not.toHaveBeenCalled();

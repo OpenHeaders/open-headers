@@ -43,6 +43,7 @@ import {
   canAttempt as canCircuitAttempt,
   computeDeferredFireAt,
   computeNextFireAt as computeNextFireAtCore,
+  electOfflineFallbackRunner,
   initialCircuitSnapshot,
   isLiveVariableEffective,
   isWithinDeferHatchWindow,
@@ -64,7 +65,10 @@ import {
   startDefinitionalFreshness,
   stopDefinitionalFreshness,
 } from '@openheaders/oracle/live/definitional-freshness';
-import { deriveExecutionPolicyForWorkflow } from '@openheaders/oracle/live/execution-policy-resolver';
+import {
+  deriveExecutionPolicyForWorkflow,
+  isFallbackEligibleForWorkflow,
+} from '@openheaders/oracle/live/execution-policy-resolver';
 import {
   listCachesForWorkflow,
   listWorkflowRunCaches,
@@ -280,6 +284,55 @@ function applyDeferOverride(cache: WorkflowRunCache | null, normalFireAt: number
   return deferred > normalFireAt ? deferred : normalFireAt;
 }
 
+// ── Offline fallback: priority probe (WS-C C14) ───────────────────
+//
+// When a configured backend goes OFFLINE, an *exclusive* workflow may be
+// refreshed by exactly one host across the now-partitioned browsers (a
+// concurrent run burns the single-use cred). Each peer decides locally
+// from its frozen, last-synced priority list + its own seed eligibility
+// (`electOfflineFallbackRunner`). The list + this host's identity come
+// from the data plane (C14 commit 2 wires the synced entity + auto-seed);
+// the scheduler reaches them through this injected probe — the same
+// inversion `setBackendConnectionProbe` uses, so the scheduler never
+// imports the backend-settings or identity layers.
+//
+// The probe's RETURN encodes "is a backend configured at all":
+//   • `null`  → pure Mode-1 (no backend ever attached). The SW is the
+//     legitimate sole runner and self-refreshes every class, exclusive
+//     included (plan §8 non-goal — Mode-1 keeps its self-sufficient
+//     runner). The C14 gate stays entirely off.
+//   • non-null → a backend is configured (currently offline). The gate
+//     engages for the exclusive class: only the elected host self-refreshes.
+//     An empty `order` is the SAFE default — nobody is elected, so every
+//     peer banners rather than racing (`no-list`).
+
+export interface FallbackPrioritySnapshot {
+  /** Frozen last-synced priority order — ordered `Principal.id`s. Empty until C14 commit 2 wires the synced entity. */
+  order: readonly string[];
+  /** This host's stable `Principal.id` (derived from `hostInstallId`), or null if not yet known. */
+  selfPrincipalId: string | null;
+}
+
+let fallbackPriorityProbe: (() => FallbackPrioritySnapshot | null) | null = null;
+
+/**
+ * Install (or clear) the offline-fallback priority probe. The bootstrap
+ * wires this to the configured backend's frozen priority list + this
+ * host's identity; tests install a stub. `null` (or a probe returning
+ * `null`) disables the gate — pure Mode-1 self-refreshes every class.
+ */
+export function setFallbackPriorityProbe(probe: (() => FallbackPrioritySnapshot | null) | null): void {
+  fallbackPriorityProbe = probe;
+}
+
+function readFallbackPriority(): FallbackPrioritySnapshot | null {
+  try {
+    return fallbackPriorityProbe?.() ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // ── Cache summary projection ──────────────────────────────────────
 //
 // The schedulability gate (`canScheduleWorkflow`) is host-neutral and
@@ -479,6 +532,45 @@ const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | 
           `connect-fenced: workflow ${payload.u} — exclusive cred, backend connected but no synced value yet; declining to race`,
         );
       }
+    } else {
+      // WS-C C14 — a configured backend is OFFLINE (the probe returns a
+      // snapshot) and this host is now a candidate runner. Idempotent
+      // rows self-refresh on every partitioned peer (harmless — N mints
+      // are at worst wasteful). For the EXCLUSIVE class only the single
+      // ELECTED fallback host may run; the rest banner — else N
+      // partitioned browsers race the single-use cred. Pure Mode-1 (probe
+      // returns null) is deliberately NOT gated: the SW is the legitimate
+      // sole runner (plan §8 — Mode-1 keeps its self-sufficient runner).
+      const fallback = readFallbackPriority();
+      if (fallback) {
+        const { policy, reasons } = deriveExecutionPolicyForWorkflow(
+          entry.workspaceId,
+          entry.workflow,
+          entry.environmentId,
+        );
+        if (policy === 'exclusive') {
+          const verdict = electOfflineFallbackRunner({
+            priorityList: fallback.order,
+            selfPrincipalId: fallback.selfPrincipalId,
+            eligible: isFallbackEligibleForWorkflow(entry.workspaceId, reasons),
+          });
+          if (!verdict.elected) {
+            // Not the elected runner. Degrade the row so the Status pill
+            // shows "reconnect the desktop app" — the offline non-elected
+            // state wants the identical actionable resolution C9 raises,
+            // so it reuses the same flag + banner (no new wire/state). The
+            // flag clears the instant a fresher value syncs in (the
+            // elected host's, on reconnect) or the backend returns and
+            // produces. Re-arm at the cadence floor without racing.
+            await markExclusiveDegradedForRun(payload.u, payload.e, now, payload.w);
+            throw new FallbackNotElectedError(
+              `fallback-not-elected: workflow ${payload.u} — exclusive cred, backend offline, ${verdict.reason}; banner instead of racing`,
+            );
+          }
+          // Elected → fall through and self-refresh as the single offline
+          // fallback runner.
+        }
+      }
     }
     // Circuit-aware attempt gate. If the cache says the circuit is
     // OPEN and we haven't reached `nextAttemptAt` yet, bail out of
@@ -532,13 +624,19 @@ const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | 
     // first runner of an exclusive cred before any §4 value has landed.
     // Re-arm so a later tick re-checks; the row clears the moment the
     // backend's first synced value arrives (the store-change reconcile
-    // beats any re-armed poll).
+    // beats any re-armed poll). `FallbackNotElectedError` (WS-C C14) joins
+    // it too: a configured backend is offline and this peer is not the
+    // elected single runner for an exclusive cred — it has already marked
+    // the row degraded; re-arm at the cadence floor so the banner clears
+    // promptly once the elected host's value syncs in or the backend
+    // returns.
     if (
       err instanceof CircuitBlockedError ||
       err instanceof OfflineError ||
       err instanceof DeferredError ||
       err instanceof ExclusiveDeferredError ||
-      err instanceof ConnectFenceError
+      err instanceof ConnectFenceError ||
+      err instanceof FallbackNotElectedError
     ) {
       if (job) {
         void scheduler.schedule(job).catch((e) => logger.warn('LiveScheduler', 'Re-schedule after skip failed', e));
@@ -609,58 +707,13 @@ const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | 
     });
   },
   onFailed(payload, err) {
-    // Phase-C stub (scheduler-not-ready) gets a `warn`; a real
-    // adapter bubble is `error`; a circuit-blocked (early fire) is
-    // `debug` — not a failure, just a no-op we're logging for
-    // traceability. Unlike OAuth we don't escalate per attempt
-    // count — Phase G's Status pill already aggregates consecutive
-    // failures into yellow/red, so per-entry log-level churn would
-    // add noise without new signal.
-    const isStub = err instanceof LiveSchedulerNotReadyError;
-    const isBlocked = err instanceof CircuitBlockedError;
-    const isOffline = err instanceof OfflineError;
-    const isDeferred = err instanceof DeferredError;
-    const isExclusiveDeferred = err instanceof ExclusiveDeferredError;
-    const isConnectFenced = err instanceof ConnectFenceError;
-    const isNoOp = isBlocked || isOffline || isDeferred || isExclusiveDeferred || isConnectFenced;
+    const { level, message, errorClass } = describeRefreshFailure(err, payload.u);
     recordLog({
       subsystem: 'live',
       op: 'refresh-failed',
-      // Observability LogLevel is ('info' | 'warn' | 'error') — no
-      // debug tier. No-op skips (circuit-blocked, offline, deferred)
-      // fold into 'info'. A real adapter failure stays at 'error'.
-      level: isNoOp ? 'info' : isStub ? 'warn' : 'error',
-      message: isOffline
-        ? `Offline — refresh deferred for workflow ${payload.u}`
-        : isExclusiveDeferred
-          ? `Exclusive cred degraded for workflow ${payload.u} — backend silent, peer won't race (reconnect the desktop)`
-          : isConnectFenced
-            ? `Backend connected but not yet producing for workflow ${payload.u} — peer won't race the first exclusive run`
-            : isDeferred
-              ? `Backend owns cadence for workflow ${payload.u} — peer refresh deferred`
-              : isBlocked
-                ? `Circuit open for workflow ${payload.u} — refresh declined`
-                : isStub
-                  ? `No refresh adapter for workflow ${payload.u} (Phase D not yet wired)`
-                  : `Refresh failed for ${payload.u}: ${err.message}`,
-      context: {
-        workspaceId: payload.w,
-        workflowUid: payload.u,
-        environmentId: payload.e,
-        errorClass: isOffline
-          ? 'Offline'
-          : isExclusiveDeferred
-            ? 'ExclusiveDeferred'
-            : isConnectFenced
-              ? 'ConnectFenced'
-              : isDeferred
-                ? 'Deferred'
-                : isBlocked
-                  ? 'CircuitBlocked'
-                  : isStub
-                    ? 'SchedulerNotReady'
-                    : err.name,
-      },
+      level,
+      message,
+      context: { workspaceId: payload.w, workflowUid: payload.u, environmentId: payload.e, errorClass },
     });
   },
 };
@@ -752,6 +805,27 @@ class ConnectFenceError extends Error {
 }
 
 /**
+ * Sentinel thrown by the C14 offline fallback gate when a configured
+ * backend is OFFLINE and this peer is NOT the elected single runner for an
+ * *exclusive* credential (ineligible / unranked / outranked / no list).
+ * Self-refreshing would race the other partitioned browsers on the
+ * single-use cred. Not a failure — `provider.refresh` has already marked
+ * the row degraded (`markExclusiveDegradedForRun`) so the Status pill
+ * surfaces "reconnect the desktop"; this only routes the no-op:
+ * `recordFailure` re-arms at the cadence floor without touching the
+ * circuit, and `onFailed` logs it at info. The flag clears the moment the
+ * elected host's value syncs in on reconnect, or the backend returns. A
+ * class (not a string match) so the narrowing in those branches stays
+ * exhaustive.
+ */
+class FallbackNotElectedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'FallbackNotElected';
+  }
+}
+
+/**
  * Thrown when an attempt is refused because the platform reports
  * `navigator.onLine === false`. Not a circuit failure — the provider
  * is (probably) fine; the client has no way to reach it. Treating
@@ -787,6 +861,75 @@ function isNetworkOnline(): boolean {
   } catch {
     return true;
   }
+}
+
+/** Observability descriptor for a refresh failure. */
+interface RefreshFailureDescriptor {
+  level: 'info' | 'warn' | 'error';
+  message: string;
+  /** Stable machine tag for the log `context`, narrower than `err.name`. */
+  errorClass: string;
+}
+
+/**
+ * Map a refresh failure to its observability descriptor — one entry per
+ * sentinel, so the log level lives beside its message + class instead of
+ * across parallel ternary cascades.
+ *
+ * Most "failures" are deliberate **no-op skips**: a gate (offline / not the
+ * elected fallback / backend owns cadence / connect-fence / circuit-open)
+ * declined the fire. They log at `info` with a specific message — Phase G's
+ * Status pill owns the yellow/red aggregation, so we don't escalate log
+ * level per attempt the way OAuth does. The Phase-C stub logs `warn`; only
+ * a genuine adapter bubble logs `error`.
+ */
+function describeRefreshFailure(err: Error, workflowUid: string): RefreshFailureDescriptor {
+  if (err instanceof OfflineError) {
+    return { level: 'info', errorClass: 'Offline', message: `Offline — refresh deferred for workflow ${workflowUid}` };
+  }
+  if (err instanceof FallbackNotElectedError) {
+    return {
+      level: 'info',
+      errorClass: 'FallbackNotElected',
+      message: `Backend offline for workflow ${workflowUid} — peer not the elected fallback runner, won't race (reconnect the desktop)`,
+    };
+  }
+  if (err instanceof ExclusiveDeferredError) {
+    return {
+      level: 'info',
+      errorClass: 'ExclusiveDeferred',
+      message: `Exclusive cred degraded for workflow ${workflowUid} — backend silent, peer won't race (reconnect the desktop)`,
+    };
+  }
+  if (err instanceof ConnectFenceError) {
+    return {
+      level: 'info',
+      errorClass: 'ConnectFenced',
+      message: `Backend connected but not yet producing for workflow ${workflowUid} — peer won't race the first exclusive run`,
+    };
+  }
+  if (err instanceof DeferredError) {
+    return {
+      level: 'info',
+      errorClass: 'Deferred',
+      message: `Backend owns cadence for workflow ${workflowUid} — peer refresh deferred`,
+    };
+  }
+  if (err instanceof CircuitBlockedError) {
+    return {
+      level: 'info',
+      errorClass: 'CircuitBlocked',
+      message: `Circuit open for workflow ${workflowUid} — refresh declined`,
+    };
+  }
+  if (err instanceof LiveSchedulerNotReadyError) {
+    return {
+      level: 'warn',
+      errorClass: 'SchedulerNotReady',
+      message: `No refresh adapter for workflow ${workflowUid} (Phase D not yet wired)`,
+    };
+  }
+  return { level: 'error', errorClass: err.name, message: `Refresh failed for ${workflowUid}: ${err.message}` };
 }
 
 const scheduler = new RefreshScheduler(provider, 'LiveScheduler');

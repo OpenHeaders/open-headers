@@ -20,7 +20,12 @@
  * dispatch (per-tab mode) classifies against the right stores.
  */
 
-import { deriveExecutionPolicy, type ExecutionPolicyResult } from '@openheaders/core/live';
+import {
+  deriveExecutionPolicy,
+  type ExclusivityReason,
+  type ExecutionPolicyResult,
+  isFallbackEligible,
+} from '@openheaders/core/live';
 import type { LiveWorkflow, Request, Vault } from '@openheaders/core/types';
 import {
   getEnvironmentsForWorkspace,
@@ -102,4 +107,34 @@ export function deriveExecutionPolicyForWorkflow(
       collectionVars: collectionVarMap(workspaceId),
     },
   });
+}
+
+/**
+ * Seed-eligibility (WS-C C15) for the offline fallback election: can THIS
+ * host actually run the workflow's exclusive credential, given the secrets
+ * resident in its own stores?
+ *
+ * The load-bearing gate is the **vault seed**: a consumed `kind: 'totp'`
+ * entry replicates only to paired same-device hosts (WS-B B1), so holding
+ * it *is* the same-device signal a cross-device host structurally lacks —
+ * and a cross-device host must never be elected (it would race-and-fail on
+ * the missing seed). Rotating-OAuth token bundles, by contrast, ride §4
+ * trust-zone-wide (every paired host holds them), so they don't
+ * distinguish same- from cross-device — every required OAuth ref is
+ * treated as resident. The host resolves the consumed-secret refs from the
+ * already-derived `reasons` (the per-step scan `deriveExecutionPolicy`
+ * yields) and we apply the pure core predicate.
+ *
+ * By-workspace (not active-workspace), matching {@link deriveExecutionPolicyForWorkflow}.
+ */
+export function isFallbackEligibleForWorkflow(workspaceId: string, reasons: readonly ExclusivityReason[]): boolean {
+  const vaultNames = new Set<string>();
+  for (const secret of getVaultForWorkspace(workspaceId).secrets) vaultNames.add(secret.name);
+
+  const oauthCredentialRefs = new Set<string>();
+  for (const reason of reasons) {
+    if (reason.kind === 'rotating-oauth') oauthCredentialRefs.add(reason.credentialRef);
+  }
+
+  return isFallbackEligible(reasons, { vaultNames, oauthCredentialRefs });
 }
