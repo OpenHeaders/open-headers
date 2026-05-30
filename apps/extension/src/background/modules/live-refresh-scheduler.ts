@@ -1129,6 +1129,11 @@ async function recomputeLiveStatus(): Promise<void> {
   let firstRed: string | undefined;
   let firstYellow: string | undefined;
   let firstDegraded: string | undefined;
+  // The distinct backend-reported health categories across the degraded
+  // rows (WS-C C7). When they agree we specialize the banner from a
+  // backend-agnostic "reconnect" into "the backend's source/auth is
+  // failing"; mixed or unknown falls back to the generic copy.
+  const degradedHealths = new Set<string>();
   const now = Date.now();
   for (const run of runs) {
     if (run.consecutiveFailures >= RED_FAILURE_THRESHOLD) {
@@ -1144,6 +1149,7 @@ async function recomputeLiveStatus(): Promise<void> {
     if (run.exclusiveDegradedSince != null) {
       degraded++;
       firstDegraded ??= run.workflowUid;
+      degradedHealths.add(run.refreshHealth ?? 'unknown');
       continue;
     }
     if (run.consecutiveFailures > 0 || !run.lastExtractorOk) {
@@ -1169,10 +1175,21 @@ async function recomputeLiveStatus(): Promise<void> {
     return;
   }
   if (degraded > 0) {
+    const creds = `${degraded} exclusive credential${degraded === 1 ? '' : 's'} can't refresh`;
+    // Specialize only when every degraded row agrees on the cause; the
+    // backend is known-present here (the C9 degrade is set under a live
+    // connection probe), so the enum just names *why* it isn't producing.
+    const only = degradedHealths.size === 1 ? [...degradedHealths][0] : undefined;
+    const message =
+      only === 'auth-failing'
+        ? `${creds} — the desktop app's authentication is failing`
+        : only === 'source-failing'
+          ? `${creds} — the desktop app's source is failing`
+          : `${creds} — reconnect the desktop app`;
     reportStatus({
       subsystem: 'live',
       state: 'yellow',
-      message: `${degraded} exclusive credential${degraded === 1 ? '' : 's'} can't refresh — reconnect the desktop app`,
+      message,
       context: { degraded, firstDegraded },
     });
     return;

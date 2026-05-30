@@ -84,6 +84,7 @@ function makeRun(overrides: {
   extractedAt?: number;
   expiresAt?: number | null;
   exclusiveDegradedSince?: number;
+  refreshHealth?: 'ok' | 'source-failing' | 'auth-failing';
 }) {
   return {
     workflowUid: overrides.workflowUid ?? 'wflow001',
@@ -95,6 +96,7 @@ function makeRun(overrides: {
     consecutiveFailures: overrides.consecutiveFailures ?? 0,
     lastExtractorOk: overrides.lastExtractorOk ?? true,
     exclusiveDegradedSince: overrides.exclusiveDegradedSince,
+    refreshHealth: overrides.refreshHealth,
   };
 }
 
@@ -187,6 +189,39 @@ describe('live Status pill', () => {
     expect(snap.live?.message).toContain('reconnect the desktop');
     expect(snap.live?.context?.degraded).toBe(1);
     expect(snap.live?.context?.firstDegraded).toBe('totp-wf');
+  });
+
+  it('specializes the degraded copy to "authentication is failing" when the synced health agrees (C7)', async () => {
+    listWorkflowRunCachesMock.mockResolvedValue([
+      makeRun({ workflowUid: 'totp-wf', exclusiveDegradedSince: Date.now(), refreshHealth: 'auth-failing' }),
+    ]);
+    scheduler.startLiveScheduler();
+    await new Promise((r) => setTimeout(r, 10));
+    const snap = getStatusSnapshot();
+    expect(snap.live?.state).toBe('yellow');
+    expect(snap.live?.message).toContain('authentication is failing');
+    expect(snap.live?.message).not.toContain('reconnect');
+  });
+
+  it('specializes the degraded copy to "source is failing" when the synced health agrees (C7)', async () => {
+    listWorkflowRunCachesMock.mockResolvedValue([
+      makeRun({ workflowUid: 'totp-wf', exclusiveDegradedSince: Date.now(), refreshHealth: 'source-failing' }),
+    ]);
+    scheduler.startLiveScheduler();
+    await new Promise((r) => setTimeout(r, 10));
+    expect(getStatusSnapshot().live?.message).toContain('source is failing');
+  });
+
+  it('falls back to the generic "reconnect" copy when degraded rows disagree on health (C7)', async () => {
+    listWorkflowRunCachesMock.mockResolvedValue([
+      makeRun({ workflowUid: 'a', exclusiveDegradedSince: Date.now(), refreshHealth: 'auth-failing' }),
+      makeRun({ workflowUid: 'b', exclusiveDegradedSince: Date.now(), refreshHealth: 'source-failing' }),
+    ]);
+    scheduler.startLiveScheduler();
+    await new Promise((r) => setTimeout(r, 10));
+    const snap = getStatusSnapshot();
+    expect(snap.live?.message).toContain('reconnect the desktop');
+    expect(snap.live?.context?.degraded).toBe(2);
   });
 
   it('the degraded message takes precedence over generic stale-yellow', async () => {

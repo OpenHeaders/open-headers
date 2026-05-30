@@ -19,6 +19,7 @@
  *      `__setLiveRefreshAdapter`.
  */
 
+import type { ExecutionPolicyResult } from '@openheaders/core/live';
 import type { Capture, LiveWorkflow, Request, WorkflowStep } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -48,6 +49,20 @@ vi.mock('@openheaders/oracle/entity/request-store', () => ({
 vi.mock('@openheaders/oracle/live/live-cache-store', () => ({
   putWorkflowRunCache: (...args: unknown[]) => putWorkflowRunCacheMock(...args),
   recordRefreshError: (...args: unknown[]) => recordRefreshErrorMock(...args),
+}));
+
+// The C7 health classifier reads the workflow's credential-step set from
+// the execution-policy resolver; in this isolated adapter test the entity
+// stores aren't materialized, so stub it to a no-credential workflow.
+const deriveExecutionPolicyForWorkflowMock = vi.fn(
+  (..._args: unknown[]): ExecutionPolicyResult => ({
+    policy: 'idempotent',
+    reasons: [],
+    credentialStepIds: new Set<string>(),
+  }),
+);
+vi.mock('@openheaders/oracle/live/execution-policy-resolver', () => ({
+  deriveExecutionPolicyForWorkflow: (...args: unknown[]) => deriveExecutionPolicyForWorkflowMock(...args),
 }));
 
 vi.mock('@/background/modules/live-refresh-scheduler', () => ({
@@ -324,6 +339,9 @@ describe('fetch-phase failures', () => {
     // never ran, so nothing is provably wrong with it).
     expect(errInput.extractorOk).toBe(true);
     expect(errInput.message).toContain('DNS failure');
+    // C7: a fetch-phase failure carries no status; a non-credential step
+    // failing to fetch is the source being unreachable.
+    expect(errInput.refreshHealth).toBe('source-failing');
   });
 
   it('missing request uid aborts the chain as fetch failure', async () => {
@@ -367,6 +385,30 @@ describe('extract-phase failures', () => {
     const [errInput] = recordRefreshErrorMock.mock.calls[0];
     expect(errInput.failedStepId).toBe('login');
     expect(errInput.extractorOk).toBe(false);
+    // C7: a 200-but-unextractable body on a non-credential step is the
+    // data source misbehaving, not auth.
+    expect(errInput.refreshHealth).toBe('source-failing');
+  });
+
+  it('classifies a credential-step failure as auth-failing (C7)', async () => {
+    getRequestMock.mockReturnValue(makeRequest());
+    executeForLiveChainMock.mockResolvedValue(makeSnapshot('<html>oops</html>'));
+    // The failing step ('login') is the workflow's credential step.
+    deriveExecutionPolicyForWorkflowMock.mockReturnValueOnce({
+      policy: 'exclusive',
+      reasons: [{ kind: 'totp', vaultName: 'seed' }],
+      credentialStepIds: new Set(['login']),
+    });
+
+    await expect(
+      adapterModule.liveChainAdapter.refreshWorkflow({
+        workspaceId: 'ws-1',
+        workflow: makeWorkflow(),
+        environmentId: null,
+      }),
+    ).rejects.toBeInstanceOf(adapterModule.ChainRefreshError);
+
+    expect(recordRefreshErrorMock.mock.calls[0][0].refreshHealth).toBe('auth-failing');
   });
 });
 
@@ -566,9 +608,7 @@ describe('skipped-step observability (Phase I)', () => {
           requestUid: 'reqmid000',
           dependsOn: ['probe'],
           runIf: {
-            all: [
-              { uid: 'gat0eq02', kind: 'capture-equals', stepId: 'probe', captureName: 'flag', value: 'yes' },
-            ],
+            all: [{ uid: 'gat0eq02', kind: 'capture-equals', stepId: 'probe', captureName: 'flag', value: 'yes' }],
           },
           captures: [{ name: 'midval', extractor: { kind: 'whole-body' } }],
         }),

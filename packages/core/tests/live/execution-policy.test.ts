@@ -254,3 +254,49 @@ describe('deriveExecutionPolicy — aggregation', () => {
     expect(result.policy).toBe('idempotent');
   });
 });
+
+// ── credentialStepIds (C7 byproduct) ───────────────────────────────
+
+describe('deriveExecutionPolicy — credentialStepIds', () => {
+  it('is empty for an idempotent workflow', () => {
+    const result = deriveExecutionPolicy(input());
+    expect(result.credentialStepIds.size).toBe(0);
+  });
+
+  it('records the id of the TOTP-consuming step only', () => {
+    const a = makeRequest({ uid: 'reqA1', url: 'https://api.openheaders.io/data' });
+    const b = makeRequest({ uid: 'reqB1', url: 'https://api.openheaders.io/?c={{vault.otp}}' });
+    const result = deriveExecutionPolicy(
+      input({
+        requests: [a, b],
+        vault: vault([totpSecret('otp')]),
+        requestsByUid: new Map([
+          [a.uid, a],
+          [b.uid, b],
+        ]),
+        workflow: {
+          steps: [
+            { id: 'fetch', requestUid: a.uid },
+            { id: 'login', requestUid: b.uid },
+          ],
+        },
+      }),
+    );
+    expect([...result.credentialStepIds]).toEqual(['login']);
+  });
+
+  it('records an OAuth-authed step id', () => {
+    const req = makeRequest({ auth: oauthAuth('authorization-code-pkce') });
+    const result = deriveExecutionPolicy(
+      input({ requests: [req], workflow: { steps: [{ id: 'authed', requestUid: req.uid }] } }),
+    );
+    expect([...result.credentialStepIds]).toEqual(['authed']);
+  });
+
+  it('omits steps with no id even when they carry a credential signal', () => {
+    const req = makeRequest({ url: 'https://api.openheaders.io/?c={{vault.otp}}' });
+    const result = deriveExecutionPolicy(input({ requests: [req], vault: vault([totpSecret('otp')]) }));
+    expect(result.policy).toBe('exclusive');
+    expect(result.credentialStepIds.size).toBe(0);
+  });
+});

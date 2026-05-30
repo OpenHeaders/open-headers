@@ -41,14 +41,13 @@
  */
 
 import {
-  type CircuitSnapshot,
   initialCircuitSnapshot,
   onCircuitFailure,
   onCircuitSuccess,
   resetCircuit as resetCircuitSnapshot,
   transitionOpenToHalfOpen,
 } from '@openheaders/core/live';
-import type { LiveValueRecord, WorkflowRunCache } from '@openheaders/core/types';
+import type { LiveValueRecord, RefreshHealth, WorkflowRunCache } from '@openheaders/core/types';
 import { logger } from '@openheaders/core/utils';
 import { entityLockName, withLock } from '@openheaders/oracle/coordination';
 import { hostStorage, OH, wsKeys } from '@openheaders/oracle/storage';
@@ -228,21 +227,33 @@ export async function applySyncedLiveValues(
     const mergedAt = Date.now();
     for (const [key, value] of Object.entries(values)) {
       const previous = current.runs[key];
-      if (
-        previous &&
-        previous.extractedAt === value.extractedAt &&
-        previous.expiresAt === value.expiresAt &&
-        sameCaptures(previous.stepCaptures, value.stepCaptures)
-      ) {
-        continue; // identical value — skip (producer echo / re-seed)
+      const valueChanged =
+        !previous ||
+        previous.extractedAt !== value.extractedAt ||
+        previous.expiresAt !== value.expiresAt ||
+        !sameCaptures(previous.stepCaptures, value.stepCaptures);
+      const incomingHealth = value.refreshHealth ?? 'ok';
+      const healthChanged = !previous || (previous.refreshHealth ?? 'ok') !== incomingHealth;
+      if (!valueChanged && !healthChanged) {
+        continue; // identical value + health — skip (producer echo / re-seed)
       }
       changed = true;
+      if (!valueChanged && previous) {
+        // Health-only update (WS-C C7): a failure preserved the captures,
+        // so only the backend's reported health moved. Do NOT bump
+        // `lastSyncedValueAt` (no fresh value arrived) and do NOT clear
+        // `exclusiveDegradedSince` (the backend is failing, not recovered)
+        // — those belong to a genuine value refresh below.
+        nextRuns[key] = { ...previous, refreshHealth: value.refreshHealth };
+        continue;
+      }
       nextRuns[key] = previous
         ? {
             ...previous,
             stepCaptures: value.stepCaptures,
             extractedAt: value.extractedAt,
             expiresAt: value.expiresAt,
+            refreshHealth: value.refreshHealth,
             lastSyncedValueAt: mergedAt,
             // A fresh remote value is the backend coming back to life —
             // clear any C9 exclusive-degraded mark so the pill drops out
@@ -256,6 +267,7 @@ export async function applySyncedLiveValues(
             stepResponseBytes: {},
             extractedAt: value.extractedAt,
             expiresAt: value.expiresAt,
+            refreshHealth: value.refreshHealth,
             consecutiveFailures: 0,
             lastExtractorOk: true,
             circuit: initialCircuitSnapshot(),
@@ -274,10 +286,7 @@ export async function applySyncedLiveValues(
   if (changed) notifyChange(workspaceId, null, postWriteRuns);
 }
 
-function sameCaptures(
-  a: Record<string, Record<string, string>>,
-  b: Record<string, Record<string, string>>,
-): boolean {
+function sameCaptures(a: Record<string, Record<string, string>>, b: Record<string, Record<string, string>>): boolean {
   const aKeys = Object.keys(a);
   if (aKeys.length !== Object.keys(b).length) return false;
   for (const stepId of aKeys) {
@@ -366,6 +375,9 @@ export async function putWorkflowRunCache(input: SuccessfulRunInput, workspaceId
       consecutiveFailures: 0,
       lastExtractorOk: true,
       circuit: nextCircuit,
+      // A successful run is, by definition, healthy — stamp it so the
+      // synced subset (and any peer's degraded banner) reflects recovery.
+      refreshHealth: 'ok',
     };
     const next: LiveCacheBlob = {
       schemaVersion: current.schemaVersion,
@@ -393,6 +405,7 @@ export async function putWorkflowRunCache(input: SuccessfulRunInput, workspaceId
         stepCaptures: input.stepCaptures,
         extractedAt: input.extractedAt,
         expiresAt: input.expiresAt,
+        refreshHealth: 'ok',
       },
     },
     wsId,
@@ -410,6 +423,16 @@ export interface RefreshErrorInput {
    * Preserves the cached captures — the response was real.
    */
   extractorOk?: boolean;
+  /**
+   * The classified failure category (WS-C C7), from the producer's
+   * `classifyRefreshHealth`. Persisted on the row and — when it is a
+   * genuine category transition on a row that already holds a value —
+   * propagated over §4 (preserved captures + the new health) so a peer
+   * learns "the backend is present but its source/auth is failing." Omit
+   * on the defensive scheduler-fallback path (no outcome to classify) —
+   * the previous health is then preserved and nothing propagates.
+   */
+  refreshHealth?: Exclude<RefreshHealth, 'ok'>;
 }
 
 /**
@@ -426,6 +449,7 @@ export async function recordRefreshError(input: RefreshErrorInput, workspaceId?:
   const key = runKey(input.workflowUid, input.environmentId);
   const now = Date.now();
   let latest: WorkflowRunCache;
+  let prior: WorkflowRunCache | undefined;
   let postWriteRuns: WorkflowRunCache[] = [];
   await withCacheLock(wsId, async () => {
     const current = await readBlob(wsId);
@@ -457,6 +481,10 @@ export async function recordRefreshError(input: RefreshErrorInput, workspaceId?:
       // preserve the C9 exclusive-degraded mark until a genuinely fresh
       // remote value (or an own success) clears it.
       exclusiveDegradedSince: previous?.exclusiveDegradedSince,
+      // The classified failure category (WS-C C7). Absent input (the
+      // defensive scheduler-fallback path) preserves the previous health
+      // rather than guessing.
+      refreshHealth: input.refreshHealth ?? previous?.refreshHealth,
     };
     const next: LiveCacheBlob = {
       schemaVersion: current.schemaVersion,
@@ -465,8 +493,32 @@ export async function recordRefreshError(input: RefreshErrorInput, workspaceId?:
     };
     await writeBlob(wsId, next);
     postWriteRuns = Object.values(next.runs);
+    prior = previous;
   });
   notifyChange(wsId, input.workflowUid, postWriteRuns);
+  // §4 health propagation (WS-C C7): a failure preserves the captures
+  // (atomic refresh), so the only changed wire field is `refreshHealth`.
+  // Propagate ONLY on a genuine category transition on a row that already
+  // holds a value — a peer with no value has nothing to attach the health
+  // to, and re-emitting an unchanged category every failed tick would
+  // grow the mutation log for no new information. The peer reads presence
+  // from its connection probe; this enum only specializes the banner copy.
+  if (input.refreshHealth && prior && prior.extractedAt > 0 && prior.refreshHealth !== input.refreshHealth) {
+    propagator?.(
+      {
+        runKey: key,
+        value: {
+          workflowUid: latest!.workflowUid,
+          environmentId: latest!.environmentId,
+          stepCaptures: latest!.stepCaptures,
+          extractedAt: latest!.extractedAt,
+          expiresAt: latest!.expiresAt,
+          refreshHealth: input.refreshHealth,
+        },
+      },
+      wsId,
+    );
+  }
   return latest!;
 }
 

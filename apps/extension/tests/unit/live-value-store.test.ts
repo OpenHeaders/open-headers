@@ -83,6 +83,9 @@ describe('putWorkflowRunCache → propagator', () => {
       stepCaptures: { s1: { token: 'fresh' } },
       extractedAt: 1000,
       expiresAt: 5000,
+      // A successful run propagates its health as the synced subset's only
+      // non-value field (C7).
+      refreshHealth: 'ok',
     });
     // Bookkeeping / observability never crosses.
     expect(input.value).not.toHaveProperty('stepResponseBytes');
@@ -258,6 +261,119 @@ describe('exclusiveDegradedSince — C9 escape-hatch marker', () => {
     await recordRefreshError({ workflowUid: WF, environmentId: null, message: 'boom' }, WS);
 
     expect((await getWorkflowRunCache(WF, null, WS))?.exclusiveDegradedSince).toBe(1234);
+  });
+});
+
+describe('refreshHealth — C7 health sync', () => {
+  async function seedHealthy(extractedAt = 1000): Promise<void> {
+    await putWorkflowRunCache(
+      {
+        workflowUid: WF,
+        environmentId: null,
+        stepCaptures: { s1: { token: 'good' } },
+        stepResponseBytes: {},
+        extractedAt,
+        expiresAt: 5000,
+      },
+      WS,
+    );
+  }
+
+  it('propagates the preserved value + new health on a failure category transition', async () => {
+    await seedHealthy();
+    const propagator = vi.fn();
+    setLiveValuePropagator(propagator);
+
+    await recordRefreshError(
+      { workflowUid: WF, environmentId: null, message: 'src down', refreshHealth: 'source-failing' },
+      WS,
+    );
+
+    expect(propagator).toHaveBeenCalledTimes(1);
+    const [{ value }] = propagator.mock.calls[0];
+    // Captures are preserved (atomic refresh) — only health moved.
+    expect(value.stepCaptures).toEqual({ s1: { token: 'good' } });
+    expect(value.extractedAt).toBe(1000);
+    expect(value.refreshHealth).toBe('source-failing');
+  });
+
+  it('does NOT re-propagate when the failure category is unchanged', async () => {
+    await seedHealthy();
+    await recordRefreshError(
+      { workflowUid: WF, environmentId: null, message: 'src down', refreshHealth: 'source-failing' },
+      WS,
+    );
+    const propagator = vi.fn();
+    setLiveValuePropagator(propagator);
+
+    await recordRefreshError(
+      { workflowUid: WF, environmentId: null, message: 'still down', refreshHealth: 'source-failing' },
+      WS,
+    );
+
+    expect(propagator).not.toHaveBeenCalled();
+  });
+
+  it('re-propagates when the category flips source-failing → auth-failing', async () => {
+    await seedHealthy();
+    await recordRefreshError(
+      { workflowUid: WF, environmentId: null, message: 'src down', refreshHealth: 'source-failing' },
+      WS,
+    );
+    const propagator = vi.fn();
+    setLiveValuePropagator(propagator);
+
+    await recordRefreshError(
+      { workflowUid: WF, environmentId: null, message: '401', refreshHealth: 'auth-failing' },
+      WS,
+    );
+
+    expect(propagator).toHaveBeenCalledTimes(1);
+    expect(propagator.mock.calls[0][0].value.refreshHealth).toBe('auth-failing');
+  });
+
+  it('does NOT propagate a failure when no prior value exists (nothing to attach to)', async () => {
+    const propagator = vi.fn();
+    setLiveValuePropagator(propagator);
+
+    await recordRefreshError(
+      { workflowUid: WF, environmentId: null, message: 'src down', refreshHealth: 'source-failing' },
+      WS,
+    );
+
+    expect(propagator).not.toHaveBeenCalled();
+  });
+
+  it('health-only merge updates refreshHealth without bumping lastSyncedValueAt or clearing degrade', async () => {
+    await applySyncedLiveValues(WS, { [runKey(WF, null)]: value({ refreshHealth: 'ok' }) });
+    await markExclusiveDegradedForRun(WF, null, 1234, WS);
+    const stamp = (await getWorkflowRunCache(WF, null, WS))?.lastSyncedValueAt;
+
+    // Identical captures/extractedAt/expiresAt — only the backend's health moved.
+    await applySyncedLiveValues(WS, { [runKey(WF, null)]: value({ refreshHealth: 'source-failing' }) });
+
+    const after = await getWorkflowRunCache(WF, null, WS);
+    expect(after?.refreshHealth).toBe('source-failing');
+    expect(after?.lastSyncedValueAt).toBe(stamp); // NOT bumped — no fresh value
+    expect(after?.exclusiveDegradedSince).toBe(1234); // degrade preserved — backend still failing
+  });
+
+  it('a genuine value change sets health to ok and clears the degrade (backend recovered)', async () => {
+    await applySyncedLiveValues(WS, { [runKey(WF, null)]: value({ refreshHealth: 'source-failing' }) });
+    await markExclusiveDegradedForRun(WF, null, 1234, WS);
+
+    await applySyncedLiveValues(WS, {
+      [runKey(WF, null)]: value({
+        stepCaptures: { s1: { token: 'fresh2' } },
+        extractedAt: 9000,
+        expiresAt: 9900,
+        refreshHealth: 'ok',
+      }),
+    });
+
+    const after = await getWorkflowRunCache(WF, null, WS);
+    expect(after?.refreshHealth).toBe('ok');
+    expect(after?.exclusiveDegradedSince).toBeUndefined();
   });
 });
 

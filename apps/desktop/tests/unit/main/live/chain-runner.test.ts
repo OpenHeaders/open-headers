@@ -16,6 +16,11 @@ const h = vi.hoisted(() => ({
   runChain: vi.fn(),
   putWorkflowRunCache: vi.fn(),
   recordRefreshError: vi.fn(),
+  deriveExecutionPolicyForWorkflow: vi.fn(() => ({
+    policy: 'idempotent' as const,
+    reasons: [],
+    credentialStepIds: new Set<string>(),
+  })),
 }));
 
 // `deriveExpiresAt` is pure and lifted into core/live; keep the real one
@@ -34,6 +39,9 @@ vi.mock('@openheaders/oracle-host-node/live/node-request-transport', () => ({
 vi.mock('@openheaders/oracle/live/live-cache-store', () => ({
   putWorkflowRunCache: h.putWorkflowRunCache,
   recordRefreshError: h.recordRefreshError,
+}));
+vi.mock('@openheaders/oracle/live/execution-policy-resolver', () => ({
+  deriveExecutionPolicyForWorkflow: h.deriveExecutionPolicyForWorkflow,
 }));
 vi.mock('@openheaders/core/utils', () => ({
   logger: { warn: vi.fn(), info: vi.fn(), debug: vi.fn(), error: vi.fn() },
@@ -122,6 +130,7 @@ describe('runDesktopWorkflowRefresh — failure commit', () => {
       failedPhase: 'extract',
       failedReason: 'bad json path',
       failedStepId: 's1',
+      partialStepStatuses: new Map([['s1', 200]]),
     });
     const workflow = makeWorkflow({ refresh: { kind: 'interval', seconds: 60 } });
 
@@ -137,15 +146,39 @@ describe('runDesktopWorkflowRefresh — failure commit', () => {
       failedStepId: 's1',
       message: 'bad json path',
       extractorOk: false,
+      // C7: 200-status extract failure on a non-credential step → source.
+      refreshHealth: 'source-failing',
     });
   });
 
   it('marks a fetch failure extractor-ok (structural, not a user extractor fault)', async () => {
-    h.runChain.mockResolvedValue({ ok: false, failedPhase: 'fetch', failedReason: 'ECONNREFUSED', failedStepId: 's2' });
+    h.runChain.mockResolvedValue({
+      ok: false,
+      failedPhase: 'fetch',
+      failedReason: 'ECONNREFUSED',
+      failedStepId: 's2',
+      partialStepStatuses: new Map(),
+    });
     const workflow = makeWorkflow({ refresh: { kind: 'interval', seconds: 60 } });
 
     await runDesktopWorkflowRefresh({ workspaceId: 'ws-1', workflow, environmentId: null });
 
     expect(h.recordRefreshError.mock.calls[0][0].extractorOk).toBe(true);
+    expect(h.recordRefreshError.mock.calls[0][0].refreshHealth).toBe('source-failing');
+  });
+
+  it('classifies a 401 on the failed step as auth-failing (C7)', async () => {
+    h.runChain.mockResolvedValue({
+      ok: false,
+      failedPhase: 'extract',
+      failedReason: 'unauthorized',
+      failedStepId: 's1',
+      partialStepStatuses: new Map([['s1', 401]]),
+    });
+    const workflow = makeWorkflow({ refresh: { kind: 'interval', seconds: 60 } });
+
+    await runDesktopWorkflowRefresh({ workspaceId: 'ws-1', workflow, environmentId: null });
+
+    expect(h.recordRefreshError.mock.calls[0][0].refreshHealth).toBe('auth-failing');
   });
 });

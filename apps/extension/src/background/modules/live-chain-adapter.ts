@@ -45,18 +45,24 @@ import {
   type ChainRunFailure,
   type ChainRunOutcome,
   type ChainRunSuccess,
+  classifyRefreshHealth,
   deriveExpiresAt,
   type FetchAdapter,
   runChain,
 } from '@openheaders/core/live';
 import type { LiveWorkflow } from '@openheaders/core/types';
+import { getRequestInWorkspace } from '@openheaders/oracle/entity/request-store';
+import { deriveExecutionPolicyForWorkflow } from '@openheaders/oracle/live/execution-policy-resolver';
+import {
+  putWorkflowRunCache,
+  recordManualBypassFailureForRun,
+  recordRefreshError,
+} from '@openheaders/oracle/live/live-cache-store';
 import { logger } from '@utils/logger';
-import { putWorkflowRunCache, recordManualBypassFailureForRun, recordRefreshError } from '@openheaders/oracle/live/live-cache-store';
 import { __setLiveRefreshAdapter, type LiveRefreshAdapter } from './live-refresh-scheduler';
 import { recordLog } from './observability-log';
 import { withRefreshRateLimit } from './refresh-scheduler';
 import { type ExecutedRequestSnapshot, executeForLiveChain } from './request-executor';
-import { getRequestInWorkspace } from '@openheaders/oracle/entity/request-store';
 
 // ── FetchAdapter — translates runChain hops into executor calls ────
 
@@ -291,9 +297,18 @@ async function commitFailure(
     extractorOk,
   };
   if (bypass) {
+    // A manual "Retry now" doesn't advance the circuit and isn't a natural
+    // producer tick — leave the synced health untouched too.
     await recordManualBypassFailureForRun(errorInput, workspaceId);
   } else {
-    await recordRefreshError(errorInput, workspaceId);
+    // Classify the failure (WS-C C7) so a deferring peer can tell the
+    // backend's source from its credential. `credentialStepIds` is a free
+    // byproduct of the execution-policy scan.
+    const { credentialStepIds } = deriveExecutionPolicyForWorkflow(workspaceId, workflow, environmentId);
+    await recordRefreshError(
+      { ...errorInput, refreshHealth: classifyRefreshHealth(outcome, credentialStepIds) },
+      workspaceId,
+    );
   }
   // Re-throw so the scheduler's `handleLiveAlarm` records a
   // `refresh-failed` observability entry with the failure message.

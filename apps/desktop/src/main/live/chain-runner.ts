@@ -35,11 +35,13 @@ import {
   type ChainRunFailure,
   type ChainRunOutcome,
   type ChainRunSuccess,
+  classifyRefreshHealth,
   deriveExpiresAt,
   runChain,
 } from '@openheaders/core/live';
 import type { LiveWorkflow } from '@openheaders/core/types';
 import { logger } from '@openheaders/core/utils';
+import { deriveExecutionPolicyForWorkflow } from '@openheaders/oracle/live/execution-policy-resolver';
 import { putWorkflowRunCache, recordRefreshError } from '@openheaders/oracle/live/live-cache-store';
 import { buildChainFetchAdapter } from '@openheaders/oracle/live/request-exec/chain-adapter';
 import { createNodeRequestTransport } from '@openheaders/oracle-host-node/live/node-request-transport';
@@ -130,6 +132,11 @@ async function commitFailure(
   // Status yellow path. `'fetch'` / `'graph'` are upstream / structural
   // → extractor-ok so Status uses its red path when failures compound.
   const extractorOk = outcome.failedPhase !== 'extract';
+  // Classify the failure (WS-C C7) so a deferring peer learns whether the
+  // backend's data source or its credential is the problem. The credential
+  // step set is a free byproduct of the same scan that derives the
+  // execution policy.
+  const { credentialStepIds } = deriveExecutionPolicyForWorkflow(workspaceId, workflow, environmentId);
   await recordRefreshError(
     {
       workflowUid: workflow.uid,
@@ -137,6 +144,7 @@ async function commitFailure(
       message: outcome.failedReason,
       failedStepId: outcome.failedStepId,
       extractorOk,
+      refreshHealth: classifyRefreshHealth(outcome, credentialStepIds),
     },
     workspaceId,
   );
@@ -145,4 +153,3 @@ async function commitFailure(
     `Workflow ${workflow.uid} refresh failed at step ${outcome.failedStepId} (${outcome.failedPhase}): ${outcome.failedReason}`,
   );
 }
-

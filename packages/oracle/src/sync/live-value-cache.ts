@@ -58,6 +58,7 @@ function projectFromLiveCacheBlob(raw: unknown): LiveValueSnapshot | null {
       stepCaptures: row.stepCaptures ?? {},
       extractedAt: row.extractedAt,
       expiresAt: row.expiresAt ?? null,
+      refreshHealth: row.refreshHealth,
     };
   }
   return { schemaVersion: 5, values };

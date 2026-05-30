@@ -68,11 +68,19 @@ export interface ExecutionPolicyResult {
   policy: ExecutionPolicy;
   /** Deduped, in discovery order. Empty when `policy === 'idempotent'`. */
   reasons: ExclusivityReason[];
+  /**
+   * Step ids that carry a credential/auth signal (consume a TOTP code, or
+   * are OAuth-authed) — the byproduct of the same per-step scan that
+   * derives `reasons`. The WS-C C7 refresh-health classifier reads this to
+   * label a failure `auth-failing` when it halts on a credential step.
+   * Only populated for steps whose input carries an `id`.
+   */
+  credentialStepIds: Set<string>;
 }
 
 export interface ExecutionPolicyInput {
-  /** The workflow whose steps are classified. */
-  workflow: { steps: ReadonlyArray<{ requestUid: string }> };
+  /** The workflow whose steps are classified. `id` (when present) keys `credentialStepIds`. */
+  workflow: { steps: ReadonlyArray<{ id?: string; requestUid: string }> };
   /** Resolve a step's request by uid; a missing entry contributes no signal (the runner fails on it separately). */
   requestsByUid: ReadonlyMap<string, Request>;
   /** Workspace vault — classifies `{{vault.X}}` references by `kind`. */
@@ -173,18 +181,24 @@ export function deriveExecutionPolicy(input: ExecutionPolicyInput): ExecutionPol
   const taintedNames = computeTotpTaintedNames(input.scope, totpNames);
 
   const reasons: ExclusivityReason[] = [];
+  const credentialStepIds = new Set<string>();
   for (const step of input.workflow.steps) {
     const request = input.requestsByUid.get(step.requestUid);
     if (!request) continue;
 
+    const before = reasons.length;
     collectTotpReasons(request, totpNames, taintedNames, reasons);
     collectOAuthReason(request, reasons);
+    // This step carried a credential signal (TOTP-consume / OAuth-auth) —
+    // record its id so the C7 health classifier can label a failure here
+    // `auth-failing` rather than `source-failing`.
+    if (reasons.length > before && step.id !== undefined) credentialStepIds.add(step.id);
   }
 
   if (input.optInExclusive) reasons.push({ kind: 'opt-in' });
 
   const deduped = dedupeReasons(reasons);
-  return { policy: deduped.length > 0 ? 'exclusive' : 'idempotent', reasons: deduped };
+  return { policy: deduped.length > 0 ? 'exclusive' : 'idempotent', reasons: deduped, credentialStepIds };
 }
 
 function collectTotpReasons(

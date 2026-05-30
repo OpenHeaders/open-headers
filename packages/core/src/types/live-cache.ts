@@ -10,6 +10,25 @@
 import type { CircuitSnapshot } from '../live';
 
 /**
+ * How the *producing* host's last refresh of a live value fared, as a
+ * closed three-value summary that rides §4 beside the value (WS-C C7):
+ *
+ *   - `ok` — the last refresh succeeded.
+ *   - `source-failing` — the refresh failed at a non-credential step (the
+ *     upstream data source is down / erroring).
+ *   - `auth-failing` — the refresh failed at the credential/auth step (a
+ *     401/403, or a failure on a step that consumes a TOTP code / is
+ *     OAuth-authed) — the credential, not the data source, is the problem.
+ *
+ * Deliberately NOT the circuit / failure-count bookkeeping: a peer reads
+ * *presence* from its connection probe and only consults this enum to
+ * specialize the "exclusive credential can't refresh" banner copy into
+ * "the backend's source is failing" vs "...auth is failing." Pinned to a
+ * closed enum so it never widens into host-local circuit state.
+ */
+export type RefreshHealth = 'ok' | 'source-failing' | 'auth-failing';
+
+/**
  * One workflow's last-extraction snapshot for one environment.
  * Intentionally NOT a valibot schema — the cache is ephemeral and
  * written exclusively by the SW, so the at-rest shape is defined by
@@ -88,15 +107,28 @@ export interface WorkflowRunCache {
    * host-local runner bookkeeping — never enters {@link LiveValueRecord}.
    */
   exclusiveDegradedSince?: number;
+  /**
+   * The producing host's last-refresh health for this row (WS-C C7).
+   * Unlike the host-local bookkeeping above, this is part of the synced
+   * value subset — it rides §4 in {@link LiveValueRecord} so a deferring
+   * peer can specialize its degraded banner ("the backend's source is
+   * failing" vs "...auth is failing"). The producer sets `'ok'` on a
+   * successful {@link putWorkflowRunCache} and the classified failure
+   * category on `recordRefreshError`; the receive-side merge mirrors it.
+   * Absent ⇒ treated as `'ok'` (no specialization).
+   */
+  refreshHealth?: RefreshHealth;
 }
 
 /**
  * The cross-host-synced projection of a {@link WorkflowRunCache} row —
- * the *value* subset that rides §4 to paired peers (WS-C C6). Only the
- * derived value crosses the wire; every other `WorkflowRunCache` field
+ * the *value* subset that rides §4 to paired peers (WS-C C6) plus the
+ * tiny `refreshHealth` enum (WS-C C7). The derived value + that one
+ * health byte cross the wire; every other `WorkflowRunCache` field
  * (`circuit`, `consecutiveFailures`, `lastError*`, `lastExtractorOk`,
- * `stepResponseBytes`, `definitionallyStale`, `lastSyncedValueAt`) is
- * per-host *runner* bookkeeping that each host derives for itself and
+ * `stepResponseBytes`, `definitionallyStale`, `lastSyncedValueAt`,
+ * `exclusiveDegradedSince`) is per-host *runner* bookkeeping that each
+ * host derives for itself and
  * never syncs.
  *
  * `workflowUid` + `environmentId` are carried explicitly (not only in
@@ -116,4 +148,12 @@ export interface LiveValueRecord {
   extractedAt: number;
   /** Derived expiry (from refresh policy / `expires-in` / `expires-at`), or null if none. */
   expiresAt: number | null;
+  /**
+   * The producing host's last-refresh health (WS-C C7) — the only
+   * non-value field in the synced subset. Lets a deferring peer say *why*
+   * an exclusive credential isn't refreshing (source vs auth) instead of a
+   * backend-agnostic "reconnect." Absent ⇒ `'ok'`. NOT the circuit / error
+   * bookkeeping, which stays host-local (see {@link RefreshHealth}).
+   */
+  refreshHealth?: RefreshHealth;
 }
