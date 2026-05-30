@@ -79,6 +79,19 @@ import type { PairingHttpHandler } from './pairing-http';
 const SCOPE = 'OracleWsServer';
 const HANDSHAKE_TIMEOUT_MS = 5_000;
 
+/**
+ * Server-driven liveness sweep cadence. Each tick terminates any peer
+ * that didn't answer the previous protocol-level PING (or send any other
+ * frame) since the last sweep, then re-pings the survivors. Without this
+ * a peer that dies *without* a clean TCP close — laptop sleep, hard
+ * crash, cable pull, Wi-Fi drop — lingers in the registry until the OS
+ * TCP stack gives up (minutes), inflating `connectedCount()` and keeping
+ * a corpse eligible for `broadcastFrame`. Independent of the client's
+ * `backend.pingIntervalMs` (a different layer, client-owned, anti-proxy-
+ * idle) so a client config can't weaken server-side dead-peer eviction.
+ */
+const HEARTBEAT_INTERVAL_MS = 30_000;
+
 interface PingMessage {
   type: 'ping';
   t?: number;
@@ -122,6 +135,12 @@ export interface OracleWsServerOptions {
    * exercise the WS-B reach gate (plan §10). Production never sets it.
    */
   classifyLoopback?: (remoteAddress: string | undefined) => boolean;
+  /**
+   * Override the server-driven heartbeat sweep cadence (ms). Defaults to
+   * {@link HEARTBEAT_INTERVAL_MS}; tests set a short interval to exercise
+   * dead-peer eviction without a 30s wait. Production never sets it.
+   */
+  heartbeatIntervalMs?: number;
 }
 
 /**
@@ -236,6 +255,7 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
   const handshakeIdentity = options.handshakeIdentity;
   const httpRequestHandler = options.httpRequestHandler;
   const classifyLoopback = options.classifyLoopback ?? isLoopbackRemote;
+  const heartbeatIntervalMs = options.heartbeatIntervalMs ?? HEARTBEAT_INTERVAL_MS;
 
   // Own the underlying http.Server so the pairing surface (U3.3) can
   // attach to non-upgrade `request` events on the same bind. Without
@@ -287,6 +307,12 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
   // read path doesn't touch `PeerConnection` internals.
   const summaryBySocket = new Map<WebSocket, PeerSummary>();
   const peerChangeListeners = new Set<PeerChangeListener>();
+  // Liveness flag per socket — set true on any inbound frame (protocol
+  // pong or application message), flipped false by each heartbeat sweep
+  // before it re-pings. A socket still false at the next sweep is
+  // unresponsive and gets terminated. A WeakMap so a closed socket's
+  // entry is reclaimed without manual cleanup.
+  const alive = new WeakMap<WebSocket, boolean>();
   let closed = false;
 
   function emitPeerChange(event: PeerChangeEvent): void {
@@ -317,6 +343,11 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
     // paired token. `isLoopback` is kept for reporting + reach, not auth.
     const isLoopback = classifyLoopback(request.socket.remoteAddress);
     const requireAuth = true;
+    // Heartbeat bookkeeping — a fresh socket is alive; a protocol-level
+    // pong reply re-arms it (the message handler below re-arms on any
+    // application frame too).
+    alive.set(socket, true);
+    socket.on('pong', () => alive.set(socket, true));
     let handshakeDone = false;
     const handshakeTimer = setTimeout(() => {
       if (handshakeDone) return;
@@ -329,6 +360,9 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
     }, HANDSHAKE_TIMEOUT_MS);
 
     socket.on('message', (raw: RawData) => {
+      // Any inbound application frame proves the peer is alive — re-arm
+      // so a busy peer whose protocol pong was dropped isn't reaped.
+      alive.set(socket, true);
       // The handler is wrapped in an async IIFE so the HELLO gate can
       // await the token-store read. Post-handshake branches stay
       // synchronous; only the one async edge runs through the IIFE.
@@ -509,6 +543,29 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
     });
   });
 
+  // Server-driven liveness sweep. A peer that answered neither the prior
+  // PING nor sent any frame since the last tick is terminated; the
+  // `terminate()` fires the socket's `'close'` handler, which runs the
+  // same registry cleanup + `disconnect` emission as a clean close. The
+  // timer is `unref`'d so it never holds the process open on its own.
+  const heartbeatTimer = setInterval(() => {
+    for (const socket of wss.clients) {
+      if (alive.get(socket) === false) {
+        socket.terminate();
+        continue;
+      }
+      alive.set(socket, false);
+      try {
+        socket.ping();
+      } catch (err) {
+        // A failing ping means the socket is already going away; its
+        // `'close'` event (or the next sweep) reaps it.
+        logger.warn(SCOPE, 'heartbeat ping failed', err);
+      }
+    }
+  }, heartbeatIntervalMs);
+  heartbeatTimer.unref();
+
   function sendFrameToReady(serialized: string, loopbackOnly: boolean): void {
     for (const socket of ready) {
       if (socket.readyState !== WebSocket.OPEN) continue;
@@ -557,6 +614,7 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
     async close() {
       if (closed) return;
       closed = true;
+      clearInterval(heartbeatTimer);
       for (const peerConn of peerBySocket.values()) peerConn.close(1001, 'server shutting down');
       peerBySocket.clear();
       // Fan a disconnect event per outstanding peer so status reporters

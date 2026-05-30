@@ -26,6 +26,7 @@ import {
   startOracleWsServer,
 } from '@openheaders/oracle-host-node/host-runtime/ws-server';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import type { ClientOptions } from 'ws';
 import { WebSocket } from 'ws';
 import { createHostStorageFake } from './_host-storage-fake';
 
@@ -62,8 +63,8 @@ function hello(overrides: Record<string, unknown> = {}): string {
 }
 
 /** Connect a loopback client and resolve once its HELLO is accepted. */
-async function connectAccepted(port: number, helloFrame: string): Promise<WebSocket> {
-  const client = new WebSocket(`ws://127.0.0.1:${port}`);
+async function connectAccepted(port: number, helloFrame: string, options?: ClientOptions): Promise<WebSocket> {
+  const client = new WebSocket(`ws://127.0.0.1:${port}`, options);
   clients.push(client);
   await new Promise<void>((resolve, reject) => {
     client.once('open', () => resolve());
@@ -299,5 +300,54 @@ describe('OracleWsServer — WS-B reach gate (loopbackOnly broadcast)', () => {
     await sentinel;
 
     expect(received).toEqual(['test.rule']);
+  });
+});
+
+describe('OracleWsServer — heartbeat liveness sweep', () => {
+  it('terminates a peer that stops answering heartbeats and fires disconnect', async () => {
+    const port = await freePort();
+    server = await startOracleWsServer({
+      host: '127.0.0.1',
+      port,
+      handshakeIdentity: IDENTITY,
+      // Fast sweep so eviction lands in ~2 ticks instead of 30s.
+      heartbeatIntervalMs: 40,
+    });
+
+    const connected = nextEvent(server, 'connect');
+    // `autoPong: false` → the client receives the server's protocol PING
+    // but never replies, simulating a half-dead peer (TCP up, app
+    // unresponsive). No clean close is sent, so only the heartbeat sweep
+    // can reap it.
+    await connectAccepted(port, hello(), { autoPong: false });
+    await connected;
+    expect(server.connectedCount()).toBe(1);
+
+    const event = await nextEvent(server, 'disconnect');
+    expect(event.kind).toBe('disconnect');
+    expect(event.peer.role).toBe('extension');
+    expect(server.connectedCount()).toBe(0);
+    expect(server.listConnectedPeers()).toHaveLength(0);
+  });
+
+  it('keeps an auto-ponging peer connected across multiple sweeps', async () => {
+    const port = await freePort();
+    server = await startOracleWsServer({
+      host: '127.0.0.1',
+      port,
+      handshakeIdentity: IDENTITY,
+      heartbeatIntervalMs: 30,
+    });
+
+    const connected = nextEvent(server, 'connect');
+    // Default client auto-pongs at the protocol layer, so it must survive
+    // several sweep cycles — no false-positive eviction of a live peer.
+    await connectAccepted(port, hello());
+    await connected;
+
+    await new Promise((resolve) => setTimeout(resolve, 150));
+
+    expect(server.connectedCount()).toBe(1);
+    expect(server.listConnectedPeers()).toHaveLength(1);
   });
 });
