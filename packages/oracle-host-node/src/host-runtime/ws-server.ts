@@ -222,14 +222,15 @@ export interface OracleWsServer {
  */
 /**
  * True when an incoming socket's remote address is a loopback address —
- * the peer is a process on this same machine. Such peers stay
- * trust-by-process even when the daemon binds a LAN interface: the
- * trust model for a loopback-origin connection is identical to a pure
- * loopback bind, so a `0.0.0.0`-bound daemon still waves through
- * same-machine clients token-free and only requires a token from
- * genuine LAN peers. Auth is decided per-connection, not server-wide
- * (`UNIFIED_ORACLE_MODEL.md` §4.2 + §11.4). IPv4-mapped IPv6 loopback
- * (`::ffff:127.0.0.1`) is normalized before the check.
+ * the peer is a process on this same machine. This is a
+ * **reporting + reach** classifier only; it does NOT gate auth. Since A1
+ * every peer presents a paired token regardless of origin (loopback is
+ * reachable cross-user on a shared box and TCP blocks OS peer-cred, so
+ * trust-by-process isn't a sound floor). The classification still matters
+ * downstream: a same-device (loopback) peer is the only one allowed to
+ * receive same-device-only secrets (the WS-B vault reach gate), and admin
+ * surfaces distinguish a loopback peer from a LAN one. IPv4-mapped IPv6
+ * loopback (`::ffff:127.0.0.1`) is normalized before the check.
  */
 function isLoopbackRemote(remoteAddress: string | undefined): boolean {
   if (!remoteAddress) return false;
