@@ -22,17 +22,25 @@
  *      audited: a denial here is a privilege failure, not a routing
  *      decision, and belongs in the forensic record.
  *
- * The layers run cheapest-first (echo needs no snapshot; tenancy and
- * authz share one). A drop short-circuits — an envelope withheld by
+ * Ahead of those three is a **reach floor (WS-B B1)**: a same-device-only
+ * mutation (a vault root secret) must never cross the wire to an
+ * off-device backend. This is the client→backend mirror of the host-side
+ * `loopbackOnly` broadcast + `offDevicePeer` catch-up gates (which cover
+ * only the backend→peer direction). The "is the backend off-device?"
+ * predicate is host-injected ({@link setOutboundReachGuard}) because the
+ * loopback classification lives in the host.
+ *
+ * The layers run cheapest-first (reach + echo need no snapshot; tenancy
+ * and authz share one). A drop short-circuits — an envelope withheld by
  * tenancy never reaches the authz check, so no audit entry is minted for
  * a check that never ran.
  */
 
 import { consumedOrgIds, emitAuditEntry, getIdentitySnapshot, hasCapability } from '@openheaders/core/identity';
-import type { MutationEnvelope } from '@openheaders/core/sync';
+import { isSameDeviceOnlyMutation, type MutationEnvelope } from '@openheaders/core/sync';
 
 /** Which layer withheld the envelope — drives caller logging + queue handling. */
-export type OutboundDropLayer = 'echo' | 'tenancy' | 'authz';
+export type OutboundDropLayer = 'reach' | 'echo' | 'tenancy' | 'authz';
 
 export type OutboundVerdict =
   | { readonly allow: true }
@@ -54,12 +62,38 @@ export function setOutboundEchoGuard(predicate: (mutationId: string) => boolean)
 }
 
 /**
+ * Predicate: is the backend this host pushes to off-device (non-loopback)?
+ * Host-coupled — the extension SW wires `() => !isLoopbackBackend()`. A
+ * same-device-only mutation (vault root secret) must never cross to an
+ * off-device backend; it may cross a loopback socket to the same device
+ * (sanctioned by plan §B.2 — the same allowance the host-side gate makes
+ * for a loopback peer). Defaults to "same-device" so an unwired host /
+ * test harness never withholds — the reach drop engages only once a host
+ * opts in by declaring its backend can be off-device.
+ */
+let isBackendOffDevice: () => boolean = () => false;
+
+/** Install the backend-reach predicate. Called once by host boot wiring. */
+export function setOutboundReachGuard(predicate: () => boolean): void {
+  isBackendOffDevice = predicate;
+}
+
+/**
  * Decide whether `envelope` may be sent to the backend. Pure of
  * transport — the caller sends, enqueues, or ack-drops based on the
  * verdict. The authz layer emits an audit entry as a side effect; the
  * echo + tenancy layers are silent (routing decisions, not denials).
  */
 export function evaluateOutboundEnvelope(envelope: MutationEnvelope): OutboundVerdict {
+  // Reach floor (WS-B B1): a same-device-only mutation (vault root secret)
+  // must not cross the wire to an off-device backend — the client→backend
+  // mirror of the host-side loopbackOnly broadcast + offDevicePeer catch-up
+  // gates. Cheapest + strongest (entity-type + a host predicate, no
+  // snapshot), so it runs first.
+  if (isSameDeviceOnlyMutation(envelope) && isBackendOffDevice()) {
+    return { allow: false, layer: 'reach', reason: `${envelope.body.type} is same-device-only` };
+  }
+
   if (isWireEcho(envelope.mutationId)) {
     return { allow: false, layer: 'echo' };
   }
@@ -83,7 +117,8 @@ export function evaluateOutboundEnvelope(envelope: MutationEnvelope): OutboundVe
   return { allow: true };
 }
 
-/** Test-only — restore the default (no-op) echo guard between cases. */
+/** Test-only — restore the default (no-op) echo + reach guards between cases. */
 export function __resetOutboundGateForTests(): void {
   isWireEcho = () => false;
+  isBackendOffDevice = () => false;
 }

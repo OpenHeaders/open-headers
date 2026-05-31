@@ -107,6 +107,7 @@ export {
   type OutboundDropLayer,
   type OutboundVerdict,
   setOutboundEchoGuard,
+  setOutboundReachGuard,
 } from './outbound-gate';
 export { type PrunePendingOutResult, prunePendingOutByPeerVector } from './pending-out-prune';
 export {

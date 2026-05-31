@@ -20,7 +20,14 @@ vi.mock('@openheaders/ui/workbench/settings/store', () => ({
 
 import { getIdentitySnapshot } from '@openheaders/core/identity';
 import { SYNC_MUTATION_BATCH_TYPE, SYNC_MUTATION_TYPE } from '@openheaders/core/protocol';
-import { type MutatorContext, mintBatch, RULE_ENTITY_TYPE, setActiveExtensionWorkspace } from '@openheaders/core/sync';
+import {
+  type MutatorContext,
+  mintBatch,
+  RULE_ENTITY_TYPE,
+  setActiveExtensionWorkspace,
+  VAULT_ENTITY_TYPE,
+  VAULT_ID,
+} from '@openheaders/core/sync';
 import { seedRule } from '@openheaders/core/sync-builders/rule-projection';
 import type { Rule } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
@@ -180,6 +187,39 @@ describe('handleIncomingMutationFrame', () => {
 
     for (const env of ruleBatch.mutations) expect(hasRecentlyApplied(env.mutationId)).toBe(true);
     expect(hasRecentlyApplied(pointer.mutationId)).toBe(false);
+  });
+
+  it('drops an inbound same-device-only (vault) mutation from a non-loopback backend', async () => {
+    settingsStore['backend.url'] = 'ws://192.168.1.50:59210';
+    const batch = mintBatch(ctx(8_000), [{ kind: 'delete', type: VAULT_ENTITY_TYPE, id: VAULT_ID }]);
+    const vault = batch.mutations[0]!;
+
+    const handled = await handleIncomingMutationFrame({
+      type: SYNC_MUTATION_TYPE,
+      workspaceId: wsId,
+      envelope: vault,
+    });
+    expect(handled).toBe(true);
+    // The backend strips the vault host-side; this receive-side mirror gates
+    // it before the bridge so a buggy/hostile LAN backend can't push a seed.
+    expect(hasRecentlyApplied(vault.mutationId)).toBe(false);
+  });
+
+  it('strips the vault from a non-loopback batch, applying the rest', async () => {
+    settingsStore['backend.url'] = 'ws://10.0.0.7:59210';
+    const r = makeRule(generateUid(), 'mixed-vault');
+    const ruleBatch = seedRule(r, ctx(8_100));
+    const vaultBatch = mintBatch(ctx(8_200), [{ kind: 'delete', type: VAULT_ENTITY_TYPE, id: VAULT_ID }]);
+    const vault = vaultBatch.mutations[0]!;
+
+    await handleIncomingMutationFrame({
+      type: SYNC_MUTATION_BATCH_TYPE,
+      workspaceId: wsId,
+      batch: { batchId: 'mixed-vault-1', mutations: [...ruleBatch.mutations, vault] },
+    });
+
+    for (const env of ruleBatch.mutations) expect(hasRecentlyApplied(env.mutationId)).toBe(true);
+    expect(hasRecentlyApplied(vault.mutationId)).toBe(false);
   });
 
   it('records mutationIds applied via the local oracle path so the forwarder can skip echo', async () => {

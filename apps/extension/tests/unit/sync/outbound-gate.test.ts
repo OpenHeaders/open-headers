@@ -8,9 +8,14 @@
  */
 
 import { getIdentitySnapshot } from '@openheaders/core/identity';
-import type { MutationEnvelope } from '@openheaders/core/sync';
+import { type MutationEnvelope, VAULT_ENTITY_TYPE, VAULT_ID } from '@openheaders/core/sync';
 import type { Org } from '@openheaders/core/types';
-import { __resetOutboundGateForTests, evaluateOutboundEnvelope, setOutboundEchoGuard } from '@openheaders/oracle/sync';
+import {
+  __resetOutboundGateForTests,
+  evaluateOutboundEnvelope,
+  setOutboundEchoGuard,
+  setOutboundReachGuard,
+} from '@openheaders/oracle/sync';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { installSyntheticIdentityForTests } from './_identity-test-setup';
@@ -69,5 +74,32 @@ describe('evaluateOutboundEnvelope', () => {
     const homeOrgId = getIdentitySnapshot()!.user.homeOrgId;
     const verdict = evaluateOutboundEnvelope(envelope({ orgId: homeOrgId }));
     expect(verdict.allow === false && verdict.layer).toBe('echo');
+  });
+
+  const vaultEnvelope = (): MutationEnvelope =>
+    envelope({ body: { kind: 'delete', type: VAULT_ENTITY_TYPE, id: VAULT_ID } });
+
+  it('allows a same-device-only (vault) mutation when the backend is loopback (default)', () => {
+    // No reach guard installed → backend treated as same-device → vault passes.
+    expect(evaluateOutboundEnvelope(vaultEnvelope())).toEqual({ allow: true });
+  });
+
+  it('withholds a same-device-only (vault) mutation when the backend is off-device', () => {
+    setOutboundReachGuard(() => true);
+    const verdict = evaluateOutboundEnvelope(vaultEnvelope());
+    expect(verdict.allow).toBe(false);
+    expect(verdict.allow === false && verdict.layer).toBe('reach');
+  });
+
+  it('reach guard leaves a non-sensitive mutation untouched even when off-device', () => {
+    setOutboundReachGuard(() => true);
+    expect(evaluateOutboundEnvelope(envelope())).toEqual({ allow: true });
+  });
+
+  it('runs reach before echo — an echoed vault mutation to an off-device backend reports the reach layer', () => {
+    setOutboundReachGuard(() => true);
+    setOutboundEchoGuard(() => true);
+    const verdict = evaluateOutboundEnvelope(vaultEnvelope());
+    expect(verdict.allow === false && verdict.layer).toBe('reach');
   });
 });

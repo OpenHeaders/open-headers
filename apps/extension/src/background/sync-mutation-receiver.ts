@@ -33,6 +33,7 @@ import {
   EXTENSION_WORKSPACE_ACTIVE_ID_PATH,
   EXTENSION_WORKSPACE_ENTITY_TYPE,
   EXTENSION_WORKSPACE_ID,
+  isSameDeviceOnlyMutation,
   type MutationBatch,
   type MutationEnvelope,
 } from '@openheaders/core/sync';
@@ -63,6 +64,20 @@ function isActivePointerEnvelope(env: MutationEnvelope): boolean {
 }
 
 /**
+ * Inbound envelopes a non-loopback backend must never deliver to this
+ * browser: the per-device active-workspace pointer (an operative-view
+ * preference, not synced identity state) and same-device-only root
+ * secrets (the vault — WS-B B8 defense-in-depth). The backend already
+ * strips the vault host-side on every egress path; this is the
+ * receive-side mirror so a buggy or hostile LAN/WAN backend can't push a
+ * seed down for this host to re-seal. A loopback backend is the same
+ * device — both kinds pass through untouched.
+ */
+function isLocalOnlyInbound(env: MutationEnvelope): boolean {
+  return isActivePointerEnvelope(env) || isSameDeviceOnlyMutation(env);
+}
+
+/**
  * Attempt to handle one parsed WS message. Returns `true` if the
  * message matched a known mutation-stream kind (and was either
  * delegated to the bridge or dropped after a parse failure), `false`
@@ -75,8 +90,8 @@ export async function handleIncomingMutationFrame(raw: unknown): Promise<boolean
     const parsed = parseOrLog(SyncMutationMessageSchema, raw, 'oh.sync.mutation');
     if (!parsed) return true;
     const envelope = parsed.envelope as unknown as MutationEnvelope;
-    if (isActivePointerEnvelope(envelope) && !isLoopbackBackend()) {
-      logger.debug(SCOPE, 'dropped inbound active-workspace pointer from a non-loopback backend');
+    if (!isLoopbackBackend() && isLocalOnlyInbound(envelope)) {
+      logger.debug(SCOPE, 'dropped inbound local-only envelope from a non-loopback backend');
       return true;
     }
     await applyInboundMutationEnvelope(envelope);
@@ -85,25 +100,26 @@ export async function handleIncomingMutationFrame(raw: unknown): Promise<boolean
 
   const parsed = parseOrLog(SyncMutationBatchMessageSchema, raw, 'oh.sync.mutationBatch');
   if (!parsed) return true;
-  const gated = gateActivePointer(parsed.batch as unknown as MutationBatch);
+  const gated = gateLocalOnly(parsed.batch as unknown as MutationBatch);
   if (gated.mutations.length === 0) return true;
   await applyInboundMutationBatch(gated);
   return true;
 }
 
 /**
- * Strip active-workspace pointer envelopes from an inbound batch when
- * the backend is not on loopback — a LAN/WAN peer must never move this
- * browser's operative-view selection. A loopback desktop's batch passes
- * through untouched; so does any batch carrying no pointer envelope.
+ * Strip local-only envelopes ({@link isLocalOnlyInbound}) from an inbound
+ * batch when the backend is not on loopback — a LAN/WAN peer must never
+ * move this browser's operative-view selection nor push a same-device-only
+ * root secret down. A loopback desktop's batch passes through untouched;
+ * so does any batch carrying no local-only envelope.
  */
-function gateActivePointer(batch: MutationBatch): MutationBatch {
+function gateLocalOnly(batch: MutationBatch): MutationBatch {
   if (isLoopbackBackend()) return batch;
-  const kept = batch.mutations.filter((e) => !isActivePointerEnvelope(e));
+  const kept = batch.mutations.filter((e) => !isLocalOnlyInbound(e));
   if (kept.length === batch.mutations.length) return batch;
   logger.debug(
     SCOPE,
-    `dropped ${batch.mutations.length - kept.length} inbound active-workspace pointer mutation(s) from a non-loopback backend`,
+    `dropped ${batch.mutations.length - kept.length} inbound local-only mutation(s) from a non-loopback backend`,
   );
   return { batchId: batch.batchId, mutations: kept };
 }

@@ -1,13 +1,22 @@
 import { setLockObserver } from '@openheaders/oracle/coordination';
 import { setBlobBackend } from '@openheaders/oracle/files';
-import { setActivityMuteStore, setOutboundEchoGuard, hasRecentlyApplied } from '@openheaders/oracle/sync';
-import { getSyncPersistenceProvider, setSyncPersistenceProvider } from '@openheaders/oracle/sync/sync-persistence-provider';
+import {
+  hasRecentlyApplied,
+  setActivityMuteStore,
+  setOutboundEchoGuard,
+  setOutboundReachGuard,
+} from '@openheaders/oracle/sync';
+import {
+  getSyncPersistenceProvider,
+  setSyncPersistenceProvider,
+} from '@openheaders/oracle/sync/sync-persistence-provider';
 import { IdbBlobBackend } from '@openheaders/oracle-host-browser/files/idb-blob-backend';
 import { createIdbSyncPersistenceProvider } from '@openheaders/oracle-host-browser/sync/idb-sync-persistence';
 import { installActivityPruneScheduler } from '../activity-prune-scheduler';
+import { isLoopbackBackend } from '../backend-target';
 import { installBackupWriter } from '../install-backup-writer';
-import { listWorkspaces } from '../modules/workspace-store';
 import { recordLog } from '../modules/observability-log';
+import { listWorkspaces } from '../modules/workspace-store';
 import { setActivityLog } from '../sync-activity-installer';
 import { setPendingOutQueue } from '../sync-mutation-forwarder';
 
@@ -22,6 +31,11 @@ export function installHostAdapters(): void {
   // Echo guard pairs with the inbound bridge's SEEN_MUTATION_IDS so the
   // outbound gate skips re-broadcasting envelopes the backend just sent us.
   setOutboundEchoGuard(hasRecentlyApplied);
+
+  // Reach guard (WS-B B1): never push a same-device-only mutation (vault
+  // root secret) up to a non-loopback backend. A loopback backend is the
+  // same device, where vault crossing is sanctioned.
+  setOutboundReachGuard(() => !isLoopbackBackend());
 
   const pendingOutQueue = getSyncPersistenceProvider().createPendingOutQueue?.() ?? null;
   setPendingOutQueue(pendingOutQueue);
