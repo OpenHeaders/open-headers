@@ -62,12 +62,15 @@ export interface DaemonRpc {
 
   // ── Daemon known-devices surface (U3.4) ────────────────────────
   //
-  // Admin-only. The access-token ledger lives in `hostStorage` and is
-  // read / mutated by the renderer directly (`listDaemonAuthTokens` /
-  // `mintDaemonAuthToken` / `revokeDaemonAuthToken`). What the renderer
-  // cannot see is runtime ws-server state — which tokens map to a peer
-  // connected right now. This RPC projects that live set so the "Known
-  // devices" list can highlight connected entries.
+  // Admin-only. The access-token ledger lives in `hostStorage`. The
+  // renderer *reads* it directly (`listDaemonAuthTokens` + a storage
+  // subscription — race-free), but *mutations* (mint / revoke) route
+  // through these RPCs so they run in the daemon's main realm, sharing a
+  // single read-modify-write mutex with HELLO `validateDaemonAuthToken`.
+  // Mutating from the renderer instead would race main's `lastUsedAt`
+  // write-back and could silently undo a revoke (cross-realm: the two
+  // realms hold separate mutexes). Revoke additionally evicts the live
+  // socket so the kill-switch fires now, not on the peer's next HELLO.
 
   /**
    * The `DaemonAuthToken` ids that map to a peer connected right now.
@@ -78,5 +81,27 @@ export interface DaemonRpc {
   'oh.daemon.tokens.connected': {
     req: Record<string, never>;
     res: { tokenIds: readonly string[] };
+  };
+
+  /**
+   * Mint a fresh `DaemonAuthToken` in the daemon's main realm. Returns
+   * the raw secret exactly once (the ledger keeps only its hash). Routed
+   * here rather than called in the renderer so the persist shares main's
+   * token-store mutex.
+   */
+  'oh.daemon.tokens.mint': {
+    req: { label?: string };
+    res: { ok: true; tokenId: string; secret: string } | { ok: false; error: string };
+  };
+
+  /**
+   * Revoke a `DaemonAuthToken` by id and force-disconnect any peer
+   * connected with it right now. The revoke persists before the eviction
+   * so a reconnect racing the drop re-validates against the revoked
+   * ledger. No-op (still `ok`) if the id is unknown / already revoked.
+   */
+  'oh.daemon.tokens.revoke': {
+    req: { tokenId: string };
+    res: { ok: true } | { ok: false; error: string };
   };
 }

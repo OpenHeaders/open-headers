@@ -11,9 +11,14 @@
  * replacement, revoke the old one).
  *
  * The connected-peer set is runtime ws-server state, polled over the
- * `oh.daemon.tokens.connected` RPC. The token ledger itself lives in
- * `hostStorage` and is read / mutated directly here — validation lives
- * in the handshake dispatcher and never touches this UI.
+ * `oh.daemon.tokens.connected` RPC. The token ledger lives in
+ * `hostStorage`; this UI *reads* it directly (list + subscription) but
+ * *mutates* it through the `oh.daemon.tokens.mint` / `.revoke` RPCs so
+ * the writes run in the daemon's main realm, sharing one mutex with HELLO
+ * validation (a renderer-side write would race main's `lastUsedAt`
+ * write-back and could silently undo a revoke). Revoke also evicts the
+ * peer's live socket, so a kill takes effect immediately rather than on
+ * the peer's next HELLO.
  *
  * Minted secrets are shown exactly once. The "Copy this token" dialog
  * is deliberately styled so the admin can't dismiss it accidentally;
@@ -25,11 +30,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type React from 'react';
 import { hostBridge } from '@openheaders/core/bridge';
 import { hostStorage, OH } from '@openheaders/core/storage';
-import {
-  listDaemonAuthTokens,
-  mintDaemonAuthToken,
-  revokeDaemonAuthToken,
-} from '@openheaders/core/identity';
+import { listDaemonAuthTokens } from '@openheaders/core/identity';
 import type { DaemonAuthToken } from '@openheaders/core/types';
 import PairDeviceModal from './pair-device-modal';
 
@@ -113,9 +114,10 @@ const DaemonTokensSection: React.FC = () => {
   async function handleMint(values: { label: string }): Promise<void> {
     setMinting(true);
     try {
-      const result = await mintDaemonAuthToken({ label: values.label?.trim() || undefined });
+      const result = await hostBridge.call('oh.daemon.tokens.mint', { label: values.label?.trim() || undefined });
+      if (!result.ok) throw new Error(result.error);
       mintForm.resetFields();
-      setMintResult({ open: true, secret: result.secret, tokenId: result.record.id, rotated: false });
+      setMintResult({ open: true, secret: result.secret, tokenId: result.tokenId, rotated: false });
       await refresh();
     } catch (err) {
       message.error(`Failed to mint token: ${(err as Error).message}`);
@@ -126,9 +128,10 @@ const DaemonTokensSection: React.FC = () => {
 
   async function handleRevoke(tokenId: string): Promise<void> {
     try {
-      await revokeDaemonAuthToken(tokenId);
+      const result = await hostBridge.call('oh.daemon.tokens.revoke', { tokenId });
+      if (!result.ok) throw new Error(result.error);
       await refresh();
-      message.success('Token revoked. Any peer using it will be rejected on next HELLO.');
+      message.success('Token revoked. Any device using it was disconnected.');
     } catch (err) {
       message.error(`Failed to revoke: ${(err as Error).message}`);
     }
@@ -136,13 +139,17 @@ const DaemonTokensSection: React.FC = () => {
 
   // Rotate = mint a replacement carrying the same label, THEN revoke the
   // old one. Mint-first means a mid-rotation failure leaves the device's
-  // existing token still valid rather than locking it out.
+  // existing token still valid rather than locking it out. The revoke
+  // disconnects the device's live socket, so it must reconnect with the
+  // new token.
   async function handleRotate(t: DaemonAuthToken): Promise<void> {
     setRotatingId(t.id);
     try {
-      const result = await mintDaemonAuthToken({ label: t.label });
-      await revokeDaemonAuthToken(t.id);
-      setMintResult({ open: true, secret: result.secret, tokenId: result.record.id, rotated: true });
+      const minted = await hostBridge.call('oh.daemon.tokens.mint', { label: t.label });
+      if (!minted.ok) throw new Error(minted.error);
+      const revoked = await hostBridge.call('oh.daemon.tokens.revoke', { tokenId: t.id });
+      if (!revoked.ok) throw new Error(revoked.error);
+      setMintResult({ open: true, secret: minted.secret, tokenId: minted.tokenId, rotated: true });
       await refresh();
     } catch (err) {
       message.error(`Failed to rotate: ${(err as Error).message}`);
@@ -254,7 +261,7 @@ const DaemonTokensSection: React.FC = () => {
                           <Popconfirm
                             key="revoke"
                             title="Revoke this token?"
-                            description="Any peer currently using it will be rejected on its next HELLO."
+                            description="Any device currently using it is disconnected immediately and can't reconnect."
                             okText="Revoke"
                             cancelText="Cancel"
                             okButtonProps={{ danger: true }}

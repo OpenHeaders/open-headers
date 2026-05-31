@@ -78,6 +78,13 @@ import type { PairingHttpHandler } from './pairing-http';
 
 const SCOPE = 'OracleWsServer';
 const HANDSHAKE_TIMEOUT_MS = 5_000;
+/**
+ * Close code sent when a peer is force-disconnected because its auth
+ * token was revoked. 1008 (policy violation) is the standard WS code for
+ * "you broke a rule of this server"; the peer's reconnect re-HELLOs and
+ * gets `auth-required`, surfacing the re-pair UX (A6).
+ */
+const TOKEN_REVOKED_CLOSE_CODE = 1008;
 
 /**
  * Server-driven liveness sweep cadence. Each tick terminates any peer
@@ -200,6 +207,19 @@ export interface OracleWsServer {
    * surface (U3.4).
    */
   connectedTokenIds(): ReadonlySet<string>;
+  /**
+   * Force-disconnect every connected peer authenticated with the given
+   * `DaemonAuthToken` id. Returns the number of sockets closed. Called
+   * when a token is revoked so the kill-switch takes effect on the *live*
+   * connection — not just on the peer's next HELLO. Without this a revoked
+   * peer keeps receiving broadcasts + issuing RPCs until it voluntarily
+   * disconnects (which a malicious peer never does). The close fires each
+   * socket's `'close'` handler, reusing the same registry cleanup +
+   * `disconnect` emission as any other drop; the peer's reconnect attempt
+   * then re-validates against the now-revoked ledger and gets
+   * `auth-required` (→ re-pair UX).
+   */
+  closePeersByTokenId(tokenId: string): number;
   /**
    * Snapshot of every connected peer past handshake. Used by status
    * reporters that bootstrap from the current state before subscribing.
@@ -602,6 +622,27 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
         if (peer.tokenId !== null) ids.add(peer.tokenId);
       }
       return ids;
+    },
+    closePeersByTokenId(tokenId) {
+      if (closed) return 0;
+      let count = 0;
+      // Snapshot first — closing a socket mutates `peerBySocket` from the
+      // synchronous `'close'` handler, so iterating it live would skip
+      // entries.
+      const victims: WebSocket[] = [];
+      for (const [socket, peer] of peerBySocket) {
+        if (peer.tokenId === tokenId) victims.push(socket);
+      }
+      for (const socket of victims) {
+        try {
+          socket.close(TOKEN_REVOKED_CLOSE_CODE, 'token revoked');
+        } catch (err) {
+          logger.warn(SCOPE, 'closePeersByTokenId close failed', err);
+        }
+        count++;
+      }
+      if (count > 0) logger.info(SCOPE, `evicted ${count} peer(s) for revoked token`);
+      return count;
     },
     listConnectedPeers() {
       return [...summaryBySocket.values()];

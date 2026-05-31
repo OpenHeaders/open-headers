@@ -63,7 +63,9 @@ import {
   ensureSyntheticIdentity,
   ensureWorkspaceRoleAssignments,
   getIdentitySnapshot,
+  mintDaemonAuthToken,
   refreshIdentitySnapshotFromHostStorage,
+  revokeDaemonAuthToken,
 } from '@openheaders/core/identity';
 import { setHostLogger } from '@openheaders/core/logger';
 import type { AwarenessState } from '@openheaders/core/protocol';
@@ -450,6 +452,32 @@ export async function installRpcHost(): Promise<void> {
       // (`wsServer` non-null but no LAN peers) or mid-rebind (null).
       const ids = wsServer?.connectedTokenIds();
       return { tokenIds: ids ? [...ids] : [] };
+    }
+    if (type === 'oh.daemon.tokens.mint') {
+      // Mint in main so the persist shares this realm's token-store mutex
+      // with HELLO validation (the renderer's separate mutex can't).
+      try {
+        const label = typeof message.label === 'string' ? message.label.trim() || undefined : undefined;
+        const minted = await mintDaemonAuthToken({ label });
+        return { ok: true, tokenId: minted.record.id, secret: minted.secret };
+      } catch (err) {
+        return { ok: false, error: (err as Error).message };
+      }
+    }
+    if (type === 'oh.daemon.tokens.revoke') {
+      const tokenId = typeof message.tokenId === 'string' ? message.tokenId : '';
+      if (!tokenId) return { ok: false, error: 'missing tokenId' };
+      try {
+        // Persist the revoke BEFORE evicting the live socket: a peer that
+        // reconnects in the eviction window then re-validates against the
+        // already-revoked ledger and is rejected, rather than slipping a
+        // fresh connection past a not-yet-written revoke.
+        await revokeDaemonAuthToken(tokenId);
+        wsServer?.closePeersByTokenId(tokenId);
+        return { ok: true };
+      } catch (err) {
+        return { ok: false, error: (err as Error).message };
+      }
     }
     const result = dispatchSyncRpc(message);
     if (result === null) {

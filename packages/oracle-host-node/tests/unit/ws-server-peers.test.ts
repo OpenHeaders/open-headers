@@ -303,6 +303,66 @@ describe('OracleWsServer — WS-B reach gate (loopbackOnly broadcast)', () => {
   });
 });
 
+describe('OracleWsServer — closePeersByTokenId (revocation eviction)', () => {
+  it('evicts the live peer authenticated with the given token and fires disconnect', async () => {
+    const port = await freePort();
+    server = await startOracleWsServer({ host: '127.0.0.1', port, handshakeIdentity: IDENTITY });
+
+    const connected = nextEvent(server, 'connect');
+    await connectAccepted(port, hello());
+    await connected;
+    expect(server.connectedCount()).toBe(1);
+
+    const disconnected = nextEvent(server, 'disconnect');
+    const evicted = server.closePeersByTokenId(authTokenId);
+    expect(evicted).toBe(1);
+
+    const event = await disconnected;
+    expect(event.kind).toBe('disconnect');
+    expect(event.peer.tokenId).toBe(authTokenId);
+    expect(server.connectedCount()).toBe(0);
+    expect(server.listConnectedPeers()).toHaveLength(0);
+  });
+
+  it('leaves peers authenticated with a different token connected', async () => {
+    const port = await freePort();
+    server = await startOracleWsServer({ host: '127.0.0.1', port, handshakeIdentity: IDENTITY });
+
+    // A second paired device with its own token id.
+    const other = await mintDaemonAuthToken({ label: 'peer-other' });
+
+    const firstConnected = nextEvent(server, 'connect');
+    await connectAccepted(port, hello({ nodeId: 'ext-a' }));
+    await firstConnected;
+
+    const secondConnected = nextEvent(server, 'connect');
+    await connectAccepted(port, hello({ nodeId: 'ext-b', authToken: other.secret }));
+    await secondConnected;
+    expect(server.connectedCount()).toBe(2);
+
+    const disconnected = nextEvent(server, 'disconnect');
+    const evicted = server.closePeersByTokenId(authTokenId);
+    expect(evicted).toBe(1);
+    await disconnected;
+
+    const survivors = server.listConnectedPeers();
+    expect(survivors).toHaveLength(1);
+    expect(survivors[0].tokenId).toBe(other.record.id);
+  });
+
+  it('returns 0 when no peer holds the token', async () => {
+    const port = await freePort();
+    server = await startOracleWsServer({ host: '127.0.0.1', port, handshakeIdentity: IDENTITY });
+
+    const connected = nextEvent(server, 'connect');
+    await connectAccepted(port, hello());
+    await connected;
+
+    expect(server.closePeersByTokenId('token-nobody-holds')).toBe(0);
+    expect(server.connectedCount()).toBe(1);
+  });
+});
+
 describe('OracleWsServer — heartbeat liveness sweep', () => {
   it('terminates a peer that stops answering heartbeats and fires disconnect', async () => {
     const port = await freePort();

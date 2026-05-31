@@ -40,6 +40,9 @@ function makeFakeServer(initial: PeerSummary[] = []): FakeServer {
     connectedTokenIds() {
       return new Set<string>();
     },
+    closePeersByTokenId() {
+      return 0;
+    },
     listConnectedPeers() {
       return peers;
     },
