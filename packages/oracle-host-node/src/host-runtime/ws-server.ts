@@ -99,6 +99,25 @@ const TOKEN_REVOKED_CLOSE_CODE = 1008;
  */
 const HEARTBEAT_INTERVAL_MS = 30_000;
 
+/**
+ * Max inbound WebSocket frame size (bytes). Without this the `ws` default
+ * of 100 MiB governs every inbound frame — *including* the first frame
+ * from an unauthenticated peer, which is buffered + `JSON.parse`d before
+ * the HELLO gate runs. On a LAN bind an unauthenticated peer (or many) can
+ * force ~100 MiB allocations pre-auth — a memory-amplification DoS bounded
+ * only by that oversized default.
+ *
+ * 8 MiB clears the largest legitimate client→server frame with wide
+ * headroom: every inbound frame is either tiny (HELLO, stateVector, ping,
+ * sync RPCs) or a single mutation envelope, whose largest body is a
+ * `create`/`setField` carrying user-pasted text (a request body, a
+ * workflow definition) — file *bytes* never ride sync, only their
+ * `(fileId, hash, filename, mimeType, size)` metadata. An over-cap frame
+ * is closed by `ws` with 1009; the large frames in this protocol flow
+ * server→client (snapshot/delta), which `maxPayload` does not constrain.
+ */
+const MAX_INBOUND_FRAME_BYTES = 8 * 1024 * 1024;
+
 interface PingMessage {
   type: 'ping';
   t?: number;
@@ -291,7 +310,7 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
     res.statusCode = 400;
     res.end();
   });
-  const wss = new WebSocketServer({ server: httpServer });
+  const wss = new WebSocketServer({ server: httpServer, maxPayload: MAX_INBOUND_FRAME_BYTES });
   await new Promise<void>((resolve, reject) => {
     const onListening = (): void => {
       httpServer.off('error', onError);

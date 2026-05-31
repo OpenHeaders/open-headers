@@ -67,15 +67,65 @@ export const browserRequestTransport: RequestTransport = {
     response.headers.forEach((value, key) => {
       outHeaders.push({ key, value });
     });
+    const { body: responseBody, bodyBytes, bodyTruncated } = await readCappedBody(response, request.maxBodyBytes);
     return {
       status: response.status,
       statusText: response.statusText,
       url: response.url || request.url,
       headers: outHeaders,
-      body: await response.text(),
+      body: responseBody,
+      bodyBytes,
+      bodyTruncated,
     };
   },
 };
+
+/**
+ * Stream the response body, retaining at most `maxBodyBytes` and aborting
+ * the read once the upstream overflows the cap. Mirrors the Node
+ * transport so both hosts honor the one seam contract: the SW is
+ * evictable, so the memory pressure is milder than the always-on desktop,
+ * but a single contract keeps the cap from drifting between hosts.
+ */
+async function readCappedBody(
+  response: Response,
+  maxBodyBytes: number,
+): Promise<{ body: string; bodyBytes: number; bodyTruncated: boolean }> {
+  const stream = response.body;
+  if (!stream) {
+    return { body: '', bodyBytes: 0, bodyTruncated: false };
+  }
+  const reader = stream.getReader();
+  const parts: Uint8Array[] = [];
+  let bytesRead = 0;
+  let truncated = false;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value || value.byteLength === 0) continue;
+      parts.push(value);
+      bytesRead += value.byteLength;
+      if (bytesRead > maxBodyBytes) {
+        truncated = true;
+        await reader.cancel();
+        break;
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const retained = Math.min(bytesRead, maxBodyBytes);
+  const buf = new Uint8Array(retained);
+  let offset = 0;
+  for (const part of parts) {
+    if (offset >= retained) break;
+    const take = Math.min(part.byteLength, retained - offset);
+    buf.set(part.subarray(0, take), offset);
+    offset += take;
+  }
+  return { body: new TextDecoder().decode(buf), bodyBytes: retained, bodyTruncated: truncated };
+}
 
 function buildBody(body: TransportBody): BodyInit | undefined {
   switch (body.kind) {

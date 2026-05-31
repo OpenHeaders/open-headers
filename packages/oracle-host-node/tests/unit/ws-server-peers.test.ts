@@ -239,6 +239,30 @@ describe('OracleWsServer — peer registry', () => {
     expect(server.connectedCount()).toBe(0);
   });
 
+  it('closes an oversized inbound frame (maxPayload DoS bound) pre-handshake', async () => {
+    const port = await freePort();
+    server = await startOracleWsServer({ host: '127.0.0.1', port, handshakeIdentity: IDENTITY });
+
+    const client = new WebSocket(`ws://127.0.0.1:${port}`);
+    clients.push(client);
+    await new Promise<void>((resolve, reject) => {
+      client.once('open', () => resolve());
+      client.once('error', reject);
+    });
+    // An over-cap socket close arrives as a transport error and/or a 1009
+    // close on the client; swallow the error so it doesn't go unhandled.
+    client.on('error', () => {});
+    const closed = new Promise<number>((resolve) => {
+      client.once('close', (code) => resolve(code));
+    });
+    // One byte past the 8 MiB inbound cap, sent BEFORE the HELLO — the
+    // frame is rejected at the WS layer before any application parsing,
+    // which is the pre-auth memory-amplification bound A-4 closes.
+    client.send(Buffer.alloc(8 * 1024 * 1024 + 1));
+    expect(await closed).toBe(1009);
+    expect(server.connectedCount()).toBe(0);
+  });
+
   it('stops notifying after the subscription is dropped', async () => {
     const port = await freePort();
     server = await startOracleWsServer({ host: '127.0.0.1', port, handshakeIdentity: IDENTITY });

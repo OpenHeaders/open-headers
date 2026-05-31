@@ -66,6 +66,17 @@ export interface TransportRequest {
   redirect: 'follow' | 'manual';
   /** Cookie-jar policy. `'omit'` unless the request opted into `'include'`. */
   credentials: 'omit' | 'include';
+  /**
+   * Hard ceiling (bytes) on the response body the transport reads off the
+   * wire. The transport MUST stream the body and abort once it has read
+   * past this cap rather than buffering the whole response and slicing
+   * after — on the always-on desktop host an unbounded read of a hostile
+   * or misconfigured endpoint's multi-gigabyte response OOMs the shared
+   * main process. The executor sets this to its own byte cap (the same
+   * limit it would otherwise slice at), so a streamed abort discards only
+   * bytes the executor would have dropped anyway.
+   */
+  maxBodyBytes: number;
 }
 
 export interface TransportResponse {
@@ -74,8 +85,17 @@ export interface TransportResponse {
   /** Final URL after any redirects. */
   url: string;
   headers: ReadonlyArray<TransportHeader>;
-  /** Full response body as text — the executor applies the byte cap. */
+  /**
+   * Response body as text, already capped at {@link TransportRequest.maxBodyBytes}
+   * by the transport (it streams + aborts past the cap to bound memory).
+   * The executor surfaces this verbatim — it does NOT re-slice.
+   */
   body: string;
+  /** True when the upstream body exceeded `maxBodyBytes` and the read was
+   *  aborted — i.e. `body` is the capped prefix, not the whole response. */
+  bodyTruncated: boolean;
+  /** Bytes retained in `body` (== `maxBodyBytes` when `bodyTruncated`). */
+  bodyBytes: number;
 }
 
 /**

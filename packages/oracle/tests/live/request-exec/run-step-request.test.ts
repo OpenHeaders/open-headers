@@ -82,7 +82,15 @@ function captureTransport(): { transport: RequestTransport; sent: () => Transpor
     async send(req): Promise<TransportResponse> {
       captured = req;
       n += 1;
-      return { status: 200, statusText: 'OK', url: req.url, headers: [], body: '{}' };
+      return {
+        status: 200,
+        statusText: 'OK',
+        url: req.url,
+        headers: [],
+        body: '{}',
+        bodyTruncated: false,
+        bodyBytes: 2,
+      };
     },
   };
   return {

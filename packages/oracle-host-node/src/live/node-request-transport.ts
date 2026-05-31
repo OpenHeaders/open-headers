@@ -50,15 +50,80 @@ export function createNodeRequestTransport(): RequestTransport {
       response.headers.forEach((value, key) => {
         headers.push({ key, value });
       });
+      const { body: responseBody, bodyBytes, bodyTruncated } = await readCappedBody(response, request.maxBodyBytes);
       return {
         status: response.status,
         statusText: response.statusText,
         url: response.url || request.url,
         headers,
-        body: await response.text(),
+        body: responseBody,
+        bodyBytes,
+        bodyTruncated,
       };
     },
   };
+}
+
+/**
+ * Stream the response body, retaining at most `maxBodyBytes` and aborting
+ * the read once the upstream overflows the cap. This is the load-bearing
+ * memory bound on the always-on main process: `response.text()` would
+ * buffer the *entire* upstream body — a multi-gigabyte or chunked-unbounded
+ * response from a misconfigured/hostile cadence target OOMs the shared
+ * process before any post-read cap could apply. We accumulate at most the
+ * cap plus one in-flight chunk, then `cancel()` the stream.
+ */
+async function readCappedBody(
+  response: Response,
+  maxBodyBytes: number,
+): Promise<{ body: string; bodyBytes: number; bodyTruncated: boolean }> {
+  const stream = response.body;
+  if (!stream) {
+    // No readable stream (empty body / HEAD) — nothing to bound.
+    return { body: '', bodyBytes: 0, bodyTruncated: false };
+  }
+  const reader = stream.getReader();
+  const parts: Uint8Array[] = [];
+  let bytesRead = 0;
+  let truncated = false;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value || value.byteLength === 0) continue;
+      parts.push(value);
+      bytesRead += value.byteLength;
+      if (bytesRead > maxBodyBytes) {
+        truncated = true;
+        await reader.cancel();
+        break;
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  return decodeCapped(parts, bytesRead, maxBodyBytes, truncated);
+}
+
+/** Concatenate the retained chunks, cap to `maxBodyBytes`, and decode as
+ *  UTF-8. Shared cap arithmetic so the byte count + truncation flag stay
+ *  consistent with what's actually decoded. */
+function decodeCapped(
+  parts: ReadonlyArray<Uint8Array>,
+  bytesRead: number,
+  maxBodyBytes: number,
+  truncated: boolean,
+): { body: string; bodyBytes: number; bodyTruncated: boolean } {
+  const retained = Math.min(bytesRead, maxBodyBytes);
+  const buf = new Uint8Array(retained);
+  let offset = 0;
+  for (const part of parts) {
+    if (offset >= retained) break;
+    const take = Math.min(part.byteLength, retained - offset);
+    buf.set(part.subarray(0, take), offset);
+    offset += take;
+  }
+  return { body: new TextDecoder().decode(buf), bodyBytes: retained, bodyTruncated: truncated };
 }
 
 function buildHeaders(headers: ReadonlyArray<TransportHeader>): Headers {

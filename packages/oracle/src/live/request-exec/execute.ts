@@ -24,8 +24,11 @@ import {
   type TransportRequest,
 } from './transport';
 
-/** Body preview cap — larger responses are truncated with a flag so
- *  consumers don't try to hold megabytes of text. */
+/** Body read cap — the transport streams up to this many bytes and aborts
+ *  the read past it, so the always-on host never buffers an unbounded
+ *  response. Larger responses surface truncated with a flag; this is also
+ *  the exact ceiling on what the chain extractor ever reads, so aborting
+ *  here discards only bytes that would have been sliced off anyway. */
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
 
 export async function executeOverTransport(
@@ -58,22 +61,24 @@ export async function executeOverTransport(
     body,
     redirect: resolved.followRedirects === false ? 'manual' : 'follow',
     credentials: resolved.credentialsMode,
+    maxBodyBytes: MAX_BODY_BYTES,
   };
 
   const startedAt = performance.now();
   try {
     const response = await transport.send(request);
     const durationMs = Math.round(performance.now() - startedAt);
-    const bodyBytes = new TextEncoder().encode(response.body).byteLength;
-    const truncated = bodyBytes > MAX_BODY_BYTES;
+    // The transport already streamed + capped the body at `maxBodyBytes`,
+    // so we surface its result verbatim — no re-slice, no full-body
+    // re-encode (which would defeat the streamed memory bound).
     return {
       status: response.status,
       statusText: response.statusText,
       url: response.url || url,
       headers: [...response.headers],
-      body: truncated ? response.body.slice(0, MAX_BODY_BYTES) : response.body,
-      bodyTruncated: truncated,
-      bodyBytes,
+      body: response.body,
+      bodyTruncated: response.bodyTruncated,
+      bodyBytes: response.bodyBytes,
       durationMs,
       error: null,
       scripts: null,

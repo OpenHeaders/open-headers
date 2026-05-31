@@ -46,14 +46,17 @@ function captureTransport(response?: Partial<TransportResponse>): {
   const transport: RequestTransport = {
     async send(req) {
       captured = req;
-      return {
+      const body = response?.body ?? '{"ok":true}';
+      const base: TransportResponse = {
         status: 200,
         statusText: 'OK',
         url: req.url,
         headers: [{ key: 'content-type', value: 'application/json' }],
-        body: '{"ok":true}',
-        ...response,
+        body,
+        bodyTruncated: false,
+        bodyBytes: new TextEncoder().encode(body).byteLength,
       };
+      return { ...base, ...response };
     },
   };
   return {
@@ -178,13 +181,24 @@ describe('executeOverTransport', () => {
     expect([...filePart.bytes]).toEqual([1, 2, 3]);
   });
 
-  it('caps an oversized response body and flags truncation', async () => {
-    const big = 'a'.repeat(2 * 1024 * 1024 + 50);
-    const { transport } = captureTransport({ body: big });
+  it('forwards its byte cap to the transport so the read is streamed + bounded', async () => {
+    const { transport, sent } = captureTransport();
+    await executeOverTransport(makeResolved(), transport);
+    expect(sent().maxBodyBytes).toBe(2 * 1024 * 1024);
+  });
+
+  it('surfaces the transport-reported truncation + byte count verbatim (no re-slice)', async () => {
+    // Capping moved into the transport (only it can stream + abort the
+    // read); execute passes the already-capped result straight through.
+    const { transport } = captureTransport({
+      body: 'capped-prefix',
+      bodyTruncated: true,
+      bodyBytes: 2 * 1024 * 1024,
+    });
     const snap = await executeOverTransport(makeResolved(), transport);
     expect(snap.bodyTruncated).toBe(true);
-    expect(snap.bodyBytes).toBe(2 * 1024 * 1024 + 50);
-    expect(snap.body.length).toBe(2 * 1024 * 1024);
+    expect(snap.bodyBytes).toBe(2 * 1024 * 1024);
+    expect(snap.body).toBe('capped-prefix');
   });
 
   it('surfaces a TransportError as a structured error snapshot', async () => {

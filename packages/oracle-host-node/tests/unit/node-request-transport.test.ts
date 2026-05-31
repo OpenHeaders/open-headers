@@ -28,6 +28,7 @@ function makeRequest(overrides: Partial<TransportRequest> = {}): TransportReques
     body: { kind: 'none' },
     redirect: 'follow',
     credentials: 'omit',
+    maxBodyBytes: 2 * 1024 * 1024,
     ...overrides,
   };
 }
@@ -47,8 +48,47 @@ describe('createNodeRequestTransport', () => {
     expect(res.statusText).toBe('OK');
     expect(res.body).toBe('{"ok":true}');
     expect(res.headers).toContainEqual({ key: 'content-type', value: 'application/json' });
+    expect(res.bodyTruncated).toBe(false);
+    expect(res.bodyBytes).toBe('{"ok":true}'.length);
     // Response.url is empty for a synthetic Response → falls back to the request URL.
     expect(res.url).toBe('https://api.openheaders.io/v1/ping');
+  });
+
+  it('reads a body that fits under the cap in full, untruncated', async () => {
+    fetchMock.mockResolvedValue(new Response('hello world'));
+    const res = await createNodeRequestTransport().send(makeRequest({ maxBodyBytes: 1024 }));
+    expect(res.body).toBe('hello world');
+    expect(res.bodyTruncated).toBe(false);
+    expect(res.bodyBytes).toBe('hello world'.length);
+  });
+
+  it('streams + caps an oversized body, aborting the read past the ceiling', async () => {
+    // A body well over the cap — the transport must retain only the cap
+    // prefix and flag truncation rather than buffering the whole thing.
+    const cap = 16;
+    const big = 'x'.repeat(cap * 4);
+    fetchMock.mockResolvedValue(new Response(big));
+    const res = await createNodeRequestTransport().send(makeRequest({ maxBodyBytes: cap }));
+    expect(res.bodyTruncated).toBe(true);
+    expect(res.bodyBytes).toBe(cap);
+    expect(res.body).toBe('x'.repeat(cap));
+  });
+
+  it('reports an exact-cap body as untruncated', async () => {
+    const cap = 16;
+    fetchMock.mockResolvedValue(new Response('y'.repeat(cap)));
+    const res = await createNodeRequestTransport().send(makeRequest({ maxBodyBytes: cap }));
+    expect(res.bodyTruncated).toBe(false);
+    expect(res.bodyBytes).toBe(cap);
+    expect(res.body).toBe('y'.repeat(cap));
+  });
+
+  it('handles a null body stream (no content) as an empty untruncated body', async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 204, statusText: 'No Content' }));
+    const res = await createNodeRequestTransport().send(makeRequest());
+    expect(res.body).toBe('');
+    expect(res.bodyTruncated).toBe(false);
+    expect(res.bodyBytes).toBe(0);
   });
 
   it('sends a raw body and the resolved headers', async () => {
