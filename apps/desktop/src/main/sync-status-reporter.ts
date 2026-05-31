@@ -58,8 +58,10 @@ export function installSyncStatusReporter(): SyncStatusReporter {
       reportStatus({
         subsystem: 'sync',
         state: 'red',
-        message: `Extension pipe offline — couldn't bind on ${bindState.host}`,
-        context: { bindHost: bindState.host, error: errorMessage(bindState.error) },
+        message: isAddressInUse(bindState.error)
+          ? `Extension pipe offline — port ${bindState.port} is already in use. Change it in Settings → Backend.`
+          : `Extension pipe offline — couldn't bind ${bindState.host}:${bindState.port}. Change it in Settings → Backend.`,
+        context: { bindHost: bindState.host, bindPort: bindState.port, error: errorMessage(bindState.error) },
       });
       return;
     }
@@ -73,7 +75,7 @@ export function installSyncStatusReporter(): SyncStatusReporter {
         subsystem: 'sync',
         state: 'yellow',
         message: bindState?.kind === 'binding' ? 'Starting extension pipe…' : 'Extension pipe restarting…',
-        context: bindState ? { bindHost: bindState.host } : undefined,
+        context: bindState ? { bindHost: bindState.host, bindPort: bindState.port } : undefined,
       });
       return;
     }
@@ -135,4 +137,14 @@ function describe(total: number, lan: number): string {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * True when a bind failure is `EADDRINUSE` — the actionable "something
+ * else holds this port" case that a port change resolves. Other bind
+ * errors (rare, given the supervisor falls back to a sane port for
+ * out-of-range settings) get the generic message instead.
+ */
+function isAddressInUse(error: unknown): boolean {
+  return (error as { code?: string } | null)?.code === 'EADDRINUSE';
 }

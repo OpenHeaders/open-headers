@@ -18,9 +18,11 @@
 import { Input, Select, Space } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
+import { type PortValidation, validatePort } from '@openheaders/core/utils';
 import { useSetting } from '../hooks';
 import type { SettingDef } from '../types';
 import FieldRow from '../fields/FieldRow';
+import PortHint from './port-hint';
 
 type Scheme = 'ws' | 'wss';
 interface UrlParts {
@@ -49,6 +51,15 @@ function buildUrl({ scheme, address, port }: UrlParts): string {
   return port ? `${scheme}://${host}:${port}` : `${scheme}://${host}`;
 }
 
+/**
+ * An empty port is the "no explicit port" state (the dialer falls back to
+ * the scheme default), so it's `ok` — only a typed port is range-checked.
+ */
+function portVerdict(port: string): PortValidation {
+  if (port === '') return { level: 'ok' };
+  return validatePort(Number(port));
+}
+
 const BackendUrlField: React.FC<{ def: SettingDef }> = ({ def }) => {
   const [url, setUrl] = useSetting('backend.url');
   const [parts, setParts] = useState<UrlParts>(() => parseUrl(url));
@@ -57,8 +68,14 @@ const BackendUrlField: React.FC<{ def: SettingDef }> = ({ def }) => {
     setParts(parseUrl(url));
   }, [url]);
 
+  const verdict = portVerdict(parts.port);
+
   const commit = useCallback(
     (next: UrlParts) => {
+      // A rejected port (privileged / out-of-range) blocks the whole URL
+      // commit — the dialer reads one canonical string, so a bad port
+      // can't be persisted while the address change rides along.
+      if (portVerdict(next.port).level === 'reject') return;
       const built = buildUrl(next);
       if (built !== url) setUrl(built);
     },
@@ -67,42 +84,46 @@ const BackendUrlField: React.FC<{ def: SettingDef }> = ({ def }) => {
 
   return (
     <FieldRow settingKey={def.key} label={def.label} description={def.description}>
-      <Space.Compact style={{ width: '100%' }}>
-        <Select
-          value={parts.scheme}
-          style={{ flex: '0 0 92px' }}
-          aria-label="Scheme"
-          onChange={(scheme: Scheme) => {
-            const next = { ...parts, scheme };
-            setParts(next);
-            commit(next);
-          }}
-          options={[
-            { value: 'ws', label: 'ws://' },
-            { value: 'wss', label: 'wss://' },
-          ]}
-        />
-        <Input
-          style={{ flex: 1 }}
-          value={parts.address}
-          placeholder="127.0.0.1"
-          aria-label="Address"
-          onChange={(e) => setParts({ ...parts, address: e.target.value.trim() })}
-          onBlur={() => commit(parts)}
-          onPressEnter={() => commit(parts)}
-        />
-        <Input
-          style={{ flex: '0 0 110px' }}
-          addonBefore=":"
-          value={parts.port}
-          placeholder="8137"
-          inputMode="numeric"
-          aria-label="Port"
-          onChange={(e) => setParts({ ...parts, port: e.target.value.replace(/\D/g, '') })}
-          onBlur={() => commit(parts)}
-          onPressEnter={() => commit(parts)}
-        />
-      </Space.Compact>
+      <div style={{ width: '100%' }}>
+        <Space.Compact style={{ width: '100%' }}>
+          <Select
+            value={parts.scheme}
+            style={{ flex: '0 0 92px' }}
+            aria-label="Scheme"
+            onChange={(scheme: Scheme) => {
+              const next = { ...parts, scheme };
+              setParts(next);
+              commit(next);
+            }}
+            options={[
+              { value: 'ws', label: 'ws://' },
+              { value: 'wss', label: 'wss://' },
+            ]}
+          />
+          <Input
+            style={{ flex: 1 }}
+            value={parts.address}
+            placeholder="127.0.0.1"
+            aria-label="Address"
+            onChange={(e) => setParts({ ...parts, address: e.target.value.trim() })}
+            onBlur={() => commit(parts)}
+            onPressEnter={() => commit(parts)}
+          />
+          <Input
+            style={{ flex: '0 0 110px' }}
+            addonBefore=":"
+            value={parts.port}
+            placeholder="8137"
+            inputMode="numeric"
+            aria-label="Port"
+            status={verdict.level === 'reject' ? 'error' : verdict.level === 'warn' ? 'warning' : undefined}
+            onChange={(e) => setParts({ ...parts, port: e.target.value.replace(/\D/g, '') })}
+            onBlur={() => commit(parts)}
+            onPressEnter={() => commit(parts)}
+          />
+        </Space.Compact>
+        <PortHint verdict={verdict} />
+      </div>
     </FieldRow>
   );
 };

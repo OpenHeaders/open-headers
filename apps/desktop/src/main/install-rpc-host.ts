@@ -37,8 +37,9 @@
  *
  *   - `ipcMain.handle('oh:rpc', payload)` → `dispatchSyncRpc` for the
  *     sync+awareness channels (renderer ↔ main).
- *   - `startDaemonBindSupervisor` on `:8137`, bound to either `127.0.0.1`
- *     or `0.0.0.0` per the user-controlled `backend.bindAddress` setting
+ *   - `startDaemonBindSupervisor` on the user-controlled `backend.bindPort`
+ *     (default `:8137`), bound to either `127.0.0.1` or `0.0.0.0` per the
+ *     `backend.bindAddress` setting
  *     (U3.1, `UNIFIED_ORACLE_MODEL.md` §4.2) → same `dispatchSyncRpc` for
  *     connected extension SWs / future daemons / future remote surfaces.
  *     Handshake validates protocol version against
@@ -160,6 +161,12 @@ function safeOsHostname(): string {
 // resolves (early-fire broadcasts hit renderers only, which is harmless —
 // no peer has handshook yet).
 let wsServer: OracleWsServer | null = null;
+
+// The port the WS server is actually bound on right now — driven by the
+// supervisor's bind lifecycle (`backend.bindPort`, default WS_PORT). The
+// pairing surface reads this so the codes it hands out point at the live
+// port, not the hardcoded default, after the user moves the daemon.
+let boundPort: number = WS_PORT;
 
 function broadcastToAllRenderers(type: string, payload: unknown): void {
   // Fan out to every open BrowserWindow. Single-window desktop today;
@@ -409,14 +416,14 @@ export async function installRpcHost(): Promise<void> {
         const { code, expiresAt } = pairingService.startPair({ deviceLabel });
         const addresses = listLanIpv4Addresses();
         const pairingUrls = [
-          { host: '127.0.0.1', url: `http://127.0.0.1:${WS_PORT}/pair/${code}` },
+          { host: '127.0.0.1', url: `http://127.0.0.1:${boundPort}/pair/${code}` },
           ...addresses.map((a) => ({
             host: a.host,
             iface: a.iface,
-            url: `http://${a.host}:${WS_PORT}/pair/${code}`,
+            url: `http://${a.host}:${boundPort}/pair/${code}`,
           })),
         ];
-        return { ok: true, code, expiresAt, port: WS_PORT, pairingUrls };
+        return { ok: true, code, expiresAt, port: boundPort, pairingUrls };
       } catch (err) {
         return { ok: false, error: (err as Error).message };
       }
@@ -493,6 +500,9 @@ export async function installRpcHost(): Promise<void> {
         else syncStatusReporter.detachServer();
       },
       onBindStateChange: (state) => {
+        // Track the live port so the pairing surface hands out codes for
+        // wherever the daemon is actually listening, not the default.
+        if (state.kind === 'bound') boundPort = state.port;
         syncStatusReporter.setBindState(state);
       },
     });

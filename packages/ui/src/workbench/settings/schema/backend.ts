@@ -20,6 +20,7 @@
  * "Local-first by design" and "What we're building next".
  */
 
+import { WS_PORT } from '@openheaders/core/protocol';
 import { lazy } from 'react';
 import * as v from 'valibot';
 import { getCurrentHost } from '../../../shared/host-vocabulary';
@@ -29,6 +30,7 @@ import { registerSetting } from '../registry';
 // re-imports BackendMode/backendModeIsPending from this file).
 const BackendModeFieldEditor = lazy(() => import('../components/backend-mode-switch'));
 const LanPeersToggleEditor = lazy(() => import('../components/lan-peers-toggle'));
+const BackendBindPortFieldEditor = lazy(() => import('../components/backend-bind-port-field'));
 const BackendUrlFieldEditor = lazy(() => import('../components/backend-url-field'));
 const BackendAuthTokenFieldEditor = lazy(() => import('../components/backend-auth-token-field'));
 
@@ -63,6 +65,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
     'backend.mode': BackendMode;
     'backend.bindAddress': BackendBindAddress;
+    'backend.bindPort': number;
     'backend.url': string;
     'backend.authToken': string;
     'backend.autoConnect': boolean;
@@ -150,6 +153,31 @@ registerSetting({
   // value remains the explicit address string so future deliverables
   // (interface-specific binds, IPv6) extend the enum without remodeling.
   customEditor: LanPeersToggleEditor,
+});
+
+registerSetting({
+  key: 'backend.bindPort',
+  type: 'number',
+  default: WS_PORT,
+  // Hard floor matches `validatePort`'s reject rules — privileged ports
+  // and out-of-range values are blocked at the schema too, so a stored
+  // config from a future surface can't smuggle an unbindable port past
+  // the UI. The ephemeral-range soft-warn lives only in the editor; the
+  // schema still accepts it because it's a usable (if risky) port.
+  schema: v.pipe(v.number(), v.integer(), v.minValue(1024), v.maxValue(65535)),
+  label: 'Daemon port',
+  description:
+    'The port this app binds for browsers and other devices to connect to. Change it only if something else already uses the default. Clients must point at the same port.',
+  category: 'backend',
+  subcategory: 'lan-peers',
+  tags: ['port', 'bind', 'daemon', 'network', 'host', 'address'],
+  scope: 'user',
+  // Same (host, mode) gate as the LAN-peers toggle — surfaced only on the
+  // desktop host while `desktop-app` is active, the one pair where this
+  // process IS the daemon. BackendPane strips `when` for the daemon-side
+  // section it renders; search hits + SettingRow still honor it.
+  when: (get) => getCurrentHost() === 'desktop' && get('backend.mode') === 'desktop-app',
+  customEditor: BackendBindPortFieldEditor,
 });
 
 registerSetting({

@@ -76,6 +76,11 @@ function lanPeer(i: number): PeerSummary {
   return { ...loopbackPeer(i), peerId: `lan-peer-${i}`, tokenId: `tok-${i}`, isLoopback: false };
 }
 
+/** A Node bind error whose `code` is `EADDRINUSE` — the actionable case. */
+function addrInUseError(): Error {
+  return Object.assign(new Error('listen EADDRINUSE'), { code: 'EADDRINUSE' });
+}
+
 function syncEntry() {
   return getStatusSnapshot().sync;
 }
@@ -91,12 +96,12 @@ afterEach(() => {
 describe('sync-status-reporter — bind lifecycle', () => {
   it('reports transient yellow while the initial bind is in flight', () => {
     const reporter = installSyncStatusReporter();
-    reporter.setBindState({ kind: 'binding', host: '127.0.0.1' });
+    reporter.setBindState({ kind: 'binding', host: '127.0.0.1', port: 8137 });
 
     const entry = syncEntry();
     expect(entry?.state).toBe('yellow');
     expect(entry?.message).toBe('Starting extension pipe…');
-    expect(entry?.context).toMatchObject({ bindHost: '127.0.0.1' });
+    expect(entry?.context).toMatchObject({ bindHost: '127.0.0.1', bindPort: 8137 });
   });
 
   it('reports red and overrides peer state when the bind fails', () => {
@@ -105,23 +110,37 @@ describe('sync-status-reporter — bind lifecycle', () => {
     reporter.attachServer(server);
     expect(syncEntry()?.state).toBe('green');
 
-    reporter.setBindState({ kind: 'failed', host: '0.0.0.0', error: new Error('EADDRINUSE') });
+    reporter.setBindState({ kind: 'failed', host: '0.0.0.0', port: 8137, error: addrInUseError() });
 
     const entry = syncEntry();
     expect(entry?.state).toBe('red');
-    expect(entry?.message).toBe("Extension pipe offline — couldn't bind on 0.0.0.0");
-    expect(entry?.context).toMatchObject({ bindHost: '0.0.0.0', error: 'EADDRINUSE' });
+    expect(entry?.message).toBe(
+      'Extension pipe offline — port 8137 is already in use. Change it in Settings → Backend.',
+    );
+    expect(entry?.context).toMatchObject({ bindHost: '0.0.0.0', bindPort: 8137 });
+  });
+
+  it('falls back to the generic bind-failed message for a non-EADDRINUSE cause', () => {
+    const reporter = installSyncStatusReporter();
+    reporter.setBindState({ kind: 'failed', host: '0.0.0.0', port: 9000, error: new Error('EACCES') });
+
+    const entry = syncEntry();
+    expect(entry?.state).toBe('red');
+    expect(entry?.message).toBe(
+      "Extension pipe offline — couldn't bind 0.0.0.0:9000. Change it in Settings → Backend.",
+    );
+    expect(entry?.context).toMatchObject({ bindHost: '0.0.0.0', bindPort: 9000, error: 'EACCES' });
   });
 
   it('stringifies a non-Error bind failure cause', () => {
     const reporter = installSyncStatusReporter();
-    reporter.setBindState({ kind: 'failed', host: '127.0.0.1', error: 'boom' });
+    reporter.setBindState({ kind: 'failed', host: '127.0.0.1', port: 8137, error: 'boom' });
     expect(syncEntry()?.context).toMatchObject({ error: 'boom' });
   });
 
   it('shows "restarting" yellow when the server detaches mid-rebind', () => {
     const reporter = installSyncStatusReporter();
-    reporter.setBindState({ kind: 'bound', host: '127.0.0.1' });
+    reporter.setBindState({ kind: 'bound', host: '127.0.0.1', port: 8137 });
     reporter.attachServer(makeFakeServer());
     expect(syncEntry()?.state).toBe('green');
 
@@ -134,14 +153,14 @@ describe('sync-status-reporter — bind lifecycle', () => {
 
   it('recovers from a failed bind when a later attempt binds and attaches', () => {
     const reporter = installSyncStatusReporter();
-    reporter.setBindState({ kind: 'failed', host: '0.0.0.0', error: new Error('EADDRINUSE') });
+    reporter.setBindState({ kind: 'failed', host: '0.0.0.0', port: 8137, error: addrInUseError() });
     expect(syncEntry()?.state).toBe('red');
 
-    reporter.setBindState({ kind: 'binding', host: '127.0.0.1' });
+    reporter.setBindState({ kind: 'binding', host: '127.0.0.1', port: 8137 });
     expect(syncEntry()?.state).toBe('yellow');
 
     reporter.attachServer(makeFakeServer());
-    reporter.setBindState({ kind: 'bound', host: '127.0.0.1' });
+    reporter.setBindState({ kind: 'bound', host: '127.0.0.1', port: 8137 });
     expect(syncEntry()?.state).toBe('green');
     expect(syncEntry()?.message).toBe('Idle — no extensions connected');
   });
@@ -209,7 +228,7 @@ describe('sync-status-reporter — dispose', () => {
 
     // Neither a peer change nor a bind transition should move the entry now.
     server.setPeers([loopbackPeer(0), loopbackPeer(1)]);
-    reporter.setBindState({ kind: 'failed', host: '0.0.0.0', error: new Error('late') });
+    reporter.setBindState({ kind: 'failed', host: '0.0.0.0', port: 8137, error: new Error('late') });
     expect(syncEntry()?.message).toBe('Connected to 1 extension on this device');
   });
 });
