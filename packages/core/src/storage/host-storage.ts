@@ -21,6 +21,24 @@ import type { ParseEntityOptions } from '../schemas';
 import type { StorageKey } from './keys';
 
 /**
+ * Tri-state result of a guarded sensitive-slot read. Distinguishes a slot
+ * that was never written (`absent`) from one whose ciphertext is present
+ * but cannot be opened (`undecryptable` — the at-rest key was lost or
+ * rotated, or the blob is corrupt).
+ *
+ * {@link HostStorage.getValidated} collapses both non-`ok` cases to `null`,
+ * which silently masquerades a key loss as an empty slot. Consumers of
+ * irreplaceable secrets (the vault) read through
+ * {@link HostStorage.getValidatedGuarded} to tell "never set" from "present
+ * but unreadable" and refuse to seed an empty projection over the latter.
+ *
+ * `ok` carries `value: T | null`; a `null` value is a decryptable blob that
+ * failed the schema (drift) — the existing read-validates fall-through, not
+ * a key loss.
+ */
+export type GuardedRead<T> = { status: 'ok'; value: T | null } | { status: 'absent' } | { status: 'undecryptable' };
+
+/**
  * The runtime contract every host's persisted-state adapter must
  * satisfy. UI code only sees this interface — never the concrete
  * adapter class.
@@ -57,6 +75,25 @@ export interface HostStorage {
     schema: TSchema,
     options?: ParseEntityOptions,
   ): Promise<Array<v.InferOutput<TSchema>>>;
+  /**
+   * Schema-validated single-entity read that distinguishes a present-but-
+   * undecryptable sensitive slot from an absent one (see {@link GuardedRead}).
+   *
+   * Optional capability: hosts whose backing store can detect an
+   * undecryptable ciphertext — the extension's `chrome.storage.local` blob
+   * sealed under an IndexedDB key, the desktop's file blob sealed under an
+   * OS-keychain key — implement it. Pure in-memory fakes and forwarding
+   * proxies that hold no cipher omit it, and consumers fall back to
+   * {@link getValidated} (which can never observe `undecryptable` there).
+   *
+   * For a non-sensitive key `undecryptable` is impossible — it resolves
+   * `ok`/`absent` exactly like {@link getValidated}.
+   */
+  getValidatedGuarded?<TSchema extends v.BaseSchema<unknown, unknown, v.BaseIssue<unknown>>>(
+    spec: StorageKey<v.InferOutput<TSchema>>,
+    schema: TSchema,
+    options?: ParseEntityOptions,
+  ): Promise<GuardedRead<v.InferOutput<TSchema>>>;
   /**
    * Subscribe to changes for a single key. Fires with the new value or
    * `undefined` on removal. Returned function unregisters the listener.

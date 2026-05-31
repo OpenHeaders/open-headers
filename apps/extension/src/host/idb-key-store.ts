@@ -18,11 +18,53 @@
  * generation. `putIfAbsent` does the get-and-put inside one `readwrite`
  * transaction, so whoever commits first wins and the loser adopts the stored
  * key — there is never a split where data is sealed under a discarded key.
+ *
+ * Eviction detection (WS-B B2): the IndexedDB key store and the
+ * `chrome.storage.local` ciphertext are two stores with independent
+ * eviction. If the key is lost but the ciphertext survives, minting a fresh
+ * key leaves every prior sealed blob permanently undecryptable — a silent
+ * whole-vault loss. We can't recover the plaintext, but we can stop pretending
+ * nothing happened: a durable provisioning marker in `chrome.storage.local`
+ * (which outlives IDB eviction) lets first-run-mint be told apart from
+ * mint-after-loss, and the latter is logged loudly. The per-slot read path
+ * (`getValidatedGuarded`) carries the actionable, vault-specific signal; this
+ * marker is the global "all sealed slots are dead" observability tripwire.
  */
+
+import { logger } from '@openheaders/core/utils';
 
 const DB_NAME = 'oh-secret-cipher';
 const STORE_NAME = 'keys';
 const KEY_ID = 'at-rest-aes-gcm-v1';
+
+/**
+ * Durable witness that an at-rest key was provisioned at least once. Lives
+ * in `chrome.storage.local` — the same store the ciphertext lives in, and
+ * one that survives IndexedDB eviction — so "no IDB key but marker present"
+ * is a reliable eviction signal rather than a first run.
+ */
+const PROVISION_MARKER_KEY = 'oh.host.atRestKeyProvisioned';
+
+declare const browser: typeof chrome | undefined;
+
+function storageLocal(): chrome.storage.LocalStorageArea {
+  const api = typeof browser !== 'undefined' ? browser : chrome;
+  return api.storage.local;
+}
+
+function readProvisionMarker(): Promise<boolean> {
+  return new Promise((resolve) => {
+    storageLocal().get([PROVISION_MARKER_KEY], (items: Record<string, unknown>) =>
+      resolve(items[PROVISION_MARKER_KEY] === true),
+    );
+  });
+}
+
+function setProvisionMarker(): Promise<void> {
+  return new Promise((resolve) => {
+    storageLocal().set({ [PROVISION_MARKER_KEY]: true }, () => resolve());
+  });
+}
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -71,9 +113,28 @@ export async function loadOrCreateAtRestKey(): Promise<CryptoKey> {
   const db = await openDb();
   try {
     const existing = await idbGet(db, KEY_ID);
-    if (existing) return existing;
+    if (existing) {
+      // Self-heal the marker for a key provisioned before this tripwire
+      // existed (idempotent — `set` of an already-true marker is a no-op).
+      void setProvisionMarker();
+      return existing;
+    }
+    // No key in IDB. If we provisioned one before, it was lost (eviction,
+    // partial "clear browsing data", DB corruption) and every ciphertext
+    // sealed under it is now dead — mint a fresh key so new writes work,
+    // but surface the loss rather than masquerading as a clean first run.
+    if (await readProvisionMarker()) {
+      logger.warn(
+        'AtRestKeyStore',
+        'at-rest key was provisioned previously but is now absent from IndexedDB; ' +
+          'every sealed secret slot (vault, OAuth bundle, daemon tokens) is unreadable. ' +
+          'Minting a fresh key for new writes — existing secrets must be re-entered.',
+      );
+    }
     const key = await generateAtRestKey();
-    return await putIfAbsent(db, KEY_ID, key);
+    const stored = await putIfAbsent(db, KEY_ID, key);
+    await setProvisionMarker();
+    return stored;
   } finally {
     db.close();
   }

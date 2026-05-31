@@ -1,4 +1,5 @@
 import { storageKey } from '@openheaders/core/storage';
+import * as v from 'valibot';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BrowserSecretCipher } from '@/host/browser-secret-cipher';
 import { ExtensionStorage } from '@/host/extension-storage';
@@ -126,5 +127,58 @@ describe('ExtensionStorage — sensitive slot encryption', () => {
     await adapter.set(secretKey, { seed: 'observed' });
     await vi.waitFor(() => expect(received).toEqual([{ seed: 'observed' }]));
     dispose();
+  });
+});
+
+describe('ExtensionStorage — getValidatedGuarded tri-state', () => {
+  const secretSchema = v.object({ seed: v.string() });
+  let store: ReturnType<typeof installFakeChromeStorage>;
+
+  beforeEach(() => {
+    store = installFakeChromeStorage();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('reports absent for a slot that was never written', async () => {
+    const adapter = new ExtensionStorage(makeStubCipher());
+    expect(await adapter.getValidatedGuarded(secretKey, secretSchema)).toEqual({ status: 'absent' });
+  });
+
+  it('reports ok with the decrypted value for a good sensitive blob', async () => {
+    const adapter = new ExtensionStorage(makeStubCipher());
+    await adapter.set(secretKey, { seed: 'JBSWY3DPEHPK3PXP' });
+    expect(await adapter.getValidatedGuarded(secretKey, secretSchema)).toEqual({
+      status: 'ok',
+      value: { seed: 'JBSWY3DPEHPK3PXP' },
+    });
+  });
+
+  it('reports undecryptable — NOT absent — for a present blob that will not open', async () => {
+    // The lost-at-rest-key hazard: ciphertext survives in chrome.storage.local
+    // but the IndexedDB key that sealed it is gone, so decrypt throws.
+    const adapter = new ExtensionStorage(makeStubCipher());
+    store.data.set('oh.test.secret', 'not-a-sealed-blob');
+    expect(await adapter.getValidatedGuarded(secretKey, secretSchema)).toEqual({ status: 'undecryptable' });
+    // The plain read collapses the same blob to undefined (indistinguishable from absent).
+    expect(await adapter.get(secretKey)).toBeUndefined();
+  });
+
+  it('reports undecryptable when the cipher is unavailable but a blob is present', async () => {
+    const adapter = new ExtensionStorage(makeStubCipher(false));
+    store.data.set('oh.test.secret', 'SEALED({"seed":"x"})');
+    expect(await adapter.getValidatedGuarded(secretKey, secretSchema)).toEqual({ status: 'undecryptable' });
+  });
+
+  it('treats a present non-sensitive value as ok without involving the cipher', async () => {
+    const plainSchema = v.object({ label: v.string() });
+    const adapter = new ExtensionStorage(makeStubCipher());
+    await adapter.set(plainKey, { label: 'public' });
+    expect(await adapter.getValidatedGuarded(plainKey, plainSchema)).toEqual({
+      status: 'ok',
+      value: { label: 'public' },
+    });
   });
 });

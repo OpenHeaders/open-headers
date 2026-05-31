@@ -20,7 +20,7 @@
  */
 
 import { type ParseEntityOptions, parseEntity, parseEntityArray } from '@openheaders/core/schemas';
-import type { HostStorage, StorageArea, StorageKey } from '@openheaders/core/storage';
+import type { GuardedRead, HostStorage, StorageArea, StorageKey } from '@openheaders/core/storage';
 import type * as v from 'valibot';
 import { type BrowserSecretCipher, createBrowserSecretCipher } from './browser-secret-cipher';
 
@@ -116,18 +116,32 @@ export class ExtensionStorage implements HostStorage {
   }
 
   /**
+   * Open an at-rest blob into a tri-state. `absent` is never produced here
+   * (callers check for a missing raw first); a present blob is either `ok`
+   * with its decoded JS value, or `undecryptable` when the cipher is
+   * unavailable / the raw isn't a blob / the AES-GCM open throws (a lost or
+   * rotated at-rest key, or a corrupt blob). The decoded value is not yet
+   * schema-validated — that is the caller's step.
+   */
+  private async openSlotGuarded(raw: unknown): Promise<{ status: 'ok'; value: unknown } | { status: 'undecryptable' }> {
+    if (typeof raw !== 'string' || !this.cipher.isAvailable()) return { status: 'undecryptable' };
+    try {
+      return { status: 'ok', value: JSON.parse(await this.cipher.decrypt(raw)) };
+    } catch {
+      return { status: 'undecryptable' };
+    }
+  }
+
+  /**
    * Open an at-rest blob. Returns `undefined` (never throws) on a missing
    * cipher or a decrypt failure — a corrupt / undecryptable slot reads as
    * empty and the caller falls through to a default, matching the desktop
-   * read-fault tolerance.
+   * read-fault tolerance. Read sites that must tell a key loss apart from an
+   * empty slot use {@link getValidatedGuarded} instead.
    */
   private async openSlot<T>(raw: unknown): Promise<T | undefined> {
-    if (typeof raw !== 'string' || !this.cipher.isAvailable()) return undefined;
-    try {
-      return JSON.parse(await this.cipher.decrypt(raw)) as T;
-    } catch {
-      return undefined;
-    }
+    const opened = await this.openSlotGuarded(raw);
+    return opened.status === 'ok' ? (opened.value as T) : undefined;
   }
 
   /** Read a single key. Returns `undefined` when the slot is empty. */
@@ -222,6 +236,31 @@ export class ExtensionStorage implements HostStorage {
     const raw = await this.get(spec);
     if (raw === undefined) return null;
     return parseEntity(schema, raw, options);
+  }
+
+  /**
+   * Schema-validated single-entity read that distinguishes a present-but-
+   * undecryptable sensitive slot from an absent one (see {@link GuardedRead}).
+   * `getValidated` collapses both to `null`; this preserves the difference so
+   * a consumer of irreplaceable secrets (the vault) refuses to seed an empty
+   * projection over a ciphertext it merely can't open — the silent-loss hazard
+   * when the IndexedDB at-rest key is evicted out from under the still-present
+   * `chrome.storage.local` blob.
+   */
+  async getValidatedGuarded<TSchema extends v.BaseSchema<unknown, unknown, v.BaseIssue<unknown>>>(
+    spec: StorageKey<v.InferOutput<TSchema>>,
+    schema: TSchema,
+    options?: ParseEntityOptions,
+  ): Promise<GuardedRead<v.InferOutput<TSchema>>> {
+    const items = await areaGet(spec.area, [spec.key]);
+    const raw = items[spec.key];
+    if (raw === undefined) return { status: 'absent' };
+    if (spec.sensitive !== true) {
+      return { status: 'ok', value: parseEntity(schema, raw, options) };
+    }
+    const opened = await this.openSlotGuarded(raw);
+    if (opened.status !== 'ok') return { status: 'undecryptable' };
+    return { status: 'ok', value: parseEntity(schema, opened.value, options) };
   }
 
   /**

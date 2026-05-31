@@ -1,4 +1,5 @@
 export {
+  type GuardedRead,
   getHostStorage,
   type HostStorage,
   hostStorage,

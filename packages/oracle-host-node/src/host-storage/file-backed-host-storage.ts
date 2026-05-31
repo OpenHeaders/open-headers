@@ -32,9 +32,9 @@
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import { type ParseEntityOptions, parseEntity, parseEntityArray } from '@openheaders/core/schemas';
-import type { HostStorage, StorageKey } from '@openheaders/core/storage';
-import type * as v from 'valibot';
+import type { GuardedRead, HostStorage, StorageKey } from '@openheaders/core/storage';
 import type { SecretCipher } from '@openheaders/oracle/host-storage';
+import type * as v from 'valibot';
 
 const ENVELOPE_VERSION = 1;
 
@@ -157,6 +157,17 @@ export class FileBackedHostStorage implements HostStorage {
     return parseEntityArray(schema, raw, options);
   }
 
+  async getValidatedGuarded<TSchema extends v.BaseSchema<unknown, unknown, v.BaseIssue<unknown>>>(
+    spec: StorageKey<v.InferOutput<TSchema>>,
+    schema: TSchema,
+    options?: ParseEntityOptions,
+  ): Promise<GuardedRead<v.InferOutput<TSchema>>> {
+    await this.ensureLoaded();
+    const opened = this.readSlotGuarded(spec);
+    if (opened.status !== 'ok') return opened;
+    return { status: 'ok', value: parseEntity(schema, opened.value, options) };
+  }
+
   subscribe<T>(spec: StorageKey<T>, fn: (next: T | undefined) => void): () => void {
     const bucket = this.listeners.get(spec.key) ?? new Set<ChangeListener>();
     const cast = fn as ChangeListener;
@@ -188,7 +199,9 @@ export class FileBackedHostStorage implements HostStorage {
         secrets:
           parsed.secrets && typeof parsed.secrets === 'object'
             ? Object.fromEntries(
-                Object.entries(parsed.secrets).filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
+                Object.entries(parsed.secrets).filter(
+                  (entry): entry is [string, string] => typeof entry[1] === 'string',
+                ),
               )
             : {},
       };
@@ -205,34 +218,42 @@ export class FileBackedHostStorage implements HostStorage {
   }
 
   private readSlot<T>(spec: StorageKey<T>): T | undefined {
+    const opened = this.readSlotGuarded(spec);
+    return opened.status === 'ok' ? (opened.value as T) : undefined;
+  }
+
+  /**
+   * Read a slot into a tri-state, distinguishing an absent slot from a
+   * present-but-undecryptable one (cipher unavailable or the OS-keychain key
+   * lost / blob corrupt). {@link readSlot} collapses both non-`ok` cases to
+   * `undefined` for the read-fault-tolerant default path; {@link getValidatedGuarded}
+   * preserves the difference for consumers of irreplaceable secrets.
+   */
+  private readSlotGuarded(
+    spec: StorageKey<unknown>,
+  ): { status: 'ok'; value: unknown } | { status: 'absent' } | { status: 'undecryptable' } {
     if (spec.sensitive === true) {
       const blob = this.envelope.secrets[spec.key];
-      if (blob === undefined) return undefined;
+      if (blob === undefined) return { status: 'absent' };
       if (!this.cipher.isAvailable()) {
-        this.log(
-          'warn',
-          `FileBackedHostStorage: cipher unavailable; refusing to decrypt slot "${spec.key}"`,
-        );
-        return undefined;
+        this.log('warn', `FileBackedHostStorage: cipher unavailable; refusing to decrypt slot "${spec.key}"`);
+        return { status: 'undecryptable' };
       }
       try {
-        const plaintext = this.cipher.decrypt(blob);
-        return JSON.parse(plaintext) as T;
+        return { status: 'ok', value: JSON.parse(this.cipher.decrypt(blob)) };
       } catch (err) {
         this.log('error', `FileBackedHostStorage: decrypt failed for "${spec.key}"`, err);
-        return undefined;
+        return { status: 'undecryptable' };
       }
     }
-    if (!(spec.key in this.envelope.values)) return undefined;
-    return this.envelope.values[spec.key] as T;
+    if (!(spec.key in this.envelope.values)) return { status: 'absent' };
+    return { status: 'ok', value: this.envelope.values[spec.key] };
   }
 
   private writeSlot<T>(spec: StorageKey<T>, value: T): void {
     if (spec.sensitive === true) {
       if (!this.cipher.isAvailable()) {
-        throw new Error(
-          `FileBackedHostStorage: cipher unavailable; cannot write sensitive slot "${spec.key}"`,
-        );
+        throw new Error(`FileBackedHostStorage: cipher unavailable; cannot write sensitive slot "${spec.key}"`);
       }
       const blob = this.cipher.encrypt(JSON.stringify(value));
       this.envelope.secrets[spec.key] = blob;

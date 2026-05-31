@@ -25,6 +25,7 @@
  * skip persist; only oauth uses beforeSeed).
  */
 
+import type { GuardedRead } from '@openheaders/core/storage';
 import type { MutationBatch, MutatorContext } from '@openheaders/core/sync';
 import { logger } from '@openheaders/core/utils';
 import type { BroadcastEvent, InMemoryBroadcast } from './broadcast';
@@ -69,6 +70,28 @@ export interface SingletonEntityCacheConfig<T, I> {
    * nothing is persisted (the cache stays at `emptySnapshot`).
    */
   loadFromStorage?: (scope: string) => Promise<I | null>;
+  /**
+   * Guarded variant of {@link loadFromStorage}. When provided,
+   * {@link SingletonEntityCache.hydrateFromStorage} uses it instead so a
+   * present-but-undecryptable persisted blob — the at-rest key was lost out
+   * from under the surviving ciphertext — is told apart from an absent slot.
+   * On `undecryptable` the cache enters {@link SingletonEntityCache.isLocked}
+   * and refuses to seed `emptySnapshot` over the unreadable ciphertext
+   * (which would let a subsequent edit tombstone the orphaned secrets), then
+   * surfaces the condition via `onChange` rather than masquerading as empty.
+   * Only entities holding irreplaceable secrets (the vault) wire this.
+   */
+  loadGuardedFromStorage?: (scope: string) => Promise<GuardedRead<I>>;
+  /**
+   * Predicate paired with {@link loadGuardedFromStorage}: does this snapshot
+   * carry no real content? It governs when the undecryptable-baseline lock
+   * lifts. The lock holds while the snapshot stays empty — so a benign empty
+   * re-seed (e.g. the active-mirror bridge seeding from a `null` read) cannot
+   * clear it — and lifts the moment authoritative content lands (the user
+   * re-enters and writes), after which deleting everything won't re-lock.
+   * Required for the lock to ever clear; omit it and the entity never locks.
+   */
+  isEmptySnapshot?: (snapshot: T) => boolean;
 }
 
 export interface SingletonEntityCache<T, I> {
@@ -76,6 +99,15 @@ export interface SingletonEntityCache<T, I> {
    *  extension-workspace global sentinel). */
   readonly scope: string;
   getSnapshot(): T;
+  /**
+   * True when {@link hydrateFromStorage} found a present-but-undecryptable
+   * persisted blob and refused to seed empty over it (the at-rest key was
+   * lost). The snapshot stays at `emptySnapshot`, but consumers must treat
+   * this as "locked — secrets unreadable, re-entry required", NOT "empty".
+   * Clears once authoritative content lands (the user re-enters and writes);
+   * a benign empty re-seed leaves it locked (see {@link SingletonEntityCacheConfig.isEmptySnapshot}).
+   */
+  isLocked(): boolean;
   seedFromPersisted(input: I): Promise<void>;
   /**
    * Read this singleton's persisted projection from
@@ -98,16 +130,10 @@ export function createSingletonEntityCache<T, I>(
   config: SingletonEntityCacheConfig<T, I>,
 ): SingletonEntityCache<T, I> {
   let snapshot: T = config.emptySnapshot;
+  let locked = false;
   const listeners = new Set<() => void>();
 
-  const refreshFromOracle = (): void => {
-    const next = config.project(oracle, snapshot) ?? config.emptySnapshot;
-    snapshot = next;
-    if (config.persist) {
-      void config.persist(scope, next).catch((err) => {
-        logger.info(config.loggerTag, `persist failed (scope=${scope}):`, (err as Error).message);
-      });
-    }
+  const notify = (): void => {
     for (const l of listeners) {
       try {
         l();
@@ -115,6 +141,24 @@ export function createSingletonEntityCache<T, I>(
         logger.info(config.loggerTag, 'listener threw:', (err as Error).message);
       }
     }
+  };
+
+  const refreshFromOracle = (): void => {
+    const next = config.project(oracle, snapshot) ?? config.emptySnapshot;
+    snapshot = next;
+    // The undecryptable-baseline lock lifts only when authoritative content
+    // lands — NOT on a benign empty re-seed. Deriving from emptiness (rather
+    // than "any broadcast") keeps the active-mirror bridge's empty seed from
+    // clearing the lock, while a genuine re-entry clears it for good.
+    if (locked && config.isEmptySnapshot && !config.isEmptySnapshot(next)) {
+      locked = false;
+    }
+    if (config.persist) {
+      void config.persist(scope, next).catch((err) => {
+        logger.info(config.loggerTag, `persist failed (scope=${scope}):`, (err as Error).message);
+      });
+    }
+    notify();
   };
 
   const unsubscribe = broadcast.subscribe((event: BroadcastEvent) => {
@@ -145,20 +189,38 @@ export function createSingletonEntityCache<T, I>(
   return {
     scope,
     getSnapshot: () => snapshot,
+    isLocked: () => locked,
 
     seedFromPersisted: (input) => seedFromPersisted(input),
 
     async hydrateFromStorage(): Promise<void> {
+      if (config.loadGuardedFromStorage) {
+        try {
+          const result = await config.loadGuardedFromStorage(scope);
+          if (result.status === 'undecryptable') {
+            locked = true;
+            logger.warn(
+              config.loggerTag,
+              `persisted ${config.entityType} is present but undecryptable (scope=${scope}); ` +
+                'refusing to seed empty over it — at-rest key lost, re-entry required',
+            );
+            notify();
+            return;
+          }
+          if (result.status === 'absent' || result.value === null) return;
+          await seedFromPersisted(result.value);
+        } catch (err) {
+          logger.info(config.loggerTag, `hydrateFromStorage(scope=${scope}) failed: ${(err as Error).message}`);
+        }
+        return;
+      }
       if (!config.loadFromStorage) return;
       try {
         const persisted = await config.loadFromStorage(scope);
         if (persisted === null) return;
         await seedFromPersisted(persisted);
       } catch (err) {
-        logger.info(
-          config.loggerTag,
-          `hydrateFromStorage(scope=${scope}) failed: ${(err as Error).message}`,
-        );
+        logger.info(config.loggerTag, `hydrateFromStorage(scope=${scope}) failed: ${(err as Error).message}`);
       }
     },
 
