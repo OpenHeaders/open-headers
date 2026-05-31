@@ -184,7 +184,9 @@ export type SensitiveSnapshotKey = (typeof SENSITIVE_SNAPSHOT_KEYS)[number];
  * skip this — the strip is about transport, not storage.
  */
 export function redactSensitiveSnapshotKeys(snapshot: WorkspaceSnapshot): WorkspaceSnapshot {
-  return { ...snapshot, vault: [], oauthBundles: [], liveValues: [] };
+  const out = { ...snapshot };
+  for (const key of SENSITIVE_SNAPSHOT_KEYS) out[key] = [];
+  return out;
 }
 
 /**
@@ -211,5 +213,7 @@ export type SameDeviceOnlySnapshotKey = (typeof SAME_DEVICE_ONLY_SNAPSHOT_KEYS)[
  * still bootstraps derived OAuth/live values.
  */
 export function redactSameDeviceOnlySnapshotKeys(snapshot: WorkspaceSnapshot): WorkspaceSnapshot {
-  return { ...snapshot, vault: [] };
+  const out = { ...snapshot };
+  for (const key of SAME_DEVICE_ONLY_SNAPSHOT_KEYS) out[key] = [];
+  return out;
 }
