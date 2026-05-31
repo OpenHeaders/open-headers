@@ -20,6 +20,7 @@
  */
 
 import type { Vault, VaultSecret } from '@openheaders/core/types';
+import { VaultSchema } from '@openheaders/core/schemas';
 import { useActiveWorkspaceId } from '../shared/hooks/useActiveWorkspaceId';
 import { hostBridge } from '@openheaders/core/bridge';
 import type React from 'react';
@@ -37,6 +38,13 @@ const EMPTY_VAULT: Vault = { schemaVersion: 5, secrets: [] };
 export interface VaultContextValue {
   vault: Vault;
   isReady: boolean;
+  /**
+   * True when the persisted vault ciphertext is present but undecryptable —
+   * the at-rest key was lost (WS-B B2). `vault` reads empty, but consumers
+   * MUST surface "re-entry required" rather than an editable empty table:
+   * a write over a locked vault would overwrite recoverable ciphertext.
+   */
+  isLocked: boolean;
   setVaultSecret: (secret: VaultSecret) => Promise<VaultSimpleResult>;
   removeVaultSecret: (uid: string) => Promise<VaultSimpleResult>;
   replaceVault: (
@@ -50,6 +58,7 @@ const NO_WORKSPACE: VaultSimpleResult = { ok: false, reason: 'other', message: '
 const defaultContextValue: VaultContextValue = {
   vault: EMPTY_VAULT,
   isReady: false,
+  isLocked: false,
   setVaultSecret: () => Promise.resolve(NO_WORKSPACE),
   removeVaultSecret: () => Promise.resolve(NO_WORKSPACE),
   replaceVault: () => Promise.resolve(NO_WORKSPACE),
@@ -78,6 +87,7 @@ export const VaultProvider: React.FC<VaultProviderProps> = ({ children, surfaceI
 
   const [vault, setVault] = useState<Vault>(EMPTY_VAULT);
   const [isReady, setIsReady] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
   const overrideIdRef = useRef<string | null>(null);
 
   // ── Read path ─────────────────────────────────────────────────
@@ -89,19 +99,25 @@ export const VaultProvider: React.FC<VaultProviderProps> = ({ children, surfaceI
       if (isOverridden) return;
       const resp = await hostBridge.call('getVault').catch(() => null);
       if (cancelled) return;
-      if (resp) setVault(resp.vault);
+      if (resp) {
+        setVault(resp.vault);
+        setIsLocked(resp.vaultLocked ?? false);
+      }
       setIsReady(true);
     };
     void initialLoad();
 
     const unsub = hostBridge.subscribe('environmentsChanged', (payload) => {
-      if (!isOverridden) setVault(payload.vault);
+      if (isOverridden) return;
+      setVault(payload.vault);
+      setIsLocked(payload.vaultLocked ?? false);
     });
     const unsubWs = hostBridge.subscribe('workspaceChanged', () => {
       if (isOverridden) return;
       void hostBridge.call('getVault')
         .then((resp) => {
           setVault(resp.vault);
+          setIsLocked(resp.vaultLocked ?? false);
         })
         .catch(() => undefined);
     });
@@ -119,17 +135,37 @@ export const VaultProvider: React.FC<VaultProviderProps> = ({ children, surfaceI
     overrideIdRef.current = wsId;
     if (!wsId) {
       setVault(EMPTY_VAULT);
+      setIsLocked(false);
       setIsReady(true);
       return;
     }
     setIsReady(false);
-    void hostStorage.get(wsKeys(wsId).vault).then((record) => {
-      if (overrideIdRef.current !== wsId) return;
-      setVault(record ?? EMPTY_VAULT);
-      setIsReady(true);
+
+    // Guarded tri-state read: the direct-storage path bypasses the SW cache's
+    // lock, so it must detect the undecryptable-but-present slot itself.
+    // `subscribe` only carries the decrypted record (null on undecryptable),
+    // so re-derive through `getValidatedGuarded` on every change. Hosts with
+    // no cipher (in-memory fakes) omit it → fall back to a plain read.
+    const key = wsKeys(wsId).vault;
+    const readGuarded = async () => {
+      if (hostStorage.getValidatedGuarded) {
+        const guarded = await hostStorage.getValidatedGuarded(key, VaultSchema);
+        if (overrideIdRef.current !== wsId) return;
+        setIsLocked(guarded.status === 'undecryptable');
+        setVault(guarded.status === 'ok' ? (guarded.value ?? EMPTY_VAULT) : EMPTY_VAULT);
+      } else {
+        const record = await hostStorage.get(key);
+        if (overrideIdRef.current !== wsId) return;
+        setIsLocked(false);
+        setVault(record ?? EMPTY_VAULT);
+      }
+    };
+
+    void readGuarded().then(() => {
+      if (overrideIdRef.current === wsId) setIsReady(true);
     });
-    return hostStorage.subscribe(wsKeys(wsId).vault, (record) => {
-      setVault(record ?? EMPTY_VAULT);
+    return hostStorage.subscribe(key, () => {
+      void readGuarded();
     });
   }, [isOverridden, activeWorkspaceIdOverride]);
 
@@ -163,11 +199,12 @@ export const VaultProvider: React.FC<VaultProviderProps> = ({ children, surfaceI
     () => ({
       vault,
       isReady,
+      isLocked,
       setVaultSecret,
       removeVaultSecret,
       replaceVault,
     }),
-    [vault, isReady, setVaultSecret, removeVaultSecret, replaceVault],
+    [vault, isReady, isLocked, setVaultSecret, removeVaultSecret, replaceVault],
   );
 
   return <VaultContext.Provider value={value}>{children}</VaultContext.Provider>;

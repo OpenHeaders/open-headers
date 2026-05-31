@@ -22,8 +22,10 @@
 
 import { EnvironmentSchema, VaultSchema, WorkspaceVariablesSchema } from '@openheaders/core/schemas';
 import type { Environment, Variable, Vault, WorkspaceVariables } from '@openheaders/core/types';
-import { generateUid } from '@openheaders/core/utils';
-import { logger } from '@openheaders/core/utils';
+import { generateUid, logger } from '@openheaders/core/utils';
+import { entityLockName, withLock } from '@openheaders/oracle/coordination';
+import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
+import { requireActiveWorkspaceId } from '@openheaders/oracle/sync';
 import {
   ENVIRONMENT_REGISTRATION,
   VAULT_REGISTRATION,
@@ -31,12 +33,9 @@ import {
 } from '@openheaders/oracle/sync/entity-registry';
 import type { EnvironmentCache } from '@openheaders/oracle/sync/environment-cache';
 import { getActiveCacheForRegistration, getCacheForWorkspace } from '@openheaders/oracle/sync/service';
+import { driftRecorder } from '@openheaders/oracle/sync/storage-drift';
 import type { VaultCache } from '@openheaders/oracle/sync/vault-cache';
 import type { WorkspaceVariablesCache } from '@openheaders/oracle/sync/workspace-variables-cache';
-import { entityLockName, withLock } from '@openheaders/oracle/coordination';
-import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
-import { driftRecorder } from '@openheaders/oracle/sync/storage-drift';
-import { requireActiveWorkspaceId } from '@openheaders/oracle/sync';
 
 // ── In-memory state ─────────────────────────────────────────────────
 
@@ -134,6 +133,18 @@ export function getVault(): Vault {
   return vault;
 }
 
+/**
+ * True when the active workspace's vault is locked out — its persisted
+ * ciphertext is present but undecryptable (the at-rest key was lost, WS-B
+ * B2). {@link getVault} reads empty in that state; consumers must surface
+ * this as "re-entry required" rather than treating the vault as empty.
+ * Reads through the active {@link VaultCache} (the guarded hydrate sets the
+ * flag); `false` when no active cache is materialized.
+ */
+export function isVaultLocked(): boolean {
+  return getActiveCacheForRegistration<VaultCache>(VAULT_REGISTRATION)?.isVaultLocked() ?? false;
+}
+
 // ── Per-workspace accessors (MWPT-FULL session #19) ────────────────
 //
 // SW-internal consumers operating on a non-Active workspace (live-
@@ -217,10 +228,7 @@ export async function renameEnvironment(uid: string, name: string): Promise<Envi
   );
 }
 
-export async function updateEnvironmentVariables(
-  uid: string,
-  variables: Variable[],
-): Promise<EnvironmentWriteResult> {
+export async function updateEnvironmentVariables(uid: string, variables: Variable[]): Promise<EnvironmentWriteResult> {
   const workspaceId = assertLoaded();
   return withLock(
     entityLockName(workspaceId, 'environment', uid),
@@ -306,10 +314,7 @@ function reconcileOverrides(
   return result;
 }
 
-function overridesEqual(
-  a: Record<string, string | null>,
-  b: Record<string, string | null>,
-): boolean {
+function overridesEqual(a: Record<string, string | null>, b: Record<string, string | null>): boolean {
   const ak = Object.keys(a);
   const bk = Object.keys(b);
   if (ak.length !== bk.length) return false;

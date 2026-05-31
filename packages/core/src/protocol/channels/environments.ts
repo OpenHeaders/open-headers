@@ -25,6 +25,15 @@ export interface EnvironmentsSnapshot {
   defaultEnvironmentId: string | null;
   workspaceVariables: WorkspaceVariables;
   vault: Vault;
+  /**
+   * True when the persisted vault ciphertext is present but undecryptable —
+   * the at-rest key was lost (WS-B B2). `vault` reads empty, but this is a
+   * locked-out state, NOT an empty vault: the UI must show a "re-entry
+   * required" banner instead of an editable empty table. Optional: only the
+   * authoritative SW producer knows the lock state; UI-side optimistic
+   * rebroadcasts omit it (treated as not-locked).
+   */
+  vaultLocked?: boolean;
   collectionEnvOverrides: Record<string, string | null>;
   /** Last env the user manually picked — consumed by the `apply-defaults` auto-switch mode. */
   manualEnvId: string | null;
@@ -73,7 +82,7 @@ export interface EnvironmentRpc {
   };
   getVault: {
     req: Record<string, never>;
-    res: { vault: Vault };
+    res: { vault: Vault; vaultLocked?: boolean };
   };
   updateCollectionVariables: {
     req: {

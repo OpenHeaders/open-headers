@@ -62,7 +62,7 @@ function secretsSignature(secrets: readonly VaultSecret[]): string {
 const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRef }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
-  const { vault } = useVault();
+  const { vault, isLocked } = useVault();
   const { replaceVault } = useVariableMutator();
 
   const [draft, setDraft] = useState<VaultSecret[]>(() => vault.secrets ?? EMPTY_SECRETS);
@@ -279,11 +279,22 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
               description="Vault secrets are stored only in this browser profile. They take priority over every other scope. They are never synced — not via Git, not via the desktop WebSocket. Add a TOTP entry to reference its current 6-digit code as {{vault.NAME}} from any request."
             />
 
-            <Text type="secondary" style={{ display: 'block', marginBottom: 8, fontSize: 11, fontWeight: 600 }}>
-              SECRETS ({counts.strings} string · {counts.totps} TOTP)
-            </Text>
+            {isLocked ? (
+              <Alert
+                type="error"
+                showIcon
+                message="Vault locked — at-rest key lost"
+                description="This vault's secrets are still stored on this device but can no longer be decrypted: the at-rest key that sealed them is gone (cleared browser data, a new profile, or a reset extension key). Editing is disabled so a new entry can't overwrite the sealed data. Re-enter the secrets to unlock the vault — the existing entries will be replaced."
+              />
+            ) : (
+              <>
+                <Text type="secondary" style={{ display: 'block', marginBottom: 8, fontSize: 11, fontWeight: 600 }}>
+                  SECRETS ({counts.strings} string · {counts.totps} TOTP)
+                </Text>
 
-            <VariableTable mode="vault" secrets={draft} onChange={setDraft} conflictBridge={conflictBridge} />
+                <VariableTable mode="vault" secrets={draft} onChange={setDraft} conflictBridge={conflictBridge} />
+              </>
+            )}
           </div>
         </div>
         <EntityConflictDialog

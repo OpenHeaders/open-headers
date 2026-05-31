@@ -9,6 +9,7 @@ import {
   getManualEnvId,
   getVault,
   getWorkspaceVariables,
+  isVaultLocked,
   onEnvironmentStoreChange,
 } from '@openheaders/oracle/entity/environment-store';
 import { listFiles, onFilesStoreChange } from '@openheaders/oracle/entity/files-store';
@@ -22,11 +23,7 @@ import { pruneOrphanOwners } from '@openheaders/oracle/test-run/test-run-store';
 import { broadcast } from '@utils/bridge';
 import { logger } from '@utils/logger';
 import { scheduleUpdate } from '../modules/rule-engine';
-import {
-  getActiveWorkspaceId,
-  listWorkspaces,
-  onWorkspaceStoreChange,
-} from '../modules/workspace-store';
+import { getActiveWorkspaceId, listWorkspaces, onWorkspaceStoreChange } from '../modules/workspace-store';
 
 interface InstallStoreBroadcastsOpts {
   refreshFanOut: () => void;
@@ -89,6 +86,7 @@ export function installStoreBroadcasts({ refreshFanOut, tryAdoptPendingWorkspace
       defaultEnvironmentId: getDefaultEnvironmentId(),
       workspaceVariables: getWorkspaceVariables(),
       vault: getVault(),
+      vaultLocked: isVaultLocked(),
       collectionEnvOverrides: getCollectionEnvOverrides(),
       manualEnvId: getManualEnvId(),
     });

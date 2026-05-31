@@ -10,19 +10,7 @@
  */
 
 import type { WorkspaceContentSnapshot } from '@openheaders/core/sync';
-import type {
-  LiveVariable,
-  LiveVariableOverride,
-  LiveWorkflow,
-  OAuth2Auth,
-  RefreshPolicy,
-  Request,
-  Template,
-  TreeNode,
-  Variable,
-  ViewMode,
-  WorkflowStep,
-} from '@openheaders/core/types';
+import type { LiveVariable, Request, Template, TreeNode, Variable, ViewMode } from '@openheaders/core/types';
 import { doesUrlMatchEntry, getRuleMatchPatterns } from '@openheaders/core/utils';
 import { buildWorkspaceExport, serializeWorkspaceExport } from '@openheaders/core/workspace-export';
 import {
@@ -35,6 +23,7 @@ import {
   getManualEnvId,
   getVault,
   getWorkspaceVariables,
+  isVaultLocked,
   renameEnvironment,
   updateEnvironmentVariables,
 } from '@openheaders/oracle/entity/environment-store';
@@ -554,7 +543,7 @@ export function handleGeneralMessage(
     } else if (message.type === 'getWorkspaceVariables') {
       safeResponse({ workspaceVariables: getWorkspaceVariables() });
     } else if (message.type === 'getVault') {
-      safeResponse({ vault: getVault() });
+      safeResponse({ vault: getVault(), vaultLocked: isVaultLocked() });
     } else if (message.type === 'updateCollectionVariables') {
       updateCollectionVariables(message.collectionUid as string, message.variables as Variable[])
         .then((result) => {
@@ -1189,7 +1178,7 @@ export function handleGeneralMessage(
     } else if (message.type === 'updateLiveVariable') {
       const req = message as {
         uid: string;
-        updates: Partial<Omit<import('@openheaders/core/types').LiveVariable, 'uid' | 'path' | 'schemaVersion'>>;
+        updates: Partial<Omit<LiveVariable, 'uid' | 'path' | 'schemaVersion'>>;
       };
       updateLiveVariable(req.uid, req.updates)
         .then((result) => {
