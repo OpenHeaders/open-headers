@@ -10,18 +10,23 @@
  * string with no extra schema keys.
  *
  * Scheme stays editable because it carries the reach: `ws://` for local
- * / LAN hosts, `wss://` for a remote self-hosted back-end. Address and
- * Port commit on blur / Enter (draft-commit, like StringField); scheme
- * is a discrete choice so it commits immediately.
+ * / LAN hosts, `wss://` for a remote self-hosted back-end.
+ *
+ * Edits are STAGED, not committed: every part flows into the
+ * connection-draft layer (`useConnectionField`), and the persisted URL
+ * only changes when the user hits "Apply & reconnect" in the ApplyBar —
+ * so tabbing out of a half-typed address can't silently move the live
+ * connection. Outside the BackendPane (settings search) there's no draft
+ * provider, so the hook falls back to plain auto-apply.
  */
 
 import { Input, Select, Space } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { type PortValidation, validatePort } from '@openheaders/core/utils';
-import { useSetting } from '../hooks';
 import type { SettingDef } from '../types';
 import FieldRow from '../fields/FieldRow';
+import { useConnectionField } from './connection-draft';
 import PortHint from './port-hint';
 
 type Scheme = 'ws' | 'wss';
@@ -61,7 +66,7 @@ function portVerdict(port: string): PortValidation {
 }
 
 const BackendUrlField: React.FC<{ def: SettingDef }> = ({ def }) => {
-  const [url, setUrl] = useSetting('backend.url');
+  const { value: url, setValue: setUrl, dirty, discard } = useConnectionField('backend.url');
   const [parts, setParts] = useState<UrlParts>(() => parseUrl(url));
 
   useEffect(() => {
@@ -83,7 +88,14 @@ const BackendUrlField: React.FC<{ def: SettingDef }> = ({ def }) => {
   );
 
   return (
-    <FieldRow settingKey={def.key} label={def.label} description={def.description}>
+    <FieldRow
+      settingKey={def.key}
+      label={def.label}
+      description={def.description}
+      modified={dirty}
+      onReset={discard}
+      resetTooltip="Discard unapplied change"
+    >
       <div style={{ width: '100%' }}>
         <Space.Compact style={{ width: '100%' }}>
           <Select

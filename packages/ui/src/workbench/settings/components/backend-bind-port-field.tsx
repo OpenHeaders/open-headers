@@ -8,49 +8,61 @@
  * host must update their backend URL's port to match, exactly as they
  * would for any server that moved ports.
  *
- * Draft-commit like StringField — the user types freely and the value
- * lands on blur / Enter. A `reject` verdict (privileged or out-of-range)
- * blocks the commit and shows an inline error; a `warn` verdict
- * (ephemeral range) commits but shows an inline caution.
+ * Edits are STAGED, not committed — the user types freely and the value
+ * flows into the connection-draft layer (`useConnectionField`); the
+ * persisted port (and the in-place rebind) only lands when the user hits
+ * "Apply & reconnect" in the ApplyBar, so tabbing out of a half-typed
+ * port can't silently rebind the daemon. A `reject` verdict (privileged
+ * or out-of-range) blocks the stage and shows an inline error; a `warn`
+ * verdict (ephemeral range) stages but shows an inline caution. Outside
+ * the BackendPane (settings search) the hook falls back to auto-apply.
  */
 
 import { InputNumber } from 'antd';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { type PortValidation, validatePort } from '@openheaders/core/utils';
-import { useSetting } from '../hooks';
 import FieldRow from '../fields/FieldRow';
 import type { SettingDef } from '../types';
+import { useConnectionField } from './connection-draft';
 import PortHint from './port-hint';
 
 const BackendBindPortField: React.FC<{ def: SettingDef }> = ({ def }) => {
-  const [port, setPort] = useSetting('backend.bindPort');
-  const [draft, setDraft] = useState<number | null>(port);
+  const { value: port, setValue: setPort, dirty, discard } = useConnectionField('backend.bindPort');
+  // Local input buffer; stages into the connection draft on blur / Enter.
+  const [input, setInput] = useState<number | null>(port);
 
   useEffect(() => {
-    setDraft(port);
+    setInput(port);
   }, [port]);
 
   const verdict: PortValidation =
-    draft === null ? { level: 'reject', message: 'Enter a port.' } : validatePort(draft);
+    input === null ? { level: 'reject', message: 'Enter a port.' } : validatePort(input);
 
   function commit(): void {
-    if (draft === null || verdict.level === 'reject') return;
-    if (draft !== port) setPort(draft);
+    if (input === null || verdict.level === 'reject') return;
+    if (input !== port) setPort(input);
   }
 
   return (
-    <FieldRow settingKey={def.key} label={def.label} description={def.description}>
+    <FieldRow
+      settingKey={def.key}
+      label={def.label}
+      description={def.description}
+      modified={dirty}
+      onReset={discard}
+      resetTooltip="Discard unapplied change"
+    >
       <div style={{ width: '100%' }}>
         <InputNumber
           style={{ width: '100%' }}
-          value={draft}
+          value={input}
           min={1}
           max={65535}
           step={1}
           placeholder="8137"
           status={verdict.level === 'reject' ? 'error' : verdict.level === 'warn' ? 'warning' : undefined}
-          onChange={(next) => setDraft(typeof next === 'number' ? next : null)}
+          onChange={(next) => setInput(typeof next === 'number' ? next : null)}
           onBlur={commit}
           onPressEnter={commit}
         />

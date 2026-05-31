@@ -18,8 +18,8 @@
  * the first valid mode and persist.
  */
 
-import { ArrowRightOutlined, ExperimentOutlined, SwapOutlined } from '@ant-design/icons';
-import { Alert, App as AntApp, Button, theme, Typography } from 'antd';
+import { ArrowRightOutlined, ExperimentOutlined, ReloadOutlined, SwapOutlined, UndoOutlined } from '@ant-design/icons';
+import { Alert, App as AntApp, Button, Checkbox, theme, Typography } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { hasCapability } from '@openheaders/core/capabilities';
@@ -31,6 +31,12 @@ import { useOptionalInspectorNav } from '../../hooks/useInspectorNav';
 import type { BackendMode } from '../schema/backend';
 import { backendModeIsPending, backendModeNeedsConnection } from '../schema/backend';
 import { useSetting, useSettingValue } from '../hooks';
+import { set as setSettingValue } from '../store';
+import {
+  type ConnectionDraftSnapshot,
+  ConnectionDraftProvider,
+  useConnectionDraft,
+} from './connection-draft';
 import { useBackendModeSwitch } from './backend-mode-switch';
 import type { CategoryDef, CategoryPaneProps, SettingDef, SubcategoryDef } from '../types';
 import SettingRow from '../fields/SettingRow';
@@ -114,7 +120,7 @@ function hostIsTheBackend(mode: BackendMode, host: Host): boolean {
   return false;
 }
 
-const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
+const BackendPaneInner: React.FC<CategoryPaneProps> = ({ category, defs }) => {
   const { token } = theme.useToken();
   const host = getCurrentHost();
   const { mode, attemptChange, disabled, dialogElement } = useBackendModeSwitch();
@@ -145,9 +151,14 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
     }
   }, [host, mode, attemptChange]);
 
+  // Pane-level view toggle, rendered inline as a checkbox rather than a
+  // config row — so it stays out of the `fieldDefs` the ConfigPanel lays
+  // out (it remains reachable via settings search like `backend.mode`).
+  const [showDiagrams, setShowDiagrams] = useSetting('backend.showDiagrams');
+
   const activeScenario = SCENARIOS.find((s) => s.mode === mode) ?? SCENARIOS[0];
   const previewScenario = SCENARIOS.find((s) => s.mode === previewMode) ?? activeScenario;
-  const fieldDefs = defs.filter((d) => d.key !== 'backend.mode');
+  const fieldDefs = defs.filter((d) => d.key !== 'backend.mode' && d.key !== 'backend.showDiagrams');
   const previewPending = backendModeIsPending(previewScenario.mode);
   const liveBackend = useBackendLive(activeScenario.mode, host);
   const previewingNonActive = previewMode !== mode;
@@ -182,16 +193,24 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
         onPreview={setPreviewMode}
       />
 
-      <DetailFrame previewingNonActive={previewingNonActive}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
-          <div style={{ flex: '1 1 360px', minWidth: 320 }}>
-            <BackendTierCard mode={previewScenario.mode} />
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: showDiagrams ? 6 : 14 }}>
+        <Checkbox checked={showDiagrams} onChange={(e) => setShowDiagrams(e.target.checked)}>
+          <span style={{ fontSize: 12, color: token.colorTextSecondary }}>Show diagrams</span>
+        </Checkbox>
+      </div>
+
+      {showDiagrams && (
+        <DetailFrame previewingNonActive={previewingNonActive}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 360px', minWidth: 320 }}>
+              <BackendTierCard mode={previewScenario.mode} />
+            </div>
+            <div style={{ flex: '1 1 360px', minWidth: 320 }}>
+              <BackendDetailDiagram mode={previewScenario.mode} />
+            </div>
           </div>
-          <div style={{ flex: '1 1 360px', minWidth: 320 }}>
-            <BackendDetailDiagram mode={previewScenario.mode} />
-          </div>
-        </div>
-      </DetailFrame>
+        </DetailFrame>
+      )}
 
       {/*
         Config inputs follow the PREVIEW mode, not the active mode.
@@ -227,6 +246,17 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
 };
 
 /**
+ * Public entry. Wraps the pane in the connection-draft provider so the
+ * connection-identity fields (`backend.url`, `backend.bindPort`) stage
+ * their edits and the ApplyBar can commit them atomically.
+ */
+const BackendPane: React.FC<CategoryPaneProps> = (props) => (
+  <ConnectionDraftProvider>
+    <BackendPaneInner {...props} />
+  </ConnectionDraftProvider>
+);
+
+/**
  * Bottom action bar — the explicit commit point. The dropdown that
  * lived here in earlier sessions silently committed on every change,
  * which conflated configuration with activation; clicking a tile to
@@ -244,7 +274,19 @@ const ApplyBar: React.FC<{
 }> = ({ previewMode, activeMode, previewLabel, host, disabled, onApply }) => {
   const { token } = theme.useToken();
   const { message } = AntApp.useApp();
-  const url = useSettingValue('backend.url');
+  const draft = useConnectionDraft();
+  const connectionDirty = (draft?.dirtyKeys.length ?? 0) > 0;
+  // The pre-commit values of the last Apply, kept so the user can Revert
+  // if the new connection doesn't come back. Cleared the moment a fresh
+  // edit is staged — a new draft supersedes the prior apply's undo window.
+  const [revertTarget, setRevertTarget] = useState<ConnectionDraftSnapshot | null>(null);
+  useEffect(() => {
+    if (connectionDirty) setRevertTarget(null);
+  }, [connectionDirty]);
+  const persistedUrl = useSettingValue('backend.url');
+  // Probe + apply act on the STAGED url so the user can test an address
+  // before adopting it — the whole point of decoupling edit from apply.
+  const url = draft ? draft.effective('backend.url') : persistedUrl;
   const [testing, setTesting] = useState(false);
   const isActive = previewMode === activeMode;
   const validForHost = isModeValidForHost(previewMode, host);
@@ -297,13 +339,56 @@ const ApplyBar: React.FC<{
       message.error({ key, content: humanizeProbeFailure(result) });
     };
   }, [host, url, message, previewLabel]);
+
+  const applyConnection = (): void => {
+    if (!draft) return;
+    setRevertTarget(draft.commit());
+  };
+  const revert = (): void => {
+    if (!revertTarget) return;
+    if (revertTarget['backend.url'] !== undefined) setSettingValue('backend.url', revertTarget['backend.url']);
+    if (revertTarget['backend.bindPort'] !== undefined)
+      setSettingValue('backend.bindPort', revertTarget['backend.bindPort']);
+    setRevertTarget(null);
+  };
+  const canRevert = revertTarget != null;
+
+  const onPrimary = (): void => {
+    if (isActive) {
+      applyConnection();
+      return;
+    }
+    // Switching modes — land any staged connection params first so the new
+    // back-end connects with them, then route through the orchestrator.
+    if (draft && connectionDirty) draft.commit();
+    onApply();
+  };
+  const primaryLabel = isActive ? 'Apply & reconnect' : `Switch to ${previewLabel}`;
+  const primaryDisabled = isActive ? !connectionDirty || disabled : disabled || !validForHost || pending;
+
   let statusCopy: React.ReactNode;
   if (isActive) {
-    statusCopy = (
-      <>
-        <strong style={{ color: token.colorText }}>{previewLabel}</strong> is the active back-end.
-      </>
-    );
+    if (connectionDirty) {
+      statusCopy = (
+        <>
+          Unapplied connection changes to{' '}
+          <strong style={{ color: token.colorText }}>{previewLabel}</strong>. Apply to reconnect.
+        </>
+      );
+    } else if (canRevert) {
+      statusCopy = (
+        <>
+          Applied to <strong style={{ color: token.colorText }}>{previewLabel}</strong>. Revert if the
+          connection doesn't recover.
+        </>
+      );
+    } else {
+      statusCopy = (
+        <>
+          <strong style={{ color: token.colorText }}>{previewLabel}</strong> is the active back-end.
+        </>
+      );
+    }
   } else if (!validForHost) {
     statusCopy = (
       <>
@@ -348,6 +433,11 @@ const ApplyBar: React.FC<{
       }}
     >
       <span style={{ flex: 1, minWidth: 0, fontSize: 12, color: token.colorTextSecondary }}>{statusCopy}</span>
+      {canRevert && (
+        <Button icon={<UndoOutlined />} onClick={revert}>
+          Revert
+        </Button>
+      )}
       {showTest && (
         <Button
           icon={<ExperimentOutlined />}
@@ -361,11 +451,11 @@ const ApplyBar: React.FC<{
       )}
       <Button
         type="primary"
-        icon={<SwapOutlined />}
-        onClick={onApply}
-        disabled={isActive || disabled || !validForHost || pending}
+        icon={isActive ? <ReloadOutlined /> : <SwapOutlined />}
+        onClick={onPrimary}
+        disabled={primaryDisabled}
       >
-        Switch to {previewLabel}
+        {primaryLabel}
       </Button>
     </div>
   );

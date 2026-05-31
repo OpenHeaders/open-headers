@@ -73,6 +73,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'backend.maxReconnectDelayMs': number;
     'backend.pingIntervalMs': number;
     'backend.showBadgeWhenDisconnected': boolean;
+    'backend.showDiagrams': boolean;
   }
 }
 
@@ -296,4 +297,16 @@ registerSetting({
   tags: ['badge', 'status', 'icon', 'indicator'],
   scope: 'user',
   when: (get) => backendModeNeedsConnection(get('backend.mode')),
+});
+
+registerSetting({
+  key: 'backend.showDiagrams',
+  type: 'boolean',
+  default: true,
+  schema: v.boolean(),
+  label: 'Show back-end diagrams',
+  description: 'Show the illustrated tier and data-flow panels in Backend settings.',
+  category: 'backend',
+  tags: ['diagram', 'preview', 'illustration', 'panels', 'svg'],
+  scope: 'user',
 });

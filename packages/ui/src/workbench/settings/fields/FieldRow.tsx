@@ -25,6 +25,17 @@ interface FieldRowProps {
   resettable?: boolean;
   /** When true the control spans the full width below the label (good for code editors). */
   block?: boolean;
+  /**
+   * Override the store-derived "modified from default" signal. Staged
+   * fields (the connection-draft editors) pass their own draft-vs-persisted
+   * dirty flag so the dot means "edited, not yet applied" instead.
+   */
+  modified?: boolean;
+  /** Override the reset handler. Pairs with `modified` for staged fields,
+   *  where reset discards the pending edit rather than resetting to default. */
+  onReset?: () => void;
+  /** Reset-button tooltip. Defaults to the reset-to-default meaning. */
+  resetTooltip?: string;
 }
 
 const FieldRow: React.FC<FieldRowProps> = ({
@@ -36,10 +47,15 @@ const FieldRow: React.FC<FieldRowProps> = ({
   children,
   resettable = true,
   block = false,
+  modified: modifiedOverride,
+  onReset,
+  resetTooltip = 'Reset to default',
 }) => {
   const { token } = theme.useToken();
-  const modified = useIsModified(settingKey);
-  const reset = useResetSetting(settingKey);
+  const storeModified = useIsModified(settingKey);
+  const storeReset = useResetSetting(settingKey);
+  const modified = modifiedOverride ?? storeModified;
+  const reset = onReset ?? storeReset;
   const { isConnected } = useSettingsConnection();
   const gated = requiresConnection === true && !isConnected;
 
@@ -168,7 +184,7 @@ const FieldRow: React.FC<FieldRowProps> = ({
           )}
         </div>
         {resettable && modified && (
-          <Tooltip title="Reset to default">
+          <Tooltip title={resetTooltip}>
             <Button size="small" type="text" icon={<UndoOutlined />} onClick={reset} />
           </Tooltip>
         )}
