@@ -228,8 +228,23 @@ describe('cadence ownership — peer defer (C8)', () => {
     expect(info.when).toBe(NOW + 120_000);
   });
 
-  it('does not defer a definitionally-stale row (fire-ASAP wins)', async () => {
+  it('defers a connected, remote-sourced, definitionally-stale row (audit C-1 — no fire-ASAP hot-loop)', async () => {
+    // A connected peer cannot produce the corrected value itself; firing
+    // ASAP would just hit the gate and re-arm at the 30s floor forever. So a
+    // remote-sourced stale row arms the near-expiry safety fire instead and
+    // waits for the backend to re-mint + push the corrected value (which
+    // clears the flag in `applySyncedLiveValues`).
     H.scheduler.setBackendConnectionProbe(() => true);
+    const expiresAt = NOW + 600_000;
+    await scheduleWith(makeCache({ extractedAt: NOW, expiresAt, lastSyncedValueAt: NOW, definitionallyStale: true }));
+    const [, info] = alarmsCreateMock.mock.calls[0];
+    expect(info.when).toBe(expiresAt - 30_000);
+  });
+
+  it('a definitionally-stale row still fires-ASAP when NOT connected (Mode-1/offline self-corrects)', async () => {
+    // No backend probe → applyDeferOverride early-returns before the
+    // stale-defer path, so a sole-runner peer keeps fire-ASAP and produces
+    // the corrected value locally.
     await scheduleWith(
       makeCache({ extractedAt: NOW, expiresAt: NOW + 600_000, lastSyncedValueAt: NOW, definitionallyStale: true }),
     );
@@ -693,5 +708,67 @@ describe('offline fallback election — exclusive class (C14)', () => {
     expect(refreshSpy).toHaveBeenCalledOnce();
     expect(markExclusiveDegradedForRunMock).not.toHaveBeenCalled();
     expect(deriveExecutionPolicyForWorkflowMock).not.toHaveBeenCalled();
+  });
+
+  // ── Evicted, not offline (audit X-1) ──────────────────────────────
+  //
+  // The socket is down because the backend REJECTED this peer (revoked /
+  // rotated token), not because it's unreachable. The desktop is alive and
+  // still owns the exclusive credential, so self-electing would race it —
+  // a worse, admin-triggered, unbounded sibling of the C-3 double-fire. An
+  // evicted peer must banner + re-pair, never self-elect.
+
+  it('evicted rank-0 eligible host does NOT self-elect an exclusive cred — degrades + logs BackendEvicted', async () => {
+    const refreshSpy = vi.fn<() => Promise<void>>(async () => {});
+    setupOfflineExclusive(refreshSpy);
+    // Would be the elected rank-0 runner if this were a genuine outage…
+    H.scheduler.setFallbackPriorityProbe(() => ({ order: ['p-self', 'p-other'], selfPrincipalId: 'p-self' }));
+    // …but the backend rejected this peer — it's evicted, not offline.
+    H.scheduler.setBackendEvictedProbe(() => true);
+
+    await fire(Date.now());
+
+    // Did not fire the exclusive cred against the still-live backend.
+    expect(refreshSpy).not.toHaveBeenCalled();
+    // Deliberate skip, not a failure.
+    expect(recordRefreshErrorMock).not.toHaveBeenCalled();
+    // Degraded so the Status pill says "reconnect the desktop" (the
+    // actionable re-pair CTA is the BackendPane banner on the same signal).
+    expect(markExclusiveDegradedForRunMock).toHaveBeenCalledTimes(1);
+    const [uid, envId, , ws] = markExclusiveDegradedForRunMock.mock.calls[0];
+    expect(uid).toBe('wflow001');
+    expect(envId).toBeNull();
+    expect(ws).toBe('ws-live');
+    expect(lastFailed()?.context?.errorClass).toBe('BackendEvicted');
+    expect(lastFailed()?.level).toBe('info');
+  });
+
+  it('evicted peer still self-refreshes an IDEMPOTENT cred (eviction blocks only the exclusive race)', async () => {
+    const refreshSpy = vi.fn<() => Promise<void>>(async () => {});
+    H.scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
+    H.scheduler.setBackendConnectionProbe(() => false);
+    // Default mock verdict is idempotent.
+    H.scheduler.setFallbackPriorityProbe(() => ({ order: ['p-other'], selfPrincipalId: 'p-self' }));
+    H.scheduler.setBackendEvictedProbe(() => true);
+
+    await fire(Date.now());
+
+    // Idempotent self-refresh is harmless (N mints at worst wasteful) and an
+    // evicted peer receives no syncs, so keeping its value warm is correct.
+    expect(refreshSpy).toHaveBeenCalledOnce();
+    expect(markExclusiveDegradedForRunMock).not.toHaveBeenCalled();
+  });
+
+  it('a NON-evicted offline peer (probe present, false) still elects at rank-0 — no regression', async () => {
+    const refreshSpy = vi.fn<() => Promise<void>>(async () => {});
+    setupOfflineExclusive(refreshSpy);
+    H.scheduler.setFallbackPriorityProbe(() => ({ order: ['p-self'], selfPrincipalId: 'p-self' }));
+    // Probe installed but reports not-evicted → genuine outage → elect.
+    H.scheduler.setBackendEvictedProbe(() => false);
+
+    await fire(Date.now());
+
+    expect(refreshSpy).toHaveBeenCalledOnce();
+    expect(markExclusiveDegradedForRunMock).not.toHaveBeenCalled();
   });
 });

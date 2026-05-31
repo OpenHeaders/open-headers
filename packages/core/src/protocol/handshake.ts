@@ -61,6 +61,32 @@ export const HANDSHAKE_REJECT_REASONS = {
 
 export type HandshakeRejectReason = (typeof HANDSHAKE_REJECT_REASONS)[keyof typeof HANDSHAKE_REJECT_REASONS];
 
+/**
+ * True when a handshake rejection means "the backend is alive and
+ * authoritative but is refusing *this* peer" — as opposed to the backend
+ * being unreachable. The distinction is load-bearing for the offline
+ * fallback election (WS-C C14 / audit X-1): a peer whose token was revoked
+ * or rotated (`auth-required`) is *evicted*, not *offline* — the desktop is
+ * still up, still owns the exclusive credential, and still produces it, so a
+ * revoked peer that self-elects would race the live backend (TOTP burn /
+ * rotating-OAuth reuse-detection). The protocol-mismatch reasons are the
+ * same shape: the backend is running the credential but can't talk to this
+ * peer, so self-electing still races it.
+ *
+ * `workspace-unknown` is deliberately NOT evicting: if the backend doesn't
+ * know the workspace it isn't running that workspace's workflows, so the
+ * peer self-electing is the legitimate sole runner, not a race. `null`
+ * (never rejected / transport-dropped) is not evicting either — that is the
+ * genuinely-offline case the election exists to serve.
+ */
+export function isBackendEvictingReason(reason: HandshakeRejectReason | null | undefined): boolean {
+  return (
+    reason === HANDSHAKE_REJECT_REASONS.AUTH_REQUIRED ||
+    reason === HANDSHAKE_REJECT_REASONS.PROTOCOL_TOO_OLD ||
+    reason === HANDSHAKE_REJECT_REASONS.PROTOCOL_TOO_NEW
+  );
+}
+
 // ── Roles ─────────────────────────────────────────────────────────────
 
 /**

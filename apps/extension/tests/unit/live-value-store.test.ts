@@ -21,6 +21,7 @@ import {
   clearWorkflowRunCache,
   getWorkflowRunCache,
   markExclusiveDegradedForRun,
+  markRunDefinitionallyStale,
   onLiveCacheStoreChange,
   putWorkflowRunCache,
   recordRefreshError,
@@ -261,6 +262,95 @@ describe('exclusiveDegradedSince — C9 escape-hatch marker', () => {
     await recordRefreshError({ workflowUid: WF, environmentId: null, message: 'boom' }, WS);
 
     expect((await getWorkflowRunCache(WF, null, WS))?.exclusiveDegradedSince).toBe(1234);
+  });
+});
+
+describe('definitionallyStaleSince — deferring-consumer clear (audit C-1)', () => {
+  it('stamps definitionallyStaleSince alongside the flag on the not-stale→stale transition', async () => {
+    await applySyncedLiveValues(WS, { [runKey(WF, null)]: value() });
+    const t0 = Date.now();
+
+    await markRunDefinitionallyStale(WF, null, WS);
+
+    const row = await getWorkflowRunCache(WF, null, WS);
+    expect(row?.definitionallyStale).toBe(true);
+    expect(row?.definitionallyStaleSince).toBeGreaterThanOrEqual(t0);
+  });
+
+  it('clears the flag + since when a synced value provably post-dates the edit (extractedAt ≥ since)', async () => {
+    // A deferring consumer never produces locally, so this is its ONLY clear
+    // path — without it the flag (and a 30s alarm hot-loop) sticks forever.
+    await applySyncedLiveValues(WS, { [runKey(WF, null)]: value() });
+    await markRunDefinitionallyStale(WF, null, WS);
+    const since = (await getWorkflowRunCache(WF, null, WS))?.definitionallyStaleSince as number;
+    expect(since).toBeTypeOf('number');
+
+    await applySyncedLiveValues(WS, {
+      [runKey(WF, null)]: value({
+        stepCaptures: { s1: { token: 'corrected' } },
+        extractedAt: since + 10,
+        expiresAt: since + 10_000,
+      }),
+    });
+
+    const after = await getWorkflowRunCache(WF, null, WS);
+    expect(after?.definitionallyStale).toBeUndefined();
+    expect(after?.definitionallyStaleSince).toBeUndefined();
+    expect(after?.stepCaptures).toEqual({ s1: { token: 'corrected' } });
+  });
+
+  it('does NOT clear the flag for a value minted BEFORE the edit (wrong-recipe gate holds)', async () => {
+    // The backend may push a value it minted before the recipe edit reached
+    // it; clearing on that would reintroduce the wrong-recipe window the
+    // timestamp gate exists to prevent.
+    await applySyncedLiveValues(WS, { [runKey(WF, null)]: value() });
+    await markRunDefinitionallyStale(WF, null, WS);
+    const since = (await getWorkflowRunCache(WF, null, WS))?.definitionallyStaleSince as number;
+
+    await applySyncedLiveValues(WS, {
+      [runKey(WF, null)]: value({
+        stepCaptures: { s1: { token: 'pre-edit' } },
+        extractedAt: since - 1,
+        expiresAt: since + 10_000,
+      }),
+    });
+
+    const after = await getWorkflowRunCache(WF, null, WS);
+    expect(after?.definitionallyStale).toBe(true);
+    expect(after?.definitionallyStaleSince).toBe(since);
+  });
+
+  it('preserves the flag + since through a failed OWN refresh', async () => {
+    await applySyncedLiveValues(WS, { [runKey(WF, null)]: value() });
+    await markRunDefinitionallyStale(WF, null, WS);
+    const since = (await getWorkflowRunCache(WF, null, WS))?.definitionallyStaleSince;
+
+    await recordRefreshError({ workflowUid: WF, environmentId: null, message: 'boom' }, WS);
+
+    const after = await getWorkflowRunCache(WF, null, WS);
+    expect(after?.definitionallyStale).toBe(true);
+    expect(after?.definitionallyStaleSince).toBe(since);
+  });
+
+  it('clears the flag + since when THIS host produces the value itself', async () => {
+    await applySyncedLiveValues(WS, { [runKey(WF, null)]: value() });
+    await markRunDefinitionallyStale(WF, null, WS);
+
+    await putWorkflowRunCache(
+      {
+        workflowUid: WF,
+        environmentId: null,
+        stepCaptures: { s1: { token: 'local' } },
+        stepResponseBytes: {},
+        extractedAt: 12_000,
+        expiresAt: 20_000,
+      },
+      WS,
+    );
+
+    const after = await getWorkflowRunCache(WF, null, WS);
+    expect(after?.definitionallyStale).toBeUndefined();
+    expect(after?.definitionallyStaleSince).toBeUndefined();
   });
 });
 

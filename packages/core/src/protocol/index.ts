@@ -38,6 +38,7 @@ export {
   BACKEND_REACH,
   HANDSHAKE_REJECT_REASONS,
   HANDSHAKE_ROLES,
+  isBackendEvictingReason,
   StateVectorSchema,
   SYNC_HELLO_TYPE,
   SYNC_STATE_VECTOR_TYPE,

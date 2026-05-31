@@ -261,6 +261,44 @@ function isBackendConnected(): boolean {
   }
 }
 
+// ── Eviction probe: "the backend rejected me, it isn't down" (audit X-1) ──
+//
+// `isBackendConnected()` is pure transport liveness — it reads false both
+// when the backend is unreachable (→ legitimately fall back) AND when the
+// backend is up but rejected THIS peer's revoked/rotated token
+// (`auth-required`, the A-1/A-2 kill-switch: 1008 close → reconnect →
+// WELCOME-reject). The offline-fallback election must NOT treat the second
+// case as "offline": the desktop is alive and still owns the exclusive
+// credential, so a revoked peer that self-elects would race the live
+// backend (TOTP burn / rotating-OAuth reuse-detection → session revoke).
+//
+// The bootstrap injects this probe (wired to the handshake's sticky reject
+// state via `isBackendEvictingReason`); when it returns true the offline
+// gate degrades the row to the "reconnect/re-pair the desktop" banner
+// instead of electing. Until a probe is installed (Mode-1, tests) the peer
+// is never considered evicted — the election behaves exactly as before.
+
+let backendEvictedProbe: (() => boolean) | null = null;
+
+/**
+ * Install (or clear) the backend-eviction probe. The bootstrap wires this
+ * to a sticky read of the handshake's most-recent reject reason (true while
+ * the backend has actively rejected this peer — revoked/rotated token or
+ * protocol mismatch); tests install a stub. `null` disables it — the peer
+ * is never treated as evicted (pure-offline election semantics).
+ */
+export function setBackendEvictedProbe(probe: (() => boolean) | null): void {
+  backendEvictedProbe = probe;
+}
+
+function isBackendEvicted(): boolean {
+  try {
+    return backendEvictedProbe?.() ?? false;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Cadence-ownership override (WS-C C8). Given the *normal* lead-time fire
  * the core cadence math computed, decide whether this peer should instead
@@ -268,17 +306,27 @@ function isBackendConnected(): boolean {
  *
  * Defers only a **healthy, remote-sourced** row while **connected**: a
  * row this host is failing on (circuit non-closed / `consecutiveFailures`)
- * stays on its backoff curve, a definitionally-stale row keeps its
- * fire-ASAP, and a locally-produced row (no `lastSyncedValueAt`) keeps
- * its own cadence. The deferred fire is used only when it lands *later*
- * than the normal cadence — never pull a refresh earlier — so the backend
- * (which fires at its own larger lead) gets the first shot.
+ * stays on its backoff curve, and a locally-produced row (no
+ * `lastSyncedValueAt`) keeps its own cadence. The deferred fire is used
+ * only when it lands *later* than the normal cadence — never pull a refresh
+ * earlier — so the backend (which fires at its own larger lead) gets the
+ * first shot.
+ *
+ * A **definitionally-stale** remote-sourced row also defers here (audit
+ * C-1): the cadence math would otherwise force it fire-ASAP, but a
+ * connected peer cannot produce the corrected value itself — it must wait
+ * for the backend to re-mint against the new recipe and push it over §4
+ * (which clears the flag in `applySyncedLiveValues`). Firing ASAP would
+ * just hit the connected-peer gate and re-arm at the 30s floor forever — a
+ * battery hot-loop. A non-connected peer never reaches this branch
+ * (early-return below), so a Mode-1 / offline stale row still fires-ASAP
+ * and self-corrects locally.
  */
 function applyDeferOverride(cache: WorkflowRunCache | null, normalFireAt: number | null, nowMs: number): number | null {
   if (normalFireAt == null) return normalFireAt; // manual / unschedulable — never defer
   if (!isBackendConnected()) return normalFireAt;
   if (!cache || cache.lastSyncedValueAt == null || cache.expiresAt == null) return normalFireAt;
-  if (cache.consecutiveFailures > 0 || cache.definitionallyStale) return normalFireAt;
+  if (cache.consecutiveFailures > 0) return normalFireAt;
   if (cache.circuit && cache.circuit.state !== 'closed') return normalFireAt;
   const deferred = computeDeferredFireAt(cache.expiresAt, nowMs);
   return deferred > normalFireAt ? deferred : normalFireAt;
@@ -553,6 +601,21 @@ const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | 
           entry.environmentId,
         );
         if (policy === 'exclusive') {
+          // Evicted, not offline (audit X-1). The socket is down because the
+          // backend REJECTED this peer (revoked/rotated token), not because
+          // it's unreachable — the desktop is alive and still produces this
+          // exclusive cred. Electing ourselves here would race the live
+          // backend. Skip the election entirely: degrade to the same
+          // "reconnect the desktop" banner the not-elected path raises (the
+          // actionable re-pair CTA lives in Settings → Backend, fired off the
+          // same auth-required signal), and re-arm without racing. The flag
+          // clears the moment a fresh value syncs in after re-pairing.
+          if (isBackendEvicted()) {
+            await markExclusiveDegradedForRun(payload.u, payload.e, now, payload.w);
+            throw new BackendEvictedError(
+              `backend-evicted: workflow ${payload.u} — exclusive cred, backend rejected this peer (not offline); banner instead of self-electing`,
+            );
+          }
           const verdict = electOfflineFallbackRunner({
             priorityList: fallback.order,
             selfPrincipalId: fallback.selfPrincipalId,
@@ -633,14 +696,19 @@ const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | 
     // elected single runner for an exclusive cred — it has already marked
     // the row degraded; re-arm at the cadence floor so the banner clears
     // promptly once the elected host's value syncs in or the backend
-    // returns.
+    // returns. `BackendEvictedError` (audit X-1) joins it as well: the
+    // socket is down because the backend REJECTED this peer (not because
+    // it's unreachable), so the peer declined to self-elect an exclusive
+    // cred against the still-live backend — already degraded; re-arm so the
+    // banner clears once a fresh value syncs in after re-pairing.
     if (
       err instanceof CircuitBlockedError ||
       err instanceof OfflineError ||
       err instanceof DeferredError ||
       err instanceof ExclusiveDeferredError ||
       err instanceof ConnectFenceError ||
-      err instanceof FallbackNotElectedError
+      err instanceof FallbackNotElectedError ||
+      err instanceof BackendEvictedError
     ) {
       if (job) {
         void scheduler.schedule(job).catch((e) => logger.warn('LiveScheduler', 'Re-schedule after skip failed', e));
@@ -830,6 +898,27 @@ class FallbackNotElectedError extends Error {
 }
 
 /**
+ * Sentinel thrown by the offline gate (audit X-1) when this peer's socket is
+ * down because the backend ACTIVELY REJECTED it (revoked/rotated token, or
+ * protocol mismatch) rather than being unreachable. The backend is alive and
+ * still owns the exclusive credential, so self-electing would race it — the
+ * exact kill-switch escalation X-1 closes. Distinct from
+ * `FallbackNotElectedError` (genuinely offline, just outranked/ineligible):
+ * here the resolution is to RE-PAIR, not to wait for reconnect. Not a
+ * failure — `provider.refresh` has already marked the row degraded
+ * (`markExclusiveDegradedForRun`); this only routes the no-op: `recordFailure`
+ * re-arms at the cadence floor without touching the circuit, and `onFailed`
+ * logs at info. The flag clears once a fresh value syncs in after re-pairing.
+ * A class (not a string match) so the narrowing stays exhaustive.
+ */
+class BackendEvictedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'BackendEvicted';
+  }
+}
+
+/**
  * Thrown when an attempt is refused because the platform reports
  * `navigator.onLine === false`. Not a circuit failure — the provider
  * is (probably) fine; the client has no way to reach it. Treating
@@ -896,6 +985,13 @@ function describeRefreshFailure(err: Error, workflowUid: string): RefreshFailure
       level: 'info',
       errorClass: 'FallbackNotElected',
       message: `Backend offline for workflow ${workflowUid} — peer not the elected fallback runner, won't race (reconnect the desktop)`,
+    };
+  }
+  if (err instanceof BackendEvictedError) {
+    return {
+      level: 'info',
+      errorClass: 'BackendEvicted',
+      message: `Backend rejected this peer for workflow ${workflowUid} — evicted, not offline; won't self-elect an exclusive cred (re-pair the desktop)`,
     };
   }
   if (err instanceof ExclusiveDeferredError) {

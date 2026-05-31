@@ -12,6 +12,7 @@ import {
   BACKEND_REACH,
   HANDSHAKE_REJECT_REASONS,
   HANDSHAKE_ROLES,
+  isBackendEvictingReason,
   StateVectorSchema,
   SYNC_HELLO_TYPE,
   SYNC_STATE_VECTOR_TYPE,
@@ -164,5 +165,29 @@ describe('SyncHandshakeMessageSchema (union)', () => {
 
   it('rejects unknown message types', () => {
     expect(() => v.parse(SyncHandshakeMessageSchema, { type: 'oh.sync.elsewhere' })).toThrow();
+  });
+});
+
+describe('isBackendEvictingReason (audit X-1)', () => {
+  it('treats auth-required as evicting — the revoke/rotate kill-switch case', () => {
+    // Backend is alive, hosts the workspace, runs the cred, but kicked THIS
+    // peer → self-electing would race the live backend.
+    expect(isBackendEvictingReason(HANDSHAKE_REJECT_REASONS.AUTH_REQUIRED)).toBe(true);
+  });
+
+  it("treats both protocol-mismatch reasons as evicting (backend running, can't talk to this peer)", () => {
+    expect(isBackendEvictingReason(HANDSHAKE_REJECT_REASONS.PROTOCOL_TOO_OLD)).toBe(true);
+    expect(isBackendEvictingReason(HANDSHAKE_REJECT_REASONS.PROTOCOL_TOO_NEW)).toBe(true);
+  });
+
+  it('does NOT treat workspace-unknown as evicting — backend is not running that workspace', () => {
+    // If the backend doesn't know the workspace it isn't producing the
+    // workflow, so the peer self-electing is the legitimate sole runner.
+    expect(isBackendEvictingReason(HANDSHAKE_REJECT_REASONS.WORKSPACE_UNKNOWN)).toBe(false);
+  });
+
+  it('does NOT treat null/undefined as evicting — that is the genuinely-offline case', () => {
+    expect(isBackendEvictingReason(null)).toBe(false);
+    expect(isBackendEvictingReason(undefined)).toBe(false);
   });
 });

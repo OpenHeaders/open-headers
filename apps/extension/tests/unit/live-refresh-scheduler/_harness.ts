@@ -392,6 +392,7 @@ beforeEach(async () => {
   scheduler = await import('@/background/modules/live-refresh-scheduler');
   scheduler.__setLiveRefreshAdapter(null);
   scheduler.setBackendConnectionProbe(null);
+  scheduler.setBackendEvictedProbe(null);
   scheduler.setFallbackPriorityProbe(null);
 });
 

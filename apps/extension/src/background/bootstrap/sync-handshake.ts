@@ -1,4 +1,5 @@
 import { consumedOrgIds, getIdentitySnapshot, recordJoinedOrg } from '@openheaders/core/identity';
+import { type HandshakeRejectReason, isBackendEvictingReason } from '@openheaders/core/protocol';
 import { getHostStorage, OH } from '@openheaders/core/storage';
 import { applyWorkspaceSnapshot, readWorkspaceStateVector } from '@openheaders/oracle/sync';
 import { getOrCreateWorkspaceService, releaseWorkspaceService } from '@openheaders/oracle/sync/service';
@@ -13,15 +14,23 @@ import {
   setActiveWorkspaceById,
 } from '../modules/workspace-store';
 import { createSyncHandshakeInitiator } from '../sync-handshake-initiator';
-import {
-  applyPeerStateVectorToPendingOut,
-  flushPendingOutToBackend,
-} from '../sync-mutation-forwarder';
+import { applyPeerStateVectorToPendingOut, flushPendingOutToBackend } from '../sync-mutation-forwarder';
 import { sendViaWebSocket } from '../websocket';
 
 export interface SyncHandshakeHandles {
   initiator: ReturnType<typeof createSyncHandshakeInitiator>;
   tryAdoptPendingWorkspace: () => void;
+  /**
+   * True when the backend has ACTIVELY REJECTED this peer (revoked/rotated
+   * token → `auth-required`, or protocol mismatch) — as opposed to being
+   * unreachable. Sticky: set on a rejecting `onRejected`, cleared only on a
+   * clean `onSynced`, so it survives the reconnect-backoff flap that resets
+   * the FSM's live `rejectReason()` to null on every attempt. The
+   * offline-fallback election reads it (audit X-1) so a revoked peer treats
+   * itself as *evicted, not offline* and banners instead of self-electing an
+   * exclusive credential against the still-live backend.
+   */
+  isBackendEvicting: () => boolean;
 }
 
 export function setupSyncHandshake(): SyncHandshakeHandles {
@@ -29,6 +38,13 @@ export function setupSyncHandshake(): SyncHandshakeHandles {
   // syncs down. The handshake fires before the joined Org's workspaces
   // arrive, so adoption is deferred to a later workspace-store change.
   let pendingAdoptWorkspaceId: string | null = null;
+
+  // Sticky most-recent reject reason (audit X-1). The FSM's `rejectReason()`
+  // is reset to null on every reconnect attempt, so a peer being repeatedly
+  // kicked flaps auth-required → null → auth-required — too flaky for the
+  // election's safety gate. This survives until a clean `onSynced` proves
+  // the backend accepted us again (e.g. after re-pairing).
+  let lastRejectReason: HandshakeRejectReason | null = null;
 
   const tryAdoptPendingWorkspace = (): void => {
     if (!pendingAdoptWorkspaceId) return;
@@ -81,6 +97,10 @@ export function setupSyncHandshake(): SyncHandshakeHandles {
       }
     },
     onSynced: async (_scope, peerVector) => {
+      // A clean sync proves the backend accepted us — clear any sticky
+      // eviction so the offline election treats a later partition as a
+      // genuine outage again (audit X-1).
+      lastRejectReason = null;
       await applyPeerStateVectorToPendingOut(peerVector);
       await flushPendingOutToBackend();
       tryAdoptPendingWorkspace();
@@ -90,6 +110,9 @@ export function setupSyncHandshake(): SyncHandshakeHandles {
       forwardCurrentAwarenessOnConnect();
     },
     onRejected: (reason, detail) => {
+      // Remember the rejection (audit X-1) so the offline-fallback election
+      // can tell "backend evicted me" from "backend is down."
+      lastRejectReason = reason;
       logger.warn('Background', `sync handshake rejected: ${reason}${detail ? ` — ${detail}` : ''}`);
     },
     onReach: (reach) => {
@@ -110,5 +133,9 @@ export function setupSyncHandshake(): SyncHandshakeHandles {
     },
   });
 
-  return { initiator, tryAdoptPendingWorkspace };
+  return {
+    initiator,
+    tryAdoptPendingWorkspace,
+    isBackendEvicting: () => isBackendEvictingReason(lastRejectReason),
+  };
 }

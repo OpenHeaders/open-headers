@@ -247,6 +247,15 @@ export async function applySyncedLiveValues(
         nextRuns[key] = { ...previous, refreshHealth: value.refreshHealth };
         continue;
       }
+      // A deferring consumer never produces locally, so its only way to
+      // clear a definitionally-stale flag is a synced value that provably
+      // post-dates the recipe change (audit C-1): the value's `extractedAt`
+      // must be at/after the moment the flag was stamped. A value minted
+      // *before* the edit reached the producer must NOT clear it.
+      const clearsDefinitionallyStale =
+        previous?.definitionallyStale === true &&
+        previous.definitionallyStaleSince != null &&
+        value.extractedAt >= previous.definitionallyStaleSince;
       nextRuns[key] = previous
         ? {
             ...previous,
@@ -259,6 +268,9 @@ export async function applySyncedLiveValues(
             // clear any C9 exclusive-degraded mark so the pill drops out
             // of "reconnect the desktop" the instant the value lands.
             exclusiveDegradedSince: undefined,
+            ...(clearsDefinitionallyStale
+              ? { definitionallyStale: undefined, definitionallyStaleSince: undefined }
+              : {}),
           }
         : {
             workflowUid: value.workflowUid,
@@ -470,9 +482,11 @@ export async function recordRefreshError(input: RefreshErrorInput, workspaceId?:
       lastExtractorOk: input.extractorOk ?? false,
       circuit: nextCircuit,
       // A failed refresh did NOT re-extract the value, so a definitional-
-      // staleness flag must survive — only a successful `putWorkflowRun
-      // Cache` clears it.
+      // staleness flag (and its recipe-change timestamp) must survive — only
+      // a successful `putWorkflowRunCache` or a provably-post-edit synced
+      // value clears it.
       definitionallyStale: previous?.definitionallyStale,
+      definitionallyStaleSince: previous?.definitionallyStaleSince,
       // A failed *own* refresh doesn't erase the fact that a remote value
       // recently arrived — a connected peer should keep deferring to the
       // backend rather than treat its own failure as taking over (C8).
@@ -777,6 +791,7 @@ export async function clearWorkflowRunCache(
  */
 export async function markWorkflowDefinitionallyStale(workflowUid: string, workspaceId?: string): Promise<number> {
   const wsId = resolveWorkspaceId(workspaceId);
+  const now = Date.now();
   let flagged = 0;
   let postWriteRuns: WorkflowRunCache[] = [];
   await withCacheLock(wsId, async () => {
@@ -784,7 +799,9 @@ export async function markWorkflowDefinitionallyStale(workflowUid: string, works
     const nextRuns: Record<string, WorkflowRunCache> = {};
     for (const [key, entry] of Object.entries(current.runs)) {
       if (entry.workflowUid === workflowUid && entry.definitionallyStale !== true) {
-        nextRuns[key] = { ...entry, definitionallyStale: true };
+        // Stamp the recipe-change time so a deferring consumer can clear the
+        // flag against a provably-post-edit synced value (audit C-1).
+        nextRuns[key] = { ...entry, definitionallyStale: true, definitionallyStaleSince: now };
         flagged++;
         continue;
       }
@@ -865,13 +882,16 @@ export async function markRunDefinitionallyStale(
 ): Promise<boolean> {
   const wsId = resolveWorkspaceId(workspaceId);
   const key = runKey(workflowUid, environmentId);
+  const now = Date.now();
   let flagged = false;
   let postWriteRuns: WorkflowRunCache[] = [];
   await withCacheLock(wsId, async () => {
     const current = await readBlob(wsId);
     const previous: WorkflowRunCache | undefined = current.runs[key];
     if (!previous || previous.definitionallyStale === true) return;
-    const latest: WorkflowRunCache = { ...previous, definitionallyStale: true };
+    // Stamp the recipe-change time so a deferring consumer can clear the
+    // flag against a provably-post-edit synced value (audit C-1).
+    const latest: WorkflowRunCache = { ...previous, definitionallyStale: true, definitionallyStaleSince: now };
     const next: LiveCacheBlob = {
       schemaVersion: current.schemaVersion,
       version: current.version + 1,

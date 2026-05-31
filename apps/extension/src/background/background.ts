@@ -62,6 +62,7 @@ import {
   reconcileLiveSchedules,
   refreshLiveWorkflowSynchronously,
   setBackendConnectionProbe,
+  setBackendEvictedProbe,
   setFallbackPriorityProbe,
   startLiveScheduler,
 } from './modules/live-refresh-scheduler';
@@ -185,6 +186,12 @@ async function initializeExtension(): Promise<void> {
   // registering them here doesn't trip the early-reconcile orphan-wipe
   // hazard the deferred `reconcileLiveSchedules` below guards against.
   setBackendConnectionProbe(isWebSocketConnected);
+  // Eviction signal (audit X-1): tell the offline-fallback gate when the
+  // socket is down because the backend REJECTED this peer (revoked/rotated
+  // token), not because it's unreachable. A revoked peer must NOT self-elect
+  // an exclusive cred against the still-live backend — it banners + re-pairs
+  // instead. Sticky across the reconnect-backoff flap (see `isBackendEvicting`).
+  setBackendEvictedProbe(() => handshake.isBackendEvicting());
   // Offline fallback (WS-C C14): give the live scheduler a read of the
   // workspace's frozen priority list + this host's identity so an
   // *exclusive* workflow whose configured backend is offline runs on

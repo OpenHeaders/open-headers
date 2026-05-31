@@ -81,6 +81,27 @@ export interface WorkflowRunCache {
    */
   definitionallyStale?: boolean;
   /**
+   * Wall-clock ms when {@link definitionallyStale} flipped false→true —
+   * the recipe-change timestamp (WS-C C8 / audit C-1). Stamped beside the
+   * flag on the not-stale→stale transition; preserved through a failed
+   * refresh; absent whenever the flag is absent.
+   *
+   * Its purpose is to let a *deferring consumer* (a peer with a connected
+   * backend that never produces the value locally) clear the flag safely.
+   * The flag's only other clear path is a successful local
+   * `putWorkflowRunCache`, which a pure consumer never reaches — so without
+   * this timestamp the flag would stick forever on a connected peer (a
+   * permanent wrong-"needs re-run" badge + a 30s alarm hot-loop). The merge
+   * (`applySyncedLiveValues`) clears the flag when a synced value with
+   * `extractedAt ≥ definitionallyStaleSince` lands — that value provably
+   * post-dates the recipe change, so it is the corrected value. Comparing a
+   * raw fresh value would be unsafe (the backend may push a value it minted
+   * *before* the edit reached it); the timestamp gate is what makes the
+   * clear correct. Host-local runner bookkeeping — never enters
+   * {@link LiveValueRecord}, never syncs.
+   */
+  definitionallyStaleSince?: number;
+  /**
    * Wall-clock ms when this row's value last arrived from a *remote*
    * paired peer over §4 — the cadence-ownership marker (WS-C C8). Set by
    * the receive-side merge when a genuinely-different remote value lands
@@ -126,10 +147,9 @@ export interface WorkflowRunCache {
  * tiny `refreshHealth` enum (WS-C C7). The derived value + that one
  * health byte cross the wire; every other `WorkflowRunCache` field
  * (`circuit`, `consecutiveFailures`, `lastError*`, `lastExtractorOk`,
- * `stepResponseBytes`, `definitionallyStale`, `lastSyncedValueAt`,
- * `exclusiveDegradedSince`) is per-host *runner* bookkeeping that each
- * host derives for itself and
- * never syncs.
+ * `stepResponseBytes`, `definitionallyStale`, `definitionallyStaleSince`,
+ * `lastSyncedValueAt`, `exclusiveDegradedSince`) is per-host *runner*
+ * bookkeeping that each host derives for itself and never syncs.
  *
  * `workflowUid` + `environmentId` are carried explicitly (not only in
  * the set itemId / run-key) so the receiving host can re-key into its
