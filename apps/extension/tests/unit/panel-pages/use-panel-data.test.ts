@@ -9,18 +9,16 @@
  * identical input identities.
  */
 
-import { renderHook } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
-
 import type { Page } from '@openheaders/core/page-stream';
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarEntry } from '@openheaders/core/types';
-
 import type { FireClientSnapshot } from '@openheaders/ui/panel/data/fire-client-store';
 import type { LifecycleClientSnapshot } from '@openheaders/ui/panel/data/lifecycle-client-store';
 import type { PageClientSnapshot } from '@openheaders/ui/panel/data/page-client-store';
 import type { InspectorFire } from '@openheaders/ui/panel/data/types';
 import { usePanelData } from '@openheaders/ui/panel/data/use-panel-data';
+import { renderHook } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
 
 function har(
   url: string,
@@ -270,7 +268,11 @@ describe('usePanelData', () => {
     const { result } = renderHook(() =>
       usePanelData(
         snapshots([
-          lifecycle('nav', 'https://openheaders.io/', { resourceType: 'main_frame', startedAtMs: 0, completedAtMs: 400 }),
+          lifecycle('nav', 'https://openheaders.io/', {
+            resourceType: 'main_frame',
+            startedAtMs: 0,
+            completedAtMs: 400,
+          }),
           // Open connection on the current page — pending, contributes nothing.
           lifecycle('ws', 'https://openheaders.io/socket', { startedAtMs: 100 }),
         ]),
@@ -287,7 +289,11 @@ describe('usePanelData', () => {
             lifecycle('ok', 'https://openheaders.io/ok', { completedAtMs: 1100 }),
             lifecycle('err', 'https://openheaders.io/err', { status: 500, completedAtMs: 1100 }),
             lifecycle('boom', 'https://openheaders.io/boom', { failed: true }),
-            lifecycle('cache', 'https://openheaders.io/cache', { bodySize: -1, contentSize: 2048, completedAtMs: 1100 }),
+            lifecycle('cache', 'https://openheaders.io/cache', {
+              bodySize: -1,
+              contentSize: 2048,
+              completedAtMs: 1100,
+            }),
           ],
           [],
           [fire('rule-1', 'ok')],
@@ -312,7 +318,11 @@ describe('usePanelData', () => {
     const { result } = renderHook(() =>
       usePanelData({
         ...snapshots([
-          lifecycle('nav1', 'https://openheaders.io/', { resourceType: 'main_frame', startedAtMs: 0, completedAtMs: 200 }),
+          lifecycle('nav1', 'https://openheaders.io/', {
+            resourceType: 'main_frame',
+            startedAtMs: 0,
+            completedAtMs: 200,
+          }),
           lifecycle('old', 'https://openheaders.io/old.js', { startedAtMs: 50, completedAtMs: 150 }),
           lifecycle('nav2', 'https://openheaders.io/next', {
             resourceType: 'main_frame',
@@ -331,9 +341,21 @@ describe('usePanelData', () => {
     const { result } = renderHook(() =>
       usePanelData({
         ...snapshots([
-          lifecycle('nav1', 'https://openheaders.io/', { resourceType: 'main_frame', startedAtMs: 0, completedAtMs: 200 }),
-          lifecycle('nav2', 'https://openheaders.io/', { resourceType: 'main_frame', startedAtMs: 1000, completedAtMs: 1200 }),
-          lifecycle('nav3', 'https://openheaders.io/', { resourceType: 'main_frame', startedAtMs: 2000, completedAtMs: 2200 }),
+          lifecycle('nav1', 'https://openheaders.io/', {
+            resourceType: 'main_frame',
+            startedAtMs: 0,
+            completedAtMs: 200,
+          }),
+          lifecycle('nav2', 'https://openheaders.io/', {
+            resourceType: 'main_frame',
+            startedAtMs: 1000,
+            completedAtMs: 1200,
+          }),
+          lifecycle('nav3', 'https://openheaders.io/', {
+            resourceType: 'main_frame',
+            startedAtMs: 2000,
+            completedAtMs: 2200,
+          }),
         ]),
         preserveLog: true,
       }),
@@ -354,7 +376,59 @@ describe('usePanelData', () => {
     expect(result.current.rows).toHaveLength(2);
   });
 
-  it('baselineMs equals the first row\'s startedAtMs', () => {
+  it('merges Resource Timing memory-cache hits as synthetic rows', () => {
+    const { result } = renderHook(() =>
+      usePanelData({
+        ...snapshots([
+          lifecycle('nav', 'https://openheaders.io/', {
+            resourceType: 'main_frame',
+            startedAtMs: 1000,
+            completedAtMs: 1100,
+          }),
+          // app.js was fetched over the wire — has a real row.
+          lifecycle('js', 'https://openheaders.io/app.js', { startedAtMs: 1010, completedAtMs: 1050 }),
+        ]),
+        resourceTiming: {
+          timeOriginMs: 1000,
+          entries: [
+            // Matches the real app.js row → not duplicated.
+            {
+              name: 'https://openheaders.io/app.js',
+              initiatorType: 'script',
+              nextHopProtocol: 'h2',
+              startTime: 10,
+              duration: 40,
+              transferSize: 5000,
+              encodedBodySize: 4000,
+              decodedBodySize: 8000,
+              deliveryType: '',
+            },
+            // logo.svg has no real row → served from memory cache.
+            {
+              name: 'https://openheaders.io/logo.svg',
+              initiatorType: 'img',
+              nextHopProtocol: '',
+              startTime: 20,
+              duration: 0,
+              transferSize: 0,
+              encodedBodySize: 0,
+              decodedBodySize: 3000,
+              deliveryType: 'cache',
+            },
+          ],
+        },
+      }),
+    );
+    const urls = result.current.rows.map((r) => r.lifecycle.url);
+    expect(urls).toContain('https://openheaders.io/logo.svg');
+    // app.js appears once (real row), not duplicated by its RT entry.
+    expect(urls.filter((u) => u === 'https://openheaders.io/app.js')).toHaveLength(1);
+    // The synthetic hit counts toward cached + resource totals.
+    expect(result.current.cachedCount).toBe(1);
+    expect(result.current.totalResourceSize).toBe(3000);
+  });
+
+  it("baselineMs equals the first row's startedAtMs", () => {
     const { result } = renderHook(() =>
       usePanelData(
         snapshots([

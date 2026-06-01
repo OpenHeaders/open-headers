@@ -95,6 +95,10 @@ function postToBackground(msg: unknown): void {
 chrome.devtools.network.onNavigated.addListener((url: string) => {
   postToBackground({ type: 'nav', url });
   scheduleNavTimingSample();
+  // A new document resets the Resource Timing buffer — drop the change
+  // floor so the first post of the new page always lands.
+  lastResourceCount = -1;
+  scheduleResourceTimingSample();
 });
 
 /**
@@ -209,6 +213,114 @@ function scheduleNavTimingSample(): void {
 // page, in which case no onNavigated fires but Navigation Timing is
 // already populated.
 scheduleNavTimingSample();
+
+/**
+ * Snapshot the inspected page's Resource Timing buffer and forward it.
+ *
+ * This is the only banner-free source for renderer in-process cache
+ * hits: a resource served from the renderer's memory cache never reaches
+ * the network service, so no `webRequest` / HAR event fires for it, yet
+ * it still records a `PerformanceResourceTiming` entry (with
+ * `transferSize` 0). The panel reconciles this snapshot against its real
+ * rows to surface the otherwise-invisible hits.
+ *
+ * The buffer is cumulative and append-only within a document, so each
+ * snapshot supersedes the prior. We skip the forward when the entry
+ * count is unchanged since the last post — a cheap "nothing new" gate
+ * that avoids waking the background for an identical snapshot.
+ */
+const RESOURCE_TIMING_EXPR = `(() => {
+  try {
+    const origin = performance.timeOrigin || (Date.now() - performance.now());
+    const list = performance.getEntriesByType('resource');
+    const entries = [];
+    for (const e of list) {
+      entries.push({
+        name: e.name,
+        initiatorType: e.initiatorType || '',
+        nextHopProtocol: e.nextHopProtocol || '',
+        startTime: e.startTime || 0,
+        duration: e.duration || 0,
+        transferSize: e.transferSize || 0,
+        encodedBodySize: e.encodedBodySize || 0,
+        decodedBodySize: e.decodedBodySize || 0,
+        deliveryType: e.deliveryType || '',
+        responseStatus: typeof e.responseStatus === 'number' ? e.responseStatus : 0,
+      });
+    }
+    return { timeOriginMs: origin, entries };
+  } catch (e) {
+    return { timeOriginMs: 0, entries: [] };
+  }
+})()`;
+
+interface ResourceTimingProbeResult {
+  timeOriginMs: number;
+  entries: {
+    name: string;
+    initiatorType: string;
+    nextHopProtocol: string;
+    startTime: number;
+    duration: number;
+    transferSize: number;
+    encodedBodySize: number;
+    decodedBodySize: number;
+    deliveryType: string;
+    responseStatus?: number;
+  }[];
+}
+
+let lastResourceCount = -1;
+
+function sampleResourceTiming(): void {
+  chrome.devtools.inspectedWindow.eval(
+    RESOURCE_TIMING_EXPR,
+    (result: ResourceTimingProbeResult | null, err?: EvalExceptionInfo) => {
+      if (err || !result) return;
+      if (result.entries.length === lastResourceCount) return;
+      lastResourceCount = result.entries.length;
+      postToBackground({
+        type: 'resource-timing',
+        timeOriginMs: result.timeOriginMs,
+        entries: result.entries,
+      });
+    },
+  );
+}
+
+let resourceTimingTimer: ReturnType<typeof setTimeout> | null = null;
+let resourceTimingElapsedMs = 0;
+
+function stopResourceTimingPoll(): void {
+  if (resourceTimingTimer != null) clearTimeout(resourceTimingTimer);
+  resourceTimingTimer = null;
+}
+
+/**
+ * Poll the Resource Timing buffer on the same ramped cadence as
+ * navigation timing — tight early so the bulk of load-time cache hits
+ * surface fast, backing off for the long tail. Unlike nav timing there
+ * is no single "done" event (lazy resources keep arriving), so the poll
+ * runs to the budget ceiling and the change-count gate suppresses
+ * no-op forwards.
+ */
+function scheduleResourceTimingSample(): void {
+  stopResourceTimingPoll();
+  resourceTimingElapsedMs = 0;
+  const tick = () => {
+    sampleResourceTiming();
+    if (resourceTimingElapsedMs >= NAV_TIMING_MAX_MS) {
+      stopResourceTimingPoll();
+      return;
+    }
+    const delay = resourceTimingElapsedMs < NAV_TIMING_FAST_WINDOW_MS ? NAV_TIMING_FAST_MS : NAV_TIMING_SLOW_MS;
+    resourceTimingElapsedMs += delay;
+    resourceTimingTimer = setTimeout(tick, delay);
+  };
+  tick();
+}
+
+scheduleResourceTimingSample();
 
 chrome.devtools.network.onRequestFinished.addListener((entry) => {
   try {

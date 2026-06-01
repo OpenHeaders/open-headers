@@ -6,6 +6,7 @@ import { startLifecycleHost } from '../correlator-host';
 import { startLifecyclePortHost } from '../lifecycle-port-host';
 import { setupOnRuleMatchedDebugBridge } from '../modules/on-rule-matched-debug';
 import { startDevtoolsPageNavBridge, startPagePortHost } from '../page-port-host';
+import { startResourceTimingRelay } from '../resource-timing-relay';
 import { startRuleEngineDriver } from '../rule-engine-driver';
 import { startRuleFirePortHost } from '../rule-fire-port-host';
 import { startTabTelemetryFiresBridge } from '../modules/tab-telemetry-fires-bridge';
@@ -28,6 +29,11 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   const pageHub = new PageStreamHub({ bus: tabLifecycleBus });
   startPagePortHost({ hub: pageHub });
   startDevtoolsPageNavBridge({ hub: pageHub });
+
+  // Memory-cache rows: renderer cache hits never reach `webRequest`/HAR,
+  // so they ride a separate Resource Timing snapshot feed reconciled
+  // panel-local (`oh-rt:<tabId>`).
+  startResourceTimingRelay({ bus: tabLifecycleBus });
 
   const ruleFireHub = new RuleFireHub({ bus: tabLifecycleBus });
   startRuleFirePortHost({ hub: ruleFireHub });

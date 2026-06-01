@@ -37,6 +37,8 @@ import { useMemo } from 'react';
 import { type ConnectionReuseInfo, computeConnectionReuse } from './connection-reuse';
 import type { FireClientSnapshot } from './fire-client-store';
 import { buildInitiatorIndex, type InitiatorIndex } from './initiator-index';
+import { synthesizeMemoryCacheLifecycles } from './memory-cache-rows';
+import type { ResourceTimingClientSnapshot } from './resource-timing-client-store';
 import { type BuildInspectorRowsOptions, buildInspectorRows } from './inspector-facet';
 import {
   attachFiresToRows,
@@ -67,6 +69,14 @@ export interface UsePanelDataInput {
    * Clear action are separate axes.)
    */
   readonly preserveLog?: boolean;
+  /**
+   * Latest Resource Timing snapshot for the inspected tab. Optional —
+   * when present, renderer memory-cache hits (which never reach
+   * `webRequest` / HAR) are reconciled against the real rows and the
+   * surplus surfaced as synthetic `(memory cache)` rows. Absent → no
+   * synthesis (every prior caller's behavior is unchanged).
+   */
+  readonly resourceTiming?: ResourceTimingClientSnapshot;
 }
 
 export interface UsePanelDataResult {
@@ -152,13 +162,32 @@ function latestNavStartMs(lifecycles: readonly RequestLifecycle[]): number {
 }
 
 export function usePanelData(input: UsePanelDataInput): UsePanelDataResult {
-  const { lifecycle, page, fire, opts, preserveLog = true } = input;
+  const { lifecycle, page, fire, opts, preserveLog = true, resourceTiming } = input;
 
   const lifecycles = lifecycle.ordered;
   const pages = page.pages;
   const fires = fire.fires;
+  const rtEntries = resourceTiming?.entries;
+  const rtTimeOriginMs = resourceTiming?.timeOriginMs ?? null;
 
   return useMemo(() => {
+    // Current navigation's real rows — the dedup denominator for the
+    // memory-cache synthesis (the RT buffer is scoped to the current
+    // document, so the count must be too). Computed independently of
+    // preserve-log: this is "what's real on the page now", not "what's
+    // displayed".
+    const currentNavStart = latestNavStartMs(lifecycles);
+    const currentNavReals =
+      currentNavStart >= 0 ? lifecycles.filter((lc) => lc.startedAtMs >= currentNavStart) : lifecycles;
+    const syntheticCacheRows = rtEntries
+      ? synthesizeMemoryCacheLifecycles({
+          entries: rtEntries,
+          timeOriginMs: rtTimeOriginMs,
+          realLifecycles: currentNavReals,
+          tabId: lifecycles[0]?.tabId ?? 0,
+        })
+      : [];
+
     // Preserve log OFF → scope the view to the current navigation: drop
     // everything that started before the latest top-level nav so a
     // refresh resets the list to the new page. A pure display filter, so
@@ -166,8 +195,11 @@ export function usePanelData(input: UsePanelDataInput): UsePanelDataResult {
     // nav signal) are never racily wiped.
     const navStartMs = preserveLog ? -1 : latestNavStartMs(lifecycles);
     const scoped = navStartMs >= 0 ? lifecycles.filter((lc) => lc.startedAtMs >= navStartMs) : lifecycles;
+    // Synthetic cache rows belong to the current navigation, so they
+    // survive the preserve-log filter unconditionally — append after it.
+    const merged = syntheticCacheRows.length > 0 ? [...scoped, ...syntheticCacheRows] : scoped;
 
-    const baseRows = buildInspectorRows(scoped, opts);
+    const baseRows = buildInspectorRows(merged, opts);
     const { rows, dangling } = attachFiresToRows(baseRows, fires);
 
     const lookupByRequestId = new Map<string, InspectorRowWithFires>();
@@ -257,5 +289,5 @@ export function usePanelData(input: UsePanelDataInput): UsePanelDataResult {
       cachedCount,
       pageCount: pages.length,
     };
-  }, [lifecycles, pages, fires, opts, preserveLog]);
+  }, [lifecycles, pages, fires, opts, preserveLog, rtEntries, rtTimeOriginMs]);
 }

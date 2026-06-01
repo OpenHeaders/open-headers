@@ -85,9 +85,11 @@ function transferredBytes(lc: RequestLifecycle): number {
 function durationMs(lc: RequestLifecycle): number {
   const harTime = currentHarEntry(lc)?.time;
   if (typeof harTime === 'number' && harTime > 0) return harTime;
+  // A completed request sorts by its real duration, including 0 (instant
+  // / cache); only a still-pending request is unknown (sorts last via -1).
   if (lc.completedAtMs != null) {
     const d = lc.completedAtMs - lc.startedAtMs;
-    if (d > 0) return d;
+    return d > 0 ? d : 0;
   }
   return -1;
 }

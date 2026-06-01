@@ -18,6 +18,8 @@
  * engine-internal (see `correlator-heuristic/cors-types.ts`).
  */
 
+import type { ResourceTimingEntry } from '../resource-timing/types';
+
 /**
  * Full HAR entry forwarded verbatim from the devtools_page via
  * `chrome.devtools.network.onRequestFinished`. The shape matches the
@@ -154,4 +156,5 @@ export type HarSourceMessage =
       encoding?: string;
     }
   | { type: 'nav'; url: string }
-  | { type: 'nav-timing'; timing: InspectorNavTiming };
+  | { type: 'nav-timing'; timing: InspectorNavTiming }
+  | { type: 'resource-timing'; timeOriginMs: number; entries: ResourceTimingEntry[] };

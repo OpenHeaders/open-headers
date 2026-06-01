@@ -274,7 +274,10 @@ export const COLUMN_DEFS: Record<ColumnKey, ColumnDef> = {
       const lc = r.lifecycle;
       if (lc.completedAtMs != null) {
         const d = lc.completedAtMs - lc.startedAtMs;
-        if (d > 0) return formatDuration(d) || null;
+        // A completed request has a known duration even when it rounds
+        // to zero (instant / served from cache) — render "0 ms", not a
+        // blank cell. Only a still-pending request has an unknown time.
+        return formatDuration(d > 0 ? d : 0);
       }
       return null;
     },

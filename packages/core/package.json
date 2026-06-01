@@ -127,6 +127,10 @@
       "import": "./src/page-stream/index.ts",
       "default": "./dist/page-stream/index.js"
     },
+    "./resource-timing": {
+      "import": "./src/resource-timing/index.ts",
+      "default": "./dist/resource-timing/index.js"
+    },
     "./rule-fire-stream": {
       "import": "./src/rule-fire-stream/index.ts",
       "default": "./dist/rule-fire-stream/index.js"

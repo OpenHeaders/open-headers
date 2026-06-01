@@ -64,6 +64,7 @@ import { useInspectorEditorGroups } from './data/use-inspector-editor-groups';
 import { useLifecycleClient } from './data/use-lifecycle-client';
 import { usePageClient } from './data/use-page-client';
 import { usePanelData } from './data/use-panel-data';
+import { useResourceTimingClient } from './data/use-resource-timing-client';
 import { type PanelViewState, usePanelEditingScopeViewState, usePanelToolLayout } from './data/use-panel-tool-layout';
 import { usePanelUiState } from './data/use-panel-ui-state';
 import { useCacheBypass } from './data/use-cache-bypass';
@@ -196,10 +197,11 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   const lifecycleClient = useLifecycleClient();
   const pageClient = usePageClient();
   const fireClient = useFireClient();
+  const resourceTimingClient = useResourceTimingClient();
   const ui = usePanelUiState({
     resettables: useMemo(
-      () => [lifecycleClient.store, pageClient.store, fireClient.store],
-      [lifecycleClient.store, pageClient.store, fireClient.store],
+      () => [lifecycleClient.store, pageClient.store, fireClient.store, resourceTimingClient.store],
+      [lifecycleClient.store, pageClient.store, fireClient.store, resourceTimingClient.store],
     ),
   });
   const data = usePanelData({
@@ -212,6 +214,8 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
     opts: useMemo(() => ({ consolidateRetries: false }), []),
     // Preserve log OFF clears the list on navigation (browser-parity).
     preserveLog: ui.preserveLog,
+    // Renderer memory-cache hits, reconciled panel-local against real rows.
+    resourceTiming: resourceTimingClient.snapshot,
   });
 
   // Resolver passed down to detail panes — pure projection over the
