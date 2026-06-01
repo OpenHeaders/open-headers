@@ -620,6 +620,8 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
         onToggleSearch={() => tl.toggleWindow('search')}
         preserveLog={ui.preserveLog}
         onPreserveLogChange={ui.setPreserveLog}
+        showBackgroundHistory={lifecycleClient.showBackgroundHistory}
+        onShowBackgroundHistoryChange={lifecycleClient.setShowBackgroundHistory}
         rulesVisible={rulesVisible}
         filterConfig={filterConfig}
         onFilterConfigChange={setFilterConfig}

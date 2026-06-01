@@ -31,8 +31,8 @@
  * so one failure does not stop fanout to siblings.
  */
 
-import type { RequestRecord } from '@openheaders/core/types';
 import type { RuleFireUpdate } from '@openheaders/core/rule-fire-stream';
+import type { RequestRecord } from '@openheaders/core/types';
 
 import type { TabLifecycleBus } from '../tab-lifecycle-bus';
 import { TabSinkRegistry } from '../tab-sink-registry';
@@ -79,6 +79,7 @@ export class RuleFireHub {
 
   attach(tabId: number, sink: Sink): AttachmentHandle {
     return this.registry.attach(tabId, sink, (s) => {
+      s.deliverReady(tabId);
       for (const update of snapshotToUpdates(tabId, this.store.snapshotTab(tabId))) {
         s.deliverUpdate(update);
       }

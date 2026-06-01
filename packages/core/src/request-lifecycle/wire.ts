@@ -12,14 +12,39 @@
  * `RequestLifecycleUpdate` variant: the lifecycle union is the
  * engine→store contract and stays semantically pure. Wire-only concerns
  * (ready handshake) extend the envelope, never the lifecycle.
+ *
+ * Direction: `LifecycleWireMessage` flows engine→consumer.
+ * `LifecycleSubscribeMessage` flows consumer→engine — the consumer opens
+ * the port, then sends one `subscribe` to declare which slice of history
+ * it wants replayed. `sinceMs` is a `startedAtMs` floor: the engine
+ * replays only lifecycles started strictly after it. A consumer that
+ * omits `sinceMs` is asking for "session-start" — the engine floors at
+ * the current watermark, so nothing pre-existing replays, and reports
+ * that watermark back in `ready` so the consumer can re-subscribe with
+ * it after a reconnect (and keep its view stable across SW evictions).
  */
 
 import type { RequestLifecycleUpdate } from './types';
 
 export type LifecycleWireMessage =
-  | { kind: 'ready'; tabId: number }
+  | { kind: 'ready'; tabId: number; watermarkMs: number }
   | { kind: 'lifecycle-update'; update: RequestLifecycleUpdate }
   | { kind: 'tab-cleared'; tabId: number };
+
+/**
+ * Consumer→engine. Sent once on connect, and again to re-scope the
+ * replay (e.g. toggling a "show background history" view). Each
+ * `subscribe` re-runs the replay against the floor; the engine clears
+ * and re-delivers from `ready` onward.
+ *
+ * `sinceMs` semantics:
+ *   - omitted → session-start: floor at the current watermark (replay
+ *     nothing pre-existing).
+ *   - a `startedAtMs` value → replay lifecycles started after it.
+ *   - `-1` → replay everything currently retained (all `startedAtMs`
+ *     are non-negative epoch ms).
+ */
+export type LifecycleSubscribeMessage = { kind: 'subscribe'; sinceMs?: number };
 
 /** Channel-name prefix for the per-tab lifecycle pipe. */
 export const LIFECYCLE_PORT_PREFIX = 'oh-lifecycle:';

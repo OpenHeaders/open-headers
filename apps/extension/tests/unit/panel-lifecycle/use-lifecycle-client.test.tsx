@@ -6,24 +6,23 @@
  *   - `ready` clears state so reconnect replay rebuilds canonically
  *   - reconnects on disconnect (SW eviction) with the documented backoff
  *   - disconnects + cancels pending reconnects on unmount
+ *   - sends the `subscribe` handshake: session-start on first connect,
+ *     the learned watermark floor on reconnect, `-1` when the
+ *     background-history toggle is on
  */
 
-import { act, render } from '@testing-library/react';
-import React from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
-import {
-  type LifelinePort,
-  type LifelineTransport,
-  setLifelineTransport,
-} from '@openheaders/core/awareness';
+import { type LifelinePort, type LifelineTransport, setLifelineTransport } from '@openheaders/core/awareness';
 import { type HostNavigation, setHostNavigation } from '@openheaders/core/navigation';
-import { lifecyclePortName } from '@openheaders/core/request-lifecycle';
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
+import { lifecyclePortName } from '@openheaders/core/request-lifecycle';
 import { useLifecycleClient } from '@openheaders/ui/panel/data/lifecycle';
+import { act, render } from '@testing-library/react';
+import type React from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 interface FakePort extends LifelinePort {
   readonly name: string;
+  readonly posted: unknown[];
   emit: (msg: unknown) => void;
   triggerDisconnect: (errorMessage?: string) => void;
 }
@@ -33,7 +32,10 @@ function fakePort(name: string): FakePort {
   let onDisconnect: ((info: { errorMessage?: string }) => void) | null = null;
   const port: FakePort = {
     name,
-    postMessage() {},
+    posted: [],
+    postMessage(msg) {
+      port.posted.push(msg);
+    },
     onMessage(handler) {
       onMessage = handler as (msg: unknown) => void;
     },
@@ -73,15 +75,20 @@ function installTransport(connect: (name: string) => LifelinePort): void {
 }
 
 function Probe(): React.ReactElement {
-  const { snapshot, tabId } = useLifecycleClient();
+  const { snapshot, tabId, showBackgroundHistory, setShowBackgroundHistory } = useLifecycleClient();
   return (
-    <ul data-tabid={tabId ?? 'null'}>
-      {snapshot.ordered.map((l: RequestLifecycle) => (
-        <li key={l.requestId}>
-          {l.requestId}:{l.phase}
-        </li>
-      ))}
-    </ul>
+    <div>
+      <button type="button" data-testid="toggle" onClick={() => setShowBackgroundHistory(!showBackgroundHistory)}>
+        toggle
+      </button>
+      <ul data-tabid={tabId ?? 'null'}>
+        {snapshot.ordered.map((l: RequestLifecycle) => (
+          <li key={l.requestId}>
+            {l.requestId}:{l.phase}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -107,7 +114,7 @@ describe('useLifecycleClient', () => {
     installTransport(connect);
 
     const { container } = render(<Probe />);
-    expect(container.firstChild).toHaveProperty('dataset.tabid', 'null');
+    expect(container.querySelector('ul')).toHaveProperty('dataset.tabid', 'null');
     expect(connect).not.toHaveBeenCalled();
   });
 
@@ -121,7 +128,7 @@ describe('useLifecycleClient', () => {
     expect(connect).toHaveBeenCalledWith('oh-lifecycle:7');
 
     act(() => {
-      port.emit({ kind: 'ready', tabId: 7 });
+      port.emit({ kind: 'ready', tabId: 7, watermarkMs: -1 });
       port.emit({
         kind: 'lifecycle-update',
         update: {
@@ -153,7 +160,7 @@ describe('useLifecycleClient', () => {
 
     const { container } = render(<Probe />);
     act(() => {
-      port.emit({ kind: 'ready', tabId: 3 });
+      port.emit({ kind: 'ready', tabId: 3, watermarkMs: -1 });
       port.emit({
         kind: 'lifecycle-update',
         update: {
@@ -178,7 +185,7 @@ describe('useLifecycleClient', () => {
     expect(container.querySelector('li')?.textContent).toBe('stale:pending');
 
     act(() => {
-      port.emit({ kind: 'ready', tabId: 3 });
+      port.emit({ kind: 'ready', tabId: 3, watermarkMs: -1 });
     });
     expect(container.querySelector('li')).toBeNull();
   });
@@ -190,7 +197,7 @@ describe('useLifecycleClient', () => {
 
     const { container } = render(<Probe />);
     act(() => {
-      port.emit({ kind: 'ready', tabId: 5 });
+      port.emit({ kind: 'ready', tabId: 5, watermarkMs: -1 });
       port.emit({
         kind: 'lifecycle-update',
         update: {
@@ -275,5 +282,56 @@ describe('useLifecycleClient', () => {
       vi.advanceTimersByTime(250);
     });
     expect(connect).toHaveBeenCalledTimes(2);
+  });
+
+  it('sends a session-start subscribe (no sinceMs) on first connect', () => {
+    installNavigation(7);
+    const port = fakePort(lifecyclePortName(7));
+    installTransport(() => port);
+
+    render(<Probe />);
+    expect(port.posted).toEqual([{ kind: 'subscribe' }]);
+  });
+
+  it('re-subscribes with the learned watermark floor after a reconnect', () => {
+    installNavigation(9);
+    const first = fakePort(lifecyclePortName(9));
+    const second = fakePort(lifecyclePortName(9));
+    const connect = vi.fn().mockReturnValueOnce(first).mockReturnValueOnce(second);
+    installTransport(connect);
+
+    render(<Probe />);
+    expect(first.posted).toEqual([{ kind: 'subscribe' }]);
+
+    // The engine reports its watermark; the panel records it as the floor.
+    act(() => {
+      first.emit({ kind: 'ready', tabId: 9, watermarkMs: 4200 });
+    });
+
+    act(() => {
+      first.triggerDisconnect();
+      vi.advanceTimersByTime(250);
+    });
+    // The reconnect re-subscribes with the floor so the session is
+    // restored without re-surfacing pre-open history.
+    expect(second.posted).toEqual([{ kind: 'subscribe', sinceMs: 4200 }]);
+  });
+
+  it('re-subscribes with -1 when the background-history toggle is turned on', () => {
+    installNavigation(7);
+    const port = fakePort(lifecyclePortName(7));
+    installTransport(() => port);
+
+    const { container } = render(<Probe />);
+    act(() => {
+      port.emit({ kind: 'ready', tabId: 7, watermarkMs: 4200 });
+    });
+    expect(port.posted).toEqual([{ kind: 'subscribe' }]);
+
+    act(() => {
+      container.querySelector<HTMLButtonElement>('[data-testid="toggle"]')?.click();
+    });
+    // Toggling on re-subscribes in place asking for everything retained.
+    expect(port.posted[port.posted.length - 1]).toEqual({ kind: 'subscribe', sinceMs: -1 });
   });
 });

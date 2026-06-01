@@ -5,14 +5,13 @@
  * Owns the `Map<tabId, Set<Sink>>` registry, the dispose flag, attach +
  * detach-handle wiring, and the best-effort `broadcast` / `close` loops.
  * Hubs compose one as a private field — they keep ownership of their
- * state, notify verbs, and replay shape; the registry handles only the
- * fanout substrate. JS single-threaded delivery contract is preserved
- * because `attach` runs `deliverReady` + the caller-supplied replay as
- * one synchronous block before returning.
+ * state, the `ready` handshake, and replay shape; the registry handles
+ * only the fanout substrate. JS single-threaded delivery contract is
+ * preserved because `attach` runs the caller-supplied `onAttach`
+ * (ready + replay) as one synchronous block before returning.
  */
 
 export interface FanoutSink<TUpdate> {
-  deliverReady(tabId: number): void;
   deliverUpdate(update: TUpdate): void;
   /**
    * Substrate-level tab-cleared signal. Optional because hubs whose
@@ -47,11 +46,7 @@ export class TabSinkRegistry<TUpdate> {
     if (this.disposed) throw new Error(`${this.hubName}: operation after dispose`);
   }
 
-  attach(
-    tabId: number,
-    sink: FanoutSink<TUpdate>,
-    replay: (sink: FanoutSink<TUpdate>) => void,
-  ): FanoutAttachmentHandle {
+  attach<S extends FanoutSink<TUpdate>>(tabId: number, sink: S, onAttach: (sink: S) => void): FanoutAttachmentHandle {
     if (this.disposed) throw new Error(`${this.hubName}: attach after dispose`);
     let sinks = this.tabs.get(tabId);
     if (sinks === undefined) {
@@ -60,8 +55,9 @@ export class TabSinkRegistry<TUpdate> {
     }
     sinks.add(sink);
 
-    sink.deliverReady(tabId);
-    replay(sink);
+    // The hub's callback owns the full initial delivery — `ready` then
+    // replay — as one synchronous block, so no live broadcast interleaves.
+    onAttach(sink);
 
     let detached = false;
     return {

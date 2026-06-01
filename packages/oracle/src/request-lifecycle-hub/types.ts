@@ -14,8 +14,13 @@
 import type { RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle';
 
 export interface Sink {
-  /** First message after attach; signals the consumer the pipe is live. */
-  deliverReady(tabId: number): void;
+  /**
+   * First message after attach; signals the consumer the pipe is live.
+   * `watermarkMs` is the highest `startedAtMs` retained for the tab at
+   * attach time (`-1` if none) — a fresh consumer records it as its
+   * session floor and re-subscribes with it after a reconnect.
+   */
+  deliverReady(tabId: number, watermarkMs: number): void;
   /**
    * Lifecycle update for the tab the sink attached to.
    *

@@ -21,8 +21,8 @@ import type {
 } from '@openheaders/core/request-lifecycle';
 
 import { DEFAULT_MAX_LIFECYCLES_PER_TAB } from './config';
-import { reduce } from './reducer';
 import type { ReducerRejection } from './reducer';
+import { reduce } from './reducer';
 import { TabLifecycles } from './tab-lifecycles';
 
 export interface RequestLifecycleStoreOptions {
@@ -96,15 +96,41 @@ export class RequestLifecycleStore {
   }
 
   /**
-   * Snapshot of every lifecycle currently tracked for a tab. Used by the
+   * Snapshot of the lifecycles currently tracked for a tab. Used by the
    * subscriber hub for replay-on-connect. Order is LRU position (oldest
    * first) — stable but not semantically meaningful; consumers that need
    * arrival ordering should sort by `startedAtMs`.
+   *
+   * `sinceMs` is a `startedAtMs` floor (exclusive): only lifecycles
+   * started strictly after it are returned. This is how the hub scopes a
+   * replay to a watcher's session — a fresh watcher floors at the
+   * watermark (replays nothing pre-existing), a reconnecting one floors
+   * at the watermark it saw on its first `ready`.
    */
-  snapshotTab(tabId: number): readonly RequestLifecycle[] {
+  snapshotTab(tabId: number, opts?: { sinceMs?: number }): readonly RequestLifecycle[] {
     const tab = this.tabs.get(tabId);
     if (tab === undefined) return [];
-    return [...tab.values()];
+    const all = [...tab.values()];
+    const sinceMs = opts?.sinceMs;
+    if (sinceMs === undefined) return all;
+    return all.filter((lifecycle) => lifecycle.startedAtMs > sinceMs);
+  }
+
+  /**
+   * Highest `startedAtMs` currently retained for a tab, or `-1` when the
+   * partition is empty / unknown. The hub hands this to a fresh watcher
+   * as its session floor: replaying `startedAtMs > watermark` yields
+   * nothing, so a panel that opens after a navigation starts empty — the
+   * same as the browser's own Network panel.
+   */
+  tabWatermark(tabId: number): number {
+    const tab = this.tabs.get(tabId);
+    if (tab === undefined) return -1;
+    let max = -1;
+    for (const lifecycle of tab.values()) {
+      if (lifecycle.startedAtMs > max) max = lifecycle.startedAtMs;
+    }
+    return max;
   }
 
   /** Tab close / dispose. Drops the partition; subscribers are not notified. */

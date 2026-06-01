@@ -14,12 +14,18 @@
  * Per-channel concerns stay with the caller: the wire-message type
  * generic `TWire`, the message routing (replay-on-`ready` clears for
  * lifecycle + page; fire is upsert-only because engine dedup makes
- * re-emits idempotent), and the per-channel client store.
+ * re-emits idempotent), the per-channel client store, and (via
+ * `onConnect`) any handshake the channel sends on connect — e.g. the
+ * lifecycle channel posts its `subscribe` floor every (re)connect.
+ *
+ * `post` lets a channel send a frame on the live port at any time (a
+ * no-op while disconnected) — used to re-subscribe in place when the
+ * panel toggles which slice of history it wants.
  */
 
 import { type LifelinePort, lifelineTransport } from '@openheaders/core/awareness';
 import { hostNavigation } from '@openheaders/core/navigation';
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 /** Backoff for the panel→background port reconnect loop. */
 const RECONNECT_DELAY_MS = 250;
@@ -29,27 +35,47 @@ export interface UseLifelineClientOptions<TWire> {
   readonly portName: (tabId: number) => string;
   /** Per-channel wire-message router. Called once per inbound frame. */
   readonly handler: (msg: TWire) => void;
+  /**
+   * Called after every (re)connect with a sender bound to the fresh
+   * port. Channels that open with a handshake (lifecycle `subscribe`)
+   * post it here so it is re-sent automatically after an SW-eviction
+   * reconnect.
+   */
+  readonly onConnect?: (post: (msg: unknown) => void) => void;
 }
 
 export interface UseLifelineClientResult {
   readonly tabId: number | null;
+  /** Send a frame on the active port. No-op while disconnected. */
+  readonly post: (msg: unknown) => void;
 }
 
-export function useLifelineClient<TWire>(
-  opts: UseLifelineClientOptions<TWire>,
-): UseLifelineClientResult {
+export function useLifelineClient<TWire>(opts: UseLifelineClientOptions<TWire>): UseLifelineClientResult {
   const tabIdRef = useRef<number | null>(hostNavigation.inspectedTabId());
 
   const handlerRef = useRef(opts.handler);
   handlerRef.current = opts.handler;
   const portNameRef = useRef(opts.portName);
   portNameRef.current = opts.portName;
+  const onConnectRef = useRef(opts.onConnect);
+  onConnectRef.current = opts.onConnect;
+  const activePortRef = useRef<LifelinePort | null>(null);
+
+  const post = useCallback((msg: unknown) => {
+    const port = activePortRef.current;
+    if (port === null) return;
+    try {
+      port.postMessage(msg);
+    } catch {
+      // Port died between the caller's check and here; the disconnect
+      // handler will reconnect and onConnect will re-send the handshake.
+    }
+  }, []);
 
   useEffect(() => {
     const tabId = tabIdRef.current;
     if (tabId == null) return;
 
-    let activePort: LifelinePort | null = null;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     let disposed = false;
 
@@ -63,19 +89,28 @@ export function useLifelineClient<TWire>(
         // when the panel outlives an extension reload; back off and
         // retry until either the inspected tab refreshes or the panel
         // is torn down.
-        activePort = null;
+        activePortRef.current = null;
         if (disposed) return;
         reconnectTimer = setTimeout(connect, RECONNECT_DELAY_MS);
         return;
       }
-      activePort = port;
+      activePortRef.current = port;
       port.onMessage<TWire>((msg) => {
         handlerRef.current(msg);
       });
       port.onDisconnect(() => {
-        activePort = null;
+        activePortRef.current = null;
         if (disposed) return;
         reconnectTimer = setTimeout(connect, RECONNECT_DELAY_MS);
+      });
+      // Re-run the channel's connect handshake (e.g. lifecycle subscribe)
+      // against the fresh port.
+      onConnectRef.current?.((msg) => {
+        try {
+          port.postMessage(msg);
+        } catch {
+          /* port already gone; reconnect will retry */
+        }
       });
     };
 
@@ -87,16 +122,17 @@ export function useLifelineClient<TWire>(
         clearTimeout(reconnectTimer);
         reconnectTimer = null;
       }
-      if (activePort) {
+      const port = activePortRef.current;
+      if (port) {
         try {
-          activePort.disconnect();
+          port.disconnect();
         } catch {
           // Already disconnected.
         }
-        activePort = null;
+        activePortRef.current = null;
       }
     };
   }, []);
 
-  return { tabId: tabIdRef.current };
+  return { tabId: tabIdRef.current, post };
 }

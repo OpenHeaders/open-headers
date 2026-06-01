@@ -4,9 +4,8 @@
  * the store layer owns.
  */
 
-import { describe, expect, it, vi } from 'vitest';
-
 import type { RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle';
+import { describe, expect, it, vi } from 'vitest';
 
 import { RequestLifecycleStore } from '../../src/request-lifecycle-store/store';
 import { makeLifecycle } from './factories';
@@ -36,6 +35,24 @@ describe('RequestLifecycleStore — invariants 1 + 2 (identity + tab scope)', ()
     store.apply({ kind: 'started', lifecycle: makeLifecycle({ tabId: 1, requestId: 'b' }) });
     const snap = store.snapshotTab(1);
     expect(snap.map((l) => l.requestId)).toEqual(['a', 'b']);
+  });
+
+  it('snapshotTab(sinceMs) returns only lifecycles started strictly after the floor', () => {
+    const store = new RequestLifecycleStore();
+    store.apply({ kind: 'started', lifecycle: makeLifecycle({ tabId: 1, requestId: 'old', startedAtMs: 1000 }) });
+    store.apply({ kind: 'started', lifecycle: makeLifecycle({ tabId: 1, requestId: 'edge', startedAtMs: 2000 }) });
+    store.apply({ kind: 'started', lifecycle: makeLifecycle({ tabId: 1, requestId: 'new', startedAtMs: 3000 }) });
+    expect(store.snapshotTab(1, { sinceMs: 2000 }).map((l) => l.requestId)).toEqual(['new']);
+    expect(store.snapshotTab(1, { sinceMs: -1 }).map((l) => l.requestId)).toEqual(['old', 'edge', 'new']);
+  });
+
+  it('tabWatermark returns the max startedAtMs, or -1 for an unknown/empty tab', () => {
+    const store = new RequestLifecycleStore();
+    expect(store.tabWatermark(999)).toBe(-1);
+    store.apply({ kind: 'started', lifecycle: makeLifecycle({ tabId: 1, requestId: 'a', startedAtMs: 1500 }) });
+    store.apply({ kind: 'started', lifecycle: makeLifecycle({ tabId: 1, requestId: 'b', startedAtMs: 4200 }) });
+    store.apply({ kind: 'started', lifecycle: makeLifecycle({ tabId: 1, requestId: 'c', startedAtMs: 900 }) });
+    expect(store.tabWatermark(1)).toBe(4200);
   });
 });
 

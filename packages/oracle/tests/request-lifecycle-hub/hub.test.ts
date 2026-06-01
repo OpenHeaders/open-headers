@@ -1,6 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
-
 import type { RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle';
+import { describe, expect, it, vi } from 'vitest';
 
 import { RequestLifecycleHub } from '../../src/request-lifecycle-hub/hub';
 import type { Sink } from '../../src/request-lifecycle-hub/types';
@@ -10,6 +9,7 @@ import { makeLifecycle } from '../request-lifecycle-store/factories';
 
 interface RecordingSink extends Sink {
   ready: number[];
+  watermarks: number[];
   updates: RequestLifecycleUpdate[];
   cleared: number[];
   closed: number;
@@ -18,11 +18,13 @@ interface RecordingSink extends Sink {
 function recordingSink(): RecordingSink {
   const sink: RecordingSink = {
     ready: [],
+    watermarks: [],
     updates: [],
     cleared: [],
     closed: 0,
-    deliverReady(tabId) {
+    deliverReady(tabId, watermarkMs) {
       sink.ready.push(tabId);
+      sink.watermarks.push(watermarkMs);
     },
     deliverUpdate(update) {
       sink.updates.push(update);
@@ -44,7 +46,7 @@ describe('RequestLifecycleHub — attach', () => {
     const hub = new RequestLifecycleHub({ store });
 
     const sink = recordingSink();
-    hub.attach(1, sink);
+    hub.attach(1, sink, { sinceMs: -1 });
     expect(sink.ready).toEqual([1]);
     expect(sink.updates).toHaveLength(1);
     expect(sink.updates[0].kind).toBe('started');
@@ -58,7 +60,7 @@ describe('RequestLifecycleHub — attach', () => {
     const hub = new RequestLifecycleHub({ store });
 
     const sink = recordingSink();
-    hub.attach(1, sink);
+    hub.attach(1, sink, { sinceMs: -1 });
     expect(sink.updates.map((u) => (u.kind === 'started' ? u.lifecycle.requestId : ''))).toEqual(['a', 'b', 'c']);
   });
 
@@ -69,7 +71,7 @@ describe('RequestLifecycleHub — attach', () => {
     const hub = new RequestLifecycleHub({ store });
 
     const sink = recordingSink();
-    hub.attach(1, sink);
+    hub.attach(1, sink, { sinceMs: -1 });
     expect(sink.updates).toHaveLength(1);
     expect(sink.updates[0].kind === 'started' && sink.updates[0].lifecycle.tabId).toBe(1);
   });
@@ -77,9 +79,35 @@ describe('RequestLifecycleHub — attach', () => {
   it('returns empty replay for an unknown tab and still fires ready', () => {
     const hub = new RequestLifecycleHub({ store: new RequestLifecycleStore() });
     const sink = recordingSink();
-    hub.attach(42, sink);
+    hub.attach(42, sink, { sinceMs: -1 });
     expect(sink.ready).toEqual([42]);
+    expect(sink.watermarks).toEqual([-1]);
     expect(sink.updates).toEqual([]);
+  });
+
+  it('session-start (no sinceMs) replays nothing and reports the watermark', () => {
+    const store = new RequestLifecycleStore();
+    store.apply({ kind: 'started', lifecycle: makeLifecycle({ tabId: 1, requestId: 'a', startedAtMs: 1000 }) });
+    store.apply({ kind: 'started', lifecycle: makeLifecycle({ tabId: 1, requestId: 'b', startedAtMs: 2500 }) });
+    const hub = new RequestLifecycleHub({ store });
+
+    const sink = recordingSink();
+    hub.attach(1, sink);
+    // Floored at the watermark → nothing pre-existing replays, matching a
+    // panel that opens after the page already loaded.
+    expect(sink.updates).toEqual([]);
+    expect(sink.watermarks).toEqual([2500]);
+  });
+
+  it('sinceMs floors the replay to lifecycles started strictly after it', () => {
+    const store = new RequestLifecycleStore();
+    store.apply({ kind: 'started', lifecycle: makeLifecycle({ tabId: 1, requestId: 'old', startedAtMs: 1000 }) });
+    store.apply({ kind: 'started', lifecycle: makeLifecycle({ tabId: 1, requestId: 'new', startedAtMs: 3000 }) });
+    const hub = new RequestLifecycleHub({ store });
+
+    const sink = recordingSink();
+    hub.attach(1, sink, { sinceMs: 1000 });
+    expect(sink.updates.map((u) => (u.kind === 'started' ? u.lifecycle.requestId : ''))).toEqual(['new']);
   });
 
   it('throws when attaching after dispose', () => {
@@ -208,7 +236,7 @@ describe('RequestLifecycleHub — detach', () => {
     store.apply({ kind: 'started', lifecycle: makeLifecycle({ tabId: 1, requestId: 'b' }) });
 
     const sink = recordingSink();
-    hub.attach(1, sink);
+    hub.attach(1, sink, { sinceMs: -1 });
     expect(sink.updates.map((u) => (u.kind === 'started' ? u.lifecycle.requestId : ''))).toEqual(['a', 'b']);
   });
 });
@@ -297,7 +325,7 @@ describe('RequestLifecycleHub — race-freedom on attach', () => {
 
     const sink = recordingSink();
     const spy = vi.spyOn(store, 'snapshotTab');
-    hub.attach(1, sink);
+    hub.attach(1, sink, { sinceMs: -1 });
     expect(spy).toHaveBeenCalledTimes(1);
     expect(sink.updates).toHaveLength(1);
   });

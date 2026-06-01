@@ -27,8 +27,8 @@
  *   interleaves between snapshot read and replay emit.
  */
 
-import type { InspectorNavTiming } from '@openheaders/core/types';
 import type { Page, PageStreamUpdate } from '@openheaders/core/page-stream';
+import type { InspectorNavTiming } from '@openheaders/core/types';
 
 import type { TabLifecycleBus } from '../tab-lifecycle-bus';
 import { TabSinkRegistry } from '../tab-sink-registry';
@@ -74,19 +74,13 @@ export class PageStreamHub {
     const next: Page = {
       ...prev,
       url: prev.url ?? timing.pageOrigin ?? null,
-      ...(timing.dclMs != null && (prev.dclMs == null || timing.dclMs > prev.dclMs)
-        ? { dclMs: timing.dclMs }
-        : {}),
+      ...(timing.dclMs != null && (prev.dclMs == null || timing.dclMs > prev.dclMs) ? { dclMs: timing.dclMs } : {}),
       ...(timing.loadMs != null && (prev.loadMs == null || timing.loadMs > prev.loadMs)
         ? { loadMs: timing.loadMs }
         : {}),
     };
     if (next === prev) return;
-    if (
-      next.url === prev.url &&
-      next.dclMs === prev.dclMs &&
-      next.loadMs === prev.loadMs
-    ) {
+    if (next.url === prev.url && next.dclMs === prev.dclMs && next.loadMs === prev.loadMs) {
       return;
     }
     list[idx] = next;
@@ -108,6 +102,7 @@ export class PageStreamHub {
 
   attach(tabId: number, sink: Sink): AttachmentHandle {
     return this.registry.attach(tabId, sink, (s) => {
+      s.deliverReady(tabId);
       const pages = this.snapshotTab(tabId);
       for (const page of pages) {
         s.deliverUpdate({ kind: 'page-started', tabId, page });

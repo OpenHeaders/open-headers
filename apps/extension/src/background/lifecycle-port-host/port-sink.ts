@@ -22,8 +22,8 @@ export function createPortSink(port: chrome.runtime.Port): Sink {
     }
   };
   return {
-    deliverReady(tabId: number): void {
-      post({ kind: 'ready', tabId });
+    deliverReady(tabId: number, watermarkMs: number): void {
+      post({ kind: 'ready', tabId, watermarkMs });
     },
     deliverUpdate(update: RequestLifecycleUpdate): void {
       post({ kind: 'lifecycle-update', update });

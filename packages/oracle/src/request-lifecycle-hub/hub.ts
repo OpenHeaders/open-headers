@@ -27,8 +27,8 @@
 import type { RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle';
 
 import type { RequestLifecycleStore } from '../request-lifecycle-store';
-import { TabSinkRegistry } from '../tab-sink-registry';
 import type { TabLifecycleBus } from '../tab-lifecycle-bus';
+import { TabSinkRegistry } from '../tab-sink-registry';
 
 import { tabIdOf } from './filter';
 import { snapshotToUpdates } from './replay';
@@ -59,9 +59,20 @@ export class RequestLifecycleHub {
       : null;
   }
 
-  attach(tabId: number, sink: Sink): AttachmentHandle {
+  /**
+   * Attach a sink and replay the tab's history scoped to `opts.sinceMs`
+   * (a `startedAtMs` floor). With `sinceMs` omitted the watcher is
+   * treated as session-start: the floor becomes the current watermark,
+   * so nothing pre-existing replays. The watermark is always reported in
+   * the `ready` envelope so the consumer can re-subscribe with it after a
+   * reconnect. Live broadcasts after attach are never floor-filtered.
+   */
+  attach(tabId: number, sink: Sink, opts?: { sinceMs?: number }): AttachmentHandle {
+    const watermarkMs = this.store.tabWatermark(tabId);
+    const sinceMs = opts?.sinceMs ?? watermarkMs;
     return this.registry.attach(tabId, sink, (s) => {
-      for (const update of snapshotToUpdates(this.store.snapshotTab(tabId))) {
+      s.deliverReady(tabId, watermarkMs);
+      for (const update of snapshotToUpdates(this.store.snapshotTab(tabId, { sinceMs }))) {
         s.deliverUpdate(update);
       }
     });

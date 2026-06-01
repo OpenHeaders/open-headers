@@ -1,21 +1,18 @@
 /**
  * Lifecycle port host (W-a) — chrome adapter wires `chrome.runtime.onConnect`
- * to `RequestLifecycleHub.attach`. Asserts:
+ * to `RequestLifecycleHub.attach` via the consumer's `subscribe` handshake.
+ * Asserts:
  *   - port-name parsing accepts `oh-lifecycle:<tabId>` and rejects siblings
- *   - happy-path attach → ready + replay over postMessage
+ *   - attach is deferred to the `subscribe` message → ready + replay
+ *   - a second `subscribe` re-scopes the replay (toggle in place)
  *   - dead-port postMessage throw is swallowed
  *   - onDisconnect triggers hub.detach (refcount + stops fanout)
  */
 
-import { describe, expect, it, vi } from 'vitest';
-
-import {
-  LIFECYCLE_PORT_PREFIX,
-  lifecyclePortName,
-  parseLifecyclePortName,
-} from '@openheaders/core/request-lifecycle';
+import { LIFECYCLE_PORT_PREFIX, lifecyclePortName, parseLifecyclePortName } from '@openheaders/core/request-lifecycle';
 import { RequestLifecycleHub } from '@openheaders/oracle/request-lifecycle-hub';
 import { RequestLifecycleStore } from '@openheaders/oracle/request-lifecycle-store';
+import { describe, expect, it, vi } from 'vitest';
 
 import { acceptLifecyclePort } from '@/background/lifecycle-port-host/accept-port';
 import { createPortSink } from '@/background/lifecycle-port-host/port-sink';
@@ -24,9 +21,13 @@ interface FakePort {
   name: string;
   posted: unknown[];
   disconnectListeners: Array<() => void>;
+  messageListeners: Array<(msg: unknown) => void>;
   onDisconnect: { addListener: (fn: () => void) => void };
+  onMessage: { addListener: (fn: (msg: unknown) => void) => void };
   postMessage: ReturnType<typeof vi.fn>;
   disconnect: ReturnType<typeof vi.fn>;
+  /** Simulate an inbound frame from the consumer (e.g. a `subscribe`). */
+  emit: (msg: unknown) => void;
 }
 
 function fakePort(name: string, postImpl?: (msg: unknown) => void): FakePort {
@@ -34,9 +35,15 @@ function fakePort(name: string, postImpl?: (msg: unknown) => void): FakePort {
     name,
     posted: [],
     disconnectListeners: [],
+    messageListeners: [],
     onDisconnect: {
       addListener: (fn) => {
         port.disconnectListeners.push(fn);
+      },
+    },
+    onMessage: {
+      addListener: (fn) => {
+        port.messageListeners.push(fn);
       },
     },
     postMessage: vi.fn((msg: unknown) => {
@@ -44,8 +51,16 @@ function fakePort(name: string, postImpl?: (msg: unknown) => void): FakePort {
       else port.posted.push(msg);
     }),
     disconnect: vi.fn(),
+    emit: (msg) => {
+      for (const fn of port.messageListeners) fn(msg);
+    },
   };
   return port;
+}
+
+/** Send the consumer's `subscribe` handshake to trigger (or re-scope) attach. */
+function subscribe(port: FakePort, sinceMs?: number): void {
+  port.emit(sinceMs === undefined ? { kind: 'subscribe' } : { kind: 'subscribe', sinceMs });
 }
 
 describe('parseLifecyclePortName', () => {
@@ -72,7 +87,7 @@ describe('createPortSink', () => {
   it('posts ready and lifecycle-update envelopes', () => {
     const port = fakePort('oh-lifecycle:1');
     const sink = createPortSink(port as unknown as chrome.runtime.Port);
-    sink.deliverReady(1);
+    sink.deliverReady(1, 1234);
     sink.deliverUpdate({
       kind: 'started',
       lifecycle: {
@@ -91,7 +106,7 @@ describe('createPortSink', () => {
       },
     });
     expect(port.posted).toEqual([
-      { kind: 'ready', tabId: 1 },
+      { kind: 'ready', tabId: 1, watermarkMs: 1234 },
       expect.objectContaining({ kind: 'lifecycle-update' }),
     ]);
   });
@@ -108,7 +123,7 @@ describe('createPortSink', () => {
       throw new Error('port dead');
     });
     const sink = createPortSink(port as unknown as chrome.runtime.Port);
-    expect(() => sink.deliverReady(1)).not.toThrow();
+    expect(() => sink.deliverReady(1, -1)).not.toThrow();
   });
 
   it('close() disconnects the underlying port and swallows errors', () => {
@@ -134,7 +149,7 @@ describe('acceptLifecyclePort', () => {
     expect(port.posted).toEqual([]);
   });
 
-  it('attaches a matching port and delivers ready + replay synchronously', () => {
+  it('defers attach until `subscribe`, then delivers ready + replay synchronously', () => {
     const store = new RequestLifecycleStore();
     store.apply({
       kind: 'started',
@@ -157,9 +172,74 @@ describe('acceptLifecyclePort', () => {
     const port = fakePort(lifecyclePortName(5));
     const accepted = acceptLifecyclePort(hub, port as unknown as chrome.runtime.Port);
     expect(accepted).toBe(true);
-    expect(port.posted[0]).toEqual({ kind: 'ready', tabId: 5 });
+    // Nothing is delivered until the consumer subscribes.
+    expect(port.posted).toEqual([]);
+
+    // `-1` floor replays everything retained for the tab.
+    subscribe(port, -1);
+    expect(port.posted[0]).toEqual({ kind: 'ready', tabId: 5, watermarkMs: 1 });
     expect(port.posted).toHaveLength(2);
     expect((port.posted[1] as { kind: string }).kind).toBe('lifecycle-update');
+  });
+
+  it('session-start subscribe (no sinceMs) replays nothing and reports the watermark', () => {
+    const store = new RequestLifecycleStore();
+    store.apply({
+      kind: 'started',
+      lifecycle: {
+        tabId: 5,
+        requestId: 'a',
+        url: 'https://openheaders.io/a',
+        method: 'GET',
+        resourceType: 'xmlhttprequest',
+        phase: 'pending',
+        redirectHopCount: 0,
+        redirectHops: [],
+        startedAtMs: 7000,
+        hopStartedAtMs: 7000,
+        har: [],
+        harBodyByHop: [],
+      },
+    });
+    const hub = new RequestLifecycleHub({ store });
+    const port = fakePort(lifecyclePortName(5));
+    acceptLifecyclePort(hub, port as unknown as chrome.runtime.Port);
+    subscribe(port);
+    expect(port.posted).toEqual([{ kind: 'ready', tabId: 5, watermarkMs: 7000 }]);
+  });
+
+  it('a second subscribe re-scopes the replay in place', () => {
+    const store = new RequestLifecycleStore();
+    store.apply({
+      kind: 'started',
+      lifecycle: {
+        tabId: 5,
+        requestId: 'a',
+        url: 'https://openheaders.io/a',
+        method: 'GET',
+        resourceType: 'xmlhttprequest',
+        phase: 'pending',
+        redirectHopCount: 0,
+        redirectHops: [],
+        startedAtMs: 1,
+        hopStartedAtMs: 1,
+        har: [],
+        harBodyByHop: [],
+      },
+    });
+    const hub = new RequestLifecycleHub({ store });
+    const port = fakePort(lifecyclePortName(5));
+    acceptLifecyclePort(hub, port as unknown as chrome.runtime.Port);
+
+    // Session-start: ready only, no replay.
+    subscribe(port);
+    expect(port.posted).toEqual([{ kind: 'ready', tabId: 5, watermarkMs: 1 }]);
+
+    // Toggle "show background history": re-subscribe with -1 → full replay.
+    subscribe(port, -1);
+    expect(port.posted).toHaveLength(3);
+    expect((port.posted[1] as { kind: string }).kind).toBe('ready');
+    expect((port.posted[2] as { kind: string }).kind).toBe('lifecycle-update');
   });
 
   it('raises panel-watching tracking on accept and releases it on disconnect', () => {
@@ -201,6 +281,7 @@ describe('acceptLifecyclePort', () => {
     const hub = new RequestLifecycleHub({ store });
     const port = fakePort(lifecyclePortName(9));
     acceptLifecyclePort(hub, port as unknown as chrome.runtime.Port);
+    subscribe(port, -1);
 
     // Fire the disconnect listener Chrome would have called.
     for (const fn of port.disconnectListeners) fn();

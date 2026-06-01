@@ -19,9 +19,8 @@
  * never branch on "is this replay or live."
  */
 
-import { describe, expect, it } from 'vitest';
-
 import type { RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle';
+import { describe, expect, it } from 'vitest';
 
 import { RequestLifecycleHub } from '../../src/request-lifecycle-hub/hub';
 import type { Sink } from '../../src/request-lifecycle-hub/types';
@@ -57,7 +56,10 @@ function recordingSink(): RecordingSink {
 
 const TAB = 1;
 
-function startUpdate(requestId: string, overrides?: { phase?: 'pending' | 'headers-received' }): RequestLifecycleUpdate {
+function startUpdate(
+  requestId: string,
+  overrides?: { phase?: 'pending' | 'headers-received' },
+): RequestLifecycleUpdate {
   return {
     kind: 'started',
     lifecycle: makeLifecycle({ tabId: TAB, requestId, phase: overrides?.phase ?? 'pending' }),
@@ -103,7 +105,9 @@ describe('RequestLifecycleHub — disconnect / reconnect flow (T7)', () => {
     // `started` per lifecycle, each carrying the post-reduce phase.
     const hub2 = new RequestLifecycleHub({ store });
     const sinkB = recordingSink();
-    hub2.attach(TAB, sinkB);
+    // A reconnecting consumer re-subscribes with its session floor; here
+    // it floors below all requests (`-1`) to restore the full session.
+    hub2.attach(TAB, sinkB, { sinceMs: -1 });
 
     expect(sinkB.ready).toEqual([TAB]);
     const replay = sinkB.updates;
@@ -149,7 +153,7 @@ describe('RequestLifecycleHub — disconnect / reconnect flow (T7)', () => {
     expect(sinkA.updates).toHaveLength(1);
 
     const sinkB = recordingSink();
-    hub.attach(TAB, sinkB);
+    hub.attach(TAB, sinkB, { sinceMs: -1 });
     expect(sinkB.ready).toEqual([TAB]);
     expect(sinkB.updates).toHaveLength(1);
     const first = sinkB.updates[0];
@@ -174,10 +178,8 @@ describe('RequestLifecycleHub — disconnect / reconnect flow (T7)', () => {
     store.apply({ kind: 'gone', tabId: TAB, requestId: 'doomed' });
 
     const sinkB = recordingSink();
-    hub.attach(TAB, sinkB);
-    const replayed = sinkB.updates.flatMap((u) =>
-      u.kind === 'started' ? [u.lifecycle.requestId] : [],
-    );
+    hub.attach(TAB, sinkB, { sinceMs: -1 });
+    const replayed = sinkB.updates.flatMap((u) => (u.kind === 'started' ? [u.lifecycle.requestId] : []));
     expect(replayed).toEqual(['keeper']);
     expect(replayed).not.toContain('doomed');
 
