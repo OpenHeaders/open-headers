@@ -1,2 +1,0 @@
-export type { ModeSwitchChoice, ModeSwitchDialogProps } from './ModeSwitchDialog';
-export { default as ModeSwitchDialog } from './ModeSwitchDialog';

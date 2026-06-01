@@ -25,11 +25,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { hasCapability } from '@openheaders/core/capabilities';
 import { generateUid } from '@openheaders/core/utils';
 import { probeBackendConnection } from '../../../shared/backend/probe-connection';
+import { describeProbeResult } from '../../../shared/backend/probe-notify';
 import { getCurrentHost, type Host } from '../../../shared/host-vocabulary';
 import { getStatusSnapshot, type StatusEntry, subscribe as subscribeStatus } from '../../../shared/status';
 import { useOptionalInspectorNav } from '../../hooks/useInspectorNav';
 import type { BackendMode } from '../schema/backend';
-import { backendModeIsPending, backendModeNeedsConnection } from '../schema/backend';
+import { backendModeIsPending, backendModeNeedsConnection, hostIsTheBackend } from '../schema/backend';
 import { useSetting, useSettingValue } from '../hooks';
 import { set as setSettingValue } from '../store';
 import {
@@ -108,23 +109,10 @@ function isModeValidForHost(mode: BackendMode, host: Host): boolean {
   return SCENARIOS.find((s) => s.mode === mode)?.validHosts.includes(host) ?? false;
 }
 
-/**
- * True when the host IS the back-end for this mode. There's nothing to
- * configure, no wire to test, no peer to reach — the local process is
- * the source of truth. Used to suppress connection-tier UI (URL field,
- * Test connection button) on those (host, mode) pairs.
- */
-function hostIsTheBackend(mode: BackendMode, host: Host): boolean {
-  if (host === 'extension' && mode === 'in-browser') return true;
-  if (host === 'desktop' && mode === 'desktop-app') return true;
-  if (host === 'web' && mode === 'desktop-app') return false; // web is always a client
-  return false;
-}
-
 const BackendPaneInner: React.FC<CategoryPaneProps> = ({ category, defs }) => {
   const { token } = theme.useToken();
   const host = getCurrentHost();
-  const { mode, attemptChange, disabled, dialogElement } = useBackendModeSwitch();
+  const { mode, attemptChange, disabled, overlayElement } = useBackendModeSwitch();
 
   // The system setting is `mode`. The 4-tile picker is a PREVIEW
   // explorer — clicking a tile updates a local `previewMode` so the
@@ -135,16 +123,15 @@ const BackendPaneInner: React.FC<CategoryPaneProps> = ({ category, defs }) => {
   const [previewMode, setPreviewMode] = useState<BackendMode>(mode);
 
   // Keep the preview in sync when the active mode changes (e.g. after
-  // a successful executor run committed via the dialog).
+  // a switch commits).
   useEffect(() => {
     setPreviewMode(mode);
   }, [mode]);
 
   // If the stored value isn't valid for the current host (e.g. user
-  // imported a config from a different host), correct it via the
-  // orchestrator — same destructive-action protections as a manual
-  // switch. attemptChange is a no-op when the target equals the
-  // current value.
+  // imported a config from a different host), correct it through the
+  // same switch path as a manual change. attemptChange is a no-op when
+  // the target equals the current value.
   useEffect(() => {
     const stored = SCENARIOS.find((s) => s.mode === mode);
     if (!stored || !stored.validHosts.includes(host)) {
@@ -257,7 +244,7 @@ const BackendPaneInner: React.FC<CategoryPaneProps> = ({ category, defs }) => {
         }}
       />
 
-      {dialogElement}
+      {overlayElement}
     </div>
   );
 };
@@ -350,20 +337,8 @@ const ApplyBar: React.FC<{
         new Promise<void>((resolve) => setTimeout(resolve, MIN_LOADING_MS)),
       ]);
       setTesting(false);
-      if (result.ok) {
-        notification.success({ message: 'Connection OK', description: `${previewLabel} is reachable.` });
-        return;
-      }
-      // The back-end answered but isn't usable yet (incompatible version,
-      // not paired, doesn't share the workspace) — a "reachable, but …"
-      // warning, not a hard unreachable error.
-      const reachable = result.reason === 'protocol-mismatch' || result.reason === 'handshake-rejected';
-      const description = humanizeProbeFailure(result);
-      if (reachable) {
-        notification.warning({ message: probeWarningTitle(result), description });
-      } else {
-        notification.error({ message: 'Not reachable', description });
-      }
+      const notice = describeProbeResult(result, previewLabel);
+      notification[notice.level]({ message: notice.message, description: notice.description });
     };
   }, [host, url, previewLabel, notification, authToken]);
 
@@ -501,56 +476,6 @@ const ApplyBar: React.FC<{
     </div>
   );
 };
-
-/** Short notification title for a "reachable, but …" probe outcome. */
-function probeWarningTitle(
-  result: Extract<Awaited<ReturnType<typeof probeBackendConnection>>, { ok: false }>,
-): string {
-  if (result.reason === 'handshake-rejected') {
-    if (result.rejectReason === 'auth-required') return 'Reachable, but auth required';
-    if (result.rejectReason === 'workspace-unknown') return 'Reachable, but workspace not shared';
-    if (result.rejectReason === 'protocol-too-old' || result.rejectReason === 'protocol-too-new') {
-      return 'Reachable, but version mismatch';
-    }
-  }
-  if (result.reason === 'protocol-mismatch') return 'Reachable, but version mismatch';
-  return 'Reachable, but not ready';
-}
-
-function humanizeProbeFailure(
-  result: Extract<Awaited<ReturnType<typeof probeBackendConnection>>, { ok: false }>,
-): string {
-  switch (result.reason) {
-    case 'invalid-url':
-      return `Invalid URL. ${result.detail ?? ''}`.trim();
-    case 'timeout':
-      return 'Timed out waiting for a response — is the back-end running?';
-    case 'closed-before-welcome':
-      return 'Connection closed before the handshake — back-end likely not running on that port.';
-    case 'open-failed':
-      return `Could not open WebSocket${result.detail ? `: ${result.detail}` : ''}.`;
-    case 'protocol-mismatch':
-      return 'Reachable, but protocol versions are incompatible — update both apps.';
-    case 'handshake-rejected':
-      if (result.rejectReason === 'workspace-unknown') {
-        return 'Reachable — the back-end is up but doesn\'t share this workspace yet. Switching will pair the two.';
-      }
-      if (result.rejectReason === 'protocol-too-old') {
-        return 'Reachable — but this app is older than the back-end. Update this side.';
-      }
-      if (result.rejectReason === 'protocol-too-new') {
-        return 'Reachable — but the back-end is older than this app. Update the back-end.';
-      }
-      if (result.rejectReason === 'auth-required') {
-        return 'Reachable — but this device isn\'t authenticated yet. Pair with a code or paste a token above, then Switch.';
-      }
-      return `Rejected: ${result.rejectReason ?? 'unknown reason'}`;
-    case 'malformed-welcome':
-      return 'Reached a server, but it didn\'t speak the Open Headers protocol.';
-    default:
-      return 'Probe failed.';
-  }
-}
 
 const DetailFrame: React.FC<{ children: React.ReactNode; previewingNonActive: boolean }> = ({
   children,

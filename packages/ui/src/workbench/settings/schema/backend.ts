@@ -23,7 +23,7 @@
 import { WS_PORT } from '@openheaders/core/protocol';
 import { lazy } from 'react';
 import * as v from 'valibot';
-import { getCurrentHost } from '../../../shared/host-vocabulary';
+import { getCurrentHost, type Host } from '../../../shared/host-vocabulary';
 import { registerSetting } from '../registry';
 
 // Lazy import breaks the schema → component → schema cycle (the editor
@@ -55,6 +55,20 @@ export function backendModeNeedsConnection(mode: BackendMode): boolean {
 /** Modes that aren't fully implemented yet — the UI marks them "Coming soon". */
 export function backendModeIsPending(mode: BackendMode): boolean {
   return mode === 'local-self-hosted' || mode === 'remote-self-hosted';
+}
+
+/**
+ * True when the host IS the back-end for this mode. There's nothing to
+ * configure, no wire to test, no peer to reach — the local process is
+ * the source of truth. Used to suppress connection-tier UI (URL field,
+ * Test connection button) and to skip the Switch gate's probe on those
+ * (host, mode) pairs.
+ */
+export function hostIsTheBackend(mode: BackendMode, host: Host): boolean {
+  if (host === 'extension' && mode === 'in-browser') return true;
+  if (host === 'desktop' && mode === 'desktop-app') return true;
+  if (host === 'web' && mode === 'desktop-app') return false; // web is always a client
+  return false;
 }
 
 const modeSchema = v.picklist(BACKEND_MODES);

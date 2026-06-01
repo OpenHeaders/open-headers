@@ -1,12 +1,9 @@
-export {
-  probeBackendConnection,
-  probeBackendDataPresence,
-  runBackendRpc,
-} from './probe-connection';
 export type {
   ProbeConnectionResult,
-  ProbeDataPresenceResult,
   ProbeFailure,
   ProbeFailureReason,
   ProbeOptions,
 } from './probe-connection';
+export { probeBackendConnection } from './probe-connection';
+export type { ProbeNotice, ProbeNoticeLevel } from './probe-notify';
+export { describeProbeResult, humanizeProbeFailure, probeWarningTitle } from './probe-notify';
