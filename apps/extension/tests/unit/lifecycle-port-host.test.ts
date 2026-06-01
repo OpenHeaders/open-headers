@@ -4,7 +4,7 @@
  * Asserts:
  *   - port-name parsing accepts `oh-lifecycle:<tabId>` and rejects siblings
  *   - attach is deferred to the `subscribe` message → ready + replay
- *   - a second `subscribe` re-scopes the replay (toggle in place)
+ *   - a second `subscribe` re-attaches in place against the same floor
  *   - dead-port postMessage throw is swallowed
  *   - onDisconnect triggers hub.detach (refcount + stops fanout)
  */
@@ -58,9 +58,9 @@ function fakePort(name: string, postImpl?: (msg: unknown) => void): FakePort {
   return port;
 }
 
-/** Send the consumer's `subscribe` handshake to trigger (or re-scope) attach. */
-function subscribe(port: FakePort, sinceMs?: number): void {
-  port.emit(sinceMs === undefined ? { kind: 'subscribe' } : { kind: 'subscribe', sinceMs });
+/** Send the consumer's `subscribe` handshake to trigger (or re-attach) attach. */
+function subscribe(port: FakePort): void {
+  port.emit({ kind: 'subscribe' });
 }
 
 describe('parseLifecyclePortName', () => {
@@ -151,6 +151,16 @@ describe('acceptLifecyclePort', () => {
 
   it('defers attach until `subscribe`, then delivers ready + replay synchronously', () => {
     const store = new RequestLifecycleStore();
+    const hub = new RequestLifecycleHub({ store });
+
+    // Panel opens on the empty tab → the session floor is established below
+    // any future request, then it disconnects.
+    const warmup = fakePort(lifecyclePortName(5));
+    acceptLifecyclePort(hub, warmup as unknown as chrome.runtime.Port);
+    subscribe(warmup);
+    for (const fn of warmup.disconnectListeners) fn();
+
+    // A request arrives in-session while no consumer is attached.
     store.apply({
       kind: 'started',
       lifecycle: {
@@ -168,15 +178,16 @@ describe('acceptLifecyclePort', () => {
         harBodyByHop: [],
       },
     });
-    const hub = new RequestLifecycleHub({ store });
+
+    // A fresh consumer connects + subscribes → ready + synchronous replay
+    // of the in-session request, re-resolved against the same floor.
     const port = fakePort(lifecyclePortName(5));
     const accepted = acceptLifecyclePort(hub, port as unknown as chrome.runtime.Port);
     expect(accepted).toBe(true);
     // Nothing is delivered until the consumer subscribes.
     expect(port.posted).toEqual([]);
 
-    // `-1` floor replays everything retained for the tab.
-    subscribe(port, -1);
+    subscribe(port);
     expect(port.posted[0]).toEqual({ kind: 'ready', tabId: 5, watermarkMs: 1 });
     expect(port.posted).toHaveLength(2);
     expect((port.posted[1] as { kind: string }).kind).toBe('lifecycle-update');
@@ -208,7 +219,7 @@ describe('acceptLifecyclePort', () => {
     expect(port.posted).toEqual([{ kind: 'ready', tabId: 5, watermarkMs: 7000 }]);
   });
 
-  it('a second subscribe re-scopes the replay in place', () => {
+  it('a second subscribe re-attaches in place against the same session floor', () => {
     const store = new RequestLifecycleStore();
     store.apply({
       kind: 'started',
@@ -231,15 +242,15 @@ describe('acceptLifecyclePort', () => {
     const port = fakePort(lifecyclePortName(5));
     acceptLifecyclePort(hub, port as unknown as chrome.runtime.Port);
 
-    // Session-start: ready only, no replay.
+    // Session-start: floor at the watermark → ready only, no replay.
     subscribe(port);
     expect(port.posted).toEqual([{ kind: 'ready', tabId: 5, watermarkMs: 1 }]);
 
-    // Toggle "show background history": re-subscribe with -1 → full replay.
-    subscribe(port, -1);
-    expect(port.posted).toHaveLength(3);
+    // A repeated subscribe re-attaches (detach + re-attach) against the
+    // SAME engine-owned floor → another ready, still no replay.
+    subscribe(port);
+    expect(port.posted).toHaveLength(2);
     expect((port.posted[1] as { kind: string }).kind).toBe('ready');
-    expect((port.posted[2] as { kind: string }).kind).toBe('lifecycle-update');
   });
 
   it('raises panel-watching tracking on accept and releases it on disconnect', () => {
@@ -281,7 +292,7 @@ describe('acceptLifecyclePort', () => {
     const hub = new RequestLifecycleHub({ store });
     const port = fakePort(lifecyclePortName(9));
     acceptLifecyclePort(hub, port as unknown as chrome.runtime.Port);
-    subscribe(port, -1);
+    subscribe(port);
 
     // Fire the disconnect listener Chrome would have called.
     for (const fn of port.disconnectListeners) fn();
@@ -372,7 +383,7 @@ describe('acceptLifecyclePort', () => {
     acceptLifecyclePort(hub, port as unknown as chrome.runtime.Port, { ready });
 
     // Gate unresolved → attach (ready + replay) has not run yet.
-    subscribe(port, -1);
+    subscribe(port);
     expect(port.posted).toEqual([]);
 
     release();

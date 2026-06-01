@@ -17,17 +17,13 @@
  *
  * Watch session: the panel only shows requests observed after it started
  * watching, mirroring the browser's own Network panel. The session floor
- * is owned ENGINE-SIDE, keyed by tab — the panel just subscribes with an
- * omitted floor ("my session") and the engine resolves it (and persists
- * it). That is what keeps the view stable across reconnects, panel
- * remounts, and SW restarts WITHOUT the panel carrying the floor itself:
- * a remount that reset a client-held floor used to drop in-flight rows.
- *
- * Background-history toggle: when on, the panel re-subscribes with a `-1`
- * floor so the engine replays everything it has retained for the tab.
- * Flipping the toggle re-subscribes in place (no reconnect); each
- * `subscribe` precedes a fresh `ready`+replay, and the `ready` clears the
- * store so the replay is the canonical view.
+ * is owned ENGINE-SIDE, keyed by tab — the panel just sends one
+ * `subscribe` ("my session") and the engine resolves the floor (and
+ * persists it). That is what keeps the view stable across reconnects,
+ * panel remounts, and SW restarts WITHOUT the panel carrying the floor
+ * itself: a remount that reset a client-held floor used to drop in-flight
+ * rows. Each `subscribe` precedes a fresh `ready`+replay, and the `ready`
+ * clears the store so the replay is the canonical view.
  *
  * Clear: `clearSession` drops the local mirror AND tells the engine to
  * advance the session floor, so the reset survives a later reconnect
@@ -40,7 +36,7 @@ import {
   type LifecycleWireMessage,
   lifecyclePortName,
 } from '@openheaders/core/request-lifecycle';
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useRef, useSyncExternalStore } from 'react';
 
 import { type LifecycleClientSnapshot, LifecycleClientStore } from './lifecycle-client-store';
 import { useLifelineClient } from './use-lifeline-client';
@@ -56,9 +52,6 @@ export interface UseLifecycleClientResult {
    * THIS (not `store`) as the panel's lifecycle resettable.
    */
   clearSession(): void;
-  /** When true, the view includes requests captured before the panel opened. */
-  readonly showBackgroundHistory: boolean;
-  setShowBackgroundHistory(value: boolean): void;
 }
 
 export function useLifecycleClient(): UseLifecycleClientResult {
@@ -66,18 +59,12 @@ export function useLifecycleClient(): UseLifecycleClientResult {
   if (!storeRef.current) storeRef.current = new LifecycleClientStore();
   const store = storeRef.current;
 
-  const [showBackgroundHistory, setShowBackgroundHistory] = useState(false);
-
-  // The session floor is engine-owned, so the panel never carries it: an
-  // omitted floor means "my watch session" (the engine resolves the same
-  // floor on every reconnect/remount); `-1` means "all retained history".
-  const subscribeMessage = useCallback((): LifecycleSubscribeMessage => {
-    return showBackgroundHistory ? { kind: 'subscribe', sinceMs: -1 } : { kind: 'subscribe' };
-  }, [showBackgroundHistory]);
-
+  // The session floor is engine-owned, so the panel never carries it: a
+  // bare `subscribe` means "my watch session" and the engine resolves the
+  // same floor on every reconnect/remount.
   const { tabId, post } = useLifelineClient<LifecycleWireMessage>({
     portName: lifecyclePortName,
-    onConnect: (send) => send(subscribeMessage()),
+    onConnect: (send) => send({ kind: 'subscribe' } satisfies LifecycleSubscribeMessage),
     handler: (msg) => {
       switch (msg.kind) {
         case 'ready':
@@ -101,17 +88,6 @@ export function useLifecycleClient(): UseLifecycleClientResult {
     },
   });
 
-  // Re-subscribe in place when the toggle flips. Skip the initial mount —
-  // `onConnect` already sent the first subscribe.
-  const mountedRef = useRef(false);
-  useEffect(() => {
-    if (!mountedRef.current) {
-      mountedRef.current = true;
-      return;
-    }
-    post(subscribeMessage());
-  }, [post, subscribeMessage]);
-
   // Clear: drop the local mirror and advance the engine session floor so
   // the cleared requests do not replay back in on the next reconnect.
   const clearSession = useCallback(() => {
@@ -121,5 +97,5 @@ export function useLifecycleClient(): UseLifecycleClientResult {
 
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot);
 
-  return { snapshot, tabId, store, clearSession, showBackgroundHistory, setShowBackgroundHistory };
+  return { snapshot, tabId, store, clearSession };
 }

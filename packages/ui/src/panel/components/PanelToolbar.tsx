@@ -308,11 +308,6 @@ export interface PanelToolbarProps {
   onToggleSearch: () => void;
   preserveLog: boolean;
   onPreserveLogChange: (v: boolean) => void;
-  /** When on, the list also shows requests the engine captured before
-   *  this panel opened (otherwise it starts empty, like the browser's
-   *  own Network panel). */
-  showBackgroundHistory: boolean;
-  onShowBackgroundHistoryChange: (v: boolean) => void;
   rulesVisible: boolean;
   filterConfig: FilterConfig;
   onFilterConfigChange: (c: FilterConfig) => void;
@@ -350,8 +345,6 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
   onToggleSearch,
   preserveLog,
   onPreserveLogChange,
-  showBackgroundHistory,
-  onShowBackgroundHistoryChange,
   rulesVisible,
   filterConfig,
   onFilterConfigChange,
@@ -557,17 +550,6 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
           <label className="dt-checkbox" title="Keep requests across page navigations. Off clears the list on each navigation or reload, like the browser's own Network panel.">
             <input type="checkbox" checked={preserveLog} onChange={(e) => onPreserveLogChange(e.target.checked)} />
             Preserve log
-          </label>
-          <label
-            className="dt-checkbox"
-            title="Show requests captured before this panel opened. Off matches the browser's own Network panel."
-          >
-            <input
-              type="checkbox"
-              checked={showBackgroundHistory}
-              onChange={(e) => onShowBackgroundHistoryChange(e.target.checked)}
-            />
-            Background history
           </label>
           <MoreFiltersMenu
             filterConfig={filterConfig}

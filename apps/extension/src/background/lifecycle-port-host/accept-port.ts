@@ -5,11 +5,9 @@
  * detach (the attachment handle and tracker both guard re-entry).
  *
  * Subscribe handshake: the consumer opens the port, then sends one
- * `subscribe` declaring the replay floor it wants. Attach is deferred
- * until that message so the consumer controls which slice of history is
- * replayed; a later `subscribe` re-scopes (detach + re-attach), which is
- * how the panel toggles between "session only" and "all background
- * history" without reconnecting.
+ * `subscribe` to declare its watch session. Attach is deferred until that
+ * message; a repeated `subscribe` re-attaches in place (detach +
+ * re-attach), so the handshake is idempotent.
  *
  * Panel-watching tracking lives here because the lifecycle port IS the
  * contract surface for "a UI is watching this tab". Webrequest event
@@ -54,10 +52,9 @@ export function acceptLifecyclePort(
   const tracker = attachPanelWatchingTracker(tabId, options.trackerDeps ?? defaultTrackerDeps);
   const { ready } = options;
 
-  // Attach is deferred to the first `subscribe`; a later `subscribe`
-  // re-scopes the replay (detach + re-attach) so the panel can switch
-  // between session-only and full history in place. When a hydration gate
-  // is supplied, subscribe/clear wait on it so the session floor is
+  // Attach is deferred to the first `subscribe`; a repeated `subscribe`
+  // re-attaches in place (detach + re-attach). When a hydration gate is
+  // supplied, subscribe/clear wait on it so the session floor is
   // resolvable first (a cold-SW reconnect restores the persisted floor);
   // with no gate there is nothing to await, so they run synchronously.
   let handle: AttachmentHandle | null = null;
@@ -73,10 +70,9 @@ export function acceptLifecyclePort(
   };
   port.onMessage.addListener((msg: LifecycleConsumerMessage) => {
     if (msg?.kind === 'subscribe') {
-      const sinceMs = msg.sinceMs;
       whenReady(() => {
         handle?.detach();
-        handle = hub.attach(tabId, sink, { sinceMs });
+        handle = hub.attach(tabId, sink);
       });
       return;
     }

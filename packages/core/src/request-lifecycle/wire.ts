@@ -15,15 +15,13 @@
  *
  * Direction: `LifecycleWireMessage` flows engine→consumer.
  * `LifecycleConsumerMessage` flows consumer→engine — the consumer opens
- * the port, then sends one `subscribe` to declare which slice of history
- * it wants replayed. `sinceMs` is a `startedAtMs` floor: the engine
- * replays only lifecycles started strictly after it. A consumer that
- * omits `sinceMs` is asking for its "watch session" — the engine resolves
- * the session floor it owns for the tab (establishing it at the current
- * watermark the first time the tab is watched) and replays from there.
- * The engine owning the floor is what keeps a panel's view stable across
- * reconnects, panel remounts, and SW restarts without the consumer having
- * to carry the floor itself; `clear-session` starts a fresh floor.
+ * the port, then sends one `subscribe` to declare its "watch session" for
+ * the tab. The engine resolves the session floor it owns for the tab
+ * (establishing it at the current watermark the first time the tab is
+ * watched) and replays from there. The engine owning the floor is what
+ * keeps a panel's view stable across reconnects, panel remounts, and SW
+ * restarts without the consumer having to carry the floor itself;
+ * `clear-session` starts a fresh floor.
  */
 
 import type { RequestLifecycleUpdate } from './types';
@@ -34,22 +32,14 @@ export type LifecycleWireMessage =
   | { kind: 'tab-cleared'; tabId: number };
 
 /**
- * Consumer→engine. Sent once on connect, and again to re-scope the
- * replay (e.g. toggling a "show background history" view). Each
- * `subscribe` re-runs the replay against the floor; the engine clears
- * and re-delivers from `ready` onward.
- *
- * `sinceMs` semantics:
- *   - omitted → the engine-owned watch session: it resolves (and the
- *     first time, establishes at the current watermark) the tab's session
- *     floor and replays from there. Reconnects/remounts re-resolve the
- *     SAME floor, so an in-flight request observed earlier in the session
- *     still replays.
- *   - a `startedAtMs` value → replay lifecycles started after it.
- *   - `-1` → replay everything currently retained (all `startedAtMs`
- *     are non-negative epoch ms).
+ * Consumer→engine. Sent once on connect to declare the consumer's watch
+ * session for the tab. The engine resolves (and, the first time the tab
+ * is watched, establishes at the current watermark) the tab's session
+ * floor and replays from there. Reconnects/remounts re-resolve the SAME
+ * floor, so an in-flight request observed earlier in the session still
+ * replays.
  */
-export type LifecycleSubscribeMessage = { kind: 'subscribe'; sinceMs?: number };
+export type LifecycleSubscribeMessage = { kind: 'subscribe' };
 
 /**
  * Consumer→engine. Starts a fresh watch session for the tab — the engine

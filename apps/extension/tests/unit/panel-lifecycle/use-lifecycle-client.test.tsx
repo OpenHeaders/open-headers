@@ -6,9 +6,8 @@
  *   - `ready` clears state so reconnect replay rebuilds canonically
  *   - reconnects on disconnect (SW eviction) with the documented backoff
  *   - disconnects + cancels pending reconnects on unmount
- *   - sends the `subscribe` handshake: session-start on first connect,
- *     the learned watermark floor on reconnect, `-1` when the
- *     background-history toggle is on
+ *   - sends the `subscribe` handshake on first connect and re-sends it
+ *     (engine-owned session floor) on reconnect
  */
 
 import { type LifelinePort, type LifelineTransport, setLifelineTransport } from '@openheaders/core/awareness';
@@ -75,12 +74,9 @@ function installTransport(connect: (name: string) => LifelinePort): void {
 }
 
 function Probe(): React.ReactElement {
-  const { snapshot, tabId, clearSession, showBackgroundHistory, setShowBackgroundHistory } = useLifecycleClient();
+  const { snapshot, tabId, clearSession } = useLifecycleClient();
   return (
     <div>
-      <button type="button" data-testid="toggle" onClick={() => setShowBackgroundHistory(!showBackgroundHistory)}>
-        toggle
-      </button>
       <button type="button" data-testid="clear" onClick={clearSession}>
         clear
       </button>
@@ -360,23 +356,5 @@ describe('useLifecycleClient', () => {
     // floor so the cleared request does not replay on a later reconnect.
     expect(container.querySelector('li')).toBeNull();
     expect(port.posted).toContainEqual({ kind: 'clear-session' });
-  });
-
-  it('re-subscribes with -1 when the background-history toggle is turned on', () => {
-    installNavigation(7);
-    const port = fakePort(lifecyclePortName(7));
-    installTransport(() => port);
-
-    const { container } = render(<Probe />);
-    act(() => {
-      port.emit({ kind: 'ready', tabId: 7, watermarkMs: 4200 });
-    });
-    expect(port.posted).toEqual([{ kind: 'subscribe' }]);
-
-    act(() => {
-      container.querySelector<HTMLButtonElement>('[data-testid="toggle"]')?.click();
-    });
-    // Toggling on re-subscribes in place asking for everything retained.
-    expect(port.posted[port.posted.length - 1]).toEqual({ kind: 'subscribe', sinceMs: -1 });
   });
 });

@@ -24,6 +24,7 @@ import { describe, expect, it } from 'vitest';
 
 import { RequestLifecycleHub } from '../../src/request-lifecycle-hub/hub';
 import type { Sink } from '../../src/request-lifecycle-hub/types';
+import { InMemoryWatchSessionFloors } from '../../src/request-lifecycle-hub/watch-session-floors';
 import { RequestLifecycleStore } from '../../src/request-lifecycle-store/store';
 import { makeLifecycle } from '../request-lifecycle-store/factories';
 
@@ -82,9 +83,13 @@ function phaseUpdate(
 describe('RequestLifecycleHub — disconnect / reconnect flow (T7)', () => {
   it('attach → live → detach → store keeps reducing → reattach replays final snapshot then live flows', () => {
     const store = new RequestLifecycleStore();
-    const hub = new RequestLifecycleHub({ store });
+    // The session floor outlives the hub (persisted host-side), so the
+    // post-restart hub reuses the floor established on first attach.
+    const floors = new InMemoryWatchSessionFloors();
+    const hub = new RequestLifecycleHub({ store, sessionFloors: floors });
 
-    // Phase 1: attach sink A, live updates flow.
+    // Phase 1: attach sink A on the empty tab (floor below all requests),
+    // live updates flow.
     const sinkA = recordingSink();
     hub.attach(TAB, sinkA);
 
@@ -103,11 +108,11 @@ describe('RequestLifecycleHub — disconnect / reconnect flow (T7)', () => {
     // Phase 3: reattach via a fresh hub (post-disposal flow). Sink B
     // sees `ready` plus replay of the CURRENT snapshot — one synthetic
     // `started` per lifecycle, each carrying the post-reduce phase.
-    const hub2 = new RequestLifecycleHub({ store });
+    const hub2 = new RequestLifecycleHub({ store, sessionFloors: floors });
     const sinkB = recordingSink();
-    // A reconnecting consumer re-subscribes with its session floor; here
-    // it floors below all requests (`-1`) to restore the full session.
-    hub2.attach(TAB, sinkB, { sinceMs: -1 });
+    // The reconnecting consumer re-resolves the SAME persisted session
+    // floor, restoring the full session.
+    hub2.attach(TAB, sinkB);
 
     expect(sinkB.ready).toEqual([TAB]);
     const replay = sinkB.updates;
@@ -153,7 +158,7 @@ describe('RequestLifecycleHub — disconnect / reconnect flow (T7)', () => {
     expect(sinkA.updates).toHaveLength(1);
 
     const sinkB = recordingSink();
-    hub.attach(TAB, sinkB, { sinceMs: -1 });
+    hub.attach(TAB, sinkB);
     expect(sinkB.ready).toEqual([TAB]);
     expect(sinkB.updates).toHaveLength(1);
     const first = sinkB.updates[0];
@@ -178,7 +183,7 @@ describe('RequestLifecycleHub — disconnect / reconnect flow (T7)', () => {
     store.apply({ kind: 'gone', tabId: TAB, requestId: 'doomed' });
 
     const sinkB = recordingSink();
-    hub.attach(TAB, sinkB, { sinceMs: -1 });
+    hub.attach(TAB, sinkB);
     const replayed = sinkB.updates.flatMap((u) => (u.kind === 'started' ? [u.lifecycle.requestId] : []));
     expect(replayed).toEqual(['keeper']);
     expect(replayed).not.toContain('doomed');

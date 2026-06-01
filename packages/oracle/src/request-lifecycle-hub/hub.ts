@@ -72,18 +72,17 @@ export class RequestLifecycleHub {
   }
 
   /**
-   * Attach a sink and replay the tab's history scoped to `opts.sinceMs`
-   * (a `startedAtMs` floor). With `sinceMs` omitted the watcher gets its
-   * engine-owned watch session: the floor is resolved (and, the first
-   * time the tab is watched, established at the current watermark) so a
-   * reconnect or remount re-resolves the SAME floor and an in-flight
-   * request observed earlier in the session still replays. The current
-   * watermark is reported in the `ready` envelope. Live broadcasts after
-   * attach are never floor-filtered.
+   * Attach a sink and replay the tab's history scoped to its engine-owned
+   * watch session: the floor is resolved (and, the first time the tab is
+   * watched, established at the current watermark) so a reconnect or
+   * remount re-resolves the SAME floor and an in-flight request observed
+   * earlier in the session still replays. The current watermark is
+   * reported in the `ready` envelope. Live broadcasts after attach are
+   * never floor-filtered.
    */
-  attach(tabId: number, sink: Sink, opts?: { sinceMs?: number }): AttachmentHandle {
+  attach(tabId: number, sink: Sink): AttachmentHandle {
     const watermarkMs = this.store.tabWatermark(tabId);
-    const sinceMs = opts?.sinceMs ?? this.sessionFloors.resolveFloor(tabId, watermarkMs);
+    const sinceMs = this.sessionFloors.resolveFloor(tabId, watermarkMs);
     return this.registry.attach(tabId, sink, (s) => {
       s.deliverReady(tabId, watermarkMs);
       for (const update of snapshotToUpdates(this.store.snapshotTab(tabId, { sinceMs }))) {

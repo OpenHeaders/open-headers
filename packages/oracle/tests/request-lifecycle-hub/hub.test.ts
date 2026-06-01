@@ -42,11 +42,14 @@ function recordingSink(): RecordingSink {
 describe('RequestLifecycleHub — attach', () => {
   it('delivers `ready` before any replay update', () => {
     const store = new RequestLifecycleStore();
-    store.apply({ kind: 'started', lifecycle: makeLifecycle({ tabId: 1, requestId: 'a' }) });
     const hub = new RequestLifecycleHub({ store });
+    // Open the watch session on the empty tab (floor below any request),
+    // then a request arrives before the watcher reconnects.
+    hub.attach(1, recordingSink()).detach();
+    store.apply({ kind: 'started', lifecycle: makeLifecycle({ tabId: 1, requestId: 'a' }) });
 
     const sink = recordingSink();
-    hub.attach(1, sink, { sinceMs: -1 });
+    hub.attach(1, sink);
     expect(sink.ready).toEqual([1]);
     expect(sink.updates).toHaveLength(1);
     expect(sink.updates[0].kind).toBe('started');
@@ -54,24 +57,26 @@ describe('RequestLifecycleHub — attach', () => {
 
   it('replays existing lifecycles for the tab in snapshot order', () => {
     const store = new RequestLifecycleStore();
+    const hub = new RequestLifecycleHub({ store });
+    hub.attach(1, recordingSink()).detach();
     store.apply({ kind: 'started', lifecycle: makeLifecycle({ tabId: 1, requestId: 'a' }) });
     store.apply({ kind: 'started', lifecycle: makeLifecycle({ tabId: 1, requestId: 'b' }) });
     store.apply({ kind: 'started', lifecycle: makeLifecycle({ tabId: 1, requestId: 'c' }) });
-    const hub = new RequestLifecycleHub({ store });
 
     const sink = recordingSink();
-    hub.attach(1, sink, { sinceMs: -1 });
+    hub.attach(1, sink);
     expect(sink.updates.map((u) => (u.kind === 'started' ? u.lifecycle.requestId : ''))).toEqual(['a', 'b', 'c']);
   });
 
   it('filters replay strictly to the attached tab', () => {
     const store = new RequestLifecycleStore();
+    const hub = new RequestLifecycleHub({ store });
+    hub.attach(1, recordingSink()).detach();
     store.apply({ kind: 'started', lifecycle: makeLifecycle({ tabId: 1, requestId: 'a' }) });
     store.apply({ kind: 'started', lifecycle: makeLifecycle({ tabId: 2, requestId: 'z' }) });
-    const hub = new RequestLifecycleHub({ store });
 
     const sink = recordingSink();
-    hub.attach(1, sink, { sinceMs: -1 });
+    hub.attach(1, sink);
     expect(sink.updates).toHaveLength(1);
     expect(sink.updates[0].kind === 'started' && sink.updates[0].lifecycle.tabId).toBe(1);
   });
@@ -79,13 +84,13 @@ describe('RequestLifecycleHub — attach', () => {
   it('returns empty replay for an unknown tab and still fires ready', () => {
     const hub = new RequestLifecycleHub({ store: new RequestLifecycleStore() });
     const sink = recordingSink();
-    hub.attach(42, sink, { sinceMs: -1 });
+    hub.attach(42, sink);
     expect(sink.ready).toEqual([42]);
     expect(sink.watermarks).toEqual([-1]);
     expect(sink.updates).toEqual([]);
   });
 
-  it('session-start (no sinceMs) replays nothing and reports the watermark', () => {
+  it('session-start replays nothing and reports the watermark', () => {
     const store = new RequestLifecycleStore();
     store.apply({ kind: 'started', lifecycle: makeLifecycle({ tabId: 1, requestId: 'a', startedAtMs: 1000 }) });
     store.apply({ kind: 'started', lifecycle: makeLifecycle({ tabId: 1, requestId: 'b', startedAtMs: 2500 }) });
@@ -99,17 +104,6 @@ describe('RequestLifecycleHub — attach', () => {
     expect(sink.watermarks).toEqual([2500]);
   });
 
-  it('sinceMs floors the replay to lifecycles started strictly after it', () => {
-    const store = new RequestLifecycleStore();
-    store.apply({ kind: 'started', lifecycle: makeLifecycle({ tabId: 1, requestId: 'old', startedAtMs: 1000 }) });
-    store.apply({ kind: 'started', lifecycle: makeLifecycle({ tabId: 1, requestId: 'new', startedAtMs: 3000 }) });
-    const hub = new RequestLifecycleHub({ store });
-
-    const sink = recordingSink();
-    hub.attach(1, sink, { sinceMs: 1000 });
-    expect(sink.updates.map((u) => (u.kind === 'started' ? u.lifecycle.requestId : ''))).toEqual(['new']);
-  });
-
   it('throws when attaching after dispose', () => {
     const hub = new RequestLifecycleHub({ store: new RequestLifecycleStore() });
     hub.dispose();
@@ -121,7 +115,7 @@ describe('RequestLifecycleHub — watch session', () => {
   const requestIds = (sink: RecordingSink): string[] =>
     sink.updates.map((u) => (u.kind === 'started' ? u.lifecycle.requestId : ''));
 
-  it('reuses the established session floor across a reattach (omitted sinceMs)', () => {
+  it('reuses the established session floor across a reattach', () => {
     const store = new RequestLifecycleStore();
     const hub = new RequestLifecycleHub({ store });
 
@@ -283,11 +277,12 @@ describe('RequestLifecycleHub — detach', () => {
   it('late attach sees prior lifecycles via replay', () => {
     const store = new RequestLifecycleStore();
     const hub = new RequestLifecycleHub({ store });
+    hub.attach(1, recordingSink()).detach();
     store.apply({ kind: 'started', lifecycle: makeLifecycle({ tabId: 1, requestId: 'a' }) });
     store.apply({ kind: 'started', lifecycle: makeLifecycle({ tabId: 1, requestId: 'b' }) });
 
     const sink = recordingSink();
-    hub.attach(1, sink, { sinceMs: -1 });
+    hub.attach(1, sink);
     expect(sink.updates.map((u) => (u.kind === 'started' ? u.lifecycle.requestId : ''))).toEqual(['a', 'b']);
   });
 });
@@ -369,14 +364,15 @@ describe('RequestLifecycleHub — race-freedom on attach', () => {
   it('does not deliver updates twice when an update fires between subscribe and snapshot', () => {
     // JS is single-threaded; subscribe + snapshot + replay run in one sync
     // block in attach(). This test pins that invariant by spying on
-    // store.subscribe and asserting attach() executes synchronously.
+    // store.snapshotTab and asserting attach() executes synchronously.
     const store = new RequestLifecycleStore();
     const hub = new RequestLifecycleHub({ store });
+    hub.attach(1, recordingSink()).detach();
     store.apply({ kind: 'started', lifecycle: makeLifecycle({ tabId: 1, requestId: 'r' }) });
 
     const sink = recordingSink();
     const spy = vi.spyOn(store, 'snapshotTab');
-    hub.attach(1, sink, { sinceMs: -1 });
+    hub.attach(1, sink);
     expect(spy).toHaveBeenCalledTimes(1);
     expect(sink.updates).toHaveLength(1);
   });
