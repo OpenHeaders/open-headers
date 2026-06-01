@@ -124,16 +124,6 @@ describe('sync-rpc permission gate', () => {
     expect(audits[0]?.capability).toBe('workspace.write');
   });
 
-  it('skips the gate for explicitly ungated types', async () => {
-    // `oh.sync.getDataPresence` is local-only metadata used by the
-    // mode-switch dialog before any identity may be resolved; the gate
-    // pass-through is by design.
-    const result = dispatchSyncRpc({ type: 'oh.sync.getDataPresence' });
-    expect(result).not.toBeNull();
-    if (result?.kind === 'async') await result.promise.catch(() => undefined);
-    expect(audits).toHaveLength(0);
-  });
-
   it('skips the gate for peer-driven mutation-stream types', async () => {
     // SYNC_MUTATION_TYPE / BATCH_TYPE / AWARENESS_PRESENCE_TYPE ride the
     // SW→peer handshake gate + per-envelope forwarder/receiver gate; the
@@ -154,21 +144,6 @@ describe('sync-rpc permission gate', () => {
     expect(audits).toHaveLength(1);
     expect(audits[0]?.capability).toBe('workspace.read');
     expect(audits[0]?.decision.allow).toBe(false);
-  });
-
-  it('denies a mode-switch orchestrator without LocalAdmin context', () => {
-    // No snapshot installed → daemon.admin resolves to no-current-user.
-    expect(() => dispatchSyncRpc({ type: 'oh.sync.executeDiscardWithBackup' })).toThrow(PermissionDeniedError);
-    expect(audits).toHaveLength(1);
-    expect(audits[0]?.capability).toBe('daemon.admin');
-  });
-
-  it('gates the Use-Target orchestrator behind daemon.admin (U5.4)', () => {
-    expect(() => dispatchSyncRpc({ type: 'oh.sync.executeUseTarget', targetOrgId: 'org-x' })).toThrow(
-      PermissionDeniedError,
-    );
-    expect(audits).toHaveLength(1);
-    expect(audits[0]?.capability).toBe('daemon.admin');
   });
 
   it('allows workspace.list snapshot read for any installed snapshot', async () => {

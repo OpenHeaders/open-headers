@@ -7,7 +7,6 @@
  *   - `oh.sync.apply`                       — write path
  *   - `oh.sync.snapshot*` (per entity type) — per-workspace mirror seed
  *   - `oh.sync.snapshotExtensionWorkspaces` — global-scope mirror seed
- *   - `oh.sync.*` mode-switch                — mode-switch executors
  *   - `oh.awareness.publish`                — presence write
  *   - `oh.awareness.snapshot`               — presence seed
  *
@@ -27,13 +26,7 @@
  *                                       continues its own dispatcher chain
  */
 
-import {
-  authorizedOrgIds,
-  type Capability,
-  emitAuditEntry,
-  getIdentitySnapshot,
-  hasCapability,
-} from '@openheaders/core/identity';
+import { type Capability, emitAuditEntry, getIdentitySnapshot, hasCapability } from '@openheaders/core/identity';
 import type {
   AwarenessPublishRequest,
   AwarenessPublishResponse,
@@ -49,34 +42,21 @@ import {
   SYNC_MUTATION_TYPE,
   type SyncAwarenessPresenceMessage,
 } from '@openheaders/core/protocol';
-import type {
-  DiscardBackupArchive,
-  DiscardResult,
-  InverseEnvelopeContext,
-  RestoreResult,
-} from '@openheaders/core/sync';
-import { isDiscardBackupArchiveShape, resolveWorkspaceOrgId } from '@openheaders/core/sync';
+import type { InverseEnvelopeContext } from '@openheaders/core/sync';
+import { resolveWorkspaceOrgId } from '@openheaders/core/sync';
 import { logger } from '@openheaders/core/utils';
 import { peekActiveWorkspaceId, requireActiveWorkspaceId } from '../sync';
 import { listMutedActivityEntities, muteActivityEntity, unmuteActivityEntity } from '../sync/activity-mute-cache';
 import { generateInverseMutation } from '../sync/activity-revert';
 import { applyInboundAwarenessFrame } from '../sync/awareness-inbound';
 import { snapshotExtensionWorkspacePostStates } from '../sync/global-service';
-import {
-  applyDiscardRestoreArchive,
-  collectLocalDataPresence,
-  orchestrateDiscardWithBackup,
-  orchestrateUseTarget,
-} from '../sync/mode-switch';
 import { applyInboundMutationBatch, applyInboundMutationEnvelope } from '../sync/mutation-stream-bridge';
 import {
   applySyncRequest,
   getAwarenessStoreForWorkspace,
   getOracleForWorkspace,
-  getOrCreateWorkspaceService,
   nextSwMutatorContextForWorkspace,
   publishAwareness,
-  releaseWorkspaceService,
   snapshotAwarenessPresence,
   snapshotCollectionPostStates,
   snapshotEnvironmentPostStates,
@@ -98,10 +78,7 @@ import {
   snapshotVaultPostStates,
   snapshotWorkspaceVariablesPostStates,
 } from '../sync/service';
-import { applyWorkspaceSnapshot } from '../sync/snapshot-applier';
-import { buildSnapshotForWorkspace } from '../sync/snapshot-builder';
 import { getSyncPersistenceProvider } from '../sync/sync-persistence-provider';
-import { createWorkspace, deleteWorkspace, listWorkspaces } from '../workspace/extension-workspace-store';
 
 export type SyncRpcResult = { kind: 'sync'; response: unknown } | { kind: 'async'; promise: Promise<unknown> };
 
@@ -140,11 +117,6 @@ export class PermissionDeniedError extends Error {
  * `SYNC_AWARENESS_PRESENCE_TYPE`) deliberately skip this gate — those ride
  * the SW→peer handshake gate + per-envelope mutation forwarder gate
  * (U2.3, sync-mutation-forwarder.ts + sync-mutation-receiver.ts).
- *
- * `oh.sync.getDataPresence` is explicitly ungated: it's a local-only
- * metadata read used during mode-switch dialogs ("what's already on this
- * host?") before any identity is necessarily resolved. Returning empty
- * is the correct degraded behavior.
  */
 interface GateRule {
   readonly capability: Capability;
@@ -212,15 +184,6 @@ const GATE_RULES: ReadonlyMap<string, GateRule> = new Map<string, GateRule>([
   ['oh.sync.muteActivityEntity', { capability: 'workspace.write', resolveWorkspaceId: WORKSPACE_ID_FROM_MESSAGE }],
   ['oh.sync.unmuteActivityEntity', { capability: 'workspace.write', resolveWorkspaceId: WORKSPACE_ID_FROM_MESSAGE }],
   ['oh.sync.revertActivity', { capability: 'workspace.write', resolveWorkspaceId: WORKSPACE_ID_FROM_MESSAGE }],
-
-  // Mode-switch orchestrators cross workspaces; gated coarsely at the
-  // dispatcher entry with `daemon.admin`. A non-admin caller is denied
-  // before the orchestrator fans over its workspace set — matches the
-  // blast-radius posture spec'd in `UNIFIED_ORACLE_STATUS.md` Session 3
-  // "Next-session input" §1.
-  ['oh.sync.executeDiscardWithBackup', { capability: 'daemon.admin', resolveWorkspaceId: NO_WORKSPACE }],
-  ['oh.sync.applyDiscardRestore', { capability: 'daemon.admin', resolveWorkspaceId: NO_WORKSPACE }],
-  ['oh.sync.executeUseTarget', { capability: 'daemon.admin', resolveWorkspaceId: NO_WORKSPACE }],
 
   // Awareness — presence-plane reads. Bounded; `workspace.read` suffices
   // since presence carries no privileged content.
@@ -446,35 +409,6 @@ export function dispatchSyncRpc(message: Record<string, unknown>): SyncRpcResult
     return { kind: 'async', promise: result };
   }
 
-  if (type === 'oh.sync.getDataPresence') {
-    try {
-      const workspaces = collectLocalDataPresence({
-        workspaces: listWorkspaces().map((ws) => ({ id: ws.id, name: ws.name })),
-        getOracle: (workspaceId) => getOracleForWorkspace(workspaceId),
-      });
-      return { kind: 'sync', response: { workspaces } };
-    } catch (err) {
-      // The workspace store throws before bootstrap; downgrading to an
-      // empty list lets the caller treat this host as empty and fall
-      // through to the silent commit branch.
-      logger.info('SyncRpc', `oh.sync.getDataPresence failed: ${(err as Error).message}`);
-      return { kind: 'sync', response: { workspaces: [] } };
-    }
-  }
-
-  if (type === 'oh.sync.executeDiscardWithBackup') {
-    return { kind: 'async', promise: dispatchExecuteDiscardWithBackup() };
-  }
-
-  if (type === 'oh.sync.applyDiscardRestore') {
-    return { kind: 'async', promise: dispatchApplyDiscardRestore(message) };
-  }
-
-  if (type === 'oh.sync.executeUseTarget') {
-    const raw = message as unknown as { targetOrgId?: unknown };
-    return { kind: 'async', promise: dispatchExecuteUseTarget(raw) };
-  }
-
   if (type === 'oh.sync.unmuteActivityEntity') {
     const ws = typeof message.workspaceId === 'string' ? message.workspaceId : null;
     const entityType = typeof message.entityType === 'string' ? message.entityType : null;
@@ -566,92 +500,4 @@ async function dispatchRevertActivity(
     logger.info('SyncRpc', `oh.sync.revertActivity apply threw: ${detail}`);
     return { ok: false, reason: detail };
   }
-}
-
-/**
- * Resolve an `oh.sync.executeDiscardWithBackup` request — local-only,
- * source-side of M5.
- *
- * No payload crosses the wire. The orchestrator runs the
- * collect → write-archive → delete-workspaces sequence under the host-
- * installed {@link BackupWriter}; this shim just injects the production
- * deps (workspace list, snapshot builder, delete path, clock). The
- * orchestrator owns all routing — backup-writer-unavailable, no-source-
- * data, backup-failed, delete-failed.
- */
-async function dispatchExecuteDiscardWithBackup(): Promise<DiscardResult> {
-  return orchestrateDiscardWithBackup({
-    workspaces: listWorkspaces().map((ws) => ({ id: ws.id, name: ws.name })),
-    buildSnapshot: (workspaceId) => buildSnapshotForWorkspace(workspaceId),
-    deleteWorkspace: (workspaceId) => deleteWorkspace(workspaceId),
-    now: () => new Date().toISOString(),
-  });
-}
-
-/**
- * Resolve an `oh.sync.executeUseTarget` request — local-only, the
- * "use the target's data only" arm of the Phase U5 mode-switch model
- * (U5.4).
- *
- * Retires this host's own workspaces — exports them to a backup file,
- * then deletes them — so the user works purely against a joined
- * backend's data. Workspaces already synced down from the target are
- * kept. The renderer carries only the target `orgId`; this shim
- * verifies it is an `Org` this host joined (`authorizedOrgIds`, U5.2)
- * before retiring anything — `backup-failed` is the "stopped before
- * any delete, you're intact" status for a stale or forged frame.
- */
-async function dispatchExecuteUseTarget(raw: { targetOrgId?: unknown }): Promise<DiscardResult> {
-  const targetOrgId = typeof raw.targetOrgId === 'string' ? raw.targetOrgId : '';
-  if (targetOrgId.length === 0 || !authorizedOrgIds(getIdentitySnapshot()).has(targetOrgId)) {
-    return { ok: false, reason: 'backup-failed', detail: 'target Org not joined' };
-  }
-  return orchestrateUseTarget({
-    targetOrgId,
-    workspaces: listWorkspaces().map((ws) => ({ id: ws.id, name: ws.name, orgId: ws.orgId })),
-    buildSnapshot: (workspaceId) => buildSnapshotForWorkspace(workspaceId),
-    deleteWorkspace: (workspaceId) => deleteWorkspace(workspaceId),
-    now: () => new Date().toISOString(),
-  });
-}
-
-/**
- * Resolve an `oh.sync.applyDiscardRestore` request — local-only,
- * source-side of M6.
- *
- * The renderer ships the parsed archive verbatim. This dispatcher
- * validates the shape (a hand-edited or unrelated JSON file would
- * otherwise tear down the applier mid-mint), then defers to
- * {@link applyDiscardRestoreArchive} with production deps: mint via
- * {@link createWorkspace}, replay via the per-workspace service +
- * {@link applyWorkspaceSnapshot} pair Coexist already uses.
- */
-async function dispatchApplyDiscardRestore(raw: Record<string, unknown>): Promise<RestoreResult> {
-  if (!isDiscardBackupArchiveShape(raw)) {
-    return {
-      ok: false,
-      reason: 'invalid-archive',
-      detail: 'archive failed shape validation',
-    };
-  }
-  const archive: DiscardBackupArchive = raw;
-
-  return applyDiscardRestoreArchive(archive, {
-    createWorkspace: async ({ name }) => {
-      const ws = await createWorkspace({ name });
-      return { id: ws.id, name: ws.name };
-    },
-    applySnapshot: async (snapshot) => {
-      // Same per-workspace service dance as Coexist's applier: the
-      // freshly-minted workspace hasn't been touched, so this is the
-      // first writer to its mutation log.
-      const svc = getOrCreateWorkspaceService(snapshot.workspaceId);
-      try {
-        await svc.hydrated;
-        return await applyWorkspaceSnapshot(snapshot, { makeContext: () => svc.context.next() });
-      } finally {
-        releaseWorkspaceService(snapshot.workspaceId);
-      }
-    },
-  });
 }

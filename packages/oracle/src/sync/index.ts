@@ -75,26 +75,6 @@ export {
 // host-neutral.
 // See `docs/ORACLE_HOST_NEUTRALITY_AUDIT.md` §F-1.P.1.
 export {
-  type ApplyRestoreDeps,
-  applyDiscardRestoreArchive,
-  type BackupWriter,
-  type CollectDiscardArchiveInput,
-  type CollectLocalDataPresenceInput,
-  collectDiscardArchive,
-  collectLocalDataPresence,
-  type DataPresenceOracle,
-  enumerateSnapshotEntities,
-  getBackupWriter,
-  type OrchestrateDiscardDeps,
-  type OrchestrateUseTargetDeps,
-  orchestrateDiscardWithBackup,
-  orchestrateUseTarget,
-  type RestoreTargetMinter,
-  setBackupWriter,
-  USER_CONTENT_ENTITY_TYPES,
-  type UseTargetWorkspaceInput,
-} from './mode-switch';
-export {
   __resetMutationStreamBridgeForTests,
   __seenMutationStreamCountForTests,
   applyInboundMutationBatch,

@@ -34,7 +34,6 @@ import type { DevToolsRpc } from './devtools';
 import type { EnvironmentRpc } from './environments';
 import type { FileRpc } from './files';
 import type { LiveRpc } from './live';
-import type { ModeSwitchRpc } from './mode-switch';
 import type { NavigationRpc } from './navigation';
 import type { OAuthRpc } from './oauth';
 import type { ObservabilityRpc } from './observability';
@@ -74,7 +73,6 @@ export interface BridgeRpcContract
     LiveRpc,
     ObservabilityRpc,
     ActivityRpc,
-    ModeSwitchRpc,
     SyncEngineRpc,
     AwarenessRpc,
     DevToolsRpc,

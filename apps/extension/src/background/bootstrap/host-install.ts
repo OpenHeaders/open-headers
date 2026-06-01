@@ -14,7 +14,6 @@ import { IdbBlobBackend } from '@openheaders/oracle-host-browser/files/idb-blob-
 import { createIdbSyncPersistenceProvider } from '@openheaders/oracle-host-browser/sync/idb-sync-persistence';
 import { installActivityPruneScheduler } from '../activity-prune-scheduler';
 import { isLoopbackBackend } from '../backend-target';
-import { installBackupWriter } from '../install-backup-writer';
 import { recordLog } from '../modules/observability-log';
 import { listWorkspaces } from '../modules/workspace-store';
 import { setActivityLog } from '../sync-activity-installer';
@@ -49,8 +48,6 @@ export function installHostAdapters(): void {
   });
 
   setActivityMuteStore(getSyncPersistenceProvider().createActivityMuteStore?.() ?? null);
-
-  installBackupWriter();
 
   // Lock observer is installed at module-load so any pre-init `withLock`
   // call still routes events to the (buffered) observability ring.
