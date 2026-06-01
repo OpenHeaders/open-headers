@@ -1,64 +1,155 @@
 /**
- * Daemon auth-token field with in-app pairing (WS-A2).
+ * Authentication field with in-app pairing (WS-A2).
  *
- * Custom editor for `backend.authToken`. Renders the plain token input
- * (same draft-commit semantics as the generic StringField) plus a "Pair
- * with a code" affordance ({@link PairPopover}): the user types the
- * 6-digit code the daemon displayed and we exchange it for a token
- * through the host-neutral `pairWithCode` capability, writing the result
- * straight into the setting — no leaving the app to open the
- * server-rendered confirm page and hand-copy the secret.
+ * Custom editor for `backend.authToken`. Two ways to supply the
+ * credential, with the friendlier one shown first and a quiet text link
+ * to switch (the Stripe one-time-code idiom):
  *
- * The pairing button only appears when the running host registered the
- * capability (the extension surfaces do; a host that pairs by another
- * gesture doesn't) and a back-end URL is configured. Everything else
- * degrades to the bare token input.
+ *   - **Code** (default) — type the 6-digit code the daemon displayed
+ *     into an OTP input; the last digit triggers a `pairWithCode`
+ *     exchange that mints a token and writes it into the setting. On
+ *     success we DON'T flip views or fire a toast — pairing is auth
+ *     setup, not activation, so we stay put and show a calm inline
+ *     "Paired" line. The user still explicitly Switches the back-end.
+ *   - **Token** — paste / edit a long-lived token directly (same
+ *     draft-commit semantics as the generic StringField).
+ *
+ * The code path only exists when the running host registered the
+ * `pairWithCode` capability (the extension surfaces do; a host that pairs
+ * by another gesture doesn't). Without it the field degrades to the bare
+ * token input with no switch link.
  */
 
-import { Input, Space } from 'antd';
+import { CheckCircleFilled } from '@ant-design/icons';
+import { App as AntApp, Button, Input, theme, Typography } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
-import { hasCapability } from '@openheaders/core/capabilities';
+import { getCapability, hasCapability } from '@openheaders/core/capabilities';
 import { useSetting, useSettingValue } from '../hooks';
 import type { SettingDef } from '../types';
 import FieldRow from '../fields/FieldRow';
-import { PairPopover } from './pair-popover';
+import { BackendIcon } from './backend-icons';
+import { backendModeIcon, useBackendPreviewMode } from './backend-preview-context';
+import { humanizePairFailure } from './pair-popover';
+
+type AuthMode = 'token' | 'code';
+const CODE_LENGTH = 6;
 
 const BackendAuthTokenField: React.FC<{ def: SettingDef }> = ({ def }) => {
+  const { token: themeToken } = theme.useToken();
+  const { message } = AntApp.useApp();
   const [token, setToken] = useSetting('backend.authToken');
   const url = useSettingValue('backend.url');
   const [draft, setDraft] = useState(token);
+  const canPair = hasCapability('pairWithCode');
+  const hasToken = token.trim().length > 0;
+  // A device with a saved token lands in the token view (its masked
+  // value); a fresh one defaults to the code path when the host can pair.
+  const [authMode, setAuthMode] = useState<AuthMode>(hasToken ? 'token' : canPair ? 'code' : 'token');
+  const [code, setCode] = useState('');
+  const [pairing, setPairing] = useState(false);
 
   useEffect(() => {
     setDraft(token);
+  }, [token]);
+
+  // When the row's reset clears the token, drop the now-consumed code so
+  // the boxes re-open empty for a fresh pairing.
+  useEffect(() => {
+    if (!token) setCode('');
   }, [token]);
 
   const commit = useCallback(() => {
     if (draft !== token) setToken(draft);
   }, [draft, token, setToken]);
 
-  const onPaired = useCallback(
-    (next: string) => {
-      setDraft(next);
-      setToken(next);
+  const pair = useCallback(
+    async (value: string) => {
+      const exchange = getCapability('pairWithCode');
+      if (!exchange) return;
+      setPairing(true);
+      const result = await exchange({ url, code: value });
+      setPairing(false);
+      if (result.ok) {
+        // Save the token silently and stay put with a calm inline
+        // confirmation — no toast, no flip. The minted token now locks the
+        // code input (consumed, single-use); the row's reset is the override.
+        setDraft(result.token);
+        setToken(result.token);
+        return;
+      }
+      // Keep the entered code on failure — a wrong code is usually a single
+      // mistyped digit the user can fix in place, not a reason to retype all six.
+      message.error(humanizePairFailure(result, url));
     },
-    [setToken],
+    [url, setToken, message],
   );
 
-  const canPair = hasCapability('pairWithCode');
+  const inCodeMode = canPair && authMode === 'code';
+  // Pairing is done once a token exists — lock the code input and the
+  // method toggle. The row's reset (undo) is the way to override.
+  const locked = inCodeMode && hasToken;
+  // The back-end-tier glyph for the mode being paired — same icon the
+  // picker tiles use, so the code input reads as "pairing with THIS
+  // back-end". Null in settings search (no preview), where it's omitted.
+  const previewMode = useBackendPreviewMode();
 
   return (
-    <FieldRow settingKey={def.key} label={def.label} description={def.description} block>
-      <Space direction="vertical" size={8} style={{ width: '100%' }}>
-        <Input.Password
-          value={draft}
-          placeholder="Paste a token, or pair with a code"
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onPressEnter={commit}
-        />
-        {canPair && <PairPopover url={url} onPaired={onPaired} />}
-      </Space>
+    <FieldRow settingKey={def.key} label={def.label} description={def.description}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6, width: '100%' }}>
+        {inCodeMode ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {previewMode && (
+              <span style={{ flex: 'none', display: 'inline-flex' }} aria-hidden>
+                <BackendIcon kind={backendModeIcon(previewMode)} size={24} />
+              </span>
+            )}
+            <Input.OTP
+              length={CODE_LENGTH}
+              value={code}
+              disabled={pairing || !url || locked}
+              aria-label="Pairing code"
+              formatter={(s) => s.replace(/\D/g, '')}
+              onChange={setCode}
+            />
+            <Button
+              type="primary"
+              loading={pairing}
+              disabled={locked || code.length !== CODE_LENGTH || !url}
+              onClick={() => void pair(code)}
+            >
+              Pair
+            </Button>
+          </div>
+        ) : (
+          <Input.Password
+            style={{ width: '100%' }}
+            value={draft}
+            placeholder="Paste a token"
+            aria-label="Auth token"
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={commit}
+            onPressEnter={commit}
+          />
+        )}
+        {locked && (
+          <span
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: themeToken.colorSuccess }}
+          >
+            <CheckCircleFilled />
+            Paired — access token saved
+          </span>
+        )}
+        {canPair && (
+          <Typography.Link
+            disabled={locked}
+            style={{ fontSize: 12 }}
+            onClick={() => setAuthMode((m) => (m === 'code' ? 'token' : 'code'))}
+          >
+            {inCodeMode ? 'Use an auth token instead' : 'Pair with a code instead'}
+          </Typography.Link>
+        )}
+      </div>
     </FieldRow>
   );
 };

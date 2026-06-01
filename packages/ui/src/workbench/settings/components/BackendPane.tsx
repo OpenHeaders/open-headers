@@ -37,6 +37,7 @@ import {
   ConnectionDraftProvider,
   useConnectionDraft,
 } from './connection-draft';
+import { BackendPreviewModeProvider } from './backend-preview-context';
 import { useBackendModeSwitch } from './backend-mode-switch';
 import type { CategoryDef, CategoryPaneProps, SettingDef, SubcategoryDef } from '../types';
 import SettingRow from '../fields/SettingRow';
@@ -164,36 +165,50 @@ const BackendPaneInner: React.FC<CategoryPaneProps> = ({ category, defs }) => {
   const previewingNonActive = previewMode !== mode;
 
   return (
-    <div style={{ padding: '20px 24px 28px' }}>
-      <header
+    <div style={{ padding: '0 24px 28px' }}>
+      {/* The identity row — title, intro, mode tiles — stays pinned to
+          the pane top while the config rows below scroll, so the user
+          never loses sight of which back-end they're configuring. The
+          opaque pane-layout background covers content scrolling under. */}
+      <div
         style={{
-          display: 'flex',
-          alignItems: 'baseline',
-          justifyContent: 'space-between',
-          gap: 12,
-          marginBottom: 14,
+          position: 'sticky',
+          top: 0,
+          zIndex: 2,
+          background: token.colorBgLayout,
+          padding: '20px 0 10px',
         }}
       >
-        <h2 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: token.colorText, letterSpacing: -0.1 }}>
-          {category.label}
-        </h2>
-        <div style={{ fontSize: 12, color: token.colorTextSecondary }}>
-          {HOST_INTRO[host]} <DocsLink />
-        </div>
-      </header>
+        <header
+          style={{
+            display: 'flex',
+            alignItems: 'baseline',
+            justifyContent: 'space-between',
+            gap: 12,
+            marginBottom: 14,
+          }}
+        >
+          <h2 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: token.colorText, letterSpacing: -0.1 }}>
+            {category.label}
+          </h2>
+          <div style={{ fontSize: 12, color: token.colorTextSecondary }}>
+            {HOST_INTRO[host]} <DocsLink />
+          </div>
+        </header>
 
-      <RePairBanner mode={activeScenario.mode} host={host} />
+        <RePairBanner mode={activeScenario.mode} host={host} />
 
-      <ModePicker
-        scenarios={SCENARIOS}
-        previewMode={previewScenario.mode}
-        activeMode={mode}
-        liveMode={liveBackend ? mode : null}
-        host={host}
-        onPreview={setPreviewMode}
-      />
+        <ModePicker
+          scenarios={SCENARIOS}
+          previewMode={previewScenario.mode}
+          activeMode={mode}
+          liveMode={liveBackend ? mode : null}
+          host={host}
+          onPreview={setPreviewMode}
+        />
+      </div>
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: showDiagrams ? 6 : 14 }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: showDiagrams ? 6 : 14 }}>
         <Checkbox checked={showDiagrams} onChange={(e) => setShowDiagrams(e.target.checked)}>
           <span style={{ fontSize: 12, color: token.colorTextSecondary }}>Show diagrams</span>
         </Checkbox>
@@ -221,13 +236,15 @@ const BackendPaneInner: React.FC<CategoryPaneProps> = ({ category, defs }) => {
         yet connected to without tripping the destructive-action
         orchestrator.
       */}
-      <ConfigPanel
-        pending={previewPending}
-        mode={previewScenario.mode}
-        host={host}
-        defs={fieldDefs}
-        category={category}
-      />
+      <BackendPreviewModeProvider value={previewScenario.mode}>
+        <ConfigPanel
+          pending={previewPending}
+          mode={previewScenario.mode}
+          host={host}
+          defs={fieldDefs}
+          category={category}
+        />
+      </BackendPreviewModeProvider>
 
       <ApplyBar
         previewMode={previewScenario.mode}
@@ -273,7 +290,7 @@ const ApplyBar: React.FC<{
   onApply: () => void;
 }> = ({ previewMode, activeMode, previewLabel, host, disabled, onApply }) => {
   const { token } = theme.useToken();
-  const { message } = AntApp.useApp();
+  const { notification } = AntApp.useApp();
   const draft = useConnectionDraft();
   const connectionDirty = (draft?.dirtyKeys.length ?? 0) > 0;
   // The pre-commit values of the last Apply, kept so the user can Revert
@@ -287,6 +304,12 @@ const ApplyBar: React.FC<{
   // Probe + apply act on the STAGED url so the user can test an address
   // before adopting it — the whole point of decoupling edit from apply.
   const url = draft ? draft.effective('backend.url') : persistedUrl;
+  // A saved auth token means this device is paired/authorized for the
+  // back-end — used to tell the user that pairing is done and the only
+  // step left is the explicit Switch (pairing is auth setup, not activation).
+  // The probe must also PRESENT it, or the daemon rejects every HELLO.
+  const authToken = useSettingValue('backend.authToken');
+  const hasAuthToken = authToken.trim().length > 0;
   const [testing, setTesting] = useState(false);
   const isActive = previewMode === activeMode;
   const validForHost = isModeValidForHost(previewMode, host);
@@ -311,13 +334,10 @@ const ApplyBar: React.FC<{
     const role = host === 'desktop' ? 'desktop' : host === 'web' ? 'web' : 'extension';
     return async (): Promise<void> => {
       setTesting(true);
-      const key = 'backend-probe';
-      message.loading({ key, content: `Probing ${url}…`, duration: 0 });
       // Race the probe against a minimum dwell so a successful localhost
       // round-trip (often <10ms) doesn't flash through the loading state
-      // too fast to read. Users perceive instant-toast as "did anything
-      // happen?"; the 500ms floor turns it into a deliberate "I tried,
-      // here's the result" beat.
+      // too fast to read. The 500ms floor turns it into a deliberate "I
+      // tried, here's the result" beat.
       const MIN_LOADING_MS = 500;
       const [result] = await Promise.all([
         probeBackendConnection(url, {
@@ -325,20 +345,27 @@ const ApplyBar: React.FC<{
           nodeId: `probe-${generateUid()}`,
           workspaceId: `probe-${generateUid()}`,
           role,
+          authToken,
         }),
         new Promise<void>((resolve) => setTimeout(resolve, MIN_LOADING_MS)),
       ]);
       setTesting(false);
       if (result.ok) {
-        message.success({
-          key,
-          content: `${previewLabel} is reachable.`,
-        });
+        notification.success({ message: 'Connection OK', description: `${previewLabel} is reachable.` });
         return;
       }
-      message.error({ key, content: humanizeProbeFailure(result) });
+      // The back-end answered but isn't usable yet (incompatible version,
+      // not paired, doesn't share the workspace) — a "reachable, but …"
+      // warning, not a hard unreachable error.
+      const reachable = result.reason === 'protocol-mismatch' || result.reason === 'handshake-rejected';
+      const description = humanizeProbeFailure(result);
+      if (reachable) {
+        notification.warning({ message: probeWarningTitle(result), description });
+      } else {
+        notification.error({ message: 'Not reachable', description });
+      }
     };
-  }, [host, url, message, previewLabel]);
+  }, [host, url, previewLabel, notification, authToken]);
 
   const applyConnection = (): void => {
     if (!draft) return;
@@ -363,7 +390,7 @@ const ApplyBar: React.FC<{
     if (draft && connectionDirty) draft.commit();
     onApply();
   };
-  const primaryLabel = isActive ? 'Apply & reconnect' : `Switch to ${previewLabel}`;
+  const primaryLabel = isActive ? 'Apply & Reconnect' : `Switch to ${previewLabel}`;
   const primaryDisabled = isActive ? !connectionDirty || disabled : disabled || !validForHost || pending;
 
   let statusCopy: React.ReactNode;
@@ -401,6 +428,14 @@ const ApplyBar: React.FC<{
         <strong style={{ color: token.colorText }}>{previewLabel}</strong> is coming soon.
       </>
     );
+  } else if (hasAuthToken && backendModeNeedsConnection(previewMode)) {
+    // Paired but not yet active — pairing is auth setup, so spell out that
+    // the only remaining step is the explicit Switch.
+    statusCopy = (
+      <>
+        Paired with <strong style={{ color: token.colorText }}>{previewLabel}</strong>. Switch to start using it.
+      </>
+    );
   } else {
     statusCopy = (
       <>
@@ -414,52 +449,73 @@ const ApplyBar: React.FC<{
         // Sticky to the bottom of the scrollable settings pane so the
         // main actions stay reachable no matter how far the user has
         // scrolled into the config panel. `bottom: 0` anchors to the
-        // pane viewport; the parent has its own padding which we
-        // counter-act with a small negative bottom margin so the bar
-        // hugs the edge without a gap.
+        // pane viewport. The grey pane-layout background + top padding
+        // form a gutter above the white bar so config rows scrolling
+        // underneath read as grey, not white-on-white.
         position: 'sticky',
         bottom: 0,
         zIndex: 1,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'flex-end',
-        gap: 10,
-        marginTop: 14,
-        padding: '10px 12px',
-        background: token.colorBgContainer,
-        border: `1px solid ${token.colorBorderSecondary}`,
-        borderRadius: 10,
-        boxShadow: `0 -4px 12px -8px ${token.colorBgLayout}`,
+        background: token.colorBgLayout,
+        paddingTop: 14,
       }}
     >
-      <span style={{ flex: 1, minWidth: 0, fontSize: 12, color: token.colorTextSecondary }}>{statusCopy}</span>
-      {canRevert && (
-        <Button icon={<UndoOutlined />} onClick={revert}>
-          Revert
-        </Button>
-      )}
-      {showTest && (
-        <Button
-          icon={<ExperimentOutlined />}
-          onClick={() => {
-            void probe();
-          }}
-          loading={testing}
-        >
-          Test connection
-        </Button>
-      )}
-      <Button
-        type="primary"
-        icon={isActive ? <ReloadOutlined /> : <SwapOutlined />}
-        onClick={onPrimary}
-        disabled={primaryDisabled}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'flex-end',
+          gap: 10,
+          padding: '10px 12px',
+          background: token.colorBgContainer,
+          border: `1px solid ${token.colorBorderSecondary}`,
+          borderRadius: 10,
+          boxShadow: `0 -4px 12px -8px ${token.colorBgLayout}`,
+        }}
       >
-        {primaryLabel}
-      </Button>
+        <span style={{ flex: 1, minWidth: 0, fontSize: 12, color: token.colorTextSecondary }}>{statusCopy}</span>
+        {canRevert && (
+          <Button icon={<UndoOutlined />} onClick={revert}>
+            Revert
+          </Button>
+        )}
+        {showTest && (
+          <Button
+            icon={<ExperimentOutlined />}
+            onClick={() => {
+              void probe();
+            }}
+            loading={testing}
+          >
+            Test connection
+          </Button>
+        )}
+        <Button
+          type="primary"
+          icon={isActive ? <ReloadOutlined /> : <SwapOutlined />}
+          onClick={onPrimary}
+          disabled={primaryDisabled}
+        >
+          {primaryLabel}
+        </Button>
+      </div>
     </div>
   );
 };
+
+/** Short notification title for a "reachable, but …" probe outcome. */
+function probeWarningTitle(
+  result: Extract<Awaited<ReturnType<typeof probeBackendConnection>>, { ok: false }>,
+): string {
+  if (result.reason === 'handshake-rejected') {
+    if (result.rejectReason === 'auth-required') return 'Reachable, but auth required';
+    if (result.rejectReason === 'workspace-unknown') return 'Reachable, but workspace not shared';
+    if (result.rejectReason === 'protocol-too-old' || result.rejectReason === 'protocol-too-new') {
+      return 'Reachable, but version mismatch';
+    }
+  }
+  if (result.reason === 'protocol-mismatch') return 'Reachable, but version mismatch';
+  return 'Reachable, but not ready';
+}
 
 function humanizeProbeFailure(
   result: Extract<Awaited<ReturnType<typeof probeBackendConnection>>, { ok: false }>,
@@ -486,7 +542,7 @@ function humanizeProbeFailure(
         return 'Reachable — but the back-end is older than this app. Update the back-end.';
       }
       if (result.rejectReason === 'auth-required') {
-        return 'Reachable — but requires authentication (Phase D).';
+        return 'Reachable — but this device isn\'t authenticated yet. Pair with a code or paste a token above, then Switch.';
       }
       return `Rejected: ${result.rejectReason ?? 'unknown reason'}`;
     case 'malformed-welcome':
@@ -517,7 +573,7 @@ const DetailFrame: React.FC<{ children: React.ReactNode; previewingNonActive: bo
           style={{
             position: 'absolute',
             top: 5,
-            right: 6,
+            left: 6,
             padding: '0 5px',
             fontSize: 8,
             fontWeight: 700,

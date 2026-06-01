@@ -21,7 +21,7 @@ import type React from 'react';
 import { useCallback, useState } from 'react';
 import { getCapability, type PairWithCodeResult } from '@openheaders/core/capabilities';
 
-function humanizeFailure(result: Extract<PairWithCodeResult, { ok: false }>, url: string): string {
+export function humanizePairFailure(result: Extract<PairWithCodeResult, { ok: false }>, url: string): string {
   switch (result.reason) {
     case 'unknown':
       return 'That code is unknown or has expired. Ask for a fresh code and try again.';
@@ -72,7 +72,7 @@ export const PairPopover: React.FC<{
       reset();
       return;
     }
-    message.error(humanizeFailure(result, url));
+    message.error(humanizePairFailure(result, url));
   }, [code, deviceLabel, url, onPaired, message, reset]);
 
   return (

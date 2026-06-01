@@ -94,6 +94,13 @@ export interface ProbeOptions {
   timeoutMs?: number;
   /** Role to claim in HELLO. Defaults to `extension`. */
   role?: 'extension' | 'desktop' | 'cli' | 'web';
+  /**
+   * Long-lived daemon access token to present on the HELLO. The daemon
+   * gates every HELLO on a paired token (loopback included), so a probe
+   * without it is rejected `auth-required` even after the user paired —
+   * the reachability test has to authenticate like the real client does.
+   */
+  authToken?: string;
 }
 
 const DEFAULT_TIMEOUT_MS = 5_000;
@@ -272,6 +279,9 @@ async function runProbe<R extends { ok: boolean }>(
         nodeId: opts.nodeId,
         workspaceId: opts.workspaceId,
         agent: opts.agent,
+        // Omitted from the wire when absent (JSON drops undefined) — an
+        // empty/loopback-trust back-end still accepts; an authed one needs it.
+        authToken: opts.authToken || undefined,
       };
       try {
         socket.send(JSON.stringify(hello));

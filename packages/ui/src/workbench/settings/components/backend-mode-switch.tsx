@@ -103,6 +103,8 @@ async function probePeerPresenceForMode(targetMode: BackendMode): Promise<PeerPr
     nodeId: `probe-${generateUid()}`,
     workspaceId: `probe-${generateUid()}`,
     role,
+    // The daemon gates the data-presence handshake on a token too.
+    authToken: getSettingValue('backend.authToken'),
   });
   if (!result.ok) return null;
   return { presence: summarizeWorkspaces(result.workspaces), org: result.org };

@@ -158,7 +158,11 @@ const FieldRow: React.FC<FieldRowProps> = ({
           flex: block ? '1 1 100%' : '1 1 260px',
         }}
       >
-        <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
+        {/* `isolation: isolate` makes this control its own stacking
+            context so antd's focus/hover input z-index (Space.Compact
+            bumps the active segment to z-index 2) can't escape the row
+            and paint over the sticky ApplyBar below. */}
+        <div style={{ flex: 1, minWidth: 0, position: 'relative', isolation: 'isolate' }}>
           <div
             style={{
               opacity: gated ? 0.5 : 1,

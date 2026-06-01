@@ -211,9 +211,8 @@ registerSetting({
   // future device-flow surface (U3.3) whose shape this client doesn't
   // dictate.
   schema: v.string(),
-  label: 'Daemon auth token',
-  description:
-    'Long-lived token the daemon issues when you pair this device. Pair with the code the back-end shows, or paste a token directly; this client sends it on every HELLO.',
+  label: 'Authentication',
+  description: 'How this device proves itself to the back-end. Pair with a code, or paste a token directly.',
   category: 'backend',
   subcategory: 'connection',
   tags: ['auth', 'token', 'pair', 'daemon', 'secret'],
