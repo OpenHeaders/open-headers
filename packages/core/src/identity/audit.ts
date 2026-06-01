@@ -11,6 +11,14 @@ import { logger } from '../utils/logger';
 import { getIdentitySnapshot } from './registry';
 import type { Capability, CapabilityDecision } from './resolver';
 
+/**
+ * Read-only capabilities. An `allow` on one of these is the high-volume,
+ * low-signal case — every hydration query authorizes a read — so the
+ * default sink demotes it to `debug`. Denials and mutations stay at
+ * `info` so the audit signal survives the default log level.
+ */
+const READ_ONLY_CAPABILITIES: ReadonlySet<Capability> = new Set<Capability>(['workspace.read', 'workspace.list']);
+
 export interface AuditEntryInput {
   actorUserId: string;
   capability: Capability;
@@ -45,7 +53,10 @@ export type AuditSink = (entry: ResolvedAuditEntry) => void;
 const defaultSink: AuditSink = (entry) => {
   const verdict = entry.decision.allow ? 'allow' : `deny(${entry.decision.reason ?? 'unspecified'})`;
   const ws = entry.workspaceId ? ` ws=${entry.workspaceId}` : '';
-  logger.info('Identity.Audit', `${entry.actorUserId} ${entry.capability} → ${verdict}${ws} (org=${entry.orgId})`);
+  const message = `${entry.actorUserId} ${entry.capability} → ${verdict}${ws} (org=${entry.orgId})`;
+  const routineRead = entry.decision.allow && READ_ONLY_CAPABILITIES.has(entry.capability);
+  if (routineRead) logger.debug('Identity.Audit', message);
+  else logger.info('Identity.Audit', message);
 };
 
 let sink: AuditSink = defaultSink;
@@ -68,8 +79,7 @@ const PRE_BOOTSTRAP_ORG_ID = 'pre-bootstrap';
 
 export function emitAuditEntry(entry: AuditEntryInput): void {
   const snapshot = getIdentitySnapshot();
-  const orgId =
-    entry.orgId ?? snapshot?.user.homeOrgId ?? PRE_BOOTSTRAP_ORG_ID;
+  const orgId = entry.orgId ?? snapshot?.user.homeOrgId ?? PRE_BOOTSTRAP_ORG_ID;
   const occurredAt = entry.occurredAt ?? new Date().toISOString();
   const resolved: ResolvedAuditEntry = {
     actorUserId: entry.actorUserId,
