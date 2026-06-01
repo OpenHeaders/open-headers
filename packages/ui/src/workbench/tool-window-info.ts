@@ -56,7 +56,7 @@ const TOOL_WINDOW_INFO: Record<ToolWindowId, InfoPopoverContent> = {
   'deep-network-inspection': {
     title: 'Deep Network Inspection',
     summary:
-      'Detailed capture of live request and response traffic for diagnosing how rules and variables affect requests on the wire.',
+      'Connection-level (L4) and HTTP (L7) inspection in one view — TCP/TLS health like RTT, retransmissions, and handshake timing alongside full request/response visibility, modification, and replay.',
   },
   'workflow-status': {
     title: 'Workflow Status',
