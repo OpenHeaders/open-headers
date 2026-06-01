@@ -11,6 +11,7 @@
 
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import { currentHarEntry, type InspectorRowWithFires, lifecycleTransferredBytes } from './inspector-row-projection';
+import { effectiveStatusCode } from './request-state';
 
 export type SortableColumnKey =
   | 'name'
@@ -118,7 +119,7 @@ export function getColumnSortValue(key: SortableColumnKey, row: InspectorRowWith
     case 'path':
       return safePath(lc.url);
     case 'status':
-      return lc.statusCode ?? -1;
+      return effectiveStatusCode(lc) ?? -1;
     case 'protocol':
       return currentHarEntry(lc)?.response?.httpVersion ?? '';
     case 'scheme':

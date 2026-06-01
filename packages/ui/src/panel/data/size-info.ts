@@ -1,15 +1,18 @@
 /**
  * Size-column data model.
  *
- * The Size column is three different pieces of information collapsed
- * into one:
+ * The Size column is two pieces of information collapsed into one:
  *
- *   - "Pending" while the response body hasn't arrived.
  *   - A cache-source label (`(disk cache)`, `(memory cache)`,
  *     `(ServiceWorker)`) when the wire wasn't hit.
- *   - The bytes transferred over the wire when it was. Compressed
+ *   - The bytes transferred over the wire otherwise. Compressed
  *     responses send fewer bytes than the page ultimately uses — the
  *     decoded resource size rides along in the cell tooltip.
+ *
+ * A still-pending request has received no bytes yet, so it reads as
+ * `0.0 kB` (the running transferred total floored to zero); the
+ * "request not finished" signal lives in the Time column ("Pending"),
+ * matching the browser's own network table.
  *
  * The cell shows a single value, always in kB so a column of sizes
  * stays in one unit; the transferred size is the visible figure and
@@ -21,18 +24,18 @@ import { currentHarEntry, lifecycleTransferredBytes } from './inspector-row-proj
 import type { RequestState } from './request-state';
 
 export type SizeInfo =
-  | { kind: 'pending' }
   | { kind: 'cached'; source: 'disk' | 'memory' | 'service-worker' }
   | { kind: 'bytes'; transferred: number | null; resource: number | null };
 
 export function getSizeInfo(lifecycle: RequestLifecycle, state: RequestState): SizeInfo {
-  if (state.kind === 'pending') return { kind: 'pending' };
   if (state.kind === 'cached') return { kind: 'cached', source: state.source };
 
   const har = currentHarEntry(lifecycle);
   const transferred = lifecycleTransferredBytes(lifecycle);
   const rawContent = har?.response?.content?.size;
   const resource = typeof rawContent === 'number' && rawContent >= 0 ? rawContent : null;
+  // Pending → no wire bytes yet; show 0.0 kB rather than a blank cell.
+  if (state.kind === 'pending') return { kind: 'bytes', transferred: transferred ?? 0, resource };
   return { kind: 'bytes', transferred, resource };
 }
 
@@ -61,10 +64,9 @@ function cacheLabel(source: 'disk' | 'memory' | 'service-worker'): string {
 /**
  * The single value shown in the Size column: the transferred size in
  * kB (falling back to the resource size when the wire count is
- * unknown). Pending / cached rows render their label instead.
+ * unknown). Cached rows render their label instead.
  */
 export function formatSizeInfo(info: SizeInfo): string {
-  if (info.kind === 'pending') return 'Pending';
   if (info.kind === 'cached') return cacheLabel(info.source);
   const primary = info.transferred ?? info.resource;
   return primary == null ? '' : formatBytesToKb(primary);
@@ -72,8 +74,8 @@ export function formatSizeInfo(info: SizeInfo): string {
 
 /**
  * Sort-key: prefer transferred (what the user actually paid for), fall
- * back to resource, fall back to -1 so pending/cached rows sort to the
- * bottom rather than colliding with `0 B`.
+ * back to resource, fall back to -1 so cached rows sort to the bottom
+ * rather than colliding with `0 B`.
  */
 export function sortValueOf(info: SizeInfo): number {
   if (info.kind === 'bytes') {

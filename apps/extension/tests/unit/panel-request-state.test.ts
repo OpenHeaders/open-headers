@@ -105,6 +105,45 @@ describe('classifyRequestState', () => {
     if (s.kind === 'cached') expect(s.source).toBe('memory');
   });
 
+  it('304 revalidation is success/304, not memory cache, even with webRequest fromCache + 200', () => {
+    // webRequest surfaces the cached 200 + fromCache; the devtools HAR
+    // carries the authoritative 304 and the 64-byte revalidation transfer.
+    const lc = makeLifecycle({
+      statusCode: 200,
+      fromCache: true,
+      har: {
+        response: {
+          status: 304,
+          statusText: '',
+          headers: [],
+          bodySize: 0,
+          _transferSize: 64,
+          content: { size: 528, mimeType: 'text/html' },
+        },
+      },
+    });
+    const s = classifyRequestState(lc);
+    expect(s.kind).toBe('success');
+    if (s.kind === 'success') expect(s.status).toBe(304);
+  });
+
+  it('bare webRequest fromCache with transferred bytes is NOT memory cache', () => {
+    const lc = makeLifecycle({
+      statusCode: 200,
+      fromCache: true,
+      har: {
+        response: {
+          status: 200,
+          statusText: 'OK',
+          headers: [],
+          _transferSize: 5000,
+          content: { size: 8000, mimeType: 'text/css' },
+        },
+      },
+    });
+    expect(classifyRequestState(lc).kind).toBe('success');
+  });
+
   it('redirect when status is 3xx with a redirectURL', () => {
     const lc = makeLifecycle({
       statusCode: 302,
@@ -154,10 +193,7 @@ describe('classifyRequestState', () => {
   it('statusText surfaces the right string for each state', () => {
     expect(statusText({ kind: 'pending' }, makeLifecycle())).toBe('(pending)');
     expect(
-      statusText(
-        { kind: 'blocked', reason: 'net::ERR_BLOCKED' },
-        makeLifecycle({ statusText: 'net::ERR_BLOCKED' }),
-      ),
+      statusText({ kind: 'blocked', reason: 'net::ERR_BLOCKED' }, makeLifecycle({ statusText: 'net::ERR_BLOCKED' })),
     ).toBe('(net::ERR_BLOCKED)');
     expect(
       statusText({ kind: 'failed', reason: 'net::ERR_FAILED' }, makeLifecycle({ statusText: 'net::ERR_FAILED' })),

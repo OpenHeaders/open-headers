@@ -33,8 +33,8 @@ const S200: RequestState = { kind: 'success', status: 200 };
 const PENDING: RequestState = { kind: 'pending' };
 
 describe('getSizeInfo', () => {
-  it('pending state produces a pending SizeInfo', () => {
-    expect(getSizeInfo(makeLifecycle(), PENDING)).toEqual({ kind: 'pending' });
+  it('pending state floors transferred bytes to 0 (Size shows 0.0 kB; Time shows Pending)', () => {
+    expect(getSizeInfo(makeLifecycle(), PENDING)).toEqual({ kind: 'bytes', transferred: 0, resource: 0 });
   });
 
   it('cached state forwards the cache source', () => {
@@ -100,10 +100,6 @@ describe('formatBytesToKb', () => {
 });
 
 describe('formatSizeInfo', () => {
-  it('pending', () => {
-    expect(formatSizeInfo({ kind: 'pending' })).toBe('Pending');
-  });
-
   it.each([
     ['disk', '(disk cache)'],
     ['memory', '(memory cache)'],
@@ -130,7 +126,6 @@ describe('sortValueOf', () => {
     expect(sortValueOf({ kind: 'bytes', transferred: 4200, resource: 12000 })).toBe(4200);
     expect(sortValueOf({ kind: 'bytes', transferred: null, resource: 12000 })).toBe(12000);
     expect(sortValueOf({ kind: 'bytes', transferred: null, resource: null })).toBe(-1);
-    expect(sortValueOf({ kind: 'pending' })).toBe(-1);
     expect(sortValueOf({ kind: 'cached', source: 'disk' })).toBe(-1);
   });
 });

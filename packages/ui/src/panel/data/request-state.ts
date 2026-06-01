@@ -26,7 +26,7 @@
 
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import { isRendererRejectCode } from './chromium-error-codes';
-import { currentHarEntry } from './inspector-row-projection';
+import { currentHarEntry, lifecycleTransferredBytes } from './inspector-row-projection';
 
 export type CacheSource = 'disk' | 'memory' | 'service-worker';
 
@@ -72,20 +72,37 @@ function cacheSource(lifecycle: RequestLifecycle): CacheSource | null {
   const raw = har?._fromCache;
   if (raw === 'disk' || raw === 'memory') return raw;
   if (har?._servedFromCache) return 'memory';
-  // Lifecycle carries an aggregated `fromCache` boolean from the
-  // correlator (CORS/cache verdict). When set without a specific
-  // source, default to `memory` — same convention `_servedFromCache`
-  // uses.
-  if (lifecycle.fromCache) return 'memory';
+  // The lifecycle's bare `fromCache` boolean (from webRequest) is set both
+  // for a true memory-cache hit AND for a 304 revalidation that sent bytes
+  // over the wire. Only the former bypasses the network entirely, so treat
+  // it as memory cache only when nothing was transferred — otherwise the
+  // request is a real (revalidated) network response shown by its status.
+  if (lifecycle.fromCache && (lifecycleTransferredBytes(lifecycle) ?? 0) === 0) return 'memory';
   return null;
 }
 
 // ── Classifier ──────────────────────────────────────────────────
 
+/**
+ * The status code to display. Prefers the devtools HAR status — the
+ * authoritative HTTP status, including `304 Not Modified` — over the
+ * webRequest `statusCode`, which surfaces the cached `200` for a
+ * revalidated resource. Falls back to webRequest while the HAR is still
+ * in flight (no response shell yet).
+ */
+export function effectiveStatusCode(lifecycle: RequestLifecycle): number | undefined {
+  const harStatus = currentHarEntry(lifecycle)?.response?.status;
+  if (typeof harStatus === 'number' && harStatus > 0) return harStatus;
+  return lifecycle.statusCode;
+}
+
 export function classifyRequestState(lifecycle: RequestLifecycle): RequestState {
   const har = currentHarEntry(lifecycle);
   const statusText = lifecycle.statusText ?? har?.response?.statusText ?? '';
-  const statusCode = lifecycle.statusCode;
+  // Pending / failure detection stays on the raw webRequest status — it is
+  // the authority on whether the request even reached a response (a `< 0`
+  // code is a net-stack failure that the HAR shell must never mask).
+  const rawStatus = lifecycle.statusCode;
 
   // 1. Renderer-rejected errors win even when a wire status arrived.
   if (lifecycle.error && isRendererRejectCode(lifecycle.error.code)) {
@@ -97,7 +114,7 @@ export function classifyRequestState(lifecycle: RequestLifecycle): RequestState 
   }
 
   // 2. Pending — response still in flight (no status, no error).
-  if (statusCode == null) {
+  if (rawStatus == null) {
     if (lifecycle.error) {
       const probe = lifecycle.error.reason || statusText;
       if (isBlockedStatus(probe)) {
@@ -108,23 +125,33 @@ export function classifyRequestState(lifecycle: RequestLifecycle): RequestState 
     return { kind: 'pending' };
   }
 
-  if (statusCode < 0) return { kind: 'failed', reason: statusText || 'failed' };
+  if (rawStatus < 0) return { kind: 'failed', reason: statusText || 'failed' };
   if (isBlockedStatus(statusText)) return { kind: 'blocked', reason: statusText };
   if (isFailureStatus(statusText)) return { kind: 'failed', reason: statusText };
 
+  // Past the failure gates, the HAR status is the authoritative HTTP code
+  // for display (it carries 304; webRequest reports the cached 200).
+  const status = effectiveStatusCode(lifecycle) ?? rawStatus;
+
+  // 304 Not Modified is a conditional-GET revalidation — a real network
+  // round-trip the browser shows as "304" with its transferred bytes, not
+  // a from-cache label. Resolve it before the cache check so a webRequest
+  // `fromCache` flag can't mislabel it as a memory-cache hit.
+  if (status === 304) return { kind: 'success', status: 304 };
+
   const src = cacheSource(lifecycle);
-  if (src) return { kind: 'cached', source: src, status: statusCode };
+  if (src) return { kind: 'cached', source: src, status };
 
-  if (statusCode >= 300 && statusCode < 400) {
+  if (status >= 300 && status < 400) {
     const location = har?.response?.redirectURL ?? null;
-    return { kind: 'redirect', status: statusCode, location };
+    return { kind: 'redirect', status, location };
   }
 
-  if (statusCode >= 400) {
-    return { kind: 'httpError', status: statusCode };
+  if (status >= 400) {
+    return { kind: 'httpError', status };
   }
 
-  return { kind: 'success', status: statusCode };
+  return { kind: 'success', status };
 }
 
 // ── UX helpers ──────────────────────────────────────────────────

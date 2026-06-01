@@ -30,6 +30,7 @@ import {
   lifecycleTransferredBytes,
 } from '../../data/inspector-row-projection';
 import { getColumnSortValue, type SortableColumnKey } from '../../data/network-columns';
+import { effectiveStatusCode } from '../../data/request-state';
 import { formatBytesToKb } from '../../data/size-info';
 import { formatDuration, formatInitiator, formatTimestamp } from './formatters';
 import { normalizeResourceType, RESOURCE_LABEL } from './resource-types';
@@ -161,7 +162,7 @@ export const COLUMN_DEFS: Record<ColumnKey, ColumnDef> = {
     defaultWidth: 120,
     minWidth: 48,
     sortable: true,
-    extract: (r) => r.lifecycle.statusCode ?? null,
+    extract: (r) => effectiveStatusCode(r.lifecycle) ?? null,
     getSortValue: delegateSort('status'),
   },
   protocol: {

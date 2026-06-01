@@ -302,14 +302,16 @@ function renderCell(
   if (col.key === 'waterfall') {
     return <WaterfallBar row={row} t0={ctx.waterfall.t0} tMax={ctx.waterfall.tMax} />;
   }
+  if (col.key === 'time' && state.kind === 'pending') {
+    // Browser parity: an in-flight request reads "Pending" in the Time
+    // column (and 0.0 kB in Size), not a blank cell.
+    return (
+      <span className="dt-col-right dt-col-cache" title="Request not finished yet">
+        Pending
+      </span>
+    );
+  }
   if (col.key === 'size') {
-    if (sizeInfo.kind === 'pending') {
-      return (
-        <span className="dt-col-right dt-col-cache" title="Response body not received yet">
-          Pending…
-        </span>
-      );
-    }
     if (sizeInfo.kind === 'cached') {
       const label = formatSizeInfo(sizeInfo);
       return (
