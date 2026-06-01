@@ -1,51 +1,66 @@
 /**
- * `ResourceTimingClientStore` — panel-side mirror of the latest Resource
- * Timing snapshot for the inspected tab, fed by `ResourceTimingUpdate`s
- * arriving on `oh-rt:<tabId>`.
+ * `ResourceTimingClientStore` — panel-side mirror of the inspected tab's
+ * Resource Timing, fed by `ResourceTimingUpdate`s on `oh-rt:<tabId>`.
  *
- * Sibling of `PageClientStore`, but simpler: the Resource Timing buffer
- * is cumulative, so a `snapshot` replaces the held entry list wholesale
- * (no per-entry reducer). Snapshot identity is structurally stable —
- * `getSnapshot()` returns the same reference until `apply()` / `clear()`
- * actually changes state, so `useSyncExternalStore` consumers short-
- * circuit re-renders on upstream noops.
+ * Sibling of `PageClientStore`. The Resource Timing buffer is reset on
+ * every navigation (it lives in the document), so a single last-wins
+ * snapshot would lose a prior page's memory-cache hits the moment the
+ * tab navigates — even with preserve-log on. To match how real rows
+ * persist, the relay (the authoritative SW-side hub) keeps **one group
+ * per navigation**, keyed by the document's `timeOrigin`, and replays
+ * every group on attach; this store mirrors them. A `snapshot` upserts
+ * the group for its origin (same document → replace as the buffer grows;
+ * new document → a new group).
  *
- * Single-tab; the relay partitions per tab. `clear()` is the only drop
- * verb, driven by `ready` (replay-on-reconnect) or a `tab-cleared`
- * update.
+ * Snapshot identity is structurally stable — `getSnapshot()` returns the
+ * same reference until `apply()` / `clear()` mutates state.
+ *
+ * Single-tab; the relay partitions per tab. `clear()` drops every group
+ * — driven by the hook's `ready` (replay-on-reconnect, rebuilt from the
+ * relay's full replay), a `tab-cleared` update, or the panel Clear
+ * action. Upsert-by-origin keeps the replay idempotent either way.
  */
 
 import type { ResourceTimingEntry, ResourceTimingUpdate } from '@openheaders/core/resource-timing';
 
 import { createSnapshotPublisher } from './snapshot-publisher';
 
-export interface ResourceTimingClientSnapshot {
-  /** Wall-clock ms of the document time origin, or `null` before any snapshot. */
-  readonly timeOriginMs: number | null;
-  /** Latest cumulative Resource Timing entries. Same identity until replaced. */
+export interface ResourceTimingPageGroup {
+  /** Document time origin in wall-clock ms — the per-navigation key. */
+  readonly timeOriginMs: number;
+  /** That document's cumulative Resource Timing entries. */
   readonly entries: readonly ResourceTimingEntry[];
 }
 
+export interface ResourceTimingClientSnapshot {
+  /** One group per observed navigation, in arrival order. */
+  readonly groups: readonly ResourceTimingPageGroup[];
+}
+
 const EMPTY_SNAPSHOT: ResourceTimingClientSnapshot = Object.freeze({
-  timeOriginMs: null,
-  entries: Object.freeze([]) as readonly ResourceTimingEntry[],
+  groups: Object.freeze([]) as readonly ResourceTimingPageGroup[],
 });
 
 export class ResourceTimingClientStore {
-  private timeOriginMs: number | null = EMPTY_SNAPSHOT.timeOriginMs;
-  private entries: readonly ResourceTimingEntry[] = EMPTY_SNAPSHOT.entries;
+  // Keyed by rounded time origin so the rare `Date.now()-performance.now()`
+  // fallback (when `performance.timeOrigin` is unavailable) doesn't mint a
+  // fresh group every poll. Map preserves insertion (navigation) order.
+  private readonly groups = new Map<number, ResourceTimingPageGroup>();
   private readonly pub = createSnapshotPublisher<ResourceTimingClientSnapshot>(
-    () => ({ timeOriginMs: this.timeOriginMs, entries: this.entries }),
+    () => ({ groups: [...this.groups.values()] }),
     EMPTY_SNAPSHOT,
   );
 
   apply(update: ResourceTimingUpdate): void {
     switch (update.kind) {
-      case 'snapshot':
-        this.timeOriginMs = update.timeOriginMs;
-        this.entries = update.entries;
+      case 'snapshot': {
+        this.groups.set(Math.round(update.timeOriginMs), {
+          timeOriginMs: update.timeOriginMs,
+          entries: update.entries,
+        });
         this.pub.markDirty();
         break;
+      }
       case 'tab-cleared':
         this.clear();
         break;
@@ -53,9 +68,8 @@ export class ResourceTimingClientStore {
   }
 
   clear(): void {
-    if (this.timeOriginMs === null && this.entries.length === 0) return;
-    this.timeOriginMs = null;
-    this.entries = [];
+    if (this.groups.size === 0) return;
+    this.groups.clear();
     this.pub.markDirty();
   }
 

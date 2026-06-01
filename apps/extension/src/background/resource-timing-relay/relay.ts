@@ -32,26 +32,35 @@ interface CachedSnapshot {
 type Deliver = (msg: ResourceTimingWireMessage) => void;
 
 export interface ResourceTimingRelay {
-  /** Replace the tab's cached snapshot and broadcast it to live sinks. */
+  /**
+   * Upsert the snapshot for the document identified by `timeOriginMs` and
+   * broadcast it. Same origin → replace (the buffer grew); new origin →
+   * accumulate a new per-navigation group (the prior page's hits survive
+   * the navigation, so preserve-log keeps showing them).
+   */
   notifySnapshot(tabId: number, timeOriginMs: number, entries: readonly ResourceTimingEntry[]): void;
-  /** Drop the tab's snapshot and broadcast `tab-cleared`. */
+  /** Drop all of the tab's groups and broadcast `tab-cleared`. */
   forgetTab(tabId: number): void;
   /**
-   * Attach a sink for `tabId`. Delivers `ready` then replays the cached
-   * snapshot (if any) as one synchronous block before returning the
-   * detach handle. Idempotent on detach.
+   * Attach a sink for `tabId`. Delivers `ready` then replays every cached
+   * per-navigation group (one `snapshot` each) as a synchronous block
+   * before returning the detach handle. Idempotent on detach.
    */
   subscribe(tabId: number, deliver: Deliver): () => void;
   dispose(): void;
 }
 
 export interface ResourceTimingRelayOptions {
-  /** Tab-removal source — clears the cached snapshot on `tab-forgotten`. */
+  /** Tab-removal source — clears the tab's groups on `tab-forgotten`. */
   readonly bus?: TabLifecycleBus;
 }
 
 export function createResourceTimingRelay(options: ResourceTimingRelayOptions = {}): ResourceTimingRelay {
-  const snapshots = new Map<number, CachedSnapshot>();
+  // Per tab: one cached snapshot per navigation, keyed by rounded time
+  // origin (the rare `Date.now()-performance.now()` fallback would
+  // otherwise mint a fresh group every poll). Map preserves navigation
+  // order, which the replay re-emits in.
+  const snapshots = new Map<number, Map<number, CachedSnapshot>>();
   const sinks = new Map<number, Set<Deliver>>();
   let disposed = false;
 
@@ -74,7 +83,12 @@ export function createResourceTimingRelay(options: ResourceTimingRelayOptions = 
   const relay: ResourceTimingRelay = {
     notifySnapshot(tabId, timeOriginMs, entries) {
       guard();
-      snapshots.set(tabId, { timeOriginMs, entries });
+      let byOrigin = snapshots.get(tabId);
+      if (byOrigin === undefined) {
+        byOrigin = new Map();
+        snapshots.set(tabId, byOrigin);
+      }
+      byOrigin.set(Math.round(timeOriginMs), { timeOriginMs, entries });
       broadcast(tabId, { kind: 'rt-update', update: { kind: 'snapshot', tabId, timeOriginMs, entries } });
     },
 
@@ -94,12 +108,14 @@ export function createResourceTimingRelay(options: ResourceTimingRelayOptions = 
       }
       set.add(deliver);
       deliver({ kind: 'ready', tabId });
-      const cached = snapshots.get(tabId);
-      if (cached !== undefined) {
-        deliver({
-          kind: 'rt-update',
-          update: { kind: 'snapshot', tabId, timeOriginMs: cached.timeOriginMs, entries: cached.entries },
-        });
+      const byOrigin = snapshots.get(tabId);
+      if (byOrigin !== undefined) {
+        for (const cached of byOrigin.values()) {
+          deliver({
+            kind: 'rt-update',
+            update: { kind: 'snapshot', tabId, timeOriginMs: cached.timeOriginMs, entries: cached.entries },
+          });
+        }
       }
       let detached = false;
       return () => {

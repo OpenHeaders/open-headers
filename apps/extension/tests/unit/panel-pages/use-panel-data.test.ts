@@ -389,31 +389,35 @@ describe('usePanelData', () => {
           lifecycle('js', 'https://openheaders.io/app.js', { startedAtMs: 1010, completedAtMs: 1050 }),
         ]),
         resourceTiming: {
-          timeOriginMs: 1000,
-          entries: [
-            // Matches the real app.js row → not duplicated.
+          groups: [
             {
-              name: 'https://openheaders.io/app.js',
-              initiatorType: 'script',
-              nextHopProtocol: 'h2',
-              startTime: 10,
-              duration: 40,
-              transferSize: 5000,
-              encodedBodySize: 4000,
-              decodedBodySize: 8000,
-              deliveryType: '',
-            },
-            // logo.svg has no real row → served from memory cache.
-            {
-              name: 'https://openheaders.io/logo.svg',
-              initiatorType: 'img',
-              nextHopProtocol: '',
-              startTime: 20,
-              duration: 0,
-              transferSize: 0,
-              encodedBodySize: 0,
-              decodedBodySize: 3000,
-              deliveryType: 'cache',
+              timeOriginMs: 1000,
+              entries: [
+                // Matches the real app.js row → not duplicated.
+                {
+                  name: 'https://openheaders.io/app.js',
+                  initiatorType: 'script',
+                  nextHopProtocol: 'h2',
+                  startTime: 10,
+                  duration: 40,
+                  transferSize: 5000,
+                  encodedBodySize: 4000,
+                  decodedBodySize: 8000,
+                  deliveryType: '',
+                },
+                // logo.svg has no real row → served from memory cache.
+                {
+                  name: 'https://openheaders.io/logo.svg',
+                  initiatorType: 'img',
+                  nextHopProtocol: '',
+                  startTime: 20,
+                  duration: 0,
+                  transferSize: 0,
+                  encodedBodySize: 0,
+                  decodedBodySize: 3000,
+                  deliveryType: 'cache',
+                },
+              ],
             },
           ],
         },
@@ -426,6 +430,46 @@ describe('usePanelData', () => {
     // The synthetic hit counts toward cached + resource totals.
     expect(result.current.cachedCount).toBe(1);
     expect(result.current.totalResourceSize).toBe(3000);
+  });
+
+  it("preserveLog keeps a prior navigation's memory-cache rows after navigating away", () => {
+    // github.com (with a memory-cache hit) then a navigation to example.com.
+    const rt = {
+      groups: [
+        {
+          timeOriginMs: 1000,
+          entries: [
+            {
+              name: 'https://github.com/bundle.js',
+              initiatorType: 'script',
+              nextHopProtocol: 'h2',
+              startTime: 10,
+              duration: 0,
+              transferSize: 0,
+              encodedBodySize: 0,
+              decodedBodySize: 4000,
+              deliveryType: 'cache',
+            },
+          ],
+        },
+        // example.com document — not a resource-timing entry; its group is empty.
+        { timeOriginMs: 5000, entries: [] },
+      ],
+    };
+    const lifecycles = [
+      lifecycle('g', 'https://github.com/', { resourceType: 'main_frame', startedAtMs: 999, completedAtMs: 1100 }),
+      lifecycle('e', 'https://example.com/', { resourceType: 'main_frame', startedAtMs: 4999, completedAtMs: 5100 }),
+    ];
+    const { result, rerender } = renderHook(
+      ({ preserve }) => usePanelData({ ...snapshots(lifecycles), preserveLog: preserve, resourceTiming: rt }),
+      { initialProps: { preserve: true } },
+    );
+    // Preserve-log ON: the github.com cache row survives the example.com nav.
+    expect(result.current.rows.map((r) => r.lifecycle.url)).toContain('https://github.com/bundle.js');
+
+    // Preserve-log OFF: only the current (example.com) navigation's rows show.
+    rerender({ preserve: false });
+    expect(result.current.rows.map((r) => r.lifecycle.url)).not.toContain('https://github.com/bundle.js');
   });
 
   it("baselineMs equals the first row's startedAtMs", () => {

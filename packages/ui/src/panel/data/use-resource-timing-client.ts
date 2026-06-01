@@ -7,9 +7,11 @@
  * cleanup) is delegated to `useLifelineClient`; this file owns only the
  * wire-message router and the `ResourceTimingClientStore`.
  *
- * Replay-on-reconnect: every `ready` envelope clears the store before
- * the relay's replayed snapshot lands, so a reconnect after SW eviction
- * does not strand a stale snapshot.
+ * Replay-on-reconnect: the relay is the authority on the tab's per-
+ * navigation snapshot history and replays every group on attach, so
+ * `ready` clears the store first (as `usePageClient` does) and the
+ * replay rebuilds it — a reconnect after SW eviction never strands a
+ * stale or duplicated group.
  */
 
 import { type ResourceTimingWireMessage, resourceTimingPortName } from '@openheaders/core/resource-timing';

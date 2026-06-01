@@ -37,8 +37,6 @@ import { useMemo } from 'react';
 import { type ConnectionReuseInfo, computeConnectionReuse } from './connection-reuse';
 import type { FireClientSnapshot } from './fire-client-store';
 import { buildInitiatorIndex, type InitiatorIndex } from './initiator-index';
-import { synthesizeMemoryCacheLifecycles } from './memory-cache-rows';
-import type { ResourceTimingClientSnapshot } from './resource-timing-client-store';
 import { type BuildInspectorRowsOptions, buildInspectorRows } from './inspector-facet';
 import {
   attachFiresToRows,
@@ -47,7 +45,9 @@ import {
   lifecycleTransferredBytes,
 } from './inspector-row-projection';
 import type { LifecycleClientSnapshot } from './lifecycle-client-store';
+import { synthesizeMemoryCacheLifecycles } from './memory-cache-rows';
 import type { PageClientSnapshot } from './page-client-store';
+import type { ResourceTimingClientSnapshot } from './resource-timing-client-store';
 import { computeRepeatStats, type RepeatStats } from './timing-repeats';
 import { type InspectorFire, isAppliedFire } from './types';
 
@@ -167,26 +167,36 @@ export function usePanelData(input: UsePanelDataInput): UsePanelDataResult {
   const lifecycles = lifecycle.ordered;
   const pages = page.pages;
   const fires = fire.fires;
-  const rtEntries = resourceTiming?.entries;
-  const rtTimeOriginMs = resourceTiming?.timeOriginMs ?? null;
+  const rtGroups = resourceTiming?.groups;
 
   return useMemo(() => {
-    // Current navigation's real rows — the dedup denominator for the
-    // memory-cache synthesis (the RT buffer is scoped to the current
-    // document, so the count must be too). Computed independently of
-    // preserve-log: this is "what's real on the page now", not "what's
-    // displayed".
-    const currentNavStart = latestNavStartMs(lifecycles);
-    const currentNavReals =
-      currentNavStart >= 0 ? lifecycles.filter((lc) => lc.startedAtMs >= currentNavStart) : lifecycles;
-    const syntheticCacheRows = rtEntries
-      ? synthesizeMemoryCacheLifecycles({
-          entries: rtEntries,
-          timeOriginMs: rtTimeOriginMs,
-          realLifecycles: currentNavReals,
-          tabId: lifecycles[0]?.tabId ?? 0,
-        })
-      : [];
+    // Memory-cache synthesis. The RT buffer is per-document, so the store
+    // keeps one group per navigation; each group dedups against the real
+    // rows of its own navigation window — `[thisOrigin, nextOrigin)` on
+    // the wall clock. Preserve-log OFF keeps only the current document's
+    // group (older navigations are dropped from the view).
+    const tabId = lifecycles[0]?.tabId ?? 0;
+    const sortedGroups = rtGroups ? [...rtGroups].sort((a, b) => a.timeOriginMs - b.timeOriginMs) : [];
+    const activeGroups =
+      preserveLog || sortedGroups.length === 0 ? sortedGroups : [sortedGroups[sortedGroups.length - 1]];
+    const syntheticCacheRows: RequestLifecycle[] = [];
+    for (let i = 0; i < activeGroups.length; i++) {
+      const group = activeGroups[i];
+      // The window end is the NEXT group's origin across ALL groups (not
+      // just the active subset), so dedup never bleeds across navigations.
+      const groupIdx = sortedGroups.indexOf(group);
+      const nextOrigin =
+        groupIdx + 1 < sortedGroups.length ? sortedGroups[groupIdx + 1].timeOriginMs : Number.POSITIVE_INFINITY;
+      const reals = lifecycles.filter((lc) => lc.startedAtMs >= group.timeOriginMs && lc.startedAtMs < nextOrigin);
+      syntheticCacheRows.push(
+        ...synthesizeMemoryCacheLifecycles({
+          entries: group.entries,
+          timeOriginMs: group.timeOriginMs,
+          realLifecycles: reals,
+          tabId,
+        }),
+      );
+    }
 
     // Preserve log OFF → scope the view to the current navigation: drop
     // everything that started before the latest top-level nav so a
@@ -195,8 +205,8 @@ export function usePanelData(input: UsePanelDataInput): UsePanelDataResult {
     // nav signal) are never racily wiped.
     const navStartMs = preserveLog ? -1 : latestNavStartMs(lifecycles);
     const scoped = navStartMs >= 0 ? lifecycles.filter((lc) => lc.startedAtMs >= navStartMs) : lifecycles;
-    // Synthetic cache rows belong to the current navigation, so they
-    // survive the preserve-log filter unconditionally — append after it.
+    // Synthetic cache rows are already navigation-scoped (and preserve-log
+    // aware), so they survive the real-row filter unconditionally.
     const merged = syntheticCacheRows.length > 0 ? [...scoped, ...syntheticCacheRows] : scoped;
 
     const baseRows = buildInspectorRows(merged, opts);
@@ -289,5 +299,5 @@ export function usePanelData(input: UsePanelDataInput): UsePanelDataResult {
       cachedCount,
       pageCount: pages.length,
     };
-  }, [lifecycles, pages, fires, opts, preserveLog, rtEntries, rtTimeOriginMs]);
+  }, [lifecycles, pages, fires, opts, preserveLog, rtGroups]);
 }

@@ -63,17 +63,34 @@ describe('createResourceTimingRelay — notify + fanout', () => {
     expect(tab2).toHaveLength(0);
   });
 
-  it('last write wins — the cached snapshot replaces, never merges', () => {
+  it('accumulates one group per navigation (distinct origins) and replays all on attach', () => {
     const relay = createResourceTimingRelay();
-    relay.notifySnapshot(1, 100, [entry('https://openheaders.io/a')]);
-    relay.notifySnapshot(1, 200, [entry('https://openheaders.io/b'), entry('https://openheaders.io/c')]);
+    // Two navigations on the same tab — each a distinct time origin.
+    relay.notifySnapshot(1, 100, [entry('https://github.com/app.js')]);
+    relay.notifySnapshot(1, 200, [entry('https://example.com/x')]);
 
     const received: ResourceTimingWireMessage[] = [];
     relay.subscribe(1, (m) => received.push(m));
+    // ready + one snapshot per navigation, in navigation order.
+    expect(received.map((m) => m.kind)).toEqual(['ready', 'rt-update', 'rt-update']);
+    const origins = received
+      .filter((m): m is Extract<ResourceTimingWireMessage, { kind: 'rt-update' }> => m.kind === 'rt-update')
+      .map((m) => (m.update.kind === 'snapshot' ? m.update.timeOriginMs : -1));
+    expect(origins).toEqual([100, 200]);
+  });
+
+  it('same time origin replaces the group (the buffer grew; not a new navigation)', () => {
+    const relay = createResourceTimingRelay();
+    relay.notifySnapshot(1, 100, [entry('https://github.com/a.js')]);
+    relay.notifySnapshot(1, 100, [entry('https://github.com/a.js'), entry('https://github.com/b.js')]);
+
+    const received: ResourceTimingWireMessage[] = [];
+    relay.subscribe(1, (m) => received.push(m));
+    // Only one group for origin 100, carrying the latest (grown) entries.
+    expect(received.map((m) => m.kind)).toEqual(['ready', 'rt-update']);
     const snap = received[1];
     if (snap.kind !== 'rt-update' || snap.update.kind !== 'snapshot') throw new Error('expected snapshot');
-    expect(snap.update.timeOriginMs).toBe(200);
-    expect(snap.update.entries.map((e) => e.name)).toEqual(['https://openheaders.io/b', 'https://openheaders.io/c']);
+    expect(snap.update.entries.map((e) => e.name)).toEqual(['https://github.com/a.js', 'https://github.com/b.js']);
   });
 
   it('forgetTab drops the snapshot and broadcasts tab-cleared', () => {
