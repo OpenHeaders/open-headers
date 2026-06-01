@@ -30,11 +30,14 @@ import { App, Badge, Button, Empty, Space, Tag, Tooltip, Typography, theme } fro
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
+import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { classifyRun, describeCircuit, describeRunSchedule, formatCountdown, statusColor } from './live-display';
 
 const { Text } = Typography;
 
 interface Props {
+  /** Title-bar `(i)` popover copy. */
+  info: InfoPopoverContent;
   /** Close handler wired by the shell so the X button toggles the tool window. */
   onClose: () => void;
   /** Double-click handler → open the matching Live Workflow editor tab. */
@@ -55,7 +58,7 @@ interface Row {
   run: LiveWorkflowRunSnapshot;
 }
 
-const WorkflowStatusPanel: React.FC<Props> = ({ onClose, onOpenWorkflow }) => {
+const WorkflowStatusPanel: React.FC<Props> = ({ info, onClose, onOpenWorkflow }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
   const { workflows } = useLiveWorkflows();
@@ -174,6 +177,7 @@ const WorkflowStatusPanel: React.FC<Props> = ({ onClose, onOpenWorkflow }) => {
           <OverallSummary rows={rows} />
         </>
       }
+      info={info}
     />
   );
 

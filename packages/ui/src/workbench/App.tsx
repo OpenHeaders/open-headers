@@ -142,6 +142,7 @@ import { get as getSetting } from './settings/store';
 import { SettingsModal, SettingsTab } from './settings/ui';
 import { getFocusedDock, getFocusedRegion } from './stores/focus-region-store';
 import { type TabDisplayLookups, tabDisplayLabel } from './tab-display';
+import { getToolWindowInfo } from './tool-window-info';
 import type { DockSlot, ToolWindowId, WorkbenchTab } from './types';
 
 // ── Sidebar "Export…" — single callback shape for every entity type ─
@@ -1881,6 +1882,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
           return (
             <Sidebar
               view={id}
+              info={getToolWindowInfo(id)}
               activeTabId={activeTabId}
               onSelectRule={openEditTab}
               onCreateRule={openCreateTab}
@@ -1938,6 +1940,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         case 'workflow-status':
           return (
             <WorkflowStatusPanel
+              info={getToolWindowInfo('workflow-status')}
               onClose={() => tl.toggleWindow('workflow-status')}
               // `openLiveWorkflowEdit` expects `(uid, name, seedStep?)`.
               // The sidebar only knows the uid; look up the name from
@@ -1951,15 +1954,17 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         case 'activity':
           return (
             <ActivityFeedPanel
+              info={getToolWindowInfo('activity')}
               onClose={() => tl.toggleWindow('activity')}
               onViewEntity={handleViewActivityEntity}
             />
           );
         case 'docs':
-          return <DocsPanel onClose={() => tl.toggleWindow('docs')} />;
+          return <DocsPanel info={getToolWindowInfo('docs')} onClose={() => tl.toggleWindow('docs')} />;
         case 'var-scope':
           return (
             <VariablesPanel
+              info={getToolWindowInfo('var-scope')}
               onClose={() => tl.toggleWindow('var-scope')}
               activeTab={activeTab ?? null}
               onOpenVault={openVault}
@@ -1976,6 +1981,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         case 'test-runs':
           return (
             <BottomPanel
+              info={getToolWindowInfo(id)}
               activeTab={id === 'test-runs' ? 'test-runs' : 'inspection'}
               onTabChange={() => {
                 /* BottomPanel is now slot-scoped — tab strip lives on the dock */

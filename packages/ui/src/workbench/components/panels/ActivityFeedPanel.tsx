@@ -25,6 +25,7 @@ import { App as AntApp, Empty, List, Spin, theme } from 'antd';
 import { useCallback, useMemo } from 'react';
 import type { ActivityEntry } from '@openheaders/core/sync';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
+import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/useActiveWorkspaceId';
 import { useActivityFeed } from '@openheaders/ui/shared/hooks/useActivityFeed';
 import { useActivityMutes } from '@openheaders/ui/shared/hooks/useActivityMutes';
@@ -33,6 +34,8 @@ import { groupActivityEntriesByMutation } from './activity-feed-group';
 import ActivityFeedCard from './ActivityFeedCard';
 
 interface ActivityFeedPanelProps {
+  /** Title-bar `(i)` popover copy. */
+  info: InfoPopoverContent;
   onClose: () => void;
   /**
    * Open the entity in its editor tab. Wired by the workbench shell
@@ -43,7 +46,7 @@ interface ActivityFeedPanelProps {
   onViewEntity?: (entityType: string, entityId: string) => void;
 }
 
-const ActivityFeedPanel: React.FC<ActivityFeedPanelProps> = ({ onClose, onViewEntity }) => {
+const ActivityFeedPanel: React.FC<ActivityFeedPanelProps> = ({ info, onClose, onViewEntity }) => {
   const wiring = useMemo(() => createPanelHeaderWiring({ onHide: onClose }), [onClose]);
   const { token } = theme.useToken();
   const workspaceId = useActiveWorkspaceId();
@@ -76,7 +79,7 @@ const ActivityFeedPanel: React.FC<ActivityFeedPanelProps> = ({ onClose, onViewEn
       className="rules-right-panel rules-right-panel--activity"
       style={{ display: 'flex', flexDirection: 'column', height: '100%' }}
     >
-      <PanelHeader wiring={wiring} title={<strong>Activity</strong>} />
+      <PanelHeader wiring={wiring} title={<strong>Activity</strong>} info={info} />
       <div
         style={{
           flex: '1 1 auto',

@@ -27,6 +27,7 @@ import {
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
+import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { useEnvironments } from '@openheaders/ui/shared/hooks/useEnvironments';
 import { useFolderMutator } from '@openheaders/ui/shared/hooks/useFolderMutator';
 import { useAllLiveCaches } from '@openheaders/ui/shared/hooks/useLiveCache';
@@ -95,6 +96,8 @@ const SIDEBAR_VIEW_LABEL: Record<SidebarView, string> = {
 
 interface SidebarProps {
   view: SidebarView;
+  /** Title-bar `(i)` popover copy for the active view. */
+  info: InfoPopoverContent;
   activeTabId?: string | null;
   onSelectRule: (uid: string) => void;
   onCreateRule: (type: string, context?: { collectionId: string; folderPath?: string }, templateKey?: string) => void;
@@ -167,6 +170,7 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({
   view,
+  info,
   activeTabId,
   onSelectRule,
   onCreateRule,
@@ -1289,6 +1293,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       <PanelHeader
         wiring={headerWiring}
         title={<strong>{viewLabel}</strong>}
+        info={info}
         actions={headerActions}
         optionsMenuItems={behaviorMenuItems}
       />

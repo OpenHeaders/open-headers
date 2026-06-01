@@ -22,6 +22,8 @@
 import { EllipsisOutlined, MinusOutlined } from '@ant-design/icons';
 import { Dropdown, type MenuProps } from 'antd';
 import type React from 'react';
+import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
+import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import type { PanelHeaderWiring } from './panel-header-wiring';
 
 export interface PanelHeaderProps {
@@ -31,13 +33,16 @@ export interface PanelHeaderProps {
   /** Left slot — typically the panel title, but can be any ReactNode
       (e.g. a Filter input for narrow sidebars). Omit to leave empty. */
   title?: React.ReactNode;
+  /** Optional `(i)` info popover anchored next to the title. Reveals on
+      panel hover/focus, mirroring the right-side action cluster. */
+  info?: InfoPopoverContent;
   /** Panel-specific inline actions that render before ⋯ and −. */
   actions?: React.ReactNode;
   /** Items for the ⋯ Options dropdown. Omit to hide the ⋯ button. */
   optionsMenuItems?: MenuProps['items'];
 }
 
-const PanelHeader: React.FC<PanelHeaderProps> = ({ wiring, title, actions, optionsMenuItems }) => {
+const PanelHeader: React.FC<PanelHeaderProps> = ({ wiring, title, info, actions, optionsMenuItems }) => {
   // The brand carries `onHide` only; un-brand at the consume site via
   // the canonical `as unknown as` pattern. Same shape as EditorHeader's
   // un-brand.
@@ -45,8 +50,11 @@ const PanelHeader: React.FC<PanelHeaderProps> = ({ wiring, title, actions, optio
 
   return (
     <div className="rules-panel-header">
-      {title !== undefined && (
-        <div className="rules-panel-header-title">{typeof title === 'string' ? <strong>{title}</strong> : title}</div>
+      {(title !== undefined || info) && (
+        <div className="rules-panel-header-title">
+          {title !== undefined && (typeof title === 'string' ? <strong>{title}</strong> : title)}
+          {info && <InfoTrigger content={info} className="rules-panel-header-info" />}
+        </div>
       )}
       <div className="rules-panel-header-actions" data-focus-skip>
         {actions}

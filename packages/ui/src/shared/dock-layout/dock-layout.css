@@ -861,6 +861,25 @@
   opacity: 1;
 }
 
+/* Title-adjacent `(i)` info trigger — hidden at rest and revealed on the
+   same hover/focus trigger as the action cluster above, so the title
+   doesn't carry a permanent glyph. Stays lit while its popover is open
+   or the trigger itself is focused. The trailing margin from the base
+   `.oh-info-trigger` is dropped — the title slot's own gap spaces it. */
+.rules-panel-header-info {
+  opacity: 0;
+  margin: 0;
+  transition: opacity 0.15s ease;
+}
+
+.rules-dock-body:hover .rules-panel-header-info,
+.rules-dock-body:focus-within .rules-panel-header-info,
+.rules-dock-body--focused .rules-panel-header-info,
+.rules-panel-header-info:focus-visible,
+.rules-panel-header-info[aria-expanded='true'] {
+  opacity: 1;
+}
+
 /* ── Reveal-on-hover scrollbars ──────────────────────────────────────
    Every scrollable region inside a dock panel gets a thin scrollbar
    whose THUMB is transparent at rest and colours up while the panel

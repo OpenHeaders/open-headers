@@ -43,6 +43,7 @@ import { Empty, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
+import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import {
   type CollectionFamilies,
   feedCollectionVariablesToResolver,
@@ -87,6 +88,8 @@ function getContextLabel(kind: ScopeKind): string | null {
 const { Text } = Typography;
 
 interface VariablesPanelProps {
+  /** Title-bar `(i)` popover copy. */
+  info: InfoPopoverContent;
   onClose: () => void;
   /** Active tab so the panel can compute "in request" variables. */
   activeTab: WorkbenchTab | null;
@@ -151,6 +154,7 @@ interface DisplayVariable {
 // ── Panel ──────────────────────────────────────────────────────────
 
 const VariablesPanel: React.FC<VariablesPanelProps> = ({
+  info,
   onClose,
   activeTab,
   onOpenVault,
@@ -599,7 +603,7 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({
         height: '100%',
       }}
     >
-      <PanelHeader wiring={headerWiring} title={<strong>Scope</strong>} />
+      <PanelHeader wiring={headerWiring} title={<strong>Scope</strong>} info={info} />
 
       <div style={{ padding: '8px 12px', flex: 1, overflowY: 'auto' }}>
         {/* Mode summary + toggle — toggle only appears when the focused

@@ -28,6 +28,7 @@ import type { ColumnsType } from 'antd/es/table';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
+import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 
 const { Text } = Typography;
 
@@ -401,6 +402,8 @@ const STATIC_TABS: BottomTab[] = [
 // ── Component ───────────────────────────────────────────────────────
 
 interface BottomPanelProps {
+  /** Title-bar `(i)` popover copy for the active tab's tool window. */
+  info: InfoPopoverContent;
   activeTab: string;
   onTabChange: (tab: string) => void;
   /**
@@ -426,6 +429,7 @@ interface BottomPanelProps {
 }
 
 const BottomPanel: React.FC<BottomPanelProps> = ({
+  info,
   activeTab,
   onTabChange,
   contextOwner,
@@ -628,6 +632,7 @@ const BottomPanel: React.FC<BottomPanelProps> = ({
       <PanelHeader
         wiring={headerWiring}
         title={<strong>{activeTab === 'test-runs' ? 'Test Runs' : 'Deep Network Inspection'}</strong>}
+        info={info}
       />
       <div
         className={`rules-bottom-content${activeTab === 'test-runs' ? ' is-table' : ''}${activeTab === 'inspection' ? ' is-fill' : ''}`}

@@ -28,6 +28,7 @@ import { Button, Empty, Input, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
+import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { useDocsNav } from './use-docs-nav';
 import { resolveDocLink } from './doc-ids';
 import { buildSectionIndex, type DocGroup, type DocSection, flattenGroups } from './registry';
@@ -42,10 +43,13 @@ interface DocsPanelProps {
   /** Section id opened on first mount when no deep-link is pending.
    *  Must exist in `groups`. */
   defaultSectionId: string;
+  /** Optional title-bar `(i)` popover copy. Supplied by the workbench
+   *  shell; the DevTools surface omits it. */
+  info?: InfoPopoverContent;
   onClose: () => void;
 }
 
-const DocsPanel: React.FC<DocsPanelProps> = ({ groups, defaultSectionId, onClose }) => {
+const DocsPanel: React.FC<DocsPanelProps> = ({ groups, defaultSectionId, info, onClose }) => {
   const wiring = useMemo(() => createPanelHeaderWiring({ onHide: onClose }), [onClose]);
   const { token } = theme.useToken();
   const { pendingSection, pendingCounter, clearPending, reportCurrentSection } = useDocsNav();
@@ -318,7 +322,7 @@ const DocsPanel: React.FC<DocsPanelProps> = ({ groups, defaultSectionId, onClose
       className="rules-right-panel rules-right-panel--docs"
       style={{ display: 'flex', flexDirection: 'column', height: '100%', outline: 'none' }}
     >
-      <PanelHeader wiring={wiring} title={<strong>Docs</strong>} />
+      <PanelHeader wiring={wiring} title={<strong>Docs</strong>} info={info} />
 
       {/* Top bar: menu-icon + breadcrumb */}
       <div
