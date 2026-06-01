@@ -314,7 +314,7 @@ describe('usePanelData', () => {
     expect(result.current.pageCount).toBe(2);
   });
 
-  it('preserveLog=false scopes the view to the latest navigation (clear on nav)', () => {
+  it('navClearFloorMs scopes the view to requests at or after the floor', () => {
     const { result } = renderHook(() =>
       usePanelData({
         ...snapshots([
@@ -331,13 +331,13 @@ describe('usePanelData', () => {
           }),
           lifecycle('new', 'https://openheaders.io/new.js', { startedAtMs: 1050, completedAtMs: 1100 }),
         ]),
-        preserveLog: false,
+        navClearFloorMs: 1000,
       }),
     );
     expect(result.current.rows.map((r) => r.lifecycle.requestId)).toEqual(['nav2', 'new']);
   });
 
-  it('preserveLog=true keeps every request across repeated navigations', () => {
+  it('navClearFloorMs -1 keeps every request across repeated navigations', () => {
     const { result } = renderHook(() =>
       usePanelData({
         ...snapshots([
@@ -357,23 +357,10 @@ describe('usePanelData', () => {
             completedAtMs: 2200,
           }),
         ]),
-        preserveLog: true,
+        navClearFloorMs: -1,
       }),
     );
     expect(result.current.rows.map((r) => r.lifecycle.requestId)).toEqual(['nav1', 'nav2', 'nav3']);
-  });
-
-  it('preserveLog=false with no top-level navigation shows all session requests', () => {
-    const { result } = renderHook(() =>
-      usePanelData({
-        ...snapshots([
-          lifecycle('a', 'https://openheaders.io/a', { startedAtMs: 100, completedAtMs: 200 }),
-          lifecycle('b', 'https://openheaders.io/b', { startedAtMs: 300, completedAtMs: 400 }),
-        ]),
-        preserveLog: false,
-      }),
-    );
-    expect(result.current.rows).toHaveLength(2);
   });
 
   it('merges Resource Timing memory-cache hits as synthetic rows', () => {
@@ -461,14 +448,14 @@ describe('usePanelData', () => {
       lifecycle('e', 'https://example.com/', { resourceType: 'main_frame', startedAtMs: 4999, completedAtMs: 5100 }),
     ];
     const { result, rerender } = renderHook(
-      ({ preserve }) => usePanelData({ ...snapshots(lifecycles), preserveLog: preserve, resourceTiming: rt }),
-      { initialProps: { preserve: true } },
+      ({ floor }) => usePanelData({ ...snapshots(lifecycles), navClearFloorMs: floor, resourceTiming: rt }),
+      { initialProps: { floor: -1 } },
     );
-    // Preserve-log ON: the github.com cache row survives the example.com nav.
+    // No floor (Preserve-log ON): the github.com cache row survives the nav.
     expect(result.current.rows.map((r) => r.lifecycle.url)).toContain('https://github.com/bundle.js');
 
-    // Preserve-log OFF: only the current (example.com) navigation's rows show.
-    rerender({ preserve: false });
+    // Floor at the example.com navigation: only the current nav's rows show.
+    rerender({ floor: 4999 });
     expect(result.current.rows.map((r) => r.lifecycle.url)).not.toContain('https://github.com/bundle.js');
   });
 

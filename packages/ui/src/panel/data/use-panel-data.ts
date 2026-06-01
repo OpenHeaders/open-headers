@@ -62,13 +62,15 @@ export interface UsePanelDataInput {
    */
   readonly opts?: BuildInspectorRowsOptions;
   /**
-   * Preserve log across navigations. Default `true`. When `false`, the
-   * view is scoped to the latest top-level navigation — a refresh or new
-   * navigation drops the prior page's requests so the list starts from
-   * zero, matching the browser's Network tab. (Background-history and the
-   * Clear action are separate axes.)
+   * Navigation clear floor (a `startedAtMs` value) from `useNavClearFloor`.
+   * The view shows lifecycles with `startedAtMs >= navClearFloorMs`. `-1`
+   * (the default) means no floor — show everything. This is the
+   * "Preserve log" boundary: a monotonic floor that advances on navigation
+   * while Preserve log is off and freezes when it is on, so the past is
+   * never resurrected by re-enabling. (The Clear action is a separate
+   * axis, owned engine-side.)
    */
-  readonly preserveLog?: boolean;
+  readonly navClearFloorMs?: number;
   /**
    * Latest Resource Timing snapshot for the inspected tab. Optional —
    * when present, renderer memory-cache hits (which never reach
@@ -149,20 +151,8 @@ function lifecycleDuration(lifecycle: RequestLifecycle): number {
   return d > 0 ? d : 0;
 }
 
-/**
- * Latest top-level navigation start (`main_frame` lifecycle), or -1 if
- * none has been observed. The clear-on-nav boundary.
- */
-function latestNavStartMs(lifecycles: readonly RequestLifecycle[]): number {
-  let nav = -1;
-  for (const lc of lifecycles) {
-    if (lc.resourceType === 'main_frame' && lc.startedAtMs > nav) nav = lc.startedAtMs;
-  }
-  return nav;
-}
-
 export function usePanelData(input: UsePanelDataInput): UsePanelDataResult {
-  const { lifecycle, page, fire, opts, preserveLog = true, resourceTiming } = input;
+  const { lifecycle, page, fire, opts, navClearFloorMs = -1, resourceTiming } = input;
 
   const lifecycles = lifecycle.ordered;
   const pages = page.pages;
@@ -173,12 +163,12 @@ export function usePanelData(input: UsePanelDataInput): UsePanelDataResult {
     // Memory-cache synthesis. The RT buffer is per-document, so the store
     // keeps one group per navigation; each group dedups against the real
     // rows of its own navigation window — `[thisOrigin, nextOrigin)` on
-    // the wall clock. Preserve-log OFF keeps only the current document's
-    // group (older navigations are dropped from the view).
+    // the wall clock. Groups below the clear floor are dropped from the
+    // view (older navigations the floor has scoped out).
     const tabId = lifecycles[0]?.tabId ?? 0;
     const sortedGroups = rtGroups ? [...rtGroups].sort((a, b) => a.timeOriginMs - b.timeOriginMs) : [];
     const activeGroups =
-      preserveLog || sortedGroups.length === 0 ? sortedGroups : [sortedGroups[sortedGroups.length - 1]];
+      navClearFloorMs < 0 ? sortedGroups : sortedGroups.filter((g) => g.timeOriginMs >= navClearFloorMs);
     const syntheticCacheRows: RequestLifecycle[] = [];
     for (let i = 0; i < activeGroups.length; i++) {
       const group = activeGroups[i];
@@ -198,13 +188,11 @@ export function usePanelData(input: UsePanelDataInput): UsePanelDataResult {
       );
     }
 
-    // Preserve log OFF → scope the view to the current navigation: drop
-    // everything that started before the latest top-level nav so a
-    // refresh resets the list to the new page. A pure display filter, so
-    // the new page's requests (which arrive over a separate port from the
-    // nav signal) are never racily wiped.
-    const navStartMs = preserveLog ? -1 : latestNavStartMs(lifecycles);
-    const scoped = navStartMs >= 0 ? lifecycles.filter((lc) => lc.startedAtMs >= navStartMs) : lifecycles;
+    // Scope the view to the clear floor: drop everything that started
+    // before it. A pure display filter, so the new page's requests (which
+    // arrive over a separate port from the nav signal) are never racily
+    // wiped — the floor only ever advances on a committed navigation.
+    const scoped = navClearFloorMs >= 0 ? lifecycles.filter((lc) => lc.startedAtMs >= navClearFloorMs) : lifecycles;
     // Synthetic cache rows are already navigation-scoped (and preserve-log
     // aware), so they survive the real-row filter unconditionally.
     const merged = syntheticCacheRows.length > 0 ? [...scoped, ...syntheticCacheRows] : scoped;
@@ -299,5 +287,5 @@ export function usePanelData(input: UsePanelDataInput): UsePanelDataResult {
       cachedCount,
       pageCount: pages.length,
     };
-  }, [lifecycles, pages, fires, opts, preserveLog, rtGroups]);
+  }, [lifecycles, pages, fires, opts, navClearFloorMs, rtGroups]);
 }

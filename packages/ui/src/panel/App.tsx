@@ -62,6 +62,7 @@ import { PANEL_TOOL_WINDOW_MAP, type PanelToolWindowId } from './data/tool-windo
 import { useFireClient } from './data/use-fire-client';
 import { useInspectorEditorGroups } from './data/use-inspector-editor-groups';
 import { useLifecycleClient } from './data/use-lifecycle-client';
+import { useNavClearFloor } from './data/use-nav-clear-floor';
 import { usePageClient } from './data/use-page-client';
 import { usePanelData } from './data/use-panel-data';
 import { useResourceTimingClient } from './data/use-resource-timing-client';
@@ -211,6 +212,10 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       [lifecycleClient.clearSession, pageClient.store, fireClient.store, resourceTimingClient.store],
     ),
   });
+  // Preserve-log boundary: a monotonic clear floor that advances on
+  // navigation while the toggle is off and freezes when on, so re-enabling
+  // never resurrects the past (browser-parity).
+  const navClearFloorMs = useNavClearFloor(lifecycleClient.snapshot.ordered, ui.preserveLog);
   const data = usePanelData({
     lifecycle: lifecycleClient.snapshot,
     page: pageClient.snapshot,
@@ -219,8 +224,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
     // consolidation is intentionally off and no longer tied to the
     // Preserve-log toggle.
     opts: useMemo(() => ({ consolidateRetries: false }), []),
-    // Preserve log OFF clears the list on navigation (browser-parity).
-    preserveLog: ui.preserveLog,
+    navClearFloorMs,
     // Renderer memory-cache hits, reconciled panel-local against real rows.
     resourceTiming: resourceTimingClient.snapshot,
   });
