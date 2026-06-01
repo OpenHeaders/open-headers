@@ -159,6 +159,11 @@ const PairDeviceModal: React.FC<Props> = ({ open, onClose }) => {
       open={open}
       title="Pair a device"
       onCancel={close}
+      // A stray click on the backdrop (or an Esc) mid-pairing would
+      // discard the live code and force a fresh allocation. Only the X
+      // and the footer button dismiss it.
+      maskClosable={false}
+      keyboard={false}
       footer={[
         <Button key="done" type="primary" onClick={close}>
           {status === 'confirmed' || status === 'consumed' ? 'Done' : 'Close'}
