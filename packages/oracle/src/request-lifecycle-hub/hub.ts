@@ -33,26 +33,38 @@ import { TabSinkRegistry } from '../tab-sink-registry';
 import { tabIdOf } from './filter';
 import { snapshotToUpdates } from './replay';
 import type { AttachmentHandle, Sink } from './types';
+import { InMemoryWatchSessionFloors, type WatchSessionFloors } from './watch-session-floors';
 
 export interface RequestLifecycleHubOptions {
   readonly store: RequestLifecycleStore;
   readonly bus?: TabLifecycleBus;
+  /**
+   * Owns the per-tab watch-session floor. Defaults to an in-memory
+   * implementation (lost on restart); a host that wants the session to
+   * survive an SW restart injects a persistent one.
+   */
+  readonly sessionFloors?: WatchSessionFloors;
 }
 
 export class RequestLifecycleHub {
   private readonly store: RequestLifecycleStore;
   private readonly registry = new TabSinkRegistry<RequestLifecycleUpdate>('RequestLifecycleHub');
+  private readonly sessionFloors: WatchSessionFloors;
   private readonly unsubscribeStore: () => void;
   private readonly unsubscribeBus: (() => void) | null;
 
   constructor(options: RequestLifecycleHubOptions) {
     this.store = options.store;
+    this.sessionFloors = options.sessionFloors ?? new InMemoryWatchSessionFloors();
     this.unsubscribeStore = this.store.subscribe((update) => {
       this.registry.broadcast(tabIdOf(update), update);
     });
     this.unsubscribeBus = options.bus
       ? options.bus.subscribe((event) => {
           if (event.kind === 'tab-forgotten') {
+            // A closed tab ends its watch session — drop the floor so a
+            // future tab reusing this id starts fresh.
+            this.sessionFloors.forget(event.tabId);
             this.registry.broadcastTabCleared(event.tabId);
           }
         })
@@ -61,21 +73,33 @@ export class RequestLifecycleHub {
 
   /**
    * Attach a sink and replay the tab's history scoped to `opts.sinceMs`
-   * (a `startedAtMs` floor). With `sinceMs` omitted the watcher is
-   * treated as session-start: the floor becomes the current watermark,
-   * so nothing pre-existing replays. The watermark is always reported in
-   * the `ready` envelope so the consumer can re-subscribe with it after a
-   * reconnect. Live broadcasts after attach are never floor-filtered.
+   * (a `startedAtMs` floor). With `sinceMs` omitted the watcher gets its
+   * engine-owned watch session: the floor is resolved (and, the first
+   * time the tab is watched, established at the current watermark) so a
+   * reconnect or remount re-resolves the SAME floor and an in-flight
+   * request observed earlier in the session still replays. The current
+   * watermark is reported in the `ready` envelope. Live broadcasts after
+   * attach are never floor-filtered.
    */
   attach(tabId: number, sink: Sink, opts?: { sinceMs?: number }): AttachmentHandle {
     const watermarkMs = this.store.tabWatermark(tabId);
-    const sinceMs = opts?.sinceMs ?? watermarkMs;
+    const sinceMs = opts?.sinceMs ?? this.sessionFloors.resolveFloor(tabId, watermarkMs);
     return this.registry.attach(tabId, sink, (s) => {
       s.deliverReady(tabId, watermarkMs);
       for (const update of snapshotToUpdates(this.store.snapshotTab(tabId, { sinceMs }))) {
         s.deliverUpdate(update);
       }
     });
+  }
+
+  /**
+   * Start a fresh watch session for the tab — advance the floor to the
+   * current watermark so subsequent replays drop everything observed
+   * before now. The user's "Clear" calls this so the reset survives a
+   * later reconnect (the consumer clears its own mirror separately).
+   */
+  resetSession(tabId: number): void {
+    this.sessionFloors.reset(tabId, this.store.tabWatermark(tabId));
   }
 
   /** Tear down all attachments. Sinks are notified via `close()`. */

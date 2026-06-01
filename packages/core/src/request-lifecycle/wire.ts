@@ -14,14 +14,16 @@
  * (ready handshake) extend the envelope, never the lifecycle.
  *
  * Direction: `LifecycleWireMessage` flows engine→consumer.
- * `LifecycleSubscribeMessage` flows consumer→engine — the consumer opens
+ * `LifecycleConsumerMessage` flows consumer→engine — the consumer opens
  * the port, then sends one `subscribe` to declare which slice of history
  * it wants replayed. `sinceMs` is a `startedAtMs` floor: the engine
  * replays only lifecycles started strictly after it. A consumer that
- * omits `sinceMs` is asking for "session-start" — the engine floors at
- * the current watermark, so nothing pre-existing replays, and reports
- * that watermark back in `ready` so the consumer can re-subscribe with
- * it after a reconnect (and keep its view stable across SW evictions).
+ * omits `sinceMs` is asking for its "watch session" — the engine resolves
+ * the session floor it owns for the tab (establishing it at the current
+ * watermark the first time the tab is watched) and replays from there.
+ * The engine owning the floor is what keeps a panel's view stable across
+ * reconnects, panel remounts, and SW restarts without the consumer having
+ * to carry the floor itself; `clear-session` starts a fresh floor.
  */
 
 import type { RequestLifecycleUpdate } from './types';
@@ -38,13 +40,29 @@ export type LifecycleWireMessage =
  * and re-delivers from `ready` onward.
  *
  * `sinceMs` semantics:
- *   - omitted → session-start: floor at the current watermark (replay
- *     nothing pre-existing).
+ *   - omitted → the engine-owned watch session: it resolves (and the
+ *     first time, establishes at the current watermark) the tab's session
+ *     floor and replays from there. Reconnects/remounts re-resolve the
+ *     SAME floor, so an in-flight request observed earlier in the session
+ *     still replays.
  *   - a `startedAtMs` value → replay lifecycles started after it.
  *   - `-1` → replay everything currently retained (all `startedAtMs`
  *     are non-negative epoch ms).
  */
 export type LifecycleSubscribeMessage = { kind: 'subscribe'; sinceMs?: number };
+
+/**
+ * Consumer→engine. Starts a fresh watch session for the tab — the engine
+ * advances the session floor to the current watermark, so subsequent
+ * replays drop everything observed before now (the user's "Clear"). The
+ * consumer clears its own mirror locally in the same action; this message
+ * makes the reset durable so a later reconnect does not resurrect the
+ * cleared requests.
+ */
+export type LifecycleClearSessionMessage = { kind: 'clear-session' };
+
+/** Every consumer→engine message on the lifecycle port. */
+export type LifecycleConsumerMessage = LifecycleSubscribeMessage | LifecycleClearSessionMessage;
 
 /** Channel-name prefix for the per-tab lifecycle pipe. */
 export const LIFECYCLE_PORT_PREFIX = 'oh-lifecycle:';

@@ -117,6 +117,57 @@ describe('RequestLifecycleHub — attach', () => {
   });
 });
 
+describe('RequestLifecycleHub — watch session', () => {
+  const requestIds = (sink: RecordingSink): string[] =>
+    sink.updates.map((u) => (u.kind === 'started' ? u.lifecycle.requestId : ''));
+
+  it('reuses the established session floor across a reattach (omitted sinceMs)', () => {
+    const store = new RequestLifecycleStore();
+    const hub = new RequestLifecycleHub({ store });
+
+    // Panel opens on an empty tab → the session floor is established below
+    // any future request, then the panel detaches.
+    hub.attach(1, recordingSink()).detach();
+
+    // A request starts during the session; the panel reconnects.
+    store.apply({ kind: 'started', lifecycle: makeLifecycle({ tabId: 1, requestId: 'inflight', startedAtMs: 5000 }) });
+    const second = recordingSink();
+    hub.attach(1, second);
+
+    // The reconnect re-resolves the SAME floor, so the in-flight request
+    // replays instead of being dropped below a fresh "now" floor.
+    expect(requestIds(second)).toEqual(['inflight']);
+  });
+
+  it('resetSession advances the floor so a later attach drops pre-reset requests', () => {
+    const store = new RequestLifecycleStore();
+    const hub = new RequestLifecycleHub({ store });
+    hub.attach(1, recordingSink()).detach();
+    store.apply({ kind: 'started', lifecycle: makeLifecycle({ tabId: 1, requestId: 'before', startedAtMs: 5000 }) });
+
+    hub.resetSession(1);
+    const after = recordingSink();
+    hub.attach(1, after);
+    // 'before' sits at the new floor (not strictly after) → dropped.
+    expect(requestIds(after)).toEqual([]);
+  });
+
+  it('drops the session floor when the tab is forgotten', () => {
+    const store = new RequestLifecycleStore();
+    const bus = new TabLifecycleBus();
+    const hub = new RequestLifecycleHub({ store, bus });
+    hub.attach(1, recordingSink()).detach();
+    store.apply({ kind: 'started', lifecycle: makeLifecycle({ tabId: 1, requestId: 'r', startedAtMs: 5000 }) });
+
+    // Tab closes — the session ends. A reused tab id re-establishes a fresh
+    // floor at the current watermark, so the prior request does not replay.
+    bus.notifyTabForgotten(1);
+    const reused = recordingSink();
+    hub.attach(1, reused);
+    expect(requestIds(reused)).toEqual([]);
+  });
+});
+
 describe('RequestLifecycleHub — broadcast', () => {
   it('fans live updates only to sinks attached to that tab', () => {
     const store = new RequestLifecycleStore();

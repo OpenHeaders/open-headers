@@ -75,11 +75,14 @@ function installTransport(connect: (name: string) => LifelinePort): void {
 }
 
 function Probe(): React.ReactElement {
-  const { snapshot, tabId, showBackgroundHistory, setShowBackgroundHistory } = useLifecycleClient();
+  const { snapshot, tabId, clearSession, showBackgroundHistory, setShowBackgroundHistory } = useLifecycleClient();
   return (
     <div>
       <button type="button" data-testid="toggle" onClick={() => setShowBackgroundHistory(!showBackgroundHistory)}>
         toggle
+      </button>
+      <button type="button" data-testid="clear" onClick={clearSession}>
+        clear
       </button>
       <ul data-tabid={tabId ?? 'null'}>
         {snapshot.ordered.map((l: RequestLifecycle) => (
@@ -293,7 +296,7 @@ describe('useLifecycleClient', () => {
     expect(port.posted).toEqual([{ kind: 'subscribe' }]);
   });
 
-  it('re-subscribes with the learned watermark floor after a reconnect', () => {
+  it('re-subscribes with an engine-owned session floor (no sinceMs) after a reconnect', () => {
     installNavigation(9);
     const first = fakePort(lifecyclePortName(9));
     const second = fakePort(lifecyclePortName(9));
@@ -303,7 +306,8 @@ describe('useLifecycleClient', () => {
     render(<Probe />);
     expect(first.posted).toEqual([{ kind: 'subscribe' }]);
 
-    // The engine reports its watermark; the panel records it as the floor.
+    // The engine reports its watermark, but the panel no longer carries the
+    // floor — the engine owns the session, keyed by tab.
     act(() => {
       first.emit({ kind: 'ready', tabId: 9, watermarkMs: 4200 });
     });
@@ -312,9 +316,50 @@ describe('useLifecycleClient', () => {
       first.triggerDisconnect();
       vi.advanceTimersByTime(250);
     });
-    // The reconnect re-subscribes with the floor so the session is
-    // restored without re-surfacing pre-open history.
-    expect(second.posted).toEqual([{ kind: 'subscribe', sinceMs: 4200 }]);
+    // The reconnect re-subscribes with an omitted floor; the engine
+    // restores the SAME session floor it established for this tab, so an
+    // in-flight request is not dropped.
+    expect(second.posted).toEqual([{ kind: 'subscribe' }]);
+  });
+
+  it('clearSession drops the local mirror and posts clear-session to the engine', () => {
+    installNavigation(11);
+    const port = fakePort(lifecyclePortName(11));
+    installTransport(() => port);
+
+    const { container } = render(<Probe />);
+    act(() => {
+      port.emit({ kind: 'ready', tabId: 11, watermarkMs: -1 });
+      port.emit({
+        kind: 'lifecycle-update',
+        update: {
+          kind: 'started',
+          lifecycle: {
+            tabId: 11,
+            requestId: 'r1',
+            url: 'https://openheaders.io/a',
+            method: 'GET',
+            resourceType: 'xmlhttprequest',
+            phase: 'pending',
+            redirectHopCount: 0,
+            redirectHops: [],
+            startedAtMs: 1,
+            hopStartedAtMs: 1,
+            har: [],
+            harBodyByHop: [],
+          },
+        },
+      });
+    });
+    expect(container.querySelector('li')?.textContent).toBe('r1:pending');
+
+    act(() => {
+      container.querySelector<HTMLButtonElement>('[data-testid="clear"]')?.click();
+    });
+    // Local mirror dropped, and the engine is told to advance the session
+    // floor so the cleared request does not replay on a later reconnect.
+    expect(container.querySelector('li')).toBeNull();
+    expect(port.posted).toContainEqual({ kind: 'clear-session' });
   });
 
   it('re-subscribes with -1 when the background-history toggle is turned on', () => {

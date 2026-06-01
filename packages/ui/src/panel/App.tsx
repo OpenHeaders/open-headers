@@ -200,8 +200,15 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   const resourceTimingClient = useResourceTimingClient();
   const ui = usePanelUiState({
     resettables: useMemo(
-      () => [lifecycleClient.store, pageClient.store, fireClient.store, resourceTimingClient.store],
-      [lifecycleClient.store, pageClient.store, fireClient.store, resourceTimingClient.store],
+      // Lifecycle clears via `clearSession` (local mirror + engine session
+      // floor) so a Clear survives reconnects; the others clear locally.
+      () => [
+        { clear: lifecycleClient.clearSession },
+        pageClient.store,
+        fireClient.store,
+        resourceTimingClient.store,
+      ],
+      [lifecycleClient.clearSession, pageClient.store, fireClient.store, resourceTimingClient.store],
     ),
   });
   const data = usePanelData({

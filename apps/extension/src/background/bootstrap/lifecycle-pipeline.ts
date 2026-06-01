@@ -3,13 +3,13 @@ import { RequestLifecycleHub } from '@openheaders/oracle/request-lifecycle-hub';
 import { RuleFireHub } from '@openheaders/oracle/rule-fire-hub';
 import { TabLifecycleBus } from '@openheaders/oracle/tab-lifecycle-bus';
 import { startLifecycleHost } from '../correlator-host';
-import { startLifecyclePortHost } from '../lifecycle-port-host';
+import { createPersistentWatchSessionFloors, startLifecyclePortHost } from '../lifecycle-port-host';
 import { setupOnRuleMatchedDebugBridge } from '../modules/on-rule-matched-debug';
+import { startTabTelemetryFiresBridge } from '../modules/tab-telemetry-fires-bridge';
 import { startDevtoolsPageNavBridge, startPagePortHost } from '../page-port-host';
 import { startResourceTimingRelay } from '../resource-timing-relay';
 import { startRuleEngineDriver } from '../rule-engine-driver';
 import { startRuleFirePortHost } from '../rule-fire-port-host';
-import { startTabTelemetryFiresBridge } from '../modules/tab-telemetry-fires-bridge';
 import { startTabTelemetrySource } from '../tab-telemetry-source';
 import { debouncedUpdateBadge } from './badge-update';
 
@@ -23,8 +23,15 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   startRuleEngineDriver({ store: lifecycleHost.store, updateBadge: debouncedUpdateBadge, bus: tabLifecycleBus });
   startTabTelemetrySource({ store: lifecycleHost.store, bus: tabLifecycleBus });
 
-  const lifecycleHub = new RequestLifecycleHub({ store: lifecycleHost.store, bus: tabLifecycleBus });
-  startLifecyclePortHost({ hub: lifecycleHub });
+  // Watch-session floors persist per-tab so a panel reconnect/remount (or
+  // an SW restart) restores the session rather than dropping in-flight rows.
+  const sessionFloors = createPersistentWatchSessionFloors();
+  const lifecycleHub = new RequestLifecycleHub({
+    store: lifecycleHost.store,
+    bus: tabLifecycleBus,
+    sessionFloors,
+  });
+  startLifecyclePortHost({ hub: lifecycleHub, ready: sessionFloors.ready });
 
   const pageHub = new PageStreamHub({ bus: tabLifecycleBus });
   startPagePortHost({ hub: pageHub });

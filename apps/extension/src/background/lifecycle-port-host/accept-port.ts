@@ -22,7 +22,7 @@
  * lifetime, not independent watchers.
  */
 
-import { type LifecycleSubscribeMessage, parseLifecyclePortName } from '@openheaders/core/request-lifecycle';
+import { type LifecycleConsumerMessage, parseLifecyclePortName } from '@openheaders/core/request-lifecycle';
 import type { AttachmentHandle, RequestLifecycleHub } from '@openheaders/oracle/request-lifecycle-hub';
 import { startTracking, stopTracking } from '../modules/tab-telemetry';
 import { attachPanelWatchingTracker, type PanelWatchingTrackerDeps } from './panel-watching-tracker';
@@ -35,6 +35,12 @@ const defaultTrackerDeps: PanelWatchingTrackerDeps = {
 
 export interface AcceptLifecyclePortOptions {
   readonly trackerDeps?: PanelWatchingTrackerDeps;
+  /**
+   * Resolves once the watch-session floors have hydrated from storage.
+   * Attach/clear wait on it so a cold-SW reconnect resolves the persisted
+   * session floor rather than minting a fresh one. Defaults to resolved.
+   */
+  readonly ready?: Promise<void>;
 }
 
 export function acceptLifecyclePort(
@@ -46,17 +52,40 @@ export function acceptLifecyclePort(
   if (tabId === null) return false;
   const sink = createPortSink(port);
   const tracker = attachPanelWatchingTracker(tabId, options.trackerDeps ?? defaultTrackerDeps);
+  const { ready } = options;
 
   // Attach is deferred to the first `subscribe`; a later `subscribe`
   // re-scopes the replay (detach + re-attach) so the panel can switch
-  // between session-only and full history in place.
+  // between session-only and full history in place. When a hydration gate
+  // is supplied, subscribe/clear wait on it so the session floor is
+  // resolvable first (a cold-SW reconnect restores the persisted floor);
+  // with no gate there is nothing to await, so they run synchronously.
   let handle: AttachmentHandle | null = null;
-  port.onMessage.addListener((msg: LifecycleSubscribeMessage) => {
-    if (msg?.kind !== 'subscribe') return;
-    handle?.detach();
-    handle = hub.attach(tabId, sink, { sinceMs: msg.sinceMs });
+  let disconnected = false;
+  const whenReady = (run: () => void): void => {
+    if (ready) {
+      void ready.then(() => {
+        if (!disconnected) run();
+      });
+    } else {
+      run();
+    }
+  };
+  port.onMessage.addListener((msg: LifecycleConsumerMessage) => {
+    if (msg?.kind === 'subscribe') {
+      const sinceMs = msg.sinceMs;
+      whenReady(() => {
+        handle?.detach();
+        handle = hub.attach(tabId, sink, { sinceMs });
+      });
+      return;
+    }
+    if (msg?.kind === 'clear-session') {
+      whenReady(() => hub.resetSession(tabId));
+    }
   });
   port.onDisconnect.addListener(() => {
+    disconnected = true;
     handle?.detach();
     tracker.release();
   });

@@ -33,7 +33,12 @@ export type {
   RequestLifecycleUpdate,
   RequestPhase,
 } from './types';
-export type { LifecycleSubscribeMessage, LifecycleWireMessage } from './wire';
+export type {
+  LifecycleClearSessionMessage,
+  LifecycleConsumerMessage,
+  LifecycleSubscribeMessage,
+  LifecycleWireMessage,
+} from './wire';
 export {
   LIFECYCLE_PORT_PREFIX,
   lifecyclePortName,

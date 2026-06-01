@@ -306,4 +306,78 @@ describe('acceptLifecyclePort', () => {
     });
     expect(port.posted.length).toBe(before);
   });
+
+  it('clear-session advances the session floor so a later subscribe drops pre-clear requests', () => {
+    const store = new RequestLifecycleStore();
+    const hub = new RequestLifecycleHub({ store });
+    const port = fakePort(lifecyclePortName(5));
+    acceptLifecyclePort(hub, port as unknown as chrome.runtime.Port);
+
+    // Session-start on an empty tab establishes the floor below any future
+    // request; then a request starts during the session.
+    subscribe(port);
+    store.apply({
+      kind: 'started',
+      lifecycle: {
+        tabId: 5,
+        requestId: 'before',
+        url: 'https://openheaders.io/before',
+        method: 'GET',
+        resourceType: 'xmlhttprequest',
+        phase: 'pending',
+        redirectHopCount: 0,
+        redirectHops: [],
+        startedAtMs: 5000,
+        hopStartedAtMs: 5000,
+        har: [],
+        harBodyByHop: [],
+      },
+    });
+
+    // Clear → engine advances the floor to the current watermark.
+    port.emit({ kind: 'clear-session' });
+
+    // A fresh subscribe now floors at 5000, so 'before' does not replay.
+    const postedBefore = port.posted.length;
+    subscribe(port);
+    const replays = port.posted.slice(postedBefore).filter((m) => (m as { kind: string }).kind === 'lifecycle-update');
+    expect(replays).toEqual([]);
+  });
+
+  it('defers attach until the readiness gate resolves', async () => {
+    const store = new RequestLifecycleStore();
+    store.apply({
+      kind: 'started',
+      lifecycle: {
+        tabId: 5,
+        requestId: 'a',
+        url: 'https://openheaders.io/a',
+        method: 'GET',
+        resourceType: 'xmlhttprequest',
+        phase: 'pending',
+        redirectHopCount: 0,
+        redirectHops: [],
+        startedAtMs: 1,
+        hopStartedAtMs: 1,
+        har: [],
+        harBodyByHop: [],
+      },
+    });
+    const hub = new RequestLifecycleHub({ store });
+    const port = fakePort(lifecyclePortName(5));
+    let release!: () => void;
+    const ready = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    acceptLifecyclePort(hub, port as unknown as chrome.runtime.Port, { ready });
+
+    // Gate unresolved → attach (ready + replay) has not run yet.
+    subscribe(port, -1);
+    expect(port.posted).toEqual([]);
+
+    release();
+    await ready;
+    await Promise.resolve();
+    expect((port.posted[0] as { kind: string }).kind).toBe('ready');
+  });
 });

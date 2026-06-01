@@ -8,9 +8,14 @@
  * webrequest ingestion stays live while a panel is connected.
  */
 
-import { logger } from '@utils/logger';
 import type { RequestLifecycleHub } from '@openheaders/oracle/request-lifecycle-hub';
+import { logger } from '@utils/logger';
 import { acceptLifecyclePort } from './accept-port';
+
+export {
+  createPersistentWatchSessionFloors,
+  type PersistentWatchSessionFloors,
+} from './watch-session-floors-storage';
 
 export interface LifecyclePortHost {
   /** Detach the onConnect listener. Tests / SW shutdown only. */
@@ -19,16 +24,18 @@ export interface LifecyclePortHost {
 
 export interface LifecyclePortHostOptions {
   readonly hub: RequestLifecycleHub;
+  /** Hydration gate for the watch-session floors; forwarded to each port. */
+  readonly ready?: Promise<void>;
 }
 
 export function startLifecyclePortHost(options: LifecyclePortHostOptions): LifecyclePortHost {
-  const { hub } = options;
+  const { hub, ready } = options;
   if (!chrome?.runtime?.onConnect?.addListener) {
     logger.info('LifecyclePortHost', 'runtime.onConnect unavailable — lifecycle ports disabled');
     return { dispose: () => {} };
   }
   const listener = (port: chrome.runtime.Port): void => {
-    acceptLifecyclePort(hub, port);
+    acceptLifecyclePort(hub, port, { ready });
   };
   chrome.runtime.onConnect.addListener(listener);
   return {

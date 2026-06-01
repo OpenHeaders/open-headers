@@ -66,8 +66,16 @@ export const DEFAULT_COLUMN_MIN_WIDTH = 40;
  */
 export function columnTrack(col: ColumnDef, override: number | undefined, compact: boolean = false): string {
   if (override != null) return `${Math.max(override, col.minWidth ?? DEFAULT_COLUMN_MIN_WIDTH)}px`;
+  if (compact) {
+    // Compact fits every visible column inside the panel width: each
+    // column may shrink to its floor and the widths scale as the panel
+    // is dragged, so there is never a horizontal scroll. Fixed columns
+    // cap at their default; stretchy columns absorb the remaining slack.
+    const min = col.minWidth ?? DEFAULT_COLUMN_MIN_WIDTH;
+    if (col.stretch) return `minmax(${min}px, 1fr)`;
+    return `minmax(${min}px, ${col.defaultWidth}px)`;
+  }
   if (col.stretch) {
-    if (compact) return `minmax(${col.minWidth ?? col.defaultWidth}px, 1fr)`;
     const max = col.maxWidth ?? col.defaultWidth * 3;
     return `minmax(${col.defaultWidth}px, ${max}px)`;
   }

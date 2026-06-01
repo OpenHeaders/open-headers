@@ -7,3 +7,4 @@
 
 export { RequestLifecycleHub } from './hub';
 export type { AttachmentHandle, Sink } from './types';
+export { InMemoryWatchSessionFloors, type WatchSessionFloors } from './watch-session-floors';
