@@ -47,7 +47,7 @@ import {
 import type { LifecycleClientSnapshot } from './lifecycle-client-store';
 import type { PageClientSnapshot } from './page-client-store';
 import { computeRepeatStats, type RepeatStats } from './timing-repeats';
-import type { InspectorFire } from './types';
+import { type InspectorFire, isAppliedFire } from './types';
 
 export interface UsePanelDataInput {
   readonly lifecycle: LifecycleClientSnapshot;
@@ -77,8 +77,21 @@ export interface UsePanelDataResult {
   readonly baselineMs: number | null;
   readonly totalBytesTransferred: number;
   readonly totalResourceSize: number;
-  /** Largest observed lifecycle duration in milliseconds, or 0 if none. */
+  /**
+   * Time in ms from the current navigation's start to the last byte of
+   * its last request — "Finish". Anchored to the latest top-level
+   * navigation (not the longest request ever seen), so it tracks the
+   * page you are on and never drifts under preserve-log. 0 if unknown.
+   */
   readonly finishTimeMs: number;
+  /** Rows whose rules actually ran (`isAppliedFire`). */
+  readonly modifiedCount: number;
+  /** Rows that errored — failed phase or HTTP status >= 400. */
+  readonly failedCount: number;
+  /** Rows served from cache — no wire bytes but a non-empty resource. */
+  readonly cachedCount: number;
+  /** Number of distinct navigations (pages) observed on this tab. */
+  readonly pageCount: number;
 }
 
 /**
@@ -133,7 +146,13 @@ export function usePanelData(input: UsePanelDataInput): UsePanelDataResult {
     const lookupByUrl = new Map<string, InspectorRowWithFires>();
     let totalBytesTransferred = 0;
     let totalResourceSize = 0;
-    let finishTimeMs = 0;
+    let modifiedCount = 0;
+    let failedCount = 0;
+    let cachedCount = 0;
+    // Finish baseline: anchor to the latest top-level navigation so the
+    // total tracks the current page, not the longest request ever seen.
+    let baseTime = -1;
+    let minStartedAtMs = -1;
     for (const row of rows) {
       lookupByRequestId.set(row.lifecycle.requestId, row);
       // First arrival wins for URL collisions — same convention as
@@ -146,9 +165,31 @@ export function usePanelData(input: UsePanelDataInput): UsePanelDataResult {
       const contentSize = har?.response?.content?.size;
       if (typeof contentSize === 'number' && contentSize > 0) totalResourceSize += contentSize;
 
-      const dur = lifecycleDuration(row.lifecycle);
-      if (dur > finishTimeMs) finishTimeMs = dur;
+      if (row.fires.some(isAppliedFire)) modifiedCount++;
+      const status = har?.response?.status;
+      if (row.lifecycle.phase === 'failed' || (typeof status === 'number' && status >= 400)) failedCount++;
+      // Cache hit: a real resource the page received with no wire bytes.
+      if ((transferred == null || transferred === 0) && typeof contentSize === 'number' && contentSize > 0) {
+        cachedCount++;
+      }
+
+      const startedAtMs = row.lifecycle.startedAtMs;
+      if (minStartedAtMs < 0 || startedAtMs < minStartedAtMs) minStartedAtMs = startedAtMs;
+      if (row.lifecycle.resourceType === 'main_frame' && startedAtMs > baseTime) baseTime = startedAtMs;
     }
+
+    // No top-level nav captured (e.g. panel opened mid-session): fall back
+    // to the earliest request as the baseline.
+    if (baseTime < 0) baseTime = minStartedAtMs;
+    let maxEnd = baseTime;
+    if (baseTime >= 0) {
+      for (const row of rows) {
+        if (row.lifecycle.startedAtMs < baseTime) continue;
+        const end = row.lifecycle.startedAtMs + lifecycleDuration(row.lifecycle);
+        if (end > maxEnd) maxEnd = end;
+      }
+    }
+    const finishTimeMs = baseTime >= 0 && maxEnd > baseTime ? maxEnd - baseTime : 0;
 
     const initiatorIndex = buildInitiatorIndex(lifecycles);
     const getInitiatorChildren = (url: string): readonly InspectorRowWithFires[] => {
@@ -183,6 +224,10 @@ export function usePanelData(input: UsePanelDataInput): UsePanelDataResult {
       totalBytesTransferred,
       totalResourceSize,
       finishTimeMs,
+      modifiedCount,
+      failedCount,
+      cachedCount,
+      pageCount: pages.length,
     };
   }, [lifecycles, pages, fires, opts]);
 }

@@ -166,34 +166,43 @@ function sampleNavTiming(onResult: (loadFired: boolean) => void): void {
 
 /**
  * Poll Navigation Timing until the load event has fired or the budget
- * expires. The cadence is deliberately coarse (500ms) — fast pages
- * complete within a tick or two; slow pages tolerate the extra polls
- * because each eval returns under a millisecond.
+ * expires. A devtools page can't receive the page's own load events
+ * without attaching a debugger, so we sample `performance` instead — on
+ * a ramped cadence: tight (100ms) for the first couple of seconds so a
+ * fast page surfaces DOMContentLoaded / Load almost immediately, then
+ * backing off (500ms) for the long tail of slow pages. Each eval returns
+ * under a millisecond, and sampling stops the moment the load lands.
  */
-const NAV_TIMING_POLL_MS = 500;
-const NAV_TIMING_MAX_ATTEMPTS = 40; // ~20s total at 500ms cadence
+const NAV_TIMING_FAST_MS = 100;
+const NAV_TIMING_FAST_WINDOW_MS = 2000;
+const NAV_TIMING_SLOW_MS = 500;
+const NAV_TIMING_MAX_MS = 20_000;
 
-let navTimingPoll: ReturnType<typeof setInterval> | null = null;
-let navTimingAttempts = 0;
+let navTimingTimer: ReturnType<typeof setTimeout> | null = null;
+let navTimingElapsedMs = 0;
 
 function stopNavTimingPoll(): void {
-  if (navTimingPoll != null) clearInterval(navTimingPoll);
-  navTimingPoll = null;
+  if (navTimingTimer != null) clearTimeout(navTimingTimer);
+  navTimingTimer = null;
 }
 
 function scheduleNavTimingSample(): void {
-  navTimingAttempts = 0;
   stopNavTimingPoll();
+  navTimingElapsedMs = 0;
+  // Self-scheduling so the next eval only fires after the previous one
+  // resolves — never stacking round-trips at the inspected window.
   const tick = () => {
-    navTimingAttempts++;
     sampleNavTiming((loadFired) => {
-      if (loadFired || navTimingAttempts >= NAV_TIMING_MAX_ATTEMPTS) {
+      if (loadFired || navTimingElapsedMs >= NAV_TIMING_MAX_MS) {
         stopNavTimingPoll();
+        return;
       }
+      const delay = navTimingElapsedMs < NAV_TIMING_FAST_WINDOW_MS ? NAV_TIMING_FAST_MS : NAV_TIMING_SLOW_MS;
+      navTimingElapsedMs += delay;
+      navTimingTimer = setTimeout(tick, delay);
     });
   };
   tick();
-  navTimingPoll = setInterval(tick, NAV_TIMING_POLL_MS);
 }
 
 // Kick off an initial sample — the panel may open on an already-loaded

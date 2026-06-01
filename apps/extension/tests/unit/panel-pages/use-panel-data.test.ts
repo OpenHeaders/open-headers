@@ -24,9 +24,9 @@ import { usePanelData } from '@openheaders/ui/panel/data/use-panel-data';
 
 function har(
   url: string,
-  overrides: { initiatorUrl?: string; bodySize?: number; contentSize?: number } = {},
+  overrides: { initiatorUrl?: string; bodySize?: number; contentSize?: number; status?: number } = {},
 ): InspectorHarEntry {
-  const { initiatorUrl, bodySize, contentSize } = overrides;
+  const { initiatorUrl, bodySize, contentSize, status } = overrides;
   return {
     startedDateTime: new Date(0).toISOString(),
     time: 0,
@@ -41,7 +41,7 @@ function har(
       bodySize: -1,
     },
     response: {
-      status: 200,
+      status: status ?? 200,
       statusText: 'OK',
       httpVersion: '',
       headers: [],
@@ -64,16 +64,20 @@ function lifecycle(
     initiatorUrl?: string;
     bodySize?: number;
     contentSize?: number;
+    resourceType?: string;
+    failed?: boolean;
+    status?: number;
   } = {},
 ): RequestLifecycle {
   const startedAtMs = overrides.startedAtMs ?? 1000;
+  const phase = overrides.failed ? 'failed' : overrides.completedAtMs != null ? 'completed' : 'pending';
   return {
     tabId: 1,
     requestId,
     url,
     method: 'GET',
-    resourceType: 'xmlhttprequest',
-    phase: overrides.completedAtMs != null ? 'completed' : 'pending',
+    resourceType: overrides.resourceType ?? 'xmlhttprequest',
+    phase,
     redirectHopCount: 0,
     redirectHops: [],
     startedAtMs,
@@ -84,6 +88,7 @@ function lifecycle(
         ...(overrides.initiatorUrl ? { initiatorUrl: overrides.initiatorUrl } : {}),
         ...(overrides.bodySize != null ? { bodySize: overrides.bodySize } : {}),
         ...(overrides.contentSize != null ? { contentSize: overrides.contentSize } : {}),
+        ...(overrides.status != null ? { status: overrides.status } : {}),
       }),
     ],
     harBodyByHop: [],
@@ -127,6 +132,10 @@ describe('usePanelData', () => {
     expect(result.current.totalBytesTransferred).toBe(0);
     expect(result.current.totalResourceSize).toBe(0);
     expect(result.current.finishTimeMs).toBe(0);
+    expect(result.current.modifiedCount).toBe(0);
+    expect(result.current.failedCount).toBe(0);
+    expect(result.current.cachedCount).toBe(0);
+    expect(result.current.pageCount).toBe(0);
   });
 
   it('builds rows ordered by startedAtMs and assigns sequential displayIds', () => {
@@ -218,7 +227,7 @@ describe('usePanelData', () => {
     expect(result.current.totalResourceSize).toBe(2048 + 256);
   });
 
-  it('finishTimeMs reports the largest lifecycle duration', () => {
+  it('finishTimeMs spans the earliest request to the last byte when no top-level nav exists', () => {
     const { result } = renderHook(() =>
       usePanelData(
         snapshots([
@@ -227,7 +236,76 @@ describe('usePanelData', () => {
         ]),
       ),
     );
-    expect(result.current.finishTimeMs).toBe(800);
+    // No main_frame row → baseline falls back to the earliest start (0);
+    // last byte is b's end (900) → 900, not the longest duration (800).
+    expect(result.current.finishTimeMs).toBe(900);
+  });
+
+  it('finishTimeMs anchors to the latest top-level navigation', () => {
+    const { result } = renderHook(() =>
+      usePanelData(
+        snapshots([
+          // First navigation + a slow request from it — must NOT pin Finish.
+          lifecycle('nav1', 'https://openheaders.io/', {
+            resourceType: 'main_frame',
+            startedAtMs: 0,
+            completedAtMs: 200,
+          }),
+          lifecycle('slow', 'https://openheaders.io/poll', { startedAtMs: 50, completedAtMs: 50_000 }),
+          // Second (current) navigation and its own asset.
+          lifecycle('nav2', 'https://openheaders.io/dashboard', {
+            resourceType: 'main_frame',
+            startedAtMs: 60_000,
+            completedAtMs: 60_300,
+          }),
+          lifecycle('asset', 'https://openheaders.io/app.js', { startedAtMs: 60_100, completedAtMs: 61_200 }),
+        ]),
+      ),
+    );
+    // baseTime = 60_000 (latest main_frame); maxEnd = 61_200 (asset).
+    expect(result.current.finishTimeMs).toBe(1200);
+  });
+
+  it('finishTimeMs ignores still-loading requests (no end yet)', () => {
+    const { result } = renderHook(() =>
+      usePanelData(
+        snapshots([
+          lifecycle('nav', 'https://openheaders.io/', { resourceType: 'main_frame', startedAtMs: 0, completedAtMs: 400 }),
+          // Open connection on the current page — pending, contributes nothing.
+          lifecycle('ws', 'https://openheaders.io/socket', { startedAtMs: 100 }),
+        ]),
+      ),
+    );
+    expect(result.current.finishTimeMs).toBe(400);
+  });
+
+  it('counts modified, failed, and cached rows', () => {
+    const { result } = renderHook(() =>
+      usePanelData(
+        snapshots(
+          [
+            lifecycle('ok', 'https://openheaders.io/ok', { completedAtMs: 1100 }),
+            lifecycle('err', 'https://openheaders.io/err', { status: 500, completedAtMs: 1100 }),
+            lifecycle('boom', 'https://openheaders.io/boom', { failed: true }),
+            lifecycle('cache', 'https://openheaders.io/cache', { bodySize: -1, contentSize: 2048, completedAtMs: 1100 }),
+          ],
+          [],
+          [fire('rule-1', 'ok')],
+        ),
+      ),
+    );
+    expect(result.current.modifiedCount).toBe(1);
+    expect(result.current.failedCount).toBe(2);
+    expect(result.current.cachedCount).toBe(1);
+  });
+
+  it('pageCount reflects the number of observed navigations', () => {
+    const pages: Page[] = [
+      { id: 'page_1', startedAtMs: 1000, url: 'https://openheaders.io/' },
+      { id: 'page_2', startedAtMs: 5000, url: 'https://openheaders.io/next' },
+    ];
+    const { result } = renderHook(() => usePanelData(snapshots([], pages)));
+    expect(result.current.pageCount).toBe(2);
   });
 
   it('baselineMs equals the first row\'s startedAtMs', () => {

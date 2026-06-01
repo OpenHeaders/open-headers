@@ -183,6 +183,59 @@ function MoreFiltersMenu({
   );
 }
 
+/**
+ * "View ▾" dropdown — toggles which optional stats the footer shows.
+ * Same checkbox-popover idiom as More filters; each toggle is a `user`
+ * setting so the choice persists across panels. The badge counts the
+ * stats currently surfaced beyond the always-on counts.
+ */
+function ViewMenu() {
+  const [showModified, setShowModified] = useSetting('devpanelLayout.footerShowModified');
+  const [showFailed, setShowFailed] = useSetting('devpanelLayout.footerShowFailed');
+  const [showCached, setShowCached] = useSetting('devpanelLayout.footerShowCached');
+  const [showPageContext, setShowPageContext] = useSetting('devpanelLayout.footerShowPageContext');
+
+  const flags = [showModified, showFailed, showCached, showPageContext];
+  const activeCount = flags.reduce((n, v) => n + (v ? 1 : 0), 0);
+
+  const content = (
+    <div className="dt-morefilters-menu">
+      <label className="dt-morefilters-item">
+        <input type="checkbox" checked={showModified} onChange={(e) => setShowModified(e.target.checked)} />
+        Modified count
+      </label>
+      <label className="dt-morefilters-item">
+        <input type="checkbox" checked={showFailed} onChange={(e) => setShowFailed(e.target.checked)} />
+        Failed count
+      </label>
+      <label className="dt-morefilters-item">
+        <input type="checkbox" checked={showCached} onChange={(e) => setShowCached(e.target.checked)} />
+        Cached count
+      </label>
+      <div className="dt-morefilters-divider" />
+      <label
+        className="dt-morefilters-item"
+        title="When the log spans more than one navigation, name the page the timing milestones describe."
+      >
+        <input type="checkbox" checked={showPageContext} onChange={(e) => setShowPageContext(e.target.checked)} />
+        Current page label
+      </label>
+    </div>
+  );
+
+  return (
+    <Popover content={content} trigger="click" placement="bottomLeft" arrow={false} overlayClassName="dt-morefilters-popover">
+      <button type="button" className="dt-toolbar-dropdown" title="Choose which footer stats to show">
+        View
+        {activeCount > 0 && <span className="dt-toolbar-dropdown-count">{activeCount}</span>}
+        <span className="dt-toolbar-dropdown-caret" aria-hidden="true">
+          ▾
+        </span>
+      </button>
+    </Popover>
+  );
+}
+
 function ExportMenu({ onExport, onCopy, disabled }: { onExport: () => void; onCopy: () => void; disabled: boolean }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -522,6 +575,7 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
             cacheBypassEnabled={cacheBypassEnabled}
             onToggleCacheBypass={onToggleCacheBypass}
           />
+          <ViewMenu />
           <div className="dt-toolbar-separator" />
           <ExportMenu onExport={onExportHar} onCopy={onCopyAllHar} disabled={!canExport} />
           {rulesVisible && (

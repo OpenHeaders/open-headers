@@ -30,12 +30,32 @@ interface PanelStatusBarProps {
   dclMs?: number;
   loadMs?: number;
   tabCount: number;
+  /** Requests whose rules actually ran. */
+  modifiedCount?: number;
+  /** Requests that failed or returned an error status. */
+  failedCount?: number;
+  /** Requests served from cache. */
+  cachedCount?: number;
+  /** Distinct navigations observed — drives the current-page label. */
+  pageCount?: number;
+  /** Origin of the navigation the timing milestones describe. */
+  pageOrigin?: string | null;
 }
 
 function formatTiming(ms: number | undefined): string {
   if (ms == null || !Number.isFinite(ms) || ms <= 0) return '';
   if (ms < 1000) return `${Math.round(ms)} ms`;
   return `${(ms / 1000).toFixed(2)} s`;
+}
+
+/** Host portion of an origin for the compact current-page label. */
+function originHost(origin: string | null | undefined): string {
+  if (!origin) return '';
+  try {
+    return new URL(origin).host || origin;
+  } catch {
+    return origin;
+  }
 }
 
 const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
@@ -46,12 +66,29 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
   dclMs,
   loadMs,
   tabCount,
+  modifiedCount = 0,
+  failedCount = 0,
+  cachedCount = 0,
+  pageOrigin,
 }) => {
   const { token } = theme.useToken();
   const { themeMode, setThemeMode } = useTheme();
 
   const showVersion = useSettingValue('devpanelLayout.footerShowVersion');
   const showThemeSwitcher = useSettingValue('devpanelLayout.footerShowThemeSwitcher');
+  const showModified = useSettingValue('devpanelLayout.footerShowModified');
+  const showFailed = useSettingValue('devpanelLayout.footerShowFailed');
+  const showCached = useSettingValue('devpanelLayout.footerShowCached');
+  const showPageContext = useSettingValue('devpanelLayout.footerShowPageContext');
+
+  const dclText = formatTiming(dclMs);
+  const loadText = formatTiming(loadMs);
+  const hasTiming = Boolean(finishTime || dclText || loadText);
+  const pageHost = originHost(pageOrigin);
+  // Each chip is visible iff its View toggle is on — the count/host is
+  // still shown at zero so toggling is always observable. The page label
+  // additionally needs a known host + timing to anchor to.
+  const showPageLabel = showPageContext && hasTiming && pageHost !== '';
 
   return (
     <div
@@ -63,24 +100,58 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
       }}
     >
       <div className="rules-statusbar-left">
+        {/* Cumulative traffic across whatever the log holds. */}
         <span className="rules-statusbar-item">
           {requestCount} request{requestCount === 1 ? '' : 's'}
         </span>
+        {showModified && (
+          <span
+            className="rules-statusbar-item"
+            style={{ color: modifiedCount > 0 ? token.colorPrimary : token.colorTextTertiary }}
+            title="Requests your rules modified"
+          >
+            {modifiedCount} modified
+          </span>
+        )}
+        {showFailed && (
+          <span
+            className="rules-statusbar-item"
+            style={{ color: failedCount > 0 ? token.colorError : token.colorTextTertiary }}
+            title="Failed or error-status requests"
+          >
+            {failedCount} failed
+          </span>
+        )}
+        {showCached && (
+          <span className="rules-statusbar-item" style={{ color: token.colorTextTertiary }} title="Requests served from cache">
+            {cachedCount} cached
+          </span>
+        )}
         <span className="rules-statusbar-item">
           {transferredSize} transferred
           {resourceSize && resourceSize !== transferredSize ? ` / ${resourceSize} resources` : ''}
         </span>
+
+        {/* This-navigation milestones — divider keeps them legibly apart
+            from the cumulative counts so Finish reads as per-page. */}
+        {hasTiming && <div className="rules-statusbar-divider" style={{ background: token.colorBorderSecondary }} />}
         {finishTime && <span className="rules-statusbar-item">Finish: {finishTime}</span>}
-        {formatTiming(dclMs) && (
+        {dclText && (
           <span className="rules-statusbar-item" style={{ color: '#1a73e8' }} title="DOMContentLoaded">
-            DOMContentLoaded: {formatTiming(dclMs)}
+            DOMContentLoaded: {dclText}
           </span>
         )}
-        {formatTiming(loadMs) && (
+        {loadText && (
           <span className="rules-statusbar-item" style={{ color: '#d93025' }} title="Load event">
-            Load: {formatTiming(loadMs)}
+            Load: {loadText}
           </span>
         )}
+        {hasTiming && showPageLabel && (
+          <span className="rules-statusbar-item" style={{ color: token.colorTextTertiary }} title={pageOrigin ?? undefined}>
+            {pageHost}
+          </span>
+        )}
+
         {tabCount > 0 && (
           <span className="rules-statusbar-item">
             {tabCount} tab{tabCount === 1 ? '' : 's'}

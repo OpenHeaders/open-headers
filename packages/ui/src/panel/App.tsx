@@ -665,6 +665,11 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
         dclMs={data.navTiming?.dclMs}
         loadMs={data.navTiming?.loadMs}
         tabCount={groups.allTabs.length}
+        modifiedCount={data.modifiedCount}
+        failedCount={data.failedCount}
+        cachedCount={data.cachedCount}
+        pageCount={data.pageCount}
+        pageOrigin={data.navTiming?.pageOrigin}
       />
     </div>
   );

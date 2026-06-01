@@ -18,6 +18,10 @@ declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
     'devpanelLayout.footerShowVersion': boolean;
     'devpanelLayout.footerShowThemeSwitcher': boolean;
+    'devpanelLayout.footerShowModified': boolean;
+    'devpanelLayout.footerShowFailed': boolean;
+    'devpanelLayout.footerShowCached': boolean;
+    'devpanelLayout.footerShowPageContext': boolean;
     'devpanelLayout.topbarShowPanelToggles': boolean;
     'devpanelLayout.topbarShowLayoutMenu': boolean;
     'devpanelLayout.bottomPanelAlignment': DevpanelBottomPanelAlignmentSetting;
@@ -55,6 +59,59 @@ registerSetting({
   category: 'devpanelLayout',
   subcategory: 'Footer',
   tags: ['statusbar', 'footer', 'theme', 'dark mode', 'devtools'],
+  scope: 'user',
+});
+
+registerSetting({
+  key: 'devpanelLayout.footerShowModified',
+  type: 'boolean',
+  default: true,
+  schema: v.boolean(),
+  label: 'Show Modified Count in Footer',
+  description: 'Display how many requests your rules actually modified in the DevTools panel status bar.',
+  category: 'devpanelLayout',
+  subcategory: 'Footer',
+  tags: ['statusbar', 'footer', 'modified', 'rules', 'devtools'],
+  scope: 'user',
+});
+
+registerSetting({
+  key: 'devpanelLayout.footerShowFailed',
+  type: 'boolean',
+  default: true,
+  schema: v.boolean(),
+  label: 'Show Failed Count in Footer',
+  description: 'Display how many requests failed or returned an error status in the DevTools panel status bar.',
+  category: 'devpanelLayout',
+  subcategory: 'Footer',
+  tags: ['statusbar', 'footer', 'failed', 'errors', 'devtools'],
+  scope: 'user',
+});
+
+registerSetting({
+  key: 'devpanelLayout.footerShowCached',
+  type: 'boolean',
+  default: false,
+  schema: v.boolean(),
+  label: 'Show Cached Count in Footer',
+  description: 'Display how many requests were served from cache in the DevTools panel status bar.',
+  category: 'devpanelLayout',
+  subcategory: 'Footer',
+  tags: ['statusbar', 'footer', 'cache', 'devtools'],
+  scope: 'user',
+});
+
+registerSetting({
+  key: 'devpanelLayout.footerShowPageContext',
+  type: 'boolean',
+  default: false,
+  schema: v.boolean(),
+  label: 'Show Current Page in Footer',
+  description:
+    'Label the timing milestones with the page they describe in the DevTools panel status bar — useful with Preserve log across multiple navigations.',
+  category: 'devpanelLayout',
+  subcategory: 'Footer',
+  tags: ['statusbar', 'footer', 'page', 'navigation', 'preserve log', 'devtools'],
   scope: 'user',
 });
 
