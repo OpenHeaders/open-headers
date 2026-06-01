@@ -12,7 +12,7 @@
 
 import type { NetworkCustomNestedLevel } from '@openheaders/ui/workbench/settings/schema/devpanel-network';
 import type { InspectorRowWithFires } from './inspector-row-projection';
-import { currentHarEntry } from './inspector-row-projection';
+import { currentHarEntry, lifecycleTransferredBytes } from './inspector-row-projection';
 import { getColumnSortValue, type SortableColumnKey } from './network-columns';
 import { classifyRequestState, type RequestState } from './request-state';
 import { isAppliedFire } from './types';
@@ -143,8 +143,7 @@ function durationFor(row: InspectorRowWithFires): number {
 }
 
 function transferredFor(row: InspectorRowWithFires): number {
-  const bs = currentHarEntry(row.lifecycle)?.response?.bodySize;
-  return typeof bs === 'number' && bs >= 0 ? bs : -1;
+  return lifecycleTransferredBytes(row.lifecycle) ?? -1;
 }
 
 type Comparator = (a: InspectorRowWithFires, b: InspectorRowWithFires) => number;

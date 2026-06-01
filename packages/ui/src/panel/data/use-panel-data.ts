@@ -34,17 +34,18 @@ import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { InspectorNavTiming } from '@openheaders/core/types';
 import { useMemo } from 'react';
 
-import { computeConnectionReuse, type ConnectionReuseInfo } from './connection-reuse';
-import { type FireClientSnapshot } from './fire-client-store';
+import { type ConnectionReuseInfo, computeConnectionReuse } from './connection-reuse';
+import type { FireClientSnapshot } from './fire-client-store';
 import { buildInitiatorIndex, type InitiatorIndex } from './initiator-index';
-import { buildInspectorRows, type BuildInspectorRowsOptions } from './inspector-facet';
+import { type BuildInspectorRowsOptions, buildInspectorRows } from './inspector-facet';
 import {
   attachFiresToRows,
   currentHarEntry,
   type InspectorRowWithFires,
+  lifecycleTransferredBytes,
 } from './inspector-row-projection';
-import { type LifecycleClientSnapshot } from './lifecycle-client-store';
-import { type PageClientSnapshot } from './page-client-store';
+import type { LifecycleClientSnapshot } from './lifecycle-client-store';
+import type { PageClientSnapshot } from './page-client-store';
 import { computeRepeatStats, type RepeatStats } from './timing-repeats';
 import type { InspectorFire } from './types';
 
@@ -140,8 +141,8 @@ export function usePanelData(input: UsePanelDataInput): UsePanelDataResult {
       if (!lookupByUrl.has(row.lifecycle.url)) lookupByUrl.set(row.lifecycle.url, row);
 
       const har = currentHarEntry(row.lifecycle);
-      const bodySize = har?.response?.bodySize;
-      if (typeof bodySize === 'number' && bodySize > 0) totalBytesTransferred += bodySize;
+      const transferred = lifecycleTransferredBytes(row.lifecycle);
+      if (transferred != null && transferred > 0) totalBytesTransferred += transferred;
       const contentSize = har?.response?.content?.size;
       if (typeof contentSize === 'number' && contentSize > 0) totalResourceSize += contentSize;
 
@@ -164,8 +165,7 @@ export function usePanelData(input: UsePanelDataInput): UsePanelDataResult {
     const navTiming = projectNavTiming(pages);
     const baselineMs = rows.length > 0 ? rows[0].lifecycle.startedAtMs : null;
 
-    const getConnectionReuse = (lc: RequestLifecycle): ConnectionReuseInfo =>
-      computeConnectionReuse(lc, lifecycles);
+    const getConnectionReuse = (lc: RequestLifecycle): ConnectionReuseInfo => computeConnectionReuse(lc, lifecycles);
     const getRepeatStats = (lc: RequestLifecycle): RepeatStats | null => computeRepeatStats(lc, lifecycles);
 
     return {

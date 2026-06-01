@@ -1,19 +1,23 @@
 /**
  * Size-column data model.
  *
- * The Size column is actually three different pieces of information
- * collapsed into one:
+ * The Size column is three different pieces of information collapsed
+ * into one:
  *
  *   - "Pending" while the response body hasn't arrived.
  *   - A cache-source label (`(disk cache)`, `(memory cache)`,
  *     `(ServiceWorker)`) when the wire wasn't hit.
- *   - A two-number reading (`transferred / resource`) when it was.
- *     Compressed responses send fewer bytes over the wire than the
- *     page ultimately uses — users debugging perf need both.
+ *   - The bytes transferred over the wire when it was. Compressed
+ *     responses send fewer bytes than the page ultimately uses — the
+ *     decoded resource size rides along in the cell tooltip.
+ *
+ * The cell shows a single value, always in kB so a column of sizes
+ * stays in one unit; the transferred size is the visible figure and
+ * the resource size lives in the tooltip.
  */
 
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
-import { currentHarEntry } from './inspector-row-projection';
+import { currentHarEntry, lifecycleTransferredBytes } from './inspector-row-projection';
 import type { RequestState } from './request-state';
 
 export type SizeInfo =
@@ -26,17 +30,21 @@ export function getSizeInfo(lifecycle: RequestLifecycle, state: RequestState): S
   if (state.kind === 'cached') return { kind: 'cached', source: state.source };
 
   const har = currentHarEntry(lifecycle);
-  const rawBody = har?.response?.bodySize;
-  const transferred = typeof rawBody === 'number' && rawBody >= 0 ? rawBody : null;
+  const transferred = lifecycleTransferredBytes(lifecycle);
   const rawContent = har?.response?.content?.size;
   const resource = typeof rawContent === 'number' && rawContent >= 0 ? rawContent : null;
   return { kind: 'bytes', transferred, resource };
 }
 
-function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} kB`;
-  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+/**
+ * Render bytes always in kB so a column of sizes stays in one unit.
+ * One decimal below 100 kB, integer kB (thousands-separated) above.
+ * Uses 1000-byte kB.
+ */
+export function formatBytesToKb(bytes: number): string {
+  const kilobytes = bytes / 1000;
+  if (kilobytes < 100) return `${kilobytes.toFixed(1)} kB`;
+  return `${Math.round(kilobytes).toLocaleString()} kB`;
 }
 
 function cacheLabel(source: 'disk' | 'memory' | 'service-worker'): string {
@@ -50,18 +58,16 @@ function cacheLabel(source: 'disk' | 'memory' | 'service-worker'): string {
   }
 }
 
-/** Single-line rendering of a SizeInfo. Used for tooltips + HAR-export copy. */
+/**
+ * The single value shown in the Size column: the transferred size in
+ * kB (falling back to the resource size when the wire count is
+ * unknown). Pending / cached rows render their label instead.
+ */
 export function formatSizeInfo(info: SizeInfo): string {
   if (info.kind === 'pending') return 'Pending';
   if (info.kind === 'cached') return cacheLabel(info.source);
-  const { transferred, resource } = info;
-  if (transferred == null && resource == null) return '';
-  if (transferred != null && resource != null && resource > transferred) {
-    return `${formatBytes(transferred)} / ${formatBytes(resource)}`;
-  }
-  if (transferred != null) return formatBytes(transferred);
-  if (resource != null) return formatBytes(resource);
-  return '';
+  const primary = info.transferred ?? info.resource;
+  return primary == null ? '' : formatBytesToKb(primary);
 }
 
 /**

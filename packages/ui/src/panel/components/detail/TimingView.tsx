@@ -2,7 +2,11 @@ import { useCallback, useRef } from 'react';
 import { useMeasuredCssHeights } from '@openheaders/ui/shared/hooks/useMeasuredStickyOffset';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import type { ConnectionReuseInfo } from '../../data/connection-reuse';
-import { currentHarEntry, type InspectorRowWithFires } from '../../data/inspector-row-projection';
+import {
+  currentHarEntry,
+  type InspectorRowWithFires,
+  lifecycleTransferredBytes,
+} from '../../data/inspector-row-projection';
 import { parseServerTiming, type ServerTimingMetric } from '../../data/server-timing';
 import { computeTimingContext, type CacheLabel } from '../../data/timing-context';
 import { computeTimingPhases, type TimingGroup } from '../../data/timing-phases';
@@ -111,7 +115,7 @@ export default function TimingView({ row, connectionReuse, repeatStats, baseline
   const serverTiming = parseServerTiming(har?.response?.headers);
   const receivePhase = data.phases.find((p) => p.key === 'receive');
   const transferRate = receivePhase
-    ? computeTransferRate(receivePhase.ms, har?.response?.content?.size ?? har?.response?.bodySize)
+    ? computeTransferRate(receivePhase.ms, har?.response?.content?.size ?? lifecycleTransferredBytes(lc))
     : null;
   const barTotal = Math.max(data.totalMs, 1);
 

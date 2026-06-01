@@ -9,7 +9,7 @@
  */
 
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
-import { currentHarEntry } from './inspector-row-projection';
+import { currentHarEntry, lifecycleTransferredBytes } from './inspector-row-projection';
 import { classifyRequestState } from './request-state';
 
 export type InitiatorTypeLabel =
@@ -77,11 +77,10 @@ function normalizeInitiatorType(raw: string | undefined): InitiatorTypeLabel | n
 }
 
 function pickSizeBytes(lifecycle: RequestLifecycle): number | null {
-  const r = currentHarEntry(lifecycle)?.response;
-  if (!r) return null;
-  if (typeof r.bodySize === 'number' && r.bodySize > 0) return r.bodySize;
-  if (typeof r.content?.size === 'number' && r.content.size > 0) return r.content.size;
-  return null;
+  const t = lifecycleTransferredBytes(lifecycle);
+  if (t != null && t > 0) return t;
+  const cs = currentHarEntry(lifecycle)?.response?.content?.size;
+  return typeof cs === 'number' && cs > 0 ? cs : null;
 }
 
 function lifecycleDurationMs(lifecycle: RequestLifecycle): number | null {
@@ -108,10 +107,7 @@ export function isCascadeFailure(lifecycle: RequestLifecycle): boolean {
   return code >= 400;
 }
 
-export function computeInitiatorRowMeta(
-  lifecycle: RequestLifecycle,
-  pageOrigin: string | null,
-): InitiatorRowMeta {
+export function computeInitiatorRowMeta(lifecycle: RequestLifecycle, pageOrigin: string | null): InitiatorRowMeta {
   const initiator = currentHarEntry(lifecycle)?._initiator as Initiator | undefined;
   const entryOrigin = originOf(lifecycle.url);
   const rawType = lifecycle.resourceType;

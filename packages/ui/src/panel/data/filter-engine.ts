@@ -1,5 +1,5 @@
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
-import { currentHarEntry } from './inspector-row-projection';
+import { currentHarEntry, lifecycleTransferredBytes } from './inspector-row-projection';
 import { classifyRequestState } from './request-state';
 
 /**
@@ -168,8 +168,8 @@ function textMatches(haystack: string, needle: string, config: FilterConfig): bo
 }
 
 function transferredBytes(lc: RequestLifecycle): number {
-  const bs = currentHarEntry(lc)?.response?.bodySize;
-  if (typeof bs === 'number' && bs >= 0) return bs;
+  const t = lifecycleTransferredBytes(lc);
+  if (t != null) return t;
   const cs = currentHarEntry(lc)?.response?.content?.size;
   if (typeof cs === 'number' && cs >= 0) return cs;
   return 0;

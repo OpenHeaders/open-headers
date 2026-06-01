@@ -2,8 +2,8 @@ import { useMemo, useState } from 'react';
 import {
   currentHarEntry,
   type InspectorRowWithFires,
-  lifecycleBodySize,
   lifecycleMimeType,
+  lifecycleTransferredBytes,
 } from '../data/inspector-row-projection';
 import { isTextMime } from '../data/mime';
 import { classifyBodyState } from '../data/response-body-state';
@@ -101,7 +101,9 @@ export function ResponseBodyView({ row, searchHighlight, searchMatchIndex }: Res
     } else if (bytes) {
       content = <HexViewer data={bytes} />;
     } else {
-      content = <span className="dt-col-muted">Binary payload ({lifecycleBodySize(lc) ?? 0} bytes).</span>;
+      content = (
+        <span className="dt-col-muted">Binary payload ({lifecycleTransferredBytes(lc) ?? 0} bytes).</span>
+      );
     }
 
     // Binary bodies whose MIME is text-ish (e.g. base64-encoded JSON)

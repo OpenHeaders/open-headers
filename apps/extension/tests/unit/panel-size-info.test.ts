@@ -1,7 +1,7 @@
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarEntry } from '@openheaders/core/types';
 import type { RequestState } from '@openheaders/ui/panel/data/request-state';
-import { formatSizeInfo, getSizeInfo, sortValueOf } from '@openheaders/ui/panel/data/size-info';
+import { formatBytesToKb, formatSizeInfo, getSizeInfo, sortValueOf } from '@openheaders/ui/panel/data/size-info';
 import { describe, expect, it } from 'vitest';
 
 function makeLifecycle(harOverrides: Partial<InspectorHarEntry> = {}): RequestLifecycle {
@@ -62,11 +62,40 @@ describe('getSizeInfo', () => {
     expect(getSizeInfo(lc, S200)).toEqual({ kind: 'bytes', transferred: null, resource: 4200 });
   });
 
+  it('prefers _transferSize over bodySize for compressed responses', () => {
+    // Chrome reports bodySize: -1 for any compressed (br/gzip) response and
+    // carries the real wire-byte count in _transferSize.
+    const lc = makeLifecycle({
+      response: {
+        status: 200,
+        statusText: 'OK',
+        headers: [],
+        bodySize: -1,
+        _transferSize: 380,
+        content: { size: 528, mimeType: 'text/html' },
+      },
+    });
+    expect(getSizeInfo(lc, S200)).toEqual({ kind: 'bytes', transferred: 380, resource: 528 });
+  });
+
   it('returns null for both values when nothing is known', () => {
     const lc = makeLifecycle({
       response: { status: 200, statusText: 'OK', headers: [], content: { size: -1, mimeType: '' } },
     });
     expect(getSizeInfo(lc, S200)).toEqual({ kind: 'bytes', transferred: null, resource: null });
+  });
+});
+
+describe('formatBytesToKb', () => {
+  it('always renders kB, one decimal below 100 kB', () => {
+    expect(formatBytesToKb(380)).toBe('0.4 kB');
+    expect(formatBytesToKb(528)).toBe('0.5 kB');
+    expect(formatBytesToKb(12000)).toBe('12.0 kB');
+  });
+
+  it('renders integer kB at or above 100 kB', () => {
+    expect(formatBytesToKb(99000)).toBe('99.0 kB');
+    expect(formatBytesToKb(150000)).toBe('150 kB');
   });
 });
 
@@ -83,16 +112,11 @@ describe('formatSizeInfo', () => {
     expect(formatSizeInfo({ kind: 'cached', source })).toBe(label);
   });
 
-  it('shows both transferred and resource when compressed', () => {
-    expect(formatSizeInfo({ kind: 'bytes', transferred: 4200, resource: 12000 })).toBe('4.1 kB / 11.7 kB');
+  it('shows the transferred size as a single kB value', () => {
+    expect(formatSizeInfo({ kind: 'bytes', transferred: 380, resource: 528 })).toBe('0.4 kB');
   });
 
-  it('shows a single size when transferred equals resource', () => {
-    expect(formatSizeInfo({ kind: 'bytes', transferred: 4200, resource: 4200 })).toBe('4.1 kB');
-  });
-
-  it('falls back to whichever number is known', () => {
-    expect(formatSizeInfo({ kind: 'bytes', transferred: 1024, resource: null })).toBe('1.0 kB');
+  it('falls back to the resource size when transferred is unknown', () => {
     expect(formatSizeInfo({ kind: 'bytes', transferred: null, resource: 2048 })).toBe('2.0 kB');
   });
 

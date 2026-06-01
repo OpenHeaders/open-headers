@@ -24,9 +24,14 @@
  */
 
 import { formatHttpVersion } from '../../data/http-version';
-import { currentHarEntry, type InspectorRowWithFires } from '../../data/inspector-row-projection';
+import {
+  currentHarEntry,
+  type InspectorRowWithFires,
+  lifecycleTransferredBytes,
+} from '../../data/inspector-row-projection';
 import { getColumnSortValue, type SortableColumnKey } from '../../data/network-columns';
-import { formatDuration, formatInitiator, formatSize, formatTimestamp } from './formatters';
+import { formatBytesToKb } from '../../data/size-info';
+import { formatDuration, formatInitiator, formatTimestamp } from './formatters';
 import { normalizeResourceType, RESOURCE_LABEL } from './resource-types';
 
 export type ColumnKey = SortableColumnKey;
@@ -250,8 +255,8 @@ export const COLUMN_DEFS: Record<ColumnKey, ColumnDef> = {
     align: 'right',
     sortable: true,
     extract: (r) => {
-      const bs = currentHarEntry(r.lifecycle)?.response?.bodySize;
-      return formatSize(bs) || null;
+      const bs = lifecycleTransferredBytes(r.lifecycle);
+      return bs == null ? null : formatBytesToKb(bs);
     },
     getSortValue: delegateSort('size'),
   },

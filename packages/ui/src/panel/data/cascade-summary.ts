@@ -17,7 +17,7 @@
 
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import { isCascadeFailure } from './initiator-row-meta';
-import { currentHarEntry } from './inspector-row-projection';
+import { currentHarEntry, lifecycleTransferredBytes } from './inspector-row-projection';
 
 export interface SubtreeStats {
   /** Descendants of this node (excludes the node itself). */
@@ -60,11 +60,10 @@ function originOf(url: string): string | null {
 }
 
 function pickSizeBytes(lc: RequestLifecycle): number {
-  const r = currentHarEntry(lc)?.response;
-  if (!r) return 0;
-  if (typeof r.bodySize === 'number' && r.bodySize > 0) return r.bodySize;
-  if (typeof r.content?.size === 'number' && r.content.size > 0) return r.content.size;
-  return 0;
+  const t = lifecycleTransferredBytes(lc);
+  if (t != null && t > 0) return t;
+  const cs = currentHarEntry(lc)?.response?.content?.size;
+  return typeof cs === 'number' && cs > 0 ? cs : 0;
 }
 
 function pickDurationMs(lc: RequestLifecycle): number {

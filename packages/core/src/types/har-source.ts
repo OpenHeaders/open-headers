@@ -65,6 +65,12 @@ export interface InspectorHarEntry {
     redirectURL?: string;
     headersSize?: number;
     bodySize?: number;
+    /** Chromium extension: total bytes received over the wire — encoded
+     *  response headers plus the encoded (compressed) body. Standard
+     *  `bodySize` is `-1` for any compressed or cache-served response,
+     *  so `_transferSize` is the only reliable wire-byte count. `0` for
+     *  cache hits; absent on older Chromium builds. */
+    _transferSize?: number;
     /** Chromium extension: net-stack error code (e.g. "net::ERR_CERT_DATE_INVALID")
      *  populated on `chrome.devtools.network.onRequestFinished` entries
      *  whose underlying request failed before producing a real HTTP

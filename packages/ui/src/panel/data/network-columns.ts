@@ -10,7 +10,7 @@
  */
 
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
-import { currentHarEntry, type InspectorRowWithFires } from './inspector-row-projection';
+import { currentHarEntry, type InspectorRowWithFires, lifecycleTransferredBytes } from './inspector-row-projection';
 
 export type SortableColumnKey =
   | 'name'
@@ -79,9 +79,7 @@ function priorityText(lc: RequestLifecycle): string {
 }
 
 function transferredBytes(lc: RequestLifecycle): number {
-  const body = currentHarEntry(lc)?.response?.bodySize;
-  if (typeof body === 'number' && body >= 0) return body;
-  return -1;
+  return lifecycleTransferredBytes(lc) ?? -1;
 }
 
 function durationMs(lc: RequestLifecycle): number {

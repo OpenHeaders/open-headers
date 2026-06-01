@@ -1,7 +1,7 @@
 import { matchesCascadeQuery, type parseCascadeQuery } from '../../../data/cascade-filter';
 import type { SubtreeStats } from '../../../data/cascade-summary';
 import { computeInitiatorRowMeta, type InitiatorRowMeta } from '../../../data/initiator-row-meta';
-import { currentHarEntry, type InspectorRowWithFires } from '../../../data/inspector-row-projection';
+import { type InspectorRowWithFires, lifecycleTransferredBytes } from '../../../data/inspector-row-projection';
 
 export type SortMode = 'initiator' | 'chronological' | 'largest';
 
@@ -42,12 +42,8 @@ export function sortChildren(
   }
   // largest: own size + subtree size, descending
   arr.sort((a, b) => {
-    const aw =
-      (subtreeStats.get(a.lifecycle.requestId)?.bytes ?? 0) +
-      (currentHarEntry(a.lifecycle)?.response?.bodySize ?? 0);
-    const bw =
-      (subtreeStats.get(b.lifecycle.requestId)?.bytes ?? 0) +
-      (currentHarEntry(b.lifecycle)?.response?.bodySize ?? 0);
+    const aw = (subtreeStats.get(a.lifecycle.requestId)?.bytes ?? 0) + (lifecycleTransferredBytes(a.lifecycle) ?? 0);
+    const bw = (subtreeStats.get(b.lifecycle.requestId)?.bytes ?? 0) + (lifecycleTransferredBytes(b.lifecycle) ?? 0);
     return bw - aw;
   });
   return arr;

@@ -28,8 +28,8 @@ import { formatHttpVersion } from '../../data/http-version';
 import {
   currentHarEntry,
   type InspectorRowWithFires,
-  lifecycleBodySize,
   lifecycleMimeType,
+  lifecycleTransferredBytes,
 } from '../../data/inspector-row-projection';
 import type { RulesByUid } from '../../data/use-rules-lookup';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
@@ -175,7 +175,7 @@ export function HeadersView({
   const httpVersion = har?.response?.httpVersion ?? har?.request?.httpVersion;
   const referrerPolicy = responseHeaders.find((h) => h.name.toLowerCase() === 'referrer-policy')?.value;
   const contentEncoding = responseHeaders.find((h) => h.name.toLowerCase() === 'content-encoding')?.value;
-  const bytesIn = lifecycleBodySize(lc);
+  const bytesIn = lifecycleTransferredBytes(lc);
   const decodedSize = har?.response?.content?.size;
   const remoteAddr = har?.serverIPAddress;
 

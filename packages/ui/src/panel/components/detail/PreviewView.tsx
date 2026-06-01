@@ -2,8 +2,8 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import {
   currentHarEntry,
   type InspectorRowWithFires,
-  lifecycleBodySize,
   lifecycleMimeType,
+  lifecycleTransferredBytes,
 } from '../../data/inspector-row-projection';
 import { classifyBodyState } from '../../data/response-body-state';
 import { JsonTree } from '../JsonTree';
@@ -129,7 +129,7 @@ export default function PreviewView({ row }: PreviewViewProps) {
   const lc = row.lifecycle;
   const har = currentHarEntry(lc);
   const mime = lifecycleMimeType(lc) ?? har?.response?.content?.mimeType ?? '';
-  const size = lifecycleBodySize(lc) ?? har?.response?.content?.size ?? 0;
+  const size = lifecycleTransferredBytes(lc) ?? har?.response?.content?.size ?? 0;
   const state = useMemo(() => classifyBodyState(lc), [lc]);
 
   const textContent = useMemo(() => {

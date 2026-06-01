@@ -57,9 +57,7 @@ export function isPendingLifecycle(lifecycle: RequestLifecycle): boolean {
 }
 
 /** Type guard — lifecycle resolved to a `failed` terminal. */
-export function isFailedLifecycle(
-  lifecycle: RequestLifecycle,
-): lifecycle is RequestLifecycle & { phase: 'failed' } {
+export function isFailedLifecycle(lifecycle: RequestLifecycle): lifecycle is RequestLifecycle & { phase: 'failed' } {
   return lifecycle.phase === 'failed';
 }
 
@@ -85,10 +83,21 @@ export function lifecycleMimeType(lifecycle: RequestLifecycle): string | null {
   return mime && mime.length > 0 ? mime : null;
 }
 
-/** Transferred body size in bytes when known. Returns `null` for pending / cached / missing rows. */
-export function lifecycleBodySize(lifecycle: RequestLifecycle): number | null {
-  const size = currentHarEntry(lifecycle)?.response?.bodySize;
-  return typeof size === 'number' && size > 0 ? size : null;
+/**
+ * Bytes transferred over the wire — Chrome's `_transferSize` (encoded
+ * headers + encoded body), falling back to the standard `bodySize`.
+ *
+ * `bodySize` is `-1` for any compressed or cache-served response, so it
+ * cannot stand alone as a wire-byte count; `_transferSize` carries the
+ * real figure. Returns `null` when neither field is a usable count
+ * (pending / cached before-open / missing rows).
+ */
+export function lifecycleTransferredBytes(lifecycle: RequestLifecycle): number | null {
+  const r = currentHarEntry(lifecycle)?.response;
+  if (!r) return null;
+  if (typeof r._transferSize === 'number' && r._transferSize >= 0) return r._transferSize;
+  if (typeof r.bodySize === 'number' && r.bodySize >= 0) return r.bodySize;
+  return null;
 }
 
 /**
@@ -131,10 +140,7 @@ export interface InspectorRowWithFires extends InspectorRow {
   readonly fires: readonly InspectorFire[];
 }
 
-export function attachFiresToRows(
-  rows: readonly InspectorRow[],
-  fires: readonly InspectorFire[],
-): RowsWithFires {
+export function attachFiresToRows(rows: readonly InspectorRow[], fires: readonly InspectorFire[]): RowsWithFires {
   if (fires.length === 0) {
     return {
       rows: rows.map((r) => ({ ...r, fires: [] })),

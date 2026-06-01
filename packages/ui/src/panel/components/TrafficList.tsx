@@ -17,7 +17,7 @@ import {
   type NetworkSortMode,
 } from '../data/network-sort-modes';
 import { classifyRequestState, type RequestState, rowStateClass, statusText } from '../data/request-state';
-import { formatSizeInfo, getSizeInfo, type SizeInfo } from '../data/size-info';
+import { formatBytesToKb, formatSizeInfo, getSizeInfo, type SizeInfo } from '../data/size-info';
 import { isAppliedFire } from '../data/types';
 import { FilterInput } from './FilterInput';
 import { ResourceFilter } from './ResourceFilter';
@@ -320,14 +320,15 @@ function renderCell(
     }
     const { transferred, resource } = sizeInfo;
     if (transferred == null && resource == null) return <span className="dt-col-right" />;
-    if (transferred != null && resource != null && resource > transferred) {
-      return (
-        <span className="dt-col-right" title={`Transferred: ${transferred} B · Resource: ${resource} B`}>
-          {formatSizeInfo(sizeInfo)}
-        </span>
-      );
-    }
-    return <span className="dt-col-right">{formatSizeInfo(sizeInfo)}</span>;
+    const title =
+      transferred != null && resource != null
+        ? `${formatBytesToKb(transferred)} over the wire · ${formatBytesToKb(resource)} decoded`
+        : undefined;
+    return (
+      <span className="dt-col-right" title={title}>
+        {formatSizeInfo(sizeInfo)}
+      </span>
+    );
   }
   const value = col.extract(row);
   const className = col.align === 'right' ? 'dt-col-right' : '';
