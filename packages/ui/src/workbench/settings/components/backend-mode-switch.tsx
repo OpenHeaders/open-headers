@@ -36,6 +36,7 @@ import { useSetting } from '../hooks';
 import FieldRow from '../fields/FieldRow';
 import type { BackendMode } from '../schema/backend';
 import { backendModeIsPending, backendModeNeedsConnection, hostIsTheBackend } from '../schema/backend';
+import { useSurfaceWorkspaceAdopt } from '../../hooks/SurfaceWorkspaceAdoptContext';
 import type { SettingDef } from '../types';
 import SwitchingOverlay from './SwitchingOverlay';
 
@@ -85,6 +86,10 @@ export function useBackendModeSwitch(): BackendModeSwitchHandle {
   const [mode, setMode] = useSetting('backend.mode');
   const { message, notification } = AntApp.useApp();
   const [overlay, setOverlay] = useState<{ toLabel: string } | null>(null);
+  // Re-pin THIS workbench surface to the new host's active workspace once
+  // the switch settles. `null` outside the workbench (popup / side-panel
+  // follow global active by design), so those skip the re-pin.
+  const adoptActiveWorkspaceIntoSurface = useSurfaceWorkspaceAdopt();
 
   const attemptChange = async (next: BackendMode): Promise<void> => {
     if (overlay) return;
@@ -117,8 +122,17 @@ export function useBackendModeSwitch(): BackendModeSwitchHandle {
     }
 
     setOverlay({ toLabel });
-    await sleep(MIN_OVERLAY_MS);
     setMode(next);
+    // A connection-backed switch makes the new host promote its workspace
+    // to ACTIVE on first join (the data plane's adoption). Hold the
+    // overlay until that lands and this surface has followed onto it, so
+    // the user never sees the previous host's workspace flash through.
+    // Non-connection modes don't adopt, so there's nothing to follow.
+    const followsActiveWorkspace = needsProbe && adoptActiveWorkspaceIntoSurface !== null;
+    await Promise.all([
+      sleep(MIN_OVERLAY_MS),
+      followsActiveWorkspace ? adoptActiveWorkspaceIntoSurface() : Promise.resolve(),
+    ]);
     setOverlay(null);
     message.success(`Switched to ${toLabel}.`);
   };

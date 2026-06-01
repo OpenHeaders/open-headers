@@ -118,6 +118,8 @@ import { useFocusRegion } from './hooks/useFocusRegion';
 import { InspectorNavProvider, useInspectorNav } from './hooks/useInspectorNav';
 import { useRequestScriptsReviewPending } from './hooks/useRequestScriptsReviewPending';
 import { type ResponsiveLayout, useResponsiveLayout } from './hooks/useResponsiveLayout';
+import { useAdoptActiveWorkspaceIntoSurface } from './hooks/useAdoptActiveWorkspaceIntoSurface';
+import { SurfaceWorkspaceAdoptProvider } from './hooks/SurfaceWorkspaceAdoptContext';
 import { useSaveRequestFlow } from './hooks/useSaveRequestFlow';
 import { useSaveRuleFlow } from './hooks/useSaveRuleFlow';
 import { useTabLifecycle } from './hooks/useTabLifecycle';
@@ -328,6 +330,11 @@ const WorkbenchTabAware: React.FC<{
   const { isDarkMode } = useUiTheme();
   const { token } = theme.useToken();
   useWorkbenchWorkspaceSlice(perTab);
+  // After a back-end switch repoints the active workspace to the new
+  // host's default, snap THIS surface (and its URL) onto it. Scoped to
+  // the tab that ran the switch via context — other tabs keep their
+  // bindings.
+  const adoptActiveWorkspaceIntoSurface = useAdoptActiveWorkspaceIntoSurface(perTab);
   const editingScopeWorkspaceId = useEditingScopeWorkspaceId(perTab);
   // Mirror the editing-scope workspace into the URL hash via
   // history.replaceState. Cold mount: resolver already boots from
@@ -358,31 +365,33 @@ const WorkbenchTabAware: React.FC<{
   }
 
   return (
-    <EditingScopeWorkspaceProvider workspaceId={editingScopeWorkspaceId}>
-      <PauseMarkersProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
-        <RuleProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
-          <EnvironmentProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
-            <WorkspaceVariablesProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
-              <VaultProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
-                <LiveVariablesProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
-                  <LiveWorkflowsProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
-                    <RequestsProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
-                      <FilesProvider activeWorkspaceIdOverride={editingScopeWorkspaceId}>
-                        <OAuthBundlesProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
-                          <InspectorNavProvider>
-                            <WorkbenchShell layout={layout} perTab={perTab} />
-                          </InspectorNavProvider>
-                        </OAuthBundlesProvider>
-                      </FilesProvider>
-                    </RequestsProvider>
-                  </LiveWorkflowsProvider>
-                </LiveVariablesProvider>
-              </VaultProvider>
-            </WorkspaceVariablesProvider>
-          </EnvironmentProvider>
-        </RuleProvider>
-      </PauseMarkersProvider>
-    </EditingScopeWorkspaceProvider>
+    <SurfaceWorkspaceAdoptProvider adopt={adoptActiveWorkspaceIntoSurface}>
+      <EditingScopeWorkspaceProvider workspaceId={editingScopeWorkspaceId}>
+        <PauseMarkersProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
+          <RuleProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
+            <EnvironmentProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
+              <WorkspaceVariablesProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
+                <VaultProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
+                  <LiveVariablesProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
+                    <LiveWorkflowsProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
+                      <RequestsProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
+                        <FilesProvider activeWorkspaceIdOverride={editingScopeWorkspaceId}>
+                          <OAuthBundlesProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
+                            <InspectorNavProvider>
+                              <WorkbenchShell layout={layout} perTab={perTab} />
+                            </InspectorNavProvider>
+                          </OAuthBundlesProvider>
+                        </FilesProvider>
+                      </RequestsProvider>
+                    </LiveWorkflowsProvider>
+                  </LiveVariablesProvider>
+                </VaultProvider>
+              </WorkspaceVariablesProvider>
+            </EnvironmentProvider>
+          </RuleProvider>
+        </PauseMarkersProvider>
+      </EditingScopeWorkspaceProvider>
+    </SurfaceWorkspaceAdoptProvider>
   );
 };
 
