@@ -50,7 +50,14 @@ export function useRowWindow(rows: readonly InspectorRowWithFires[], hasTable: b
   const [rowWindow, setRowWindow] = useState<RowWindow>({ start: 0, end: 0 });
 
   const recomputeWindow = useCallback((el: HTMLDivElement, count: number) => {
-    const viewport = el.clientHeight || 600;
+    const viewport = el.clientHeight;
+    // A hidden panel (DevTools tab switched away) reports a zero-height,
+    // zero-scroll box. Recomputing from that collapses the window to the
+    // top of the list; on re-show the browser restores the real scroll
+    // position, leaving the mounted rows scrolled out of view (blank
+    // table). Skip while unlaid-out — the window re-syncs on the next
+    // measurement, and the restored scroll already matches it.
+    if (viewport === 0) return;
     const top = el.scrollTop;
     const first = Math.max(0, Math.floor((top - TABLE_HEADER_HEIGHT_PX) / ROW_HEIGHT_PX) - ROW_OVERSCAN);
     const last = Math.min(count, Math.ceil((top - TABLE_HEADER_HEIGHT_PX + viewport) / ROW_HEIGHT_PX) + ROW_OVERSCAN);
