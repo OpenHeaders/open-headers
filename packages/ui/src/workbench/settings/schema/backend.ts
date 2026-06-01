@@ -128,10 +128,11 @@ registerSetting({
       description: 'A back-end you host on your own VM. Reach anywhere. Coming soon.',
     },
   ],
-  // Writing to backend.mode can be destructive (data move, wipe + backup).
-  // The custom editor routes every write through the request-verdict +
-  // Coexist/Import/Discard dialog so the generic enum field can't bypass
-  // the orchestrator from a settings-search hit.
+  // The custom editor routes every write through the verify-then-switch
+  // probe gate (reachability + auth, then a brief overlay) so a write
+  // from a settings-search hit can't bypass it. Switching is non-
+  // destructive — workspaces stay; cleanup is a deliberate per-workspace
+  // delete in the Workspace Manager.
   customEditor: BackendModeFieldEditor,
 });
 

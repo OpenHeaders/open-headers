@@ -44,8 +44,8 @@ const SettingRow: React.FC<SettingRowProps> = ({ def }) => {
 
   // A def-level customEditor takes priority over type-based dispatch.
   // Used by settings whose write needs guardrails the generic field
-  // can't enforce (e.g. backend.mode runs a peer-inspection +
-  // Coexist/Import/Discard dialog before committing).
+  // can't enforce (e.g. backend.mode runs a reachability + auth probe
+  // and a switching overlay before committing).
   if (def.customEditor) {
     const Editor = def.customEditor;
     return <Editor def={def} />;
