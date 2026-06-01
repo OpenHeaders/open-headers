@@ -59,6 +59,14 @@ export interface UsePanelDataInput {
    * lifecycle is a real attempt the user wants to see).
    */
   readonly opts?: BuildInspectorRowsOptions;
+  /**
+   * Preserve log across navigations. Default `true`. When `false`, the
+   * view is scoped to the latest top-level navigation — a refresh or new
+   * navigation drops the prior page's requests so the list starts from
+   * zero, matching the browser's Network tab. (Background-history and the
+   * Clear action are separate axes.)
+   */
+  readonly preserveLog?: boolean;
 }
 
 export interface UsePanelDataResult {
@@ -131,15 +139,35 @@ function lifecycleDuration(lifecycle: RequestLifecycle): number {
   return d > 0 ? d : 0;
 }
 
+/**
+ * Latest top-level navigation start (`main_frame` lifecycle), or -1 if
+ * none has been observed. The clear-on-nav boundary.
+ */
+function latestNavStartMs(lifecycles: readonly RequestLifecycle[]): number {
+  let nav = -1;
+  for (const lc of lifecycles) {
+    if (lc.resourceType === 'main_frame' && lc.startedAtMs > nav) nav = lc.startedAtMs;
+  }
+  return nav;
+}
+
 export function usePanelData(input: UsePanelDataInput): UsePanelDataResult {
-  const { lifecycle, page, fire, opts } = input;
+  const { lifecycle, page, fire, opts, preserveLog = true } = input;
 
   const lifecycles = lifecycle.ordered;
   const pages = page.pages;
   const fires = fire.fires;
 
   return useMemo(() => {
-    const baseRows = buildInspectorRows(lifecycles, opts);
+    // Preserve log OFF → scope the view to the current navigation: drop
+    // everything that started before the latest top-level nav so a
+    // refresh resets the list to the new page. A pure display filter, so
+    // the new page's requests (which arrive over a separate port from the
+    // nav signal) are never racily wiped.
+    const navStartMs = preserveLog ? -1 : latestNavStartMs(lifecycles);
+    const scoped = navStartMs >= 0 ? lifecycles.filter((lc) => lc.startedAtMs >= navStartMs) : lifecycles;
+
+    const baseRows = buildInspectorRows(scoped, opts);
     const { rows, dangling } = attachFiresToRows(baseRows, fires);
 
     const lookupByRequestId = new Map<string, InspectorRowWithFires>();
@@ -191,7 +219,7 @@ export function usePanelData(input: UsePanelDataInput): UsePanelDataResult {
     }
     const finishTimeMs = baseTime >= 0 && maxEnd > baseTime ? maxEnd - baseTime : 0;
 
-    const initiatorIndex = buildInitiatorIndex(lifecycles);
+    const initiatorIndex = buildInitiatorIndex(scoped);
     const getInitiatorChildren = (url: string): readonly InspectorRowWithFires[] => {
       const ids = initiatorIndex.get(url);
       if (!ids || ids.length === 0) return [];
@@ -206,8 +234,8 @@ export function usePanelData(input: UsePanelDataInput): UsePanelDataResult {
     const navTiming = projectNavTiming(pages);
     const baselineMs = rows.length > 0 ? rows[0].lifecycle.startedAtMs : null;
 
-    const getConnectionReuse = (lc: RequestLifecycle): ConnectionReuseInfo => computeConnectionReuse(lc, lifecycles);
-    const getRepeatStats = (lc: RequestLifecycle): RepeatStats | null => computeRepeatStats(lc, lifecycles);
+    const getConnectionReuse = (lc: RequestLifecycle): ConnectionReuseInfo => computeConnectionReuse(lc, scoped);
+    const getRepeatStats = (lc: RequestLifecycle): RepeatStats | null => computeRepeatStats(lc, scoped);
 
     return {
       rows,
@@ -229,5 +257,5 @@ export function usePanelData(input: UsePanelDataInput): UsePanelDataResult {
       cachedCount,
       pageCount: pages.length,
     };
-  }, [lifecycles, pages, fires, opts]);
+  }, [lifecycles, pages, fires, opts, preserveLog]);
 }

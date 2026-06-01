@@ -554,7 +554,7 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
             <IconSearch />
           </button>
           <div className="dt-toolbar-separator" />
-          <label className="dt-checkbox">
+          <label className="dt-checkbox" title="Keep requests across page navigations. Off clears the list on each navigation or reload, like the browser's own Network panel.">
             <input type="checkbox" checked={preserveLog} onChange={(e) => onPreserveLogChange(e.target.checked)} />
             Preserve log
           </label>

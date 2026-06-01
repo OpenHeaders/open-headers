@@ -308,6 +308,52 @@ describe('usePanelData', () => {
     expect(result.current.pageCount).toBe(2);
   });
 
+  it('preserveLog=false scopes the view to the latest navigation (clear on nav)', () => {
+    const { result } = renderHook(() =>
+      usePanelData({
+        ...snapshots([
+          lifecycle('nav1', 'https://openheaders.io/', { resourceType: 'main_frame', startedAtMs: 0, completedAtMs: 200 }),
+          lifecycle('old', 'https://openheaders.io/old.js', { startedAtMs: 50, completedAtMs: 150 }),
+          lifecycle('nav2', 'https://openheaders.io/next', {
+            resourceType: 'main_frame',
+            startedAtMs: 1000,
+            completedAtMs: 1200,
+          }),
+          lifecycle('new', 'https://openheaders.io/new.js', { startedAtMs: 1050, completedAtMs: 1100 }),
+        ]),
+        preserveLog: false,
+      }),
+    );
+    expect(result.current.rows.map((r) => r.lifecycle.requestId)).toEqual(['nav2', 'new']);
+  });
+
+  it('preserveLog=true keeps every request across repeated navigations', () => {
+    const { result } = renderHook(() =>
+      usePanelData({
+        ...snapshots([
+          lifecycle('nav1', 'https://openheaders.io/', { resourceType: 'main_frame', startedAtMs: 0, completedAtMs: 200 }),
+          lifecycle('nav2', 'https://openheaders.io/', { resourceType: 'main_frame', startedAtMs: 1000, completedAtMs: 1200 }),
+          lifecycle('nav3', 'https://openheaders.io/', { resourceType: 'main_frame', startedAtMs: 2000, completedAtMs: 2200 }),
+        ]),
+        preserveLog: true,
+      }),
+    );
+    expect(result.current.rows.map((r) => r.lifecycle.requestId)).toEqual(['nav1', 'nav2', 'nav3']);
+  });
+
+  it('preserveLog=false with no top-level navigation shows all session requests', () => {
+    const { result } = renderHook(() =>
+      usePanelData({
+        ...snapshots([
+          lifecycle('a', 'https://openheaders.io/a', { startedAtMs: 100, completedAtMs: 200 }),
+          lifecycle('b', 'https://openheaders.io/b', { startedAtMs: 300, completedAtMs: 400 }),
+        ]),
+        preserveLog: false,
+      }),
+    );
+    expect(result.current.rows).toHaveLength(2);
+  });
+
   it('baselineMs equals the first row\'s startedAtMs', () => {
     const { result } = renderHook(() =>
       usePanelData(

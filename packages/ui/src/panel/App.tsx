@@ -206,7 +206,12 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
     lifecycle: lifecycleClient.snapshot,
     page: pageClient.snapshot,
     fire: fireClient.snapshot,
-    opts: useMemo(() => ({ consolidateRetries: !ui.preserveLog }), [ui.preserveLog]),
+    // Every observed attempt is a real row (browser-parity); retry
+    // consolidation is intentionally off and no longer tied to the
+    // Preserve-log toggle.
+    opts: useMemo(() => ({ consolidateRetries: false }), []),
+    // Preserve log OFF clears the list on navigation (browser-parity).
+    preserveLog: ui.preserveLog,
   });
 
   // Resolver passed down to detail panes — pure projection over the
