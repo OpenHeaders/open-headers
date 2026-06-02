@@ -30,27 +30,27 @@ export interface NetworkSortModeMeta {
 export const NETWORK_SORT_MODE_META: Record<NetworkSortMode, NetworkSortModeMeta> = {
   failures: {
     title: 'Failures first',
-    subtitle: 'Failed → pending → redirected → success · arrival within each.',
+    subtitle: 'Failed → pending → redirected → success · start time within each.',
   },
   slowest: {
     title: 'Slowest first',
-    subtitle: 'Longest duration first · arrival keeps waterfall order on ties.',
+    subtitle: 'Longest duration first · start time keeps waterfall order on ties.',
   },
   largest: {
     title: 'Largest first',
-    subtitle: 'Biggest wire bytes first · arrival within ties.',
+    subtitle: 'Biggest wire bytes first · start time within ties.',
   },
   byType: {
     title: 'By resource type',
-    subtitle: 'Document → XHR/Fetch → Script → Style → Image → Font → Media → WS → Other · arrival within each.',
+    subtitle: 'Document → XHR/Fetch → Script → Style → Image → Font → Media → WS → Other · start time within each.',
   },
   byDomain: {
     title: 'By domain',
-    subtitle: 'Group by hostname (A → Z) · arrival within each domain.',
+    subtitle: 'Group by hostname (A → Z) · start time within each domain.',
   },
   ruleModified: {
     title: 'Rule-modified first',
-    subtitle: 'Applied rules → inferred → no fire · arrival within each.',
+    subtitle: 'Applied rules → inferred → no fire · start time within each.',
   },
 };
 

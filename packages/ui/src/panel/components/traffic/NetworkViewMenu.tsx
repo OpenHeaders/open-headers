@@ -365,7 +365,7 @@ function SortCustomNestedRow({
 }) {
   const subtitle =
     levels.length === 0
-      ? 'Build a multi-key sort — column by column, with arrival as the final tiebreak.'
+      ? 'Build a multi-key sort — column by column, with start time as the final tiebreak.'
       : `${levels.length} level${levels.length === 1 ? '' : 's'} — opens to edit.`;
   const submenu = (
     <div className="dt-sortmode-submenu dt-sortmode-submenu--builder" role="menu">
