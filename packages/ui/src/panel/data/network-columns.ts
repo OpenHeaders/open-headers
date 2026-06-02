@@ -103,7 +103,7 @@ function transferredBytes(lc: RequestLifecycle): number {
  * from every displayed duration so a queue-heavy request reads as its
  * active time, not the inflated HAR `time` (which includes queueing).
  */
-function queueingMs(lc: RequestLifecycle): number {
+export function queueingMs(lc: RequestLifecycle): number {
   const q = currentHarEntry(lc)?.timings?._blocked_queueing;
   return typeof q === 'number' && q > 0 ? q : 0;
 }
@@ -202,15 +202,36 @@ function latencyMs(lc: RequestLifecycle): number {
 }
 
 /**
+ * Epoch ms at which the request finishes, anchored at `startedAtMs` (the
+ * issue time) and built from the same HAR-derived spans the bars use:
+ * `issue + queueing + duration`. The timeline window and every timeline bar
+ * read this, so a bar's right edge and the window's extent agree by
+ * construction. Falls back to `startedAtMs` while a request is still pending
+ * (duration unknown).
+ */
+export function timelineEndMs(lc: RequestLifecycle): number {
+  return lc.startedAtMs + queueingMs(lc) + Math.max(durationMs(lc), 0);
+}
+
+/**
  * Sort value for the Waterfall column under a given metric. Mirrors the
- * five keys Chrome's Waterfall column can sort by. Unknown / still-pending
- * values fall to -1 so they group together at the ascending edge.
+ * five keys the browser's Waterfall column sorts by — each is the matching
+ * request field: start time, response (first-byte) time, end time, total
+ * duration, latency. Unknown / still-pending values fall to -1 so they group
+ * together at the ascending edge.
+ *
+ * Start and response times are measured from the post-queue start, not the
+ * issue time: the browser's start time is the request baseline *after*
+ * queueing (its duration excludes queueing too), so `startedAtMs` — which is
+ * the issue time — has the queueing delay added back to land on the same
+ * instant. Without that, two requests issued together but queued differently
+ * would sort by issue order instead of by when they actually started.
  */
 export function waterfallSortValue(row: InspectorRowWithFires, metric: WaterfallMetric): number {
   const lc = row.lifecycle;
   switch (metric) {
     case 'startTime':
-      return lc.startedAtMs;
+      return lc.startedAtMs + queueingMs(lc);
     case 'endTime':
       return lc.completedAtMs ?? -1;
     case 'duration':
@@ -219,7 +240,7 @@ export function waterfallSortValue(row: InspectorRowWithFires, metric: Waterfall
       return latencyMs(lc);
     case 'responseTime': {
       const lat = latencyMs(lc);
-      return lat < 0 ? -1 : lc.startedAtMs + lat;
+      return lat < 0 ? -1 : lc.startedAtMs + queueingMs(lc) + lat;
     }
   }
 }

@@ -403,18 +403,20 @@ body.dt-resizing-col {
   overflow: hidden;
 }
 
-.dt-waterfall-segment {
-  height: 100%;
-  display: inline-block;
-}
-
-/* Duration / Latency mode: a two-shade split bar colored by resource type
- * (segment fills + border are set inline), with a thin outline so the pale
- * pastels stay legible. */
+/* The two-shade split bar (both modes), colored by resource type (segment
+ * fills + border are set inline), with a thin outline so the pale pastels
+ * stay legible. */
 .dt-waterfall-bar--split {
   background: transparent;
   border: 1px solid transparent;
   box-sizing: border-box;
+}
+
+/* Timeline mode: per-phase rainbow segments tile the bar left-to-right
+ * (queueing → receive), each fill set inline from the phase palette. */
+.dt-waterfall-segment {
+  height: 100%;
+  display: inline-block;
 }
 
 /* Split-bar segments center their value label and clip it when it doesn't

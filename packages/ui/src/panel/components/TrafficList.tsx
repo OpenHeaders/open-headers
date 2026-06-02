@@ -2,8 +2,7 @@ import { type MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, us
 import type { FilterConfig, FilterToken } from '../data/filter-engine';
 import { matchesUrlFilter, passesRowFilters } from '../data/filter-engine';
 import type { InspectorRowWithFires } from '../data/inspector-row-projection';
-import { lifecycleDurationMs } from '../data/inspector-row-projection';
-import { WATERFALL_METRIC_LABELS, waterfallSortValue } from '../data/network-columns';
+import { timelineEndMs, WATERFALL_METRIC_LABELS, waterfallSortValue } from '../data/network-columns';
 import { ColumnHeaderContextMenu, type ColumnHeaderContextMenuState } from './traffic/ColumnHeaderContextMenu';
 import type { ColumnDef, ColumnKey } from './traffic/columns';
 import { COLUMN_DEFS, columnTrack, DEFAULT_VISIBLE_COLUMNS } from './traffic/columns';
@@ -199,8 +198,9 @@ export function TrafficList({
     for (const r of sorted) {
       const start = r.lifecycle.startedAtMs;
       if (start < min) min = start;
-      const dur = lifecycleDurationMs(r.lifecycle) ?? 0;
-      const end = start + (dur > 0 ? dur : 0);
+      // HAR-derived finish (issue + queueing + duration), the same anchor the
+      // timeline bars use, so a bar's right edge never overruns the window.
+      const end = timelineEndMs(r.lifecycle);
       if (end > max) max = end;
     }
     if (!Number.isFinite(min)) min = 0;
