@@ -496,7 +496,32 @@ importers:
         version: 5.9.3
 
   playground:
+    dependencies:
+      '@openheaders/core':
+        specifier: workspace:*
+        version: link:../packages/core
+      '@openheaders/ui':
+        specifier: workspace:*
+        version: link:../packages/ui
+      antd:
+        specifier: ^6.3.5
+        version: 6.3.5(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      react:
+        specifier: ^19.1.0
+        version: 19.2.4
+      react-dom:
+        specifier: ^19.1.0
+        version: 19.2.4(react@19.2.4)
     devDependencies:
+      '@types/react':
+        specifier: ^19.2.14
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.14)
+      '@vitejs/plugin-react':
+        specifier: ^4.7.0
+        version: 4.7.0(vite@7.3.1(@types/node@22.19.15)(less@4.6.4)(lightningcss@1.32.0)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3))
       playwright:
         specifier: ^1.58.2
         version: 1.58.2
