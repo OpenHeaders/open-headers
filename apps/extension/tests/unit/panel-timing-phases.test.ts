@@ -66,14 +66,22 @@ describe('computeTimingPhases', () => {
     expect(data!.byGroup.transfer.map((p: TimingPhase) => p.key)).toEqual(['send', 'wait', 'receive']);
   });
 
-  it('uses HAR `time` as totalMs when present', () => {
+  it('derives totalMs from the non-overlapping phases, ignoring the DNS-inflated HAR `time`', () => {
+    // HAR `time` (815.23) is deliberately inconsistent with the phases to
+    // prove totalMs is the phase sum, not the exporter's `time` (which
+    // double-counts DNS by adding it on top of a connect that contains it).
     const data = computeTimingPhases(har({ connect: 100, ssl: 30, wait: 50, receive: 100 }, 815.23));
-    expect(data!.totalMs).toBe(815.23);
+    // (100 connect − 30 ssl) + 30 ssl + 50 wait + 100 receive = 250
+    expect(data!.totalMs).toBe(250);
   });
 
-  it('falls back to sum-of-phases when HAR `time` is missing', () => {
-    const data = computeTimingPhases(har({ connect: 100, ssl: 30, wait: 50, receive: 100 }));
-    // 100-30 + 30 + 50 + 100 = 250
-    expect(data!.totalMs).toBe(250);
+  it('peels DNS out of connect so it is counted once', () => {
+    // HAR `connect` (200) spans both dns (25) and ssl (100); the TCP-only
+    // Initial connection is 200 − 100 − 25 = 75, and the total counts the
+    // connection once: blocked 5 + connect 200 + send 1 + wait 50 + receive 80.
+    const data = computeTimingPhases(har({ blocked: 5, dns: 25, connect: 200, ssl: 100, send: 1, wait: 50, receive: 80 }));
+    expect(data!.phases.find((p: TimingPhase) => p.key === 'connect')?.ms).toBe(75);
+    expect(data!.phases.find((p: TimingPhase) => p.key === 'dns')?.ms).toBe(25);
+    expect(data!.totalMs).toBe(336);
   });
 });

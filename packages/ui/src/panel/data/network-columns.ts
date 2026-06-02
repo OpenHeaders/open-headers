@@ -108,10 +108,22 @@ function queueingMs(lc: RequestLifecycle): number {
   return typeof q === 'number' && q > 0 ? q : 0;
 }
 
-/** Active duration shown in the Time column — HAR `time` minus queueing. */
+/**
+ * Active duration shown in the Time column. HAR `time` is
+ * `blocked + dns + connect + send + wait + receive`, but its `connect`
+ * already spans `dns`, so HAR `time` double-counts DNS. Strip queueing and
+ * that duplicated DNS to match the browser's `endTime - startTime`. (Kept
+ * arithmetic-only — no phase allocation — since this runs in the sort path.)
+ */
 export function durationMs(lc: RequestLifecycle): number {
-  const harTime = currentHarEntry(lc)?.time;
-  if (typeof harTime === 'number' && harTime > 0) return Math.max(harTime - queueingMs(lc), 0);
+  const har = currentHarEntry(lc);
+  if (har && typeof har.time === 'number' && har.time > 0) {
+    const t = har.timings;
+    const connect = t && typeof t.connect === 'number' && t.connect > 0 ? t.connect : 0;
+    const dns = t && typeof t.dns === 'number' && t.dns > 0 ? t.dns : 0;
+    const duplicatedDns = connect > 0 ? dns : 0;
+    return Math.max(har.time - queueingMs(lc) - duplicatedDns, 0);
+  }
   // A completed request sorts by its real duration, including 0 (instant
   // / cache); only a still-pending request is unknown (sorts last via -1).
   if (lc.completedAtMs != null) {

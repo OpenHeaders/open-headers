@@ -97,15 +97,18 @@ export function computeTimingPhases(har: InspectorHarEntry): ComputedTimings | n
 
   const rawConnect = positive(t.connect);
   const sslMs = positive(t.ssl);
-  // `connect` includes `ssl` per HAR 1.2 — clamp at 0 to defend against
-  // exporters that report `ssl > connect` (rare but seen on aborted
-  // handshakes).
-  const connect = Math.max(0, rawConnect - sslMs);
+  const dnsMs = positive(t.dns);
+  // `connect` spans the whole connection setup: it includes `ssl` (HAR 1.2)
+  // and, as the browser's HAR exporter emits it, also `dns`. Peel both out
+  // so the "Initial connection" row is TCP-only and the phases don't
+  // double-count DNS/SSL. Clamp at 0 against exporters that report
+  // `ssl > connect` (rare, seen on aborted handshakes).
+  const connect = Math.max(0, rawConnect - sslMs - dnsMs);
 
   const ms: Record<TimingPhaseKey, number> = {
     queueing,
     stalled,
-    dns: positive(t.dns),
+    dns: dnsMs,
     connect,
     ssl: sslMs,
     send: positive(t.send),
@@ -126,10 +129,12 @@ export function computeTimingPhases(har: InspectorHarEntry): ComputedTimings | n
   const byGroup: Record<TimingGroup, TimingPhase[]> = { scheduling: [], connection: [], transfer: [] };
   for (const p of phases) byGroup[p.group].push(p);
 
-  // HAR `time` is authoritative when present — it's the canonical
-  // start-to-finish wall-clock. Fall back to sum-of-phases otherwise.
-  const totalMs =
-    typeof har.time === 'number' && har.time >= 0 ? har.time : phases.reduce((sum, p) => sum + p.ms, 0);
+  // Sum the (now non-overlapping) phases. We deliberately do NOT use HAR
+  // `time`: the browser's exporter computes it as
+  // `blocked + dns + connect + send + wait + receive`, but its `connect`
+  // already contains `dns`, so HAR `time` double-counts DNS. The phase sum
+  // (DNS and SSL peeled out of connect) is the true start-to-finish total.
+  const totalMs = phases.reduce((sum, p) => sum + p.ms, 0);
 
   return { phases, byGroup, totalMs };
 }
