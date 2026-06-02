@@ -11,7 +11,7 @@
 import * as v from 'valibot';
 import { registerSetting } from '../registry';
 
-const layoutSchema = v.picklist(['normal', 'compact']);
+const layoutSchema = v.picklist(['wide', 'compact']);
 export type DevpanelNetworkLayoutSetting = v.InferOutput<typeof layoutSchema>;
 
 const sortKindSchema = v.picklist(['mode', 'column', 'customNested']);
@@ -73,18 +73,18 @@ declare module '@openheaders/ui/workbench/settings/types' {
 registerSetting({
   key: 'devpanelNetwork.layout',
   type: 'enum',
-  default: 'normal',
+  default: 'compact',
   schema: layoutSchema,
   label: 'Network Layout',
   description:
-    'How the Network table absorbs horizontal space. Normal caps stretchy columns (Name, Waterfall) and scrolls horizontally for the rest; Compact lets stretchy columns flex to fit the panel width so the table never scrolls horizontally.',
+    'How the Network table absorbs horizontal space. Compact lets stretchy columns (Name, Waterfall) flex to fit the panel width so the table never scrolls horizontally; Wide caps those columns and scrolls horizontally for the rest.',
   category: 'devpanelNetwork',
   subcategory: 'View',
   tags: ['network', 'layout', 'compact', 'fit', 'devtools'],
   scope: 'user',
   enumOptions: [
-    { value: 'normal', label: 'Normal', description: 'Capped widths, scrolls horizontally when needed.' },
     { value: 'compact', label: 'Compact', description: 'Stretchy columns absorb panel width.' },
+    { value: 'wide', label: 'Wide', description: 'Capped widths, scrolls horizontally when needed.' },
   ],
 });
 

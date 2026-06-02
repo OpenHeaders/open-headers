@@ -97,7 +97,7 @@ export function NetworkViewMenu({
     sortKind === 'mode' && GROUPS.find((g) => g.id === id)?.modes.includes(sortMode);
 
   const activeBadgeCount =
-    (layout !== 'normal' ? 1 : 0) +
+    (layout !== 'compact' ? 1 : 0) +
     (sortKind === 'column' || sortKind === 'customNested' || sortMode !== 'arrival' ? 1 : 0) +
     (!showFireDots ? 1 : 0);
 
@@ -124,8 +124,8 @@ export function NetworkViewMenu({
       <label className="dt-morefilters-item dt-morefilters-item--select">
         <span className="dt-morefilters-item-label">Layout</span>
         <select value={layout} onChange={(e) => onLayoutChange(e.target.value as DevpanelNetworkLayoutSetting)}>
-          <option value="normal">Normal</option>
           <option value="compact">Compact</option>
+          <option value="wide">Wide</option>
         </select>
       </label>
       <div className="dt-morefilters-divider" />
