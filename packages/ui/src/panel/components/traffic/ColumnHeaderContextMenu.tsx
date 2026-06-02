@@ -11,9 +11,9 @@
  * the inner element and its thumb is revealed by hovering the OUTER, because
  * Chromium only repaints a hover-driven scrollbar thumb reliably when the
  * `:hover` is on an ancestor — not on the scroll element itself. Height is
- * capped the same way the `View ▾` dropdown caps its menu (`min(60vh, 480px)`,
- * further bounded by the room below the click), with `overflow-y` inline so
- * scrolling survives even if the stylesheet is missing.
+ * capped to the room below the click (`calc(100vh - clickY - 8px)`), so it
+ * grows to fit and only scrolls when the list can't, with `overflow-y` inline
+ * so scrolling survives even if the stylesheet is missing.
  *
  * The Waterfall row opens an antd Popover submenu (portaled, so the menu's own
  * scroll-overflow can't clip it) for the active waterfall metric. Selecting a
@@ -116,7 +116,7 @@ export function ColumnHeaderContextMenu({
     <div ref={menuRef} className="dt-ctx-menu dt-ctx-menu--scrollhost" style={{ left: state.x, top: state.y }}>
       <div
         className="dt-ctx-menu-scroll"
-        style={{ maxHeight: `min(60vh, 480px, calc(100vh - ${state.y}px - 8px))`, overflowY: 'auto' }}
+        style={{ maxHeight: `calc(100vh - ${state.y}px - 8px)`, overflowY: 'auto' }}
       >
         {columns.map((col) => {
           const checked = visible.has(col.key);
