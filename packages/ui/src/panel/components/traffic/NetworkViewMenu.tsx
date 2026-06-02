@@ -337,7 +337,7 @@ function WaterfallSortRow({
       <div className="dt-sortmode-item dt-sortmode-item--group">
         <div className="dt-sortmode-item-body">
           <div className="dt-sortmode-item-title">Waterfall</div>
-          <div className="dt-sortmode-item-subtitle">Timeline — sort by start, response, end, duration, or latency.</div>
+          <div className="dt-sortmode-item-subtitle">Sort by time.</div>
         </div>
         {active && (
           <span className="dt-sortmode-item-check" aria-hidden="true">
