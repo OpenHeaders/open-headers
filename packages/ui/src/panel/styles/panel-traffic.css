@@ -408,6 +408,41 @@ body.dt-resizing-col {
   display: inline-block;
 }
 
+/* Duration / Latency mode: a two-shade split bar colored by resource type
+ * (segment fills + border are set inline), with a thin outline so the pale
+ * pastels stay legible. */
+.dt-waterfall-bar--split {
+  background: transparent;
+  border: 1px solid transparent;
+  box-sizing: border-box;
+}
+
+/* Latency / download values printed just past the bar end. Hidden until
+ * the row is hovered so dense panes stay clean; the split track lifts its
+ * clip so the label isn't cut off. */
+.dt-waterfall-track--split:hover {
+  overflow: visible;
+}
+
+.dt-waterfall-num {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  margin-left: 5px;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--dt-text-muted);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.dt-waterfall-track--split:hover .dt-waterfall-num {
+  opacity: 1;
+}
+
 /* Hover breakdown for a Waterfall bar. Reuses `.dt-morefilters-popover`
  * antd chrome; this owns the inner layout only. */
 .dt-waterfall-pop {

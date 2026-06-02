@@ -195,9 +195,12 @@ export function TrafficList({
   // them on the absolute `[t0, tMax]` window.
   const waterfallScale = useMemo<WaterfallScale>(() => {
     if (waterfallMetric === 'duration' || waterfallMetric === 'latency') {
+      // Both metrics draw the same zero-aligned bar — full duration split
+      // at the response point — so the scale is always the largest duration
+      // in view, not the largest latency.
       let max = 1;
       for (const r of sorted) {
-        const v = waterfallSortValue(r, waterfallMetric);
+        const v = waterfallSortValue(r, 'duration');
         if (v > max) max = v;
       }
       return { mode: 'duration', metric: waterfallMetric, max };
