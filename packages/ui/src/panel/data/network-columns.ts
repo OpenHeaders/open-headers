@@ -10,6 +10,7 @@
  */
 
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
+import type { DevpanelNetworkWaterfallMetricSetting } from '@openheaders/ui/workbench/settings/schema/devpanel-network';
 import { currentHarEntry, type InspectorRowWithFires, lifecycleTransferredBytes } from './inspector-row-projection';
 import { effectiveStatusCode } from './request-state';
 
@@ -30,8 +31,18 @@ export type SortableColumnKey =
   | 'size'
   | 'time'
   | 'priority'
-  | 'timestamp'
   | 'waterfall';
+
+export type WaterfallMetric = DevpanelNetworkWaterfallMetricSetting;
+
+/** Human label shown in the Waterfall column header — `Waterfall (Start time)`. */
+export const WATERFALL_METRIC_LABELS: Record<WaterfallMetric, string> = {
+  startTime: 'Start time',
+  responseTime: 'Response time',
+  endTime: 'End time',
+  duration: 'Total duration',
+  latency: 'Latency',
+};
 
 interface Initiator {
   type?: string;
@@ -142,8 +153,52 @@ export function getColumnSortValue(key: SortableColumnKey, row: InspectorRowWith
       return durationMs(lc);
     case 'priority':
       return priorityText(lc);
-    case 'timestamp':
     case 'waterfall':
       return lc.startedAtMs;
+  }
+}
+
+/** Phases that precede the first response byte — their sum is the latency (TTFB). */
+const LATENCY_PHASES = ['blocked', 'dns', 'connect', 'ssl', 'send', 'wait'] as const;
+
+/** Latency (time to first byte): sum of the pre-response phases, or the full
+ * duration when phase breakdown is unavailable, or -1 while still pending. */
+function latencyMs(lc: RequestLifecycle): number {
+  const timings = currentHarEntry(lc)?.timings;
+  if (timings) {
+    let sum = 0;
+    let any = false;
+    for (const k of LATENCY_PHASES) {
+      const v = timings[k];
+      if (typeof v === 'number' && v > 0) {
+        sum += v;
+        any = true;
+      }
+    }
+    if (any) return sum;
+  }
+  return durationMs(lc);
+}
+
+/**
+ * Sort value for the Waterfall column under a given metric. Mirrors the
+ * five keys Chrome's Waterfall column can sort by. Unknown / still-pending
+ * values fall to -1 so they group together at the ascending edge.
+ */
+export function waterfallSortValue(row: InspectorRowWithFires, metric: WaterfallMetric): number {
+  const lc = row.lifecycle;
+  switch (metric) {
+    case 'startTime':
+      return lc.startedAtMs;
+    case 'endTime':
+      return lc.completedAtMs ?? -1;
+    case 'duration':
+      return durationMs(lc);
+    case 'latency':
+      return latencyMs(lc);
+    case 'responseTime': {
+      const lat = latencyMs(lc);
+      return lat < 0 ? -1 : lc.startedAtMs + lat;
+    }
   }
 }

@@ -32,7 +32,7 @@ import {
 import { getColumnSortValue, type SortableColumnKey } from '../../data/network-columns';
 import { effectiveStatusCode } from '../../data/request-state';
 import { formatBytesToKb } from '../../data/size-info';
-import { formatDuration, formatInitiator, formatTimestamp } from './formatters';
+import { formatDuration, formatInitiator } from './formatters';
 import { normalizeResourceType, RESOURCE_LABEL } from './resource-types';
 
 export type ColumnKey = SortableColumnKey;
@@ -301,15 +301,6 @@ export const COLUMN_DEFS: Record<ColumnKey, ColumnDef> = {
     extract: (r) => priority(r) || null,
     getSortValue: delegateSort('priority'),
   },
-  timestamp: {
-    key: 'timestamp',
-    label: 'Timestamp',
-    defaultWidth: 108,
-    minWidth: 80,
-    sortable: true,
-    extract: (r) => formatTimestamp(r.lifecycle.startedAtMs),
-    getSortValue: delegateSort('timestamp'),
-  },
   waterfall: {
     key: 'waterfall',
     label: 'Waterfall',
@@ -317,14 +308,13 @@ export const COLUMN_DEFS: Record<ColumnKey, ColumnDef> = {
     minWidth: 120,
     stretch: true,
     maxWidth: 280,
-    sortable: false,
+    sortable: true,
     extract: () => null,
     getSortValue: delegateSort('waterfall'),
   },
 };
 
 export const DEFAULT_VISIBLE_COLUMNS: ColumnKey[] = [
-  'timestamp',
   'method',
   'name',
   'status',
@@ -332,6 +322,7 @@ export const DEFAULT_VISIBLE_COLUMNS: ColumnKey[] = [
   'initiator',
   'size',
   'time',
+  'waterfall',
 ];
 
 export const ALL_COLUMN_KEYS: ColumnKey[] = Object.keys(COLUMN_DEFS) as ColumnKey[];

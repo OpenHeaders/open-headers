@@ -1,6 +1,7 @@
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import type { NetworkCustomNestedLevel } from '@openheaders/ui/workbench/settings/schema/devpanel-network';
 import { type ReactNode, useCallback, useMemo, useState } from 'react';
+import { type WaterfallMetric, WATERFALL_METRIC_LABELS } from '../../data/network-columns';
 import type { InspectorRowWithFires } from '../../data/inspector-row-projection';
 import {
   buildCustomNestedComparator,
@@ -17,6 +18,8 @@ export interface NetworkViewApi {
   showFireDots: boolean;
   sortKey: SortTarget;
   sortDir: SortDir;
+  /** Active Waterfall sub-metric — drives the Waterfall sort key and header label. */
+  waterfallMetric: WaterfallMetric;
   /** Whether a column-header sort (vs. a sort mode / custom nesting) is active. */
   columnSortActive: boolean;
   /** The assembled view-options menu node for the panel header. */
@@ -41,6 +44,7 @@ export function useNetworkView(): NetworkViewApi {
   const [sortMode, setSortMode] = useSetting('devpanelNetwork.sortMode');
   const [sortKey, setSortKey] = useSetting('devpanelNetwork.sortBy');
   const [sortDir, setSortDir] = useSetting('devpanelNetwork.sortDir');
+  const [waterfallMetric, setWaterfallMetric] = useSetting('devpanelNetwork.waterfallMetric');
   const [showFireDots, setShowFireDots] = useSetting('devpanelNetwork.showFireDots');
   // Custom-nested levels are session-scoped scratch state.
   const [customNested, setCustomNested] = useState<NetworkCustomNestedLevel[]>([]);
@@ -56,7 +60,26 @@ export function useNetworkView(): NetworkViewApi {
   );
   const handleUseColumnSort = useCallback(() => setSortKind('column'), [setSortKind]);
   const handleUseCustomNested = useCallback(() => setSortKind('customNested'), [setSortKind]);
-  const sortByLabel = sortKey === 'id' ? '# (Arrival)' : COLUMN_DEFS[sortKey].label;
+  const sortByLabel =
+    sortKey === 'id'
+      ? '#'
+      : sortKey === 'waterfall'
+        ? `Waterfall (${WATERFALL_METRIC_LABELS[waterfallMetric]})`
+        : COLUMN_DEFS[sortKey].label;
+
+  // Picking a Waterfall metric makes Waterfall the active column sort. Switching
+  // into Waterfall from another sort resets to ascending; re-picking while already
+  // sorting by Waterfall keeps the current direction (header-click toggles it).
+  const handleWaterfallMetricChange = useCallback(
+    (m: WaterfallMetric) => {
+      const wasWaterfall = sortKind === 'column' && sortKey === 'waterfall';
+      setSortKind('column');
+      setSortKey('waterfall');
+      setWaterfallMetric(m);
+      if (!wasWaterfall) setSortDir('asc');
+    },
+    [sortKind, sortKey, setSortKind, setSortKey, setWaterfallMetric, setSortDir],
+  );
 
   const handleSortTarget = useCallback(
     (target: SortTarget) => {
@@ -81,7 +104,7 @@ export function useNetworkView(): NetworkViewApi {
     (input: readonly InspectorRowWithFires[]): InspectorRowWithFires[] => {
       const arr = [...input];
       if (sortKind === 'column') {
-        arr.sort((a, b) => sortCompare(a, b, sortKey, sortDir));
+        arr.sort((a, b) => sortCompare(a, b, sortKey, sortDir, waterfallMetric));
       } else if (sortKind === 'customNested' && customNested.length > 0) {
         arr.sort(buildCustomNestedComparator(customNested));
       } else {
@@ -89,7 +112,7 @@ export function useNetworkView(): NetworkViewApi {
       }
       return arr;
     },
-    [sortKind, sortKey, sortDir, sortMode, customNested],
+    [sortKind, sortKey, sortDir, waterfallMetric, sortMode, customNested],
   );
 
   const viewMenu = useMemo(
@@ -100,12 +123,14 @@ export function useNetworkView(): NetworkViewApi {
         sortMode={sortMode}
         sortBy={sortKey}
         sortDir={sortDir}
+        waterfallMetric={waterfallMetric}
         customNested={customNested}
         showFireDots={showFireDots}
         sortByLabel={sortByLabel}
         onLayoutChange={setLayout}
         onSortModeChange={handleSortModeChange}
         onUseColumnSort={handleUseColumnSort}
+        onWaterfallMetricChange={handleWaterfallMetricChange}
         onCustomNestedChange={setCustomNested}
         onUseCustomNested={handleUseCustomNested}
         onToggleShowFireDots={toggleShowFireDots}
@@ -117,12 +142,14 @@ export function useNetworkView(): NetworkViewApi {
       sortMode,
       sortKey,
       sortDir,
+      waterfallMetric,
       customNested,
       showFireDots,
       sortByLabel,
       setLayout,
       handleSortModeChange,
       handleUseColumnSort,
+      handleWaterfallMetricChange,
       handleUseCustomNested,
       toggleShowFireDots,
     ],
@@ -133,6 +160,7 @@ export function useNetworkView(): NetworkViewApi {
     showFireDots,
     sortKey,
     sortDir,
+    waterfallMetric,
     columnSortActive: sortKind === 'column',
     viewMenu,
     handleSortTarget,

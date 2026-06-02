@@ -3,6 +3,7 @@ import type {
   DevpanelNetworkSortDirSetting,
 } from '@openheaders/ui/workbench/settings/schema/devpanel-network';
 import type { InspectorRowWithFires } from '../../data/inspector-row-projection';
+import { type WaterfallMetric, waterfallSortValue } from '../../data/network-columns';
 import { COLUMN_DEFS } from './columns';
 
 export type SortDir = DevpanelNetworkSortDirSetting;
@@ -14,8 +15,14 @@ export type SortDir = DevpanelNetworkSortDirSetting;
  */
 export type SortTarget = DevpanelNetworkSortBySetting;
 
-export function sortValueOf(row: InspectorRowWithFires, target: SortTarget): string | number {
+export function sortValueOf(
+  row: InspectorRowWithFires,
+  target: SortTarget,
+  waterfallMetric: WaterfallMetric,
+): string | number {
   if (target === 'id') return row.displayId;
+  // The Waterfall column is overloaded — its sort key follows the active metric.
+  if (target === 'waterfall') return waterfallSortValue(row, waterfallMetric);
   return COLUMN_DEFS[target].getSortValue(row);
 }
 
@@ -29,9 +36,10 @@ export function sortCompare(
   b: InspectorRowWithFires,
   target: SortTarget,
   dir: SortDir,
+  waterfallMetric: WaterfallMetric,
 ): number {
-  const va = sortValueOf(a, target);
-  const vb = sortValueOf(b, target);
+  const va = sortValueOf(a, target, waterfallMetric);
+  const vb = sortValueOf(b, target, waterfallMetric);
   let cmp: number;
   if (typeof va === 'number' && typeof vb === 'number') {
     cmp = va - vb;

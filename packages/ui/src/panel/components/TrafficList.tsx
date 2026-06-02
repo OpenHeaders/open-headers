@@ -3,6 +3,7 @@ import type { FilterConfig, FilterToken } from '../data/filter-engine';
 import { matchesUrlFilter, passesRowFilters } from '../data/filter-engine';
 import type { InspectorRowWithFires } from '../data/inspector-row-projection';
 import { lifecycleDurationMs } from '../data/inspector-row-projection';
+import { WATERFALL_METRIC_LABELS } from '../data/network-columns';
 import { ColumnHeaderContextMenu, type ColumnHeaderContextMenuState } from './traffic/ColumnHeaderContextMenu';
 import type { ColumnDef, ColumnKey } from './traffic/columns';
 import { COLUMN_DEFS, columnTrack, DEFAULT_VISIBLE_COLUMNS } from './traffic/columns';
@@ -72,8 +73,18 @@ export function TrafficList({
   onCopyAllAsHar,
   onHide,
 }: TrafficListProps) {
-  const { compact, showFireDots, sortKey, sortDir, columnSortActive, viewMenu, handleSortTarget, handleSort, sortRows } =
-    useNetworkView();
+  const {
+    compact,
+    showFireDots,
+    sortKey,
+    sortDir,
+    waterfallMetric,
+    columnSortActive,
+    viewMenu,
+    handleSortTarget,
+    handleSort,
+    sortRows,
+  } = useNetworkView();
   const { columnWidths, registerCellRef, beginResize, resetColumnWidth, resetAllWidths } = useColumnResize();
 
   const [rowMenu, setRowMenu] = useState<RequestContextMenuState | null>(null);
@@ -262,7 +273,7 @@ export function TrafficList({
             type="button"
             className="dt-col-sort dt-col-sort--hash"
             onClick={() => handleSortTarget('id')}
-            title="Sort by arrival order"
+            title="Sort by request number"
           >
             #{sortIndicator('id', sortKey, sortDir, columnSortActive)}
           </button>
@@ -274,7 +285,7 @@ export function TrafficList({
                 onClick={() => handleSort(col)}
                 disabled={!col.sortable}
               >
-                {col.label}
+                {col.key === 'waterfall' ? `Waterfall (${WATERFALL_METRIC_LABELS[waterfallMetric]})` : col.label}
                 {col.sortable && sortIndicator(col.key, sortKey, sortDir, columnSortActive)}
               </button>
               <button

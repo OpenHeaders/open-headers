@@ -17,15 +17,7 @@ import { getColumnSortValue, type SortableColumnKey } from './network-columns';
 import { classifyRequestState, type RequestState } from './request-state';
 import { isAppliedFire } from './types';
 
-export const NETWORK_SORT_MODES = [
-  'arrival',
-  'failures',
-  'slowest',
-  'largest',
-  'byType',
-  'byDomain',
-  'ruleModified',
-] as const;
+export const NETWORK_SORT_MODES = ['failures', 'slowest', 'largest', 'byType', 'byDomain', 'ruleModified'] as const;
 export type NetworkSortMode = (typeof NETWORK_SORT_MODES)[number];
 
 export interface NetworkSortModeMeta {
@@ -34,10 +26,6 @@ export interface NetworkSortModeMeta {
 }
 
 export const NETWORK_SORT_MODE_META: Record<NetworkSortMode, NetworkSortModeMeta> = {
-  arrival: {
-    title: 'Arrival',
-    subtitle: 'Chronological — the order requests started.',
-  },
   failures: {
     title: 'Failures first',
     subtitle: 'Failed → pending → redirected → success · arrival within each.',
@@ -149,7 +137,6 @@ function transferredFor(row: InspectorRowWithFires): number {
 type Comparator = (a: InspectorRowWithFires, b: InspectorRowWithFires) => number;
 
 export const NETWORK_SORT_MODE_COMPARATORS: Record<NetworkSortMode, Comparator> = {
-  arrival,
   failures: (a, b) => failureTier(a) - failureTier(b) || arrival(a, b),
   slowest: (a, b) => durationFor(b) - durationFor(a) || arrival(a, b),
   largest: (a, b) => transferredFor(b) - transferredFor(a) || arrival(a, b),

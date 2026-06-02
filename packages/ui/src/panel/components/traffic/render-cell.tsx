@@ -3,7 +3,7 @@ import { currentHarEntry, type InspectorRowWithFires } from '../../data/inspecto
 import { type RequestState, statusText } from '../../data/request-state';
 import { formatBytesToKb, formatSizeInfo, type SizeInfo } from '../../data/size-info';
 import type { ColumnDef } from './columns';
-import { extractName, formatInitiator, formatTimestamp, getInitiatorFrame, statusClass } from './formatters';
+import { extractName, formatInitiator, getInitiatorFrame, statusClass } from './formatters';
 import { getRole, type PreflightIndex } from './preflight-pairs';
 import ResourceIcon from './ResourceIcon';
 import { normalizeResourceType, RESOURCE_LABEL } from './resource-types';
@@ -69,9 +69,6 @@ export function renderCell(
         {text}
       </span>
     );
-  }
-  if (col.key === 'timestamp') {
-    return <span className="dt-col-muted">{formatTimestamp(lc.startedAtMs)}</span>;
   }
   if (col.key === 'type') {
     const rawType = normalizeResourceType(lc.resourceType);

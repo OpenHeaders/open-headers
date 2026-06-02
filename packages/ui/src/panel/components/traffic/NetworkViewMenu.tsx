@@ -9,6 +9,7 @@ import type {
   DevpanelNetworkSortModeSetting,
   NetworkCustomNestedLevel,
 } from '@openheaders/ui/workbench/settings/schema/devpanel-network';
+import { type WaterfallMetric, WATERFALL_METRIC_LABELS } from '../../data/network-columns';
 import { NETWORK_SORT_MODE_META, type NetworkSortMode } from '../../data/network-sort-modes';
 import { COLUMN_DEFS, type ColumnKey } from './columns';
 
@@ -56,20 +57,30 @@ const SORTABLE_COLUMN_KEYS: ReadonlyArray<ColumnKey> = (Object.keys(COLUMN_DEFS)
   (k) => COLUMN_DEFS[k].sortable,
 );
 
+const WATERFALL_METRICS: ReadonlyArray<{ value: WaterfallMetric; subtitle: string }> = [
+  { value: 'startTime', subtitle: 'When the request started.' },
+  { value: 'responseTime', subtitle: 'When the first response byte arrived.' },
+  { value: 'endTime', subtitle: 'When the request finished.' },
+  { value: 'duration', subtitle: 'How long it took — bars zero-aligned.' },
+  { value: 'latency', subtitle: 'Time to first byte — bars zero-aligned.' },
+];
+
 const MAX_NESTED_LEVELS = 4;
 
 export function NetworkViewMenu({
   layout,
   sortKind,
   sortMode,
-  sortBy: _sortBy,
+  sortBy,
   sortDir,
+  waterfallMetric,
   customNested,
   showFireDots,
   sortByLabel,
   onLayoutChange,
   onSortModeChange,
   onUseColumnSort,
+  onWaterfallMetricChange,
   onCustomNestedChange,
   onUseCustomNested,
   onToggleShowFireDots,
@@ -79,45 +90,50 @@ export function NetworkViewMenu({
   sortMode: DevpanelNetworkSortModeSetting;
   sortBy: DevpanelNetworkSortBySetting;
   sortDir: DevpanelNetworkSortDirSetting;
+  waterfallMetric: WaterfallMetric;
   customNested: readonly NetworkCustomNestedLevel[];
   showFireDots: boolean;
-  /** Human label for the current column-click column (e.g. "Timestamp"). */
+  /** Human label for the current column-click column (e.g. "Waterfall (Start time)"). */
   sortByLabel: string;
   onLayoutChange: (mode: DevpanelNetworkLayoutSetting) => void;
   onSortModeChange: (mode: NetworkSortMode) => void;
   onUseColumnSort: () => void;
+  onWaterfallMetricChange: (metric: WaterfallMetric) => void;
   onCustomNestedChange: (next: NetworkCustomNestedLevel[]) => void;
   onUseCustomNested: () => void;
   onToggleShowFireDots: () => void;
 }) {
-  const arrivalActive = sortKind === 'mode' && sortMode === 'arrival';
+  const waterfallActive = sortKind === 'column' && sortBy === 'waterfall';
   const columnActive = sortKind === 'column';
   const customActive = sortKind === 'customNested';
   const groupActive = (id: 'priority' | 'grouping') =>
     sortKind === 'mode' && GROUPS.find((g) => g.id === id)?.modes.includes(sortMode);
 
-  const activeBadgeCount =
-    (layout !== 'compact' ? 1 : 0) +
-    (sortKind === 'column' || sortKind === 'customNested' || sortMode !== 'arrival' ? 1 : 0) +
-    (!showFireDots ? 1 : 0);
+  // Default sort is Waterfall (Start time) ascending — only count the badge
+  // when the user has moved away from it.
+  const sortIsDefault = waterfallActive && waterfallMetric === 'startTime' && sortDir === 'asc';
+  const activeBadgeCount = (layout !== 'compact' ? 1 : 0) + (sortIsDefault ? 0 : 1) + (!showFireDots ? 1 : 0);
 
   // ── Subtitle for the closed-state row ───────────────────────────
   // Picking up where the mode card subtitles left off — we want users
   // to see WHICH mode is active even when its group is collapsed.
   const activeSubtitle = useMemo<string>(() => {
-    if (sortKind === 'column') return `${sortByLabel} · ${sortDir === 'asc' ? 'Ascending' : 'Descending'}`;
+    if (sortKind === 'column') {
+      const label = sortBy === 'waterfall' ? WATERFALL_METRIC_LABELS[waterfallMetric] : sortByLabel;
+      return `${label} · ${sortDir === 'asc' ? 'Ascending' : 'Descending'}`;
+    }
     if (sortKind === 'customNested') {
       if (customNested.length === 0) return 'No levels yet — open the builder.';
       return customNested.map((l) => `${labelFor(l.key)} ${l.dir === 'asc' ? '↑' : '↓'}`).join(' · ');
     }
     return NETWORK_SORT_MODE_META[sortMode].subtitle;
-  }, [sortKind, sortMode, sortDir, sortByLabel, customNested]);
+  }, [sortKind, sortMode, sortDir, sortBy, waterfallMetric, sortByLabel, customNested]);
 
   const activeTitle = useMemo<string>(() => {
-    if (sortKind === 'column') return 'Custom (column-click)';
+    if (sortKind === 'column') return sortBy === 'waterfall' ? 'Waterfall' : 'Custom (column-click)';
     if (sortKind === 'customNested') return 'Custom (nested)';
     return NETWORK_SORT_MODE_META[sortMode].title;
-  }, [sortKind, sortMode]);
+  }, [sortKind, sortMode, sortBy]);
 
   const content = (
     <div className="dt-morefilters-menu dt-network-view-menu">
@@ -134,12 +150,7 @@ export function NetworkViewMenu({
         <div className="dt-sortmode-active-title">{activeTitle}</div>
         <div className="dt-sortmode-active-subtitle">{activeSubtitle}</div>
       </div>
-      <SortRow
-        title="Arrival"
-        subtitle="Chronological — the order requests started."
-        active={arrivalActive}
-        onClick={() => onSortModeChange('arrival')}
-      />
+      <WaterfallSortRow active={waterfallActive} activeMetric={waterfallMetric} onPick={onWaterfallMetricChange} />
       {GROUPS.map((g) => (
         <SortGroupRow
           key={g.id}
@@ -284,6 +295,63 @@ function SortGroupRow({
   );
 }
 
+function WaterfallSortRow({
+  active,
+  activeMetric,
+  onPick,
+}: {
+  active: boolean;
+  activeMetric: WaterfallMetric;
+  onPick: (metric: WaterfallMetric) => void;
+}) {
+  const submenu = (
+    <div className="dt-sortmode-submenu" role="menu">
+      {WATERFALL_METRICS.map((m) => {
+        const isActive = active && activeMetric === m.value;
+        return (
+          <button key={m.value} type="button" className="dt-sortmode-item" onClick={() => onPick(m.value)}>
+            <div className="dt-sortmode-item-body">
+              <div className="dt-sortmode-item-title">{WATERFALL_METRIC_LABELS[m.value]}</div>
+              <div className="dt-sortmode-item-subtitle">{m.subtitle}</div>
+            </div>
+            {isActive && (
+              <span className="dt-sortmode-item-check" aria-hidden="true">
+                <CheckOutlined />
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+  return (
+    <Popover
+      content={submenu}
+      trigger="hover"
+      placement="rightTop"
+      arrow={false}
+      overlayClassName="dt-morefilters-popover dt-sortmode-submenu-popover"
+      mouseEnterDelay={0.05}
+      mouseLeaveDelay={0.1}
+    >
+      <div className="dt-sortmode-item dt-sortmode-item--group">
+        <div className="dt-sortmode-item-body">
+          <div className="dt-sortmode-item-title">Waterfall</div>
+          <div className="dt-sortmode-item-subtitle">Timeline — sort by start, response, end, duration, or latency.</div>
+        </div>
+        {active && (
+          <span className="dt-sortmode-item-check" aria-hidden="true">
+            <CheckOutlined />
+          </span>
+        )}
+        <span className="dt-sortmode-item-chevron" aria-hidden="true">
+          <RightOutlined />
+        </span>
+      </div>
+    </Popover>
+  );
+}
+
 function SortCustomNestedRow({
   levels,
   active,
@@ -395,7 +463,7 @@ function SortCustomNestedRow({
 function defaultLevelKey(existing: readonly NetworkCustomNestedLevel[]): DevpanelNetworkSortBySetting {
   // Pick the first sortable column that's not already in the chain.
   const used = new Set(existing.map((l) => l.key));
-  const all: DevpanelNetworkSortBySetting[] = ['status', 'time', 'size', 'type', 'name', 'method', 'timestamp', 'id'];
+  const all: DevpanelNetworkSortBySetting[] = ['status', 'time', 'size', 'type', 'name', 'method', 'waterfall', 'id'];
   for (const k of all) if (!used.has(k)) return k;
   return 'id';
 }
