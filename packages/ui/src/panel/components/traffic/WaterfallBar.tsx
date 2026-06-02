@@ -129,7 +129,11 @@ export function WaterfallBar({ row, scale }: WaterfallBarProps) {
       mouseEnterDelay={0.25}
       overlayClassName="dt-morefilters-popover dt-waterfall-pop-overlay"
     >
-      {track}
+      {/* antd attaches the hover ref + handlers to this child via
+          cloneElement, so it must be a DOM element — the bar itself is a
+          function component (RainbowBar / DurationBar) that wouldn't forward
+          them, which silently killed the hover trigger. */}
+      <div className="dt-waterfall-celltrigger">{track}</div>
     </Popover>
   );
 }

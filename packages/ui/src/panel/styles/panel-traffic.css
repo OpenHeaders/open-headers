@@ -382,6 +382,14 @@ body.dt-resizing-col {
 }
 
 /* ── Waterfall column ────────────────────────────────────── */
+/* Hover-popover trigger wrapper — a real DOM element antd can attach its
+ * hover ref/handlers to (the bar inside is a function component). Fills the
+ * cell so the whole Waterfall column area is the hover target. */
+.dt-waterfall-celltrigger {
+  display: block;
+  width: 100%;
+}
+
 .dt-waterfall-track {
   position: relative;
   width: 100%;
