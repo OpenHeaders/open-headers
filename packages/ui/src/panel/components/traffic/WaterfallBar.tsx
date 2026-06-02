@@ -18,13 +18,16 @@
  * uses, so the bar a row draws and the order it sorts into always agree.
  */
 
+import { Popover } from 'antd';
 import type { InspectorHarEntry } from '@openheaders/core/types';
 import { type WaterfallMetric, waterfallSortValue } from '../../data/network-columns';
 import { currentHarEntry, type InspectorRowWithFires, lifecycleDurationMs } from '../../data/inspector-row-projection';
+import { computeTimingPhases } from '../../data/timing-phases';
+import { WaterfallTimingPopover } from './WaterfallTimingPopover';
 
 /** How the Waterfall column maps a row to a bar. */
 export type WaterfallScale =
-  | { mode: 'timeline'; t0: number; tMax: number }
+  | { mode: 'timeline'; metric: WaterfallMetric; t0: number; tMax: number }
   | { mode: 'duration'; metric: Extract<WaterfallMetric, 'duration' | 'latency'>; max: number };
 
 interface WaterfallBarProps {
@@ -62,7 +65,8 @@ function positivePhases(
 
 export function WaterfallBar({ row, scale }: WaterfallBarProps) {
   const lc = row.lifecycle;
-  const timings = currentHarEntry(lc)?.timings;
+  const har = currentHarEntry(lc);
+  const timings = har?.timings;
 
   let leftPct: number;
   let widthPct: number;
@@ -88,8 +92,12 @@ export function WaterfallBar({ row, scale }: WaterfallBarProps) {
   const phases = timings ? positivePhases(timings, phaseOrder) : [];
   const phaseTotal = phases.reduce((s, p) => s + p.ms, 0);
 
-  return (
-    <div className="dt-waterfall-track" title={title}>
+  // Rich hover breakdown when we have real phase data; otherwise the bar
+  // keeps a plain native tooltip with its value.
+  const timingDetail = har?.timings ? computeTimingPhases(har) : null;
+
+  const track = (
+    <div className="dt-waterfall-track" title={timingDetail ? undefined : title}>
       <div
         className="dt-waterfall-bar"
         style={{
@@ -106,11 +114,25 @@ export function WaterfallBar({ row, scale }: WaterfallBarProps) {
                   width: `${(p.ms / phaseTotal) * 100}%`,
                   background: PHASE_COLORS[p.key] ?? '#999',
                 }}
-                title={`${p.key}: ${Math.round(p.ms)} ms`}
               />
             ))
           : null}
       </div>
     </div>
+  );
+
+  if (!timingDetail) return track;
+
+  return (
+    <Popover
+      content={<WaterfallTimingPopover data={timingDetail} metric={scale.metric} />}
+      trigger="hover"
+      placement="left"
+      arrow={false}
+      mouseEnterDelay={0.25}
+      overlayClassName="dt-morefilters-popover dt-waterfall-pop-overlay"
+    >
+      {track}
+    </Popover>
   );
 }

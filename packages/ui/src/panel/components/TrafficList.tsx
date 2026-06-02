@@ -202,7 +202,7 @@ export function TrafficList({
       }
       return { mode: 'duration', metric: waterfallMetric, max };
     }
-    return { mode: 'timeline', t0, tMax };
+    return { mode: 'timeline', metric: waterfallMetric, t0, tMax };
   }, [waterfallMetric, sorted, t0, tMax]);
 
   // Stable per-row render context — referentially constant across a pure

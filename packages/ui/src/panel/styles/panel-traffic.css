@@ -407,3 +407,58 @@ body.dt-resizing-col {
   height: 100%;
   display: inline-block;
 }
+
+/* Hover breakdown for a Waterfall bar. Reuses `.dt-morefilters-popover`
+ * antd chrome; this owns the inner layout only. */
+.dt-waterfall-pop {
+  min-width: 200px;
+  padding: 4px 10px 8px;
+  font-size: 11px;
+  color: var(--dt-text);
+}
+
+.dt-waterfall-pop-group {
+  margin-top: 6px;
+}
+
+.dt-waterfall-pop-head {
+  color: var(--dt-text-muted);
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  margin-bottom: 2px;
+}
+
+.dt-waterfall-pop-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 18px;
+}
+
+.dt-waterfall-pop-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex: none;
+}
+
+.dt-waterfall-pop-label {
+  flex: 1 1 auto;
+}
+
+.dt-waterfall-pop-ms {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  color: var(--dt-text-muted);
+}
+
+.dt-waterfall-pop-total {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--dt-border);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
