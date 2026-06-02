@@ -20,6 +20,8 @@ export interface NetworkViewApi {
   sortDir: SortDir;
   /** Active Waterfall sub-metric — drives the Waterfall sort key and header label. */
   waterfallMetric: WaterfallMetric;
+  /** Set the displayed waterfall metric directly (no sort change) — for the column-header menu. */
+  setWaterfallMetric: (metric: WaterfallMetric) => void;
   /** Whether a column-header sort (vs. a sort mode / custom nesting) is active. */
   columnSortActive: boolean;
   /** The assembled view-options menu node for the panel header. */
@@ -157,6 +159,7 @@ export function useNetworkView(): NetworkViewApi {
     sortKey,
     sortDir,
     waterfallMetric,
+    setWaterfallMetric,
     columnSortActive: sortKind === 'column',
     viewMenu,
     handleSortTarget,

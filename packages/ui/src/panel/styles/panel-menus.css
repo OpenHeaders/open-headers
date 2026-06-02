@@ -122,6 +122,26 @@
   flex-shrink: 0;
 }
 
+/* Submenu-parent row (e.g. Waterfall): trailing caret flush to the right. */
+.dt-ctx-submenu-trigger .dt-ctx-caret {
+  margin-left: auto;
+  padding-left: 12px;
+  color: var(--dt-text-muted);
+  font-size: 10px;
+}
+
+/* Waterfall-metric submenu — antd Popover content; reuses the context-menu
+ * row styling, with the popover shell padded like the main menu. */
+.dt-colmenu-submenu .ant-popover-inner {
+  padding: 4px 0;
+}
+
+.dt-colmenu-submenu-list {
+  display: flex;
+  flex-direction: column;
+  min-width: 140px;
+}
+
 /* ── Tab context menu (antd Dropdown, scoped compact) ──────
  * The tab strip right-click menu uses antd's Dropdown so it inherits
  * keyboard nav, submenu positioning, and dismissal semantics — but antd's

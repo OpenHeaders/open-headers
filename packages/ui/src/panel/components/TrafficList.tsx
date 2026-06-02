@@ -88,6 +88,7 @@ export function TrafficList({
     sortKey,
     sortDir,
     waterfallMetric,
+    setWaterfallMetric,
     columnSortActive,
     viewMenu,
     handleSort,
@@ -425,6 +426,8 @@ export function TrafficList({
           onToggle={toggleColumn}
           onReset={resetColumns}
           onClose={() => setColMenu(null)}
+          waterfallMetric={waterfallMetric}
+          onWaterfallMetricChange={setWaterfallMetric}
         />
       )}
     </div>
