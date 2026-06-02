@@ -483,7 +483,10 @@ body.dt-resizing-col {
 .dt-wf-inlabel {
   font-size: 10px;
   line-height: 1;
-  color: var(--dt-text);
+  /* The bar fill is a fixed pale pastel (light in BOTH themes), so the
+   * label must be dark regardless of theme — `var(--dt-text)` would go
+   * white on dark theme and vanish against the pale fill. */
+  color: rgba(0, 0, 0, 0.85);
   white-space: nowrap;
   pointer-events: none;
   opacity: 0;
