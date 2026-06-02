@@ -287,7 +287,19 @@
  * Network View menu is wider than the default (220px) so subtitles
  * have room to breathe. */
 .dt-network-view-menu {
-  min-width: 320px;
+  min-width: 280px;
+}
+
+/* Compact the View popover to the column-menu type scale (11px) so it reads
+ * tighter — the Layout select row and the fire-dot checkbox use the shared
+ * `.dt-morefilters-item`, so scope the smaller size to the View menu only. */
+.dt-network-view-menu .dt-morefilters-item {
+  font-size: 11px;
+  padding: 4px 12px;
+}
+
+.dt-network-view-menu .dt-morefilters-item select {
+  font-size: 11px;
 }
 
 .dt-sortmode-heading {
@@ -303,7 +315,7 @@
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  padding: 6px 12px;
+  padding: 4px 12px;
   border: none;
   background: transparent;
   color: var(--dt-text);
@@ -327,17 +339,17 @@
 }
 
 .dt-sortmode-item-title {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--dt-text);
 }
 
 .dt-sortmode-item-subtitle {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--dt-text-muted);
   margin-top: 1px;
   white-space: normal;
-  line-height: 1.35;
+  line-height: 1.3;
 }
 
 .dt-sortmode-item-hint {
@@ -351,7 +363,7 @@
   justify-content: center;
   flex: 0 0 auto;
   color: var(--dt-link);
-  font-size: 12px;
+  font-size: 11px;
   margin-top: 2px;
 }
 
@@ -403,7 +415,7 @@
 .dt-sortmode-submenu {
   display: flex;
   flex-direction: column;
-  min-width: 320px;
+  min-width: 280px;
   max-height: min(60vh, 480px);
   overflow-y: auto;
 }
