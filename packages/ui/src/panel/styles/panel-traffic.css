@@ -552,6 +552,33 @@ body.dt-resizing-col {
   padding: 4px 10px 8px;
   font-size: 11px;
   color: var(--dt-text);
+  /* Cap to the viewport and scroll inside, like the View / column menus. */
+  max-height: min(60vh, 480px);
+  overflow-y: auto;
+}
+
+/* Reveal-on-hover scrollbar — thumb shown while the pointer is in the
+ * popover (ancestor `:hover` on the overlay, so Chromium repaints it). */
+.dt-waterfall-pop::-webkit-scrollbar {
+  width: 8px;
+}
+
+.dt-waterfall-pop::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dt-waterfall-pop::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 4px;
+  transition: background-color 0.2s ease-out;
+}
+
+.dt-waterfall-pop-overlay:hover .dt-waterfall-pop::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.55);
+}
+
+.dt-waterfall-pop-overlay:hover .dt-waterfall-pop::-webkit-scrollbar-thumb:hover {
+  background: rgba(128, 128, 128, 0.75);
 }
 
 .dt-waterfall-pop-group {
