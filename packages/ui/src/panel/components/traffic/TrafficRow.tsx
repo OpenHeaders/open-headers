@@ -47,7 +47,6 @@ function TrafficRowImpl({
       data-row-id={requestId}
       onClick={() => onSelect(requestId)}
       onContextMenu={(e) => onContextMenu(e, requestId)}
-      title={row.lifecycle.url}
       style={{ gridTemplateColumns: gridTemplate }}
     >
       {showFireDots && (
