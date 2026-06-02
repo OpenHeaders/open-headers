@@ -27,6 +27,34 @@
   font-size: 11px;
 }
 
+/* Scrollable context menu (the portaled column-visibility list). Overflow
+ * itself is set inline on the element so scrolling works even without this
+ * sheet; here we only style the scrollbar. A persistent 8px gutter (no
+ * layout shift) with the thumb revealed while the pointer is inside the
+ * menu, so the scroll affordance is obvious. Scoped to the menu — it's
+ * portaled to <body>, outside the dock-body scrollbar styling. */
+.dt-ctx-menu--scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.dt-ctx-menu--scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dt-ctx-menu--scroll::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 4px;
+  transition: background-color 0.15s ease-out;
+}
+
+.dt-ctx-menu--scroll:hover::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.5);
+}
+
+.dt-ctx-menu--scroll:hover::-webkit-scrollbar-thumb:hover {
+  background: rgba(128, 128, 128, 0.7);
+}
+
 .dt-ctx-item {
   display: block;
   width: 100%;

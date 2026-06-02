@@ -1,14 +1,22 @@
 /**
- * Right-click menu on the traffic list header.
+ * Right-click menu on the traffic list header — column visibility toggles.
  *
- * Each entry is a checkbox-like toggle for one column; clicking it
- * adds or removes that column from the visible set. The Name column
- * is treated as mandatory (you can't hide "Name") — Chrome's Network
- * tab does the same. A "Reset columns" entry restores the default
- * visible set.
+ * Portaled to `<body>` (like antd's popovers) so it escapes the dock /
+ * allotment subtree that was clipping it; `position: fixed` then resolves
+ * against the real viewport. Height is capped the same way the table's
+ * `View ▾` dropdown caps its menu — `min(60vh, 480px)`, additionally bounded
+ * by the room below the click — with `overflow-y: auto`, so a long column
+ * list scrolls INSIDE the menu. Both are CSS values (no JS measurement), so
+ * the cap follows the viewport when the panel is resized while the menu is
+ * open. `overflow-y` is inline (not a class) so the scroll can never be lost
+ * to a stylesheet that didn't load.
+ *
+ * The Name column is mandatory (Chrome does the same); "Reset columns"
+ * restores the default visible set.
  */
 
 import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { type ColumnDef, type ColumnKey, DEFAULT_VISIBLE_COLUMNS } from './columns';
 
 export interface ColumnHeaderContextMenuState {
@@ -58,8 +66,20 @@ export function ColumnHeaderContextMenu({
     return true;
   })();
 
-  return (
-    <div ref={menuRef} className="dt-ctx-menu" style={{ left: state.x, top: state.y }}>
+  return createPortal(
+    <div
+      ref={menuRef}
+      className="dt-ctx-menu dt-ctx-menu--scroll"
+      style={{
+        left: state.x,
+        top: state.y,
+        // Same cap as the `View ▾` menu, also bounded by the space below the
+        // click so it never runs past the panel bottom. All CSS, so it
+        // re-resolves automatically when the panel is resized.
+        maxHeight: `min(60vh, 480px, calc(100vh - ${state.y}px - 8px))`,
+        overflowY: 'auto',
+      }}
+    >
       {columns.map((col) => {
         const checked = visible.has(col.key);
         const disabled = MANDATORY.has(col.key);
@@ -74,7 +94,7 @@ export function ColumnHeaderContextMenu({
             }}
             disabled={disabled}
           >
-            <span className="dt-ctx-check-mark">{checked ? '\u2713' : ''}</span>
+            <span className="dt-ctx-check-mark">{checked ? '✓' : ''}</span>
             <span>{col.label}</span>
           </button>
         );
@@ -92,6 +112,7 @@ export function ColumnHeaderContextMenu({
       >
         Reset columns
       </button>
-    </div>
+    </div>,
+    document.body,
   );
 }
