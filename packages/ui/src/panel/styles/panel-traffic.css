@@ -552,8 +552,10 @@ body.dt-resizing-col {
   padding: 4px 10px 8px;
   font-size: 11px;
   color: var(--dt-text);
-  /* Cap to the viewport and scroll inside, like the View / column menus. */
-  max-height: min(60vh, 480px);
+  /* Cap to (nearly) the full viewport rather than a fixed fraction, so the
+   * breakdown grows to its content whenever there's room — antd keeps the
+   * popover on screen — and only scrolls when it truly can't fit. */
+  max-height: calc(100vh - 48px);
   overflow-y: auto;
 }
 
