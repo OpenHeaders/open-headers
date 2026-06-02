@@ -1,7 +1,12 @@
-import { describe, expect, it, vi } from 'vitest';
-
 import { FireClientStore } from '@openheaders/ui/panel/data/fire-client-store';
+import { createSyncNotifyScheduler, setNotifyScheduler } from '@openheaders/ui/panel/data/notify-scheduler';
 import type { InspectorFire } from '@openheaders/ui/panel/data/types';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+// Notify-on-mutate semantics are frame-independent; drive them
+// synchronously. Frame coalescing is covered in `snapshot-publisher.test.ts`.
+beforeEach(() => setNotifyScheduler(createSyncNotifyScheduler()));
+afterEach(() => setNotifyScheduler(null));
 
 function fire(over: Partial<InspectorFire> = {}): InspectorFire {
   return {

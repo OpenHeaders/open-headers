@@ -3,18 +3,14 @@
  * through the client store. Mirrors `useLifecycleClient.test.tsx`.
  */
 
-import { act, render } from '@testing-library/react';
-import React from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
-import {
-  type LifelinePort,
-  type LifelineTransport,
-  setLifelineTransport,
-} from '@openheaders/core/awareness';
+import { type LifelinePort, type LifelineTransport, setLifelineTransport } from '@openheaders/core/awareness';
 import { type HostNavigation, setHostNavigation } from '@openheaders/core/navigation';
 import { pagePortName } from '@openheaders/core/page-stream';
+import { createSyncNotifyScheduler, setNotifyScheduler } from '@openheaders/ui/panel/data/notify-scheduler';
 import { usePageClient } from '@openheaders/ui/panel/data/use-page-client';
+import { act, render } from '@testing-library/react';
+import type React from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 interface FakePort extends LifelinePort {
   readonly name: string;
@@ -82,10 +78,14 @@ function Probe(): React.ReactElement {
 describe('usePageClient', () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    // Replay routing is asserted per `act`; notify synchronously so a
+    // single emit is observable without a frame flush.
+    setNotifyScheduler(createSyncNotifyScheduler());
   });
 
   afterEach(() => {
     vi.useRealTimers();
+    setNotifyScheduler(null);
     installNavigation(null);
     installTransport(() => ({
       postMessage() {},

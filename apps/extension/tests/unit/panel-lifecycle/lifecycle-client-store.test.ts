@@ -5,9 +5,16 @@
  */
 
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
-import { describe, expect, it, vi } from 'vitest';
-
 import { LifecycleClientStore } from '@openheaders/ui/panel/data/lifecycle';
+import { createSyncNotifyScheduler, setNotifyScheduler } from '@openheaders/ui/panel/data/notify-scheduler';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+// These assert mutation→notify semantics (notify on real change, skip on
+// noop), which is orthogonal to frame batching — drive notifications
+// synchronously so a single `apply` is observable without a frame flush.
+// Coalescing is covered separately in `snapshot-publisher.test.ts`.
+beforeEach(() => setNotifyScheduler(createSyncNotifyScheduler()));
+afterEach(() => setNotifyScheduler(null));
 
 function makeLifecycle(over: Partial<RequestLifecycle> = {}): RequestLifecycle {
   return {

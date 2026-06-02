@@ -1,6 +1,11 @@
-import { describe, expect, it, vi } from 'vitest';
-
+import { createSyncNotifyScheduler, setNotifyScheduler } from '@openheaders/ui/panel/data/notify-scheduler';
 import { PageClientStore } from '@openheaders/ui/panel/data/page-client-store';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+// Notify-on-mutate semantics are frame-independent; drive them
+// synchronously. Frame coalescing is covered in `snapshot-publisher.test.ts`.
+beforeEach(() => setNotifyScheduler(createSyncNotifyScheduler()));
+afterEach(() => setNotifyScheduler(null));
 
 describe('PageClientStore', () => {
   it('starts empty with a frozen snapshot', () => {

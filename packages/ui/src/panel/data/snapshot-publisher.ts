@@ -13,10 +13,15 @@
  * when clear() is called on an empty store"), and the `compute`
  * callback that rebuilds the snapshot when the dirty flag is set.
  *
- * Mutators call `markDirty()` after a real state change — that both
- * flips the cache flag and fans out to listeners, so `getSnapshot()`
- * lazily rebuilds on the next subscriber read.
+ * Mutators call `markDirty()` after a real state change — that flips the
+ * cache flag and schedules a fan-out to listeners through the
+ * notify-scheduler seam (rAF-coalesced in production), so a burst of
+ * mutations in one frame collapses to a single notify. `getSnapshot()`
+ * still rebuilds lazily on the dirty flag, so a synchronous read after
+ * `markDirty` returns the latest state even before the deferred notify.
  */
+
+import { getNotifyScheduler } from './notify-scheduler';
 
 export interface SnapshotPublisher<T> {
   readonly subscribe: (listener: () => void) => () => void;
@@ -25,13 +30,14 @@ export interface SnapshotPublisher<T> {
   markDirty(): void;
 }
 
-export function createSnapshotPublisher<T>(
-  compute: () => T,
-  initial: T,
-): SnapshotPublisher<T> {
+export function createSnapshotPublisher<T>(compute: () => T, initial: T): SnapshotPublisher<T> {
   const listeners = new Set<() => void>();
   let cache: T = initial;
   let dirty = false;
+
+  const notify = (): void => {
+    for (const listener of listeners) listener();
+  };
 
   return {
     subscribe: (listener) => {
@@ -49,7 +55,7 @@ export function createSnapshotPublisher<T>(
     },
     markDirty(): void {
       dirty = true;
-      for (const listener of listeners) listener();
+      getNotifyScheduler().schedule(notify);
     },
   };
 }

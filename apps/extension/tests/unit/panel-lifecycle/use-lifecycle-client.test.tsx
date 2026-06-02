@@ -15,6 +15,7 @@ import { type HostNavigation, setHostNavigation } from '@openheaders/core/naviga
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import { lifecyclePortName } from '@openheaders/core/request-lifecycle';
 import { useLifecycleClient } from '@openheaders/ui/panel/data/lifecycle';
+import { createSyncNotifyScheduler, setNotifyScheduler } from '@openheaders/ui/panel/data/notify-scheduler';
 import { act, render } from '@testing-library/react';
 import type React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -94,10 +95,14 @@ function Probe(): React.ReactElement {
 describe('useLifecycleClient', () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    // Replay routing is asserted per `act`, so notify must be observable
+    // within the same act — drive it synchronously instead of via rAF.
+    setNotifyScheduler(createSyncNotifyScheduler());
   });
 
   afterEach(() => {
     vi.useRealTimers();
+    setNotifyScheduler(null);
     installNavigation(null);
     installTransport(() => ({
       postMessage() {},

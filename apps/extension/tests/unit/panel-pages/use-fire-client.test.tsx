@@ -3,17 +3,13 @@
  * from `RuleFireWireMessage` envelopes.
  */
 
-import { act, render } from '@testing-library/react';
-import React from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
-import {
-  type LifelinePort,
-  type LifelineTransport,
-  setLifelineTransport,
-} from '@openheaders/core/awareness';
+import { type LifelinePort, type LifelineTransport, setLifelineTransport } from '@openheaders/core/awareness';
 import { type HostNavigation, setHostNavigation } from '@openheaders/core/navigation';
+import { createSyncNotifyScheduler, setNotifyScheduler } from '@openheaders/ui/panel/data/notify-scheduler';
 import { useFireClient } from '@openheaders/ui/panel/data/use-fire-client';
+import { act, render } from '@testing-library/react';
+import type React from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 interface FakePort extends LifelinePort {
   readonly name: string;
@@ -81,10 +77,14 @@ function Probe(): React.ReactElement {
 describe('useFireClient', () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    // Fire routing is asserted per `act`; notify synchronously so a
+    // single emit is observable without a frame flush.
+    setNotifyScheduler(createSyncNotifyScheduler());
   });
 
   afterEach(() => {
     vi.useRealTimers();
+    setNotifyScheduler(null);
     installNavigation(null);
     installTransport(() => ({
       postMessage() {},
