@@ -218,6 +218,36 @@
   overflow-y: auto;
 }
 
+/* Reveal-on-hover scrollbar for the View / More-filters menu — same pattern
+ * as the column-header menu and the dock body: the scrollbar lives on the
+ * scroll element (`.dt-morefilters-menu`), and its thumb is revealed by
+ * hovering the popover ancestor, so Chromium repaints it the moment the
+ * pointer enters (not just over the track). The popover is portaled to
+ * <body>, outside the dock-body scrollbar styling, so it needs its own. An
+ * 8px gutter is reserved while scrollable so there is no layout shift; grey
+ * reads on both themes. */
+.dt-morefilters-menu::-webkit-scrollbar {
+  width: 8px;
+}
+
+.dt-morefilters-menu::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dt-morefilters-menu::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 4px;
+  transition: background-color 0.2s ease-out;
+}
+
+.dt-morefilters-popover:hover .dt-morefilters-menu::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.55);
+}
+
+.dt-morefilters-popover:hover .dt-morefilters-menu::-webkit-scrollbar-thumb:hover {
+  background: rgba(128, 128, 128, 0.75);
+}
+
 .dt-morefilters-item {
   display: flex;
   align-items: center;
