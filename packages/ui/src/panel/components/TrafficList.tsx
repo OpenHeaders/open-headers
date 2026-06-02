@@ -3,7 +3,7 @@ import type { FilterConfig, FilterToken } from '../data/filter-engine';
 import { matchesUrlFilter, passesRowFilters } from '../data/filter-engine';
 import type { InspectorRowWithFires } from '../data/inspector-row-projection';
 import { lifecycleDurationMs } from '../data/inspector-row-projection';
-import { WATERFALL_METRIC_LABELS } from '../data/network-columns';
+import { WATERFALL_METRIC_LABELS, waterfallSortValue } from '../data/network-columns';
 import { ColumnHeaderContextMenu, type ColumnHeaderContextMenuState } from './traffic/ColumnHeaderContextMenu';
 import type { ColumnDef, ColumnKey } from './traffic/columns';
 import { COLUMN_DEFS, columnTrack, DEFAULT_VISIBLE_COLUMNS } from './traffic/columns';
@@ -18,6 +18,7 @@ import { TrafficRow } from './traffic/TrafficRow';
 import { useColumnResize } from './traffic/use-column-resize';
 import { useNetworkView } from './traffic/use-network-view';
 import { useRowWindow } from './traffic/use-row-window';
+import type { WaterfallScale } from './traffic/WaterfallBar';
 import { WidthAnchorRow } from './traffic/WidthAnchorRow';
 
 interface TrafficListProps {
@@ -189,11 +190,26 @@ export function TrafficList({
     return [min, max];
   }, [sorted]);
 
+  // Bar geometry follows the active metric: Duration / Latency zero-align
+  // the bars against the largest value in view; the timeline metrics place
+  // them on the absolute `[t0, tMax]` window.
+  const waterfallScale = useMemo<WaterfallScale>(() => {
+    if (waterfallMetric === 'duration' || waterfallMetric === 'latency') {
+      let max = 1;
+      for (const r of sorted) {
+        const v = waterfallSortValue(r, waterfallMetric);
+        if (v > max) max = v;
+      }
+      return { mode: 'duration', metric: waterfallMetric, max };
+    }
+    return { mode: 'timeline', t0, tMax };
+  }, [waterfallMetric, sorted, t0, tMax]);
+
   // Stable per-row render context — referentially constant across a pure
   // scroll so the memoized rows on screen skip re-render.
   const cellContext = useMemo<CellContext>(
-    () => ({ waterfall: { t0, tMax }, preflight, onJumpTo: handleJumpTo }),
-    [t0, tMax, preflight, handleJumpTo],
+    () => ({ waterfall: waterfallScale, preflight, onJumpTo: handleJumpTo }),
+    [waterfallScale, preflight, handleJumpTo],
   );
 
   const toggleColumn = (key: ColumnKey) => {

@@ -1,33 +1,35 @@
 /**
- * WaterfallBar — per-row timing visualization, mirroring the Chrome
- * Network tab's waterfall column.
+ * WaterfallBar — per-row timing visualization for the Network table.
  *
- * Inputs:
- *   - `t0`    absolute wall-clock ms of the earliest visible row
- *             (reference zero of the waterfall)
- *   - `tMax`  absolute wall-clock ms of the latest visible row's
- *             finish time (reference right edge)
- *   - `row`   the row being rendered
+ * Two visual modes, picked by the active Waterfall metric:
  *
- * The bar is absolute-positioned inside a track sized to the
- * `[t0, tMax]` window. Request start is `row.lifecycle.startedAtMs - t0`
- * and request end derives from the lifecycle's best-known duration.
- * When timings data is available the inner phases
- * (blocked/dns/connect/ssl/send/wait/receive) are rendered as stacked
- * colored segments, matching the Timing detail view's palette.
+ *   - **timeline** (Start / Response / End time) — the bar is absolutely
+ *     positioned inside a `[t0, tMax]` window: left = `startedAtMs - t0`,
+ *     width = the lifecycle's duration. Inner phases (blocked / dns /
+ *     connect / ssl / send / wait / receive) render as stacked colored
+ *     segments matching the Timing detail palette.
+ *
+ *   - **duration** (Total duration / Latency) — every bar starts at the
+ *     left edge (zero-aligned) and its width is the value over the
+ *     largest value in view, so lengths compare directly. Latency bars
+ *     drop the trailing `receive` phase (they end at the first byte).
+ *
+ * The per-row value comes from the same `waterfallSortValue` the sort
+ * uses, so the bar a row draws and the order it sorts into always agree.
  */
 
 import type { InspectorHarEntry } from '@openheaders/core/types';
-import {
-  currentHarEntry,
-  type InspectorRowWithFires,
-  lifecycleDurationMs,
-} from '../../data/inspector-row-projection';
+import { type WaterfallMetric, waterfallSortValue } from '../../data/network-columns';
+import { currentHarEntry, type InspectorRowWithFires, lifecycleDurationMs } from '../../data/inspector-row-projection';
+
+/** How the Waterfall column maps a row to a bar. */
+export type WaterfallScale =
+  | { mode: 'timeline'; t0: number; tMax: number }
+  | { mode: 'duration'; metric: Extract<WaterfallMetric, 'duration' | 'latency'>; max: number };
 
 interface WaterfallBarProps {
   row: InspectorRowWithFires;
-  t0: number;
-  tMax: number;
+  scale: WaterfallScale;
 }
 
 const PHASE_COLORS: Record<string, string> = {
@@ -40,39 +42,54 @@ const PHASE_COLORS: Record<string, string> = {
   receive: '#5c9aef',
 };
 
-const PHASE_ORDER: Array<keyof NonNullable<InspectorHarEntry['timings']>> = [
-  'blocked',
-  'dns',
-  'connect',
-  'ssl',
-  'send',
-  'wait',
-  'receive',
-];
+type TimingsKey = keyof NonNullable<InspectorHarEntry['timings']>;
 
-function positivePhases(timings: NonNullable<InspectorHarEntry['timings']>): Array<{ key: string; ms: number }> {
+/** Phases that precede the first response byte — the span a latency bar covers. */
+const PRE_RESPONSE_PHASES: readonly TimingsKey[] = ['blocked', 'dns', 'connect', 'ssl', 'send', 'wait'];
+const ALL_PHASES: readonly TimingsKey[] = [...PRE_RESPONSE_PHASES, 'receive'];
+
+function positivePhases(
+  timings: NonNullable<InspectorHarEntry['timings']>,
+  order: readonly TimingsKey[],
+): Array<{ key: string; ms: number }> {
   const out: Array<{ key: string; ms: number }> = [];
-  for (const k of PHASE_ORDER) {
+  for (const k of order) {
     const v = timings[k];
     if (typeof v === 'number' && v > 0) out.push({ key: String(k), ms: v });
   }
   return out;
 }
 
-export function WaterfallBar({ row, t0, tMax }: WaterfallBarProps) {
+export function WaterfallBar({ row, scale }: WaterfallBarProps) {
   const lc = row.lifecycle;
-  const span = Math.max(tMax - t0, 1);
-  const start = Math.max(lc.startedAtMs - t0, 0);
-  const duration = lifecycleDurationMs(lc) ?? 1;
-  const leftPct = (start / span) * 100;
-  const widthPct = Math.max((duration / span) * 100, 0.25);
-
   const timings = currentHarEntry(lc)?.timings;
-  const phases = timings ? positivePhases(timings) : [];
+
+  let leftPct: number;
+  let widthPct: number;
+  let phaseOrder: readonly TimingsKey[];
+  let title: string;
+
+  if (scale.mode === 'timeline') {
+    const span = Math.max(scale.tMax - scale.t0, 1);
+    const start = Math.max(lc.startedAtMs - scale.t0, 0);
+    const duration = lifecycleDurationMs(lc) ?? 1;
+    leftPct = (start / span) * 100;
+    widthPct = Math.max((duration / span) * 100, 0.25);
+    phaseOrder = ALL_PHASES;
+    title = `${Math.round(duration)} ms`;
+  } else {
+    const value = Math.max(waterfallSortValue(row, scale.metric), 0);
+    leftPct = 0;
+    widthPct = Math.max((value / Math.max(scale.max, 1)) * 100, 0.25);
+    phaseOrder = scale.metric === 'latency' ? PRE_RESPONSE_PHASES : ALL_PHASES;
+    title = scale.metric === 'latency' ? `${Math.round(value)} ms latency` : `${Math.round(value)} ms`;
+  }
+
+  const phases = timings ? positivePhases(timings, phaseOrder) : [];
   const phaseTotal = phases.reduce((s, p) => s + p.ms, 0);
 
   return (
-    <div className="dt-waterfall-track" title={`${Math.round(duration)} ms`}>
+    <div className="dt-waterfall-track" title={title}>
       <div
         className="dt-waterfall-bar"
         style={{

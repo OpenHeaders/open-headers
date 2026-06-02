@@ -7,10 +7,10 @@ import { extractName, formatInitiator, getInitiatorFrame, statusClass } from './
 import { getRole, type PreflightIndex } from './preflight-pairs';
 import ResourceIcon from './ResourceIcon';
 import { normalizeResourceType, RESOURCE_LABEL } from './resource-types';
-import { WaterfallBar } from './WaterfallBar';
+import { WaterfallBar, type WaterfallScale } from './WaterfallBar';
 
 export interface CellContext {
-  waterfall: { t0: number; tMax: number };
+  waterfall: WaterfallScale;
   preflight: PreflightIndex;
   onJumpTo: (requestId: string) => void;
 }
@@ -127,7 +127,7 @@ export function renderCell(
     return <span className="dt-col-muted">{formatInitiator(initiator)}</span>;
   }
   if (col.key === 'waterfall') {
-    return <WaterfallBar row={row} t0={ctx.waterfall.t0} tMax={ctx.waterfall.tMax} />;
+    return <WaterfallBar row={row} scale={ctx.waterfall} />;
   }
   if (col.key === 'time' && state.kind === 'pending') {
     // Browser parity: an in-flight request reads "Pending" in the Time
