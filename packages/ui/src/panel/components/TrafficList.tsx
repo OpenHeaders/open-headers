@@ -91,6 +91,24 @@ export function TrafficList({
   const [rowMenu, setRowMenu] = useState<RequestContextMenuState | null>(null);
   const [colMenu, setColMenu] = useState<ColumnHeaderContextMenuState | null>(null);
 
+  // Measured Waterfall column width — drives the in/out/hidden placement of
+  // the Duration/Latency value labels (which need pixels, not percentages).
+  // A callback ref (dis)connects the observer as the header cell mounts
+  // across the panel's render-state branches.
+  const [waterfallColPx, setWaterfallColPx] = useState(0);
+  const waterfallRoRef = useRef<ResizeObserver | null>(null);
+  const waterfallCellRef = useCallback((el: HTMLDivElement | null) => {
+    waterfallRoRef.current?.disconnect();
+    waterfallRoRef.current = null;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width ?? 0;
+      setWaterfallColPx((prev) => (Math.abs(prev - w) < 1 ? prev : w));
+    });
+    ro.observe(el);
+    waterfallRoRef.current = ro;
+  }, []);
+
   // ── Row flash (cross-row jumps: preflight ⇄ parent) ─────────
   const [flashId, setFlashId] = useState<string | null>(null);
   const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -203,10 +221,10 @@ export function TrafficList({
         const v = waterfallSortValue(r, 'duration');
         if (v > max) max = v;
       }
-      return { mode: 'duration', metric: waterfallMetric, max };
+      return { mode: 'duration', metric: waterfallMetric, max, colPx: waterfallColPx };
     }
     return { mode: 'timeline', metric: waterfallMetric, t0, tMax };
-  }, [waterfallMetric, sorted, t0, tMax]);
+  }, [waterfallMetric, sorted, t0, tMax, waterfallColPx]);
 
   // Stable per-row render context — referentially constant across a pure
   // scroll so the memoized rows on screen skip re-render.
@@ -297,7 +315,14 @@ export function TrafficList({
             Request #{sortIndicator('id', sortKey, sortDir, columnSortActive)}
           </button>
           {columns.map((col) => (
-            <div key={col.key} ref={registerCellRef(col.key)} className="dt-col-header-cell">
+            <div
+              key={col.key}
+              ref={(el) => {
+                registerCellRef(col.key)(el);
+                if (col.key === 'waterfall') waterfallCellRef(el);
+              }}
+              className="dt-col-header-cell"
+            >
               <button
                 type="button"
                 className={`dt-col-sort ${col.align === 'right' ? 'dt-col-right' : ''}`}

@@ -417,21 +417,40 @@ body.dt-resizing-col {
   box-sizing: border-box;
 }
 
-/* Latency / download values printed just past the bar end. Hidden until
- * the row is hovered (anywhere) so dense panes stay clean; the split track
- * lifts its clip on row hover so the label isn't cut off. The hover popover
- * is separate — it triggers on the bar itself. */
+/* Split-bar segments center their value label and clip it when it doesn't
+ * fit (the component only places a label inside when it measures as fitting). */
+.dt-wf-seg {
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* Latency / download values. Inside labels ride within their segment; the
+ * outside label sits past the bar end with a dot-and-leader. All hidden
+ * until the row is hovered (anywhere) so dense panes stay clean; the split
+ * track lifts its clip on row hover so the outside label isn't cut off. The
+ * hover popover is separate — it triggers on the bar itself. */
 .dt-row:hover .dt-waterfall-track--split {
   overflow: visible;
 }
 
-.dt-waterfall-num {
+.dt-wf-inlabel {
+  font-size: 10px;
+  line-height: 1;
+  color: var(--dt-text);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.dt-wf-outlabel {
   position: absolute;
   top: 0;
   height: 100%;
   display: flex;
   align-items: center;
-  margin-left: 5px;
   font-size: 10px;
   line-height: 1;
   color: var(--dt-text-muted);
@@ -440,7 +459,27 @@ body.dt-resizing-col {
   opacity: 0;
 }
 
-.dt-row:hover .dt-waterfall-num {
+.dt-wf-leader {
+  position: relative;
+  width: 9px;
+  height: 1px;
+  margin-right: 3px;
+  background: var(--dt-text-muted);
+}
+
+.dt-wf-leader::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: -1.5px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--dt-text-muted);
+}
+
+.dt-row:hover .dt-wf-inlabel,
+.dt-row:hover .dt-wf-outlabel {
   opacity: 1;
 }
 

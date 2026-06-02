@@ -29,10 +29,13 @@ import { currentHarEntry, type InspectorRowWithFires, lifecycleDurationMs } from
 import { computeTimingPhases } from '../../data/timing-phases';
 import { WaterfallTimingPopover } from './WaterfallTimingPopover';
 
-/** How the Waterfall column maps a row to a bar. */
+/** How the Waterfall column maps a row to a bar. `colPx` is the measured
+ * column width — needed to decide whether a value label fits inside its
+ * segment, sits outside with a leader, or is dropped (the browser measures
+ * the same thing on its canvas). */
 export type WaterfallScale =
   | { mode: 'timeline'; metric: WaterfallMetric; t0: number; tMax: number }
-  | { mode: 'duration'; metric: Extract<WaterfallMetric, 'duration' | 'latency'>; max: number };
+  | { mode: 'duration'; metric: Extract<WaterfallMetric, 'duration' | 'latency'>; max: number; colPx: number };
 
 interface WaterfallBarProps {
   row: InspectorRowWithFires;
@@ -69,6 +72,14 @@ function formatMs(ms: number): string {
   if (ms < 1) return '<1 ms';
   if (ms < 1000) return `${Math.round(ms)} ms`;
   return `${(ms / 1000).toFixed(2)} s`;
+}
+
+/** Dot-and-leader length (px) drawn between the bar end and an outside label. */
+const LEADER_PX = 12;
+
+/** Rough pixel width of a 10px-font label — enough to decide inside/outside fit. */
+function estLabelPx(label: string): number {
+  return label.length * 6.2 + 4;
 }
 
 /**
@@ -151,8 +162,25 @@ function durationTrack(
   const download = Math.max(duration - latency, 0);
   const widthPct = Math.max((duration / Math.max(scale.max, 1)) * 100, 0.25);
   const waitPct = duration > 0 ? Math.min((latency / duration) * 100, 100) : 100;
-  const showDownload = download >= 0.5;
   const colors = barColors(row.lifecycle.resourceType);
+
+  // Label placement, the way the browser does it: a value prints inside its
+  // segment when it fits; the download value otherwise sits past the bar end
+  // with a dot-and-leader; if there's no room there either, it's dropped.
+  const colPx = scale.colPx;
+  const barPx = (widthPct / 100) * colPx;
+  const waitingPx = (waitPct / 100) * barPx;
+  const downloadPx = Math.max(barPx - waitingPx, 0);
+  const latLabel = formatMs(latency);
+  const dlLabel = formatMs(download);
+  const measured = colPx > 0;
+  const latInside = measured && estLabelPx(latLabel) <= waitingPx;
+  const showDownload = download >= 0.5;
+  let dlPlacement: 'inside' | 'outside' | 'none' = 'none';
+  if (measured && showDownload) {
+    if (estLabelPx(dlLabel) <= downloadPx) dlPlacement = 'inside';
+    else if (barPx + LEADER_PX + estLabelPx(dlLabel) <= colPx) dlPlacement = 'outside';
+  }
 
   return (
     <div
@@ -163,13 +191,19 @@ function durationTrack(
         className="dt-waterfall-bar dt-waterfall-bar--split"
         style={{ left: 0, width: `${widthPct}%`, borderColor: colors.border }}
       >
-        <span className="dt-waterfall-segment" style={{ width: `${waitPct}%`, background: colors.waiting }} />
-        <span className="dt-waterfall-segment" style={{ width: `${100 - waitPct}%`, background: colors.download }} />
+        <span className="dt-wf-seg" style={{ width: `${waitPct}%`, background: colors.waiting }}>
+          {latInside && <span className="dt-wf-inlabel">{latLabel}</span>}
+        </span>
+        <span className="dt-wf-seg" style={{ width: `${100 - waitPct}%`, background: colors.download }}>
+          {dlPlacement === 'inside' && <span className="dt-wf-inlabel">{dlLabel}</span>}
+        </span>
       </div>
-      <span className="dt-waterfall-num" style={{ left: `${widthPct}%` }}>
-        {formatMs(latency)}
-        {showDownload ? ` / ${formatMs(download)}` : ''}
-      </span>
+      {dlPlacement === 'outside' && (
+        <span className="dt-wf-outlabel" style={{ left: `${widthPct}%` }}>
+          <span className="dt-wf-leader" aria-hidden="true" />
+          {dlLabel}
+        </span>
+      )}
     </div>
   );
 }
