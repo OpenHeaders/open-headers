@@ -27,32 +27,45 @@
   font-size: 11px;
 }
 
-/* Scrollable context menu (the portaled column-visibility list). Overflow
- * itself is set inline on the element so scrolling works even without this
- * sheet; here we only style the scrollbar. A persistent 8px gutter (no
- * layout shift) with the thumb revealed while the pointer is inside the
- * menu, so the scroll affordance is obvious. Scoped to the menu — it's
- * portaled to <body>, outside the dock-body scrollbar styling. */
-.dt-ctx-menu--scroll::-webkit-scrollbar {
+/* Scrollable context menu (the portaled column-visibility list).
+ *
+ * Outer `.dt-ctx-menu--scrollhost` is the box + hover target; the inner
+ * `.dt-ctx-menu-scroll` is the scroll region (its `overflow-y` is set inline
+ * so scrolling survives even without this sheet). The scrollbar lives on the
+ * inner element and its thumb is revealed by hovering the OUTER — Chromium
+ * repaints a hover-driven thumb reliably only when the `:hover` is on an
+ * ancestor, not the scroll element itself (same structure as the dock-body
+ * reveal). An 8px gutter is reserved while scrollable so there is no layout
+ * shift; only the thumb colour animates in. Grey reads on both themes. */
+.dt-ctx-menu--scrollhost {
+  padding: 0;
+  overflow: hidden;
+}
+
+.dt-ctx-menu-scroll {
+  padding: 4px 0;
+}
+
+.dt-ctx-menu-scroll::-webkit-scrollbar {
   width: 8px;
 }
 
-.dt-ctx-menu--scroll::-webkit-scrollbar-track {
+.dt-ctx-menu-scroll::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.dt-ctx-menu--scroll::-webkit-scrollbar-thumb {
+.dt-ctx-menu-scroll::-webkit-scrollbar-thumb {
   background: transparent;
   border-radius: 4px;
-  transition: background-color 0.15s ease-out;
+  transition: background-color 0.2s ease-out;
 }
 
-.dt-ctx-menu--scroll:hover::-webkit-scrollbar-thumb {
-  background: rgba(128, 128, 128, 0.5);
+.dt-ctx-menu--scrollhost:hover .dt-ctx-menu-scroll::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.55);
 }
 
-.dt-ctx-menu--scroll:hover::-webkit-scrollbar-thumb:hover {
-  background: rgba(128, 128, 128, 0.7);
+.dt-ctx-menu--scrollhost:hover .dt-ctx-menu-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(128, 128, 128, 0.75);
 }
 
 .dt-ctx-item {
