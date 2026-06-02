@@ -29,7 +29,7 @@ import {
   type InspectorRowWithFires,
   lifecycleTransferredBytes,
 } from '../../data/inspector-row-projection';
-import { getColumnSortValue, type SortableColumnKey } from '../../data/network-columns';
+import { durationMs, getColumnSortValue, type SortableColumnKey } from '../../data/network-columns';
 import { effectiveStatusCode } from '../../data/request-state';
 import { formatBytesToKb } from '../../data/size-info';
 import { formatDuration, formatInitiator } from './formatters';
@@ -277,18 +277,11 @@ export const COLUMN_DEFS: Record<ColumnKey, ColumnDef> = {
     align: 'right',
     sortable: true,
     extract: (r) => {
-      const har = currentHarEntry(r.lifecycle);
-      const harTime = har?.time;
-      if (typeof harTime === 'number' && harTime > 0) return formatDuration(harTime) || null;
-      const lc = r.lifecycle;
-      if (lc.completedAtMs != null) {
-        const d = lc.completedAtMs - lc.startedAtMs;
-        // A completed request has a known duration even when it rounds
-        // to zero (instant / served from cache) — render "0 ms", not a
-        // blank cell. Only a still-pending request has an unknown time.
-        return formatDuration(d > 0 ? d : 0);
-      }
-      return null;
+      // Active duration — queueing excluded, matching the browser's Time
+      // column (a completed request renders "0 ms"; only a pending one is
+      // blank via -1).
+      const d = durationMs(r.lifecycle);
+      return d >= 0 ? formatDuration(d) : null;
     },
     getSortValue: delegateSort('time'),
   },

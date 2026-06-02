@@ -14,8 +14,8 @@
 
 import type { NetworkCustomNestedLevel } from '@openheaders/ui/workbench/settings/schema/devpanel-network';
 import type { InspectorRowWithFires } from './inspector-row-projection';
-import { currentHarEntry, lifecycleTransferredBytes } from './inspector-row-projection';
-import { getColumnSortValue, type SortableColumnKey } from './network-columns';
+import { lifecycleTransferredBytes } from './inspector-row-projection';
+import { durationMs, getColumnSortValue, type SortableColumnKey } from './network-columns';
 import { classifyRequestState, type RequestState } from './request-state';
 import { isAppliedFire } from './types';
 
@@ -125,14 +125,8 @@ function fireTier(row: InspectorRowWithFires): number {
 }
 
 function durationFor(row: InspectorRowWithFires): number {
-  const harTime = currentHarEntry(row.lifecycle)?.time;
-  if (typeof harTime === 'number' && harTime > 0) return harTime;
-  const lc = row.lifecycle;
-  if (lc.completedAtMs != null) {
-    const d = lc.completedAtMs - lc.startedAtMs;
-    if (d > 0) return d;
-  }
-  return -1;
+  // Active duration (queueing excluded) — same basis as the Time column.
+  return durationMs(row.lifecycle);
 }
 
 function transferredFor(row: InspectorRowWithFires): number {

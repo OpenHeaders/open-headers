@@ -25,10 +25,13 @@ function formatMs(ms: number): string {
 }
 
 export function WaterfallTimingPopover({ data, metric }: { data: ComputedTimings; metric: WaterfallMetric }) {
+  // Queueing is shown as a phase but excluded from the total — the browser
+  // measures duration/latency from the post-queue start time. Latency also
+  // stops at the first response byte (drops `receive`).
   const isLatency = metric === 'latency';
-  const totalMs = isLatency
-    ? data.phases.filter((p) => p.key !== 'receive').reduce((sum, p) => sum + p.ms, 0)
-    : data.totalMs;
+  const totalMs = data.phases
+    .filter((p) => p.key !== 'queueing' && !(isLatency && p.key === 'receive'))
+    .reduce((sum, p) => sum + p.ms, 0);
   const totalLabel = isLatency ? 'Latency' : 'Duration';
 
   return (

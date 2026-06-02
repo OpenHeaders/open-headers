@@ -94,9 +94,24 @@ function transferredBytes(lc: RequestLifecycle): number {
   return lifecycleTransferredBytes(lc) ?? -1;
 }
 
-function durationMs(lc: RequestLifecycle): number {
+/**
+ * Queueing time (`_blocked_queueing`) — the wait between a request being
+ * issued and actually starting. The browser excludes this from the Time
+ * column and from duration/latency (its `duration = endTime - startTime`,
+ * and `startTime` is the post-queue request time); it only surfaces
+ * queueing as a phase in the timing breakdown. We mirror that: subtract it
+ * from every displayed duration so a queue-heavy request reads as its
+ * active time, not the inflated HAR `time` (which includes queueing).
+ */
+function queueingMs(lc: RequestLifecycle): number {
+  const q = currentHarEntry(lc)?.timings?._blocked_queueing;
+  return typeof q === 'number' && q > 0 ? q : 0;
+}
+
+/** Active duration shown in the Time column — HAR `time` minus queueing. */
+export function durationMs(lc: RequestLifecycle): number {
   const harTime = currentHarEntry(lc)?.time;
-  if (typeof harTime === 'number' && harTime > 0) return harTime;
+  if (typeof harTime === 'number' && harTime > 0) return Math.max(harTime - queueingMs(lc), 0);
   // A completed request sorts by its real duration, including 0 (instant
   // / cache); only a still-pending request is unknown (sorts last via -1).
   if (lc.completedAtMs != null) {
@@ -161,8 +176,10 @@ export function getColumnSortValue(key: SortableColumnKey, row: InspectorRowWith
 /** Phases that precede the first response byte — their sum is the latency (TTFB). */
 const LATENCY_PHASES = ['blocked', 'dns', 'connect', 'ssl', 'send', 'wait'] as const;
 
-/** Latency (time to first byte): sum of the pre-response phases, or the full
- * duration when phase breakdown is unavailable, or -1 while still pending. */
+/** Latency (time to first byte): the pre-response phases minus queueing
+ * (`blocked` bundles queueing, which the browser excludes from latency),
+ * or the full duration when phase breakdown is unavailable, or -1 while
+ * still pending. */
 function latencyMs(lc: RequestLifecycle): number {
   const timings = currentHarEntry(lc)?.timings;
   if (timings) {
@@ -175,7 +192,7 @@ function latencyMs(lc: RequestLifecycle): number {
         any = true;
       }
     }
-    if (any) return sum;
+    if (any) return Math.max(sum - queueingMs(lc), 0);
   }
   return durationMs(lc);
 }
