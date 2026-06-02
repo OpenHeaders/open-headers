@@ -173,28 +173,20 @@ export function getColumnSortValue(key: SortableColumnKey, row: InspectorRowWith
   }
 }
 
-/** Phases that precede the first response byte — their sum is the latency (TTFB). */
-const LATENCY_PHASES = ['blocked', 'dns', 'connect', 'ssl', 'send', 'wait'] as const;
-
-/** Latency (time to first byte): the pre-response phases minus queueing
- * (`blocked` bundles queueing, which the browser excludes from latency),
- * or the full duration when phase breakdown is unavailable, or -1 while
- * still pending. */
+/**
+ * Latency (time to first byte) = active duration minus content download.
+ *
+ * Deriving it from `durationMs` (rather than summing the pre-response
+ * phases) avoids the HAR connect/ssl overlap: HAR's `connect` already
+ * includes `ssl`, so adding both would double-count the handshake. This
+ * also keeps latency consistent with the Time column by construction.
+ */
 function latencyMs(lc: RequestLifecycle): number {
-  const timings = currentHarEntry(lc)?.timings;
-  if (timings) {
-    let sum = 0;
-    let any = false;
-    for (const k of LATENCY_PHASES) {
-      const v = timings[k];
-      if (typeof v === 'number' && v > 0) {
-        sum += v;
-        any = true;
-      }
-    }
-    if (any) return Math.max(sum - queueingMs(lc), 0);
-  }
-  return durationMs(lc);
+  const d = durationMs(lc);
+  if (d < 0) return -1;
+  const receive = currentHarEntry(lc)?.timings?.receive;
+  const r = typeof receive === 'number' && receive > 0 ? receive : 0;
+  return Math.max(d - r, 0);
 }
 
 /**
