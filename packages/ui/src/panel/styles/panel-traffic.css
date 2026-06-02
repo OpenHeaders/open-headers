@@ -39,6 +39,12 @@
 .dt-table {
   flex: 1;
   overflow: auto;
+  /* We own the scroll position (virtualization re-windows the mounted
+   * slice and the tail-follow pins to the bottom). Browser scroll
+   * anchoring would fight that: when a burst grows the top spacer, it
+   * nudges scrollTop to keep an anchor stable, which drifts the view off
+   * the tail and fires a spurious upward scroll event. Opt out. */
+  overflow-anchor: none;
   /* Single-column grid wrapper: every child (header + rows) lives in
    * one shared column whose width is `max(max-content of any row,
    * viewport)`. This is what keeps columns aligned across rows when

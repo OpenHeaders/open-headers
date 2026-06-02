@@ -11,6 +11,8 @@ import type { InspectorRowWithFires } from '../../data/inspector-row-projection'
 const ROW_HEIGHT_PX = 20;
 const TABLE_HEADER_HEIGHT_PX = 22;
 const ROW_OVERSCAN = 12;
+/** Distance from the bottom (px, ~2 rows) within which the view counts as parked at the tail. */
+const STICK_THRESHOLD_PX = 40;
 
 interface RowWindow {
   start: number;
@@ -47,6 +49,14 @@ export function useRowWindow(rows: readonly InspectorRowWithFires[], hasTable: b
   const rowsRef = useRef<readonly InspectorRowWithFires[]>(rows);
   rowsRef.current = rows;
   const prevCountRef = useRef(0);
+  // Whether the view is parked at the tail. Released only when the user
+  // scrolls *up* — never from an absolute distance, which would race a
+  // streaming burst (appended rows grow `scrollHeight` without moving
+  // `scrollTop`, and the async scroll event from our own catch-up scroll
+  // sees the height already grown). Defaults to true so a fresh capture
+  // follows the tail until the user scrolls away.
+  const pinnedToBottomRef = useRef(true);
+  const lastScrollTopRef = useRef(0);
   const [rowWindow, setRowWindow] = useState<RowWindow>({ start: 0, end: 0 });
 
   const recomputeWindow = useCallback((el: HTMLDivElement, count: number) => {
@@ -66,7 +76,16 @@ export function useRowWindow(rows: readonly InspectorRowWithFires[], hasTable: b
 
   const onScroll = useCallback(() => {
     const el = tableRef.current;
-    if (el) recomputeWindow(el, rowsRef.current.length);
+    if (!el) return;
+    const top = el.scrollTop;
+    // Re-pin the instant the tail is reached; release only on an upward
+    // move. Content growth never moves `scrollTop`, and our catch-up
+    // scroll only ever increases it, so neither is mistaken for the user
+    // leaving the tail.
+    if (el.scrollHeight - top - el.clientHeight < STICK_THRESHOLD_PX) pinnedToBottomRef.current = true;
+    else if (top < lastScrollTopRef.current) pinnedToBottomRef.current = false;
+    lastScrollTopRef.current = top;
+    recomputeWindow(el, rowsRef.current.length);
   }, [recomputeWindow]);
 
   const scrollToRow = useCallback(
@@ -89,7 +108,11 @@ export function useRowWindow(rows: readonly InspectorRowWithFires[], hasTable: b
     [recomputeWindow],
   );
 
-  // Stick to the bottom when new rows arrive and the user is already there.
+  // Stick to the bottom when new rows arrive and the view was parked there.
+  // Reads the pre-arrival intent (`pinnedToBottomRef`, last set on scroll)
+  // rather than re-measuring now — a batched burst has already grown
+  // `scrollHeight`, so a post-arrival distance check would read far from the
+  // bottom and wrongly disengage on any batch larger than the threshold.
   useEffect(() => {
     const el = tableRef.current;
     if (!el || rows.length <= prevCountRef.current) {
@@ -97,10 +120,7 @@ export function useRowWindow(rows: readonly InspectorRowWithFires[], hasTable: b
       return;
     }
     prevCountRef.current = rows.length;
-    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
-    if (nearBottom) {
-      el.scrollTop = el.scrollHeight;
-    }
+    if (pinnedToBottomRef.current) el.scrollTop = el.scrollHeight;
   }, [rows.length]);
 
   // Keep the window in sync with the viewport size (panel resize, divider
