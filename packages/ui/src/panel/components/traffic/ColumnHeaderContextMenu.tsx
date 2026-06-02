@@ -15,7 +15,7 @@
  * restores the default visible set.
  */
 
-import { useEffect, useRef } from 'react';
+import { Fragment, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { type ColumnDef, type ColumnKey, DEFAULT_VISIBLE_COLUMNS } from './columns';
 
@@ -84,19 +84,23 @@ export function ColumnHeaderContextMenu({
         const checked = visible.has(col.key);
         const disabled = MANDATORY.has(col.key);
         return (
-          <button
-            key={col.key}
-            type="button"
-            className={`dt-ctx-item dt-ctx-check${disabled ? ' disabled' : ''}`}
-            onClick={() => {
-              if (disabled) return;
-              onToggle(col.key);
-            }}
-            disabled={disabled}
-          >
-            <span className="dt-ctx-check-mark">{checked ? '✓' : ''}</span>
-            <span>{col.label}</span>
-          </button>
+          <Fragment key={col.key}>
+            <button
+              type="button"
+              className={`dt-ctx-item dt-ctx-check${disabled ? ' disabled' : ''}`}
+              onClick={() => {
+                if (disabled) return;
+                onToggle(col.key);
+              }}
+              disabled={disabled}
+            >
+              <span className="dt-ctx-check-mark">{checked ? '✓' : ''}</span>
+              <span>{col.label}</span>
+            </button>
+            {/* Name / Path / URL are one group (Chrome parity) — divide it
+                from the rest after URL. */}
+            {col.key === 'url' && <div className="dt-ctx-sep" />}
+          </Fragment>
         );
       })}
       <div className="dt-ctx-sep" />
