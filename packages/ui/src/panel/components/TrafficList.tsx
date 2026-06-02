@@ -112,7 +112,7 @@ export function TrafficList({
   const gridTemplate = useMemo(() => {
     const tracks: string[] = [];
     if (showFireDots) tracks.push('14px');
-    tracks.push('32px');
+    tracks.push('72px');
     for (const c of columns) tracks.push(columnTrack(c, columnWidths[c.key], compact));
     return tracks.join(' ');
   }, [columns, columnWidths, compact, showFireDots]);
@@ -289,9 +289,9 @@ export function TrafficList({
             type="button"
             className="dt-col-sort dt-col-sort--hash"
             onClick={() => handleSortTarget('id')}
-            title="Sort by request number"
+            title="Sort by request number (discovery order)"
           >
-            #{sortIndicator('id', sortKey, sortDir, columnSortActive)}
+            Request #{sortIndicator('id', sortKey, sortDir, columnSortActive)}
           </button>
           {columns.map((col) => (
             <div key={col.key} ref={registerCellRef(col.key)} className="dt-col-header-cell">

@@ -2,8 +2,10 @@
  * Named sort orders for the Network table.
  *
  * Each mode is a compound comparator: a primary bucket / axis followed
- * by `displayId` ascending as the tiebreak so the result stays
- * waterfall-stable. Modes exist to express the recurring debugging
+ * by start time ascending as the tiebreak so the result stays
+ * waterfall-stable. (Request # / `displayId` is discovery order, not
+ * start order, so it can't serve as the chronological tiebreak.)
+ * Modes exist to express the recurring debugging
  * narratives that single-column sort can't ("failed first, then
  * chronological", "group by type, then chronological"); they
  * coexist with column-click sort, which always wins when the user
@@ -52,8 +54,11 @@ export const NETWORK_SORT_MODE_META: Record<NetworkSortMode, NetworkSortModeMeta
   },
 };
 
-function arrival(a: InspectorRowWithFires, b: InspectorRowWithFires): number {
-  return a.displayId - b.displayId;
+/** Waterfall-stable tiebreak: start time ascending, `requestId` to break exact ties. */
+function chronological(a: InspectorRowWithFires, b: InspectorRowWithFires): number {
+  const d = a.lifecycle.startedAtMs - b.lifecycle.startedAtMs;
+  if (d !== 0) return d;
+  return a.lifecycle.requestId < b.lifecycle.requestId ? -1 : a.lifecycle.requestId > b.lifecycle.requestId ? 1 : 0;
 }
 
 // ── Failure tiers ────────────────────────────────────────────────────
@@ -137,19 +142,19 @@ function transferredFor(row: InspectorRowWithFires): number {
 type Comparator = (a: InspectorRowWithFires, b: InspectorRowWithFires) => number;
 
 export const NETWORK_SORT_MODE_COMPARATORS: Record<NetworkSortMode, Comparator> = {
-  failures: (a, b) => failureTier(a) - failureTier(b) || arrival(a, b),
-  slowest: (a, b) => durationFor(b) - durationFor(a) || arrival(a, b),
-  largest: (a, b) => transferredFor(b) - transferredFor(a) || arrival(a, b),
-  byType: (a, b) => typeTier(a) - typeTier(b) || arrival(a, b),
-  byDomain: (a, b) => host(a.lifecycle.url).localeCompare(host(b.lifecycle.url)) || arrival(a, b),
-  ruleModified: (a, b) => fireTier(a) - fireTier(b) || arrival(a, b),
+  failures: (a, b) => failureTier(a) - failureTier(b) || chronological(a, b),
+  slowest: (a, b) => durationFor(b) - durationFor(a) || chronological(a, b),
+  largest: (a, b) => transferredFor(b) - transferredFor(a) || chronological(a, b),
+  byType: (a, b) => typeTier(a) - typeTier(b) || chronological(a, b),
+  byDomain: (a, b) => host(a.lifecycle.url).localeCompare(host(b.lifecycle.url)) || chronological(a, b),
+  ruleModified: (a, b) => fireTier(a) - fireTier(b) || chronological(a, b),
 };
 
 /**
  * Compose a comparator from a user-built ordered list of (column,
- * direction) levels. Each level is broken by the next; arrival
- * (`displayId` ascending) is the implicit final tiebreak so the result
- * stays waterfall-stable even when every user-chosen level ties.
+ * direction) levels. Each level is broken by the next; start time
+ * ascending is the implicit final tiebreak so the result stays
+ * waterfall-stable even when every user-chosen level ties.
  */
 export function buildCustomNestedComparator(levels: readonly NetworkCustomNestedLevel[]): Comparator {
   return (a, b) => {
@@ -164,6 +169,6 @@ export function buildCustomNestedComparator(levels: readonly NetworkCustomNested
       }
       if (cmp !== 0) return dir === 'asc' ? cmp : -cmp;
     }
-    return arrival(a, b);
+    return chronological(a, b);
   };
 }

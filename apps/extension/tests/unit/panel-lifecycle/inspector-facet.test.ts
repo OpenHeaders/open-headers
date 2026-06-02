@@ -1,6 +1,7 @@
 /**
  * Inspector facet (P3) — pure projection from lifecycle snapshot to
- * rows. Asserts sort key stability, 1-indexed displayId, and the
+ * rows. Asserts sort key stability, discovery-order displayId (Request #
+ * follows input/log order, not the time-sorted row order), and the
  * retry-consolidation policy (opt-in, same-(url, method), within window).
  */
 
@@ -34,14 +35,25 @@ describe('inspectorSortKey', () => {
 });
 
 describe('buildInspectorRows — ordering + displayId', () => {
-  it('sorts by startedAtMs ascending, breaks ties by requestId', () => {
+  it('sorts rows by startedAtMs ascending, breaks ties by requestId', () => {
     const rows = buildInspectorRows([
       makeLifecycle({ requestId: 'c', startedAtMs: 200 }),
       makeLifecycle({ requestId: 'a', startedAtMs: 100 }),
       makeLifecycle({ requestId: 'b', startedAtMs: 100 }),
     ]);
     expect(rows.map((r: InspectorRow) => r.lifecycle.requestId)).toEqual(['a', 'b', 'c']);
-    expect(rows.map((r: InspectorRow) => r.displayId)).toEqual([1, 2, 3]);
+  });
+
+  it('numbers displayId by discovery (input) order, not the sorted row order', () => {
+    // Input/log order is [c, a, b] → Request # c=1, a=2, b=3. The rows
+    // come back time-sorted [a, b, c], so the numbers scramble — exactly
+    // what a Request # column does under a start-time sort.
+    const rows = buildInspectorRows([
+      makeLifecycle({ requestId: 'c', startedAtMs: 200 }),
+      makeLifecycle({ requestId: 'a', startedAtMs: 100 }),
+      makeLifecycle({ requestId: 'b', startedAtMs: 100 }),
+    ]);
+    expect(rows.map((r: InspectorRow) => `${r.lifecycle.requestId}#${r.displayId}`)).toEqual(['a#2', 'b#3', 'c#1']);
   });
 
   it('returns empty rows for empty input', () => {
@@ -81,7 +93,9 @@ describe('buildInspectorRows — consolidateRetries (opt-in)', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]?.lifecycle.requestId).toBe('retry');
     expect(rows[0]?.consolidatedRetryOf).toEqual(['fail']);
-    expect(rows[0]?.displayId).toBe(1);
+    // The surviving row keeps its own discovery number — 'retry' was the
+    // 2nd request in the input/log.
+    expect(rows[0]?.displayId).toBe(2);
   });
 
   it('does not consolidate when URL differs', () => {

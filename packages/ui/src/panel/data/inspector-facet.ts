@@ -76,9 +76,19 @@ export function buildInspectorRows(
     ? consolidateRetries(sorted, opts.retryWindowMs ?? DEFAULT_RETRY_WINDOW_MS)
     : sorted.map(asUnconsolidated);
 
-  return projected.map((entry, index) => ({
+  // Request # is discovery order — the order requests entered the log
+  // (`lifecycles` arrives in store insertion order, oldest first).
+  // Numbering off the input rather than the time-sorted projection means
+  // sorting the table never renumbers: under a start-time sort the column
+  // reads scrambled, the way the browser's own Request # column does.
+  const discoveryRank = new Map<string, number>();
+  for (const lc of lifecycles) {
+    if (!discoveryRank.has(lc.requestId)) discoveryRank.set(lc.requestId, discoveryRank.size + 1);
+  }
+
+  return projected.map((entry) => ({
     lifecycle: entry.lifecycle,
-    displayId: index + 1,
+    displayId: discoveryRank.get(entry.lifecycle.requestId) ?? 0,
     consolidatedRetryOf: entry.consolidatedRetryOf,
   }));
 }

@@ -382,7 +382,7 @@ function SortCustomNestedRow({
               onChange(next);
             }}
           >
-            <option value="id"># (Arrival)</option>
+            <option value="id">Request #</option>
             {SORTABLE_COLUMN_KEYS.map((k) => (
               <option key={k} value={k}>
                 {COLUMN_DEFS[k].label}
@@ -420,7 +420,7 @@ function SortCustomNestedRow({
         </button>
       )}
       <div className="dt-sortmode-builder-footer">
-        <span className="dt-sortmode-builder-tiebreak">Final tiebreak: arrival</span>
+        <span className="dt-sortmode-builder-tiebreak">Final tiebreak: start time</span>
         <button
           type="button"
           className="dt-sortmode-builder-apply"
@@ -469,6 +469,6 @@ function defaultLevelKey(existing: readonly NetworkCustomNestedLevel[]): Devpane
 }
 
 function labelFor(key: DevpanelNetworkSortBySetting): string {
-  if (key === 'id') return '#';
+  if (key === 'id') return 'Request #';
   return COLUMN_DEFS[key].label;
 }

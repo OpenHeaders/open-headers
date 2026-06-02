@@ -136,17 +136,19 @@ describe('usePanelData', () => {
     expect(result.current.pageCount).toBe(0);
   });
 
-  it('builds rows ordered by startedAtMs and assigns sequential displayIds', () => {
+  it('orders rows by startedAtMs but numbers displayId by discovery (log) order', () => {
     const { result } = renderHook(() =>
       usePanelData(
         snapshots([
+          // Log order is [b, a]; b started later. Request # follows the log
+          // (b=1, a=2), the rows come back time-sorted [a, b] → numbers scramble.
           lifecycle('b', 'https://openheaders.io/b', { startedAtMs: 200 }),
           lifecycle('a', 'https://openheaders.io/a', { startedAtMs: 100 }),
         ]),
       ),
     );
     expect(result.current.rows.map((r) => r.lifecycle.requestId)).toEqual(['a', 'b']);
-    expect(result.current.rows.map((r) => r.displayId)).toEqual([1, 2]);
+    expect(result.current.rows.map((r) => r.displayId)).toEqual([2, 1]);
   });
 
   it('attaches fires by requestId; unattached fires land in dangling', () => {

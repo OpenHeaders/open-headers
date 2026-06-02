@@ -321,8 +321,8 @@
   background: var(--dt-row-hover);
 }
 
-/* Narrow variant for the leading `#` header — right-aligned to match
- * the numeric cell body, sized flush with the 32px track. */
+/* Leading "Request #" header — right-aligned to match the numeric cell
+ * body it labels. */
 .dt-col-sort--hash {
   text-align: right;
   padding: 0 4px;
