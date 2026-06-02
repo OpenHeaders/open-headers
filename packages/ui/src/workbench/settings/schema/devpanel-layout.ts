@@ -65,7 +65,7 @@ registerSetting({
 registerSetting({
   key: 'devpanelLayout.footerShowModified',
   type: 'boolean',
-  default: true,
+  default: false,
   schema: v.boolean(),
   label: 'Show Modified Count in Footer',
   description: 'Display how many requests your rules actually modified in the DevTools panel status bar.',
@@ -78,7 +78,7 @@ registerSetting({
 registerSetting({
   key: 'devpanelLayout.footerShowFailed',
   type: 'boolean',
-  default: true,
+  default: false,
   schema: v.boolean(),
   label: 'Show Failed Count in Footer',
   description: 'Display how many requests failed or returned an error status in the DevTools panel status bar.',
