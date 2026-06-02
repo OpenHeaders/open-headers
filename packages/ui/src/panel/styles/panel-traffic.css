@@ -71,6 +71,13 @@
   overflow-x: hidden;
 }
 
+/* Empty log: the header row still renders, so collapse the table to just
+ * that header and let the empty hero/message sibling (flex: 1) fill the
+ * rest of the panel below it. */
+.dt-table--empty {
+  flex: 0 0 auto;
+}
+
 /* Column header row — smooth white inside the dock-body card. The only
    visual separation is a 1px bottom border (matches the workspace card
    aesthetic: white fills, fine lines between sections). Sticky so it

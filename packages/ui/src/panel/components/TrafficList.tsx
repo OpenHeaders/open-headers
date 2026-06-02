@@ -290,41 +290,20 @@ export function TrafficList({
     viewMenu,
   };
 
-  if (filtered.length === 0) {
-    if (rows.length === 0) {
-      return (
-        <div className="dt-panel">
-          <NetworkPanelHeader {...headerProps} />
-          <div className="dt-empty-hero">
-            <strong>{recording ? 'Recording network activity…' : 'No network activity recorded'}</strong>
-            <span className="dt-empty-hero-sub">
-              {recording ? 'Perform a request or reload the page.' : 'Record network log to display network activity.'}
-            </span>
-            <button
-              type="button"
-              className="dt-btn dt-btn-primary"
-              onClick={recording ? onReloadPage : onStartRecording}
-            >
-              {recording ? 'Reload page' : 'Start recording'}
-            </button>
-          </div>
-        </div>
-      );
-    }
-    return (
-      <div className="dt-panel">
-        <NetworkPanelHeader {...headerProps} />
-        <div className="dt-empty">No matching requests.</div>
-      </div>
-    );
-  }
-
+  const hasRows = filtered.length > 0;
   const selectedRow = rowMenu ? sorted.find((r) => r.lifecycle.requestId === rowMenu.requestId) : undefined;
 
   return (
     <div className="dt-panel">
       <NetworkPanelHeader {...headerProps} />
-      <div className={`dt-table${compact ? ' dt-table--compact' : ''}`} ref={tableRef} onScroll={onScroll}>
+      {/* The column header always renders — even with no rows — so the empty
+          state still shows the table's columns (browser-parity). When empty
+          the table shrinks to the header and the hero below fills the rest. */}
+      <div
+        className={`dt-table${compact ? ' dt-table--compact' : ''}${hasRows ? '' : ' dt-table--empty'}`}
+        ref={tableRef}
+        onScroll={onScroll}
+      >
         {markerLines.length > 0 && (
           // Sticky zero-height anchor at the scrollport top: pins the lines
           // vertically while they flow horizontally with the (last) Waterfall
@@ -380,32 +359,54 @@ export function TrafficList({
             </div>
           ))}
         </div>
-        {widestNameRow && (
-          <WidthAnchorRow
-            row={widestNameRow}
-            columns={columns}
-            gridTemplate={gridTemplate}
-            showFireDots={showFireDots}
-            ctx={cellContext}
-          />
+        {hasRows && (
+          <>
+            {widestNameRow && (
+              <WidthAnchorRow
+                row={widestNameRow}
+                columns={columns}
+                gridTemplate={gridTemplate}
+                showFireDots={showFireDots}
+                ctx={cellContext}
+              />
+            )}
+            {topPadPx > 0 && <div aria-hidden="true" style={{ height: topPadPx }} />}
+            {visibleRows.map((row) => (
+              <TrafficRow
+                key={row.lifecycle.requestId}
+                row={row}
+                columns={columns}
+                gridTemplate={gridTemplate}
+                showFireDots={showFireDots}
+                selected={row.lifecycle.requestId === selectedId}
+                flash={row.lifecycle.requestId === flashId}
+                onSelect={onSelect}
+                onContextMenu={handleRowContextMenu}
+                ctx={cellContext}
+              />
+            ))}
+            {bottomPadPx > 0 && <div aria-hidden="true" style={{ height: bottomPadPx }} />}
+          </>
         )}
-        {topPadPx > 0 && <div aria-hidden="true" style={{ height: topPadPx }} />}
-        {visibleRows.map((row) => (
-          <TrafficRow
-            key={row.lifecycle.requestId}
-            row={row}
-            columns={columns}
-            gridTemplate={gridTemplate}
-            showFireDots={showFireDots}
-            selected={row.lifecycle.requestId === selectedId}
-            flash={row.lifecycle.requestId === flashId}
-            onSelect={onSelect}
-            onContextMenu={handleRowContextMenu}
-            ctx={cellContext}
-          />
-        ))}
-        {bottomPadPx > 0 && <div aria-hidden="true" style={{ height: bottomPadPx }} />}
       </div>
+      {!hasRows &&
+        (rows.length === 0 ? (
+          <div className="dt-empty-hero">
+            <strong>{recording ? 'Recording network activity…' : 'No network activity recorded'}</strong>
+            <span className="dt-empty-hero-sub">
+              {recording ? 'Perform a request or reload the page.' : 'Record network log to display network activity.'}
+            </span>
+            <button
+              type="button"
+              className="dt-btn dt-btn-primary"
+              onClick={recording ? onReloadPage : onStartRecording}
+            >
+              {recording ? 'Reload page' : 'Start recording'}
+            </button>
+          </div>
+        ) : (
+          <div className="dt-empty">No matching requests.</div>
+        ))}
       {rowMenu && selectedRow && (
         <RequestContextMenu
           state={rowMenu}
