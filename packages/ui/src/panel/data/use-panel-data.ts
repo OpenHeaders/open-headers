@@ -50,6 +50,7 @@ import type { PageClientSnapshot } from './page-client-store';
 import type { ResourceTimingClientSnapshot } from './resource-timing-client-store';
 import { computeRepeatStats, type RepeatStats } from './timing-repeats';
 import { type InspectorFire, isAppliedFire } from './types';
+import { isRecorded, type RecordingWindow } from './use-recording-windows';
 
 export interface UsePanelDataInput {
   readonly lifecycle: LifecycleClientSnapshot;
@@ -71,6 +72,13 @@ export interface UsePanelDataInput {
    * axis, owned engine-side.)
    */
   readonly navClearFloorMs?: number;
+  /**
+   * Recording windows from `useRecordingWindows`. A lifecycle is shown
+   * only if its `startedAtMs` falls inside one — so requests that started
+   * while recording was stopped are dropped (browser-parity). Omitted (the
+   * default) means "always recording": no recording filter.
+   */
+  readonly recordingWindows?: readonly RecordingWindow[];
   /**
    * Latest Resource Timing snapshot for the inspected tab. Optional —
    * when present, renderer memory-cache hits (which never reach
@@ -152,7 +160,7 @@ function lifecycleDuration(lifecycle: RequestLifecycle): number {
 }
 
 export function usePanelData(input: UsePanelDataInput): UsePanelDataResult {
-  const { lifecycle, page, fire, opts, navClearFloorMs = -1, resourceTiming } = input;
+  const { lifecycle, page, fire, opts, navClearFloorMs = -1, recordingWindows, resourceTiming } = input;
 
   const lifecycles = lifecycle.ordered;
   const pages = page.pages;
@@ -188,14 +196,21 @@ export function usePanelData(input: UsePanelDataInput): UsePanelDataResult {
       );
     }
 
-    // Scope the view to the clear floor: drop everything that started
-    // before it. A pure display filter, so the new page's requests (which
-    // arrive over a separate port from the nav signal) are never racily
-    // wiped — the floor only ever advances on a committed navigation.
-    const scoped = navClearFloorMs >= 0 ? lifecycles.filter((lc) => lc.startedAtMs >= navClearFloorMs) : lifecycles;
-    // Synthetic cache rows are already navigation-scoped (and preserve-log
-    // aware), so they survive the real-row filter unconditionally.
-    const merged = syntheticCacheRows.length > 0 ? [...scoped, ...syntheticCacheRows] : scoped;
+    // Scope the view to two display filters, both keyed on `startedAtMs`:
+    //   - the clear floor (Preserve log): drop anything before it;
+    //   - recording windows: drop anything that started while recording was
+    //     stopped (browser-parity).
+    // Pure display filters — the new page's requests (which arrive over a
+    // separate port from the nav signal) are never racily wiped, and the
+    // floor only ever advances on a committed navigation.
+    const inView = (startedAtMs: number): boolean =>
+      (navClearFloorMs < 0 || startedAtMs >= navClearFloorMs) &&
+      (recordingWindows === undefined || isRecorded(startedAtMs, recordingWindows));
+    const scoped = lifecycles.filter((lc) => inView(lc.startedAtMs));
+    // Synthetic cache rows are already navigation-scoped, but still honor
+    // the recording filter via the shared `inView` predicate.
+    const visibleSynthetic = syntheticCacheRows.filter((lc) => inView(lc.startedAtMs));
+    const merged = visibleSynthetic.length > 0 ? [...scoped, ...visibleSynthetic] : scoped;
 
     const baseRows = buildInspectorRows(merged, opts);
     const { rows, dangling } = attachFiresToRows(baseRows, fires);
@@ -287,5 +302,5 @@ export function usePanelData(input: UsePanelDataInput): UsePanelDataResult {
       cachedCount,
       pageCount: pages.length,
     };
-  }, [lifecycles, pages, fires, opts, navClearFloorMs, rtGroups]);
+  }, [lifecycles, pages, fires, opts, navClearFloorMs, recordingWindows, rtGroups]);
 }

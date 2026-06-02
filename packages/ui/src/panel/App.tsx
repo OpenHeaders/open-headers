@@ -63,6 +63,7 @@ import { useFireClient } from './data/use-fire-client';
 import { useInspectorEditorGroups } from './data/use-inspector-editor-groups';
 import { useLifecycleClient } from './data/use-lifecycle-client';
 import { useNavClearFloor } from './data/use-nav-clear-floor';
+import { useRecordingWindows } from './data/use-recording-windows';
 import { usePageClient } from './data/use-page-client';
 import { usePanelData } from './data/use-panel-data';
 import { useResourceTimingClient } from './data/use-resource-timing-client';
@@ -216,6 +217,9 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   // navigation while the toggle is off and freezes when on, so re-enabling
   // never resurrects the past (browser-parity).
   const navClearFloorMs = useNavClearFloor(lifecycleClient.snapshot.ordered, ui.preserveLog);
+  // Stop recording → requests that start while stopped are dropped from the
+  // view (browser-parity); resuming records from that point forward.
+  const recordingWindows = useRecordingWindows(ui.recording);
   const data = usePanelData({
     lifecycle: lifecycleClient.snapshot,
     page: pageClient.snapshot,
@@ -225,6 +229,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
     // Preserve-log toggle.
     opts: useMemo(() => ({ consolidateRetries: false }), []),
     navClearFloorMs,
+    recordingWindows,
     // Renderer memory-cache hits, reconciled panel-local against real rows.
     resourceTiming: resourceTimingClient.snapshot,
   });

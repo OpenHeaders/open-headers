@@ -337,6 +337,24 @@ describe('usePanelData', () => {
     expect(result.current.rows.map((r) => r.lifecycle.requestId)).toEqual(['nav2', 'new']);
   });
 
+  it('recordingWindows drop requests that started while recording was stopped', () => {
+    const { result } = renderHook(() =>
+      usePanelData({
+        ...snapshots([
+          lifecycle('a', 'https://openheaders.io/a', { startedAtMs: 50 }),
+          lifecycle('paused', 'https://openheaders.io/p', { startedAtMs: 150 }),
+          lifecycle('b', 'https://openheaders.io/b', { startedAtMs: 250 }),
+        ]),
+        recordingWindows: [
+          { startMs: 0, endMs: 100 },
+          { startMs: 200, endMs: null },
+        ],
+      }),
+    );
+    // 'paused' started in the [100, 200) gap → dropped; the others survive.
+    expect(result.current.rows.map((r) => r.lifecycle.requestId)).toEqual(['a', 'b']);
+  });
+
   it('navClearFloorMs -1 keeps every request across repeated navigations', () => {
     const { result } = renderHook(() =>
       usePanelData({
