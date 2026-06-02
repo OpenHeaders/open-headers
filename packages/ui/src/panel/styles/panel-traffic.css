@@ -419,6 +419,41 @@ body.dt-resizing-col {
   display: inline-block;
 }
 
+/* DOMContentLoaded / Load event lines (timeline mode). The anchor is a
+ * zero-height grid child made sticky at the scrollport top — it pins the
+ * lines vertically while flowing horizontally with the content, so they track
+ * the (last) Waterfall column even under horizontal scroll. The inner box is
+ * right-aligned to that column; its height is set inline to the visible body.
+ * z-index sits above the bars but below the sticky column header. */
+.dt-wf-markers-anchor {
+  position: sticky;
+  top: 0;
+  height: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.dt-wf-markers {
+  position: absolute;
+  top: 22px;
+  right: 0;
+}
+
+.dt-wf-marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+}
+
+.dt-wf-marker--dcl {
+  background: #1a73e8;
+}
+
+.dt-wf-marker--load {
+  background: #d93025;
+}
+
 /* Split-bar segments center their value label and clip it when it doesn't
  * fit (the component only places a label inside when it measures as fitting). */
 .dt-wf-seg {

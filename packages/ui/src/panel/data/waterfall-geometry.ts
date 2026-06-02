@@ -18,6 +18,7 @@
  * testable.
  */
 
+import type { Page } from '@openheaders/core/page-stream';
 import type { InspectorRowWithFires } from './inspector-row-projection';
 import { timelineEndMs, waterfallSortValue } from './network-columns';
 import type { ComputedTimings } from './timing-phases';
@@ -99,6 +100,37 @@ export function timelineBarLayout(
     widthPct: Math.max((total / span) * 100, MIN_BAR_PCT),
     segments,
   };
+}
+
+/** A page-timing event line drawn across the timeline window. */
+export interface PageMarker {
+  key: string;
+  kind: 'dcl' | 'load';
+  /** Position on the window, 0–100. */
+  pct: number;
+}
+
+/**
+ * DOMContentLoaded / Load event lines for the timeline window. Each page's
+ * milestones are relative to its own navigation start, so the absolute instant
+ * is `page.startedAtMs + milestone`. Markers outside `[t0, tMax]` are dropped
+ * (a milestone that predates the window, or hasn't fired, has no line). Only
+ * meaningful in timeline mode — the zero-aligned duration view has no shared
+ * time axis to place them on.
+ */
+export function pageMarkers(pages: readonly Page[], t0: number, tMax: number): PageMarker[] {
+  const span = Math.max(tMax - t0, 1);
+  const out: PageMarker[] = [];
+  const place = (page: Page, kind: 'dcl' | 'load', ms: number | undefined): void => {
+    if (typeof ms !== 'number' || ms < 0) return;
+    const pct = ((page.startedAtMs + ms - t0) / span) * 100;
+    if (pct >= 0 && pct <= 100) out.push({ key: `${page.id}-${kind}`, kind, pct });
+  };
+  for (const page of pages) {
+    place(page, 'dcl', page.dclMs);
+    place(page, 'load', page.loadMs);
+  }
+  return out;
 }
 
 /** Whole-ms below a second, two-decimal seconds above — the value labels the

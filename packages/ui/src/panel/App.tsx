@@ -498,6 +498,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
           return (
             <TrafficList
               rows={data.rows}
+              pages={data.pages}
               selectedId={selectedId}
               onSelect={handleSelect}
               filter={filter}

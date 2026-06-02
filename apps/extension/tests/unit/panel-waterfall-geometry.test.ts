@@ -5,11 +5,12 @@ import {
   barLabels,
   durationBarLayout,
   formatBarMs,
+  pageMarkers,
   timelineBarLayout,
 } from '@openheaders/ui/panel/data/waterfall-geometry';
 import type { InspectorRowWithFires } from '@openheaders/ui/panel/data/inspector-row-projection';
 import { describe, expect, it } from 'vitest';
-import { makeRow } from '../__factories__/lifecycle';
+import { makePage, makeRow } from '../__factories__/lifecycle';
 
 function timingOf(row: InspectorRowWithFires) {
   const har = currentHarEntry(row.lifecycle);
@@ -160,6 +161,28 @@ describe('barLabels', () => {
     const labels = barLabels(layout, 30);
     expect(labels.latency.inside).toBe(false);
     expect(labels.download.placement).toBe('none');
+  });
+});
+
+describe('pageMarkers', () => {
+  it('places DCL/Load at their absolute instant on the window', () => {
+    // milestones are relative to navigation start (page.startedAtMs).
+    const page = makePage({ startedAtMs: 1000, dclMs: 200, loadMs: 400 });
+    const markers = pageMarkers([page], 1000, 1500);
+    expect(markers).toEqual([
+      { key: `${page.id}-dcl`, kind: 'dcl', pct: 40 },
+      { key: `${page.id}-load`, kind: 'load', pct: 80 },
+    ]);
+  });
+
+  it('drops a milestone that falls outside the window', () => {
+    const page = makePage({ startedAtMs: 1000, dclMs: 200, loadMs: 600 });
+    const markers = pageMarkers([page], 1000, 1500);
+    expect(markers.map((m) => m.kind)).toEqual(['dcl']);
+  });
+
+  it('emits nothing for a page with no nav-timing milestones', () => {
+    expect(pageMarkers([makePage({ startedAtMs: 1000 })], 1000, 1500)).toEqual([]);
   });
 });
 

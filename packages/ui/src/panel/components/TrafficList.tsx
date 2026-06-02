@@ -1,8 +1,10 @@
+import type { Page } from '@openheaders/core/page-stream';
 import { type MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FilterConfig, FilterToken } from '../data/filter-engine';
 import { matchesUrlFilter, passesRowFilters } from '../data/filter-engine';
 import type { InspectorRowWithFires } from '../data/inspector-row-projection';
 import { timelineEndMs, WATERFALL_METRIC_LABELS, waterfallSortValue } from '../data/network-columns';
+import { pageMarkers } from '../data/waterfall-geometry';
 import { ColumnHeaderContextMenu, type ColumnHeaderContextMenuState } from './traffic/ColumnHeaderContextMenu';
 import type { ColumnDef, ColumnKey } from './traffic/columns';
 import { COLUMN_DEFS, columnTrack, DEFAULT_VISIBLE_COLUMNS } from './traffic/columns';
@@ -20,8 +22,14 @@ import { useRowWindow } from './traffic/use-row-window';
 import type { WaterfallScale } from './traffic/WaterfallBar';
 import { WidthAnchorRow } from './traffic/WidthAnchorRow';
 
+/** Column-header height — mirrors `.dt-table-header { height }` in
+ * panel-traffic.css; the page-marker lines start below it. */
+const HEADER_ROW_PX = 22;
+
 interface TrafficListProps {
   rows: readonly InspectorRowWithFires[];
+  /** Navigations on this tab — source the DOMContentLoaded / Load marker lines. */
+  pages: readonly Page[];
   selectedId: string | null;
   onSelect: (requestId: string) => void;
   filter: ReadonlySet<string>;
@@ -50,6 +58,7 @@ interface TrafficListProps {
 
 export function TrafficList({
   rows,
+  pages,
   selectedId,
   onSelect,
   filter,
@@ -149,6 +158,20 @@ export function TrafficList({
 
   const { tableRef, onScroll, scrollToRow, visibleRows, topPadPx, bottomPadPx } = useRowWindow(sorted, hasTable);
 
+  // Visible height of the scroll body — sets how far the page-marker lines
+  // (DOMContentLoaded / Load) extend down the waterfall column.
+  const [tableViewportPx, setTableViewportPx] = useState(0);
+  useEffect(() => {
+    const el = tableRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const h = entries[0]?.contentRect.height ?? 0;
+      setTableViewportPx((prev) => (Math.abs(prev - h) < 1 ? prev : h));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [tableRef]);
+
   const handleJumpTo = useCallback(
     (requestId: string) => {
       onSelect(requestId);
@@ -226,6 +249,14 @@ export function TrafficList({
     return { mode: 'timeline', metric: waterfallMetric, t0, tMax };
   }, [waterfallMetric, sorted, t0, tMax, waterfallColPx]);
 
+  // DOMContentLoaded / Load lines — only on the timeline window (the
+  // zero-aligned duration view has no shared axis to place them on) and only
+  // when the Waterfall column is showing.
+  const markerLines = useMemo(
+    () => (waterfallScale.mode === 'timeline' && visibleColumns.has('waterfall') ? pageMarkers(pages, t0, tMax) : []),
+    [waterfallScale.mode, visibleColumns, pages, t0, tMax],
+  );
+
   // Stable per-row render context — referentially constant across a pure
   // scroll so the memoized rows on screen skip re-render.
   const cellContext = useMemo<CellContext>(
@@ -296,6 +327,22 @@ export function TrafficList({
     <div className="dt-panel">
       <NetworkPanelHeader {...headerProps} />
       <div className={`dt-table${compact ? ' dt-table--compact' : ''}`} ref={tableRef} onScroll={onScroll}>
+        {markerLines.length > 0 && (
+          // Sticky zero-height anchor at the scrollport top: pins the lines
+          // vertically while they flow horizontally with the (last) Waterfall
+          // column. The inner box is right-aligned to the column and drops from
+          // below the sticky header to the bottom of the visible body.
+          <div className="dt-wf-markers-anchor" aria-hidden="true">
+            <div
+              className="dt-wf-markers"
+              style={{ width: `${waterfallColPx}px`, height: `${Math.max(tableViewportPx - HEADER_ROW_PX, 0)}px` }}
+            >
+              {markerLines.map((m) => (
+                <span key={m.key} className={`dt-wf-marker dt-wf-marker--${m.kind}`} style={{ left: `${m.pct}%` }} />
+              ))}
+            </div>
+          </div>
+        )}
         {/* biome-ignore lint/a11y/noStaticElementInteractions: header row has a right-click menu but no primary action */}
         <div
           className="dt-table-header dt-cols"
