@@ -69,7 +69,8 @@ function positivePhases(
 }
 
 function formatMs(ms: number): string {
-  if (ms < 1) return '<1 ms';
+  // Bar labels show a rounded whole-millisecond value (the browser does the
+  // same on its canvas); the hover popover keeps sub-ms precision.
   if (ms < 1000) return `${Math.round(ms)} ms`;
   return `${(ms / 1000).toFixed(2)} s`;
 }
