@@ -459,22 +459,37 @@ body.dt-resizing-col {
   opacity: 0;
 }
 
+/* Leader = a filled dot sitting on the bar's end edge + a thin line out to
+ * the value, both vertically centered in the row. */
 .dt-wf-leader {
   position: relative;
-  width: 9px;
-  height: 1px;
+  flex: none;
+  width: 11px;
+  height: 100%;
   margin-right: 3px;
-  background: var(--dt-text-muted);
 }
 
 .dt-wf-leader::before {
+  /* the dot, on the bar edge */
   content: '';
   position: absolute;
   left: 0;
-  top: -1.5px;
+  top: 50%;
+  transform: translateY(-50%);
   width: 4px;
   height: 4px;
   border-radius: 50%;
+  background: var(--dt-text);
+}
+
+.dt-wf-leader::after {
+  /* the line, from the dot's center out to the value */
+  content: '';
+  position: absolute;
+  left: 2px;
+  right: 0;
+  top: 50%;
+  height: 1px;
   background: var(--dt-text-muted);
 }
 
