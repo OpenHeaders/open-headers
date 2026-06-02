@@ -418,9 +418,10 @@ body.dt-resizing-col {
 }
 
 /* Latency / download values printed just past the bar end. Hidden until
- * the row is hovered so dense panes stay clean; the split track lifts its
- * clip so the label isn't cut off. */
-.dt-waterfall-track--split:hover {
+ * the row is hovered (anywhere) so dense panes stay clean; the split track
+ * lifts its clip on row hover so the label isn't cut off. The hover popover
+ * is separate — it triggers on the bar itself. */
+.dt-row:hover .dt-waterfall-track--split {
   overflow: visible;
 }
 
@@ -439,7 +440,7 @@ body.dt-resizing-col {
   opacity: 0;
 }
 
-.dt-waterfall-track--split:hover .dt-waterfall-num {
+.dt-row:hover .dt-waterfall-num {
   opacity: 1;
 }
 
