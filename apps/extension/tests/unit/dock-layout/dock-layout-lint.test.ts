@@ -90,6 +90,36 @@ function findPanelFiles(): PanelFile[] {
 
 const PANEL_FILES = findPanelFiles();
 
+interface SurfaceSource {
+  absolute: string;
+  surface: 'workbench' | 'panel';
+  source: string;
+}
+
+/** Every source under the two surfaces — used to resolve a decomposed
+ * panel's wrapper class, which lives in the composing root rather than
+ * in the header sub-component that mounts PanelHeader. */
+function findAllSources(): SurfaceSource[] {
+  const out: SurfaceSource[] = [];
+  for (const root of SRC_ROOTS) {
+    const surface = root.endsWith('workbench') ? 'workbench' : 'panel';
+    const files: string[] = [];
+    walkSources(root, files);
+    for (const absolute of files) out.push({ absolute, surface, source: readFileSync(absolute, 'utf8') });
+  }
+  return out;
+}
+
+const ALL_SOURCES = findAllSources();
+
+/** Does `source` set one of the allowed wrapper classes via a className literal? */
+function hasWrapperClass(source: string, allowed: readonly string[]): boolean {
+  return allowed.some((klass) => {
+    const literal = new RegExp(`className\\s*=\\s*["'\`][^"'\`]*\\b${klass}\\b[^"'\`]*["'\`]`);
+    return literal.test(source);
+  });
+}
+
 describe('dock-layout lint — BC-D1 (PanelHeader mount)', () => {
   for (const file of PANEL_FILES) {
     it(`${file.relative} mounts <PanelHeader>`, () => {
@@ -120,17 +150,27 @@ describe('dock-layout lint — BC-D3 (surface-appropriate wrapper class)', () =>
   for (const file of PANEL_FILES) {
     const allowed = file.surface === 'workbench' ? WORKBENCH_WRAPPER_CLASSES : PANEL_WRAPPER_CLASSES;
     it(`${file.relative} uses a ${file.surface} wrapper class (${allowed.join(' / ')})`, () => {
-      // Walk for any of the allowed class-name literals inside a
-      // className attribute. The check is literal-string only —
-      // wrapper classes set via runtime variables (`className={WRAP}`)
-      // slip through. That gap is BC-D4 and is intentional per the
-      // spike's predicted catcher table (HN — narrowed).
-      const matches = allowed.some((klass) => {
-        // Either bare class string or part of a multi-class string.
-        const literal = new RegExp(`className\\s*=\\s*["'\`][^"'\`]*\\b${klass}\\b[^"'\`]*["'\`]`);
-        return literal.test(file.source);
-      });
-      expect(matches).toBe(true);
+      // The wrapper class must appear in a className literal. A panel may
+      // be decomposed — the file that mounts PanelHeader (e.g. a header
+      // sub-component) is not always the file that owns the surface
+      // wrapper. So accept the class on this file OR on a same-surface
+      // root that composes it (imports/renders this component by name).
+      //
+      // The check is literal-string only — wrapper classes set via
+      // runtime variables (`className={WRAP}`) slip through. That gap is
+      // BC-D4 and is intentional per the spike's predicted catcher table.
+      if (hasWrapperClass(file.source, allowed)) return;
+
+      const base = path.basename(file.absolute).replace(/\.tsx?$/, '');
+      const composedByRoot = new RegExp(`\\b${base}\\b`);
+      const matchesViaRoot = ALL_SOURCES.some(
+        (s) =>
+          s.surface === file.surface &&
+          s.absolute !== file.absolute &&
+          composedByRoot.test(s.source) &&
+          hasWrapperClass(s.source, allowed),
+      );
+      expect(matchesViaRoot).toBe(true);
     });
   }
 });
