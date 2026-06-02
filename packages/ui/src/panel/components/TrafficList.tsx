@@ -7,7 +7,7 @@ import { timelineEndMs, WATERFALL_METRIC_LABELS, waterfallSortValue } from '../d
 import { pageMarkers } from '../data/waterfall-geometry';
 import { ColumnHeaderContextMenu, type ColumnHeaderContextMenuState } from './traffic/ColumnHeaderContextMenu';
 import type { ColumnDef, ColumnKey } from './traffic/columns';
-import { COLUMN_DEFS, columnTrack, DEFAULT_VISIBLE_COLUMNS } from './traffic/columns';
+import { ALL_COLUMN_KEYS, COLUMN_DEFS, columnTrack, DEFAULT_VISIBLE_COLUMNS } from './traffic/columns';
 import { extractName } from './traffic/formatters';
 import { NetworkPanelHeader } from './traffic/NetworkPanelHeader';
 import { derivePreflightPairs } from './traffic/preflight-pairs';
@@ -90,7 +90,6 @@ export function TrafficList({
     waterfallMetric,
     columnSortActive,
     viewMenu,
-    handleSortTarget,
     handleSort,
     sortRows,
   } = useNetworkView();
@@ -126,19 +125,17 @@ export function TrafficList({
     };
   }, []);
 
-  const columns = useMemo<ColumnDef[]>(() => {
-    const order: ColumnKey[] = [];
-    for (const k of DEFAULT_VISIBLE_COLUMNS) if (visibleColumns.has(k)) order.push(k);
-    for (const k of Object.keys(COLUMN_DEFS) as ColumnKey[]) {
-      if (!order.includes(k) && visibleColumns.has(k)) order.push(k);
-    }
-    return order.map((k) => COLUMN_DEFS[k]);
-  }, [visibleColumns]);
+  // Columns always render in canonical registry order (Chrome parity);
+  // toggling visibility never reorders — a shown column slots into its
+  // fixed position. Waterfall is last in the registry, so it stays last.
+  const columns = useMemo<ColumnDef[]>(
+    () => ALL_COLUMN_KEYS.filter((k) => visibleColumns.has(k)).map((k) => COLUMN_DEFS[k]),
+    [visibleColumns],
+  );
 
   const gridTemplate = useMemo(() => {
     const tracks: string[] = [];
     if (showFireDots) tracks.push('14px');
-    tracks.push('72px');
     for (const c of columns) tracks.push(columnTrack(c, columnWidths[c.key], compact));
     return tracks.join(' ');
   }, [columns, columnWidths, compact, showFireDots]);
@@ -353,14 +350,6 @@ export function TrafficList({
           }}
         >
           {showFireDots && <span />}
-          <button
-            type="button"
-            className="dt-col-sort dt-col-sort--hash"
-            onClick={() => handleSortTarget('id')}
-            title="Sort by request number (discovery order)"
-          >
-            Request #{sortIndicator('id', sortKey, sortDir, columnSortActive)}
-          </button>
           {columns.map((col) => (
             <div
               key={col.key}

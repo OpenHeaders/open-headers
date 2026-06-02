@@ -137,15 +137,6 @@ export const COLUMN_DEFS: Record<ColumnKey, ColumnDef> = {
     extract: (r) => r.lifecycle.url,
     getSortValue: delegateSort('name'),
   },
-  method: {
-    key: 'method',
-    label: 'Method',
-    defaultWidth: 120,
-    minWidth: 52,
-    sortable: true,
-    extract: (r) => r.lifecycle.method,
-    getSortValue: delegateSort('method'),
-  },
   path: {
     key: 'path',
     label: 'Path',
@@ -163,6 +154,25 @@ export const COLUMN_DEFS: Record<ColumnKey, ColumnDef> = {
     sortable: true,
     extract: (r) => r.lifecycle.url,
     getSortValue: delegateSort('url'),
+  },
+  requestNumber: {
+    key: 'requestNumber',
+    label: 'Request #',
+    defaultWidth: 72,
+    minWidth: 48,
+    align: 'right',
+    sortable: true,
+    extract: (r) => r.displayId,
+    getSortValue: delegateSort('requestNumber'),
+  },
+  method: {
+    key: 'method',
+    label: 'Method',
+    defaultWidth: 120,
+    minWidth: 52,
+    sortable: true,
+    extract: (r) => r.lifecycle.method,
+    getSortValue: delegateSort('method'),
   },
   status: {
     key: 'status',
@@ -307,8 +317,10 @@ export const COLUMN_DEFS: Record<ColumnKey, ColumnDef> = {
   },
 };
 
+// Chrome's default-visible set (NetworkLogViewColumns `visible: true`):
+// Name, Status, Type, Initiator, Size, Time, Waterfall. Listed in canonical
+// column order — the table renders columns in registry order regardless.
 export const DEFAULT_VISIBLE_COLUMNS: ColumnKey[] = [
-  'method',
   'name',
   'status',
   'type',

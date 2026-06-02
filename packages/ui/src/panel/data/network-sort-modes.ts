@@ -153,8 +153,8 @@ export const NETWORK_SORT_MODE_COMPARATORS: Record<NetworkSortMode, Comparator> 
 export function buildCustomNestedComparator(levels: readonly NetworkCustomNestedLevel[]): Comparator {
   return (a, b) => {
     for (const { key, dir } of levels) {
-      const va = key === 'id' ? a.displayId : getColumnSortValue(key as SortableColumnKey, a);
-      const vb = key === 'id' ? b.displayId : getColumnSortValue(key as SortableColumnKey, b);
+      const va = getColumnSortValue(key as SortableColumnKey, a);
+      const vb = getColumnSortValue(key as SortableColumnKey, b);
       let cmp: number;
       if (typeof va === 'number' && typeof vb === 'number') {
         cmp = va - vb;

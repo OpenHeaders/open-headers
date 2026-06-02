@@ -58,9 +58,6 @@ function TrafficRowImpl({
           )}
         </span>
       )}
-      <span className="dt-col-muted" style={{ textAlign: 'right' }}>
-        {row.displayId}
-      </span>
       {columns.map((col) => (
         <span key={col.key}>{renderCell(col, row, state, sizeInfo, ctx)}</span>
       ))}

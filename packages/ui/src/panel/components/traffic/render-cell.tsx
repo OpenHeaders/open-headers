@@ -28,6 +28,9 @@ export function renderCell(
   const lc = row.lifecycle;
   const requestId = lc.requestId;
   const role = getRole(ctx.preflight, requestId);
+  if (col.key === 'requestNumber') {
+    return <span className="dt-col-right dt-col-muted">{row.displayId}</span>;
+  }
   if (col.key === 'name') {
     const rawType = normalizeResourceType(lc.resourceType);
     const { name } = extractName(lc.url);

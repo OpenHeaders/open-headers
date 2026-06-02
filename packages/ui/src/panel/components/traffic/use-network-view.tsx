@@ -61,11 +61,7 @@ export function useNetworkView(): NetworkViewApi {
   const handleUseColumnSort = useCallback(() => setSortKind('column'), [setSortKind]);
   const handleUseCustomNested = useCallback(() => setSortKind('customNested'), [setSortKind]);
   const sortByLabel =
-    sortKey === 'id'
-      ? '#'
-      : sortKey === 'waterfall'
-        ? `Waterfall (${WATERFALL_METRIC_LABELS[waterfallMetric]})`
-        : COLUMN_DEFS[sortKey].label;
+    sortKey === 'waterfall' ? `Waterfall (${WATERFALL_METRIC_LABELS[waterfallMetric]})` : COLUMN_DEFS[sortKey].label;
 
   // Picking a Waterfall metric makes Waterfall the active column sort. Switching
   // into Waterfall from another sort resets to ascending; re-picking while already

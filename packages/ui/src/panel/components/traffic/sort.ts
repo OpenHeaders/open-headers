@@ -8,11 +8,7 @@ import { COLUMN_DEFS } from './columns';
 
 export type SortDir = DevpanelNetworkSortDirSetting;
 
-/**
- * Sort target. `'id'` is the synthetic leading `#` column — not part
- * of the toggleable registry but always sortable. Everything else
- * maps to a `ColumnKey` in `COLUMN_DEFS`.
- */
+/** Sort target — a `ColumnKey` in `COLUMN_DEFS` (Request # is `requestNumber`). */
 export type SortTarget = DevpanelNetworkSortBySetting;
 
 export function sortValueOf(
@@ -20,7 +16,6 @@ export function sortValueOf(
   target: SortTarget,
   waterfallMetric: WaterfallMetric,
 ): string | number {
-  if (target === 'id') return row.displayId;
   // The Waterfall column is overloaded — its sort key follows the active metric.
   if (target === 'waterfall') return waterfallSortValue(row, waterfallMetric);
   return COLUMN_DEFS[target].getSortValue(row);

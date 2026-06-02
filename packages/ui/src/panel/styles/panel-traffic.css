@@ -327,13 +327,6 @@
   background: var(--dt-row-hover);
 }
 
-/* Leading "Request #" header — right-aligned to match the numeric cell
- * body it labels. */
-.dt-col-sort--hash {
-  text-align: right;
-  padding: 0 4px;
-}
-
 /* Column header cell = sort button + resize grip. Positioned relative
  * so the grip can overflow the cell's right edge slightly (gives a
  * wider hit target without affecting the grid-column's pixel width).

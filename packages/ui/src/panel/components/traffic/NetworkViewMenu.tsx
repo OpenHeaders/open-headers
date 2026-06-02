@@ -382,7 +382,6 @@ function SortCustomNestedRow({
               onChange(next);
             }}
           >
-            <option value="id">Request #</option>
             {SORTABLE_COLUMN_KEYS.map((k) => (
               <option key={k} value={k}>
                 {COLUMN_DEFS[k].label}
@@ -463,12 +462,20 @@ function SortCustomNestedRow({
 function defaultLevelKey(existing: readonly NetworkCustomNestedLevel[]): DevpanelNetworkSortBySetting {
   // Pick the first sortable column that's not already in the chain.
   const used = new Set(existing.map((l) => l.key));
-  const all: DevpanelNetworkSortBySetting[] = ['status', 'time', 'size', 'type', 'name', 'method', 'waterfall', 'id'];
+  const all: DevpanelNetworkSortBySetting[] = [
+    'status',
+    'time',
+    'size',
+    'type',
+    'name',
+    'method',
+    'waterfall',
+    'requestNumber',
+  ];
   for (const k of all) if (!used.has(k)) return k;
-  return 'id';
+  return 'requestNumber';
 }
 
 function labelFor(key: DevpanelNetworkSortBySetting): string {
-  if (key === 'id') return 'Request #';
   return COLUMN_DEFS[key].label;
 }

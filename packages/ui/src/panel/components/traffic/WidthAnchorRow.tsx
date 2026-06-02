@@ -29,7 +29,6 @@ export function WidthAnchorRow({ row, columns, gridTemplate, showFireDots, ctx }
       style={{ gridTemplateColumns: gridTemplate, height: 0, visibility: 'hidden', pointerEvents: 'none' }}
     >
       {showFireDots && <span />}
-      <span />
       {columns.map((col) => (
         <span key={col.key}>{renderCell(col, row, state, sizeInfo, ctx)}</span>
       ))}

@@ -21,7 +21,7 @@ const sortModeSchema = v.picklist(['failures', 'slowest', 'largest', 'byType', '
 export type DevpanelNetworkSortModeSetting = v.InferOutput<typeof sortModeSchema>;
 
 const sortBySchema = v.picklist([
-  'id',
+  'requestNumber',
   'method',
   'name',
   'path',
@@ -157,7 +157,7 @@ registerSetting({
       label: 'Waterfall',
       description: 'Timeline by the active Waterfall metric (start time by default).',
     },
-    { value: 'id', label: '#', description: 'Request number — the order requests were discovered.' },
+    { value: 'requestNumber', label: 'Request #', description: 'Request number — the order requests were discovered.' },
     { value: 'method', label: 'Method', description: 'HTTP method.' },
     { value: 'name', label: 'Name', description: 'Final segment of the URL.' },
     { value: 'path', label: 'Path', description: 'Pathname + query.' },

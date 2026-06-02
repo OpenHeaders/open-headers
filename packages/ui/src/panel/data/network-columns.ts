@@ -15,6 +15,7 @@ import { currentHarEntry, type InspectorRowWithFires, lifecycleTransferredBytes 
 import { effectiveStatusCode } from './request-state';
 
 export type SortableColumnKey =
+  | 'requestNumber'
   | 'name'
   | 'method'
   | 'path'
@@ -149,6 +150,8 @@ function initiatorText(lc: RequestLifecycle): string {
 export function getColumnSortValue(key: SortableColumnKey, row: InspectorRowWithFires): string | number {
   const lc = row.lifecycle;
   switch (key) {
+    case 'requestNumber':
+      return row.displayId;
     case 'name':
     case 'url':
       return lc.url.toLowerCase();
