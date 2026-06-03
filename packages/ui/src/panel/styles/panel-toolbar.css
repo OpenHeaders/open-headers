@@ -306,6 +306,12 @@
   font-size: 11px;
 }
 
+/* In the resource "More" popover, align the reset row with the 11px pills. */
+.dt-filter-pills--vertical .dt-morefilters-reset {
+  font-size: 11px;
+  padding: 4px 10px;
+}
+
 /* Group separator between `Hide *` and `Only *` filter groups —
  * matches Chrome's visual pattern. */
 .dt-morefilters-divider {

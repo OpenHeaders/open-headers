@@ -70,6 +70,12 @@ export function ResourceFilter({ value, onChange, compact }: ResourceFilterProps
           {f.label}
         </button>
       ))}
+      <div className="dt-morefilters-divider" />
+      {/* Default is "All" (no type filters) — reset clears every active type,
+       * inline ones included, not just the overflow pills shown here. */}
+      <button type="button" className="dt-morefilters-reset" onClick={() => onChange(new Set())} disabled={isAll}>
+        Reset to default
+      </button>
     </div>
   );
 

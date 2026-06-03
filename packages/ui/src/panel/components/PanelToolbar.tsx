@@ -14,7 +14,7 @@ import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-sc
 import { instanceLabel, instanceLabelPlural } from '@openheaders/ui/shared/host-vocabulary';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 import EnvironmentSelector from '@openheaders/ui/workbench/components/EnvironmentSelector';
-import { useSetting, useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
+import { useIsModified, useResetSetting, useSetting, useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import { Dropdown, type MenuProps, Popover, Space, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
@@ -161,6 +161,24 @@ function MoreFiltersMenu({
         <input type="checkbox" checked={cacheBypassEnabled} onChange={onToggleCacheBypass} />
         Bypass HTTP Cache
       </label>
+      <div className="dt-morefilters-divider" />
+      <button
+        type="button"
+        className="dt-morefilters-reset"
+        disabled={!active}
+        onClick={() => {
+          onFilterConfigChange({
+            ...filterConfig,
+            hideDataUrls: false,
+            hideExtensionUrls: false,
+            onlyBlockedRequests: false,
+            onlyThirdParty: false,
+          });
+          if (cacheBypassEnabled) onToggleCacheBypass();
+        }}
+      >
+        Reset to default
+      </button>
     </div>
   );
 
@@ -195,6 +213,17 @@ function ViewMenu() {
   const [showCached, setShowCached] = useSetting('devpanelLayout.footerShowCached');
   const [showPageContext, setShowPageContext] = useSetting('devpanelLayout.footerShowPageContext');
 
+  const resetModified = useResetSetting('devpanelLayout.footerShowModified');
+  const resetFailed = useResetSetting('devpanelLayout.footerShowFailed');
+  const resetCached = useResetSetting('devpanelLayout.footerShowCached');
+  const resetPageContext = useResetSetting('devpanelLayout.footerShowPageContext');
+  // Reset is offered only when something actually differs from the defaults.
+  const anyModified =
+    useIsModified('devpanelLayout.footerShowModified') ||
+    useIsModified('devpanelLayout.footerShowFailed') ||
+    useIsModified('devpanelLayout.footerShowCached') ||
+    useIsModified('devpanelLayout.footerShowPageContext');
+
   const flags = [showModified, showFailed, showCached, showPageContext];
   const activeCount = flags.reduce((n, v) => n + (v ? 1 : 0), 0);
 
@@ -220,6 +249,20 @@ function ViewMenu() {
         <input type="checkbox" checked={showPageContext} onChange={(e) => setShowPageContext(e.target.checked)} />
         Current page label
       </label>
+      <div className="dt-morefilters-divider" />
+      <button
+        type="button"
+        className="dt-morefilters-reset"
+        disabled={!anyModified}
+        onClick={() => {
+          resetModified();
+          resetFailed();
+          resetCached();
+          resetPageContext();
+        }}
+      >
+        Reset to default
+      </button>
     </div>
   );
 
