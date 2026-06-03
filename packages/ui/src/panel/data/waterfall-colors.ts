@@ -17,9 +17,9 @@ const TYPE_HSL: Record<string, [number, number, number]> = {
   image: [90, 50, 80],
   media: [90, 50, 80],
   font: [8, 100, 80],
-  websocket: [0, 0, 85],
+  websocket: [0, 0, 95],
   wasm: [262, 60, 80],
-  other: [0, 0, 85],
+  other: [0, 0, 95],
 };
 
 export interface BarColors {

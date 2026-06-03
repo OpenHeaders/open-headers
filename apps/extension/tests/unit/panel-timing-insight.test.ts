@@ -4,7 +4,7 @@ import type { TimingPhase } from '@openheaders/ui/panel/data/timing-phases';
 import { describe, expect, it } from 'vitest';
 
 function phase(key: TimingPhase['key'], ms: number): TimingPhase {
-  return { key, label: key, group: 'connection', ms, color: '#fff' };
+  return { key, label: key, group: 'connection', ms };
 }
 
 describe('findBottleneck', () => {

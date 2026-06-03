@@ -149,7 +149,12 @@
   opacity: 0.75;
 }
 
-.dt-row span {
+/* Cell padding + ellipsis for the text columns. Direct-child only: the
+ * grid cells are top-level spans, but a descendant selector would also reach
+ * nested spans inside component cells — most visibly the Waterfall phase
+ * segments, where 4px each side per segment breaks their exact-proportional
+ * widths. */
+.dt-row > span {
   padding: 0 4px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -456,10 +461,47 @@ body.dt-resizing-col {
 .dt-waterfall-segment {
   height: 6px;
   display: inline-block;
+  /* Bordered phases (Queueing, Content Download) keep their proportional
+   * width — the edge grows inward, not outward. */
+  box-sizing: border-box;
 }
 
 .dt-waterfall-segment--tall {
   height: 100%;
+}
+
+/* Per-phase fills — the browser's network timing palette, theme-aware via the
+ * --dt-wf-* tokens (panel.css). Shared by the waterfall segments, the hover
+ * popover swatches, and the timing detail bar/legend, so a row's phase reads
+ * the same color everywhere. Queueing draws hollow (white + grey edge) and
+ * Content Download carries a blue edge, mirroring the browser. */
+.dt-wf-fill--queueing {
+  background: var(--dt-wf-queueing);
+  border: 1px solid lightgrey;
+  box-sizing: border-box;
+}
+.dt-wf-fill--stalled {
+  background: var(--dt-wf-stalled);
+}
+.dt-wf-fill--dns {
+  background: var(--dt-wf-dns);
+}
+.dt-wf-fill--connect {
+  background: var(--dt-wf-connect);
+}
+.dt-wf-fill--ssl {
+  background: var(--dt-wf-ssl);
+}
+.dt-wf-fill--send {
+  background: var(--dt-wf-send);
+}
+.dt-wf-fill--wait {
+  background: var(--dt-wf-wait);
+}
+.dt-wf-fill--receive {
+  background: var(--dt-wf-receive);
+  border: 1px solid #03a9f4;
+  box-sizing: border-box;
 }
 
 /* DOMContentLoaded / Load event lines (timeline mode). The anchor is a

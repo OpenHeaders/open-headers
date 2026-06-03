@@ -186,11 +186,8 @@ export default function TimingView({ row, connectionReuse, repeatStats, baseline
               {data.phases.map((p) => (
                 <div
                   key={p.key}
-                  className="dt-timing-bar-segment"
-                  style={{
-                    width: `${Math.max((p.ms / barTotal) * 100, 0.5)}%`,
-                    background: p.color,
-                  }}
+                  className={`dt-timing-bar-segment dt-wf-fill--${p.key}`}
+                  style={{ width: `${Math.max((p.ms / barTotal) * 100, 0.5)}%` }}
                   title={`${p.label}: ${formatMs(p.ms)}`}
                 />
               ))}
@@ -198,7 +195,7 @@ export default function TimingView({ row, connectionReuse, repeatStats, baseline
             <div className="dt-timing-bar-legend">
               {data.phases.map((p) => (
                 <span key={p.key} className="dt-timing-legend-item">
-                  <span className="dt-timing-legend-swatch" style={{ background: p.color }} />
+                  <span className={`dt-timing-legend-swatch dt-wf-fill--${p.key}`} />
                   {p.label}: {formatMs(p.ms)}
                 </span>
               ))}

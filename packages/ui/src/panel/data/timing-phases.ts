@@ -37,7 +37,6 @@ export interface TimingPhase {
   label: string;
   group: TimingGroup;
   ms: number;
-  color: string;
 }
 
 export interface ComputedTimings {
@@ -49,18 +48,17 @@ export interface ComputedTimings {
 interface PhaseMeta {
   label: string;
   group: TimingGroup;
-  color: string;
 }
 
 const PHASE_META: Record<TimingPhaseKey, PhaseMeta> = {
-  queueing: { label: 'Queueing', group: 'scheduling', color: '#cccccc' },
-  stalled: { label: 'Stalled', group: 'connection', color: '#a0a0a0' },
-  dns: { label: 'DNS Lookup', group: 'connection', color: '#6ecba4' },
-  connect: { label: 'Initial connection', group: 'connection', color: '#f0a73c' },
-  ssl: { label: 'SSL', group: 'connection', color: '#c689d6' },
-  send: { label: 'Request sent', group: 'transfer', color: '#79b6e8' },
-  wait: { label: 'Waiting for server', group: 'transfer', color: '#79d279' },
-  receive: { label: 'Content Download', group: 'transfer', color: '#5c9aef' },
+  queueing: { label: 'Queueing', group: 'scheduling' },
+  stalled: { label: 'Stalled', group: 'connection' },
+  dns: { label: 'DNS Lookup', group: 'connection' },
+  connect: { label: 'Initial connection', group: 'connection' },
+  ssl: { label: 'SSL', group: 'connection' },
+  send: { label: 'Request sent', group: 'transfer' },
+  wait: { label: 'Waiting for server', group: 'transfer' },
+  receive: { label: 'Content Download', group: 'transfer' },
 };
 
 const ORDER: readonly TimingPhaseKey[] = [
@@ -121,7 +119,7 @@ export function computeTimingPhases(har: InspectorHarEntry): ComputedTimings | n
     const value = ms[key];
     if (value <= 0) continue;
     const meta = PHASE_META[key];
-    phases.push({ key, label: meta.label, group: meta.group, color: meta.color, ms: value });
+    phases.push({ key, label: meta.label, group: meta.group, ms: value });
   }
 
   if (phases.length === 0) return null;

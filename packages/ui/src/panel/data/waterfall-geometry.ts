@@ -41,10 +41,10 @@ export interface DurationBarLayout {
   downloadMs: number;
 }
 
-/** One colored phase segment of a timeline (rainbow) bar. */
+/** One phase segment of a timeline (rainbow) bar. `key` is the phase key —
+ * the consumer maps it to a `dt-wf-fill--<key>` color class (theme-aware). */
 export interface TimelineSegment {
   key: string;
-  color: string;
   /** Share of the bar this phase occupies, 0–100. */
   pct: number;
   /**
@@ -104,7 +104,6 @@ export function timelineBarLayout(
     timing && total > 0
       ? timing.phases.map((p) => ({
           key: p.key,
-          color: p.color,
           pct: (p.ms / total) * 100,
           tall: p.group === 'transfer',
         }))

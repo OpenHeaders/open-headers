@@ -91,6 +91,19 @@
   --dt-fire-inferred: #d48806;
   --dt-input-bg: #fff;
   --dt-input-border: #d9d9d9;
+
+  /* Waterfall timing-phase palette — the browser's per-phase network colors.
+   * Only Stalled and DNS differ by theme (overridden in the dark block); the
+   * rest are fixed hues. Queueing is white with a grey edge (hollow) and
+   * Content Download carries a blue edge — both styled in panel-traffic.css. */
+  --dt-wf-queueing: #fff;
+  --dt-wf-stalled: #000;
+  --dt-wf-dns: #00677f;
+  --dt-wf-connect: #eab308;
+  --dt-wf-ssl: #d190ff;
+  --dt-wf-send: #009dc1;
+  --dt-wf-wait: #37be5f;
+  --dt-wf-receive: #4c8df6;
 }
 
 /* ── Dark palette ───────────────────────────────────────── */
@@ -124,6 +137,11 @@
   --dt-fire-inferred: #e8b339;
   --dt-input-bg: #2a2a2a;
   --dt-input-border: #3c3c3c;
+
+  /* Stalled flips to white on dark; DNS lightens. The other waterfall-phase
+   * tokens are theme-neutral and fall through from the light palette. */
+  --dt-wf-stalled: #fff;
+  --dt-wf-dns: #5cd5fb;
 }
 
 /* ── Reset ──────────────────────────────────────────────── */

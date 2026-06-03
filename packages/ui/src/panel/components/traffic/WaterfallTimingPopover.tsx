@@ -57,7 +57,7 @@ export function WaterfallTimingPopover({
             <div className="dt-waterfall-pop-head">{GROUP_LABEL[group]}</div>
             {phases.map((p) => (
               <div key={p.key} className="dt-waterfall-pop-row">
-                <span className="dt-waterfall-pop-swatch" style={{ background: p.color }} aria-hidden="true" />
+                <span className={`dt-waterfall-pop-swatch dt-wf-fill--${p.key}`} aria-hidden="true" />
                 <span className="dt-waterfall-pop-label">{p.label}</span>
                 <span className="dt-waterfall-pop-ms">{formatTimeMs(p.ms)}</span>
               </div>

@@ -84,6 +84,15 @@ function DurationBar({
   );
 }
 
+function segmentClass(seg: TimelineBarLayout['segments'][number]): string {
+  const cls = ['dt-waterfall-segment'];
+  if (seg.tall) cls.push('dt-waterfall-segment--tall');
+  // `send` keeps its slot (so later phases stay positioned) but draws empty:
+  // the browser doesn't paint a Request-sent bar in the waterfall.
+  if (seg.key !== 'send') cls.push(`dt-wf-fill--${seg.key}`);
+  return cls.join(' ');
+}
+
 function RainbowBar({ layout, title }: { layout: TimelineBarLayout; title: string | undefined }) {
   // With per-phase segments the segments ARE the bar, so the plain muted fill
   // must drop out — otherwise it shows through the vertical gaps around the
@@ -94,11 +103,7 @@ function RainbowBar({ layout, title }: { layout: TimelineBarLayout; title: strin
     <div className="dt-waterfall-track" title={title}>
       <div className={barClass} style={{ left: `${layout.leftPct}%`, width: `${layout.widthPct}%` }}>
         {layout.segments.map((seg) => (
-          <span
-            key={seg.key}
-            className={seg.tall ? 'dt-waterfall-segment dt-waterfall-segment--tall' : 'dt-waterfall-segment'}
-            style={{ width: `${seg.pct}%`, background: seg.color }}
-          />
+          <span key={seg.key} className={segmentClass(seg)} style={{ width: `${seg.pct}%` }} />
         ))}
       </div>
     </div>
