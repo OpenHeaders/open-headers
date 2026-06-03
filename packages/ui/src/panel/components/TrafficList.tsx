@@ -1,5 +1,13 @@
 import type { Page } from '@openheaders/core/page-stream';
-import { type MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type MouseEvent as ReactMouseEvent,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { FilterConfig, FilterToken } from '../data/filter-engine';
 import { matchesUrlFilter, passesRowFilters } from '../data/filter-engine';
 import type { InspectorRowWithFires } from '../data/inspector-row-projection';
@@ -104,23 +112,14 @@ export function TrafficList({
   const [rowMenu, setRowMenu] = useState<RequestContextMenuState | null>(null);
   const [colMenu, setColMenu] = useState<ColumnHeaderContextMenuState | null>(null);
 
-  // Measured Waterfall column width — drives the in/out/hidden placement of
-  // the Duration/Latency value labels (which need pixels, not percentages).
-  // A callback ref (dis)connects the observer as the header cell mounts
-  // across the panel's render-state branches.
+  // Measured Waterfall column geometry — width drives the in/out/hidden
+  // placement of the Duration/Latency value labels (which need pixels, not
+  // percentages); the content-space left offset positions the DOMContentLoaded
+  // / Load marker overlay onto the column itself rather than the table's right
+  // edge (the two diverge in compact mode once the column is clipped offscreen).
+  const waterfallColElRef = useRef<HTMLDivElement | null>(null);
   const [waterfallColPx, setWaterfallColPx] = useState(0);
-  const waterfallRoRef = useRef<ResizeObserver | null>(null);
-  const waterfallCellRef = useCallback((el: HTMLDivElement | null) => {
-    waterfallRoRef.current?.disconnect();
-    waterfallRoRef.current = null;
-    if (!el) return;
-    const ro = new ResizeObserver((entries) => {
-      const w = entries[0]?.contentRect.width ?? 0;
-      setWaterfallColPx((prev) => (Math.abs(prev - w) < 1 ? prev : w));
-    });
-    ro.observe(el);
-    waterfallRoRef.current = ro;
-  }, []);
+  const [waterfallColLeftPx, setWaterfallColLeftPx] = useState(0);
 
   // ── Row flash (cross-row jumps: preflight ⇄ parent) ─────────
   const [flashId, setFlashId] = useState<string | null>(null);
@@ -164,16 +163,61 @@ export function TrafficList({
   // Visible height of the scroll body — sets how far the page-marker lines
   // (DOMContentLoaded / Load) extend down the waterfall column.
   const [tableViewportPx, setTableViewportPx] = useState(0);
+
+  // Measure the Waterfall column's width and its left edge in the table's
+  // content coordinate space (scroll-independent: viewport offset cancelled
+  // by scrollLeft). The marker overlay positions off this left rather than
+  // the table's right edge, so it tracks the real column even when compact
+  // mode clips the column past the viewport's right edge.
+  const measureWaterfall = useCallback(() => {
+    const cell = waterfallColElRef.current;
+    const table = tableRef.current;
+    if (!cell || !table) return;
+    const cellRect = cell.getBoundingClientRect();
+    const width = cellRect.width;
+    const left = cellRect.left - table.getBoundingClientRect().left + table.scrollLeft;
+    setWaterfallColPx((prev) => (Math.abs(prev - width) < 1 ? prev : width));
+    setWaterfallColLeftPx((prev) => (Math.abs(prev - left) < 1 ? prev : left));
+  }, [tableRef]);
+
+  // Header-cell callback ref: store the element and (dis)connect a size
+  // observer as it mounts across the panel's render-state branches. The
+  // observer fires on width reflow (e.g. a stretchy neighbour absorbing slack).
+  const waterfallRoRef = useRef<ResizeObserver | null>(null);
+  const waterfallCellRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      waterfallRoRef.current?.disconnect();
+      waterfallRoRef.current = null;
+      waterfallColElRef.current = el;
+      if (!el) return;
+      const ro = new ResizeObserver(() => measureWaterfall());
+      ro.observe(el);
+      waterfallRoRef.current = ro;
+    },
+    [measureWaterfall],
+  );
+
+  // Observe the scroll body: its height feeds the marker line length, and a
+  // panel-width drag (which leaves height untouched) still reflows the columns,
+  // so re-measure the waterfall geometry on every table resize.
   useEffect(() => {
     const el = tableRef.current;
     if (!el) return;
     const ro = new ResizeObserver((entries) => {
       const h = entries[0]?.contentRect.height ?? 0;
       setTableViewportPx((prev) => (Math.abs(prev - h) < 1 ? prev : h));
+      measureWaterfall();
     });
     ro.observe(el);
     return () => ro.disconnect();
-  }, [tableRef]);
+  }, [tableRef, measureWaterfall]);
+
+  // Column reflows that don't resize the table (visibility toggles, a column
+  // drag, compact toggle, the fire-dot rail) still shift the waterfall column,
+  // so re-measure after each such commit.
+  useLayoutEffect(() => {
+    measureWaterfall();
+  }, [measureWaterfall, columnWidths, visibleColumns, compact, showFireDots]);
 
   const handleJumpTo = useCallback(
     (requestId: string) => {
@@ -334,7 +378,11 @@ export function TrafficList({
           <div className="dt-wf-markers-anchor" aria-hidden="true">
             <div
               className="dt-wf-markers"
-              style={{ width: `${waterfallColPx}px`, height: `${Math.max(tableViewportPx - HEADER_ROW_PX, 0)}px` }}
+              style={{
+                left: `${waterfallColLeftPx}px`,
+                width: `${waterfallColPx}px`,
+                height: `${Math.max(tableViewportPx - HEADER_ROW_PX, 0)}px`,
+              }}
             >
               {markerLines.map((m) => (
                 <span key={m.key} className={`dt-wf-marker dt-wf-marker--${m.kind}`} style={{ left: `${m.pct}%` }} />

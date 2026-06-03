@@ -507,9 +507,11 @@ body.dt-resizing-col {
 /* DOMContentLoaded / Load event lines (timeline mode). The anchor is a
  * zero-height grid child made sticky at the scrollport top — it pins the
  * lines vertically while flowing horizontally with the content, so they track
- * the (last) Waterfall column even under horizontal scroll. The inner box is
- * right-aligned to that column; its height is set inline to the visible body.
- * z-index sits above the bars but below the sticky column header. */
+ * the Waterfall column even under horizontal scroll. The inner box's left +
+ * width are set inline from the column's measured content-space geometry, so
+ * it stays glued to the column (and clips with it when compact mode pushes the
+ * column past the viewport edge). overflow:hidden keeps a marker from painting
+ * past the column bounds. z-index sits above the bars, below the sticky header. */
 .dt-wf-markers-anchor {
   position: sticky;
   top: 0;
@@ -521,7 +523,7 @@ body.dt-resizing-col {
 .dt-wf-markers {
   position: absolute;
   top: 22px;
-  right: 0;
+  overflow: hidden;
 }
 
 .dt-wf-marker {
