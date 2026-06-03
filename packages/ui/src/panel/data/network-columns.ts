@@ -86,9 +86,35 @@ function countRequestCookies(lc: RequestLifecycle): number {
   return currentHarEntry(lc)?.request?.cookies?.length ?? 0;
 }
 
-function priorityText(lc: RequestLifecycle): string {
+/**
+ * The browser's five resource-priority tiers. The HAR carries the raw
+ * protocol spelling (`VeryLow` … `VeryHigh`); we rank them so a sort reads
+ * highest-first and relabel them to the browser's user-facing wording
+ * (`Lowest` … `Highest`) for display. The priority itself is the browser's —
+ * computed in the renderer from type plus fetch context and reported verbatim;
+ * we never re-derive it.
+ */
+const PRIORITY_TIERS: Record<string, { rank: number; label: string }> = {
+  VeryLow: { rank: 1, label: 'Lowest' },
+  Low: { rank: 2, label: 'Low' },
+  Medium: { rank: 3, label: 'Medium' },
+  High: { rank: 4, label: 'High' },
+  VeryHigh: { rank: 5, label: 'Highest' },
+};
+
+/** Sort weight for the reported priority — 5 (highest) … 1 (lowest), 0 when
+ * the browser hasn't reported one yet (pending / cache-only rows), so those
+ * group at the bottom of a highest-first sort. */
+export function priorityRank(lc: RequestLifecycle): number {
   const p = currentHarEntry(lc)?._priority;
-  return typeof p === 'string' ? p : '';
+  return (typeof p === 'string' ? PRIORITY_TIERS[p]?.rank : undefined) ?? 0;
+}
+
+/** The reported priority in the browser's display wording (`Lowest` …
+ * `Highest`); empty when none has been reported. */
+export function priorityLabel(lc: RequestLifecycle): string {
+  const p = currentHarEntry(lc)?._priority;
+  return (typeof p === 'string' ? PRIORITY_TIERS[p]?.label : undefined) ?? '';
 }
 
 function transferredBytes(lc: RequestLifecycle): number {
@@ -200,7 +226,7 @@ export function getColumnSortValue(key: SortableColumnKey, row: InspectorRowWith
     case 'time':
       return durationMs(lc);
     case 'priority':
-      return priorityText(lc);
+      return priorityRank(lc);
     case 'waterfall':
       return waterfallStartMs(lc);
   }

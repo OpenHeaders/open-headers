@@ -17,7 +17,15 @@ export type DevpanelNetworkLayoutSetting = v.InferOutput<typeof layoutSchema>;
 const sortKindSchema = v.picklist(['mode', 'column', 'customNested']);
 export type DevpanelNetworkSortKindSetting = v.InferOutput<typeof sortKindSchema>;
 
-const sortModeSchema = v.picklist(['failures', 'slowest', 'largest', 'byType', 'byDomain', 'ruleModified']);
+const sortModeSchema = v.picklist([
+  'failures',
+  'slowest',
+  'largest',
+  'browserPriority',
+  'byType',
+  'byDomain',
+  'ruleModified',
+]);
 export type DevpanelNetworkSortModeSetting = v.InferOutput<typeof sortModeSchema>;
 
 const sortBySchema = v.picklist([
@@ -159,6 +167,7 @@ registerSetting({
     { value: 'failures', label: 'Failures first', description: 'Failed → pending → redirected → success.' },
     { value: 'slowest', label: 'Slowest first', description: 'Longest duration first.' },
     { value: 'largest', label: 'Largest first', description: 'Biggest wire bytes first.' },
+    { value: 'browserPriority', label: 'Browser priority', description: 'Highest → Lowest reported priority.' },
     { value: 'byType', label: 'By resource type', description: 'Grouped by resource type, arrival within.' },
     { value: 'byDomain', label: 'By domain', description: 'Grouped by hostname, arrival within.' },
     { value: 'ruleModified', label: 'Rule-modified first', description: 'Applied rules first, arrival within.' },

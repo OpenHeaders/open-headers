@@ -29,7 +29,7 @@ import {
   type InspectorRowWithFires,
   lifecycleTransferredBytes,
 } from '../../data/inspector-row-projection';
-import { durationMs, getColumnSortValue, type SortableColumnKey } from '../../data/network-columns';
+import { durationMs, getColumnSortValue, priorityLabel, type SortableColumnKey } from '../../data/network-columns';
 import { effectiveStatusCode } from '../../data/request-state';
 import { formatBytesToKb } from '../../data/size-info';
 import { formatDuration, formatInitiator } from './formatters';
@@ -119,8 +119,7 @@ function countRequestCookies(row: InspectorRowWithFires): number {
 }
 
 function priority(row: InspectorRowWithFires): string {
-  const p = currentHarEntry(row.lifecycle)?._priority;
-  return typeof p === 'string' ? p : '';
+  return priorityLabel(row.lifecycle);
 }
 
 const delegateSort = (key: ColumnKey) => (row: InspectorRowWithFires) => getColumnSortValue(key, row);

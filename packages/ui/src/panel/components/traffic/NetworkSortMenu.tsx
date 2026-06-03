@@ -38,7 +38,7 @@ const GROUPS: ReadonlyArray<{
     id: 'priority',
     label: 'Priority',
     hint: 'What needs your attention first.',
-    modes: ['failures', 'slowest', 'largest'],
+    modes: ['failures', 'slowest', 'largest', 'browserPriority'],
   },
   {
     id: 'grouping',

@@ -15,11 +15,19 @@
 import type { NetworkCustomNestedLevel } from '@openheaders/ui/workbench/settings/schema/devpanel-network';
 import type { InspectorRowWithFires } from './inspector-row-projection';
 import { lifecycleTransferredBytes } from './inspector-row-projection';
-import { durationMs, getColumnSortValue, type SortableColumnKey } from './network-columns';
+import { durationMs, getColumnSortValue, priorityRank, type SortableColumnKey } from './network-columns';
 import { classifyRequestState, type RequestState } from './request-state';
 import { isAppliedFire } from './types';
 
-export const NETWORK_SORT_MODES = ['failures', 'slowest', 'largest', 'byType', 'byDomain', 'ruleModified'] as const;
+export const NETWORK_SORT_MODES = [
+  'failures',
+  'slowest',
+  'largest',
+  'browserPriority',
+  'byType',
+  'byDomain',
+  'ruleModified',
+] as const;
 export type NetworkSortMode = (typeof NETWORK_SORT_MODES)[number];
 
 export interface NetworkSortModeMeta {
@@ -39,6 +47,10 @@ export const NETWORK_SORT_MODE_META: Record<NetworkSortMode, NetworkSortModeMeta
   largest: {
     title: 'Largest first',
     subtitle: 'Biggest wire bytes first · start time within ties.',
+  },
+  browserPriority: {
+    title: 'Browser priority',
+    subtitle: 'Highest → Lowest by the browser’s reported priority · start time within each.',
   },
   byType: {
     title: 'By resource type',
@@ -139,6 +151,7 @@ export const NETWORK_SORT_MODE_COMPARATORS: Record<NetworkSortMode, Comparator> 
   failures: (a, b) => failureTier(a) - failureTier(b) || chronological(a, b),
   slowest: (a, b) => durationFor(b) - durationFor(a) || chronological(a, b),
   largest: (a, b) => transferredFor(b) - transferredFor(a) || chronological(a, b),
+  browserPriority: (a, b) => priorityRank(b.lifecycle) - priorityRank(a.lifecycle) || chronological(a, b),
   byType: (a, b) => typeTier(a) - typeTier(b) || chronological(a, b),
   byDomain: (a, b) => host(a.lifecycle.url).localeCompare(host(b.lifecycle.url)) || chronological(a, b),
   ruleModified: (a, b) => fireTier(a) - fireTier(b) || chronological(a, b),
