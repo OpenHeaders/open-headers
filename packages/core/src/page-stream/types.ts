@@ -25,7 +25,11 @@ import type { InspectorNavTiming } from '../types/har-source';
 export interface Page {
   /** Sequential id assigned at creation, e.g. `page_1`. HAR pageref. */
   readonly id: string;
-  /** Wall-clock ms at navigation start (or hub-side notification time). */
+  /**
+   * Wall-clock ms at navigation start. Stamped at nav-commit when the page
+   * is created, then corrected down to the navigation entry's `timeOrigin`
+   * once `nav-timing` reports it (the commit time lags the true start).
+   */
   readonly startedAtMs: number;
   /**
    * Page URL — null until the host reports it via `nav` or `nav-timing`'s

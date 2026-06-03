@@ -20,7 +20,7 @@
 
 import type { Page } from '@openheaders/core/page-stream';
 import type { InspectorRowWithFires } from './inspector-row-projection';
-import { timelineEndMs, waterfallSortValue } from './network-columns';
+import { timelineEndMs, waterfallSortValue, waterfallStartMs } from './network-columns';
 import type { ComputedTimings } from './timing-phases';
 
 /** A bar never collapses below this width (% of column) so it stays visible. */
@@ -47,6 +47,12 @@ export interface TimelineSegment {
   color: string;
   /** Share of the bar this phase occupies, 0–100. */
   pct: number;
+  /**
+   * Tall = the request/response phases (send, wait, receive); the connection
+   * setup phases (queueing, stalled, DNS, connect, SSL) draw thinner. Mirrors
+   * the browser's stepped waterfall so connection-vs-transfer reads at a glance.
+   */
+  tall: boolean;
 }
 
 /** Per-phase (Start / Response / End time) bar placed on the shared window. */
@@ -92,14 +98,46 @@ export function timelineBarLayout(
 ): TimelineBarLayout {
   const lc = row.lifecycle;
   const span = Math.max(tMax - t0, 1);
-  const total = timing ? timing.totalMs : Math.max(timelineEndMs(lc) - lc.startedAtMs, 0);
+  const start = waterfallStartMs(lc);
+  const total = timing ? timing.totalMs : Math.max(timelineEndMs(lc) - start, 0);
   const segments: TimelineSegment[] =
-    timing && total > 0 ? timing.phases.map((p) => ({ key: p.key, color: p.color, pct: (p.ms / total) * 100 })) : [];
+    timing && total > 0
+      ? timing.phases.map((p) => ({
+          key: p.key,
+          color: p.color,
+          pct: (p.ms / total) * 100,
+          tall: p.group === 'transfer',
+        }))
+      : [];
   return {
-    leftPct: (Math.max(lc.startedAtMs - t0, 0) / span) * 100,
+    leftPct: (Math.max(start - t0, 0) / span) * 100,
     widthPct: Math.max((total / span) * 100, MIN_BAR_PCT),
     segments,
   };
+}
+
+/**
+ * The shared `[t0, tMax]` window for the timeline waterfall: zero at the
+ * earliest issue time in view, extent at the latest finish. Must be computed
+ * over the full (unfiltered) row set so a search/type filter never re-anchors
+ * the zero or rescales the axis — a filtered request keeps its true offset
+ * instead of reading "Queued at 0" as though it were the first request.
+ */
+export function waterfallWindow(rows: readonly InspectorRowWithFires[]): [number, number] {
+  if (rows.length === 0) return [0, 1];
+  let min = Number.POSITIVE_INFINITY;
+  let max = 0;
+  for (const r of rows) {
+    const start = waterfallStartMs(r.lifecycle);
+    if (start < min) min = start;
+    // HAR-derived finish (issue + queueing + duration), the same anchor the
+    // timeline bars use, so a bar's right edge never overruns the window.
+    const end = timelineEndMs(r.lifecycle);
+    if (end > max) max = end;
+  }
+  if (!Number.isFinite(min)) min = 0;
+  if (max <= min) max = min + 1;
+  return [min, max];
 }
 
 /** A page-timing event line drawn across the timeline window. */

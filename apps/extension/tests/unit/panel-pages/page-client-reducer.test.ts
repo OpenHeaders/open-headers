@@ -63,6 +63,28 @@ describe('reducePageUpdate', () => {
     expect(reducePageUpdate(prev, update)).toBe(NOOP);
   });
 
+  it('nav-timing-attached corrects startedAtMs down to navStartMs only', () => {
+    const prev = [page({ id: 'page_1', startedAtMs: 250 })];
+    const next = reducePageUpdate(prev, {
+      kind: 'nav-timing-attached',
+      tabId: 1,
+      pageId: 'page_1',
+      timing: { pageOrigin: null, navStartMs: 100 },
+    });
+    expect(next).not.toBe(NOOP);
+    expect((next as readonly Page[])[0].startedAtMs).toBe(100);
+
+    // A later navStartMs is ignored (no forward shift).
+    expect(
+      reducePageUpdate(next as readonly Page[], {
+        kind: 'nav-timing-attached',
+        tabId: 1,
+        pageId: 'page_1',
+        timing: { pageOrigin: null, navStartMs: 180 },
+      }),
+    ).toBe(NOOP);
+  });
+
   it('nav-timing-attached NOOP when page id missing', () => {
     const prev = [page({ id: 'page_1' })];
     const next = reducePageUpdate(prev, {

@@ -401,7 +401,10 @@ body.dt-resizing-col {
   position: relative;
   width: 100%;
   height: 14px;
-  background: var(--dt-bg-alt);
+  /* No rail fill — bars/segments draw straight on the row (browser parity).
+   * A filled track would show as a band above/below the thinner
+   * connection-setup phases. */
+  background: transparent;
   border-radius: 2px;
   overflow: hidden;
 }
@@ -411,6 +414,9 @@ body.dt-resizing-col {
   top: 2px;
   bottom: 2px;
   display: flex;
+  /* Center segments so the thinner connection-setup phases sit mid-bar
+   * (the request/response phases fill the full height). */
+  align-items: center;
   min-width: 2px;
   background: var(--dt-text-muted);
   border-radius: 2px;
@@ -426,11 +432,34 @@ body.dt-resizing-col {
   box-sizing: border-box;
 }
 
+/* Timeline bar carrying per-phase segments: the segments are the bar, so drop
+ * the plain muted fill (it would show through the vertical gaps around the
+ * thinner connection-setup phases). The empty/pending bar keeps the fill.
+ * A 1px gap delineates adjacent phases (browser parity: a 1px spacing between
+ * segments) without inflating any phase's width. */
+.dt-waterfall-bar--phased {
+  background: transparent;
+  gap: 1px;
+}
+
 /* Timeline mode: per-phase rainbow segments tile the bar left-to-right
- * (queueing → receive), each fill set inline from the phase palette. */
+ * (queueing → receive), each fill set inline from the phase palette.
+ *
+ * Width is exactly proportional (phase ms ÷ window) with no minimum — matching
+ * the browser, which draws each phase at its true width. A tiny phase stays
+ * tiny; the bar's 1px inter-segment gap keeps it delineated rather than
+ * inflating it.
+ *
+ * Height is stepped (browser parity): the connection-setup phases draw thin
+ * (this default), the request/response phases full-height (`--tall`), so the
+ * eye separates connection cost from transfer cost without reading values. */
 .dt-waterfall-segment {
-  height: 100%;
+  height: 6px;
   display: inline-block;
+}
+
+.dt-waterfall-segment--tall {
+  height: 100%;
 }
 
 /* DOMContentLoaded / Load event lines (timeline mode). The anchor is a
@@ -588,6 +617,11 @@ body.dt-resizing-col {
 
 .dt-waterfall-pop-overlay:hover .dt-waterfall-pop::-webkit-scrollbar-thumb:hover {
   background: rgba(128, 128, 128, 0.75);
+}
+
+.dt-waterfall-pop-start {
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
 }
 
 .dt-waterfall-pop-group {

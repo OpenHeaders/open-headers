@@ -70,6 +70,19 @@ describe('PageStreamHub — notify + broadcast', () => {
     expect(sink.updates).toHaveLength(0);
   });
 
+  it('corrects the page start down to navStartMs and ignores a later one', () => {
+    const hub = new PageStreamHub();
+    hub.notifyNavStarted(1, 250, null);
+
+    // Earlier nav start (the true timeOrigin) wins over the commit placeholder.
+    hub.notifyNavTimingAttached(1, { pageOrigin: 'https://openheaders.io', navStartMs: 100 });
+    expect(hub.snapshotTab(1)[0].startedAtMs).toBe(100);
+
+    // A later navStartMs never pushes the start forward.
+    hub.notifyNavTimingAttached(1, { pageOrigin: 'https://openheaders.io', navStartMs: 180 });
+    expect(hub.snapshotTab(1)[0].startedAtMs).toBe(100);
+  });
+
   it('does not emit nav-timing-attached when no page exists for the tab', () => {
     const hub = new PageStreamHub();
     const sink = recordingSink();

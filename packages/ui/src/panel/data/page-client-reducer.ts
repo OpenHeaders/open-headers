@@ -5,7 +5,8 @@
  *   - `page-started` → append (or dedup by id — replay-after-reconnect
  *     can re-emit pages we already have).
  *   - `nav-timing-attached` → refine the named page with `url`
- *     (when null) + `dclMs` / `loadMs` (when later than what we have).
+ *     (when null), `startedAtMs` (corrected down to the true nav start),
+ *     and `dclMs` / `loadMs` (when later than what we have).
  *     Hub already gated refinement; client is trust-but-apply.
  *   - `tab-cleared` → drop all pages.
  *
@@ -33,6 +34,11 @@ export function reducePageUpdate(prev: readonly Page[], update: PageStreamUpdate
       const idx = prev.findIndex((p) => p.id === update.pageId);
       if (idx === -1) return NOOP;
       const existing = prev[idx];
+      // Correct the nav-commit placeholder down to the true nav start.
+      const startedAtMs =
+        update.timing.navStartMs != null && update.timing.navStartMs < existing.startedAtMs
+          ? update.timing.navStartMs
+          : existing.startedAtMs;
       const url = existing.url ?? update.timing.pageOrigin ?? null;
       const dclMs =
         update.timing.dclMs != null && (existing.dclMs == null || update.timing.dclMs > existing.dclMs)
@@ -42,10 +48,17 @@ export function reducePageUpdate(prev: readonly Page[], update: PageStreamUpdate
         update.timing.loadMs != null && (existing.loadMs == null || update.timing.loadMs > existing.loadMs)
           ? update.timing.loadMs
           : existing.loadMs;
-      if (url === existing.url && dclMs === existing.dclMs && loadMs === existing.loadMs) return NOOP;
+      if (
+        startedAtMs === existing.startedAtMs &&
+        url === existing.url &&
+        dclMs === existing.dclMs &&
+        loadMs === existing.loadMs
+      )
+        return NOOP;
       const next = prev.slice();
       next[idx] = {
         ...existing,
+        startedAtMs,
         url,
         ...(dclMs != null ? { dclMs } : {}),
         ...(loadMs != null ? { loadMs } : {}),

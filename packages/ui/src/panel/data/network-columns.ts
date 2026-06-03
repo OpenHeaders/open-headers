@@ -110,6 +110,24 @@ export function queueingMs(lc: RequestLifecycle): number {
 }
 
 /**
+ * Issue-time anchor for the waterfall timeline. The browser measures the
+ * network timeline from a request's issue time; HAR `startedDateTime` carries
+ * exactly that (the pseudo-wall issue time), so prefer it — its zero matches
+ * the browser's and frees the timeline from the slight skew of the lifecycle's
+ * `webRequest` start. Falls back to that lifecycle start while the HAR entry
+ * hasn't arrived (an in-flight request). The HAR timestamp is millisecond-
+ * quantized, so absolute positions round to whole ms.
+ */
+export function waterfallStartMs(lc: RequestLifecycle): number {
+  const started = currentHarEntry(lc)?.startedDateTime;
+  if (started) {
+    const parsed = Date.parse(started);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return lc.startedAtMs;
+}
+
+/**
  * Active duration shown in the Time column. HAR `time` is
  * `blocked + dns + connect + send + wait + receive`, but its `connect`
  * already spans `dns`, so HAR `time` double-counts DNS. Strip queueing and
@@ -184,7 +202,7 @@ export function getColumnSortValue(key: SortableColumnKey, row: InspectorRowWith
     case 'priority':
       return priorityText(lc);
     case 'waterfall':
-      return lc.startedAtMs;
+      return waterfallStartMs(lc);
   }
 }
 
@@ -205,15 +223,15 @@ function latencyMs(lc: RequestLifecycle): number {
 }
 
 /**
- * Epoch ms at which the request finishes, anchored at `startedAtMs` (the
- * issue time) and built from the same HAR-derived spans the bars use:
+ * Epoch ms at which the request finishes, anchored at the waterfall issue
+ * time and built from the same HAR-derived spans the bars use:
  * `issue + queueing + duration`. The timeline window and every timeline bar
  * read this, so a bar's right edge and the window's extent agree by
- * construction. Falls back to `startedAtMs` while a request is still pending
+ * construction. Falls back to the issue time while a request is still pending
  * (duration unknown).
  */
 export function timelineEndMs(lc: RequestLifecycle): number {
-  return lc.startedAtMs + queueingMs(lc) + Math.max(durationMs(lc), 0);
+  return waterfallStartMs(lc) + queueingMs(lc) + Math.max(durationMs(lc), 0);
 }
 
 /**
@@ -225,16 +243,16 @@ export function timelineEndMs(lc: RequestLifecycle): number {
  *
  * Start and response times are measured from the post-queue start, not the
  * issue time: the browser's start time is the request baseline *after*
- * queueing (its duration excludes queueing too), so `startedAtMs` — which is
- * the issue time — has the queueing delay added back to land on the same
- * instant. Without that, two requests issued together but queued differently
- * would sort by issue order instead of by when they actually started.
+ * queueing (its duration excludes queueing too), so the issue time has the
+ * queueing delay added back to land on the same instant. Without that, two
+ * requests issued together but queued differently would sort by issue order
+ * instead of by when they actually started.
  */
 export function waterfallSortValue(row: InspectorRowWithFires, metric: WaterfallMetric): number {
   const lc = row.lifecycle;
   switch (metric) {
     case 'startTime':
-      return lc.startedAtMs + queueingMs(lc);
+      return waterfallStartMs(lc) + queueingMs(lc);
     case 'endTime':
       return lc.completedAtMs ?? -1;
     case 'duration':
@@ -243,7 +261,7 @@ export function waterfallSortValue(row: InspectorRowWithFires, metric: Waterfall
       return latencyMs(lc);
     case 'responseTime': {
       const lat = latencyMs(lc);
-      return lat < 0 ? -1 : lc.startedAtMs + queueingMs(lc) + lat;
+      return lat < 0 ? -1 : waterfallStartMs(lc) + queueingMs(lc) + lat;
     }
   }
 }

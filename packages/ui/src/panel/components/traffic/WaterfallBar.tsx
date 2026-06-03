@@ -17,7 +17,7 @@
  */
 
 import { Popover } from 'antd';
-import { type WaterfallMetric } from '../../data/network-columns';
+import { type WaterfallMetric, waterfallStartMs } from '../../data/network-columns';
 import { currentHarEntry, type InspectorRowWithFires } from '../../data/inspector-row-projection';
 import { type ComputedTimings, computeTimingPhases } from '../../data/timing-phases';
 import { barColors } from '../../data/waterfall-colors';
@@ -30,12 +30,16 @@ import {
 } from '../../data/waterfall-geometry';
 import { WaterfallTimingPopover } from './WaterfallTimingPopover';
 
-/** How the Waterfall column maps a row to a bar. `colPx` (duration mode) is the
- * measured column width — needed to decide whether a value label fits inside
- * its segment, sits outside with a leader, or is dropped. */
-export type WaterfallScale =
-  | { mode: 'timeline'; metric: WaterfallMetric; t0: number; tMax: number }
-  | { mode: 'duration'; metric: Extract<WaterfallMetric, 'duration' | 'latency'>; max: number; colPx: number };
+/** How the Waterfall column maps a row to a bar. `t0` is the shared timeline
+ * zero (the first request's issue time) — common to both modes because the
+ * hover popover reports each row's absolute position regardless of bar shape.
+ * `colPx` (duration mode) is the measured column width — needed to decide
+ * whether a value label fits inside its segment, sits outside with a leader,
+ * or is dropped. */
+export type WaterfallScale = { t0: number } & (
+  | { mode: 'timeline'; metric: WaterfallMetric; tMax: number }
+  | { mode: 'duration'; metric: Extract<WaterfallMetric, 'duration' | 'latency'>; max: number; colPx: number }
+);
 
 interface WaterfallBarProps {
   row: InspectorRowWithFires;
@@ -81,11 +85,20 @@ function DurationBar({
 }
 
 function RainbowBar({ layout, title }: { layout: TimelineBarLayout; title: string | undefined }) {
+  // With per-phase segments the segments ARE the bar, so the plain muted fill
+  // must drop out — otherwise it shows through the vertical gaps around the
+  // thinner connection-setup phases. The fill stays only for the empty/pending
+  // bar (no timing yet).
+  const barClass = layout.segments.length > 0 ? 'dt-waterfall-bar dt-waterfall-bar--phased' : 'dt-waterfall-bar';
   return (
     <div className="dt-waterfall-track" title={title}>
-      <div className="dt-waterfall-bar" style={{ left: `${layout.leftPct}%`, width: `${layout.widthPct}%` }}>
+      <div className={barClass} style={{ left: `${layout.leftPct}%`, width: `${layout.widthPct}%` }}>
         {layout.segments.map((seg) => (
-          <span key={seg.key} className="dt-waterfall-segment" style={{ width: `${seg.pct}%`, background: seg.color }} />
+          <span
+            key={seg.key}
+            className={seg.tall ? 'dt-waterfall-segment dt-waterfall-segment--tall' : 'dt-waterfall-segment'}
+            style={{ width: `${seg.pct}%`, background: seg.color }}
+          />
         ))}
       </div>
     </div>
@@ -120,9 +133,13 @@ export function WaterfallBar({ row, scale }: WaterfallBarProps) {
 
   if (!timingDetail) return track;
 
+  // Position of this row's queue moment on the shared timeline (`t0` is the
+  // earliest request's issue time in view, so this is never negative).
+  const queuedAtMs = Math.max(waterfallStartMs(row.lifecycle) - scale.t0, 0);
+
   return (
     <Popover
-      content={<WaterfallTimingPopover data={timingDetail} metric={scale.metric} />}
+      content={<WaterfallTimingPopover data={timingDetail} metric={scale.metric} queuedAtMs={queuedAtMs} />}
       trigger="hover"
       placement="left"
       arrow={false}

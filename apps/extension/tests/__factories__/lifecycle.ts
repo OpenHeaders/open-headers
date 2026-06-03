@@ -116,7 +116,11 @@ export function makeLifecycle(over: LifecycleOverrides = {}): RequestLifecycle {
   const requestId = over.requestId ?? nextId('req');
   const startedAtMs = over.startedAtMs ?? 1000;
   const phase = over.phase ?? (over.completedAtMs != null ? 'completed' : over.error ? 'failed' : 'pending');
-  const har = over.har ?? [makeHar(url, { method: over.method, ...over.harOverrides })];
+  // Default the HAR start to the lifecycle start so the two agree, as a real
+  // capture does — the waterfall reads the HAR `startedDateTime` as its anchor.
+  const har = over.har ?? [
+    makeHar(url, { method: over.method, startedDateTime: new Date(startedAtMs).toISOString(), ...over.harOverrides }),
+  ];
   return {
     tabId: over.tabId ?? 1,
     requestId,
@@ -146,12 +150,7 @@ export interface RowOverrides extends LifecycleOverrides {
 }
 
 export function makeRow(over: RowOverrides = {}): InspectorRowWithFires {
-  const {
-    displayId,
-    consolidatedRetryOf,
-    fires,
-    ...lifecycleOver
-  } = over;
+  const { displayId, consolidatedRetryOf, fires, ...lifecycleOver } = over;
   const lifecycle = makeLifecycle(lifecycleOver);
   const baseRow: InspectorRow = {
     lifecycle,

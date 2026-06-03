@@ -12,9 +12,10 @@
  *     mints a `page_N` id, appends to the tab's page list, emits
  *     `page-started`.
  *   - `notifyNavTimingAttached(tabId, timing)` — refines the most-
- *     recent page with `pageOrigin` (when its url is still null) and
- *     `dclMs` / `loadMs` (when later than what we have). Emits
- *     `nav-timing-attached` only when the page actually changed.
+ *     recent page with `pageOrigin` (when its url is still null),
+ *     `navStartMs` (corrects the nav-commit start down to the true nav
+ *     start), and `dclMs` / `loadMs` (when later than what we have).
+ *     Emits `nav-timing-attached` only when the page actually changed.
  *   - `forgetTab(tabId)` — drops the tab's page list; emits
  *     `tab-cleared`. Called from `chrome.tabs.onRemoved` adapters.
  *
@@ -71,8 +72,13 @@ export class PageStreamHub {
     if (!list || list.length === 0) return;
     const idx = list.length - 1;
     const prev = list[idx];
+    // `page-started` stamps the start at nav-commit; the navigation entry's
+    // `timeOrigin` is the true (earlier) nav start, so correct it downward.
+    const startedAtMs =
+      timing.navStartMs != null && timing.navStartMs < prev.startedAtMs ? timing.navStartMs : prev.startedAtMs;
     const next: Page = {
       ...prev,
+      startedAtMs,
       url: prev.url ?? timing.pageOrigin ?? null,
       ...(timing.dclMs != null && (prev.dclMs == null || timing.dclMs > prev.dclMs) ? { dclMs: timing.dclMs } : {}),
       ...(timing.loadMs != null && (prev.loadMs == null || timing.loadMs > prev.loadMs)
@@ -80,7 +86,12 @@ export class PageStreamHub {
         : {}),
     };
     if (next === prev) return;
-    if (next.url === prev.url && next.dclMs === prev.dclMs && next.loadMs === prev.loadMs) {
+    if (
+      next.startedAtMs === prev.startedAtMs &&
+      next.url === prev.url &&
+      next.dclMs === prev.dclMs &&
+      next.loadMs === prev.loadMs
+    ) {
       return;
     }
     list[idx] = next;

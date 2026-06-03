@@ -1,5 +1,11 @@
+import type { InspectorRowWithFires } from '@openheaders/ui/panel/data/inspector-row-projection';
 import { currentHarEntry } from '@openheaders/ui/panel/data/inspector-row-projection';
-import { queueingMs, timelineEndMs, waterfallSortValue } from '@openheaders/ui/panel/data/network-columns';
+import {
+  queueingMs,
+  timelineEndMs,
+  waterfallSortValue,
+  waterfallStartMs,
+} from '@openheaders/ui/panel/data/network-columns';
 import { computeTimingPhases } from '@openheaders/ui/panel/data/timing-phases';
 import {
   barLabels,
@@ -7,8 +13,8 @@ import {
   formatBarMs,
   pageMarkers,
   timelineBarLayout,
+  waterfallWindow,
 } from '@openheaders/ui/panel/data/waterfall-geometry';
-import type { InspectorRowWithFires } from '@openheaders/ui/panel/data/inspector-row-projection';
 import { describe, expect, it } from 'vitest';
 import { makePage, makeRow } from '../__factories__/lifecycle';
 
@@ -76,6 +82,40 @@ describe('waterfall sort keys', () => {
   });
 });
 
+describe('waterfallStartMs', () => {
+  it('prefers the HAR issue time (startedDateTime) over the lifecycle start', () => {
+    const row = makeRow({
+      startedAtMs: 1000,
+      harOverrides: { startedDateTime: new Date(1002).toISOString() },
+    });
+    expect(waterfallStartMs(row.lifecycle)).toBe(1002);
+  });
+
+  it('falls back to the lifecycle start when the HAR entry is absent', () => {
+    const row = makeRow({ startedAtMs: 1000, har: [null] });
+    expect(waterfallStartMs(row.lifecycle)).toBe(1000);
+  });
+});
+
+describe('waterfallWindow', () => {
+  it('anchors the zero at the earliest issue time across all rows', () => {
+    const [t0] = waterfallWindow([ghRow(5000), ghRow(1000), ghRow(3000)]);
+    expect(t0).toBe(1000);
+  });
+
+  it('leaves a later request a positive offset (the filtered-view fix)', () => {
+    // When the caller passes the full set (not the filtered subset), the zero
+    // stays at the earliest request, so a later one keeps its true offset
+    // rather than collapsing to "Queued at 0".
+    const [t0] = waterfallWindow([ghRow(1000), ghRow(2000), ghRow(3000)]);
+    expect(waterfallStartMs(ghRow(3000).lifecycle) - t0).toBe(2000);
+  });
+
+  it('returns a degenerate window for an empty set', () => {
+    expect(waterfallWindow([])).toEqual([0, 1]);
+  });
+});
+
 describe('timelineEndMs', () => {
   it('anchors the finish at issue + queueing + duration (dns counted once)', () => {
     expect(timelineEndMs(ghRow(1000).lifecycle)).toBeCloseTo(1000 + QUEUEING + DURATION, 3);
@@ -122,6 +162,19 @@ describe('timelineBarLayout', () => {
     const sum = layout.segments.reduce((acc, s) => acc + s.pct, 0);
     expect(sum).toBeCloseTo(100, 3);
     expect(layout.segments[0].pct).toBeCloseTo((QUEUEING / TOTAL) * 100, 3);
+    // Stepped height (browser parity): only the request/response phases are
+    // tall; the scheduling + connection-setup phases draw thin.
+    const tallByKey = Object.fromEntries(layout.segments.map((s) => [s.key, s.tall]));
+    expect(tallByKey).toMatchObject({
+      queueing: false,
+      stalled: false,
+      dns: false,
+      connect: false,
+      ssl: false,
+      send: true,
+      wait: true,
+      receive: true,
+    });
   });
 
   it('positions the bar by issue time, offset into the window', () => {

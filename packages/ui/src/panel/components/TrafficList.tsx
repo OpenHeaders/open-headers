@@ -3,8 +3,8 @@ import { type MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, us
 import type { FilterConfig, FilterToken } from '../data/filter-engine';
 import { matchesUrlFilter, passesRowFilters } from '../data/filter-engine';
 import type { InspectorRowWithFires } from '../data/inspector-row-projection';
-import { timelineEndMs, WATERFALL_METRIC_LABELS, waterfallSortValue } from '../data/network-columns';
-import { pageMarkers } from '../data/waterfall-geometry';
+import { WATERFALL_METRIC_LABELS, waterfallSortValue } from '../data/network-columns';
+import { pageMarkers, waterfallWindow } from '../data/waterfall-geometry';
 import { ColumnHeaderContextMenu, type ColumnHeaderContextMenuState } from './traffic/ColumnHeaderContextMenu';
 import type { ColumnDef, ColumnKey } from './traffic/columns';
 import { ALL_COLUMN_KEYS, COLUMN_DEFS, columnTrack, DEFAULT_VISIBLE_COLUMNS } from './traffic/columns';
@@ -211,23 +211,10 @@ export function TrafficList({
   // with a dead link resolver.
   const preflight = useMemo(() => derivePreflightPairs(rows), [rows]);
 
-  // Waterfall reference window.
-  const [t0, tMax] = useMemo(() => {
-    if (sorted.length === 0) return [0, 1];
-    let min = Number.POSITIVE_INFINITY;
-    let max = 0;
-    for (const r of sorted) {
-      const start = r.lifecycle.startedAtMs;
-      if (start < min) min = start;
-      // HAR-derived finish (issue + queueing + duration), the same anchor the
-      // timeline bars use, so a bar's right edge never overruns the window.
-      const end = timelineEndMs(r.lifecycle);
-      if (end > max) max = end;
-    }
-    if (!Number.isFinite(min)) min = 0;
-    if (max <= min) max = min + 1;
-    return [min, max];
-  }, [sorted]);
+  // Waterfall reference window — over the full (unfiltered) row set so a
+  // search/type filter never re-anchors the zero (a filtered request keeps its
+  // true offset rather than reading "Queued at 0").
+  const [t0, tMax] = useMemo(() => waterfallWindow(rows), [rows]);
 
   // Bar geometry follows the active metric: Duration / Latency zero-align
   // the bars against the largest value in view; the timeline metrics place
@@ -242,7 +229,7 @@ export function TrafficList({
         const v = waterfallSortValue(r, 'duration');
         if (v > max) max = v;
       }
-      return { mode: 'duration', metric: waterfallMetric, max, colPx: waterfallColPx };
+      return { mode: 'duration', metric: waterfallMetric, max, colPx: waterfallColPx, t0 };
     }
     return { mode: 'timeline', metric: waterfallMetric, t0, tMax };
   }, [waterfallMetric, sorted, t0, tMax, waterfallColPx]);

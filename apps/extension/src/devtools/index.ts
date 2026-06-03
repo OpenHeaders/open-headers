@@ -112,6 +112,7 @@ chrome.devtools.network.onNavigated.addListener((url: string) => {
  */
 interface NavTimingProbeResult {
   pageOrigin: string | null;
+  navStartMs?: number;
   dclMs?: number;
   loadMs?: number;
 }
@@ -131,6 +132,7 @@ const NAV_TIMING_EXPR = `(() => {
     if (nav) {
       return {
         pageOrigin: location.origin,
+        navStartMs: performance.timeOrigin > 0 ? performance.timeOrigin : undefined,
         dclMs: nav.domContentLoadedEventEnd > 0 ? nav.domContentLoadedEventEnd : undefined,
         loadMs: nav.loadEventEnd > 0 ? nav.loadEventEnd : undefined,
       };
@@ -139,6 +141,7 @@ const NAV_TIMING_EXPR = `(() => {
     const nstart = t.navigationStart || 0;
     return {
       pageOrigin: location.origin,
+      navStartMs: nstart > 0 ? nstart : undefined,
       dclMs: t.domContentLoadedEventEnd > 0 ? t.domContentLoadedEventEnd - nstart : undefined,
       loadMs: t.loadEventEnd > 0 ? t.loadEventEnd - nstart : undefined,
     };
@@ -159,6 +162,7 @@ function sampleNavTiming(onResult: (loadFired: boolean) => void): void {
         type: 'nav-timing',
         timing: {
           pageOrigin: result.pageOrigin ?? null,
+          navStartMs: result.navStartMs,
           dclMs: result.dclMs,
           loadMs: result.loadMs,
         },

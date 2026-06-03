@@ -129,6 +129,12 @@ export interface InspectorHarBody {
 export interface InspectorNavTiming {
   /** Origin the metrics were sampled from — used as the "same page" baseline. */
   pageOrigin: string | null;
+  /**
+   * Navigation-start wall clock (`performance.timeOrigin`), ms since epoch.
+   * The accurate page-start the hub uses to correct the `page-started`
+   * placeholder, which is stamped at nav-commit (later than nav-start).
+   */
+  navStartMs?: number;
   /** DOMContentLoaded ms (relative to navigationStart). */
   dclMs?: number;
   /** Load event ms (relative to navigationStart). */
