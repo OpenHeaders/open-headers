@@ -8,16 +8,16 @@
  * (it ends at the first byte); every other metric uses the full duration.
  *
  * When `explain` is on, the popover annotates which rows the bar value is
- * built FROM — highlighting the instant alone just mirrors it back. End and
- * Response time mark the "Started at" anchor (hatched, the clock's start) and
- * the phase rows that elapse from there to the instant — through Content
- * Download for End, stopping before it for Response — so the user reads
- * "Started at + these rows = Ended/Response at" rather than a lone instant. The
+ * built FROM — highlighting the instant alone just mirrors it back. Each
+ * timeline metric marks an anchor instant (hatched, the clock's start) plus
+ * the phase rows that elapse from there to its own instant: Start anchors at
+ * "Queued at" and elapses Queueing; Response and End anchor at "Started at"
+ * (Response stops before Content Download, End runs through it). So the user
+ * reads "anchor + these rows = the instant" rather than a lone reading. The
  * duration metrics instead tint the phase rows in the bar's two tones, so the
  * rows that sum to the bar's latency value read as the waiting band and the
- * download row reads as the download band. (Start time still marks its single
- * instant for now, pending the same treatment.) Purely a visual cue layered
- * over the existing numbers; no value changes.
+ * download row reads as the download band. Purely a visual cue layered over
+ * the existing numbers; no value changes.
  */
 
 import type { CSSProperties } from 'react';
@@ -46,29 +46,25 @@ export interface BandColors {
 /**
  * How an instant metric explains itself: the header instant it measures FROM
  * (the anchor) plus the phase rows that elapse from there to the metric's own
- * instant. "Started at + these rows = Ended at" reads as a sum; marking the
- * "Ended at" line alone would just restate the value. Both End and Response
- * time anchor at "Started at" (the queue moment already folded in) — Response
- * stops at the first byte, so it drops Content Download; End runs to the
- * finish, so it keeps it. Start time keeps its single-instant cue for now
- * (`metricHighlightLine`). Null for the duration metrics (they tint bands).
+ * instant. "Anchor + these rows = the instant" reads as a sum; marking the
+ * instant line alone would just restate the value. Start time anchors at
+ * "Queued at" (which is `+0` on the first request — the zero a user expects)
+ * and elapses Queueing to reach "Started at". Response and End anchor at
+ * "Started at" (the queue moment already folded in): Response stops at the
+ * first byte, so it drops Content Download; End runs through it. Null for the
+ * duration metrics (they tint bands).
  */
 function timelineExplain(
   metric: WaterfallMetric,
   data: ComputedTimings,
 ): { anchor: HeaderLine; phaseKeys: ReadonlySet<TimingPhaseKey> } | null {
+  if (metric === 'startTime') return { anchor: 'queued', phaseKeys: new Set<TimingPhaseKey>(['queueing']) };
   if (metric !== 'endTime' && metric !== 'responseTime') return null;
   // Queueing is folded into the "Started at" anchor; Response stops at the
   // first byte (drop Content Download), End runs through it.
   const drop = (k: TimingPhaseKey) => k === 'queueing' || (metric === 'responseTime' && k === 'receive');
   const phaseKeys = new Set<TimingPhaseKey>(data.phases.map((p) => p.key).filter((k) => !drop(k)));
   return { anchor: 'started', phaseKeys };
-}
-
-/** The single instant the metric points at, for the metrics still on the
- * lone-instant cue (Start time). */
-function metricHighlightLine(metric: WaterfallMetric): HeaderLine | undefined {
-  return metric === 'startTime' ? 'started' : undefined;
 }
 
 /** Paint a phase row from its tint spans: a solid band when wholly in one
@@ -119,12 +115,8 @@ export function WaterfallTimingPopover({
   const responseAtMs = queuedAtMs + Math.max(sumAll - phaseMs('receive'), 0);
   const endedAtMs = queuedAtMs + sumAll;
 
-  const hlLine = explain ? metricHighlightLine(metric) : undefined;
   const explainTimeline = explain ? timelineExplain(metric, data) : null;
-  const headerClass = (line: HeaderLine) => {
-    if (explainTimeline?.anchor === line) return 'dt-wf-pop-anchor';
-    return hlLine === line ? 'dt-wf-pop-hl' : undefined;
-  };
+  const headerClass = (line: HeaderLine) => (explainTimeline?.anchor === line ? 'dt-wf-pop-anchor' : undefined);
   const tints = explain && bandColors ? phaseTints(data, metric) : null;
   // The phase rows that open a new tone band — a hairline gap above each keeps
   // the waiting and download tones from butting into one smeared block.
