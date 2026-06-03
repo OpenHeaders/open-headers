@@ -27,6 +27,7 @@ import {
   durationBarLayout,
   timelineBarLayout,
   type TimelineBarLayout,
+  timelineMetricLabel,
 } from '../../data/waterfall-geometry';
 import { WaterfallTimingPopover } from './WaterfallTimingPopover';
 
@@ -36,7 +37,12 @@ import { WaterfallTimingPopover } from './WaterfallTimingPopover';
  * `colPx` (duration mode) is the measured column width — needed to decide
  * whether a value label fits inside its segment, sits outside with a leader,
  * or is dropped. */
-export type WaterfallScale = { t0: number } & (
+export type WaterfallScale = {
+  t0: number;
+  valuesMode: 'off' | 'always' | 'hover';
+  valueFormat: 'relative' | 'timestamp';
+  timestampTz: 'local' | 'utc';
+} & (
   | { mode: 'timeline'; metric: WaterfallMetric; tMax: number }
   | { mode: 'duration'; metric: Extract<WaterfallMetric, 'duration' | 'latency'>; max: number; colPx: number }
 );
@@ -51,30 +57,35 @@ function DurationBar({
   colors,
   colPx,
   hasPopover,
+  valuesMode,
 }: {
   layout: DurationBarLayout;
   colors: ReturnType<typeof barColors>;
   colPx: number;
   hasPopover: boolean;
+  valuesMode: 'off' | 'always' | 'hover';
 }) {
+  const showLabels = valuesMode !== 'off';
   const labels = barLabels(layout, colPx);
+  const trackClass = `dt-waterfall-track dt-waterfall-track--split${
+    valuesMode === 'always' ? ' dt-waterfall-track--values-always' : ''
+  }`;
   return (
-    <div
-      className="dt-waterfall-track dt-waterfall-track--split"
-      title={hasPopover ? undefined : `${labels.latency.text} latency`}
-    >
+    <div className={trackClass} title={hasPopover ? undefined : `${labels.latency.text} latency`}>
       <div
         className="dt-waterfall-bar dt-waterfall-bar--split"
         style={{ left: 0, width: `${layout.widthPct}%`, borderColor: colors.border }}
       >
         <span className="dt-wf-seg" style={{ width: `${layout.waitPct}%`, background: colors.waiting }}>
-          {labels.latency.inside && <span className="dt-wf-inlabel">{labels.latency.text}</span>}
+          {showLabels && labels.latency.inside && <span className="dt-wf-inlabel">{labels.latency.text}</span>}
         </span>
         <span className="dt-wf-seg" style={{ width: `${100 - layout.waitPct}%`, background: colors.download }}>
-          {labels.download.placement === 'inside' && <span className="dt-wf-inlabel">{labels.download.text}</span>}
+          {showLabels && labels.download.placement === 'inside' && (
+            <span className="dt-wf-inlabel">{labels.download.text}</span>
+          )}
         </span>
       </div>
-      {labels.download.placement === 'outside' && (
+      {showLabels && labels.download.placement === 'outside' && (
         <span className="dt-wf-outlabel" style={{ left: `${layout.widthPct}%` }}>
           <span className="dt-wf-leader" aria-hidden="true" />
           {labels.download.text}
@@ -93,19 +104,31 @@ function segmentClass(seg: TimelineBarLayout['segments'][number]): string {
   return cls.join(' ');
 }
 
-function RainbowBar({ layout, title }: { layout: TimelineBarLayout; title: string | undefined }) {
+function RainbowBar({
+  layout,
+  title,
+  metricLabel,
+  valuesAlways,
+}: {
+  layout: TimelineBarLayout;
+  title: string | undefined;
+  metricLabel: string | null;
+  valuesAlways: boolean;
+}) {
   // With per-phase segments the segments ARE the bar, so the plain muted fill
   // must drop out — otherwise it shows through the vertical gaps around the
   // thinner connection-setup phases. The fill stays only for the empty/pending
   // bar (no timing yet).
   const barClass = layout.segments.length > 0 ? 'dt-waterfall-bar dt-waterfall-bar--phased' : 'dt-waterfall-bar';
+  const trackClass = `dt-waterfall-track${valuesAlways ? ' dt-waterfall-track--values-always' : ''}`;
   return (
-    <div className="dt-waterfall-track" title={title}>
+    <div className={trackClass} title={title}>
       <div className={barClass} style={{ left: `${layout.leftPct}%`, width: `${layout.widthPct}%` }}>
         {layout.segments.map((seg) => (
           <span key={seg.key} className={segmentClass(seg)} style={{ width: `${seg.pct}%` }} />
         ))}
       </div>
+      {metricLabel && <span className="dt-wf-vallabel">{metricLabel}</span>}
     </div>
   );
 }
@@ -116,6 +139,12 @@ function bar(row: InspectorRowWithFires, scale: WaterfallScale, timing: Computed
       <RainbowBar
         layout={timelineBarLayout(row, scale.t0, scale.tMax, timing)}
         title={timing ? undefined : 'pending'}
+        metricLabel={
+          scale.valuesMode !== 'off'
+            ? timelineMetricLabel(row, scale.metric, scale.t0, timing, scale.valueFormat, scale.timestampTz)
+            : null
+        }
+        valuesAlways={scale.valuesMode === 'always'}
       />
     );
   }
@@ -125,6 +154,7 @@ function bar(row: InspectorRowWithFires, scale: WaterfallScale, timing: Computed
       colors={barColors(row.lifecycle.resourceType)}
       colPx={scale.colPx}
       hasPopover={timing != null}
+      valuesMode={scale.valuesMode}
     />
   );
 }

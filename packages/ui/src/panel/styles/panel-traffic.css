@@ -554,7 +554,8 @@ body.dt-resizing-col {
  * until the row is hovered (anywhere) so dense panes stay clean; the split
  * track lifts its clip on row hover so the outside label isn't cut off. The
  * hover popover is separate — it triggers on the bar itself. */
-.dt-row:hover .dt-waterfall-track--split {
+.dt-row:hover .dt-waterfall-track--split,
+.dt-waterfall-track--values-always {
   overflow: visible;
 }
 
@@ -619,8 +620,49 @@ body.dt-resizing-col {
 }
 
 .dt-row:hover .dt-wf-inlabel,
-.dt-row:hover .dt-wf-outlabel {
+.dt-row:hover .dt-wf-outlabel,
+.dt-waterfall-track--values-always .dt-wf-inlabel,
+.dt-waterfall-track--values-always .dt-wf-outlabel {
   opacity: 1;
+}
+
+/* Active timeline-metric value (Start / Response / End time), shown on row
+ * hover as a compact chip centered in the Waterfall column — a readable
+ * rectangle floating over the bar; only the value changes with the metric. */
+.dt-wf-vallabel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--dt-bg);
+  border: 1px solid var(--dt-border);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  font-size: 10px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--dt-text);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  /* Below the sticky column header (z-index: 2) so it doesn't paint over the
+   * header as rows scroll under it, but above the bar segments + marker lines. */
+  z-index: 1;
+}
+
+.dt-row:hover .dt-wf-vallabel,
+.dt-waterfall-track--values-always .dt-wf-vallabel {
+  opacity: 1;
+}
+
+/* The timeline track clips its segments; lift that whenever it carries a value
+ * chip so the chip's border + shadow render fully (the hover-only chip is in
+ * the DOM at opacity 0, so this is safe when idle). */
+.dt-waterfall-track:has(.dt-wf-vallabel) {
+  overflow: visible;
 }
 
 /* Hover breakdown for a Waterfall bar. Reuses `.dt-morefilters-popover`

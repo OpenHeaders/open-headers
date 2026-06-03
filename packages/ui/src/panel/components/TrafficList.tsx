@@ -85,6 +85,9 @@ export function TrafficList({
   const {
     compact,
     showFireDots,
+    waterfallValues,
+    waterfallValueFormat,
+    waterfallTimestampTz,
     sortKey,
     sortDir,
     waterfallMetric,
@@ -230,10 +233,27 @@ export function TrafficList({
         const v = waterfallSortValue(r, 'duration');
         if (v > max) max = v;
       }
-      return { mode: 'duration', metric: waterfallMetric, max, colPx: waterfallColPx, t0 };
+      return {
+        mode: 'duration',
+        metric: waterfallMetric,
+        max,
+        colPx: waterfallColPx,
+        t0,
+        valuesMode: waterfallValues,
+        valueFormat: waterfallValueFormat,
+        timestampTz: waterfallTimestampTz,
+      };
     }
-    return { mode: 'timeline', metric: waterfallMetric, t0, tMax };
-  }, [waterfallMetric, sorted, t0, tMax, waterfallColPx]);
+    return {
+      mode: 'timeline',
+      metric: waterfallMetric,
+      t0,
+      tMax,
+      valuesMode: waterfallValues,
+      valueFormat: waterfallValueFormat,
+      timestampTz: waterfallTimestampTz,
+    };
+  }, [waterfallMetric, sorted, t0, tMax, waterfallColPx, waterfallValues, waterfallValueFormat, waterfallTimestampTz]);
 
   // DOMContentLoaded / Load lines — only on the timeline window (the
   // zero-aligned duration view has no shared axis to place them on) and only

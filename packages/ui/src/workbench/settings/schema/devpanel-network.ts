@@ -57,6 +57,28 @@ const waterfallMetricSchema = v.picklist(['startTime', 'responseTime', 'endTime'
 export type DevpanelNetworkWaterfallMetricSetting = v.InferOutput<typeof waterfallMetricSchema>;
 
 /**
+ * When the active Waterfall metric's value shows on the bar — `always` pins it,
+ * `hover` reveals it on row hover, `off` hides it. Governs both the timeline
+ * metric chip (Start / Response / End time) and the Total duration / Latency
+ * waiting + download labels.
+ */
+const waterfallValuesSchema = v.picklist(['off', 'always', 'hover']);
+export type DevpanelNetworkWaterfallValuesSetting = v.InferOutput<typeof waterfallValuesSchema>;
+
+/**
+ * How a timeline metric's value chip reads: `relative` is the offset from the
+ * first request in view (the timeline zero); `timestamp` is the absolute
+ * wall-clock instant. Durations (Total duration / Latency) ignore this — they
+ * are always durations.
+ */
+const waterfallValueFormatSchema = v.picklist(['relative', 'timestamp']);
+export type DevpanelNetworkWaterfallValueFormatSetting = v.InferOutput<typeof waterfallValueFormatSchema>;
+
+/** Timezone for the `timestamp` value format. */
+const waterfallTimestampTzSchema = v.picklist(['local', 'utc']);
+export type DevpanelNetworkWaterfallTimestampTzSetting = v.InferOutput<typeof waterfallTimestampTzSchema>;
+
+/**
  * The Custom (nested) sort level list is NOT persisted via the
  * settings registry — the registry's value layer is typed-scalar, not
  * arbitrary JSON. The list lives in TrafficList's local state alongside
@@ -78,6 +100,9 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'devpanelNetwork.sortDir': DevpanelNetworkSortDirSetting;
     'devpanelNetwork.waterfallMetric': DevpanelNetworkWaterfallMetricSetting;
     'devpanelNetwork.showFireDots': boolean;
+    'devpanelNetwork.waterfallValues': DevpanelNetworkWaterfallValuesSetting;
+    'devpanelNetwork.waterfallValueFormat': DevpanelNetworkWaterfallValueFormatSetting;
+    'devpanelNetwork.waterfallTimestampTz': DevpanelNetworkWaterfallTimestampTzSetting;
   }
 }
 
@@ -227,4 +252,58 @@ registerSetting({
   subcategory: 'View',
   tags: ['network', 'rules', 'dot', 'indicator', 'devtools'],
   scope: 'user',
+});
+
+registerSetting({
+  key: 'devpanelNetwork.waterfallValues',
+  type: 'enum',
+  default: 'always',
+  schema: waterfallValuesSchema,
+  label: 'Waterfall Values',
+  description:
+    'When to print the active Waterfall metric’s value(s) on the bar — the Start / Response / End time chip for the timeline metrics, or the waiting / download labels for Total duration and Latency.',
+  category: 'devpanelNetwork',
+  subcategory: 'View',
+  tags: ['network', 'waterfall', 'timing', 'label', 'devtools'],
+  scope: 'user',
+  enumOptions: [
+    { value: 'always', label: 'Always', description: 'Keep the value chip visible.' },
+    { value: 'hover', label: 'On hover', description: 'Reveal the value chip on row hover.' },
+    { value: 'off', label: 'Off', description: 'Hide the value chip.' },
+  ],
+});
+
+registerSetting({
+  key: 'devpanelNetwork.waterfallValueFormat',
+  type: 'enum',
+  default: 'relative',
+  schema: waterfallValueFormatSchema,
+  label: 'Waterfall Value Format',
+  description:
+    'How a timeline metric’s value reads: Relative is the offset from the first request in view; Timestamp is the absolute wall-clock instant. Total duration and Latency are always durations regardless.',
+  category: 'devpanelNetwork',
+  subcategory: 'View',
+  tags: ['network', 'waterfall', 'timing', 'timestamp', 'devtools'],
+  scope: 'user',
+  enumOptions: [
+    { value: 'relative', label: 'Relative', description: 'Offset from the first request in view.' },
+    { value: 'timestamp', label: 'Timestamp', description: 'Absolute wall-clock instant.' },
+  ],
+});
+
+registerSetting({
+  key: 'devpanelNetwork.waterfallTimestampTz',
+  type: 'enum',
+  default: 'local',
+  schema: waterfallTimestampTzSchema,
+  label: 'Waterfall Timestamp Timezone',
+  description: 'Timezone for the Timestamp value format — local time or UTC.',
+  category: 'devpanelNetwork',
+  subcategory: 'View',
+  tags: ['network', 'waterfall', 'timestamp', 'timezone', 'devtools'],
+  scope: 'user',
+  enumOptions: [
+    { value: 'local', label: 'Local', description: 'Your local timezone.' },
+    { value: 'utc', label: 'UTC', description: 'Coordinated Universal Time.' },
+  ],
 });

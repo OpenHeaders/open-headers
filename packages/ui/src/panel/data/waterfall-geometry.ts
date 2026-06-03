@@ -19,8 +19,9 @@
  */
 
 import type { Page } from '@openheaders/core/page-stream';
+import { formatClock, formatTimeMs } from './format-time';
 import type { InspectorRowWithFires } from './inspector-row-projection';
-import { timelineEndMs, waterfallSortValue, waterfallStartMs } from './network-columns';
+import { timelineEndMs, type WaterfallMetric, waterfallSortValue, waterfallStartMs } from './network-columns';
 import type { ComputedTimings } from './timing-phases';
 
 /** A bar never collapses below this width (% of column) so it stays visible. */
@@ -113,6 +114,42 @@ export function timelineBarLayout(
     widthPct: Math.max((total / span) * 100, MIN_BAR_PCT),
     segments,
   };
+}
+
+const TIMELINE_METRICS: ReadonlySet<WaterfallMetric> = new Set<WaterfallMetric>([
+  'startTime',
+  'responseTime',
+  'endTime',
+]);
+
+/**
+ * The value to print on a timeline (Start / Response / End time) bar. Derived
+ * from the SAME quantities the bar is built from (the queue moment, the
+ * queueing phase, the phase sum) so the number agrees with the bar and the
+ * sort. `relative` reads the offset from the timeline zero (the first request
+ * in view), matching the hover popover's "Started at"; `timestamp` reads the
+ * absolute wall-clock instant (local or UTC). The chip itself is centered in
+ * the column; only the value changes with the metric. Null for the zero-aligned
+ * metrics (duration / latency, which carry their own labels) or when timing is
+ * absent.
+ */
+export function timelineMetricLabel(
+  row: InspectorRowWithFires,
+  metric: WaterfallMetric,
+  t0: number,
+  timing: ComputedTimings | null,
+  format: 'relative' | 'timestamp',
+  tz: 'local' | 'utc',
+): string | null {
+  if (!timing || !TIMELINE_METRICS.has(metric)) return null;
+  const start = waterfallStartMs(row.lifecycle);
+  const phaseMs = (key: string) => timing.phases.find((p) => p.key === key)?.ms ?? 0;
+  let offset: number;
+  if (metric === 'startTime') offset = phaseMs('queueing');
+  else if (metric === 'responseTime') offset = Math.max(timing.totalMs - phaseMs('receive'), 0);
+  else offset = timing.totalMs;
+  if (format === 'timestamp') return formatClock(start + offset, tz);
+  return formatTimeMs(Math.max(start - t0, 0) + offset);
 }
 
 /**

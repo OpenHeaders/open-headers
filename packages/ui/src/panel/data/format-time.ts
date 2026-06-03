@@ -29,3 +29,24 @@ export function formatTimeMs(ms: number): string {
   if (s < 60) return seconds.format(s);
   return minutes.format(s / 60);
 }
+
+function clockFormat(tz: 'local' | 'utc'): Intl.DateTimeFormat {
+  return new Intl.DateTimeFormat(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    fractionalSecondDigits: 3,
+    hour12: false,
+    ...(tz === 'utc' ? { timeZone: 'UTC' } : {}),
+  });
+}
+
+const clockLocal = clockFormat('local');
+const clockUtc = clockFormat('utc');
+
+/** Wall-clock time-of-day (HH:MM:SS.mmm) for an absolute epoch-ms instant —
+ * the "timestamp" form of a Waterfall value, in local time or UTC. */
+export function formatClock(epochMs: number, tz: 'local' | 'utc'): string {
+  if (!Number.isFinite(epochMs)) return '-';
+  return (tz === 'utc' ? clockUtc : clockLocal).format(epochMs);
+}

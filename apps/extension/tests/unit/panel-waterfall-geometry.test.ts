@@ -6,6 +6,7 @@ import {
   waterfallSortValue,
   waterfallStartMs,
 } from '@openheaders/ui/panel/data/network-columns';
+import { formatClock, formatTimeMs } from '@openheaders/ui/panel/data/format-time';
 import { computeTimingPhases } from '@openheaders/ui/panel/data/timing-phases';
 import {
   barLabels,
@@ -13,6 +14,7 @@ import {
   formatBarMs,
   pageMarkers,
   timelineBarLayout,
+  timelineMetricLabel,
   waterfallWindow,
 } from '@openheaders/ui/panel/data/waterfall-geometry';
 import { describe, expect, it } from 'vitest';
@@ -190,6 +192,47 @@ describe('timelineBarLayout', () => {
     const layout = timelineBarLayout(pending, 1000, 1200, null);
     expect(layout.segments).toEqual([]);
     expect(layout.leftPct).toBeCloseTo(0, 3);
+  });
+});
+
+describe('timelineMetricLabel', () => {
+  const TOTAL = QUEUEING + DURATION;
+  const row = ghRow(1000);
+  const timing = timingOf(row);
+
+  it('is null for the zero-aligned metrics and when timing is absent', () => {
+    expect(timelineMetricLabel(row, 'duration', 1000, timing, 'relative', 'local')).toBeNull();
+    expect(timelineMetricLabel(row, 'latency', 1000, timing, 'relative', 'local')).toBeNull();
+    expect(timelineMetricLabel(row, 'startTime', 1000, null, 'relative', 'local')).toBeNull();
+  });
+
+  it('reports start time as the post-queue instant from the timeline zero', () => {
+    expect(timelineMetricLabel(row, 'startTime', 1000, timing, 'relative', 'local')).toBe(formatTimeMs(QUEUEING));
+  });
+
+  it('reports response time at the first-byte point (excludes content download)', () => {
+    expect(timelineMetricLabel(row, 'responseTime', 1000, timing, 'relative', 'local')).toBe(
+      formatTimeMs(TOTAL - GH_TIMINGS.receive),
+    );
+  });
+
+  it('reports end time as the full (de-double-counted) total', () => {
+    expect(timelineMetricLabel(row, 'endTime', 1000, timing, 'relative', 'local')).toBe(formatTimeMs(TOTAL));
+  });
+
+  it('carries the row offset within the window into the value', () => {
+    const later = ghRow(2000);
+    expect(timelineMetricLabel(later, 'startTime', 1000, timingOf(later), 'relative', 'local')).toBe(
+      formatTimeMs(1000 + QUEUEING),
+    );
+  });
+
+  it('renders the absolute wall-clock instant in timestamp format (independent of the timeline zero)', () => {
+    // waterfallStartMs(ghRow(1000)) = 1000, so the started instant is 1000 + queueing,
+    // formatted as a clock time — and the same regardless of t0.
+    const expected = formatClock(1000 + QUEUEING, 'local');
+    expect(timelineMetricLabel(row, 'startTime', 1000, timing, 'timestamp', 'local')).toBe(expected);
+    expect(timelineMetricLabel(row, 'startTime', 500, timing, 'timestamp', 'local')).toBe(expected);
   });
 });
 

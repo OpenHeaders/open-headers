@@ -1,5 +1,10 @@
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
-import type { NetworkCustomNestedLevel } from '@openheaders/ui/workbench/settings/schema/devpanel-network';
+import type {
+  DevpanelNetworkWaterfallTimestampTzSetting,
+  DevpanelNetworkWaterfallValueFormatSetting,
+  DevpanelNetworkWaterfallValuesSetting,
+  NetworkCustomNestedLevel,
+} from '@openheaders/ui/workbench/settings/schema/devpanel-network';
 import { type ReactNode, useCallback, useMemo, useState } from 'react';
 import { type WaterfallMetric, WATERFALL_METRIC_LABELS } from '../../data/network-columns';
 import type { InspectorRowWithFires } from '../../data/inspector-row-projection';
@@ -17,6 +22,12 @@ export interface NetworkViewApi {
   /** `'compact'` layout — columns fit the panel width without scrolling. */
   compact: boolean;
   showFireDots: boolean;
+  /** When the active timeline metric's value chip shows on the bar. */
+  waterfallValues: DevpanelNetworkWaterfallValuesSetting;
+  /** Relative-offset vs absolute-timestamp form for the timeline value. */
+  waterfallValueFormat: DevpanelNetworkWaterfallValueFormatSetting;
+  /** Timezone for the timestamp value form. */
+  waterfallTimestampTz: DevpanelNetworkWaterfallTimestampTzSetting;
   sortKey: SortTarget;
   sortDir: SortDir;
   /** Active Waterfall sub-metric — drives the Waterfall sort key and header label. */
@@ -51,6 +62,9 @@ export function useNetworkView(): NetworkViewApi {
   const [sortDir, setSortDir] = useSetting('devpanelNetwork.sortDir');
   const [waterfallMetric, setWaterfallMetric] = useSetting('devpanelNetwork.waterfallMetric');
   const [showFireDots, setShowFireDots] = useSetting('devpanelNetwork.showFireDots');
+  const [waterfallValues, setWaterfallValues] = useSetting('devpanelNetwork.waterfallValues');
+  const [waterfallValueFormat, setWaterfallValueFormat] = useSetting('devpanelNetwork.waterfallValueFormat');
+  const [waterfallTimestampTz, setWaterfallTimestampTz] = useSetting('devpanelNetwork.waterfallTimestampTz');
   // Custom-nested levels are session-scoped scratch state.
   const [customNested, setCustomNested] = useState<NetworkCustomNestedLevel[]>([]);
   const compact = layout === 'compact';
@@ -153,18 +167,40 @@ export function useNetworkView(): NetworkViewApi {
       <NetworkViewMenu
         layout={layout}
         waterfallMetric={waterfallMetric}
+        waterfallValues={waterfallValues}
+        waterfallValueFormat={waterfallValueFormat}
+        waterfallTimestampTz={waterfallTimestampTz}
         showFireDots={showFireDots}
         onLayoutChange={setLayout}
         onWaterfallMetricChange={setWaterfallMetric}
+        onWaterfallValuesChange={setWaterfallValues}
+        onWaterfallValueFormatChange={setWaterfallValueFormat}
+        onWaterfallTimestampTzChange={setWaterfallTimestampTz}
         onToggleShowFireDots={toggleShowFireDots}
       />
     ),
-    [layout, waterfallMetric, showFireDots, setLayout, setWaterfallMetric, toggleShowFireDots],
+    [
+      layout,
+      waterfallMetric,
+      waterfallValues,
+      waterfallValueFormat,
+      waterfallTimestampTz,
+      showFireDots,
+      setLayout,
+      setWaterfallMetric,
+      setWaterfallValues,
+      setWaterfallValueFormat,
+      setWaterfallTimestampTz,
+      toggleShowFireDots,
+    ],
   );
 
   return {
     compact,
     showFireDots,
+    waterfallValues,
+    waterfallValueFormat,
+    waterfallTimestampTz,
     sortKey,
     sortDir,
     waterfallMetric,
