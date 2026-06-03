@@ -75,6 +75,7 @@ export function NetworkSortMenu({
   onWaterfallMetricChange,
   onCustomNestedChange,
   onUseCustomNested,
+  onReset,
 }: {
   sortKind: DevpanelNetworkSortKindSetting;
   sortMode: DevpanelNetworkSortModeSetting;
@@ -89,6 +90,8 @@ export function NetworkSortMenu({
   onWaterfallMetricChange: (metric: WaterfallMetric) => void;
   onCustomNestedChange: (next: NetworkCustomNestedLevel[]) => void;
   onUseCustomNested: () => void;
+  /** Restore the sort selection to its registered default. */
+  onReset: () => void;
 }) {
   const waterfallActive = sortKind === 'column' && sortBy === 'waterfall';
   // Waterfall has its own row, so "Custom (column-click)" represents only the
@@ -163,6 +166,15 @@ export function NetworkSortMenu({
         disabled={columnClickActive}
         onClick={onUseColumnSort}
       />
+      <div className="dt-morefilters-divider" />
+      <button
+        type="button"
+        className="dt-morefilters-reset"
+        onClick={onReset}
+        disabled={sortIsDefault && customNested.length === 0}
+      >
+        Reset to default
+      </button>
     </div>
   );
   return (

@@ -1,4 +1,4 @@
-import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
+import { useResetSetting, useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import type {
   DevpanelNetworkWaterfallTimestampTzSetting,
   DevpanelNetworkWaterfallValueFormatSetting,
@@ -68,6 +68,45 @@ export function useNetworkView(): NetworkViewApi {
   // Custom-nested levels are session-scoped scratch state.
   const [customNested, setCustomNested] = useState<NetworkCustomNestedLevel[]>([]);
   const compact = layout === 'compact';
+
+  // Per-menu "Reset to default" — restores each setting to its registered
+  // default (no hardcoded values). View owns the display axis; Sort owns the
+  // sort selection. Both restore the shared Waterfall metric to its default.
+  const resetLayout = useResetSetting('devpanelNetwork.layout');
+  const resetWaterfallMetric = useResetSetting('devpanelNetwork.waterfallMetric');
+  const resetWaterfallValues = useResetSetting('devpanelNetwork.waterfallValues');
+  const resetWaterfallValueFormat = useResetSetting('devpanelNetwork.waterfallValueFormat');
+  const resetWaterfallTimestampTz = useResetSetting('devpanelNetwork.waterfallTimestampTz');
+  const resetShowFireDots = useResetSetting('devpanelNetwork.showFireDots');
+  const resetSortKind = useResetSetting('devpanelNetwork.sortKind');
+  const resetSortMode = useResetSetting('devpanelNetwork.sortMode');
+  const resetSortBy = useResetSetting('devpanelNetwork.sortBy');
+  const resetSortDir = useResetSetting('devpanelNetwork.sortDir');
+
+  const resetView = useCallback(() => {
+    resetLayout();
+    resetWaterfallMetric();
+    resetWaterfallValues();
+    resetWaterfallValueFormat();
+    resetWaterfallTimestampTz();
+    resetShowFireDots();
+  }, [
+    resetLayout,
+    resetWaterfallMetric,
+    resetWaterfallValues,
+    resetWaterfallValueFormat,
+    resetWaterfallTimestampTz,
+    resetShowFireDots,
+  ]);
+
+  const resetSort = useCallback(() => {
+    resetSortKind();
+    resetSortMode();
+    resetSortBy();
+    resetSortDir();
+    resetWaterfallMetric();
+    setCustomNested([]);
+  }, [resetSortKind, resetSortMode, resetSortBy, resetSortDir, resetWaterfallMetric]);
 
   const toggleShowFireDots = useCallback(() => setShowFireDots(!showFireDots), [showFireDots, setShowFireDots]);
   const handleSortModeChange = useCallback(
@@ -145,6 +184,7 @@ export function useNetworkView(): NetworkViewApi {
         onWaterfallMetricChange={handleWaterfallMetricChange}
         onCustomNestedChange={setCustomNested}
         onUseCustomNested={handleUseCustomNested}
+        onReset={resetSort}
       />
     ),
     [
@@ -159,6 +199,7 @@ export function useNetworkView(): NetworkViewApi {
       handleUseColumnSort,
       handleWaterfallMetricChange,
       handleUseCustomNested,
+      resetSort,
     ],
   );
 
@@ -177,6 +218,7 @@ export function useNetworkView(): NetworkViewApi {
         onWaterfallValueFormatChange={setWaterfallValueFormat}
         onWaterfallTimestampTzChange={setWaterfallTimestampTz}
         onToggleShowFireDots={toggleShowFireDots}
+        onReset={resetView}
       />
     ),
     [
@@ -192,6 +234,7 @@ export function useNetworkView(): NetworkViewApi {
       setWaterfallValueFormat,
       setWaterfallTimestampTz,
       toggleShowFireDots,
+      resetView,
     ],
   );
 

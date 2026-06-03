@@ -46,6 +46,7 @@ export function NetworkViewMenu({
   onWaterfallValueFormatChange,
   onWaterfallTimestampTzChange,
   onToggleShowFireDots,
+  onReset,
 }: {
   layout: DevpanelNetworkLayoutSetting;
   waterfallMetric: WaterfallMetric;
@@ -60,6 +61,8 @@ export function NetworkViewMenu({
   onWaterfallValueFormatChange: (format: DevpanelNetworkWaterfallValueFormatSetting) => void;
   onWaterfallTimestampTzChange: (tz: DevpanelNetworkWaterfallTimestampTzSetting) => void;
   onToggleShowFireDots: () => void;
+  /** Restore every View option to its registered default. */
+  onReset: () => void;
 }) {
   const activeBadgeCount =
     (layout !== 'compact' ? 1 : 0) +
@@ -138,6 +141,10 @@ export function NetworkViewMenu({
         <input type="checkbox" checked={showFireDots} onChange={onToggleShowFireDots} />
         Show rule-fire dots
       </label>
+      <div className="dt-morefilters-divider" />
+      <button type="button" className="dt-morefilters-reset" onClick={onReset} disabled={activeBadgeCount === 0}>
+        Reset to default
+      </button>
     </div>
   );
   return (

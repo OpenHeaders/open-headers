@@ -156,6 +156,11 @@ body {
   margin: 0;
   padding: 0;
   height: 100%;
+  /* Fixed-height dock shell: the layout fills 100% and every surface scrolls
+   * inside its own container, so the body must never scroll. Without this a
+   * portaled popover that runs tall introduces a spurious panel-wide
+   * scrollbar (popovers cap their own height — see panel-toolbar.css). */
+  overflow: hidden;
 }
 
 body {

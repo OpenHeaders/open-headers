@@ -152,7 +152,7 @@ export function ColumnHeaderContextMenu({
           }}
           disabled={isDefault}
         >
-          Reset columns
+          Reset to default
         </button>
         <div className="dt-ctx-sep" />
         <Popover

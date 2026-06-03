@@ -214,7 +214,11 @@
    * the popover instead of pushing the whole DevTools surface into a
    * vertical scroll. */
   width: max-content;
-  max-height: calc(100vh - 48px);
+  /* Reserve clears the toolbar + panel-header stack the menu opens below
+   * (~60px top) plus the popover's inner padding, and leaves a breathing
+   * gap below, so a tall menu scrolls INSIDE the popover and its bottom
+   * never runs past the viewport (which would force a panel-wide scrollbar). */
+  max-height: calc(100vh - 96px);
   overflow-y: auto;
 }
 
@@ -271,6 +275,35 @@
 
 .dt-morefilters-item input[type='checkbox'] {
   margin: 0;
+}
+
+/* Full-width "Reset to default" action at the foot of the Sort / View popovers
+ * — a button styled like a menu row (the column-header menu has its own). */
+.dt-morefilters-reset {
+  display: block;
+  width: 100%;
+  padding: 4px 12px;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  color: var(--dt-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.dt-morefilters-reset:hover:not(:disabled) {
+  background: var(--dt-row-hover);
+}
+
+.dt-morefilters-reset:disabled {
+  color: var(--dt-text-muted);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.dt-network-view-menu .dt-morefilters-reset {
+  font-size: 11px;
 }
 
 /* Group separator between `Hide *` and `Only *` filter groups —
@@ -416,7 +449,7 @@
   display: flex;
   flex-direction: column;
   min-width: 280px;
-  max-height: calc(100vh - 48px);
+  max-height: calc(100vh - 96px);
   overflow-y: auto;
 }
 /* Submenus reuse `.dt-morefilters-popover` overlay styling, which
@@ -685,7 +718,7 @@
   flex-direction: column;
   gap: 1px;
   min-width: 120px;
-  max-height: calc(100vh - 48px);
+  max-height: calc(100vh - 96px);
   overflow-y: auto;
 }
 
