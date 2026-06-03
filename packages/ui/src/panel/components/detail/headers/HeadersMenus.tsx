@@ -1,5 +1,6 @@
 import { Popover } from 'antd';
 import type { HeaderNameCase } from '../../../data/header-name-case';
+import { usePopoverViewportFit } from '../use-popover-viewport-fit';
 import type { HeaderLayoutMode, HeaderSortMode } from './types';
 
 /**
@@ -28,8 +29,9 @@ export function HeaderMoreFiltersMenu({
 }) {
   const activeCount = [ruleOnly, securityOnly, overridableOnly, hideNoise].reduce((n, v) => n + (v ? 1 : 0), 0);
   const active = activeCount > 0;
+  const { triggerRef, onOpenChange, maxHeight } = usePopoverViewportFit<HTMLButtonElement>();
   const content = (
-    <div className="dt-morefilters-menu">
+    <div className="dt-morefilters-menu" style={maxHeight != null ? { maxHeight } : undefined}>
       <label className="dt-morefilters-item">
         <input type="checkbox" checked={ruleOnly} onChange={onToggleRuleOnly} />
         Rule-modified only
@@ -52,16 +54,19 @@ export function HeaderMoreFiltersMenu({
     <Popover
       content={content}
       trigger="click"
-      // `bottom` (not `bottomRight`) so antd enables vertical shift: a popover
-      // opening low in the detail pane slides back on-screen instead of
-      // overrunning the viewport, and the shared CSS height cap then scrolls it
-      // internally. antd's horizontal shift keeps it clamped to the panel edge,
-      // so it still reads right-aligned like the toolbar popovers.
-      placement="bottom"
+      placement="bottomRight"
+      // Stay anchored to the button (no flip/slide) and let the measured
+      // max-height shrink the menu + scroll it internally as the panel shortens.
+      autoAdjustOverflow={false}
       arrow={false}
       classNames={{ root: 'dt-morefilters-popover' }}
+      onOpenChange={onOpenChange}
     >
-      <button type="button" className={`dt-toolbar-dropdown${active ? ' dt-toolbar-dropdown--active' : ''}`}>
+      <button
+        ref={triggerRef}
+        type="button"
+        className={`dt-toolbar-dropdown${active ? ' dt-toolbar-dropdown--active' : ''}`}
+      >
         More filters
         {activeCount > 0 && <span className="dt-toolbar-dropdown-count">{activeCount}</span>}
         <span className="dt-toolbar-dropdown-caret" aria-hidden="true">
@@ -108,8 +113,9 @@ export function HeaderViewMenu({
     (!showInsights ? 1 : 0) +
     (!showChips ? 1 : 0);
   const active = activeCount > 0;
+  const { triggerRef, onOpenChange, maxHeight } = usePopoverViewportFit<HTMLButtonElement>();
   const content = (
-    <div className="dt-morefilters-menu">
+    <div className="dt-morefilters-menu" style={maxHeight != null ? { maxHeight } : undefined}>
       <label className="dt-morefilters-item dt-morefilters-item--select">
         <span className="dt-morefilters-item-label">Layout</span>
         <select value={layout} onChange={(e) => onLayoutChange(e.target.value as HeaderLayoutMode)}>
@@ -147,16 +153,19 @@ export function HeaderViewMenu({
     <Popover
       content={content}
       trigger="click"
-      // `bottom` (not `bottomRight`) so antd enables vertical shift: a popover
-      // opening low in the detail pane slides back on-screen instead of
-      // overrunning the viewport, and the shared CSS height cap then scrolls it
-      // internally. antd's horizontal shift keeps it clamped to the panel edge,
-      // so it still reads right-aligned like the toolbar popovers.
-      placement="bottom"
+      placement="bottomRight"
+      // Stay anchored to the button (no flip/slide) and let the measured
+      // max-height shrink the menu + scroll it internally as the panel shortens.
+      autoAdjustOverflow={false}
       arrow={false}
       classNames={{ root: 'dt-morefilters-popover' }}
+      onOpenChange={onOpenChange}
     >
-      <button type="button" className={`dt-toolbar-dropdown${active ? ' dt-toolbar-dropdown--active' : ''}`}>
+      <button
+        ref={triggerRef}
+        type="button"
+        className={`dt-toolbar-dropdown${active ? ' dt-toolbar-dropdown--active' : ''}`}
+      >
         View
         {activeCount > 0 && <span className="dt-toolbar-dropdown-count">{activeCount}</span>}
         <span className="dt-toolbar-dropdown-caret" aria-hidden="true">
