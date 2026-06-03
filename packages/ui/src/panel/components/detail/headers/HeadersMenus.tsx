@@ -52,7 +52,12 @@ export function HeaderMoreFiltersMenu({
     <Popover
       content={content}
       trigger="click"
-      placement="bottomRight"
+      // `bottom` (not `bottomRight`) so antd enables vertical shift: a popover
+      // opening low in the detail pane slides back on-screen instead of
+      // overrunning the viewport, and the shared CSS height cap then scrolls it
+      // internally. antd's horizontal shift keeps it clamped to the panel edge,
+      // so it still reads right-aligned like the toolbar popovers.
+      placement="bottom"
       arrow={false}
       classNames={{ root: 'dt-morefilters-popover' }}
     >
@@ -142,7 +147,12 @@ export function HeaderViewMenu({
     <Popover
       content={content}
       trigger="click"
-      placement="bottomRight"
+      // `bottom` (not `bottomRight`) so antd enables vertical shift: a popover
+      // opening low in the detail pane slides back on-screen instead of
+      // overrunning the viewport, and the shared CSS height cap then scrolls it
+      // internally. antd's horizontal shift keeps it clamped to the panel edge,
+      // so it still reads right-aligned like the toolbar popovers.
+      placement="bottom"
       arrow={false}
       classNames={{ root: 'dt-morefilters-popover' }}
     >
