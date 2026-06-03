@@ -17,6 +17,7 @@ interface NetworkPanelHeaderProps {
   showFilter: boolean;
   onHide: () => void;
   viewMenu: ReactNode;
+  sortMenu: ReactNode;
 }
 
 export function NetworkPanelHeader({
@@ -32,6 +33,7 @@ export function NetworkPanelHeader({
   showFilter,
   onHide,
   viewMenu,
+  sortMenu,
 }: NetworkPanelHeaderProps) {
   const headerWiring = useMemo(() => createPanelHeaderWiring({ onHide }), [onHide]);
   if (!showFilter) {
@@ -75,6 +77,8 @@ export function NetworkPanelHeader({
           </button>
           <div className="dt-filter-separator" />
           <ResourceFilter value={filter} onChange={onFilterChange} compact />
+          <div className="dt-filter-separator" />
+          {sortMenu}
           {viewMenu}
         </div>
       }

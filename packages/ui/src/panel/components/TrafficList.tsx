@@ -91,6 +91,7 @@ export function TrafficList({
     setWaterfallMetric,
     columnSortActive,
     viewMenu,
+    sortMenu,
     handleSort,
     sortRows,
   } = useNetworkView();
@@ -275,6 +276,7 @@ export function TrafficList({
     showFilter,
     onHide,
     viewMenu,
+    sortMenu,
   };
 
   const hasRows = filtered.length > 0;
