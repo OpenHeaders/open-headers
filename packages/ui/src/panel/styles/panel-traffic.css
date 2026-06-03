@@ -753,3 +753,62 @@ body.dt-resizing-col {
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
+
+/* "Explain value" cue (View → Waterfall) — a soft yellow highlight on the one
+ * row the active Waterfall metric points at (Started at / a phase / the total).
+ * Purely a visual aid; it annotates what's already shown, no value changes. */
+.dt-wf-pop-hl {
+  background: rgba(255, 213, 79, 0.28);
+  border-radius: 3px;
+}
+
+.dt-waterfall-pop-start .dt-wf-pop-hl {
+  display: inline-block;
+  padding: 0 4px;
+  margin: 0 -4px;
+}
+
+.dt-waterfall-pop-total.dt-wf-pop-hl {
+  padding: 6px 4px 1px;
+  margin: 0 -4px;
+}
+
+/* Band tint (Total duration / Latency) — each phase row painted in the bar's
+ * own two tones, so the popover reads as a legend for the hovered bar. The
+ * background color is set inline (resolved from the row's resource palette);
+ * this just gives it the same contained-pill inset as the highlight cue. */
+.dt-waterfall-pop-row--tint {
+  padding: 0 4px;
+  margin: 0 -4px;
+  border-radius: 3px;
+}
+
+/* Hairline transparent gap where one tone band gives way to the next, so the
+ * adjacent waiting/download fills read as two bands instead of one block. */
+.dt-waterfall-pop-row--band-start {
+  margin-top: 2px;
+}
+
+/* Contributing-row cue (End time) — the phase rows that elapse from the anchor
+ * to the metric's instant, so the user sees what the instant is composed of. */
+.dt-waterfall-pop-row--hl {
+  background: rgba(255, 213, 79, 0.28);
+  padding: 0 4px;
+  margin: 0 -4px;
+  border-radius: 3px;
+}
+
+/* Anchor instant (End time) — the "Started at" line the elapsed phases are
+ * measured FROM. Hatched to read as a baseline marker, distinct from the solid
+ * fill of the rows that sum onto it. */
+.dt-wf-pop-anchor {
+  display: inline-block;
+  padding: 0 4px;
+  margin: 0 -4px;
+  border-radius: 3px;
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(255, 213, 79, 0.45) 0 4px,
+    rgba(255, 213, 79, 0.12) 4px 8px
+  );
+}

@@ -22,7 +22,7 @@ import type { Page } from '@openheaders/core/page-stream';
 import { formatClock, formatTimeMs } from './format-time';
 import type { InspectorRowWithFires } from './inspector-row-projection';
 import { timelineEndMs, type WaterfallMetric, waterfallSortValue, waterfallStartMs } from './network-columns';
-import type { ComputedTimings } from './timing-phases';
+import type { ComputedTimings, TimingPhaseKey } from './timing-phases';
 
 /** A bar never collapses below this width (% of column) so it stays visible. */
 const MIN_BAR_PCT = 0.25;
@@ -127,8 +127,9 @@ const TIMELINE_METRICS: ReadonlySet<WaterfallMetric> = new Set<WaterfallMetric>(
  * from the SAME quantities the bar is built from (the queue moment, the
  * queueing phase, the phase sum) so the number agrees with the bar and the
  * sort. `relative` reads the offset from the timeline zero (the first request
- * in view), matching the hover popover's "Started at"; `timestamp` reads the
- * absolute wall-clock instant (local or UTC). The chip itself is centered in
+ * in view), matching the hover popover's "Started at", and carries a leading
+ * `+` so it reads as an offset rather than an absolute reading; `timestamp`
+ * reads the absolute wall-clock instant (local or UTC). The chip is centered in
  * the column; only the value changes with the metric. Null for the zero-aligned
  * metrics (duration / latency, which carry their own labels) or when timing is
  * absent.
@@ -149,7 +150,46 @@ export function timelineMetricLabel(
   else if (metric === 'responseTime') offset = Math.max(timing.totalMs - phaseMs('receive'), 0);
   else offset = timing.totalMs;
   if (format === 'timestamp') return formatClock(start + offset, tz);
-  return formatTimeMs(Math.max(start - t0, 0) + offset);
+  return `+${formatTimeMs(Math.max(start - t0, 0) + offset)}`;
+}
+
+/** A bar segment's tone — the two tones the duration bar paints (lighter
+ * waiting half, base download half), keyed so the consumer resolves each to a
+ * `barColors` value. */
+export type WaterfallTone = 'waiting' | 'download';
+
+/** One colored span of a popover phase row: a tone and the fraction (0–1) of
+ * the row's width it covers. A row split across the waiting/download boundary
+ * carries two spans; a row wholly in one band carries one. */
+export interface PhaseTintSpan {
+  tone: WaterfallTone;
+  frac: number;
+}
+
+/**
+ * Which tone(s) paint each phase row in the hover popover, so the popover reads
+ * as a legend for the two-tone duration bar: the rows that sum to the bar's
+ * latency value carry the waiting tone, the row(s) that sum to its download
+ * value carry the download tone. The split is phase-aligned — `latencyMs` is
+ * `duration − receive`, so the boundary falls exactly between "Waiting for
+ * server" and "Content Download" and no single phase is shared. The fractional
+ * `PhaseTintSpan` shape still lets a row carry two spans should a future metric
+ * ever cut through one. Empty for the timeline metrics (their rainbow bar
+ * already colors each phase) and for phases outside the bar (Queueing, which
+ * the duration bar excludes).
+ */
+export function phaseTints(
+  data: ComputedTimings,
+  metric: WaterfallMetric,
+): ReadonlyMap<TimingPhaseKey, readonly PhaseTintSpan[]> {
+  const tints = new Map<TimingPhaseKey, readonly PhaseTintSpan[]>();
+  if (metric !== 'duration' && metric !== 'latency') return tints;
+  for (const p of data.phases) {
+    if (p.key === 'queueing') continue;
+    const tone: WaterfallTone = p.key === 'receive' ? 'download' : 'waiting';
+    tints.set(p.key, [{ tone, frac: 1 }]);
+  }
+  return tints;
 }
 
 /**

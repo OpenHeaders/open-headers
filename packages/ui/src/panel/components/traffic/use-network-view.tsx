@@ -28,6 +28,8 @@ export interface NetworkViewApi {
   waterfallValueFormat: DevpanelNetworkWaterfallValueFormatSetting;
   /** Timezone for the timestamp value form. */
   waterfallTimestampTz: DevpanelNetworkWaterfallTimestampTzSetting;
+  /** Whether the hover popover badges + highlights the rows behind the total. */
+  waterfallExplainValue: boolean;
   sortKey: SortTarget;
   sortDir: SortDir;
   /** Active Waterfall sub-metric — drives the Waterfall sort key and header label. */
@@ -65,6 +67,7 @@ export function useNetworkView(): NetworkViewApi {
   const [waterfallValues, setWaterfallValues] = useSetting('devpanelNetwork.waterfallValues');
   const [waterfallValueFormat, setWaterfallValueFormat] = useSetting('devpanelNetwork.waterfallValueFormat');
   const [waterfallTimestampTz, setWaterfallTimestampTz] = useSetting('devpanelNetwork.waterfallTimestampTz');
+  const [waterfallExplainValue, setWaterfallExplainValue] = useSetting('devpanelNetwork.waterfallExplainValue');
   // Custom-nested levels are session-scoped scratch state.
   const [customNested, setCustomNested] = useState<NetworkCustomNestedLevel[]>([]);
   const compact = layout === 'compact';
@@ -77,6 +80,7 @@ export function useNetworkView(): NetworkViewApi {
   const resetWaterfallValues = useResetSetting('devpanelNetwork.waterfallValues');
   const resetWaterfallValueFormat = useResetSetting('devpanelNetwork.waterfallValueFormat');
   const resetWaterfallTimestampTz = useResetSetting('devpanelNetwork.waterfallTimestampTz');
+  const resetWaterfallExplainValue = useResetSetting('devpanelNetwork.waterfallExplainValue');
   const resetShowFireDots = useResetSetting('devpanelNetwork.showFireDots');
   const resetSortKind = useResetSetting('devpanelNetwork.sortKind');
   const resetSortMode = useResetSetting('devpanelNetwork.sortMode');
@@ -89,6 +93,7 @@ export function useNetworkView(): NetworkViewApi {
     resetWaterfallValues();
     resetWaterfallValueFormat();
     resetWaterfallTimestampTz();
+    resetWaterfallExplainValue();
     resetShowFireDots();
   }, [
     resetLayout,
@@ -96,6 +101,7 @@ export function useNetworkView(): NetworkViewApi {
     resetWaterfallValues,
     resetWaterfallValueFormat,
     resetWaterfallTimestampTz,
+    resetWaterfallExplainValue,
     resetShowFireDots,
   ]);
 
@@ -109,6 +115,10 @@ export function useNetworkView(): NetworkViewApi {
   }, [resetSortKind, resetSortMode, resetSortBy, resetSortDir, resetWaterfallMetric]);
 
   const toggleShowFireDots = useCallback(() => setShowFireDots(!showFireDots), [showFireDots, setShowFireDots]);
+  const toggleExplainValue = useCallback(
+    () => setWaterfallExplainValue(!waterfallExplainValue),
+    [waterfallExplainValue, setWaterfallExplainValue],
+  );
   const handleSortModeChange = useCallback(
     (m: NetworkSortMode) => {
       setSortKind('mode');
@@ -211,12 +221,14 @@ export function useNetworkView(): NetworkViewApi {
         waterfallValues={waterfallValues}
         waterfallValueFormat={waterfallValueFormat}
         waterfallTimestampTz={waterfallTimestampTz}
+        waterfallExplainValue={waterfallExplainValue}
         showFireDots={showFireDots}
         onLayoutChange={setLayout}
         onWaterfallMetricChange={setWaterfallMetric}
         onWaterfallValuesChange={setWaterfallValues}
         onWaterfallValueFormatChange={setWaterfallValueFormat}
         onWaterfallTimestampTzChange={setWaterfallTimestampTz}
+        onToggleExplainValue={toggleExplainValue}
         onToggleShowFireDots={toggleShowFireDots}
         onReset={resetView}
       />
@@ -227,12 +239,14 @@ export function useNetworkView(): NetworkViewApi {
       waterfallValues,
       waterfallValueFormat,
       waterfallTimestampTz,
+      waterfallExplainValue,
       showFireDots,
       setLayout,
       setWaterfallMetric,
       setWaterfallValues,
       setWaterfallValueFormat,
       setWaterfallTimestampTz,
+      toggleExplainValue,
       toggleShowFireDots,
       resetView,
     ],
@@ -244,6 +258,7 @@ export function useNetworkView(): NetworkViewApi {
     waterfallValues,
     waterfallValueFormat,
     waterfallTimestampTz,
+    waterfallExplainValue,
     sortKey,
     sortDir,
     waterfallMetric,

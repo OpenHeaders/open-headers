@@ -207,23 +207,23 @@ describe('timelineMetricLabel', () => {
   });
 
   it('reports start time as the post-queue instant from the timeline zero', () => {
-    expect(timelineMetricLabel(row, 'startTime', 1000, timing, 'relative', 'local')).toBe(formatTimeMs(QUEUEING));
+    expect(timelineMetricLabel(row, 'startTime', 1000, timing, 'relative', 'local')).toBe(`+${formatTimeMs(QUEUEING)}`);
   });
 
   it('reports response time at the first-byte point (excludes content download)', () => {
     expect(timelineMetricLabel(row, 'responseTime', 1000, timing, 'relative', 'local')).toBe(
-      formatTimeMs(TOTAL - GH_TIMINGS.receive),
+      `+${formatTimeMs(TOTAL - GH_TIMINGS.receive)}`,
     );
   });
 
   it('reports end time as the full (de-double-counted) total', () => {
-    expect(timelineMetricLabel(row, 'endTime', 1000, timing, 'relative', 'local')).toBe(formatTimeMs(TOTAL));
+    expect(timelineMetricLabel(row, 'endTime', 1000, timing, 'relative', 'local')).toBe(`+${formatTimeMs(TOTAL)}`);
   });
 
   it('carries the row offset within the window into the value', () => {
     const later = ghRow(2000);
     expect(timelineMetricLabel(later, 'startTime', 1000, timingOf(later), 'relative', 'local')).toBe(
-      formatTimeMs(1000 + QUEUEING),
+      `+${formatTimeMs(1000 + QUEUEING)}`,
     );
   });
 

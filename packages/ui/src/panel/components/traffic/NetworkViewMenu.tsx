@@ -39,12 +39,14 @@ export function NetworkViewMenu({
   waterfallValues,
   waterfallValueFormat,
   waterfallTimestampTz,
+  waterfallExplainValue,
   showFireDots,
   onLayoutChange,
   onWaterfallMetricChange,
   onWaterfallValuesChange,
   onWaterfallValueFormatChange,
   onWaterfallTimestampTzChange,
+  onToggleExplainValue,
   onToggleShowFireDots,
   onReset,
 }: {
@@ -53,6 +55,7 @@ export function NetworkViewMenu({
   waterfallValues: DevpanelNetworkWaterfallValuesSetting;
   waterfallValueFormat: DevpanelNetworkWaterfallValueFormatSetting;
   waterfallTimestampTz: DevpanelNetworkWaterfallTimestampTzSetting;
+  waterfallExplainValue: boolean;
   showFireDots: boolean;
   onLayoutChange: (mode: DevpanelNetworkLayoutSetting) => void;
   /** Change only the displayed Waterfall metric — no sort change. */
@@ -60,6 +63,7 @@ export function NetworkViewMenu({
   onWaterfallValuesChange: (mode: DevpanelNetworkWaterfallValuesSetting) => void;
   onWaterfallValueFormatChange: (format: DevpanelNetworkWaterfallValueFormatSetting) => void;
   onWaterfallTimestampTzChange: (tz: DevpanelNetworkWaterfallTimestampTzSetting) => void;
+  onToggleExplainValue: () => void;
   onToggleShowFireDots: () => void;
   /** Restore every View option to its registered default. */
   onReset: () => void;
@@ -69,6 +73,7 @@ export function NetworkViewMenu({
     (waterfallMetric !== 'startTime' ? 1 : 0) +
     (waterfallValues !== 'always' ? 1 : 0) +
     (waterfallValueFormat !== 'relative' ? 1 : 0) +
+    (!waterfallExplainValue ? 1 : 0) +
     (!showFireDots ? 1 : 0);
 
   const content = (
@@ -136,6 +141,10 @@ export function NetworkViewMenu({
           </select>
         </label>
       )}
+      <label className="dt-morefilters-item" title="In the hover popover, highlight the rows that make up the total and show their sum.">
+        <input type="checkbox" checked={waterfallExplainValue} onChange={onToggleExplainValue} />
+        Explain value
+      </label>
       <div className="dt-morefilters-divider" />
       <label className="dt-morefilters-item">
         <input type="checkbox" checked={showFireDots} onChange={onToggleShowFireDots} />

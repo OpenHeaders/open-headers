@@ -88,6 +88,7 @@ export function TrafficList({
     waterfallValues,
     waterfallValueFormat,
     waterfallTimestampTz,
+    waterfallExplainValue,
     sortKey,
     sortDir,
     waterfallMetric,
@@ -242,6 +243,7 @@ export function TrafficList({
         valuesMode: waterfallValues,
         valueFormat: waterfallValueFormat,
         timestampTz: waterfallTimestampTz,
+        explainValue: waterfallExplainValue,
       };
     }
     return {
@@ -252,8 +254,19 @@ export function TrafficList({
       valuesMode: waterfallValues,
       valueFormat: waterfallValueFormat,
       timestampTz: waterfallTimestampTz,
+      explainValue: waterfallExplainValue,
     };
-  }, [waterfallMetric, sorted, t0, tMax, waterfallColPx, waterfallValues, waterfallValueFormat, waterfallTimestampTz]);
+  }, [
+    waterfallMetric,
+    sorted,
+    t0,
+    tMax,
+    waterfallColPx,
+    waterfallValues,
+    waterfallValueFormat,
+    waterfallTimestampTz,
+    waterfallExplainValue,
+  ]);
 
   // DOMContentLoaded / Load lines — only on the timeline window (the
   // zero-aligned duration view has no shared axis to place them on) and only

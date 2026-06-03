@@ -42,6 +42,7 @@ export type WaterfallScale = {
   valuesMode: 'off' | 'always' | 'hover';
   valueFormat: 'relative' | 'timestamp';
   timestampTz: 'local' | 'utc';
+  explainValue: boolean;
 } & (
   | { mode: 'timeline'; metric: WaterfallMetric; tMax: number }
   | { mode: 'duration'; metric: Extract<WaterfallMetric, 'duration' | 'latency'>; max: number; colPx: number }
@@ -172,9 +173,21 @@ export function WaterfallBar({ row, scale }: WaterfallBarProps) {
   // earliest request's issue time in view, so this is never negative).
   const queuedAtMs = Math.max(waterfallStartMs(row.lifecycle) - scale.t0, 0);
 
+  // The duration bar's two tones, so the popover bands match the hovered bar;
+  // the timeline (rainbow) bar colors each phase itself, so it carries none.
+  const bandColors = scale.mode === 'duration' ? barColors(row.lifecycle.resourceType) : undefined;
+
   return (
     <Popover
-      content={<WaterfallTimingPopover data={timingDetail} metric={scale.metric} queuedAtMs={queuedAtMs} />}
+      content={
+        <WaterfallTimingPopover
+          data={timingDetail}
+          metric={scale.metric}
+          queuedAtMs={queuedAtMs}
+          explain={scale.explainValue}
+          bandColors={bandColors && { waiting: bandColors.waiting, download: bandColors.download }}
+        />
+      }
       trigger="hover"
       placement="left"
       arrow={false}

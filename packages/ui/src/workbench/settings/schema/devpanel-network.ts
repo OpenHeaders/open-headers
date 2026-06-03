@@ -103,6 +103,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'devpanelNetwork.waterfallValues': DevpanelNetworkWaterfallValuesSetting;
     'devpanelNetwork.waterfallValueFormat': DevpanelNetworkWaterfallValueFormatSetting;
     'devpanelNetwork.waterfallTimestampTz': DevpanelNetworkWaterfallTimestampTzSetting;
+    'devpanelNetwork.waterfallExplainValue': boolean;
   }
 }
 
@@ -306,4 +307,18 @@ registerSetting({
     { value: 'local', label: 'Local', description: 'Your local timezone.' },
     { value: 'utc', label: 'UTC', description: 'Coordinated Universal Time.' },
   ],
+});
+
+registerSetting({
+  key: 'devpanelNetwork.waterfallExplainValue',
+  type: 'boolean',
+  default: true,
+  schema: v.boolean(),
+  label: 'Explain Waterfall Value',
+  description:
+    'In the Waterfall hover popover, badge and highlight the phase rows that make up the total and show their sum as a formula. Purely a visual aid — it changes no values.',
+  category: 'devpanelNetwork',
+  subcategory: 'View',
+  tags: ['network', 'waterfall', 'timing', 'breakdown', 'devtools'],
+  scope: 'user',
 });

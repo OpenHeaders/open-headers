@@ -1,16 +1,30 @@
 /**
  * Hover breakdown for a Waterfall bar — the compact cousin of the
- * Timing detail pane. Opens with the request's absolute timeline position
- * (Queued at / Started at, relative to the first request in view), then
+ * Timing detail pane. Opens with the request's timeline instants (Queued /
+ * Started / Response / Ended, relative to the first request in view), then
  * renders the canonical grouped phases (`computeTimingPhases`) with a
  * colored swatch, label, and duration per row, then a bold total. The
  * total reflects the active metric: Latency sums the pre-response phases
  * (it ends at the first byte); every other metric uses the full duration.
+ *
+ * When `explain` is on, the popover annotates which rows the bar value is
+ * built FROM — highlighting the instant alone just mirrors it back. End and
+ * Response time mark the "Started at" anchor (hatched, the clock's start) and
+ * the phase rows that elapse from there to the instant — through Content
+ * Download for End, stopping before it for Response — so the user reads
+ * "Started at + these rows = Ended/Response at" rather than a lone instant. The
+ * duration metrics instead tint the phase rows in the bar's two tones, so the
+ * rows that sum to the bar's latency value read as the waiting band and the
+ * download row reads as the download band. (Start time still marks its single
+ * instant for now, pending the same treatment.) Purely a visual cue layered
+ * over the existing numbers; no value changes.
  */
 
+import type { CSSProperties } from 'react';
 import { formatTimeMs } from '../../data/format-time';
 import type { WaterfallMetric } from '../../data/network-columns';
-import { type ComputedTimings, type TimingGroup } from '../../data/timing-phases';
+import { type PhaseTintSpan, phaseTints, type WaterfallTone } from '../../data/waterfall-geometry';
+import { type ComputedTimings, type TimingGroup, type TimingPhaseKey } from '../../data/timing-phases';
 
 const GROUP_LABEL: Record<TimingGroup, string> = {
   scheduling: 'Resource Scheduling',
@@ -20,15 +34,72 @@ const GROUP_LABEL: Record<TimingGroup, string> = {
 
 const GROUP_ORDER: readonly TimingGroup[] = ['scheduling', 'connection', 'transfer'];
 
+type HeaderLine = 'queued' | 'started' | 'response' | 'ended';
+
+/** The two tones the duration bar paints, resolved from the hovered row's
+ * resource-type palette so the popover bands match the bar exactly. */
+export interface BandColors {
+  waiting: string;
+  download: string;
+}
+
+/**
+ * How an instant metric explains itself: the header instant it measures FROM
+ * (the anchor) plus the phase rows that elapse from there to the metric's own
+ * instant. "Started at + these rows = Ended at" reads as a sum; marking the
+ * "Ended at" line alone would just restate the value. Both End and Response
+ * time anchor at "Started at" (the queue moment already folded in) — Response
+ * stops at the first byte, so it drops Content Download; End runs to the
+ * finish, so it keeps it. Start time keeps its single-instant cue for now
+ * (`metricHighlightLine`). Null for the duration metrics (they tint bands).
+ */
+function timelineExplain(
+  metric: WaterfallMetric,
+  data: ComputedTimings,
+): { anchor: HeaderLine; phaseKeys: ReadonlySet<TimingPhaseKey> } | null {
+  if (metric !== 'endTime' && metric !== 'responseTime') return null;
+  // Queueing is folded into the "Started at" anchor; Response stops at the
+  // first byte (drop Content Download), End runs through it.
+  const drop = (k: TimingPhaseKey) => k === 'queueing' || (metric === 'responseTime' && k === 'receive');
+  const phaseKeys = new Set<TimingPhaseKey>(data.phases.map((p) => p.key).filter((k) => !drop(k)));
+  return { anchor: 'started', phaseKeys };
+}
+
+/** The single instant the metric points at, for the metrics still on the
+ * lone-instant cue (Start time). */
+function metricHighlightLine(metric: WaterfallMetric): HeaderLine | undefined {
+  return metric === 'startTime' ? 'started' : undefined;
+}
+
+/** Paint a phase row from its tint spans: a solid band when wholly in one
+ * tone, a hard-edged two-color gradient when a span boundary cuts the row. */
+function tintStyle(spans: readonly PhaseTintSpan[] | undefined, colors: BandColors): CSSProperties | undefined {
+  if (!spans || spans.length === 0) return undefined;
+  if (spans.length === 1) return { background: colors[spans[0].tone] };
+  let at = 0;
+  const stops = spans.map((s) => {
+    const from = at;
+    at += s.frac * 100;
+    return `${colors[s.tone]} ${from}% ${at}%`;
+  });
+  return { background: `linear-gradient(90deg, ${stops.join(', ')})` };
+}
+
 export function WaterfallTimingPopover({
   data,
   metric,
   queuedAtMs,
+  explain,
+  bandColors,
 }: {
   data: ComputedTimings;
   metric: WaterfallMetric;
   /** Issue time relative to the timeline zero (the earliest request in view). */
   queuedAtMs: number;
+  /** Highlight the rows the active metric is built from. */
+  explain: boolean;
+  /** Bar tones for the duration metrics; absent for the timeline metrics. */
+  bandColors?: BandColors;
 }) {
   // Duration spans the whole request (issue → end), so it sums every phase
   // including Queueing — browser parity. Latency instead measures the post-
@@ -39,15 +110,44 @@ export function WaterfallTimingPopover({
     .reduce((sum, p) => sum + p.ms, 0);
   const totalLabel = isLatency ? 'Latency' : 'Duration';
 
-  // The network start lags the queue moment by exactly the queueing phase.
-  const queueingMs = data.phases.find((p) => p.key === 'queueing')?.ms ?? 0;
-  const startedAtMs = queuedAtMs + queueingMs;
+  // The timeline instants, all relative to the first request in view. Started
+  // lags the queue moment by Queueing; Response is the first byte (everything
+  // but Content Download); Ended is the finish.
+  const phaseMs = (key: string) => data.phases.find((p) => p.key === key)?.ms ?? 0;
+  const sumAll = data.phases.reduce((sum, p) => sum + p.ms, 0);
+  const startedAtMs = queuedAtMs + phaseMs('queueing');
+  const responseAtMs = queuedAtMs + Math.max(sumAll - phaseMs('receive'), 0);
+  const endedAtMs = queuedAtMs + sumAll;
+
+  const hlLine = explain ? metricHighlightLine(metric) : undefined;
+  const explainTimeline = explain ? timelineExplain(metric, data) : null;
+  const headerClass = (line: HeaderLine) => {
+    if (explainTimeline?.anchor === line) return 'dt-wf-pop-anchor';
+    return hlLine === line ? 'dt-wf-pop-hl' : undefined;
+  };
+  const tints = explain && bandColors ? phaseTints(data, metric) : null;
+  // The phase rows that open a new tone band — a hairline gap above each keeps
+  // the waiting and download tones from butting into one smeared block.
+  const bandStarts = (() => {
+    const starts = new Set<TimingPhaseKey>();
+    if (!tints) return starts;
+    let prev: WaterfallTone | null = null;
+    for (const p of data.phases) {
+      const spans = tints.get(p.key);
+      const tone = spans?.length === 1 ? spans[0].tone : null;
+      if (tone && prev && tone !== prev) starts.add(p.key);
+      prev = tone;
+    }
+    return starts;
+  })();
 
   return (
     <div className="dt-waterfall-pop">
       <div className="dt-waterfall-pop-start">
-        <div>Queued at {formatTimeMs(queuedAtMs)}</div>
-        <div>Started at {formatTimeMs(startedAtMs)}</div>
+        <div className={headerClass('queued')}>Queued at {formatTimeMs(queuedAtMs)}</div>
+        <div className={headerClass('started')}>Started at {formatTimeMs(startedAtMs)}</div>
+        <div className={headerClass('response')}>Response at {formatTimeMs(responseAtMs)}</div>
+        <div className={headerClass('ended')}>Ended at {formatTimeMs(endedAtMs)}</div>
       </div>
       {GROUP_ORDER.map((group) => {
         const phases = data.byGroup[group];
@@ -55,13 +155,20 @@ export function WaterfallTimingPopover({
         return (
           <div key={group} className="dt-waterfall-pop-group">
             <div className="dt-waterfall-pop-head">{GROUP_LABEL[group]}</div>
-            {phases.map((p) => (
-              <div key={p.key} className="dt-waterfall-pop-row">
-                <span className={`dt-waterfall-pop-swatch dt-wf-fill--${p.key}`} aria-hidden="true" />
-                <span className="dt-waterfall-pop-label">{p.label}</span>
-                <span className="dt-waterfall-pop-ms">{formatTimeMs(p.ms)}</span>
-              </div>
-            ))}
+            {phases.map((p) => {
+              const style = tints && bandColors ? tintStyle(tints.get(p.key), bandColors) : undefined;
+              const contributes = explainTimeline?.phaseKeys.has(p.key) ?? false;
+              const cls = `dt-waterfall-pop-row${style ? ' dt-waterfall-pop-row--tint' : ''}${
+                contributes ? ' dt-waterfall-pop-row--hl' : ''
+              }${bandStarts.has(p.key) ? ' dt-waterfall-pop-row--band-start' : ''}`;
+              return (
+                <div key={p.key} className={cls} style={style}>
+                  <span className={`dt-waterfall-pop-swatch dt-wf-fill--${p.key}`} aria-hidden="true" />
+                  <span className="dt-waterfall-pop-label">{p.label}</span>
+                  <span className="dt-waterfall-pop-ms">{formatTimeMs(p.ms)}</span>
+                </div>
+              );
+            })}
           </div>
         );
       })}
