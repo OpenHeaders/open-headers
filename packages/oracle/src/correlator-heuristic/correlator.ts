@@ -55,9 +55,10 @@ import { FinalizedRetention } from './finalized-retention';
 import { bodyAttachedUpdate, harAttachedUpdate, harEntryJoinFields, harEntryTimestamp } from './har-to-update';
 import type { HarEvent, HarEventSource } from './har-events';
 import { HarWaitingBuffer } from './har-waiting-buffer';
+import type { HarWaitingDropLogger } from './har-waiting-buffer';
 import { HopCursor } from './hop-cursor';
 import { InFlightFifo } from './in-flight-fifo';
-import type { InFlightMatch } from './in-flight-fifo';
+import type { FifoEvictionLogger, InFlightMatch } from './in-flight-fifo';
 import { RecentLifecyclesMirror } from './recent-lifecycles-mirror';
 import { webRequestEventToUpdates } from './webrequest-to-update';
 
@@ -71,20 +72,61 @@ export interface HeuristicCorrelatorSources {
   readonly har: HarEventSource;
 }
 
+/**
+ * Optional drop/loss observers for the HAR-attachment path. All
+ * production drop sites are silent by default (see lifecycle audit
+ * §1.7); a host wires these to surface where HAR attribution is lost.
+ * Pure observation — never alters correlation.
+ */
+export interface CorrelatorDiagnostics {
+  /** In-flight URL-LRU evicted a non-empty queue → join keys lost. */
+  readonly onFifoEviction?: FifoEvictionLogger;
+  /** A buffered (forward-race) HAR entry was dropped without attaching. */
+  readonly onHarWaitingDrop?: HarWaitingDropLogger;
+  /**
+   * A HAR entry found no in-flight slot and was parked in the waiting
+   * buffer. `pending` is how many in-flight entries exist for the URL:
+   * 0 = key never recorded (not ingested / lost to SW restart),
+   * >0 = key present but no candidate matched (timestamp/method drift).
+   * The bucket counts + `nearestDeltaMs` (signed `entry.t - harTs` of the
+   * closest method-matching entry) say which gate rejected the match.
+   */
+  readonly onJoinMiss?: (info: {
+    readonly tabId: number;
+    readonly url: string;
+    readonly method: string;
+    readonly harTimestamp: number;
+    readonly pending: number;
+    readonly methodMismatch: number;
+    readonly tooOld: number;
+    readonly tooNew: number;
+    readonly nearestDeltaMs: number | null;
+  }) => void;
+  /**
+   * `popMatching` resolved a join key but the lifecycle had already been
+   * pruned from `recentLifecycles` → the resolved HAR is discarded.
+   */
+  readonly onRetentionDrop?: (info: { readonly tabId: number; readonly requestId: string }) => void;
+}
+
 export class HeuristicCorrelator implements RequestCorrelator {
   private readonly listeners = new Set<RequestLifecycleListener>();
   private readonly attached = new Set<number>();
   private readonly recentLifecycles = new RecentLifecyclesMirror();
-  private readonly inFlight = new InFlightFifo();
+  private readonly inFlight: InFlightFifo;
   private readonly bodyJoin = new BodyJoinMap();
-  private readonly harWaiting = new HarWaitingBuffer();
+  private readonly harWaiting: HarWaitingBuffer;
   private readonly finalizedRetention = new FinalizedRetention();
   private readonly corsContext = new CorsContextStore();
   private readonly hopCursor = new HopCursor();
+  private readonly diagnostics: CorrelatorDiagnostics | undefined;
   private readonly webRequestUnsubscribe: () => void;
   private readonly harUnsubscribe: () => void;
 
-  constructor(sources: HeuristicCorrelatorSources) {
+  constructor(sources: HeuristicCorrelatorSources, diagnostics?: CorrelatorDiagnostics) {
+    this.diagnostics = diagnostics;
+    this.inFlight = new InFlightFifo({ onEviction: diagnostics?.onFifoEviction });
+    this.harWaiting = new HarWaitingBuffer({ onDrop: diagnostics?.onHarWaitingDrop });
     this.webRequestUnsubscribe = sources.webRequest.subscribe((event) => this.onWebRequestEvent(event));
     this.harUnsubscribe = sources.har.subscribe((event) => this.onHarEvent(event));
   }
@@ -249,12 +291,17 @@ export class HeuristicCorrelator implements RequestCorrelator {
     const { url, method } = harEntryJoinFields(entry);
     const ts = harEntryTimestamp(entry);
     if (!url || ts === null) return;
+    // Snapshot the candidate picture BEFORE popMatching sweeps stale
+    // entries — only when a miss observer is wired (zero cost otherwise).
+    const onJoinMiss = this.diagnostics?.onJoinMiss;
+    const diag = onJoinMiss ? this.inFlight.diagnoseMatch(tabId, url, ts, method) : undefined;
     const match = this.inFlight.popMatching(tabId, url, ts, method);
     if (match === undefined) {
       // Forward race (H7): no in-flight slot recorded yet. Hold for
       // up to HAR_FORWARD_HOLD_MS so the matching onBeforeRequest
       // (or onSendHeaders for hops ≥ 1) — if it lands within the
       // window — can drain this entry.
+      if (onJoinMiss && diag) onJoinMiss({ tabId, url, method, harTimestamp: ts, ...diag });
       this.harWaiting.hold(tabId, entry, ts);
       return;
     }
@@ -280,7 +327,10 @@ export class HeuristicCorrelator implements RequestCorrelator {
     // before the HAR catches up, so a missing lifecycle here is a
     // genuine race (e.g. lifecycle was forgotten after tab close) —
     // drop rather than mint a floating attachment.
-    if (!this.recentLifecycles.has(tabId, match.requestId)) return;
+    if (!this.recentLifecycles.has(tabId, match.requestId)) {
+      this.diagnostics?.onRetentionDrop?.({ tabId, requestId: match.requestId });
+      return;
+    }
     this.bodyJoin.remember(tabId, method, url, entry.startedDateTime, {
       requestId: match.requestId,
       hopIndex: match.hopIndex,

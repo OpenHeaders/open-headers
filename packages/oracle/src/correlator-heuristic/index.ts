@@ -10,10 +10,10 @@
  */
 
 export { HeuristicCorrelator } from './correlator';
-export type { HeuristicCorrelatorSources } from './correlator';
+export type { CorrelatorDiagnostics, HeuristicCorrelatorSources } from './correlator';
 export { webRequestEventToUpdates } from './webrequest-to-update';
 export { harAttachedUpdate, bodyAttachedUpdate, harEntryJoinFields, harEntryTimestamp } from './har-to-update';
-export { InFlightFifo, IN_FLIGHT_MAX_AGE_MS, POP_FUTURE_SKEW_MS } from './in-flight-fifo';
+export { InFlightFifo, IN_FLIGHT_MAX_AGE_MS } from './in-flight-fifo';
 export type { FifoEvictionLogger, InFlightMatch } from './in-flight-fifo';
 export { BodyJoinMap } from './body-join-map';
 export { HarWaitingBuffer } from './har-waiting-buffer';

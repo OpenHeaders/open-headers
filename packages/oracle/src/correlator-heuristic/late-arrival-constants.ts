@@ -33,11 +33,15 @@ export const HAR_FORWARD_HOLD_MS = 5_000;
  * {@link FinalizedRetention} (and thus `recentLifecycles`) so a late HAR
  * can still attach, measured from the terminal-phase timestamp.
  *
- * Pinned to {@link IN_FLIGHT_MAX_AGE_MS} to enforce the attach invariant:
- * a request finishes no earlier than it starts, so retaining the
- * lifecycle for the same duration *from finish* always outlives the
- * in-flight join key's expiry *from start*. Whenever `popMatching` can
- * resolve a HAR, the lifecycle it resolves to still exists.
+ * Pinned to {@link IN_FLIGHT_MAX_AGE_MS} so the lifecycle stays
+ * attachable for the same span the join key stays poppable. The two
+ * clocks differ — the join key ages off HAR/same-URL timestamps, this
+ * retention off real-time event ticks — so the match isn't a hard
+ * invariant; but measuring retention *from finish* (which is never
+ * before start) means any HAR delivered within roughly this window past
+ * `onCompleted` still finds its lifecycle. That covers the realistic
+ * slow/offline delivery lag that previously dropped late HAR; lag beyond
+ * the window remains best-effort.
  */
 export const FINALIZED_RETENTION_MS = IN_FLIGHT_MAX_AGE_MS;
 

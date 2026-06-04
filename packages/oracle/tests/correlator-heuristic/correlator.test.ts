@@ -487,9 +487,9 @@ describe('HeuristicCorrelator — H7 backward retention (HAR after terminal phas
     // Regression: on slow/offline networks the devtools HAR pipeline can
     // deliver `onRequestFinished` far later than webRequest's
     // `onCompleted`. Retention is pinned to the in-flight join-key
-    // lifetime, so the lifecycle survives for the whole window the join
-    // key can still resolve — a delivery lag an order of magnitude past
-    // the short forward-hold window must still attach.
+    // lifetime (measured from finish), so a delivery lag an order of
+    // magnitude past the short forward-hold window — but within that
+    // lifetime — still attaches.
     expect(FINALIZED_RETENTION_MS).toBeGreaterThan(HAR_FORWARD_HOLD_MS * 2);
     const { webRequest, har } = makeSources();
     const correlator = new HeuristicCorrelator({ webRequest, har });

@@ -12,7 +12,6 @@ import {
   InFlightFifo,
   IN_FLIGHT_MAX_AGE_MS,
   MAX_IN_FLIGHT_URLS_PER_TAB,
-  POP_FUTURE_SKEW_MS,
 } from '../../src/correlator-heuristic/in-flight-fifo';
 
 const TAB = 1;
@@ -69,18 +68,21 @@ describe('InFlightFifo — closest-timestamp join semantics', () => {
     });
   });
 
-  it('respects POP_FUTURE_SKEW_MS — an entry slightly newer than the HAR still matches', () => {
+  it('matches an in-flight entry seconds newer than the HAR start (processing skew)', () => {
     const fifo = new InFlightFifo();
-    fifo.record(TAB, URL, 'req-a', 2_000, 'GET', 0);
-    expect(fifo.popMatching(TAB, URL, 2_000 - POP_FUTURE_SKEW_MS + 1, 'GET')).toEqual({
+    // The webRequest event was processed ~10s after the request's true
+    // start under SW load, so entry.t sits well ahead of the HAR
+    // startedDateTime — still the same request, must still match.
+    fifo.record(TAB, URL, 'req-a', 2_000 + 10_000, 'GET', 0);
+    expect(fifo.popMatching(TAB, URL, 2_000, 'GET')).toEqual({
       requestId: 'req-a',
       hopIndex: 0,
     });
   });
 
-  it('refuses entries whose t is past the future-skew upper bound', () => {
+  it('refuses an entry further than IN_FLIGHT_MAX_AGE_MS into the future', () => {
     const fifo = new InFlightFifo();
-    fifo.record(TAB, URL, 'req-a', 2_000 + POP_FUTURE_SKEW_MS + 1, 'GET', 0);
+    fifo.record(TAB, URL, 'req-a', 2_000 + IN_FLIGHT_MAX_AGE_MS + 1, 'GET', 0);
     expect(fifo.popMatching(TAB, URL, 2_000, 'GET')).toBeUndefined();
   });
 

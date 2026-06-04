@@ -26,6 +26,7 @@ import { logger } from '@utils/logger';
 
 import { ChromeHarEventSource } from './chrome-har-source';
 import { ChromeWebRequestEventSource } from './chrome-webrequest-source';
+import { LifecycleDiagnostics } from './lifecycle-diagnostics';
 import { installTabLifecycleBridge } from './tab-lifecycle-bridge';
 
 export interface LifecycleHostOptions {
@@ -59,10 +60,20 @@ export interface LifecycleHost {
 export function startLifecycleHost(options: LifecycleHostOptions): LifecycleHost {
   const webRequestSource = new ChromeWebRequestEventSource();
   const harSource = new ChromeHarEventSource();
-  const correlator = new HeuristicCorrelator({
-    webRequest: webRequestSource,
-    har: harSource,
-  });
+  // Lifecycle-pipeline telemetry (lifecycle audit §1.7) — wired only at
+  // debug log level so prod runs the plain correlator path with zero
+  // overhead. The settings bootstrap applies `data.logLevel` before this
+  // runs (see `background.ts` initializeExtension order), so the level is
+  // already authoritative here. Set `data.logLevel: debug` + reload to
+  // surface per-stage counts in the SW console.
+  const diagnostics = logger.getLevel() === 'debug' ? new LifecycleDiagnostics() : undefined;
+  const correlator = new HeuristicCorrelator(
+    {
+      webRequest: webRequestSource,
+      har: harSource,
+    },
+    diagnostics,
+  );
   const store = new RequestLifecycleStore({
     onReject: (update, reason) => {
       logger.warn('LifecycleHost', 'store rejected update', { kind: update.kind, reason });
@@ -73,6 +84,14 @@ export function startLifecycleHost(options: LifecycleHostOptions): LifecycleHost
   // subscribers (panel forwarder, tab-telemetry projection) attach
   // through `correlator.subscribe(...)` in their own modules.
   correlator.subscribe((update) => store.apply(update));
+
+  if (diagnostics) {
+    // Raw-source taps see every event (the correlator's own attach gate
+    // is downstream), so the counts reflect true ingestion volume.
+    webRequestSource.subscribe((event) => diagnostics.webRequestIn(event));
+    harSource.subscribe((event) => diagnostics.harIn(event));
+    correlator.subscribe((update) => diagnostics.emitted(update));
+  }
 
   const detachBridge = installTabLifecycleBridge({ correlator, store, bus: options.bus });
 

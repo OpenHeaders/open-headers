@@ -16,14 +16,18 @@
 export const IN_FLIGHT_MAX_AGE_MS = 60_000;
 
 /**
- * Tolerated clock skew between webRequest's `Date.now()` (in-flight
- * entry's `t`) and HAR's `Date.parse(startedDateTime)` for the *same*
- * request. Both clocks are wall-clock in the same process, so they
- * should agree to within a few ms — a generous 1s window covers any
- * reordering Chrome might inject without blunting the asymmetric "head
- * is for a newer request than this HAR" mis-attribution check.
+ * Tolerated skew between an in-flight entry's `t` (webRequest
+ * `onBeforeRequest` timestamp) and the HAR's `startedDateTime` for the
+ * SAME request. These are NOT the same clock under load: when the SW is
+ * saturated, webRequest event timestamps lag the request's true start by
+ * seconds (measured ~10s on a throttled 155-request page, near-constant
+ * across the burst). The match window therefore equals the entry-
+ * lifetime window {@link IN_FLIGHT_MAX_AGE_MS} and is applied
+ * symmetrically: timestamp proximity only DISAMBIGUATES multiple
+ * same-`(url, method)` candidates (they share the same skew, so the
+ * closest is still the right one); it must never reject the *sole*
+ * candidate over skew, which would drop the HAR entirely.
  */
-export const POP_FUTURE_SKEW_MS = 1_000;
 
 /**
  * LRU cap on the in-flight URL map *per tab*. Each entry holds the FIFO
@@ -153,9 +157,10 @@ export class InFlightFifo {
    *   - Preflight-bearing POSTs (handled via the method gate, which
    *     also constrains the candidate pool before timestamp matching).
    *
-   * A small look-ahead skew accepts entries whose `t` is up to
-   * `POP_FUTURE_SKEW_MS` past `harTimestamp` — Chrome sometimes stamps
-   * the HAR start slightly before our `Date.now()` for the same event.
+   * The candidate window is symmetric at `IN_FLIGHT_MAX_AGE_MS` around
+   * `harTimestamp` so webRequest↔HAR processing skew (seconds under load)
+   * never rejects an otherwise-valid match; the closest-timestamp pick
+   * still resolves genuine same-URL collisions within that window.
    */
   popMatching(
     tabId: number,
@@ -176,7 +181,7 @@ export class InFlightFifo {
       tabMap.delete(url);
       return undefined;
     }
-    const upper = harTimestamp + POP_FUTURE_SKEW_MS;
+    const upper = harTimestamp + IN_FLIGHT_MAX_AGE_MS;
     let bestIdx = -1;
     let bestDelta = Number.POSITIVE_INFINITY;
     for (let i = 0; i < queue.length; i++) {
@@ -199,6 +204,52 @@ export class InFlightFifo {
   /** Drop all in-flight state for a tab (invariant 2 — lifecycles die with the tab). */
   forgetTab(tabId: number): void {
     this.perTab.delete(tabId);
+  }
+
+  /**
+   * Non-mutating explanation of why `popMatching` would (or would not)
+   * find a candidate for `(tabId, url, harTimestamp, harMethod)`.
+   * Diagnostic-only — run BEFORE `popMatching` (which sweeps stale
+   * entries) to capture the pre-sweep picture. `nearestDeltaMs` is the
+   * signed `entry.t - harTimestamp` of the closest method-matching entry
+   * (negative = in-flight observation older than the HAR start, positive
+   * = newer); the bucket counts say which gate each candidate fails.
+   */
+  diagnoseMatch(
+    tabId: number,
+    url: string,
+    harTimestamp: number,
+    harMethod: string,
+  ): {
+    pending: number;
+    methodMismatch: number;
+    tooOld: number;
+    tooNew: number;
+    nearestDeltaMs: number | null;
+  } {
+    const queue = this.perTab.get(tabId)?.get(url);
+    if (!queue || queue.length === 0) {
+      return { pending: 0, methodMismatch: 0, tooOld: 0, tooNew: 0, nearestDeltaMs: null };
+    }
+    const lower = harTimestamp - IN_FLIGHT_MAX_AGE_MS;
+    const upper = harTimestamp + IN_FLIGHT_MAX_AGE_MS;
+    let methodMismatch = 0;
+    let tooOld = 0;
+    let tooNew = 0;
+    let nearestDeltaMs: number | null = null;
+    for (const entry of queue) {
+      if (harMethod && entry.method !== harMethod) {
+        methodMismatch++;
+        continue;
+      }
+      if (entry.t < lower) tooOld++;
+      else if (entry.t > upper) tooNew++;
+      const delta = entry.t - harTimestamp;
+      if (nearestDeltaMs === null || Math.abs(delta) < Math.abs(nearestDeltaMs)) {
+        nearestDeltaMs = delta;
+      }
+    }
+    return { pending: queue.length, methodMismatch, tooOld, tooNew, nearestDeltaMs };
   }
 
   /** Total tracked URLs across all tabs — test helper. */
