@@ -59,7 +59,9 @@ function TrafficRowImpl({
         </span>
       )}
       {columns.map((col) => (
-        <span key={col.key}>{renderCell(col, row, state, sizeInfo, ctx)}</span>
+        <span key={col.key} className={col.align === 'right' ? 'dt-col-right' : undefined}>
+          {renderCell(col, row, state, sizeInfo, ctx)}
+        </span>
       ))}
     </button>
   );

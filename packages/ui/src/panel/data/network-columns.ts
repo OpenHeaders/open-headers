@@ -45,6 +45,16 @@ export const WATERFALL_METRIC_LABELS: Record<WaterfallMetric, string> = {
   latency: 'Latency',
 };
 
+/** Short metric tag for the cramped column header — `Waterfall (ST)`. The
+ * full names stay in the View / Sort menus where there's room to read them. */
+export const WATERFALL_METRIC_ABBR: Record<WaterfallMetric, string> = {
+  startTime: 'ST',
+  responseTime: 'RT',
+  endTime: 'ET',
+  duration: 'TD',
+  latency: 'L',
+};
+
 interface Initiator {
   type?: string;
   url?: string;

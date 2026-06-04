@@ -29,7 +29,7 @@ export function renderCell(
   const requestId = lc.requestId;
   const role = getRole(ctx.preflight, requestId);
   if (col.key === 'requestNumber') {
-    return <span className="dt-col-right dt-col-muted">{row.displayId}</span>;
+    return <span className="dt-col-muted">{row.displayId}</span>;
   }
   if (col.key === 'name') {
     const rawType = normalizeResourceType(lc.resourceType);
@@ -136,7 +136,7 @@ export function renderCell(
     // Browser parity: an in-flight request reads "Pending" in the Time
     // column (and 0.0 kB in Size), not a blank cell.
     return (
-      <span className="dt-col-right dt-col-cache" title="Request not finished yet">
+      <span className="dt-col-cache" title="Request not finished yet">
         Pending
       </span>
     );
@@ -145,24 +145,19 @@ export function renderCell(
     if (sizeInfo.kind === 'cached') {
       const label = formatSizeInfo(sizeInfo);
       return (
-        <span className="dt-col-right dt-col-cache" title={`Served from ${sizeInfo.source} cache`}>
+        <span className="dt-col-cache" title={`Served from ${sizeInfo.source} cache`}>
           {label}
         </span>
       );
     }
     const { transferred, resource } = sizeInfo;
-    if (transferred == null && resource == null) return <span className="dt-col-right" />;
+    if (transferred == null && resource == null) return <span />;
     const title =
       transferred != null && resource != null
         ? `${formatBytesToKb(transferred)} over the wire · ${formatBytesToKb(resource)} decoded`
         : undefined;
-    return (
-      <span className="dt-col-right" title={title}>
-        {formatSizeInfo(sizeInfo)}
-      </span>
-    );
+    return <span title={title}>{formatSizeInfo(sizeInfo)}</span>;
   }
   const value = col.extract(row);
-  const className = col.align === 'right' ? 'dt-col-right' : '';
-  return <span className={className}>{value == null ? '' : value}</span>;
+  return <span>{value == null ? '' : value}</span>;
 }

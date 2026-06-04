@@ -217,6 +217,7 @@ export const COLUMN_DEFS: Record<ColumnKey, ColumnDef> = {
     label: 'Remote address',
     defaultWidth: 140,
     minWidth: 100,
+    align: 'right',
     sortable: true,
     extract: (r) => currentHarEntry(r.lifecycle)?.serverIPAddress ?? '',
     getSortValue: delegateSort('remoteAddress'),

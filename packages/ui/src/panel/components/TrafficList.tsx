@@ -11,7 +11,7 @@ import {
 import type { FilterConfig, FilterToken } from '../data/filter-engine';
 import { matchesUrlFilter, passesRowFilters } from '../data/filter-engine';
 import type { InspectorRowWithFires } from '../data/inspector-row-projection';
-import { WATERFALL_METRIC_LABELS, waterfallSortValue } from '../data/network-columns';
+import { WATERFALL_METRIC_ABBR, waterfallSortValue } from '../data/network-columns';
 import { pageMarkers, waterfallWindow } from '../data/waterfall-geometry';
 import { ColumnHeaderContextMenu, type ColumnHeaderContextMenuState } from './traffic/ColumnHeaderContextMenu';
 import type { ColumnDef, ColumnKey } from './traffic/columns';
@@ -21,6 +21,7 @@ import { NetworkPanelHeader } from './traffic/NetworkPanelHeader';
 import { derivePreflightPairs } from './traffic/preflight-pairs';
 import { type CellContext } from './traffic/render-cell';
 import { RequestContextMenu, type RequestContextMenuState } from './traffic/RequestContextMenu';
+import { NetworkColumnInfo } from './traffic/NetworkColumnInfo';
 import { matchesResourceType } from './traffic/resource-types';
 import { sortIndicator } from './traffic/sort';
 import { TrafficRow } from './traffic/TrafficRow';
@@ -409,13 +410,14 @@ export function TrafficList({
               }}
               className="dt-col-header-cell"
             >
+              <NetworkColumnInfo infoKey={col.key} />
               <button
                 type="button"
-                className={`dt-col-sort ${col.align === 'right' ? 'dt-col-right' : ''}`}
+                className="dt-col-sort"
                 onClick={() => handleSort(col)}
                 disabled={!col.sortable}
               >
-                {col.key === 'waterfall' ? `Waterfall (${WATERFALL_METRIC_LABELS[waterfallMetric]})` : col.label}
+                {col.key === 'waterfall' ? `Waterfall (${WATERFALL_METRIC_ABBR[waterfallMetric]})` : col.label}
                 {col.sortable && sortIndicator(col.key, sortKey, sortDir, columnSortActive)}
               </button>
               <button
