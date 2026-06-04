@@ -19,8 +19,11 @@ export interface Sink {
    * `watermarkMs` is the highest `startedAtMs` retained for the tab at
    * attach time (`-1` if none) — a fresh consumer records it as its
    * session floor and re-subscribes with it after a reconnect.
+   * `sessionToken` is the DevTools-session identity bound to the tab's
+   * floor (undefined until the engine has seen a session message) — the
+   * consumer gates its own session-scoped state on it.
    */
-  deliverReady(tabId: number, watermarkMs: number): void;
+  deliverReady(tabId: number, watermarkMs: number, sessionToken: string | undefined): void;
   /**
    * Lifecycle update for the tab the sink attached to.
    *

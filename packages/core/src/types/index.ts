@@ -37,12 +37,17 @@ export type {
   ExtensionWorkspaceKind,
   ExtensionWorkspaceSource,
 } from './extension-workspace';
-// ── DevTools HAR-source wire ───────────────────────────────────────
 export type {
   HarSourceMessage,
   InspectorHarBody,
   InspectorHarEntry,
   InspectorNavTiming,
+} from './har-source';
+// ── DevTools HAR-source wire ───────────────────────────────────────
+export {
+  HAR_SOURCE_PORT_PREFIX,
+  harSourcePortName,
+  parseHarSourcePortName,
 } from './har-source';
 // ── Identity (universal schema; synthetic in Mode 1 / Mode 2 localhost) ─
 export type {

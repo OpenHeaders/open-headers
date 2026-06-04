@@ -19,25 +19,15 @@
  * Cross-browser: uses `getBrowserAPI()` for Firefox/Chrome/Safari/Edge.
  */
 
+import { type HarSourceMessage, parseHarSourcePortName } from '@openheaders/core/types';
 import type {
   HarEvent,
   HarEventSource,
   HarPresenceEvent,
   HarPresenceSource,
 } from '@openheaders/oracle/correlator-heuristic';
-import type { HarSourceMessage } from '@openheaders/core/types';
-
-import { getBrowserAPI } from '@/types/browser';
 import { logger } from '@utils/logger';
-
-const HAR_SOURCE_PREFIX = 'devtools-har-source:';
-
-function parseTabId(portName: string): number | null {
-  if (!portName.startsWith(HAR_SOURCE_PREFIX)) return null;
-  const parsed = Number.parseInt(portName.slice(HAR_SOURCE_PREFIX.length), 10);
-  if (!Number.isFinite(parsed) || parsed < 0) return null;
-  return parsed;
-}
+import { getBrowserAPI } from '@/types/browser';
 
 type HarListener = (event: HarEvent) => void;
 type PresenceListener = (event: HarPresenceEvent) => void;
@@ -46,7 +36,6 @@ export class ChromeHarEventSource implements HarEventSource, HarPresenceSource {
   private readonly harListeners = new Set<HarListener>();
   private readonly presenceListeners = new Set<PresenceListener>();
   private readonly removeOnConnect: (() => void) | null;
-  private installed = false;
 
   constructor() {
     this.removeOnConnect = this.installOnConnect();
@@ -71,7 +60,6 @@ export class ChromeHarEventSource implements HarEventSource, HarPresenceSource {
     if (this.removeOnConnect) this.removeOnConnect();
     this.harListeners.clear();
     this.presenceListeners.clear();
-    this.installed = false;
   }
 
   private installOnConnect(): (() => void) | null {
@@ -82,12 +70,11 @@ export class ChromeHarEventSource implements HarEventSource, HarPresenceSource {
       return null;
     }
     const listener = (port: chrome.runtime.Port): void => {
-      const tabId = parseTabId(port.name);
+      const tabId = parseHarSourcePortName(port.name);
       if (tabId === null) return;
       this.acceptPort(tabId, port);
     };
     onConnect.addListener(listener);
-    this.installed = true;
     return () => onConnect.removeListener(listener);
   }
 

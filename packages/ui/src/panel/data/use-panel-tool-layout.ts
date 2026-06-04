@@ -25,8 +25,15 @@ export type PanelToolLayoutApi = DockLayoutApi<PanelToolWindowId>;
  * panel surface). Inspector tab ids are panel-local strings tied to
  * captured network requests, not workspace-scoped entity uids, so the
  * v2.1 cross-workspace carve-out doesn't apply here.
+ *
+ * `sessionToken` stamps which DevTools session opened these tabs. Open
+ * editor tabs are bound to a session's captured requests, so they are
+ * restored only when the live token still matches; a reopen (new token)
+ * starts with an empty editor. Absent on a fresh factory session.
  */
-export type PersistedInspectorTabSession = PersistedTabSession<InspectorTab>;
+export interface PersistedInspectorTabSession extends PersistedTabSession<InspectorTab> {
+  sessionToken?: string;
+}
 
 export interface PanelViewState {
   dockLayout: ToolLayoutState<PanelToolWindowId>;

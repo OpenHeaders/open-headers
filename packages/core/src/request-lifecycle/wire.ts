@@ -22,12 +22,20 @@
  * keeps a panel's view stable across reconnects, panel remounts, and SW
  * restarts without the consumer having to carry the floor itself;
  * `clear-session` starts a fresh floor.
+ *
+ * The `ready` envelope also carries the current `sessionToken` — the
+ * per-DevTools-session identity the engine resolves for the tab (minted by
+ * the devtools_page, advanced on a genuine reopen). Consumers gate
+ * session-scoped UI (e.g. the panel's open editor tabs) on it: state stamped
+ * with a matching token survives an in-session reconnect/remount; a changed
+ * token means a new DevTools session, so that state is dropped. Absent until
+ * the engine has seen the session message for the tab.
  */
 
 import type { RequestLifecycleUpdate } from './types';
 
 export type LifecycleWireMessage =
-  | { kind: 'ready'; tabId: number; watermarkMs: number }
+  | { kind: 'ready'; tabId: number; watermarkMs: number; sessionToken?: string }
   | { kind: 'lifecycle-update'; update: RequestLifecycleUpdate }
   | { kind: 'tab-cleared'; tabId: number };
 

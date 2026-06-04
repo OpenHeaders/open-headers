@@ -123,18 +123,56 @@ export interface UseInspectorEditorGroupsApi {
 
 export interface UseInspectorEditorGroupsArgs {
   perTab: EditingScopeViewStateApi<PanelViewState>;
+  /**
+   * Live DevTools-session token (from the lifecycle `ready` envelope), or
+   * `null` until it arrives. Open editor tabs are restored from the persisted
+   * snapshot only when its stamped token matches this one — a reopen
+   * (new token) starts with an empty editor.
+   */
+  liveSessionToken: string | null;
 }
 
-export function useInspectorEditorGroups({ perTab }: UseInspectorEditorGroupsArgs): UseInspectorEditorGroupsApi {
+export function useInspectorEditorGroups({
+  perTab,
+  liveSessionToken,
+}: UseInspectorEditorGroupsArgs): UseInspectorEditorGroupsApi {
+  // Start empty: the persisted tabs are restored one-shot, gated on the live
+  // session token, once it arrives (see the restore effect below).
   const initialEditorTabsRef = useRef(perTab.initial.editorTabs);
-  const [state, setState] = useState<EditorGroupsState>(() => stateFromTabSession(initialEditorTabsRef.current));
+  const [state, setState] = useState<EditorGroupsState>(initialState);
   const [recentlyClosed, setRecentlyClosed] = useState<ClosedTab[]>([]);
+
+  const liveSessionTokenRef = useRef(liveSessionToken);
+  liveSessionTokenRef.current = liveSessionToken;
 
   const onPersist = perTab.onPersist;
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // First effect run reads the resolved snapshot — skip the persist
   // write-back so we don't echo it back to host storage on mount.
   const skipNextPersistRef = useRef<boolean>(true);
+
+  // One-shot token-gated restore: editor tabs survive an in-session reload
+  // (same token) but not a DevTools reopen (changed token). Runs once, when
+  // the live token first arrives.
+  const restoredRef = useRef(false);
+  useEffect(() => {
+    if (restoredRef.current || liveSessionToken == null) return;
+    restoredRef.current = true;
+    const persisted = initialEditorTabsRef.current;
+    if (persisted.sessionToken === liveSessionToken && persisted.tabs.length > 0) {
+      // Same DevTools session → restore the persisted tabs. Don't echo the
+      // resolved snapshot straight back to storage.
+      skipNextPersistRef.current = true;
+      setState(stateFromTabSession(persisted));
+    } else if (persisted.tabs.length > 0) {
+      // A different (or absent) token → these tabs belong to a prior DevTools
+      // session; drop them so the reopened session starts with an empty editor.
+      onPersist((prev) => ({
+        ...prev,
+        editorTabs: { tabs: [], activeTabId: null, sessionToken: liveSessionToken },
+      }));
+    }
+  }, [liveSessionToken, onPersist]);
 
   useEffect(() => {
     if (skipNextPersistRef.current) {
@@ -146,6 +184,7 @@ export function useInspectorEditorGroups({ perTab }: UseInspectorEditorGroupsArg
       const projection: PersistedInspectorTabSession = {
         tabs: treeAllTabs(state.root),
         activeTabId: findLeaf(state.root, state.focusedLeafId)?.activeTabId ?? null,
+        sessionToken: liveSessionTokenRef.current ?? undefined,
       };
       onPersist((prev) => ({ ...prev, editorTabs: projection }));
     }, SESSION_DEBOUNCE_MS);

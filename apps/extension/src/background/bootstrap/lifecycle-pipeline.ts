@@ -3,6 +3,7 @@ import { RequestLifecycleHub } from '@openheaders/oracle/request-lifecycle-hub';
 import { RuleFireHub } from '@openheaders/oracle/rule-fire-hub';
 import { TabLifecycleBus } from '@openheaders/oracle/tab-lifecycle-bus';
 import { startLifecycleHost } from '../correlator-host';
+import { startDevtoolsSessionCoordinator } from '../devtools-session-coordinator';
 import { createPersistentWatchSessionFloors, startLifecyclePortHost } from '../lifecycle-port-host';
 import { setupOnRuleMatchedDebugBridge } from '../modules/on-rule-matched-debug';
 import { startTabTelemetryFiresBridge } from '../modules/tab-telemetry-fires-bridge';
@@ -40,7 +41,12 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   // Memory-cache rows: renderer cache hits never reach `webRequest`/HAR,
   // so they ride a separate Resource Timing snapshot feed reconciled
   // panel-local (`oh-rt:<tabId>`).
-  startResourceTimingRelay({ bus: tabLifecycleBus });
+  const resourceTimingHost = startResourceTimingRelay({ bus: tabLifecycleBus });
+
+  // Per-DevTools-session reset: a genuine reopen advances the lifecycle
+  // floor and drops the prior session's cached Resource Timing groups, so
+  // close/reopen in the same browser tab starts a clean log (Chrome parity).
+  startDevtoolsSessionCoordinator({ hub: lifecycleHub, relay: resourceTimingHost.relay });
 
   const ruleFireHub = new RuleFireHub({ bus: tabLifecycleBus });
   startRuleFirePortHost({ hub: ruleFireHub });

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { RequestLifecycleHub } from '../../src/request-lifecycle-hub/hub';
 import type { Sink } from '../../src/request-lifecycle-hub/types';
+import { InMemoryWatchSessionFloors } from '../../src/request-lifecycle-hub/watch-session-floors';
 import { RequestLifecycleStore } from '../../src/request-lifecycle-store/store';
 import { TabLifecycleBus } from '../../src/tab-lifecycle-bus/bus';
 import { makeLifecycle } from '../request-lifecycle-store/factories';
@@ -10,6 +11,7 @@ import { makeLifecycle } from '../request-lifecycle-store/factories';
 interface RecordingSink extends Sink {
   ready: number[];
   watermarks: number[];
+  tokens: Array<string | undefined>;
   updates: RequestLifecycleUpdate[];
   cleared: number[];
   closed: number;
@@ -19,12 +21,14 @@ function recordingSink(): RecordingSink {
   const sink: RecordingSink = {
     ready: [],
     watermarks: [],
+    tokens: [],
     updates: [],
     cleared: [],
     closed: 0,
-    deliverReady(tabId, watermarkMs) {
+    deliverReady(tabId, watermarkMs, sessionToken) {
       sink.ready.push(tabId);
       sink.watermarks.push(watermarkMs);
+      sink.tokens.push(sessionToken);
     },
     deliverUpdate(update) {
       sink.updates.push(update);
@@ -159,6 +163,78 @@ describe('RequestLifecycleHub — watch session', () => {
     const reused = recordingSink();
     hub.attach(1, reused);
     expect(requestIds(reused)).toEqual([]);
+  });
+});
+
+describe('RequestLifecycleHub — DevTools session token', () => {
+  const requestIds = (sink: RecordingSink): string[] =>
+    sink.updates.map((u) => (u.kind === 'started' ? u.lifecycle.requestId : ''));
+
+  it('a new token advances the floor, clears live sinks, and returns true', () => {
+    const store = new RequestLifecycleStore();
+    const hub = new RequestLifecycleHub({ store });
+    const sink = recordingSink();
+    hub.attach(1, sink);
+
+    // A request observed before the session opens.
+    store.apply({ kind: 'started', lifecycle: makeLifecycle({ tabId: 1, requestId: 'pre', startedAtMs: 1000 }) });
+    sink.updates.length = 0;
+
+    // DevTools opens at t=2000 → a new token advances the floor there.
+    expect(hub.startSession(1, 'tok-1', 2000)).toBe(true);
+    expect(sink.cleared).toEqual([1]);
+
+    // A fresh attach floors at 2000, so the pre-open request does not replay.
+    const after = recordingSink();
+    hub.attach(1, after);
+    expect(requestIds(after)).toEqual([]);
+    expect(after.tokens).toEqual(['tok-1']);
+  });
+
+  it('the same token is a no-op (floor unchanged) and returns false', () => {
+    const store = new RequestLifecycleStore();
+    const hub = new RequestLifecycleHub({ store });
+    expect(hub.startSession(1, 'tok-1', 2000)).toBe(true);
+
+    // A request starts during the session, above the floor.
+    store.apply({ kind: 'started', lifecycle: makeLifecycle({ tabId: 1, requestId: 'inflight', startedAtMs: 3000 }) });
+
+    const sink = recordingSink();
+    hub.attach(1, sink);
+    sink.cleared.length = 0;
+
+    // The same token replays (an SW-eviction reconnect) → no floor advance,
+    // no clear, even with a later openedAtWallMs.
+    expect(hub.startSession(1, 'tok-1', 9999)).toBe(false);
+    expect(sink.cleared).toEqual([]);
+
+    // The in-flight request still replays on a later attach.
+    const after = recordingSink();
+    hub.attach(1, after);
+    expect(requestIds(after)).toEqual(['inflight']);
+  });
+
+  it('token identity persists across a simulated SW reconnect (shared floors)', () => {
+    const floors = new InMemoryWatchSessionFloors();
+    const store = new RequestLifecycleStore();
+    const hub = new RequestLifecycleHub({ store, sessionFloors: floors });
+    expect(hub.startSession(1, 'tok-1', 2000)).toBe(true);
+
+    // A cold SW re-mints the hub but shares the persisted floors; the same
+    // token is recognized as the live session.
+    const hub2 = new RequestLifecycleHub({ store, sessionFloors: floors });
+    expect(hub2.startSession(1, 'tok-1', 5000)).toBe(false);
+
+    const sink = recordingSink();
+    hub2.attach(1, sink);
+    expect(sink.tokens).toEqual(['tok-1']);
+  });
+
+  it('reports undefined token before any session message', () => {
+    const hub = new RequestLifecycleHub({ store: new RequestLifecycleStore() });
+    const sink = recordingSink();
+    hub.attach(3, sink);
+    expect(sink.tokens).toEqual([undefined]);
   });
 });
 

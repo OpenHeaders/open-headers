@@ -36,7 +36,7 @@ import {
   type LifecycleWireMessage,
   lifecyclePortName,
 } from '@openheaders/core/request-lifecycle';
-import { useCallback, useRef, useSyncExternalStore } from 'react';
+import { useCallback, useRef, useState, useSyncExternalStore } from 'react';
 
 import { type LifecycleClientSnapshot, LifecycleClientStore } from './lifecycle-client-store';
 import { useLifelineClient } from './use-lifeline-client';
@@ -46,6 +46,14 @@ export interface UseLifecycleClientResult {
   readonly tabId: number | null;
   /** Underlying store — surfaced so `usePanelUiState` can clear it. */
   readonly store: LifecycleClientStore;
+  /**
+   * Current DevTools-session token reported on the `ready` envelope, or
+   * `null` until the engine has seen the session message. Session-scoped
+   * panel state (open editor tabs) gates restoration on it: a matching token
+   * survives an in-session reconnect/remount; a changed token means a new
+   * DevTools session, so that state is dropped.
+   */
+  readonly sessionToken: string | null;
   /**
    * Clear the panel's view: drop the local mirror AND advance the
    * engine-owned session floor so the reset survives a reconnect. Register
@@ -58,6 +66,7 @@ export function useLifecycleClient(): UseLifecycleClientResult {
   const storeRef = useRef<LifecycleClientStore | null>(null);
   if (!storeRef.current) storeRef.current = new LifecycleClientStore();
   const store = storeRef.current;
+  const [sessionToken, setSessionToken] = useState<string | null>(null);
 
   // The session floor is engine-owned, so the panel never carries it: a
   // bare `subscribe` means "my watch session" and the engine resolves the
@@ -71,6 +80,10 @@ export function useLifecycleClient(): UseLifecycleClientResult {
           // Every `ready` precedes a fresh replay; drop accumulated state
           // so the replay is the canonical view.
           store.clear();
+          // Adopt the session token (absent until the engine has seen the
+          // session message); a reconnect within the same session re-reports
+          // the same value, so this is a no-op then.
+          if (msg.sessionToken != null) setSessionToken(msg.sessionToken);
           break;
         case 'lifecycle-update':
           store.apply(msg.update);
@@ -97,5 +110,5 @@ export function useLifecycleClient(): UseLifecycleClientResult {
 
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot);
 
-  return { snapshot, tabId, store, clearSession };
+  return { snapshot, tabId, store, sessionToken, clearSession };
 }

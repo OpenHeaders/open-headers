@@ -245,7 +245,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   // signal than the denormalized rows the legacy hook took.
   useParityDebugHook(lifecycleClient.snapshot.ordered, ui.clear);
 
-  const groups = useInspectorEditorGroups({ perTab });
+  const groups = useInspectorEditorGroups({ perTab, liveSessionToken: lifecycleClient.sessionToken });
   const tl = usePanelToolLayout(perTab);
   // Make `openDocs(sectionId)` from anywhere in the panel tree open the
   // docs tool-window. Effect runs on every `tl` identity change so the

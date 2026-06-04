@@ -87,7 +87,7 @@ describe('createPortSink', () => {
   it('posts ready and lifecycle-update envelopes', () => {
     const port = fakePort('oh-lifecycle:1');
     const sink = createPortSink(port as unknown as chrome.runtime.Port);
-    sink.deliverReady(1, 1234);
+    sink.deliverReady(1, 1234, 'tok-1');
     sink.deliverUpdate({
       kind: 'started',
       lifecycle: {
@@ -106,9 +106,16 @@ describe('createPortSink', () => {
       },
     });
     expect(port.posted).toEqual([
-      { kind: 'ready', tabId: 1, watermarkMs: 1234 },
+      { kind: 'ready', tabId: 1, watermarkMs: 1234, sessionToken: 'tok-1' },
       expect.objectContaining({ kind: 'lifecycle-update' }),
     ]);
+  });
+
+  it('passes an undefined session token through on ready', () => {
+    const port = fakePort('oh-lifecycle:1');
+    const sink = createPortSink(port as unknown as chrome.runtime.Port);
+    sink.deliverReady(1, 7, undefined);
+    expect(port.posted).toEqual([{ kind: 'ready', tabId: 1, watermarkMs: 7 }]);
   });
 
   it('posts tab-cleared envelope on deliverTabCleared', () => {
@@ -123,7 +130,7 @@ describe('createPortSink', () => {
       throw new Error('port dead');
     });
     const sink = createPortSink(port as unknown as chrome.runtime.Port);
-    expect(() => sink.deliverReady(1, -1)).not.toThrow();
+    expect(() => sink.deliverReady(1, -1, undefined)).not.toThrow();
   });
 
   it('close() disconnects the underlying port and swallows errors', () => {

@@ -143,13 +143,23 @@ export interface InspectorNavTiming {
 
 /**
  * Wire format from the devtools_page HAR source port (`devtools-har-source:<tabId>`).
- * Two adapters cohabit on this port, each consuming a disjoint subset:
+ * Several adapters cohabit on this port, each consuming a disjoint subset:
  *   - `ChromeHarEventSource` reads `har` / `har-body` → oracle correlator;
- *   - `startDevtoolsPageNavBridge` reads `nav` / `nav-timing` → page stream hub.
+ *   - `startDevtoolsPageNavBridge` reads `nav` / `nav-timing` → page stream hub;
+ *   - `ResourceTimingRelay` reads `resource-timing` → memory-cache rows;
+ *   - `DevtoolsSessionCoordinator` reads `session` → per-DevTools-session reset.
  *
  * `har-body` carries its payload flat (not under a nested `body` key)
  * because the devtools_page posts the fields inline — history kept to
  * avoid churning that contract.
+ *
+ * `session` is the per-DevTools-session spine: the devtools_page mints one
+ * token per DevTools-open and posts it as the first frame on every
+ * (re)connect of this port. A genuine reopen mints a new token; an
+ * SW-eviction reconnect replays the same one. `openedAtWallMs` is the
+ * wall-clock (`Date.now()`) DevTools opened — the floor everything
+ * session-scoped resets to, so the reopened log starts at the open moment
+ * regardless of what `webRequest` captured while DevTools was closed.
  */
 export type HarSourceMessage =
   | { type: 'har'; entry: InspectorHarEntry }
@@ -163,4 +173,21 @@ export type HarSourceMessage =
     }
   | { type: 'nav'; url: string }
   | { type: 'nav-timing'; timing: InspectorNavTiming }
-  | { type: 'resource-timing'; timeOriginMs: number; entries: ResourceTimingEntry[] };
+  | { type: 'resource-timing'; timeOriginMs: number; entries: ResourceTimingEntry[] }
+  | { type: 'session'; token: string; openedAtWallMs: number };
+
+/** Channel-name prefix for the devtools_page HAR source port. */
+export const HAR_SOURCE_PORT_PREFIX = 'devtools-har-source:';
+
+/** Build `devtools-har-source:<tabId>`. */
+export function harSourcePortName(tabId: number): string {
+  return `${HAR_SOURCE_PORT_PREFIX}${tabId}`;
+}
+
+/** Parse `devtools-har-source:<tabId>`. Returns `null` for any other shape. */
+export function parseHarSourcePortName(name: string): number | null {
+  if (!name.startsWith(HAR_SOURCE_PORT_PREFIX)) return null;
+  const parsed = Number.parseInt(name.slice(HAR_SOURCE_PORT_PREFIX.length), 10);
+  if (!Number.isFinite(parsed) || parsed < 0) return null;
+  return parsed;
+}

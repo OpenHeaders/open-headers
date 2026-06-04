@@ -14,12 +14,23 @@
  * `ready` resolves once hydration is done; the port host awaits it before
  * the first attach so a reconnect resolves the persisted floor rather than
  * minting a fresh one. Writes are infrequent (a tab's floor is established
- * once, reset on Clear, dropped on tab close), so they go straight through.
+ * once, advanced per DevTools session, reset on Clear, dropped on tab
+ * close), so they go straight through.
+ *
+ * Each entry persists the floor AND its DevTools-session token, so an
+ * SW-eviction reconnect that replays the same token recognizes the live
+ * session (`startSession` → no-op) instead of advancing the floor and
+ * dropping the in-flight log.
  */
 
 import type { WatchSessionFloors } from '@openheaders/oracle/request-lifecycle-hub';
 
 const STORAGE_KEY = 'oh.watchSessionFloors';
+
+interface StoredFloor {
+  readonly floor: number;
+  readonly token?: string;
+}
 
 export interface PersistentWatchSessionFloors extends WatchSessionFloors {
   /** Resolves once the in-memory cache has hydrated from storage. */
@@ -30,8 +41,17 @@ function sessionArea(): chrome.storage.StorageArea | null {
   return chrome?.storage?.session ?? null;
 }
 
+function isStoredFloor(value: unknown): value is StoredFloor {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as StoredFloor).floor === 'number' &&
+    ((value as StoredFloor).token === undefined || typeof (value as StoredFloor).token === 'string')
+  );
+}
+
 export function createPersistentWatchSessionFloors(): PersistentWatchSessionFloors {
-  const floors = new Map<number, number>();
+  const floors = new Map<number, StoredFloor>();
 
   const ready = (async () => {
     const area = sessionArea();
@@ -42,9 +62,9 @@ export function createPersistentWatchSessionFloors(): PersistentWatchSessionFloo
       if (raw && typeof raw === 'object') {
         for (const [key, value] of Object.entries(raw)) {
           const tabId = Number(key);
-          // A floor set after startup (resolve/reset before hydration
+          // An entry set after startup (resolve/start/reset before hydration
           // finished) wins over the persisted snapshot — don't clobber it.
-          if (Number.isFinite(tabId) && typeof value === 'number' && !floors.has(tabId)) {
+          if (Number.isFinite(tabId) && isStoredFloor(value) && !floors.has(tabId)) {
             floors.set(tabId, value);
           }
         }
@@ -57,8 +77,8 @@ export function createPersistentWatchSessionFloors(): PersistentWatchSessionFloo
   const persist = (): void => {
     const area = sessionArea();
     if (!area) return;
-    const obj: Record<string, number> = {};
-    for (const [tabId, floor] of floors) obj[tabId] = floor;
+    const obj: Record<string, StoredFloor> = {};
+    for (const [tabId, entry] of floors) obj[tabId] = entry;
     void area.set({ [STORAGE_KEY]: obj }).catch(() => {});
   };
 
@@ -66,13 +86,23 @@ export function createPersistentWatchSessionFloors(): PersistentWatchSessionFloo
     ready,
     resolveFloor(tabId, establishAtMs) {
       const existing = floors.get(tabId);
-      if (existing !== undefined) return existing;
-      floors.set(tabId, establishAtMs);
+      if (existing !== undefined) return existing.floor;
+      floors.set(tabId, { floor: establishAtMs });
       persist();
       return establishAtMs;
     },
+    startSession(tabId, token, floorMs) {
+      const existing = floors.get(tabId);
+      if (existing?.token === token) return false;
+      floors.set(tabId, { floor: floorMs, token });
+      persist();
+      return true;
+    },
+    sessionToken(tabId) {
+      return floors.get(tabId)?.token;
+    },
     reset(tabId, floorMs) {
-      floors.set(tabId, floorMs);
+      floors.set(tabId, { floor: floorMs, token: floors.get(tabId)?.token });
       persist();
     },
     forget(tabId) {

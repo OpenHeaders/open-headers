@@ -37,6 +37,7 @@
  * Must stay small: this file runs every time DevTools opens on any tab.
  */
 
+import { harSourcePortName } from '@openheaders/core/types';
 import { POLL_MAX_MS, rampedDelayMs } from './poll-cadence';
 import { createResourceTimingSampler } from './resource-timing-sampler';
 
@@ -74,17 +75,32 @@ const tabId = chrome.devtools.inspectedWindow.tabId;
 // requests since DevTools opened).
 const openedAtWallMs = Date.now();
 
+// Per-DevTools-session token, minted once per DevTools-open. It lives on
+// the devtools_page (which is NOT evicted with the SW), so it survives SW
+// eviction and changes only on a genuine reopen. Sent as the first frame on
+// every (re)connect so the background relearns it after a cold start; the
+// engine resets per-session state only when the token actually changes.
+const sessionToken = crypto.randomUUID();
+
 let port: chrome.runtime.Port | null = null;
 
 function ensurePort(): chrome.runtime.Port {
   if (port) return port;
-  const next = chrome.runtime.connect({ name: `devtools-har-source:${tabId}` });
+  const next = chrome.runtime.connect({ name: harSourcePortName(tabId) });
   next.onDisconnect.addListener(() => {
     // Typically this fires when the background SW is evicted. The
     // next forward call will lazy-reconnect.
     if (port === next) port = null;
   });
   port = next;
+  // Announce the DevTools session as the first frame on every (re)connect,
+  // ahead of any har/nav/rt frames, so the background floors at the right
+  // session before ingesting anything.
+  try {
+    next.postMessage({ type: 'session', token: sessionToken, openedAtWallMs });
+  } catch {
+    port = null;
+  }
   return next;
 }
 
@@ -96,6 +112,16 @@ function postToBackground(msg: unknown): void {
     // forward starts a fresh connection.
     port = null;
   }
+}
+
+// Open the port eagerly at DevTools-open so the `session` frame lands
+// before the user opens the panel — `ensurePort` posts it on connect. Guard
+// the connect itself (it can throw "Extension context invalidated" if the
+// page outlives an extension reload); the next forward will lazy-reconnect.
+try {
+  ensurePort();
+} catch {
+  port = null;
 }
 
 const resourceTimingSampler = createResourceTimingSampler({

@@ -83,12 +83,31 @@ export class RequestLifecycleHub {
   attach(tabId: number, sink: Sink): AttachmentHandle {
     const watermarkMs = this.store.tabWatermark(tabId);
     const sinceMs = this.sessionFloors.resolveFloor(tabId, watermarkMs);
+    const sessionToken = this.sessionFloors.sessionToken(tabId);
     return this.registry.attach(tabId, sink, (s) => {
-      s.deliverReady(tabId, watermarkMs);
+      s.deliverReady(tabId, watermarkMs, sessionToken);
       for (const update of snapshotToUpdates(this.store.snapshotTab(tabId, { sinceMs }))) {
         s.deliverUpdate(update);
       }
     });
+  }
+
+  /**
+   * Begin (or continue) the DevTools session for the tab, identified by
+   * `token`. A genuine reopen mints a new token → the floor advances to
+   * `openedAtWallMs` (the DevTools-open moment) so the reopened log starts
+   * clean, live sinks are told to clear, and this returns `true`. An
+   * SW-eviction reconnect replays the same token → no-op, returns `false`.
+   *
+   * The floor anchors at `openedAtWallMs` rather than the current watermark
+   * so a request that started after DevTools opened but before this message
+   * was processed is still kept (`startedAtMs` is wall-clock epoch ms, the
+   * same scale as `openedAtWallMs`).
+   */
+  startSession(tabId: number, token: string, openedAtWallMs: number): boolean {
+    const advanced = this.sessionFloors.startSession(tabId, token, openedAtWallMs);
+    if (advanced) this.registry.broadcastTabCleared(tabId);
+    return advanced;
   }
 
   /**

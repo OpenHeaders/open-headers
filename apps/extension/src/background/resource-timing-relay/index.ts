@@ -13,25 +13,23 @@
  */
 
 import { parseResourceTimingPortName } from '@openheaders/core/resource-timing';
-import type { HarSourceMessage } from '@openheaders/core/types';
+import { type HarSourceMessage, parseHarSourcePortName } from '@openheaders/core/types';
 import type { TabLifecycleBus } from '@openheaders/oracle/tab-lifecycle-bus';
 import { logger } from '@utils/logger';
 import { getBrowserAPI } from '@/types/browser';
+import type { ResourceTimingRelay } from './relay';
 import { createResourceTimingRelay } from './relay';
 
 export type { ResourceTimingRelay, ResourceTimingRelayOptions } from './relay';
 export { createResourceTimingRelay } from './relay';
 
-const HAR_SOURCE_PREFIX = 'devtools-har-source:';
-
-function parseHarSourceTabId(portName: string): number | null {
-  if (!portName.startsWith(HAR_SOURCE_PREFIX)) return null;
-  const parsed = Number.parseInt(portName.slice(HAR_SOURCE_PREFIX.length), 10);
-  if (!Number.isFinite(parsed) || parsed < 0) return null;
-  return parsed;
-}
-
 export interface ResourceTimingRelayHost {
+  /**
+   * The underlying relay — exposed so a sibling adapter (the DevTools
+   * session coordinator) can drop a tab's cached groups when a genuine
+   * DevTools reopen starts a fresh session.
+   */
+  readonly relay: ResourceTimingRelay;
   /** Detach the onConnect listener + dispose the relay. Tests / SW shutdown. */
   dispose(): void;
 }
@@ -45,7 +43,7 @@ export function startResourceTimingRelay(options: ResourceTimingRelayHostOptions
   const onConnect = getBrowserAPI().runtime?.onConnect;
   if (!onConnect?.addListener) {
     logger.info('ResourceTimingRelay', 'runtime.onConnect unavailable — resource-timing feed disabled');
-    return { dispose: () => relay.dispose() };
+    return { relay, dispose: () => relay.dispose() };
   }
 
   const listener = (port: chrome.runtime.Port): void => {
@@ -62,7 +60,7 @@ export function startResourceTimingRelay(options: ResourceTimingRelayHostOptions
       return;
     }
 
-    const sourceTabId = parseHarSourceTabId(port.name);
+    const sourceTabId = parseHarSourcePortName(port.name);
     if (sourceTabId === null) return;
     port.onMessage.addListener((msg: HarSourceMessage) => {
       if (msg?.type === 'resource-timing' && typeof msg.timeOriginMs === 'number' && Array.isArray(msg.entries)) {
@@ -73,6 +71,7 @@ export function startResourceTimingRelay(options: ResourceTimingRelayHostOptions
 
   onConnect.addListener(listener);
   return {
+    relay,
     dispose: () => {
       try {
         onConnect.removeListener(listener);

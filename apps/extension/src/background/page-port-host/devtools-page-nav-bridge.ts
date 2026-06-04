@@ -16,20 +16,10 @@
  * adapters, one port — keeps each module's concerns narrow.
  */
 
-import type { HarSourceMessage } from '@openheaders/core/types';
+import { type HarSourceMessage, parseHarSourcePortName } from '@openheaders/core/types';
 import type { PageStreamHub } from '@openheaders/oracle/page-stream-hub';
-
-import { getBrowserAPI } from '@/types/browser';
 import { logger } from '@utils/logger';
-
-const HAR_SOURCE_PREFIX = 'devtools-har-source:';
-
-function parseTabId(portName: string): number | null {
-  if (!portName.startsWith(HAR_SOURCE_PREFIX)) return null;
-  const parsed = Number.parseInt(portName.slice(HAR_SOURCE_PREFIX.length), 10);
-  if (!Number.isFinite(parsed) || parsed < 0) return null;
-  return parsed;
-}
+import { getBrowserAPI } from '@/types/browser';
 
 export interface DevtoolsPageNavBridge {
   /** Detach the chrome listener. Tests / SW shutdown only. */
@@ -50,7 +40,7 @@ export function startDevtoolsPageNavBridge(options: DevtoolsPageNavBridgeOptions
     return { dispose: () => {} };
   }
   const listener = (port: chrome.runtime.Port): void => {
-    const tabId = parseTabId(port.name);
+    const tabId = parseHarSourcePortName(port.name);
     if (tabId === null) return;
     port.onMessage.addListener((msg: HarSourceMessage) => {
       if (!msg) return;
