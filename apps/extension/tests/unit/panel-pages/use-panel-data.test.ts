@@ -479,6 +479,79 @@ describe('usePanelData', () => {
     expect(result.current.rows.map((r) => r.lifecycle.url)).not.toContain('https://github.com/bundle.js');
   });
 
+  it('manual Clear floor drops a cleared request’s still-cached RT entry instead of resurfacing it', () => {
+    // A request fetched over the wire (RT entry at wall-clock 1000+1000=2000),
+    // deduped against its real row pre-Clear. After Clear at t=3000 the real
+    // rows are gone (engine-floored) — its RT entry must NOT become a
+    // `(memory cache)` row.
+    const rt = {
+      groups: [
+        {
+          timeOriginMs: 1000,
+          entries: [
+            {
+              name: 'https://openheaders.io/api/ticker',
+              initiatorType: 'fetch',
+              nextHopProtocol: 'h2',
+              startTime: 1000,
+              duration: 50,
+              transferSize: 0,
+              encodedBodySize: 0,
+              decodedBodySize: 2000,
+              deliveryType: 'cache',
+            },
+          ],
+        },
+      ],
+    };
+
+    // Bug repro: real rows cleared, no Clear floor → the cached entry resurfaces.
+    const bug = renderHook(() => usePanelData({ ...snapshots([]), resourceTiming: rt }));
+    expect(bug.result.current.rows.map((r) => r.lifecycle.url)).toContain('https://openheaders.io/api/ticker');
+
+    // Fix: a manual Clear floor past the entry drops it — empty view.
+    const fixed = renderHook(() => usePanelData({ ...snapshots([]), resourceTiming: rt, clearFloorMs: 3000 }));
+    expect(fixed.result.current.rows).toHaveLength(0);
+  });
+
+  it('manual Clear floor keeps memory-cache hits that occur after the Clear', () => {
+    const rt = {
+      groups: [
+        {
+          timeOriginMs: 1000,
+          entries: [
+            // wall-clock 2000 — before the Clear → dropped.
+            {
+              name: 'https://openheaders.io/pre.svg',
+              initiatorType: 'img',
+              nextHopProtocol: '',
+              startTime: 1000,
+              duration: 0,
+              transferSize: 0,
+              encodedBodySize: 0,
+              decodedBodySize: 100,
+              deliveryType: 'cache',
+            },
+            // wall-clock 6000 — after the Clear → kept.
+            {
+              name: 'https://openheaders.io/post.svg',
+              initiatorType: 'img',
+              nextHopProtocol: '',
+              startTime: 5000,
+              duration: 0,
+              transferSize: 0,
+              encodedBodySize: 0,
+              decodedBodySize: 200,
+              deliveryType: 'cache',
+            },
+          ],
+        },
+      ],
+    };
+    const { result } = renderHook(() => usePanelData({ ...snapshots([]), resourceTiming: rt, clearFloorMs: 3000 }));
+    expect(result.current.rows.map((r) => r.lifecycle.url)).toEqual(['https://openheaders.io/post.svg']);
+  });
+
   it("baselineMs equals the first row's startedAtMs", () => {
     const { result } = renderHook(() =>
       usePanelData(

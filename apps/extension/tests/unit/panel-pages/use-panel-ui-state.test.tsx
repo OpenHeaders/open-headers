@@ -47,6 +47,17 @@ describe('usePanelUiState', () => {
     expect(after.clear).toHaveBeenCalledTimes(1);
   });
 
+  it('clearFloorMs starts at -1 and advances to now() on each clear', () => {
+    let t = 5000;
+    const { result } = renderHook(() => usePanelUiState({ resettables: [], now: () => t }));
+    expect(result.current.clearFloorMs).toBe(-1);
+    act(() => result.current.clear());
+    expect(result.current.clearFloorMs).toBe(5000);
+    t = 9000;
+    act(() => result.current.clear());
+    expect(result.current.clearFloorMs).toBe(9000);
+  });
+
   it('clear() identity is stable across renders even when resettables list changes', () => {
     const a = { clear: vi.fn() };
     const b = { clear: vi.fn() };

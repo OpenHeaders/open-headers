@@ -232,6 +232,10 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
     recordingWindows,
     // Renderer memory-cache hits, reconciled panel-local against real rows.
     resourceTiming: resourceTimingClient.snapshot,
+    // Manual-Clear floor for the RT feed — the panel-local analog of the
+    // engine clear floor that scopes real rows; without it, clearing the
+    // real rows resurfaces their cached entries as `(memory cache)` rows.
+    clearFloorMs: ui.clearFloorMs,
   });
 
   // Resolver passed down to detail panes — pure projection over the

@@ -45,6 +45,11 @@ export interface UsePanelUiStateOptions {
    * without causing the `clear` callback identity to churn.
    */
   readonly resettables: readonly Resettable[];
+  /**
+   * Injectable clock for the manual-clear floor; defaults to `Date.now`.
+   * Shares the engine's `startedAtMs` epoch (wall-clock ms).
+   */
+  readonly now?: () => number;
 }
 
 export interface UsePanelUiStateResult {
@@ -54,14 +59,24 @@ export interface UsePanelUiStateResult {
   setRecording(value: boolean): void;
   /** Run `clear()` on every registered resettable. */
   clear(): void;
+  /**
+   * Wall-clock ms of the last manual Clear, or `-1` if never cleared. The
+   * panel-local floor for the Resource Timing (memory-cache) feed — which
+   * has no engine floor — so synthetic rows that started before the Clear
+   * are dropped instead of resurfacing once their real rows are gone.
+   */
+  readonly clearFloorMs: number;
 }
 
 export function usePanelUiState(options: UsePanelUiStateOptions): UsePanelUiStateResult {
   const [preserveLog, setPreserveLog] = useState(options.defaultPreserveLog ?? true);
   const [recording, setRecording] = useState(options.defaultRecording ?? true);
+  const [clearFloorMs, setClearFloorMs] = useState(-1);
 
   const resettablesRef = useRef(options.resettables);
   resettablesRef.current = options.resettables;
+  const nowRef = useRef(options.now ?? Date.now);
+  nowRef.current = options.now ?? Date.now;
 
   const clear = useCallback(() => {
     for (const store of resettablesRef.current) {
@@ -71,7 +86,10 @@ export function usePanelUiState(options: UsePanelUiStateOptions): UsePanelUiStat
         /* a resettable throwing must not block siblings */
       }
     }
+    // Advance the RT clear floor so the cleared requests' still-cached
+    // Resource Timing entries don't resurface as `(memory cache)` rows.
+    setClearFloorMs(nowRef.current());
   }, []);
 
-  return { preserveLog, setPreserveLog, recording, setRecording, clear };
+  return { preserveLog, setPreserveLog, recording, setRecording, clear, clearFloorMs };
 }

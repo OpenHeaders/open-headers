@@ -20,14 +20,16 @@ import { projectPanelData, type UsePanelDataInput, type UsePanelDataResult } fro
 export type { UsePanelDataInput, UsePanelDataResult } from './panel-data-projection';
 
 export function usePanelData(input: UsePanelDataInput): UsePanelDataResult {
-  const { lifecycle, page, fire, opts, navClearFloorMs = -1, recordingWindows, resourceTiming } = input;
+  const { lifecycle, page, fire, opts, navClearFloorMs = -1, recordingWindows, resourceTiming, clearFloorMs = -1 } =
+    input;
 
   // Each client store hands out an identity-stable snapshot that changes
   // reference only on a real mutation, so memoizing on the snapshot
   // objects reruns the projection once per batched notify, not once per
   // wire frame.
   return useMemo(
-    () => projectPanelData({ lifecycle, page, fire, opts, navClearFloorMs, recordingWindows, resourceTiming }),
-    [lifecycle, page, fire, opts, navClearFloorMs, recordingWindows, resourceTiming],
+    () =>
+      projectPanelData({ lifecycle, page, fire, opts, navClearFloorMs, recordingWindows, resourceTiming, clearFloorMs }),
+    [lifecycle, page, fire, opts, navClearFloorMs, recordingWindows, resourceTiming, clearFloorMs],
   );
 }

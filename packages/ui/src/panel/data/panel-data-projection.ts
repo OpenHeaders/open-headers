@@ -83,6 +83,16 @@ export interface UsePanelDataInput {
    */
   readonly recordingWindows?: readonly RecordingWindow[];
   /**
+   * Manual-Clear floor (a wall-clock `startedAtMs` value) from
+   * `usePanelUiState`. The panel-local analog of the engine clear floor:
+   * real rows are scoped engine-side, but the Resource Timing feed has no
+   * engine, so the projection drops RT entries (and their synthetic rows)
+   * that started before the last Clear. Without it, clearing the real rows
+   * removes the dedup denominator and every still-cached request resurfaces
+   * as a `(memory cache)` row. `-1` (the default) means never cleared.
+   */
+  readonly clearFloorMs?: number;
+  /**
    * Latest Resource Timing snapshot for the inspected tab. Optional —
    * when present, renderer memory-cache hits (which never reach
    * `webRequest` / HAR) are reconciled against the real rows and the
@@ -163,7 +173,8 @@ function lifecycleDuration(lifecycle: RequestLifecycle): number {
 }
 
 export function projectPanelData(input: UsePanelDataInput): UsePanelDataResult {
-  const { lifecycle, page, fire, opts, navClearFloorMs = -1, recordingWindows, resourceTiming } = input;
+  const { lifecycle, page, fire, opts, navClearFloorMs = -1, recordingWindows, resourceTiming, clearFloorMs = -1 } =
+    input;
 
   const lifecycles = lifecycle.ordered;
   const pages = page.pages;
@@ -173,9 +184,16 @@ export function projectPanelData(input: UsePanelDataInput): UsePanelDataResult {
   // Memory-cache synthesis. The RT buffer is per-document, so the store
   // keeps one group per navigation; each group dedups against the real
   // rows of its own navigation window — `[thisOrigin, nextOrigin)` on
-  // the wall clock. Groups below the clear floor are dropped from the
-  // view (older navigations the floor has scoped out).
+  // the wall clock. Groups below the nav floor are dropped from the view
+  // (older navigations the floor has scoped out).
+  //
+  // The RT clear floor is the stronger of the nav floor (Preserve-log
+  // boundary, whole-navigation) and the manual Clear floor (button, mid-
+  // navigation). Entries are filtered by it BEFORE synthesis so the dedup
+  // denominator stays consistent: dropping the real rows on Clear must not
+  // turn their still-cached RT entries into surplus `(memory cache)` rows.
   const tabId = lifecycles[0]?.tabId ?? 0;
+  const rtFloorMs = Math.max(navClearFloorMs, clearFloorMs);
   const sortedGroups = rtGroups ? [...rtGroups].sort((a, b) => a.timeOriginMs - b.timeOriginMs) : [];
   const activeGroups =
     navClearFloorMs < 0 ? sortedGroups : sortedGroups.filter((g) => g.timeOriginMs >= navClearFloorMs);
@@ -188,9 +206,12 @@ export function projectPanelData(input: UsePanelDataInput): UsePanelDataResult {
     const nextOrigin =
       groupIdx + 1 < sortedGroups.length ? sortedGroups[groupIdx + 1].timeOriginMs : Number.POSITIVE_INFINITY;
     const reals = lifecycles.filter((lc) => lc.startedAtMs >= group.timeOriginMs && lc.startedAtMs < nextOrigin);
+    const eligibleEntries =
+      rtFloorMs < 0 ? group.entries : group.entries.filter((e) => group.timeOriginMs + e.startTime >= rtFloorMs);
+    if (eligibleEntries.length === 0) continue;
     syntheticCacheRows.push(
       ...synthesizeMemoryCacheLifecycles({
-        entries: group.entries,
+        entries: eligibleEntries,
         timeOriginMs: group.timeOriginMs,
         realLifecycles: reals,
         tabId,
