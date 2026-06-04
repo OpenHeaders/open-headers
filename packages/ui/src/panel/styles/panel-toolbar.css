@@ -222,14 +222,13 @@
   overflow-y: auto;
 }
 
-/* Reveal-on-hover scrollbar for the View / More-filters menu — same pattern
- * as the column-header menu and the dock body: the scrollbar lives on the
- * scroll element (`.dt-morefilters-menu`), and its thumb is revealed by
- * hovering the popover ancestor, so Chromium repaints it the moment the
- * pointer enters (not just over the track). The popover is portaled to
- * <body>, outside the dock-body scrollbar styling, so it needs its own. An
- * 8px gutter is reserved while scrollable so there is no layout shift; grey
- * reads on both themes. */
+/* Always-visible scrollbar for the View / More-filters menu — the thumb is
+ * the only cue that the menu scrolls, so it must show whenever the content
+ * overflows (a hover-revealed thumb hides that there's more below). The
+ * scrollbar lives on the scroll element (`.dt-morefilters-menu`); the popover
+ * is portaled to <body>, outside the dock-body scrollbar styling, so it needs
+ * its own. An 8px gutter is reserved while scrollable so there is no layout
+ * shift; grey reads on both themes, darkening on thumb hover. */
 .dt-morefilters-menu::-webkit-scrollbar {
   width: 8px;
 }
@@ -239,16 +238,12 @@
 }
 
 .dt-morefilters-menu::-webkit-scrollbar-thumb {
-  background: transparent;
+  background: rgba(128, 128, 128, 0.55);
   border-radius: 4px;
   transition: background-color 0.2s ease-out;
 }
 
-.dt-morefilters-popover:hover .dt-morefilters-menu::-webkit-scrollbar-thumb {
-  background: rgba(128, 128, 128, 0.55);
-}
-
-.dt-morefilters-popover:hover .dt-morefilters-menu::-webkit-scrollbar-thumb:hover {
+.dt-morefilters-menu::-webkit-scrollbar-thumb:hover {
   background: rgba(128, 128, 128, 0.75);
 }
 
@@ -737,9 +732,9 @@
   padding: 4px;
 }
 
-/* Reveal-on-hover scrollbar for the resource "More" popover — same pattern
- * as the View / column menus: scrollbar on the scroll element, thumb revealed
- * by hovering the popover ancestor so Chromium repaints it on pointer-enter. */
+/* Always-visible scrollbar for the resource "More" popover — same as the
+ * View / More-filters menu: the thumb shows whenever the list overflows so the
+ * user sees there's more, darkening on thumb hover. */
 .dt-filter-pills--vertical::-webkit-scrollbar {
   width: 8px;
 }
@@ -749,16 +744,12 @@
 }
 
 .dt-filter-pills--vertical::-webkit-scrollbar-thumb {
-  background: transparent;
+  background: rgba(128, 128, 128, 0.55);
   border-radius: 4px;
   transition: background-color 0.2s ease-out;
 }
 
-.dt-filter-pills-popover:hover .dt-filter-pills--vertical::-webkit-scrollbar-thumb {
-  background: rgba(128, 128, 128, 0.55);
-}
-
-.dt-filter-pills-popover:hover .dt-filter-pills--vertical::-webkit-scrollbar-thumb:hover {
+.dt-filter-pills--vertical::-webkit-scrollbar-thumb:hover {
   background: rgba(128, 128, 128, 0.75);
 }
 
