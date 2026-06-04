@@ -15,7 +15,7 @@ import { instanceLabel, instanceLabelPlural } from '@openheaders/ui/shared/host-
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 import EnvironmentSelector from '@openheaders/ui/workbench/components/EnvironmentSelector';
 import { useIsModified, useResetSetting, useSetting, useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
-import { Dropdown, type MenuProps, Popover, Space, Tooltip, theme } from 'antd';
+import { Dropdown, type MenuProps, Space, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import type { FilterConfig } from '../data/filter-engine';
@@ -23,6 +23,7 @@ import { PANEL_TOOL_WINDOW_MAP, type PanelToolWindowId } from '../data/tool-wind
 import type { PanelViewState } from '../data/use-panel-tool-layout';
 import { PanelWorkspaceSelector } from './PanelWorkspaceSelector';
 import { RuleExecutionsHint } from './RuleExecutions';
+import { ToolbarMenuPopover } from './ToolbarMenuPopover';
 
 type SidebarLayoutVariantSetting = 'proportional' | 'compact' | 'stacked' | 'dynamic';
 type BottomPanelAlignmentSetting = 'center' | 'left' | 'right' | 'justify';
@@ -110,8 +111,8 @@ function MoreFiltersMenu({
   const activeCount = flags.reduce((n, v) => n + (v ? 1 : 0), 0);
   const active = activeCount > 0;
 
-  const content = (
-    <div className="dt-morefilters-menu">
+  return (
+    <ToolbarMenuPopover label="More filters" activeCount={activeCount} placement="bottomLeft">
       {/* Hide-* filters: exclude matching rows from the list. */}
       <label className="dt-morefilters-item">
         <input
@@ -179,25 +180,7 @@ function MoreFiltersMenu({
       >
         Reset to default
       </button>
-    </div>
-  );
-
-  return (
-    <Popover
-      content={content}
-      trigger="click"
-      placement="bottomLeft"
-      arrow={false}
-      overlayClassName="dt-morefilters-popover"
-    >
-      <button type="button" className={`dt-toolbar-dropdown${active ? ' dt-toolbar-dropdown--active' : ''}`}>
-        More filters
-        {activeCount > 0 && <span className="dt-toolbar-dropdown-count">{activeCount}</span>}
-        <span className="dt-toolbar-dropdown-caret" aria-hidden="true">
-          ▾
-        </span>
-      </button>
-    </Popover>
+    </ToolbarMenuPopover>
   );
 }
 
@@ -227,8 +210,14 @@ function ViewMenu() {
   const flags = [showModified, showFailed, showCached, showPageContext];
   const activeCount = flags.reduce((n, v) => n + (v ? 1 : 0), 0);
 
-  const content = (
-    <div className="dt-morefilters-menu">
+  return (
+    <ToolbarMenuPopover
+      label="View"
+      activeCount={activeCount}
+      active={false}
+      placement="bottomLeft"
+      title="Choose which footer stats to show"
+    >
       <label className="dt-morefilters-item">
         <input type="checkbox" checked={showModified} onChange={(e) => setShowModified(e.target.checked)} />
         Modified count
@@ -263,19 +252,7 @@ function ViewMenu() {
       >
         Reset to default
       </button>
-    </div>
-  );
-
-  return (
-    <Popover content={content} trigger="click" placement="bottomLeft" arrow={false} overlayClassName="dt-morefilters-popover">
-      <button type="button" className="dt-toolbar-dropdown" title="Choose which footer stats to show">
-        View
-        {activeCount > 0 && <span className="dt-toolbar-dropdown-count">{activeCount}</span>}
-        <span className="dt-toolbar-dropdown-caret" aria-hidden="true">
-          ▾
-        </span>
-      </button>
-    </Popover>
+    </ToolbarMenuPopover>
   );
 }
 

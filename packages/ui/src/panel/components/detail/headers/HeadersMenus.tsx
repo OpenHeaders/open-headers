@@ -1,6 +1,5 @@
-import { Popover } from 'antd';
 import type { HeaderNameCase } from '../../../data/header-name-case';
-import { usePopoverViewportFit } from '../use-popover-viewport-fit';
+import { ToolbarMenuPopover } from '../../ToolbarMenuPopover';
 import type { HeaderLayoutMode, HeaderSortMode } from './types';
 
 /**
@@ -28,10 +27,8 @@ export function HeaderMoreFiltersMenu({
   onToggleHideNoise: () => void;
 }) {
   const activeCount = [ruleOnly, securityOnly, overridableOnly, hideNoise].reduce((n, v) => n + (v ? 1 : 0), 0);
-  const active = activeCount > 0;
-  const { triggerRef, onOpenChange, maxHeight } = usePopoverViewportFit<HTMLButtonElement>();
-  const content = (
-    <div className="dt-morefilters-menu" style={maxHeight != null ? { maxHeight } : undefined}>
+  return (
+    <ToolbarMenuPopover label="More filters" activeCount={activeCount}>
       <label className="dt-morefilters-item">
         <input type="checkbox" checked={ruleOnly} onChange={onToggleRuleOnly} />
         Rule-modified only
@@ -48,32 +45,7 @@ export function HeaderMoreFiltersMenu({
         <input type="checkbox" checked={hideNoise} onChange={onToggleHideNoise} />
         Hide noise (Accept-*, Sec-Fetch-*, User-Agent, …)
       </label>
-    </div>
-  );
-  return (
-    <Popover
-      content={content}
-      trigger="click"
-      placement="bottomRight"
-      // Stay anchored to the button (no flip/slide) and let the measured
-      // max-height shrink the menu + scroll it internally as the panel shortens.
-      autoAdjustOverflow={false}
-      arrow={false}
-      classNames={{ root: 'dt-morefilters-popover' }}
-      onOpenChange={onOpenChange}
-    >
-      <button
-        ref={triggerRef}
-        type="button"
-        className={`dt-toolbar-dropdown${active ? ' dt-toolbar-dropdown--active' : ''}`}
-      >
-        More filters
-        {activeCount > 0 && <span className="dt-toolbar-dropdown-count">{activeCount}</span>}
-        <span className="dt-toolbar-dropdown-caret" aria-hidden="true">
-          ▾
-        </span>
-      </button>
-    </Popover>
+    </ToolbarMenuPopover>
   );
 }
 
@@ -112,10 +84,8 @@ export function HeaderViewMenu({
     (nameCase !== 'train' ? 1 : 0) +
     (!showInsights ? 1 : 0) +
     (!showChips ? 1 : 0);
-  const active = activeCount > 0;
-  const { triggerRef, onOpenChange, maxHeight } = usePopoverViewportFit<HTMLButtonElement>();
-  const content = (
-    <div className="dt-morefilters-menu" style={maxHeight != null ? { maxHeight } : undefined}>
+  return (
+    <ToolbarMenuPopover label="View" activeCount={activeCount}>
       <label className="dt-morefilters-item dt-morefilters-item--select">
         <span className="dt-morefilters-item-label">Layout</span>
         <select value={layout} onChange={(e) => onLayoutChange(e.target.value as HeaderLayoutMode)}>
@@ -147,31 +117,6 @@ export function HeaderViewMenu({
         <input type="checkbox" checked={showInsights} onChange={onToggleShowInsights} />
         Show suggestions
       </label>
-    </div>
-  );
-  return (
-    <Popover
-      content={content}
-      trigger="click"
-      placement="bottomRight"
-      // Stay anchored to the button (no flip/slide) and let the measured
-      // max-height shrink the menu + scroll it internally as the panel shortens.
-      autoAdjustOverflow={false}
-      arrow={false}
-      classNames={{ root: 'dt-morefilters-popover' }}
-      onOpenChange={onOpenChange}
-    >
-      <button
-        ref={triggerRef}
-        type="button"
-        className={`dt-toolbar-dropdown${active ? ' dt-toolbar-dropdown--active' : ''}`}
-      >
-        View
-        {activeCount > 0 && <span className="dt-toolbar-dropdown-count">{activeCount}</span>}
-        <span className="dt-toolbar-dropdown-caret" aria-hidden="true">
-          ▾
-        </span>
-      </button>
-    </Popover>
+    </ToolbarMenuPopover>
   );
 }

@@ -1,4 +1,3 @@
-import { Popover } from 'antd';
 import type {
   DevpanelNetworkLayoutSetting,
   DevpanelNetworkWaterfallTimestampTzSetting,
@@ -6,6 +5,7 @@ import type {
   DevpanelNetworkWaterfallValuesSetting,
 } from '@openheaders/ui/workbench/settings/schema/devpanel-network';
 import { type WaterfallMetric, WATERFALL_METRIC_LABELS } from '../../data/network-columns';
+import { ToolbarMenuPopover } from '../ToolbarMenuPopover';
 
 /**
  * `View ▾` dropdown for the Network requests table — display options that
@@ -76,8 +76,8 @@ export function NetworkViewMenu({
     (!waterfallExplainValue ? 1 : 0) +
     (!showFireDots ? 1 : 0);
 
-  const content = (
-    <div className="dt-morefilters-menu dt-network-view-menu">
+  return (
+    <ToolbarMenuPopover label="View" activeCount={activeBadgeCount} menuClassName="dt-network-view-menu">
       <label className="dt-morefilters-item dt-morefilters-item--select">
         <span className="dt-morefilters-item-label">Layout</span>
         <select value={layout} onChange={(e) => onLayoutChange(e.target.value as DevpanelNetworkLayoutSetting)}>
@@ -154,23 +154,6 @@ export function NetworkViewMenu({
       <button type="button" className="dt-morefilters-reset" onClick={onReset} disabled={activeBadgeCount === 0}>
         Reset to default
       </button>
-    </div>
-  );
-  return (
-    <Popover
-      content={content}
-      trigger="click"
-      placement="bottomRight"
-      arrow={false}
-      overlayClassName="dt-morefilters-popover"
-    >
-      <button type="button" className={`dt-toolbar-dropdown${activeBadgeCount > 0 ? ' dt-toolbar-dropdown--active' : ''}`}>
-        View
-        {activeBadgeCount > 0 && <span className="dt-toolbar-dropdown-count">{activeBadgeCount}</span>}
-        <span className="dt-toolbar-dropdown-caret" aria-hidden="true">
-          ▾
-        </span>
-      </button>
-    </Popover>
+    </ToolbarMenuPopover>
   );
 }

@@ -17,9 +17,9 @@
 import type { Page } from '@openheaders/core/page-stream';
 import type { InspectorHarEntry } from '@openheaders/core/types';
 import { InfoTrigger, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
-import { Popover } from 'antd';
 import { useMemo, useState } from 'react';
 import { buildHarFromEntries } from '../../data/har-export';
+import { ToolbarMenuPopover } from '../ToolbarMenuPopover';
 import type { AnnotatedHeader } from '../../data/header-attribution';
 import {
   currentHarEntry,
@@ -205,78 +205,53 @@ export default function RawDataView({ row, requestHeaders, pages }: RawDataViewP
           </label>
 
           <span className="dt-rawdata-actions">
-            <Popover
-              content={
-                <div className="dt-morefilters-menu">
+            <ToolbarMenuPopover label="View" activeCount={viewActiveCount}>
+              <label className="dt-morefilters-item">
+                <input
+                  type="checkbox"
+                  checked={includeHeaders}
+                  onChange={(e) => setIncludeHeaders(e.target.checked)}
+                />
+                Include request headers
+              </label>
+              <label className={`dt-morefilters-item${hasBody ? '' : ' dt-morefilters-item--disabled'}`}>
+                <input
+                  type="checkbox"
+                  checked={includeBody && hasBody}
+                  disabled={!hasBody}
+                  onChange={(e) => setIncludeBody(e.target.checked)}
+                />
+                Include request body
+              </label>
+              <label className="dt-morefilters-item">
+                <input type="checkbox" checked={redact} onChange={(e) => setRedact(e.target.checked)} />
+                Redact secrets
+              </label>
+              {ruleFired && (
+                <>
+                  <div className="dt-morefilters-divider" />
+                  <div className="dt-sortmode-heading">Rule-modified headers</div>
                   <label className="dt-morefilters-item">
                     <input
-                      type="checkbox"
-                      checked={includeHeaders}
-                      onChange={(e) => setIncludeHeaders(e.target.checked)}
+                      type="radio"
+                      name="rule-mode"
+                      checked={ruleMode === 'post'}
+                      onChange={() => setRuleMode('post')}
                     />
-                    Include request headers
-                  </label>
-                  <label
-                    className={`dt-morefilters-item${hasBody ? '' : ' dt-morefilters-item--disabled'}`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={includeBody && hasBody}
-                      disabled={!hasBody}
-                      onChange={(e) => setIncludeBody(e.target.checked)}
-                    />
-                    Include request body
+                    Post-rule (on the wire)
                   </label>
                   <label className="dt-morefilters-item">
                     <input
-                      type="checkbox"
-                      checked={redact}
-                      onChange={(e) => setRedact(e.target.checked)}
+                      type="radio"
+                      name="rule-mode"
+                      checked={ruleMode === 'original'}
+                      onChange={() => setRuleMode('original')}
                     />
-                    Redact secrets
+                    Original (before rules)
                   </label>
-                  {ruleFired && (
-                    <>
-                      <div className="dt-morefilters-divider" />
-                      <div className="dt-sortmode-heading">Rule-modified headers</div>
-                      <label className="dt-morefilters-item">
-                        <input
-                          type="radio"
-                          name="rule-mode"
-                          checked={ruleMode === 'post'}
-                          onChange={() => setRuleMode('post')}
-                        />
-                        Post-rule (on the wire)
-                      </label>
-                      <label className="dt-morefilters-item">
-                        <input
-                          type="radio"
-                          name="rule-mode"
-                          checked={ruleMode === 'original'}
-                          onChange={() => setRuleMode('original')}
-                        />
-                        Original (before rules)
-                      </label>
-                    </>
-                  )}
-                </div>
-              }
-              trigger="click"
-              placement="bottomRight"
-              arrow={false}
-              overlayClassName="dt-morefilters-popover"
-            >
-              <button
-                type="button"
-                className={`dt-toolbar-dropdown${viewActiveCount > 0 ? ' dt-toolbar-dropdown--active' : ''}`}
-              >
-                View
-                {viewActiveCount > 0 && <span className="dt-toolbar-dropdown-count">{viewActiveCount}</span>}
-                <span className="dt-toolbar-dropdown-caret" aria-hidden="true">
-                  ▾
-                </span>
-              </button>
-            </Popover>
+                </>
+              )}
+            </ToolbarMenuPopover>
             <button type="button" className="dt-payload-toggle-btn" onClick={copy}>
               {copied ? 'Copied' : 'Copy'}
             </button>

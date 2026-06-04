@@ -3,8 +3,8 @@
  * `headers/HeadersMenus.tsx` so the muscle memory is the same.
  */
 
-import { Popover } from 'antd';
-import type { DevpanelCookiesSortSetting, DevpanelCookiesExpiresFormatSetting } from '../../../../workbench/settings/schema/devpanel-cookies';
+import type { DevpanelCookiesExpiresFormatSetting, DevpanelCookiesSortSetting } from '../../../../workbench/settings/schema/devpanel-cookies';
+import { ToolbarMenuPopover } from '../../ToolbarMenuPopover';
 
 export function CookieMoreFiltersMenu({
   problemsOnly,
@@ -29,9 +29,8 @@ export function CookieMoreFiltersMenu({
     (n, v) => n + (v ? 1 : 0),
     0,
   );
-  const active = activeCount > 0;
-  const content = (
-    <div className="dt-morefilters-menu">
+  return (
+    <ToolbarMenuPopover label="More filters" activeCount={activeCount}>
       <label className="dt-morefilters-item">
         <input type="checkbox" checked={problemsOnly} onChange={onToggleProblemsOnly} />
         Problems only
@@ -49,18 +48,7 @@ export function CookieMoreFiltersMenu({
         <input type="checkbox" checked={showFilteredOut} onChange={onToggleShowFilteredOut} />
         Show filtered-out request cookies
       </label>
-    </div>
-  );
-  return (
-    <Popover content={content} trigger="click" placement="bottomRight" arrow={false} overlayClassName="dt-morefilters-popover">
-      <button type="button" className={`dt-toolbar-dropdown${active ? ' dt-toolbar-dropdown--active' : ''}`}>
-        More filters
-        {activeCount > 0 && <span className="dt-toolbar-dropdown-count">{activeCount}</span>}
-        <span className="dt-toolbar-dropdown-caret" aria-hidden="true">
-          ▾
-        </span>
-      </button>
-    </Popover>
+    </ToolbarMenuPopover>
   );
 }
 
@@ -87,10 +75,9 @@ export function CookieViewMenu(props: CookieViewMenuProps) {
     (!props.showInsights ? 1 : 0) +
     (!props.showChips ? 1 : 0) +
     (!props.groupByRole ? 1 : 0);
-  const active = activeCount > 0;
 
-  const content = (
-    <div className="dt-morefilters-menu">
+  return (
+    <ToolbarMenuPopover label="View" activeCount={activeCount}>
       <label className="dt-morefilters-item dt-morefilters-item--select">
         <span className="dt-morefilters-item-label">Sort</span>
         <select value={props.sortMode} onChange={(e) => props.onSortChange(e.target.value as DevpanelCookiesSortSetting)}>
@@ -127,18 +114,6 @@ export function CookieViewMenu(props: CookieViewMenuProps) {
         <input type="checkbox" checked={props.showInsights} onChange={props.onToggleShowInsights} />
         Show suggestions
       </label>
-    </div>
-  );
-
-  return (
-    <Popover content={content} trigger="click" placement="bottomRight" arrow={false} overlayClassName="dt-morefilters-popover">
-      <button type="button" className={`dt-toolbar-dropdown${active ? ' dt-toolbar-dropdown--active' : ''}`}>
-        View
-        {activeCount > 0 && <span className="dt-toolbar-dropdown-count">{activeCount}</span>}
-        <span className="dt-toolbar-dropdown-caret" aria-hidden="true">
-          ▾
-        </span>
-      </button>
-    </Popover>
+    </ToolbarMenuPopover>
   );
 }

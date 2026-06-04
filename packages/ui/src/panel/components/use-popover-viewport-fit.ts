@@ -1,13 +1,15 @@
 import { type RefObject, useCallback, useEffect, useRef, useState } from 'react';
 
 /** Reserve below the trigger: clears the 24px footer status bar plus the
- * popover's own offset/padding and a breathing gap — chosen so the menu's
- * bottom lands at the same viewport offset the top-toolbar popovers reach via
- * their static `calc(100vh - 96px)` cap. */
-const BOTTOM_RESERVE_PX = 40;
+ * popover's own offset + inner padding (~8px) and a breathing gap, so the
+ * menu's bottom edge lands just above the footer's grey zone instead of
+ * overlapping it. */
+const BOTTOM_RESERVE_PX = 64;
 
-/** Never collapse the menu below this even in a very short pane. */
-const MIN_MENU_PX = 96;
+/** Absolute floor — one row's worth, so the menu always stays a usable
+ * scroll strip yet keeps shrinking with the panel down to a single row
+ * rather than flooring early and sliding its bottom over the footer. */
+const MIN_MENU_PX = 24;
 
 /**
  * Caps a toolbar-style popover (`.dt-morefilters-menu`) to the room beneath its

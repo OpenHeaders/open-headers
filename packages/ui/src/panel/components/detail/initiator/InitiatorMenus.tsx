@@ -1,4 +1,4 @@
-import { Popover } from 'antd';
+import { ToolbarMenuPopover } from '../../ToolbarMenuPopover';
 import type { SortMode } from './tree-model';
 
 /** `More filters ▾` — boolean toggles that narrow the visible rows. */
@@ -14,9 +14,8 @@ export function InitiatorMoreFiltersMenu({
   onToggleThirdPartyOnly: () => void;
 }) {
   const activeCount = [failuresOnly, thirdPartyOnly].reduce((n, v) => n + (v ? 1 : 0), 0);
-  const active = activeCount > 0;
-  const content = (
-    <div className="dt-morefilters-menu">
+  return (
+    <ToolbarMenuPopover label="More filters" activeCount={activeCount}>
       <label className="dt-morefilters-item">
         <input type="checkbox" checked={failuresOnly} onChange={onToggleFailuresOnly} />
         Failures only
@@ -25,18 +24,7 @@ export function InitiatorMoreFiltersMenu({
         <input type="checkbox" checked={thirdPartyOnly} onChange={onToggleThirdPartyOnly} />
         3rd-party only
       </label>
-    </div>
-  );
-  return (
-    <Popover content={content} trigger="click" placement="bottomRight" arrow={false} overlayClassName="dt-morefilters-popover">
-      <button type="button" className={`dt-toolbar-dropdown${active ? ' dt-toolbar-dropdown--active' : ''}`}>
-        More filters
-        {activeCount > 0 && <span className="dt-toolbar-dropdown-count">{activeCount}</span>}
-        <span className="dt-toolbar-dropdown-caret" aria-hidden="true">
-          ▾
-        </span>
-      </button>
-    </Popover>
+    </ToolbarMenuPopover>
   );
 }
 
@@ -53,9 +41,8 @@ export function InitiatorViewMenu({
   onToggleShowInsights: () => void;
 }) {
   const activeCount = (sortMode !== 'initiator' ? 1 : 0) + (!showInsights ? 1 : 0);
-  const active = activeCount > 0;
-  const content = (
-    <div className="dt-morefilters-menu">
+  return (
+    <ToolbarMenuPopover label="View" activeCount={activeCount}>
       <label className="dt-morefilters-item dt-morefilters-item--select">
         <span className="dt-morefilters-item-label">Sort</span>
         <select value={sortMode} onChange={(e) => onSortChange(e.target.value as SortMode)}>
@@ -69,17 +56,6 @@ export function InitiatorViewMenu({
         <input type="checkbox" checked={showInsights} onChange={onToggleShowInsights} />
         Show suggestions
       </label>
-    </div>
-  );
-  return (
-    <Popover content={content} trigger="click" placement="bottomRight" arrow={false} overlayClassName="dt-morefilters-popover">
-      <button type="button" className={`dt-toolbar-dropdown${active ? ' dt-toolbar-dropdown--active' : ''}`}>
-        View
-        {activeCount > 0 && <span className="dt-toolbar-dropdown-count">{activeCount}</span>}
-        <span className="dt-toolbar-dropdown-caret" aria-hidden="true">
-          ▾
-        </span>
-      </button>
-    </Popover>
+    </ToolbarMenuPopover>
   );
 }

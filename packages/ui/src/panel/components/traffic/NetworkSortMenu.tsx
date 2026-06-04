@@ -10,6 +10,7 @@ import type {
 } from '@openheaders/ui/workbench/settings/schema/devpanel-network';
 import { type WaterfallMetric, WATERFALL_METRIC_LABELS } from '../../data/network-columns';
 import { NETWORK_SORT_MODE_META, type NetworkSortMode } from '../../data/network-sort-modes';
+import { ToolbarMenuPopover } from '../ToolbarMenuPopover';
 import { COLUMN_DEFS, type ColumnKey } from './columns';
 
 /**
@@ -128,8 +129,8 @@ export function NetworkSortMenu({
     return NETWORK_SORT_MODE_META[sortMode].title;
   }, [sortKind, sortMode, sortBy]);
 
-  const content = (
-    <div className="dt-morefilters-menu dt-network-view-menu">
+  return (
+    <ToolbarMenuPopover label="Sort" activeCount={activeBadgeCount} menuClassName="dt-network-view-menu">
       <div className="dt-sortmode-heading">Sort order</div>
       <div className="dt-sortmode-active">
         <div className="dt-sortmode-active-title">{activeTitle}</div>
@@ -175,24 +176,7 @@ export function NetworkSortMenu({
       >
         Reset to default
       </button>
-    </div>
-  );
-  return (
-    <Popover
-      content={content}
-      trigger="click"
-      placement="bottomRight"
-      arrow={false}
-      overlayClassName="dt-morefilters-popover"
-    >
-      <button type="button" className={`dt-toolbar-dropdown${activeBadgeCount > 0 ? ' dt-toolbar-dropdown--active' : ''}`}>
-        Sort
-        {activeBadgeCount > 0 && <span className="dt-toolbar-dropdown-count">{activeBadgeCount}</span>}
-        <span className="dt-toolbar-dropdown-caret" aria-hidden="true">
-          ▾
-        </span>
-      </button>
-    </Popover>
+    </ToolbarMenuPopover>
   );
 }
 
