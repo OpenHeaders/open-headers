@@ -26,7 +26,7 @@ import type { DonorRecord, EditingScopeViewStateApi, UseEditingScopeViewStateOpt
 const PUBLISH_DEBOUNCE_MS = 500;
 
 export function useEditingScopeViewState<T>(opts: UseEditingScopeViewStateOptions<T>): EditingScopeViewStateApi<T> {
-  const { surface, schemaVersion, factoryDefault, normalize, resolveSnapshot } = opts;
+  const { surface, schemaVersion, factoryDefault, normalize, resolveSnapshot, projectForDonor } = opts;
 
   // Snapshot of the synchronous sessionStorage read. Captured once on
   // first render so the initial `useState` and the donor-record async
@@ -73,6 +73,9 @@ export function useEditingScopeViewState<T>(opts: UseEditingScopeViewStateOption
   const initialFromSessionRef = useRef(initialFromSession);
   const normalizeRef = useRef(normalize);
   const resolveSnapshotRef = useRef(resolveSnapshot);
+  // Captured once so `publishDonor` stays stable; the projection is a pure
+  // function of the snapshot, so the first value is the canonical one.
+  const projectForDonorRef = useRef(projectForDonor);
   useEffect(() => {
     if (didResolveRef.current) return;
     didResolveRef.current = true;
@@ -115,10 +118,13 @@ export function useEditingScopeViewState<T>(opts: UseEditingScopeViewStateOption
     async (snap: T) => {
       // BC-V1: Donor-claim guard — visibilityState === 'visible' && hasFocus()
       if (!isFocusedAndVisible()) return;
+      // Project out session-local fields so a fresh tab inherits only the
+      // shareable slice (e.g. layout), never this tab's ephemeral content.
+      const project = projectForDonorRef.current;
       const record: DonorRecord<T> = {
         donorTabUid: tabUidRef.current,
         schemaVersion,
-        snapshot: snap,
+        snapshot: project ? project(snap) : snap,
         publishedAt: Date.now(),
       };
       await writeDonorRecord(surface, record);

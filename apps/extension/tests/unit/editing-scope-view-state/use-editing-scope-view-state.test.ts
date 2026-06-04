@@ -278,6 +278,47 @@ describe('useEditingScopeViewState', () => {
     expect(fallThrough).not.toHaveBeenCalled();
   });
 
+  it('projectForDonor strips session-local fields from the donor record but keeps them in sessionStorage', async () => {
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+    vi.spyOn(document, 'hasFocus').mockReturnValue(true);
+
+    interface WithTabs {
+      dockLayout: { foo: string };
+      editorTabs: { tabs: string[] };
+    }
+    const factory: WithTabs = { dockLayout: { foo: 'factory' }, editorTabs: { tabs: [] } };
+
+    const hook = renderHook(() =>
+      useEditingScopeViewState<WithTabs>({
+        surface: 'workbench',
+        schemaVersion: 1,
+        factoryDefault: factory,
+        projectForDonor: (snapshot) => ({ ...snapshot, editorTabs: { tabs: [] } }),
+      }),
+    );
+    await waitFor(() => expect(hook.result.current.ready).toBe(true));
+
+    act(() => {
+      hook.result.current.onPersist(() => ({
+        dockLayout: { foo: 'shared' },
+        editorTabs: { tabs: ['session-local'] },
+      }));
+    });
+
+    // sessionStorage keeps the full snapshot — editor tabs survive reload.
+    const raw = JSON.parse(sessionStorage.getItem('oh.viewState.workbench') as string) as { snapshot: WithTabs };
+    expect(raw.snapshot.editorTabs.tabs).toEqual(['session-local']);
+
+    // The donor record (cross-tab inheritance) drops the session-local slice.
+    act(() => {
+      hook.result.current.claimDonor();
+    });
+    await waitFor(() => expect(mockSet).toHaveBeenCalled());
+    const record = mockSet.mock.calls.at(-1)?.[1] as { snapshot: WithTabs };
+    expect(record.snapshot.dockLayout).toEqual({ foo: 'shared' });
+    expect(record.snapshot.editorTabs.tabs).toEqual([]);
+  });
+
   it('resetToDefaults clears donor record and reloads the page', async () => {
     sessionStorage.setItem(
       'oh.viewState.workbench',

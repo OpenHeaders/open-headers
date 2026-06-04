@@ -67,6 +67,10 @@ export function usePanelEditingScopeViewState(): EditingScopeViewStateApi<PanelV
       dockLayout: normalizeDockLayout(raw.dockLayout, PANEL_TOOL_WINDOWS, PANEL_TOOL_WINDOW_MAP),
       editorTabs: raw.editorTabs ?? FACTORY_INSPECTOR_TABS,
     }),
+    // Open editor tabs are bound to this DevTools session's captured
+    // requests — a fresh browser tab must not inherit them. The donor
+    // record carries only the shareable dock layout; editor tabs reset.
+    projectForDonor: (snapshot) => ({ ...snapshot, editorTabs: FACTORY_INSPECTOR_TABS }),
   });
 }
 

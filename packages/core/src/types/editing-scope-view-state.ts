@@ -38,6 +38,14 @@ export interface UseEditingScopeViewStateOptions<T> {
    * current workspace.
    */
   resolveSnapshot?: (raw: T) => Promise<T>;
+  /**
+   * Optional write-side projection — applied to the snapshot just before
+   * it is published to the donor record (cross-tab inheritance), never to
+   * the tab's own sessionStorage. Use this to keep session-local fields
+   * (open editor tabs, ephemeral selection) out of what a fresh tab
+   * inherits, while shareable layout still propagates.
+   */
+  projectForDonor?: (snapshot: T) => T;
 }
 
 export interface EditingScopeViewStateApi<T> {
