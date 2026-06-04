@@ -32,14 +32,17 @@ export interface InfoPopoverProps {
 export function InfoPopover({ content, children, placement = 'bottomLeft', maxWidth = 360 }: InfoPopoverProps) {
   const [open, setOpen] = useState(false);
   const resolveContainer = useInfoPopoverContainer();
-  // Adapter: AntD's `getPopupContainer` receives the trigger element
-  // and must return a parent DOM node. When no provider is installed
-  // we leave the prop undefined so AntD's default (document.body)
-  // kicks in unchanged.
+  // Adapter: AntD's `getPopupContainer` receives the trigger element and must
+  // return a parent DOM node. When no provider is installed we leave the prop
+  // undefined so AntD's default (document.body) kicks in unchanged.
   const getPopupContainer = useCallback(
     (triggerNode: HTMLElement) => resolveContainer?.(triggerNode) ?? document.body,
     [resolveContainer],
   );
+  // Auto-adjust (flip + shift) is left on: an info trigger can sit anywhere in
+  // the content, so the popover must be free to open upward when its trigger is
+  // low. The CSS height cap keeps it scrolling internally, and the always-on-top
+  // footer covers any bottom graze (see `.dt-panel-root > .rules-statusbar`).
   return (
     <Popover
       open={open}
@@ -47,8 +50,8 @@ export function InfoPopover({ content, children, placement = 'bottomLeft', maxWi
       trigger="click"
       destroyOnHidden
       placement={placement}
-      overlayClassName="oh-info-popover-overlay"
-      overlayStyle={{ maxWidth }}
+      classNames={{ root: 'oh-info-popover-overlay' }}
+      styles={{ root: { maxWidth } }}
       {...(resolveContainer ? { getPopupContainer } : {})}
       content={<InfoPopoverBody content={content} />}
     >
