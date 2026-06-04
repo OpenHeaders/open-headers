@@ -80,7 +80,11 @@ function InfoPopoverBody({ content }: { content: InfoPopoverContent }) {
             <div className="oh-info-popover-section-heading">{section.heading}</div>
             {section.items.map((item) => (
               <div className="oh-info-popover-section-item" key={item.label}>
-                <code className="oh-info-popover-section-item-label">{item.label}</code>
+                <code
+                  className={`oh-info-popover-section-item-label${item.labelClassName ? ` ${item.labelClassName}` : ''}`}
+                >
+                  {item.label}
+                </code>
                 <span className="oh-info-popover-section-item-desc">{item.desc}</span>
               </div>
             ))}

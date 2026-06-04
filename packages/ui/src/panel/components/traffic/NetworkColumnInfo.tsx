@@ -170,16 +170,30 @@ const NETWORK_COLUMN_INFO: Record<ColumnKey, InfoPopoverContent> = {
   status: {
     title: 'Status',
     kicker: 'Network',
-    summary: 'The response status code. Its colour in the table tracks the range at a glance.',
+    summary: 'The HTTP response code (e.g. 200, 404), or a short state label when there is no code.',
+    description:
+      'Status ranges are not colour-coded. A genuine failure — a wire error, any 4xx/5xx, or a CORS rejection — turns the whole row red; a cache hit or a no-status row dims the cell grey. The reason phrase (e.g. "Not Found") rides in the cell tooltip.',
     diagram: <ExampleCard column="status" />,
     sections: [
       {
-        heading: 'Ranges (and row colour)',
+        heading: 'Code ranges',
         items: [
-          { label: '2xx', desc: 'Success — shown green.' },
-          { label: '3xx', desc: 'Redirection — shown amber; follow the Location header.' },
-          { label: '4xx', desc: 'Client error — shown red; request was malformed or unauthorized.' },
-          { label: '5xx', desc: 'Server error — shown red; the server failed a valid request.' },
+          { label: '2xx', desc: 'Success — the request was received and handled (e.g. 200 OK).' },
+          { label: '3xx', desc: 'Redirection — follow the Location header to the next URL.' },
+          { label: '4xx', desc: 'Client error — the request was malformed, unauthorized, or not found.', labelClassName: 'dt-col-status--error' },
+          { label: '5xx', desc: 'Server error — the server failed to fulfil a valid request.', labelClassName: 'dt-col-status--error' },
+        ],
+      },
+      {
+        heading: 'Instead of a code',
+        items: [
+          { label: '(pending)', desc: 'Sent, but no response has arrived yet — grey while in flight.', labelClassName: 'dt-col-status--dim' },
+          { label: '(failed) net::ERR_…', desc: 'A wire-level failure (DNS, TLS, timeout, lost connection); the net-stack code shows inline.', labelClassName: 'dt-col-status--error' },
+          { label: '(canceled)', desc: 'The request was aborted before it completed.', labelClassName: 'dt-col-status--error' },
+          { label: '(blocked:reason)', desc: 'The browser refused it for a policy reason — e.g. csp, or other for an extension / ad-block.', labelClassName: 'dt-col-status--error' },
+          { label: 'CORS error', desc: 'A cross-origin check rejected the response.', labelClassName: 'dt-col-status--error' },
+          { label: '(data)', desc: 'A data: URL — served inline, never hit the network.', labelClassName: 'dt-col-status--dim' },
+          { label: 'Finished', desc: 'A response that carried no status code.', labelClassName: 'dt-col-status--dim' },
         ],
       },
     ],

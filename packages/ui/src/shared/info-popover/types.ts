@@ -20,8 +20,10 @@ import type React from 'react';
 export interface InfoPopoverSection {
   /** Short heading rendered as a small all-caps label above the items. */
   heading: string;
-  /** Structured rows — `label` renders as `<code>`, `desc` as plain text. */
-  items: ReadonlyArray<{ label: string; desc: string }>;
+  /** Structured rows — `label` renders as `<code>`, `desc` as plain text.
+   *  `labelClassName` is an optional extra class on the label (e.g. to
+   *  tint it the same colour the value carries in its own column). */
+  items: ReadonlyArray<{ label: string; desc: string; labelClassName?: string }>;
 }
 
 export interface InfoPopoverAction {

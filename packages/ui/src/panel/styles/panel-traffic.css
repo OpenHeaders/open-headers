@@ -207,6 +207,18 @@
   color: var(--dt-text-muted);
 }
 
+/* Status-column (i) popover legend chips, tinted to match how each value
+ * actually reads in the column: error-class values (4xx/5xx, failed,
+ * canceled, blocked, CORS error) carry the red of a failure row; no-status /
+ * cache values read muted grey; 2xx/3xx are untinted, exactly as in the
+ * table. Scoped to the popover label so it overrides the chip's base colour. */
+.oh-info-popover-section-item-label.dt-col-status--error {
+  color: var(--dt-status-red);
+}
+.oh-info-popover-section-item-label.dt-col-status--dim {
+  color: var(--dt-text-muted);
+}
+
 .dt-col-muted {
   color: var(--dt-text-muted);
 }
