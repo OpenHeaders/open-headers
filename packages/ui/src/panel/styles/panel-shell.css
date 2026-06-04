@@ -23,11 +23,28 @@
    * Internal dock layout and tab bodies manage their own scrolling
    * — nothing inside relies on the root letting content overflow. */
   overflow: hidden;
+  /* Self-contained stacking context. The footer status bar lifts above
+   * the popovers portalled into this root (so it can cover one that
+   * grazes it); `isolation` confines that high z-index to this subtree
+   * so it can never punch through app-level modal masks (which portal to
+   * <body>, outside this context). */
+  isolation: isolate;
   font-family: system-ui, sans-serif;
   font-size: 11px;
   line-height: 1.4;
   background: var(--dt-frame-bg);
   color: var(--dt-text);
+}
+
+/* Panel status bar lifts above the popovers portalled into the root, so a
+ * menu/popover that grazes the footer at very short heights is cleanly covered
+ * rather than floating over it. Scoped to the panel footer (the shared
+ * `.rules-statusbar` is reused by the popup, which has no such root) and kept
+ * inside the root's isolated stacking context, so it stays below app modals.
+ * 1100 clears AntD's popup base (1000). */
+.dt-panel-root > .rules-statusbar {
+  position: relative;
+  z-index: 1100;
 }
 
 /* ── App header (full-width, above sidebars) ───────────── */

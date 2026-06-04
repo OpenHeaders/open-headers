@@ -1,5 +1,6 @@
+import { useInfoPopoverContainer } from '@openheaders/ui/shared/info-popover';
 import { Popover } from 'antd';
-import type { ReactNode } from 'react';
+import { type ReactNode, useCallback } from 'react';
 import { usePopoverViewportFit } from './use-popover-viewport-fit';
 
 /**
@@ -13,6 +14,12 @@ import { usePopoverViewportFit } from './use-popover-viewport-fit';
  * position, not just the top toolbar. `autoAdjustOverflow={false}` keeps the
  * menu pinned to the trigger (no flip/slide); the measured max-height handles
  * the overflow instead.
+ *
+ * The overlay portals into the panel root (via the shared container seam, the
+ * same one the info popovers use) rather than `<body>`, so it shares the root's
+ * stacking context — the always-on-top footer can cover any menu that grazes it
+ * at extreme sizes, and the root's `overflow: hidden` clips bottom overflow
+ * instead of painting a panel-wide scrollbar.
  */
 export function ToolbarMenuPopover({
   label,
@@ -42,6 +49,11 @@ export function ToolbarMenuPopover({
   children: ReactNode;
 }) {
   const { triggerRef, onOpenChange, maxHeight } = usePopoverViewportFit<HTMLButtonElement>();
+  const resolveContainer = useInfoPopoverContainer();
+  const getPopupContainer = useCallback(
+    (triggerNode: HTMLElement) => resolveContainer?.(triggerNode) ?? document.body,
+    [resolveContainer],
+  );
   const rootClass = rootClassName ? `dt-morefilters-popover ${rootClassName}` : 'dt-morefilters-popover';
   const menuClass = menuClassName ? `dt-morefilters-menu ${menuClassName}` : 'dt-morefilters-menu';
   return (
@@ -57,6 +69,7 @@ export function ToolbarMenuPopover({
       arrow={false}
       classNames={{ root: rootClass }}
       onOpenChange={onOpenChange}
+      {...(resolveContainer ? { getPopupContainer } : {})}
     >
       <button
         ref={triggerRef}
