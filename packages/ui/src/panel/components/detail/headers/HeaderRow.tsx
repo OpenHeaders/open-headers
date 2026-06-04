@@ -201,36 +201,65 @@ export function AttributedHeaderRow({
   const serverTitle = kind === 'server' ? 'Create a rule to override this header' : undefined;
   const systemTitle = kind === 'system' ? `Injected by ${attribution.label} (Open Headers system feature)` : undefined;
 
+  // Override creates a rule against a server header. On rows that already
+  // come from Open Headers — a user rule (added/modified/removed) or a
+  // system feature — that's redundant or impossible, so Override is shown
+  // disabled (Copy stays available). Protected server headers are disabled
+  // too, with their own DNR explanation.
+  const isOhRow = kind !== 'server';
+  const overrideDisabled = isProtected || isOhRow;
+
+  // Value tags describe the value, not the rule, so on attributed rows
+  // (the tinted blue/grey/red pill) they render OUTSIDE the pill — keeping
+  // the rule-colored background hugging just the header. Plain server rows
+  // have no pill, so the tags stay inline after the value.
+  const chips = showChips ? <ValueChips name={name} value={value} /> : null;
+  const editedChip = editedSinceFire ? <EditedSinceFireChip kind={ruleEdited ? 'rule' : 'value'} /> : null;
+  const overrideTitle = isProtected
+    ? `${displayName} is a protected header — the browser's Declarative Net Request engine refuses to let extensions override it. Common protected names include host, content-length, connection, sec-fetch-*, sec-ch-ua-*.`
+    : kind === 'system'
+      ? `${displayName} is injected by ${attribution.label}, an Open Headers system feature — not overridable with a rule.`
+      : isOhRow
+        ? `${displayName} is already managed by one of your rules — edit the rule from its popover instead of overriding.`
+        : 'Create a rule to override this header';
+
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: hover-only popover trigger; primary affordance is the rule's full editor reachable via the popover.
-    // biome-ignore lint/a11y/useKeyWithMouseEvents: hover-anchored popover; keyboard users use "Open in workspace" inside the popover.
-    <div
-      className={classes}
-      style={{ fontFamily: 'monospace' }}
-      onMouseOver={ruleCtx ? handleRowMouseOver : undefined}
-      onMouseOut={ruleCtx ? handleRowMouseOut : undefined}
-    >
-      <HeaderInfoTrigger name={name} direction={meta.direction} category={meta.category} />
-      {isProtected ? (
-        <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{displayName}</span>
-      ) : (
-        <button
-          type="button"
-          className="dt-btn-link"
-          style={{ fontFamily: 'monospace', fontWeight: 600 }}
-          onClick={() => onNameClick(name, value)}
-          title={serverTitle ?? systemTitle}
-        >
-          {displayName}
-        </button>
-      )}
-      <span className="dt-kv-content">
-        <span className="dt-kv-oh-value">
-          : {showResolvedValue ? <ResolvedHeaderValue value={value} collectionId={ruleCollectionId} /> : value}
+    // The full-width row hosts the hover target + right-aligned action
+    // overlay so they align to the panel edge even when the inner `.dt-kv`
+    // is a content-hugging attributed pill (blue/grey/red).
+    <div className="dt-kv-row">
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: hover-only popover trigger; primary affordance is the rule's full editor reachable via the popover. */}
+      {/* biome-ignore lint/a11y/useKeyWithMouseEvents: hover-anchored popover; keyboard users use "Open in workspace" inside the popover. */}
+      <div
+        className={classes}
+        style={{ fontFamily: 'monospace' }}
+        onMouseOver={ruleCtx ? handleRowMouseOver : undefined}
+        onMouseOut={ruleCtx ? handleRowMouseOut : undefined}
+      >
+        <HeaderInfoTrigger name={name} direction={meta.direction} category={meta.category} />
+        {isProtected ? (
+          <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{displayName}</span>
+        ) : (
+          <button
+            type="button"
+            className="dt-btn-link"
+            style={{ fontFamily: 'monospace', fontWeight: 600 }}
+            onClick={() => onNameClick(name, value)}
+            title={serverTitle ?? systemTitle}
+          >
+            {displayName}
+          </button>
+        )}
+        <span className="dt-kv-content">
+          <span className="dt-kv-oh-value">
+            : {showResolvedValue ? <ResolvedHeaderValue value={value} collectionId={ruleCollectionId} /> : value}
+          </span>
+          {!isOhRow && chips}
+          {!isOhRow && editedChip}
         </span>
-        {showChips && <ValueChips name={name} value={value} />}
-        {editedSinceFire && <EditedSinceFireChip kind={ruleEdited ? 'rule' : 'value'} />}
-      </span>
+      </div>
+      {isOhRow && chips}
+      {isOhRow && editedChip}
       <span className="dt-kv-row-actions">
         <button
           type="button"
@@ -244,16 +273,12 @@ export function AttributedHeaderRow({
         <button
           type="button"
           className="dt-btn dt-btn-primary dt-kv-action"
-          disabled={isProtected}
-          aria-disabled={isProtected || undefined}
-          title={
-            isProtected
-              ? `${displayName} is a protected header — the browser's Declarative Net Request engine refuses to let extensions override it. Common protected names include host, content-length, connection, sec-fetch-*, sec-ch-ua-*.`
-              : 'Create a rule to override this header'
-          }
+          disabled={overrideDisabled}
+          aria-disabled={overrideDisabled || undefined}
+          title={overrideTitle}
           onClick={(e) => {
             e.stopPropagation();
-            if (isProtected) return;
+            if (overrideDisabled) return;
             onNameClick(name, value);
           }}
         >

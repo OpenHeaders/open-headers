@@ -85,24 +85,22 @@
  *            not from my ruleset".
  *
  * Search-highlight yellow still wins when both apply. */
-/* Attributed-row backgrounds (the faint tint that flags rule/system
- * activity) hug the row's content rather than the row's width — empty
- * space to the right of a short header value used to read as part of
- * the highlight band, which made values look longer than they were and
- * the whole row visually heavier than necessary. `width: max-content`
- * shrinks to content; `max-width: 100%` keeps long values clipped to
- * the panel width (the value cell's own `max-height` + `overflow-y`
- * handles wrapping inside).
+/* Attributed-row tint (the faint background flagging rule/system
+ * activity) hugs the row's CONTENT, not the full panel width, so a
+ * short header doesn't read as a long highlight band. `width:
+ * max-content` shrinks the pill to its content; `max-width: 100%` lets a
+ * long value wrap inside (the value cell caps its own height + scrolls).
  *
- * When multiple attributed rows stack vertically, a 2px gap separates
- * each blue/red/grey "pill" so they read as discrete entries instead
- * of merging into one solid band. The non-attributed `.dt-kv` rows
- * keep their tight 1px padding — the gap is purely a contrast helper
- * for the highlighted variants. */
+ * The hover target and the right-aligned Copy/Override overlay live on
+ * the full-width `.dt-kv-row` wrapper (see headers.css), NOT this pill —
+ * so they line up with the plain server rows even though the tint hugs.
+ *
+ * A 1px vertical margin keeps stacked blue/red/grey pills reading as
+ * discrete entries. */
 .dt-kv--oh-added,
 .dt-kv--oh-modified {
   position: relative;
-  padding-left: 20px;
+  padding-left: 12px;
   background: var(--dt-row-attributed);
   border-radius: 2px;
   width: max-content;
@@ -112,7 +110,7 @@
 
 .dt-kv--oh-removed {
   position: relative;
-  padding-left: 20px;
+  padding-left: 12px;
   background: var(--dt-row-attributed-removed);
   border-radius: 2px;
   width: max-content;
@@ -122,12 +120,24 @@
 
 .dt-kv--oh-system {
   position: relative;
-  padding-left: 20px;
+  padding-left: 12px;
   background: var(--dt-row-attributed-system);
   border-radius: 2px;
   width: max-content;
   max-width: 100%;
   margin: 1px 0;
+}
+
+/* Attributed pills are inline-level so the value tags — which render as
+ * siblings AFTER the pill (outside the tint) — flow on the same line and
+ * wrap below only when the pill already fills the row. Plain server rows
+ * keep `.dt-kv`'s block-level flex and hold their tags inline. */
+.dt-kv--oh-added,
+.dt-kv--oh-modified,
+.dt-kv--oh-removed,
+.dt-kv--oh-system {
+  display: inline-flex;
+  vertical-align: middle;
 }
 
 .dt-kv--oh-added::before,

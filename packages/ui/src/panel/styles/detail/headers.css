@@ -235,8 +235,13 @@
  * Reserving its lane as trailing margin makes any tag sitting near that
  * edge wrap to the next line instead of being painted over (and
  * click-stolen) by the buttons. The value text is unaffected — it's
- * fixed by the cell width, so only the tags move. */
-.dt-kv:hover .dt-header-chips {
+ * fixed by the cell width, so only the tags move.
+ *
+ * Scoped to plain server rows: attributed rows (`--oh-*`) are
+ * content-hugging pills, so their tags sit far left of the panel-edge
+ * overlay and never collide — reserving the lane there would just grow
+ * the pill on hover. */
+.dt-kv-row:hover .dt-kv:not([class*='--oh-']) .dt-header-chips {
   margin-right: var(--dt-kv-actions-lane);
 }
 .dt-header-chip {
@@ -301,7 +306,7 @@
 .dt-header-info-trigger {
   opacity: 0;
 }
-.dt-kv:hover .dt-header-info-trigger,
+.dt-kv-row:hover .dt-header-info-trigger,
 .dt-header-info-trigger:focus-visible,
 .dt-header-info-trigger[aria-expanded='true'] {
   opacity: 1;
@@ -313,10 +318,12 @@
  * primary; this overlay just makes the override action visible
  * without requiring the user to discover that the name is clickable.
  *
- * Anchored to the row's right edge, fades in on row hover, sits on
- * a transparent → row-hover gradient so it reads cleanly over the
- * chip strip / edited-since label behind it. */
-.dt-headers-pane .dt-kv {
+ * Anchored to the full-width `.dt-kv-row` (not the inner `.dt-kv`, which
+ * may be a content-hugging attributed pill) so it always lands at the
+ * panel's right edge; fades in on row hover, sits on a transparent →
+ * row-hover gradient so it reads cleanly over the chip strip /
+ * edited-since label behind it. */
+.dt-headers-pane .dt-kv-row {
   position: relative;
 }
 .dt-kv-row-actions {
@@ -345,7 +352,7 @@
   z-index: 1;
   transition: opacity 80ms ease-out;
 }
-.dt-kv:hover .dt-kv-row-actions {
+.dt-kv-row:hover .dt-kv-row-actions {
   opacity: 1;
   pointer-events: auto;
 }
