@@ -21,7 +21,7 @@ export type { HarDrainResult, HarRetry, HarRetryMatch, HarWaitingDropLogger } fr
 export { HopCursor } from './hop-cursor';
 export type { HopCursorDropLogger, HopCursorDropReason } from './hop-cursor';
 export { FinalizedRetention } from './finalized-retention';
-export { LATE_ARRIVAL_WINDOW_MS } from './late-arrival-constants';
+export { FINALIZED_RETENTION_MS, HAR_FORWARD_HOLD_MS } from './late-arrival-constants';
 export { classifyCors, extractHeader, isCrossOrigin } from './cors-classifier';
 export type { ClassifyCorsInput } from './cors-classifier';
 export { CorsContextStore } from './cors-context-store';

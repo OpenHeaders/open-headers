@@ -7,7 +7,7 @@
  * This buffer holds those orphaned HAR entries per-tab, lets the
  * correlator retry the join when a new in-flight slot is recorded, and
  * drops entries whose own `startedDateTime` has fallen past
- * `LATE_ARRIVAL_WINDOW_MS` from the GC clock.
+ * `HAR_FORWARD_HOLD_MS` from the GC clock.
  *
  * Body events are exempt from invariant 8's ordering guarantee (HAR
  * body delivery is async by design) and are not held here.
@@ -15,7 +15,7 @@
 
 import type { InspectorHarEntry } from '@openheaders/core/types';
 
-import { LATE_ARRIVAL_WINDOW_MS, MAX_HAR_WAITING_PER_TAB } from './late-arrival-constants';
+import { HAR_FORWARD_HOLD_MS, MAX_HAR_WAITING_PER_TAB } from './late-arrival-constants';
 
 interface HeldEntry {
   readonly entry: InspectorHarEntry;
@@ -115,11 +115,11 @@ export class HarWaitingBuffer {
   }
 
   /**
-   * Drop entries whose `heldAtMs` is more than `LATE_ARRIVAL_WINDOW_MS`
+   * Drop entries whose `heldAtMs` is more than `HAR_FORWARD_HOLD_MS`
    * behind `nowMs`. Called from the correlator on each event tick.
    */
   gc(nowMs: number): void {
-    const cutoff = nowMs - LATE_ARRIVAL_WINDOW_MS;
+    const cutoff = nowMs - HAR_FORWARD_HOLD_MS;
     for (const [tabId, queue] of this.perTab) {
       for (let i = queue.length - 1; i >= 0; i--) {
         if (queue[i].heldAtMs < cutoff) {

@@ -252,7 +252,7 @@ export class HeuristicCorrelator implements RequestCorrelator {
     const match = this.inFlight.popMatching(tabId, url, ts, method);
     if (match === undefined) {
       // Forward race (H7): no in-flight slot recorded yet. Hold for
-      // up to LATE_ARRIVAL_WINDOW_MS so the matching onBeforeRequest
+      // up to HAR_FORWARD_HOLD_MS so the matching onBeforeRequest
       // (or onSendHeaders for hops ≥ 1) — if it lands within the
       // window — can drain this entry.
       this.harWaiting.hold(tabId, entry, ts);

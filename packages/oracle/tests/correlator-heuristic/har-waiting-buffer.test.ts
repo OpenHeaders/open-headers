@@ -9,7 +9,7 @@ import type { InspectorHarEntry } from '@openheaders/core/types';
 
 import { HarWaitingBuffer } from '../../src/correlator-heuristic/har-waiting-buffer';
 import {
-  LATE_ARRIVAL_WINDOW_MS,
+  HAR_FORWARD_HOLD_MS,
   MAX_HAR_WAITING_PER_TAB,
 } from '../../src/correlator-heuristic/late-arrival-constants';
 
@@ -99,17 +99,17 @@ describe('HarWaitingBuffer — hold / drain', () => {
 });
 
 describe('HarWaitingBuffer — gc', () => {
-  it('drops entries whose heldAtMs is past LATE_ARRIVAL_WINDOW_MS', () => {
+  it('drops entries whose heldAtMs is past HAR_FORWARD_HOLD_MS', () => {
     const buf = new HarWaitingBuffer();
     buf.hold(TAB, entry('GET', URL_A, T0), T0);
-    buf.gc(T0 + LATE_ARRIVAL_WINDOW_MS + 1);
+    buf.gc(T0 + HAR_FORWARD_HOLD_MS + 1);
     expect(buf.size()).toBe(0);
   });
 
   it('keeps entries that are still within the window', () => {
     const buf = new HarWaitingBuffer();
     buf.hold(TAB, entry('GET', URL_A, T0), T0);
-    buf.gc(T0 + LATE_ARRIVAL_WINDOW_MS - 1);
+    buf.gc(T0 + HAR_FORWARD_HOLD_MS - 1);
     expect(buf.size()).toBe(1);
   });
 
@@ -118,7 +118,7 @@ describe('HarWaitingBuffer — gc', () => {
     const buf = new HarWaitingBuffer({ onDrop });
     const e = entry('GET', URL_A, T0);
     buf.hold(TAB, e, T0);
-    buf.gc(T0 + LATE_ARRIVAL_WINDOW_MS + 1);
+    buf.gc(T0 + HAR_FORWARD_HOLD_MS + 1);
     expect(onDrop).toHaveBeenCalledWith({ tabId: TAB, reason: 'expired', entry: e });
   });
 });

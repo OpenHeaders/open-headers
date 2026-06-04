@@ -14,10 +14,11 @@
  *    contract is wrong. Throws on real-Chrome instantiation.
  *
  * Both emit a totally-ordered stream of `RequestLifecycleUpdate` per
- * `(tabId, requestId)` (invariant 8). The heuristic uses a per-key
- * in-window buffer (`LATE_ARRIVAL_WINDOW_MS`) to reconcile out-of-order
- * source events; HAR body attachment is exempt from the ordering
- * invariant because body delivery is async by design.
+ * `(tabId, requestId)` (invariant 8). The heuristic uses per-key
+ * in-window buffers (a short forward-race hold plus a backward
+ * finalized-retention window) to reconcile out-of-order source events;
+ * HAR body attachment is exempt from the ordering invariant because body
+ * delivery is async by design.
  */
 
 import type { RequestLifecycleUpdate } from './types';

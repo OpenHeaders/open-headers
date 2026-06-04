@@ -19,7 +19,10 @@ import type { InspectorHarBody, InspectorHarEntry } from '@openheaders/core/type
 import { HeuristicCorrelator } from '../../src/correlator-heuristic/correlator';
 import type { WebRequestEvent, WebRequestEventSource } from '../../src/correlator-heuristic/events';
 import type { HarEvent, HarEventSource } from '../../src/correlator-heuristic/har-events';
-import { LATE_ARRIVAL_WINDOW_MS } from '../../src/correlator-heuristic/late-arrival-constants';
+import {
+  FINALIZED_RETENTION_MS,
+  HAR_FORWARD_HOLD_MS,
+} from '../../src/correlator-heuristic/late-arrival-constants';
 
 /** In-memory webRequest source for tests. */
 class TestWebRequestSource implements WebRequestEventSource {
@@ -408,12 +411,12 @@ describe('HeuristicCorrelator — H7 forward race (HAR before onBeforeRequest)',
       ...startEvent,
       requestId: 'wr-other',
       url: 'https://api.openheaders.io/other',
-      timeStamp: STARTED_AT_MS + LATE_ARRIVAL_WINDOW_MS + 100,
+      timeStamp: STARTED_AT_MS + HAR_FORWARD_HOLD_MS + 100,
     });
     // Now the matching onBeforeRequest finally arrives — too late.
     webRequest.emit({
       ...startEvent,
-      timeStamp: STARTED_AT_MS + LATE_ARRIVAL_WINDOW_MS + 200,
+      timeStamp: STARTED_AT_MS + HAR_FORWARD_HOLD_MS + 200,
     });
 
     expect(collected.filter((u) => u.kind === 'har-attached')).toHaveLength(0);
@@ -480,6 +483,57 @@ describe('HeuristicCorrelator — H7 backward retention (HAR after terminal phas
     correlator.dispose();
   });
 
+  it('attaches a HAR delivered tens of seconds after a slow completion', () => {
+    // Regression: on slow/offline networks the devtools HAR pipeline can
+    // deliver `onRequestFinished` far later than webRequest's
+    // `onCompleted`. Retention is pinned to the in-flight join-key
+    // lifetime, so the lifecycle survives for the whole window the join
+    // key can still resolve — a delivery lag an order of magnitude past
+    // the short forward-hold window must still attach.
+    expect(FINALIZED_RETENTION_MS).toBeGreaterThan(HAR_FORWARD_HOLD_MS * 2);
+    const { webRequest, har } = makeSources();
+    const correlator = new HeuristicCorrelator({ webRequest, har });
+    const collected: RequestLifecycleUpdate[] = [];
+    correlator.subscribe((u) => collected.push(u));
+    correlator.attachTab(TAB);
+
+    const completedAt = STARTED_AT_MS + 8_000;
+    webRequest.emit(startEvent);
+    webRequest.emit({
+      method_kind: 'onCompleted',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_A,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: completedAt,
+      statusCode: 200,
+    });
+    // Unrelated traffic advances the gc clock to nearly a full retention
+    // window past completion — comfortably past the old short window, yet
+    // wr-1 is retained because its join key is still poppable.
+    webRequest.emit({
+      ...startEvent,
+      requestId: 'wr-other',
+      url: 'https://api.openheaders.io/other',
+      timeStamp: completedAt + FINALIZED_RETENTION_MS - 1_000,
+    });
+    // Late HAR for wr-1; its `startedDateTime` still reflects the request
+    // start, so popMatching resolves the in-flight slot and the retained
+    // lifecycle takes the attachment.
+    har.emit({
+      kind: 'har-entry',
+      tabId: TAB,
+      entry: harEntry({ startedDateTime: new Date(STARTED_AT_MS + 100).toISOString() }),
+    });
+
+    const attached = collected.filter((u) => u.kind === 'har-attached');
+    expect(attached).toHaveLength(1);
+    if (attached[0]?.kind !== 'har-attached') throw new Error('expected har-attached');
+    expect(attached[0].requestId).toBe('wr-1');
+    correlator.dispose();
+  });
+
   it('drops a HAR that arrives past the retention window after terminal', () => {
     const { webRequest, har } = makeSources();
     const correlator = new HeuristicCorrelator({ webRequest, har });
@@ -503,14 +557,17 @@ describe('HeuristicCorrelator — H7 backward retention (HAR after terminal phas
       ...startEvent,
       requestId: 'wr-other',
       url: 'https://api.openheaders.io/other',
-      timeStamp: STARTED_AT_MS + 50 + LATE_ARRIVAL_WINDOW_MS + 100,
+      timeStamp: STARTED_AT_MS + 50 + FINALIZED_RETENTION_MS + 100,
     });
-    // Late HAR — recentLifecycles for wr-1 is already pruned.
+    // Late HAR whose `startedDateTime` is still near the request start —
+    // its in-flight join key is well within IN_FLIGHT_MAX_AGE_MS, so
+    // popMatching resolves wr-1; the drop is solely because
+    // recentLifecycles pruned wr-1 once its retention window elapsed.
     har.emit({
       kind: 'har-entry',
       tabId: TAB,
       entry: harEntry({
-        startedDateTime: new Date(STARTED_AT_MS + 50 + LATE_ARRIVAL_WINDOW_MS + 200).toISOString(),
+        startedDateTime: new Date(STARTED_AT_MS + 100).toISOString(),
       }),
     });
 
@@ -572,7 +629,7 @@ describe('HeuristicCorrelator — H7 backward retention (HAR after terminal phas
       ...startEvent,
       requestId: 'wr-2',
       url: URL_B,
-      timeStamp: STARTED_AT_MS + LATE_ARRIVAL_WINDOW_MS,
+      timeStamp: STARTED_AT_MS + FINALIZED_RETENTION_MS,
     });
     webRequest.emit({
       method_kind: 'onCompleted',
@@ -581,7 +638,7 @@ describe('HeuristicCorrelator — H7 backward retention (HAR after terminal phas
       url: URL_B,
       method: 'GET',
       type: 'xmlhttprequest',
-      timeStamp: STARTED_AT_MS + LATE_ARRIVAL_WINDOW_MS + 50,
+      timeStamp: STARTED_AT_MS + FINALIZED_RETENTION_MS + 50,
       statusCode: 200,
     });
     // Another event ticks gc past wr-1's window but not wr-2's.
@@ -589,14 +646,14 @@ describe('HeuristicCorrelator — H7 backward retention (HAR after terminal phas
       ...startEvent,
       requestId: 'wr-3',
       url: 'https://api.openheaders.io/z',
-      timeStamp: STARTED_AT_MS + LATE_ARRIVAL_WINDOW_MS + 100,
+      timeStamp: STARTED_AT_MS + FINALIZED_RETENTION_MS + 100,
     });
     // HAR for wr-2 — should still attach.
     har.emit({
       kind: 'har-entry',
       tabId: TAB,
       entry: harEntry({
-        startedDateTime: new Date(STARTED_AT_MS + LATE_ARRIVAL_WINDOW_MS).toISOString(),
+        startedDateTime: new Date(STARTED_AT_MS + FINALIZED_RETENTION_MS).toISOString(),
         request: { method: 'GET', url: URL_B, headers: [], queryString: [] },
       }),
     });

@@ -9,14 +9,14 @@
  *
  * This module tracks the terminal-phase timestamp for each `(tabId,
  * requestId)` and surfaces the keys that have aged past
- * `LATE_ARRIVAL_WINDOW_MS`. The correlator deletes the corresponding
+ * `FINALIZED_RETENTION_MS`. The correlator deletes the corresponding
  * `recentLifecycles` entry on each event tick. Lazy gc, no timers —
  * deterministic under fake clocks and SW-suspend-safe.
  */
 
 import { lifecycleKey } from '@openheaders/core/request-lifecycle';
 
-import { LATE_ARRIVAL_WINDOW_MS } from './late-arrival-constants';
+import { FINALIZED_RETENTION_MS } from './late-arrival-constants';
 
 interface RetentionEntry {
   readonly tabId: number;
@@ -42,7 +42,7 @@ export class FinalizedRetention {
 
   /**
    * Return — and remove — every entry whose `finalizedAtMs` is more
-   * than `LATE_ARRIVAL_WINDOW_MS` behind `nowMs`. Callers iterate the
+   * than `FINALIZED_RETENTION_MS` behind `nowMs`. Callers iterate the
    * result to delete the matching keys from their own caches.
    *
    * Iteration leverages insertion order: once we find an entry within
@@ -51,7 +51,7 @@ export class FinalizedRetention {
    * cheap on long-running tabs.
    */
   gcExpired(nowMs: number): Array<{ tabId: number; requestId: string }> {
-    const cutoff = nowMs - LATE_ARRIVAL_WINDOW_MS;
+    const cutoff = nowMs - FINALIZED_RETENTION_MS;
     const expired: Array<{ tabId: number; requestId: string }> = [];
     for (const [key, entry] of this.entries) {
       if (entry.finalizedAtMs >= cutoff) break;

@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { FinalizedRetention } from '../../src/correlator-heuristic/finalized-retention';
-import { LATE_ARRIVAL_WINDOW_MS } from '../../src/correlator-heuristic/late-arrival-constants';
+import { FINALIZED_RETENTION_MS } from '../../src/correlator-heuristic/late-arrival-constants';
 
 const TAB = 7;
 const T0 = 1_700_000_000_000;
@@ -21,7 +21,7 @@ describe('FinalizedRetention — markFinalized / gcExpired', () => {
     const ret = new FinalizedRetention();
     ret.markFinalized(TAB, 'wr-1', T0);
     ret.markFinalized(TAB, 'wr-2', T0 + 10);
-    expect(ret.gcExpired(T0 + LATE_ARRIVAL_WINDOW_MS - 1)).toEqual([]);
+    expect(ret.gcExpired(T0 + FINALIZED_RETENTION_MS - 1)).toEqual([]);
     expect(ret.size()).toBe(2);
   });
 
@@ -30,7 +30,7 @@ describe('FinalizedRetention — markFinalized / gcExpired', () => {
     ret.markFinalized(TAB, 'wr-1', T0);
     ret.markFinalized(TAB, 'wr-2', T0 + 10);
 
-    const expired = ret.gcExpired(T0 + LATE_ARRIVAL_WINDOW_MS + 1);
+    const expired = ret.gcExpired(T0 + FINALIZED_RETENTION_MS + 1);
     expect(expired).toEqual([{ tabId: TAB, requestId: 'wr-1' }]);
     expect(ret.size()).toBe(1);
   });
@@ -39,9 +39,9 @@ describe('FinalizedRetention — markFinalized / gcExpired', () => {
     const ret = new FinalizedRetention();
     ret.markFinalized(TAB, 'wr-old', T0);
     ret.markFinalized(TAB, 'wr-mid', T0 + 100);
-    ret.markFinalized(TAB, 'wr-new', T0 + LATE_ARRIVAL_WINDOW_MS);
+    ret.markFinalized(TAB, 'wr-new', T0 + FINALIZED_RETENTION_MS);
 
-    const expired = ret.gcExpired(T0 + LATE_ARRIVAL_WINDOW_MS + 200);
+    const expired = ret.gcExpired(T0 + FINALIZED_RETENTION_MS + 200);
     expect(expired.map((e) => e.requestId)).toEqual(['wr-old', 'wr-mid']);
     expect(ret.size()).toBe(1);
   });
@@ -49,9 +49,9 @@ describe('FinalizedRetention — markFinalized / gcExpired', () => {
   it('re-marking refreshes the finalizedAtMs (longest window wins)', () => {
     const ret = new FinalizedRetention();
     ret.markFinalized(TAB, 'wr-1', T0);
-    ret.markFinalized(TAB, 'wr-1', T0 + LATE_ARRIVAL_WINDOW_MS);
+    ret.markFinalized(TAB, 'wr-1', T0 + FINALIZED_RETENTION_MS);
 
-    expect(ret.gcExpired(T0 + LATE_ARRIVAL_WINDOW_MS + 1)).toEqual([]);
+    expect(ret.gcExpired(T0 + FINALIZED_RETENTION_MS + 1)).toEqual([]);
     expect(ret.size()).toBe(1);
   });
 });
@@ -65,7 +65,7 @@ describe('FinalizedRetention — tab scope', () => {
 
     ret.forgetTab(TAB);
     expect(ret.size()).toBe(1);
-    expect(ret.gcExpired(T0 + LATE_ARRIVAL_WINDOW_MS + 1)).toEqual([
+    expect(ret.gcExpired(T0 + FINALIZED_RETENTION_MS + 1)).toEqual([
       { tabId: TAB + 1, requestId: 'wr-3' },
     ]);
   });
