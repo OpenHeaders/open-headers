@@ -110,7 +110,10 @@ export default function PayloadView({ har, searchHighlight, searchSection }: Pay
       )}
 
       {postData && (
-        <details className="dt-section" open>
+        // The raw-text body fills the remaining pane height so Monaco owns
+        // the scroll and the toolbar stays pinned at the bottom (like the
+        // Response tab); the structured form-param table stays natural-flow.
+        <details className={hasStructuredPostData ? 'dt-section' : 'dt-section dt-payload-body-section'} open>
           <summary>Request Body ({postData.mimeType})</summary>
           {hasStructuredPostData ? (
             <div className="dt-payload-table">

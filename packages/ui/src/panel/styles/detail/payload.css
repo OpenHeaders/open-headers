@@ -1,7 +1,39 @@
 /* Payload tab — request body / form data table. */
 
 .dt-payload-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
   padding: 4px 0;
+}
+
+/* Raw-text request body fills the remaining pane height so Monaco owns
+ * the scroll (wheel + auto-resize) and the body toolbar stays pinned at
+ * the bottom — same model as the Response tab. The query-param section
+ * above keeps its natural height; the body grows to absorb the rest. */
+.dt-payload-body-section {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+/* Chromium renders <details> content inside a generated `::details-content`
+   box, so that box — not `.dt-payload-body-wrap` — is the flex child of the
+   details. It has to carry the fill and become a flex column itself, or the
+   body-wrap's `flex: 1` resolves against an auto-height wrapper and the
+   editor collapses. */
+.dt-payload-body-section::details-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.dt-payload-body-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 .dt-payload-toggles {
   display: inline-flex;

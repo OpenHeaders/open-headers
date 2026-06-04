@@ -250,7 +250,11 @@ export function InspectorDetailContent({
       )}
 
       <div
-        className="dt-tab-body"
+        // Payload's raw-text body fills the pane (Monaco owns the scroll,
+        // toolbar pinned at the bottom — like Response), which needs the
+        // tab body to be a flex column so `.dt-payload-view` can `flex: 1`.
+        // Other sections stay block-flow scroll containers.
+        className={section === 'payload' ? 'dt-tab-body dt-tab-body--fill' : 'dt-tab-body'}
         ref={tabBodyRef}
         style={section === 'preview' || section === 'response' ? { display: 'none' } : undefined}
       >

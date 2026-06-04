@@ -46,3 +46,11 @@
   padding: 0 8px;
   background: var(--dt-bg);
 }
+/* Payload variant: the body fills the pane (Monaco owns the scroll), so
+   the tab body becomes a flex column and `.dt-payload-view` claims the
+   height with `flex: 1` instead of percentage height, which wouldn't
+   resolve against this flex item. */
+.dt-tab-body--fill {
+  display: flex;
+  flex-direction: column;
+}
