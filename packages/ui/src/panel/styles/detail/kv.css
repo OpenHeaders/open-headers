@@ -21,8 +21,7 @@
   flex-shrink: 0;
 }
 
-.dt-kv-val,
-.dt-kv-oh-value {
+.dt-kv-val {
   /* Long token-style values (JWTs, base64 blobs, cookies) used to
      overflow horizontally — that scrolled the whole row sideways and
      broke the rule-applied {{ref}} highlight. Wrap-and-break inside
@@ -33,6 +32,29 @@
   word-break: break-all;
   white-space: pre-wrap;
   /* Visible-height cap; defined in panel.css :root. */
+  max-height: var(--oh-multiline-cap, 96px);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Header rows pack the value and its inline tags into one flex cell so
+   the value's wrap point is set by the cell width (constant across
+   hover) — the tags flow after the value text and wrap to clear the
+   hover action overlay without ever reflowing the value. */
+.dt-kv-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.dt-kv-oh-value {
+  /* Inline-block so the tag group can sit right after the value on the
+     same line for short values and drop below it for long ones, while
+     the value keeps its own wrap-and-scroll box (see `.dt-kv-val`). */
+  display: inline-block;
+  vertical-align: top;
+  max-width: 100%;
+  word-break: break-all;
+  white-space: pre-wrap;
   max-height: var(--oh-multiline-cap, 96px);
   overflow-y: auto;
   overflow-x: hidden;

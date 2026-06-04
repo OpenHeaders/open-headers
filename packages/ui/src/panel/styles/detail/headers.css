@@ -86,6 +86,13 @@
    * `-1px` overlap needed to absorb integer rounding. */
   --dt-section-sticky-top: var(--oh-headers-toolbar-h, 30px);
   --oh-headers-sticky-offset: calc(var(--oh-headers-toolbar-h, 30px) + var(--oh-headers-summary-h, 24px));
+  /* Right-edge footprint of the hover-revealed Copy/Override overlay
+   * (`.dt-kv-row-actions`). The value and its inline tags share one
+   * fixed-width cell (`.dt-kv-content`), so on hover the tags reserve
+   * this much trailing space — any tag sitting near the right edge wraps
+   * to the next line and clears the buttons, while the value text stays
+   * frozen (its wrap point is set by the cell width, not the hover). */
+  --dt-kv-actions-lane: 120px;
 }
 
 /* Filter bar. */
@@ -210,13 +217,27 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Value chips. */
+/* Value chips. The chip group flows inline after the value text inside
+ * the shared `.dt-kv-content` cell and wraps to the next line when it
+ * runs out of room (`max-width` keeps a wide group inside the cell). */
 .dt-header-chips {
   margin-left: 8px;
   display: inline-flex;
   flex-wrap: wrap;
   gap: 3px;
   vertical-align: middle;
+  max-width: 100%;
+  /* Animates the hover-time reflow that wraps the tags clear of the
+   * action overlay. */
+  transition: margin-right 80ms ease-out;
+}
+/* On hover the Copy/Override overlay fades in at the row's right edge.
+ * Reserving its lane as trailing margin makes any tag sitting near that
+ * edge wrap to the next line instead of being painted over (and
+ * click-stolen) by the buttons. The value text is unaffected — it's
+ * fixed by the cell width, so only the tags move. */
+.dt-kv:hover .dt-header-chips {
+  margin-right: var(--dt-kv-actions-lane);
 }
 .dt-header-chip {
   display: inline-block;

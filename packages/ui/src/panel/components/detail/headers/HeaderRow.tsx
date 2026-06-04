@@ -224,11 +224,13 @@ export function AttributedHeaderRow({
           {displayName}
         </button>
       )}
-      <span className="dt-kv-oh-value">
-        : {showResolvedValue ? <ResolvedHeaderValue value={value} collectionId={ruleCollectionId} /> : value}
+      <span className="dt-kv-content">
+        <span className="dt-kv-oh-value">
+          : {showResolvedValue ? <ResolvedHeaderValue value={value} collectionId={ruleCollectionId} /> : value}
+        </span>
+        {showChips && <ValueChips name={name} value={value} />}
+        {editedSinceFire && <EditedSinceFireChip kind={ruleEdited ? 'rule' : 'value'} />}
       </span>
-      {showChips && <ValueChips name={name} value={value} />}
-      {editedSinceFire && <EditedSinceFireChip kind={ruleEdited ? 'rule' : 'value'} />}
       <span className="dt-kv-row-actions">
         <button
           type="button"
