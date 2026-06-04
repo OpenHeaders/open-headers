@@ -198,30 +198,13 @@
   background: var(--dt-fire-inferred);
 }
 
-.dt-col-status--2xx {
-  color: var(--dt-status-green);
-}
-
-.dt-col-status--3xx {
-  color: var(--dt-status-orange);
-}
-
-.dt-col-status--4xx,
-.dt-col-status--5xx,
-.dt-col-status--error {
-  color: var(--dt-status-red);
-}
-
-/* Early hints (103) — informational, muted. */
-.dt-col-status--1xx {
+/* Dimmed status cell — a cache hit or a no-status (pending / opaque) row
+ * that is not itself a failure. Browser parity: the cell greys (scoped to
+ * this column, not the whole row), and the status code keeps its plain
+ * (uncoloured) value everywhere else. No status-range tinting — the browser
+ * colours neither 2xx nor 3xx, so we don't either. */
+.dt-col-status--dim {
   color: var(--dt-text-muted);
-}
-
-/* Pending status text — muted + italic to distinguish from numeric
- * statuses. */
-.dt-col-status--pending {
-  color: var(--dt-text-muted);
-  font-style: italic;
 }
 
 .dt-col-muted {
@@ -256,53 +239,23 @@
 .dt-resource-icon--wasm { color: #654ff0; }
 .dt-resource-icon--preflight { color: #8e44ad; }
 
-/* ── Blocked request rows (red, like Chrome DevTools) ───── */
-.dt-row--blocked,
-.dt-row--failed {
+/* ── Failed / error rows (red, browser parity) ─────────────
+ * The whole row reads red when the request is a genuine failure: a wire
+ * failure with no HTTP status, any 4xx/5xx, or a CORS rejection. The
+ * muted prefix columns (#, initiator) and the resource icon tint with it
+ * so the row is unmistakeably red end to end — matching how the browser
+ * colours its error rows (status range alone is never coloured). */
+.dt-row--error {
   color: var(--dt-status-red);
 }
-.dt-row--blocked .dt-col-muted,
-.dt-row--failed .dt-col-muted {
+.dt-row--error .dt-col-muted {
   color: var(--dt-status-red);
   opacity: 0.7;
 }
-.dt-row--blocked .dt-resource-icon,
-.dt-row--failed .dt-resource-icon {
+.dt-row--error .dt-resource-icon {
   color: var(--dt-status-red);
 }
 
-/* ── Pending rows (italic, muted) ──────────────────────────
- * Chrome animates a spinner; we keep it static to avoid the CPU
- * tax of a live-painting indicator per row. The italic + muted
- * text is still an unmistakeable "this hasn't finished" signal. */
-.dt-row--pending {
-  color: var(--dt-text-muted);
-  font-style: italic;
-}
-
-/* ── Redirect rows (no special row styling today) ──────────
- * Chrome renders 3xx with the same colour as 2xx; the status
- * column's `dt-col-status--3xx` class already applies the olive
- * tint so the row-level class currently just identifies the
- * redirect for future "follow redirect chain" UX to latch onto. */
-.dt-row--redirect {
-}
-
-/* ── Cached rows (grey, like Chrome DevTools) ──────────────
- * When the response was served from disk or memory cache, the
- * network stack didn't hit the wire. Match Chrome's convention:
- * mute the entire row so the user can scan the list and tell
- * "this was a cache hit" at a glance. The Size column already
- * shows `(disk cache)` / `(memory cache)` as a second signal. */
-.dt-row--cached {
-  color: var(--dt-text-muted);
-}
-.dt-row--cached .dt-col-muted {
-  opacity: 0.75;
-}
-.dt-row--cached .dt-resource-icon {
-  opacity: 0.6;
-}
 /* The size-column label uses italic-muted so it reads as metadata
  * rather than a number — mirrors DevTools' `(disk cache)` styling. */
 .dt-col-cache {

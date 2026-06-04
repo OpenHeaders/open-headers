@@ -1,9 +1,9 @@
 import { hostNavigation } from '@openheaders/core/navigation';
 import { currentHarEntry, type InspectorRowWithFires } from '../../data/inspector-row-projection';
-import { type RequestState, statusText } from '../../data/request-state';
+import { isDimStatusCell, type RequestState, statusCellText, statusCellTitle } from '../../data/request-state';
 import { formatBytesToKb, formatSizeInfo, type SizeInfo } from '../../data/size-info';
 import type { ColumnDef } from './columns';
-import { extractName, formatInitiator, getInitiatorFrame, statusClass } from './formatters';
+import { extractName, formatInitiator, getInitiatorFrame } from './formatters';
 import { getRole, type PreflightIndex } from './preflight-pairs';
 import ResourceIcon from './ResourceIcon';
 import { normalizeResourceType, RESOURCE_LABEL } from './resource-types';
@@ -66,10 +66,12 @@ export function renderCell(
     return <span>{lc.method}</span>;
   }
   if (col.key === 'status') {
-    const text = statusText(state, lc);
+    // Grey the cell for a cache hit or any no-status row (pending / opaque)
+    // — browser parity is a dimmed cell, not a coloured one. Everything
+    // else is plain: the browser tints no status range.
     return (
-      <span className={statusClass(state, lc.statusCode)} title={text}>
-        {text}
+      <span className={isDimStatusCell(lc) ? 'dt-col-status--dim' : undefined} title={statusCellTitle(lc)}>
+        {statusCellText(lc)}
       </span>
     );
   }

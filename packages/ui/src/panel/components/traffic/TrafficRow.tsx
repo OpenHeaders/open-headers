@@ -37,7 +37,7 @@ function TrafficRowImpl({
 }: TrafficRowProps) {
   const state = classifyRequestState(row.lifecycle);
   const sizeInfo = getSizeInfo(row.lifecycle, state);
-  const stateClass = rowStateClass(state);
+  const stateClass = rowStateClass(row.lifecycle);
   const requestId = row.lifecycle.requestId;
   return (
     <button
