@@ -37,6 +37,9 @@
  * Must stay small: this file runs every time DevTools opens on any tab.
  */
 
+import { POLL_MAX_MS, rampedDelayMs } from './poll-cadence';
+import { createResourceTimingSampler } from './resource-timing-sampler';
+
 // Per-engine quirks for the panel tab visual:
 //   - Chromium ignores the `iconPath` argument entirely (no icon ever
 //     renders next to the panel title), so we rely on a Unicode glyph
@@ -65,6 +68,12 @@ chrome.storage.local.get('__oh_parity_hook__', (res) => {
 
 const tabId = chrome.devtools.inspectedWindow.tabId;
 
+// Wall-clock moment DevTools opened on this tab — the Resource Timing
+// floor. The buffer is cumulative since navigation, so the sampler scopes
+// the feed to entries that started at/after this (Chrome parity: only
+// requests since DevTools opened).
+const openedAtWallMs = Date.now();
+
 let port: chrome.runtime.Port | null = null;
 
 function ensurePort(): chrome.runtime.Port {
@@ -89,16 +98,22 @@ function postToBackground(msg: unknown): void {
   }
 }
 
+const resourceTimingSampler = createResourceTimingSampler({
+  evalInPage: (expr, cb) => chrome.devtools.inspectedWindow.eval(expr, cb),
+  forward: (snapshot) =>
+    postToBackground({ type: 'resource-timing', timeOriginMs: snapshot.timeOriginMs, entries: snapshot.entries }),
+  openedAtWallMs,
+});
+
 // Navigation forwarding — matches Chrome's Network tab default of
 // clearing the log when the inspected window navigates. The panel
 // honors this only when its "Preserve log" toggle is off.
 chrome.devtools.network.onNavigated.addListener((url: string) => {
   postToBackground({ type: 'nav', url });
   scheduleNavTimingSample();
-  // A new document resets the Resource Timing buffer — drop the change
-  // floor so the first post of the new page always lands.
-  lastResourceCount = -1;
-  scheduleResourceTimingSample();
+  // A new document resets the Resource Timing buffer — restart the sampler
+  // so the first post of the new page always lands.
+  resourceTimingSampler.restart();
 });
 
 /**
@@ -175,17 +190,9 @@ function sampleNavTiming(onResult: (loadFired: boolean) => void): void {
 /**
  * Poll Navigation Timing until the load event has fired or the budget
  * expires. A devtools page can't receive the page's own load events
- * without attaching a debugger, so we sample `performance` instead — on
- * a ramped cadence: tight (100ms) for the first couple of seconds so a
- * fast page surfaces DOMContentLoaded / Load almost immediately, then
- * backing off (500ms) for the long tail of slow pages. Each eval returns
- * under a millisecond, and sampling stops the moment the load lands.
+ * without attaching a debugger, so we sample `performance` on the shared
+ * ramped cadence (see `poll-cadence`), and stop the moment the load lands.
  */
-const NAV_TIMING_FAST_MS = 100;
-const NAV_TIMING_FAST_WINDOW_MS = 2000;
-const NAV_TIMING_SLOW_MS = 500;
-const NAV_TIMING_MAX_MS = 20_000;
-
 let navTimingTimer: ReturnType<typeof setTimeout> | null = null;
 let navTimingElapsedMs = 0;
 
@@ -201,11 +208,11 @@ function scheduleNavTimingSample(): void {
   // resolves — never stacking round-trips at the inspected window.
   const tick = () => {
     sampleNavTiming((loadFired) => {
-      if (loadFired || navTimingElapsedMs >= NAV_TIMING_MAX_MS) {
+      if (loadFired || navTimingElapsedMs >= POLL_MAX_MS) {
         stopNavTimingPoll();
         return;
       }
-      const delay = navTimingElapsedMs < NAV_TIMING_FAST_WINDOW_MS ? NAV_TIMING_FAST_MS : NAV_TIMING_SLOW_MS;
+      const delay = rampedDelayMs(navTimingElapsedMs);
       navTimingElapsedMs += delay;
       navTimingTimer = setTimeout(tick, delay);
     });
@@ -218,113 +225,9 @@ function scheduleNavTimingSample(): void {
 // already populated.
 scheduleNavTimingSample();
 
-/**
- * Snapshot the inspected page's Resource Timing buffer and forward it.
- *
- * This is the only banner-free source for renderer in-process cache
- * hits: a resource served from the renderer's memory cache never reaches
- * the network service, so no `webRequest` / HAR event fires for it, yet
- * it still records a `PerformanceResourceTiming` entry (with
- * `transferSize` 0). The panel reconciles this snapshot against its real
- * rows to surface the otherwise-invisible hits.
- *
- * The buffer is cumulative and append-only within a document, so each
- * snapshot supersedes the prior. We skip the forward when the entry
- * count is unchanged since the last post — a cheap "nothing new" gate
- * that avoids waking the background for an identical snapshot.
- */
-const RESOURCE_TIMING_EXPR = `(() => {
-  try {
-    const origin = performance.timeOrigin || (Date.now() - performance.now());
-    const list = performance.getEntriesByType('resource');
-    const entries = [];
-    for (const e of list) {
-      entries.push({
-        name: e.name,
-        initiatorType: e.initiatorType || '',
-        nextHopProtocol: e.nextHopProtocol || '',
-        startTime: e.startTime || 0,
-        duration: e.duration || 0,
-        transferSize: e.transferSize || 0,
-        encodedBodySize: e.encodedBodySize || 0,
-        decodedBodySize: e.decodedBodySize || 0,
-        deliveryType: e.deliveryType || '',
-        responseStatus: typeof e.responseStatus === 'number' ? e.responseStatus : 0,
-      });
-    }
-    return { timeOriginMs: origin, entries };
-  } catch (e) {
-    return { timeOriginMs: 0, entries: [] };
-  }
-})()`;
-
-interface ResourceTimingProbeResult {
-  timeOriginMs: number;
-  entries: {
-    name: string;
-    initiatorType: string;
-    nextHopProtocol: string;
-    startTime: number;
-    duration: number;
-    transferSize: number;
-    encodedBodySize: number;
-    decodedBodySize: number;
-    deliveryType: string;
-    responseStatus?: number;
-  }[];
-}
-
-let lastResourceCount = -1;
-
-function sampleResourceTiming(): void {
-  chrome.devtools.inspectedWindow.eval(
-    RESOURCE_TIMING_EXPR,
-    (result: ResourceTimingProbeResult | null, err?: EvalExceptionInfo) => {
-      if (err || !result) return;
-      if (result.entries.length === lastResourceCount) return;
-      lastResourceCount = result.entries.length;
-      postToBackground({
-        type: 'resource-timing',
-        timeOriginMs: result.timeOriginMs,
-        entries: result.entries,
-      });
-    },
-  );
-}
-
-let resourceTimingTimer: ReturnType<typeof setTimeout> | null = null;
-let resourceTimingElapsedMs = 0;
-
-function stopResourceTimingPoll(): void {
-  if (resourceTimingTimer != null) clearTimeout(resourceTimingTimer);
-  resourceTimingTimer = null;
-}
-
-/**
- * Poll the Resource Timing buffer on the same ramped cadence as
- * navigation timing — tight early so the bulk of load-time cache hits
- * surface fast, backing off for the long tail. Unlike nav timing there
- * is no single "done" event (lazy resources keep arriving), so the poll
- * runs to the budget ceiling and the change-count gate suppresses
- * no-op forwards.
- */
-function scheduleResourceTimingSample(): void {
-  stopResourceTimingPoll();
-  resourceTimingElapsedMs = 0;
-  const tick = () => {
-    sampleResourceTiming();
-    if (resourceTimingElapsedMs >= NAV_TIMING_MAX_MS) {
-      stopResourceTimingPoll();
-      return;
-    }
-    const delay = resourceTimingElapsedMs < NAV_TIMING_FAST_WINDOW_MS ? NAV_TIMING_FAST_MS : NAV_TIMING_SLOW_MS;
-    resourceTimingElapsedMs += delay;
-    resourceTimingTimer = setTimeout(tick, delay);
-  };
-  tick();
-}
-
-scheduleResourceTimingSample();
+// Kick off the Resource Timing poll — like nav timing, the panel may open
+// on an already-loaded page whose buffer is already populated.
+resourceTimingSampler.restart();
 
 chrome.devtools.network.onRequestFinished.addListener((entry) => {
   try {
