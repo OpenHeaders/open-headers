@@ -32,6 +32,7 @@
 
 import {
   type LifecycleClearSessionMessage,
+  type LifecycleSource,
   type LifecycleSubscribeMessage,
   type LifecycleWireMessage,
   lifecyclePortName,
@@ -55,6 +56,12 @@ export interface UseLifecycleClientResult {
    */
   readonly sessionToken: string | null;
   /**
+   * Which correlator feeds the inspected tab. `'cdp'` means the rows are
+   * the higher-fidelity CDP view (drives the "CDP-enhanced" badge);
+   * defaults to `'heuristic'` until the engine reports otherwise.
+   */
+  readonly source: LifecycleSource;
+  /**
    * Clear the panel's view: drop the local mirror AND advance the
    * engine-owned session floor so the reset survives a reconnect. Register
    * THIS (not `store`) as the panel's lifecycle resettable.
@@ -67,6 +74,7 @@ export function useLifecycleClient(): UseLifecycleClientResult {
   if (!storeRef.current) storeRef.current = new LifecycleClientStore();
   const store = storeRef.current;
   const [sessionToken, setSessionToken] = useState<string | null>(null);
+  const [source, setSource] = useState<LifecycleSource>('heuristic');
 
   // The session floor is engine-owned, so the panel never carries it: a
   // bare `subscribe` means "my watch session" and the engine resolves the
@@ -93,6 +101,11 @@ export function useLifecycleClient(): UseLifecycleClientResult {
           // stale lifecycles against a tab that's gone.
           store.clear();
           break;
+        case 'source':
+          // Per-tab provenance for the "CDP-enhanced" badge; carries no
+          // request data, so the store is untouched.
+          setSource(msg.source);
+          break;
         default: {
           const _exhaustive: never = msg;
           void _exhaustive;
@@ -110,5 +123,5 @@ export function useLifecycleClient(): UseLifecycleClientResult {
 
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot);
 
-  return { snapshot, tabId, store, sessionToken, clearSession };
+  return { snapshot, tabId, store, sessionToken, source, clearSession };
 }

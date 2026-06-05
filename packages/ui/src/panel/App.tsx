@@ -698,6 +698,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
         cachedCount={data.cachedCount}
         pageCount={data.pageCount}
         pageOrigin={data.navTiming?.pageOrigin}
+        cdpEnhanced={lifecycleClient.source === 'cdp'}
       />
     </div>
   );

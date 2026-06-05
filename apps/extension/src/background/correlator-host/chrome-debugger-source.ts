@@ -35,12 +35,14 @@
  */
 
 import type {
+  CdpCallFrame,
   CdpEventSource,
   CdpInitiator,
   CdpNetworkEvent,
   CdpRequestParams,
   CdpResourceTiming,
   CdpResponseParams,
+  CdpStackTrace,
 } from '@openheaders/oracle/correlator-cdp';
 import { logger } from '@utils/logger';
 import { type BrowserAPI, getBrowserAPI } from '@/types/browser';
@@ -353,9 +355,26 @@ interface RawResponse {
   readonly timing?: RawResourceTiming;
 }
 
+interface RawCallFrame {
+  readonly functionName: string;
+  readonly scriptId: string;
+  readonly url: string;
+  readonly lineNumber: number;
+  readonly columnNumber: number;
+}
+
+interface RawStackTrace {
+  readonly description?: string;
+  readonly callFrames: readonly RawCallFrame[];
+  readonly parent?: RawStackTrace;
+}
+
 interface RawInitiator {
   readonly type: string;
   readonly url?: string;
+  readonly lineNumber?: number;
+  readonly columnNumber?: number;
+  readonly stack?: RawStackTrace;
 }
 
 interface RawRequestWillBeSent {
@@ -514,6 +533,27 @@ function normalizeInitiator(i: RawInitiator): CdpInitiator {
   return {
     type: normalizeInitiatorType(i.type),
     ...(i.url !== undefined ? { url: i.url } : {}),
+    ...(i.lineNumber !== undefined ? { lineNumber: i.lineNumber } : {}),
+    ...(i.columnNumber !== undefined ? { columnNumber: i.columnNumber } : {}),
+    ...(i.stack !== undefined ? { stack: normalizeStackTrace(i.stack) } : {}),
+  };
+}
+
+function normalizeStackTrace(s: RawStackTrace): CdpStackTrace {
+  return {
+    ...(s.description !== undefined ? { description: s.description } : {}),
+    callFrames: s.callFrames.map(normalizeCallFrame),
+    ...(s.parent !== undefined ? { parent: normalizeStackTrace(s.parent) } : {}),
+  };
+}
+
+function normalizeCallFrame(f: RawCallFrame): CdpCallFrame {
+  return {
+    functionName: f.functionName,
+    scriptId: f.scriptId,
+    url: f.url,
+    lineNumber: f.lineNumber,
+    columnNumber: f.columnNumber,
   };
 }
 

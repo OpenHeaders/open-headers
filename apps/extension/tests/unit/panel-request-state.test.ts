@@ -234,3 +234,29 @@ describe('classifyRequestState', () => {
     expect(statusCellText(cachedLc)).toBe('200');
   });
 });
+
+describe('statusCellText with a correlator-supplied block reason (CDP)', () => {
+  it('prefers error.blockedReason over the net-stack-code vocabulary', () => {
+    // The net-stack code collapses CORP to the generic `other`; the CDP
+    // path names it precisely via blockedReason, which must win.
+    const lc = makeLifecycle({
+      phase: 'failed',
+      statusCode: undefined,
+      statusText: undefined,
+      har: { response: undefined },
+      error: { code: 'net::ERR_BLOCKED_BY_RESPONSE', reason: 'corp-not-same-origin', blockedReason: 'corp' },
+    });
+    expect(statusCellText(lc)).toBe('(blocked:corp)');
+  });
+
+  it('falls back to the net-stack vocabulary when blockedReason is absent (heuristic path)', () => {
+    const lc = makeLifecycle({
+      phase: 'failed',
+      statusCode: undefined,
+      statusText: undefined,
+      har: { response: undefined },
+      error: { code: 'net::ERR_BLOCKED_BY_RESPONSE', reason: 'net::ERR_BLOCKED_BY_RESPONSE' },
+    });
+    expect(statusCellText(lc)).toBe('(blocked:other)');
+  });
+});

@@ -83,13 +83,41 @@ export interface CdpResponseParams {
 }
 
 /**
- * Initiator surface — we project a single string for
- * `RequestLifecycle.initiator`. Real CDP carries a richer structure;
- * keep the shape small so tests don't have to mock the full union.
+ * One frame of a JS call stack — `Runtime.CallFrame`. Field names match
+ * the protocol; the panel's initiator view consumes this shape verbatim
+ * off the synthesized HAR entry's `_initiator`.
+ */
+export interface CdpCallFrame {
+  readonly functionName: string;
+  readonly scriptId: string;
+  readonly url: string;
+  readonly lineNumber: number;
+  readonly columnNumber: number;
+}
+
+/**
+ * A captured stack — `Runtime.StackTrace`. `parent` chains async stacks;
+ * `description` labels an async boundary ("Promise.then", …).
+ */
+export interface CdpStackTrace {
+  readonly description?: string;
+  readonly callFrames: readonly CdpCallFrame[];
+  readonly parent?: CdpStackTrace;
+}
+
+/**
+ * Initiator surface — `Network.Initiator`. The lifecycle's
+ * `initiator` field projects only `url` (the cross-request graph key),
+ * but the full structure — including the V8 `stack` that named the call
+ * site — is forwarded onto the synthesized HAR entry's `_initiator` so
+ * the panel can render the exact initiator chain CDP alone provides.
  */
 export interface CdpInitiator {
   readonly type: 'parser' | 'script' | 'preload' | 'SignedExchange' | 'preflight' | 'other';
   readonly url?: string;
+  readonly lineNumber?: number;
+  readonly columnNumber?: number;
+  readonly stack?: CdpStackTrace;
 }
 
 /** `Network.requestWillBeSent` — request-start + redirect signal. */

@@ -36,6 +36,7 @@ export type {
 export type {
   LifecycleClearSessionMessage,
   LifecycleConsumerMessage,
+  LifecycleSource,
   LifecycleSubscribeMessage,
   LifecycleWireMessage,
 } from './wire';

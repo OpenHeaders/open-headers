@@ -35,10 +35,34 @@ export class TabSourceRouter {
   private readonly heuristic: CorrelatorRef;
   private readonly cdp: CorrelatorRef;
   private readonly owners = new Map<number, TabOwner>();
+  /** Per-tab ownership observers — fed the new owner on every flip. */
+  private readonly ownerListeners = new Set<(tabId: number, owner: TabOwner) => void>();
 
   constructor(options: TabSourceRouterOptions) {
     this.heuristic = options.heuristic;
     this.cdp = options.cdp;
+  }
+
+  /**
+   * The correlator currently feeding a tab. An unknown tab reads as
+   * `'heuristic'` — the default path and "not CDP-enhanced" for the panel
+   * badge. This is the subscribe-time baseline; live flips arrive via
+   * {@link onOwnerChange}.
+   */
+  ownerOf(tabId: number): TabOwner {
+    return this.owners.get(tabId) ?? 'heuristic';
+  }
+
+  /**
+   * Observe ownership flips. Fires from {@link route} — the only
+   * transition that changes a tab's owner (the badge's provenance signal).
+   * Returns the unsubscribe handle.
+   */
+  onOwnerChange(listener: (tabId: number, owner: TabOwner) => void): () => void {
+    this.ownerListeners.add(listener);
+    return () => {
+      this.ownerListeners.delete(listener);
+    };
   }
 
   /**
@@ -78,6 +102,7 @@ export class TabSourceRouter {
     target.attachTab(tabId);
     other.detachTab(tabId);
     this.owners.set(tabId, owner);
+    for (const listener of this.ownerListeners) listener(tabId, owner);
   }
 
   private correlatorFor(owner: TabOwner): CorrelatorRef {

@@ -20,11 +20,26 @@
  * lifetime, not independent watchers.
  */
 
-import { type LifecycleConsumerMessage, parseLifecyclePortName } from '@openheaders/core/request-lifecycle';
+import {
+  type LifecycleConsumerMessage,
+  type LifecycleSource,
+  parseLifecyclePortName,
+} from '@openheaders/core/request-lifecycle';
 import type { AttachmentHandle, RequestLifecycleHub } from '@openheaders/oracle/request-lifecycle-hub';
 import { startTracking, stopTracking } from '../modules/tab-telemetry';
 import { attachPanelWatchingTracker, type PanelWatchingTrackerDeps } from './panel-watching-tracker';
 import { createPortSink } from './port-sink';
+
+/**
+ * Per-tab provenance source for the "CDP-enhanced" badge. The
+ * `TabSourceRouter` satisfies this directly — its `TabOwner` is the wire
+ * `LifecycleSource`. Optional: hosts/tests without a router omit it and no
+ * `source` frame is sent (the panel defaults to heuristic).
+ */
+export interface LifecycleProvenance {
+  ownerOf(tabId: number): LifecycleSource;
+  onOwnerChange(listener: (tabId: number, owner: LifecycleSource) => void): () => void;
+}
 
 const defaultTrackerDeps: PanelWatchingTrackerDeps = {
   start: startTracking,
@@ -39,6 +54,8 @@ export interface AcceptLifecyclePortOptions {
    * session floor rather than minting a fresh one. Defaults to resolved.
    */
   readonly ready?: Promise<void>;
+  /** Per-tab CDP-vs-heuristic provenance for the badge. Omit to disable. */
+  readonly provenance?: LifecycleProvenance;
 }
 
 export function acceptLifecyclePort(
@@ -50,7 +67,22 @@ export function acceptLifecyclePort(
   if (tabId === null) return false;
   const sink = createPortSink(port);
   const tracker = attachPanelWatchingTracker(tabId, options.trackerDeps ?? defaultTrackerDeps);
-  const { ready } = options;
+  const { ready, provenance } = options;
+
+  // Provenance: post the current owner on (re)connect (driven off the
+  // subscribe handshake, which the panel resends on every reconnect) and
+  // again whenever this tab's owner flips. Posted directly on the port —
+  // it is a chrome-side signal, not hub state, so it stays off the sink.
+  const postSource = (source: LifecycleSource): void => {
+    try {
+      port.postMessage({ kind: 'source', tabId, source });
+    } catch {
+      /* port disconnected — onDisconnect will clean up */
+    }
+  };
+  const unsubscribeProvenance = provenance?.onOwnerChange((changedTabId, owner) => {
+    if (changedTabId === tabId) postSource(owner);
+  });
 
   // Attach is deferred to the first `subscribe`; a repeated `subscribe`
   // re-attaches in place (detach + re-attach). When a hydration gate is
@@ -73,6 +105,7 @@ export function acceptLifecyclePort(
       whenReady(() => {
         handle?.detach();
         handle = hub.attach(tabId, sink);
+        if (provenance) postSource(provenance.ownerOf(tabId));
       });
       return;
     }
@@ -84,6 +117,7 @@ export function acceptLifecyclePort(
     disconnected = true;
     handle?.detach();
     tracker.release();
+    unsubscribeProvenance?.();
   });
   return true;
 }

@@ -273,7 +273,11 @@ function readStatusSignals(lifecycle: RequestLifecycle): StatusSignals {
     failed: lifecycle.phase === 'failed' || err != null || rawNegative,
     canceled: err != null && CANCELED_CODES.has(err.code),
     cors: err?.code.startsWith('oh:cors') ?? false,
-    blockedWord: err != null ? (BLOCKED_REASON_WORD[err.code] ?? null) : null,
+    // A correlator-supplied block reason (the CDP path names CORP/COEP/CSP/…
+    // precisely) wins over the net-stack-code vocabulary, which collapses
+    // those to `other`. Absent on the heuristic path, so its label is
+    // unchanged.
+    blockedWord: err?.blockedReason ?? (err != null ? (BLOCKED_REASON_WORD[err.code] ?? null) : null),
     isDataUrl: lifecycle.url.startsWith('data:'),
     finished: lifecycle.phase === 'completed',
     statusText: (lifecycle.statusText ?? currentHarEntry(lifecycle)?.response?.statusText ?? '').trim(),

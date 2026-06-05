@@ -9,7 +9,7 @@ import { BulbFilled, BulbOutlined } from '@ant-design/icons';
 import { useTheme } from '@openheaders/ui/context';
 import { productStatusExtras, StatusPill } from '@openheaders/ui/shared/status';
 import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
-import { Dropdown, type MenuProps, Space, theme } from 'antd';
+import { Dropdown, type MenuProps, Space, theme, Tooltip } from 'antd';
 import type React from 'react';
 
 declare const __APP_VERSION__: string;
@@ -40,6 +40,12 @@ interface PanelStatusBarProps {
   pageCount?: number;
   /** Origin of the navigation the timing milestones describe. */
   pageOrigin?: string | null;
+  /**
+   * This tab's requests are sourced from the higher-fidelity DevTools
+   * protocol (CDP) rather than the default path — shows the "CDP-enhanced"
+   * pill so the user knows the rows carry richer data.
+   */
+  cdpEnhanced?: boolean;
 }
 
 function formatTiming(ms: number | undefined): string {
@@ -70,6 +76,7 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
   failedCount = 0,
   cachedCount = 0,
   pageOrigin,
+  cdpEnhanced = false,
 }) => {
   const { token } = theme.useToken();
   const { themeMode, setThemeMode } = useTheme();
@@ -160,6 +167,19 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
       </div>
 
       <div className="rules-statusbar-right">
+        {cdpEnhanced && (
+          <>
+            <Tooltip title="This tab's requests use higher-fidelity DevTools-protocol data: the exact initiator call stack, precise block reasons, and on-the-wire headers.">
+              <span
+                className="rules-statusbar-item"
+                style={{ color: token.colorSuccess, fontWeight: 500, cursor: 'default' }}
+              >
+                CDP-enhanced
+              </span>
+            </Tooltip>
+            <div className="rules-statusbar-divider" style={{ background: token.colorBorderSecondary }} />
+          </>
+        )}
         <StatusPill density="full" label="System status" renderSubsystemExtras={productStatusExtras} />
         {showThemeSwitcher && (
           <>

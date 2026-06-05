@@ -31,7 +31,13 @@ import type { RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle
 import type { InspectorHarEntry } from '@openheaders/core/types';
 
 import { cdpRequestToHar, cdpResponseToHar, cdpTimingToHar, totalTimeMs, wallTimeToIso } from './cdp-har-synth';
-import { type CdpNetworkEvent, type CdpRequestParams, type CdpResponseParams, cdpStoreRequestId } from './events';
+import {
+  type CdpInitiator,
+  type CdpNetworkEvent,
+  type CdpRequestParams,
+  type CdpResponseParams,
+  cdpStoreRequestId,
+} from './events';
 
 /**
  * Per-tab cap on concurrently-tracked requests. Bounds the leak from
@@ -57,6 +63,8 @@ interface HopPartial {
   /** Wall-clock ISO start, stamped from this hop's `requestWillBeSent.wallTime`. */
   readonly startedDateTime: string;
   readonly request: CdpRequestParams;
+  /** `Network.Initiator` for this hop — forwarded verbatim as HAR `_initiator`. */
+  readonly initiator?: CdpInitiator;
   /** Set once the response (or `redirectResponse` for a prior hop) is known. */
   response?: CdpResponseParams;
 }
@@ -145,6 +153,7 @@ export class CdpHarBuilder {
     state.hops[state.hopCursor] = {
       startedDateTime: wallTimeToIso(event.wallTime),
       request: event.request,
+      ...(event.initiator !== undefined ? { initiator: event.initiator } : {}),
     };
     return updates;
   }
@@ -208,6 +217,7 @@ export class CdpHarBuilder {
       ...(response !== undefined ? { response: cdpResponseToHar(response, transferSize) } : {}),
       ...(response?.remoteIPAddress !== undefined ? { serverIPAddress: response.remoteIPAddress } : {}),
       ...(response?.timing !== undefined ? { timings: cdpTimingToHar(response.timing, totalMs) } : {}),
+      ...(hop.initiator !== undefined ? { _initiator: hop.initiator } : {}),
     };
     return { kind: 'har-attached', tabId, requestId, hopIndex, har };
   }

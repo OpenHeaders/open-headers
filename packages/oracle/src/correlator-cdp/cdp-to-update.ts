@@ -15,8 +15,9 @@
  * `CdpEventSource` into it.
  */
 
-import type { RequestLifecycle, RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle';
+import type { RequestError, RequestLifecycle, RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle';
 
+import { cdpBlockedReasonLabel } from './blocked-reason';
 import { type CdpNetworkEvent, cdpStoreRequestId } from './events';
 
 /** Seconds → ms. CDP `timestamp` is a `MonotonicTime` in seconds. */
@@ -119,6 +120,12 @@ function completedUpdate(
 }
 
 function failedUpdate(event: Extract<CdpNetworkEvent, { method: 'Network.loadingFailed' }>): RequestLifecycleUpdate {
+  const blockedReason = cdpBlockedReasonLabel(event.blockedReason);
+  const error: RequestError = {
+    code: event.errorText,
+    reason: event.blockedReason ?? event.errorText,
+    ...(blockedReason !== undefined ? { blockedReason } : {}),
+  };
   return {
     kind: 'phase',
     tabId: event.tabId,
@@ -126,7 +133,7 @@ function failedUpdate(event: Extract<CdpNetworkEvent, { method: 'Network.loading
     patch: {
       phase: 'failed',
       completedAtMs: secondsToMs(event.timestamp),
-      error: { code: event.errorText, reason: event.blockedReason ?? event.errorText },
+      error,
     },
   };
 }

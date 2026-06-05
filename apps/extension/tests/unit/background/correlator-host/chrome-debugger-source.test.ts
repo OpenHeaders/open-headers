@@ -156,6 +156,57 @@ describe('ChromeDebuggerEventSource — normalize onEvent → CdpNetworkEvent', 
     });
   });
 
+  it('normalizes the initiator call-frame stack through to the oracle event', async () => {
+    source = new ChromeDebuggerEventSource();
+    const out: CdpNetworkEvent[] = [];
+    source.subscribe((e) => out.push(e));
+    await source.attach(TAB);
+
+    emitRoot(
+      'Network.requestWillBeSent',
+      rawRequestWillBeSent('r-s', 'https://api.openheaders.io/z', {
+        initiator: {
+          type: 'script',
+          url: 'https://app.openheaders.io/main.js',
+          lineNumber: 41,
+          columnNumber: 7,
+          stack: {
+            description: 'Promise.then',
+            callFrames: [
+              {
+                functionName: 'loadUsers',
+                scriptId: '7',
+                url: 'https://app.openheaders.io/main.js',
+                lineNumber: 41,
+                columnNumber: 7,
+              },
+            ],
+          },
+        },
+      }),
+    );
+    const started = out[0];
+    if (started?.method !== 'Network.requestWillBeSent') throw new Error('expected requestWillBeSent');
+    expect(started.initiator).toEqual({
+      type: 'script',
+      url: 'https://app.openheaders.io/main.js',
+      lineNumber: 41,
+      columnNumber: 7,
+      stack: {
+        description: 'Promise.then',
+        callFrames: [
+          {
+            functionName: 'loadUsers',
+            scriptId: '7',
+            url: 'https://app.openheaders.io/main.js',
+            lineNumber: 41,
+            columnNumber: 7,
+          },
+        ],
+      },
+    });
+  });
+
   it('clamps an unknown initiator type onto the oracle union', async () => {
     source = new ChromeDebuggerEventSource();
     const out: CdpNetworkEvent[] = [];

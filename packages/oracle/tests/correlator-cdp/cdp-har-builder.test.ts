@@ -194,6 +194,41 @@ describe('CdpHarBuilder — well-formed entry', () => {
   });
 });
 
+describe('CdpHarBuilder — initiator chain', () => {
+  const ctx: TraceCtx = { tabId: TAB, requestId: 'init' };
+
+  it('forwards the Network.Initiator (incl. the call-frame stack) onto _initiator', () => {
+    const builder = new CdpHarBuilder();
+    const initiator = {
+      type: 'script' as const,
+      url: 'https://app.openheaders.io/main.js',
+      lineNumber: 41,
+      columnNumber: 7,
+      stack: {
+        callFrames: [
+          {
+            functionName: 'loadUsers',
+            scriptId: '7',
+            url: 'https://app.openheaders.io/main.js',
+            lineNumber: 41,
+            columnNumber: 7,
+          },
+        ],
+      },
+    };
+    builder.observe(cdpStart(ctx, { initiator }));
+    const entry = lastHarEntry(builder.observe(cdpResponse(ctx)));
+    expect(entry._initiator).toEqual(initiator);
+  });
+
+  it('omits _initiator when the request carried no initiator', () => {
+    const builder = new CdpHarBuilder();
+    builder.observe(cdpStart(ctx, { initiator: undefined }));
+    const entry = lastHarEntry(builder.observe(cdpResponse(ctx)));
+    expect(entry._initiator).toBeUndefined();
+  });
+});
+
 describe('CdpHarBuilder — redirect hops', () => {
   const ctx: TraceCtx = { tabId: TAB, requestId: 'redir' };
 

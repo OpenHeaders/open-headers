@@ -93,6 +93,48 @@ describe('TabSourceRouter — route never leaves a tab on two correlators', () =
   });
 });
 
+describe('TabSourceRouter — ownership provenance (badge signal)', () => {
+  it('ownerOf reports heuristic for an unknown or default tab and cdp after a route', () => {
+    const { router } = makeRouter();
+    expect(router.ownerOf(TAB)).toBe('heuristic');
+    router.attachTab(TAB);
+    expect(router.ownerOf(TAB)).toBe('heuristic');
+    router.route(TAB, 'cdp');
+    expect(router.ownerOf(TAB)).toBe('cdp');
+  });
+
+  it('onOwnerChange fires on every route flip with the tab and new owner', () => {
+    const { router } = makeRouter();
+    const seen: Array<[number, string]> = [];
+    router.onOwnerChange((tabId, owner) => seen.push([tabId, owner]));
+    router.attachTab(TAB);
+    router.route(TAB, 'cdp');
+    router.route(TAB, 'heuristic');
+    expect(seen).toEqual([
+      [TAB, 'cdp'],
+      [TAB, 'heuristic'],
+    ]);
+  });
+
+  it('onOwnerChange does not fire for a no-op route (already that owner)', () => {
+    const { router } = makeRouter();
+    const listener = vi.fn();
+    router.route(TAB, 'cdp');
+    router.onOwnerChange(listener);
+    router.route(TAB, 'cdp');
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it('unsubscribe stops further notifications', () => {
+    const { router } = makeRouter();
+    const listener = vi.fn();
+    const off = router.onOwnerChange(listener);
+    off();
+    router.route(TAB, 'cdp');
+    expect(listener).not.toHaveBeenCalled();
+  });
+});
+
 describe('TabSourceRouter — detachTab', () => {
   it('detaches the heuristic owner and clears the entry', () => {
     const { router, heuristic, cdp } = makeRouter();

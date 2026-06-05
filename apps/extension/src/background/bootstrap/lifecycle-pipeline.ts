@@ -62,7 +62,7 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
     bus: tabLifecycleBus,
     sessionFloors,
   });
-  startLifecyclePortHost({ hub: lifecycleHub, ready: sessionFloors.ready });
+  startLifecyclePortHost({ hub: lifecycleHub, ready: sessionFloors.ready, provenance: lifecycleHost.router });
 
   const pageHub = new PageStreamHub({ bus: tabLifecycleBus });
   startPagePortHost({ hub: pageHub });

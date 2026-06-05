@@ -10,7 +10,9 @@
 
 import type { RequestLifecycleHub } from '@openheaders/oracle/request-lifecycle-hub';
 import { logger } from '@utils/logger';
-import { acceptLifecyclePort } from './accept-port';
+import { acceptLifecyclePort, type LifecycleProvenance } from './accept-port';
+
+export type { LifecycleProvenance } from './accept-port';
 
 export {
   createPersistentWatchSessionFloors,
@@ -26,16 +28,18 @@ export interface LifecyclePortHostOptions {
   readonly hub: RequestLifecycleHub;
   /** Hydration gate for the watch-session floors; forwarded to each port. */
   readonly ready?: Promise<void>;
+  /** Per-tab CDP-vs-heuristic provenance for the "CDP-enhanced" badge. */
+  readonly provenance?: LifecycleProvenance;
 }
 
 export function startLifecyclePortHost(options: LifecyclePortHostOptions): LifecyclePortHost {
-  const { hub, ready } = options;
+  const { hub, ready, provenance } = options;
   if (!chrome?.runtime?.onConnect?.addListener) {
     logger.info('LifecyclePortHost', 'runtime.onConnect unavailable — lifecycle ports disabled');
     return { dispose: () => {} };
   }
   const listener = (port: chrome.runtime.Port): void => {
-    acceptLifecyclePort(hub, port, { ready });
+    acceptLifecyclePort(hub, port, { ready, provenance });
   };
   chrome.runtime.onConnect.addListener(listener);
   return {

@@ -150,6 +150,16 @@ export type RequestLifecycleJsonSafeProof = ContainsNonJsonSafe<RequestLifecycle
 export interface RequestError {
   code: string;
   reason: string;
+  /**
+   * Short block-reason vocabulary word (`csp`, `mixed-content`, `corp`,
+   * `coep`, …) when a correlator can name *why* the browser blocked the
+   * request more precisely than the net-stack `code` allows. Set only on
+   * the CDP path, where `Network.loadingFailed.blockedReason` carries a
+   * fine-grained reason the generic `net::ERR_BLOCKED_BY_*` code collapses
+   * to `other`. Absent on the heuristic path — consumers fall back to the
+   * net-stack-code vocabulary, so the label is unchanged there.
+   */
+  blockedReason?: string;
 }
 
 /**

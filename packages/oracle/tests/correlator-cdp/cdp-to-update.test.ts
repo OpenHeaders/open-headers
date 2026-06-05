@@ -136,6 +136,41 @@ describe('cdpEventToUpdates — canonical redirect + completion trace', () => {
     expect(u.patch.phase).toBe('failed');
     expect(u.patch.error?.code).toBe('net::ERR_FAILED');
     expect(u.patch.error?.reason).toBe('mixed-content');
+    // The mapped label word rides on `blockedReason` for the panel.
+    expect(u.patch.error?.blockedReason).toBe('mixed-content');
+  });
+
+  it('loadingFailed folds a CORP-policy blockedReason to its family label', () => {
+    const failed: CdpLoadingFailed = {
+      method: 'Network.loadingFailed',
+      tabId: TAB,
+      sessionId: 'session-page',
+      requestId: 'cdp-1',
+      timestamp: 100.9,
+      type: 'XHR',
+      errorText: 'net::ERR_BLOCKED_BY_RESPONSE',
+      blockedReason: 'corp-not-same-origin',
+    };
+    const updates = cdpEventToUpdates(failed);
+    const u = updates[0];
+    if (u?.kind !== 'phase') throw new Error('expected phase update');
+    expect(u.patch.error?.blockedReason).toBe('corp');
+  });
+
+  it('loadingFailed without a blockedReason leaves the field unset', () => {
+    const failed: CdpLoadingFailed = {
+      method: 'Network.loadingFailed',
+      tabId: TAB,
+      sessionId: 'session-page',
+      requestId: 'cdp-1',
+      timestamp: 100.9,
+      type: 'XHR',
+      errorText: 'net::ERR_TIMED_OUT',
+    };
+    const updates = cdpEventToUpdates(failed);
+    const u = updates[0];
+    if (u?.kind !== 'phase') throw new Error('expected phase update');
+    expect(u.patch.error?.blockedReason).toBeUndefined();
   });
 });
 

@@ -11,6 +11,7 @@
  * `docs/CDP_INSPECTION_PLAN.md`.
  */
 
+export { cdpBlockedReasonLabel } from './blocked-reason';
 export { CDP_HAR_RETENTION_MS, CdpHarBuilder, MAX_CDP_HAR_REQUESTS_PER_TAB } from './cdp-har-builder';
 export type { HarTimings } from './cdp-har-synth';
 export {
@@ -27,6 +28,7 @@ export {
 export { cdpEventToUpdates } from './cdp-to-update';
 export { CdpCorrelator } from './correlator';
 export type {
+  CdpCallFrame,
   CdpEventSource,
   CdpInitiator,
   CdpLoadingFailed,
@@ -37,5 +39,6 @@ export type {
   CdpResourceTiming,
   CdpResponseParams,
   CdpResponseReceived,
+  CdpStackTrace,
 } from './events';
 export { cdpStoreRequestId } from './events';

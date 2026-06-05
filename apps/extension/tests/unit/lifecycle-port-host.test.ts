@@ -362,6 +362,47 @@ describe('acceptLifecyclePort', () => {
     expect(replays).toEqual([]);
   });
 
+  it('posts the current provenance on subscribe and on each owner flip', () => {
+    const store = new RequestLifecycleStore();
+    const hub = new RequestLifecycleHub({ store });
+    const port = fakePort(lifecyclePortName(5));
+
+    const unsubscribe = vi.fn();
+    const provenance = {
+      ownerOf: vi.fn(() => 'cdp' as const),
+      onOwnerChange: vi.fn((_listener: (tabId: number, owner: 'heuristic' | 'cdp') => void) => unsubscribe),
+    };
+
+    acceptLifecyclePort(hub, port as unknown as chrome.runtime.Port, { provenance });
+    subscribe(port);
+    // Baseline owner posted alongside the ready/replay.
+    expect(port.posted).toContainEqual({ kind: 'source', tabId: 5, source: 'cdp' });
+
+    // A flip for this tab is forwarded; a flip for another tab is ignored.
+    const changeListener = provenance.onOwnerChange.mock.calls[0]?.[0];
+    if (changeListener === undefined) throw new Error('expected an owner-change subscription');
+    changeListener(99, 'heuristic');
+    changeListener(5, 'heuristic');
+    const sources = port.posted.filter((m) => (m as { kind: string }).kind === 'source');
+    expect(sources).toEqual([
+      { kind: 'source', tabId: 5, source: 'cdp' },
+      { kind: 'source', tabId: 5, source: 'heuristic' },
+    ]);
+
+    // Disconnect unsubscribes from the router.
+    for (const fn of port.disconnectListeners) fn();
+    expect(unsubscribe).toHaveBeenCalledTimes(1);
+  });
+
+  it('sends no source frame when no provenance is wired', () => {
+    const store = new RequestLifecycleStore();
+    const hub = new RequestLifecycleHub({ store });
+    const port = fakePort(lifecyclePortName(5));
+    acceptLifecyclePort(hub, port as unknown as chrome.runtime.Port);
+    subscribe(port);
+    expect(port.posted.some((m) => (m as { kind: string }).kind === 'source')).toBe(false);
+  });
+
   it('defers attach until the readiness gate resolves', async () => {
     const store = new RequestLifecycleStore();
     store.apply({

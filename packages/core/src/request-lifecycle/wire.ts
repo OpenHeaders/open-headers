@@ -34,10 +34,27 @@
 
 import type { RequestLifecycleUpdate } from './types';
 
+/**
+ * Which correlator currently feeds a tab. `'cdp'` means the tab's rows are
+ * the higher-fidelity CDP-sourced view (exact initiator stack, precise
+ * blocked reasons, on-the-wire headers); `'heuristic'` is the default
+ * `webRequest`+HAR path. Drives the panel's "CDP-enhanced" badge. Mirrors
+ * the engine-side `TabOwner` — the literal lives here so the boundary can
+ * carry it without the consumer importing the chrome-side router.
+ */
+export type LifecycleSource = 'heuristic' | 'cdp';
+
 export type LifecycleWireMessage =
   | { kind: 'ready'; tabId: number; watermarkMs: number; sessionToken?: string }
   | { kind: 'lifecycle-update'; update: RequestLifecycleUpdate }
-  | { kind: 'tab-cleared'; tabId: number };
+  | { kind: 'tab-cleared'; tabId: number }
+  /**
+   * Per-tab provenance. Sent once on (re)connect with the current owner,
+   * then again whenever ownership flips (CDP attach / fall-back). Carries
+   * no request data — it is the badge's provenance signal, derived from the
+   * attach state, not sniffed from the rows.
+   */
+  | { kind: 'source'; tabId: number; source: LifecycleSource };
 
 /**
  * Consumer→engine. Sent once on connect to declare the consumer's watch
