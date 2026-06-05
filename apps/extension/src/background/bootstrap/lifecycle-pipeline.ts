@@ -2,7 +2,7 @@ import { PageStreamHub } from '@openheaders/oracle/page-stream-hub';
 import { RequestLifecycleHub } from '@openheaders/oracle/request-lifecycle-hub';
 import { RuleFireHub } from '@openheaders/oracle/rule-fire-hub';
 import { TabLifecycleBus } from '@openheaders/oracle/tab-lifecycle-bus';
-import { startLifecycleHost } from '../correlator-host';
+import { CdpAttachController, startDevtoolsPortPresence, startLifecycleHost } from '../correlator-host';
 import { startDevtoolsSessionCoordinator } from '../devtools-session-coordinator';
 import { createPersistentWatchSessionFloors, startLifecyclePortHost } from '../lifecycle-port-host';
 import { setupOnRuleMatchedDebugBridge } from '../modules/on-rule-matched-debug';
@@ -23,6 +23,21 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   const lifecycleHost = startLifecycleHost({ bus: tabLifecycleBus });
   startRuleEngineDriver({ store: lifecycleHost.store, updateBadge: debouncedUpdateBadge, bus: tabLifecycleBus });
   startTabTelemetrySource({ store: lifecycleHost.store, bus: tabLifecycleBus });
+
+  // Opt-in CDP attach reconciler: attached = { tabs with a live DevTools
+  // port } ∩ { master switch ON }. The DevTools-port presence observer
+  // feeds the first input; the master switch stays OFF until Slice 5 wires
+  // `subscribeKey('inspection.cdpEnabled')` → `cdpAttachController.setEnabled`.
+  // With the switch OFF the intersection is always ∅, so nothing attaches
+  // and the heuristic path is byte-for-byte unchanged.
+  const cdpAttachController = new CdpAttachController({
+    source: lifecycleHost.debuggerSource,
+    router: lifecycleHost.router,
+  });
+  startDevtoolsPortPresence({
+    onConnected: (tabId) => cdpAttachController.notePortConnected(tabId),
+    onDisconnected: (tabId) => cdpAttachController.notePortDisconnected(tabId),
+  });
 
   // Watch-session floors persist per-tab so a panel reconnect/remount (or
   // an SW restart) restores the session rather than dropping in-flight rows.
