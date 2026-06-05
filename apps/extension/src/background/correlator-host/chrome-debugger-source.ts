@@ -239,6 +239,12 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
       case 'Network.loadingFailed':
         this.fan(normalizeLoadingFailed(tabId, sessionId, params as RawLoadingFailed));
         return;
+      case 'Network.requestWillBeSentExtraInfo':
+        this.fan(normalizeRequestWillBeSentExtraInfo(tabId, sessionId, params as RawRequestWillBeSentExtraInfo));
+        return;
+      case 'Network.responseReceivedExtraInfo':
+        this.fan(normalizeResponseReceivedExtraInfo(tabId, sessionId, params as RawResponseReceivedExtraInfo));
+        return;
     }
     // Other Network.* events are not part of the consumed subset.
   }
@@ -411,6 +417,16 @@ interface RawLoadingFailed {
   readonly blockedReason?: string;
 }
 
+interface RawRequestWillBeSentExtraInfo {
+  readonly requestId: string;
+  readonly headers: Record<string, string>;
+}
+
+interface RawResponseReceivedExtraInfo {
+  readonly requestId: string;
+  readonly headers: Record<string, string>;
+}
+
 interface RawTargetInfo {
   readonly type: string;
   readonly targetId: string;
@@ -483,6 +499,34 @@ function normalizeLoadingFailed(tabId: number, sessionId: string, p: RawLoadingF
     errorText: p.errorText,
     ...(p.canceled !== undefined ? { canceled: p.canceled } : {}),
     ...(p.blockedReason !== undefined ? { blockedReason: p.blockedReason } : {}),
+  };
+}
+
+function normalizeRequestWillBeSentExtraInfo(
+  tabId: number,
+  sessionId: string,
+  p: RawRequestWillBeSentExtraInfo,
+): CdpNetworkEvent {
+  return {
+    method: 'Network.requestWillBeSentExtraInfo',
+    tabId,
+    sessionId,
+    requestId: p.requestId,
+    headers: p.headers,
+  };
+}
+
+function normalizeResponseReceivedExtraInfo(
+  tabId: number,
+  sessionId: string,
+  p: RawResponseReceivedExtraInfo,
+): CdpNetworkEvent {
+  return {
+    method: 'Network.responseReceivedExtraInfo',
+    tabId,
+    sessionId,
+    requestId: p.requestId,
+    headers: p.headers,
   };
 }
 

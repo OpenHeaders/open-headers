@@ -9,7 +9,7 @@
  *
  * Source: https://chromedevtools.github.io/devtools-protocol/tot/Network/
  *
- * Why these four:
+ * Why these six:
  *   - `requestWillBeSent` is the only request-start signal; its
  *     `redirectResponse` field carries the prior hop's response, which is
  *     how we reconstruct redirect chains under CDP without a separate
@@ -20,6 +20,19 @@
  *     'completed'`.
  *   - `loadingFailed` is the terminal failure signal — `phase:
  *     'failed'`.
+ *   - `requestWillBeSentExtraInfo` / `responseReceivedExtraInfo` carry the
+ *     *on-the-wire* header sets — the headers the browser actually added
+ *     or blocked, which the cooked `requestWillBeSent`/`responseReceived`
+ *     events omit (most visibly response `Set-Cookie`). They carry no
+ *     timestamp and no lifecycle signal of their own — they only refine
+ *     the HAR for an already-known hop, so the builder merges them and the
+ *     lifecycle mapper drops them.
+ *
+ * The two ExtraInfo events have no hop index and no guaranteed order
+ * relative to their base event. The builder pairs them to a hop by
+ * ordinal (the k-th request-extra → hop k, the k-th response-extra →
+ * hop k), which is order-tolerant and correct for single-hop requests and
+ * redirect chains whose every hop carries extra info.
  *
  * Every event carries `sessionId` (B1): a tab attaches to its page
  * target, and out-of-process iframes / workers attach as flattened child
@@ -182,7 +195,45 @@ export interface CdpLoadingFailed {
   readonly blockedReason?: string;
 }
 
-export type CdpNetworkEvent = CdpRequestWillBeSent | CdpResponseReceived | CdpLoadingFinished | CdpLoadingFailed;
+/**
+ * `Network.requestWillBeSentExtraInfo` — the on-the-wire request headers
+ * for a hop, including headers page JS never sees (the real `Cookie`
+ * header, security headers the browser injects). Carries no timestamp.
+ * Pairs to its hop by ordinal; supersedes the cooked `requestWillBeSent`
+ * request headers for the same hop.
+ */
+export interface CdpRequestWillBeSentExtraInfo {
+  readonly method: 'Network.requestWillBeSentExtraInfo';
+  readonly tabId: number;
+  /** CDP session the event arrived on — page target or a flattened child (B1). */
+  readonly sessionId: string;
+  readonly requestId: string;
+  readonly headers: Readonly<Record<string, string>>;
+}
+
+/**
+ * `Network.responseReceivedExtraInfo` — the on-the-wire response headers
+ * for a hop, including the `Set-Cookie` header the cooked
+ * `responseReceived` event omits. Carries no timestamp. Pairs to its hop
+ * by ordinal; supersedes the cooked response headers for the same hop and
+ * is the authoritative source for HAR response cookies.
+ */
+export interface CdpResponseReceivedExtraInfo {
+  readonly method: 'Network.responseReceivedExtraInfo';
+  readonly tabId: number;
+  /** CDP session the event arrived on — page target or a flattened child (B1). */
+  readonly sessionId: string;
+  readonly requestId: string;
+  readonly headers: Readonly<Record<string, string>>;
+}
+
+export type CdpNetworkEvent =
+  | CdpRequestWillBeSent
+  | CdpResponseReceived
+  | CdpLoadingFinished
+  | CdpLoadingFailed
+  | CdpRequestWillBeSentExtraInfo
+  | CdpResponseReceivedExtraInfo;
 
 /**
  * Store-facing request identity. CDP `requestId` is unique only *within*

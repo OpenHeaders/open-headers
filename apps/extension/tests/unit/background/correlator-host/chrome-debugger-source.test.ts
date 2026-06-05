@@ -3,8 +3,9 @@
  * backs the oracle's `CdpEventSource` seam (Slice 2).
  *
  * Coverage:
- *   - normalize `onEvent` → `CdpNetworkEvent` for all four variants with
- *     the HAR fields the builder reads populated;
+ *   - normalize `onEvent` → `CdpNetworkEvent` for the four base variants
+ *     with the HAR fields the builder reads populated, plus the two
+ *     `*ExtraInfo` on-the-wire header variants;
  *   - B1: a two-session page + OOPIF trace routes by `sessionId`;
  *   - the `iframe`/`worker` target-type filter (service-worker children
  *     are not enabled and their events are dropped);
@@ -63,6 +64,18 @@ function rawResponseReceived(requestId: string, url: string): object {
 
 function rawLoadingFinished(requestId: string): object {
   return { requestId, timestamp: 100.9, encodedDataLength: 2048 };
+}
+
+function rawRequestWillBeSentExtraInfo(requestId: string, headers: Record<string, string>): object {
+  // CDP carries associatedCookies / connectTiming alongside the headers;
+  // the adapter reads only requestId + headers.
+  return { requestId, associatedCookies: [], headers, connectTiming: { requestTime: 100 } };
+}
+
+function rawResponseReceivedExtraInfo(requestId: string, headers: Record<string, string>): object {
+  // CDP also carries blockedCookies / statusCode / headersText; only the
+  // headers are part of the consumed subset.
+  return { requestId, blockedCookies: [], headers, statusCode: 200 };
 }
 
 function rawLoadingFailed(requestId: string): object {
@@ -221,6 +234,60 @@ describe('ChromeDebuggerEventSource — normalize onEvent → CdpNetworkEvent', 
     expect(started?.method).toBe('Network.requestWillBeSent');
     if (started?.method !== 'Network.requestWillBeSent') return;
     expect(started.initiator?.type).toBe('other');
+  });
+
+  it('normalizes the two *ExtraInfo events into the on-the-wire header variants', async () => {
+    source = new ChromeDebuggerEventSource();
+    const out: CdpNetworkEvent[] = [];
+    source.subscribe((e) => out.push(e));
+    await source.attach(TAB);
+
+    emitRoot(
+      'Network.requestWillBeSentExtraInfo',
+      rawRequestWillBeSentExtraInfo('r-1', { Cookie: 'sid=wire', 'X-Browser-Added': 'yes' }),
+    );
+    emitRoot(
+      'Network.responseReceivedExtraInfo',
+      rawResponseReceivedExtraInfo('r-1', { 'Set-Cookie': 'sess=raw; HttpOnly' }),
+    );
+
+    expect(out).toHaveLength(2);
+    expect(out[0]).toEqual({
+      method: 'Network.requestWillBeSentExtraInfo',
+      tabId: TAB,
+      sessionId: 'page',
+      requestId: 'r-1',
+      headers: { Cookie: 'sid=wire', 'X-Browser-Added': 'yes' },
+    });
+    expect(out[1]).toEqual({
+      method: 'Network.responseReceivedExtraInfo',
+      tabId: TAB,
+      sessionId: 'page',
+      requestId: 'r-1',
+      headers: { 'Set-Cookie': 'sess=raw; HttpOnly' },
+    });
+  });
+
+  it('routes *ExtraInfo on a flattened child session by sessionId', async () => {
+    source = new ChromeDebuggerEventSource();
+    const out: CdpNetworkEvent[] = [];
+    source.subscribe((e) => out.push(e));
+    await source.attach(TAB);
+
+    emitRoot('Target.attachedToTarget', attachedToTarget(CHILD_SESSION, 'iframe'));
+    emitChild(
+      CHILD_SESSION,
+      'Network.responseReceivedExtraInfo',
+      rawResponseReceivedExtraInfo('r-1', { 'Set-Cookie': 'child=1' }),
+    );
+
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({
+      method: 'Network.responseReceivedExtraInfo',
+      sessionId: CHILD_SESSION,
+      requestId: 'r-1',
+      headers: { 'Set-Cookie': 'child=1' },
+    });
   });
 
   it('drops events for tabs that were never attached', () => {

@@ -36,9 +36,11 @@ export type {
   CdpNetworkEvent,
   CdpRequestParams,
   CdpRequestWillBeSent,
+  CdpRequestWillBeSentExtraInfo,
   CdpResourceTiming,
   CdpResponseParams,
   CdpResponseReceived,
+  CdpResponseReceivedExtraInfo,
   CdpStackTrace,
 } from './events';
 export { cdpStoreRequestId } from './events';

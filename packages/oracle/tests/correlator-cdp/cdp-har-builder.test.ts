@@ -25,7 +25,16 @@ import { CdpCorrelator } from '../../src/correlator-cdp/correlator';
 import { type CdpNetworkEvent, type CdpResourceTiming, cdpStoreRequestId } from '../../src/correlator-cdp/events';
 import { RequestLifecycleStore } from '../../src/request-lifecycle-store/store';
 
-import { cdpFinished, cdpRedirect, cdpResponse, cdpStart, PAGE_SESSION, type TraceCtx } from './builders';
+import {
+  cdpFinished,
+  cdpRedirect,
+  cdpRequestExtra,
+  cdpResponse,
+  cdpResponseExtra,
+  cdpStart,
+  PAGE_SESSION,
+  type TraceCtx,
+} from './builders';
 import { InMemoryCdpSource } from './in-memory-source';
 
 // ── pure timing base-conversion ─────────────────────────────────────
@@ -194,6 +203,132 @@ describe('CdpHarBuilder — well-formed entry', () => {
   });
 });
 
+// ── *ExtraInfo on-the-wire header merge ─────────────────────────────
+
+const RESPONSE = {
+  url: 'https://api.openheaders.io/x',
+  status: 200,
+  statusText: 'OK',
+  headers: { 'X-Cooked': 'base', 'Set-Cookie': 'cooked=1' },
+};
+
+describe('CdpHarBuilder — *ExtraInfo header merge', () => {
+  it('extra-before-base: the wire header sets supersede the cooked ones at responseReceived', () => {
+    const ctx: TraceCtx = { tabId: TAB, requestId: 'extra-first' };
+    const builder = new CdpHarBuilder();
+    // The common Chrome ordering: ExtraInfo precedes its base event.
+    expect(builder.observe(cdpRequestExtra(ctx, { Cookie: 'sid=wire; hidden=1', 'X-Browser-Added': 'yes' }))).toEqual(
+      [],
+    );
+    expect(builder.observe(cdpResponseExtra(ctx, { 'X-On-Wire': 'real', 'Set-Cookie': 'sess=raw; HttpOnly' }))).toEqual(
+      [],
+    );
+    builder.observe(
+      cdpStart(ctx, { request: { url: RESPONSE.url, method: 'GET', headers: { Cookie: 'sid=cooked' } } }),
+    );
+    const entry = lastHarEntry(builder.observe(cdpResponse(ctx, { response: RESPONSE })));
+
+    // Request headers + cookies come from the wire set, wholesale.
+    expect(entry.request?.headers).toEqual([
+      { name: 'Cookie', value: 'sid=wire; hidden=1' },
+      { name: 'X-Browser-Added', value: 'yes' },
+    ]);
+    expect(entry.request?.cookies).toEqual([
+      { name: 'sid', value: 'wire' },
+      { name: 'hidden', value: '1' },
+    ]);
+    // Response headers replaced wholesale; the cooked `X-Cooked` is gone.
+    expect(entry.response?.headers).toContainEqual({ name: 'X-On-Wire', value: 'real' });
+    expect(entry.response?.headers).not.toContainEqual({ name: 'X-Cooked', value: 'base' });
+    // Set-Cookie parsed from the wire response headers, not the cooked ones.
+    expect(entry.response?.cookies).toEqual([{ name: 'sess', value: 'raw' }]);
+  });
+
+  it('base-before-extra: a late ExtraInfo re-emits a refined har-attached', () => {
+    const ctx: TraceCtx = { tabId: TAB, requestId: 'base-first' };
+    const builder = new CdpHarBuilder();
+    builder.observe(
+      cdpStart(ctx, { request: { url: RESPONSE.url, method: 'GET', headers: { Cookie: 'sid=cooked' } } }),
+    );
+    const partial = lastHarEntry(builder.observe(cdpResponse(ctx, { response: RESPONSE })));
+    // Before the extras land, the cooked headers stand.
+    expect(partial.request?.cookies).toEqual([{ name: 'sid', value: 'cooked' }]);
+    expect(partial.response?.cookies).toEqual([{ name: 'cooked', value: '1' }]);
+
+    // A request-extra arriving after the response re-emits immediately.
+    const reqUpdates = builder.observe(cdpRequestExtra(ctx, { Cookie: 'sid=wire' }));
+    expect(reqUpdates).toHaveLength(1);
+    expect(lastHarEntry(reqUpdates).request?.cookies).toEqual([{ name: 'sid', value: 'wire' }]);
+
+    // A response-extra likewise supersedes the response section.
+    const refined = lastHarEntry(
+      builder.observe(cdpResponseExtra(ctx, { 'Set-Cookie': 'wire=2', 'X-On-Wire': 'real' })),
+    );
+    expect(refined.response?.cookies).toEqual([{ name: 'wire', value: '2' }]);
+    expect(refined.response?.headers).not.toContainEqual({ name: 'X-Cooked', value: 'base' });
+    expect(refined.response?._transferSize).toBeUndefined(); // still pre-finish: enrichment level preserved
+  });
+
+  it('a pre-base extra survives the base requestWillBeSent (stub adoption, no reset)', () => {
+    const ctx: TraceCtx = { tabId: TAB, requestId: 'stub' };
+    const builder = new CdpHarBuilder();
+    builder.observe(cdpRequestExtra(ctx, { Cookie: 'sid=wire' }));
+    expect(builder.size()).toBe(1); // a hop-less stub holds the stash
+    builder.observe(cdpStart(ctx));
+    const entry = lastHarEntry(builder.observe(cdpResponse(ctx, { response: RESPONSE })));
+    expect(entry.request?.cookies).toEqual([{ name: 'sid', value: 'wire' }]);
+  });
+
+  it('targets the right hop: each hop carries its own wire Set-Cookie', () => {
+    const ctx: TraceCtx = { tabId: TAB, requestId: 'redir-extra' };
+    const builder = new CdpHarBuilder();
+    builder.observe(cdpStart(ctx, { wallTime: 1000 }));
+    // hop 0's response Set-Cookie rides only the response-extra (the
+    // redirectResponse base event omits it).
+    builder.observe(cdpResponseExtra(ctx, { 'Set-Cookie': 'hop0=a; Path=/' }));
+    const hop0 = builder.observe(
+      cdpRedirect(
+        ctx,
+        {
+          url: 'https://api.openheaders.io/users',
+          status: 301,
+          statusText: 'Moved Permanently',
+          timing: { requestTime: 999, sendStart: 0, sendEnd: 2, receiveHeadersEnd: 20 },
+        },
+        'https://api.openheaders.io/v2/users',
+        { timestamp: 999.1, wallTime: 1000.1 },
+      ),
+    );
+    const u0 = hop0.at(-1);
+    if (u0?.kind !== 'har-attached') throw new Error('expected har-attached for hop 0');
+    expect(u0.hopIndex).toBe(0);
+    expect(u0.har.response?.cookies).toEqual([{ name: 'hop0', value: 'a' }]);
+
+    builder.observe(cdpResponseExtra(ctx, { 'Set-Cookie': 'hop1=b' }));
+    builder.observe(
+      cdpResponse(ctx, {
+        response: { url: 'https://api.openheaders.io/v2/users', status: 200, statusText: 'OK' },
+        timestamp: 999.6,
+      }),
+    );
+    const hop1 = builder.observe(cdpFinished(ctx, { timestamp: 999.7, encodedDataLength: 512 }));
+    const u1 = hop1.at(-1);
+    if (u1?.kind !== 'har-attached') throw new Error('expected har-attached for hop 1');
+    expect(u1.hopIndex).toBe(1);
+    expect(u1.har.response?.cookies).toEqual([{ name: 'hop1', value: 'b' }]);
+  });
+
+  it('does not re-emit while the hop has no response yet (extra between start and response)', () => {
+    const ctx: TraceCtx = { tabId: TAB, requestId: 'mid' };
+    const builder = new CdpHarBuilder();
+    builder.observe(cdpStart(ctx));
+    // Hop exists but no response: nothing to refine yet, applied later.
+    expect(builder.observe(cdpResponseExtra(ctx, { 'Set-Cookie': 'late=1' }))).toEqual([]);
+    const entry = lastHarEntry(builder.observe(cdpResponse(ctx, { response: RESPONSE })));
+    expect(entry.response?.cookies).toEqual([{ name: 'late', value: '1' }]);
+  });
+});
+
 describe('CdpHarBuilder — initiator chain', () => {
   const ctx: TraceCtx = { tabId: TAB, requestId: 'init' };
 
@@ -353,6 +488,36 @@ describe('CdpCorrelator → RequestLifecycleStore — HAR lands per hop with zer
     expect(lc.har[1]?.response?.status).toBe(200);
     expect(lc.har[1]?.response?._transferSize).toBe(2048);
     expect(lc.har[1]?.timings?.receive).toBe(150);
+
+    correlator.dispose();
+  });
+
+  it('a trace interleaving *ExtraInfo lands the wire headers in lifecycle.har with zero rejections', () => {
+    const ctxLocal: TraceCtx = { tabId: 56, requestId: 'cdp-extra-rt', sessionId: PAGE_SESSION };
+    const source = new InMemoryCdpSource();
+    const correlator = new CdpCorrelator(source);
+    const onReject = vi.fn();
+    const store = new RequestLifecycleStore({ onReject });
+    correlator.subscribe((u) => store.apply(u));
+    correlator.attachTab(ctxLocal.tabId);
+
+    const trace: CdpNetworkEvent[] = [
+      cdpRequestExtra(ctxLocal, { Cookie: 'sid=wire' }),
+      cdpStart(ctxLocal, { request: { url: RESPONSE.url, method: 'GET', headers: { Cookie: 'sid=cooked' } } }),
+      cdpResponseExtra(ctxLocal, { 'Set-Cookie': 'sess=raw; HttpOnly' }),
+      cdpResponse(ctxLocal, { response: RESPONSE }),
+      cdpFinished(ctxLocal, { encodedDataLength: 256 }),
+    ];
+    for (const event of trace) source.emit(event);
+
+    const lc = store.get(ctxLocal.tabId, cdpStoreRequestId(PAGE_SESSION, ctxLocal.requestId));
+    if (lc === undefined) throw new Error('expected lifecycle');
+    expect(onReject).not.toHaveBeenCalled();
+    expect(lc.phase).toBe('completed');
+    expect(lc.har).toHaveLength(1);
+    expect(lc.har[0]?.request?.cookies).toEqual([{ name: 'sid', value: 'wire' }]);
+    expect(lc.har[0]?.response?.cookies).toEqual([{ name: 'sess', value: 'raw' }]);
+    expect(lc.har[0]?.response?._transferSize).toBe(256);
 
     correlator.dispose();
   });

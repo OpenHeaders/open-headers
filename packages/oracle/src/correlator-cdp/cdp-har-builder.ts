@@ -18,6 +18,17 @@
  * the cursor advances to the new hop. CDP reuses `requestId` across
  * hops, matching lifecycle invariants 1 and 4.
  *
+ * The two `*ExtraInfo` events carry the on-the-wire header sets (the real
+ * `Cookie` the page never sees; the `Set-Cookie` the cooked response
+ * omits). They have no hop index and no guaranteed order vs their base
+ * event, so the builder pairs them to a hop by ordinal — the k-th
+ * request-extra to hop k, the k-th response-extra to hop k (hops finalize
+ * strictly in order, so the response ordinal tracks the hop). An extra
+ * that arrives before its hop is stashed and applied when the base event
+ * creates the hop; one that arrives after re-emits a refined `har-attached`
+ * immediately. The merged headers supersede the cooked base headers
+ * wholesale for the section they cover (see {@link ./cdp-har-synth}).
+ *
  * State posture mirrors the heuristic correlator's per-tab maps: scoped
  * by tab, cleared by {@link CdpHarBuilder.forgetTab}, bounded by a per-tab
  * cap on concurrent in-flight requests, and pruned by a lazy retention
@@ -67,6 +78,10 @@ interface HopPartial {
   readonly initiator?: CdpInitiator;
   /** Set once the response (or `redirectResponse` for a prior hop) is known. */
   response?: CdpResponseParams;
+  /** Wire bytes, known at the hop's terminal/redirect point — HAR `_transferSize`. */
+  transferSize?: number;
+  /** Total span in ms, computed at the hop's terminal/redirect point — HAR `time`. */
+  totalMs?: number;
 }
 
 interface RequestHarState {
@@ -74,8 +89,27 @@ interface RequestHarState {
   hopCursor: number;
   /** Dense per-hop partials; index = hop number. */
   readonly hops: HopPartial[];
+  /** On-the-wire request headers per hop (ordinal-paired ExtraInfo); index = hop. */
+  readonly requestExtraByHop: Array<Readonly<Record<string, string>>>;
+  /** On-the-wire response headers per hop (ordinal-paired ExtraInfo); index = hop. */
+  readonly responseExtraByHop: Array<Readonly<Record<string, string>>>;
+  /** Next hop ordinal a `requestWillBeSentExtraInfo` attributes to. */
+  reqExtraCursor: number;
+  /** Next hop ordinal a `responseReceivedExtraInfo` attributes to. */
+  respExtraCursor: number;
   /** Monotonic ms of the terminal event, once seen — drives retention gc. */
   finalizedAtMs?: number;
+}
+
+function newRequestHarState(): RequestHarState {
+  return {
+    hopCursor: 0,
+    hops: [],
+    requestExtraByHop: [],
+    responseExtraByHop: [],
+    reqExtraCursor: 0,
+    respExtraCursor: 0,
+  };
 }
 
 export class CdpHarBuilder {
@@ -92,7 +126,10 @@ export class CdpHarBuilder {
     // session's `requestId` cannot clobber its HAR state, matching the
     // store key `cdp-to-update` emits.
     const requestId = cdpStoreRequestId(event.sessionId, event.requestId);
-    this.gcFinalized(event.tabId, secondsToMs(event.timestamp));
+    // The `*ExtraInfo` variants carry no `timestamp` (they are header
+    // refinements, not lifecycle points); gc rides their surrounding base
+    // events instead.
+    if ('timestamp' in event) this.gcFinalized(event.tabId, secondsToMs(event.timestamp));
     switch (event.method) {
       case 'Network.requestWillBeSent':
         return this.onRequest(event, requestId);
@@ -103,6 +140,10 @@ export class CdpHarBuilder {
       case 'Network.loadingFailed':
         this.markFinalized(event.tabId, requestId, secondsToMs(event.timestamp));
         return [];
+      case 'Network.requestWillBeSentExtraInfo':
+        return this.onRequestExtra(event.tabId, requestId, event.headers);
+      case 'Network.responseReceivedExtraInfo':
+        return this.onResponseExtra(event.tabId, requestId, event.headers);
     }
   }
 
@@ -146,8 +187,15 @@ export class CdpHarBuilder {
         existing.hopCursor += 1;
       }
     } else {
-      // Fresh lifecycle (also resets a reused requestId after gc).
-      state = this.startState(event.tabId, requestId);
+      // Fresh lifecycle (also resets a reused requestId after gc). An
+      // early `requestWillBeSentExtraInfo` may have seeded a hop-less stub
+      // (extra-before-base, the common ordering) — adopt it so its stashed
+      // headers survive; otherwise start clean.
+      const existing = this.getState(event.tabId, requestId);
+      state =
+        existing !== undefined && existing.finalizedAtMs === undefined && existing.hops.length === 0
+          ? existing
+          : this.startState(event.tabId, requestId);
     }
     state.finalizedAtMs = undefined;
     state.hops[state.hopCursor] = {
@@ -169,8 +217,9 @@ export class CdpHarBuilder {
     const hop = state.hops[hopIndex];
     if (hop === undefined) return undefined;
     hop.response = redirectResponse;
-    const total = totalTimeMs(redirectResponse.timing, nextRequestSec);
-    return this.harAttached(tabId, requestId, hopIndex, hop, redirectResponse.encodedDataLength, total);
+    hop.transferSize = redirectResponse.encodedDataLength;
+    hop.totalMs = totalTimeMs(redirectResponse.timing, nextRequestSec);
+    return this.emitHop(tabId, requestId, state, hopIndex);
   }
 
   private onResponse(tabId: number, requestId: string, response: CdpResponseParams): readonly RequestLifecycleUpdate[] {
@@ -179,10 +228,10 @@ export class CdpHarBuilder {
     const hopIndex = state.hopCursor;
     const hop = state.hops[hopIndex];
     if (hop === undefined) return [];
-    hop.response = response;
     // Partial: total time and transfer size are not known until the
     // body finishes; emit the headers/cookies/status now and refine later.
-    return [this.harAttached(tabId, requestId, hopIndex, hop, undefined, undefined)];
+    hop.response = response;
+    return this.collect(this.emitHop(tabId, requestId, state, hopIndex));
   }
 
   private onFinished(
@@ -197,29 +246,81 @@ export class CdpHarBuilder {
     const hopIndex = state.hopCursor;
     const hop = state.hops[hopIndex];
     if (hop === undefined || hop.response === undefined) return [];
-    const total = totalTimeMs(hop.response.timing, finishedSec);
-    return [this.harAttached(tabId, requestId, hopIndex, hop, encodedDataLength, total)];
+    hop.transferSize = encodedDataLength;
+    hop.totalMs = totalTimeMs(hop.response.timing, finishedSec);
+    return this.collect(this.emitHop(tabId, requestId, state, hopIndex));
   }
 
-  private harAttached(
+  /**
+   * Fold one `requestWillBeSentExtraInfo` onto its hop. Ordinal-paired:
+   * the k-th request-extra belongs to hop k. Stash it on the state (so a
+   * not-yet-created hop picks it up when its base event lands), and
+   * re-emit only once the hop has a response — matching the builder's
+   * "first `har-attached` at `responseReceived`" cadence.
+   */
+  private onRequestExtra(
     tabId: number,
     requestId: string,
+    headers: Readonly<Record<string, string>>,
+  ): readonly RequestLifecycleUpdate[] {
+    const state = this.ensureState(tabId, requestId);
+    const hopIndex = state.reqExtraCursor;
+    state.reqExtraCursor += 1;
+    state.requestExtraByHop[hopIndex] = headers;
+    return this.reemitIfResponded(tabId, requestId, state, hopIndex);
+  }
+
+  /** As {@link onRequestExtra}, for `responseReceivedExtraInfo` (Set-Cookie source). */
+  private onResponseExtra(
+    tabId: number,
+    requestId: string,
+    headers: Readonly<Record<string, string>>,
+  ): readonly RequestLifecycleUpdate[] {
+    const state = this.ensureState(tabId, requestId);
+    const hopIndex = state.respExtraCursor;
+    state.respExtraCursor += 1;
+    state.responseExtraByHop[hopIndex] = headers;
+    return this.reemitIfResponded(tabId, requestId, state, hopIndex);
+  }
+
+  private reemitIfResponded(
+    tabId: number,
+    requestId: string,
+    state: RequestHarState,
     hopIndex: number,
-    hop: HopPartial,
-    transferSize: number | undefined,
-    totalMs: number | undefined,
-  ): RequestLifecycleUpdate {
+  ): readonly RequestLifecycleUpdate[] {
+    const hop = state.hops[hopIndex];
+    // No hop yet, or no response yet: the stash applies when the response
+    // lands (extra-before-base). Re-emit only once there is a HAR to refine.
+    if (hop === undefined || hop.response === undefined) return [];
+    return this.collect(this.emitHop(tabId, requestId, state, hopIndex));
+  }
+
+  private emitHop(
+    tabId: number,
+    requestId: string,
+    state: RequestHarState,
+    hopIndex: number,
+  ): RequestLifecycleUpdate | undefined {
+    const hop = state.hops[hopIndex];
+    if (hop === undefined) return undefined;
     const response = hop.response;
+    const requestExtra = state.requestExtraByHop[hopIndex];
+    const responseExtra = state.responseExtraByHop[hopIndex];
     const har: InspectorHarEntry = {
       startedDateTime: hop.startedDateTime,
-      ...(totalMs !== undefined ? { time: totalMs } : {}),
-      request: cdpRequestToHar(hop.request),
-      ...(response !== undefined ? { response: cdpResponseToHar(response, transferSize) } : {}),
+      ...(hop.totalMs !== undefined ? { time: hop.totalMs } : {}),
+      request: cdpRequestToHar(hop.request, requestExtra),
+      ...(response !== undefined ? { response: cdpResponseToHar(response, hop.transferSize, responseExtra) } : {}),
       ...(response?.remoteIPAddress !== undefined ? { serverIPAddress: response.remoteIPAddress } : {}),
-      ...(response?.timing !== undefined ? { timings: cdpTimingToHar(response.timing, totalMs) } : {}),
+      ...(response?.timing !== undefined ? { timings: cdpTimingToHar(response.timing, hop.totalMs) } : {}),
       ...(hop.initiator !== undefined ? { _initiator: hop.initiator } : {}),
     };
     return { kind: 'har-attached', tabId, requestId, hopIndex, har };
+  }
+
+  private collect(update: RequestLifecycleUpdate | undefined): readonly RequestLifecycleUpdate[] {
+    return update === undefined ? [] : [update];
   }
 
   private markFinalized(tabId: number, requestId: string, monotonicMs: number): void {
@@ -235,14 +336,35 @@ export class CdpHarBuilder {
     const tabMap = this.ensureTab(tabId);
     // Touch-to-end so a reused id sits at the tail under the per-tab cap.
     if (tabMap.has(requestId)) tabMap.delete(requestId);
-    const state: RequestHarState = { hopCursor: 0, hops: [] };
+    const state = newRequestHarState();
     tabMap.set(requestId, state);
+    this.enforceCap(tabMap);
+    return state;
+  }
+
+  /**
+   * Get-or-create without resetting — the entry point for an early
+   * `*ExtraInfo` that may precede its base `requestWillBeSent`. The stub it
+   * creates is hop-less; `onRequest` adopts it so the stashed headers
+   * survive the base event.
+   */
+  private ensureState(tabId: number, requestId: string): RequestHarState {
+    const tabMap = this.ensureTab(tabId);
+    let state = tabMap.get(requestId);
+    if (state === undefined) {
+      state = newRequestHarState();
+      tabMap.set(requestId, state);
+      this.enforceCap(tabMap);
+    }
+    return state;
+  }
+
+  private enforceCap(tabMap: Map<string, RequestHarState>): void {
     while (tabMap.size > MAX_CDP_HAR_REQUESTS_PER_TAB) {
       const oldest = tabMap.keys().next().value;
       if (oldest === undefined) break;
       tabMap.delete(oldest);
     }
-    return state;
   }
 
   private ensureTab(tabId: number): Map<string, RequestHarState> {

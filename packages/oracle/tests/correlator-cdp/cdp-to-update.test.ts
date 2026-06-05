@@ -14,7 +14,9 @@ import type {
   CdpLoadingFailed,
   CdpLoadingFinished,
   CdpRequestWillBeSent,
+  CdpRequestWillBeSentExtraInfo,
   CdpResponseReceived,
+  CdpResponseReceivedExtraInfo,
 } from '../../src/correlator-cdp/events';
 
 const TAB = 7;
@@ -155,6 +157,28 @@ describe('cdpEventToUpdates — canonical redirect + completion trace', () => {
     const u = updates[0];
     if (u?.kind !== 'phase') throw new Error('expected phase update');
     expect(u.patch.error?.blockedReason).toBe('corp');
+  });
+
+  it('requestWillBeSentExtraInfo → no lifecycle update (HAR-only refinement)', () => {
+    const extra: CdpRequestWillBeSentExtraInfo = {
+      method: 'Network.requestWillBeSentExtraInfo',
+      tabId: TAB,
+      sessionId: 'session-page',
+      requestId: 'cdp-1',
+      headers: { Cookie: 'sid=wire' },
+    };
+    expect(cdpEventToUpdates(extra)).toEqual([]);
+  });
+
+  it('responseReceivedExtraInfo → no lifecycle update (HAR-only refinement)', () => {
+    const extra: CdpResponseReceivedExtraInfo = {
+      method: 'Network.responseReceivedExtraInfo',
+      tabId: TAB,
+      sessionId: 'session-page',
+      requestId: 'cdp-1',
+      headers: { 'Set-Cookie': 'sess=raw' },
+    };
+    expect(cdpEventToUpdates(extra)).toEqual([]);
   });
 
   it('loadingFailed without a blockedReason leaves the field unset', () => {

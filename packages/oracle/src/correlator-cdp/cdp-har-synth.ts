@@ -98,13 +98,23 @@ export function queryStringFromUrl(url: string): Array<{ name: string; value: st
   return out;
 }
 
-/** Build the HAR `request` section from a CDP request descriptor. */
-export function cdpRequestToHar(request: CdpRequestParams): HarRequest {
-  const cookies = parseRequestCookies(request.headers);
+/**
+ * Build the HAR `request` section from a CDP request descriptor.
+ * `headersOverride`, when supplied, is the on-the-wire header set from
+ * `requestWillBeSentExtraInfo` — it supersedes the cooked
+ * `request.headers` wholesale for both the header array and the parsed
+ * request cookies (method / url / query string stay from the request).
+ */
+export function cdpRequestToHar(
+  request: CdpRequestParams,
+  headersOverride?: Readonly<Record<string, string>>,
+): HarRequest {
+  const headers = headersOverride ?? request.headers;
+  const cookies = parseRequestCookies(headers);
   return {
     method: request.method,
     url: request.url,
-    headers: headerRecordToHar(request.headers),
+    headers: headerRecordToHar(headers),
     queryString: queryStringFromUrl(request.url),
     ...(cookies !== undefined ? { cookies } : {}),
   };
@@ -114,14 +124,23 @@ export function cdpRequestToHar(request: CdpRequestParams): HarRequest {
  * Build the HAR `response` section from a CDP response descriptor.
  * `transferSize` (wire bytes) is supplied separately because the final
  * hop learns it on `loadingFinished`, after the response headers landed.
+ * `headersOverride`, when supplied, is the on-the-wire header set from
+ * `responseReceivedExtraInfo` — it supersedes the cooked `response.headers`
+ * wholesale for both the header array and the parsed `Set-Cookie` cookies
+ * (status / protocol / mime type stay from the response).
  */
-export function cdpResponseToHar(response: CdpResponseParams, transferSize?: number): HarResponse {
-  const cookies = parseResponseCookies(response.headers);
+export function cdpResponseToHar(
+  response: CdpResponseParams,
+  transferSize?: number,
+  headersOverride?: Readonly<Record<string, string>>,
+): HarResponse {
+  const headers = headersOverride ?? response.headers;
+  const cookies = parseResponseCookies(headers);
   return {
     status: response.status,
     statusText: response.statusText,
     ...(response.protocol !== undefined ? { httpVersion: response.protocol } : {}),
-    headers: headerRecordToHar(response.headers),
+    headers: headerRecordToHar(headers),
     ...(cookies !== undefined ? { cookies } : {}),
     content: { size: 0, mimeType: response.mimeType ?? '' },
     ...(transferSize !== undefined ? { _transferSize: transferSize } : {}),

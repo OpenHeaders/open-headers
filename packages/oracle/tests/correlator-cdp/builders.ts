@@ -8,8 +8,10 @@ import type {
   CdpLoadingFailed,
   CdpLoadingFinished,
   CdpRequestWillBeSent,
+  CdpRequestWillBeSentExtraInfo,
   CdpResponseParams,
   CdpResponseReceived,
+  CdpResponseReceivedExtraInfo,
 } from '../../src/correlator-cdp/events';
 
 export interface TraceCtx {
@@ -75,6 +77,26 @@ export function cdpFinished(ctx: TraceCtx, overrides: Partial<CdpLoadingFinished
     timestamp: 100.9,
     encodedDataLength: 1024,
     ...overrides,
+  };
+}
+
+export function cdpRequestExtra(ctx: TraceCtx, headers: Record<string, string>): CdpRequestWillBeSentExtraInfo {
+  return {
+    method: 'Network.requestWillBeSentExtraInfo',
+    tabId: ctx.tabId,
+    sessionId: ctx.sessionId ?? PAGE_SESSION,
+    requestId: ctx.requestId,
+    headers,
+  };
+}
+
+export function cdpResponseExtra(ctx: TraceCtx, headers: Record<string, string>): CdpResponseReceivedExtraInfo {
+  return {
+    method: 'Network.responseReceivedExtraInfo',
+    tabId: ctx.tabId,
+    sessionId: ctx.sessionId ?? PAGE_SESSION,
+    requestId: ctx.requestId,
+    headers,
   };
 }
 
