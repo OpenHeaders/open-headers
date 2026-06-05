@@ -22,6 +22,7 @@
     "tabs",
     "webRequest",
     "webNavigation",
+    "debugger",
     "activeTab",
     "scripting",
     "downloads",
