@@ -82,10 +82,12 @@ function sectionToTab(section: string): DetailSection {
   return 'headers';
 }
 
+// Footer totals use decimal (1000-byte) units, matching the Size column
+// (`formatBytesToKb`) and the host network table's status-bar figures.
 function formatBytes(total: number): string {
-  if (total < 1024) return `${total} B`;
-  if (total < 1024 * 1024) return `${(total / 1024).toFixed(1)} kB`;
-  return `${(total / (1024 * 1024)).toFixed(1)} MB`;
+  if (total < 1000) return `${total} B`;
+  if (total < 1000 * 1000) return `${(total / 1000).toFixed(1)} kB`;
+  return `${(total / (1000 * 1000)).toFixed(1)} MB`;
 }
 
 function formatFinishTime(finishMs: number): string {

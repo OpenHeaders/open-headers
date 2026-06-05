@@ -106,6 +106,16 @@ describe('buildHar', () => {
     expect(doc.log.pages[0].id).toBe('page-1');
     expect(doc.log.entries[0].pageref).toBe('page-1');
   });
+
+  it('stamps the page ref on the document request that starts just before its page', () => {
+    // The page's start is the document request's queue-adjusted start, so that
+    // defining request begins marginally earlier — it must still bind to page-1.
+    const pages: Page[] = [{ id: 'page-1', startedAtMs: 5, url: 'https://openheaders.io/', dclMs: 100, loadMs: 200 }];
+    const doc = row('https://openheaders.io/', 0, { resourceType: 'document', startedAtMs: 0 });
+    const out = buildHar([doc], pages);
+    expect(out.log.pages).toHaveLength(1);
+    expect(out.log.entries[0].pageref).toBe('page-1');
+  });
 });
 
 describe('serializeHar', () => {

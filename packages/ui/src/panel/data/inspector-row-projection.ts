@@ -105,18 +105,33 @@ export function lifecycleTransferredBytes(lifecycle: RequestLifecycle): number |
  *
  * Picks the page whose `startedAtMs` is the latest one not greater
  * than the lifecycle's `startedAtMs` (i.e. the navigation that was
- * in flight when the request started). Returns `null` when no page
- * predates the lifecycle — the caller (HAR export) decides whether
- * to synthesize a placeholder.
+ * in flight when the request started).
+ *
+ * A page's `startedAtMs` is its document request's queue-adjusted start,
+ * which lands marginally *after* that same request's own raw start — so
+ * the navigation's defining document request is the one request that
+ * begins just before the page it belongs to. When no page is at-or-before
+ * the lifecycle but pages exist, attribute it to the earliest page: a
+ * request can't predate the navigation it belongs to, and the only one
+ * landing before the first page's start is that page's document request.
+ *
+ * Trade-off: under Preserve-log a tab can also hold requests that genuinely
+ * predate the first *captured* navigation (in flight when the panel opened).
+ * The earliest-page fallback claims those for the first page too; that
+ * extends the first page's window backward rather than leaving them
+ * ungrouped, which is acceptable for the common fresh-capture case the
+ * panel optimizes for.
+ *
+ * Returns `null` only when there are no pages at all.
  */
 export function resolvePageref(lifecycle: RequestLifecycle, pages: readonly Page[]): string | null {
   if (pages.length === 0) return null;
-  let chosen: Page | null = null;
+  let chosen: Page = pages[0];
   for (const page of pages) {
     if (page.startedAtMs > lifecycle.startedAtMs) break;
     chosen = page;
   }
-  return chosen?.id ?? null;
+  return chosen.id;
 }
 
 /**

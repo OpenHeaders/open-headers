@@ -105,8 +105,22 @@ describe('resolvePageref', () => {
     expect(resolvePageref(lifecycle({ startedAtMs: 1500 }), pages)).toBe('page_2');
   });
 
-  it('returns null when no page predates the lifecycle', () => {
-    expect(resolvePageref(lifecycle({ startedAtMs: -1 }), pages)).toBeNull();
+  it('attributes a request just before the first page to that first page', () => {
+    // A page's startedAtMs is the queue-adjusted document-request start, so
+    // that defining request begins marginally before its own page.
+    expect(resolvePageref(lifecycle({ startedAtMs: -1 }), pages)).toBe('page_1');
+  });
+
+  it('still binds a later request to the later page', () => {
+    expect(resolvePageref(lifecycle({ startedAtMs: 2000 }), pages)).toBe('page_2');
+  });
+
+  it('falls back to the earliest page for a pre-first-page request with multiple pages', () => {
+    const three: Page[] = [...pages, { id: 'page_3', startedAtMs: 3000, url: 'https://openheaders.io/c' }];
+    expect(resolvePageref(lifecycle({ startedAtMs: -100 }), three)).toBe('page_1');
+  });
+
+  it('returns null only when there are no pages', () => {
     expect(resolvePageref(lifecycle({ startedAtMs: 500 }), [])).toBeNull();
   });
 });
