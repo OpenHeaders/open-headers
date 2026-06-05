@@ -78,6 +78,10 @@ export interface InspectorHarEntry {
      *  whose underlying request failed before producing a real HTTP
      *  response. Absent on successful responses. */
     _error?: string;
+    /** Chromium extension: the response was produced by a service worker's
+     *  `fetch` handler. Chrome's exporter emits this in the response section
+     *  on every entry (`false` when not SW-served). */
+    _fetchedViaServiceWorker?: boolean;
   };
   cache?: unknown;
   timings?: {
@@ -92,9 +96,15 @@ export interface InspectorHarEntry {
      *  resource-scheduler queue (vs raw connection-level stalling).
      *  Subtracting from `blocked` yields the Stalled duration. */
     _blocked_queueing?: number;
+    /** Chrome-exporter extension: proxy negotiation duration, present only
+     *  when the request went through a proxy. */
+    _blocked_proxy?: number;
   };
   serverIPAddress?: string;
   connection?: string;
+  /** Chromium extension: physical connection id reused across requests on
+   *  the same socket. Omitted for cache hits / connection id `0`. */
+  _connectionId?: string;
   pageref?: string;
   _initiator?: unknown;
   _priority?: string;
@@ -104,10 +114,6 @@ export interface InspectorHarEntry {
   _fromCache?: string;
   /** Non-standard boolean flag some Chromium builds set alongside _fromCache. */
   _servedFromCache?: boolean;
-  /** Chromium flag: the response was intercepted and served by a service
-   *  worker's `fetch` handler. Populated on recent Chrome builds; absent
-   *  on older ones (we fall back to other signals in the classifier). */
-  _fetchedViaServiceWorker?: boolean;
 }
 
 /** Response body payload fetched asynchronously via entry.getContent. */

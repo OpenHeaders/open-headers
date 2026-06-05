@@ -88,9 +88,14 @@ describe('classifyRequestState', () => {
   it('cached (service-worker) when har._fetchedViaServiceWorker is true — even over other cache flags', () => {
     const lc = makeLifecycle({
       har: {
-        _fetchedViaServiceWorker: true,
         _fromCache: 'disk',
-        response: { status: 200, statusText: 'OK', headers: [], content: { size: 0, mimeType: '' } },
+        response: {
+          status: 200,
+          statusText: 'OK',
+          headers: [],
+          content: { size: 0, mimeType: '' },
+          _fetchedViaServiceWorker: true,
+        },
       },
     });
     const s = classifyRequestState(lc);
@@ -201,17 +206,33 @@ describe('classifyRequestState', () => {
   const httpErrorLc = makeLifecycle({
     statusCode: 500,
     statusText: 'Internal Server Error',
-    har: { response: { status: 500, statusText: 'Internal Server Error', headers: [], content: { size: 0, mimeType: '' } } },
+    har: {
+      response: { status: 500, statusText: 'Internal Server Error', headers: [], content: { size: 0, mimeType: '' } },
+    },
   });
-  const pendingLc = makeLifecycle({ phase: 'pending', statusCode: undefined, statusText: undefined, har: { response: undefined } });
+  const pendingLc = makeLifecycle({
+    phase: 'pending',
+    statusCode: undefined,
+    statusText: undefined,
+    har: { response: undefined },
+  });
   const cachedLc = makeLifecycle({
-    har: { _fromCache: 'disk', response: { status: 200, statusText: 'OK', headers: [], content: { size: 0, mimeType: '' } } },
+    har: {
+      _fromCache: 'disk',
+      response: { status: 200, statusText: 'OK', headers: [], content: { size: 0, mimeType: '' } },
+    },
   });
   const redirectLc = makeLifecycle({
     statusCode: 302,
     statusText: 'Found',
     har: {
-      response: { status: 302, statusText: 'Found', redirectURL: 'https://elsewhere.example/', headers: [], content: { size: 0, mimeType: '' } },
+      response: {
+        status: 302,
+        statusText: 'Found',
+        redirectURL: 'https://elsewhere.example/',
+        headers: [],
+        content: { size: 0, mimeType: '' },
+      },
     },
   });
 

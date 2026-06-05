@@ -87,6 +87,12 @@ export function parseResponseCookies(
   return out.length > 0 ? out : undefined;
 }
 
+/** Drop a URL's `#fragment`, the part HAR `request.url` never carries. */
+export function stripUrlFragment(url: string): string {
+  const hash = url.indexOf('#');
+  return hash < 0 ? url : url.slice(0, hash);
+}
+
 /** Decompose a URL's query into HAR `[{name, value}]`; `[]` on a bare/invalid URL. */
 export function queryStringFromUrl(url: string): Array<{ name: string; value: string }> {
   const q = url.indexOf('?');
@@ -133,18 +139,26 @@ export function cdpRequestToHar(
   const headers = headersOverride ?? request.headers;
   const cookies = parseRequestCookies(headers);
   const postData = postDataToHar(request.postData, headers);
+  const url = stripUrlFragment(request.url);
   return {
     method: request.method,
-    url: request.url,
+    url,
     headers: headerRecordToHar(headers),
-    queryString: queryStringFromUrl(request.url),
+    queryString: queryStringFromUrl(url),
     ...(cookies !== undefined ? { cookies } : {}),
     ...(postData !== undefined ? { postData } : {}),
-    // CDP never reports the raw header/body byte lengths the HAR spec wants
-    // here; `-1` is the HAR "unavailable" sentinel external tools expect.
+    // CDP never reports the raw request header byte block, so `headersSize`
+    // stays at the HAR "unavailable" sentinel. `bodySize` is the UTF-8 byte
+    // length of the posted body, or `0` when there is none — the one size
+    // field recoverable from the inline `postData`.
     headersSize: -1,
-    bodySize: -1,
+    bodySize: requestBodySize(request.postData),
   };
+}
+
+/** UTF-8 byte length of an inline request body, or `0` when absent. */
+function requestBodySize(postData: string | undefined): number {
+  return postData === undefined ? 0 : new TextEncoder().encode(postData).length;
 }
 
 /**
@@ -200,10 +214,14 @@ export function cdpResponseToHar(
     headers: headerRecordToHar(headers),
     ...(cookies !== undefined ? { cookies } : {}),
     content: { size: decodedContentSize(contentSize, headers), mimeType: response.mimeType ?? '' },
+    // The redirect target, always present on a Chrome export: the `Location`
+    // header for a redirect hop, `''` otherwise.
+    redirectURL: findHeader(headers, 'Location') || '',
     // CDP never reports the raw header/body byte lengths the HAR spec wants
     // here; `-1` is the HAR "unavailable" sentinel external tools expect.
     headersSize: -1,
     bodySize: -1,
+    _fetchedViaServiceWorker: Boolean(response.fromServiceWorker),
     ...(transferSize !== undefined ? { _transferSize: transferSize } : {}),
     ...(error !== undefined ? { _error: error } : {}),
   };
@@ -254,8 +272,13 @@ function leastNonNegative(values: readonly number[]): number {
  * `-1` legs are the HAR convention for "not applicable" (e.g. a reused
  * connection skips dns/connect/ssl) and keep the waterfall from inventing
  * phantom phases.
+ *
+ *   _blocked_queueing  startTime - issueTime: the gap between the request
+ *                      being issued and the network start (`issuedSec` →
+ *                      `requestTime`). Always present; `-1` when not measured.
+ *   _blocked_proxy     proxyStart..proxyEnd, only when a proxy leg occurred.
  */
-export function cdpTimingToHar(timing: CdpResourceTiming, totalMs?: number): HarTimings {
+export function cdpTimingToHar(timing: CdpResourceTiming, totalMs?: number, issuedSec?: number): HarTimings {
   const dnsStart = offset(timing.dnsStart);
   const dnsEnd = offset(timing.dnsEnd);
   const connectStart = offset(timing.connectStart);
@@ -271,6 +294,11 @@ export function cdpTimingToHar(timing: CdpResourceTiming, totalMs?: number): Har
   const blocked = leastNonNegative([dnsStart, connectStart, sendStart]);
   const receive = totalMs !== undefined && receiveHeadersEnd >= 0 ? Math.max(0, totalMs - receiveHeadersEnd) : -1;
 
+  const queued =
+    issuedSec !== undefined && timing.requestTime > issuedSec ? (timing.requestTime - issuedSec) * 1000 : -1;
+  const proxyStart = offset(timing.proxyStart);
+  const proxyEnd = offset(timing.proxyEnd);
+
   return {
     blocked: round3(blocked),
     dns: round3(leg(dnsStart, dnsEnd)),
@@ -279,6 +307,8 @@ export function cdpTimingToHar(timing: CdpResourceTiming, totalMs?: number): Har
     send: round3(send),
     wait: round3(wait),
     receive: round3(receive),
+    _blocked_queueing: queued < 0 ? -1 : round3(queued),
+    ...(proxyEnd >= 0 ? { _blocked_proxy: round3(proxyEnd - proxyStart) } : {}),
   };
 }
 

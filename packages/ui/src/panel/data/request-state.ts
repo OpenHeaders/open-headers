@@ -68,7 +68,7 @@ function isFailureStatus(text: string): boolean {
 
 function cacheSource(lifecycle: RequestLifecycle): CacheSource | null {
   const har = currentHarEntry(lifecycle);
-  if (har?._fetchedViaServiceWorker) return 'service-worker';
+  if (har?.response?._fetchedViaServiceWorker) return 'service-worker';
   const raw = har?._fromCache;
   if (raw === 'disk' || raw === 'memory') return raw;
   if (har?._servedFromCache) return 'memory';

@@ -357,6 +357,7 @@ interface RawRequest {
   readonly headers?: Record<string, string>;
   readonly hasPostData?: boolean;
   readonly postData?: string;
+  readonly initialPriority?: string;
 }
 
 interface RawResourceTiming {
@@ -382,6 +383,8 @@ interface RawResponse {
   readonly headers?: Record<string, string>;
   readonly mimeType?: string;
   readonly remoteIPAddress?: string;
+  readonly remotePort?: number;
+  readonly connectionId?: number;
   readonly protocol?: string;
   readonly fromDiskCache?: boolean;
   readonly fromServiceWorker?: boolean;
@@ -590,6 +593,7 @@ function normalizeRequest(r: RawRequest): CdpRequestParams {
     ...(r.headers !== undefined ? { headers: r.headers } : {}),
     ...(r.hasPostData !== undefined ? { hasPostData: r.hasPostData } : {}),
     ...(r.postData !== undefined ? { postData: r.postData } : {}),
+    ...(r.initialPriority !== undefined ? { initialPriority: r.initialPriority } : {}),
   };
 }
 
@@ -602,6 +606,8 @@ function normalizeResponse(r: RawResponse): CdpResponseParams {
     ...(r.fromDiskCache !== undefined ? { fromDiskCache: r.fromDiskCache } : {}),
     ...(r.fromServiceWorker !== undefined ? { fromServiceWorker: r.fromServiceWorker } : {}),
     ...(r.remoteIPAddress !== undefined ? { remoteIPAddress: r.remoteIPAddress } : {}),
+    ...(r.remotePort !== undefined ? { remotePort: r.remotePort } : {}),
+    ...(r.connectionId !== undefined ? { connectionId: r.connectionId } : {}),
     ...(r.protocol !== undefined ? { protocol: r.protocol } : {}),
     ...(r.mimeType !== undefined ? { mimeType: r.mimeType } : {}),
     ...(r.timing !== undefined ? { timing: normalizeTiming(r.timing) } : {}),

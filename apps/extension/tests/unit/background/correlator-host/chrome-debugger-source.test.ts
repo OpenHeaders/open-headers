@@ -155,6 +155,43 @@ describe('ChromeDebuggerEventSource — normalize onEvent → CdpNetworkEvent', 
     });
   });
 
+  it('normalizes initialPriority, remotePort, and connectionId for the HAR per-entry fields', async () => {
+    source = new ChromeDebuggerEventSource();
+    const out: CdpNetworkEvent[] = [];
+    source.subscribe((e) => out.push(e));
+    await source.attach(TAB);
+
+    emitRoot(
+      'Network.requestWillBeSent',
+      rawRequestWillBeSent('r-p', 'https://api.openheaders.io/users', {
+        request: { url: 'https://api.openheaders.io/users', method: 'GET', initialPriority: 'VeryHigh' },
+      }),
+    );
+    emitRoot('Network.responseReceived', {
+      requestId: 'r-p',
+      timestamp: 100.5,
+      type: 'XHR',
+      response: {
+        url: 'https://api.openheaders.io/users',
+        status: 200,
+        statusText: 'OK',
+        remoteIPAddress: '93.184.216.34',
+        remotePort: 443,
+        connectionId: 17,
+      },
+    });
+
+    const started = out[0];
+    if (started?.method !== 'Network.requestWillBeSent') throw new Error('expected requestWillBeSent');
+    expect(started.request.initialPriority).toBe('VeryHigh');
+
+    const response = out.at(-1);
+    expect(response).toMatchObject({
+      method: 'Network.responseReceived',
+      response: { remotePort: 443, connectionId: 17 },
+    });
+  });
+
   it('normalizes dataReceived (decoded chunk size) and request postData through', async () => {
     source = new ChromeDebuggerEventSource();
     const out: CdpNetworkEvent[] = [];

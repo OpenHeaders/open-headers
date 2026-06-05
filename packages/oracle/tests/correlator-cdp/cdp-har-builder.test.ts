@@ -77,6 +77,7 @@ describe('cdpTimingToHar — base conversion', () => {
       send: 5,
       wait: 65, // receiveHeadersEnd - sendEnd
       receive: 150, // totalMs - receiveHeadersEnd
+      _blocked_queueing: -1, // no issue time supplied → not measured
     });
   });
 
@@ -89,6 +90,7 @@ describe('cdpTimingToHar — base conversion', () => {
       send: 3,
       wait: 32,
       receive: 20,
+      _blocked_queueing: -1,
     });
   });
 
@@ -108,7 +110,21 @@ describe('cdpTimingToHar — base conversion', () => {
       send: 0,
       wait: 0,
       receive: -1,
+      _blocked_queueing: -1,
     });
+  });
+
+  it('derives _blocked_queueing from the issue time and a proxy leg from proxyStart/proxyEnd', () => {
+    // issuedSec 999.95 → requestTime 1000 is 50ms of queueing; proxy 2..7 = 5ms.
+    const t = cdpTimingToHar({ requestTime: 1000, proxyStart: 2, proxyEnd: 7, sendStart: 10, sendEnd: 12 }, 50, 999.95);
+    expect(t._blocked_queueing).toBe(50);
+    expect(t._blocked_proxy).toBe(5);
+  });
+
+  it('omits _blocked_proxy when no proxy leg ran and floors queueing at -1 for a same-instant issue', () => {
+    const t = cdpTimingToHar(FULL_TIMING, 250, FULL_TIMING.requestTime);
+    expect(t._blocked_queueing).toBe(-1); // issuedSec === requestTime → not queued
+    expect(t._blocked_proxy).toBeUndefined();
   });
 });
 
@@ -204,10 +220,10 @@ describe('CdpHarBuilder — well-formed entry', () => {
     expect(refined.timings?.receive).toBe(150);
   });
 
-  it('marks header/body byte sizes unavailable (-1) on request and response (HAR sentinel)', () => {
+  it('marks header byte sizes unavailable (-1) and request.bodySize 0 for a bodyless GET', () => {
     const { refined } = run();
     expect(refined.request?.headersSize).toBe(-1);
-    expect(refined.request?.bodySize).toBe(-1);
+    expect(refined.request?.bodySize).toBe(0); // no post data → 0, matching Chrome
     expect(refined.response?.headersSize).toBe(-1);
     expect(refined.response?.bodySize).toBe(-1);
   });
@@ -555,6 +571,181 @@ describe('CdpHarBuilder — request payload', () => {
   it('omits postData when the request carried no body', () => {
     const entry = entryWith({ url: 'https://api.openheaders.io/users', method: 'GET' });
     expect(entry.request?.postData).toBeUndefined();
+  });
+});
+
+// ── always-present per-entry fields (Chrome Log.ts parity) ──────────
+
+describe('CdpHarBuilder — always-present per-entry fields', () => {
+  const ctx: TraceCtx = { tabId: TAB, requestId: 'parity' };
+
+  it('emits cache:{} and a redirectURL on every entry (Location header or "")', () => {
+    const builder = new CdpHarBuilder();
+    builder.observe(cdpStart(ctx));
+    const plain = lastHarEntry(builder.observe(cdpResponse(ctx)));
+    expect(plain.cache).toEqual({});
+    expect(plain.response?.redirectURL).toBe('');
+
+    const redirCtx: TraceCtx = { tabId: TAB, requestId: 'parity-redir' };
+    builder.observe(cdpStart(redirCtx));
+    const redir = lastHarEntry(
+      builder.observe(
+        cdpResponse(redirCtx, {
+          response: {
+            url: 'https://api.openheaders.io/old',
+            status: 302,
+            statusText: 'Found',
+            headers: { Location: 'https://api.openheaders.io/new' },
+          },
+        }),
+      ),
+    );
+    expect(redir.response?.redirectURL).toBe('https://api.openheaders.io/new');
+  });
+
+  it('always projects _fetchedViaServiceWorker as a boolean (true when fromServiceWorker)', () => {
+    const builder = new CdpHarBuilder();
+    builder.observe(cdpStart(ctx));
+    const plain = lastHarEntry(builder.observe(cdpResponse(ctx)));
+    expect(plain.response?._fetchedViaServiceWorker).toBe(false);
+
+    const swCtx: TraceCtx = { tabId: TAB, requestId: 'parity-sw' };
+    builder.observe(cdpStart(swCtx));
+    const sw = lastHarEntry(
+      builder.observe(
+        cdpResponse(swCtx, {
+          response: { url: 'https://api.openheaders.io/sw', status: 200, statusText: 'OK', fromServiceWorker: true },
+        }),
+      ),
+    );
+    expect(sw.response?._fetchedViaServiceWorker).toBe(true);
+  });
+
+  it("flags _fromCache 'disk' for a disk-cache hit with nothing on the wire", () => {
+    const builder = new CdpHarBuilder();
+    builder.observe(cdpStart(ctx));
+    builder.observe(
+      cdpResponse(ctx, {
+        response: { url: 'https://api.openheaders.io/cached.js', status: 200, statusText: 'OK', fromDiskCache: true },
+      }),
+    );
+    const entry = lastHarEntry(builder.observe(cdpFinished(ctx, { encodedDataLength: 0 })));
+    expect(entry._fromCache).toBe('disk');
+  });
+
+  it('computes request.bodySize as the UTF-8 byte length (multi-byte body)', () => {
+    const builder = new CdpHarBuilder();
+    // '😀' is two UTF-16 code units (.length 2) but four UTF-8 bytes.
+    builder.observe(
+      cdpStart(ctx, { request: { url: 'https://api.openheaders.io/x', method: 'POST', postData: '😀' } }),
+    );
+    const withBody = lastHarEntry(builder.observe(cdpResponse(ctx)));
+    expect(withBody.request?.bodySize).toBe(4);
+
+    const noBodyCtx: TraceCtx = { tabId: TAB, requestId: 'parity-nobody' };
+    builder.observe(cdpStart(noBodyCtx, { request: { url: 'https://api.openheaders.io/x', method: 'GET' } }));
+    const noBody = lastHarEntry(builder.observe(cdpResponse(noBodyCtx)));
+    expect(noBody.request?.bodySize).toBe(0);
+  });
+
+  it('round-trips _priority, connection, and _connectionId from the new CDP fields', () => {
+    const builder = new CdpHarBuilder();
+    builder.observe(
+      cdpStart(ctx, {
+        request: { url: 'https://api.openheaders.io/x', method: 'GET', initialPriority: 'VeryHigh' },
+      }),
+    );
+    const entry = lastHarEntry(
+      builder.observe(
+        cdpResponse(ctx, {
+          response: {
+            url: 'https://api.openheaders.io/x',
+            status: 200,
+            statusText: 'OK',
+            remotePort: 443,
+            connectionId: 17,
+          },
+        }),
+      ),
+    );
+    expect(entry._priority).toBe('VeryHigh');
+    expect(entry.connection).toBe('443');
+    expect(entry._connectionId).toBe('17');
+  });
+
+  it('omits _connectionId for connection id 0 (no socket, e.g. a cache hit)', () => {
+    const builder = new CdpHarBuilder();
+    builder.observe(cdpStart(ctx));
+    const entry = lastHarEntry(
+      builder.observe(
+        cdpResponse(ctx, {
+          response: { url: 'https://api.openheaders.io/x', status: 200, statusText: 'OK', connectionId: 0 },
+        }),
+      ),
+    );
+    expect(entry._connectionId).toBeUndefined();
+  });
+
+  it("normalizes serverIPAddress verbatim to Chrome's exporter (only empty [] stripped)", () => {
+    const builder = new CdpHarBuilder();
+    builder.observe(cdpStart(ctx));
+    const v4 = lastHarEntry(
+      builder.observe(
+        cdpResponse(ctx, {
+          response: {
+            url: 'https://api.openheaders.io/x',
+            status: 200,
+            statusText: 'OK',
+            remoteIPAddress: '203.0.113.7',
+          },
+        }),
+      ),
+    );
+    expect(v4.serverIPAddress).toBe('203.0.113.7');
+
+    // Chrome's exporter regex (`/\[\]/g`) removes only an empty bracket pair;
+    // a populated IPv6 address passes through unchanged — we match it byte-for-byte.
+    const v6Ctx: TraceCtx = { tabId: TAB, requestId: 'parity-v6' };
+    builder.observe(cdpStart(v6Ctx));
+    const v6 = lastHarEntry(
+      builder.observe(
+        cdpResponse(v6Ctx, {
+          response: {
+            url: 'https://api.openheaders.io/x',
+            status: 200,
+            statusText: 'OK',
+            remoteIPAddress: '[2606:4700::1]',
+          },
+        }),
+      ),
+    );
+    expect(v6.serverIPAddress).toBe('[2606:4700::1]');
+  });
+
+  it('drops the URL #fragment from request.url and the query string', () => {
+    const builder = new CdpHarBuilder();
+    builder.observe(cdpStart(ctx, { request: { url: 'https://api.openheaders.io/x?a=1#section', method: 'GET' } }));
+    const entry = lastHarEntry(builder.observe(cdpResponse(ctx)));
+    expect(entry.request?.url).toBe('https://api.openheaders.io/x?a=1');
+    expect(entry.request?.queryString).toEqual([{ name: 'a', value: '1' }]);
+  });
+
+  it('derives timings._blocked_queueing from the issue→network-start gap', () => {
+    const builder = new CdpHarBuilder();
+    builder.observe(cdpStart(ctx, { timestamp: 100 }));
+    const entry = lastHarEntry(
+      builder.observe(
+        cdpResponse(ctx, {
+          response: {
+            url: 'https://api.openheaders.io/x',
+            status: 200,
+            statusText: 'OK',
+            timing: { requestTime: 100.05, sendStart: 0, sendEnd: 1, receiveHeadersEnd: 5 },
+          },
+        }),
+      ),
+    );
+    expect(entry.timings?._blocked_queueing).toBe(50);
   });
 });
 

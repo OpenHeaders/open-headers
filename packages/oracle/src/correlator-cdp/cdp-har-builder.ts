@@ -81,6 +81,24 @@ export const MAX_CDP_BODY_REFS_PER_TAB = 10_000;
 const secondsToMs = (t: number): number => Math.round(t * 1000);
 
 /**
+ * HAR `_connectionId` (stringified physical connection id), or `undefined`
+ * when there is none — CDP reports `0` for a request that opened no socket
+ * (cache hits, data: URLs), which Chrome's exporter omits.
+ */
+function connectionIdString(connectionId: number | undefined): string | undefined {
+  return connectionId === undefined || connectionId === 0 ? undefined : String(connectionId);
+}
+
+/**
+ * Whether a response is a disk-cache hit — HAR `_fromCache: 'disk'`. Mirrors
+ * Chrome's `cached()`: served from disk cache with nothing on the wire.
+ * (Memory-cache detection needs the Resource Timing relay's signal, deferred.)
+ */
+function isDiskCacheHit(response: CdpResponseParams | undefined, transferSize: number | undefined): boolean {
+  return Boolean(response?.fromDiskCache) && !transferSize;
+}
+
+/**
  * The minimum a lazy body fetch needs to issue `Network.getResponseBody`
  * and shape the resulting `InspectorHarBody`: the raw CDP identity the
  * command targets, plus the source request's descriptive fields. Recorded
@@ -100,6 +118,9 @@ export interface CdpBodyRef {
 interface HopPartial {
   /** Wall-clock ISO start, stamped from this hop's `requestWillBeSent.wallTime`. */
   readonly startedDateTime: string;
+  /** Monotonic issue time (`requestWillBeSent.timestamp`, seconds) — the base
+   *  for HAR `timings._blocked_queueing` against the timing's `requestTime`. */
+  readonly issuedSec: number;
   readonly request: CdpRequestParams;
   /** `Network.Initiator` for this hop — forwarded verbatim as HAR `_initiator`. */
   readonly initiator?: CdpInitiator;
@@ -253,6 +274,7 @@ export class CdpHarBuilder {
     state.finalizedAtMs = undefined;
     state.hops[state.hopCursor] = {
       startedDateTime: wallTimeToIso(event.wallTime),
+      issuedSec: event.timestamp,
       request: event.request,
       ...(event.initiator !== undefined ? { initiator: event.initiator } : {}),
       ...(event.type !== undefined ? { resourceType: event.type } : {}),
@@ -432,16 +454,29 @@ export class CdpHarBuilder {
     const response = hop.response;
     const requestExtra = state.requestExtraByHop[hopIndex];
     const responseExtra = state.responseExtraByHop[hopIndex];
+    const connectionId = connectionIdString(response?.connectionId);
     const har: InspectorHarEntry = {
       startedDateTime: hop.startedDateTime,
       ...(hop.totalMs !== undefined ? { time: hop.totalMs } : {}),
+      // Empty object, HAR-spec-required and emitted on every Chrome entry.
+      cache: {},
       request: cdpRequestToHar(hop.request, requestExtra),
       ...(response !== undefined
         ? { response: cdpResponseToHar(response, hop.transferSize, hop.contentSize, hop.error, responseExtra) }
         : {}),
-      ...(response?.remoteIPAddress !== undefined ? { serverIPAddress: response.remoteIPAddress } : {}),
-      ...(response?.timing !== undefined ? { timings: cdpTimingToHar(response.timing, hop.totalMs) } : {}),
+      // IPv6 normalization, matched verbatim to Chrome's exporter (it strips
+      // only an empty `[]` sequence; real bracketed addresses pass through).
+      ...(response?.remoteIPAddress !== undefined
+        ? { serverIPAddress: response.remoteIPAddress.replace(/\[\]/g, '') }
+        : {}),
+      ...(response?.remotePort !== undefined ? { connection: String(response.remotePort) } : {}),
+      ...(connectionId !== undefined ? { _connectionId: connectionId } : {}),
+      ...(response?.timing !== undefined
+        ? { timings: cdpTimingToHar(response.timing, hop.totalMs, hop.issuedSec) }
+        : {}),
+      ...(isDiskCacheHit(response, hop.transferSize) ? { _fromCache: 'disk' } : {}),
       ...(hop.initiator !== undefined ? { _initiator: hop.initiator } : {}),
+      ...(hop.request.initialPriority !== undefined ? { _priority: hop.request.initialPriority } : {}),
       ...(hop.resourceType !== undefined ? { _resourceType: hop.resourceType.toLowerCase() } : {}),
     };
     return { kind: 'har-attached', tabId, requestId, hopIndex, har };

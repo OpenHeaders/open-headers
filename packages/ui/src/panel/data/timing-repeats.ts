@@ -41,7 +41,7 @@ function durationOf(lc: RequestLifecycle): number {
 
 function cacheSource(lc: RequestLifecycle): 'memory' | 'disk' | 'service-worker' | null {
   const har = currentHarEntry(lc);
-  if (har?._fetchedViaServiceWorker) return 'service-worker';
+  if (har?.response?._fetchedViaServiceWorker) return 'service-worker';
   const raw = har?._fromCache;
   if (raw === 'memory' || raw === 'disk') return raw;
   if (har?._servedFromCache) return 'memory';
@@ -53,10 +53,7 @@ function cacheSource(lc: RequestLifecycle): 'memory' | 'disk' | 'service-worker'
  * supplied list. Returns `null` when the URL only occurs once (no
  * comparison set) so the view can hide the section entirely.
  */
-export function computeRepeatStats(
-  selected: RequestLifecycle,
-  all: readonly RequestLifecycle[],
-): RepeatStats | null {
+export function computeRepeatStats(selected: RequestLifecycle, all: readonly RequestLifecycle[]): RepeatStats | null {
   const same: RequestLifecycle[] = [];
   for (const lc of all) {
     if (lc.url === selected.url && lc.method === selected.method) same.push(lc);

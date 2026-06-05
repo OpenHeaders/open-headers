@@ -54,6 +54,10 @@ export interface CdpRequestParams {
    *  `request.postData.text`, the source for the panel's Payload tab.
    *  Absent for large/binary bodies (would need `getRequestPostData`). */
   readonly postData?: string;
+  /** Scheduler priority assigned at request start (`VeryLow`…`VeryHigh`) —
+   *  HAR `_priority`. The later `resourceChangedPriority` refinement is not
+   *  tracked; this initial value is the always-present one. */
+  readonly initialPriority?: string;
 }
 
 /**
@@ -89,6 +93,11 @@ export interface CdpResponseParams {
   readonly fromServiceWorker?: boolean;
   /** Remote peer address — HAR `serverIPAddress`. */
   readonly remoteIPAddress?: string;
+  /** Remote peer port — HAR entry-level `connection` (stringified). */
+  readonly remotePort?: number;
+  /** Physical connection id; `0` means none — HAR `_connectionId`
+   *  (stringified, omitted at `0`). */
+  readonly connectionId?: number;
   /** Negotiated protocol (`h2`, `http/1.1`, …) — HAR `response.httpVersion`. */
   readonly protocol?: string;
   /** Resolved MIME type — HAR `response.content.mimeType`. */

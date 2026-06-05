@@ -18,7 +18,15 @@ function lifecycle(
     request: { method, url, httpVersion: '', headers: [], queryString: [], cookies: [], headersSize: -1, bodySize: -1 },
     timings: { blocked: 0, dns: 0, connect: 0, send: 0, wait: 0, receive: 0 },
     ...(fromCache === 'service-worker'
-      ? { _fetchedViaServiceWorker: true }
+      ? {
+          response: {
+            status: 200,
+            statusText: 'OK',
+            headers: [],
+            content: { size: 0, mimeType: '' },
+            _fetchedViaServiceWorker: true,
+          },
+        }
       : fromCache
         ? { _fromCache: fromCache }
         : {}),
