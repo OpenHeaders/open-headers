@@ -6,7 +6,12 @@
  * chrome-free by design. See `docs/REQUEST_LIFECYCLE_DESIGN.md` §6.2.
  */
 
-export type { CdpAttachControllerOptions } from './cdp-attach-controller';
+export type {
+  CdpAttachControllerOptions,
+  CdpAttachFault,
+  CdpAttachObservable,
+  CdpAttachState,
+} from './cdp-attach-controller';
 export { CdpAttachController } from './cdp-attach-controller';
 export { ChromeDebuggerEventSource } from './chrome-debugger-source';
 export { ChromeHarEventSource } from './chrome-har-source';

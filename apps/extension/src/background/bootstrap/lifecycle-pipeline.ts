@@ -2,6 +2,7 @@ import { PageStreamHub } from '@openheaders/oracle/page-stream-hub';
 import { RequestLifecycleHub } from '@openheaders/oracle/request-lifecycle-hub';
 import { RuleFireHub } from '@openheaders/oracle/rule-fire-hub';
 import { TabLifecycleBus } from '@openheaders/oracle/tab-lifecycle-bus';
+import type { CdpAttachObservable } from '../correlator-host';
 import { CdpAttachController, startDevtoolsPortPresence, startLifecycleHost } from '../correlator-host';
 import { startDevtoolsSessionCoordinator } from '../devtools-session-coordinator';
 import { createPersistentWatchSessionFloors, startLifecyclePortHost } from '../lifecycle-port-host';
@@ -24,6 +25,12 @@ interface LifecyclePipelineHandles {
    * attaches.
    */
   setCdpEnabled: (enabled: boolean) => void;
+  /**
+   * Read/observe the reconciler's effective state. Wired by `background.ts`
+   * into the `cdp` Status reporter (gated on the host having CDP) — the
+   * read-side mirror of `setCdpEnabled`'s write side.
+   */
+  cdpAttach: CdpAttachObservable;
 }
 
 export function startLifecyclePipeline(): LifecyclePipelineHandles {
@@ -82,5 +89,6 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   return {
     lifecycleStore: lifecycleHost.store,
     setCdpEnabled: (enabled) => cdpAttachController.setEnabled(enabled),
+    cdpAttach: cdpAttachController,
   };
 }

@@ -122,6 +122,11 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
    * for its child targets. Idempotent — a second attach for a live tab is
    * a no-op — and tolerant of an "already attached" race (a coexisting
    * DevTools front-end, or a re-attach after SW wake).
+   *
+   * Rejects on a real attach failure (anything other than the
+   * already-attached race) so the reconciler leaves the tab
+   * heuristic-owned and surfaces the fault — it must not mark a tab
+   * CDP-owned when no session was established.
    */
   async attach(tabId: number): Promise<void> {
     const api = this.api();
@@ -132,7 +137,7 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
     } catch (err) {
       if (!isAlreadyAttached(err)) {
         logger.warn('CdpSource', 'debugger.attach failed', { tabId, error: errorMessage(err) });
-        return;
+        throw err instanceof Error ? err : new Error(errorMessage(err));
       }
     }
     this.attachedTabs.add(tabId);

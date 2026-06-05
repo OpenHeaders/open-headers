@@ -203,4 +203,130 @@ describe('CdpAttachController', () => {
     fireDetach(1, 'target_closed');
     expect(route).not.toHaveBeenCalled();
   });
+
+  describe('observability (status pill)', () => {
+    it('getState baseline is OFF, no tabs, no fault', () => {
+      expect(h.controller.getState()).toEqual({ enabled: false, attachedCount: 0, lastFault: null });
+    });
+
+    it('flag-ON emits On-with-no-tabs first, then On-with-1-tab once the attach commits', async () => {
+      const states: Array<{ enabled: boolean; attachedCount: number }> = [];
+      h.controller.onChange((s) => states.push({ enabled: s.enabled, attachedCount: s.attachedCount }));
+
+      h.controller.notePortConnected(5);
+      h.controller.setEnabled(true);
+      // Synchronous: flag flipped, attach still in-flight → count 0.
+      expect(states).toEqual([{ enabled: true, attachedCount: 0 }]);
+
+      await flush();
+      // Attach committed → count 1.
+      expect(states.at(-1)).toEqual({ enabled: true, attachedCount: 1 });
+      expect(h.controller.getState().attachedCount).toBe(1);
+    });
+
+    it('attachedCount tracks N concurrent tabs and drops on a single port-disconnect', async () => {
+      h.controller.setEnabled(true);
+      h.controller.notePortConnected(1);
+      h.controller.notePortConnected(2);
+      await flush();
+      expect(h.controller.getState().attachedCount).toBe(2);
+
+      h.controller.notePortDisconnected(1);
+      await flush();
+      expect(h.controller.getState().attachedCount).toBe(1);
+    });
+
+    it('flag-OFF emits OFF exactly once, not per-tab during teardown', async () => {
+      h.controller.setEnabled(true);
+      h.controller.notePortConnected(1);
+      h.controller.notePortConnected(2);
+      await flush();
+
+      const states: Array<{ enabled: boolean }> = [];
+      h.controller.onChange((s) => states.push({ enabled: s.enabled }));
+      h.controller.setEnabled(false);
+      await flush();
+
+      // One synchronous OFF emit; the per-tab detaches don't re-emit
+      // (the rendered state is already OFF).
+      expect(states).toEqual([{ enabled: false }]);
+      expect(h.controller.getState().attachedCount).toBe(0);
+    });
+
+    it('a real attach failure surfaces an attach-failed fault and leaves the tab heuristic-owned', async () => {
+      h.attach.mockRejectedValueOnce(new Error('Cannot access a chrome:// URL'));
+      const states: Array<ReturnType<typeof h.controller.getState>> = [];
+      h.controller.onChange((s) => states.push(s));
+
+      h.controller.setEnabled(true);
+      h.controller.notePortConnected(5);
+      await flush();
+
+      expect(h.controller.getState()).toEqual({
+        enabled: true,
+        attachedCount: 0,
+        lastFault: { kind: 'attach-failed', tabId: 5 },
+      });
+      // Never marked cdp-owned — stays at its heuristic default.
+      expect(h.route).not.toHaveBeenCalledWith(5, 'cdp');
+      expect(states.at(-1)?.lastFault).toEqual({ kind: 'attach-failed', tabId: 5 });
+    });
+
+    it('banner Cancel (canceled_by_user) surfaces a fell-back fault; other detach reasons do not', async () => {
+      h.controller.setEnabled(true);
+      h.controller.notePortConnected(5);
+      await flush();
+
+      h.fireDetach(5, 'canceled_by_user');
+      expect(h.controller.getState()).toEqual({
+        enabled: true,
+        attachedCount: 0,
+        lastFault: { kind: 'fell-back', tabId: 5 },
+      });
+    });
+
+    it('a non-user detach (target_closed) drops the count with no fault', async () => {
+      h.controller.setEnabled(true);
+      h.controller.notePortConnected(5);
+      await flush();
+
+      h.fireDetach(5, 'target_closed');
+      expect(h.controller.getState()).toEqual({ enabled: true, attachedCount: 0, lastFault: null });
+    });
+
+    it('a flag flip clears a stale fault', async () => {
+      h.controller.setEnabled(true);
+      h.controller.notePortConnected(5);
+      await flush();
+      h.fireDetach(5, 'canceled_by_user');
+      expect(h.controller.getState().lastFault).not.toBeNull();
+
+      h.controller.setEnabled(false);
+      expect(h.controller.getState().lastFault).toBeNull();
+    });
+
+    it('a clean attach supersedes a prior fault (last-event-wins)', async () => {
+      h.attach.mockRejectedValueOnce(new Error('boom'));
+      h.controller.setEnabled(true);
+      h.controller.notePortConnected(5);
+      await flush();
+      expect(h.controller.getState().lastFault).toEqual({ kind: 'attach-failed', tabId: 5 });
+
+      // A second port-connect reconciles all live ports: tab 5 retries
+      // (now resolving) and tab 6 attaches — both clean attaches clear
+      // the fault.
+      h.controller.notePortConnected(6);
+      await flush();
+      expect(h.controller.getState()).toEqual({ enabled: true, attachedCount: 2, lastFault: null });
+    });
+
+    it('onChange returns an unsubscribe handle', async () => {
+      const listener = vi.fn();
+      const off = h.controller.onChange(listener);
+      off();
+      h.controller.setEnabled(true);
+      await flush();
+      expect(listener).not.toHaveBeenCalled();
+    });
+  });
 });

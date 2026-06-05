@@ -34,6 +34,7 @@ export const SUBSYSTEM_ORDER: StatusSubsystem[] = [
   'activity',
   'rules',
   'requests',
+  'cdp',
   'permissions',
   'secrets',
   'live',

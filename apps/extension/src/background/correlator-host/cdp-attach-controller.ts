@@ -61,19 +61,57 @@ export interface CdpAttachControllerOptions {
   readonly router: RouterRef;
 }
 
-export class CdpAttachController {
+/**
+ * A fault that knocked a tab off the CDP path, surfaced for the status
+ * pill. `attach-failed` — `source.attach` rejected (the tab stays
+ * heuristic-owned). `fell-back` — the user clicked Cancel on the
+ * inspection banner (`canceled_by_user`), releasing the tab to heuristic.
+ */
+export interface CdpAttachFault {
+  readonly kind: 'attach-failed' | 'fell-back';
+  readonly tabId: number;
+}
+
+/**
+ * The reconciler's effective state, read-only. `enabled` is the master
+ * switch; `attachedCount` is the committed intersection's size;
+ * `lastFault` is the most-recent fault (last-event-wins, matching the
+ * Status snapshot model), cleared on a flag flip and on the next clean
+ * attach.
+ */
+export interface CdpAttachState {
+  readonly enabled: boolean;
+  readonly attachedCount: number;
+  readonly lastFault: CdpAttachFault | null;
+}
+
+/**
+ * Observe the reconciler's effective state. The status reporter reads the
+ * baseline via {@link getState} then subscribes via {@link onChange};
+ * `setEnabled` and the chrome plumbing stay off this narrow surface.
+ */
+export interface CdpAttachObservable {
+  getState(): CdpAttachState;
+  onChange(listener: (state: CdpAttachState) => void): () => void;
+}
+
+export class CdpAttachController implements CdpAttachObservable {
   private readonly source: DebuggerSourceRef;
   private readonly router: RouterRef;
   private readonly unsubscribeDetach: () => void;
 
   /** Tabs with a live DevTools port (input set). */
   private readonly livePorts = new Set<number>();
-  /** Master switch (input flag); OFF until Slice 5 drives `setEnabled`. */
+  /** Master switch (input flag); driven by the Slice 5 `setEnabled`. */
   private enabled = false;
   /** Tabs we hold a committed CDP attachment for (the derived intersection). */
   private readonly attached = new Set<number>();
   /** Per-tab op chain — serializes attach/detach so races can't interleave. */
   private readonly pending = new Map<number, Promise<void>>();
+  /** Most-recent fault for the status pill; see {@link CdpAttachState}. */
+  private lastFault: CdpAttachFault | null = null;
+  /** Status observers — fed the effective state on every change. */
+  private readonly changeListeners = new Set<(state: CdpAttachState) => void>();
 
   constructor(options: CdpAttachControllerOptions) {
     this.source = options.source;
@@ -98,7 +136,11 @@ export class CdpAttachController {
   setEnabled(enabled: boolean): void {
     if (this.enabled === enabled) return;
     this.enabled = enabled;
+    // A flag flip is a fresh start: any stale fault no longer describes
+    // the current intent (OFF clears it; ON re-attempts cleanly).
+    this.lastFault = null;
     this.reconcile();
+    this.emit();
   }
 
   /** Detach every CDP tab + drop chrome subscriptions. Tests / SW shutdown. */
@@ -110,7 +152,30 @@ export class CdpAttachController {
     }
     this.livePorts.clear();
     this.pending.clear();
+    this.changeListeners.clear();
     this.enabled = false;
+    this.lastFault = null;
+  }
+
+  // ── observability (status pill) ──────────────────────────────────────
+
+  /** Snapshot the effective state. */
+  getState(): CdpAttachState {
+    return { enabled: this.enabled, attachedCount: this.attached.size, lastFault: this.lastFault };
+  }
+
+  /** Subscribe to effective-state changes. Returns the unsubscribe handle. */
+  onChange(listener: (state: CdpAttachState) => void): () => void {
+    this.changeListeners.add(listener);
+    return () => {
+      this.changeListeners.delete(listener);
+    };
+  }
+
+  /** Fan the current effective state to every observer. */
+  private emit(): void {
+    const state = this.getState();
+    for (const listener of this.changeListeners) listener(state);
   }
 
   // ── reconcile ────────────────────────────────────────────────────────
@@ -152,7 +217,16 @@ export class CdpAttachController {
     const isAttached = this.attached.has(tabId);
 
     if (wantAttached && !isAttached) {
-      await this.source.attach(tabId);
+      try {
+        await this.source.attach(tabId);
+      } catch {
+        // A real `chrome.debugger.attach` failure (not a tolerated
+        // already-attached race): the tab never enters `attached`, stays
+        // heuristic-owned, and the failure surfaces on the status pill.
+        this.lastFault = { kind: 'attach-failed', tabId };
+        this.emit();
+        return;
+      }
       if (!this.isDesired(tabId)) {
         // The port disconnected (or the flag flipped) while attaching —
         // undo the handshake and leave the tab heuristic-owned.
@@ -161,6 +235,9 @@ export class CdpAttachController {
       }
       this.attached.add(tabId);
       this.router.route(tabId, 'cdp');
+      // A clean attach supersedes any prior fault (last-event-wins).
+      this.lastFault = null;
+      this.emit();
       return;
     }
 
@@ -168,6 +245,9 @@ export class CdpAttachController {
       this.attached.delete(tabId);
       await this.source.detach(tabId);
       this.router.route(tabId, 'heuristic');
+      // A flag-OFF teardown already emitted "Off" in `setEnabled`; only a
+      // per-tab release while still ON moves the rendered count.
+      if (this.enabled) this.emit();
     }
   }
 
@@ -185,8 +265,14 @@ export class CdpAttachController {
    * input change (port disconnect / flag flip). target_closed is also
    * followed by a port disconnect, which cleans up `livePorts` on its own.
    */
-  private handleDetach(tabId: number, _reason: string): void {
+  private handleDetach(tabId: number, reason: string): void {
     if (!this.attached.delete(tabId)) return;
     this.router.route(tabId, 'heuristic');
+    // Banner Cancel is a user-driven fall-back to heuristic (yellow).
+    // Other reasons (tab close, …) just drop the count with no fault.
+    if (reason === 'canceled_by_user') {
+      this.lastFault = { kind: 'fell-back', tabId };
+    }
+    this.emit();
   }
 }

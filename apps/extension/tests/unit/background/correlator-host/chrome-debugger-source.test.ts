@@ -294,10 +294,12 @@ describe('ChromeDebuggerEventSource — onDetach + lifecycle', () => {
     expect(methods).toContain('Network.enable');
   });
 
-  it('bails on an unexpected attach error without enabling Network', async () => {
+  it('rejects on an unexpected attach error without enabling Network', async () => {
     source = new ChromeDebuggerEventSource();
     chromeMock.debugger.attach.mockRejectedValueOnce(new Error('No tab with given id 5'));
-    await source.attach(TAB);
+    // The failure propagates so the reconciler leaves the tab
+    // heuristic-owned instead of marking it CDP-owned with no session.
+    await expect(source.attach(TAB)).rejects.toThrow('No tab with given id 5');
     expect(chromeMock.debugger.sendCommand).not.toHaveBeenCalled();
   });
 

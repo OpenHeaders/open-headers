@@ -45,6 +45,7 @@ import { setupDelayBypassCleanup } from './bootstrap/delay-bypass-cleanup';
 import { installHostAdapters } from './bootstrap/host-install';
 import { bootstrapIdentity } from './bootstrap/identity-init';
 import { startLifecyclePipeline } from './bootstrap/lifecycle-pipeline';
+import { installLifecycleStatusReporters } from './bootstrap/lifecycle-status-reporters';
 import { installMessageRouting } from './bootstrap/message-routing';
 import { installNetworkEventHandlers } from './bootstrap/network-events';
 import { installOracleHostHooks } from './bootstrap/oracle-host-hooks';
@@ -151,8 +152,9 @@ async function initializeExtension(): Promise<void> {
     configuredRuleCount: 0,
   });
 
-  const { lifecycleStore, setCdpEnabled } = startLifecyclePipeline();
+  const { lifecycleStore, setCdpEnabled, cdpAttach } = startLifecyclePipeline();
   installCdpMasterSwitch(setCdpEnabled);
+  installLifecycleStatusReporters({ cdpAttach });
 
   setupTabListeners({ updateBadge: debouncedUpdateBadge, lifecycleStore });
   setupPeriodicCleanup();
