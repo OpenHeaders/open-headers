@@ -142,6 +142,17 @@ export interface Capabilities {
    * the UI hides the in-app pairing affordance via `hasCapability`.
    */
   pairWithCode?: (input: PairWithCodeInput) => Promise<PairWithCodeResult>;
+
+  /**
+   * Marker capability for the opt-in request-inspection path that attaches
+   * the browser's debugging protocol to tabs with their developer tools
+   * open. Present only on hosts whose runtime exposes that protocol; absent
+   * elsewhere (the Firefox / Safari extension surfaces), where shared UI
+   * gates the master-switch row off via `hasCapability` and renders it
+   * disabled. Presence is the whole signal — the boolean return is a
+   * formality so the capability is a typed function like the others.
+   */
+  cdpInspection?: () => boolean;
 }
 
 type CapabilityName = keyof Capabilities;

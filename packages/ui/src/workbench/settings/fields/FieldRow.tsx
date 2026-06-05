@@ -7,6 +7,8 @@
  * which control (Switch, Select, Input, etc.) is inside.
  */
 
+import { hasCapability } from '@openheaders/core/capabilities';
+import type { Capabilities } from '@openheaders/core/capabilities';
 import { DisconnectOutlined, UndoOutlined } from '@ant-design/icons';
 import { Button, Tooltip, theme } from 'antd';
 import type React from 'react';
@@ -20,6 +22,15 @@ interface FieldRowProps {
   description: string;
   experimental?: boolean;
   requiresConnection?: boolean;
+  /**
+   * Host-capability gate (see `SettingDef.requiresCapability`). On hosts
+   * that didn't register the named capability the control is disabled with
+   * an explanation, so the row reads as deliberately-unavailable rather
+   * than silently inert.
+   */
+  requiresCapability?: keyof Capabilities;
+  /** Explanation shown on the disabled control when the host lacks `requiresCapability`. */
+  capabilityUnavailableHint?: string;
   children: React.ReactNode;
   /** Hide the reset button for fields that are purely informational. */
   resettable?: boolean;
@@ -44,6 +55,8 @@ const FieldRow: React.FC<FieldRowProps> = ({
   description,
   experimental,
   requiresConnection,
+  requiresCapability,
+  capabilityUnavailableHint,
   children,
   resettable = true,
   block = false,
@@ -57,7 +70,12 @@ const FieldRow: React.FC<FieldRowProps> = ({
   const modified = modifiedOverride ?? storeModified;
   const reset = onReset ?? storeReset;
   const { isConnected } = useSettingsConnection();
-  const gated = requiresConnection === true && !isConnected;
+  const connectionGated = requiresConnection === true && !isConnected;
+  const capabilityGated = requiresCapability !== undefined && !hasCapability(requiresCapability);
+  const gated = connectionGated || capabilityGated;
+  const disabledHint = capabilityGated
+    ? (capabilityUnavailableHint ?? 'This browser doesn’t support this setting.')
+    : 'Connect the desktop app to change this setting.';
 
   return (
     <div
@@ -173,10 +191,10 @@ const FieldRow: React.FC<FieldRowProps> = ({
             {children}
           </div>
           {gated && (
-            <Tooltip title="Connect the desktop app to change this setting.">
+            <Tooltip title={disabledHint}>
               <div
                 role="img"
-                aria-label="Disabled — requires desktop connection"
+                aria-label={capabilityGated ? 'Disabled — unavailable on this browser' : 'Disabled — requires desktop connection'}
                 style={{
                   position: 'absolute',
                   inset: 0,

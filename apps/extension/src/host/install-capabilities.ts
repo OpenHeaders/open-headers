@@ -17,6 +17,7 @@
 
 import { hostBridge } from '@openheaders/core/bridge';
 import { registerCapability } from '@openheaders/core/capabilities';
+import { getBrowserAPI } from '@/types/browser';
 import { pairWithCode } from './pair-with-code';
 
 registerCapability('getActiveWorkspaceId', () =>
@@ -45,6 +46,14 @@ registerCapability('openExternalUrl', (url) =>
     .then((resp) => ({ ok: resp.success, error: resp.error }))
     .catch((err: Error) => ({ ok: false, error: err.message })),
 );
+
+// Deep request inspection (opt-in CDP path) is available only where the
+// runtime exposes the debugging protocol — Chromium-family surfaces.
+// Firefox / Safari leave `debugger` undefined, so the capability stays
+// absent and shared UI renders the master-switch row disabled.
+if (getBrowserAPI().debugger !== undefined) {
+  registerCapability('cdpInspection', () => true);
+}
 
 // In-app daemon pairing (WS-A2): exchange a typed 6-digit code for an
 // auth token over a direct localhost/LAN HTTP fetch. Unlike the caps

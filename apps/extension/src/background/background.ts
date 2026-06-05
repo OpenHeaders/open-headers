@@ -40,6 +40,7 @@ import { installActivityBroadcasts } from './bootstrap/activity-broadcasts';
 import { installAlarmDispatch } from './bootstrap/alarm-dispatch';
 import { resolveBackgroundReady } from './bootstrap/background-ready';
 import { debouncedUpdateBadge } from './bootstrap/badge-update';
+import { installCdpMasterSwitch } from './bootstrap/cdp-master-switch';
 import { setupDelayBypassCleanup } from './bootstrap/delay-bypass-cleanup';
 import { installHostAdapters } from './bootstrap/host-install';
 import { bootstrapIdentity } from './bootstrap/identity-init';
@@ -150,7 +151,9 @@ async function initializeExtension(): Promise<void> {
     configuredRuleCount: 0,
   });
 
-  const { lifecycleStore } = startLifecyclePipeline();
+  const { lifecycleStore, setCdpEnabled } = startLifecyclePipeline();
+  installCdpMasterSwitch(setCdpEnabled);
+
   setupTabListeners({ updateBadge: debouncedUpdateBadge, lifecycleStore });
   setupPeriodicCleanup();
   initializeActiveTabTracking();

@@ -10,6 +10,7 @@
 import {
   ApiOutlined,
   BgColorsOutlined,
+  BugOutlined,
   CloudDownloadOutlined,
   CloudServerOutlined,
   DatabaseOutlined,
@@ -118,6 +119,14 @@ registerCategory({
   icon: <ApiOutlined />,
   order: 16,
   description: 'Defaults for the Network requests table in the DevTools panel — layout, sort, dot column.',
+});
+
+registerCategory({
+  id: 'inspection',
+  label: 'Request Inspection',
+  icon: <BugOutlined />,
+  order: 21,
+  description: 'The opt-in deep request-inspection path — attaching the browser debugging protocol to capture requests at creation.',
 });
 
 registerCategory({

@@ -16,6 +16,14 @@ import { debouncedUpdateBadge } from './badge-update';
 
 interface LifecyclePipelineHandles {
   lifecycleStore: ReturnType<typeof startLifecycleHost>['store'];
+  /**
+   * Drive the opt-in CDP master switch. `background.ts` seeds this with
+   * `getSetting('inspection.cdpEnabled')` once settings are ready, then
+   * feeds every `subscribeKey('inspection.cdpEnabled')` change. With it
+   * OFF (the default) the reconciler's intersection is ∅ and nothing
+   * attaches.
+   */
+  setCdpEnabled: (enabled: boolean) => void;
 }
 
 export function startLifecyclePipeline(): LifecyclePipelineHandles {
@@ -26,9 +34,9 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
 
   // Opt-in CDP attach reconciler: attached = { tabs with a live DevTools
   // port } ∩ { master switch ON }. The DevTools-port presence observer
-  // feeds the first input; the master switch stays OFF until Slice 5 wires
-  // `subscribeKey('inspection.cdpEnabled')` → `cdpAttachController.setEnabled`.
-  // With the switch OFF the intersection is always ∅, so nothing attaches
+  // feeds the first input; `setCdpEnabled` (returned below, driven by
+  // `background.ts`'s `subscribeKey('inspection.cdpEnabled')`) feeds the
+  // master switch. Default OFF → the intersection is ∅, nothing attaches,
   // and the heuristic path is byte-for-byte unchanged.
   const cdpAttachController = new CdpAttachController({
     source: lifecycleHost.debuggerSource,
@@ -71,5 +79,8 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
     onAuthoritativeFire: (tabId, record) => firesBridge.notifyAuthoritativeFire(tabId, record),
   });
 
-  return { lifecycleStore: lifecycleHost.store };
+  return {
+    lifecycleStore: lifecycleHost.store,
+    setCdpEnabled: (enabled) => cdpAttachController.setEnabled(enabled),
+  };
 }

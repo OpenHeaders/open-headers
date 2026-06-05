@@ -17,6 +17,8 @@ const BooleanField: React.FC<BooleanFieldProps> = ({ def }) => {
       description={def.description}
       experimental={def.experimental}
       requiresConnection={def.requiresConnection}
+      requiresCapability={def.requiresCapability}
+      capabilityUnavailableHint={def.capabilityUnavailableHint}
     >
       <Switch checked={Boolean(value)} onChange={(next) => setValue(next)} />
     </FieldRow>

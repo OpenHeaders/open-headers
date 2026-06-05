@@ -19,6 +19,7 @@
  * is metadata for one category in the left nav.
  */
 
+import type { Capabilities } from '@openheaders/core/capabilities';
 import type { ComponentType, ReactNode } from 'react';
 import type * as v from 'valibot';
 import type { SettingScope } from './storage/adapter';
@@ -122,6 +123,24 @@ export interface SettingDef<K extends SettingKey = SettingKey> {
   experimental?: boolean;
 
   requiresConnection?: boolean;
+
+  /**
+   * Host-capability gate. When set, the row is editable only on hosts that
+   * registered the named capability (see `@openheaders/core/capabilities`);
+   * everywhere else the shell renders it visibly disabled with an
+   * explanation and the value stays at its default. Unlike `when`, which
+   * keys off other setting values, this keys off the running host — the
+   * capability signal is injected at boot, so the chrome-free UI never
+   * names a platform.
+   */
+  requiresCapability?: keyof Capabilities;
+
+  /**
+   * Copy shown on the disabled control when the host lacks
+   * `requiresCapability`. Owned by the schema so the explanation reads in
+   * the app's own terms; falls back to a generic message when omitted.
+   */
+  capabilityUnavailableHint?: string;
 
   /**
    * Mark as deprecated. The `replacement` key, if provided, is auto-read
