@@ -75,9 +75,11 @@ describe('cdpTimingToHar — base conversion', () => {
       blocked: -1,
       dns: 10,
       ssl: 15, // ssl precedes connect, matching Chrome's key order
-      connect: 20,
+      // connect re-anchors to min(dnsEnd, blockedStart) = 0 (not connectStart),
+      // so it spans 0..connectEnd and overlaps dns — host-exact (Log.ts:310).
+      connect: 30,
       send: 5,
-      wait: 65, // receiveHeadersEnd - sendEnd
+      wait: 65, // receiveHeadersEnd - highestTime (sendEnd)
       receive: 150, // totalMs - receiveHeadersEnd
       _blocked_queueing: -1,
       _workerStart: -1,
@@ -232,7 +234,10 @@ describe('CdpHarBuilder — well-formed entry', () => {
     expect(partial.timings?.receive).toBe(-1);
     // Refined at loadingFinished: wire bytes + total + receive resolved.
     expect(refined.response?._transferSize).toBe(4096);
-    expect(refined.time).toBe(250);
+    // time sums [blocked,dns,connect,send,wait,receive] = 0+10+30+5+65+150.
+    // It exceeds the 250ms span because connect overlaps dns — Chrome's HAR
+    // time double-counts the DNS leg the same way (Log.ts:96-100).
+    expect(refined.time).toBe(260);
     expect(refined.timings?.receive).toBe(150);
   });
 

@@ -265,12 +265,6 @@ export function cdpResponseToHar(
 
 const offset = (value: number | undefined): number => (value === undefined ? -1 : value);
 
-/** Duration of a `[start, end]` leg in ms, or `-1` when either bound is unmeasured. */
-function leg(start: number, end: number): number {
-  if (start < 0 || end < 0 || end < start) return -1;
-  return end - start;
-}
-
 /** Smallest non-negative value, or `-1` when none is measured. */
 function leastNonNegative(values: readonly number[]): number {
   let best = Number.POSITIVE_INFINITY;
@@ -279,22 +273,26 @@ function leastNonNegative(values: readonly number[]): number {
 }
 
 /**
- * Convert CDP `Network.ResourceTiming` legs into a HAR `timings` object.
+ * Convert CDP `Network.ResourceTiming` legs into a HAR `timings` object —
+ * a faithful port of Chrome's exporter (`models/har/Log.ts buildTimings`),
+ * leg-for-leg. Matching the host's normalization (not a naive per-leg
+ * subtraction) is what makes the export byte-identical: each leg is
+ * re-anchored to a connection-stage boundary, never the raw offset.
  *
- * The classic failure mode is mixing time bases: ResourceTiming offsets
- * are ms relative to the monotonic `requestTime`, while the request's
- * start is a separate `wallTime`. We never cross those bases here — every
- * leg is computed from offsets within the same `requestTime` frame, and
- * the caller supplies `totalMs` (also relative to `requestTime`, derived
- * from the terminal event's monotonic timestamp) so `receive` is the
- * residual after headers, never a wall-vs-monotonic subtraction.
+ * The classic failure mode is mixing time bases: ResourceTiming offsets are
+ * ms relative to the monotonic `requestTime`, while the request's start is a
+ * separate `wallTime`. We never cross those bases — every leg is computed
+ * from offsets within the same `requestTime` frame, `receiveHeadersEnd` is
+ * the headers-received offset (Chrome's `responseReceivedTime - requestTime`),
+ * and `totalMs` is the end offset (`endTime - requestTime`).
  *
- *   blocked  earliest real activity offset (queue / stall before connect)
- *   dns      dnsStart..dnsEnd
- *   connect  connectStart..connectEnd (TLS included)
- *   ssl      sslStart..sslEnd (subset of connect)
- *   send     sendStart..sendEnd
- *   wait     sendEnd..receiveHeadersEnd (server think time)
+ *   blocked  queue + earliest real activity offset (proxy can raise the floor)
+ *   dns      blockedStart..dnsEnd
+ *   ssl      sslStart..sslEnd (subset of connect; `-1` unless sslEnd > 0)
+ *   connect  min(dnsEnd, blockedStart)..connectEnd (TLS + DNS included, host-exact)
+ *   send     max(connectEnd, dnsEnd, blockedStart)..sendEnd (folds the post-
+ *            connect stall into send, the way the host does)
+ *   wait     highestTime..receiveHeadersEnd (server think time)
  *   receive  totalMs - receiveHeadersEnd (body download); `-1` until total known
  *
  * `-1` legs are the HAR convention for "not applicable" (e.g. a reused
@@ -307,27 +305,17 @@ function leastNonNegative(values: readonly number[]): number {
  *   _blocked_proxy     proxyStart..proxyEnd, only when a proxy leg occurred.
  */
 export function cdpTimingToHar(timing: CdpResourceTiming, totalMs?: number, issuedSec?: number): HarTimings {
-  const dnsStart = offset(timing.dnsStart);
-  const dnsEnd = offset(timing.dnsEnd);
-  const connectStart = offset(timing.connectStart);
-  const connectEnd = offset(timing.connectEnd);
-  const sslStart = offset(timing.sslStart);
-  const sslEnd = offset(timing.sslEnd);
-  const sendStart = offset(timing.sendStart);
-  const sendEnd = offset(timing.sendEnd);
-  const receiveHeadersEnd = offset(timing.receiveHeadersEnd);
-
-  const send = Math.max(0, leg(sendStart, sendEnd));
-  const wait = Math.max(0, leg(sendEnd, receiveHeadersEnd));
-  const receive = totalMs !== undefined && receiveHeadersEnd >= 0 ? Math.max(0, totalMs - receiveHeadersEnd) : -1;
-
-  // `blocked` folds the resource-scheduler queue (`queued`) and the
-  // earliest connection-stage offset, exactly as Chrome's exporter does:
-  // start from the queue time (`-1` when not queued), then add the earliest
-  // real activity offset, then let a proxy leg raise the floor.
+  // queue: requestTime - issueTime; `-1` when not measurably queued.
   const queued =
     issuedSec !== undefined && timing.requestTime > issuedSec ? (timing.requestTime - issuedSec) * 1000 : -1;
-  const blockedStart = leastNonNegative([dnsStart, connectStart, sendStart]);
+
+  // `blocked` folds the queue + the earliest connection-stage offset, then a
+  // proxy leg can raise the floor — `Log.ts:280-299`.
+  const blockedStart = leastNonNegative([
+    offset(timing.dnsStart),
+    offset(timing.connectStart),
+    offset(timing.sendStart),
+  ]);
   let blocked = queued;
   if (blockedStart >= 0) blocked += blockedStart;
   const proxyStart = offset(timing.proxyStart);
@@ -335,11 +323,39 @@ export function cdpTimingToHar(timing: CdpResourceTiming, totalMs?: number, issu
   const blockedProxy = proxyEnd >= 0 ? proxyEnd - proxyStart : undefined;
   if (blockedProxy !== undefined && blockedProxy > blocked) blocked = blockedProxy;
 
+  // dns spans from `blockedStart`, not its raw start — `Log.ts:301-303`.
+  const dnsEnd = offset(timing.dnsEnd) >= 0 ? offset(timing.dnsEnd) : -1;
+  const dnsLegStart = offset(timing.dnsEnd) >= 0 ? blockedStart : 0;
+  const dns = dnsEnd - dnsLegStart;
+
+  // ssl is "not applicable" unless sslEnd > 0 — `Log.ts:306-308`.
+  const sslEnd = offset(timing.sslEnd) > 0 ? offset(timing.sslEnd) : -1;
+  const sslStart = offset(timing.sslEnd) > 0 ? offset(timing.sslStart) : 0;
+  const ssl = sslEnd - sslStart;
+
+  // connect spans from the earliest of (dnsEnd, blockedStart) — `Log.ts:310-312`.
+  const connectEnd = offset(timing.connectEnd) >= 0 ? offset(timing.connectEnd) : -1;
+  const connectLegStart = offset(timing.connectEnd) >= 0 ? leastNonNegative([dnsEnd, blockedStart]) : 0;
+  const connect = connectEnd - connectLegStart;
+
+  // send starts at the latest connection-stage end, folding any post-connect
+  // stall into send; never negative (legacy) — `Log.ts:314-321`.
+  const sendEnd = offset(timing.sendEnd) >= 0 ? offset(timing.sendEnd) : 0;
+  const sendLegStart = offset(timing.sendEnd) >= 0 ? Math.max(connectEnd, dnsEnd, blockedStart) : 0;
+  const send = Math.max(0, sendEnd - sendLegStart);
+
+  // wait runs from the highest connection-stage end to the headers offset;
+  // receive is the residual to the end offset — `Log.ts:322,338-344`.
+  const highestTime = Math.max(sendEnd, connectEnd, sslEnd, dnsEnd, blockedStart, 0);
+  const receiveHeadersEnd = offset(timing.receiveHeadersEnd);
+  const wait = receiveHeadersEnd >= 0 ? Math.max(0, receiveHeadersEnd - highestTime) : 0;
+  const receive = totalMs !== undefined && receiveHeadersEnd >= 0 ? Math.max(0, totalMs - receiveHeadersEnd) : -1;
+
   return {
     blocked: round3(blocked),
-    dns: round3(leg(dnsStart, dnsEnd)),
-    ssl: round3(leg(sslStart, sslEnd)),
-    connect: round3(leg(connectStart, connectEnd)),
+    dns: round3(dns),
+    ssl: round3(ssl),
+    connect: round3(connect),
     send: round3(send),
     wait: round3(wait),
     receive: round3(receive),
