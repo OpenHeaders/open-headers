@@ -9,13 +9,15 @@
  *
  * Source: https://chromedevtools.github.io/devtools-protocol/tot/Network/
  *
- * Why these six:
+ * Why these seven:
  *   - `requestWillBeSent` is the only request-start signal; its
  *     `redirectResponse` field carries the prior hop's response, which is
  *     how we reconstruct redirect chains under CDP without a separate
  *     `onBeforeRedirect` event.
  *   - `responseReceived` carries response headers / status — `phase:
  *     'headers-received'`.
+ *   - `dataReceived` carries no lifecycle signal; its `dataLength` chunks
+ *     sum to the decoded resource size the cooked events never report.
  *   - `loadingFinished` is the terminal success signal — `phase:
  *     'completed'`.
  *   - `loadingFailed` is the terminal failure signal — `phase:
@@ -48,6 +50,10 @@ export interface CdpRequestParams {
   readonly method: string;
   readonly headers?: Readonly<Record<string, string>>;
   readonly hasPostData?: boolean;
+  /** Inline request body when CDP carries it (small text bodies) — HAR
+   *  `request.postData.text`, the source for the panel's Payload tab.
+   *  Absent for large/binary bodies (would need `getRequestPostData`). */
+  readonly postData?: string;
 }
 
 /**
@@ -169,6 +175,27 @@ export interface CdpResponseReceived {
   readonly response: CdpResponseParams;
 }
 
+/**
+ * `Network.dataReceived` — one chunk of decoded response body. CDP carries
+ * no single decoded-size field; `dataLength` summed across these chunks is
+ * the resource (uncompressed) size — HAR `response.content.size`, which the
+ * panel's "resources" total and the Size-column decoded tooltip read.
+ * `encodedDataLength` is the on-the-wire delta (the authoritative transfer
+ * total still arrives on `loadingFinished`). Carries no lifecycle signal.
+ */
+export interface CdpDataReceived {
+  readonly method: 'Network.dataReceived';
+  readonly tabId: number;
+  /** CDP session the event arrived on — page target or a flattened child (B1). */
+  readonly sessionId: string;
+  readonly requestId: string;
+  readonly timestamp: number;
+  /** Decoded (uncompressed) bytes in this chunk — summed into content size. */
+  readonly dataLength: number;
+  /** Encoded bytes over the wire in this chunk. */
+  readonly encodedDataLength: number;
+}
+
 /** `Network.loadingFinished` — terminal success. */
 export interface CdpLoadingFinished {
   readonly method: 'Network.loadingFinished';
@@ -230,6 +257,7 @@ export interface CdpResponseReceivedExtraInfo {
 export type CdpNetworkEvent =
   | CdpRequestWillBeSent
   | CdpResponseReceived
+  | CdpDataReceived
   | CdpLoadingFinished
   | CdpLoadingFailed
   | CdpRequestWillBeSentExtraInfo

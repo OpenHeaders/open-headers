@@ -62,6 +62,10 @@ function rawResponseReceived(requestId: string, url: string): object {
   };
 }
 
+function rawDataReceived(requestId: string, dataLength: number): object {
+  return { requestId, timestamp: 100.6, dataLength, encodedDataLength: Math.round(dataLength / 3) };
+}
+
 function rawLoadingFinished(requestId: string): object {
   return { requestId, timestamp: 100.9, encodedDataLength: 2048 };
 }
@@ -148,6 +152,40 @@ describe('ChromeDebuggerEventSource — normalize onEvent → CdpNetworkEvent', 
       method: 'Network.loadingFinished',
       sessionId: 'page',
       encodedDataLength: 2048,
+    });
+  });
+
+  it('normalizes dataReceived (decoded chunk size) and request postData through', async () => {
+    source = new ChromeDebuggerEventSource();
+    const out: CdpNetworkEvent[] = [];
+    source.subscribe((e) => out.push(e));
+    await source.attach(TAB);
+
+    emitRoot(
+      'Network.requestWillBeSent',
+      rawRequestWillBeSent('r-d', 'https://api.openheaders.io/users', {
+        request: {
+          url: 'https://api.openheaders.io/users',
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          hasPostData: true,
+          postData: '{"name":"core"}',
+        },
+      }),
+    );
+    emitRoot('Network.dataReceived', rawDataReceived('r-d', 3000));
+
+    const started = out[0];
+    if (started?.method !== 'Network.requestWillBeSent') throw new Error('expected requestWillBeSent');
+    expect(started.request.postData).toBe('{"name":"core"}');
+
+    const data = out.at(-1);
+    expect(data).toMatchObject({
+      method: 'Network.dataReceived',
+      tabId: TAB,
+      sessionId: 'page',
+      requestId: 'r-d',
+      dataLength: 3000,
     });
   });
 

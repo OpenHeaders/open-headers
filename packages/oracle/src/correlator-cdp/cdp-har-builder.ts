@@ -107,6 +107,8 @@ interface HopPartial {
   response?: CdpResponseParams;
   /** Wire bytes, known at the hop's terminal/redirect point — HAR `_transferSize`. */
   transferSize?: number;
+  /** Decoded body bytes, summed from `dataReceived` — HAR `content.size`. */
+  contentSize?: number;
   /** Total span in ms, computed at the hop's terminal/redirect point — HAR `time`. */
   totalMs?: number;
 }
@@ -169,6 +171,8 @@ export class CdpHarBuilder {
         return this.onRequest(event, requestId);
       case 'Network.responseReceived':
         return this.onResponse(event.tabId, requestId, event.response);
+      case 'Network.dataReceived':
+        return this.onData(event.tabId, requestId, event.dataLength);
       case 'Network.loadingFinished':
         return this.onFinished(event.tabId, requestId, event.encodedDataLength, event.timestamp);
       case 'Network.loadingFailed':
@@ -306,6 +310,20 @@ export class CdpHarBuilder {
     return this.collect(this.emitHop(tabId, requestId, state, hopIndex));
   }
 
+  /**
+   * Accumulate one decoded body chunk into the current hop's content size.
+   * No emit of its own — the refined `loadingFinished` HAR carries the
+   * total, matching the partial→refined cadence (a per-chunk re-emit would
+   * be O(chunks) store writes for the same final value).
+   */
+  private onData(tabId: number, requestId: string, dataLength: number): readonly RequestLifecycleUpdate[] {
+    const state = this.getState(tabId, requestId);
+    const hop = state?.hops[state.hopCursor];
+    if (hop === undefined) return [];
+    hop.contentSize = (hop.contentSize ?? 0) + dataLength;
+    return [];
+  }
+
   private onFinished(
     tabId: number,
     requestId: string,
@@ -383,7 +401,9 @@ export class CdpHarBuilder {
       startedDateTime: hop.startedDateTime,
       ...(hop.totalMs !== undefined ? { time: hop.totalMs } : {}),
       request: cdpRequestToHar(hop.request, requestExtra),
-      ...(response !== undefined ? { response: cdpResponseToHar(response, hop.transferSize, responseExtra) } : {}),
+      ...(response !== undefined
+        ? { response: cdpResponseToHar(response, hop.transferSize, hop.contentSize, responseExtra) }
+        : {}),
       ...(response?.remoteIPAddress !== undefined ? { serverIPAddress: response.remoteIPAddress } : {}),
       ...(response?.timing !== undefined ? { timings: cdpTimingToHar(response.timing, hop.totalMs) } : {}),
       ...(hop.initiator !== undefined ? { _initiator: hop.initiator } : {}),

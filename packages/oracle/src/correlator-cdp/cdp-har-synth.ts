@@ -98,6 +98,27 @@ export function queryStringFromUrl(url: string): Array<{ name: string; value: st
   return out;
 }
 
+type HarPostData = NonNullable<HarRequest['postData']>;
+
+/**
+ * Build the HAR `request.postData` from the inline CDP request body, or
+ * `undefined` when CDP carried none. The mime type is the request's
+ * `Content-Type`; a `application/x-www-form-urlencoded` body is also split
+ * into `params` so the Payload tab renders the key/value table the
+ * heuristic HAR path shows, with the raw text kept as the fallback.
+ */
+function postDataToHar(
+  text: string | undefined,
+  headers: Readonly<Record<string, string>> | undefined,
+): HarPostData | undefined {
+  if (text === undefined) return undefined;
+  const mimeType = findHeader(headers, 'Content-Type') ?? '';
+  const params = /^application\/x-www-form-urlencoded\b/i.test(mimeType)
+    ? Array.from(new URLSearchParams(text), ([name, value]) => ({ name, value }))
+    : undefined;
+  return { mimeType, text, ...(params !== undefined && params.length > 0 ? { params } : {}) };
+}
+
 /**
  * Build the HAR `request` section from a CDP request descriptor.
  * `headersOverride`, when supplied, is the on-the-wire header set from
@@ -111,19 +132,46 @@ export function cdpRequestToHar(
 ): HarRequest {
   const headers = headersOverride ?? request.headers;
   const cookies = parseRequestCookies(headers);
+  const postData = postDataToHar(request.postData, headers);
   return {
     method: request.method,
     url: request.url,
     headers: headerRecordToHar(headers),
     queryString: queryStringFromUrl(request.url),
     ...(cookies !== undefined ? { cookies } : {}),
+    ...(postData !== undefined ? { postData } : {}),
   };
 }
 
 /**
+ * Decoded-body size for HAR `content.size`, in bytes.
+ *
+ * The streamed `dataReceived` sum is authoritative when the body actually
+ * crossed the network — it is the *decoded* length, so a compressed
+ * response reports its uncompressed size correctly. But media and
+ * cache-served resources (a `<video>` range fetch, a disk-cache hit) never
+ * stream chunks, leaving the sum at 0 even though the resource has real
+ * bytes; for those we fall back to the `Content-Length` header, which is
+ * what the browser's own panel shows as the resource size. We only fall
+ * back when nothing streamed, so a genuinely-empty body stays 0 and a
+ * compressed body keeps its decoded sum over the (smaller) encoded length.
+ */
+function decodedContentSize(
+  contentSize: number | undefined,
+  headers: Readonly<Record<string, string>> | undefined,
+): number {
+  if (contentSize !== undefined && contentSize > 0) return contentSize;
+  const raw = findHeader(headers, 'Content-Length');
+  if (raw === undefined) return contentSize ?? 0;
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : (contentSize ?? 0);
+}
+
+/**
  * Build the HAR `response` section from a CDP response descriptor.
- * `transferSize` (wire bytes) is supplied separately because the final
- * hop learns it on `loadingFinished`, after the response headers landed.
+ * `transferSize` (wire bytes) and `contentSize` (decoded body bytes,
+ * summed from `dataReceived`) are supplied separately because the final
+ * hop learns them on/after `loadingFinished`, once the body has streamed.
  * `headersOverride`, when supplied, is the on-the-wire header set from
  * `responseReceivedExtraInfo` — it supersedes the cooked `response.headers`
  * wholesale for both the header array and the parsed `Set-Cookie` cookies
@@ -132,6 +180,7 @@ export function cdpRequestToHar(
 export function cdpResponseToHar(
   response: CdpResponseParams,
   transferSize?: number,
+  contentSize?: number,
   headersOverride?: Readonly<Record<string, string>>,
 ): HarResponse {
   const headers = headersOverride ?? response.headers;
@@ -142,7 +191,7 @@ export function cdpResponseToHar(
     ...(response.protocol !== undefined ? { httpVersion: response.protocol } : {}),
     headers: headerRecordToHar(headers),
     ...(cookies !== undefined ? { cookies } : {}),
-    content: { size: 0, mimeType: response.mimeType ?? '' },
+    content: { size: decodedContentSize(contentSize, headers), mimeType: response.mimeType ?? '' },
     ...(transferSize !== undefined ? { _transferSize: transferSize } : {}),
   };
 }

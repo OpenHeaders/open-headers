@@ -40,10 +40,12 @@ export function cdpEventToUpdates(event: CdpNetworkEvent): readonly RequestLifec
       return [completedUpdate(event)];
     case 'Network.loadingFailed':
       return [failedUpdate(event)];
+    case 'Network.dataReceived':
     case 'Network.requestWillBeSentExtraInfo':
     case 'Network.responseReceivedExtraInfo':
-      // On-the-wire header refinements carry no lifecycle signal — they
-      // only enrich the HAR for an already-known hop (see CdpHarBuilder).
+      // Body chunks and on-the-wire header refinements carry no lifecycle
+      // signal — they only enrich the HAR for an already-known hop (decoded
+      // size / on-the-wire headers; see CdpHarBuilder).
       return [];
   }
 }

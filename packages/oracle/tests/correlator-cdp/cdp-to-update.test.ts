@@ -159,6 +159,20 @@ describe('cdpEventToUpdates — canonical redirect + completion trace', () => {
     expect(u.patch.error?.blockedReason).toBe('corp');
   });
 
+  it('dataReceived → no lifecycle update (HAR-only decoded-size refinement)', () => {
+    expect(
+      cdpEventToUpdates({
+        method: 'Network.dataReceived',
+        tabId: TAB,
+        sessionId: 'session-page',
+        requestId: 'cdp-1',
+        timestamp: 100.6,
+        dataLength: 4096,
+        encodedDataLength: 1024,
+      }),
+    ).toEqual([]);
+  });
+
   it('requestWillBeSentExtraInfo → no lifecycle update (HAR-only refinement)', () => {
     const extra: CdpRequestWillBeSentExtraInfo = {
       method: 'Network.requestWillBeSentExtraInfo',

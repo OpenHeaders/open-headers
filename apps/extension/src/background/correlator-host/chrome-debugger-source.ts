@@ -257,6 +257,9 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
       case 'Network.responseReceived':
         this.fan(normalizeResponseReceived(tabId, sessionId, params as RawResponseReceived));
         return;
+      case 'Network.dataReceived':
+        this.fan(normalizeDataReceived(tabId, sessionId, params as RawDataReceived));
+        return;
       case 'Network.loadingFinished':
         this.fan(normalizeLoadingFinished(tabId, sessionId, params as RawLoadingFinished));
         return;
@@ -353,6 +356,7 @@ interface RawRequest {
   readonly method: string;
   readonly headers?: Record<string, string>;
   readonly hasPostData?: boolean;
+  readonly postData?: string;
 }
 
 interface RawResourceTiming {
@@ -424,6 +428,13 @@ interface RawResponseReceived {
   readonly timestamp: number;
   readonly type: string;
   readonly response: RawResponse;
+}
+
+interface RawDataReceived {
+  readonly requestId: string;
+  readonly timestamp: number;
+  readonly dataLength: number;
+  readonly encodedDataLength: number;
 }
 
 interface RawLoadingFinished {
@@ -507,6 +518,18 @@ function normalizeResponseReceived(tabId: number, sessionId: string, p: RawRespo
   };
 }
 
+function normalizeDataReceived(tabId: number, sessionId: string, p: RawDataReceived): CdpNetworkEvent {
+  return {
+    method: 'Network.dataReceived',
+    tabId,
+    sessionId,
+    requestId: p.requestId,
+    timestamp: p.timestamp,
+    dataLength: p.dataLength,
+    encodedDataLength: p.encodedDataLength,
+  };
+}
+
 function normalizeLoadingFinished(tabId: number, sessionId: string, p: RawLoadingFinished): CdpNetworkEvent {
   return {
     method: 'Network.loadingFinished',
@@ -566,6 +589,7 @@ function normalizeRequest(r: RawRequest): CdpRequestParams {
     method: r.method,
     ...(r.headers !== undefined ? { headers: r.headers } : {}),
     ...(r.hasPostData !== undefined ? { hasPostData: r.hasPostData } : {}),
+    ...(r.postData !== undefined ? { postData: r.postData } : {}),
   };
 }
 

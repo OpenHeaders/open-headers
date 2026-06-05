@@ -26,6 +26,8 @@ import { type CdpNetworkEvent, type CdpResourceTiming, cdpStoreRequestId } from 
 import { RequestLifecycleStore } from '../../src/request-lifecycle-store/store';
 
 import {
+  cdpData,
+  cdpFailed,
   cdpFinished,
   cdpRedirect,
   cdpRequestExtra,
@@ -414,6 +416,137 @@ describe('CdpHarBuilder — redirect hops', () => {
   });
 });
 
+// ── decoded content size (dataReceived) + request payload ───────────
+
+describe('CdpHarBuilder — decoded content size', () => {
+  const ctx: TraceCtx = { tabId: TAB, requestId: 'sized' };
+
+  it('sums dataReceived chunks into response.content.size at loadingFinished', () => {
+    const builder = new CdpHarBuilder();
+    builder.observe(cdpStart(ctx));
+    const partial = lastHarEntry(builder.observe(cdpResponse(ctx)));
+    // No body chunks yet → decoded size is 0 (the regression that read as
+    // "0 B resources" when it never refined).
+    expect(partial.response?.content.size).toBe(0);
+
+    builder.observe(cdpData(ctx, 1000));
+    builder.observe(cdpData(ctx, 2345));
+    const refined = lastHarEntry(builder.observe(cdpFinished(ctx, { encodedDataLength: 1024 })));
+    expect(refined.response?.content.size).toBe(3345);
+    // Transfer (wire) size stays independent of decoded size.
+    expect(refined.response?._transferSize).toBe(1024);
+  });
+
+  it('ignores a dataReceived for an unknown request (no hop) without throwing', () => {
+    const builder = new CdpHarBuilder();
+    expect(builder.observe(cdpData(ctx, 512))).toEqual([]);
+    expect(builder.size()).toBe(0);
+  });
+
+  it('attributes body chunks to the final hop of a redirect chain', () => {
+    const builder = new CdpHarBuilder();
+    builder.observe(cdpStart(ctx, { wallTime: 1000 }));
+    builder.observe(
+      cdpRedirect(
+        ctx,
+        { url: 'https://api.openheaders.io/users', status: 301, statusText: 'Moved Permanently' },
+        'https://api.openheaders.io/v2/users',
+        { timestamp: 100.1, wallTime: 1000.1 },
+      ),
+    );
+    builder.observe(
+      cdpResponse(ctx, { response: { url: 'https://api.openheaders.io/v2/users', status: 200, statusText: 'OK' } }),
+    );
+    builder.observe(cdpData(ctx, 4096));
+    const updates = builder.observe(cdpFinished(ctx, { encodedDataLength: 600 }));
+    const u1 = updates.at(-1);
+    if (u1?.kind !== 'har-attached') throw new Error('expected har-attached for the final hop');
+    expect(u1.hopIndex).toBe(1);
+    expect(u1.har.response?.content.size).toBe(4096);
+  });
+
+  it('falls back to Content-Length when no body streams (canceled 206 media / cache hit)', () => {
+    const builder = new CdpHarBuilder();
+    builder.observe(cdpStart(ctx));
+    // A `<video>` range probe: 206 with the full size in headers, then the
+    // element aborts it — no dataReceived, no loadingFinished. The size
+    // must still come through (the "0 B resources" miss on media/cache).
+    const entry = lastHarEntry(
+      builder.observe(
+        cdpResponse(ctx, {
+          response: {
+            url: 'https://cdn.openheaders.io/clip.mp4',
+            status: 206,
+            statusText: 'Partial Content',
+            headers: { 'Content-Length': '1081684', 'Content-Range': 'bytes 0-1081683/1081684' },
+          },
+        }),
+      ),
+    );
+    expect(entry.response?.content.size).toBe(1081684);
+    // A trailing abort leaves the already-projected size intact.
+    expect(builder.observe(cdpFailed(ctx, { errorText: 'net::ERR_ABORTED', canceled: true }))).toEqual([]);
+  });
+
+  it('prefers the streamed dataReceived sum over a smaller (encoded) Content-Length', () => {
+    const builder = new CdpHarBuilder();
+    builder.observe(cdpStart(ctx));
+    builder.observe(
+      cdpResponse(ctx, {
+        response: {
+          url: 'https://api.openheaders.io/big.json',
+          status: 200,
+          statusText: 'OK',
+          headers: { 'Content-Length': '2000', 'Content-Encoding': 'gzip' },
+        },
+      }),
+    );
+    builder.observe(cdpData(ctx, 8000));
+    const entry = lastHarEntry(builder.observe(cdpFinished(ctx, { encodedDataLength: 2000 })));
+    // Decoded (8000) beats the compressed Content-Length (2000).
+    expect(entry.response?.content.size).toBe(8000);
+  });
+});
+
+describe('CdpHarBuilder — request payload', () => {
+  const ctx: TraceCtx = { tabId: TAB, requestId: 'payload' };
+
+  function entryWith(request: { url: string; method: string; headers?: Record<string, string>; postData?: string }) {
+    const builder = new CdpHarBuilder();
+    builder.observe(cdpStart(ctx, { request }));
+    return lastHarEntry(builder.observe(cdpResponse(ctx)));
+  }
+
+  it('projects an inline request body onto request.postData (text + Content-Type mime)', () => {
+    const entry = entryWith({
+      url: 'https://api.openheaders.io/users',
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      postData: '{"name":"core"}',
+    });
+    expect(entry.request?.postData).toEqual({ mimeType: 'application/json', text: '{"name":"core"}' });
+  });
+
+  it('splits a form-urlencoded body into params (Payload-tab parity with the heuristic HAR)', () => {
+    const entry = entryWith({
+      url: 'https://api.openheaders.io/login',
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      postData: 'user=ada&team=core',
+    });
+    expect(entry.request?.postData?.params).toEqual([
+      { name: 'user', value: 'ada' },
+      { name: 'team', value: 'core' },
+    ]);
+    expect(entry.request?.postData?.text).toBe('user=ada&team=core');
+  });
+
+  it('omits postData when the request carried no body', () => {
+    const entry = entryWith({ url: 'https://api.openheaders.io/users', method: 'GET' });
+    expect(entry.request?.postData).toBeUndefined();
+  });
+});
+
 describe('CdpHarBuilder — lifecycle bookkeeping', () => {
   it('forgetTab drops all state for the tab', () => {
     const builder = new CdpHarBuilder();
@@ -473,6 +606,7 @@ describe('CdpCorrelator → RequestLifecycleStore — HAR lands per hop with zer
           timing: FULL_TIMING,
         },
       }),
+      cdpData(ctx, 8192),
       cdpFinished(ctx, { timestamp: FULL_TIMING.requestTime + 0.25, encodedDataLength: 2048 }),
     ];
     for (const event of trace) source.emit(event);
@@ -487,6 +621,7 @@ describe('CdpCorrelator → RequestLifecycleStore — HAR lands per hop with zer
     expect(lc.har[0]?.response?.status).toBe(301);
     expect(lc.har[1]?.response?.status).toBe(200);
     expect(lc.har[1]?.response?._transferSize).toBe(2048);
+    expect(lc.har[1]?.response?.content.size).toBe(8192);
     expect(lc.har[1]?.timings?.receive).toBe(150);
 
     correlator.dispose();

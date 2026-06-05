@@ -5,6 +5,7 @@
  */
 
 import type {
+  CdpDataReceived,
   CdpLoadingFailed,
   CdpLoadingFinished,
   CdpRequestWillBeSent,
@@ -64,6 +65,19 @@ export function cdpResponse(ctx: TraceCtx, overrides: Partial<CdpResponseReceive
     timestamp: 100.5,
     type: 'XHR',
     response: { url: 'https://api.openheaders.io/users', status: 200, statusText: 'OK' },
+    ...overrides,
+  };
+}
+
+export function cdpData(ctx: TraceCtx, dataLength: number, overrides: Partial<CdpDataReceived> = {}): CdpDataReceived {
+  return {
+    method: 'Network.dataReceived',
+    tabId: ctx.tabId,
+    sessionId: ctx.sessionId ?? PAGE_SESSION,
+    requestId: ctx.requestId,
+    timestamp: 100.7,
+    dataLength,
+    encodedDataLength: dataLength,
     ...overrides,
   };
 }
