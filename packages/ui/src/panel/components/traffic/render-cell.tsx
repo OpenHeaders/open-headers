@@ -77,7 +77,9 @@ export function renderCell(
   }
   if (col.key === 'type') {
     const rawType = normalizeResourceType(lc.resourceType);
-    return <span>{RESOURCE_LABEL[rawType] ?? rawType}</span>;
+    const label = RESOURCE_LABEL[rawType] ?? rawType;
+    // A redirect leg reads "<type> / Redirect" — host parity.
+    return <span>{row.isRedirectHop ? `${label} / Redirect` : label}</span>;
   }
   if (col.key === 'initiator') {
     // Preflight rows take priority: show "Preflight" linking to the

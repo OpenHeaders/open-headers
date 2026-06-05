@@ -1,8 +1,9 @@
 import type { Page } from '@openheaders/core/page-stream';
-import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
+import type { RedirectHop, RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarEntry } from '@openheaders/core/types';
 import { buildHar, serializeHar, suggestHarFilename } from '@openheaders/ui/panel/data/har-export';
-import type { InspectorRowWithFires } from '@openheaders/ui/panel/data/inspector-row-projection';
+import { buildInspectorRows } from '@openheaders/ui/panel/data/inspector-facet';
+import { attachFiresToRows, type InspectorRowWithFires } from '@openheaders/ui/panel/data/inspector-row-projection';
 import { describe, expect, it, vi } from 'vitest';
 
 function row(url: string, idx = 0, overrides: Partial<RequestLifecycle> = {}): InspectorRowWithFires {
@@ -30,6 +31,40 @@ function row(url: string, idx = 0, overrides: Partial<RequestLifecycle> = {}): I
     ...overrides,
   };
   return { lifecycle: lc, displayId: idx + 1, consolidatedRetryOf: [], fires: [] };
+}
+
+/** A 1-redirect lifecycle (301 → 200): final-hop row, two-hop `har`. */
+function redirectLifecycleRow(): InspectorRowWithFires {
+  const src = 'https://openheaders.io/a';
+  const dest = 'https://openheaders.io/b';
+  const hop0: InspectorHarEntry = {
+    startedDateTime: '2026-04-16T00:00:00.000Z',
+    request: { method: 'GET', url: src, headers: [], queryString: [] },
+    response: { status: 301, statusText: 'Moved', headers: [], content: { size: 0, mimeType: '' } },
+  } as InspectorHarEntry;
+  const hop1: InspectorHarEntry = {
+    startedDateTime: '2026-04-16T00:00:00.100Z',
+    request: { method: 'GET', url: dest, headers: [], queryString: [] },
+    response: { status: 200, statusText: 'OK', headers: [], content: { size: 0, mimeType: '' } },
+  } as InspectorHarEntry;
+  const hop: RedirectHop = { sourceUrl: src, redirectUrl: dest, statusCode: 301, timestampMs: 50 };
+  const lc: RequestLifecycle = {
+    tabId: 1,
+    requestId: 'redir',
+    url: dest,
+    method: 'GET',
+    resourceType: 'document',
+    phase: 'completed',
+    redirectHopCount: 1,
+    redirectHops: [hop],
+    startedAtMs: 0,
+    hopStartedAtMs: 100,
+    completedAtMs: 150,
+    statusCode: 200,
+    har: [hop0, hop1],
+    harBodyByHop: [],
+  };
+  return { lifecycle: lc, displayId: 1, consolidatedRetryOf: [], fires: [] };
 }
 
 describe('buildHar', () => {
@@ -60,36 +95,22 @@ describe('buildHar', () => {
     expect(doc.log.entries[0].request?.url).toBe('https://api.openheaders.io/a');
   });
 
-  it('walks redirect hops in ascending order', () => {
-    const url = 'https://openheaders.io/a';
-    const hop0: InspectorHarEntry = {
-      startedDateTime: '2026-04-16T00:00:00.000Z',
-      request: { method: 'GET', url, headers: [], queryString: [] },
-      response: { status: 301, statusText: 'Moved', headers: [], content: { size: 0, mimeType: '' } },
-    } as InspectorHarEntry;
-    const hop1: InspectorHarEntry = {
-      startedDateTime: '2026-04-16T00:00:00.100Z',
-      request: { method: 'GET', url: 'https://openheaders.io/b', headers: [], queryString: [] },
-      response: { status: 200, statusText: 'OK', headers: [], content: { size: 0, mimeType: '' } },
-    } as InspectorHarEntry;
-    const lc: RequestLifecycle = {
-      tabId: 1,
-      requestId: 'redir',
-      url: 'https://openheaders.io/b',
-      method: 'GET',
-      resourceType: 'document',
-      phase: 'completed',
-      redirectHopCount: 1,
-      redirectHops: [],
-      startedAtMs: 0,
-      hopStartedAtMs: 100,
-      completedAtMs: 150,
-      statusCode: 200,
-      har: [hop0, hop1],
-      harBodyByHop: [],
-    };
-    const r: InspectorRowWithFires = { lifecycle: lc, displayId: 1, consolidatedRetryOf: [], fires: [] };
+  it('exports one entry per row — a real redirect-final row carries only its current hop', () => {
+    // Redirect chains are un-folded into per-hop rows upstream
+    // (`buildInspectorRows`); the real lifecycle is the final-hop row, so on
+    // its own it exports just the destination (200), not the 301 leg.
+    const r = redirectLifecycleRow();
     const doc = buildHar([r]);
+    expect(doc.log.entries).toHaveLength(1);
+    expect(doc.log.entries[0].response?.status).toBe(200);
+  });
+
+  it('exports both legs once when the redirect chain is expanded into rows', () => {
+    // The full panel path: a redirect lifecycle → [301 synthetic, 200 real]
+    // rows → buildHar emits each row's current hop, so both legs appear once.
+    const lc = redirectLifecycleRow().lifecycle;
+    const rows = attachFiresToRows(buildInspectorRows([lc]), []).rows;
+    const doc = buildHar(rows);
     expect(doc.log.entries).toHaveLength(2);
     expect(doc.log.entries[0].response?.status).toBe(301);
     expect(doc.log.entries[1].response?.status).toBe(200);

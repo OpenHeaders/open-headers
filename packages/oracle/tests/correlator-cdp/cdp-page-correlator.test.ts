@@ -15,7 +15,7 @@ import type {
   CdpLoadEventFired,
 } from '../../src/correlator-cdp/page-events';
 
-import { cdpResponse, cdpStart, type TraceCtx } from './builders';
+import { cdpRedirect, cdpResponse, cdpStart, type TraceCtx } from './builders';
 
 const TAB = 7;
 const ctx: TraceCtx = { tabId: TAB, requestId: 'doc' };
@@ -103,15 +103,43 @@ describe('CdpPageCorrelator — page timing reconstruction', () => {
     ]);
   });
 
-  it('uses the committed hop of a redirected navigation (latest loaderId wins)', () => {
+  it('anchors a redirected navigation to the redirect-chain root (first hop url + start)', () => {
+    const c = new CdpPageCorrelator();
+    // First hop — the original request; no redirectResponse.
+    c.observe(docRequest({ loaderId: 'L1', wallTime: 1000, timestamp: 50 }));
+    // The redirect's next hop reuses the request id and carries the 302's
+    // own `timing.requestTime` (the chain-root start = 50.0). The host binds
+    // `PageLoad` to the first request, so the page must keep the first hop's
+    // wall/issue/url, not the committed final hop's.
+    const root302 = {
+      url: 'https://app.openheaders.io/',
+      status: 302,
+      statusText: 'Found',
+      timing: { requestTime: 50.0 },
+    };
+    c.observe(
+      cdpRedirect(ctx, root302, 'https://app.openheaders.io/v2', {
+        type: 'Document',
+        loaderId: 'L1',
+        wallTime: 1000.1,
+        timestamp: 50.1,
+      }),
+    );
+    // A final 200 response lands later; it must NOT overwrite the chain-root start.
+    c.observe(docResponse(50.2));
+    // startedAtMs = (1000 - 50 + 50.0) * 1000 = 1_000_000; url = the root.
+    expect(c.observe(frameNavigated('L1', 'https://app.openheaders.io/v2'))).toEqual([
+      { kind: 'nav-started', tabId: TAB, startedAtMs: 1_000_000, url: 'https://app.openheaders.io/' },
+    ]);
+  });
+
+  it('leaves a non-redirected navigation anchored to its own document request', () => {
     const c = new CdpPageCorrelator();
     c.observe(docRequest({ loaderId: 'L1', wallTime: 1000, timestamp: 50 }));
-    // Redirect: same request id, the committed hop carries the final loaderId.
-    c.observe(docRequest({ loaderId: 'L2', wallTime: 1000.1, timestamp: 50.1 }));
-    c.observe(docResponse(50.2));
-    // startedAtMs = (1000.1 - 50.1 + 50.2) * 1000 = 1_000_200.
-    expect(c.observe(frameNavigated('L2', 'https://app.openheaders.io/v2'))).toEqual([
-      { kind: 'nav-started', tabId: TAB, startedAtMs: 1_000_200, url: 'https://app.openheaders.io/v2' },
+    c.observe(docResponse(50.05));
+    // startedAtMs = (1000 - 50 + 50.05) * 1000 = 1_000_050; url = the request's.
+    expect(c.observe(frameNavigated('L1', 'https://app.openheaders.io/'))).toEqual([
+      { kind: 'nav-started', tabId: TAB, startedAtMs: 1_000_050, url: 'https://app.openheaders.io/' },
     ]);
   });
 

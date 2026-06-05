@@ -13,6 +13,11 @@
  *   - **Display id.** 1-indexed sequence after consolidation; the legacy
  *     panel showed `#42`-style ids and the network UX leans on a stable
  *     compact identifier the user can reference verbally.
+ *   - **Redirect un-folding.** A redirect chain is one lifecycle with its
+ *     hops in `har[]` (invariant 4). The table shows each hop as its own
+ *     row, so every intermediate hop is expanded into a synthetic single-hop
+ *     row (see `redirect-hop-rows.ts`) emitted just before the real final
+ *     row, numbered consecutively.
  *   - **Retry consolidation.** When a failed lifecycle is immediately
  *     followed by a same-(url, method) restart inside a short window,
  *     collapse the pair so the table doesn't show a flicker of the
@@ -26,6 +31,7 @@
  */
 
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
+import { synthesizeRedirectHopLifecycles } from './redirect-hop-rows';
 
 export interface InspectorRow {
   readonly lifecycle: RequestLifecycle;
@@ -37,6 +43,12 @@ export interface InspectorRow {
    * retry. Always ordered oldest → newest attempt.
    */
   readonly consolidatedRetryOf: readonly string[];
+  /**
+   * True when the row is a synthetic redirect-hop row (the `302` leg of a
+   * chain), not the real final-hop lifecycle. The Type cell appends
+   * `/ Redirect` for these — host parity. Absent (falsy) on every real row.
+   */
+  readonly isRedirectHop?: boolean;
 }
 
 export interface BuildInspectorRowsOptions {
@@ -81,16 +93,42 @@ export function buildInspectorRows(
   // Numbering off the input rather than the time-sorted projection means
   // sorting the table never renumbers: under a start-time sort the column
   // reads scrambled, the way the browser's own Request # column does.
+  //
+  // A redirect chain's hops entered the log before its final hop, so each
+  // hop is numbered consecutively just ahead of its final lifecycle (302=#k,
+  // 200=#k+1) — host-exact. Synthetic ids are deterministic, so the same id
+  // numbered here matches the one emitted in the display expansion below.
   const discoveryRank = new Map<string, number>();
+  const rank = (id: string): void => {
+    if (!discoveryRank.has(id)) discoveryRank.set(id, discoveryRank.size + 1);
+  };
   for (const lc of lifecycles) {
-    if (!discoveryRank.has(lc.requestId)) discoveryRank.set(lc.requestId, discoveryRank.size + 1);
+    for (const hop of synthesizeRedirectHopLifecycles(lc)) rank(hop.requestId);
+    rank(lc.requestId);
   }
 
-  return projected.map((entry) => ({
-    lifecycle: entry.lifecycle,
-    displayId: discoveryRank.get(entry.lifecycle.requestId) ?? 0,
-    consolidatedRetryOf: entry.consolidatedRetryOf,
-  }));
+  // Un-fold each lifecycle into [hop0 … hopN-1 synthetic rows, real final
+  // row], consecutive and in hop order so the table renders the redirect leg
+  // immediately before its destination. Retry consolidation already chose
+  // the surviving final lifecycle; its hops follow it.
+  const rows: InspectorRow[] = [];
+  for (const entry of projected) {
+    const lc = entry.lifecycle;
+    for (const hop of synthesizeRedirectHopLifecycles(lc)) {
+      rows.push({
+        lifecycle: hop,
+        displayId: discoveryRank.get(hop.requestId) ?? 0,
+        consolidatedRetryOf: [],
+        isRedirectHop: true,
+      });
+    }
+    rows.push({
+      lifecycle: lc,
+      displayId: discoveryRank.get(lc.requestId) ?? 0,
+      consolidatedRetryOf: entry.consolidatedRetryOf,
+    });
+  }
+  return rows;
 }
 
 interface ConsolidationEntry {
@@ -108,10 +146,7 @@ function asUnconsolidated(lifecycle: RequestLifecycle): ConsolidationEntry {
  * failure into the retry's `consolidatedRetryOf`. Chains of multiple
  * retries are collapsed transitively.
  */
-function consolidateRetries(
-  sorted: readonly RequestLifecycle[],
-  windowMs: number,
-): readonly ConsolidationEntry[] {
+function consolidateRetries(sorted: readonly RequestLifecycle[], windowMs: number): readonly ConsolidationEntry[] {
   const result: ConsolidationEntry[] = [];
 
   for (const lifecycle of sorted) {

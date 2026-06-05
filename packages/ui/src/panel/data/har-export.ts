@@ -1,26 +1,26 @@
 /**
  * HAR export — compose a valid HAR 1.2 document from inspector rows.
  *
- * Each row carries a lifecycle whose `har` map holds one HAR shell per
- * redirect hop. The exporter walks every hop in order, attaches the
- * page reference resolved from the page-stream snapshot, and wraps the
- * flat entry list in the standard envelope. Pages are projected via
- * `pageToHar` (see `./page-to-har`) and filtered to those actually
- * referenced by exported entries — single-row exports don't carry the
- * full recording's page list.
+ * Each row is one HAR entry: its lifecycle's current hop
+ * (`currentHarEntry`). Redirect chains are already un-folded into per-hop
+ * rows upstream (`buildInspectorRows` → `redirect-hop-rows.ts`), so the
+ * panel and the export share one row list and one expansion — a redirect
+ * leg is its own row, hence its own entry, with no double-counting. The
+ * exporter attaches the page reference resolved from the page-stream
+ * snapshot and wraps the flat entry list in the standard envelope. Pages
+ * are projected via `pageToHar` (see `./page-to-har`) and filtered to those
+ * actually referenced by exported entries — single-row exports don't carry
+ * the full recording's page list.
  *
- * Skipped rows: any row whose only HAR shell is for an aborted
- * placeholder (no terminal phase, no real wire data). The check is
- * purely structural — if `lifecycle.har` is empty AND the phase is
- * `pending`, there's nothing to serialise.
+ * Skipped rows: any row with no landed HAR shell for its current hop (a
+ * pending / blocked-before-headers placeholder). Nothing to serialise.
  */
 
 import type { Page } from '@openheaders/core/page-stream';
-import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarEntry } from '@openheaders/core/types';
 import { getBuildInfo } from '@openheaders/ui/shared/build-info';
 import type { InspectorRowWithFires } from './inspector-row-projection';
-import { resolvePageref } from './inspector-row-projection';
+import { currentHarEntry, resolvePageref } from './inspector-row-projection';
 import { type HarPage, pagesToHarForRefs, pageToHar } from './page-to-har';
 
 function getCreatorVersion(): string {
@@ -51,46 +51,26 @@ function withPageref(har: InspectorHarEntry, pageref: string | undefined): Inspe
   return pageref ? { ...har, pageref } : har;
 }
 
-function hasAnyHopEntry(har: readonly (InspectorHarEntry | null)[]): boolean {
-  for (const entry of har) if (entry !== null) return true;
-  return false;
-}
-
 function collectRefs(entries: readonly { pageref?: string }[]): Set<string> {
   const refs = new Set<string>();
   for (const e of entries) if (e.pageref) refs.add(e.pageref);
   return refs;
 }
 
-/**
- * Walk every hop of a lifecycle's `har` array in hop order, stamping
- * the resolved pageref onto each hop's entry. Hop 0 is the original
- * request; hop N is the request after the Nth redirect. Empty slots
- * (null, for hops whose HAR has not landed) are skipped.
- */
-function lifecycleHopEntries(lc: RequestLifecycle, pageref: string | null): InspectorHarEntry[] {
-  const ref = pageref ?? undefined;
-  const out: InspectorHarEntry[] = [];
-  for (const entry of lc.har) {
-    if (entry !== null) out.push(withPageref(entry, ref));
-  }
-  return out;
-}
-
-export function buildHar(
-  rows: readonly InspectorRowWithFires[],
-  pages: readonly Page[] = [],
-): HarDocument {
+export function buildHar(rows: readonly InspectorRowWithFires[], pages: readonly Page[] = []): HarDocument {
   const entries: InspectorHarEntry[] = [];
   const refs = new Set<string>();
   for (const row of rows) {
     const lc = row.lifecycle;
-    // Skip rows with no HAR shell at all (pure pending / blocked-
-    // before-headers placeholders). Nothing to serialise.
-    if (!hasAnyHopEntry(lc.har)) continue;
+    // One entry per row: the lifecycle's current hop. Redirect legs are
+    // their own rows upstream, so each contributes its own entry exactly
+    // once. Skip rows whose current hop has no HAR shell (pending /
+    // blocked-before-headers placeholders) — nothing to serialise.
+    const entry = currentHarEntry(lc);
+    if (entry === null) continue;
     const pageref = resolvePageref(lc, pages);
     if (pageref) refs.add(pageref);
-    for (const entry of lifecycleHopEntries(lc, pageref)) entries.push(entry);
+    entries.push(withPageref(entry, pageref ?? undefined));
   }
   return {
     log: {
@@ -108,10 +88,7 @@ export function buildHar(
  * current hop). Keeps creator name / version / pages shape in lockstep
  * with the "Copy all as HAR" export.
  */
-export function buildHarFromEntries(
-  entries: readonly HarEntryInput[],
-  pages: readonly Page[] = [],
-): HarDocument {
+export function buildHarFromEntries(entries: readonly HarEntryInput[], pages: readonly Page[] = []): HarDocument {
   const refs = collectRefs(entries);
   return {
     log: {

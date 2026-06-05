@@ -41,11 +41,13 @@ export const MAX_CDP_PAGE_DOC_REQUESTS_PER_TAB = 256;
 interface DocRequest {
   /** Loader id — matched against the main frame's `loaderId` at commit. */
   readonly loaderId: string;
-  /** Document `requestWillBeSent.wallTime` (UNIX seconds). */
+  /** First-hop `requestWillBeSent.wallTime` (UNIX seconds). */
   readonly wallTimeSec: number;
-  /** Document `requestWillBeSent.timestamp` — monotonic issue time (seconds). */
+  /** First-hop `requestWillBeSent.timestamp` — monotonic issue time (seconds). */
   readonly issueSec: number;
-  /** Document `responseReceived` `timing.requestTime` — the start baseline. */
+  /** First-hop request URL — the page's committed `title` (redirect-chain root). */
+  readonly url: string;
+  /** Chain-root `timing.requestTime` — the start baseline. */
   requestTimeSec?: number;
 }
 
@@ -96,15 +98,35 @@ export class CdpPageCorrelator {
     if (event.type !== 'Document') return [];
     const state = this.ensureState(event.tabId);
     const storeId = cdpStoreRequestId(event.sessionId, event.requestId);
-    // Overwrite on each hop: a redirected navigation reuses the request id,
-    // and the committed (final) hop's start is the page baseline, matching
-    // Chrome's bound `mainRequest`.
+    const existing = state.docByStoreId.get(storeId);
+
+    // A redirected navigation reuses the request id across hops. The page
+    // anchors to the redirect-chain ROOT (the host binds `PageLoad` to the
+    // first request, so `url`/`startTime` are the original navigation's), so
+    // a continuation must NOT overwrite the first hop's wall/issue/url. The
+    // first continuation's `redirectResponse` carries the 302's own
+    // `timing.requestTime` — the original request's send time — which is the
+    // start baseline; earliest wins.
+    if (event.redirectResponse !== undefined && existing !== undefined) {
+      if (existing.requestTimeSec === undefined) {
+        const rootRequestTime = event.redirectResponse.timing?.requestTime;
+        if (rootRequestTime !== undefined) existing.requestTimeSec = rootRequestTime;
+      }
+      return [];
+    }
+
+    // First hop (or a mid-attach continuation with no tracked root): this
+    // hop's request is the page-start baseline.
     state.docByStoreId.delete(storeId);
-    state.docByStoreId.set(storeId, {
+    const doc: DocRequest = {
       loaderId: event.loaderId,
       wallTimeSec: event.wallTime,
       issueSec: event.timestamp,
-    });
+      url: event.request.url,
+    };
+    const rootRequestTime = event.redirectResponse?.timing?.requestTime;
+    if (rootRequestTime !== undefined) doc.requestTimeSec = rootRequestTime;
+    state.docByStoreId.set(storeId, doc);
     while (state.docByStoreId.size > MAX_CDP_PAGE_DOC_REQUESTS_PER_TAB) {
       const oldest = state.docByStoreId.keys().next().value;
       if (oldest === undefined) break;
@@ -119,7 +141,10 @@ export class CdpPageCorrelator {
     const requestTime = event.response.timing?.requestTime;
     if (requestTime === undefined) return [];
     const doc = this.perTab.get(event.tabId)?.docByStoreId.get(cdpStoreRequestId(event.sessionId, event.requestId));
-    if (doc !== undefined) doc.requestTimeSec = requestTime;
+    // Set-once: a redirect already captured the chain-root start from the
+    // first continuation's `redirectResponse`; the final hop's response must
+    // not overwrite it. A non-redirect navigation gets its baseline here.
+    if (doc !== undefined && doc.requestTimeSec === undefined) doc.requestTimeSec = requestTime;
     return [];
   }
 
@@ -137,7 +162,10 @@ export class CdpPageCorrelator {
     state.current = { pageStartSec, startedAtMs };
     // A new page begins; the prior navigation's document requests are spent.
     state.docByStoreId.clear();
-    return [{ kind: 'nav-started', tabId: event.tabId, startedAtMs, url: event.frame.url }];
+    // Anchor the page title to the chain-root request URL (the host's bound
+    // `mainRequest.url()`), not the final committed URL `event.frame.url` —
+    // they differ for a redirected navigation.
+    return [{ kind: 'nav-started', tabId: event.tabId, startedAtMs, url: doc.url }];
   }
 
   private onMilestone(tabId: number, eventSec: number, which: 'dcl' | 'load'): readonly CdpPageSignal[] {
