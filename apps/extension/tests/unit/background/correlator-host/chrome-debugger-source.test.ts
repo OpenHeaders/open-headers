@@ -17,7 +17,7 @@
  *     with zero reducer rejections.
  */
 
-import type { CdpNetworkEvent } from '@openheaders/oracle/correlator-cdp';
+import type { CdpNetworkEvent, CdpPageEvent } from '@openheaders/oracle/correlator-cdp';
 import { CdpCorrelator, cdpStoreRequestId } from '@openheaders/oracle/correlator-cdp';
 import { RequestLifecycleStore } from '@openheaders/oracle/request-lifecycle-store';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -372,6 +372,72 @@ describe('ChromeDebuggerEventSource — normalize onEvent → CdpNetworkEvent', 
 
     emitRoot('Network.requestWillBeSent', rawRequestWillBeSent('r-x', 'https://api.openheaders.io/x'));
     expect(out).toHaveLength(0);
+  });
+});
+
+describe('ChromeDebuggerEventSource — Page-domain events (page timings)', () => {
+  it('enables the Page domain on the root target during attach', async () => {
+    source = new ChromeDebuggerEventSource();
+    await source.attach(TAB);
+    const methods = chromeMock.debugger.sendCommand.mock.calls.map((c) => c[1]);
+    expect(methods).toContain('Page.enable');
+  });
+
+  it('normalizes frameNavigated / domContentEventFired / loadEventFired from the root session', async () => {
+    source = new ChromeDebuggerEventSource();
+    const out: CdpPageEvent[] = [];
+    source.subscribePage((e) => out.push(e));
+    await source.attach(TAB);
+
+    emitRoot('Page.frameNavigated', {
+      frame: { id: 'F1', loaderId: 'L1', url: 'https://app.openheaders.io/', parentId: undefined },
+    });
+    emitRoot('Page.domContentEventFired', { timestamp: 101.5 });
+    emitRoot('Page.loadEventFired', { timestamp: 102.5 });
+
+    expect(out).toEqual([
+      {
+        method: 'Page.frameNavigated',
+        tabId: TAB,
+        sessionId: 'page',
+        frame: { id: 'F1', loaderId: 'L1', url: 'https://app.openheaders.io/' },
+      },
+      { method: 'Page.domContentEventFired', tabId: TAB, sessionId: 'page', timestamp: 101.5 },
+      { method: 'Page.loadEventFired', tabId: TAB, sessionId: 'page', timestamp: 102.5 },
+    ]);
+  });
+
+  it('preserves a sub-frame parentId on frameNavigated', async () => {
+    source = new ChromeDebuggerEventSource();
+    const out: CdpPageEvent[] = [];
+    source.subscribePage((e) => out.push(e));
+    await source.attach(TAB);
+    emitRoot('Page.frameNavigated', {
+      frame: { id: 'F2', loaderId: 'L2', url: 'https://widget.openheaders.io/', parentId: 'F1' },
+    });
+    expect(out[0]).toMatchObject({ method: 'Page.frameNavigated', frame: { parentId: 'F1' } });
+  });
+
+  it('drops Page events from a child (non-root) session — page timing is main-frame only', async () => {
+    source = new ChromeDebuggerEventSource();
+    const out: CdpPageEvent[] = [];
+    source.subscribePage((e) => out.push(e));
+    await source.attach(TAB);
+    emitRoot('Target.attachedToTarget', attachedToTarget(CHILD_SESSION, 'iframe'));
+    emitChild(CHILD_SESSION, 'Page.loadEventFired', { timestamp: 5 });
+    expect(out).toHaveLength(0);
+  });
+
+  it('does not fan Page events onto the Network subscriber', async () => {
+    source = new ChromeDebuggerEventSource();
+    const net: CdpNetworkEvent[] = [];
+    const pages: CdpPageEvent[] = [];
+    source.subscribe((e) => net.push(e));
+    source.subscribePage((e) => pages.push(e));
+    await source.attach(TAB);
+    emitRoot('Page.loadEventFired', { timestamp: 5 });
+    expect(net).toHaveLength(0);
+    expect(pages).toHaveLength(1);
   });
 });
 

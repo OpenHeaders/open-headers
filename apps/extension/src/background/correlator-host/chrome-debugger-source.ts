@@ -39,6 +39,8 @@ import type {
   CdpEventSource,
   CdpInitiator,
   CdpNetworkEvent,
+  CdpPageEvent,
+  CdpPageFrame,
   CdpRequestParams,
   CdpResourceTiming,
   CdpResponseBody,
@@ -49,6 +51,7 @@ import { logger } from '@utils/logger';
 import { type BrowserAPI, getBrowserAPI } from '@/types/browser';
 
 type Listener = (event: CdpNetworkEvent) => void;
+type PageListener = (event: CdpPageEvent) => void;
 type DetachListener = (tabId: number, reason: string) => void;
 type DebuggerApi = BrowserAPI['debugger'];
 
@@ -89,6 +92,7 @@ const ATTACHABLE_CHILD_TARGET_TYPES: ReadonlySet<string> = new Set(['iframe', 'w
 
 export class ChromeDebuggerEventSource implements CdpEventSource {
   private readonly listeners = new Set<Listener>();
+  private readonly pageListeners = new Set<PageListener>();
   private readonly detachListeners = new Set<DetachListener>();
   /** Root (page-target) tabs we hold a `chrome.debugger` attachment for. */
   private readonly attachedTabs = new Set<number>();
@@ -100,11 +104,19 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
     this.install();
   }
 
-  /** `CdpEventSource` seam — fan normalized events to the correlator. */
+  /** `CdpEventSource` seam — fan normalized `Network.*` events to the correlator. */
   subscribe(listener: Listener): () => void {
     this.listeners.add(listener);
     return () => {
       this.listeners.delete(listener);
+    };
+  }
+
+  /** `CdpEventSource` seam — fan normalized `Page.*` events (page-timing source). */
+  subscribePage(listener: PageListener): () => void {
+    this.pageListeners.add(listener);
+    return () => {
+      this.pageListeners.delete(listener);
     };
   }
 
@@ -168,6 +180,10 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
     }
     this.attachedTabs.add(tabId);
     await this.enableNetwork({ tabId });
+    // Page domain on the root target only — the main frame's navigation +
+    // load lifecycle is the page-timing source; child targets never carry
+    // page-level events.
+    await this.enablePage({ tabId });
     await this.enableAutoAttach({ tabId });
   }
 
@@ -197,6 +213,7 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
     this.removeListeners.length = 0;
     for (const tabId of [...this.attachedTabs]) void this.detach(tabId);
     this.listeners.clear();
+    this.pageListeners.clear();
     this.detachListeners.clear();
     this.attachedTabs.clear();
     this.childSessions.clear();
@@ -240,6 +257,12 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
       if (params !== undefined) this.handleTargetDetached(params as RawDetachedFromTarget);
       return;
     }
+    if (method.startsWith('Page.')) {
+      // Page lifecycle is enabled on the root target only (page timings are
+      // a main-frame concern); a child session never carries these.
+      if (source.sessionId === undefined && params !== undefined) this.handlePageEvent(method, tabId, params);
+      return;
+    }
     if (!method.startsWith('Network.') || params === undefined) return;
     // A child session only routes once we have chosen to keep it (type
     // filter applied in `handleTargetAttached`); the root has no id.
@@ -276,6 +299,21 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
     // Other Network.* events are not part of the consumed subset.
   }
 
+  private handlePageEvent(method: string, tabId: number, params: object): void {
+    switch (method) {
+      case 'Page.frameNavigated':
+        this.fanPage(normalizeFrameNavigated(tabId, params as RawFrameNavigated));
+        return;
+      case 'Page.domContentEventFired':
+        this.fanPage(normalizePageLifecycle('Page.domContentEventFired', tabId, params as RawPageLifecycleTimestamp));
+        return;
+      case 'Page.loadEventFired':
+        this.fanPage(normalizePageLifecycle('Page.loadEventFired', tabId, params as RawPageLifecycleTimestamp));
+        return;
+    }
+    // Other Page.* events are not part of the consumed subset.
+  }
+
   private handleTargetAttached(tabId: number, params: RawAttachedToTarget): void {
     const childSessionId = params.sessionId;
     if (!ATTACHABLE_CHILD_TARGET_TYPES.has(params.targetInfo.type)) return;
@@ -304,6 +342,10 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
 
   private enableNetwork(session: chrome.debugger.DebuggerSession): Promise<void> {
     return this.send(session, 'Network.enable');
+  }
+
+  private enablePage(session: chrome.debugger.DebuggerSession): Promise<void> {
+    return this.send(session, 'Page.enable');
   }
 
   private enableAutoAttach(session: chrome.debugger.DebuggerSession): Promise<void> {
@@ -338,6 +380,10 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
 
   private fan(event: CdpNetworkEvent): void {
     for (const listener of this.listeners) listener(event);
+  }
+
+  private fanPage(event: CdpPageEvent): void {
+    for (const listener of this.pageListeners) listener(event);
   }
 
   private api(): DebuggerApi | undefined {
@@ -494,6 +540,21 @@ interface RawDetachedFromTarget {
   readonly targetId?: string;
 }
 
+interface RawPageFrame {
+  readonly id: string;
+  readonly parentId?: string;
+  readonly loaderId: string;
+  readonly url: string;
+}
+
+interface RawFrameNavigated {
+  readonly frame: RawPageFrame;
+}
+
+interface RawPageLifecycleTimestamp {
+  readonly timestamp: number;
+}
+
 // ── normalizers (raw CDP params → oracle CdpNetworkEvent) ────────────
 
 function normalizeRequestWillBeSent(tabId: number, sessionId: string, p: RawRequestWillBeSent): CdpNetworkEvent {
@@ -587,6 +648,34 @@ function normalizeResponseReceivedExtraInfo(
     sessionId,
     requestId: p.requestId,
     headers: p.headers,
+  };
+}
+
+// ── page-domain normalizers (root target only) ───────────────────────
+
+function normalizeFrameNavigated(tabId: number, p: RawFrameNavigated): CdpPageEvent {
+  return {
+    method: 'Page.frameNavigated',
+    tabId,
+    sessionId: ROOT_SESSION_ID,
+    frame: normalizePageFrame(p.frame),
+  };
+}
+
+function normalizePageLifecycle(
+  method: 'Page.domContentEventFired' | 'Page.loadEventFired',
+  tabId: number,
+  p: RawPageLifecycleTimestamp,
+): CdpPageEvent {
+  return { method, tabId, sessionId: ROOT_SESSION_ID, timestamp: p.timestamp };
+}
+
+function normalizePageFrame(f: RawPageFrame): CdpPageFrame {
+  return {
+    id: f.id,
+    loaderId: f.loaderId,
+    url: f.url,
+    ...(f.parentId !== undefined ? { parentId: f.parentId } : {}),
   };
 }
 

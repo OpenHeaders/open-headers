@@ -11,12 +11,14 @@
  * module.
  */
 
-import { logger } from '@utils/logger';
 import type { PageStreamHub } from '@openheaders/oracle/page-stream-hub';
+import { logger } from '@utils/logger';
 import { acceptPagePort } from './accept-port';
 
-export { startDevtoolsPageNavBridge } from './devtools-page-nav-bridge';
+export type { CdpPageBridge, CdpPageBridgeOptions } from './cdp-page-bridge';
+export { startCdpPageBridge } from './cdp-page-bridge';
 export type { DevtoolsPageNavBridge, DevtoolsPageNavBridgeOptions } from './devtools-page-nav-bridge';
+export { startDevtoolsPageNavBridge } from './devtools-page-nav-bridge';
 
 export interface PagePortHost {
   /** Detach the onConnect listener. Tests / SW shutdown only. */

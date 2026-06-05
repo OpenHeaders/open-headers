@@ -11,6 +11,7 @@
 import type { InspectorHarEntry } from '@openheaders/core/types';
 
 import type { CdpInitiator, CdpRequestParams, CdpResourceTiming, CdpResponseParams } from './events';
+import { round3 } from './units';
 
 /** A resolved HAR `timings` object (every leg present; `-1` = not applicable). */
 export type HarTimings = NonNullable<InspectorHarEntry['timings']>;
@@ -261,14 +262,6 @@ export function cdpResponseToHar(
 }
 
 const offset = (value: number | undefined): number => (value === undefined ? -1 : value);
-
-/**
- * Round a ms quantity to microsecond precision. Scaling fractional
- * monotonic seconds to ms (`* 1000`) injects representational noise
- * (e.g. `0.1 * 1000 → 100.00000000002274`); without this, otherwise-equal
- * legs differ in their 11th decimal and a clean total reads as a near-miss.
- */
-const round3 = (ms: number): number => Math.round(ms * 1000) / 1000;
 
 /** Duration of a `[start, end]` leg in ms, or `-1` when either bound is unmeasured. */
 function leg(start: number, end: number): number {

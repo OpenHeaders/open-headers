@@ -8,7 +8,7 @@ import { startDevtoolsSessionCoordinator } from '../devtools-session-coordinator
 import { createPersistentWatchSessionFloors, startLifecyclePortHost } from '../lifecycle-port-host';
 import { setupOnRuleMatchedDebugBridge } from '../modules/on-rule-matched-debug';
 import { startTabTelemetryFiresBridge } from '../modules/tab-telemetry-fires-bridge';
-import { startDevtoolsPageNavBridge, startPagePortHost } from '../page-port-host';
+import { startCdpPageBridge, startDevtoolsPageNavBridge, startPagePortHost } from '../page-port-host';
 import { startResourceTimingRelay } from '../resource-timing-relay';
 import { startRuleEngineDriver } from '../rule-engine-driver';
 import { startRuleFirePortHost } from '../rule-fire-port-host';
@@ -71,9 +71,17 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
     bodyFetcher: lifecycleHost.cdpCorrelator,
   });
 
+  // Page stream: two sources, one per tab-owner (same ownership the request
+  // correlators route on). CDP-owned tabs take pages from the CDP
+  // Page-domain feed (Chrome-exact timings); heuristic tabs from the
+  // Performance-API nav bridge, which is suppressed for CDP-owned tabs.
   const pageHub = new PageStreamHub({ bus: tabLifecycleBus });
   startPagePortHost({ hub: pageHub });
-  startDevtoolsPageNavBridge({ hub: pageHub });
+  startDevtoolsPageNavBridge({
+    hub: pageHub,
+    isCdpOwned: (tabId) => lifecycleHost.router.ownerOf(tabId) === 'cdp',
+  });
+  startCdpPageBridge({ source: lifecycleHost.debuggerSource, hub: pageHub, bus: tabLifecycleBus });
 
   // Memory-cache rows: renderer cache hits never reach `webRequest`/HAR,
   // so they ride a separate Resource Timing snapshot feed reconciled

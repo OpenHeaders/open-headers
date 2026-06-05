@@ -14,6 +14,12 @@
  * to every listener with the same `Port` object; this bridge ignores
  * `har` / `har-body` and the HAR adapter ignores nav. Two single-purpose
  * adapters, one port — keeps each module's concerns narrow.
+ *
+ * Mode-gating: this Performance-API path is the page source for
+ * heuristic-owned tabs only. A CDP-owned tab takes its pages from the
+ * `Page`-domain feed (`startCdpPageBridge`), whose timings match Chrome's
+ * exporter; feeding both would double the tab's pages. `isCdpOwned` is the
+ * same per-tab ownership the request correlators route on.
  */
 
 import { type HarSourceMessage, parseHarSourcePortName } from '@openheaders/core/types';
@@ -30,10 +36,17 @@ export interface DevtoolsPageNavBridgeOptions {
   readonly hub: PageStreamHub;
   /** Injectable clock for deterministic tests; defaults to `Date.now`. */
   readonly now?: () => number;
+  /**
+   * Whether a tab's pages are sourced from the CDP `Page`-domain feed; when
+   * it returns `true` this Performance-API bridge drops the tab's nav
+   * messages so the two sources never both feed the same tab. Defaults to
+   * "never CDP-owned" (heuristic-only hosts).
+   */
+  readonly isCdpOwned?: (tabId: number) => boolean;
 }
 
 export function startDevtoolsPageNavBridge(options: DevtoolsPageNavBridgeOptions): DevtoolsPageNavBridge {
-  const { hub, now = Date.now } = options;
+  const { hub, now = Date.now, isCdpOwned = () => false } = options;
   const onConnect = getBrowserAPI().runtime?.onConnect;
   if (!onConnect?.addListener) {
     logger.info('DevtoolsPageNavBridge', 'runtime.onConnect unavailable — nav bridge disabled');
@@ -44,6 +57,9 @@ export function startDevtoolsPageNavBridge(options: DevtoolsPageNavBridgeOptions
     if (tabId === null) return;
     port.onMessage.addListener((msg: HarSourceMessage) => {
       if (!msg) return;
+      // A CDP-owned tab is fed by the Page-domain bridge; ignore its
+      // Performance-API nav messages to avoid duplicate pages.
+      if (isCdpOwned(tabId)) return;
       if (msg.type === 'nav' && typeof msg.url === 'string') {
         hub.notifyNavStarted(tabId, now(), msg.url);
         return;

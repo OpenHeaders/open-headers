@@ -45,6 +45,8 @@
  * (Slice 2).
  */
 
+import type { CdpPageEvent } from './page-events';
+
 export interface CdpRequestParams {
   readonly url: string;
   readonly method: string;
@@ -303,8 +305,11 @@ export interface CdpResponseBody {
  * backed by `chrome.debugger` (Slice 2). No `chrome.*` reference crosses
  * into this package.
  *
- * `subscribe` is the push half — the `Network.*` event stream. The lone
- * pull half is {@link fetchResponseBody}: the correlator commands a body
+ * `subscribe` is the push half — the `Network.*` event stream;
+ * `subscribePage` is its sibling for the `Page.*` lifecycle stream (page
+ * timings), kept separate so the request correlator's network subscription
+ * is unaffected. The lone pull half is {@link fetchResponseBody}: the
+ * correlator commands a body
  * fetch on demand (Slice 8) when the panel asks for one. The seam takes
  * `(tabId, sessionId, rawRequestId)` because a CDP `requestId` is unique
  * only within a session and the adapter routes the command on the matching
@@ -315,5 +320,7 @@ export interface CdpResponseBody {
  */
 export interface CdpEventSource {
   subscribe(listener: (event: CdpNetworkEvent) => void): () => void;
+  /** The `Page.*` lifecycle stream — page-timing source, root target only. */
+  subscribePage(listener: (event: CdpPageEvent) => void): () => void;
   fetchResponseBody(tabId: number, sessionId: string, rawRequestId: string): Promise<CdpResponseBody>;
 }

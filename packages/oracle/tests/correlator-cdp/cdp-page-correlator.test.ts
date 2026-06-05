@@ -1,0 +1,132 @@
+/**
+ * `CdpPageCorrelator` — reconstructs HAR `log.pages[]` timings from the CDP
+ * `Page.*` lifecycle stream + the document network request, matching
+ * Chrome's exporter (`PageLoad.startTime = mainRequest.startTime`; DCL/load
+ * from `Page.domContentEventFired` / `Page.loadEventFired`).
+ */
+
+import { describe, expect, it } from 'vitest';
+
+import { CdpPageCorrelator } from '../../src/correlator-cdp/cdp-page-correlator';
+import type { CdpNetworkEvent } from '../../src/correlator-cdp/events';
+import type {
+  CdpDomContentEventFired,
+  CdpFrameNavigated,
+  CdpLoadEventFired,
+} from '../../src/correlator-cdp/page-events';
+
+import { cdpResponse, cdpStart, type TraceCtx } from './builders';
+
+const TAB = 7;
+const ctx: TraceCtx = { tabId: TAB, requestId: 'doc' };
+
+function frameNavigated(loaderId: string, url: string, parentId?: string): CdpFrameNavigated {
+  return {
+    method: 'Page.frameNavigated',
+    tabId: TAB,
+    sessionId: 'session-page',
+    frame: { id: 'F1', loaderId, url, ...(parentId !== undefined ? { parentId } : {}) },
+  };
+}
+
+function domContent(timestamp: number): CdpDomContentEventFired {
+  return { method: 'Page.domContentEventFired', tabId: TAB, sessionId: 'session-page', timestamp };
+}
+
+function loadFired(timestamp: number): CdpLoadEventFired {
+  return { method: 'Page.loadEventFired', tabId: TAB, sessionId: 'session-page', timestamp };
+}
+
+/** The document request lands its identity + start baseline. */
+function docRequest(overrides: { loaderId?: string; wallTime?: number; timestamp?: number } = {}): CdpNetworkEvent {
+  return cdpStart(ctx, {
+    type: 'Document',
+    loaderId: overrides.loaderId ?? 'L1',
+    wallTime: overrides.wallTime ?? 1_700_000_000,
+    timestamp: overrides.timestamp ?? 100,
+    request: { url: 'https://app.openheaders.io/', method: 'GET' },
+  });
+}
+
+function docResponse(requestTime: number): CdpNetworkEvent {
+  return cdpResponse(ctx, {
+    response: {
+      url: 'https://app.openheaders.io/',
+      status: 200,
+      statusText: 'OK',
+      timing: { requestTime },
+    },
+  });
+}
+
+describe('CdpPageCorrelator — page timing reconstruction', () => {
+  it('derives the page start + DCL/load from the document request and Page events', () => {
+    const c = new CdpPageCorrelator();
+    expect(c.observe(docRequest({ wallTime: 1_700_000_000, timestamp: 100 }))).toEqual([]);
+    expect(c.observe(docResponse(100.05))).toEqual([]);
+
+    // startedAtMs = (wallTime 1_700_000_000 - issue 100 + start 100.05) * 1000.
+    const started = c.observe(frameNavigated('L1', 'https://app.openheaders.io/'));
+    expect(started).toEqual([
+      { kind: 'nav-started', tabId: TAB, startedAtMs: 1_700_000_000_050, url: 'https://app.openheaders.io/' },
+    ]);
+
+    // dcl = (101.626 - 100.05) * 1000 = 1576; offset from the page start.
+    expect(c.observe(domContent(101.626))).toEqual([
+      { kind: 'nav-timing', tabId: TAB, timing: { pageOrigin: null, navStartMs: 1_700_000_000_050, dclMs: 1576 } },
+    ]);
+    // load = (102.428 - 100.05) * 1000 = 2378.
+    expect(c.observe(loadFired(102.428))).toEqual([
+      { kind: 'nav-timing', tabId: TAB, timing: { pageOrigin: null, navStartMs: 1_700_000_000_050, loadMs: 2378 } },
+    ]);
+  });
+
+  it('ignores a sub-frame navigation (only the top frame is a page boundary)', () => {
+    const c = new CdpPageCorrelator();
+    c.observe(docRequest());
+    c.observe(docResponse(100.05));
+    expect(c.observe(frameNavigated('L1', 'https://widget.openheaders.io/', 'parent-frame'))).toEqual([]);
+  });
+
+  it('emits nothing for DCL/load before any page boundary', () => {
+    const c = new CdpPageCorrelator();
+    expect(c.observe(domContent(50))).toEqual([]);
+    expect(c.observe(loadFired(60))).toEqual([]);
+  });
+
+  it('falls back to the issue time when the document response has not landed', () => {
+    const c = new CdpPageCorrelator();
+    c.observe(docRequest({ wallTime: 1000, timestamp: 50 }));
+    // No docResponse → pageStart = issue time (50); startedAtMs = (1000 - 50 + 50) * 1000.
+    expect(c.observe(frameNavigated('L1', 'https://app.openheaders.io/'))).toEqual([
+      { kind: 'nav-started', tabId: TAB, startedAtMs: 1_000_000, url: 'https://app.openheaders.io/' },
+    ]);
+  });
+
+  it('uses the committed hop of a redirected navigation (latest loaderId wins)', () => {
+    const c = new CdpPageCorrelator();
+    c.observe(docRequest({ loaderId: 'L1', wallTime: 1000, timestamp: 50 }));
+    // Redirect: same request id, the committed hop carries the final loaderId.
+    c.observe(docRequest({ loaderId: 'L2', wallTime: 1000.1, timestamp: 50.1 }));
+    c.observe(docResponse(50.2));
+    // startedAtMs = (1000.1 - 50.1 + 50.2) * 1000 = 1_000_200.
+    expect(c.observe(frameNavigated('L2', 'https://app.openheaders.io/v2'))).toEqual([
+      { kind: 'nav-started', tabId: TAB, startedAtMs: 1_000_200, url: 'https://app.openheaders.io/v2' },
+    ]);
+  });
+
+  it('ignores a non-document request and emits nothing when no document matches the loader', () => {
+    const c = new CdpPageCorrelator();
+    c.observe(cdpStart(ctx, { type: 'XHR', loaderId: 'L1' }));
+    expect(c.observe(frameNavigated('L1', 'https://app.openheaders.io/'))).toEqual([]);
+  });
+
+  it('forgetTab drops per-tab state', () => {
+    const c = new CdpPageCorrelator();
+    c.observe(docRequest());
+    c.observe(docResponse(100.05));
+    c.forgetTab(TAB);
+    // No document remembered → the navigation produces no page.
+    expect(c.observe(frameNavigated('L1', 'https://app.openheaders.io/'))).toEqual([]);
+  });
+});

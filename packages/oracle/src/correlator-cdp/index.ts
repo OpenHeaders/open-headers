@@ -33,6 +33,9 @@ export {
   totalTimeMs,
   wallTimeToIso,
 } from './cdp-har-synth';
+export { CdpPageCorrelator, MAX_CDP_PAGE_DOC_REQUESTS_PER_TAB } from './cdp-page-correlator';
+export type { CdpPageSignal } from './cdp-page-synth';
+export { pageMilestoneMs, pageStartedAtMs } from './cdp-page-synth';
 export { cdpEventToUpdates } from './cdp-to-update';
 export { CdpCorrelator } from './correlator';
 export type {
@@ -53,3 +56,10 @@ export type {
   CdpStackTrace,
 } from './events';
 export { cdpStoreRequestId } from './events';
+export type {
+  CdpDomContentEventFired,
+  CdpFrameNavigated,
+  CdpLoadEventFired,
+  CdpPageEvent,
+  CdpPageFrame,
+} from './page-events';

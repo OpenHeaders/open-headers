@@ -3,10 +3,10 @@
  * `nav-timing` messages from the devtools_page port into PageStreamHub.
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { HarSourceMessage } from '@openheaders/core/types';
 
 import { PageStreamHub } from '@openheaders/oracle/page-stream-hub';
-import type { HarSourceMessage } from '@openheaders/core/types';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { startDevtoolsPageNavBridge } from '@/background/page-port-host/devtools-page-nav-bridge';
 
@@ -98,6 +98,20 @@ describe('startDevtoolsPageNavBridge', () => {
     });
     expect(navSpy).not.toHaveBeenCalled();
     expect(timingSpy).not.toHaveBeenCalled();
+  });
+
+  it('drops nav / nav-timing for a CDP-owned tab (the Page-domain feed owns it)', () => {
+    const hub = new PageStreamHub();
+    const navSpy = vi.spyOn(hub, 'notifyNavStarted');
+    const timingSpy = vi.spyOn(hub, 'notifyNavTimingAttached');
+    startDevtoolsPageNavBridge({ hub, isCdpOwned: (tabId) => tabId === 7 });
+    emit(7, { type: 'nav', url: 'https://openheaders.io/' });
+    emit(7, { type: 'nav-timing', timing: { pageOrigin: null, dclMs: 1 } });
+    expect(navSpy).not.toHaveBeenCalled();
+    expect(timingSpy).not.toHaveBeenCalled();
+    // A heuristic-owned tab still flows through.
+    emit(8, { type: 'nav', url: 'https://openheaders.io/other' });
+    expect(navSpy).toHaveBeenCalledWith(8, expect.any(Number), 'https://openheaders.io/other');
   });
 
   it('dispose() removes the listener', () => {
