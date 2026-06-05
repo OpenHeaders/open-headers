@@ -109,6 +109,10 @@ interface HopPartial {
   transferSize?: number;
   /** Decoded body bytes, summed from `dataReceived` — HAR `content.size`. */
   contentSize?: number;
+  /** CDP `ResourceType` for this hop (`Media`, `XHR`, …) — HAR `_resourceType`, lowercased. */
+  readonly resourceType?: string;
+  /** Net-stack code from a terminal `loadingFailed` (`net::ERR_*`) — HAR `_error`. */
+  error?: string;
   /** Total span in ms, computed at the hop's terminal/redirect point — HAR `time`. */
   totalMs?: number;
 }
@@ -176,8 +180,7 @@ export class CdpHarBuilder {
       case 'Network.loadingFinished':
         return this.onFinished(event.tabId, requestId, event.encodedDataLength, event.timestamp);
       case 'Network.loadingFailed':
-        this.markFinalized(event.tabId, requestId, secondsToMs(event.timestamp));
-        return [];
+        return this.onFailed(event.tabId, requestId, event.errorText, event.timestamp);
       case 'Network.requestWillBeSentExtraInfo':
         return this.onRequestExtra(event.tabId, requestId, event.headers);
       case 'Network.responseReceivedExtraInfo':
@@ -252,6 +255,7 @@ export class CdpHarBuilder {
       startedDateTime: wallTimeToIso(event.wallTime),
       request: event.request,
       ...(event.initiator !== undefined ? { initiator: event.initiator } : {}),
+      ...(event.type !== undefined ? { resourceType: event.type } : {}),
     };
     this.recordBodyRef(event, requestId);
     return updates;
@@ -304,9 +308,13 @@ export class CdpHarBuilder {
     const hopIndex = state.hopCursor;
     const hop = state.hops[hopIndex];
     if (hop === undefined) return [];
-    // Partial: total time and transfer size are not known until the
-    // body finishes; emit the headers/cookies/status now and refine later.
+    // Partial: total time and the authoritative transfer size are not
+    // known until the body finishes; emit headers/cookies/status now and
+    // refine later. `encodedDataLength` here is the bytes-so-far floor —
+    // it lets a hop that aborts before `loadingFinished` still report a
+    // wire size; the terminal event overrides it with the total.
     hop.response = response;
+    if (response.encodedDataLength !== undefined) hop.transferSize = response.encodedDataLength;
     return this.collect(this.emitHop(tabId, requestId, state, hopIndex));
   }
 
@@ -338,6 +346,33 @@ export class CdpHarBuilder {
     if (hop === undefined || hop.response === undefined) return [];
     hop.transferSize = encodedDataLength;
     hop.totalMs = totalTimeMs(hop.response.timing, finishedSec);
+    return this.collect(this.emitHop(tabId, requestId, state, hopIndex));
+  }
+
+  /**
+   * Terminal failure (`net::ERR_*`: canceled, aborted, blocked, net error).
+   * A hop that already produced a response — an aborted media range probe,
+   * a canceled XHR — must still finalize its HAR: the failure timestamp
+   * resolves `time` (the body leg ran up to the abort), and `_error`
+   * records the net-stack code. The transfer-size floor set on
+   * `responseReceived` carries through (`loadingFailed` itself has no size).
+   * A failure with no response (a blocked status-0 beacon) has no hop HAR
+   * to refine — mark finalized for gc and emit nothing, as before.
+   */
+  private onFailed(
+    tabId: number,
+    requestId: string,
+    errorText: string,
+    failedSec: number,
+  ): readonly RequestLifecycleUpdate[] {
+    const state = this.getState(tabId, requestId);
+    this.markFinalized(tabId, requestId, secondsToMs(failedSec));
+    if (state === undefined) return [];
+    const hopIndex = state.hopCursor;
+    const hop = state.hops[hopIndex];
+    if (hop === undefined || hop.response === undefined) return [];
+    hop.error = errorText;
+    hop.totalMs = totalTimeMs(hop.response.timing, failedSec);
     return this.collect(this.emitHop(tabId, requestId, state, hopIndex));
   }
 
@@ -402,11 +437,12 @@ export class CdpHarBuilder {
       ...(hop.totalMs !== undefined ? { time: hop.totalMs } : {}),
       request: cdpRequestToHar(hop.request, requestExtra),
       ...(response !== undefined
-        ? { response: cdpResponseToHar(response, hop.transferSize, hop.contentSize, responseExtra) }
+        ? { response: cdpResponseToHar(response, hop.transferSize, hop.contentSize, hop.error, responseExtra) }
         : {}),
       ...(response?.remoteIPAddress !== undefined ? { serverIPAddress: response.remoteIPAddress } : {}),
       ...(response?.timing !== undefined ? { timings: cdpTimingToHar(response.timing, hop.totalMs) } : {}),
       ...(hop.initiator !== undefined ? { _initiator: hop.initiator } : {}),
+      ...(hop.resourceType !== undefined ? { _resourceType: hop.resourceType.toLowerCase() } : {}),
     };
     return { kind: 'har-attached', tabId, requestId, hopIndex, har };
   }

@@ -203,6 +203,14 @@ describe('CdpHarBuilder — well-formed entry', () => {
     expect(refined.time).toBe(250);
     expect(refined.timings?.receive).toBe(150);
   });
+
+  it('marks header/body byte sizes unavailable (-1) on request and response (HAR sentinel)', () => {
+    const { refined } = run();
+    expect(refined.request?.headersSize).toBe(-1);
+    expect(refined.request?.bodySize).toBe(-1);
+    expect(refined.response?.headersSize).toBe(-1);
+    expect(refined.response?.bodySize).toBe(-1);
+  });
 });
 
 // ── *ExtraInfo on-the-wire header merge ─────────────────────────────
@@ -484,8 +492,11 @@ describe('CdpHarBuilder — decoded content size', () => {
       ),
     );
     expect(entry.response?.content.size).toBe(1081684);
-    // A trailing abort leaves the already-projected size intact.
-    expect(builder.observe(cdpFailed(ctx, { errorText: 'net::ERR_ABORTED', canceled: true }))).toEqual([]);
+    // The trailing abort finalizes the responded hop: it re-emits with
+    // `_error` set and the already-projected size intact.
+    const aborted = lastHarEntry(builder.observe(cdpFailed(ctx, { errorText: 'net::ERR_ABORTED', canceled: true })));
+    expect(aborted.response?._error).toBe('net::ERR_ABORTED');
+    expect(aborted.response?.content.size).toBe(1081684);
   });
 
   it('prefers the streamed dataReceived sum over a smaller (encoded) Content-Length', () => {
@@ -544,6 +555,52 @@ describe('CdpHarBuilder — request payload', () => {
   it('omits postData when the request carried no body', () => {
     const entry = entryWith({ url: 'https://api.openheaders.io/users', method: 'GET' });
     expect(entry.request?.postData).toBeUndefined();
+  });
+});
+
+// ── failed-terminal finalization ────────────────────────────────────
+
+describe('CdpHarBuilder — failed-terminal finalization', () => {
+  const ctx: TraceCtx = { tabId: TAB, requestId: 'aborted-media' };
+
+  it('finalizes an aborted-but-responded hop: transfer size, time, _error, _resourceType', () => {
+    const builder = new CdpHarBuilder();
+    builder.observe(cdpStart(ctx, { type: 'Media', timestamp: 1000 }));
+    // Headers arrived with a wire-byte floor (encodedDataLength) and
+    // connection timing, then the <video> element aborts mid-body — no
+    // loadingFinished, just loadingFailed.
+    builder.observe(
+      cdpResponse(ctx, {
+        type: 'Media',
+        response: {
+          url: 'https://cdn.openheaders.io/clip.mp4',
+          status: 206,
+          statusText: 'Partial Content',
+          encodedDataLength: 434,
+          timing: { requestTime: 1000, sendStart: 0, sendEnd: 1, receiveHeadersEnd: 5 },
+        },
+      }),
+    );
+    const failed = lastHarEntry(
+      builder.observe(cdpFailed(ctx, { type: 'Media', errorText: 'net::ERR_ABORTED', timestamp: 1000.654 })),
+    );
+    // The responseReceived floor carries through (loadingFailed has no size).
+    expect(failed.response?._transferSize).toBe(434);
+    expect(failed.response?._error).toBe('net::ERR_ABORTED');
+    expect(failed._resourceType).toBe('media');
+    // Time computed from the failure timestamp against the timing base.
+    expect(failed.time).toBe(654);
+  });
+
+  it('returns no update for a failure with no response (blocked status-0 beacon)', () => {
+    const builder = new CdpHarBuilder();
+    builder.observe(cdpStart(ctx));
+    expect(builder.observe(cdpFailed(ctx, { errorText: 'net::ERR_BLOCKED_BY_CLIENT' }))).toEqual([]);
+  });
+
+  it('ignores a failure for an unknown request (no state) without throwing', () => {
+    const builder = new CdpHarBuilder();
+    expect(builder.observe(cdpFailed({ tabId: TAB, requestId: 'ghost' }))).toEqual([]);
   });
 });
 
@@ -653,6 +710,45 @@ describe('CdpCorrelator → RequestLifecycleStore — HAR lands per hop with zer
     expect(lc.har[0]?.request?.cookies).toEqual([{ name: 'sid', value: 'wire' }]);
     expect(lc.har[0]?.response?.cookies).toEqual([{ name: 'sess', value: 'raw' }]);
     expect(lc.har[0]?.response?._transferSize).toBe(256);
+
+    correlator.dispose();
+  });
+
+  it('a failed-after-response trace lands _error/time/_transferSize with zero rejections', () => {
+    const ctxLocal: TraceCtx = { tabId: 57, requestId: 'cdp-failed-rt', sessionId: PAGE_SESSION };
+    const source = new InMemoryCdpSource();
+    const correlator = new CdpCorrelator(source);
+    const onReject = vi.fn();
+    const store = new RequestLifecycleStore({ onReject });
+    correlator.subscribe((u) => store.apply(u));
+    correlator.attachTab(ctxLocal.tabId);
+
+    const trace: CdpNetworkEvent[] = [
+      cdpStart(ctxLocal, { type: 'Media', wallTime: 1000, timestamp: 1000 }),
+      cdpResponse(ctxLocal, {
+        timestamp: 1000.1,
+        type: 'Media',
+        response: {
+          url: 'https://cdn.openheaders.io/clip.mp4',
+          status: 206,
+          statusText: 'Partial Content',
+          encodedDataLength: 434,
+          timing: { requestTime: 1000, sendStart: 0, sendEnd: 1, receiveHeadersEnd: 5 },
+        },
+      }),
+      cdpFailed(ctxLocal, { type: 'Media', errorText: 'net::ERR_ABORTED', timestamp: 1000.654 }),
+    ];
+    for (const event of trace) source.emit(event);
+
+    const lc = store.get(ctxLocal.tabId, cdpStoreRequestId(PAGE_SESSION, ctxLocal.requestId));
+    if (lc === undefined) throw new Error('expected lifecycle');
+    expect(onReject).not.toHaveBeenCalled();
+    expect(lc.phase).toBe('failed');
+    expect(lc.har).toHaveLength(1);
+    expect(lc.har[0]?.response?._error).toBe('net::ERR_ABORTED');
+    expect(lc.har[0]?.response?._transferSize).toBe(434);
+    expect(lc.har[0]?._resourceType).toBe('media');
+    expect(lc.har[0]?.time).toBe(654);
 
     correlator.dispose();
   });

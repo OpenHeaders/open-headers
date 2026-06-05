@@ -140,6 +140,10 @@ export function cdpRequestToHar(
     queryString: queryStringFromUrl(request.url),
     ...(cookies !== undefined ? { cookies } : {}),
     ...(postData !== undefined ? { postData } : {}),
+    // CDP never reports the raw header/body byte lengths the HAR spec wants
+    // here; `-1` is the HAR "unavailable" sentinel external tools expect.
+    headersSize: -1,
+    bodySize: -1,
   };
 }
 
@@ -172,6 +176,9 @@ function decodedContentSize(
  * `transferSize` (wire bytes) and `contentSize` (decoded body bytes,
  * summed from `dataReceived`) are supplied separately because the final
  * hop learns them on/after `loadingFinished`, once the body has streamed.
+ * `error`, when supplied, is the net-stack code from a terminal
+ * `loadingFailed` (`net::ERR_*`) — HAR `_error`, which external tools read
+ * to distinguish an aborted/blocked hop from a clean one.
  * `headersOverride`, when supplied, is the on-the-wire header set from
  * `responseReceivedExtraInfo` — it supersedes the cooked `response.headers`
  * wholesale for both the header array and the parsed `Set-Cookie` cookies
@@ -181,6 +188,7 @@ export function cdpResponseToHar(
   response: CdpResponseParams,
   transferSize?: number,
   contentSize?: number,
+  error?: string,
   headersOverride?: Readonly<Record<string, string>>,
 ): HarResponse {
   const headers = headersOverride ?? response.headers;
@@ -192,7 +200,12 @@ export function cdpResponseToHar(
     headers: headerRecordToHar(headers),
     ...(cookies !== undefined ? { cookies } : {}),
     content: { size: decodedContentSize(contentSize, headers), mimeType: response.mimeType ?? '' },
+    // CDP never reports the raw header/body byte lengths the HAR spec wants
+    // here; `-1` is the HAR "unavailable" sentinel external tools expect.
+    headersSize: -1,
+    bodySize: -1,
     ...(transferSize !== undefined ? { _transferSize: transferSize } : {}),
+    ...(error !== undefined ? { _error: error } : {}),
   };
 }
 
