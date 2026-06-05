@@ -18,11 +18,14 @@ import type { RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle
 import { describe, expect, it, vi } from 'vitest';
 
 import { CdpCorrelator } from '../../src/correlator-cdp/correlator';
-import type { CdpNetworkEvent } from '../../src/correlator-cdp/events';
+import { type CdpNetworkEvent, cdpStoreRequestId } from '../../src/correlator-cdp/events';
 import { RequestLifecycleStore } from '../../src/request-lifecycle-store/store';
 
-import { cdpFailed, cdpFinished, cdpRedirect, cdpResponse, cdpStart, type TraceCtx } from './builders';
+import { cdpFailed, cdpFinished, cdpRedirect, cdpResponse, cdpStart, PAGE_SESSION, type TraceCtx } from './builders';
 import { InMemoryCdpSource } from './in-memory-source';
+
+/** Store key the correlator emits for a trace context (child-session namespacing). */
+const storeId = (ctx: TraceCtx): string => cdpStoreRequestId(ctx.sessionId ?? PAGE_SESSION, ctx.requestId);
 
 interface Harness {
   readonly source: InMemoryCdpSource;
@@ -55,7 +58,7 @@ describe('CdpCorrelatorStub → RequestLifecycleStore — canonical success trac
     const h = harness(CTX);
     runTrace(h, [cdpStart(CTX), cdpResponse(CTX), cdpFinished(CTX)]);
 
-    const lc = h.store.get(CTX.tabId, CTX.requestId);
+    const lc = h.store.get(CTX.tabId, storeId(CTX));
     expect(lc).toBeDefined();
     if (lc === undefined) return;
     expect(lc.phase).toBe('completed');
@@ -93,7 +96,7 @@ describe('CdpCorrelatorStub → RequestLifecycleStore — single-redirect trace'
       cdpFinished(CTX, { timestamp: 100.8 }),
     ]);
 
-    const lc = h.store.get(CTX.tabId, CTX.requestId);
+    const lc = h.store.get(CTX.tabId, storeId(CTX));
     expect(lc).toBeDefined();
     if (lc === undefined) return;
     expect(lc.url).toBe('https://api.openheaders.io/v2/users');
@@ -147,7 +150,7 @@ describe('CdpCorrelatorStub → RequestLifecycleStore — multi-hop redirect tra
       cdpFinished(CTX, { timestamp: 100.8 }),
     ]);
 
-    const lc = h.store.get(CTX.tabId, CTX.requestId);
+    const lc = h.store.get(CTX.tabId, storeId(CTX));
     if (lc === undefined) throw new Error('expected lifecycle to be present');
     expect(lc.redirectHopCount).toBe(2);
     expect(lc.redirectHops.map((hop) => hop.sourceUrl)).toEqual([
@@ -170,7 +173,7 @@ describe('CdpCorrelatorStub → RequestLifecycleStore — failure trace', () => 
     const h = harness(CTX);
     runTrace(h, [cdpStart(CTX), cdpFailed(CTX, { errorText: 'net::ERR_CONNECTION_RESET', blockedReason: 'tls' })]);
 
-    const lc = h.store.get(CTX.tabId, CTX.requestId);
+    const lc = h.store.get(CTX.tabId, storeId(CTX));
     if (lc === undefined) throw new Error('expected lifecycle');
     expect(lc.phase).toBe('failed');
     expect(lc.error?.code).toBe('net::ERR_CONNECTION_RESET');
@@ -188,12 +191,12 @@ describe('CdpCorrelatorStub → RequestLifecycleStore — tab scoping', () => {
     const CTX: TraceCtx = { tabId: 99, requestId: 'cdp-detached' };
     const h = harness(CTX);
     runTrace(h, [cdpStart(CTX)]);
-    expect(h.store.get(CTX.tabId, CTX.requestId)).toBeDefined();
+    expect(h.store.get(CTX.tabId, storeId(CTX))).toBeDefined();
 
     h.correlator.detachTab(CTX.tabId);
     runTrace(h, [cdpResponse(CTX), cdpFinished(CTX)]);
 
-    const lc = h.store.get(CTX.tabId, CTX.requestId);
+    const lc = h.store.get(CTX.tabId, storeId(CTX));
     if (lc === undefined) throw new Error('expected lifecycle');
     // Phase did not advance because the events were ignored at the correlator.
     expect(lc.phase).toBe('pending');

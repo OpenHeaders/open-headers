@@ -38,3 +38,4 @@ export type {
   CdpResponseParams,
   CdpResponseReceived,
 } from './events';
+export { cdpStoreRequestId } from './events';

@@ -18,6 +18,8 @@ import type {
 } from '../../src/correlator-cdp/events';
 
 const TAB = 7;
+/** Store-facing identity = `${sessionId}::${requestId}` (child-session namespacing). */
+const STORE_ID = 'session-page::cdp-1';
 
 const initialRequest: CdpRequestWillBeSent = {
   method: 'Network.requestWillBeSent',
@@ -71,7 +73,7 @@ describe('cdpEventToUpdates — canonical redirect + completion trace', () => {
     expect(u?.kind).toBe('started');
     if (u?.kind !== 'started') return;
     expect(u.lifecycle.tabId).toBe(TAB);
-    expect(u.lifecycle.requestId).toBe('cdp-1');
+    expect(u.lifecycle.requestId).toBe(STORE_ID);
     expect(u.lifecycle.url).toBe('https://api.openheaders.io/users');
     expect(u.lifecycle.phase).toBe('pending');
     expect(u.lifecycle.redirectHopCount).toBe(0);
@@ -86,7 +88,7 @@ describe('cdpEventToUpdates — canonical redirect + completion trace', () => {
     expect(u?.kind).toBe('redirect');
     if (u?.kind !== 'redirect') return;
     expect(u.tabId).toBe(TAB);
-    expect(u.requestId).toBe('cdp-1');
+    expect(u.requestId).toBe(STORE_ID);
     expect(u.hop.sourceUrl).toBe('https://api.openheaders.io/users');
     expect(u.hop.redirectUrl).toBe('https://api.openheaders.io/v2/users');
     expect(u.hop.statusCode).toBe(301);
@@ -152,7 +154,7 @@ describe('cdpEventToUpdates — full trace produces a coherent update stream', (
     });
     for (const [tabId, requestId] of tabAndIds) {
       expect(tabId).toBe(TAB);
-      expect(requestId).toBe('cdp-1');
+      expect(requestId).toBe(STORE_ID);
     }
   });
 

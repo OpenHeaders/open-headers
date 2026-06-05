@@ -157,6 +157,19 @@ export interface CdpLoadingFailed {
 export type CdpNetworkEvent = CdpRequestWillBeSent | CdpResponseReceived | CdpLoadingFinished | CdpLoadingFailed;
 
 /**
+ * Store-facing request identity. CDP `requestId` is unique only *within*
+ * a session, so a flattened child target (OOPIF / dedicated worker) can
+ * reuse an id the page session also issued. Namespacing by `sessionId`
+ * realizes the `(tabId, sessionId, requestId)` identity inside the
+ * `(tabId, requestId)`-keyed store so page and child rows never collide.
+ * Stable across a redirect chain — CDP reuses both `sessionId` and
+ * `requestId` across hops, so the composite key is constant per hop.
+ */
+export function cdpStoreRequestId(sessionId: string, requestId: string): string {
+  return `${sessionId}::${requestId}`;
+}
+
+/**
  * The seam between the host-neutral correlator and the chrome bindings.
  * Tests inject an in-memory source; the extension SW injects a source
  * backed by `chrome.debugger.onEvent` (Slice 2). No `chrome.*` reference

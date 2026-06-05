@@ -1,6 +1,6 @@
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarEntry } from '@openheaders/core/types';
-import { classifyRequestState, isErrorState, statusText } from '@openheaders/ui/panel/data/request-state';
+import { classifyRequestState, isFailedNetworkRequest, statusCellText } from '@openheaders/ui/panel/data/request-state';
 import { describe, expect, it } from 'vitest';
 
 function makeLifecycle(
@@ -181,25 +181,56 @@ describe('classifyRequestState', () => {
     expect(classifyRequestState(lc).kind).toBe('blocked');
   });
 
-  it('isErrorState true for blocked + failed + httpError, false otherwise', () => {
-    expect(isErrorState({ kind: 'blocked', reason: '' })).toBe(true);
-    expect(isErrorState({ kind: 'failed', reason: '' })).toBe(true);
-    expect(isErrorState({ kind: 'httpError', status: 500 })).toBe(true);
-    expect(isErrorState({ kind: 'pending' })).toBe(false);
-    expect(isErrorState({ kind: 'success', status: 200 })).toBe(false);
-    expect(isErrorState({ kind: 'cached', source: 'disk', status: 200 })).toBe(false);
+  // Red-row trigger: a wire failure with no HTTP status (blocked / failed),
+  // or any 4xx/5xx — driven off the lifecycle's `error`/`phase`/HAR status,
+  // not the classified `kind`.
+  const blockedLc = makeLifecycle({
+    phase: 'failed',
+    statusCode: undefined,
+    statusText: undefined,
+    error: { code: 'net::ERR_BLOCKED_BY_CLIENT', reason: 'net::ERR_BLOCKED_BY_CLIENT' },
+    har: { response: undefined },
+  });
+  const failedLc = makeLifecycle({
+    phase: 'failed',
+    statusCode: undefined,
+    statusText: undefined,
+    error: { code: 'net::ERR_NAME_NOT_RESOLVED', reason: 'net::ERR_NAME_NOT_RESOLVED' },
+    har: { response: undefined },
+  });
+  const httpErrorLc = makeLifecycle({
+    statusCode: 500,
+    statusText: 'Internal Server Error',
+    har: { response: { status: 500, statusText: 'Internal Server Error', headers: [], content: { size: 0, mimeType: '' } } },
+  });
+  const pendingLc = makeLifecycle({ phase: 'pending', statusCode: undefined, statusText: undefined, har: { response: undefined } });
+  const cachedLc = makeLifecycle({
+    har: { _fromCache: 'disk', response: { status: 200, statusText: 'OK', headers: [], content: { size: 0, mimeType: '' } } },
+  });
+  const redirectLc = makeLifecycle({
+    statusCode: 302,
+    statusText: 'Found',
+    har: {
+      response: { status: 302, statusText: 'Found', redirectURL: 'https://elsewhere.example/', headers: [], content: { size: 0, mimeType: '' } },
+    },
   });
 
-  it('statusText surfaces the right string for each state', () => {
-    expect(statusText({ kind: 'pending' }, makeLifecycle())).toBe('(pending)');
-    expect(
-      statusText({ kind: 'blocked', reason: 'net::ERR_BLOCKED' }, makeLifecycle({ statusText: 'net::ERR_BLOCKED' })),
-    ).toBe('(net::ERR_BLOCKED)');
-    expect(
-      statusText({ kind: 'failed', reason: 'net::ERR_FAILED' }, makeLifecycle({ statusText: 'net::ERR_FAILED' })),
-    ).toBe('(net::ERR_FAILED)');
-    expect(statusText({ kind: 'success', status: 200 }, makeLifecycle())).toBe('200');
-    expect(statusText({ kind: 'redirect', status: 302, location: null }, makeLifecycle())).toBe('302');
-    expect(statusText({ kind: 'cached', source: 'disk', status: 200 }, makeLifecycle())).toBe('200');
+  it('isFailedNetworkRequest true for blocked + failed + httpError, false otherwise', () => {
+    expect(isFailedNetworkRequest(blockedLc)).toBe(true);
+    expect(isFailedNetworkRequest(failedLc)).toBe(true);
+    expect(isFailedNetworkRequest(httpErrorLc)).toBe(true);
+    expect(isFailedNetworkRequest(pendingLc)).toBe(false);
+    expect(isFailedNetworkRequest(makeLifecycle())).toBe(false);
+    expect(isFailedNetworkRequest(cachedLc)).toBe(false);
+  });
+
+  it('statusCellText surfaces the right label for each state', () => {
+    expect(statusCellText(pendingLc)).toBe('(pending)');
+    expect(statusCellText(blockedLc)).toBe('(blocked:other)');
+    expect(statusCellText(failedLc)).toBe('(failed) net::ERR_NAME_NOT_RESOLVED');
+    expect(statusCellText(httpErrorLc)).toBe('500');
+    expect(statusCellText(makeLifecycle())).toBe('200');
+    expect(statusCellText(redirectLc)).toBe('302');
+    expect(statusCellText(cachedLc)).toBe('200');
   });
 });

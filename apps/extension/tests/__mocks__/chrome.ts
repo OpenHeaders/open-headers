@@ -124,9 +124,44 @@ const windowsMock = {
   getCurrent: vi.fn((callback) => callback?.({ id: 1 })),
 };
 
+// chrome.debugger — an event-emitter mock. `attach`/`detach`/`sendCommand`
+// are spies resolving immediately; `onEvent`/`onDetach` are real emitters
+// so tests drive CDP traces in via `emitEvent` / `emitDetach`.
+type DebuggerEventListener = (source: chrome.debugger.DebuggerSession, method: string, params?: object) => void;
+type DebuggerDetachListener = (source: chrome.debugger.Debuggee, reason: string) => void;
+
+const debuggerEventListeners = new Set<DebuggerEventListener>();
+const debuggerDetachListeners = new Set<DebuggerDetachListener>();
+
+const debuggerMock = {
+  attach: vi.fn((_target: chrome.debugger.Debuggee, _version: string) => Promise.resolve()),
+  detach: vi.fn((_target: chrome.debugger.Debuggee) => Promise.resolve()),
+  sendCommand: vi.fn((_target: chrome.debugger.DebuggerSession, _method: string, _params?: Record<string, unknown>) =>
+    Promise.resolve(undefined),
+  ),
+  getTargets: vi.fn(() => Promise.resolve([])),
+  onEvent: {
+    addListener: vi.fn((cb: DebuggerEventListener) => debuggerEventListeners.add(cb)),
+    removeListener: vi.fn((cb: DebuggerEventListener) => debuggerEventListeners.delete(cb)),
+  },
+  onDetach: {
+    addListener: vi.fn((cb: DebuggerDetachListener) => debuggerDetachListeners.add(cb)),
+    removeListener: vi.fn((cb: DebuggerDetachListener) => debuggerDetachListeners.delete(cb)),
+  },
+  /** Test helper — drive an instrumentation event into registered listeners. */
+  emitEvent(source: chrome.debugger.DebuggerSession, method: string, params?: object): void {
+    for (const cb of [...debuggerEventListeners]) cb(source, method, params);
+  },
+  /** Test helper — drive an `onDetach` into registered listeners. */
+  emitDetach(source: chrome.debugger.Debuggee, reason: string): void {
+    for (const cb of [...debuggerDetachListeners]) cb(source, reason);
+  },
+};
+
 export const chrome = {
   storage: storageMock,
   runtime: runtimeMock,
+  debugger: debuggerMock,
   tabs: tabsMock,
   alarms: alarmsMock,
   declarativeNetRequest: declarativeNetRequestMock,

@@ -17,7 +17,7 @@
 
 import type { RequestLifecycle, RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle';
 
-import type { CdpNetworkEvent } from './events';
+import { type CdpNetworkEvent, cdpStoreRequestId } from './events';
 
 /** Seconds → ms. CDP `timestamp` is a `MonotonicTime` in seconds. */
 const secondsToMs = (t: number): number => Math.round(t * 1000);
@@ -48,7 +48,7 @@ function startedUpdate(
   const startedAtMs = secondsToMs(event.wallTime);
   const lifecycle: RequestLifecycle = {
     tabId: event.tabId,
-    requestId: event.requestId,
+    requestId: cdpStoreRequestId(event.sessionId, event.requestId),
     url: event.request.url,
     method: event.request.method,
     resourceType: event.type ?? 'other',
@@ -73,7 +73,7 @@ function redirectUpdate(
   return {
     kind: 'redirect',
     tabId: event.tabId,
-    requestId: event.requestId,
+    requestId: cdpStoreRequestId(event.sessionId, event.requestId),
     hop: {
       sourceUrl: prior.url,
       redirectUrl: event.request.url,
@@ -90,7 +90,7 @@ function headersReceivedUpdate(
   return {
     kind: 'phase',
     tabId: event.tabId,
-    requestId: event.requestId,
+    requestId: cdpStoreRequestId(event.sessionId, event.requestId),
     patch: {
       phase: 'headers-received',
       statusCode: event.response.status,
@@ -110,7 +110,7 @@ function completedUpdate(
   return {
     kind: 'phase',
     tabId: event.tabId,
-    requestId: event.requestId,
+    requestId: cdpStoreRequestId(event.sessionId, event.requestId),
     patch: {
       phase: 'completed',
       completedAtMs: secondsToMs(event.timestamp),
@@ -122,7 +122,7 @@ function failedUpdate(event: Extract<CdpNetworkEvent, { method: 'Network.loading
   return {
     kind: 'phase',
     tabId: event.tabId,
-    requestId: event.requestId,
+    requestId: cdpStoreRequestId(event.sessionId, event.requestId),
     patch: {
       phase: 'failed',
       completedAtMs: secondsToMs(event.timestamp),

@@ -22,7 +22,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { CdpHarBuilder } from '../../src/correlator-cdp/cdp-har-builder';
 import { cdpTimingToHar } from '../../src/correlator-cdp/cdp-har-synth';
 import { CdpCorrelator } from '../../src/correlator-cdp/correlator';
-import type { CdpNetworkEvent, CdpResourceTiming } from '../../src/correlator-cdp/events';
+import { type CdpNetworkEvent, type CdpResourceTiming, cdpStoreRequestId } from '../../src/correlator-cdp/events';
 import { RequestLifecycleStore } from '../../src/request-lifecycle-store/store';
 
 import { cdpFinished, cdpRedirect, cdpResponse, cdpStart, PAGE_SESSION, type TraceCtx } from './builders';
@@ -307,7 +307,7 @@ describe('CdpCorrelator → RequestLifecycleStore — HAR lands per hop with zer
     ];
     for (const event of trace) source.emit(event);
 
-    const lc = store.get(ctx.tabId, ctx.requestId);
+    const lc = store.get(ctx.tabId, cdpStoreRequestId(ctx.sessionId ?? PAGE_SESSION, ctx.requestId));
     if (lc === undefined) throw new Error('expected lifecycle');
     expect(onReject).not.toHaveBeenCalled();
     expect(lc.phase).toBe('completed');

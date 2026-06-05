@@ -31,7 +31,7 @@ import type { RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle
 import type { InspectorHarEntry } from '@openheaders/core/types';
 
 import { cdpRequestToHar, cdpResponseToHar, cdpTimingToHar, totalTimeMs, wallTimeToIso } from './cdp-har-synth';
-import type { CdpNetworkEvent, CdpRequestParams, CdpResponseParams } from './events';
+import { type CdpNetworkEvent, type CdpRequestParams, type CdpResponseParams, cdpStoreRequestId } from './events';
 
 /**
  * Per-tab cap on concurrently-tracked requests. Bounds the leak from
@@ -80,16 +80,20 @@ export class CdpHarBuilder {
    * updates.
    */
   observe(event: CdpNetworkEvent): readonly RequestLifecycleUpdate[] {
+    // Key by the namespaced identity so a child session reusing a page
+    // session's `requestId` cannot clobber its HAR state, matching the
+    // store key `cdp-to-update` emits.
+    const requestId = cdpStoreRequestId(event.sessionId, event.requestId);
     this.gcFinalized(event.tabId, secondsToMs(event.timestamp));
     switch (event.method) {
       case 'Network.requestWillBeSent':
-        return this.onRequest(event);
+        return this.onRequest(event, requestId);
       case 'Network.responseReceived':
-        return this.onResponse(event.tabId, event.requestId, event.response);
+        return this.onResponse(event.tabId, requestId, event.response);
       case 'Network.loadingFinished':
-        return this.onFinished(event.tabId, event.requestId, event.encodedDataLength, event.timestamp);
+        return this.onFinished(event.tabId, requestId, event.encodedDataLength, event.timestamp);
       case 'Network.loadingFailed':
-        this.markFinalized(event.tabId, event.requestId, secondsToMs(event.timestamp));
+        this.markFinalized(event.tabId, requestId, secondsToMs(event.timestamp));
         return [];
     }
   }
@@ -113,18 +117,19 @@ export class CdpHarBuilder {
 
   private onRequest(
     event: Extract<CdpNetworkEvent, { method: 'Network.requestWillBeSent' }>,
+    requestId: string,
   ): readonly RequestLifecycleUpdate[] {
     const updates: RequestLifecycleUpdate[] = [];
     let state: RequestHarState;
     if (event.redirectResponse !== undefined) {
       // Continuation hop: the prior hop just finished — finalize its HAR
       // from the carried response before advancing the cursor.
-      const existing = this.getState(event.tabId, event.requestId);
-      state = existing ?? this.startState(event.tabId, event.requestId);
+      const existing = this.getState(event.tabId, requestId);
+      state = existing ?? this.startState(event.tabId, requestId);
       if (existing !== undefined) {
         const finalized = this.finalizeRedirectHop(
           event.tabId,
-          event.requestId,
+          requestId,
           existing,
           event.redirectResponse,
           event.timestamp,
@@ -134,7 +139,7 @@ export class CdpHarBuilder {
       }
     } else {
       // Fresh lifecycle (also resets a reused requestId after gc).
-      state = this.startState(event.tabId, event.requestId);
+      state = this.startState(event.tabId, requestId);
     }
     state.finalizedAtMs = undefined;
     state.hops[state.hopCursor] = {
