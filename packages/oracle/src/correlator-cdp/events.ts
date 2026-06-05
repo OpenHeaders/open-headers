@@ -82,6 +82,12 @@ export interface CdpResourceTiming {
   readonly sendEnd?: number;
   readonly receiveHeadersStart?: number;
   readonly receiveHeadersEnd?: number;
+  /** Service-worker timing legs (ms offsets; `-1` when not SW-handled) —
+   *  forwarded verbatim as HAR `_worker*`. */
+  readonly workerStart?: number;
+  readonly workerReady?: number;
+  readonly workerFetchStart?: number;
+  readonly workerRespondWithSettled?: number;
 }
 
 export interface CdpResponseParams {

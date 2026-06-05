@@ -74,10 +74,9 @@ export interface InspectorHarEntry {
      *  cache hits; absent on older Chromium builds. */
     _transferSize?: number;
     /** Chromium extension: net-stack error code (e.g. "net::ERR_CERT_DATE_INVALID")
-     *  populated on `chrome.devtools.network.onRequestFinished` entries
-     *  whose underlying request failed before producing a real HTTP
-     *  response. Absent on successful responses. */
-    _error?: string;
+     *  on a request that failed before a real HTTP response. Chrome's
+     *  exporter emits this on every entry — `null` on a clean response. */
+    _error?: string | null;
     /** Chromium extension: the response was produced by a service worker's
      *  `fetch` handler. Chrome's exporter emits this in the response section
      *  on every entry (`false` when not SW-served). */
@@ -99,6 +98,13 @@ export interface InspectorHarEntry {
     /** Chrome-exporter extension: proxy negotiation duration, present only
      *  when the request went through a proxy. */
     _blocked_proxy?: number;
+    /** Chrome-exporter extensions: service-worker timing legs, the raw CDP
+     *  offsets (`-1` when the response was not service-worker-handled).
+     *  Chrome emits all four on every entry that carries timing. */
+    _workerStart?: number;
+    _workerReady?: number;
+    _workerFetchStart?: number;
+    _workerRespondWithSettled?: number;
   };
   serverIPAddress?: string;
   connection?: string;
@@ -107,7 +113,9 @@ export interface InspectorHarEntry {
   _connectionId?: string;
   pageref?: string;
   _initiator?: unknown;
-  _priority?: string;
+  /** Scheduler priority Chrome's exporter emits on every entry — `null`
+   *  when the host reported none. */
+  _priority?: string | null;
   _resourceType?: string;
   _webSocketMessages?: unknown[];
   /** "disk" | "memory" (Chromium convention), or absent when not cached. */

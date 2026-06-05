@@ -10,7 +10,7 @@
 
 import type { InspectorHarEntry } from '@openheaders/core/types';
 
-import type { CdpRequestParams, CdpResourceTiming, CdpResponseParams } from './events';
+import type { CdpInitiator, CdpRequestParams, CdpResourceTiming, CdpResponseParams } from './events';
 
 /** A resolved HAR `timings` object (every leg present; `-1` = not applicable). */
 export type HarTimings = NonNullable<InspectorHarEntry['timings']>;
@@ -20,6 +20,23 @@ type HarResponse = NonNullable<InspectorHarEntry['response']>;
 /** CDP `wallTime` (UNIX seconds, fractional) → HAR ISO-8601 `startedDateTime`. */
 export function wallTimeToIso(wallTimeSec: number): string {
   return new Date(wallTimeSec * 1000).toISOString();
+}
+
+/**
+ * Project a CDP `Network.Initiator` into the HAR `_initiator` shape Chrome's
+ * exporter writes: `type`, plus `url` / `lineNumber` / `stack` when present.
+ * The top-level `columnNumber` is dropped (Chrome omits it from the export,
+ * keeping it only inside the call-frame `stack`). `null` when there is no
+ * initiator, matching Chrome's always-present `_initiator` field.
+ */
+export function cdpInitiatorToHar(initiator: CdpInitiator | undefined): InspectorHarEntry['_initiator'] {
+  if (initiator === undefined) return null;
+  return {
+    type: initiator.type,
+    ...(initiator.url !== undefined ? { url: initiator.url } : {}),
+    ...(initiator.lineNumber !== undefined ? { lineNumber: initiator.lineNumber } : {}),
+    ...(initiator.stack !== undefined ? { stack: initiator.stack } : {}),
+  };
 }
 
 /**
@@ -126,33 +143,48 @@ function postDataToHar(
 }
 
 /**
- * Build the HAR `request` section from a CDP request descriptor.
+ * Map a negotiated protocol to the HAR `httpVersion` Chrome's exporter
+ * writes: `h2` → `http/2.0`, the `http/2+`/`http/2.0+` variants collapse to
+ * `http/2.0+`, everything else (`h3`, `http/1.1`, …) passes through. An
+ * absent protocol yields `''`, matching Chrome's empty-string fallback.
+ */
+export function harHttpVersion(protocol: string | undefined): string {
+  const lower = (protocol ?? '').toLowerCase();
+  if (lower === 'h2') return 'http/2.0';
+  return lower.replace(/^http\/2(\.0)?\+/, 'http/2.0+');
+}
+
+/**
+ * Build the HAR `request` section from a CDP request descriptor. Field
+ * order mirrors Chrome's exporter exactly. `httpVersion` is the negotiated
+ * protocol (carried on the response, so threaded in by the builder).
  * `headersOverride`, when supplied, is the on-the-wire header set from
- * `requestWillBeSentExtraInfo` — it supersedes the cooked
- * `request.headers` wholesale for both the header array and the parsed
- * request cookies (method / url / query string stay from the request).
+ * `requestWillBeSentExtraInfo` — it supersedes the cooked `request.headers`
+ * wholesale for both the header array and the parsed request cookies
+ * (method / url / query string stay from the request).
  */
 export function cdpRequestToHar(
   request: CdpRequestParams,
+  httpVersion: string | undefined,
   headersOverride?: Readonly<Record<string, string>>,
 ): HarRequest {
   const headers = headersOverride ?? request.headers;
-  const cookies = parseRequestCookies(headers);
   const postData = postDataToHar(request.postData, headers);
   const url = stripUrlFragment(request.url);
   return {
     method: request.method,
     url,
+    httpVersion: harHttpVersion(httpVersion),
     headers: headerRecordToHar(headers),
     queryString: queryStringFromUrl(url),
-    ...(cookies !== undefined ? { cookies } : {}),
-    ...(postData !== undefined ? { postData } : {}),
+    cookies: parseRequestCookies(headers) ?? [],
     // CDP never reports the raw request header byte block, so `headersSize`
     // stays at the HAR "unavailable" sentinel. `bodySize` is the UTF-8 byte
     // length of the posted body, or `0` when there is none — the one size
     // field recoverable from the inline `postData`.
     headersSize: -1,
     bodySize: requestBodySize(request.postData),
+    ...(postData !== undefined ? { postData } : {}),
   };
 }
 
@@ -206,13 +238,12 @@ export function cdpResponseToHar(
   headersOverride?: Readonly<Record<string, string>>,
 ): HarResponse {
   const headers = headersOverride ?? response.headers;
-  const cookies = parseResponseCookies(headers);
   return {
     status: response.status,
     statusText: response.statusText,
-    ...(response.protocol !== undefined ? { httpVersion: response.protocol } : {}),
+    httpVersion: harHttpVersion(response.protocol),
     headers: headerRecordToHar(headers),
-    ...(cookies !== undefined ? { cookies } : {}),
+    cookies: parseResponseCookies(headers) ?? [],
     content: { size: decodedContentSize(contentSize, headers), mimeType: response.mimeType ?? '' },
     // The redirect target, always present on a Chrome export: the `Location`
     // header for a redirect hop, `''` otherwise.
@@ -221,9 +252,11 @@ export function cdpResponseToHar(
     // here; `-1` is the HAR "unavailable" sentinel external tools expect.
     headersSize: -1,
     bodySize: -1,
-    _fetchedViaServiceWorker: Boolean(response.fromServiceWorker),
     ...(transferSize !== undefined ? { _transferSize: transferSize } : {}),
-    ...(error !== undefined ? { _error: error } : {}),
+    // Chrome's exporter always emits `_error` — the net-stack code on a
+    // terminal `loadingFailed`, or `null` on a clean response.
+    _error: error ?? null,
+    _fetchedViaServiceWorker: Boolean(response.fromServiceWorker),
   };
 }
 
@@ -291,25 +324,51 @@ export function cdpTimingToHar(timing: CdpResourceTiming, totalMs?: number, issu
 
   const send = Math.max(0, leg(sendStart, sendEnd));
   const wait = Math.max(0, leg(sendEnd, receiveHeadersEnd));
-  const blocked = leastNonNegative([dnsStart, connectStart, sendStart]);
   const receive = totalMs !== undefined && receiveHeadersEnd >= 0 ? Math.max(0, totalMs - receiveHeadersEnd) : -1;
 
+  // `blocked` folds the resource-scheduler queue (`queued`) and the
+  // earliest connection-stage offset, exactly as Chrome's exporter does:
+  // start from the queue time (`-1` when not queued), then add the earliest
+  // real activity offset, then let a proxy leg raise the floor.
   const queued =
     issuedSec !== undefined && timing.requestTime > issuedSec ? (timing.requestTime - issuedSec) * 1000 : -1;
+  const blockedStart = leastNonNegative([dnsStart, connectStart, sendStart]);
+  let blocked = queued;
+  if (blockedStart >= 0) blocked += blockedStart;
   const proxyStart = offset(timing.proxyStart);
   const proxyEnd = offset(timing.proxyEnd);
+  const blockedProxy = proxyEnd >= 0 ? proxyEnd - proxyStart : undefined;
+  if (blockedProxy !== undefined && blockedProxy > blocked) blocked = blockedProxy;
 
   return {
     blocked: round3(blocked),
     dns: round3(leg(dnsStart, dnsEnd)),
-    connect: round3(leg(connectStart, connectEnd)),
     ssl: round3(leg(sslStart, sslEnd)),
+    connect: round3(leg(connectStart, connectEnd)),
     send: round3(send),
     wait: round3(wait),
     receive: round3(receive),
     _blocked_queueing: queued < 0 ? -1 : round3(queued),
-    ...(proxyEnd >= 0 ? { _blocked_proxy: round3(proxyEnd - proxyStart) } : {}),
+    ...(blockedProxy !== undefined ? { _blocked_proxy: round3(blockedProxy) } : {}),
+    _workerStart: round3(offset(timing.workerStart)),
+    _workerReady: round3(offset(timing.workerReady)),
+    _workerFetchStart: round3(offset(timing.workerFetchStart)),
+    _workerRespondWithSettled: round3(offset(timing.workerRespondWithSettled)),
   };
+}
+
+/**
+ * HAR `time` — the sum of the positive timing legs, Chrome's exporter
+ * formula (`Log.ts`). `ssl` is excluded (it is contained within `connect`);
+ * negative ("not applicable") legs contribute nothing. Because `blocked`
+ * carries the pre-network queue, this spans issue → end, matching Chrome.
+ */
+export function harTimeFromTimings(timings: HarTimings): number {
+  let total = 0;
+  for (const leg of [timings.blocked, timings.dns, timings.connect, timings.send, timings.wait, timings.receive]) {
+    total += Math.max(leg ?? -1, 0);
+  }
+  return round3(total);
 }
 
 /** Total request span in ms: terminal monotonic timestamp minus the timing base. */

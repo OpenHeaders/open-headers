@@ -39,7 +39,7 @@ interface ParityRow {
 interface ParityRowDebug extends ParityRow {
   _requestId?: string;
   _harResponseStatus?: number;
-  _harResponseError?: string;
+  _harResponseError?: string | null;
   _hasErrorField?: boolean;
 }
 
@@ -94,18 +94,14 @@ declare global {
   }
 }
 
-export function useParityDebugHook(
-  lifecycles: readonly RequestLifecycle[],
-  clear: () => void,
-): void {
+export function useParityDebugHook(lifecycles: readonly RequestLifecycle[], clear: () => void): void {
   const lifecyclesRef = useRef(lifecycles);
   lifecyclesRef.current = lifecycles;
   const clearRef = useRef(clear);
   clearRef.current = clear;
 
   useEffect(() => {
-    window.__OH_DUMP_PARITY_ROWS__ = () =>
-      lifecyclesRef.current.map((lc, i) => toParityRow(lc, i));
+    window.__OH_DUMP_PARITY_ROWS__ = () => lifecyclesRef.current.map((lc, i) => toParityRow(lc, i));
     window.__OH_CLEAR_PARITY__ = () => clearRef.current();
     return () => {
       delete window.__OH_DUMP_PARITY_ROWS__;

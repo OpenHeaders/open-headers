@@ -32,9 +32,10 @@ export interface HarPage {
 }
 
 export function pageToHar(page: Page): HarPage {
+  // Key order mirrors Chrome's exporter (`startedDateTime` first).
   return {
-    id: page.id,
     startedDateTime: new Date(page.startedAtMs).toISOString(),
+    id: page.id,
     title: page.url ?? '',
     pageTimings: {
       onContentLoad: page.dclMs ?? -1,

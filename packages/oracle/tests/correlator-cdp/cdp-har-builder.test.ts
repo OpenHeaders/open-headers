@@ -69,28 +69,39 @@ const REUSED_CONNECTION: CdpResourceTiming = {
 
 describe('cdpTimingToHar — base conversion', () => {
   it('full timing maps every leg with no negative durations', () => {
+    // No issue time supplied → not queued; Chrome folds the queue (-1 here)
+    // into blocked, so blocked = -1 + earliest-activity offset (dnsStart 0).
     expect(cdpTimingToHar(FULL_TIMING, 250)).toEqual({
-      blocked: 0, // earliest activity (dnsStart) is the queue/stall floor
+      blocked: -1,
       dns: 10,
+      ssl: 15, // ssl precedes connect, matching Chrome's key order
       connect: 20,
-      ssl: 15,
       send: 5,
       wait: 65, // receiveHeadersEnd - sendEnd
       receive: 150, // totalMs - receiveHeadersEnd
-      _blocked_queueing: -1, // no issue time supplied → not measured
+      _blocked_queueing: -1,
+      _workerStart: -1,
+      _workerReady: -1,
+      _workerFetchStart: -1,
+      _workerRespondWithSettled: -1,
     });
   });
 
   it('reused connection omits dns/connect/ssl and floors blocked at sendStart', () => {
+    // Not queued (-1) + earliest offset (sendStart 5) → blocked = 4.
     expect(cdpTimingToHar(REUSED_CONNECTION, 60)).toEqual({
-      blocked: 5,
+      blocked: 4,
       dns: -1,
-      connect: -1,
       ssl: -1,
+      connect: -1,
       send: 3,
       wait: 32,
       receive: 20,
       _blocked_queueing: -1,
+      _workerStart: -1,
+      _workerReady: -1,
+      _workerFetchStart: -1,
+      _workerRespondWithSettled: -1,
     });
   });
 
@@ -105,12 +116,16 @@ describe('cdpTimingToHar — base conversion', () => {
     expect(cdpTimingToHar({ requestTime: 1000 })).toEqual({
       blocked: -1,
       dns: -1,
-      connect: -1,
       ssl: -1,
+      connect: -1,
       send: 0,
       wait: 0,
       receive: -1,
       _blocked_queueing: -1,
+      _workerStart: -1,
+      _workerReady: -1,
+      _workerFetchStart: -1,
+      _workerRespondWithSettled: -1,
     });
   });
 
@@ -152,6 +167,7 @@ describe('CdpHarBuilder — well-formed entry', () => {
           headers: { Cookie: 'sid=abc; theme=dark' },
         },
         wallTime: 1_700_000_000,
+        timestamp: FULL_TIMING.requestTime, // issue == network start (no queue)
       }),
     );
     const partial = lastHarEntry(
@@ -202,7 +218,7 @@ describe('CdpHarBuilder — well-formed entry', () => {
   it('projects server IP, protocol, mime type, and ISO start', () => {
     const { refined } = run();
     expect(refined.serverIPAddress).toBe('203.0.113.7');
-    expect(refined.response?.httpVersion).toBe('h2');
+    expect(refined.response?.httpVersion).toBe('http/2.0'); // Chrome maps h2 → http/2.0
     expect(refined.response?.content.mimeType).toBe('application/json');
     expect(refined.startedDateTime).toBe(new Date(1_700_000_000_000).toISOString());
   });
@@ -358,35 +374,46 @@ describe('CdpHarBuilder — *ExtraInfo header merge', () => {
 describe('CdpHarBuilder — initiator chain', () => {
   const ctx: TraceCtx = { tabId: TAB, requestId: 'init' };
 
-  it('forwards the Network.Initiator (incl. the call-frame stack) onto _initiator', () => {
+  it('projects the Network.Initiator onto _initiator, dropping top-level columnNumber (Chrome shape)', () => {
     const builder = new CdpHarBuilder();
-    const initiator = {
-      type: 'script' as const,
+    const stack = {
+      callFrames: [
+        {
+          functionName: 'loadUsers',
+          scriptId: '7',
+          url: 'https://app.openheaders.io/main.js',
+          lineNumber: 41,
+          columnNumber: 7,
+        },
+      ],
+    };
+    builder.observe(
+      cdpStart(ctx, {
+        initiator: {
+          type: 'script',
+          url: 'https://app.openheaders.io/main.js',
+          lineNumber: 41,
+          columnNumber: 7,
+          stack,
+        },
+      }),
+    );
+    const entry = lastHarEntry(builder.observe(cdpResponse(ctx)));
+    // Chrome's exporter keeps type/url/lineNumber/stack but omits the
+    // top-level columnNumber (the call-frame columnNumber inside stack stays).
+    expect(entry._initiator).toEqual({
+      type: 'script',
       url: 'https://app.openheaders.io/main.js',
       lineNumber: 41,
-      columnNumber: 7,
-      stack: {
-        callFrames: [
-          {
-            functionName: 'loadUsers',
-            scriptId: '7',
-            url: 'https://app.openheaders.io/main.js',
-            lineNumber: 41,
-            columnNumber: 7,
-          },
-        ],
-      },
-    };
-    builder.observe(cdpStart(ctx, { initiator }));
-    const entry = lastHarEntry(builder.observe(cdpResponse(ctx)));
-    expect(entry._initiator).toEqual(initiator);
+      stack,
+    });
   });
 
-  it('omits _initiator when the request carried no initiator', () => {
+  it('emits _initiator: null when the request carried no initiator (Chrome always emits)', () => {
     const builder = new CdpHarBuilder();
     builder.observe(cdpStart(ctx, { initiator: undefined }));
     const entry = lastHarEntry(builder.observe(cdpResponse(ctx)));
-    expect(entry._initiator).toBeUndefined();
+    expect(entry._initiator).toBeNull();
   });
 });
 
@@ -395,7 +422,8 @@ describe('CdpHarBuilder — redirect hops', () => {
 
   it('synthesizes the prior hop HAR from redirectResponse at its own hopIndex', () => {
     const builder = new CdpHarBuilder();
-    expect(builder.observe(cdpStart(ctx, { wallTime: 1000 }))).toEqual([]);
+    // issue at the timing base (999) so the hop isn't reported as queued.
+    expect(builder.observe(cdpStart(ctx, { wallTime: 1000, timestamp: 999 }))).toEqual([]);
 
     const hop0 = builder.observe(
       cdpRedirect(
@@ -781,6 +809,31 @@ describe('CdpHarBuilder — failed-terminal finalization', () => {
     expect(failed._resourceType).toBe('media');
     // Time computed from the failure timestamp against the timing base.
     expect(failed.time).toBe(654);
+  });
+
+  it('accumulates _transferSize from dataReceived wire bytes when a hop aborts mid-body', () => {
+    const builder = new CdpHarBuilder();
+    builder.observe(cdpStart(ctx, { type: 'Media', timestamp: 1000 }));
+    builder.observe(
+      cdpResponse(ctx, {
+        type: 'Media',
+        response: {
+          url: 'https://cdn.openheaders.io/clip.mp4',
+          status: 206,
+          statusText: 'Partial Content',
+          encodedDataLength: 433, // header floor reported at responseReceived
+          timing: { requestTime: 1000, sendStart: 0, sendEnd: 1, receiveHeadersEnd: 5 },
+        },
+      }),
+    );
+    // ~87 kB of wire bytes streamed (141765 decoded) before the <video> aborts;
+    // no loadingFinished arrives, so the summed chunks are the transfer size.
+    builder.observe(cdpData(ctx, 141765, { encodedDataLength: 89116 }));
+    const failed = lastHarEntry(
+      builder.observe(cdpFailed(ctx, { type: 'Media', errorText: 'net::ERR_ABORTED', timestamp: 1000.654 })),
+    );
+    expect(failed.response?._transferSize).toBe(89549); // 433 floor + 89116 streamed
+    expect(failed.response?.content.size).toBe(141765);
   });
 
   it('returns no update for a failure with no response (blocked status-0 beacon)', () => {

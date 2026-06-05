@@ -41,7 +41,15 @@
 import type { RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarEntry } from '@openheaders/core/types';
 
-import { cdpRequestToHar, cdpResponseToHar, cdpTimingToHar, totalTimeMs, wallTimeToIso } from './cdp-har-synth';
+import {
+  cdpInitiatorToHar,
+  cdpRequestToHar,
+  cdpResponseToHar,
+  cdpTimingToHar,
+  harTimeFromTimings,
+  totalTimeMs,
+  wallTimeToIso,
+} from './cdp-har-synth';
 import {
   type CdpInitiator,
   type CdpNetworkEvent,
@@ -197,7 +205,7 @@ export class CdpHarBuilder {
       case 'Network.responseReceived':
         return this.onResponse(event.tabId, requestId, event.response);
       case 'Network.dataReceived':
-        return this.onData(event.tabId, requestId, event.dataLength);
+        return this.onData(event.tabId, requestId, event.dataLength, event.encodedDataLength);
       case 'Network.loadingFinished':
         return this.onFinished(event.tabId, requestId, event.encodedDataLength, event.timestamp);
       case 'Network.loadingFailed':
@@ -341,16 +349,26 @@ export class CdpHarBuilder {
   }
 
   /**
-   * Accumulate one decoded body chunk into the current hop's content size.
-   * No emit of its own — the refined `loadingFinished` HAR carries the
-   * total, matching the partial→refined cadence (a per-chunk re-emit would
-   * be O(chunks) store writes for the same final value).
+   * Accumulate one body chunk into the current hop: `dataLength` (decoded)
+   * into the content size, `encodedDataLength` (wire) onto the transfer-size
+   * floor. The transfer floor matters for a hop that aborts mid-body — no
+   * `loadingFinished` arrives to supply the authoritative total, so the
+   * summed wire bytes are the only transfer size we can report (a clean hop's
+   * floor is overwritten by `loadingFinished`'s total). No emit of its own —
+   * the refined HAR carries both, matching the partial→refined cadence (a
+   * per-chunk re-emit would be O(chunks) store writes for the same value).
    */
-  private onData(tabId: number, requestId: string, dataLength: number): readonly RequestLifecycleUpdate[] {
+  private onData(
+    tabId: number,
+    requestId: string,
+    dataLength: number,
+    encodedDataLength: number,
+  ): readonly RequestLifecycleUpdate[] {
     const state = this.getState(tabId, requestId);
     const hop = state?.hops[state.hopCursor];
     if (hop === undefined) return [];
     hop.contentSize = (hop.contentSize ?? 0) + dataLength;
+    hop.transferSize = (hop.transferSize ?? 0) + encodedDataLength;
     return [];
   }
 
@@ -455,29 +473,35 @@ export class CdpHarBuilder {
     const requestExtra = state.requestExtraByHop[hopIndex];
     const responseExtra = state.responseExtraByHop[hopIndex];
     const connectionId = connectionIdString(response?.connectionId);
+    const timings =
+      response?.timing !== undefined ? cdpTimingToHar(response.timing, hop.totalMs, hop.issuedSec) : undefined;
+    // `time` is the leg-sum once a terminal arrives (matching Chrome); a
+    // pre-terminal partial leaves it absent, the signal that it has not
+    // refined yet.
+    const time =
+      hop.totalMs === undefined ? undefined : timings !== undefined ? harTimeFromTimings(timings) : hop.totalMs;
+    // Key order mirrors Chrome's exporter (`EntryDTO`); `pageref` is
+    // appended downstream by the HAR exporter.
     const har: InspectorHarEntry = {
-      startedDateTime: hop.startedDateTime,
-      ...(hop.totalMs !== undefined ? { time: hop.totalMs } : {}),
+      _initiator: cdpInitiatorToHar(hop.initiator),
+      _priority: hop.request.initialPriority ?? null,
+      ...(hop.resourceType !== undefined ? { _resourceType: hop.resourceType.toLowerCase() } : {}),
       // Empty object, HAR-spec-required and emitted on every Chrome entry.
       cache: {},
-      request: cdpRequestToHar(hop.request, requestExtra),
+      ...(response?.remotePort !== undefined ? { connection: String(response.remotePort) } : {}),
+      request: cdpRequestToHar(hop.request, response?.protocol, requestExtra),
       ...(response !== undefined
         ? { response: cdpResponseToHar(response, hop.transferSize, hop.contentSize, hop.error, responseExtra) }
         : {}),
       // IPv6 normalization, matched verbatim to Chrome's exporter (it strips
       // only an empty `[]` sequence; real bracketed addresses pass through).
-      ...(response?.remoteIPAddress !== undefined
-        ? { serverIPAddress: response.remoteIPAddress.replace(/\[\]/g, '') }
-        : {}),
-      ...(response?.remotePort !== undefined ? { connection: String(response.remotePort) } : {}),
-      ...(connectionId !== undefined ? { _connectionId: connectionId } : {}),
-      ...(response?.timing !== undefined
-        ? { timings: cdpTimingToHar(response.timing, hop.totalMs, hop.issuedSec) }
-        : {}),
+      // Always present, like Chrome (`''` when no peer address is known).
+      serverIPAddress: (response?.remoteIPAddress ?? '').replace(/\[\]/g, ''),
+      startedDateTime: hop.startedDateTime,
+      ...(time !== undefined ? { time } : {}),
+      ...(timings !== undefined ? { timings } : {}),
       ...(isDiskCacheHit(response, hop.transferSize) ? { _fromCache: 'disk' } : {}),
-      ...(hop.initiator !== undefined ? { _initiator: hop.initiator } : {}),
-      ...(hop.request.initialPriority !== undefined ? { _priority: hop.request.initialPriority } : {}),
-      ...(hop.resourceType !== undefined ? { _resourceType: hop.resourceType.toLowerCase() } : {}),
+      ...(connectionId !== undefined ? { _connectionId: connectionId } : {}),
     };
     return { kind: 'har-attached', tabId, requestId, hopIndex, har };
   }

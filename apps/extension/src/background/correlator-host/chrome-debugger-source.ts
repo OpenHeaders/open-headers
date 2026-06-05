@@ -374,6 +374,10 @@ interface RawResourceTiming {
   readonly sendEnd?: number;
   readonly receiveHeadersStart?: number;
   readonly receiveHeadersEnd?: number;
+  readonly workerStart?: number;
+  readonly workerReady?: number;
+  readonly workerFetchStart?: number;
+  readonly workerRespondWithSettled?: number;
 }
 
 interface RawResponse {
@@ -630,6 +634,10 @@ function normalizeTiming(t: RawResourceTiming): CdpResourceTiming {
     ...(t.sendEnd !== undefined ? { sendEnd: t.sendEnd } : {}),
     ...(t.receiveHeadersStart !== undefined ? { receiveHeadersStart: t.receiveHeadersStart } : {}),
     ...(t.receiveHeadersEnd !== undefined ? { receiveHeadersEnd: t.receiveHeadersEnd } : {}),
+    ...(t.workerStart !== undefined ? { workerStart: t.workerStart } : {}),
+    ...(t.workerReady !== undefined ? { workerReady: t.workerReady } : {}),
+    ...(t.workerFetchStart !== undefined ? { workerFetchStart: t.workerFetchStart } : {}),
+    ...(t.workerRespondWithSettled !== undefined ? { workerRespondWithSettled: t.workerRespondWithSettled } : {}),
   };
 }
 
