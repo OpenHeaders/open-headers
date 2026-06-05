@@ -180,7 +180,11 @@ describe('CdpCorrelatorStub → RequestLifecycleStore — failure trace', () => 
     expect(lc.error?.reason).toBe('tls');
     expect(lc.completedAtMs).toBe(100_700);
     expect(h.onReject).not.toHaveBeenCalled();
-    expect(h.applied.map((u) => u.kind)).toEqual(['started', 'phase']);
+    // A failed-before-response request still synthesizes a status-0 HAR entry
+    // (Chrome parity), so a har-attached follows the phase update.
+    expect(h.applied.map((u) => u.kind)).toEqual(['started', 'phase', 'har-attached']);
+    expect(lc.har[0]?.response?.status).toBe(0);
+    expect(lc.har[0]?.response?._error).toBe('net::ERR_CONNECTION_RESET');
 
     h.correlator.dispose();
   });

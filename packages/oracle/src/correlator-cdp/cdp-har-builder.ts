@@ -42,6 +42,7 @@ import type { RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle
 import type { InspectorHarEntry } from '@openheaders/core/types';
 
 import {
+  cdpBlockedTimings,
   cdpInitiatorToHar,
   cdpRequestToHar,
   cdpResponseToHar,
@@ -57,6 +58,7 @@ import {
   type CdpResponseParams,
   cdpStoreRequestId,
 } from './events';
+import { round3 } from './units';
 
 /**
  * Per-tab cap on concurrently-tracked requests. Bounds the leak from
@@ -104,6 +106,16 @@ function connectionIdString(connectionId: number | undefined): string | undefine
  */
 function isDiskCacheHit(response: CdpResponseParams | undefined, transferSize: number | undefined): boolean {
   return Boolean(response?.fromDiskCache) && !transferSize;
+}
+
+/**
+ * Synthetic status-0 response for a request that failed before any real
+ * response (a blocked beacon). Chrome still exports a full entry for these
+ * — request + a `status: 0` response carrying the `_error` — so we
+ * reconstruct the same shape from the request alone.
+ */
+function blockedResponse(url: string): CdpResponseParams {
+  return { url, status: 0, statusText: '' };
 }
 
 /**
@@ -396,8 +408,9 @@ export class CdpHarBuilder {
    * resolves `time` (the body leg ran up to the abort), and `_error`
    * records the net-stack code. The transfer-size floor set on
    * `responseReceived` carries through (`loadingFailed` itself has no size).
-   * A failure with no response (a blocked status-0 beacon) has no hop HAR
-   * to refine — mark finalized for gc and emit nothing, as before.
+   * A failure with no response (a blocked status-0 beacon) still gets a full
+   * entry, like Chrome: a synthetic status-0 response carrying `_error`, the
+   * whole span attributed to `blocked` (the no-response timing branch).
    */
   private onFailed(
     tabId: number,
@@ -410,9 +423,18 @@ export class CdpHarBuilder {
     if (state === undefined) return [];
     const hopIndex = state.hopCursor;
     const hop = state.hops[hopIndex];
-    if (hop === undefined || hop.response === undefined) return [];
+    if (hop === undefined) return [];
     hop.error = errorText;
-    hop.totalMs = totalTimeMs(hop.response.timing, failedSec);
+    if (hop.response === undefined) {
+      // Blocked before any response: synthesize a status-0 response carrying
+      // `_error`; the whole span is attributed to `blocked` (`failed −
+      // issued`), Chrome's no-response timing branch (see `emitHop`).
+      hop.response = blockedResponse(hop.request.url);
+      hop.transferSize = 0;
+      hop.totalMs = round3((failedSec - hop.issuedSec) * 1000);
+    } else {
+      hop.totalMs = totalTimeMs(hop.response.timing, failedSec);
+    }
     return this.collect(this.emitHop(tabId, requestId, state, hopIndex));
   }
 
@@ -474,7 +496,13 @@ export class CdpHarBuilder {
     const responseExtra = state.responseExtraByHop[hopIndex];
     const connectionId = connectionIdString(response?.connectionId);
     const timings =
-      response?.timing !== undefined ? cdpTimingToHar(response.timing, hop.totalMs, hop.issuedSec) : undefined;
+      response?.timing !== undefined
+        ? cdpTimingToHar(response.timing, hop.totalMs, hop.issuedSec)
+        : // A failed-before-response hop has no ResourceTiming; attribute the
+          // whole span to `blocked`, matching Chrome's no-response branch.
+          hop.error !== undefined && hop.totalMs !== undefined
+          ? cdpBlockedTimings(hop.totalMs)
+          : undefined;
     // `time` is the leg-sum once a terminal arrives (matching Chrome); a
     // pre-terminal partial leaves it absent, the signal that it has not
     // refined yet.

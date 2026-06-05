@@ -836,10 +836,31 @@ describe('CdpHarBuilder — failed-terminal finalization', () => {
     expect(failed.response?.content.size).toBe(141765);
   });
 
-  it('returns no update for a failure with no response (blocked status-0 beacon)', () => {
+  it('synthesizes a full status-0 entry for a failure with no response (blocked beacon)', () => {
     const builder = new CdpHarBuilder();
-    builder.observe(cdpStart(ctx));
-    expect(builder.observe(cdpFailed(ctx, { errorText: 'net::ERR_BLOCKED_BY_CLIENT' }))).toEqual([]);
+    builder.observe(cdpStart(ctx, { type: 'Ping', timestamp: 100 }));
+    // Blocked before any response — Chrome still exports a full entry.
+    const entry = lastHarEntry(
+      builder.observe(cdpFailed(ctx, { type: 'Ping', errorText: 'net::ERR_BLOCKED_BY_CLIENT', timestamp: 100.7 })),
+    );
+    expect(entry.response?.status).toBe(0);
+    expect(entry.response?._error).toBe('net::ERR_BLOCKED_BY_CLIENT');
+    expect(entry.response?.content).toEqual({ size: 0, mimeType: 'x-unknown' });
+    expect(entry.response?._transferSize).toBe(0);
+    expect(entry._resourceType).toBe('ping');
+    // Whole span attributed to blocked (failed 100.7 − issued 100 = 700ms).
+    expect(entry.time).toBe(700);
+    expect(entry.timings).toEqual({
+      blocked: 700,
+      dns: -1,
+      ssl: -1,
+      connect: -1,
+      send: 0,
+      wait: 0,
+      receive: 0,
+      _blocked_queueing: -1,
+    });
+    expect(entry.request?.url).toBe('https://api.openheaders.io/users');
   });
 
   it('ignores a failure for an unknown request (no state) without throwing', () => {

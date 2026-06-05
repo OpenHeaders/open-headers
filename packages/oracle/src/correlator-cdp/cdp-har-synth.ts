@@ -245,7 +245,9 @@ export function cdpResponseToHar(
     httpVersion: harHttpVersion(response.protocol),
     headers: headerRecordToHar(headers),
     cookies: parseResponseCookies(headers) ?? [],
-    content: { size: decodedContentSize(contentSize, headers), mimeType: response.mimeType ?? '' },
+    // `x-unknown` is Chrome's mime fallback when none was resolved (a
+    // blocked/aborted request never learns one).
+    content: { size: decodedContentSize(contentSize, headers), mimeType: response.mimeType || 'x-unknown' },
     // The redirect target, always present on a Chrome export: the `Location`
     // header for a redirect hop, `''` otherwise.
     redirectURL: findHeader(headers, 'Location') || '',
@@ -362,6 +364,25 @@ export function harTimeFromTimings(timings: HarTimings): number {
     total += Math.max(leg ?? -1, 0);
   }
   return round3(total);
+}
+
+/**
+ * Timings for a request that failed before any response (a blocked
+ * status-0 beacon). Chrome's exporter takes the no-response branch:
+ * everything is attributed to `blocked` (= end − issue), every other leg is
+ * `-1`/`0`, and no connection-stage or worker legs are present.
+ */
+export function cdpBlockedTimings(blockedMs: number): HarTimings {
+  return {
+    blocked: round3(blockedMs),
+    dns: -1,
+    ssl: -1,
+    connect: -1,
+    send: 0,
+    wait: 0,
+    receive: 0,
+    _blocked_queueing: -1,
+  };
 }
 
 /** Total request span in ms: terminal monotonic timestamp minus the timing base. */
