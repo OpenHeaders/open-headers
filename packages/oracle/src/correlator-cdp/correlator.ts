@@ -1,18 +1,23 @@
 /**
- * `CdpCorrelatorStub` — typechecked, unit-tested implementation of
- * {@link RequestCorrelator} backed by a mocked CDP event source.
+ * `CdpCorrelator` — production implementation of {@link RequestCorrelator}
+ * backed by a {@link CdpEventSource}. Projects CDP `Network.*` events into
+ * lifecycle updates and synthesizes per-hop `InspectorHarEntry`s so the
+ * panel's rich columns populate without the heuristic webRequest + HAR
+ * pipeline.
  *
- * Purpose (per §6.2 of the design + K1–K4 in
- * `REQUEST_LIFECYCLE_STATUS.md`): enforce that the correlator interface
- * is real. The heuristic implementation alone is not enough to validate
- * the seam — if a second strategy can't satisfy the same contract,
- * the contract is over-fit to webRequest's shape. This stub closes
- * that loop.
+ * Construction is dependency-injected: the caller passes a
+ * {@link CdpEventSource}. This module names no chrome API — the
+ * chrome-backed source (`chrome.debugger.onEvent`) lives in the extension
+ * SW one layer out (Slice 2); tests pass an in-memory source. The class
+ * stays host-neutral.
  *
- * The stub is NOT for production. Calling {@link CdpCorrelatorStub.fromChromeDebugger}
- * throws `NotImplementedError` (K4); production paths must not
- * instantiate it. Tests construct it with an in-memory
- * {@link CdpEventSource}.
+ * Shape mirrors {@link HeuristicCorrelator} (sibling module): a per-tab
+ * `attached` gate, a listener set, and stateful helpers it owns. Here the
+ * single helper is {@link CdpHarBuilder}, which accumulates HAR across the
+ * multi-event request lifecycle. Each event is mapped twice: the pure
+ * {@link cdpEventToUpdates} emits `started`/`redirect`/`phase` (lifecycle
+ * spine), then the builder emits any completed `har-attached` — pure
+ * first, so `started` precedes its `har-attached`.
  */
 
 import type {
@@ -22,35 +27,18 @@ import type {
   Unsubscribe,
 } from '@openheaders/core/request-lifecycle';
 
+import { CdpHarBuilder } from './cdp-har-builder';
 import { cdpEventToUpdates } from './cdp-to-update';
 import type { CdpEventSource, CdpNetworkEvent } from './events';
 
-export class NotImplementedError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'NotImplementedError';
-  }
-}
-
-export class CdpCorrelatorStub implements RequestCorrelator {
+export class CdpCorrelator implements RequestCorrelator {
   private readonly listeners = new Set<RequestLifecycleListener>();
   private readonly attached = new Set<number>();
+  private readonly harBuilder = new CdpHarBuilder();
   private readonly sourceUnsubscribe: () => void;
 
   constructor(source: CdpEventSource) {
     this.sourceUnsubscribe = source.subscribe((event) => this.onEvent(event));
-  }
-
-  /**
-   * Real-Chrome instantiation point. Intentionally throws — see class
-   * doc and K4. Lives here so the chrome-side wiring is *named* and
-   * lints against rather than absent.
-   */
-  static fromChromeDebugger(): never {
-    throw new NotImplementedError(
-      'CdpCorrelatorStub is a typechecked-only seam validator; it does not ship against real Chrome. ' +
-        'Wire the heuristic correlator instead.',
-    );
   }
 
   attachTab(tabId: number): void {
@@ -59,6 +47,7 @@ export class CdpCorrelatorStub implements RequestCorrelator {
 
   detachTab(tabId: number): void {
     this.attached.delete(tabId);
+    this.harBuilder.forgetTab(tabId);
   }
 
   subscribe(listener: RequestLifecycleListener): Unsubscribe {
@@ -73,12 +62,16 @@ export class CdpCorrelatorStub implements RequestCorrelator {
     this.sourceUnsubscribe();
     this.listeners.clear();
     this.attached.clear();
+    this.harBuilder.clear();
   }
 
   private onEvent(event: CdpNetworkEvent): void {
     if (!this.attached.has(event.tabId)) return;
-    const updates = cdpEventToUpdates(event);
-    for (const update of updates) this.emit(update);
+    // Lifecycle spine first (started/redirect/phase), then the HAR the
+    // builder completed from this event — so `started` always precedes
+    // its `har-attached`.
+    for (const update of cdpEventToUpdates(event)) this.emit(update);
+    for (const update of this.harBuilder.observe(event)) this.emit(update);
   }
 
   private emit(update: RequestLifecycleUpdate): void {

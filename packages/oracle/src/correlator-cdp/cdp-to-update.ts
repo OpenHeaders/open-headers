@@ -11,8 +11,8 @@
  * already present in `request.url`.
  *
  * This module is the engine-shaped side of the seam — it knows nothing
- * about chrome.debugger; the `CdpCorrelatorStub` wires events from a
- * mocked `CdpEventSource` into it.
+ * about chrome.debugger; the `CdpCorrelator` wires events from a
+ * `CdpEventSource` into it.
  */
 
 import type { RequestLifecycle, RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle';
@@ -32,9 +32,7 @@ const secondsToMs = (t: number): number => Math.round(t * 1000);
 export function cdpEventToUpdates(event: CdpNetworkEvent): readonly RequestLifecycleUpdate[] {
   switch (event.method) {
     case 'Network.requestWillBeSent':
-      return event.redirectResponse !== undefined
-        ? [redirectUpdate(event)]
-        : [startedUpdate(event)];
+      return event.redirectResponse !== undefined ? [redirectUpdate(event)] : [startedUpdate(event)];
     case 'Network.responseReceived':
       return [headersReceivedUpdate(event)];
     case 'Network.loadingFinished':
@@ -120,9 +118,7 @@ function completedUpdate(
   };
 }
 
-function failedUpdate(
-  event: Extract<CdpNetworkEvent, { method: 'Network.loadingFailed' }>,
-): RequestLifecycleUpdate {
+function failedUpdate(event: Extract<CdpNetworkEvent, { method: 'Network.loadingFailed' }>): RequestLifecycleUpdate {
   return {
     kind: 'phase',
     tabId: event.tabId,

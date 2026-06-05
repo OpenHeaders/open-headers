@@ -14,29 +14,19 @@
  * traces will surface a rejection here.
  */
 
+import type { RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle';
 import { describe, expect, it, vi } from 'vitest';
 
-import type {
-  RequestLifecycleUpdate,
-} from '@openheaders/core/request-lifecycle';
-
-import { CdpCorrelatorStub } from '../../src/correlator-cdp/correlator';
+import { CdpCorrelator } from '../../src/correlator-cdp/correlator';
 import type { CdpNetworkEvent } from '../../src/correlator-cdp/events';
 import { RequestLifecycleStore } from '../../src/request-lifecycle-store/store';
 
-import {
-  cdpFailed,
-  cdpFinished,
-  cdpRedirect,
-  cdpResponse,
-  cdpStart,
-  type TraceCtx,
-} from './builders';
+import { cdpFailed, cdpFinished, cdpRedirect, cdpResponse, cdpStart, type TraceCtx } from './builders';
 import { InMemoryCdpSource } from './in-memory-source';
 
 interface Harness {
   readonly source: InMemoryCdpSource;
-  readonly correlator: CdpCorrelatorStub;
+  readonly correlator: CdpCorrelator;
   readonly store: RequestLifecycleStore;
   readonly onReject: ReturnType<typeof vi.fn>;
   readonly applied: RequestLifecycleUpdate[];
@@ -44,7 +34,7 @@ interface Harness {
 
 function harness(ctx: TraceCtx): Harness {
   const source = new InMemoryCdpSource();
-  const correlator = new CdpCorrelatorStub(source);
+  const correlator = new CdpCorrelator(source);
   const onReject = vi.fn();
   const store = new RequestLifecycleStore({ onReject });
   const applied: RequestLifecycleUpdate[] = [];
@@ -75,8 +65,10 @@ describe('CdpCorrelatorStub → RequestLifecycleStore — canonical success trac
     expect(lc.redirectHopCount).toBe(0);
     expect(lc.redirectHops).toEqual([]);
     expect(h.onReject).not.toHaveBeenCalled();
-    // Applied stream: started → phase(headers-received) → phase(completed).
-    expect(h.applied.map((u) => u.kind)).toEqual(['started', 'phase', 'phase']);
+    // Applied stream: started → phase(headers-received) + har-attached →
+    // phase(completed) + refined har-attached. The builder emits a HAR at
+    // responseReceived and refines it at loadingFinished.
+    expect(h.applied.map((u) => u.kind)).toEqual(['started', 'phase', 'har-attached', 'phase', 'har-attached']);
 
     h.correlator.dispose();
   });
@@ -113,8 +105,18 @@ describe('CdpCorrelatorStub → RequestLifecycleStore — single-redirect trace'
     expect(lc.redirectHops[0]?.redirectUrl).toBe('https://api.openheaders.io/v2/users');
     expect(lc.redirectHops[0]?.statusCode).toBe(301);
     expect(h.onReject).not.toHaveBeenCalled();
-    // Applied stream: started → redirect → phase(headers-received) → phase(completed).
-    expect(h.applied.map((u) => u.kind)).toEqual(['started', 'redirect', 'phase', 'phase']);
+    // Applied stream: started → redirect + har-attached(hop 0, synthesized
+    // from redirectResponse) → phase(headers-received) + har-attached(hop 1)
+    // → phase(completed) + refined har-attached(hop 1).
+    expect(h.applied.map((u) => u.kind)).toEqual([
+      'started',
+      'redirect',
+      'har-attached',
+      'phase',
+      'har-attached',
+      'phase',
+      'har-attached',
+    ]);
 
     h.correlator.dispose();
   });
@@ -166,10 +168,7 @@ describe('CdpCorrelatorStub → RequestLifecycleStore — failure trace', () => 
 
   it('start → loadingFailed lands in a failed phase with a populated error', () => {
     const h = harness(CTX);
-    runTrace(h, [
-      cdpStart(CTX),
-      cdpFailed(CTX, { errorText: 'net::ERR_CONNECTION_RESET', blockedReason: 'tls' }),
-    ]);
+    runTrace(h, [cdpStart(CTX), cdpFailed(CTX, { errorText: 'net::ERR_CONNECTION_RESET', blockedReason: 'tls' })]);
 
     const lc = h.store.get(CTX.tabId, CTX.requestId);
     if (lc === undefined) throw new Error('expected lifecycle');

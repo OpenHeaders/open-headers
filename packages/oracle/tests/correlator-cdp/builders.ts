@@ -15,15 +15,18 @@ import type {
 export interface TraceCtx {
   readonly tabId: number;
   readonly requestId: string;
+  /** CDP session the trace runs on; defaults to the tab's page target. */
+  readonly sessionId?: string;
 }
 
-export function cdpStart(
-  ctx: TraceCtx,
-  overrides: Partial<CdpRequestWillBeSent> = {},
-): CdpRequestWillBeSent {
+/** Page-target session id used when a {@link TraceCtx} omits one. */
+export const PAGE_SESSION = 'session-page';
+
+export function cdpStart(ctx: TraceCtx, overrides: Partial<CdpRequestWillBeSent> = {}): CdpRequestWillBeSent {
   return {
     method: 'Network.requestWillBeSent',
     tabId: ctx.tabId,
+    sessionId: ctx.sessionId ?? PAGE_SESSION,
     requestId: ctx.requestId,
     loaderId: 'L1',
     documentURL: 'https://app.openheaders.io/',
@@ -50,13 +53,11 @@ export function cdpRedirect(
   });
 }
 
-export function cdpResponse(
-  ctx: TraceCtx,
-  overrides: Partial<CdpResponseReceived> = {},
-): CdpResponseReceived {
+export function cdpResponse(ctx: TraceCtx, overrides: Partial<CdpResponseReceived> = {}): CdpResponseReceived {
   return {
     method: 'Network.responseReceived',
     tabId: ctx.tabId,
+    sessionId: ctx.sessionId ?? PAGE_SESSION,
     requestId: ctx.requestId,
     timestamp: 100.5,
     type: 'XHR',
@@ -65,13 +66,11 @@ export function cdpResponse(
   };
 }
 
-export function cdpFinished(
-  ctx: TraceCtx,
-  overrides: Partial<CdpLoadingFinished> = {},
-): CdpLoadingFinished {
+export function cdpFinished(ctx: TraceCtx, overrides: Partial<CdpLoadingFinished> = {}): CdpLoadingFinished {
   return {
     method: 'Network.loadingFinished',
     tabId: ctx.tabId,
+    sessionId: ctx.sessionId ?? PAGE_SESSION,
     requestId: ctx.requestId,
     timestamp: 100.9,
     encodedDataLength: 1024,
@@ -79,13 +78,11 @@ export function cdpFinished(
   };
 }
 
-export function cdpFailed(
-  ctx: TraceCtx,
-  overrides: Partial<CdpLoadingFailed> = {},
-): CdpLoadingFailed {
+export function cdpFailed(ctx: TraceCtx, overrides: Partial<CdpLoadingFailed> = {}): CdpLoadingFailed {
   return {
     method: 'Network.loadingFailed',
     tabId: ctx.tabId,
+    sessionId: ctx.sessionId ?? PAGE_SESSION,
     requestId: ctx.requestId,
     timestamp: 100.7,
     type: 'XHR',

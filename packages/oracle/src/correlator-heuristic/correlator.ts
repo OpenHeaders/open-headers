@@ -9,7 +9,7 @@
  * (`ChromeWebRequestEventSource`, `ChromeHarEventSource`) live in the
  * extension SW, one layer out. Tests pass in-memory sources.
  *
- * Shape mirrors `CdpCorrelatorStub` (sibling module) — the symmetry is
+ * Shape mirrors `CdpCorrelator` (sibling module) — the symmetry is
  * the proof that the {@link RequestCorrelator} contract is real and
  * not over-fit to either event source.
  *

@@ -6,9 +6,8 @@
  * mapper's shape directly.
  */
 
-import { describe, expect, it } from 'vitest';
-
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
+import { describe, expect, it } from 'vitest';
 
 import { cdpEventToUpdates } from '../../src/correlator-cdp/cdp-to-update';
 import type {
@@ -23,6 +22,7 @@ const TAB = 7;
 const initialRequest: CdpRequestWillBeSent = {
   method: 'Network.requestWillBeSent',
   tabId: TAB,
+  sessionId: 'session-page',
   requestId: 'cdp-1',
   loaderId: 'L1',
   documentURL: 'https://app.openheaders.io/',
@@ -47,6 +47,7 @@ const redirectStart: CdpRequestWillBeSent = {
 const responseReceived: CdpResponseReceived = {
   method: 'Network.responseReceived',
   tabId: TAB,
+  sessionId: 'session-page',
   requestId: 'cdp-1',
   timestamp: 100.8,
   type: 'XHR',
@@ -56,6 +57,7 @@ const responseReceived: CdpResponseReceived = {
 const loadingFinished: CdpLoadingFinished = {
   method: 'Network.loadingFinished',
   tabId: TAB,
+  sessionId: 'session-page',
   requestId: 'cdp-1',
   timestamp: 100.9,
   encodedDataLength: 1024,
@@ -117,6 +119,7 @@ describe('cdpEventToUpdates — canonical redirect + completion trace', () => {
     const failed: CdpLoadingFailed = {
       method: 'Network.loadingFailed',
       tabId: TAB,
+      sessionId: 'session-page',
       requestId: 'cdp-1',
       timestamp: 100.9,
       type: 'XHR',
