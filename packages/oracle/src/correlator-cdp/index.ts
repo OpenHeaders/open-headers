@@ -12,7 +12,15 @@
  */
 
 export { cdpBlockedReasonLabel } from './blocked-reason';
-export { CDP_HAR_RETENTION_MS, CdpHarBuilder, MAX_CDP_HAR_REQUESTS_PER_TAB } from './cdp-har-builder';
+export type { CdpBodySourceRequest, CdpRawResponseBody } from './cdp-body-synth';
+export { cdpBodyToHarBody, emptyCdpHarBody, MAX_CDP_RESPONSE_BODY_CHARS } from './cdp-body-synth';
+export type { CdpBodyRef } from './cdp-har-builder';
+export {
+  CDP_HAR_RETENTION_MS,
+  CdpHarBuilder,
+  MAX_CDP_BODY_REFS_PER_TAB,
+  MAX_CDP_HAR_REQUESTS_PER_TAB,
+} from './cdp-har-builder';
 export type { HarTimings } from './cdp-har-synth';
 export {
   cdpRequestToHar,
@@ -38,6 +46,7 @@ export type {
   CdpRequestWillBeSent,
   CdpRequestWillBeSentExtraInfo,
   CdpResourceTiming,
+  CdpResponseBody,
   CdpResponseParams,
   CdpResponseReceived,
   CdpResponseReceivedExtraInfo,

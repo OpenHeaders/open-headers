@@ -186,6 +186,45 @@ describe('CdpCorrelatorStub → RequestLifecycleStore — failure trace', () => 
   });
 });
 
+describe('CdpCorrelatorStub → RequestLifecycleStore — lazy body fetch round-trip', () => {
+  const CTX: TraceCtx = { tabId: 31, requestId: 'cdp-body' };
+
+  it('fetched body lands in harBodyByHop at the current hop with zero rejections', async () => {
+    const h = harness(CTX);
+    runTrace(h, [cdpStart(CTX), cdpResponse(CTX), cdpFinished(CTX)]);
+    h.source.bodyResponder = () => Promise.resolve({ body: '{"users":[]}', base64Encoded: false });
+
+    await h.correlator.requestBody(CTX.tabId, storeId(CTX), 0);
+
+    // The fetch resolved the raw CDP identity off the builder's ref.
+    expect(h.source.bodyCalls).toEqual([{ tabId: CTX.tabId, sessionId: PAGE_SESSION, rawRequestId: CTX.requestId }]);
+    const lc = h.store.get(CTX.tabId, storeId(CTX));
+    if (lc === undefined) throw new Error('expected lifecycle');
+    expect(lc.harBodyByHop[0]?.content).toBe('{"users":[]}');
+    expect(lc.harBodyByHop[0]?.encoding).toBe('');
+    // body-attached is a legal refinement — the reducer never rejects it.
+    expect(h.onReject).not.toHaveBeenCalled();
+
+    h.correlator.dispose();
+  });
+
+  it('a seam rejection lands an empty body so the slot stops reading "loading"', async () => {
+    const h = harness(CTX);
+    runTrace(h, [cdpStart(CTX), cdpResponse(CTX), cdpFinished(CTX)]);
+    h.source.bodyResponder = () => Promise.reject(new Error('No resource with given identifier found'));
+
+    await h.correlator.requestBody(CTX.tabId, storeId(CTX), 0);
+
+    const lc = h.store.get(CTX.tabId, storeId(CTX));
+    if (lc === undefined) throw new Error('expected lifecycle');
+    expect(lc.harBodyByHop[0]).toBeDefined();
+    expect(lc.harBodyByHop[0]?.content).toBe('');
+    expect(h.onReject).not.toHaveBeenCalled();
+
+    h.correlator.dispose();
+  });
+});
+
 describe('CdpCorrelatorStub → RequestLifecycleStore — tab scoping', () => {
   it('detachTab stops further events for that tab from entering the store', () => {
     const CTX: TraceCtx = { tabId: 99, requestId: 'cdp-detached' };

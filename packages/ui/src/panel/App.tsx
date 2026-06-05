@@ -417,6 +417,8 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
             lastSectionRef.current = s;
             groups.updateTab(tab.id, { activeSection: s });
           }}
+          source={lifecycleClient.source}
+          requestResponseBody={lifecycleClient.requestResponseBody}
           searchHighlight={isActiveTab ? searchHighlight : undefined}
           searchSection={isActiveTab ? searchSection : undefined}
           searchLineNumber={isActiveTab ? searchLineNumber : undefined}
@@ -438,6 +440,8 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       getRowByUrl,
       cacheBypass.enabled,
       liveRulesMode,
+      lifecycleClient.source,
+      lifecycleClient.requestResponseBody,
       searchHighlight,
       searchSection,
       searchLineNumber,

@@ -403,6 +403,29 @@ describe('acceptLifecyclePort', () => {
     expect(port.posted.some((m) => (m as { kind: string }).kind === 'source')).toBe(false);
   });
 
+  it('routes a request-body message to the body fetcher using the port tabId as authority', () => {
+    const store = new RequestLifecycleStore();
+    const hub = new RequestLifecycleHub({ store });
+    const port = fakePort(lifecyclePortName(7));
+    const requestBody = vi.fn(() => Promise.resolve());
+    acceptLifecyclePort(hub, port as unknown as chrome.runtime.Port, { bodyFetcher: { requestBody } });
+    subscribe(port);
+
+    port.emit({ kind: 'request-body', requestId: 'page::r-1', hopIndex: 2 });
+    // The port's tabId (7) is the authority; the message scopes only the
+    // request id + hop.
+    expect(requestBody).toHaveBeenCalledWith(7, 'page::r-1', 2);
+  });
+
+  it('drops a request-body message cleanly when no body fetcher is wired', () => {
+    const store = new RequestLifecycleStore();
+    const hub = new RequestLifecycleHub({ store });
+    const port = fakePort(lifecyclePortName(7));
+    acceptLifecyclePort(hub, port as unknown as chrome.runtime.Port);
+    subscribe(port);
+    expect(() => port.emit({ kind: 'request-body', requestId: 'page::r-1', hopIndex: 0 })).not.toThrow();
+  });
+
   it('defers attach until the readiness gate resolves', async () => {
     const store = new RequestLifecycleStore();
     store.apply({

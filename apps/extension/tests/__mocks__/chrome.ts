@@ -138,8 +138,12 @@ const debuggerDetachListeners = new Set<DebuggerDetachListener>();
 const debuggerMock = {
   attach: vi.fn((_target: chrome.debugger.Debuggee, _version: string) => Promise.resolve()),
   detach: vi.fn((_target: chrome.debugger.Debuggee) => Promise.resolve()),
-  sendCommand: vi.fn((_target: chrome.debugger.DebuggerSession, _method: string, _params?: Record<string, unknown>) =>
-    Promise.resolve(undefined),
+  sendCommand: vi.fn(
+    // Matches the real `chrome.debugger.sendCommand` return — `object |
+    // undefined` — so result-returning commands (e.g. Network.getResponseBody)
+    // can be stubbed with `mockResolvedValueOnce({...})`.
+    (_target: chrome.debugger.DebuggerSession, _method: string, _params?: Record<string, unknown>) =>
+      Promise.resolve<object | undefined>(undefined),
   ),
   getTargets: vi.fn(() => Promise.resolve([])),
   onEvent: {

@@ -62,7 +62,14 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
     bus: tabLifecycleBus,
     sessionFloors,
   });
-  startLifecyclePortHost({ hub: lifecycleHub, ready: sessionFloors.ready, provenance: lifecycleHost.router });
+  startLifecyclePortHost({
+    hub: lifecycleHub,
+    ready: sessionFloors.ready,
+    provenance: lifecycleHost.router,
+    // The CDP correlator fetches response bodies on demand; it gates on its
+    // own attach set, so a heuristic-owned tab is a clean no-op.
+    bodyFetcher: lifecycleHost.cdpCorrelator,
+  });
 
   const pageHub = new PageStreamHub({ bus: tabLifecycleBus });
   startPagePortHost({ hub: pageHub });

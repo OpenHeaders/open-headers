@@ -68,7 +68,34 @@ export const MAX_CDP_HAR_REQUESTS_PER_TAB = 5_000;
  */
 export const CDP_HAR_RETENTION_MS = 60_000;
 
+/**
+ * Per-tab cap on retained body refs (see {@link CdpBodyRef}). Sized to the
+ * store's per-tab lifecycle cap so a row still viewable in the panel always
+ * resolves a ref — the lazy body fetch (Slice 8) is keyed off the same
+ * identity. Refs are a handful of strings each, so this is cheap; unlike
+ * the HAR partials they survive the {@link CDP_HAR_RETENTION_MS} gc, since
+ * a body can be fetched long after its lifecycle finalized.
+ */
+export const MAX_CDP_BODY_REFS_PER_TAB = 10_000;
+
 const secondsToMs = (t: number): number => Math.round(t * 1000);
+
+/**
+ * The minimum a lazy body fetch needs to issue `Network.getResponseBody`
+ * and shape the resulting `InspectorHarBody`: the raw CDP identity the
+ * command targets, plus the source request's descriptive fields. Recorded
+ * per store id at request time and kept past the HAR-partial gc — a body
+ * may be opened long after the request finalized.
+ */
+export interface CdpBodyRef {
+  /** The session the request lives on — `Network.getResponseBody` routes here. */
+  readonly sessionId: string;
+  /** The session-local CDP `requestId` (not the composite store id). */
+  readonly rawRequestId: string;
+  readonly method: string;
+  readonly url: string;
+  readonly startedDateTime: string;
+}
 
 interface HopPartial {
   /** Wall-clock ISO start, stamped from this hop's `requestWillBeSent.wallTime`. */
@@ -114,6 +141,13 @@ function newRequestHarState(): RequestHarState {
 
 export class CdpHarBuilder {
   private readonly perTab = new Map<number, Map<string, RequestHarState>>();
+  /**
+   * Per-tab store-id → {@link CdpBodyRef}. Separate from {@link perTab} so
+   * it outlives the HAR-partial retention gc: a body fetch can land long
+   * after the partial was swept. Bounded by {@link MAX_CDP_BODY_REFS_PER_TAB}
+   * and dropped wholesale with the tab.
+   */
+  private readonly bodyRefs = new Map<number, Map<string, CdpBodyRef>>();
 
   /**
    * Fold one CDP event into the accumulating HAR state and return any
@@ -147,14 +181,26 @@ export class CdpHarBuilder {
     }
   }
 
+  /**
+   * The body ref for a store id, or `undefined` if the request was never
+   * seen on this tab (or its ref was cap-evicted). The lazy body fetcher
+   * (Slice 8) resolves the raw CDP identity + descriptive fields through
+   * this.
+   */
+  bodyContext(tabId: number, requestId: string): CdpBodyRef | undefined {
+    return this.bodyRefs.get(tabId)?.get(requestId);
+  }
+
   /** Drop all HAR state for a tab — invariant 2 (lifecycles die with the tab). */
   forgetTab(tabId: number): void {
     this.perTab.delete(tabId);
+    this.bodyRefs.delete(tabId);
   }
 
   /** Discard all accumulated state. */
   clear(): void {
     this.perTab.clear();
+    this.bodyRefs.clear();
   }
 
   /** Total tracked requests across all tabs — test helper. */
@@ -203,7 +249,33 @@ export class CdpHarBuilder {
       request: event.request,
       ...(event.initiator !== undefined ? { initiator: event.initiator } : {}),
     };
+    this.recordBodyRef(event, requestId);
     return updates;
+  }
+
+  /**
+   * Capture (or refresh) the body ref for this request. The raw identity is
+   * constant across a redirect chain; the descriptive fields track the
+   * latest hop, so a fetched body describes the response actually shown.
+   */
+  private recordBodyRef(
+    event: Extract<CdpNetworkEvent, { method: 'Network.requestWillBeSent' }>,
+    requestId: string,
+  ): void {
+    const tabRefs = this.ensureBodyRefs(event.tabId);
+    if (tabRefs.has(requestId)) tabRefs.delete(requestId);
+    tabRefs.set(requestId, {
+      sessionId: event.sessionId,
+      rawRequestId: event.requestId,
+      method: event.request.method,
+      url: event.request.url,
+      startedDateTime: wallTimeToIso(event.wallTime),
+    });
+    while (tabRefs.size > MAX_CDP_BODY_REFS_PER_TAB) {
+      const oldest = tabRefs.keys().next().value;
+      if (oldest === undefined) break;
+      tabRefs.delete(oldest);
+    }
   }
 
   private finalizeRedirectHop(
@@ -374,6 +446,15 @@ export class CdpHarBuilder {
       this.perTab.set(tabId, tabMap);
     }
     return tabMap;
+  }
+
+  private ensureBodyRefs(tabId: number): Map<string, CdpBodyRef> {
+    let tabRefs = this.bodyRefs.get(tabId);
+    if (tabRefs === undefined) {
+      tabRefs = new Map();
+      this.bodyRefs.set(tabId, tabRefs);
+    }
+    return tabRefs;
   }
 
   /**

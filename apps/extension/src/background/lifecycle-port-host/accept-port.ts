@@ -41,6 +41,17 @@ export interface LifecycleProvenance {
   onOwnerChange(listener: (tabId: number, owner: LifecycleSource) => void): () => void;
 }
 
+/**
+ * On-demand body fetch for the lone pull message on the port. The CDP
+ * correlator satisfies this directly — `requestBody` gates on its own
+ * attach set, so a heuristic-owned tab (body already eager) is a clean
+ * no-op. Optional: hosts/tests without a CDP data plane omit it and a
+ * `request-body` message is dropped.
+ */
+export interface LifecycleBodyFetcher {
+  requestBody(tabId: number, requestId: string, hopIndex: number): Promise<void>;
+}
+
 const defaultTrackerDeps: PanelWatchingTrackerDeps = {
   start: startTracking,
   stop: stopTracking,
@@ -56,6 +67,8 @@ export interface AcceptLifecyclePortOptions {
   readonly ready?: Promise<void>;
   /** Per-tab CDP-vs-heuristic provenance for the badge. Omit to disable. */
   readonly provenance?: LifecycleProvenance;
+  /** On-demand response-body fetch for `request-body`. Omit to disable. */
+  readonly bodyFetcher?: LifecycleBodyFetcher;
 }
 
 export function acceptLifecyclePort(
@@ -67,7 +80,7 @@ export function acceptLifecyclePort(
   if (tabId === null) return false;
   const sink = createPortSink(port);
   const tracker = attachPanelWatchingTracker(tabId, options.trackerDeps ?? defaultTrackerDeps);
-  const { ready, provenance } = options;
+  const { ready, provenance, bodyFetcher } = options;
 
   // Provenance: post the current owner on (re)connect (driven off the
   // subscribe handshake, which the panel resends on every reconnect) and
@@ -111,6 +124,13 @@ export function acceptLifecyclePort(
     }
     if (msg?.kind === 'clear-session') {
       whenReady(() => hub.resetSession(tabId));
+      return;
+    }
+    if (msg?.kind === 'request-body') {
+      // The port's tabId is the authority — the message scopes only the
+      // request + hop. Fire-and-forget: the body lands as a `body-attached`
+      // update on the push channel, never as a reply here.
+      void bodyFetcher?.requestBody(tabId, msg.requestId, msg.hopIndex);
     }
   });
   port.onDisconnect.addListener(() => {

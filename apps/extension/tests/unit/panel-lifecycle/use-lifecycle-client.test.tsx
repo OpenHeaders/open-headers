@@ -75,11 +75,17 @@ function installTransport(connect: (name: string) => LifelinePort): void {
 }
 
 function Probe(): React.ReactElement {
-  const { snapshot, tabId, clearSession } = useLifecycleClient();
+  const { snapshot, tabId, clearSession, requestResponseBody } = useLifecycleClient();
   return (
     <div>
       <button type="button" data-testid="clear" onClick={clearSession}>
         clear
+      </button>
+      <button type="button" data-testid="body-a0" onClick={() => requestResponseBody('r1', 0)}>
+        body a0
+      </button>
+      <button type="button" data-testid="body-a1" onClick={() => requestResponseBody('r1', 1)}>
+        body a1
       </button>
       <ul data-tabid={tabId ?? 'null'}>
         {snapshot.ordered.map((l: RequestLifecycle) => (
@@ -90,6 +96,12 @@ function Probe(): React.ReactElement {
       </ul>
     </div>
   );
+}
+
+function click(container: HTMLElement, testId: string): void {
+  act(() => {
+    container.querySelector<HTMLButtonElement>(`[data-testid="${testId}"]`)?.click();
+  });
 }
 
 describe('useLifecycleClient', () => {
@@ -361,5 +373,46 @@ describe('useLifecycleClient', () => {
     // floor so the cleared request does not replay on a later reconnect.
     expect(container.querySelector('li')).toBeNull();
     expect(port.posted).toContainEqual({ kind: 'clear-session' });
+  });
+
+  it('requestResponseBody posts a request-body frame at most once per (requestId, hop)', () => {
+    installNavigation(7);
+    const port = fakePort(lifecyclePortName(7));
+    installTransport(() => port);
+
+    const { container } = render(<Probe />);
+    const bodyFrames = () => port.posted.filter((m) => (m as { kind: string }).kind === 'request-body');
+
+    click(container, 'body-a0');
+    click(container, 'body-a0'); // de-duped — same (requestId, hop)
+    expect(bodyFrames()).toEqual([{ kind: 'request-body', requestId: 'r1', hopIndex: 0 }]);
+
+    // A distinct hop on the same request is a separate fetch.
+    click(container, 'body-a1');
+    expect(bodyFrames()).toEqual([
+      { kind: 'request-body', requestId: 'r1', hopIndex: 0 },
+      { kind: 'request-body', requestId: 'r1', hopIndex: 1 },
+    ]);
+  });
+
+  it('clears the body de-dupe on reconnect so an interrupted fetch is re-issued', () => {
+    installNavigation(9);
+    const first = fakePort(lifecyclePortName(9));
+    const second = fakePort(lifecyclePortName(9));
+    const connect = vi.fn().mockReturnValueOnce(first).mockReturnValueOnce(second);
+    installTransport(connect);
+
+    const { container } = render(<Probe />);
+    click(container, 'body-a0');
+    expect(first.posted).toContainEqual({ kind: 'request-body', requestId: 'r1', hopIndex: 0 });
+
+    // SW eviction → reconnect. The fresh `ready` replays rows with empty
+    // body slots, so the same key must be allowed to re-issue.
+    act(() => {
+      first.triggerDisconnect();
+      vi.advanceTimersByTime(250);
+    });
+    click(container, 'body-a0');
+    expect(second.posted).toContainEqual({ kind: 'request-body', requestId: 'r1', hopIndex: 0 });
   });
 });

@@ -41,6 +41,7 @@ import type {
   CdpNetworkEvent,
   CdpRequestParams,
   CdpResourceTiming,
+  CdpResponseBody,
   CdpResponseParams,
   CdpStackTrace,
 } from '@openheaders/oracle/correlator-cdp';
@@ -105,6 +106,29 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
     return () => {
       this.listeners.delete(listener);
     };
+  }
+
+  /**
+   * `CdpEventSource` pull seam — fetch one hop's response body on demand
+   * (Slice 8). Routes `Network.getResponseBody` on the matching session:
+   * the root page target carries the synthetic {@link ROOT_SESSION_ID}, so
+   * it maps to a bare `{tabId}` debuggee; a flattened child carries its
+   * real session id. Rejects on an absent transport (Firefox / Safari), a
+   * malformed result, or the host having dropped the body ("no resource
+   * with given identifier" once the renderer evicts it) — the correlator
+   * turns any rejection into an empty body, so the panel shows the
+   * "unavailable" copy rather than spinning.
+   */
+  async fetchResponseBody(tabId: number, sessionId: string, rawRequestId: string): Promise<CdpResponseBody> {
+    const api = this.api();
+    if (!api) throw new Error('CDP transport unavailable');
+    const session: chrome.debugger.DebuggerSession = sessionId === ROOT_SESSION_ID ? { tabId } : { tabId, sessionId };
+    const result = await api.sendCommand(session, 'Network.getResponseBody', { requestId: rawRequestId });
+    const raw = result as RawGetResponseBody | undefined;
+    if (typeof raw?.body !== 'string' || typeof raw.base64Encoded !== 'boolean') {
+      throw new Error('Network.getResponseBody returned an unexpected shape');
+    }
+    return { body: raw.body, base64Encoded: raw.base64Encoded };
   }
 
   /**
@@ -425,6 +449,12 @@ interface RawRequestWillBeSentExtraInfo {
 interface RawResponseReceivedExtraInfo {
   readonly requestId: string;
   readonly headers: Record<string, string>;
+}
+
+/** `Network.getResponseBody` result — body text + whether it is base64. */
+interface RawGetResponseBody {
+  readonly body: string;
+  readonly base64Encoded: boolean;
 }
 
 interface RawTargetInfo {

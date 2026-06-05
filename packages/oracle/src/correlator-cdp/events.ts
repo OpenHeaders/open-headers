@@ -248,12 +248,29 @@ export function cdpStoreRequestId(sessionId: string, requestId: string): string 
   return `${sessionId}::${requestId}`;
 }
 
+/** Result of `Network.getResponseBody` — body text + its encoding flag. */
+export interface CdpResponseBody {
+  readonly body: string;
+  readonly base64Encoded: boolean;
+}
+
 /**
  * The seam between the host-neutral correlator and the chrome bindings.
  * Tests inject an in-memory source; the extension SW injects a source
- * backed by `chrome.debugger.onEvent` (Slice 2). No `chrome.*` reference
- * crosses into this package.
+ * backed by `chrome.debugger` (Slice 2). No `chrome.*` reference crosses
+ * into this package.
+ *
+ * `subscribe` is the push half — the `Network.*` event stream. The lone
+ * pull half is {@link fetchResponseBody}: the correlator commands a body
+ * fetch on demand (Slice 8) when the panel asks for one. The seam takes
+ * `(tabId, sessionId, rawRequestId)` because a CDP `requestId` is unique
+ * only within a session and the adapter routes the command on the matching
+ * `chrome.debugger` session (root page target vs a flattened child). It
+ * rejects when the body is unavailable — the host evicted it, or the host
+ * has no CDP transport at all (Firefox / Safari) — and the correlator
+ * surfaces that as an empty body rather than a thrown error.
  */
 export interface CdpEventSource {
   subscribe(listener: (event: CdpNetworkEvent) => void): () => void;
+  fetchResponseBody(tabId: number, sessionId: string, rawRequestId: string): Promise<CdpResponseBody>;
 }

@@ -23,6 +23,15 @@
  * restarts without the consumer having to carry the floor itself;
  * `clear-session` starts a fresh floor.
  *
+ * `subscribe` / `clear-session` are push-declarations; `request-body` is
+ * the one pull on this port — a consumer asking the engine to fetch one
+ * hop's response body on demand. The whole pipeline is otherwise push
+ * (the engine streams updates as it observes them); a body is fetched only
+ * when the user opens a row's Response/Preview tab, so it rides this
+ * explicit request rather than being eagerly streamed. The engine answers
+ * by emitting an ordinary `body-attached` update on the push channel — the
+ * request carries no reply of its own.
+ *
  * The `ready` envelope also carries the current `sessionToken` — the
  * per-DevTools-session identity the engine resolves for the tab (minted by
  * the devtools_page, advanced on a genuine reopen). Consumers gate
@@ -76,8 +85,35 @@ export type LifecycleSubscribeMessage = { kind: 'subscribe' };
  */
 export type LifecycleClearSessionMessage = { kind: 'clear-session' };
 
+/**
+ * Consumer→engine. On-demand fetch of one hop's response body — the only
+ * pull on the lifecycle port. Sent when the user opens a row's
+ * Response/Preview tab and the body slot is still empty; the consumer
+ * de-dupes so at most one is sent per `(requestId, hopIndex)`. `requestId`
+ * is the store-facing request id (the composite the rows carry).
+ *
+ * The engine resolves the hop, fetches its body from whichever data plane
+ * owns the tab, and answers by emitting a `body-attached` update on the
+ * push channel — there is no direct reply. A request the engine cannot
+ * satisfy (heuristic-owned tab where the body is already eager, an unknown
+ * request, or a body the host has evicted) is answered with an empty-body
+ * `body-attached` or silently dropped, never an error frame.
+ *
+ * No `tabId` field — the per-tab port name scopes the request, exactly as
+ * for `subscribe` / `clear-session`; the engine fetches on the port's tab,
+ * so a consumer cannot reach across to another tab's bodies.
+ */
+export type LifecycleRequestBodyMessage = {
+  kind: 'request-body';
+  requestId: string;
+  hopIndex: number;
+};
+
 /** Every consumer→engine message on the lifecycle port. */
-export type LifecycleConsumerMessage = LifecycleSubscribeMessage | LifecycleClearSessionMessage;
+export type LifecycleConsumerMessage =
+  | LifecycleSubscribeMessage
+  | LifecycleClearSessionMessage
+  | LifecycleRequestBodyMessage;
 
 /** Channel-name prefix for the per-tab lifecycle pipe. */
 export const LIFECYCLE_PORT_PREFIX = 'oh-lifecycle:';

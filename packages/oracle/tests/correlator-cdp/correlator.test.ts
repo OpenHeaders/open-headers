@@ -73,3 +73,74 @@ describe('CdpCorrelator — attach / subscribe / emit', () => {
     expect(fn).not.toHaveBeenCalled();
   });
 });
+
+describe('CdpCorrelator — requestBody (lazy on-demand body fetch)', () => {
+  const STORE_ID = 'session-page::r-1';
+
+  function attachedWithRequest() {
+    const source = new InMemoryCdpSource();
+    const correlator = new CdpCorrelator(source);
+    const collected: RequestLifecycleUpdate[] = [];
+    correlator.subscribe((u) => collected.push(u));
+    correlator.attachTab(TAB);
+    // requestWillBeSent records the body ref the fetch resolves against.
+    source.emit(startEvent);
+    return { source, correlator, collected };
+  }
+
+  function bodyAttached(updates: RequestLifecycleUpdate[]) {
+    return updates.find((u) => u.kind === 'body-attached');
+  }
+
+  it('resolves the raw (sessionId, rawRequestId) and emits body-attached at the hop', async () => {
+    const { source, correlator, collected } = attachedWithRequest();
+    source.bodyResponder = () => Promise.resolve({ body: '{"ok":true}', base64Encoded: false });
+    await correlator.requestBody(TAB, STORE_ID, 0);
+    expect(source.bodyCalls).toEqual([{ tabId: TAB, sessionId: 'session-page', rawRequestId: 'r-1' }]);
+    const body = bodyAttached(collected);
+    expect(body).toMatchObject({ kind: 'body-attached', tabId: TAB, requestId: STORE_ID, hopIndex: 0 });
+    if (body?.kind === 'body-attached') {
+      expect(body.body.content).toBe('{"ok":true}');
+      expect(body.body.encoding).toBe('');
+    }
+    correlator.dispose();
+  });
+
+  it('maps a base64 body through to encoding base64', async () => {
+    const { source, correlator, collected } = attachedWithRequest();
+    source.bodyResponder = () => Promise.resolve({ body: 'AQID', base64Encoded: true });
+    await correlator.requestBody(TAB, STORE_ID, 0);
+    const body = bodyAttached(collected);
+    if (body?.kind === 'body-attached') expect(body.body.encoding).toBe('base64');
+    correlator.dispose();
+  });
+
+  it('emits an empty body when the seam rejects (host evicted the body)', async () => {
+    const { source, correlator, collected } = attachedWithRequest();
+    source.bodyResponder = () => Promise.reject(new Error('No resource with given identifier found'));
+    await correlator.requestBody(TAB, STORE_ID, 0);
+    const body = bodyAttached(collected);
+    expect(body?.kind).toBe('body-attached');
+    if (body?.kind === 'body-attached') expect(body.body.content).toBe('');
+    correlator.dispose();
+  });
+
+  it('emits an empty body for an unknown request id without hitting the seam', async () => {
+    const { source, correlator, collected } = attachedWithRequest();
+    await correlator.requestBody(TAB, 'session-page::missing', 0);
+    expect(source.bodyCalls).toHaveLength(0);
+    const body = bodyAttached(collected);
+    expect(body?.kind).toBe('body-attached');
+    if (body?.kind === 'body-attached') expect(body.body.content).toBe('');
+    correlator.dispose();
+  });
+
+  it('is a no-op for a tab not attached to this correlator', async () => {
+    const { source, correlator, collected } = attachedWithRequest();
+    correlator.detachTab(TAB);
+    await correlator.requestBody(TAB, STORE_ID, 0);
+    expect(source.bodyCalls).toHaveLength(0);
+    expect(bodyAttached(collected)).toBeUndefined();
+    correlator.dispose();
+  });
+});

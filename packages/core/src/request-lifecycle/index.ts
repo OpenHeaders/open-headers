@@ -36,6 +36,7 @@ export type {
 export type {
   LifecycleClearSessionMessage,
   LifecycleConsumerMessage,
+  LifecycleRequestBodyMessage,
   LifecycleSource,
   LifecycleSubscribeMessage,
   LifecycleWireMessage,

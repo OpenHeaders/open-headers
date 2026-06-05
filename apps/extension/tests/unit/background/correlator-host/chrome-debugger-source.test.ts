@@ -447,6 +447,64 @@ describe('ChromeDebuggerEventSource — inert without chrome.debugger', () => {
   });
 });
 
+describe('ChromeDebuggerEventSource — fetchResponseBody (on-demand pull seam)', () => {
+  function getBodyCall() {
+    return chromeMock.debugger.sendCommand.mock.calls.find((c) => c[1] === 'Network.getResponseBody');
+  }
+
+  it('issues Network.getResponseBody on the root page target and returns the result', async () => {
+    source = new ChromeDebuggerEventSource();
+    await source.attach(TAB);
+    chromeMock.debugger.sendCommand.mockResolvedValueOnce({ body: '{"ok":true}', base64Encoded: false });
+
+    const result = await source.fetchResponseBody(TAB, 'page', 'r-1');
+
+    expect(result).toEqual({ body: '{"ok":true}', base64Encoded: false });
+    const call = getBodyCall();
+    // Root session maps to a bare {tabId} debuggee (no sessionId).
+    expect(call?.[0]).toEqual({ tabId: TAB });
+    expect(call?.[2]).toEqual({ requestId: 'r-1' });
+  });
+
+  it('routes on a flattened child session and passes base64 through', async () => {
+    source = new ChromeDebuggerEventSource();
+    await source.attach(TAB);
+    chromeMock.debugger.sendCommand.mockResolvedValueOnce({ body: 'AQID', base64Encoded: true });
+
+    const result = await source.fetchResponseBody(TAB, CHILD_SESSION, 'r-7');
+
+    expect(result).toEqual({ body: 'AQID', base64Encoded: true });
+    expect(getBodyCall()?.[0]).toEqual({ tabId: TAB, sessionId: CHILD_SESSION });
+  });
+
+  it('rejects when the host has evicted the body', async () => {
+    source = new ChromeDebuggerEventSource();
+    await source.attach(TAB);
+    chromeMock.debugger.sendCommand.mockRejectedValueOnce(new Error('No resource with given identifier found'));
+
+    await expect(source.fetchResponseBody(TAB, 'page', 'r-gone')).rejects.toThrow();
+  });
+
+  it('rejects on a malformed result so the empty-body slot is never poisoned', async () => {
+    source = new ChromeDebuggerEventSource();
+    await source.attach(TAB);
+    chromeMock.debugger.sendCommand.mockResolvedValueOnce(undefined);
+
+    await expect(source.fetchResponseBody(TAB, 'page', 'r-1')).rejects.toThrow();
+  });
+
+  it('rejects when chrome.debugger is absent (inert host)', async () => {
+    vi.stubGlobal('chrome', { ...chromeMock, debugger: undefined });
+    try {
+      const inert = new ChromeDebuggerEventSource();
+      await expect(inert.fetchResponseBody(TAB, 'page', 'r-1')).rejects.toThrow();
+      inert.dispose();
+    } finally {
+      vi.stubGlobal('chrome', chromeMock);
+    }
+  });
+});
+
 describe('ChromeDebuggerEventSource → CdpCorrelator → RequestLifecycleStore (B1 end-to-end)', () => {
   it('page + OOPIF traces with a shared requestId land as two distinct rows, zero rejects', async () => {
     source = new ChromeDebuggerEventSource();

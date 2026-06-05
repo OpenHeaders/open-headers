@@ -5,7 +5,7 @@
  */
 
 import type { Page } from '@openheaders/core/page-stream';
-import type { RequestError, RequestLifecycle } from '@openheaders/core/request-lifecycle';
+import type { LifecycleSource, RequestError, RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ConnectionReuseInfo } from '../data/connection-reuse';
@@ -13,6 +13,7 @@ import { type AnnotatedHeader, attributeHeaders } from '../data/header-attributi
 import type { DetailSection } from '../data/inspector-tab';
 import {
   currentHarEntry,
+  currentResponseBody,
   type InspectorRowWithFires,
   isFailedLifecycle,
   lifecycleMimeType,
@@ -56,6 +57,10 @@ interface InspectorDetailContentProps {
   liveRulesMode: boolean;
   activeSection: DetailSection;
   onSectionChange: (section: DetailSection) => void;
+  /** Which correlator feeds the inspected tab; gates the lazy body fetch. */
+  source: LifecycleSource;
+  /** Ask the engine to fetch this hop's response body (CDP rows, on demand). */
+  requestResponseBody: (requestId: string, hopIndex: number) => void;
   searchHighlight?: string;
   searchSection?: string;
   searchLineNumber?: number;
@@ -95,6 +100,8 @@ export function InspectorDetailContent({
   liveRulesMode,
   activeSection,
   onSectionChange,
+  source,
+  requestResponseBody,
   searchHighlight,
   searchSection,
   searchLineNumber,
@@ -210,6 +217,20 @@ export function InspectorDetailContent({
   const createCancel = (): void => void handOff(() => buildBlockDraftFromRequest(lc));
 
   const section = activeSection;
+
+  // Lazy response-body fetch for CDP rows. The heuristic path attaches
+  // bodies eagerly, but CDP fetches on demand to spare the attached
+  // session per-request round-trips — so when the user opens
+  // Response/Preview and the body slot is still empty, ask for it. The
+  // request is de-duped per hop in the client; the body lands as a
+  // `body-attached` update and the classifier's `loading` covers the gap.
+  useEffect(() => {
+    if (source !== 'cdp') return;
+    if (section !== 'response' && section !== 'preview') return;
+    if (currentResponseBody(lc) !== null) return;
+    requestResponseBody(lc.requestId, lc.redirectHopCount);
+  }, [source, section, lc, requestResponseBody]);
+
   const showMessages = har != null && hasWebSocketMessages(har);
   const mime = lifecycleMimeType(lc);
   const showEventStream = isEventStream(mime);

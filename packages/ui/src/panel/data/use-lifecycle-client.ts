@@ -32,6 +32,7 @@
 
 import {
   type LifecycleClearSessionMessage,
+  type LifecycleRequestBodyMessage,
   type LifecycleSource,
   type LifecycleSubscribeMessage,
   type LifecycleWireMessage,
@@ -67,6 +68,14 @@ export interface UseLifecycleClientResult {
    * THIS (not `store`) as the panel's lifecycle resettable.
    */
   clearSession(): void;
+  /**
+   * Ask the engine to fetch one hop's response body on demand (CDP rows
+   * carry no body until asked). De-duped per `(requestId, hopIndex)` so the
+   * panel can call it freely from a render effect; the body lands as a
+   * `body-attached` update on the push channel. The de-dupe is cleared on
+   * reconnect, so a fetch interrupted by an SW eviction is re-issued.
+   */
+  requestResponseBody(requestId: string, hopIndex: number): void;
 }
 
 export function useLifecycleClient(): UseLifecycleClientResult {
@@ -75,13 +84,21 @@ export function useLifecycleClient(): UseLifecycleClientResult {
   const store = storeRef.current;
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [source, setSource] = useState<LifecycleSource>('heuristic');
+  // Body fetches already issued this connection, keyed `${requestId}:${hop}`,
+  // so a render-driven request fires at most once per hop. Cleared on
+  // (re)connect: a fresh `ready` replays the rows with empty body slots, so
+  // a fetch lost to an SW eviction must be allowed to re-issue.
+  const requestedBodiesRef = useRef<Set<string>>(new Set());
 
   // The session floor is engine-owned, so the panel never carries it: a
   // bare `subscribe` means "my watch session" and the engine resolves the
   // same floor on every reconnect/remount.
   const { tabId, post } = useLifelineClient<LifecycleWireMessage>({
     portName: lifecyclePortName,
-    onConnect: (send) => send({ kind: 'subscribe' } satisfies LifecycleSubscribeMessage),
+    onConnect: (send) => {
+      requestedBodiesRef.current.clear();
+      send({ kind: 'subscribe' } satisfies LifecycleSubscribeMessage);
+    },
     handler: (msg) => {
       switch (msg.kind) {
         case 'ready':
@@ -121,7 +138,17 @@ export function useLifecycleClient(): UseLifecycleClientResult {
     post({ kind: 'clear-session' } satisfies LifecycleClearSessionMessage);
   }, [store, post]);
 
+  const requestResponseBody = useCallback(
+    (requestId: string, hopIndex: number) => {
+      const key = `${requestId}:${hopIndex}`;
+      if (requestedBodiesRef.current.has(key)) return;
+      requestedBodiesRef.current.add(key);
+      post({ kind: 'request-body', requestId, hopIndex } satisfies LifecycleRequestBodyMessage);
+    },
+    [post],
+  );
+
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot);
 
-  return { snapshot, tabId, store, sessionToken, source, clearSession };
+  return { snapshot, tabId, store, sessionToken, source, clearSession, requestResponseBody };
 }
