@@ -93,11 +93,13 @@ const declarativeNetRequestMock = {
 };
 
 const webRequestMock = {
-  onBeforeRequest: { addListener: vi.fn() },
-  onCompleted: { addListener: vi.fn() },
-  onErrorOccurred: { addListener: vi.fn() },
-  onResponseStarted: { addListener: vi.fn() },
-  onBeforeRedirect: { addListener: vi.fn() },
+  onBeforeRequest: { addListener: vi.fn(), removeListener: vi.fn() },
+  onSendHeaders: { addListener: vi.fn(), removeListener: vi.fn() },
+  onHeadersReceived: { addListener: vi.fn(), removeListener: vi.fn() },
+  onCompleted: { addListener: vi.fn(), removeListener: vi.fn() },
+  onErrorOccurred: { addListener: vi.fn(), removeListener: vi.fn() },
+  onResponseStarted: { addListener: vi.fn(), removeListener: vi.fn() },
+  onBeforeRedirect: { addListener: vi.fn(), removeListener: vi.fn() },
 };
 
 const webNavigationMock = {

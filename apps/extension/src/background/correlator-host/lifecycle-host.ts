@@ -1,33 +1,43 @@
 /**
- * Composition root for the heuristic correlation pipeline inside the
+ * Composition root for the request-correlation pipeline inside the
  * extension SW.
  *
- * Wires three pieces:
+ * Two correlators feed one store; a {@link TabSourceRouter} guarantees a
+ * tab is `attachTab`'d to exactly one of them (no double-feed):
  *
- *   `ChromeWebRequestEventSource` (chrome adapter — this package)
- *        ↓ WebRequestEventSource seam
- *   `HeuristicCorrelator`        (oracle — chrome-free)
- *        ↓ RequestCorrelator seam (subscribe)
- *   `RequestLifecycleStore`      (oracle — pure reducer + LRU)
+ *   `ChromeWebRequestEventSource` + `ChromeHarEventSource` (chrome adapters)
+ *        ↓ WebRequestEventSource / HarEventSource seams
+ *   `HeuristicCorrelator`        (oracle — chrome-free) ─┐
+ *                                                        ├─→ `RequestLifecycleStore`
+ *   `ChromeDebuggerEventSource`  (chrome adapter)        │      (pure reducer + LRU)
+ *        ↓ CdpEventSource seam                           │
+ *   `CdpCorrelator`              (oracle — chrome-free) ─┘
  *
- * Plus the per-tab bridge that closes S6 ({@link installTabLifecycleBridge}).
+ * The CDP pieces are constructed but inert until Slice 4's reconciler
+ * `route`s a tab to `'cdp'` (which needs the Slice 5 master switch ON):
+ * the debugger source attaches nothing on its own and the CDP correlator
+ * is never `attachTab`'d, so with CDP disabled the store sees only the
+ * heuristic stream — byte-for-byte unchanged.
  *
- * The host attaches every tab observed via `chrome.tabs.onCreated` and
- * also lazily on the first webRequest event for an untracked tab — SW
- * cold starts can miss `onCreated` for tabs that already existed before
- * boot. The bridge cleanly detaches on `chrome.tabs.onRemoved` and
- * tells the store to drop the partition.
+ * Plus the per-tab bridge ({@link installTabLifecycleBridge}). Every tab
+ * observed via `chrome.tabs.onCreated` (and the cold-start
+ * `chrome.tabs.query` bootstrap) is routed to the default `'heuristic'`
+ * owner; the bridge cleanly detaches on `chrome.tabs.onRemoved` and tells
+ * the store to drop the partition.
  */
 
+import { CdpCorrelator } from '@openheaders/oracle/correlator-cdp';
 import { HeuristicCorrelator } from '@openheaders/oracle/correlator-heuristic';
 import { RequestLifecycleStore } from '@openheaders/oracle/request-lifecycle-store';
 import type { TabLifecycleBus } from '@openheaders/oracle/tab-lifecycle-bus';
 import { logger } from '@utils/logger';
 
+import { ChromeDebuggerEventSource } from './chrome-debugger-source';
 import { ChromeHarEventSource } from './chrome-har-source';
 import { ChromeWebRequestEventSource } from './chrome-webrequest-source';
 import { LifecycleDiagnostics } from './lifecycle-diagnostics';
 import { installTabLifecycleBridge } from './tab-lifecycle-bridge';
+import { TabSourceRouter } from './tab-source-router';
 
 export interface LifecycleHostOptions {
   readonly bus: TabLifecycleBus;
@@ -37,6 +47,9 @@ export interface LifecycleHost {
   readonly webRequestSource: ChromeWebRequestEventSource;
   readonly harSource: ChromeHarEventSource;
   readonly correlator: HeuristicCorrelator;
+  readonly debuggerSource: ChromeDebuggerEventSource;
+  readonly cdpCorrelator: CdpCorrelator;
+  readonly router: TabSourceRouter;
   readonly store: RequestLifecycleStore;
   /** Detach all chrome listeners — tests / SW shutdown only. */
   dispose(): void;
@@ -46,20 +59,14 @@ export interface LifecycleHost {
  * Construct and boot one `LifecycleHost`. Idempotent at the call-site
  * level — `background.ts` invokes this exactly once per SW lifetime.
  *
- * Composes:
- *   `ChromeWebRequestEventSource` (chrome adapter)
- *        ↓ WebRequestEventSource seam
- *   `ChromeHarEventSource`        (chrome adapter)
- *        ↓ HarEventSource seam
- *   `HeuristicCorrelator`        (oracle — chrome-free)
- *        ↓ RequestCorrelator seam (subscribe)
- *   `RequestLifecycleStore`      (oracle — pure reducer + LRU)
- *
- * Plus the per-tab `tab-lifecycle-bridge` (S6).
+ * Composes the heuristic and CDP correlators into one store behind a
+ * {@link TabSourceRouter} (see the module doc-comment). The CDP source +
+ * correlator are constructed inert; Slice 4 drives them.
  */
 export function startLifecycleHost(options: LifecycleHostOptions): LifecycleHost {
   const webRequestSource = new ChromeWebRequestEventSource();
   const harSource = new ChromeHarEventSource();
+  const debuggerSource = new ChromeDebuggerEventSource();
   // Lifecycle-pipeline telemetry (lifecycle audit §1.7) — wired only at
   // debug log level so prod runs the plain correlator path with zero
   // overhead. The settings bootstrap applies `data.logLevel` before this
@@ -74,16 +81,20 @@ export function startLifecycleHost(options: LifecycleHostOptions): LifecycleHost
     },
     diagnostics,
   );
+  const cdpCorrelator = new CdpCorrelator(debuggerSource);
   const store = new RequestLifecycleStore({
     onReject: (update, reason) => {
       logger.warn('LifecycleHost', 'store rejected update', { kind: update.kind, reason });
     },
   });
 
-  // The store is the canonical downstream consumer. Additional
+  // The store is the canonical downstream consumer of both correlators.
+  // The router (below) guarantees a tab is attached to exactly one of
+  // them, so the store sees a single stream per tab. Additional
   // subscribers (panel forwarder, tab-telemetry projection) attach
   // through `correlator.subscribe(...)` in their own modules.
   correlator.subscribe((update) => store.apply(update));
+  cdpCorrelator.subscribe((update) => store.apply(update));
 
   if (diagnostics) {
     // Raw-source taps see every event (the correlator's own attach gate
@@ -93,7 +104,8 @@ export function startLifecycleHost(options: LifecycleHostOptions): LifecycleHost
     correlator.subscribe((update) => diagnostics.emitted(update));
   }
 
-  const detachBridge = installTabLifecycleBridge({ correlator, store, bus: options.bus });
+  const router = new TabSourceRouter({ heuristic: correlator, cdp: cdpCorrelator });
+  const detachBridge = installTabLifecycleBridge({ router, store, bus: options.bus });
 
   logger.info('LifecycleHost', 'request lifecycle pipeline online');
 
@@ -101,12 +113,17 @@ export function startLifecycleHost(options: LifecycleHostOptions): LifecycleHost
     webRequestSource,
     harSource,
     correlator,
+    debuggerSource,
+    cdpCorrelator,
+    router,
     store,
     dispose: () => {
       detachBridge();
       correlator.dispose();
+      cdpCorrelator.dispose();
       webRequestSource.dispose();
       harSource.dispose();
+      debuggerSource.dispose();
     },
   };
 }

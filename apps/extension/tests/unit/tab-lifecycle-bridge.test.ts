@@ -1,24 +1,19 @@
 /**
  * `installTabLifecycleBridge` — integration coverage that the
  * chrome.tabs.onRemoved chain fires both downstream drivers via
- * `TabLifecycleBus`, in the correct order: correlator detach →
- * bus tab-forgotten (drivers run) → store forgetTab.
+ * `TabLifecycleBus`, in the correct order: router detach (of the owning
+ * correlator) → bus tab-forgotten (drivers run) → store forgetTab.
  */
-
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { RequestLifecycleStore } from '@openheaders/oracle/request-lifecycle-store';
 import { TabLifecycleBus } from '@openheaders/oracle/tab-lifecycle-bus';
-import {
-  clearAllTracking,
-  hasTrackedTab,
-  setTrackedResource,
-} from '@openheaders/oracle/tracking/tab-tracking-store';
+import { clearAllTracking, hasTrackedTab, setTrackedResource } from '@openheaders/oracle/tracking/tab-tracking-store';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { installTabLifecycleBridge } from '@/background/correlator-host/tab-lifecycle-bridge';
+import { __internals, __resetForTests, startTracking } from '@/background/modules/tab-telemetry';
 import { startRuleEngineDriver } from '@/background/rule-engine-driver';
 import { startTabTelemetrySource } from '@/background/tab-telemetry-source';
-import { __internals, __resetForTests, startTracking } from '@/background/modules/tab-telemetry';
 
 function captureOnRemoved(): (tabId: number) => void {
   const addListener = chrome.tabs.onRemoved.addListener as ReturnType<typeof vi.fn>;
@@ -44,7 +39,7 @@ beforeEach(() => {
   bus = new TabLifecycleBus();
 
   detachBridge = installTabLifecycleBridge({
-    correlator: { attachTab: vi.fn(), detachTab },
+    router: { attachTab: vi.fn(), detachTab },
     store,
     bus,
   });
@@ -75,7 +70,7 @@ describe('tab-lifecycle-bridge — chrome.tabs.onRemoved → bus chain', () => {
     expect(__internals.getState(42)).toBeUndefined();
     expect(forgetTab).toHaveBeenCalledWith(42);
 
-    // Ordering: correlator.detachTab → drivers (via bus) → store.forgetTab.
+    // Ordering: router.detachTab → drivers (via bus) → store.forgetTab.
     const detachOrder = detachTab.mock.invocationCallOrder[0];
     const storeOrder = forgetTab.mock.invocationCallOrder[0];
     expect(detachOrder).toBeLessThan(storeOrder);
