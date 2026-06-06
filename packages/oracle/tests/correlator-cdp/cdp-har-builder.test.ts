@@ -71,46 +71,46 @@ describe('cdpTimingToHar — base conversion', () => {
   it('full timing maps every leg with no negative durations', () => {
     // No issue time supplied → not queued; Chrome folds the queue (-1 here)
     // into blocked, so blocked = -1 + earliest-activity offset (dnsStart 0).
-    expect(cdpTimingToHar(FULL_TIMING, 250)).toEqual({
-      blocked: -1,
-      dns: 10,
-      ssl: 15, // ssl precedes connect, matching Chrome's key order
-      // connect re-anchors to min(dnsEnd, blockedStart) = 0 (not connectStart),
-      // so it spans 0..connectEnd and overlaps dns — host-exact (Log.ts:310).
-      connect: 30,
-      send: 5,
-      wait: 65, // receiveHeadersEnd - highestTime (sendEnd)
-      receive: 150, // totalMs - receiveHeadersEnd
-      _blocked_queueing: -1,
-      _workerStart: -1,
-      _workerReady: -1,
-      _workerFetchStart: -1,
-      _workerRespondWithSettled: -1,
-    });
+    const t = cdpTimingToHar(FULL_TIMING, 250);
+    expect(t.blocked).toBe(-1);
+    expect(t.dns).toBe(10);
+    expect(t.ssl).toBe(15); // ssl precedes connect, matching Chrome's key order
+    // connect re-anchors to min(dnsEnd, blockedStart) = 0 (not connectStart),
+    // so it spans 0..connectEnd and overlaps dns — host-exact (Log.ts:310).
+    expect(t.connect).toBe(30);
+    expect(t.send).toBe(5);
+    // wait/receive are derived as deltas off requestTime (host-exact), so they
+    // carry the same IEEE-754 noise the host emits — assert to µs, not bit-exact.
+    expect(t.wait).toBeCloseTo(65, 6); // receiveHeadersEnd - highestTime (sendEnd)
+    expect(t.receive).toBeCloseTo(150, 6); // totalMs - waitEnd
+    expect(t._blocked_queueing).toBe(-1);
+    expect(t._workerStart).toBe(-1);
+    expect(t._workerReady).toBe(-1);
+    expect(t._workerFetchStart).toBe(-1);
+    expect(t._workerRespondWithSettled).toBe(-1);
   });
 
   it('reused connection omits dns/connect/ssl and floors blocked at sendStart', () => {
     // Not queued (-1) + earliest offset (sendStart 5) → blocked = 4.
-    expect(cdpTimingToHar(REUSED_CONNECTION, 60)).toEqual({
-      blocked: 4,
-      dns: -1,
-      ssl: -1,
-      connect: -1,
-      send: 3,
-      wait: 32,
-      receive: 20,
-      _blocked_queueing: -1,
-      _workerStart: -1,
-      _workerReady: -1,
-      _workerFetchStart: -1,
-      _workerRespondWithSettled: -1,
-    });
+    const t = cdpTimingToHar(REUSED_CONNECTION, 60);
+    expect(t.blocked).toBe(4);
+    expect(t.dns).toBe(-1);
+    expect(t.ssl).toBe(-1);
+    expect(t.connect).toBe(-1);
+    expect(t.send).toBe(3);
+    expect(t.wait).toBeCloseTo(32, 6);
+    expect(t.receive).toBeCloseTo(20, 6);
+    expect(t._blocked_queueing).toBe(-1);
+    expect(t._workerStart).toBe(-1);
+    expect(t._workerReady).toBe(-1);
+    expect(t._workerFetchStart).toBe(-1);
+    expect(t._workerRespondWithSettled).toBe(-1);
   });
 
   it('without a total, receive is deferred (-1) but other legs still resolve', () => {
     const t = cdpTimingToHar(FULL_TIMING, undefined);
     expect(t.receive).toBe(-1);
-    expect(t.wait).toBe(65);
+    expect(t.wait).toBeCloseTo(65, 6);
     expect(t.dns).toBe(10);
   });
 
@@ -134,7 +134,7 @@ describe('cdpTimingToHar — base conversion', () => {
   it('derives _blocked_queueing from the issue time and a proxy leg from proxyStart/proxyEnd', () => {
     // issuedSec 999.95 → requestTime 1000 is 50ms of queueing; proxy 2..7 = 5ms.
     const t = cdpTimingToHar({ requestTime: 1000, proxyStart: 2, proxyEnd: 7, sendStart: 10, sendEnd: 12 }, 50, 999.95);
-    expect(t._blocked_queueing).toBe(50);
+    expect(t._blocked_queueing).toBeCloseTo(50, 6);
     expect(t._blocked_proxy).toBe(5);
   });
 
@@ -236,9 +236,10 @@ describe('CdpHarBuilder — well-formed entry', () => {
     expect(refined.response?._transferSize).toBe(4096);
     // time sums [blocked,dns,connect,send,wait,receive] = 0+10+30+5+65+150.
     // It exceeds the 250ms span because connect overlaps dns — Chrome's HAR
-    // time double-counts the DNS leg the same way (Log.ts:96-100).
-    expect(refined.time).toBe(260);
-    expect(refined.timings?.receive).toBe(150);
+    // time double-counts the DNS leg the same way (Log.ts:96-100). The
+    // wait/receive float noise cancels in the sum, so time is exact.
+    expect(refined.time).toBeCloseTo(260, 6);
+    expect(refined.timings?.receive).toBeCloseTo(150, 6);
   });
 
   it('marks header byte sizes unavailable (-1) and request.bodySize 0 for a bodyless GET', () => {
@@ -451,7 +452,7 @@ describe('CdpHarBuilder — redirect hops', () => {
     expect(u0.har.response?.status).toBe(301);
     expect(u0.har.serverIPAddress).toBe('203.0.113.1');
     // total = (nextRequest 999.1 - priorRequestTime 999) * 1000 = 100ms.
-    expect(u0.har.time).toBe(100);
+    expect(u0.har.time).toBeCloseTo(100, 6);
 
     builder.observe(
       cdpResponse(ctx, {
@@ -778,7 +779,7 @@ describe('CdpHarBuilder — always-present per-entry fields', () => {
         }),
       ),
     );
-    expect(entry.timings?._blocked_queueing).toBe(50);
+    expect(entry.timings?._blocked_queueing).toBeCloseTo(50, 6);
   });
 });
 
@@ -813,7 +814,7 @@ describe('CdpHarBuilder — failed-terminal finalization', () => {
     expect(failed.response?._error).toBe('net::ERR_ABORTED');
     expect(failed._resourceType).toBe('media');
     // Time computed from the failure timestamp against the timing base.
-    expect(failed.time).toBe(654);
+    expect(failed.time).toBeCloseTo(654, 6);
   });
 
   it('accumulates _transferSize from dataReceived wire bytes when a hop aborts mid-body', () => {
@@ -854,9 +855,11 @@ describe('CdpHarBuilder — failed-terminal finalization', () => {
     expect(entry.response?._transferSize).toBe(0);
     expect(entry._resourceType).toBe('ping');
     // Whole span attributed to blocked (failed 100.7 − issued 100 = 700ms).
-    expect(entry.time).toBe(700);
-    expect(entry.timings).toEqual({
-      blocked: 700,
+    expect(entry.time).toBeCloseTo(700, 6);
+    // blocked = (failed − issued) * 1000 carries raw float noise (host-exact);
+    // every other leg is the no-response branch's fixed sentinel.
+    expect(entry.timings?.blocked).toBeCloseTo(700, 6);
+    expect(entry.timings).toMatchObject({
       dns: -1,
       ssl: -1,
       connect: -1,
@@ -949,7 +952,7 @@ describe('CdpCorrelator → RequestLifecycleStore — HAR lands per hop with zer
     expect(lc.har[1]?.response?.status).toBe(200);
     expect(lc.har[1]?.response?._transferSize).toBe(2048);
     expect(lc.har[1]?.response?.content.size).toBe(8192);
-    expect(lc.har[1]?.timings?.receive).toBe(150);
+    expect(lc.har[1]?.timings?.receive).toBeCloseTo(150, 6);
 
     correlator.dispose();
   });
@@ -1018,7 +1021,7 @@ describe('CdpCorrelator → RequestLifecycleStore — HAR lands per hop with zer
     expect(lc.har[0]?.response?._error).toBe('net::ERR_ABORTED');
     expect(lc.har[0]?.response?._transferSize).toBe(434);
     expect(lc.har[0]?._resourceType).toBe('media');
-    expect(lc.har[0]?.time).toBe(654);
+    expect(lc.har[0]?.time).toBeCloseTo(654, 6);
 
     correlator.dispose();
   });

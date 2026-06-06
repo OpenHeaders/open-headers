@@ -58,7 +58,6 @@ import {
   type CdpResponseParams,
   cdpStoreRequestId,
 } from './events';
-import { round3 } from './units';
 
 /**
  * Per-tab cap on concurrently-tracked requests. Bounds the leak from
@@ -431,7 +430,7 @@ export class CdpHarBuilder {
       // issued`), Chrome's no-response timing branch (see `emitHop`).
       hop.response = blockedResponse(hop.request.url);
       hop.transferSize = 0;
-      hop.totalMs = round3((failedSec - hop.issuedSec) * 1000);
+      hop.totalMs = (failedSec - hop.issuedSec) * 1000;
     } else {
       hop.totalMs = totalTimeMs(hop.response.timing, failedSec);
     }

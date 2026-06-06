@@ -11,7 +11,6 @@
 import type { InspectorHarEntry } from '@openheaders/core/types';
 
 import type { CdpInitiator, CdpRequestParams, CdpResourceTiming, CdpResponseParams } from './events';
-import { round3 } from './units';
 
 /** A resolved HAR `timings` object (every leg present; `-1` = not applicable). */
 export type HarTimings = NonNullable<InspectorHarEntry['timings']>;
@@ -344,27 +343,36 @@ export function cdpTimingToHar(timing: CdpResourceTiming, totalMs?: number, issu
   const sendLegStart = offset(timing.sendEnd) >= 0 ? Math.max(connectEnd, dnsEnd, blockedStart) : 0;
   const send = Math.max(0, sendEnd - sendLegStart);
 
-  // wait runs from the highest connection-stage end to the headers offset;
-  // receive is the residual to the end offset — `Log.ts:322,338-344`.
+  // wait runs from the highest connection-stage end to the headers-received
+  // instant; receive is the residual to the end. The host derives both as
+  // deltas off `requestTime` — `responseReceivedTime = requestTime +
+  // receiveHeadersEnd/1000`, then `waitEnd = (responseReceivedTime -
+  // requestTime) * 1000` (`NetworkRequest.set timing` + `Log.ts:338-344`).
+  // We reproduce that exact round-trip so the trailing float digits match the
+  // host byte-for-byte, rather than using the raw `receiveHeadersEnd` offset.
   const highestTime = Math.max(sendEnd, connectEnd, sslEnd, dnsEnd, blockedStart, 0);
   const receiveHeadersEnd = offset(timing.receiveHeadersEnd);
-  const wait = receiveHeadersEnd >= 0 ? Math.max(0, receiveHeadersEnd - highestTime) : 0;
-  const receive = totalMs !== undefined && receiveHeadersEnd >= 0 ? Math.max(0, totalMs - receiveHeadersEnd) : -1;
+  const waitEnd =
+    receiveHeadersEnd >= 0 ? (timing.requestTime + receiveHeadersEnd / 1000 - timing.requestTime) * 1000 : -1;
+  const wait = waitEnd >= 0 ? waitEnd - highestTime : 0;
+  const receive = totalMs !== undefined && waitEnd >= 0 ? Math.max(0, totalMs - waitEnd) : -1;
 
+  // No rounding: the host emits raw IEEE-754 leg values (e.g. `0.5560000427`),
+  // so rounding to µs here would diverge from a 1-to-1 HAR diff.
   return {
-    blocked: round3(blocked),
-    dns: round3(dns),
-    ssl: round3(ssl),
-    connect: round3(connect),
-    send: round3(send),
-    wait: round3(wait),
-    receive: round3(receive),
-    _blocked_queueing: queued < 0 ? -1 : round3(queued),
-    ...(blockedProxy !== undefined ? { _blocked_proxy: round3(blockedProxy) } : {}),
-    _workerStart: round3(offset(timing.workerStart)),
-    _workerReady: round3(offset(timing.workerReady)),
-    _workerFetchStart: round3(offset(timing.workerFetchStart)),
-    _workerRespondWithSettled: round3(offset(timing.workerRespondWithSettled)),
+    blocked,
+    dns,
+    ssl,
+    connect,
+    send,
+    wait,
+    receive,
+    _blocked_queueing: queued < 0 ? -1 : queued,
+    ...(blockedProxy !== undefined ? { _blocked_proxy: blockedProxy } : {}),
+    _workerStart: offset(timing.workerStart),
+    _workerReady: offset(timing.workerReady),
+    _workerFetchStart: offset(timing.workerFetchStart),
+    _workerRespondWithSettled: offset(timing.workerRespondWithSettled),
   };
 }
 
@@ -379,7 +387,7 @@ export function harTimeFromTimings(timings: HarTimings): number {
   for (const leg of [timings.blocked, timings.dns, timings.connect, timings.send, timings.wait, timings.receive]) {
     total += Math.max(leg ?? -1, 0);
   }
-  return round3(total);
+  return total;
 }
 
 /**
@@ -390,7 +398,7 @@ export function harTimeFromTimings(timings: HarTimings): number {
  */
 export function cdpBlockedTimings(blockedMs: number): HarTimings {
   return {
-    blocked: round3(blockedMs),
+    blocked: blockedMs,
     dns: -1,
     ssl: -1,
     connect: -1,
@@ -404,5 +412,5 @@ export function cdpBlockedTimings(blockedMs: number): HarTimings {
 /** Total request span in ms: terminal monotonic timestamp minus the timing base. */
 export function totalTimeMs(timing: CdpResourceTiming | undefined, finishedSec: number): number | undefined {
   if (timing === undefined) return undefined;
-  return round3(Math.max(0, (finishedSec - timing.requestTime) * 1000));
+  return Math.max(0, (finishedSec - timing.requestTime) * 1000);
 }
