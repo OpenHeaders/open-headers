@@ -12,6 +12,7 @@ export {};
 declare global {
   interface Window {
     __OH_DUMP_PARITY_ROWS__?: () => unknown[];
+    __OH_DUMP_PARITY_FOOTER__?: () => unknown;
     __OH_CLEAR_PARITY__?: () => void;
   }
 }
@@ -42,6 +43,7 @@ if (tabId != null && chrome.storage?.onChanged) {
       return;
     }
     const rows = window.__OH_DUMP_PARITY_ROWS__?.() ?? [];
-    chrome.storage.local.set({ [`__oh_parity_dump_${tabId}__`]: { reqTs: req.ts, rows } });
+    const footer = window.__OH_DUMP_PARITY_FOOTER__?.() ?? null;
+    chrome.storage.local.set({ [`__oh_parity_dump_${tabId}__`]: { reqTs: req.ts, rows, footer } });
   });
 }

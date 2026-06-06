@@ -248,8 +248,24 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   );
 
   // Parity capture loop reads lifecycles directly — strictly better
-  // signal than the denormalized rows the legacy hook took.
-  useParityDebugHook(lifecycleClient.snapshot.ordered, ui.clear);
+  // signal than the denormalized rows the legacy hook took — plus the
+  // footer projection so a capture can assert the redirect-leg anchoring.
+  useParityDebugHook(
+    lifecycleClient.snapshot.ordered,
+    {
+      footerDclMs: data.footerDclMs ?? null,
+      footerLoadMs: data.footerLoadMs ?? null,
+      finishTimeMs: data.finishTimeMs,
+      pages: data.pages.map((p) => ({
+        id: p.id,
+        url: p.url,
+        startedAtMs: p.startedAtMs,
+        dclMs: p.dclMs ?? null,
+        loadMs: p.loadMs ?? null,
+      })),
+    },
+    ui.clear,
+  );
 
   const groups = useInspectorEditorGroups({ perTab, liveSessionToken: lifecycleClient.sessionToken });
   const tl = usePanelToolLayout(perTab);

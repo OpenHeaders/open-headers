@@ -15,6 +15,17 @@ import { useEffect, useRef } from 'react';
 import { currentHarEntry, isPendingLifecycle } from './inspector-row-projection';
 import { classifyRequestState, type RequestState } from './request-state';
 
+/** The footer projection a parity capture asserts the panel computes: the
+ *  re-anchored DCL / Load / Finish the status bar shows, plus the
+ *  root-anchored page inputs they derive from — so a capture sees both ends
+ *  of the redirect-leg math without rerunning the projection. */
+export interface ParityFooter {
+  footerDclMs: number | null;
+  footerLoadMs: number | null;
+  finishTimeMs: number;
+  pages: Array<{ id: string; url: string | null; startedAtMs: number; dclMs: number | null; loadMs: number | null }>;
+}
+
 interface ParityRow {
   arrivalIndex: number;
   method: string;
@@ -41,6 +52,19 @@ interface ParityRowDebug extends ParityRow {
   _harResponseStatus?: number;
   _harResponseError?: string | null;
   _hasErrorField?: boolean;
+  /** Redirect / timing fields for document rows — the footer-leg inputs.
+   *  Lets a capture see whether a top-level redirect folded into the
+   *  lifecycle (`redirectHopCount` > 0, two `har` hops) or arrived
+   *  un-folded (CDP mid-attach: count 0, the 3xx hop absent). */
+  _redirectHopCount?: number;
+  _startedAtMs?: number;
+  _hopStartedAtMs?: number;
+  _harHops?: Array<{ status: number | null; startedDateTime: string | null } | null>;
+}
+
+/** Top-level navigation document — the rows the footer leg keys off. */
+function isDocumentLike(resourceType: string | undefined): boolean {
+  return resourceType === 'main_frame' || resourceType === 'document';
 }
 
 function toParityRow(lc: RequestLifecycle, arrivalIndex: number): ParityRow {
@@ -76,6 +100,7 @@ function toParityRow(lc: RequestLifecycle, arrivalIndex: number): ParityRow {
   if (
     lc.url.includes('/net/slow/3000') ||
     lc.url.includes('/net/redirect') ||
+    lc.url.includes('/net/nav-') ||
     lc.url.includes('/echo/') ||
     lc.url.includes('/net/status/')
   ) {
@@ -84,27 +109,44 @@ function toParityRow(lc: RequestLifecycle, arrivalIndex: number): ParityRow {
     row._harResponseError = har?.response?._error;
     row._hasErrorField = lc.error != null;
   }
+  if (isDocumentLike(lc.resourceType)) {
+    row._redirectHopCount = lc.redirectHopCount;
+    row._startedAtMs = lc.startedAtMs;
+    row._hopStartedAtMs = lc.hopStartedAtMs;
+    row._harHops = lc.har.map((h) =>
+      h == null ? null : { status: h.response?.status ?? null, startedDateTime: h.startedDateTime ?? null },
+    );
+  }
   return row;
 }
 
 declare global {
   interface Window {
     __OH_DUMP_PARITY_ROWS__?: () => ParityRow[];
+    __OH_DUMP_PARITY_FOOTER__?: () => ParityFooter;
     __OH_CLEAR_PARITY__?: () => void;
   }
 }
 
-export function useParityDebugHook(lifecycles: readonly RequestLifecycle[], clear: () => void): void {
+export function useParityDebugHook(
+  lifecycles: readonly RequestLifecycle[],
+  footer: ParityFooter,
+  clear: () => void,
+): void {
   const lifecyclesRef = useRef(lifecycles);
   lifecyclesRef.current = lifecycles;
+  const footerRef = useRef(footer);
+  footerRef.current = footer;
   const clearRef = useRef(clear);
   clearRef.current = clear;
 
   useEffect(() => {
     window.__OH_DUMP_PARITY_ROWS__ = () => lifecyclesRef.current.map((lc, i) => toParityRow(lc, i));
+    window.__OH_DUMP_PARITY_FOOTER__ = () => footerRef.current;
     window.__OH_CLEAR_PARITY__ = () => clearRef.current();
     return () => {
       delete window.__OH_DUMP_PARITY_ROWS__;
+      delete window.__OH_DUMP_PARITY_FOOTER__;
       delete window.__OH_CLEAR_PARITY__;
     };
   }, []);
