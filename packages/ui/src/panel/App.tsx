@@ -253,6 +253,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   useParityDebugHook(
     lifecycleClient.snapshot.ordered,
     {
+      source: lifecycleClient.source,
       footerDclMs: data.footerDclMs ?? null,
       footerLoadMs: data.footerLoadMs ?? null,
       finishTimeMs: data.finishTimeMs,

@@ -20,6 +20,10 @@ import { classifyRequestState, type RequestState } from './request-state';
  *  root-anchored page inputs they derive from — so a capture sees both ends
  *  of the redirect-leg math without rerunning the projection. */
 export interface ParityFooter {
+  /** Which correlator fed the panel — `'cdp'` (deep request inspection) vs
+   *  the heuristic webRequest path. A footer capture asserts the path it
+   *  meant to exercise actually ran. */
+  source: string;
   footerDclMs: number | null;
   footerLoadMs: number | null;
   finishTimeMs: number;
