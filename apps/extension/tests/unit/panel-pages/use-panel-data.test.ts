@@ -323,7 +323,9 @@ describe('usePanelData', () => {
       requestId: 'doc',
       url: 'https://openheaders.io/ro',
       method: 'GET',
-      resourceType: 'main_frame',
+      // CDP path reports the main document as 'document', not 'main_frame' —
+      // the footer re-anchor must recognize both (regression: leg stayed 0).
+      resourceType: 'document',
       phase: 'completed',
       redirectHopCount: 1,
       redirectHops: [

@@ -169,14 +169,19 @@ export function waterfallStartMs(lc: RequestLifecycle): number {
  * time plus queueing.
  *
  * Unlike {@link waterfallStartMs} (the bar's zero, anchored to the ms-quantized
- * HAR `startedDateTime`), this reads the un-truncated `lifecycle.startedAtMs`,
+ * HAR `startedDateTime`), this reads the un-truncated `lifecycle.hopStartedAtMs`,
  * because the host's default waterfall sort orders by this network start at
  * full precision. Two requests fired in the same ms but queued differently
  * must order by their sub-ms network start — quantizing here would collapse
  * them into one bucket and mis-sort against the host.
+ *
+ * `hopStartedAtMs` (not `startedAtMs`) is the CURRENT hop's start: for a
+ * redirected request the row is the final hop, which began after the chain
+ * root. Anchoring to `startedAtMs` would sort the final hop at the root's
+ * instant — placing the committed document before its own 3xx redirect row.
  */
 function networkStartMs(lc: RequestLifecycle): number {
-  return lc.startedAtMs + queueingMs(lc);
+  return lc.hopStartedAtMs + queueingMs(lc);
 }
 
 /**

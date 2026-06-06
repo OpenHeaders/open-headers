@@ -206,6 +206,12 @@ function redirectLegMs(lc: RequestLifecycle): number {
   return leg > 0 ? leg : 0;
 }
 
+/** Top-level navigation document — `main_frame` from the webRequest path,
+ * `document` from the CDP path (both surface the page's main resource). */
+function isMainDocument(resourceType: string | undefined): boolean {
+  return resourceType === 'main_frame' || resourceType === 'document';
+}
+
 export function projectPanelData(input: UsePanelDataInput): UsePanelDataResult {
   const {
     lifecycle,
@@ -315,7 +321,7 @@ export function projectPanelData(input: UsePanelDataInput): UsePanelDataResult {
 
     const startedAtMs = row.lifecycle.startedAtMs;
     if (minStartedAtMs < 0 || startedAtMs < minStartedAtMs) minStartedAtMs = startedAtMs;
-    if (row.lifecycle.resourceType === 'main_frame') {
+    if (isMainDocument(row.lifecycle.resourceType)) {
       if (startedAtMs > baseTime) baseTime = startedAtMs;
       if (row.lifecycle.redirectHopCount > 0 && (redirectDoc === null || startedAtMs >= redirectDoc.startedAtMs)) {
         redirectDoc = row.lifecycle;

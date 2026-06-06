@@ -73,7 +73,9 @@ export const NETWORK_SORT_MODE_META: Record<NetworkSortMode, NetworkSortModeMeta
  * `…​.10` sort before `…​.4`.)
  */
 function chronological(a: InspectorRowWithFires, b: InspectorRowWithFires): number {
-  const d = a.lifecycle.startedAtMs - b.lifecycle.startedAtMs;
+  // Current-hop start (not the chain root): a redirected request's final-hop
+  // row must sort after its own 3xx redirect row, not tie with it at the root.
+  const d = a.lifecycle.hopStartedAtMs - b.lifecycle.hopStartedAtMs;
   if (d !== 0) return d;
   return a.displayId - b.displayId;
 }

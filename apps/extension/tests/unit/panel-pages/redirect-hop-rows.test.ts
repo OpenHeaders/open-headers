@@ -6,6 +6,8 @@
 
 import type { RedirectHop, RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarEntry } from '@openheaders/core/types';
+import type { InspectorRowWithFires } from '@openheaders/ui/panel/data/inspector-row-projection';
+import { waterfallSortValue } from '@openheaders/ui/panel/data/network-columns';
 import {
   synthesizeRedirectHopLifecycle,
   synthesizeRedirectHopLifecycles,
@@ -145,5 +147,37 @@ describe('synthesizeRedirectHopLifecycles', () => {
     const out = synthesizeRedirectHopLifecycles(lc);
     expect(out).toHaveLength(1);
     expect(out[0].statusCode).toBe(302);
+  });
+});
+
+describe('redirect-hop start-time sort order', () => {
+  const asRow = (lc: RequestLifecycle): InspectorRowWithFires =>
+    ({ lifecycle: lc, displayId: 1, consolidatedRetryOf: [], fires: [] }) as InspectorRowWithFires;
+
+  it('sorts the 3xx redirect row before its committed final hop (start time)', () => {
+    // Real lifecycle: starts at the chain root but its CURRENT hop (the 200)
+    // began later; `hopStartedAtMs` carries that. Epoch values match the HAR
+    // startedDateTime strings so the synth row and the real row sort on one scale.
+    const rootMs = Date.parse('2026-04-16T00:00:49.103Z');
+    const finalMs = Date.parse('2026-04-16T00:00:49.235Z');
+    const real = makeLifecycle({
+      requestId: 'doc',
+      url: 'https://openheaders.io/ro',
+      redirectHopCount: 1,
+      redirectHops: [hop('https://openheaders.io/', 'https://openheaders.io/ro', 302)],
+      startedAtMs: rootMs,
+      hopStartedAtMs: finalMs,
+      har: [
+        hopHar('https://openheaders.io/', 302, '2026-04-16T00:00:49.103Z'),
+        hopHar('https://openheaders.io/ro', 200, '2026-04-16T00:00:49.235Z'),
+      ],
+    });
+    const synth302 = synthesizeRedirectHopLifecycle(real, 0);
+    if (synth302 === null) throw new Error('expected a synthetic 302 row');
+
+    const redirectStart = waterfallSortValue(asRow(synth302), 'startTime');
+    const finalStart = waterfallSortValue(asRow(real), 'startTime');
+    // The 302 must sort earlier — it must not tie at / follow the final hop.
+    expect(redirectStart).toBeLessThan(finalStart);
   });
 });
