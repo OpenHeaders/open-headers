@@ -464,8 +464,8 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
 
   // ── HAR export helpers ─────────────────────────────────────
   const downloadHar = useCallback(
-    (subset: readonly InspectorRowWithFires[], filename: string) => {
-      const json = serializeHar(subset, data.pages);
+    (subset: readonly InspectorRowWithFires[], filename: string, sanitize: boolean) => {
+      const json = serializeHar(subset, data.pages, sanitize);
       const blob = new Blob([json], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -479,26 +479,39 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
     [data.pages],
   );
 
-  const handleSaveAllAsHar = useCallback(() => {
-    downloadHar(data.rows, suggestHarFilename(data.rows));
-  }, [data.rows, downloadHar]);
+  const handleSaveAllAsHar = useCallback(
+    (sanitize = false) => {
+      downloadHar(data.rows, suggestHarFilename(data.rows), sanitize);
+    },
+    [data.rows, downloadHar],
+  );
 
   const handleSaveAsHar = useCallback(
-    (row: InspectorRowWithFires) => {
+    (row: InspectorRowWithFires, sanitize = false) => {
       const single: readonly InspectorRowWithFires[] = [row];
-      downloadHar(single, suggestHarFilename(single));
+      downloadHar(single, suggestHarFilename(single), sanitize);
     },
     [downloadHar],
   );
 
-  const handleCopyAllAsHar = useCallback(async () => {
-    const json = serializeHar(data.rows, data.pages);
-    try {
-      await navigator.clipboard.writeText(json);
-    } catch {
-      // Best-effort — clipboard may be gated in some DevTools contexts.
-    }
-  }, [data.rows, data.pages]);
+  const copyHar = useCallback(
+    async (subset: readonly InspectorRowWithFires[], sanitize: boolean) => {
+      const json = serializeHar(subset, data.pages, sanitize);
+      try {
+        await navigator.clipboard.writeText(json);
+      } catch {
+        // Best-effort — clipboard may be gated in some DevTools contexts.
+      }
+    },
+    [data.pages],
+  );
+
+  const handleCopyAllAsHar = useCallback((sanitize = false) => copyHar(data.rows, sanitize), [data.rows, copyHar]);
+
+  const handleCopyAsHar = useCallback(
+    (row: InspectorRowWithFires, sanitize = false) => copyHar([row], sanitize),
+    [copyHar],
+  );
 
   // ── Tool window content ────────────────────────────────────
   const renderToolWindow = useCallback(
@@ -527,6 +540,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
               onReloadPage={() => hostNavigation.reloadInspectedTab()}
               visibleColumns={visibleColumns}
               onVisibleColumnsChange={setVisibleColumns}
+              onCopyAsHar={handleCopyAsHar}
               onSaveAsHar={handleSaveAsHar}
               onSaveAllAsHar={handleSaveAllAsHar}
               onCopyAllAsHar={handleCopyAllAsHar}

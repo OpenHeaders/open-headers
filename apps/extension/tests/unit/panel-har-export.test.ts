@@ -1,7 +1,7 @@
 import type { Page } from '@openheaders/core/page-stream';
 import type { RedirectHop, RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarEntry } from '@openheaders/core/types';
-import { buildHar, serializeHar, suggestHarFilename } from '@openheaders/ui/panel/data/har-export';
+import { buildHar, sanitizeHarEntry, serializeHar, suggestHarFilename } from '@openheaders/ui/panel/data/har-export';
 import { buildInspectorRows } from '@openheaders/ui/panel/data/inspector-facet';
 import { attachFiresToRows, type InspectorRowWithFires } from '@openheaders/ui/panel/data/inspector-row-projection';
 import { describe, expect, it, vi } from 'vitest';
@@ -151,6 +151,63 @@ describe('serializeHar', () => {
   it('uses 2-space indentation', () => {
     const json = serializeHar([]);
     expect(json).toContain('\n  "log"');
+  });
+});
+
+describe('sanitizeHarEntry / sanitized export', () => {
+  function entryWithCredentials(): InspectorHarEntry {
+    return {
+      startedDateTime: '2026-04-16T00:00:00.000Z',
+      request: {
+        method: 'GET',
+        url: 'https://openheaders.io/',
+        headers: [
+          { name: 'Accept', value: '*/*' },
+          { name: 'Cookie', value: 'sid=secret' },
+          { name: 'Authorization', value: 'Bearer t0ken' },
+        ],
+        queryString: [],
+        cookies: [{ name: 'sid', value: 'secret' }],
+      },
+      response: {
+        status: 200,
+        statusText: 'OK',
+        headers: [
+          { name: 'Content-Type', value: 'text/html' },
+          { name: 'Set-Cookie', value: 'sid=secret' },
+        ],
+        cookies: [{ name: 'sid', value: 'secret' }],
+        content: { size: 0, mimeType: 'text/html' },
+      },
+    } as InspectorHarEntry;
+  }
+
+  it('empties cookies and drops cookie/authorization/set-cookie headers (case-insensitive)', () => {
+    const out = sanitizeHarEntry(entryWithCredentials());
+    expect(out.request?.cookies).toEqual([]);
+    expect(out.response?.cookies).toEqual([]);
+    expect(out.request?.headers.map((h) => h.name)).toEqual(['Accept']);
+    expect(out.response?.headers.map((h) => h.name)).toEqual(['Content-Type']);
+  });
+
+  it('does not mutate the source entry', () => {
+    const entry = entryWithCredentials();
+    sanitizeHarEntry(entry);
+    expect(entry.request?.cookies).toHaveLength(1);
+    expect(entry.request?.headers).toHaveLength(3);
+  });
+
+  it('buildHar keeps credentials by default and strips them when sanitize is set', () => {
+    const r = row('https://openheaders.io/', 0, {
+      har: [entryWithCredentials()],
+    });
+    const full = buildHar([r]).log.entries[0];
+    expect(full.request?.cookies).toHaveLength(1);
+    expect(full.request?.headers.some((h) => h.name.toLowerCase() === 'authorization')).toBe(true);
+
+    const clean = buildHar([r], [], true).log.entries[0];
+    expect(clean.request?.cookies).toEqual([]);
+    expect(clean.request?.headers.some((h) => h.name.toLowerCase() === 'authorization')).toBe(false);
   });
 });
 

@@ -51,13 +51,49 @@ function withPageref(har: InspectorHarEntry, pageref: string | undefined): Inspe
   return pageref ? { ...har, pageref } : har;
 }
 
+/** Request headers dropped when sanitizing (carry credentials). */
+const SANITIZED_REQUEST_HEADERS = new Set(['authorization', 'cookie']);
+/** Response headers dropped when sanitizing (set credentials). */
+const SANITIZED_RESPONSE_HEADERS = new Set(['set-cookie']);
+
+/**
+ * Strip credential-bearing data from a HAR entry for a sanitized export —
+ * the same redaction the host applies (empty request/response `cookies`,
+ * drop `cookie`/`authorization` request headers and `set-cookie` response
+ * headers). Returns a shallow copy; the source entry is untouched.
+ */
+export function sanitizeHarEntry(entry: InspectorHarEntry): InspectorHarEntry {
+  const dropHeaders = (headers: ReadonlyArray<{ name: string; value: string }>, drop: ReadonlySet<string>) =>
+    headers.filter((h) => !drop.has(h.name.toLowerCase()));
+  const out: InspectorHarEntry = { ...entry };
+  if (entry.request) {
+    out.request = {
+      ...entry.request,
+      cookies: [],
+      headers: dropHeaders(entry.request.headers, SANITIZED_REQUEST_HEADERS),
+    };
+  }
+  if (entry.response) {
+    out.response = {
+      ...entry.response,
+      cookies: [],
+      headers: dropHeaders(entry.response.headers, SANITIZED_RESPONSE_HEADERS),
+    };
+  }
+  return out;
+}
+
 function collectRefs(entries: readonly { pageref?: string }[]): Set<string> {
   const refs = new Set<string>();
   for (const e of entries) if (e.pageref) refs.add(e.pageref);
   return refs;
 }
 
-export function buildHar(rows: readonly InspectorRowWithFires[], pages: readonly Page[] = []): HarDocument {
+export function buildHar(
+  rows: readonly InspectorRowWithFires[],
+  pages: readonly Page[] = [],
+  sanitize = false,
+): HarDocument {
   const entries: InspectorHarEntry[] = [];
   const refs = new Set<string>();
   for (const row of rows) {
@@ -70,7 +106,7 @@ export function buildHar(rows: readonly InspectorRowWithFires[], pages: readonly
     if (entry === null) continue;
     const pageref = resolvePageref(lc, pages);
     if (pageref) refs.add(pageref);
-    entries.push(withPageref(entry, pageref ?? undefined));
+    entries.push(withPageref(sanitize ? sanitizeHarEntry(entry) : entry, pageref ?? undefined));
   }
   return {
     log: {
@@ -88,14 +124,18 @@ export function buildHar(rows: readonly InspectorRowWithFires[], pages: readonly
  * current hop). Keeps creator name / version / pages shape in lockstep
  * with the "Copy all as HAR" export.
  */
-export function buildHarFromEntries(entries: readonly HarEntryInput[], pages: readonly Page[] = []): HarDocument {
+export function buildHarFromEntries(
+  entries: readonly HarEntryInput[],
+  pages: readonly Page[] = [],
+  sanitize = false,
+): HarDocument {
   const refs = collectRefs(entries);
   return {
     log: {
       version: '1.2',
       creator: { name: 'Open Headers DevTools', version: getCreatorVersion() },
       pages: projectInputPages(pages, refs),
-      entries: entries.map((e) => withPageref(e.harEntry, e.pageref)),
+      entries: entries.map((e) => withPageref(sanitize ? sanitizeHarEntry(e.harEntry) : e.harEntry, e.pageref)),
     },
   };
 }
@@ -109,8 +149,12 @@ function projectInputPages(pages: readonly Page[], refs: ReadonlySet<string>): H
   return out;
 }
 
-export function serializeHar(rows: readonly InspectorRowWithFires[], pages: readonly Page[] = []): string {
-  return JSON.stringify(buildHar(rows, pages), null, 2);
+export function serializeHar(
+  rows: readonly InspectorRowWithFires[],
+  pages: readonly Page[] = [],
+  sanitize = false,
+): string {
+  return JSON.stringify(buildHar(rows, pages, sanitize), null, 2);
 }
 
 /**

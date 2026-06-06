@@ -30,9 +30,10 @@ interface RequestContextMenuProps {
   row: InspectorRowWithFires;
   allRows: readonly InspectorRowWithFires[];
   onClose: () => void;
-  onSaveAsHar: (row: InspectorRowWithFires) => void;
-  onSaveAllAsHar: () => void;
-  onCopyAllAsHar: () => void;
+  onCopyAsHar: (row: InspectorRowWithFires, sanitize?: boolean) => void;
+  onSaveAsHar: (row: InspectorRowWithFires, sanitize?: boolean) => void;
+  onSaveAllAsHar: (sanitize?: boolean) => void;
+  onCopyAllAsHar: (sanitize?: boolean) => void;
 }
 
 async function copyText(text: string): Promise<void> {
@@ -76,6 +77,7 @@ export function RequestContextMenu({
   row,
   allRows,
   onClose,
+  onCopyAsHar,
   onSaveAsHar,
   onSaveAllAsHar,
   onCopyAllAsHar,
@@ -147,10 +149,13 @@ export function RequestContextMenu({
             {item('Copy request headers', () => copyText(formatRequestHeaders(lc)))}
             {item('Copy response headers', () => copyText(formatResponseHeaders(lc)))}
             {item('Copy response', () => copyText(responseBody), responseBody.length === 0)}
+            {item('Copy as HAR', () => onCopyAsHar(row, false))}
+            {item('Copy as HAR (sanitized)', () => onCopyAsHar(row, true))}
             <div className="dt-ctx-sep" />
             {item('Copy all URLs', () => copyText(allUrls), allRows.length === 0)}
             {item('Copy all as cURL', () => copyText(allCurls), allRows.length === 0)}
-            {item('Copy all as HAR', onCopyAllAsHar, allRows.length === 0)}
+            {item('Copy all as HAR', () => onCopyAllAsHar(false), allRows.length === 0)}
+            {item('Copy all as HAR (sanitized)', () => onCopyAllAsHar(true), allRows.length === 0)}
           </div>
         )}
       </div>
@@ -180,8 +185,10 @@ export function RequestContextMenu({
         Save as... {'▸'}
         {saveOpen && (
           <div className="dt-ctx-menu dt-ctx-submenu">
-            {item('Save this as HAR', () => onSaveAsHar(row))}
-            {item('Save all as HAR', onSaveAllAsHar, allRows.length === 0)}
+            {item('Save this as HAR', () => onSaveAsHar(row, false))}
+            {item('Save this as HAR (sanitized)', () => onSaveAsHar(row, true))}
+            {item('Save all as HAR', () => onSaveAllAsHar(false), allRows.length === 0)}
+            {item('Save all as HAR (sanitized)', () => onSaveAllAsHar(true), allRows.length === 0)}
           </div>
         )}
       </div>

@@ -59,9 +59,10 @@ interface TrafficListProps {
   onReloadPage: () => void;
   visibleColumns: ReadonlySet<ColumnKey>;
   onVisibleColumnsChange: (next: Set<ColumnKey>) => void;
-  onSaveAsHar: (row: InspectorRowWithFires) => void;
-  onSaveAllAsHar: () => void;
-  onCopyAllAsHar: () => void;
+  onCopyAsHar: (row: InspectorRowWithFires, sanitize?: boolean) => void;
+  onSaveAsHar: (row: InspectorRowWithFires, sanitize?: boolean) => void;
+  onSaveAllAsHar: (sanitize?: boolean) => void;
+  onCopyAllAsHar: (sanitize?: boolean) => void;
   onHide: () => void;
 }
 
@@ -86,6 +87,7 @@ export function TrafficList({
   onReloadPage,
   visibleColumns,
   onVisibleColumnsChange,
+  onCopyAsHar,
   onSaveAsHar,
   onSaveAllAsHar,
   onCopyAllAsHar,
@@ -485,6 +487,7 @@ export function TrafficList({
           row={selectedRow}
           allRows={rows}
           onClose={() => setRowMenu(null)}
+          onCopyAsHar={onCopyAsHar}
           onSaveAsHar={onSaveAsHar}
           onSaveAllAsHar={onSaveAllAsHar}
           onCopyAllAsHar={onCopyAllAsHar}

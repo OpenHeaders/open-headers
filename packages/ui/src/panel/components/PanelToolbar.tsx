@@ -256,7 +256,11 @@ function ViewMenu() {
   );
 }
 
-function ExportMenu({ onExport, onCopy, disabled }: { onExport: () => void; onCopy: () => void; disabled: boolean }) {
+function ExportMenu({
+  onExport,
+  onCopy,
+  disabled,
+}: { onExport: (sanitize?: boolean) => void; onCopy: (sanitize?: boolean) => void; disabled: boolean }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -293,7 +297,7 @@ function ExportMenu({ onExport, onCopy, disabled }: { onExport: () => void; onCo
             type="button"
             className="dt-ctx-item"
             onClick={() => {
-              onExport();
+              onExport(false);
               setOpen(false);
             }}
           >
@@ -303,11 +307,31 @@ function ExportMenu({ onExport, onCopy, disabled }: { onExport: () => void; onCo
             type="button"
             className="dt-ctx-item"
             onClick={() => {
-              onCopy();
+              onExport(true);
+              setOpen(false);
+            }}
+          >
+            Export all as HAR (sanitized)
+          </button>
+          <button
+            type="button"
+            className="dt-ctx-item"
+            onClick={() => {
+              onCopy(false);
               setOpen(false);
             }}
           >
             Copy all as HAR
+          </button>
+          <button
+            type="button"
+            className="dt-ctx-item"
+            onClick={() => {
+              onCopy(true);
+              setOpen(false);
+            }}
+          >
+            Copy all as HAR (sanitized)
           </button>
         </div>
       )}
@@ -331,8 +355,8 @@ export interface PanelToolbarProps {
   rulesVisible: boolean;
   filterConfig: FilterConfig;
   onFilterConfigChange: (c: FilterConfig) => void;
-  onExportHar: () => void;
-  onCopyAllHar: () => void;
+  onExportHar: (sanitize?: boolean) => void;
+  onCopyAllHar: (sanitize?: boolean) => void;
   canExport: boolean;
   /** "Bypass HTTP Cache" toggle — lives inside the More-filters
    *  overflow dropdown. DNR-backed, scoped to the inspected tab.
