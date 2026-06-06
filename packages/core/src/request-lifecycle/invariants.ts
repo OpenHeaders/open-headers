@@ -110,6 +110,9 @@ export function patchRefines(prev: RequestLifecycle, patch: RequestLifecyclePatc
   if ('fromCache' in patch && patch.fromCache === undefined && prev.fromCache !== undefined) return false;
   if ('error' in patch && patch.error === undefined && prev.error !== undefined) return false;
   if ('completedAtMs' in patch && patch.completedAtMs === undefined && prev.completedAtMs !== undefined) return false;
+  if ('hopNetworkStartMs' in patch && patch.hopNetworkStartMs === undefined && prev.hopNetworkStartMs !== undefined) {
+    return false;
+  }
   return true;
 }
 

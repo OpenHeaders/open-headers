@@ -377,6 +377,66 @@ describe('usePanelData', () => {
     expect(result.current.finishTimeMs).toBe(1647);
   });
 
+  it('anchors the footer to the final hop network start, not its issue instant', () => {
+    // The final hop queued for 3 ms before going on the wire: issue at 38_850,
+    // network start at 38_853. The footer's zero is the network start (the
+    // browser's baseTime), so the leg, Finish, and re-anchored milestones all
+    // measure from 38_853 — anchoring to the issue instant would read ~3 ms
+    // large on Load / Finish (the live +1 ms footer gap).
+    const redirected: RequestLifecycle = {
+      tabId: 1,
+      requestId: 'doc',
+      url: 'https://openheaders.io/ro',
+      method: 'GET',
+      resourceType: 'document',
+      phase: 'completed',
+      redirectHopCount: 1,
+      redirectHops: [
+        {
+          sourceUrl: 'https://openheaders.io/',
+          redirectUrl: 'https://openheaders.io/ro',
+          statusCode: 302,
+          timestampMs: 38_740,
+        },
+      ],
+      startedAtMs: 38_740,
+      hopStartedAtMs: 38_850,
+      hopNetworkStartMs: 38_853,
+      completedAtMs: 40_500,
+      har: [har('https://openheaders.io/'), har('https://openheaders.io/ro')],
+      harBodyByHop: [],
+    };
+    const pages: Page[] = [
+      { id: 'page_1', startedAtMs: 38_744, url: 'https://openheaders.io/', dclMs: 556.7, loadMs: 1638 },
+    ];
+    const { result } = renderHook(() => usePanelData(snapshots([redirected], pages)));
+    // Anchor = network start (38_853), not the issue instant (38_850).
+    expect(result.current.footerAnchorMs).toBe(38_853);
+    // Leg = networkStart(38_853) − page.startedAtMs(38_744) = 109 (not 106).
+    expect(result.current.legMs).toBe(109);
+    expect(result.current.footerDclMs).toBeCloseTo(447.7, 5);
+    expect(result.current.footerLoadMs).toBeCloseTo(1529, 5);
+    // Finish = maxEnd 40_500 − networkStart 38_853 = 1647 (not 1650).
+    expect(result.current.finishTimeMs).toBe(1647);
+  });
+
+  it('falls the footer anchor back to the hop issue instant when no network start is known', () => {
+    // Heuristic / pre-timing state: hopNetworkStartMs unset → anchor degrades
+    // to hopStartedAtMs, the value the footer used before network-start anchoring.
+    const finalDoc = lifecycle('doc', 'https://openheaders.io/ro', {
+      resourceType: 'document',
+      startedAtMs: 38_853,
+      completedAtMs: 40_500,
+    });
+    const pages: Page[] = [
+      { id: 'page_1', startedAtMs: 38_744, url: 'https://openheaders.io/', dclMs: 556.7, loadMs: 1638 },
+    ];
+    const { result } = renderHook(() => usePanelData(snapshots([finalDoc], pages)));
+    expect(result.current.footerAnchorMs).toBe(38_853);
+    expect(result.current.legMs).toBe(109);
+    expect(result.current.finishTimeMs).toBe(1647);
+  });
+
   it('counts modified, failed, and cached rows', () => {
     const { result } = renderHook(() =>
       usePanelData(

@@ -127,6 +127,19 @@ export interface UsePanelDataResult {
    */
   readonly finishTimeMs: number;
   /**
+   * The footer's zero — the final committed document's network start in
+   * wall-clock ms (the browser footer's `baseTime`), from which `finishTimeMs`
+   * and the re-anchored milestones are measured. `baseTime` (the nav start)
+   * when no main document is known.
+   */
+  readonly footerAnchorMs: number;
+  /**
+   * The redirect leg subtracted to re-anchor the footer milestones: the gap
+   * from the navigation root to the final document's network start. `0` for a
+   * non-redirected navigation.
+   */
+  readonly legMs: number;
+  /**
    * DOMContentLoaded / Load for the status-bar footer, re-anchored to the
    * final committed document (the browser footer's zero). Equal to the
    * `navTiming` milestones for a non-redirected navigation; smaller by the
@@ -345,10 +358,13 @@ export function projectPanelData(input: UsePanelDataInput): UsePanelDataResult {
   }
 
   const latestPage = pages.length > 0 ? pages[pages.length - 1] : null;
-  // Footer zero — the final committed document's network start, mirroring the
-  // browser footer's `baseTime`. Falls back to the nav start when no main
-  // document is known. Equal to the nav start for a non-redirect.
-  const footerAnchorMs = footerDoc !== null ? footerDoc.hopStartedAtMs : baseTime;
+  // Footer zero — the final committed document's network start (when it left
+  // the queue for the wire), mirroring the browser footer's `baseTime`. Prefer
+  // the hop's `hopNetworkStartMs`; fall back to its issue instant
+  // (`hopStartedAtMs`) when the network start is unknown, then to the nav start
+  // when no main document is known. Issue and network start coincide for a hop
+  // that never queued.
+  const footerAnchorMs = footerDoc !== null ? (footerDoc.hopNetworkStartMs ?? footerDoc.hopStartedAtMs) : baseTime;
   // Redirect leg: the page stream anchors `dclMs` / `loadMs` to the chain
   // root (`Page.startedAtMs`); the footer re-anchors them to the final
   // committed document by subtracting the gap. Gated on an actual redirect
@@ -409,6 +425,8 @@ export function projectPanelData(input: UsePanelDataInput): UsePanelDataResult {
     totalBytesTransferred,
     totalResourceSize,
     finishTimeMs,
+    footerAnchorMs,
+    legMs,
     footerDclMs,
     footerLoadMs,
     modifiedCount,

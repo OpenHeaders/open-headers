@@ -227,3 +227,106 @@ describe('reducer — har / body attachment', () => {
     expect(r.next.har[0]).not.toBeNull();
   });
 });
+
+describe('reducer — hopNetworkStartMs (footer anchor = network start)', () => {
+  it('applies a network start carried on a phase patch (the CDP path)', () => {
+    const state = makeLifecycle();
+    const r = reduce(state, {
+      kind: 'phase',
+      tabId: 1,
+      requestId: 'req-1',
+      patch: { phase: 'headers-received', hopNetworkStartMs: 1_000.7 },
+    });
+    expect(r.kind).toBe('update');
+    if (r.kind !== 'update') return;
+    expect(r.next.hopNetworkStartMs).toBe(1_000.7);
+  });
+
+  it('rejects a patch that would clear a known network start (invariant 5)', () => {
+    const state = makeLifecycle({ hopNetworkStartMs: 1_000.7 });
+    const r = reduce(state, {
+      kind: 'phase',
+      tabId: 1,
+      requestId: 'req-1',
+      patch: { hopNetworkStartMs: undefined },
+    });
+    expect(r).toEqual({ kind: 'reject', reason: 'patch-disappearance' });
+  });
+
+  it('derives the current-hop network start from the attached HAR queueing leg (heuristic path)', () => {
+    // The heuristic path's events carry no network start; the attached HAR's
+    // `_blocked_queueing` is its only source. start = hopStartedAtMs + queueing.
+    const state = makeLifecycle({ hopStartedAtMs: 1_000 });
+    const r = reduce(state, {
+      kind: 'har-attached',
+      tabId: 1,
+      requestId: 'req-1',
+      hopIndex: 0,
+      har: { startedDateTime: '2026-05-25T00:00:00.000Z', timings: { _blocked_queueing: 0.843 } },
+    });
+    expect(r.kind).toBe('update');
+    if (r.kind !== 'update') return;
+    expect(r.next.hopNetworkStartMs).toBe(1_000.843);
+  });
+
+  it('does not overwrite an upstream-stamped network start when HAR lands (CDP precision wins)', () => {
+    const state = makeLifecycle({ hopStartedAtMs: 1_000, hopNetworkStartMs: 1_000.7 });
+    const r = reduce(state, {
+      kind: 'har-attached',
+      tabId: 1,
+      requestId: 'req-1',
+      hopIndex: 0,
+      har: { startedDateTime: '2026-05-25T00:00:00.000Z', timings: { _blocked_queueing: 0.843 } },
+    });
+    expect(r.kind).toBe('update');
+    if (r.kind !== 'update') return;
+    expect(r.next.hopNetworkStartMs).toBe(1_000.7);
+  });
+
+  it('ignores HAR for an earlier hop (only the current hop sets the anchor)', () => {
+    const state = makeLifecycle({ redirectHopCount: 1, hopStartedAtMs: 2_000 });
+    const r = reduce(state, {
+      kind: 'har-attached',
+      tabId: 1,
+      requestId: 'req-1',
+      hopIndex: 0,
+      har: { startedDateTime: '2026-05-25T00:00:00.000Z', timings: { _blocked_queueing: 0.843 } },
+    });
+    expect(r.kind).toBe('update');
+    if (r.kind !== 'update') return;
+    expect(r.next.hopNetworkStartMs).toBeUndefined();
+  });
+
+  it('leaves the anchor unset when the HAR records no queueing leg (degrades to issue instant)', () => {
+    const state = makeLifecycle({ hopStartedAtMs: 1_000 });
+    const r = reduce(state, {
+      kind: 'har-attached',
+      tabId: 1,
+      requestId: 'req-1',
+      hopIndex: 0,
+      har: { startedDateTime: '2026-05-25T00:00:00.000Z', timings: { _blocked_queueing: -1 } },
+    });
+    expect(r.kind).toBe('update');
+    if (r.kind !== 'update') return;
+    expect(r.next.hopNetworkStartMs).toBeUndefined();
+  });
+
+  it('resets the network start with the hop on redirect', () => {
+    const state = makeLifecycle({ phase: 'headers-received', statusCode: 301, hopNetworkStartMs: 1_000.7 });
+    const r = reduce(state, {
+      kind: 'redirect',
+      tabId: 1,
+      requestId: 'req-1',
+      hop: {
+        sourceUrl: 'https://api.openheaders.io/users',
+        redirectUrl: 'https://api.openheaders.io/v2/users',
+        statusCode: 301,
+        timestampMs: 1_500,
+      },
+      nextUrl: 'https://api.openheaders.io/v2/users',
+    });
+    expect(r.kind).toBe('update');
+    if (r.kind !== 'update') return;
+    expect(r.next.hopNetworkStartMs).toBeUndefined();
+  });
+});

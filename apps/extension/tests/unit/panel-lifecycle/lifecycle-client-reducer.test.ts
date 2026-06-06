@@ -123,6 +123,38 @@ describe('reduceClientUpdate — har-attached / body-attached', () => {
   });
 });
 
+describe('reduceClientUpdate — hopNetworkStartMs (footer anchor mirror)', () => {
+  it('carries a network start stamped on a phase patch (CDP path)', () => {
+    const prev = makeLifecycle();
+    const result = reduceClientUpdate(prev, {
+      kind: 'phase',
+      tabId: 1,
+      requestId: 'r1',
+      patch: { phase: 'headers-received', hopNetworkStartMs: 100.7 },
+    });
+    expect((result as RequestLifecycle).hopNetworkStartMs).toBe(100.7);
+  });
+
+  it('resets the network start with the hop on redirect', () => {
+    const prev = makeLifecycle({ phase: 'headers-received', hopNetworkStartMs: 100.7 });
+    const result = reduceClientUpdate(prev, {
+      kind: 'redirect',
+      tabId: 1,
+      requestId: 'r1',
+      hop: { sourceUrl: prev.url, redirectUrl: 'https://openheaders.io/b', statusCode: 302, timestampMs: 110 },
+      nextUrl: 'https://openheaders.io/b',
+    });
+    expect((result as RequestLifecycle).hopNetworkStartMs).toBeUndefined();
+  });
+
+  it('derives the network start from the attached HAR queueing leg (heuristic path)', () => {
+    const prev = makeLifecycle({ hopStartedAtMs: 100 });
+    const harEntry = { startedDateTime: '2026-05-25T00:00:00.000Z', timings: { _blocked_queueing: 0.843 } } as never;
+    const result = reduceClientUpdate(prev, { kind: 'har-attached', tabId: 1, requestId: 'r1', hopIndex: 0, har: harEntry });
+    expect((result as RequestLifecycle).hopNetworkStartMs).toBe(100.843);
+  });
+});
+
 describe('reduceClientUpdate — gone', () => {
   it('returns null when the lifecycle exists', () => {
     const prev = makeLifecycle();

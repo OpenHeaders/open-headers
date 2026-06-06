@@ -8,6 +8,7 @@
  */
 
 export type { RequestCorrelator, RequestLifecycleListener, Unsubscribe } from './correlator';
+export { deriveHopNetworkStartMs } from './derived-timing';
 export type {
   InvariantAssertion,
   InvariantEntry,

@@ -11,6 +11,7 @@
  * `null` means the request has gone away.
  */
 
+import { deriveHopNetworkStartMs } from '@openheaders/core/request-lifecycle';
 import type {
   RedirectHop,
   RequestLifecycle,
@@ -57,6 +58,7 @@ function applyPatch(prev: RequestLifecycle, patch: RequestLifecyclePatch): Reque
     ...(patch.fromCache !== undefined ? { fromCache: patch.fromCache } : {}),
     ...(patch.error !== undefined ? { error: patch.error } : {}),
     ...(patch.completedAtMs !== undefined ? { completedAtMs: patch.completedAtMs } : {}),
+    ...(patch.hopNetworkStartMs !== undefined ? { hopNetworkStartMs: patch.hopNetworkStartMs } : {}),
   };
 }
 
@@ -76,11 +78,19 @@ function applyRedirect(prev: RequestLifecycle, hop: RedirectHop, nextUrl: string
     fromCache: undefined,
     error: undefined,
     completedAtMs: undefined,
+    // The network start is per-hop; the new hop re-learns it from its own
+    // timing / HAR.
+    hopNetworkStartMs: undefined,
   };
 }
 
 function attachHar(prev: RequestLifecycle, hopIndex: number, har: InspectorHarEntry): RequestLifecycle {
-  return { ...prev, har: setHopSlot(prev.har, hopIndex, har) };
+  const derived = deriveHopNetworkStartMs(prev, hopIndex, har);
+  return {
+    ...prev,
+    har: setHopSlot(prev.har, hopIndex, har),
+    ...(derived !== undefined ? { hopNetworkStartMs: derived } : {}),
+  };
 }
 
 function attachBody(prev: RequestLifecycle, hopIndex: number, body: InspectorHarBody): RequestLifecycle {

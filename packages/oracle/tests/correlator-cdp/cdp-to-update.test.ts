@@ -152,6 +152,29 @@ describe('cdpEventToUpdates — canonical redirect + completion trace', () => {
     expect(u.patch.statusText).toBe('OK');
   });
 
+  it('responseReceived stamps the wall network start from timing.requestTime', () => {
+    // requestTime is the network start on CDP's monotonic clock; converting it
+    // through the same offset as the wall start gives `hopNetworkStartMs`, the
+    // footer's anchor. requestTime 100.7 + OFFSET 1_699_999_899.75 = 1_700_000_000.45.
+    const withTiming: CdpResponseReceived = {
+      ...responseReceived,
+      response: { ...responseReceived.response, timing: { requestTime: 100.7 } },
+    };
+    const u = cdpEventToUpdates(withTiming, toWallMs)[0];
+    expect(u?.kind).toBe('phase');
+    if (u?.kind !== 'phase') return;
+    expect(u.patch.hopNetworkStartMs).toBe(1_700_000_000_450);
+  });
+
+  it('omits the network start when responseReceived carries no timing (cached/blocked hop)', () => {
+    // No `timing` (a disk-cache or blocked hop reports none) → leave the field
+    // unset so the footer falls back to the issue instant.
+    const u = cdpEventToUpdates(responseReceived, toWallMs)[0];
+    expect(u?.kind).toBe('phase');
+    if (u?.kind !== 'phase') return;
+    expect(u.patch.hopNetworkStartMs).toBeUndefined();
+  });
+
   it('loadingFinished → phase: completed with wall-clock completedAtMs', () => {
     const updates = cdpEventToUpdates(loadingFinished, toWallMs);
     expect(updates).toHaveLength(1);

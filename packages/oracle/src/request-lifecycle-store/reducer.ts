@@ -20,6 +20,7 @@
  */
 
 import {
+  deriveHopNetworkStartMs,
   isPhaseAdvance,
   isRedirectReset,
   isTerminalPhase,
@@ -140,6 +141,9 @@ function reduceRedirect(
     fromCache: undefined,
     error: undefined,
     completedAtMs: undefined,
+    // The network start is per-hop; the new hop re-learns it from its own
+    // timing / HAR.
+    hopNetworkStartMs: undefined,
   };
   return { kind: 'update', next };
 }
@@ -150,7 +154,13 @@ function reduceHarAttached(
   har: InspectorHarEntry,
 ): ReducerResult {
   if (prev === undefined) return { kind: 'reject', reason: 'unknown-request' };
-  return { kind: 'update', next: { ...prev, har: setHopSlot(prev.har, hopIndex, har) } };
+  const derived = deriveHopNetworkStartMs(prev, hopIndex, har);
+  const next: RequestLifecycle = {
+    ...prev,
+    har: setHopSlot(prev.har, hopIndex, har),
+    ...(derived !== undefined ? { hopNetworkStartMs: derived } : {}),
+  };
+  return { kind: 'update', next };
 }
 
 function reduceBodyAttached(
@@ -181,5 +191,6 @@ function applyPatch(prev: RequestLifecycle, patch: RequestLifecyclePatch): Reque
     ...(patch.fromCache !== undefined ? { fromCache: patch.fromCache } : {}),
     ...(patch.error !== undefined ? { error: patch.error } : {}),
     ...(patch.completedAtMs !== undefined ? { completedAtMs: patch.completedAtMs } : {}),
+    ...(patch.hopNetworkStartMs !== undefined ? { hopNetworkStartMs: patch.hopNetworkStartMs } : {}),
   };
 }

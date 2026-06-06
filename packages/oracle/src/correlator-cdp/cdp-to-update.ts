@@ -56,7 +56,7 @@ export function cdpEventToUpdates(
     case 'Network.requestWillBeSent':
       return event.redirectResponse !== undefined ? [redirectUpdate(event)] : [startedUpdate(event)];
     case 'Network.responseReceived':
-      return [headersReceivedUpdate(event)];
+      return [headersReceivedUpdate(event, toWallMs)];
     case 'Network.loadingFinished':
       return [completedUpdate(event, toWallMs)];
     case 'Network.loadingFailed':
@@ -124,9 +124,18 @@ function redirectUpdate(
   };
 }
 
+// `timing.requestTime` is the hop's network start (when it left the queue for
+// the wire) on CDP's monotonic clock — Chrome's `NetworkRequest.startTime` and
+// the footer's `baseTime`. Converted to wall through `toWallMs` so it sits on
+// the same clock as `hopStartedAtMs` (the earlier issue instant), and stamped
+// as `hopNetworkStartMs` so the footer can anchor to the network start without
+// re-deriving it from the HAR. Absent timing (cached / blocked hop) leaves the
+// field unset; the footer falls back to `hopStartedAtMs`.
 function headersReceivedUpdate(
   event: Extract<CdpNetworkEvent, { method: 'Network.responseReceived' }>,
+  toWallMs: CdpWallClockResolver,
 ): RequestLifecycleUpdate {
+  const requestTime = event.response.timing?.requestTime;
   return {
     kind: 'phase',
     tabId: event.tabId,
@@ -136,6 +145,9 @@ function headersReceivedUpdate(
       statusCode: event.response.status,
       statusText: event.response.statusText,
       fromCache: event.response.fromDiskCache,
+      ...(requestTime !== undefined
+        ? { hopNetworkStartMs: toWallMs(event.tabId, event.sessionId, event.requestId, requestTime) }
+        : {}),
     },
   };
 }

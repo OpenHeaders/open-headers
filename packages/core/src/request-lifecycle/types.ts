@@ -80,6 +80,17 @@ export interface RequestLifecycle {
   readonly startedAtMs: number;
   /** Wall-clock ms at the `onBeforeRequest` of the current hop. */
   readonly hopStartedAtMs: number;
+  /**
+   * Wall-clock ms at the current hop's network start — when the request left
+   * the queue and went on the wire, i.e. `hopStartedAtMs` plus the queueing
+   * leg. This is the start the footer anchors DCL / Load / Finish to (the
+   * browser's `baseTime`); `hopStartedAtMs` is the earlier issue instant.
+   * Set once the hop's timing is known — the CDP path stamps it from the
+   * response's network-start time, the heuristic path derives it from the
+   * attached HAR's queueing leg. Absent until known; consumers fall back to
+   * `hopStartedAtMs`. Resets with the hop on redirect.
+   */
+  readonly hopNetworkStartMs?: number;
   /** Wall-clock ms at the terminal phase (`completed` or `failed`). */
   readonly completedAtMs?: number;
 
@@ -200,4 +211,5 @@ export interface RequestLifecyclePatch {
   fromCache?: boolean;
   error?: RequestError;
   completedAtMs?: number;
+  hopNetworkStartMs?: number;
 }

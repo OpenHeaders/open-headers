@@ -91,9 +91,11 @@ describe('startCdpPageBridge', () => {
       id: 'page_1',
       startedAtMs: 1_700_000_000_050,
       url: 'https://app.openheaders.io/',
-      dclMs: 1576,
-      loadMs: 2378,
     });
+    // Milestones are the raw `(eventSec − pageStartSec) * 1000` product (no
+    // rounding, by design), so assert to sub-µs rather than exact float.
+    expect(pages[0].dclMs).toBeCloseTo(1576, 5);
+    expect(pages[0].loadMs).toBeCloseTo(2378, 5);
   });
 
   it('forgets per-tab correlator state when the tab closes', () => {

@@ -27,6 +27,13 @@ export interface ParityFooter {
   footerDclMs: number | null;
   footerLoadMs: number | null;
   finishTimeMs: number;
+  /** The footer's zero — the final document's network start in wall ms (the
+   *  browser's `baseTime`). A capture asserts this equals the final doc's
+   *  network start (issue + queueing), not its issue instant. */
+  footerAnchorMs: number;
+  /** Redirect leg subtracted to re-anchor the milestones; `0` non-redirect.
+   *  Should equal Chrome's `finalNetworkStart − rootNetworkStart`. */
+  legMs: number;
   pages: Array<{ id: string; url: string | null; startedAtMs: number; dclMs: number | null; loadMs: number | null }>;
 }
 
@@ -63,6 +70,10 @@ interface ParityRowDebug extends ParityRow {
   _redirectHopCount?: number;
   _startedAtMs?: number;
   _hopStartedAtMs?: number;
+  /** Current hop's network start (issue + queueing), the footer anchor source.
+   *  `null` until the hop's timing/HAR has landed — then it should sit ~one
+   *  queueing leg after `_hopStartedAtMs` (the issue instant). */
+  _hopNetworkStartMs?: number | null;
   _harHops?: Array<{ status: number | null; startedDateTime: string | null } | null>;
   /** Lifecycle-clock probe (Slice AB): `completedAtMs` and the clamped
    *  `completedAtMs − startedAtMs` the Finish math consumes. A negative raw
@@ -127,6 +138,7 @@ function toParityRow(lc: RequestLifecycle, arrivalIndex: number): ParityRow {
     row._redirectHopCount = lc.redirectHopCount;
     row._startedAtMs = lc.startedAtMs;
     row._hopStartedAtMs = lc.hopStartedAtMs;
+    row._hopNetworkStartMs = lc.hopNetworkStartMs ?? null;
     row._harHops = lc.har.map((h) =>
       h == null ? null : { status: h.response?.status ?? null, startedDateTime: h.startedDateTime ?? null },
     );
