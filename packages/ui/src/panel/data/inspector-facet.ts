@@ -7,9 +7,11 @@
  * `useMemo` over `store.getSnapshot().ordered`.
  *
  * Concerns owned here (and nowhere else in the panel):
- *   - **Stable sort key.** `startedAtMs` ascending, with `requestId` as a
- *     tiebreaker so two requests with identical wall-clock starts get a
- *     deterministic order across re-renders.
+ *   - **Stable sort key.** `startedAtMs` ascending, with discovery order
+ *     (the order requests entered the log) as the tiebreaker — the host
+ *     breaks exact start-time ties by insertion order, not by id. A naive
+ *     `requestId` string compare mis-orders the burst of requests a page
+ *     fires in one tick (CDP ids like `…​.10` sort before `…​.4`).
  *   - **Display id.** 1-indexed sequence after consolidation; the legacy
  *     panel showed `#42`-style ids and the network UX leans on a stable
  *     compact identifier the user can reference verbally.
@@ -83,11 +85,6 @@ export function buildInspectorRows(
   lifecycles: readonly RequestLifecycle[],
   opts: BuildInspectorRowsOptions = {},
 ): readonly InspectorRow[] {
-  const sorted = [...lifecycles].sort(compareLifecycles);
-  const projected = opts.consolidateRetries
-    ? consolidateRetries(sorted, opts.retryWindowMs ?? DEFAULT_RETRY_WINDOW_MS)
-    : sorted.map(asUnconsolidated);
-
   // Request # is discovery order — the order requests entered the log
   // (`lifecycles` arrives in store insertion order, oldest first).
   // Numbering off the input rather than the time-sorted projection means
@@ -106,6 +103,14 @@ export function buildInspectorRows(
     for (const hop of synthesizeRedirectHopLifecycles(lc)) rank(hop.requestId);
     rank(lc.requestId);
   }
+  // Discovery rank doubles as the start-time tiebreak (host-exact): exact
+  // ties resolve to insertion order, never a `requestId` string compare.
+  const rankOf = (lc: RequestLifecycle): number => discoveryRank.get(lc.requestId) ?? Number.MAX_SAFE_INTEGER;
+
+  const sorted = [...lifecycles].sort((a, b) => a.startedAtMs - b.startedAtMs || rankOf(a) - rankOf(b));
+  const projected = opts.consolidateRetries
+    ? consolidateRetries(sorted, opts.retryWindowMs ?? DEFAULT_RETRY_WINDOW_MS)
+    : sorted.map(asUnconsolidated);
 
   // Un-fold each lifecycle into [hop0 … hopN-1 synthetic rows, real final
   // row], consecutive and in hop order so the table renders the redirect leg
@@ -169,9 +174,4 @@ function consolidateRetries(sorted: readonly RequestLifecycle[], windowMs: numbe
   }
 
   return result;
-}
-
-function compareLifecycles(a: RequestLifecycle, b: RequestLifecycle): number {
-  if (a.startedAtMs !== b.startedAtMs) return a.startedAtMs - b.startedAtMs;
-  return a.requestId < b.requestId ? -1 : a.requestId > b.requestId ? 1 : 0;
 }

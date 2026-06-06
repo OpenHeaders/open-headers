@@ -3,8 +3,8 @@
  *
  * Each mode is a compound comparator: a primary bucket / axis followed
  * by start time ascending as the tiebreak so the result stays
- * waterfall-stable. (Request # / `displayId` is discovery order, not
- * start order, so it can't serve as the chronological tiebreak.)
+ * waterfall-stable. Exact start-time ties fall to discovery order
+ * (`displayId`), matching the host's insertion-order tiebreak.
  * Modes exist to express the recurring debugging
  * narratives that single-column sort can't ("failed first, then
  * chronological", "group by type, then chronological"); they
@@ -66,11 +66,16 @@ export const NETWORK_SORT_MODE_META: Record<NetworkSortMode, NetworkSortModeMeta
   },
 };
 
-/** Waterfall-stable tiebreak: start time ascending, `requestId` to break exact ties. */
+/**
+ * Waterfall-stable tiebreak: start time ascending, then discovery order
+ * (`displayId`) to break exact ties — host-exact. (A `requestId` string
+ * compare would mis-order a same-tick request burst, since CDP ids like
+ * `…​.10` sort before `…​.4`.)
+ */
 function chronological(a: InspectorRowWithFires, b: InspectorRowWithFires): number {
   const d = a.lifecycle.startedAtMs - b.lifecycle.startedAtMs;
   if (d !== 0) return d;
-  return a.lifecycle.requestId < b.lifecycle.requestId ? -1 : a.lifecycle.requestId > b.lifecycle.requestId ? 1 : 0;
+  return a.displayId - b.displayId;
 }
 
 // ── Failure tiers ────────────────────────────────────────────────────

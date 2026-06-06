@@ -72,13 +72,25 @@ describe('inspectorSortKey', () => {
 });
 
 describe('buildInspectorRows — ordering + displayId', () => {
-  it('sorts rows by startedAtMs ascending, breaks ties by requestId', () => {
+  it('sorts rows by startedAtMs ascending, breaks ties by discovery order', () => {
     const rows = buildInspectorRows([
       makeLifecycle({ requestId: 'c', startedAtMs: 200 }),
       makeLifecycle({ requestId: 'a', startedAtMs: 100 }),
       makeLifecycle({ requestId: 'b', startedAtMs: 100 }),
     ]);
     expect(rows.map((r: InspectorRow) => r.lifecycle.requestId)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('breaks exact start-time ties by discovery order, not requestId string', () => {
+    // A page fires a burst of requests in one tick — identical startedAtMs.
+    // Discovery order is #4 then #10 (CDP ids `r.4`, `r.10`); a requestId
+    // string compare would invert them (`r.10` < `r.4`). The host breaks the
+    // tie by insertion order, so #4 must stay before #10.
+    const rows = buildInspectorRows([
+      makeLifecycle({ requestId: 'r.4', startedAtMs: 100 }),
+      makeLifecycle({ requestId: 'r.10', startedAtMs: 100 }),
+    ]);
+    expect(rows.map((r: InspectorRow) => r.lifecycle.requestId)).toEqual(['r.4', 'r.10']);
   });
 
   it('numbers displayId by discovery (input) order, not the sorted row order', () => {
