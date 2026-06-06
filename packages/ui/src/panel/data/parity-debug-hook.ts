@@ -64,6 +64,12 @@ interface ParityRowDebug extends ParityRow {
   _startedAtMs?: number;
   _hopStartedAtMs?: number;
   _harHops?: Array<{ status: number | null; startedDateTime: string | null } | null>;
+  /** Lifecycle-clock probe (Slice AB): `completedAtMs` and the clamped
+   *  `completedAtMs − startedAtMs` the Finish math consumes. A negative raw
+   *  delta (monotonic completed vs wall started) clamps to 0 here, which is
+   *  the bug this probe confirms. */
+  _completedAtMs?: number | null;
+  _lifecycleDurationMs?: number;
 }
 
 /** Top-level navigation document — the rows the footer leg keys off. */
@@ -102,16 +108,20 @@ function toParityRow(lc: RequestLifecycle, arrivalIndex: number): ParityRow {
     resourceType: lc.resourceType || null,
   };
   if (
-    lc.url.includes('/net/slow/3000') ||
+    lc.url.includes('/net/slow/') ||
     lc.url.includes('/net/redirect') ||
     lc.url.includes('/net/nav-') ||
     lc.url.includes('/echo/') ||
-    lc.url.includes('/net/status/')
+    lc.url.includes('/net/status/') ||
+    lc.url.includes('/favicon.ico')
   ) {
     row._requestId = lc.requestId;
     row._harResponseStatus = har?.response?.status;
     row._harResponseError = har?.response?._error;
     row._hasErrorField = lc.error != null;
+    row._startedAtMs = lc.startedAtMs;
+    row._completedAtMs = lc.completedAtMs ?? null;
+    row._lifecycleDurationMs = lc.completedAtMs == null ? 0 : Math.max(0, lc.completedAtMs - lc.startedAtMs);
   }
   if (isDocumentLike(lc.resourceType)) {
     row._redirectHopCount = lc.redirectHopCount;

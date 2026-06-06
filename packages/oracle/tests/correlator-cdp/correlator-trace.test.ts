@@ -64,7 +64,12 @@ describe('CdpCorrelatorStub → RequestLifecycleStore — canonical success trac
     expect(lc.phase).toBe('completed');
     expect(lc.statusCode).toBe(200);
     expect(lc.statusText).toBe('OK');
-    expect(lc.completedAtMs).toBe(100_900);
+    // Wall-clock: monotonic finish 100.9 + the request's wall↔monotonic offset
+    // (1_700_000_000 − 100), the same clock as `startedAtMs` (1_700_000_000_000),
+    // so the lifecycle duration is a real +900 ms rather than a monotonic value
+    // that subtracts below the wall start and clamps to 0.
+    expect(lc.completedAtMs).toBe(1_700_000_000_900);
+    expect((lc.completedAtMs ?? 0) - lc.startedAtMs).toBe(900);
     expect(lc.redirectHopCount).toBe(0);
     expect(lc.redirectHops).toEqual([]);
     expect(h.onReject).not.toHaveBeenCalled();
@@ -178,7 +183,8 @@ describe('CdpCorrelatorStub → RequestLifecycleStore — failure trace', () => 
     expect(lc.phase).toBe('failed');
     expect(lc.error?.code).toBe('net::ERR_CONNECTION_RESET');
     expect(lc.error?.reason).toBe('tls');
-    expect(lc.completedAtMs).toBe(100_700);
+    // Wall-clock (see the success trace): monotonic fail 100.7 + offset.
+    expect(lc.completedAtMs).toBe(1_700_000_000_700);
     expect(h.onReject).not.toHaveBeenCalled();
     // A failed-before-response request still synthesizes a status-0 HAR entry
     // (Chrome parity), so a har-attached follows the phase update.

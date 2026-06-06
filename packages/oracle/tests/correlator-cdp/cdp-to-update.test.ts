@@ -4,12 +4,18 @@
  * The trace below is the canonical "request, single redirect, response,
  * finished" sequence. The store does not run here; we assert the
  * mapper's shape directly.
+ *
+ * The terminal events carry only CDP's monotonic `timestamp`, so the mapper
+ * takes a {@link CdpWallClockResolver} to recover wall-clock `completedAtMs`.
+ * These tests inject a fixed-offset resolver (the real per-request offset is
+ * exercised in `cdp-wall-clock.test.ts`) and assert the converted wall value.
  */
 
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import { describe, expect, it } from 'vitest';
 
 import { cdpEventToUpdates } from '../../src/correlator-cdp/cdp-to-update';
+import type { CdpWallClockResolver } from '../../src/correlator-cdp/cdp-wall-clock';
 import type {
   CdpLoadingFailed,
   CdpLoadingFinished,
@@ -36,6 +42,15 @@ const initialRequest: CdpRequestWillBeSent = {
   initiator: { type: 'parser', url: 'https://app.openheaders.io/' },
   type: 'XHR',
 };
+
+/**
+ * Fixed-offset resolver: `wall − monotonic` for the canonical request, so a
+ * monotonic instant maps to the same wall clock as `startedAtMs`. This is the
+ * pure conversion `CdpWallClock` performs once it has captured the offset.
+ */
+const OFFSET_SEC = initialRequest.wallTime - initialRequest.timestamp;
+const toWallMs: CdpWallClockResolver = (_tabId, _sessionId, _requestId, monotonicSec) =>
+  (monotonicSec + OFFSET_SEC) * 1000;
 
 const redirectStart: CdpRequestWillBeSent = {
   ...initialRequest,
@@ -71,7 +86,7 @@ const loadingFinished: CdpLoadingFinished = {
 
 describe('cdpEventToUpdates — canonical redirect + completion trace', () => {
   it('first requestWillBeSent → started update', () => {
-    const updates = cdpEventToUpdates(initialRequest);
+    const updates = cdpEventToUpdates(initialRequest, toWallMs);
     expect(updates).toHaveLength(1);
     const u = updates[0];
     expect(u?.kind).toBe('started');
@@ -91,7 +106,7 @@ describe('cdpEventToUpdates — canonical redirect + completion trace', () => {
     // CDP reports `'Document'`; the footer's `isMainDocument` matches lowercase
     // `'document'`. Without normalization a top-level CDP nav is never the main
     // document and the footer loses its redirect-leg anchoring.
-    const u = cdpEventToUpdates({ ...initialRequest, type: 'Document' })[0];
+    const u = cdpEventToUpdates({ ...initialRequest, type: 'Document' }, toWallMs)[0];
     expect(u?.kind).toBe('started');
     if (u?.kind !== 'started') return;
     expect(u.lifecycle.resourceType).toBe('document');
@@ -102,7 +117,7 @@ describe('cdpEventToUpdates — canonical redirect + completion trace', () => {
     // queueing to reach the network start (the host's requestTime); truncating
     // here would collapse sub-ms ordering and mis-sort near-simultaneous
     // requests. The HAR export still truncates for display (new Date → 5678).
-    const u = cdpEventToUpdates({ ...initialRequest, wallTime: 5.6789 })[0];
+    const u = cdpEventToUpdates({ ...initialRequest, wallTime: 5.6789 }, toWallMs)[0];
     expect(u?.kind).toBe('started');
     if (u?.kind !== 'started') return;
     expect(u.lifecycle.startedAtMs).toBe(5.6789 * 1000);
@@ -110,7 +125,7 @@ describe('cdpEventToUpdates — canonical redirect + completion trace', () => {
   });
 
   it('requestWillBeSent with redirectResponse → redirect update (not started)', () => {
-    const updates = cdpEventToUpdates(redirectStart);
+    const updates = cdpEventToUpdates(redirectStart, toWallMs);
     expect(updates).toHaveLength(1);
     const u = updates[0];
     expect(u?.kind).toBe('redirect');
@@ -127,7 +142,7 @@ describe('cdpEventToUpdates — canonical redirect + completion trace', () => {
   });
 
   it('responseReceived → phase: headers-received with status', () => {
-    const updates = cdpEventToUpdates(responseReceived);
+    const updates = cdpEventToUpdates(responseReceived, toWallMs);
     expect(updates).toHaveLength(1);
     const u = updates[0];
     expect(u?.kind).toBe('phase');
@@ -137,17 +152,21 @@ describe('cdpEventToUpdates — canonical redirect + completion trace', () => {
     expect(u.patch.statusText).toBe('OK');
   });
 
-  it('loadingFinished → phase: completed with completedAtMs', () => {
-    const updates = cdpEventToUpdates(loadingFinished);
+  it('loadingFinished → phase: completed with wall-clock completedAtMs', () => {
+    const updates = cdpEventToUpdates(loadingFinished, toWallMs);
     expect(updates).toHaveLength(1);
     const u = updates[0];
     expect(u?.kind).toBe('phase');
     if (u?.kind !== 'phase') return;
     expect(u.patch.phase).toBe('completed');
-    expect(u.patch.completedAtMs).toBe(100_900);
+    // monotonic 100.9 + offset → wall (1_700_000_000.65 s), same clock as the
+    // wall `startedAtMs` so `lifecycleDuration` is a real positive span, not a
+    // monotonic value (100_900) that would clamp to 0.
+    expect(u.patch.completedAtMs).toBe(1_700_000_000_650);
+    expect(u.patch.completedAtMs).toBeGreaterThan(initialRequest.wallTime * 1000);
   });
 
-  it('loadingFailed → phase: failed with refined error', () => {
+  it('loadingFailed → phase: failed with refined error and wall-clock completedAtMs', () => {
     const failed: CdpLoadingFailed = {
       method: 'Network.loadingFailed',
       tabId: TAB,
@@ -158,12 +177,15 @@ describe('cdpEventToUpdates — canonical redirect + completion trace', () => {
       errorText: 'net::ERR_FAILED',
       blockedReason: 'mixed-content',
     };
-    const updates = cdpEventToUpdates(failed);
+    const updates = cdpEventToUpdates(failed, toWallMs);
     expect(updates).toHaveLength(1);
     const u = updates[0];
     expect(u?.kind).toBe('phase');
     if (u?.kind !== 'phase') return;
     expect(u.patch.phase).toBe('failed');
+    // Same wall conversion as the completed path — a failed row's duration
+    // stays on the start's clock.
+    expect(u.patch.completedAtMs).toBe(1_700_000_000_650);
     expect(u.patch.error?.code).toBe('net::ERR_FAILED');
     expect(u.patch.error?.reason).toBe('mixed-content');
     // The mapped label word rides on `blockedReason` for the panel.
@@ -181,7 +203,7 @@ describe('cdpEventToUpdates — canonical redirect + completion trace', () => {
       errorText: 'net::ERR_BLOCKED_BY_RESPONSE',
       blockedReason: 'corp-not-same-origin',
     };
-    const updates = cdpEventToUpdates(failed);
+    const updates = cdpEventToUpdates(failed, toWallMs);
     const u = updates[0];
     if (u?.kind !== 'phase') throw new Error('expected phase update');
     expect(u.patch.error?.blockedReason).toBe('corp');
@@ -189,15 +211,18 @@ describe('cdpEventToUpdates — canonical redirect + completion trace', () => {
 
   it('dataReceived → no lifecycle update (HAR-only decoded-size refinement)', () => {
     expect(
-      cdpEventToUpdates({
-        method: 'Network.dataReceived',
-        tabId: TAB,
-        sessionId: 'session-page',
-        requestId: 'cdp-1',
-        timestamp: 100.6,
-        dataLength: 4096,
-        encodedDataLength: 1024,
-      }),
+      cdpEventToUpdates(
+        {
+          method: 'Network.dataReceived',
+          tabId: TAB,
+          sessionId: 'session-page',
+          requestId: 'cdp-1',
+          timestamp: 100.6,
+          dataLength: 4096,
+          encodedDataLength: 1024,
+        },
+        toWallMs,
+      ),
     ).toEqual([]);
   });
 
@@ -209,7 +234,7 @@ describe('cdpEventToUpdates — canonical redirect + completion trace', () => {
       requestId: 'cdp-1',
       headers: { Cookie: 'sid=wire' },
     };
-    expect(cdpEventToUpdates(extra)).toEqual([]);
+    expect(cdpEventToUpdates(extra, toWallMs)).toEqual([]);
   });
 
   it('responseReceivedExtraInfo → no lifecycle update (HAR-only refinement)', () => {
@@ -220,7 +245,7 @@ describe('cdpEventToUpdates — canonical redirect + completion trace', () => {
       requestId: 'cdp-1',
       headers: { 'Set-Cookie': 'sess=raw' },
     };
-    expect(cdpEventToUpdates(extra)).toEqual([]);
+    expect(cdpEventToUpdates(extra, toWallMs)).toEqual([]);
   });
 
   it('loadingFailed without a blockedReason leaves the field unset', () => {
@@ -233,7 +258,7 @@ describe('cdpEventToUpdates — canonical redirect + completion trace', () => {
       type: 'XHR',
       errorText: 'net::ERR_TIMED_OUT',
     };
-    const updates = cdpEventToUpdates(failed);
+    const updates = cdpEventToUpdates(failed, toWallMs);
     const u = updates[0];
     if (u?.kind !== 'phase') throw new Error('expected phase update');
     expect(u.patch.error?.blockedReason).toBeUndefined();
@@ -246,7 +271,7 @@ describe('cdpEventToUpdates — full trace produces a coherent update stream', (
   // preservation). The store reducer is exercised separately.
   it('start → redirect → headers-received → completed produces a coherent path', () => {
     const trace = [initialRequest, redirectStart, responseReceived, loadingFinished];
-    const updates = trace.flatMap((e) => cdpEventToUpdates(e));
+    const updates = trace.flatMap((e) => cdpEventToUpdates(e, toWallMs));
     expect(updates.map((u) => u.kind)).toEqual(['started', 'redirect', 'phase', 'phase']);
     // The mapper preserves identity across the whole trace.
     const tabAndIds = updates.map((u) => {
@@ -262,7 +287,7 @@ describe('cdpEventToUpdates — full trace produces a coherent update stream', (
   // Pre-empt drift: the started lifecycle's type is the one the store
   // will reduce against, so its shape must satisfy `RequestLifecycle`.
   it('emitted started lifecycle satisfies the RequestLifecycle shape (compile-time)', () => {
-    const updates = cdpEventToUpdates(initialRequest);
+    const updates = cdpEventToUpdates(initialRequest, toWallMs);
     const u = updates[0];
     if (u?.kind !== 'started') throw new Error('expected started');
     const lc: RequestLifecycle = u.lifecycle;

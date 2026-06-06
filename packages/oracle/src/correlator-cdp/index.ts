@@ -37,6 +37,13 @@ export { CdpPageCorrelator, MAX_CDP_PAGE_DOC_REQUESTS_PER_TAB } from './cdp-page
 export type { CdpPageSignal } from './cdp-page-synth';
 export { pageMilestoneMs, pageStartedAtMs } from './cdp-page-synth';
 export { cdpEventToUpdates } from './cdp-to-update';
+export type { CdpWallClockResolver } from './cdp-wall-clock';
+export {
+  CDP_WALL_RETENTION_MS,
+  CdpWallClock,
+  MAX_CDP_WALL_OFFSETS_PER_TAB,
+  monotonicSecToWallMs,
+} from './cdp-wall-clock';
 export { CdpCorrelator } from './correlator';
 export type {
   CdpCallFrame,

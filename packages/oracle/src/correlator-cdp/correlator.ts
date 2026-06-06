@@ -31,6 +31,7 @@ import type { InspectorHarBody } from '@openheaders/core/types';
 import { cdpBodyToHarBody, emptyCdpHarBody } from './cdp-body-synth';
 import { type CdpBodyRef, CdpHarBuilder } from './cdp-har-builder';
 import { cdpEventToUpdates } from './cdp-to-update';
+import { CdpWallClock } from './cdp-wall-clock';
 import type { CdpEventSource, CdpNetworkEvent } from './events';
 
 /** Placeholder descriptor for a body whose request ref is no longer known. */
@@ -40,6 +41,10 @@ export class CdpCorrelator implements RequestCorrelator {
   private readonly listeners = new Set<RequestLifecycleListener>();
   private readonly attached = new Set<number>();
   private readonly harBuilder = new CdpHarBuilder();
+  private readonly wallClock = new CdpWallClock();
+  /** Stable resolver handed to the pure mapper (no per-event allocation). */
+  private readonly toWallMs = (tabId: number, sessionId: string, requestId: string, monotonicSec: number): number =>
+    this.wallClock.toWallMs(tabId, sessionId, requestId, monotonicSec);
   private readonly source: CdpEventSource;
   private readonly sourceUnsubscribe: () => void;
 
@@ -55,6 +60,7 @@ export class CdpCorrelator implements RequestCorrelator {
   detachTab(tabId: number): void {
     this.attached.delete(tabId);
     this.harBuilder.forgetTab(tabId);
+    this.wallClock.forgetTab(tabId);
   }
 
   subscribe(listener: RequestLifecycleListener): Unsubscribe {
@@ -102,14 +108,19 @@ export class CdpCorrelator implements RequestCorrelator {
     this.listeners.clear();
     this.attached.clear();
     this.harBuilder.clear();
+    this.wallClock.clear();
   }
 
   private onEvent(event: CdpNetworkEvent): void {
     if (!this.attached.has(event.tabId)) return;
+    // Capture the wall↔monotonic offset before mapping, so the terminal
+    // events the mapper converts (loadingFinished/loadingFailed) resolve
+    // against an offset this request's `requestWillBeSent` already recorded.
+    this.wallClock.observe(event);
     // Lifecycle spine first (started/redirect/phase), then the HAR the
     // builder completed from this event — so `started` always precedes
     // its `har-attached`.
-    for (const update of cdpEventToUpdates(event)) this.emit(update);
+    for (const update of cdpEventToUpdates(event, this.toWallMs)) this.emit(update);
     for (const update of this.harBuilder.observe(event)) this.emit(update);
   }
 

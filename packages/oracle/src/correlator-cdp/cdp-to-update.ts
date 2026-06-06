@@ -18,10 +18,8 @@
 import type { RequestError, RequestLifecycle, RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle';
 
 import { cdpBlockedReasonLabel } from './blocked-reason';
+import type { CdpWallClockResolver } from './cdp-wall-clock';
 import { type CdpNetworkEvent, cdpStoreRequestId } from './events';
-
-/** Seconds → ms. CDP `timestamp` is a `MonotonicTime` in seconds. */
-const secondsToMs = (t: number): number => Math.round(t * 1000);
 
 /**
  * Wall-clock seconds → ms, full precision — the start-time sort baseline.
@@ -43,17 +41,26 @@ const wallSecondsToMs = (sec: number): number => sec * 1000;
  * carve-out, so a malformed trace (redirect with no prior `started`)
  * still emits a `redirect` and lets the store reject it as
  * `unknown-request`.
+ *
+ * `toWallMs` resolves a monotonic instant to wall-clock ms for the terminal
+ * events (`loadingFinished` / `loadingFailed`), which carry only CDP's
+ * monotonic `timestamp` — see {@link CdpWallClockResolver}. Injected (not
+ * captured inside the mapper) so this stays pure and total: the stateful
+ * {@link ../correlator-cdp/correlator.CdpCorrelator} owns the offset store.
  */
-export function cdpEventToUpdates(event: CdpNetworkEvent): readonly RequestLifecycleUpdate[] {
+export function cdpEventToUpdates(
+  event: CdpNetworkEvent,
+  toWallMs: CdpWallClockResolver,
+): readonly RequestLifecycleUpdate[] {
   switch (event.method) {
     case 'Network.requestWillBeSent':
       return event.redirectResponse !== undefined ? [redirectUpdate(event)] : [startedUpdate(event)];
     case 'Network.responseReceived':
       return [headersReceivedUpdate(event)];
     case 'Network.loadingFinished':
-      return [completedUpdate(event)];
+      return [completedUpdate(event, toWallMs)];
     case 'Network.loadingFailed':
-      return [failedUpdate(event)];
+      return [failedUpdate(event, toWallMs)];
     case 'Network.dataReceived':
     case 'Network.requestWillBeSentExtraInfo':
     case 'Network.responseReceivedExtraInfo':
@@ -137,8 +144,14 @@ function headersReceivedUpdate(
 // `fromCache` were stamped earlier by `responseReceived`. Heuristic
 // `completedUpdate` re-stamps them (refinement-safe under invariant 5); CDP's
 // narrower payload is correct, not an oversight.
+//
+// `completedAtMs` is wall-clock to match the wall `startedAtMs` /
+// `hopStartedAtMs` — the event's `timestamp` is monotonic, so it is converted
+// through `toWallMs`. Subtracting a monotonic finish from a wall start would
+// go negative and clamp `lifecycleDuration` to 0.
 function completedUpdate(
   event: Extract<CdpNetworkEvent, { method: 'Network.loadingFinished' }>,
+  toWallMs: CdpWallClockResolver,
 ): RequestLifecycleUpdate {
   return {
     kind: 'phase',
@@ -146,12 +159,15 @@ function completedUpdate(
     requestId: cdpStoreRequestId(event.sessionId, event.requestId),
     patch: {
       phase: 'completed',
-      completedAtMs: secondsToMs(event.timestamp),
+      completedAtMs: toWallMs(event.tabId, event.sessionId, event.requestId, event.timestamp),
     },
   };
 }
 
-function failedUpdate(event: Extract<CdpNetworkEvent, { method: 'Network.loadingFailed' }>): RequestLifecycleUpdate {
+function failedUpdate(
+  event: Extract<CdpNetworkEvent, { method: 'Network.loadingFailed' }>,
+  toWallMs: CdpWallClockResolver,
+): RequestLifecycleUpdate {
   const blockedReason = cdpBlockedReasonLabel(event.blockedReason);
   const error: RequestError = {
     code: event.errorText,
@@ -164,7 +180,9 @@ function failedUpdate(event: Extract<CdpNetworkEvent, { method: 'Network.loading
     requestId: cdpStoreRequestId(event.sessionId, event.requestId),
     patch: {
       phase: 'failed',
-      completedAtMs: secondsToMs(event.timestamp),
+      // Wall-clock (see `completedUpdate`): the monotonic `timestamp` is
+      // converted so a failed row's duration stays on the same clock as its start.
+      completedAtMs: toWallMs(event.tabId, event.sessionId, event.requestId, event.timestamp),
       error,
     },
   };
