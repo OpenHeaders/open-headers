@@ -83,6 +83,18 @@ describe('cdpEventToUpdates — canonical redirect + completion trace', () => {
     expect(u.lifecycle.initiator).toBe('https://app.openheaders.io/');
   });
 
+  it('truncates the wall-clock start to match the HAR export (does not round up)', () => {
+    // wallTime 5.6789 → *1000 = 5678.9; the export stamps `new Date(5678.9)`,
+    // which truncates to 5678. The start-time sort key must land on the same
+    // 5678 (not round up to 5679) or a same-tick request burst splits across
+    // two ms buckets and mis-sorts against the host's start-time order.
+    const u = cdpEventToUpdates({ ...initialRequest, wallTime: 5.6789 })[0];
+    expect(u?.kind).toBe('started');
+    if (u?.kind !== 'started') return;
+    expect(u.lifecycle.startedAtMs).toBe(5678);
+    expect(u.lifecycle.startedAtMs).toBe(new Date(5.6789 * 1000).getTime());
+  });
+
   it('requestWillBeSent with redirectResponse → redirect update (not started)', () => {
     const updates = cdpEventToUpdates(redirectStart);
     expect(updates).toHaveLength(1);

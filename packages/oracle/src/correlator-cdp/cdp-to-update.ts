@@ -24,6 +24,18 @@ import { type CdpNetworkEvent, cdpStoreRequestId } from './events';
 const secondsToMs = (t: number): number => Math.round(t * 1000);
 
 /**
+ * Wall-clock seconds → ms, truncated — the start-time sort key.
+ *
+ * The HAR export stamps `startedDateTime = new Date(wallTime * 1000)`, which
+ * truncates the fractional ms (as does the host). The table sorts by this
+ * `startedAtMs`, so it must land on the *same* integer or a request at
+ * `…​.6 ms` would sort one ms later than it exports — splitting a same-tick
+ * request burst across two ms buckets and scrambling the start-time order
+ * against the host. `Math.trunc` matches `Date`'s truncation exactly.
+ */
+const wallSecondsToMs = (sec: number): number => Math.trunc(sec * 1000);
+
+/**
  * Project a CDP event into lifecycle updates. The decision to emit
  * `started` vs `redirect` is taken from CDP's own `redirectResponse`
  * carve-out, so a malformed trace (redirect with no prior `started`)
@@ -53,7 +65,7 @@ export function cdpEventToUpdates(event: CdpNetworkEvent): readonly RequestLifec
 function startedUpdate(
   event: Extract<CdpNetworkEvent, { method: 'Network.requestWillBeSent' }>,
 ): RequestLifecycleUpdate {
-  const startedAtMs = secondsToMs(event.wallTime);
+  const startedAtMs = wallSecondsToMs(event.wallTime);
   const lifecycle: RequestLifecycle = {
     tabId: event.tabId,
     requestId: cdpStoreRequestId(event.sessionId, event.requestId),
