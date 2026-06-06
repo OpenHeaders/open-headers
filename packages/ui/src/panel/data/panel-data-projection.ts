@@ -35,7 +35,7 @@
 
 import type { Page } from '@openheaders/core/page-stream';
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
-import type { InspectorHarEntry, InspectorNavTiming } from '@openheaders/core/types';
+import type { InspectorNavTiming } from '@openheaders/core/types';
 
 import { type ConnectionReuseInfo, computeConnectionReuse } from './connection-reuse';
 import type { FireClientSnapshot } from './fire-client-store';
@@ -119,15 +119,16 @@ export interface UsePanelDataResult {
   readonly totalBytesTransferred: number;
   readonly totalResourceSize: number;
   /**
-   * Time in ms from the current navigation's start to the last byte of
-   * its last request — "Finish". Anchored to the latest top-level
-   * navigation (not the longest request ever seen), so it tracks the
-   * page you are on and never drifts under preserve-log. 0 if unknown.
+   * Time in ms from the latest navigation's final committed document to the
+   * last byte of its last request — "Finish". Anchored to that document's
+   * network start (the browser footer's zero, `maxTime − finalDoc.startTime`),
+   * not the longest request ever seen, so it tracks the page you are on and
+   * never drifts under preserve-log. 0 if unknown.
    */
   readonly finishTimeMs: number;
   /**
    * DOMContentLoaded / Load for the status-bar footer, re-anchored to the
-   * final committed document (Chrome's footer zero). Equal to the
+   * final committed document (the browser footer's zero). Equal to the
    * `navTiming` milestones for a non-redirected navigation; smaller by the
    * redirect leg when the navigation redirected. `undefined` until known.
    */
@@ -180,36 +181,33 @@ function lifecycleDuration(lifecycle: RequestLifecycle): number {
   return d > 0 ? d : 0;
 }
 
-/** A HAR entry's network start (host `requestTime`): the pseudo-wall issue
- * time (`startedDateTime`) plus queueing (`_blocked_queueing`). */
-function harEntryNetworkStartMs(entry: InspectorHarEntry): number {
-  const issued = Date.parse(entry.startedDateTime);
-  const queueing = entry.timings?._blocked_queueing;
-  return (Number.isFinite(issued) ? issued : 0) + (typeof queueing === 'number' && queueing > 0 ? queueing : 0);
-}
-
-/**
- * A redirected navigation's "redirect leg": the gap between the final
- * committed document's network start and the redirect-chain root's. Chrome's
- * live footer anchors DOMContentLoaded / Load / Finish to the FINAL committed
- * document (the request whose URL is the inspected URL), while HAR `pages[]`
- * anchor to the chain ROOT (`PageLoad.startTime`). The two differ by exactly
- * this leg, so the footer re-anchors by subtracting it. `0` for a
- * non-redirected navigation (footer and HAR coincide).
- */
-function redirectLegMs(lc: RequestLifecycle): number {
-  if (lc.redirectHopCount <= 0) return 0;
-  const root = lc.har[0];
-  const final = lc.har[lc.redirectHopCount];
-  if (root == null || final == null) return 0;
-  const leg = harEntryNetworkStartMs(final) - harEntryNetworkStartMs(root);
-  return leg > 0 ? leg : 0;
-}
-
 /** Top-level navigation document — `main_frame` from the webRequest path,
  * `document` from the CDP path (both surface the page's main resource). */
 function isMainDocument(resourceType: string | undefined): boolean {
   return resourceType === 'main_frame' || resourceType === 'document';
+}
+
+/** URL minus its `#fragment` — for comparing the page's root URL to the
+ * final document's URL without a hash-only mismatch reading as a redirect. */
+function stripHash(url: string): string {
+  const h = url.indexOf('#');
+  return h === -1 ? url : url.slice(0, h);
+}
+
+/**
+ * Did this navigation redirect? Two signals, so the answer holds even when
+ * CDP attached mid-navigation and never saw the 3xx hop:
+ *   - the redirect folded into the lifecycle (`redirectHopCount > 0`); or
+ *   - the final committed document's URL differs from the page's recorded
+ *     root URL — the request-level redirect was lost, but the page stream
+ *     still recorded the root (`Page.startedAtMs` / `Page.url`), so the two
+ *     URLs disagree.
+ * Gates the footer leg: a non-redirected nav has no leg, so its DCL/Load
+ * stay exactly on the root-anchored HAR values (no nav-setup clock skew).
+ */
+function isRedirectedNav(finalDoc: RequestLifecycle, page: Page): boolean {
+  if (finalDoc.redirectHopCount > 0) return true;
+  return page.url != null && stripHash(page.url) !== stripHash(finalDoc.url);
 }
 
 export function projectPanelData(input: UsePanelDataInput): UsePanelDataResult {
@@ -297,8 +295,13 @@ export function projectPanelData(input: UsePanelDataInput): UsePanelDataResult {
   // total tracks the current page, not the longest request ever seen.
   let baseTime = -1;
   let minStartedAtMs = -1;
-  // Latest redirected main-document lifecycle, for the footer re-anchor.
-  let redirectDoc: RequestLifecycle | null = null;
+  // The final committed document of the latest navigation: the main-document
+  // lifecycle whose current hop started last (`hopStartedAtMs`). For a folded
+  // redirect that is the final hop; for an un-folded one (CDP mid-attach) it
+  // is the standalone final request; for a non-redirect it is the document
+  // itself. Synthetic redirect-hop rows (earlier hops) never win the max.
+  // This is the footer's zero — the browser anchors DCL / Load / Finish to it.
+  let footerDoc: RequestLifecycle | null = null;
   for (const row of rows) {
     lookupByRequestId.set(row.lifecycle.requestId, row);
     // First arrival wins for URL collisions — same convention as
@@ -323,8 +326,8 @@ export function projectPanelData(input: UsePanelDataInput): UsePanelDataResult {
     if (minStartedAtMs < 0 || startedAtMs < minStartedAtMs) minStartedAtMs = startedAtMs;
     if (isMainDocument(row.lifecycle.resourceType)) {
       if (startedAtMs > baseTime) baseTime = startedAtMs;
-      if (row.lifecycle.redirectHopCount > 0 && (redirectDoc === null || startedAtMs >= redirectDoc.startedAtMs)) {
-        redirectDoc = row.lifecycle;
+      if (footerDoc === null || row.lifecycle.hopStartedAtMs > footerDoc.hopStartedAtMs) {
+        footerDoc = row.lifecycle;
       }
     }
   }
@@ -340,11 +343,27 @@ export function projectPanelData(input: UsePanelDataInput): UsePanelDataResult {
       if (end > maxEnd) maxEnd = end;
     }
   }
-  // Re-anchor the footer to the final committed document (Chrome's footer
-  // zero), not the redirect-chain root the window/HAR use. `legMs` is 0
-  // unless the navigation redirected.
-  const legMs = redirectDoc ? redirectLegMs(redirectDoc) : 0;
-  const finishTimeMs = baseTime >= 0 && maxEnd > baseTime ? Math.max(maxEnd - baseTime - legMs, 0) : 0;
+
+  const latestPage = pages.length > 0 ? pages[pages.length - 1] : null;
+  // Footer zero — the final committed document's network start, mirroring the
+  // browser footer's `baseTime`. Falls back to the nav start when no main
+  // document is known. Equal to the nav start for a non-redirect.
+  const footerAnchorMs = footerDoc !== null ? footerDoc.hopStartedAtMs : baseTime;
+  // Redirect leg: the page stream anchors `dclMs` / `loadMs` to the chain
+  // root (`Page.startedAtMs`); the footer re-anchors them to the final
+  // committed document by subtracting the gap. Gated on an actual redirect
+  // (see `isRedirectedNav`) so a non-redirect's nav-setup clock skew never
+  // leaks in — `0` then, and DCL / Load stay on the root-anchored HAR values.
+  const legMs =
+    footerDoc !== null &&
+    latestPage?.startedAtMs != null &&
+    isRedirectedNav(footerDoc, latestPage) &&
+    footerAnchorMs > latestPage.startedAtMs
+      ? footerAnchorMs - latestPage.startedAtMs
+      : 0;
+  // Finish spans the final document's start to the last byte, like the
+  // browser footer (`maxTime − finalDoc.startTime`).
+  const finishTimeMs = footerAnchorMs >= 0 && maxEnd > footerAnchorMs ? maxEnd - footerAnchorMs : 0;
 
   const initiatorIndex = buildInitiatorIndex(scoped);
   const getInitiatorChildren = (url: string): readonly InspectorRowWithFires[] => {
@@ -363,8 +382,8 @@ export function projectPanelData(input: UsePanelDataInput): UsePanelDataResult {
 
   // Footer milestones, re-anchored to the final committed document. `navTiming`
   // keeps the root-anchored HAR values (`pages[].pageTimings`); the status bar
-  // mirrors Chrome's footer, which subtracts the redirect leg.
-  const latestPage = pages.length > 0 ? pages[pages.length - 1] : null;
+  // mirrors the browser footer, which subtracts the redirect leg (`0` for a
+  // non-redirected navigation, so the two coincide there).
   let footerDclMs: number | undefined;
   let footerLoadMs: number | undefined;
   if (latestPage) {

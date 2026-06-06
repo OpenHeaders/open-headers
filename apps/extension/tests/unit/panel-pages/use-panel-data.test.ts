@@ -346,13 +346,35 @@ describe('usePanelData', () => {
       { id: 'page_1', startedAtMs: 38_744, url: 'https://openheaders.io/', dclMs: 556.7, loadMs: 1638 },
     ];
     const { result } = renderHook(() => usePanelData(snapshots([redirected], pages)));
-    // Redirect leg = finalHop.networkStart(38_853) - rootHop.networkStart(38_740 + 4 = 38_744) = 109.
+    // Leg = finalDoc.hopStartedAtMs(38_853) − page.startedAtMs(38_744) = 109.
     expect(result.current.footerDclMs).toBeCloseTo(447.7, 5);
     expect(result.current.footerLoadMs).toBeCloseTo(1529, 5);
     // navTiming keeps the root-anchored HAR values; only the footer re-anchors.
     expect(result.current.navTiming?.dclMs).toBe(556.7);
-    // Finish = (maxEnd 40_500 - baseTime 38_740) - leg 109 = 1651.
-    expect(result.current.finishTimeMs).toBe(1651);
+    // Finish = maxEnd 40_500 − finalDoc.hopStartedAtMs 38_853 = 1647.
+    expect(result.current.finishTimeMs).toBe(1647);
+  });
+
+  it('re-anchors an un-folded redirect (CDP mid-attach: redirectHopCount 0, final URL ≠ page root)', () => {
+    // CDP attached mid-navigation and missed the 3xx linkage, so the final
+    // document arrives as a standalone request (`redirectHopCount` 0, no
+    // folded hops). The page stream still recorded the navigation root, so the
+    // leg derives from `Page.startedAtMs` and the document's `hopStartedAtMs`,
+    // not the absent `har[]` redirect hops — the live `crypto.com → /ro` bug.
+    const finalDoc = lifecycle('doc', 'https://openheaders.io/ro', {
+      resourceType: 'document',
+      startedAtMs: 38_853,
+      completedAtMs: 40_500,
+    });
+    const pages: Page[] = [
+      { id: 'page_1', startedAtMs: 38_744, url: 'https://openheaders.io/', dclMs: 556.7, loadMs: 1638 },
+    ];
+    const { result } = renderHook(() => usePanelData(snapshots([finalDoc], pages)));
+    // page.url (root) ≠ doc.url (/ro) → redirected, even with no folded hops.
+    // Leg = hopStartedAtMs(38_853) − page.startedAtMs(38_744) = 109.
+    expect(result.current.footerDclMs).toBeCloseTo(447.7, 5);
+    expect(result.current.footerLoadMs).toBeCloseTo(1529, 5);
+    expect(result.current.finishTimeMs).toBe(1647);
   });
 
   it('counts modified, failed, and cached rows', () => {
