@@ -164,6 +164,22 @@ export function waterfallStartMs(lc: RequestLifecycle): number {
 }
 
 /**
+ * Network start — the host's `NetworkRequest.startTime` (= `timing.requestTime`):
+ * the post-queue instant the request actually hit the network, i.e. the issue
+ * time plus queueing.
+ *
+ * Unlike {@link waterfallStartMs} (the bar's zero, anchored to the ms-quantized
+ * HAR `startedDateTime`), this reads the un-truncated `lifecycle.startedAtMs`,
+ * because the host's default waterfall sort orders by this network start at
+ * full precision. Two requests fired in the same ms but queued differently
+ * must order by their sub-ms network start — quantizing here would collapse
+ * them into one bucket and mis-sort against the host.
+ */
+function networkStartMs(lc: RequestLifecycle): number {
+  return lc.startedAtMs + queueingMs(lc);
+}
+
+/**
  * Active duration shown in the Time column. HAR `time` is
  * `blocked + dns + connect + send + wait + receive`, but its `connect`
  * already spans `dns`, so HAR `time` double-counts DNS. Strip queueing and
@@ -288,7 +304,7 @@ export function waterfallSortValue(row: InspectorRowWithFires, metric: Waterfall
   const lc = row.lifecycle;
   switch (metric) {
     case 'startTime':
-      return waterfallStartMs(lc) + queueingMs(lc);
+      return networkStartMs(lc);
     case 'endTime':
       return lc.completedAtMs ?? -1;
     case 'duration':
@@ -297,7 +313,7 @@ export function waterfallSortValue(row: InspectorRowWithFires, metric: Waterfall
       return latencyMs(lc);
     case 'responseTime': {
       const lat = latencyMs(lc);
-      return lat < 0 ? -1 : waterfallStartMs(lc) + queueingMs(lc) + lat;
+      return lat < 0 ? -1 : networkStartMs(lc) + lat;
     }
   }
 }

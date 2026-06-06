@@ -24,16 +24,18 @@ import { type CdpNetworkEvent, cdpStoreRequestId } from './events';
 const secondsToMs = (t: number): number => Math.round(t * 1000);
 
 /**
- * Wall-clock seconds → ms, truncated — the start-time sort key.
+ * Wall-clock seconds → ms, full precision — the start-time sort baseline.
  *
- * The HAR export stamps `startedDateTime = new Date(wallTime * 1000)`, which
- * truncates the fractional ms (as does the host). The table sorts by this
- * `startedAtMs`, so it must land on the *same* integer or a request at
- * `…​.6 ms` would sort one ms later than it exports — splitting a same-tick
- * request burst across two ms buckets and scrambling the start-time order
- * against the host. `Math.trunc` matches `Date`'s truncation exactly.
+ * Kept fractional on purpose. The host sorts the table by the *network* start
+ * (`NetworkRequest.startTime` = `timing.requestTime`), which the panel
+ * reconstructs as `startedAtMs + queueing`. Two requests fired in the same ms
+ * but queued differently order by that sub-ms network start, so the issue
+ * baseline must keep its fraction — truncating here collapses near-
+ * simultaneous requests into one ms bucket and mis-sorts them against the
+ * host. The HAR export still truncates for display (`new Date(wallTime *
+ * 1000)`), and truncation preserves order, so the export stays monotonic.
  */
-const wallSecondsToMs = (sec: number): number => Math.trunc(sec * 1000);
+const wallSecondsToMs = (sec: number): number => sec * 1000;
 
 /**
  * Project a CDP event into lifecycle updates. The decision to emit
