@@ -73,7 +73,13 @@ function startedUpdate(
     requestId: cdpStoreRequestId(event.sessionId, event.requestId),
     url: event.request.url,
     method: event.request.method,
-    resourceType: event.type ?? 'other',
+    // CDP reports CapitalCase resource types (`Document`, `Stylesheet`, `XHR`);
+    // every panel consumer of `lifecycle.resourceType` (notably the footer's
+    // `isMainDocument`, which matches `'document'`) and the HAR `_resourceType`
+    // use lowercase. Normalize at the source so the lifecycle carries one
+    // vocabulary regardless of correlator — without this a CDP `'Document'`
+    // never reads as the main document and the footer loses its redirect leg.
+    resourceType: (event.type ?? 'other').toLowerCase(),
     initiator: event.initiator?.url,
     phase: 'pending',
     redirectHopCount: 0,

@@ -83,6 +83,18 @@ describe('cdpEventToUpdates — canonical redirect + completion trace', () => {
     expect(u.lifecycle.redirectHopCount).toBe(0);
     expect(u.lifecycle.startedAtMs).toBe(1_700_000_000_250);
     expect(u.lifecycle.initiator).toBe('https://app.openheaders.io/');
+    // CapitalCase CDP type is lowercased to the one vocabulary panel consumers use.
+    expect(u.lifecycle.resourceType).toBe('xhr');
+  });
+
+  it('lowercases the CDP resource type so the main document reads as `document`', () => {
+    // CDP reports `'Document'`; the footer's `isMainDocument` matches lowercase
+    // `'document'`. Without normalization a top-level CDP nav is never the main
+    // document and the footer loses its redirect-leg anchoring.
+    const u = cdpEventToUpdates({ ...initialRequest, type: 'Document' })[0];
+    expect(u?.kind).toBe('started');
+    if (u?.kind !== 'started') return;
+    expect(u.lifecycle.resourceType).toBe('document');
   });
 
   it('keeps full sub-ms precision on the wall-clock start (network-start sort needs it)', () => {
