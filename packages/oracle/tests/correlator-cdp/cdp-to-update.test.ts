@@ -41,6 +41,8 @@ const redirectStart: CdpRequestWillBeSent = {
   ...initialRequest,
   request: { url: 'https://api.openheaders.io/v2/users', method: 'GET' },
   timestamp: 100.6,
+  // The redirect hop begins after the root; wall clock advances with it.
+  wallTime: 1_700_000_000.35,
   redirectResponse: {
     url: 'https://api.openheaders.io/users',
     status: 301,
@@ -106,7 +108,9 @@ describe('cdpEventToUpdates — canonical redirect + completion trace', () => {
     expect(u.hop.sourceUrl).toBe('https://api.openheaders.io/users');
     expect(u.hop.redirectUrl).toBe('https://api.openheaders.io/v2/users');
     expect(u.hop.statusCode).toBe(301);
-    expect(u.hop.timestampMs).toBe(100_600);
+    // Wall clock (wallTime * 1000), full precision — same scale as
+    // `startedAtMs`, so the reducer's `hopStartedAtMs` stays sortable.
+    expect(u.hop.timestampMs).toBe(1_700_000_000_350);
     expect(u.nextUrl).toBe('https://api.openheaders.io/v2/users');
   });
 

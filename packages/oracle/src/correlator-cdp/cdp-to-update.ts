@@ -100,7 +100,12 @@ function redirectUpdate(
       sourceUrl: prior.url,
       redirectUrl: event.request.url,
       statusCode: prior.status,
-      timestampMs: secondsToMs(event.timestamp),
+      // Wall clock (not the monotonic `timestamp`) to match `startedAtMs` and
+      // `RedirectHop.timestampMs`'s contract: the reducer copies this into the
+      // final hop's `hopStartedAtMs`, which the start-time sort reads. A
+      // monotonic value there would be a different scale from every other
+      // row's wall-clock start and mis-order the redirect chain.
+      timestampMs: wallSecondsToMs(event.wallTime),
     },
     nextUrl: event.request.url,
   };
