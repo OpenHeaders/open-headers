@@ -35,7 +35,7 @@
 
 import type { Page } from '@openheaders/core/page-stream';
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
-import type { InspectorNavTiming } from '@openheaders/core/types';
+import type { InspectorHarEntry, InspectorNavTiming } from '@openheaders/core/types';
 
 import { type ConnectionReuseInfo, computeConnectionReuse } from './connection-reuse';
 import type { FireClientSnapshot } from './fire-client-store';
@@ -125,6 +125,14 @@ export interface UsePanelDataResult {
    * page you are on and never drifts under preserve-log. 0 if unknown.
    */
   readonly finishTimeMs: number;
+  /**
+   * DOMContentLoaded / Load for the status-bar footer, re-anchored to the
+   * final committed document (Chrome's footer zero). Equal to the
+   * `navTiming` milestones for a non-redirected navigation; smaller by the
+   * redirect leg when the navigation redirected. `undefined` until known.
+   */
+  readonly footerDclMs: number | undefined;
+  readonly footerLoadMs: number | undefined;
   /** Rows whose rules actually ran (`isAppliedFire`). */
   readonly modifiedCount: number;
   /** Rows that errored — failed phase or HTTP status >= 400. */
@@ -172,9 +180,43 @@ function lifecycleDuration(lifecycle: RequestLifecycle): number {
   return d > 0 ? d : 0;
 }
 
+/** A HAR entry's network start (host `requestTime`): the pseudo-wall issue
+ * time (`startedDateTime`) plus queueing (`_blocked_queueing`). */
+function harEntryNetworkStartMs(entry: InspectorHarEntry): number {
+  const issued = Date.parse(entry.startedDateTime);
+  const queueing = entry.timings?._blocked_queueing;
+  return (Number.isFinite(issued) ? issued : 0) + (typeof queueing === 'number' && queueing > 0 ? queueing : 0);
+}
+
+/**
+ * A redirected navigation's "redirect leg": the gap between the final
+ * committed document's network start and the redirect-chain root's. Chrome's
+ * live footer anchors DOMContentLoaded / Load / Finish to the FINAL committed
+ * document (the request whose URL is the inspected URL), while HAR `pages[]`
+ * anchor to the chain ROOT (`PageLoad.startTime`). The two differ by exactly
+ * this leg, so the footer re-anchors by subtracting it. `0` for a
+ * non-redirected navigation (footer and HAR coincide).
+ */
+function redirectLegMs(lc: RequestLifecycle): number {
+  if (lc.redirectHopCount <= 0) return 0;
+  const root = lc.har[0];
+  const final = lc.har[lc.redirectHopCount];
+  if (root == null || final == null) return 0;
+  const leg = harEntryNetworkStartMs(final) - harEntryNetworkStartMs(root);
+  return leg > 0 ? leg : 0;
+}
+
 export function projectPanelData(input: UsePanelDataInput): UsePanelDataResult {
-  const { lifecycle, page, fire, opts, navClearFloorMs = -1, recordingWindows, resourceTiming, clearFloorMs = -1 } =
-    input;
+  const {
+    lifecycle,
+    page,
+    fire,
+    opts,
+    navClearFloorMs = -1,
+    recordingWindows,
+    resourceTiming,
+    clearFloorMs = -1,
+  } = input;
 
   const lifecycles = lifecycle.ordered;
   const pages = page.pages;
@@ -249,6 +291,8 @@ export function projectPanelData(input: UsePanelDataInput): UsePanelDataResult {
   // total tracks the current page, not the longest request ever seen.
   let baseTime = -1;
   let minStartedAtMs = -1;
+  // Latest redirected main-document lifecycle, for the footer re-anchor.
+  let redirectDoc: RequestLifecycle | null = null;
   for (const row of rows) {
     lookupByRequestId.set(row.lifecycle.requestId, row);
     // First arrival wins for URL collisions — same convention as
@@ -271,7 +315,12 @@ export function projectPanelData(input: UsePanelDataInput): UsePanelDataResult {
 
     const startedAtMs = row.lifecycle.startedAtMs;
     if (minStartedAtMs < 0 || startedAtMs < minStartedAtMs) minStartedAtMs = startedAtMs;
-    if (row.lifecycle.resourceType === 'main_frame' && startedAtMs > baseTime) baseTime = startedAtMs;
+    if (row.lifecycle.resourceType === 'main_frame') {
+      if (startedAtMs > baseTime) baseTime = startedAtMs;
+      if (row.lifecycle.redirectHopCount > 0 && (redirectDoc === null || startedAtMs >= redirectDoc.startedAtMs)) {
+        redirectDoc = row.lifecycle;
+      }
+    }
   }
 
   // No top-level nav captured (e.g. panel opened mid-session): fall back
@@ -285,7 +334,11 @@ export function projectPanelData(input: UsePanelDataInput): UsePanelDataResult {
       if (end > maxEnd) maxEnd = end;
     }
   }
-  const finishTimeMs = baseTime >= 0 && maxEnd > baseTime ? maxEnd - baseTime : 0;
+  // Re-anchor the footer to the final committed document (Chrome's footer
+  // zero), not the redirect-chain root the window/HAR use. `legMs` is 0
+  // unless the navigation redirected.
+  const legMs = redirectDoc ? redirectLegMs(redirectDoc) : 0;
+  const finishTimeMs = baseTime >= 0 && maxEnd > baseTime ? Math.max(maxEnd - baseTime - legMs, 0) : 0;
 
   const initiatorIndex = buildInitiatorIndex(scoped);
   const getInitiatorChildren = (url: string): readonly InspectorRowWithFires[] => {
@@ -301,6 +354,17 @@ export function projectPanelData(input: UsePanelDataInput): UsePanelDataResult {
 
   const navTiming = projectNavTiming(pages);
   const baselineMs = rows.length > 0 ? rows[0].lifecycle.startedAtMs : null;
+
+  // Footer milestones, re-anchored to the final committed document. `navTiming`
+  // keeps the root-anchored HAR values (`pages[].pageTimings`); the status bar
+  // mirrors Chrome's footer, which subtracts the redirect leg.
+  const latestPage = pages.length > 0 ? pages[pages.length - 1] : null;
+  let footerDclMs: number | undefined;
+  let footerLoadMs: number | undefined;
+  if (latestPage) {
+    if (latestPage.dclMs != null) footerDclMs = latestPage.dclMs - legMs;
+    if (latestPage.loadMs != null) footerLoadMs = latestPage.loadMs - legMs;
+  }
 
   const getConnectionReuse = (lc: RequestLifecycle): ConnectionReuseInfo => computeConnectionReuse(lc, scoped);
   const getRepeatStats = (lc: RequestLifecycle): RepeatStats | null => computeRepeatStats(lc, scoped);
@@ -320,6 +384,8 @@ export function projectPanelData(input: UsePanelDataInput): UsePanelDataResult {
     totalBytesTransferred,
     totalResourceSize,
     finishTimeMs,
+    footerDclMs,
+    footerLoadMs,
     modifiedCount,
     failedCount,
     cachedCount,

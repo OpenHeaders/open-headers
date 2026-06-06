@@ -71,11 +71,18 @@ describe('CdpPageCorrelator — page timing reconstruction', () => {
       { kind: 'nav-started', tabId: TAB, startedAtMs: 1_700_000_000_050, url: 'https://app.openheaders.io/' },
     ]);
 
-    // dcl = (101.626 - 100.05) * 1000 = 1576; offset from the page start.
-    expect(c.observe(domContent(101.626))).toEqual([
-      { kind: 'nav-timing', tabId: TAB, timing: { pageOrigin: null, navStartMs: 1_700_000_000_050, dclMs: 1576 } },
-    ]);
-    // load = (102.428 - 100.05) * 1000 = 2378.
+    // dcl = (101.626 - 100.05) * 1000 = 1576; the raw float carries scaling
+    // noise (1576.0000000000077), matching Chrome's unrounded Entry.toMilliseconds.
+    const [dclSignal] = c.observe(domContent(101.626));
+    expect(dclSignal).toMatchObject({
+      kind: 'nav-timing',
+      tabId: TAB,
+      timing: { pageOrigin: null, navStartMs: 1_700_000_000_050 },
+    });
+    if (dclSignal.kind === 'nav-timing') {
+      expect(dclSignal.timing.dclMs).toBeCloseTo(1576, 6);
+    }
+    // load = (102.428 - 100.05) * 1000 = 2378 (clean).
     expect(c.observe(loadFired(102.428))).toEqual([
       { kind: 'nav-timing', tabId: TAB, timing: { pageOrigin: null, navStartMs: 1_700_000_000_050, loadMs: 2378 } },
     ]);

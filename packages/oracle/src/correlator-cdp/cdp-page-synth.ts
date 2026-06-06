@@ -15,8 +15,6 @@
 
 import type { InspectorNavTiming } from '@openheaders/core/types';
 
-import { round3 } from './units';
-
 /**
  * High-level page signal the correlator emits; the host wires each onto the
  * `PageStreamHub` (`nav-started` → `notifyNavStarted`, `nav-timing` →
@@ -32,18 +30,20 @@ export type CdpPageSignal =
  * monotonic start to wall time with the same request's `wallTime - issueTime`
  * offset (`pseudoWallTime`). `pageStartSec` is the request's
  * `timing.requestTime` (its `NetworkRequest.startTime`), which equals
- * `PageLoad.startTime`.
+ * `PageLoad.startTime`. Raw float, host-exact: the export truncates to ms via
+ * `new Date()`, and sort keys want the full-precision value.
  */
 export function pageStartedAtMs(wallTimeSec: number, issueSec: number, pageStartSec: number): number {
-  return round3((wallTimeSec - issueSec + pageStartSec) * 1000);
+  return (wallTimeSec - issueSec + pageStartSec) * 1000;
 }
 
 /**
  * A page milestone (DOMContentLoaded / load) as a ms offset from the page
- * start — Chrome's `onContentLoad` / `onLoad`. `-1` when the event predates
- * the start (clock skew), the HAR "not applicable" sentinel.
+ * start — Chrome's `onContentLoad` / `onLoad`, the raw `Entry.toMilliseconds`
+ * product with no rounding. `-1` when the event predates the start (clock
+ * skew), the HAR "not applicable" sentinel.
  */
 export function pageMilestoneMs(eventSec: number, pageStartSec: number): number {
   const offset = (eventSec - pageStartSec) * 1000;
-  return offset < 0 ? -1 : round3(offset);
+  return offset < 0 ? -1 : offset;
 }

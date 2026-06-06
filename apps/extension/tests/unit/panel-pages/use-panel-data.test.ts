@@ -283,6 +283,76 @@ describe('usePanelData', () => {
     expect(result.current.finishTimeMs).toBe(400);
   });
 
+  it('footer milestones equal the root-anchored navTiming for a non-redirected navigation', () => {
+    const pages: Page[] = [
+      { id: 'page_1', startedAtMs: 1000, url: 'https://openheaders.io/', dclMs: 120, loadMs: 480 },
+    ];
+    const { result } = renderHook(() =>
+      usePanelData(
+        snapshots(
+          [
+            lifecycle('doc', 'https://openheaders.io/', {
+              resourceType: 'main_frame',
+              startedAtMs: 1000,
+              completedAtMs: 1400,
+            }),
+          ],
+          pages,
+        ),
+      ),
+    );
+    // No redirect → leg is 0; the footer coincides with the HAR pageTimings.
+    expect(result.current.footerDclMs).toBe(120);
+    expect(result.current.footerLoadMs).toBe(480);
+    expect(result.current.navTiming?.dclMs).toBe(120);
+  });
+
+  it('re-anchors the footer to the final hop on a redirected navigation', () => {
+    const rootHop = {
+      ...har('https://openheaders.io/'),
+      startedDateTime: new Date(38_740).toISOString(),
+      timings: { blocked: 0, dns: 0, connect: 0, send: 0, wait: 0, receive: 0, _blocked_queueing: 4 },
+    } as InspectorHarEntry;
+    const finalHop = {
+      ...har('https://openheaders.io/ro'),
+      startedDateTime: new Date(38_853).toISOString(),
+      timings: { blocked: 0, dns: 0, connect: 0, send: 0, wait: 0, receive: 0 },
+    } as InspectorHarEntry;
+    const redirected: RequestLifecycle = {
+      tabId: 1,
+      requestId: 'doc',
+      url: 'https://openheaders.io/ro',
+      method: 'GET',
+      resourceType: 'main_frame',
+      phase: 'completed',
+      redirectHopCount: 1,
+      redirectHops: [
+        {
+          sourceUrl: 'https://openheaders.io/',
+          redirectUrl: 'https://openheaders.io/ro',
+          statusCode: 302,
+          timestampMs: 38_740,
+        },
+      ],
+      startedAtMs: 38_740,
+      hopStartedAtMs: 38_853,
+      completedAtMs: 40_500,
+      har: [rootHop, finalHop],
+      harBodyByHop: [],
+    };
+    const pages: Page[] = [
+      { id: 'page_1', startedAtMs: 38_744, url: 'https://openheaders.io/', dclMs: 556.7, loadMs: 1638 },
+    ];
+    const { result } = renderHook(() => usePanelData(snapshots([redirected], pages)));
+    // Redirect leg = finalHop.networkStart(38_853) - rootHop.networkStart(38_740 + 4 = 38_744) = 109.
+    expect(result.current.footerDclMs).toBeCloseTo(447.7, 5);
+    expect(result.current.footerLoadMs).toBeCloseTo(1529, 5);
+    // navTiming keeps the root-anchored HAR values; only the footer re-anchors.
+    expect(result.current.navTiming?.dclMs).toBe(556.7);
+    // Finish = (maxEnd 40_500 - baseTime 38_740) - leg 109 = 1651.
+    expect(result.current.finishTimeMs).toBe(1651);
+  });
+
   it('counts modified, failed, and cached rows', () => {
     const { result } = renderHook(() =>
       usePanelData(

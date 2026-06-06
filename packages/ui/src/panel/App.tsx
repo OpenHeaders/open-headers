@@ -696,8 +696,8 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
         transferredSize={transferredSize}
         resourceSize={resourceSize}
         finishTime={finishTime}
-        dclMs={data.navTiming?.dclMs}
-        loadMs={data.navTiming?.loadMs}
+        dclMs={data.footerDclMs}
+        loadMs={data.footerLoadMs}
         tabCount={groups.allTabs.length}
         modifiedCount={data.modifiedCount}
         failedCount={data.failedCount}
