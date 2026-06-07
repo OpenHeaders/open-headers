@@ -195,17 +195,20 @@ function ViewMenu() {
   const [showFailed, setShowFailed] = useSetting('devpanelLayout.footerShowFailed');
   const [showCached, setShowCached] = useSetting('devpanelLayout.footerShowCached');
   const [showPageContext, setShowPageContext] = useSetting('devpanelLayout.footerShowPageContext');
+  const [timingMode, setTimingMode] = useSetting('devpanelLayout.footerTimingMode');
 
   const resetModified = useResetSetting('devpanelLayout.footerShowModified');
   const resetFailed = useResetSetting('devpanelLayout.footerShowFailed');
   const resetCached = useResetSetting('devpanelLayout.footerShowCached');
   const resetPageContext = useResetSetting('devpanelLayout.footerShowPageContext');
+  const resetTimingMode = useResetSetting('devpanelLayout.footerTimingMode');
   // Reset is offered only when something actually differs from the defaults.
   const anyModified =
     useIsModified('devpanelLayout.footerShowModified') ||
     useIsModified('devpanelLayout.footerShowFailed') ||
     useIsModified('devpanelLayout.footerShowCached') ||
-    useIsModified('devpanelLayout.footerShowPageContext');
+    useIsModified('devpanelLayout.footerShowPageContext') ||
+    useIsModified('devpanelLayout.footerTimingMode');
 
   const flags = [showModified, showFailed, showCached, showPageContext];
   const activeCount = flags.reduce((n, v) => n + (v ? 1 : 0), 0);
@@ -238,6 +241,17 @@ function ViewMenu() {
         <input type="checkbox" checked={showPageContext} onChange={(e) => setShowPageContext(e.target.checked)} />
         Current page label
       </label>
+      <label
+        className="dt-morefilters-item"
+        title="Finish / DOMContentLoaded / Load span the whole preserve-log timeline from the first navigation (the browser default). Uncheck to report only the latest navigation."
+      >
+        <input
+          type="checkbox"
+          checked={timingMode !== 'lastNav'}
+          onChange={(e) => setTimingMode(e.target.checked ? 'aggregate' : 'lastNav')}
+        />
+        Timing across all navigations
+      </label>
       <div className="dt-morefilters-divider" />
       <button
         type="button"
@@ -248,6 +262,7 @@ function ViewMenu() {
           resetFailed();
           resetCached();
           resetPageContext();
+          resetTimingMode();
         }}
       >
         Reset to default
