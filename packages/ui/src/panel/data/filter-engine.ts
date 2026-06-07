@@ -238,7 +238,7 @@ function matchToken(lc: RequestLifecycle, token: FilterToken, config: FilterConf
   }
 }
 
-export function matchesUrlFilter(lc: RequestLifecycle, tokens: FilterToken[], config: FilterConfig): boolean {
+export function matchesUrlFilter(lc: RequestLifecycle, tokens: readonly FilterToken[], config: FilterConfig): boolean {
   for (const token of tokens) {
     if (!matchToken(lc, token, config)) return false;
   }

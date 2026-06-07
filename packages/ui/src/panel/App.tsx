@@ -50,11 +50,15 @@ import { SearchPanel } from './components/SearchPanel';
 import { TrafficList } from './components/TrafficList';
 import type { ColumnKey } from './components/traffic/columns';
 import { DEFAULT_VISIBLE_COLUMNS } from './components/traffic/columns';
+import { matchesPanelFilters } from './components/traffic/row-filter';
 import type { FilterConfig } from './data/filter-engine';
 import { DEFAULT_FILTER_CONFIG, hasFilterError, parseFilter } from './data/filter-engine';
 import { focusStore, setFocusedDock, setFocusedRegion } from './data/focus-store';
 import { serializeHar, suggestHarFilename } from './data/har-export';
+import { computeFooterSubset } from './data/panel-data-projection';
+import { formatFooterDuration } from './data/footer-timing';
 import type { InspectorRowWithFires } from './data/inspector-row-projection';
+import { formatBytesToKb } from './data/size-info';
 import type { DetailSection } from './data/inspector-tab';
 import { buildInspectorTab } from './data/inspector-tab';
 import { useParityDebugHook } from './data/parity-debug-hook';
@@ -88,12 +92,6 @@ function formatBytes(total: number): string {
   if (total < 1000) return `${total} B`;
   if (total < 1000 * 1000) return `${(total / 1000).toFixed(1)} kB`;
   return `${(total / (1000 * 1000)).toFixed(1)} MB`;
-}
-
-function formatFinishTime(finishMs: number): string {
-  if (finishMs <= 0) return '';
-  if (finishMs < 1000) return `${Math.round(finishMs)} ms`;
-  return `${(finishMs / 1000).toFixed(2)} s`;
 }
 
 // ── Shell event bus (created once, stable across renders) ────────────
@@ -374,6 +372,13 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   // ── Filter ─────────────────────────────────────────────────
   const filterTokens = useMemo(() => parseFilter(urlFilter, filterConfig), [urlFilter, filterConfig]);
   const filterError = useMemo(() => hasFilterError(filterTokens), [filterTokens]);
+  // The displayed (filtered) row set, computed once here — the filter-state
+  // owner — and shared with both the table and the footer subset so the two
+  // can never disagree about which rows passed.
+  const filteredRows = useMemo(
+    () => data.rows.filter((r) => matchesPanelFilters(r.lifecycle, { filter, filterTokens, filterConfig })),
+    [data.rows, filter, filterTokens, filterConfig],
+  );
 
   // ── Open request as tab ────────────────────────────────────
   const handleSelect = useCallback(
@@ -483,13 +488,34 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   const selectedId = activeTab?.requestId ?? null;
   const transferredSize = useMemo(() => formatBytes(data.totalBytesTransferred), [data.totalBytesTransferred]);
   const resourceSize = useMemo(() => formatBytes(data.totalResourceSize), [data.totalResourceSize]);
+  // Filtered-subset footer figures. The browser's summary bar reads
+  // `subset / total` for requests / transferred / resources whenever the filter
+  // hides at least one row (count-based, exactly its `selectedNodeNumber !==
+  // nodeCount` trigger); Finish / DCL / Load stay full. Both byte sides are
+  // formatted in kB (`formatBytesToKb`) — the browser keeps the comparison in a
+  // single unit there (it never rolls the subset/total to MB the way the
+  // single-total form does), so the two figures stay directly comparable.
+  // Computed from the same `computeFooterTotals` the projection runs over the
+  // full set, and over the shared `filteredRows`, so the subset grows live as a
+  // passing row streams.
+  const footerSubset = useMemo(() => {
+    const totals = computeFooterSubset(data.rows, filteredRows);
+    if (!totals) return undefined;
+    return {
+      requestCount: totals.requestCount,
+      transferredSize: formatBytesToKb(totals.totalBytesTransferred),
+      resourceSize: formatBytesToKb(totals.totalResourceSize),
+      totalTransferredSize: formatBytesToKb(data.totalBytesTransferred),
+      totalResourceSize: formatBytesToKb(data.totalResourceSize),
+    };
+  }, [data.rows, filteredRows, data.totalBytesTransferred, data.totalResourceSize]);
   // Footer timing scope: aggregate (whole preserve-log timeline, browser
   // default) vs the latest navigation only. Coincide for a single navigation.
   const aggregateTiming = footerTimingMode !== 'lastNav';
   const finishTimeMs = aggregateTiming ? data.aggregateFinishMs : data.finishTimeMs;
   const footerDclMs = aggregateTiming ? data.aggregateDclMs : data.footerDclMs;
   const footerLoadMs = aggregateTiming ? data.aggregateLoadMs : data.footerLoadMs;
-  const finishTime = useMemo(() => formatFinishTime(finishTimeMs), [finishTimeMs]);
+  const finishTime = useMemo(() => formatFooterDuration(finishTimeMs), [finishTimeMs]);
 
   // ── HAR export helpers ─────────────────────────────────────
   const downloadHar = useCallback(
@@ -570,12 +596,12 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
           return (
             <TrafficList
               rows={data.rows}
+              filteredRows={filteredRows}
               pages={data.pages}
               selectedId={selectedId}
               onSelect={handleSelect}
               filter={filter}
               onFilterChange={setFilter}
-              filterTokens={filterTokens}
               filterConfig={filterConfig}
               onFilterConfigChange={setFilterConfig}
               urlFilter={urlFilter}
@@ -642,7 +668,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       selectedId,
       handleSelect,
       filter,
-      filterTokens,
+      filteredRows,
       filterConfig,
       filterError,
       showFilter,
@@ -758,6 +784,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
         requestCount={data.rows.length}
         transferredSize={transferredSize}
         resourceSize={resourceSize}
+        subset={footerSubset}
         finishTime={finishTime}
         dclMs={footerDclMs}
         loadMs={footerLoadMs}

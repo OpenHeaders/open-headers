@@ -185,6 +185,55 @@ export interface UsePanelDataResult {
  * Returns `null` until at least one page is known — same semantics as
  * the legacy store's `navTiming` slot.
  */
+export interface FooterTotals {
+  /** Rows counted — the footer's "N requests". */
+  readonly requestCount: number;
+  /** Wire bytes summed across the rows — live `displayTransferredBytes` while
+   *  in flight, authoritative HAR once finished, so the total grows during a
+   *  download. */
+  readonly totalBytesTransferred: number;
+  /** Decoded resource bytes summed across the rows (`displayResourceBytes`). */
+  readonly totalResourceSize: number;
+}
+
+/**
+ * Footer byte/count totals over a row set — the status-bar
+ * "N requests · X transferred · Y resources". Built from
+ * `displayTransferredBytes` / `displayResourceBytes` so an in-flight row
+ * contributes its running bytes (live by construction), a finished row its
+ * authoritative HAR figure, and a cache hit / pre-first-byte row nothing.
+ * Reused for both the full in-view set (the projection below) and the
+ * filtered subset (the view), so a filter renders `subset / total` and the
+ * two readings can never diverge.
+ */
+export function computeFooterTotals(rows: readonly InspectorRowWithFires[]): FooterTotals {
+  let totalBytesTransferred = 0;
+  let totalResourceSize = 0;
+  for (const row of rows) {
+    const transferred = displayTransferredBytes(row.lifecycle);
+    if (transferred != null && transferred > 0) totalBytesTransferred += transferred;
+    const contentSize = displayResourceBytes(row.lifecycle);
+    if (contentSize != null && contentSize > 0) totalResourceSize += contentSize;
+  }
+  return { requestCount: rows.length, totalBytesTransferred, totalResourceSize };
+}
+
+/**
+ * Footer subset totals for an active filter, or `null` when none is in effect.
+ * Mirrors the browser's count-based `selectedNodeNumber !== nodeCount` trigger:
+ * a subset is reported only when the filtered set is strictly smaller than the
+ * full set, so a filter that hides nothing leaves the footer on single totals.
+ * Built from {@link computeFooterTotals} over the same shared `filteredRows`,
+ * so the subset grows live as a passing in-flight row streams.
+ */
+export function computeFooterSubset(
+  fullRows: readonly InspectorRowWithFires[],
+  filteredRows: readonly InspectorRowWithFires[],
+): FooterTotals | null {
+  if (filteredRows.length === fullRows.length) return null;
+  return computeFooterTotals(filteredRows);
+}
+
 function projectNavTiming(pages: readonly Page[]): InspectorNavTiming | null {
   if (pages.length === 0) return null;
   const latest = pages[pages.length - 1];
@@ -329,10 +378,13 @@ export function projectPanelData(input: UsePanelDataInput): UsePanelDataResult {
   const baseRows = buildInspectorRows(merged, opts);
   const { rows, dangling } = attachFiresToRows(baseRows, fires);
 
+  // Footer byte/count totals over the full in-view set — the same pure helper
+  // the view re-runs over its filtered subset, so the footer can read
+  // `subset / total` without the two sums ever drifting.
+  const footerTotals = computeFooterTotals(rows);
+
   const lookupByRequestId = new Map<string, InspectorRowWithFires>();
   const lookupByUrl = new Map<string, InspectorRowWithFires>();
-  let totalBytesTransferred = 0;
-  let totalResourceSize = 0;
   let modifiedCount = 0;
   let failedCount = 0;
   let cachedCount = 0;
@@ -355,12 +407,10 @@ export function projectPanelData(input: UsePanelDataInput): UsePanelDataResult {
 
     const har = currentHarEntry(row.lifecycle);
     // Live running counts while a row streams, authoritative HAR once finished
-    // — the same source the Size column shows, so the footer total and the
-    // column never disagree and both grow during the download.
+    // — the same `display*` source the Size column and `computeFooterTotals`
+    // read, so the cache verdict below stays consistent with the footer total.
     const transferred = displayTransferredBytes(row.lifecycle);
-    if (transferred != null && transferred > 0) totalBytesTransferred += transferred;
     const contentSize = displayResourceBytes(row.lifecycle);
-    if (contentSize != null && contentSize > 0) totalResourceSize += contentSize;
 
     if (row.fires.some(isAppliedFire)) modifiedCount++;
     const status = har?.response?.status;
@@ -485,8 +535,8 @@ export function projectPanelData(input: UsePanelDataInput): UsePanelDataResult {
     getConnectionReuse,
     getRepeatStats,
     baselineMs,
-    totalBytesTransferred,
-    totalResourceSize,
+    totalBytesTransferred: footerTotals.totalBytesTransferred,
+    totalResourceSize: footerTotals.totalResourceSize,
     finishTimeMs,
     footerAnchorMs,
     legMs,

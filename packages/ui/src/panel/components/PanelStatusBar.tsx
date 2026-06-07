@@ -11,6 +11,7 @@ import { productStatusExtras, StatusPill } from '@openheaders/ui/shared/status';
 import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import { Dropdown, type MenuProps, Space, theme, Tooltip } from 'antd';
 import type React from 'react';
+import { formatFooterDuration } from '../data/footer-timing';
 
 declare const __APP_VERSION__: string;
 
@@ -22,10 +23,32 @@ const THEME_DISPLAY: Record<ThemeMode, { icon: React.ReactNode; text: string; co
   auto: { icon: <span style={{ fontSize: 12 }}>{'◐'}</span>, text: 'Auto', color: '#1890ff' },
 };
 
+/**
+ * Filtered-subset footer figures. Present only when an active filter hides at
+ * least one row; the status bar then renders `subset / total` for requests /
+ * transferred / resources (the browser's summary-bar behavior). Finish / DCL /
+ * Load are page-level and stay full regardless.
+ */
+interface FooterSubset {
+  /** Subset request count (the total count is the `requestCount` prop). */
+  requestCount: number;
+  /** Subset transferred / resource sizes, both pre-formatted in kB. */
+  transferredSize: string;
+  resourceSize: string;
+  /** Full transferred / resource sizes in the SAME kB unit — the browser keeps
+   * both sides of `subset / total` in kB (never rolling to MB) so they compare
+   * directly, so the totals here differ from the MB-rolling single-form props. */
+  totalTransferredSize: string;
+  totalResourceSize: string;
+}
+
 interface PanelStatusBarProps {
   requestCount: number;
   transferredSize: string;
   resourceSize: string;
+  /** When set (a filter is hiding rows), render `subset / total` for the
+   * request/transferred/resource chips. Omitted → single full-total display. */
+  subset?: FooterSubset;
   finishTime: string;
   dclMs?: number;
   loadMs?: number;
@@ -48,12 +71,6 @@ interface PanelStatusBarProps {
   cdpEnhanced?: boolean;
 }
 
-function formatTiming(ms: number | undefined): string {
-  if (ms == null || !Number.isFinite(ms) || ms <= 0) return '';
-  if (ms < 1000) return `${Math.round(ms)} ms`;
-  return `${(ms / 1000).toFixed(2)} s`;
-}
-
 /** Host portion of an origin for the compact current-page label. */
 function originHost(origin: string | null | undefined): string {
   if (!origin) return '';
@@ -68,6 +85,7 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
   requestCount,
   transferredSize,
   resourceSize,
+  subset,
   finishTime,
   dclMs,
   loadMs,
@@ -88,8 +106,8 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
   const showCached = useSettingValue('devpanelLayout.footerShowCached');
   const showPageContext = useSettingValue('devpanelLayout.footerShowPageContext');
 
-  const dclText = formatTiming(dclMs);
-  const loadText = formatTiming(loadMs);
+  const dclText = formatFooterDuration(dclMs);
+  const loadText = formatFooterDuration(loadMs);
   const hasTiming = Boolean(finishTime || dclText || loadText);
   const pageHost = originHost(pageOrigin);
   // Each chip is visible iff its View toggle is on — the count/host is
@@ -107,9 +125,12 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
       }}
     >
       <div className="rules-statusbar-left">
-        {/* Cumulative traffic across whatever the log holds. */}
+        {/* Cumulative traffic across whatever the log holds — or `subset / total`
+            while a filter hides rows (browser summary-bar parity). */}
         <span className="rules-statusbar-item">
-          {requestCount} request{requestCount === 1 ? '' : 's'}
+          {subset
+            ? `${subset.requestCount} / ${requestCount} requests`
+            : `${requestCount} request${requestCount === 1 ? '' : 's'}`}
         </span>
         {showModified && (
           <span
@@ -134,10 +155,21 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
             {cachedCount} cached
           </span>
         )}
-        <span className="rules-statusbar-item">
-          {transferredSize} transferred
-          {resourceSize && resourceSize !== transferredSize ? ` / ${resourceSize} resources` : ''}
-        </span>
+        {subset ? (
+          <>
+            <span className="rules-statusbar-item">
+              {subset.transferredSize} / {subset.totalTransferredSize} transferred
+            </span>
+            <span className="rules-statusbar-item">
+              {subset.resourceSize} / {subset.totalResourceSize} resources
+            </span>
+          </>
+        ) : (
+          <span className="rules-statusbar-item">
+            {transferredSize} transferred
+            {resourceSize && resourceSize !== transferredSize ? ` / ${resourceSize} resources` : ''}
+          </span>
+        )}
 
         {/* This-navigation milestones — divider keeps them legibly apart
             from the cumulative counts so Finish reads as per-page. */}

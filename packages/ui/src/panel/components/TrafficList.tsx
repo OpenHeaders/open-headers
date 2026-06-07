@@ -8,8 +8,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { FilterConfig, FilterToken } from '../data/filter-engine';
-import { matchesUrlFilter, passesRowFilters } from '../data/filter-engine';
+import type { FilterConfig } from '../data/filter-engine';
 import type { InspectorRowWithFires } from '../data/inspector-row-projection';
 import { WATERFALL_METRIC_ABBR, waterfallSortValue } from '../data/network-columns';
 import { pageMarkers, waterfallWindow } from '../data/waterfall-geometry';
@@ -22,7 +21,6 @@ import { derivePreflightPairs } from './traffic/preflight-pairs';
 import { type CellContext } from './traffic/render-cell';
 import { RequestContextMenu, type RequestContextMenuState } from './traffic/RequestContextMenu';
 import { NetworkColumnInfo } from './traffic/NetworkColumnInfo';
-import { matchesResourceType } from './traffic/resource-types';
 import { sortIndicator } from './traffic/sort';
 import { TrafficRow } from './traffic/TrafficRow';
 import { useColumnResize } from './traffic/use-column-resize';
@@ -36,14 +34,19 @@ import { WidthAnchorRow } from './traffic/WidthAnchorRow';
 const HEADER_ROW_PX = 22;
 
 interface TrafficListProps {
+  /** Full in-view row set — drives preflight pairing, the waterfall window, and
+   * the empty-vs-no-match hero (browser-parity: those read the unfiltered log). */
   rows: readonly InspectorRowWithFires[];
+  /** Filtered subset to render in the table — computed once in the parent (the
+   * filter-state owner) and shared with the footer so the displayed rows and
+   * the footer `subset / total` can never drift. */
+  filteredRows: readonly InspectorRowWithFires[];
   /** Navigations on this tab — source the DOMContentLoaded / Load marker lines. */
   pages: readonly Page[];
   selectedId: string | null;
   onSelect: (requestId: string) => void;
   filter: ReadonlySet<string>;
   onFilterChange: (next: Set<string>) => void;
-  filterTokens: FilterToken[];
   filterConfig: FilterConfig;
   onFilterConfigChange: (cfg: FilterConfig) => void;
   urlFilter: string;
@@ -68,12 +71,12 @@ interface TrafficListProps {
 
 export function TrafficList({
   rows,
+  filteredRows,
   pages,
   selectedId,
   onSelect,
   filter,
   onFilterChange,
-  filterTokens,
   filterConfig,
   onFilterConfigChange,
   urlFilter,
@@ -148,18 +151,8 @@ export function TrafficList({
     return tracks.join(' ');
   }, [columns, columnWidths, compact, showFireDots]);
 
-  const filtered = useMemo(() => {
-    return rows.filter((r) => {
-      const lc = r.lifecycle;
-      if (!passesRowFilters(lc, filterConfig)) return false;
-      if (!matchesResourceType(lc.resourceType, filter)) return false;
-      if (filterTokens.length > 0 && !matchesUrlFilter(lc, filterTokens, filterConfig)) return false;
-      return true;
-    });
-  }, [rows, filter, filterTokens, filterConfig]);
-
-  const sorted = useMemo(() => sortRows(filtered), [filtered, sortRows]);
-  const hasTable = filtered.length > 0;
+  const sorted = useMemo(() => sortRows(filteredRows), [filteredRows, sortRows]);
+  const hasTable = filteredRows.length > 0;
 
   const { tableRef, onScroll, scrollToRow, visibleRows, topPadPx, bottomPadPx } = useRowWindow(sorted, hasTable);
 
@@ -359,7 +352,7 @@ export function TrafficList({
     sortMenu,
   };
 
-  const hasRows = filtered.length > 0;
+  const hasRows = filteredRows.length > 0;
   const selectedRow = rowMenu ? sorted.find((r) => r.lifecycle.requestId === rowMenu.requestId) : undefined;
 
   return (
