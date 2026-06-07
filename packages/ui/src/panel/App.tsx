@@ -313,6 +313,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   const [sidebarLayout] = useSetting('devpanelLayout.sidebarLayout');
   const [barWidthLeft, setBarWidthLeft] = useSetting('devpanelLayout.activityBarWidthLeft');
   const [barWidthRight, setBarWidthRight] = useSetting('devpanelLayout.activityBarWidthRight');
+  const [footerTimingMode] = useSetting('devpanelLayout.footerTimingMode');
   const toggleLabels = useCallback(() => setActivityLabels(!activityLabels), [activityLabels, setActivityLabels]);
   const handleBarResize = useCallback(
     (sizes: { left: number; right: number }) => {
@@ -479,7 +480,13 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   const selectedId = activeTab?.requestId ?? null;
   const transferredSize = useMemo(() => formatBytes(data.totalBytesTransferred), [data.totalBytesTransferred]);
   const resourceSize = useMemo(() => formatBytes(data.totalResourceSize), [data.totalResourceSize]);
-  const finishTime = useMemo(() => formatFinishTime(data.finishTimeMs), [data.finishTimeMs]);
+  // Footer timing scope: aggregate (whole preserve-log timeline, browser
+  // default) vs the latest navigation only. Coincide for a single navigation.
+  const aggregateTiming = footerTimingMode !== 'lastNav';
+  const finishTimeMs = aggregateTiming ? data.aggregateFinishMs : data.finishTimeMs;
+  const footerDclMs = aggregateTiming ? data.aggregateDclMs : data.footerDclMs;
+  const footerLoadMs = aggregateTiming ? data.aggregateLoadMs : data.footerLoadMs;
+  const finishTime = useMemo(() => formatFinishTime(finishTimeMs), [finishTimeMs]);
 
   // ── HAR export helpers ─────────────────────────────────────
   const downloadHar = useCallback(
@@ -749,8 +756,8 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
         transferredSize={transferredSize}
         resourceSize={resourceSize}
         finishTime={finishTime}
-        dclMs={data.footerDclMs}
-        loadMs={data.footerLoadMs}
+        dclMs={footerDclMs}
+        loadMs={footerLoadMs}
         tabCount={groups.allTabs.length}
         modifiedCount={data.modifiedCount}
         failedCount={data.failedCount}

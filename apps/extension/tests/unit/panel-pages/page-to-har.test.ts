@@ -96,5 +96,14 @@ describe('pagesToHarForRefs', () => {
       const out = pagesToHarForRefs([a], new Set(['page_1']), undefined, []);
       expect(out).toEqual([pageToHar(a)]);
     });
+
+    it('emits host pages in the host order, not the page-stream order', () => {
+      // Host orders pages by first-seen request (later nav first here); our
+      // page-stream is chronological. The export must follow the host order.
+      const ourPages = [page({ id: 'page_1' }), page({ id: 'page_2' })];
+      const hostPages = [hostPage({ id: 'page_2' }), hostPage({ id: 'page_1' })];
+      const out = pagesToHarForRefs(ourPages, new Set(['page_1', 'page_2']), undefined, hostPages);
+      expect(out.map((p) => p.id)).toEqual(['page_2', 'page_1']);
+    });
   });
 });

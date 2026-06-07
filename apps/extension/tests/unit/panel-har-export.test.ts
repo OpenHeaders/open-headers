@@ -278,6 +278,56 @@ describe('buildHar host-HAR reconciliation (CDP mode)', () => {
     const out = buildHar([docRowOnPage()], [page1]);
     expect(out.log.pages[0].pageTimings).toEqual({ onContentLoad: 100, onLoad: 200 });
   });
+
+  it('emits matched host entries in the host order, not our issue-time sort', () => {
+    // Host groups entries by page load (later nav first here); our own sort is
+    // issue-time ascending. The CDP export must follow the host order.
+    const a = row('https://openheaders.io/a', 2); // startedDateTime ...02 (later)
+    const b = row('https://openheaders.io/b', 0); // startedDateTime ...00 (earlier)
+    const hostA: InspectorHarEntry = {
+      startedDateTime: '2026-04-16T00:00:02.000Z',
+      pageref: 'page_2',
+      request: { method: 'GET', url: 'https://openheaders.io/a', headers: [], queryString: [] },
+      response: { status: 200, statusText: 'OK', headers: [], content: { size: 0, mimeType: 'text/plain' } },
+    } as InspectorHarEntry;
+    const hostB: InspectorHarEntry = {
+      startedDateTime: '2026-04-16T00:00:00.000Z',
+      pageref: 'page_1',
+      request: { method: 'GET', url: 'https://openheaders.io/b', headers: [], queryString: [] },
+      response: { status: 200, statusText: 'OK', headers: [], content: { size: 0, mimeType: 'text/plain' } },
+    } as InspectorHarEntry;
+    // Host order = [a (later), b (earlier)].
+    const out = buildHar([a, b], [], false, undefined, { entries: [hostA, hostB], pages: [] });
+    expect(out.log.entries.map((e) => e.request?.url)).toEqual([
+      'https://openheaders.io/a',
+      'https://openheaders.io/b',
+    ]);
+  });
+
+  it('keeps the host pageref on a matched entry instead of recomputing it', () => {
+    // The host's own page binding is authoritative; our resolvePageref heuristic
+    // would mis-bin a request that starts marginally before its own page.
+    const r = row('https://openheaders.io/x', 0);
+    const hostEntry: InspectorHarEntry = {
+      startedDateTime: '2026-04-16T00:00:00.000Z',
+      pageref: 'page_2',
+      request: { method: 'GET', url: 'https://openheaders.io/x', headers: [], queryString: [] },
+      response: { status: 200, statusText: 'OK', headers: [], content: { size: 0, mimeType: 'text/plain' } },
+    } as InspectorHarEntry;
+    const hostP2 = hostPage({ id: 'page_2' });
+    // Our page-stream knows both pages; resolvePageref alone would pick page_1.
+    const ourPages: Page[] = [
+      { id: 'page_1', startedAtMs: 0, url: 'https://openheaders.io/', dclMs: 10, loadMs: 20 },
+      { id: 'page_2', startedAtMs: 100, url: 'https://openheaders.io/', dclMs: 10, loadMs: 20 },
+    ];
+    const out = buildHar([r], ourPages, false, undefined, {
+      entries: [hostEntry],
+      pages: [hostPage({ id: 'page_1' }), hostP2],
+    });
+    expect(out.log.entries[0].pageref).toBe('page_2');
+    // Only page_2 is referenced, and it is adopted verbatim from the host block.
+    expect(out.log.pages).toEqual([hostP2]);
+  });
 });
 
 describe('serializeHar', () => {

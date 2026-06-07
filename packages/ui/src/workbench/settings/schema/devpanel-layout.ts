@@ -14,6 +14,9 @@ export type DevpanelSidebarLayoutVariantSetting = v.InferOutput<typeof sidebarLa
 const bottomPanelAlignmentSchema = v.picklist(['center', 'left', 'right', 'justify']);
 export type DevpanelBottomPanelAlignmentSetting = v.InferOutput<typeof bottomPanelAlignmentSchema>;
 
+const footerTimingModeSchema = v.picklist(['aggregate', 'lastNav']);
+export type DevpanelFooterTimingModeSetting = v.InferOutput<typeof footerTimingModeSchema>;
+
 declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
     'devpanelLayout.footerShowVersion': boolean;
@@ -22,6 +25,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'devpanelLayout.footerShowFailed': boolean;
     'devpanelLayout.footerShowCached': boolean;
     'devpanelLayout.footerShowPageContext': boolean;
+    'devpanelLayout.footerTimingMode': DevpanelFooterTimingModeSetting;
     'devpanelLayout.topbarShowPanelToggles': boolean;
     'devpanelLayout.topbarShowLayoutMenu': boolean;
     'devpanelLayout.bottomPanelAlignment': DevpanelBottomPanelAlignmentSetting;
@@ -113,6 +117,32 @@ registerSetting({
   subcategory: 'Footer',
   tags: ['statusbar', 'footer', 'page', 'navigation', 'preserve log', 'devtools'],
   scope: 'user',
+});
+
+registerSetting({
+  key: 'devpanelLayout.footerTimingMode',
+  type: 'enum',
+  default: 'aggregate',
+  schema: footerTimingModeSchema,
+  label: 'Footer Timing Scope',
+  description:
+    'Which navigation the Finish / DOMContentLoaded / Load milestones in the DevTools panel status bar describe. Aggregate spans the whole preserve-log timeline from the first navigation (matches the browser); Current page reports only the latest navigation.',
+  category: 'devpanelLayout',
+  subcategory: 'Footer',
+  tags: ['statusbar', 'footer', 'finish', 'load', 'navigation', 'preserve log', 'devtools'],
+  scope: 'user',
+  enumOptions: [
+    {
+      value: 'aggregate',
+      label: 'Aggregate (all navigations)',
+      description: 'Finish / DCL / Load span the whole timeline from the first navigation — the browser default.',
+    },
+    {
+      value: 'lastNav',
+      label: 'Current page only',
+      description: 'Finish / DCL / Load report only the latest navigation, anchored to when it started.',
+    },
+  ],
 });
 
 registerSetting({

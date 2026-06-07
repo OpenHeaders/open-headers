@@ -266,6 +266,66 @@ describe('usePanelData', () => {
     expect(result.current.finishTimeMs).toBe(1200);
   });
 
+  it('aggregate timings span the whole preserve-log timeline across same-URL navigations', () => {
+    // Two navigations to the same URL (the Preserve-log reload case): the
+    // per-page footer anchors to the latest nav, the aggregate set spans from
+    // the first nav like the browser summary bar.
+    const pages: Page[] = [
+      { id: 'page_1', startedAtMs: 0, url: 'https://openheaders.io/', dclMs: 380, loadMs: 383 },
+      { id: 'page_2', startedAtMs: 4000, url: 'https://openheaders.io/', dclMs: 143, loadMs: 143 },
+    ];
+    const { result } = renderHook(() =>
+      usePanelData(
+        snapshots(
+          [
+            lifecycle('nav1', 'https://openheaders.io/', {
+              resourceType: 'main_frame',
+              startedAtMs: 0,
+              completedAtMs: 300,
+            }),
+            lifecycle('nav2', 'https://openheaders.io/', {
+              resourceType: 'main_frame',
+              startedAtMs: 4000,
+              completedAtMs: 4200,
+            }),
+          ],
+          pages,
+        ),
+      ),
+    );
+    // Per-page (latest nav): anchored to nav2 start (4000).
+    expect(result.current.finishTimeMs).toBe(200);
+    expect(result.current.footerDclMs).toBe(143);
+    expect(result.current.footerLoadMs).toBe(143);
+    // Aggregate: anchored to nav1 start (0), spanning to nav2's last byte.
+    expect(result.current.aggregateFinishMs).toBe(4200);
+    expect(result.current.aggregateDclMs).toBe(4143);
+    expect(result.current.aggregateLoadMs).toBe(4143);
+  });
+
+  it('aggregate timings coincide with the per-page footer for a single navigation', () => {
+    const pages: Page[] = [
+      { id: 'page_1', startedAtMs: 1000, url: 'https://openheaders.io/', dclMs: 120, loadMs: 480 },
+    ];
+    const { result } = renderHook(() =>
+      usePanelData(
+        snapshots(
+          [
+            lifecycle('doc', 'https://openheaders.io/', {
+              resourceType: 'main_frame',
+              startedAtMs: 1000,
+              completedAtMs: 1400,
+            }),
+          ],
+          pages,
+        ),
+      ),
+    );
+    expect(result.current.aggregateFinishMs).toBe(result.current.finishTimeMs);
+    expect(result.current.aggregateDclMs).toBe(result.current.footerDclMs);
+    expect(result.current.aggregateLoadMs).toBe(result.current.footerLoadMs);
+  });
+
   it('finishTimeMs ignores still-loading requests (no end yet)', () => {
     const { result } = renderHook(() =>
       usePanelData(

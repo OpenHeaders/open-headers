@@ -1,18 +1,26 @@
 /**
  * HAR export — compose a valid HAR 1.2 document from inspector rows.
  *
- * Each row is one HAR entry: its lifecycle's current hop
- * (`currentHarEntry`). Redirect chains are already un-folded into per-hop
- * rows upstream (`buildInspectorRows` → `redirect-hop-rows.ts`), so the
- * panel and the export share one row list and one expansion — a redirect
- * leg is its own row, hence its own entry, with no double-counting. The
- * exporter attaches the page reference resolved from the page-stream
- * snapshot and wraps the flat entry list in the standard envelope. Pages
- * are projected via `pageToHar` (see `./page-to-har`) and filtered to those
- * actually referenced by exported entries — single-row exports don't carry
- * the full recording's page list.
+ * Two modes share one envelope:
  *
- * Skipped rows: any row with no landed HAR shell for its current hop (a
+ *   - **CDP mode (host-authoritative).** The host's own `getHAR()` is the
+ *     complete byte-exact record of every request it saw — entries, field
+ *     order, page binding (`pageref`), entry order, and `log.pages`. The
+ *     export adopts that record verbatim (`buildHostAuthoritativeEntries` +
+ *     host pages in `pagesToHarForRefs`); rows the host never saw
+ *     (OOPIF/worker) keep their CDP-synthesized entry and are appended. This
+ *     is what makes the export 1:1 with Chrome.
+ *   - **Heuristic mode.** No host HAR to adopt: each row is one HAR entry —
+ *     its lifecycle's current hop (`currentHarEntry`) — ordered by issue time
+ *     with our own {@link resolvePageref} page binding and `pageToHar`
+ *     projection.
+ *
+ * Redirect chains are already un-folded into per-hop rows upstream
+ * (`buildInspectorRows` → `redirect-hop-rows.ts`), so the panel and the export
+ * share one row list — a redirect leg is its own row, hence its own entry,
+ * with no double-counting. Pages are filtered to those actually referenced by
+ * exported entries — single-row exports don't carry the full recording's page
+ * list. Skipped rows: any row with no landed HAR shell for its current hop (a
  * pending / blocked-before-headers placeholder). Nothing to serialise.
  */
 
@@ -173,6 +181,97 @@ function hostMatchKey(method: string, url: string): string {
   return `${method}\n${hash < 0 ? url : url.slice(0, hash)}`;
 }
 
+/** A built entry list plus the set of page refs those entries carry. */
+interface EntriesWithRefs {
+  readonly entries: InspectorHarEntry[];
+  readonly refs: ReadonlySet<string>;
+}
+
+/**
+ * CDP-mode (host-authoritative) entry list. The host's own `getHAR()` is the
+ * complete, byte-exact record of every request it saw — entries, on-the-wire
+ * field order, page association (`pageref`), and the entry *order* itself. We
+ * adopt that record wholesale: each exported row is matched to a host entry,
+ * and the matched host entries are emitted **verbatim in the host's own
+ * order**, keeping their host `pageref`. Rows the host never saw
+ * (out-of-process iframes / workers, absent from the `chrome.devtools.network`
+ * feed) keep their CDP-synthesized entry and are appended after the host block
+ * — Chrome has no reference position for them, so issue order is the natural
+ * choice. This is what makes the CDP export 1:1 with Chrome instead of three
+ * heuristics (entry order, page order, page binding) each chasing it.
+ */
+function buildHostAuthoritativeEntries(
+  rows: readonly InspectorRowWithFires[],
+  pages: readonly Page[],
+  sanitize: boolean,
+  hostEntries: readonly InspectorHarEntry[],
+): EntriesWithRefs {
+  const matchHost = createHostEntryMatcher(hostEntries);
+  const matchedHostEntries = new Set<InspectorHarEntry>();
+  const synthOnlyRows: InspectorRowWithFires[] = [];
+  for (const row of rows) {
+    const synth = currentHarEntry(row.lifecycle);
+    if (synth === null) continue;
+    const host = synth.request
+      ? matchHost(synth.request.method, synth.request.url, Date.parse(synth.startedDateTime))
+      : undefined;
+    if (host !== undefined) matchedHostEntries.add(host);
+    else synthOnlyRows.push(row);
+  }
+  const entries: InspectorHarEntry[] = [];
+  const refs = new Set<string>();
+  // Matched host entries, verbatim, in the host's own array order — its
+  // `getHAR()` order is the authoritative entry sequence (it groups by page
+  // load, which our own issue-time sort can't reproduce across navigations).
+  for (const hostEntry of hostEntries) {
+    if (!matchedHostEntries.has(hostEntry)) continue;
+    if (hostEntry.pageref) refs.add(hostEntry.pageref);
+    entries.push(sanitize ? sanitizeHarEntry(hostEntry) : hostEntry);
+  }
+  // Synth-only augmentation (OOPIF/worker rows the host HAR never carried),
+  // appended in issue order with our own heuristic page binding.
+  const orderedSynth = [...synthOnlyRows].sort(
+    (a, b) => rowEntryStartMs(a) - rowEntryStartMs(b) || a.displayId - b.displayId,
+  );
+  for (const row of orderedSynth) {
+    const synth = currentHarEntry(row.lifecycle);
+    if (synth === null) continue;
+    const pageref = resolvePageref(row.lifecycle, pages);
+    if (pageref) refs.add(pageref);
+    entries.push(withPageref(sanitize ? sanitizeHarEntry(synth) : synth, pageref ?? undefined));
+  }
+  return { entries, refs };
+}
+
+/**
+ * Heuristic-mode (CDP-synthesized) entry list — the path with no host HAR to
+ * adopt (non-DevTools hosts, or a `getHAR()` that returned nothing). Each row
+ * contributes its lifecycle's current hop, ordered by HAR `startedDateTime`
+ * (issue order) with `displayId` (discovery rank) as the sub-ms tiebreak, and
+ * the page binding comes from our own {@link resolvePageref} heuristic.
+ */
+function buildSynthEntries(
+  rows: readonly InspectorRowWithFires[],
+  pages: readonly Page[],
+  sanitize: boolean,
+): EntriesWithRefs {
+  const entries: InspectorHarEntry[] = [];
+  const refs = new Set<string>();
+  const ordered = [...rows].sort((a, b) => rowEntryStartMs(a) - rowEntryStartMs(b) || a.displayId - b.displayId);
+  for (const row of ordered) {
+    // One entry per row: the lifecycle's current hop. Redirect legs are their
+    // own rows upstream, so each contributes its own entry exactly once. Skip
+    // rows whose current hop has no HAR shell (pending / blocked-before-headers
+    // placeholders) — nothing to serialise.
+    const synth = currentHarEntry(row.lifecycle);
+    if (synth === null) continue;
+    const pageref = resolvePageref(row.lifecycle, pages);
+    if (pageref) refs.add(pageref);
+    entries.push(withPageref(sanitize ? sanitizeHarEntry(synth) : synth, pageref ?? undefined));
+  }
+  return { entries, refs };
+}
+
 export function buildHar(
   rows: readonly InspectorRowWithFires[],
   pages: readonly Page[] = [],
@@ -180,49 +279,17 @@ export function buildHar(
   docLifecycles?: readonly RequestLifecycle[],
   hostHar?: InspectorHarLog,
 ): HarDocument {
-  const entries: InspectorHarEntry[] = [];
-  const refs = new Set<string>();
-  // CDP-mode host reconciliation: prefer the host's own HAR entry for any
-  // row the host also saw (see `createHostEntryMatcher`), and adopt the host's
-  // own page block for each referenced page. Absent in heuristic mode (entries
-  // are already the host's HAR) — the matcher is never built and the page
-  // block keeps its CDP projection, so that path is byte-unchanged.
-  const hostEntries = hostHar?.entries;
-  const matchHost =
-    hostEntries !== undefined && hostEntries.length > 0 ? createHostEntryMatcher(hostEntries) : undefined;
   // Resolve each page's main document from the full lifecycle list (not just
   // the exported subset — a single non-document export still needs its page's
   // document to anchor the block). Defaults to the exported rows' lifecycles.
   const docByPage = selectMainDocByPage(pages, docLifecycles ?? rows.map((r) => r.lifecycle));
-  // Order entries by their HAR `startedDateTime` — the host's entry order. The
-  // host walks `NetworkLog.requests()` (insertion = `requestWillBeSent`
-  // arrival), which equals issue-time order because `issueTime` is stamped at
-  // insertion, so its export is `startedDateTime`-ascending. The HAR entry's
-  // `startedDateTime` is that same authoritative value (it rides the
-  // `chrome.devtools.network` entry the host itself exports), so sorting on it
-  // reproduces the host order even when our own discovery order (webRequest
-  // arrival) lags it. `displayId` (discovery rank, redirect hops consecutive)
-  // is the sub-ms tiebreak for entries sharing a millisecond.
-  const ordered = [...rows].sort((a, b) => rowEntryStartMs(a) - rowEntryStartMs(b) || a.displayId - b.displayId);
-  for (const row of ordered) {
-    const lc = row.lifecycle;
-    // One entry per row: the lifecycle's current hop. Redirect legs are
-    // their own rows upstream, so each contributes its own entry exactly
-    // once. Skip rows whose current hop has no HAR shell (pending /
-    // blocked-before-headers placeholders) — nothing to serialise.
-    const synth = currentHarEntry(lc);
-    if (synth === null) continue;
-    // Use the host's own entry when it saw this request; fall back to the
-    // CDP-synthesized one for OOPIF/worker rows the host HAR never carried.
-    const host =
-      matchHost !== undefined && synth.request
-        ? matchHost(synth.request.method, synth.request.url, Date.parse(synth.startedDateTime))
-        : undefined;
-    const entry = host ?? synth;
-    const pageref = resolvePageref(lc, pages);
-    if (pageref) refs.add(pageref);
-    entries.push(withPageref(sanitize ? sanitizeHarEntry(entry) : entry, pageref ?? undefined));
-  }
+  // CDP mode (host HAR present): adopt the host's entries, page binding, and
+  // entry order wholesale; the page block likewise comes from the host's own
+  // `log.pages`. Heuristic mode: CDP-synthesized entries + our page projection.
+  const { entries, refs } =
+    hostHar !== undefined
+      ? buildHostAuthoritativeEntries(rows, pages, sanitize, hostHar.entries)
+      : buildSynthEntries(rows, pages, sanitize);
   return {
     log: {
       version: '1.2',

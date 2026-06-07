@@ -64,13 +64,14 @@ export function pageToHar(page: Page, timings?: AnchoredPageTimings): HarPage {
  * each page is re-anchored to that document's network start (host parity).
  *
  * `hostPages` (CDP mode) carries the host's own `chrome.devtools.network`
- * page block. A referenced page whose id matches a host page adopts that host
- * page verbatim — byte parity for its `pageTimings` floats and
- * `startedDateTime`, which the CDP-anchored projection reproduces only to
- * sub-ms. The page-id↔ref join is exact (both sides reset to `page_1`
- * per session), so a host page is found whenever the host saw the navigation;
- * a ref with no host page (an augmented OOPIF-only export) falls back to the
- * CDP projection for that page alone.
+ * page block. Referenced host pages are emitted first, **verbatim and in the
+ * host's own order** — byte parity for their `pageTimings` floats,
+ * `startedDateTime`, and the page sequence itself (the host orders pages by
+ * first-seen request, which our page-stream order can't reproduce across
+ * navigations). Any referenced page with no host page (an augmented OOPIF-only
+ * export) then falls back to the CDP projection, appended after the host block.
+ * Heuristic mode (no host pages) keeps the original CDP-only projection in
+ * page-stream order.
  */
 export function pagesToHarForRefs(
   pages: readonly Page[],
@@ -78,18 +79,20 @@ export function pagesToHarForRefs(
   docByPage?: ReadonlyMap<string, RequestLifecycle>,
   hostPages?: readonly InspectorHarPage[],
 ): HarPage[] {
-  const hostById =
-    hostPages !== undefined && hostPages.length > 0 ? new Map(hostPages.map((p) => [p.id, p])) : undefined;
   const out: HarPage[] = [];
-  for (const page of pages) {
-    if (!refs.has(page.id)) continue;
-    const host = hostById?.get(page.id);
-    if (host !== undefined) {
+  const emitted = new Set<string>();
+  if (hostPages !== undefined) {
+    for (const host of hostPages) {
+      if (!refs.has(host.id) || emitted.has(host.id)) continue;
       out.push(host);
-      continue;
+      emitted.add(host.id);
     }
+  }
+  for (const page of pages) {
+    if (!refs.has(page.id) || emitted.has(page.id)) continue;
     const timings = docByPage ? anchorPageTimings(page, docByPage.get(page.id)) : undefined;
     out.push(pageToHar(page, timings));
+    emitted.add(page.id);
   }
   return out;
 }

@@ -49,6 +49,7 @@ import {
 } from './inspector-row-projection';
 import type { LifecycleClientSnapshot } from './lifecycle-client-store';
 import { synthesizeMemoryCacheLifecycles } from './memory-cache-rows';
+import { selectMainDocByPage } from './page-anchor';
 import type { PageClientSnapshot } from './page-client-store';
 import type { ResourceTimingClientSnapshot } from './resource-timing-client-store';
 import { computeRepeatStats, type RepeatStats } from './timing-repeats';
@@ -147,6 +148,18 @@ export interface UsePanelDataResult {
    */
   readonly footerDclMs: number | undefined;
   readonly footerLoadMs: number | undefined;
+  /**
+   * Aggregate (browser-default) status-bar timings — Finish / DCL / Load
+   * measured from the **earliest** navigation to the current page's URL,
+   * spanning the whole preserve-log timeline the way Chrome's summary bar
+   * does across multiple navigations. The `footer*` values above instead
+   * anchor to the latest navigation (the per-page reading). The two coincide
+   * for a single navigation; the status bar shows these by default and lets
+   * the user switch to the per-page `footer*` set via a setting.
+   */
+  readonly aggregateFinishMs: number;
+  readonly aggregateDclMs: number | undefined;
+  readonly aggregateLoadMs: number | undefined;
   /** Rows whose rules actually ran (`isAppliedFire`). */
   readonly modifiedCount: number;
   /** Rows that errored — failed phase or HTTP status >= 400. */
@@ -349,12 +362,13 @@ export function projectPanelData(input: UsePanelDataInput): UsePanelDataResult {
   // to the earliest request as the baseline.
   if (baseTime < 0) baseTime = minStartedAtMs;
   let maxEnd = baseTime;
-  if (baseTime >= 0) {
-    for (const row of rows) {
-      if (row.lifecycle.startedAtMs < baseTime) continue;
-      const end = row.lifecycle.startedAtMs + lifecycleDuration(row.lifecycle);
-      if (end > maxEnd) maxEnd = end;
-    }
+  // Last byte across the whole in-view log (every navigation), the browser
+  // footer's `maxTime` — used by the aggregate timeline below.
+  let maxEndGlobal = -1;
+  for (const row of rows) {
+    const end = row.lifecycle.startedAtMs + lifecycleDuration(row.lifecycle);
+    if (end > maxEndGlobal) maxEndGlobal = end;
+    if (baseTime >= 0 && row.lifecycle.startedAtMs >= baseTime && end > maxEnd) maxEnd = end;
   }
 
   const latestPage = pages.length > 0 ? pages[pages.length - 1] : null;
@@ -407,6 +421,37 @@ export function projectPanelData(input: UsePanelDataInput): UsePanelDataResult {
     if (latestPage.loadMs != null) footerLoadMs = latestPage.loadMs - legMs;
   }
 
+  // Aggregate (browser-default) timeline. Chrome's summary bar overwrites its
+  // `baseTime` for every top-level document whose URL matches the inspected
+  // URL while walking the newest-first request log, so it lands on the
+  // *earliest* navigation to the current page — the zero of the whole
+  // preserve-log span. We mirror that: the earliest final-document anchor
+  // among pages sharing the latest page's URL. Finish runs from there to the
+  // last byte; DCL / Load keep the latest navigation's milestone (the last
+  // event Chrome saw) re-anchored to that earlier zero. Single navigation →
+  // the anchor equals `footerAnchorMs`, so the aggregate set equals `footer*`.
+  const docByPage = selectMainDocByPage(
+    pages,
+    rows.map((r) => r.lifecycle),
+  );
+  const navAnchorMs = (p: Page): number => {
+    const doc = docByPage.get(p.id);
+    return doc ? (doc.hopNetworkStartMs ?? doc.hopStartedAtMs) : p.startedAtMs;
+  };
+  let aggregateAnchorMs = footerAnchorMs;
+  if (latestPage) {
+    for (const p of pages) {
+      if (p.url !== latestPage.url) continue;
+      const a = navAnchorMs(p);
+      if (a < aggregateAnchorMs) aggregateAnchorMs = a;
+    }
+  }
+  const aggregateFinishMs =
+    aggregateAnchorMs >= 0 && maxEndGlobal > aggregateAnchorMs ? maxEndGlobal - aggregateAnchorMs : 0;
+  const aggregateAnchorDeltaMs = footerAnchorMs - aggregateAnchorMs;
+  const aggregateDclMs = footerDclMs != null ? footerDclMs + aggregateAnchorDeltaMs : undefined;
+  const aggregateLoadMs = footerLoadMs != null ? footerLoadMs + aggregateAnchorDeltaMs : undefined;
+
   const getConnectionReuse = (lc: RequestLifecycle): ConnectionReuseInfo => computeConnectionReuse(lc, scoped);
   const getRepeatStats = (lc: RequestLifecycle): RepeatStats | null => computeRepeatStats(lc, scoped);
 
@@ -429,6 +474,9 @@ export function projectPanelData(input: UsePanelDataInput): UsePanelDataResult {
     legMs,
     footerDclMs,
     footerLoadMs,
+    aggregateFinishMs,
+    aggregateDclMs,
+    aggregateLoadMs,
     modifiedCount,
     failedCount,
     cachedCount,
