@@ -52,6 +52,7 @@ function installNavigation(tabId: number | null): void {
     observeActiveTabContext: () => () => {},
     inspectedTabId: () => tabId,
     reloadInspectedTab: () => {},
+    getInspectedHar: () => Promise.resolve(null),
     openResource: () => {},
   };
   setHostNavigation(nav);

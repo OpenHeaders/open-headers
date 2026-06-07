@@ -103,14 +103,91 @@ function collectRefs(entries: readonly { pageref?: string }[]): Set<string> {
   return refs;
 }
 
+/**
+ * Host-authoritative reconciliation (CDP mode). The host's own
+ * `chrome.devtools.network` HAR is byte-identical to what its "Save all as
+ * HAR" writes; our CDP synthesis is a faithful reconstruction but cannot
+ * reproduce every field the host emits — request-header *order* most
+ * visibly, because `chrome.debugger` delivers CDP header objects key-sorted
+ * (a `base::Value::Dict`), destroying the on-the-wire order the host keeps.
+ *
+ * When the panel can read the host HAR (it runs as a DevTools panel page),
+ * each exported row is matched to its host entry and the host entry is used
+ * verbatim — byte parity for every request the host saw. Rows with no host
+ * match (out-of-process iframes / workers the `chrome.devtools.network` feed
+ * never sees) keep their CDP-synthesized entry, so CDP's wider coverage is
+ * preserved. Host and CDP observe the *same* live session, so the join is
+ * tight: same `(method, url)` and a `startedDateTime` that shares a base
+ * `wallTime` (sub-ms apart at worst).
+ */
+const STARTED_MATCH_TOLERANCE_MS = 50;
+
+interface HostEntrySlot {
+  readonly entry: InspectorHarEntry;
+  readonly startedMs: number;
+  consumed: boolean;
+}
+
+/**
+ * Build a one-shot matcher over the host HAR entries. `match` returns the
+ * closest unconsumed host entry sharing the row's `(method, url)` within
+ * {@link STARTED_MATCH_TOLERANCE_MS}, consuming it so repeated beacons to the
+ * same URL each pair to a distinct host entry. `undefined` when the host
+ * never saw this request (an OOPIF/worker row keeps its CDP entry).
+ */
+export function createHostEntryMatcher(
+  hostEntries: readonly InspectorHarEntry[],
+): (method: string, url: string, startedMs: number) => InspectorHarEntry | undefined {
+  const byKey = new Map<string, HostEntrySlot[]>();
+  for (const entry of hostEntries) {
+    const req = entry.request;
+    if (!req) continue;
+    const key = hostMatchKey(req.method, req.url);
+    const slot: HostEntrySlot = { entry, startedMs: Date.parse(entry.startedDateTime), consumed: false };
+    const list = byKey.get(key);
+    if (list) list.push(slot);
+    else byKey.set(key, [slot]);
+  }
+  return (method, url, startedMs) => {
+    const list = byKey.get(hostMatchKey(method, url));
+    if (list === undefined) return undefined;
+    let best: HostEntrySlot | undefined;
+    let bestDelta = Number.POSITIVE_INFINITY;
+    for (const slot of list) {
+      if (slot.consumed) continue;
+      const delta = Number.isFinite(slot.startedMs) ? Math.abs(slot.startedMs - startedMs) : Number.POSITIVE_INFINITY;
+      if (delta < bestDelta) {
+        best = slot;
+        bestDelta = delta;
+      }
+    }
+    if (best === undefined || bestDelta > STARTED_MATCH_TOLERANCE_MS) return undefined;
+    best.consumed = true;
+    return best.entry;
+  };
+}
+
+/** Join key for host↔row reconciliation: method + fragment-stripped URL. */
+function hostMatchKey(method: string, url: string): string {
+  const hash = url.indexOf('#');
+  return `${method}\n${hash < 0 ? url : url.slice(0, hash)}`;
+}
+
 export function buildHar(
   rows: readonly InspectorRowWithFires[],
   pages: readonly Page[] = [],
   sanitize = false,
   docLifecycles?: readonly RequestLifecycle[],
+  hostEntries?: readonly InspectorHarEntry[],
 ): HarDocument {
   const entries: InspectorHarEntry[] = [];
   const refs = new Set<string>();
+  // CDP-mode host reconciliation: prefer the host's own HAR entry for any
+  // row the host also saw (see `createHostEntryMatcher`). Absent in heuristic
+  // mode (entries are already the host's HAR) — the matcher is never built,
+  // so that path is byte-unchanged.
+  const matchHost =
+    hostEntries !== undefined && hostEntries.length > 0 ? createHostEntryMatcher(hostEntries) : undefined;
   // Resolve each page's main document from the full lifecycle list (not just
   // the exported subset — a single non-document export still needs its page's
   // document to anchor the block). Defaults to the exported rows' lifecycles.
@@ -131,8 +208,15 @@ export function buildHar(
     // their own rows upstream, so each contributes its own entry exactly
     // once. Skip rows whose current hop has no HAR shell (pending /
     // blocked-before-headers placeholders) — nothing to serialise.
-    const entry = currentHarEntry(lc);
-    if (entry === null) continue;
+    const synth = currentHarEntry(lc);
+    if (synth === null) continue;
+    // Use the host's own entry when it saw this request; fall back to the
+    // CDP-synthesized one for OOPIF/worker rows the host HAR never carried.
+    const host =
+      matchHost !== undefined && synth.request
+        ? matchHost(synth.request.method, synth.request.url, Date.parse(synth.startedDateTime))
+        : undefined;
+    const entry = host ?? synth;
     const pageref = resolvePageref(lc, pages);
     if (pageref) refs.add(pageref);
     entries.push(withPageref(sanitize ? sanitizeHarEntry(entry) : entry, pageref ?? undefined));
@@ -176,8 +260,9 @@ export function serializeHar(
   pages: readonly Page[] = [],
   sanitize = false,
   docLifecycles?: readonly RequestLifecycle[],
+  hostEntries?: readonly InspectorHarEntry[],
 ): string {
-  return JSON.stringify(buildHar(rows, pages, sanitize, docLifecycles), null, 2);
+  return JSON.stringify(buildHar(rows, pages, sanitize, docLifecycles, hostEntries), null, 2);
 }
 
 /**

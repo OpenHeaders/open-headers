@@ -20,7 +20,7 @@
  */
 
 import { type ActiveTab, type HostNavigation, setHostNavigation } from '@openheaders/core/navigation';
-import type { ViewMode } from '@openheaders/core/types';
+import type { InspectorHarEntry, ViewMode } from '@openheaders/core/types';
 import { call } from '@utils/bridge';
 import { logger } from '@utils/logger';
 import { selectViewModeAdapter } from '@/background/view-mode/select-adapter';
@@ -231,6 +231,34 @@ function reloadInspectedTab(): void {
 }
 
 /**
+ * The host's own `chrome.devtools.network` HAR for the inspected tab — the
+ * exact bytes its "Save all as HAR" writes. The HAR export reconciles its
+ * CDP-synthesized entries against this (request-header order, which the
+ * `chrome.debugger` transport key-sorts away, chief among the fields it
+ * recovers). `getHAR` is callback-style; we promisify it. `null` outside a
+ * DevTools context (`chrome.devtools` absent), on error, or when the feed
+ * yields no entries — the export then keeps its synthesized entries.
+ */
+function getInspectedHar(): Promise<readonly InspectorHarEntry[] | null> {
+  const getHAR = (
+    chrome as unknown as {
+      devtools?: { network?: { getHAR?: (cb: (harLog: { entries?: InspectorHarEntry[] }) => void) => void } };
+    }
+  ).devtools?.network?.getHAR;
+  if (!getHAR) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    try {
+      getHAR((harLog) => {
+        const entries = harLog?.entries;
+        resolve(Array.isArray(entries) && entries.length > 0 ? entries : null);
+      });
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+/**
  * Open `url` at the given line/column in the DevTools Sources panel via
  * `chrome.devtools.panels.openResource`. The Sources panel handles
  * source-map resolution for us, so a frame whose URL points at minified
@@ -269,6 +297,7 @@ const chromeHostNavigation: HostNavigation = {
   observeActiveTabContext,
   inspectedTabId,
   reloadInspectedTab,
+  getInspectedHar,
   openResource,
 };
 

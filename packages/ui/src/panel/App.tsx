@@ -483,7 +483,11 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
 
   // ── HAR export helpers ─────────────────────────────────────
   const downloadHar = useCallback(
-    (subset: readonly InspectorRowWithFires[], filename: string, sanitize: boolean) => {
+    async (subset: readonly InspectorRowWithFires[], filename: string, sanitize: boolean) => {
+      // CDP mode: the host's own devtools.network HAR is byte-identical to its
+      // export, so prefer it per-entry over our CDP synthesis (null in
+      // heuristic mode / non-DevTools hosts — export stays as-is).
+      const hostEntries = (await hostNavigation.getInspectedHar()) ?? undefined;
       // Resolve page anchors from the full row set, not just the exported
       // subset — a single non-document export still needs its page's document.
       const json = serializeHar(
@@ -491,6 +495,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
         data.pages,
         sanitize,
         data.rows.map((r) => r.lifecycle),
+        hostEntries,
       );
       const blob = new Blob([json], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -507,7 +512,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
 
   const handleSaveAllAsHar = useCallback(
     (sanitize = false) => {
-      downloadHar(data.rows, suggestHarFilename(data.rows), sanitize);
+      void downloadHar(data.rows, suggestHarFilename(data.rows), sanitize);
     },
     [data.rows, downloadHar],
   );
@@ -515,18 +520,20 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   const handleSaveAsHar = useCallback(
     (row: InspectorRowWithFires, sanitize = false) => {
       const single: readonly InspectorRowWithFires[] = [row];
-      downloadHar(single, suggestHarFilename(single), sanitize);
+      void downloadHar(single, suggestHarFilename(single), sanitize);
     },
     [downloadHar],
   );
 
   const copyHar = useCallback(
     async (subset: readonly InspectorRowWithFires[], sanitize: boolean) => {
+      const hostEntries = (await hostNavigation.getInspectedHar()) ?? undefined;
       const json = serializeHar(
         subset,
         data.pages,
         sanitize,
         data.rows.map((r) => r.lifecycle),
+        hostEntries,
       );
       try {
         await navigator.clipboard.writeText(json);

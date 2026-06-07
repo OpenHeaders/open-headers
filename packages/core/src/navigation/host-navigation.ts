@@ -20,7 +20,7 @@
  * throws — mirrors the lifeline-transport / peer-navigation seams.
  */
 
-import type { ViewMode } from '../types';
+import type { InspectorHarEntry, ViewMode } from '../types';
 
 /**
  * The user's active browsing tab — the subset a surface needs to scope
@@ -106,6 +106,19 @@ export interface HostNavigation {
    */
   reloadInspectedTab(): void;
   /**
+   * The host's own complete HAR for the inspected tab, or `null` when the
+   * surface can't produce one. On a DevTools panel host this is the
+   * browser's `chrome.devtools.network` HAR — byte-identical to its own
+   * "Save all as HAR". The HAR export reconciles its CDP-synthesized
+   * entries against this so every request the host saw is exported with the
+   * host's exact bytes (request-header order chief among them, which the
+   * `chrome.debugger` transport key-sorts away); rows the host HAR lacks
+   * (out-of-process iframes / workers) keep their synthesized entry. Hosts
+   * with no DevTools-network feed (popup, side panel, web app, desktop)
+   * resolve `null`, leaving the synthesized export unchanged.
+   */
+  getInspectedHar(): Promise<readonly InspectorHarEntry[] | null>;
+  /**
    * Open a JS / CSS resource at the given line/column in the host's
    * source viewer — the DevTools "open in Sources" affordance used by
    * call-stack frames to jump to the originating source line. Hosts
@@ -142,6 +155,9 @@ const NULL_HOST_NAVIGATION: HostNavigation = {
     return null;
   },
   reloadInspectedTab() {},
+  getInspectedHar() {
+    return Promise.resolve(null);
+  },
   openResource() {},
 };
 

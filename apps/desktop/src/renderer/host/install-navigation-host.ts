@@ -56,6 +56,11 @@ const desktopHostNavigation: HostNavigation = {
   reloadInspectedTab() {
     // DevTools panel surface only.
   },
+  getInspectedHar() {
+    // No `chrome.devtools.network` feed on desktop; the HAR export keeps its
+    // own entries.
+    return Promise.resolve(null);
+  },
   openResource() {
     // No DevTools Sources-panel surface on desktop; call-stack frames
     // fall back to inline rendering.
