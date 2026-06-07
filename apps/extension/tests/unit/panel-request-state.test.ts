@@ -1,6 +1,11 @@
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarEntry } from '@openheaders/core/types';
-import { classifyRequestState, isFailedNetworkRequest, statusCellText } from '@openheaders/ui/panel/data/request-state';
+import {
+  classifyRequestState,
+  isFailedNetworkRequest,
+  isPreservedUnknown,
+  statusCellText,
+} from '@openheaders/ui/panel/data/request-state';
 import { describe, expect, it } from 'vitest';
 
 function makeLifecycle(
@@ -279,5 +284,73 @@ describe('statusCellText with a correlator-supplied block reason (CDP)', () => {
       error: { code: 'net::ERR_BLOCKED_BY_RESPONSE', reason: 'net::ERR_BLOCKED_BY_RESPONSE' },
     });
     expect(statusCellText(lc)).toBe('(blocked:other)');
+  });
+});
+
+describe('isPreservedUnknown', () => {
+  // A newer top-level navigation committed at this wall-clock; rows that
+  // started before it and never finished are preserved-unknown.
+  const NAV_AT = 1_000;
+
+  it('non-terminal, no-status, started before a newer nav → preserved-unknown', () => {
+    const lc = makeLifecycle({
+      phase: 'pending',
+      statusCode: undefined,
+      statusText: undefined,
+      startedAtMs: 500,
+      completedAtMs: undefined,
+      har: { response: undefined },
+    });
+    expect(isPreservedUnknown(lc, NAV_AT)).toBe(true);
+    // Its logical state is still pending — only the cells override the label.
+    expect(classifyRequestState(lc).kind).toBe('pending');
+  });
+
+  it('non-terminal current-page row (started at/after the nav) → not preserved', () => {
+    const lc = makeLifecycle({
+      phase: 'pending',
+      statusCode: undefined,
+      statusText: undefined,
+      startedAtMs: 1_500,
+      completedAtMs: undefined,
+      har: { response: undefined },
+    });
+    expect(isPreservedUnknown(lc, NAV_AT)).toBe(false);
+  });
+
+  it('non-terminal with a status (streaming), superseded → still preserved (Time reads unknown)', () => {
+    // A row that already received a status but never finished: the Status cell
+    // keeps the status, but the Time cell reads "(unknown)", so the predicate
+    // (Time-cell truth) is true.
+    const lc = makeLifecycle({
+      phase: 'headers-received',
+      statusCode: 200,
+      statusText: 'OK',
+      startedAtMs: 500,
+      completedAtMs: undefined,
+    });
+    expect(isPreservedUnknown(lc, NAV_AT)).toBe(true);
+  });
+
+  it('terminal (completed) prior-page row → never preserved-unknown', () => {
+    const lc = makeLifecycle({
+      phase: 'completed',
+      startedAtMs: 500,
+      completedAtMs: 800,
+    });
+    expect(isPreservedUnknown(lc, NAV_AT)).toBe(false);
+  });
+
+  it('no navigation observed (floor <= 0) → never preserved-unknown', () => {
+    const lc = makeLifecycle({
+      phase: 'pending',
+      statusCode: undefined,
+      statusText: undefined,
+      startedAtMs: 500,
+      completedAtMs: undefined,
+      har: { response: undefined },
+    });
+    expect(isPreservedUnknown(lc, -1)).toBe(false);
+    expect(isPreservedUnknown(lc, 0)).toBe(false);
   });
 });

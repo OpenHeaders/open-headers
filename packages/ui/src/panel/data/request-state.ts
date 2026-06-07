@@ -154,6 +154,37 @@ export function classifyRequestState(lifecycle: RequestLifecycle): RequestState 
   return { kind: 'success', status };
 }
 
+// ── Preserved-unknown (post-navigation) ─────────────────────────
+//
+// On a committed top-level navigation the prior page unloads, canceling its
+// still-in-flight requests. No terminal event ever arrives for them (neither
+// the HAR `onRequestFinished` nor the CDP `loadingFinished/Failed`), so they
+// would otherwise sit `pending` forever. The host preserves them under
+// Preserve-log and renders their unknowable outcome as `(unknown)` in both the
+// Status and Time cells — a row whose issuing page is gone is terminal for
+// display even though the engine never saw it finish.
+
+/** The Status/Time label for a request whose issuing page unloaded mid-flight. */
+export const PRESERVED_UNKNOWN_LABEL = '(unknown)';
+/** Tooltip for {@link PRESERVED_UNKNOWN_LABEL}. */
+export const PRESERVED_UNKNOWN_TITLE =
+  'The request status cannot be shown here because the page that issued it unloaded while the request was in flight.';
+
+/**
+ * Whether a row is a preserved-unknown: a non-terminal request from a page that
+ * a newer committed top-level navigation has superseded. `latestNavStartedAtMs`
+ * is that navigation's `startedAtMs` (the latest in-view page's start); a row is
+ * superseded when it started before it and never reached a terminal phase
+ * (`completedAtMs == null`). Path-agnostic — `completedAtMs` is set by whichever
+ * backend delivers a terminal event, and the nav floor rides the page stream
+ * both paths feed. A completed prior-page row renders normally (it has a real
+ * outcome), so the gate excludes it. `latestNavStartedAtMs <= 0` (no navigation
+ * observed) → never preserved-unknown.
+ */
+export function isPreservedUnknown(lifecycle: RequestLifecycle, latestNavStartedAtMs: number): boolean {
+  return latestNavStartedAtMs > 0 && lifecycle.completedAtMs == null && lifecycle.startedAtMs < latestNavStartedAtMs;
+}
+
 // ── Status-cell presentation ─────────────────────────────────────
 //
 // The status cell mirrors the browser's network panel one-to-one: a
