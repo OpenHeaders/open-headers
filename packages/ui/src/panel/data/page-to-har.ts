@@ -19,6 +19,7 @@
 
 import type { Page } from '@openheaders/core/page-stream';
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
+import type { InspectorHarPage } from '@openheaders/core/types';
 
 import { type AnchoredPageTimings, anchorPageTimings } from './page-anchor';
 
@@ -61,15 +62,32 @@ export function pageToHar(page: Page, timings?: AnchoredPageTimings): HarPage {
  *
  * `docByPage` maps each page id to its main document lifecycle; when present
  * each page is re-anchored to that document's network start (host parity).
+ *
+ * `hostPages` (CDP mode) carries the host's own `chrome.devtools.network`
+ * page block. A referenced page whose id matches a host page adopts that host
+ * page verbatim — byte parity for its `pageTimings` floats and
+ * `startedDateTime`, which the CDP-anchored projection reproduces only to
+ * sub-ms. The page-id↔ref join is exact (both sides reset to `page_1`
+ * per session), so a host page is found whenever the host saw the navigation;
+ * a ref with no host page (an augmented OOPIF-only export) falls back to the
+ * CDP projection for that page alone.
  */
 export function pagesToHarForRefs(
   pages: readonly Page[],
   refs: ReadonlySet<string>,
   docByPage?: ReadonlyMap<string, RequestLifecycle>,
+  hostPages?: readonly InspectorHarPage[],
 ): HarPage[] {
+  const hostById =
+    hostPages !== undefined && hostPages.length > 0 ? new Map(hostPages.map((p) => [p.id, p])) : undefined;
   const out: HarPage[] = [];
   for (const page of pages) {
     if (!refs.has(page.id)) continue;
+    const host = hostById?.get(page.id);
+    if (host !== undefined) {
+      out.push(host);
+      continue;
+    }
     const timings = docByPage ? anchorPageTimings(page, docByPage.get(page.id)) : undefined;
     out.push(pageToHar(page, timings));
   }

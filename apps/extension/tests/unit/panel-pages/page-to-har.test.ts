@@ -4,15 +4,25 @@
  */
 
 import type { Page } from '@openheaders/core/page-stream';
-import { describe, expect, it } from 'vitest';
-
+import type { InspectorHarPage } from '@openheaders/core/types';
 import { pagesToHarForRefs, pageToHar } from '@openheaders/ui/panel/data/page-to-har';
+import { describe, expect, it } from 'vitest';
 
 function page(overrides: Partial<Page> = {}): Page {
   return {
     id: 'page_1',
     startedAtMs: Date.UTC(2026, 0, 1, 12, 0, 0),
     url: 'https://openheaders.io/',
+    ...overrides,
+  };
+}
+
+function hostPage(overrides: Partial<InspectorHarPage> = {}): InspectorHarPage {
+  return {
+    id: 'page_1',
+    startedDateTime: '2026-01-01T12:00:00.123Z',
+    title: 'https://openheaders.io/',
+    pageTimings: { onContentLoad: 696.9859999990149, onLoad: 1622.4739999997837 },
     ...overrides,
   };
 }
@@ -51,5 +61,40 @@ describe('pagesToHarForRefs', () => {
     const refs = new Set(['page_1', 'page_3']);
     const out = pagesToHarForRefs([a, b, c], refs);
     expect(out.map((p) => p.id)).toEqual(['page_1', 'page_3']);
+  });
+
+  describe('host-page adoption (CDP mode)', () => {
+    it('adopts the host page block verbatim when its id matches a referenced page', () => {
+      const host = hostPage({ id: 'page_1' });
+      const out = pagesToHarForRefs([page({ id: 'page_1', dclMs: 120, loadMs: 480 })], new Set(['page_1']), undefined, [
+        host,
+      ]);
+      // The exact host object — its sub-ms pageTimings floats, not the
+      // CDP-projected dclMs/loadMs — is what lands in the export (byte parity).
+      expect(out).toEqual([host]);
+      expect(out[0]).toBe(host);
+    });
+
+    it('falls back to the CDP projection for a referenced page with no host page', () => {
+      const a = page({ id: 'page_1', dclMs: 120, loadMs: 480 });
+      const b = page({ id: 'page_2', url: 'https://docs.openheaders.io/', dclMs: 90, loadMs: 300 });
+      const host = hostPage({ id: 'page_1' });
+      const out = pagesToHarForRefs([a, b], new Set(['page_1', 'page_2']), undefined, [host]);
+      // page_1 adopts the host block; page_2 (no host page) keeps CDP synthesis.
+      expect(out[0]).toBe(host);
+      expect(out[1]).toEqual(pageToHar(b));
+    });
+
+    it('keeps the CDP projection when no host pages are supplied', () => {
+      const a = page({ id: 'page_1', dclMs: 120, loadMs: 480 });
+      const out = pagesToHarForRefs([a], new Set(['page_1']));
+      expect(out).toEqual([pageToHar(a)]);
+    });
+
+    it('ignores an empty host-page list (heuristic mode) and keeps CDP synthesis', () => {
+      const a = page({ id: 'page_1', dclMs: 120, loadMs: 480 });
+      const out = pagesToHarForRefs([a], new Set(['page_1']), undefined, []);
+      expect(out).toEqual([pageToHar(a)]);
+    });
   });
 });

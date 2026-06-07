@@ -20,7 +20,7 @@
  */
 
 import { type ActiveTab, type HostNavigation, setHostNavigation } from '@openheaders/core/navigation';
-import type { InspectorHarEntry, ViewMode } from '@openheaders/core/types';
+import type { InspectorHarEntry, InspectorHarLog, InspectorHarPage, ViewMode } from '@openheaders/core/types';
 import { call } from '@utils/bridge';
 import { logger } from '@utils/logger';
 import { selectViewModeAdapter } from '@/background/view-mode/select-adapter';
@@ -231,18 +231,24 @@ function reloadInspectedTab(): void {
 }
 
 /**
- * The host's own `chrome.devtools.network` HAR for the inspected tab — the
- * exact bytes its "Save all as HAR" writes. The HAR export reconciles its
- * CDP-synthesized entries against this (request-header order, which the
- * `chrome.debugger` transport key-sorts away, chief among the fields it
- * recovers). `getHAR` is callback-style; we promisify it. `null` outside a
- * DevTools context (`chrome.devtools` absent), on error, or when the feed
- * yields no entries — the export then keeps its synthesized entries.
+ * The host's own `chrome.devtools.network` HAR log (entries + page block) for
+ * the inspected tab — the exact bytes its "Save all as HAR" writes. The HAR
+ * export reconciles its CDP-synthesized output against this (request-header
+ * order, which the `chrome.debugger` transport key-sorts away, chief among the
+ * entry fields it recovers; the host page block's `pageTimings` floats for the
+ * page section). One `getHAR` round-trip feeds both reconciliations; it's
+ * callback-style, so we promisify it. `null` outside a DevTools context
+ * (`chrome.devtools` absent), on error, or when the feed yields no entries —
+ * the export then keeps its synthesized output.
  */
-function getInspectedHar(): Promise<readonly InspectorHarEntry[] | null> {
+function getInspectedHar(): Promise<InspectorHarLog | null> {
   const getHAR = (
     chrome as unknown as {
-      devtools?: { network?: { getHAR?: (cb: (harLog: { entries?: InspectorHarEntry[] }) => void) => void } };
+      devtools?: {
+        network?: {
+          getHAR?: (cb: (harLog: { entries?: InspectorHarEntry[]; pages?: InspectorHarPage[] }) => void) => void;
+        };
+      };
     }
   ).devtools?.network?.getHAR;
   if (!getHAR) return Promise.resolve(null);
@@ -250,7 +256,12 @@ function getInspectedHar(): Promise<readonly InspectorHarEntry[] | null> {
     try {
       getHAR((harLog) => {
         const entries = harLog?.entries;
-        resolve(Array.isArray(entries) && entries.length > 0 ? entries : null);
+        if (!Array.isArray(entries) || entries.length === 0) {
+          resolve(null);
+          return;
+        }
+        const pages = Array.isArray(harLog?.pages) ? harLog.pages : [];
+        resolve({ entries, pages });
       });
     } catch {
       resolve(null);

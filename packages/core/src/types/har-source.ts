@@ -124,6 +124,39 @@ export interface InspectorHarEntry {
   _servedFromCache?: boolean;
 }
 
+/**
+ * HAR 1.2 `log.pages[i].pageTimings` — navigation milestones as offsets
+ * (ms) from the page's `startedDateTime`. `-1` encodes "not observed".
+ */
+export interface InspectorHarPageTimings {
+  onContentLoad: number;
+  onLoad: number;
+}
+
+/**
+ * HAR 1.2 `log.pages[i]` — one navigation. Carried verbatim from the host's
+ * `chrome.devtools.network` HAR so the export can adopt the host's own page
+ * block (its `pageTimings` floats and `startedDateTime`) byte-for-byte; CDP
+ * synthesis reconstructs this block only for pages the host HAR never saw.
+ */
+export interface InspectorHarPage {
+  startedDateTime: string;
+  id: string;
+  title: string;
+  pageTimings: InspectorHarPageTimings;
+}
+
+/**
+ * The host's own HAR for the inspected tab — entries plus the page block,
+ * fetched in one `chrome.devtools.network.getHAR` round-trip. The HAR export
+ * reconciles its CDP-synthesized output against both: each row swaps to its
+ * host entry verbatim, and each referenced page adopts the host's page block.
+ */
+export interface InspectorHarLog {
+  entries: readonly InspectorHarEntry[];
+  pages: readonly InspectorHarPage[];
+}
+
 /** Response body payload fetched asynchronously via entry.getContent. */
 export interface InspectorHarBody {
   method: string;

@@ -1,6 +1,6 @@
 import type { Page } from '@openheaders/core/page-stream';
 import type { RedirectHop, RequestLifecycle } from '@openheaders/core/request-lifecycle';
-import type { InspectorHarEntry } from '@openheaders/core/types';
+import type { InspectorHarEntry, InspectorHarLog, InspectorHarPage } from '@openheaders/core/types';
 import { buildHar, sanitizeHarEntry, serializeHar, suggestHarFilename } from '@openheaders/ui/panel/data/har-export';
 import { buildInspectorRows } from '@openheaders/ui/panel/data/inspector-facet';
 import { attachFiresToRows, type InspectorRowWithFires } from '@openheaders/ui/panel/data/inspector-row-projection';
@@ -198,6 +198,85 @@ describe('buildHar', () => {
     const out = buildHar([doc], pages);
     expect(out.log.pages).toHaveLength(1);
     expect(out.log.entries[0].pageref).toBe('page-1');
+  });
+});
+
+describe('buildHar host-HAR reconciliation (CDP mode)', () => {
+  // A document row bound to page-1, so the export references that page.
+  function docRowOnPage(): InspectorRowWithFires {
+    return row('https://openheaders.io/', 0, { resourceType: 'document', startedAtMs: 0 });
+  }
+  const page1: Page = { id: 'page-1', startedAtMs: 5, url: 'https://openheaders.io/', dclMs: 100, loadMs: 200 };
+
+  function hostPage(overrides: Partial<InspectorHarPage> = {}): InspectorHarPage {
+    return {
+      id: 'page-1',
+      startedDateTime: '2026-04-16T00:00:00.123Z',
+      title: 'https://openheaders.io/',
+      // Distinctive sub-ms floats CDP synthesis would never compute from dclMs/loadMs.
+      pageTimings: { onContentLoad: 696.9859999990149, onLoad: 1622.4739999997837 },
+      ...overrides,
+    };
+  }
+
+  it('adopts the host page block verbatim for a referenced page', () => {
+    const host = hostPage();
+    const hostHar: InspectorHarLog = { entries: [], pages: [host] };
+    const out = buildHar([docRowOnPage()], [page1], false, undefined, hostHar);
+    expect(out.log.pages).toEqual([host]);
+    expect(out.log.pages[0]).toBe(host);
+  });
+
+  it('falls back to the CDP page projection when the host HAR has no matching page', () => {
+    // Host saw entries but reported no page block for this ref — keep CDP synth.
+    const hostHar: InspectorHarLog = { entries: [], pages: [hostPage({ id: 'page-OTHER' })] };
+    const out = buildHar([docRowOnPage()], [page1], false, undefined, hostHar);
+    expect(out.log.pages).toHaveLength(1);
+    expect(out.log.pages[0].id).toBe('page-1');
+    // CDP-projected timings (page's own dcl/load), not the host floats.
+    expect(out.log.pages[0].pageTimings).toEqual({ onContentLoad: 100, onLoad: 200 });
+  });
+
+  it('swaps a row to its host entry verbatim when method+url+start match', () => {
+    const r = row('https://openheaders.io/api', 0);
+    const hostEntry: InspectorHarEntry = {
+      startedDateTime: '2026-04-16T00:00:00.000Z',
+      request: {
+        method: 'GET',
+        url: 'https://openheaders.io/api',
+        // On-the-wire header order the CDP synth row lacks — the parity payload.
+        headers: [
+          { name: 'X-Wire-Order', value: '1' },
+          { name: 'Accept', value: '*/*' },
+        ],
+        queryString: [],
+      },
+      response: { status: 200, statusText: 'OK', headers: [], content: { size: 0, mimeType: 'text/plain' } },
+    } as InspectorHarEntry;
+    const hostHar: InspectorHarLog = { entries: [hostEntry], pages: [] };
+    const out = buildHar([r], [], false, undefined, hostHar);
+    expect(out.log.entries[0].request?.headers).toEqual(hostEntry.request?.headers);
+  });
+
+  it('keeps the CDP-synthesized entry for a row the host HAR never saw', () => {
+    const r = row('https://openheaders.io/oopif', 0);
+    const hostHar: InspectorHarLog = {
+      entries: [
+        {
+          startedDateTime: '2026-04-16T00:00:00.000Z',
+          request: { method: 'GET', url: 'https://openheaders.io/other', headers: [], queryString: [] },
+          response: { status: 200, statusText: 'OK', headers: [], content: { size: 0, mimeType: 'text/plain' } },
+        } as InspectorHarEntry,
+      ],
+      pages: [],
+    };
+    const out = buildHar([r], [], false, undefined, hostHar);
+    expect(out.log.entries[0].request?.url).toBe('https://openheaders.io/oopif');
+  });
+
+  it('leaves both entries and page block as CDP synthesis in heuristic mode (no host HAR)', () => {
+    const out = buildHar([docRowOnPage()], [page1]);
+    expect(out.log.pages[0].pageTimings).toEqual({ onContentLoad: 100, onLoad: 200 });
   });
 });
 

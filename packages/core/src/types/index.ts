@@ -41,6 +41,9 @@ export type {
   HarSourceMessage,
   InspectorHarBody,
   InspectorHarEntry,
+  InspectorHarLog,
+  InspectorHarPage,
+  InspectorHarPageTimings,
   InspectorNavTiming,
 } from './har-source';
 // ── DevTools HAR-source wire ───────────────────────────────────────

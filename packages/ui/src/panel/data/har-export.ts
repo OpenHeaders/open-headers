@@ -18,7 +18,7 @@
 
 import type { Page } from '@openheaders/core/page-stream';
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
-import type { InspectorHarEntry } from '@openheaders/core/types';
+import type { InspectorHarEntry, InspectorHarLog } from '@openheaders/core/types';
 import { getBuildInfo } from '@openheaders/ui/shared/build-info';
 import type { InspectorRowWithFires } from './inspector-row-projection';
 import { currentHarEntry, resolvePageref } from './inspector-row-projection';
@@ -178,14 +178,16 @@ export function buildHar(
   pages: readonly Page[] = [],
   sanitize = false,
   docLifecycles?: readonly RequestLifecycle[],
-  hostEntries?: readonly InspectorHarEntry[],
+  hostHar?: InspectorHarLog,
 ): HarDocument {
   const entries: InspectorHarEntry[] = [];
   const refs = new Set<string>();
   // CDP-mode host reconciliation: prefer the host's own HAR entry for any
-  // row the host also saw (see `createHostEntryMatcher`). Absent in heuristic
-  // mode (entries are already the host's HAR) — the matcher is never built,
-  // so that path is byte-unchanged.
+  // row the host also saw (see `createHostEntryMatcher`), and adopt the host's
+  // own page block for each referenced page. Absent in heuristic mode (entries
+  // are already the host's HAR) — the matcher is never built and the page
+  // block keeps its CDP projection, so that path is byte-unchanged.
+  const hostEntries = hostHar?.entries;
   const matchHost =
     hostEntries !== undefined && hostEntries.length > 0 ? createHostEntryMatcher(hostEntries) : undefined;
   // Resolve each page's main document from the full lifecycle list (not just
@@ -225,7 +227,7 @@ export function buildHar(
     log: {
       version: '1.2',
       creator: { name: 'Open Headers DevTools', version: getCreatorVersion() },
-      pages: pagesToHarForRefs(pages, refs, docByPage),
+      pages: pagesToHarForRefs(pages, refs, docByPage, hostHar?.pages),
       entries,
     },
   };
@@ -260,9 +262,9 @@ export function serializeHar(
   pages: readonly Page[] = [],
   sanitize = false,
   docLifecycles?: readonly RequestLifecycle[],
-  hostEntries?: readonly InspectorHarEntry[],
+  hostHar?: InspectorHarLog,
 ): string {
-  return JSON.stringify(buildHar(rows, pages, sanitize, docLifecycles, hostEntries), null, 2);
+  return JSON.stringify(buildHar(rows, pages, sanitize, docLifecycles, hostHar), null, 2);
 }
 
 /**

@@ -20,7 +20,7 @@
  * throws — mirrors the lifeline-transport / peer-navigation seams.
  */
 
-import type { InspectorHarEntry, ViewMode } from '../types';
+import type { InspectorHarLog, ViewMode } from '../types';
 
 /**
  * The user's active browsing tab — the subset a surface needs to scope
@@ -106,18 +106,20 @@ export interface HostNavigation {
    */
   reloadInspectedTab(): void;
   /**
-   * The host's own complete HAR for the inspected tab, or `null` when the
-   * surface can't produce one. On a DevTools panel host this is the
-   * browser's `chrome.devtools.network` HAR — byte-identical to its own
-   * "Save all as HAR". The HAR export reconciles its CDP-synthesized
-   * entries against this so every request the host saw is exported with the
-   * host's exact bytes (request-header order chief among them, which the
-   * `chrome.debugger` transport key-sorts away); rows the host HAR lacks
-   * (out-of-process iframes / workers) keep their synthesized entry. Hosts
-   * with no DevTools-network feed (popup, side panel, web app, desktop)
-   * resolve `null`, leaving the synthesized export unchanged.
+   * The host's own complete HAR log (entries + page block) for the inspected
+   * tab, or `null` when the surface can't produce one. On a DevTools panel
+   * host this is the browser's `chrome.devtools.network` HAR — byte-identical
+   * to its own "Save all as HAR". The HAR export reconciles its
+   * CDP-synthesized output against this so every request the host saw is
+   * exported with the host's exact bytes (request-header order chief among
+   * them, which the `chrome.debugger` transport key-sorts away), and each
+   * referenced page adopts the host's own page block (its `pageTimings`
+   * floats); rows / pages the host HAR lacks (out-of-process iframes /
+   * workers) keep their synthesized form. Hosts with no DevTools-network feed
+   * (popup, side panel, web app, desktop) resolve `null`, leaving the
+   * synthesized export unchanged.
    */
-  getInspectedHar(): Promise<readonly InspectorHarEntry[] | null>;
+  getInspectedHar(): Promise<InspectorHarLog | null>;
   /**
    * Open a JS / CSS resource at the given line/column in the host's
    * source viewer — the DevTools "open in Sources" affordance used by
