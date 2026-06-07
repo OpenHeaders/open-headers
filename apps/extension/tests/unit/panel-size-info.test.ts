@@ -23,6 +23,9 @@ function makeLifecycle(harOverrides: Partial<InspectorHarEntry> = {}): RequestLi
     redirectHops: [],
     startedAtMs: 0,
     hopStartedAtMs: 0,
+    // A completed row carries a terminal timestamp in production; the Size
+    // column keys on it to decide HAR-authoritative vs live running bytes.
+    completedAtMs: 1_000,
     statusCode: 200,
     har: [har],
     harBodyByHop: [],
@@ -34,7 +37,42 @@ const PENDING: RequestState = { kind: 'pending' };
 
 describe('getSizeInfo', () => {
   it('pending state floors transferred bytes to 0 (Size shows 0.0 kB; Time shows Pending)', () => {
-    expect(getSizeInfo(makeLifecycle(), PENDING)).toEqual({ kind: 'bytes', transferred: 0, resource: 0 });
+    const pending: RequestLifecycle = { ...makeLifecycle(), phase: 'pending', completedAtMs: undefined };
+    expect(getSizeInfo(pending, PENDING)).toEqual({ kind: 'bytes', transferred: 0, resource: 0 });
+  });
+
+  it('in-flight streams the running first-class byte counts even once the status is known (state=success)', () => {
+    // The reported bug: a streaming row already carries its 200, so it
+    // classifies as `success` (not `pending`) — Size must still grow. Gated on
+    // `completedAtMs == null`, not the display state.
+    const lc: RequestLifecycle = {
+      ...makeLifecycle(),
+      phase: 'headers-received',
+      completedAtMs: undefined,
+      bytesTransferredSoFar: 5300,
+      bytesReceivedSoFar: 8000,
+    };
+    expect(getSizeInfo(lc, S200)).toEqual({ kind: 'bytes', transferred: 5300, resource: 8000 });
+  });
+
+  it('a finished row ignores the running fields and reads the authoritative HAR', () => {
+    const lc: RequestLifecycle = {
+      ...makeLifecycle({
+        response: {
+          status: 200,
+          statusText: 'OK',
+          headers: [],
+          bodySize: 4200,
+          content: { size: 12000, mimeType: 'text/css' },
+        },
+      }),
+      // Terminal (completedAtMs set) → the authoritative HAR wins; stale running
+      // counts from streaming must not override it.
+      completedAtMs: 2_000,
+      bytesTransferredSoFar: 999,
+      bytesReceivedSoFar: 999,
+    };
+    expect(getSizeInfo(lc, S200)).toEqual({ kind: 'bytes', transferred: 4200, resource: 12000 });
   });
 
   it('cached state forwards the cache source', () => {

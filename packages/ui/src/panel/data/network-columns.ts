@@ -206,6 +206,17 @@ export function durationMs(lc: RequestLifecycle): number {
     const d = lc.completedAtMs - lc.startedAtMs;
     return d > 0 ? d : 0;
   }
+  // In-flight: the elapsed time to the latest body chunk (the browser's live
+  // `endTime - startTime`), so the Time column and the waterfall bar grow
+  // during a slow download. Queueing is stripped to match the HAR-time branch
+  // this settles into at completion (the browser's start is the post-queue
+  // network start), so the value doesn't jump by the queue leg when the hop
+  // finishes. CDP-only; the heuristic path leaves `lastActivityAtMs` unset and
+  // stays unknown (-1) until the terminal event.
+  if (lc.lastActivityAtMs != null) {
+    const d = lc.lastActivityAtMs - lc.startedAtMs - queueingMs(lc);
+    if (d > 0) return d;
+  }
   return -1;
 }
 
@@ -276,7 +287,33 @@ function latencyMs(lc: RequestLifecycle): number {
   if (d < 0) return -1;
   const receive = currentHarEntry(lc)?.timings?.receive;
   const r = typeof receive === 'number' && receive > 0 ? receive : 0;
-  return Math.max(d - r, 0);
+  // Finished (or any row whose download leg is known): latency = duration −
+  // download. Byte-identical to the long-standing behavior.
+  if (lc.completedAtMs != null || r > 0) return Math.max(d - r, 0);
+  // In-flight before the body finished: the receive (download) leg is still
+  // unknown (`-1`) while `d` already grows with each chunk, so `d − 0` would
+  // make latency grow with the download. The first-byte latency is fixed once
+  // the response is in, so derive it from the stable pre-receive HAR legs
+  // instead — the download share grows, the latency share holds (matching the
+  // browser, whose latency = responseReceivedTime − startTime).
+  return firstByteLatencyMs(lc);
+}
+
+/**
+ * Fixed time-to-first-byte from the pre-receive HAR legs, the in-flight
+ * latency source while the download (`receive`) leg is still unknown. Sums the
+ * stable legs and strips queueing + the DNS that `connect` double-counts, the
+ * same adjustment {@link durationMs} applies — so at completion it equals the
+ * finished `duration − receive`. `-1` until the response (and its legs) lands.
+ */
+function firstByteLatencyMs(lc: RequestLifecycle): number {
+  const t = currentHarEntry(lc)?.timings;
+  if (!t) return -1;
+  const leg = (x: number | undefined): number => (typeof x === 'number' && x > 0 ? x : 0);
+  const nonReceive = leg(t.blocked) + leg(t.dns) + leg(t.connect) + leg(t.send) + leg(t.wait);
+  if (nonReceive <= 0) return -1;
+  const duplicatedDns = leg(t.connect) > 0 ? leg(t.dns) : 0;
+  return Math.max(nonReceive - queueingMs(lc) - duplicatedDns, 0);
 }
 
 /**
@@ -311,7 +348,10 @@ export function waterfallSortValue(row: InspectorRowWithFires, metric: Waterfall
     case 'startTime':
       return networkStartMs(lc);
     case 'endTime':
-      return lc.completedAtMs ?? -1;
+      // The browser's `endTime` advances on every body chunk; mirror that with
+      // the live `lastActivityAtMs` while in flight, settling on `completedAtMs`
+      // at the terminal event. -1 (unknown) only before the first byte.
+      return lc.completedAtMs ?? lc.lastActivityAtMs ?? -1;
     case 'duration':
       return durationMs(lc);
     case 'latency':

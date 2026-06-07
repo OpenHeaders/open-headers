@@ -51,6 +51,7 @@ import {
   totalTimeMs,
   wallTimeToIso,
 } from './cdp-har-synth';
+import type { CdpWallClockResolver } from './cdp-wall-clock';
 import {
   type CdpInitiator,
   type CdpNetworkEvent,
@@ -185,7 +186,25 @@ function newRequestHarState(): RequestHarState {
   };
 }
 
+/**
+ * Default monotonic→wall resolver — treats the monotonic instant as wall ms
+ * when no per-request offset is known, the same zero-offset degradation
+ * {@link ../correlator-cdp/cdp-wall-clock.CdpWallClock} documents. Production
+ * always injects the correlator's real resolver; this keeps the builder
+ * independently constructible (HAR-synthesis tests that don't exercise the
+ * wall clock) without a silent `undefined`.
+ */
+const passThroughWallMs: CdpWallClockResolver = (_tabId, _sessionId, _requestId, monotonicSec) => monotonicSec * 1000;
+
 export class CdpHarBuilder {
+  /** Resolves a body chunk's monotonic `timestamp` to wall ms for the in-flight
+   *  progress patch's `lastActivityAtMs` (see {@link observe}). */
+  private readonly toWallMs: CdpWallClockResolver;
+
+  constructor(toWallMs: CdpWallClockResolver = passThroughWallMs) {
+    this.toWallMs = toWallMs;
+  }
+
   private readonly perTab = new Map<number, Map<string, RequestHarState>>();
   /**
    * Per-tab store-id → {@link CdpBodyRef}. Separate from {@link perTab} so
@@ -197,9 +216,14 @@ export class CdpHarBuilder {
 
   /**
    * Fold one CDP event into the accumulating HAR state and return any
-   * `har-attached` updates it completes. Pure relative to the listener
-   * set — the correlator emits these alongside the mapper's lifecycle
-   * updates.
+   * lifecycle updates it completes — `har-attached` at response/finish, and
+   * an in-flight progress `phase` patch on each body chunk. Pure relative to
+   * the listener set — the correlator emits these alongside the mapper's
+   * lifecycle updates.
+   *
+   * The body-chunk progress patch needs the chunk's wall-clock instant for
+   * `lastActivityAtMs`; the constructor-injected {@link toWallMs} converts the
+   * monotonic `timestamp` onto the same clock as `startedAtMs`.
    */
   observe(event: CdpNetworkEvent): readonly RequestLifecycleUpdate[] {
     // Key by the namespaced identity so a child session reusing a page
@@ -216,7 +240,13 @@ export class CdpHarBuilder {
       case 'Network.responseReceived':
         return this.onResponse(event.tabId, requestId, event.response);
       case 'Network.dataReceived':
-        return this.onData(event.tabId, requestId, event.dataLength, event.encodedDataLength);
+        return this.onData(
+          event.tabId,
+          requestId,
+          event.dataLength,
+          event.encodedDataLength,
+          this.toWallMs(event.tabId, event.sessionId, event.requestId, event.timestamp),
+        );
       case 'Network.loadingFinished':
         return this.onFinished(event.tabId, requestId, event.encodedDataLength, event.timestamp);
       case 'Network.loadingFailed':
@@ -365,22 +395,41 @@ export class CdpHarBuilder {
    * floor. The transfer floor matters for a hop that aborts mid-body — no
    * `loadingFinished` arrives to supply the authoritative total, so the
    * summed wire bytes are the only transfer size we can report (a clean hop's
-   * floor is overwritten by `loadingFinished`'s total). No emit of its own —
-   * the refined HAR carries both, matching the partial→refined cadence (a
-   * per-chunk re-emit would be O(chunks) store writes for the same value).
+   * floor is overwritten by `loadingFinished`'s total).
+   *
+   * Emits an in-flight progress `phase` patch carrying the running decoded /
+   * wire byte counts and the chunk's wall-clock instant, mirroring the
+   * browser's per-`dataReceived` update of `resourceSize` / `transferSize` /
+   * `endTime`: the panel's Size and Time columns grow live during a slow
+   * download instead of jumping from "Pending" to the final value at
+   * `loadingFinished`. The full HAR still lands at response/finish; this patch
+   * carries only the three running scalars, so each chunk is a tiny refinement
+   * the panel's rAF publisher coalesces to one render per frame.
    */
   private onData(
     tabId: number,
     requestId: string,
     dataLength: number,
     encodedDataLength: number,
+    lastActivityAtMs: number,
   ): readonly RequestLifecycleUpdate[] {
     const state = this.getState(tabId, requestId);
     const hop = state?.hops[state.hopCursor];
     if (hop === undefined) return [];
     hop.contentSize = (hop.contentSize ?? 0) + dataLength;
     hop.transferSize = (hop.transferSize ?? 0) + encodedDataLength;
-    return [];
+    return [
+      {
+        kind: 'phase',
+        tabId,
+        requestId,
+        patch: {
+          lastActivityAtMs,
+          bytesReceivedSoFar: hop.contentSize,
+          bytesTransferredSoFar: hop.transferSize,
+        },
+      },
+    ];
   }
 
   private onFinished(

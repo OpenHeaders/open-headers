@@ -227,6 +227,31 @@ describe('usePanelData', () => {
     expect(result.current.totalResourceSize).toBe(2048 + 256);
   });
 
+  it('footer totals + Finish grow live from an in-flight row’s running bytes (the browser advances them)', () => {
+    const nav = lifecycle('nav', 'https://openheaders.io/', {
+      resourceType: 'main_frame',
+      startedAtMs: 1000,
+      completedAtMs: 1200,
+      bodySize: 400,
+      contentSize: 500,
+    });
+    // Streaming asset: no terminal, running first-class counts + last-activity.
+    const streaming: RequestLifecycle = {
+      ...lifecycle('big', 'https://openheaders.io/big.bin', { startedAtMs: 1100 }),
+      bytesTransferredSoFar: 5000,
+      bytesReceivedSoFar: 8000,
+      lastActivityAtMs: 3000,
+    };
+    const { result } = renderHook(() => usePanelData(snapshots([nav, streaming])));
+    // Totals include the streaming row's LIVE running bytes (not its frozen
+    // HAR floor): 400 + 5000 transferred, 500 + 8000 resources.
+    expect(result.current.totalBytesTransferred).toBe(5400);
+    expect(result.current.totalResourceSize).toBe(8500);
+    // Finish spans the doc's network start (1000) to the streaming row's live
+    // last byte (3000) → 2000; without the live span it would read 200 (doc only).
+    expect(result.current.finishTimeMs).toBe(2000);
+  });
+
   it('finishTimeMs spans the earliest request to the last byte when no top-level nav exists', () => {
     const { result } = renderHook(() =>
       usePanelData(

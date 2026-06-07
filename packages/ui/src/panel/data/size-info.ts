@@ -20,7 +20,7 @@
  */
 
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
-import { currentHarEntry, lifecycleTransferredBytes } from './inspector-row-projection';
+import { displayResourceBytes, displayTransferredBytes } from './inspector-row-projection';
 import type { RequestState } from './request-state';
 
 export type SizeInfo =
@@ -30,12 +30,21 @@ export type SizeInfo =
 export function getSizeInfo(lifecycle: RequestLifecycle, state: RequestState): SizeInfo {
   if (state.kind === 'cached') return { kind: 'cached', source: state.source };
 
-  const har = currentHarEntry(lifecycle);
-  const transferred = lifecycleTransferredBytes(lifecycle);
-  const rawContent = har?.response?.content?.size;
-  const resource = typeof rawContent === 'number' && rawContent >= 0 ? rawContent : null;
-  // Pending → no wire bytes yet; show 0.0 kB rather than a blank cell.
-  if (state.kind === 'pending') return { kind: 'bytes', transferred: transferred ?? 0, resource };
+  // `display*Bytes` give the live running counts while in flight and the
+  // authoritative HAR figures once finished — the same source the status-bar
+  // total sums, so the cell and the footer never diverge.
+  const transferred = displayTransferredBytes(lifecycle);
+  const resource = displayResourceBytes(lifecycle);
+  // In-flight: floor transferred to 0 so a just-started row reads `0.0 kB`
+  // rather than a blank cell (the "not finished" signal lives in the Time
+  // column's "Pending").
+  if (lifecycle.completedAtMs == null) {
+    return {
+      kind: 'bytes',
+      transferred: transferred ?? 0,
+      resource,
+    };
+  }
   return { kind: 'bytes', transferred, resource };
 }
 

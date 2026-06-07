@@ -63,11 +63,7 @@ export function isTerminalPhase(phase: RequestPhase): boolean {
  * — Chrome cannot redirect a request it already resolved. The store
  * uses this guard to reject malformed correlator output.
  */
-export function isRedirectReset(
-  prevPhase: RequestPhase,
-  prevHopCount: number,
-  nextHopCount: number,
-): boolean {
+export function isRedirectReset(prevPhase: RequestPhase, prevHopCount: number, nextHopCount: number): boolean {
   if (isTerminalPhase(prevPhase)) return false;
   return nextHopCount === prevHopCount + 1;
 }
@@ -111,6 +107,23 @@ export function patchRefines(prev: RequestLifecycle, patch: RequestLifecyclePatc
   if ('error' in patch && patch.error === undefined && prev.error !== undefined) return false;
   if ('completedAtMs' in patch && patch.completedAtMs === undefined && prev.completedAtMs !== undefined) return false;
   if ('hopNetworkStartMs' in patch && patch.hopNetworkStartMs === undefined && prev.hopNetworkStartMs !== undefined) {
+    return false;
+  }
+  if ('lastActivityAtMs' in patch && patch.lastActivityAtMs === undefined && prev.lastActivityAtMs !== undefined) {
+    return false;
+  }
+  if (
+    'bytesReceivedSoFar' in patch &&
+    patch.bytesReceivedSoFar === undefined &&
+    prev.bytesReceivedSoFar !== undefined
+  ) {
+    return false;
+  }
+  if (
+    'bytesTransferredSoFar' in patch &&
+    patch.bytesTransferredSoFar === undefined &&
+    prev.bytesTransferredSoFar !== undefined
+  ) {
     return false;
   }
   return true;

@@ -94,6 +94,10 @@ export interface LifecycleOverrides {
   startedAtMs?: number;
   hopStartedAtMs?: number;
   completedAtMs?: number;
+  /** In-flight progress mirrors (browser `endTime` / `resourceSize` / `transferSize`). */
+  lastActivityAtMs?: number;
+  bytesReceivedSoFar?: number;
+  bytesTransferredSoFar?: number;
   statusCode?: number;
   statusText?: string;
   fromCache?: boolean;
@@ -134,6 +138,9 @@ export function makeLifecycle(over: LifecycleOverrides = {}): RequestLifecycle {
     startedAtMs,
     hopStartedAtMs: over.hopStartedAtMs ?? startedAtMs,
     ...(over.completedAtMs != null ? { completedAtMs: over.completedAtMs } : {}),
+    ...(over.lastActivityAtMs != null ? { lastActivityAtMs: over.lastActivityAtMs } : {}),
+    ...(over.bytesReceivedSoFar != null ? { bytesReceivedSoFar: over.bytesReceivedSoFar } : {}),
+    ...(over.bytesTransferredSoFar != null ? { bytesTransferredSoFar: over.bytesTransferredSoFar } : {}),
     ...(over.statusCode != null ? { statusCode: over.statusCode } : {}),
     ...(over.statusText != null ? { statusText: over.statusText } : {}),
     ...(over.fromCache != null ? { fromCache: over.fromCache } : {}),

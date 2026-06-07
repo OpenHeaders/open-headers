@@ -11,13 +11,13 @@
  * `null` means the request has gone away.
  */
 
-import { deriveHopNetworkStartMs } from '@openheaders/core/request-lifecycle';
 import type {
   RedirectHop,
   RequestLifecycle,
   RequestLifecyclePatch,
   RequestLifecycleUpdate,
 } from '@openheaders/core/request-lifecycle';
+import { deriveHopNetworkStartMs } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarBody, InspectorHarEntry } from '@openheaders/core/types';
 
 /** `prev` = noop, `null` = delete, anything else = new state. */
@@ -59,6 +59,9 @@ function applyPatch(prev: RequestLifecycle, patch: RequestLifecyclePatch): Reque
     ...(patch.error !== undefined ? { error: patch.error } : {}),
     ...(patch.completedAtMs !== undefined ? { completedAtMs: patch.completedAtMs } : {}),
     ...(patch.hopNetworkStartMs !== undefined ? { hopNetworkStartMs: patch.hopNetworkStartMs } : {}),
+    ...(patch.lastActivityAtMs !== undefined ? { lastActivityAtMs: patch.lastActivityAtMs } : {}),
+    ...(patch.bytesReceivedSoFar !== undefined ? { bytesReceivedSoFar: patch.bytesReceivedSoFar } : {}),
+    ...(patch.bytesTransferredSoFar !== undefined ? { bytesTransferredSoFar: patch.bytesTransferredSoFar } : {}),
   };
 }
 
@@ -81,6 +84,10 @@ function applyRedirect(prev: RequestLifecycle, hop: RedirectHop, nextUrl: string
     // The network start is per-hop; the new hop re-learns it from its own
     // timing / HAR.
     hopNetworkStartMs: undefined,
+    // In-flight progress is per-hop; the new hop re-accumulates it.
+    lastActivityAtMs: undefined,
+    bytesReceivedSoFar: undefined,
+    bytesTransferredSoFar: undefined,
   };
 }
 

@@ -93,6 +93,35 @@ export interface RequestLifecycle {
   readonly hopNetworkStartMs?: number;
   /** Wall-clock ms at the terminal phase (`completed` or `failed`). */
   readonly completedAtMs?: number;
+  /**
+   * Wall-clock ms of the latest observed activity on the current hop — the
+   * mirror of the browser's `NetworkRequest.endTime`, which advances on every
+   * body chunk (`Network.dataReceived`), not only at completion. Lets the panel
+   * show a live, growing duration for an in-flight request (the Time column and
+   * the waterfall bar) the same way the browser does, instead of "Pending"
+   * until the terminal event. Only the CDP path can populate it (it is the only
+   * correlator that sees per-chunk events); the heuristic path leaves it unset
+   * and degrades to the terminal `completedAtMs`. Resets with the hop on
+   * redirect. Consumers prefer the authoritative HAR `time` once the hop has
+   * finished — this drives the in-flight interval only.
+   */
+  readonly lastActivityAtMs?: number;
+  /**
+   * Running count of decoded body bytes received so far on the current hop —
+   * the mirror of `NetworkRequest.resourceSize`, summed from `dataReceived`.
+   * Drives the in-flight Size column's resource figure as it grows; the
+   * finished row reads the authoritative HAR `content.size`. CDP-only; resets
+   * on redirect.
+   */
+  readonly bytesReceivedSoFar?: number;
+  /**
+   * Running count of wire bytes (encoded headers + body) transferred so far on
+   * the current hop — the mirror of `NetworkRequest.transferSize`, summed from
+   * `dataReceived`. Drives the in-flight Size column's transferred figure as it
+   * grows; the finished row reads the authoritative HAR `_transferSize`.
+   * CDP-only; resets on redirect.
+   */
+  readonly bytesTransferredSoFar?: number;
 
   // Resolution — populated as phase advances; monotonic per invariant 5.
   readonly statusCode?: number;
@@ -126,12 +155,7 @@ export interface RequestLifecycle {
 // `packages/core/tests/request-lifecycle/json-safe.test.ts` is the
 // belt-and-suspenders backstop.
 
-type NonJsonSafe =
-  | Map<unknown, unknown>
-  | Set<unknown>
-  | Date
-  | RegExp
-  | ((...args: never[]) => unknown);
+type NonJsonSafe = Map<unknown, unknown> | Set<unknown> | Date | RegExp | ((...args: never[]) => unknown);
 
 type ContainsNonJsonSafe<T> = T extends NonJsonSafe
   ? true
@@ -146,9 +170,10 @@ type ContainsNonJsonSafe<T> = T extends NonJsonSafe
  * `true` when safe, to a descriptive string when not. Imported by the
  * round-trip test for a static assertion that the contract holds.
  */
-export type RequestLifecycleJsonSafeProof = ContainsNonJsonSafe<RequestLifecycle> extends false
-  ? true
-  : 'RequestLifecycle has a non-JSON-safe field — chrome.runtime.Port serializes via JSON across processes';
+export type RequestLifecycleJsonSafeProof =
+  ContainsNonJsonSafe<RequestLifecycle> extends false
+    ? true
+    : 'RequestLifecycle has a non-JSON-safe field — chrome.runtime.Port serializes via JSON across processes';
 
 /**
  * Refined error surface. `code` is the Chromium net-stack string
@@ -212,4 +237,10 @@ export interface RequestLifecyclePatch {
   error?: RequestError;
   completedAtMs?: number;
   hopNetworkStartMs?: number;
+  /** In-flight progress — the browser's `endTime` / `resourceSize` /
+   * `transferSize`, refined on each body chunk. See the `RequestLifecycle`
+   * fields of the same names. */
+  lastActivityAtMs?: number;
+  bytesReceivedSoFar?: number;
+  bytesTransferredSoFar?: number;
 }

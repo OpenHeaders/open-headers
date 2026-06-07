@@ -22,11 +22,7 @@ import {
   refinesField,
   urlChain,
 } from '../../src/request-lifecycle/invariants';
-import type {
-  RequestLifecycle,
-  RequestLifecyclePatch,
-  RequestPhase,
-} from '../../src/request-lifecycle/types';
+import type { RequestLifecycle, RequestLifecyclePatch, RequestPhase } from '../../src/request-lifecycle/types';
 
 function makeLifecycle(overrides: Partial<RequestLifecycle> = {}): RequestLifecycle {
   return {
@@ -171,6 +167,22 @@ describe('invariant 5 — monotonic information content (fields refine, never di
     expect(patchRefines(prev, patch)).toBe(false);
   });
 
+  it('patchRefines: in-flight progress fields refine (advancing value allowed)', () => {
+    const prev = makeLifecycle({ bytesReceivedSoFar: 1000, bytesTransferredSoFar: 1100, lastActivityAtMs: 500 });
+    const patch: RequestLifecyclePatch = {
+      bytesReceivedSoFar: 3000,
+      bytesTransferredSoFar: 3100,
+      lastActivityAtMs: 800,
+    };
+    expect(patchRefines(prev, patch)).toBe(true);
+  });
+
+  it('patchRefines: clearing a previously-set progress field to undefined is rejected', () => {
+    const prev = makeLifecycle({ lastActivityAtMs: 500, bytesReceivedSoFar: 10, bytesTransferredSoFar: 20 });
+    expect(patchRefines(prev, { lastActivityAtMs: undefined } as unknown as RequestLifecyclePatch)).toBe(false);
+    expect(patchRefines(prev, { bytesReceivedSoFar: undefined } as unknown as RequestLifecyclePatch)).toBe(false);
+    expect(patchRefines(prev, { bytesTransferredSoFar: undefined } as unknown as RequestLifecyclePatch)).toBe(false);
+  });
 });
 
 describe('invariant 6 — redirect is the only retrograde transition', () => {

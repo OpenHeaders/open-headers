@@ -5,9 +5,8 @@
  */
 
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
-import { describe, expect, it } from 'vitest';
-
 import { NOOP, reduceClientUpdate } from '@openheaders/ui/panel/data/lifecycle';
+import { describe, expect, it } from 'vitest';
 
 function makeLifecycle(over: Partial<RequestLifecycle> = {}): RequestLifecycle {
   return {
@@ -36,7 +35,10 @@ describe('reduceClientUpdate — started', () => {
 
   it('noops when a lifecycle for the same requestId already exists', () => {
     const prev = makeLifecycle();
-    const result = reduceClientUpdate(prev, { kind: 'started', lifecycle: makeLifecycle({ url: 'https://other.example' }) });
+    const result = reduceClientUpdate(prev, {
+      kind: 'started',
+      lifecycle: makeLifecycle({ url: 'https://other.example' }),
+    });
     expect(result).toBe(NOOP);
   });
 });
@@ -150,8 +152,50 @@ describe('reduceClientUpdate — hopNetworkStartMs (footer anchor mirror)', () =
   it('derives the network start from the attached HAR queueing leg (heuristic path)', () => {
     const prev = makeLifecycle({ hopStartedAtMs: 100 });
     const harEntry = { startedDateTime: '2026-05-25T00:00:00.000Z', timings: { _blocked_queueing: 0.843 } } as never;
-    const result = reduceClientUpdate(prev, { kind: 'har-attached', tabId: 1, requestId: 'r1', hopIndex: 0, har: harEntry });
+    const result = reduceClientUpdate(prev, {
+      kind: 'har-attached',
+      tabId: 1,
+      requestId: 'r1',
+      hopIndex: 0,
+      har: harEntry,
+    });
     expect((result as RequestLifecycle).hopNetworkStartMs).toBe(100.843);
+  });
+});
+
+describe('reduceClientUpdate — in-flight progress mirror (twin of the engine reducer)', () => {
+  it('carries the running byte counts + last-activity stamped on a chunk progress patch', () => {
+    const prev = makeLifecycle({ phase: 'headers-received' });
+    const result = reduceClientUpdate(prev, {
+      kind: 'phase',
+      tabId: 1,
+      requestId: 'r1',
+      patch: { lastActivityAtMs: 1_500, bytesReceivedSoFar: 2048, bytesTransferredSoFar: 2200 },
+    });
+    const next = result as RequestLifecycle;
+    expect(next.lastActivityAtMs).toBe(1_500);
+    expect(next.bytesReceivedSoFar).toBe(2048);
+    expect(next.bytesTransferredSoFar).toBe(2200);
+  });
+
+  it('resets the in-flight progress fields with the hop on redirect', () => {
+    const prev = makeLifecycle({
+      phase: 'headers-received',
+      lastActivityAtMs: 1_400,
+      bytesReceivedSoFar: 999,
+      bytesTransferredSoFar: 1099,
+    });
+    const result = reduceClientUpdate(prev, {
+      kind: 'redirect',
+      tabId: 1,
+      requestId: 'r1',
+      hop: { sourceUrl: prev.url, redirectUrl: 'https://openheaders.io/b', statusCode: 302, timestampMs: 110 },
+      nextUrl: 'https://openheaders.io/b',
+    });
+    const next = result as RequestLifecycle;
+    expect(next.lastActivityAtMs).toBeUndefined();
+    expect(next.bytesReceivedSoFar).toBeUndefined();
+    expect(next.bytesTransferredSoFar).toBeUndefined();
   });
 });
 

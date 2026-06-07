@@ -228,6 +228,51 @@ describe('reducer — har / body attachment', () => {
   });
 });
 
+describe('reducer — in-flight progress (lastActivityAtMs / running byte counts)', () => {
+  it('applies the running byte counts + last-activity carried on a chunk progress patch', () => {
+    const state = makeLifecycle({ phase: 'headers-received' });
+    const r = reduce(state, {
+      kind: 'phase',
+      tabId: 1,
+      requestId: 'req-1',
+      patch: { lastActivityAtMs: 1_500, bytesReceivedSoFar: 2048, bytesTransferredSoFar: 2200 },
+    });
+    expect(r.kind).toBe('update');
+    if (r.kind !== 'update') return;
+    expect(r.next.lastActivityAtMs).toBe(1_500);
+    expect(r.next.bytesReceivedSoFar).toBe(2048);
+    expect(r.next.bytesTransferredSoFar).toBe(2200);
+    // A pure progress patch carries no phase change.
+    expect(r.next.phase).toBe('headers-received');
+  });
+
+  it('resets the in-flight progress fields on redirect (per-hop, re-accumulated next hop)', () => {
+    const state = makeLifecycle({
+      phase: 'headers-received',
+      lastActivityAtMs: 1_400,
+      bytesReceivedSoFar: 999,
+      bytesTransferredSoFar: 1099,
+    });
+    const r = reduce(state, {
+      kind: 'redirect',
+      tabId: 1,
+      requestId: 'req-1',
+      hop: {
+        sourceUrl: 'https://openheaders.io/',
+        redirectUrl: 'https://openheaders.io/ro',
+        statusCode: 302,
+        timestampMs: 1_500,
+      },
+      nextUrl: 'https://openheaders.io/ro',
+    });
+    expect(r.kind).toBe('update');
+    if (r.kind !== 'update') return;
+    expect(r.next.lastActivityAtMs).toBeUndefined();
+    expect(r.next.bytesReceivedSoFar).toBeUndefined();
+    expect(r.next.bytesTransferredSoFar).toBeUndefined();
+  });
+});
+
 describe('reducer — hopNetworkStartMs (footer anchor = network start)', () => {
   it('applies a network start carried on a phase patch (the CDP path)', () => {
     const state = makeLifecycle();

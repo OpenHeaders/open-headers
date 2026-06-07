@@ -44,8 +44,9 @@ import { type BuildInspectorRowsOptions, buildInspectorRows } from './inspector-
 import {
   attachFiresToRows,
   currentHarEntry,
+  displayResourceBytes,
+  displayTransferredBytes,
   type InspectorRowWithFires,
-  lifecycleTransferredBytes,
 } from './inspector-row-projection';
 import type { LifecycleClientSnapshot } from './lifecycle-client-store';
 import { synthesizeMemoryCacheLifecycles } from './memory-cache-rows';
@@ -207,9 +208,19 @@ function projectNavTiming(pages: readonly Page[]): InspectorNavTiming | null {
 }
 
 function lifecycleDuration(lifecycle: RequestLifecycle): number {
-  if (lifecycle.completedAtMs == null) return 0;
-  const d = lifecycle.completedAtMs - lifecycle.startedAtMs;
-  return d > 0 ? d : 0;
+  if (lifecycle.completedAtMs != null) {
+    const d = lifecycle.completedAtMs - lifecycle.startedAtMs;
+    return d > 0 ? d : 0;
+  }
+  // In-flight: span to the latest body chunk so the footer's `maxEnd` (and the
+  // Finish total it drives) grows live during a slow download, the way the
+  // browser's summary bar advances. CDP-only; absent → 0 (a truly-pending row
+  // contributes nothing to the span).
+  if (lifecycle.lastActivityAtMs != null) {
+    const d = lifecycle.lastActivityAtMs - lifecycle.startedAtMs;
+    return d > 0 ? d : 0;
+  }
+  return 0;
 }
 
 /** Top-level navigation document — `main_frame` from the webRequest path,
@@ -343,16 +354,19 @@ export function projectPanelData(input: UsePanelDataInput): UsePanelDataResult {
     if (!lookupByUrl.has(row.lifecycle.url)) lookupByUrl.set(row.lifecycle.url, row);
 
     const har = currentHarEntry(row.lifecycle);
-    const transferred = lifecycleTransferredBytes(row.lifecycle);
+    // Live running counts while a row streams, authoritative HAR once finished
+    // — the same source the Size column shows, so the footer total and the
+    // column never disagree and both grow during the download.
+    const transferred = displayTransferredBytes(row.lifecycle);
     if (transferred != null && transferred > 0) totalBytesTransferred += transferred;
-    const contentSize = har?.response?.content?.size;
-    if (typeof contentSize === 'number' && contentSize > 0) totalResourceSize += contentSize;
+    const contentSize = displayResourceBytes(row.lifecycle);
+    if (contentSize != null && contentSize > 0) totalResourceSize += contentSize;
 
     if (row.fires.some(isAppliedFire)) modifiedCount++;
     const status = har?.response?.status;
     if (row.lifecycle.phase === 'failed' || (typeof status === 'number' && status >= 400)) failedCount++;
     // Cache hit: a real resource the page received with no wire bytes.
-    if ((transferred == null || transferred === 0) && typeof contentSize === 'number' && contentSize > 0) {
+    if ((transferred == null || transferred === 0) && contentSize != null && contentSize > 0) {
       cachedCount++;
     }
 

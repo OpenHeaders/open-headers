@@ -1,3 +1,4 @@
+import { formatClock, formatTimeMs } from '@openheaders/ui/panel/data/format-time';
 import type { InspectorRowWithFires } from '@openheaders/ui/panel/data/inspector-row-projection';
 import { currentHarEntry } from '@openheaders/ui/panel/data/inspector-row-projection';
 import {
@@ -6,7 +7,6 @@ import {
   waterfallSortValue,
   waterfallStartMs,
 } from '@openheaders/ui/panel/data/network-columns';
-import { formatClock, formatTimeMs } from '@openheaders/ui/panel/data/format-time';
 import { computeTimingPhases } from '@openheaders/ui/panel/data/timing-phases';
 import {
   barLabels,
@@ -81,6 +81,37 @@ describe('waterfall sort keys', () => {
   it('reports -1 for a still-pending response/latency', () => {
     const pending = makeRow({ startedAtMs: 1000 });
     expect(waterfallSortValue(pending, 'responseTime')).toBe(-1);
+  });
+
+  describe('in-flight (streaming, before the body finishes)', () => {
+    // Headers are in (pre-receive legs known, `receive` still -1), the body is
+    // downloading: `lastActivityAtMs` advances per chunk; `completedAtMs` unset.
+    const inflight = makeRow({
+      startedAtMs: 1000,
+      statusCode: 200,
+      lastActivityAtMs: 1000 + QUEUEING + 600, // 600 ms elapsed past the post-queue start
+      harOverrides: {
+        timings: { ...GH_TIMINGS, receive: -1 },
+      },
+    });
+    const TTFB = LATENCY; // pre-receive legs, queueing + dup-dns stripped — fixed at first byte
+
+    it('end time tracks the live last-activity instant (the browser advances endTime per chunk)', () => {
+      expect(waterfallSortValue(inflight, 'endTime')).toBe(1000 + QUEUEING + 600);
+    });
+
+    it('total duration grows to the latest chunk (post-queue elapsed)', () => {
+      // endTime − post-queue start = 600 (queueing stripped, as at completion).
+      expect(waterfallSortValue(inflight, 'duration')).toBeCloseTo(600, 3);
+    });
+
+    it('latency stays fixed at the first byte (does NOT grow with the download)', () => {
+      expect(waterfallSortValue(inflight, 'latency')).toBeCloseTo(TTFB, 3);
+    });
+
+    it('response time stays fixed at post-queue start + first-byte latency', () => {
+      expect(waterfallSortValue(inflight, 'responseTime')).toBeCloseTo(1000 + QUEUEING + TTFB, 3);
+    });
   });
 });
 

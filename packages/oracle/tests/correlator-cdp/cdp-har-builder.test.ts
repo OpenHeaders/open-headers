@@ -501,6 +501,35 @@ describe('CdpHarBuilder — decoded content size', () => {
     expect(builder.size()).toBe(0);
   });
 
+  it('emits an in-flight progress patch per body chunk (running bytes + wall last-activity)', () => {
+    // Injected resolver proves the monotonic→wall conversion is wired through
+    // the constructor (offset +7 so the assertion can only pass via toWallMs).
+    const builder = new CdpHarBuilder((_tabId, _sessionId, _requestId, sec) => sec * 1000 + 7);
+    builder.observe(cdpStart(ctx));
+    builder.observe(cdpResponse(ctx));
+    const id = cdpStoreRequestId(PAGE_SESSION, 'sized');
+
+    const first = builder.observe(cdpData(ctx, 1000, { encodedDataLength: 1100, timestamp: 200 }));
+    expect(first).toHaveLength(1);
+    const u1 = first[0];
+    if (u1.kind !== 'phase') throw new Error('expected an in-flight progress phase patch');
+    expect(u1.requestId).toBe(id);
+    // Decoded bytes are a pure running sum (no response floor); wall instant
+    // comes from the injected resolver, not the raw monotonic timestamp.
+    expect(u1.patch.bytesReceivedSoFar).toBe(1000);
+    expect(u1.patch.lastActivityAtMs).toBe(200 * 1000 + 7);
+    const transferred1 = u1.patch.bytesTransferredSoFar ?? 0;
+
+    const second = builder.observe(cdpData(ctx, 500, { encodedDataLength: 600, timestamp: 201 }));
+    const u2 = second[0];
+    if (u2?.kind !== 'phase') throw new Error('expected a second progress patch');
+    // Both running counts advance; the patch carries no phase change.
+    expect(u2.patch.phase).toBeUndefined();
+    expect(u2.patch.bytesReceivedSoFar).toBe(1500);
+    expect((u2.patch.bytesTransferredSoFar ?? 0) - transferred1).toBe(600);
+    expect(u2.patch.lastActivityAtMs).toBe(201 * 1000 + 7);
+  });
+
   it('attributes body chunks to the final hop of a redirect chain', () => {
     const builder = new CdpHarBuilder();
     builder.observe(cdpStart(ctx, { wallTime: 1000 }));

@@ -19,18 +19,18 @@
  *   - Invariants 7, 8 — owned by the heuristic correlator / integration.
  */
 
+import type {
+  RedirectHop,
+  RequestLifecycle,
+  RequestLifecyclePatch,
+  RequestLifecycleUpdate,
+} from '@openheaders/core/request-lifecycle';
 import {
   deriveHopNetworkStartMs,
   isPhaseAdvance,
   isRedirectReset,
   isTerminalPhase,
   patchRefines,
-} from '@openheaders/core/request-lifecycle';
-import type {
-  RedirectHop,
-  RequestLifecycle,
-  RequestLifecyclePatch,
-  RequestLifecycleUpdate,
 } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarBody, InspectorHarEntry } from '@openheaders/core/types';
 
@@ -59,10 +59,7 @@ export type ReducerResult =
   | { readonly kind: 'noop' }
   | { readonly kind: 'reject'; readonly reason: ReducerRejection };
 
-export function reduce(
-  prev: RequestLifecycle | undefined,
-  update: RequestLifecycleUpdate,
-): ReducerResult {
+export function reduce(prev: RequestLifecycle | undefined, update: RequestLifecycleUpdate): ReducerResult {
   switch (update.kind) {
     case 'started':
       return reduceStarted(prev, update.lifecycle);
@@ -79,24 +76,17 @@ export function reduce(
   }
 }
 
-function reduceStarted(
-  prev: RequestLifecycle | undefined,
-  lifecycle: RequestLifecycle,
-): ReducerResult {
+function reduceStarted(prev: RequestLifecycle | undefined, lifecycle: RequestLifecycle): ReducerResult {
   if (prev !== undefined) return { kind: 'reject', reason: 'duplicate-started' };
   return { kind: 'insert', next: lifecycle };
 }
 
-function reducePhase(
-  prev: RequestLifecycle | undefined,
-  patch: RequestLifecyclePatch,
-): ReducerResult {
+function reducePhase(prev: RequestLifecycle | undefined, patch: RequestLifecyclePatch): ReducerResult {
   if (prev === undefined) return { kind: 'reject', reason: 'unknown-request' };
 
   if (patch.phase !== undefined) {
     if (!isPhaseAdvance(prev.phase, patch.phase)) {
-      const isTerminalSwap =
-        isTerminalPhase(prev.phase) && isTerminalPhase(patch.phase) && prev.phase !== patch.phase;
+      const isTerminalSwap = isTerminalPhase(prev.phase) && isTerminalPhase(patch.phase) && prev.phase !== patch.phase;
       return { kind: 'reject', reason: isTerminalSwap ? 'phase-terminal-swap' : 'phase-retrograde' };
     }
   }
@@ -109,11 +99,7 @@ function reducePhase(
   return { kind: 'update', next: applyPatch(prev, patch) };
 }
 
-function reduceRedirect(
-  prev: RequestLifecycle | undefined,
-  hop: RedirectHop,
-  nextUrl: string,
-): ReducerResult {
+function reduceRedirect(prev: RequestLifecycle | undefined, hop: RedirectHop, nextUrl: string): ReducerResult {
   if (prev === undefined) return { kind: 'reject', reason: 'unknown-request' };
 
   const nextHopCount = prev.redirectHopCount + 1;
@@ -144,6 +130,10 @@ function reduceRedirect(
     // The network start is per-hop; the new hop re-learns it from its own
     // timing / HAR.
     hopNetworkStartMs: undefined,
+    // In-flight progress is per-hop; the new hop re-accumulates it.
+    lastActivityAtMs: undefined,
+    bytesReceivedSoFar: undefined,
+    bytesTransferredSoFar: undefined,
   };
   return { kind: 'update', next };
 }
@@ -192,5 +182,8 @@ function applyPatch(prev: RequestLifecycle, patch: RequestLifecyclePatch): Reque
     ...(patch.error !== undefined ? { error: patch.error } : {}),
     ...(patch.completedAtMs !== undefined ? { completedAtMs: patch.completedAtMs } : {}),
     ...(patch.hopNetworkStartMs !== undefined ? { hopNetworkStartMs: patch.hopNetworkStartMs } : {}),
+    ...(patch.lastActivityAtMs !== undefined ? { lastActivityAtMs: patch.lastActivityAtMs } : {}),
+    ...(patch.bytesReceivedSoFar !== undefined ? { bytesReceivedSoFar: patch.bytesReceivedSoFar } : {}),
+    ...(patch.bytesTransferredSoFar !== undefined ? { bytesTransferredSoFar: patch.bytesTransferredSoFar } : {}),
   };
 }

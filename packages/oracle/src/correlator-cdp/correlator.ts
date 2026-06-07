@@ -40,11 +40,13 @@ const UNKNOWN_BODY_SOURCE = { method: '', url: '', startedDateTime: '' };
 export class CdpCorrelator implements RequestCorrelator {
   private readonly listeners = new Set<RequestLifecycleListener>();
   private readonly attached = new Set<number>();
-  private readonly harBuilder = new CdpHarBuilder();
   private readonly wallClock = new CdpWallClock();
-  /** Stable resolver handed to the pure mapper (no per-event allocation). */
+  /** Stable resolver handed to the pure mapper + the HAR builder (no
+   *  per-event allocation). Declared before `harBuilder` so the field
+   *  initializer below can hand it to the builder's constructor. */
   private readonly toWallMs = (tabId: number, sessionId: string, requestId: string, monotonicSec: number): number =>
     this.wallClock.toWallMs(tabId, sessionId, requestId, monotonicSec);
+  private readonly harBuilder = new CdpHarBuilder(this.toWallMs);
   private readonly source: CdpEventSource;
   private readonly sourceUnsubscribe: () => void;
 

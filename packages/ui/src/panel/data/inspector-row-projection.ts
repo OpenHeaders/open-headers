@@ -63,14 +63,23 @@ export function isFailedLifecycle(lifecycle: RequestLifecycle): lifecycle is Req
 
 /**
  * Best-known duration in milliseconds: HAR `time` when the current hop
- * has landed; otherwise `completedAtMs - startedAtMs` for a terminated
- * lifecycle. Returns `null` while still in flight — no synthesized zero.
+ * has landed (authoritative); otherwise `completedAtMs - startedAtMs` for a
+ * terminated lifecycle; otherwise, while still in flight, the elapsed time to
+ * the latest body chunk (`lastActivityAtMs - startedAtMs`) — the browser's
+ * live `endTime - startTime`, so the Time column grows during a slow download
+ * instead of reading "Pending". Returns `null` only before the first byte —
+ * no synthesized zero. `lastActivityAtMs` is CDP-only; the heuristic path has
+ * no per-chunk signal, so it stays `null` until the terminal event.
  */
 export function lifecycleDurationMs(lifecycle: RequestLifecycle): number | null {
   const harTime = currentHarEntry(lifecycle)?.time;
   if (typeof harTime === 'number' && harTime > 0) return harTime;
   if (lifecycle.completedAtMs != null) {
     const d = lifecycle.completedAtMs - lifecycle.startedAtMs;
+    if (d > 0) return d;
+  }
+  if (lifecycle.lastActivityAtMs != null) {
+    const d = lifecycle.lastActivityAtMs - lifecycle.startedAtMs;
     if (d > 0) return d;
   }
   return null;
@@ -98,6 +107,35 @@ export function lifecycleTransferredBytes(lifecycle: RequestLifecycle): number |
   if (typeof r._transferSize === 'number' && r._transferSize >= 0) return r._transferSize;
   if (typeof r.bodySize === 'number' && r.bodySize >= 0) return r.bodySize;
   return null;
+}
+
+/**
+ * Wire bytes to DISPLAY — the live figure while in flight, the authoritative
+ * HAR figure once finished. The browser's Size column and footer total read
+ * the request's running `transferSize`/`resourceSize` as the body streams;
+ * we mirror that with the first-class `bytesTransferredSoFar` (CDP-only, summed
+ * per `dataReceived`) until the terminal event lands the final HAR. Keyed on
+ * `completedAtMs` (genuinely in-flight), NOT the display state — a streaming
+ * row already carries its status. Shared by the Size column and the status-bar
+ * total so the two never diverge. `null` before the first byte.
+ */
+export function displayTransferredBytes(lifecycle: RequestLifecycle): number | null {
+  if (lifecycle.completedAtMs == null && lifecycle.bytesTransferredSoFar != null) {
+    return lifecycle.bytesTransferredSoFar;
+  }
+  return lifecycleTransferredBytes(lifecycle);
+}
+
+/** Decoded resource bytes to DISPLAY — the running `bytesReceivedSoFar` while
+ *  in flight (the browser's live `resourceSize`), the authoritative HAR
+ *  `content.size` once finished. `null` when unknown. Sibling of
+ *  {@link displayTransferredBytes}. */
+export function displayResourceBytes(lifecycle: RequestLifecycle): number | null {
+  if (lifecycle.completedAtMs == null && lifecycle.bytesReceivedSoFar != null) {
+    return lifecycle.bytesReceivedSoFar;
+  }
+  const size = currentHarEntry(lifecycle)?.response?.content?.size;
+  return typeof size === 'number' && size >= 0 ? size : null;
 }
 
 /**
