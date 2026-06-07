@@ -18,11 +18,12 @@
 
 import { Popover } from 'antd';
 import { type WaterfallMetric, waterfallStartMs } from '../../data/network-columns';
-import { currentHarEntry, type InspectorRowWithFires } from '../../data/inspector-row-projection';
-import { type ComputedTimings, computeTimingPhases } from '../../data/timing-phases';
+import type { InspectorRowWithFires } from '../../data/inspector-row-projection';
+import type { ComputedTimings } from '../../data/timing-phases';
 import { barColors } from '../../data/waterfall-colors';
 import {
   barLabels,
+  computeRowTimingPhases,
   type DurationBarLayout,
   durationBarLayout,
   timelineBarLayout,
@@ -161,10 +162,10 @@ function bar(row: InspectorRowWithFires, scale: WaterfallScale, timing: Computed
 }
 
 export function WaterfallBar({ row, scale }: WaterfallBarProps) {
-  const har = currentHarEntry(row.lifecycle);
   // Rich hover breakdown when we have real phase data; otherwise the bar keeps
-  // a plain native tooltip.
-  const timingDetail = har?.timings ? computeTimingPhases(har) : null;
+  // a plain native tooltip. While the row streams, this carries a live Content
+  // Download leg so the bar, inline value, and popover all grow together.
+  const timingDetail = computeRowTimingPhases(row);
   const track = bar(row, scale, timingDetail);
 
   if (!timingDetail) return track;
@@ -186,6 +187,7 @@ export function WaterfallBar({ row, scale }: WaterfallBarProps) {
           queuedAtMs={queuedAtMs}
           explain={scale.explainValue}
           bandColors={bandColors && { waiting: bandColors.waiting, download: bandColors.download }}
+          unfinished={row.lifecycle.completedAtMs == null}
         />
       }
       trigger="hover"

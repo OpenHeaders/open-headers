@@ -87,6 +87,7 @@ export function WaterfallTimingPopover({
   queuedAtMs,
   explain,
   bandColors,
+  unfinished,
 }: {
   data: ComputedTimings;
   metric: WaterfallMetric;
@@ -96,6 +97,9 @@ export function WaterfallTimingPopover({
   explain: boolean;
   /** Bar tones for the duration metrics; absent for the timeline metrics. */
   bandColors?: BandColors;
+  /** The request is still streaming — Content Download and the total are live,
+   * growing readings; show a caution that they are not yet final. */
+  unfinished?: boolean;
 }) {
   // Duration spans the whole request (issue → end), so it sums every phase
   // including Queueing — browser parity. Latency instead measures the post-
@@ -164,6 +168,7 @@ export function WaterfallTimingPopover({
           </div>
         );
       })}
+      {unfinished && <div className="dt-waterfall-pop-caution">CAUTION: request is not finished yet!</div>}
       <div className="dt-waterfall-pop-total">
         <span>{totalLabel}</span>
         <span>{formatTimeMs(totalMs)}</span>

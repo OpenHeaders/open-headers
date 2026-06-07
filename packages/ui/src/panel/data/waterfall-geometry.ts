@@ -19,13 +19,34 @@
  */
 
 import type { Page } from '@openheaders/core/page-stream';
+import { formatFooterDuration } from './footer-timing';
 import { formatClock, formatTimeMs } from './format-time';
-import type { InspectorRowWithFires } from './inspector-row-projection';
+import { currentHarEntry, type InspectorRowWithFires } from './inspector-row-projection';
 import { timelineEndMs, type WaterfallMetric, waterfallSortValue, waterfallStartMs } from './network-columns';
-import type { ComputedTimings, TimingPhaseKey } from './timing-phases';
+import { type ComputedTimings, computeTimingPhases, type TimingPhaseKey, withLiveReceive } from './timing-phases';
 
 /** A bar never collapses below this width (% of column) so it stays visible. */
 const MIN_BAR_PCT = 0.25;
+
+/**
+ * The grouped timing breakdown a row's waterfall bar and hover popover render —
+ * the HAR phases, plus a LIVE Content Download leg while the row is still
+ * streaming. Once finished, the HAR is authoritative (returns the plain
+ * `computeTimingPhases`). In flight, the HAR's `receive` leg has not landed, so
+ * the breakdown would otherwise miss Content Download and freeze its total at
+ * the first byte; we splice in `duration − latency` (latency fixed at the first
+ * byte, download growing per chunk — the same split the Time column and the
+ * duration bar use), so the bar, the inline value, and the popover all grow
+ * together. `null` when no HAR phases are known yet (a truly-pending row).
+ */
+export function computeRowTimingPhases(row: InspectorRowWithFires): ComputedTimings | null {
+  const lc = row.lifecycle;
+  const har = currentHarEntry(lc);
+  const base = har?.timings ? computeTimingPhases(har) : null;
+  if (base == null || lc.completedAtMs != null || lc.lastActivityAtMs == null) return base;
+  const liveReceiveMs = Math.max(waterfallSortValue(row, 'duration') - waterfallSortValue(row, 'latency'), 0);
+  return withLiveReceive(base, liveReceiveMs);
+}
 
 /** Dot-and-leader length (px) drawn between the bar end and an outside label. */
 export const LEADER_PX = 12;
@@ -247,11 +268,13 @@ export function pageMarkers(pages: readonly Page[], t0: number, tMax: number): P
   return out;
 }
 
-/** Whole-ms below a second, two-decimal seconds above — the value labels the
- * browser prints on the bar (the hover popover keeps sub-ms precision). */
+/** Whole-ms below a second, two-decimal seconds below a minute, then the
+ * footer's "<min> min <sec.dd> s" form above — so a long bar's inline value
+ * reads minutes the same way the status-bar timings do, not "3.5 min". */
 export function formatBarMs(ms: number): string {
   if (ms < 1000) return `${Math.round(ms)} ms`;
-  return `${(ms / 1000).toFixed(2)} s`;
+  if (ms < 60_000) return `${(ms / 1000).toFixed(2)} s`;
+  return formatFooterDuration(ms);
 }
 
 /** Rough pixel width of a 10px-font label — enough to decide inside/outside fit. */

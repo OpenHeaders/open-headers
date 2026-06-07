@@ -22,15 +22,7 @@ import type { InspectorHarEntry } from '@openheaders/core/types';
 
 export type TimingGroup = 'scheduling' | 'connection' | 'transfer';
 
-export type TimingPhaseKey =
-  | 'queueing'
-  | 'stalled'
-  | 'dns'
-  | 'connect'
-  | 'ssl'
-  | 'send'
-  | 'wait'
-  | 'receive';
+export type TimingPhaseKey = 'queueing' | 'stalled' | 'dns' | 'connect' | 'ssl' | 'send' | 'wait' | 'receive';
 
 export interface TimingPhase {
   key: TimingPhaseKey;
@@ -61,16 +53,7 @@ const PHASE_META: Record<TimingPhaseKey, PhaseMeta> = {
   receive: { label: 'Content Download', group: 'transfer' },
 };
 
-const ORDER: readonly TimingPhaseKey[] = [
-  'queueing',
-  'stalled',
-  'dns',
-  'connect',
-  'ssl',
-  'send',
-  'wait',
-  'receive',
-];
+const ORDER: readonly TimingPhaseKey[] = ['queueing', 'stalled', 'dns', 'connect', 'ssl', 'send', 'wait', 'receive'];
 
 function positive(x: number | undefined | null): number {
   return typeof x === 'number' && x > 0 ? x : 0;
@@ -134,6 +117,31 @@ export function computeTimingPhases(har: InspectorHarEntry): ComputedTimings | n
   // (DNS and SSL peeled out of connect) is the true start-to-finish total.
   const totalMs = phases.reduce((sum, p) => sum + p.ms, 0);
 
+  return { phases, byGroup, totalMs };
+}
+
+/**
+ * Replace the `receive` (Content Download) phase of an already-computed
+ * breakdown with a live value, recomputing the group buckets and total.
+ *
+ * While a request streams, the HAR `timings.receive` leg has not landed, so
+ * `computeTimingPhases` emits no Content Download row and the total stops at
+ * the first byte. The waterfall feeds in a live receive — `duration − latency`,
+ * the same split the Time column and the duration bar use, where latency holds
+ * at the first byte and the download grows per body chunk — so the popover's
+ * Content Download and total track the row instead of freezing until it
+ * finishes. `receive` stays last (its position in `ORDER`); a non-positive
+ * value drops the row.
+ */
+export function withLiveReceive(base: ComputedTimings, liveReceiveMs: number): ComputedTimings {
+  const phases = base.phases.filter((p) => p.key !== 'receive');
+  if (liveReceiveMs > 0) {
+    const meta = PHASE_META.receive;
+    phases.push({ key: 'receive', label: meta.label, group: meta.group, ms: liveReceiveMs });
+  }
+  const byGroup: Record<TimingGroup, TimingPhase[]> = { scheduling: [], connection: [], transfer: [] };
+  for (const p of phases) byGroup[p.group].push(p);
+  const totalMs = phases.reduce((sum, p) => sum + p.ms, 0);
   return { phases, byGroup, totalMs };
 }
 

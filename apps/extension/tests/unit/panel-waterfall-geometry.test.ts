@@ -322,4 +322,20 @@ describe('formatBarMs', () => {
   it('switches to two-decimal seconds at and above a second', () => {
     expect(formatBarMs(1500)).toBe('1.50 s');
   });
+
+  it('switches to "<min> min <sec.dd> s" at and above a minute', () => {
+    expect(formatBarMs(180_290)).toBe('3 min 0.29 s');
+    expect(formatBarMs(60_000)).toBe('1 min 0.00 s');
+  });
+});
+
+describe('formatTimeMs minute band', () => {
+  it('reads minutes as "<min> min <sec.dd> s", not a fractional minute', () => {
+    expect(formatTimeMs(180_290)).toBe('3 min 0.29 s');
+    expect(formatTimeMs(158_740)).toBe('2 min 38.74 s');
+  });
+
+  it('keeps sub-minute readings off the minute form', () => {
+    expect(formatTimeMs(1500)).not.toContain('min');
+  });
 });

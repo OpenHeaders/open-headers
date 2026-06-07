@@ -804,6 +804,14 @@ body.dt-resizing-col {
   font-variant-numeric: tabular-nums;
 }
 
+/* Live in-flight note — the request is still streaming, so Content Download and
+ * the total are growing readings, not final figures. */
+.dt-waterfall-pop-caution {
+  margin-top: 6px;
+  color: var(--dt-status-orange);
+  font-weight: 600;
+}
+
 /* "Explain value" cue (View → Waterfall) — a soft yellow highlight on the one
  * row the active Waterfall metric points at (Started at / a phase / the total).
  * Purely a visual aid; it annotates what's already shown, no value changes. */
