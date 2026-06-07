@@ -50,10 +50,11 @@ import {
 import type { LifecycleClientSnapshot } from './lifecycle-client-store';
 import { synthesizeMemoryCacheLifecycles } from './memory-cache-rows';
 import type { PageClientSnapshot } from './page-client-store';
+import { isInView, type PanelViewScope } from './panel-view-scope';
 import type { ResourceTimingClientSnapshot } from './resource-timing-client-store';
 import { computeRepeatStats, type RepeatStats } from './timing-repeats';
 import { type InspectorFire, isAppliedFire } from './types';
-import { isRecorded, type RecordingWindow } from './use-recording-windows';
+import type { RecordingWindow } from './use-recording-windows';
 
 export interface UsePanelDataInput {
   readonly lifecycle: LifecycleClientSnapshot;
@@ -105,6 +106,9 @@ export interface UsePanelDataInput {
 export interface UsePanelDataResult {
   readonly rows: readonly InspectorRowWithFires[];
   readonly dangling: readonly InspectorFire[];
+  /** In-scope navigations, scoped by the same recording-state seam as `rows`
+   * — what the page block renders and what the HAR export's page set derives
+   * from. A navigation hidden from the rows is absent here too. */
   readonly pages: readonly Page[];
   readonly navTiming: InspectorNavTiming | null;
   readonly initiatorIndex: InitiatorIndex;
@@ -165,7 +169,9 @@ export interface UsePanelDataResult {
   readonly failedCount: number;
   /** Rows served from cache — no wire bytes but a non-empty resource. */
   readonly cachedCount: number;
-  /** Number of distinct navigations (pages) observed on this tab. */
+  /** Number of in-scope navigations (pages) currently displayed — scoped by
+   * recording state exactly like the rows, so it never counts a navigation
+   * whose requests are hidden. */
   readonly pageCount: number;
 }
 
@@ -290,21 +296,24 @@ export function projectPanelData(input: UsePanelDataInput): UsePanelDataResult {
     );
   }
 
-  // Scope the view to two display filters, both keyed on `startedAtMs`:
-  //   - the clear floor (Preserve log): drop anything before it;
-  //   - recording windows: drop anything that started while recording was
-  //     stopped (browser-parity).
-  // Pure display filters — the new page's requests (which arrive over a
-  // separate port from the nav signal) are never racily wiped, and the
-  // floor only ever advances on a committed navigation.
-  const inView = (startedAtMs: number): boolean =>
-    (navClearFloorMs < 0 || startedAtMs >= navClearFloorMs) &&
-    (recordingWindows === undefined || isRecorded(startedAtMs, recordingWindows));
+  // The one recording-state scope predicate, composed from the clear floor
+  // (Preserve log) and the recording windows (record / stop). Applied to
+  // rows, synthetic rows, AND pages below — the browser scopes its whole
+  // network log, not just the rows, so the page block, footer, counts, and
+  // export page set all derive from this same decision and can never drift.
+  const scope: PanelViewScope = { navClearFloorMs, recordingWindows };
+  const inView = (startedAtMs: number): boolean => isInView(startedAtMs, scope);
   const scoped = lifecycles.filter((lc) => inView(lc.startedAtMs));
   // Synthetic cache rows are already navigation-scoped, but still honor
   // the recording filter via the shared `inView` predicate.
   const visibleSynthetic = syntheticCacheRows.filter((lc) => inView(lc.startedAtMs));
   const merged = visibleSynthetic.length > 0 ? [...scoped, ...visibleSynthetic] : scoped;
+  // Pages run through the SAME seam. A navigation whose start falls in a
+  // recording gap (stop → refresh) or below the Preserve-log floor is scoped
+  // out exactly like its requests — so the footer milestones, navTiming,
+  // page count, and exported page block stay anchored to the recorded page
+  // instead of recomputing onto a navigation the user is not recording.
+  const scopedPages = pages.filter((p) => inView(p.startedAtMs));
 
   const baseRows = buildInspectorRows(merged, opts);
   const { rows, dangling } = attachFiresToRows(baseRows, fires);
@@ -370,7 +379,7 @@ export function projectPanelData(input: UsePanelDataInput): UsePanelDataResult {
     if (baseTime >= 0 && row.lifecycle.startedAtMs >= baseTime && end > maxEnd) maxEnd = end;
   }
 
-  const latestPage = pages.length > 0 ? pages[pages.length - 1] : null;
+  const latestPage = scopedPages.length > 0 ? scopedPages[scopedPages.length - 1] : null;
   // Footer zero — the final committed document's network start (when it left
   // the queue for the wire), mirroring the browser footer's `baseTime`. Prefer
   // the hop's `hopNetworkStartMs`; fall back to its issue instant
@@ -406,7 +415,7 @@ export function projectPanelData(input: UsePanelDataInput): UsePanelDataResult {
     return out;
   };
 
-  const navTiming = projectNavTiming(pages);
+  const navTiming = projectNavTiming(scopedPages);
   const baselineMs = rows.length > 0 ? rows[0].lifecycle.startedAtMs : null;
 
   // Footer milestones, re-anchored to the final committed document. `navTiming`
@@ -436,7 +445,7 @@ export function projectPanelData(input: UsePanelDataInput): UsePanelDataResult {
   // re-anchored to that earlier zero.
   let aggregateAnchorMs = footerAnchorMs;
   if (latestPage) {
-    for (const p of pages) {
+    for (const p of scopedPages) {
       if (p === latestPage || p.url !== latestPage.url) continue;
       if (p.startedAtMs < aggregateAnchorMs) aggregateAnchorMs = p.startedAtMs;
     }
@@ -453,7 +462,7 @@ export function projectPanelData(input: UsePanelDataInput): UsePanelDataResult {
   return {
     rows,
     dangling,
-    pages,
+    pages: scopedPages,
     navTiming,
     initiatorIndex,
     lookupByRequestId,
@@ -475,6 +484,6 @@ export function projectPanelData(input: UsePanelDataInput): UsePanelDataResult {
     modifiedCount,
     failedCount,
     cachedCount,
-    pageCount: pages.length,
+    pageCount: scopedPages.length,
   };
 }

@@ -572,6 +572,81 @@ describe('usePanelData', () => {
     expect(result.current.rows.map((r) => r.lifecycle.requestId)).toEqual(['a', 'b']);
   });
 
+  it('recording stopped before a refresh freezes the footer on the recorded page', () => {
+    // Page 1 fully recorded; user stops recording at t=2000; then refreshes at
+    // t=3000. Chrome (recording off) records nothing new — the summary bar keeps
+    // page 1's DCL/Load. The new navigation must be scoped out of the page list
+    // exactly like its requests, so the footer does NOT recompute onto page 2.
+    const pages: Page[] = [
+      { id: 'page_1', startedAtMs: 1000, url: 'https://openheaders.io/', dclMs: 120, loadMs: 480 },
+      { id: 'page_2', startedAtMs: 3000, url: 'https://openheaders.io/', dclMs: 90, loadMs: 200 },
+    ];
+    const { result } = renderHook(() =>
+      usePanelData({
+        ...snapshots(
+          [
+            lifecycle('nav1', 'https://openheaders.io/', {
+              resourceType: 'main_frame',
+              startedAtMs: 1000,
+              completedAtMs: 1400,
+            }),
+            // The refresh's document started while recording was stopped.
+            lifecycle('nav2', 'https://openheaders.io/', {
+              resourceType: 'main_frame',
+              startedAtMs: 3000,
+              completedAtMs: 3400,
+            }),
+          ],
+          pages,
+        ),
+        recordingWindows: [{ startMs: 0, endMs: 2000 }],
+      }),
+    );
+    // Rows: only the recorded navigation (nav2 started in the stopped gap).
+    expect(result.current.rows.map((r) => r.lifecycle.requestId)).toEqual(['nav1']);
+    // Page list + count scoped to the recorded navigation.
+    expect(result.current.pages.map((p) => p.id)).toEqual(['page_1']);
+    expect(result.current.pageCount).toBe(1);
+    // Footer frozen on page 1 — the bug was these recomputing to 90 / 200.
+    expect(result.current.footerDclMs).toBe(120);
+    expect(result.current.footerLoadMs).toBe(480);
+    expect(result.current.navTiming?.dclMs).toBe(120);
+  });
+
+  it('navClearFloorMs scopes the page list consistently with the rows', () => {
+    // Preserve-log OFF across a navigation: the floor advances past page 1, so
+    // its requests AND its page entry clear together — the page block must not
+    // list a navigation whose rows are gone.
+    const pages: Page[] = [
+      { id: 'page_1', startedAtMs: 0, url: 'https://openheaders.io/' },
+      { id: 'page_2', startedAtMs: 1000, url: 'https://openheaders.io/next' },
+    ];
+    const { result } = renderHook(() =>
+      usePanelData({
+        ...snapshots(
+          [
+            lifecycle('nav1', 'https://openheaders.io/', {
+              resourceType: 'main_frame',
+              startedAtMs: 0,
+              completedAtMs: 200,
+            }),
+            lifecycle('nav2', 'https://openheaders.io/next', {
+              resourceType: 'main_frame',
+              startedAtMs: 1000,
+              completedAtMs: 1200,
+            }),
+          ],
+          pages,
+        ),
+        navClearFloorMs: 1000,
+      }),
+    );
+    expect(result.current.rows.map((r) => r.lifecycle.requestId)).toEqual(['nav2']);
+    expect(result.current.pages.map((p) => p.id)).toEqual(['page_2']);
+    expect(result.current.pageCount).toBe(1);
+    expect(result.current.navTiming?.pageOrigin).toBe('https://openheaders.io');
+  });
+
   it('navClearFloorMs -1 keeps every request across repeated navigations', () => {
     const { result } = renderHook(() =>
       usePanelData({
