@@ -84,6 +84,14 @@ describe('startDevtoolsPageNavBridge', () => {
     expect(spy).toHaveBeenCalledWith(9, timing);
   });
 
+  it('drops a chrome-error nav (failed navigation — host creates no PageLoad)', () => {
+    const hub = new PageStreamHub();
+    const spy = vi.spyOn(hub, 'notifyNavStarted');
+    startDevtoolsPageNavBridge({ hub });
+    emit(7, { type: 'nav', url: 'chrome-error://chromewebdata/' });
+    expect(spy).not.toHaveBeenCalled();
+  });
+
   it('ignores `har` / `har-body` messages — those belong to the HAR adapter', () => {
     const hub = new PageStreamHub();
     const navSpy = vi.spyOn(hub, 'notifyNavStarted');

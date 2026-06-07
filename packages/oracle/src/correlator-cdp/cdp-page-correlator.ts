@@ -151,6 +151,10 @@ export class CdpPageCorrelator {
   private onFrameNavigated(event: Extract<CdpPageEvent, { method: 'Page.frameNavigated' }>): readonly CdpPageSignal[] {
     // Only the tab's top frame is a page boundary; sub-frames carry a parent.
     if (event.frame.parentId !== undefined) return [];
+    // A failed navigation commits the browser's internal `chrome-error://`
+    // page; the host skips it (no `PageLoad`), so neither do we — the page id
+    // counter must not advance for an error commit.
+    if (event.frame.url.startsWith('chrome-error://')) return [];
     const state = this.perTab.get(event.tabId);
     const doc = state && this.findDocByLoader(state, event.frame.loaderId);
     if (!state || doc === undefined) return [];

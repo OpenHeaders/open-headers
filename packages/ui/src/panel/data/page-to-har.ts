@@ -18,6 +18,9 @@
  */
 
 import type { Page } from '@openheaders/core/page-stream';
+import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
+
+import { type AnchoredPageTimings, anchorPageTimings } from './page-anchor';
 
 export interface HarPageTimings {
   onContentLoad: number;
@@ -31,15 +34,22 @@ export interface HarPage {
   pageTimings: HarPageTimings;
 }
 
-export function pageToHar(page: Page): HarPage {
+/**
+ * Project a `Page` to a `HarPage`. `timings` overrides the page's own start /
+ * milestones — the exporter passes the host-anchored values (the document's
+ * network start; see `page-anchor`). Defaults to the page's own fields so a
+ * caller without a document still produces a valid block.
+ */
+export function pageToHar(page: Page, timings?: AnchoredPageTimings): HarPage {
+  const t = timings ?? { startedAtMs: page.startedAtMs, dclMs: page.dclMs, loadMs: page.loadMs };
   // Key order mirrors Chrome's exporter (`startedDateTime` first).
   return {
-    startedDateTime: new Date(page.startedAtMs).toISOString(),
+    startedDateTime: new Date(t.startedAtMs).toISOString(),
     id: page.id,
     title: page.url ?? '',
     pageTimings: {
-      onContentLoad: page.dclMs ?? -1,
-      onLoad: page.loadMs ?? -1,
+      onContentLoad: t.dclMs ?? -1,
+      onLoad: t.loadMs ?? -1,
     },
   };
 }
@@ -48,12 +58,20 @@ export function pageToHar(page: Page): HarPage {
  * Filter the page list to those referenced by `refs`, then project each
  * survivor to a `HarPage`. Used by the HAR envelope builder so a
  * single-entry export doesn't carry the full recording's page list.
+ *
+ * `docByPage` maps each page id to its main document lifecycle; when present
+ * each page is re-anchored to that document's network start (host parity).
  */
-export function pagesToHarForRefs(pages: readonly Page[], refs: ReadonlySet<string>): HarPage[] {
+export function pagesToHarForRefs(
+  pages: readonly Page[],
+  refs: ReadonlySet<string>,
+  docByPage?: ReadonlyMap<string, RequestLifecycle>,
+): HarPage[] {
   const out: HarPage[] = [];
   for (const page of pages) {
     if (!refs.has(page.id)) continue;
-    out.push(pageToHar(page));
+    const timings = docByPage ? anchorPageTimings(page, docByPage.get(page.id)) : undefined;
+    out.push(pageToHar(page, timings));
   }
   return out;
 }

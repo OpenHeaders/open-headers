@@ -484,7 +484,14 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   // ── HAR export helpers ─────────────────────────────────────
   const downloadHar = useCallback(
     (subset: readonly InspectorRowWithFires[], filename: string, sanitize: boolean) => {
-      const json = serializeHar(subset, data.pages, sanitize);
+      // Resolve page anchors from the full row set, not just the exported
+      // subset — a single non-document export still needs its page's document.
+      const json = serializeHar(
+        subset,
+        data.pages,
+        sanitize,
+        data.rows.map((r) => r.lifecycle),
+      );
       const blob = new Blob([json], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -495,7 +502,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 0);
     },
-    [data.pages],
+    [data.pages, data.rows],
   );
 
   const handleSaveAllAsHar = useCallback(
@@ -515,14 +522,19 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
 
   const copyHar = useCallback(
     async (subset: readonly InspectorRowWithFires[], sanitize: boolean) => {
-      const json = serializeHar(subset, data.pages, sanitize);
+      const json = serializeHar(
+        subset,
+        data.pages,
+        sanitize,
+        data.rows.map((r) => r.lifecycle),
+      );
       try {
         await navigator.clipboard.writeText(json);
       } catch {
         // Best-effort — clipboard may be gated in some DevTools contexts.
       }
     },
-    [data.pages],
+    [data.pages, data.rows],
   );
 
   const handleCopyAllAsHar = useCallback((sanitize = false) => copyHar(data.rows, sanitize), [data.rows, copyHar]);

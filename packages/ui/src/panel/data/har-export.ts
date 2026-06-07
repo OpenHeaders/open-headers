@@ -17,11 +17,13 @@
  */
 
 import type { Page } from '@openheaders/core/page-stream';
+import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarEntry } from '@openheaders/core/types';
 import { getBuildInfo } from '@openheaders/ui/shared/build-info';
 import type { InspectorRowWithFires } from './inspector-row-projection';
 import { currentHarEntry, resolvePageref } from './inspector-row-projection';
-import { type HarPage, pagesToHarForRefs, pageToHar } from './page-to-har';
+import { selectMainDocByPage } from './page-anchor';
+import { type HarPage, pagesToHarForRefs } from './page-to-har';
 
 function getCreatorVersion(): string {
   return getBuildInfo().version;
@@ -83,6 +85,18 @@ export function sanitizeHarEntry(entry: InspectorHarEntry): InspectorHarEntry {
   return out;
 }
 
+/**
+ * Sort key for export entry order: the row's current HAR hop `startedDateTime`
+ * parsed to ms (the host's authoritative issue instant). Rows with no landed
+ * HAR shell are skipped from the output anyway; they fall back to the
+ * lifecycle's own start so the comparator stays total.
+ */
+function rowEntryStartMs(row: InspectorRowWithFires): number {
+  const entry = currentHarEntry(row.lifecycle);
+  const parsed = entry ? Date.parse(entry.startedDateTime) : Number.NaN;
+  return Number.isFinite(parsed) ? parsed : row.lifecycle.startedAtMs;
+}
+
 function collectRefs(entries: readonly { pageref?: string }[]): Set<string> {
   const refs = new Set<string>();
   for (const e of entries) if (e.pageref) refs.add(e.pageref);
@@ -93,10 +107,25 @@ export function buildHar(
   rows: readonly InspectorRowWithFires[],
   pages: readonly Page[] = [],
   sanitize = false,
+  docLifecycles?: readonly RequestLifecycle[],
 ): HarDocument {
   const entries: InspectorHarEntry[] = [];
   const refs = new Set<string>();
-  for (const row of rows) {
+  // Resolve each page's main document from the full lifecycle list (not just
+  // the exported subset — a single non-document export still needs its page's
+  // document to anchor the block). Defaults to the exported rows' lifecycles.
+  const docByPage = selectMainDocByPage(pages, docLifecycles ?? rows.map((r) => r.lifecycle));
+  // Order entries by their HAR `startedDateTime` — the host's entry order. The
+  // host walks `NetworkLog.requests()` (insertion = `requestWillBeSent`
+  // arrival), which equals issue-time order because `issueTime` is stamped at
+  // insertion, so its export is `startedDateTime`-ascending. The HAR entry's
+  // `startedDateTime` is that same authoritative value (it rides the
+  // `chrome.devtools.network` entry the host itself exports), so sorting on it
+  // reproduces the host order even when our own discovery order (webRequest
+  // arrival) lags it. `displayId` (discovery rank, redirect hops consecutive)
+  // is the sub-ms tiebreak for entries sharing a millisecond.
+  const ordered = [...rows].sort((a, b) => rowEntryStartMs(a) - rowEntryStartMs(b) || a.displayId - b.displayId);
+  for (const row of ordered) {
     const lc = row.lifecycle;
     // One entry per row: the lifecycle's current hop. Redirect legs are
     // their own rows upstream, so each contributes its own entry exactly
@@ -112,7 +141,7 @@ export function buildHar(
     log: {
       version: '1.2',
       creator: { name: 'Open Headers DevTools', version: getCreatorVersion() },
-      pages: pagesToHarForRefs(pages, refs),
+      pages: pagesToHarForRefs(pages, refs, docByPage),
       entries,
     },
   };
@@ -128,33 +157,27 @@ export function buildHarFromEntries(
   entries: readonly HarEntryInput[],
   pages: readonly Page[] = [],
   sanitize = false,
+  docLifecycles: readonly RequestLifecycle[] = [],
 ): HarDocument {
   const refs = collectRefs(entries);
+  const docByPage = selectMainDocByPage(pages, docLifecycles);
   return {
     log: {
       version: '1.2',
       creator: { name: 'Open Headers DevTools', version: getCreatorVersion() },
-      pages: projectInputPages(pages, refs),
+      pages: pagesToHarForRefs(pages, refs, docByPage),
       entries: entries.map((e) => withPageref(sanitize ? sanitizeHarEntry(e.harEntry) : e.harEntry, e.pageref)),
     },
   };
-}
-
-function projectInputPages(pages: readonly Page[], refs: ReadonlySet<string>): HarPage[] {
-  const out: HarPage[] = [];
-  for (const page of pages) {
-    if (!refs.has(page.id)) continue;
-    out.push(pageToHar(page));
-  }
-  return out;
 }
 
 export function serializeHar(
   rows: readonly InspectorRowWithFires[],
   pages: readonly Page[] = [],
   sanitize = false,
+  docLifecycles?: readonly RequestLifecycle[],
 ): string {
-  return JSON.stringify(buildHar(rows, pages, sanitize), null, 2);
+  return JSON.stringify(buildHar(rows, pages, sanitize, docLifecycles), null, 2);
 }
 
 /**

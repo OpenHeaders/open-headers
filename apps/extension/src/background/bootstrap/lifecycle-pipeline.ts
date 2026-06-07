@@ -91,7 +91,7 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   // Per-DevTools-session reset: a genuine reopen advances the lifecycle
   // floor and drops the prior session's cached Resource Timing groups, so
   // close/reopen in the same browser tab starts a clean log (Chrome parity).
-  startDevtoolsSessionCoordinator({ hub: lifecycleHub, relay: resourceTimingHost.relay });
+  startDevtoolsSessionCoordinator({ hub: lifecycleHub, relay: resourceTimingHost.relay, pageHub });
 
   const ruleFireHub = new RuleFireHub({ bus: tabLifecycleBus });
   startRuleFirePortHost({ hub: ruleFireHub });

@@ -61,6 +61,10 @@ export function startDevtoolsPageNavBridge(options: DevtoolsPageNavBridgeOptions
       // Performance-API nav messages to avoid duplicate pages.
       if (isCdpOwned(tabId)) return;
       if (msg.type === 'nav' && typeof msg.url === 'string') {
+        // A failed navigation lands on the browser's internal `chrome-error://`
+        // page; the host creates no `PageLoad` for it, so skip it here too —
+        // the page id counter must not advance for an error commit.
+        if (msg.url.startsWith('chrome-error://')) return;
         hub.notifyNavStarted(tabId, now(), msg.url);
         return;
       }

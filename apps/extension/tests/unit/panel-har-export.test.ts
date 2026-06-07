@@ -83,6 +83,33 @@ describe('buildHar', () => {
     expect(doc.log.entries).toEqual([]);
   });
 
+  it('emits entries ordered by HAR startedDateTime (the host entry order)', () => {
+    // The host export is startedDateTime-ascending (NetworkLog insertion =
+    // issue-time order). The exporter sorts by each entry's startedDateTime
+    // regardless of the array order it received. idx drives startedDateTime.
+    const a = row('https://openheaders.io/a', 2);
+    const b = row('https://openheaders.io/b', 0);
+    const c = row('https://openheaders.io/c', 1);
+    const doc = buildHar([a, b, c]);
+    expect(doc.log.entries.map((e) => e.request?.url)).toEqual([
+      'https://openheaders.io/b',
+      'https://openheaders.io/c',
+      'https://openheaders.io/a',
+    ]);
+  });
+
+  it('breaks a startedDateTime tie by discovery rank (displayId)', () => {
+    // Two entries sharing a millisecond resolve to discovery order — the
+    // host's sub-ms insertion order — not the array order received.
+    const x = { ...row('https://openheaders.io/x', 0), displayId: 5 };
+    const y = { ...row('https://openheaders.io/y', 0), displayId: 2 };
+    const doc = buildHar([x, y]);
+    expect(doc.log.entries.map((e) => e.request?.url)).toEqual([
+      'https://openheaders.io/y',
+      'https://openheaders.io/x',
+    ]);
+  });
+
   it('omits rows whose lifecycle has no HAR shell yet (pending placeholders)', () => {
     const ok = row('https://api.openheaders.io/a');
     const pendingPlaceholder = row('https://blocked.openheaders.io/b', 1, {
@@ -126,6 +153,41 @@ describe('buildHar', () => {
     expect(doc.log.pages).toHaveLength(1);
     expect(doc.log.pages[0].id).toBe('page-1');
     expect(doc.log.entries[0].pageref).toBe('page-1');
+  });
+
+  it('re-anchors a page to its document network start (heuristic: subtracts the navStart leg)', () => {
+    // Heuristic page feed: page is navStart-anchored at 1000; the document's
+    // network start (hopNetworkStartMs) is 1006 — 6ms later. The host anchors
+    // the page block to the network start, so the exported block shifts by 6ms.
+    const pages: Page[] = [
+      { id: 'page-1', startedAtMs: 1000, url: 'https://openheaders.io/', dclMs: 100, loadMs: 200 },
+    ];
+    const doc = row('https://openheaders.io/', 0, {
+      resourceType: 'document',
+      startedAtMs: 1000,
+      hopStartedAtMs: 1003,
+      hopNetworkStartMs: 1006,
+    });
+    const out = buildHar([doc], pages);
+    expect(out.log.pages[0].startedDateTime).toBe(new Date(1006).toISOString());
+    expect(out.log.pages[0].pageTimings.onContentLoad).toBe(94);
+    expect(out.log.pages[0].pageTimings.onLoad).toBe(194);
+  });
+
+  it('leaves a CDP page block unchanged (page start already equals the doc network start)', () => {
+    // CDP page feed: page start already equals the doc network start (2006), so
+    // the leg is 0 and the projection is a precise no-op (byte-identical).
+    const pages: Page[] = [{ id: 'page-2', startedAtMs: 2006, url: 'https://openheaders.io/', dclMs: 94, loadMs: 194 }];
+    const doc = row('https://openheaders.io/', 0, {
+      resourceType: 'document',
+      startedAtMs: 2000,
+      hopStartedAtMs: 2003,
+      hopNetworkStartMs: 2006,
+    });
+    const out = buildHar([doc], pages);
+    expect(out.log.pages[0].startedDateTime).toBe(new Date(2006).toISOString());
+    expect(out.log.pages[0].pageTimings.onContentLoad).toBe(94);
+    expect(out.log.pages[0].pageTimings.onLoad).toBe(194);
   });
 
   it('stamps the page ref on the document request that starts just before its page', () => {

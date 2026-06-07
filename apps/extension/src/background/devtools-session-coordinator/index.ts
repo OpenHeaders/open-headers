@@ -17,11 +17,14 @@
  * watch-session floor to the DevTools-open moment, so the reopened log drops
  * everything captured before. When that happens we also drop the tab's
  * cached Resource Timing groups so the reopened session doesn't replay the
- * prior session's memory-cache rows. The same token (an SW-eviction
- * reconnect) is a no-op — the live log is preserved.
+ * prior session's memory-cache rows, and reset the tab's page stream so page
+ * ids restart at `page_1` — mirroring the host, whose `PageLoad` id counter is
+ * a frontend-module static that resets every time DevTools is (re)opened. The
+ * same token (an SW-eviction reconnect) is a no-op — the live log is preserved.
  */
 
 import { type HarSourceMessage, parseHarSourcePortName } from '@openheaders/core/types';
+import type { PageStreamHub } from '@openheaders/oracle/page-stream-hub';
 import type { RequestLifecycleHub } from '@openheaders/oracle/request-lifecycle-hub';
 import { logger } from '@utils/logger';
 import { getBrowserAPI } from '@/types/browser';
@@ -35,12 +38,13 @@ export interface DevtoolsSessionCoordinator {
 export interface DevtoolsSessionCoordinatorOptions {
   readonly hub: RequestLifecycleHub;
   readonly relay: ResourceTimingRelay;
+  readonly pageHub: PageStreamHub;
 }
 
 export function startDevtoolsSessionCoordinator(
   options: DevtoolsSessionCoordinatorOptions,
 ): DevtoolsSessionCoordinator {
-  const { hub, relay } = options;
+  const { hub, relay, pageHub } = options;
   const onConnect = getBrowserAPI().runtime?.onConnect;
   if (!onConnect?.addListener) {
     logger.info('DevtoolsSessionCoordinator', 'runtime.onConnect unavailable — session reset disabled');
@@ -55,10 +59,12 @@ export function startDevtoolsSessionCoordinator(
         return;
       }
       // A new token means a genuine reopen → the hub advanced the floor;
-      // mirror that by dropping the tab's cached Resource Timing groups. The
-      // same token (an SW-eviction reconnect) is a no-op on both sides.
+      // mirror that by dropping the tab's cached Resource Timing groups and
+      // resetting its page stream so page ids restart at `page_1` (host
+      // parity). The same token (an SW-eviction reconnect) is a no-op.
       if (hub.startSession(tabId, msg.token, msg.openedAtWallMs)) {
         relay.forgetTab(tabId);
+        pageHub.forgetTab(tabId);
       }
     });
   };

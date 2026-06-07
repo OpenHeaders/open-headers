@@ -95,6 +95,13 @@ describe('CdpPageCorrelator — page timing reconstruction', () => {
     expect(c.observe(frameNavigated('L1', 'https://widget.openheaders.io/', 'parent-frame'))).toEqual([]);
   });
 
+  it('ignores a chrome-error commit (failed navigation — host creates no PageLoad)', () => {
+    const c = new CdpPageCorrelator();
+    c.observe(docRequest());
+    c.observe(docResponse(100.05));
+    expect(c.observe(frameNavigated('L1', 'chrome-error://chromewebdata/'))).toEqual([]);
+  });
+
   it('emits nothing for DCL/load before any page boundary', () => {
     const c = new CdpPageCorrelator();
     expect(c.observe(domContent(50))).toEqual([]);

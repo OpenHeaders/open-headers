@@ -7,6 +7,7 @@
  */
 
 import type { HarSourceMessage } from '@openheaders/core/types';
+import type { PageStreamHub } from '@openheaders/oracle/page-stream-hub';
 import type { RequestLifecycleHub } from '@openheaders/oracle/request-lifecycle-hub';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -55,15 +56,17 @@ function connect(port: FakePort): void {
 function makeDeps(startSessionResult: boolean) {
   const startSession = vi.fn(() => startSessionResult);
   const forgetTab = vi.fn();
+  const pageForgetTab = vi.fn();
   const hub = { startSession } as unknown as RequestLifecycleHub;
   const relay = { forgetTab } as unknown as ResourceTimingRelay;
-  return { hub, relay, startSession, forgetTab };
+  const pageHub = { forgetTab: pageForgetTab } as unknown as PageStreamHub;
+  return { hub, relay, pageHub, startSession, forgetTab, pageForgetTab };
 }
 
 describe('startDevtoolsSessionCoordinator', () => {
   it('a new token starts the session and drops the tab’s RT groups', () => {
-    const { hub, relay, startSession, forgetTab } = makeDeps(true);
-    startDevtoolsSessionCoordinator({ hub, relay });
+    const { hub, relay, pageHub, startSession, forgetTab, pageForgetTab } = makeDeps(true);
+    startDevtoolsSessionCoordinator({ hub, relay, pageHub });
 
     const source = fakePort('devtools-har-source:5');
     connect(source);
@@ -71,11 +74,12 @@ describe('startDevtoolsSessionCoordinator', () => {
 
     expect(startSession).toHaveBeenCalledWith(5, 'tok-1', 2000);
     expect(forgetTab).toHaveBeenCalledWith(5);
+    expect(pageForgetTab).toHaveBeenCalledWith(5);
   });
 
   it('the same token resets nothing (startSession returns false)', () => {
-    const { hub, relay, startSession, forgetTab } = makeDeps(false);
-    startDevtoolsSessionCoordinator({ hub, relay });
+    const { hub, relay, pageHub, startSession, forgetTab, pageForgetTab } = makeDeps(false);
+    startDevtoolsSessionCoordinator({ hub, relay, pageHub });
 
     const source = fakePort('devtools-har-source:5');
     connect(source);
@@ -83,11 +87,12 @@ describe('startDevtoolsSessionCoordinator', () => {
 
     expect(startSession).toHaveBeenCalledWith(5, 'tok-1', 2000);
     expect(forgetTab).not.toHaveBeenCalled();
+    expect(pageForgetTab).not.toHaveBeenCalled();
   });
 
   it('ignores non-session frames on the source port', () => {
-    const { hub, relay, startSession } = makeDeps(true);
-    startDevtoolsSessionCoordinator({ hub, relay });
+    const { hub, relay, pageHub, startSession } = makeDeps(true);
+    startDevtoolsSessionCoordinator({ hub, relay, pageHub });
 
     const source = fakePort('devtools-har-source:5');
     connect(source);
@@ -98,8 +103,8 @@ describe('startDevtoolsSessionCoordinator', () => {
   });
 
   it('ignores a malformed session frame', () => {
-    const { hub, relay, startSession } = makeDeps(true);
-    startDevtoolsSessionCoordinator({ hub, relay });
+    const { hub, relay, pageHub, startSession } = makeDeps(true);
+    startDevtoolsSessionCoordinator({ hub, relay, pageHub });
 
     const source = fakePort('devtools-har-source:5');
     connect(source);
@@ -110,8 +115,8 @@ describe('startDevtoolsSessionCoordinator', () => {
   });
 
   it('ignores ports that are not a har-source port', () => {
-    const { hub, relay, startSession } = makeDeps(true);
-    startDevtoolsSessionCoordinator({ hub, relay });
+    const { hub, relay, pageHub, startSession } = makeDeps(true);
+    startDevtoolsSessionCoordinator({ hub, relay, pageHub });
 
     const other = fakePort('oh-rt:5');
     connect(other);
@@ -121,8 +126,8 @@ describe('startDevtoolsSessionCoordinator', () => {
   });
 
   it('dispose() removes the onConnect listener', () => {
-    const { hub, relay } = makeDeps(true);
-    const coordinator = startDevtoolsSessionCoordinator({ hub, relay });
+    const { hub, relay, pageHub } = makeDeps(true);
+    const coordinator = startDevtoolsSessionCoordinator({ hub, relay, pageHub });
     const onConnect = chrome.runtime.onConnect as unknown as { removeListener: ReturnType<typeof vi.fn> };
     coordinator.dispose();
     expect(onConnect.removeListener).toHaveBeenCalledTimes(1);
