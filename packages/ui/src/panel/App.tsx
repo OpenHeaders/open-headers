@@ -257,6 +257,9 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       footerDclMs: data.footerDclMs ?? null,
       footerLoadMs: data.footerLoadMs ?? null,
       finishTimeMs: data.finishTimeMs,
+      aggregateDclMs: data.aggregateDclMs ?? null,
+      aggregateLoadMs: data.aggregateLoadMs ?? null,
+      aggregateFinishMs: data.aggregateFinishMs,
       footerAnchorMs: data.footerAnchorMs,
       legMs: data.legMs,
       pages: data.pages.map((p) => ({

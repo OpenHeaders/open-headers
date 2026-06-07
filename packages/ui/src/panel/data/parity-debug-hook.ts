@@ -27,6 +27,12 @@ export interface ParityFooter {
   footerDclMs: number | null;
   footerLoadMs: number | null;
   finishTimeMs: number;
+  /** Aggregate (whole-timeline) milestones the status bar shows by default —
+   *  the per-page `footer*` values shifted to the earliest navigation's
+   *  anchor. Equal to `footer*` for a single navigation. */
+  aggregateDclMs: number | null;
+  aggregateLoadMs: number | null;
+  aggregateFinishMs: number;
   /** The footer's zero — the final document's network start in wall ms (the
    *  browser's `baseTime`). A capture asserts this equals the final doc's
    *  network start (issue + queueing), not its issue instant. */
