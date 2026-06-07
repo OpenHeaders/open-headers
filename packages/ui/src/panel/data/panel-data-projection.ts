@@ -49,7 +49,6 @@ import {
 } from './inspector-row-projection';
 import type { LifecycleClientSnapshot } from './lifecycle-client-store';
 import { synthesizeMemoryCacheLifecycles } from './memory-cache-rows';
-import { selectMainDocByPage } from './page-anchor';
 import type { PageClientSnapshot } from './page-client-store';
 import type { ResourceTimingClientSnapshot } from './resource-timing-client-store';
 import { computeRepeatStats, type RepeatStats } from './timing-repeats';
@@ -425,25 +424,21 @@ export function projectPanelData(input: UsePanelDataInput): UsePanelDataResult {
   // `baseTime` for every top-level document whose URL matches the inspected
   // URL while walking the newest-first request log, so it lands on the
   // *earliest* navigation to the current page — the zero of the whole
-  // preserve-log span. We mirror that: the earliest final-document anchor
-  // among pages sharing the latest page's URL. Finish runs from there to the
-  // last byte; DCL / Load keep the latest navigation's milestone (the last
-  // event Chrome saw) re-anchored to that earlier zero. Single navigation →
-  // the anchor equals `footerAnchorMs`, so the aggregate set equals `footer*`.
-  const docByPage = selectMainDocByPage(
-    pages,
-    rows.map((r) => r.lifecycle),
-  );
-  const navAnchorMs = (p: Page): number => {
-    const doc = docByPage.get(p.id);
-    return doc ? (doc.hopNetworkStartMs ?? doc.hopStartedAtMs) : p.startedAtMs;
-  };
+  // preserve-log span. We mirror that: keep the latest navigation's authoritative
+  // anchor (`footerAnchorMs`) and pull it back to the earliest same-URL page's
+  // own `startedAtMs`. We read the page start directly (not via a request→page
+  // join) because that join is the queue-adjusted heuristic that mis-bins a
+  // document starting marginally before its own page; the page start is set
+  // straight from the page stream and, in CDP mode, already equals the document
+  // network start (so it matches `footerAnchorMs` for the latest nav, and a
+  // single navigation collapses the aggregate set onto `footer*`). DCL / Load
+  // keep the latest navigation's milestone (the last event Chrome saw),
+  // re-anchored to that earlier zero.
   let aggregateAnchorMs = footerAnchorMs;
   if (latestPage) {
     for (const p of pages) {
-      if (p.url !== latestPage.url) continue;
-      const a = navAnchorMs(p);
-      if (a < aggregateAnchorMs) aggregateAnchorMs = a;
+      if (p === latestPage || p.url !== latestPage.url) continue;
+      if (p.startedAtMs < aggregateAnchorMs) aggregateAnchorMs = p.startedAtMs;
     }
   }
   const aggregateFinishMs =
