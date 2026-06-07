@@ -29,6 +29,9 @@ export interface CellContext {
    * is in view.
    */
   supersededFloorMs: number;
+  /** CDP provenance — the in-flight waterfall popover reads the live request
+   *  model with CDP, or explains the gap without it. */
+  cdpEnhanced: boolean;
 }
 
 /**
@@ -157,7 +160,7 @@ export function renderCell(
     return <span className="dt-col-muted">{formatInitiator(initiator)}</span>;
   }
   if (col.key === 'waterfall') {
-    return <WaterfallBar row={row} scale={ctx.waterfall} />;
+    return <WaterfallBar row={row} scale={ctx.waterfall} cdpEnhanced={ctx.cdpEnhanced} />;
   }
   if (col.key === 'time' && isPreservedUnknown(lc, ctx.supersededFloorMs)) {
     // The issuing page unloaded mid-flight, so no terminal event will arrive

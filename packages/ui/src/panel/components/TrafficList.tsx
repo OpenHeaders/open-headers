@@ -43,6 +43,9 @@ interface TrafficListProps {
   filteredRows: readonly InspectorRowWithFires[];
   /** Navigations on this tab — source the DOMContentLoaded / Load marker lines. */
   pages: readonly Page[];
+  /** CDP provenance — drives the in-flight waterfall popover (live model vs an
+   *  explainer when CDP is off). */
+  cdpEnhanced: boolean;
   selectedId: string | null;
   onSelect: (requestId: string) => void;
   filter: ReadonlySet<string>;
@@ -73,6 +76,7 @@ export function TrafficList({
   rows,
   filteredRows,
   pages,
+  cdpEnhanced,
   selectedId,
   onSelect,
   filter,
@@ -325,8 +329,8 @@ export function TrafficList({
   // Stable per-row render context — referentially constant across a pure
   // scroll so the memoized rows on screen skip re-render.
   const cellContext = useMemo<CellContext>(
-    () => ({ waterfall: waterfallScale, preflight, onJumpTo: handleJumpTo, supersededFloorMs }),
-    [waterfallScale, preflight, handleJumpTo, supersededFloorMs],
+    () => ({ waterfall: waterfallScale, preflight, onJumpTo: handleJumpTo, supersededFloorMs, cdpEnhanced }),
+    [waterfallScale, preflight, handleJumpTo, supersededFloorMs, cdpEnhanced],
   );
 
   const toggleColumn = (key: ColumnKey) => {

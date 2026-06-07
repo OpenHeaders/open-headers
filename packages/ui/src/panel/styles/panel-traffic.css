@@ -812,6 +812,14 @@ body.dt-resizing-col {
   font-weight: 600;
 }
 
+/* Live-popover explainer (no CDP) — muted secondary line under the caution,
+ * telling the user how to capture timing for in-flight requests. */
+.dt-waterfall-pop-explainer {
+  margin-top: 4px;
+  color: var(--dt-text-muted);
+  line-height: 15px;
+}
+
 /* "Explain value" cue (View → Waterfall) — a soft yellow highlight on the one
  * row the active Waterfall metric points at (Started at / a phase / the total).
  * Purely a visual aid; it annotates what's already shown, no value changes. */

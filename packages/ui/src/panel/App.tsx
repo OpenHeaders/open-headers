@@ -598,6 +598,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
               rows={data.rows}
               filteredRows={filteredRows}
               pages={data.pages}
+              cdpEnhanced={lifecycleClient.source === 'cdp'}
               selectedId={selectedId}
               onSelect={handleSelect}
               filter={filter}
@@ -665,6 +666,8 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       data.rows,
       data.dangling,
       data.lookupByRequestId,
+      data.pages,
+      lifecycleClient.source,
       selectedId,
       handleSelect,
       filter,

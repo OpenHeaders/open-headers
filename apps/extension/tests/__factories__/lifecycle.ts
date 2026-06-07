@@ -93,6 +93,8 @@ export interface LifecycleOverrides {
   phase?: RequestLifecycle['phase'];
   startedAtMs?: number;
   hopStartedAtMs?: number;
+  /** Current hop's network start (post-queue) — the host's `startTime`. */
+  hopNetworkStartMs?: number;
   completedAtMs?: number;
   /** In-flight progress mirrors (browser `endTime` / `resourceSize` / `transferSize`). */
   lastActivityAtMs?: number;
@@ -137,6 +139,7 @@ export function makeLifecycle(over: LifecycleOverrides = {}): RequestLifecycle {
     redirectHops: over.redirectHops ?? [],
     startedAtMs,
     hopStartedAtMs: over.hopStartedAtMs ?? startedAtMs,
+    ...(over.hopNetworkStartMs != null ? { hopNetworkStartMs: over.hopNetworkStartMs } : {}),
     ...(over.completedAtMs != null ? { completedAtMs: over.completedAtMs } : {}),
     ...(over.lastActivityAtMs != null ? { lastActivityAtMs: over.lastActivityAtMs } : {}),
     ...(over.bytesReceivedSoFar != null ? { bytesReceivedSoFar: over.bytesReceivedSoFar } : {}),

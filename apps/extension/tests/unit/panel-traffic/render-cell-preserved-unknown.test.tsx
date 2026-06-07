@@ -35,6 +35,7 @@ const CTX: CellContext = {
   preflight: new Map(),
   onJumpTo: () => {},
   supersededFloorMs: NAV_AT,
+  cdpEnhanced: true,
 };
 
 function cell(key: 'status' | 'time', over: RowOverrides) {

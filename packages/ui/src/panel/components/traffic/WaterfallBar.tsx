@@ -17,6 +17,7 @@
  */
 
 import { Popover } from 'antd';
+import type { ReactNode } from 'react';
 import { type WaterfallMetric, waterfallStartMs } from '../../data/network-columns';
 import type { InspectorRowWithFires } from '../../data/inspector-row-projection';
 import type { ComputedTimings } from '../../data/timing-phases';
@@ -30,6 +31,7 @@ import {
   type TimelineBarLayout,
   timelineMetricLabel,
 } from '../../data/waterfall-geometry';
+import { WaterfallLivePopover } from './WaterfallLivePopover';
 import { WaterfallTimingPopover } from './WaterfallTimingPopover';
 
 /** How the Waterfall column maps a row to a bar. `t0` is the shared timeline
@@ -52,6 +54,9 @@ export type WaterfallScale = {
 interface WaterfallBarProps {
   row: InspectorRowWithFires;
   scale: WaterfallScale;
+  /** CDP provenance — drives the in-flight popover: with CDP we read the live
+   *  request model for a not-yet-finished row, without it we explain the gap. */
+  cdpEnhanced: boolean;
 }
 
 function DurationBar({
@@ -161,35 +166,43 @@ function bar(row: InspectorRowWithFires, scale: WaterfallScale, timing: Computed
   );
 }
 
-export function WaterfallBar({ row, scale }: WaterfallBarProps) {
+export function WaterfallBar({ row, scale, cdpEnhanced }: WaterfallBarProps) {
   // Rich hover breakdown when we have real phase data; otherwise the bar keeps
   // a plain native tooltip. While the row streams, this carries a live Content
   // Download leg so the bar, inline value, and popover all grow together.
   const timingDetail = computeRowTimingPhases(row);
   const track = bar(row, scale, timingDetail);
 
-  if (!timingDetail) return track;
+  let content: ReactNode = null;
+  if (timingDetail) {
+    // Position of this row's queue moment on the shared timeline (`t0` is the
+    // earliest request's issue time in view, so this is never negative).
+    const queuedAtMs = Math.max(waterfallStartMs(row.lifecycle) - scale.t0, 0);
+    // The duration bar's two tones, so the popover bands match the hovered bar;
+    // the timeline (rainbow) bar colors each phase itself, so it carries none.
+    const bandColors = scale.mode === 'duration' ? barColors(row.lifecycle.resourceType) : undefined;
+    content = (
+      <WaterfallTimingPopover
+        data={timingDetail}
+        metric={scale.metric}
+        queuedAtMs={queuedAtMs}
+        explain={scale.explainValue}
+        bandColors={bandColors && { waiting: bandColors.waiting, download: bandColors.download }}
+        unfinished={row.lifecycle.completedAtMs == null}
+      />
+    );
+  } else if (row.lifecycle.completedAtMs == null) {
+    // No HAR phases yet, but the request is still in flight — a pending or a
+    // post-navigation "(unknown)" row. The popover reads the live request model
+    // (CDP) the way the host does, or explains the gap when CDP is off.
+    content = <WaterfallLivePopover row={row} t0={scale.t0} cdpEnhanced={cdpEnhanced} />;
+  }
 
-  // Position of this row's queue moment on the shared timeline (`t0` is the
-  // earliest request's issue time in view, so this is never negative).
-  const queuedAtMs = Math.max(waterfallStartMs(row.lifecycle) - scale.t0, 0);
-
-  // The duration bar's two tones, so the popover bands match the hovered bar;
-  // the timeline (rainbow) bar colors each phase itself, so it carries none.
-  const bandColors = scale.mode === 'duration' ? barColors(row.lifecycle.resourceType) : undefined;
+  if (!content) return track;
 
   return (
     <Popover
-      content={
-        <WaterfallTimingPopover
-          data={timingDetail}
-          metric={scale.metric}
-          queuedAtMs={queuedAtMs}
-          explain={scale.explainValue}
-          bandColors={bandColors && { waiting: bandColors.waiting, download: bandColors.download }}
-          unfinished={row.lifecycle.completedAtMs == null}
-        />
-      }
+      content={content}
       trigger="hover"
       placement="left"
       arrow={false}
