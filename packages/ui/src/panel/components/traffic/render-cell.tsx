@@ -161,7 +161,14 @@ export function renderCell(
     return <span className="dt-col-muted">{formatInitiator(initiator)}</span>;
   }
   if (col.key === 'waterfall') {
-    return <WaterfallBar row={row} scale={ctx.waterfall} cdpEnhanced={ctx.cdpEnhanced} />;
+    return (
+      <WaterfallBar
+        row={row}
+        scale={ctx.waterfall}
+        cdpEnhanced={ctx.cdpEnhanced}
+        supersededFloorMs={ctx.supersededFloorMs}
+      />
+    );
   }
   if (col.key === 'time' && durationMs(lc) < 0 && isPreservedUnknown(lc, ctx.supersededFloorMs)) {
     // Host precedence (renderTimeCell): a measurable duration wins. A preserved

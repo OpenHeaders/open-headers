@@ -113,3 +113,46 @@ describe('renderCell — preserved-unknown', () => {
     expect(cell('time', current).container.querySelector('span')?.textContent).toBe('Pending');
   });
 });
+
+// Waterfall inline value for a no-timing in-flight row: it reads the row's
+// state ("(unknown)" / "Pending") instead of a blank or a misleading "0 ms".
+// (valuesMode 'always' so the value chip is in the DOM.)
+const WF_CTX: CellContext = {
+  ...CTX,
+  waterfall: {
+    mode: 'duration',
+    metric: 'duration',
+    max: 1,
+    colPx: 200,
+    t0: 0,
+    valuesMode: 'always',
+    valueFormat: 'relative',
+    timestampTz: 'local',
+    explainValue: false,
+  },
+};
+
+function waterfallCell(over: RowOverrides) {
+  const row = makeRow(over);
+  const state = classifyRequestState(row.lifecycle);
+  const sizeInfo = getSizeInfo(row.lifecycle, state);
+  return render(renderCell(COLUMN_DEFS.waterfall, row, state, sizeInfo, WF_CTX));
+}
+
+describe('renderCell — waterfall inline state', () => {
+  it('a superseded no-timing row reads "(unknown)" on the bar', () => {
+    const { container } = waterfallCell(preservedNoStatus);
+    expect(container.querySelector('.dt-wf-vallabel')?.textContent).toBe('(unknown)');
+  });
+
+  it('a current-page no-timing row reads "Pending" on the bar', () => {
+    const current: RowOverrides = {
+      phase: 'pending',
+      statusCode: undefined,
+      statusText: undefined,
+      startedAtMs: 1_500,
+      har: [null],
+    };
+    expect(waterfallCell(current).container.querySelector('.dt-wf-vallabel')?.textContent).toBe('Pending');
+  });
+});

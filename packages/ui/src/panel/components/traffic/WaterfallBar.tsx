@@ -20,6 +20,7 @@ import { Popover } from 'antd';
 import type { ReactNode } from 'react';
 import { type WaterfallMetric, waterfallStartMs } from '../../data/network-columns';
 import type { InspectorRowWithFires } from '../../data/inspector-row-projection';
+import { isPreservedUnknown, PRESERVED_UNKNOWN_LABEL } from '../../data/request-state';
 import type { ComputedTimings } from '../../data/timing-phases';
 import { barColors } from '../../data/waterfall-colors';
 import {
@@ -57,7 +58,14 @@ interface WaterfallBarProps {
   /** CDP provenance — drives the in-flight popover: with CDP we read the live
    *  request model for a not-yet-finished row, without it we explain the gap. */
   cdpEnhanced: boolean;
+  /** Supersession floor (see `CellContext`) — picks the in-flight inline label:
+   *  "(unknown)" for a preserved row, "Pending" otherwise. */
+  supersededFloorMs: number;
 }
+
+/** The Time-column state shown when an in-flight row has no measurable timing
+ *  (mirrors the Time/Status cells, so the Waterfall reads the same word). */
+const PENDING_LABEL = 'Pending';
 
 function DurationBar({
   layout,
@@ -65,18 +73,35 @@ function DurationBar({
   colPx,
   hasPopover,
   valuesMode,
+  stateLabel,
 }: {
   layout: DurationBarLayout;
   colors: ReturnType<typeof barColors>;
   colPx: number;
   hasPopover: boolean;
   valuesMode: 'off' | 'always' | 'hover';
+  /** In-flight-with-no-timing state ("Pending" / "(unknown)"); shown in place of
+   *  a misleading "0 ms" duration/latency. */
+  stateLabel: string | null;
 }) {
   const showLabels = valuesMode !== 'off';
-  const labels = barLabels(layout, colPx);
   const trackClass = `dt-waterfall-track dt-waterfall-track--split${
     valuesMode === 'always' ? ' dt-waterfall-track--values-always' : ''
   }`;
+  if (stateLabel) {
+    // No measurable duration: the bar is a placeholder and the value chip reads
+    // the row's state, not "0 ms". No native title (the popover owns the hover).
+    return (
+      <div className={trackClass}>
+        <div
+          className="dt-waterfall-bar dt-waterfall-bar--split"
+          style={{ left: 0, width: `${layout.widthPct}%`, borderColor: colors.border }}
+        />
+        {showLabels && <span className="dt-wf-vallabel">{stateLabel}</span>}
+      </div>
+    );
+  }
+  const labels = barLabels(layout, colPx);
   return (
     <div className={trackClass} title={hasPopover ? undefined : `${labels.latency.text} latency`}>
       <div
@@ -140,16 +165,21 @@ function RainbowBar({
   );
 }
 
-function bar(row: InspectorRowWithFires, scale: WaterfallScale, timing: ComputedTimings | null) {
+function bar(row: InspectorRowWithFires, scale: WaterfallScale, timing: ComputedTimings | null, stateLabel: string | null) {
   if (scale.mode === 'timeline') {
     return (
       <RainbowBar
         layout={timelineBarLayout(row, scale.t0, scale.tMax, timing)}
-        title={timing ? undefined : 'pending'}
+        // No native tooltip: a timed row's hover is the rich popover, and an
+        // in-flight row's is the live popover — a native title would double up.
+        title={undefined}
         metricLabel={
-          scale.valuesMode !== 'off'
-            ? timelineMetricLabel(row, scale.metric, scale.t0, timing, scale.valueFormat, scale.timestampTz)
-            : null
+          scale.valuesMode === 'off'
+            ? null
+            : // An in-flight row with no timing reads its state ("Pending" /
+              // "(unknown)") in place of an absent or misleading metric value.
+              (stateLabel ??
+                timelineMetricLabel(row, scale.metric, scale.t0, timing, scale.valueFormat, scale.timestampTz))
         }
         valuesAlways={scale.valuesMode === 'always'}
       />
@@ -162,16 +192,25 @@ function bar(row: InspectorRowWithFires, scale: WaterfallScale, timing: Computed
       colPx={scale.colPx}
       hasPopover={timing != null}
       valuesMode={scale.valuesMode}
+      stateLabel={stateLabel}
     />
   );
 }
 
-export function WaterfallBar({ row, scale, cdpEnhanced }: WaterfallBarProps) {
+export function WaterfallBar({ row, scale, cdpEnhanced, supersededFloorMs }: WaterfallBarProps) {
   // Rich hover breakdown when we have real phase data; otherwise the bar keeps
   // a plain native tooltip. While the row streams, this carries a live Content
   // Download leg so the bar, inline value, and popover all grow together.
   const timingDetail = computeRowTimingPhases(row);
-  const track = bar(row, scale, timingDetail);
+  // An in-flight row with no measurable timing has no metric value to print, so
+  // the bar reads its state instead — the same word the Time column shows.
+  const inFlightNoTiming = timingDetail == null && row.lifecycle.completedAtMs == null;
+  const stateLabel = inFlightNoTiming
+    ? isPreservedUnknown(row.lifecycle, supersededFloorMs)
+      ? PRESERVED_UNKNOWN_LABEL
+      : PENDING_LABEL
+    : null;
+  const track = bar(row, scale, timingDetail, stateLabel);
 
   let content: ReactNode = null;
   if (timingDetail) {

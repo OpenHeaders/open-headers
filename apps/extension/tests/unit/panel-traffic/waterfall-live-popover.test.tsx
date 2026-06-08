@@ -20,15 +20,15 @@ function headerLines(container: HTMLElement): string[] {
 }
 
 describe('WaterfallLivePopover', () => {
-  it('CDP: shows Queued / Started, the Stalled phase, and the caution', () => {
-    // Issued at t0 + 1000; network start unknown (still stalled) → Started == Queued.
+  it('CDP stalled (no network start): shows Queued + Stalled + caution, no "Started at"', () => {
+    // Issued at t0 + 1000; never left the queue → no "Started at" (it would just
+    // duplicate Queued), and the open Stalled phase is shown instead.
     const row = makeRow({ startedAtMs: 5000, hopStartedAtMs: 5000, phase: 'pending', har: [null] });
     const { container } = render(<WaterfallLivePopover row={row} t0={4000} cdpEnhanced={true} />);
-    const [queued, started] = headerLines(container);
-    expect(queued).toContain('Queued at');
-    expect(queued).toContain('1.00');
-    expect(started).toContain('Started at');
-    expect(started).toContain('1.00');
+    const lines = headerLines(container);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain('Queued at');
+    expect(lines[0]).toContain('1.00');
     expect(container.querySelector('.dt-waterfall-pop-label')?.textContent).toBe('Stalled');
     expect(container.querySelector('.dt-waterfall-pop-caution')?.textContent).toBe(
       'CAUTION: request is not finished yet!',
@@ -36,8 +36,9 @@ describe('WaterfallLivePopover', () => {
     expect(container.querySelector('.dt-waterfall-pop-explainer')).toBeNull();
   });
 
-  it('CDP: Started reflects the queueing leg when a network start is known', () => {
-    // Network start 200ms after issue → Started = Queued + 200ms.
+  it('CDP with a known network start: shows Queued + Started, drops the Stalled row', () => {
+    // Network start 200ms after issue → Started = Queued + 200ms, and "Started"
+    // now means something so it appears; the Stalled placeholder drops.
     const row = makeRow({
       startedAtMs: 5000,
       hopStartedAtMs: 5000,
@@ -48,7 +49,9 @@ describe('WaterfallLivePopover', () => {
     const { container } = render(<WaterfallLivePopover row={row} t0={4000} cdpEnhanced={true} />);
     const [queued, started] = headerLines(container);
     expect(queued).toContain('1.00');
+    expect(started).toContain('Started at');
     expect(started).toContain('1.20');
+    expect(container.querySelector('.dt-waterfall-pop-label')).toBeNull();
   });
 
   it('no CDP: explains the gap instead of showing timing', () => {

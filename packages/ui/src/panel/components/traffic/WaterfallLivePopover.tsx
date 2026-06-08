@@ -7,10 +7,10 @@
  * either: its waterfall + Timing popover are built from the live request model
  * (CDP), available from the first event, before any response. We mirror that.
  *
- *   - With CDP, the lifecycle carries the issue + network-start instants, so we
- *     show Queued / Started, the still-open Stalled phase (its duration is
- *     unknowable until it advances), and the not-finished caution — the host's
- *     pre-response popover.
+ *   - With CDP, the lifecycle carries the issue + network-start instants. A
+ *     still-stalled request never left the queue, so we show Queued + the open
+ *     Stalled phase + the not-finished caution (no "Started at" — it would just
+ *     duplicate Queued). Once a network start is known we show Queued + Started.
  *   - Without CDP, the heuristic path sees nothing until the request finishes,
  *     so there is genuinely no live timing to show; we explain the gap and the
  *     one setting that closes it (in-app, no link out).
@@ -43,26 +43,30 @@ export function WaterfallLivePopover({
   }
 
   const lc = row.lifecycle;
-  // Queued = the issue instant (the bar's zero); Started = the network start,
-  // i.e. issue plus the queueing leg. For a request still stalled before the
-  // wire the two coincide — exactly what the host shows.
+  // Queued = the issue instant (the bar's zero). "Started at" only means
+  // something once the request actually left the queue for the wire (a known
+  // network start); for a request still stalled it never started, so showing
+  // "Started == Queued" would be a misleading duplicate — omit it, and show the
+  // open Stalled phase instead.
   const queuedAtMs = Math.max(waterfallStartMs(lc) - t0, 0);
-  const queueingMs = Math.max((lc.hopNetworkStartMs ?? lc.hopStartedAtMs) - lc.hopStartedAtMs, 0);
-  const startedAtMs = queuedAtMs + queueingMs;
+  const networkStarted = lc.hopNetworkStartMs != null;
+  const startedAtMs = queuedAtMs + Math.max((lc.hopNetworkStartMs ?? lc.hopStartedAtMs) - lc.hopStartedAtMs, 0);
   return (
     <div className="dt-waterfall-pop">
       <div className="dt-waterfall-pop-start">
         <div>Queued at {formatTimeMs(queuedAtMs)}</div>
-        <div>Started at {formatTimeMs(startedAtMs)}</div>
+        {networkStarted && <div>Started at {formatTimeMs(startedAtMs)}</div>}
       </div>
-      <div className="dt-waterfall-pop-group">
-        <div className="dt-waterfall-pop-head">Connection Start</div>
-        <div className="dt-waterfall-pop-row">
-          <span className="dt-waterfall-pop-swatch dt-wf-fill--stalled" aria-hidden="true" />
-          <span className="dt-waterfall-pop-label">Stalled</span>
-          <span className="dt-waterfall-pop-ms">–</span>
+      {!networkStarted && (
+        <div className="dt-waterfall-pop-group">
+          <div className="dt-waterfall-pop-head">Connection Start</div>
+          <div className="dt-waterfall-pop-row">
+            <span className="dt-waterfall-pop-swatch dt-wf-fill--stalled" aria-hidden="true" />
+            <span className="dt-waterfall-pop-label">Stalled</span>
+            <span className="dt-waterfall-pop-ms">–</span>
+          </div>
         </div>
-      </div>
+      )}
       <div className="dt-waterfall-pop-caution">CAUTION: request is not finished yet!</div>
     </div>
   );
