@@ -56,6 +56,31 @@ export function selectMainDocByPage(
   return byPage;
 }
 
+/**
+ * The committed main-document lifecycle for a loader id — the latest-hop main
+ * document whose `loaderId` matches (the host's `PageLoad.mainRequest`, bound
+ * by `request.loaderId === mainFrame.loaderId`). Among same-loader documents
+ * the latest hop (`hopStartedAtMs`) is the committed one. Returns `null` when
+ * no main document carries this loader id (no CDP loader binding for this
+ * navigation) — the caller falls back to a heuristic document selection.
+ *
+ * Folds the footer's main-document anchor onto the same loader join as
+ * {@link resolvePageref}, so the footer zero, the page block, and the pageref
+ * cannot disagree in a slow-nav transition window.
+ */
+export function selectMainDocByLoader(
+  lifecycles: readonly RequestLifecycle[],
+  loaderId: string,
+): RequestLifecycle | null {
+  let chosen: RequestLifecycle | null = null;
+  for (const lc of lifecycles) {
+    if (!isMainDocumentResourceType(lc.resourceType)) continue;
+    if (lc.loaderId !== loaderId) continue;
+    if (chosen === null || lc.hopStartedAtMs > chosen.hopStartedAtMs) chosen = lc;
+  }
+  return chosen;
+}
+
 /** Page start + milestones re-anchored to the document network start. */
 export interface AnchoredPageTimings {
   readonly startedAtMs: number;

@@ -1,9 +1,6 @@
-import { describe, expect, it } from 'vitest';
-
 import type { Page } from '@openheaders/core/page-stream';
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarBody, InspectorHarEntry } from '@openheaders/core/types';
-
 import type { InspectorRow } from '@openheaders/ui/panel/data/inspector-facet';
 import {
   attachFiresToRows,
@@ -14,18 +11,34 @@ import {
   resolvePageref,
 } from '@openheaders/ui/panel/data/inspector-row-projection';
 import type { InspectorFire } from '@openheaders/ui/panel/data/types';
+import { describe, expect, it } from 'vitest';
 
 function harEntry(url: string): InspectorHarEntry {
   return {
     startedDateTime: new Date(0).toISOString(),
     time: 0,
-    request: { method: 'GET', url, httpVersion: '', headers: [], queryString: [], cookies: [], headersSize: -1, bodySize: -1 },
+    request: {
+      method: 'GET',
+      url,
+      httpVersion: '',
+      headers: [],
+      queryString: [],
+      cookies: [],
+      headersSize: -1,
+      bodySize: -1,
+    },
     timings: { blocked: 0, dns: 0, connect: 0, send: 0, wait: 0, receive: 0 },
   };
 }
 
 function harBody(content: string): InspectorHarBody {
-  return { method: 'GET', url: 'https://openheaders.io', startedDateTime: new Date(0).toISOString(), content, encoding: '' };
+  return {
+    method: 'GET',
+    url: 'https://openheaders.io',
+    startedDateTime: new Date(0).toISOString(),
+    content,
+    encoding: '',
+  };
 }
 
 function lifecycle(over: Partial<RequestLifecycle> = {}): RequestLifecycle {
@@ -122,6 +135,39 @@ describe('resolvePageref', () => {
 
   it('returns null only when there are no pages', () => {
     expect(resolvePageref(lifecycle({ startedAtMs: 500 }), [])).toBeNull();
+  });
+});
+
+describe('resolvePageref — loader join (authoritative)', () => {
+  // Two navigations whose loader ids the requests carry. page_2 started while
+  // a late subresource of page_1 was still issuing — the transition window.
+  const pages: Page[] = [
+    { id: 'page_1', startedAtMs: 0, url: 'https://openheaders.io/a', loaderId: 'L1' },
+    { id: 'page_2', startedAtMs: 1000, url: 'https://openheaders.io/b', loaderId: 'L2' },
+  ];
+
+  it('binds a row to the page whose loader id it carries', () => {
+    expect(resolvePageref(lifecycle({ startedAtMs: 200, loaderId: 'L1' }), pages)).toBe('page_1');
+    expect(resolvePageref(lifecycle({ startedAtMs: 1200, loaderId: 'L2' }), pages)).toBe('page_2');
+  });
+
+  it('keeps a transition-window subresource on its own (old) page despite a newer start', () => {
+    // Start-time proximity would mis-bin this to page_2 (started 1500 > 1000);
+    // the loader id pins it to page_1, the page it actually belongs to.
+    expect(resolvePageref(lifecycle({ startedAtMs: 1500, loaderId: 'L1' }), pages)).toBe('page_1');
+  });
+
+  it('falls back to start-time proximity when the row carries no loader id', () => {
+    expect(resolvePageref(lifecycle({ startedAtMs: 1500 }), pages)).toBe('page_2');
+  });
+
+  it('falls back to start-time proximity when no known page carries the row loader id', () => {
+    // CDP attached mid-flight: the row's page is not yet observed.
+    expect(resolvePageref(lifecycle({ startedAtMs: 1500, loaderId: 'L9' }), pages)).toBe('page_2');
+  });
+
+  it('returns null for an empty page list even with a loader id', () => {
+    expect(resolvePageref(lifecycle({ startedAtMs: 200, loaderId: 'L1' }), [])).toBeNull();
   });
 });
 

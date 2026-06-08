@@ -50,6 +50,7 @@ import {
 } from './inspector-row-projection';
 import type { LifecycleClientSnapshot } from './lifecycle-client-store';
 import { synthesizeMemoryCacheLifecycles } from './memory-cache-rows';
+import { selectMainDocByLoader } from './page-anchor';
 import type { PageClientSnapshot } from './page-client-store';
 import { isInView, type PanelViewScope } from './panel-view-scope';
 import type { ResourceTimingClientSnapshot } from './resource-timing-client-store';
@@ -398,6 +399,8 @@ export function projectPanelData(input: UsePanelDataInput): UsePanelDataResult {
   // is the standalone final request; for a non-redirect it is the document
   // itself. Synthetic redirect-hop rows (earlier hops) never win the max.
   // This is the footer's zero — the browser anchors DCL / Load / Finish to it.
+  // Heuristic selection; the loader fold below makes it loader-authoritative
+  // when the latest navigation carries a loader id.
   let footerDoc: RequestLifecycle | null = null;
   for (const row of rows) {
     lookupByRequestId.set(row.lifecycle.requestId, row);
@@ -444,6 +447,20 @@ export function projectPanelData(input: UsePanelDataInput): UsePanelDataResult {
   }
 
   const latestPage = scopedPages.length > 0 ? scopedPages[scopedPages.length - 1] : null;
+  // Loader fold: when the latest navigation carries a loader id, the footer's
+  // zero is the document the host bound that page load to — the main-document
+  // lifecycle whose loader id matches the page (the same join `resolvePageref`
+  // uses), not whichever main document merely started last. Keeps the footer,
+  // the page block, and the pageref from disagreeing in a slow-nav transition
+  // window. Falls back to the latest-committed-document heuristic above when no
+  // loader id is available (heuristic page source, pre-CDP-attach).
+  if (latestPage?.loaderId != null) {
+    const loaderDoc = selectMainDocByLoader(
+      rows.map((r) => r.lifecycle),
+      latestPage.loaderId,
+    );
+    if (loaderDoc !== null) footerDoc = loaderDoc;
+  }
   // Footer zero — the final committed document's network start (when it left
   // the queue for the wire), mirroring the browser footer's `baseTime`. Prefer
   // the hop's `hopNetworkStartMs`; fall back to its issue instant

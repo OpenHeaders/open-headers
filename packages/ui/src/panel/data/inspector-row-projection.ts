@@ -141,17 +141,29 @@ export function displayResourceBytes(lifecycle: RequestLifecycle): number | null
 /**
  * Resolve a lifecycle's `pageref` — id of the `Page` it belongs to.
  *
- * Picks the page whose `startedAtMs` is the latest one not greater
- * than the lifecycle's `startedAtMs` (i.e. the navigation that was
- * in flight when the request started).
+ * **Loader join (authoritative).** A request belongs to the page whose
+ * committed loader id it carries: `lifecycle.loaderId === page.loaderId`.
+ * This is the host's own binding — `PageLoad.bindRequest` keys a request to
+ * the page load whose `mainFrame.loaderId` it matches (set once at request
+ * start, stable across redirect hops, 1:1 with the navigation). It is exact
+ * even in a slow-nav transition window, where a subresource of the *old* page
+ * can start marginally after the *new* navigation has begun — start-time
+ * proximity mis-bins it to the new page; the loader id does not.
  *
- * A page's `startedAtMs` is its document request's queue-adjusted start,
- * which lands marginally *after* that same request's own raw start — so
- * the navigation's defining document request is the one request that
- * begins just before the page it belongs to. When no page is at-or-before
- * the lifecycle but pages exist, attribute it to the earliest page: a
- * request can't predate the navigation it belongs to, and the only one
- * landing before the first page's start is that page's document request.
+ * **Start-time proximity (fallback).** When the row carries no loader id (the
+ * `chrome.webRequest` heuristic path, or a worker request that belongs to no
+ * document), or no known page matches its loader id (CDP attached mid-flight,
+ * the page not yet observed), bind to the page whose `startedAtMs` is the
+ * latest one not greater than the lifecycle's `startedAtMs` — the navigation
+ * in flight when the request started.
+ *
+ * A page's `startedAtMs` is its document request's queue-adjusted start, which
+ * lands marginally *after* that same request's own raw start — so the
+ * navigation's defining document request is the one request that begins just
+ * before the page it belongs to. When no page is at-or-before the lifecycle but
+ * pages exist, attribute it to the earliest page: a request can't predate the
+ * navigation it belongs to, and the only one landing before the first page's
+ * start is that page's document request.
  *
  * Trade-off: under Preserve-log a tab can also hold requests that genuinely
  * predate the first *captured* navigation (in flight when the panel opened).
@@ -164,6 +176,12 @@ export function displayResourceBytes(lifecycle: RequestLifecycle): number | null
  */
 export function resolvePageref(lifecycle: RequestLifecycle, pages: readonly Page[]): string | null {
   if (pages.length === 0) return null;
+  const loaderId = lifecycle.loaderId;
+  if (loaderId) {
+    for (const page of pages) {
+      if (page.loaderId === loaderId) return page.id;
+    }
+  }
   let chosen: Page = pages[0];
   for (const page of pages) {
     if (page.startedAtMs > lifecycle.startedAtMs) break;

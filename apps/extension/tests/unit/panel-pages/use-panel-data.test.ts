@@ -523,6 +523,69 @@ describe('usePanelData', () => {
     expect(result.current.finishTimeMs).toBe(1647);
   });
 
+  it('anchors the footer to the page’s loader-matched document, not a later iframe document', () => {
+    // A page with an iframe: the iframe’s document (resourceType 'document',
+    // its own loader id) issues after the top-level document. The heuristic
+    // would pick whichever main document started last (the iframe, 1500) as the
+    // footer zero; the loader fold pins it to the page’s own document (1005).
+    const topDoc: RequestLifecycle = {
+      tabId: 1,
+      requestId: 'top',
+      url: 'https://openheaders.io/',
+      method: 'GET',
+      resourceType: 'document',
+      loaderId: 'L-main',
+      phase: 'completed',
+      redirectHopCount: 0,
+      redirectHops: [],
+      startedAtMs: 1005,
+      hopStartedAtMs: 1005,
+      hopNetworkStartMs: 1005,
+      completedAtMs: 2000,
+      har: [har('https://openheaders.io/')],
+      harBodyByHop: [],
+    };
+    const iframeDoc: RequestLifecycle = {
+      tabId: 1,
+      requestId: 'iframe',
+      url: 'https://iframe.openheaders.io/',
+      method: 'GET',
+      resourceType: 'document',
+      loaderId: 'L-iframe',
+      phase: 'completed',
+      redirectHopCount: 0,
+      redirectHops: [],
+      startedAtMs: 1500,
+      hopStartedAtMs: 1500,
+      hopNetworkStartMs: 1500,
+      completedAtMs: 1800,
+      har: [har('https://iframe.openheaders.io/')],
+      harBodyByHop: [],
+    };
+    const pages: Page[] = [{ id: 'page_1', startedAtMs: 1000, url: 'https://openheaders.io/', loaderId: 'L-main' }];
+    const { result } = renderHook(() => usePanelData(snapshots([topDoc, iframeDoc], pages)));
+    expect(result.current.footerAnchorMs).toBe(1005);
+  });
+
+  it('falls the footer back to the latest-document heuristic when the latest page has no loader id', () => {
+    // Heuristic page source (no CDP loader binding): the fold is gated off and
+    // the footer keeps the latest-committed-document selection.
+    const docA = lifecycle('docA', 'https://openheaders.io/a', {
+      resourceType: 'document',
+      startedAtMs: 1005,
+      completedAtMs: 2000,
+    });
+    const docB = lifecycle('docB', 'https://openheaders.io/b', {
+      resourceType: 'document',
+      startedAtMs: 1500,
+      completedAtMs: 1800,
+    });
+    const pages: Page[] = [{ id: 'page_1', startedAtMs: 1000, url: 'https://openheaders.io/' }];
+    const { result } = renderHook(() => usePanelData(snapshots([docA, docB], pages)));
+    // No loader id anywhere → heuristic picks the latest-started document (1500).
+    expect(result.current.footerAnchorMs).toBe(1500);
+  });
+
   it('counts modified, failed, and cached rows', () => {
     const { result } = renderHook(() =>
       usePanelData(
