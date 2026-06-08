@@ -96,7 +96,9 @@ const LABELS: Record<TimingRungKey, string> = {
   queueing: 'Queueing',
   stalled: 'Stalled',
   dns: 'DNS Lookup',
-  connect: 'Initial connection',
+  // The TCP-handshake leg only (`connect − ssl`); HAR's `connect` is the whole
+  // connection setup *including* TLS, which we split out as its own `ssl` rung.
+  connect: 'TCP',
   ssl: 'TLS',
   send: 'Request sent',
   wait: 'Waiting for server',

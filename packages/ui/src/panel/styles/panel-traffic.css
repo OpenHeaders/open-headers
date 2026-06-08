@@ -718,7 +718,7 @@ body.dt-resizing-col {
 /* Hover breakdown for a Waterfall bar. Reuses `.dt-morefilters-popover`
  * antd chrome; this owns the inner layout only. */
 .dt-waterfall-pop {
-  min-width: 200px;
+  min-width: 300px;
   padding: 4px 10px 8px;
   font-size: 11px;
   color: var(--dt-text);
@@ -762,12 +762,104 @@ body.dt-resizing-col {
   margin-top: 6px;
 }
 
+/* The phase region as a little chart — an L of axes anchored at the top-left
+ * corner: the left axis runs DOWN through the steps in sequence, the top axis
+ * runs RIGHT across elapsed time (the direction the bars flow). Arrowheads
+ * (::before down, ::after right) sit at the far ends. Drawn just inside the
+ * left/top padding so the rows keep their alignment. */
+.dt-waterfall-pop-phases {
+  position: relative;
+  /* Top margin holds the "Elapsed time" label above the X axis; the left margin
+   * holds the stacked "Steps" label OUTSIDE the Y axis (a proper axis title).
+   * Right padding keeps the rows off the X-axis arrowhead. */
+  margin: 18px 0 0 13px;
+  padding: 7px 10px 2px 8px;
+  border-left: 1px solid var(--dt-text-muted);
+  border-top: 1px solid var(--dt-text-muted);
+}
+
+/* X-axis title — horizontal, centred just above the top axis. */
+.dt-waterfall-pop-axis-x {
+  position: absolute;
+  top: -13px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  color: var(--dt-text-muted);
+}
+
+/* Y-axis title — letters stacked one per line (S / t / e / p / s) down the left
+ * gutter, vertically centred on the axis. An explicit flex column rather than
+ * `writing-mode`, so the letters pack tightly and predictably. */
+.dt-waterfall-pop-axis-y {
+  position: absolute;
+  left: -10px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.05;
+  font-size: 9px;
+  color: var(--dt-text-muted);
+}
+
+/* Y-axis arrowhead — points down at the bottom of the left axis. */
+.dt-waterfall-pop-phases::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  bottom: -6px;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 6px solid var(--dt-text-muted);
+}
+
+/* X-axis arrowhead — points right at the end of the top axis. */
+.dt-waterfall-pop-phases::after {
+  content: '';
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-left: 6px solid var(--dt-text-muted);
+}
+
+/* The first band sits flush under the top axis (the axis replaces its top gap). */
+.dt-waterfall-pop-phases .dt-waterfall-pop-group:first-child {
+  margin-top: 0;
+}
+
+/* Section header — uppercase label with a trailing rule, consistent across all
+ * three bands (the 🌐 prefix on Connecting marks where the request hits the wire). */
 .dt-waterfall-pop-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   color: var(--dt-text-muted);
   text-transform: uppercase;
   font-size: 10px;
   letter-spacing: 0.04em;
-  margin-bottom: 2px;
+  margin: 5px 0 2px;
+}
+
+.dt-waterfall-pop-head::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--dt-border);
+}
+
+/* Where the band runs (Browser / Browser ↔ Network / Network) — a muted,
+ * mixed-case suffix after the section label, so the wire crossing reads inline. */
+.dt-waterfall-pop-where {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 9px;
+  opacity: 0.7;
 }
 
 .dt-waterfall-pop-row {
@@ -784,14 +876,72 @@ body.dt-resizing-col {
   flex: none;
 }
 
+/* Fixed-width so every rung's mini-bar starts at the same x — the bars then
+ * stack into a cumulative waterfall down the popover. */
 .dt-waterfall-pop-label {
+  flex: none;
+  width: 116px;
+}
+
+/* Step ordinal (1.–8.) prefixing each rung — makes the sequence the "Steps"
+ * axis names concrete. Muted + tabular so the numbers align. */
+.dt-waterfall-pop-stepno {
+  color: var(--dt-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The per-rung bar lane: a full-width [0, duration] track the segment is
+ * absolutely positioned within (left = cumulative start, width = duration). */
+.dt-waterfall-pop-track {
+  position: relative;
   flex: 1 1 auto;
+  height: 9px;
+  min-width: 40px;
+}
+
+.dt-waterfall-pop-seg {
+  position: absolute;
+  top: 0;
+  height: 9px;
+  min-width: 1px;
+  border-radius: 2px;
+}
+
+/* Inline hint in the (empty) bar lane — e.g. "warm socket" on a TCP 0µs rung.
+ * Vertically centred over the thin track so it reads next to the tick without
+ * crowding the value column; the row carries the explanatory tooltip. */
+.dt-waterfall-pop-hint {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  font-size: 9px;
+  font-style: italic;
+  color: var(--dt-text-muted);
 }
 
 .dt-waterfall-pop-ms {
   flex: none;
+  width: 72px;
+  text-align: right;
   font-variant-numeric: tabular-nums;
   color: var(--dt-text-muted);
+}
+
+/* An absent rung (connection reused / not reached / n/a) — no bar; the reason
+ * takes the bar + value space (right-aligned), muted and italic so it reads as
+ * "did not happen", distinct from a real `0µs`. */
+.dt-waterfall-pop-absent-text {
+  flex: 1 1 auto;
+  text-align: right;
+  font-style: italic;
+  opacity: 0.75;
+  color: var(--dt-text-muted);
+}
+
+.dt-waterfall-pop-row--absent .dt-waterfall-pop-swatch {
+  opacity: 0.3;
 }
 
 .dt-waterfall-pop-total {
@@ -897,17 +1047,45 @@ body.dt-resizing-col {
   border-radius: 3px;
 }
 
-/* Anchor instant (End time) — the "Started at" line the elapsed phases are
- * measured FROM. Hatched to read as a baseline marker, distinct from the solid
- * fill of the rows that sum onto it. */
+/* Anchor instant — the milestone the active metric is measured FROM. Same solid
+ * yellow as the contributing rungs (one consistent cue), distinguished by the
+ * ↓ that points down to those rungs. */
 .dt-wf-pop-anchor {
-  display: inline-block;
   padding: 0 4px;
   margin: 0 -4px;
   border-radius: 3px;
-  background: repeating-linear-gradient(
-    -45deg,
-    rgba(255, 213, 79, 0.45) 0 4px,
-    rgba(255, 213, 79, 0.12) 4px 8px
-  );
+  background: rgba(255, 213, 79, 0.28);
+}
+
+/* A milestone row — a key moment (Queued / Started / Response / Ended): label,
+ * its offset from the first request, and a plain-language meaning. */
+.dt-waterfall-pop-moment {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  line-height: 17px;
+}
+
+.dt-waterfall-pop-moment-label {
+  flex: none;
+  width: 62px;
+}
+
+.dt-waterfall-pop-moment-value {
+  flex: none;
+  width: 78px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dt-waterfall-pop-moment-why {
+  flex: 1 1 auto;
+  color: var(--dt-text-muted);
+  font-size: 10px;
+  opacity: 0.85;
+}
+
+.dt-wf-pop-down {
+  margin-left: 4px;
+  font-weight: 700;
+  color: var(--dt-status-orange);
 }

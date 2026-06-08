@@ -1,47 +1,28 @@
 /**
- * Hover breakdown for a Waterfall bar — the compact cousin of the
- * Timing detail pane. Opens with the request's timeline instants (Queued /
- * Started / Response / Ended, relative to the first request in view), then
- * renders the canonical grouped phases (`computeTimingPhases`) with a
- * colored swatch, label, and duration per row, then a bold total. The
- * total reflects the active metric: Latency sums the pre-response phases
- * (it ends at the first byte); every other metric uses the full duration.
+ * Vertical timing ladder — the hover breakdown for a Waterfall bar.
  *
- * When `explain` is on, the popover annotates which rows the bar value is
- * built FROM — highlighting the instant alone just mirrors it back. Each
- * timeline metric marks an anchor instant (hatched, the clock's start) plus
- * the phase rows that elapse from there to its own instant: Start anchors at
- * "Queued at" and elapses Queueing; Response and End anchor at "Started at"
- * (Response stops before Content Download, End runs through it). So the user
- * reads "anchor + these rows = the instant" rather than a lone reading. The
- * duration metrics instead tint the phase rows in the bar's two tones, so the
- * rows that sum to the bar's latency value read as the waiting band and the
- * download row reads as the download band. Purely a visual cue layered over
- * the existing numbers; no value changes.
+ * Renders the full eight-rung ladder from {@link TimingLadder}: every rung is
+ * always shown, with a cumulative mini-bar and either its real value (including
+ * `0µs` for a step that happened instantly) or an explicit reason it is absent
+ * (`reused` / `not reached` / `n/a`). Each band's header names where it runs
+ * (Browser → Browser ↔ Network → Network), so the wire crossing reads inline.
+ *
+ * Instants are real-only: Queued and Started always; Response and Ended only
+ * when a response actually arrived. A terminal request that never got a response
+ * (blocked / failed before the wire) shows an outcome marker in their place.
+ *
+ * When "explain" is on, the anchor instant the active metric measures FROM is
+ * highlighted with a ↓, and the rungs that elapse from it to the metric's
+ * instant are highlighted too — so the user reads "anchor + these rungs = the
+ * value", not a lone restatement.
+ *
+ * Pure presentation over the ladder — no peeling, no dropped phases, no
+ * fabricated instants. Every number traces to a raw HAR field.
  */
 
-import type { CSSProperties } from 'react';
 import { formatTimeMs } from '../../data/format-time';
 import type { WaterfallMetric } from '../../data/network-columns';
-import { type PhaseTintSpan, phaseTints, type WaterfallTone } from '../../data/waterfall-geometry';
-import { type ComputedTimings, type TimingGroup, type TimingPhase, type TimingPhaseKey } from '../../data/timing-phases';
-
-const GROUP_LABEL: Record<TimingGroup, string> = {
-  scheduling: 'Resource Scheduling',
-  connection: 'Connection Start',
-  transfer: 'Request / Response',
-};
-
-const GROUP_ORDER: readonly TimingGroup[] = ['scheduling', 'connection', 'transfer'];
-
-type HeaderLine = 'queued' | 'started' | 'response' | 'ended';
-
-/** The two tones the duration bar paints, resolved from the hovered row's
- * resource-type palette so the popover bands match the bar exactly. */
-export interface BandColors {
-  waiting: string;
-  download: string;
-}
+import type { RungState, TimingBand, TimingLadder, TimingRungKey } from '../../data/timing-ladder';
 
 /**
  * Outcome for a terminal request that never received a response — blocked
@@ -55,167 +36,197 @@ export interface WaterfallTerminal {
   detail: string;
 }
 
-/**
- * How an instant metric explains itself: the header instant it measures FROM
- * (the anchor) plus the phase rows that elapse from there to the metric's own
- * instant. "Anchor + these rows = the instant" reads as a sum; marking the
- * instant line alone would just restate the value. Start time anchors at
- * "Queued at" (which is `+0` on the first request — the zero a user expects)
- * and elapses Queueing to reach "Started at". Response and End anchor at
- * "Started at" (the queue moment already folded in): Response stops at the
- * first byte, so it drops Content Download; End runs through it. Null for the
- * duration metrics (they tint bands).
- */
-function timelineExplain(
-  metric: WaterfallMetric,
-  data: ComputedTimings,
-): { anchor: HeaderLine; phaseKeys: ReadonlySet<TimingPhaseKey> } | null {
-  if (metric === 'startTime') return { anchor: 'queued', phaseKeys: new Set<TimingPhaseKey>(['queueing']) };
-  if (metric !== 'endTime' && metric !== 'responseTime') return null;
-  // Queueing is folded into the "Started at" anchor; Response stops at the
-  // first byte (drop Content Download), End runs through it.
-  const drop = (k: TimingPhaseKey) => k === 'queueing' || (metric === 'responseTime' && k === 'receive');
-  const phaseKeys = new Set<TimingPhaseKey>(data.phases.map((p) => p.key).filter((k) => !drop(k)));
-  return { anchor: 'started', phaseKeys };
+const BAND_LABEL: Record<TimingBand, string> = {
+  'before-wire': 'Scheduling',
+  connecting: 'Connecting',
+  exchange: 'Transferring',
+};
+
+/** Where each band runs — the wire story, spelled out: local, the handshake
+ *  round-trips, then data flowing over the network. */
+const BAND_WHERE: Record<TimingBand, string> = {
+  'before-wire': '(Browser)',
+  connecting: '(Browser ↔ Network)',
+  exchange: '(Network)',
+};
+
+const BAND_ORDER: readonly TimingBand[] = ['before-wire', 'connecting', 'exchange'];
+
+/** Tooltip for a `TCP 0µs` rung where TLS still ran — the socket's TCP leg was
+ *  already established off this request's clock (preconnect or a warm path;
+ *  `connectStart == secureConnectionStart`). Hedges the likely cause, claims no
+ *  mechanism the timings can't prove. */
+const WARM_SOCKET_TITLE =
+  "No TCP handshake on this request's clock — the socket was already established (likely preconnected). " +
+  'Only TLS ran here.';
+
+/** The reason an absent rung did not run, shown in place of a duration. */
+function absentText(state: Exclude<RungState, { kind: 'elapsed' }>): string {
+  switch (state.kind) {
+    case 'reused':
+      return 'connection reused';
+    case 'not-reached':
+      return 'not reached';
+    case 'na':
+      return 'n/a';
+  }
 }
 
-/** Paint a phase row from its tint spans: a solid band when wholly in one
- * tone, a hard-edged two-color gradient when a span boundary cuts the row. */
-function tintStyle(spans: readonly PhaseTintSpan[] | undefined, colors: BandColors): CSSProperties | undefined {
-  if (!spans || spans.length === 0) return undefined;
-  if (spans.length === 1) return { background: colors[spans[0].tone] };
-  let at = 0;
-  const stops = spans.map((s) => {
-    const from = at;
-    at += s.frac * 100;
-    return `${colors[s.tone]} ${from}% ${at}%`;
-  });
-  return { background: `linear-gradient(90deg, ${stops.join(', ')})` };
+type Anchor = 'queued' | 'started';
+
+interface ExplainSpec {
+  /** The instant the metric measures FROM (highlighted with a ↓), or `null` for
+   *  the aggregate metrics. */
+  anchor: Anchor | null;
+  /** The rungs that elapse from the anchor to the metric's instant. */
+  rungs: ReadonlySet<TimingRungKey>;
+  /** Highlight the Duration total instead (aggregate metrics). */
+  total: boolean;
+}
+
+/**
+ * What the active metric is built from: Start = Queued + Queueing; Response and
+ * End anchor at Started and run through their rungs; Duration / Latency are the
+ * aggregate, so they highlight the total.
+ */
+function explainSpec(metric: WaterfallMetric): ExplainSpec {
+  if (metric === 'startTime') return { anchor: 'queued', rungs: new Set(['queueing']), total: false };
+  if (metric === 'responseTime') {
+    return { anchor: 'started', rungs: new Set(['stalled', 'dns', 'connect', 'ssl', 'send', 'wait']), total: false };
+  }
+  if (metric === 'endTime') {
+    return {
+      anchor: 'started',
+      rungs: new Set(['stalled', 'dns', 'connect', 'ssl', 'send', 'wait', 'receive']),
+      total: false,
+    };
+  }
+  return { anchor: null, rungs: new Set(), total: true };
 }
 
 export function WaterfallTimingPopover({
-  data,
-  metric,
+  ladder,
   queuedAtMs,
+  metric,
   explain,
-  bandColors,
   unfinished,
   terminal,
   reusedOpener,
 }: {
-  data: ComputedTimings;
-  metric: WaterfallMetric;
-  /** Issue time relative to the timeline zero (the earliest request in view). */
+  ladder: TimingLadder;
+  /** Issue time relative to the timeline zero (the earliest request in view) —
+   *  added to the ladder's local instants for the absolute "… at" header. */
   queuedAtMs: number;
-  /** Highlight the rows the active metric is built from. */
+  metric: WaterfallMetric;
+  /** Show what the active metric is composed of (anchor + contributing rungs). */
   explain: boolean;
-  /** Bar tones for the duration metrics; absent for the timeline metrics. */
-  bandColors?: BandColors;
-  /** The request is still streaming — Content Download and the total are live,
-   * growing readings; show a caution that they are not yet final. */
+  /** Still streaming — Content Download and the total are growing, not final. */
   unfinished?: boolean;
-  /** A terminal request that never received a response (see {@link WaterfallTerminal});
-   * hides the Response / Ended instants and shows an outcome marker instead. */
+  /** A terminal request that never received a response (see {@link WaterfallTerminal}). */
   terminal?: WaterfallTerminal;
-  /** Display name of the request that opened this row's reused connection, when
-   * resolvable — appended to the reused-connection note as "opened by <name>". */
+  /** Display name of the request that opened this row's reused connection. */
   reusedOpener?: string;
 }) {
-  // Duration spans the whole request (issue → end), so it sums every phase
-  // including Queueing — browser parity. Latency instead measures the post-
-  // queue start to the first response byte, so it drops `queueing` + `receive`.
-  const isLatency = metric === 'latency';
-  const totalMs = data.phases
-    .filter((p) => !(isLatency && (p.key === 'queueing' || p.key === 'receive')))
-    .reduce((sum, p) => sum + p.ms, 0);
-  const totalLabel = isLatency ? 'Latency' : 'Duration';
+  const at = (localMs: number) => formatTimeMs(queuedAtMs + localMs);
+  const spec = explain ? explainSpec(metric) : null;
+  // Every rung's bar is positioned on the same [0, duration] track, so the rows
+  // stack into a cumulative waterfall. Guard a zero-duration request.
+  const span = ladder.durationMs > 0 ? ladder.durationMs : 1;
+  const pct = (ms: number) => `${(ms / span) * 100}%`;
+  const anyReused = ladder.rungs.some((r) => r.state.kind === 'reused');
+  // A `TCP 0µs` rung means no TCP handshake on this request's clock; when TLS
+  // still ran, the socket's TCP leg was set up earlier (preconnect / warm path).
+  const tlsState = ladder.rungs.find((r) => r.key === 'ssl')?.state;
+  const tlsRan = tlsState?.kind === 'elapsed' && tlsState.ms > 0;
 
-  // The timeline instants, all relative to the first request in view. Started
-  // lags the queue moment by Queueing; Response is the first byte (everything
-  // but Content Download); Ended is the finish.
-  const phaseMs = (key: string) => data.phases.find((p) => p.key === key)?.ms ?? 0;
-  const sumAll = data.phases.reduce((sum, p) => sum + p.ms, 0);
-  const startedAtMs = queuedAtMs + phaseMs('queueing');
-  const responseAtMs = queuedAtMs + Math.max(sumAll - phaseMs('receive'), 0);
-  const endedAtMs = queuedAtMs + sumAll;
-
-  // A terminal request that never got a response: hide the Response / Ended
-  // instants (they would relabel the moment it was blocked / failed as a
-  // response that never arrived) and show the outcome marker instead. The total
-  // is the real elapsed time (Queueing + the phases it did reach), labelled
-  // Duration — Latency means nothing without a first byte.
-  const noResponse = terminal != null;
-  const displayTotalMs = noResponse ? sumAll : totalMs;
-  const displayTotalLabel = noResponse ? 'Duration' : totalLabel;
-  // Always surface the Queueing row, even at 0 — the request's first
-  // intermediary state. The breakdown drops a 0ms phase, so synthesize it when
-  // absent (it is the only Resource Scheduling phase).
-  const schedulingPhases: readonly TimingPhase[] = data.byGroup.scheduling.some((p) => p.key === 'queueing')
-    ? data.byGroup.scheduling
-    : [{ key: 'queueing', label: 'Queueing', group: 'scheduling', ms: 0 }, ...data.byGroup.scheduling];
-  // Connection reused: a request that reached a response (wait / receive) but did
-  // no DNS / connect / TLS — it rode an already-open socket, so those setup
-  // phases are genuinely absent rather than zero. Note it (rather than padding
-  // "-" rows) so the missing phases read as "reused", not "unknown".
-  const reusedConnection =
-    data.phases.some((p) => p.key === 'wait' || p.key === 'receive') &&
-    !data.phases.some((p) => p.key === 'dns' || p.key === 'connect' || p.key === 'ssl');
-
-  const explainTimeline = explain ? timelineExplain(metric, data) : null;
-  const headerClass = (line: HeaderLine) => (explainTimeline?.anchor === line ? 'dt-wf-pop-anchor' : undefined);
-  const tints = explain && bandColors ? phaseTints(data, metric) : null;
-  // The phase rows that open a new tone band — a hairline gap above each keeps
-  // the waiting and download tones from butting into one smeared block.
-  const bandStarts = (() => {
-    const starts = new Set<TimingPhaseKey>();
-    if (!tints) return starts;
-    let prev: WaterfallTone | null = null;
-    for (const p of data.phases) {
-      const spans = tints.get(p.key);
-      const tone = spans?.length === 1 ? spans[0].tone : null;
-      if (tone && prev && tone !== prev) starts.add(p.key);
-      prev = tone;
-    }
-    return starts;
-  })();
+  // A milestone: the moment a key boundary happened (offset from the first
+  // request in view), with a plain-language meaning. Computed cumulatively from
+  // the rungs. The anchored milestone (the one the active metric measures FROM)
+  // is highlighted with a ↓ pointing at its contributing rungs below.
+  const moment = (line: Anchor | 'response' | 'ended', label: string, localMs: number, why: string) => {
+    const isAnchor = spec?.anchor === line;
+    return (
+      <div className={`dt-waterfall-pop-moment${isAnchor ? ' dt-wf-pop-anchor' : ''}`}>
+        <span className="dt-waterfall-pop-moment-label">{label}</span>
+        <span className="dt-waterfall-pop-moment-value">{at(localMs)}</span>
+        <span className="dt-waterfall-pop-moment-why">{why}</span>
+        {isAnchor && <span className="dt-wf-pop-down">↓</span>}
+      </div>
+    );
+  };
 
   return (
-    <div className="dt-waterfall-pop">
+    // Stop clicks here from reaching the row's select handler: antd portals the
+    // popover to <body>, but React replays events through the component tree, so
+    // a click inside would otherwise bubble to the row and open the request.
+    // biome-ignore lint/a11y/useKeyWithClickEvents: guard only, not an interactive element
+    <div className="dt-waterfall-pop" onClick={(e) => e.stopPropagation()}>
       <div className="dt-waterfall-pop-start">
-        <div className={headerClass('queued')}>Queued at {formatTimeMs(queuedAtMs)}</div>
-        <div className={headerClass('started')}>Started at {formatTimeMs(startedAtMs)}</div>
-        {!noResponse && <div className={headerClass('response')}>Response at {formatTimeMs(responseAtMs)}</div>}
-        {!noResponse && <div className={headerClass('ended')}>Ended at {formatTimeMs(endedAtMs)}</div>}
+        <div className="dt-waterfall-pop-head">
+          <span>Key moments</span>
+          <span className="dt-waterfall-pop-where">(since the first request)</span>
+        </div>
+        {moment('queued', 'Queued', 0, 'request created')}
+        {moment('started', 'Started', ladder.startedMs, 'left the queue')}
+        {ladder.responseMs != null && moment('response', 'Response', ladder.responseMs, 'first byte (TTFB)')}
+        {ladder.endedMs != null && moment('ended', 'Ended', ladder.endedMs, 'last byte, done')}
       </div>
-      {GROUP_ORDER.map((group) => {
-        const phases = group === 'scheduling' ? schedulingPhases : data.byGroup[group];
-        const showReusedNote = group === 'connection' && reusedConnection;
-        if (phases.length === 0 && !showReusedNote) return null;
-        return (
-          <div key={group} className="dt-waterfall-pop-group">
-            <div className="dt-waterfall-pop-head">{GROUP_LABEL[group]}</div>
-            {phases.map((p) => {
-              const style = tints && bandColors ? tintStyle(tints.get(p.key), bandColors) : undefined;
-              const contributes = explainTimeline?.phaseKeys.has(p.key) ?? false;
-              const cls = `dt-waterfall-pop-row${style ? ' dt-waterfall-pop-row--tint' : ''}${
-                contributes ? ' dt-waterfall-pop-row--hl' : ''
-              }${bandStarts.has(p.key) ? ' dt-waterfall-pop-row--band-start' : ''}`;
+      {/* The phase region is a little chart: down the Y axis = the steps in
+          sequence, across the X axis = elapsed time (the bars flow right). The
+          axes (drawn in CSS, arrowheads at the far ends) frame it so that
+          reading is explicit. */}
+      <div className="dt-waterfall-pop-phases">
+        <span className="dt-waterfall-pop-axis-x" aria-hidden="true">Elapsed time</span>
+        <span className="dt-waterfall-pop-axis-y" aria-hidden="true">
+          {'Steps'.split('').map((ch, i) => (
+            <span key={`${ch}-${i}`}>{ch}</span>
+          ))}
+        </span>
+        {BAND_ORDER.map((band) => (
+          <div key={band} className="dt-waterfall-pop-group">
+          <div className="dt-waterfall-pop-head">
+            <span>{BAND_LABEL[band]}</span>
+            <span className="dt-waterfall-pop-where">{BAND_WHERE[band]}</span>
+          </div>
+          {band === 'connecting' && anyReused && reusedOpener && (
+            <div className="dt-waterfall-pop-note">↳ connection opened by {reusedOpener}</div>
+          )}
+          {ladder.rungs
+            .filter((r) => r.band === band)
+            .map((r) => {
+              const hl = spec?.rungs.has(r.key) ? ' dt-waterfall-pop-row--hl' : '';
+              const absent = r.state.kind !== 'elapsed';
+              const warmSocket = r.key === 'connect' && r.state.kind === 'elapsed' && r.state.ms === 0 && tlsRan;
               return (
-                <div key={p.key} className={cls} style={style}>
-                  <span className={`dt-waterfall-pop-swatch dt-wf-fill--${p.key}`} aria-hidden="true" />
-                  <span className="dt-waterfall-pop-label">{p.label}</span>
-                  <span className="dt-waterfall-pop-ms">{formatTimeMs(p.ms)}</span>
+                <div
+                  key={r.key}
+                  className={`dt-waterfall-pop-row${absent ? ' dt-waterfall-pop-row--absent' : ''}${hl}`}
+                  title={warmSocket ? WARM_SOCKET_TITLE : undefined}
+                >
+                  <span className={`dt-waterfall-pop-swatch dt-wf-fill--${r.key}`} aria-hidden="true" />
+                  <span className="dt-waterfall-pop-label">
+                    <span className="dt-waterfall-pop-stepno">{ladder.rungs.indexOf(r) + 1}.</span> {r.label}
+                  </span>
+                  {r.state.kind === 'elapsed' ? (
+                    <>
+                      <span className="dt-waterfall-pop-track" aria-hidden="true">
+                        <span
+                          className={`dt-waterfall-pop-seg dt-wf-fill--${r.key}`}
+                          style={{ left: pct(r.startMs), width: pct(r.state.ms) }}
+                        />
+                        {warmSocket && <span className="dt-waterfall-pop-hint">warm socket</span>}
+                      </span>
+                      <span className="dt-waterfall-pop-ms">{formatTimeMs(r.state.ms)}</span>
+                    </>
+                  ) : (
+                    <span className="dt-waterfall-pop-absent-text">{absentText(r.state)}</span>
+                  )}
                 </div>
               );
             })}
-            {showReusedNote && (
-              <div className="dt-waterfall-pop-note">
-                connection reused (DNS, TCP, TLS){reusedOpener ? ` · opened by ${reusedOpener}` : ''}
-              </div>
-            )}
           </div>
-        );
-      })}
+        ))}
+      </div>
       {terminal && (
         <div className="dt-waterfall-pop-terminal">
           <div className="dt-waterfall-pop-terminal-head">✗ {terminal.label}</div>
@@ -223,9 +234,11 @@ export function WaterfallTimingPopover({
         </div>
       )}
       {unfinished && <div className="dt-waterfall-pop-caution">CAUTION: request is not finished yet!</div>}
-      <div className="dt-waterfall-pop-total">
-        <span>{displayTotalLabel}</span>
-        <span>{formatTimeMs(displayTotalMs)}</span>
+      <div className={`dt-waterfall-pop-total${spec?.total ? ' dt-wf-pop-hl' : ''}`}>
+        <span>
+          Total time <span className="dt-waterfall-pop-where">(queued → ended)</span>
+        </span>
+        <span>{formatTimeMs(ladder.durationMs)}</span>
       </div>
     </div>
   );

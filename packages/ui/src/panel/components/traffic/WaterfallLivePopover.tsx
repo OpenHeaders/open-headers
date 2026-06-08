@@ -33,7 +33,8 @@ export function WaterfallLivePopover({
 }) {
   if (!cdpEnhanced) {
     return (
-      <div className="dt-waterfall-pop">
+      // biome-ignore lint/a11y/useKeyWithClickEvents: guard only, not interactive
+      <div className="dt-waterfall-pop" onClick={(e) => e.stopPropagation()}>
         <div className="dt-waterfall-pop-caution">Live timing isn't captured for this request.</div>
         <div className="dt-waterfall-pop-explainer">
           Enable CDP and reload before navigating to capture each request's timing as it runs.
@@ -52,7 +53,8 @@ export function WaterfallLivePopover({
   const networkStarted = lc.hopNetworkStartMs != null;
   const startedAtMs = queuedAtMs + Math.max((lc.hopNetworkStartMs ?? lc.hopStartedAtMs) - lc.hopStartedAtMs, 0);
   return (
-    <div className="dt-waterfall-pop">
+    // biome-ignore lint/a11y/useKeyWithClickEvents: guard only, not interactive
+    <div className="dt-waterfall-pop" onClick={(e) => e.stopPropagation()}>
       <div className="dt-waterfall-pop-start">
         <div>Queued at {formatTimeMs(queuedAtMs)}</div>
         {networkStarted && <div>Started at {formatTimeMs(startedAtMs)}</div>}

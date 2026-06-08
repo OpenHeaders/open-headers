@@ -1,7 +1,7 @@
 /**
  * Timing ladder — the honest, full-picture breakdown. Always eight rungs, each
  * with an explicit state (a real duration incl. `0`, or `reused` / `not
- * reached` / `n/a`); `Initial connection = connect − ssl` (TCP only).
+ * reached` / `n/a`); the `TCP` rung = connect − ssl.
  */
 
 import type { InspectorHarEntry } from '@openheaders/core/types';
