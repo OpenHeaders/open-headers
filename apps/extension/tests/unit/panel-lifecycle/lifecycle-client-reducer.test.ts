@@ -92,6 +92,20 @@ describe('reduceClientUpdate — redirect', () => {
     expect(next.statusCode).toBeUndefined();
     expect(next.statusText).toBeUndefined();
   });
+
+  it('preserves the loader id across a redirect hop (mirror of the engine reducer)', () => {
+    // Loader id is the page-binding key — set once at start, stable across
+    // hops. The twin reducer must carry it just like the engine side does.
+    const prev = makeLifecycle({ phase: 'headers-received', statusCode: 301, loaderId: 'L1' });
+    const result = reduceClientUpdate(prev, {
+      kind: 'redirect',
+      tabId: 1,
+      requestId: 'r1',
+      hop: { sourceUrl: prev.url, redirectUrl: 'https://openheaders.io/b', statusCode: 301, timestampMs: 110 },
+      nextUrl: 'https://openheaders.io/b',
+    });
+    expect((result as RequestLifecycle).loaderId).toBe('L1');
+  });
 });
 
 describe('reduceClientUpdate — har-attached / body-attached', () => {

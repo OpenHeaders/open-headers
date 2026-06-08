@@ -143,6 +143,28 @@ describe('reducer — invariant 6 (redirect is the sole retrograde transition)',
     expect(r.next.statusCode).toBeUndefined();
   });
 
+  it('preserves the loader id across a redirect hop (set-once, redirect-stable)', () => {
+    // The host reuses one loader id for every hop of a navigation (it never
+    // re-creates the request with a new one), so the page binding survives the
+    // per-hop reset — unlike the timing fields above.
+    const state = makeLifecycle({ phase: 'headers-received', statusCode: 301, loaderId: 'L1' });
+    const r = reduce(state, {
+      kind: 'redirect',
+      tabId: 1,
+      requestId: 'req-1',
+      hop: {
+        sourceUrl: 'https://api.openheaders.io/users',
+        redirectUrl: 'https://api.openheaders.io/v2/users',
+        statusCode: 301,
+        timestampMs: 1_500,
+      },
+      nextUrl: 'https://api.openheaders.io/v2/users',
+    });
+    expect(r.kind).toBe('update');
+    if (r.kind !== 'update') return;
+    expect(r.next.loaderId).toBe('L1');
+  });
+
   it('rejects redirect arriving from a terminal phase', () => {
     const state = makeLifecycle({ phase: 'completed', completedAtMs: 2_000 });
     const r = reduce(state, {

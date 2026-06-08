@@ -320,17 +320,26 @@ export function TrafficList({
     [waterfallScale.mode, visibleColumns, pages, t0, tMax],
   );
 
-  // Supersession floor: the latest in-view navigation's start. A non-terminal
-  // row that started before it is a preserved-unknown — its issuing page
-  // unloaded mid-flight, so it reads "(unknown)" rather than "Pending" forever
-  // (Preserve-log off already scopes such rows out via the nav-clear floor).
-  const supersededFloorMs = pages.length > 0 ? pages[pages.length - 1].startedAtMs : -1;
+  // Supersession anchor: the latest in-view navigation. A non-terminal row
+  // bound to an earlier page (by loader id, or by start-time when no loader id
+  // is known) is a preserved-unknown — its issuing page unloaded mid-flight, so
+  // it reads "(unknown)" rather than "Pending" forever (Preserve-log off already
+  // scopes such rows out via the nav-clear floor).
+  const latestPage = pages.length > 0 ? pages[pages.length - 1] : null;
+  const supersededFloorMs = latestPage?.startedAtMs ?? -1;
+  const supersededLoaderId = latestPage?.loaderId;
 
   // Stable per-row render context — referentially constant across a pure
   // scroll so the memoized rows on screen skip re-render.
   const cellContext = useMemo<CellContext>(
-    () => ({ waterfall: waterfallScale, preflight, onJumpTo: handleJumpTo, supersededFloorMs, cdpEnhanced }),
-    [waterfallScale, preflight, handleJumpTo, supersededFloorMs, cdpEnhanced],
+    () => ({
+      waterfall: waterfallScale,
+      preflight,
+      onJumpTo: handleJumpTo,
+      superseded: { latestNavStartedAtMs: supersededFloorMs, latestPageLoaderId: supersededLoaderId },
+      cdpEnhanced,
+    }),
+    [waterfallScale, preflight, handleJumpTo, supersededFloorMs, supersededLoaderId, cdpEnhanced],
   );
 
   const toggleColumn = (key: ColumnKey) => {

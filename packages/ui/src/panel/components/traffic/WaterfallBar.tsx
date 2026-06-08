@@ -20,7 +20,7 @@ import { Popover } from 'antd';
 import type { ReactNode } from 'react';
 import { type WaterfallMetric, waterfallStartMs } from '../../data/network-columns';
 import type { InspectorRowWithFires } from '../../data/inspector-row-projection';
-import { isPreservedUnknown, PRESERVED_UNKNOWN_LABEL } from '../../data/request-state';
+import { isPreservedUnknown, PRESERVED_UNKNOWN_LABEL, type SupersessionAnchor } from '../../data/request-state';
 import type { ComputedTimings } from '../../data/timing-phases';
 import { barColors } from '../../data/waterfall-colors';
 import {
@@ -58,9 +58,9 @@ interface WaterfallBarProps {
   /** CDP provenance — drives the in-flight popover: with CDP we read the live
    *  request model for a not-yet-finished row, without it we explain the gap. */
   cdpEnhanced: boolean;
-  /** Supersession floor (see `CellContext`) — picks the in-flight inline label:
+  /** Supersession anchor (see `CellContext`) — picks the in-flight inline label:
    *  "(unknown)" for a preserved row, "Pending" otherwise. */
-  supersededFloorMs: number;
+  superseded: SupersessionAnchor;
 }
 
 /** The Time-column state shown when an in-flight row has no measurable timing
@@ -197,7 +197,7 @@ function bar(row: InspectorRowWithFires, scale: WaterfallScale, timing: Computed
   );
 }
 
-export function WaterfallBar({ row, scale, cdpEnhanced, supersededFloorMs }: WaterfallBarProps) {
+export function WaterfallBar({ row, scale, cdpEnhanced, superseded }: WaterfallBarProps) {
   // Rich hover breakdown when we have real phase data; otherwise the bar keeps
   // a plain native tooltip. While the row streams, this carries a live Content
   // Download leg so the bar, inline value, and popover all grow together.
@@ -206,7 +206,7 @@ export function WaterfallBar({ row, scale, cdpEnhanced, supersededFloorMs }: Wat
   // the bar reads its state instead — the same word the Time column shows.
   const inFlightNoTiming = timingDetail == null && row.lifecycle.completedAtMs == null;
   const stateLabel = inFlightNoTiming
-    ? isPreservedUnknown(row.lifecycle, supersededFloorMs)
+    ? isPreservedUnknown(row.lifecycle, superseded)
       ? PRESERVED_UNKNOWN_LABEL
       : PENDING_LABEL
     : null;

@@ -40,7 +40,7 @@ export function startCdpPageBridge(options: CdpPageBridgeOptions): CdpPageBridge
   const apply = (event: Parameters<CdpPageCorrelator['observe']>[0]): void => {
     for (const signal of correlator.observe(event)) {
       if (signal.kind === 'nav-started') {
-        hub.notifyNavStarted(signal.tabId, signal.startedAtMs, signal.url);
+        hub.notifyNavStarted(signal.tabId, signal.startedAtMs, signal.url, signal.loaderId);
       } else {
         hub.notifyNavTimingAttached(signal.tabId, signal.timing);
       }

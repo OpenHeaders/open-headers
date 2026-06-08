@@ -8,9 +8,9 @@
  * signal.
  *
  * Notify verbs (engine inputs):
- *   - `notifyNavStarted(tabId, startedAtMs, url?)` — page boundary;
- *     mints a `page_N` id, appends to the tab's page list, emits
- *     `page-started`.
+ *   - `notifyNavStarted(tabId, startedAtMs, url?, loaderId?)` — page
+ *     boundary; mints a `page_N` id, appends to the tab's page list, emits
+ *     `page-started`. `loaderId` (CDP source only) is the page-binding key.
  *   - `notifyNavTimingAttached(tabId, timing)` — refines the most-
  *     recent page with `pageOrigin` (when its url is still null),
  *     `navStartMs` (corrects the nav-commit start down to the true nav
@@ -54,13 +54,16 @@ export class PageStreamHub {
       : null;
   }
 
-  notifyNavStarted(tabId: number, startedAtMs: number, url: string | null = null): Page {
+  notifyNavStarted(tabId: number, startedAtMs: number, url: string | null = null, loaderId?: string): Page {
     this.registry.guardDisposed();
     const list = this.pagesByTab.get(tabId) ?? [];
     if (list.length === 0) this.pagesByTab.set(tabId, list);
     const next = (this.counters.get(tabId) ?? 0) + 1;
     this.counters.set(tabId, next);
-    const page: Page = { id: `page_${next}`, startedAtMs, url };
+    // `loaderId` is the CDP page source's page-binding key; the heuristic
+    // source passes none, so the page carries no loader id and consumers fall
+    // back to start-time binding.
+    const page: Page = { id: `page_${next}`, startedAtMs, url, ...(loaderId ? { loaderId } : {}) };
     list.push(page);
     this.registry.broadcast(tabId, { kind: 'page-started', tabId, page });
     return page;

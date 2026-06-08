@@ -68,7 +68,13 @@ describe('CdpPageCorrelator — page timing reconstruction', () => {
     // startedAtMs = (wallTime 1_700_000_000 - issue 100 + start 100.05) * 1000.
     const started = c.observe(frameNavigated('L1', 'https://app.openheaders.io/'));
     expect(started).toEqual([
-      { kind: 'nav-started', tabId: TAB, startedAtMs: 1_700_000_000_050, url: 'https://app.openheaders.io/' },
+      {
+        kind: 'nav-started',
+        tabId: TAB,
+        startedAtMs: 1_700_000_000_050,
+        url: 'https://app.openheaders.io/',
+        loaderId: 'L1',
+      },
     ]);
 
     // dcl = (101.626 - 100.05) * 1000 = 1576; the raw float carries scaling
@@ -113,7 +119,7 @@ describe('CdpPageCorrelator — page timing reconstruction', () => {
     c.observe(docRequest({ wallTime: 1000, timestamp: 50 }));
     // No docResponse → pageStart = issue time (50); startedAtMs = (1000 - 50 + 50) * 1000.
     expect(c.observe(frameNavigated('L1', 'https://app.openheaders.io/'))).toEqual([
-      { kind: 'nav-started', tabId: TAB, startedAtMs: 1_000_000, url: 'https://app.openheaders.io/' },
+      { kind: 'nav-started', tabId: TAB, startedAtMs: 1_000_000, url: 'https://app.openheaders.io/', loaderId: 'L1' },
     ]);
   });
 
@@ -143,7 +149,7 @@ describe('CdpPageCorrelator — page timing reconstruction', () => {
     c.observe(docResponse(50.2));
     // startedAtMs = (1000 - 50 + 50.0) * 1000 = 1_000_000; url = the root.
     expect(c.observe(frameNavigated('L1', 'https://app.openheaders.io/v2'))).toEqual([
-      { kind: 'nav-started', tabId: TAB, startedAtMs: 1_000_000, url: 'https://app.openheaders.io/' },
+      { kind: 'nav-started', tabId: TAB, startedAtMs: 1_000_000, url: 'https://app.openheaders.io/', loaderId: 'L1' },
     ]);
   });
 
@@ -153,7 +159,7 @@ describe('CdpPageCorrelator — page timing reconstruction', () => {
     c.observe(docResponse(50.05));
     // startedAtMs = (1000 - 50 + 50.05) * 1000 = 1_000_050; url = the request's.
     expect(c.observe(frameNavigated('L1', 'https://app.openheaders.io/'))).toEqual([
-      { kind: 'nav-started', tabId: TAB, startedAtMs: 1_000_050, url: 'https://app.openheaders.io/' },
+      { kind: 'nav-started', tabId: TAB, startedAtMs: 1_000_050, url: 'https://app.openheaders.io/', loaderId: 'L1' },
     ]);
   });
 

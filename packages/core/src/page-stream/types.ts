@@ -37,6 +37,15 @@ export interface Page {
    * `pageOrigin` is the fallback.
    */
   readonly url: string | null;
+  /**
+   * Loader id of the navigation that committed this page — CDP's main-frame
+   * `frameNavigated.loaderId`, the same id the page's requests carry as
+   * {@link RequestLifecycle.loaderId}. Lets a consumer bind a request to its
+   * page by identity (the host's `request.loaderId === mainFrame.loaderId`
+   * rule) rather than by start-time proximity. CDP-only; absent on the
+   * heuristic page source.
+   */
+  readonly loaderId?: string;
   /** DOMContentLoaded ms (relative to navigation start). */
   readonly dclMs?: number;
   /** Load event ms (relative to navigation start). */

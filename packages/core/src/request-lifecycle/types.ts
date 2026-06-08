@@ -69,6 +69,21 @@ export interface RequestLifecycle {
   readonly method: string;
   readonly resourceType: string;
   readonly initiator?: string;
+  /**
+   * Loader id of the navigation that issued this request — the page-binding
+   * key. Identical to the issuing page's {@link Page.loaderId}; the host's
+   * rule `request.loaderId !== mainFrame.loaderId` ⇒ the request belongs to a
+   * superseded prior page. Set once at request start and stable across the
+   * request's redirect hops (unlike the per-hop timing fields, it is never
+   * reset on redirect — the host reuses the same loader id for every hop of a
+   * navigation). CDP-only; the `chrome.webRequest` heuristic path carries no
+   * loader id, so consumers fall back to a start-time page binding when it is
+   * absent. A worker-fetched request carries an empty loader id at the wire
+   * (it belongs to no document); we leave the field unset there rather than
+   * stamping `''`, so identity comparison never mis-binds a worker request to
+   * a page.
+   */
+  readonly loaderId?: string;
 
   // Phase machine (invariants 3, 6).
   readonly phase: RequestPhase;

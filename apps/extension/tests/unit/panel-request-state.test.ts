@@ -287,10 +287,12 @@ describe('statusCellText with a correlator-supplied block reason (CDP)', () => {
   });
 });
 
-describe('isPreservedUnknown', () => {
+describe('isPreservedUnknown — start-time floor (no loader id)', () => {
   // A newer top-level navigation committed at this wall-clock; rows that
-  // started before it and never finished are preserved-unknown.
-  const NAV_AT = 1_000;
+  // started before it and never finished are preserved-unknown. With no loader
+  // id on either side (the heuristic page source), the predicate falls back to
+  // this start-time floor.
+  const floor = { latestNavStartedAtMs: 1_000 };
 
   it('non-terminal, no-status, started before a newer nav → preserved-unknown', () => {
     const lc = makeLifecycle({
@@ -301,7 +303,7 @@ describe('isPreservedUnknown', () => {
       completedAtMs: undefined,
       har: { response: undefined },
     });
-    expect(isPreservedUnknown(lc, NAV_AT)).toBe(true);
+    expect(isPreservedUnknown(lc, floor)).toBe(true);
     // Its logical state is still pending — only the cells override the label.
     expect(classifyRequestState(lc).kind).toBe('pending');
   });
@@ -315,7 +317,7 @@ describe('isPreservedUnknown', () => {
       completedAtMs: undefined,
       har: { response: undefined },
     });
-    expect(isPreservedUnknown(lc, NAV_AT)).toBe(false);
+    expect(isPreservedUnknown(lc, floor)).toBe(false);
   });
 
   it('non-terminal with a status (streaming), superseded → still preserved (Time reads unknown)', () => {
@@ -329,7 +331,7 @@ describe('isPreservedUnknown', () => {
       startedAtMs: 500,
       completedAtMs: undefined,
     });
-    expect(isPreservedUnknown(lc, NAV_AT)).toBe(true);
+    expect(isPreservedUnknown(lc, floor)).toBe(true);
   });
 
   it('terminal (completed) prior-page row → never preserved-unknown', () => {
@@ -338,7 +340,7 @@ describe('isPreservedUnknown', () => {
       startedAtMs: 500,
       completedAtMs: 800,
     });
-    expect(isPreservedUnknown(lc, NAV_AT)).toBe(false);
+    expect(isPreservedUnknown(lc, floor)).toBe(false);
   });
 
   it('no navigation observed (floor <= 0) → never preserved-unknown', () => {
@@ -350,7 +352,108 @@ describe('isPreservedUnknown', () => {
       completedAtMs: undefined,
       har: { response: undefined },
     });
-    expect(isPreservedUnknown(lc, -1)).toBe(false);
-    expect(isPreservedUnknown(lc, 0)).toBe(false);
+    expect(isPreservedUnknown(lc, { latestNavStartedAtMs: -1 })).toBe(false);
+    expect(isPreservedUnknown(lc, { latestNavStartedAtMs: 0 })).toBe(false);
+  });
+});
+
+describe('isPreservedUnknown — loader-identity binding (CDP)', () => {
+  // The latest page committed under loader L2; L1 is the superseded prior page.
+  // The floor (nav start) is deliberately EARLY so a transition-window row that
+  // started AFTER it would pass the time floor — proving loader identity, not
+  // time, is what decides supersession here.
+  const anchor = { latestNavStartedAtMs: 1_000, latestPageLoaderId: 'L2' };
+
+  it('non-terminal row bound to the superseded prior page (L1) → preserved-unknown', () => {
+    const lc = makeLifecycle({
+      phase: 'pending',
+      statusCode: undefined,
+      statusText: undefined,
+      startedAtMs: 500,
+      completedAtMs: undefined,
+      loaderId: 'L1',
+      har: { response: undefined },
+    });
+    expect(isPreservedUnknown(lc, anchor)).toBe(true);
+  });
+
+  it('transition-window row (old loader L1, started AFTER the new nav) → preserved-unknown', () => {
+    // The bug Slice C closes: on a slow nav the old page keeps issuing requests
+    // in [nav-start, commit]; they start after the floor but carry the old
+    // loader id. Time-floor would read them Pending; loader identity supersedes.
+    const lc = makeLifecycle({
+      phase: 'pending',
+      statusCode: undefined,
+      statusText: undefined,
+      startedAtMs: 1_500,
+      completedAtMs: undefined,
+      loaderId: 'L1',
+      har: { response: undefined },
+    });
+    expect(isPreservedUnknown(lc, anchor)).toBe(true);
+  });
+
+  it('non-terminal current-page row (latest loader L2) → not preserved', () => {
+    const lc = makeLifecycle({
+      phase: 'pending',
+      statusCode: undefined,
+      statusText: undefined,
+      startedAtMs: 500,
+      completedAtMs: undefined,
+      loaderId: 'L2',
+      har: { response: undefined },
+    });
+    expect(isPreservedUnknown(lc, anchor)).toBe(false);
+  });
+
+  it('unfinished old document (old loader, no terminal) → preserved-unknown', () => {
+    const lc = makeLifecycle({
+      phase: 'headers-received',
+      statusCode: 200,
+      statusText: 'OK',
+      resourceType: 'document',
+      startedAtMs: 500,
+      completedAtMs: undefined,
+      loaderId: 'L1',
+    });
+    expect(isPreservedUnknown(lc, anchor)).toBe(true);
+  });
+
+  it('terminal prior-page row (old loader, completed) → never preserved-unknown', () => {
+    const lc = makeLifecycle({
+      phase: 'completed',
+      startedAtMs: 500,
+      completedAtMs: 800,
+      loaderId: 'L1',
+    });
+    expect(isPreservedUnknown(lc, anchor)).toBe(false);
+  });
+
+  it('row carries a loader id but the latest page has none → falls back to the time floor', () => {
+    const lc = makeLifecycle({
+      phase: 'pending',
+      statusCode: undefined,
+      statusText: undefined,
+      startedAtMs: 1_500,
+      completedAtMs: undefined,
+      loaderId: 'L1',
+      har: { response: undefined },
+    });
+    // No page loader id → time floor: started after the floor → not preserved.
+    expect(isPreservedUnknown(lc, { latestNavStartedAtMs: 1_000 })).toBe(false);
+  });
+
+  it('latest page has a loader id but the row has none (worker request) → time-floor fallback', () => {
+    // A worker request carries no loader id; identity binding must not mis-bind
+    // it to the page. Started before the floor → preserved via the fallback.
+    const lc = makeLifecycle({
+      phase: 'pending',
+      statusCode: undefined,
+      statusText: undefined,
+      startedAtMs: 500,
+      completedAtMs: undefined,
+      har: { response: undefined },
+    });
+    expect(isPreservedUnknown(lc, anchor)).toBe(true);
   });
 });

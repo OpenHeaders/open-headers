@@ -22,7 +22,15 @@ import type { InspectorNavTiming } from '@openheaders/core/types';
  * so the hub stays the single owner of page-id assignment + fan-out.
  */
 export type CdpPageSignal =
-  | { readonly kind: 'nav-started'; readonly tabId: number; readonly startedAtMs: number; readonly url: string }
+  | {
+      readonly kind: 'nav-started';
+      readonly tabId: number;
+      readonly startedAtMs: number;
+      readonly url: string;
+      /** The committed main frame's loader id — the page-binding key, matched
+       *  against each request's `loaderId` to decide which page it belongs to. */
+      readonly loaderId: string;
+    }
   | { readonly kind: 'nav-timing'; readonly tabId: number; readonly timing: InspectorNavTiming };
 
 /**

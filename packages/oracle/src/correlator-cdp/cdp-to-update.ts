@@ -88,6 +88,11 @@ function startedUpdate(
     // never reads as the main document and the footer loses its redirect leg.
     resourceType: (event.type ?? 'other').toLowerCase(),
     initiator: event.initiator?.url,
+    // The navigation's loader id — the page-binding key, stable across this
+    // request's redirect hops (the host reuses it per navigation). A worker
+    // request carries an empty loader id at the wire; leave the field unset
+    // there so identity binding never mis-attributes a worker row to a page.
+    ...(event.loaderId ? { loaderId: event.loaderId } : {}),
     phase: 'pending',
     redirectHopCount: 0,
     redirectHops: [],

@@ -1,6 +1,5 @@
-import { describe, expect, it } from 'vitest';
-
 import type { PageStreamUpdate } from '@openheaders/core/page-stream';
+import { describe, expect, it } from 'vitest';
 
 import { PageStreamHub } from '../../src/page-stream-hub/hub';
 import type { Sink } from '../../src/page-stream-hub/types';
@@ -39,6 +38,16 @@ describe('PageStreamHub — notify + broadcast', () => {
     expect(a.id).toBe('page_1');
     expect(b.id).toBe('page_2');
     expect(c.id).toBe('page_1');
+  });
+
+  it('stamps the loader id on the page when one is supplied (CDP source)', () => {
+    const hub = new PageStreamHub();
+    const withLoader = hub.notifyNavStarted(1, 100, 'https://openheaders.io/a', 'L1');
+    const withoutLoader = hub.notifyNavStarted(1, 200, 'https://openheaders.io/b');
+    expect(withLoader.loaderId).toBe('L1');
+    // Heuristic source passes none → no loader id, so consumers fall back to
+    // start-time page binding.
+    expect(withoutLoader.loaderId).toBeUndefined();
   });
 
   it('broadcasts page-started to live sinks for the matching tab only', () => {

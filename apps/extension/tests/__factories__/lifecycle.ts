@@ -90,6 +90,8 @@ export interface LifecycleOverrides {
   url?: string;
   method?: string;
   resourceType?: string;
+  /** Navigation loader id — the page-binding key for supersession. */
+  loaderId?: string;
   phase?: RequestLifecycle['phase'];
   startedAtMs?: number;
   hopStartedAtMs?: number;
@@ -134,6 +136,7 @@ export function makeLifecycle(over: LifecycleOverrides = {}): RequestLifecycle {
     method: over.method ?? 'GET',
     resourceType: over.resourceType ?? 'xmlhttprequest',
     ...(over.initiator ? { initiator: over.initiator } : {}),
+    ...(over.loaderId ? { loaderId: over.loaderId } : {}),
     phase,
     redirectHopCount: over.redirectHopCount ?? 0,
     redirectHops: over.redirectHops ?? [],

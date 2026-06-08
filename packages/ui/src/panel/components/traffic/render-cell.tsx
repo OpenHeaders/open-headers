@@ -7,6 +7,7 @@ import {
   PRESERVED_UNKNOWN_LABEL,
   PRESERVED_UNKNOWN_TITLE,
   type RequestState,
+  type SupersessionAnchor,
   statusCellText,
   statusCellTitle,
 } from '../../data/request-state';
@@ -24,12 +25,12 @@ export interface CellContext {
   preflight: PreflightIndex;
   onJumpTo: (requestId: string) => void;
   /**
-   * `startedAtMs` of the latest in-view committed top-level navigation — the
-   * supersession floor. A non-terminal row that started before it is a
-   * preserved-unknown (its page unloaded mid-flight); `-1` when no navigation
-   * is in view.
+   * The latest in-view committed top-level navigation — the supersession
+   * anchor. A non-terminal row bound to an earlier page (by loader id, or by
+   * start-time floor when no loader id is known) is a preserved-unknown (its
+   * page unloaded mid-flight).
    */
-  supersededFloorMs: number;
+  superseded: SupersessionAnchor;
   /** CDP provenance — the in-flight waterfall popover reads the live request
    *  model with CDP, or explains the gap without it. */
   cdpEnhanced: boolean;
@@ -89,7 +90,7 @@ export function renderCell(
     // A preserved row whose page unloaded mid-flight with no status reads
     // "(unknown)" — but a real status precedes preservation (host parity: a
     // streaming row that already had a status keeps it).
-    const preservedUnknown = effectiveStatusCode(lc) == null && isPreservedUnknown(lc, ctx.supersededFloorMs);
+    const preservedUnknown = effectiveStatusCode(lc) == null && isPreservedUnknown(lc, ctx.superseded);
     // Grey the cell for a cache hit or any no-status row (pending / opaque /
     // unknown) — browser parity is a dimmed cell, not a coloured one.
     // Everything else is plain: the browser tints no status range.
@@ -166,11 +167,11 @@ export function renderCell(
         row={row}
         scale={ctx.waterfall}
         cdpEnhanced={ctx.cdpEnhanced}
-        supersededFloorMs={ctx.supersededFloorMs}
+        superseded={ctx.superseded}
       />
     );
   }
-  if (col.key === 'time' && durationMs(lc) < 0 && isPreservedUnknown(lc, ctx.supersededFloorMs)) {
+  if (col.key === 'time' && durationMs(lc) < 0 && isPreservedUnknown(lc, ctx.superseded)) {
     // Host precedence (renderTimeCell): a measurable duration wins. A preserved
     // row that received data has an advancing endTime (our `lastActivityAtMs`),
     // so it keeps reading its elapsed time, frozen at last activity — exactly as

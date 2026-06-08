@@ -169,7 +169,7 @@ export class CdpPageCorrelator {
     // Anchor the page title to the chain-root request URL (the host's bound
     // `mainRequest.url()`), not the final committed URL `event.frame.url` —
     // they differ for a redirected navigation.
-    return [{ kind: 'nav-started', tabId: event.tabId, startedAtMs, url: doc.url }];
+    return [{ kind: 'nav-started', tabId: event.tabId, startedAtMs, url: doc.url, loaderId: doc.loaderId }];
   }
 
   private onMilestone(tabId: number, eventSec: number, which: 'dcl' | 'load'): readonly CdpPageSignal[] {

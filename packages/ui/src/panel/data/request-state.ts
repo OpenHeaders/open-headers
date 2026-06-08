@@ -163,6 +163,14 @@ export function classifyRequestState(lifecycle: RequestLifecycle): RequestState 
 // Preserve-log and renders their unknowable outcome as `(unknown)` in both the
 // Status and Time cells — a row whose issuing page is gone is terminal for
 // display even though the engine never saw it finish.
+//
+// The host decides "issuing page is gone" by loader identity, not by time: on
+// each primary-page change it carries a request into the new page iff
+// `request.loaderId === mainFrame.loaderId`, otherwise it marks it preserved.
+// We mirror that — a non-terminal row whose loader id differs from the latest
+// page's loader id is superseded — and fall back to a start-time floor only
+// when no loader id is available (the heuristic page source, or a worker
+// request that carries none).
 
 /** The Status/Time label for a request whose issuing page unloaded mid-flight. */
 export const PRESERVED_UNKNOWN_LABEL = '(unknown)';
@@ -171,18 +179,38 @@ export const PRESERVED_UNKNOWN_TITLE =
   'The request status cannot be shown here because the page that issued it unloaded while the request was in flight.';
 
 /**
- * Whether a row is a preserved-unknown: a non-terminal request from a page that
- * a newer committed top-level navigation has superseded. `latestNavStartedAtMs`
- * is that navigation's `startedAtMs` (the latest in-view page's start); a row is
- * superseded when it started before it and never reached a terminal phase
- * (`completedAtMs == null`). Path-agnostic — `completedAtMs` is set by whichever
- * backend delivers a terminal event, and the nav floor rides the page stream
- * both paths feed. A completed prior-page row renders normally (it has a real
- * outcome), so the gate excludes it. `latestNavStartedAtMs <= 0` (no navigation
- * observed) → never preserved-unknown.
+ * The latest in-view navigation, the binding a row is tested against.
+ * `latestPageLoaderId` is its loader id (CDP page source); `latestNavStartedAtMs`
+ * is its `startedAtMs`, the time-floor fallback used when no loader id is known.
  */
-export function isPreservedUnknown(lifecycle: RequestLifecycle, latestNavStartedAtMs: number): boolean {
-  return latestNavStartedAtMs > 0 && lifecycle.completedAtMs == null && lifecycle.startedAtMs < latestNavStartedAtMs;
+export interface SupersessionAnchor {
+  readonly latestNavStartedAtMs: number;
+  readonly latestPageLoaderId?: string;
+}
+
+/**
+ * Whether a row is a preserved-unknown: a non-terminal request from a page that
+ * a newer committed top-level navigation has superseded. A completed row renders
+ * normally (it has a real outcome), so the terminal gate excludes it first.
+ *
+ * Binding, in the host's order of authority:
+ *   1. **Loader identity** (CDP). When both the row and the latest page carry a
+ *      loader id, the row is superseded iff they differ — the host's
+ *      `request.loaderId !== mainFrame.loaderId` rule. This is start-time
+ *      agnostic, so it correctly supersedes a prior-page subresource issued in
+ *      the slow [nav-start, commit] transition window (its loader id is the old
+ *      page's even though it started after the new nav began).
+ *   2. **Start-time floor** (fallback). With no loader id on either side — the
+ *      heuristic page source, or a worker request that carries none — a row is
+ *      superseded when it started before the latest navigation. `latestNavStartedAtMs
+ *      <= 0` (no navigation observed) → never preserved-unknown.
+ */
+export function isPreservedUnknown(lifecycle: RequestLifecycle, anchor: SupersessionAnchor): boolean {
+  if (lifecycle.completedAtMs != null) return false;
+  if (anchor.latestPageLoaderId && lifecycle.loaderId) {
+    return lifecycle.loaderId !== anchor.latestPageLoaderId;
+  }
+  return anchor.latestNavStartedAtMs > 0 && lifecycle.startedAtMs < anchor.latestNavStartedAtMs;
 }
 
 // ── Status-cell presentation ─────────────────────────────────────

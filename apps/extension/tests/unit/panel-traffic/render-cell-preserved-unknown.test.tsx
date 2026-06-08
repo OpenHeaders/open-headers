@@ -34,15 +34,20 @@ const CTX: CellContext = {
   },
   preflight: new Map(),
   onJumpTo: () => {},
-  supersededFloorMs: NAV_AT,
+  superseded: { latestNavStartedAtMs: NAV_AT },
   cdpEnhanced: true,
 };
 
-function cell(key: 'status' | 'time', over: RowOverrides) {
+// CDP variant: the latest page committed under loader L2; rows bound to the
+// superseded prior page (L1) read "(unknown)" by loader identity, even when
+// they started after the nav floor (the slow-nav transition window).
+const CTX_CDP: CellContext = { ...CTX, superseded: { latestNavStartedAtMs: NAV_AT, latestPageLoaderId: 'L2' } };
+
+function cell(key: 'status' | 'time', over: RowOverrides, ctx: CellContext = CTX) {
   const row = makeRow(over);
   const state = classifyRequestState(row.lifecycle);
   const sizeInfo = getSizeInfo(row.lifecycle, state);
-  return render(renderCell(COLUMN_DEFS[key], row, state, sizeInfo, CTX));
+  return render(renderCell(COLUMN_DEFS[key], row, state, sizeInfo, ctx));
 }
 
 // A prior-page, never-finished, no-status request (superseded by NAV_AT).
@@ -111,6 +116,34 @@ describe('renderCell — preserved-unknown', () => {
     };
     expect(cell('status', current).container.querySelector('span')?.textContent).toBe('(pending)');
     expect(cell('time', current).container.querySelector('span')?.textContent).toBe('Pending');
+  });
+
+  it('CDP: a transition-window row (old loader, started after the nav) reads "(unknown)" in both cells', () => {
+    // Bound to the superseded prior page (L1) though it started after the nav
+    // floor — loader identity supersedes it where the time floor would not.
+    const transitionWindow: RowOverrides = {
+      phase: 'pending',
+      statusCode: undefined,
+      statusText: undefined,
+      startedAtMs: 1_500,
+      loaderId: 'L1',
+      har: [null],
+    };
+    expect(cell('status', transitionWindow, CTX_CDP).container.querySelector('span')?.textContent).toBe('(unknown)');
+    expect(cell('time', transitionWindow, CTX_CDP).container.querySelector('span')?.textContent).toBe('(unknown)');
+  });
+
+  it('CDP: a current-page row (latest loader) reads pending even if it started before the nav floor', () => {
+    const currentPage: RowOverrides = {
+      phase: 'pending',
+      statusCode: undefined,
+      statusText: undefined,
+      startedAtMs: 500,
+      loaderId: 'L2',
+      har: [null],
+    };
+    expect(cell('status', currentPage, CTX_CDP).container.querySelector('span')?.textContent).toBe('(pending)');
+    expect(cell('time', currentPage, CTX_CDP).container.querySelector('span')?.textContent).toBe('Pending');
   });
 });
 
