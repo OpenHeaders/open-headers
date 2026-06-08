@@ -37,6 +37,7 @@ import { GeneralRow } from './headers/GeneralRow';
 import { HeaderSection } from './headers/HeaderSection';
 import { HeaderMoreFiltersMenu, HeaderViewMenu } from './headers/HeadersMenus';
 import { InsightCard } from './headers/InsightCard';
+import { ProvisionalHeadersBanner } from './headers/ProvisionalHeadersBanner';
 import { formatBytes } from './headers/utils';
 
 export type { HeaderLayoutMode, HeaderSortMode } from './headers/types';
@@ -332,6 +333,7 @@ export function HeadersView({
         searchHighlight={searchHighlight}
         searchSection={searchSection}
         searchLineNumber={searchLineNumber}
+        banner={lc.requestHeadersProvisional ? <ProvisionalHeadersBanner cached={lc.fromCache === true} /> : undefined}
       />
     </div>
   );

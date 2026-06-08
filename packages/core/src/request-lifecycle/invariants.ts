@@ -126,6 +126,16 @@ export function patchRefines(prev: RequestLifecycle, patch: RequestLifecyclePatc
   ) {
     return false;
   }
+  if ('requestHeaders' in patch && patch.requestHeaders === undefined && prev.requestHeaders !== undefined) {
+    return false;
+  }
+  if (
+    'requestHeadersProvisional' in patch &&
+    patch.requestHeadersProvisional === undefined &&
+    prev.requestHeadersProvisional !== undefined
+  ) {
+    return false;
+  }
   return true;
 }
 

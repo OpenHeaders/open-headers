@@ -44,8 +44,11 @@ describe('CdpCorrelator — attach / subscribe / emit', () => {
     correlator.subscribe((u) => collected.push(u));
     correlator.attachTab(TAB);
     source.emit(startEvent);
-    expect(collected).toHaveLength(1);
+    // `started` (lifecycle spine) is followed by the builder's request-header
+    // patch — the current hop's cooked/provisional set, surfaced before any HAR.
+    expect(collected).toHaveLength(2);
     expect(collected[0]?.kind).toBe('started');
+    expect(collected[1]).toMatchObject({ kind: 'phase', patch: { requestHeadersProvisional: true } });
     correlator.dispose();
   });
 
@@ -58,7 +61,9 @@ describe('CdpCorrelator — attach / subscribe / emit', () => {
     source.emit(startEvent);
     correlator.detachTab(TAB);
     source.emit({ ...startEvent, requestId: 'r-2' });
-    expect(fn).toHaveBeenCalledTimes(1);
+    // One `requestWillBeSent` emits two updates (`started` + request headers);
+    // after detach the second event emits nothing.
+    expect(fn).toHaveBeenCalledTimes(2);
     correlator.dispose();
   });
 

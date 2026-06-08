@@ -73,10 +73,18 @@ describe('CdpCorrelatorStub → RequestLifecycleStore — canonical success trac
     expect(lc.redirectHopCount).toBe(0);
     expect(lc.redirectHops).toEqual([]);
     expect(h.onReject).not.toHaveBeenCalled();
-    // Applied stream: started → phase(headers-received) + har-attached →
-    // phase(completed) + refined har-attached. The builder emits a HAR at
+    // Applied stream: started → phase(request headers) → phase(headers-received)
+    // + har-attached → phase(completed) + refined har-attached. The builder
+    // surfaces the request headers right after `started`, then emits a HAR at
     // responseReceived and refines it at loadingFinished.
-    expect(h.applied.map((u) => u.kind)).toEqual(['started', 'phase', 'har-attached', 'phase', 'har-attached']);
+    expect(h.applied.map((u) => u.kind)).toEqual([
+      'started',
+      'phase',
+      'phase',
+      'har-attached',
+      'phase',
+      'har-attached',
+    ]);
 
     h.correlator.dispose();
   });
@@ -113,13 +121,17 @@ describe('CdpCorrelatorStub → RequestLifecycleStore — single-redirect trace'
     expect(lc.redirectHops[0]?.redirectUrl).toBe('https://api.openheaders.io/v2/users');
     expect(lc.redirectHops[0]?.statusCode).toBe(301);
     expect(h.onReject).not.toHaveBeenCalled();
-    // Applied stream: started → redirect + har-attached(hop 0, synthesized
-    // from redirectResponse) → phase(headers-received) + har-attached(hop 1)
-    // → phase(completed) + refined har-attached(hop 1).
+    // Applied stream: started → phase(request headers, hop 0) → redirect +
+    // har-attached(hop 0, synthesized from redirectResponse) + phase(request
+    // headers, hop 1) → phase(headers-received) + har-attached(hop 1) →
+    // phase(completed) + refined har-attached(hop 1). Each hop's request
+    // headers surface as a `phase` patch right after the hop's request event.
     expect(h.applied.map((u) => u.kind)).toEqual([
       'started',
+      'phase',
       'redirect',
       'har-attached',
+      'phase',
       'phase',
       'har-attached',
       'phase',
@@ -187,8 +199,9 @@ describe('CdpCorrelatorStub → RequestLifecycleStore — failure trace', () => 
     expect(lc.completedAtMs).toBe(1_700_000_000_700);
     expect(h.onReject).not.toHaveBeenCalled();
     // A failed-before-response request still synthesizes a status-0 HAR entry
-    // (Chrome parity), so a har-attached follows the phase update.
-    expect(h.applied.map((u) => u.kind)).toEqual(['started', 'phase', 'har-attached']);
+    // (Chrome parity), so a har-attached follows. The request-header `phase`
+    // (after `started`) precedes the failure `phase`.
+    expect(h.applied.map((u) => u.kind)).toEqual(['started', 'phase', 'phase', 'har-attached']);
     expect(lc.har[0]?.response?.status).toBe(0);
     expect(lc.har[0]?.response?._error).toBe('net::ERR_CONNECTION_RESET');
 

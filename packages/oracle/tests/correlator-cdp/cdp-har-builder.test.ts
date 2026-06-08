@@ -303,9 +303,12 @@ describe('CdpHarBuilder — *ExtraInfo header merge', () => {
     expect(partial.request?.cookies).toEqual([{ name: 'sid', value: 'cooked' }]);
     expect(partial.response?.cookies).toEqual([{ name: 'cooked', value: '1' }]);
 
-    // A request-extra arriving after the response re-emits immediately.
+    // A request-extra arriving after the response both promotes the lifecycle
+    // request headers to the wire set (clearing provisional) and re-emits the
+    // refined HAR.
     const reqUpdates = builder.observe(cdpRequestExtra(ctx, { Cookie: 'sid=wire' }));
-    expect(reqUpdates).toHaveLength(1);
+    expect(reqUpdates).toHaveLength(2);
+    expect(reqUpdates[0]).toMatchObject({ kind: 'phase', patch: { requestHeadersProvisional: false } });
     expect(lastHarEntry(reqUpdates).request?.cookies).toEqual([{ name: 'sid', value: 'wire' }]);
 
     // A response-extra likewise supersedes the response section.
@@ -347,7 +350,9 @@ describe('CdpHarBuilder — *ExtraInfo header merge', () => {
         { timestamp: 999.1, wallTime: 1000.1 },
       ),
     );
-    const u0 = hop0.at(-1);
+    // The redirect emits hop 0's finalized HAR plus hop 1's request-header
+    // patch; pick out the har-attached.
+    const u0 = hop0.find((u) => u.kind === 'har-attached');
     if (u0?.kind !== 'har-attached') throw new Error('expected har-attached for hop 0');
     expect(u0.hopIndex).toBe(0);
     expect(u0.har.response?.cookies).toEqual([{ name: 'hop0', value: 'a' }]);
@@ -429,7 +434,10 @@ describe('CdpHarBuilder — redirect hops', () => {
   it('synthesizes the prior hop HAR from redirectResponse at its own hopIndex', () => {
     const builder = new CdpHarBuilder();
     // issue at the timing base (999) so the hop isn't reported as queued.
-    expect(builder.observe(cdpStart(ctx, { wallTime: 1000, timestamp: 999 }))).toEqual([]);
+    // `requestWillBeSent` surfaces the hop's cooked (provisional) request headers.
+    expect(builder.observe(cdpStart(ctx, { wallTime: 1000, timestamp: 999 }))).toMatchObject([
+      { kind: 'phase', patch: { requestHeadersProvisional: true } },
+    ]);
 
     const hop0 = builder.observe(
       cdpRedirect(
@@ -445,8 +453,9 @@ describe('CdpHarBuilder — redirect hops', () => {
         { timestamp: 999.1, wallTime: 1000.1 },
       ),
     );
-    expect(hop0).toHaveLength(1);
-    const u0 = hop0[0];
+    // hop 0's finalized HAR plus hop 1's cooked request-header patch.
+    expect(hop0).toHaveLength(2);
+    const u0 = hop0.find((u) => u.kind === 'har-attached');
     if (u0?.kind !== 'har-attached') throw new Error('expected har-attached for hop 0');
     expect(u0.hopIndex).toBe(0);
     expect(u0.har.response?.status).toBe(301);

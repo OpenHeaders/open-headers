@@ -213,6 +213,63 @@ describe('reduceClientUpdate — in-flight progress mirror (twin of the engine r
   });
 });
 
+describe('reduceClientUpdate — request headers + provisional (twin of the engine reducer)', () => {
+  it('carries the cooked request headers + provisional flag from a phase patch', () => {
+    const prev = makeLifecycle();
+    const result = reduceClientUpdate(prev, {
+      kind: 'phase',
+      tabId: 1,
+      requestId: 'r1',
+      patch: {
+        requestHeaders: [{ name: 'Origin', value: 'https://openheaders.io' }],
+        requestHeadersProvisional: true,
+      },
+    });
+    const next = result as RequestLifecycle;
+    expect(next.requestHeaders).toEqual([{ name: 'Origin', value: 'https://openheaders.io' }]);
+    expect(next.requestHeadersProvisional).toBe(true);
+  });
+
+  it('promotes to the on-the-wire set, clearing provisional (cooked → wire refinement)', () => {
+    const prev = makeLifecycle({
+      requestHeaders: [{ name: 'Origin', value: 'https://openheaders.io' }],
+      requestHeadersProvisional: true,
+    });
+    const result = reduceClientUpdate(prev, {
+      kind: 'phase',
+      tabId: 1,
+      requestId: 'r1',
+      patch: {
+        requestHeaders: [
+          { name: 'Origin', value: 'https://openheaders.io' },
+          { name: 'Cookie', value: 'sid=wire' },
+        ],
+        requestHeadersProvisional: false,
+      },
+    });
+    const next = result as RequestLifecycle;
+    expect(next.requestHeaders).toHaveLength(2);
+    expect(next.requestHeadersProvisional).toBe(false);
+  });
+
+  it('resets request headers + provisional with the hop on redirect', () => {
+    const prev = makeLifecycle({
+      requestHeaders: [{ name: 'Origin', value: 'https://openheaders.io' }],
+      requestHeadersProvisional: true,
+    });
+    const result = reduceClientUpdate(prev, {
+      kind: 'redirect',
+      tabId: 1,
+      requestId: 'r1',
+      hop: { sourceUrl: prev.url, redirectUrl: 'https://openheaders.io/b', statusCode: 302, timestampMs: 110 },
+      nextUrl: 'https://openheaders.io/b',
+    });
+    const next = result as RequestLifecycle;
+    expect(next.requestHeaders).toBeUndefined();
+    expect(next.requestHeadersProvisional).toBeUndefined();
+  });
+});
+
 describe('reduceClientUpdate — gone', () => {
   it('returns null when the lifecycle exists', () => {
     const prev = makeLifecycle();

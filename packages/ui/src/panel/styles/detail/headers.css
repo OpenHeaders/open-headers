@@ -77,6 +77,32 @@
   font-size: 11px;
 }
 
+/* Provisional-headers warning — sits under the Request Headers summary,
+ * above the rows. Amber left accent + muted fill, matching the insight-card
+ * warn idiom. */
+.dt-provisional-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 12px 2px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--dt-border);
+  border-left: 3px solid var(--dt-status-orange);
+  background: var(--dt-bg-alt);
+  font-size: 12px;
+}
+.dt-provisional-banner-icon {
+  flex-shrink: 0;
+  color: var(--dt-status-orange);
+}
+.dt-provisional-banner-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  line-height: 1.4;
+  color: var(--dt-text-muted);
+}
+
 /* Pane wrapper. */
 .dt-headers-pane {
   /* Section summaries (General / Response / Request) stick BELOW the

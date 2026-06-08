@@ -37,6 +37,9 @@ interface HeaderSectionProps {
   searchHighlight?: string;
   searchSection?: string;
   searchLineNumber?: number;
+  /** Rendered under the section summary, above the rows — e.g. the
+   *  provisional-headers warning on the Request Headers section. */
+  banner?: React.ReactNode;
 }
 
 function sortRows(items: readonly RowItem[], mode: HeaderSortMode): RowItem[] {
@@ -74,6 +77,7 @@ export function HeaderSection({
   searchHighlight,
   searchSection,
   searchLineNumber,
+  banner,
 }: HeaderSectionProps) {
   const [rawView, setRawView] = useState(false);
   const [copyOpen, setCopyOpen] = useState(false);
@@ -218,6 +222,8 @@ export function HeaderSection({
           )}
         </div>
       </summary>
+
+      {banner}
 
       {rows.length === 0 ? (
         <div className="dt-kv dt-col-muted">None captured.</div>

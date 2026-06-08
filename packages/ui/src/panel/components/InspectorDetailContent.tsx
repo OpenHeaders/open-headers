@@ -180,13 +180,19 @@ export function InspectorDetailContent({
     return false;
   }, [liveRulesMode, row.fires, rulesByUid]);
 
+  // Before the response-gated HAR lands, the lifecycle carries the request
+  // headers on their own (cooked/provisional, see `lc.requestHeaders`) so an
+  // in-flight or never-completed row still shows what the browser assembled.
+  // Once the HAR arrives both sets agree; preferring the HAR keeps the finished
+  // row on its single authoritative source.
+  const requestHeaderSource = har?.request?.headers ?? lc.requestHeaders ?? [];
   const requestHeaders = useMemo<readonly AnnotatedHeader[]>(
     () =>
-      attributeHeaders(har?.request?.headers ?? [], row.fires, 'request', rulesByUid, {
+      attributeHeaders(requestHeaderSource, row.fires, 'request', rulesByUid, {
         cacheBypassEnabled,
         liveRulesFired,
       }),
-    [har?.request?.headers, row.fires, rulesByUid, cacheBypassEnabled, liveRulesFired],
+    [requestHeaderSource, row.fires, rulesByUid, cacheBypassEnabled, liveRulesFired],
   );
   const responseHeaders = useMemo<readonly AnnotatedHeader[]>(
     () =>

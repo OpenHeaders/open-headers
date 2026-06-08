@@ -145,6 +145,28 @@ export interface RequestLifecycle {
   readonly error?: RequestError;
 
   /**
+   * The current hop's request headers, known from request-start — independent
+   * of the response-gated {@link har}, so an in-flight or never-completed row
+   * can surface its request headers before any HAR entry lands. Seeded with
+   * the renderer-assembled (cooked) set — what the browser *intends* to send —
+   * then superseded by the on-the-wire set once the network stack reports it,
+   * a value refinement under invariant 5. Resets per hop on redirect. CDP-only;
+   * the heuristic path leaves it unset and reads request headers from the
+   * attached HAR. Mirrors the browser's first-class request-header field.
+   */
+  readonly requestHeaders?: readonly { name: string; value: string }[];
+  /**
+   * True while {@link requestHeaders} holds only the cooked (provisional) set —
+   * the on-the-wire headers have not superseded it. Flips false when the
+   * network stack's actual sent set arrives. Stays true for a row whose request
+   * never reached the network as a fresh on-the-wire exchange (served from
+   * cache, blocked before send, or the on-the-wire report withheld) — exactly
+   * the browser's "provisional headers are shown" condition. Resets per hop on
+   * redirect.
+   */
+  readonly requestHeadersProvisional?: boolean;
+
+  /**
    * Per-hop HAR shell forwarded from the devtools_page. Index = hop
    * number; hop 0 is the original request, hop N is the request after
    * the Nth redirect. Slots for hops whose HAR has not landed yet hold
@@ -258,4 +280,9 @@ export interface RequestLifecyclePatch {
   lastActivityAtMs?: number;
   bytesReceivedSoFar?: number;
   bytesTransferredSoFar?: number;
+  /** The current hop's request headers + their provisional status. Seeded
+   * cooked at request-start, superseded by the on-the-wire set (a value
+   * refinement). See the `RequestLifecycle` fields of the same names. */
+  requestHeaders?: readonly { name: string; value: string }[];
+  requestHeadersProvisional?: boolean;
 }

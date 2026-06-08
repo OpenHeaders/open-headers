@@ -48,6 +48,7 @@ import {
   cdpResponseToHar,
   cdpTimingToHar,
   harTimeFromTimings,
+  headerRecordToHar,
   totalTimeMs,
   wallTimeToIso,
 } from './cdp-har-synth';
@@ -329,7 +330,42 @@ export class CdpHarBuilder {
       ...(event.type !== undefined ? { resourceType: event.type } : {}),
     };
     this.recordBodyRef(event, requestId);
+    // Surface the new hop's request headers immediately — cooked (provisional)
+    // unless an early extra already supplied the on-the-wire set. This is the
+    // only path that shows request headers before the response-gated HAR lands.
+    const headers = this.requestHeaderUpdate(event.tabId, requestId, state, state.hopCursor);
+    if (headers !== undefined) updates.push(headers);
     return updates;
+  }
+
+  /**
+   * A `phase` patch carrying the current hop's request headers + their
+   * provisional status, or `undefined` when there is no live hop to describe.
+   * Effective headers are the on-the-wire set once paired, else the cooked
+   * request set — the same `extra ?? cooked` precedence the HAR uses; provisional
+   * means the on-the-wire set has not arrived. Emitted only for the live hop
+   * cursor so a late lower-hop extra cannot patch a superseded hop's headers
+   * back onto the lifecycle's current hop.
+   */
+  private requestHeaderUpdate(
+    tabId: number,
+    requestId: string,
+    state: RequestHarState,
+    hopIndex: number,
+  ): RequestLifecycleUpdate | undefined {
+    if (hopIndex !== state.hopCursor) return undefined;
+    const hop = state.hops[hopIndex];
+    if (hop === undefined) return undefined;
+    const wire = state.requestExtraByHop[hopIndex];
+    return {
+      kind: 'phase',
+      tabId,
+      requestId,
+      patch: {
+        requestHeaders: headerRecordToHar(wire ?? hop.request.headers),
+        requestHeadersProvisional: wire === undefined,
+      },
+    };
   }
 
   /**
@@ -502,7 +538,14 @@ export class CdpHarBuilder {
     const hopIndex = state.reqExtraCursor;
     state.reqExtraCursor += 1;
     state.requestExtraByHop[hopIndex] = headers;
-    return this.reemitIfResponded(tabId, requestId, state, hopIndex);
+    // Promote the lifecycle's request headers to the on-the-wire set (clearing
+    // provisional) the moment they arrive — independent of the response gate,
+    // so an in-flight row stops showing provisional as soon as the real set is
+    // known. A no-op when the base hop has not landed yet (extra-before-base):
+    // `onRequest` will emit the non-provisional set when it adopts the stash.
+    const promoted = this.requestHeaderUpdate(tabId, requestId, state, hopIndex);
+    const reemit = this.reemitIfResponded(tabId, requestId, state, hopIndex);
+    return promoted === undefined ? reemit : [promoted, ...reemit];
   }
 
   /** As {@link onRequestExtra}, for `responseReceivedExtraInfo` (Set-Cookie source). */
