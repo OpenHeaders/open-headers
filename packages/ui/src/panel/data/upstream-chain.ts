@@ -13,9 +13,23 @@
  * Pure helper — takes the current lifecycle and a URL → lifecycle
  * lookup (the App-side closure over the lifecycle list). Cycle-guarded
  * so a pathological HAR with a self-referencing initiator can't loop.
+ *
+ * The parent URL comes from the HAR `_initiator` once a hop has landed;
+ * before then (an in-flight `(unknown)` row) it falls back to the
+ * lifecycle's own `initiator` URL, captured at request-start by the CDP
+ * mapper — so the chain renders for in-flight requests too, matching the
+ * host's in-flight "Request initiator chain".
+ *
+ * Redirects: the host models each redirect hop as its own request and a
+ * target's initiator is its redirect *source*, so a redirected ancestor
+ * contributes every hop URL to the chain. We hold those hops on one
+ * lifecycle (`redirectHops`), so each lifecycle is unfolded via `urlChain`
+ * into its source → … → current URLs — matching the host's display
+ * (e.g. `crypto.com/` → `crypto.com/ro` → the requested script).
  */
 
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
+import { urlChain } from '@openheaders/core/request-lifecycle';
 import { resolveInitiatorRootUrl } from './initiator-graph';
 import { currentHarEntry } from './inspector-row-projection';
 
@@ -38,18 +52,31 @@ export function computeUpstreamChain(
   const seen = new Set<string>();
   let cursor: RequestLifecycle | null = lifecycle;
   while (cursor && chain.length < MAX_DEPTH) {
-    if (seen.has(cursor.url)) break;
-    seen.add(cursor.url);
-    chain.push({ url: cursor.url, lifecycle: cursor });
+    // Expand this lifecycle's redirect chain. The host models every redirect
+    // hop as its own request and shows them all (a target's initiator is its
+    // redirect source); we hold the hops on one lifecycle, so unfold them here.
+    // Push leaf-first (current URL, then each source toward the root) so the
+    // final reverse() yields root-first display order; only the current URL
+    // maps to this row, the redirect sources are URL-only (no separate row).
+    const hops = urlChain(cursor);
+    let advanced = false;
+    for (let i = hops.length - 1; i >= 0; i--) {
+      const url = hops[i];
+      if (seen.has(url)) continue;
+      seen.add(url);
+      chain.push({ url, lifecycle: i === hops.length - 1 ? cursor : null });
+      advanced = true;
+    }
+    // Wholly-seen lifecycle (cycle guard), or depth budget exhausted.
+    if (!advanced || chain.length >= MAX_DEPTH) break;
     const har = currentHarEntry(cursor);
-    if (!har) break;
-    const parentUrl = resolveInitiatorRootUrl(har);
-    if (!parentUrl || parentUrl === cursor.url) break;
+    // HAR `_initiator` once the hop landed; the lifecycle's own initiator URL
+    // (set at request-start) while still in flight.
+    const parentUrl = har ? resolveInitiatorRootUrl(har) : (cursor.initiator ?? null);
+    if (!parentUrl || seen.has(parentUrl)) break;
     const parent = getLifecycleByUrl(parentUrl);
     if (!parent) {
-      if (!seen.has(parentUrl)) {
-        chain.push({ url: parentUrl, lifecycle: null });
-      }
+      chain.push({ url: parentUrl, lifecycle: null });
       break;
     }
     cursor = parent;

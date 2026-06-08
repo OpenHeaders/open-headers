@@ -1,31 +1,21 @@
-import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
-import { useMemo } from 'react';
 import { computeInitiatorRowMeta } from '../../../data/initiator-row-meta';
 import type { InspectorRowWithFires } from '../../../data/inspector-row-projection';
-import { computeUpstreamChain } from '../../../data/upstream-chain';
+import type { UpstreamChainEntry } from '../../../data/upstream-chain';
 import ResourceIcon from '../../traffic/ResourceIcon';
 import { RowChips } from './RowChips';
 
 export function UpstreamChain({
   row,
-  getRowByUrl,
+  chain,
   pageOrigin,
   onOpenRequest,
 }: {
   row: InspectorRowWithFires;
-  getRowByUrl: (url: string) => InspectorRowWithFires | null;
+  /** Precomputed by the parent (which also gates the empty state on it). */
+  chain: readonly UpstreamChainEntry[];
   pageOrigin: string | null;
   onOpenRequest?: (requestId: string) => void;
 }) {
-  const lookupLifecycle = useMemo(
-    () =>
-      (url: string): RequestLifecycle | null => getRowByUrl(url)?.lifecycle ?? null,
-    [getRowByUrl],
-  );
-  const chain = useMemo(
-    () => computeUpstreamChain(row.lifecycle, lookupLifecycle),
-    [row.lifecycle, lookupLifecycle],
-  );
   if (chain.length <= 1) return null; // No ancestors — nothing to show.
   return (
     <details className="dt-section" open>

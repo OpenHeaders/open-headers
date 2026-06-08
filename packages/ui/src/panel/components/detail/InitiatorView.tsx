@@ -13,10 +13,13 @@
  *   - panel/data/                (cascade summary, insights, filter)
  */
 
+import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
+import { useCallback, useMemo } from 'react';
 import {
   currentHarEntry,
   type InspectorRowWithFires,
 } from '../../data/inspector-row-projection';
+import { computeUpstreamChain } from '../../data/upstream-chain';
 import { CallStack, type StackTrace } from './initiator/CallStack';
 import { InitiatorTreeView } from './initiator/InitiatorTree';
 import { UpstreamChain } from './initiator/UpstreamChain';
@@ -48,7 +51,17 @@ export default function InitiatorView({
   const raw = currentHarEntry(lc)?._initiator as Initiator | undefined;
   const hasChildren = getInitiatorChildren(lc.url).length > 0;
 
-  if (!raw && !hasChildren) {
+  // Computed here (not inside UpstreamChain) so the empty-state gate below
+  // reflects it — an in-flight row with no HAR `_initiator` but a resolvable
+  // chain (via `lc.initiator`) must still render the chain, not "No data".
+  const lookupLifecycle = useCallback(
+    (url: string): RequestLifecycle | null => getRowByUrl(url)?.lifecycle ?? null,
+    [getRowByUrl],
+  );
+  const upstreamChain = useMemo(() => computeUpstreamChain(lc, lookupLifecycle), [lc, lookupLifecycle]);
+  const hasUpstream = upstreamChain.length > 1;
+
+  if (!raw && !hasChildren && !hasUpstream) {
     return (
       <span className="dt-col-muted" style={{ padding: 12 }}>
         No initiator data available.
@@ -60,12 +73,7 @@ export default function InitiatorView({
     <div className="dt-initiator-view">
       {raw?.stack && <CallStack stack={raw.stack} pageOrigin={pageOrigin} />}
 
-      <UpstreamChain
-        row={row}
-        getRowByUrl={getRowByUrl}
-        pageOrigin={pageOrigin}
-        onOpenRequest={onOpenRequest}
-      />
+      <UpstreamChain row={row} chain={upstreamChain} pageOrigin={pageOrigin} onOpenRequest={onOpenRequest} />
 
       {hasChildren && (
         <InitiatorTreeView
