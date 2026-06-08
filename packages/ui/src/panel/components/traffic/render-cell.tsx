@@ -13,6 +13,7 @@ import {
 import { formatBytesToKb, formatSizeInfo, type SizeInfo } from '../../data/size-info';
 import type { ColumnDef } from './columns';
 import { extractName, formatInitiator, getInitiatorFrame } from './formatters';
+import { durationMs } from '../../data/network-columns';
 import { getRole, type PreflightIndex } from './preflight-pairs';
 import ResourceIcon from './ResourceIcon';
 import { normalizeResourceType, RESOURCE_LABEL } from './resource-types';
@@ -162,11 +163,13 @@ export function renderCell(
   if (col.key === 'waterfall') {
     return <WaterfallBar row={row} scale={ctx.waterfall} cdpEnhanced={ctx.cdpEnhanced} />;
   }
-  if (col.key === 'time' && isPreservedUnknown(lc, ctx.supersededFloorMs)) {
-    // The issuing page unloaded mid-flight, so no terminal event will arrive
-    // and the duration is unknowable — "(unknown)", not a frozen running time
-    // (host parity: preserved precedes the pending fallback in the Time cell,
-    // and a row whose status was already known still reads unknown here).
+  if (col.key === 'time' && durationMs(lc) < 0 && isPreservedUnknown(lc, ctx.supersededFloorMs)) {
+    // Host precedence (renderTimeCell): a measurable duration wins. A preserved
+    // row that received data has an advancing endTime (our `lastActivityAtMs`),
+    // so it keeps reading its elapsed time, frozen at last activity — exactly as
+    // the host shows a navigated-away download. Only a preserved row that never
+    // got far enough to have a duration (stalled, no data) falls through to
+    // "(unknown)" — its page unloaded before any timing was observed.
     return (
       <span className="dt-col-cache" title={PRESERVED_UNKNOWN_TITLE}>
         {PRESERVED_UNKNOWN_LABEL}

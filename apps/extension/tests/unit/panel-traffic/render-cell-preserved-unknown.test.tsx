@@ -69,15 +69,36 @@ describe('renderCell — preserved-unknown', () => {
     expect(span?.getAttribute('title')).toContain('unloaded while the request was in flight');
   });
 
-  it('a superseded streaming row keeps its status but reads "(unknown)" in Time', () => {
-    const streaming: RowOverrides = {
+  it('a superseded responded row with no data yet keeps its status, reads "(unknown)" in Time', () => {
+    // Got a status but never received a byte (no lastActivityAtMs) → no
+    // measurable duration → Time is "(unknown)", matching the host.
+    const responded: RowOverrides = {
       phase: 'headers-received',
       statusCode: 200,
       statusText: 'OK',
       startedAtMs: 500,
     };
-    expect(cell('status', streaming).container.querySelector('span')?.textContent).toBe('200');
-    expect(cell('time', streaming).container.querySelector('span')?.textContent).toBe('(unknown)');
+    expect(cell('status', responded).container.querySelector('span')?.textContent).toBe('200');
+    expect(cell('time', responded).container.querySelector('span')?.textContent).toBe('(unknown)');
+  });
+
+  it('a superseded download-in-progress row shows its frozen Time, not "(unknown)"', () => {
+    // Was downloading when the page unloaded: lastActivityAtMs advanced, so it
+    // has a measurable (frozen) duration — the host keeps showing it (duration
+    // precedes preserved), never "(unknown)".
+    const downloading: RowOverrides = {
+      phase: 'headers-received',
+      statusCode: 206,
+      statusText: 'Partial Content',
+      startedAtMs: 500,
+      lastActivityAtMs: 800,
+      harOverrides: { status: 206, statusText: 'Partial Content' },
+    };
+    expect(cell('status', downloading).container.querySelector('span')?.textContent).toBe('206');
+    const time = cell('time', downloading).container.querySelector('span')?.textContent;
+    expect(time).not.toBe('(unknown)');
+    expect(time).not.toBe('Pending');
+    expect(time).toBeTruthy();
   });
 
   it('a current-page slow request still reads pending in both cells', () => {
