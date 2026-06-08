@@ -18,9 +18,17 @@
 
 import { Popover } from 'antd';
 import type { ReactNode } from 'react';
+import { type ConnectionOpener, connectionOpenerFor } from '../../data/connection-openers';
 import { type WaterfallMetric, waterfallStartMs } from '../../data/network-columns';
 import type { InspectorRowWithFires } from '../../data/inspector-row-projection';
-import { isPreservedUnknown, PRESERVED_UNKNOWN_LABEL, type SupersessionAnchor } from '../../data/request-state';
+import { extractName } from './formatters';
+import {
+  classifyRequestState,
+  isPreservedUnknown,
+  PRESERVED_UNKNOWN_LABEL,
+  statusCellText,
+  type SupersessionAnchor,
+} from '../../data/request-state';
 import type { ComputedTimings } from '../../data/timing-phases';
 import { barColors } from '../../data/waterfall-colors';
 import {
@@ -33,7 +41,7 @@ import {
   timelineMetricLabel,
 } from '../../data/waterfall-geometry';
 import { WaterfallLivePopover } from './WaterfallLivePopover';
-import { WaterfallTimingPopover } from './WaterfallTimingPopover';
+import { WaterfallTimingPopover, type WaterfallTerminal } from './WaterfallTimingPopover';
 
 /** How the Waterfall column maps a row to a bar. `t0` is the shared timeline
  * zero (the first request's issue time) — common to both modes because the
@@ -61,6 +69,9 @@ interface WaterfallBarProps {
   /** Supersession anchor (see `CellContext`) — picks the in-flight inline label:
    *  "(unknown)" for a preserved row, "Pending" otherwise. */
   superseded: SupersessionAnchor;
+  /** Connection id → opener, so a reused-connection row can name the request
+   *  that opened its socket in the popover. */
+  connectionOpeners: ReadonlyMap<string, ConnectionOpener>;
 }
 
 /** The Time-column state shown when an in-flight row has no measurable timing
@@ -197,7 +208,29 @@ function bar(row: InspectorRowWithFires, scale: WaterfallScale, timing: Computed
   );
 }
 
-export function WaterfallBar({ row, scale, cdpEnhanced, superseded }: WaterfallBarProps) {
+/**
+ * Outcome marker for a terminal row whose breakdown carries no response phase —
+ * blocked before the wire, or a wire failure / cancel before any response. The
+ * label mirrors the Status cell so the two never disagree; the popover swaps the
+ * fabricated Response / Ended instants for it. `undefined` for any row that did
+ * reach a response (success, redirect, 4xx/5xx, cache, mid-body failure), which
+ * carries a real `wait` / `receive` phase.
+ */
+export function noResponseTerminal(row: InspectorRowWithFires, timing: ComputedTimings): WaterfallTerminal | undefined {
+  if (timing.phases.some((p) => p.key === 'wait' || p.key === 'receive')) return undefined;
+  const kind = classifyRequestState(row.lifecycle).kind;
+  if (kind !== 'blocked' && kind !== 'failed') return undefined;
+  // Phase-aware detail: a request that opened a connection or sent bytes (DNS /
+  // connect / SSL / send present) DID reach the network, then got no response; a
+  // request with only scheduling / stalled phases died before any wire activity.
+  const reachedNetwork = timing.phases.some(
+    (p) => p.key === 'dns' || p.key === 'connect' || p.key === 'ssl' || p.key === 'send',
+  );
+  const detail = reachedNetwork ? 'no response received' : 'never reached the network';
+  return { label: statusCellText(row.lifecycle), detail };
+}
+
+export function WaterfallBar({ row, scale, cdpEnhanced, superseded, connectionOpeners }: WaterfallBarProps) {
   // Rich hover breakdown when we have real phase data; otherwise the bar keeps
   // a plain native tooltip. While the row streams, this carries a live Content
   // Download leg so the bar, inline value, and popover all grow together.
@@ -220,6 +253,8 @@ export function WaterfallBar({ row, scale, cdpEnhanced, superseded }: WaterfallB
     // The duration bar's two tones, so the popover bands match the hovered bar;
     // the timeline (rainbow) bar colors each phase itself, so it carries none.
     const bandColors = scale.mode === 'duration' ? barColors(row.lifecycle.resourceType) : undefined;
+    // Reused-connection attribution: name the request that opened this socket.
+    const opener = connectionOpenerFor(row, connectionOpeners);
     content = (
       <WaterfallTimingPopover
         data={timingDetail}
@@ -228,6 +263,8 @@ export function WaterfallBar({ row, scale, cdpEnhanced, superseded }: WaterfallB
         explain={scale.explainValue}
         bandColors={bandColors && { waiting: bandColors.waiting, download: bandColors.download }}
         unfinished={row.lifecycle.completedAtMs == null}
+        terminal={noResponseTerminal(row, timingDetail)}
+        reusedOpener={opener ? extractName(opener.url).name : undefined}
       />
     );
   } else if (row.lifecycle.completedAtMs == null) {

@@ -47,7 +47,9 @@ const PHASE_META: Record<TimingPhaseKey, PhaseMeta> = {
   stalled: { label: 'Stalled', group: 'connection' },
   dns: { label: 'DNS Lookup', group: 'connection' },
   connect: { label: 'Initial connection', group: 'connection' },
-  ssl: { label: 'SSL', group: 'connection' },
+  // Key stays `ssl` (the HAR 1.2 `timings.ssl` field); the label is the modern
+  // term — every handshake today is TLS, SSL is decades deprecated.
+  ssl: { label: 'TLS', group: 'connection' },
   send: { label: 'Request sent', group: 'transfer' },
   wait: { label: 'Waiting for server', group: 'transfer' },
   receive: { label: 'Content Download', group: 'transfer' },

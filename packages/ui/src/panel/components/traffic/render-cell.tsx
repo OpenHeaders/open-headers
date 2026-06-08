@@ -1,4 +1,5 @@
 import { hostNavigation } from '@openheaders/core/navigation';
+import type { ConnectionOpener } from '../../data/connection-openers';
 import { currentHarEntry, type InspectorRowWithFires } from '../../data/inspector-row-projection';
 import {
   effectiveStatusCode,
@@ -34,6 +35,9 @@ export interface CellContext {
   /** CDP provenance — the in-flight waterfall popover reads the live request
    *  model with CDP, or explains the gap without it. */
   cdpEnhanced: boolean;
+  /** Physical connection id → the request that opened it, so a reused-connection
+   *  row's Waterfall popover can attribute the socket to its opener. */
+  connectionOpeners: ReadonlyMap<string, ConnectionOpener>;
 }
 
 /**
@@ -168,6 +172,7 @@ export function renderCell(
         scale={ctx.waterfall}
         cdpEnhanced={ctx.cdpEnhanced}
         superseded={ctx.superseded}
+        connectionOpeners={ctx.connectionOpeners}
       />
     );
   }

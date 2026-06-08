@@ -820,6 +820,39 @@ body.dt-resizing-col {
   line-height: 15px;
 }
 
+/* Reused-connection note — a responded request that rode an already-open
+ * socket, so DNS / connect / TLS are genuinely absent (not zero). A muted,
+ * indented line under Connection Start, so the missing phases read as "reused"
+ * rather than "unknown". */
+.dt-waterfall-pop-note {
+  margin-top: 2px;
+  padding-left: 14px;
+  color: var(--dt-text-muted);
+  font-size: 11px;
+  line-height: 15px;
+}
+
+/* Terminal-outcome marker — a request that never received a response (blocked
+ * before the wire, or a wire failure / cancel before any response). Replaces the
+ * fabricated Response / Ended instants with the real outcome: the head mirrors
+ * the Status cell, the detail explains there was no response. */
+.dt-waterfall-pop-terminal {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--dt-border);
+}
+
+.dt-waterfall-pop-terminal-head {
+  color: var(--dt-status-red);
+  font-weight: 600;
+}
+
+.dt-waterfall-pop-terminal-detail {
+  margin-top: 2px;
+  color: var(--dt-text-muted);
+  line-height: 15px;
+}
+
 /* "Explain value" cue (View → Waterfall) — a soft yellow highlight on the one
  * row the active Waterfall metric points at (Started at / a phase / the total).
  * Purely a visual aid; it annotates what's already shown, no value changes. */

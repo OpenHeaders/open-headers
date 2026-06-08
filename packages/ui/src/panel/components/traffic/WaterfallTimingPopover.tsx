@@ -24,7 +24,7 @@ import type { CSSProperties } from 'react';
 import { formatTimeMs } from '../../data/format-time';
 import type { WaterfallMetric } from '../../data/network-columns';
 import { type PhaseTintSpan, phaseTints, type WaterfallTone } from '../../data/waterfall-geometry';
-import { type ComputedTimings, type TimingGroup, type TimingPhaseKey } from '../../data/timing-phases';
+import { type ComputedTimings, type TimingGroup, type TimingPhase, type TimingPhaseKey } from '../../data/timing-phases';
 
 const GROUP_LABEL: Record<TimingGroup, string> = {
   scheduling: 'Resource Scheduling',
@@ -41,6 +41,18 @@ type HeaderLine = 'queued' | 'started' | 'response' | 'ended';
 export interface BandColors {
   waiting: string;
   download: string;
+}
+
+/**
+ * Outcome for a terminal request that never received a response — blocked
+ * before the wire, or a wire failure before any response. `label` mirrors the
+ * Status cell (`(blocked:other)`, `(canceled)`, `(failed) net::ERR_…`); `detail`
+ * is the one-line explanation. When present, the popover hides the Response /
+ * Ended instants (there was no response to time) and shows this marker instead.
+ */
+export interface WaterfallTerminal {
+  label: string;
+  detail: string;
 }
 
 /**
@@ -88,6 +100,8 @@ export function WaterfallTimingPopover({
   explain,
   bandColors,
   unfinished,
+  terminal,
+  reusedOpener,
 }: {
   data: ComputedTimings;
   metric: WaterfallMetric;
@@ -100,6 +114,12 @@ export function WaterfallTimingPopover({
   /** The request is still streaming — Content Download and the total are live,
    * growing readings; show a caution that they are not yet final. */
   unfinished?: boolean;
+  /** A terminal request that never received a response (see {@link WaterfallTerminal});
+   * hides the Response / Ended instants and shows an outcome marker instead. */
+  terminal?: WaterfallTerminal;
+  /** Display name of the request that opened this row's reused connection, when
+   * resolvable — appended to the reused-connection note as "opened by <name>". */
+  reusedOpener?: string;
 }) {
   // Duration spans the whole request (issue → end), so it sums every phase
   // including Queueing — browser parity. Latency instead measures the post-
@@ -118,6 +138,28 @@ export function WaterfallTimingPopover({
   const startedAtMs = queuedAtMs + phaseMs('queueing');
   const responseAtMs = queuedAtMs + Math.max(sumAll - phaseMs('receive'), 0);
   const endedAtMs = queuedAtMs + sumAll;
+
+  // A terminal request that never got a response: hide the Response / Ended
+  // instants (they would relabel the moment it was blocked / failed as a
+  // response that never arrived) and show the outcome marker instead. The total
+  // is the real elapsed time (Queueing + the phases it did reach), labelled
+  // Duration — Latency means nothing without a first byte.
+  const noResponse = terminal != null;
+  const displayTotalMs = noResponse ? sumAll : totalMs;
+  const displayTotalLabel = noResponse ? 'Duration' : totalLabel;
+  // Always surface the Queueing row, even at 0 — the request's first
+  // intermediary state. The breakdown drops a 0ms phase, so synthesize it when
+  // absent (it is the only Resource Scheduling phase).
+  const schedulingPhases: readonly TimingPhase[] = data.byGroup.scheduling.some((p) => p.key === 'queueing')
+    ? data.byGroup.scheduling
+    : [{ key: 'queueing', label: 'Queueing', group: 'scheduling', ms: 0 }, ...data.byGroup.scheduling];
+  // Connection reused: a request that reached a response (wait / receive) but did
+  // no DNS / connect / TLS — it rode an already-open socket, so those setup
+  // phases are genuinely absent rather than zero. Note it (rather than padding
+  // "-" rows) so the missing phases read as "reused", not "unknown".
+  const reusedConnection =
+    data.phases.some((p) => p.key === 'wait' || p.key === 'receive') &&
+    !data.phases.some((p) => p.key === 'dns' || p.key === 'connect' || p.key === 'ssl');
 
   const explainTimeline = explain ? timelineExplain(metric, data) : null;
   const headerClass = (line: HeaderLine) => (explainTimeline?.anchor === line ? 'dt-wf-pop-anchor' : undefined);
@@ -142,12 +184,13 @@ export function WaterfallTimingPopover({
       <div className="dt-waterfall-pop-start">
         <div className={headerClass('queued')}>Queued at {formatTimeMs(queuedAtMs)}</div>
         <div className={headerClass('started')}>Started at {formatTimeMs(startedAtMs)}</div>
-        <div className={headerClass('response')}>Response at {formatTimeMs(responseAtMs)}</div>
-        <div className={headerClass('ended')}>Ended at {formatTimeMs(endedAtMs)}</div>
+        {!noResponse && <div className={headerClass('response')}>Response at {formatTimeMs(responseAtMs)}</div>}
+        {!noResponse && <div className={headerClass('ended')}>Ended at {formatTimeMs(endedAtMs)}</div>}
       </div>
       {GROUP_ORDER.map((group) => {
-        const phases = data.byGroup[group];
-        if (phases.length === 0) return null;
+        const phases = group === 'scheduling' ? schedulingPhases : data.byGroup[group];
+        const showReusedNote = group === 'connection' && reusedConnection;
+        if (phases.length === 0 && !showReusedNote) return null;
         return (
           <div key={group} className="dt-waterfall-pop-group">
             <div className="dt-waterfall-pop-head">{GROUP_LABEL[group]}</div>
@@ -165,13 +208,24 @@ export function WaterfallTimingPopover({
                 </div>
               );
             })}
+            {showReusedNote && (
+              <div className="dt-waterfall-pop-note">
+                connection reused (DNS, TCP, TLS){reusedOpener ? ` · opened by ${reusedOpener}` : ''}
+              </div>
+            )}
           </div>
         );
       })}
+      {terminal && (
+        <div className="dt-waterfall-pop-terminal">
+          <div className="dt-waterfall-pop-terminal-head">✗ {terminal.label}</div>
+          <div className="dt-waterfall-pop-terminal-detail">{terminal.detail}</div>
+        </div>
+      )}
       {unfinished && <div className="dt-waterfall-pop-caution">CAUTION: request is not finished yet!</div>}
       <div className="dt-waterfall-pop-total">
-        <span>{totalLabel}</span>
-        <span>{formatTimeMs(totalMs)}</span>
+        <span>{displayTotalLabel}</span>
+        <span>{formatTimeMs(displayTotalMs)}</span>
       </div>
     </div>
   );

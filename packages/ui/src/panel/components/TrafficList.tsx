@@ -15,6 +15,7 @@ import { pageMarkers, waterfallWindow } from '../data/waterfall-geometry';
 import { ColumnHeaderContextMenu, type ColumnHeaderContextMenuState } from './traffic/ColumnHeaderContextMenu';
 import type { ColumnDef, ColumnKey } from './traffic/columns';
 import { ALL_COLUMN_KEYS, COLUMN_DEFS, columnTrack, DEFAULT_VISIBLE_COLUMNS } from './traffic/columns';
+import { buildConnectionOpenerIndex } from '../data/connection-openers';
 import { extractName } from './traffic/formatters';
 import { NetworkPanelHeader } from './traffic/NetworkPanelHeader';
 import { derivePreflightPairs } from './traffic/preflight-pairs';
@@ -329,6 +330,10 @@ export function TrafficList({
   const supersededFloorMs = latestPage?.startedAtMs ?? -1;
   const supersededLoaderId = latestPage?.loaderId;
 
+  // Connection-opener index over the full row set (not the filtered view) so a
+  // reused-connection row can name its opener even when that row is scrolled out.
+  const connectionOpeners = useMemo(() => buildConnectionOpenerIndex(rows), [rows]);
+
   // Stable per-row render context — referentially constant across a pure
   // scroll so the memoized rows on screen skip re-render.
   const cellContext = useMemo<CellContext>(
@@ -338,8 +343,9 @@ export function TrafficList({
       onJumpTo: handleJumpTo,
       superseded: { latestNavStartedAtMs: supersededFloorMs, latestPageLoaderId: supersededLoaderId },
       cdpEnhanced,
+      connectionOpeners,
     }),
-    [waterfallScale, preflight, handleJumpTo, supersededFloorMs, supersededLoaderId, cdpEnhanced],
+    [waterfallScale, preflight, handleJumpTo, supersededFloorMs, supersededLoaderId, cdpEnhanced, connectionOpeners],
   );
 
   const toggleColumn = (key: ColumnKey) => {
