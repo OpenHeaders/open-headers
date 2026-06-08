@@ -350,14 +350,14 @@ registerSetting({
   schema: waterfallPopoverLayoutSchema,
   label: 'Waterfall Popover Layout',
   description:
-    'Orientation of the Waterfall hover timing breakdown. Vertical stacks the steps down the popover; Horizontal lays the same ladder on a time axis; Auto picks by panel width — horizontal on a wide (bottom-docked) panel, vertical on a narrow (side-docked) one.',
+    'Orientation of the Waterfall hover timing breakdown. Compact stacks the steps down the popover; Wide lays the same ladder on a time axis; Auto picks by panel width — wide on a bottom-docked panel, compact on a narrow (side-docked) one.',
   category: 'devpanelNetwork',
   subcategory: 'View',
   tags: ['network', 'waterfall', 'timing', 'popover', 'layout', 'devtools'],
   scope: 'user',
   enumOptions: [
-    { value: 'vertical', label: 'Vertical', description: 'Steps stacked down the popover.' },
-    { value: 'horizontal', label: 'Horizontal', description: 'Steps laid on a horizontal time axis.' },
-    { value: 'auto', label: 'Auto', description: 'Horizontal when the panel is wide, else vertical.' },
+    { value: 'vertical', label: 'Compact', description: 'Steps stacked down the popover.' },
+    { value: 'horizontal', label: 'Wide', description: 'Steps laid on a horizontal time axis.' },
+    { value: 'auto', label: 'Auto', description: 'Wide when the panel is wide, else compact.' },
   ],
 });

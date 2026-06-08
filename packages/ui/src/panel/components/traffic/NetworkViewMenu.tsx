@@ -35,8 +35,8 @@ const TIMESTAMP_TZ_OPTIONS: ReadonlyArray<{ value: DevpanelNetworkWaterfallTimes
 ];
 const POPOVER_LAYOUT_OPTIONS: ReadonlyArray<{ value: DevpanelNetworkWaterfallPopoverLayoutSetting; label: string }> = [
   { value: 'auto', label: 'Auto' },
-  { value: 'vertical', label: 'Vertical' },
-  { value: 'horizontal', label: 'Horizontal' },
+  { value: 'vertical', label: 'Compact' },
+  { value: 'horizontal', label: 'Wide' },
 ];
 
 export function NetworkViewMenu({

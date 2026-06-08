@@ -760,75 +760,12 @@ body.dt-resizing-col {
   margin-top: 6px;
 }
 
-/* The phase region as a little chart — an L of axes anchored at the top-left
- * corner: the left axis runs DOWN through the steps in sequence, the top axis
- * runs RIGHT across elapsed time (the direction the bars flow). Arrowheads
- * (::before down, ::after right) sit at the far ends. Drawn just inside the
- * left/top padding so the rows keep their alignment. */
+/* The phase region — the steps run top-to-bottom, each row's cumulative mini-bar
+ * flowing right over a shared elapsed-time track, so the rows stack into a
+ * waterfall. */
 .dt-waterfall-pop-phases {
-  position: relative;
-  /* Top margin holds the "Elapsed time" label above the X axis; the left margin
-   * holds the stacked "Steps" label OUTSIDE the Y axis (a proper axis title).
-   * Right padding keeps the rows off the X-axis arrowhead. */
-  margin: 18px 0 0 13px;
-  padding: 7px 10px 2px 8px;
-  border-left: 1px solid var(--dt-text-muted);
-  border-top: 1px solid var(--dt-text-muted);
-}
-
-/* X-axis title — horizontal, centred just above the top axis. */
-.dt-waterfall-pop-axis-x {
-  position: absolute;
-  top: -13px;
-  left: 50%;
-  transform: translateX(-50%);
-  white-space: nowrap;
-  font-size: 9px;
-  letter-spacing: 0.04em;
-  color: var(--dt-text-muted);
-}
-
-/* Y-axis title — letters stacked one per line (S / t / e / p / s) down the left
- * gutter, vertically centred on the axis. An explicit flex column rather than
- * `writing-mode`, so the letters pack tightly and predictably. */
-.dt-waterfall-pop-axis-y {
-  position: absolute;
-  left: -10px;
-  top: 50%;
-  transform: translateY(-50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  line-height: 1.05;
-  font-size: 9px;
-  color: var(--dt-text-muted);
-}
-
-/* Y-axis arrowhead — points down at the bottom of the left axis. */
-.dt-waterfall-pop-phases::before {
-  content: '';
-  position: absolute;
-  left: -4px;
-  bottom: -6px;
-  border-left: 4px solid transparent;
-  border-right: 4px solid transparent;
-  border-top: 6px solid var(--dt-text-muted);
-}
-
-/* X-axis arrowhead — points right at the end of the top axis. */
-.dt-waterfall-pop-phases::after {
-  content: '';
-  position: absolute;
-  top: -4px;
-  right: -6px;
-  border-top: 4px solid transparent;
-  border-bottom: 4px solid transparent;
-  border-left: 6px solid var(--dt-text-muted);
-}
-
-/* The first band sits flush under the top axis (the axis replaces its top gap). */
-.dt-waterfall-pop-phases .dt-waterfall-pop-group:first-child {
-  margin-top: 0;
+  margin-top: 8px;
+  padding: 0 2px;
 }
 
 /* Section header — uppercase label with a trailing rule, consistent across all

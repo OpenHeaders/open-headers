@@ -105,17 +105,10 @@ export function WaterfallTimingPopover({
         {ladder.responseMs != null && moment('response', 'Response', ladder.responseMs, 'first byte (TTFB)')}
         {ladder.endedMs != null && moment('ended', 'Ended', ladder.endedMs, 'last byte, done')}
       </div>
-      {/* The phase region is a little chart: down the Y axis = the steps in
-          sequence, across the X axis = elapsed time (the bars flow right). The
-          axes (drawn in CSS, arrowheads at the far ends) frame it so that
-          reading is explicit. */}
+      {/* The steps run top-to-bottom in sequence; each row's cumulative mini-bar
+          flows right over a shared elapsed-time track, so the rows stack into a
+          waterfall. */}
       <div className="dt-waterfall-pop-phases">
-        <span className="dt-waterfall-pop-axis-x" aria-hidden="true">Elapsed time</span>
-        <span className="dt-waterfall-pop-axis-y" aria-hidden="true">
-          {'Steps'.split('').map((ch, i) => (
-            <span key={`${ch}-${i}`}>{ch}</span>
-          ))}
-        </span>
         {BAND_ORDER.map((band) => (
           <div key={band} className="dt-waterfall-pop-group">
           <div className="dt-waterfall-pop-head">
