@@ -1,5 +1,6 @@
 import type {
   DevpanelNetworkLayoutSetting,
+  DevpanelNetworkWaterfallPopoverLayoutSetting,
   DevpanelNetworkWaterfallTimestampTzSetting,
   DevpanelNetworkWaterfallValueFormatSetting,
   DevpanelNetworkWaterfallValuesSetting,
@@ -32,6 +33,11 @@ const TIMESTAMP_TZ_OPTIONS: ReadonlyArray<{ value: DevpanelNetworkWaterfallTimes
   { value: 'local', label: 'Local' },
   { value: 'utc', label: 'UTC' },
 ];
+const POPOVER_LAYOUT_OPTIONS: ReadonlyArray<{ value: DevpanelNetworkWaterfallPopoverLayoutSetting; label: string }> = [
+  { value: 'auto', label: 'Auto' },
+  { value: 'vertical', label: 'Vertical' },
+  { value: 'horizontal', label: 'Horizontal' },
+];
 
 export function NetworkViewMenu({
   layout,
@@ -40,6 +46,7 @@ export function NetworkViewMenu({
   waterfallValueFormat,
   waterfallTimestampTz,
   waterfallExplainValue,
+  waterfallPopoverLayout,
   showFireDots,
   onLayoutChange,
   onWaterfallMetricChange,
@@ -47,6 +54,7 @@ export function NetworkViewMenu({
   onWaterfallValueFormatChange,
   onWaterfallTimestampTzChange,
   onToggleExplainValue,
+  onWaterfallPopoverLayoutChange,
   onToggleShowFireDots,
   onReset,
 }: {
@@ -56,6 +64,7 @@ export function NetworkViewMenu({
   waterfallValueFormat: DevpanelNetworkWaterfallValueFormatSetting;
   waterfallTimestampTz: DevpanelNetworkWaterfallTimestampTzSetting;
   waterfallExplainValue: boolean;
+  waterfallPopoverLayout: DevpanelNetworkWaterfallPopoverLayoutSetting;
   showFireDots: boolean;
   onLayoutChange: (mode: DevpanelNetworkLayoutSetting) => void;
   /** Change only the displayed Waterfall metric — no sort change. */
@@ -64,6 +73,7 @@ export function NetworkViewMenu({
   onWaterfallValueFormatChange: (format: DevpanelNetworkWaterfallValueFormatSetting) => void;
   onWaterfallTimestampTzChange: (tz: DevpanelNetworkWaterfallTimestampTzSetting) => void;
   onToggleExplainValue: () => void;
+  onWaterfallPopoverLayoutChange: (layout: DevpanelNetworkWaterfallPopoverLayoutSetting) => void;
   onToggleShowFireDots: () => void;
   /** Restore every View option to its registered default. */
   onReset: () => void;
@@ -74,6 +84,7 @@ export function NetworkViewMenu({
     (waterfallValues !== 'always' ? 1 : 0) +
     (waterfallValueFormat !== 'relative' ? 1 : 0) +
     (!waterfallExplainValue ? 1 : 0) +
+    (waterfallPopoverLayout !== 'auto' ? 1 : 0) +
     (!showFireDots ? 1 : 0);
 
   return (
@@ -144,6 +155,24 @@ export function NetworkViewMenu({
       <label className="dt-morefilters-item" title="In the hover popover, highlight the rows that make up the total and show their sum.">
         <input type="checkbox" checked={waterfallExplainValue} onChange={onToggleExplainValue} />
         Explain value
+      </label>
+      <label
+        className="dt-morefilters-item dt-morefilters-item--select"
+        title="Orientation of the hover timing breakdown. Auto picks by panel width — horizontal when wide, vertical when narrow."
+      >
+        <span className="dt-morefilters-item-label">Popover</span>
+        <select
+          value={waterfallPopoverLayout}
+          onChange={(e) =>
+            onWaterfallPopoverLayoutChange(e.target.value as DevpanelNetworkWaterfallPopoverLayoutSetting)
+          }
+        >
+          {POPOVER_LAYOUT_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
       </label>
       <div className="dt-morefilters-divider" />
       <label className="dt-morefilters-item">

@@ -20,89 +20,21 @@
  * fabricated instants. Every number traces to a raw HAR field.
  */
 
+import { Fragment } from 'react';
 import { formatTimeMs } from '../../data/format-time';
 import type { WaterfallMetric } from '../../data/network-columns';
-import type { RungState, TimingBand, TimingLadder, TimingRungKey } from '../../data/timing-ladder';
-
-/**
- * Outcome for a terminal request that never received a response — blocked
- * before the wire, or a wire failure before any response. `label` mirrors the
- * Status cell (`(blocked:other)`, `(canceled)`, `(failed) net::ERR_…`); `detail`
- * is the one-line explanation. When present, the popover hides the Response /
- * Ended instants (there was no response to time) and shows this marker instead.
- */
-export interface WaterfallTerminal {
-  label: string;
-  detail: string;
-}
-
-const BAND_LABEL: Record<TimingBand, string> = {
-  'before-wire': 'Scheduling',
-  connecting: 'Connecting',
-  exchange: 'Transferring',
-};
-
-/** Where each band runs — the wire story, spelled out: local, the handshake
- *  round-trips, then data flowing over the network. */
-const BAND_WHERE: Record<TimingBand, string> = {
-  'before-wire': '(Browser)',
-  connecting: '(Browser ↔ Network)',
-  exchange: '(Network)',
-};
-
-const BAND_ORDER: readonly TimingBand[] = ['before-wire', 'connecting', 'exchange'];
-
-/** Tooltip for a `TCP 0µs` rung where TLS still ran — the socket's TCP leg was
- *  already established off this request's clock (preconnect or a warm path;
- *  `connectStart == secureConnectionStart`). Hedges the likely cause, claims no
- *  mechanism the timings can't prove. */
-const WARM_SOCKET_TITLE =
-  "No TCP handshake on this request's clock — the socket was already established (likely preconnected). " +
-  'Only TLS ran here.';
-
-/** The reason an absent rung did not run, shown in place of a duration. */
-function absentText(state: Exclude<RungState, { kind: 'elapsed' }>): string {
-  switch (state.kind) {
-    case 'reused':
-      return 'connection reused';
-    case 'not-reached':
-      return 'not reached';
-    case 'na':
-      return 'n/a';
-  }
-}
-
-type Anchor = 'queued' | 'started';
-
-interface ExplainSpec {
-  /** The instant the metric measures FROM (highlighted with a ↓), or `null` for
-   *  the aggregate metrics. */
-  anchor: Anchor | null;
-  /** The rungs that elapse from the anchor to the metric's instant. */
-  rungs: ReadonlySet<TimingRungKey>;
-  /** Highlight the Duration total instead (aggregate metrics). */
-  total: boolean;
-}
-
-/**
- * What the active metric is built from: Start = Queued + Queueing; Response and
- * End anchor at Started and run through their rungs; Duration / Latency are the
- * aggregate, so they highlight the total.
- */
-function explainSpec(metric: WaterfallMetric): ExplainSpec {
-  if (metric === 'startTime') return { anchor: 'queued', rungs: new Set(['queueing']), total: false };
-  if (metric === 'responseTime') {
-    return { anchor: 'started', rungs: new Set(['stalled', 'dns', 'connect', 'ssl', 'send', 'wait']), total: false };
-  }
-  if (metric === 'endTime') {
-    return {
-      anchor: 'started',
-      rungs: new Set(['stalled', 'dns', 'connect', 'ssl', 'send', 'wait', 'receive']),
-      total: false,
-    };
-  }
-  return { anchor: null, rungs: new Set(), total: true };
-}
+import type { TimingLadder } from '../../data/timing-ladder';
+import {
+  absentText,
+  type Anchor,
+  BAND_LABEL,
+  BAND_ORDER,
+  BAND_WHERE,
+  explainSpec,
+  isWarmSocketConnect,
+  WARM_SOCKET_TITLE,
+  type WaterfallTerminal,
+} from './timing-popover-model';
 
 export function WaterfallTimingPopover({
   ladder,
@@ -134,10 +66,12 @@ export function WaterfallTimingPopover({
   const span = ladder.durationMs > 0 ? ladder.durationMs : 1;
   const pct = (ms: number) => `${(ms / span) * 100}%`;
   const anyReused = ladder.rungs.some((r) => r.state.kind === 'reused');
-  // A `TCP 0µs` rung means no TCP handshake on this request's clock; when TLS
-  // still ran, the socket's TCP leg was set up earlier (preconnect / warm path).
-  const tlsState = ladder.rungs.find((r) => r.key === 'ssl')?.state;
-  const tlsRan = tlsState?.kind === 'elapsed' && tlsState.ms > 0;
+  // A `TCP 0µs` rung where TLS still ran means the socket's TCP leg was set up
+  // earlier (preconnect / warm path) — flagged on the connect rung below.
+  const warmConnect = isWarmSocketConnect(ladder);
+  // For a terminal row, the stop marker sits right after the last reached rung
+  // (where it died) — inline in the steps, not as a trailing block.
+  const lastReachedKey = [...ladder.rungs].reverse().find((r) => r.state.kind === 'elapsed')?.key;
 
   // A milestone: the moment a key boundary happened (offset from the first
   // request in view), with a plain-language meaning. Computed cumulatively from
@@ -196,43 +130,45 @@ export function WaterfallTimingPopover({
             .map((r) => {
               const hl = spec?.rungs.has(r.key) ? ' dt-waterfall-pop-row--hl' : '';
               const absent = r.state.kind !== 'elapsed';
-              const warmSocket = r.key === 'connect' && r.state.kind === 'elapsed' && r.state.ms === 0 && tlsRan;
+              const warmSocket = r.key === 'connect' && warmConnect;
               return (
-                <div
-                  key={r.key}
-                  className={`dt-waterfall-pop-row${absent ? ' dt-waterfall-pop-row--absent' : ''}${hl}`}
-                  title={warmSocket ? WARM_SOCKET_TITLE : undefined}
-                >
-                  <span className={`dt-waterfall-pop-swatch dt-wf-fill--${r.key}`} aria-hidden="true" />
-                  <span className="dt-waterfall-pop-label">
-                    <span className="dt-waterfall-pop-stepno">{ladder.rungs.indexOf(r) + 1}.</span> {r.label}
-                  </span>
-                  {r.state.kind === 'elapsed' ? (
-                    <>
-                      <span className="dt-waterfall-pop-track" aria-hidden="true">
-                        <span
-                          className={`dt-waterfall-pop-seg dt-wf-fill--${r.key}`}
-                          style={{ left: pct(r.startMs), width: pct(r.state.ms) }}
-                        />
-                        {warmSocket && <span className="dt-waterfall-pop-hint">warm socket</span>}
-                      </span>
-                      <span className="dt-waterfall-pop-ms">{formatTimeMs(r.state.ms)}</span>
-                    </>
-                  ) : (
-                    <span className="dt-waterfall-pop-absent-text">{absentText(r.state)}</span>
+                <Fragment key={r.key}>
+                  <div
+                    className={`dt-waterfall-pop-row${absent ? ' dt-waterfall-pop-row--absent' : ''}${hl}`}
+                    title={warmSocket ? WARM_SOCKET_TITLE : undefined}
+                  >
+                    <span className={`dt-waterfall-pop-swatch dt-wf-fill--${r.key}`} aria-hidden="true" />
+                    <span className="dt-waterfall-pop-label">
+                      <span className="dt-waterfall-pop-stepno">{ladder.rungs.indexOf(r) + 1}.</span> {r.label}
+                    </span>
+                    {r.state.kind === 'elapsed' ? (
+                      <>
+                        <span className="dt-waterfall-pop-track" aria-hidden="true">
+                          <span
+                            className={`dt-waterfall-pop-seg dt-wf-fill--${r.key}`}
+                            style={{ left: pct(r.startMs), width: pct(r.state.ms) }}
+                          />
+                          {warmSocket && <span className="dt-waterfall-pop-hint">warm socket</span>}
+                        </span>
+                        <span className="dt-waterfall-pop-ms">{formatTimeMs(r.state.ms)}</span>
+                      </>
+                    ) : (
+                      <span className="dt-waterfall-pop-absent-text">{absentText(r.state)}</span>
+                    )}
+                  </div>
+                  {terminal && r.key === lastReachedKey && (
+                    <div className="dt-waterfall-pop-stop" title={terminal.detail}>
+                      <span className="dt-waterfall-pop-stop-text">✗ {terminal.label}</span>
+                      <span className="dt-waterfall-pop-stop-rule" aria-hidden="true" />
+                      <span className="dt-waterfall-pop-stop-arrow" aria-hidden="true">▼</span>
+                    </div>
                   )}
-                </div>
+                </Fragment>
               );
             })}
           </div>
         ))}
       </div>
-      {terminal && (
-        <div className="dt-waterfall-pop-terminal">
-          <div className="dt-waterfall-pop-terminal-head">✗ {terminal.label}</div>
-          <div className="dt-waterfall-pop-terminal-detail">{terminal.detail}</div>
-        </div>
-      )}
       {unfinished && <div className="dt-waterfall-pop-caution">CAUTION: request is not finished yet!</div>}
       <div className={`dt-waterfall-pop-total${spec?.total ? ' dt-wf-pop-hl' : ''}`}>
         <span>

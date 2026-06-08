@@ -108,6 +108,7 @@ export function TrafficList({
     waterfallValueFormat,
     waterfallTimestampTz,
     waterfallExplainValue,
+    waterfallPopoverLayout,
     sortKey,
     sortDir,
     waterfallMetric,
@@ -131,6 +132,23 @@ export function TrafficList({
   const waterfallColElRef = useRef<HTMLDivElement | null>(null);
   const [waterfallColPx, setWaterfallColPx] = useState(0);
   const [waterfallColLeftPx, setWaterfallColLeftPx] = useState(0);
+
+  // Measured panel width — feeds the `auto` waterfall-popover orientation. A
+  // wide (bottom-docked) panel resolves to the horizontal ladder; a narrow
+  // (side-docked) one to the vertical ladder. A re-dock fires a resize, so the
+  // orientation re-evaluates without any dock-aware plumbing.
+  const panelElRef = useRef<HTMLDivElement | null>(null);
+  const [panelPx, setPanelPx] = useState(0);
+  useEffect(() => {
+    const el = panelElRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width ?? 0;
+      setPanelPx((prev) => (Math.abs(prev - w) < 1 ? prev : w));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // ── Row flash (cross-row jumps: preflight ⇄ parent) ─────────
   const [flashId, setFlashId] = useState<string | null>(null);
@@ -289,6 +307,8 @@ export function TrafficList({
         valueFormat: waterfallValueFormat,
         timestampTz: waterfallTimestampTz,
         explainValue: waterfallExplainValue,
+        popoverLayout: waterfallPopoverLayout,
+        panelPx,
       };
     }
     return {
@@ -300,6 +320,8 @@ export function TrafficList({
       valueFormat: waterfallValueFormat,
       timestampTz: waterfallTimestampTz,
       explainValue: waterfallExplainValue,
+      popoverLayout: waterfallPopoverLayout,
+      panelPx,
     };
   }, [
     waterfallMetric,
@@ -311,6 +333,8 @@ export function TrafficList({
     waterfallValueFormat,
     waterfallTimestampTz,
     waterfallExplainValue,
+    waterfallPopoverLayout,
+    panelPx,
   ]);
 
   // DOMContentLoaded / Load lines — only on the timeline window (the
@@ -381,7 +405,7 @@ export function TrafficList({
   const selectedRow = rowMenu ? sorted.find((r) => r.lifecycle.requestId === rowMenu.requestId) : undefined;
 
   return (
-    <div className="dt-panel">
+    <div className="dt-panel" ref={panelElRef}>
       <NetworkPanelHeader {...headerProps} />
       {/* The column header always renders — even with no rows — so the empty
           state still shows the table's columns (browser-parity). When empty

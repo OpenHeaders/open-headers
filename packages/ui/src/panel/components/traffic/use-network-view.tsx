@@ -1,5 +1,6 @@
 import { useResetSetting, useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import type {
+  DevpanelNetworkWaterfallPopoverLayoutSetting,
   DevpanelNetworkWaterfallTimestampTzSetting,
   DevpanelNetworkWaterfallValueFormatSetting,
   DevpanelNetworkWaterfallValuesSetting,
@@ -30,6 +31,8 @@ export interface NetworkViewApi {
   waterfallTimestampTz: DevpanelNetworkWaterfallTimestampTzSetting;
   /** Whether the hover popover badges + highlights the rows behind the total. */
   waterfallExplainValue: boolean;
+  /** Orientation preference for the hover timing popover (vertical / horizontal / auto). */
+  waterfallPopoverLayout: DevpanelNetworkWaterfallPopoverLayoutSetting;
   sortKey: SortTarget;
   sortDir: SortDir;
   /** Active Waterfall sub-metric — drives the Waterfall sort key and header label. */
@@ -68,6 +71,7 @@ export function useNetworkView(): NetworkViewApi {
   const [waterfallValueFormat, setWaterfallValueFormat] = useSetting('devpanelNetwork.waterfallValueFormat');
   const [waterfallTimestampTz, setWaterfallTimestampTz] = useSetting('devpanelNetwork.waterfallTimestampTz');
   const [waterfallExplainValue, setWaterfallExplainValue] = useSetting('devpanelNetwork.waterfallExplainValue');
+  const [waterfallPopoverLayout, setWaterfallPopoverLayout] = useSetting('devpanelNetwork.waterfallPopoverLayout');
   // Custom-nested levels are session-scoped scratch state.
   const [customNested, setCustomNested] = useState<NetworkCustomNestedLevel[]>([]);
   const compact = layout === 'compact';
@@ -81,6 +85,7 @@ export function useNetworkView(): NetworkViewApi {
   const resetWaterfallValueFormat = useResetSetting('devpanelNetwork.waterfallValueFormat');
   const resetWaterfallTimestampTz = useResetSetting('devpanelNetwork.waterfallTimestampTz');
   const resetWaterfallExplainValue = useResetSetting('devpanelNetwork.waterfallExplainValue');
+  const resetWaterfallPopoverLayout = useResetSetting('devpanelNetwork.waterfallPopoverLayout');
   const resetShowFireDots = useResetSetting('devpanelNetwork.showFireDots');
   const resetSortKind = useResetSetting('devpanelNetwork.sortKind');
   const resetSortMode = useResetSetting('devpanelNetwork.sortMode');
@@ -94,6 +99,7 @@ export function useNetworkView(): NetworkViewApi {
     resetWaterfallValueFormat();
     resetWaterfallTimestampTz();
     resetWaterfallExplainValue();
+    resetWaterfallPopoverLayout();
     resetShowFireDots();
   }, [
     resetLayout,
@@ -102,6 +108,7 @@ export function useNetworkView(): NetworkViewApi {
     resetWaterfallValueFormat,
     resetWaterfallTimestampTz,
     resetWaterfallExplainValue,
+    resetWaterfallPopoverLayout,
     resetShowFireDots,
   ]);
 
@@ -222,6 +229,7 @@ export function useNetworkView(): NetworkViewApi {
         waterfallValueFormat={waterfallValueFormat}
         waterfallTimestampTz={waterfallTimestampTz}
         waterfallExplainValue={waterfallExplainValue}
+        waterfallPopoverLayout={waterfallPopoverLayout}
         showFireDots={showFireDots}
         onLayoutChange={setLayout}
         onWaterfallMetricChange={setWaterfallMetric}
@@ -229,6 +237,7 @@ export function useNetworkView(): NetworkViewApi {
         onWaterfallValueFormatChange={setWaterfallValueFormat}
         onWaterfallTimestampTzChange={setWaterfallTimestampTz}
         onToggleExplainValue={toggleExplainValue}
+        onWaterfallPopoverLayoutChange={setWaterfallPopoverLayout}
         onToggleShowFireDots={toggleShowFireDots}
         onReset={resetView}
       />
@@ -240,6 +249,7 @@ export function useNetworkView(): NetworkViewApi {
       waterfallValueFormat,
       waterfallTimestampTz,
       waterfallExplainValue,
+      waterfallPopoverLayout,
       showFireDots,
       setLayout,
       setWaterfallMetric,
@@ -247,6 +257,7 @@ export function useNetworkView(): NetworkViewApi {
       setWaterfallValueFormat,
       setWaterfallTimestampTz,
       toggleExplainValue,
+      setWaterfallPopoverLayout,
       toggleShowFireDots,
       resetView,
     ],
@@ -259,6 +270,7 @@ export function useNetworkView(): NetworkViewApi {
     waterfallValueFormat,
     waterfallTimestampTz,
     waterfallExplainValue,
+    waterfallPopoverLayout,
     sortKey,
     sortDir,
     waterfallMetric,

@@ -42,8 +42,11 @@ import {
   type TimelineBarLayout,
   timelineMetricLabel,
 } from '../../data/waterfall-geometry';
+import type { DevpanelNetworkWaterfallPopoverLayoutSetting } from '@openheaders/ui/workbench/settings/schema/devpanel-network';
+import type { WaterfallTerminal } from './timing-popover-model';
 import { WaterfallLivePopover } from './WaterfallLivePopover';
-import { WaterfallTimingPopover, type WaterfallTerminal } from './WaterfallTimingPopover';
+import { WaterfallTimingPopover } from './WaterfallTimingPopover';
+import { WaterfallTimingPopoverHorizontal } from './WaterfallTimingPopoverHorizontal';
 
 /** How the Waterfall column maps a row to a bar. `t0` is the shared timeline
  * zero (the first request's issue time) — common to both modes because the
@@ -57,6 +60,12 @@ export type WaterfallScale = {
   valueFormat: 'relative' | 'timestamp';
   timestampTz: 'local' | 'utc';
   explainValue: boolean;
+  /** Orientation preference for the hover timing popover; `auto` resolves
+   *  against `panelPx`. Both orientations render the identical ladder. */
+  popoverLayout: DevpanelNetworkWaterfallPopoverLayoutSetting;
+  /** Measured panel width — drives the `auto` popover orientation (a wide,
+   *  bottom-docked panel → horizontal; a narrow, side-docked one → vertical). */
+  panelPx: number;
 } & (
   | { mode: 'timeline'; metric: WaterfallMetric; tMax: number }
   | { mode: 'duration'; metric: Extract<WaterfallMetric, 'duration' | 'latency'>; max: number; colPx: number }
@@ -79,6 +88,21 @@ interface WaterfallBarProps {
 /** The Time-column state shown when an in-flight row has no measurable timing
  *  (mirrors the Time/Status cells, so the Waterfall reads the same word). */
 const PENDING_LABEL = 'Pending';
+
+/** Panel width at/above which the `auto` popover layout flips to horizontal — a
+ *  wide (bottom-docked) panel has the room to lay the ladder on the X axis; a
+ *  narrower (side-docked) one stays vertical. Tuned against live dock widths. */
+export const HORIZONTAL_POPOVER_MIN_PX = 720;
+
+/** Resolve the popover orientation: an explicit choice is honored as-is; `auto`
+ *  picks by the measured panel width. */
+export function resolvePopoverLayout(
+  setting: DevpanelNetworkWaterfallPopoverLayoutSetting,
+  panelPx: number,
+): 'vertical' | 'horizontal' {
+  if (setting !== 'auto') return setting;
+  return panelPx >= HORIZONTAL_POPOVER_MIN_PX ? 'horizontal' : 'vertical';
+}
 
 function DurationBar({
   layout,
@@ -276,6 +300,10 @@ export function WaterfallBar({ row, scale, cdpEnhanced, superseded, connectionOp
   // are `0`, not absent); the live download override feeds an in-flight row.
   const ladder = buildLadder(row, timingDetail != null);
 
+  // One ladder, two views: the resolved orientation switches only the final
+  // renderer — both consume the identical ladder + props, so they can't drift.
+  const layout = resolvePopoverLayout(scale.popoverLayout, scale.panelPx);
+
   let content: ReactNode = null;
   if (ladder) {
     // Position of this row's queue moment on the shared timeline (`t0` is the
@@ -283,8 +311,9 @@ export function WaterfallBar({ row, scale, cdpEnhanced, superseded, connectionOp
     const queuedAtMs = Math.max(waterfallStartMs(row.lifecycle) - scale.t0, 0);
     // Reused-connection attribution: name the request that opened this socket.
     const opener = connectionOpenerFor(row, connectionOpeners);
+    const Popover_ = layout === 'horizontal' ? WaterfallTimingPopoverHorizontal : WaterfallTimingPopover;
     content = (
-      <WaterfallTimingPopover
+      <Popover_
         ladder={ladder}
         metric={scale.metric}
         queuedAtMs={queuedAtMs}
@@ -307,7 +336,9 @@ export function WaterfallBar({ row, scale, cdpEnhanced, superseded, connectionOp
     <Popover
       content={content}
       trigger="hover"
-      placement="left"
+      // The wide horizontal ladder drops below the row; the vertical ladder and
+      // the in-flight live popover sit to the left where the bar has room.
+      placement={ladder && layout === 'horizontal' ? 'bottom' : 'left'}
       arrow={false}
       mouseEnterDelay={0.25}
       overlayClassName="dt-morefilters-popover dt-waterfall-pop-overlay"

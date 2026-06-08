@@ -87,6 +87,16 @@ const waterfallTimestampTzSchema = v.picklist(['local', 'utc']);
 export type DevpanelNetworkWaterfallTimestampTzSetting = v.InferOutput<typeof waterfallTimestampTzSchema>;
 
 /**
+ * Orientation of the Waterfall hover timing-ladder popover. `vertical` stacks
+ * the rungs down the popover; `horizontal` lays the same ladder on the X axis
+ * (better for a wide panel); `auto` picks by panel width — horizontal when the
+ * panel is wide (docked along the bottom), vertical when narrow (docked to a
+ * side). Both orientations render the identical ladder, so they never disagree.
+ */
+const waterfallPopoverLayoutSchema = v.picklist(['vertical', 'horizontal', 'auto']);
+export type DevpanelNetworkWaterfallPopoverLayoutSetting = v.InferOutput<typeof waterfallPopoverLayoutSchema>;
+
+/**
  * The Custom (nested) sort level list is NOT persisted via the
  * settings registry — the registry's value layer is typed-scalar, not
  * arbitrary JSON. The list lives in TrafficList's local state alongside
@@ -112,6 +122,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'devpanelNetwork.waterfallValueFormat': DevpanelNetworkWaterfallValueFormatSetting;
     'devpanelNetwork.waterfallTimestampTz': DevpanelNetworkWaterfallTimestampTzSetting;
     'devpanelNetwork.waterfallExplainValue': boolean;
+    'devpanelNetwork.waterfallPopoverLayout': DevpanelNetworkWaterfallPopoverLayoutSetting;
   }
 }
 
@@ -330,4 +341,23 @@ registerSetting({
   subcategory: 'View',
   tags: ['network', 'waterfall', 'timing', 'breakdown', 'devtools'],
   scope: 'user',
+});
+
+registerSetting({
+  key: 'devpanelNetwork.waterfallPopoverLayout',
+  type: 'enum',
+  default: 'auto',
+  schema: waterfallPopoverLayoutSchema,
+  label: 'Waterfall Popover Layout',
+  description:
+    'Orientation of the Waterfall hover timing breakdown. Vertical stacks the steps down the popover; Horizontal lays the same ladder on a time axis; Auto picks by panel width — horizontal on a wide (bottom-docked) panel, vertical on a narrow (side-docked) one.',
+  category: 'devpanelNetwork',
+  subcategory: 'View',
+  tags: ['network', 'waterfall', 'timing', 'popover', 'layout', 'devtools'],
+  scope: 'user',
+  enumOptions: [
+    { value: 'vertical', label: 'Vertical', description: 'Steps stacked down the popover.' },
+    { value: 'horizontal', label: 'Horizontal', description: 'Steps laid on a horizontal time axis.' },
+    { value: 'auto', label: 'Auto', description: 'Horizontal when the panel is wide, else vertical.' },
+  ],
 });

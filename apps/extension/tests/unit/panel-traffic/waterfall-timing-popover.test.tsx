@@ -169,9 +169,11 @@ describe('WaterfallTimingPopover — no-response terminal', () => {
     expect(valueOf(container, 'DNS Lookup')).toBe('not reached');
     expect(valueOf(container, 'Content Download')).toBe('not reached');
     expect(valueOf(container, 'Stalled')).toBe('1.98ms');
-    const marker = container.querySelector('.dt-waterfall-pop-terminal');
+    // The stop marker sits inline after the last reached step (Stalled); no
+    // separate "never reached the network" detail line.
+    const marker = container.querySelector('.dt-waterfall-pop-stop');
     expect(marker?.textContent).toContain('(blocked:other)');
-    expect(marker?.textContent).toContain('never reached the network');
+    expect(container.textContent).not.toContain('never reached the network');
   });
 });
 

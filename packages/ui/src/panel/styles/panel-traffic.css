@@ -729,8 +729,10 @@ body.dt-resizing-col {
   overflow-y: auto;
 }
 
-/* Reveal-on-hover scrollbar — thumb shown while the pointer is in the
- * popover (ancestor `:hover` on the overlay, so Chromium repaints it). */
+/* Always-visible scrollbar (same treatment as the View menu) — the thumb shows
+ * whenever the breakdown overflows, so the cue that there's more below isn't
+ * hidden until hover. The popover is portaled to <body>, outside the dock-body
+ * scrollbar styling, so it carries its own; grey reads on both themes. */
 .dt-waterfall-pop::-webkit-scrollbar {
   width: 8px;
 }
@@ -740,16 +742,12 @@ body.dt-resizing-col {
 }
 
 .dt-waterfall-pop::-webkit-scrollbar-thumb {
-  background: transparent;
+  background: rgba(128, 128, 128, 0.55);
   border-radius: 4px;
   transition: background-color 0.2s ease-out;
 }
 
-.dt-waterfall-pop-overlay:hover .dt-waterfall-pop::-webkit-scrollbar-thumb {
-  background: rgba(128, 128, 128, 0.55);
-}
-
-.dt-waterfall-pop-overlay:hover .dt-waterfall-pop::-webkit-scrollbar-thumb:hover {
+.dt-waterfall-pop::-webkit-scrollbar-thumb:hover {
   background: rgba(128, 128, 128, 0.75);
 }
 
@@ -983,24 +981,30 @@ body.dt-resizing-col {
 }
 
 /* Terminal-outcome marker — a request that never received a response (blocked
- * before the wire, or a wire failure / cancel before any response). Replaces the
- * fabricated Response / Ended instants with the real outcome: the head mirrors
- * the Status cell, the detail explains there was no response. */
-.dt-waterfall-pop-terminal {
-  margin-top: 6px;
-  padding-top: 6px;
-  border-top: 1px solid var(--dt-border);
-}
-
-.dt-waterfall-pop-terminal-head {
+ * before the wire, or a wire failure / cancel before any response). Sits inline
+ * right after the last reached step (where it died), mirroring the Status cell.
+ * A red rule + ▼ trail off to the right so it reads as a divider pointing down
+ * at the not-reached steps below, not as an annotation of the step above. */
+.dt-waterfall-pop-stop {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0 3px 14px;
   color: var(--dt-status-red);
   font-weight: 600;
 }
 
-.dt-waterfall-pop-terminal-detail {
-  margin-top: 2px;
-  color: var(--dt-text-muted);
-  line-height: 15px;
+.dt-waterfall-pop-stop-rule {
+  flex: 1 1 auto;
+  height: 0;
+  border-top: 1px solid var(--dt-status-red);
+  opacity: 0.7;
+}
+
+.dt-waterfall-pop-stop-arrow {
+  flex: none;
+  font-size: 9px;
+  line-height: 1;
 }
 
 /* "Explain value" cue (View → Waterfall) — a soft yellow highlight on the one
@@ -1088,4 +1092,297 @@ body.dt-resizing-col {
   margin-left: 4px;
   font-weight: 700;
   color: var(--dt-status-orange);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * Horizontal timing ladder — the wide, explanatory hover view (the vertical
+ * popover is the compact twin). Geometry is computed in px on a fixed-width
+ * stage (layoutHorizontal): the bar is one cell per rung scaled by duration but
+ * floored to a readable width; the ▼ ticks and band labels are de-collided and
+ * connected to their true mark by a leader when shifted, so nothing overlaps for
+ * any timings (incl. blocked / reused / sub-ms). Shares the fill / swatch /
+ * total / note / terminal / highlight rules above. */
+.dt-waterfall-pop--h {
+  min-width: 760px;
+  max-width: 96vw;
+}
+
+/* Side padding lets the edge ticks / labels overflow into the margin. */
+.dt-wf-h-chart {
+  margin-top: 8px;
+  padding: 0 56px;
+  overflow-x: auto;
+}
+
+.dt-wf-h-stage {
+  position: relative;
+  margin: 0 auto;
+}
+
+/* Leader lines (de-collided label → its true mark). Drawn under the labels. */
+.dt-wf-h-leaders {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+.dt-wf-h-leaders line {
+  stroke: var(--dt-text-muted);
+  stroke-width: 1;
+  opacity: 0.5;
+}
+
+/* The instant-tick axis — ▼ marks at true boundaries, labels positioned at their
+ * de-collided centres above. */
+.dt-wf-h-axis {
+  position: relative;
+}
+
+.dt-wf-h-tick {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  line-height: 13px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.dt-wf-h-tick-mark {
+  position: absolute;
+  bottom: 0;
+  transform: translateX(-50%);
+  font-size: 8px;
+  line-height: 1;
+  color: var(--dt-text-muted);
+  pointer-events: none;
+}
+.dt-wf-h-tick-label {
+  font-weight: 600;
+}
+.dt-wf-h-tick-value {
+  font-variant-numeric: tabular-nums;
+  font-size: 10px;
+}
+.dt-wf-h-tick-why {
+  font-size: 9px;
+  color: var(--dt-text-muted);
+  opacity: 0.85;
+}
+
+/* A not-reached instant (a terminal row's Response / Ended) — dimmed, with its
+ * value reading "not reached" in italic. */
+.dt-wf-h-tick--unreached {
+  opacity: 0.55;
+}
+.dt-wf-h-tick--unreached .dt-wf-h-tick-value {
+  font-style: italic;
+}
+.dt-wf-h-tick-mark--unreached {
+  opacity: 0.4;
+}
+
+/* The anchor tick (explain) — same yellow cue as the vertical view; the ↓ in
+ * its label points down at the bar cells it composes. */
+.dt-wf-h-tick.dt-wf-pop-anchor {
+  background: rgba(255, 213, 79, 0.28);
+  border-radius: 3px;
+  padding: 0 3px;
+}
+
+/* Failure marker — where a terminal request stopped, pinpointed on the bar: a
+ * red ▼ + status label at the stop point (with a red leader when the label is
+ * de-collided), and a red stop line through the bar. */
+.dt-wf-h-stop-label {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--dt-status-red);
+}
+.dt-wf-h-stop-mark {
+  position: absolute;
+  bottom: 0;
+  transform: translateX(-50%);
+  font-size: 9px;
+  line-height: 1;
+  color: var(--dt-status-red);
+}
+.dt-wf-h-leaders line.dt-wf-h-leader--stop {
+  stroke: var(--dt-status-red);
+  opacity: 0.85;
+}
+
+/* The bar — one cell per rung (explicit px width), scaled by duration with a
+ * readable floor. */
+.dt-wf-h-bar {
+  position: relative;
+  display: flex;
+  height: 20px;
+  border: 1px solid var(--dt-border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.dt-wf-h-stopline {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  border-left: 2px solid var(--dt-status-red);
+  z-index: 1;
+}
+
+.dt-wf-h-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  box-shadow: inset -1px 0 0 rgba(127, 127, 127, 0.25);
+}
+.dt-wf-h-cell:last-child {
+  box-shadow: none;
+}
+
+/* Step number inside a cell, tying the bar to the numbered legend. A small soft
+ * white chip with dark text — one consistent, gentle treatment that stays legible
+ * on the pale, dark, and saturated cells alike (no per-cell recolouring, no harsh
+ * white-on-white). */
+.dt-wf-h-cellno {
+  padding: 0 4px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.82);
+  color: #2b2b2b;
+  font-size: 9px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A zero-duration rung still happened (thin slot); an absent rung is hollow +
+ * hatched so a reused / not-reached / n/a step reads as skipped, not timed. */
+.dt-wf-h-cell--zero {
+  background: var(--dt-text-muted);
+  opacity: 0.5;
+}
+.dt-wf-h-cell--absent {
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 2px,
+    rgba(127, 127, 127, 0.35) 2px,
+    rgba(127, 127, 127, 0.35) 4px
+  );
+}
+
+/* Contributing-cell cue (explain) — outline the cells that compose the active
+ * metric, matching the legend-row highlight. */
+.dt-wf-h-cell--hl {
+  outline: 1px solid var(--dt-status-orange);
+  outline-offset: -1px;
+}
+
+.dt-wf-pop-down {
+  font-weight: 700;
+  color: var(--dt-status-orange);
+}
+
+/* Band brackets under the bar — an accolade that opens UPWARD (its ends tick up
+ * toward the bar it groups), spanning exactly its rungs' cells, then the band
+ * name with its location stacked at the (de-collided) label centre. */
+.dt-wf-h-brackets {
+  position: relative;
+  margin-top: 3px;
+}
+
+.dt-wf-h-bracket-line {
+  position: absolute;
+  top: 0;
+  height: 5px;
+  border: 1px solid var(--dt-border);
+  border-top: none;
+  border-radius: 0 0 3px 3px;
+}
+
+.dt-wf-h-bracket-label {
+  position: absolute;
+  top: 8px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 9px;
+  white-space: nowrap;
+  color: var(--dt-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.dt-wf-h-bracket-name {
+  font-weight: 600;
+}
+
+/* The 🌐-on-the-wire span — positioned over every on-wire rung, so "from here
+ * it's the network" reads at a glance. */
+.dt-wf-h-wirerow {
+  position: relative;
+  height: 16px;
+  margin-top: 3px;
+}
+
+.dt-wf-h-wirespan {
+  position: absolute;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  white-space: nowrap;
+  font-size: 9px;
+  color: var(--dt-text-muted);
+  border-top: 1px dashed var(--dt-text-muted);
+  padding-top: 1px;
+}
+
+/* Numbered two-column legend — every rung's value or its absent reason. */
+.dt-wf-h-legend {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(4, auto);
+  grid-template-columns: 1fr 1fr;
+  column-gap: 28px;
+  margin-top: 12px;
+}
+
+.dt-wf-h-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  line-height: 18px;
+}
+
+.dt-wf-h-legend-name {
+  flex: none;
+}
+
+.dt-wf-h-legend-hint {
+  font-size: 9px;
+  font-style: italic;
+  color: var(--dt-text-muted);
+}
+
+/* The value (or reason) sits at the right edge of each legend cell. */
+.dt-wf-h-legend-item .dt-waterfall-pop-ms {
+  margin-left: auto;
+  width: auto;
+}
+.dt-wf-h-legend-item .dt-waterfall-pop-absent-text {
+  flex: none;
+  margin-left: auto;
 }

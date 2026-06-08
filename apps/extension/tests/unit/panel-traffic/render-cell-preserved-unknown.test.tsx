@@ -31,6 +31,8 @@ const CTX: CellContext = {
     valueFormat: 'relative',
     timestampTz: 'local',
     explainValue: false,
+    popoverLayout: 'auto',
+    panelPx: 0,
   },
   preflight: new Map(),
   onJumpTo: () => {},
@@ -163,6 +165,8 @@ const WF_CTX: CellContext = {
     valueFormat: 'relative',
     timestampTz: 'local',
     explainValue: false,
+    popoverLayout: 'auto',
+    panelPx: 0,
   },
 };
 
