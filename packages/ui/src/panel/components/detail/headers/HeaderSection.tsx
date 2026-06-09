@@ -119,7 +119,13 @@ export function HeaderSection({
     [filteredByQuery, hideNoise],
   );
 
-  const sortedItems = useMemo(() => sortRows(filtered, sortMode), [filtered, sortMode]);
+  // Provisional request headers are the browser's cooked set, captured before
+  // the wire exchange — their order is arbitrary, not a real on-the-wire order.
+  // Alphabetize them regardless of the user's sort preference (which governs
+  // genuinely-ordered real headers), matching the browser's provisional view.
+  const provisional = direction === 'request' && row.lifecycle.requestHeadersProvisional === true;
+  const effectiveSort: HeaderSortMode = provisional ? 'az' : sortMode;
+  const sortedItems = useMemo(() => sortRows(filtered, effectiveSort), [filtered, effectiveSort]);
 
   const grouped = useMemo(() => {
     const byCat = new Map<HeaderCategory, RowItem[]>();
