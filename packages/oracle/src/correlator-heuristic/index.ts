@@ -23,7 +23,6 @@ export type {
   OnCompletedEvent,
   OnErrorOccurredEvent,
   OnHeadersReceivedEvent,
-  OnResponseStartedEvent,
   OnSendHeadersEvent,
   WebRequestEvent,
   WebRequestEventSource,

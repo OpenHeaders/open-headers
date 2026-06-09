@@ -20,7 +20,6 @@ import type {
   OnCompletedEvent,
   OnErrorOccurredEvent,
   OnHeadersReceivedEvent,
-  OnResponseStartedEvent,
   OnSendHeadersEvent,
   WebRequestEvent,
   WebRequestEventSource,
@@ -94,9 +93,6 @@ export class ChromeWebRequestEventSource implements WebRequestEventSource {
       'responseHeaders',
       ...securitySensitive,
     ]);
-    // First response-body byte — the in-flight activity instant. No header
-    // opt-in: only the timestamp + status are projected onto the lifecycle.
-    this.bind(wr.onResponseStarted, (details) => this.fan(mapOnResponseStarted(details)));
     this.bind(wr.onBeforeRedirect, (details) => this.fan(mapOnBeforeRedirect(details)), ['responseHeaders']);
     this.bind(wr.onCompleted, (details) => this.fan(mapOnCompleted(details)));
     this.bind(wr.onErrorOccurred, (details) => this.fan(mapOnErrorOccurred(details)));
@@ -180,22 +176,6 @@ function mapOnHeadersReceived(d: chrome.webRequest.OnHeadersReceivedDetails): On
     statusCode: d.statusCode,
     statusLine: d.statusLine,
     responseHeaders: normalizeHeaders(d.responseHeaders),
-  };
-}
-
-function mapOnResponseStarted(d: chrome.webRequest.OnResponseStartedDetails): OnResponseStartedEvent {
-  return {
-    method_kind: 'onResponseStarted',
-    tabId: d.tabId,
-    requestId: d.requestId,
-    url: d.url,
-    method: d.method,
-    type: d.type,
-    timeStamp: d.timeStamp,
-    initiator: readInitiator(d),
-    frameId: d.frameId,
-    statusCode: d.statusCode,
-    fromCache: d.fromCache,
   };
 }
 

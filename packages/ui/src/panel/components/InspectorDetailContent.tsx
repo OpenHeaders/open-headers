@@ -17,6 +17,7 @@ import {
   type InspectorRowWithFires,
   lifecycleMimeType,
 } from '../data/inspector-row-projection';
+import { hasObservedResponseData, isPreservedUnknown, supersessionAnchorFromPages } from '../data/request-state';
 import { findRuleCollectionId } from '../data/rule-collection';
 import {
   buildBlockDraftFromRequest,
@@ -141,6 +142,13 @@ export function InspectorDetailContent({
   }, [searchHighlight, searchLineNumber]);
 
   const har = currentHarEntry(lc);
+  // A navigation-abandoned request — superseded by a navigation with no streamed
+  // response data — presents like the browser's renderer-coupled panel: its
+  // request headers read provisional, because the net-process status we captured
+  // was never confirmed to the page. Same gate as the list cells' "(unknown)".
+  const provisionalRequestHeaders =
+    lc.requestHeadersProvisional === true ||
+    (isPreservedUnknown(lc, supersessionAnchorFromPages(pages)) && !hasObservedResponseData(lc));
   // Live Rules Mode system-attribution gate: yellow the cache-bypass
   // request headers when a user header rule fired and didn't itself
   // touch Cache-Control. Mirrors the DNR-side gate in header-builder.
@@ -272,6 +280,7 @@ export function InspectorDetailContent({
             row={row}
             requestHeaders={requestHeaders}
             responseHeaders={responseHeaders}
+            provisionalRequestHeaders={provisionalRequestHeaders}
             rulesByUid={rulesByUid}
             collectionIdFor={collectionIdFor}
             onCreateHeaderRule={createHeaderRule}

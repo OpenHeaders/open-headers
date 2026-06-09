@@ -2,12 +2,11 @@ import { hostNavigation } from '@openheaders/core/navigation';
 import type { ConnectionOpener } from '../../data/connection-openers';
 import { currentHarEntry, type InspectorRowWithFires } from '../../data/inspector-row-projection';
 import {
-  effectiveStatusCode,
+  hasObservedResponseData,
   isDimStatusCell,
   isPreservedUnknown,
   PRESERVED_UNKNOWN_LABEL,
   PRESERVED_UNKNOWN_TITLE,
-  type RequestState,
   type SupersessionAnchor,
   statusCellText,
   statusCellTitle,
@@ -43,13 +42,7 @@ export interface CellContext {
 /**
  * Render the cell for a specific column.
  */
-export function renderCell(
-  col: ColumnDef,
-  row: InspectorRowWithFires,
-  state: RequestState,
-  sizeInfo: SizeInfo,
-  ctx: CellContext,
-) {
+export function renderCell(col: ColumnDef, row: InspectorRowWithFires, sizeInfo: SizeInfo, ctx: CellContext) {
   const lc = row.lifecycle;
   const requestId = lc.requestId;
   const role = getRole(ctx.preflight, requestId);
@@ -91,19 +84,40 @@ export function renderCell(
     return <span>{lc.method}</span>;
   }
   if (col.key === 'status') {
-    // A preserved row whose page unloaded mid-flight with no status reads
-    // "(unknown)" — but a real status precedes preservation (host parity: a
-    // streaming row that already had a status keeps it).
-    const preservedUnknown = effectiveStatusCode(lc) == null && isPreservedUnknown(lc, ctx.superseded);
-    // Grey the cell for a cache hit or any no-status row (pending / opaque /
-    // unknown) — browser parity is a dimmed cell, not a coloured one.
-    // Everything else is plain: the browser tints no status range.
+    // A preserved row whose page unloaded mid-flight reads "(unknown)" unless its
+    // response is confirmed by streamed body data. No data → the outcome is
+    // unknowable: no status, a header-only status, or a navigation-abort artifact
+    // (a net-process `200`/`ERR_ABORTED` the browser's own renderer-coupled panel
+    // never recorded). With data, it keeps its real status — its response is
+    // confirmed, exactly as the host keeps a navigated-away download's status.
+    const preserved = isPreservedUnknown(lc, ctx.superseded);
+    const preservedUnknown = preserved && !hasObservedResponseData(lc);
+    // List-cell coupling with the Time column: until a row resolves — a
+    // terminal outcome arrives, or live body data makes its duration
+    // measurable (`durationMs >= 0`) — hold the Status at "(pending)" so both
+    // cells move as one unit. A preserved row (even one that kept its status via
+    // streamed data) is excluded — it shows "(unknown)" or its real status, never
+    // a regression to pending.
+    const holdPending = durationMs(lc) < 0 && !preserved;
+    const label = preservedUnknown
+      ? PRESERVED_UNKNOWN_LABEL
+      : holdPending
+        ? '(pending)'
+        : statusCellText(lc);
+    const title = preservedUnknown
+      ? PRESERVED_UNKNOWN_TITLE
+      : holdPending
+        ? 'Request not finished yet'
+        : statusCellTitle(lc);
+    // Grey the cell for an unknown / held-pending row, a cache hit, or any
+    // no-status row (pending / opaque) — browser parity is a dimmed cell, not a
+    // coloured one. Everything else is plain: the browser tints no status range.
     return (
       <span
-        className={isDimStatusCell(lc) ? 'dt-col-status--dim' : undefined}
-        title={preservedUnknown ? PRESERVED_UNKNOWN_TITLE : statusCellTitle(lc)}
+        className={preservedUnknown || holdPending || isDimStatusCell(lc) ? 'dt-col-status--dim' : undefined}
+        title={title}
       >
-        {preservedUnknown ? PRESERVED_UNKNOWN_LABEL : statusCellText(lc)}
+        {label}
       </span>
     );
   }
@@ -176,27 +190,33 @@ export function renderCell(
       />
     );
   }
-  if (col.key === 'time' && durationMs(lc) < 0 && isPreservedUnknown(lc, ctx.superseded)) {
-    // Host precedence (renderTimeCell): a measurable duration wins. A preserved
-    // row that received data has an advancing endTime (our `lastActivityAtMs`),
-    // so it keeps reading its elapsed time, frozen at last activity — exactly as
-    // the host shows a navigated-away download. Only a preserved row that never
-    // got far enough to have a duration (stalled, no data) falls through to
-    // "(unknown)" — its page unloaded before any timing was observed.
-    return (
-      <span className="dt-col-cache" title={PRESERVED_UNKNOWN_TITLE}>
-        {PRESERVED_UNKNOWN_LABEL}
-      </span>
-    );
-  }
-  if (col.key === 'time' && state.kind === 'pending') {
-    // Browser parity: an in-flight request reads "Pending" in the Time
-    // column (and 0.0 kB in Size), not a blank cell.
-    return (
-      <span className="dt-col-cache" title="Request not finished yet">
-        Pending
-      </span>
-    );
+  if (col.key === 'time') {
+    const dur = durationMs(lc);
+    if (isPreservedUnknown(lc, ctx.superseded) && (dur < 0 || !hasObservedResponseData(lc))) {
+      // Host precedence (renderTimeCell): a positive, data-backed duration wins.
+      // A preserved row that received data has an advancing endTime (our
+      // `lastActivityAtMs`), so it keeps reading its elapsed time, frozen at last
+      // activity — exactly as the host shows a navigated-away download. Otherwise
+      // it reads "(unknown)": no streamed data (so any terminal timestamp it
+      // carries — e.g. a navigation-abort instant — is not a real duration), or
+      // no measurable positive duration at all. The host recorded none either.
+      return (
+        <span className="dt-col-cache" title={PRESERVED_UNKNOWN_TITLE}>
+          {PRESERVED_UNKNOWN_LABEL}
+        </span>
+      );
+    }
+    if (dur < 0) {
+      // Browser parity: an in-flight request with no measurable duration reads
+      // "Pending" in the Time column (and 0.0 kB in Size), not a blank cell —
+      // coupled with the Status cell's held "(pending)" above. The preserved
+      // "(unknown)" branch ran first, so this only catches current-page rows.
+      return (
+        <span className="dt-col-cache" title="Request not finished yet">
+          Pending
+        </span>
+      );
+    }
   }
   if (col.key === 'size') {
     if (sizeInfo.kind === 'cached') {

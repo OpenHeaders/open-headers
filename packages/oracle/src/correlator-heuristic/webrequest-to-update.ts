@@ -6,7 +6,6 @@
  *   - `onBeforeRequest`     → `started`
  *   - `onSendHeaders`       → `phase` carrying the hop's request headers
  *                             (provisional until the response confirms it)
- *   - `onResponseStarted`   → `phase` carrying `lastActivityAtMs`
  *   - `onHeadersReceived`   → `phase: 'headers-received'` (+ drop the
  *                             request-headers provisional flag)
  *   - `onBeforeRedirect`    → `redirect`
@@ -45,8 +44,6 @@ export function webRequestEventToUpdates(event: WebRequestEvent): readonly Reque
       const update = requestHeadersUpdate(event);
       return update !== undefined ? [update] : [];
     }
-    case 'onResponseStarted':
-      return [responseStartedUpdate(event)];
     case 'onHeadersReceived':
       return [headersReceivedUpdate(event)];
     case 'onBeforeRedirect':
@@ -107,27 +104,6 @@ function requestHeadersUpdate(
     patch: {
       requestHeaders: headers,
       requestHeadersProvisional: true,
-    },
-  };
-}
-
-/**
- * `onResponseStarted` is the first response-body byte — the in-flight
- * activity instant. webRequest reports no per-chunk progress, so this is a
- * single bump (not the CDP path's continuous `dataReceived` growth): the
- * Time column / waterfall bar grow to first-byte, then hold until the
- * terminal event. Carries no phase change — the request is still
- * `headers-received` until `onCompleted`.
- */
-function responseStartedUpdate(
-  event: Extract<WebRequestEvent, { method_kind: 'onResponseStarted' }>,
-): RequestLifecycleUpdate {
-  return {
-    kind: 'phase',
-    tabId: event.tabId,
-    requestId: event.requestId,
-    patch: {
-      lastActivityAtMs: event.timeStamp,
     },
   };
 }

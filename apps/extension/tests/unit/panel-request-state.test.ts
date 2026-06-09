@@ -1,11 +1,14 @@
+import type { Page } from '@openheaders/core/page-stream';
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarEntry } from '@openheaders/core/types';
 import {
   classifyRequestState,
+  hasObservedResponseData,
   isFailedNetworkRequest,
   isPreservedUnknown,
   isRequestFailed,
   statusCellText,
+  supersessionAnchorFromPages,
 } from '@openheaders/ui/panel/data/request-state';
 import { describe, expect, it } from 'vitest';
 
@@ -266,9 +269,7 @@ describe('isRequestFailed — failure independent of status code', () => {
   it('true for a failed phase, an error, or a negative code', () => {
     expect(isRequestFailed(makeLifecycle({ phase: 'failed' }))).toBe(true);
     expect(
-      isRequestFailed(
-        makeLifecycle({ statusCode: undefined, error: { code: 'net::ERR_ABORTED', reason: 'aborted' } }),
-      ),
+      isRequestFailed(makeLifecycle({ statusCode: undefined, error: { code: 'net::ERR_ABORTED', reason: 'aborted' } })),
     ).toBe(true);
     expect(isRequestFailed(makeLifecycle({ statusCode: -1 }))).toBe(true);
   });
@@ -482,5 +483,95 @@ describe('isPreservedUnknown — loader-identity binding (CDP)', () => {
       har: { response: undefined },
     });
     expect(isPreservedUnknown(lc, anchor)).toBe(true);
+  });
+});
+
+describe('isPreservedUnknown — cancellation-abort carve-out', () => {
+  const abort = { code: 'net::ERR_ABORTED', reason: 'net::ERR_ABORTED' } as const;
+
+  it('an abort with a navigation inside its in-flight window IS preserved (the nav tore it down)', () => {
+    // The nav (1000) committed while the request was in flight (500 → 1200), so
+    // it caused the abort → navigation-abandoned.
+    const lc = makeLifecycle({
+      phase: 'failed',
+      statusCode: 200,
+      startedAtMs: 500,
+      completedAtMs: 1_200,
+      error: abort,
+      har: { response: undefined },
+    });
+    expect(isPreservedUnknown(lc, { latestNavStartedAtMs: 1_000, navStartsMs: [1_000] })).toBe(true);
+  });
+
+  it('an abort on the still-current page is NOT preserved (a genuine cancel)', () => {
+    const lc = makeLifecycle({
+      phase: 'failed',
+      statusCode: 200,
+      startedAtMs: 1_500, // started after the nav → no nav in its window
+      completedAtMs: 1_800,
+      error: abort,
+      har: { response: undefined },
+    });
+    expect(isPreservedUnknown(lc, { latestNavStartedAtMs: 1_000, navStartsMs: [1_000] })).toBe(false);
+  });
+
+  it('an abort that resolved before a later navigation stays NOT preserved (no flip to unknown)', () => {
+    // Canceled at 400, entirely before the nav floor (1000). No nav in its
+    // in-flight window (200, 400] → a later navigation must not retroactively
+    // turn a real cancel into a preserved-unknown.
+    const lc = makeLifecycle({
+      phase: 'failed',
+      statusCode: undefined,
+      startedAtMs: 200,
+      completedAtMs: 400,
+      error: abort,
+      har: { response: undefined },
+    });
+    expect(isPreservedUnknown(lc, { latestNavStartedAtMs: 1_000, navStartsMs: [1_000] })).toBe(false);
+  });
+
+  it('a genuine completion (no abort) superseded by a navigation is NOT preserved', () => {
+    // A real terminal outcome — the completedAtMs gate still wins.
+    const lc = makeLifecycle({
+      phase: 'completed',
+      statusCode: 200,
+      startedAtMs: 500,
+      completedAtMs: 800,
+      har: { response: undefined },
+    });
+    expect(isPreservedUnknown(lc, { latestNavStartedAtMs: 1_000, navStartsMs: [1_000] })).toBe(false);
+  });
+});
+
+describe('hasObservedResponseData', () => {
+  it('is true once a body chunk was observed (lastActivityAtMs / bytesReceivedSoFar)', () => {
+    expect(hasObservedResponseData(makeLifecycle({ lastActivityAtMs: 5 }))).toBe(true);
+    expect(hasObservedResponseData(makeLifecycle({ bytesReceivedSoFar: 1 }))).toBe(true);
+  });
+
+  it('is false for a header-only / data-less row', () => {
+    expect(
+      hasObservedResponseData(
+        makeLifecycle({ phase: 'headers-received', lastActivityAtMs: undefined, bytesReceivedSoFar: undefined }),
+      ),
+    ).toBe(false);
+  });
+});
+
+describe('supersessionAnchorFromPages', () => {
+  const page = (startedAtMs: number, loaderId?: string): Page =>
+    ({ startedAtMs, ...(loaderId ? { loaderId } : {}) }) as Page;
+
+  it('reads the latest page for the floor and loader id, and every nav start', () => {
+    const anchor = supersessionAnchorFromPages([page(100, 'L1'), page(500, 'L2')]);
+    expect(anchor.latestNavStartedAtMs).toBe(500);
+    expect(anchor.latestPageLoaderId).toBe('L2');
+    expect(anchor.navStartsMs).toEqual([100, 500]);
+  });
+
+  it('falls back to a -1 floor and an empty nav list when there are no pages', () => {
+    const anchor = supersessionAnchorFromPages([]);
+    expect(anchor.latestNavStartedAtMs).toBe(-1);
+    expect(anchor.navStartsMs).toEqual([]);
   });
 });

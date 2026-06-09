@@ -40,6 +40,10 @@ interface HeaderSectionProps {
   /** Rendered under the section summary, above the rows — e.g. the
    *  provisional-headers warning on the Request Headers section. */
   banner?: React.ReactNode;
+  /** Force the provisional treatment (az-sort) on the request section, beyond
+   *  the lifecycle's own flag — for a navigation-abandoned row whose net-process
+   *  status the browser's renderer-coupled panel never confirmed. */
+  provisional?: boolean;
 }
 
 function sortRows(items: readonly RowItem[], mode: HeaderSortMode): RowItem[] {
@@ -78,6 +82,7 @@ export function HeaderSection({
   searchSection,
   searchLineNumber,
   banner,
+  provisional: provisionalOverride,
 }: HeaderSectionProps) {
   const [rawView, setRawView] = useState(false);
   const [copyOpen, setCopyOpen] = useState(false);
@@ -123,7 +128,8 @@ export function HeaderSection({
   // the wire exchange — their order is arbitrary, not a real on-the-wire order.
   // Alphabetize them regardless of the user's sort preference (which governs
   // genuinely-ordered real headers), matching the browser's provisional view.
-  const provisional = direction === 'request' && row.lifecycle.requestHeadersProvisional === true;
+  const provisional =
+    direction === 'request' && (provisionalOverride ?? row.lifecycle.requestHeadersProvisional === true);
   const effectiveSort: HeaderSortMode = provisional ? 'az' : sortMode;
   const sortedItems = useMemo(() => sortRows(filtered, effectiveSort), [filtered, effectiveSort]);
 

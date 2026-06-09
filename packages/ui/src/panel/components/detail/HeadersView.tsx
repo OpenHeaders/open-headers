@@ -52,6 +52,10 @@ export interface HeadersViewProps {
   row: InspectorRowWithFires;
   requestHeaders: readonly AnnotatedHeader[];
   responseHeaders: readonly AnnotatedHeader[];
+  /** Whether the request headers are provisional — the lifecycle's own flag, OR
+   *  a navigation-abandoned row whose net-process status was never confirmed to
+   *  the page (browser parity: such rows show "Provisional headers are shown"). */
+  provisionalRequestHeaders: boolean;
   rulesByUid: RulesByUid;
   /** Resolves the collection that owns a rule, for `{{collection.X}}` scopes. */
   collectionIdFor: (h: AnnotatedHeader) => string | undefined;
@@ -75,6 +79,7 @@ export function HeadersView({
   row,
   requestHeaders,
   responseHeaders,
+  provisionalRequestHeaders,
   rulesByUid,
   collectionIdFor,
   onCreateHeaderRule,
@@ -347,7 +352,8 @@ export function HeadersView({
         searchHighlight={searchHighlight}
         searchSection={searchSection}
         searchLineNumber={searchLineNumber}
-        banner={lc.requestHeadersProvisional ? <ProvisionalHeadersBanner cached={lc.fromCache === true} /> : undefined}
+        provisional={provisionalRequestHeaders}
+        banner={provisionalRequestHeaders ? <ProvisionalHeadersBanner cached={lc.fromCache === true} /> : undefined}
       />
     </div>
   );

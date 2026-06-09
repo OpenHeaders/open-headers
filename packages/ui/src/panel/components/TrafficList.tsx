@@ -11,6 +11,7 @@ import {
 import type { FilterConfig } from '../data/filter-engine';
 import type { InspectorRowWithFires } from '../data/inspector-row-projection';
 import { WATERFALL_METRIC_ABBR, waterfallSortValue } from '../data/network-columns';
+import { supersessionAnchorFromPages } from '../data/request-state';
 import { pageMarkers, waterfallWindow } from '../data/waterfall-geometry';
 import { ColumnHeaderContextMenu, type ColumnHeaderContextMenuState } from './traffic/ColumnHeaderContextMenu';
 import type { ColumnDef, ColumnKey } from './traffic/columns';
@@ -345,14 +346,13 @@ export function TrafficList({
     [waterfallScale.mode, visibleColumns, pages, t0, tMax],
   );
 
-  // Supersession anchor: the latest in-view navigation. A non-terminal row
-  // bound to an earlier page (by loader id, or by start-time when no loader id
-  // is known) is a preserved-unknown — its issuing page unloaded mid-flight, so
-  // it reads "(unknown)" rather than "Pending" forever (Preserve-log off already
-  // scopes such rows out via the nav-clear floor).
-  const latestPage = pages.length > 0 ? pages[pages.length - 1] : null;
-  const supersededFloorMs = latestPage?.startedAtMs ?? -1;
-  const supersededLoaderId = latestPage?.loaderId;
+  // Supersession anchor: the latest in-view navigation (plus every nav start, for
+  // the cancellation-abort window). A non-terminal row bound to an earlier page
+  // (by loader id, or by start-time when no loader id is known) is a
+  // preserved-unknown — its issuing page unloaded mid-flight, so it reads
+  // "(unknown)" rather than "Pending" forever (Preserve-log off already scopes
+  // such rows out via the nav-clear floor).
+  const superseded = useMemo(() => supersessionAnchorFromPages(pages), [pages]);
 
   // Connection-opener index over the full row set (not the filtered view) so a
   // reused-connection row can name its opener even when that row is scrolled out.
@@ -365,11 +365,11 @@ export function TrafficList({
       waterfall: waterfallScale,
       preflight,
       onJumpTo: handleJumpTo,
-      superseded: { latestNavStartedAtMs: supersededFloorMs, latestPageLoaderId: supersededLoaderId },
+      superseded,
       cdpEnhanced,
       connectionOpeners,
     }),
-    [waterfallScale, preflight, handleJumpTo, supersededFloorMs, supersededLoaderId, cdpEnhanced, connectionOpeners],
+    [waterfallScale, preflight, handleJumpTo, superseded, cdpEnhanced, connectionOpeners],
   );
 
   const toggleColumn = (key: ColumnKey) => {

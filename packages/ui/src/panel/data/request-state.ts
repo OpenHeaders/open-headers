@@ -24,6 +24,7 @@
  * and a failed redirect is still "failed".
  */
 
+import type { Page } from '@openheaders/core/page-stream';
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import { isRendererRejectCode, lookupErrorCode } from './chromium-error-codes';
 import { currentHarEntry, lifecycleTransferredBytes } from './inspector-row-projection';
@@ -186,6 +187,33 @@ export const PRESERVED_UNKNOWN_TITLE =
 export interface SupersessionAnchor {
   readonly latestNavStartedAtMs: number;
   readonly latestPageLoaderId?: string;
+  /**
+   * Every in-view navigation start time. The never-terminated floor only needs
+   * the latest, but the cancellation-abort carve-out needs the full set: it asks
+   * whether a navigation committed *during* a request's in-flight window, which
+   * the latest nav alone can't answer after a second navigation.
+   */
+  readonly navStartsMs?: readonly number[];
+}
+
+/**
+ * The supersession anchor derived from a page list — the latest in-view
+ * navigation plus every navigation start. The list cells and the detail pane
+ * both test rows against it; deriving it from the same `pages` source through
+ * one helper keeps them in lockstep.
+ */
+export function supersessionAnchorFromPages(pages: readonly Page[]): SupersessionAnchor {
+  const latest = pages.length > 0 ? pages[pages.length - 1] : null;
+  return {
+    latestNavStartedAtMs: latest?.startedAtMs ?? -1,
+    latestPageLoaderId: latest?.loaderId,
+    navStartsMs: pages.map((p) => p.startedAtMs),
+  };
+}
+
+/** Whether any navigation started inside the half-open window `(startMs, endMs]`. */
+function navStartedDuring(navStartsMs: readonly number[] | undefined, startMs: number, endMs: number): boolean {
+  return navStartsMs?.some((t) => t > startMs && t <= endMs) ?? false;
 }
 
 /**
@@ -204,13 +232,42 @@ export interface SupersessionAnchor {
  *      heuristic page source, or a worker request that carries none — a row is
  *      superseded when it started before the latest navigation. `latestNavStartedAtMs
  *      <= 0` (no navigation observed) → never preserved-unknown.
+ *
+ * Terminal gate: a genuinely resolved request has a real outcome and isn't
+ * preserved — EXCEPT a cancellation-abort that a navigation caused. The net
+ * process reports a navigation tearing down its page's in-flight requests as
+ * `onErrorOccurred`/`net::ERR_ABORTED`, setting a terminal `completedAtMs` even
+ * though nothing was delivered to the page; that is as unknowable as a
+ * never-terminated request (the browser's own renderer-coupled panel shows
+ * `(unknown)`). An explicit cancellation on a live page looks identical on the
+ * wire, so the two are told apart by *timing*: a navigation-abort has a nav
+ * committing inside its in-flight window `(startedAtMs, completedAtMs]` (the nav
+ * killed it), while a real cancel resolved with no nav in its window — and stays
+ * `(canceled)` even after later navigations move the floor past it.
  */
 export function isPreservedUnknown(lifecycle: RequestLifecycle, anchor: SupersessionAnchor): boolean {
-  if (lifecycle.completedAtMs != null) return false;
+  if (lifecycle.completedAtMs != null) {
+    if (!isCancellationAbort(lifecycle)) return false;
+    return navStartedDuring(anchor.navStartsMs, lifecycle.startedAtMs, lifecycle.completedAtMs);
+  }
   if (anchor.latestPageLoaderId && lifecycle.loaderId) {
     return lifecycle.loaderId !== anchor.latestPageLoaderId;
   }
   return anchor.latestNavStartedAtMs > 0 && lifecycle.startedAtMs < anchor.latestNavStartedAtMs;
+}
+
+/**
+ * Whether genuine response data was observed on the current hop — a streamed
+ * body byte (`lastActivityAtMs` / `bytesReceivedSoFar`, the per-chunk signals).
+ * This is what confirms a preserved row's response: a preserved row that
+ * streamed data keeps its real status and its frozen time (the host's
+ * duration-wins precedence), while a preserved row with only a header-only
+ * status or a navigation-abort artifact has no confirmed response and reads
+ * `(unknown)` in both cells — mirroring the browser's renderer-coupled panel,
+ * which never recorded the net-process-only status.
+ */
+export function hasObservedResponseData(lifecycle: RequestLifecycle): boolean {
+  return lifecycle.lastActivityAtMs != null || lifecycle.bytesReceivedSoFar != null;
 }
 
 // ── Status-cell presentation ─────────────────────────────────────
@@ -278,6 +335,16 @@ const REASON_PHRASE: Record<number, string> = {
 
 /** Net-stack codes the browser treats as a cancellation, not a failure. */
 const CANCELED_CODES: ReadonlySet<string> = new Set(['net::ERR_ABORTED', 'NS_ERROR_ABORT', 'NS_BINDING_ABORTED']);
+
+/**
+ * Whether a row's terminal event is a cancellation-abort — the net-stack
+ * teardown a navigation triggers (and what an explicit user/JS cancel also
+ * looks like). Used by {@link isPreservedUnknown} to let such a terminal fall
+ * through to the supersession test instead of counting as a real outcome.
+ */
+function isCancellationAbort(lifecycle: RequestLifecycle): boolean {
+  return lifecycle.error != null && CANCELED_CODES.has(lifecycle.error.code);
+}
 
 /**
  * Net-stack codes that map to a named `(blocked:<reason>)` label, using the

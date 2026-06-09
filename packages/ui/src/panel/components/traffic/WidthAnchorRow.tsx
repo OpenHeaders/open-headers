@@ -31,7 +31,7 @@ export function WidthAnchorRow({ row, columns, gridTemplate, showFireDots, ctx }
       {showFireDots && <span />}
       {columns.map((col) => (
         <span key={col.key} className={col.align === 'right' ? 'dt-col-right' : undefined}>
-          {renderCell(col, row, state, sizeInfo, ctx)}
+          {renderCell(col, row, sizeInfo, ctx)}
         </span>
       ))}
     </div>

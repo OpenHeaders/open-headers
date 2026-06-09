@@ -80,24 +80,6 @@ describe('webRequestEventToUpdates — happy-path projection', () => {
     expect(updates).toEqual([]);
   });
 
-  it('onResponseStarted → phase patch carrying lastActivityAtMs (no phase change)', () => {
-    const updates = webRequestEventToUpdates({
-      method_kind: 'onResponseStarted',
-      tabId: TAB,
-      requestId: REQ,
-      url: URL_A,
-      method: 'GET',
-      type: 'xmlhttprequest',
-      timeStamp: 1_700_000_000_015,
-      statusCode: 200,
-    });
-    expect(updates).toHaveLength(1);
-    const u = updates[0];
-    if (u?.kind !== 'phase') throw new Error('expected phase');
-    expect(u.patch.phase).toBeUndefined();
-    expect(u.patch.lastActivityAtMs).toBe(1_700_000_000_015);
-  });
-
   it('onHeadersReceived → phase patch with status + statusText + drops provisional', () => {
     const updates = webRequestEventToUpdates({
       method_kind: 'onHeadersReceived',

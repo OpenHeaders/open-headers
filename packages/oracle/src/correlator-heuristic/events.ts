@@ -1,6 +1,9 @@
 /**
  * Typed webRequest-shaped event variants — the subset the heuristic
- * correlator consumes (H1).
+ * correlator consumes (H1). Six events, no per-chunk data event: webRequest
+ * exposes no `dataReceived`-style progress, so an in-flight row holds at
+ * pending (no measurable duration) until its terminal event, rather than
+ * faking growth from a single first-byte signal.
  *
  * Field names match `chrome.webRequest.*` verbatim (`requestId`,
  * `tabId`, `timeStamp`, `statusCode`, `redirectUrl`, `initiator`), but
@@ -10,7 +13,7 @@
  * `WebRequestDetails`-flavoured callback arguments into these shapes
  * and feeds them through `WebRequestEventSource.subscribe`.
  *
- * Why seven events:
+ * Why six events:
  *   - `onBeforeRequest` — request-start signal; `phase: 'pending'`.
  *   - `onSendHeaders` — request headers as they leave for the wire; the
  *     mapper projects them onto the lifecycle (provisional until the
@@ -20,9 +23,6 @@
  *   - `onHeadersReceived` — response headers + initial status — `phase:
  *     'headers-received'`; also confirms the request crossed the wire,
  *     dropping the provisional flag on the captured request headers.
- *   - `onResponseStarted` — first response body byte; the in-flight
- *     activity instant (`lastActivityAtMs`) that grows the Time column
- *     and waterfall bar the way the CDP path does from `dataReceived`.
  *   - `onBeforeRedirect` — 3xx + `Location`; produces a `redirect`
  *     update and resets `phase` to `pending` on the next hop.
  *   - `onCompleted` — terminal success — `phase: 'completed'`.
@@ -65,13 +65,6 @@ export interface OnSendHeadersEvent extends WebRequestEventBase {
   readonly requestHeaders?: readonly WebRequestHeader[];
 }
 
-/** `chrome.webRequest.onResponseStarted` — first byte of the response body. */
-export interface OnResponseStartedEvent extends WebRequestEventBase {
-  readonly method_kind: 'onResponseStarted';
-  readonly statusCode: number;
-  readonly fromCache?: boolean;
-}
-
 /** `chrome.webRequest.onHeadersReceived`. */
 export interface OnHeadersReceivedEvent extends WebRequestEventBase {
   readonly method_kind: 'onHeadersReceived';
@@ -109,7 +102,6 @@ export interface OnErrorOccurredEvent extends WebRequestEventBase {
 export type WebRequestEvent =
   | OnBeforeRequestEvent
   | OnSendHeadersEvent
-  | OnResponseStartedEvent
   | OnHeadersReceivedEvent
   | OnBeforeRedirectEvent
   | OnCompletedEvent
