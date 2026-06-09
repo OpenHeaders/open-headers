@@ -6,7 +6,7 @@
  * The Timing tab has no filter input or sort axis — its View menu is
  * purely a set of visibility toggles over the optional bands
  * (insights, context strip, phase breakdown, timing bar, Server
- * Timing, repeats-in-session).
+ * Timing, repeats-in-session, transfer rate).
  */
 
 import * as v from 'valibot';
@@ -20,6 +20,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'devpanelTiming.showTimingBar': boolean;
     'devpanelTiming.showServerTiming': boolean;
     'devpanelTiming.showRepeats': boolean;
+    'devpanelTiming.showTransferRate': boolean;
   }
 }
 
@@ -102,5 +103,19 @@ registerSetting({
   category: 'devpanelTiming',
   subcategory: 'View',
   tags: ['timing', 'repeats', 'session', 'devtools'],
+  scope: 'user',
+});
+
+registerSetting({
+  key: 'devpanelTiming.showTransferRate',
+  type: 'boolean',
+  default: true,
+  schema: v.boolean(),
+  label: 'Show Transfer Rate',
+  description:
+    'Show the effective Content-Download throughput (body bytes ÷ download time) when both the size and the receive leg are known.',
+  category: 'devpanelTiming',
+  subcategory: 'View',
+  tags: ['timing', 'transfer', 'throughput', 'devtools'],
   scope: 'user',
 });

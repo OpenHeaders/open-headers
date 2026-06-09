@@ -4,8 +4,8 @@ import { ToolbarMenuPopover } from '../../ToolbarMenuPopover';
  * `View ▾` dropdown for the Timing tab. Visibility-only — Timing has no
  * filter input or sort axis, so the menu is a stack of band toggles
  * (insights / context strip / phase breakdown / bar / Server-Timing /
- * repeats). The badge counts non-default toggles so the user always
- * knows the view isn't its default shape.
+ * repeats / transfer rate). The badge counts non-default toggles so the
+ * user always knows the view isn't its default shape.
  */
 export function TimingViewMenu({
   showInsights,
@@ -14,12 +14,14 @@ export function TimingViewMenu({
   showTimingBar,
   showServerTiming,
   showRepeats,
+  showTransferRate,
   onToggleShowInsights,
   onToggleShowContextStrip,
   onToggleShowPhaseGroups,
   onToggleShowTimingBar,
   onToggleShowServerTiming,
   onToggleShowRepeats,
+  onToggleShowTransferRate,
 }: {
   showInsights: boolean;
   showContextStrip: boolean;
@@ -27,12 +29,14 @@ export function TimingViewMenu({
   showTimingBar: boolean;
   showServerTiming: boolean;
   showRepeats: boolean;
+  showTransferRate: boolean;
   onToggleShowInsights: () => void;
   onToggleShowContextStrip: () => void;
   onToggleShowPhaseGroups: () => void;
   onToggleShowTimingBar: () => void;
   onToggleShowServerTiming: () => void;
   onToggleShowRepeats: () => void;
+  onToggleShowTransferRate: () => void;
 }) {
   const activeCount = [
     !showInsights,
@@ -41,6 +45,7 @@ export function TimingViewMenu({
     !showTimingBar,
     !showServerTiming,
     !showRepeats,
+    !showTransferRate,
   ].reduce((n, v) => n + (v ? 1 : 0), 0);
   return (
     <ToolbarMenuPopover label="View" activeCount={activeCount}>
@@ -67,6 +72,10 @@ export function TimingViewMenu({
       <label className="dt-morefilters-item">
         <input type="checkbox" checked={showRepeats} onChange={onToggleShowRepeats} />
         Show repeats in session
+      </label>
+      <label className="dt-morefilters-item">
+        <input type="checkbox" checked={showTransferRate} onChange={onToggleShowTransferRate} />
+        Show transfer rate
       </label>
     </ToolbarMenuPopover>
   );

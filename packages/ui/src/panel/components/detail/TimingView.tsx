@@ -9,9 +9,16 @@ import { currentHarEntry, type InspectorRowWithFires } from '../../data/inspecto
 import { waterfallStartMs } from '../../data/network-columns';
 import { parseServerTiming, type ServerTimingMetric } from '../../data/server-timing';
 import { computeTimingContext, type CacheLabel } from '../../data/timing-context';
-import { type ElapsedRung, findBottleneck, findWarnings } from '../../data/timing-insight';
+import {
+  computeTransferRate,
+  type ElapsedRung,
+  findBottleneck,
+  findWarnings,
+  type TransferRate,
+} from '../../data/timing-insight';
 import { noResponseTerminal, rowTimingLadder } from '../../data/row-timing-ladder';
 import type { RepeatStats } from '../../data/timing-repeats';
+import { formatSize } from '../traffic/formatters';
 import { HorizontalTimingChart } from '../traffic/HorizontalTimingChart';
 import { TimingLadderLegend } from '../traffic/TimingLadderLegend';
 import { TimingViewMenu } from './timing/TimingMenus';
@@ -44,6 +51,7 @@ export default function TimingView({ row, connectionReuse, repeatStats, baseline
   const [showTimingBar, setShowTimingBar] = useSetting('devpanelTiming.showTimingBar');
   const [showServerTiming, setShowServerTiming] = useSetting('devpanelTiming.showServerTiming');
   const [showRepeats, setShowRepeats] = useSetting('devpanelTiming.showRepeats');
+  const [showTransferRate, setShowTransferRate] = useSetting('devpanelTiming.showTransferRate');
   const toggleShowInsights = useCallback(() => setShowInsights(!showInsights), [showInsights, setShowInsights]);
   const toggleShowContextStrip = useCallback(
     () => setShowContextStrip(!showContextStrip),
@@ -59,6 +67,10 @@ export default function TimingView({ row, connectionReuse, repeatStats, baseline
     [showServerTiming, setShowServerTiming],
   );
   const toggleShowRepeats = useCallback(() => setShowRepeats(!showRepeats), [showRepeats, setShowRepeats]);
+  const toggleShowTransferRate = useCallback(
+    () => setShowTransferRate(!showTransferRate),
+    [showTransferRate, setShowTransferRate],
+  );
 
   const paneRef = useRef<HTMLDivElement | null>(null);
   const toolbarRef = useRef<HTMLDivElement | null>(null);
@@ -74,12 +86,14 @@ export default function TimingView({ row, connectionReuse, repeatStats, baseline
         showTimingBar={showTimingBar}
         showServerTiming={showServerTiming}
         showRepeats={showRepeats}
+        showTransferRate={showTransferRate}
         onToggleShowInsights={toggleShowInsights}
         onToggleShowContextStrip={toggleShowContextStrip}
         onToggleShowPhaseGroups={toggleShowPhaseGroups}
         onToggleShowTimingBar={toggleShowTimingBar}
         onToggleShowServerTiming={toggleShowServerTiming}
         onToggleShowRepeats={toggleShowRepeats}
+        onToggleShowTransferRate={toggleShowTransferRate}
       />
     </div>
   );
@@ -135,6 +149,16 @@ export default function TimingView({ row, connectionReuse, repeatStats, baseline
   const queuedAtMs = Math.max(waterfallStartMs(lc) - (baselineMs ?? waterfallStartMs(lc)), 0);
   // A terminal row that never got a response marks where it stopped on the bar.
   const terminal = noResponseTerminal(row, ladder);
+  // Effective Content-Download throughput: body bytes over the wire ÷ the
+  // receive leg. Encoded `bodySize` is the on-the-wire amount; fall back to the
+  // decoded `content.size` when the exporter didn't report it. Null (section
+  // hidden) for a cache hit / bodyless row where there's nothing to rate.
+  const receiveRung = ladder.rungs.find((r) => r.key === 'receive');
+  const receiveMs = receiveRung?.state.kind === 'elapsed' ? receiveRung.state.ms : 0;
+  const resp = har?.response;
+  const bodyBytes =
+    resp && typeof resp.bodySize === 'number' && resp.bodySize > 0 ? resp.bodySize : resp?.content?.size;
+  const transferRate = computeTransferRate(receiveMs, bodyBytes);
 
   return (
     <div className="dt-timing-view" ref={paneRef}>
@@ -210,6 +234,8 @@ export default function TimingView({ row, connectionReuse, repeatStats, baseline
       {showServerTiming && serverTiming.length > 0 && <ServerTimingSection metrics={serverTiming} />}
 
       {showRepeats && repeatStats && <RepeatStatsSection stats={repeatStats} url={lc.url} />}
+
+      {showTransferRate && transferRate && <TransferRateSection rate={transferRate} />}
     </div>
   );
 }
@@ -326,6 +352,36 @@ function ServerTimingSection({ metrics }: { metrics: readonly ServerTimingMetric
             )}
           </div>
         ))}
+      </div>
+    </details>
+  );
+}
+
+// ── Transfer rate ────────────────────────────────────────────────────
+
+/**
+ * Effective Content-Download throughput — the body bytes that crossed the wire
+ * divided by the `receive` leg. The same `528 B @ 603 KB/s` reading the host
+ * surfaces, broken into a labeled amount-in-time row plus the derived rate, so
+ * it reads as a diagnostic line rather than a terse annotation.
+ */
+function TransferRateSection({ rate }: { rate: TransferRate }) {
+  return (
+    <details className="dt-section" open>
+      <summary>Transfer rate</summary>
+      <div className="dt-kv">
+        <span className="dt-kv-key" style={{ minWidth: 140 }}>
+          Content downloaded:
+        </span>
+        <span className="dt-kv-val">
+          {formatSize(rate.bytes)} in {formatMs(rate.ms)}
+        </span>
+      </div>
+      <div className="dt-kv">
+        <span className="dt-kv-key" style={{ minWidth: 140 }}>
+          Effective rate:
+        </span>
+        <span className="dt-kv-val">{rate.formatted}</span>
       </div>
     </details>
   );
