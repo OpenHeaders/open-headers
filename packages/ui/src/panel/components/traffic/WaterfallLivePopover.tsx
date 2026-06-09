@@ -7,13 +7,17 @@
  * either: its waterfall + Timing popover are built from the live request model
  * (CDP), available from the first event, before any response. We mirror that.
  *
- *   - With CDP, the lifecycle carries the issue + network-start instants. A
- *     still-stalled request never left the queue, so we show Queued + the open
+ * The partial is read from the lifecycle, never from the provenance: both
+ * correlators populate the issue instant (`hopStartedAtMs`) from the first
+ * request event, so the live story renders the same on either path.
+ *
+ *   - A still-stalled request never left the queue, so we show Queued + the open
  *     Stalled phase + the not-finished caution (no "Started at" — it would just
  *     duplicate Queued). Once a network start is known we show Queued + Started.
- *   - Without CDP, the heuristic path sees nothing until the request finishes,
- *     so there is genuinely no live timing to show; we explain the gap and the
- *     one setting that closes it (in-app, no link out).
+ *   - The heuristic (no-CDP) path can't observe the queue-exit instant the way
+ *     CDP does — it stays Stalled until the finished HAR supplies the real
+ *     network start — so we add an in-app hint that CDP fills the connection
+ *     breakdown (no link out).
  */
 
 import { formatTimeMs } from '../../data/format-time';
@@ -28,21 +32,10 @@ export function WaterfallLivePopover({
   row: InspectorRowWithFires;
   /** Shared timeline zero — the earliest request's issue time in view. */
   t0: number;
-  /** CDP provenance; without it the live request model is unavailable. */
+  /** CDP provenance; without it the queue-exit instant is unobservable until
+   *  the finished HAR lands, so the row stays Stalled and we add a hint. */
   cdpEnhanced: boolean;
 }) {
-  if (!cdpEnhanced) {
-    return (
-      // biome-ignore lint/a11y/useKeyWithClickEvents: guard only, not interactive
-      <div className="dt-waterfall-pop" onClick={(e) => e.stopPropagation()}>
-        <div className="dt-waterfall-pop-caution">Live timing isn't captured for this request.</div>
-        <div className="dt-waterfall-pop-explainer">
-          Enable CDP and reload before navigating to capture each request's timing as it runs.
-        </div>
-      </div>
-    );
-  }
-
   // Queued = the issue instant (the bar's zero). "Started at" only means
   // something once the request actually left the queue for the wire (a known
   // network start); for a request still stalled it never started, so showing
@@ -67,6 +60,11 @@ export function WaterfallLivePopover({
         </div>
       )}
       <div className="dt-waterfall-pop-caution">CAUTION: request is not finished yet!</div>
+      {!cdpEnhanced && (
+        <div className="dt-waterfall-pop-explainer">
+          Enable CDP and reload before navigating for the full connection breakdown as it runs.
+        </div>
+      )}
     </div>
   );
 }

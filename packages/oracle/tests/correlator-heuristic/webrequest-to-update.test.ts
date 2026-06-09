@@ -4,9 +4,8 @@
  * sessions).
  */
 
-import { describe, expect, it } from 'vitest';
-
 import type { RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle';
+import { describe, expect, it } from 'vitest';
 
 import type { WebRequestEvent } from '../../src/correlator-heuristic/events';
 import { webRequestEventToUpdates } from '../../src/correlator-heuristic/webrequest-to-update';
@@ -46,7 +45,7 @@ describe('webRequestEventToUpdates — happy-path projection', () => {
     expect(update.lifecycle.initiator).toBe('https://app.openheaders.io');
   });
 
-  it('onSendHeaders → no update emitted (CORS / header capture are H5)', () => {
+  it('onSendHeaders → phase patch with provisional request headers', () => {
     const updates = webRequestEventToUpdates({
       method_kind: 'onSendHeaders',
       tabId: TAB,
@@ -55,12 +54,51 @@ describe('webRequestEventToUpdates — happy-path projection', () => {
       method: 'GET',
       type: 'xmlhttprequest',
       timeStamp: 1_700_000_000_010,
-      requestHeaders: [{ name: 'X-Test', value: 'y' }],
+      requestHeaders: [{ name: 'X-Test', value: 'y' }, { name: 'X-Empty' }],
+    });
+    expect(updates).toHaveLength(1);
+    const u = updates[0];
+    if (u?.kind !== 'phase') throw new Error('expected phase');
+    expect(u.patch.phase).toBeUndefined();
+    expect(u.patch.requestHeaders).toEqual([
+      { name: 'X-Test', value: 'y' },
+      { name: 'X-Empty', value: '' },
+    ]);
+    expect(u.patch.requestHeadersProvisional).toBe(true);
+  });
+
+  it('onSendHeaders without headers → no update emitted', () => {
+    const updates = webRequestEventToUpdates({
+      method_kind: 'onSendHeaders',
+      tabId: TAB,
+      requestId: REQ,
+      url: URL_A,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: 1_700_000_000_010,
     });
     expect(updates).toEqual([]);
   });
 
-  it('onHeadersReceived → phase patch with status + statusText', () => {
+  it('onResponseStarted → phase patch carrying lastActivityAtMs (no phase change)', () => {
+    const updates = webRequestEventToUpdates({
+      method_kind: 'onResponseStarted',
+      tabId: TAB,
+      requestId: REQ,
+      url: URL_A,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: 1_700_000_000_015,
+      statusCode: 200,
+    });
+    expect(updates).toHaveLength(1);
+    const u = updates[0];
+    if (u?.kind !== 'phase') throw new Error('expected phase');
+    expect(u.patch.phase).toBeUndefined();
+    expect(u.patch.lastActivityAtMs).toBe(1_700_000_000_015);
+  });
+
+  it('onHeadersReceived → phase patch with status + statusText + drops provisional', () => {
     const updates = webRequestEventToUpdates({
       method_kind: 'onHeadersReceived',
       tabId: TAB,
@@ -80,6 +118,7 @@ describe('webRequestEventToUpdates — happy-path projection', () => {
     expect(u.patch.statusCode).toBe(200);
     expect(u.patch.statusText).toBe('OK');
     expect(u.patch.fromCache).toBe(false);
+    expect(u.patch.requestHeadersProvisional).toBe(false);
   });
 
   it('onBeforeRedirect → redirect with sourceUrl and redirectUrl', () => {

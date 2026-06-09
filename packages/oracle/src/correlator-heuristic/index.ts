@@ -9,23 +9,13 @@
  * See `docs/REQUEST_LIFECYCLE_DESIGN.md` §6.2.
  */
 
-export { HeuristicCorrelator } from './correlator';
-export type { CorrelatorDiagnostics, HeuristicCorrelatorSources } from './correlator';
-export { webRequestEventToUpdates } from './webrequest-to-update';
-export { harAttachedUpdate, bodyAttachedUpdate, harEntryJoinFields, harEntryTimestamp } from './har-to-update';
-export { InFlightFifo, IN_FLIGHT_MAX_AGE_MS } from './in-flight-fifo';
-export type { FifoEvictionLogger, InFlightMatch } from './in-flight-fifo';
 export { BodyJoinMap } from './body-join-map';
-export { HarWaitingBuffer } from './har-waiting-buffer';
-export type { HarDrainResult, HarRetry, HarRetryMatch, HarWaitingDropLogger } from './har-waiting-buffer';
-export { HopCursor } from './hop-cursor';
-export type { HopCursorDropLogger, HopCursorDropReason } from './hop-cursor';
-export { FinalizedRetention } from './finalized-retention';
-export { FINALIZED_RETENTION_MS, HAR_FORWARD_HOLD_MS } from './late-arrival-constants';
-export { classifyCors, extractHeader, isCrossOrigin } from './cors-classifier';
+export type { CorrelatorDiagnostics, HeuristicCorrelatorSources } from './correlator';
+export { HeuristicCorrelator } from './correlator';
 export type { ClassifyCorsInput } from './cors-classifier';
-export { CorsContextStore } from './cors-context-store';
+export { classifyCors, extractHeader, isCrossOrigin } from './cors-classifier';
 export type { CorsContextDropLogger, CorsContextDropReason } from './cors-context-store';
+export { CorsContextStore } from './cors-context-store';
 export { refineUpdateWithCors } from './cors-error-refinement';
 export type {
   OnBeforeRedirectEvent,
@@ -33,11 +23,13 @@ export type {
   OnCompletedEvent,
   OnErrorOccurredEvent,
   OnHeadersReceivedEvent,
+  OnResponseStartedEvent,
   OnSendHeadersEvent,
   WebRequestEvent,
   WebRequestEventSource,
   WebRequestHeader,
 } from './events';
+export { FinalizedRetention } from './finalized-retention';
 export type {
   HarBodyEvent,
   HarEntryEvent,
@@ -46,3 +38,12 @@ export type {
   HarPresenceEvent,
   HarPresenceSource,
 } from './har-events';
+export { bodyAttachedUpdate, harAttachedUpdate, harEntryJoinFields, harEntryTimestamp } from './har-to-update';
+export type { HarDrainResult, HarRetry, HarRetryMatch, HarWaitingDropLogger } from './har-waiting-buffer';
+export { HarWaitingBuffer } from './har-waiting-buffer';
+export type { HopCursorDropLogger, HopCursorDropReason } from './hop-cursor';
+export { HopCursor } from './hop-cursor';
+export type { FifoEvictionLogger, InFlightMatch } from './in-flight-fifo';
+export { IN_FLIGHT_MAX_AGE_MS, InFlightFifo } from './in-flight-fifo';
+export { FINALIZED_RETENTION_MS, HAR_FORWARD_HOLD_MS } from './late-arrival-constants';
+export { webRequestEventToUpdates } from './webrequest-to-update';

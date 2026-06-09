@@ -3,10 +3,10 @@
  * HAR entry yet (pending / post-navigation "(unknown)").
  *
  * HAR lands only at finish, so the rich popover can't drive these rows. The
- * host reads its live request model (CDP) instead, available from the first
- * event. We mirror that: with CDP, show Queued / Started + the open Stalled
- * phase + the not-finished caution; without CDP, explain why there's no timing
- * and how to capture it.
+ * partial is read from the lifecycle (both correlators populate the issue
+ * instant), never from the provenance: show Queued / Started + the open Stalled
+ * phase + the not-finished caution. The heuristic (no-CDP) path can't observe
+ * the queue-exit instant, so it stays Stalled and adds an attach-CDP hint.
  */
 
 import { WaterfallLivePopover } from '@openheaders/ui/panel/components/traffic/WaterfallLivePopover';
@@ -54,12 +54,20 @@ describe('WaterfallLivePopover', () => {
     expect(container.querySelector('.dt-waterfall-pop-label')).toBeNull();
   });
 
-  it('no CDP: explains the gap instead of showing timing', () => {
-    const row = makeRow({ startedAtMs: 5000, phase: 'pending', har: [null] });
+  it('no CDP: still shows the partial (Queued + Stalled + caution) plus an attach-CDP hint', () => {
+    // The heuristic path populates the issue instant too, so the live partial
+    // renders the same — Queued + open Stalled — and adds the attach-CDP hint
+    // (it can't observe the queue-exit instant until the finished HAR lands).
+    const row = makeRow({ startedAtMs: 5000, hopStartedAtMs: 5000, phase: 'pending', har: [null] });
     const { container } = render(<WaterfallLivePopover row={row} t0={4000} cdpEnhanced={false} />);
+    const lines = headerLines(container);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain('Queued at');
+    expect(lines[0]).toContain('1.00');
+    expect(container.querySelector('.dt-waterfall-pop-label')?.textContent).toBe('Stalled');
+    expect(container.querySelector('.dt-waterfall-pop-caution')?.textContent).toBe(
+      'CAUTION: request is not finished yet!',
+    );
     expect(container.querySelector('.dt-waterfall-pop-explainer')?.textContent).toContain('Enable CDP');
-    // No live timing rows when there's no live model.
-    expect(headerLines(container)).toHaveLength(0);
-    expect(container.querySelector('.dt-waterfall-pop-label')).toBeNull();
   });
 });

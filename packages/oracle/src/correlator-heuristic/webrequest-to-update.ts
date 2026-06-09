@@ -4,17 +4,19 @@
  *
  * H1 cut — what this mapper handles:
  *   - `onBeforeRequest`     → `started`
- *   - `onHeadersReceived`   → `phase: 'headers-received'`
+ *   - `onSendHeaders`       → `phase` carrying the hop's request headers
+ *                             (provisional until the response confirms it)
+ *   - `onResponseStarted`   → `phase` carrying `lastActivityAtMs`
+ *   - `onHeadersReceived`   → `phase: 'headers-received'` (+ drop the
+ *                             request-headers provisional flag)
  *   - `onBeforeRedirect`    → `redirect`
  *   - `onCompleted`         → `phase: 'completed'`
  *   - `onErrorOccurred`     → `phase: 'failed'`
  *
  * Not handled in this pure mapper:
- *   - `onSendHeaders` — emits nothing. CORS classification (H5) and
- *     request-header capture attach here in the correlator, not in the
- *     mapper. Kept in the type union so the adapter still subscribes
- *     (invariant 7's "exactly one webRequest subscriber" only holds if
- *     all six are owned by the adapter).
+ *   - CORS classification (H5) — the correlator reads `onSendHeaders`'
+ *     `Origin` itself; the mapper only projects the headers onto the
+ *     lifecycle. Both readers see the same event.
  *   - HAR closest-timestamp join (H2/H3), per-URL FIFO matching (H4),
  *     CORS verdict (H5/H6), late-arrival buffer (H7), per-hop HAR / body
  *     attachment (H8/H9) — all live in the correlator, which calls this
@@ -27,20 +29,24 @@
 
 import type { RequestLifecycle, RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle';
 
-import type { WebRequestEvent } from './events';
+import type { WebRequestEvent, WebRequestHeader } from './events';
 
 /**
  * Project one webRequest event into lifecycle updates. Returns an empty
- * array for events H1 does not yet act on (`onSendHeaders`) — those
- * remain valid events the adapter must forward; the mapper just emits
- * nothing for them today.
+ * array for an `onSendHeaders` that carries no headers — the event still
+ * forwards (the correlator reads its `Origin` for CORS), it just has
+ * nothing for the mapper to project.
  */
 export function webRequestEventToUpdates(event: WebRequestEvent): readonly RequestLifecycleUpdate[] {
   switch (event.method_kind) {
     case 'onBeforeRequest':
       return [startedUpdate(event)];
-    case 'onSendHeaders':
-      return [];
+    case 'onSendHeaders': {
+      const update = requestHeadersUpdate(event);
+      return update !== undefined ? [update] : [];
+    }
+    case 'onResponseStarted':
+      return [responseStartedUpdate(event)];
     case 'onHeadersReceived':
       return [headersReceivedUpdate(event)];
     case 'onBeforeRedirect':
@@ -57,9 +63,7 @@ export function webRequestEventToUpdates(event: WebRequestEvent): readonly Reque
 // redirect. The store's reducer rejects the duplicate as `duplicate-started`
 // (invariant-8 test pins it). Do NOT filter here — the mapper is pure and the
 // reducer is the single boundary enforcer.
-function startedUpdate(
-  event: Extract<WebRequestEvent, { method_kind: 'onBeforeRequest' }>,
-): RequestLifecycleUpdate {
+function startedUpdate(event: Extract<WebRequestEvent, { method_kind: 'onBeforeRequest' }>): RequestLifecycleUpdate {
   const lifecycle: RequestLifecycle = {
     tabId: event.tabId,
     requestId: event.requestId,
@@ -78,6 +82,56 @@ function startedUpdate(
   return { kind: 'started', lifecycle };
 }
 
+/**
+ * Project `onSendHeaders`' request headers onto the lifecycle so an
+ * in-flight row shows them before the response-gated HAR lands — the
+ * heuristic mirror of the CDP path's request-header surface. These are the
+ * set the network stack is sending (our adapter opts into the
+ * security-sensitive headers), but the row reads `provisional` until the
+ * response confirms the wire exchange (`onHeadersReceived`), matching the
+ * browser's "Provisional headers are shown" banner. Absent on a request
+ * served before send (cache / blocked), where `onSendHeaders` never fires.
+ *
+ * Returns `undefined` when the event carried no headers — nothing to
+ * project, so the mapper emits no update.
+ */
+function requestHeadersUpdate(
+  event: Extract<WebRequestEvent, { method_kind: 'onSendHeaders' }>,
+): RequestLifecycleUpdate | undefined {
+  const headers = normalizeRequestHeaders(event.requestHeaders);
+  if (headers === undefined) return undefined;
+  return {
+    kind: 'phase',
+    tabId: event.tabId,
+    requestId: event.requestId,
+    patch: {
+      requestHeaders: headers,
+      requestHeadersProvisional: true,
+    },
+  };
+}
+
+/**
+ * `onResponseStarted` is the first response-body byte — the in-flight
+ * activity instant. webRequest reports no per-chunk progress, so this is a
+ * single bump (not the CDP path's continuous `dataReceived` growth): the
+ * Time column / waterfall bar grow to first-byte, then hold until the
+ * terminal event. Carries no phase change — the request is still
+ * `headers-received` until `onCompleted`.
+ */
+function responseStartedUpdate(
+  event: Extract<WebRequestEvent, { method_kind: 'onResponseStarted' }>,
+): RequestLifecycleUpdate {
+  return {
+    kind: 'phase',
+    tabId: event.tabId,
+    requestId: event.requestId,
+    patch: {
+      lastActivityAtMs: event.timeStamp,
+    },
+  };
+}
+
 function headersReceivedUpdate(
   event: Extract<WebRequestEvent, { method_kind: 'onHeadersReceived' }>,
 ): RequestLifecycleUpdate {
@@ -90,13 +144,14 @@ function headersReceivedUpdate(
       statusCode: event.statusCode,
       statusText: extractStatusText(event.statusLine),
       fromCache: event.fromCache,
+      // The response came back, so the request demonstrably crossed the
+      // wire — the captured request headers are no longer provisional.
+      requestHeadersProvisional: false,
     },
   };
 }
 
-function redirectUpdate(
-  event: Extract<WebRequestEvent, { method_kind: 'onBeforeRedirect' }>,
-): RequestLifecycleUpdate {
+function redirectUpdate(event: Extract<WebRequestEvent, { method_kind: 'onBeforeRedirect' }>): RequestLifecycleUpdate {
   return {
     kind: 'redirect',
     tabId: event.tabId,
@@ -111,9 +166,7 @@ function redirectUpdate(
   };
 }
 
-function completedUpdate(
-  event: Extract<WebRequestEvent, { method_kind: 'onCompleted' }>,
-): RequestLifecycleUpdate {
+function completedUpdate(event: Extract<WebRequestEvent, { method_kind: 'onCompleted' }>): RequestLifecycleUpdate {
   return {
     kind: 'phase',
     tabId: event.tabId,
@@ -128,9 +181,7 @@ function completedUpdate(
   };
 }
 
-function failedUpdate(
-  event: Extract<WebRequestEvent, { method_kind: 'onErrorOccurred' }>,
-): RequestLifecycleUpdate {
+function failedUpdate(event: Extract<WebRequestEvent, { method_kind: 'onErrorOccurred' }>): RequestLifecycleUpdate {
   return {
     kind: 'phase',
     tabId: event.tabId,
@@ -141,6 +192,19 @@ function failedUpdate(
       error: { code: event.error, reason: event.error },
     },
   };
+}
+
+/**
+ * webRequest headers carry an optional `value`; the lifecycle's request-header
+ * shape requires a string. Default a missing value to `''` (an empty-valued
+ * header that was genuinely sent), and return `undefined` when no header list
+ * was provided at all so the caller emits no update.
+ */
+function normalizeRequestHeaders(
+  headers: readonly WebRequestHeader[] | undefined,
+): readonly { name: string; value: string }[] | undefined {
+  if (headers === undefined) return undefined;
+  return headers.map((h) => ({ name: h.name, value: h.value ?? '' }));
 }
 
 /**

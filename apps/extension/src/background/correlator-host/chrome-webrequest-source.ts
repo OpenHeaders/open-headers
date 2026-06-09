@@ -14,21 +14,21 @@
  * The polyfill exposes the chrome-shaped API everywhere.
  */
 
-import { getBrowserAPI } from '@/types/browser';
-import { isFirefox } from '@utils/browser-api';
-import { logger } from '@utils/logger';
-
 import type {
   OnBeforeRedirectEvent,
   OnBeforeRequestEvent,
   OnCompletedEvent,
   OnErrorOccurredEvent,
   OnHeadersReceivedEvent,
+  OnResponseStartedEvent,
   OnSendHeadersEvent,
   WebRequestEvent,
   WebRequestEventSource,
   WebRequestHeader,
 } from '@openheaders/oracle/correlator-heuristic';
+import { isFirefox } from '@utils/browser-api';
+import { logger } from '@utils/logger';
+import { getBrowserAPI } from '@/types/browser';
 
 type Listener = (event: WebRequestEvent) => void;
 
@@ -94,9 +94,10 @@ export class ChromeWebRequestEventSource implements WebRequestEventSource {
       'responseHeaders',
       ...securitySensitive,
     ]);
-    this.bind(wr.onBeforeRedirect, (details) => this.fan(mapOnBeforeRedirect(details)), [
-      'responseHeaders',
-    ]);
+    // First response-body byte — the in-flight activity instant. No header
+    // opt-in: only the timestamp + status are projected onto the lifecycle.
+    this.bind(wr.onResponseStarted, (details) => this.fan(mapOnResponseStarted(details)));
+    this.bind(wr.onBeforeRedirect, (details) => this.fan(mapOnBeforeRedirect(details)), ['responseHeaders']);
     this.bind(wr.onCompleted, (details) => this.fan(mapOnCompleted(details)));
     this.bind(wr.onErrorOccurred, (details) => this.fan(mapOnErrorOccurred(details)));
 
@@ -179,6 +180,22 @@ function mapOnHeadersReceived(d: chrome.webRequest.OnHeadersReceivedDetails): On
     statusCode: d.statusCode,
     statusLine: d.statusLine,
     responseHeaders: normalizeHeaders(d.responseHeaders),
+  };
+}
+
+function mapOnResponseStarted(d: chrome.webRequest.OnResponseStartedDetails): OnResponseStartedEvent {
+  return {
+    method_kind: 'onResponseStarted',
+    tabId: d.tabId,
+    requestId: d.requestId,
+    url: d.url,
+    method: d.method,
+    type: d.type,
+    timeStamp: d.timeStamp,
+    initiator: readInitiator(d),
+    frameId: d.frameId,
+    statusCode: d.statusCode,
+    fromCache: d.fromCache,
   };
 }
 
