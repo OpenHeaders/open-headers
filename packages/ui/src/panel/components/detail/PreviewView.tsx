@@ -169,6 +169,9 @@ export default function PreviewView({ row }: PreviewViewProps) {
   if (state.kind === 'not-applicable') {
     return <PreviewNotice title="No preview available" detail={state.message} />;
   }
+  if (state.kind === 'no-response') {
+    return <PreviewNotice title="Nothing to preview" detail="This request has no response data available" />;
+  }
   if (state.kind === 'unavailable') {
     return <PreviewNotice title="Failed to load response data" detail={state.message} />;
   }

@@ -83,6 +83,9 @@ export function ResponseBodyView({ row, searchHighlight, searchMatchIndex }: Res
   if (state.kind === 'not-applicable') {
     return <ResponseNotice title="No response body" detail={state.message} />;
   }
+  if (state.kind === 'no-response') {
+    return <ResponseNotice title="Nothing to preview" detail="This request has no response data available" />;
+  }
   if (state.kind === 'unavailable') {
     return <ResponseNotice title="Failed to load response data" detail={state.message} />;
   }

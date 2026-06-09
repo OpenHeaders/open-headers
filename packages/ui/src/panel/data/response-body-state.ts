@@ -16,12 +16,19 @@
 
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import { currentHarEntry, currentResponseBody } from './inspector-row-projection';
-import { classifyRequestState } from './request-state';
+import { classifyRequestState, isRequestFailed } from './request-state';
 
 export type BodyState =
   | { kind: 'loading' }
   | { kind: 'not-applicable'; reason: NotApplicableReason; message: string }
   | { kind: 'empty' }
+  /** The request never delivered a response body — it was blocked, canceled,
+   *  or failed on the wire (with or without a status code). The browser shows
+   *  one fixed message here; the Status cell carries the specific reason. */
+  | { kind: 'no-response' }
+  /** A response arrived but its body can't be shown (opaque cross-origin, or
+   *  evicted from cache before it could be read). The browser's "Failed to
+   *  load response data" state. */
   | { kind: 'unavailable'; reason: UnavailableReason; message: string }
   | { kind: 'text'; content: string }
   | { kind: 'binary'; base64: string };
@@ -36,7 +43,7 @@ export type NotApplicableReason =
   | 'informational'
   | 'websocket';
 
-export type UnavailableReason = 'blocked' | 'cancelled' | 'failed' | 'opaque' | 'cache' | 'unknown';
+export type UnavailableReason = 'opaque' | 'cache' | 'unknown';
 
 const NOT_APPLICABLE_COPY: Record<NotApplicableReason, string> = {
   preflight: 'No content available for preflight request',
@@ -50,13 +57,10 @@ const NOT_APPLICABLE_COPY: Record<NotApplicableReason, string> = {
 };
 
 const UNAVAILABLE_COPY: Record<UnavailableReason, string> = {
-  blocked: 'Request was blocked',
-  cancelled: 'Request was cancelled before a body arrived',
-  failed: 'Failed to load response data',
   opaque: 'Response body not available — opaque cross-origin response',
   cache: 'Body not available — response was served from cache before DevTools opened',
   unknown:
-    "Body not captured. The host returned no content — the response was streamed without buffering or served from cache.",
+    'Body not captured. The host returned no content — the response was streamed without buffering or served from cache.',
 };
 
 function isInformational(status: number | undefined): boolean {
@@ -125,13 +129,15 @@ export function classifyBodyState(lifecycle: RequestLifecycle): BodyState {
     return { kind: 'not-applicable', reason: 'informational', message: NOT_APPLICABLE_COPY.informational };
   }
 
-  // ── Transport-level failure ──────────────────────────────
+  // ── Request-level failure ────────────────────────────────
+  // Blocked / canceled / wire failure — the request produced no response body.
+  // The browser keys this on its `request.failed` flag, independent of any
+  // status code, so a `200` whose body download was aborted lands here too
+  // (rather than spinning on a body that never arrives). `classifyRequestState`
+  // catches the status-text-only blocks the bare failed flag misses.
   const reqState = classifyRequestState(lifecycle);
-  if (reqState.kind === 'blocked') {
-    return { kind: 'unavailable', reason: 'blocked', message: UNAVAILABLE_COPY.blocked };
-  }
-  if (reqState.kind === 'failed') {
-    return { kind: 'unavailable', reason: 'failed', message: UNAVAILABLE_COPY.failed };
+  if (reqState.kind === 'blocked' || reqState.kind === 'failed' || isRequestFailed(lifecycle)) {
+    return { kind: 'no-response' };
   }
 
   // ── In-flight ────────────────────────────────────────────

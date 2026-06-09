@@ -40,6 +40,8 @@ interface LifecycleOpts {
   body?: InspectorHarBody | null;
   har?: InspectorHarEntry;
   fromCache?: boolean;
+  phase?: RequestLifecycle['phase'];
+  error?: RequestLifecycle['error'];
 }
 
 function makeLifecycle(opts: LifecycleOpts = {}): RequestLifecycle {
@@ -51,7 +53,7 @@ function makeLifecycle(opts: LifecycleOpts = {}): RequestLifecycle {
     url: har.request?.url ?? 'https://api.openheaders.io/v2/config',
     method: opts.method ?? har.request?.method ?? 'GET',
     resourceType: opts.resourceType ?? 'xmlhttprequest',
-    phase: 'completed',
+    phase: opts.phase ?? 'completed',
     redirectHopCount: 0,
     redirectHops: [],
     startedAtMs: 0,
@@ -59,6 +61,7 @@ function makeLifecycle(opts: LifecycleOpts = {}): RequestLifecycle {
     statusCode: 'statusCode' in opts ? opts.statusCode : har.response?.status ?? 200,
     statusText: 'statusText' in opts ? opts.statusText : har.response?.statusText,
     fromCache: opts.fromCache,
+    error: opts.error,
     har: [har],
     harBodyByHop: harBody ? [harBody] : [],
   };
@@ -115,15 +118,37 @@ describe('classifyBodyState — per-protocol no-body cases', () => {
   });
 });
 
-describe('classifyBodyState — transport failure', () => {
-  it('blocked request returns unavailable:blocked', () => {
+describe('classifyBodyState — request-level failure', () => {
+  it('blocked request returns no-response', () => {
     const lc = makeLifecycle({ statusCode: 0, statusText: 'blocked', body: makeBody('') });
-    expect(classifyBodyState(lc)).toMatchObject({ kind: 'unavailable', reason: 'blocked' });
+    expect(classifyBodyState(lc)).toEqual({ kind: 'no-response' });
   });
 
-  it('negative status code returns unavailable:failed', () => {
+  it('negative status code returns no-response', () => {
     const lc = makeLifecycle({ statusCode: -1, statusText: '', body: makeBody('') });
-    expect(classifyBodyState(lc)).toMatchObject({ kind: 'unavailable', reason: 'failed' });
+    expect(classifyBodyState(lc)).toEqual({ kind: 'no-response' });
+  });
+
+  it('canceled before headers (no status) returns no-response', () => {
+    const lc = makeLifecycle({
+      statusCode: undefined,
+      statusText: undefined,
+      body: null,
+      phase: 'failed',
+      error: { code: 'net::ERR_ABORTED', reason: 'aborted' },
+    });
+    expect(classifyBodyState(lc)).toEqual({ kind: 'no-response' });
+  });
+
+  it('200 then aborted mid-body returns no-response, not loading (no infinite skeleton)', () => {
+    const lc = makeLifecycle({
+      statusCode: 200,
+      statusText: 'OK',
+      body: null,
+      phase: 'failed',
+      error: { code: 'net::ERR_ABORTED', reason: 'aborted' },
+    });
+    expect(classifyBodyState(lc)).toEqual({ kind: 'no-response' });
   });
 });
 

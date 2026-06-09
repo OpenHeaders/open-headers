@@ -4,6 +4,7 @@ import {
   classifyRequestState,
   isFailedNetworkRequest,
   isPreservedUnknown,
+  isRequestFailed,
   statusCellText,
 } from '@openheaders/ui/panel/data/request-state';
 import { describe, expect, it } from 'vitest';
@@ -258,6 +259,32 @@ describe('classifyRequestState', () => {
     expect(statusCellText(makeLifecycle())).toBe('200');
     expect(statusCellText(redirectLc)).toBe('302');
     expect(statusCellText(cachedLc)).toBe('200');
+  });
+});
+
+describe('isRequestFailed — failure independent of status code', () => {
+  it('true for a failed phase, an error, or a negative code', () => {
+    expect(isRequestFailed(makeLifecycle({ phase: 'failed' }))).toBe(true);
+    expect(
+      isRequestFailed(
+        makeLifecycle({ statusCode: undefined, error: { code: 'net::ERR_ABORTED', reason: 'aborted' } }),
+      ),
+    ).toBe(true);
+    expect(isRequestFailed(makeLifecycle({ statusCode: -1 }))).toBe(true);
+  });
+
+  it('false for a plain success and for a pending request', () => {
+    expect(isRequestFailed(makeLifecycle())).toBe(false);
+    expect(isRequestFailed(makeLifecycle({ phase: 'pending', statusCode: undefined }))).toBe(false);
+  });
+
+  it('a 200 that was then aborted stays failed yet still reads 200 in the cell (browser parity)', () => {
+    // The wire carried a 200, so the Status cell shows the code; the abort is
+    // surfaced only where the body would be (the no-response Response/Preview),
+    // matching the browser's `!statusCode && canceled` cell rule.
+    const lc = makeLifecycle({ phase: 'failed', error: { code: 'net::ERR_ABORTED', reason: 'aborted' } });
+    expect(isRequestFailed(lc)).toBe(true);
+    expect(statusCellText(lc)).toBe('200');
   });
 });
 

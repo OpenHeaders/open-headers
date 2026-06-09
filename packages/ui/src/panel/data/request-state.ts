@@ -324,12 +324,24 @@ interface StatusSignals {
   errorCode: string | null;
 }
 
+/**
+ * Whether a wire attempt failed — the browser's `request.failed`, set
+ * independently of any HTTP status. A request can carry a real status code
+ * (a `200` whose body download was aborted) and still be failed; the body
+ * tabs key off this, not the displayed status, so a code-bearing failure
+ * still degrades to its no-response state instead of waiting for a body that
+ * never lands.
+ */
+export function isRequestFailed(lifecycle: RequestLifecycle): boolean {
+  const rawNegative = typeof lifecycle.statusCode === 'number' && lifecycle.statusCode < 0;
+  return lifecycle.phase === 'failed' || lifecycle.error != null || rawNegative;
+}
+
 function readStatusSignals(lifecycle: RequestLifecycle): StatusSignals {
   const err = lifecycle.error;
-  const rawNegative = typeof lifecycle.statusCode === 'number' && lifecycle.statusCode < 0;
   return {
     code: effectiveStatusCode(lifecycle),
-    failed: lifecycle.phase === 'failed' || err != null || rawNegative,
+    failed: isRequestFailed(lifecycle),
     canceled: err != null && CANCELED_CODES.has(err.code),
     cors: err?.code.startsWith('oh:cors') ?? false,
     // A correlator-supplied block reason (the CDP path names CORP/COEP/CSP/…
