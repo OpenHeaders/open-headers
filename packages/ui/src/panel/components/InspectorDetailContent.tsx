@@ -5,7 +5,7 @@
  */
 
 import type { Page } from '@openheaders/core/page-stream';
-import type { LifecycleSource, RequestError, RequestLifecycle } from '@openheaders/core/request-lifecycle';
+import type { LifecycleSource, RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ConnectionReuseInfo } from '../data/connection-reuse';
@@ -15,7 +15,6 @@ import {
   currentHarEntry,
   currentResponseBody,
   type InspectorRowWithFires,
-  isFailedLifecycle,
   lifecycleMimeType,
 } from '../data/inspector-row-projection';
 import { findRuleCollectionId } from '../data/rule-collection';
@@ -31,7 +30,6 @@ import {
 import type { RepeatStats } from '../data/timing-repeats';
 import type { RulesByUid } from '../data/use-rules-lookup';
 import CookiesView from './detail/CookiesView';
-import { ErrorView } from './detail/ErrorView';
 import EventStreamView, { isEventStream } from './detail/EventStreamView';
 import { HeadersView } from './detail/HeadersView';
 import InitiatorView from './detail/InitiatorView';
@@ -113,27 +111,11 @@ export function InspectorDetailContent({
   const { localCollections } = useRules();
   const lc = row.lifecycle;
 
-  // Failed lifecycles have no HAR response to attribute, no timing to
-  // chart, no cookies to enrich — short-circuit and render the
-  // dedicated single-pane view.
-  if (isFailedLifecycle(lc) && lc.error) {
-    const errorRow = row as InspectorRowWithFires & {
-      lifecycle: RequestLifecycle & { error: RequestError };
-    };
-    return (
-      <div ref={rootRef} style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-        <div className="dt-detail-sections" role="tablist">
-          <button type="button" role="tab" className="dt-detail-section-tab" aria-selected>
-            Error
-          </button>
-        </div>
-        <div className="dt-tab-body" ref={tabBodyRef}>
-          <ErrorView row={errorRow} />
-        </div>
-      </div>
-    );
-  }
-
+  // A failed lifecycle (canceled / blocked / network error) is just another
+  // request state — it renders the same full tab set as every other row, with
+  // each tab honestly degrading to its own empty/partial state. The failure is
+  // surfaced through the shared status machinery (the General → Status Code row
+  // and the list status cell), never by collapsing the panel to a single pane.
   const ruleCollectionByUid = useMemo<Map<string, string | undefined>>(() => {
     const m = new Map<string, string | undefined>();
     for (const rule of rulesByUid.values()) {

@@ -26,6 +26,12 @@ import { computeHeaderFootprint, formatHeaderFootprint } from '../../data/header
 import { computeHeaderInsights, type HeaderInsight, type HeaderInsightAction } from '../../data/header-insights';
 import { formatHttpVersion } from '../../data/http-version';
 import {
+  effectiveStatusCode,
+  isFailedNetworkRequest,
+  statusCellText,
+  statusCellTitle,
+} from '../../data/request-state';
+import {
   currentHarEntry,
   type InspectorRowWithFires,
   lifecycleMimeType,
@@ -172,7 +178,17 @@ export function HeadersView({
     { ref: firstSummaryRef, cssVar: '--oh-headers-summary-h' },
   ]);
 
-  const statusOk = lc.statusCode != null && lc.statusCode < 400;
+  // The General "Status Code" row reads through the same state machinery as the
+  // list status cell, so a canceled / blocked / failed / pending row surfaces
+  // its honest state here too (`(canceled)`, `(blocked:other)`, `(failed)
+  // net::ERR_…`, `(pending)`) instead of vanishing or showing a stale code.
+  const statusLabel = statusCellText(lc);
+  const statusCodeNum = effectiveStatusCode(lc);
+  const statusClass = isFailedNetworkRequest(lc)
+    ? 'dt-kv-val--status-err'
+    : statusCodeNum != null && statusCodeNum < 400
+      ? 'dt-kv-val--status-ok'
+      : '';
   const httpVersion = har?.response?.httpVersion ?? har?.request?.httpVersion;
   const referrerPolicy = responseHeaders.find((h) => h.name.toLowerCase() === 'referrer-policy')?.value;
   const contentEncoding = responseHeaders.find((h) => h.name.toLowerCase() === 'content-encoding')?.value;
@@ -258,13 +274,11 @@ export function HeadersView({
         <GeneralRow label="Request Method" infoKey="request-method">
           <span className="dt-kv-val">{lc.method}</span>
         </GeneralRow>
-        {lc.statusCode != null && (
-          <GeneralRow label="Status Code" infoKey="status-code">
-            <span className={`dt-kv-val ${statusOk ? 'dt-kv-val--status-ok' : 'dt-kv-val--status-err'}`}>
-              {lc.statusCode} {lc.statusText ?? ''}
-            </span>
-          </GeneralRow>
-        )}
+        <GeneralRow label="Status Code" infoKey="status-code">
+          <span className={`dt-kv-val ${statusClass}`} title={statusCellTitle(lc)}>
+            {statusCodeNum != null ? `${statusCodeNum}${lc.statusText ? ` ${lc.statusText}` : ''}` : statusLabel}
+          </span>
+        </GeneralRow>
         {remoteAddr && (
           <GeneralRow label="Remote Address" infoKey="remote-address">
             <span className="dt-kv-val">{remoteAddr}</span>
