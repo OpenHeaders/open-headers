@@ -1,8 +1,8 @@
 /**
  * Timing ladder — the honest, full-picture breakdown of one request's life.
  *
- * Unlike the legacy `computeTimingPhases` (which peels, drops zero phases, and
- * can make a whole rung vanish), the ladder ALWAYS emits the same eight rungs
+ * Unlike a peeled phase list (which drops zero phases and can make a whole rung
+ * vanish), the ladder ALWAYS emits the same eight rungs
  * in order, each with an explicit state — a real duration (including `0` for a
  * step that happened instantly), or a reason it is absent (`reused` / `not
  * reached` / `n/a`). Nothing is hidden and nothing is fabricated; every number

@@ -1,10 +1,9 @@
+import type { ElapsedRung, TimingInsight } from '@openheaders/ui/panel/data/timing-insight';
 import { computeTransferRate, findBottleneck, findWarnings } from '@openheaders/ui/panel/data/timing-insight';
-import type { TimingInsight } from '@openheaders/ui/panel/data/timing-insight';
-import type { TimingPhase } from '@openheaders/ui/panel/data/timing-phases';
 import { describe, expect, it } from 'vitest';
 
-function phase(key: TimingPhase['key'], ms: number): TimingPhase {
-  return { key, label: key, group: 'connection', ms };
+function phase(key: ElapsedRung['key'], ms: number): ElapsedRung {
+  return { key, label: key, ms };
 }
 
 describe('findBottleneck', () => {
@@ -21,7 +20,16 @@ describe('findBottleneck', () => {
 
   it('flags a phase that is ≥2× the runner-up even when under 30%', () => {
     // 250 / 1200 = 20.8% (under 30%), but runner-up is 120 → 250 ≥ 2×120
-    const phases = [phase('wait', 250), phase('receive', 120), phase('connect', 100), phase('ssl', 100), phase('dns', 100), phase('send', 100), phase('stalled', 90), phase('queueing', 90)];
+    const phases = [
+      phase('wait', 250),
+      phase('receive', 120),
+      phase('connect', 100),
+      phase('ssl', 100),
+      phase('dns', 100),
+      phase('send', 100),
+      phase('stalled', 90),
+      phase('queueing', 90),
+    ];
     const out = findBottleneck(phases, 1200);
     expect(out?.phase).toBe('wait');
   });

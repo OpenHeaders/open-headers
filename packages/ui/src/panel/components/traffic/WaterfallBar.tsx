@@ -24,11 +24,10 @@ import type { InspectorRowWithFires } from '../../data/inspector-row-projection'
 import { extractName } from './formatters';
 import { isPreservedUnknown, PRESERVED_UNKNOWN_LABEL, type SupersessionAnchor } from '../../data/request-state';
 import { noResponseTerminal, rowTimingLadder } from '../../data/row-timing-ladder';
-import type { ComputedTimings } from '../../data/timing-phases';
+import type { TimingLadder } from '../../data/timing-ladder';
 import { barColors } from '../../data/waterfall-colors';
 import {
   barLabels,
-  computeRowTimingPhases,
   type DurationBarLayout,
   durationBarLayout,
   timelineBarLayout,
@@ -194,11 +193,11 @@ function RainbowBar({
   );
 }
 
-function bar(row: InspectorRowWithFires, scale: WaterfallScale, timing: ComputedTimings | null, stateLabel: string | null) {
+function bar(row: InspectorRowWithFires, scale: WaterfallScale, ladder: TimingLadder | null, stateLabel: string | null) {
   if (scale.mode === 'timeline') {
     return (
       <RainbowBar
-        layout={timelineBarLayout(row, scale.t0, scale.tMax, timing)}
+        layout={timelineBarLayout(row, scale.t0, scale.tMax, ladder)}
         // No native tooltip: a timed row's hover is the rich popover, and an
         // in-flight row's is the live popover — a native title would double up.
         title={undefined}
@@ -208,7 +207,7 @@ function bar(row: InspectorRowWithFires, scale: WaterfallScale, timing: Computed
             : // An in-flight row with no timing reads its state ("Pending" /
               // "(unknown)") in place of an absent or misleading metric value.
               (stateLabel ??
-                timelineMetricLabel(row, scale.metric, scale.t0, timing, scale.valueFormat, scale.timestampTz))
+                timelineMetricLabel(row, scale.metric, scale.t0, ladder, scale.valueFormat, scale.timestampTz))
         }
         valuesAlways={scale.valuesMode === 'always'}
       />
@@ -219,7 +218,7 @@ function bar(row: InspectorRowWithFires, scale: WaterfallScale, timing: Computed
       layout={durationBarLayout(row, scale.max)}
       colors={barColors(row.lifecycle.resourceType)}
       colPx={scale.colPx}
-      hasPopover={timing != null}
+      hasPopover={ladder != null}
       valuesMode={scale.valuesMode}
       stateLabel={stateLabel}
     />
@@ -227,25 +226,22 @@ function bar(row: InspectorRowWithFires, scale: WaterfallScale, timing: Computed
 }
 
 export function WaterfallBar({ row, scale, cdpEnhanced, superseded, connectionOpeners }: WaterfallBarProps) {
-  // Rich hover breakdown when we have real phase data; otherwise the bar keeps
-  // a plain native tooltip. While the row streams, this carries a live Content
-  // Download leg so the bar, inline value, and popover all grow together.
-  const timingDetail = computeRowTimingPhases(row);
+  // The full honest breakdown — all eight rungs + explicit states — drives both
+  // the inline rainbow bar and the hover popover, and is the same builder the
+  // Timing detail tab consumes, so no two surfaces can drift. While the row
+  // streams it carries a live Content Download leg, so the bar, the inline
+  // value, and the popover all grow together. Null exactly when no HAR timing
+  // exists yet (an in-flight `(unknown)` / pending row).
+  const ladder = rowTimingLadder(row);
   // An in-flight row with no measurable timing has no metric value to print, so
   // the bar reads its state instead — the same word the Time column shows.
-  const inFlightNoTiming = timingDetail == null && row.lifecycle.completedAtMs == null;
+  const inFlightNoTiming = ladder == null && row.lifecycle.completedAtMs == null;
   const stateLabel = inFlightNoTiming
     ? isPreservedUnknown(row.lifecycle, superseded)
       ? PRESERVED_UNKNOWN_LABEL
       : PENDING_LABEL
     : null;
-  const track = bar(row, scale, timingDetail, stateLabel);
-
-  // The full honest breakdown for the popover (all eight rungs + explicit
-  // states) — the same builder the Timing detail tab consumes, so the two
-  // surfaces can't drift. Null exactly when the inline bar has no timing, so the
-  // popover appears precisely when the bar has data.
-  const ladder = rowTimingLadder(row);
+  const track = bar(row, scale, ladder, stateLabel);
 
   // One ladder, two views: the resolved orientation switches only the final
   // renderer — both consume the identical ladder + props, so they can't drift.

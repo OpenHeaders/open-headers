@@ -1,13 +1,12 @@
 import { formatClock, formatTimeMs } from '@openheaders/ui/panel/data/format-time';
 import type { InspectorRowWithFires } from '@openheaders/ui/panel/data/inspector-row-projection';
-import { currentHarEntry } from '@openheaders/ui/panel/data/inspector-row-projection';
 import {
   queueingMs,
   timelineEndMs,
   waterfallSortValue,
   waterfallStartMs,
 } from '@openheaders/ui/panel/data/network-columns';
-import { computeTimingPhases } from '@openheaders/ui/panel/data/timing-phases';
+import { rowTimingLadder } from '@openheaders/ui/panel/data/row-timing-ladder';
 import {
   barLabels,
   durationBarLayout,
@@ -21,13 +20,13 @@ import { describe, expect, it } from 'vitest';
 import { makePage, makeRow } from '../__factories__/lifecycle';
 
 function timingOf(row: InspectorRowWithFires) {
-  const har = currentHarEntry(row.lifecycle);
-  return har ? computeTimingPhases(har) : null;
+  return rowTimingLadder(row);
 }
 
 // The github.com main-document load captured for the parity pass — `connect`
-// spans both dns and ssl (HAR 1.2), so `time` double-counts dns. Real numbers
-// keep the geometry honest against what the browser actually exports.
+// spans `ssl` (HAR 1.2) but NOT `dns`, so the honest active time is HAR `time`
+// minus queueing (no dns double-count). Real numbers keep the geometry honest
+// against what the browser actually exports.
 const GH_TIMINGS = {
   blocked: 4.367,
   dns: 26.386,
@@ -40,16 +39,18 @@ const GH_TIMINGS = {
 } as const;
 const GH_TIME = 819.215;
 
-// Derived, once, the way the columns + geometry should: duration strips
-// queueing and the duplicated dns; latency is duration minus content download.
+// Derived, once, the way the columns + geometry should: duration is HAR `time`
+// stripped of queueing (the post-queue `endTime − startTime`, every leg counted
+// once); latency is duration minus content download.
 const QUEUEING = 3.343;
-const DURATION = GH_TIME - QUEUEING - GH_TIMINGS.dns; // 789.486
-const LATENCY = DURATION - GH_TIMINGS.receive; // 411.604
+const DURATION = GH_TIME - QUEUEING; // 815.872
+const LATENCY = DURATION - GH_TIMINGS.receive; // 437.99
 
 function ghRow(startedAtMs: number) {
   return makeRow({
     startedAtMs,
     completedAtMs: startedAtMs + GH_TIME,
+    statusCode: 200,
     resourceType: 'document',
     harOverrides: { time: GH_TIME, timings: { ...GH_TIMINGS } },
   });
@@ -94,7 +95,7 @@ describe('waterfall sort keys', () => {
         timings: { ...GH_TIMINGS, receive: -1 },
       },
     });
-    const TTFB = LATENCY; // pre-receive legs, queueing + dup-dns stripped — fixed at first byte
+    const TTFB = LATENCY; // pre-receive legs, queueing stripped — fixed at first byte
 
     it('end time tracks the live last-activity instant (the browser advances endTime per chunk)', () => {
       expect(waterfallSortValue(inflight, 'endTime')).toBe(1000 + QUEUEING + 600);
@@ -170,7 +171,7 @@ describe('durationBarLayout', () => {
 });
 
 describe('timelineBarLayout', () => {
-  // total = phase sum with dns counted once = queueing + duration.
+  // total = the ladder duration (= HAR `time`, every leg once) = queueing + duration.
   const TOTAL = QUEUEING + DURATION;
 
   it('spans issue→finish on the window and tiles the bar with phase segments', () => {
@@ -248,7 +249,11 @@ describe('timelineMetricLabel', () => {
   });
 
   it('reports end time as the full (de-double-counted) total', () => {
-    expect(timelineMetricLabel(row, 'endTime', 1000, timing, 'relative', 'local')).toBe(`+${formatTimeMs(TOTAL)}`);
+    // The label derives from the ladder it shares with the bar, so it reads the
+    // ladder's own duration (the rung sum = HAR `time`), not a re-derivation.
+    expect(timelineMetricLabel(row, 'endTime', 1000, timing, 'relative', 'local')).toBe(
+      `+${formatTimeMs(timing?.durationMs ?? 0)}`,
+    );
   });
 
   it('carries the row offset within the window into the value', () => {
@@ -315,7 +320,7 @@ describe('pageMarkers', () => {
 
 describe('formatBarMs', () => {
   it('rounds to whole milliseconds below a second', () => {
-    expect(formatBarMs(LATENCY)).toBe('412 ms');
+    expect(formatBarMs(LATENCY)).toBe('438 ms');
     expect(formatBarMs(0.4)).toBe('0 ms');
   });
 

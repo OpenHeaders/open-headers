@@ -185,20 +185,17 @@ function networkStartMs(lc: RequestLifecycle): number {
 }
 
 /**
- * Active duration shown in the Time column. HAR `time` is
- * `blocked + dns + connect + send + wait + receive`, but its `connect`
- * already spans `dns`, so HAR `time` double-counts DNS. Strip queueing and
- * that duplicated DNS to match the browser's `endTime - startTime`. (Kept
- * arithmetic-only — no phase allocation — since this runs in the sort path.)
+ * Active duration shown in the Time column — the browser's
+ * `endTime - startTime`, where `startTime` is the post-queue network start.
+ * HAR `time` is the full queued→ended span (`blocked + dns + connect + send +
+ * wait + receive`, with `connect` the TCP+TLS leg that does NOT span `dns`), so
+ * the active duration is simply HAR `time` minus queueing. (Kept arithmetic-only
+ * — no phase allocation — since this runs in the sort path.)
  */
 export function durationMs(lc: RequestLifecycle): number {
   const har = currentHarEntry(lc);
   if (har && typeof har.time === 'number' && har.time > 0) {
-    const t = har.timings;
-    const connect = t && typeof t.connect === 'number' && t.connect > 0 ? t.connect : 0;
-    const dns = t && typeof t.dns === 'number' && t.dns > 0 ? t.dns : 0;
-    const duplicatedDns = connect > 0 ? dns : 0;
-    return Math.max(har.time - queueingMs(lc) - duplicatedDns, 0);
+    return Math.max(har.time - queueingMs(lc), 0);
   }
   // A completed request sorts by its real duration, including 0 (instant
   // / cache); only a still-pending request is unknown (sorts last via -1).
@@ -302,9 +299,9 @@ function latencyMs(lc: RequestLifecycle): number {
 /**
  * Fixed time-to-first-byte from the pre-receive HAR legs, the in-flight
  * latency source while the download (`receive`) leg is still unknown. Sums the
- * stable legs and strips queueing + the DNS that `connect` double-counts, the
- * same adjustment {@link durationMs} applies — so at completion it equals the
- * finished `duration − receive`. `-1` until the response (and its legs) lands.
+ * stable legs and strips queueing — the same post-queue adjustment
+ * {@link durationMs} applies — so at completion it equals the finished
+ * `duration − receive`. `-1` until the response (and its legs) lands.
  */
 function firstByteLatencyMs(lc: RequestLifecycle): number {
   const t = currentHarEntry(lc)?.timings;
@@ -312,8 +309,7 @@ function firstByteLatencyMs(lc: RequestLifecycle): number {
   const leg = (x: number | undefined): number => (typeof x === 'number' && x > 0 ? x : 0);
   const nonReceive = leg(t.blocked) + leg(t.dns) + leg(t.connect) + leg(t.send) + leg(t.wait);
   if (nonReceive <= 0) return -1;
-  const duplicatedDns = leg(t.connect) > 0 ? leg(t.dns) : 0;
-  return Math.max(nonReceive - queueingMs(lc) - duplicatedDns, 0);
+  return Math.max(nonReceive - queueingMs(lc), 0);
 }
 
 /**

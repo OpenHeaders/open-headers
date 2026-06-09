@@ -9,9 +9,9 @@
  *     width scaled against the largest duration in view.
  *   - **timeline** (Start / Response / End time) — a per-phase "rainbow" bar
  *     (queueing, stalled, DNS, connect, SSL, send, wait, receive) placed on
- *     the shared `[t0, tMax]` window at the issue time. The phases come from
- *     `computeTimingPhases`, so DNS is counted once and SSL is peeled out of
- *     connect — no double-counting in the segment widths.
+ *     the shared `[t0, tMax]` window at the issue time. The segments come from
+ *     the honest `TimingLadder` (TCP = connect − ssl, every leg counted once),
+ *     so the segment widths sum to the row's true duration with no double-count.
  *
  * Keeping the math here — pure, percentage-based, React-free — means the bar a
  * row draws and the order it sorts into are derived from one place and stay
@@ -21,32 +21,12 @@
 import type { Page } from '@openheaders/core/page-stream';
 import { formatFooterDuration } from './footer-timing';
 import { formatClock, formatTimeMs } from './format-time';
-import { currentHarEntry, type InspectorRowWithFires } from './inspector-row-projection';
+import type { InspectorRowWithFires } from './inspector-row-projection';
 import { timelineEndMs, type WaterfallMetric, waterfallSortValue, waterfallStartMs } from './network-columns';
-import { type ComputedTimings, computeTimingPhases, type TimingPhaseKey, withLiveReceive } from './timing-phases';
+import type { TimingLadder } from './timing-ladder';
 
 /** A bar never collapses below this width (% of column) so it stays visible. */
 const MIN_BAR_PCT = 0.25;
-
-/**
- * The grouped timing breakdown a row's waterfall bar and hover popover render —
- * the HAR phases, plus a LIVE Content Download leg while the row is still
- * streaming. Once finished, the HAR is authoritative (returns the plain
- * `computeTimingPhases`). In flight, the HAR's `receive` leg has not landed, so
- * the breakdown would otherwise miss Content Download and freeze its total at
- * the first byte; we splice in `duration − latency` (latency fixed at the first
- * byte, download growing per chunk — the same split the Time column and the
- * duration bar use), so the bar, the inline value, and the popover all grow
- * together. `null` when no HAR phases are known yet (a truly-pending row).
- */
-export function computeRowTimingPhases(row: InspectorRowWithFires): ComputedTimings | null {
-  const lc = row.lifecycle;
-  const har = currentHarEntry(lc);
-  const base = har?.timings ? computeTimingPhases(har) : null;
-  if (base == null || lc.completedAtMs != null || lc.lastActivityAtMs == null) return base;
-  const liveReceiveMs = Math.max(waterfallSortValue(row, 'duration') - waterfallSortValue(row, 'latency'), 0);
-  return withLiveReceive(base, liveReceiveMs);
-}
 
 /** Dot-and-leader length (px) drawn between the bar end and an outside label. */
 export const LEADER_PX = 12;
@@ -109,26 +89,29 @@ export function durationBarLayout(row: InspectorRowWithFires, maxMs: number): Du
 /**
  * Per-phase rainbow bar for the Start / Response / End time metrics. The bar
  * spans `[issue, issue + total]` on the window (queueing is its leading
- * segment), and each phase fills its share of `total`. `total` is the phase
- * sum (DNS counted once), so the segments tile the bar exactly.
+ * segment), and each elapsed ladder rung fills its share of `total`. `total` is
+ * the ladder's duration (= HAR `time`, every leg counted once), which equals
+ * `timelineEndMs − issue` by construction — so the bar's right edge lands on the
+ * window extent and the segments tile the bar exactly. A row with no ladder yet
+ * (in-flight `(unknown)`) draws a plain bar from the window fallback.
  */
 export function timelineBarLayout(
   row: InspectorRowWithFires,
   t0: number,
   tMax: number,
-  timing: ComputedTimings | null,
+  ladder: TimingLadder | null,
 ): TimelineBarLayout {
   const lc = row.lifecycle;
   const span = Math.max(tMax - t0, 1);
   const start = waterfallStartMs(lc);
-  const total = timing ? timing.totalMs : Math.max(timelineEndMs(lc) - start, 0);
+  const total = ladder ? ladder.durationMs : Math.max(timelineEndMs(lc) - start, 0);
   const segments: TimelineSegment[] =
-    timing && total > 0
-      ? timing.phases.map((p) => ({
-          key: p.key,
-          pct: (p.ms / total) * 100,
-          tall: p.group === 'transfer',
-        }))
+    ladder && total > 0
+      ? ladder.rungs.flatMap((r) =>
+          r.state.kind === 'elapsed' && r.state.ms > 0
+            ? [{ key: r.key, pct: (r.state.ms / total) * 100, tall: r.band === 'exchange' }]
+            : [],
+        )
       : [];
   return {
     leftPct: (Math.max(start - t0, 0) / span) * 100,
@@ -145,72 +128,32 @@ const TIMELINE_METRICS: ReadonlySet<WaterfallMetric> = new Set<WaterfallMetric>(
 
 /**
  * The value to print on a timeline (Start / Response / End time) bar. Derived
- * from the SAME quantities the bar is built from (the queue moment, the
- * queueing phase, the phase sum) so the number agrees with the bar and the
- * sort. `relative` reads the offset from the timeline zero (the first request
- * in view), matching the hover popover's "Started at", and carries a leading
- * `+` so it reads as an offset rather than an absolute reading; `timestamp`
- * reads the absolute wall-clock instant (local or UTC). The chip is centered in
- * the column; only the value changes with the metric. Null for the zero-aligned
- * metrics (duration / latency, which carry their own labels) or when timing is
- * absent.
+ * from the SAME ladder the bar is built from (the queue moment, the queueing
+ * rung, the response instant, the duration) so the number agrees with the bar
+ * and the sort. `relative` reads the offset from the timeline zero (the first
+ * request in view), matching the hover popover's "Started at", and carries a
+ * leading `+` so it reads as an offset rather than an absolute reading;
+ * `timestamp` reads the absolute wall-clock instant (local or UTC). The chip is
+ * centered in the column; only the value changes with the metric. Null for the
+ * zero-aligned metrics (duration / latency, which carry their own labels) or
+ * when no ladder is available.
  */
 export function timelineMetricLabel(
   row: InspectorRowWithFires,
   metric: WaterfallMetric,
   t0: number,
-  timing: ComputedTimings | null,
+  ladder: TimingLadder | null,
   format: 'relative' | 'timestamp',
   tz: 'local' | 'utc',
 ): string | null {
-  if (!timing || !TIMELINE_METRICS.has(metric)) return null;
+  if (!ladder || !TIMELINE_METRICS.has(metric)) return null;
   const start = waterfallStartMs(row.lifecycle);
-  const phaseMs = (key: string) => timing.phases.find((p) => p.key === key)?.ms ?? 0;
   let offset: number;
-  if (metric === 'startTime') offset = phaseMs('queueing');
-  else if (metric === 'responseTime') offset = Math.max(timing.totalMs - phaseMs('receive'), 0);
-  else offset = timing.totalMs;
+  if (metric === 'startTime') offset = ladder.startedMs;
+  else if (metric === 'responseTime') offset = ladder.responseMs ?? ladder.durationMs;
+  else offset = ladder.durationMs;
   if (format === 'timestamp') return formatClock(start + offset, tz);
   return `+${formatTimeMs(Math.max(start - t0, 0) + offset)}`;
-}
-
-/** A bar segment's tone — the two tones the duration bar paints (lighter
- * waiting half, base download half), keyed so the consumer resolves each to a
- * `barColors` value. */
-export type WaterfallTone = 'waiting' | 'download';
-
-/** One colored span of a popover phase row: a tone and the fraction (0–1) of
- * the row's width it covers. A row split across the waiting/download boundary
- * carries two spans; a row wholly in one band carries one. */
-export interface PhaseTintSpan {
-  tone: WaterfallTone;
-  frac: number;
-}
-
-/**
- * Which tone(s) paint each phase row in the hover popover, so the popover reads
- * as a legend for the two-tone duration bar: the rows that sum to the bar's
- * latency value carry the waiting tone, the row(s) that sum to its download
- * value carry the download tone. The split is phase-aligned — `latencyMs` is
- * `duration − receive`, so the boundary falls exactly between "Waiting for
- * server" and "Content Download" and no single phase is shared. The fractional
- * `PhaseTintSpan` shape still lets a row carry two spans should a future metric
- * ever cut through one. Empty for the timeline metrics (their rainbow bar
- * already colors each phase) and for phases outside the bar (Queueing, which
- * the duration bar excludes).
- */
-export function phaseTints(
-  data: ComputedTimings,
-  metric: WaterfallMetric,
-): ReadonlyMap<TimingPhaseKey, readonly PhaseTintSpan[]> {
-  const tints = new Map<TimingPhaseKey, readonly PhaseTintSpan[]>();
-  if (metric !== 'duration' && metric !== 'latency') return tints;
-  for (const p of data.phases) {
-    if (p.key === 'queueing') continue;
-    const tone: WaterfallTone = p.key === 'receive' ? 'download' : 'waiting';
-    tints.set(p.key, [{ tone, frac: 1 }]);
-  }
-  return tints;
 }
 
 /**
