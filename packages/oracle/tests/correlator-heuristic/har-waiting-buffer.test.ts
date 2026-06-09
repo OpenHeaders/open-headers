@@ -3,15 +3,11 @@
  * arrived before their matching `onBeforeRequest`.
  */
 
+import type { InspectorHarEntry } from '@openheaders/core/types';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { InspectorHarEntry } from '@openheaders/core/types';
-
 import { HarWaitingBuffer } from '../../src/correlator-heuristic/har-waiting-buffer';
-import {
-  HAR_FORWARD_HOLD_MS,
-  MAX_HAR_WAITING_PER_TAB,
-} from '../../src/correlator-heuristic/late-arrival-constants';
+import { HAR_FORWARD_HOLD_MS, MAX_HAR_WAITING_PER_TAB } from '../../src/correlator-heuristic/late-arrival-constants';
 
 const TAB = 9;
 const URL_A = 'https://api.openheaders.io/x';
@@ -46,9 +42,7 @@ describe('HarWaitingBuffer — hold / drain', () => {
     buf.hold(TAB, entry('GET', URL_A, T0), T0);
     buf.hold(TAB, entry('GET', URL_B, T0 + 5), T0 + 5);
 
-    const matched = buf.drain(TAB, (e) =>
-      e.request?.url === URL_A ? { requestId: 'wr-a', hopIndex: 0 } : undefined,
-    );
+    const matched = buf.drain(TAB, (e) => (e.request?.url === URL_A ? { requestId: 'wr-a', hopIndex: 0 } : undefined));
     expect(matched).toHaveLength(1);
     expect(matched[0]?.requestId).toBe('wr-a');
     expect(buf.size()).toBe(1);
@@ -75,9 +69,7 @@ describe('HarWaitingBuffer — hold / drain', () => {
     buf.hold(TAB, e2, T0 + 5);
 
     const matched = buf.drain(TAB, (e) =>
-      e === e1
-        ? { requestId: 'wr-1', hopIndex: 0 }
-        : { requestId: 'wr-1', hopIndex: 1 },
+      e === e1 ? { requestId: 'wr-1', hopIndex: 0 } : { requestId: 'wr-1', hopIndex: 1 },
     );
     expect(matched.map((m) => m.hopIndex)).toEqual([0, 1]);
   });
@@ -99,27 +91,44 @@ describe('HarWaitingBuffer — hold / drain', () => {
 });
 
 describe('HarWaitingBuffer — gc', () => {
-  it('drops entries whose heldAtMs is past HAR_FORWARD_HOLD_MS', () => {
+  it('removes and returns entries whose heldAtMs is past HAR_FORWARD_HOLD_MS', () => {
     const buf = new HarWaitingBuffer();
-    buf.hold(TAB, entry('GET', URL_A, T0), T0);
-    buf.gc(T0 + HAR_FORWARD_HOLD_MS + 1);
+    const e = entry('GET', URL_A, T0);
+    buf.hold(TAB, e, T0);
+    const expired = buf.gc(T0 + HAR_FORWARD_HOLD_MS + 1);
     expect(buf.size()).toBe(0);
+    expect(expired).toEqual([{ tabId: TAB, entry: e }]);
   });
 
   it('keeps entries that are still within the window', () => {
     const buf = new HarWaitingBuffer();
     buf.hold(TAB, entry('GET', URL_A, T0), T0);
-    buf.gc(T0 + HAR_FORWARD_HOLD_MS - 1);
+    expect(buf.gc(T0 + HAR_FORWARD_HOLD_MS - 1)).toEqual([]);
     expect(buf.size()).toBe(1);
   });
 
-  it('fires onDrop with reason "expired" for window-aged entries', () => {
+  it('honors a per-entry hold override — short-fuse entries expire while default ones stay', () => {
+    const buf = new HarWaitingBuffer();
+    const short = entry('GET', URL_A, T0);
+    const dflt = entry('GET', URL_B, T0);
+    buf.hold(TAB, short, T0, 1_500);
+    buf.hold(TAB, dflt, T0);
+    const expired = buf.gc(T0 + 1_501);
+    expect(expired).toEqual([{ tabId: TAB, entry: short }]);
+    expect(buf.size()).toBe(1);
+    expect(buf.gc(T0 + HAR_FORWARD_HOLD_MS + 1).map((x) => x.entry)).toEqual([dflt]);
+  });
+
+  it('returns expiries oldest-first and does NOT fire onDrop — the caller decides their fate', () => {
     const onDrop = vi.fn();
     const buf = new HarWaitingBuffer({ onDrop });
-    const e = entry('GET', URL_A, T0);
-    buf.hold(TAB, e, T0);
-    buf.gc(T0 + HAR_FORWARD_HOLD_MS + 1);
-    expect(onDrop).toHaveBeenCalledWith({ tabId: TAB, reason: 'expired', entry: e });
+    const e1 = entry('GET', URL_A, T0);
+    const e2 = entry('GET', URL_B, T0 + 10);
+    buf.hold(TAB, e1, T0);
+    buf.hold(TAB, e2, T0 + 10);
+    const expired = buf.gc(T0 + 10 + HAR_FORWARD_HOLD_MS + 1);
+    expect(expired.map((x) => x.entry)).toEqual([e1, e2]);
+    expect(onDrop).not.toHaveBeenCalled();
   });
 });
 

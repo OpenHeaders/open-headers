@@ -124,22 +124,16 @@ function toParityRow(lc: RequestLifecycle, arrivalIndex: number): ParityRow {
     state,
     resourceType: lc.resourceType || null,
   };
-  if (
-    lc.url.includes('/net/slow/') ||
-    lc.url.includes('/net/redirect') ||
-    lc.url.includes('/net/nav-') ||
-    lc.url.includes('/echo/') ||
-    lc.url.includes('/net/status/') ||
-    lc.url.includes('/favicon.ico')
-  ) {
-    row._requestId = lc.requestId;
-    row._harResponseStatus = har?.response?.status;
-    row._harResponseError = har?.response?._error;
-    row._hasErrorField = lc.error != null;
-    row._startedAtMs = lc.startedAtMs;
-    row._completedAtMs = lc.completedAtMs ?? null;
-    row._lifecycleDurationMs = lc.completedAtMs == null ? 0 : Math.max(0, lc.completedAtMs - lc.startedAtMs);
-  }
+  // Identity + HAR-join probes on every row — a capture must be able to
+  // tell a real lifecycle from a synthesized one (`oh-mem:` prefix) and
+  // see which HAR landed, regardless of which site the scenario targets.
+  row._requestId = lc.requestId;
+  row._harResponseStatus = har?.response?.status;
+  row._harResponseError = har?.response?._error;
+  row._hasErrorField = lc.error != null;
+  row._startedAtMs = lc.startedAtMs;
+  row._completedAtMs = lc.completedAtMs ?? null;
+  row._lifecycleDurationMs = lc.completedAtMs == null ? 0 : Math.max(0, lc.completedAtMs - lc.startedAtMs);
   if (isDocumentLike(lc.resourceType)) {
     row._redirectHopCount = lc.redirectHopCount;
     row._startedAtMs = lc.startedAtMs;

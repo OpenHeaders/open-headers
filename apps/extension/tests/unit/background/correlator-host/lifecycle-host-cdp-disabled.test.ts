@@ -10,6 +10,7 @@
  * CDP correlator emits nothing — the OFF path is byte-for-byte heuristic.
  */
 
+import { HAR_FAILURE_HOLD_MS } from '@openheaders/oracle/correlator-heuristic';
 import { TabLifecycleBus } from '@openheaders/oracle/tab-lifecycle-bus';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -76,5 +77,66 @@ describe('startLifecycleHost — CDP-disabled is byte-for-byte heuristic', () =>
     // nothing and `chrome.debugger.attach` was never called.
     expect(cdpEmitted).not.toHaveBeenCalled();
     expect(chromeMock.debugger.attach).not.toHaveBeenCalled();
+  });
+});
+
+describe('startLifecycleHost — trailing HAR gc tick', () => {
+  it('synthesizes the (canceled) row for an un-joined failure HAR once the trailing tick fires', () => {
+    vi.useFakeTimers();
+    const t0 = 1_700_000_000_000;
+    vi.setSystemTime(t0);
+    try {
+      host = startLifecycleHost({ bus: new TabLifecycleBus() });
+
+      const onCreated = latestListener<(tab: chrome.tabs.Tab) => void>(chromeMock.tabs.onCreated.addListener);
+      onCreated({ id: TAB } as chrome.tabs.Tab);
+
+      // Connect a devtools HAR port and deliver a failure-shaped entry
+      // (the canceled-while-renderer-queued shape) with no webRequest
+      // counterpart.
+      const onConnect = latestListener<(port: chrome.runtime.Port) => void>(chromeMock.runtime.onConnect.addListener);
+      let onPortMessage: ((msg: unknown) => void) | undefined;
+      onConnect({
+        name: `devtools-har-source:${TAB}`,
+        onMessage: {
+          addListener: (fn: (msg: unknown) => void) => {
+            onPortMessage = fn;
+          },
+        },
+        onDisconnect: { addListener: vi.fn() },
+        postMessage: vi.fn(),
+      } as unknown as chrome.runtime.Port);
+      expect(onPortMessage).toBeDefined();
+      onPortMessage?.({
+        type: 'har',
+        entry: {
+          startedDateTime: new Date(t0).toISOString(),
+          time: 120,
+          _resourceType: 'script',
+          request: { method: 'GET', url: 'https://assets.openheaders.io/app.js', headers: [], queryString: [] },
+          response: {
+            status: 0,
+            statusText: '',
+            headers: [],
+            content: { size: 0, mimeType: 'x-unknown' },
+            _transferSize: 0,
+            _error: 'net::ERR_ABORTED',
+          },
+        },
+      });
+
+      // Held, not yet synthesized — the tab then goes quiet.
+      expect(host.store.snapshotTab(TAB)).toHaveLength(0);
+
+      vi.advanceTimersByTime(HAR_FAILURE_HOLD_MS + 600);
+
+      const rows = host.store.snapshotTab(TAB);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.requestId).toMatch(/^oh-har:/);
+      expect(rows[0]?.phase).toBe('failed');
+      expect(rows[0]?.error?.code).toBe('net::ERR_ABORTED');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

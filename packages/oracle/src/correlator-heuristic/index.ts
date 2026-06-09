@@ -37,12 +37,25 @@ export type {
   HarPresenceEvent,
   HarPresenceSource,
 } from './har-events';
-export { bodyAttachedUpdate, harAttachedUpdate, harEntryJoinFields, harEntryTimestamp } from './har-to-update';
-export type { HarDrainResult, HarRetry, HarRetryMatch, HarWaitingDropLogger } from './har-waiting-buffer';
+export {
+  bodyAttachedUpdate,
+  harAttachedUpdate,
+  harEntryJoinFields,
+  harEntryTimestamp,
+  harOnlyLifecycleUpdates,
+  hasHarFailureVerdict,
+} from './har-to-update';
+export type {
+  ExpiredHarEntry,
+  HarDrainResult,
+  HarRetry,
+  HarRetryMatch,
+  HarWaitingDropLogger,
+} from './har-waiting-buffer';
 export { HarWaitingBuffer } from './har-waiting-buffer';
 export type { HopCursorDropLogger, HopCursorDropReason } from './hop-cursor';
 export { HopCursor } from './hop-cursor';
 export type { FifoEvictionLogger, InFlightMatch } from './in-flight-fifo';
 export { IN_FLIGHT_MAX_AGE_MS, InFlightFifo } from './in-flight-fifo';
-export { FINALIZED_RETENTION_MS, HAR_FORWARD_HOLD_MS } from './late-arrival-constants';
+export { FINALIZED_RETENTION_MS, HAR_FAILURE_HOLD_MS, HAR_FORWARD_HOLD_MS } from './late-arrival-constants';
 export { webRequestEventToUpdates } from './webrequest-to-update';

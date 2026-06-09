@@ -27,7 +27,7 @@
  */
 
 import { CdpCorrelator } from '@openheaders/oracle/correlator-cdp';
-import { HeuristicCorrelator } from '@openheaders/oracle/correlator-heuristic';
+import { HAR_FAILURE_HOLD_MS, HeuristicCorrelator } from '@openheaders/oracle/correlator-heuristic';
 import { RequestLifecycleStore } from '@openheaders/oracle/request-lifecycle-store';
 import type { TabLifecycleBus } from '@openheaders/oracle/tab-lifecycle-bus';
 import { logger } from '@utils/logger';
@@ -104,6 +104,37 @@ export function startLifecycleHost(options: LifecycleHostOptions): LifecycleHost
     correlator.subscribe((update) => diagnostics.emitted(update));
   }
 
+  // Trailing GC tick. The correlator's expiry clock advances only on
+  // incoming events, so a tab that goes quiet right after a burst (the
+  // user stops a page load) would never flush its held HAR entries — and
+  // the HAR-only `(canceled)` synthesis they carry. One debounced timer,
+  // re-armed on EVERY pipeline event (both sources), ticks the correlator
+  // once the forward-race window has fully elapsed after the LAST event.
+  // Re-arming on both sources matters: the tick uses wall-clock `now`,
+  // which is only safe once the event stream is silent — a still-draining
+  // webRequest backlog carries lagged timestamps, and expiring against
+  // wall-clock mid-backlog could synthesize a row whose real lifecycle is
+  // seconds from arriving. Organic ticks (event-timestamp-driven, inside
+  // the correlator) cover the busy-stream case at the lagged clock.
+  // The delay tracks the FAILURE window (the synthesis fuse) — that is
+  // the expiry with user-visible urgency. Default-window (non-failure)
+  // entries left un-expired by this tick are destined for a diagnostic
+  // drop anyway and get swept by the next organic event.
+  let harGcTimer: ReturnType<typeof setTimeout> | undefined;
+  const armTrailingGcTick = (): void => {
+    if (harGcTimer !== undefined) clearTimeout(harGcTimer);
+    harGcTimer = setTimeout(() => {
+      harGcTimer = undefined;
+      correlator.gcTick(Date.now());
+    }, HAR_FAILURE_HOLD_MS + 500);
+  };
+  const unsubscribeHarGcPump = harSource.subscribe((event) => {
+    if (event.kind === 'har-entry') armTrailingGcTick();
+  });
+  const unsubscribeWebRequestGcPump = webRequestSource.subscribe(() => {
+    if (harGcTimer !== undefined) armTrailingGcTick();
+  });
+
   const router = new TabSourceRouter({ heuristic: correlator, cdp: cdpCorrelator });
   const detachBridge = installTabLifecycleBridge({ router, store, bus: options.bus });
 
@@ -118,6 +149,9 @@ export function startLifecycleHost(options: LifecycleHostOptions): LifecycleHost
     router,
     store,
     dispose: () => {
+      if (harGcTimer !== undefined) clearTimeout(harGcTimer);
+      unsubscribeHarGcPump();
+      unsubscribeWebRequestGcPump();
       detachBridge();
       correlator.dispose();
       cdpCorrelator.dispose();

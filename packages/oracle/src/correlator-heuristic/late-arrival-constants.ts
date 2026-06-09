@@ -29,6 +29,21 @@ import { IN_FLIGHT_MAX_AGE_MS } from './in-flight-fifo';
 export const HAR_FORWARD_HOLD_MS = 5_000;
 
 /**
+ * Shorter hold for failure-shaped entries (the host's recorded `_error`
+ * verdict) — these synthesize a HAR-only `(canceled)` lifecycle on
+ * expiry, and every held millisecond is a millisecond the panel shows
+ * the wrong thing for that request (the orphaned Resource Timing entry
+ * reads as a memory-cache hit until the truth lands). The duplicate
+ * race this window guards against needs the failed HAR to beat its own
+ * `onBeforeRequest` by MORE than this — an ms-scale reordering in
+ * practice — and the host's trailing tick only advances the wall clock
+ * after total pipeline silence, so a draining webRequest backlog can
+ * never be jumped. ~2s keeps the staging below the panel's normal
+ * settling rhythm while still dwarfing the observed race.
+ */
+export const HAR_FAILURE_HOLD_MS = 1_500;
+
+/**
  * Window during which a finalized lifecycle is retained in
  * {@link FinalizedRetention} (and thus `recentLifecycles`) so a late HAR
  * can still attach, measured from the terminal-phase timestamp.

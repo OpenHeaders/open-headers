@@ -31,6 +31,10 @@
  *     `onSendHeaders` following an `onBeforeRedirect`). HAR entries
  *     and their bodies inherit the stamp via the FIFO + body-join
  *     map.                                                            ✓
+ *   - HAR-only lifecycle synthesis: a failure-shaped HAR entry that
+ *     expires un-joined (a request webRequest never saw — canceled
+ *     while renderer-queued) mints its own `oh-har:` lifecycle instead
+ *     of being dropped                                                ✓
  *
  * Deliberately deferred (own future sessions):
  *   - H4 per-URL FIFO matching refinements on top of the current FIFO
@@ -43,22 +47,28 @@ import type {
   Unsubscribe,
 } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarBody, InspectorHarEntry } from '@openheaders/core/types';
-
-import type { CorsVerdict } from './cors-types';
-
 import { BodyJoinMap } from './body-join-map';
 import { classifyCors, extractHeader } from './cors-classifier';
 import { CorsContextStore } from './cors-context-store';
 import { refineUpdateWithCors } from './cors-error-refinement';
+import type { CorsVerdict } from './cors-types';
 import type { WebRequestEvent, WebRequestEventSource } from './events';
 import { FinalizedRetention } from './finalized-retention';
-import { bodyAttachedUpdate, harAttachedUpdate, harEntryJoinFields, harEntryTimestamp } from './har-to-update';
 import type { HarEvent, HarEventSource } from './har-events';
-import { HarWaitingBuffer } from './har-waiting-buffer';
+import {
+  bodyAttachedUpdate,
+  harAttachedUpdate,
+  harEntryJoinFields,
+  harEntryTimestamp,
+  harOnlyLifecycleUpdates,
+  hasHarFailureVerdict,
+} from './har-to-update';
 import type { HarWaitingDropLogger } from './har-waiting-buffer';
+import { HarWaitingBuffer } from './har-waiting-buffer';
 import { HopCursor } from './hop-cursor';
-import { InFlightFifo } from './in-flight-fifo';
 import type { FifoEvictionLogger, InFlightMatch } from './in-flight-fifo';
+import { InFlightFifo } from './in-flight-fifo';
+import { HAR_FAILURE_HOLD_MS, HAR_FORWARD_HOLD_MS } from './late-arrival-constants';
 import { RecentLifecyclesMirror } from './recent-lifecycles-mirror';
 import { webRequestEventToUpdates } from './webrequest-to-update';
 
@@ -122,6 +132,8 @@ export class HeuristicCorrelator implements RequestCorrelator {
   private readonly diagnostics: CorrelatorDiagnostics | undefined;
   private readonly webRequestUnsubscribe: () => void;
   private readonly harUnsubscribe: () => void;
+  /** Monotonic suffix for `oh-har:` synthesized request ids. */
+  private harOnlySequence = 0;
 
   constructor(sources: HeuristicCorrelatorSources, diagnostics?: CorrelatorDiagnostics) {
     this.diagnostics = diagnostics;
@@ -210,11 +222,7 @@ export class HeuristicCorrelator implements RequestCorrelator {
         this.hopCursor.noteRedirect(event.tabId, event.requestId);
         return;
       case 'onSendHeaders': {
-        const pending = this.hopCursor.consumePendingRecord(
-          event.tabId,
-          event.requestId,
-          event.method,
-        );
+        const pending = this.hopCursor.consumePendingRecord(event.tabId, event.requestId, event.method);
         if (pending === undefined) return;
         this.inFlight.record(
           event.tabId,
@@ -252,11 +260,7 @@ export class HeuristicCorrelator implements RequestCorrelator {
   private maybeUpdateCorsContext(event: WebRequestEvent): CorsVerdict | undefined {
     switch (event.method_kind) {
       case 'onSendHeaders': {
-        this.corsContext.recordOrigin(
-          event.tabId,
-          event.requestId,
-          extractHeader(event.requestHeaders, 'Origin'),
-        );
+        this.corsContext.recordOrigin(event.tabId, event.requestId, extractHeader(event.requestHeaders, 'Origin'));
         return undefined;
       }
       case 'onHeadersReceived': {
@@ -297,12 +301,13 @@ export class HeuristicCorrelator implements RequestCorrelator {
     const diag = onJoinMiss ? this.inFlight.diagnoseMatch(tabId, url, ts, method) : undefined;
     const match = this.inFlight.popMatching(tabId, url, ts, method);
     if (match === undefined) {
-      // Forward race (H7): no in-flight slot recorded yet. Hold for
-      // up to HAR_FORWARD_HOLD_MS so the matching onBeforeRequest
-      // (or onSendHeaders for hops ≥ 1) — if it lands within the
-      // window — can drain this entry.
+      // Forward race (H7): no in-flight slot recorded yet. Hold so the
+      // matching onBeforeRequest (or onSendHeaders for hops ≥ 1) — if
+      // it lands within the window — can drain this entry. Failure-
+      // shaped entries get the short fuse: their expiry synthesizes the
+      // `(canceled)` row, and the panel reads wrong until it lands.
       if (onJoinMiss && diag) onJoinMiss({ tabId, url, method, harTimestamp: ts, ...diag });
-      this.harWaiting.hold(tabId, entry, ts);
+      this.harWaiting.hold(tabId, entry, ts, hasHarFailureVerdict(entry) ? HAR_FAILURE_HOLD_MS : HAR_FORWARD_HOLD_MS);
       return;
     }
     this.attachHarEntry(tabId, match, entry, method, url);
@@ -335,9 +340,7 @@ export class HeuristicCorrelator implements RequestCorrelator {
       requestId: match.requestId,
       hopIndex: match.hopIndex,
     });
-    this.emit(
-      harAttachedUpdate({ tabId, requestId: match.requestId, hopIndex: match.hopIndex, entry }),
-    );
+    this.emit(harAttachedUpdate({ tabId, requestId: match.requestId, hopIndex: match.hopIndex, entry }));
   }
 
   /**
@@ -361,34 +364,73 @@ export class HeuristicCorrelator implements RequestCorrelator {
   }
 
   /**
+   * Host-driven GC tick. The internal clock only advances on incoming
+   * events, so a tab that goes quiet right after a burst (e.g. the user
+   * stops a page load) would starve the expiry sweep — and with it the
+   * HAR-only synthesis below. Hosts call this on a trailing timer after
+   * the last HAR delivery; `nowMs` is wall-clock ms like every event
+   * timestamp this correlator consumes.
+   */
+  gcTick(nowMs: number): void {
+    this.gcLateArrival(nowMs);
+  }
+
+  /**
    * GC tick driven by incoming event timestamps. Expires held HAR
-   * entries past their window and releases finalized lifecycles whose
+   * entries past their window — synthesizing a HAR-only lifecycle for
+   * the failure-shaped ones — and releases finalized lifecycles whose
    * retention window has elapsed (deleting them from
    * `recentLifecycles` so the mirror stays bounded).
    */
   private gcLateArrival(nowMs: number): void {
-    this.harWaiting.gc(nowMs);
+    for (const { tabId, entry } of this.harWaiting.gc(nowMs)) {
+      if (this.maybeSynthesizeFromExpiredHar(tabId, entry)) continue;
+      this.diagnostics?.onHarWaitingDrop?.({ tabId, reason: 'expired', entry });
+    }
     const expired = this.finalizedRetention.gcExpired(nowMs);
     for (const { tabId, requestId } of expired) {
       this.recentLifecycles.forget(tabId, requestId);
     }
   }
 
+  /**
+   * HAR-only lifecycle synthesis (the canceled-while-queued fix). A
+   * failure-shaped HAR entry that spent the whole forward-race window
+   * un-joined describes a request `webRequest` never saw — typically one
+   * the renderer canceled before it reached the network stack. The host's
+   * devtools recorded it (and Chrome's own panel shows it as canceled),
+   * so dropping it silently both loses the row AND leaves the request's
+   * Resource Timing entry un-matched, which the panel's memory-cache
+   * reconciliation then misreads as a cache hit. Mint a lifecycle from
+   * the entry instead: the host's `_error` verdict is a recorded fact,
+   * never a guess, and the synthesis only fires after the join had its
+   * full window. Non-failure entries keep today's drop semantics.
+   *
+   * Returns whether the entry was synthesized.
+   */
+  private maybeSynthesizeFromExpiredHar(tabId: number, entry: InspectorHarEntry): boolean {
+    if (!this.attached.has(tabId)) return false;
+    if (!hasHarFailureVerdict(entry)) return false;
+    const requestId = `oh-har:${++this.harOnlySequence}`;
+    const updates = harOnlyLifecycleUpdates({ tabId, requestId, entry });
+    if (updates.length === 0) return false;
+    // Register the body join so a late `getContent` delivery for this
+    // entry still attaches (keyed the same way joined entries are).
+    const { url, method } = harEntryJoinFields(entry);
+    this.bodyJoin.remember(tabId, method, url, entry.startedDateTime, { requestId, hopIndex: 0 });
+    for (const update of updates) this.emit(update);
+    return true;
+  }
+
   private onHarBody(tabId: number, body: InspectorHarBody): void {
     const target = this.bodyJoin.consume(tabId, body.method, body.url, body.startedDateTime);
     if (target === undefined) return;
-    this.emit(
-      bodyAttachedUpdate({ tabId, requestId: target.requestId, hopIndex: target.hopIndex, body }),
-    );
+    this.emit(bodyAttachedUpdate({ tabId, requestId: target.requestId, hopIndex: target.hopIndex, body }));
   }
 
   private emit(update: RequestLifecycleUpdate): void {
     if (update.kind === 'started') {
-      this.recentLifecycles.set(
-        update.lifecycle.tabId,
-        update.lifecycle.requestId,
-        update.lifecycle,
-      );
+      this.recentLifecycles.set(update.lifecycle.tabId, update.lifecycle.requestId, update.lifecycle);
     } else if (
       update.kind === 'phase' &&
       (update.patch.phase === 'completed' || update.patch.phase === 'failed') &&
@@ -398,11 +440,7 @@ export class HeuristicCorrelator implements RequestCorrelator {
       // recentLifecycles mirror gets pruned once the late-arrival
       // window elapses. `completedAtMs` is set by the webRequest
       // mapper for both onCompleted and onErrorOccurred branches.
-      this.finalizedRetention.markFinalized(
-        update.tabId,
-        update.requestId,
-        update.patch.completedAtMs,
-      );
+      this.finalizedRetention.markFinalized(update.tabId, update.requestId, update.patch.completedAtMs);
       // Hop bookkeeping is done — release the cursor. The FIFO entry
       // for the current hop is consumed by its HAR (or expires via
       // staleness sweep); the cursor exists only to bridge

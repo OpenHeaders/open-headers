@@ -245,11 +245,13 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
     [data.lookupByUrl],
   );
 
-  // Parity capture loop reads lifecycles directly — strictly better
-  // signal than the denormalized rows the legacy hook took — plus the
+  // Parity capture loop reads the rendered rows' lifecycles — the same
+  // merged, scoped set the list renders (including synthetic memory-cache
+  // rows), so a capture diffs what the user actually sees — plus the
   // footer projection so a capture can assert the redirect-leg anchoring.
+  const parityLifecycles = useMemo(() => data.rows.map((r) => r.lifecycle), [data.rows]);
   useParityDebugHook(
-    lifecycleClient.snapshot.ordered,
+    parityLifecycles,
     {
       source: lifecycleClient.source,
       footerDclMs: data.footerDclMs ?? null,

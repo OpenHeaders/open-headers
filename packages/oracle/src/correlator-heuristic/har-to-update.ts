@@ -14,7 +14,7 @@
  * rather than reading it off the lifecycle.
  */
 
-import type { RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle';
+import type { RequestLifecycle, RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarBody, InspectorHarEntry } from '@openheaders/core/types';
 
 /** Parse a HAR entry's `startedDateTime` into wall-clock ms or `null`. */
@@ -59,4 +59,112 @@ export function bodyAttachedUpdate(args: {
     hopIndex: args.hopIndex,
     body: args.body,
   };
+}
+
+/**
+ * Does this HAR entry carry the host's own failure verdict? `_error` is
+ * the devtools-recorded net error (`loadingFailed` → the exporter's
+ * `_error` field) — a recorded fact, not an inference. A clean cache-hit
+ * entry has `status 200` and no `_error`; a request canceled before (or
+ * while) crossing the wire has `_error: net::ERR_ABORTED` (status `0`,
+ * or the real code when headers had landed first).
+ */
+export function hasHarFailureVerdict(entry: InspectorHarEntry): boolean {
+  const error = entry.response?._error;
+  return typeof error === 'string' && error.length > 0;
+}
+
+/**
+ * Mint the update sequence for a HAR-only lifecycle — a request the
+ * host's devtools recorded (and delivered through `onRequestFinished`)
+ * but `webRequest` never saw, so no real lifecycle exists to attach the
+ * entry to. Canceled-while-queued requests are the canonical case: the
+ * renderer cancels them before they reach the network stack.
+ *
+ * Everything is projected from the entry itself — url/method/type, the
+ * provisional request headers (the browser's cooked pre-wire set, hence
+ * the provisional flag), the entry as hop-0 HAR, and the terminal
+ * `failed` phase carrying the host's `_error` verdict. `statusCode` is
+ * set only when the entry carries a real one (`> 0`), matching the
+ * status cell's `(canceled)`-only-without-a-code rule.
+ */
+export function harOnlyLifecycleUpdates(args: {
+  readonly tabId: number;
+  readonly requestId: string;
+  readonly entry: InspectorHarEntry;
+}): RequestLifecycleUpdate[] {
+  const { tabId, requestId, entry } = args;
+  const startedAtMs = harEntryTimestamp(entry);
+  const error = entry.response?._error;
+  if (startedAtMs === null || typeof error !== 'string' || error.length === 0) return [];
+  const { url, method } = harEntryJoinFields(entry);
+  if (!url) return [];
+
+  const lifecycle: RequestLifecycle = {
+    tabId,
+    requestId,
+    url,
+    method: method || 'GET',
+    resourceType: harResourceTypeToWebRequest(entry._resourceType),
+    phase: 'pending',
+    redirectHopCount: 0,
+    redirectHops: [],
+    startedAtMs,
+    hopStartedAtMs: startedAtMs,
+    har: [],
+    harBodyByHop: [],
+  };
+  const updates: RequestLifecycleUpdate[] = [{ kind: 'started', lifecycle }];
+
+  const headers = entry.request?.headers;
+  if (headers && headers.length > 0) {
+    updates.push({
+      kind: 'phase',
+      tabId,
+      requestId,
+      patch: {
+        requestHeaders: headers.map((h) => ({ name: h.name, value: h.value })),
+        requestHeadersProvisional: true,
+      },
+    });
+  }
+
+  updates.push(harAttachedUpdate({ tabId, requestId, hopIndex: 0, entry }));
+
+  const elapsed = typeof entry.time === 'number' && entry.time > 0 ? entry.time : 0;
+  const status = entry.response?.status ?? 0;
+  const statusText = entry.response?.statusText;
+  updates.push({
+    kind: 'phase',
+    tabId,
+    requestId,
+    patch: {
+      phase: 'failed',
+      completedAtMs: startedAtMs + elapsed,
+      error: { code: error, reason: error },
+      ...(status > 0 ? { statusCode: status } : {}),
+      ...(status > 0 && statusText ? { statusText } : {}),
+    },
+  });
+  return updates;
+}
+
+/**
+ * The devtools HAR `_resourceType` vocabulary mostly coincides with
+ * webRequest's `type` (the lifecycle's convention); map the names that
+ * differ and pass the rest through.
+ */
+function harResourceTypeToWebRequest(resourceType: string | undefined): string {
+  switch (resourceType) {
+    case undefined:
+      return 'other';
+    case 'document':
+      return 'main_frame';
+    case 'xhr':
+      return 'xmlhttprequest';
+    case 'cspviolationreport':
+      return 'csp_report';
+    default:
+      return resourceType;
+  }
 }
