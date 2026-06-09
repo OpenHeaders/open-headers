@@ -24,43 +24,31 @@
 .dt-timing-toolbar-spacer {
   flex: 1 1 auto;
 }
-.dt-timing-bar-section {
-  padding: 8px 12px;
+/* The shared horizontal ladder chart (same component as the Waterfall wide
+ * popover). The chart owns its own padding + horizontal scroll; this wrapper
+ * just spaces it from the breakdown below and separates it with a rule. */
+.dt-timing-chart {
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--dt-border);
 }
-.dt-timing-bar {
-  display: flex;
-  height: 16px;
-  border-radius: 3px;
-  overflow: hidden;
-  background: var(--dt-border);
-}
-.dt-timing-bar-segment {
-  min-width: 1px;
-  transition: width 0.2s;
-}
-.dt-timing-bar-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 14px;
-  margin-top: 6px;
-  font-size: 10px;
-  color: var(--dt-text-muted);
-}
-.dt-timing-legend-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-.dt-timing-legend-swatch {
-  width: 8px;
-  height: 8px;
-  border-radius: 2px;
-  flex-shrink: 0;
+/* The shared band-grouped legend, as the always-in-view phase breakdown. */
+.dt-timing-legend-section {
+  padding: 4px 12px 8px;
 }
 .dt-timing-total {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
   padding: 6px 12px;
   font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
   border-top: 1px solid var(--dt-border);
+}
+/* Muted, normal-weight "(queued → ended)" qualifier beside the Total label. */
+.dt-timing-where {
+  color: var(--dt-text-muted);
+  font-weight: 400;
 }
 
 /* Timing insight callouts. */
@@ -153,11 +141,6 @@
   overflow-wrap: anywhere;
   word-break: break-word;
 }
-.dt-timing-rate {
-  margin-left: 8px;
-  color: var(--dt-text-muted);
-  font-size: 11px;
-}
 
 /* Server Timing. */
 .dt-server-timing {
@@ -197,4 +180,17 @@
   text-align: right;
   font-variant-numeric: tabular-nums;
   color: var(--dt-text);
+}
+
+/* In-flight partial: the Queued / Started instants above the open Stalled step,
+ * and the not-finished caution (shared wording with the Waterfall live popover). */
+.dt-timing-inflight-start {
+  padding: 8px 12px 2px;
+  line-height: 18px;
+  font-variant-numeric: tabular-nums;
+}
+.dt-timing-caution {
+  padding: 6px 12px;
+  color: var(--dt-status-orange);
+  font-weight: 600;
 }

@@ -1288,13 +1288,18 @@ body.dt-resizing-col {
 }
 
 /* Numbered two-column legend — every rung's value or its absent reason. */
+/* One column per band (Scheduling / Connecting / Transferring), lining up under
+ * the chart's three brackets so the legend reads as the grouped breakdown. */
 .dt-wf-h-legend {
   display: grid;
-  grid-auto-flow: column;
-  grid-template-rows: repeat(4, auto);
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   column-gap: 28px;
   margin-top: 12px;
+}
+.dt-wf-h-legend-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .dt-wf-h-legend-item {

@@ -1,37 +1,25 @@
+import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import { useCallback, useRef } from 'react';
 import { useMeasuredCssHeights } from '@openheaders/ui/shared/hooks/useMeasuredStickyOffset';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import type { ConnectionReuseInfo } from '../../data/connection-reuse';
-import {
-  currentHarEntry,
-  type InspectorRowWithFires,
-  lifecycleTransferredBytes,
-} from '../../data/inspector-row-projection';
+import { formatTimeMs } from '../../data/format-time';
+import { computeInFlightTiming } from '../../data/in-flight-timing';
+import { currentHarEntry, type InspectorRowWithFires } from '../../data/inspector-row-projection';
+import { waterfallStartMs } from '../../data/network-columns';
 import { parseServerTiming, type ServerTimingMetric } from '../../data/server-timing';
 import { computeTimingContext, type CacheLabel } from '../../data/timing-context';
-import { computeTimingPhases, type TimingGroup } from '../../data/timing-phases';
-import { computeTransferRate, findBottleneck, findWarnings } from '../../data/timing-insight';
+import { type ElapsedRung, findBottleneck, findWarnings } from '../../data/timing-insight';
+import { noResponseTerminal, rowTimingLadder } from '../../data/row-timing-ladder';
 import type { RepeatStats } from '../../data/timing-repeats';
+import { HorizontalTimingChart } from '../traffic/HorizontalTimingChart';
+import { TimingLadderLegend } from '../traffic/TimingLadderLegend';
 import { TimingViewMenu } from './timing/TimingMenus';
-
-const GROUP_LABEL: Record<TimingGroup, string> = {
-  scheduling: 'Resource Scheduling',
-  connection: 'Connection Start',
-  transfer: 'Request/Response',
-};
-
-const GROUP_ORDER: readonly TimingGroup[] = ['scheduling', 'connection', 'transfer'];
 
 function formatMs(ms: number): string {
   if (ms < 0.01) return '< 0.01 ms';
   if (ms < 1000) return `${ms.toFixed(2)} ms`;
   return `${(ms / 1000).toFixed(2)} s`;
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
 function formatRelativeStart(ms: number): string {
@@ -96,9 +84,16 @@ export default function TimingView({ row, connectionReuse, repeatStats, baseline
     </div>
   );
 
+  // One model across the popover + this tab: the ladder when a HAR has landed,
+  // else the lifecycle-derived in-flight partial (the host's growing Timing).
+  const ladder = rowTimingLadder(row);
+  const unfinished = lc.completedAtMs == null;
   const har = currentHarEntry(lc);
-  const data = har ? computeTimingPhases(har) : null;
-  if (!data) {
+  const context = computeTimingContext(lc, connectionReuse, baselineMs);
+
+  // No ladder and finished — genuinely nothing to time (rare; a finished row
+  // with no `timings` block).
+  if (!ladder && !unfinished) {
     return (
       <div className="dt-timing-view" ref={paneRef}>
         {toolbar}
@@ -109,15 +104,37 @@ export default function TimingView({ row, connectionReuse, repeatStats, baseline
     );
   }
 
-  const context = computeTimingContext(lc, connectionReuse, baselineMs);
-  const bottleneck = findBottleneck(data.phases, data.totalMs);
-  const warnings = findWarnings(data.phases, bottleneck?.phase ?? null);
+  // In flight with no HAR yet — show the host's partial Timing (Queued / Started
+  // / open Stalled) and the not-finished caution instead of an empty pane.
+  if (!ladder) {
+    return (
+      <div className="dt-timing-view" ref={paneRef}>
+        {toolbar}
+        {showContextStrip && <TimingContextStrip context={context} />}
+        <InFlightTiming lc={lc} baselineMs={baselineMs} />
+        {showRepeats && repeatStats && <RepeatStatsSection stats={repeatStats} url={lc.url} />}
+      </div>
+    );
+  }
+
+  // Completed (or streaming): the elapsed rungs feed the suggestion insights;
+  // the full breakdown (incl. absent steps) is the shared bar + legend below.
+  const elapsed: ElapsedRung[] = [];
+  for (const r of ladder.rungs) {
+    if (r.state.kind === 'elapsed' && r.state.ms > 0) {
+      elapsed.push({ key: r.key, label: r.label, ms: r.state.ms });
+    }
+  }
+  const totalMs = ladder.durationMs;
+  const bottleneck = findBottleneck(elapsed, totalMs);
+  const warnings = findWarnings(elapsed, bottleneck?.phase ?? null);
   const serverTiming = parseServerTiming(har?.response?.headers);
-  const receivePhase = data.phases.find((p) => p.key === 'receive');
-  const transferRate = receivePhase
-    ? computeTransferRate(receivePhase.ms, har?.response?.content?.size ?? lifecycleTransferredBytes(lc))
-    : null;
-  const barTotal = Math.max(data.totalMs, 1);
+  // The queue moment as an offset from the session baseline (the tab's zero) —
+  // added to the ladder's local instants for the absolute "… at" readings, the
+  // same way the popover offsets from the timeline zero.
+  const queuedAtMs = Math.max(waterfallStartMs(lc) - (baselineMs ?? waterfallStartMs(lc)), 0);
+  // A terminal row that never got a response marks where it stopped on the bar.
+  const terminal = noResponseTerminal(row, ladder);
 
   return (
     <div className="dt-timing-view" ref={paneRef}>
@@ -156,62 +173,75 @@ export default function TimingView({ row, connectionReuse, repeatStats, baseline
 
       {showContextStrip && <TimingContextStrip context={context} />}
 
-      {showPhaseGroups && GROUP_ORDER.map((group) => {
-        const phases = data.byGroup[group];
-        if (phases.length === 0) return null;
-        return (
-          <details key={group} className="dt-section" open>
-            <summary>{GROUP_LABEL[group]}</summary>
-            {phases.map((p) => (
-              <div key={p.key} className="dt-kv">
-                <span className="dt-kv-key" style={{ minWidth: 140 }}>
-                  {p.label}:
-                </span>
-                <span className="dt-kv-val">{formatMs(p.ms)}</span>
-                {p.key === 'receive' && transferRate && (
-                  <span className="dt-timing-rate">
-                    · {formatBytes(transferRate.bytes)} @ {transferRate.formatted}
-                  </span>
-                )}
-              </div>
-            ))}
-          </details>
-        );
-      })}
+      {/* The full at-a-glance ladder bar — the Waterfall popover's wide view:
+          every phase as a cell (hatched when skipped — connection reused / not
+          reached), the ▼ instant ticks, band brackets, and the on-the-wire span,
+          so the whole story reads without a hover. Below it, the per-band rows
+          carry the same numbers as a detailed legend. */}
+      {showTimingBar && (
+        <div className="dt-timing-chart">
+          <HorizontalTimingChart ladder={ladder} queuedAtMs={queuedAtMs} terminal={terminal} />
+        </div>
+      )}
+
+      {/* The full breakdown — all eight phases always in view, grouped into the
+          three band columns under the bar's brackets; an absent setup step reads
+          its reason (connection reused / not reached / n/a). The same legend the
+          wide popover shows. */}
+      {showPhaseGroups && (
+        <div className="dt-timing-legend-section">
+          <TimingLadderLegend ladder={ladder} />
+        </div>
+      )}
 
       {showTimingBar && (
-        <>
-          <div className="dt-timing-bar-section">
-            <div className="dt-timing-bar">
-              {data.phases.map((p) => (
-                <div
-                  key={p.key}
-                  className={`dt-timing-bar-segment dt-wf-fill--${p.key}`}
-                  style={{ width: `${Math.max((p.ms / barTotal) * 100, 0.5)}%` }}
-                  title={`${p.label}: ${formatMs(p.ms)}`}
-                />
-              ))}
-            </div>
-            <div className="dt-timing-bar-legend">
-              {data.phases.map((p) => (
-                <span key={p.key} className="dt-timing-legend-item">
-                  <span className={`dt-timing-legend-swatch dt-wf-fill--${p.key}`} />
-                  {p.label}: {formatMs(p.ms)}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          <div className="dt-timing-total">
-            <strong>Total:</strong> {formatMs(data.totalMs)}
-          </div>
-        </>
+        <div className="dt-timing-total">
+          <span>
+            Total time <span className="dt-timing-where">(queued → ended)</span>
+          </span>
+          <span>{formatTimeMs(totalMs)}</span>
+        </div>
       )}
+
+      {/* Streaming (response in, body still downloading): the host flags the
+          unfinished request the same way. */}
+      {unfinished && <div className="dt-timing-caution">CAUTION: request is not finished yet!</div>}
 
       {showServerTiming && serverTiming.length > 0 && <ServerTimingSection metrics={serverTiming} />}
 
       {showRepeats && repeatStats && <RepeatStatsSection stats={repeatStats} url={lc.url} />}
     </div>
+  );
+}
+
+// ── In-flight partial ────────────────────────────────────────────────
+
+/**
+ * The host's partial Timing for a request still in flight (no HAR yet): the
+ * Queued / Started instants from the live lifecycle, an open Stalled step while
+ * the request hasn't left the queue, and the not-finished caution. Reads the
+ * same {@link computeInFlightTiming} model the Waterfall live popover does, so
+ * the two surfaces tell one story. Offsets are measured from the session
+ * baseline (the tab's zero), matching the context strip's "Started".
+ */
+function InFlightTiming({ lc, baselineMs }: { lc: RequestLifecycle; baselineMs: number | null }) {
+  const { queuedAtMs, startedAtMs, networkStarted } = computeInFlightTiming(lc, baselineMs ?? waterfallStartMs(lc));
+  return (
+    <>
+      <div className="dt-timing-inflight-start">
+        <div>Queued at {formatRelativeStart(queuedAtMs)}</div>
+        {networkStarted && <div>Started at {formatRelativeStart(startedAtMs)}</div>}
+      </div>
+      {!networkStarted && (
+        <div className="dt-kv" style={{ paddingTop: 4 }}>
+          <span className="dt-kv-key" style={{ minWidth: 140 }}>
+            Stalled:
+          </span>
+          <span className="dt-kv-val dt-col-muted">in progress…</span>
+        </div>
+      )}
+      <div className="dt-timing-caution">CAUTION: request is not finished yet!</div>
+    </>
   );
 }
 

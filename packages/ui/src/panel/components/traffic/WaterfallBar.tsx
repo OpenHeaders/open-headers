@@ -19,18 +19,11 @@
 import { Popover } from 'antd';
 import type { ReactNode } from 'react';
 import { type ConnectionOpener, connectionOpenerFor } from '../../data/connection-openers';
-import { type WaterfallMetric, waterfallSortValue, waterfallStartMs } from '../../data/network-columns';
-import { currentHarEntry, type InspectorRowWithFires } from '../../data/inspector-row-projection';
+import { type WaterfallMetric, waterfallStartMs } from '../../data/network-columns';
+import type { InspectorRowWithFires } from '../../data/inspector-row-projection';
 import { extractName } from './formatters';
-import {
-  classifyRequestState,
-  effectiveStatusCode,
-  isPreservedUnknown,
-  PRESERVED_UNKNOWN_LABEL,
-  statusCellText,
-  type SupersessionAnchor,
-} from '../../data/request-state';
-import { computeTimingLadder, type TimingLadder } from '../../data/timing-ladder';
+import { isPreservedUnknown, PRESERVED_UNKNOWN_LABEL, type SupersessionAnchor } from '../../data/request-state';
+import { noResponseTerminal, rowTimingLadder } from '../../data/row-timing-ladder';
 import type { ComputedTimings } from '../../data/timing-phases';
 import { barColors } from '../../data/waterfall-colors';
 import {
@@ -43,7 +36,6 @@ import {
   timelineMetricLabel,
 } from '../../data/waterfall-geometry';
 import type { DevpanelNetworkWaterfallPopoverLayoutSetting } from '@openheaders/ui/workbench/settings/schema/devpanel-network';
-import type { WaterfallTerminal } from './timing-popover-model';
 import { WaterfallLivePopover } from './WaterfallLivePopover';
 import { WaterfallTimingPopover } from './WaterfallTimingPopover';
 import { WaterfallTimingPopoverHorizontal } from './WaterfallTimingPopoverHorizontal';
@@ -234,50 +226,6 @@ function bar(row: InspectorRowWithFires, scale: WaterfallScale, timing: Computed
   );
 }
 
-/**
- * Outcome marker for a terminal row whose breakdown carries no response phase —
- * blocked before the wire, or a wire failure / cancel before any response. The
- * label mirrors the Status cell so the two never disagree; the popover swaps the
- * fabricated Response / Ended instants for it. `undefined` for any row that did
- * reach a response (success, redirect, 4xx/5xx, cache, mid-body failure), which
- * carries a real `wait` / `receive` phase.
- */
-export function noResponseTerminal(row: InspectorRowWithFires, ladder: TimingLadder): WaterfallTerminal | undefined {
-  if (ladder.responseMs != null) return undefined; // a response arrived
-  const kind = classifyRequestState(row.lifecycle).kind;
-  if (kind !== 'blocked' && kind !== 'failed') return undefined;
-  // Phase-aware detail: a request that actually did any network step (a `onWire`
-  // rung elapsed) reached the network, then got no response; one with only
-  // local scheduling / stalled time died before any wire activity.
-  const reachedNetwork = ladder.rungs.some((r) => r.onWire && r.state.kind === 'elapsed');
-  const detail = reachedNetwork ? 'no response received' : 'never reached the network';
-  return { label: statusCellText(row.lifecycle), detail };
-}
-
-/**
- * The full timing ladder for the popover, or `null` when there is no meaningful
- * timing yet (`hasTiming` mirrors the inline bar, so the popover appears exactly
- * when the bar has data). `reachedResponse` is read from the lifecycle status —
- * not the timings, since a blocked row's `wait` / `receive` are `0`, not absent.
- */
-function buildLadder(row: InspectorRowWithFires, hasTiming: boolean): TimingLadder | null {
-  if (!hasTiming) return null;
-  const har = currentHarEntry(row.lifecycle);
-  if (har == null) return null;
-  const lc = row.lifecycle;
-  // Live Content Download while streaming (duration − latency) — the same split
-  // the Time column and the duration bar grow by, before the terminal HAR lands.
-  const streaming = lc.completedAtMs == null && lc.lastActivityAtMs != null;
-  const liveReceiveMs = streaming
-    ? Math.max(waterfallSortValue(row, 'duration') - waterfallSortValue(row, 'latency'), 0)
-    : undefined;
-  return computeTimingLadder(har, {
-    reachedResponse: (effectiveStatusCode(lc) ?? 0) > 0,
-    isHttps: lc.url.startsWith('https:'),
-    liveReceiveMs,
-  });
-}
-
 export function WaterfallBar({ row, scale, cdpEnhanced, superseded, connectionOpeners }: WaterfallBarProps) {
   // Rich hover breakdown when we have real phase data; otherwise the bar keeps
   // a plain native tooltip. While the row streams, this carries a live Content
@@ -294,11 +242,10 @@ export function WaterfallBar({ row, scale, cdpEnhanced, superseded, connectionOp
   const track = bar(row, scale, timingDetail, stateLabel);
 
   // The full honest breakdown for the popover (all eight rungs + explicit
-  // states). Built from the same HAR shell `timingDetail` reads, so the popover
-  // is present exactly when the inline bar has timing. `reachedResponse` comes
-  // from the lifecycle status (not the timings — a blocked row's wait/receive
-  // are `0`, not absent); the live download override feeds an in-flight row.
-  const ladder = buildLadder(row, timingDetail != null);
+  // states) — the same builder the Timing detail tab consumes, so the two
+  // surfaces can't drift. Null exactly when the inline bar has no timing, so the
+  // popover appears precisely when the bar has data.
+  const ladder = rowTimingLadder(row);
 
   // One ladder, two views: the resolved orientation switches only the final
   // renderer — both consume the identical ladder + props, so they can't drift.

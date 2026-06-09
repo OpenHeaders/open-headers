@@ -8,8 +8,8 @@
  * renderers add no timing math of their own.
  */
 
-import type { WaterfallMetric } from '../../data/network-columns';
-import type { RungState, TimingBand, TimingLadder, TimingRungKey } from '../../data/timing-ladder';
+import type { WaterfallMetric } from './network-columns';
+import type { RungState, TimingBand, TimingLadder, TimingRungKey } from './timing-ladder';
 
 /**
  * Outcome for a terminal request that never received a response — blocked
@@ -61,6 +61,37 @@ export function absentText(state: Exclude<RungState, { kind: 'elapsed' }>): stri
 }
 
 export type Anchor = 'queued' | 'started';
+
+/** A key moment in a request's life — a boundary instant with a plain-language
+ *  meaning. `localMs` is the offset from the queue moment (Queued = 0); a caller
+ *  adds the request's own queue offset for an absolute "… at" reading. */
+export interface KeyMoment {
+  key: Anchor | 'response' | 'ended';
+  label: string;
+  localMs: number;
+  why: string;
+}
+
+/**
+ * The key moments to show, in order: Queued and Started always; Response and
+ * Ended only when a response actually arrived (a terminal request that never
+ * got one shows neither — the caller surfaces the stop instead). One source for
+ * both the popover header and the Timing tab, so the two can't disagree on which
+ * instants exist or what they mean.
+ */
+export function keyMoments(ladder: TimingLadder): KeyMoment[] {
+  const moments: KeyMoment[] = [
+    { key: 'queued', label: 'Queued', localMs: 0, why: 'request created' },
+    { key: 'started', label: 'Started', localMs: ladder.startedMs, why: 'left the queue' },
+  ];
+  if (ladder.responseMs != null) {
+    moments.push({ key: 'response', label: 'Response', localMs: ladder.responseMs, why: 'first byte (TTFB)' });
+  }
+  if (ladder.endedMs != null) {
+    moments.push({ key: 'ended', label: 'Ended', localMs: ladder.endedMs, why: 'last byte, done' });
+  }
+  return moments;
+}
 
 export interface ExplainSpec {
   /** The instant the metric measures FROM (highlighted with a ↓), or `null` for

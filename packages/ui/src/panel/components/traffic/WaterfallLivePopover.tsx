@@ -17,8 +17,8 @@
  */
 
 import { formatTimeMs } from '../../data/format-time';
+import { computeInFlightTiming } from '../../data/in-flight-timing';
 import type { InspectorRowWithFires } from '../../data/inspector-row-projection';
-import { waterfallStartMs } from '../../data/network-columns';
 
 export function WaterfallLivePopover({
   row,
@@ -43,15 +43,12 @@ export function WaterfallLivePopover({
     );
   }
 
-  const lc = row.lifecycle;
   // Queued = the issue instant (the bar's zero). "Started at" only means
   // something once the request actually left the queue for the wire (a known
   // network start); for a request still stalled it never started, so showing
   // "Started == Queued" would be a misleading duplicate — omit it, and show the
   // open Stalled phase instead.
-  const queuedAtMs = Math.max(waterfallStartMs(lc) - t0, 0);
-  const networkStarted = lc.hopNetworkStartMs != null;
-  const startedAtMs = queuedAtMs + Math.max((lc.hopNetworkStartMs ?? lc.hopStartedAtMs) - lc.hopStartedAtMs, 0);
+  const { queuedAtMs, startedAtMs, networkStarted } = computeInFlightTiming(row.lifecycle, t0);
   return (
     // biome-ignore lint/a11y/useKeyWithClickEvents: guard only, not interactive
     <div className="dt-waterfall-pop" onClick={(e) => e.stopPropagation()}>

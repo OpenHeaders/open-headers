@@ -8,8 +8,8 @@
  */
 
 import type { InspectorHarEntry } from '@openheaders/core/types';
-import { noResponseTerminal } from '@openheaders/ui/panel/components/traffic/WaterfallBar';
 import { WaterfallTimingPopover } from '@openheaders/ui/panel/components/traffic/WaterfallTimingPopover';
+import { noResponseTerminal } from '@openheaders/ui/panel/data/row-timing-ladder';
 import { computeTimingLadder, type LadderContext, type TimingLadder } from '@openheaders/ui/panel/data/timing-ladder';
 import { render } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';

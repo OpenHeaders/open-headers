@@ -26,15 +26,16 @@ import type { WaterfallMetric } from '../../data/network-columns';
 import type { TimingLadder } from '../../data/timing-ladder';
 import {
   absentText,
-  type Anchor,
   BAND_LABEL,
   BAND_ORDER,
   BAND_WHERE,
   explainSpec,
   isWarmSocketConnect,
+  type KeyMoment,
+  keyMoments,
   WARM_SOCKET_TITLE,
   type WaterfallTerminal,
-} from './timing-popover-model';
+} from '../../data/timing-popover-model';
 
 export function WaterfallTimingPopover({
   ladder,
@@ -77,13 +78,13 @@ export function WaterfallTimingPopover({
   // request in view), with a plain-language meaning. Computed cumulatively from
   // the rungs. The anchored milestone (the one the active metric measures FROM)
   // is highlighted with a ↓ pointing at its contributing rungs below.
-  const moment = (line: Anchor | 'response' | 'ended', label: string, localMs: number, why: string) => {
-    const isAnchor = spec?.anchor === line;
+  const moment = (m: KeyMoment) => {
+    const isAnchor = spec?.anchor === m.key;
     return (
-      <div className={`dt-waterfall-pop-moment${isAnchor ? ' dt-wf-pop-anchor' : ''}`}>
-        <span className="dt-waterfall-pop-moment-label">{label}</span>
-        <span className="dt-waterfall-pop-moment-value">{at(localMs)}</span>
-        <span className="dt-waterfall-pop-moment-why">{why}</span>
+      <div key={m.key} className={`dt-waterfall-pop-moment${isAnchor ? ' dt-wf-pop-anchor' : ''}`}>
+        <span className="dt-waterfall-pop-moment-label">{m.label}</span>
+        <span className="dt-waterfall-pop-moment-value">{at(m.localMs)}</span>
+        <span className="dt-waterfall-pop-moment-why">{m.why}</span>
         {isAnchor && <span className="dt-wf-pop-down">↓</span>}
       </div>
     );
@@ -100,10 +101,7 @@ export function WaterfallTimingPopover({
           <span>Key moments</span>
           <span className="dt-waterfall-pop-where">(since the first request)</span>
         </div>
-        {moment('queued', 'Queued', 0, 'request created')}
-        {moment('started', 'Started', ladder.startedMs, 'left the queue')}
-        {ladder.responseMs != null && moment('response', 'Response', ladder.responseMs, 'first byte (TTFB)')}
-        {ladder.endedMs != null && moment('ended', 'Ended', ladder.endedMs, 'last byte, done')}
+        {keyMoments(ladder).map(moment)}
       </div>
       {/* The steps run top-to-bottom in sequence; each row's cumulative mini-bar
           flows right over a shared elapsed-time track, so the rows stack into a

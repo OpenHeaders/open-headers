@@ -11,7 +11,16 @@
  * Both lists are derived; the view renders them as-is.
  */
 
-import type { TimingPhase, TimingPhaseKey } from './timing-phases';
+import type { TimingRungKey } from './timing-ladder';
+
+/** The minimal shape the insights read — one elapsed ladder rung. Decoupled from
+ *  any full phase/ladder type so the insights work off the popover's model and
+ *  the legacy phases alike. */
+export interface ElapsedRung {
+  key: TimingRungKey;
+  label: string;
+  ms: number;
+}
 
 interface PhaseDiagnosis {
   /** What this phase represents in user-facing language. */
@@ -22,7 +31,7 @@ interface PhaseDiagnosis {
   warnAboveMs: number;
 }
 
-const PHASE_DIAGNOSIS: Record<TimingPhaseKey, PhaseDiagnosis> = {
+const PHASE_DIAGNOSIS: Record<TimingRungKey, PhaseDiagnosis> = {
   queueing: {
     what: 'Request scheduler held this request',
     hint: 'Too many concurrent requests competing for slots, or low priority.',
@@ -66,7 +75,7 @@ const PHASE_DIAGNOSIS: Record<TimingPhaseKey, PhaseDiagnosis> = {
 };
 
 export interface TimingInsight {
-  phase: TimingPhaseKey;
+  phase: TimingRungKey;
   label: string;
   ms: number;
   percent: number;
@@ -81,7 +90,7 @@ export interface TimingInsight {
  * answer, so we return null rather than picking a phase that's only
  * marginally biggest.
  */
-export function findBottleneck(phases: readonly TimingPhase[], totalMs: number): TimingInsight | null {
+export function findBottleneck(phases: readonly ElapsedRung[], totalMs: number): TimingInsight | null {
   if (phases.length === 0 || totalMs <= 0) return null;
   const sorted = phases.slice().sort((a, b) => b.ms - a.ms);
   const top = sorted[0];
@@ -106,8 +115,8 @@ export function findBottleneck(phases: readonly TimingPhase[], totalMs: number):
  * same phase twice.
  */
 export function findWarnings(
-  phases: readonly TimingPhase[],
-  excludeKey: TimingPhaseKey | null,
+  phases: readonly ElapsedRung[],
+  excludeKey: TimingRungKey | null,
 ): readonly TimingInsight[] {
   const out: TimingInsight[] = [];
   for (const p of phases) {
