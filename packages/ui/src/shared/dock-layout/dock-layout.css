@@ -15,13 +15,40 @@
 
 /* Exception: inside the editor card, adjacent split leaves sit flush
    against each other (no 3px card gutter between them), so we DO want
-   a hairline separator to mark the seam. Re-enable Allotment's own
-   `::before` separator — keyed by the `separator` prop on the inner
-   Allotments in EditorGroupRenderer / InspectorEditorGroupRenderer —
-   and paint it with the same subtle border token used between cards. */
+   a separator to mark the seam. Re-enable Allotment's own `::before`
+   separator — keyed by the `separator` prop on the inner Allotments in
+   EditorGroupRenderer / InspectorEditorGroupRenderer — widened from the
+   1px default to a 6px band of the gutter color, matching the 6px
+   colorBgLayout delimiter between dock cards so the seam is
+   discoverable as a resize handle. The band sits fully inside the
+   non-first pane (Allotment paints `::before` at its leading edge):
+   panes have `overflow: hidden`, so a negative offset to center the
+   band on the boundary would clip it in half. The band is an overlay
+   (z-index 5) — without matching padding it would paint over the
+   pane's own leading padding (tab strips read flush against the
+   seam), so the non-first pane gets a leading inset of the same 6px
+   to keep its content clear of the band. */
 .rules-region-editor .split-view-view::before {
   display: block !important;
-  background-color: var(--ant-color-border-secondary, rgba(0, 0, 0, 0.08)) !important;
+  background-color: var(--ant-color-bg-layout, #f5f5f5) !important;
+}
+
+.rules-region-editor .split-view-horizontal > .split-view-container > .split-view-view::before {
+  width: 6px !important;
+}
+
+.rules-region-editor .split-view-vertical > .split-view-container > .split-view-view::before {
+  height: 6px !important;
+}
+
+.rules-region-editor .split-view-horizontal > .split-view-container > .split-view-view:not(:first-child) {
+  padding-left: 6px;
+  box-sizing: border-box;
+}
+
+.rules-region-editor .split-view-vertical > .split-view-container > .split-view-view:not(:first-child) {
+  padding-top: 6px;
+  box-sizing: border-box;
 }
 
 /* Allotment's default sash hover/drag indicator paints a 3–4 px blue bar
