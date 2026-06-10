@@ -211,6 +211,11 @@ interface ParityRowDebug extends ParityRow, ParityFireFields {
    *  the not-finished caution. */
   _timings?: InspectorHarEntry['timings'] | null;
   _responseBodyIncomplete?: boolean;
+  /** The current hop's attached HAR entry, verbatim — provenance fields
+   *  (`_fromCache`, `_transferSize`, header casing) let a capture tell a
+   *  joined devtools entry from a webRequest partial and a network hit
+   *  from a cache read, independent of the producer stamp. */
+  _har?: InspectorHarEntry | null;
 }
 
 /** Top-level navigation document — the rows the footer leg keys off. */
@@ -261,6 +266,7 @@ function toParityRow(rowWithFires: InspectorRowWithFires, arrivalIndex: number):
   row._completedAtMs = lc.completedAtMs ?? null;
   row._lifecycleDurationMs = lc.completedAtMs == null ? 0 : Math.max(0, lc.completedAtMs - lc.startedAtMs);
   row._timings = har?.timings ?? null;
+  row._har = har ?? null;
   if (har?.response?._responseBodyIncomplete === true) row._responseBodyIncomplete = true;
   if (isDocumentLike(lc.resourceType)) {
     row._redirectHopCount = lc.redirectHopCount;

@@ -26,15 +26,21 @@
  *
  *   capture                       | request side | response side
  *   ------------------------------|--------------|---------------
- *   devtools HAR (heuristic join) | effective    | effective
+ *   devtools HAR, wire-crossing   | effective    | raw
+ *   devtools HAR, cache read      | raw          | effective
  *   webRequest partial HAR        | raw          | raw
  *   CDP HAR, ExtraInfo landed     | effective    | raw
  *   CDP HAR, cooked sets only     | raw          | raw
+ *   CDP HAR, disk-cache hit       | raw          | effective
  *
- * The CDP response side is `raw` even when `responseReceivedExtraInfo`
- * landed: the fire-evidence probe ground-truthed that event as
- * PRE-rewrite (it held the server's original header while the page
- * received the DNR-rewritten value).
+ * The probe ground-truthed the model: a HAR records THE WIRE when the
+ * request crossed it — the request set post-rewrite (the engine rewrites
+ * before send), the response set PRE-rewrite (the engine rewrites after
+ * receipt; the wire set held the server's original header while the page
+ * received the DNR-rewritten value). A cache read never crossed the wire,
+ * so the HAR records the renderer's view instead: the cooked pre-wire
+ * request set (raw) and the served response set with the rewrite
+ * re-applied (effective).
  *
  * The CDP path additionally carries the current hop's request headers
  * first-class on the lifecycle before any HAR lands; those are effective

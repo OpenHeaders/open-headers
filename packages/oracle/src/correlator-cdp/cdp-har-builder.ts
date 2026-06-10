@@ -647,6 +647,7 @@ export class CdpHarBuilder {
     // refined yet.
     const time =
       hop.totalMs === undefined ? undefined : timings !== undefined ? harTimeFromTimings(timings) : hop.totalMs;
+    const diskCacheHit = isDiskCacheHit(response, hop.transferSize);
     // Key order mirrors Chrome's exporter (`EntryDTO`); `pageref` is
     // appended downstream by the HAR exporter.
     const har: InspectorHarEntry = {
@@ -654,15 +655,20 @@ export class CdpHarBuilder {
       _priority: hop.request.initialPriority ?? null,
       // Request side: `requestWillBeSentExtraInfo` carries the on-the-wire
       // set, captured after the engine's rewrite — an applied modification
-      // is visible there. Response side: ground-truthed PRE-rewrite — the
-      // fire-evidence probe (playground/scripts/probe-fire-evidence.mjs)
-      // observed `responseReceivedExtraInfo` holding the server's original
-      // header while the page received the DNR-rewritten value, so a
-      // response claim can never be judged against it; the section stays
-      // `raw` and a claimed modification's absence proves nothing.
+      // is visible there. Response side: ground-truthed PRE-rewrite for a
+      // wire-crossing response — the fire-evidence probe
+      // (playground/scripts/probe-fire-evidence.mjs) observed
+      // `responseReceivedExtraInfo` holding the server's original header
+      // while the page received the DNR-rewritten value, so a response
+      // claim can never be judged against it and the section stays `raw`.
+      // A disk-cache hit never crossed the wire: its cooked response set is
+      // the SERVED one with the engine's rewrite re-applied (probe-observed
+      // carrying the rewritten value), so that case alone is `effective` —
+      // unless an ExtraInfo set landed anyway, which supersedes the cooked
+      // headers wholesale and is wire-raw by definition.
       _ohHeaderCapture: {
         request: requestExtra !== undefined ? 'effective' : 'raw',
-        response: 'raw',
+        response: diskCacheHit && responseExtra === undefined ? 'effective' : 'raw',
       },
       ...(hop.resourceType !== undefined ? { _resourceType: hop.resourceType.toLowerCase() } : {}),
       // Empty object, HAR-spec-required and emitted on every Chrome entry.

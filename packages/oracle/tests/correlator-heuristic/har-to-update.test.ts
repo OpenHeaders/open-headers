@@ -57,15 +57,29 @@ describe('harEntryTimestamp', () => {
 });
 
 describe('harAttachedUpdate', () => {
-  it('produces a well-formed har-attached update stamped as a post-rewrite capture', () => {
+  it('stamps a wire-crossing entry effective/raw (wire request is post-rewrite, wire response pre-rewrite)', () => {
     const update = harAttachedUpdate({ tabId: 1, requestId: 'r1', hopIndex: 0, entry });
     expect(update).toEqual({
       kind: 'har-attached',
       tabId: 1,
       requestId: 'r1',
       hopIndex: 0,
-      har: { ...entry, _ohHeaderCapture: { request: 'effective', response: 'effective' } },
+      har: { ...entry, _ohHeaderCapture: { request: 'effective', response: 'raw' } },
     });
+  });
+
+  it('stamps a cache-read entry raw/effective (cooked pre-wire request, served post-rewrite response)', () => {
+    const cached: InspectorHarEntry = { ...entry, _fromCache: 'disk' };
+    const update = harAttachedUpdate({ tabId: 1, requestId: 'r1', hopIndex: 0, entry: cached });
+    if (update.kind !== 'har-attached') throw new Error('expected har-attached');
+    expect(update.har._ohHeaderCapture).toEqual({ request: 'raw', response: 'effective' });
+  });
+
+  it('reads the _servedFromCache boolean as the same cache-read signal', () => {
+    const cached: InspectorHarEntry = { ...entry, _servedFromCache: true };
+    const update = harAttachedUpdate({ tabId: 1, requestId: 'r1', hopIndex: 0, entry: cached });
+    if (update.kind !== 'har-attached') throw new Error('expected har-attached');
+    expect(update.har._ohHeaderCapture).toEqual({ request: 'raw', response: 'effective' });
   });
 });
 

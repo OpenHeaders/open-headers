@@ -15,7 +15,7 @@
  */
 
 import type { RequestLifecycle, RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle';
-import type { InspectorHarBody, InspectorHarEntry } from '@openheaders/core/types';
+import type { InspectorHarBody, InspectorHarEntry, InspectorHarHeaderCapture } from '@openheaders/core/types';
 
 /** Parse a HAR entry's `startedDateTime` into wall-clock ms or `null`. */
 export function harEntryTimestamp(entry: InspectorHarEntry): number | null {
@@ -31,6 +31,24 @@ export function harEntryJoinFields(entry: InspectorHarEntry): { url: string; met
   };
 }
 
+/**
+ * Capture-point stamp for a devtools HAR entry, keyed on the entry's own
+ * provenance. The host's HAR records THE WIRE when the request crossed it:
+ * the request set is post-rewrite (the engine rewrites before send →
+ * `effective`) while the response set is pre-rewrite (the engine rewrites
+ * after receipt → `raw`; ground-truthed by the fire-evidence probe — the
+ * entry held the server's original header while the page received the
+ * rewritten value). A cache read (`_fromCache`) never crossed the wire,
+ * so the host records the renderer's view instead: the request set is the
+ * cooked pre-wire set (`raw`) and the response set is the served one with
+ * the engine's rewrite re-applied (`effective` — probe-observed carrying
+ * the rewritten value). Same model as the CDP producer's ExtraInfo stamps.
+ */
+export function harHeaderCapture(entry: InspectorHarEntry): InspectorHarHeaderCapture {
+  const cacheRead = entry._fromCache !== undefined || entry._servedFromCache === true;
+  return cacheRead ? { request: 'raw', response: 'effective' } : { request: 'effective', response: 'raw' };
+}
+
 export function harAttachedUpdate(args: {
   readonly tabId: number;
   readonly requestId: string;
@@ -42,10 +60,7 @@ export function harAttachedUpdate(args: {
     tabId: args.tabId,
     requestId: args.requestId,
     hopIndex: args.hopIndex,
-    // The host's devtools HAR records both header sets after the engine's
-    // rewrite — an applied modification is visible in them, so claimed
-    // modifications can be checked against these sets.
-    har: { ...args.entry, _ohHeaderCapture: { request: 'effective', response: 'effective' } },
+    har: { ...args.entry, _ohHeaderCapture: harHeaderCapture(args.entry) },
   };
 }
 

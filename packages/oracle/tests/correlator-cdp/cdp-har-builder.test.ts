@@ -320,7 +320,7 @@ describe('CdpHarBuilder — *ExtraInfo header merge', () => {
     expect(refined.response?._transferSize).toBeUndefined(); // still pre-finish: enrichment level preserved
   });
 
-  it('stamps the request section effective once its wire set landed; the response section never upgrades', () => {
+  it('stamps the request section effective once its wire set landed; a wire response never upgrades', () => {
     const ctx: TraceCtx = { tabId: TAB, requestId: 'capture-stamp' };
     const builder = new CdpHarBuilder();
     builder.observe(cdpStart(ctx, { request: { url: RESPONSE.url, method: 'GET', headers: {} } }));
@@ -721,6 +721,23 @@ describe('CdpHarBuilder — always-present per-entry fields', () => {
     );
     const entry = lastHarEntry(builder.observe(cdpFinished(ctx, { encodedDataLength: 0 })));
     expect(entry._fromCache).toBe('disk');
+    // The served (cooked) set carries the engine's re-applied rewrite —
+    // the response section of a cache read is a post-rewrite capture.
+    expect(entry._ohHeaderCapture).toEqual({ request: 'raw', response: 'effective' });
+  });
+
+  it('a cache-read response with a superseding wire ExtraInfo set stays raw', () => {
+    const wireCtx: TraceCtx = { tabId: TAB, requestId: 'cache-extra' };
+    const builder = new CdpHarBuilder();
+    builder.observe(cdpStart(wireCtx));
+    builder.observe(
+      cdpResponse(wireCtx, {
+        response: { url: 'https://api.openheaders.io/cached.js', status: 200, statusText: 'OK', fromDiskCache: true },
+      }),
+    );
+    builder.observe(cdpResponseExtra(wireCtx, { 'X-On-Wire': 'real' }));
+    const entry = lastHarEntry(builder.observe(cdpFinished(wireCtx, { encodedDataLength: 0 })));
+    expect(entry._ohHeaderCapture?.response).toBe('raw');
   });
 
   it('computes request.bodySize as the UTF-8 byte length (multi-byte body)', () => {
