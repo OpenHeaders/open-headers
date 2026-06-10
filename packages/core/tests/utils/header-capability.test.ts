@@ -94,6 +94,8 @@ describe('getHeaderOperationCapability — append allowlist', () => {
 
   // ── Chrome/Edge/Firefox allowlist: response append ───────────────
 
+  // Vary is appendable AND modifiable — Chrome's own allowlist carries it,
+  // and it is not a wire-integrity header, so it stays off our forbidden set.
   const RESPONSE_ALLOWED = [
     'Access-Control-Allow-Headers',
     'Access-Control-Allow-Methods',
@@ -103,20 +105,15 @@ describe('getHeaderOperationCapability — append allowlist', () => {
     'Link',
     'Server',
     'Set-Cookie',
+    'Vary',
     'Via',
     'Www-Authenticate',
     'X-Content-Type-Options',
     'X-Frame-Options',
   ];
 
-  const RESPONSE_APPEND_FORBIDDEN_BY_PROJECT = ['Vary'];
-
   it.each(RESPONSE_ALLOWED)('response append: "%s" → allowed', (header) => {
     expect(cap('response', 'add', header).allowed).toBe(true);
-  });
-
-  it.each(RESPONSE_APPEND_FORBIDDEN_BY_PROJECT)('response append: "%s" → forbidden (protected)', (header) => {
-    expect(cap('response', 'add', header).allowed).toBe(false);
   });
 
   // ── Non-allowlisted custom headers — THE bug class we must catch ─
@@ -172,6 +169,7 @@ describe('getHeaderOperationCapability — override (set)', () => {
     'Location',
     'Set-Cookie',
     'ETag',
+    'Vary',
   ];
 
   it.each(COMMON_RESPONSE_OVERRIDE)('response override: "%s" → allowed', (header) => {
@@ -203,6 +201,10 @@ describe('getHeaderOperationCapability — remove', () => {
 
   it('response remove: custom "X-OH-Response" → allowed', () => {
     expect(cap('response', 'remove', 'X-OH-Response').allowed).toBe(true);
+  });
+
+  it('response remove: "Vary" → allowed (modifiable, not wire-integrity)', () => {
+    expect(cap('response', 'remove', 'Vary').allowed).toBe(true);
   });
 
   it('request remove: forbidden "Host" → rejected', () => {
@@ -280,7 +282,7 @@ describe('getHeaderSuggestions', () => {
 
   it('response + add: returns ONLY the Chrome DNR response allowlist, minus forbidden', () => {
     const suggestions = getHeaderSuggestions('response', 'add');
-    expect(suggestions).not.toContain('Vary'); // forbidden
+    expect(suggestions).toContain('Vary'); // appendable per Chrome, no longer forbidden
     expect(suggestions).toContain('Set-Cookie');
     expect(suggestions).toContain('Access-Control-Allow-Headers');
     expect(suggestions).toContain('X-Frame-Options');
@@ -382,7 +384,9 @@ describe('isRuleComplete gate — header rule capability integration', () => {
       ...baseRule,
       type: 'header' as const,
       action: {
-        requestHeaders: [{ uid: 'hmd00002', operation: 'add' as const, headerName: 'X-Forwarded-For', value: '10.0.0.1' }],
+        requestHeaders: [
+          { uid: 'hmd00002', operation: 'add' as const, headerName: 'X-Forwarded-For', value: '10.0.0.1' },
+        ],
         responseHeaders: [],
       },
     };
@@ -409,7 +413,9 @@ describe('isRuleComplete gate — header rule capability integration', () => {
       ...baseRule,
       type: 'header' as const,
       action: {
-        requestHeaders: [{ uid: 'hmd00005', operation: 'override' as const, headerName: 'Host', value: 'evil.example' }],
+        requestHeaders: [
+          { uid: 'hmd00005', operation: 'override' as const, headerName: 'Host', value: 'evil.example' },
+        ],
         responseHeaders: [],
       },
     };
@@ -431,12 +437,26 @@ describe('isRuleComplete gate — header rule capability integration', () => {
     expect(isRuleComplete(rule)).toBe(true);
   });
 
+  it('keeps a Vary response rule complete (was a never-compiling draft while Vary sat on both tables)', () => {
+    const rule = {
+      ...baseRule,
+      type: 'header' as const,
+      action: {
+        requestHeaders: [],
+        responseHeaders: [{ uid: 'hmd00009', operation: 'add' as const, headerName: 'Vary', value: 'Origin' }],
+      },
+    };
+    expect(isRuleComplete(rule)).toBe(true);
+  });
+
   it('accepts merge on custom header (scriptable path)', () => {
     const rule = {
       ...baseRule,
       type: 'header' as const,
       action: {
-        requestHeaders: [{ uid: 'hmd00008', operation: 'merge' as const, headerName: 'X-OH-Stack', value: 'a', mergeSeparator: '; ' }],
+        requestHeaders: [
+          { uid: 'hmd00008', operation: 'merge' as const, headerName: 'X-OH-Stack', value: 'a', mergeSeparator: '; ' },
+        ],
         responseHeaders: [],
       },
     };

@@ -72,6 +72,10 @@ const FORBIDDEN_REQUEST_HEADERS = new Set([
   'x-devtools-request-id',
 ]);
 
+// Vary is deliberately NOT here: it is modifiable (it even sits on
+// Chrome's response append allowlist below), and unlike the wire-integrity
+// entries (content-length, content-encoding, …) rewriting it cannot
+// corrupt body decoding — adjusting cache keys is a legitimate use case.
 const FORBIDDEN_RESPONSE_HEADERS = new Set([
   'alt-svc',
   'clear-site-data',
@@ -87,7 +91,6 @@ const FORBIDDEN_RESPONSE_HEADERS = new Set([
   'trailer',
   'transfer-encoding',
   'upgrade',
-  'vary',
 ]);
 
 /** Matches a `{{...}}` template segment. Used by `validateHeaderName`

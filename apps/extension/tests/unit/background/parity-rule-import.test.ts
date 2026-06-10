@@ -108,11 +108,11 @@ describe('parity rule import — spec completion', () => {
     });
   });
 
-  it('flags a schema-valid but never-compiling spec as incomplete (forbidden-header append)', async () => {
+  it('flags a schema-valid but never-compiling spec as incomplete (non-allowlisted append)', async () => {
     const spec = headerSpec({
       action: {
         requestHeaders: [],
-        responseHeaders: [{ operation: 'add', headerName: 'Vary', value: 'x-oh-added' }],
+        responseHeaders: [{ operation: 'add', headerName: 'X-OH-Custom', value: 'x-oh-added' }],
       },
     });
     const result = await importSpecs([spec]);
