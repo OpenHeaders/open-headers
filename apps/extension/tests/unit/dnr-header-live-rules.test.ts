@@ -25,12 +25,12 @@ vi.mock('@openheaders/core/utils', async () => {
   };
 });
 
-import { headerCompiler } from '@openheaders/rule-engine/builders';
 import type { CompilerContext } from '@openheaders/rule-engine/builders';
+import { CHROMIUM_RESOURCE_VOCABULARY, headerCompiler } from '@openheaders/rule-engine/builders';
 
 function makeCtx(start = 1, liveRulesMode = true): CompilerContext {
   let id = start;
-  return { allocateId: () => id++, settings: { liveRulesMode } };
+  return { allocateId: () => id++, settings: { liveRulesMode, resourceVocabulary: CHROMIUM_RESOURCE_VOCABULARY } };
 }
 
 function baseRule(action: HeaderRule['action']): HeaderRule {

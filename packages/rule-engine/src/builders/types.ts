@@ -172,6 +172,13 @@ export interface EngineCompileSettings {
    * attach the exclusion clause at all.
    */
   liveRulesMode: boolean;
+  /**
+   * Resource-type vocabulary of the running browser. Every builder folds
+   * its capability set against this (see the vocabulary constants below),
+   * so Chromium rules cover `webtransport`/`webbundle` while engines that
+   * would atomically reject those members never see them.
+   */
+  resourceVocabulary: ResourceTypeVocabulary;
 }
 
 /**
@@ -447,17 +454,31 @@ export function attachLiveBypassExclusion(
   return { ...condition, excludedInitiatorDomains: [...existing, ext] };
 }
 
-// ── Shared resource type constants ───────────────────────────────
+// ── Per-browser resource-type vocabularies ───────────────────────
 //
-// The capability sets enumerate every resource type valid in BOTH
-// Chrome's and Firefox's DNR vocabulary — an unknown type rejects the
-// entire updateDynamicRules batch atomically, so Chrome-only members
-// (webtransport, webbundle) stay out until a per-browser capability
-// list is threaded through EngineCompileSettings. A rule without
-// resource-type conditions folds to this full set, so a missing member
-// here silently exempts that traffic class from every rule.
+// An unknown resource type rejects the entire updateDynamicRules batch
+// atomically, so the vocabulary a rule folds to must match the running
+// browser. Two vocabularies exist: the BASELINE set every supported
+// engine accepts, and the CHROMIUM set adding the Chromium-only members
+// (webtransport, webbundle). The orchestrator picks one per browser and
+// threads it through `EngineCompileSettings.resourceVocabulary` — the
+// builders never decide. A rule without resource-type conditions folds
+// to the vocabulary's full set, so a missing member silently exempts
+// that traffic class from every rule.
 
-export const ALL_RESOURCE_TYPES: chrome.declarativeNetRequest.ResourceType[] = [
+export interface ResourceTypeVocabulary {
+  /** Every resource type the engine may emit on a rule condition. */
+  readonly all: chrome.declarativeNetRequest.ResourceType[];
+  /** `all` minus `main_frame` — the response-side sub-resource split.
+   *  Derived, never hand-enumerated. */
+  readonly subResource: chrome.declarativeNetRequest.ResourceType[];
+}
+
+function makeResourceVocabulary(all: chrome.declarativeNetRequest.ResourceType[]): ResourceTypeVocabulary {
+  return { all, subResource: all.filter((t) => t !== 'main_frame') };
+}
+
+const BASELINE_RESOURCE_TYPES = [
   'main_frame',
   'sub_frame',
   'stylesheet',
@@ -473,6 +494,13 @@ export const ALL_RESOURCE_TYPES: chrome.declarativeNetRequest.ResourceType[] = [
   'other',
 ] as chrome.declarativeNetRequest.ResourceType[];
 
-export const SUB_RESOURCE_TYPES: chrome.declarativeNetRequest.ResourceType[] = ALL_RESOURCE_TYPES.filter(
-  (t) => t !== 'main_frame',
-);
+/** Cross-browser vocabulary — Firefox / Safari (and any engine whose
+ *  acceptance of the Chromium-only members is unverified). */
+export const BASELINE_RESOURCE_VOCABULARY: ResourceTypeVocabulary = makeResourceVocabulary(BASELINE_RESOURCE_TYPES);
+
+/** Chrome / Edge vocabulary — the full Chromium DNR enum. */
+export const CHROMIUM_RESOURCE_VOCABULARY: ResourceTypeVocabulary = makeResourceVocabulary([
+  ...BASELINE_RESOURCE_TYPES,
+  'webtransport',
+  'webbundle',
+] as chrome.declarativeNetRequest.ResourceType[]);

@@ -10,8 +10,8 @@ vi.mock('@utils/logger', () => ({
   },
 }));
 
-import { delayCompiler } from '@openheaders/rule-engine/builders';
 import type { CompilerContext } from '@openheaders/rule-engine/builders';
+import { CHROMIUM_RESOURCE_VOCABULARY, delayCompiler } from '@openheaders/rule-engine/builders';
 
 function makeDelayRule(overrides: Partial<DelayRule> = {}): DelayRule {
   return {
@@ -29,7 +29,7 @@ function makeDelayRule(overrides: Partial<DelayRule> = {}): DelayRule {
 
 function makeCtx(start = 1, liveRulesMode = true): CompilerContext {
   let id = start;
-  return { allocateId: () => id++, settings: { liveRulesMode } };
+  return { allocateId: () => id++, settings: { liveRulesMode, resourceVocabulary: CHROMIUM_RESOURCE_VOCABULARY } };
 }
 
 describe('delayCompiler', () => {

@@ -41,11 +41,15 @@ import {
   clearAllSessionRules,
 } from '@openheaders/rule-engine/apply';
 import type { DnrRule, EngineCompileSettings } from '@openheaders/rule-engine/builders';
-import { attachLiveBypassExclusion } from '@openheaders/rule-engine/builders';
+import {
+  attachLiveBypassExclusion,
+  BASELINE_RESOURCE_VOCABULARY,
+  CHROMIUM_RESOURCE_VOCABULARY,
+} from '@openheaders/rule-engine/builders';
 import { compileRuleSet } from '@openheaders/rule-engine/compile';
 import { report as reportStatus } from '@openheaders/ui/shared/status';
 import { get as getSetting } from '@openheaders/ui/workbench/settings/store';
-import { declarativeNetRequest } from '@utils/browser-api';
+import { declarativeNetRequest, isChrome, isEdge } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { updateScriptableRules } from './inject-manager';
 import { recordLog } from './modules/observability-log';
@@ -366,9 +370,14 @@ async function rebuildAll(rawRules: Rule[]): Promise<void> {
 
   // Engine-relevant settings, sourced once per rebuild — the engine
   // package doesn't read `@openheaders/ui/workbench/settings/store` directly; the
-  // orchestrator threads values through every compile.
+  // orchestrator threads values through every compile. The resource-type
+  // vocabulary is the per-browser seam: Chrome/Edge accept the Chromium-only
+  // members (webtransport, webbundle); every other engine gets the
+  // cross-browser baseline so a vocabulary miss can't atomically reject
+  // the whole DNR batch.
   const engineSettings: EngineCompileSettings = {
     liveRulesMode: getSetting('rulesEngine.liveRulesMode'),
+    resourceVocabulary: isChrome || isEdge ? CHROMIUM_RESOURCE_VOCABULARY : BASELINE_RESOURCE_VOCABULARY,
   };
 
   // ── Layer 1: dynamic rules (global, not per-tab) ──

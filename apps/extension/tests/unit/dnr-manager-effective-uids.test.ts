@@ -2,6 +2,8 @@ import type { HeaderRule, Rule, RuleCondition } from '@openheaders/core/types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@utils/browser-api', () => ({
+  isChrome: true,
+  isEdge: false,
   declarativeNetRequest: {
     getDynamicRules: vi.fn(() => Promise.resolve([])),
     updateDynamicRules: vi.fn(() => Promise.resolve()),

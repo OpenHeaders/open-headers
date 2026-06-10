@@ -27,13 +27,7 @@ import type {
   DnrRule,
   RuleCompiler,
 } from './types';
-import {
-  ALL_RESOURCE_TYPES,
-  buildDnrCondition,
-  resolveResourceTypes,
-  SUB_RESOURCE_TYPES,
-  stripResourceTypeFields,
-} from './types';
+import { buildDnrCondition, resolveResourceTypes, stripResourceTypeFields } from './types';
 
 const MAIN_FRAME_ONLY: chrome.declarativeNetRequest.ResourceType[] = [
   'main_frame' as chrome.declarativeNetRequest.ResourceType,
@@ -114,9 +108,10 @@ export const headerCompiler: RuleCompiler<HeaderRule> = {
     const userExclude = base.excludedResourceTypes;
     const cleanBase = stripResourceTypeFields(base);
 
-    const requestResolved = resolveResourceTypes(ALL_RESOURCE_TYPES, userInclude, userExclude);
+    const vocabulary = ctx.settings.resourceVocabulary;
+    const requestResolved = resolveResourceTypes(vocabulary.all, userInclude, userExclude);
     const mainFrameResolved = resolveResourceTypes(MAIN_FRAME_ONLY, userInclude, userExclude);
-    const subResourceResolved = resolveResourceTypes(SUB_RESOURCE_TYPES, userInclude, userExclude);
+    const subResourceResolved = resolveResourceTypes(vocabulary.subResource, userInclude, userExclude);
 
     const pushForCondition = (condition: DnrCondition) => {
       // Request-only modifications — single DNR rule covering all resource types.

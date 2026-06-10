@@ -18,14 +18,14 @@ vi.mock('@utils/logger', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-import { headerCompiler } from '@openheaders/rule-engine/builders';
 import type { CompilerContext } from '@openheaders/rule-engine/builders';
+import { CHROMIUM_RESOURCE_VOCABULARY, headerCompiler } from '@openheaders/rule-engine/builders';
 
 // Tests flip Live Rules Mode off so the synthesizer doesn't add unrelated
 // cache-bypass mods to the assertion targets.
 function makeCtx(start = 1, liveRulesMode = false): CompilerContext {
   let id = start;
-  return { allocateId: () => id++, settings: { liveRulesMode } };
+  return { allocateId: () => id++, settings: { liveRulesMode, resourceVocabulary: CHROMIUM_RESOURCE_VOCABULARY } };
 }
 
 function baseRule(action: HeaderRule['action']): HeaderRule {
@@ -91,7 +91,9 @@ describe('header compiler — unresolved template guard', () => {
     // reach the page injection.
     const { __testExtractHeaderMergeEntry } = await import('@/background/inject-manager');
     const rule = baseRule({
-      requestHeaders: [{ uid: 'thm00011', operation: 'merge', headerName: 'Cookie', value: 'k=v', mergeSeparator: '{{vault.TOTP_X}}' }],
+      requestHeaders: [
+        { uid: 'thm00011', operation: 'merge', headerName: 'Cookie', value: 'k=v', mergeSeparator: '{{vault.TOTP_X}}' },
+      ],
       responseHeaders: [],
     });
     expect(__testExtractHeaderMergeEntry(rule)).toBeNull();

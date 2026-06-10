@@ -15,14 +15,15 @@ export type {
   FuncInjection,
   Injection,
   InlineScriptInjection,
+  ResourceTypeVocabulary,
   RuleCompiler,
 } from './types';
 export {
-  ALL_RESOURCE_TYPES,
   attachLiveBypassExclusion,
+  BASELINE_RESOURCE_VOCABULARY,
   buildDnrCondition,
+  CHROMIUM_RESOURCE_VOCABULARY,
   LIVE_BYPASS_HEADER_NAME,
   resolveResourceTypes,
-  SUB_RESOURCE_TYPES,
   stripResourceTypeFields,
 } from './types';

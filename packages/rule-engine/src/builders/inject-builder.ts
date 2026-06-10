@@ -23,7 +23,7 @@
 
 import type { InjectRule } from '@openheaders/core/types';
 import type { CompilationPlan, CompilerContext, DnrCondition, DnrRule, RuleCompiler } from './types';
-import { ALL_RESOURCE_TYPES, buildDnrCondition, resolveResourceTypes, stripResourceTypeFields } from './types';
+import { buildDnrCondition, resolveResourceTypes, stripResourceTypeFields } from './types';
 
 export const injectCompiler: RuleCompiler<InjectRule> = {
   ruleType: 'inject',
@@ -37,7 +37,7 @@ export const injectCompiler: RuleCompiler<InjectRule> = {
     const { base, domains, useRegex, urlPattern } = buildDnrCondition(rule.conditions);
     if (domains.length === 0 && !urlPattern) return {};
 
-    const resourceTypes = resolveResourceTypes(ALL_RESOURCE_TYPES, base.resourceTypes, base.excludedResourceTypes);
+    const resourceTypes = resolveResourceTypes(ctx.settings.resourceVocabulary.all, base.resourceTypes, base.excludedResourceTypes);
     if (!resourceTypes) return {};
     const cleanBase = stripResourceTypeFields(base);
 

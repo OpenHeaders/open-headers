@@ -18,22 +18,29 @@ vi.mock('@utils/logger', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-import type { CompilerContext, DnrRule } from '@openheaders/rule-engine/builders';
+import type { CompilerContext, DnrRule, ResourceTypeVocabulary } from '@openheaders/rule-engine/builders';
 import {
-  ALL_RESOURCE_TYPES,
+  BASELINE_RESOURCE_VOCABULARY,
   blockCompiler,
+  CHROMIUM_RESOURCE_VOCABULARY,
   delayCompiler,
   headerCompiler,
   injectCompiler,
   queryParamCompiler,
   redirectCompiler,
   resolveResourceTypes,
-  SUB_RESOURCE_TYPES,
 } from '@openheaders/rule-engine/builders';
 
-function makeCtx(start = 1, liveRulesMode = true): CompilerContext {
+const ALL_RESOURCE_TYPES = CHROMIUM_RESOURCE_VOCABULARY.all;
+const SUB_RESOURCE_TYPES = CHROMIUM_RESOURCE_VOCABULARY.subResource;
+
+function makeCtx(
+  start = 1,
+  liveRulesMode = true,
+  vocabulary: ResourceTypeVocabulary = CHROMIUM_RESOURCE_VOCABULARY,
+): CompilerContext {
   let id = start;
-  return { allocateId: () => id++, settings: { liveRulesMode } };
+  return { allocateId: () => id++, settings: { liveRulesMode, resourceVocabulary: vocabulary } };
 }
 
 function expectNoExcludedResourceTypes(rules: DnrRule[]) {
@@ -108,38 +115,67 @@ describe('resolveResourceTypes', () => {
   });
 });
 
-// ── Capability-set completeness ──────────────────────────────────
+// ── Per-browser vocabulary completeness ──────────────────────────
 //
-// Regression for the S42 t-media engine finding: the capability sets
-// omitted media (and ping/csp_report), so a header rule WITHOUT
-// resource-type conditions silently skipped media requests. The sets
-// must enumerate every type valid in both Chrome's and Firefox's DNR
-// vocabulary; Chrome-only members (webtransport, webbundle) stay out
-// until per-browser capability threading exists.
+// Regression for the S42 t-media engine finding (the sets omitted media/
+// ping/csp_report, silently exempting those traffic classes) and the S44
+// per-browser seam: the orchestrator threads the running browser's
+// vocabulary through EngineCompileSettings, so Chrome/Edge rules cover
+// the Chromium-only members while other engines never see members that
+// would atomically reject their whole DNR batch.
 
-describe('capability-set completeness', () => {
-  it('ALL_RESOURCE_TYPES covers the cross-browser DNR vocabulary', () => {
-    expect([...ALL_RESOURCE_TYPES].sort()).toEqual(
-      [
-        'main_frame',
-        'sub_frame',
-        'stylesheet',
-        'script',
-        'image',
-        'font',
-        'object',
-        'xmlhttprequest',
-        'ping',
-        'csp_report',
-        'media',
-        'websocket',
-        'other',
-      ].sort(),
-    );
+describe('resource-type vocabularies', () => {
+  const BASELINE = [
+    'main_frame',
+    'sub_frame',
+    'stylesheet',
+    'script',
+    'image',
+    'font',
+    'object',
+    'xmlhttprequest',
+    'ping',
+    'csp_report',
+    'media',
+    'websocket',
+    'other',
+  ];
+
+  it('the baseline vocabulary covers the cross-browser DNR set', () => {
+    expect([...BASELINE_RESOURCE_VOCABULARY.all].sort()).toEqual([...BASELINE].sort());
   });
 
-  it('SUB_RESOURCE_TYPES is exactly ALL_RESOURCE_TYPES minus main_frame', () => {
-    expect(SUB_RESOURCE_TYPES).toEqual(ALL_RESOURCE_TYPES.filter((t) => t !== 'main_frame'));
+  it('the Chromium vocabulary adds exactly webtransport + webbundle', () => {
+    expect([...CHROMIUM_RESOURCE_VOCABULARY.all].sort()).toEqual([...BASELINE, 'webtransport', 'webbundle'].sort());
+  });
+
+  it('each subResource set is exactly its all set minus main_frame', () => {
+    for (const vocab of [BASELINE_RESOURCE_VOCABULARY, CHROMIUM_RESOURCE_VOCABULARY]) {
+      expect(vocab.subResource).toEqual(vocab.all.filter((t) => t !== 'main_frame'));
+    }
+  });
+
+  it('a header rule without resource-type conditions compiles webtransport/webbundle under the Chromium vocabulary only', () => {
+    const rule: HeaderRule = {
+      schemaVersion: 5,
+      uid: 'hv1',
+      path: 'rules/header-vocab',
+      name: 'Vocab seam',
+      type: 'header',
+      enabled: true,
+      conditions: [{ uid: 'tcd00040', type: 'request-domains', values: ['openheaders.io'] }],
+      action: {
+        requestHeaders: [{ uid: 'thm00020', operation: 'override', headerName: 'X-Test', value: 'v' }],
+        responseHeaders: [],
+      },
+    };
+    const chromium = headerCompiler.compile(rule, makeCtx()).dynamicRules ?? [];
+    expect(chromium[0]!.condition.resourceTypes).toContain('webtransport');
+    expect(chromium[0]!.condition.resourceTypes).toContain('webbundle');
+
+    const baseline = headerCompiler.compile(rule, makeCtx(1, true, BASELINE_RESOURCE_VOCABULARY)).dynamicRules ?? [];
+    expect(baseline[0]!.condition.resourceTypes).not.toContain('webtransport');
+    expect(baseline[0]!.condition.resourceTypes).not.toContain('webbundle');
   });
 });
 

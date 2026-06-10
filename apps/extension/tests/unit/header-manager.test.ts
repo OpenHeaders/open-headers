@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // ── Mocks ────────────────────────────────────────────────────────────
 
 vi.mock('@utils/browser-api', () => ({
+  isChrome: true,
+  isEdge: false,
   declarativeNetRequest: {
     getDynamicRules: vi.fn(() => Promise.resolve([])),
     updateDynamicRules: vi.fn(() => Promise.resolve()),

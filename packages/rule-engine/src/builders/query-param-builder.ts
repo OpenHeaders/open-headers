@@ -8,7 +8,7 @@
 import type { QueryParamRule } from '@openheaders/core/types';
 import { logger } from '@openheaders/core/utils';
 import type { CompilationPlan, CompilerContext, DnrCondition, DnrRedirect, DnrRule, RuleCompiler } from './types';
-import { ALL_RESOURCE_TYPES, buildDnrCondition, resolveResourceTypes, stripResourceTypeFields } from './types';
+import { buildDnrCondition, resolveResourceTypes, stripResourceTypeFields } from './types';
 
 export const queryParamCompiler: RuleCompiler<QueryParamRule> = {
   ruleType: 'query-param',
@@ -59,7 +59,7 @@ export const queryParamCompiler: RuleCompiler<QueryParamRule> = {
       return {};
     }
 
-    const resourceTypes = resolveResourceTypes(ALL_RESOURCE_TYPES, base.resourceTypes, base.excludedResourceTypes);
+    const resourceTypes = resolveResourceTypes(ctx.settings.resourceVocabulary.all, base.resourceTypes, base.excludedResourceTypes);
     if (!resourceTypes) {
       logger.debug('QueryParamCompiler', `Skipping rule "${rule.name}" — resource-type filter excludes everything`);
       return {};
