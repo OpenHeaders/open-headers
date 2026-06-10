@@ -251,13 +251,13 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
     [data.lookupByUrl],
   );
 
-  // Parity capture loop reads the rendered rows' lifecycles — the same
-  // merged, scoped set the list renders (including synthetic memory-cache
-  // rows), so a capture diffs what the user actually sees — plus the
-  // footer projection so a capture can assert the redirect-leg anchoring.
-  const parityLifecycles = useMemo(() => data.rows.map((r) => r.lifecycle), [data.rows]);
+  // Parity capture loop reads the rendered rows — the same merged, scoped
+  // set the list renders (including synthetic memory-cache rows), with
+  // their attached fires so a capture can assert the fire-evidence plane —
+  // plus the footer projection so a capture can assert the redirect-leg
+  // anchoring.
   useParityDebugHook(
-    parityLifecycles,
+    data.rows,
     {
       source: lifecycleClient.source,
       footerDclMs: data.footerDclMs ?? null,

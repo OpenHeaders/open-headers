@@ -28,8 +28,13 @@
  *   ------------------------------|--------------|---------------
  *   devtools HAR (heuristic join) | effective    | effective
  *   webRequest partial HAR        | raw          | raw
- *   CDP HAR, ExtraInfo landed     | effective    | effective
+ *   CDP HAR, ExtraInfo landed     | effective    | raw
  *   CDP HAR, cooked sets only     | raw          | raw
+ *
+ * The CDP response side is `raw` even when `responseReceivedExtraInfo`
+ * landed: the fire-evidence probe ground-truthed that event as
+ * PRE-rewrite (it held the server's original header while the page
+ * received the DNR-rewritten value).
  *
  * The CDP path additionally carries the current hop's request headers
  * first-class on the lifecycle before any HAR lands; those are effective
@@ -93,7 +98,7 @@ export interface FireEvidence {
  *  (a disproven claim must not celebrate), `applied` outranks `inferred`. */
 export type FireDotTier = 'applied' | 'contradicted' | 'inferred';
 
-interface DirectionSet {
+export interface CapturedHeaderSet {
   readonly headers: ReadonlyArray<{ name: string; value: string }>;
   readonly capture: 'effective' | 'raw';
 }
@@ -104,8 +109,15 @@ interface DirectionSet {
  * for the request side the lifecycle's first-class headers stand in
  * before a HAR lands — effective exactly when the on-the-wire set has
  * superseded the cooked one. `null` when nothing is held.
+ *
+ * Exported for the parity debug hook: a capture artifact that reports
+ * stamps and observed wire values must read them through the same
+ * derivation the verdicts use, or the two could drift.
  */
-function directionSet(lifecycle: RequestLifecycle, direction: 'request' | 'response'): DirectionSet | null {
+export function capturedHeaderSet(
+  lifecycle: RequestLifecycle,
+  direction: 'request' | 'response',
+): CapturedHeaderSet | null {
   const har = currentHarEntry(lifecycle);
   if (direction === 'request') {
     const harHeaders = har?.request?.headers;
@@ -133,7 +145,7 @@ function mergeSeparatorFor(mod: RuleSnapshotHeaderMod): string {
 }
 
 /** Values observed under the claimed name (case-insensitive, RFC 9110 §5.1). */
-function observedValues(set: DirectionSet, name: string): string[] {
+function observedValues(set: CapturedHeaderSet, name: string): string[] {
   const lower = name.toLowerCase();
   const out: string[] = [];
   for (const h of set.headers) {
@@ -171,7 +183,7 @@ export function deriveModEvidence(lifecycle: RequestLifecycle, mod: RuleSnapshot
   // A claim whose name never resolved cannot be checked.
   if (mod.headerName.includes('{{')) return judge(mod, 'unobservable', 'unresolved-claim');
 
-  const set = directionSet(lifecycle, mod.direction);
+  const set = capturedHeaderSet(lifecycle, mod.direction);
   if (set === null) return judge(mod, 'unobservable', 'no-capture');
   if (set.capture !== 'effective') return judge(mod, 'unobservable', 'raw-capture');
 

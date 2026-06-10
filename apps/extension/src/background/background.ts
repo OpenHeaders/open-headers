@@ -70,6 +70,7 @@ import {
 } from './modules/live-refresh-scheduler';
 import { reconcileOAuthSchedules, startOAuthScheduler } from './modules/oauth-refresh-scheduler';
 import { hydrateObservabilityLog, recordLog } from './modules/observability-log';
+import { installParityRuleImport } from './modules/parity-rule-import';
 import { auditHostPermissions } from './modules/permissions-audit';
 import { precompileRulePatterns, rehydrateTabTracking, restoreTrackingState } from './modules/request-tracker';
 import { scheduleUpdate } from './modules/rule-engine';
@@ -98,6 +99,9 @@ const handshake = setupSyncHandshake();
 installWsFrameRouting({ handshake });
 installStatusReporters({ handshake });
 installActivityBroadcasts();
+// Dev seam for the playground's fire-evidence probe — inert unless the
+// probe sets the parity-hook flag (see the module doc).
+installParityRuleImport();
 
 // Workspaces are bootstrapped first because every per-workspace store
 // keys its reads off the active workspace id.

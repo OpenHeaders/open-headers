@@ -652,13 +652,17 @@ export class CdpHarBuilder {
     const har: InspectorHarEntry = {
       _initiator: cdpInitiatorToHar(hop.initiator),
       _priority: hop.request.initialPriority ?? null,
-      // ExtraInfo carries the post-rewrite header sets (an applied
-      // modification is visible there); the cooked base-event sets are
-      // pre-rewrite, so without the extra the section stays `raw` and a
-      // claimed modification's absence proves nothing.
+      // Request side: `requestWillBeSentExtraInfo` carries the on-the-wire
+      // set, captured after the engine's rewrite — an applied modification
+      // is visible there. Response side: ground-truthed PRE-rewrite — the
+      // fire-evidence probe (playground/scripts/probe-fire-evidence.mjs)
+      // observed `responseReceivedExtraInfo` holding the server's original
+      // header while the page received the DNR-rewritten value, so a
+      // response claim can never be judged against it; the section stays
+      // `raw` and a claimed modification's absence proves nothing.
       _ohHeaderCapture: {
         request: requestExtra !== undefined ? 'effective' : 'raw',
-        response: responseExtra !== undefined ? 'effective' : 'raw',
+        response: 'raw',
       },
       ...(hop.resourceType !== undefined ? { _resourceType: hop.resourceType.toLowerCase() } : {}),
       // Empty object, HAR-spec-required and emitted on every Chrome entry.

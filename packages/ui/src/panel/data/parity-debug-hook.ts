@@ -8,13 +8,30 @@
  * Lifecycle objects carry per-hop attribution + structured error data
  * that the denormalized legacy row erased — strictly better signal for
  * the parity capture loop.
+ *
+ * Rows arrive with their attached fires so a capture can assert the
+ * fire-evidence plane too: per-fire tiers, per-mod wire verdicts, the
+ * producer capture-point stamps, and the marker header values they were
+ * judged against (see `parityFireFields`). The fire-evidence probe
+ * (playground/scripts/probe-fire-evidence.mjs) joins these against
+ * backend-observed truth — a divergence is a fire-evidence bug.
  */
 
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarEntry } from '@openheaders/core/types';
 import { useEffect, useRef } from 'react';
-import { currentHarEntry, isPendingLifecycle } from './inspector-row-projection';
+import {
+  capturedHeaderSet,
+  deriveFireEvidence,
+  type FireDotTier,
+  fireTier,
+  type ModEvidenceReason,
+  type ModEvidenceVerdict,
+  rowFireTier,
+} from './fire-evidence';
+import { currentHarEntry, type InspectorRowWithFires, isPendingLifecycle } from './inspector-row-projection';
 import { classifyRequestState, type RequestState } from './request-state';
+import type { InspectorFire } from './types';
 
 /** The footer projection a parity capture asserts the panel computes: the
  *  re-anchored DCL / Load / Finish the status bar shows, plus the
@@ -65,7 +82,104 @@ interface ParityRow {
   resourceType: string | null;
 }
 
-interface ParityRowDebug extends ParityRow {
+/** One attached fire as the capture sees it — the raw evidence inputs
+ *  (`authoritative` / `evidence`) kept separate from the derived tier so
+ *  a probe on an unpacked install (where `onRuleMatchedDebug` exists and
+ *  everything is authoritative-blue) can still assert wire corroboration
+ *  independently. */
+interface ParityFire {
+  ruleUid: string;
+  authoritative: boolean;
+  evidence: InspectorFire['evidence'];
+  requestId?: string;
+  tier: FireDotTier;
+  verdict: ModEvidenceVerdict;
+}
+
+/** One claimed header mod judged against the captured sets. */
+interface ParityModEvidence {
+  ruleUid: string;
+  direction: 'request' | 'response';
+  operation: string;
+  headerName: string;
+  verdict: ModEvidenceVerdict;
+  reason: ModEvidenceReason;
+  observed?: readonly string[];
+}
+
+/** Header names a fire-evidence capture cares about — the playground's
+ *  marker vocabulary plus the auth header its gate keys on. Everything
+ *  else is omitted to keep artifacts readable. */
+const MARKER_HEADER_NAMES = new Set(['authorization', 'x-forwarded-for', 'vary', 'content-language']);
+
+function isMarkerHeader(name: string): boolean {
+  const lower = name.toLowerCase();
+  return MARKER_HEADER_NAMES.has(lower) || lower.startsWith('x-oh-');
+}
+
+export interface ParityFireFields {
+  _fires?: ParityFire[];
+  _rowFireTier?: FireDotTier | null;
+  _modEvidence?: ParityModEvidence[];
+  /** Capture point per direction as the verdicts read it (producer stamp,
+   *  or the lifecycle stand-in on the request side). Null when nothing is
+   *  held for the direction. */
+  _headerCapture?: { request: 'effective' | 'raw' | null; response: 'effective' | 'raw' | null };
+  /** Marker-named headers from the same sets the verdicts judged. */
+  _markerHeaders?: {
+    request: Array<{ name: string; value: string }>;
+    response: Array<{ name: string; value: string }>;
+  };
+}
+
+/**
+ * Fire-evidence fields for one row. Pure — same inputs as the dot/badge
+ * derivations (`fireTier` / `deriveFireEvidence` / `capturedHeaderSet`),
+ * so the capture artifact can never disagree with what the panel renders.
+ */
+export function parityFireFields(lifecycle: RequestLifecycle, fires: readonly InspectorFire[]): ParityFireFields {
+  const request = capturedHeaderSet(lifecycle, 'request');
+  const response = capturedHeaderSet(lifecycle, 'response');
+  const fields: ParityFireFields = {
+    _headerCapture: { request: request?.capture ?? null, response: response?.capture ?? null },
+    _markerHeaders: {
+      request: (request?.headers ?? []).filter((h) => isMarkerHeader(h.name)),
+      response: (response?.headers ?? []).filter((h) => isMarkerHeader(h.name)),
+    },
+  };
+  if (fires.length === 0) return fields;
+
+  const parityFires: ParityFire[] = [];
+  const modEvidence: ParityModEvidence[] = [];
+  for (const fire of fires) {
+    const evidence = deriveFireEvidence(lifecycle, fire);
+    parityFires.push({
+      ruleUid: fire.ruleUid,
+      authoritative: fire.authoritative,
+      evidence: fire.evidence,
+      ...(fire.requestId !== undefined ? { requestId: fire.requestId } : {}),
+      tier: fireTier(lifecycle, fire),
+      verdict: evidence.verdict,
+    });
+    for (const m of evidence.mods) {
+      modEvidence.push({
+        ruleUid: fire.ruleUid,
+        direction: m.mod.direction,
+        operation: m.mod.operation,
+        headerName: m.mod.headerName,
+        verdict: m.verdict,
+        reason: m.reason,
+        ...(m.observed !== undefined ? { observed: m.observed } : {}),
+      });
+    }
+  }
+  fields._fires = parityFires;
+  fields._rowFireTier = rowFireTier(lifecycle, fires);
+  fields._modEvidence = modEvidence;
+  return fields;
+}
+
+interface ParityRowDebug extends ParityRow, ParityFireFields {
   _requestId?: string;
   _harResponseStatus?: number;
   _harResponseError?: string | null;
@@ -100,7 +214,8 @@ function isDocumentLike(resourceType: string | undefined): boolean {
   return resourceType === 'main_frame' || resourceType === 'document';
 }
 
-function toParityRow(lc: RequestLifecycle, arrivalIndex: number): ParityRow {
+function toParityRow(rowWithFires: InspectorRowWithFires, arrivalIndex: number): ParityRow {
+  const lc = rowWithFires.lifecycle;
   const state = classifyRequestState(lc);
   let displayStatus: number | null = null;
   switch (state.kind) {
@@ -129,6 +244,7 @@ function toParityRow(lc: RequestLifecycle, arrivalIndex: number): ParityRow {
     pending: isPendingLifecycle(lc),
     state,
     resourceType: lc.resourceType || null,
+    ...parityFireFields(lc, rowWithFires.fires),
   };
   // Identity + HAR-join probes on every row — a capture must be able to
   // tell a real lifecycle from a synthesized one (`oh-mem:` prefix) and
@@ -163,19 +279,19 @@ declare global {
 }
 
 export function useParityDebugHook(
-  lifecycles: readonly RequestLifecycle[],
+  rows: readonly InspectorRowWithFires[],
   footer: ParityFooter,
   clear: () => void,
 ): void {
-  const lifecyclesRef = useRef(lifecycles);
-  lifecyclesRef.current = lifecycles;
+  const rowsRef = useRef(rows);
+  rowsRef.current = rows;
   const footerRef = useRef(footer);
   footerRef.current = footer;
   const clearRef = useRef(clear);
   clearRef.current = clear;
 
   useEffect(() => {
-    window.__OH_DUMP_PARITY_ROWS__ = () => lifecyclesRef.current.map((lc, i) => toParityRow(lc, i));
+    window.__OH_DUMP_PARITY_ROWS__ = () => rowsRef.current.map((row, i) => toParityRow(row, i));
     window.__OH_DUMP_PARITY_FOOTER__ = () => footerRef.current;
     window.__OH_CLEAR_PARITY__ = () => clearRef.current();
     return () => {
