@@ -22,8 +22,8 @@ import type { RequestRecord, RuleSnapshot } from '@openheaders/core/types';
  *
  * `requestId` is the host's network-request identifier — present for
  * every network-observed fire and used as the deterministic join key to
- * the lifecycle. Absent only for scriptable fires reported from the
- * in-page fire-bridge.
+ * the lifecycle. Scriptable fires adopt it from the observation they
+ * confirm; absent only when no network observation exists for the fire.
  */
 export interface InspectorFire {
   ruleUid: string;

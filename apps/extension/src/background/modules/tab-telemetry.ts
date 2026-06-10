@@ -51,8 +51,8 @@
  * See the comment on `onPageCommit` for the delay-chain handling.
  */
 
-import type { TrackedResourceType } from '@/types/browser';
 import type { DeliveryMode, Evidence, RequestRecord, TabTelemetrySnapshot } from '@openheaders/core/types';
+import type { TrackedResourceType } from '@/types/browser';
 import type { ShadowAttribution } from './shadow-arbitration';
 
 export type { DeliveryMode, Evidence, RequestRecord, TabTelemetrySnapshot } from '@openheaders/core/types';
@@ -415,12 +415,45 @@ export function recordObservedFire(
 }
 
 /**
+ * Network identity for a scriptable fire — the `requestId` (and the
+ * observed resource type) of the webRequest/CDP observation the in-page
+ * confirmation corresponds to. Looked up in adoption order: the drained
+ * fallback record, the pending main-frame buffer, then the promoted fire
+ * log (a confirmation arriving after the fallback window). Without it
+ * the confirmed record has no row to attach to in the inspector; with
+ * it, the panel-side merge upgrades the request's own fire to ground
+ * truth. `null` when no observation exists for this (rule, url).
+ */
+function adoptNetworkIdentity(
+  state: TabState,
+  ruleUid: string,
+  normalizedUrl: string,
+  drained: RequestRecord | undefined,
+): Pick<RequestRecord, 'requestId' | 'resourceType'> | null {
+  if (drained?.requestId) return { requestId: drained.requestId, resourceType: drained.resourceType };
+  for (const p of state.pendingFires) {
+    if (p.record.ruleUid === ruleUid && normalizeForAttribution(p.record.url) === normalizedUrl) {
+      return { requestId: p.requestId, resourceType: p.record.resourceType };
+    }
+  }
+  for (let i = state.fires.length - 1; i >= 0; i--) {
+    const f = state.fires[i];
+    if (f.ruleUid === ruleUid && f.requestId && normalizeForAttribution(f.url) === normalizedUrl) {
+      return { requestId: f.requestId, resourceType: f.resourceType };
+    }
+  }
+  return null;
+}
+
+/**
  * Record a scriptable fire reported by the in-page fire-bridge. Always
  * attributed to the current tab's page. If a matching observed fire is
  * currently buffered in `pendingFallback`, the scriptable drains it so the
  * same action isn't counted twice. A short suppression window is set so a
  * late observed fire for the same (rule, url) within the window is also
- * dropped. No-op for untracked tabs.
+ * dropped. The confirmed record adopts the network identity of the
+ * observation it corresponds to (see `adoptNetworkIdentity`). No-op for
+ * untracked tabs.
  */
 export function recordScriptableFire(
   tabId: number,
@@ -446,13 +479,15 @@ export function recordScriptableFire(
   // Suppress any late observed fire for this key within the window.
   state.recentScriptable.set(key, t + FALLBACK_WINDOW_MS);
 
+  const identity = adoptNetworkIdentity(state, ruleUid, normalized, pending?.record);
   const record: RequestRecord = {
     ruleUid,
     url,
     pattern: meta.pattern,
-    resourceType: meta.resourceType,
+    resourceType: identity?.resourceType ?? meta.resourceType,
     t,
     evidence: 'confirmed',
+    ...(identity ? { requestId: identity.requestId } : {}),
   };
   appendFire(state, record);
 }
@@ -506,11 +541,7 @@ export function updateRequestDeliveryMode(tabId: number, requestId: string, mode
  * etc.) are handled inside that helper, which returns an empty set so
  * the promotion loop is a no-op while the rest of the reset proceeds.
  */
-export function onPageCommit(
-  tabId: number,
-  committedUrl: string,
-  matchingRequestIds: ReadonlySet<string>,
-): void {
+export function onPageCommit(tabId: number, committedUrl: string, matchingRequestIds: ReadonlySet<string>): void {
   const state = tabs.get(tabId);
   if (!state) return;
 

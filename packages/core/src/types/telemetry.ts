@@ -118,9 +118,11 @@ export interface RequestRecord {
   t: number;
   evidence: Evidence;
   /**
-   * Chrome webRequest identifier. Present for webRequest-observed fires
-   * so delivery mode can be back-filled on `onCompleted`. Absent for
-   * scriptable fires reported from the in-page fire-bridge.
+   * Host network-request identifier (webRequest id on the heuristic
+   * path, session-namespaced CDP id on the CDP path). Present for every
+   * network-observed fire; scriptable fires adopt it from the observed
+   * record they confirm, and carry none only when no network observation
+   * exists for the (rule, url).
    */
   requestId?: string;
   /** Populated post-fact from `onCompleted.fromCache`. */

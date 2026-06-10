@@ -327,6 +327,77 @@ describe('tab-telemetry — deferred observed + 500ms scriptable fallback', () =
   });
 });
 
+// ── Scriptable network-identity adoption ────────────────────────────
+
+describe('tab-telemetry — scriptable fires adopt the observed network identity', () => {
+  it('drained fallback: confirmed record carries the observed requestId + resourceType', () => {
+    startTracking(1, 'active-popup');
+    recordObservedFire(1, 'rule-mock', 'https://api.openheaders.io/x', 'req-1', 100, DEFERRED_META);
+
+    vi.advanceTimersByTime(200);
+    recordScriptableFire(1, 'rule-mock', 'https://api.openheaders.io/x', 300, SCRIPTABLE_META);
+
+    const record = getTabSnapshot(1).fires[0]!;
+    expect(record.evidence).toBe('confirmed');
+    expect(record.requestId).toBe('req-1');
+    expect(record.resourceType).toBe('xmlhttprequest');
+  });
+
+  it('drained fallback: CDP-namespaced store ids pass through verbatim', () => {
+    startTracking(1, 'active-popup');
+    recordObservedFire(1, 'rule-mock', 'https://api.openheaders.io/x', 'page::39.5', 100, DEFERRED_META);
+
+    recordScriptableFire(1, 'rule-mock', 'https://api.openheaders.io/x', 200, SCRIPTABLE_META);
+
+    expect(getTabSnapshot(1).fires[0]?.requestId).toBe('page::39.5');
+  });
+
+  it('pending main-frame buffer: confirmed record adopts the buffered requestId without draining it', () => {
+    startTracking(1, 'active-popup');
+    recordObservedFire(1, 'rule-delay', 'https://openheaders.io/', 'req-mf', 100, MAIN_FRAME_META);
+
+    recordScriptableFire(1, 'rule-delay', 'https://openheaders.io/', 200, SCRIPTABLE_META);
+
+    const record = getTabSnapshot(1).fires[0]!;
+    expect(record).toMatchObject({ evidence: 'confirmed', requestId: 'req-mf', resourceType: 'main_frame' });
+
+    // The buffered observation still belongs to the commit gate.
+    onPageCommit(1, 'https://openheaders.io/', new Set(['req-mf']));
+    expect(getTabSnapshot(1).fires[0]).toMatchObject({ evidence: 'matched', requestId: 'req-mf' });
+  });
+
+  it('late confirm: adopts the requestId of the already-promoted fallback record', () => {
+    startTracking(1, 'active-popup');
+    recordObservedFire(1, 'rule-mock', 'https://api.openheaders.io/x', 'req-1', 100, DEFERRED_META);
+    vi.advanceTimersByTime(__internals.FALLBACK_WINDOW_MS);
+    expect(getTabSnapshot(1).fires[0]?.evidence).toBe('matched-fallback');
+
+    recordScriptableFire(1, 'rule-mock', 'https://api.openheaders.io/x', 700, SCRIPTABLE_META);
+
+    const fires = getTabSnapshot(1).fires;
+    expect(fires).toHaveLength(2);
+    expect(fires[1]).toMatchObject({ evidence: 'confirmed', requestId: 'req-1' });
+  });
+
+  it('fragment-only URL differences still bind (normalized attribution)', () => {
+    startTracking(1, 'active-popup');
+    recordObservedFire(1, 'rule-mock', 'https://api.openheaders.io/x#a', 'req-1', 100, DEFERRED_META);
+
+    recordScriptableFire(1, 'rule-mock', 'https://api.openheaders.io/x#b', 200, SCRIPTABLE_META);
+
+    expect(getTabSnapshot(1).fires[0]?.requestId).toBe('req-1');
+  });
+
+  it('no observed counterpart: record stays requestId-less', () => {
+    startTracking(1, 'active-popup');
+    recordObservedFire(1, 'rule-mock', 'https://api.openheaders.io/other', 'req-1', 100, DEFERRED_META);
+
+    recordScriptableFire(1, 'rule-mock', 'https://api.openheaders.io/x', 200, SCRIPTABLE_META);
+
+    expect(getTabSnapshot(1).fires[0]?.requestId).toBeUndefined();
+  });
+});
+
 // ── Page-context attribution ─────────────────────────────────────────
 
 describe('tab-telemetry — page-context attribution', () => {

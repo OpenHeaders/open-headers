@@ -78,7 +78,7 @@ vi.mock('@openheaders/oracle/entity/rule-store', () => ({
 }));
 
 vi.mock('@/background/inject-manager', () => ({
-  updateScriptableRules: vi.fn(),
+  updateScriptableRules: vi.fn(() => new Set<string>()),
 }));
 
 import {

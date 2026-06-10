@@ -19,14 +19,20 @@ declare const browser: typeof chrome | undefined;
 
 import type { BodyRule, DelayRule, HeaderRule, InjectRule, MockRule, Rule } from '@openheaders/core/types';
 import { compileRuleForInjection, doesUrlMatchRule } from '@openheaders/core/utils';
-import { logger } from '@utils/logger';
 import {
   buildBodyInjection,
   buildDelayInjection,
   buildHeaderMergeInjection,
   buildMockInjection,
 } from '@openheaders/rule-engine/content-scripts';
-import { applyInjection, injectCSS, injectCSSUrl, injectScript, injectScriptUrl } from '@openheaders/rule-engine/inject';
+import {
+  applyInjection,
+  injectCSS,
+  injectCSSUrl,
+  injectScript,
+  injectScriptUrl,
+} from '@openheaders/rule-engine/inject';
+import { logger } from '@utils/logger';
 import { getTestScopeForTab, isRuleUnderTest } from './modules/test-runner';
 
 const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
@@ -105,10 +111,15 @@ export const __testExtractHeaderMergeEntry = extractHeaderMergeEntry;
  * rules change. Accepts every rule with any in-page side effect (inject,
  * delay, body, mock, header); header-merge entries are derived from header
  * rules internally so dnr-manager doesn't have to know about them.
+ *
+ * Returns the uids that actually received an in-page artifact — a header
+ * rule without merge operations installs nothing here. dnr-manager folds
+ * the set into its effective-fire-uid snapshot.
  */
-export function updateScriptableRules(rules: Rule[]): void {
+export function updateScriptableRules(rules: Rule[]): ReadonlySet<string> {
   const scriptable: ScriptableRule[] = [];
   const headerMerges: HeaderMergeEntry[] = [];
+  const installedUids = new Set<string>();
   for (const rule of rules) {
     switch (rule.type) {
       case 'inject':
@@ -116,10 +127,14 @@ export function updateScriptableRules(rules: Rule[]): void {
       case 'body':
       case 'mock':
         scriptable.push(rule);
+        installedUids.add(rule.uid);
         break;
       case 'header': {
         const merge = extractHeaderMergeEntry(rule);
-        if (merge) headerMerges.push(merge);
+        if (merge) {
+          headerMerges.push(merge);
+          installedUids.add(rule.uid);
+        }
         break;
       }
     }
@@ -135,6 +150,7 @@ export function updateScriptableRules(rules: Rule[]): void {
   } else {
     logger.debug('InjectManager', 'Updated scriptable rules: 0 active');
   }
+  return installedUids;
 }
 
 /**
@@ -267,4 +283,3 @@ async function injectForUrl(tabId: number, url: string): Promise<void> {
     }
   }
 }
-

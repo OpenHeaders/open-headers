@@ -75,6 +75,22 @@ export function getDnrIdToRuleUid(): ReadonlyMap<number, string> {
   return dynamicDnrIdToUid;
 }
 
+let effectiveFireUids: ReadonlySet<string> | null = null;
+
+/**
+ * Uids of rules whose compiled artifacts are live in the engine right
+ * now — dynamic DNR, global session DNR, scriptable injections, and
+ * active test-run scope rules. The inferred-fire path consults this so
+ * an amber dot is only claimed for a rule that is actually on the wire
+ * (a paused / draft / capped / pause-marked rule matches URLs but never
+ * applies). `null` until the first rebuild of this SW life commits —
+ * callers treat unknown as "don't gate". On a failed apply the previous
+ * snapshot is kept: Chrome's layers still hold the prior rule set.
+ */
+export function getEffectiveFireUids(): ReadonlySet<string> | null {
+  return effectiveFireUids;
+}
+
 export function getSessionRuleIdToUid(runId: string): ReadonlyMap<number, string> {
   return runSessionRuleIdToUid.get(runId) ?? new Map();
 }
@@ -333,6 +349,7 @@ async function rebuildAll(rawRules: Rule[]): Promise<void> {
 
   if (isPaused) {
     logger.info('DnrManager', 'Rules execution is paused, clearing all active rules');
+    effectiveFireUids = new Set();
     clearAllDynamicRules(declarativeNetRequest);
     clearAllSessionRules(declarativeNetRequest);
     updateScriptableRules([]);
@@ -395,16 +412,21 @@ async function rebuildAll(rawRules: Rule[]): Promise<void> {
     );
   }
 
+  // Uids whose artifacts go live in this transaction — committed to
+  // `effectiveFireUids` only once both DNR layers apply successfully.
+  const liveUids = new Set<string>();
+
   const dynamicToApply: DnrRule[] = [];
   for (const { rule, uid } of effectiveDynamic) {
     dynamicDnrIdToUid.set(rule.id, uid);
+    liveUids.add(uid);
     const bypass = liveBypassByUid.get(uid);
     if (bypass) rule.condition = attachLiveBypassExclusion(rule.condition, bypass, { extensionDomain: extensionId });
     dynamicToApply.push(rule);
   }
 
   const dynamicPromise = applyDynamicRules(declarativeNetRequest, dynamicToApply);
-  updateScriptableRules(scriptables);
+  for (const uid of updateScriptableRules(scriptables)) liveUids.add(uid);
 
   // ── Layer 2: session rules ──
   // Three subcategories:
@@ -466,6 +488,7 @@ async function rebuildAll(rawRules: Rule[]): Promise<void> {
     const all = [...runDynamic, ...runSession];
     for (const { rule, uid } of all) {
       perRunMap.set(rule.id, uid);
+      liveUids.add(uid);
       const bypass = liveBypassByUid.get(uid);
       if (bypass) rule.condition = attachLiveBypassExclusion(rule.condition, bypass, { extensionDomain: extensionId });
       rule.condition = { ...rule.condition, tabIds: [run.tabId] };
@@ -480,6 +503,7 @@ async function rebuildAll(rawRules: Rule[]): Promise<void> {
   const excludedForGlobal = [...new Set<number>([...testTabIds, ...bypassTabs])];
   for (const { rule, uid } of globalSessionUntagged) {
     dynamicDnrIdToUid.set(rule.id, uid); // global session rules are part of the "live for this tab" lookup
+    liveUids.add(uid);
     const bypass = liveBypassByUid.get(uid);
     if (bypass) rule.condition = attachLiveBypassExclusion(rule.condition, bypass, { extensionDomain: extensionId });
     if (excludedForGlobal.length > 0) {
@@ -504,6 +528,7 @@ async function rebuildAll(rawRules: Rule[]): Promise<void> {
       });
       return;
     }
+    effectiveFireUids = liveUids;
     // Report unresolved {{VAR}} references BEFORE cap/large-set checks.
     // A rule with a literal `{{TOKEN}}` left in its pattern is broken in
     // a way the user can't see from the cap/size numbers — it silently

@@ -4,10 +4,17 @@
  * rule to tab-telemetry as an observed fire. Tab tracking and dedupe
  * are tab-telemetry's responsibility; this module just composes the
  * matcher + arbitrator pipeline.
+ *
+ * Matches are intersected with the engine's effective-uid set before
+ * arbitration: a rule that matches the URL but has no live artifact in
+ * the engine (engine paused, pause-marked, unpublished draft, dropped
+ * over the rule cap) did not act on the request and must not claim a
+ * fire — nor shadow a rule that did.
  */
 
 import { get as getSetting } from '@openheaders/ui/workbench/settings/store';
 import type { TrackedResourceType } from '@/types/browser';
+import { getEffectiveFireUids } from '../dnr-manager';
 import { matchRulesToRequest } from '../modules/request-tracker';
 import { arbitrateWithStrategy } from '../modules/shadow-arbitration';
 import { isTracked as isTabTracked, recordObservedFire } from '../modules/tab-telemetry';
@@ -27,7 +34,10 @@ export function recordFiresForObservation(input: FireRecorderInput): void {
   const normalized = normalizeUrlForTracking(input.url);
   const matches = matchRulesToRequest(normalized);
   if (matches.length === 0) return;
-  const arbitrated = arbitrateWithStrategy(matches, getSetting('rulesEngine.evaluationStrategy'));
+  const effective = getEffectiveFireUids();
+  const live = effective === null ? matches : matches.filter((m) => effective.has(m.uid));
+  if (live.length === 0) return;
+  const arbitrated = arbitrateWithStrategy(live, getSetting('rulesEngine.evaluationStrategy'));
   for (const r of arbitrated) {
     recordObservedFire(input.tabId, r.uid, normalized, input.requestId, input.timestampMs, {
       resourceType: input.resourceType,
