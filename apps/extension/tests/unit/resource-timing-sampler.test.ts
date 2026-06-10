@@ -27,6 +27,20 @@ function entry(name: string, startTime: number, overrides: Partial<ResourceTimin
     encodedBodySize: 0,
     decodedBodySize: 0,
     deliveryType: '',
+    workerStart: 0,
+    redirectStart: 0,
+    redirectEnd: 0,
+    fetchStart: 0,
+    domainLookupStart: 0,
+    domainLookupEnd: 0,
+    connectStart: 0,
+    connectEnd: 0,
+    secureConnectionStart: 0,
+    requestStart: 0,
+    responseStart: 0,
+    firstInterimResponseStart: 0,
+    finalResponseHeadersStart: 0,
+    responseEnd: 0,
     ...overrides,
   };
 }
@@ -68,6 +82,13 @@ describe('filterEntriesSinceOpen', () => {
     };
     expect(filterEntriesSinceOpen(snapshot, 5000).entries).toEqual([]);
   });
+
+  it('keeps the navigation entry only when the navigation itself is post-open', () => {
+    const nav = entry('https://openheaders.io/', 0, { initiatorType: 'navigation' });
+    const snapshot: ResourceTimingSnapshot = { timeOriginMs: 1000, entries: [], navigation: nav };
+    expect(filterEntriesSinceOpen(snapshot, 1000).navigation).toBe(nav);
+    expect(filterEntriesSinceOpen(snapshot, 1500).navigation).toBeUndefined();
+  });
 });
 
 describe('createResourceTimingSampler', () => {
@@ -105,6 +126,37 @@ describe('createResourceTimingSampler', () => {
     vi.advanceTimersByTime(100); // next tick, identical snapshot
 
     expect(forward).toHaveBeenCalledTimes(1);
+    sampler.stop();
+  });
+
+  it("forwards when only the navigation entry's legs evolved (first byte / last byte landing)", () => {
+    const base = {
+      timeOriginMs: 1000,
+      entries: [entry('https://openheaders.io/after.js', 600)],
+    };
+    let snapshot: ResourceTimingSnapshot = {
+      ...base,
+      navigation: entry('https://openheaders.io/', 0, { initiatorType: 'navigation' }),
+    };
+    const forward = vi.fn();
+    const evalInPage = vi.fn((_expr: string, cb: EvalCb) => cb(snapshot));
+
+    const sampler = createResourceTimingSampler({ evalInPage, forward, openedAtWallMs: 1000 });
+    sampler.restart();
+    expect(forward).toHaveBeenCalledTimes(1);
+
+    // Same entry count, but the nav response started — must forward again.
+    snapshot = {
+      ...base,
+      navigation: entry('https://openheaders.io/', 0, { initiatorType: 'navigation', responseStart: 480 }),
+    };
+    vi.advanceTimersByTime(100);
+    expect(forward).toHaveBeenCalledTimes(2);
+    expect(forward.mock.calls[1][0].navigation?.responseStart).toBe(480);
+
+    // Unchanged again — suppressed.
+    vi.advanceTimersByTime(100);
+    expect(forward).toHaveBeenCalledTimes(2);
     sampler.stop();
   });
 

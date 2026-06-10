@@ -5,8 +5,8 @@
  * vanish), the ladder ALWAYS emits the same eight rungs
  * in order, each with an explicit state — a real duration (including `0` for a
  * step that happened instantly), or a reason it is absent (`reused` / `not
- * reached` / `n/a`). Nothing is hidden and nothing is fabricated; every number
- * traces to a raw HAR field.
+ * reached` / `n/a` / `unknown`). Nothing is hidden and nothing is fabricated;
+ * every number traces to a raw HAR field.
  *
  * The eight rungs, and the wire boundary that splits them:
  *
@@ -23,13 +23,13 @@
  *     wait      — waiting for the first response byte (TTFB)
  *     receive   — downloading the response body
  *
- * The connect/ssl truth (verified against HAR's own `time`): HAR `connect`
- * spans `connectStart → connectEnd` and INCLUDES the TLS handshake, but NOT
- * DNS (DNS is a separate, earlier field). So the honest, non-overlapping split
- * is `Initial connection (TCP) = connect − ssl` and `TLS = ssl`. Chrome instead
- * shows the two as overlapping bars (both read the full connection time when
- * TLS dominates); the legacy code peeled `connect − ssl − dns`, double-counting
- * DNS out and making the TCP rung collapse to ~0. The ladder uses `connect − ssl`.
+ * The connect/dns/ssl truth (read from the exporter's own leg math): the
+ * exported `connect` leg is anchored at the DNS START when a lookup ran —
+ * it spans the DNS leg AND the TLS handshake (which is why the exported
+ * `time`, a plain leg sum, over-counts dns-bearing requests by their DNS
+ * leg). So the honest, non-overlapping split is
+ * `TCP = connect − ssl − dns` (dns only when it elapsed; a reused / no-DNS
+ * entry has `dns: -1` and the exported connect starts at `connectStart`).
  */
 
 import type { InspectorHarEntry } from '@openheaders/core/types';
@@ -46,12 +46,17 @@ export type TimingBand = 'before-wire' | 'connecting' | 'exchange';
  *   - `reused`      a setup step skipped because the socket was already open.
  *   - `not-reached` the request ended (blocked / failed) before this step.
  *   - `na`          the step does not apply (TLS on a plain `http://` request).
+ *   - `unknown`     the step may have run but nothing recorded it — a floor
+ *                   timings block measured only at the wire events (no `send`
+ *                   leg). Distinct from `reused`: claiming a warm socket the
+ *                   data can't prove would be fabrication.
  */
 export type RungState =
   | { readonly kind: 'elapsed'; readonly ms: number }
   | { readonly kind: 'reused' }
   | { readonly kind: 'not-reached' }
-  | { readonly kind: 'na' };
+  | { readonly kind: 'na' }
+  | { readonly kind: 'unknown' };
 
 export interface TimingRung {
   readonly key: TimingRungKey;
@@ -96,8 +101,9 @@ const LABELS: Record<TimingRungKey, string> = {
   queueing: 'Queueing',
   stalled: 'Stalled',
   dns: 'DNS Lookup',
-  // The TCP-handshake leg only (`connect − ssl`); HAR's `connect` is the whole
-  // connection setup *including* TLS, which we split out as its own `ssl` rung.
+  // The TCP-handshake leg only (`connect − ssl − dns`); the exported `connect`
+  // is the whole connection setup from the DNS start *including* TLS, which we
+  // split out as their own rungs.
   connect: 'TCP',
   ssl: 'TLS',
   send: 'Request sent',
@@ -140,18 +146,33 @@ export function computeTimingLadder(har: InspectorHarEntry, ctx: LadderContext):
 
   const queueing = dur(t._blocked_queueing);
   const stalled = Math.max(0, dur(t.blocked) - queueing);
-  const tcp = present(t.connect) ? Math.max(0, dur(t.connect) - dur(t.ssl)) : -1;
-  const receive = ctx.liveReceiveMs != null ? ctx.liveReceiveMs : dur(t.receive);
+  // The exporter's connect leg is dns-anchored when a lookup ran (see the
+  // module note) — peel both dns and ssl out for the TCP-only rung.
+  const tcp = present(t.connect) ? Math.max(0, dur(t.connect) - dur(t.ssl) - dur(t.dns)) : -1;
+
+  // A floor block — measured only at the wire events, no `send` leg recorded.
+  // Its absent steps are UNKNOWN (nothing recorded them), never `reused`
+  // (which claims a warm socket) and never `0` (which claims an instant step).
+  const floor = !present(t.send);
 
   // The absent-reason for a setup step (dns / connect / ssl) that did not run:
   // a reused socket when a response arrived, otherwise the request never got
   // that far. TLS additionally reads `n/a` on a plaintext request.
-  const setupAbsent = (): RungState => (ctx.reachedResponse ? { kind: 'reused' } : { kind: 'not-reached' });
+  const setupAbsent = (): RungState => {
+    if (!ctx.reachedResponse) return { kind: 'not-reached' };
+    return floor ? { kind: 'unknown' } : { kind: 'reused' };
+  };
+
+  const exchange = (v: number | undefined): RungState => {
+    if (!ctx.reachedResponse) return { kind: 'not-reached' };
+    return present(v) ? { kind: 'elapsed', ms: dur(v) } : { kind: 'unknown' };
+  };
 
   const stateOf = (key: TimingRungKey): RungState => {
     switch (key) {
       case 'queueing':
-        return { kind: 'elapsed', ms: queueing };
+        if (present(t._blocked_queueing)) return { kind: 'elapsed', ms: queueing };
+        return floor ? { kind: 'unknown' } : { kind: 'elapsed', ms: 0 };
       case 'stalled':
         return { kind: 'elapsed', ms: stalled };
       case 'dns':
@@ -162,11 +183,12 @@ export function computeTimingLadder(har: InspectorHarEntry, ctx: LadderContext):
         if (present(t.ssl)) return { kind: 'elapsed', ms: dur(t.ssl) };
         return ctx.isHttps ? setupAbsent() : { kind: 'na' };
       case 'send':
-        return ctx.reachedResponse ? { kind: 'elapsed', ms: dur(t.send) } : { kind: 'not-reached' };
+        return exchange(t.send);
       case 'wait':
-        return ctx.reachedResponse ? { kind: 'elapsed', ms: dur(t.wait) } : { kind: 'not-reached' };
+        return exchange(t.wait);
       case 'receive':
-        return ctx.reachedResponse ? { kind: 'elapsed', ms: receive } : { kind: 'not-reached' };
+        if (ctx.reachedResponse && ctx.liveReceiveMs != null) return { kind: 'elapsed', ms: ctx.liveReceiveMs };
+        return exchange(t.receive);
     }
   };
 

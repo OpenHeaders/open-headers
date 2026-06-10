@@ -29,6 +29,7 @@ import type { InspectorHarEntry } from '@openheaders/core/types';
 import { queryStringFromUrl } from '../correlator-cdp/cdp-har-synth';
 
 import type { WebRequestHeader } from './events';
+import type { InspectorHarTimings } from './webrequest-har-timings';
 
 /** Hop facts captured before the response: identity + the wire request headers. */
 export interface PartialHarSeed {
@@ -56,6 +57,27 @@ export interface PartialHarTerminal {
   readonly ip?: string;
   /** Net-stack code from `onErrorOccurred` — HAR `_error`. */
   readonly error?: string;
+}
+
+/** The hop's timing block + the open-download verdict (see `webrequest-har-timings`). */
+export interface PartialHarTiming {
+  readonly timings: InspectorHarTimings;
+  /** The body never finished downloading — the not-finished caution. */
+  readonly responseBodyIncomplete?: boolean;
+}
+
+/**
+ * The exporter's `time`: a plain sum of the non-negative legs. With the
+ * dns-anchored `connect` dialect this over-counts a dns-bearing request
+ * by its DNS leg — exactly what the host exporter writes, and what every
+ * consumer (the Time column's `time − queueing − dns`) decodes.
+ */
+function exporterTimeSum(t: InspectorHarTimings): number {
+  let sum = 0;
+  for (const leg of [t.blocked, t.dns, t.connect, t.send, t.wait, t.receive]) {
+    if (typeof leg === 'number' && leg > 0) sum += leg;
+  }
+  return sum;
 }
 
 const toHarHeaders = (headers: readonly WebRequestHeader[] | undefined): Array<{ name: string; value: string }> =>
@@ -154,17 +176,19 @@ function webRequestTypeToHarResourceType(type: string): string {
 /**
  * Shape a partial `InspectorHarEntry` for one hop from webRequest facts.
  *
- * Emitted at `onHeadersReceived` (no terminal yet) and re-emitted refined
+ * Emitted at `onHeadersReceived` (no terminal yet), re-emitted refined
  * at the hop's terminal event with `serverIPAddress`, `_error` and the
- * total `time`. Sizes follow the exporter's unknown conventions
- * (`headersSize`/`bodySize` `-1`, `content.size` `0`); `timings` stays
- * absent — webRequest exposes no connection legs, and inventing them
- * would break the Timing tab's honesty.
+ * total `time`, and re-emitted once more when the page's Resource Timing
+ * legs join. Sizes follow the exporter's unknown conventions
+ * (`headersSize`/`bodySize` `-1`, `content.size` `0`); the `timings`
+ * block carries only host-recorded instants — the webRequest floor or
+ * the page-recorded connection ladder, never an invented leg.
  */
 export function partialHarEntry(
   seed: PartialHarSeed,
   response: PartialHarResponse,
   terminal?: PartialHarTerminal,
+  timing?: PartialHarTiming,
 ): InspectorHarEntry {
   const requestCookies = parseRequestCookieList(seed.requestHeaders);
   const responseCookies = parseResponseCookieList(response.responseHeaders);
@@ -199,9 +223,21 @@ export function partialHarEntry(
       headersSize: -1,
       bodySize: -1,
       _error: terminal?.error ?? null,
+      ...(timing?.responseBodyIncomplete === true ? { _responseBodyIncomplete: true } : {}),
     },
     serverIPAddress: terminal?.ip ?? '',
     startedDateTime: new Date(seed.startedAtMs).toISOString(),
-    ...(terminal !== undefined ? { time: Math.max(0, terminal.completedAtMs - seed.startedAtMs) } : {}),
+    // With a timing block, `time` is the exporter's leg sum (the floor sum
+    // equals the wall span; the page-recorded ladder carries the exporter's
+    // dns overlap); a block-less terminal falls back to the wall span.
+    ...(terminal !== undefined
+      ? {
+          time:
+            timing !== undefined
+              ? exporterTimeSum(timing.timings)
+              : Math.max(0, terminal.completedAtMs - seed.startedAtMs),
+        }
+      : {}),
+    ...(timing !== undefined ? { timings: timing.timings } : {}),
   };
 }

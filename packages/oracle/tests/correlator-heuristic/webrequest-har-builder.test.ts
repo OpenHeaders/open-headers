@@ -5,10 +5,12 @@
  */
 
 import type { RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle';
+import type { ResourceTimingEntry } from '@openheaders/core/resource-timing';
 import { describe, expect, it } from 'vitest';
 
 import type { WebRequestEvent } from '../../src/correlator-heuristic/events';
-import { WebRequestHarBuilder } from '../../src/correlator-heuristic/webrequest-har-builder';
+import type { ResourceTimingSnapshotEvent } from '../../src/correlator-heuristic/resource-timing-events';
+import { RT_RETENTION_MS, WebRequestHarBuilder } from '../../src/correlator-heuristic/webrequest-har-builder';
 
 const TAB = 11;
 const REQUEST_ID = 'wr-1';
@@ -127,7 +129,7 @@ describe('WebRequestHarBuilder — partial at onHeadersReceived', () => {
 });
 
 describe('WebRequestHarBuilder — terminal refinement', () => {
-  it('re-emits refined with ip, error, and total time at onErrorOccurred, then forgets', () => {
+  it('re-emits refined with ip, error, and total time at onErrorOccurred, retained for the RT window', () => {
     const builder = new WebRequestHarBuilder();
     const updates = observeAll(builder, [start(), sendHeaders(), headersReceived(), errorOccurred()]);
     const attached = harAttached(updates);
@@ -137,6 +139,9 @@ describe('WebRequestHarBuilder — terminal refinement', () => {
     expect(refined.har.serverIPAddress).toBe('140.82.121.4');
     expect(refined.har.response?._error).toBe('net::ERR_ABORTED');
     expect(refined.har.time).toBe(2_000);
+    // Retained for a late Resource Timing join; gc ages it out.
+    expect(builder.size()).toBe(1);
+    builder.gc(T0 + 2_000 + RT_RETENTION_MS + 1);
     expect(builder.size()).toBe(0);
   });
 
@@ -154,6 +159,7 @@ describe('WebRequestHarBuilder — terminal refinement', () => {
     const builder = new WebRequestHarBuilder();
     const updates = observeAll(builder, [start(), sendHeaders(), errorOccurred()]);
     expect(harAttached(updates)).toHaveLength(0);
+    builder.gc(T0 + 2_000 + RT_RETENTION_MS + 1);
     expect(builder.size()).toBe(0);
   });
 });
@@ -241,6 +247,208 @@ describe('WebRequestHarBuilder — redirect hops', () => {
       expect(attached[0].har.startedDateTime).toBe(new Date(T0 + 500).toISOString());
       expect(attached[0].har.request?.headers).toEqual([{ name: 'Accept', value: '*/*' }]);
     }
+  });
+});
+
+describe('WebRequestHarBuilder — floor timings', () => {
+  it('the headers-received partial carries the open floor block; the terminal closes it', () => {
+    const builder = new WebRequestHarBuilder();
+    const updates = observeAll(builder, [start(), sendHeaders(), headersReceived(), errorOccurred()]);
+    const attached = harAttached(updates);
+    const partial = attached[0];
+    const refined = attached[1];
+    if (partial?.kind !== 'har-attached' || refined?.kind !== 'har-attached') throw new Error('expected har-attached');
+    expect(partial.har.timings).toEqual({
+      blocked: 400,
+      dns: -1,
+      connect: -1,
+      ssl: -1,
+      send: -1,
+      wait: -1,
+      receive: -1,
+    });
+    expect(refined.har.timings).toEqual({
+      blocked: 400,
+      dns: -1,
+      connect: -1,
+      ssl: -1,
+      send: -1,
+      wait: -1,
+      receive: 1_600,
+    });
+  });
+
+  it('each redirect hop gets its own floor block from its own instants', () => {
+    const builder = new WebRequestHarBuilder();
+    observeAll(builder, [start(), sendHeaders(), headersReceived({ statusCode: 302 })]);
+    const redirect: WebRequestEvent = {
+      method_kind: 'onBeforeRedirect',
+      tabId: TAB,
+      requestId: REQUEST_ID,
+      url: URL_A,
+      method: 'GET',
+      type: 'main_frame',
+      timeStamp: T0 + 500,
+      statusCode: 302,
+      redirectUrl: URL_B,
+    };
+    const hop0 = harAttached(builder.observe(redirect))[0];
+    if (hop0?.kind !== 'har-attached') throw new Error('expected har-attached');
+    expect(hop0.har.timings).toMatchObject({ blocked: 400, receive: 100 });
+    const hop1 = harAttached(
+      observeAll(builder, [
+        sendHeaders({ url: URL_B, timeStamp: T0 + 510 }),
+        headersReceived({ url: URL_B, timeStamp: T0 + 900 }),
+      ]),
+    )[0];
+    if (hop1?.kind !== 'har-attached') throw new Error('expected har-attached');
+    expect(hop1.har.timings).toMatchObject({ blocked: 400, receive: -1 });
+  });
+});
+
+const RT_ORIGIN = T0 - 100;
+
+function rtEntry(overrides: Partial<ResourceTimingEntry> = {}): ResourceTimingEntry {
+  return {
+    name: URL_A,
+    initiatorType: 'navigation',
+    nextHopProtocol: 'h2',
+    startTime: 95,
+    duration: 900,
+    transferSize: 300,
+    encodedBodySize: 0,
+    decodedBodySize: 0,
+    deliveryType: '',
+    responseStatus: 200,
+    workerStart: 0,
+    redirectStart: 0,
+    redirectEnd: 0,
+    fetchStart: 100,
+    domainLookupStart: 105,
+    domainLookupEnd: 125,
+    connectStart: 125,
+    connectEnd: 185,
+    secureConnectionStart: 145,
+    requestStart: 190,
+    responseStart: 495,
+    firstInterimResponseStart: 0,
+    finalResponseHeadersStart: 0,
+    responseEnd: 995,
+    ...overrides,
+  };
+}
+
+function snapshot(
+  entries: readonly ResourceTimingEntry[],
+  navigation?: ResourceTimingEntry,
+): ResourceTimingSnapshotEvent {
+  return {
+    kind: 'rt-snapshot',
+    tabId: TAB,
+    timeOriginMs: RT_ORIGIN,
+    entries,
+    ...(navigation !== undefined ? { navigation } : {}),
+  };
+}
+
+describe('WebRequestHarBuilder — Resource Timing join', () => {
+  it('the navigation entry upgrades the main_frame hop to the full ladder', () => {
+    const builder = new WebRequestHarBuilder();
+    observeAll(builder, [start(), sendHeaders(), headersReceived(), errorOccurred()]);
+    const updates = harAttached(builder.observeResourceTiming(snapshot([], rtEntry())));
+    expect(updates).toHaveLength(1);
+    const refined = updates[0];
+    if (refined?.kind !== 'har-attached') throw new Error('expected har-attached');
+    expect(refined.har.timings).toMatchObject({ dns: 20, connect: 80, ssl: 40, send: 0, wait: 305 });
+    expect(refined.har.timings?._blocked_queueing).toBe(5);
+    // The terminal facts survive the re-emit.
+    expect(refined.har.serverIPAddress).toBe('140.82.121.4');
+    expect(refined.har.response?._error).toBe('net::ERR_ABORTED');
+  });
+
+  it('a canceled-mid-stream document closes receive at the terminal and flags the open download', () => {
+    const builder = new WebRequestHarBuilder();
+    observeAll(builder, [start(), sendHeaders(), headersReceived(), errorOccurred()]);
+    const nav = rtEntry({ responseEnd: 0 });
+    const refined = harAttached(builder.observeResourceTiming(snapshot([], nav)))[0];
+    if (refined?.kind !== 'har-attached') throw new Error('expected har-attached');
+    // terminal (T0+2000) − (origin + responseStart 495)
+    expect(refined.har.timings?.receive).toBe(1_605);
+    expect(refined.har.response?._responseBodyIncomplete).toBe(true);
+  });
+
+  it('a navigation entry never joins a non-main_frame hop, and a resource never joins the document', () => {
+    const builder = new WebRequestHarBuilder();
+    observeAll(builder, [
+      start({ type: 'script' }),
+      sendHeaders({ type: 'script' }),
+      headersReceived({ type: 'script' }),
+      completed({ type: 'script' }),
+    ]);
+    expect(builder.observeResourceTiming(snapshot([], rtEntry()))).toHaveLength(0);
+
+    const docBuilder = new WebRequestHarBuilder();
+    observeAll(docBuilder, [start(), sendHeaders(), headersReceived(), completed()]);
+    expect(docBuilder.observeResourceTiming(snapshot([rtEntry({ initiatorType: 'script' })]))).toHaveLength(0);
+  });
+
+  it('a Timing-Allow-Origin-hidden entry leaves the floor standing (no re-emit)', () => {
+    const builder = new WebRequestHarBuilder();
+    observeAll(builder, [start(), sendHeaders(), headersReceived(), completed()]);
+    const hidden = rtEntry({
+      domainLookupStart: 0,
+      domainLookupEnd: 0,
+      connectStart: 0,
+      connectEnd: 0,
+      secureConnectionStart: 0,
+      requestStart: 0,
+      responseStart: 0,
+    });
+    expect(builder.observeResourceTiming(snapshot([], hidden))).toHaveLength(0);
+  });
+
+  it('the pairing is sticky: a later snapshot refreshes the same entry, re-emitting only on change', () => {
+    const builder = new WebRequestHarBuilder();
+    observeAll(builder, [start(), sendHeaders(), headersReceived(), errorOccurred()]);
+    const open = rtEntry({ responseEnd: 0 });
+    expect(harAttached(builder.observeResourceTiming(snapshot([], open)))).toHaveLength(1);
+    // Identical snapshot — nothing changed, nothing re-emitted.
+    expect(builder.observeResourceTiming(snapshot([], open))).toHaveLength(0);
+    // The response end lands (same entry identity) — one refreshed re-emit.
+    const closed = rtEntry({ responseEnd: 1_995 });
+    const refreshed = harAttached(builder.observeResourceTiming(snapshot([], closed)));
+    expect(refreshed).toHaveLength(1);
+    if (refreshed[0]?.kind !== 'har-attached') throw new Error('expected har-attached');
+    expect(refreshed[0].har.timings?.receive).toBe(1_500);
+    expect(refreshed[0].har.response?._responseBodyIncomplete).toBeUndefined();
+  });
+
+  it('a superseded hop joins silently — the devtools HAR stays authoritative', () => {
+    const builder = new WebRequestHarBuilder();
+    observeAll(builder, [start(), sendHeaders(), headersReceived(), completed()]);
+    builder.noteRealHar(TAB, REQUEST_ID, 0);
+    expect(builder.observeResourceTiming(snapshot([], rtEntry()))).toHaveLength(0);
+  });
+
+  it('same-URL entries pair with the closest request start', () => {
+    const builder = new WebRequestHarBuilder();
+    const scriptEvents = (requestId: string, atMs: number): WebRequestEvent[] => [
+      start({ requestId, type: 'script', timeStamp: atMs }),
+      sendHeaders({ requestId, type: 'script', timeStamp: atMs + 10 }),
+      headersReceived({ requestId, type: 'script', timeStamp: atMs + 400 }),
+      completed({ requestId, type: 'script', timeStamp: atMs + 800 }),
+    ];
+    observeAll(builder, [...scriptEvents('wr-early', T0), ...scriptEvents('wr-late', T0 + 5_000)]);
+    const early = rtEntry({ initiatorType: 'script', startTime: 95 });
+    const late = rtEntry({ initiatorType: 'script', startTime: 5_095, responseEnd: 5_995 });
+    const updates = harAttached(builder.observeResourceTiming(snapshot([late, early])));
+    expect(updates.map((u) => u.kind === 'har-attached' && u.requestId).sort()).toEqual(['wr-early', 'wr-late']);
+  });
+
+  it('entries with a mismatched recorded status never pair', () => {
+    const builder = new WebRequestHarBuilder();
+    observeAll(builder, [start(), sendHeaders(), headersReceived({ statusCode: 404 }), completed()]);
+    expect(builder.observeResourceTiming(snapshot([], rtEntry({ responseStatus: 200 })))).toHaveLength(0);
   });
 });
 

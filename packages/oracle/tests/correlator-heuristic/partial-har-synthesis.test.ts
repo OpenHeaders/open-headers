@@ -18,6 +18,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { HeuristicCorrelator } from '../../src/correlator-heuristic/correlator';
 import type { WebRequestEvent, WebRequestEventSource } from '../../src/correlator-heuristic/events';
 import type { HarEvent, HarEventSource } from '../../src/correlator-heuristic/har-events';
+import type {
+  ResourceTimingEvent,
+  ResourceTimingEventSource,
+} from '../../src/correlator-heuristic/resource-timing-events';
 import { RequestLifecycleStore } from '../../src/request-lifecycle-store';
 
 class TestWebRequestSource implements WebRequestEventSource {
@@ -50,6 +54,21 @@ class TestHarSource implements HarEventSource {
   }
 }
 
+class TestResourceTimingSource implements ResourceTimingEventSource {
+  private readonly listeners = new Set<(event: ResourceTimingEvent) => void>();
+
+  subscribe(listener: (event: ResourceTimingEvent) => void): () => void {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  emit(event: ResourceTimingEvent): void {
+    for (const fn of this.listeners) fn(event);
+  }
+}
+
 const TAB = 7;
 const REQUEST_ID = 'wr-doc';
 const DOC_URL = 'https://app.openheaders.io/';
@@ -58,12 +77,13 @@ const T0 = 1_700_000_000_000;
 function harness() {
   const webRequest = new TestWebRequestSource();
   const har = new TestHarSource();
-  const correlator = new HeuristicCorrelator({ webRequest, har });
+  const resourceTiming = new TestResourceTimingSource();
+  const correlator = new HeuristicCorrelator({ webRequest, har, resourceTiming });
   const onReject = vi.fn();
   const store = new RequestLifecycleStore({ onReject });
   correlator.subscribe((u: RequestLifecycleUpdate) => store.apply(u));
   correlator.attachTab(TAB);
-  return { webRequest, har, correlator, store, onReject };
+  return { webRequest, har, resourceTiming, correlator, store, onReject };
 }
 
 /** The canceled-mid-stream document trace (no devtools HAR ever arrives). */
@@ -119,6 +139,83 @@ function canceledDocTrace(): readonly WebRequestEvent[] {
     },
   ];
 }
+
+/** The document's navigation entry after a mid-stream cancel — real
+ *  connection legs, response started, no response end (the open download). */
+function canceledNavEntry() {
+  return {
+    name: DOC_URL,
+    initiatorType: 'navigation',
+    nextHopProtocol: 'h2',
+    startTime: 0,
+    duration: 0,
+    transferSize: 300,
+    encodedBodySize: 0,
+    decodedBodySize: 0,
+    deliveryType: '',
+    responseStatus: 200,
+    workerStart: 0,
+    redirectStart: 0,
+    redirectEnd: 0,
+    fetchStart: 4,
+    domainLookupStart: 8,
+    domainLookupEnd: 28,
+    connectStart: 28,
+    connectEnd: 88,
+    secureConnectionStart: 48,
+    requestStart: 92,
+    responseStart: 488,
+    firstInterimResponseStart: 0,
+    finalResponseHeadersStart: 0,
+    responseEnd: 0,
+  };
+}
+
+describe('partial-HAR synthesis — Resource Timing upgrades the floor block', () => {
+  it('the canceled document row gains the full ladder and the open-download flag', () => {
+    const { webRequest, resourceTiming, correlator, store, onReject } = harness();
+    for (const event of canceledDocTrace()) webRequest.emit(event);
+
+    // Before the snapshot: the floor block from the webRequest instants.
+    const floor = store.get(TAB, REQUEST_ID)?.har[0]?.timings;
+    expect(floor).toMatchObject({ blocked: 490, dns: -1, send: -1, receive: 1_520 });
+
+    resourceTiming.emit({
+      kind: 'rt-snapshot',
+      tabId: TAB,
+      timeOriginMs: T0,
+      entries: [],
+      navigation: canceledNavEntry(),
+    });
+
+    const lc = store.get(TAB, REQUEST_ID);
+    expect(onReject).not.toHaveBeenCalled();
+    const timings = lc?.har[0]?.timings;
+    expect(timings).toMatchObject({ dns: 20, connect: 80, ssl: 40, send: 0, wait: 396 });
+    expect(timings?._blocked_queueing).toBe(4);
+    // receive closes at the webRequest terminal: (T0+2010) − (T0+488).
+    expect(timings?.receive).toBe(1_522);
+    expect(lc?.har[0]?.response?._responseBodyIncomplete).toBe(true);
+    // The wire facts survive the timing re-emit.
+    expect(lc?.har[0]?.serverIPAddress).toBe('140.82.121.4');
+    expect(lc?.har[0]?.response?._error).toBe('net::ERR_ABORTED');
+    correlator.dispose();
+  });
+
+  it('snapshots for unattached tabs are ignored', () => {
+    const { webRequest, resourceTiming, correlator, store } = harness();
+    for (const event of canceledDocTrace()) webRequest.emit(event);
+    resourceTiming.emit({
+      kind: 'rt-snapshot',
+      tabId: TAB + 1,
+      timeOriginMs: T0,
+      entries: [],
+      navigation: canceledNavEntry(),
+    });
+    expect(store.get(TAB, REQUEST_ID)?.har[0]?.timings?.dns).toBe(-1);
+    correlator.dispose();
+  });
+});
 
 describe('partial-HAR synthesis — canceled-mid-stream document (never-joined)', () => {
   it('the row carries a partial HAR with wire headers, ip, error, and time', () => {

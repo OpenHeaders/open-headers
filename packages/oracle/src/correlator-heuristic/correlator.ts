@@ -40,6 +40,9 @@
  *     a row whose devtools HAR never arrives — canceled mid-stream, no
  *     terminal `onRequestFinished` — still populates the detail tabs;
  *     a joined devtools HAR supersedes the partial per hop            ✓
+ *   - Resource Timing join (optional third source): the page-recorded
+ *     connection legs upgrade a partial entry's floor `timings` block
+ *     to the full ladder, the doc row via the navigation entry        ✓
  *
  * Deliberately deferred (own future sessions):
  *   - H4 per-URL FIFO matching refinements on top of the current FIFO
@@ -75,17 +78,22 @@ import type { FifoEvictionLogger, InFlightMatch } from './in-flight-fifo';
 import { InFlightFifo } from './in-flight-fifo';
 import { HAR_FAILURE_HOLD_MS, HAR_FORWARD_HOLD_MS } from './late-arrival-constants';
 import { RecentLifecyclesMirror } from './recent-lifecycles-mirror';
+import type { ResourceTimingEvent, ResourceTimingEventSource } from './resource-timing-events';
 import { WebRequestHarBuilder } from './webrequest-har-builder';
 import { webRequestEventToUpdates } from './webrequest-to-update';
 
 /**
- * Required injections for the heuristic correlator. Both seams are
- * mandatory; hosts without a real HAR pipeline pass a noop
- * `HarEventSource` (`{ subscribe: () => () => {} }`).
+ * Required injections for the heuristic correlator. The webRequest and
+ * HAR seams are mandatory; hosts without a real HAR pipeline pass a noop
+ * `HarEventSource` (`{ subscribe: () => () => {} }`). The Resource
+ * Timing seam is optional — it exists only while a DevTools session
+ * samples the inspected page; without it every partial HAR keeps its
+ * webRequest-floor timing block.
  */
 export interface HeuristicCorrelatorSources {
   readonly webRequest: WebRequestEventSource;
   readonly har: HarEventSource;
+  readonly resourceTiming?: ResourceTimingEventSource;
 }
 
 /**
@@ -139,6 +147,7 @@ export class HeuristicCorrelator implements RequestCorrelator {
   private readonly diagnostics: CorrelatorDiagnostics | undefined;
   private readonly webRequestUnsubscribe: () => void;
   private readonly harUnsubscribe: () => void;
+  private readonly resourceTimingUnsubscribe: () => void;
   /** Monotonic suffix for `oh-har:` synthesized request ids. */
   private harOnlySequence = 0;
 
@@ -148,6 +157,8 @@ export class HeuristicCorrelator implements RequestCorrelator {
     this.harWaiting = new HarWaitingBuffer({ onDrop: diagnostics?.onHarWaitingDrop });
     this.webRequestUnsubscribe = sources.webRequest.subscribe((event) => this.onWebRequestEvent(event));
     this.harUnsubscribe = sources.har.subscribe((event) => this.onHarEvent(event));
+    this.resourceTimingUnsubscribe =
+      sources.resourceTiming?.subscribe((event) => this.onResourceTimingEvent(event)) ?? (() => {});
   }
 
   attachTab(tabId: number): void {
@@ -173,10 +184,11 @@ export class HeuristicCorrelator implements RequestCorrelator {
     };
   }
 
-  /** Stop processing events from both sources. Tests use this to tear down. */
+  /** Stop processing events from all sources. Tests use this to tear down. */
   dispose(): void {
     this.webRequestUnsubscribe();
     this.harUnsubscribe();
+    this.resourceTimingUnsubscribe();
     this.listeners.clear();
     this.attached.clear();
     this.recentLifecycles.clear();
@@ -292,6 +304,19 @@ export class HeuristicCorrelator implements RequestCorrelator {
       default:
         return undefined;
     }
+  }
+
+  /**
+   * Join one Resource Timing snapshot against the partial-HAR builder's
+   * tracked requests — the page-recorded connection legs upgrade the
+   * floor timing block of every matching hop slot (Slice J). Joined
+   * devtools HARs stay authoritative (the builder's supersession holds);
+   * the panel's memory-cache reconciliation is untouched — it counts the
+   * same entries against the same real lifecycles either way.
+   */
+  private onResourceTimingEvent(event: ResourceTimingEvent): void {
+    if (!this.attached.has(event.tabId)) return;
+    for (const update of this.partialHar.observeResourceTiming(event)) this.emit(update);
   }
 
   private onHarEvent(event: HarEvent): void {
@@ -410,6 +435,7 @@ export class HeuristicCorrelator implements RequestCorrelator {
     for (const { tabId, requestId } of expired) {
       this.recentLifecycles.forget(tabId, requestId);
     }
+    this.partialHar.gc(nowMs);
   }
 
   /**

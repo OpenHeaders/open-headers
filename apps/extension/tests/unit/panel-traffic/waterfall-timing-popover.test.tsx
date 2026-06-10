@@ -45,7 +45,7 @@ function header(c: HTMLElement): string {
   return c.querySelector('.dt-waterfall-pop-start')?.textContent ?? '';
 }
 
-const NORMAL: Timings = { blocked: 15, _blocked_queueing: 10, dns: 20, connect: 45, ssl: 30, send: 5, wait: 100, receive: 40 };
+const NORMAL: Timings = { blocked: 15, _blocked_queueing: 10, dns: 20, connect: 65, ssl: 30, send: 5, wait: 100, receive: 40 };
 const REUSED: Timings = { blocked: 0.3, _blocked_queueing: 0, dns: -1, connect: -1, ssl: -1, send: 0.3, wait: 45, receive: 12 };
 const BLOCKED: Timings = { blocked: 1.98, _blocked_queueing: 0, dns: -1, connect: -1, ssl: -1, send: 0, wait: 0, receive: 0 };
 

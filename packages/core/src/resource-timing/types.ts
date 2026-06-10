@@ -20,9 +20,16 @@
  *
  * Model:
  *   - A `ResourceTimingEntry` is a faithful, JSON-safe projection of
- *     one `PerformanceResourceTiming`. `startTime` / `duration` stay
- *     relative to the document's time origin — the snapshot carries
- *     `timeOriginMs` so a consumer can lift them to wall-clock.
+ *     one `PerformanceResourceTiming`. `startTime` / `duration` and the
+ *     connection legs stay relative to the document's time origin — the
+ *     snapshot carries `timeOriginMs` so a consumer can lift them to
+ *     wall-clock.
+ *   - The connection legs (`fetchStart` … `responseEnd`) feed a second
+ *     consumer: the heuristic correlator joins them onto real lifecycles
+ *     so a row whose devtools HAR never arrives still gets its Timing
+ *     ladder. Legs gated by `Timing-Allow-Origin` read `0` when the
+ *     check fails — a consumer must treat `0` as "hidden", never as an
+ *     instant step.
  *   - The buffer is cumulative and reset on navigation, so each
  *     observation is a full SNAPSHOT that supersedes the prior one
  *     (no incremental diff). `snapshot` therefore replaces, never
@@ -40,6 +47,35 @@ export interface ResourceTimingEntry {
   readonly startTime: number;
   /** Wall duration in ms. */
   readonly duration: number;
+  /**
+   * Connection legs, ms since the document time origin. All of these
+   * except `fetchStart` are gated by the Timing-Allow-Origin check and
+   * read `0` for a cross-origin resource that does not pass it. On a
+   * reused connection the dns/connect legs collapse onto `fetchStart`
+   * (zero-width at the same instant). `responseEnd` is `0` while (or if)
+   * the body never finished downloading.
+   */
+  readonly workerStart: number;
+  readonly redirectStart: number;
+  readonly redirectEnd: number;
+  readonly fetchStart: number;
+  readonly domainLookupStart: number;
+  readonly domainLookupEnd: number;
+  readonly connectStart: number;
+  readonly connectEnd: number;
+  readonly secureConnectionStart: number;
+  readonly requestStart: number;
+  /**
+   * First byte of the FIRST response — when the server sent a 103 interim
+   * response, this is the interim's first byte, far ahead of the real
+   * headers. `finalResponseHeadersStart` is the final-response instant the
+   * wait leg must end at; `0` where the engine doesn't expose it (then
+   * `responseStart` is the final response).
+   */
+  readonly responseStart: number;
+  readonly firstInterimResponseStart: number;
+  readonly finalResponseHeadersStart: number;
+  readonly responseEnd: number;
   /** Bytes over the wire — `0` for a cache hit. */
   readonly transferSize: number;
   /** Encoded (compressed) body size in bytes. */

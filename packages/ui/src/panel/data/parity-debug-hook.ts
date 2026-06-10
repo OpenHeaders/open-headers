@@ -11,6 +11,7 @@
  */
 
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
+import type { InspectorHarEntry } from '@openheaders/core/types';
 import { useEffect, useRef } from 'react';
 import { currentHarEntry, isPendingLifecycle } from './inspector-row-projection';
 import { classifyRequestState, type RequestState } from './request-state';
@@ -87,6 +88,11 @@ interface ParityRowDebug extends ParityRow {
    *  the bug this probe confirms. */
   _completedAtMs?: number | null;
   _lifecycleDurationMs?: number;
+  /** The current hop's timing block — exactly what the Timing tab's ladder
+   *  derives from (Slice J probe), plus the open-download flag that drives
+   *  the not-finished caution. */
+  _timings?: InspectorHarEntry['timings'] | null;
+  _responseBodyIncomplete?: boolean;
 }
 
 /** Top-level navigation document — the rows the footer leg keys off. */
@@ -134,6 +140,8 @@ function toParityRow(lc: RequestLifecycle, arrivalIndex: number): ParityRow {
   row._startedAtMs = lc.startedAtMs;
   row._completedAtMs = lc.completedAtMs ?? null;
   row._lifecycleDurationMs = lc.completedAtMs == null ? 0 : Math.max(0, lc.completedAtMs - lc.startedAtMs);
+  row._timings = har?.timings ?? null;
+  if (har?.response?._responseBodyIncomplete === true) row._responseBodyIncomplete = true;
   if (isDocumentLike(lc.resourceType)) {
     row._redirectHopCount = lc.redirectHopCount;
     row._startedAtMs = lc.startedAtMs;

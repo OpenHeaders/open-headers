@@ -101,8 +101,10 @@ export default function TimingView({ row, connectionReuse, repeatStats, baseline
   // One model across the popover + this tab: the ladder when a HAR has landed,
   // else the lifecycle-derived in-flight partial (the host's growing Timing).
   const ladder = rowTimingLadder(row);
-  const unfinished = lc.completedAtMs == null;
   const har = currentHarEntry(lc);
+  // Not finished: still in flight, or the body download never completed (a
+  // document canceled mid-stream) — the host keeps the caution up for both.
+  const unfinished = lc.completedAtMs == null || har?.response?._responseBodyIncomplete === true;
   const context = computeTimingContext(lc, connectionReuse, baselineMs);
 
   // No ladder and finished — genuinely nothing to time (rare; a finished row

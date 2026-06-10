@@ -289,6 +289,60 @@ describe('isRequestFailed — failure independent of status code', () => {
   });
 });
 
+describe('document teardown failure — bare ERR_FAILED after the response began', () => {
+  // The stop()/navigation teardown of a streaming document reports the
+  // generic net::ERR_FAILED on webRequest, but a frame navigation is never
+  // CORS/ORB-rejected — and the browser's own panel (which never sees a
+  // terminal for this shape) keeps showing the response status.
+  const teardown = () =>
+    makeLifecycle({
+      phase: 'failed',
+      resourceType: 'main_frame',
+      error: { code: 'net::ERR_FAILED', reason: 'net::ERR_FAILED' },
+    });
+
+  it('classifies by the wire status, not as a renderer rejection', () => {
+    const s = classifyRequestState(teardown());
+    expect(s.kind).toBe('success');
+    if (s.kind === 'success') expect(s.status).toBe(200);
+  });
+
+  it('the Status cell shows the code, never (blocked:other)', () => {
+    expect(statusCellText(teardown())).toBe('200');
+  });
+
+  it('a sub_frame teardown reads the same', () => {
+    const lc = makeLifecycle({
+      phase: 'failed',
+      resourceType: 'sub_frame',
+      error: { code: 'net::ERR_FAILED', reason: 'net::ERR_FAILED' },
+    });
+    expect(statusCellText(lc)).toBe('200');
+  });
+
+  it('a subresource ERR_FAILED with a wire status stays a renderer rejection (ORB shape)', () => {
+    const lc = makeLifecycle({
+      phase: 'failed',
+      resourceType: 'script',
+      error: { code: 'net::ERR_FAILED', reason: 'net::ERR_FAILED' },
+    });
+    expect(classifyRequestState(lc).kind).toBe('failed');
+    expect(statusCellText(lc)).toBe('(blocked:other)');
+  });
+
+  it('a document ERR_FAILED with no wire status is not a teardown', () => {
+    const lc = makeLifecycle({
+      phase: 'failed',
+      resourceType: 'main_frame',
+      statusCode: undefined,
+      statusText: undefined,
+      har: { response: undefined },
+      error: { code: 'net::ERR_FAILED', reason: 'net::ERR_FAILED' },
+    });
+    expect(statusCellText(lc)).not.toBe('200');
+  });
+});
+
 describe('statusCellText with a correlator-supplied block reason (CDP)', () => {
   it('prefers error.blockedReason over the net-stack-code vocabulary', () => {
     // The net-stack code collapses CORP to the generic `other`; the CDP

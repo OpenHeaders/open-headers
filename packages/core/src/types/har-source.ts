@@ -81,6 +81,12 @@ export interface InspectorHarEntry {
      *  `fetch` handler. Chrome's exporter emits this in the response section
      *  on every entry (`false` when not SW-served). */
     _fetchedViaServiceWorker?: boolean;
+    /** Synthesized entries only: the body download never completed — the
+     *  document's own timing recorded no response end while the request hit
+     *  a terminal error (canceled mid-stream). Drives the not-finished
+     *  caution the host shows for a request its protocol plane never
+     *  finishes. */
+    _responseBodyIncomplete?: boolean;
   };
   cache?: unknown;
   timings?: {
@@ -220,7 +226,18 @@ export type HarSourceMessage =
     }
   | { type: 'nav'; url: string }
   | { type: 'nav-timing'; timing: InspectorNavTiming }
-  | { type: 'resource-timing'; timeOriginMs: number; entries: ResourceTimingEntry[] }
+  | {
+      type: 'resource-timing';
+      timeOriginMs: number;
+      entries: ResourceTimingEntry[];
+      /**
+       * The document's own `PerformanceNavigationTiming`, projected to the
+       * same shape — the only timing source for the document row. Carried
+       * apart from `entries` (which hold `resource` entries only) so the
+       * panel's memory-cache reconciliation never counts it as a resource.
+       */
+      navigation?: ResourceTimingEntry;
+    }
   | { type: 'session'; token: string; openedAtWallMs: number };
 
 /** Channel-name prefix for the devtools_page HAR source port. */

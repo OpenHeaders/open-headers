@@ -20,6 +20,24 @@ import { usePanelData } from '@openheaders/ui/panel/data/use-panel-data';
 import { renderHook } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
+/** Connection legs of a Resource Timing entry that exposes none. */
+const ZERO_RT_LEGS = {
+  workerStart: 0,
+  redirectStart: 0,
+  redirectEnd: 0,
+  fetchStart: 0,
+  domainLookupStart: 0,
+  domainLookupEnd: 0,
+  connectStart: 0,
+  connectEnd: 0,
+  secureConnectionStart: 0,
+  requestStart: 0,
+  responseStart: 0,
+  firstInterimResponseStart: 0,
+  finalResponseHeadersStart: 0,
+  responseEnd: 0,
+};
+
 function har(
   url: string,
   overrides: { initiatorUrl?: string; bodySize?: number; contentSize?: number; status?: number } = {},
@@ -789,6 +807,7 @@ describe('usePanelData', () => {
                   encodedBodySize: 4000,
                   decodedBodySize: 8000,
                   deliveryType: '',
+                  ...ZERO_RT_LEGS,
                 },
                 // logo.svg has no real row → served from memory cache.
                 {
@@ -801,6 +820,7 @@ describe('usePanelData', () => {
                   encodedBodySize: 0,
                   decodedBodySize: 3000,
                   deliveryType: 'cache',
+                  ...ZERO_RT_LEGS,
                 },
               ],
             },
@@ -834,6 +854,7 @@ describe('usePanelData', () => {
               encodedBodySize: 0,
               decodedBodySize: 4000,
               deliveryType: 'cache',
+              ...ZERO_RT_LEGS,
             },
           ],
         },
@@ -877,6 +898,7 @@ describe('usePanelData', () => {
               encodedBodySize: 0,
               decodedBodySize: 2000,
               deliveryType: 'cache',
+              ...ZERO_RT_LEGS,
             },
           ],
         },
@@ -909,6 +931,7 @@ describe('usePanelData', () => {
               encodedBodySize: 0,
               decodedBodySize: 100,
               deliveryType: 'cache',
+              ...ZERO_RT_LEGS,
             },
             // wall-clock 6000 — after the Clear → kept.
             {
@@ -921,6 +944,7 @@ describe('usePanelData', () => {
               encodedBodySize: 0,
               decodedBodySize: 200,
               deliveryType: 'cache',
+              ...ZERO_RT_LEGS,
             },
           ],
         },

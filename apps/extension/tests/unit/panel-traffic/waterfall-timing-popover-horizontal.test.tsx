@@ -67,7 +67,7 @@ const NORMAL: Timings = {
   blocked: 15,
   _blocked_queueing: 10,
   dns: 20,
-  connect: 45,
+  connect: 65,
   ssl: 30,
   send: 5,
   wait: 100,

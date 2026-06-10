@@ -58,7 +58,19 @@ export { HopCursor } from './hop-cursor';
 export type { FifoEvictionLogger, InFlightMatch } from './in-flight-fifo';
 export { IN_FLIGHT_MAX_AGE_MS, InFlightFifo } from './in-flight-fifo';
 export { FINALIZED_RETENTION_MS, HAR_FAILURE_HOLD_MS, HAR_FORWARD_HOLD_MS } from './late-arrival-constants';
-export { MAX_PARTIAL_HAR_REQUESTS_PER_TAB, WebRequestHarBuilder } from './webrequest-har-builder';
-export type { PartialHarResponse, PartialHarSeed, PartialHarTerminal } from './webrequest-har-synth';
+export type {
+  ResourceTimingEvent,
+  ResourceTimingEventSource,
+  ResourceTimingSnapshotEvent,
+} from './resource-timing-events';
+export {
+  MAX_PARTIAL_HAR_REQUESTS_PER_TAB,
+  RT_JOIN_WINDOW_MS,
+  RT_RETENTION_MS,
+  WebRequestHarBuilder,
+} from './webrequest-har-builder';
+export type { PartialHarResponse, PartialHarSeed, PartialHarTerminal, PartialHarTiming } from './webrequest-har-synth';
 export { partialHarEntry } from './webrequest-har-synth';
+export type { FloorTimingFacts, InspectorHarTimings, ResourceTimingLegContext } from './webrequest-har-timings';
+export { floorHarTimings, isResponseBodyIncomplete, resourceTimingHarTimings } from './webrequest-har-timings';
 export { webRequestEventToUpdates } from './webrequest-to-update';

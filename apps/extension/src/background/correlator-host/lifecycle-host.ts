@@ -5,8 +5,9 @@
  * Two correlators feed one store; a {@link TabSourceRouter} guarantees a
  * tab is `attachTab`'d to exactly one of them (no double-feed):
  *
- *   `ChromeWebRequestEventSource` + `ChromeHarEventSource` (chrome adapters)
- *        ↓ WebRequestEventSource / HarEventSource seams
+ *   `ChromeWebRequestEventSource` + `ChromeHarEventSource`
+ *   + `ChromeResourceTimingEventSource` (chrome adapters)
+ *        ↓ WebRequestEventSource / HarEventSource / ResourceTimingEventSource seams
  *   `HeuristicCorrelator`        (oracle — chrome-free) ─┐
  *                                                        ├─→ `RequestLifecycleStore`
  *   `ChromeDebuggerEventSource`  (chrome adapter)        │      (pure reducer + LRU)
@@ -34,6 +35,7 @@ import { logger } from '@utils/logger';
 
 import { ChromeDebuggerEventSource } from './chrome-debugger-source';
 import { ChromeHarEventSource } from './chrome-har-source';
+import { ChromeResourceTimingEventSource } from './chrome-resource-timing-source';
 import { ChromeWebRequestEventSource } from './chrome-webrequest-source';
 import { LifecycleDiagnostics } from './lifecycle-diagnostics';
 import { installTabLifecycleBridge } from './tab-lifecycle-bridge';
@@ -46,6 +48,7 @@ export interface LifecycleHostOptions {
 export interface LifecycleHost {
   readonly webRequestSource: ChromeWebRequestEventSource;
   readonly harSource: ChromeHarEventSource;
+  readonly resourceTimingSource: ChromeResourceTimingEventSource;
   readonly correlator: HeuristicCorrelator;
   readonly debuggerSource: ChromeDebuggerEventSource;
   readonly cdpCorrelator: CdpCorrelator;
@@ -66,6 +69,7 @@ export interface LifecycleHost {
 export function startLifecycleHost(options: LifecycleHostOptions): LifecycleHost {
   const webRequestSource = new ChromeWebRequestEventSource();
   const harSource = new ChromeHarEventSource();
+  const resourceTimingSource = new ChromeResourceTimingEventSource();
   const debuggerSource = new ChromeDebuggerEventSource();
   // Lifecycle-pipeline telemetry (lifecycle audit §1.7) — wired only at
   // debug log level so prod runs the plain correlator path with zero
@@ -78,6 +82,7 @@ export function startLifecycleHost(options: LifecycleHostOptions): LifecycleHost
     {
       webRequest: webRequestSource,
       har: harSource,
+      resourceTiming: resourceTimingSource,
     },
     diagnostics,
   );
@@ -143,6 +148,7 @@ export function startLifecycleHost(options: LifecycleHostOptions): LifecycleHost
   return {
     webRequestSource,
     harSource,
+    resourceTimingSource,
     correlator,
     debuggerSource,
     cdpCorrelator,
@@ -157,6 +163,7 @@ export function startLifecycleHost(options: LifecycleHostOptions): LifecycleHost
       cdpCorrelator.dispose();
       webRequestSource.dispose();
       harSource.dispose();
+      resourceTimingSource.dispose();
       debuggerSource.dispose();
     },
   };

@@ -29,6 +29,9 @@ export interface ResourceTimingSnapshot {
   readonly timeOriginMs: number;
   /** Resource Timing entries, relative to `timeOriginMs`. */
   readonly entries: readonly ResourceTimingEntry[];
+  /** The document's own navigation entry, same projection — the doc row's
+   *  only timing source. Kept apart from `entries` (resources only). */
+  readonly navigation?: ResourceTimingEntry;
 }
 
 /**
@@ -39,23 +42,37 @@ export interface ResourceTimingSnapshot {
 export const RESOURCE_TIMING_EXPR = `(() => {
   try {
     const origin = performance.timeOrigin || (Date.now() - performance.now());
-    const list = performance.getEntriesByType('resource');
-    const entries = [];
-    for (const e of list) {
-      entries.push({
-        name: e.name,
-        initiatorType: e.initiatorType || '',
-        nextHopProtocol: e.nextHopProtocol || '',
-        startTime: e.startTime || 0,
-        duration: e.duration || 0,
-        transferSize: e.transferSize || 0,
-        encodedBodySize: e.encodedBodySize || 0,
-        decodedBodySize: e.decodedBodySize || 0,
-        deliveryType: e.deliveryType || '',
-        responseStatus: typeof e.responseStatus === 'number' ? e.responseStatus : 0,
-      });
-    }
-    return { timeOriginMs: origin, entries };
+    const pick = (e) => ({
+      name: e.name,
+      initiatorType: e.initiatorType || '',
+      nextHopProtocol: e.nextHopProtocol || '',
+      startTime: e.startTime || 0,
+      duration: e.duration || 0,
+      transferSize: e.transferSize || 0,
+      encodedBodySize: e.encodedBodySize || 0,
+      decodedBodySize: e.decodedBodySize || 0,
+      deliveryType: e.deliveryType || '',
+      responseStatus: typeof e.responseStatus === 'number' ? e.responseStatus : 0,
+      workerStart: e.workerStart || 0,
+      redirectStart: e.redirectStart || 0,
+      redirectEnd: e.redirectEnd || 0,
+      fetchStart: e.fetchStart || 0,
+      domainLookupStart: e.domainLookupStart || 0,
+      domainLookupEnd: e.domainLookupEnd || 0,
+      connectStart: e.connectStart || 0,
+      connectEnd: e.connectEnd || 0,
+      secureConnectionStart: e.secureConnectionStart || 0,
+      requestStart: e.requestStart || 0,
+      responseStart: e.responseStart || 0,
+      firstInterimResponseStart: e.firstInterimResponseStart || 0,
+      finalResponseHeadersStart: e.finalResponseHeadersStart || 0,
+      responseEnd: e.responseEnd || 0,
+    });
+    const entries = performance.getEntriesByType('resource').map(pick);
+    const nav = performance.getEntriesByType('navigation')[0];
+    const out = { timeOriginMs: origin, entries };
+    if (nav) out.navigation = pick(nav);
+    return out;
   } catch (e) {
     return { timeOriginMs: 0, entries: [] };
   }
@@ -63,15 +80,27 @@ export const RESOURCE_TIMING_EXPR = `(() => {
 
 /**
  * Drop entries whose wall-clock start (`timeOriginMs + startTime`)
- * predates `openedAtWallMs`. Returns the same snapshot reference when
- * nothing is filtered, so an unchanged buffer stays identity-stable.
+ * predates `openedAtWallMs` — including the navigation entry (its
+ * `startTime` is `0`, so it survives only when the navigation itself
+ * happened after DevTools opened, matching the doc row's own session
+ * scope). Returns the same snapshot reference when nothing is filtered,
+ * so an unchanged buffer stays identity-stable.
  */
 export function filterEntriesSinceOpen(
   snapshot: ResourceTimingSnapshot,
   openedAtWallMs: number,
 ): ResourceTimingSnapshot {
   const entries = snapshot.entries.filter((e) => snapshot.timeOriginMs + e.startTime >= openedAtWallMs);
-  return entries.length === snapshot.entries.length ? snapshot : { timeOriginMs: snapshot.timeOriginMs, entries };
+  const navigation =
+    snapshot.navigation !== undefined && snapshot.timeOriginMs + snapshot.navigation.startTime >= openedAtWallMs
+      ? snapshot.navigation
+      : undefined;
+  if (entries.length === snapshot.entries.length && navigation === snapshot.navigation) return snapshot;
+  return {
+    timeOriginMs: snapshot.timeOriginMs,
+    entries,
+    ...(navigation !== undefined ? { navigation } : {}),
+  };
 }
 
 /** Eval one expression in the inspected window. Mirrors chrome's seam. */
@@ -101,17 +130,25 @@ export function createResourceTimingSampler(deps: ResourceTimingSamplerDeps): Re
   const { evalInPage, forward, openedAtWallMs } = deps;
   let timer: ReturnType<typeof setTimeout> | null = null;
   let elapsedMs = 0;
-  // Last forwarded (floored) entry count — a cheap "nothing new" gate that
-  // avoids waking the background for an identical snapshot. `-1` forces the
-  // next sample to forward.
-  let lastCount = -1;
+  // Fingerprint of the last forwarded (floored) snapshot — a cheap
+  // "nothing new" gate that avoids waking the background for an identical
+  // snapshot. Tracks the entry count plus the navigation entry's evolving
+  // legs (first byte / last byte land after the entry first appears), so
+  // a doc-only change still forwards. `null` forces the next sample out.
+  let lastFingerprint: string | null = null;
+
+  const fingerprint = (snapshot: ResourceTimingSnapshot): string => {
+    const nav = snapshot.navigation;
+    return `${snapshot.entries.length}|${nav ? `${nav.responseStart}:${nav.responseEnd}` : '-'}`;
+  };
 
   const sample = (): void => {
     evalInPage(RESOURCE_TIMING_EXPR, (result, err) => {
       if (err || !result) return;
       const floored = filterEntriesSinceOpen(result, openedAtWallMs);
-      if (floored.entries.length === lastCount) return;
-      lastCount = floored.entries.length;
+      const next = fingerprint(floored);
+      if (next === lastFingerprint) return;
+      lastFingerprint = next;
       forward(floored);
     });
   };
@@ -124,7 +161,7 @@ export function createResourceTimingSampler(deps: ResourceTimingSamplerDeps): Re
   const restart = (): void => {
     stop();
     elapsedMs = 0;
-    lastCount = -1;
+    lastFingerprint = null;
     // Self-scheduling so the next eval only fires after the previous one
     // resolves — never stacking round-trips at the inspected window. Unlike
     // nav timing there is no single "done" event (lazy resources keep

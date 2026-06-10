@@ -50,6 +50,22 @@ function isBlockedStatus(text: string): boolean {
   return t.includes('blocked') || t.includes('net::err_blocked');
 }
 
+/**
+ * A document request torn down after its response began: bare
+ * `net::ERR_FAILED` on a frame hop that already carries a wire status. A
+ * frame navigation is never CORS/ORB-rejected (frame-level policy blocks
+ * report their own codes), so the generic failure here is the stop() /
+ * navigation teardown — which the browser's own panel never sees (no
+ * terminal lands on its plane) and keeps showing the response status.
+ * Treated as a cancellation, never as a renderer rejection or a block.
+ */
+function isDocumentTeardownFailure(lifecycle: RequestLifecycle): boolean {
+  if (lifecycle.error?.code !== 'net::ERR_FAILED') return false;
+  const type = lifecycle.resourceType;
+  if (type !== 'main_frame' && type !== 'sub_frame' && type !== 'document') return false;
+  return typeof lifecycle.statusCode === 'number' && lifecycle.statusCode > 0;
+}
+
 function isFailureStatus(text: string): boolean {
   if (!text) return false;
   const t = text.toLowerCase();
@@ -105,8 +121,10 @@ export function classifyRequestState(lifecycle: RequestLifecycle): RequestState 
   // code is a net-stack failure that the HAR shell must never mask).
   const rawStatus = lifecycle.statusCode;
 
-  // 1. Renderer-rejected errors win even when a wire status arrived.
-  if (lifecycle.error && isRendererRejectCode(lifecycle.error.code)) {
+  // 1. Renderer-rejected errors win even when a wire status arrived — except
+  //    the document-teardown shape, where the same bare code is a cancel and
+  //    the browser keeps showing the response status.
+  if (lifecycle.error && isRendererRejectCode(lifecycle.error.code) && !isDocumentTeardownFailure(lifecycle)) {
     const probe = lifecycle.error.reason || statusText;
     if (isBlockedStatus(probe)) {
       return { kind: 'blocked', reason: lifecycle.error.reason || statusText || 'blocked' };
@@ -406,16 +424,17 @@ export function isRequestFailed(lifecycle: RequestLifecycle): boolean {
 
 function readStatusSignals(lifecycle: RequestLifecycle): StatusSignals {
   const err = lifecycle.error;
+  const teardown = isDocumentTeardownFailure(lifecycle);
   return {
     code: effectiveStatusCode(lifecycle),
     failed: isRequestFailed(lifecycle),
-    canceled: err != null && CANCELED_CODES.has(err.code),
+    canceled: err != null && (CANCELED_CODES.has(err.code) || teardown),
     cors: err?.code.startsWith('oh:cors') ?? false,
     // A correlator-supplied block reason (the CDP path names CORP/COEP/CSP/…
     // precisely) wins over the net-stack-code vocabulary, which collapses
     // those to `other`. Absent on the heuristic path, so its label is
-    // unchanged.
-    blockedWord: err?.blockedReason ?? (err != null ? (BLOCKED_REASON_WORD[err.code] ?? null) : null),
+    // unchanged. A document teardown is a cancel, never a block.
+    blockedWord: err?.blockedReason ?? (err != null && !teardown ? (BLOCKED_REASON_WORD[err.code] ?? null) : null),
     isDataUrl: lifecycle.url.startsWith('data:'),
     finished: lifecycle.phase === 'completed',
     statusText: (lifecycle.statusText ?? currentHarEntry(lifecycle)?.response?.statusText ?? '').trim(),

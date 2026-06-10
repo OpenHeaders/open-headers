@@ -57,6 +57,8 @@ export function absentText(state: Exclude<RungState, { kind: 'elapsed' }>): stri
       return 'not reached';
     case 'na':
       return 'n/a';
+    case 'unknown':
+      return 'no data';
   }
 }
 

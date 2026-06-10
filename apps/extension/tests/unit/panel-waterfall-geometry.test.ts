@@ -23,10 +23,12 @@ function timingOf(row: InspectorRowWithFires) {
   return rowTimingLadder(row);
 }
 
-// The github.com main-document load captured for the parity pass — `connect`
-// spans `ssl` (HAR 1.2) but NOT `dns`, so the honest active time is HAR `time`
-// minus queueing (no dns double-count). Real numbers keep the geometry honest
-// against what the browser actually exports.
+// The github.com main-document load captured for the parity pass — the
+// exporter's `connect` leg spans `ssl` (HAR 1.2) AND `dns` (it is anchored at
+// the dns start when a lookup ran), so the exported `time` (a plain leg sum)
+// counts the dns leg twice. The honest active time — the browser's own Time
+// column — is HAR `time` minus queueing minus dns. Real numbers keep the
+// geometry honest against what the browser actually exports.
 const GH_TIMINGS = {
   blocked: 4.367,
   dns: 26.386,
@@ -40,16 +42,18 @@ const GH_TIMINGS = {
 const GH_TIME = 819.215;
 
 // Derived, once, the way the columns + geometry should: duration is HAR `time`
-// stripped of queueing (the post-queue `endTime − startTime`, every leg counted
-// once); latency is duration minus content download.
+// stripped of queueing and the double-counted dns (the post-queue
+// `endTime − startTime`, every leg counted once); latency is duration minus
+// content download. The wall span (issue → terminal) is `time − dns`.
 const QUEUEING = 3.343;
-const DURATION = GH_TIME - QUEUEING; // 815.872
-const LATENCY = DURATION - GH_TIMINGS.receive; // 437.99
+const WALL_SPAN = GH_TIME - GH_TIMINGS.dns; // 792.829
+const DURATION = WALL_SPAN - QUEUEING; // 789.486
+const LATENCY = DURATION - GH_TIMINGS.receive; // 411.604
 
 function ghRow(startedAtMs: number) {
   return makeRow({
     startedAtMs,
-    completedAtMs: startedAtMs + GH_TIME,
+    completedAtMs: startedAtMs + WALL_SPAN,
     statusCode: 200,
     resourceType: 'document',
     harOverrides: { time: GH_TIME, timings: { ...GH_TIMINGS } },
@@ -76,7 +80,7 @@ describe('waterfall sort keys', () => {
   });
 
   it('uses the terminal wall time for end time', () => {
-    expect(waterfallSortValue(row, 'endTime')).toBe(1000 + GH_TIME);
+    expect(waterfallSortValue(row, 'endTime')).toBe(1000 + WALL_SPAN);
   });
 
   it('reports -1 for a still-pending response/latency', () => {
@@ -320,7 +324,7 @@ describe('pageMarkers', () => {
 
 describe('formatBarMs', () => {
   it('rounds to whole milliseconds below a second', () => {
-    expect(formatBarMs(LATENCY)).toBe('438 ms');
+    expect(formatBarMs(LATENCY)).toBe('412 ms');
     expect(formatBarMs(0.4)).toBe('0 ms');
   });
 

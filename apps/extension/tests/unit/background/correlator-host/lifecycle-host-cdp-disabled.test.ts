@@ -27,6 +27,14 @@ function latestListener<T>(addListener: unknown): T {
   return last?.[0] as T;
 }
 
+/** Every listener registered on a `vi.fn()` addListener mock — chrome
+ *  dispatches all of them, and several port adapters cohabit on
+ *  `runtime.onConnect`. */
+function allListeners<T>(addListener: unknown): T[] {
+  const fn = addListener as ReturnType<typeof vi.fn>;
+  return fn.mock.calls.map((call) => call[0] as T);
+}
+
 function onBeforeRequestDetails(): chrome.webRequest.OnBeforeRequestDetails {
   return {
     tabId: TAB,
@@ -93,21 +101,27 @@ describe('startLifecycleHost — trailing HAR gc tick', () => {
 
       // Connect a devtools HAR port and deliver a failure-shaped entry
       // (the canceled-while-renderer-queued shape) with no webRequest
-      // counterpart.
-      const onConnect = latestListener<(port: chrome.runtime.Port) => void>(chromeMock.runtime.onConnect.addListener);
-      let onPortMessage: ((msg: unknown) => void) | undefined;
-      onConnect({
+      // counterpart. Chrome dispatches every onConnect listener (the HAR
+      // and Resource Timing adapters cohabit on this port name) — drive
+      // them all, then fan each message to every onMessage listener.
+      const onConnects = allListeners<(port: chrome.runtime.Port) => void>(chromeMock.runtime.onConnect.addListener);
+      const onPortMessages: Array<(msg: unknown) => void> = [];
+      const port = {
         name: `devtools-har-source:${TAB}`,
         onMessage: {
           addListener: (fn: (msg: unknown) => void) => {
-            onPortMessage = fn;
+            onPortMessages.push(fn);
           },
         },
         onDisconnect: { addListener: vi.fn() },
         postMessage: vi.fn(),
-      } as unknown as chrome.runtime.Port);
-      expect(onPortMessage).toBeDefined();
-      onPortMessage?.({
+      } as unknown as chrome.runtime.Port;
+      for (const onConnect of onConnects) onConnect(port);
+      expect(onPortMessages.length).toBeGreaterThan(0);
+      const onPortMessage = (msg: unknown) => {
+        for (const fn of onPortMessages) fn(msg);
+      };
+      onPortMessage({
         type: 'har',
         entry: {
           startedDateTime: new Date(t0).toISOString(),

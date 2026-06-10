@@ -187,15 +187,20 @@ function networkStartMs(lc: RequestLifecycle): number {
 /**
  * Active duration shown in the Time column — the browser's
  * `endTime - startTime`, where `startTime` is the post-queue network start.
- * HAR `time` is the full queued→ended span (`blocked + dns + connect + send +
- * wait + receive`, with `connect` the TCP+TLS leg that does NOT span `dns`), so
- * the active duration is simply HAR `time` minus queueing. (Kept arithmetic-only
- * — no phase allocation — since this runs in the sort path.)
+ * HAR `time` is the exporter's leg sum (`blocked + dns + connect + send +
+ * wait + receive`) — and the exporter's `connect` leg spans from the DNS
+ * START when a lookup ran, so the sum counts the DNS leg twice. The
+ * browser's own column is therefore `time − queueing − dns`; mirroring
+ * that exactly keeps the two columns equal on every dns-bearing row.
+ * (Kept arithmetic-only — no phase allocation — since this runs in the
+ * sort path.)
  */
 export function durationMs(lc: RequestLifecycle): number {
   const har = currentHarEntry(lc);
   if (har && typeof har.time === 'number' && har.time > 0) {
-    return Math.max(har.time - queueingMs(lc), 0);
+    const dns = har.timings?.dns;
+    const dnsMs = typeof dns === 'number' && dns > 0 ? dns : 0;
+    return Math.max(har.time - queueingMs(lc) - dnsMs, 0);
   }
   // A completed request sorts by its real duration, including 0 (instant
   // / cache); only a still-pending request is unknown (sorts last via -1).
@@ -301,13 +306,16 @@ function latencyMs(lc: RequestLifecycle): number {
  * latency source while the download (`receive`) leg is still unknown. Sums the
  * stable legs and strips queueing — the same post-queue adjustment
  * {@link durationMs} applies — so at completion it equals the finished
- * `duration − receive`. `-1` until the response (and its legs) lands.
+ * `duration − receive`. The dns leg is NOT added: the exporter's `connect` is
+ * dns-anchored when a lookup ran (blocked ends at the dns start, connect
+ * begins there), so the legs are contiguous without it. `-1` until the
+ * response (and its legs) lands.
  */
 function firstByteLatencyMs(lc: RequestLifecycle): number {
   const t = currentHarEntry(lc)?.timings;
   if (!t) return -1;
   const leg = (x: number | undefined): number => (typeof x === 'number' && x > 0 ? x : 0);
-  const nonReceive = leg(t.blocked) + leg(t.dns) + leg(t.connect) + leg(t.send) + leg(t.wait);
+  const nonReceive = leg(t.blocked) + leg(t.connect) + leg(t.send) + leg(t.wait);
   if (nonReceive <= 0) return -1;
   return Math.max(nonReceive - queueingMs(lc), 0);
 }

@@ -25,12 +25,13 @@ function states(l: ReturnType<typeof ladder>): Record<string, string | number> {
   return out;
 }
 
-/** Example A from the explainer: clean, every phase real. */
+/** Example A from the explainer: clean, every phase real (export dialect —
+ *  `connect` is dns-anchored: DNS 20 + TCP 15 + TLS 30). */
 const NORMAL: Timings = {
   blocked: 15, // queueing 10 + stalled 5
   _blocked_queueing: 10,
   dns: 20,
-  connect: 45, // TCP 15 + TLS 30
+  connect: 65, // dns 20 + TCP 15 + TLS 30
   ssl: 30,
   send: 5,
   wait: 100,
@@ -49,7 +50,7 @@ describe('computeTimingLadder — always eight rungs, in order', () => {
       queueing: 10,
       stalled: 5,
       dns: 20,
-      connect: 15, // 45 − 30, NOT 45
+      connect: 15, // 65 − ssl 30 − dns 20: the TCP-only handshake
       ssl: 30,
       send: 5,
       wait: 100,
@@ -101,14 +102,33 @@ describe('computeTimingLadder — the all-TLS connection (the woff2 case)', () =
   });
 });
 
-describe('computeTimingLadder — the connect − ssl bug fix', () => {
-  it('does not subtract DNS out of the connection (TCP = connect − ssl only)', () => {
-    // crypto.com doc: connect 144.34, ssl 95.587, dns 48.532.
-    // Correct TCP = 144.34 − 95.587 = 48.753 (the old code gave ~0.22).
+describe('computeTimingLadder — the dns-anchored exported connect leg', () => {
+  it('peels both dns and ssl out of the connection (TCP = connect − ssl − dns)', () => {
+    // crypto.com doc: connect 144.34, ssl 95.587, dns 48.532. The exported
+    // connect is anchored at the DNS start, so the TCP-only handshake is
+    // 144.34 − 95.587 − 48.532 = 0.221 — a preconnected socket whose TLS
+    // ran on this request's clock (the warm-socket case), live-verified
+    // against the host's own Timing tab (its connection span = our
+    // TCP + TLS exactly).
     const l = ladder({
       blocked: 1,
       _blocked_queueing: 1,
       dns: 48.532,
+      connect: 144.34,
+      ssl: 95.587,
+      send: 0.139,
+      wait: 113,
+      receive: 1,
+    });
+    const tcp = l.rungs.find((r) => r.key === 'connect')?.state;
+    expect(tcp).toEqual({ kind: 'elapsed', ms: expect.closeTo(0.221, 3) });
+  });
+
+  it('a no-DNS entry keeps TCP = connect − ssl (nothing to peel)', () => {
+    const l = ladder({
+      blocked: 1,
+      _blocked_queueing: 1,
+      dns: -1,
       connect: 144.34,
       ssl: 95.587,
       send: 0.139,
@@ -167,6 +187,45 @@ describe('computeTimingLadder — blocked / no response', () => {
   });
 });
 
+describe('computeTimingLadder — the floor block (no send leg recorded)', () => {
+  /** A webRequest-floor block: only blocked + receive measured. */
+  const FLOOR: Timings = { blocked: 400, dns: -1, connect: -1, ssl: -1, send: -1, wait: -1, receive: 1_600 };
+
+  it('reads the unmeasured rungs as unknown, never reused and never 0', () => {
+    const l = ladder(FLOOR);
+    expect(states(l)).toEqual({
+      queueing: 'unknown',
+      stalled: 400, // the whole pre-response span — no queueing split exists
+      dns: 'unknown',
+      connect: 'unknown',
+      ssl: 'unknown',
+      send: 'unknown',
+      wait: 'unknown',
+      receive: 1_600,
+    });
+    expect(l.durationMs).toBe(2_000);
+    // Response instant = end of the measured pre-response span.
+    expect(l.responseMs).toBe(400);
+    expect(l.endedMs).toBe(2_000);
+  });
+
+  it('keeps TLS n/a on a plaintext floor block', () => {
+    const har = makeHar('http://openheaders.io/', { timings: FLOOR });
+    const l = computeTimingLadder(har, { reachedResponse: true, isHttps: false });
+    expect(l?.rungs.find((r) => r.key === 'ssl')?.state).toEqual({ kind: 'na' });
+  });
+
+  it('an open floor download (in flight) reads receive as unknown', () => {
+    const l = ladder({ ...FLOOR, receive: -1 });
+    expect(l.rungs.find((r) => r.key === 'receive')?.state).toEqual({ kind: 'unknown' });
+  });
+
+  it('a full block with -1 setup legs still reads reused (send leg present)', () => {
+    const l = ladder({ blocked: 15, _blocked_queueing: 10, dns: -1, connect: -1, ssl: -1, send: 5, wait: 100, receive: 40 });
+    expect(states(l)).toMatchObject({ dns: 'reused', connect: 'reused', ssl: 'reused', queueing: 10 });
+  });
+});
+
 describe('computeTimingLadder — special cases', () => {
   it('marks TLS n/a on a plaintext http:// request', () => {
     const har = makeHar('http://openheaders.io/', {
@@ -175,8 +234,8 @@ describe('computeTimingLadder — special cases', () => {
     const l = computeTimingLadder(har, { reachedResponse: true, isHttps: false });
     if (l == null) throw new Error('expected ladder');
     expect(l.rungs.find((r) => r.key === 'ssl')?.state).toEqual({ kind: 'na' });
-    // connect with no TLS to subtract → the full connection is TCP.
-    expect(l.rungs.find((r) => r.key === 'connect')?.state).toEqual({ kind: 'elapsed', ms: 20 });
+    // connect with no TLS to subtract → dns peeled out, the rest is TCP.
+    expect(l.rungs.find((r) => r.key === 'connect')?.state).toEqual({ kind: 'elapsed', ms: 10 });
   });
 
   it('uses the live Content Download override while streaming', () => {

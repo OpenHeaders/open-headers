@@ -127,7 +127,12 @@ try {
 const resourceTimingSampler = createResourceTimingSampler({
   evalInPage: (expr, cb) => chrome.devtools.inspectedWindow.eval(expr, cb),
   forward: (snapshot) =>
-    postToBackground({ type: 'resource-timing', timeOriginMs: snapshot.timeOriginMs, entries: snapshot.entries }),
+    postToBackground({
+      type: 'resource-timing',
+      timeOriginMs: snapshot.timeOriginMs,
+      entries: snapshot.entries,
+      ...(snapshot.navigation !== undefined ? { navigation: snapshot.navigation } : {}),
+    }),
   openedAtWallMs,
 });
 

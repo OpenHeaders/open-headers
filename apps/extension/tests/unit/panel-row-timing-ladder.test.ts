@@ -4,9 +4,10 @@ import type { TimingLadder, TimingRungKey } from '@openheaders/ui/panel/data/tim
 import { describe, expect, it } from 'vitest';
 import { makeRow } from '../__factories__/lifecycle';
 
-// The github.com main-document load — `connect` spans `ssl` (HAR 1.2). The
-// honest ladder splits TCP = connect − ssl and does NOT peel dns back out (the
-// legacy `−dns` bug), so the rungs sum to HAR `time` with no double-count.
+// The github.com main-document load — the exporter's `connect` spans `ssl`
+// (HAR 1.2) AND `dns` (it is anchored at the dns start when a lookup ran), so
+// the honest ladder splits TCP = connect − ssl − dns; the rungs then sum to
+// the real wall span (`time` − dns, the exported leg sum double-counts dns).
 const GH_TIMINGS = {
   blocked: 4.367,
   dns: 26.386,
@@ -25,23 +26,23 @@ function rungMs(ladder: TimingLadder, key: TimingRungKey): number | null {
 }
 
 describe('rowTimingLadder', () => {
-  it('builds the honest ladder from a finished HAR (TCP = connect − ssl, no −dns)', () => {
+  it('builds the honest ladder from a finished HAR (TCP = connect − ssl − dns)', () => {
     const row = makeRow({
       startedAtMs: 1000,
-      completedAtMs: 1000 + GH_TIME,
+      completedAtMs: 1000 + GH_TIME - GH_TIMINGS.dns,
       statusCode: 200,
       harOverrides: { time: GH_TIME, timings: { ...GH_TIMINGS } },
     });
     const ladder = rowTimingLadder(row);
     expect(ladder).not.toBeNull();
     if (!ladder) return;
-    // TCP = connect − ssl = 152.804 (the honest split), NOT the legacy
-    // connect − ssl − dns = 126.418.
-    expect(rungMs(ladder, 'connect')).toBeCloseTo(GH_TIMINGS.connect - GH_TIMINGS.ssl, 3);
+    // TCP = connect − ssl − dns = 126.418 — the dns-anchored exported connect
+    // peeled down to the TCP-only handshake.
+    expect(rungMs(ladder, 'connect')).toBeCloseTo(GH_TIMINGS.connect - GH_TIMINGS.ssl - GH_TIMINGS.dns, 3);
     expect(rungMs(ladder, 'ssl')).toBeCloseTo(GH_TIMINGS.ssl, 3);
     expect(rungMs(ladder, 'dns')).toBeCloseTo(GH_TIMINGS.dns, 3);
-    // Honest total = HAR `time` (every leg counted once).
-    expect(ladder.durationMs).toBeCloseTo(GH_TIME, 3);
+    // Honest total = the real wall span (every leg counted once).
+    expect(ladder.durationMs).toBeCloseTo(GH_TIME - GH_TIMINGS.dns, 3);
     expect(ladder.responseMs).not.toBeNull();
   });
 
