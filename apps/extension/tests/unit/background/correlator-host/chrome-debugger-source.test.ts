@@ -23,6 +23,7 @@ import { RequestLifecycleStore } from '@openheaders/oracle/request-lifecycle-sto
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ChromeDebuggerEventSource } from '@/background/correlator-host/chrome-debugger-source';
+import { clearMainFrameId, isMainFrame } from '@/background/correlator-host/main-frame-registry';
 import { chrome as chromeMock } from '../../../__mocks__/chrome';
 
 const TAB = 5;
@@ -407,6 +408,56 @@ describe('ChromeDebuggerEventSource — Page-domain events (page timings)', () =
       { method: 'Page.domContentEventFired', tabId: TAB, sessionId: 'page', timestamp: 101.5 },
       { method: 'Page.loadEventFired', tabId: TAB, sessionId: 'page', timestamp: 102.5 },
     ]);
+  });
+
+  it('normalizes frameId on requestWillBeSent, omitting it when absent', async () => {
+    source = new ChromeDebuggerEventSource();
+    const out: CdpNetworkEvent[] = [];
+    source.subscribe((e) => out.push(e));
+    await source.attach(TAB);
+
+    emitRoot(
+      'Network.requestWillBeSent',
+      rawRequestWillBeSent('r-1', 'https://api.openheaders.io/a', { frameId: 'F1' }),
+    );
+    emitRoot('Network.requestWillBeSent', rawRequestWillBeSent('r-2', 'https://api.openheaders.io/b'));
+
+    expect(out[0]).toMatchObject({ method: 'Network.requestWillBeSent', frameId: 'F1' });
+    expect(out[1]?.method).toBe('Network.requestWillBeSent');
+    expect(out[1] && 'frameId' in out[1] && out[1].frameId !== undefined).toBe(false);
+  });
+
+  it('seeds the main-frame registry from Page.getFrameTree at attach', async () => {
+    clearMainFrameId(TAB);
+    chromeMock.debugger.sendCommand.mockImplementation((_t, method: string) =>
+      Promise.resolve<object | undefined>(
+        method === 'Page.getFrameTree' ? { frameTree: { frame: { id: 'F-main' } } } : undefined,
+      ),
+    );
+    source = new ChromeDebuggerEventSource();
+    await source.attach(TAB);
+    expect(isMainFrame(TAB, 'F-main')).toBe(true);
+    expect(isMainFrame(TAB, 'F-iframe')).toBe(false);
+    chromeMock.debugger.sendCommand.mockImplementation(() => Promise.resolve<object | undefined>(undefined));
+    await source.detach(TAB);
+    expect(isMainFrame(TAB, 'F-main')).toBe(false);
+  });
+
+  it('refreshes the registry on a parentless frameNavigated and ignores sub-frame navs', async () => {
+    clearMainFrameId(TAB);
+    source = new ChromeDebuggerEventSource();
+    await source.attach(TAB);
+
+    emitRoot('Page.frameNavigated', {
+      frame: { id: 'F-sub', loaderId: 'L2', url: 'https://x.openheaders.io/', parentId: 'F-main' },
+    });
+    expect(isMainFrame(TAB, 'F-sub')).toBe(false);
+
+    emitRoot('Page.frameNavigated', { frame: { id: 'F-main', loaderId: 'L3', url: 'https://app.openheaders.io/' } });
+    expect(isMainFrame(TAB, 'F-main')).toBe(true);
+
+    chromeMock.debugger.emitDetach({ tabId: TAB }, 'target_closed');
+    expect(isMainFrame(TAB, 'F-main')).toBe(false);
   });
 
   it('preserves a sub-frame parentId on frameNavigated', async () => {

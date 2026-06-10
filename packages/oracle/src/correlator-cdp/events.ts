@@ -181,6 +181,8 @@ export interface CdpRequestWillBeSent {
    */
   readonly redirectResponse?: CdpResponseParams;
   readonly type?: string;
+  /** Frame the request is issued for — absent for worker requests. */
+  readonly frameId?: string;
 }
 
 /** `Network.responseReceived` — headers-received + initial status. */

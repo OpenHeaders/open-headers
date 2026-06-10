@@ -102,6 +102,18 @@ describe('cdpEventToUpdates — canonical redirect + completion trace', () => {
     expect(u.lifecycle.resourceType).toBe('xhr');
   });
 
+  it('carries the issuing frameId onto the started lifecycle, omitting it when absent', () => {
+    const withFrame = cdpEventToUpdates({ ...initialRequest, frameId: 'F1' }, toWallMs)[0];
+    expect(withFrame?.kind).toBe('started');
+    if (withFrame?.kind !== 'started') return;
+    expect(withFrame.lifecycle.frameId).toBe('F1');
+
+    // Worker requests carry no frame — the field stays unset, never ''.
+    const withoutFrame = cdpEventToUpdates(initialRequest, toWallMs)[0];
+    if (withoutFrame?.kind !== 'started') return;
+    expect('frameId' in withoutFrame.lifecycle).toBe(false);
+  });
+
   it('lowercases the CDP resource type so the main document reads as `document`', () => {
     // CDP reports `'Document'`; the footer's `isMainDocument` matches lowercase
     // `'document'`. Without normalization a top-level CDP nav is never the main

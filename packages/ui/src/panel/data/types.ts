@@ -33,6 +33,10 @@ export interface InspectorFire {
   requestId?: string;
   shadowedBy?: RequestRecord['shadowedBy'];
   evidence: RequestRecord['evidence'];
+  /** The observed request's resource type in the driver's webRequest
+   *  vocabulary (`TrackedResourceType`) — independent of the row's
+   *  lifecycle `resourceType`, which keeps per-correlator vocab. */
+  resourceType?: RequestRecord['resourceType'];
   /** Frozen rule snapshot captured at fire-emit time in the background.
    *  Authoritative source for what the row should display — prevents
    *  later edits to the live rule from rewriting historical attribution.

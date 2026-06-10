@@ -20,7 +20,7 @@
 import { type RuleFireWireMessage, ruleFirePortName } from '@openheaders/core/rule-fire-stream';
 import { useRef, useSyncExternalStore } from 'react';
 
-import { FireClientStore, type FireClientSnapshot } from './fire-client-store';
+import { type FireClientSnapshot, FireClientStore } from './fire-client-store';
 import type { InspectorFire } from './types';
 import { useLifelineClient } from './use-lifeline-client';
 
@@ -52,6 +52,7 @@ export function useFireClient(): UseFireClientResult {
         requestId: update.record.requestId,
         shadowedBy: update.record.shadowedBy,
         evidence: update.record.evidence,
+        resourceType: update.record.resourceType,
         ...(update.record.ruleSnapshot ? { ruleSnapshot: update.record.ruleSnapshot } : {}),
       };
       store.upsert(fire);

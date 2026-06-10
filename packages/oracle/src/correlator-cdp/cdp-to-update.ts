@@ -93,6 +93,9 @@ function startedUpdate(
     // request carries an empty loader id at the wire; leave the field unset
     // there so identity binding never mis-attributes a worker row to a page.
     ...(event.loaderId ? { loaderId: event.loaderId } : {}),
+    // The issuing frame — lets webRequest-vocabulary consumers split a CDP
+    // `Document` into main_frame vs sub_frame. Absent for worker requests.
+    ...(event.frameId ? { frameId: event.frameId } : {}),
     phase: 'pending',
     redirectHopCount: 0,
     redirectHops: [],

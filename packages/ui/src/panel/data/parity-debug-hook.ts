@@ -92,6 +92,9 @@ interface ParityFire {
   authoritative: boolean;
   evidence: InspectorFire['evidence'];
   requestId?: string;
+  /** Driver-vocabulary (`TrackedResourceType`) type of the observed
+   *  request — the probe's regression cell for the CDP vocab seam. */
+  resourceType?: InspectorFire['resourceType'];
   tier: FireDotTier;
   verdict: ModEvidenceVerdict;
 }
@@ -158,6 +161,7 @@ export function parityFireFields(lifecycle: RequestLifecycle, fires: readonly In
       authoritative: fire.authoritative,
       evidence: fire.evidence,
       ...(fire.requestId !== undefined ? { requestId: fire.requestId } : {}),
+      ...(fire.resourceType !== undefined ? { resourceType: fire.resourceType } : {}),
       tier: fireTier(lifecycle, fire),
       verdict: evidence.verdict,
     });

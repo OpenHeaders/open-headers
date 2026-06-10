@@ -84,6 +84,15 @@ export interface RequestLifecycle {
    * a page.
    */
   readonly loaderId?: string;
+  /**
+   * Frame the request was issued for — CDP `Network.requestWillBeSent.frameId`.
+   * Set once at request start, stable across redirect hops. Lets consumers
+   * that need webRequest-style frame semantics (the rule-engine driver's
+   * `main_frame` vs `sub_frame` split for CDP `document` requests) resolve
+   * the frame against the tab's main-frame id. CDP-only; the heuristic path
+   * already carries frame semantics in `resourceType` and leaves this unset.
+   */
+  readonly frameId?: string;
 
   // Phase machine (invariants 3, 6).
   readonly phase: RequestPhase;

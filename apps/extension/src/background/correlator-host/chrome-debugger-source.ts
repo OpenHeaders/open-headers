@@ -50,6 +50,7 @@ import type {
 } from '@openheaders/oracle/correlator-cdp';
 import { logger } from '@utils/logger';
 import { type BrowserAPI, getBrowserAPI } from '@/types/browser';
+import { clearMainFrameId, setMainFrameId } from './main-frame-registry';
 
 type Listener = (event: CdpNetworkEvent) => void;
 type PageListener = (event: CdpPageEvent) => void;
@@ -223,6 +224,10 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
     // page-level events.
     await this.enablePage({ tabId });
     await this.enableAutoAttach({ tabId });
+    // Seed the main-frame registry before any navigation: the first
+    // navigation's requestWillBeSent precedes its frameNavigated, so
+    // without the seed the main/sub document split misses the first nav.
+    await this.seedMainFrame(tabId);
   }
 
   /**
@@ -235,6 +240,7 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
     if (!api) return;
     this.attachedTabs.delete(tabId);
     this.forgetChildrenOf(tabId);
+    clearMainFrameId(tabId);
     await this.send({ tabId }, 'Network.disable');
     try {
       await api.detach({ tabId });
@@ -339,9 +345,14 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
 
   private handlePageEvent(method: string, tabId: number, params: object): void {
     switch (method) {
-      case 'Page.frameNavigated':
-        this.fanPage(normalizeFrameNavigated(tabId, params as RawFrameNavigated));
+      case 'Page.frameNavigated': {
+        const navigated = params as RawFrameNavigated;
+        // A parentless frame is the tab's main frame — refresh the registry
+        // (covers the rare frame-id swap the getFrameTree seed can't see).
+        if (navigated.frame.parentId === undefined) setMainFrameId(tabId, navigated.frame.id);
+        this.fanPage(normalizeFrameNavigated(tabId, navigated));
         return;
+      }
       case 'Page.domContentEventFired':
         this.fanPage(normalizePageLifecycle('Page.domContentEventFired', tabId, params as RawPageLifecycleTimestamp));
         return;
@@ -376,6 +387,7 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
     if (tabId === undefined) return;
     this.attachedTabs.delete(tabId);
     this.forgetChildrenOf(tabId);
+    clearMainFrameId(tabId);
     for (const listener of this.detachListeners) listener(tabId, reason);
   }
 
@@ -398,6 +410,26 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
       waitForDebuggerOnStart: false,
       flatten: true,
     });
+  }
+
+  /**
+   * Seed the per-tab main-frame id from `Page.getFrameTree`. Frame ids
+   * are stable per frame (including cross-process navigations), so this
+   * one fact plus parentless `Page.frameNavigated` refreshes keeps the
+   * registry correct for the attachment's lifetime.
+   */
+  private async seedMainFrame(tabId: number): Promise<void> {
+    const api = this.api();
+    if (!api) return;
+    try {
+      const result = (await api.sendCommand({ tabId }, 'Page.getFrameTree')) as RawGetFrameTree | undefined;
+      const mainFrameId = result?.frameTree?.frame?.id;
+      if (typeof mainFrameId === 'string' && mainFrameId.length > 0) setMainFrameId(tabId, mainFrameId);
+    } catch (err) {
+      // Tolerated: the registry self-heals on the next parentless
+      // frameNavigated; until then documents read as sub-frame.
+      logger.debug('CdpSource', 'Page.getFrameTree failed', { tabId, error: errorMessage(err) });
+    }
   }
 
   private async send(
@@ -519,6 +551,7 @@ interface RawRequestWillBeSent {
   readonly initiator?: RawInitiator;
   readonly redirectResponse?: RawResponse;
   readonly type?: string;
+  readonly frameId?: string;
 }
 
 interface RawResponseReceived {
@@ -569,6 +602,13 @@ interface RawGetResponseBody {
 /** `Network.streamResourceContent` result — bytes received so far, base64. */
 interface RawStreamResourceContent {
   readonly bufferedData: string;
+}
+
+/** `Page.getFrameTree` result — only the root frame's id is consumed. */
+interface RawGetFrameTree {
+  readonly frameTree?: {
+    readonly frame?: { readonly id?: string };
+  };
 }
 
 interface RawTargetInfo {
@@ -625,6 +665,7 @@ function normalizeRequestWillBeSent(tabId: number, sessionId: string, p: RawRequ
     ...(p.initiator !== undefined ? { initiator: normalizeInitiator(p.initiator) } : {}),
     ...(p.redirectResponse !== undefined ? { redirectResponse: normalizeResponse(p.redirectResponse) } : {}),
     ...(p.type !== undefined ? { type: p.type } : {}),
+    ...(p.frameId !== undefined ? { frameId: p.frameId } : {}),
   };
 }
 
