@@ -16,6 +16,7 @@ import type { TimingLadder } from '../../data/timing-ladder';
 import { explainSpec, type WaterfallTerminal } from '../../data/timing-popover-model';
 import { HorizontalTimingChart } from './HorizontalTimingChart';
 import { TimingLadderLegend } from './TimingLadderLegend';
+import { TimingKeyMomentsInfo } from './TimingRungInfo';
 
 export function WaterfallTimingPopoverHorizontal({
   ladder,
@@ -52,6 +53,7 @@ export function WaterfallTimingPopoverHorizontal({
       <div className="dt-waterfall-pop-head">
         <span>Key moments</span>
         <span className="dt-waterfall-pop-where">(since the first request)</span>
+        <TimingKeyMomentsInfo />
       </div>
 
       <HorizontalTimingChart ladder={ladder} queuedAtMs={queuedAtMs} spec={spec} terminal={terminal} />

@@ -1181,6 +1181,8 @@ body.dt-resizing-col {
   position: relative;
 }
 
+/* Hoverable (the tick label carries a hover-revealed (i) explainer); only the
+ * ▼ marks and the leader lines stay inert. */
 .dt-wf-h-tick {
   position: absolute;
   top: 0;
@@ -1191,7 +1193,6 @@ body.dt-resizing-col {
   text-align: center;
   line-height: 13px;
   white-space: nowrap;
-  pointer-events: none;
 }
 
 .dt-wf-h-tick-mark {
