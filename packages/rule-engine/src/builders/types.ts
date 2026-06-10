@@ -7,8 +7,7 @@
  */
 
 import type { Rule, RuleCondition, RuleType } from '@openheaders/core/types';
-import { validateConditionStructure } from '@openheaders/core/utils';
-import { logger } from '@openheaders/core/utils';
+import { logger, validateConditionStructure } from '@openheaders/core/utils';
 
 // ── DNR rule shape ───────────────────────────────────────────────
 
@@ -327,8 +326,7 @@ export function buildDnrCondition(conditions: RuleCondition[]): {
   }
 
   if (responseHeaderRows.size > 0) base.responseHeaders = [...responseHeaderRows.values()];
-  if (excludedResponseHeaderRows.size > 0)
-    base.excludedResponseHeaders = [...excludedResponseHeaderRows.values()];
+  if (excludedResponseHeaderRows.size > 0) base.excludedResponseHeaders = [...excludedResponseHeaderRows.values()];
 
   // Note: we intentionally do NOT default `resourceTypes` here. The resolver
   // (`resolveResourceTypes`) is the single source of truth for which resource
@@ -450,6 +448,14 @@ export function attachLiveBypassExclusion(
 }
 
 // ── Shared resource type constants ───────────────────────────────
+//
+// The capability sets enumerate every resource type valid in BOTH
+// Chrome's and Firefox's DNR vocabulary — an unknown type rejects the
+// entire updateDynamicRules batch atomically, so Chrome-only members
+// (webtransport, webbundle) stay out until a per-browser capability
+// list is threaded through EngineCompileSettings. A rule without
+// resource-type conditions folds to this full set, so a missing member
+// here silently exempts that traffic class from every rule.
 
 export const ALL_RESOURCE_TYPES: chrome.declarativeNetRequest.ResourceType[] = [
   'main_frame',
@@ -460,17 +466,13 @@ export const ALL_RESOURCE_TYPES: chrome.declarativeNetRequest.ResourceType[] = [
   'font',
   'object',
   'xmlhttprequest',
+  'ping',
+  'csp_report',
+  'media',
   'websocket',
   'other',
 ] as chrome.declarativeNetRequest.ResourceType[];
 
-export const SUB_RESOURCE_TYPES: chrome.declarativeNetRequest.ResourceType[] = [
-  'sub_frame',
-  'stylesheet',
-  'script',
-  'image',
-  'font',
-  'xmlhttprequest',
-  'websocket',
-  'other',
-] as chrome.declarativeNetRequest.ResourceType[];
+export const SUB_RESOURCE_TYPES: chrome.declarativeNetRequest.ResourceType[] = ALL_RESOURCE_TYPES.filter(
+  (t) => t !== 'main_frame',
+);

@@ -18,14 +18,18 @@ vi.mock('@utils/logger', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-import { blockCompiler } from '@openheaders/rule-engine/builders';
-import { delayCompiler } from '@openheaders/rule-engine/builders';
-import { headerCompiler } from '@openheaders/rule-engine/builders';
-import { injectCompiler } from '@openheaders/rule-engine/builders';
-import { queryParamCompiler } from '@openheaders/rule-engine/builders';
-import { redirectCompiler } from '@openheaders/rule-engine/builders';
 import type { CompilerContext, DnrRule } from '@openheaders/rule-engine/builders';
-import { ALL_RESOURCE_TYPES, resolveResourceTypes, SUB_RESOURCE_TYPES } from '@openheaders/rule-engine/builders';
+import {
+  ALL_RESOURCE_TYPES,
+  blockCompiler,
+  delayCompiler,
+  headerCompiler,
+  injectCompiler,
+  queryParamCompiler,
+  redirectCompiler,
+  resolveResourceTypes,
+  SUB_RESOURCE_TYPES,
+} from '@openheaders/rule-engine/builders';
 
 function makeCtx(start = 1, liveRulesMode = true): CompilerContext {
   let id = start;
@@ -101,6 +105,41 @@ describe('resolveResourceTypes', () => {
       undefined,
     );
     expect(result).toEqual(['main_frame', 'sub_frame']);
+  });
+});
+
+// ── Capability-set completeness ──────────────────────────────────
+//
+// Regression for the S42 t-media engine finding: the capability sets
+// omitted media (and ping/csp_report), so a header rule WITHOUT
+// resource-type conditions silently skipped media requests. The sets
+// must enumerate every type valid in both Chrome's and Firefox's DNR
+// vocabulary; Chrome-only members (webtransport, webbundle) stay out
+// until per-browser capability threading exists.
+
+describe('capability-set completeness', () => {
+  it('ALL_RESOURCE_TYPES covers the cross-browser DNR vocabulary', () => {
+    expect([...ALL_RESOURCE_TYPES].sort()).toEqual(
+      [
+        'main_frame',
+        'sub_frame',
+        'stylesheet',
+        'script',
+        'image',
+        'font',
+        'object',
+        'xmlhttprequest',
+        'ping',
+        'csp_report',
+        'media',
+        'websocket',
+        'other',
+      ].sort(),
+    );
+  });
+
+  it('SUB_RESOURCE_TYPES is exactly ALL_RESOURCE_TYPES minus main_frame', () => {
+    expect(SUB_RESOURCE_TYPES).toEqual(ALL_RESOURCE_TYPES.filter((t) => t !== 'main_frame'));
   });
 });
 
@@ -264,6 +303,15 @@ describe('headerCompiler resource-type handling', () => {
     expect(rules).toHaveLength(1);
     expect(rules[0]!.condition.resourceTypes).toEqual(SUB_RESOURCE_TYPES);
     expectNoExcludedResourceTypes(rules);
+  });
+
+  it('covers media on a request rule without resource-type conditions (t-media regression)', () => {
+    const plan = headerCompiler.compile(makeRule(), makeCtx());
+    const rules = plan.dynamicRules ?? [];
+    expect(rules).toHaveLength(1);
+    expect(rules[0]!.condition.resourceTypes).toContain('media');
+    expect(rules[0]!.condition.resourceTypes).toContain('ping');
+    expect(rules[0]!.condition.resourceTypes).toContain('csp_report');
   });
 
   it('emits the request-only variant with the user-filtered resource set', () => {

@@ -83,6 +83,7 @@ export type { MatchPattern, MatchPatternKind } from './rule-matcher';
 export {
   compilePatternToRegexSource,
   compileRuleForInjection,
+  doesHostMatchDomains,
   doesUrlMatchEntry,
   doesUrlMatchRule,
   formatUrlPattern,

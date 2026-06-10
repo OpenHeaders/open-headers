@@ -3,6 +3,7 @@ import type { HeaderRule } from '../../src/types/rule';
 import {
   compilePatternToRegexSource,
   compileRuleForInjection,
+  doesHostMatchDomains,
   doesUrlMatchEntry,
   doesUrlMatchRule,
   formatUrlPattern,
@@ -88,7 +89,10 @@ const baseRule: Omit<HeaderRule, 'conditions'> = {
   name: 'T',
   type: 'header',
   enabled: true,
-  action: { requestHeaders: [{ uid: 'hmd00001', operation: 'override', headerName: 'X', value: 'y' }], responseHeaders: [] },
+  action: {
+    requestHeaders: [{ uid: 'hmd00001', operation: 'override', headerName: 'X', value: 'y' }],
+    responseHeaders: [],
+  },
 };
 
 describe('getRuleMatchPatterns', () => {
@@ -277,5 +281,44 @@ describe('compileRuleForInjection', () => {
     expect(re.test('https://github.com/manifest.json')).toBe(true);
     expect(re.test('https://github.com/')).toBe(true);
     expect(re.test('https://api.github.com/')).toBe(false);
+  });
+});
+
+// ── doesHostMatchDomains ─────────────────────────────────────────
+
+describe('doesHostMatchDomains', () => {
+  it('matches the domain itself', () => {
+    expect(doesHostMatchDomains('openheaders.io', ['openheaders.io'])).toBe(true);
+  });
+
+  it('matches subdomains (DNR initiatorDomains semantics)', () => {
+    expect(doesHostMatchDomains('app.openheaders.io', ['openheaders.io'])).toBe(true);
+    expect(doesHostMatchDomains('deep.app.openheaders.io', ['openheaders.io'])).toBe(true);
+  });
+
+  it('does not match suffix overlaps that are not subdomains', () => {
+    expect(doesHostMatchDomains('evilopenheaders.io', ['openheaders.io'])).toBe(false);
+  });
+
+  it('does not match unrelated hosts', () => {
+    expect(doesHostMatchDomains('api.openheaders.dev', ['openheaders.io'])).toBe(false);
+  });
+
+  it('is case-insensitive on both sides', () => {
+    expect(doesHostMatchDomains('App.OpenHeaders.IO', ['openheaders.io'])).toBe(true);
+    expect(doesHostMatchDomains('app.openheaders.io', ['OpenHeaders.IO'])).toBe(true);
+  });
+
+  it('matches any entry in the list', () => {
+    expect(doesHostMatchDomains('test.openheaders.io', ['openheaders.dev', 'openheaders.io'])).toBe(true);
+  });
+
+  it('ignores empty and whitespace-only entries', () => {
+    expect(doesHostMatchDomains('openheaders.io', ['', '  '])).toBe(false);
+    expect(doesHostMatchDomains('openheaders.io', [' openheaders.io '])).toBe(true);
+  });
+
+  it('returns false for an empty domain list', () => {
+    expect(doesHostMatchDomains('openheaders.io', [])).toBe(false);
   });
 });

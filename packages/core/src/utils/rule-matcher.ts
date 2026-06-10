@@ -217,6 +217,24 @@ export function doesUrlMatchRule(url: string, rule: Rule): boolean {
   return false;
 }
 
+// ── Initiator-domain matching ────────────────────────────────────
+
+/**
+ * Test a hostname against a DNR-style domain list: a domain matches the
+ * host itself and every subdomain (`openheaders.io` matches both
+ * `openheaders.io` and `app.openheaders.io`). Mirrors Chrome's
+ * `initiatorDomains` / `excludedInitiatorDomains` semantics.
+ */
+export function doesHostMatchDomains(host: string, domains: string[]): boolean {
+  const h = host.toLowerCase();
+  for (const d of domains) {
+    const domain = d.trim().toLowerCase();
+    if (!domain) continue;
+    if (h === domain || h.endsWith(`.${domain}`)) return true;
+  }
+  return false;
+}
+
 // ── Injection compilation ────────────────────────────────────────
 
 /**
