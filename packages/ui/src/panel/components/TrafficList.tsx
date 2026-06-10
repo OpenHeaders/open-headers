@@ -19,6 +19,7 @@ import { ALL_COLUMN_KEYS, COLUMN_DEFS, columnTrack, DEFAULT_VISIBLE_COLUMNS } fr
 import { buildConnectionOpenerIndex } from '../data/connection-openers';
 import { extractName } from './traffic/formatters';
 import { NetworkPanelHeader } from './traffic/NetworkPanelHeader';
+import { AnnotationRailHeader, FireRailHeader } from './traffic/RailHeaders';
 import { derivePreflightPairs } from './traffic/preflight-pairs';
 import { type CellContext } from './traffic/render-cell';
 import { RequestContextMenu, type RequestContextMenuState } from './traffic/RequestContextMenu';
@@ -72,6 +73,9 @@ interface TrafficListProps {
   onSaveAllAsHar: (sanitize?: boolean) => void;
   onCopyAllAsHar: (sanitize?: boolean) => void;
   onHide: () => void;
+  /** Open the row's inspector tab at the detail section an annotation
+   *  targets — the OH annotation rail's click-through. */
+  onAnnotationJump: (requestId: string) => void;
 }
 
 export function TrafficList({
@@ -101,6 +105,7 @@ export function TrafficList({
   onSaveAllAsHar,
   onCopyAllAsHar,
   onHide,
+  onAnnotationJump,
 }: TrafficListProps) {
   const {
     compact,
@@ -171,6 +176,9 @@ export function TrafficList({
   const gridTemplate = useMemo(() => {
     const tracks: string[] = [];
     if (showFireDots) tracks.push('14px');
+    // The OH annotation rail — always-on, never part of the togglable
+    // Chrome-parity column registry.
+    tracks.push('14px');
     for (const c of columns) tracks.push(columnTrack(c, columnWidths[c.key], compact));
     return tracks.join(' ');
   }, [columns, columnWidths, compact, showFireDots]);
@@ -368,8 +376,10 @@ export function TrafficList({
       superseded,
       cdpEnhanced,
       connectionOpeners,
+      annotationCtx: { anchor: superseded, source: cdpEnhanced ? 'cdp' : 'heuristic' },
+      onAnnotationJump,
     }),
-    [waterfallScale, preflight, handleJumpTo, superseded, cdpEnhanced, connectionOpeners],
+    [waterfallScale, preflight, handleJumpTo, superseded, cdpEnhanced, connectionOpeners, onAnnotationJump],
   );
 
   const toggleColumn = (key: ColumnKey) => {
@@ -444,7 +454,9 @@ export function TrafficList({
             setColMenu({ x: e.clientX, y: e.clientY });
           }}
         >
-          {showFireDots && <span />}
+          {showFireDots && <FireRailHeader />}
+          {/* The always-on annotation rail's header cell. */}
+          <AnnotationRailHeader />
           {columns.map((col) => (
             <div
               key={col.key}

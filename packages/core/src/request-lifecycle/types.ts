@@ -137,6 +137,19 @@ export interface RequestLifecycle {
    * CDP-only; resets on redirect.
    */
   readonly bytesTransferredSoFar?: number;
+  /**
+   * Wall-clock ms at which the issuing frame stopped loading while this
+   * request was still in flight — the document-teardown fact for a request
+   * that will never receive a terminal event. A document canceled mid-stream
+   * (a stop() during the body download) gets no `loadingFinished` /
+   * `loadingFailed` on the CDP plane, so without this fact it is structurally
+   * indistinguishable from an active download. Set only when the frame-stop
+   * preceded the request's terminal (a clean load finishes the document
+   * first); never set on a finished request. CDP-only; the heuristic path
+   * learns the same teardown from its webRequest error terminal instead.
+   * Resets with the hop on redirect.
+   */
+  readonly loadingStoppedAtMs?: number;
 
   // Resolution — populated as phase advances; monotonic per invariant 5.
   readonly statusCode?: number;
@@ -280,6 +293,9 @@ export interface RequestLifecyclePatch {
   lastActivityAtMs?: number;
   bytesReceivedSoFar?: number;
   bytesTransferredSoFar?: number;
+  /** The frame-stopped-loading instant for a still-in-flight request. See
+   * the `RequestLifecycle` field of the same name. */
+  loadingStoppedAtMs?: number;
   /** The current hop's request headers + their provisional status. Seeded
    * cooked at request-start, superseded by the on-the-wire set (a value
    * refinement). See the `RequestLifecycle` fields of the same names. */

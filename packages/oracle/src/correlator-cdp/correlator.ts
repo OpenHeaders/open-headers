@@ -29,10 +29,12 @@ import type {
 import type { InspectorHarBody } from '@openheaders/core/types';
 
 import { cdpBodyToHarBody, emptyCdpHarBody, streamedCdpBodyToHarBody } from './cdp-body-synth';
+import { CdpFrameLoadTracker } from './cdp-frame-load-tracker';
 import { type CdpBodyFetchContext, CdpHarBuilder } from './cdp-har-builder';
 import { cdpEventToUpdates } from './cdp-to-update';
 import { CdpWallClock } from './cdp-wall-clock';
-import type { CdpEventSource, CdpNetworkEvent } from './events';
+import { type CdpEventSource, type CdpNetworkEvent, cdpStoreRequestId } from './events';
+import type { CdpPageEvent } from './page-events';
 
 /** Placeholder descriptor for a body whose request ref is no longer known. */
 const UNKNOWN_BODY_SOURCE = { method: '', url: '', startedDateTime: '' };
@@ -47,12 +49,15 @@ export class CdpCorrelator implements RequestCorrelator {
   private readonly toWallMs = (tabId: number, sessionId: string, requestId: string, monotonicSec: number): number =>
     this.wallClock.toWallMs(tabId, sessionId, requestId, monotonicSec);
   private readonly harBuilder = new CdpHarBuilder(this.toWallMs);
+  private readonly frameLoadTracker = new CdpFrameLoadTracker();
   private readonly source: CdpEventSource;
   private readonly sourceUnsubscribe: () => void;
+  private readonly pageUnsubscribe: () => void;
 
   constructor(source: CdpEventSource) {
     this.source = source;
     this.sourceUnsubscribe = source.subscribe((event) => this.onEvent(event));
+    this.pageUnsubscribe = source.subscribePage((event) => this.onPageEvent(event));
   }
 
   attachTab(tabId: number): void {
@@ -63,6 +68,7 @@ export class CdpCorrelator implements RequestCorrelator {
     this.attached.delete(tabId);
     this.harBuilder.forgetTab(tabId);
     this.wallClock.forgetTab(tabId);
+    this.frameLoadTracker.forgetTab(tabId);
   }
 
   subscribe(listener: RequestLifecycleListener): Unsubscribe {
@@ -118,10 +124,12 @@ export class CdpCorrelator implements RequestCorrelator {
   /** Stop processing events from the source. Tests use this to tear down. */
   dispose(): void {
     this.sourceUnsubscribe();
+    this.pageUnsubscribe();
     this.listeners.clear();
     this.attached.clear();
     this.harBuilder.clear();
     this.wallClock.clear();
+    this.frameLoadTracker.clear();
   }
 
   private onEvent(event: CdpNetworkEvent): void {
@@ -130,11 +138,32 @@ export class CdpCorrelator implements RequestCorrelator {
     // events the mapper converts (loadingFinished/loadingFailed) resolve
     // against an offset this request's `requestWillBeSent` already recorded.
     this.wallClock.observe(event);
+    this.frameLoadTracker.observeNetwork(event);
     // Lifecycle spine first (started/redirect/phase), then the HAR the
     // builder completed from this event — so `started` always precedes
     // its `har-attached`.
     for (const update of cdpEventToUpdates(event, this.toWallMs)) this.emit(update);
     for (const update of this.harBuilder.observe(event)) this.emit(update);
+  }
+
+  /**
+   * Page-stream fold: the frame-load tracker turns a main-frame stop that
+   * caught its document request still in flight into the request's
+   * `loadingStoppedAtMs` fact — the only record of a document canceled
+   * mid-stream, which never gets a Network terminal (see
+   * {@link CdpFrameLoadTracker}). Page timing itself is the page
+   * correlator's concern, not this one's.
+   */
+  private onPageEvent(event: CdpPageEvent): void {
+    if (!this.attached.has(event.tabId)) return;
+    const interrupted = this.frameLoadTracker.observePage(event);
+    if (interrupted === null || event.method !== 'Page.frameStoppedLoading') return;
+    this.emit({
+      kind: 'phase',
+      tabId: event.tabId,
+      requestId: cdpStoreRequestId(interrupted.sessionId, interrupted.requestId),
+      patch: { loadingStoppedAtMs: event.atWallMs },
+    });
   }
 
   private emit(update: RequestLifecycleUpdate): void {

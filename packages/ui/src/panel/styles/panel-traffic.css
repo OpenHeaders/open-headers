@@ -198,6 +198,78 @@
   background: var(--dt-fire-inferred);
 }
 
+/* The OH annotation rail — the always-on column beside the fire-dot rail
+ * carrying per-row annotation glyphs (transfer interrupted, never
+ * finished, capture fidelity, synthesized row). Blank cell when the row
+ * has nothing to say. */
+.dt-col-annot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.dt-annot-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  padding: 0;
+  border: none;
+  border-radius: 2px;
+  background: none;
+  cursor: pointer;
+  font-size: 10px;
+  line-height: 1;
+}
+
+.dt-annot-glyph:hover {
+  background: var(--dt-row-hover);
+}
+
+.dt-annot-glyph--warn {
+  color: var(--dt-status-orange);
+}
+
+.dt-annot-glyph--info {
+  color: var(--dt-text-muted);
+}
+
+/* Rail header cells — each shows its column's own symbol, dimmed (a label
+ * cannot fit in 14px); hover opens the explaining info popover. Stretched
+ * (with a small vertical inset) so the right border draws the same
+ * column divider the `.dt-col-header-cell`s carry. */
+.dt-rail-head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  margin: 3px 0;
+  color: var(--dt-text-muted);
+  font-size: 9px;
+  line-height: 1;
+  cursor: help;
+  border-right: 1px solid var(--dt-border);
+}
+
+.dt-rail-head-dot {
+  display: inline-block;
+  box-sizing: border-box;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--dt-text-muted);
+  flex-shrink: 0;
+}
+
+/* Escape the generic header-span text styling — its 4px side padding
+ * deforms the 6px dot into a pill. */
+.dt-table-header .dt-rail-head,
+.dt-table-header .dt-rail-head-dot {
+  padding: 0;
+}
+
 /* Dimmed status cell — a cache hit or a no-status (pending / opaque) row
  * that is not itself a failure. Browser parity: the cell greys (scoped to
  * this column, not the whole row), and the status code keeps its plain

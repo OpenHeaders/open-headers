@@ -11,6 +11,7 @@ import {
   statusCellText,
   statusCellTitle,
 } from '../../data/request-state';
+import type { RowAnnotationContext } from '../../data/row-annotations';
 import { formatBytesToKb, formatSizeInfo, type SizeInfo } from '../../data/size-info';
 import type { ColumnDef } from './columns';
 import { extractName, formatInitiator, getInitiatorFrame } from './formatters';
@@ -37,6 +38,11 @@ export interface CellContext {
   /** Physical connection id → the request that opened it, so a reused-connection
    *  row's Waterfall popover can attribute the socket to its opener. */
   connectionOpeners: ReadonlyMap<string, ConnectionOpener>;
+  /** Classifier context for the OH annotation rail — the same supersession
+   *  anchor plus provenance, bundled once per render pass. */
+  annotationCtx: RowAnnotationContext;
+  /** Open the row's inspector tab at the annotation's detail section. */
+  onAnnotationJump: (requestId: string) => void;
 }
 
 /**

@@ -411,6 +411,21 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
     [tl, handleSelect],
   );
 
+  // Annotation-rail click-through: open the row's inspector tab on the
+  // section the annotation targets (Headers, where the insight cards
+  // render) — same mechanism as a search-result jump.
+  const handleAnnotationJump = useCallback(
+    (requestId: string) => {
+      const row = data.lookupByRequestId.get(requestId);
+      if (!row) return;
+      const tab = buildInspectorTab({ lifecycle: row.lifecycle, displayId: row.displayId }, 'network');
+      tab.activeSection = 'headers';
+      groups.addTab(tab);
+      groups.updateTab(tab.id, { activeSection: 'headers' });
+    },
+    [data.lookupByRequestId, groups],
+  );
+
   const handleSearchResult = useCallback(
     (requestId: string, highlight: string, section: string, lineNumber: number, matchIndex: number) => {
       const row = data.lookupByRequestId.get(requestId);
@@ -629,6 +644,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
               onSaveAllAsHar={handleSaveAllAsHar}
               onCopyAllAsHar={handleCopyAllAsHar}
               onHide={() => tl.toggleWindow('network')}
+              onAnnotationJump={handleAnnotationJump}
             />
           );
         case 'rules':
@@ -687,6 +703,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       ui,
       handleCrossNav,
       handleSearchResult,
+      handleAnnotationJump,
       tl,
       iconState,
       visibleColumns,

@@ -5,7 +5,7 @@
  * Field names match the CDP protocol verbatim. Source:
  * https://chromedevtools.github.io/devtools-protocol/tot/Page/
  *
- * Why these three:
+ * Why these four:
  *   - `frameNavigated` is the navigation-commit signal. The main frame
  *     (no `parentId`) committing is the page boundary; its `loaderId` ties
  *     the page to its document `Network.requestWillBeSent` (whose timing is
@@ -15,6 +15,12 @@
  *     timestamps of the DOMContentLoaded / load events — HAR
  *     `pageTimings.onContentLoad` / `onLoad`, as offsets from the page
  *     start. Chrome reads the same CDP events (`ResourceTreeModel`).
+ *   - `frameStoppedLoading` is the document-teardown signal: a document
+ *     canceled mid-stream (a stop() during the body download) gets NO
+ *     `Network.loadingFinished` / `loadingFailed` — the frame stop is the
+ *     only event that records the interruption. On a clean load the
+ *     document's `loadingFinished` precedes the frame stop, so "frame
+ *     stopped while the document request is still in flight" is exact.
  *
  * These are page-target (root-session) events for the tab's main frame;
  * the chrome adapter only enables the Page domain on the root target, so
@@ -58,4 +64,18 @@ export interface CdpLoadEventFired {
   readonly timestamp: number;
 }
 
-export type CdpPageEvent = CdpFrameNavigated | CdpDomContentEventFired | CdpLoadEventFired;
+/** `Page.frameStoppedLoading` — a frame's loading state went idle. */
+export interface CdpFrameStoppedLoading {
+  readonly method: 'Page.frameStoppedLoading';
+  readonly tabId: number;
+  readonly sessionId: string;
+  readonly frameId: string;
+  /**
+   * Wall-clock ms stamped by the adapter at event arrival — the protocol
+   * event carries no timestamp of its own. Millisecond fidelity is all the
+   * consumer needs (the instant marks a fact, it feeds no timing math).
+   */
+  readonly atWallMs: number;
+}
+
+export type CdpPageEvent = CdpFrameNavigated | CdpDomContentEventFired | CdpLoadEventFired | CdpFrameStoppedLoading;

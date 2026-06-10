@@ -20,6 +20,8 @@ export {
   MAX_CDP_RESPONSE_BODY_CHARS,
   streamedCdpBodyToHarBody,
 } from './cdp-body-synth';
+export type { InterruptedDocument } from './cdp-frame-load-tracker';
+export { CdpFrameLoadTracker, MAX_FRAME_LOAD_DOC_CANDIDATES_PER_TAB } from './cdp-frame-load-tracker';
 export type { CdpBodyFetchContext, CdpBodyRef } from './cdp-har-builder';
 export {
   CDP_HAR_RETENTION_MS,
@@ -73,6 +75,7 @@ export { cdpStoreRequestId } from './events';
 export type {
   CdpDomContentEventFired,
   CdpFrameNavigated,
+  CdpFrameStoppedLoading,
   CdpLoadEventFired,
   CdpPageEvent,
   CdpPageFrame,

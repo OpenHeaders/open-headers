@@ -5,6 +5,7 @@ import { getSizeInfo } from '../../data/size-info';
 import { isAppliedFire } from '../../data/types';
 import type { ColumnDef } from './columns';
 import { type CellContext, renderCell } from './render-cell';
+import { RowAnnotationCell } from './RowAnnotationCell';
 
 interface TrafficRowProps {
   row: InspectorRowWithFires;
@@ -58,6 +59,7 @@ function TrafficRowImpl({
           )}
         </span>
       )}
+      <RowAnnotationCell lifecycle={row.lifecycle} ctx={ctx.annotationCtx} onJump={ctx.onAnnotationJump} />
       {columns.map((col) => (
         <span key={col.key} className={col.align === 'right' ? 'dt-col-right' : undefined}>
           {renderCell(col, row, sizeInfo, ctx)}

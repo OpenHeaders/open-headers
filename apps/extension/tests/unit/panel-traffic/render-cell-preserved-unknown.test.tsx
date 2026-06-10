@@ -39,6 +39,8 @@ const CTX: CellContext = {
   superseded: { latestNavStartedAtMs: NAV_AT, navStartsMs: [NAV_AT] },
   cdpEnhanced: true,
   connectionOpeners: new Map(),
+  annotationCtx: { anchor: { latestNavStartedAtMs: NAV_AT, navStartsMs: [NAV_AT] }, source: 'cdp' },
+  onAnnotationJump: () => {},
 };
 
 // CDP variant: the latest page committed under loader L2; rows bound to the

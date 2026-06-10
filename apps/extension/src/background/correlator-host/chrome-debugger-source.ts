@@ -348,6 +348,9 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
       case 'Page.loadEventFired':
         this.fanPage(normalizePageLifecycle('Page.loadEventFired', tabId, params as RawPageLifecycleTimestamp));
         return;
+      case 'Page.frameStoppedLoading':
+        this.fanPage(normalizeFrameStoppedLoading(tabId, params as RawFrameStoppedLoading));
+        return;
     }
     // Other Page.* events are not part of the consumed subset.
   }
@@ -602,6 +605,10 @@ interface RawPageLifecycleTimestamp {
   readonly timestamp: number;
 }
 
+interface RawFrameStoppedLoading {
+  readonly frameId: string;
+}
+
 // ── normalizers (raw CDP params → oracle CdpNetworkEvent) ────────────
 
 function normalizeRequestWillBeSent(tabId: number, sessionId: string, p: RawRequestWillBeSent): CdpNetworkEvent {
@@ -715,6 +722,18 @@ function normalizePageLifecycle(
   p: RawPageLifecycleTimestamp,
 ): CdpPageEvent {
   return { method, tabId, sessionId: ROOT_SESSION_ID, timestamp: p.timestamp };
+}
+
+function normalizeFrameStoppedLoading(tabId: number, p: RawFrameStoppedLoading): CdpPageEvent {
+  // The protocol event carries no timestamp; the arrival wall-clock is the
+  // fact's instant (it feeds no timing math, only the teardown record).
+  return {
+    method: 'Page.frameStoppedLoading',
+    tabId,
+    sessionId: ROOT_SESSION_ID,
+    frameId: p.frameId,
+    atWallMs: Date.now(),
+  };
 }
 
 function normalizePageFrame(f: RawPageFrame): CdpPageFrame {

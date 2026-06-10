@@ -18,6 +18,7 @@ import {
   lifecycleMimeType,
 } from '../data/inspector-row-projection';
 import { hasObservedResponseData, isPreservedUnknown, supersessionAnchorFromPages } from '../data/request-state';
+import { classifyRowAnnotations, type RowAnnotation } from '../data/row-annotations';
 import { findRuleCollectionId } from '../data/rule-collection';
 import {
   buildBlockDraftFromRequest,
@@ -149,6 +150,13 @@ export function InspectorDetailContent({
   const provisionalRequestHeaders =
     lc.requestHeadersProvisional === true ||
     (isPreservedUnknown(lc, supersessionAnchorFromPages(pages)) && !hasObservedResponseData(lc));
+  // The row's OH annotations — the SAME classifier output the grid's
+  // annotation rail glyph reads; the Headers tab renders them as insight
+  // cards so glyph and explanation can never diverge.
+  const rowAnnotations = useMemo<readonly RowAnnotation[]>(
+    () => classifyRowAnnotations(lc, { anchor: supersessionAnchorFromPages(pages), source }),
+    [lc, pages, source],
+  );
   // Live Rules Mode system-attribution gate: yellow the cache-bypass
   // request headers when a user header rule fired and didn't itself
   // touch Cache-Control. Mirrors the DNR-side gate in header-builder.
@@ -280,6 +288,7 @@ export function InspectorDetailContent({
             row={row}
             requestHeaders={requestHeaders}
             responseHeaders={responseHeaders}
+            rowAnnotations={rowAnnotations}
             provisionalRequestHeaders={provisionalRequestHeaders}
             rulesByUid={rulesByUid}
             collectionIdFor={collectionIdFor}

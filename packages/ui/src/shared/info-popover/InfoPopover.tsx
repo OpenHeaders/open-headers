@@ -27,9 +27,19 @@ export interface InfoPopoverProps {
   placement?: React.ComponentProps<typeof Popover>['placement'];
   /** Maximum width in px, defaults to 360. */
   maxWidth?: number;
+  /** Open on `click` (the (i) default) or on `hover` — for triggers whose
+   *  click has its own action (e.g. the row-annotation glyph, where click
+   *  jumps to the detail pane). */
+  trigger?: 'click' | 'hover';
 }
 
-export function InfoPopover({ content, children, placement = 'bottomLeft', maxWidth = 360 }: InfoPopoverProps) {
+export function InfoPopover({
+  content,
+  children,
+  placement = 'bottomLeft',
+  maxWidth = 360,
+  trigger = 'click',
+}: InfoPopoverProps) {
   const [open, setOpen] = useState(false);
   const resolveContainer = useInfoPopoverContainer();
   // Adapter: AntD's `getPopupContainer` receives the trigger element and must
@@ -47,7 +57,7 @@ export function InfoPopover({ content, children, placement = 'bottomLeft', maxWi
     <Popover
       open={open}
       onOpenChange={setOpen}
-      trigger="click"
+      trigger={trigger}
       destroyOnHidden
       placement={placement}
       classNames={{ root: 'oh-info-popover-overlay' }}

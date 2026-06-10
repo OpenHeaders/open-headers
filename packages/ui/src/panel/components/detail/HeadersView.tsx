@@ -37,6 +37,7 @@ import {
   lifecycleMimeType,
   lifecycleTransferredBytes,
 } from '../../data/inspector-row-projection';
+import type { RowAnnotation } from '../../data/row-annotations';
 import type { RulesByUid } from '../../data/use-rules-lookup';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import { GeneralRow } from './headers/GeneralRow';
@@ -52,6 +53,10 @@ export interface HeadersViewProps {
   row: InspectorRowWithFires;
   requestHeaders: readonly AnnotatedHeader[];
   responseHeaders: readonly AnnotatedHeader[];
+  /** The row's OH annotations — same classifier output as the grid's
+   *  annotation rail; rendered as always-on insight cards above the
+   *  header-derived insights. */
+  rowAnnotations: readonly RowAnnotation[];
   /** Whether the request headers are provisional — the lifecycle's own flag, OR
    *  a navigation-abandoned row whose net-process status was never confirmed to
    *  the page (browser parity: such rows show "Provisional headers are shown"). */
@@ -79,6 +84,7 @@ export function HeadersView({
   row,
   requestHeaders,
   responseHeaders,
+  rowAnnotations,
   provisionalRequestHeaders,
   rulesByUid,
   collectionIdFor,
@@ -260,6 +266,22 @@ export function HeadersView({
         <div className="dt-header-footprint" title={footprint.ruleNames.join(', ')}>
           <span className="dt-header-footprint-dot" aria-hidden="true" />
           <span className="dt-header-footprint-text">{footprintText}</span>
+        </div>
+      )}
+
+      {/* OH row annotations — structural facts about this row (interrupted
+        * transfer, never finished, capture fidelity, synthesized row). Not
+        * gated by the insights toggle: the grid's annotation glyph promises
+        * an explanation here. */}
+      {rowAnnotations.length > 0 && (
+        <div className="dt-header-insights">
+          {rowAnnotations.map((a) => (
+            <InsightCard
+              key={a.kind}
+              insight={{ id: `row-annotation-${a.kind}`, severity: a.severity, title: a.label, detail: a.detail }}
+              onAction={handleInsightAction}
+            />
+          ))}
         </div>
       )}
 

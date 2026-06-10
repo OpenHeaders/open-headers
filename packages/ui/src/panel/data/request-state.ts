@@ -365,6 +365,18 @@ function isCancellationAbort(lifecycle: RequestLifecycle): boolean {
 }
 
 /**
+ * Whether the row's terminal error is cancellation-shaped: a net-stack
+ * cancel code, or the document-teardown failure (bare `ERR_FAILED` on a
+ * frame hop that already carries a wire status). This is the `canceled`
+ * signal the status cell reads — exported for the row-annotation
+ * classifier, whose "transfer interrupted" fact is exactly this terminal
+ * arriving alongside a successful response.
+ */
+export function isCancellationShapedTerminal(lifecycle: RequestLifecycle): boolean {
+  return isCancellationAbort(lifecycle) || isDocumentTeardownFailure(lifecycle);
+}
+
+/**
  * Net-stack codes that map to a named `(blocked:<reason>)` label, using the
  * browser's own short vocabulary. These are the "the browser refused to send
  * / accept this for a policy reason" cases — the browser reports a block
@@ -428,7 +440,7 @@ function readStatusSignals(lifecycle: RequestLifecycle): StatusSignals {
   return {
     code: effectiveStatusCode(lifecycle),
     failed: isRequestFailed(lifecycle),
-    canceled: err != null && (CANCELED_CODES.has(err.code) || teardown),
+    canceled: isCancellationShapedTerminal(lifecycle),
     cors: err?.code.startsWith('oh:cors') ?? false,
     // A correlator-supplied block reason (the CDP path names CORP/COEP/CSP/…
     // precisely) wins over the net-stack-code vocabulary, which collapses

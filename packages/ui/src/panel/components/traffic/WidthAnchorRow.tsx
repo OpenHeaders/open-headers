@@ -29,6 +29,8 @@ export function WidthAnchorRow({ row, columns, gridTemplate, showFireDots, ctx }
       style={{ gridTemplateColumns: gridTemplate, height: 0, visibility: 'hidden', pointerEvents: 'none' }}
     >
       {showFireDots && <span />}
+      {/* The always-on annotation rail's track. */}
+      <span />
       {columns.map((col) => (
         <span key={col.key} className={col.align === 'right' ? 'dt-col-right' : undefined}>
           {renderCell(col, row, sizeInfo, ctx)}

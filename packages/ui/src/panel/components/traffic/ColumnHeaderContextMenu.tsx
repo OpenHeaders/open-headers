@@ -118,6 +118,18 @@ export function ColumnHeaderContextMenu({
         className="dt-ctx-menu-scroll"
         style={{ maxHeight: `calc(100vh - ${state.y}px - 8px)`, overflowY: 'auto' }}
       >
+        {/* The two OH-native rails ahead of the Chrome-parity columns —
+            listed for completeness, rendered like the mandatory Name entry
+            (checked, greyed, unclickable). */}
+        <button type="button" className="dt-ctx-item dt-ctx-check disabled" disabled>
+          <span className="dt-ctx-check-mark">✓</span>
+          <span>Rule fires</span>
+        </button>
+        <button type="button" className="dt-ctx-item dt-ctx-check disabled" disabled>
+          <span className="dt-ctx-check-mark">✓</span>
+          <span>Annotations</span>
+        </button>
+        <div className="dt-ctx-sep" />
         {columns.map((col) => {
           const checked = visible.has(col.key);
           const disabled = MANDATORY.has(col.key);

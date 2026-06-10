@@ -126,6 +126,13 @@ export function patchRefines(prev: RequestLifecycle, patch: RequestLifecyclePatc
   ) {
     return false;
   }
+  if (
+    'loadingStoppedAtMs' in patch &&
+    patch.loadingStoppedAtMs === undefined &&
+    prev.loadingStoppedAtMs !== undefined
+  ) {
+    return false;
+  }
   if ('requestHeaders' in patch && patch.requestHeaders === undefined && prev.requestHeaders !== undefined) {
     return false;
   }
