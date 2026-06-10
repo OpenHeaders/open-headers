@@ -89,6 +89,7 @@
   --dt-pill-active-text: #1a73e8;
   --dt-fire-auth: #2f54eb;
   --dt-fire-inferred: #d48806;
+  --dt-fire-contradicted: #cf1322;
   --dt-input-bg: #fff;
   --dt-input-border: #d9d9d9;
 
@@ -135,6 +136,7 @@
   --dt-pill-active-text: #8ab4f8;
   --dt-fire-auth: #6990f0;
   --dt-fire-inferred: #e8b339;
+  --dt-fire-contradicted: #e84749;
   --dt-input-bg: #2a2a2a;
   --dt-input-border: #3c3c3c;
 

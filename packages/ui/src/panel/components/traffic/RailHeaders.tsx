@@ -15,8 +15,14 @@ const FIRE_RAIL_INFO: InfoPopoverContent = {
     {
       heading: 'Dot colors',
       items: [
-        { label: 'blue', desc: 'Confirmed — the browser reported the modification applied.' },
-        { label: 'amber', desc: 'Inferred — the rule matched, application not directly observable.' },
+        {
+          label: 'blue',
+          desc:
+            'Applied — the rule engine confirmed the rule executed, our in-page reporter confirmed the action ran, ' +
+            'or the modification is visible in the captured headers.',
+        },
+        { label: 'amber', desc: 'Inferred — the rule matched, application not verifiable for this request.' },
+        { label: 'red', desc: 'Contradicted — the rule claimed a header change the captured headers disprove.' },
       ],
     },
   ],

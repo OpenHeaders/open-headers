@@ -41,6 +41,7 @@ export type {
   HarSourceMessage,
   InspectorHarBody,
   InspectorHarEntry,
+  InspectorHarHeaderCapture,
   InspectorHarLog,
   InspectorHarPage,
   InspectorHarPageTimings,

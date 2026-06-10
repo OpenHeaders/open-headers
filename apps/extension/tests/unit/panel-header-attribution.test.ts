@@ -6,6 +6,7 @@ import type {
   RuleSnapshot,
   RuleSnapshotHeaderMod,
 } from '@openheaders/core/types';
+import type { FireEvidence, ModEvidenceVerdict } from '@openheaders/ui/panel/data/fire-evidence';
 import { attributeHeaders, findCurrentMod, isAttributionEdited } from '@openheaders/ui/panel/data/header-attribution';
 import type { InspectorFire } from '@openheaders/ui/panel/data/types';
 import { describe, expect, it } from 'vitest';
@@ -731,5 +732,146 @@ describe('attributeHeaders', () => {
     const request = attributeHeaders([], [fire('r1')], 'request', byUid(rule));
     expect(request).toHaveLength(1);
     expect(request[0].attribution.kind).toBe('added');
+  });
+});
+
+describe('attributeHeaders — wire-aware rendering (corroboration verdicts)', () => {
+  function snapMod(overrides: Partial<RuleSnapshotHeaderMod> = {}): RuleSnapshotHeaderMod {
+    return {
+      direction: 'response',
+      operation: 'override',
+      headerName: 'X-OH-Test',
+      valueTemplate: 'v1',
+      valueResolved: 'v1',
+      ...overrides,
+    };
+  }
+
+  function snapFire(mods: RuleSnapshotHeaderMod[]): InspectorFire {
+    return {
+      ruleUid: 'r1',
+      t: 0,
+      pattern: '',
+      authoritative: false,
+      evidence: 'matched',
+      ruleSnapshot: { ruleUid: 'r1', name: 'Wire rule', type: 'header', enabled: true, headerMods: mods },
+    };
+  }
+
+  /** Evidence map pairing each snapshot mod (by identity) with a verdict. */
+  function evidence(fire: InspectorFire, verdicts: ModEvidenceVerdict[]): ReadonlyMap<string, FireEvidence> {
+    const mods = (fire.ruleSnapshot?.headerMods ?? []).map((mod, i) => ({
+      mod,
+      verdict: verdicts[i],
+      reason: 'value-on-wire' as const,
+    }));
+    const agg: ModEvidenceVerdict = verdicts.includes('contradicted')
+      ? 'contradicted'
+      : verdicts.includes('corroborated')
+        ? 'corroborated'
+        : 'unobservable';
+    return new Map([[fire.ruleUid, { verdict: agg, mods }]]);
+  }
+
+  it('corroborated override marks the wire row without inventing an original value', () => {
+    const fire = snapFire([snapMod()]);
+    const result = attributeHeaders(
+      [{ name: 'X-OH-Test', value: 'v1' }],
+      [fire],
+      'response',
+      byUid(),
+      {},
+      evidence(fire, ['corroborated']),
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0].value).toBe('v1');
+    expect(result[0].attribution.kind).toBe('modified');
+    if (result[0].attribution.kind === 'modified') {
+      expect(result[0].attribution.originalValue).toBeUndefined();
+      expect(result[0].attribution.ctx.verdict).toBe('corroborated');
+    }
+  });
+
+  it('corroborated add marks the existing wire row instead of appending a duplicate', () => {
+    const fire = snapFire([snapMod({ operation: 'add', headerName: 'Set-Cookie', valueResolved: 'oh=1' })]);
+    const result = attributeHeaders(
+      [
+        { name: 'Set-Cookie', value: 'sid=abc' },
+        { name: 'Set-Cookie', value: 'oh=1' },
+      ],
+      [fire],
+      'response',
+      byUid(),
+      {},
+      evidence(fire, ['corroborated']),
+    );
+    expect(result).toHaveLength(2);
+    expect(result[0].attribution.kind).toBe('server');
+    expect(result[1].attribution.kind).toBe('added');
+    expect(result[1].value).toBe('oh=1');
+  });
+
+  it('corroborated merge keeps the already-merged wire value and recovers the base from it', () => {
+    const fire = snapFire([
+      snapMod({
+        direction: 'request',
+        operation: 'merge',
+        headerName: 'X-Trace',
+        valueResolved: 'oh',
+        mergeSeparator: ', ',
+      }),
+    ]);
+    const result = attributeHeaders(
+      [{ name: 'X-Trace', value: 'base, oh' }],
+      [fire],
+      'request',
+      byUid(),
+      {},
+      evidence(fire, ['corroborated']),
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0].value).toBe('base, oh');
+    expect(result[0].attribution.kind).toBe('modified');
+    if (result[0].attribution.kind === 'modified') {
+      expect(result[0].attribution.operation).toBe('merge');
+      expect(result[0].attribution.originalValue).toBe('base');
+    }
+  });
+
+  it('contradicted claims render nothing — the wire rows stand untouched', () => {
+    const fire = snapFire([
+      snapMod({ headerName: 'X-Gone' }),
+      snapMod({ operation: 'remove', headerName: 'X-Still-Here', valueTemplate: undefined, valueResolved: undefined }),
+    ]);
+    const result = attributeHeaders(
+      [{ name: 'X-Still-Here', value: 'server' }],
+      [fire],
+      'response',
+      byUid(),
+      {},
+      evidence(fire, ['contradicted', 'contradicted']),
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0].attribution.kind).toBe('server');
+    expect(result[0].value).toBe('server');
+  });
+
+  it('unobservable claims keep the legacy claimed-value rendering', () => {
+    const fire = snapFire([snapMod()]);
+    const result = attributeHeaders(
+      [{ name: 'X-OH-Test', value: 'pre-rewrite' }],
+      [fire],
+      'response',
+      byUid(),
+      {},
+      evidence(fire, ['unobservable']),
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0].value).toBe('v1');
+    expect(result[0].attribution.kind).toBe('modified');
+    if (result[0].attribution.kind === 'modified') {
+      expect(result[0].attribution.originalValue).toBe('pre-rewrite');
+      expect(result[0].attribution.ctx.verdict).toBe('unobservable');
+    }
   });
 });

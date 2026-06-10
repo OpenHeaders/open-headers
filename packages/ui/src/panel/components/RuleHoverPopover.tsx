@@ -1092,8 +1092,10 @@ function SnapshotBlock({
     }
   })();
 
+  // `originalValue` is absent on a corroborated mod over a post-rewrite
+  // capture (the pre-rule value was never recorded) — normalize to null.
   const originalValue =
-    attribution.kind === 'modified' || attribution.kind === 'removed' ? attribution.originalValue : null;
+    attribution.kind === 'modified' || attribution.kind === 'removed' ? (attribution.originalValue ?? null) : null;
   const cancelledInjection =
     attribution.kind === 'removed' && attribution.source === 'injection' ? attribution.injectingRule : undefined;
   const appliedValue = snapshotAppliedValue(mod);

@@ -52,6 +52,11 @@
   background: color-mix(in srgb, var(--dt-fire-inferred) 12%, transparent);
 }
 
+.dt-exec-badge--contradicted {
+  color: var(--dt-fire-contradicted);
+  background: color-mix(in srgb, var(--dt-fire-contradicted) 12%, transparent);
+}
+
 .dt-exec-badge--dangling {
   color: var(--dt-status-orange);
   background: color-mix(in srgb, var(--dt-status-orange) 12%, transparent);

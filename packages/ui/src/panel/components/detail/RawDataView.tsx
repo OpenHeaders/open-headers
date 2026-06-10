@@ -68,7 +68,9 @@ function deriveOriginalHeaders(annotated: readonly AnnotatedHeader[]): HeaderPai
     if (a.kind === 'server' || a.kind === 'system') {
       out.push({ name: h.name, value: h.value });
     } else if (a.kind === 'modified') {
-      out.push({ name: h.name, value: a.originalValue });
+      // No recorded pre-rule value (corroborated mod over a post-rewrite
+      // capture): the wire value is the best available stand-in.
+      out.push({ name: h.name, value: a.originalValue ?? h.value });
     } else if (a.kind === 'removed' && a.source === 'server') {
       out.push({ name: h.name, value: a.originalValue });
     }

@@ -5,9 +5,8 @@
  * update minting host-neutral and inspectable from a single call site.
  */
 
-import { describe, expect, it } from 'vitest';
-
 import type { InspectorHarEntry } from '@openheaders/core/types';
+import { describe, expect, it } from 'vitest';
 
 import {
   bodyAttachedUpdate,
@@ -58,14 +57,14 @@ describe('harEntryTimestamp', () => {
 });
 
 describe('harAttachedUpdate', () => {
-  it('produces a well-formed har-attached update', () => {
+  it('produces a well-formed har-attached update stamped as a post-rewrite capture', () => {
     const update = harAttachedUpdate({ tabId: 1, requestId: 'r1', hopIndex: 0, entry });
     expect(update).toEqual({
       kind: 'har-attached',
       tabId: 1,
       requestId: 'r1',
       hopIndex: 0,
-      har: entry,
+      har: { ...entry, _ohHeaderCapture: { request: 'effective', response: 'effective' } },
     });
   });
 });

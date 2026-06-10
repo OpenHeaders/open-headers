@@ -39,6 +39,7 @@ import type { InspectorNavTiming } from '@openheaders/core/types';
 
 import { type ConnectionReuseInfo, computeConnectionReuse } from './connection-reuse';
 import type { FireClientSnapshot } from './fire-client-store';
+import { rowFireTier } from './fire-evidence';
 import { buildInitiatorIndex, type InitiatorIndex } from './initiator-index';
 import { type BuildInspectorRowsOptions, buildInspectorRows } from './inspector-facet';
 import {
@@ -55,7 +56,7 @@ import type { PageClientSnapshot } from './page-client-store';
 import { isInView, type PanelViewScope } from './panel-view-scope';
 import type { ResourceTimingClientSnapshot } from './resource-timing-client-store';
 import { computeRepeatStats, type RepeatStats } from './timing-repeats';
-import { type InspectorFire, isAppliedFire } from './types';
+import type { InspectorFire } from './types';
 import type { RecordingWindow } from './use-recording-windows';
 
 export interface UsePanelDataInput {
@@ -165,7 +166,9 @@ export interface UsePanelDataResult {
   readonly aggregateFinishMs: number;
   readonly aggregateDclMs: number | undefined;
   readonly aggregateLoadMs: number | undefined;
-  /** Rows whose rules actually ran (`isAppliedFire`). */
+  /** Rows whose rules verifiably applied (`rowFireTier === 'applied'`) —
+   * engine-confirmed, reporter-confirmed, or wire-corroborated; a
+   * contradicted row is not counted as modified. */
   readonly modifiedCount: number;
   /** Rows that errored — failed phase or HTTP status >= 400. */
   readonly failedCount: number;
@@ -415,7 +418,7 @@ export function projectPanelData(input: UsePanelDataInput): UsePanelDataResult {
     const transferred = displayTransferredBytes(row.lifecycle);
     const contentSize = displayResourceBytes(row.lifecycle);
 
-    if (row.fires.some(isAppliedFire)) modifiedCount++;
+    if (rowFireTier(row.lifecycle, row.fires) === 'applied') modifiedCount++;
     const status = har?.response?.status;
     if (row.lifecycle.phase === 'failed' || (typeof status === 'number' && status >= 400)) failedCount++;
     // Cache hit: a real resource the page received with no wire bytes.

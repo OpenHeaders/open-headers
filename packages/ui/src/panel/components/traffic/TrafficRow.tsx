@@ -1,11 +1,23 @@
 import { type MouseEvent as ReactMouseEvent, memo } from 'react';
+import { type FireDotTier, rowFireTier } from '../../data/fire-evidence';
 import type { InspectorRowWithFires } from '../../data/inspector-row-projection';
 import { classifyRequestState, rowStateClass } from '../../data/request-state';
 import { getSizeInfo } from '../../data/size-info';
-import { isAppliedFire } from '../../data/types';
 import type { ColumnDef } from './columns';
 import { type CellContext, renderCell } from './render-cell';
 import { RowAnnotationCell } from './RowAnnotationCell';
+
+const DOT_CLASS: Record<FireDotTier, string> = {
+  applied: 'dt-fire-dot--auth',
+  contradicted: 'dt-fire-dot--contradicted',
+  inferred: 'dt-fire-dot--inferred',
+};
+
+const DOT_TITLE: Record<FireDotTier, string> = {
+  applied: 'Rule applied — confirmed by the engine, the in-page reporter, or the captured headers',
+  contradicted: 'Rule contradicted — a claimed header change is disproven by the captured headers',
+  inferred: 'Rule matched — application not verifiable for this request',
+};
 
 interface TrafficRowProps {
   row: InspectorRowWithFires;
@@ -40,6 +52,7 @@ function TrafficRowImpl({
   const sizeInfo = getSizeInfo(row.lifecycle, state);
   const stateClass = rowStateClass(row.lifecycle);
   const requestId = row.lifecycle.requestId;
+  const dotTier = showFireDots ? rowFireTier(row.lifecycle, row.fires) : null;
   return (
     <button
       type="button"
@@ -52,11 +65,7 @@ function TrafficRowImpl({
     >
       {showFireDots && (
         <span className="dt-col-dot">
-          {row.fires.length > 0 && (
-            <span
-              className={`dt-fire-dot ${row.fires.some(isAppliedFire) ? 'dt-fire-dot--auth' : 'dt-fire-dot--inferred'}`}
-            />
-          )}
+          {dotTier !== null && <span className={`dt-fire-dot ${DOT_CLASS[dotTier]}`} title={DOT_TITLE[dotTier]} />}
         </span>
       )}
       <RowAnnotationCell lifecycle={row.lifecycle} ctx={ctx.annotationCtx} onJump={ctx.onAnnotationJump} />

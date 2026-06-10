@@ -42,7 +42,10 @@ export function harAttachedUpdate(args: {
     tabId: args.tabId,
     requestId: args.requestId,
     hopIndex: args.hopIndex,
-    har: args.entry,
+    // The host's devtools HAR records both header sets after the engine's
+    // rewrite — an applied modification is visible in them, so claimed
+    // modifications can be checked against these sets.
+    har: { ...args.entry, _ohHeaderCapture: { request: 'effective', response: 'effective' } },
   };
 }
 

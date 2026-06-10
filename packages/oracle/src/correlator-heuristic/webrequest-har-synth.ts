@@ -198,6 +198,10 @@ export function partialHarEntry(
   return {
     _priority: null,
     _resourceType: webRequestTypeToHarResourceType(response.resourceType),
+    // webRequest reports both header sets from before the engine's rewrite
+    // (`onSendHeaders` / `onHeadersReceived` never see the modifications),
+    // so a claimed modification is expected to be absent here.
+    _ohHeaderCapture: { request: 'raw', response: 'raw' },
     cache: {},
     request: {
       method: seed.method,

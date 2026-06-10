@@ -198,6 +198,10 @@
   background: var(--dt-fire-inferred);
 }
 
+.dt-fire-dot--contradicted {
+  background: var(--dt-fire-contradicted);
+}
+
 /* The OH annotation rail — the always-on column beside the fire-dot rail
  * carrying per-row annotation glyphs (transfer interrupted, never
  * finished, capture fidelity, synthesized row). Blank cell when the row

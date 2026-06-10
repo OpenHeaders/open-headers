@@ -320,6 +320,21 @@ describe('CdpHarBuilder — *ExtraInfo header merge', () => {
     expect(refined.response?._transferSize).toBeUndefined(); // still pre-finish: enrichment level preserved
   });
 
+  it('stamps each header section effective once its wire set landed, raw while cooked', () => {
+    const ctx: TraceCtx = { tabId: TAB, requestId: 'capture-stamp' };
+    const builder = new CdpHarBuilder();
+    builder.observe(cdpStart(ctx, { request: { url: RESPONSE.url, method: 'GET', headers: {} } }));
+    // Cooked sets only: both sections are pre-rewrite captures.
+    const cooked = lastHarEntry(builder.observe(cdpResponse(ctx, { response: RESPONSE })));
+    expect(cooked._ohHeaderCapture).toEqual({ request: 'raw', response: 'raw' });
+    // The request wire set lands: only the request section upgrades.
+    const reqWire = lastHarEntry(builder.observe(cdpRequestExtra(ctx, { Cookie: 'sid=wire' })));
+    expect(reqWire._ohHeaderCapture).toEqual({ request: 'effective', response: 'raw' });
+    // The response wire set lands: both sections are post-rewrite now.
+    const bothWire = lastHarEntry(builder.observe(cdpResponseExtra(ctx, { 'X-On-Wire': 'real' })));
+    expect(bothWire._ohHeaderCapture).toEqual({ request: 'effective', response: 'effective' });
+  });
+
   it('a pre-base extra survives the base requestWillBeSent (stub adoption, no reset)', () => {
     const ctx: TraceCtx = { tabId: TAB, requestId: 'stub' };
     const builder = new CdpHarBuilder();

@@ -37,10 +37,36 @@
  * fire wins (matches DNR's same-priority-last-registered semantics).
  *
  * Name matching is case-insensitive per RFC 9110 §5.1.
+ *
+ * ## Wire-aware rendering
+ *
+ * When the caller supplies the per-rule {@link FireEvidence} (derived by
+ * `fire-evidence.ts` from the same snapshots against the captured header
+ * sets), each mod's verdict steers how its claim renders:
+ *
+ *   - `corroborated` — the capture already SHOWS the modification, so the
+ *     claim marks the existing wire row instead of fabricating: an
+ *     override keeps the wire value with no invented `originalValue` (the
+ *     pre-rewrite value was never captured), an `add` marks the matching
+ *     wire row rather than appending a duplicate, a `merge` keeps the
+ *     already-merged wire value (the base value is recovered from it
+ *     instead of re-concatenated).
+ *   - `contradicted` — the capture disproves the claim; nothing is
+ *     rendered onto the rows (the wire value stands). The contradiction
+ *     surfaces on the fire-rail dot and the Matched Rules badge.
+ *   - `unobservable` (or no evidence supplied) — the legacy rendering:
+ *     the claim is drawn onto the rows, which is exactly right for a
+ *     pre-rewrite (`raw`) capture whose sets cannot contain the mod.
  */
 
-import type { HeaderModification, HeaderRule, Rule } from '@openheaders/core/types';
-import type { RuleSnapshot, RuleSnapshotHeaderMod } from '@openheaders/core/types';
+import type {
+  HeaderModification,
+  HeaderRule,
+  Rule,
+  RuleSnapshot,
+  RuleSnapshotHeaderMod,
+} from '@openheaders/core/types';
+import { type FireEvidence, type ModEvidenceVerdict, valueCarriesClaim } from './fire-evidence';
 import type { InspectorFire } from './types';
 
 /**
@@ -65,6 +91,11 @@ export interface RuleAttributionContext {
   ruleType: Rule['type'];
   /** The exact mod (frozen) that produced this row. */
   snapshotMod: RuleSnapshotHeaderMod;
+  /** Corroboration verdict for this mod against the captured header sets
+   *  (see `fire-evidence.ts`). Historical like the rest of the context —
+   *  derived from the frozen capture + snapshot, never from live state.
+   *  Absent when the caller supplied no evidence. */
+  verdict?: ModEvidenceVerdict;
   /**
    * Full mod list at fire time. Needed by `findCurrentMod`'s
    * positional sibling matching for the duplicate-name-and-operation
@@ -84,7 +115,13 @@ export interface RuleAttributionContext {
 export type HeaderAttribution =
   | { kind: 'server' }
   | { kind: 'added'; operation: 'override' | 'add'; ctx: RuleAttributionContext }
-  | { kind: 'modified'; operation: 'override' | 'merge'; originalValue: string; ctx: RuleAttributionContext }
+  /**
+   * `originalValue` is the pre-rule value when one was captured. Absent
+   * for a corroborated mod on a post-rewrite capture — the set already
+   * holds the modified value, so the pre-rule value was never recorded
+   * (claiming one would be fabrication).
+   */
+  | { kind: 'modified'; operation: 'override' | 'merge'; originalValue?: string; ctx: RuleAttributionContext }
   /**
    * Header was removed before reaching the page. Two sub-cases:
    *   - `source: 'server'`     — the server sent the header and a
@@ -176,10 +213,7 @@ function snapshotValue(mod: RuleSnapshotHeaderMod): string {
  *   2. No fallback to fuzzy match — returning `null` lets the consumer
  *      surface "mod gone" with a clear signal.
  */
-export function findCurrentMod(
-  liveRule: Rule | null,
-  ctx: RuleAttributionContext,
-): HeaderModification | null {
+export function findCurrentMod(liveRule: Rule | null, ctx: RuleAttributionContext): HeaderModification | null {
   if (!liveRule || liveRule.type !== 'header') return null;
   const { snapshotMod, snapshotMods } = ctx;
   const list = snapshotMod.direction === 'request' ? liveRule.action.requestHeaders : liveRule.action.responseHeaders;
@@ -249,7 +283,11 @@ function modsDiverge(a: RuleSnapshotHeaderMod, b: HeaderModification): boolean {
   return false;
 }
 
-function buildContext(snapshot: RuleSnapshot, snapshotMod: RuleSnapshotHeaderMod): RuleAttributionContext {
+function buildContext(
+  snapshot: RuleSnapshot,
+  snapshotMod: RuleSnapshotHeaderMod,
+  verdict?: ModEvidenceVerdict,
+): RuleAttributionContext {
   // Pure historical context — no live-rule reads. Consumers derive
   // current state via `findCurrentMod` / `isAttributionEdited` against
   // their own subscription to the rule mirror.
@@ -262,6 +300,7 @@ function buildContext(snapshot: RuleSnapshot, snapshotMod: RuleSnapshotHeaderMod
     snapshotMod,
     snapshotMods,
     siblingMods,
+    ...(verdict !== undefined ? { verdict } : {}),
   };
 }
 
@@ -309,6 +348,7 @@ export function attributeHeaders(
   direction: HeaderDirection,
   rulesByUid: ReadonlyMap<string, Rule>,
   systemCtx: SystemHeaderContext = {},
+  evidenceByRule?: ReadonlyMap<string, FireEvidence>,
 ): AnnotatedHeader[] {
   // ── Server rows ───────────────────────────────────────────
   const serverRows: AnnotatedHeader[] = harHeaders.map((h) => {
@@ -354,12 +394,76 @@ export function attributeHeaders(
     if (!snapshot || snapshot.type !== 'header' || !snapshot.headerMods) continue;
 
     const directionMods = snapshot.headerMods.filter((m) => m.direction === direction);
+    const evidence = evidenceByRule?.get(fire.ruleUid);
 
     for (const snapshotMod of directionMods) {
       const key = snapshotMod.headerName.toLowerCase();
       const serverIdx = serverIndex.get(key);
-      const ctx = buildContext(snapshot, snapshotMod);
+      const verdict = evidence?.mods.find((m) => m.mod === snapshotMod)?.verdict;
+      const ctx = buildContext(snapshot, snapshotMod, verdict);
       const appliedValue = snapshotValue(snapshotMod);
+
+      // Contradicted: the capture disproves this claim — the wire rows
+      // stand untouched. The contradiction surfaces on the fire-rail dot
+      // and the Matched Rules badge, not as a fabricated header row.
+      if (verdict === 'contradicted') continue;
+
+      // Corroborated: the capture already shows the modification — mark
+      // the wire row instead of fabricating values onto it.
+      if (verdict === 'corroborated') {
+        if (snapshotMod.operation === 'override' && serverIdx != null) {
+          serverRows[serverIdx] = {
+            name: serverRows[serverIdx].name,
+            value: serverRows[serverIdx].value,
+            // No `originalValue`: a post-rewrite capture never recorded
+            // the pre-rule value.
+            attribution: { kind: 'modified', operation: 'override', ctx },
+          };
+          continue;
+        }
+        if (snapshotMod.operation === 'add') {
+          const idx = serverRows.findIndex(
+            (r) =>
+              r.attribution.kind === 'server' &&
+              r.name.toLowerCase() === key &&
+              valueCarriesClaim(r.value, appliedValue),
+          );
+          if (idx >= 0) {
+            serverRows[idx] = {
+              name: serverRows[idx].name,
+              value: serverRows[idx].value,
+              attribution: { kind: 'added', operation: 'add', ctx },
+            };
+            continue;
+          }
+          // Defensive: judged against a set the displayed list doesn't
+          // mirror — fall through to the legacy rendering below.
+        }
+        if (snapshotMod.operation === 'merge' && serverIdx != null) {
+          const sep = snapshotMod.mergeSeparator ?? (key === 'cookie' || key === 'set-cookie' ? '; ' : ', ');
+          const wireValue = serverRows[serverIdx].value;
+          const suffix = sep + appliedValue;
+          // The wire value is already merged — recover the base from it
+          // rather than concatenating the claim a second time.
+          const originalValue =
+            wireValue.length > suffix.length && wireValue.endsWith(suffix)
+              ? wireValue.slice(0, wireValue.length - suffix.length)
+              : undefined;
+          serverRows[serverIdx] = {
+            name: serverRows[serverIdx].name,
+            value: wireValue,
+            attribution: {
+              kind: 'modified',
+              operation: 'merge',
+              ...(originalValue !== undefined ? { originalValue } : {}),
+              ctx,
+            },
+          };
+          continue;
+        }
+        // Other corroborated shapes (a remove never corroborates in this
+        // model) fall through to the legacy rendering.
+      }
 
       if (snapshotMod.operation === 'remove') {
         if (serverIdx != null) {

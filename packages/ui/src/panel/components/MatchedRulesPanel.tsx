@@ -10,11 +10,13 @@
  *     case it only shows up here.
  */
 
+import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { Rule } from '@openheaders/core/types';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import { useMemo } from 'react';
+import { type FireDotTier, type FireEvidence, deriveFireEvidence, fireTier } from '../data/fire-evidence';
 import type { InspectorRowWithFires } from '../data/inspector-row-projection';
-import { type InspectorFire, isAppliedFire } from '../data/types';
+import type { InspectorFire } from '../data/types';
 import type { RulesByUid } from '../data/use-rules-lookup';
 import { useRulePopover } from './RulePopoverHost';
 
@@ -74,9 +76,11 @@ function describeHeaderActions(fire: InspectorFire, rule: Rule | undefined): str
 interface FireRowProps {
   fire: InspectorFire;
   rule: Rule | undefined;
+  lifecycle: RequestLifecycle;
 }
 
-function evidenceLabel(fire: InspectorFire): string {
+function evidenceLabel(fire: InspectorFire, evidence: FireEvidence): string {
+  if (evidence.verdict === 'contradicted') return 'contradicted';
   if (fire.authoritative) return 'authoritative';
   switch (fire.evidence) {
     case 'confirmed':
@@ -86,11 +90,27 @@ function evidenceLabel(fire: InspectorFire): string {
     case 'silent':
       return 'silent';
     default:
-      return 'inferred';
+      return evidence.verdict === 'corroborated' ? 'corroborated' : 'inferred';
   }
 }
 
-function evidenceTitle(fire: InspectorFire): string {
+/** Wire values observed for the first disproven claim — the badge's receipt. */
+function contradictionDetail(evidence: FireEvidence): string {
+  const hit = evidence.mods.find((m) => m.verdict === 'contradicted');
+  if (!hit) return '';
+  if (hit.reason === 'present-despite-remove') {
+    return ` ${hit.mod.headerName} is still present (${(hit.observed ?? []).join(', ')}).`;
+  }
+  if (hit.reason === 'absent-from-wire') {
+    return ` ${hit.mod.headerName} is missing from the captured headers.`;
+  }
+  return ` ${hit.mod.headerName} carries "${(hit.observed ?? []).join(', ')}" instead of the claimed value.`;
+}
+
+function evidenceTitle(fire: InspectorFire, evidence: FireEvidence): string {
+  if (evidence.verdict === 'contradicted') {
+    return `Contradicted — the captured headers disprove a modification this rule claimed.${contradictionDetail(evidence)}`;
+  }
   if (fire.authoritative) {
     return 'Authoritative — the rule engine confirmed this DNR rule executed on the request.';
   }
@@ -102,11 +122,19 @@ function evidenceTitle(fire: InspectorFire): string {
     case 'silent':
       return 'Pattern matched but the request was served from cache / a service worker — no DNR or scriptable action ran.';
     default:
-      return 'Inferred from URL matching — the rule would match this request based on its conditions.';
+      return evidence.verdict === 'corroborated'
+        ? 'Corroborated — the claimed modification is visible in the captured headers.'
+        : 'Inferred from URL matching — the rule would match this request based on its conditions.';
   }
 }
 
-function FireRow({ fire, rule }: FireRowProps) {
+const BADGE_CLASS: Record<FireDotTier, string> = {
+  applied: 'dt-exec-badge--auth',
+  contradicted: 'dt-exec-badge--contradicted',
+  inferred: 'dt-exec-badge--inferred',
+};
+
+function FireRow({ fire, rule, lifecycle }: FireRowProps) {
   const label = rule?.name ?? fire.ruleSnapshot?.name ?? fire.ruleUid;
   const type = rule
     ? formatRuleType(rule)
@@ -114,7 +142,8 @@ function FireRow({ fire, rule }: FireRowProps) {
       ? formatRuleTypeFromSnapshot(fire.ruleSnapshot.type)
       : '—';
   const actions = describeHeaderActions(fire, rule);
-  const applied = isAppliedFire(fire);
+  const evidence = deriveFireEvidence(lifecycle, fire);
+  const tier = fireTier(lifecycle, fire);
   const rulePopover = useRulePopover();
   const handleMouseOver = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!rule) return;
@@ -133,11 +162,8 @@ function FireRow({ fire, rule }: FireRowProps) {
       onMouseOut={rule ? handleMouseOut : undefined}
     >
       <div className="dt-matched-rule-head">
-        <span
-          className={`dt-exec-badge ${applied ? 'dt-exec-badge--auth' : 'dt-exec-badge--inferred'}`}
-          title={evidenceTitle(fire)}
-        >
-          {evidenceLabel(fire)}
+        <span className={`dt-exec-badge ${BADGE_CLASS[tier]}`} title={evidenceTitle(fire, evidence)}>
+          {evidenceLabel(fire, evidence)}
         </span>
         <span className="dt-matched-rule-type">{type}</span>
         <span className="dt-matched-rule-name">{label}</span>
@@ -180,7 +206,7 @@ export function MatchedRulesPanel({ row, rulesByUid, onClose }: MatchedRulesPane
           </div>
         )}
         {row?.fires.map((f, i) => (
-          <FireRow key={`${f.ruleUid}-${i}`} fire={f} rule={rulesByUid.get(f.ruleUid)} />
+          <FireRow key={`${f.ruleUid}-${i}`} fire={f} rule={rulesByUid.get(f.ruleUid)} lifecycle={row.lifecycle} />
         ))}
       </div>
     </div>

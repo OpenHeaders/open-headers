@@ -72,6 +72,26 @@ export interface InspectorRawTiming {
 }
 
 /**
+ * Where a HAR entry's header sets were captured relative to the engine's
+ * header rewrite, per direction:
+ *
+ *   - `effective` — captured after the rewrite: an injected/overridden
+ *     header is visible here, so a claimed modification can be checked
+ *     against this set (corroborated when present, contradicted when not).
+ *   - `raw` — captured before the rewrite (the renderer's cooked set, or
+ *     the server's untouched wire set): a claimed modification is
+ *     *expected* to be absent, so its absence proves nothing.
+ *
+ * Stamped by each HAR producer at emit time — the producer is the only
+ * plane that knows which event its header sets came from. Consumed by the
+ * panel's fire-evidence derivation; never inferred from entry shape.
+ */
+export interface InspectorHarHeaderCapture {
+  request: 'effective' | 'raw';
+  response: 'effective' | 'raw';
+}
+
+/**
  * Full HAR entry forwarded verbatim from the devtools_page via
  * `chrome.devtools.network.onRequestFinished`. The shape matches the
  * HAR 1.2 spec that Chrome implements, plus the non-standard `_`-
@@ -183,6 +203,10 @@ export interface InspectorHarEntry {
    *  originals behind the exporter-dialect `timings` legs. Internal: the
    *  timing ladder prefers these when present; HAR exports strip them. */
   _rawTiming?: InspectorRawTiming;
+  /** Per-direction header capture point relative to the engine's rewrite
+   *  (see {@link InspectorHarHeaderCapture}). Internal: drives the panel's
+   *  rule-fire corroboration; HAR exports strip it. */
+  _ohHeaderCapture?: InspectorHarHeaderCapture;
 }
 
 /**

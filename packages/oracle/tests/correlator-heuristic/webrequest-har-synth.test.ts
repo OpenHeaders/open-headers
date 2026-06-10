@@ -56,6 +56,10 @@ describe('partialHarEntry — headers-received shape (no terminal)', () => {
     expect(har.request?.httpVersion).toBe('HTTP/1.1');
   });
 
+  it('stamps both header sections as pre-rewrite (raw) captures', () => {
+    expect(har._ohHeaderCapture).toEqual({ request: 'raw', response: 'raw' });
+  });
+
   it('parses cookies from both header sets, each Set-Cookie line its own entry', () => {
     expect(har.request?.cookies).toEqual([
       { name: 'sid', value: 'abc' },

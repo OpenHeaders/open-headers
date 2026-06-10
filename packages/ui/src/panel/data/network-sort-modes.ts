@@ -13,11 +13,11 @@
  */
 
 import type { NetworkCustomNestedLevel } from '@openheaders/ui/workbench/settings/schema/devpanel-network';
+import { rowFireTier } from './fire-evidence';
 import type { InspectorRowWithFires } from './inspector-row-projection';
 import { lifecycleTransferredBytes } from './inspector-row-projection';
 import { durationMs, getColumnSortValue, priorityRank, type SortableColumnKey } from './network-columns';
 import { classifyRequestState, type RequestState } from './request-state';
-import { isAppliedFire } from './types';
 
 export const NETWORK_SORT_MODES = [
   'failures',
@@ -138,9 +138,12 @@ function host(url: string): string {
 }
 
 // ── Rule-fire tiers ──────────────────────────────────────────────────
-function fireTier(row: InspectorRowWithFires): number {
-  if (row.fires.length === 0) return 2;
-  return row.fires.some(isAppliedFire) ? 0 : 1;
+// Verified-applied rows first, contradicted next (rule activity with a
+// disproven claim still demands attention), inferred, then no fires.
+function ruleFireRank(row: InspectorRowWithFires): number {
+  const tier = rowFireTier(row.lifecycle, row.fires);
+  if (tier === null) return 3;
+  return tier === 'applied' ? 0 : tier === 'contradicted' ? 1 : 2;
 }
 
 function durationFor(row: InspectorRowWithFires): number {
@@ -161,7 +164,7 @@ export const NETWORK_SORT_MODE_COMPARATORS: Record<NetworkSortMode, Comparator> 
   browserPriority: (a, b) => priorityRank(b.lifecycle) - priorityRank(a.lifecycle) || chronological(a, b),
   byType: (a, b) => typeTier(a) - typeTier(b) || chronological(a, b),
   byDomain: (a, b) => host(a.lifecycle.url).localeCompare(host(b.lifecycle.url)) || chronological(a, b),
-  ruleModified: (a, b) => fireTier(a) - fireTier(b) || chronological(a, b),
+  ruleModified: (a, b) => ruleFireRank(a) - ruleFireRank(b) || chronological(a, b),
 };
 
 /**

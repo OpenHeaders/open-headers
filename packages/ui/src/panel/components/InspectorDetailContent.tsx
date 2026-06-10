@@ -9,6 +9,7 @@ import type { LifecycleSource, RequestLifecycle } from '@openheaders/core/reques
 import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ConnectionReuseInfo } from '../data/connection-reuse';
+import { deriveFireEvidenceByRule } from '../data/fire-evidence';
 import { type AnnotatedHeader, attributeHeaders } from '../data/header-attribution';
 import type { DetailSection } from '../data/inspector-tab';
 import {
@@ -178,6 +179,11 @@ export function InspectorDetailContent({
     return false;
   }, [liveRulesMode, row.fires, rulesByUid]);
 
+  // Corroboration verdicts for this row's fires — the single derivation
+  // the dot, the Matched Rules badge, and the header attribution below
+  // all read (see `fire-evidence.ts`).
+  const fireEvidenceByRule = useMemo(() => deriveFireEvidenceByRule(lc, row.fires), [lc, row.fires]);
+
   // Before the response-gated HAR lands, the lifecycle carries the request
   // headers on their own (cooked/provisional, see `lc.requestHeaders`) so an
   // in-flight or never-completed row still shows what the browser assembled.
@@ -186,19 +192,27 @@ export function InspectorDetailContent({
   const requestHeaderSource = har?.request?.headers ?? lc.requestHeaders ?? [];
   const requestHeaders = useMemo<readonly AnnotatedHeader[]>(
     () =>
-      attributeHeaders(requestHeaderSource, row.fires, 'request', rulesByUid, {
-        cacheBypassEnabled,
-        liveRulesFired,
-      }),
-    [requestHeaderSource, row.fires, rulesByUid, cacheBypassEnabled, liveRulesFired],
+      attributeHeaders(
+        requestHeaderSource,
+        row.fires,
+        'request',
+        rulesByUid,
+        { cacheBypassEnabled, liveRulesFired },
+        fireEvidenceByRule,
+      ),
+    [requestHeaderSource, row.fires, rulesByUid, cacheBypassEnabled, liveRulesFired, fireEvidenceByRule],
   );
   const responseHeaders = useMemo<readonly AnnotatedHeader[]>(
     () =>
-      attributeHeaders(har?.response?.headers ?? [], row.fires, 'response', rulesByUid, {
-        cacheBypassEnabled,
-        liveRulesFired,
-      }),
-    [har?.response?.headers, row.fires, rulesByUid, cacheBypassEnabled, liveRulesFired],
+      attributeHeaders(
+        har?.response?.headers ?? [],
+        row.fires,
+        'response',
+        rulesByUid,
+        { cacheBypassEnabled, liveRulesFired },
+        fireEvidenceByRule,
+      ),
+    [har?.response?.headers, row.fires, rulesByUid, cacheBypassEnabled, liveRulesFired, fireEvidenceByRule],
   );
 
   const handOff = async (build: () => ReturnType<typeof buildHeaderDraftFromRequest> | unknown): Promise<void> => {

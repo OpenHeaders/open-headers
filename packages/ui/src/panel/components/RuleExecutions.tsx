@@ -1,5 +1,6 @@
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import { useMemo } from 'react';
+import { fireTier } from '../data/fire-evidence';
 import type { InspectorRowWithFires } from '../data/inspector-row-projection';
 import { type InspectorFire, isAppliedFire } from '../data/types';
 
@@ -18,9 +19,11 @@ function RuleActivityHeader({ onHide }: { onHide: () => void }) {
 interface RuleGroup {
   ruleUid: string;
   totalHits: number;
-  /** Hits where the rule is known to have actually run — authoritative
-   *  or `evidence: 'confirmed'`. */
+  /** Hits where the rule verifiably applied — engine-confirmed,
+   *  reporter-confirmed, or wire-corroborated. */
   appliedHits: number;
+  /** Hits where the captured headers disprove a claimed modification. */
+  contradictedHits: number;
   attachedHits: Array<{ requestId: string; url: string; t: number }>;
   danglingHits: Array<{ url: string; t: number }>;
 }
@@ -32,11 +35,13 @@ export function RuleExecutions({ rows, danglingFires, onRequestClick, onHide }: 
       for (const f of r.fires) {
         let g = byRule.get(f.ruleUid);
         if (!g) {
-          g = { ruleUid: f.ruleUid, totalHits: 0, appliedHits: 0, attachedHits: [], danglingHits: [] };
+          g = { ruleUid: f.ruleUid, totalHits: 0, appliedHits: 0, contradictedHits: 0, attachedHits: [], danglingHits: [] };
           byRule.set(f.ruleUid, g);
         }
         g.totalHits++;
-        if (isAppliedFire(f)) g.appliedHits++;
+        const tier = fireTier(r.lifecycle, f);
+        if (tier === 'applied') g.appliedHits++;
+        else if (tier === 'contradicted') g.contradictedHits++;
         if (g.attachedHits.length < 10) {
           g.attachedHits.push({ requestId: r.lifecycle.requestId, url: r.lifecycle.url, t: f.t });
         }
@@ -45,10 +50,12 @@ export function RuleExecutions({ rows, danglingFires, onRequestClick, onHide }: 
     for (const d of danglingFires) {
       let g = byRule.get(d.ruleUid);
       if (!g) {
-        g = { ruleUid: d.ruleUid, totalHits: 0, appliedHits: 0, attachedHits: [], danglingHits: [] };
+        g = { ruleUid: d.ruleUid, totalHits: 0, appliedHits: 0, contradictedHits: 0, attachedHits: [], danglingHits: [] };
         byRule.set(d.ruleUid, g);
       }
       g.totalHits++;
+      // No lifecycle to corroborate against — the engine/reporter tiers
+      // are the only evidence a dangling fire can carry.
       if (isAppliedFire(d)) g.appliedHits++;
       if (g.danglingHits.length < 10) {
         // Dangling fires don't carry a `url` field on the new InspectorFire
@@ -74,8 +81,9 @@ export function RuleExecutions({ rows, danglingFires, onRequestClick, onHide }: 
       <RuleActivityHeader onHide={onHide} />
       <div className="dt-executions">
         <div className="dt-executions-hint" style={{ marginBottom: 6 }}>
-          <strong>Applied</strong> fires are confirmed to have run — either the rule engine reported the DNR rule
-          executed, or the in-page reporter confirmed a scriptable action ran.{' '}
+          <strong>Applied</strong> fires are confirmed to have run — the rule engine reported the rule executed, the
+          in-page reporter confirmed the action ran, or the modification is visible in the captured headers.{' '}
+          <strong>Contradicted</strong> fires claimed a header change the captured headers disprove.{' '}
           <strong>Inferred</strong> fires match your rule patterns against observed requests but couldn&apos;t be
           confirmed. <strong>Off-HAR</strong> fires are rule matches on requests the panel didn&apos;t capture.
         </div>
@@ -88,6 +96,11 @@ export function RuleExecutions({ rows, danglingFires, onRequestClick, onHide }: 
               </span>
               {group.appliedHits > 0 && (
                 <span className="dt-exec-badge dt-exec-badge--auth">{group.appliedHits} applied</span>
+              )}
+              {group.contradictedHits > 0 && (
+                <span className="dt-exec-badge dt-exec-badge--contradicted">
+                  {group.contradictedHits} contradicted
+                </span>
               )}
               {group.danglingHits.length > 0 && (
                 <span className="dt-exec-badge dt-exec-badge--dangling">{group.danglingHits.length} off-HAR</span>

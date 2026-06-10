@@ -375,6 +375,16 @@ describe('internal-field strip (`_rawTiming`)', () => {
     buildHar([r]);
     expect(r.lifecycle.har[0]?._rawTiming).toBeDefined();
   });
+
+  it('the header capture stamp (`_ohHeaderCapture`) is stripped too', () => {
+    const r = row('https://api.openheaders.io/capture');
+    const har = r.lifecycle.har[0];
+    if (har == null) throw new Error('expected har');
+    har._ohHeaderCapture = { request: 'effective', response: 'effective' };
+    const doc = buildHar([r]);
+    expect(doc.log.entries[0]).not.toHaveProperty('_ohHeaderCapture');
+    expect(r.lifecycle.har[0]?._ohHeaderCapture).toBeDefined();
+  });
 });
 
 describe('sanitizeHarEntry / sanitized export', () => {
