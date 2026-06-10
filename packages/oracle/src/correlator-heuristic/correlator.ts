@@ -35,6 +35,11 @@
  *     expires un-joined (a request webRequest never saw — canceled
  *     while renderer-queued) mints its own `oh-har:` lifecycle instead
  *     of being dropped                                                ✓
+ *   - Partial-HAR synthesis from webRequest wire facts (response
+ *     headers / status line / ip) via {@link WebRequestHarBuilder}, so
+ *     a row whose devtools HAR never arrives — canceled mid-stream, no
+ *     terminal `onRequestFinished` — still populates the detail tabs;
+ *     a joined devtools HAR supersedes the partial per hop            ✓
  *
  * Deliberately deferred (own future sessions):
  *   - H4 per-URL FIFO matching refinements on top of the current FIFO
@@ -70,6 +75,7 @@ import type { FifoEvictionLogger, InFlightMatch } from './in-flight-fifo';
 import { InFlightFifo } from './in-flight-fifo';
 import { HAR_FAILURE_HOLD_MS, HAR_FORWARD_HOLD_MS } from './late-arrival-constants';
 import { RecentLifecyclesMirror } from './recent-lifecycles-mirror';
+import { WebRequestHarBuilder } from './webrequest-har-builder';
 import { webRequestEventToUpdates } from './webrequest-to-update';
 
 /**
@@ -129,6 +135,7 @@ export class HeuristicCorrelator implements RequestCorrelator {
   private readonly finalizedRetention = new FinalizedRetention();
   private readonly corsContext = new CorsContextStore();
   private readonly hopCursor = new HopCursor();
+  private readonly partialHar = new WebRequestHarBuilder();
   private readonly diagnostics: CorrelatorDiagnostics | undefined;
   private readonly webRequestUnsubscribe: () => void;
   private readonly harUnsubscribe: () => void;
@@ -156,6 +163,7 @@ export class HeuristicCorrelator implements RequestCorrelator {
     this.finalizedRetention.forgetTab(tabId);
     this.corsContext.forgetTab(tabId);
     this.hopCursor.forgetTab(tabId);
+    this.partialHar.forgetTab(tabId);
   }
 
   subscribe(listener: RequestLifecycleListener): Unsubscribe {
@@ -186,6 +194,14 @@ export class HeuristicCorrelator implements RequestCorrelator {
     const verdict = this.maybeUpdateCorsContext(event);
     const updates = webRequestEventToUpdates(event);
     for (const update of updates) this.emit(refineUpdateWithCors(update, verdict));
+    // Partial-HAR synthesis from the wire facts webRequest itself carries
+    // (response headers / status line / ip), so a row whose devtools HAR
+    // never arrives — a request canceled mid-stream gets no terminal
+    // `onRequestFinished` — still populates the detail tabs. Emitted after
+    // the mapper's updates so the phase change precedes its HAR, matching
+    // the CDP correlator's ordering; a joined devtools HAR supersedes the
+    // partial per hop (see `attachHarEntry`).
+    for (const update of this.partialHar.observe(event)) this.emit(update);
     // After the started emission seeds `recentLifecycles`, drain any
     // HAR entries that were held waiting for this in-flight slot.
     if (event.method_kind === 'onBeforeRequest') {
@@ -340,6 +356,9 @@ export class HeuristicCorrelator implements RequestCorrelator {
       requestId: match.requestId,
       hopIndex: match.hopIndex,
     });
+    // The joined entry is authoritative for this hop slot — stop the
+    // partial-HAR builder from refining over it at the hop's terminal.
+    this.partialHar.noteRealHar(tabId, match.requestId, match.hopIndex);
     this.emit(harAttachedUpdate({ tabId, requestId: match.requestId, hopIndex: match.hopIndex, entry }));
   }
 

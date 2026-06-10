@@ -194,6 +194,7 @@ function mapOnBeforeRedirect(d: chrome.webRequest.OnBeforeRedirectDetails): OnBe
     redirectUrl: d.redirectUrl,
     responseHeaders: normalizeHeaders(d.responseHeaders),
     fromCache: d.fromCache,
+    ...(d.ip !== undefined ? { ip: d.ip } : {}),
   };
 }
 
@@ -211,6 +212,7 @@ function mapOnCompleted(d: chrome.webRequest.OnCompletedDetails): OnCompletedEve
     statusCode: d.statusCode,
     statusLine: d.statusLine,
     fromCache: d.fromCache,
+    ...(d.ip !== undefined ? { ip: d.ip } : {}),
   };
 }
 
@@ -227,6 +229,7 @@ function mapOnErrorOccurred(d: chrome.webRequest.OnErrorOccurredDetails): OnErro
     frameId: d.frameId,
     error: d.error,
     fromCache: d.fromCache,
+    ...(d.ip !== undefined ? { ip: d.ip } : {}),
   };
 }
 

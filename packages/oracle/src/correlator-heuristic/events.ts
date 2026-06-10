@@ -81,6 +81,8 @@ export interface OnBeforeRedirectEvent extends WebRequestEventBase {
   readonly redirectUrl: string;
   readonly responseHeaders?: readonly WebRequestHeader[];
   readonly fromCache?: boolean;
+  /** Server IP the hop was sent to — HAR `serverIPAddress` for the hop. */
+  readonly ip?: string;
 }
 
 /** `chrome.webRequest.onCompleted`. */
@@ -89,6 +91,8 @@ export interface OnCompletedEvent extends WebRequestEventBase {
   readonly statusCode: number;
   readonly statusLine?: string;
   readonly fromCache?: boolean;
+  /** Server IP the request was sent to — HAR `serverIPAddress`. */
+  readonly ip?: string;
 }
 
 /** `chrome.webRequest.onErrorOccurred`. */
@@ -97,6 +101,8 @@ export interface OnErrorOccurredEvent extends WebRequestEventBase {
   /** Chromium net-stack code, e.g. `'net::ERR_FAILED'`. */
   readonly error: string;
   readonly fromCache?: boolean;
+  /** Server IP the request was sent to — HAR `serverIPAddress`. */
+  readonly ip?: string;
 }
 
 export type WebRequestEvent =
