@@ -53,8 +53,9 @@ function rawResponseReceived(requestId: string, url: string): object {
       url,
       status: 200,
       statusText: 'OK',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json; charset=utf-8' },
       mimeType: 'application/json',
+      charset: 'utf-8',
       remoteIPAddress: '93.184.216.34',
       protocol: 'h2',
       timing: { requestTime: 100, sendStart: 1, sendEnd: 2, receiveHeadersEnd: 5 },
@@ -145,6 +146,7 @@ describe('ChromeDebuggerEventSource — normalize onEvent → CdpNetworkEvent', 
         remoteIPAddress: '93.184.216.34',
         protocol: 'h2',
         mimeType: 'application/json',
+        charset: 'utf-8',
         timing: { requestTime: 100, receiveHeadersEnd: 5 },
       },
     });
@@ -450,6 +452,10 @@ describe('ChromeDebuggerEventSource — attach handshake + child sessions (B1)',
     const methods = chromeMock.debugger.sendCommand.mock.calls.map((c) => c[1]);
     expect(methods).toContain('Network.enable');
     expect(methods).toContain('Target.setAutoAttach');
+    // Body-buffer sizes matched to the browser's own DevTools session, so
+    // body retention (getResponseBody / streamResourceContent) is at parity.
+    const enableCall = chromeMock.debugger.sendCommand.mock.calls.find((c) => c[1] === 'Network.enable');
+    expect(enableCall?.[2]).toEqual({ maxTotalBufferSize: 250 * 1024 * 1024, maxPostDataSize: 64 * 1024 });
     const autoAttachCall = chromeMock.debugger.sendCommand.mock.calls.find((c) => c[1] === 'Target.setAutoAttach');
     expect(autoAttachCall?.[2]).toMatchObject({ autoAttach: true, waitForDebuggerOnStart: false, flatten: true });
   });
@@ -639,6 +645,63 @@ describe('ChromeDebuggerEventSource — fetchResponseBody (on-demand pull seam)'
     try {
       const inert = new ChromeDebuggerEventSource();
       await expect(inert.fetchResponseBody(TAB, 'page', 'r-1')).rejects.toThrow();
+      inert.dispose();
+    } finally {
+      vi.stubGlobal('chrome', chromeMock);
+    }
+  });
+});
+
+describe('ChromeDebuggerEventSource — streamResponseBody (in-flight pull seam)', () => {
+  function getStreamCall() {
+    return chromeMock.debugger.sendCommand.mock.calls.find((c) => c[1] === 'Network.streamResourceContent');
+  }
+
+  it('issues Network.streamResourceContent on the root page target and returns the buffer', async () => {
+    source = new ChromeDebuggerEventSource();
+    await source.attach(TAB);
+    chromeMock.debugger.sendCommand.mockResolvedValueOnce({ bufferedData: 'PCFkb2N0eXBlIGh0bWw+' });
+
+    const result = await source.streamResponseBody(TAB, 'page', 'r-1');
+
+    expect(result).toEqual({ bufferedData: 'PCFkb2N0eXBlIGh0bWw+' });
+    const call = getStreamCall();
+    expect(call?.[0]).toEqual({ tabId: TAB });
+    expect(call?.[2]).toEqual({ requestId: 'r-1' });
+  });
+
+  it('routes on a flattened child session', async () => {
+    source = new ChromeDebuggerEventSource();
+    await source.attach(TAB);
+    chromeMock.debugger.sendCommand.mockResolvedValueOnce({ bufferedData: 'AQID' });
+
+    const result = await source.streamResponseBody(TAB, CHILD_SESSION, 'r-7');
+
+    expect(result).toEqual({ bufferedData: 'AQID' });
+    expect(getStreamCall()?.[0]).toEqual({ tabId: TAB, sessionId: CHILD_SESSION });
+  });
+
+  it('rejects when the request cannot be streamed (already finished)', async () => {
+    source = new ChromeDebuggerEventSource();
+    await source.attach(TAB);
+    chromeMock.debugger.sendCommand.mockRejectedValueOnce(new Error('Unable to stream'));
+
+    await expect(source.streamResponseBody(TAB, 'page', 'r-done')).rejects.toThrow();
+  });
+
+  it('rejects on a malformed result so the empty-body slot is never poisoned', async () => {
+    source = new ChromeDebuggerEventSource();
+    await source.attach(TAB);
+    chromeMock.debugger.sendCommand.mockResolvedValueOnce(undefined);
+
+    await expect(source.streamResponseBody(TAB, 'page', 'r-1')).rejects.toThrow();
+  });
+
+  it('rejects when chrome.debugger is absent (inert host)', async () => {
+    vi.stubGlobal('chrome', { ...chromeMock, debugger: undefined });
+    try {
+      const inert = new ChromeDebuggerEventSource();
+      await expect(inert.streamResponseBody(TAB, 'page', 'r-1')).rejects.toThrow();
       inert.dispose();
     } finally {
       vi.stubGlobal('chrome', chromeMock);

@@ -110,6 +110,9 @@ export interface CdpResponseParams {
   readonly protocol?: string;
   /** Resolved MIME type — HAR `response.content.mimeType`. */
   readonly mimeType?: string;
+  /** Charset from the `Content-Type` header (e.g. `utf-8`) — decodes a
+   *  streamed (raw-bytes) body fetched for a text MIME type. */
+  readonly charset?: string;
   /** Connection-level timing legs — source for HAR `timings`. */
   readonly timing?: CdpResourceTiming;
   /** Bytes over the wire (headers + encoded body) — HAR `_transferSize`.
@@ -300,6 +303,17 @@ export interface CdpResponseBody {
 }
 
 /**
+ * Result of `Network.streamResourceContent` — every byte received so far
+ * for an in-flight request, as base64 of the raw bytes. Unlike
+ * `getResponseBody` (which only serves finished requests), this works on a
+ * request with no terminal event yet — including a request canceled
+ * mid-stream, which never gets one and stays in-flight on the CDP plane.
+ */
+export interface CdpBufferedResponseBody {
+  readonly bufferedData: string;
+}
+
+/**
  * The seam between the host-neutral correlator and the chrome bindings.
  * Tests inject an in-memory source; the extension SW injects a source
  * backed by `chrome.debugger` (Slice 2). No `chrome.*` reference crosses
@@ -308,13 +322,16 @@ export interface CdpResponseBody {
  * `subscribe` is the push half — the `Network.*` event stream;
  * `subscribePage` is its sibling for the `Page.*` lifecycle stream (page
  * timings), kept separate so the request correlator's network subscription
- * is unaffected. The lone pull half is {@link fetchResponseBody}: the
- * correlator commands a body
- * fetch on demand (Slice 8) when the panel asks for one. The seam takes
+ * is unaffected. The pull half is the body-fetch pair, commanded on demand
+ * (Slice 8) when the panel asks for one — {@link fetchResponseBody} for a
+ * finished request, {@link streamResponseBody} for one still in flight
+ * (the browser's own Response tab branches on `finished` the same way; a
+ * finished request's buffered body is only reachable via the first, an
+ * in-flight one only via the second). Both take
  * `(tabId, sessionId, rawRequestId)` because a CDP `requestId` is unique
  * only within a session and the adapter routes the command on the matching
- * `chrome.debugger` session (root page target vs a flattened child). It
- * rejects when the body is unavailable — the host evicted it, or the host
+ * `chrome.debugger` session (root page target vs a flattened child). They
+ * reject when the body is unavailable — the host evicted it, or the host
  * has no CDP transport at all (Firefox / Safari) — and the correlator
  * surfaces that as an empty body rather than a thrown error.
  */
@@ -323,4 +340,5 @@ export interface CdpEventSource {
   /** The `Page.*` lifecycle stream — page-timing source, root target only. */
   subscribePage(listener: (event: CdpPageEvent) => void): () => void;
   fetchResponseBody(tabId: number, sessionId: string, rawRequestId: string): Promise<CdpResponseBody>;
+  streamResponseBody(tabId: number, sessionId: string, rawRequestId: string): Promise<CdpBufferedResponseBody>;
 }

@@ -35,6 +35,7 @@
  */
 
 import type {
+  CdpBufferedResponseBody,
   CdpCallFrame,
   CdpEventSource,
   CdpInitiator,
@@ -57,6 +58,17 @@ type DebuggerApi = BrowserAPI['debugger'];
 
 /** Protocol version handed to `chrome.debugger.attach`. */
 const CDP_PROTOCOL_VERSION = '1.3';
+
+/**
+ * `Network.enable` buffer sizes, matched to the browser's own DevTools
+ * session so body retention behaves identically: the backend buffers
+ * response bodies (served later by `getResponseBody` /
+ * `streamResourceContent`) only up to these limits, and the bare-enable
+ * defaults are smaller — bodies the browser's panel can still show would
+ * read as evicted here.
+ */
+const MAX_RESPONSE_BODY_TOTAL_BUFFER_BYTES = 250 * 1024 * 1024;
+const MAX_EAGER_POST_BODY_BYTES = 64 * 1024;
 
 /**
  * Synthetic session id stamped on root (page-target) events. The
@@ -134,13 +146,39 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
   async fetchResponseBody(tabId: number, sessionId: string, rawRequestId: string): Promise<CdpResponseBody> {
     const api = this.api();
     if (!api) throw new Error('CDP transport unavailable');
-    const session: chrome.debugger.DebuggerSession = sessionId === ROOT_SESSION_ID ? { tabId } : { tabId, sessionId };
+    const session = this.sessionFor(tabId, sessionId);
     const result = await api.sendCommand(session, 'Network.getResponseBody', { requestId: rawRequestId });
     const raw = result as RawGetResponseBody | undefined;
     if (typeof raw?.body !== 'string' || typeof raw.base64Encoded !== 'boolean') {
       throw new Error('Network.getResponseBody returned an unexpected shape');
     }
     return { body: raw.body, base64Encoded: raw.base64Encoded };
+  }
+
+  /**
+   * `CdpEventSource` pull seam — the in-flight sibling of
+   * {@link fetchResponseBody}. `Network.streamResourceContent` returns the
+   * bytes received so far for a request with no terminal event (base64 of
+   * raw bytes), the only command that serves one — including a request
+   * canceled mid-stream, which never gets a terminal. Rejects on an absent
+   * transport, an already-finished request, or a malformed result; the
+   * correlator turns any rejection into an empty body.
+   */
+  async streamResponseBody(tabId: number, sessionId: string, rawRequestId: string): Promise<CdpBufferedResponseBody> {
+    const api = this.api();
+    if (!api) throw new Error('CDP transport unavailable');
+    const session = this.sessionFor(tabId, sessionId);
+    const result = await api.sendCommand(session, 'Network.streamResourceContent', { requestId: rawRequestId });
+    const raw = result as RawStreamResourceContent | undefined;
+    if (typeof raw?.bufferedData !== 'string') {
+      throw new Error('Network.streamResourceContent returned an unexpected shape');
+    }
+    return { bufferedData: raw.bufferedData };
+  }
+
+  /** Map the synthetic root session id onto a bare `{tabId}` debuggee. */
+  private sessionFor(tabId: number, sessionId: string): chrome.debugger.DebuggerSession {
+    return sessionId === ROOT_SESSION_ID ? { tabId } : { tabId, sessionId };
   }
 
   /**
@@ -341,7 +379,10 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
   // ── chrome.debugger command helpers ───────────────────────────────
 
   private enableNetwork(session: chrome.debugger.DebuggerSession): Promise<void> {
-    return this.send(session, 'Network.enable');
+    return this.send(session, 'Network.enable', {
+      maxTotalBufferSize: MAX_RESPONSE_BODY_TOTAL_BUFFER_BYTES,
+      maxPostDataSize: MAX_EAGER_POST_BODY_BYTES,
+    });
   }
 
   private enablePage(session: chrome.debugger.DebuggerSession): Promise<void> {
@@ -432,6 +473,7 @@ interface RawResponse {
   readonly statusText: string;
   readonly headers?: Record<string, string>;
   readonly mimeType?: string;
+  readonly charset?: string;
   readonly remoteIPAddress?: string;
   readonly remotePort?: number;
   readonly connectionId?: number;
@@ -519,6 +561,11 @@ interface RawResponseReceivedExtraInfo {
 interface RawGetResponseBody {
   readonly body: string;
   readonly base64Encoded: boolean;
+}
+
+/** `Network.streamResourceContent` result — bytes received so far, base64. */
+interface RawStreamResourceContent {
+  readonly bufferedData: string;
 }
 
 interface RawTargetInfo {
@@ -703,6 +750,7 @@ function normalizeResponse(r: RawResponse): CdpResponseParams {
     ...(r.connectionId !== undefined ? { connectionId: r.connectionId } : {}),
     ...(r.protocol !== undefined ? { protocol: r.protocol } : {}),
     ...(r.mimeType !== undefined ? { mimeType: r.mimeType } : {}),
+    ...(r.charset !== undefined ? { charset: r.charset } : {}),
     ...(r.timing !== undefined ? { timing: normalizeTiming(r.timing) } : {}),
     ...(r.encodedDataLength !== undefined ? { encodedDataLength: r.encodedDataLength } : {}),
   };

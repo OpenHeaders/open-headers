@@ -3,10 +3,15 @@
  * wiring is forbidden (see `CdpCorrelatorStub.fromChromeDebugger`).
  */
 
-import type { CdpEventSource, CdpNetworkEvent, CdpResponseBody } from '../../src/correlator-cdp/events';
+import type {
+  CdpBufferedResponseBody,
+  CdpEventSource,
+  CdpNetworkEvent,
+  CdpResponseBody,
+} from '../../src/correlator-cdp/events';
 import type { CdpPageEvent } from '../../src/correlator-cdp/page-events';
 
-/** One recorded `fetchResponseBody` call, for assertions. */
+/** One recorded body-fetch call (either seam method), for assertions. */
 export interface BodyFetchCall {
   readonly tabId: number;
   readonly sessionId: string;
@@ -18,12 +23,17 @@ export class InMemoryCdpSource implements CdpEventSource {
   private readonly pageListeners = new Set<(event: CdpPageEvent) => void>();
   /** Every `fetchResponseBody` call, in order — assert the resolved identity. */
   readonly bodyCalls: BodyFetchCall[] = [];
+  /** Every `streamResponseBody` call, in order — assert the in-flight routing. */
+  readonly streamCalls: BodyFetchCall[] = [];
   /**
    * Programmable body responder. Defaults to rejecting (the "host has no
    * body" path the correlator turns into an empty body); tests override it
    * to resolve a specific `{ body, base64Encoded }`.
    */
   bodyResponder: (call: BodyFetchCall) => Promise<CdpResponseBody> = () => Promise.reject(new Error('no body'));
+  /** As {@link bodyResponder}, for the in-flight streamed-body seam. */
+  streamResponder: (call: BodyFetchCall) => Promise<CdpBufferedResponseBody> = () =>
+    Promise.reject(new Error('no body'));
 
   subscribe(listener: (event: CdpNetworkEvent) => void): () => void {
     this.listeners.add(listener);
@@ -43,6 +53,12 @@ export class InMemoryCdpSource implements CdpEventSource {
     const call: BodyFetchCall = { tabId, sessionId, rawRequestId };
     this.bodyCalls.push(call);
     return this.bodyResponder(call);
+  }
+
+  streamResponseBody(tabId: number, sessionId: string, rawRequestId: string): Promise<CdpBufferedResponseBody> {
+    const call: BodyFetchCall = { tabId, sessionId, rawRequestId };
+    this.streamCalls.push(call);
+    return this.streamResponder(call);
   }
 
   emit(event: CdpNetworkEvent): void {

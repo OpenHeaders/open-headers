@@ -136,6 +136,22 @@ export interface CdpBodyRef {
   readonly startedDateTime: string;
 }
 
+/**
+ * Everything a body fetch needs to pick its command and shape the result:
+ * the {@link CdpBodyRef} identity, whether the request is still in flight
+ * (no terminal event yet — routes the fetch to `streamResourceContent`,
+ * the only command that serves an unfinished request's bytes-so-far; a
+ * finished request routes to `getResponseBody`), and the current hop's
+ * MIME type + charset, which decode a streamed raw-bytes body to text.
+ * Composed at query time from the live HAR state; a request whose state
+ * was retention-swept reads as finished (only finalized states are swept).
+ */
+export interface CdpBodyFetchContext extends CdpBodyRef {
+  readonly inFlight: boolean;
+  readonly mimeType?: string;
+  readonly charset?: string;
+}
+
 interface HopPartial {
   /** Wall-clock ISO start, stamped from this hop's `requestWillBeSent.wallTime`. */
   readonly startedDateTime: string;
@@ -260,13 +276,22 @@ export class CdpHarBuilder {
   }
 
   /**
-   * The body ref for a store id, or `undefined` if the request was never
-   * seen on this tab (or its ref was cap-evicted). The lazy body fetcher
-   * (Slice 8) resolves the raw CDP identity + descriptive fields through
-   * this.
+   * The body-fetch context for a store id, or `undefined` if the request
+   * was never seen on this tab (or its ref was cap-evicted). The lazy body
+   * fetcher (Slice 8) resolves the raw CDP identity, the in-flight bit and
+   * the decode hints through this.
    */
-  bodyContext(tabId: number, requestId: string): CdpBodyRef | undefined {
-    return this.bodyRefs.get(tabId)?.get(requestId);
+  bodyContext(tabId: number, requestId: string): CdpBodyFetchContext | undefined {
+    const ref = this.bodyRefs.get(tabId)?.get(requestId);
+    if (ref === undefined) return undefined;
+    const state = this.getState(tabId, requestId);
+    const response = state?.hops[state.hopCursor]?.response;
+    return {
+      ...ref,
+      inFlight: state !== undefined && state.finalizedAtMs === undefined,
+      ...(response?.mimeType !== undefined ? { mimeType: response.mimeType } : {}),
+      ...(response?.charset !== undefined ? { charset: response.charset } : {}),
+    };
   }
 
   /** Drop all HAR state for a tab — invariant 2 (lifecycles die with the tab). */

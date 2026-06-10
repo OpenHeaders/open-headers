@@ -13,8 +13,14 @@
 
 export { cdpBlockedReasonLabel } from './blocked-reason';
 export type { CdpBodySourceRequest, CdpRawResponseBody } from './cdp-body-synth';
-export { cdpBodyToHarBody, emptyCdpHarBody, MAX_CDP_RESPONSE_BODY_CHARS } from './cdp-body-synth';
-export type { CdpBodyRef } from './cdp-har-builder';
+export {
+  cdpBodyToHarBody,
+  emptyCdpHarBody,
+  isTextMimeType,
+  MAX_CDP_RESPONSE_BODY_CHARS,
+  streamedCdpBodyToHarBody,
+} from './cdp-body-synth';
+export type { CdpBodyFetchContext, CdpBodyRef } from './cdp-har-builder';
 export {
   CDP_HAR_RETENTION_MS,
   CdpHarBuilder,
@@ -46,6 +52,7 @@ export {
 } from './cdp-wall-clock';
 export { CdpCorrelator } from './correlator';
 export type {
+  CdpBufferedResponseBody,
   CdpCallFrame,
   CdpEventSource,
   CdpInitiator,

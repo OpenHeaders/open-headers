@@ -939,6 +939,72 @@ describe('CdpHarBuilder — lifecycle bookkeeping', () => {
   });
 });
 
+describe('CdpHarBuilder — bodyContext (the body-fetch plan)', () => {
+  const ctx: TraceCtx = { tabId: TAB, requestId: 'plan' };
+  const storeId = cdpStoreRequestId(PAGE_SESSION, ctx.requestId);
+
+  it('reads in-flight with no decode hints before the response', () => {
+    const builder = new CdpHarBuilder();
+    builder.observe(cdpStart(ctx));
+    const plan = builder.bodyContext(TAB, storeId);
+    expect(plan).toMatchObject({ rawRequestId: 'plan', sessionId: PAGE_SESSION, inFlight: true });
+    expect(plan?.mimeType).toBeUndefined();
+    expect(plan?.charset).toBeUndefined();
+  });
+
+  it('carries the response MIME type + charset once headers land, still in flight', () => {
+    const builder = new CdpHarBuilder();
+    builder.observe(cdpStart(ctx));
+    builder.observe(
+      cdpResponse(ctx, {
+        response: {
+          url: 'https://api.openheaders.io/users',
+          status: 200,
+          statusText: 'OK',
+          mimeType: 'text/html',
+          charset: 'utf-8',
+        },
+      }),
+    );
+    expect(builder.bodyContext(TAB, storeId)).toMatchObject({
+      inFlight: true,
+      mimeType: 'text/html',
+      charset: 'utf-8',
+    });
+  });
+
+  it('reads finished after a success terminal', () => {
+    const builder = new CdpHarBuilder();
+    builder.observe(cdpStart(ctx));
+    builder.observe(cdpResponse(ctx));
+    builder.observe(cdpFinished(ctx));
+    expect(builder.bodyContext(TAB, storeId)?.inFlight).toBe(false);
+  });
+
+  it('reads finished after a failure terminal', () => {
+    const builder = new CdpHarBuilder();
+    builder.observe(cdpStart(ctx));
+    builder.observe(cdpFailed(ctx));
+    expect(builder.bodyContext(TAB, storeId)?.inFlight).toBe(false);
+  });
+
+  it('reads finished for a retention-swept request whose ref survives', () => {
+    const builder = new CdpHarBuilder();
+    builder.observe(cdpStart(ctx, { timestamp: 100 }));
+    builder.observe(cdpResponse(ctx, { timestamp: 100.5 }));
+    builder.observe(cdpFinished(ctx, { timestamp: 101 }));
+    // Sweep the finalized HAR state; the body ref outlives it.
+    builder.observe(cdpStart({ tabId: TAB, requestId: 'next' }, { timestamp: 200 }));
+    const plan = builder.bodyContext(TAB, storeId);
+    expect(plan).toMatchObject({ rawRequestId: 'plan', inFlight: false });
+  });
+
+  it('is undefined for an unknown request', () => {
+    const builder = new CdpHarBuilder();
+    expect(builder.bodyContext(TAB, 'session-page::missing')).toBeUndefined();
+  });
+});
+
 // ── store round-trip (invariants hold) ──────────────────────────────
 
 describe('CdpCorrelator → RequestLifecycleStore — HAR lands per hop with zero rejections', () => {

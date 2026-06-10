@@ -9,7 +9,9 @@ import {
   type CdpBodySourceRequest,
   cdpBodyToHarBody,
   emptyCdpHarBody,
+  isTextMimeType,
   MAX_CDP_RESPONSE_BODY_CHARS,
+  streamedCdpBodyToHarBody,
 } from '../../src/correlator-cdp/cdp-body-synth';
 
 const SOURCE: CdpBodySourceRequest = {
@@ -81,5 +83,92 @@ describe('emptyCdpHarBody', () => {
       content: '',
       encoding: '',
     });
+  });
+});
+
+describe('isTextMimeType', () => {
+  it.each([
+    'text/html',
+    'text/plain',
+    'multipart/form-data',
+    'application/json',
+    'application/manifest+json',
+    'application/xhtml+xml',
+    'image/svg+xml',
+    'application/javascript',
+    'application/x-javascript',
+  ])('treats %s as text', (mime) => {
+    expect(isTextMimeType(mime)).toBe(true);
+  });
+
+  it.each([
+    'image/png',
+    'application/octet-stream',
+    'font/woff2',
+    'video/mp4',
+    'application/wasm',
+  ])('treats %s as binary', (mime) => {
+    expect(isTextMimeType(mime)).toBe(false);
+  });
+});
+
+describe('streamedCdpBodyToHarBody', () => {
+  // 'PCFkb2N0eXBlIGh0bWw+' === base64('<!doctype html>')
+  const HTML_B64 = 'PCFkb2N0eXBlIGh0bWw+';
+
+  it('decodes a text-MIME buffered body to text (empty encoding)', () => {
+    const body = streamedCdpBodyToHarBody(SOURCE, HTML_B64, 'text/html', 'utf-8');
+    expect(body.content).toBe('<!doctype html>');
+    expect(body.encoding).toBe('');
+  });
+
+  it('decodes multibyte UTF-8 correctly', () => {
+    // 'Z3LDvG4=' === base64(utf8('grün'))
+    const body = streamedCdpBodyToHarBody(SOURCE, 'Z3LDvG4=', 'text/plain', undefined);
+    expect(body.content).toBe('grün');
+  });
+
+  it('falls back to UTF-8 on an unknown charset label', () => {
+    const body = streamedCdpBodyToHarBody(SOURCE, HTML_B64, 'text/html', 'no-such-charset');
+    expect(body.content).toBe('<!doctype html>');
+    expect(body.encoding).toBe('');
+  });
+
+  it('keeps a non-text MIME body as base64', () => {
+    const body = streamedCdpBodyToHarBody(SOURCE, 'AQID', 'image/png', undefined);
+    expect(body.content).toBe('AQID');
+    expect(body.encoding).toBe('base64');
+  });
+
+  it('keeps an unknown-MIME body as base64 (no response seen yet)', () => {
+    const body = streamedCdpBodyToHarBody(SOURCE, 'AQID', undefined, undefined);
+    expect(body.content).toBe('AQID');
+    expect(body.encoding).toBe('base64');
+  });
+
+  it('keeps a malformed base64 text-MIME body as base64 rather than corrupting it', () => {
+    const body = streamedCdpBodyToHarBody(SOURCE, '!!!not-base64!!!', 'text/html', 'utf-8');
+    expect(body.content).toBe('!!!not-base64!!!');
+    expect(body.encoding).toBe('base64');
+  });
+
+  it('truncates over-cap decoded text to the head', () => {
+    // 'YWJjZGVmZ2hpag==' === base64('abcdefghij')
+    const body = streamedCdpBodyToHarBody(SOURCE, 'YWJjZGVmZ2hpag==', 'text/plain', undefined, 8);
+    expect(body.content).toBe('abcdefgh');
+    expect(body.encoding).toBe('');
+  });
+
+  it('drops an over-cap binary body to empty (a truncated base64 string is unusable)', () => {
+    const body = streamedCdpBodyToHarBody(SOURCE, 'QUJDREVG', 'image/png', undefined, 4);
+    expect(body.content).toBe('');
+    expect(body.encoding).toBe('');
+  });
+
+  it('carries the source request fields for context', () => {
+    const body = streamedCdpBodyToHarBody(SOURCE, HTML_B64, 'text/html', 'utf-8');
+    expect(body.method).toBe('GET');
+    expect(body.url).toBe('https://api.openheaders.io/data');
+    expect(body.startedDateTime).toBe('2026-06-05T12:00:00.000Z');
   });
 });

@@ -82,7 +82,26 @@ describe('CdpCorrelator — attach / subscribe / emit', () => {
 describe('CdpCorrelator — requestBody (lazy on-demand body fetch)', () => {
   const STORE_ID = 'session-page::r-1';
 
-  function attachedWithRequest() {
+  const responseEvent: CdpNetworkEvent = {
+    method: 'Network.responseReceived',
+    tabId: TAB,
+    sessionId: 'session-page',
+    requestId: 'r-1',
+    timestamp: 1.5,
+    type: 'XHR',
+    response: { url: 'https://api.openheaders.io/x', status: 200, statusText: 'OK' },
+  };
+
+  const finishedEvent: CdpNetworkEvent = {
+    method: 'Network.loadingFinished',
+    tabId: TAB,
+    sessionId: 'session-page',
+    requestId: 'r-1',
+    timestamp: 2,
+    encodedDataLength: 1024,
+  };
+
+  function attachedWith(...events: CdpNetworkEvent[]) {
     const source = new InMemoryCdpSource();
     const correlator = new CdpCorrelator(source);
     const collected: RequestLifecycleUpdate[] = [];
@@ -90,7 +109,12 @@ describe('CdpCorrelator — requestBody (lazy on-demand body fetch)', () => {
     correlator.attachTab(TAB);
     // requestWillBeSent records the body ref the fetch resolves against.
     source.emit(startEvent);
+    for (const event of events) source.emit(event);
     return { source, correlator, collected };
+  }
+
+  function attachedFinished() {
+    return attachedWith(responseEvent, finishedEvent);
   }
 
   function bodyAttached(updates: RequestLifecycleUpdate[]) {
@@ -98,10 +122,11 @@ describe('CdpCorrelator — requestBody (lazy on-demand body fetch)', () => {
   }
 
   it('resolves the raw (sessionId, rawRequestId) and emits body-attached at the hop', async () => {
-    const { source, correlator, collected } = attachedWithRequest();
+    const { source, correlator, collected } = attachedFinished();
     source.bodyResponder = () => Promise.resolve({ body: '{"ok":true}', base64Encoded: false });
     await correlator.requestBody(TAB, STORE_ID, 0);
     expect(source.bodyCalls).toEqual([{ tabId: TAB, sessionId: 'session-page', rawRequestId: 'r-1' }]);
+    expect(source.streamCalls).toHaveLength(0);
     const body = bodyAttached(collected);
     expect(body).toMatchObject({ kind: 'body-attached', tabId: TAB, requestId: STORE_ID, hopIndex: 0 });
     if (body?.kind === 'body-attached') {
@@ -112,7 +137,7 @@ describe('CdpCorrelator — requestBody (lazy on-demand body fetch)', () => {
   });
 
   it('maps a base64 body through to encoding base64', async () => {
-    const { source, correlator, collected } = attachedWithRequest();
+    const { source, correlator, collected } = attachedFinished();
     source.bodyResponder = () => Promise.resolve({ body: 'AQID', base64Encoded: true });
     await correlator.requestBody(TAB, STORE_ID, 0);
     const body = bodyAttached(collected);
@@ -121,7 +146,7 @@ describe('CdpCorrelator — requestBody (lazy on-demand body fetch)', () => {
   });
 
   it('emits an empty body when the seam rejects (host evicted the body)', async () => {
-    const { source, correlator, collected } = attachedWithRequest();
+    const { source, correlator, collected } = attachedFinished();
     source.bodyResponder = () => Promise.reject(new Error('No resource with given identifier found'));
     await correlator.requestBody(TAB, STORE_ID, 0);
     const body = bodyAttached(collected);
@@ -131,9 +156,10 @@ describe('CdpCorrelator — requestBody (lazy on-demand body fetch)', () => {
   });
 
   it('emits an empty body for an unknown request id without hitting the seam', async () => {
-    const { source, correlator, collected } = attachedWithRequest();
+    const { source, correlator, collected } = attachedFinished();
     await correlator.requestBody(TAB, 'session-page::missing', 0);
     expect(source.bodyCalls).toHaveLength(0);
+    expect(source.streamCalls).toHaveLength(0);
     const body = bodyAttached(collected);
     expect(body?.kind).toBe('body-attached');
     if (body?.kind === 'body-attached') expect(body.body.content).toBe('');
@@ -141,11 +167,83 @@ describe('CdpCorrelator — requestBody (lazy on-demand body fetch)', () => {
   });
 
   it('is a no-op for a tab not attached to this correlator', async () => {
-    const { source, correlator, collected } = attachedWithRequest();
+    const { source, correlator, collected } = attachedFinished();
     correlator.detachTab(TAB);
     await correlator.requestBody(TAB, STORE_ID, 0);
     expect(source.bodyCalls).toHaveLength(0);
     expect(bodyAttached(collected)).toBeUndefined();
+    correlator.dispose();
+  });
+
+  it('routes an in-flight request (no terminal event) to the streamed-body seam', async () => {
+    const { source, correlator, collected } = attachedWith();
+    source.streamResponder = () => Promise.resolve({ bufferedData: 'AQID' });
+    await correlator.requestBody(TAB, STORE_ID, 0);
+    expect(source.streamCalls).toEqual([{ tabId: TAB, sessionId: 'session-page', rawRequestId: 'r-1' }]);
+    expect(source.bodyCalls).toHaveLength(0);
+    const body = bodyAttached(collected);
+    // No response yet → no MIME type → the raw bytes stay base64.
+    if (body?.kind === 'body-attached') {
+      expect(body.body.content).toBe('AQID');
+      expect(body.body.encoding).toBe('base64');
+    }
+    correlator.dispose();
+  });
+
+  it('decodes a streamed text-MIME body with its charset (a doc canceled mid-stream)', async () => {
+    // The canceled-mid-stream document shape: headers + body chunks arrived,
+    // then the load was stopped — no terminal event ever fires, so only the
+    // streamed buffer can serve the bytes received so far.
+    const htmlResponse: CdpNetworkEvent = {
+      ...responseEvent,
+      response: {
+        url: 'https://api.openheaders.io/x',
+        status: 200,
+        statusText: 'OK',
+        mimeType: 'text/html',
+        charset: 'utf-8',
+      },
+    };
+    const { source, correlator, collected } = attachedWith(htmlResponse);
+    // 'PCFkb2N0eXBlIGh0bWw+' === base64('<!doctype html>')
+    source.streamResponder = () => Promise.resolve({ bufferedData: 'PCFkb2N0eXBlIGh0bWw+' });
+    await correlator.requestBody(TAB, STORE_ID, 0);
+    expect(source.streamCalls).toHaveLength(1);
+    expect(source.bodyCalls).toHaveLength(0);
+    const body = bodyAttached(collected);
+    if (body?.kind === 'body-attached') {
+      expect(body.body.content).toBe('<!doctype html>');
+      expect(body.body.encoding).toBe('');
+    }
+    correlator.dispose();
+  });
+
+  it('routes a failed request (terminal loadingFailed) to getResponseBody, not streaming', async () => {
+    const failedEvent: CdpNetworkEvent = {
+      method: 'Network.loadingFailed',
+      tabId: TAB,
+      sessionId: 'session-page',
+      requestId: 'r-1',
+      timestamp: 2,
+      type: 'XHR',
+      errorText: 'net::ERR_ABORTED',
+      canceled: true,
+    };
+    const { source, correlator } = attachedWith(responseEvent, failedEvent);
+    source.bodyResponder = () => Promise.resolve({ body: '', base64Encoded: false });
+    await correlator.requestBody(TAB, STORE_ID, 0);
+    expect(source.bodyCalls).toHaveLength(1);
+    expect(source.streamCalls).toHaveLength(0);
+    correlator.dispose();
+  });
+
+  it('emits an empty body when the streamed seam rejects', async () => {
+    const { source, correlator, collected } = attachedWith();
+    source.streamResponder = () => Promise.reject(new Error('Unable to stream'));
+    await correlator.requestBody(TAB, STORE_ID, 0);
+    const body = bodyAttached(collected);
+    expect(body?.kind).toBe('body-attached');
+    if (body?.kind === 'body-attached') expect(body.body.content).toBe('');
     correlator.dispose();
   });
 });

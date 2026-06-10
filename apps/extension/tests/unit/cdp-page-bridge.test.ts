@@ -5,6 +5,7 @@
  */
 
 import type {
+  CdpBufferedResponseBody,
   CdpEventSource,
   CdpNetworkEvent,
   CdpPageEvent,
@@ -30,6 +31,9 @@ class FakeCdpSource implements CdpEventSource {
     return () => this.page.delete(l);
   }
   fetchResponseBody(): Promise<CdpResponseBody> {
+    return Promise.reject(new Error('no body'));
+  }
+  streamResponseBody(): Promise<CdpBufferedResponseBody> {
     return Promise.reject(new Error('no body'));
   }
   emit(e: CdpNetworkEvent): void {

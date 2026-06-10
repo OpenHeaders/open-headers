@@ -28,8 +28,8 @@ import type {
 } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarBody } from '@openheaders/core/types';
 
-import { cdpBodyToHarBody, emptyCdpHarBody } from './cdp-body-synth';
-import { type CdpBodyRef, CdpHarBuilder } from './cdp-har-builder';
+import { cdpBodyToHarBody, emptyCdpHarBody, streamedCdpBodyToHarBody } from './cdp-body-synth';
+import { type CdpBodyFetchContext, CdpHarBuilder } from './cdp-har-builder';
 import { cdpEventToUpdates } from './cdp-to-update';
 import { CdpWallClock } from './cdp-wall-clock';
 import type { CdpEventSource, CdpNetworkEvent } from './events';
@@ -82,6 +82,13 @@ export class CdpCorrelator implements RequestCorrelator {
    * `harBodyByHop` slot the heuristic path fills eagerly — the store is the
    * single downstream either way.
    *
+   * The command is picked by terminal state, mirroring the browser's own
+   * Response tab: a finished request's body lives behind `getResponseBody`;
+   * an in-flight one — including a request canceled mid-stream, which never
+   * gets a terminal event — only behind `streamResourceContent`, whose
+   * buffered bytes-so-far become the body. No cross-fallbacks: each state
+   * has exactly one command that can serve it.
+   *
    * A tab not attached to this correlator (heuristic-owned, where the body
    * is already eager) is a no-op. Anything that yields no body — an unknown
    * or cap-evicted request, or a body the host has dropped — resolves to an
@@ -90,17 +97,21 @@ export class CdpCorrelator implements RequestCorrelator {
    */
   async requestBody(tabId: number, requestId: string, hopIndex: number): Promise<void> {
     if (!this.attached.has(tabId)) return;
-    const ref = this.harBuilder.bodyContext(tabId, requestId);
-    const body = ref === undefined ? emptyCdpHarBody(UNKNOWN_BODY_SOURCE) : await this.fetchBody(tabId, ref);
+    const context = this.harBuilder.bodyContext(tabId, requestId);
+    const body = context === undefined ? emptyCdpHarBody(UNKNOWN_BODY_SOURCE) : await this.fetchBody(tabId, context);
     this.emit({ kind: 'body-attached', tabId, requestId, hopIndex, body });
   }
 
-  private async fetchBody(tabId: number, ref: CdpBodyRef): Promise<InspectorHarBody> {
+  private async fetchBody(tabId: number, context: CdpBodyFetchContext): Promise<InspectorHarBody> {
     try {
-      const raw = await this.source.fetchResponseBody(tabId, ref.sessionId, ref.rawRequestId);
-      return cdpBodyToHarBody(ref, raw);
+      if (context.inFlight) {
+        const raw = await this.source.streamResponseBody(tabId, context.sessionId, context.rawRequestId);
+        return streamedCdpBodyToHarBody(context, raw.bufferedData, context.mimeType, context.charset);
+      }
+      const raw = await this.source.fetchResponseBody(tabId, context.sessionId, context.rawRequestId);
+      return cdpBodyToHarBody(context, raw);
     } catch {
-      return emptyCdpHarBody(ref);
+      return emptyCdpHarBody(context);
     }
   }
 
