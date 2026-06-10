@@ -150,7 +150,13 @@ export default function App({ resolveIdentity }: AppProps) {
                                       <DocsNavProvider>
                                         <InfoPopoverContainerProvider
                                           resolver={(trigger) =>
-                                            trigger.closest<HTMLElement>('.dt-panel-root') ?? null
+                                            // A trigger inside the hover-anchored waterfall popover
+                                            // portals into that popover's overlay — hovering the
+                                            // nested info popover then still counts as hovering the
+                                            // outer content, so the outer popover stays open.
+                                            trigger.closest<HTMLElement>('.dt-waterfall-pop-overlay') ??
+                                            trigger.closest<HTMLElement>('.dt-panel-root') ??
+                                            null
                                           }
                                         >
                                           <PanelContent />

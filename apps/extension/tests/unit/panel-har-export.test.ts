@@ -345,6 +345,38 @@ describe('serializeHar', () => {
   });
 });
 
+describe('internal-field strip (`_rawTiming`)', () => {
+  function rawTimedRow(): InspectorRowWithFires {
+    const r = row('https://api.openheaders.io/raw');
+    const har = r.lifecycle.har[0];
+    if (har == null) throw new Error('expected har');
+    har._rawTiming = { issuedSec: 100, requestTimeSec: 100.001, sendStart: 1, sendEnd: 2, receiveHeadersEnd: 5 };
+    return r;
+  }
+
+  it('a synthesized entry exports without its raw block (heuristic mode)', () => {
+    const doc = buildHar([rawTimedRow()]);
+    expect(doc.log.entries[0]).not.toHaveProperty('_rawTiming');
+  });
+
+  it('a synth-only row in CDP mode (no host match) exports without its raw block', () => {
+    const doc = buildHar([rawTimedRow()], [], false, undefined, { entries: [], pages: [] });
+    expect(doc.log.entries).toHaveLength(1);
+    expect(doc.log.entries[0]).not.toHaveProperty('_rawTiming');
+  });
+
+  it('the sanitized export strips it too', () => {
+    const doc = buildHar([rawTimedRow()], [], true);
+    expect(doc.log.entries[0]).not.toHaveProperty('_rawTiming');
+  });
+
+  it('the in-memory entry is untouched (strip copies, never mutates)', () => {
+    const r = rawTimedRow();
+    buildHar([r]);
+    expect(r.lifecycle.har[0]?._rawTiming).toBeDefined();
+  });
+});
+
 describe('sanitizeHarEntry / sanitized export', () => {
   function entryWithCredentials(): InspectorHarEntry {
     return {

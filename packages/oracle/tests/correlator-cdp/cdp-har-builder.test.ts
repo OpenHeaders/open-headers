@@ -20,7 +20,7 @@ import type { InspectorHarEntry } from '@openheaders/core/types';
 import { describe, expect, it, vi } from 'vitest';
 
 import { CdpHarBuilder } from '../../src/correlator-cdp/cdp-har-builder';
-import { cdpTimingToHar } from '../../src/correlator-cdp/cdp-har-synth';
+import { cdpRawTiming, cdpTimingToHar } from '../../src/correlator-cdp/cdp-har-synth';
 import { CdpCorrelator } from '../../src/correlator-cdp/correlator';
 import { type CdpNetworkEvent, type CdpResourceTiming, cdpStoreRequestId } from '../../src/correlator-cdp/events';
 import { RequestLifecycleStore } from '../../src/request-lifecycle-store/store';
@@ -1128,5 +1128,112 @@ describe('CdpCorrelator → RequestLifecycleStore — HAR lands per hop with zer
     expect(lc.har[0]?.time).toBeCloseTo(654, 6);
 
     correlator.dispose();
+  });
+});
+
+describe('CdpHarBuilder — raw timing instants (`_rawTiming`)', () => {
+  const ctx: TraceCtx = { tabId: TAB, requestId: 'raw' };
+
+  function builderWithResponse(timing: CdpResourceTiming | undefined, responseSec = 1000.5) {
+    const builder = new CdpHarBuilder();
+    builder.observe(cdpStart(ctx, { timestamp: 999.9985 })); // issued 1.5 ms before requestTime
+    const partial = lastHarEntry(
+      builder.observe(
+        cdpResponse(ctx, {
+          timestamp: responseSec,
+          response: {
+            url: 'https://api.openheaders.io/users',
+            status: 200,
+            statusText: 'OK',
+            ...(timing !== undefined ? { timing } : {}),
+          },
+        }),
+      ),
+    );
+    return { builder, partial };
+  }
+
+  it('carries the unfolded offsets verbatim plus the issue/response instants on the partial', () => {
+    const { partial } = builderWithResponse(FULL_TIMING);
+    expect(partial._rawTiming).toEqual({
+      issuedSec: 999.9985,
+      requestTimeSec: 1000,
+      dnsStart: 0,
+      dnsEnd: 10,
+      connectStart: 10,
+      connectEnd: 30,
+      sslStart: 15,
+      sslEnd: 30,
+      sendStart: 30,
+      sendEnd: 35,
+      receiveHeadersEnd: 100,
+      responseReceivedSec: 1000.5,
+      // no endSec yet — still streaming
+    });
+  });
+
+  it('adds the terminal instant on loadingFinished', () => {
+    const { builder } = builderWithResponse(FULL_TIMING);
+    const refined = lastHarEntry(builder.observe(cdpFinished(ctx, { timestamp: 1000.25 })));
+    expect(refined._rawTiming?.endSec).toBe(1000.25);
+    expect(refined._rawTiming?.responseReceivedSec).toBe(1000.5);
+  });
+
+  it('adds the terminal instant on loadingFailed (canceled mid-body keeps its raw block)', () => {
+    const { builder } = builderWithResponse(FULL_TIMING);
+    const refined = lastHarEntry(builder.observe(cdpFailed(ctx, { errorText: 'net::ERR_ABORTED', timestamp: 1000.3 })));
+    expect(refined._rawTiming?.endSec).toBe(1000.3);
+    expect(refined.response?._error).toBe('net::ERR_ABORTED');
+  });
+
+  it('a redirect hop gets its raw block with the next request as the terminal (no response event instant)', () => {
+    const builder = new CdpHarBuilder();
+    builder.observe(cdpStart(ctx, { timestamp: 999.9985 }));
+    const updates = builder.observe(
+      cdpRedirect(
+        ctx,
+        {
+          url: 'https://api.openheaders.io/users',
+          status: 302,
+          statusText: 'Found',
+          headers: { Location: 'https://api.openheaders.io/v2/users' },
+          timing: FULL_TIMING,
+          encodedDataLength: 300,
+        },
+        'https://api.openheaders.io/v2/users',
+        { timestamp: 1000.2 },
+      ),
+    );
+    const hop0 = updates.find((u) => u.kind === 'har-attached');
+    if (hop0 === undefined || hop0.kind !== 'har-attached') throw new Error('expected hop-0 har');
+    expect(hop0.har._rawTiming?.endSec).toBe(1000.2);
+    expect(hop0.har._rawTiming?.responseReceivedSec).toBeUndefined();
+    expect(hop0.har._rawTiming?.requestTimeSec).toBe(1000);
+  });
+
+  it('a failed-before-response hop has no raw block (no instants to unfold)', () => {
+    const builder = new CdpHarBuilder();
+    builder.observe(cdpStart(ctx, { timestamp: 999.9985 }));
+    const updates = builder.observe(cdpFailed(ctx, { errorText: 'net::ERR_BLOCKED_BY_CLIENT', timestamp: 1000.1 }));
+    const har = lastHarEntry(updates);
+    expect(har._rawTiming).toBeUndefined();
+    expect(har.response?.status).toBe(0);
+  });
+});
+
+describe('cdpRawTiming — pure projection', () => {
+  it('omits absent offsets instead of forwarding -1', () => {
+    const raw = cdpRawTiming(REUSED_CONNECTION, 999.9985, 1000.05, 1000.06);
+    expect(raw).toEqual({
+      issuedSec: 999.9985,
+      requestTimeSec: 1000,
+      sendStart: 5,
+      sendEnd: 8,
+      receiveHeadersEnd: 40,
+      responseReceivedSec: 1000.05,
+      endSec: 1000.06,
+    });
+    expect(raw).not.toHaveProperty('dnsStart');
+    expect(raw).not.toHaveProperty('connectStart');
   });
 });

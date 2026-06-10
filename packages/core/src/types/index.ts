@@ -45,6 +45,7 @@ export type {
   InspectorHarPage,
   InspectorHarPageTimings,
   InspectorNavTiming,
+  InspectorRawTiming,
 } from './har-source';
 // ── DevTools HAR-source wire ───────────────────────────────────────
 export {

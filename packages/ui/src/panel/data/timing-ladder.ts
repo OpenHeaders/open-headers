@@ -80,8 +80,15 @@ export interface TimingLadder {
   readonly startedMs: number;
   readonly responseMs: number | null;
   readonly endedMs: number | null;
-  /** Total elapsed time — the sum of the elapsed rungs (= HAR `time`). */
+  /** Total elapsed time. For a dialect (cursor) ladder this is the sum of the
+   *  elapsed rungs (= HAR `time`); for an instant-anchored ladder it is the
+   *  true span (queued → ended), which the rungs need not sum to — the
+   *  inter-leg gaps belong to no rung. */
   readonly durationMs: number;
+  /** `true` when each rung's `startMs` is a real recorded instant (raw protocol
+   *  timing) rather than the cumulative cursor — rungs may then have gaps
+   *  between them, and `durationMs` is the range span, not a leg sum. */
+  readonly instantAnchored: boolean;
 }
 
 export interface LadderContext {
@@ -97,7 +104,7 @@ export interface LadderContext {
   readonly liveReceiveMs?: number;
 }
 
-const LABELS: Record<TimingRungKey, string> = {
+export const RUNG_LABELS: Record<TimingRungKey, string> = {
   queueing: 'Queueing',
   stalled: 'Stalled',
   dns: 'DNS Lookup',
@@ -111,7 +118,7 @@ const LABELS: Record<TimingRungKey, string> = {
   receive: 'Content Download',
 };
 
-const BANDS: Record<TimingRungKey, TimingBand> = {
+export const RUNG_BANDS: Record<TimingRungKey, TimingBand> = {
   queueing: 'before-wire',
   stalled: 'before-wire',
   dns: 'connecting',
@@ -122,7 +129,16 @@ const BANDS: Record<TimingRungKey, TimingBand> = {
   receive: 'exchange',
 };
 
-const ORDER: readonly TimingRungKey[] = ['queueing', 'stalled', 'dns', 'connect', 'ssl', 'send', 'wait', 'receive'];
+export const RUNG_ORDER: readonly TimingRungKey[] = [
+  'queueing',
+  'stalled',
+  'dns',
+  'connect',
+  'ssl',
+  'send',
+  'wait',
+  'receive',
+];
 
 /** A HAR timing field is "present" (the step occurred) when it is a number ≥ 0;
  *  `-1` (or undefined) means the step did not happen. */
@@ -194,11 +210,18 @@ export function computeTimingLadder(har: InspectorHarEntry, ctx: LadderContext):
 
   const rungs: TimingRung[] = [];
   let cursor = 0;
-  for (const key of ORDER) {
+  for (const key of RUNG_ORDER) {
     const state = stateOf(key);
     const startMs = cursor;
     if (state.kind === 'elapsed') cursor += state.ms;
-    rungs.push({ key, label: LABELS[key], band: BANDS[key], onWire: BANDS[key] !== 'before-wire', state, startMs });
+    rungs.push({
+      key,
+      label: RUNG_LABELS[key],
+      band: RUNG_BANDS[key],
+      onWire: RUNG_BANDS[key] !== 'before-wire',
+      state,
+      startMs,
+    });
   }
 
   const elapsedUpTo = (key: TimingRungKey): number => {
@@ -211,5 +234,5 @@ export function computeTimingLadder(har: InspectorHarEntry, ctx: LadderContext):
   const responseMs = ctx.reachedResponse ? elapsedUpTo('wait') : null;
   const endedMs = ctx.reachedResponse ? cursor : null;
 
-  return { rungs, startedMs, responseMs, endedMs, durationMs: cursor };
+  return { rungs, startedMs, responseMs, endedMs, durationMs: cursor, instantAnchored: false };
 }

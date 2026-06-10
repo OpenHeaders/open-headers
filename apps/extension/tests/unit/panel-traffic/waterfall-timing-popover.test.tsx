@@ -11,6 +11,7 @@ import type { InspectorHarEntry } from '@openheaders/core/types';
 import { WaterfallTimingPopover } from '@openheaders/ui/panel/components/traffic/WaterfallTimingPopover';
 import { noResponseTerminal } from '@openheaders/ui/panel/data/row-timing-ladder';
 import { computeTimingLadder, type LadderContext, type TimingLadder } from '@openheaders/ui/panel/data/timing-ladder';
+import { computeRawTimingLadder } from '@openheaders/ui/panel/data/timing-ladder-raw';
 import { render } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { makeHar, makeRow } from '../../__factories__/lifecycle';
@@ -23,9 +24,12 @@ function ladderOf(timings: Timings, ctx: Partial<LadderContext> = {}, url = 'htt
   return l;
 }
 
-/** A rung's name without its "N." step-ordinal prefix. */
+/** A rung's name without its "N." step-ordinal prefix or its (i) info glyph. */
 function rungName(label: Element | null | undefined): string {
-  return (label?.textContent ?? '').replace(/^\d+\.\s*/, '');
+  if (label == null) return '';
+  const clone = label.cloneNode(true) as Element;
+  for (const trigger of Array.from(clone.querySelectorAll('.oh-info-trigger'))) trigger.remove();
+  return (clone.textContent ?? '').replace(/^\d+\.\s*/, '').trim();
 }
 function labels(c: HTMLElement): string[] {
   return Array.from(c.querySelectorAll('.dt-waterfall-pop-label')).map((n) => rungName(n));
@@ -66,7 +70,11 @@ describe('WaterfallTimingPopover — always the full ladder', () => {
       <WaterfallTimingPopover ladder={ladderOf(NORMAL)} metric="duration" queuedAtMs={0} explain={false} />,
     );
     expect(labels(container)).toEqual(ALL_EIGHT);
-    const heads = Array.from(container.querySelectorAll('.dt-waterfall-pop-head')).map((h) => h.textContent ?? '');
+    const heads = Array.from(container.querySelectorAll('.dt-waterfall-pop-head')).map((h) => {
+      const clone = h.cloneNode(true) as Element;
+      for (const trigger of Array.from(clone.querySelectorAll('.oh-info-trigger'))) trigger.remove();
+      return clone.textContent ?? '';
+    });
     expect(heads).toEqual(['Key moments(since the first request)', 'Scheduling(Browser)', 'Connecting(Browser ↔ Network)', 'Transferring(Network)']);
   });
 
@@ -219,5 +227,55 @@ describe('noResponseTerminal', () => {
   it('does not mark a request that reached a response', () => {
     const { row, ladder } = rowAndLadder({ completedAtMs: 9100, harOverrides: { timings: NORMAL } }, { reachedResponse: true });
     expect(noResponseTerminal(row, ladder)).toBeUndefined();
+  });
+});
+
+describe('WaterfallTimingPopover — Timing notes (instant-anchored ladder)', () => {
+  const RAW = {
+    issuedSec: 99.9985,
+    requestTimeSec: 100,
+    dnsStart: 1,
+    dnsEnd: 98.17,
+    connectStart: 98.38,
+    connectEnd: 368.83,
+    sslStart: 232.25,
+    sslEnd: 368.83,
+    sendStart: 370.59,
+    sendEnd: 372.62,
+    receiveHeadersEnd: 500,
+    responseReceivedSec: 100.5005,
+    endSec: 108.75,
+  };
+
+  it('renders the delimited section with the gaps line, the Chrome mapping, and its (i)', () => {
+    const ladder = computeRawTimingLadder(RAW, { reachedResponse: true, isHttps: true });
+    const { container } = render(
+      <WaterfallTimingPopover ladder={ladder} metric="duration" queuedAtMs={0} explain={false} />,
+    );
+    const heads = Array.from(container.querySelectorAll('.dt-waterfall-pop-head')).map((h) => h.textContent ?? '');
+    expect(heads.some((h) => h.includes('Timing notes'))).toBe(true);
+    const notes = Array.from(container.querySelectorAll('.dt-waterfall-pop-footnote')).map((n) => n.textContent ?? '');
+    expect(notes).toHaveLength(2);
+    expect(notes[0]).toContain('Untracked gaps:');
+    expect(notes[0]).toContain('DNS Lookup → TCP');
+    expect(notes[1]).toContain('Chrome-equivalent: Initial connection = TCP');
+  });
+
+  it('every rung row carries its (i) info trigger', () => {
+    const ladder = computeRawTimingLadder(RAW, { reachedResponse: true, isHttps: true });
+    const { container } = render(
+      <WaterfallTimingPopover ladder={ladder} metric="duration" queuedAtMs={0} explain={false} />,
+    );
+    const triggers = container.querySelectorAll('.dt-waterfall-pop-label .oh-info-trigger');
+    expect(triggers).toHaveLength(8);
+  });
+
+  it('a dialect (cursor) ladder shows no Timing notes section', () => {
+    const { container } = render(
+      <WaterfallTimingPopover ladder={ladderOf(NORMAL)} metric="duration" queuedAtMs={0} explain={false} />,
+    );
+    const heads = Array.from(container.querySelectorAll('.dt-waterfall-pop-head')).map((h) => h.textContent ?? '');
+    expect(heads.some((h) => h.includes('Timing notes'))).toBe(false);
+    expect(container.querySelectorAll('.dt-waterfall-pop-footnote')).toHaveLength(0);
   });
 });

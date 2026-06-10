@@ -184,8 +184,11 @@ function RainbowBar({
   return (
     <div className={trackClass} title={title}>
       <div className={barClass} style={{ left: `${layout.leftPct}%`, width: `${layout.widthPct}%` }}>
+        {/* Segments sit at their true instant (`leftPct`), not tiled — an
+            instant-anchored ladder leaves the inter-leg gaps as unfilled
+            whitespace, exactly like the browser's bars. */}
         {layout.segments.map((seg) => (
-          <span key={seg.key} className={segmentClass(seg)} style={{ width: `${seg.pct}%` }} />
+          <span key={seg.key} className={segmentClass(seg)} style={{ left: `${seg.leftPct}%`, width: `${seg.pct}%` }} />
         ))}
       </div>
       {metricLabel && <span className="dt-wf-vallabel">{metricLabel}</span>}

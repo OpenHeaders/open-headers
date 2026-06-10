@@ -33,9 +33,18 @@ import {
   isWarmSocketConnect,
   type KeyMoment,
   keyMoments,
+  ladderFootnotes,
   WARM_SOCKET_TITLE,
   type WaterfallTerminal,
 } from '../../data/timing-popover-model';
+import {
+  TimingBandInfo,
+  TimingKeyMomentsInfo,
+  TimingMomentInfo,
+  TimingNotesInfo,
+  TimingRungInfo,
+  TimingTerminalInfo,
+} from './TimingRungInfo';
 
 export function WaterfallTimingPopover({
   ladder,
@@ -73,6 +82,8 @@ export function WaterfallTimingPopover({
   // For a terminal row, the stop marker sits right after the last reached rung
   // (where it died) — inline in the steps, not as a trailing block.
   const lastReachedKey = [...ladder.rungs].reverse().find((r) => r.state.kind === 'elapsed')?.key;
+  // Instant-anchored ladders only: untracked gaps + the browser-row mapping.
+  const footnotes = ladderFootnotes(ladder);
 
   // A milestone: the moment a key boundary happened (offset from the first
   // request in view), with a plain-language meaning. Computed cumulatively from
@@ -82,7 +93,10 @@ export function WaterfallTimingPopover({
     const isAnchor = spec?.anchor === m.key;
     return (
       <div key={m.key} className={`dt-waterfall-pop-moment${isAnchor ? ' dt-wf-pop-anchor' : ''}`}>
-        <span className="dt-waterfall-pop-moment-label">{m.label}</span>
+        <span className="dt-waterfall-pop-moment-label">
+          {m.label}
+          <TimingMomentInfo moment={m.key} />
+        </span>
         <span className="dt-waterfall-pop-moment-value">{at(m.localMs)}</span>
         <span className="dt-waterfall-pop-moment-why">{m.why}</span>
         {isAnchor && <span className="dt-wf-pop-down">↓</span>}
@@ -100,6 +114,7 @@ export function WaterfallTimingPopover({
         <div className="dt-waterfall-pop-head">
           <span>Key moments</span>
           <span className="dt-waterfall-pop-where">(since the first request)</span>
+          <TimingKeyMomentsInfo />
         </div>
         {keyMoments(ladder).map(moment)}
       </div>
@@ -112,6 +127,7 @@ export function WaterfallTimingPopover({
           <div className="dt-waterfall-pop-head">
             <span>{BAND_LABEL[band]}</span>
             <span className="dt-waterfall-pop-where">{BAND_WHERE[band]}</span>
+            <TimingBandInfo band={band} />
           </div>
           {band === 'connecting' && anyReused && reusedOpener && (
             <div className="dt-waterfall-pop-note">↳ connection opened by {reusedOpener}</div>
@@ -131,6 +147,7 @@ export function WaterfallTimingPopover({
                     <span className={`dt-waterfall-pop-swatch dt-wf-fill--${r.key}`} aria-hidden="true" />
                     <span className="dt-waterfall-pop-label">
                       <span className="dt-waterfall-pop-stepno">{ladder.rungs.indexOf(r) + 1}.</span> {r.label}
+                      <TimingRungInfo rung={r.key} />
                     </span>
                     {r.state.kind === 'elapsed' ? (
                       <>
@@ -150,6 +167,7 @@ export function WaterfallTimingPopover({
                   {terminal && r.key === lastReachedKey && (
                     <div className="dt-waterfall-pop-stop" title={terminal.detail}>
                       <span className="dt-waterfall-pop-stop-text">✗ {terminal.label}</span>
+                      <TimingTerminalInfo label={terminal.label} />
                       <span className="dt-waterfall-pop-stop-rule" aria-hidden="true" />
                       <span className="dt-waterfall-pop-stop-arrow" aria-hidden="true">▼</span>
                     </div>
@@ -161,6 +179,22 @@ export function WaterfallTimingPopover({
         ))}
       </div>
       {unfinished && <div className="dt-waterfall-pop-caution">CAUTION: request is not finished yet!</div>}
+      {/* Instant-anchored ladders only: the untracked gaps (why the phases
+          don't sum to the total) and the browser-row mapping for the split
+          connection, under their own delimited head like the bands above. */}
+      {footnotes.length > 0 && (
+        <div className="dt-waterfall-pop-group">
+          <div className="dt-waterfall-pop-head">
+            <span>Timing notes</span>
+            <TimingNotesInfo />
+          </div>
+          {footnotes.map((line) => (
+            <div key={line} className="dt-waterfall-pop-footnote">
+              {line}
+            </div>
+          ))}
+        </div>
+      )}
       <div className={`dt-waterfall-pop-total${spec?.total ? ' dt-wf-pop-hl' : ''}`}>
         <span>
           Total time <span className="dt-waterfall-pop-where">(queued → ended)</span>

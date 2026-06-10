@@ -47,6 +47,10 @@ export interface DurationBarLayout {
  * the consumer maps it to a `dt-wf-fill--<key>` color class (theme-aware). */
 export interface TimelineSegment {
   key: string;
+  /** Left edge within the bar, 0–100 — the rung's start instant's share of the
+   * span. Contiguous for a cursor ladder; an instant-anchored ladder leaves
+   * unfilled whitespace where the inter-leg gaps fall, like the browser. */
+  leftPct: number;
   /** Share of the bar this phase occupies, 0–100. */
   pct: number;
   /**
@@ -89,11 +93,13 @@ export function durationBarLayout(row: InspectorRowWithFires, maxMs: number): Du
 /**
  * Per-phase rainbow bar for the Start / Response / End time metrics. The bar
  * spans `[issue, issue + total]` on the window (queueing is its leading
- * segment), and each elapsed ladder rung fills its share of `total`. `total` is
- * the ladder's duration (= HAR `time`, every leg counted once), which equals
+ * segment), and each elapsed ladder rung fills its share of `total` at its own
+ * `startMs` — contiguous tiles for a cursor ladder, true instants (with the
+ * inter-leg gaps as unfilled whitespace, like the browser) for an
+ * instant-anchored one. `total` is the ladder's duration, which equals
  * `timelineEndMs − issue` by construction — so the bar's right edge lands on the
- * window extent and the segments tile the bar exactly. A row with no ladder yet
- * (in-flight `(unknown)`) draws a plain bar from the window fallback.
+ * window extent. A row with no ladder yet (in-flight `(unknown)`) draws a plain
+ * bar from the window fallback.
  */
 export function timelineBarLayout(
   row: InspectorRowWithFires,
@@ -109,7 +115,14 @@ export function timelineBarLayout(
     ladder && total > 0
       ? ladder.rungs.flatMap((r) =>
           r.state.kind === 'elapsed' && r.state.ms > 0
-            ? [{ key: r.key, pct: (r.state.ms / total) * 100, tall: r.band === 'exchange' }]
+            ? [
+                {
+                  key: r.key,
+                  leftPct: (r.startMs / total) * 100,
+                  pct: (r.state.ms / total) * 100,
+                  tall: r.band === 'exchange',
+                },
+              ]
             : [],
         )
       : [];

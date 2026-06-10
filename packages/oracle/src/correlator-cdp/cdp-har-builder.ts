@@ -44,6 +44,7 @@ import type { InspectorHarEntry } from '@openheaders/core/types';
 import {
   cdpBlockedTimings,
   cdpInitiatorToHar,
+  cdpRawTiming,
   cdpRequestToHar,
   cdpResponseToHar,
   cdpTimingToHar,
@@ -173,6 +174,12 @@ interface HopPartial {
   error?: string;
   /** Total span in ms, computed at the hop's terminal/redirect point — HAR `time`. */
   totalMs?: number;
+  /** Monotonic `responseReceived` event instant (seconds) — `_rawTiming`'s
+   *  wait-boundary clamp source. Absent on a redirect hop (no discrete event). */
+  responseReceivedSec?: number;
+  /** Monotonic terminal instant (seconds): `loadingFinished`/`loadingFailed`,
+   *  or the next hop's request for a redirect — `_rawTiming.endSec`. */
+  terminalSec?: number;
 }
 
 interface RequestHarState {
@@ -255,7 +262,7 @@ export class CdpHarBuilder {
       case 'Network.requestWillBeSent':
         return this.onRequest(event, requestId);
       case 'Network.responseReceived':
-        return this.onResponse(event.tabId, requestId, event.response);
+        return this.onResponse(event.tabId, requestId, event.response, event.timestamp);
       case 'Network.dataReceived':
         return this.onData(
           event.tabId,
@@ -431,10 +438,16 @@ export class CdpHarBuilder {
     hop.response = redirectResponse;
     hop.transferSize = redirectResponse.encodedDataLength;
     hop.totalMs = totalTimeMs(redirectResponse.timing, nextRequestSec);
+    hop.terminalSec = nextRequestSec;
     return this.emitHop(tabId, requestId, state, hopIndex);
   }
 
-  private onResponse(tabId: number, requestId: string, response: CdpResponseParams): readonly RequestLifecycleUpdate[] {
+  private onResponse(
+    tabId: number,
+    requestId: string,
+    response: CdpResponseParams,
+    timestampSec: number,
+  ): readonly RequestLifecycleUpdate[] {
     const state = this.getState(tabId, requestId);
     if (state === undefined) return [];
     const hopIndex = state.hopCursor;
@@ -446,6 +459,7 @@ export class CdpHarBuilder {
     // it lets a hop that aborts before `loadingFinished` still report a
     // wire size; the terminal event overrides it with the total.
     hop.response = response;
+    hop.responseReceivedSec = timestampSec;
     if (response.encodedDataLength !== undefined) hop.transferSize = response.encodedDataLength;
     return this.collect(this.emitHop(tabId, requestId, state, hopIndex));
   }
@@ -507,6 +521,7 @@ export class CdpHarBuilder {
     if (hop === undefined || hop.response === undefined) return [];
     hop.transferSize = encodedDataLength;
     hop.totalMs = totalTimeMs(hop.response.timing, finishedSec);
+    hop.terminalSec = finishedSec;
     return this.collect(this.emitHop(tabId, requestId, state, hopIndex));
   }
 
@@ -534,6 +549,7 @@ export class CdpHarBuilder {
     const hop = state.hops[hopIndex];
     if (hop === undefined) return [];
     hop.error = errorText;
+    hop.terminalSec = failedSec;
     if (hop.response === undefined) {
       // Blocked before any response: synthesize a status-0 response carrying
       // `_error`; the whole span is attributed to `blocked` (`failed −
@@ -619,6 +635,13 @@ export class CdpHarBuilder {
           hop.error !== undefined && hop.totalMs !== undefined
           ? cdpBlockedTimings(hop.totalMs)
           : undefined;
+    // The unfolded raw instants behind the export-dialect `timings` — only a
+    // hop with real ResourceTiming carries them (a synthesized blocked
+    // response has no instants to unfold).
+    const rawTiming =
+      response?.timing !== undefined
+        ? cdpRawTiming(response.timing, hop.issuedSec, hop.responseReceivedSec, hop.terminalSec)
+        : undefined;
     // `time` is the leg-sum once a terminal arrives (matching Chrome); a
     // pre-terminal partial leaves it absent, the signal that it has not
     // refined yet.
@@ -646,6 +669,7 @@ export class CdpHarBuilder {
       ...(timings !== undefined ? { timings } : {}),
       ...(isDiskCacheHit(response, hop.transferSize) ? { _fromCache: 'disk' } : {}),
       ...(connectionId !== undefined ? { _connectionId: connectionId } : {}),
+      ...(rawTiming !== undefined ? { _rawTiming: rawTiming } : {}),
     };
     return { kind: 'har-attached', tabId, requestId, hopIndex, har };
   }

@@ -487,35 +487,40 @@ body.dt-resizing-col {
 
 /* Timeline bar carrying per-phase segments: the segments are the bar, so drop
  * the plain muted fill (it would show through the vertical gaps around the
- * thinner connection-setup phases). The empty/pending bar keeps the fill.
- * A 1px gap delineates adjacent phases (browser parity: a 1px spacing between
- * segments) without inflating any phase's width. */
+ * thinner connection-setup phases, and through the inter-leg gaps an
+ * instant-anchored ladder leaves unfilled). The empty/pending bar keeps the
+ * fill. */
 .dt-waterfall-bar--phased {
   background: transparent;
-  gap: 1px;
 }
 
-/* Timeline mode: per-phase rainbow segments tile the bar left-to-right
- * (queueing → receive), each fill set inline from the phase palette.
+/* Timeline mode: per-phase rainbow segments, each positioned at its rung's
+ * true start (`left` set inline) with its fill from the phase palette.
  *
- * Width is exactly proportional (phase ms ÷ window) with no minimum — matching
- * the browser, which draws each phase at its true width. A tiny phase stays
- * tiny; the bar's 1px inter-segment gap keeps it delineated rather than
- * inflating it.
+ * Left and width are exactly proportional (instant / ms ÷ window) with no
+ * minimum — matching the browser, which draws each phase at its true place
+ * and width. A cursor ladder's segments tile contiguously; an
+ * instant-anchored ladder leaves its inter-leg gaps as whitespace.
  *
  * Height is stepped (browser parity): the connection-setup phases draw thin
- * (this default), the request/response phases full-height (`--tall`), so the
- * eye separates connection cost from transfer cost without reading values. */
+ * (this default, centered), the request/response phases full-height
+ * (`--tall`), so the eye separates connection cost from transfer cost
+ * without reading values. */
 .dt-waterfall-segment {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
   height: 6px;
-  display: inline-block;
   /* Bordered phases (Queueing, Content Download) keep their proportional
    * width — the edge grows inward, not outward. */
   box-sizing: border-box;
 }
 
 .dt-waterfall-segment--tall {
-  height: 100%;
+  top: 0;
+  bottom: 0;
+  height: auto;
+  transform: none;
 }
 
 /* Per-phase fills — the browser's network timing palette, theme-aware via the
@@ -815,7 +820,15 @@ body.dt-resizing-col {
  * stack into a cumulative waterfall down the popover. */
 .dt-waterfall-pop-label {
   flex: none;
-  width: 116px;
+  /* 116px label + room for the hover-revealed (i), which keeps its layout
+   * slot at opacity 0 so revealing it never shifts the track. */
+  width: 134px;
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+}
+.dt-waterfall-pop-label .dt-waterfall-pop-stepno {
+  margin-right: 3px;
 }
 
 /* Step ordinal (1.–8.) prefixing each rung — makes the sequence the "Steps"
@@ -895,6 +908,94 @@ body.dt-resizing-col {
   margin-top: 6px;
   color: var(--dt-status-orange);
   font-weight: 600;
+}
+
+/* Timing-notes footnotes (untracked gaps + the browser-row mapping) — muted
+ * lines under their own delimited "Timing notes" head, above the total. */
+.dt-waterfall-pop-footnote {
+  margin-top: 2px;
+  font-size: 10px;
+  color: var(--dt-text-muted);
+  line-height: 14px;
+}
+
+/* Per-phase / band / moment / notes (i) triggers — hover-revealed on their
+ * own row or head, matching the network table's column-info idiom. Each
+ * trigger keeps its layout slot at opacity 0 so revealing it never shifts
+ * anything. The notes-head trigger stays visible (the head is the section's
+ * only affordance). */
+.dt-wf-rung-info-trigger {
+  opacity: 0;
+  margin-left: 2px;
+}
+.dt-waterfall-pop-row:hover .dt-wf-rung-info-trigger,
+.dt-wf-h-legend-item:hover .dt-wf-rung-info-trigger,
+.dt-waterfall-pop-moment:hover .dt-wf-rung-info-trigger,
+.dt-waterfall-pop-head:hover .dt-wf-rung-info-trigger,
+.dt-wf-h-tick:hover .dt-wf-rung-info-trigger,
+.dt-wf-h-bracket-label:hover .dt-wf-rung-info-trigger,
+.dt-waterfall-pop-stop:hover .dt-wf-rung-info-trigger,
+.dt-wf-h-stop-label:hover .dt-wf-rung-info-trigger,
+.dt-wf-rung-info-trigger:focus-visible {
+  opacity: 1;
+}
+.dt-wf-notes-info-trigger {
+  opacity: 1;
+}
+
+/* The shared example timing strip inside the (i) popovers — one request in
+ * wire order, the explained phase highlighted, the rest dimmed. Gap slots
+ * render hollow with a dashed edge so "untracked" reads literally. */
+.dt-rung-eg-cap {
+  font-size: 10px;
+  color: var(--dt-text-muted);
+  margin-bottom: 4px;
+}
+.dt-rung-eg-track {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  height: 14px;
+  border-radius: 2px;
+}
+
+/* Moment boundary marker on the example strip — a vertical line at the
+ * instant the explained key moment marks (segments all dim beneath it). */
+.dt-rung-eg-marker {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  transform: translateX(-50%);
+  background: var(--dt-text);
+  border-radius: 1px;
+}
+
+/* Terminal-stop variant — the red "died here" line on the example strip. */
+.dt-rung-eg-marker--stop {
+  background: var(--dt-status-red);
+}
+.dt-rung-eg-seg {
+  min-width: 4px;
+  flex-basis: 0;
+  box-sizing: border-box;
+}
+.dt-rung-eg-seg--gap {
+  background: transparent;
+  border: 1px dashed var(--dt-border);
+}
+.dt-rung-eg-seg--dim {
+  opacity: 0.35;
+}
+.dt-rung-eg-seg--hl {
+  opacity: 1;
+  outline: 1.5px solid var(--dt-text);
+  outline-offset: 1px;
+}
+.dt-rung-eg-line {
+  margin-top: 5px;
+  font-size: 10px;
+  color: var(--dt-text-muted);
 }
 
 /* Live-popover explainer (no CDP) — muted secondary line under the caution,
@@ -1009,7 +1110,11 @@ body.dt-resizing-col {
 
 .dt-waterfall-pop-moment-label {
   flex: none;
-  width: 62px;
+  /* 62px label + the hover-revealed (i)'s reserved slot. */
+  width: 80px;
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
 }
 
 .dt-waterfall-pop-moment-value {
@@ -1327,4 +1432,20 @@ body.dt-resizing-col {
 .dt-wf-h-legend-item .dt-waterfall-pop-absent-text {
   flex: none;
   margin-left: auto;
+}
+
+/* Timing-notes footnotes (untracked gaps + the browser-row mapping) — one
+ * muted line each under their delimited head, spanning the three band
+ * columns. */
+.dt-wf-h-legend-footnotes {
+  grid-column: 1 / -1;
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.dt-wf-h-legend-footnote {
+  font-size: 10px;
+  color: var(--dt-text-muted);
+  line-height: 14px;
 }

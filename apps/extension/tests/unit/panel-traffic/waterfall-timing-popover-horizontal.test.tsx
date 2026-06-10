@@ -38,12 +38,18 @@ function legendValue(c: HTMLElement, name: string): string | undefined {
   const cell = item?.querySelector('.dt-waterfall-pop-ms') ?? item?.querySelector('.dt-waterfall-pop-absent-text');
   return cell?.textContent ?? undefined;
 }
+/** An element's text without any (i) info glyphs inside it. */
+function textSansInfo(el: Element): string {
+  const clone = el.cloneNode(true) as Element;
+  for (const trigger of Array.from(clone.querySelectorAll('.oh-info-trigger'))) trigger.remove();
+  return clone.textContent ?? '';
+}
 function tickLabels(c: HTMLElement): string[] {
   // The anchor tick appends a " ↓" cue; strip it so the name compares clean.
-  return Array.from(c.querySelectorAll('.dt-wf-h-tick-label')).map((n) => (n.textContent ?? '').replace(/\s*↓$/, ''));
+  return Array.from(c.querySelectorAll('.dt-wf-h-tick-label')).map((n) => textSansInfo(n).replace(/\s*↓$/, ''));
 }
 function bandBracketNames(c: HTMLElement): string[] {
-  return Array.from(c.querySelectorAll('.dt-wf-h-bracket-name')).map((n) => n.textContent ?? '');
+  return Array.from(c.querySelectorAll('.dt-wf-h-bracket-name')).map((n) => textSansInfo(n));
 }
 function bandBracketWheres(c: HTMLElement): string[] {
   return Array.from(c.querySelectorAll('.dt-wf-h-bracket-label .dt-waterfall-pop-where')).map(
@@ -234,7 +240,10 @@ describe('WaterfallTimingPopoverHorizontal — no-response terminal', () => {
     expect(container.querySelector('.dt-waterfall-pop-terminal')).toBeNull();
     expect(container.querySelector('.dt-wf-h-stopline')).not.toBeNull();
     expect(container.querySelector('.dt-wf-h-stop-mark')).not.toBeNull();
-    expect(container.querySelector('.dt-wf-h-stop-label')?.textContent).toBe('(blocked:other)');
+    const stopLabel = container.querySelector('.dt-wf-h-stop-label');
+    expect(stopLabel ? textSansInfo(stopLabel) : undefined).toBe('(blocked:other)');
+    // The terminal outcome carries its own (i) explainer, like every phase.
+    expect(stopLabel?.querySelector('.oh-info-trigger')).not.toBeNull();
   });
 });
 

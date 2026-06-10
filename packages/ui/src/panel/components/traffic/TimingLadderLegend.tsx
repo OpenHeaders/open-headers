@@ -16,11 +16,14 @@ import {
   BAND_ORDER,
   type ExplainSpec,
   isWarmSocketConnect,
+  ladderFootnotes,
   WARM_SOCKET_TITLE,
 } from '../../data/timing-popover-model';
+import { TimingNotesInfo, TimingRungInfo } from './TimingRungInfo';
 
 export function TimingLadderLegend({ ladder, spec }: { ladder: TimingLadder; spec?: ExplainSpec | null }) {
   const warmConnect = isWarmSocketConnect(ladder);
+  const footnotes = ladderFootnotes(ladder);
   return (
     <div className="dt-wf-h-legend">
       {BAND_ORDER.map((band) => (
@@ -39,6 +42,7 @@ export function TimingLadderLegend({ ladder, spec }: { ladder: TimingLadder; spe
                 <span className="dt-waterfall-pop-stepno">{i + 1}.</span>
                 <span className={`dt-waterfall-pop-swatch dt-wf-fill--${r.key}`} aria-hidden="true" />
                 <span className="dt-wf-h-legend-name">{r.label}</span>
+                <TimingRungInfo rung={r.key} />
                 {warmSocket && <span className="dt-wf-h-legend-hint">warm socket</span>}
                 {r.state.kind === 'elapsed' ? (
                   <span className="dt-waterfall-pop-ms">{formatTimeMs(r.state.ms)}</span>
@@ -50,6 +54,23 @@ export function TimingLadderLegend({ ladder, spec }: { ladder: TimingLadder; spe
           })}
         </div>
       ))}
+      {/* Instant-anchored ladders only: the untracked gaps (why the phases
+          don't sum to the total — the browser's own tab draws them nowhere)
+          and the mapping back to its overlapped connection row, under their
+          own delimited head. */}
+      {footnotes.length > 0 && (
+        <div className="dt-wf-h-legend-footnotes">
+          <div className="dt-waterfall-pop-head">
+            <span>Timing notes</span>
+            <TimingNotesInfo />
+          </div>
+          {footnotes.map((line) => (
+            <div key={line} className="dt-wf-h-legend-footnote">
+              {line}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

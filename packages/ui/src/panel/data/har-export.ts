@@ -61,6 +61,18 @@ function withPageref(har: InspectorHarEntry, pageref: string | undefined): Inspe
   return pageref ? { ...har, pageref } : har;
 }
 
+/**
+ * Drop panel-internal fields a HAR file must not carry (`_rawTiming`, the
+ * unfolded raw instants the timing ladder reads) — a saved HAR stays
+ * byte-shaped like the host's own export. Host-adopted entries never carry
+ * them; this guards the synthesized ones (and is a no-op otherwise).
+ */
+export function stripInternalEntryFields(entry: InspectorHarEntry): InspectorHarEntry {
+  if (entry._rawTiming === undefined) return entry;
+  const { _rawTiming, ...rest } = entry;
+  return rest;
+}
+
 /** Request headers dropped when sanitizing (carry credentials). */
 const SANITIZED_REQUEST_HEADERS = new Set(['authorization', 'cookie']);
 /** Response headers dropped when sanitizing (set credentials). */
@@ -238,7 +250,9 @@ function buildHostAuthoritativeEntries(
     if (synth === null) continue;
     const pageref = resolvePageref(row.lifecycle, pages);
     if (pageref) refs.add(pageref);
-    entries.push(withPageref(sanitize ? sanitizeHarEntry(synth) : synth, pageref ?? undefined));
+    entries.push(
+      withPageref(stripInternalEntryFields(sanitize ? sanitizeHarEntry(synth) : synth), pageref ?? undefined),
+    );
   }
   return { entries, refs };
 }
@@ -267,7 +281,9 @@ function buildSynthEntries(
     if (synth === null) continue;
     const pageref = resolvePageref(row.lifecycle, pages);
     if (pageref) refs.add(pageref);
-    entries.push(withPageref(sanitize ? sanitizeHarEntry(synth) : synth, pageref ?? undefined));
+    entries.push(
+      withPageref(stripInternalEntryFields(sanitize ? sanitizeHarEntry(synth) : synth), pageref ?? undefined),
+    );
   }
   return { entries, refs };
 }
@@ -319,7 +335,9 @@ export function buildHarFromEntries(
       version: '1.2',
       creator: { name: 'Open Headers DevTools', version: getCreatorVersion() },
       pages: pagesToHarForRefs(pages, refs, docByPage),
-      entries: entries.map((e) => withPageref(sanitize ? sanitizeHarEntry(e.harEntry) : e.harEntry, e.pageref)),
+      entries: entries.map((e) =>
+        withPageref(stripInternalEntryFields(sanitize ? sanitizeHarEntry(e.harEntry) : e.harEntry), e.pageref),
+      ),
     },
   };
 }

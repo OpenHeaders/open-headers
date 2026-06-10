@@ -24,6 +24,7 @@ import {
   WARM_SOCKET_TITLE,
   type WaterfallTerminal,
 } from '../../data/timing-popover-model';
+import { TimingBandInfo, TimingMomentInfo, TimingTerminalInfo } from './TimingRungInfo';
 
 // Render-only heights for the tick axis + band-bracket rows.
 const AXIS_H = 56;
@@ -81,6 +82,7 @@ export function HorizontalTimingChart({
               >
                 <span className="dt-wf-h-tick-label">
                   {t.label}
+                  <TimingMomentInfo moment={t.line} />
                   {isAnchor && <span className="dt-wf-pop-down"> ↓</span>}
                 </span>
                 <span className="dt-wf-h-tick-value">{t.reached ? at(t.localMs) : 'not reached'}</span>
@@ -91,6 +93,7 @@ export function HorizontalTimingChart({
           {terminal && layout.failure && (
             <span className="dt-wf-h-stop-label" style={{ left: layout.failure.labelCenterPx }} title={terminal.detail}>
               {terminal.label}
+              <TimingTerminalInfo label={terminal.label} />
             </span>
           )}
           {layout.ticks.map((t) => (
@@ -157,7 +160,10 @@ export function HorizontalTimingChart({
           ))}
           {layout.bands.map((b) => (
             <span key={`lbl-${b.band}`} className="dt-wf-h-bracket-label" style={{ left: b.labelCenterPx }}>
-              <span className="dt-wf-h-bracket-name">{BAND_LABEL[b.band]}</span>
+              <span className="dt-wf-h-bracket-name">
+                {BAND_LABEL[b.band]}
+                <TimingBandInfo band={b.band} />
+              </span>
               <span className="dt-waterfall-pop-where">{BAND_WHERE[b.band]}</span>
             </span>
           ))}

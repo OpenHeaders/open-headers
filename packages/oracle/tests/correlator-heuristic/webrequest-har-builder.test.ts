@@ -119,6 +119,10 @@ describe('WebRequestHarBuilder — partial at onHeadersReceived', () => {
     expect(update.har.response?.headers).toEqual([{ name: 'Content-Type', value: 'text/html' }]);
     expect(update.har.request?.headers).toEqual([{ name: 'Accept', value: 'text/html' }]);
     expect(update.har.time).toBeUndefined();
+    // The heuristic path has no raw protocol instants — a synthesized entry
+    // never grows a `_rawTiming` block (the ladder's raw decode is CDP-only;
+    // the export dialect stays this path's honest floor).
+    expect(update.har).not.toHaveProperty('_rawTiming');
   });
 
   it('emits nothing before the response and nothing for an unseeded request', () => {

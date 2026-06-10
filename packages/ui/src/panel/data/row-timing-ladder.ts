@@ -16,7 +16,8 @@
 import { currentHarEntry, type InspectorRowWithFires } from './inspector-row-projection';
 import { waterfallSortValue } from './network-columns';
 import { classifyRequestState, effectiveStatusCode, statusCellText } from './request-state';
-import { computeTimingLadder, type TimingLadder } from './timing-ladder';
+import { computeTimingLadder, type LadderContext, type TimingLadder } from './timing-ladder';
+import { computeRawTimingLadder } from './timing-ladder-raw';
 import type { WaterfallTerminal } from './timing-popover-model';
 
 export function rowTimingLadder(row: InspectorRowWithFires): TimingLadder | null {
@@ -25,18 +26,22 @@ export function rowTimingLadder(row: InspectorRowWithFires): TimingLadder | null
   if (har == null) return null;
   // Live Content Download while streaming (duration − latency) — before the
   // terminal HAR `receive` leg lands; `undefined` once finished (HAR is
-  // authoritative).
+  // authoritative). Once the raw terminal instant landed the raw decode is
+  // authoritative the same way.
   const streaming = lc.completedAtMs == null && lc.lastActivityAtMs != null;
   const liveReceiveMs = streaming
     ? Math.max(waterfallSortValue(row, 'duration') - waterfallSortValue(row, 'latency'), 0)
     : undefined;
   // `reachedResponse` comes from the lifecycle status, not the timings — a
   // blocked row's wait/receive are `0`, not absent.
-  return computeTimingLadder(har, {
+  const ctx: LadderContext = {
     reachedResponse: (effectiveStatusCode(lc) ?? 0) > 0,
     isHttps: lc.url.startsWith('https:'),
     liveReceiveMs,
-  });
+  };
+  // Data-driven: a hop carrying the unfolded raw instants decomposes
+  // tab-exactly; the export-dialect decode is the floor for every other hop.
+  return har._rawTiming !== undefined ? computeRawTimingLadder(har._rawTiming, ctx) : computeTimingLadder(har, ctx);
 }
 
 /**

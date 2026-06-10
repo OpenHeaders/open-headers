@@ -13,6 +13,7 @@ import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { DevpanelNetworkWaterfallMetricSetting } from '@openheaders/ui/workbench/settings/schema/devpanel-network';
 import { currentHarEntry, type InspectorRowWithFires, lifecycleTransferredBytes } from './inspector-row-projection';
 import { effectiveStatusCode } from './request-state';
+import { rawFirstByteMs, rawSpanMs } from './timing-ladder-raw';
 
 export type SortableColumnKey =
   | 'requestNumber'
@@ -197,6 +198,14 @@ function networkStartMs(lc: RequestLifecycle): number {
  */
 export function durationMs(lc: RequestLifecycle): number {
   const har = currentHarEntry(lc);
+  // Raw instants when recorded: the browser's column verbatim (`endTime −
+  // startTime`), no dialect arithmetic. The export decode below lands on the
+  // same value; this is the exact original. In flight (no terminal instant
+  // yet) falls through to the live branches.
+  if (har?._rawTiming !== undefined) {
+    const span = rawSpanMs(har._rawTiming);
+    if (span !== undefined) return span;
+  }
   if (har && typeof har.time === 'number' && har.time > 0) {
     const dns = har.timings?.dns;
     const dnsMs = typeof dns === 'number' && dns > 0 ? dns : 0;
@@ -287,6 +296,13 @@ export function getColumnSortValue(key: SortableColumnKey, row: InspectorRowWith
 function latencyMs(lc: RequestLifecycle): number {
   const d = durationMs(lc);
   if (d < 0) return -1;
+  // Raw instants when recorded: the clamped first-byte instant is the
+  // browser's latency on every row, finished or streaming.
+  const raw = currentHarEntry(lc)?._rawTiming;
+  if (raw !== undefined) {
+    const firstByte = rawFirstByteMs(raw);
+    if (firstByte !== undefined) return Math.min(firstByte, d);
+  }
   const receive = currentHarEntry(lc)?.timings?.receive;
   const r = typeof receive === 'number' && receive > 0 ? receive : 0;
   // Finished (or any row whose download leg is known): latency = duration −
@@ -312,7 +328,14 @@ function latencyMs(lc: RequestLifecycle): number {
  * response (and its legs) lands.
  */
 function firstByteLatencyMs(lc: RequestLifecycle): number {
-  const t = currentHarEntry(lc)?.timings;
+  const har = currentHarEntry(lc);
+  // Raw instants when recorded: the browser's latency verbatim
+  // (`responseReceivedTime − startTime`, the clamped first-byte instant).
+  if (har?._rawTiming !== undefined) {
+    const firstByte = rawFirstByteMs(har._rawTiming);
+    if (firstByte !== undefined) return firstByte;
+  }
+  const t = har?.timings;
   if (!t) return -1;
   const leg = (x: number | undefined): number => (typeof x === 'number' && x > 0 ? x : 0);
   const nonReceive = leg(t.blocked) + leg(t.connect) + leg(t.send) + leg(t.wait);

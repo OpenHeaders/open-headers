@@ -8,6 +8,7 @@
  * renderers add no timing math of their own.
  */
 
+import { formatTimeMs } from './format-time';
 import type { WaterfallMetric } from './network-columns';
 import type { RungState, TimingBand, TimingLadder, TimingRungKey } from './timing-ladder';
 
@@ -133,4 +134,66 @@ export function isWarmSocketConnect(ladder: TimingLadder): boolean {
   const tls = ladder.rungs.find((r) => r.key === 'ssl')?.state;
   const tlsRan = tls?.kind === 'elapsed' && tls.ms > 0;
   return connect?.kind === 'elapsed' && connect.ms === 0 && tlsRan;
+}
+
+/** One inter-leg gap on an instant-anchored ladder — time between two
+ *  consecutive elapsed rungs that no rung (and no bar in the browser's own
+ *  Timing tab) accounts for. */
+export interface LadderGap {
+  readonly fromLabel: string;
+  readonly toLabel: string;
+  readonly ms: number;
+}
+
+/** Smallest gap worth listing — anything below the µs display resolution is
+ *  float noise, not a measured sliver. */
+const GAP_FLOOR_MS = 0.005;
+
+/**
+ * The inter-leg gaps of an instant-anchored ladder, in wire order (e.g.
+ * `dnsEnd → connectStart`, `connectEnd → sendStart`). Empty for a cursor
+ * (dialect) ladder, whose rungs are contiguous by construction.
+ */
+export function ladderGaps(ladder: TimingLadder): LadderGap[] {
+  if (!ladder.instantAnchored) return [];
+  const gaps: LadderGap[] = [];
+  let prev: { label: string; endMs: number } | undefined;
+  for (const r of ladder.rungs) {
+    if (r.state.kind !== 'elapsed') continue;
+    if (prev !== undefined) {
+      const gap = r.startMs - prev.endMs;
+      if (gap > GAP_FLOOR_MS) gaps.push({ fromLabel: prev.label, toLabel: r.label, ms: gap });
+    }
+    prev = { label: r.label, endMs: Math.max(r.startMs + r.state.ms, prev?.endMs ?? 0) };
+  }
+  return gaps;
+}
+
+/**
+ * Footnote lines for an instant-anchored ladder's "Timing notes" section:
+ * the untracked gaps (slivers between two phases that the network stack
+ * attributes to neither — the browser's Timing tab draws them nowhere, and
+ * they are why the phases don't sum to the total), then the mapping from our
+ * non-overlapping connection split back to the browser's own row (its
+ * connection bar spans TCP and TLS together, with SSL drawn inside it).
+ * Empty for a cursor (dialect) ladder — its phases are contiguous by
+ * construction, so there is nothing to note.
+ */
+export function ladderFootnotes(ladder: TimingLadder): string[] {
+  if (!ladder.instantAnchored) return [];
+  const lines: string[] = [];
+  const gaps = ladderGaps(ladder);
+  if (gaps.length > 0) {
+    const parts = gaps.map((g) => `${g.fromLabel} → ${g.toLabel} ${formatTimeMs(g.ms)}`);
+    lines.push(`Untracked gaps: ${parts.join(' · ')}`);
+  }
+  const tcp = ladder.rungs.find((r) => r.key === 'connect')?.state;
+  const tls = ladder.rungs.find((r) => r.key === 'ssl')?.state;
+  if (tcp?.kind === 'elapsed' && tls?.kind === 'elapsed' && tls.ms > 0) {
+    lines.push(
+      `Chrome-equivalent: Initial connection = TCP ${formatTimeMs(tcp.ms)} + TLS ${formatTimeMs(tls.ms)}` +
+        ` = ${formatTimeMs(tcp.ms + tls.ms)} (SSL drawn inside it)`,
+    );
+  }
+  return lines;
 }

@@ -21,6 +21,57 @@
 import type { ResourceTimingEntry } from '../resource-timing/types';
 
 /**
+ * Raw protocol timing instants for one hop — present only when the CDP
+ * plane recorded them (the heuristic path has no raw instants and never
+ * sets this). The exporter's `timings` legs are re-anchored, folded
+ * spans (the connection-stage gaps are folded into the following leg);
+ * these are the unfolded originals, so a consumer can decompose the
+ * request exactly the way the browser's own Timing tab does — each leg
+ * between its true instants, the inter-leg gaps rendered nowhere, and
+ * the total as the range span rather than a leg sum.
+ *
+ * Units: `*Sec` fields are monotonic instants in seconds (one shared
+ * clock); every other field is a millisecond offset from
+ * `requestTimeSec`, with `-1`/absent meaning the leg did not occur.
+ *
+ * Internal to the panel — stripped from HAR exports (a saved HAR stays
+ * byte-shaped like the browser's own).
+ */
+export interface InspectorRawTiming {
+  /** Monotonic issue instant — the queueing start. */
+  issuedSec: number;
+  /** Monotonic network-start baseline for the ms offsets below. */
+  requestTimeSec: number;
+  proxyStart?: number;
+  proxyEnd?: number;
+  dnsStart?: number;
+  dnsEnd?: number;
+  connectStart?: number;
+  connectEnd?: number;
+  sslStart?: number;
+  sslEnd?: number;
+  sendStart?: number;
+  sendEnd?: number;
+  receiveHeadersStart?: number;
+  receiveHeadersEnd?: number;
+  workerStart?: number;
+  workerReady?: number;
+  workerFetchStart?: number;
+  workerRespondWithSettled?: number;
+  /**
+   * Monotonic instant of the headers-received event. The effective
+   * first-byte instant is this clamped to at most `requestTimeSec +
+   * receiveHeadersEnd/1000` — the same clamp the browser applies when it
+   * takes its response-received time from the timing block. Absent on a
+   * redirect hop (no discrete headers event; the offset alone decides).
+   */
+  responseReceivedSec?: number;
+  /** Monotonic terminal instant (finished or failed) — the receive end.
+   *  Absent while the hop is still streaming. */
+  endSec?: number;
+}
+
+/**
  * Full HAR entry forwarded verbatim from the devtools_page via
  * `chrome.devtools.network.onRequestFinished`. The shape matches the
  * HAR 1.2 spec that Chrome implements, plus the non-standard `_`-
@@ -128,6 +179,10 @@ export interface InspectorHarEntry {
   _fromCache?: string;
   /** Non-standard boolean flag some Chromium builds set alongside _fromCache. */
   _servedFromCache?: boolean;
+  /** Raw protocol timing instants (CDP-recorded hops only) — the unfolded
+   *  originals behind the exporter-dialect `timings` legs. Internal: the
+   *  timing ladder prefers these when present; HAR exports strip them. */
+  _rawTiming?: InspectorRawTiming;
 }
 
 /**

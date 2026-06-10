@@ -8,7 +8,7 @@
  * state, no chrome; every function is total and table-testable.
  */
 
-import type { InspectorHarEntry } from '@openheaders/core/types';
+import type { InspectorHarEntry, InspectorRawTiming } from '@openheaders/core/types';
 
 import type { CdpInitiator, CdpRequestParams, CdpResourceTiming, CdpResponseParams } from './events';
 
@@ -413,4 +413,49 @@ export function cdpBlockedTimings(blockedMs: number): HarTimings {
 export function totalTimeMs(timing: CdpResourceTiming | undefined, finishedSec: number): number | undefined {
   if (timing === undefined) return undefined;
   return Math.max(0, (finishedSec - timing.requestTime) * 1000);
+}
+
+/** A recorded (≥ 0) offset survives the raw projection; `-1`/absent drops. */
+const recorded = (v: number | undefined): v is number => v !== undefined && v >= 0;
+
+/**
+ * Project the raw `Network.ResourceTiming` legs (plus the surrounding
+ * event instants) into the entry's `_rawTiming` block — the unfolded
+ * originals the timing ladder decomposes tab-exactly, carried alongside
+ * the exporter-dialect `timings`. Recorded offsets pass through
+ * verbatim; an absent leg (`-1`) is omitted rather than forwarded — the
+ * block rides every `har-attached` update, so it carries only what was
+ * measured. The instants added around the offsets: the issue time
+ * (queueing start), the headers-received event time (the wait
+ * boundary's clamp source) and the terminal time (the receive end),
+ * each absent until known.
+ */
+export function cdpRawTiming(
+  timing: CdpResourceTiming,
+  issuedSec: number,
+  responseReceivedSec?: number,
+  endSec?: number,
+): InspectorRawTiming {
+  return {
+    issuedSec,
+    requestTimeSec: timing.requestTime,
+    ...(recorded(timing.proxyStart) ? { proxyStart: timing.proxyStart } : {}),
+    ...(recorded(timing.proxyEnd) ? { proxyEnd: timing.proxyEnd } : {}),
+    ...(recorded(timing.dnsStart) ? { dnsStart: timing.dnsStart } : {}),
+    ...(recorded(timing.dnsEnd) ? { dnsEnd: timing.dnsEnd } : {}),
+    ...(recorded(timing.connectStart) ? { connectStart: timing.connectStart } : {}),
+    ...(recorded(timing.connectEnd) ? { connectEnd: timing.connectEnd } : {}),
+    ...(recorded(timing.sslStart) ? { sslStart: timing.sslStart } : {}),
+    ...(recorded(timing.sslEnd) ? { sslEnd: timing.sslEnd } : {}),
+    ...(recorded(timing.sendStart) ? { sendStart: timing.sendStart } : {}),
+    ...(recorded(timing.sendEnd) ? { sendEnd: timing.sendEnd } : {}),
+    ...(recorded(timing.receiveHeadersStart) ? { receiveHeadersStart: timing.receiveHeadersStart } : {}),
+    ...(recorded(timing.receiveHeadersEnd) ? { receiveHeadersEnd: timing.receiveHeadersEnd } : {}),
+    ...(recorded(timing.workerStart) ? { workerStart: timing.workerStart } : {}),
+    ...(recorded(timing.workerReady) ? { workerReady: timing.workerReady } : {}),
+    ...(recorded(timing.workerFetchStart) ? { workerFetchStart: timing.workerFetchStart } : {}),
+    ...(recorded(timing.workerRespondWithSettled) ? { workerRespondWithSettled: timing.workerRespondWithSettled } : {}),
+    ...(responseReceivedSec !== undefined ? { responseReceivedSec } : {}),
+    ...(endSec !== undefined ? { endSec } : {}),
+  };
 }
