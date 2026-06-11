@@ -38,7 +38,7 @@ import {
   type SupersessionAnchor,
   supersessionAnchorFromPages,
 } from './request-state';
-import type { InspectorFire } from './types';
+import { type InspectorFire, isAppliedFire } from './types';
 
 /** The footer projection a parity capture asserts the panel computes: the
  *  re-anchored DCL / Load / Finish the status bar shows, plus the
@@ -119,6 +119,21 @@ interface ParityFire {
   resourceType?: InspectorFire['resourceType'];
   tier: FireDotTier;
   verdict: ModEvidenceVerdict;
+}
+
+/** One dangling fire as the capture sees it — a fire whose `requestId`
+ *  matched no row (or is absent). No lifecycle exists to corroborate
+ *  against, so the only tier input is the engine/reporter evidence —
+ *  `applied` mirrors what the Rule Activity view counts it as. */
+export interface ParityDanglingFire {
+  ruleUid: string;
+  authoritative: boolean;
+  evidence: InspectorFire['evidence'];
+  requestId?: string;
+  resourceType?: InspectorFire['resourceType'];
+  t: number;
+  pattern: string;
+  applied: boolean;
 }
 
 /** One claimed header mod judged against the captured sets. */
@@ -313,10 +328,27 @@ function toParityRow(rowWithFires: InspectorRowWithFires, arrivalIndex: number, 
   return row;
 }
 
+/** The dangling partition as the capture sees it — same source as the
+ *  Rule Activity view's off-HAR section (`attachFiresToRows`' dangling
+ *  output), so the artifact can never disagree with the render. */
+export function parityDanglingFires(dangling: readonly InspectorFire[]): ParityDanglingFire[] {
+  return dangling.map((fire) => ({
+    ruleUid: fire.ruleUid,
+    authoritative: fire.authoritative,
+    evidence: fire.evidence,
+    ...(fire.requestId !== undefined ? { requestId: fire.requestId } : {}),
+    ...(fire.resourceType !== undefined ? { resourceType: fire.resourceType } : {}),
+    t: fire.t,
+    pattern: fire.pattern,
+    applied: isAppliedFire(fire),
+  }));
+}
+
 declare global {
   interface Window {
     __OH_DUMP_PARITY_ROWS__?: () => ParityRow[];
     __OH_DUMP_PARITY_FOOTER__?: () => ParityFooter;
+    __OH_DUMP_PARITY_DANGLING__?: () => ParityDanglingFire[];
     __OH_CLEAR_PARITY__?: () => void;
   }
 }
@@ -326,6 +358,7 @@ export function useParityDebugHook(
   footer: ParityFooter,
   clear: () => void,
   pages: readonly Page[],
+  dangling: readonly InspectorFire[],
 ): void {
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
@@ -335,6 +368,8 @@ export function useParityDebugHook(
   clearRef.current = clear;
   const pagesRef = useRef(pages);
   pagesRef.current = pages;
+  const danglingRef = useRef(dangling);
+  danglingRef.current = dangling;
 
   useEffect(() => {
     window.__OH_DUMP_PARITY_ROWS__ = () => {
@@ -344,10 +379,12 @@ export function useParityDebugHook(
       return rowsRef.current.map((row, i) => toParityRow(row, i, anchor));
     };
     window.__OH_DUMP_PARITY_FOOTER__ = () => footerRef.current;
+    window.__OH_DUMP_PARITY_DANGLING__ = () => parityDanglingFires(danglingRef.current);
     window.__OH_CLEAR_PARITY__ = () => clearRef.current();
     return () => {
       delete window.__OH_DUMP_PARITY_ROWS__;
       delete window.__OH_DUMP_PARITY_FOOTER__;
+      delete window.__OH_DUMP_PARITY_DANGLING__;
       delete window.__OH_CLEAR_PARITY__;
     };
   }, []);

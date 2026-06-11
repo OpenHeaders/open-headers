@@ -24,6 +24,7 @@ import {
   blockCompiler,
   CHROMIUM_RESOURCE_VOCABULARY,
   delayCompiler,
+  FIREFOX_RESOURCE_VOCABULARY,
   headerCompiler,
   injectCompiler,
   queryParamCompiler,
@@ -149,8 +150,21 @@ describe('resource-type vocabularies', () => {
     expect([...CHROMIUM_RESOURCE_VOCABULARY.all].sort()).toEqual([...BASELINE, 'webtransport', 'webbundle'].sort());
   });
 
+  it('the Firefox vocabulary is the Gecko 115 ESR enum — baseline plus the Gecko-only members, no json / object_subrequest / Chromium-only members', () => {
+    expect([...FIREFOX_RESOURCE_VOCABULARY.all].sort()).toEqual(
+      [...BASELINE, 'beacon', 'imageset', 'web_manifest', 'speculative', 'xslt', 'xml_dtd'].sort(),
+    );
+    // json arrived after the 115 ESR — an unknown member rejects the whole
+    // batch atomically on the versions strict_min_version still allows.
+    expect(FIREFOX_RESOURCE_VOCABULARY.all).not.toContain('json');
+    // accepted by the schema but annotated unsupported — no traffic class.
+    expect(FIREFOX_RESOURCE_VOCABULARY.all).not.toContain('object_subrequest');
+    expect(FIREFOX_RESOURCE_VOCABULARY.all).not.toContain('webtransport');
+    expect(FIREFOX_RESOURCE_VOCABULARY.all).not.toContain('webbundle');
+  });
+
   it('each subResource set is exactly its all set minus main_frame', () => {
-    for (const vocab of [BASELINE_RESOURCE_VOCABULARY, CHROMIUM_RESOURCE_VOCABULARY]) {
+    for (const vocab of [BASELINE_RESOURCE_VOCABULARY, CHROMIUM_RESOURCE_VOCABULARY, FIREFOX_RESOURCE_VOCABULARY]) {
       expect(vocab.subResource).toEqual(vocab.all.filter((t) => t !== 'main_frame'));
     }
   });
@@ -176,6 +190,32 @@ describe('resource-type vocabularies', () => {
     const baseline = headerCompiler.compile(rule, makeCtx(1, true, BASELINE_RESOURCE_VOCABULARY)).dynamicRules ?? [];
     expect(baseline[0]!.condition.resourceTypes).not.toContain('webtransport');
     expect(baseline[0]!.condition.resourceTypes).not.toContain('webbundle');
+  });
+
+  it('a header rule without resource-type conditions covers the Gecko-only classes under the Firefox vocabulary only', () => {
+    const rule: HeaderRule = {
+      schemaVersion: 5,
+      uid: 'hv2',
+      path: 'rules/header-vocab-ff',
+      name: 'Vocab seam (Gecko)',
+      type: 'header',
+      enabled: true,
+      conditions: [{ uid: 'tcd00041', type: 'request-domains', values: ['openheaders.io'] }],
+      action: {
+        requestHeaders: [{ uid: 'thm00021', operation: 'override', headerName: 'X-Test', value: 'v' }],
+        responseHeaders: [],
+      },
+    };
+    const firefox = headerCompiler.compile(rule, makeCtx(1, true, FIREFOX_RESOURCE_VOCABULARY)).dynamicRules ?? [];
+    expect(firefox[0]!.condition.resourceTypes).toContain('beacon');
+    expect(firefox[0]!.condition.resourceTypes).toContain('web_manifest');
+    expect(firefox[0]!.condition.resourceTypes).toContain('imageset');
+    expect(firefox[0]!.condition.resourceTypes).not.toContain('webtransport');
+    expect(firefox[0]!.condition.resourceTypes).not.toContain('json');
+
+    const chromium = headerCompiler.compile(rule, makeCtx()).dynamicRules ?? [];
+    expect(chromium[0]!.condition.resourceTypes).not.toContain('beacon');
+    expect(chromium[0]!.condition.resourceTypes).not.toContain('web_manifest');
   });
 });
 

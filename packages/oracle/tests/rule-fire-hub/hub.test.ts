@@ -1,7 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import type { RuleFireUpdate } from '@openheaders/core/rule-fire-stream';
 
 import type { RequestRecord } from '@openheaders/core/types';
-import type { RuleFireUpdate } from '@openheaders/core/rule-fire-stream';
+import { describe, expect, it } from 'vitest';
 
 import { RuleFireHub } from '../../src/rule-fire-hub/hub';
 import type { Sink } from '../../src/rule-fire-hub/types';
@@ -97,6 +97,48 @@ describe('RuleFireHub — notify + broadcast', () => {
     hub.attach(1, sink);
     hub.forgetTab(1);
     expect(sink.updates).toEqual([]);
+  });
+});
+
+describe('RuleFireHub — translated authoritative ingest (cross-id-space tabs)', () => {
+  it('broadcasts the upgraded driver record under its own key when exactly one candidate binds', () => {
+    const hub = new RuleFireHub();
+    const sink = recordingSink();
+    hub.attach(1, sink);
+    hub.notifyHeuristicFire(1, rec({ requestId: 'page::1.5', t: 1000 }));
+    sink.updates.length = 0;
+    hub.notifyAuthoritativeFireTranslated(1, rec({ requestId: '4471', t: 1030 }), 'https://openheaders.io/api');
+    expect(sink.updates).toHaveLength(1);
+    const update = sink.updates[0];
+    if (update.kind !== 'fire') throw new Error();
+    expect(update.authoritative).toBe(true);
+    expect(update.record.requestId).toBe('page::1.5');
+  });
+
+  it('a buffered arrival pairs with the next matching driver insert — one broadcast, already authoritative', () => {
+    const hub = new RuleFireHub();
+    const sink = recordingSink();
+    hub.attach(1, sink);
+    hub.notifyAuthoritativeFireTranslated(1, rec({ requestId: '4471', t: 1000 }), 'https://openheaders.io/api');
+    expect(sink.updates).toHaveLength(0);
+    hub.notifyHeuristicFire(1, rec({ requestId: 'page::1.5', t: 1030 }));
+    expect(sink.updates).toHaveLength(1);
+    const update = sink.updates[0];
+    if (update.kind !== 'fire') throw new Error();
+    expect(update.authoritative).toBe(true);
+    expect(update.record.requestId).toBe('page::1.5');
+  });
+
+  it('an ambiguous same-URL burst never upgrades and never broadcasts', () => {
+    const hub = new RuleFireHub();
+    const sink = recordingSink();
+    hub.attach(1, sink);
+    hub.notifyHeuristicFire(1, rec({ requestId: 'page::1.5', t: 1000 }));
+    hub.notifyHeuristicFire(1, rec({ requestId: 'page::1.6', t: 1010 }));
+    sink.updates.length = 0;
+    hub.notifyAuthoritativeFireTranslated(1, rec({ requestId: '4471', t: 1040 }), 'https://openheaders.io/api');
+    expect(sink.updates).toHaveLength(0);
+    expect(hub.snapshotTab(1).every((e) => !e.authoritative)).toBe(true);
   });
 });
 

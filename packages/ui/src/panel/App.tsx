@@ -281,6 +281,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
     },
     ui.clear,
     data.pages,
+    data.dangling,
   );
 
   const groups = useInspectorEditorGroups({ perTab, liveSessionToken: lifecycleClient.sessionToken });

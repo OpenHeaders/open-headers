@@ -1,8 +1,8 @@
+import type { RequestRecord, RuleSnapshot } from '@openheaders/core/types';
 import { describe, expect, it } from 'vitest';
 
-import type { RequestRecord, RuleSnapshot } from '@openheaders/core/types';
-
 import { MAX_FIRES_PER_TAB, RuleFireStore } from '../../src/rule-fire-hub/store';
+import { TRANSLATION_WINDOW_MS } from '../../src/rule-fire-hub/translation';
 
 function rec(overrides: Partial<RequestRecord> = {}): RequestRecord {
   return {
@@ -84,6 +84,91 @@ describe('RuleFireStore — dedup + merge', () => {
     store.ingest(7, rec(), false);
     expect(store.forgetTab(7)).toBe(true);
     expect(store.snapshotTab(7)).toEqual([]);
+  });
+
+  it('cross-id-space: exactly one driver candidate is upgraded in place under its own key', () => {
+    const store = new RuleFireStore();
+    store.ingest(7, rec({ requestId: 'page::1.5', t: 1000 }), false);
+    const snap: RuleSnapshot = { ruleUid: 'rule-a', name: 'Rule A', type: 'header', enabled: true };
+    const merged = store.ingestTranslated(
+      7,
+      rec({ requestId: '4471', t: 1040, ruleSnapshot: snap }),
+      'https://openheaders.io/api',
+    );
+    expect(merged?.authoritative).toBe(true);
+    expect(merged?.record.requestId).toBe('page::1.5');
+    expect(merged?.record.ruleSnapshot).toBe(snap);
+    expect(store.snapshotTab(7)).toHaveLength(1);
+  });
+
+  it('cross-id-space: zero candidates buffers the arrival; the next matching insert pairs in one step', () => {
+    const store = new RuleFireStore();
+    expect(store.ingestTranslated(7, rec({ requestId: '4471', t: 1000 }), 'https://openheaders.io/api')).toBeNull();
+    expect(store.snapshotTab(7)).toHaveLength(0);
+    const inserted = store.ingest(7, rec({ requestId: 'page::1.5', t: 1030 }), false);
+    expect(inserted?.authoritative).toBe(true);
+    expect(inserted?.record.requestId).toBe('page::1.5');
+    expect(store.snapshotTab(7)).toHaveLength(1);
+  });
+
+  it('cross-id-space: two same-(rule,url) candidates in the window is ambiguous — no upgrade, no insert', () => {
+    const store = new RuleFireStore();
+    store.ingest(7, rec({ requestId: 'page::1.5', t: 1000 }), false);
+    store.ingest(7, rec({ requestId: 'page::1.6', t: 1010 }), false);
+    expect(store.ingestTranslated(7, rec({ requestId: '4471', t: 1040 }), 'https://openheaders.io/api')).toBeNull();
+    const snap = store.snapshotTab(7);
+    expect(snap).toHaveLength(2);
+    expect(snap.every((e) => !e.authoritative)).toBe(true);
+  });
+
+  it('cross-id-space: an already-authoritative entry never counts as a candidate', () => {
+    const store = new RuleFireStore();
+    store.ingest(7, rec({ requestId: 'page::1.5', t: 1000 }), false);
+    store.ingestTranslated(7, rec({ requestId: '4471', t: 1020 }), 'https://openheaders.io/api');
+    store.ingest(7, rec({ requestId: 'page::1.6', t: 1050 }), false);
+    const merged = store.ingestTranslated(7, rec({ requestId: '4472', t: 1080 }), 'https://openheaders.io/api');
+    expect(merged?.authoritative).toBe(true);
+    expect(merged?.record.requestId).toBe('page::1.6');
+  });
+
+  it('cross-id-space: a candidate outside the pairing window does not bind', () => {
+    const store = new RuleFireStore();
+    store.ingest(7, rec({ requestId: 'page::1.5', t: 1000 }), false);
+    const arrival = rec({ requestId: '4471', t: 1000 + TRANSLATION_WINDOW_MS + 1 });
+    expect(store.ingestTranslated(7, arrival, 'https://openheaders.io/api')).toBeNull();
+    expect(store.snapshotTab(7)[0].authoritative).toBe(false);
+  });
+
+  it('cross-id-space: a url mismatch never binds', () => {
+    const store = new RuleFireStore();
+    store.ingest(7, rec({ requestId: 'page::1.5', url: 'https://openheaders.io/other', t: 1000 }), false);
+    expect(store.ingestTranslated(7, rec({ requestId: '4471', t: 1020 }), 'https://openheaders.io/api')).toBeNull();
+    expect(store.snapshotTab(7)[0].authoritative).toBe(false);
+  });
+
+  it('cross-id-space: a pending older than the window is pruned, not paired', () => {
+    const store = new RuleFireStore();
+    store.ingestTranslated(7, rec({ requestId: '4471', t: 1000 }), 'https://openheaders.io/api');
+    const late = store.ingest(7, rec({ requestId: 'page::1.5', t: 1000 + TRANSLATION_WINDOW_MS + 1 }), false);
+    expect(late?.authoritative).toBe(false);
+  });
+
+  it('cross-id-space: two pendings matching one insert is ambiguous — both dropped, never paired', () => {
+    const store = new RuleFireStore();
+    store.ingestTranslated(7, rec({ requestId: '4471', t: 1000 }), 'https://openheaders.io/api');
+    store.ingestTranslated(7, rec({ requestId: '4472', t: 1010 }), 'https://openheaders.io/api');
+    const first = store.ingest(7, rec({ requestId: 'page::1.5', t: 1040 }), false);
+    expect(first?.authoritative).toBe(false);
+    const second = store.ingest(7, rec({ requestId: 'page::1.6', t: 1050 }), false);
+    expect(second?.authoritative).toBe(false);
+  });
+
+  it('cross-id-space: forgetTab clears the pending buffer too', () => {
+    const store = new RuleFireStore();
+    store.ingestTranslated(7, rec({ requestId: '4471', t: 1000 }), 'https://openheaders.io/api');
+    store.forgetTab(7);
+    const inserted = store.ingest(7, rec({ requestId: 'page::1.5', t: 1020 }), false);
+    expect(inserted?.authoritative).toBe(false);
   });
 
   it('per-tab cap evicts oldest by arrival', () => {

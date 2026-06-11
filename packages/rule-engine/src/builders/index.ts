@@ -23,6 +23,7 @@ export {
   BASELINE_RESOURCE_VOCABULARY,
   buildDnrCondition,
   CHROMIUM_RESOURCE_VOCABULARY,
+  FIREFOX_RESOURCE_VOCABULARY,
   LIVE_BYPASS_HEADER_NAME,
   resolveResourceTypes,
   stripResourceTypeFields,

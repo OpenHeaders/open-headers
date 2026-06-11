@@ -45,11 +45,13 @@ import {
   attachLiveBypassExclusion,
   BASELINE_RESOURCE_VOCABULARY,
   CHROMIUM_RESOURCE_VOCABULARY,
+  FIREFOX_RESOURCE_VOCABULARY,
+  type ResourceTypeVocabulary,
 } from '@openheaders/rule-engine/builders';
 import { compileRuleSet } from '@openheaders/rule-engine/compile';
 import { report as reportStatus } from '@openheaders/ui/shared/status';
 import { get as getSetting } from '@openheaders/ui/workbench/settings/store';
-import { declarativeNetRequest, isChrome, isEdge } from '@utils/browser-api';
+import { declarativeNetRequest, isChrome, isEdge, isFirefox } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { updateScriptableRules } from './inject-manager';
 import { recordLog } from './modules/observability-log';
@@ -105,6 +107,14 @@ export function setRulesPaused(paused: boolean): void {
 
 export function getRulesPaused(): boolean {
   return isPaused;
+}
+
+/** The resource-type vocabulary the running browser's DNR schema accepts.
+ *  Exported for the per-browser pinning tests. */
+export function resourceVocabularyForBrowser(): ResourceTypeVocabulary {
+  if (isChrome || isEdge) return CHROMIUM_RESOURCE_VOCABULARY;
+  if (isFirefox) return FIREFOX_RESOURCE_VOCABULARY;
+  return BASELINE_RESOURCE_VOCABULARY;
 }
 
 // ── Delay bypass state ──────────────────────────────────────────
@@ -372,12 +382,13 @@ async function rebuildAll(rawRules: Rule[]): Promise<void> {
   // package doesn't read `@openheaders/ui/workbench/settings/store` directly; the
   // orchestrator threads values through every compile. The resource-type
   // vocabulary is the per-browser seam: Chrome/Edge accept the Chromium-only
-  // members (webtransport, webbundle); every other engine gets the
+  // members (webtransport, webbundle), Firefox the Gecko schema's enum
+  // (beacon, imageset, web_manifest, …); an unverified engine gets the
   // cross-browser baseline so a vocabulary miss can't atomically reject
   // the whole DNR batch.
   const engineSettings: EngineCompileSettings = {
     liveRulesMode: getSetting('rulesEngine.liveRulesMode'),
-    resourceVocabulary: isChrome || isEdge ? CHROMIUM_RESOURCE_VOCABULARY : BASELINE_RESOURCE_VOCABULARY,
+    resourceVocabulary: resourceVocabularyForBrowser(),
   };
 
   // ── Layer 1: dynamic rules (global, not per-tab) ──

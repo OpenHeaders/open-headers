@@ -458,13 +458,15 @@ export function attachLiveBypassExclusion(
 //
 // An unknown resource type rejects the entire updateDynamicRules batch
 // atomically, so the vocabulary a rule folds to must match the running
-// browser. Two vocabularies exist: the BASELINE set every supported
-// engine accepts, and the CHROMIUM set adding the Chromium-only members
-// (webtransport, webbundle). The orchestrator picks one per browser and
-// threads it through `EngineCompileSettings.resourceVocabulary` — the
-// builders never decide. A rule without resource-type conditions folds
-// to the vocabulary's full set, so a missing member silently exempts
-// that traffic class from every rule.
+// browser. Three vocabularies exist: the BASELINE set every supported
+// engine accepts, the CHROMIUM set adding the Chromium-only members
+// (webtransport, webbundle), and the FIREFOX set adding the
+// Gecko-specific members its schema accepts. The orchestrator picks one
+// per browser and threads it through
+// `EngineCompileSettings.resourceVocabulary` — the builders never
+// decide. A rule without resource-type conditions folds to the
+// vocabulary's full set, so a missing member silently exempts that
+// traffic class from every rule.
 
 export interface ResourceTypeVocabulary {
   /** Every resource type the engine may emit on a rule condition. */
@@ -494,8 +496,8 @@ const BASELINE_RESOURCE_TYPES = [
   'other',
 ] as chrome.declarativeNetRequest.ResourceType[];
 
-/** Cross-browser vocabulary — Firefox / Safari (and any engine whose
- *  acceptance of the Chromium-only members is unverified). */
+/** Cross-browser vocabulary — Safari (and any engine whose accepted
+ *  enum is unverified): the intersection every supported engine takes. */
 export const BASELINE_RESOURCE_VOCABULARY: ResourceTypeVocabulary = makeResourceVocabulary(BASELINE_RESOURCE_TYPES);
 
 /** Chrome / Edge vocabulary — the full Chromium DNR enum. */
@@ -503,4 +505,32 @@ export const CHROMIUM_RESOURCE_VOCABULARY: ResourceTypeVocabulary = makeResource
   ...BASELINE_RESOURCE_TYPES,
   'webtransport',
   'webbundle',
+] as chrome.declarativeNetRequest.ResourceType[]);
+
+/**
+ * Firefox vocabulary — the Gecko DNR schema's accepted enum as of the
+ * 115 ESR (our `strict_min_version`), which later releases keep
+ * accepting. Two deliberate omissions from the current schema:
+ *
+ *   - `json` (JSON-module imports) — absent from the 115 ESR schema; an
+ *     unknown member rejects the whole batch atomically on the versions
+ *     we still support. Add it when `strict_min_version` crosses the
+ *     release that introduced it.
+ *   - `object_subrequest` — accepted by the schema but annotated
+ *     unsupported (the traffic class folded into `object` long ago), so
+ *     omitting it exempts nothing.
+ *
+ * The Gecko-only members matter: a rule without resource-type
+ * conditions folds to this full set, so leaving e.g. `beacon` or
+ * `web_manifest` off the list would silently exempt those request
+ * classes from every rule on Firefox.
+ */
+export const FIREFOX_RESOURCE_VOCABULARY: ResourceTypeVocabulary = makeResourceVocabulary([
+  ...BASELINE_RESOURCE_TYPES,
+  'beacon',
+  'imageset',
+  'web_manifest',
+  'speculative',
+  'xslt',
+  'xml_dtd',
 ] as chrome.declarativeNetRequest.ResourceType[]);

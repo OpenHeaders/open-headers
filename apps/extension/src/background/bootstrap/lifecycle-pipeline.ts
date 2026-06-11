@@ -95,7 +95,10 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
 
   const ruleFireHub = new RuleFireHub({ bus: tabLifecycleBus });
   startRuleFirePortHost({ hub: ruleFireHub });
-  const firesBridge = startTabTelemetryFiresBridge({ hub: ruleFireHub });
+  const firesBridge = startTabTelemetryFiresBridge({
+    hub: ruleFireHub,
+    isCdpOwned: (tabId) => lifecycleHost.router.ownerOf(tabId) === 'cdp',
+  });
 
   setupOnRuleMatchedDebugBridge({
     onAuthoritativeFire: (tabId, record) => firesBridge.notifyAuthoritativeFire(tabId, record),

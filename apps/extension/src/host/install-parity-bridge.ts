@@ -13,6 +13,7 @@ declare global {
   interface Window {
     __OH_DUMP_PARITY_ROWS__?: () => unknown[];
     __OH_DUMP_PARITY_FOOTER__?: () => unknown;
+    __OH_DUMP_PARITY_DANGLING__?: () => unknown[];
     __OH_CLEAR_PARITY__?: () => void;
   }
 }
@@ -44,6 +45,7 @@ if (tabId != null && chrome.storage?.onChanged) {
     }
     const rows = window.__OH_DUMP_PARITY_ROWS__?.() ?? [];
     const footer = window.__OH_DUMP_PARITY_FOOTER__?.() ?? null;
-    chrome.storage.local.set({ [`__oh_parity_dump_${tabId}__`]: { reqTs: req.ts, rows, footer } });
+    const dangling = window.__OH_DUMP_PARITY_DANGLING__?.() ?? [];
+    chrome.storage.local.set({ [`__oh_parity_dump_${tabId}__`]: { reqTs: req.ts, rows, footer, dangling } });
   });
 }

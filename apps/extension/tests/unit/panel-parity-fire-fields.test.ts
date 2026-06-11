@@ -10,7 +10,7 @@
 
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarEntry, InspectorHarHeaderCapture, RuleSnapshotHeaderMod } from '@openheaders/core/types';
-import { parityFireFields } from '@openheaders/ui/panel/data/parity-debug-hook';
+import { parityDanglingFires, parityFireFields } from '@openheaders/ui/panel/data/parity-debug-hook';
 import type { InspectorFire } from '@openheaders/ui/panel/data/types';
 import { describe, expect, it } from 'vitest';
 
@@ -171,6 +171,38 @@ describe('parityFireFields — fires and verdicts', () => {
     expect(fields._fires?.[0]).toMatchObject({ tier: 'contradicted', verdict: 'contradicted' });
     expect(fields._rowFireTier).toBe('contradicted');
     expect(fields._modEvidence?.[0]).toMatchObject({ verdict: 'contradicted', reason: 'value-mismatch' });
+  });
+
+  it('dangling partition: raw inputs verbatim plus the Rule Activity applied verdict', () => {
+    const authoritative = fire([], { authoritative: true, requestId: '4471', pattern: '' });
+    const scriptable: InspectorFire = {
+      ruleUid: 'rule-c',
+      t: 5,
+      pattern: '*://app.openheaders.io/*',
+      authoritative: false,
+      evidence: 'matched',
+      resourceType: 'xmlhttprequest',
+    };
+    expect(parityDanglingFires([authoritative, scriptable])).toEqual([
+      {
+        ruleUid: 'rule-a',
+        authoritative: true,
+        evidence: 'matched',
+        requestId: '4471',
+        t: 0,
+        pattern: '',
+        applied: true,
+      },
+      {
+        ruleUid: 'rule-c',
+        authoritative: false,
+        evidence: 'matched',
+        resourceType: 'xmlhttprequest',
+        t: 5,
+        pattern: '*://app.openheaders.io/*',
+        applied: false,
+      },
+    ]);
   });
 
   it('non-header fires carry no checkable claim — fires listed, no mod evidence', () => {

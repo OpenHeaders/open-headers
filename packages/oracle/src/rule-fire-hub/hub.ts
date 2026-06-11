@@ -66,6 +66,25 @@ export class RuleFireHub {
     this.ingestAndBroadcast(tabId, record, true);
   }
 
+  /**
+   * Authoritative fire for a tab whose rows live in a different request-id
+   * space (CDP-fed) — routed through the store's confidence-gated
+   * translation instead of the exact-key ingest, so the arrival upgrades
+   * its driver record in place (or waits/drops) rather than danging as a
+   * double-count. `matchUrl` is the host-normalized URL.
+   */
+  notifyAuthoritativeFireTranslated(tabId: number, record: RequestRecord, matchUrl: string): void {
+    this.registry.guardDisposed();
+    const merged = this.store.ingestTranslated(tabId, record, matchUrl);
+    if (merged === null) return;
+    this.registry.broadcast(tabId, {
+      kind: 'fire',
+      tabId,
+      record: merged.record,
+      authoritative: merged.authoritative,
+    });
+  }
+
   forgetTab(tabId: number): void {
     this.registry.guardDisposed();
     if (!this.store.forgetTab(tabId)) return;
