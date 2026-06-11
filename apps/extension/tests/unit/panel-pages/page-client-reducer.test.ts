@@ -96,6 +96,40 @@ describe('reducePageUpdate', () => {
     expect(next).toBe(NOOP);
   });
 
+  it('page-document-attached sets the named page documentId', () => {
+    const prev = [page({ id: 'page_1' }), page({ id: 'page_2', startedAtMs: 200 })];
+    const next = reducePageUpdate(prev, {
+      kind: 'page-document-attached',
+      tabId: 1,
+      pageId: 'page_1',
+      documentId: 'D1',
+    });
+    expect(next).not.toBe(NOOP);
+    expect((next as readonly Page[])[0].documentId).toBe('D1');
+    expect((next as readonly Page[])[1].documentId).toBeUndefined();
+  });
+
+  it('page-document-attached is set-once (mirror of the hub gate) and NOOP on unknown page', () => {
+    const prev = [page({ id: 'page_1', documentId: 'D1' })];
+    expect(
+      reducePageUpdate(prev, { kind: 'page-document-attached', tabId: 1, pageId: 'page_1', documentId: 'D-STALE' }),
+    ).toBe(NOOP);
+    expect(
+      reducePageUpdate(prev, { kind: 'page-document-attached', tabId: 1, pageId: 'page_9', documentId: 'D9' }),
+    ).toBe(NOOP);
+  });
+
+  it('page-started replaces in place when only documentId differs (replay carries it)', () => {
+    const prev = [page({ id: 'page_1' })];
+    const next = reducePageUpdate(prev, {
+      kind: 'page-started',
+      tabId: 1,
+      page: page({ id: 'page_1', documentId: 'D1' }),
+    });
+    expect(next).not.toBe(NOOP);
+    expect((next as readonly Page[])[0].documentId).toBe('D1');
+  });
+
   it('tab-cleared empties; NOOP on already-empty', () => {
     expect(reducePageUpdate([], { kind: 'tab-cleared', tabId: 1 })).toBe(NOOP);
     const next = reducePageUpdate([page()], { kind: 'tab-cleared', tabId: 1 });

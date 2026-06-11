@@ -17,6 +17,7 @@
  * backend-observed truth — a divergence is a fire-evidence bug.
  */
 
+import type { Page } from '@openheaders/core/page-stream';
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarEntry } from '@openheaders/core/types';
 import { useEffect, useRef } from 'react';
@@ -30,7 +31,13 @@ import {
   rowFireTier,
 } from './fire-evidence';
 import { currentHarEntry, type InspectorRowWithFires, isPendingLifecycle } from './inspector-row-projection';
-import { classifyRequestState, type RequestState } from './request-state';
+import {
+  classifyRequestState,
+  isPreservedUnknown,
+  type RequestState,
+  type SupersessionAnchor,
+  supersessionAnchorFromPages,
+} from './request-state';
 import type { InspectorFire } from './types';
 
 /** The footer projection a parity capture asserts the panel computes: the
@@ -58,7 +65,18 @@ export interface ParityFooter {
   /** Redirect leg subtracted to re-anchor the milestones; `0` non-redirect.
    *  Should equal Chrome's `finalNetworkStart − rootNetworkStart`. */
   legMs: number;
-  pages: Array<{ id: string; url: string | null; startedAtMs: number; dclMs: number | null; loadMs: number | null }>;
+  pages: Array<{
+    id: string;
+    url: string | null;
+    startedAtMs: number;
+    dclMs: number | null;
+    loadMs: number | null;
+    /** Page-binding keys — `loaderId` (CDP source) / `documentId` (heuristic
+     *  source) — so a capture can assert which binding fed the supersession
+     *  verdicts. */
+    loaderId: string | null;
+    documentId: string | null;
+  }>;
 }
 
 interface ParityRow {
@@ -216,6 +234,14 @@ interface ParityRowDebug extends ParityRow, ParityFireFields {
    *  joined devtools entry from a webRequest partial and a network hit
    *  from a cache read, independent of the producer stamp. */
   _har?: InspectorHarEntry | null;
+  /** Page-binding keys the supersession rule reads — `loaderId` (CDP) /
+   *  `documentId` (heuristic, outermost-frame-issued rows only). */
+  _loaderId?: string | null;
+  _documentId?: string | null;
+  /** The supersession verdict the Status/Time cells render — derived through
+   *  the same `isPreservedUnknown` + anchor the list uses, so the artifact
+   *  can never disagree with the panel. */
+  _preservedUnknown?: boolean;
 }
 
 /** Top-level navigation document — the rows the footer leg keys off. */
@@ -223,7 +249,7 @@ function isDocumentLike(resourceType: string | undefined): boolean {
   return resourceType === 'main_frame' || resourceType === 'document';
 }
 
-function toParityRow(rowWithFires: InspectorRowWithFires, arrivalIndex: number): ParityRow {
+function toParityRow(rowWithFires: InspectorRowWithFires, arrivalIndex: number, anchor: SupersessionAnchor): ParityRow {
   const lc = rowWithFires.lifecycle;
   const state = classifyRequestState(lc);
   let displayStatus: number | null = null;
@@ -267,6 +293,9 @@ function toParityRow(rowWithFires: InspectorRowWithFires, arrivalIndex: number):
   row._lifecycleDurationMs = lc.completedAtMs == null ? 0 : Math.max(0, lc.completedAtMs - lc.startedAtMs);
   row._timings = har?.timings ?? null;
   row._har = har ?? null;
+  row._loaderId = lc.loaderId ?? null;
+  row._documentId = lc.documentId ?? null;
+  row._preservedUnknown = isPreservedUnknown(lc, anchor);
   if (har?.response?._responseBodyIncomplete === true) row._responseBodyIncomplete = true;
   if (isDocumentLike(lc.resourceType)) {
     row._redirectHopCount = lc.redirectHopCount;
@@ -292,6 +321,7 @@ export function useParityDebugHook(
   rows: readonly InspectorRowWithFires[],
   footer: ParityFooter,
   clear: () => void,
+  pages: readonly Page[],
 ): void {
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
@@ -299,9 +329,16 @@ export function useParityDebugHook(
   footerRef.current = footer;
   const clearRef = useRef(clear);
   clearRef.current = clear;
+  const pagesRef = useRef(pages);
+  pagesRef.current = pages;
 
   useEffect(() => {
-    window.__OH_DUMP_PARITY_ROWS__ = () => rowsRef.current.map((row, i) => toParityRow(row, i));
+    window.__OH_DUMP_PARITY_ROWS__ = () => {
+      // The same anchor derivation the list cells use, over the same pages
+      // source — the dumped verdict can never disagree with the render.
+      const anchor = supersessionAnchorFromPages(pagesRef.current);
+      return rowsRef.current.map((row, i) => toParityRow(row, i, anchor));
+    };
     window.__OH_DUMP_PARITY_FOOTER__ = () => footerRef.current;
     window.__OH_CLEAR_PARITY__ = () => clearRef.current();
     return () => {

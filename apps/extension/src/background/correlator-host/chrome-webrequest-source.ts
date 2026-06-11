@@ -144,6 +144,8 @@ function mapOnBeforeRequest(d: chrome.webRequest.OnBeforeRequestDetails): OnBefo
     timeStamp: d.timeStamp,
     initiator: readInitiator(d),
     frameId: d.frameId,
+    ...(d.documentId !== undefined ? { documentId: d.documentId } : {}),
+    ...(d.frameType !== undefined ? { frameType: d.frameType } : {}),
   };
 }
 
@@ -158,6 +160,8 @@ function mapOnSendHeaders(d: chrome.webRequest.OnSendHeadersDetails): OnSendHead
     timeStamp: d.timeStamp,
     initiator: readInitiator(d),
     frameId: d.frameId,
+    ...(d.documentId !== undefined ? { documentId: d.documentId } : {}),
+    ...(d.frameType !== undefined ? { frameType: d.frameType } : {}),
     requestHeaders: normalizeHeaders(d.requestHeaders),
   };
 }
@@ -173,6 +177,8 @@ function mapOnHeadersReceived(d: chrome.webRequest.OnHeadersReceivedDetails): On
     timeStamp: d.timeStamp,
     initiator: readInitiator(d),
     frameId: d.frameId,
+    ...(d.documentId !== undefined ? { documentId: d.documentId } : {}),
+    ...(d.frameType !== undefined ? { frameType: d.frameType } : {}),
     statusCode: d.statusCode,
     statusLine: d.statusLine,
     responseHeaders: normalizeHeaders(d.responseHeaders),
@@ -190,6 +196,8 @@ function mapOnBeforeRedirect(d: chrome.webRequest.OnBeforeRedirectDetails): OnBe
     timeStamp: d.timeStamp,
     initiator: readInitiator(d),
     frameId: d.frameId,
+    ...(d.documentId !== undefined ? { documentId: d.documentId } : {}),
+    ...(d.frameType !== undefined ? { frameType: d.frameType } : {}),
     statusCode: d.statusCode,
     redirectUrl: d.redirectUrl,
     responseHeaders: normalizeHeaders(d.responseHeaders),
@@ -209,6 +217,8 @@ function mapOnCompleted(d: chrome.webRequest.OnCompletedDetails): OnCompletedEve
     timeStamp: d.timeStamp,
     initiator: readInitiator(d),
     frameId: d.frameId,
+    ...(d.documentId !== undefined ? { documentId: d.documentId } : {}),
+    ...(d.frameType !== undefined ? { frameType: d.frameType } : {}),
     statusCode: d.statusCode,
     statusLine: d.statusLine,
     fromCache: d.fromCache,
@@ -227,6 +237,8 @@ function mapOnErrorOccurred(d: chrome.webRequest.OnErrorOccurredDetails): OnErro
     timeStamp: d.timeStamp,
     initiator: readInitiator(d),
     frameId: d.frameId,
+    ...(d.documentId !== undefined ? { documentId: d.documentId } : {}),
+    ...(d.frameType !== undefined ? { frameType: d.frameType } : {}),
     error: d.error,
     fromCache: d.fromCache,
     ...(d.ip !== undefined ? { ip: d.ip } : {}),

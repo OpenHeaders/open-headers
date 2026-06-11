@@ -92,6 +92,50 @@ describe('PageStreamHub — notify + broadcast', () => {
     expect(hub.snapshotTab(1)[0].startedAtMs).toBe(100);
   });
 
+  it('attaches the committed documentId to the named page and broadcasts (heuristic source)', () => {
+    const hub = new PageStreamHub();
+    const sink = recordingSink();
+    hub.attach(1, sink);
+    const page = hub.notifyNavStarted(1, 100, 'https://openheaders.io/a');
+    sink.updates.length = 0;
+    hub.notifyPageDocumentAttached(1, page.id, 'DOC-A');
+    expect(hub.snapshotTab(1)[0].documentId).toBe('DOC-A');
+    expect(sink.updates).toEqual([{ kind: 'page-document-attached', tabId: 1, pageId: page.id, documentId: 'DOC-A' }]);
+  });
+
+  it('documentId is set-once — a late or duplicate resolution never overwrites', () => {
+    const hub = new PageStreamHub();
+    const sink = recordingSink();
+    hub.attach(1, sink);
+    const page = hub.notifyNavStarted(1, 100, 'https://openheaders.io/a');
+    hub.notifyPageDocumentAttached(1, page.id, 'DOC-A');
+    sink.updates.length = 0;
+    hub.notifyPageDocumentAttached(1, page.id, 'DOC-STALE');
+    expect(hub.snapshotTab(1)[0].documentId).toBe('DOC-A');
+    expect(sink.updates).toHaveLength(0);
+  });
+
+  it('documentId attach to an unknown page or tab is a silent noop', () => {
+    const hub = new PageStreamHub();
+    const sink = recordingSink();
+    hub.attach(1, sink);
+    hub.notifyNavStarted(1, 100, 'https://openheaders.io/a');
+    sink.updates.length = 0;
+    hub.notifyPageDocumentAttached(1, 'page_99', 'DOC-X');
+    hub.notifyPageDocumentAttached(2, 'page_1', 'DOC-X');
+    expect(sink.updates).toHaveLength(0);
+    expect(hub.snapshotTab(1)[0].documentId).toBeUndefined();
+  });
+
+  it('attaches documentId to a non-latest page by id (resolution landing after a newer nav)', () => {
+    const hub = new PageStreamHub();
+    const first = hub.notifyNavStarted(1, 100, 'https://openheaders.io/a');
+    hub.notifyNavStarted(1, 200, 'https://openheaders.io/b');
+    hub.notifyPageDocumentAttached(1, first.id, 'DOC-A');
+    expect(hub.snapshotTab(1)[0].documentId).toBe('DOC-A');
+    expect(hub.snapshotTab(1)[1].documentId).toBeUndefined();
+  });
+
   it('does not emit nav-timing-attached when no page exists for the tab', () => {
     const hub = new PageStreamHub();
     const sink = recordingSink();
@@ -124,6 +168,19 @@ describe('PageStreamHub — attach replay', () => {
     expect(sink.ready).toEqual([1]);
     const kinds = sink.updates.map((u) => u.kind);
     expect(kinds).toEqual(['page-started', 'page-started', 'nav-timing-attached']);
+  });
+
+  it('replayed page-started carries an attached documentId (no separate replay event needed)', () => {
+    const hub = new PageStreamHub();
+    const page = hub.notifyNavStarted(1, 100, 'https://openheaders.io/a');
+    hub.notifyPageDocumentAttached(1, page.id, 'DOC-A');
+
+    const sink = recordingSink();
+    hub.attach(1, sink);
+    const started = sink.updates.find((u) => u.kind === 'page-started');
+    if (started?.kind !== 'page-started') throw new Error();
+    expect(started.page.documentId).toBe('DOC-A');
+    expect(sink.updates.some((u) => u.kind === 'page-document-attached')).toBe(false);
   });
 
   it('attach to an unknown tab fires only ready', () => {

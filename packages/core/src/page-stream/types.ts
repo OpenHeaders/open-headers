@@ -46,6 +46,18 @@ export interface Page {
    * heuristic page source.
    */
   readonly loaderId?: string;
+  /**
+   * UUID of the document this navigation committed — webRequest
+   * `documentId` vocabulary, the heuristic page source's page-binding key
+   * and the sibling of {@link loaderId}. The host resolves it at the
+   * commit signal (`webNavigation.getFrame` on the main frame) and
+   * attaches it via `page-document-attached`; resolution is asynchronous,
+   * so the page is minted without it and gains it moments later. Matches
+   * {@link RequestLifecycle.documentId} on the page's own requests.
+   * Chromium-only (Firefox frames carry no `documentId`); absent when the
+   * resolution lost a commit race. Set once, never changed.
+   */
+  readonly documentId?: string;
   /** DOMContentLoaded ms (relative to navigation start). */
   readonly dclMs?: number;
   /** Load event ms (relative to navigation start). */
@@ -62,4 +74,5 @@ export interface Page {
 export type PageStreamUpdate =
   | { kind: 'page-started'; tabId: number; page: Page }
   | { kind: 'nav-timing-attached'; tabId: number; pageId: string; timing: InspectorNavTiming }
+  | { kind: 'page-document-attached'; tabId: number; pageId: string; documentId: string }
   | { kind: 'tab-cleared'; tabId: number };

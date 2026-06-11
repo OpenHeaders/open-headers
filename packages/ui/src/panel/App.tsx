@@ -274,9 +274,12 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
         startedAtMs: p.startedAtMs,
         dclMs: p.dclMs ?? null,
         loadMs: p.loadMs ?? null,
+        loaderId: p.loaderId ?? null,
+        documentId: p.documentId ?? null,
       })),
     },
     ui.clear,
+    data.pages,
   );
 
   const groups = useInspectorEditorGroups({ perTab, liveSessionToken: lifecycleClient.sessionToken });

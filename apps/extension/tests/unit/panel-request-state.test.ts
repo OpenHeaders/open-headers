@@ -540,6 +540,95 @@ describe('isPreservedUnknown — loader-identity binding (CDP)', () => {
   });
 });
 
+describe('isPreservedUnknown — document-identity binding (heuristic)', () => {
+  // The latest page committed as document D2; D1 is the superseded prior page.
+  // Same shape as the loader block: the floor is EARLY so a transition-window
+  // row that started AFTER it proves document identity, not time, decides.
+  const anchor = { latestNavStartedAtMs: 1_000, latestPageDocumentId: 'D2' };
+
+  it('transition-window row (old document D1, started AFTER the new nav) → preserved-unknown', () => {
+    // The class Slice U closes on the heuristic leg: a slow nav's old page
+    // keeps issuing requests in [nav-start, commit]; the time floor reads them
+    // Pending forever, the document binding supersedes them.
+    const lc = makeLifecycle({
+      phase: 'pending',
+      statusCode: undefined,
+      statusText: undefined,
+      startedAtMs: 1_500,
+      completedAtMs: undefined,
+      documentId: 'D1',
+      har: { response: undefined },
+    });
+    expect(isPreservedUnknown(lc, anchor)).toBe(true);
+  });
+
+  it('non-terminal current-page row (latest document D2) → not preserved', () => {
+    const lc = makeLifecycle({
+      phase: 'pending',
+      statusCode: undefined,
+      statusText: undefined,
+      startedAtMs: 500,
+      completedAtMs: undefined,
+      documentId: 'D2',
+      har: { response: undefined },
+    });
+    expect(isPreservedUnknown(lc, anchor)).toBe(false);
+  });
+
+  it('terminal prior-page row (old document, completed) → never preserved-unknown', () => {
+    const lc = makeLifecycle({
+      phase: 'completed',
+      startedAtMs: 500,
+      completedAtMs: 800,
+      documentId: 'D1',
+    });
+    expect(isPreservedUnknown(lc, anchor)).toBe(false);
+  });
+
+  it('row carries a documentId but the latest page has none (pre-resolution window) → time floor', () => {
+    const lc = makeLifecycle({
+      phase: 'pending',
+      statusCode: undefined,
+      statusText: undefined,
+      startedAtMs: 1_500,
+      completedAtMs: undefined,
+      documentId: 'D1',
+      har: { response: undefined },
+    });
+    expect(isPreservedUnknown(lc, { latestNavStartedAtMs: 1_000 })).toBe(false);
+  });
+
+  it('latest page has a documentId but the row has none (iframe subresource / worker) → time floor', () => {
+    const lc = makeLifecycle({
+      phase: 'pending',
+      statusCode: undefined,
+      statusText: undefined,
+      startedAtMs: 500,
+      completedAtMs: undefined,
+      har: { response: undefined },
+    });
+    expect(isPreservedUnknown(lc, anchor)).toBe(true);
+  });
+
+  it('loader identity outranks document identity when both bindings exist', () => {
+    // The two keys never coexist in practice (CDP rows carry loaderId,
+    // heuristic rows documentId); the order of authority is pinned anyway so
+    // the CDP tier stays byte-identical.
+    const lc = makeLifecycle({
+      phase: 'pending',
+      statusCode: undefined,
+      statusText: undefined,
+      startedAtMs: 500,
+      completedAtMs: undefined,
+      loaderId: 'L2',
+      documentId: 'D1',
+      har: { response: undefined },
+    });
+    const both = { latestNavStartedAtMs: 1_000, latestPageLoaderId: 'L2', latestPageDocumentId: 'D2' };
+    expect(isPreservedUnknown(lc, both)).toBe(false);
+  });
+});
+
 describe('isPreservedUnknown — cancellation-abort carve-out', () => {
   const abort = { code: 'net::ERR_ABORTED', reason: 'net::ERR_ABORTED' } as const;
 
@@ -613,14 +702,20 @@ describe('hasObservedResponseData', () => {
 });
 
 describe('supersessionAnchorFromPages', () => {
-  const page = (startedAtMs: number, loaderId?: string): Page =>
-    ({ startedAtMs, ...(loaderId ? { loaderId } : {}) }) as Page;
+  const page = (startedAtMs: number, loaderId?: string, documentId?: string): Page =>
+    ({ startedAtMs, ...(loaderId ? { loaderId } : {}), ...(documentId ? { documentId } : {}) }) as Page;
 
   it('reads the latest page for the floor and loader id, and every nav start', () => {
     const anchor = supersessionAnchorFromPages([page(100, 'L1'), page(500, 'L2')]);
     expect(anchor.latestNavStartedAtMs).toBe(500);
     expect(anchor.latestPageLoaderId).toBe('L2');
     expect(anchor.navStartsMs).toEqual([100, 500]);
+  });
+
+  it('reads the latest page documentId (heuristic binding key)', () => {
+    const anchor = supersessionAnchorFromPages([page(100, undefined, 'D1'), page(500, undefined, 'D2')]);
+    expect(anchor.latestPageDocumentId).toBe('D2');
+    expect(anchor.latestPageLoaderId).toBeUndefined();
   });
 
   it('falls back to a -1 floor and an empty nav list when there are no pages', () => {

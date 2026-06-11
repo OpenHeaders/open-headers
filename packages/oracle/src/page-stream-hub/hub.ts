@@ -16,6 +16,12 @@
  *     `navStartMs` (corrects the nav-commit start down to the true nav
  *     start), and `dclMs` / `loadMs` (when later than what we have).
  *     Emits `nav-timing-attached` only when the page actually changed.
+ *   - `notifyPageDocumentAttached(tabId, pageId, documentId)` — attaches
+ *     the committed document's UUID to the named page, set-once. The
+ *     heuristic page source mints its page synchronously at the commit
+ *     signal and resolves the documentId asynchronously
+ *     (`webNavigation.getFrame`); this verb lands the resolution without
+ *     ever reordering page minting. Emits `page-document-attached`.
  *   - `forgetTab(tabId)` — drops the tab's page list; emits
  *     `tab-cleared`. Called from `chrome.tabs.onRemoved` adapters.
  *
@@ -67,6 +73,20 @@ export class PageStreamHub {
     list.push(page);
     this.registry.broadcast(tabId, { kind: 'page-started', tabId, page });
     return page;
+  }
+
+  notifyPageDocumentAttached(tabId: number, pageId: string, documentId: string): void {
+    this.registry.guardDisposed();
+    const list = this.pagesByTab.get(tabId);
+    if (!list) return;
+    const idx = list.findIndex((p) => p.id === pageId);
+    if (idx < 0) return;
+    const prev = list[idx];
+    // Set-once: a page's committed document never changes; a duplicate or
+    // late resolution (commit-race loser) must not overwrite the first.
+    if (prev.documentId !== undefined) return;
+    list[idx] = { ...prev, documentId };
+    this.registry.broadcast(tabId, { kind: 'page-document-attached', tabId, pageId, documentId });
   }
 
   notifyNavTimingAttached(tabId: number, timing: InspectorNavTiming): void {

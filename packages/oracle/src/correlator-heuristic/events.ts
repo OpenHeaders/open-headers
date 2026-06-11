@@ -46,6 +46,14 @@ interface WebRequestEventBase {
   readonly initiator?: string;
   /** webRequest `frameId`; carried through for downstream consumers that need it. */
   readonly frameId?: number;
+  /**
+   * webRequest `documentId` — UUID of the document making the request.
+   * Chromium 106+ only; absent on Firefox and on navigation requests
+   * (the target document does not exist yet at `onBeforeRequest`).
+   */
+  readonly documentId?: string;
+  /** webRequest `frameType`: `'outermost_frame'`, `'sub_frame'`, `'fenced_frame'`. Chromium 106+. */
+  readonly frameType?: string;
 }
 
 /** Single name-value response or request header pair. */

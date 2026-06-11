@@ -20,6 +20,19 @@
  * `Page`-domain feed (`startCdpPageBridge`), whose timings match Chrome's
  * exporter; feeding both would double the tab's pages. `isCdpOwned` is the
  * same per-tab ownership the request correlators route on.
+ *
+ * Page binding: each `nav` mints its page synchronously (ordering is the
+ * page list's invariant — `getFrame` callbacks may resolve out of order on
+ * rapid navigations, so minting never waits on one), then the committed
+ * main frame's `documentId` is resolved asynchronously
+ * (`webNavigation.getFrame`) and attached via
+ * `notifyPageDocumentAttached`. Two staleness guards before attaching: the
+ * page must still be the tab's latest, and the resolved frame URL must
+ * match the nav URL — a newer commit racing the resolution fails one of
+ * them and the page simply keeps no documentId (its rows fall to the
+ * supersession time floor, today's behavior). Chromium-only: Firefox
+ * frames carry no `documentId`, so the resolver finds none and baseline
+ * engines keep the time floor.
  */
 
 import { type HarSourceMessage, parseHarSourcePortName } from '@openheaders/core/types';
@@ -30,6 +43,13 @@ import { getBrowserAPI } from '@/types/browser';
 export interface DevtoolsPageNavBridge {
   /** Detach the chrome listener. Tests / SW shutdown only. */
   dispose(): void;
+}
+
+/** The committed main frame, as the platform reports it at resolution time. */
+export interface MainFrameSnapshot {
+  readonly url: string;
+  /** Chromium 106+; absent on Firefox. */
+  readonly documentId?: string;
 }
 
 export interface DevtoolsPageNavBridgeOptions {
@@ -43,10 +63,42 @@ export interface DevtoolsPageNavBridgeOptions {
    * "never CDP-owned" (heuristic-only hosts).
    */
   readonly isCdpOwned?: (tabId: number) => boolean;
+  /**
+   * Resolves the tab's current main frame — the committed document the
+   * page binding reads. Injectable for tests; defaults to
+   * `webNavigation.getFrame({tabId, frameId: 0})`.
+   */
+  readonly resolveMainFrame?: (tabId: number) => Promise<MainFrameSnapshot | null>;
+}
+
+/** `webNavigation.getFrame` on the tab's main frame, null on any failure. */
+async function getMainFrame(tabId: number): Promise<MainFrameSnapshot | null> {
+  const webNavigation = getBrowserAPI().webNavigation;
+  if (!webNavigation?.getFrame) return null;
+  try {
+    const frame = await webNavigation.getFrame({ tabId, frameId: 0 });
+    if (!frame) return null;
+    return { url: frame.url, documentId: frame.documentId || undefined };
+  } catch {
+    return null;
+  }
 }
 
 export function startDevtoolsPageNavBridge(options: DevtoolsPageNavBridgeOptions): DevtoolsPageNavBridge {
-  const { hub, now = Date.now, isCdpOwned = () => false } = options;
+  const { hub, now = Date.now, isCdpOwned = () => false, resolveMainFrame = getMainFrame } = options;
+
+  // Resolve the committed document's UUID and attach it to the page just
+  // minted for this nav. Fire-and-forget from the message handler; the
+  // guards drop a resolution that a newer commit raced past.
+  const attachCommittedDocument = (tabId: number, pageId: string, navUrl: string): void => {
+    void resolveMainFrame(tabId).then((frame) => {
+      if (!frame?.documentId) return;
+      if (frame.url !== navUrl) return;
+      const pages = hub.snapshotTab(tabId);
+      if (pages.length === 0 || pages[pages.length - 1].id !== pageId) return;
+      hub.notifyPageDocumentAttached(tabId, pageId, frame.documentId);
+    });
+  };
   const onConnect = getBrowserAPI().runtime?.onConnect;
   if (!onConnect?.addListener) {
     logger.info('DevtoolsPageNavBridge', 'runtime.onConnect unavailable — nav bridge disabled');
@@ -65,7 +117,8 @@ export function startDevtoolsPageNavBridge(options: DevtoolsPageNavBridgeOptions
         // page; the host creates no `PageLoad` for it, so skip it here too —
         // the page id counter must not advance for an error commit.
         if (msg.url.startsWith('chrome-error://')) return;
-        hub.notifyNavStarted(tabId, now(), msg.url);
+        const page = hub.notifyNavStarted(tabId, now(), msg.url);
+        attachCommittedDocument(tabId, page.id, msg.url);
         return;
       }
       if (msg.type === 'nav-timing' && msg.timing && typeof msg.timing === 'object') {

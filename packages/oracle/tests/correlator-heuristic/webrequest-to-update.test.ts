@@ -45,6 +45,36 @@ describe('webRequestEventToUpdates — happy-path projection', () => {
     expect(update.lifecycle.initiator).toBe('https://app.openheaders.io');
   });
 
+  it('started stamps documentId only for outermost-frame-issued requests', () => {
+    const stamped = webRequestEventToUpdates({
+      ...onBeforeRequest,
+      documentId: 'DOC-A',
+      frameType: 'outermost_frame',
+    });
+    if (stamped[0]?.kind !== 'started') throw new Error('expected started');
+    expect(stamped[0].lifecycle.documentId).toBe('DOC-A');
+
+    // An iframe subresource carries its own iframe document's UUID — never
+    // the page's — so the binding stays unset and the row keeps the floor.
+    const subFrame = webRequestEventToUpdates({
+      ...onBeforeRequest,
+      documentId: 'DOC-IFRAME',
+      frameType: 'sub_frame',
+    });
+    if (subFrame[0]?.kind !== 'started') throw new Error('expected started');
+    expect(subFrame[0].lifecycle.documentId).toBeUndefined();
+  });
+
+  it('started leaves documentId unset when the event carries none (main_frame nav, Firefox)', () => {
+    const noId = webRequestEventToUpdates({ ...onBeforeRequest, frameType: 'outermost_frame' });
+    if (noId[0]?.kind !== 'started') throw new Error('expected started');
+    expect(noId[0].lifecycle.documentId).toBeUndefined();
+
+    const noFrameType = webRequestEventToUpdates({ ...onBeforeRequest, documentId: 'DOC-A' });
+    if (noFrameType[0]?.kind !== 'started') throw new Error('expected started');
+    expect(noFrameType[0].lifecycle.documentId).toBeUndefined();
+  });
+
   it('onSendHeaders → phase patch with provisional request headers', () => {
     const updates = webRequestEventToUpdates({
       method_kind: 'onSendHeaders',

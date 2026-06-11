@@ -8,6 +8,9 @@
  *     (when null), `startedAtMs` (corrected down to the true nav start),
  *     and `dclMs` / `loadMs` (when later than what we have).
  *     Hub already gated refinement; client is trust-but-apply.
+ *   - `page-document-attached` → set the named page's `documentId`,
+ *     set-once (the hub's own gate, mirrored — a page's committed
+ *     document never changes).
  *   - `tab-cleared` → drop all pages.
  *
  * Returns `NOOP` when the update would not change observable state, so
@@ -65,6 +68,17 @@ export function reducePageUpdate(prev: readonly Page[], update: PageStreamUpdate
       };
       return next;
     }
+    case 'page-document-attached': {
+      const idx = prev.findIndex((p) => p.id === update.pageId);
+      if (idx === -1) return NOOP;
+      const existing = prev[idx];
+      // Set-once mirror of the hub's gate: the first resolution wins, a
+      // duplicate or stale re-attach never overwrites it.
+      if (existing.documentId !== undefined) return NOOP;
+      const next = prev.slice();
+      next[idx] = { ...existing, documentId: update.documentId };
+      return next;
+    }
     case 'tab-cleared':
       return prev.length === 0 ? NOOP : [];
   }
@@ -77,6 +91,7 @@ function pagesEqual(a: Page, b: Page): boolean {
       a.startedAtMs === b.startedAtMs &&
       a.url === b.url &&
       a.loaderId === b.loaderId &&
+      a.documentId === b.documentId &&
       a.dclMs === b.dclMs &&
       a.loadMs === b.loadMs)
   );

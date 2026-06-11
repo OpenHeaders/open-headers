@@ -68,6 +68,12 @@ function startedUpdate(event: Extract<WebRequestEvent, { method_kind: 'onBeforeR
     method: event.method,
     resourceType: event.type,
     initiator: event.initiator,
+    // The page-binding stamp — only when the OUTERMOST frame's document
+    // issued the request. An iframe subresource carries its own iframe
+    // document's UUID, which can never equal a committed page's documentId;
+    // stamping it would falsely supersede a live iframe row, so sub-frame
+    // (and fenced-frame) rows stay unbound and keep the start-time floor.
+    ...(event.frameType === 'outermost_frame' && event.documentId ? { documentId: event.documentId } : {}),
     phase: 'pending',
     redirectHopCount: 0,
     redirectHops: [],

@@ -171,6 +171,43 @@ describe('resolvePageref — loader join (authoritative)', () => {
   });
 });
 
+describe('resolvePageref — document join (heuristic sibling)', () => {
+  const pages: Page[] = [
+    { id: 'page_1', startedAtMs: 0, url: 'https://openheaders.io/a', documentId: 'D1' },
+    { id: 'page_2', startedAtMs: 1000, url: 'https://openheaders.io/b', documentId: 'D2' },
+  ];
+
+  it('binds a row to the page whose committed documentId it carries', () => {
+    expect(resolvePageref(lifecycle({ startedAtMs: 200, documentId: 'D1' }), pages)).toBe('page_1');
+    expect(resolvePageref(lifecycle({ startedAtMs: 1200, documentId: 'D2' }), pages)).toBe('page_2');
+  });
+
+  it('keeps a transition-window subresource on its own (old) page despite a newer start', () => {
+    expect(resolvePageref(lifecycle({ startedAtMs: 1500, documentId: 'D1' }), pages)).toBe('page_1');
+  });
+
+  it('the LAST page with the documentId wins (a BFCache restore revives the id)', () => {
+    const restored: Page[] = [
+      ...pages,
+      { id: 'page_3', startedAtMs: 2000, url: 'https://openheaders.io/a', documentId: 'D1' },
+    ];
+    expect(resolvePageref(lifecycle({ startedAtMs: 2500, documentId: 'D1' }), restored)).toBe('page_3');
+  });
+
+  it('falls back to start-time proximity when no known page carries the documentId', () => {
+    // The heuristic resolution still in flight, or an iframe-issued binding.
+    expect(resolvePageref(lifecycle({ startedAtMs: 1500, documentId: 'D9' }), pages)).toBe('page_2');
+  });
+
+  it('loader join outranks the document join', () => {
+    const both: Page[] = [
+      { id: 'page_1', startedAtMs: 0, url: 'https://openheaders.io/a', loaderId: 'L1', documentId: 'D1' },
+      { id: 'page_2', startedAtMs: 1000, url: 'https://openheaders.io/b', loaderId: 'L2', documentId: 'D2' },
+    ];
+    expect(resolvePageref(lifecycle({ startedAtMs: 1500, loaderId: 'L1', documentId: 'D2' }), both)).toBe('page_1');
+  });
+});
+
 describe('attachFiresToRows', () => {
   it('returns rows-with-empty-fires + empty dangling when no fires', () => {
     const result = attachFiresToRows([row(lifecycle())], []);

@@ -122,6 +122,61 @@ describe('startDevtoolsPageNavBridge', () => {
     expect(navSpy).toHaveBeenCalledWith(8, expect.any(Number), 'https://openheaders.io/other');
   });
 
+  it('resolves the committed documentId and attaches it to the minted page', async () => {
+    const hub = new PageStreamHub();
+    startDevtoolsPageNavBridge({
+      hub,
+      resolveMainFrame: async () => ({ url: 'https://openheaders.io/', documentId: 'DOC-1' }),
+    });
+    emit(7, { type: 'nav', url: 'https://openheaders.io/' });
+    // The page is minted synchronously, the documentId lands a tick later.
+    expect(hub.snapshotTab(7)[0].documentId).toBeUndefined();
+    await vi.waitFor(() => expect(hub.snapshotTab(7)[0].documentId).toBe('DOC-1'));
+  });
+
+  it('drops a resolution whose frame URL does not match the nav (a newer commit won the race)', async () => {
+    const hub = new PageStreamHub();
+    startDevtoolsPageNavBridge({
+      hub,
+      resolveMainFrame: async () => ({ url: 'https://openheaders.io/newer', documentId: 'DOC-2' }),
+    });
+    emit(7, { type: 'nav', url: 'https://openheaders.io/' });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(hub.snapshotTab(7)[0].documentId).toBeUndefined();
+  });
+
+  it('drops a resolution that lands after a newer page was minted', async () => {
+    const hub = new PageStreamHub();
+    let release: () => void = () => {};
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    startDevtoolsPageNavBridge({
+      hub,
+      resolveMainFrame: async () => {
+        await gate;
+        return { url: 'https://openheaders.io/', documentId: 'DOC-STALE' };
+      },
+    });
+    emit(7, { type: 'nav', url: 'https://openheaders.io/' });
+    hub.notifyNavStarted(7, 999, 'https://openheaders.io/second');
+    release();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(hub.snapshotTab(7)[0].documentId).toBeUndefined();
+    expect(hub.snapshotTab(7)[1].documentId).toBeUndefined();
+  });
+
+  it('attaches nothing when the platform reports no documentId (Firefox)', async () => {
+    const hub = new PageStreamHub();
+    startDevtoolsPageNavBridge({
+      hub,
+      resolveMainFrame: async () => ({ url: 'https://openheaders.io/' }),
+    });
+    emit(7, { type: 'nav', url: 'https://openheaders.io/' });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(hub.snapshotTab(7)[0].documentId).toBeUndefined();
+  });
+
   it('dispose() removes the listener', () => {
     const hub = new PageStreamHub();
     const bridge = startDevtoolsPageNavBridge({ hub });

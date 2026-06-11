@@ -150,10 +150,17 @@ export function displayResourceBytes(lifecycle: RequestLifecycle): number | null
  * can start marginally after the *new* navigation has begun — start-time
  * proximity mis-bins it to the new page; the loader id does not.
  *
- * **Start-time proximity (fallback).** When the row carries no loader id (the
- * `chrome.webRequest` heuristic path, or a worker request that belongs to no
- * document), or no known page matches its loader id (CDP attached mid-flight,
- * the page not yet observed), bind to the page whose `startedAtMs` is the
+ * **Document join (heuristic sibling).** The webRequest path carries no loader
+ * id but stamps `documentId` on rows the outermost frame's document issued;
+ * a row belongs to the page whose committed `documentId` it carries. The LAST
+ * matching page wins — a back/forward-cache restore re-commits a page with the
+ * document's original UUID, so the same id can legitimately appear on an
+ * earlier page entry too.
+ *
+ * **Start-time proximity (fallback).** When the row carries no binding (an
+ * iframe subresource, a worker request, Firefox), or no known page matches its
+ * binding (CDP attached mid-flight, the page not yet observed, the heuristic
+ * resolution still in flight), bind to the page whose `startedAtMs` is the
  * latest one not greater than the lifecycle's `startedAtMs` — the navigation
  * in flight when the request started.
  *
@@ -181,6 +188,14 @@ export function resolvePageref(lifecycle: RequestLifecycle, pages: readonly Page
     for (const page of pages) {
       if (page.loaderId === loaderId) return page.id;
     }
+  }
+  const documentId = lifecycle.documentId;
+  if (documentId) {
+    let match: Page | null = null;
+    for (const page of pages) {
+      if (page.documentId === documentId) match = page;
+    }
+    if (match) return match.id;
   }
   let chosen: Page = pages[0];
   for (const page of pages) {

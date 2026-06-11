@@ -85,6 +85,21 @@ export interface RequestLifecycle {
    */
   readonly loaderId?: string;
   /**
+   * UUID of the issuing top-level document — the heuristic page-binding
+   * key, sibling of {@link loaderId}. Stamped once at request start from
+   * webRequest `documentId`, and only when the outermost frame's document
+   * issued the request: an iframe subresource carries its own iframe
+   * document's UUID, which can never equal a committed page's
+   * {@link Page.documentId}, so it is left unset there (the same
+   * never-mis-bind posture as the worker loaderId carve-out) and falls to
+   * the start-time page binding. Navigation (`main_frame`) requests carry
+   * no documentId at the wire — the target document does not exist yet —
+   * so they too are unset. Stable across the request's redirect hops.
+   * Chromium-only (Firefox webRequest has no `documentId`); heuristic-path
+   * only — the CDP path carries {@link loaderId} instead.
+   */
+  readonly documentId?: string;
+  /**
    * Frame the request was issued for — CDP `Network.requestWillBeSent.frameId`.
    * Set once at request start, stable across redirect hops. Lets consumers
    * that need webRequest-style frame semantics (the rule-engine driver's

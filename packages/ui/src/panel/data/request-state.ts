@@ -187,9 +187,12 @@ export function classifyRequestState(lifecycle: RequestLifecycle): RequestState 
 // each primary-page change it carries a request into the new page iff
 // `request.loaderId === mainFrame.loaderId`, otherwise it marks it preserved.
 // We mirror that — a non-terminal row whose loader id differs from the latest
-// page's loader id is superseded — and fall back to a start-time floor only
-// when no loader id is available (the heuristic page source, or a worker
-// request that carries none).
+// page's loader id is superseded. The heuristic leg carries the sibling
+// binding: webRequest `documentId` on the row (stamped only for requests the
+// outermost frame's document issued) against the committed `Page.documentId`,
+// the same `!==` law. The start-time floor remains the fallback for rows with
+// no binding on either side (a worker request, an iframe subresource, the
+// async pre-resolution window after a heuristic commit, Firefox).
 
 /** The Status/Time label for a request whose issuing page unloaded mid-flight. */
 export const PRESERVED_UNKNOWN_LABEL = '(unknown)';
@@ -199,12 +202,15 @@ export const PRESERVED_UNKNOWN_TITLE =
 
 /**
  * The latest in-view navigation, the binding a row is tested against.
- * `latestPageLoaderId` is its loader id (CDP page source); `latestNavStartedAtMs`
- * is its `startedAtMs`, the time-floor fallback used when no loader id is known.
+ * `latestPageLoaderId` is its loader id (CDP page source) and
+ * `latestPageDocumentId` its committed document UUID (heuristic page source) —
+ * the two binding keys, one per leg. `latestNavStartedAtMs` is its
+ * `startedAtMs`, the time-floor fallback used when no binding is known.
  */
 export interface SupersessionAnchor {
   readonly latestNavStartedAtMs: number;
   readonly latestPageLoaderId?: string;
+  readonly latestPageDocumentId?: string;
   /**
    * Every in-view navigation start time. The never-terminated floor only needs
    * the latest, but the cancellation-abort carve-out needs the full set: it asks
@@ -225,6 +231,7 @@ export function supersessionAnchorFromPages(pages: readonly Page[]): Supersessio
   return {
     latestNavStartedAtMs: latest?.startedAtMs ?? -1,
     latestPageLoaderId: latest?.loaderId,
+    latestPageDocumentId: latest?.documentId,
     navStartsMs: pages.map((p) => p.startedAtMs),
   };
 }
@@ -246,8 +253,16 @@ function navStartedDuring(navStartsMs: readonly number[] | undefined, startMs: n
  *      agnostic, so it correctly supersedes a prior-page subresource issued in
  *      the slow [nav-start, commit] transition window (its loader id is the old
  *      page's even though it started after the new nav began).
- *   2. **Start-time floor** (fallback). With no loader id on either side — the
- *      heuristic page source, or a worker request that carries none — a row is
+ *   2. **Document identity** (heuristic) — the same `!==` law on the sibling
+ *      key: the row's webRequest `documentId` (stamped only for requests the
+ *      outermost frame's document issued) against the latest page's committed
+ *      `documentId`. Probe-proven (`probe-documentid-diagnose`): a
+ *      transition-window old-page subresource carries the OLD document's UUID,
+ *      so this closes the same transition-window class on the heuristic leg.
+ *   3. **Start-time floor** (fallback). With no binding on either side — a
+ *      worker request, an iframe subresource (its documentId is its own iframe
+ *      document's, never the page's — deliberately unstamped), the async
+ *      pre-resolution window after a heuristic commit, Firefox — a row is
  *      superseded when it started before the latest navigation. `latestNavStartedAtMs
  *      <= 0` (no navigation observed) → never preserved-unknown.
  *
@@ -270,6 +285,9 @@ export function isPreservedUnknown(lifecycle: RequestLifecycle, anchor: Superses
   }
   if (anchor.latestPageLoaderId && lifecycle.loaderId) {
     return lifecycle.loaderId !== anchor.latestPageLoaderId;
+  }
+  if (anchor.latestPageDocumentId && lifecycle.documentId) {
+    return lifecycle.documentId !== anchor.latestPageDocumentId;
   }
   return anchor.latestNavStartedAtMs > 0 && lifecycle.startedAtMs < anchor.latestNavStartedAtMs;
 }
