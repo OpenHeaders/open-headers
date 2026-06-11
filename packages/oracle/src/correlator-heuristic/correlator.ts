@@ -66,6 +66,7 @@ import type { HarEvent, HarEventSource } from './har-events';
 import {
   bodyAttachedUpdate,
   harAttachedUpdate,
+  harEntryDurationMs,
   harEntryJoinFields,
   harEntryTimestamp,
   harOnlyLifecycleUpdates,
@@ -238,9 +239,13 @@ export class HeuristicCorrelator implements RequestCorrelator {
    *     `onSendHeaders` produces no FIFO record (it already exists)
    *     but still runs for CORS-context capture downstream.
    *
-   * Bookkeeping is silent on the H6 / non-CORS paths (`onHeadersReceived`,
-   * `onCompleted`, `onErrorOccurred`). Hop-cursor entries are released
-   * at terminal-phase emission (`emit` does the `forget`).
+   *   - `onCompleted` / `onErrorOccurred` stamp the terminal time onto
+   *     the (still-held) FIFO record — the wire-measured duration that
+   *     breaks warm-burst same-URL ties when the late HAR arrives.
+   *
+   * Bookkeeping is silent on the H6 / non-CORS paths (`onHeadersReceived`).
+   * Hop-cursor entries are released at terminal-phase emission (`emit`
+   * does the `forget`).
    */
   private maybeUpdateHopBookkeeping(event: WebRequestEvent): void {
     switch (event.method_kind) {
@@ -250,6 +255,10 @@ export class HeuristicCorrelator implements RequestCorrelator {
         return;
       case 'onBeforeRedirect':
         this.hopCursor.noteRedirect(event.tabId, event.requestId);
+        return;
+      case 'onCompleted':
+      case 'onErrorOccurred':
+        this.inFlight.noteTerminal(event.tabId, event.url, event.requestId, event.timeStamp);
         return;
       case 'onSendHeaders': {
         const pending = this.hopCursor.consumePendingRecord(event.tabId, event.requestId, event.method);
@@ -352,7 +361,7 @@ export class HeuristicCorrelator implements RequestCorrelator {
     // entries — only when a miss observer is wired (zero cost otherwise).
     const onJoinMiss = this.diagnostics?.onJoinMiss;
     const diag = onJoinMiss ? this.inFlight.diagnoseMatch(tabId, url, ts, method) : undefined;
-    const match = this.inFlight.popMatching(tabId, url, ts, method);
+    const match = this.inFlight.popMatching(tabId, url, ts, method, harEntryDurationMs(entry));
     if (match === undefined) {
       // Forward race (H7): no in-flight slot recorded yet. Hold so the
       // matching onBeforeRequest (or onSendHeaders for hops ≥ 1) — if
@@ -411,7 +420,7 @@ export class HeuristicCorrelator implements RequestCorrelator {
       const { url, method } = harEntryJoinFields(entry);
       const ts = harEntryTimestamp(entry);
       if (!url || ts === null) return undefined;
-      return this.inFlight.popMatching(tabId, url, ts, method);
+      return this.inFlight.popMatching(tabId, url, ts, method, harEntryDurationMs(entry));
     });
     for (const { entry, requestId, hopIndex } of matched) {
       const { url, method } = harEntryJoinFields(entry);

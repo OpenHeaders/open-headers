@@ -40,6 +40,7 @@ export type {
 export {
   bodyAttachedUpdate,
   harAttachedUpdate,
+  harEntryDurationMs,
   harEntryJoinFields,
   harEntryTimestamp,
   harOnlyLifecycleUpdates,
@@ -58,7 +59,7 @@ export { HarWaitingBuffer } from './har-waiting-buffer';
 export type { HopCursorDropLogger, HopCursorDropReason } from './hop-cursor';
 export { HopCursor } from './hop-cursor';
 export type { FifoEvictionLogger, InFlightMatch } from './in-flight-fifo';
-export { IN_FLIGHT_MAX_AGE_MS, InFlightFifo } from './in-flight-fifo';
+export { IN_FLIGHT_MAX_AGE_MS, InFlightFifo, SAME_URL_TIE_WINDOW_MS } from './in-flight-fifo';
 export { FINALIZED_RETENTION_MS, HAR_FAILURE_HOLD_MS, HAR_FORWARD_HOLD_MS } from './late-arrival-constants';
 export type {
   ResourceTimingEvent,

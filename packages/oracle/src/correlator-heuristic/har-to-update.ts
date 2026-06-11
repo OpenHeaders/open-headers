@@ -32,6 +32,15 @@ export function harEntryJoinFields(entry: InspectorHarEntry): { url: string; met
 }
 
 /**
+ * A HAR entry's total elapsed `time` in ms, or `null` when absent or
+ * carrying the HAR `-1` unknown sentinel. The join's warm-burst tie
+ * ranking compares this against the wire-measured record duration.
+ */
+export function harEntryDurationMs(entry: InspectorHarEntry): number | null {
+  return typeof entry.time === 'number' && Number.isFinite(entry.time) && entry.time >= 0 ? entry.time : null;
+}
+
+/**
  * Capture-point stamp for a devtools HAR entry, keyed on the entry's own
  * provenance. The host's HAR records THE WIRE when the request crossed it:
  * the request set is post-rewrite (the engine rewrites before send →

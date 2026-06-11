@@ -2,7 +2,8 @@
  * Per-URL FIFO of in-flight webRequest observations awaiting their HAR
  * row. State is partitioned per tab in an `InFlightFifo` instance; the
  * correlator pops the closest-timestamp match per `(tabId, url, method)`
- * at HAR-arrival time.
+ * at HAR-arrival time, with duration corroboration breaking the
+ * same-tick ties timestamps cannot resolve.
  *
  * Sweep order, LRU eviction policy, and closest-timestamp + method-
  * gated matching are documented inline below — they explain *why* this
@@ -41,6 +42,20 @@ export const IN_FLIGHT_MAX_AGE_MS = 60_000;
  */
 export const MAX_IN_FLIGHT_URLS_PER_TAB = 5_000;
 
+/**
+ * Start-delta band within which same-`(url, method)` candidates are
+ * timestamp-indistinguishable. HAR `startedDateTime` carries whole-ms
+ * resolution while a same-tick burst's records sit sub-ms apart, so for
+ * a warm burst every candidate's delta collapses into jitter (measured
+ * sub-3ms; the warm-burst probe reproduced a FULL pairing reversal —
+ * entries arrive in completion order, the closest-delta pick degenerates
+ * to insertion order). Candidates within this band of the best delta
+ * form a tie set that duration corroboration ranks instead; the band is
+ * far below any spacing timestamps CAN resolve (150 ms staggers match
+ * cleanly), so it never dilutes a genuine timestamp win.
+ */
+export const SAME_URL_TIE_WINDOW_MS = 25;
+
 interface InFlightEntry {
   requestId: string;
   /**
@@ -66,6 +81,16 @@ interface InFlightEntry {
    * after webRequest has already moved on.
    */
   hopIndex: number;
+  /**
+   * webRequest `Date.now()` at the terminal event (`onCompleted` /
+   * `onErrorOccurred`), stamped via {@link InFlightFifo.noteTerminal}.
+   * `terminalAt − t` is the wire-measured duration that breaks
+   * same-tick ties against the HAR entry's own `time` (the two agree
+   * within ~1 ms — same request, same clock domain). Absent while the
+   * request is still in flight and on mid-chain redirect hops (the
+   * terminal event carries only the final hop's URL).
+   */
+  terminalAt?: number;
 }
 
 /** Resolved join target for a popped FIFO entry — `{ requestId, hopIndex }`. */
@@ -139,6 +164,25 @@ export class InFlightFifo {
   }
 
   /**
+   * Stamp the terminal time onto the in-flight record for
+   * `(tabId, url, requestId)` — the correlator calls this on
+   * `onCompleted` / `onErrorOccurred`, whose `url` is the final hop's.
+   * The latest matching record wins (an A→B→A chain holds two same-URL
+   * records for one requestId; the terminal belongs to the later hop).
+   * Records are not removed here — a late HAR still needs the slot.
+   */
+  noteTerminal(tabId: number, url: string, requestId: string, t: number): void {
+    const queue = this.perTab.get(tabId)?.get(url);
+    if (!queue) return;
+    for (let i = queue.length - 1; i >= 0; i--) {
+      if (queue[i].requestId === requestId) {
+        queue[i].terminalAt = t;
+        return;
+      }
+    }
+  }
+
+  /**
    * Find and consume the `requestId` whose `(url, method)` matches and
    * whose `t` is closest to `harTimestamp`. Returns `undefined` when
    * no candidate fits — the caller drops the HAR (see D1 in the H2/H3
@@ -161,12 +205,23 @@ export class InFlightFifo {
    * `harTimestamp` so webRequest↔HAR processing skew (seconds under load)
    * never rejects an otherwise-valid match; the closest-timestamp pick
    * still resolves genuine same-URL collisions within that window.
+   *
+   * Warm-burst tie ranking. Candidates whose deltas sit within
+   * {@link SAME_URL_TIE_WINDOW_MS} of the best are indistinguishable by
+   * timestamp (probe-proven full reversal on same-tick POST bursts:
+   * entries arrive in completion order while equal-delta picks walk
+   * insertion order). When `harDurationMs` is supplied, the tie set is
+   * ranked by wire-duration distance — `|harDurationMs − (terminalAt −
+   * t)|`, unstamped candidates last — then by start delta, then by
+   * insertion. Ranking only ever reorders the tie set; a sole candidate
+   * is still never rejected.
    */
   popMatching(
     tabId: number,
     url: string,
     harTimestamp: number,
     harMethod: string,
+    harDurationMs?: number | null,
   ): InFlightMatch | undefined {
     const tabMap = this.perTab.get(tabId);
     if (!tabMap) return undefined;
@@ -195,10 +250,61 @@ export class InFlightFifo {
       }
     }
     if (bestIdx === -1) return undefined;
+    if (harDurationMs != null) {
+      bestIdx = this.rankTieByDuration(queue, harTimestamp, harMethod, upper, bestIdx, bestDelta, harDurationMs);
+    }
     const matched = queue[bestIdx];
     queue.splice(bestIdx, 1);
     if (queue.length === 0) tabMap.delete(url);
     return { requestId: matched.requestId, hopIndex: matched.hopIndex };
+  }
+
+  /**
+   * Re-rank the timestamp tie set by wire-duration distance. Candidates
+   * within {@link SAME_URL_TIE_WINDOW_MS} of `bestDelta` compete on
+   * `|harDurationMs − (terminalAt − t)|`; a candidate without a terminal
+   * stamp (still in flight, or a mid-chain redirect hop) ranks last —
+   * a finished HAR entry belongs to a request the wire saw finish.
+   * Duration distance ties fall back to start delta, then insertion
+   * order (the iteration keeps the earliest on full equality).
+   */
+  private rankTieByDuration(
+    queue: InFlightEntry[],
+    harTimestamp: number,
+    harMethod: string,
+    upper: number,
+    bestIdx: number,
+    bestDelta: number,
+    harDurationMs: number,
+  ): number {
+    let winnerIdx = bestIdx;
+    let winnerDist = Number.POSITIVE_INFINITY;
+    let winnerDelta = bestDelta;
+    let tieCount = 0;
+    for (let i = 0; i < queue.length; i++) {
+      const entry = queue[i];
+      if (harMethod && entry.method !== harMethod) continue;
+      if (entry.t > upper) continue;
+      const delta = Math.abs(entry.t - harTimestamp);
+      if (delta - bestDelta > SAME_URL_TIE_WINDOW_MS) continue;
+      tieCount++;
+      const dist =
+        entry.terminalAt === undefined
+          ? Number.POSITIVE_INFINITY
+          : Math.abs(harDurationMs - (entry.terminalAt - entry.t));
+      if (tieCount === 1) {
+        winnerIdx = i;
+        winnerDist = dist;
+        winnerDelta = delta;
+        continue;
+      }
+      if (dist < winnerDist || (dist === winnerDist && delta < winnerDelta)) {
+        winnerIdx = i;
+        winnerDist = dist;
+        winnerDelta = delta;
+      }
+    }
+    return tieCount > 1 ? winnerIdx : bestIdx;
   }
 
   /** Drop all in-flight state for a tab (invariant 2 — lifecycles die with the tab). */

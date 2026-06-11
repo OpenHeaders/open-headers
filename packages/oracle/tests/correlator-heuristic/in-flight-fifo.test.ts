@@ -12,6 +12,7 @@ import {
   InFlightFifo,
   IN_FLIGHT_MAX_AGE_MS,
   MAX_IN_FLIGHT_URLS_PER_TAB,
+  SAME_URL_TIE_WINDOW_MS,
 } from '../../src/correlator-heuristic/in-flight-fifo';
 
 const TAB = 1;
@@ -169,6 +170,92 @@ describe('InFlightFifo — hop-index attribution (H8/H9)', () => {
       requestId: 'req-1',
       hopIndex: 0,
     });
+  });
+});
+
+describe('InFlightFifo — warm-burst tie ranking (duration corroboration)', () => {
+  it('same-tick burst: entries popped in completion order land on their own requestIds', () => {
+    const fifo = new InFlightFifo();
+    // Four same-URL POSTs fired in one task tick — records sub-ms apart,
+    // every HAR startedDateTime truncated to the same whole ms (1_000).
+    // Durations inverted: the first fired finishes last.
+    fifo.record(TAB, URL, 'req-1', 1_000.1, 'POST', 0);
+    fifo.record(TAB, URL, 'req-2', 1_000.4, 'POST', 0);
+    fifo.record(TAB, URL, 'req-3', 1_000.7, 'POST', 0);
+    fifo.record(TAB, URL, 'req-4', 1_001.0, 'POST', 0);
+    fifo.noteTerminal(TAB, URL, 'req-4', 1_001.0 + 500);
+    expect(fifo.popMatching(TAB, URL, 1_000, 'POST', 500)).toEqual({ requestId: 'req-4', hopIndex: 0 });
+    fifo.noteTerminal(TAB, URL, 'req-3', 1_000.7 + 1_000);
+    expect(fifo.popMatching(TAB, URL, 1_000, 'POST', 1_000)).toEqual({ requestId: 'req-3', hopIndex: 0 });
+    fifo.noteTerminal(TAB, URL, 'req-2', 1_000.4 + 1_500);
+    expect(fifo.popMatching(TAB, URL, 1_000, 'POST', 1_500)).toEqual({ requestId: 'req-2', hopIndex: 0 });
+    fifo.noteTerminal(TAB, URL, 'req-1', 1_000.1 + 2_000);
+    expect(fifo.popMatching(TAB, URL, 1_000, 'POST', 2_000)).toEqual({ requestId: 'req-1', hopIndex: 0 });
+  });
+
+  it('a still-in-flight candidate ranks below a terminal-stamped one inside the tie set', () => {
+    const fifo = new InFlightFifo();
+    fifo.record(TAB, URL, 'slow', 1_000.2, 'POST', 0);
+    fifo.record(TAB, URL, 'fast', 1_000.5, 'POST', 0);
+    // Only the fast request has finished when its HAR arrives; the slow
+    // one is still running and cannot own a finished entry.
+    fifo.noteTerminal(TAB, URL, 'fast', 1_000.5 + 300);
+    expect(fifo.popMatching(TAB, URL, 1_000, 'POST', 300)).toEqual({ requestId: 'fast', hopIndex: 0 });
+    expect(fifo.popMatching(TAB, URL, 1_000, 'POST', 2_000)).toEqual({ requestId: 'slow', hopIndex: 0 });
+  });
+
+  it('duration ranking never overrides a genuine timestamp win outside the tie window', () => {
+    const fifo = new InFlightFifo();
+    // 150 ms stagger — far beyond the tie window. The far candidate's
+    // duration matches the HAR better, but timestamps already decide.
+    fifo.record(TAB, URL, 'near', 1_000, 'POST', 0);
+    fifo.record(TAB, URL, 'far', 1_000 + SAME_URL_TIE_WINDOW_MS + 125, 'POST', 0);
+    fifo.noteTerminal(TAB, URL, 'near', 1_000 + 900);
+    fifo.noteTerminal(TAB, URL, 'far', 1_000 + SAME_URL_TIE_WINDOW_MS + 125 + 500);
+    expect(fifo.popMatching(TAB, URL, 1_001, 'POST', 500)).toEqual({ requestId: 'near', hopIndex: 0 });
+  });
+
+  it('without harDurationMs the legacy closest-timestamp pick stands', () => {
+    const fifo = new InFlightFifo();
+    fifo.record(TAB, URL, 'req-1', 1_000.1, 'POST', 0);
+    fifo.record(TAB, URL, 'req-2', 1_000.4, 'POST', 0);
+    expect(fifo.popMatching(TAB, URL, 1_000, 'POST')).toEqual({ requestId: 'req-1', hopIndex: 0 });
+  });
+
+  it('tie with no terminal stamps anywhere falls back to closest start delta', () => {
+    const fifo = new InFlightFifo();
+    fifo.record(TAB, URL, 'req-1', 1_000.1, 'POST', 0);
+    fifo.record(TAB, URL, 'req-2', 1_000.4, 'POST', 0);
+    expect(fifo.popMatching(TAB, URL, 1_000, 'POST', 700)).toEqual({ requestId: 'req-1', hopIndex: 0 });
+  });
+
+  it('sole candidate is never rejected by duration distance', () => {
+    const fifo = new InFlightFifo();
+    fifo.record(TAB, URL, 'only', 1_000, 'POST', 0);
+    fifo.noteTerminal(TAB, URL, 'only', 1_000 + 100);
+    // Wildly mismatched duration — proximity/duration only disambiguate,
+    // they never reject the sole candidate.
+    expect(fifo.popMatching(TAB, URL, 1_000, 'POST', 50_000)).toEqual({ requestId: 'only', hopIndex: 0 });
+  });
+
+  it('noteTerminal stamps the latest record when a chain revisits the URL', () => {
+    const fifo = new InFlightFifo();
+    // A→B→A: hop 0 and hop 2 share the URL under one requestId. The
+    // terminal event belongs to the later hop.
+    fifo.record(TAB, URL, 'req-1', 1_000.2, 'GET', 0);
+    fifo.record(TAB, URL, 'req-1', 1_000.6, 'GET', 2);
+    fifo.noteTerminal(TAB, URL, 'req-1', 1_000.6 + 400);
+    // Same-ms HAR starts; only the hop-2 record's duration matches.
+    expect(fifo.popMatching(TAB, URL, 1_000, 'GET', 400)).toEqual({ requestId: 'req-1', hopIndex: 2 });
+    expect(fifo.popMatching(TAB, URL, 1_000, 'GET', 900)).toEqual({ requestId: 'req-1', hopIndex: 0 });
+  });
+
+  it('noteTerminal on an unknown url/requestId is a no-op', () => {
+    const fifo = new InFlightFifo();
+    fifo.record(TAB, URL, 'req-1', 1_000, 'GET', 0);
+    fifo.noteTerminal(TAB, 'https://api.openheaders.io/other', 'req-1', 2_000);
+    fifo.noteTerminal(TAB, URL, 'req-x', 2_000);
+    expect(fifo.popMatching(TAB, URL, 1_000, 'GET', 1_000)).toEqual({ requestId: 'req-1', hopIndex: 0 });
   });
 });
 
