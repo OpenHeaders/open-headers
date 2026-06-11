@@ -130,6 +130,30 @@ describe('reducePageUpdate', () => {
     expect((next as readonly Page[])[0].documentId).toBe('D1');
   });
 
+  it('page-started replaces in place when only committedAtMs differs (equality sees the new field)', () => {
+    const prev = [page({ id: 'page_1' })];
+    const next = reducePageUpdate(prev, {
+      kind: 'page-started',
+      tabId: 1,
+      page: page({ id: 'page_1', committedAtMs: 250 }),
+    });
+    expect(next).not.toBe(NOOP);
+    expect((next as readonly Page[])[0].committedAtMs).toBe(250);
+  });
+
+  it('nav-timing-attached corrects startedAtMs down but preserves committedAtMs', () => {
+    const prev = [page({ id: 'page_1', startedAtMs: 250, committedAtMs: 250 })];
+    const next = reducePageUpdate(prev, {
+      kind: 'nav-timing-attached',
+      tabId: 1,
+      pageId: 'page_1',
+      timing: { pageOrigin: null, navStartMs: 100 },
+    });
+    expect(next).not.toBe(NOOP);
+    expect((next as readonly Page[])[0].startedAtMs).toBe(100);
+    expect((next as readonly Page[])[0].committedAtMs).toBe(250);
+  });
+
   it('tab-cleared empties; NOOP on already-empty', () => {
     expect(reducePageUpdate([], { kind: 'tab-cleared', tabId: 1 })).toBe(NOOP);
     const next = reducePageUpdate([page()], { kind: 'tab-cleared', tabId: 1 });

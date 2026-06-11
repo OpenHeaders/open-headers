@@ -92,6 +92,23 @@ describe('PageStreamHub — notify + broadcast', () => {
     expect(hub.snapshotTab(1)[0].startedAtMs).toBe(100);
   });
 
+  it('retains the mint instant as committedAtMs for both page sources', () => {
+    const hub = new PageStreamHub();
+    const heuristic = hub.notifyNavStarted(1, 250, 'https://openheaders.io/a');
+    const cdp = hub.notifyNavStarted(1, 400, 'https://openheaders.io/b', 'L1');
+    expect(heuristic.committedAtMs).toBe(250);
+    expect(cdp.committedAtMs).toBe(400);
+  });
+
+  it('the nav-timing correction moves startedAtMs down but never touches committedAtMs', () => {
+    const hub = new PageStreamHub();
+    hub.notifyNavStarted(1, 250, null);
+    hub.notifyNavTimingAttached(1, { pageOrigin: 'https://openheaders.io', navStartMs: 100 });
+    const page = hub.snapshotTab(1)[0];
+    expect(page.startedAtMs).toBe(100);
+    expect(page.committedAtMs).toBe(250);
+  });
+
   it('attaches the committed documentId to the named page and broadcasts (heuristic source)', () => {
     const hub = new PageStreamHub();
     const sink = recordingSink();
@@ -181,6 +198,19 @@ describe('PageStreamHub — attach replay', () => {
     if (started?.kind !== 'page-started') throw new Error();
     expect(started.page.documentId).toBe('DOC-A');
     expect(sink.updates.some((u) => u.kind === 'page-document-attached')).toBe(false);
+  });
+
+  it('replayed page-started carries committedAtMs alongside the corrected start', () => {
+    const hub = new PageStreamHub();
+    hub.notifyNavStarted(1, 250, 'https://openheaders.io/a');
+    hub.notifyNavTimingAttached(1, { pageOrigin: 'https://openheaders.io', navStartMs: 100 });
+
+    const sink = recordingSink();
+    hub.attach(1, sink);
+    const started = sink.updates.find((u) => u.kind === 'page-started');
+    if (started?.kind !== 'page-started') throw new Error();
+    expect(started.page.startedAtMs).toBe(100);
+    expect(started.page.committedAtMs).toBe(250);
   });
 
   it('attach to an unknown tab fires only ready', () => {

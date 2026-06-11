@@ -11,11 +11,14 @@
  *   - `notifyNavStarted(tabId, startedAtMs, url?, loaderId?)` — page
  *     boundary; mints a `page_N` id, appends to the tab's page list, emits
  *     `page-started`. `loaderId` (CDP source only) is the page-binding key.
+ *     The mint instant is retained as `committedAtMs`, the immutable
+ *     commit-signal time the supersession carve-out reads.
  *   - `notifyNavTimingAttached(tabId, timing)` — refines the most-
  *     recent page with `pageOrigin` (when its url is still null),
  *     `navStartMs` (corrects the nav-commit start down to the true nav
- *     start), and `dclMs` / `loadMs` (when later than what we have).
- *     Emits `nav-timing-attached` only when the page actually changed.
+ *     start; `committedAtMs` is untouched), and `dclMs` / `loadMs` (when
+ *     later than what we have). Emits `nav-timing-attached` only when the
+ *     page actually changed.
  *   - `notifyPageDocumentAttached(tabId, pageId, documentId)` — attaches
  *     the committed document's UUID to the named page, set-once. The
  *     heuristic page source mints its page synchronously at the commit
@@ -68,8 +71,16 @@ export class PageStreamHub {
     this.counters.set(tabId, next);
     // `loaderId` is the CDP page source's page-binding key; the heuristic
     // source passes none, so the page carries no loader id and consumers fall
-    // back to start-time binding.
-    const page: Page = { id: `page_${next}`, startedAtMs, url, ...(loaderId ? { loaderId } : {}) };
+    // back to start-time binding. `committedAtMs` retains the mint instant —
+    // the commit signal's time — which the nav-timing refinement must never
+    // touch (it corrects `startedAtMs` down to the true nav start).
+    const page: Page = {
+      id: `page_${next}`,
+      startedAtMs,
+      committedAtMs: startedAtMs,
+      url,
+      ...(loaderId ? { loaderId } : {}),
+    };
     list.push(page);
     this.registry.broadcast(tabId, { kind: 'page-started', tabId, page });
     return page;

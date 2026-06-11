@@ -272,6 +272,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
         id: p.id,
         url: p.url,
         startedAtMs: p.startedAtMs,
+        committedAtMs: p.committedAtMs ?? null,
         dclMs: p.dclMs ?? null,
         loadMs: p.loadMs ?? null,
         loaderId: p.loaderId ?? null,

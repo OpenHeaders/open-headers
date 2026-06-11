@@ -32,6 +32,16 @@ export interface Page {
    */
   readonly startedAtMs: number;
   /**
+   * Wall-clock ms at the commit signal that minted this page — the value
+   * {@link startedAtMs} held at mint, retained verbatim when the nav-timing
+   * refinement corrects `startedAtMs` down to the true nav start. Immutable:
+   * stamped once for both page sources and never refined. This is the
+   * instant a navigation tears down the prior page's in-flight requests, so
+   * the supersession carve-out tests an aborted row's terminal time against
+   * it to tell a navigation teardown from an explicit cancel.
+   */
+  readonly committedAtMs?: number;
+  /**
    * Page URL — null until the host reports it via `nav` or `nav-timing`'s
    * `pageOrigin`. The `nav` event's full URL wins if both arrive;
    * `pageOrigin` is the fallback.

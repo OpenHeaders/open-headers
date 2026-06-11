@@ -69,6 +69,10 @@ export interface ParityFooter {
     id: string;
     url: string | null;
     startedAtMs: number;
+    /** Immutable commit-signal mint instant (`Page.committedAtMs`) — the
+     *  teardown carve-out's coincidence reference; a probe asserts an aborted
+     *  teardown row's terminal sits within ε of it. */
+    committedAtMs: number | null;
     dclMs: number | null;
     loadMs: number | null;
     /** Page-binding keys — `loaderId` (CDP source) / `documentId` (heuristic

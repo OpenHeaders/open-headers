@@ -629,7 +629,121 @@ describe('isPreservedUnknown — document-identity binding (heuristic)', () => {
   });
 });
 
-describe('isPreservedUnknown — cancellation-abort carve-out', () => {
+describe('isPreservedUnknown — binding-aware abort carve-out (bound rows)', () => {
+  const abort = { code: 'net::ERR_ABORTED', reason: 'net::ERR_ABORTED' } as const;
+  // Page D1 committed at 1000, superseded by D2 committing at 5000 — the
+  // anchor a bound aborted row is classified against.
+  const anchor = {
+    latestNavStartedAtMs: 4_800,
+    latestPageDocumentId: 'D2',
+    navStartsMs: [900, 4_800],
+    pageCommitsMs: [1_000, 5_000],
+  };
+
+  it('teardown: superseded binding + commit-coincident terminal → preserved-unknown', () => {
+    // The transition class: the row started AFTER the superseding nav began
+    // (4900 > 4800), so navStartedDuring misses it — binding + coincidence is
+    // what classifies it. Aborted 6ms after D2's commit, within ε.
+    const lc = makeLifecycle({
+      phase: 'failed',
+      statusCode: undefined,
+      startedAtMs: 4_900,
+      completedAtMs: 5_006,
+      error: abort,
+      documentId: 'D1',
+      har: { response: undefined },
+    });
+    expect(isPreservedUnknown(lc, anchor)).toBe(true);
+  });
+
+  it('teardown: the abort may land slightly BEFORE the commit instant (net-process abort beats the mint)', () => {
+    const lc = makeLifecycle({
+      phase: 'failed',
+      statusCode: undefined,
+      startedAtMs: 1_500,
+      completedAtMs: 4_993,
+      error: abort,
+      documentId: 'D1',
+      har: { response: undefined },
+    });
+    expect(isPreservedUnknown(lc, anchor)).toBe(true);
+  });
+
+  it('teardown via the loader-identity arm (CDP-shaped binding, same law)', () => {
+    const lc = makeLifecycle({
+      phase: 'failed',
+      statusCode: undefined,
+      startedAtMs: 4_900,
+      completedAtMs: 5_004,
+      error: abort,
+      loaderId: 'L1',
+      har: { response: undefined },
+    });
+    const cdpAnchor = { ...anchor, latestPageLoaderId: 'L2' };
+    expect(isPreservedUnknown(lc, cdpAnchor)).toBe(true);
+  });
+
+  it('explicit cancel then navigate: superseded binding, no coincident commit → stays (canceled) forever', () => {
+    // Canceled at 3000, mid-page, far from both commits; later navigations
+    // supersede its binding but must never flip it to (unknown).
+    const lc = makeLifecycle({
+      phase: 'failed',
+      statusCode: undefined,
+      startedAtMs: 1_500,
+      completedAtMs: 3_000,
+      error: abort,
+      documentId: 'D1',
+      har: { response: undefined },
+    });
+    expect(isPreservedUnknown(lc, anchor)).toBe(false);
+  });
+
+  it('explicit cancel ε-near a commit on the still-current page → not preserved (binding wins)', () => {
+    // The row belongs to the LATEST page; even a terminal coincident with a
+    // commit instant is a live-page cancel, never a teardown.
+    const lc = makeLifecycle({
+      phase: 'failed',
+      statusCode: undefined,
+      startedAtMs: 4_900,
+      completedAtMs: 5_010,
+      error: abort,
+      documentId: 'D2',
+      har: { response: undefined },
+    });
+    expect(isPreservedUnknown(lc, anchor)).toBe(false);
+  });
+
+  it('a commit that predates the row never reads as its teardown (in-flight-window guard)', () => {
+    // Issued 2ms after D2's commit and explicitly canceled 3ms later: the
+    // terminal sits within ε of the commit, but the commit is not inside the
+    // row's in-flight window, so this is a cancel, not a teardown.
+    const lc = makeLifecycle({
+      phase: 'failed',
+      statusCode: undefined,
+      startedAtMs: 5_002,
+      completedAtMs: 5_005,
+      error: abort,
+      documentId: 'D1',
+      har: { response: undefined },
+    });
+    expect(isPreservedUnknown(lc, anchor)).toBe(false);
+  });
+
+  it('superseded binding with no commit list (pre-upgrade anchor) → stays (canceled), strictly no worse', () => {
+    const lc = makeLifecycle({
+      phase: 'failed',
+      statusCode: undefined,
+      startedAtMs: 4_900,
+      completedAtMs: 5_006,
+      error: abort,
+      documentId: 'D1',
+      har: { response: undefined },
+    });
+    expect(isPreservedUnknown(lc, { latestNavStartedAtMs: 4_800, latestPageDocumentId: 'D2' })).toBe(false);
+  });
+});
+
+describe('isPreservedUnknown — cancellation-abort carve-out (unbound rows, timing fallback)', () => {
   const abort = { code: 'net::ERR_ABORTED', reason: 'net::ERR_ABORTED' } as const;
 
   it('an abort with a navigation inside its in-flight window IS preserved (the nav tore it down)', () => {
@@ -722,5 +836,16 @@ describe('supersessionAnchorFromPages', () => {
     const anchor = supersessionAnchorFromPages([]);
     expect(anchor.latestNavStartedAtMs).toBe(-1);
     expect(anchor.navStartsMs).toEqual([]);
+    expect(anchor.pageCommitsMs).toEqual([]);
+  });
+
+  it('collects every page commit instant, skipping pages with none', () => {
+    const withCommit = { ...page(100), committedAtMs: 250 } as Page;
+    const withoutCommit = page(500);
+    const latest = { ...page(900), committedAtMs: 1_000 } as Page;
+    const anchor = supersessionAnchorFromPages([withCommit, withoutCommit, latest]);
+    expect(anchor.pageCommitsMs).toEqual([250, 1_000]);
+    // The commit list is a sibling of the nav-start list, not a replacement.
+    expect(anchor.navStartsMs).toEqual([100, 500, 900]);
   });
 });

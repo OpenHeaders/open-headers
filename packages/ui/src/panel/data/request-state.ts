@@ -213,11 +213,20 @@ export interface SupersessionAnchor {
   readonly latestPageDocumentId?: string;
   /**
    * Every in-view navigation start time. The never-terminated floor only needs
-   * the latest, but the cancellation-abort carve-out needs the full set: it asks
-   * whether a navigation committed *during* a request's in-flight window, which
-   * the latest nav alone can't answer after a second navigation.
+   * the latest, but the unbound cancellation-abort carve-out needs the full
+   * set: it asks whether a navigation committed *during* a request's in-flight
+   * window, which the latest nav alone can't answer after a second navigation.
    */
   readonly navStartsMs?: readonly number[];
+  /**
+   * Every in-view page's commit instant (`Page.committedAtMs`), sibling of
+   * {@link navStartsMs}. The binding-aware abort carve-out tests an aborted
+   * row's terminal time against these: a navigation teardown's abort lands
+   * within {@link NAV_TEARDOWN_COMMIT_EPSILON_MS} of some commit, an explicit
+   * cancel does not. Pages whose commit instant is unknown contribute nothing
+   * (their teardowns keep reading as cancels — today's floor).
+   */
+  readonly pageCommitsMs?: readonly number[];
 }
 
 /**
@@ -233,12 +242,62 @@ export function supersessionAnchorFromPages(pages: readonly Page[]): Supersessio
     latestPageLoaderId: latest?.loaderId,
     latestPageDocumentId: latest?.documentId,
     navStartsMs: pages.map((p) => p.startedAtMs),
+    pageCommitsMs: pages.flatMap((p) => (p.committedAtMs != null ? [p.committedAtMs] : [])),
   };
 }
 
 /** Whether any navigation started inside the half-open window `(startMs, endMs]`. */
 function navStartedDuring(navStartsMs: readonly number[] | undefined, startMs: number, endMs: number): boolean {
   return navStartsMs?.some((t) => t > startMs && t <= endMs) ?? false;
+}
+
+/**
+ * ε for the teardown-coincidence test: how far an aborted row's terminal time
+ * may sit from a page's commit instant and still count as that commit's
+ * teardown. Measured from the live captures (documentid-diagnose phases 1–2 +
+ * supersession-diagnose): the net-process abort lands between ~6.6 ms BEFORE
+ * the heuristic page's mint instant (the abort fires at commit; the mint waits
+ * on devtools→SW port messaging) and ~1 ms after the navigation's response
+ * finish — single-digit ms both ways. 50 ms is ~7× headroom for event-loop /
+ * port-messaging jitter on the mint leg while staying far below human-scale
+ * cancel-then-navigate sequences.
+ */
+export const NAV_TEARDOWN_COMMIT_EPSILON_MS = 50;
+
+/**
+ * Whether some page's commit instant coincides with an aborted row's terminal
+ * time — within {@link NAV_TEARDOWN_COMMIT_EPSILON_MS}, and inside the row's
+ * in-flight window (`commit > startMs`, the same half-open spirit as
+ * {@link navStartedDuring}): a commit that predates the row cannot have torn
+ * it down, however close it sits to a short-lived row's terminal.
+ */
+function commitCoincidesWithAbort(
+  pageCommitsMs: readonly number[] | undefined,
+  startMs: number,
+  completedMs: number,
+): boolean {
+  return (
+    pageCommitsMs?.some((c) => c > startMs && Math.abs(c - completedMs) <= NAV_TEARDOWN_COMMIT_EPSILON_MS) ?? false
+  );
+}
+
+/**
+ * The row's binding verdict against the latest page — the same keys and order
+ * of authority as the non-terminal supersession arms in
+ * {@link isPreservedUnknown} (loader identity, then document identity), kept
+ * as a separate reader so those arms stay untouched. `unbound` when neither
+ * key is known on both sides.
+ */
+type LatestPageBinding = 'superseded' | 'current' | 'unbound';
+
+function latestPageBinding(lifecycle: RequestLifecycle, anchor: SupersessionAnchor): LatestPageBinding {
+  if (anchor.latestPageLoaderId && lifecycle.loaderId) {
+    return lifecycle.loaderId !== anchor.latestPageLoaderId ? 'superseded' : 'current';
+  }
+  if (anchor.latestPageDocumentId && lifecycle.documentId) {
+    return lifecycle.documentId !== anchor.latestPageDocumentId ? 'superseded' : 'current';
+  }
+  return 'unbound';
 }
 
 /**
@@ -271,17 +330,35 @@ function navStartedDuring(navStartsMs: readonly number[] | undefined, startMs: n
  * process reports a navigation tearing down its page's in-flight requests as
  * `onErrorOccurred`/`net::ERR_ABORTED`, setting a terminal `completedAtMs` even
  * though nothing was delivered to the page; that is as unknowable as a
- * never-terminated request (the browser's own renderer-coupled panel shows
- * `(unknown)`). An explicit cancellation on a live page looks identical on the
- * wire, so the two are told apart by *timing*: a navigation-abort has a nav
- * committing inside its in-flight window `(startedAtMs, completedAtMs]` (the nav
- * killed it), while a real cancel resolved with no nav in its window — and stays
- * `(canceled)` even after later navigations move the floor past it.
+ * never-terminated request (the browser's own renderer-coupled panel never
+ * receives the net-process abort and shows `(unknown)`). An explicit
+ * cancellation on a live page looks identical on the wire, so the two are told
+ * apart by binding + commit coincidence:
+ *
+ *   - **Superseded binding** (the latest page outranks the row's, same order
+ *     of authority as above) **and a commit-coincident terminal** (some page's
+ *     `committedAtMs` within ε of `completedAtMs`, inside the row's in-flight
+ *     window) → a navigation teardown, preserved-unknown.
+ *   - **Superseded binding, no coincident commit** → an explicit cancel that
+ *     resolved while its page was still live; it keeps `(canceled)` FOREVER,
+ *     even after later navigations supersede its binding.
+ *   - **Binding matches the latest page** → a live-page cancel, never
+ *     preserved.
+ *   - **Unbound** (no binding key on either side) → the timing-only fallback:
+ *     a nav started inside its in-flight window `(startedAtMs, completedAtMs]`
+ *     reads as the teardown. Strictly the pre-binding rule, kept as the floor.
  */
 export function isPreservedUnknown(lifecycle: RequestLifecycle, anchor: SupersessionAnchor): boolean {
   if (lifecycle.completedAtMs != null) {
     if (!isCancellationAbort(lifecycle)) return false;
-    return navStartedDuring(anchor.navStartsMs, lifecycle.startedAtMs, lifecycle.completedAtMs);
+    switch (latestPageBinding(lifecycle, anchor)) {
+      case 'superseded':
+        return commitCoincidesWithAbort(anchor.pageCommitsMs, lifecycle.startedAtMs, lifecycle.completedAtMs);
+      case 'current':
+        return false;
+      case 'unbound':
+        return navStartedDuring(anchor.navStartsMs, lifecycle.startedAtMs, lifecycle.completedAtMs);
+    }
   }
   if (anchor.latestPageLoaderId && lifecycle.loaderId) {
     return lifecycle.loaderId !== anchor.latestPageLoaderId;

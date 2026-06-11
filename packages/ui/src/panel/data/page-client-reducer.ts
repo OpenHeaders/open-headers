@@ -89,6 +89,7 @@ function pagesEqual(a: Page, b: Page): boolean {
     a === b ||
     (a.id === b.id &&
       a.startedAtMs === b.startedAtMs &&
+      a.committedAtMs === b.committedAtMs &&
       a.url === b.url &&
       a.loaderId === b.loaderId &&
       a.documentId === b.documentId &&
