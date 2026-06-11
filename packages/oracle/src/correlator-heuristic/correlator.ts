@@ -70,6 +70,8 @@ import {
   harEntryTimestamp,
   harOnlyLifecycleUpdates,
   hasHarFailureVerdict,
+  isMemoryCacheHarEntry,
+  memoryCacheHarLifecycleUpdates,
 } from './har-to-update';
 import type { HarWaitingDropLogger } from './har-waiting-buffer';
 import { HarWaitingBuffer } from './har-waiting-buffer';
@@ -336,6 +338,16 @@ export class HeuristicCorrelator implements RequestCorrelator {
     const { url, method } = harEntryJoinFields(entry);
     const ts = harEntryTimestamp(entry);
     if (!url || ts === null) return;
+    // A memory-cache hit fired no webRequest events — no lifecycle and no
+    // FIFO record exist for it, and any same-URL FIFO match its entry
+    // could make (now or from the waiting buffer) is a DIFFERENT, wire
+    // request. Mint its own lifecycle immediately instead of offering it
+    // to the join (probe-proven: a held memory-cache entry mis-attached
+    // to a later same-URL wire request, which then lost its own entry).
+    if (isMemoryCacheHarEntry(entry)) {
+      this.mintMemoryCacheLifecycle(tabId, entry, method, url);
+      return;
+    }
     // Snapshot the candidate picture BEFORE popMatching sweeps stale
     // entries — only when a miss observer is wired (zero cost otherwise).
     const onJoinMiss = this.diagnostics?.onJoinMiss;
@@ -465,6 +477,23 @@ export class HeuristicCorrelator implements RequestCorrelator {
     this.bodyJoin.remember(tabId, method, url, entry.startedDateTime, { requestId, hopIndex: 0 });
     for (const update of updates) this.emit(update);
     return true;
+  }
+
+  /**
+   * HAR-only lifecycle for a memory-cache hit — minted eagerly at entry
+   * arrival (unlike the failure synthesis, which waits out the join
+   * window: a memory-cache entry can never join, so there is nothing to
+   * wait for). The lifecycle carries the host's full header sets where
+   * the panel's Resource Timing synthesis could only mint a headerless
+   * row — and the count-based reconciliation retires that synthetic once
+   * this row exists.
+   */
+  private mintMemoryCacheLifecycle(tabId: number, entry: InspectorHarEntry, method: string, url: string): void {
+    const requestId = `oh-har:${++this.harOnlySequence}`;
+    const updates = memoryCacheHarLifecycleUpdates({ tabId, requestId, entry });
+    if (updates.length === 0) return;
+    this.bodyJoin.remember(tabId, method, url, entry.startedDateTime, { requestId, hopIndex: 0 });
+    for (const update of updates) this.emit(update);
   }
 
   private onHarBody(tabId: number, body: InspectorHarBody): void {

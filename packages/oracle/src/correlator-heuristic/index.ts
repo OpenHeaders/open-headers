@@ -44,6 +44,8 @@ export {
   harEntryTimestamp,
   harOnlyLifecycleUpdates,
   hasHarFailureVerdict,
+  isMemoryCacheHarEntry,
+  memoryCacheHarLifecycleUpdates,
 } from './har-to-update';
 export type {
   ExpiredHarEntry,

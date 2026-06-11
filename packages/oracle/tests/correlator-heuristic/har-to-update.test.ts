@@ -13,6 +13,8 @@ import {
   harAttachedUpdate,
   harEntryJoinFields,
   harEntryTimestamp,
+  isMemoryCacheHarEntry,
+  memoryCacheHarLifecycleUpdates,
 } from '../../src/correlator-heuristic/har-to-update';
 
 const STARTED_AT_ISO = '2024-01-01T00:00:00.000Z';
@@ -86,6 +88,42 @@ describe('harAttachedUpdate', () => {
     const update = harAttachedUpdate({ tabId: 1, requestId: 'r1', hopIndex: 0, entry: cached });
     if (update.kind !== 'har-attached') throw new Error('expected har-attached');
     expect(update.har._ohHeaderCapture).toEqual({ request: 'raw', response: 'effective' });
+  });
+});
+
+describe('isMemoryCacheHarEntry', () => {
+  it('matches only the memory marker — disk reads and wire entries stay joinable', () => {
+    expect(isMemoryCacheHarEntry({ ...entry, _fromCache: 'memory' })).toBe(true);
+    expect(isMemoryCacheHarEntry({ ...entry, _fromCache: 'disk' })).toBe(false);
+    expect(isMemoryCacheHarEntry(entry)).toBe(false);
+    expect(isMemoryCacheHarEntry({ ...entry, _servedFromCache: true })).toBe(false);
+  });
+});
+
+describe('memoryCacheHarLifecycleUpdates', () => {
+  it('mints started → headers → har-attached → completed with fromCache', () => {
+    const cached: InspectorHarEntry = {
+      ...entry,
+      _fromCache: 'memory',
+      request: { ...entry.request!, headers: [{ name: 'Accept', value: 'image/*' }] },
+    };
+    const updates = memoryCacheHarLifecycleUpdates({ tabId: 3, requestId: 'oh-har:9', entry: cached });
+    expect(updates.map((u) => u.kind)).toEqual(['started', 'phase', 'har-attached', 'phase']);
+    const terminal = updates.at(-1);
+    if (terminal?.kind !== 'phase') throw new Error('expected phase');
+    expect(terminal.patch.phase).toBe('completed');
+    expect(terminal.patch.fromCache).toBe(true);
+    expect(terminal.patch.statusCode).toBe(201);
+    expect(terminal.patch.statusText).toBe('Created');
+  });
+
+  it('returns nothing for an entry without url or timestamp', () => {
+    expect(
+      memoryCacheHarLifecycleUpdates({ tabId: 3, requestId: 'oh-har:9', entry: { startedDateTime: 'not-a-date' } }),
+    ).toEqual([]);
+    expect(
+      memoryCacheHarLifecycleUpdates({ tabId: 3, requestId: 'oh-har:9', entry: { startedDateTime: STARTED_AT_ISO } }),
+    ).toEqual([]);
   });
 });
 

@@ -168,6 +168,94 @@ export function harOnlyLifecycleUpdates(args: {
 }
 
 /**
+ * A renderer memory-cache hit. Self-identifying on the host's entry
+ * (`_fromCache: 'memory'`, probe-observed): the renderer served the
+ * resource from its in-process cache, so the request never reached the
+ * network service and `webRequest` fired NOTHING for it — no lifecycle,
+ * no FIFO record. Any same-URL FIFO match such an entry could make is by
+ * definition a different (wire) request, so the correlator must never
+ * offer it to the join. Disk-cache reads are different: the network
+ * service serves those, webRequest fires, and their entries join
+ * normally.
+ */
+export function isMemoryCacheHarEntry(entry: InspectorHarEntry): boolean {
+  return entry._fromCache === 'memory';
+}
+
+/**
+ * Mint the update sequence for a memory-cache HAR-only lifecycle — the
+ * cache-shaped sibling of {@link harOnlyLifecycleUpdates}. The host's
+ * devtools recorded the hit with full header sets while `webRequest` saw
+ * nothing, so the entry gets its own lifecycle instead of a FIFO join:
+ * url/method/type projected from the entry, the renderer's cooked
+ * request set as provisional headers, the entry as hop-0 HAR (stamped
+ * raw/effective by `harHeaderCapture` — a cache read never crossed the
+ * wire), and a terminal `completed` phase with `fromCache`. The panel's
+ * count-based Resource Timing reconciliation treats this lifecycle as
+ * the URL's real row, which retires the headerless synthetic it would
+ * otherwise mint for the same hit.
+ */
+export function memoryCacheHarLifecycleUpdates(args: {
+  readonly tabId: number;
+  readonly requestId: string;
+  readonly entry: InspectorHarEntry;
+}): RequestLifecycleUpdate[] {
+  const { tabId, requestId, entry } = args;
+  const startedAtMs = harEntryTimestamp(entry);
+  if (startedAtMs === null) return [];
+  const { url, method } = harEntryJoinFields(entry);
+  if (!url) return [];
+
+  const lifecycle: RequestLifecycle = {
+    tabId,
+    requestId,
+    url,
+    method: method || 'GET',
+    resourceType: harResourceTypeToWebRequest(entry._resourceType),
+    phase: 'pending',
+    redirectHopCount: 0,
+    redirectHops: [],
+    startedAtMs,
+    hopStartedAtMs: startedAtMs,
+    har: [],
+    harBodyByHop: [],
+  };
+  const updates: RequestLifecycleUpdate[] = [{ kind: 'started', lifecycle }];
+
+  const headers = entry.request?.headers;
+  if (headers && headers.length > 0) {
+    updates.push({
+      kind: 'phase',
+      tabId,
+      requestId,
+      patch: {
+        requestHeaders: headers.map((h) => ({ name: h.name, value: h.value })),
+        requestHeadersProvisional: true,
+      },
+    });
+  }
+
+  updates.push(harAttachedUpdate({ tabId, requestId, hopIndex: 0, entry }));
+
+  const elapsed = typeof entry.time === 'number' && entry.time > 0 ? entry.time : 0;
+  const status = entry.response?.status ?? 0;
+  const statusText = entry.response?.statusText;
+  updates.push({
+    kind: 'phase',
+    tabId,
+    requestId,
+    patch: {
+      phase: 'completed',
+      completedAtMs: startedAtMs + elapsed,
+      fromCache: true,
+      ...(status > 0 ? { statusCode: status } : {}),
+      ...(status > 0 && statusText ? { statusText } : {}),
+    },
+  });
+  return updates;
+}
+
+/**
  * The devtools HAR `_resourceType` vocabulary mostly coincides with
  * webRequest's `type` (the lifecycle's convention); map the names that
  * differ and pass the rest through.
