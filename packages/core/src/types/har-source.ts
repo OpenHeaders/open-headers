@@ -92,6 +92,23 @@ export interface InspectorHarHeaderCapture {
 }
 
 /**
+ * Which producer minted a HAR entry:
+ *
+ *   - `devtools` — the host's own entry, forwarded verbatim from
+ *     `chrome.devtools.network.onRequestFinished`. The host emits one only
+ *     at loadingFinished — for a fetch that requires the page to consume
+ *     the response body, so a never-read body means no entry ever exists.
+ *   - `webrequest-partial` — synthesized from webRequest wire facts; the
+ *     standing fallback for rows whose devtools entry never arrives.
+ *   - `cdp` — built from debugger-session protocol events.
+ *
+ * Stamped at emit time by the producer, like {@link InspectorHarHeaderCapture}
+ * — provenance is declared, never inferred from entry shape. Internal:
+ * HAR exports strip it.
+ */
+export type InspectorHarEntrySource = 'devtools' | 'webrequest-partial' | 'cdp';
+
+/**
  * Full HAR entry forwarded verbatim from the devtools_page via
  * `chrome.devtools.network.onRequestFinished`. The shape matches the
  * HAR 1.2 spec that Chrome implements, plus the non-standard `_`-
@@ -207,6 +224,9 @@ export interface InspectorHarEntry {
    *  (see {@link InspectorHarHeaderCapture}). Internal: drives the panel's
    *  rule-fire corroboration; HAR exports strip it. */
   _ohHeaderCapture?: InspectorHarHeaderCapture;
+  /** Producer that minted this entry (see {@link InspectorHarEntrySource}).
+   *  Internal: HAR exports strip it. */
+  _ohEntrySource?: InspectorHarEntrySource;
 }
 
 /**

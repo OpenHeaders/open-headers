@@ -60,6 +60,10 @@ describe('partialHarEntry — headers-received shape (no terminal)', () => {
     expect(har._ohHeaderCapture).toEqual({ request: 'raw', response: 'raw' });
   });
 
+  it('declares the webrequest-partial producer', () => {
+    expect(har._ohEntrySource).toBe('webrequest-partial');
+  });
+
   it('parses cookies from both header sets, each Set-Cookie line its own entry', () => {
     expect(har.request?.cookies).toEqual([
       { name: 'sid', value: 'abc' },

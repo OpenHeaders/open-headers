@@ -64,13 +64,16 @@ function withPageref(har: InspectorHarEntry, pageref: string | undefined): Inspe
 /**
  * Drop panel-internal fields a HAR file must not carry (`_rawTiming`, the
  * unfolded raw instants the timing ladder reads; `_ohHeaderCapture`, the
- * header capture-point stamp fire corroboration reads) — a saved HAR stays
- * byte-shaped like the host's own export. Host-adopted entries never carry
- * `_rawTiming`; every correlator-built entry carries the capture stamp.
+ * header capture-point stamp fire corroboration reads; `_ohEntrySource`,
+ * the producer provenance stamp) — a saved HAR stays byte-shaped like the
+ * host's own export. Host-adopted entries never carry `_rawTiming`; every
+ * correlator-built entry carries the capture and provenance stamps.
  */
 export function stripInternalEntryFields(entry: InspectorHarEntry): InspectorHarEntry {
-  if (entry._rawTiming === undefined && entry._ohHeaderCapture === undefined) return entry;
-  const { _rawTiming, _ohHeaderCapture, ...rest } = entry;
+  if (entry._rawTiming === undefined && entry._ohHeaderCapture === undefined && entry._ohEntrySource === undefined) {
+    return entry;
+  }
+  const { _rawTiming, _ohHeaderCapture, _ohEntrySource, ...rest } = entry;
   return rest;
 }
 

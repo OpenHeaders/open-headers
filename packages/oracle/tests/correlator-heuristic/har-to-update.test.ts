@@ -64,8 +64,14 @@ describe('harAttachedUpdate', () => {
       tabId: 1,
       requestId: 'r1',
       hopIndex: 0,
-      har: { ...entry, _ohHeaderCapture: { request: 'effective', response: 'raw' } },
+      har: { ...entry, _ohHeaderCapture: { request: 'effective', response: 'raw' }, _ohEntrySource: 'devtools' },
     });
+  });
+
+  it('declares the devtools producer on every attached entry', () => {
+    const update = harAttachedUpdate({ tabId: 1, requestId: 'r1', hopIndex: 0, entry });
+    if (update.kind !== 'har-attached') throw new Error('expected har-attached');
+    expect(update.har._ohEntrySource).toBe('devtools');
   });
 
   it('stamps a cache-read entry raw/effective (cooked pre-wire request, served post-rewrite response)', () => {

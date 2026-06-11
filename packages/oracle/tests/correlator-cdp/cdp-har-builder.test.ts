@@ -327,6 +327,7 @@ describe('CdpHarBuilder — *ExtraInfo header merge', () => {
     // Cooked sets only: both sections are pre-rewrite captures.
     const cooked = lastHarEntry(builder.observe(cdpResponse(ctx, { response: RESPONSE })));
     expect(cooked._ohHeaderCapture).toEqual({ request: 'raw', response: 'raw' });
+    expect(cooked._ohEntrySource).toBe('cdp');
     // The request wire set lands: only the request section upgrades.
     const reqWire = lastHarEntry(builder.observe(cdpRequestExtra(ctx, { Cookie: 'sid=wire' })));
     expect(reqWire._ohHeaderCapture).toEqual({ request: 'effective', response: 'raw' });

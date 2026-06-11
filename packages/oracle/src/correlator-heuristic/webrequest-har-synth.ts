@@ -202,6 +202,7 @@ export function partialHarEntry(
     // (`onSendHeaders` / `onHeadersReceived` never see the modifications),
     // so a claimed modification is expected to be absent here.
     _ohHeaderCapture: { request: 'raw', response: 'raw' },
+    _ohEntrySource: 'webrequest-partial',
     cache: {},
     request: {
       method: seed.method,

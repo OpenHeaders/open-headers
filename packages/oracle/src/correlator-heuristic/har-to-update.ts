@@ -60,7 +60,7 @@ export function harAttachedUpdate(args: {
     tabId: args.tabId,
     requestId: args.requestId,
     hopIndex: args.hopIndex,
-    har: { ...args.entry, _ohHeaderCapture: harHeaderCapture(args.entry) },
+    har: { ...args.entry, _ohHeaderCapture: harHeaderCapture(args.entry), _ohEntrySource: 'devtools' },
   };
 }
 

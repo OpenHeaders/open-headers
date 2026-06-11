@@ -670,6 +670,7 @@ export class CdpHarBuilder {
         request: requestExtra !== undefined ? 'effective' : 'raw',
         response: diskCacheHit && responseExtra === undefined ? 'effective' : 'raw',
       },
+      _ohEntrySource: 'cdp',
       ...(hop.resourceType !== undefined ? { _resourceType: hop.resourceType.toLowerCase() } : {}),
       // Empty object, HAR-spec-required and emitted on every Chrome entry.
       cache: {},

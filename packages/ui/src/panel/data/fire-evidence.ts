@@ -42,6 +42,15 @@
  * request set (raw) and the served response set with the rewrite
  * re-applied (effective).
  *
+ * Which producer's entry a row holds is itself provenance-bound: the
+ * host's devtools entry exists only once the request FINISHES in devtools
+ * terms (loadingFinished), and for a fetch that requires the page to
+ * consume the response body. A fetch whose body is never read produces no
+ * devtools entry — ever (probe-proven: consumption is the gate, and the
+ * entry stays absent through GC). Such rows keep the webRequest partial
+ * (raw/raw) permanently; that fallback is the row's correct, final state,
+ * not a missed join. Producers declare themselves via `_ohEntrySource`.
+ *
  * The CDP path additionally carries the current hop's request headers
  * first-class on the lifecycle before any HAR lands; those are effective
  * exactly when `requestHeadersProvisional` is false (the on-the-wire set

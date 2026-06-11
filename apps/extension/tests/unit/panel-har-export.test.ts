@@ -385,6 +385,16 @@ describe('internal-field strip (`_rawTiming`)', () => {
     expect(doc.log.entries[0]).not.toHaveProperty('_ohHeaderCapture');
     expect(r.lifecycle.har[0]?._ohHeaderCapture).toBeDefined();
   });
+
+  it('the producer provenance stamp (`_ohEntrySource`) is stripped too', () => {
+    const r = row('https://api.openheaders.io/provenance');
+    const har = r.lifecycle.har[0];
+    if (har == null) throw new Error('expected har');
+    har._ohEntrySource = 'webrequest-partial';
+    const doc = buildHar([r]);
+    expect(doc.log.entries[0]).not.toHaveProperty('_ohEntrySource');
+    expect(r.lifecycle.har[0]?._ohEntrySource).toBeDefined();
+  });
 });
 
 describe('sanitizeHarEntry / sanitized export', () => {
