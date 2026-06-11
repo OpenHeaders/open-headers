@@ -186,13 +186,21 @@ export function classifyRequestState(lifecycle: RequestLifecycle): RequestState 
 // The host decides "issuing page is gone" by loader identity, not by time: on
 // each primary-page change it carries a request into the new page iff
 // `request.loaderId === mainFrame.loaderId`, otherwise it marks it preserved.
-// We mirror that — a non-terminal row whose loader id differs from the latest
-// page's loader id is superseded. The heuristic leg carries the sibling
-// binding: webRequest `documentId` on the row (stamped only for requests the
-// outermost frame's document issued) against the committed `Page.documentId`,
-// the same `!==` law. The start-time floor remains the fallback for rows with
-// no binding on either side (a worker request, an iframe subresource, the
-// async pre-resolution window after a heuristic commit, Firefox).
+// Crucially the host evaluates that predicate AT the page boundary; we
+// evaluate continuously, so the raw `!==` law would mis-read an iframe
+// subresource (its loader id is its own iframe document's, never the page's)
+// as superseded the moment it starts. The membership gate restores boundary
+// semantics: a row binds by loader identity only when its loader id belongs
+// to an OBSERVED page — superseded iff that page is no longer the latest. An
+// iframe row's loader id never appears as a page's, so it stays unbound and
+// falls to the start-time floor, the same never-mis-bind posture as the
+// heuristic leg's outermost documentId gate. The heuristic leg carries the
+// sibling binding: webRequest `documentId` on the row (stamped only for
+// requests the outermost frame's document issued) against the committed
+// `Page.documentId`, the same `!==` law. The start-time floor remains the
+// fallback for rows with no binding on either side (a worker request, an
+// iframe subresource, the async pre-resolution window after a heuristic
+// commit, Firefox).
 
 /** The Status/Time label for a request whose issuing page unloaded mid-flight. */
 export const PRESERVED_UNKNOWN_LABEL = '(unknown)';
@@ -227,6 +235,16 @@ export interface SupersessionAnchor {
    * (their teardowns keep reading as cancels — today's floor).
    */
   readonly pageCommitsMs?: readonly number[];
+  /**
+   * Every in-view page's loader id — the membership gate for the loader
+   * binding. A row's loader id is a page-binding key only when it belongs to
+   * an observed page; an iframe subresource's loader id (its own iframe
+   * document's) matches no page, so it reads unbound and falls to the
+   * start-time floor instead of mis-reading as superseded while its page is
+   * live. Absent/empty (heuristic pages carry no loader id) ⇒ nothing binds
+   * through this arm.
+   */
+  readonly pageLoaderIds?: readonly string[];
 }
 
 /**
@@ -243,6 +261,7 @@ export function supersessionAnchorFromPages(pages: readonly Page[]): Supersessio
     latestPageDocumentId: latest?.documentId,
     navStartsMs: pages.map((p) => p.startedAtMs),
     pageCommitsMs: pages.flatMap((p) => (p.committedAtMs != null ? [p.committedAtMs] : [])),
+    pageLoaderIds: pages.flatMap((p) => (p.loaderId ? [p.loaderId] : [])),
   };
 }
 
@@ -284,14 +303,15 @@ function commitCoincidesWithAbort(
 /**
  * The row's binding verdict against the latest page — the same keys and order
  * of authority as the non-terminal supersession arms in
- * {@link isPreservedUnknown} (loader identity, then document identity), kept
- * as a separate reader so those arms stay untouched. `unbound` when neither
- * key is known on both sides.
+ * {@link isPreservedUnknown} (membership-gated loader identity, then document
+ * identity), kept as a separate reader so those arms stay in lockstep.
+ * `unbound` when neither key is known on both sides, or when the row's loader
+ * id belongs to no observed page (an iframe subresource).
  */
 type LatestPageBinding = 'superseded' | 'current' | 'unbound';
 
 function latestPageBinding(lifecycle: RequestLifecycle, anchor: SupersessionAnchor): LatestPageBinding {
-  if (anchor.latestPageLoaderId && lifecycle.loaderId) {
+  if (anchor.latestPageLoaderId && lifecycle.loaderId && anchor.pageLoaderIds?.includes(lifecycle.loaderId)) {
     return lifecycle.loaderId !== anchor.latestPageLoaderId ? 'superseded' : 'current';
   }
   if (anchor.latestPageDocumentId && lifecycle.documentId) {
@@ -306,12 +326,18 @@ function latestPageBinding(lifecycle: RequestLifecycle, anchor: SupersessionAnch
  * normally (it has a real outcome), so the terminal gate excludes it first.
  *
  * Binding, in the host's order of authority:
- *   1. **Loader identity** (CDP). When both the row and the latest page carry a
- *      loader id, the row is superseded iff they differ — the host's
- *      `request.loaderId !== mainFrame.loaderId` rule. This is start-time
- *      agnostic, so it correctly supersedes a prior-page subresource issued in
- *      the slow [nav-start, commit] transition window (its loader id is the old
- *      page's even though it started after the new nav began).
+ *   1. **Loader identity** (CDP). A row binds through its loader id only when
+ *      that id belongs to an OBSERVED page (the membership gate); it is then
+ *      superseded iff its page is no longer the latest — the host's
+ *      `request.loaderId !== mainFrame.loaderId` rule, which the host runs at
+ *      the page boundary. Membership is what makes the rule safe to evaluate
+ *      continuously: an iframe subresource's loader id is its own iframe
+ *      document's, never a page's, so it stays unbound here (falling to the
+ *      floor) instead of mis-reading as superseded while its page is live.
+ *      The binding stays start-time agnostic, so it still supersedes a
+ *      prior-page subresource issued in the slow [nav-start, commit]
+ *      transition window (its loader id is the old PAGE's even though it
+ *      started after the new nav began).
  *   2. **Document identity** (heuristic) — the same `!==` law on the sibling
  *      key: the row's webRequest `documentId` (stamped only for requests the
  *      outermost frame's document issued) against the latest page's committed
@@ -319,8 +345,9 @@ function latestPageBinding(lifecycle: RequestLifecycle, anchor: SupersessionAnch
  *      transition-window old-page subresource carries the OLD document's UUID,
  *      so this closes the same transition-window class on the heuristic leg.
  *   3. **Start-time floor** (fallback). With no binding on either side — a
- *      worker request, an iframe subresource (its documentId is its own iframe
- *      document's, never the page's — deliberately unstamped), the async
+ *      worker request, an iframe subresource (its loaderId/documentId is its
+ *      own iframe document's, never the page's — non-member on the CDP leg,
+ *      deliberately unstamped on the heuristic leg), the async
  *      pre-resolution window after a heuristic commit, Firefox — a row is
  *      superseded when it started before the latest navigation. `latestNavStartedAtMs
  *      <= 0` (no navigation observed) → never preserved-unknown.
@@ -360,7 +387,7 @@ export function isPreservedUnknown(lifecycle: RequestLifecycle, anchor: Superses
         return navStartedDuring(anchor.navStartsMs, lifecycle.startedAtMs, lifecycle.completedAtMs);
     }
   }
-  if (anchor.latestPageLoaderId && lifecycle.loaderId) {
+  if (anchor.latestPageLoaderId && lifecycle.loaderId && anchor.pageLoaderIds?.includes(lifecycle.loaderId)) {
     return lifecycle.loaderId !== anchor.latestPageLoaderId;
   }
   if (anchor.latestPageDocumentId && lifecycle.documentId) {

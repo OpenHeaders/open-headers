@@ -46,7 +46,10 @@ const CTX: CellContext = {
 // CDP variant: the latest page committed under loader L2; rows bound to the
 // superseded prior page (L1) read "(unknown)" by loader identity, even when
 // they started after the nav floor (the slow-nav transition window).
-const CTX_CDP: CellContext = { ...CTX, superseded: { latestNavStartedAtMs: NAV_AT, latestPageLoaderId: 'L2' } };
+const CTX_CDP: CellContext = {
+  ...CTX,
+  superseded: { latestNavStartedAtMs: NAV_AT, latestPageLoaderId: 'L2', pageLoaderIds: ['L1', 'L2'] },
+};
 
 function cell(key: 'status' | 'time', over: RowOverrides, ctx: CellContext = CTX) {
   const row = makeRow(over);

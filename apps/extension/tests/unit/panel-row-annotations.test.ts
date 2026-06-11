@@ -144,6 +144,7 @@ describe('classifyRowAnnotations — never finished (preserved unknown)', () => 
     latestNavStartedAtMs: 5_000,
     latestPageLoaderId: 'L-new',
     navStartsMs: [5_000],
+    pageLoaderIds: ['L-old', 'L-new'],
   };
 
   it('superseded non-terminal row with no data → never-finished (+ fidelity gap on heuristic)', () => {

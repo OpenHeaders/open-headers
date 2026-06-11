@@ -441,10 +441,11 @@ describe('isPreservedUnknown — start-time floor (no loader id)', () => {
 
 describe('isPreservedUnknown — loader-identity binding (CDP)', () => {
   // The latest page committed under loader L2; L1 is the superseded prior page.
-  // The floor (nav start) is deliberately EARLY so a transition-window row that
-  // started AFTER it would pass the time floor — proving loader identity, not
-  // time, is what decides supersession here.
-  const anchor = { latestNavStartedAtMs: 1_000, latestPageLoaderId: 'L2' };
+  // Both are observed pages, so both loader ids are members of the binding
+  // gate. The floor (nav start) is deliberately EARLY so a transition-window
+  // row that started AFTER it would pass the time floor — proving loader
+  // identity, not time, is what decides supersession here.
+  const anchor = { latestNavStartedAtMs: 1_000, latestPageLoaderId: 'L2', pageLoaderIds: ['L1', 'L2'] };
 
   it('non-terminal row bound to the superseded prior page (L1) → preserved-unknown', () => {
     const lc = makeLifecycle({
@@ -538,6 +539,56 @@ describe('isPreservedUnknown — loader-identity binding (CDP)', () => {
     });
     expect(isPreservedUnknown(lc, anchor)).toBe(true);
   });
+
+  it('in-flight iframe subresource (loader id matches no page) → NOT preserved while its page is live', () => {
+    // The iframe-loaderId class: a CDP iframe subresource carries the IFRAME
+    // document's loader id, which differs from every page's. The raw `!==`
+    // law read it superseded the moment it started; the membership gate
+    // leaves it unbound, and the time floor (started after the latest nav)
+    // says current — the browser shows Pending, so do we.
+    const lc = makeLifecycle({
+      phase: 'pending',
+      statusCode: undefined,
+      statusText: undefined,
+      startedAtMs: 1_500,
+      completedAtMs: undefined,
+      loaderId: 'IFRAME-LOADER',
+      har: { response: undefined },
+    });
+    expect(isPreservedUnknown(lc, anchor)).toBe(false);
+  });
+
+  it('old-page iframe subresource (non-member, started before the latest nav) → preserved via the floor', () => {
+    // After a real navigation the old page's iframe rows die with it; the
+    // floor delivers the boundary verdict the browser computes by loader
+    // identity at commit time.
+    const lc = makeLifecycle({
+      phase: 'pending',
+      statusCode: undefined,
+      statusText: undefined,
+      startedAtMs: 500,
+      completedAtMs: undefined,
+      loaderId: 'IFRAME-LOADER',
+      har: { response: undefined },
+    });
+    expect(isPreservedUnknown(lc, anchor)).toBe(true);
+  });
+
+  it('anchor without a membership list never binds by loader identity (strict gate)', () => {
+    // A hand-built anchor carrying only the latest loader id has no membership
+    // info; the loader arm must stay closed (never-mis-bind) and the floor
+    // decides — started after the floor → not preserved.
+    const lc = makeLifecycle({
+      phase: 'pending',
+      statusCode: undefined,
+      statusText: undefined,
+      startedAtMs: 1_500,
+      completedAtMs: undefined,
+      loaderId: 'L1',
+      har: { response: undefined },
+    });
+    expect(isPreservedUnknown(lc, { latestNavStartedAtMs: 1_000, latestPageLoaderId: 'L2' })).toBe(false);
+  });
 });
 
 describe('isPreservedUnknown — document-identity binding (heuristic)', () => {
@@ -624,8 +675,35 @@ describe('isPreservedUnknown — document-identity binding (heuristic)', () => {
       documentId: 'D1',
       har: { response: undefined },
     });
-    const both = { latestNavStartedAtMs: 1_000, latestPageLoaderId: 'L2', latestPageDocumentId: 'D2' };
+    const both = {
+      latestNavStartedAtMs: 1_000,
+      latestPageLoaderId: 'L2',
+      latestPageDocumentId: 'D2',
+      pageLoaderIds: ['L1', 'L2'],
+    };
     expect(isPreservedUnknown(lc, both)).toBe(false);
+  });
+
+  it('a non-member loader id falls through to the document arm', () => {
+    // An iframe-shaped loader id closes the loader arm; the document binding
+    // (old document D1) still supersedes the row.
+    const lc = makeLifecycle({
+      phase: 'pending',
+      statusCode: undefined,
+      statusText: undefined,
+      startedAtMs: 1_500,
+      completedAtMs: undefined,
+      loaderId: 'IFRAME-LOADER',
+      documentId: 'D1',
+      har: { response: undefined },
+    });
+    const both = {
+      latestNavStartedAtMs: 1_000,
+      latestPageLoaderId: 'L2',
+      latestPageDocumentId: 'D2',
+      pageLoaderIds: ['L1', 'L2'],
+    };
+    expect(isPreservedUnknown(lc, both)).toBe(true);
   });
 });
 
@@ -679,7 +757,7 @@ describe('isPreservedUnknown — binding-aware abort carve-out (bound rows)', ()
       loaderId: 'L1',
       har: { response: undefined },
     });
-    const cdpAnchor = { ...anchor, latestPageLoaderId: 'L2' };
+    const cdpAnchor = { ...anchor, latestPageLoaderId: 'L2', pageLoaderIds: ['L1', 'L2'] };
     expect(isPreservedUnknown(lc, cdpAnchor)).toBe(true);
   });
 
@@ -824,12 +902,16 @@ describe('supersessionAnchorFromPages', () => {
     expect(anchor.latestNavStartedAtMs).toBe(500);
     expect(anchor.latestPageLoaderId).toBe('L2');
     expect(anchor.navStartsMs).toEqual([100, 500]);
+    // Every observed page's loader id — the membership gate's universe.
+    expect(anchor.pageLoaderIds).toEqual(['L1', 'L2']);
   });
 
   it('reads the latest page documentId (heuristic binding key)', () => {
     const anchor = supersessionAnchorFromPages([page(100, undefined, 'D1'), page(500, undefined, 'D2')]);
     expect(anchor.latestPageDocumentId).toBe('D2');
     expect(anchor.latestPageLoaderId).toBeUndefined();
+    // Heuristic pages carry no loader id — the membership list stays empty.
+    expect(anchor.pageLoaderIds).toEqual([]);
   });
 
   it('falls back to a -1 floor and an empty nav list when there are no pages', () => {
@@ -837,6 +919,7 @@ describe('supersessionAnchorFromPages', () => {
     expect(anchor.latestNavStartedAtMs).toBe(-1);
     expect(anchor.navStartsMs).toEqual([]);
     expect(anchor.pageCommitsMs).toEqual([]);
+    expect(anchor.pageLoaderIds).toEqual([]);
   });
 
   it('collects every page commit instant, skipping pages with none', () => {
