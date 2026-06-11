@@ -56,8 +56,16 @@ describe('partialHarEntry — headers-received shape (no terminal)', () => {
     expect(har.request?.httpVersion).toBe('HTTP/1.1');
   });
 
-  it('stamps both header sections as pre-rewrite (raw) captures', () => {
-    expect(har._ohHeaderCapture).toEqual({ request: 'raw', response: 'raw' });
+  it('stamps a held request set effective (post-rewrite) and the response raw', () => {
+    expect(har._ohHeaderCapture).toEqual({ request: 'effective', response: 'raw' });
+  });
+
+  it('keeps the request stamp raw when onSendHeaders never reported a set', () => {
+    const noSend = partialHarEntry(
+      { startedAtMs: STARTED_AT_MS, method: 'GET', url: 'https://api.openheaders.io/x' },
+      RESPONSE,
+    );
+    expect(noSend._ohHeaderCapture).toEqual({ request: 'raw', response: 'raw' });
   });
 
   it('declares the webrequest-partial producer', () => {

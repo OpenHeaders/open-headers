@@ -198,10 +198,14 @@ export function partialHarEntry(
   return {
     _priority: null,
     _resourceType: webRequestTypeToHarResourceType(response.resourceType),
-    // webRequest reports both header sets from before the engine's rewrite
-    // (`onSendHeaders` / `onHeadersReceived` never see the modifications),
-    // so a claimed modification is expected to be absent here.
-    _ohHeaderCapture: { request: 'raw', response: 'raw' },
+    // `onSendHeaders` reports the POST-rewrite request set (wire-proven per
+    // operation: an override/add shows the injected value, a removed header
+    // is absent, a merge — rewritten in-page — arrives already merged), so a
+    // held request set is effective evidence; a hop where the event never
+    // fired holds no set and must not be judged against an empty one.
+    // `onHeadersReceived` stays PRE-rewrite — the response rewrite happens
+    // after receipt, so the response side remains raw.
+    _ohHeaderCapture: { request: seed.requestHeaders !== undefined ? 'effective' : 'raw', response: 'raw' },
     _ohEntrySource: 'webrequest-partial',
     cache: {},
     request: {

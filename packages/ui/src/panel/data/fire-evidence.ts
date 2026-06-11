@@ -28,10 +28,14 @@
  *   ------------------------------|--------------|---------------
  *   devtools HAR, wire-crossing   | effective    | raw
  *   devtools HAR, cache read      | raw          | effective
- *   webRequest partial HAR        | raw          | raw
+ *   webRequest partial HAR        | effective¹   | raw
  *   CDP HAR, ExtraInfo landed     | effective    | raw
  *   CDP HAR, cooked sets only     | raw          | raw
  *   CDP HAR, disk-cache hit       | raw          | effective
+ *
+ *   ¹ `onSendHeaders` reports the post-rewrite request set (wire-proven
+ *     per operation — override, add, remove, merge); raw only on a hop
+ *     where the event never fired and no set is held.
  *
  * The probe ground-truthed the model: a HAR records THE WIRE when the
  * request crossed it — the request set post-rewrite (the engine rewrites
@@ -48,8 +52,9 @@
  * consume the response body. A fetch whose body is never read produces no
  * devtools entry — ever (probe-proven: consumption is the gate, and the
  * entry stays absent through GC). Such rows keep the webRequest partial
- * (raw/raw) permanently; that fallback is the row's correct, final state,
- * not a missed join. Producers declare themselves via `_ohEntrySource`.
+ * (effective request / raw response) permanently; that fallback is the
+ * row's correct, final state, not a missed join. Producers declare
+ * themselves via `_ohEntrySource`.
  *
  * The CDP path additionally carries the current hop's request headers
  * first-class on the lifecycle before any HAR lands; those are effective
