@@ -372,12 +372,17 @@ export function projectPanelData(input: UsePanelDataInput): UsePanelDataResult {
   // the recording filter via the shared `inView` predicate.
   const visibleSynthetic = syntheticCacheRows.filter((lc) => inView(lc.startedAtMs));
   const merged = visibleSynthetic.length > 0 ? [...scoped, ...visibleSynthetic] : scoped;
-  // Pages run through the SAME seam. A navigation whose start falls in a
-  // recording gap (stop → refresh) or below the Preserve-log floor is scoped
-  // out exactly like its requests — so the footer milestones, navTiming,
-  // page count, and exported page block stay anchored to the recorded page
-  // instead of recomputing onto a navigation the user is not recording.
-  const scopedPages = pages.filter((p) => inView(p.startedAtMs));
+  // Pages run through the SAME seam, keyed on the page's COMMIT instant.
+  // A navigation whose commit falls in a recording gap (stop → refresh) or
+  // below the Preserve-log floor is scoped out exactly like its requests —
+  // so the footer milestones, navTiming, page count, and exported page block
+  // stay anchored to the recorded page instead of recomputing onto a
+  // navigation the user is not recording. The commit instant (`committedAtMs`,
+  // immutable at mint) is the membership key because `startedAtMs` is later
+  // corrected DOWN to the document's timeOrigin, which precedes the main-frame
+  // request that set the nav clear floor — keying on the corrected start would
+  // scope the floor's own page out and silently drop its DCL / Load milestones.
+  const scopedPages = pages.filter((p) => inView(p.committedAtMs ?? p.startedAtMs));
 
   const baseRows = buildInspectorRows(merged, opts);
   const { rows, dangling } = attachFiresToRows(baseRows, fires);

@@ -753,6 +753,46 @@ describe('usePanelData', () => {
     expect(result.current.navTiming?.pageOrigin).toBe('https://openheaders.io');
   });
 
+  it('a page whose start was corrected below the floor stays in view by its commit instant', () => {
+    // Preserve-log OFF on a single navigation (the floor is the main-frame
+    // request's issue time). The heuristic page source later corrects the
+    // page's startedAtMs DOWN to the document's timeOrigin, which precedes
+    // the request issue — keying page scope on the corrected start scoped
+    // the floor's OWN page out and silently dropped the footer's
+    // DOMContentLoaded / Load milestones. Membership keys on committedAtMs.
+    const pages: Page[] = [
+      {
+        id: 'page_1',
+        startedAtMs: 995, // corrected to timeOrigin, BELOW the floor
+        committedAtMs: 1150, // immutable mint instant, after the doc issue
+        url: 'https://openheaders.io/',
+        dclMs: 149,
+        loadMs: 150,
+      },
+    ];
+    const { result } = renderHook(() =>
+      usePanelData({
+        ...snapshots(
+          [
+            lifecycle('nav1', 'https://openheaders.io/', {
+              resourceType: 'main_frame',
+              startedAtMs: 1000,
+              completedAtMs: 1107,
+            }),
+          ],
+          pages,
+        ),
+        navClearFloorMs: 1000,
+      }),
+    );
+    expect(result.current.rows.map((r) => r.lifecycle.requestId)).toEqual(['nav1']);
+    expect(result.current.pages.map((p) => p.id)).toEqual(['page_1']);
+    expect(result.current.pageCount).toBe(1);
+    expect(result.current.footerDclMs).toBe(149);
+    expect(result.current.footerLoadMs).toBe(150);
+    expect(result.current.navTiming?.dclMs).toBe(149);
+  });
+
   it('navClearFloorMs -1 keeps every request across repeated navigations', () => {
     const { result } = renderHook(() =>
       usePanelData({
