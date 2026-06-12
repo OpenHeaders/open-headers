@@ -9,11 +9,13 @@ type ViewMode = 'utf8' | 'hex' | 'base64';
 interface ResponseViewerToolbarProps {
   mode: ViewMode;
   onModeChange: (mode: ViewMode) => void;
+  /** Extra controls rendered after the mode buttons (e.g. a copy action). */
+  trailing?: React.ReactNode;
 }
 
 export type { ViewMode };
 
-export default function ResponseViewerToolbar({ mode, onModeChange }: ResponseViewerToolbarProps) {
+export default function ResponseViewerToolbar({ mode, onModeChange, trailing }: ResponseViewerToolbarProps) {
   return (
     <div className="dt-response-toolbar">
       <div className="dt-response-toolbar-modes">
@@ -39,6 +41,7 @@ export default function ResponseViewerToolbar({ mode, onModeChange }: ResponseVi
           UTF-8
         </button>
       </div>
+      {trailing}
     </div>
   );
 }

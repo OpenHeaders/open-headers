@@ -98,29 +98,18 @@ export function renderCell(col: ColumnDef, row: InspectorRowWithFires, sizeInfo:
     // confirmed, exactly as the host keeps a navigated-away download's status.
     const preserved = isPreservedUnknown(lc, ctx.superseded);
     const preservedUnknown = preserved && !hasObservedResponseData(lc);
-    // List-cell coupling with the Time column: until a row resolves — a
-    // terminal outcome arrives, or live body data makes its duration
-    // measurable (`durationMs >= 0`) — hold the Status at "(pending)" so both
-    // cells move as one unit. A preserved row (even one that kept its status via
-    // streamed data) is excluded — it shows "(unknown)" or its real status, never
-    // a regression to pending.
-    const holdPending = durationMs(lc) < 0 && !preserved;
-    const label = preservedUnknown
-      ? PRESERVED_UNKNOWN_LABEL
-      : holdPending
-        ? '(pending)'
-        : statusCellText(lc);
-    const title = preservedUnknown
-      ? PRESERVED_UNKNOWN_TITLE
-      : holdPending
-        ? 'Request not finished yet'
-        : statusCellTitle(lc);
-    // Grey the cell for an unknown / held-pending row, a cache hit, or any
-    // no-status row (pending / opaque) — browser parity is a dimmed cell, not a
-    // coloured one. Everything else is plain: the browser tints no status range.
+    // The status shows the moment it is known — never held back by the Time
+    // column. The browser's own cell decides purely from the response signals
+    // (a held-open WebSocket reads 101 while its Time stays Pending);
+    // "(pending)" is only the cascade's last resort when no status exists.
+    const label = preservedUnknown ? PRESERVED_UNKNOWN_LABEL : statusCellText(lc);
+    const title = preservedUnknown ? PRESERVED_UNKNOWN_TITLE : statusCellTitle(lc);
+    // Grey the cell for an unknown row, a cache hit, or any no-status row
+    // (pending / opaque) — browser parity is a dimmed cell, not a coloured
+    // one. Everything else is plain: the browser tints no status range.
     return (
       <span
-        className={preservedUnknown || holdPending || isDimStatusCell(lc) ? 'dt-col-status--dim' : undefined}
+        className={preservedUnknown || isDimStatusCell(lc) ? 'dt-col-status--dim' : undefined}
         title={title}
       >
         {label}

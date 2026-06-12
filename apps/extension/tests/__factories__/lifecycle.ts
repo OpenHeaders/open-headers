@@ -111,6 +111,9 @@ export interface LifecycleOverrides {
   redirectHops?: RequestLifecycle['redirectHops'];
   har?: readonly (InspectorHarEntry | null)[];
   harBodyByHop?: readonly (InspectorHarBody | null)[];
+  /** Message-stream plane (WS frames / SSE events). */
+  messages?: RequestLifecycle['messages'];
+  messagesDropped?: number;
   /**
    * Convenience for tests that only need to tweak a few fields on hop 0
    * without rebuilding the whole `har` array. Ignored when `har` is also
@@ -151,6 +154,8 @@ export function makeLifecycle(over: LifecycleOverrides = {}): RequestLifecycle {
     ...(over.statusText != null ? { statusText: over.statusText } : {}),
     ...(over.fromCache != null ? { fromCache: over.fromCache } : {}),
     ...(over.error ? { error: over.error } : {}),
+    ...(over.messages ? { messages: over.messages } : {}),
+    ...(over.messagesDropped != null ? { messagesDropped: over.messagesDropped } : {}),
     har,
     harBodyByHop: over.harBodyByHop ?? [],
   };

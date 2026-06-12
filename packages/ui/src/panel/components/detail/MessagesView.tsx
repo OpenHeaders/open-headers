@@ -1,84 +1,47 @@
 /**
- * MessagesView — WebSocket frame log for an upgraded HTTP connection.
+ * MessagesView — WebSocket frame log for an upgraded HTTP connection,
+ * matching the host's Messages tab:
  *
- * Two sources, one display shape:
- *   - `lifecycle.messages` (kind `ws`) — the LIVE plane: frames streamed
- *     per `message-appended` update by the deep-inspection correlator,
- *     growing while the socket is open. Preferred whenever present.
- *   - `har._webSocketMessages` — the host HAR extension dialect
- *     (`{type, time(wall seconds), opcode, data}`), the fallback for
- *     entries that arrived with frames already attached (e.g. imports).
+ *   - Toolbar: Clear all, All / Send / Receive direction filter, regex
+ *     filter (invalid patterns degrade to a literal match).
+ *   - Grid: Data | Length | Time. Time is the one sortable column,
+ *     ascending by default; the list follows the tail while parked at
+ *     the bottom (same pin semantics as the main traffic table).
+ *   - Selecting a row opens the payload preview in a resizable pane
+ *     below — JSON tree / verbatim text for text frames, a
+ *     Base64 / Hex / UTF-8 viewer for binary frames.
+ *   - "Clear all" hides everything received so far for this request
+ *     (view-local; the underlying lifecycle list is untouched).
  *
- * The heuristic capture path can see neither (webRequest has no frame
- * events and the host's devtools feed never delivers WS entries), so a
- * `websocket` row without messages renders an honest empty state.
- *
- * Frame vocabulary: `send` / `receive` data frames (opcode 1 text,
- * 2 binary-as-base64, 8 close, 9/10 ping/pong) plus `error` frames
- * (opcode −1, the transport error message as data) — the host stores
- * errors in the same list.
+ * Data sources and the honest empty states are unchanged from the
+ * first slice: the live `lifecycle.messages` plane is preferred, the
+ * HAR `_webSocketMessages` dialect is the fallback, and the heuristic
+ * capture path (which can see neither) explains itself.
  */
 
-import type { LifecycleSource, RequestLifecycle, WsStreamMessage } from '@openheaders/core/request-lifecycle';
+import type { LifecycleSource, RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarEntry } from '@openheaders/core/types';
-
-interface WsDisplayMessage {
-  type: 'send' | 'receive' | 'error';
-  /** Wall-clock ms. */
-  atMs: number;
-  opcode: number;
-  data: string;
-}
-
-const OPCODE_LABEL: Record<number, string> = {
-  [-1]: 'Error',
-  1: 'Text',
-  2: 'Binary',
-  8: 'Close',
-  9: 'Ping',
-  10: 'Pong',
-};
-
-/** HAR-dialect frame — `time` is wall-clock SECONDS (unlike HAR's ms). */
-function isHarWsMessage(v: unknown): v is { type: 'send' | 'receive' | 'error'; time: number; opcode?: number; data?: string } {
-  if (!v || typeof v !== 'object') return false;
-  const r = v as Record<string, unknown>;
-  return (r.type === 'send' || r.type === 'receive' || r.type === 'error') && typeof r.time === 'number';
-}
-
-function isWsStreamMessage(m: { kind: string }): m is WsStreamMessage {
-  return m.kind === 'ws';
-}
-
-/** The display list — live plane first, HAR dialect fallback. */
-function wsDisplayMessages(lifecycle: RequestLifecycle, har: InspectorHarEntry | null): WsDisplayMessage[] {
-  const live = (lifecycle.messages ?? []).filter(isWsStreamMessage);
-  if (live.length > 0) {
-    return live.map((m) => ({ type: m.type, atMs: m.atMs, opcode: m.opcode, data: m.data }));
-  }
-  const raw = har?._webSocketMessages;
-  if (!Array.isArray(raw)) return [];
-  return raw.filter(isHarWsMessage).map((m) => ({
-    type: m.type,
-    atMs: m.time * 1000,
-    opcode: typeof m.opcode === 'number' ? m.opcode : 1,
-    data: m.data ?? '',
-  }));
-}
+import { useMemo, useRef, useState } from 'react';
+import MessagePreview from './streams/MessagePreview';
+import StreamGridToolbar, { type WsDirectionFilter } from './streams/StreamGridToolbar';
+import { compileStreamFilter } from './streams/stream-filter';
+import { formatStreamTime, streamTimeTooltip } from './streams/stream-time';
+import { useStickToBottom } from './streams/use-stick-to-bottom';
+import { useVerticalSplit } from './streams/use-vertical-split';
+import {
+  frameDataLabel,
+  frameLengthLabel,
+  opcodeDescription,
+  type WsDisplayFrame,
+  wsDisplayFrames,
+} from './streams/ws-frames';
 
 export function hasWebSocketMessages(har: InspectorHarEntry): boolean {
   const msgs = har._webSocketMessages;
   return Array.isArray(msgs) && msgs.length > 0;
 }
 
-function formatWsTimestamp(atMs: number): string {
-  const d = new Date(atMs);
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mm = String(d.getMinutes()).padStart(2, '0');
-  const ss = String(d.getSeconds()).padStart(2, '0');
-  const mmm = String(d.getMilliseconds()).padStart(3, '0');
-  return `${hh}:${mm}:${ss}.${mmm}`;
-}
+type SortDirection = 'asc' | 'desc';
 
 interface MessagesViewProps {
   lifecycle: RequestLifecycle;
@@ -87,9 +50,47 @@ interface MessagesViewProps {
   source: LifecycleSource;
 }
 
+function directionClass(type: WsDisplayFrame['type']): string {
+  if (type === 'send') return 'dt-ws-row--send';
+  if (type === 'error') return 'dt-ws-row--error';
+  return 'dt-ws-row--recv';
+}
+
+function directionArrow(type: WsDisplayFrame['type']): string {
+  if (type === 'send') return '⬆';
+  if (type === 'error') return '⚠';
+  return '⬇';
+}
+
 export default function MessagesView({ lifecycle, har, source }: MessagesViewProps) {
-  const messages = wsDisplayMessages(lifecycle, har);
-  if (messages.length === 0) {
+  const [direction, setDirection] = useState<WsDirectionFilter>('all');
+  const [filterText, setFilterText] = useState('');
+  const [sortDir, setSortDir] = useState<SortDirection>('asc');
+  const [clearedCount, setClearedCount] = useState(0);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+
+  const listRef = useRef<HTMLDivElement>(null);
+  const split = useVerticalSplit(40);
+
+  const all = useMemo(() => wsDisplayFrames(lifecycle, har), [lifecycle, har]);
+
+  const visible = useMemo(() => {
+    const regex = compileStreamFilter(filterText, 'literal');
+    const afterClear = clearedCount > 0 ? all.filter((f) => f.index >= clearedCount) : all;
+    const filtered = afterClear.filter(
+      (f) => (direction === 'all' || f.type === direction) && (!regex || regex.test(f.data)),
+    );
+    // Arrival order is time order; a stable index tiebreak keeps
+    // equal-millisecond frames in wire order under both directions.
+    if (sortDir === 'desc') {
+      return [...filtered].sort((a, b) => b.atMs - a.atMs || b.index - a.index);
+    }
+    return filtered;
+  }, [all, clearedCount, direction, filterText, sortDir]);
+
+  const { onScroll } = useStickToBottom(listRef, visible.length);
+
+  if (all.length === 0) {
     return (
       <div className="dt-empty" style={{ padding: 24 }}>
         {source === 'cdp'
@@ -100,39 +101,96 @@ export default function MessagesView({ lifecycle, har, source }: MessagesViewPro
   }
 
   const dropped = lifecycle.messagesDropped ?? 0;
+  const selected = selectedIndex != null ? (all.find((f) => f.index === selectedIndex) ?? null) : null;
+
+  const onClear = () => {
+    // Hide everything observed so far: the next frame's index is the floor.
+    setClearedCount(all.length > 0 ? all[all.length - 1].index + 1 : 0);
+    setSelectedIndex(null);
+  };
+
+  const selectRelative = (delta: -1 | 1) => {
+    if (visible.length === 0) return;
+    const pos = selectedIndex == null ? -1 : visible.findIndex((f) => f.index === selectedIndex);
+    const next = pos < 0 ? (delta === 1 ? 0 : visible.length - 1) : Math.min(visible.length - 1, Math.max(0, pos + delta));
+    setSelectedIndex(visible[next].index);
+  };
 
   return (
-    <div className="dt-ws-view">
+    <div className="dt-ws-view" ref={split.containerRef}>
+      <StreamGridToolbar
+        onClear={onClear}
+        directionFilter={{ value: direction, onChange: setDirection }}
+        filterText={filterText}
+        onFilterTextChange={setFilterText}
+        filterPlaceholder="Filter using regex (example: (web)?socket)"
+      />
       {dropped > 0 && (
         <div className="dt-ws-truncation">
-          Showing the latest {messages.length} frames — {dropped} older {dropped === 1 ? 'frame' : 'frames'} dropped.
+          Showing the latest {all.length} frames — {dropped} older {dropped === 1 ? 'frame' : 'frames'} dropped.
         </div>
       )}
-      <div className="dt-ws-row dt-ws-row-header">
-        <span className="dt-ws-dir" aria-hidden="true" />
-        <span className="dt-ws-data">Data</span>
-        <span className="dt-ws-len">Length</span>
-        <span className="dt-ws-time">Time</span>
-      </div>
-      <div className="dt-ws-list">
-        {messages.map((m, i) => {
-          const dirCls = m.type === 'send' ? 'dt-ws-dir--send' : m.type === 'error' ? 'dt-ws-dir--error' : 'dt-ws-dir--recv';
-          const arrow = m.type === 'send' ? '↑' : m.type === 'error' ? '⚠' : '↓';
-          const label = OPCODE_LABEL[m.opcode] ?? `Op ${m.opcode}`;
-          const len = new Blob([m.data ?? '']).size;
+      <div
+        className="dt-ws-list"
+        ref={listRef}
+        onScroll={onScroll}
+        role="listbox"
+        aria-label="WebSocket messages"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            selectRelative(1);
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            selectRelative(-1);
+          }
+        }}
+      >
+        <div className="dt-ws-row dt-ws-row-header">
+          <span className="dt-ws-dir" aria-hidden="true" />
+          <span className="dt-ws-data">Data</span>
+          <span className="dt-ws-len">Length</span>
+          <button
+            type="button"
+            className="dt-ws-time dt-ws-sort-btn"
+            onClick={() => setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))}
+            title="Sort by time"
+          >
+            Time <span aria-hidden="true">{sortDir === 'asc' ? '▲' : '▼'}</span>
+          </button>
+        </div>
+        {visible.map((m) => {
+          const isSelected = m.index === selectedIndex;
           return (
-            <div key={`ws-${i}-${m.atMs}`} className={`dt-ws-row ${dirCls}`} title={label}>
+            <div
+              key={`ws-${m.index}`}
+              className={`dt-ws-row ${directionClass(m.type)}${isSelected ? ' dt-ws-row--selected' : ''}`}
+              title={opcodeDescription(m.opcode, m.mask)}
+              role="option"
+              aria-selected={isSelected}
+              onClick={() => setSelectedIndex(m.index)}
+            >
               <span className="dt-ws-dir" aria-hidden="true">
-                {arrow}
+                {directionArrow(m.type)}
               </span>
-              <span className="dt-ws-data" title={m.data}>
-                {m.data}
+              <span className="dt-ws-data">{frameDataLabel(m)}</span>
+              <span className="dt-ws-len">{frameLengthLabel(m)}</span>
+              <span className="dt-ws-time" title={streamTimeTooltip(m.atMs)}>
+                {formatStreamTime(m.atMs)}
               </span>
-              <span className="dt-ws-len">{len}</span>
-              <span className="dt-ws-time">{formatWsTimestamp(m.atMs)}</span>
             </div>
           );
         })}
+      </div>
+      <div
+        className="dt-ws-split-divider"
+        role="separator"
+        aria-orientation="horizontal"
+        onPointerDown={split.onDividerPointerDown}
+      />
+      <div className="dt-ws-preview" style={{ height: `${split.bottomPct}%` }}>
+        <MessagePreview frame={selected} />
       </div>
     </div>
   );

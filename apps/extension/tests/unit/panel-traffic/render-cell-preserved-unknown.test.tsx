@@ -175,17 +175,14 @@ describe('renderCell — preserved-unknown', () => {
   });
 });
 
-// Status+Time list-cell coupling: a current-page in-flight row holds BOTH cells
-// at pending until it resolves — a terminal outcome arrives, or live body data
-// makes its duration measurable. The gate is `durationMs(lc) < 0`, so the
-// heuristic path (no per-chunk data) honestly holds at pending for the whole
-// download, while CDP (per-chunk `lastActivityAtMs`) reveals the status and a
-// climbing time together. Terminal states always show their real outcome.
-describe('renderCell — Status/Time coupling', () => {
-  it('an in-flight row that has a status but no measurable duration holds both cells at pending', () => {
-    // The response status arrived (CDP responseReceived) but no body byte has —
-    // no measurable duration yet, so Status and Time stay coupled at pending
-    // rather than revealing a status next to a blank/"Pending" time.
+// Status and Time are independent cells, as in the browser: the status shows
+// the moment it is known, while the Time column reads "Pending" until a
+// duration is measurable. A held-open WebSocket is the canonical case — the
+// host shows 101 next to a Pending time for the socket's whole life.
+describe('renderCell — Status/Time independence', () => {
+  it('an in-flight row with a known status shows it even with no measurable duration', () => {
+    // The response status arrived (CDP responseReceived) but no body byte
+    // has — the status cell reveals the 200 while Time stays Pending.
     const responding: RowOverrides = {
       phase: 'headers-received',
       statusCode: 200,
@@ -193,8 +190,32 @@ describe('renderCell — Status/Time coupling', () => {
       startedAtMs: 1_500,
       har: [null],
     };
-    expect(cell('status', responding).container.querySelector('span')?.textContent).toBe('(pending)');
+    expect(cell('status', responding).container.querySelector('span')?.textContent).toBe('200');
     expect(cell('time', responding).container.querySelector('span')?.textContent).toBe('Pending');
+  });
+
+  it('a held-open WebSocket reads 101 with a Pending time (host parity)', () => {
+    const heldSocket: RowOverrides = {
+      phase: 'headers-received',
+      statusCode: 101,
+      statusText: 'Switching Protocols',
+      startedAtMs: 1_500,
+      har: [null],
+    };
+    expect(cell('status', heldSocket).container.querySelector('span')?.textContent).toBe('101');
+    expect(cell('time', heldSocket).container.querySelector('span')?.textContent).toBe('Pending');
+  });
+
+  it('a no-status in-flight row still reads "(pending)" in both cells', () => {
+    const noStatus: RowOverrides = {
+      phase: 'pending',
+      statusCode: undefined,
+      statusText: undefined,
+      startedAtMs: 1_500,
+      har: [null],
+    };
+    expect(cell('status', noStatus).container.querySelector('span')?.textContent).toBe('(pending)');
+    expect(cell('time', noStatus).container.querySelector('span')?.textContent).toBe('Pending');
   });
 
   it('a CDP-style in-flight row with live body data reveals the status and a climbing time together', () => {

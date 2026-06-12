@@ -7,11 +7,71 @@
   min-height: 0;
 }
 
+/* ── Toolbar (shared by both stream views) ─────────────────────── */
+
+.dt-stream-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--dt-border);
+  background: var(--dt-header-bg);
+  flex: none;
+}
+
+.dt-stream-toolbar-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--dt-text-muted);
+  cursor: pointer;
+}
+
+.dt-stream-toolbar-clear:hover {
+  background: var(--dt-row-hover);
+  color: var(--dt-text);
+}
+
+.dt-stream-toolbar-select {
+  height: 22px;
+  border: 1px solid var(--dt-input-border);
+  border-radius: 4px;
+  background: var(--dt-input-bg);
+  color: var(--dt-text);
+  font-size: 11px;
+}
+
+.dt-stream-toolbar-filter {
+  flex: 1;
+  min-width: 80px;
+  max-width: 360px;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--dt-input-border);
+  border-radius: 11px;
+  background: var(--dt-input-bg);
+  color: var(--dt-text);
+  font-size: 11px;
+  outline: none;
+}
+
+.dt-stream-toolbar-filter:focus {
+  border-color: var(--dt-tab-active-border);
+}
+
+/* ── WS frame grid ─────────────────────────────────────────────── */
+
 .dt-ws-row {
   display: grid;
   grid-template-columns: 20px 1fr 64px 92px;
   gap: 8px;
-  padding: 4px 8px;
+  padding: 2px 8px;
   border-bottom: 1px solid var(--dt-border);
   font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
   font-size: 11px;
@@ -23,12 +83,19 @@
   font-weight: 600;
   position: sticky;
   top: 0;
+  z-index: 1;
   background: var(--dt-bg);
 }
 
 .dt-ws-list {
   flex: 1;
   overflow: auto;
+  min-height: 0;
+  outline: none;
+}
+
+.dt-ws-list .dt-ws-row {
+  cursor: default;
 }
 
 .dt-ws-data {
@@ -48,17 +115,107 @@
   font-weight: 700;
 }
 
-.dt-ws-dir--send .dt-ws-dir {
-  color: var(--dt-status-orange);
+/* Direction cues — outgoing frames tint the row and arrow, incoming
+   frames carry the red arrow, error frames read as a red row. */
+.dt-ws-row--send {
+  background: color-mix(in srgb, var(--dt-status-green) 12%, transparent);
 }
 
-.dt-ws-dir--recv .dt-ws-dir {
+.dt-ws-row--send .dt-ws-dir {
   color: var(--dt-status-green);
 }
 
-.dt-ws-dir--error .dt-ws-dir,
-.dt-ws-dir--error .dt-ws-data {
+.dt-ws-row--recv .dt-ws-dir {
   color: var(--dt-status-red);
+}
+
+.dt-ws-row--error,
+.dt-ws-row--error .dt-ws-dir,
+.dt-ws-row--error .dt-ws-data {
+  color: var(--dt-status-red);
+}
+
+.dt-ws-row--error {
+  background: color-mix(in srgb, var(--dt-status-red) 10%, transparent);
+}
+
+.dt-ws-list .dt-ws-row:not(.dt-ws-row-header):hover {
+  background: var(--dt-row-hover);
+}
+
+.dt-ws-list .dt-ws-row--selected,
+.dt-ws-list .dt-ws-row--selected:hover {
+  background: var(--dt-row-selected);
+}
+
+/* Sortable header cells (both grids). */
+.dt-ws-sort-btn,
+.dt-sse-sort-btn {
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  padding: 0;
+  cursor: pointer;
+  text-align: inherit;
+}
+
+.dt-ws-sort-btn:hover,
+.dt-sse-sort-btn:hover {
+  color: var(--dt-link);
+}
+
+/* ── WS preview pane (grid / preview split) ─────────────────────── */
+
+.dt-ws-split-divider {
+  flex: none;
+  height: 4px;
+  margin-top: -2px;
+  cursor: row-resize;
+  border-top: 1px solid var(--dt-border);
+  touch-action: none;
+}
+
+.dt-ws-split-divider:hover {
+  background: var(--dt-tab-active-border);
+}
+
+.dt-ws-preview {
+  flex: none;
+  min-height: 60px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.dt-msg-preview-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.dt-msg-preview-binary {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.dt-msg-preview-content {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+  padding: 4px 8px;
+}
+
+.dt-msg-preview-json {
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 11px;
 }
 
 /* Honest truncation banner — shown only once the ring bound dropped frames. */
@@ -68,9 +225,11 @@
   font-size: 11px;
   color: var(--dt-text-muted);
   border-bottom: 1px solid var(--dt-border);
+  flex: none;
 }
 
-/* SSE EventStream view. */
+/* ── SSE EventStream grid ──────────────────────────────────────── */
+
 .dt-sse-view {
   display: flex;
   flex-direction: column;
@@ -80,13 +239,13 @@
 
 .dt-sse-row {
   display: grid;
-  grid-template-columns: 64px 96px 1fr;
+  grid-template-columns: 64px 96px 1fr 92px;
   gap: 8px;
-  padding: 4px 8px;
+  padding: 2px 8px;
   border-bottom: 1px solid var(--dt-border);
   font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
   font-size: 11px;
-  align-items: start;
+  align-items: center;
 }
 
 .dt-sse-row-header {
@@ -94,16 +253,27 @@
   font-weight: 600;
   position: sticky;
   top: 0;
+  z-index: 1;
   background: var(--dt-bg);
 }
 
 .dt-sse-list {
   flex: 1;
   overflow: auto;
+  min-height: 0;
+}
+
+.dt-sse-list .dt-sse-row:not(.dt-sse-row-header):hover {
+  background: var(--dt-row-hover);
 }
 
 .dt-sse-data {
-  margin: 0;
-  white-space: pre-wrap;
-  word-break: break-word;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dt-sse-time {
+  color: var(--dt-text-muted);
+  text-align: right;
 }

@@ -5,19 +5,13 @@ import {
   lifecycleMimeType,
   lifecycleTransferredBytes,
 } from '../data/inspector-row-projection';
+import { base64ToBytes } from '../data/base64';
 import { isTextMime } from '../data/mime';
 import { classifyBodyState } from '../data/response-body-state';
 import HexViewer from './detail/HexViewer';
 import ResponseViewerToolbar, { type ViewMode } from './detail/ResponseViewerToolbar';
 import Skeleton from './detail/Skeleton';
 import TextBodyViewer from './detail/TextBodyViewer';
-
-function base64ToBytes(b64: string): Uint8Array {
-  const bin = atob(b64);
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return bytes;
-}
 
 interface ResponseBodyViewProps {
   row: InspectorRowWithFires;
