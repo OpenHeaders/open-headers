@@ -1,0 +1,15 @@
+schemaVersion: 5
+uid: rulesse1
+name: Inject price event
+type: sse
+enabled: true
+conditions:
+  - uid: cnd00010
+    type: request-domains
+    values:
+      - api.openheaders.io
+action:
+  operation: inject
+  eventName: price-update
+  payload: "{\"symbol\":\"OH\",\"px\":42}"
+  injectTrigger: open

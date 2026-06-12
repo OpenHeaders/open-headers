@@ -1,5 +1,5 @@
 /**
- * Valibot schema for `Rule` — the discriminated union over 8 rule
+ * Valibot schema for `Rule` — the discriminated union over 10 rule
  * types. Mirrors `types/rule.ts` so hand-written types + schemas
  * stay in lockstep.
  *
@@ -22,6 +22,8 @@ export const RuleTypeSchema = v.picklist([
   'delay',
   'mock',
   'query-param',
+  'ws',
+  'sse',
 ]);
 
 // ── Conditions ──────────────────────────────────────────────────────
@@ -277,6 +279,71 @@ export const QueryParamRuleSchema = v.object({
   action: QueryParamActionSchema,
 });
 
+// ── WS message rule ────────────────────────────────────────────────
+//
+// Acts on page-context WebSocket traffic via the MAIN-world constructor
+// wrapper (cooperative — same delivery plane as body/mock). The rule's
+// URL conditions match the socket endpoint (`ws://` / `wss://`); the
+// action then selects frames by direction and optional content filter.
+//
+//   - 'modify' — replace the payload of every matching frame.
+//   - 'inject' — synthesize a frame: on connection open, or after each
+//                frame matching `messageFilter` (request/response
+//                simulation). Direction 'send' injects client→server;
+//                'receive' delivers a synthetic server message to the
+//                page's listeners.
+//   - 'drop'   — swallow matching frames. No filter = every frame in
+//                `direction` (e.g. silence all server pushes).
+
+export const MessageOperationSchema = v.picklist(['modify', 'inject', 'drop']);
+export const WsDirectionSchema = v.picklist(['send', 'receive']);
+export const InjectTriggerSchema = v.picklist(['open', 'message']);
+
+// Content filter over a frame/event payload. 'contains' is a plain
+// substring test; 'regex' compiles case-insensitive in the page.
+export const MessageFilterSchema = v.object({
+  matchType: v.picklist(['contains', 'regex']),
+  value: v.string(),
+});
+
+export const WsActionSchema = v.object({
+  operation: MessageOperationSchema,
+  direction: WsDirectionSchema,
+  messageFilter: v.optional(MessageFilterSchema),
+  /** modify: replacement payload; inject: the synthesized frame. */
+  payload: v.optional(v.string()),
+  /** inject only; defaults to 'open' when absent. */
+  injectTrigger: v.optional(InjectTriggerSchema),
+});
+
+export const WsRuleSchema = v.object({
+  ...RuleBaseFields,
+  type: v.literal('ws'),
+  action: WsActionSchema,
+});
+
+// ── SSE message rule ───────────────────────────────────────────────
+//
+// Same plane as `ws`, for EventSource streams. Receive-only by nature
+// (SSE is server→client), so no direction. `eventName` gates on the
+// stream's `event:` field — absent means the default 'message' events.
+
+export const SseActionSchema = v.object({
+  operation: MessageOperationSchema,
+  eventName: v.optional(v.string()),
+  messageFilter: v.optional(MessageFilterSchema),
+  /** modify: replacement event data; inject: the synthesized event data. */
+  payload: v.optional(v.string()),
+  /** inject only; defaults to 'open' when absent. */
+  injectTrigger: v.optional(InjectTriggerSchema),
+});
+
+export const SseRuleSchema = v.object({
+  ...RuleBaseFields,
+  type: v.literal('sse'),
+  action: SseActionSchema,
+});
+
 // ── Discriminated union ────────────────────────────────────────────
 
 export const RuleSchema = v.variant('type', [
@@ -288,4 +355,6 @@ export const RuleSchema = v.variant('type', [
   DelayRuleSchema,
   MockRuleSchema,
   QueryParamRuleSchema,
+  WsRuleSchema,
+  SseRuleSchema,
 ]);

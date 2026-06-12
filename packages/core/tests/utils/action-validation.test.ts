@@ -10,6 +10,8 @@ import type {
   RedirectRule,
   Rule,
   RuleCondition,
+  SseRule,
+  WsRule,
 } from '../../src/types';
 import { validateActionValues } from '../../src/utils';
 
@@ -53,6 +55,14 @@ function body(action: BodyRule['action']): BodyRule {
 
 function queryParam(action: QueryParamRule['action']): QueryParamRule {
   return { ...baseFields, type: 'query-param', action } as QueryParamRule;
+}
+
+function ws(action: WsRule['action']): WsRule {
+  return { ...baseFields, type: 'ws', action } as WsRule;
+}
+
+function sse(action: SseRule['action']): SseRule {
+  return { ...baseFields, type: 'sse', action } as SseRule;
 }
 
 describe('validateActionValues — header', () => {
@@ -404,6 +414,83 @@ describe('validateActionValues — query-param', () => {
       validateActionValues(
         queryParam({ params: [{ uid: 'qp000004', param: '{{KEY}}', operation: 'add', value: 'x' }] }),
       ),
+    ).toEqual([]);
+  });
+});
+
+describe('validateActionValues — ws/sse', () => {
+  it('accepts a plain modify with payload and no filter', () => {
+    expect(
+      validateActionValues(ws({ operation: 'modify', direction: 'receive', payload: '{"ok":true}' })),
+    ).toEqual([]);
+  });
+
+  it('accepts a contains filter', () => {
+    expect(
+      validateActionValues(
+        ws({
+          operation: 'drop',
+          direction: 'send',
+          messageFilter: { matchType: 'contains', value: 'heartbeat' },
+        }),
+      ),
+    ).toEqual([]);
+  });
+
+  it('flags an empty filter value', () => {
+    const issues = validateActionValues(
+      ws({ operation: 'drop', direction: 'receive', messageFilter: { matchType: 'contains', value: '  ' } }),
+    );
+    expect(issues[0]).toMatchObject({
+      path: 'messageFilter.value',
+      kind: 'invalid-message-filter',
+      severity: 'error',
+    });
+  });
+
+  it('flags an uncompilable regex filter', () => {
+    const issues = validateActionValues(
+      sse({ operation: 'modify', payload: 'x', messageFilter: { matchType: 'regex', value: '([' } }),
+    );
+    expect(issues[0]).toMatchObject({
+      path: 'messageFilter.value',
+      kind: 'invalid-message-filter',
+      severity: 'error',
+    });
+  });
+
+  it('skips regex validation for template values', () => {
+    expect(
+      validateActionValues(
+        sse({ operation: 'modify', payload: 'x', messageFilter: { matchType: 'regex', value: '{{env.PATTERN}}' } }),
+      ),
+    ).toEqual([]);
+  });
+
+  it('flags inject-on-message without a filter', () => {
+    const issues = validateActionValues(
+      ws({ operation: 'inject', direction: 'receive', payload: 'pong', injectTrigger: 'message' }),
+    );
+    expect(issues[0]).toMatchObject({ path: 'injectTrigger', kind: 'invalid-message-filter', severity: 'error' });
+  });
+
+  it('accepts inject-on-message with a filter', () => {
+    expect(
+      validateActionValues(
+        ws({
+          operation: 'inject',
+          direction: 'receive',
+          payload: 'pong',
+          injectTrigger: 'message',
+          messageFilter: { matchType: 'contains', value: 'ping' },
+        }),
+      ),
+    ).toEqual([]);
+  });
+
+  it('accepts inject-on-open without a filter', () => {
+    expect(
+      validateActionValues(sse({ operation: 'inject', payload: 'hello', injectTrigger: 'open' })),
     ).toEqual([]);
   });
 });

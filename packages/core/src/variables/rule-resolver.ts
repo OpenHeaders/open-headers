@@ -21,6 +21,8 @@ import type {
   ResolutionContext,
   Rule,
   RuleCondition,
+  SseRule,
+  WsRule,
 } from '../types';
 import { isListShapedConditionType } from '../utils/condition-metadata';
 import { applyDomainValueCleanup, summarizeDomainIssues, validateDomainValues } from '../utils/condition-validation';
@@ -96,6 +98,10 @@ function walkRule(
       return resolveMockRule(base as MockRule, resolver, context, errors);
     case 'query-param':
       return resolveQueryParamRule(base as QueryParamRule, resolver, context, errors);
+    case 'ws':
+      return resolveWsRule(base as WsRule, resolver, context, errors);
+    case 'sse':
+      return resolveSseRule(base as SseRule, resolver, context, errors);
   }
 }
 
@@ -209,7 +215,6 @@ function resolveConditions(
   });
 }
 
-
 function expandListEntries(values: readonly string[]): string[] {
   const out: string[] = [];
   for (const entry of values) {
@@ -319,6 +324,53 @@ function resolveMockRule(
       ...rule.action,
       responseBody: resolveString(rule.action.responseBody, resolver, context, errors),
       responseHeaders: resolvedHeaders,
+    },
+  };
+}
+
+function resolveWsRule(
+  rule: WsRule,
+  resolver: VariableResolver,
+  context: ResolutionContext | undefined,
+  errors: ResolutionError[] | undefined,
+): WsRule {
+  return {
+    ...rule,
+    action: {
+      ...rule.action,
+      ...(rule.action.payload ? { payload: resolveString(rule.action.payload, resolver, context, errors) } : {}),
+      ...(rule.action.messageFilter
+        ? {
+            messageFilter: {
+              ...rule.action.messageFilter,
+              value: resolveString(rule.action.messageFilter.value, resolver, context, errors),
+            },
+          }
+        : {}),
+    },
+  };
+}
+
+function resolveSseRule(
+  rule: SseRule,
+  resolver: VariableResolver,
+  context: ResolutionContext | undefined,
+  errors: ResolutionError[] | undefined,
+): SseRule {
+  return {
+    ...rule,
+    action: {
+      ...rule.action,
+      ...(rule.action.payload ? { payload: resolveString(rule.action.payload, resolver, context, errors) } : {}),
+      ...(rule.action.eventName ? { eventName: resolveString(rule.action.eventName, resolver, context, errors) } : {}),
+      ...(rule.action.messageFilter
+        ? {
+            messageFilter: {
+              ...rule.action.messageFilter,
+              value: resolveString(rule.action.messageFilter.value, resolver, context, errors),
+            },
+          }
+        : {}),
     },
   };
 }

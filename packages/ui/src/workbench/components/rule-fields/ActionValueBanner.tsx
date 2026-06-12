@@ -244,7 +244,44 @@ function assembleSyntheticRule(
         type: 'query-param',
         action: { params: (formValues.queryParams as QueryParamRule['action']['params']) ?? [] },
       };
+    case 'ws':
+      return {
+        ...baseShell,
+        type: 'ws',
+        action: {
+          operation: ((formValues.wsOperation as string) ?? 'modify') as 'modify' | 'inject' | 'drop',
+          direction: ((formValues.wsDirection as string) ?? 'receive') as 'send' | 'receive',
+          messageFilter: syntheticMessageFilter(formValues.wsFilterType, formValues.wsFilterValue),
+          payload: (formValues.wsPayload as string) ?? '',
+          injectTrigger: formValues.wsInjectTrigger as 'open' | 'message' | undefined,
+        },
+      };
+    case 'sse':
+      return {
+        ...baseShell,
+        type: 'sse',
+        action: {
+          operation: ((formValues.sseOperation as string) ?? 'modify') as 'modify' | 'inject' | 'drop',
+          eventName: (formValues.sseEventName as string)?.trim() || undefined,
+          messageFilter: syntheticMessageFilter(formValues.sseFilterType, formValues.sseFilterValue),
+          payload: (formValues.ssePayload as string) ?? '',
+          injectTrigger: formValues.sseInjectTrigger as 'open' | 'message' | undefined,
+        },
+      };
     default:
       return null;
   }
+}
+
+/**
+ * Mirrors RuleEditor's save-path filter assembly, EXCEPT an empty value
+ * with a configured filter type stays as a filter — the validator's
+ * "filter value required" error must surface while the user is mid-edit.
+ */
+function syntheticMessageFilter(
+  filterType: unknown,
+  filterValue: unknown,
+): { matchType: 'contains' | 'regex'; value: string } | undefined {
+  if (filterType !== 'contains' && filterType !== 'regex') return undefined;
+  return { matchType: filterType, value: (filterValue as string) ?? '' };
 }

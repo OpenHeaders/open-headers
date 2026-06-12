@@ -1,11 +1,13 @@
 /**
  * Inject Manager — applies rules that require chrome.scripting API.
  *
- * Handles 4 rule types that can't use declarativeNetRequest:
+ * Handles 6 rule types that can't use declarativeNetRequest:
  *   - inject: user-authored JS/CSS injection
  *   - delay: monkey-patches fetch/XHR with setTimeout
  *   - body: monkey-patches fetch/XHR to modify request/response bodies
  *   - mock: monkey-patches fetch/XHR to return fake responses
+ *   - ws: wraps the WebSocket constructor to modify/inject/drop frames
+ *   - sse: wraps the EventSource constructor to modify/inject/drop events
  *
  * Architecture:
  * - Keeps the current set of scriptable rules in memory
@@ -17,13 +19,24 @@
 
 declare const browser: typeof chrome | undefined;
 
-import type { BodyRule, DelayRule, HeaderRule, InjectRule, MockRule, Rule } from '@openheaders/core/types';
+import type {
+  BodyRule,
+  DelayRule,
+  HeaderRule,
+  InjectRule,
+  MockRule,
+  Rule,
+  SseRule,
+  WsRule,
+} from '@openheaders/core/types';
 import { compileRuleForInjection, doesHostMatchDomains, doesUrlMatchRule } from '@openheaders/core/utils';
 import {
   buildBodyInjection,
   buildDelayInjection,
   buildHeaderMergeInjection,
   buildMockInjection,
+  buildSseInjection,
+  buildWsInjection,
 } from '@openheaders/rule-engine/content-scripts';
 import {
   applyInjection,
@@ -40,29 +53,39 @@ const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
 /** Rules inject-manager can act on. Header rules are here for their `merge` operations. */
 type ScriptableRule = InjectRule | DelayRule | BodyRule | MockRule | HeaderRule;
 
-/** A header merge operation extracted from a HeaderRule. */
-interface HeaderMergeEntry {
-  ruleUid: string;
+/**
+ * Page-install gate for rules whose URL conditions match REQUEST /
+ * connection urls (tested in-page by the interceptor), not page urls.
+ * Only initiator-domain conditions legitimately gate WHERE the
+ * interceptor installs — for fetch/XHR/WebSocket/EventSource issued by a
+ * page, the initiator IS the page origin.
+ */
+interface PageInstallGate {
   /**
-   * Regex sources pre-compiled from the rule's URL conditions. They match
-   * REQUEST urls, not page urls — the in-page interceptor tests every
-   * fetch/XHR url against them. Empty array means the rule has no URL
-   * conditions and should not match any request.
+   * Regex sources pre-compiled from the rule's URL conditions. Empty
+   * array means the rule has no URL conditions and should not match any
+   * request.
    */
   regexSources: string[];
-  /**
-   * Initiator-domain condition rows. For fetch/XHR issued by a page, the
-   * initiator IS the page origin, so these are the only conditions that
-   * legitimately gate WHERE the interceptor installs.
-   */
   initiatorDomains: string[];
   excludedInitiatorDomains: string[];
+}
+
+/** A header merge operation extracted from a HeaderRule. */
+interface HeaderMergeEntry extends PageInstallGate {
+  ruleUid: string;
   requestMerges: Array<{ headerName: string; value: string; separator: string }>;
   responseMerges: Array<{ headerName: string; value: string; separator: string }>;
 }
 
+/** A ws/sse rule paired with its pre-compiled install gate. */
+interface MessageRuleEntry extends PageInstallGate {
+  rule: WsRule | SseRule;
+}
+
 let activeScriptableRules: ScriptableRule[] = [];
 let activeHeaderMerges: HeaderMergeEntry[] = [];
+let activeMessageRules: MessageRuleEntry[] = [];
 
 function defaultSeparator(headerName: string): string {
   const lower = headerName.toLowerCase();
@@ -91,6 +114,25 @@ function isMergeModResolvable(m: { headerName: string; value?: string; mergeSepa
   return true;
 }
 
+/** Build the install gate from a rule's conditions (see PageInstallGate). */
+function extractInstallGate(rule: Rule): PageInstallGate {
+  const initiatorDomains: string[] = [];
+  const excludedInitiatorDomains: string[] = [];
+  for (const cond of rule.conditions) {
+    if (cond.type !== 'initiator-domains' && cond.type !== 'exclude-initiator-domains') continue;
+    const target = cond.type === 'initiator-domains' ? initiatorDomains : excludedInitiatorDomains;
+    for (const v of cond.values) {
+      const trimmed = v.trim();
+      if (trimmed) target.push(trimmed);
+    }
+  }
+  return {
+    regexSources: compileRuleForInjection(rule),
+    initiatorDomains,
+    excludedInitiatorDomains,
+  };
+}
+
 function extractHeaderMergeEntry(rule: HeaderRule): HeaderMergeEntry | null {
   const requestMerges = (rule.action.requestHeaders ?? [])
     .filter((m) => m.operation === 'merge' && m.headerName?.trim() && m.value?.trim() && isMergeModResolvable(m))
@@ -107,21 +149,9 @@ function extractHeaderMergeEntry(rule: HeaderRule): HeaderMergeEntry | null {
       separator: m.mergeSeparator || defaultSeparator(m.headerName),
     }));
   if (requestMerges.length === 0 && responseMerges.length === 0) return null;
-  const initiatorDomains: string[] = [];
-  const excludedInitiatorDomains: string[] = [];
-  for (const cond of rule.conditions) {
-    if (cond.type !== 'initiator-domains' && cond.type !== 'exclude-initiator-domains') continue;
-    const target = cond.type === 'initiator-domains' ? initiatorDomains : excludedInitiatorDomains;
-    for (const v of cond.values) {
-      const trimmed = v.trim();
-      if (trimmed) target.push(trimmed);
-    }
-  }
   return {
     ruleUid: rule.uid,
-    regexSources: compileRuleForInjection(rule),
-    initiatorDomains,
-    excludedInitiatorDomains,
+    ...extractInstallGate(rule),
     requestMerges,
     responseMerges,
   };
@@ -145,6 +175,7 @@ export const __testExtractHeaderMergeEntry = extractHeaderMergeEntry;
 export function updateScriptableRules(rules: Rule[]): ReadonlySet<string> {
   const scriptable: ScriptableRule[] = [];
   const headerMerges: HeaderMergeEntry[] = [];
+  const messageRules: MessageRuleEntry[] = [];
   const installedUids = new Set<string>();
   for (const rule of rules) {
     switch (rule.type) {
@@ -163,14 +194,20 @@ export function updateScriptableRules(rules: Rule[]): ReadonlySet<string> {
         }
         break;
       }
+      case 'ws':
+      case 'sse':
+        messageRules.push({ rule, ...extractInstallGate(rule) });
+        installedUids.add(rule.uid);
+        break;
     }
   }
   activeScriptableRules = scriptable;
   activeHeaderMerges = headerMerges;
-  if (scriptable.length > 0 || headerMerges.length > 0) {
+  activeMessageRules = messageRules;
+  if (scriptable.length > 0 || headerMerges.length > 0 || messageRules.length > 0) {
     logger.info(
       'InjectManager',
-      `Updated scriptable rules: ${scriptable.length} active (${scriptable.map((r) => `${r.type}:${r.name}`).join(', ')}), ${headerMerges.length} header merges`,
+      `Updated scriptable rules: ${scriptable.length} active (${scriptable.map((r) => `${r.type}:${r.name}`).join(', ')}), ${headerMerges.length} header merges, ${messageRules.length} ws/sse`,
     );
   } else {
     logger.debug('InjectManager', 'Updated scriptable rules: 0 active');
@@ -192,7 +229,8 @@ export function setupInjectListener(): void {
     (details: chrome.webNavigation.WebNavigationTransitionCallbackDetails) => {
       // Main frame only
       if (details.frameId !== 0) return;
-      if (activeScriptableRules.length === 0 && activeHeaderMerges.length === 0) return;
+      if (activeScriptableRules.length === 0 && activeHeaderMerges.length === 0 && activeMessageRules.length === 0)
+        return;
 
       void injectForUrl(details.tabId, details.url);
     },
@@ -204,33 +242,34 @@ export function setupInjectListener(): void {
 // ── Helpers ──────────────────────────────────────────────────────
 
 /**
- * Install-time gate for a header-merge injection. The entry's URL
- * conditions target REQUEST urls and are matched in-page by the
- * interceptor — they say nothing about which pages can originate a
- * matching request, so they never gate installation. The only page-level
- * conditions are the initiator-domain rows: a page's fetch/XHR requests
- * carry its origin as initiator, so gating install on the page host
- * mirrors Chrome's initiatorDomains semantics exactly.
+ * Install-time gate for interceptor injections (header-merge, ws, sse).
+ * The gate's URL conditions target REQUEST / connection urls and are
+ * matched in-page by the interceptor — they say nothing about which
+ * pages can originate a matching request, so they never gate
+ * installation. The only page-level conditions are the initiator-domain
+ * rows: a page's fetch/XHR/WebSocket/EventSource requests carry its
+ * origin as initiator, so gating install on the page host mirrors
+ * Chrome's initiatorDomains semantics exactly.
  */
-function shouldInstallMergeForPage(entry: HeaderMergeEntry, pageUrl: string): boolean {
-  if (entry.regexSources.length === 0) return false;
+function shouldInstallForPage(gate: PageInstallGate, pageUrl: string): boolean {
+  if (gate.regexSources.length === 0) return false;
   let host: string | null;
   try {
     host = new URL(pageUrl).hostname;
   } catch {
     host = null;
   }
-  if (entry.excludedInitiatorDomains.length > 0 && host !== null) {
-    if (doesHostMatchDomains(host, entry.excludedInitiatorDomains)) return false;
+  if (gate.excludedInitiatorDomains.length > 0 && host !== null) {
+    if (doesHostMatchDomains(host, gate.excludedInitiatorDomains)) return false;
   }
-  if (entry.initiatorDomains.length > 0) {
-    return host !== null && doesHostMatchDomains(host, entry.initiatorDomains);
+  if (gate.initiatorDomains.length > 0) {
+    return host !== null && doesHostMatchDomains(host, gate.initiatorDomains);
   }
   return true;
 }
 
 /** Test-only handle for the install gate. */
-export const __testShouldInstallMergeForPage = shouldInstallMergeForPage;
+export const __testShouldInstallForPage = shouldInstallForPage;
 
 // ── Injection logic ──────────────────────────────────────────────
 
@@ -292,7 +331,7 @@ async function injectForUrl(tabId: number, url: string): Promise<void> {
   // could originate (request-URL matching happens in-page), subject to the
   // initiator-domain gate and the same test-session scope filter.
   for (const merge of activeHeaderMerges) {
-    if (!shouldInstallMergeForPage(merge, url)) continue;
+    if (!shouldInstallForPage(merge, url)) continue;
     if (testScope) {
       if (!testScope.has(merge.ruleUid)) continue;
     } else if (isRuleUnderTest(merge.ruleUid)) {
@@ -311,6 +350,28 @@ async function injectForUrl(tabId: number, url: string): Promise<void> {
       const msg = (error as Error).message;
       if (!msg?.includes('Cannot access') && !msg?.includes('No tab')) {
         logger.info('InjectManager', `Failed to inject header merge into tab ${tabId}: ${msg}`);
+      }
+    }
+  }
+
+  // Inject ws/sse wrappers — same install model as header merges: the
+  // rule's URL conditions match the socket/stream endpoint in-page, the
+  // initiator-domain gate decides which pages get the wrapper.
+  for (const entry of activeMessageRules) {
+    if (!shouldInstallForPage(entry, url)) continue;
+    if (testScope) {
+      if (!testScope.has(entry.rule.uid)) continue;
+    } else if (isRuleUnderTest(entry.rule.uid)) {
+      continue;
+    }
+
+    try {
+      const injection = entry.rule.type === 'ws' ? buildWsInjection(entry.rule) : buildSseInjection(entry.rule);
+      await applyInjection(tabId, injection, entry.rule.name);
+    } catch (error) {
+      const msg = (error as Error).message;
+      if (!msg?.includes('Cannot access') && !msg?.includes('No tab')) {
+        logger.info('InjectManager', `Failed to inject "${entry.rule.name}" into tab ${tabId}: ${msg}`);
       }
     }
   }

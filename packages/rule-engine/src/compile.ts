@@ -40,7 +40,15 @@ const compilers: Record<string, RuleCompiler<Rule>> = {
 };
 
 /** Rule types whose scriptable side is handled by inject-manager. */
-export const SCRIPTABLE_TYPES: ReadonlySet<Rule['type']> = new Set(['inject', 'delay', 'body', 'mock', 'header']);
+export const SCRIPTABLE_TYPES: ReadonlySet<Rule['type']> = new Set([
+  'inject',
+  'delay',
+  'body',
+  'mock',
+  'header',
+  'ws',
+  'sse',
+]);
 
 export interface TaggedDnrRule {
   rule: DnrRule;

@@ -148,7 +148,10 @@ export type {
   InjectAction,
   InjectRule,
   InjectSource,
+  InjectTrigger,
   InjectType,
+  MessageFilter,
+  MessageOperation,
   MockAction,
   MockBodyType,
   MockRule,
@@ -163,6 +166,11 @@ export type {
   RuleBase,
   RuleCondition,
   RuleType,
+  SseAction,
+  SseRule,
+  WsAction,
+  WsDirection,
+  WsRule,
 } from './rule';
 // ── Rule draft (pre-fill handoff) ─────────────────────────────────
 export type {

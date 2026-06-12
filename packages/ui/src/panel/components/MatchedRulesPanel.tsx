@@ -46,6 +46,10 @@ function formatRuleTypeFromSnapshot(type: Rule['type']): string {
       return 'Delay';
     case 'inject':
       return 'Inject';
+    case 'ws':
+      return 'WebSocket';
+    case 'sse':
+      return 'SSE';
     default:
       return type;
   }

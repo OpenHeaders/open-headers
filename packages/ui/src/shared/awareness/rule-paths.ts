@@ -56,6 +56,14 @@ export interface ActionPathBundle {
   mockResponseBody: string;
   mockContentType: string;
   mockBodyType: string;
+  // WS / SSE message-rule scalar leaves.
+  messageOperation: string;
+  messageDirection: string;
+  messageEventName: string;
+  messageFilterType: string;
+  messageFilterValue: string;
+  messagePayload: string;
+  messageInjectTrigger: string;
   // Set-tree generators.
   headerMod(
     direction: 'request' | 'response',
@@ -109,6 +117,13 @@ export function createActionPaths(opts: ActionPathsOptions): ActionPathBundle {
     mockResponseBody: `${a}.responseBody`,
     mockContentType: `${a}.contentType`,
     mockBodyType: `${a}.bodyType`,
+    messageOperation: `${a}.operation`,
+    messageDirection: `${a}.direction`,
+    messageEventName: `${a}.eventName`,
+    messageFilterType: `${a}.messageFilter.matchType`,
+    messageFilterValue: `${a}.messageFilter.value`,
+    messagePayload: `${a}.payload`,
+    messageInjectTrigger: `${a}.injectTrigger`,
     headerMod: (direction, uid, leaf) => `${headerSet(direction)}.${uid}.${leaf}`,
     condition: (uid, leaf) => `conditions.${uid}.${leaf}`,
     queryParam: (uid, leaf) => `${a}.${qp}.${uid}.${leaf}`,

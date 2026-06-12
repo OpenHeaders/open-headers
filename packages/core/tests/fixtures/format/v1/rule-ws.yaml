@@ -1,0 +1,16 @@
+schemaVersion: 5
+uid: rulews01
+name: Drop heartbeat frames
+type: ws
+enabled: true
+conditions:
+  - uid: cnd00009
+    type: url-filter
+    values:
+      - wss://stream.openheaders.io/*
+action:
+  operation: drop
+  direction: receive
+  messageFilter:
+    matchType: contains
+    value: heartbeat

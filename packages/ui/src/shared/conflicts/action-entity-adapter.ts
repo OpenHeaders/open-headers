@@ -23,10 +23,9 @@
  * accessors + bundle.
  */
 
-import type { FormInstance } from 'antd';
 import type { Rule, RuleCondition } from '@openheaders/core/types';
+import type { FormInstance } from 'antd';
 import type { ActionPathBundle } from '../awareness';
-import { decodeReorderConflictKey, decodeSetConflictKey } from './conflict-keys';
 import type {
   ConflictResolveAdapter,
   ConflictTrackingAdapter,
@@ -34,6 +33,7 @@ import type {
   SetMember,
   SetMemberSnapshot,
 } from './conflict-adapters';
+import { decodeReorderConflictKey, decodeSetConflictKey } from './conflict-keys';
 import { buildActionEntitySchema } from './field-tree/action-subtree';
 import { makeConflictAdapter } from './field-tree/make-conflict-adapter';
 import type { PathConflict } from './types';
@@ -149,6 +149,8 @@ function buildSetDefs<E extends { uid: string }>(
       delay: [],
       body: [],
       mock: [],
+      ws: [],
+      sse: [],
     },
     conditions: conditionsDef,
   };
@@ -359,6 +361,29 @@ const SCALAR_LABEL: Record<string, string> = {
   statusCode: 'Mock status code',
   responseBody: 'Mock response body',
   contentType: 'Mock content type',
+  operation: 'Operation',
+  direction: 'Direction',
+  eventName: 'Event name',
+  payload: 'Message payload',
+  injectTrigger: 'Inject trigger',
+};
+
+/** WS/SSE message-filter nested leaves — the one non-set dotted action subtree. */
+const MESSAGE_FILTER_LABEL: Record<string, string> = {
+  matchType: 'Message filter type',
+  value: 'Message filter value',
+};
+
+/** Schema-path tail → prefixed form-name suffix for ws/sse fields
+ *  (`payload` + `'ws'` → `wsPayload`). */
+const MESSAGE_FORM_SUFFIX: Record<string, string> = {
+  operation: 'Operation',
+  direction: 'Direction',
+  eventName: 'EventName',
+  payload: 'Payload',
+  injectTrigger: 'InjectTrigger',
+  'messageFilter.matchType': 'FilterType',
+  'messageFilter.value': 'FilterValue',
 };
 
 function makeResolveAdapter<E extends { uid: string }>(
@@ -377,7 +402,7 @@ function makeResolveAdapter<E extends { uid: string }>(
   const walker = makeConflictAdapter<E>({
     schema: buildActionEntitySchema(paths, { discriminatorField: accessors.discriminatorField }),
     signature: accessors.signature,
-    formNameForPath: (_entity, p) => {
+    formNameForPath: (entity, p) => {
       // Set paths — bridge schema-side path keys (rule's `params`) to
       // their Form.List name (`queryParams`) and pass header sets through.
       if (p === headerSetReq) return 'requestHeaders';
@@ -385,6 +410,15 @@ function makeResolveAdapter<E extends { uid: string }>(
       if (p === queryParamSet) return 'queryParams';
       // Entity-root scalars.
       if (p === 'name') return accessors.nameFormName ?? null;
+      // WS/SSE form fields are prefixed per type (`wsPayload`,
+      // `ssePayload`, …) because the action vocabularies overlap.
+      if (p.startsWith(`${a}.`)) {
+        const kind = accessors.getRuleType(entity);
+        if (kind === 'ws' || kind === 'sse') {
+          const suffix = MESSAGE_FORM_SUFFIX[p.slice(a.length + 1)];
+          if (suffix) return `${kind}${suffix}`;
+        }
+      }
       // All other action-rooted scalars use their tail (`action.redirectTo`
       // → `redirectTo`, `action.delayMs` → `delayMs`, etc.) — let the
       // walker fall back to the default. Conditions paths aren't in the
@@ -421,10 +455,7 @@ function makeResolveAdapter<E extends { uid: string }>(
       if (conflict.kind === 'set-add') {
         if (conflict.rowPayload === undefined) return false;
         if (current.some((r) => r.uid === setKey.uid)) return false;
-        accessors.setConditions(
-          entity,
-          [...current, conflict.rowPayload as { uid: string }] as RuleCondition[],
-        );
+        accessors.setConditions(entity, [...current, conflict.rowPayload as { uid: string }] as RuleCondition[]);
         return true;
       }
       if (conflict.kind === 'set-remove') {
@@ -453,9 +484,7 @@ function makeResolveAdapter<E extends { uid: string }>(
 
   function findParamName(entity: E, uid: string): string | null {
     if (accessors.getRuleType(entity) !== 'query-param') return null;
-    const arr = accessors.getActionRoot(entity)?.[paths.queryParamKey] as
-      | { uid: string; param?: string }[]
-      | undefined;
+    const arr = accessors.getActionRoot(entity)?.[paths.queryParamKey] as { uid: string; param?: string }[] | undefined;
     return arr?.find((p) => p.uid === uid)?.param ?? null;
   }
 
@@ -516,6 +545,8 @@ function makeResolveAdapter<E extends { uid: string }>(
     }
     const tail = path.slice(a.length + 1);
     if (!tail.includes('.') && SCALAR_LABEL[tail]) return SCALAR_LABEL[tail];
+    const filterM = /^messageFilter\.(matchType|value)$/.exec(tail);
+    if (filterM) return MESSAGE_FILTER_LABEL[filterM[1]] ?? path;
     return path;
   }
 

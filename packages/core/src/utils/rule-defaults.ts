@@ -101,5 +101,19 @@ export function buildEmptyRule(type: RuleType, name: string): RuleSeed {
         type: 'query-param',
         action: { params: [] },
       };
+    case 'ws':
+      // 'receive' + 'modify' is the most common gesture: rewrite what
+      // the server pushes to the page while developing against it.
+      return {
+        ...base,
+        type: 'ws',
+        action: { operation: 'modify', direction: 'receive', payload: '' },
+      };
+    case 'sse':
+      return {
+        ...base,
+        type: 'sse',
+        action: { operation: 'modify', payload: '' },
+      };
   }
 }

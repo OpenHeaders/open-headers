@@ -12,9 +12,11 @@ import {
   DatabaseOutlined,
   FileTextOutlined,
   LinkOutlined,
+  NotificationOutlined,
   SendOutlined,
   StopOutlined,
   SwapOutlined,
+  ThunderboltOutlined,
 } from '@ant-design/icons';
 import type { ExtensionRuleType } from '@openheaders/core/types';
 import type React from 'react';
@@ -85,6 +87,20 @@ export const ALL_RULE_TYPES: RuleTypeMenuItem[] = [
     icon: <DatabaseOutlined />,
     label: 'Modify API Response',
     description: 'Override API response status code and body (fetch/XHR only)',
+    desktopOnly: false,
+  },
+  {
+    key: 'ws',
+    icon: <ThunderboltOutlined />,
+    label: 'Modify WebSocket Messages',
+    description: 'Replace, inject, or drop WebSocket frames (page sockets only)',
+    desktopOnly: false,
+  },
+  {
+    key: 'sse',
+    icon: <NotificationOutlined />,
+    label: 'Modify Server-Sent Events',
+    description: 'Replace, inject, or drop SSE events (page streams only)',
     desktopOnly: false,
   },
 ];

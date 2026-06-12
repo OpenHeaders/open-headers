@@ -135,6 +135,8 @@ const RULE_TYPE_LABEL: Record<Rule['type'], string> = {
   body: 'Body',
   mock: 'Mock',
   'query-param': 'Query Param',
+  ws: 'WebSocket',
+  sse: 'SSE',
 };
 
 interface ModDraft {

@@ -156,6 +156,68 @@ describe('isRuleComplete', () => {
     ).toBe(false);
   });
 
+  // ── WS / SSE ────────────────────────────────────────────────────
+
+  it('ws: modify complete with payload', () => {
+    expect(
+      isRuleComplete({
+        ...base,
+        type: 'ws',
+        action: { operation: 'modify', direction: 'receive', payload: '{"mocked":true}' },
+      }),
+    ).toBe(true);
+  });
+
+  it('ws: modify incomplete without payload', () => {
+    expect(
+      isRuleComplete({
+        ...base,
+        type: 'ws',
+        action: { operation: 'modify', direction: 'receive', payload: '' },
+      }),
+    ).toBe(false);
+  });
+
+  it('ws: inject incomplete with whitespace payload', () => {
+    expect(
+      isRuleComplete({
+        ...base,
+        type: 'ws',
+        action: { operation: 'inject', direction: 'send', payload: '  ' },
+      }),
+    ).toBe(false);
+  });
+
+  it('ws: drop complete with conditions alone', () => {
+    expect(
+      isRuleComplete({
+        ...base,
+        type: 'ws',
+        action: { operation: 'drop', direction: 'receive' },
+      }),
+    ).toBe(true);
+  });
+
+  it('sse: modify complete with payload', () => {
+    expect(
+      isRuleComplete({
+        ...base,
+        type: 'sse',
+        action: { operation: 'modify', payload: 'data: ok' },
+      }),
+    ).toBe(true);
+  });
+
+  it('sse: drop complete without payload', () => {
+    expect(
+      isRuleComplete({
+        ...base,
+        type: 'sse',
+        action: { operation: 'drop' },
+      }),
+    ).toBe(true);
+  });
+
   // ── Works without uid/path (for pre-save validation) ────────────
 
   it('works on Omit<Rule, uid | path> for pre-save checks', () => {

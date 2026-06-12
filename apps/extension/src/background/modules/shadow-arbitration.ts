@@ -81,7 +81,16 @@ import type { MatchingRule } from './request-tracker';
 export type { ShadowAttribution, ShadowKind } from '@openheaders/core/types';
 
 /** Action class used for arbitration. One entry per rule type. */
-export type ActionClass = 'block' | 'redirect' | 'query-param' | 'header' | 'body' | 'mock' | 'delay' | 'inject-csp';
+export type ActionClass =
+  | 'block'
+  | 'redirect'
+  | 'query-param'
+  | 'header'
+  | 'body'
+  | 'mock'
+  | 'delay'
+  | 'inject-csp'
+  | 'message';
 
 /**
  * DNR priority ladder used for arbitration. These are *conceptual*
@@ -103,6 +112,8 @@ const RULE_PRIORITY: Record<Rule['type'], number> = {
   header: 100,
   mock: 100,
   body: 100,
+  ws: 100,
+  sse: 100,
   delay: 2,
 };
 
@@ -115,6 +126,11 @@ const RULE_ACTION_CLASS: Record<Rule['type'], ActionClass> = {
   header: 'header',
   mock: 'mock',
   body: 'body',
+  // ws/sse wrappers act in-page on connections that survive DNR — like
+  // body/mock they sit below retargeters and are shadowable by block
+  // (a blocked upgrade never opens a socket for the wrapper to act on).
+  ws: 'message',
+  sse: 'message',
 };
 
 export interface ArbitratedRule extends MatchingRule {

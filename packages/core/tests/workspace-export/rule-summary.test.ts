@@ -1,6 +1,6 @@
 /**
  * Plain-English rule summary — pure transform, exercised through the
- * eight rule variants + the targets/caveats edge cases.
+ * ten rule variants + the targets/caveats edge cases.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -14,6 +14,8 @@ import type {
   QueryParamRule,
   RedirectRule,
   RuleCondition,
+  SseRule,
+  WsRule,
 } from '../../src/types/index';
 import { summarizeRule } from '../../src/workspace-export/rule-summary';
 
@@ -150,6 +152,51 @@ describe('summarizeRule', () => {
       },
     };
     expect(summarizeRule(rule).payload).toMatch(/(add a|remove b|remove all)/);
+  });
+
+  it('ws drop rule names the direction and scope', () => {
+    const rule: WsRule = {
+      ...base(),
+      type: 'ws',
+      conditions: [cond('url-filter', ['wss://stream.openheaders.io/*'])],
+      action: { operation: 'drop', direction: 'receive' },
+    };
+    const s = summarizeRule(rule);
+    expect(s.verb).toBe('Modify WebSocket messages');
+    expect(s.payload).toBe('Drop every incoming frame');
+  });
+
+  it('ws inject rule reports trigger + payload size', () => {
+    const rule: WsRule = {
+      ...base(),
+      type: 'ws',
+      conditions: [cond('url-filter', ['wss://stream.openheaders.io/*'])],
+      action: {
+        operation: 'inject',
+        direction: 'receive',
+        payload: '{"ping":1}',
+        injectTrigger: 'message',
+        messageFilter: { matchType: 'contains', value: 'ping' },
+      },
+    };
+    expect(summarizeRule(rule).payload).toMatch(/Inject incoming frame .* on matching message/);
+  });
+
+  it('sse modify rule names the event when configured', () => {
+    const rule: SseRule = {
+      ...base(),
+      type: 'sse',
+      conditions: [cond('request-domains', ['openheaders.io'])],
+      action: {
+        operation: 'modify',
+        eventName: 'price-update',
+        payload: '{"px":1}',
+        messageFilter: { matchType: 'contains', value: 'AAPL' },
+      },
+    };
+    const s = summarizeRule(rule);
+    expect(s.verb).toBe('Modify server-sent events');
+    expect(s.payload).toMatch(/Replace matching "price-update" events/);
   });
 
   it('rule with no scoping conditions reports empty targets (UI shows "fires on every request")', () => {

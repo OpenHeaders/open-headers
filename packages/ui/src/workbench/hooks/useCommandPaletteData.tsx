@@ -238,7 +238,18 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
 
   const sections = useMemo((): CommandPaletteSection[] => {
     const result: CommandPaletteSection[] = [];
-    const ruleTypes = ['header', 'block', 'redirect', 'query-param', 'inject', 'delay', 'body', 'mock'] as const;
+    const ruleTypes = [
+      'header',
+      'block',
+      'redirect',
+      'query-param',
+      'inject',
+      'delay',
+      'body',
+      'mock',
+      'ws',
+      'sse',
+    ] as const;
     result.push({
       id: 'create',
       title: 'Create',

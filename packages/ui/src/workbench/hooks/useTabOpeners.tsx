@@ -63,6 +63,8 @@ const RULE_TYPE_LABELS: Record<string, string> = {
   delay: 'Delay Rule',
   body: 'API Request Body Rule',
   mock: 'API Response Rule',
+  ws: 'WebSocket Rule',
+  sse: 'SSE Rule',
 };
 
 export function getRuleTypeLabel(type: string): string {

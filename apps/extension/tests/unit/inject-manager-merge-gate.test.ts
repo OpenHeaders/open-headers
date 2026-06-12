@@ -24,7 +24,7 @@ vi.mock('@/background/modules/test-runner', () => ({
   isRuleUnderTest: vi.fn(() => false),
 }));
 
-import { __testExtractHeaderMergeEntry, __testShouldInstallMergeForPage } from '@/background/inject-manager';
+import { __testExtractHeaderMergeEntry, __testShouldInstallForPage } from '@/background/inject-manager';
 
 function makeMergeRule(conditions: RuleCondition[], overrides: Partial<HeaderRule> = {}): HeaderRule {
   return {
@@ -72,13 +72,13 @@ describe('shouldInstallMergeForPage', () => {
     const entry = entryFor([
       { uid: 'tcd00044', type: 'url-filter', values: ['*://127.0.0.1:3000/api/secure/echo?cell=r5*'] },
     ]);
-    expect(__testShouldInstallMergeForPage(entry, 'http://127.0.0.1:3000/auth/dashboard.html')).toBe(true);
-    expect(__testShouldInstallMergeForPage(entry, 'https://openheaders.io/')).toBe(true);
+    expect(__testShouldInstallForPage(entry, 'http://127.0.0.1:3000/auth/dashboard.html')).toBe(true);
+    expect(__testShouldInstallForPage(entry, 'https://openheaders.io/')).toBe(true);
   });
 
   it('never installs for an entry with no URL conditions (matches no request)', () => {
     const entry = entryFor([{ uid: 'tcd00045', type: 'request-methods', values: ['GET'] }]);
-    expect(__testShouldInstallMergeForPage(entry, 'https://openheaders.io/')).toBe(false);
+    expect(__testShouldInstallForPage(entry, 'https://openheaders.io/')).toBe(false);
   });
 
   it('gates on initiator-domains when present (domain + subdomains)', () => {
@@ -86,9 +86,9 @@ describe('shouldInstallMergeForPage', () => {
       { uid: 'tcd00046', type: 'url-filter', values: ['*://api.openheaders.io/*'] },
       { uid: 'tcd00047', type: 'initiator-domains', values: ['openheaders.io'] },
     ]);
-    expect(__testShouldInstallMergeForPage(entry, 'https://openheaders.io/app')).toBe(true);
-    expect(__testShouldInstallMergeForPage(entry, 'https://dash.openheaders.io/')).toBe(true);
-    expect(__testShouldInstallMergeForPage(entry, 'https://openheaders.dev/')).toBe(false);
+    expect(__testShouldInstallForPage(entry, 'https://openheaders.io/app')).toBe(true);
+    expect(__testShouldInstallForPage(entry, 'https://dash.openheaders.io/')).toBe(true);
+    expect(__testShouldInstallForPage(entry, 'https://openheaders.dev/')).toBe(false);
   });
 
   it('skips pages on the exclude-initiator-domains list', () => {
@@ -96,8 +96,8 @@ describe('shouldInstallMergeForPage', () => {
       { uid: 'tcd00048', type: 'url-filter', values: ['*://api.openheaders.io/*'] },
       { uid: 'tcd00049', type: 'exclude-initiator-domains', values: ['internal.openheaders.io'] },
     ]);
-    expect(__testShouldInstallMergeForPage(entry, 'https://internal.openheaders.io/tools')).toBe(false);
-    expect(__testShouldInstallMergeForPage(entry, 'https://openheaders.io/')).toBe(true);
+    expect(__testShouldInstallForPage(entry, 'https://internal.openheaders.io/tools')).toBe(false);
+    expect(__testShouldInstallForPage(entry, 'https://openheaders.io/')).toBe(true);
   });
 
   it('applies exclude before include when both are present', () => {
@@ -106,8 +106,8 @@ describe('shouldInstallMergeForPage', () => {
       { uid: 'tcd00051', type: 'initiator-domains', values: ['openheaders.io'] },
       { uid: 'tcd00052', type: 'exclude-initiator-domains', values: ['staging.openheaders.io'] },
     ]);
-    expect(__testShouldInstallMergeForPage(entry, 'https://staging.openheaders.io/')).toBe(false);
-    expect(__testShouldInstallMergeForPage(entry, 'https://app.openheaders.io/')).toBe(true);
+    expect(__testShouldInstallForPage(entry, 'https://staging.openheaders.io/')).toBe(false);
+    expect(__testShouldInstallForPage(entry, 'https://app.openheaders.io/')).toBe(true);
   });
 
   it('treats an unparseable page URL as no-host: initiator-gated rules skip, ungated rules install', () => {
@@ -116,7 +116,7 @@ describe('shouldInstallMergeForPage', () => {
       { uid: 'tcd00054', type: 'initiator-domains', values: ['openheaders.io'] },
     ]);
     const ungated = entryFor([{ uid: 'tcd00055', type: 'url-filter', values: ['*://api.openheaders.io/*'] }]);
-    expect(__testShouldInstallMergeForPage(gated, 'not a url')).toBe(false);
-    expect(__testShouldInstallMergeForPage(ungated, 'not a url')).toBe(true);
+    expect(__testShouldInstallForPage(gated, 'not a url')).toBe(false);
+    expect(__testShouldInstallForPage(ungated, 'not a url')).toBe(true);
   });
 });

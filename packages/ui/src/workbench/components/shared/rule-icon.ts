@@ -18,9 +18,11 @@ import {
   CodeOutlined,
   FileOutlined,
   LinkOutlined,
+  NotificationOutlined,
   SendOutlined,
   StopOutlined,
   SwapOutlined,
+  ThunderboltOutlined,
 } from '@ant-design/icons';
 import type { Rule } from '@openheaders/core/types';
 import { getActionDetail } from '@openheaders/core/utils';
@@ -35,6 +37,8 @@ const RULE_TYPE_ICON: Record<string, typeof StopOutlined> = {
   delay: ClockCircleOutlined,
   body: FileOutlined,
   mock: FileOutlined,
+  ws: ThunderboltOutlined,
+  sse: NotificationOutlined,
 };
 
 const GRAY = 'var(--ant-color-text-tertiary, #999)';

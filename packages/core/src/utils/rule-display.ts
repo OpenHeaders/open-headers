@@ -15,6 +15,8 @@ import type {
   QueryParamRule,
   RedirectRule,
   Rule,
+  SseRule,
+  WsRule,
 } from '../types/rule';
 
 // ── Action detail ────────────────────────────────────────────────
@@ -152,6 +154,40 @@ export function getActionDetail(rule: Rule): ActionDetail {
         label: `${mr.action.statusCode} ${mockFormat}`,
         value: mr.action.contentType || '',
         tooltip: 'Overrides API response (fetch/XHR)',
+      };
+    }
+    case 'ws': {
+      const wr = rule as WsRule;
+      const op = wr.action.operation;
+      return {
+        ruleType: 'ws',
+        direction: wr.action.direction === 'send' ? 'request' : 'response',
+        operation: op,
+        label: `${op.charAt(0).toUpperCase()}${op.slice(1)} ${wr.action.direction === 'send' ? 'outgoing' : 'incoming'}`,
+        value: wr.action.messageFilter?.value ?? '',
+        tooltip:
+          op === 'drop'
+            ? 'Drops matching WebSocket messages (page)'
+            : op === 'inject'
+              ? 'Injects a WebSocket message (page)'
+              : 'Rewrites WebSocket messages (page)',
+      };
+    }
+    case 'sse': {
+      const sr = rule as SseRule;
+      const op = sr.action.operation;
+      return {
+        ruleType: 'sse',
+        direction: 'response' as const,
+        operation: op,
+        label: sr.action.eventName ? `${op} "${sr.action.eventName}"` : op,
+        value: sr.action.messageFilter?.value ?? '',
+        tooltip:
+          op === 'drop'
+            ? 'Drops matching server-sent events (page)'
+            : op === 'inject'
+              ? 'Injects a server-sent event (page)'
+              : 'Rewrites server-sent events (page)',
       };
     }
     default: {

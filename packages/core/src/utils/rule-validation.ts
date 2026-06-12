@@ -34,6 +34,7 @@ import { type PauseMarkers, resolvePauseState } from './pause';
  *   - body: body content non-empty
  *   - delay: delayMs > 0
  *   - mock: statusCode + responseBody
+ *   - ws/sse: payload required for modify/inject; drop needs conditions only
  */
 export function isRuleComplete(rule: Rule | Omit<Rule, 'uid' | 'path'>): boolean {
   const base = rule as RuleBase | Omit<RuleBase, 'uid' | 'path'>;
@@ -124,6 +125,15 @@ export function isRuleComplete(rule: Rule | Omit<Rule, 'uid' | 'path'>): boolean
       const mr = rule as { action: { statusCode: number; responseBody: string } };
       if (!mr.action.statusCode || !mr.action.responseBody) return false;
       return true;
+    }
+    case 'ws':
+    case 'sse': {
+      // modify/inject rewrite or synthesize a payload — empty means the
+      // rule has nothing to say yet. drop is complete with conditions
+      // alone (no filter = drop everything the rule scopes to).
+      const wr = rule as { action: { operation: 'modify' | 'inject' | 'drop'; payload?: string } };
+      if (wr.action.operation === 'drop') return true;
+      return Boolean(wr.action.payload?.trim());
     }
     default:
       return false;

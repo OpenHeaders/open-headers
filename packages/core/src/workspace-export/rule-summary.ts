@@ -27,6 +27,8 @@ import type {
   RedirectRule,
   Rule,
   RuleCondition,
+  SseRule,
+  WsRule,
 } from '../types/index';
 
 /**
@@ -58,6 +60,8 @@ const ACTION_VERB: Record<Rule['type'], string> = {
   delay: 'Delay requests',
   mock: 'Return a mocked response',
   'query-param': 'Modify query parameters',
+  ws: 'Modify WebSocket messages',
+  sse: 'Modify server-sent events',
 };
 
 /**
@@ -125,6 +129,36 @@ function summarizeBody(rule: BodyRule): string {
   return `Replace ${resource} response body (${rule.action.bodyType}, ${formatBytes(bytes)})`;
 }
 
+function summarizeWs(rule: WsRule): string {
+  const dir = rule.action.direction === 'send' ? 'outgoing' : 'incoming';
+  const scope = rule.action.messageFilter ? `matching ${dir} frames` : `every ${dir} frame`;
+  switch (rule.action.operation) {
+    case 'drop':
+      return `Drop ${scope}`;
+    case 'inject':
+      return `Inject ${dir} frame (${formatBytes(byteLength(rule.action.payload ?? ''))}) on ${
+        rule.action.injectTrigger === 'message' ? 'matching message' : 'connection open'
+      }`;
+    case 'modify':
+      return `Replace ${scope} with ${formatBytes(byteLength(rule.action.payload ?? ''))} payload`;
+  }
+}
+
+function summarizeSse(rule: SseRule): string {
+  const kind = rule.action.eventName ? `"${rule.action.eventName}" events` : 'events';
+  const scope = rule.action.messageFilter ? `matching ${kind}` : `every ${kind.replace('events', 'event')}`;
+  switch (rule.action.operation) {
+    case 'drop':
+      return `Drop ${scope}`;
+    case 'inject':
+      return `Inject event (${formatBytes(byteLength(rule.action.payload ?? ''))}) on ${
+        rule.action.injectTrigger === 'message' ? 'matching event' : 'stream open'
+      }`;
+    case 'modify':
+      return `Replace ${scope} with ${formatBytes(byteLength(rule.action.payload ?? ''))} payload`;
+  }
+}
+
 function summarizeQueryParam(rule: QueryParamRule): string {
   const ops = rule.action.params.map((p) =>
     p.operation === 'remove-all' ? 'remove all' : `${p.operation} ${p.param}`,
@@ -153,6 +187,10 @@ function payloadFor(rule: Rule): string {
       return summarizeBody(rule);
     case 'query-param':
       return summarizeQueryParam(rule);
+    case 'ws':
+      return summarizeWs(rule);
+    case 'sse':
+      return summarizeSse(rule);
   }
 }
 

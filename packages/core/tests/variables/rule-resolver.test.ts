@@ -267,4 +267,70 @@ describe('resolveRuleWithDiagnostics', () => {
     expect(errors).toHaveLength(1);
     expect(errors[0].reference).toBe('HOST');
   });
+
+  it('ws rules resolve payload + filter value, leaving shape fields untouched', () => {
+    resolver.setWorkspaceVariables(
+      makeWorkspaceVars([makeVariable('HOST', 'ws.openheaders.io'), makeVariable('SESSION', 's3cr3t')]),
+    );
+    const rule = {
+      schemaVersion: 5 as const,
+      uid: 'r4a5b6c7',
+      path: 'rules/ws',
+      name: 'WS',
+      type: 'ws' as const,
+      enabled: true,
+      conditions: [{ uid: 'cnd00009', type: 'url-filter' as const, values: ['wss://{{HOST}}/*'] }],
+      action: {
+        operation: 'modify' as const,
+        direction: 'send' as const,
+        payload: '{"token":"{{SESSION}}"}',
+        messageFilter: { matchType: 'contains' as const, value: '{{SESSION}}' },
+      },
+    };
+    const { rule: resolved, errors } = resolveRuleWithDiagnostics(rule, resolver);
+    expect(errors).toEqual([]);
+    expect(resolved.conditions[0].values[0]).toBe('wss://ws.openheaders.io/*');
+    const action = (resolved as typeof rule).action;
+    expect(action.payload).toBe('{"token":"s3cr3t"}');
+    expect(action.messageFilter?.value).toBe('s3cr3t');
+    expect(action.operation).toBe('modify');
+    expect(action.direction).toBe('send');
+  });
+
+  it('sse rules resolve payload + eventName', () => {
+    resolver.setWorkspaceVariables(
+      makeWorkspaceVars([makeVariable('EVENT', 'price-update'), makeVariable('BODY', '{"px":1}')]),
+    );
+    const rule = {
+      schemaVersion: 5 as const,
+      uid: 'r5a6b7c8',
+      path: 'rules/sse',
+      name: 'SSE',
+      type: 'sse' as const,
+      enabled: true,
+      conditions: [{ uid: 'cnd00010', type: 'request-domains' as const, values: ['openheaders.io'] }],
+      action: { operation: 'inject' as const, eventName: '{{EVENT}}', payload: '{{BODY}}' },
+    };
+    const { rule: resolved, errors } = resolveRuleWithDiagnostics(rule, resolver);
+    expect(errors).toEqual([]);
+    const action = (resolved as typeof rule).action;
+    expect(action.eventName).toBe('price-update');
+    expect(action.payload).toBe('{"px":1}');
+  });
+
+  it('ws unresolved payload reference surfaces a diagnostic', () => {
+    const rule = {
+      schemaVersion: 5 as const,
+      uid: 'r6a7b8c9',
+      path: 'rules/ws-bad',
+      name: 'WS bad',
+      type: 'ws' as const,
+      enabled: true,
+      conditions: [{ uid: 'cnd00011', type: 'request-domains' as const, values: ['openheaders.io'] }],
+      action: { operation: 'inject' as const, direction: 'receive' as const, payload: '{{MISSING}}' },
+    };
+    const { errors } = resolveRuleWithDiagnostics(rule, resolver);
+    expect(errors).toHaveLength(1);
+    expect(errors[0].reference).toBe('MISSING');
+  });
 });

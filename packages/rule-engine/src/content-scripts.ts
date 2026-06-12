@@ -36,7 +36,7 @@
  * is an opaque cross-realm object.
  */
 
-import type { BodyRule, DelayRule, MockRule } from '@openheaders/core/types';
+import type { BodyRule, DelayRule, MockRule, SseRule, WsRule } from '@openheaders/core/types';
 import { compileRuleForInjection } from '@openheaders/core/utils';
 import type { FuncInjection, Injection } from './builders/types';
 
@@ -78,6 +78,31 @@ interface HeaderMergeConfig {
   regexSources: string[];
   requestMerges: Array<{ headerName: string; value: string; separator: string }>;
   responseMerges: Array<{ headerName: string; value: string; separator: string }>;
+}
+
+interface MessageFilterConfig {
+  matchType: 'contains' | 'regex';
+  value: string;
+}
+
+interface WsConfig {
+  ruleUid: string;
+  regexSources: string[];
+  operation: 'modify' | 'inject' | 'drop';
+  direction: 'send' | 'receive';
+  filter?: MessageFilterConfig;
+  payload: string;
+  injectTrigger: 'open' | 'message';
+}
+
+interface SseConfig {
+  ruleUid: string;
+  regexSources: string[];
+  operation: 'modify' | 'inject' | 'drop';
+  eventName?: string;
+  filter?: MessageFilterConfig;
+  payload: string;
+  injectTrigger: 'open' | 'message';
 }
 
 // ── Inline helper code (embedded in every dynamic string-template script) ──
@@ -536,6 +561,261 @@ function headerMergeInjectionFunc(cfg: HeaderMergeConfig): void {
       });
     };
   }
+}
+
+// ── WebSocket messages (real function) ──────────────────────────────
+
+export function buildWsInjection(rule: WsRule): FuncInjection {
+  const config: WsConfig = {
+    ruleUid: rule.uid,
+    regexSources: compileRuleForInjection(rule),
+    operation: rule.action.operation,
+    direction: rule.action.direction,
+    filter: rule.action.messageFilter,
+    payload: rule.action.payload ?? '',
+    injectTrigger: rule.action.injectTrigger ?? 'open',
+  };
+  return {
+    kind: 'func',
+    func: wsInjectionFunc as unknown as (cfg: never) => void,
+    args: [config],
+  };
+}
+
+/**
+ * Wraps the WebSocket constructor to modify / inject / drop frames on
+ * matching sockets. The rule's URL conditions match the SOCKET endpoint
+ * (`ws://` / `wss://`), tested at construction. Receive-side
+ * interception relies on registration order: the interceptor listener is
+ * added before the socket is handed to page code, so its
+ * `stopImmediatePropagation()` runs ahead of every page listener
+ * (including later `onmessage` assignments). Synthetic re-dispatches are
+ * tagged `__ohSynthetic` so the interceptor never reprocesses them.
+ *
+ * Binary frames: a content filter only matches string data, so filtered
+ * modify/drop passes binary frames through untouched; with no filter,
+ * every frame in the configured direction is acted on.
+ */
+function wsInjectionFunc(cfg: WsConfig): void {
+  const regexes = cfg.regexSources.map((s) => new RegExp(s, 'i'));
+  function matches(url: string): boolean {
+    for (let i = 0; i < regexes.length; i++) {
+      if (regexes[i]!.test(url)) return true;
+    }
+    return false;
+  }
+
+  function matchesMessage(data: unknown): boolean {
+    if (!cfg.filter) return true;
+    if (typeof data !== 'string') return false;
+    if (cfg.filter.matchType === 'regex') {
+      try {
+        return new RegExp(cfg.filter.value, 'i').test(data);
+      } catch {
+        return false;
+      }
+    }
+    return data.indexOf(cfg.filter.value) !== -1;
+  }
+
+  function fire(url: string): void {
+    try {
+      window.postMessage({ __ohFire: true, ruleUid: cfg.ruleUid, url, kind: 'ws', t: Date.now() }, '*');
+    } catch {
+      /* swallow */
+    }
+  }
+
+  type SyntheticMessageEvent = MessageEvent & { __ohSynthetic?: boolean };
+
+  function deliver(ws: WebSocket, data: string, origin: string): void {
+    const ev = new MessageEvent('message', { data, origin }) as SyntheticMessageEvent;
+    ev.__ohSynthetic = true;
+    ws.dispatchEvent(ev);
+  }
+
+  const OrigWebSocket = window.WebSocket;
+
+  function WrappedWebSocket(this: unknown, url: string | URL, protocols?: string | string[]): WebSocket {
+    const ws = protocols === undefined ? new OrigWebSocket(url) : new OrigWebSocket(url, protocols);
+    const urlStr = typeof url === 'string' ? url : url instanceof URL ? url.href : String(url);
+    if (!matches(urlStr)) return ws;
+
+    if (cfg.direction === 'send' && (cfg.operation === 'modify' || cfg.operation === 'drop')) {
+      const origSend = ws.send.bind(ws);
+      ws.send = (data: Parameters<WebSocket['send']>[0]): void => {
+        if (matchesMessage(data)) {
+          fire(urlStr);
+          if (cfg.operation === 'drop') return;
+          origSend(cfg.payload);
+          return;
+        }
+        origSend(data);
+      };
+    }
+
+    if (cfg.direction === 'receive' && (cfg.operation === 'modify' || cfg.operation === 'drop')) {
+      ws.addEventListener('message', (ev: MessageEvent) => {
+        if ((ev as SyntheticMessageEvent).__ohSynthetic) return;
+        if (!matchesMessage(ev.data)) return;
+        fire(urlStr);
+        ev.stopImmediatePropagation();
+        if (cfg.operation === 'modify') deliver(ws, cfg.payload, ev.origin);
+      });
+    }
+
+    if (cfg.operation === 'inject') {
+      // Deferred a tick so the synthetic frame lands AFTER the trigger
+      // event finishes dispatching to page listeners — a synchronous
+      // dispatch from inside the trigger's own listener chain would
+      // deliver the injection before the frame that caused it.
+      const injectSoon = (): void => {
+        setTimeout(() => {
+          fire(urlStr);
+          if (cfg.direction === 'send') {
+            if (ws.readyState === OrigWebSocket.OPEN) ws.send(cfg.payload);
+          } else {
+            deliver(ws, cfg.payload, urlStr);
+          }
+        }, 0);
+      };
+      if (cfg.injectTrigger === 'message') {
+        ws.addEventListener('message', (ev: MessageEvent) => {
+          if ((ev as SyntheticMessageEvent).__ohSynthetic) return;
+          if (!matchesMessage(ev.data)) return;
+          injectSoon();
+        });
+      } else {
+        ws.addEventListener('open', () => injectSoon());
+      }
+    }
+
+    return ws;
+  }
+
+  // Constructed instances come from OrigWebSocket, so `instanceof` and
+  // prototype patches keep working; statics cover page code reading
+  // WebSocket.OPEN and friends off the constructor.
+  WrappedWebSocket.prototype = OrigWebSocket.prototype;
+  const statics = WrappedWebSocket as unknown as Record<string, number>;
+  statics.CONNECTING = OrigWebSocket.CONNECTING;
+  statics.OPEN = OrigWebSocket.OPEN;
+  statics.CLOSING = OrigWebSocket.CLOSING;
+  statics.CLOSED = OrigWebSocket.CLOSED;
+  window.WebSocket = WrappedWebSocket as unknown as typeof WebSocket;
+}
+
+// ── Server-sent events (real function) ──────────────────────────────
+
+export function buildSseInjection(rule: SseRule): FuncInjection {
+  const config: SseConfig = {
+    ruleUid: rule.uid,
+    regexSources: compileRuleForInjection(rule),
+    operation: rule.action.operation,
+    eventName: rule.action.eventName,
+    filter: rule.action.messageFilter,
+    payload: rule.action.payload ?? '',
+    injectTrigger: rule.action.injectTrigger ?? 'open',
+  };
+  return {
+    kind: 'func',
+    func: sseInjectionFunc as unknown as (cfg: never) => void,
+    args: [config],
+  };
+}
+
+/**
+ * Wraps the EventSource constructor to modify / inject / drop events on
+ * matching streams. The interceptor pre-registers for the configured
+ * event type (`eventName`, or the default 'message') at construction —
+ * before any page listener or `onmessage` assignment — so
+ * `stopImmediatePropagation()` always wins. Same `__ohSynthetic`
+ * re-dispatch tagging as the WebSocket wrapper.
+ */
+function sseInjectionFunc(cfg: SseConfig): void {
+  const regexes = cfg.regexSources.map((s) => new RegExp(s, 'i'));
+  function matches(url: string): boolean {
+    for (let i = 0; i < regexes.length; i++) {
+      if (regexes[i]!.test(url)) return true;
+    }
+    return false;
+  }
+
+  function matchesMessage(data: unknown): boolean {
+    if (!cfg.filter) return true;
+    if (typeof data !== 'string') return false;
+    if (cfg.filter.matchType === 'regex') {
+      try {
+        return new RegExp(cfg.filter.value, 'i').test(data);
+      } catch {
+        return false;
+      }
+    }
+    return data.indexOf(cfg.filter.value) !== -1;
+  }
+
+  function fire(url: string): void {
+    try {
+      window.postMessage({ __ohFire: true, ruleUid: cfg.ruleUid, url, kind: 'sse', t: Date.now() }, '*');
+    } catch {
+      /* swallow */
+    }
+  }
+
+  type SyntheticMessageEvent = MessageEvent & { __ohSynthetic?: boolean };
+
+  const eventType = cfg.eventName || 'message';
+
+  function deliver(es: EventSource, data: string, origin: string, lastEventId: string): void {
+    const ev = new MessageEvent(eventType, { data, origin, lastEventId }) as SyntheticMessageEvent;
+    ev.__ohSynthetic = true;
+    es.dispatchEvent(ev);
+  }
+
+  const OrigEventSource = window.EventSource;
+
+  function WrappedEventSource(this: unknown, url: string | URL, init?: EventSourceInit): EventSource {
+    const es = init === undefined ? new OrigEventSource(url) : new OrigEventSource(url, init);
+    const urlStr = typeof url === 'string' ? url : url instanceof URL ? url.href : String(url);
+    if (!matches(urlStr)) return es;
+
+    if (cfg.operation === 'modify' || cfg.operation === 'drop') {
+      es.addEventListener(eventType, (ev: MessageEvent) => {
+        if ((ev as SyntheticMessageEvent).__ohSynthetic) return;
+        if (!matchesMessage(ev.data)) return;
+        fire(urlStr);
+        ev.stopImmediatePropagation();
+        if (cfg.operation === 'modify') deliver(es, cfg.payload, ev.origin, ev.lastEventId);
+      });
+    } else {
+      // Deferred a tick — same reasoning as the WebSocket wrapper: the
+      // synthetic event must land after its trigger finishes dispatching.
+      const injectSoon = (): void => {
+        setTimeout(() => {
+          fire(urlStr);
+          deliver(es, cfg.payload, urlStr, '');
+        }, 0);
+      };
+      if (cfg.injectTrigger === 'message') {
+        es.addEventListener(eventType, (ev: MessageEvent) => {
+          if ((ev as SyntheticMessageEvent).__ohSynthetic) return;
+          if (!matchesMessage(ev.data)) return;
+          injectSoon();
+        });
+      } else {
+        es.addEventListener('open', () => injectSoon());
+      }
+    }
+
+    return es;
+  }
+
+  WrappedEventSource.prototype = OrigEventSource.prototype;
+  const statics = WrappedEventSource as unknown as Record<string, number>;
+  statics.CONNECTING = OrigEventSource.CONNECTING;
+  statics.OPEN = OrigEventSource.OPEN;
+  statics.CLOSED = OrigEventSource.CLOSED;
+  window.EventSource = WrappedEventSource as unknown as typeof EventSource;
 }
 
 // ── Dynamic Body (inline script — user JS embedded) ─────────────────

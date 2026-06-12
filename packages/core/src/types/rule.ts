@@ -7,7 +7,8 @@
  *
  * A rule = conditions (when to match) + action (what to do).
  * Conditions are AND-evaluated: all must match for the rule to fire.
- * Actions are type-specific: header, redirect, body, inject, block, delay, mock, query-param.
+ * Actions are type-specific: header, redirect, body, inject, block, delay,
+ * mock, query-param, ws, sse.
  *
  * Persisted shapes (RuleBase, RuleCondition, every per-type action + rule,
  * the `Rule` discriminated union) are derived from the valibot schemas so
@@ -35,7 +36,10 @@ import type {
   InjectActionSchema,
   InjectRuleSchema,
   InjectSourceSchema,
+  InjectTriggerSchema,
   InjectTypeSchema,
+  MessageFilterSchema,
+  MessageOperationSchema,
   MockActionSchema,
   MockBodyTypeSchema,
   MockRuleSchema,
@@ -49,6 +53,11 @@ import type {
   RuleConditionSchema,
   RuleSchema,
   RuleTypeSchema,
+  SseActionSchema,
+  SseRuleSchema,
+  WsActionSchema,
+  WsDirectionSchema,
+  WsRuleSchema,
 } from '../schemas/rule';
 
 // ── Rule types ─────────────────────────────────────────────────────
@@ -58,15 +67,26 @@ export type RuleType = v.InferOutput<typeof RuleTypeSchema>;
 /**
  * Rule types supported by the browser extension.
  * DNR-based: header, block, redirect, query-param (declarativeNetRequest API).
- * Script-based: inject, delay, body, mock (chrome.scripting API — monkey-patches fetch/XHR).
+ * Script-based: inject, delay, body, mock, ws, sse (chrome.scripting API —
+ * monkey-patches fetch/XHR/WebSocket/EventSource).
  */
-export type ExtensionRuleType = 'header' | 'block' | 'redirect' | 'query-param' | 'inject' | 'delay' | 'body' | 'mock';
+export type ExtensionRuleType =
+  | 'header'
+  | 'block'
+  | 'redirect'
+  | 'query-param'
+  | 'inject'
+  | 'delay'
+  | 'body'
+  | 'mock'
+  | 'ws'
+  | 'sse';
 
 /** DNR rule types — use declarativeNetRequest API. */
 export type DnrRuleType = 'header' | 'block' | 'redirect' | 'query-param';
 
-/** Script-based rule types — use chrome.scripting API to monkey-patch fetch/XHR. */
-export type ScriptRuleType = 'inject' | 'delay' | 'body' | 'mock';
+/** Script-based rule types — use chrome.scripting API to monkey-patch fetch/XHR/WebSocket/EventSource. */
+export type ScriptRuleType = 'inject' | 'delay' | 'body' | 'mock' | 'ws' | 'sse';
 
 // ── Conditions ────────────────────────────────────────────────────
 
@@ -141,6 +161,17 @@ export type QueryParamOperation = v.InferOutput<typeof QueryParamOperationSchema
 export type QueryParamEntry = v.InferOutput<typeof QueryParamEntrySchema>;
 export type QueryParamAction = v.InferOutput<typeof QueryParamActionSchema>;
 export type QueryParamRule = v.InferOutput<typeof QueryParamRuleSchema>;
+
+// ── WS / SSE message rules ────────────────────────────────────────
+
+export type MessageOperation = v.InferOutput<typeof MessageOperationSchema>;
+export type MessageFilter = v.InferOutput<typeof MessageFilterSchema>;
+export type InjectTrigger = v.InferOutput<typeof InjectTriggerSchema>;
+export type WsDirection = v.InferOutput<typeof WsDirectionSchema>;
+export type WsAction = v.InferOutput<typeof WsActionSchema>;
+export type WsRule = v.InferOutput<typeof WsRuleSchema>;
+export type SseAction = v.InferOutput<typeof SseActionSchema>;
+export type SseRule = v.InferOutput<typeof SseRuleSchema>;
 
 // ── Union ──────────────────────────────────────────────────────────
 

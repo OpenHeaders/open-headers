@@ -74,7 +74,10 @@ export {
   InjectPositionSchema,
   InjectRuleSchema,
   InjectSourceSchema,
+  InjectTriggerSchema,
   InjectTypeSchema,
+  MessageFilterSchema,
+  MessageOperationSchema,
   MockActionSchema,
   MockBodyTypeSchema,
   MockRuleSchema,
@@ -88,6 +91,11 @@ export {
   RuleConditionSchema,
   RuleSchema,
   RuleTypeSchema,
+  SseActionSchema,
+  SseRuleSchema,
+  WsActionSchema,
+  WsDirectionSchema,
+  WsRuleSchema,
 } from './rule';
 export { RuleDraftSchema } from './rule-draft';
 export { TemplateIncludesSchema, TemplateSchema } from './template';

@@ -53,6 +53,7 @@ import BodyRuleFields, { BODY_DYNAMIC_TEMPLATE } from './rule-fields/BodyRuleFie
 import DelayRuleFields from './rule-fields/DelayRuleFields';
 import HeaderRuleFields from './rule-fields/HeaderRuleFields';
 import InjectRuleFields, { maybePrefillInjectCode } from './rule-fields/InjectRuleFields';
+import { SseRuleFields, WsRuleFields } from './rule-fields/MessageRuleFields';
 import MockRuleFields, { MOCK_DYNAMIC_TEMPLATE } from './rule-fields/MockRuleFields';
 import QueryParamRuleFields from './rule-fields/QueryParamRuleFields';
 import RedirectRuleFields from './rule-fields/RedirectRuleFields';
@@ -461,6 +462,8 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
             {selectedType === 'delay' && <DelayRuleFields />}
             {selectedType === 'body' && <BodyRuleFields />}
             {selectedType === 'mock' && <MockRuleFields />}
+            {selectedType === 'ws' && <WsRuleFields />}
+            {selectedType === 'sse' && <SseRuleFields />}
             {selectedType && <ActionValueBanner ruleType={selectedType} />}
 
             {/* ── Conditions ── */}

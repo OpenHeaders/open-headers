@@ -29,6 +29,8 @@ import type {
   QueryParamRule,
   RedirectRule,
   Rule,
+  SseRule,
+  WsRule,
 } from '../types/rule';
 import { getHeaderOperationCapability, type HeaderDirection, validateHeaderName, validateHeaderValue } from './headers';
 
@@ -43,7 +45,8 @@ export type ActionValueIssueKind =
   | 'invalid-param-name'
   | 'delay-out-of-range'
   | 'invalid-content-type'
-  | 'invalid-graphql-filter';
+  | 'invalid-graphql-filter'
+  | 'invalid-message-filter';
 
 export type ActionValueSeverity = 'error' | 'warning';
 
@@ -99,6 +102,9 @@ export function validateActionValues(rule: Rule | Omit<Rule, 'uid' | 'path'>): A
       return validateBodyAction(rule as BodyRule);
     case 'query-param':
       return validateQueryParamAction(rule as QueryParamRule);
+    case 'ws':
+    case 'sse':
+      return validateMessageAction((rule as WsRule | SseRule).action);
     default:
       return [];
   }
@@ -398,6 +404,56 @@ function validateMockAction(rule: MockRule): ActionValueIssue[] {
         message: 'GraphQL filter key is required.',
       });
     }
+  }
+
+  return out;
+}
+
+// ── ws / sse ────────────────────────────────────────────────────
+//
+// Payload content is opaque (any frame/event data is legal). The
+// validatable surfaces are the message filter — a 'regex' filter the
+// page-side wrapper can't compile means the rule silently never fires —
+// and the inject trigger: 'message' without a filter has no frame to
+// react to.
+
+function validateMessageAction(action: WsRule['action'] | SseRule['action']): ActionValueIssue[] {
+  const out: ActionValueIssue[] = [];
+
+  const filter = action.messageFilter;
+  if (filter) {
+    const value = (filter.value ?? '').trim();
+    if (!value) {
+      out.push({
+        path: 'messageFilter.value',
+        raw: '',
+        kind: 'invalid-message-filter',
+        severity: 'error',
+        message: 'Message filter value is required when a filter is configured.',
+      });
+    } else if (filter.matchType === 'regex' && !value.includes('{{')) {
+      try {
+        new RegExp(value, 'i');
+      } catch {
+        out.push({
+          path: 'messageFilter.value',
+          raw: value,
+          kind: 'invalid-message-filter',
+          severity: 'error',
+          message: 'Message filter is not a valid regular expression.',
+        });
+      }
+    }
+  }
+
+  if (action.operation === 'inject' && action.injectTrigger === 'message' && !filter) {
+    out.push({
+      path: 'injectTrigger',
+      raw: 'message',
+      kind: 'invalid-message-filter',
+      severity: 'error',
+      message: 'Injecting after a matching message requires a message filter.',
+    });
   }
 
   return out;

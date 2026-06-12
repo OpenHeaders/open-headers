@@ -30,7 +30,7 @@ import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import { canonicalizeRule, parseRule, serializeRule } from '@openheaders/core/codec/yaml';
 import { freshDocument } from '@openheaders/core/schemas';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { BlockRule, BodyModType, BodyResourceType, BodyRule, DelayRule, ExtensionRuleType, HeaderModification, HeaderRule, InjectAction, InjectRule, InjectSource, InjectType, MockBodyType, MockRule, QueryParamOperation, QueryParamRule, RedirectRule, Rule, RuleCondition, RuleDraft, TreeNode } from '@openheaders/core/types';
+import type { BlockRule, BodyModType, BodyResourceType, BodyRule, DelayRule, ExtensionRuleType, HeaderModification, HeaderRule, InjectAction, InjectRule, InjectSource, InjectTrigger, InjectType, MessageFilter, MessageOperation, MockBodyType, MockRule, QueryParamOperation, QueryParamRule, RedirectRule, Rule, RuleCondition, RuleDraft, SseRule, TreeNode, WsDirection, WsRule } from '@openheaders/core/types';
 import { generateUid, isRuleComplete } from '@openheaders/core/utils';
 import type { MenuProps } from 'antd';
 import { Alert, App, Button, Dropdown, Form, Switch, Tooltip, Typography, theme } from 'antd';
@@ -70,6 +70,7 @@ import BodyRuleFields, { BODY_DYNAMIC_TEMPLATE } from './rule-fields/BodyRuleFie
 import DelayRuleFields from './rule-fields/DelayRuleFields';
 import HeaderRuleFields from './rule-fields/HeaderRuleFields';
 import InjectRuleFields, { maybePrefillInjectCode } from './rule-fields/InjectRuleFields';
+import { SseRuleFields, WsRuleFields } from './rule-fields/MessageRuleFields';
 import MockRuleFields, { MOCK_DYNAMIC_TEMPLATE } from './rule-fields/MockRuleFields';
 import { mergeRuleForSave } from './rule-fields/merge-rule-for-save';
 import { prettyRulePathMap } from './rule-fields/pretty-path';
@@ -94,6 +95,8 @@ const RULE_TYPE_TITLE: Record<string, string> = {
   body: 'API Request Body Rule',
   delay: 'Delay Rule',
   mock: 'API Response Rule',
+  ws: 'WebSocket Rule',
+  sse: 'SSE Rule',
 };
 
 interface RuleEditorProps {
@@ -353,6 +356,32 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
               name,
               value,
             })),
+          });
+          break;
+        }
+        case 'ws': {
+          const wr = rule as WsRule;
+          form.setFieldsValue({
+            ...baseValues,
+            wsOperation: wr.action.operation,
+            wsDirection: wr.action.direction,
+            wsFilterType: wr.action.messageFilter?.matchType ?? 'none',
+            wsFilterValue: wr.action.messageFilter?.value ?? '',
+            wsPayload: wr.action.payload ?? '',
+            wsInjectTrigger: wr.action.injectTrigger ?? 'open',
+          });
+          break;
+        }
+        case 'sse': {
+          const sr = rule as SseRule;
+          form.setFieldsValue({
+            ...baseValues,
+            sseOperation: sr.action.operation,
+            sseEventName: sr.action.eventName ?? '',
+            sseFilterType: sr.action.messageFilter?.matchType ?? 'none',
+            sseFilterValue: sr.action.messageFilter?.value ?? '',
+            ssePayload: sr.action.payload ?? '',
+            sseInjectTrigger: sr.action.injectTrigger ?? 'open',
           });
           break;
         }
@@ -1317,6 +1346,8 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                         {selectedType === 'delay' && <DelayRuleFields />}
                         {selectedType === 'body' && <BodyRuleFields />}
                         {selectedType === 'mock' && <MockRuleFields />}
+                        {selectedType === 'ws' && <WsRuleFields />}
+                        {selectedType === 'sse' && <SseRuleFields />}
                         {/* Single-mount inline action validation. The validator
                       lives in core; new rule types pick the banner up
                       automatically when their case is added there. */}
@@ -1524,7 +1555,48 @@ function buildRule(
               : undefined,
         },
       } as Omit<MockRule, 'uid' | 'path'>;
+    case 'ws':
+      return {
+        ...base,
+        type: 'ws',
+        action: {
+          operation: ((formValues.wsOperation as string) ?? 'modify') as MessageOperation,
+          direction: ((formValues.wsDirection as string) ?? 'receive') as WsDirection,
+          messageFilter: buildMessageFilter(formValues.wsFilterType, formValues.wsFilterValue),
+          payload: formValues.wsOperation === 'drop' ? undefined : ((formValues.wsPayload as string) ?? ''),
+          injectTrigger:
+            formValues.wsOperation === 'inject'
+              ? (((formValues.wsInjectTrigger as string) ?? 'open') as InjectTrigger)
+              : undefined,
+        },
+      } as Omit<WsRule, 'uid' | 'path'>;
+    case 'sse':
+      return {
+        ...base,
+        type: 'sse',
+        action: {
+          operation: ((formValues.sseOperation as string) ?? 'modify') as MessageOperation,
+          eventName: (formValues.sseEventName as string)?.trim() || undefined,
+          messageFilter: buildMessageFilter(formValues.sseFilterType, formValues.sseFilterValue),
+          payload: formValues.sseOperation === 'drop' ? undefined : ((formValues.ssePayload as string) ?? ''),
+          injectTrigger:
+            formValues.sseOperation === 'inject'
+              ? (((formValues.sseInjectTrigger as string) ?? 'open') as InjectTrigger)
+              : undefined,
+        },
+      } as Omit<SseRule, 'uid' | 'path'>;
     default:
       return null;
   }
+}
+
+/**
+ * Form's filter-type select carries 'none' for "every frame/event" — that
+ * maps to no filter at all. A configured type with an empty value is KEPT:
+ * dropping it would silently broaden the rule to every frame, whereas the
+ * empty filter fails action validation and holds the rule as a draft.
+ */
+function buildMessageFilter(filterType: unknown, filterValue: unknown): MessageFilter | undefined {
+  if (filterType !== 'contains' && filterType !== 'regex') return undefined;
+  return { matchType: filterType, value: (filterValue as string) ?? '' };
 }

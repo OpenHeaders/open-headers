@@ -82,6 +82,15 @@ export function collectRuleTemplateStrings(rule: Rule): string[] {
         if (entry.value) out.push(entry.value);
       }
       break;
+    case 'ws':
+      if (rule.action.payload) out.push(rule.action.payload);
+      if (rule.action.messageFilter?.value) out.push(rule.action.messageFilter.value);
+      break;
+    case 'sse':
+      if (rule.action.payload) out.push(rule.action.payload);
+      if (rule.action.messageFilter?.value) out.push(rule.action.messageFilter.value);
+      if (rule.action.eventName) out.push(rule.action.eventName);
+      break;
   }
 
   return out;

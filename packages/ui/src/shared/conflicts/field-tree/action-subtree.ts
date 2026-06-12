@@ -52,6 +52,15 @@ const QUERY_PARAM_ROW: FieldNode = obj({
   operation: enumLeaf([...QUERY_PARAM_OPERATIONS]),
 });
 
+const MESSAGE_OPERATIONS = ['modify', 'inject', 'drop'] as const;
+
+// Optional sub-tree on ws/sse actions — the walker treats a missing
+// `messageFilter` object as absent leaves, same as other optional fields.
+const MESSAGE_FILTER_NODE: FieldNode = obj({
+  matchType: leaf('string', { coercion: 'optional-string' }),
+  value: leaf('string', { coercion: 'optional-string' }),
+});
+
 /**
  * Build the action-union descriptor for one `ActionPathBundle`. The
  * union's discriminator reads the rule type via the parent accessor —
@@ -131,6 +140,20 @@ function buildActionUnion(paths: ActionPathBundle, discriminatorField: string): 
         // semantics where the child schema describes the value, not the
         // key/value pair.
       }),
+      ws: obj({
+        operation: enumLeaf([...MESSAGE_OPERATIONS]),
+        direction: leaf('string'),
+        messageFilter: MESSAGE_FILTER_NODE,
+        payload: leaf('string', { coercion: 'optional-string' }),
+        injectTrigger: leaf('string', { coercion: 'optional-string' }),
+      }),
+      sse: obj({
+        operation: enumLeaf([...MESSAGE_OPERATIONS]),
+        eventName: leaf('string', { coercion: 'optional-string' }),
+        messageFilter: MESSAGE_FILTER_NODE,
+        payload: leaf('string', { coercion: 'optional-string' }),
+        injectTrigger: leaf('string', { coercion: 'optional-string' }),
+      }),
       block: obj({}),
     },
   });
@@ -148,10 +171,7 @@ export interface BuildActionEntitySchemaOptions {
   discriminatorField: 'type' | 'ruleType';
 }
 
-export function buildActionEntitySchema(
-  paths: ActionPathBundle,
-  opts: BuildActionEntitySchemaOptions,
-): FieldNode {
+export function buildActionEntitySchema(paths: ActionPathBundle, opts: BuildActionEntitySchemaOptions): FieldNode {
   return obj({
     name: leaf('string'),
     [paths.actionRoot]: buildActionUnion(paths, opts.discriminatorField),
