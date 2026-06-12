@@ -1,19 +1,17 @@
 /**
- * Shared alarm-name codec. Every refresh subsystem (OAuth, Live, future
- * DNR rule-refresh) encodes its per-job identity as
- * `<prefix>:<base64url(JSON)>` so alarm names survive SW eviction +
- * arbitrary identifier contents (colons, spaces, slashes) round-trip
- * unambiguously.
+ * Shared scheduler-key codec. Every refresh subsystem (OAuth, Live,
+ * future DNR rule-refresh) encodes its per-job identity as
+ * `<prefix>:<base64url(JSON)>` so keys survive arbitrary identifier
+ * contents (colons, spaces, slashes) and round-trip unambiguously.
+ * On the extension host the key doubles as the `chrome.alarms` name,
+ * which must survive service-worker eviction — hence a string codec
+ * rather than an in-memory map of objects.
  *
  * Using base64url avoids `btoa` in SW context occasionally being
  * unavailable or mis-handling non-ASCII; UTF-8 → bytes → base64 is
- * portable across every runtime the extension targets (MV3 chrome,
- * Edge, Firefox, plus the tests' node/jsdom environment).
- *
- * Before Phase H, both `oauth-refresh-scheduler.ts` and
- * `live-refresh-scheduler.ts` carried their own private copies of the
- * encode/decode + envelope logic. This module is the single source so
- * a future codec tweak propagates once instead of drifting.
+ * portable across every runtime the schedulers target (MV3 chrome,
+ * Edge, Firefox, Electron main, plus the tests' node/jsdom
+ * environment).
  */
 
 /**
@@ -43,20 +41,20 @@ export function base64UrlDecode(input: string): string {
 }
 
 /**
- * Create a typed alarm-name codec for a subsystem. Usage from a
- * scheduler module:
+ * Create a typed key codec for a subsystem. Usage from a scheduler
+ * module:
  *
  *   interface OAuthPayload { w: string; r: string }
- *   const { encode, decode, matches } = createAlarmNameCodec<OAuthPayload>(
+ *   const { encode, decode, matches } = createKeyCodec<OAuthPayload>(
  *     'oauth-refresh:',
  *     (p) => typeof p.w === 'string' && typeof p.r === 'string',
  *   );
  *
- * `decode` returns `null` for alarms carrying the wrong prefix OR whose
+ * `decode` returns `null` for keys carrying the wrong prefix OR whose
  * payload doesn't satisfy `isValid` — callers treat that as "not mine,
- * ignore" (the same dispatch pattern as `isOAuthRefreshAlarm`).
+ * ignore" (the alarm-dispatch routing pattern on the extension host).
  */
-export function createAlarmNameCodec<TPayload extends object>(
+export function createKeyCodec<TPayload extends object>(
   prefix: string,
   isValid: (payload: unknown) => boolean,
 ): {

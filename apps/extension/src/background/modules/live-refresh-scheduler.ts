@@ -5,15 +5,17 @@
  *
  * ARCHITECTURE §20 + `docs/LIVE_VARIABLES_PLAN.md` (Phase C).
  *
- * Implementation: thin provider over the shared `RefreshScheduler`
- * (`./refresh-scheduler`). Live owns the cadence math (delegated to
- * `@openheaders/core/live/refresh-cadence`), the gate (`canScheduleWorkflow`
- * — enabled + ≥1 enabled LV bound), the per-env alarm expansion (one
- * alarm per `(workflow, env)` because each env has its own cache row),
- * and the refresh delegation (to `live-chain-adapter` via the adapter
- * port). Everything else — alarm-name codec, reconcile-on-wake, orphan
- * sweep, store-change subscription, handleAlarm dispatch — is shared
- * with the OAuth scheduler through the generic `RefreshScheduler`.
+ * Implementation: thin provider over the host-neutral `RefreshScheduler`
+ * core (`@openheaders/oracle/scheduling`), armed through the
+ * `chrome.alarms` timer adapter (`./refresh-scheduler`). Live owns the
+ * cadence math (delegated to `@openheaders/core/live/refresh-cadence`),
+ * the gate (`canScheduleWorkflow` — enabled + ≥1 enabled LV bound), the
+ * per-env alarm expansion (one alarm per `(workflow, env)` because each
+ * env has its own cache row), and the refresh delegation (to
+ * `live-chain-adapter` via the adapter port). Everything else — key
+ * codec, reconcile-on-wake, orphan sweep, store-change subscription,
+ * fire dispatch — is shared with the OAuth scheduler AND the desktop
+ * live runner through the core.
  *
  * What is NOT scheduled:
  *   • Workflows with `refresh.kind === 'manual'` — user-triggered only.
@@ -69,6 +71,7 @@ import {
   deriveExecutionPolicyForWorkflow,
   isFallbackEligibleForWorkflow,
 } from '@openheaders/oracle/live/execution-policy-resolver';
+import { gateCircuitForFire } from '@openheaders/oracle/live/fire-circuit-gate';
 import {
   listCachesForWorkflow,
   listWorkflowRunCaches,
@@ -98,7 +101,7 @@ import { report as reportStatus } from '@openheaders/ui/shared/status';
 import { alarms } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { recordLog } from './observability-log';
-import { createAlarmNameCodec, type RefreshProvider, RefreshScheduler } from './refresh-scheduler';
+import { createAlarmsRefreshTimer, createKeyCodec, type RefreshProvider, RefreshScheduler } from './refresh-scheduler';
 import { getActiveWorkspaceId, onActiveWorkspaceChange } from './workspace-store';
 
 // Re-export the lifted gate + definitional-freshness maintenance hooks
@@ -153,7 +156,7 @@ interface LiveAlarmPayload {
   e: string | null;
 }
 
-const codec = createAlarmNameCodec<LiveAlarmPayload>(LIVE_ALARM_PREFIX, (p): p is LiveAlarmPayload => {
+const codec = createKeyCodec<LiveAlarmPayload>(LIVE_ALARM_PREFIX, (p): p is LiveAlarmPayload => {
   if (!p || typeof p !== 'object') return false;
   const obj = p as { w?: unknown; u?: unknown; e?: unknown };
   if (typeof obj.w !== 'string' || typeof obj.u !== 'string') return false;
@@ -478,12 +481,12 @@ async function collectEntries(): Promise<LiveEntry[]> {
 // ── Provider — fills in the subsystem-specific bits ───────────────
 
 const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | null> = {
-  alarmPrefix: LIVE_ALARM_PREFIX,
-  decodeAlarm: (name) => codec.decode(name),
-  encodeAlarm: (entry) => codec.encode({ w: entry.workspaceId, u: entry.workflow.uid, e: entry.environmentId }),
-  encodeAlarmFromPayload: (payload) => codec.encode(payload),
+  keyPrefix: LIVE_ALARM_PREFIX,
+  decodeKey: (name) => codec.decode(name),
+  encodeKey: (entry) => codec.encode({ w: entry.workspaceId, u: entry.workflow.uid, e: entry.environmentId }),
+  encodeKeyFromPayload: (payload) => codec.encode(payload),
   listAll: () => collectEntries(),
-  async getByAlarm(payload) {
+  async getByKey(payload) {
     // Per-workspace lookup (MWPT-FULL session #19). The previous
     // implementation rejected when `payload.w !== runtime-Active` —
     // documented as "orphan alarm: cancel" — but that conflated two
@@ -639,28 +642,25 @@ const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | 
         }
       }
     }
-    // Circuit-aware attempt gate. If the cache says the circuit is
-    // OPEN and we haven't reached `nextAttemptAt` yet, bail out of
-    // the dispatch — Chrome alarms can wake us "early" on some
-    // platforms + a races between concurrent reconciles could also
-    // schedule an attempt before the backoff window. Throwing a
-    // neutral error routes through `onFailed` → `recordFailure`; the
-    // provider's `recordFailure` consults the circuit and applies the
-    // right transition without double-counting.
+    // Circuit-aware attempt gate + open→half-open probe-start — the
+    // shared dispatch semantics both hosts' live providers run
+    // (`gateCircuitForFire`). A refused dispatch throws a neutral
+    // sentinel that routes through `onFailed` → `recordFailure`; the
+    // provider's `recordFailure` returns the row untouched and the
+    // core's post-fire re-arm lines the next attempt up with
+    // `nextAttemptAt`.
     const cacheCircuit = entry.cache?.circuit ?? null;
-    if (cacheCircuit && !canCircuitAttempt(cacheCircuit, now)) {
+    const circuitOk = await gateCircuitForFire({
+      circuit: cacheCircuit,
+      workflowUid: payload.u,
+      environmentId: payload.e,
+      workspaceId: payload.w,
+      nowMs: now,
+    });
+    if (!circuitOk) {
       throw new CircuitBlockedError(
-        `circuit-blocked: workflow ${payload.u} (state=${cacheCircuit.state}, nextAttemptAt=${cacheCircuit.nextAttemptAt})`,
+        `circuit-blocked: workflow ${payload.u} (state=${cacheCircuit?.state}, nextAttemptAt=${cacheCircuit?.nextAttemptAt})`,
       );
-    }
-    // Before dispatching an `open`-eligible probe, persist the
-    // `open → half-open` transition so the UI shows "probing..." and
-    // a subsequent `recordRefreshError` correctly lands on the
-    // half-open branch of `onCircuitFailure` (which bumps the
-    // backoff curve). No-op for already-half-open / already-closed
-    // states.
-    if (cacheCircuit?.state === 'open') {
-      await markProbeStartForRun(payload.u, payload.e, now, payload.w);
     }
     await refreshAdapter.refreshWorkflow({
       workspaceId: entry.workspaceId,
@@ -669,38 +669,24 @@ const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | 
     });
   },
   async recordFailure(payload, err, job) {
-    // `CircuitBlockedError` / `OfflineError` — both sentinels fire
-    // when `provider.refresh` bailed BEFORE the adapter ran. No probe
-    // happened, no counter bump, no cache write. Return the existing
-    // cache row so `onFailed` has something to log; re-arm the alarm
-    // so the next fire lines up with the correct target (cadence for
-    // offline, `nextAttemptAt` for circuit-blocked). Explicit
-    // schedule call because skipping the cache write also skipped
-    // the store-change reconcile loop that normally re-arms alarms.
-    // `DeferredError` joins this skip-and-rearm family (WS-C C8): the
-    // deferred safety alarm fired but a fresher synced value is still in
-    // play. No probe happened, no counter bump — just re-arm so the next
-    // fire lines up with the (possibly newly-pushed-out) near-expiry
-    // threshold. `ExclusiveDeferredError` (WS-C C9) joins it too: the peer
-    // declined to self-refresh an exclusive cred while the backend is
-    // silent — re-arm at the cadence floor (≥30s, like the offline poll)
-    // so the degraded banner clears promptly once the backend returns and
-    // a fresh value lands. No freshness precondition — it is "waiting for
-    // rescue," not "deferring to a live producer." `ConnectFenceError`
-    // (WS-C C10) joins it as well: a connected peer declined to be the
-    // first runner of an exclusive cred before any §4 value has landed.
-    // Re-arm so a later tick re-checks; the row clears the moment the
-    // backend's first synced value arrives (the store-change reconcile
-    // beats any re-armed poll). `FallbackNotElectedError` (WS-C C14) joins
-    // it too: a configured backend is offline and this peer is not the
-    // elected single runner for an exclusive cred — it has already marked
-    // the row degraded; re-arm at the cadence floor so the banner clears
-    // promptly once the elected host's value syncs in or the backend
-    // returns. `BackendEvictedError` (audit X-1) joins it as well: the
-    // socket is down because the backend REJECTED this peer (not because
-    // it's unreachable), so the peer declined to self-elect an exclusive
-    // cred against the still-live backend — already degraded; re-arm so the
-    // banner clears once a fresh value syncs in after re-pairing.
+    // Deliberate no-op skips — sentinels thrown when `provider.refresh`
+    // bailed BEFORE the adapter ran. No probe happened, no counter
+    // bump, no cache write; return the existing cache row so `onFailed`
+    // has something to log. The core's post-fire re-arm lines the next
+    // fire up with the correct target even though the skipped cache
+    // write never ticked a store-change reconcile: cadence for
+    // `OfflineError`, `nextAttemptAt` for `CircuitBlockedError`, the
+    // (possibly newly-pushed-out) near-expiry threshold for
+    // `DeferredError` (WS-C C8), and the cadence floor (≥30s, like the
+    // offline poll) for the exclusive-class skips — `ExclusiveDeferred
+    // Error` (C9, backend silent — "waiting for rescue"),
+    // `ConnectFenceError` (C10, no §4 value yet; the store-change
+    // reconcile beats any re-armed poll the moment the first synced
+    // value lands), `FallbackNotElectedError` (C14, already degraded;
+    // banner clears once the elected host's value syncs in or the
+    // backend returns), and `BackendEvictedError` (audit X-1, backend
+    // rejected this peer; banner clears once a fresh value syncs in
+    // after re-pairing).
     if (
       err instanceof CircuitBlockedError ||
       err instanceof OfflineError ||
@@ -710,9 +696,6 @@ const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | 
       err instanceof FallbackNotElectedError ||
       err instanceof BackendEvictedError
     ) {
-      if (job) {
-        void scheduler.schedule(job).catch((e) => logger.warn('LiveScheduler', 'Re-schedule after skip failed', e));
-      }
       return job?.cache ?? null;
     }
     // `live-chain-adapter` records its own error with richer context
@@ -1032,7 +1015,7 @@ function describeRefreshFailure(err: Error, workflowUid: string): RefreshFailure
   return { level: 'error', errorClass: err.name, message: `Refresh failed for ${workflowUid}: ${err.message}` };
 }
 
-const scheduler = new RefreshScheduler(provider, 'LiveScheduler');
+const scheduler = new RefreshScheduler(provider, 'LiveScheduler', createAlarmsRefreshTimer());
 
 // ── Public API (preserved for external callers + tests) ───────────
 
@@ -1074,19 +1057,19 @@ export async function reconcileLiveSchedules(nowMs: number = Date.now()): Promis
 }
 
 /**
- * Handle a `live-refresh:*` alarm. Delegates to the shared scheduler,
- * which decodes + loads + gates + delegates to the adapter + routes
- * observability + records failure. Brackets the dispatch with a
- * workspace-service refcount so a workspace whose lifeline-driven
- * refcount dropped between alarm scheduling and alarm fire (typical
- * MV3 SW-eviction or a closed workbench tab) re-materializes for the
- * duration of the operation rather than failing with "workflow not
- * found in workspace".
+ * Handle a `live-refresh:*` alarm. Delegates to the shared scheduler
+ * core, which decodes + loads + gates + delegates to the adapter +
+ * routes observability + records failure + re-arms. Brackets the
+ * dispatch with a workspace-service refcount so a workspace whose
+ * lifeline-driven refcount dropped between alarm scheduling and alarm
+ * fire (typical MV3 SW-eviction or a closed workbench tab)
+ * re-materializes for the duration of the operation rather than
+ * failing with "workflow not found in workspace".
  */
 export async function handleLiveAlarm(alarm: chrome.alarms.Alarm): Promise<void> {
   const decoded = codec.decode(alarm.name);
-  if (!decoded) return scheduler.handleAlarm(alarm);
-  return withWorkspaceResident(decoded.w, () => scheduler.handleAlarm(alarm));
+  if (!decoded) return scheduler.handleFire(alarm.name);
+  return withWorkspaceResident(decoded.w, () => scheduler.handleFire(alarm.name));
 }
 
 /**
@@ -1110,10 +1093,7 @@ export async function refreshLiveWorkflowSynchronously(
   environmentId: string | null,
 ): Promise<void> {
   return withWorkspaceResident(workspaceId, () =>
-    scheduler.handleAlarm({
-      name: buildAlarmName(workspaceId, workflowUid, environmentId),
-      scheduledTime: Date.now(),
-    } as chrome.alarms.Alarm),
+    scheduler.handleFire(buildAlarmName(workspaceId, workflowUid, environmentId)),
   );
 }
 
@@ -1234,7 +1214,7 @@ async function refreshLiveWorkflowByUserInner(
   environmentId: string | null,
 ): Promise<void> {
   const payload: LiveAlarmPayload = { w: workspaceId, u: workflowUid, e: environmentId };
-  const job = await provider.getByAlarm(payload);
+  const job = await provider.getByKey(payload);
   if (!job) throw new Error(`Workflow ${workflowUid} not found in workspace ${workspaceId}`);
 
   // Offline guard — a manual click with no connectivity can't succeed

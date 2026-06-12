@@ -5,15 +5,17 @@
  *
  * ARCHITECTURE §18 + Phase 14 §20.
  *
- * Implementation: thin provider over the shared
- * `RefreshScheduler` (`./refresh-scheduler`). OAuth owns the cadence
- * math (`computeNextFireAt` — fire `REFRESH_LEAD_MS` before expiry;
- * exponential backoff on failures), the gate (`canSilentRefresh` —
- * must have a refresh_token OR be a client-credentials flow), and the
- * refresh work (`refreshCredential(config, workspaceId)`). Everything
- * else — alarm-name codec, reconcile-on-wake, orphan sweep, store-
- * change subscription, handleAlarm dispatch — is shared with the Live
- * workflow scheduler through the generic `RefreshScheduler` class.
+ * Implementation: thin provider over the host-neutral
+ * `RefreshScheduler` core (`@openheaders/oracle/scheduling`), armed
+ * through the `chrome.alarms` timer adapter (`./refresh-scheduler`).
+ * OAuth owns the cadence math (`computeNextFireAt` — fire
+ * `REFRESH_LEAD_MS` before expiry; exponential backoff on failures),
+ * the gate (`canSilentRefresh` — must have a refresh_token OR be a
+ * client-credentials flow), and the refresh work
+ * (`refreshCredential(config, workspaceId)`). Everything else — key
+ * codec, reconcile-on-wake, orphan sweep, store-change subscription,
+ * fire dispatch — is shared with the Live workflow schedulers through
+ * the core.
  *
  * What is NOT scheduled:
  *   • Credentials without a refresh capability — `authorization-code`
@@ -39,7 +41,6 @@
 
 import type { OAuth2TokenBundle } from '@openheaders/core/oauth';
 import type { OAuth2Auth } from '@openheaders/core/types';
-import { refreshCredential } from './oauth-flow';
 import type { OAuthRefreshErrorState, WorkspaceCredentialEntry } from '@openheaders/oracle/entity/oauth-token-store';
 import {
   getRefreshConfig,
@@ -48,8 +49,9 @@ import {
   onOAuthStoreChange,
   recordRefreshError,
 } from '@openheaders/oracle/entity/oauth-token-store';
+import { refreshCredential } from './oauth-flow';
 import { recordLog } from './observability-log';
-import { createAlarmNameCodec, type RefreshProvider, RefreshScheduler } from './refresh-scheduler';
+import { createAlarmsRefreshTimer, createKeyCodec, type RefreshProvider, RefreshScheduler } from './refresh-scheduler';
 
 // ── Constants ──────────────────────────────────────────────────────
 
@@ -74,7 +76,7 @@ interface OAuthAlarmPayload {
   r: string;
 }
 
-const codec = createAlarmNameCodec<OAuthAlarmPayload>(
+const codec = createKeyCodec<OAuthAlarmPayload>(
   OAUTH_ALARM_PREFIX,
   (p): p is OAuthAlarmPayload =>
     !!p &&
@@ -145,12 +147,12 @@ export function computeNextFireAt(
 // ── Provider — fills in the subsystem-specific bits ───────────────
 
 const provider: RefreshProvider<OAuthAlarmPayload, WorkspaceCredentialEntry, OAuthRefreshErrorState> = {
-  alarmPrefix: OAUTH_ALARM_PREFIX,
-  decodeAlarm: (name) => codec.decode(name),
-  encodeAlarm: (entry) => codec.encode({ w: entry.workspaceId, r: entry.credentialRef }),
-  encodeAlarmFromPayload: (payload) => codec.encode(payload),
+  keyPrefix: OAUTH_ALARM_PREFIX,
+  decodeKey: (name) => codec.decode(name),
+  encodeKey: (entry) => codec.encode({ w: entry.workspaceId, r: entry.credentialRef }),
+  encodeKeyFromPayload: (payload) => codec.encode(payload),
   listAll: () => listAllWorkspaceCredentials(),
-  async getByAlarm(payload) {
+  async getByKey(payload) {
     // Reconstruct the entry the scheduler passes to `refresh` /
     // `canSchedule`. `listAllWorkspaceCredentials` batches across
     // workspaces but for a single-alarm lookup we read the two blobs
@@ -230,7 +232,7 @@ const provider: RefreshProvider<OAuthAlarmPayload, WorkspaceCredentialEntry, OAu
   },
 };
 
-const scheduler = new RefreshScheduler(provider, 'OAuthScheduler');
+const scheduler = new RefreshScheduler(provider, 'OAuthScheduler', createAlarmsRefreshTimer());
 
 // ── Public API (preserved for external callers + tests) ───────────
 
@@ -262,12 +264,12 @@ export async function reconcileOAuthSchedules(nowMs: number = Date.now()): Promi
 }
 
 /**
- * Handle an `oauth-refresh:*` alarm. Delegates to the shared
- * scheduler, which decodes + loads + gates + refreshes + routes
- * observability + records failure.
+ * Handle an `oauth-refresh:*` alarm. Delegates to the shared scheduler
+ * core, which decodes + loads + gates + refreshes + routes
+ * observability + records failure + re-arms.
  */
 export async function handleOAuthAlarm(alarm: chrome.alarms.Alarm): Promise<void> {
-  return scheduler.handleAlarm(alarm);
+  return scheduler.handleFire(alarm.name);
 }
 
 /** Subscribe the scheduler to oauth-store changes. Idempotent. */

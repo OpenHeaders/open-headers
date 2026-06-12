@@ -1,11 +1,13 @@
 /**
- * Desktop live refresh scheduler (WS-C C3) — timer + reconcile plumbing.
+ * Desktop live refresh scheduler (WS-C C3) — provider + timer plumbing
+ * over the shared `RefreshScheduler` core (which runs UNMOCKED here,
+ * with its in-memory `setTimeout` adapter under fake timers).
  *
  * The cadence/circuit math (`computeNextFireAt`, `canAttempt`) and every
- * store are mocked: this isolates the scheduler's own job — turn the
- * cadence number into a `setTimeout`, fire the runner for the active
- * workspace's entries, and tear everything down on stop. The math itself
- * is covered at the core level.
+ * store are mocked: this isolates the desktop module's own job — feed
+ * the core active-workspace entries, fire the runner on cadence, and
+ * tear everything down on stop. The math is covered at the core level;
+ * the scheduler core's truth table lives in the oracle suite.
  */
 
 import type { LiveWorkflow } from '@openheaders/core/types';
@@ -25,6 +27,7 @@ const h = vi.hoisted(() => ({
   getLiveWorkflows: vi.fn(),
   getLiveWorkflowInWorkspace: vi.fn(),
   onLiveWorkflowStoreChange: vi.fn(),
+  getLiveVariables: vi.fn(),
   getLiveVariablesForWorkflow: vi.fn(),
   getLiveVariablesForWorkflowInWorkspace: vi.fn(),
   onLiveVariableStoreChange: vi.fn(),
@@ -68,6 +71,7 @@ vi.mock('@openheaders/oracle/live/live-workflow-store', () => ({
   onLiveWorkflowStoreChange: h.onLiveWorkflowStoreChange,
 }));
 vi.mock('@openheaders/oracle/live/live-variable-store', () => ({
+  getLiveVariables: h.getLiveVariables,
   getLiveVariablesForWorkflow: h.getLiveVariablesForWorkflow,
   getLiveVariablesForWorkflowInWorkspace: h.getLiveVariablesForWorkflowInWorkspace,
   onLiveVariableStoreChange: h.onLiveVariableStoreChange,
@@ -118,6 +122,9 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.useFakeTimers();
   vi.setSystemTime(0);
+  // Deterministic reconcile jitter — the core spreads same-wave arms by
+  // random(0..250ms); pin it to 0 so cadence assertions stay exact.
+  vi.spyOn(Math, 'random').mockReturnValue(0);
 
   // Effective + schedulable by default; cache empty; cadence 1s out.
   h.isWorkflowEffective.mockReturnValue(true);
@@ -130,6 +137,7 @@ beforeEach(() => {
   h.getActiveWorkspaceId.mockReturnValue('ws-1');
   h.getLiveWorkflows.mockReturnValue([WF]);
   h.getLiveWorkflowInWorkspace.mockReturnValue(WF);
+  h.getLiveVariables.mockReturnValue([LV]);
   h.getLiveVariablesForWorkflow.mockReturnValue([LV]);
   h.getLiveVariablesForWorkflowInWorkspace.mockReturnValue([LV]);
   h.listCachesForWorkflow.mockResolvedValue([]);
@@ -153,6 +161,7 @@ beforeEach(() => {
 afterEach(() => {
   stopDesktopLiveRunner();
   vi.useRealTimers();
+  vi.restoreAllMocks();
 });
 
 describe('startDesktopLiveRunner', () => {
