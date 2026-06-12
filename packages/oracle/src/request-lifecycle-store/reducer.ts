@@ -24,8 +24,10 @@ import type {
   RequestLifecycle,
   RequestLifecyclePatch,
   RequestLifecycleUpdate,
+  StreamMessage,
 } from '@openheaders/core/request-lifecycle';
 import {
+  appendStreamMessage,
   deriveHopNetworkStartMs,
   isPhaseAdvance,
   isRedirectReset,
@@ -71,6 +73,8 @@ export function reduce(prev: RequestLifecycle | undefined, update: RequestLifecy
       return reduceHarAttached(prev, update.hopIndex, update.har);
     case 'body-attached':
       return reduceBodyAttached(prev, update.hopIndex, update.body);
+    case 'message-appended':
+      return reduceMessageAppended(prev, update.message);
     case 'gone':
       return prev === undefined ? { kind: 'noop' } : { kind: 'delete' };
   }
@@ -165,6 +169,13 @@ function reduceBodyAttached(
 ): ReducerResult {
   if (prev === undefined) return { kind: 'reject', reason: 'unknown-request' };
   return { kind: 'update', next: { ...prev, harBodyByHop: setHopSlot(prev.harBodyByHop, hopIndex, body) } };
+}
+
+// The ring policy itself lives in core (`appendStreamMessage`) so the
+// panel client reducer applies the identical bound.
+function reduceMessageAppended(prev: RequestLifecycle | undefined, message: StreamMessage): ReducerResult {
+  if (prev === undefined) return { kind: 'reject', reason: 'unknown-request' };
+  return { kind: 'update', next: appendStreamMessage(prev, message) };
 }
 
 // Per-hop slot copy-and-set. Pads with `null` for any skipped hop so

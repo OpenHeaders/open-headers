@@ -56,6 +56,20 @@
   color: var(--dt-status-green);
 }
 
+.dt-ws-dir--error .dt-ws-dir,
+.dt-ws-dir--error .dt-ws-data {
+  color: var(--dt-status-red);
+}
+
+/* Honest truncation banner — shown only once the ring bound dropped frames. */
+.dt-ws-truncation,
+.dt-sse-truncation {
+  padding: 4px 8px;
+  font-size: 11px;
+  color: var(--dt-text-muted);
+  border-bottom: 1px solid var(--dt-border);
+}
+
 /* SSE EventStream view. */
 .dt-sse-view {
   display: flex;

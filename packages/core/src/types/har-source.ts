@@ -21,6 +21,33 @@
 import type { ResourceTimingEntry } from '../resource-timing/types';
 
 /**
+ * One WebSocket frame in the HAR extension dialect (`_webSocketMessages`).
+ * NOTE the units: `time` is wall-clock SECONDS (fractional), unlike the
+ * main HAR `time` field's milliseconds. `data` is the text payload
+ * verbatim for text frames and base64 for binary frames; `error` frames
+ * carry `opcode: -1` with the transport error message as `data`.
+ */
+export interface HarWebSocketMessage {
+  type: 'send' | 'receive' | 'error';
+  time: number;
+  opcode: number;
+  data: string;
+}
+
+/**
+ * One Server-Sent Event in the HAR extension dialect
+ * (`_eventSourceMessages`). Same `time` units as
+ * {@link HarWebSocketMessage} (wall-clock seconds). `data` is omitted in
+ * sanitized exports.
+ */
+export interface HarEventSourceMessage {
+  time: number;
+  eventName: string;
+  eventId: string;
+  data?: string;
+}
+
+/**
  * Raw protocol timing instants for one hop — present only when the CDP
  * plane recorded them (the heuristic path has no raw instants and never
  * sets this). The exporter's `timings` legs are re-anchored, folded
@@ -211,7 +238,14 @@ export interface InspectorHarEntry {
    *  when the host reported none. */
   _priority?: string | null;
   _resourceType?: string;
-  _webSocketMessages?: unknown[];
+  /** WebSocket frames (host extension; see {@link HarWebSocketMessage} for
+   *  the seconds-not-ms `time` units). Emitted on every WebSocket entry —
+   *  an empty array on a socket with no frames, like the host's export. */
+  _webSocketMessages?: HarWebSocketMessage[];
+  /** Parsed Server-Sent Events (host extension; see
+   *  {@link HarEventSourceMessage}). Present only when events were
+   *  captured, matching the host's export. */
+  _eventSourceMessages?: HarEventSourceMessage[];
   /** "disk" | "memory" (Chromium convention), or absent when not cached. */
   _fromCache?: string;
   /** Non-standard boolean flag some Chromium builds set alongside _fromCache. */

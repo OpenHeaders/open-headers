@@ -68,6 +68,24 @@ export function cdpEventToUpdates(
       // signal — they only enrich the HAR for an already-known hop (decoded
       // size / on-the-wire headers; see CdpHarBuilder).
       return [];
+    case 'Network.webSocketCreated':
+      return [wsStartedUpdate(event)];
+    case 'Network.webSocketWillSendHandshakeRequest':
+      // The issue instant + cooked handshake headers ride the HAR builder's
+      // header update (same split as the plain-HTTP request events).
+      return [];
+    case 'Network.webSocketHandshakeResponseReceived':
+      return [wsHandshakeUpdate(event)];
+    case 'Network.webSocketFrameSent':
+      return [wsFrameUpdate(event, 'send', toWallMs)];
+    case 'Network.webSocketFrameReceived':
+      return [wsFrameUpdate(event, 'receive', toWallMs)];
+    case 'Network.webSocketFrameError':
+      return [wsFrameErrorUpdate(event, toWallMs)];
+    case 'Network.webSocketClosed':
+      return [wsClosedUpdate(event, toWallMs)];
+    case 'Network.eventSourceMessageReceived':
+      return [sseMessageUpdate(event, toWallMs)];
   }
 }
 
@@ -180,6 +198,131 @@ function completedUpdate(
     patch: {
       phase: 'completed',
       completedAtMs: toWallMs(event.tabId, event.sessionId, event.requestId, event.timestamp),
+    },
+  };
+}
+
+// ── WebSocket / EventSource projections ──────────────────────────────
+//
+// A WebSocket has no plain-Network events at the wire — the `webSocket*`
+// vocabulary IS its lifecycle (see events.ts). The row mints at
+// `webSocketCreated`, reaches `headers-received` at the handshake
+// response (status 101), and terminates at `webSocketClosed` — the same
+// span the host's own network log gives the row. Frames and parsed SSE
+// events project to `message-appended`, the panel's Messages /
+// EventStream plane.
+
+function wsStartedUpdate(
+  event: Extract<CdpNetworkEvent, { method: 'Network.webSocketCreated' }>,
+): RequestLifecycleUpdate {
+  const lifecycle: RequestLifecycle = {
+    tabId: event.tabId,
+    requestId: cdpStoreRequestId(event.sessionId, event.requestId),
+    url: event.url,
+    // A WS handshake is always a GET; the wire confirms it at
+    // `webSocketWillSendHandshakeRequest`, which carries no method field.
+    method: 'GET',
+    resourceType: 'websocket',
+    initiator: event.initiator?.url,
+    // Sockets carry no loaderId/frameId — page binding falls to the
+    // start-time floor, the same posture as worker requests.
+    phase: 'pending',
+    redirectHopCount: 0,
+    redirectHops: [],
+    startedAtMs: event.atWallMs,
+    hopStartedAtMs: event.atWallMs,
+    har: [],
+    harBodyByHop: [],
+  };
+  return { kind: 'started', lifecycle };
+}
+
+function wsHandshakeUpdate(
+  event: Extract<CdpNetworkEvent, { method: 'Network.webSocketHandshakeResponseReceived' }>,
+): RequestLifecycleUpdate {
+  return {
+    kind: 'phase',
+    tabId: event.tabId,
+    requestId: cdpStoreRequestId(event.sessionId, event.requestId),
+    patch: {
+      phase: 'headers-received',
+      statusCode: event.response.status,
+      statusText: event.response.statusText,
+    },
+  };
+}
+
+function wsFrameUpdate(
+  event: Extract<CdpNetworkEvent, { method: 'Network.webSocketFrameSent' | 'Network.webSocketFrameReceived' }>,
+  type: 'send' | 'receive',
+  toWallMs: CdpWallClockResolver,
+): RequestLifecycleUpdate {
+  return {
+    kind: 'message-appended',
+    tabId: event.tabId,
+    requestId: cdpStoreRequestId(event.sessionId, event.requestId),
+    message: {
+      kind: 'ws',
+      type,
+      atMs: toWallMs(event.tabId, event.sessionId, event.requestId, event.timestamp),
+      opcode: event.response.opcode,
+      mask: event.response.mask,
+      data: event.response.payloadData,
+    },
+  };
+}
+
+// A frame error joins the frame list (`type: 'error'`, opcode −1, the
+// message as data) — the host's own posture; it does not terminate the
+// request, `webSocketClosed` still follows.
+function wsFrameErrorUpdate(
+  event: Extract<CdpNetworkEvent, { method: 'Network.webSocketFrameError' }>,
+  toWallMs: CdpWallClockResolver,
+): RequestLifecycleUpdate {
+  return {
+    kind: 'message-appended',
+    tabId: event.tabId,
+    requestId: cdpStoreRequestId(event.sessionId, event.requestId),
+    message: {
+      kind: 'ws',
+      type: 'error',
+      atMs: toWallMs(event.tabId, event.sessionId, event.requestId, event.timestamp),
+      opcode: -1,
+      mask: false,
+      data: event.errorMessage,
+    },
+  };
+}
+
+function wsClosedUpdate(
+  event: Extract<CdpNetworkEvent, { method: 'Network.webSocketClosed' }>,
+  toWallMs: CdpWallClockResolver,
+): RequestLifecycleUpdate {
+  return {
+    kind: 'phase',
+    tabId: event.tabId,
+    requestId: cdpStoreRequestId(event.sessionId, event.requestId),
+    patch: {
+      phase: 'completed',
+      completedAtMs: toWallMs(event.tabId, event.sessionId, event.requestId, event.timestamp),
+    },
+  };
+}
+
+function sseMessageUpdate(
+  event: Extract<CdpNetworkEvent, { method: 'Network.eventSourceMessageReceived' }>,
+  toWallMs: CdpWallClockResolver,
+): RequestLifecycleUpdate {
+  return {
+    kind: 'message-appended',
+    tabId: event.tabId,
+    requestId: cdpStoreRequestId(event.sessionId, event.requestId),
+    message: {
+      kind: 'sse',
+      atMs: toWallMs(event.tabId, event.sessionId, event.requestId, event.timestamp),
+      eventName: event.eventName,
+      eventId: event.eventId,
+      data: event.data,
     },
   };
 }

@@ -6,6 +6,7 @@
  * `store.test.ts`).
  */
 
+import { MAX_STREAM_MESSAGES_PER_REQUEST } from '@openheaders/core/request-lifecycle';
 import { describe, expect, it } from 'vitest';
 
 import { reduce } from '../../src/request-lifecycle-store/reducer';
@@ -395,5 +396,42 @@ describe('reducer — hopNetworkStartMs (footer anchor = network start)', () => 
     expect(r.kind).toBe('update');
     if (r.kind !== 'update') return;
     expect(r.next.hopNetworkStartMs).toBeUndefined();
+  });
+});
+
+describe('reducer — message stream (message-appended)', () => {
+  const frame = (n: number) =>
+    ({ kind: 'ws', type: 'receive', atMs: 2_000 + n, opcode: 1, mask: false, data: `frame ${n}` }) as const;
+
+  it('appends in arrival order on a tracked lifecycle', () => {
+    const prev = makeLifecycle({ phase: 'headers-received' });
+    const first = reduce(prev, { kind: 'message-appended', tabId: 1, requestId: 'req-1', message: frame(0) });
+    if (first.kind !== 'update') throw new Error('expected update');
+    const second = reduce(first.next, { kind: 'message-appended', tabId: 1, requestId: 'req-1', message: frame(1) });
+    if (second.kind !== 'update') throw new Error('expected update');
+    expect(second.next.messages).toEqual([frame(0), frame(1)]);
+    expect(second.next.messagesDropped).toBeUndefined();
+  });
+
+  it('rejects a message for an unknown lifecycle', () => {
+    const result = reduce(undefined, { kind: 'message-appended', tabId: 1, requestId: 'req-1', message: frame(0) });
+    expect(result).toEqual({ kind: 'reject', reason: 'unknown-request' });
+  });
+
+  it('enforces the drop-oldest ring at the shared core bound', () => {
+    const atCap = makeLifecycle({
+      phase: 'headers-received',
+      messages: Array.from({ length: MAX_STREAM_MESSAGES_PER_REQUEST }, (_, i) => frame(i)),
+    });
+    const result = reduce(atCap, {
+      kind: 'message-appended',
+      tabId: 1,
+      requestId: 'req-1',
+      message: frame(MAX_STREAM_MESSAGES_PER_REQUEST),
+    });
+    if (result.kind !== 'update') throw new Error('expected update');
+    expect(result.next.messages).toHaveLength(MAX_STREAM_MESSAGES_PER_REQUEST);
+    expect(result.next.messages?.[0]).toEqual(frame(1));
+    expect(result.next.messagesDropped).toBe(1);
   });
 });

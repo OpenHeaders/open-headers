@@ -9,7 +9,8 @@
  *
  * Source: https://chromedevtools.github.io/devtools-protocol/tot/Network/
  *
- * Why these seven:
+ * The plain-HTTP subset (the WS/SSE vocabulary is documented at its own
+ * section below) — why these seven:
  *   - `requestWillBeSent` is the only request-start signal; its
  *     `redirectResponse` field carries the prior hop's response, which is
  *     how we reconstruct redirect chains under CDP without a separate
@@ -276,6 +277,143 @@ export interface CdpResponseReceivedExtraInfo {
   readonly headers: Readonly<Record<string, string>>;
 }
 
+// ── WebSocket / EventSource vocabulary ────────────────────────────────
+//
+// A WebSocket has NO plain-Network lifecycle on the wire: `requestWillBeSent`
+// / `responseReceived` / `loadingFinished` never fire for it (probe-verified,
+// message-stream probe). The `webSocket*` events ARE the whole lifecycle:
+// `webSocketCreated` (row mint; no timestamp of its own) →
+// `webSocketWillSendHandshakeRequest` (the issue instant — the only WS event
+// carrying the wall/monotonic pair) → `webSocketHandshakeResponseReceived`
+// (status 101 + both directions' on-the-wire header text) → frames →
+// `webSocketClosed` (the terminal — the host finishes the row here).
+// `eventSourceMessageReceived` rides a NORMAL request lifecycle (an
+// EventSource row has its ordinary requestWillBeSent/responseReceived) and
+// only feeds the message stream.
+
+/**
+ * `Network.webSocketCreated` — WS row mint. Carries no timestamp at the
+ * wire; `atWallMs` is the adapter's arrival stamp (same posture as
+ * `Page.frameStoppedLoading`), refined conceptually by the handshake's
+ * wall instant that follows within the same turn of the socket setup.
+ * No `loaderId`/`frameId` exists for sockets — page binding falls to the
+ * start-time floor, like worker rows.
+ */
+export interface CdpWebSocketCreated {
+  readonly method: 'Network.webSocketCreated';
+  readonly tabId: number;
+  readonly sessionId: string;
+  readonly requestId: string;
+  readonly url: string;
+  readonly initiator?: CdpInitiator;
+  /** Arrival wall-clock ms, stamped by the adapter (the event has no timestamp). */
+  readonly atWallMs: number;
+}
+
+/**
+ * `Network.webSocketWillSendHandshakeRequest` — the WS issue instant.
+ * The only WS event carrying both clocks (`timestamp` + `wallTime`), so it
+ * doubles as the wall-clock offset source for the socket's later
+ * monotonic-only events (frames, close).
+ */
+export interface CdpWebSocketWillSendHandshakeRequest {
+  readonly method: 'Network.webSocketWillSendHandshakeRequest';
+  readonly tabId: number;
+  readonly sessionId: string;
+  readonly requestId: string;
+  readonly timestamp: number;
+  readonly wallTime: number;
+  /** The cooked handshake request headers. */
+  readonly headers: Readonly<Record<string, string>>;
+}
+
+/** The handshake response payload — status + both directions' headers,
+ *  including the raw wire text the host derives header sizes from. */
+export interface CdpWebSocketHandshakeResponse {
+  readonly status: number;
+  readonly statusText: string;
+  readonly headers: Readonly<Record<string, string>>;
+  readonly headersText?: string;
+  /** The on-the-wire request header set (supersedes the cooked set). */
+  readonly requestHeaders?: Readonly<Record<string, string>>;
+  readonly requestHeadersText?: string;
+}
+
+/** `Network.webSocketHandshakeResponseReceived` — status 101 + headers. */
+export interface CdpWebSocketHandshakeResponseReceived {
+  readonly method: 'Network.webSocketHandshakeResponseReceived';
+  readonly tabId: number;
+  readonly sessionId: string;
+  readonly requestId: string;
+  readonly timestamp: number;
+  readonly response: CdpWebSocketHandshakeResponse;
+}
+
+/** One WS frame — `payloadData` is text verbatim for opcode 1, base64 of
+ *  the raw bytes for opcode 2. */
+export interface CdpWebSocketFrame {
+  readonly opcode: number;
+  readonly mask: boolean;
+  readonly payloadData: string;
+}
+
+/** `Network.webSocketFrameSent` — one client→server frame. */
+export interface CdpWebSocketFrameSent {
+  readonly method: 'Network.webSocketFrameSent';
+  readonly tabId: number;
+  readonly sessionId: string;
+  readonly requestId: string;
+  readonly timestamp: number;
+  readonly response: CdpWebSocketFrame;
+}
+
+/** `Network.webSocketFrameReceived` — one server→client frame. */
+export interface CdpWebSocketFrameReceived {
+  readonly method: 'Network.webSocketFrameReceived';
+  readonly tabId: number;
+  readonly sessionId: string;
+  readonly requestId: string;
+  readonly timestamp: number;
+  readonly response: CdpWebSocketFrame;
+}
+
+/** `Network.webSocketFrameError` — a transport-level frame error. The host
+ *  stores it IN the frame list (`type: 'error'`, opcode −1); it does not
+ *  terminate the request (`webSocketClosed` still follows). */
+export interface CdpWebSocketFrameError {
+  readonly method: 'Network.webSocketFrameError';
+  readonly tabId: number;
+  readonly sessionId: string;
+  readonly requestId: string;
+  readonly timestamp: number;
+  readonly errorMessage: string;
+}
+
+/** `Network.webSocketClosed` — the WS terminal; the host finishes the row here. */
+export interface CdpWebSocketClosed {
+  readonly method: 'Network.webSocketClosed';
+  readonly tabId: number;
+  readonly sessionId: string;
+  readonly requestId: string;
+  readonly timestamp: number;
+}
+
+/**
+ * `Network.eventSourceMessageReceived` — one parsed Server-Sent Event on an
+ * ordinary EventSource request. `eventName` is `message` for default events;
+ * multi-line `data:` fields arrive already joined with `\n`.
+ */
+export interface CdpEventSourceMessageReceived {
+  readonly method: 'Network.eventSourceMessageReceived';
+  readonly tabId: number;
+  readonly sessionId: string;
+  readonly requestId: string;
+  readonly timestamp: number;
+  readonly eventName: string;
+  readonly eventId: string;
+  readonly data: string;
+}
+
 export type CdpNetworkEvent =
   | CdpRequestWillBeSent
   | CdpResponseReceived
@@ -283,7 +421,15 @@ export type CdpNetworkEvent =
   | CdpLoadingFinished
   | CdpLoadingFailed
   | CdpRequestWillBeSentExtraInfo
-  | CdpResponseReceivedExtraInfo;
+  | CdpResponseReceivedExtraInfo
+  | CdpWebSocketCreated
+  | CdpWebSocketWillSendHandshakeRequest
+  | CdpWebSocketHandshakeResponseReceived
+  | CdpWebSocketFrameSent
+  | CdpWebSocketFrameReceived
+  | CdpWebSocketFrameError
+  | CdpWebSocketClosed
+  | CdpEventSourceMessageReceived;
 
 /**
  * Store-facing request identity. CDP `requestId` is unique only *within*

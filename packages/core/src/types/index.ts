@@ -38,7 +38,9 @@ export type {
   ExtensionWorkspaceSource,
 } from './extension-workspace';
 export type {
+  HarEventSourceMessage,
   HarSourceMessage,
+  HarWebSocketMessage,
   InspectorHarBody,
   InspectorHarEntry,
   InspectorHarEntrySource,

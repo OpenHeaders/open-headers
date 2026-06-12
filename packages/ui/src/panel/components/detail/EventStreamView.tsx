@@ -1,20 +1,24 @@
 /**
- * EventStreamView — Server-Sent Events frame log for a `text/event-stream`
+ * EventStreamView — Server-Sent Events log for a `text/event-stream`
  * response.
  *
- * The HTTP response body is a stream of events separated by blank
- * lines. Each event consists of line prefixes:
- *   - `id: <id>`
- *   - `event: <type>`     (defaults to "message" if absent)
- *   - `data: <payload>`   (multiple `data:` lines concatenate with `\n`)
- *   - `retry: <ms>`
- *   - lines starting with `:` are comments
+ * Two sources, one display shape:
+ *   - `lifecycle.messages` (kind `sse`) — the LIVE plane: events parsed
+ *     by the network stack and streamed per `message-appended` update by
+ *     the deep-inspection correlator, growing while the stream is open.
+ *     Preferred whenever present.
+ *   - the finished response body — the heuristic fallback: parse the SSE
+ *     wire format out of the body text once the host delivers it. For
+ *     long-running streams that never finish during the session the body
+ *     stays empty, so this leg honestly shows nothing until close.
  *
- * The host's body API hands us the full body text once the request
- * finishes; for long-running streams that never finish during the
- * DevTools session the body may be empty.
+ * SSE wire format (the fallback parser): events separated by blank
+ * lines; `id:` / `event:` (defaults to "message") / `data:` (multiple
+ * lines concatenate with `\n`) / `retry:`; `:`-prefixed lines are
+ * comments.
  */
 
+import type { RequestLifecycle, SseStreamMessage } from '@openheaders/core/request-lifecycle';
 import { useMemo } from 'react';
 import { currentResponseBody, type InspectorRowWithFires } from '../../data/inspector-row-projection';
 
@@ -55,13 +59,28 @@ export function isEventStream(mimeType: string | undefined | null): boolean {
   return mimeType.toLowerCase().startsWith('text/event-stream');
 }
 
+function isSseStreamMessage(m: { kind: string }): m is SseStreamMessage {
+  return m.kind === 'sse';
+}
+
+/** The live plane's events, projected to the display shape. */
+function liveSseEvents(lifecycle: RequestLifecycle): SseEvent[] {
+  return (lifecycle.messages ?? []).filter(isSseStreamMessage).map((m) => ({
+    id: m.eventId || undefined,
+    event: m.eventName,
+    data: m.data,
+  }));
+}
+
 interface EventStreamViewProps {
   row: InspectorRowWithFires;
 }
 
 export default function EventStreamView({ row }: EventStreamViewProps) {
-  const body = currentResponseBody(row.lifecycle)?.content ?? '';
-  const events = useMemo(() => parseSse(body), [body]);
+  const live = liveSseEvents(row.lifecycle);
+  const body = live.length > 0 ? '' : (currentResponseBody(row.lifecycle)?.content ?? '');
+  const parsed = useMemo(() => parseSse(body), [body]);
+  const events = live.length > 0 ? live : parsed;
 
   if (events.length === 0) {
     return (
@@ -73,8 +92,15 @@ export default function EventStreamView({ row }: EventStreamViewProps) {
     );
   }
 
+  const dropped = row.lifecycle.messagesDropped ?? 0;
+
   return (
     <div className="dt-sse-view">
+      {live.length > 0 && dropped > 0 && (
+        <div className="dt-sse-truncation">
+          Showing the latest {events.length} events — {dropped} older {dropped === 1 ? 'event' : 'events'} dropped.
+        </div>
+      )}
       <div className="dt-sse-row dt-sse-row-header">
         <span className="dt-sse-id">Id</span>
         <span className="dt-sse-type">Type</span>

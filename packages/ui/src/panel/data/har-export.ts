@@ -25,8 +25,13 @@
  */
 
 import type { Page } from '@openheaders/core/page-stream';
-import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
-import type { InspectorHarEntry, InspectorHarLog } from '@openheaders/core/types';
+import type { RequestLifecycle, SseStreamMessage, WsStreamMessage } from '@openheaders/core/request-lifecycle';
+import type {
+  HarEventSourceMessage,
+  HarWebSocketMessage,
+  InspectorHarEntry,
+  InspectorHarLog,
+} from '@openheaders/core/types';
 import { getBuildInfo } from '@openheaders/ui/shared/build-info';
 import type { InspectorRowWithFires } from './inspector-row-projection';
 import { currentHarEntry, resolvePageref } from './inspector-row-projection';
@@ -75,6 +80,42 @@ export function stripInternalEntryFields(entry: InspectorHarEntry): InspectorHar
   }
   const { _rawTiming, _ohHeaderCapture, _ohEntrySource, ...rest } = entry;
   return rest;
+}
+
+/**
+ * Synthesize the message-stream extensions onto an exported entry from the
+ * lifecycle's live plane, in the host's export dialect: `_webSocketMessages`
+ * on EVERY WebSocket entry (`[]` when frameless, like the host),
+ * `_eventSourceMessages` only when events were captured. `time` converts to
+ * the dialect's wall-clock seconds. A sanitized export omits the SSE `data`
+ * payloads (the host's posture); WS frame payloads are kept, also matching
+ * the host. Host-adopted entries never pass through here — they carry the
+ * host's own extension fields verbatim.
+ */
+function withStreamMessages(
+  entry: InspectorHarEntry,
+  lifecycle: RequestLifecycle,
+  sanitize: boolean,
+): InspectorHarEntry {
+  const messages = lifecycle.messages ?? [];
+  const isWebSocket = lifecycle.resourceType === 'websocket';
+  if (!isWebSocket && messages.length === 0) return entry;
+  const out: InspectorHarEntry = { ...entry };
+  if (isWebSocket) {
+    out._webSocketMessages = messages
+      .filter((m): m is WsStreamMessage => m.kind === 'ws')
+      .map<HarWebSocketMessage>((m) => ({ type: m.type, time: m.atMs / 1000, opcode: m.opcode, data: m.data }));
+  }
+  const sse = messages.filter((m): m is SseStreamMessage => m.kind === 'sse');
+  if (sse.length > 0) {
+    out._eventSourceMessages = sse.map<HarEventSourceMessage>((m) => ({
+      time: m.atMs / 1000,
+      eventName: m.eventName,
+      eventId: m.eventId,
+      ...(sanitize ? {} : { data: m.data }),
+    }));
+  }
+  return out;
 }
 
 /** Request headers dropped when sanitizing (carry credentials). */
@@ -254,9 +295,8 @@ function buildHostAuthoritativeEntries(
     if (synth === null) continue;
     const pageref = resolvePageref(row.lifecycle, pages);
     if (pageref) refs.add(pageref);
-    entries.push(
-      withPageref(stripInternalEntryFields(sanitize ? sanitizeHarEntry(synth) : synth), pageref ?? undefined),
-    );
+    const decorated = withStreamMessages(sanitize ? sanitizeHarEntry(synth) : synth, row.lifecycle, sanitize);
+    entries.push(withPageref(stripInternalEntryFields(decorated), pageref ?? undefined));
   }
   return { entries, refs };
 }
@@ -285,9 +325,8 @@ function buildSynthEntries(
     if (synth === null) continue;
     const pageref = resolvePageref(row.lifecycle, pages);
     if (pageref) refs.add(pageref);
-    entries.push(
-      withPageref(stripInternalEntryFields(sanitize ? sanitizeHarEntry(synth) : synth), pageref ?? undefined),
-    );
+    const decorated = withStreamMessages(sanitize ? sanitizeHarEntry(synth) : synth, row.lifecycle, sanitize);
+    entries.push(withPageref(stripInternalEntryFields(decorated), pageref ?? undefined));
   }
   return { entries, refs };
 }

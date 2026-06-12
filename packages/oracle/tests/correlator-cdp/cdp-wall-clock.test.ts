@@ -17,7 +17,15 @@ import {
   MAX_CDP_WALL_OFFSETS_PER_TAB,
   monotonicSecToWallMs,
 } from '../../src/correlator-cdp/cdp-wall-clock';
-import { cdpFinished, cdpRedirect, cdpStart, PAGE_SESSION, type TraceCtx } from './builders';
+import {
+  cdpFinished,
+  cdpRedirect,
+  cdpStart,
+  cdpWsClosed,
+  cdpWsHandshakeRequest,
+  PAGE_SESSION,
+  type TraceCtx,
+} from './builders';
 
 const TAB = 31;
 const CTX: TraceCtx = { tabId: TAB, requestId: 'cdp-1' };
@@ -154,5 +162,28 @@ describe('CdpWallClock — per-tab isolation', () => {
     expect(clock.toWallMs(99, PAGE_SESSION, 'x', 100.9)).toBe(100_900);
     expect(warn).toHaveBeenCalledTimes(1);
     vi.restoreAllMocks();
+  });
+});
+
+describe('CdpWallClock — WebSocket handshake pair', () => {
+  it('learns the per-socket offset from webSocketWillSendHandshakeRequest', () => {
+    const clock = new CdpWallClock();
+    const ctx: TraceCtx = { tabId: 9, requestId: 'ws-1' };
+    clock.observe(cdpWsHandshakeRequest(ctx, { timestamp: 100, wallTime: 1_700_000_000 }));
+    // A frame instant resolves through the socket's own offset.
+    expect(clock.toWallMs(9, PAGE_SESSION, 'ws-1', 101)).toBeCloseTo((101 + (1_700_000_000 - 100)) * 1000, 6);
+  });
+
+  it('marks the socket finalized at webSocketClosed (retention gc applies)', () => {
+    const clock = new CdpWallClock();
+    const ctx: TraceCtx = { tabId: 9, requestId: 'ws-1' };
+    clock.observe(cdpWsHandshakeRequest(ctx, { timestamp: 100, wallTime: 1_700_000_000 }));
+    clock.observe(cdpWsClosed(ctx, { timestamp: 102 }));
+    expect(clock.size()).toBe(1);
+    // A later event past the retention window sweeps the finalized offset.
+    clock.observe(
+      cdpWsHandshakeRequest({ tabId: 9, requestId: 'ws-2' }, { timestamp: 102 + 61, wallTime: 1_700_000_061 }),
+    );
+    expect(clock.size()).toBe(1);
   });
 });

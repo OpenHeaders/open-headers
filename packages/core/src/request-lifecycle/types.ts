@@ -52,6 +52,61 @@ export interface RedirectHop {
 }
 
 /**
+ * One frame of a WebSocket conversation, as the panel's Messages tab
+ * renders it. `type` mirrors the host's frame vocabulary: `send` /
+ * `receive` for data frames, `error` for a transport-level frame error
+ * (stored in the same list, `opcode: -1`, `data` = the error message).
+ * `data` carries the text payload verbatim for text frames (opcode 1)
+ * and base64 of the raw bytes for binary frames (opcode 2).
+ */
+export interface WsStreamMessage {
+  kind: 'ws';
+  type: 'send' | 'receive' | 'error';
+  /** Wall-clock ms of the frame. */
+  atMs: number;
+  /** WebSocket opcode (1 text, 2 binary, 8 close, …); `-1` for error frames. */
+  opcode: number;
+  /** Whether the frame was masked (client→server frames are). */
+  mask: boolean;
+  data: string;
+}
+
+/**
+ * One parsed Server-Sent Event, as the panel's EventStream tab renders
+ * it. Parsed by the network stack (`event:` / `id:` / `data:` fields;
+ * multi-line data already joined with `\n`); `eventName` is `message`
+ * for default events.
+ */
+export interface SseStreamMessage {
+  kind: 'sse';
+  /** Wall-clock ms the event was received. */
+  atMs: number;
+  eventName: string;
+  eventId: string;
+  data: string;
+}
+
+/**
+ * One entry of a lifecycle's message stream — the WS-frame / SSE-event
+ * plane behind the Messages and EventStream detail tabs. A request is
+ * either a WebSocket or an EventSource, so a lifecycle's list is
+ * homogeneous in practice; the discriminant keeps the consumers honest.
+ */
+export type StreamMessage = WsStreamMessage | SseStreamMessage;
+
+/**
+ * Ring-buffer bound on a lifecycle's {@link RequestLifecycle.messages}.
+ * The host keeps its frame/event lists unbounded for the lifetime of its
+ * network log; ours accumulate in the long-lived background worker and
+ * cross a port per append, so a bound protects both. Drop-oldest, with
+ * the drop count surfaced on {@link RequestLifecycle.messagesDropped} so
+ * the UI states truncation instead of hiding it. MUST be enforced
+ * identically by the engine reducer and the panel client reducer — a
+ * differing policy diverges the two stores after N messages.
+ */
+export const MAX_STREAM_MESSAGES_PER_REQUEST = 5_000;
+
+/**
  * Per-request authoritative state owned by the engine-side store.
  *
  * Consumer-owned derived state ("inspector display id", "rule-engine
@@ -204,6 +259,22 @@ export interface RequestLifecycle {
   readonly requestHeadersProvisional?: boolean;
 
   /**
+   * The message stream — WebSocket frames / Server-Sent Events for this
+   * request, in arrival order, appended by `message-appended` updates.
+   * Bounded by {@link MAX_STREAM_MESSAGES_PER_REQUEST} (drop-oldest);
+   * only the CDP plane can populate it (`webSocketFrame*` /
+   * `eventSourceMessageReceived` have no webRequest counterpart — the
+   * heuristic path leaves it unset). Never reset on redirect: messages
+   * can only exist once the final hop's stream is open.
+   */
+  readonly messages?: readonly StreamMessage[];
+  /**
+   * Count of messages dropped off the front of {@link messages} by the
+   * ring bound. The UI surfaces truncation honestly when this is set.
+   */
+  readonly messagesDropped?: number;
+
+  /**
    * Per-hop HAR shell forwarded from the devtools_page. Index = hop
    * number; hop 0 is the original request, hop N is the request after
    * the Nth redirect. Slots for hops whose HAR has not landed yet hold
@@ -296,6 +367,12 @@ export type RequestLifecycleUpdate =
   | { kind: 'redirect'; tabId: number; requestId: string; hop: RedirectHop; nextUrl: string }
   | { kind: 'har-attached'; tabId: number; requestId: string; hopIndex: number; har: InspectorHarEntry }
   | { kind: 'body-attached'; tabId: number; requestId: string; hopIndex: number; body: InspectorHarBody }
+  /**
+   * One WS frame / SSE event appended to the lifecycle's message stream.
+   * Order-preserving; the reducers enforce the ring bound
+   * ({@link MAX_STREAM_MESSAGES_PER_REQUEST}) identically on both sides.
+   */
+  | { kind: 'message-appended'; tabId: number; requestId: string; message: StreamMessage }
   | { kind: 'gone'; tabId: number; requestId: string };
 
 /**

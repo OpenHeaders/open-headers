@@ -25,6 +25,7 @@ export {
   refinesField,
   urlChain,
 } from './invariants';
+export { appendStreamMessage } from './stream-messages';
 export type {
   RedirectHop,
   RequestError,
@@ -33,7 +34,11 @@ export type {
   RequestLifecyclePatch,
   RequestLifecycleUpdate,
   RequestPhase,
+  SseStreamMessage,
+  StreamMessage,
+  WsStreamMessage,
 } from './types';
+export { MAX_STREAM_MESSAGES_PER_REQUEST } from './types';
 export type {
   LifecycleClearSessionMessage,
   LifecycleConsumerMessage,

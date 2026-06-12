@@ -57,6 +57,7 @@ export type {
   CdpBufferedResponseBody,
   CdpCallFrame,
   CdpEventSource,
+  CdpEventSourceMessageReceived,
   CdpInitiator,
   CdpLoadingFailed,
   CdpLoadingFinished,
@@ -70,6 +71,15 @@ export type {
   CdpResponseReceived,
   CdpResponseReceivedExtraInfo,
   CdpStackTrace,
+  CdpWebSocketClosed,
+  CdpWebSocketCreated,
+  CdpWebSocketFrame,
+  CdpWebSocketFrameError,
+  CdpWebSocketFrameReceived,
+  CdpWebSocketFrameSent,
+  CdpWebSocketHandshakeResponse,
+  CdpWebSocketHandshakeResponseReceived,
+  CdpWebSocketWillSendHandshakeRequest,
 } from './events';
 export { cdpStoreRequestId } from './events';
 export type {

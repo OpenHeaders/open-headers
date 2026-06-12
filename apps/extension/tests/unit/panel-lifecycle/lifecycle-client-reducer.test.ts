@@ -5,6 +5,7 @@
  */
 
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
+import { MAX_STREAM_MESSAGES_PER_REQUEST } from '@openheaders/core/request-lifecycle';
 import { NOOP, reduceClientUpdate } from '@openheaders/ui/panel/data/lifecycle';
 import { describe, expect, it } from 'vitest';
 
@@ -280,5 +281,55 @@ describe('reduceClientUpdate — gone', () => {
   it('noops when the lifecycle is unknown', () => {
     const result = reduceClientUpdate(undefined, { kind: 'gone', tabId: 1, requestId: 'r1' });
     expect(result).toBe(NOOP);
+  });
+});
+
+describe('reduceClientUpdate — message-appended', () => {
+  const frame = (n: number) =>
+    ({ kind: 'ws', type: 'receive', atMs: 2_000 + n, opcode: 1, mask: false, data: `frame ${n}` }) as const;
+
+  it('appends in arrival order through the shared core policy', () => {
+    const prev = makeLifecycle();
+    const first = reduceClientUpdate(prev, {
+      kind: 'message-appended',
+      tabId: prev.tabId,
+      requestId: prev.requestId,
+      message: frame(0),
+    });
+    if (first === NOOP || first === null) throw new Error('expected state');
+    const second = reduceClientUpdate(first, {
+      kind: 'message-appended',
+      tabId: prev.tabId,
+      requestId: prev.requestId,
+      message: frame(1),
+    });
+    if (second === NOOP || second === null) throw new Error('expected state');
+    expect(second.messages).toEqual([frame(0), frame(1)]);
+  });
+
+  it('noops for an unknown request (trust-but-apply, no insert)', () => {
+    const result = reduceClientUpdate(undefined, {
+      kind: 'message-appended',
+      tabId: 1,
+      requestId: 'req-1',
+      message: frame(0),
+    });
+    expect(result).toBe(NOOP);
+  });
+
+  it('mirrors the engine ring bound exactly (drop-oldest + droppedCount)', () => {
+    const prev = makeLifecycle({
+      messages: Array.from({ length: MAX_STREAM_MESSAGES_PER_REQUEST }, (_, i) => frame(i)),
+    });
+    const result = reduceClientUpdate(prev, {
+      kind: 'message-appended',
+      tabId: prev.tabId,
+      requestId: prev.requestId,
+      message: frame(MAX_STREAM_MESSAGES_PER_REQUEST),
+    });
+    if (result === NOOP || result === null) throw new Error('expected state');
+    expect(result.messages).toHaveLength(MAX_STREAM_MESSAGES_PER_REQUEST);
+    expect(result.messages?.[0]).toEqual(frame(1));
+    expect(result.messagesDropped).toBe(1);
   });
 });

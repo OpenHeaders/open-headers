@@ -65,6 +65,25 @@ chrome.storage.local.get('__oh_parity_hook__', (res) => {
   iframe.style.display = 'none';
   iframe.title = 'oh-parity-hook';
   document.body.appendChild(iframe);
+
+  // Parity-capture HAR sampling (`action: 'har'`): answer with the host's
+  // own `chrome.devtools.network.getHAR` — byte-shaped like its "Save all
+  // as HAR" export. Handled HERE and not in the panel's parity bridge
+  // because getHAR's callback never fires inside a sub-frame of the
+  // devtools page; the main frame resolves it normally.
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local') return;
+    const req = changes.__oh_parity_request__?.newValue as { tabId: number; ts: number; action: string } | undefined;
+    if (!req || req.tabId !== chrome.devtools.inspectedWindow.tabId || req.action !== 'har') return;
+    const key = `__oh_parity_har_${req.tabId}__`;
+    try {
+      chrome.devtools.network.getHAR((har) => {
+        chrome.storage.local.set({ [key]: { reqTs: req.ts, har } });
+      });
+    } catch (err) {
+      chrome.storage.local.set({ [key]: { reqTs: req.ts, error: String(err) } });
+    }
+  });
 });
 
 const tabId = chrome.devtools.inspectedWindow.tabId;

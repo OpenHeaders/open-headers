@@ -33,7 +33,15 @@ import {
   cdpRequestExtra,
   cdpResponse,
   cdpResponseExtra,
+  cdpSseMessage,
   cdpStart,
+  cdpWsClosed,
+  cdpWsCreated,
+  cdpWsFrameError,
+  cdpWsFrameReceived,
+  cdpWsFrameSent,
+  cdpWsHandshakeRequest,
+  cdpWsHandshakeResponse,
   PAGE_SESSION,
   type TraceCtx,
 } from './builders';
@@ -1271,5 +1279,117 @@ describe('cdpRawTiming — pure projection', () => {
     });
     expect(raw).not.toHaveProperty('dnsStart');
     expect(raw).not.toHaveProperty('connectStart');
+  });
+});
+
+describe('CdpHarBuilder — WebSocket synthesis', () => {
+  const ctx: TraceCtx = { tabId: TAB, requestId: 'ws-1' };
+
+  function wsTrace(builder: CdpHarBuilder): {
+    handshakeUpdates: readonly RequestLifecycleUpdate[];
+    partial: InspectorHarEntry;
+    refined: InspectorHarEntry;
+  } {
+    expect(builder.observe(cdpWsCreated(ctx))).toEqual([]);
+    const headerUpdates = builder.observe(cdpWsHandshakeRequest(ctx, { timestamp: 100, wallTime: 1_700_000_000 }));
+    const handshakeUpdates = builder.observe(cdpWsHandshakeResponse(ctx, { timestamp: 100.2 }));
+    const partial = lastHarEntry(handshakeUpdates);
+    const refined = lastHarEntry(builder.observe(cdpWsClosed(ctx, { timestamp: 102 })));
+    expect(headerUpdates.some((u) => u.kind === 'phase' && u.patch.requestHeaders !== undefined)).toBe(true);
+    return { handshakeUpdates, partial, refined };
+  }
+
+  it('emits a status-101 websocket entry at the handshake response', () => {
+    const { partial } = wsTrace(new CdpHarBuilder());
+    expect(partial.response?.status).toBe(101);
+    expect(partial.response?.statusText).toBe('Switching Protocols');
+    expect(partial._resourceType).toBe('websocket');
+    expect(partial._ohEntrySource).toBe('cdp');
+    expect(partial.request?.method).toBe('GET');
+    expect(partial.request?.url).toBe('wss://api.openheaders.io/socket');
+    // The issue instant comes from the handshake's wallTime, not the
+    // created event's arrival stamp.
+    expect(partial.startedDateTime).toBe(new Date(1_700_000_000 * 1000).toISOString());
+    // No terminal yet — `time` stays absent until close.
+    expect(partial.time).toBeUndefined();
+  });
+
+  it('supersedes cooked handshake headers with the wire set (capture point effective)', () => {
+    const { partial } = wsTrace(new CdpHarBuilder());
+    const names = (partial.request?.headers ?? []).map((h) => h.name);
+    // The wire set (handshake response's requestHeaders) wins over the cooked set.
+    expect(names).toContain('Sec-WebSocket-Key');
+    expect(names).toContain('User-Agent');
+    expect(partial._ohHeaderCapture?.request).toBe('effective');
+  });
+
+  it('promotes the lifecycle request headers to the wire set at the handshake response', () => {
+    const builder = new CdpHarBuilder();
+    builder.observe(cdpWsCreated(ctx));
+    builder.observe(cdpWsHandshakeRequest(ctx));
+    const updates = builder.observe(cdpWsHandshakeResponse(ctx));
+    const promoted = updates.find((u) => u.kind === 'phase' && u.patch.requestHeaders !== undefined);
+    if (promoted === undefined || promoted.kind !== 'phase') throw new Error('expected promoted headers');
+    expect(promoted.patch.requestHeadersProvisional).toBe(false);
+    expect(promoted.patch.requestHeaders?.some((h) => h.name === 'Sec-WebSocket-Key')).toBe(true);
+  });
+
+  it('finalizes time as the issue → close span at webSocketClosed', () => {
+    const { refined } = wsTrace(new CdpHarBuilder());
+    // issued 100s, closed 102s → 2000ms; no ResourceTiming exists for a
+    // socket, so `time` comes from the span, not a timings leg-sum.
+    expect(refined.time).toBe(2000);
+    expect(refined.timings).toBeUndefined();
+    expect(refined.response?.status).toBe(101);
+  });
+
+  it('a socket that never handshaked keeps time absent and emits nothing at close', () => {
+    const builder = new CdpHarBuilder();
+    builder.observe(cdpWsCreated(ctx));
+    // No handshake response ⇒ no response on the hop ⇒ nothing to emit.
+    expect(builder.observe(cdpWsClosed(ctx))).toEqual([]);
+  });
+
+  it('frames and SSE events do not disturb the HAR plane', () => {
+    const builder = new CdpHarBuilder();
+    builder.observe(cdpWsCreated(ctx));
+    builder.observe(cdpWsHandshakeRequest(ctx));
+    builder.observe(cdpWsHandshakeResponse(ctx));
+    expect(builder.observe(cdpWsFrameSent(ctx))).toEqual([]);
+    expect(builder.observe(cdpWsFrameReceived(ctx))).toEqual([]);
+    expect(builder.observe(cdpWsFrameError(ctx))).toEqual([]);
+    expect(builder.observe(cdpSseMessage({ tabId: TAB, requestId: 'sse-9' }))).toEqual([]);
+  });
+
+  it('round-trips through the store with zero rejections, frames landing on the lifecycle', () => {
+    const source = new InMemoryCdpSource();
+    const correlator = new CdpCorrelator(source);
+    correlator.attachTab(TAB);
+    const onReject = vi.fn();
+    const store = new RequestLifecycleStore({ onReject });
+    correlator.subscribe((update) => store.apply(update));
+
+    source.emit(cdpWsCreated(ctx));
+    source.emit(cdpWsHandshakeRequest(ctx, { timestamp: 100, wallTime: 1_700_000_000 }));
+    source.emit(cdpWsHandshakeResponse(ctx, { timestamp: 100.2 }));
+    source.emit(cdpWsFrameSent(ctx, { timestamp: 101 }));
+    source.emit(cdpWsFrameReceived(ctx, { timestamp: 101.1 }));
+    source.emit(cdpWsClosed(ctx, { timestamp: 102 }));
+
+    expect(onReject).not.toHaveBeenCalled();
+    const lifecycle = store.get(TAB, cdpStoreRequestId(PAGE_SESSION, 'ws-1'));
+    if (lifecycle === undefined) throw new Error('expected the ws lifecycle');
+    expect(lifecycle.phase).toBe('completed');
+    expect(lifecycle.statusCode).toBe(101);
+    expect(lifecycle.resourceType).toBe('websocket');
+    expect(lifecycle.messages?.map((m) => m.kind)).toEqual(['ws', 'ws']);
+    // Frame instants resolve on the wall clock learned from the handshake pair.
+    const first = lifecycle.messages?.[0];
+    if (first?.kind !== 'ws') throw new Error('expected ws frame');
+    expect(first.atMs).toBeCloseTo((101 + (1_700_000_000 - 100)) * 1000, 3);
+    expect(lifecycle.completedAtMs).toBeCloseTo((102 + (1_700_000_000 - 100)) * 1000, 3);
+    expect(lifecycle.har[0]?.response?.status).toBe(101);
+    expect(lifecycle.har[0]?.time).toBe(2000);
+    correlator.dispose();
   });
 });

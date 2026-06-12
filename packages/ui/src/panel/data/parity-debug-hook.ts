@@ -18,7 +18,7 @@
  */
 
 import type { Page } from '@openheaders/core/page-stream';
-import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
+import type { LifecycleSource, RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarEntry } from '@openheaders/core/types';
 import { useEffect, useRef } from 'react';
 import {
@@ -38,6 +38,7 @@ import {
   type SupersessionAnchor,
   supersessionAnchorFromPages,
 } from './request-state';
+import { classifyRowAnnotations } from './row-annotations';
 import { type InspectorFire, isAppliedFire } from './types';
 
 /** The footer projection a parity capture asserts the panel computes: the
@@ -257,6 +258,14 @@ interface ParityRowDebug extends ParityRow, ParityFireFields {
    *  `documentId` (heuristic, outermost-frame-issued rows only). */
   _loaderId?: string | null;
   _documentId?: string | null;
+  /** Message-stream plane (WS frames / SSE events): list length + ring-drop
+   *  count, so a capture can assert frames flowed engine → panel mirror. */
+  _messageCount?: number;
+  _messagesDropped?: number;
+  /** The OH annotation-rail glyph classes for this row — the SAME classifier
+   *  output the grid rail and Headers-tab insight cards render, so a capture
+   *  can gate on the rail (e.g. the interrupted-document ⚠/ℹ pair). */
+  _annotations?: string[];
   /** The supersession verdict the Status/Time cells render — derived through
    *  the same `isPreservedUnknown` + anchor the list uses, so the artifact
    *  can never disagree with the panel. */
@@ -268,7 +277,12 @@ function isDocumentLike(resourceType: string | undefined): boolean {
   return resourceType === 'main_frame' || resourceType === 'document';
 }
 
-function toParityRow(rowWithFires: InspectorRowWithFires, arrivalIndex: number, anchor: SupersessionAnchor): ParityRow {
+function toParityRow(
+  rowWithFires: InspectorRowWithFires,
+  arrivalIndex: number,
+  anchor: SupersessionAnchor,
+  source: LifecycleSource,
+): ParityRow {
   const lc = rowWithFires.lifecycle;
   const state = classifyRequestState(lc);
   let displayStatus: number | null = null;
@@ -314,6 +328,9 @@ function toParityRow(rowWithFires: InspectorRowWithFires, arrivalIndex: number, 
   row._har = har ?? null;
   row._loaderId = lc.loaderId ?? null;
   row._documentId = lc.documentId ?? null;
+  if (lc.messages !== undefined) row._messageCount = lc.messages.length;
+  if (lc.messagesDropped !== undefined) row._messagesDropped = lc.messagesDropped;
+  row._annotations = classifyRowAnnotations(lc, { anchor, source }).map((a) => a.kind);
   row._preservedUnknown = isPreservedUnknown(lc, anchor);
   if (har?.response?._responseBodyIncomplete === true) row._responseBodyIncomplete = true;
   if (isDocumentLike(lc.resourceType)) {
@@ -376,7 +393,8 @@ export function useParityDebugHook(
       // The same anchor derivation the list cells use, over the same pages
       // source — the dumped verdict can never disagree with the render.
       const anchor = supersessionAnchorFromPages(pagesRef.current);
-      return rowsRef.current.map((row, i) => toParityRow(row, i, anchor));
+      const source: LifecycleSource = footerRef.current.source === 'cdp' ? 'cdp' : 'heuristic';
+      return rowsRef.current.map((row, i) => toParityRow(row, i, anchor, source));
     };
     window.__OH_DUMP_PARITY_FOOTER__ = () => footerRef.current;
     window.__OH_DUMP_PARITY_DANGLING__ = () => parityDanglingFires(danglingRef.current);

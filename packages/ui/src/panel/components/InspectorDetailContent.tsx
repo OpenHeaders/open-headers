@@ -249,9 +249,17 @@ export function InspectorDetailContent({
     requestResponseBody(lc.requestId, lc.redirectHopCount);
   }, [source, section, lc, requestResponseBody]);
 
-  const showMessages = har != null && hasWebSocketMessages(har);
+  // A WebSocket row always carries its Messages tab (the host does the
+  // same), even when no frame data is reachable on this capture path —
+  // the view explains the empty state honestly. The HAR-extension gate
+  // covers entries that arrived with frames already attached.
+  const showMessages =
+    lc.resourceType === 'websocket' ||
+    (har != null && hasWebSocketMessages(har)) ||
+    (lc.messages ?? []).some((m) => m.kind === 'ws');
   const mime = lifecycleMimeType(lc);
-  const showEventStream = isEventStream(mime);
+  const showEventStream =
+    isEventStream(mime) || lc.resourceType === 'eventsource' || (lc.messages ?? []).some((m) => m.kind === 'sse');
   const sections: Array<{ key: DetailSection; label: string }> = [
     { key: 'headers', label: 'Headers' },
     ...(showMessages ? [MESSAGES_SECTION] : []),
@@ -322,7 +330,7 @@ export function InspectorDetailContent({
           <PayloadView har={har} searchHighlight={searchHighlight} searchSection={searchSection} />
         )}
 
-        {section === 'messages' && showMessages && har && <MessagesView har={har} />}
+        {section === 'messages' && showMessages && <MessagesView lifecycle={lc} har={har} source={source} />}
 
         {section === 'eventstream' && showEventStream && <EventStreamView row={row} />}
 

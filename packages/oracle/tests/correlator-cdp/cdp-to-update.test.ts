@@ -24,6 +24,16 @@ import type {
   CdpResponseReceived,
   CdpResponseReceivedExtraInfo,
 } from '../../src/correlator-cdp/events';
+import {
+  cdpSseMessage,
+  cdpWsClosed,
+  cdpWsCreated,
+  cdpWsFrameError,
+  cdpWsFrameReceived,
+  cdpWsFrameSent,
+  cdpWsHandshakeRequest,
+  cdpWsHandshakeResponse,
+} from './builders';
 
 const TAB = 7;
 /** Store-facing identity = `${sessionId}::${requestId}` (child-session namespacing). */
@@ -328,5 +338,120 @@ describe('cdpEventToUpdates — full trace produces a coherent update stream', (
     const lc: RequestLifecycle = u.lifecycle;
     expect(lc.har.length).toBe(0);
     expect(lc.harBodyByHop.length).toBe(0);
+  });
+});
+
+describe('cdpEventToUpdates — WebSocket vocabulary', () => {
+  const ctx = { tabId: TAB, requestId: 'ws-1' };
+  const WS_STORE_ID = 'session-page::ws-1';
+
+  it('webSocketCreated mints the started lifecycle (GET, websocket, arrival start)', () => {
+    const updates = cdpEventToUpdates(cdpWsCreated(ctx), toWallMs);
+    expect(updates).toHaveLength(1);
+    const u = updates[0];
+    if (u?.kind !== 'started') throw new Error('expected started');
+    expect(u.lifecycle).toMatchObject({
+      tabId: TAB,
+      requestId: WS_STORE_ID,
+      url: 'wss://api.openheaders.io/socket',
+      method: 'GET',
+      resourceType: 'websocket',
+      initiator: 'https://app.openheaders.io/',
+      phase: 'pending',
+      startedAtMs: 1_700_000_000_050,
+      hopStartedAtMs: 1_700_000_000_050,
+    });
+    // Sockets carry no loader/frame identity — page binding falls to the floor.
+    expect(u.lifecycle.loaderId).toBeUndefined();
+    expect(u.lifecycle.frameId).toBeUndefined();
+  });
+
+  it('willSendHandshakeRequest carries no lifecycle update (headers ride the builder)', () => {
+    expect(cdpEventToUpdates(cdpWsHandshakeRequest(ctx), toWallMs)).toEqual([]);
+  });
+
+  it('handshakeResponseReceived advances to headers-received with status 101', () => {
+    const updates = cdpEventToUpdates(cdpWsHandshakeResponse(ctx), toWallMs);
+    expect(updates).toEqual([
+      {
+        kind: 'phase',
+        tabId: TAB,
+        requestId: WS_STORE_ID,
+        patch: { phase: 'headers-received', statusCode: 101, statusText: 'Switching Protocols' },
+      },
+    ]);
+  });
+
+  it('frames project to message-appended with wall-clock instants', () => {
+    const sent = cdpEventToUpdates(cdpWsFrameSent(ctx, { timestamp: 101 }), toWallMs);
+    expect(sent).toEqual([
+      {
+        kind: 'message-appended',
+        tabId: TAB,
+        requestId: WS_STORE_ID,
+        message: {
+          kind: 'ws',
+          type: 'send',
+          atMs: (101 + OFFSET_SEC) * 1000,
+          opcode: 1,
+          mask: true,
+          data: 'hello from client',
+        },
+      },
+    ]);
+    const received = cdpEventToUpdates(
+      cdpWsFrameReceived(ctx, { response: { opcode: 2, mask: false, payloadData: '3q2+7w==' } }),
+      toWallMs,
+    );
+    const u = received[0];
+    if (u?.kind !== 'message-appended' || u.message.kind !== 'ws') throw new Error('expected ws message');
+    expect(u.message.type).toBe('receive');
+    expect(u.message.opcode).toBe(2);
+    expect(u.message.data).toBe('3q2+7w==');
+  });
+
+  it('frameError joins the frame list as an error message (opcode −1), no phase change', () => {
+    const updates = cdpEventToUpdates(cdpWsFrameError(ctx), toWallMs);
+    expect(updates).toHaveLength(1);
+    const u = updates[0];
+    if (u?.kind !== 'message-appended' || u.message.kind !== 'ws') throw new Error('expected ws message');
+    expect(u.message).toMatchObject({ type: 'error', opcode: -1, mask: false, data: 'Invalid frame header' });
+  });
+
+  it('webSocketClosed terminates the row (completed at the wall-converted close)', () => {
+    const updates = cdpEventToUpdates(cdpWsClosed(ctx, { timestamp: 102 }), toWallMs);
+    expect(updates).toEqual([
+      {
+        kind: 'phase',
+        tabId: TAB,
+        requestId: WS_STORE_ID,
+        patch: { phase: 'completed', completedAtMs: (102 + OFFSET_SEC) * 1000 },
+      },
+    ]);
+  });
+});
+
+describe('cdpEventToUpdates — EventSource vocabulary', () => {
+  const ctx = { tabId: TAB, requestId: 'sse-1' };
+
+  it('eventSourceMessageReceived projects to a parsed sse message', () => {
+    const updates = cdpEventToUpdates(
+      cdpSseMessage(ctx, { eventName: 'tick', eventId: '3', data: '{"seq":3}\n{"named":true}', timestamp: 101 }),
+      toWallMs,
+    );
+    expect(updates).toEqual([
+      {
+        kind: 'message-appended',
+        tabId: TAB,
+        requestId: 'session-page::sse-1',
+        message: {
+          kind: 'sse',
+          atMs: (101 + OFFSET_SEC) * 1000,
+          eventName: 'tick',
+          eventId: '3',
+          data: '{"seq":3}\n{"named":true}',
+        },
+      },
+    ]);
   });
 });

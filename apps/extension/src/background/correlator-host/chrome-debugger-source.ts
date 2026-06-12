@@ -339,6 +339,42 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
       case 'Network.responseReceivedExtraInfo':
         this.fan(normalizeResponseReceivedExtraInfo(tabId, sessionId, params as RawResponseReceivedExtraInfo));
         return;
+      case 'Network.webSocketCreated':
+        this.fan(normalizeWebSocketCreated(tabId, sessionId, params as RawWebSocketCreated));
+        return;
+      case 'Network.webSocketWillSendHandshakeRequest':
+        this.fan(
+          normalizeWebSocketWillSendHandshakeRequest(tabId, sessionId, params as RawWebSocketWillSendHandshakeRequest),
+        );
+        return;
+      case 'Network.webSocketHandshakeResponseReceived':
+        this.fan(
+          normalizeWebSocketHandshakeResponseReceived(
+            tabId,
+            sessionId,
+            params as RawWebSocketHandshakeResponseReceived,
+          ),
+        );
+        return;
+      case 'Network.webSocketFrameSent':
+        this.fan(
+          normalizeWebSocketFrame('Network.webSocketFrameSent', tabId, sessionId, params as RawWebSocketFrameEvent),
+        );
+        return;
+      case 'Network.webSocketFrameReceived':
+        this.fan(
+          normalizeWebSocketFrame('Network.webSocketFrameReceived', tabId, sessionId, params as RawWebSocketFrameEvent),
+        );
+        return;
+      case 'Network.webSocketFrameError':
+        this.fan(normalizeWebSocketFrameError(tabId, sessionId, params as RawWebSocketFrameError));
+        return;
+      case 'Network.webSocketClosed':
+        this.fan(normalizeWebSocketClosed(tabId, sessionId, params as RawWebSocketClosed));
+        return;
+      case 'Network.eventSourceMessageReceived':
+        this.fan(normalizeEventSourceMessageReceived(tabId, sessionId, params as RawEventSourceMessageReceived));
+        return;
     }
     // Other Network.* events are not part of the consumed subset.
   }
@@ -588,6 +624,61 @@ interface RawRequestWillBeSentExtraInfo {
   readonly headers: Record<string, string>;
 }
 
+interface RawWebSocketCreated {
+  readonly requestId: string;
+  readonly url: string;
+  readonly initiator?: RawInitiator;
+}
+
+interface RawWebSocketWillSendHandshakeRequest {
+  readonly requestId: string;
+  readonly timestamp: number;
+  readonly wallTime: number;
+  readonly request: { readonly headers: Record<string, string> };
+}
+
+interface RawWebSocketHandshakeResponseReceived {
+  readonly requestId: string;
+  readonly timestamp: number;
+  readonly response: {
+    readonly status: number;
+    readonly statusText: string;
+    readonly headers: Record<string, string>;
+    readonly headersText?: string;
+    readonly requestHeaders?: Record<string, string>;
+    readonly requestHeadersText?: string;
+  };
+}
+
+interface RawWebSocketFrameEvent {
+  readonly requestId: string;
+  readonly timestamp: number;
+  readonly response: {
+    readonly opcode: number;
+    readonly mask: boolean;
+    readonly payloadData: string;
+  };
+}
+
+interface RawWebSocketFrameError {
+  readonly requestId: string;
+  readonly timestamp: number;
+  readonly errorMessage: string;
+}
+
+interface RawWebSocketClosed {
+  readonly requestId: string;
+  readonly timestamp: number;
+}
+
+interface RawEventSourceMessageReceived {
+  readonly requestId: string;
+  readonly timestamp: number;
+  readonly eventName: string;
+  readonly eventId: string;
+  readonly data: string;
+}
+
 interface RawResponseReceivedExtraInfo {
   readonly requestId: string;
   readonly headers: Record<string, string>;
@@ -743,6 +834,118 @@ function normalizeResponseReceivedExtraInfo(
     sessionId,
     requestId: p.requestId,
     headers: p.headers,
+  };
+}
+
+// ── WebSocket / EventSource normalizers ──────────────────────────────
+
+function normalizeWebSocketCreated(tabId: number, sessionId: string, p: RawWebSocketCreated): CdpNetworkEvent {
+  return {
+    method: 'Network.webSocketCreated',
+    tabId,
+    sessionId,
+    requestId: p.requestId,
+    url: p.url,
+    ...(p.initiator !== undefined ? { initiator: normalizeInitiator(p.initiator) } : {}),
+    // The event carries no timestamp at the wire; the arrival wall-clock is
+    // the row's provisional start (the handshake's wall instant follows).
+    atWallMs: Date.now(),
+  };
+}
+
+function normalizeWebSocketWillSendHandshakeRequest(
+  tabId: number,
+  sessionId: string,
+  p: RawWebSocketWillSendHandshakeRequest,
+): CdpNetworkEvent {
+  return {
+    method: 'Network.webSocketWillSendHandshakeRequest',
+    tabId,
+    sessionId,
+    requestId: p.requestId,
+    timestamp: p.timestamp,
+    wallTime: p.wallTime,
+    headers: p.request.headers,
+  };
+}
+
+function normalizeWebSocketHandshakeResponseReceived(
+  tabId: number,
+  sessionId: string,
+  p: RawWebSocketHandshakeResponseReceived,
+): CdpNetworkEvent {
+  return {
+    method: 'Network.webSocketHandshakeResponseReceived',
+    tabId,
+    sessionId,
+    requestId: p.requestId,
+    timestamp: p.timestamp,
+    response: {
+      status: p.response.status,
+      statusText: p.response.statusText,
+      headers: p.response.headers,
+      ...(p.response.headersText !== undefined ? { headersText: p.response.headersText } : {}),
+      ...(p.response.requestHeaders !== undefined ? { requestHeaders: p.response.requestHeaders } : {}),
+      ...(p.response.requestHeadersText !== undefined ? { requestHeadersText: p.response.requestHeadersText } : {}),
+    },
+  };
+}
+
+function normalizeWebSocketFrame(
+  method: 'Network.webSocketFrameSent' | 'Network.webSocketFrameReceived',
+  tabId: number,
+  sessionId: string,
+  p: RawWebSocketFrameEvent,
+): CdpNetworkEvent {
+  return {
+    method,
+    tabId,
+    sessionId,
+    requestId: p.requestId,
+    timestamp: p.timestamp,
+    response: {
+      opcode: p.response.opcode,
+      mask: p.response.mask,
+      payloadData: p.response.payloadData,
+    },
+  };
+}
+
+function normalizeWebSocketFrameError(tabId: number, sessionId: string, p: RawWebSocketFrameError): CdpNetworkEvent {
+  return {
+    method: 'Network.webSocketFrameError',
+    tabId,
+    sessionId,
+    requestId: p.requestId,
+    timestamp: p.timestamp,
+    errorMessage: p.errorMessage,
+  };
+}
+
+function normalizeWebSocketClosed(tabId: number, sessionId: string, p: RawWebSocketClosed): CdpNetworkEvent {
+  return {
+    method: 'Network.webSocketClosed',
+    tabId,
+    sessionId,
+    requestId: p.requestId,
+    timestamp: p.timestamp,
+  };
+}
+
+function normalizeEventSourceMessageReceived(
+  tabId: number,
+  sessionId: string,
+  p: RawEventSourceMessageReceived,
+): CdpNetworkEvent {
+  return {
+    method: 'Network.eventSourceMessageReceived',
+    tabId,
+    sessionId,
+    requestId: p.requestId,
+    timestamp: p.timestamp,
+    eventName: p.eventName,
+    eventId: p.eventId,
+    data: p.data,
   };
 }
 

@@ -110,8 +110,14 @@ export class CdpWallClock {
       case 'Network.requestWillBeSent':
         this.onRequest(event);
         return;
+      case 'Network.webSocketWillSendHandshakeRequest':
+        // The only WS event carrying both clocks — the offset source for the
+        // socket's later monotonic-only events (frames, close).
+        this.record(event.tabId, cdpStoreRequestId(event.sessionId, event.requestId), event.wallTime - event.timestamp);
+        return;
       case 'Network.loadingFinished':
       case 'Network.loadingFailed':
+      case 'Network.webSocketClosed':
         this.markFinalized(
           event.tabId,
           cdpStoreRequestId(event.sessionId, event.requestId),
@@ -171,17 +177,23 @@ export class CdpWallClock {
   }
 
   private onRequest(event: Extract<CdpNetworkEvent, { method: 'Network.requestWillBeSent' }>): void {
-    const tab = this.ensureTab(event.tabId);
     const storeId = cdpStoreRequestId(event.sessionId, event.requestId);
-    const offsetSec = event.wallTime - event.timestamp;
-    tab.lastOffsetSec = offsetSec;
     // A redirect continuation reuses the id across hops; keep the root hop's
     // offset (earliest wins) — the lifecycle anchors `completedAtMs` of the
     // whole chain to the final hop's monotonic finish, converted with the
     // root's offset, exactly as Chrome's per-request pseudoWallTime is stable
     // across the redirect. A fresh `requestWillBeSent` (no `redirectResponse`)
     // (re)records, which also resets a reused id after its prior life was gc'd.
-    if (event.redirectResponse !== undefined && tab.offsets.has(storeId)) return;
+    if (event.redirectResponse !== undefined && this.perTab.get(event.tabId)?.offsets.has(storeId)) {
+      this.ensureTab(event.tabId).lastOffsetSec = event.wallTime - event.timestamp;
+      return;
+    }
+    this.record(event.tabId, storeId, event.wallTime - event.timestamp);
+  }
+
+  private record(tabId: number, storeId: string, offsetSec: number): void {
+    const tab = this.ensureTab(tabId);
+    tab.lastOffsetSec = offsetSec;
     // Touch-to-end so a reused id sits at the tail under the per-tab cap.
     tab.offsets.delete(storeId);
     tab.offsets.set(storeId, { offsetSec });

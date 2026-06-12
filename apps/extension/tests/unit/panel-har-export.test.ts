@@ -471,3 +471,78 @@ describe('suggestHarFilename', () => {
     expect(name).toMatch(/^app\.openheaders\.io-/);
   });
 });
+
+describe('message-stream export dialect (`_webSocketMessages` / `_eventSourceMessages`)', () => {
+  function wsRow(messages: RequestLifecycle['messages']): InspectorRowWithFires {
+    return row('wss://api.openheaders.io/socket', 0, {
+      resourceType: 'websocket',
+      statusCode: 101,
+      messages,
+    });
+  }
+
+  it('synthesizes _webSocketMessages in the host dialect (wall seconds, opcode, data)', () => {
+    const doc = buildHar([
+      wsRow([
+        { kind: 'ws', type: 'send', atMs: 1_700_000_000_500, opcode: 1, mask: true, data: 'hello' },
+        { kind: 'ws', type: 'receive', atMs: 1_700_000_001_000, opcode: 2, mask: false, data: '3q2+7w==' },
+        { kind: 'ws', type: 'error', atMs: 1_700_000_001_500, opcode: -1, mask: false, data: 'Invalid frame' },
+      ]),
+    ]);
+    expect(doc.log.entries).toHaveLength(1);
+    expect(doc.log.entries[0]?._webSocketMessages).toEqual([
+      { type: 'send', time: 1_700_000_000.5, opcode: 1, data: 'hello' },
+      { type: 'receive', time: 1_700_000_001, opcode: 2, data: '3q2+7w==' },
+      { type: 'error', time: 1_700_000_001.5, opcode: -1, data: 'Invalid frame' },
+    ]);
+    expect(doc.log.entries[0]?._eventSourceMessages).toBeUndefined();
+  });
+
+  it('emits an empty _webSocketMessages array on a frameless websocket row, like the host', () => {
+    const doc = buildHar([wsRow(undefined)]);
+    expect(doc.log.entries[0]?._webSocketMessages).toEqual([]);
+  });
+
+  it('synthesizes _eventSourceMessages from sse messages, omitting data when sanitized', () => {
+    const sseRow = row('https://api.openheaders.io/stream', 1, {
+      resourceType: 'eventsource',
+      messages: [
+        { kind: 'sse', atMs: 1_700_000_002_000, eventName: 'tick', eventId: '1', data: '{"seq":1}' },
+        { kind: 'sse', atMs: 1_700_000_003_000, eventName: 'message', eventId: '2', data: '{"seq":2}' },
+      ],
+    });
+    const plain = buildHar([sseRow]);
+    expect(plain.log.entries[0]?._eventSourceMessages).toEqual([
+      { time: 1_700_000_002, eventName: 'tick', eventId: '1', data: '{"seq":1}' },
+      { time: 1_700_000_003, eventName: 'message', eventId: '2', data: '{"seq":2}' },
+    ]);
+    expect(plain.log.entries[0]?._webSocketMessages).toBeUndefined();
+
+    const sanitized = buildHar([sseRow], [], true);
+    expect(sanitized.log.entries[0]?._eventSourceMessages).toEqual([
+      { time: 1_700_000_002, eventName: 'tick', eventId: '1' },
+      { time: 1_700_000_003, eventName: 'message', eventId: '2' },
+    ]);
+  });
+
+  it('plain rows without messages stay undecorated', () => {
+    const doc = buildHar([row('https://api.openheaders.io/users')]);
+    expect(doc.log.entries[0]?._webSocketMessages).toBeUndefined();
+    expect(doc.log.entries[0]?._eventSourceMessages).toBeUndefined();
+  });
+
+  it('decorates synth-only rows appended in CDP (host-authoritative) mode', () => {
+    const hostHar: InspectorHarLog = { entries: [], pages: [] };
+    const doc = buildHar(
+      [wsRow([{ kind: 'ws', type: 'send', atMs: 1_700_000_000_500, opcode: 1, mask: true, data: 'hi' }])],
+      [],
+      false,
+      undefined,
+      hostHar,
+    );
+    expect(doc.log.entries).toHaveLength(1);
+    expect(doc.log.entries[0]?._webSocketMessages).toEqual([
+      { type: 'send', time: 1_700_000_000.5, opcode: 1, data: 'hi' },
+    ]);
+  });
+});

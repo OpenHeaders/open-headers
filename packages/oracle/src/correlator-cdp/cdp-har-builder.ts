@@ -279,6 +279,22 @@ export class CdpHarBuilder {
         return this.onRequestExtra(event.tabId, requestId, event.headers);
       case 'Network.responseReceivedExtraInfo':
         return this.onResponseExtra(event.tabId, requestId, event.headers);
+      case 'Network.webSocketCreated':
+        return this.onWsCreated(event, requestId);
+      case 'Network.webSocketWillSendHandshakeRequest':
+        return this.onWsHandshakeRequest(event, requestId);
+      case 'Network.webSocketHandshakeResponseReceived':
+        return this.onWsHandshakeResponse(event, requestId);
+      case 'Network.webSocketClosed':
+        return this.onWsClosed(event.tabId, requestId, event.timestamp);
+      case 'Network.webSocketFrameSent':
+      case 'Network.webSocketFrameReceived':
+      case 'Network.webSocketFrameError':
+      case 'Network.eventSourceMessageReceived':
+        // Frames / parsed SSE events ride the lifecycle's message stream
+        // (`message-appended`, see cdp-to-update); the HAR plane carries
+        // them only at export time, synthesized from that stream.
+        return [];
     }
   }
 
@@ -561,6 +577,94 @@ export class CdpHarBuilder {
       hop.totalMs = totalTimeMs(hop.response.timing, failedSec);
     }
     return this.collect(this.emitHop(tabId, requestId, state, hopIndex));
+  }
+
+  // ── WebSocket HAR synthesis ──────────────────────────────────────────
+  //
+  // A WS row is a single hop whose events arrive on the `webSocket*`
+  // vocabulary (no plain-Network events exist for it — see events.ts).
+  // The hop shapes itself into the same `HopPartial` the HTTP path uses,
+  // so `emitHop` serves it unchanged: no ResourceTiming ⇒ no `timings`
+  // ladder, `time` = the handshake-issue → close span, exactly the span
+  // the host's own network log gives the row. No body ref is recorded —
+  // a socket has no `getResponseBody` surface.
+
+  /** `webSocketCreated` — seed the hop with the socket's url/initiator. The
+   *  event carries no timestamp; the arrival stamp stands in until the
+   *  handshake's wall instant refines it. */
+  private onWsCreated(
+    event: Extract<CdpNetworkEvent, { method: 'Network.webSocketCreated' }>,
+    requestId: string,
+  ): readonly RequestLifecycleUpdate[] {
+    const state = this.startState(event.tabId, requestId);
+    state.hops[0] = {
+      startedDateTime: wallTimeToIso(event.atWallMs / 1000),
+      issuedSec: Number.NaN,
+      request: { url: event.url, method: 'GET' },
+      ...(event.initiator !== undefined ? { initiator: event.initiator } : {}),
+      resourceType: 'websocket',
+    };
+    return [];
+  }
+
+  /** `webSocketWillSendHandshakeRequest` — the issue instant + the cooked
+   *  handshake headers. Replaces the seeded hop's provisional fields. */
+  private onWsHandshakeRequest(
+    event: Extract<CdpNetworkEvent, { method: 'Network.webSocketWillSendHandshakeRequest' }>,
+    requestId: string,
+  ): readonly RequestLifecycleUpdate[] {
+    const state = this.getState(event.tabId, requestId);
+    const hop = state?.hops[0];
+    if (state === undefined || hop === undefined) return [];
+    state.hops[0] = {
+      ...hop,
+      startedDateTime: wallTimeToIso(event.wallTime),
+      issuedSec: event.timestamp,
+      request: { ...hop.request, headers: event.headers },
+    };
+    const headers = this.requestHeaderUpdate(event.tabId, requestId, state, 0);
+    return headers === undefined ? [] : [headers];
+  }
+
+  /** `webSocketHandshakeResponseReceived` — status 101 + both directions'
+   *  on-the-wire headers. The wire request set lands in the extra slot so
+   *  `emitHop` supersedes the cooked set (capture point `effective`). */
+  private onWsHandshakeResponse(
+    event: Extract<CdpNetworkEvent, { method: 'Network.webSocketHandshakeResponseReceived' }>,
+    requestId: string,
+  ): readonly RequestLifecycleUpdate[] {
+    const state = this.getState(event.tabId, requestId);
+    const hop = state?.hops[0];
+    if (state === undefined || hop === undefined) return [];
+    hop.response = {
+      url: hop.request.url,
+      status: event.response.status,
+      statusText: event.response.statusText,
+      headers: event.response.headers,
+    };
+    hop.responseReceivedSec = event.timestamp;
+    const updates: RequestLifecycleUpdate[] = [];
+    if (event.response.requestHeaders !== undefined) {
+      state.requestExtraByHop[0] = event.response.requestHeaders;
+      const promoted = this.requestHeaderUpdate(event.tabId, requestId, state, 0);
+      if (promoted !== undefined) updates.push(promoted);
+    }
+    const emitted = this.emitHop(event.tabId, requestId, state, 0);
+    if (emitted !== undefined) updates.push(emitted);
+    return updates;
+  }
+
+  /** `webSocketClosed` — the WS terminal. `time` becomes the issue → close
+   *  span (the host's own row span); a socket that never handshaked has no
+   *  issue instant and honestly keeps `time` absent. */
+  private onWsClosed(tabId: number, requestId: string, closedSec: number): readonly RequestLifecycleUpdate[] {
+    const state = this.getState(tabId, requestId);
+    this.markFinalized(tabId, requestId, secondsToMs(closedSec));
+    const hop = state?.hops[0];
+    if (state === undefined || hop === undefined || hop.response === undefined) return [];
+    if (!Number.isNaN(hop.issuedSec)) hop.totalMs = (closedSec - hop.issuedSec) * 1000;
+    hop.terminalSec = closedSec;
+    return this.collect(this.emitHop(tabId, requestId, state, 0));
   }
 
   /**

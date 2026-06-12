@@ -805,3 +805,131 @@ describe('ChromeDebuggerEventSource → CdpCorrelator → RequestLifecycleStore 
     correlator.dispose();
   });
 });
+
+describe('ChromeDebuggerEventSource — WebSocket / EventSource vocabulary', () => {
+  it('normalizes the full WS event sequence on the page session', async () => {
+    source = new ChromeDebuggerEventSource();
+    const out: CdpNetworkEvent[] = [];
+    source.subscribe((e) => out.push(e));
+    await source.attach(TAB);
+
+    emitRoot('Network.webSocketCreated', {
+      requestId: 'ws-1',
+      url: 'wss://api.openheaders.io/socket',
+      initiator: { type: 'script', url: 'https://app.openheaders.io/' },
+    });
+    emitRoot('Network.webSocketWillSendHandshakeRequest', {
+      requestId: 'ws-1',
+      timestamp: 100,
+      wallTime: 1_700_000_000,
+      request: { headers: { Upgrade: 'websocket' } },
+    });
+    emitRoot('Network.webSocketHandshakeResponseReceived', {
+      requestId: 'ws-1',
+      timestamp: 100.2,
+      response: {
+        status: 101,
+        statusText: 'Switching Protocols',
+        headers: { Upgrade: 'websocket' },
+        headersText: 'HTTP/1.1 101 Switching Protocols\r\n\r\n',
+        requestHeaders: { Upgrade: 'websocket', 'Sec-WebSocket-Key': 'k==' },
+        requestHeadersText: 'GET wss://api.openheaders.io/socket HTTP/1.1\r\n\r\n',
+      },
+    });
+    emitRoot('Network.webSocketFrameSent', {
+      requestId: 'ws-1',
+      timestamp: 101,
+      response: { opcode: 1, mask: true, payloadData: 'ping' },
+    });
+    emitRoot('Network.webSocketFrameReceived', {
+      requestId: 'ws-1',
+      timestamp: 101.1,
+      response: { opcode: 2, mask: false, payloadData: '3q2+7w==' },
+    });
+    emitRoot('Network.webSocketFrameError', {
+      requestId: 'ws-1',
+      timestamp: 101.5,
+      errorMessage: 'Invalid frame header',
+    });
+    emitRoot('Network.webSocketClosed', { requestId: 'ws-1', timestamp: 102 });
+
+    expect(out.map((e) => e.method)).toEqual([
+      'Network.webSocketCreated',
+      'Network.webSocketWillSendHandshakeRequest',
+      'Network.webSocketHandshakeResponseReceived',
+      'Network.webSocketFrameSent',
+      'Network.webSocketFrameReceived',
+      'Network.webSocketFrameError',
+      'Network.webSocketClosed',
+    ]);
+    const created = out[0];
+    if (created?.method !== 'Network.webSocketCreated') throw new Error('expected created');
+    expect(created).toMatchObject({
+      tabId: TAB,
+      sessionId: 'page',
+      requestId: 'ws-1',
+      url: 'wss://api.openheaders.io/socket',
+      initiator: { type: 'script', url: 'https://app.openheaders.io/' },
+    });
+    // The arrival stamp stands in for the event's missing timestamp.
+    expect(typeof created.atWallMs).toBe('number');
+    expect(created.atWallMs).toBeGreaterThan(0);
+
+    expect(out[1]).toMatchObject({ wallTime: 1_700_000_000, headers: { Upgrade: 'websocket' } });
+    expect(out[2]).toMatchObject({
+      response: {
+        status: 101,
+        requestHeaders: { 'Sec-WebSocket-Key': 'k==' },
+        headersText: 'HTTP/1.1 101 Switching Protocols\r\n\r\n',
+      },
+    });
+    expect(out[3]).toMatchObject({ response: { opcode: 1, mask: true, payloadData: 'ping' } });
+    expect(out[4]).toMatchObject({ response: { opcode: 2, mask: false, payloadData: '3q2+7w==' } });
+    expect(out[5]).toMatchObject({ errorMessage: 'Invalid frame header' });
+    expect(out[6]).toMatchObject({ method: 'Network.webSocketClosed', requestId: 'ws-1', timestamp: 102 });
+  });
+
+  it('normalizes eventSourceMessageReceived with the parsed SSE fields', async () => {
+    source = new ChromeDebuggerEventSource();
+    const out: CdpNetworkEvent[] = [];
+    source.subscribe((e) => out.push(e));
+    await source.attach(TAB);
+
+    emitRoot('Network.eventSourceMessageReceived', {
+      requestId: 'sse-1',
+      timestamp: 101,
+      eventName: 'tick',
+      eventId: '3',
+      data: '{"seq":3}\n{"named":true}',
+    });
+
+    expect(out).toEqual([
+      {
+        method: 'Network.eventSourceMessageReceived',
+        tabId: TAB,
+        sessionId: 'page',
+        requestId: 'sse-1',
+        timestamp: 101,
+        eventName: 'tick',
+        eventId: '3',
+        data: '{"seq":3}\n{"named":true}',
+      },
+    ]);
+  });
+
+  it('routes WS events on a flattened child session by sessionId', async () => {
+    source = new ChromeDebuggerEventSource();
+    const out: CdpNetworkEvent[] = [];
+    source.subscribe((e) => out.push(e));
+    await source.attach(TAB);
+    emitRoot('Target.attachedToTarget', attachedToTarget(CHILD_SESSION, 'iframe'));
+
+    emitChild(CHILD_SESSION, 'Network.webSocketCreated', {
+      requestId: 'ws-c',
+      url: 'wss://widgets.openheaders.io/socket',
+    });
+
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ method: 'Network.webSocketCreated', sessionId: CHILD_SESSION, requestId: 'ws-c' });
+  });
+});
