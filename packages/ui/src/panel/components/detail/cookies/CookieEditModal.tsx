@@ -80,27 +80,29 @@ export function CookieEditModal({ open, mode, canonical, busy, onCancel, onSubmi
       onCancel={onCancel}
       maskClosable={!busy}
       destroyOnHidden
-      width={460}
+      width={520}
     >
       <div className="dt-cookie-edit-form">
-        <label className="dt-cookie-edit-field">
+        <label className="dt-cookie-edit-field dt-cookie-edit-field--wide">
           <span className="dt-cookie-edit-label">Name</span>
           <Input
             value={values.name}
             onChange={(e) => set('name', e.target.value)}
             placeholder="cookie name"
             disabled={busy}
+            size="small"
             status={values.name.trim() === '' ? 'error' : undefined}
           />
         </label>
 
-        <label className="dt-cookie-edit-field">
+        <label className="dt-cookie-edit-field dt-cookie-edit-field--wide">
           <span className="dt-cookie-edit-label">Value</span>
           <Input.TextArea
             value={values.value}
             onChange={(e) => set('value', e.target.value)}
-            autoSize={{ minRows: 1, maxRows: 4 }}
+            autoSize={{ minRows: 1, maxRows: 3 }}
             disabled={busy}
+            size="small"
           />
         </label>
 
@@ -111,39 +113,44 @@ export function CookieEditModal({ open, mode, canonical, busy, onCancel, onSubmi
             onChange={(e) => set('domain', e.target.value)}
             placeholder="openheaders.io"
             disabled={busy}
+            size="small"
             status={values.domain.trim() === '' ? 'error' : undefined}
           />
         </label>
 
         <label className="dt-cookie-edit-field">
           <span className="dt-cookie-edit-label">Path</span>
-          <Input value={values.path} onChange={(e) => set('path', e.target.value)} placeholder="/" disabled={busy} />
+          <Input
+            value={values.path}
+            onChange={(e) => set('path', e.target.value)}
+            placeholder="/"
+            disabled={busy}
+            size="small"
+          />
         </label>
 
         <div className="dt-cookie-edit-field">
           <span className="dt-cookie-edit-label">Expires</span>
-          <div className="dt-cookie-edit-expires">
-            <Radio.Group
-              value={values.session ? 'session' : 'date'}
-              onChange={(e) => set('session', e.target.value === 'session')}
+          <Radio.Group
+            value={values.session ? 'session' : 'date'}
+            onChange={(e) => set('session', e.target.value === 'session')}
+            disabled={busy}
+            options={[
+              { value: 'session', label: 'Session' },
+              { value: 'date', label: 'On date' },
+            ]}
+            optionType="button"
+            size="small"
+          />
+          {!values.session && (
+            <input
+              type="datetime-local"
+              className="dt-cookie-edit-datetime"
+              value={toLocalInput(values.expirationDate)}
+              onChange={(e) => set('expirationDate', fromLocalInput(e.target.value))}
               disabled={busy}
-              options={[
-                { value: 'session', label: 'Session' },
-                { value: 'date', label: 'On date' },
-              ]}
-              optionType="button"
-              size="small"
             />
-            {!values.session && (
-              <input
-                type="datetime-local"
-                className="dt-cookie-edit-datetime"
-                value={toLocalInput(values.expirationDate)}
-                onChange={(e) => set('expirationDate', fromLocalInput(e.target.value))}
-                disabled={busy}
-              />
-            )}
-          </div>
+          )}
         </div>
 
         <label className="dt-cookie-edit-field">
@@ -153,6 +160,7 @@ export function CookieEditModal({ open, mode, canonical, busy, onCancel, onSubmi
             onChange={(v) => set('sameSite', v)}
             options={SAME_SITE_OPTIONS}
             disabled={busy}
+            size="small"
             popupMatchSelectWidth={false}
           />
         </label>

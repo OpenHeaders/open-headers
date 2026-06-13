@@ -40,7 +40,14 @@ import {
 } from '../../data/cookie-edit';
 import { enrichCookies } from '../../data/cookie-enrich';
 import { parseCookieQuery, type CookieFilterToken } from '../../data/cookie-filter';
-import { isCookieJarWritable, type JarCookieEdit, removeJarCookie, writeJarCookie } from '../../data/cookie-jar-cache';
+import { cookieHeaderRuleTouched } from '../../data/cookie-indicators';
+import {
+  getEditedCookieKeys,
+  isCookieJarWritable,
+  type JarCookieEdit,
+  removeJarCookie,
+  writeJarCookie,
+} from '../../data/cookie-jar-cache';
 import {
   computeCookieInsights,
   droppedCookieNames,
@@ -152,10 +159,19 @@ export default function CookiesView({ row, pageOrigin, onCreateHeaderRule }: Coo
   );
 
   // ── Enrichment ─────────────────────────────────────────────────
+  // `jar` changes identity on every (re-)fetch — including the one a
+  // panel cookie write triggers — so reading the live edited-keys set
+  // here recomputes with the edit applied.
   const { request: requestRows, response: responseRows, requestBytes, responseBytes } = useMemo(
-    () => enrichCookies({ url: lc.url, har, jar, showFilteredOut }),
+    () => enrichCookies({ url: lc.url, har, jar, showFilteredOut, editedKeys: getEditedCookieKeys() }),
     [lc.url, har, jar, showFilteredOut],
   );
+
+  // ── Rule-interaction (blue square) — per direction, from this
+  //    request's fires. The Cookie header is a bundle, so a fired
+  //    Cookie / Set-Cookie rule marks every row in that direction. ──
+  const requestRuleTouched = useMemo(() => cookieHeaderRuleTouched(row.fires, 'request'), [row.fires]);
+  const responseRuleTouched = useMemo(() => cookieHeaderRuleTouched(row.fires, 'response'), [row.fires]);
 
   // ── Insights + derived problem / dropped sets ──────────────────
   const insights = useMemo<readonly CookieInsight[]>(
@@ -317,6 +333,7 @@ export default function CookiesView({ row, pageOrigin, onCreateHeaderRule }: Coo
         summaryRef={firstSummaryRef}
         onMakeRule={onMakeRule}
         writable={writable}
+        ruleTouched={responseRuleTouched}
         onEdit={onEditCookie}
         onDelete={onDeleteCookie}
       />
@@ -337,6 +354,7 @@ export default function CookiesView({ row, pageOrigin, onCreateHeaderRule }: Coo
         now={now}
         onMakeRule={onMakeRule}
         writable={writable}
+        ruleTouched={requestRuleTouched}
         onEdit={onEditCookie}
         onDelete={onDeleteCookie}
       />

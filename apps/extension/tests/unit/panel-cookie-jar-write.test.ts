@@ -1,6 +1,8 @@
 import {
   __resetCookieJarCacheForTests,
   __seedCookieJarForTests,
+  cookieEditKey,
+  getEditedCookieKeys,
   getJarCookiesForUrl,
   isCookieJarWritable,
   type JarCookie,
@@ -70,6 +72,37 @@ describe('cookie-jar write seam', () => {
     // Cache was invalidated → the synchronous read kicks off a fresh
     // lookup and returns null in the meantime.
     expect(getJarCookiesForUrl(URL)).toBeNull();
+  });
+
+  it('records the edited key on a successful write', async () => {
+    const written: JarCookie = { ...SEEDED, value: 'new' };
+    setCookieJarWriter({ set: vi.fn(async () => written), remove: vi.fn(async () => true) });
+
+    expect(getEditedCookieKeys().has(cookieEditKey('sid', 'openheaders.io', '/'))).toBe(false);
+    await writeJarCookie({
+      name: 'sid',
+      value: 'new',
+      domain: 'openheaders.io',
+      path: '/',
+      hostOnly: true,
+      httpOnly: true,
+      secure: true,
+    });
+    expect(getEditedCookieKeys().has(cookieEditKey('sid', 'openheaders.io', '/'))).toBe(true);
+  });
+
+  it('does not record an edited key when the write fails', async () => {
+    setCookieJarWriter({ set: vi.fn(async () => null), remove: vi.fn(async () => true) });
+    await writeJarCookie({
+      name: 'sid',
+      value: 'new',
+      domain: 'openheaders.io',
+      path: '/',
+      hostOnly: true,
+      httpOnly: true,
+      secure: true,
+    });
+    expect(getEditedCookieKeys().size).toBe(0);
   });
 
   it('removeJarCookie forwards the key and invalidates the cache', async () => {

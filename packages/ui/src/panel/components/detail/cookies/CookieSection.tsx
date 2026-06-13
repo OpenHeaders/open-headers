@@ -10,6 +10,7 @@
 
 import { useMemo, useRef, type RefObject } from 'react';
 import { useMeasuredCssHeights } from '@openheaders/ui/shared/hooks/useMeasuredStickyOffset';
+import { InfoPopover, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { isJarEditableRow } from '../../../data/cookie-edit';
 import type { CookieRow as CookieRowModel } from '../../../data/cookie-model';
 import type { CookieFilterToken, CookieRowMeta } from '../../../data/cookie-filter';
@@ -20,7 +21,22 @@ import type { DevpanelCookiesSortSetting } from '../../../../workbench/settings/
 import { CookieColumnInfo } from './CookieColumnInfo';
 import { CookieRow } from './CookieRow';
 
-const COLUMN_SPAN = 6;
+const COLUMN_SPAN = 7;
+
+const STATUS_RAIL_INFO: InfoPopoverContent = {
+  title: 'Status',
+  kicker: 'OpenHeaders',
+  summary: 'A square marks cookies that are not in their raw browser state.',
+  sections: [
+    {
+      heading: 'Square colors',
+      items: [
+        { label: 'blue', desc: 'A rule that fired on this request modifies this direction’s Cookie / Set-Cookie header.' },
+        { label: 'grey', desc: 'Added or edited from this panel during this session.' },
+      ],
+    },
+  ],
+};
 
 interface Props {
   label: string;
@@ -40,6 +56,9 @@ interface Props {
   onMakeRule: (row: CookieRowModel) => void;
   /** Whether a host has wired a jar-write path — gates Edit / Delete. */
   writable: boolean;
+  /** A rule that fired on this request modifies this direction's cookie
+   *  header — drives the blue status square on every row. */
+  ruleTouched: boolean;
   onEdit: (row: CookieRowModel) => void;
   onDelete: (row: CookieRowModel) => void;
 }
@@ -127,6 +146,7 @@ export function CookieSection({
   summaryRef,
   onMakeRule,
   writable,
+  ruleTouched,
   onEdit,
   onDelete,
 }: Props) {
@@ -193,6 +213,7 @@ export function CookieSection({
       now={now}
       columnSpan={COLUMN_SPAN}
       onMakeRule={() => onMakeRule(p.row)}
+      ruleTouched={ruleTouched}
       canEdit={writable && isJarEditableRow(p.row)}
       onEdit={() => onEdit(p.row)}
       onDelete={() => onDelete(p.row)}
@@ -235,6 +256,7 @@ export function CookieSection({
       <div className="dt-cookie-table-wrap">
         <table className="dt-cookie-table">
           <colgroup>
+            <col className="dt-cookie-col--status" />
             <col className="dt-cookie-col--name" />
             <col className="dt-cookie-col--value" />
             <col className="dt-cookie-col--scope" />
@@ -244,6 +266,13 @@ export function CookieSection({
           </colgroup>
           <thead ref={theadRef}>
             <tr>
+              <th className="dt-cookie-status-head-cell">
+                <InfoPopover content={STATUS_RAIL_INFO} trigger="hover" placement="bottomLeft">
+                  <span className="dt-cookie-status-head">
+                    <span className="dt-cookie-status-head-dot" />
+                  </span>
+                </InfoPopover>
+              </th>
               <th>
                 <span className="dt-cookie-col-head">
                   Name

@@ -63,6 +63,13 @@ export interface CookieRow {
   /** Why this jar cookie wasn't sent — only set when `attribution`
    *  is `filtered-out`. */
   filteredReason?: string;
+  /** This cookie was added/edited from the panel this session — drives
+   *  the grey status square and makes the Value cell show the live jar
+   *  value instead of the request-carried one. */
+  edited?: boolean;
+  /** The value the request actually carried, kept for the tooltip when
+   *  `value` is showing the (edited) live-jar value instead. */
+  sentValue?: string;
 }
 
 export interface CookieFootprint {

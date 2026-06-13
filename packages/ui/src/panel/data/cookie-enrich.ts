@@ -20,11 +20,9 @@
  */
 
 import type { InspectorHarEntry } from '@openheaders/core/types';
-import type { JarCookie } from './cookie-jar-cache';
+import { cookieEditKey, type JarCookie } from './cookie-jar-cache';
 import type { CookieRow, CookieSameSite } from './cookie-model';
 import { jarToRow } from './cookie-model';
-
-const KNOWN_SAMESITE: ReadonlySet<string> = new Set(['no_restriction', 'lax', 'strict', 'unspecified']);
 
 function normaliseSameSiteAttr(raw: string): CookieSameSite | string {
   const lower = raw.toLowerCase();
@@ -50,7 +48,10 @@ function parseExpiresDate(raw: string): number | undefined {
  * the line has no name/value pair.
  */
 export function parseSetCookieLine(line: string, now: number = Date.now()): CookieRow | null {
-  const parts = line.split(';').map((s) => s.trim()).filter(Boolean);
+  const parts = line
+    .split(';')
+    .map((s) => s.trim())
+    .filter(Boolean);
   const first = parts[0];
   if (!first) return null;
 
@@ -133,6 +134,10 @@ export interface EnrichmentInputs {
   /** When true, also surface jar cookies that *would* have been sent
    *  but weren't, with a `filteredReason`. */
   showFilteredOut: boolean;
+  /** Identity keys (`cookieEditKey`) of cookies edited from the panel
+   *  this session — those rows show the live jar value, not the value
+   *  the request carried, and are flagged `edited`. */
+  editedKeys?: ReadonlySet<string>;
   /** Unix ms — injected for deterministic tests. */
   now?: number;
 }
@@ -170,10 +175,21 @@ export function enrichCookies(input: EnrichmentInputs): EnrichmentResult {
       matchedJarIdx.add(jarMatchIdx);
       const j = jar[jarMatchIdx];
       const row = jarToRow(j, 'request', 'request-jar');
-      // Value the request actually carried wins over the jar's current
-      // value (jar may have been updated by a Set-Cookie since).
-      row.value = sent.value;
-      row.size = sent.name.length + 1 + sent.value.length;
+      const wasEdited = input.editedKeys?.has(cookieEditKey(j.name, j.domain, j.path)) ?? false;
+      if (wasEdited && j.value !== sent.value) {
+        // The user changed this cookie from the panel after the request
+        // was made — show the live jar value (their edit), keep the
+        // request-carried value for the tooltip.
+        row.value = j.value;
+        row.edited = true;
+        row.sentValue = sent.value;
+      } else {
+        // Value the request actually carried wins over the jar's current
+        // value (jar may have been updated by a Set-Cookie since).
+        row.value = sent.value;
+        if (wasEdited) row.edited = true;
+      }
+      row.size = row.name.length + 1 + row.value.length;
       requestRows.push(row);
     } else {
       requestRows.push({
@@ -200,6 +216,7 @@ export function enrichCookies(input: EnrichmentInputs): EnrichmentResult {
       const reason = parsedUrl ? explainFilteredOut(j, parsedUrl, now) : 'not sent';
       const row = jarToRow(j, 'request', 'filtered-out');
       row.filteredReason = reason;
+      if (input.editedKeys?.has(cookieEditKey(j.name, j.domain, j.path))) row.edited = true;
       requestRows.push(row);
     }
   }

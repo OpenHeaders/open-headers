@@ -59,6 +59,7 @@
 /* Shared column widths — applied to both tables via the <colgroup>
  * in CookieSection.tsx so Response Cookies and Request Cookies line
  * up vertically. */
+.dt-cookie-col--status { width: 22px; }
 .dt-cookie-col--name { width: 26%; }
 .dt-cookie-col--value { width: auto; }
 .dt-cookie-col--scope { width: 180px; }
@@ -70,6 +71,10 @@
   font-weight: 600;
   padding: 3px 6px;
   border-bottom: 1px solid var(--dt-border);
+  /* Vertical column dividers between header cells, mirroring the
+   * Network table's column headers. The trailing column drops its
+   * divider so nothing dangles against the card edge. */
+  border-right: 1px solid var(--dt-border);
   white-space: nowrap;
   color: var(--dt-text-muted);
   font-size: 10px;
@@ -86,6 +91,9 @@
   position: sticky;
   top: var(--oh-cookies-sticky-offset, 54px);
   z-index: 2;
+}
+.dt-cookie-table th:last-child {
+  border-right: none;
 }
 /* Column head — label + always-visible `(i)` trigger sit on one line.
  * Override the Headers tab's hover-reveal pattern (.dt-header-info-trigger
@@ -492,36 +500,82 @@
   color: var(--dt-status-yellow);
 }
 
-/* ── Add / edit modal form ─────────────────────────────────────── */
+/* ── Status square (standalone leading column, mirrors the Network
+ *    table's fire / annotation rails) ─────────────────────────────
+ * Zero padding + centered so the 8px square never collides with the
+ * cell edge — the inherited td padding (6px) plus the square once
+ * overflowed the hairline column and the `text-overflow: ellipsis`
+ * rendered a stray "…". */
+.dt-cookie-status {
+  padding: 0;
+  text-align: center;
+  overflow: visible;
+}
+.dt-cookie-status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 1px;
+  vertical-align: middle;
+}
+.dt-cookie-status-dot--rule {
+  background: var(--dt-link);
+}
+.dt-cookie-status-dot--edited {
+  background: var(--dt-accent-system);
+}
+/* Rail-style header: a dimmed square (no label fits a 22px column) with
+ * a hover info popover, matching the Network rails' header idiom. */
+.dt-cookie-status-head-cell {
+  padding: 0;
+  text-align: center;
+}
+.dt-cookie-status-head {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: help;
+}
+.dt-cookie-status-head-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 1px;
+  background: var(--dt-text-muted);
+}
+
+/* ── Add / edit modal form — compact two-column grid sized for the
+ *    short DevTools panel (low height, wide). ────────────────────── */
 .dt-cookie-edit-form {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding-top: 4px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+  padding-top: 2px;
 }
 .dt-cookie-edit-field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
+  min-width: 0;
+}
+/* Name + Value span the full width; the rest pair up two-per-row. */
+.dt-cookie-edit-field--wide {
+  grid-column: 1 / -1;
 }
 .dt-cookie-edit-label {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   color: var(--dt-text-muted);
 }
-.dt-cookie-edit-expires {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
 .dt-cookie-edit-datetime {
-  flex: 1 1 auto;
-  min-width: 180px;
+  margin-top: 4px;
+  min-width: 0;
+  max-width: 100%;
 }
 .dt-cookie-edit-toggles {
+  grid-column: 1 / -1;
   display: flex;
-  gap: 20px;
+  gap: 18px;
   flex-wrap: wrap;
   margin-top: 2px;
 }

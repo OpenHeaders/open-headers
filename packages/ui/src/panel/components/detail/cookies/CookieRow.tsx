@@ -20,6 +20,7 @@ import { CheckOutlined, CopyOutlined, DeleteOutlined, EditOutlined } from '@ant-
 import { useState } from 'react';
 import type { CookieRow as CookieRowModel } from '../../../data/cookie-model';
 import { formatAbsoluteExpiry, formatRelativeExpiry, urlDecodeSafe } from '../../../data/cookie-format';
+import { cookieRowIndicator } from '../../../data/cookie-indicators';
 import type { CookieRole } from '../../../data/cookie-role';
 import type { CookieValueIntrospection } from '../../../data/cookie-value-introspect';
 import { introspectionHasDepth } from '../../../data/cookie-value-introspect';
@@ -49,6 +50,8 @@ interface Props {
    *  fixed slot count (Name/Value/Scope/Expires/Size/Sec = 6). */
   columnSpan: number;
   onMakeRule: () => void;
+  /** A rule that fired on this request modifies this row's cookie header. */
+  ruleTouched: boolean;
   /** Jar-backed rows get Edit / Delete affordances; response Set-Cookie
    *  lines and jar-less request rows don't (nothing to write). */
   canEdit: boolean;
@@ -81,12 +84,14 @@ export function CookieRow({
   now,
   columnSpan,
   onMakeRule,
+  ruleTouched,
   canEdit,
   onEdit,
   onDelete,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
   const canExpand = introspectionHasDepth(introspection);
+  const indicator = cookieRowIndicator(!!row.edited, ruleTouched);
 
   const valueText = decodeValues ? urlDecodeSafe(row.value) : row.value;
 
@@ -121,6 +126,19 @@ export function CookieRow({
         data-role={role}
         onClick={toggle}
       >
+        <td className="dt-cookie-status">
+          {indicator && (
+            <span
+              className={`dt-cookie-status-dot dt-cookie-status-dot--${indicator}`}
+              title={
+                indicator === 'rule'
+                  ? `A rule modifies the ${row.direction === 'response' ? 'Set-Cookie' : 'Cookie'} header on this request`
+                  : 'Edited from this panel'
+              }
+              aria-label={indicator === 'rule' ? 'Rule applies' : 'Edited'}
+            />
+          )}
+        </td>
         <td className="dt-cookie-name">
           <span
             className="dt-cookie-name-text"
@@ -152,7 +170,12 @@ export function CookieRow({
               {expanded ? '▾' : '▸'}
             </span>
           )}
-          <span className="dt-cookie-value-text">{valueText}</span>
+          <span
+            className="dt-cookie-value-text"
+            title={row.edited && row.sentValue != null ? `Edited — request carried: ${row.sentValue}` : undefined}
+          >
+            {valueText}
+          </span>
           {introspection.kind === 'jwt' && <span className="dt-cookie-value-hint">JWT</span>}
           {introspection.kind === 'json' && <span className="dt-cookie-value-hint">JSON</span>}
           {introspection.kind === 'base64' && <span className="dt-cookie-value-hint">b64</span>}

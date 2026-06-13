@@ -1,5 +1,6 @@
 import type { InspectorHarEntry } from '@openheaders/core/types';
 import { enrichCookies, parseSetCookieLine } from '@openheaders/ui/panel/data/cookie-enrich';
+import { cookieEditKey } from '@openheaders/ui/panel/data/cookie-jar-cache';
 import type { JarCookie } from '@openheaders/ui/panel/host-cookie-jar';
 import { describe, expect, it } from 'vitest';
 
@@ -25,8 +26,27 @@ function har(over: Partial<InspectorHarEntry> = {}): InspectorHarEntry {
   return {
     startedDateTime: new Date(NOW).toISOString(),
     time: 0,
-    request: { method: 'GET', url: 'https://openheaders.io/', httpVersion: '', cookies: [], headers: [], queryString: [], headersSize: -1, bodySize: -1 },
-    response: { status: 200, statusText: 'OK', httpVersion: '', cookies: [], headers: [], content: { size: 0, mimeType: '' }, redirectURL: '', headersSize: -1, bodySize: -1 },
+    request: {
+      method: 'GET',
+      url: 'https://openheaders.io/',
+      httpVersion: '',
+      cookies: [],
+      headers: [],
+      queryString: [],
+      headersSize: -1,
+      bodySize: -1,
+    },
+    response: {
+      status: 200,
+      statusText: 'OK',
+      httpVersion: '',
+      cookies: [],
+      headers: [],
+      content: { size: 0, mimeType: '' },
+      redirectURL: '',
+      headersSize: -1,
+      bodySize: -1,
+    },
     cache: {},
     timings: { send: 0, wait: 0, receive: 0 },
     ...over,
@@ -79,7 +99,13 @@ describe('enrichCookies', () => {
       url: 'https://openheaders.io/api',
       har: har({
         request: {
-          method: 'GET', url: 'https://openheaders.io/api', httpVersion: '', queryString: [], headers: [], headersSize: -1, bodySize: -1,
+          method: 'GET',
+          url: 'https://openheaders.io/api',
+          httpVersion: '',
+          queryString: [],
+          headers: [],
+          headersSize: -1,
+          bodySize: -1,
           cookies: [{ name: 'session', value: 'request-sent-value' }],
         },
       }),
@@ -103,7 +129,13 @@ describe('enrichCookies', () => {
       url: 'https://openheaders.io/api',
       har: har({
         request: {
-          method: 'GET', url: 'https://openheaders.io/api', httpVersion: '', queryString: [], headers: [], headersSize: -1, bodySize: -1,
+          method: 'GET',
+          url: 'https://openheaders.io/api',
+          httpVersion: '',
+          queryString: [],
+          headers: [],
+          headersSize: -1,
+          bodySize: -1,
           cookies: [{ name: 'orphan', value: 'v' }],
         },
       }),
@@ -120,7 +152,13 @@ describe('enrichCookies', () => {
       url: 'http://openheaders.io/api', // http triggers Secure-only filter reason
       har: har({
         request: {
-          method: 'GET', url: 'http://openheaders.io/api', httpVersion: '', queryString: [], headers: [], headersSize: -1, bodySize: -1,
+          method: 'GET',
+          url: 'http://openheaders.io/api',
+          httpVersion: '',
+          queryString: [],
+          headers: [],
+          headersSize: -1,
+          bodySize: -1,
           cookies: [],
         },
       }),
@@ -138,7 +176,14 @@ describe('enrichCookies', () => {
       url: 'https://openheaders.io/',
       har: har({
         response: {
-          status: 200, statusText: 'OK', httpVersion: '', cookies: [], content: { size: 0, mimeType: '' }, redirectURL: '', headersSize: -1, bodySize: -1,
+          status: 200,
+          statusText: 'OK',
+          httpVersion: '',
+          cookies: [],
+          content: { size: 0, mimeType: '' },
+          redirectURL: '',
+          headersSize: -1,
+          bodySize: -1,
           headers: [
             { name: 'Set-Cookie', value: 'a=1; Path=/; Secure' },
             { name: 'set-cookie', value: 'b=2; HttpOnly' },
@@ -153,5 +198,68 @@ describe('enrichCookies', () => {
     expect(result.response).toHaveLength(2);
     expect(result.response.map((r) => r.name).sort()).toEqual(['a', 'b']);
     expect(result.responseBytes).toBeGreaterThan(0);
+  });
+});
+
+describe('enrichCookies — edited cookies', () => {
+  const sentHar = har({
+    request: {
+      method: 'GET',
+      url: 'https://openheaders.io/',
+      httpVersion: '',
+      headers: [],
+      queryString: [],
+      headersSize: -1,
+      bodySize: -1,
+      cookies: [{ name: '_octo', value: 'GH1.1.x.4' }],
+    },
+  });
+  const octo = jar({ name: '_octo', value: 'GH1.1.x.3', domain: '.github.com', path: '/' });
+  const edited = new Set([cookieEditKey('_octo', '.github.com', '/')]);
+
+  it('shows the live jar value (not the request-carried one) for an edited cookie', () => {
+    const result = enrichCookies({
+      url: 'https://openheaders.io/',
+      har: sentHar,
+      jar: [octo],
+      showFilteredOut: false,
+      editedKeys: edited,
+      now: NOW,
+    });
+    const row = result.request.find((r) => r.name === '_octo');
+    expect(row?.value).toBe('GH1.1.x.3'); // the edit, not GH1.1.x.4
+    expect(row?.edited).toBe(true);
+    expect(row?.sentValue).toBe('GH1.1.x.4');
+    expect(row?.size).toBe('_octo'.length + 1 + 'GH1.1.x.3'.length);
+  });
+
+  it('keeps the request-carried value when the cookie was not edited', () => {
+    const result = enrichCookies({
+      url: 'https://openheaders.io/',
+      har: sentHar,
+      jar: [octo],
+      showFilteredOut: false,
+      now: NOW,
+    });
+    const row = result.request.find((r) => r.name === '_octo');
+    expect(row?.value).toBe('GH1.1.x.4');
+    expect(row?.edited).toBeUndefined();
+    expect(row?.sentValue).toBeUndefined();
+  });
+
+  it('flags edited even when the edited value equals what was sent', () => {
+    const same = jar({ name: '_octo', value: 'GH1.1.x.4', domain: '.github.com', path: '/' });
+    const result = enrichCookies({
+      url: 'https://openheaders.io/',
+      har: sentHar,
+      jar: [same],
+      showFilteredOut: false,
+      editedKeys: edited,
+      now: NOW,
+    });
+    const row = result.request.find((r) => r.name === '_octo');
+    expect(row?.edited).toBe(true);
+    expect(row?.value).toBe('GH1.1.x.4');
+    expect(row?.sentValue).toBeUndefined();
   });
 });
