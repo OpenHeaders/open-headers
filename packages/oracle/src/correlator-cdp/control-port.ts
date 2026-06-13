@@ -164,7 +164,9 @@ export type CdpControlCommand =
   | { readonly kind: 'set-cache-disabled'; readonly cacheDisabled: boolean }
   | { readonly kind: 'emulate-network-conditions'; readonly conditions: CdpNetworkConditions }
   | { readonly kind: 'clear-network-conditions' }
-  | { readonly kind: 'set-bypass-csp'; readonly enabled: boolean };
+  | { readonly kind: 'set-bypass-csp'; readonly enabled: boolean }
+  | { readonly kind: 'enable-fetch'; readonly patterns: readonly CdpFetchPattern[] }
+  | { readonly kind: 'disable-fetch' };
 
 /**
  * Pure diff: the CDP commands that carry a session from `prev` to `next`.
@@ -196,7 +198,31 @@ export function reconcileTabControl(prev: CdpTabControlState, next: CdpTabContro
     commands.push({ kind: 'set-bypass-csp', enabled: next.bypassCsp });
   }
 
+  if (!fetchPatternsEqual(prev.fetchPatterns, next.fetchPatterns)) {
+    // `Fetch.enable` replaces the active pattern set wholesale, so a changed
+    // non-empty set re-enables with the new patterns; an emptied set
+    // `disable`s interception entirely (the un-armed / no-debug-rule state).
+    commands.push(
+      next.fetchPatterns.length === 0
+        ? { kind: 'disable-fetch' }
+        : { kind: 'enable-fetch', patterns: next.fetchPatterns },
+    );
+  }
+
   return commands;
+}
+
+function fetchPatternsEqual(a: readonly CdpFetchPattern[], b: readonly CdpFetchPattern[]): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  return a.every((pattern, i) => {
+    const other = b[i];
+    return (
+      pattern.urlPattern === other.urlPattern &&
+      pattern.requestStage === other.requestStage &&
+      pattern.resourceType === other.resourceType
+    );
+  });
 }
 
 function networkConditionsEqual(a: CdpNetworkConditions | null, b: CdpNetworkConditions | null): boolean {

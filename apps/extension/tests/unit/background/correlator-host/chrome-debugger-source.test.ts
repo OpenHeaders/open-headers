@@ -17,7 +17,7 @@
  *     with zero reducer rejections.
  */
 
-import type { CdpNetworkEvent, CdpPageEvent } from '@openheaders/oracle/correlator-cdp';
+import type { CdpFetchEvent, CdpNetworkEvent, CdpPageEvent } from '@openheaders/oracle/correlator-cdp';
 import { CdpCorrelator, cdpStoreRequestId } from '@openheaders/oracle/correlator-cdp';
 import { RequestLifecycleStore } from '@openheaders/oracle/request-lifecycle-store';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -86,6 +86,19 @@ function rawResponseReceivedExtraInfo(requestId: string, headers: Record<string,
 
 function rawLoadingFailed(requestId: string): object {
   return { requestId, timestamp: 100.7, type: 'XHR', errorText: 'net::ERR_FAILED', canceled: false };
+}
+
+function rawRequestPaused(requestId: string, url: string, overrides: Record<string, unknown> = {}): object {
+  // CDP carries responseErrorReason / responseHeaders / authChallenge too;
+  // the adapter reads only the request-stage subset.
+  return {
+    requestId,
+    request: { url, method: 'GET', headers: { Accept: '*/*' } },
+    frameId: 'F1',
+    resourceType: 'Document',
+    networkId: 'net-1',
+    ...overrides,
+  };
 }
 
 function attachedToTarget(sessionId: string, type: string): object {
@@ -757,6 +770,94 @@ describe('ChromeDebuggerEventSource — streamResponseBody (in-flight pull seam)
     } finally {
       vi.stubGlobal('chrome', chromeMock);
     }
+  });
+});
+
+describe('ChromeDebuggerEventSource — Fetch.requestPaused (control-input stream)', () => {
+  it('normalizes a paused request on the root session with its request-stage subset', async () => {
+    source = new ChromeDebuggerEventSource();
+    const out: CdpFetchEvent[] = [];
+    source.subscribeFetch((e) => out.push(e));
+    await source.attach(TAB);
+
+    emitRoot('Fetch.requestPaused', rawRequestPaused('fetch-1', 'https://api.openheaders.io/users'));
+
+    expect(out).toEqual([
+      {
+        method: 'Fetch.requestPaused',
+        tabId: TAB,
+        sessionId: 'page',
+        requestId: 'fetch-1',
+        request: { url: 'https://api.openheaders.io/users', method: 'GET', headers: { Accept: '*/*' } },
+        resourceType: 'Document',
+        frameId: 'F1',
+        networkId: 'net-1',
+      },
+    ]);
+  });
+
+  it('omits frameId / networkId when absent (worker-originated pause)', async () => {
+    source = new ChromeDebuggerEventSource();
+    const out: CdpFetchEvent[] = [];
+    source.subscribeFetch((e) => out.push(e));
+    await source.attach(TAB);
+
+    emitRoot('Fetch.requestPaused', {
+      requestId: 'fetch-w',
+      request: { url: 'https://api.openheaders.io/worker', method: 'POST' },
+      resourceType: 'Fetch',
+    });
+
+    expect(out[0]).toEqual({
+      method: 'Fetch.requestPaused',
+      tabId: TAB,
+      sessionId: 'page',
+      requestId: 'fetch-w',
+      request: { url: 'https://api.openheaders.io/worker', method: 'POST' },
+      resourceType: 'Fetch',
+    });
+  });
+
+  it('routes a paused request on a flattened child session by sessionId', async () => {
+    source = new ChromeDebuggerEventSource();
+    const out: CdpFetchEvent[] = [];
+    source.subscribeFetch((e) => out.push(e));
+    await source.attach(TAB);
+
+    emitRoot('Target.attachedToTarget', attachedToTarget(CHILD_SESSION, 'iframe'));
+    emitChild(CHILD_SESSION, 'Fetch.requestPaused', rawRequestPaused('fetch-c', 'https://widgets.openheaders.io/x'));
+
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ method: 'Fetch.requestPaused', sessionId: CHILD_SESSION, requestId: 'fetch-c' });
+  });
+
+  it('drops a paused request from an unkept child session (target-type filter)', async () => {
+    source = new ChromeDebuggerEventSource();
+    const out: CdpFetchEvent[] = [];
+    source.subscribeFetch((e) => out.push(e));
+    await source.attach(TAB);
+
+    emitRoot('Target.attachedToTarget', attachedToTarget('sw-session', 'service_worker'));
+    emitChild('sw-session', 'Fetch.requestPaused', rawRequestPaused('fetch-sw', 'https://api.openheaders.io/sync'));
+
+    expect(out).toHaveLength(0);
+  });
+
+  it('does not fan Fetch events onto the Network or Page subscribers', async () => {
+    source = new ChromeDebuggerEventSource();
+    const net: CdpNetworkEvent[] = [];
+    const pages: CdpPageEvent[] = [];
+    const fetches: CdpFetchEvent[] = [];
+    source.subscribe((e) => net.push(e));
+    source.subscribePage((e) => pages.push(e));
+    source.subscribeFetch((e) => fetches.push(e));
+    await source.attach(TAB);
+
+    emitRoot('Fetch.requestPaused', rawRequestPaused('fetch-iso', 'https://api.openheaders.io/iso'));
+
+    expect(net).toHaveLength(0);
+    expect(pages).toHaveLength(0);
+    expect(fetches).toHaveLength(1);
   });
 });
 

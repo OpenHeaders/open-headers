@@ -414,6 +414,43 @@ export interface CdpEventSourceMessageReceived {
   readonly data: string;
 }
 
+// ── Fetch-interception vocabulary (control-input, NOT observation) ────
+//
+// `Fetch.requestPaused` is the inbound edge of the Phase-D control loop: a
+// request (or response) matched by an active `Fetch.enable` pattern is
+// suspended until the control plane answers it through the
+// {@link CdpRequestControlPort} (continue / fulfill / continueWithAuth).
+// Unlike the `Network.*` stream — which the correlator reduces into
+// lifecycles — this event drives the request-control port in the host and
+// never reaches the correlator, so it rides its own {@link subscribeFetch}
+// channel (sibling to `subscribePage`), keeping the observation plane clean.
+
+/**
+ * `Fetch.requestPaused` — one paused request/response awaiting a control
+ * answer. `requestId` is the FETCH interception id (the handle every answer
+ * command keys on), distinct from `networkId` (the
+ * `Network.requestWillBeSent` id of the same request, which joins the pause
+ * to the observed lifecycle).
+ */
+export interface CdpRequestPaused {
+  readonly method: 'Fetch.requestPaused';
+  readonly tabId: number;
+  /** Session the pause arrived on — page target or a flattened child. */
+  readonly sessionId: string;
+  /** Fetch interception id — the key for continue / fulfill / continueWithAuth. */
+  readonly requestId: string;
+  readonly request: CdpRequestParams;
+  /** CDP resource type for the paused request (`Document`, `XHR`, `Image`, …). */
+  readonly resourceType: string;
+  /** Frame the request belongs to; absent for worker requests. */
+  readonly frameId?: string;
+  /** `Network.requestWillBeSent` id of the same request — lifecycle join key. */
+  readonly networkId?: string;
+}
+
+/** The Fetch-domain control-input event stream (Phase D onward). */
+export type CdpFetchEvent = CdpRequestPaused;
+
 export type CdpNetworkEvent =
   | CdpRequestWillBeSent
   | CdpResponseReceived
@@ -487,6 +524,13 @@ export interface CdpEventSource {
   subscribe(listener: (event: CdpNetworkEvent) => void): () => void;
   /** The `Page.*` lifecycle stream — page-timing source, root target only. */
   subscribePage(listener: (event: CdpPageEvent) => void): () => void;
+  /**
+   * The `Fetch.*` control-input stream — paused requests awaiting a control
+   * answer (Phase D). Consumed by the host's pause handler, not the
+   * correlator; sibling to {@link subscribePage}, never folded into the
+   * `Network.*` observation stream.
+   */
+  subscribeFetch(listener: (event: CdpFetchEvent) => void): () => void;
   fetchResponseBody(tabId: number, sessionId: string, rawRequestId: string): Promise<CdpResponseBody>;
   streamResponseBody(tabId: number, sessionId: string, rawRequestId: string): Promise<CdpBufferedResponseBody>;
 }

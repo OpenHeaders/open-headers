@@ -38,11 +38,13 @@ import type {
   CdpBufferedResponseBody,
   CdpCallFrame,
   CdpEventSource,
+  CdpFetchEvent,
   CdpInitiator,
   CdpNetworkEvent,
   CdpPageEvent,
   CdpPageFrame,
   CdpRequestParams,
+  CdpRequestPaused,
   CdpResourceTiming,
   CdpResponseBody,
   CdpResponseParams,
@@ -55,6 +57,7 @@ import { clearMainFrameId, setMainFrameId } from './main-frame-registry';
 
 type Listener = (event: CdpNetworkEvent) => void;
 type PageListener = (event: CdpPageEvent) => void;
+type FetchListener = (event: CdpFetchEvent) => void;
 type DetachListener = (tabId: number, reason: string) => void;
 type DebuggerApi = BrowserAPI['debugger'];
 
@@ -114,6 +117,7 @@ const ATTACHABLE_CHILD_TARGET_TYPES: ReadonlySet<string> = new Set(['iframe', 'w
 export class ChromeDebuggerEventSource implements CdpEventSource {
   private readonly listeners = new Set<Listener>();
   private readonly pageListeners = new Set<PageListener>();
+  private readonly fetchListeners = new Set<FetchListener>();
   private readonly detachListeners = new Set<DetachListener>();
   /** Root (page-target) tabs we hold a `chrome.debugger` attachment for. */
   private readonly attachedTabs = new Set<number>();
@@ -138,6 +142,15 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
     this.pageListeners.add(listener);
     return () => {
       this.pageListeners.delete(listener);
+    };
+  }
+
+  /** `CdpEventSource` seam — fan normalized `Fetch.*` control-input events
+   *  (paused requests) to the host's pause handler (Phase D). */
+  subscribeFetch(listener: FetchListener): () => void {
+    this.fetchListeners.add(listener);
+    return () => {
+      this.fetchListeners.delete(listener);
     };
   }
 
@@ -296,6 +309,7 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
     for (const tabId of [...this.attachedTabs]) void this.detach(tabId);
     this.listeners.clear();
     this.pageListeners.clear();
+    this.fetchListeners.clear();
     this.detachListeners.clear();
     this.attachedTabs.clear();
     this.childSessions.clear();
@@ -345,6 +359,16 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
       if (source.sessionId === undefined && params !== undefined) this.handlePageEvent(method, tabId, params);
       return;
     }
+    if (method.startsWith('Fetch.')) {
+      // Control-input stream (Phase D): a paused request on the root or a
+      // kept child session. Same session gating as `Network.*` — paused
+      // worker / OOPIF requests carry the child id; the root has none.
+      if (params === undefined) return;
+      const fetchChildSessionId = source.sessionId;
+      if (fetchChildSessionId !== undefined && !this.childSessions.has(fetchChildSessionId)) return;
+      this.handleFetchEvent(method, tabId, fetchChildSessionId ?? ROOT_SESSION_ID, params);
+      return;
+    }
     if (!method.startsWith('Network.') || params === undefined) return;
     // A child session only routes once we have chosen to keep it (type
     // filter applied in `handleTargetAttached`); the root has no id.
@@ -352,6 +376,13 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
     if (childSessionId !== undefined && !this.childSessions.has(childSessionId)) return;
     const sessionId = childSessionId ?? ROOT_SESSION_ID;
     this.handleNetworkEvent(method, tabId, sessionId, params);
+  }
+
+  private handleFetchEvent(method: string, tabId: number, sessionId: string, params: object): void {
+    if (method === 'Fetch.requestPaused') {
+      this.fanFetch(normalizeRequestPaused(tabId, sessionId, params as RawRequestPaused));
+    }
+    // Other Fetch.* events are not part of the consumed subset.
   }
 
   private handleNetworkEvent(method: string, tabId: number, sessionId: string, params: object): void {
@@ -534,6 +565,10 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
 
   private fanPage(event: CdpPageEvent): void {
     for (const listener of this.pageListeners) listener(event);
+  }
+
+  private fanFetch(event: CdpFetchEvent): void {
+    for (const listener of this.fetchListeners) listener(event);
   }
 
   private api(): DebuggerApi | undefined {
@@ -720,6 +755,14 @@ interface RawEventSourceMessageReceived {
 interface RawResponseReceivedExtraInfo {
   readonly requestId: string;
   readonly headers: Record<string, string>;
+}
+
+interface RawRequestPaused {
+  readonly requestId: string;
+  readonly request: RawRequest;
+  readonly frameId?: string;
+  readonly resourceType: string;
+  readonly networkId?: string;
 }
 
 /** `Network.getResponseBody` result — body text + whether it is base64. */
@@ -984,6 +1027,21 @@ function normalizeEventSourceMessageReceived(
     eventName: p.eventName,
     eventId: p.eventId,
     data: p.data,
+  };
+}
+
+// ── fetch-domain normalizer (control-input) ──────────────────────────
+
+function normalizeRequestPaused(tabId: number, sessionId: string, p: RawRequestPaused): CdpRequestPaused {
+  return {
+    method: 'Fetch.requestPaused',
+    tabId,
+    sessionId,
+    requestId: p.requestId,
+    request: normalizeRequest(p.request),
+    resourceType: p.resourceType,
+    ...(p.frameId !== undefined ? { frameId: p.frameId } : {}),
+    ...(p.networkId !== undefined ? { networkId: p.networkId } : {}),
   };
 }
 

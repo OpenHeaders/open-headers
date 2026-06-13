@@ -15,6 +15,7 @@
 
 import {
   type CdpControlCommand,
+  type CdpFetchPattern,
   type CdpNetworkConditions,
   type CdpSessionTarget,
   type CdpTabControlPort,
@@ -94,6 +95,24 @@ export class ChromeCdpTabControlPort implements CdpTabControlPort {
         return this.sender.sendOnSession(tabId, sessionId, 'Network.emulateNetworkConditions', { ...NO_THROTTLE });
       case 'set-bypass-csp':
         return this.sender.sendOnSession(tabId, sessionId, 'Page.setBypassCSP', { enabled: command.enabled });
+      case 'enable-fetch':
+        // `Fetch.enable` replaces the active pattern set wholesale, so a
+        // changed set is just another enable with the new patterns.
+        return this.sender.sendOnSession(tabId, sessionId, 'Fetch.enable', {
+          patterns: command.patterns.map(fetchPatternParams),
+        });
+      case 'disable-fetch':
+        return this.sender.sendOnSession(tabId, sessionId, 'Fetch.disable');
     }
   }
+}
+
+/** Map an oracle {@link CdpFetchPattern} onto CDP `Fetch.RequestPattern`,
+ *  omitting absent optional fields so the wire payload stays minimal. */
+function fetchPatternParams(pattern: CdpFetchPattern): Record<string, unknown> {
+  return {
+    urlPattern: pattern.urlPattern,
+    ...(pattern.requestStage !== undefined ? { requestStage: pattern.requestStage } : {}),
+    ...(pattern.resourceType !== undefined ? { resourceType: pattern.resourceType } : {}),
+  };
 }

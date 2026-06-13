@@ -12,6 +12,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  type CdpFetchPattern,
   type CdpNetworkConditions,
   type CdpTabControlState,
   EMPTY_TAB_CONTROL_STATE,
@@ -32,6 +33,8 @@ const SLOW_3G: CdpNetworkConditions = {
 function state(overrides: Partial<CdpTabControlState> = {}): CdpTabControlState {
   return { ...EMPTY_TAB_CONTROL_STATE, ...overrides };
 }
+
+const API_PATTERN: CdpFetchPattern = { urlPattern: '*://openheaders.io/api/*', requestStage: 'Request' };
 
 const TARGET = { tabId: 7, sessionId: 'page' };
 
@@ -79,12 +82,40 @@ describe('reconcileTabControl', () => {
     ]);
   });
 
+  it('emits enable-fetch when patterns appear and disable-fetch when they vanish', () => {
+    expect(reconcileTabControl(EMPTY_TAB_CONTROL_STATE, state({ fetchPatterns: [API_PATTERN] }))).toEqual([
+      { kind: 'enable-fetch', patterns: [API_PATTERN] },
+    ]);
+    expect(reconcileTabControl(state({ fetchPatterns: [API_PATTERN] }), EMPTY_TAB_CONTROL_STATE)).toEqual([
+      { kind: 'disable-fetch' },
+    ]);
+  });
+
+  it('treats equal-valued fetch patterns as unchanged (structural, not identity)', () => {
+    const a = state({ fetchPatterns: [{ ...API_PATTERN }] });
+    const b = state({ fetchPatterns: [{ ...API_PATTERN }] });
+    expect(reconcileTabControl(a, b)).toEqual([]);
+  });
+
+  it('re-enables fetch when the pattern set changes', () => {
+    const next = state({ fetchPatterns: [API_PATTERN, { urlPattern: '*://openheaders.io/auth' }] });
+    expect(reconcileTabControl(state({ fetchPatterns: [API_PATTERN] }), next)).toEqual([
+      { kind: 'enable-fetch', patterns: next.fetchPatterns },
+    ]);
+  });
+
   it('a replay from empty re-issues the whole standing set', () => {
-    const armed = state({ cacheDisabled: true, networkConditions: SLOW_3G, bypassCsp: true });
+    const armed = state({
+      cacheDisabled: true,
+      networkConditions: SLOW_3G,
+      bypassCsp: true,
+      fetchPatterns: [API_PATTERN],
+    });
     expect(reconcileTabControl(EMPTY_TAB_CONTROL_STATE, armed)).toEqual([
       { kind: 'set-cache-disabled', cacheDisabled: true },
       { kind: 'emulate-network-conditions', conditions: SLOW_3G },
       { kind: 'set-bypass-csp', enabled: true },
+      { kind: 'enable-fetch', patterns: [API_PATTERN] },
     ]);
   });
 });

@@ -6,6 +6,7 @@
 import type {
   CdpBufferedResponseBody,
   CdpEventSource,
+  CdpFetchEvent,
   CdpNetworkEvent,
   CdpResponseBody,
 } from '../../src/correlator-cdp/events';
@@ -21,6 +22,7 @@ export interface BodyFetchCall {
 export class InMemoryCdpSource implements CdpEventSource {
   private readonly listeners = new Set<(event: CdpNetworkEvent) => void>();
   private readonly pageListeners = new Set<(event: CdpPageEvent) => void>();
+  private readonly fetchListeners = new Set<(event: CdpFetchEvent) => void>();
   /** Every `fetchResponseBody` call, in order — assert the resolved identity. */
   readonly bodyCalls: BodyFetchCall[] = [];
   /** Every `streamResponseBody` call, in order — assert the in-flight routing. */
@@ -49,6 +51,13 @@ export class InMemoryCdpSource implements CdpEventSource {
     };
   }
 
+  subscribeFetch(listener: (event: CdpFetchEvent) => void): () => void {
+    this.fetchListeners.add(listener);
+    return () => {
+      this.fetchListeners.delete(listener);
+    };
+  }
+
   fetchResponseBody(tabId: number, sessionId: string, rawRequestId: string): Promise<CdpResponseBody> {
     const call: BodyFetchCall = { tabId, sessionId, rawRequestId };
     this.bodyCalls.push(call);
@@ -67,5 +76,9 @@ export class InMemoryCdpSource implements CdpEventSource {
 
   emitPage(event: CdpPageEvent): void {
     for (const fn of this.pageListeners) fn(event);
+  }
+
+  emitFetch(event: CdpFetchEvent): void {
+    for (const fn of this.fetchListeners) fn(event);
   }
 }
