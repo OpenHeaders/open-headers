@@ -141,6 +141,7 @@ export type {
   DelayRule,
   DnrRuleType,
   ExtensionRuleType,
+  FetchCapableRuleType,
   HeaderAction,
   HeaderModification,
   HeaderOperation,

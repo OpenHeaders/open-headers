@@ -89,6 +89,7 @@ export {
   formatUrlPattern,
   getRuleMatchPatterns,
 } from './rule-matcher';
+export { isDebugTierRule } from './rule-tier';
 export { isRuleComplete, isRuleDraft, isRuleEffective, isRuleResolvable } from './rule-validation';
 export type { TestTargetUrlResult } from './test-target-url';
 export { parseTestTargetUrl } from './test-target-url';

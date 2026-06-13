@@ -88,6 +88,16 @@ export type DnrRuleType = 'header' | 'block' | 'redirect' | 'query-param';
 /** Script-based rule types — use chrome.scripting API to monkey-patch fetch/XHR/WebSocket/EventSource. */
 export type ScriptRuleType = 'inject' | 'delay' | 'body' | 'mock' | 'ws' | 'sse';
 
+/**
+ * Rule types with a CDP `Fetch` realization (response synthesis / body
+ * rewrite) — the only types that can be *debug-tier* (CDP Control Plane,
+ * Phase D). Whether a given rule of one of these types actually IS
+ * debug-tier depends on its reach, not just its type: see `isDebugTierRule`.
+ * Like `DnrRuleType`/`ScriptRuleType`, this is a capability subset, not a
+ * persisted shape — tier is never stored on the rule.
+ */
+export type FetchCapableRuleType = 'body' | 'mock';
+
 // ── Conditions ────────────────────────────────────────────────────
 
 export type ConditionType = v.InferOutput<typeof ConditionTypeSchema>;
