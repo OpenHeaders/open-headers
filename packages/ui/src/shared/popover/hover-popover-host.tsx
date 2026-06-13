@@ -18,7 +18,8 @@
  * inside interaction, Escape always closes) match `useDismiss` —
  * passive readers can still mouse-away without committing, but anyone
  * who clicks into the popover gets a stable surface they can lose
- * focus on without losing their edit.
+ * focus on without losing their edit. A `pinned` open skips the switch —
+ * born committed, for click-to-open editors (vs hover triggers).
  */
 
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
@@ -28,9 +29,18 @@ export interface HoverPopoverBaseState {
   anchorEl: HTMLElement;
 }
 
+export interface HoverPopoverOpenOptions {
+  /** Born-committed session: dismissed only by outside-click / Escape /
+   *  save, never by hover-out. Use for click-to-open editors so a
+   *  mouse-leave before the first inside-click can't close the popover. */
+  pinned?: boolean;
+}
+
 export interface HoverPopoverApi<TState extends HoverPopoverBaseState> {
-  /** Open the popover. Idempotent — a second call updates the state in place. */
-  open(state: TState): void;
+  /** Open the popover. Idempotent — a second call updates the state in
+   *  place. Pass `{ pinned: true }` for click-to-open editors; omit for
+   *  hover triggers (which stay hover-dismissed until clicked inside). */
+  open(state: TState, opts?: HoverPopoverOpenOptions): void;
   /** Schedule a close after the grace period. Lets the pointer travel
    *  from the anchor into the popover body without flicker. When
    *  called with a `relatedTarget` (the element the cursor entered),
@@ -171,8 +181,9 @@ export function createHoverPopoverHost<TState extends HoverPopoverBaseState>(
       }, closeAnimMs);
     }, [cancelClose, cancelUnmount, setInteracted]);
 
-    const open = useCallback(
-      (next: TState) => {
+    const open = useCallback<HoverPopoverApi<TState>['open']>(
+      (next, opts) => {
+        const pinned = opts?.pinned ?? false;
         // Sticky-edit guard. Once the user has clicked inside the
         // current popover, any further hover events on OTHER `{{ref}}`
         // chips elsewhere on the page must NOT swap or replace the
@@ -182,7 +193,10 @@ export function createHoverPopoverHost<TState extends HoverPopoverBaseState>(
         // the user is free to hover a different chip and start a new
         // one. Same-identity re-hovers (cursor returns to the source
         // chip) are allowed through because they don't change state.
-        if (interactedRef.current && state) {
+        // A pinned open is an explicit click on another trigger — an
+        // intentional new session that supersedes the current one, so it
+        // bypasses the guard.
+        if (!pinned && interactedRef.current && state) {
           if (identity(state) !== identity(next)) return;
         }
         cancelClose();
@@ -198,6 +212,10 @@ export function createHoverPopoverHost<TState extends HoverPopoverBaseState>(
         // sticky flag the user committed to by clicking inside.
         const prevIdentity = state ? identity(state) : null;
         if (prevIdentity !== identity(next)) interactedRef.current = false;
+        // Pinned (click-opened) sessions are born committed: dismissal is
+        // outside-click / Escape / save only — `scheduleClose` no-ops while
+        // `interacted` is true, so a mouse-leave can't close it.
+        if (pinned) interactedRef.current = true;
         setState(next);
       },
       [cancelClose, cancelUnmount, state],

@@ -179,20 +179,24 @@ export function AttributedHeaderRow({
     currentResolvedName !== ruleCtx.snapshotMod.headerName;
   const editedSinceFire = (ruleEdited ?? false) || valueDrifted || nameDrifted;
 
-  // Edit opens the rule popover on click, anchored to the button — the
-  // host's outside-click dismiss only attaches while open, so the opening
-  // click never self-closes it.
+  // Edit opens the rule popover pinned — a click-opened editing session
+  // stays open until outside-click / Escape / save, never closing on
+  // mouse-leave the way a hover-opened popover would. Dismiss listeners
+  // attach only while open, so the opening click can't self-close it.
   const openEditPopover = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
-    rulePopover.open({
-      anchorEl: e.currentTarget,
-      attribution,
-      rule: ruleForHover,
-      target: operationForHover ? { direction, headerName: name, operation: operationForHover } : undefined,
-      currentResolvedValue,
-      currentResolvedName,
-      applicability,
-    });
+    rulePopover.open(
+      {
+        anchorEl: e.currentTarget,
+        attribution,
+        rule: ruleForHover,
+        target: operationForHover ? { direction, headerName: name, operation: operationForHover } : undefined,
+        currentResolvedValue,
+        currentResolvedName,
+        applicability,
+      },
+      { pinned: true },
+    );
   };
 
   const showResolvedValue = kind === 'added' || kind === 'modified' || kind === 'system';
