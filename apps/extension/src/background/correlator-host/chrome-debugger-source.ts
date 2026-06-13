@@ -59,6 +59,7 @@ type Listener = (event: CdpNetworkEvent) => void;
 type PageListener = (event: CdpPageEvent) => void;
 type FetchListener = (event: CdpFetchEvent) => void;
 type DetachListener = (tabId: number, reason: string) => void;
+type ChildSessionListener = (tabId: number, sessionId: string) => void;
 type DebuggerApi = BrowserAPI['debugger'];
 
 /** Protocol version handed to `chrome.debugger.attach`. */
@@ -119,6 +120,8 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
   private readonly pageListeners = new Set<PageListener>();
   private readonly fetchListeners = new Set<FetchListener>();
   private readonly detachListeners = new Set<DetachListener>();
+  private readonly childAttachListeners = new Set<ChildSessionListener>();
+  private readonly childDetachListeners = new Set<ChildSessionListener>();
   /** Root (page-target) tabs we hold a `chrome.debugger` attachment for. */
   private readonly attachedTabs = new Set<number>();
   /** Flattened child sessions we kept and enabled `Network` on → owning root tab. */
@@ -246,6 +249,37 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
   }
 
   /**
+   * Observe flattened child sessions (workers / OOPIFs) being kept and
+   * released. The control plane (Phase D) listens here to fan a tab's
+   * standing CDP state — `Fetch.enable` patterns above all — onto each
+   * child session as it attaches, so interception reaches worker- and
+   * iframe-originated requests, not just the root page target. Detach fires
+   * on the child's own teardown and when its owning tab detaches.
+   */
+  onChildAttached(listener: ChildSessionListener): () => void {
+    this.childAttachListeners.add(listener);
+    return () => {
+      this.childAttachListeners.delete(listener);
+    };
+  }
+
+  onChildDetached(listener: ChildSessionListener): () => void {
+    this.childDetachListeners.add(listener);
+    return () => {
+      this.childDetachListeners.delete(listener);
+    };
+  }
+
+  /** The kept child session ids for a tab (workers / OOPIFs), in no order. */
+  childSessionsOf(tabId: number): string[] {
+    const sessions: string[] = [];
+    for (const [sessionId, owner] of this.childSessions) {
+      if (owner === tabId) sessions.push(sessionId);
+    }
+    return sessions;
+  }
+
+  /**
    * Attach CDP to a tab's page target and turn on flattened auto-attach
    * for its child targets. Idempotent — a second attach for a live tab is
    * a no-op — and tolerant of an "already attached" race (a coexisting
@@ -311,6 +345,8 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
     this.pageListeners.clear();
     this.fetchListeners.clear();
     this.detachListeners.clear();
+    this.childAttachListeners.clear();
+    this.childDetachListeners.clear();
     this.attachedTabs.clear();
     this.childSessions.clear();
   }
@@ -481,10 +517,14 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
     const session = { tabId, sessionId: childSessionId };
     void this.enableNetwork(session);
     void this.enableAutoAttach(session);
+    for (const listener of this.childAttachListeners) listener(tabId, childSessionId);
   }
 
   private handleTargetDetached(params: RawDetachedFromTarget): void {
+    const tabId = this.childSessions.get(params.sessionId);
+    if (tabId === undefined) return;
     this.childSessions.delete(params.sessionId);
+    for (const listener of this.childDetachListeners) listener(tabId, params.sessionId);
   }
 
   private handleDetach(source: chrome.debugger.Debuggee, reason: string): void {
@@ -555,7 +595,9 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
 
   private forgetChildrenOf(tabId: number): void {
     for (const [sessionId, owner] of this.childSessions) {
-      if (owner === tabId) this.childSessions.delete(sessionId);
+      if (owner !== tabId) continue;
+      this.childSessions.delete(sessionId);
+      for (const listener of this.childDetachListeners) listener(tabId, sessionId);
     }
   }
 

@@ -169,12 +169,27 @@ export class CdpAttachController implements CdpAttachObservable {
     if (this.armed.has(tabId)) return;
     this.armed.add(tabId);
     this.reconcile();
+    this.reapplyControl(tabId);
   }
 
   /** A tab was disarmed. Updates the set + reconciles. */
   noteDisarmed(tabId: number): void {
     if (!this.armed.delete(tabId)) return;
     this.reconcile();
+    this.reapplyControl(tabId);
+  }
+
+  /**
+   * Arming / disarming changes the tab's DERIVED control state (debug-tier
+   * Fetch patterns appear / vanish). A not-yet-attached tab gets that state
+   * from the post-attach `replay` in {@link applyTab}; but a tab that stays
+   * attached across the change (a still-port-live tab, or arming a panel-open
+   * tab) never re-attaches, so re-apply its derived state directly. Skipped
+   * when the change leaves the tab undesired — it is about to detach and
+   * `applyTab` will `release` it.
+   */
+  private reapplyControl(tabId: number): void {
+    if (this.attached.has(tabId) && this.isDesired(tabId)) this.replay?.replay(tabId);
   }
 
   /**

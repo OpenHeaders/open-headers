@@ -91,7 +91,16 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   // bridge below (constructed after the rule-fire hub); a fulfill only fires
   // once a tab is armed and traffic flows, so the ref is always set by then.
   let reportFire: (tabId: number, record: RequestRecord) => void = () => {};
-  const cdpControlReplay = createCdpControlReplay({ tabControlPort, deriveState });
+  const cdpControlReplay = createCdpControlReplay({
+    tabControlPort,
+    deriveState,
+    childSessionsOf: (tabId) => lifecycleHost.debuggerSource.childSessionsOf(tabId),
+  });
+  // Fan the tab's standing CDP state onto child sessions (workers / OOPIFs)
+  // as they attach/detach during its lifetime, so Fetch interception reaches
+  // worker- and iframe-originated requests, not just the root page target.
+  lifecycleHost.debuggerSource.onChildAttached((tabId, sessionId) => cdpControlReplay.applyChild(tabId, sessionId));
+  lifecycleHost.debuggerSource.onChildDetached((tabId, sessionId) => cdpControlReplay.forgetChild(tabId, sessionId));
   const cdpAttachController = new CdpAttachController({
     source: lifecycleHost.debuggerSource,
     router: lifecycleHost.router,

@@ -590,6 +590,59 @@ describe('ChromeDebuggerEventSource — attach handshake + child sessions (B1)',
   });
 });
 
+describe('ChromeDebuggerEventSource — child-session control observers (D2)', () => {
+  it('fires onChildAttached for a kept child and tracks it in childSessionsOf', async () => {
+    source = new ChromeDebuggerEventSource();
+    const attached: Array<[number, string]> = [];
+    source.onChildAttached((tabId, sessionId) => attached.push([tabId, sessionId]));
+    await source.attach(TAB);
+
+    emitRoot('Target.attachedToTarget', attachedToTarget(CHILD_SESSION, 'worker'));
+
+    expect(attached).toEqual([[TAB, CHILD_SESSION]]);
+    expect(source.childSessionsOf(TAB)).toEqual([CHILD_SESSION]);
+  });
+
+  it('does not fire onChildAttached for an un-kept target type (service_worker)', async () => {
+    source = new ChromeDebuggerEventSource();
+    const attached: Array<[number, string]> = [];
+    source.onChildAttached((tabId, sessionId) => attached.push([tabId, sessionId]));
+    await source.attach(TAB);
+
+    emitRoot('Target.attachedToTarget', attachedToTarget('sw-session', 'service_worker'));
+
+    expect(attached).toHaveLength(0);
+    expect(source.childSessionsOf(TAB)).toEqual([]);
+  });
+
+  it('fires onChildDetached on Target.detachedFromTarget and forgets the child', async () => {
+    source = new ChromeDebuggerEventSource();
+    const detached: Array<[number, string]> = [];
+    source.onChildDetached((tabId, sessionId) => detached.push([tabId, sessionId]));
+    await source.attach(TAB);
+
+    emitRoot('Target.attachedToTarget', attachedToTarget(CHILD_SESSION, 'iframe'));
+    emitRoot('Target.detachedFromTarget', { sessionId: CHILD_SESSION });
+
+    expect(detached).toEqual([[TAB, CHILD_SESSION]]);
+    expect(source.childSessionsOf(TAB)).toEqual([]);
+  });
+
+  it('fires onChildDetached for every child when the tab detaches', async () => {
+    source = new ChromeDebuggerEventSource();
+    const detached: string[] = [];
+    source.onChildDetached((_tabId, sessionId) => detached.push(sessionId));
+    await source.attach(TAB);
+
+    emitRoot('Target.attachedToTarget', attachedToTarget(CHILD_SESSION, 'iframe'));
+    emitRoot('Target.attachedToTarget', attachedToTarget('child-2', 'worker'));
+    await source.detach(TAB);
+
+    expect(detached.sort()).toEqual(['child-2', CHILD_SESSION].sort());
+    expect(source.childSessionsOf(TAB)).toEqual([]);
+  });
+});
+
 describe('ChromeDebuggerEventSource — onDetach + lifecycle', () => {
   it('propagates onDetach with (tabId, reason) and stops routing that tab', async () => {
     source = new ChromeDebuggerEventSource();

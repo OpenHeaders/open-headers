@@ -308,6 +308,49 @@ describe('CdpAttachController', () => {
       expect(h.replayFn).toHaveBeenCalledTimes(2);
     });
 
+    it('arming an already-attached (port-live) tab re-applies its control state', async () => {
+      h.controller.setEnabled(true);
+      h.controller.notePortConnected(5);
+      await flush();
+      expect(h.replayFn).toHaveBeenCalledTimes(1); // the post-attach replay
+
+      // Arming changes the derived state (debug patterns appear) on a tab that
+      // never re-attaches — it must re-apply directly.
+      h.controller.noteArmed(5);
+      expect(h.replayFn).toHaveBeenCalledTimes(2);
+      expect(h.replayFn).toHaveBeenLastCalledWith(5);
+    });
+
+    it('disarming a still-port-live tab re-applies its (now-empty) control state', async () => {
+      h.controller.setEnabled(true);
+      h.controller.notePortConnected(5);
+      h.controller.noteArmed(5);
+      await flush();
+      const before = h.replayFn.mock.calls.length;
+
+      h.controller.noteDisarmed(5);
+      expect(h.replayFn.mock.calls.length).toBe(before + 1);
+    });
+
+    it('arming a not-yet-attached tab replays once (post-attach), not twice', async () => {
+      h.controller.setEnabled(true);
+      h.controller.noteArmed(5);
+      await flush();
+      expect(h.replayFn).toHaveBeenCalledTimes(1);
+    });
+
+    it('disarming an armed-only tab does not re-apply — it detaches and releases', async () => {
+      h.controller.setEnabled(true);
+      h.controller.noteArmed(5);
+      await flush();
+      expect(h.replayFn).toHaveBeenCalledTimes(1);
+
+      h.controller.noteDisarmed(5);
+      await flush();
+      expect(h.replayFn).toHaveBeenCalledTimes(1);
+      expect(h.release).toHaveBeenCalledWith(5);
+    });
+
     it('does NOT replay when the attach is undone by a mid-handshake disconnect', async () => {
       let resolveAttach: () => void = () => {};
       h.attach.mockImplementationOnce(
