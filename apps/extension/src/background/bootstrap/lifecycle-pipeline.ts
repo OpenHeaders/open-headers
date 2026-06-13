@@ -1,3 +1,4 @@
+import type { RequestRecord, Rule } from '@openheaders/core/types';
 import { isRuleEffective } from '@openheaders/core/utils';
 import { type CdpTabControlState, EMPTY_TAB_CONTROL_STATE } from '@openheaders/oracle/correlator-cdp';
 import { getPauseMarkers } from '@openheaders/oracle/entity/pause-markers-store';
@@ -79,12 +80,17 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   // gate reads it through a small forward ref; `deriveState` only ever runs
   // from `replay`, which fires after attach, so the ref is always set by then.
   let isTabArmed: (tabId: number) => boolean = () => false;
+  const liveRules = (): Rule[] =>
+    getRules().filter((rule) => isRuleEffective(rule, getPauseMarkers(), getRulesPaused()));
   const deriveState = (tabId: number): CdpTabControlState => {
     if (!isTabArmed(tabId)) return EMPTY_TAB_CONTROL_STATE;
-    const liveRules = getRules().filter((rule) => isRuleEffective(rule, getPauseMarkers(), getRulesPaused()));
-    const fetchPatterns = compileFetchPatterns(liveRules);
+    const fetchPatterns = compileFetchPatterns(liveRules());
     return fetchPatterns.length === 0 ? EMPTY_TAB_CONTROL_STATE : { ...EMPTY_TAB_CONTROL_STATE, fetchPatterns };
   };
+  // Authoritative fire sink for D2 fulfill/rewrite. Resolved to the fires
+  // bridge below (constructed after the rule-fire hub); a fulfill only fires
+  // once a tab is armed and traffic flows, so the ref is always set by then.
+  let reportFire: (tabId: number, record: RequestRecord) => void = () => {};
   const cdpControlReplay = createCdpControlReplay({ tabControlPort, deriveState });
   const cdpAttachController = new CdpAttachController({
     source: lifecycleHost.debuggerSource,
@@ -92,12 +98,15 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
     replay: cdpControlReplay,
   });
   isTabArmed = (tabId) => cdpAttachController.isArmed(tabId);
-  // Pass-through interceptor (D1): answer each `Fetch.requestPaused` with an
-  // unmodified continue. Nothing is mocked/rewritten yet (D2); the loop just
-  // proves armed-tab traffic flows through the pause→answer path untouched.
+  // Rule-driven interceptor (D2): each `Fetch.requestPaused` is re-checked
+  // against the live rules and answered — static `mock` → fulfill, static
+  // `body` → request-body rewrite, everything else → pass-through — with a
+  // fulfill/rewrite reported as an authoritative fire.
   startCdpFetchInterceptor({
     subscribeFetch: (listener) => lifecycleHost.debuggerSource.subscribeFetch(listener),
     requestControlPort,
+    getRules: liveRules,
+    reportFire: (tabId, record) => reportFire(tabId, record),
   });
   startDevtoolsPortPresence({
     onConnected: (tabId) => cdpAttachController.notePortConnected(tabId),
@@ -149,6 +158,7 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
     hub: ruleFireHub,
     isCdpOwned: (tabId) => lifecycleHost.router.ownerOf(tabId) === 'cdp',
   });
+  reportFire = (tabId, record) => firesBridge.notifyAuthoritativeFire(tabId, record);
 
   setupOnRuleMatchedDebugBridge({
     onAuthoritativeFire: (tabId, record) => firesBridge.notifyAuthoritativeFire(tabId, record),
