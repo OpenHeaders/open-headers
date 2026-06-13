@@ -11,8 +11,15 @@
  * Mirrors `host-source-map-fetcher.ts` — same shape, same lifecycle.
  */
 
+export type {
+  CookieJarFetcher,
+  CookieJarWriter,
+  JarCookie,
+  JarCookieEdit,
+  JarCookieKey,
+} from './data/cookie-jar-cache';
 export {
   invalidateJarCache,
   setCookieJarFetcher,
+  setCookieJarWriter,
 } from './data/cookie-jar-cache';
-export type { CookieJarFetcher, JarCookie } from './data/cookie-jar-cache';

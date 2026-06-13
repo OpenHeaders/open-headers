@@ -55,7 +55,49 @@ export interface JarCookie {
 
 export type CookieJarFetcher = (url: string) => Promise<readonly JarCookie[] | null>;
 
+/**
+ * Editable cookie fields the Cookies tab sends when adding or updating a
+ * cookie. `session` is derived (no `expirationDate` ⇒ session) and the
+ * writer honours `hostOnly` by dropping the Domain attribute, so neither
+ * is a separate input.
+ */
+export interface JarCookieEdit {
+  name: string;
+  value: string;
+  domain: string;
+  path: string;
+  expirationDate?: number;
+  hostOnly: boolean;
+  httpOnly: boolean;
+  secure: boolean;
+  sameSite?: string;
+  partitionKey?: string;
+  storeId?: string;
+}
+
+/** Identity fields the writer needs to delete a single jar cookie. */
+export interface JarCookieKey {
+  name: string;
+  domain: string;
+  path: string;
+  secure: boolean;
+  partitionKey?: string;
+  storeId?: string;
+}
+
+/**
+ * Host-installed write path, paired with {@link CookieJarFetcher}. The
+ * extension wires an SW-side bridge RPC that calls `chrome.cookies.set` /
+ * `chrome.cookies.remove`. `set` resolves the resulting jar cookie (or
+ * `null` on failure); `remove` resolves whether a cookie was deleted.
+ */
+export interface CookieJarWriter {
+  set(edit: JarCookieEdit): Promise<JarCookie | null>;
+  remove(key: JarCookieKey): Promise<boolean>;
+}
+
 let installedFetcher: CookieJarFetcher | null = null;
+let installedWriter: CookieJarWriter | null = null;
 
 export function setCookieJarFetcher(fn: CookieJarFetcher | null): void {
   installedFetcher = fn;
@@ -63,6 +105,51 @@ export function setCookieJarFetcher(fn: CookieJarFetcher | null): void {
   // stale entries.
   cache.clear();
   notify();
+}
+
+export function setCookieJarWriter(fn: CookieJarWriter | null): void {
+  installedWriter = fn;
+}
+
+/** Whether a host has wired a write path — the tab hides edit affordances
+ *  when it hasn't (e.g. a host with read-only jar access). */
+export function isCookieJarWritable(): boolean {
+  return installedWriter !== null;
+}
+
+/**
+ * Add or update a jar cookie, then invalidate every cached lookup so the
+ * next read reflects the write. Returns the resulting cookie, or `null`
+ * when no writer is installed or the write failed.
+ */
+export async function writeJarCookie(edit: JarCookieEdit): Promise<JarCookie | null> {
+  if (!installedWriter) return null;
+  let result: JarCookie | null = null;
+  try {
+    result = await installedWriter.set(edit);
+  } catch {
+    result = null;
+  }
+  // A cookie write can affect any URL's jar (domain cookies fan out to
+  // subdomains), so clear the whole cache rather than guess a key.
+  invalidateJarCache();
+  return result;
+}
+
+/**
+ * Delete a jar cookie, then invalidate every cached lookup. Returns
+ * whether a cookie was removed.
+ */
+export async function removeJarCookie(key: JarCookieKey): Promise<boolean> {
+  if (!installedWriter) return false;
+  let ok = false;
+  try {
+    ok = await installedWriter.remove(key);
+  } catch {
+    ok = false;
+  }
+  invalidateJarCache();
+  return ok;
 }
 
 type CacheEntry =
@@ -140,6 +227,7 @@ export function __resetCookieJarCacheForTests(): void {
   cache.clear();
   listeners.clear();
   installedFetcher = null;
+  installedWriter = null;
 }
 
 export function __seedCookieJarForTests(url: string, cookies: readonly JarCookie[] | null): void {

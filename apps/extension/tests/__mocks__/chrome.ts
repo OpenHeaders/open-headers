@@ -120,6 +120,30 @@ const downloadsMock = {
 
 const cookiesMock = {
   getAll: vi.fn((_details, callback) => callback?.([])),
+  // Echo the set details back as a Cookie-ish object so write tests can
+  // assert the URL reconstruction / attribute mapping the SW performs.
+  set: vi.fn((details: chrome.cookies.SetDetails, callback?: (cookie: chrome.cookies.Cookie | null) => void) => {
+    const cookie = {
+      name: details.name ?? '',
+      value: details.value ?? '',
+      domain: details.domain ?? new URL(details.url).hostname,
+      path: details.path ?? '/',
+      secure: !!details.secure,
+      httpOnly: !!details.httpOnly,
+      hostOnly: details.domain == null,
+      session: details.expirationDate == null,
+      sameSite: details.sameSite ?? 'unspecified',
+      storeId: details.storeId ?? '0',
+      ...(details.expirationDate != null ? { expirationDate: details.expirationDate } : {}),
+      ...(details.partitionKey ? { partitionKey: details.partitionKey } : {}),
+    } as chrome.cookies.Cookie;
+    callback?.(cookie);
+  }),
+  remove: vi.fn(
+    (details: chrome.cookies.CookieDetails, callback?: (d: chrome.cookies.CookieDetails | null) => void) => {
+      callback?.(details);
+    },
+  ),
 };
 
 const windowsMock = {

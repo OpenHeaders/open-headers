@@ -455,6 +455,30 @@ export const cookies = browserAPI.cookies
           return browserAPI.cookies.getAll(details, callback!);
         }
       },
+      set: (
+        details: chrome.cookies.SetDetails,
+        callback?: (cookie: chrome.cookies.Cookie | null) => void,
+      ): void | Promise<void> => {
+        if (isFirefox) {
+          return (browserAPI.cookies.set(details) as unknown as Promise<chrome.cookies.Cookie | null>).then(
+            callback || (() => {}),
+          );
+        } else {
+          return browserAPI.cookies.set(details, callback!);
+        }
+      },
+      remove: (
+        details: chrome.cookies.CookieDetails,
+        callback?: (details: chrome.cookies.CookieDetails | null) => void,
+      ): void | Promise<void> => {
+        if (isFirefox) {
+          return (browserAPI.cookies.remove(details) as unknown as Promise<chrome.cookies.CookieDetails | null>).then(
+            callback || (() => {}),
+          );
+        } else {
+          return browserAPI.cookies.remove(details, callback!);
+        }
+      },
     }
   : null;
 

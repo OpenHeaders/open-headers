@@ -4,6 +4,57 @@
  * background context's.
  */
 
+/**
+ * Host-neutral cookie shape carried over the bridge — a superset of the
+ * fields the four supported MV3 cookie APIs report. Mirrors the panel's
+ * `JarCookie` so non-Chromium hosts can implement the same contract
+ * without a type-only dependency on the chrome namespace.
+ */
+export interface JarCookieWire {
+  name: string;
+  value: string;
+  domain: string;
+  path: string;
+  expirationDate?: number;
+  hostOnly: boolean;
+  httpOnly: boolean;
+  secure: boolean;
+  sameSite?: string;
+  session: boolean;
+  partitionKey?: string;
+  storeId?: string;
+}
+
+/**
+ * Editable cookie fields the panel sends when adding or updating a
+ * cookie. `session` is derived (no `expirationDate` ⇒ session) and
+ * `hostOnly` is honoured by the writer (omit the Domain attribute), so
+ * neither is a separate input.
+ */
+export interface JarCookieEditWire {
+  name: string;
+  value: string;
+  domain: string;
+  path: string;
+  expirationDate?: number;
+  hostOnly: boolean;
+  httpOnly: boolean;
+  secure: boolean;
+  sameSite?: string;
+  partitionKey?: string;
+  storeId?: string;
+}
+
+/** Identity fields the writer needs to delete a single jar cookie. */
+export interface JarCookieKeyWire {
+  name: string;
+  domain: string;
+  path: string;
+  secure: boolean;
+  partitionKey?: string;
+  storeId?: string;
+}
+
 export interface DevToolsRpc {
   // ── DevTools panel: source-map resolution ──────────────────────
   /**
@@ -50,21 +101,35 @@ export interface DevToolsRpc {
    */
   fetchCookieJarForUrl: {
     req: { url: string };
-    res: {
-      cookies: ReadonlyArray<{
-        name: string;
-        value: string;
-        domain: string;
-        path: string;
-        expirationDate?: number;
-        hostOnly: boolean;
-        httpOnly: boolean;
-        secure: boolean;
-        sameSite?: string;
-        session: boolean;
-        partitionKey?: string;
-        storeId?: string;
-      }> | null;
-    };
+    res: { cookies: ReadonlyArray<JarCookieWire> | null };
+  };
+
+  // ── DevTools panel: cookie-jar writes ──────────────────────────
+  /**
+   * Add or update a cookie in the browser jar — the panel's Cookies tab
+   * uses this to edit cookies the page's own JS can't touch (HttpOnly is
+   * the developer value here: `document.cookie` can't set it, the
+   * extension's `cookies` permission can).
+   *
+   * Routed through the SW for the same reason as the read path —
+   * `chrome.cookies` is a background-only API. The SW reconstructs the
+   * request URL from the cookie's own domain/path/secure (a host-only
+   * domain drops the leading dot), calls `chrome.cookies.set`, and
+   * returns the resulting jar cookie (`null` on failure — bad domain,
+   * permission denied).
+   */
+  setCookieForUrl: {
+    req: { cookie: JarCookieEditWire };
+    res: { cookie: JarCookieWire | null };
+  };
+
+  /**
+   * Delete a cookie from the browser jar by identity. The SW
+   * reconstructs the URL the same way and calls `chrome.cookies.remove`;
+   * `ok` is `false` when no matching cookie was removed.
+   */
+  removeCookieForUrl: {
+    req: JarCookieKeyWire;
+    res: { ok: boolean };
   };
 }

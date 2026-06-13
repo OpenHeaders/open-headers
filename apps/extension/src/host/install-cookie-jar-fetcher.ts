@@ -10,8 +10,8 @@
  * Imported once from `apps/extension/src/panel/index.tsx` at panel boot.
  */
 
-import { setCookieJarFetcher } from '@openheaders/ui/panel/host-cookie-jar';
-import type { JarCookie } from '@openheaders/ui/panel/host-cookie-jar';
+import type { JarCookie, JarCookieEdit, JarCookieKey } from '@openheaders/ui/panel/host-cookie-jar';
+import { setCookieJarFetcher, setCookieJarWriter } from '@openheaders/ui/panel/host-cookie-jar';
 import { call } from '@utils/bridge';
 import { logger } from '@utils/logger';
 
@@ -25,4 +25,25 @@ setCookieJarFetcher(async (url: string): Promise<readonly JarCookie[] | null> =>
     logger.info('CookieJarHost', `RPC ✗ ${url}: ${(err as Error).message}`);
     return null;
   }
+});
+
+setCookieJarWriter({
+  async set(edit: JarCookieEdit): Promise<JarCookie | null> {
+    try {
+      const res = await call('setCookieForUrl', { cookie: edit });
+      return res?.cookie ?? null;
+    } catch (err) {
+      logger.info('CookieJarHost', `set ✗ ${edit.name}: ${(err as Error).message}`);
+      return null;
+    }
+  },
+  async remove(key: JarCookieKey): Promise<boolean> {
+    try {
+      const res = await call('removeCookieForUrl', key);
+      return res?.ok ?? false;
+    } catch (err) {
+      logger.info('CookieJarHost', `remove ✗ ${key.name}: ${(err as Error).message}`);
+      return false;
+    }
+  },
 });

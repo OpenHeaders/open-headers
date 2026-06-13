@@ -46,6 +46,7 @@ import type { WorkspaceRpc } from './workspace';
 
 export type { BridgeBroadcastContract } from './broadcast';
 export type { FolderDescriptor, WorkspaceSnapshot } from './common';
+export type { JarCookieEditWire, JarCookieKeyWire, JarCookieWire } from './devtools';
 export type { EnvironmentsSnapshot } from './environments';
 export type { LiveWorkflowRunSnapshot } from './live';
 export type { ListedTestRun, StartTestRunResult } from './test-runs';
