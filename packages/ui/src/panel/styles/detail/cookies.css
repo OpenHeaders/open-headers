@@ -450,6 +450,34 @@
 .dt-cookie-expand-decoded {
   display: block;
 }
+/* Decoded / Raw segmented toggle inside the value expander. */
+.dt-cookie-expand-toggle {
+  display: inline-flex;
+  margin-bottom: 6px;
+  border: 1px solid var(--dt-border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.dt-cookie-expand-tab {
+  border: none;
+  background: none;
+  color: var(--dt-text-muted);
+  font-family: inherit;
+  font-size: 10px;
+  line-height: 1.6;
+  padding: 1px 8px;
+  cursor: pointer;
+}
+.dt-cookie-expand-tab + .dt-cookie-expand-tab {
+  border-left: 1px solid var(--dt-border);
+}
+.dt-cookie-expand-tab:hover {
+  background: var(--dt-row-hover);
+}
+.dt-cookie-expand-tab--active {
+  background: var(--dt-link);
+  color: var(--dt-bg);
+}
 .dt-cookie-jwt {
   display: flex;
   flex-direction: column;
@@ -544,8 +572,24 @@
   background: var(--dt-text-muted);
 }
 
-/* ── Add / edit modal form — compact two-column grid sized for the
- *    short DevTools panel (low height, wide). ────────────────────── */
+/* ── Add / edit popover — anchored to the row's pencil / the toolbar's
+ *    Add button. Compact two-column grid sized for the short DevTools
+ *    panel (low height, wide). ────────────────────────────────────── */
+.dt-cookie-edit-popover {
+  width: 380px;
+  max-width: 80vw;
+}
+.dt-cookie-edit-popover-title {
+  font-weight: 600;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+.dt-cookie-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
 .dt-cookie-edit-form {
   display: grid;
   grid-template-columns: 1fr 1fr;

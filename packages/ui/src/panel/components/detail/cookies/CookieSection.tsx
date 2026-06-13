@@ -12,6 +12,7 @@ import { useMemo, useRef, type RefObject } from 'react';
 import { useMeasuredCssHeights } from '@openheaders/ui/shared/hooks/useMeasuredStickyOffset';
 import { InfoPopover, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { isJarEditableRow } from '../../../data/cookie-edit';
+import type { JarCookieEdit } from '../../../data/cookie-jar-cache';
 import type { CookieRow as CookieRowModel } from '../../../data/cookie-model';
 import type { CookieFilterToken, CookieRowMeta } from '../../../data/cookie-filter';
 import { matchesCookieQuery } from '../../../data/cookie-filter';
@@ -59,7 +60,8 @@ interface Props {
   /** A rule that fired on this request modifies this direction's cookie
    *  header — drives the blue status square on every row. */
   ruleTouched: boolean;
-  onEdit: (row: CookieRowModel) => void;
+  /** Persists an add/edit; resolves `true` on success. */
+  onApplyEdit: (edit: JarCookieEdit) => Promise<boolean>;
   onDelete: (row: CookieRowModel) => void;
 }
 
@@ -147,7 +149,7 @@ export function CookieSection({
   onMakeRule,
   writable,
   ruleTouched,
-  onEdit,
+  onApplyEdit,
   onDelete,
 }: Props) {
   // Measure the actual rendered thead height so the sticky role
@@ -215,7 +217,7 @@ export function CookieSection({
       onMakeRule={() => onMakeRule(p.row)}
       ruleTouched={ruleTouched}
       canEdit={writable && isJarEditableRow(p.row)}
-      onEdit={() => onEdit(p.row)}
+      onApplyEdit={onApplyEdit}
       onDelete={() => onDelete(p.row)}
     />
   );

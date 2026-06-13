@@ -147,6 +147,40 @@ describe('enrichCookies', () => {
     expect(result.request[0].domain).toBeUndefined();
   });
 
+  it('maps repeated cookie names to distinct jar entries with unique ids', () => {
+    // The Cookie header carried `tz` twice — one per matching jar entry on
+    // different scopes. Each row must claim a DISTINCT jar cookie and get a
+    // unique id (duplicate React keys corrupt list reconciliation).
+    const result = enrichCookies({
+      url: 'https://app.openheaders.io/',
+      har: har({
+        request: {
+          method: 'GET',
+          url: 'https://app.openheaders.io/',
+          httpVersion: '',
+          queryString: [],
+          headers: [],
+          headersSize: -1,
+          bodySize: -1,
+          cookies: [
+            { name: 'tz', value: 'Europe/Madrid' },
+            { name: 'tz', value: 'Europe/Madrid' },
+          ],
+        },
+      }),
+      jar: [
+        jar({ name: 'tz', domain: '.openheaders.io', path: '/' }),
+        jar({ name: 'tz', domain: 'app.openheaders.io', path: '/' }),
+      ],
+      showFilteredOut: false,
+      now: NOW,
+    });
+    expect(result.request).toHaveLength(2);
+    const ids = result.request.map((r) => r.id);
+    expect(new Set(ids).size).toBe(2); // unique
+    expect(result.request.map((r) => r.domain).sort()).toEqual(['.openheaders.io', 'app.openheaders.io']);
+  });
+
   it('surfaces filtered-out jar cookies when toggle is on', () => {
     const result = enrichCookies({
       url: 'http://openheaders.io/api', // http triggers Secure-only filter reason

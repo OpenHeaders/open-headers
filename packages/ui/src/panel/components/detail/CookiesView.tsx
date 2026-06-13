@@ -32,12 +32,7 @@ import { App } from 'antd';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useMeasuredCssHeights } from '@openheaders/ui/shared/hooks/useMeasuredStickyOffset';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
-import {
-  type CookieEditFormValues,
-  emptyEditForm,
-  rowToEditForm,
-  rowToKey,
-} from '../../data/cookie-edit';
+import { emptyEditForm, rowToKey } from '../../data/cookie-edit';
 import { enrichCookies } from '../../data/cookie-enrich';
 import { parseCookieQuery, type CookieFilterToken } from '../../data/cookie-filter';
 import { cookieHeaderRuleTouched } from '../../data/cookie-indicators';
@@ -58,7 +53,7 @@ import {
 import type { CookieRow as CookieRowModel } from '../../data/cookie-model';
 import { currentHarEntry, type InspectorRowWithFires } from '../../data/inspector-row-projection';
 import { useCookieJar } from '../../data/use-cookie-jar';
-import { CookieEditModal } from './cookies/CookieEditModal';
+import { CookieEditPopover } from './cookies/CookieEditPopover';
 import { CookieInsightCard } from './cookies/CookieInsightCard';
 import { CookieMoreFiltersMenu, CookieViewMenu } from './cookies/CookieMenus';
 import { CookieSection } from './cookies/CookieSection';
@@ -102,11 +97,9 @@ export default function CookiesView({ row, pageOrigin, onCreateHeaderRule }: Coo
   // ── Jar lookup ─────────────────────────────────────────────────
   const jar = useCookieJar(lc.url);
 
-  // ── Edit modal state ───────────────────────────────────────────
+  // ── Cookie write handlers ──────────────────────────────────────
   const { modal, message } = App.useApp();
   const writable = isCookieJarWritable();
-  const [editing, setEditing] = useState<{ mode: 'add' | 'edit'; canonical: CookieEditFormValues } | null>(null);
-  const [writeBusy, setWriteBusy] = useState(false);
 
   const seedDomain = useMemo(() => {
     try {
@@ -117,26 +110,17 @@ export default function CookiesView({ row, pageOrigin, onCreateHeaderRule }: Coo
   }, [lc.url]);
   const seedSecure = lc.url.startsWith('https:');
 
-  const onAddCookie = useCallback(() => {
-    setEditing({ mode: 'add', canonical: emptyEditForm({ domain: seedDomain, secure: seedSecure }) });
-  }, [seedDomain, seedSecure]);
+  const addCanonical = useMemo(
+    () => emptyEditForm({ domain: seedDomain, secure: seedSecure }),
+    [seedDomain, seedSecure],
+  );
 
-  const onEditCookie = useCallback((cookie: CookieRowModel) => {
-    setEditing({ mode: 'edit', canonical: rowToEditForm(cookie) });
-  }, []);
-
-  const onSubmitEdit = useCallback(
-    (edit: JarCookieEdit) => {
-      setWriteBusy(true);
-      void writeJarCookie(edit)
-        .then((result) => {
-          if (result) message.success(`Cookie “${edit.name}” saved`);
-          else message.error(`Couldn’t save cookie “${edit.name}”`);
-        })
-        .finally(() => {
-          setWriteBusy(false);
-          setEditing(null);
-        });
+  const onApplyEdit = useCallback(
+    async (edit: JarCookieEdit): Promise<boolean> => {
+      const result = await writeJarCookie(edit);
+      if (result) message.success(`Cookie “${edit.name}” saved`);
+      else message.error(`Couldn’t save cookie “${edit.name}”`);
+      return result != null;
     },
     [message],
   );
@@ -295,9 +279,11 @@ export default function CookiesView({ row, pageOrigin, onCreateHeaderRule }: Coo
           Don’t send any cookies
         </button>
         {writable && (
-          <button type="button" className="dt-btn" onClick={onAddCookie} title="Add a cookie to the browser jar (including HttpOnly)">
-            Add cookie
-          </button>
+          <CookieEditPopover mode="add" canonical={addCanonical} onSubmit={onApplyEdit} placement="bottomLeft">
+            <button type="button" className="dt-btn" title="Add a cookie to the browser jar (including HttpOnly)">
+              Add cookie
+            </button>
+          </CookieEditPopover>
         )}
       </div>
 
@@ -334,7 +320,7 @@ export default function CookiesView({ row, pageOrigin, onCreateHeaderRule }: Coo
         onMakeRule={onMakeRule}
         writable={writable}
         ruleTouched={responseRuleTouched}
-        onEdit={onEditCookie}
+        onApplyEdit={onApplyEdit}
         onDelete={onDeleteCookie}
       />
 
@@ -355,20 +341,9 @@ export default function CookiesView({ row, pageOrigin, onCreateHeaderRule }: Coo
         onMakeRule={onMakeRule}
         writable={writable}
         ruleTouched={requestRuleTouched}
-        onEdit={onEditCookie}
+        onApplyEdit={onApplyEdit}
         onDelete={onDeleteCookie}
       />
-
-      {editing && (
-        <CookieEditModal
-          open
-          mode={editing.mode}
-          canonical={editing.canonical}
-          busy={writeBusy}
-          onCancel={() => setEditing(null)}
-          onSubmit={onSubmitEdit}
-        />
-      )}
     </div>
   );
 }

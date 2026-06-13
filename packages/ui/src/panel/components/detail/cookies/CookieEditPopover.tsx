@@ -1,16 +1,19 @@
 /**
- * Add / edit modal for a single jar cookie.
+ * Add / edit popover for a single jar cookie — anchored to the trigger
+ * (the row's Edit pencil, or the toolbar's "Add cookie"), mirroring the
+ * inline rule-edit popover the Headers tab uses rather than a centered
+ * modal.
  *
  * Edits a flat {@link CookieEditFormValues} held in local state; `isDirty`
  * derives from a structural compare against the canonical snapshot the
- * modal opened with (never an imperative flag), so Save stays disabled
- * until something actually changed (edit) or the form is first valid
- * (add). HttpOnly is the headline capability — page JS can't set it, the
+ * popover opened with (never an imperative flag), so Save stays disabled
+ * until something changed (edit) or the form is first valid (add).
+ * HttpOnly is the headline capability — page JS can't set it, the
  * extension's cookies permission can.
  */
 
-import { Input, Modal, Radio, Select, Switch } from 'antd';
-import { useEffect, useState } from 'react';
+import { Button, Input, Popover, Radio, Select, Switch } from 'antd';
+import { type ReactNode, useState } from 'react';
 import {
   type CookieEditFormValues,
   type CookieSameSiteValue,
@@ -19,15 +22,6 @@ import {
   isEditFormValid,
 } from '../../../data/cookie-edit';
 import type { JarCookieEdit } from '../../../data/cookie-jar-cache';
-
-interface Props {
-  open: boolean;
-  mode: 'add' | 'edit';
-  canonical: CookieEditFormValues;
-  busy: boolean;
-  onCancel: () => void;
-  onSubmit: (edit: JarCookieEdit) => void;
-}
 
 const SAME_SITE_OPTIONS: Array<{ value: CookieSameSiteValue; label: string }> = [
   { value: 'unspecified', label: 'Unspecified' },
@@ -53,13 +47,18 @@ function fromLocalInput(s: string): number | undefined {
   return Number.isNaN(ms) ? undefined : Math.floor(ms / 1000);
 }
 
-export function CookieEditModal({ open, mode, canonical, busy, onCancel, onSubmit }: Props) {
-  const [values, setValues] = useState<CookieEditFormValues>(canonical);
+interface FormBodyProps {
+  mode: 'add' | 'edit';
+  canonical: CookieEditFormValues;
+  busy: boolean;
+  onCancel: () => void;
+  onSave: (edit: JarCookieEdit) => void;
+}
 
-  // Reseed when the modal (re-)opens against a different cookie.
-  useEffect(() => {
-    if (open) setValues(canonical);
-  }, [open, canonical]);
+// Mounted fresh each time the popover opens (destroyOnHidden), so its
+// local state seeds from the current canonical without an effect.
+function CookieEditFormBody({ mode, canonical, busy, onCancel, onSave }: FormBodyProps) {
+  const [values, setValues] = useState<CookieEditFormValues>(canonical);
 
   const set = <K extends keyof CookieEditFormValues>(key: K, val: CookieEditFormValues[K]): void => {
     setValues((prev) => ({ ...prev, [key]: val }));
@@ -70,18 +69,8 @@ export function CookieEditModal({ open, mode, canonical, busy, onCancel, onSubmi
   const canSave = valid && (mode === 'add' || dirty);
 
   return (
-    <Modal
-      open={open}
-      title={mode === 'add' ? 'Add cookie' : 'Edit cookie'}
-      okText="Save"
-      okButtonProps={{ disabled: !canSave, loading: busy }}
-      cancelButtonProps={{ disabled: busy }}
-      onOk={() => onSubmit(formToEdit(values))}
-      onCancel={onCancel}
-      maskClosable={!busy}
-      destroyOnHidden
-      width={520}
-    >
+    <div className="dt-cookie-edit-popover">
+      <div className="dt-cookie-edit-popover-title">{mode === 'add' ? 'Add cookie' : 'Edit cookie'}</div>
       <div className="dt-cookie-edit-form">
         <label className="dt-cookie-edit-field dt-cookie-edit-field--wide">
           <span className="dt-cookie-edit-label">Name</span>
@@ -180,6 +169,68 @@ export function CookieEditModal({ open, mode, canonical, busy, onCancel, onSubmi
           </label>
         </div>
       </div>
-    </Modal>
+
+      <div className="dt-cookie-edit-actions">
+        <Button size="small" onClick={onCancel} disabled={busy}>
+          Cancel
+        </Button>
+        <Button
+          size="small"
+          type="primary"
+          onClick={() => onSave(formToEdit(values))}
+          disabled={!canSave}
+          loading={busy}
+        >
+          Save
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+interface Props {
+  mode: 'add' | 'edit';
+  canonical: CookieEditFormValues;
+  /** Persists the edit; resolves `true` on success so the popover closes. */
+  onSubmit: (edit: JarCookieEdit) => Promise<boolean>;
+  placement?: 'bottomRight' | 'bottomLeft' | 'leftTop';
+  children: ReactNode;
+}
+
+export function CookieEditPopover({ mode, canonical, onSubmit, placement = 'bottomRight', children }: Props) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const handleSave = (edit: JarCookieEdit): void => {
+    setBusy(true);
+    void onSubmit(edit).then((ok) => {
+      setBusy(false);
+      if (ok) setOpen(false);
+    });
+  };
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        if (!busy) setOpen(next);
+      }}
+      trigger="click"
+      placement={placement}
+      destroyOnHidden
+      content={
+        open ? (
+          <CookieEditFormBody
+            mode={mode}
+            canonical={canonical}
+            busy={busy}
+            onCancel={() => setOpen(false)}
+            onSave={handleSave}
+          />
+        ) : null
+      }
+    >
+      {children}
+    </Popover>
   );
 }

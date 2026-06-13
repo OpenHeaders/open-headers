@@ -18,13 +18,15 @@
 
 import { CheckOutlined, CopyOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import { useState } from 'react';
-import type { CookieRow as CookieRowModel } from '../../../data/cookie-model';
+import { rowToEditForm } from '../../../data/cookie-edit';
 import { formatAbsoluteExpiry, formatRelativeExpiry, urlDecodeSafe } from '../../../data/cookie-format';
 import { cookieRowIndicator } from '../../../data/cookie-indicators';
+import type { JarCookieEdit } from '../../../data/cookie-jar-cache';
+import type { CookieRow as CookieRowModel } from '../../../data/cookie-model';
 import type { CookieRole } from '../../../data/cookie-role';
 import type { CookieValueIntrospection } from '../../../data/cookie-value-introspect';
-import { introspectionHasDepth } from '../../../data/cookie-value-introspect';
 import { CookieChips } from './CookieChips';
+import { CookieEditPopover } from './CookieEditPopover';
 import { CookieValueExpander } from './CookieValueExpander';
 import { SecurityGlyphs } from './SecurityGlyphs';
 
@@ -55,7 +57,8 @@ interface Props {
   /** Jar-backed rows get Edit / Delete affordances; response Set-Cookie
    *  lines and jar-less request rows don't (nothing to write). */
   canEdit: boolean;
-  onEdit: () => void;
+  /** Persists an edit from the row's popover; resolves `true` on success. */
+  onApplyEdit: (edit: JarCookieEdit) => Promise<boolean>;
   onDelete: () => void;
 }
 
@@ -86,11 +89,14 @@ export function CookieRow({
   onMakeRule,
   ruleTouched,
   canEdit,
-  onEdit,
+  onApplyEdit,
   onDelete,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
-  const canExpand = introspectionHasDepth(introspection);
+  // Every row with a value is expandable — depth values (JWT/JSON/…) show
+  // their decoded view, plain values show the full raw value (useful when
+  // the Value cell truncates a long one).
+  const canExpand = row.value.length > 0;
   const indicator = cookieRowIndicator(!!row.edited, ruleTouched);
 
   const valueText = decodeValues ? urlDecodeSafe(row.value) : row.value;
@@ -199,18 +205,17 @@ export function CookieRow({
             </button>
             {canEdit && (
               <>
-                <button
-                  type="button"
-                  className="dt-btn dt-btn-primary dt-cookie-action dt-cookie-action--icon"
-                  title="Edit this cookie in the browser jar"
-                  aria-label="Edit cookie"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onEdit();
-                  }}
-                >
-                  <EditOutlined />
-                </button>
+                <CookieEditPopover mode="edit" canonical={rowToEditForm(row)} onSubmit={onApplyEdit}>
+                  <button
+                    type="button"
+                    className="dt-btn dt-btn-primary dt-cookie-action dt-cookie-action--icon"
+                    title="Edit this cookie in the browser jar"
+                    aria-label="Edit cookie"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <EditOutlined />
+                  </button>
+                </CookieEditPopover>
                 <button
                   type="button"
                   className="dt-btn dt-btn-primary dt-cookie-action dt-cookie-action--icon"

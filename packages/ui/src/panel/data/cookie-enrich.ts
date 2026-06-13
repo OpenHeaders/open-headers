@@ -161,11 +161,18 @@ export function enrichCookies(input: EnrichmentInputs): EnrichmentResult {
   const requestRows: CookieRow[] = [];
   const matchedJarIdx = new Set<number>();
 
-  for (const sent of sentHar) {
+  // The Cookie header can carry the same NAME more than once — one entry
+  // per jar cookie of that name whose domain/path matched the URL (e.g.
+  // a `tz` on `.openheaders.io` and another on `app.openheaders.io`).
+  // Match each sent entry to a DISTINCT jar cookie (skip ones already
+  // claimed) so the rows show their real, differing scopes — and key each
+  // row by its sent-index so duplicate names never collide on the React
+  // key (a collision corrupts the whole list's reconciliation).
+  sentHar.forEach((sent, sentIdx) => {
     let jarMatchIdx = -1;
     if (jar) {
       for (let i = 0; i < jar.length; i++) {
-        if (jar[i].name === sent.name) {
+        if (jar[i].name === sent.name && !matchedJarIdx.has(i)) {
           jarMatchIdx = i;
           break;
         }
@@ -175,6 +182,7 @@ export function enrichCookies(input: EnrichmentInputs): EnrichmentResult {
       matchedJarIdx.add(jarMatchIdx);
       const j = jar[jarMatchIdx];
       const row = jarToRow(j, 'request', 'request-jar');
+      row.id = `request:request-jar:${sentIdx}:${j.domain}${j.path}:${j.name}`;
       const wasEdited = input.editedKeys?.has(cookieEditKey(j.name, j.domain, j.path)) ?? false;
       if (wasEdited && j.value !== sent.value) {
         // The user changed this cookie from the panel after the request
@@ -197,11 +205,11 @@ export function enrichCookies(input: EnrichmentInputs): EnrichmentResult {
         value: sent.value,
         direction: 'request',
         attribution: 'request-har',
-        id: `request:har:${sent.name}`,
+        id: `request:har:${sentIdx}:${sent.name}`,
         size: sent.name.length + 1 + sent.value.length,
       });
     }
-  }
+  });
 
   if (input.showFilteredOut && jar) {
     let parsedUrl: URL | null = null;
@@ -215,6 +223,7 @@ export function enrichCookies(input: EnrichmentInputs): EnrichmentResult {
       const j = jar[i];
       const reason = parsedUrl ? explainFilteredOut(j, parsedUrl, now) : 'not sent';
       const row = jarToRow(j, 'request', 'filtered-out');
+      row.id = `request:filtered-out:${i}:${j.domain}${j.path}:${j.name}`;
       row.filteredReason = reason;
       if (input.editedKeys?.has(cookieEditKey(j.name, j.domain, j.path))) row.edited = true;
       requestRows.push(row);
