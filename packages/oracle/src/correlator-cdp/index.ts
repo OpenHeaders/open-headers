@@ -52,6 +52,24 @@ export {
   MAX_CDP_WALL_OFFSETS_PER_TAB,
   monotonicSecToWallMs,
 } from './cdp-wall-clock';
+export type {
+  CdpAuthChallengeResponse,
+  CdpBootstrapScript,
+  CdpContinueRequest,
+  CdpContinueWithAuth,
+  CdpControlCommand,
+  CdpEnvironmentOverrides,
+  CdpFetchPattern,
+  CdpFulfillResponse,
+  CdpGeolocation,
+  CdpHeaderEntry,
+  CdpNetworkConditions,
+  CdpRequestControlPort,
+  CdpSessionTarget,
+  CdpTabControlPort,
+  CdpTabControlState,
+} from './control-port';
+export { EMPTY_TAB_CONTROL_STATE, reconcileTabControl } from './control-port';
 export { CdpCorrelator } from './correlator';
 export type {
   CdpBufferedResponseBody,
@@ -82,6 +100,13 @@ export type {
   CdpWebSocketWillSendHandshakeRequest,
 } from './events';
 export { cdpStoreRequestId } from './events';
+export type {
+  InMemoryRequestControlPort,
+  InMemoryTabControlPort,
+  RecordedReaction,
+  RecordedTabControl,
+} from './in-memory-control-port';
+export { createInMemoryRequestControlPort, createInMemoryTabControlPort } from './in-memory-control-port';
 export type {
   CdpDomContentEventFired,
   CdpFrameNavigated,

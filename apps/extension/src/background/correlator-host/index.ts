@@ -11,9 +11,15 @@ export type {
   CdpAttachFault,
   CdpAttachObservable,
   CdpAttachState,
+  CdpControlReplay,
 } from './cdp-attach-controller';
 export { CdpAttachController } from './cdp-attach-controller';
-export { ChromeDebuggerEventSource } from './chrome-debugger-source';
+export type { CdpControlReplayOptions } from './cdp-control-replay';
+export { createCdpControlReplay } from './cdp-control-replay';
+export type { CdpSessionSender } from './cdp-session-sender';
+export { ChromeCdpRequestControlPort } from './chrome-cdp-request-control-port';
+export { ChromeCdpTabControlPort } from './chrome-cdp-tab-control-port';
+export { ChromeDebuggerEventSource, cdpRootTarget, ROOT_SESSION_ID } from './chrome-debugger-source';
 export { ChromeHarEventSource } from './chrome-har-source';
 export { ChromeWebRequestEventSource } from './chrome-webrequest-source';
 export type { DevtoolsPortPresence, DevtoolsPortPresenceOptions } from './devtools-port-presence';

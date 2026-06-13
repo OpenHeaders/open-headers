@@ -46,6 +46,7 @@ import type {
   CdpResourceTiming,
   CdpResponseBody,
   CdpResponseParams,
+  CdpSessionTarget,
   CdpStackTrace,
 } from '@openheaders/oracle/correlator-cdp';
 import { logger } from '@utils/logger';
@@ -79,7 +80,14 @@ const MAX_EAGER_POST_BODY_BYTES = 64 * 1024;
  * already namespaces across tabs; a chrome-issued child session id is a
  * long opaque string and never collides with this literal.
  */
-const ROOT_SESSION_ID = 'page';
+export const ROOT_SESSION_ID = 'page';
+
+/** The root (page-target) control target for a tab — the session the
+ *  tab-wide standing CDP state (cache / throttle / overrides / bootstrap)
+ *  is applied to. Child-session control rides the child's own target. */
+export function cdpRootTarget(tabId: number): CdpSessionTarget {
+  return { tabId, sessionId: ROOT_SESSION_ID };
+}
 
 /**
  * Child target types we auto-attach to (B1 product call). The parity
@@ -175,6 +183,36 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
       throw new Error('Network.streamResourceContent returned an unexpected shape');
     }
     return { bufferedData: raw.bufferedData };
+  }
+
+  /**
+   * True when `chrome.debugger` exists on this host (false on Firefox /
+   * Safari). The control-port adapters gate their `available` on it.
+   */
+  get cdpAvailable(): boolean {
+    return this.api() !== undefined;
+  }
+
+  /**
+   * Control-plane seam — issue one CDP command on a tab's session and
+   * return its raw result. The session-routed counterpart of the body-fetch
+   * pulls: the synthetic root session id maps to a `{tabId}` debuggee, a
+   * flattened child carries its real id. The control-port adapters route
+   * every typed command through here, so `chrome.debugger.*` stays named in
+   * this file alone and no second attach path is introduced. Rejects on an
+   * absent transport; surfaces command errors to the caller, which owns the
+   * tolerance decision (a standing-state replay logs and moves on; a
+   * per-request reaction may care).
+   */
+  async sendOnSession(
+    tabId: number,
+    sessionId: string,
+    method: string,
+    params?: Record<string, unknown>,
+  ): Promise<unknown> {
+    const api = this.api();
+    if (!api) throw new Error('CDP transport unavailable');
+    return api.sendCommand(this.sessionFor(tabId, sessionId), method, params);
   }
 
   /** Map the synthetic root session id onto a bare `{tabId}` debuggee. */

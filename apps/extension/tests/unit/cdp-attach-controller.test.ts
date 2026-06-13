@@ -29,10 +29,13 @@ function makeHarness() {
     };
   });
   const route = vi.fn<(tabId: number, owner: 'heuristic' | 'cdp') => void>();
+  const replayFn = vi.fn<(tabId: number) => void>();
+  const release = vi.fn<(tabId: number) => void>();
 
   const source = { attach, detach, onDetach };
   const router = { route };
-  const controller = new CdpAttachController({ source, router });
+  const replay = { replay: replayFn, release };
+  const controller = new CdpAttachController({ source, router, replay });
 
   return {
     controller,
@@ -40,6 +43,8 @@ function makeHarness() {
     detach,
     route,
     onDetach,
+    replayFn,
+    release,
     fireDetach: (tabId: number, reason: string) => detachListener?.(tabId, reason),
   };
 }
@@ -202,6 +207,113 @@ describe('CdpAttachController', () => {
     // The captured listener was torn down — a late detach reaches nobody.
     fireDetach(1, 'target_closed');
     expect(route).not.toHaveBeenCalled();
+  });
+
+  describe('arming (Option C — explicit per-tab debug control plane)', () => {
+    it('arming a tab while the flag is ON attaches it like a live port', async () => {
+      h.controller.setEnabled(true);
+      h.controller.noteArmed(5);
+      await flush();
+
+      expect(h.attach).toHaveBeenCalledWith(5);
+      expect(h.route).toHaveBeenCalledWith(5, 'cdp');
+    });
+
+    it('arming while the flag is OFF attaches nothing', async () => {
+      h.controller.noteArmed(5);
+      await flush();
+      expect(h.attach).not.toHaveBeenCalled();
+    });
+
+    it('a tab armed AND port-live stays attached until BOTH inputs drop', async () => {
+      h.controller.setEnabled(true);
+      h.controller.notePortConnected(5);
+      h.controller.noteArmed(5);
+      await flush();
+      expect(h.attach).toHaveBeenCalledTimes(1);
+
+      // Port closes but the tab is still armed → stays attached.
+      h.controller.notePortDisconnected(5);
+      await flush();
+      expect(h.detach).not.toHaveBeenCalled();
+
+      // Disarm too → now undesired, detaches.
+      h.controller.noteDisarmed(5);
+      await flush();
+      expect(h.detach).toHaveBeenCalledWith(5);
+    });
+
+    it('disarming an armed-only tab detaches it back to heuristic', async () => {
+      h.controller.setEnabled(true);
+      h.controller.noteArmed(5);
+      await flush();
+
+      h.controller.noteDisarmed(5);
+      await flush();
+      expect(h.detach).toHaveBeenCalledWith(5);
+      expect(h.route).toHaveBeenCalledWith(5, 'heuristic');
+    });
+  });
+
+  describe('control-plane replay (§4.6 replay over persistence)', () => {
+    it('replays the derived control state once on a clean attach', async () => {
+      h.controller.setEnabled(true);
+      h.controller.notePortConnected(5);
+      await flush();
+      expect(h.replayFn).toHaveBeenCalledTimes(1);
+      expect(h.replayFn).toHaveBeenCalledWith(5);
+    });
+
+    it('releases the control state on a port-disconnect detach', async () => {
+      h.controller.setEnabled(true);
+      h.controller.notePortConnected(5);
+      await flush();
+
+      h.controller.notePortDisconnected(5);
+      await flush();
+      expect(h.release).toHaveBeenCalledWith(5);
+    });
+
+    it('re-applies the control state on every re-attach — kill, then revive', async () => {
+      h.controller.setEnabled(true);
+      h.controller.notePortConnected(5);
+      await flush();
+      expect(h.replayFn).toHaveBeenCalledTimes(1);
+
+      // Kill: the attachment dies underneath us (banner re-flash / SW wake /
+      // tab close-and-reopen surfaces as onDetach). State is released and the
+      // tab is NOT re-attached on its own (no reconcile fights the detach).
+      h.fireDetach(5, 'target_closed');
+      expect(h.release).toHaveBeenCalledWith(5);
+
+      // Revive: a genuine input change (port reconnect) re-establishes the
+      // attachment, and the control state is replayed afresh — recomputed,
+      // never restored from anything cached across the detach.
+      h.controller.notePortDisconnected(5);
+      h.controller.notePortConnected(5);
+      await flush();
+      expect(h.replayFn).toHaveBeenCalledTimes(2);
+    });
+
+    it('does NOT replay when the attach is undone by a mid-handshake disconnect', async () => {
+      let resolveAttach: () => void = () => {};
+      h.attach.mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveAttach = resolve;
+          }),
+      );
+
+      h.controller.setEnabled(true);
+      h.controller.notePortConnected(9);
+      await flush();
+      h.controller.notePortDisconnected(9); // port gone mid-handshake
+      resolveAttach();
+      await flush();
+
+      // The attach was undone, so no control state was applied.
+      expect(h.replayFn).not.toHaveBeenCalled();
+    });
   });
 
   describe('observability (status pill)', () => {

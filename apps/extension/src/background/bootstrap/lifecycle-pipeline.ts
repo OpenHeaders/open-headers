@@ -1,9 +1,16 @@
+import { EMPTY_TAB_CONTROL_STATE } from '@openheaders/oracle/correlator-cdp';
 import { PageStreamHub } from '@openheaders/oracle/page-stream-hub';
 import { RequestLifecycleHub } from '@openheaders/oracle/request-lifecycle-hub';
 import { RuleFireHub } from '@openheaders/oracle/rule-fire-hub';
 import { TabLifecycleBus } from '@openheaders/oracle/tab-lifecycle-bus';
 import type { CdpAttachObservable } from '../correlator-host';
-import { CdpAttachController, startDevtoolsPortPresence, startLifecycleHost } from '../correlator-host';
+import {
+  CdpAttachController,
+  ChromeCdpTabControlPort,
+  createCdpControlReplay,
+  startDevtoolsPortPresence,
+  startLifecycleHost,
+} from '../correlator-host';
 import { startDevtoolsSessionCoordinator } from '../devtools-session-coordinator';
 import { createPersistentWatchSessionFloors, startLifecyclePortHost } from '../lifecycle-port-host';
 import { setupOnRuleMatchedDebugBridge } from '../modules/on-rule-matched-debug';
@@ -31,6 +38,13 @@ interface LifecyclePipelineHandles {
    * read-side mirror of `setCdpEnabled`'s write side.
    */
   cdpAttach: CdpAttachObservable;
+  /**
+   * Arm / disarm a tab for the debug-mode control plane (§2 Option C). An
+   * armed tab joins the CDP desired set like a live DevTools port; the
+   * arming UI (Phase C3/D) drives these. Inert until then — no caller arms.
+   */
+  armCdpTab: (tabId: number) => void;
+  disarmCdpTab: (tabId: number) => void;
 }
 
 export function startLifecyclePipeline(): LifecyclePipelineHandles {
@@ -45,9 +59,20 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   // `background.ts`'s `subscribeKey('inspection.cdpEnabled')`) feeds the
   // master switch. Default OFF → the intersection is ∅, nothing attaches,
   // and the heuristic path is byte-for-byte unchanged.
+  // Control plane (T2): the declarative standing-state port over the
+  // debugger source's session sender, and the replay seam that re-applies a
+  // tab's derived CDP state on every (re-)attach. `deriveState` is empty
+  // until Phases D/F compile debug rules into CDP state; the seam exists now
+  // so replay-on-reattach is structural, not retrofitted.
+  const tabControlPort = new ChromeCdpTabControlPort(lifecycleHost.debuggerSource);
+  const cdpControlReplay = createCdpControlReplay({
+    tabControlPort,
+    deriveState: () => EMPTY_TAB_CONTROL_STATE,
+  });
   const cdpAttachController = new CdpAttachController({
     source: lifecycleHost.debuggerSource,
     router: lifecycleHost.router,
+    replay: cdpControlReplay,
   });
   startDevtoolsPortPresence({
     onConnected: (tabId) => cdpAttachController.notePortConnected(tabId),
@@ -108,5 +133,7 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
     lifecycleStore: lifecycleHost.store,
     setCdpEnabled: (enabled) => cdpAttachController.setEnabled(enabled),
     cdpAttach: cdpAttachController,
+    armCdpTab: (tabId) => cdpAttachController.noteArmed(tabId),
+    disarmCdpTab: (tabId) => cdpAttachController.noteDisarmed(tabId),
   };
 }
