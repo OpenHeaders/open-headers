@@ -211,7 +211,6 @@ export function CookieRow({
                     className="dt-btn dt-btn-primary dt-cookie-action dt-cookie-action--icon"
                     title="Edit this cookie in the browser jar"
                     aria-label="Edit cookie"
-                    onClick={(e) => e.stopPropagation()}
                   >
                     <EditOutlined />
                   </button>

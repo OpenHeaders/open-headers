@@ -218,16 +218,18 @@ export function CookieEditPopover({ mode, canonical, onSubmit, placement = 'bott
       trigger="click"
       placement={placement}
       destroyOnHidden
+      // Content must be non-empty even while closed — antd refuses to open
+      // a popover whose content is falsy, so a `open ? … : null` here would
+      // never open on the first click. `destroyOnHidden` keeps it lazy:
+      // the body only mounts (and re-seeds from `canonical`) once shown.
       content={
-        open ? (
-          <CookieEditFormBody
-            mode={mode}
-            canonical={canonical}
-            busy={busy}
-            onCancel={() => setOpen(false)}
-            onSave={handleSave}
-          />
-        ) : null
+        <CookieEditFormBody
+          mode={mode}
+          canonical={canonical}
+          busy={busy}
+          onCancel={() => setOpen(false)}
+          onSave={handleSave}
+        />
       }
     >
       {children}
