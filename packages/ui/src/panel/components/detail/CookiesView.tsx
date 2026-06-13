@@ -28,11 +28,19 @@
  */
 
 import type { InspectorHarEntry } from '@openheaders/core/types';
+import { App } from 'antd';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useMeasuredCssHeights } from '@openheaders/ui/shared/hooks/useMeasuredStickyOffset';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
+import {
+  type CookieEditFormValues,
+  emptyEditForm,
+  rowToEditForm,
+  rowToKey,
+} from '../../data/cookie-edit';
 import { enrichCookies } from '../../data/cookie-enrich';
 import { parseCookieQuery, type CookieFilterToken } from '../../data/cookie-filter';
+import { isCookieJarWritable, type JarCookieEdit, removeJarCookie, writeJarCookie } from '../../data/cookie-jar-cache';
 import {
   computeCookieInsights,
   droppedCookieNames,
@@ -43,6 +51,7 @@ import {
 import type { CookieRow as CookieRowModel } from '../../data/cookie-model';
 import { currentHarEntry, type InspectorRowWithFires } from '../../data/inspector-row-projection';
 import { useCookieJar } from '../../data/use-cookie-jar';
+import { CookieEditModal } from './cookies/CookieEditModal';
 import { CookieInsightCard } from './cookies/CookieInsightCard';
 import { CookieMoreFiltersMenu, CookieViewMenu } from './cookies/CookieMenus';
 import { CookieSection } from './cookies/CookieSection';
@@ -85,6 +94,62 @@ export default function CookiesView({ row, pageOrigin, onCreateHeaderRule }: Coo
 
   // ── Jar lookup ─────────────────────────────────────────────────
   const jar = useCookieJar(lc.url);
+
+  // ── Edit modal state ───────────────────────────────────────────
+  const { modal, message } = App.useApp();
+  const writable = isCookieJarWritable();
+  const [editing, setEditing] = useState<{ mode: 'add' | 'edit'; canonical: CookieEditFormValues } | null>(null);
+  const [writeBusy, setWriteBusy] = useState(false);
+
+  const seedDomain = useMemo(() => {
+    try {
+      return new URL(lc.url).hostname;
+    } catch {
+      return '';
+    }
+  }, [lc.url]);
+  const seedSecure = lc.url.startsWith('https:');
+
+  const onAddCookie = useCallback(() => {
+    setEditing({ mode: 'add', canonical: emptyEditForm({ domain: seedDomain, secure: seedSecure }) });
+  }, [seedDomain, seedSecure]);
+
+  const onEditCookie = useCallback((cookie: CookieRowModel) => {
+    setEditing({ mode: 'edit', canonical: rowToEditForm(cookie) });
+  }, []);
+
+  const onSubmitEdit = useCallback(
+    (edit: JarCookieEdit) => {
+      setWriteBusy(true);
+      void writeJarCookie(edit)
+        .then((result) => {
+          if (result) message.success(`Cookie “${edit.name}” saved`);
+          else message.error(`Couldn’t save cookie “${edit.name}”`);
+        })
+        .finally(() => {
+          setWriteBusy(false);
+          setEditing(null);
+        });
+    },
+    [message],
+  );
+
+  const onDeleteCookie = useCallback(
+    (cookie: CookieRowModel) => {
+      modal.confirm({
+        title: `Delete cookie “${cookie.name}”?`,
+        content: 'This removes it from the browser cookie jar. The page will stop sending it.',
+        okText: 'Delete',
+        okButtonProps: { danger: true },
+        onOk: () =>
+          removeJarCookie(rowToKey(cookie)).then((ok) => {
+            if (ok) message.success(`Cookie “${cookie.name}” deleted`);
+            else message.error(`Couldn’t delete cookie “${cookie.name}”`);
+          }),
+      });
+    },
+    [modal, message],
+  );
 
   // ── Enrichment ─────────────────────────────────────────────────
   const { request: requestRows, response: responseRows, requestBytes, responseBytes } = useMemo(
@@ -213,6 +278,11 @@ export default function CookiesView({ row, pageOrigin, onCreateHeaderRule }: Coo
         <button type="button" className="dt-btn dt-btn-primary" onClick={onCreateRemoveAllCookies} title="Drop the Cookie header entirely, so the server sees no cookies">
           Don’t send any cookies
         </button>
+        {writable && (
+          <button type="button" className="dt-btn" onClick={onAddCookie} title="Add a cookie to the browser jar (including HttpOnly)">
+            Add cookie
+          </button>
+        )}
       </div>
 
       {footprintText && (
@@ -246,6 +316,9 @@ export default function CookiesView({ row, pageOrigin, onCreateHeaderRule }: Coo
         now={now}
         summaryRef={firstSummaryRef}
         onMakeRule={onMakeRule}
+        writable={writable}
+        onEdit={onEditCookie}
+        onDelete={onDeleteCookie}
       />
 
       <CookieSection
@@ -263,7 +336,21 @@ export default function CookiesView({ row, pageOrigin, onCreateHeaderRule }: Coo
         groupByRole={groupByRole}
         now={now}
         onMakeRule={onMakeRule}
+        writable={writable}
+        onEdit={onEditCookie}
+        onDelete={onDeleteCookie}
       />
+
+      {editing && (
+        <CookieEditModal
+          open
+          mode={editing.mode}
+          canonical={editing.canonical}
+          busy={writeBusy}
+          onCancel={() => setEditing(null)}
+          onSubmit={onSubmitEdit}
+        />
+      )}
     </div>
   );
 }

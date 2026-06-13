@@ -16,7 +16,7 @@
  * URL-encoded).
  */
 
-import { CheckOutlined, CopyOutlined } from '@ant-design/icons';
+import { CheckOutlined, CopyOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import { useState } from 'react';
 import type { CookieRow as CookieRowModel } from '../../../data/cookie-model';
 import { formatAbsoluteExpiry, formatRelativeExpiry, urlDecodeSafe } from '../../../data/cookie-format';
@@ -49,6 +49,11 @@ interface Props {
    *  fixed slot count (Name/Value/Scope/Expires/Size/Sec = 6). */
   columnSpan: number;
   onMakeRule: () => void;
+  /** Jar-backed rows get Edit / Delete affordances; response Set-Cookie
+   *  lines and jar-less request rows don't (nothing to write). */
+  canEdit: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
 }
 
 function expiresUrgencyClass(row: CookieRowModel, now: number): string {
@@ -76,6 +81,9 @@ export function CookieRow({
   now,
   columnSpan,
   onMakeRule,
+  canEdit,
+  onEdit,
+  onDelete,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
   const canExpand = introspectionHasDepth(introspection);
@@ -166,6 +174,34 @@ export function CookieRow({
             >
               Override
             </button>
+            {canEdit && (
+              <>
+                <button
+                  type="button"
+                  className="dt-btn dt-btn-primary dt-cookie-action dt-cookie-action--icon"
+                  title="Edit this cookie in the browser jar"
+                  aria-label="Edit cookie"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEdit();
+                  }}
+                >
+                  <EditOutlined />
+                </button>
+                <button
+                  type="button"
+                  className="dt-btn dt-btn-primary dt-cookie-action dt-cookie-action--icon"
+                  title="Delete this cookie from the browser jar"
+                  aria-label="Delete cookie"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete();
+                  }}
+                >
+                  <DeleteOutlined />
+                </button>
+              </>
+            )}
           </span>
         </td>
         <td className="dt-cookie-scope">{scope}</td>

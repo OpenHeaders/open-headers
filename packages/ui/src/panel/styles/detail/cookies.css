@@ -491,3 +491,44 @@
 .dt-cookie-jwt-claim-warn em {
   color: var(--dt-status-yellow);
 }
+
+/* ── Add / edit modal form ─────────────────────────────────────── */
+.dt-cookie-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 4px;
+}
+.dt-cookie-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.dt-cookie-edit-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--dt-text-muted);
+}
+.dt-cookie-edit-expires {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.dt-cookie-edit-datetime {
+  flex: 1 1 auto;
+  min-width: 180px;
+}
+.dt-cookie-edit-toggles {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+.dt-cookie-edit-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}

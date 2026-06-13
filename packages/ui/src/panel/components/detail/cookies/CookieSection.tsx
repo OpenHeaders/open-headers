@@ -10,6 +10,7 @@
 
 import { useMemo, useRef, type RefObject } from 'react';
 import { useMeasuredCssHeights } from '@openheaders/ui/shared/hooks/useMeasuredStickyOffset';
+import { isJarEditableRow } from '../../../data/cookie-edit';
 import type { CookieRow as CookieRowModel } from '../../../data/cookie-model';
 import type { CookieFilterToken, CookieRowMeta } from '../../../data/cookie-filter';
 import { matchesCookieQuery } from '../../../data/cookie-filter';
@@ -37,6 +38,10 @@ interface Props {
   now: number;
   summaryRef?: RefObject<HTMLElement | null>;
   onMakeRule: (row: CookieRowModel) => void;
+  /** Whether a host has wired a jar-write path — gates Edit / Delete. */
+  writable: boolean;
+  onEdit: (row: CookieRowModel) => void;
+  onDelete: (row: CookieRowModel) => void;
 }
 
 function isHostPrefix(name: string): boolean {
@@ -121,6 +126,9 @@ export function CookieSection({
   now,
   summaryRef,
   onMakeRule,
+  writable,
+  onEdit,
+  onDelete,
 }: Props) {
   // Measure the actual rendered thead height so the sticky role
   // heading's `top: …` lands flush against the column-header row,
@@ -185,6 +193,9 @@ export function CookieSection({
       now={now}
       columnSpan={COLUMN_SPAN}
       onMakeRule={() => onMakeRule(p.row)}
+      canEdit={writable && isJarEditableRow(p.row)}
+      onEdit={() => onEdit(p.row)}
+      onDelete={() => onDelete(p.row)}
     />
   );
 
