@@ -2,56 +2,69 @@
  * `CdpAttachController` — the SW-side reconciler that owns the locked
  * invariant
  *
- *     attached = { live DevTools ports ∪ armed tabs } ∩ { master switch ON }
+ *     attached = ( drivers(scopeMode) ∪ pinned tabs ) ∩ { master switch ON }
+ *
+ * where `drivers(scopeMode)` is the union of the input sets the selected
+ * scope turns on:
+ *   - `devtools` / `both` → tabs with a live DevTools port
+ *   - `active`   / `both` → the current attachable tab (singleton)
  *
  * It is the **only** code that drives a tab into CDP. Every attach/detach
- * is this reconciler recomputing the intersection and applying the delta —
- * never an imperative one-off `attach` sprinkled elsewhere. Concurrent CDP
- * across N DevTools-open tabs, global teardown on flag-OFF, and
- * no-attach-when-OFF all fall out of the one rule, not separate code paths.
+ * is this reconciler recomputing the set and applying the delta — never an
+ * imperative one-off `attach` sprinkled elsewhere. Concurrent CDP across N
+ * tabs, global teardown on flag-OFF, and no-attach-when-OFF all fall out of
+ * the one rule, not separate code paths.
  *
- * Three inputs, all injected:
+ * Five inputs, all injected:
  *   - **live DevTools ports** — `notePortConnected` / `notePortDisconnected`,
- *     fed by the `devtools-port-presence` observer (the `devtools-har-source:
- *     <tabId>` port connect/disconnect). DevTools-open = port connect,
- *     DevTools-close / tab-close / SW-evict = port disconnect.
- *   - **armed tabs** — `noteArmed` / `noteDisarmed`, the §2 Option-C explicit
- *     per-tab arming for the debug-mode control plane. An armed tab joins
- *     the desired set exactly as a live port does (both ∩ the master switch),
- *     so a developer can drive a tab into CDP without a panel open.
- *   - **the master switch** — `setEnabled`, fed by Slice 5's
- *     `subscribeKey('inspection.cdpEnabled')`. Default OFF, so a live build
- *     attaches nothing until S5 flips it.
+ *     fed by the `devtools-port-presence` observer. DevTools-open = port
+ *     connect, DevTools-close / tab-close / SW-evict = port disconnect.
+ *   - **the active tab** — `noteActiveTab`, fed by the `cdp-active-tab`
+ *     observer with the last *attachable* active tab (it never pushes a
+ *     `chrome://` / new-tab page, so focus passing through one doesn't
+ *     thrash the attachment; `null` clears it).
+ *   - **the scope mode** — `setScopeMode`, fed by `inspection.cdpScope`.
+ *     Chooses which of the above driver sets are live. Default `devtools`
+ *     reproduces the original DevTools-bound behaviour.
+ *   - **pinned tabs** — `notePinned` / `noteUnpinned`, an explicit per-tab
+ *     "include this tab" overlay on top of whatever mode is selected (the
+ *     §2 banner consent). A pinned tab joins the desired set regardless of
+ *     mode, focus, or DevTools.
+ *   - **the master switch** — `setEnabled`, fed by `inspection.cdpEnabled`.
+ *     Default OFF, so a live build attaches nothing until it flips.
  *
  * Each newly-desired tab pairs `source.attach(tabId)` with
  * `router.route(tabId, 'cdp')` and, once committed, a `replay.replay(tabId)`
  * that re-applies the tab's derived standing CDP control state (§4.6 replay
- * over persistence — nothing imperative survives a detach). Each
- * newly-undesired tab pairs `source.detach(tabId)` with
- * `router.route(tabId, 'heuristic')` and `replay.release(tabId)`. The router
- * keeps the no-double-feed invariant (routing to cdp detaches heuristic for
- * that tab); the source owns the chrome handshake; the replay owns the
- * control-plane state. All together.
+ * over persistence). Each newly-undesired tab pairs `source.detach(tabId)`
+ * with `router.route(tabId, 'heuristic')` and `replay.release(tabId)`. The
+ * router keeps the no-double-feed invariant; the source owns the chrome
+ * handshake; the replay owns the control-plane state. All together.
  *
- * Effect-only over its two inputs: it names no chrome API. The connect/
- * disconnect plumbing lives in the `devtools-port-presence` adapter; the
- * router/source are injected via narrow `Pick<…>` interfaces.
+ * A tab that is in the desired set gets the **full** control suite — there
+ * is no observe-vs-control split. What any individual rule does on an
+ * in-scope tab is the rule's own job (enabled / published / conditions);
+ * `isInScope` is the single gate the host's `deriveState` reads.
  *
- * Async gap (plan §B2-remains). `source.attach` is a `Promise<void>` — the
+ * Effect-only over its inputs: it names no chrome API. The connect/
+ * disconnect and active-tab plumbing live in the `correlator-host`
+ * observers; the router/source are injected via narrow `Pick<…>`
+ * interfaces.
+ *
+ * Async gap. `source.attach` is a `Promise<void>` — the
  * `chrome.debugger.attach` → `Network.enable` handshake. A
  * connect→disconnect race during that window must not leave a half-attached
  * tab, so per-tab operations are serialized through a chain and each link
- * re-reads the current desire after the await: if the port vanished while
- * attaching, the tab is detached again and never routed to cdp. The tab
- * ends heuristic-owned and not CDP-attached.
+ * re-reads the current desire after the await: if the tab fell out of the
+ * desired set while attaching, it is detached again and never routed to cdp.
  *
- * No persistence. The attached set is fully derived from (live ports × flag),
- * both of which self-recover: on SW wake the `devtools_page` ports lazy-
- * reconnect and the reconciler re-establishes the set (or nothing if OFF).
- * The per-tab banner re-flashes on re-attach, and any in-flight CDP state
- * died with the worker — orphaned requests at eviction lack a terminal.
+ * No persistence. The attached set is fully derived from its inputs, all of
+ * which self-recover on SW wake (ports lazy-reconnect, the active-tab
+ * observer re-queries, settings re-seed). The per-tab banner re-flashes on
+ * re-attach, and any in-flight CDP state died with the worker.
  */
 
+import type { CdpScopeMode } from '@openheaders/core/types';
 import type { TabSourceRouter } from './tab-source-router';
 
 /** The slice of the debugger source the reconciler drives. */
@@ -102,14 +115,14 @@ export interface CdpAttachFault {
 
 /**
  * The reconciler's effective state, read-only. `enabled` is the master
- * switch; `attachedCount` is the committed intersection's size;
- * `lastFault` is the most-recent fault (last-event-wins, matching the
- * Status snapshot model), cleared on a flag flip and on the next clean
- * attach.
+ * switch; `attachedTabs` is the committed desired set (the roster the
+ * footer renders, each entry a tab the user can jump to); `lastFault` is
+ * the most-recent fault (last-event-wins, matching the Status snapshot
+ * model), cleared on a flag flip and on the next clean attach.
  */
 export interface CdpAttachState {
   readonly enabled: boolean;
-  readonly attachedCount: number;
+  readonly attachedTabs: readonly number[];
   readonly lastFault: CdpAttachFault | null;
 }
 
@@ -131,11 +144,15 @@ export class CdpAttachController implements CdpAttachObservable {
 
   /** Tabs with a live DevTools port (input set). */
   private readonly livePorts = new Set<number>();
-  /** Tabs explicitly armed for the debug control plane (input set). */
-  private readonly armed = new Set<number>();
-  /** Master switch (input flag); driven by the Slice 5 `setEnabled`. */
+  /** Tabs explicitly pinned into scope — the per-tab overlay (input set). */
+  private readonly pinned = new Set<number>();
+  /** The current attachable active tab, or null (input singleton). */
+  private activeTab: number | null = null;
+  /** Which driver sets the selected scope turns on (input flag). */
+  private scopeMode: CdpScopeMode = 'devtools';
+  /** Master switch (input flag); driven by `inspection.cdpEnabled`. */
   private enabled = false;
-  /** Tabs we hold a committed CDP attachment for (the derived intersection). */
+  /** Tabs we hold a committed CDP attachment for (the derived desired set). */
   private readonly attached = new Set<number>();
   /** Per-tab op chain — serializes attach/detach so races can't interleave. */
   private readonly pending = new Map<number, Promise<void>>();
@@ -164,42 +181,52 @@ export class CdpAttachController implements CdpAttachObservable {
     this.reconcile();
   }
 
-  /** A tab was armed for the debug control plane. Updates the set + reconciles. */
-  noteArmed(tabId: number): void {
-    if (this.armed.has(tabId)) return;
-    this.armed.add(tabId);
+  /**
+   * The current attachable active tab changed. `null` clears it (the active
+   * tab was closed and no attachable tab took its place). Only meaningful
+   * under the `active` / `both` scope modes; stored regardless so a later
+   * mode switch reconciles against a current value.
+   */
+  noteActiveTab(tabId: number | null): void {
+    if (this.activeTab === tabId) return;
+    this.activeTab = tabId;
     this.reconcile();
-    this.reapplyControl(tabId);
   }
 
-  /** A tab was disarmed. Updates the set + reconciles. */
-  noteDisarmed(tabId: number): void {
-    if (!this.armed.delete(tabId)) return;
+  /** The scope mode changed (which driver sets are live). Reconciles. */
+  setScopeMode(mode: CdpScopeMode): void {
+    if (this.scopeMode === mode) return;
+    this.scopeMode = mode;
     this.reconcile();
-    this.reapplyControl(tabId);
+  }
+
+  /** A tab was pinned into scope. Updates the overlay set + reconciles. */
+  notePinned(tabId: number): void {
+    if (this.pinned.has(tabId)) return;
+    this.pinned.add(tabId);
+    this.reconcile();
+  }
+
+  /** A tab was unpinned. Updates the overlay set + reconciles. */
+  noteUnpinned(tabId: number): void {
+    if (!this.pinned.delete(tabId)) return;
+    this.reconcile();
+  }
+
+  /** Whether a tab is explicitly pinned (the per-tab overlay). */
+  isPinned(tabId: number): boolean {
+    return this.pinned.has(tabId);
   }
 
   /**
-   * Arming / disarming changes the tab's DERIVED control state (debug-tier
-   * Fetch patterns appear / vanish). A not-yet-attached tab gets that state
-   * from the post-attach `replay` in {@link applyTab}; but a tab that stays
-   * attached across the change (a still-port-live tab, or arming a panel-open
-   * tab) never re-attaches, so re-apply its derived state directly. Skipped
-   * when the change leaves the tab undesired — it is about to detach and
-   * `applyTab` will `release` it.
+   * Whether a tab is currently in the CDP scope — the single gate the
+   * host's `deriveState` reads to decide whether to compile the debug-tier
+   * control state (Fetch patterns, overrides) for it. True for any tab the
+   * derivation desires (driver set ∪ pins, ∩ enabled): a tab in scope gets
+   * the full suite, with no separate observe-vs-control flag.
    */
-  private reapplyControl(tabId: number): void {
-    if (this.attached.has(tabId) && this.isDesired(tabId)) this.replay?.replay(tabId);
-  }
-
-  /**
-   * Whether a tab is explicitly armed for the debug control plane (§2
-   * Option C). Distinct from "attached": a panel-open tab is attached via
-   * its live port but UNarmed, so debug-tier control (Fetch patterns,
-   * overrides) stays inert. `deriveState` reads this to keep that gate.
-   */
-  isArmed(tabId: number): boolean {
-    return this.armed.has(tabId);
+  isInScope(tabId: number): boolean {
+    return this.isDesired(tabId);
   }
 
   /** The master switch changed. Updates the flag + reconciles. */
@@ -222,9 +249,11 @@ export class CdpAttachController implements CdpAttachObservable {
       this.replay?.release(tabId);
     }
     this.livePorts.clear();
-    this.armed.clear();
+    this.pinned.clear();
     this.pending.clear();
     this.changeListeners.clear();
+    this.activeTab = null;
+    this.scopeMode = 'devtools';
     this.enabled = false;
     this.lastFault = null;
   }
@@ -233,7 +262,7 @@ export class CdpAttachController implements CdpAttachObservable {
 
   /** Snapshot the effective state. */
   getState(): CdpAttachState {
-    return { enabled: this.enabled, attachedCount: this.attached.size, lastFault: this.lastFault };
+    return { enabled: this.enabled, attachedTabs: [...this.attached], lastFault: this.lastFault };
   }
 
   /** Subscribe to effective-state changes. Returns the unsubscribe handle. */
@@ -253,19 +282,27 @@ export class CdpAttachController implements CdpAttachObservable {
   // ── reconcile ────────────────────────────────────────────────────────
 
   /**
-   * Recompute `desired = livePorts ∩ enabled` and converge every affected
-   * tab toward it. Edge-triggered; the actual attach/detach is serialized
-   * and re-evaluated per tab in {@link applyTab}, so the latest input always
-   * wins regardless of in-flight handshakes.
+   * Recompute the desired set and converge every affected tab toward it.
+   * Edge-triggered; the actual attach/detach is serialized and re-evaluated
+   * per tab in {@link applyTab}, so the latest inputs always win regardless
+   * of in-flight handshakes. Iterates every tab any input or the current
+   * attachment touches, so a tab that just left the desired set still gets a
+   * convergence step that detaches it.
    */
   private reconcile(): void {
-    for (const tabId of new Set([...this.livePorts, ...this.armed, ...this.attached])) {
+    const affected = new Set<number>([...this.livePorts, ...this.pinned, ...this.attached]);
+    if (this.activeTab !== null) affected.add(this.activeTab);
+    for (const tabId of affected) {
       this.scheduleTab(tabId);
     }
   }
 
   private isDesired(tabId: number): boolean {
-    return this.enabled && (this.livePorts.has(tabId) || this.armed.has(tabId));
+    if (!this.enabled) return false;
+    if (this.pinned.has(tabId)) return true;
+    const byDevtools = (this.scopeMode === 'devtools' || this.scopeMode === 'both') && this.livePorts.has(tabId);
+    const byActive = (this.scopeMode === 'active' || this.scopeMode === 'both') && this.activeTab === tabId;
+    return byDevtools || byActive;
   }
 
   /** Append a convergence step to the tab's serialized op chain. */
@@ -280,9 +317,9 @@ export class CdpAttachController implements CdpAttachObservable {
 
   /**
    * Converge one tab to its current desired state. Re-reads the inputs at
-   * run time and re-checks after the attach await, so a port that vanished
-   * mid-handshake leaves the tab detached and heuristic-owned (never routed
-   * to cdp).
+   * run time and re-checks after the attach await, so a tab that fell out of
+   * the desired set mid-handshake leaves the tab detached and heuristic-owned
+   * (never routed to cdp).
    */
   private async applyTab(tabId: number): Promise<void> {
     const wantAttached = this.isDesired(tabId);
@@ -300,15 +337,16 @@ export class CdpAttachController implements CdpAttachObservable {
         return;
       }
       if (!this.isDesired(tabId)) {
-        // The port disconnected (or the flag flipped) while attaching —
-        // undo the handshake and leave the tab heuristic-owned.
+        // The tab fell out of the desired set (port disconnected, focus
+        // moved, flag flipped) while attaching — undo the handshake and
+        // leave the tab heuristic-owned.
         await this.source.detach(tabId);
         return;
       }
       this.attached.add(tabId);
       this.router.route(tabId, 'cdp');
       // Replay the tab's derived standing CDP control state onto the fresh
-      // attachment (§4.6) — recomputed from canonical rules + arming, never
+      // attachment (§4.6) — recomputed from canonical rules + scope, never
       // restored from cached imperative state.
       this.replay?.replay(tabId);
       // A clean attach supersedes any prior fault (last-event-wins).
@@ -323,7 +361,7 @@ export class CdpAttachController implements CdpAttachObservable {
       this.router.route(tabId, 'heuristic');
       this.replay?.release(tabId);
       // A flag-OFF teardown already emitted "Off" in `setEnabled`; only a
-      // per-tab release while still ON moves the rendered count.
+      // per-tab release while still ON moves the rendered roster.
       if (this.enabled) this.emit();
     }
   }
@@ -336,11 +374,12 @@ export class CdpAttachController implements CdpAttachObservable {
    * `replaced_with_devtools`. The source already cleared its own attachment
    * state; we drop the tab from `attached` and route it back to heuristic.
    *
-   * Deliberately does NOT reconcile: on a banner-Cancel the port is still
-   * live and the flag still ON, so a reconcile would immediately re-attach
-   * and fight the user's cancel. The tab stays heuristic until a genuine
-   * input change (port disconnect / flag flip). target_closed is also
-   * followed by a port disconnect, which cleans up `livePorts` on its own.
+   * Deliberately does NOT reconcile: on a banner-Cancel the tab is still
+   * desired (port live / active / pinned) and the flag still ON, so a
+   * reconcile would immediately re-attach and fight the user's cancel. The
+   * tab stays heuristic until a genuine input change. target_closed is also
+   * followed by a port disconnect / active-tab clear, which cleans up the
+   * input sets on its own.
    */
   private handleDetach(tabId: number, reason: string): void {
     if (!this.attached.delete(tabId)) return;
@@ -349,7 +388,7 @@ export class CdpAttachController implements CdpAttachObservable {
     // later re-attach replays cleanly from empty (never restores stale).
     this.replay?.release(tabId);
     // Banner Cancel is a user-driven fall-back to heuristic (yellow).
-    // Other reasons (tab close, …) just drop the count with no fault.
+    // Other reasons (tab close, …) just drop the roster with no fault.
     if (reason === 'canceled_by_user') {
       this.lastFault = { kind: 'fell-back', tabId };
     }

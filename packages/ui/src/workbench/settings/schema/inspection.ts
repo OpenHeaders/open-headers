@@ -8,6 +8,8 @@
  * and the worker reconciles the attached set from it.
  */
 
+import type { CdpScopeMode } from '@openheaders/core/types';
+import { cdpScopeModeSchema } from '@openheaders/core/types';
 import * as v from 'valibot';
 import { registerSetting } from '../registry';
 
@@ -27,8 +29,34 @@ registerSetting({
     'This browser doesn’t expose the debugging protocol, so deep request inspection isn’t available here.',
 });
 
+registerSetting({
+  key: 'inspection.cdpScope',
+  type: 'enum',
+  default: 'devtools',
+  schema: cdpScopeModeSchema,
+  label: 'Inspect which tabs',
+  description:
+    'Which tabs deep inspection attaches to while it’s on. DevTools tabs attaches to tabs with their developer tools open. Current tab follows the active tab without needing developer tools open — switching to a new-tab or internal page leaves the prior tab attached rather than thrashing. Both combines the two. Individual tabs can also be pinned in from the footer regardless of this choice.',
+  category: 'inspection',
+  tags: ['network', 'inspection', 'requests', 'debugging', 'devtools', 'scope'],
+  scope: 'user',
+  requiresCapability: 'cdpInspection',
+  capabilityUnavailableHint:
+    'This browser doesn’t expose the debugging protocol, so deep request inspection isn’t available here.',
+  enumOptions: [
+    { value: 'devtools', label: 'DevTools tabs', description: 'Tabs with their developer tools open.' },
+    {
+      value: 'active',
+      label: 'Current tab',
+      description: 'The active tab, following focus — no developer tools needed.',
+    },
+    { value: 'both', label: 'Both', description: 'DevTools tabs and the current tab.' },
+  ],
+});
+
 declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
     'inspection.cdpEnabled': boolean;
+    'inspection.cdpScope': CdpScopeMode;
   }
 }

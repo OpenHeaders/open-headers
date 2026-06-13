@@ -1,12 +1,16 @@
 /**
  * `CdpAttachController` — the derived reconciler proving the locked
- * invariant **attached = { live DevTools ports } ∩ { master switch ON }**
- * across the full state matrix, plus the handoff transitions (the
+ * invariant
+ *
+ *     attached = ( drivers(scopeMode) ∪ pinned ) ∩ { master switch ON }
+ *
+ * across the scope-mode matrix (devtools / active / both), the explicit
+ * per-tab pin overlay, and the handoff transitions (the
  * connect→disconnect-before-attach-resolves race, onDetach route-back, and
  * SW-wake re-attach).
  *
  * Spy source ({ attach, detach, onDetach }) + spy router ({ route }) — the
- * controller is effect-only over its two injected inputs, so no chrome.
+ * controller is effect-only over its injected inputs, so no chrome.
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -56,7 +60,7 @@ describe('CdpAttachController', () => {
     h = makeHarness();
   });
 
-  it('port-connect while the flag is ON attaches + routes the tab to cdp', async () => {
+  it('port-connect while the flag is ON attaches + routes the tab to cdp (default devtools scope)', async () => {
     h.controller.setEnabled(true);
     h.controller.notePortConnected(5);
     await flush();
@@ -209,62 +213,164 @@ describe('CdpAttachController', () => {
     expect(route).not.toHaveBeenCalled();
   });
 
-  describe('arming (Option C — explicit per-tab debug control plane)', () => {
-    it('arming a tab while the flag is ON attaches it like a live port', async () => {
+  describe('scope modes (which driver sets are live)', () => {
+    it('devtools mode (default): the active tab is ignored — only ports attach', async () => {
       h.controller.setEnabled(true);
-      h.controller.noteArmed(5);
+      h.controller.noteActiveTab(5);
+      await flush();
+      expect(h.attach).not.toHaveBeenCalled();
+
+      h.controller.notePortConnected(6);
+      await flush();
+      expect(h.attach).toHaveBeenCalledWith(6);
+      expect(h.attach).not.toHaveBeenCalledWith(5);
+    });
+
+    it('active mode: the active tab attaches and a port-live tab does not', async () => {
+      h.controller.setScopeMode('active');
+      h.controller.setEnabled(true);
+      h.controller.notePortConnected(5);
+      h.controller.noteActiveTab(6);
+      await flush();
+
+      expect(h.attach).toHaveBeenCalledWith(6);
+      expect(h.attach).not.toHaveBeenCalledWith(5);
+      expect(h.route).toHaveBeenCalledWith(6, 'cdp');
+    });
+
+    it('active mode follows focus: a new active tab detaches the old one and attaches the new', async () => {
+      h.controller.setScopeMode('active');
+      h.controller.setEnabled(true);
+      h.controller.noteActiveTab(5);
+      await flush();
+      expect(h.attach).toHaveBeenCalledWith(5);
+
+      h.controller.noteActiveTab(6);
+      await flush();
+      expect(h.detach).toHaveBeenCalledWith(5);
+      expect(h.route).toHaveBeenCalledWith(5, 'heuristic');
+      expect(h.attach).toHaveBeenCalledWith(6);
+    });
+
+    it('active mode: clearing the active tab (null) detaches it', async () => {
+      h.controller.setScopeMode('active');
+      h.controller.setEnabled(true);
+      h.controller.noteActiveTab(5);
+      await flush();
+      expect(h.attach).toHaveBeenCalledWith(5);
+
+      h.controller.noteActiveTab(null);
+      await flush();
+      expect(h.detach).toHaveBeenCalledWith(5);
+    });
+
+    it('both mode: a port-live tab AND the active tab both attach', async () => {
+      h.controller.setScopeMode('both');
+      h.controller.setEnabled(true);
+      h.controller.notePortConnected(5);
+      h.controller.noteActiveTab(6);
+      await flush();
+
+      expect(h.attach.mock.calls.map((c) => c[0]).sort()).toEqual([5, 6]);
+    });
+
+    it('switching devtools→active detaches a port-only tab and attaches the active tab', async () => {
+      h.controller.setEnabled(true);
+      h.controller.notePortConnected(5);
+      h.controller.noteActiveTab(6);
+      await flush();
+      // devtools mode: only the port tab attached.
+      expect(h.attach).toHaveBeenCalledWith(5);
+      expect(h.attach).not.toHaveBeenCalledWith(6);
+
+      h.controller.setScopeMode('active');
+      await flush();
+      // active mode: port tab leaves the set, active tab joins.
+      expect(h.detach).toHaveBeenCalledWith(5);
+      expect(h.attach).toHaveBeenCalledWith(6);
+    });
+
+    it('a tab that is both port-live and active stays attached across a devtools→active switch', async () => {
+      h.controller.setScopeMode('both');
+      h.controller.setEnabled(true);
+      h.controller.notePortConnected(5);
+      h.controller.noteActiveTab(5);
+      await flush();
+      expect(h.attach).toHaveBeenCalledTimes(1);
+
+      h.controller.setScopeMode('active');
+      await flush();
+      // Still desired via the active driver — never detached.
+      expect(h.detach).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('pins (the explicit per-tab overlay)', () => {
+    it('pinning a tab while the flag is ON attaches it regardless of mode', async () => {
+      h.controller.setEnabled(true);
+      h.controller.notePinned(5);
       await flush();
 
       expect(h.attach).toHaveBeenCalledWith(5);
       expect(h.route).toHaveBeenCalledWith(5, 'cdp');
     });
 
-    it('arming while the flag is OFF attaches nothing', async () => {
-      h.controller.noteArmed(5);
+    it('pinning while the flag is OFF attaches nothing', async () => {
+      h.controller.notePinned(5);
       await flush();
       expect(h.attach).not.toHaveBeenCalled();
     });
 
-    it('a tab armed AND port-live stays attached until BOTH inputs drop', async () => {
+    it('a pinned tab stays attached when the active tab moves away (active mode)', async () => {
+      h.controller.setScopeMode('active');
       h.controller.setEnabled(true);
-      h.controller.notePortConnected(5);
-      h.controller.noteArmed(5);
+      h.controller.noteActiveTab(5);
+      h.controller.notePinned(5);
       await flush();
       expect(h.attach).toHaveBeenCalledTimes(1);
 
-      // Port closes but the tab is still armed → stays attached.
-      h.controller.notePortDisconnected(5);
+      // Focus moves to another tab → 5 is no longer active, but stays pinned.
+      h.controller.noteActiveTab(6);
       await flush();
-      expect(h.detach).not.toHaveBeenCalled();
+      expect(h.detach).not.toHaveBeenCalledWith(5);
 
-      // Disarm too → now undesired, detaches.
-      h.controller.noteDisarmed(5);
+      // Unpin too → now undesired, detaches.
+      h.controller.noteUnpinned(5);
       await flush();
       expect(h.detach).toHaveBeenCalledWith(5);
     });
 
-    it('disarming an armed-only tab detaches it back to heuristic', async () => {
+    it('unpinning a pin-only tab detaches it back to heuristic', async () => {
       h.controller.setEnabled(true);
-      h.controller.noteArmed(5);
+      h.controller.notePinned(5);
       await flush();
 
-      h.controller.noteDisarmed(5);
+      h.controller.noteUnpinned(5);
       await flush();
       expect(h.detach).toHaveBeenCalledWith(5);
       expect(h.route).toHaveBeenCalledWith(5, 'heuristic');
     });
 
-    it('isArmed tracks the armed set and is false for a port-live-but-unarmed tab', () => {
+    it('isPinned tracks the pin overlay; isInScope is true for any desired tab', () => {
       h.controller.setEnabled(true);
       h.controller.notePortConnected(5);
-      // Attached via its port, but NOT armed → debug-tier control must be inert.
-      expect(h.controller.isArmed(5)).toBe(false);
+      // Attached via its port (in scope under devtools mode) but NOT pinned.
+      expect(h.controller.isPinned(5)).toBe(false);
+      expect(h.controller.isInScope(5)).toBe(true);
 
-      h.controller.noteArmed(5);
-      expect(h.controller.isArmed(5)).toBe(true);
+      h.controller.notePinned(5);
+      expect(h.controller.isPinned(5)).toBe(true);
+      expect(h.controller.isInScope(5)).toBe(true);
 
-      h.controller.noteDisarmed(5);
-      expect(h.controller.isArmed(5)).toBe(false);
+      h.controller.noteUnpinned(5);
+      expect(h.controller.isPinned(5)).toBe(false);
+      // Still in scope via its live port.
+      expect(h.controller.isInScope(5)).toBe(true);
+    });
+
+    it('isInScope is false when the master switch is OFF, even for a pinned tab', () => {
+      h.controller.notePinned(5);
+      expect(h.controller.isInScope(5)).toBe(false);
     });
   });
 
@@ -308,44 +414,47 @@ describe('CdpAttachController', () => {
       expect(h.replayFn).toHaveBeenCalledTimes(2);
     });
 
-    it('arming an already-attached (port-live) tab re-applies its control state', async () => {
+    it('pinning an already-attached (in-scope) tab does NOT re-apply — it is already controlled', async () => {
       h.controller.setEnabled(true);
       h.controller.notePortConnected(5);
       await flush();
       expect(h.replayFn).toHaveBeenCalledTimes(1); // the post-attach replay
 
-      // Arming changes the derived state (debug patterns appear) on a tab that
-      // never re-attaches — it must re-apply directly.
-      h.controller.noteArmed(5);
-      expect(h.replayFn).toHaveBeenCalledTimes(2);
-      expect(h.replayFn).toHaveBeenLastCalledWith(5);
+      // A port-live tab is already in scope (full suite already applied);
+      // there is no separate observe-vs-control gate for a pin to flip, so
+      // pinning changes nothing and must not re-apply.
+      h.controller.notePinned(5);
+      await flush();
+      expect(h.replayFn).toHaveBeenCalledTimes(1);
     });
 
-    it('disarming a still-port-live tab re-applies its (now-empty) control state', async () => {
+    it('unpinning a still-port-live tab does NOT re-apply — it stays in scope via its port', async () => {
       h.controller.setEnabled(true);
       h.controller.notePortConnected(5);
-      h.controller.noteArmed(5);
+      h.controller.notePinned(5);
       await flush();
       const before = h.replayFn.mock.calls.length;
 
-      h.controller.noteDisarmed(5);
-      expect(h.replayFn.mock.calls.length).toBe(before + 1);
+      h.controller.noteUnpinned(5);
+      await flush();
+      expect(h.replayFn.mock.calls.length).toBe(before);
+      expect(h.release).not.toHaveBeenCalledWith(5);
     });
 
-    it('arming a not-yet-attached tab replays once (post-attach), not twice', async () => {
+    it('pinning a not-yet-attached tab replays once (post-attach), not twice', async () => {
       h.controller.setEnabled(true);
-      h.controller.noteArmed(5);
+      h.controller.notePinned(5);
       await flush();
       expect(h.replayFn).toHaveBeenCalledTimes(1);
     });
 
-    it('disarming an armed-only tab does not re-apply — it detaches and releases', async () => {
+    it('unpinning a pin-only tab does not re-apply — it detaches and releases', async () => {
       h.controller.setEnabled(true);
-      h.controller.noteArmed(5);
+      h.controller.notePinned(5);
       await flush();
       expect(h.replayFn).toHaveBeenCalledTimes(1);
 
-      h.controller.noteDisarmed(5);
+      h.controller.noteUnpinned(5);
       await flush();
       expect(h.replayFn).toHaveBeenCalledTimes(1);
       expect(h.release).toHaveBeenCalledWith(5);
@@ -374,34 +483,34 @@ describe('CdpAttachController', () => {
 
   describe('observability (status pill)', () => {
     it('getState baseline is OFF, no tabs, no fault', () => {
-      expect(h.controller.getState()).toEqual({ enabled: false, attachedCount: 0, lastFault: null });
+      expect(h.controller.getState()).toEqual({ enabled: false, attachedTabs: [], lastFault: null });
     });
 
     it('flag-ON emits On-with-no-tabs first, then On-with-1-tab once the attach commits', async () => {
-      const states: Array<{ enabled: boolean; attachedCount: number }> = [];
-      h.controller.onChange((s) => states.push({ enabled: s.enabled, attachedCount: s.attachedCount }));
+      const states: Array<{ enabled: boolean; attachedTabs: readonly number[] }> = [];
+      h.controller.onChange((s) => states.push({ enabled: s.enabled, attachedTabs: s.attachedTabs }));
 
       h.controller.notePortConnected(5);
       h.controller.setEnabled(true);
-      // Synchronous: flag flipped, attach still in-flight → count 0.
-      expect(states).toEqual([{ enabled: true, attachedCount: 0 }]);
+      // Synchronous: flag flipped, attach still in-flight → no tabs yet.
+      expect(states).toEqual([{ enabled: true, attachedTabs: [] }]);
 
       await flush();
-      // Attach committed → count 1.
-      expect(states.at(-1)).toEqual({ enabled: true, attachedCount: 1 });
-      expect(h.controller.getState().attachedCount).toBe(1);
+      // Attach committed → roster holds tab 5.
+      expect(states.at(-1)).toEqual({ enabled: true, attachedTabs: [5] });
+      expect(h.controller.getState().attachedTabs).toEqual([5]);
     });
 
-    it('attachedCount tracks N concurrent tabs and drops on a single port-disconnect', async () => {
+    it('the roster tracks N concurrent tabs and drops on a single port-disconnect', async () => {
       h.controller.setEnabled(true);
       h.controller.notePortConnected(1);
       h.controller.notePortConnected(2);
       await flush();
-      expect(h.controller.getState().attachedCount).toBe(2);
+      expect([...h.controller.getState().attachedTabs].sort()).toEqual([1, 2]);
 
       h.controller.notePortDisconnected(1);
       await flush();
-      expect(h.controller.getState().attachedCount).toBe(1);
+      expect(h.controller.getState().attachedTabs).toEqual([2]);
     });
 
     it('flag-OFF emits OFF exactly once, not per-tab during teardown', async () => {
@@ -418,7 +527,7 @@ describe('CdpAttachController', () => {
       // One synchronous OFF emit; the per-tab detaches don't re-emit
       // (the rendered state is already OFF).
       expect(states).toEqual([{ enabled: false }]);
-      expect(h.controller.getState().attachedCount).toBe(0);
+      expect(h.controller.getState().attachedTabs).toEqual([]);
     });
 
     it('a real attach failure surfaces an attach-failed fault and leaves the tab heuristic-owned', async () => {
@@ -432,7 +541,7 @@ describe('CdpAttachController', () => {
 
       expect(h.controller.getState()).toEqual({
         enabled: true,
-        attachedCount: 0,
+        attachedTabs: [],
         lastFault: { kind: 'attach-failed', tabId: 5 },
       });
       // Never marked cdp-owned — stays at its heuristic default.
@@ -448,18 +557,18 @@ describe('CdpAttachController', () => {
       h.fireDetach(5, 'canceled_by_user');
       expect(h.controller.getState()).toEqual({
         enabled: true,
-        attachedCount: 0,
+        attachedTabs: [],
         lastFault: { kind: 'fell-back', tabId: 5 },
       });
     });
 
-    it('a non-user detach (target_closed) drops the count with no fault', async () => {
+    it('a non-user detach (target_closed) drops the tab with no fault', async () => {
       h.controller.setEnabled(true);
       h.controller.notePortConnected(5);
       await flush();
 
       h.fireDetach(5, 'target_closed');
-      expect(h.controller.getState()).toEqual({ enabled: true, attachedCount: 0, lastFault: null });
+      expect(h.controller.getState()).toEqual({ enabled: true, attachedTabs: [], lastFault: null });
     });
 
     it('a flag flip clears a stale fault', async () => {
@@ -485,7 +594,9 @@ describe('CdpAttachController', () => {
       // the fault.
       h.controller.notePortConnected(6);
       await flush();
-      expect(h.controller.getState()).toEqual({ enabled: true, attachedCount: 2, lastFault: null });
+      expect(h.controller.getState().enabled).toBe(true);
+      expect([...h.controller.getState().attachedTabs].sort()).toEqual([5, 6]);
+      expect(h.controller.getState().lastFault).toBeNull();
     });
 
     it('onChange returns an unsubscribe handle', async () => {

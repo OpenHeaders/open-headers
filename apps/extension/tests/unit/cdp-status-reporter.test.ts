@@ -18,7 +18,7 @@ import type { CdpAttachState } from '@/background/correlator-host/cdp-attach-con
 import { getBrowserAPI } from '@/types/browser';
 
 function state(overrides: Partial<CdpAttachState> = {}): CdpAttachState {
-  return { enabled: false, attachedCount: 0, lastFault: null, ...overrides };
+  return { enabled: false, attachedTabs: [], lastFault: null, ...overrides };
 }
 
 /** A fake of the controller's observable surface with a manual trigger. */
@@ -43,15 +43,15 @@ function fakeObservable(initial: CdpAttachState) {
 describe('describeCdpStatus', () => {
   it.each([
     [state({ enabled: false }), { state: 'green', message: 'Off' }],
-    [state({ enabled: true, attachedCount: 0 }), { state: 'green', message: 'On · no tabs attached yet' }],
-    [state({ enabled: true, attachedCount: 1 }), { state: 'green', message: 'On · 1 tab' }],
-    [state({ enabled: true, attachedCount: 3 }), { state: 'green', message: 'On · 3 tabs' }],
+    [state({ enabled: true, attachedTabs: [] }), { state: 'green', message: 'On · no tabs attached yet' }],
+    [state({ enabled: true, attachedTabs: [1] }), { state: 'green', message: 'On · 1 tab' }],
+    [state({ enabled: true, attachedTabs: [1, 2, 3] }), { state: 'green', message: 'On · 3 tabs' }],
     [
       state({ enabled: true, lastFault: { kind: 'attach-failed', tabId: 5 } }),
       { state: 'red', message: 'Tab 5 attach failed' },
     ],
     [
-      state({ enabled: true, attachedCount: 2, lastFault: { kind: 'fell-back', tabId: 7 } }),
+      state({ enabled: true, attachedTabs: [1, 2], lastFault: { kind: 'fell-back', tabId: 7 } }),
       { state: 'yellow', message: 'Tab 7 fell back to heuristic' },
     ],
   ])('maps %o → %o', (input, expected) => {
@@ -83,18 +83,18 @@ describe('installCdpStatusReporter', () => {
     const obs = fakeObservable(state({ enabled: false }));
     installCdpStatusReporter({ report, getState: obs.getState, onChange: obs.onChange });
 
-    obs.push(state({ enabled: true, attachedCount: 0 }));
-    obs.push(state({ enabled: true, attachedCount: 2 }));
+    obs.push(state({ enabled: true, attachedTabs: [] }));
+    obs.push(state({ enabled: true, attachedTabs: [1, 2] }));
 
     expect(report.mock.calls.map((c) => c[0].message)).toEqual(['Off', 'On · no tabs attached yet', 'On · 2 tabs']);
   });
 
   it('forwards a fell-back fault as yellow', () => {
     const report = vi.fn();
-    const obs = fakeObservable(state({ enabled: true, attachedCount: 1 }));
+    const obs = fakeObservable(state({ enabled: true, attachedTabs: [1] }));
     installCdpStatusReporter({ report, getState: obs.getState, onChange: obs.onChange });
 
-    obs.push(state({ enabled: true, attachedCount: 0, lastFault: { kind: 'fell-back', tabId: 4 } }));
+    obs.push(state({ enabled: true, attachedTabs: [], lastFault: { kind: 'fell-back', tabId: 4 } }));
 
     expect(report).toHaveBeenLastCalledWith({
       state: 'yellow',
@@ -109,7 +109,7 @@ describe('installCdpStatusReporter', () => {
     const handle = installCdpStatusReporter({ report, getState: obs.getState, onChange: obs.onChange });
 
     handle.dispose();
-    obs.push(state({ enabled: true, attachedCount: 1 }));
+    obs.push(state({ enabled: true, attachedTabs: [1] }));
 
     expect(report).toHaveBeenCalledTimes(1); // baseline only
   });

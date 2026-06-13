@@ -1,4 +1,4 @@
-import type { RequestRecord, Rule } from '@openheaders/core/types';
+import type { CdpScopeMode, RequestRecord, Rule } from '@openheaders/core/types';
 import { isRuleEffective } from '@openheaders/core/utils';
 import { type CdpTabControlState, EMPTY_TAB_CONTROL_STATE } from '@openheaders/oracle/correlator-cdp';
 import { getPauseMarkers } from '@openheaders/oracle/entity/pause-markers-store';
@@ -14,6 +14,7 @@ import {
   ChromeCdpTabControlPort,
   compileFetchPatterns,
   createCdpControlReplay,
+  startCdpActiveTab,
   startCdpFetchInterceptor,
   startDevtoolsPortPresence,
   startLifecycleHost,
@@ -47,12 +48,21 @@ interface LifecyclePipelineHandles {
    */
   cdpAttach: CdpAttachObservable;
   /**
-   * Arm / disarm a tab for the debug-mode control plane (§2 Option C). An
-   * armed tab joins the CDP desired set like a live DevTools port; the
-   * arming UI (Phase C3/D) drives these. Inert until then — no caller arms.
+   * Drive the CDP attach-scope mode. `background.ts` seeds this with
+   * `getSetting('inspection.cdpScope')` once settings are ready, then feeds
+   * every change. Chooses which driver sets the reconciler honours
+   * (DevTools ports / the active tab / both); default `devtools` reproduces
+   * the original DevTools-bound behaviour.
    */
-  armCdpTab: (tabId: number) => void;
-  disarmCdpTab: (tabId: number) => void;
+  setCdpScopeMode: (mode: CdpScopeMode) => void;
+  /**
+   * Pin / unpin a tab into the CDP scope — the explicit per-tab overlay on
+   * top of the scope mode (§2 banner consent). A pinned tab joins the
+   * desired set regardless of mode, focus, or DevTools; the footer "include
+   * this tab" control (Slice 2) drives these.
+   */
+  pinCdpTab: (tabId: number) => void;
+  unpinCdpTab: (tabId: number) => void;
 }
 
 export function startLifecyclePipeline(): LifecyclePipelineHandles {
@@ -73,17 +83,18 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   const tabControlPort = new ChromeCdpTabControlPort(lifecycleHost.debuggerSource);
   const requestControlPort = new ChromeCdpRequestControlPort(lifecycleHost.debuggerSource);
   // Phase D1: `deriveState` compiles `Fetch.enable` patterns from the live
-  // debug-tier rules — but ONLY for ARMED tabs (§2 Option C: debug-tier
-  // control is inert until the user arms the tab; a panel-open-but-unarmed
-  // tab attaches via its port yet gets no Fetch interception). The controller
-  // owns the armed set but is constructed below (it needs the replay), so the
-  // gate reads it through a small forward ref; `deriveState` only ever runs
-  // from `replay`, which fires after attach, so the ref is always set by then.
-  let isTabArmed: (tabId: number) => boolean = () => false;
+  // debug-tier rules for any tab that is IN SCOPE — there is no
+  // observe-vs-control split: a tab the reconciler attached (via its scope
+  // mode or an explicit pin) gets the full control suite, and what each rule
+  // does is the rule's own job. The controller owns the scope derivation but
+  // is constructed below (it needs the replay), so the gate reads it through
+  // a small forward ref; `deriveState` only ever runs from `replay`, which
+  // fires after attach, so the ref is always set by then.
+  let isTabInScope: (tabId: number) => boolean = () => false;
   const liveRules = (): Rule[] =>
     getRules().filter((rule) => isRuleEffective(rule, getPauseMarkers(), getRulesPaused()));
   const deriveState = (tabId: number): CdpTabControlState => {
-    if (!isTabArmed(tabId)) return EMPTY_TAB_CONTROL_STATE;
+    if (!isTabInScope(tabId)) return EMPTY_TAB_CONTROL_STATE;
     const fetchPatterns = compileFetchPatterns(liveRules());
     return fetchPatterns.length === 0 ? EMPTY_TAB_CONTROL_STATE : { ...EMPTY_TAB_CONTROL_STATE, fetchPatterns };
   };
@@ -106,7 +117,7 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
     router: lifecycleHost.router,
     replay: cdpControlReplay,
   });
-  isTabArmed = (tabId) => cdpAttachController.isArmed(tabId);
+  isTabInScope = (tabId) => cdpAttachController.isInScope(tabId);
   // Rule-driven interceptor (D2): each `Fetch.requestPaused` is re-checked
   // against the live rules and answered — static `mock` → fulfill, static
   // `body` → request-body rewrite, everything else → pass-through — with a
@@ -121,6 +132,11 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
     onConnected: (tabId) => cdpAttachController.notePortConnected(tabId),
     onDisconnected: (tabId) => cdpAttachController.notePortDisconnected(tabId),
   });
+  // Active-tab input for the `active` / `both` scope modes — the current
+  // attachable tab, following focus. Always running so a mode switch
+  // reconciles against a current value; the controller ignores it in
+  // `devtools` mode.
+  startCdpActiveTab({ onActiveTab: (tabId) => cdpAttachController.noteActiveTab(tabId) });
 
   // Watch-session floors persist per-tab so a panel reconnect/remount (or
   // an SW restart) restores the session rather than dropping in-flight rows.
@@ -177,7 +193,8 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
     lifecycleStore: lifecycleHost.store,
     setCdpEnabled: (enabled) => cdpAttachController.setEnabled(enabled),
     cdpAttach: cdpAttachController,
-    armCdpTab: (tabId) => cdpAttachController.noteArmed(tabId),
-    disarmCdpTab: (tabId) => cdpAttachController.noteDisarmed(tabId),
+    setCdpScopeMode: (mode) => cdpAttachController.setScopeMode(mode),
+    pinCdpTab: (tabId) => cdpAttachController.notePinned(tabId),
+    unpinCdpTab: (tabId) => cdpAttachController.noteUnpinned(tabId),
   };
 }

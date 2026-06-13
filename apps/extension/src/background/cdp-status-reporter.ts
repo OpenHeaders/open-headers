@@ -34,7 +34,8 @@ export interface CdpStatusEntry {
  * failure (red) → user fall-back (yellow) → idle/attached counts (green).
  */
 export function describeCdpStatus(state: CdpAttachState): CdpStatusEntry {
-  const { enabled, attachedCount, lastFault } = state;
+  const { enabled, attachedTabs, lastFault } = state;
+  const attachedCount = attachedTabs.length;
   if (!enabled) {
     return { state: 'green', message: 'Off', context: { enabled: false } };
   }

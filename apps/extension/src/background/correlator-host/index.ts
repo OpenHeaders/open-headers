@@ -6,6 +6,8 @@
  * chrome-free by design. See `docs/REQUEST_LIFECYCLE_DESIGN.md` §6.2.
  */
 
+export type { CdpActiveTab, CdpActiveTabOptions } from './cdp-active-tab';
+export { startCdpActiveTab } from './cdp-active-tab';
 export type {
   CdpAttachControllerOptions,
   CdpAttachFault,
