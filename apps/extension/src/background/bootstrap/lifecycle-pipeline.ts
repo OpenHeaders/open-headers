@@ -1,4 +1,7 @@
-import { EMPTY_TAB_CONTROL_STATE } from '@openheaders/oracle/correlator-cdp';
+import { isRuleEffective } from '@openheaders/core/utils';
+import { type CdpTabControlState, EMPTY_TAB_CONTROL_STATE } from '@openheaders/oracle/correlator-cdp';
+import { getPauseMarkers } from '@openheaders/oracle/entity/pause-markers-store';
+import { getRules } from '@openheaders/oracle/entity/rule-store';
 import { PageStreamHub } from '@openheaders/oracle/page-stream-hub';
 import { RequestLifecycleHub } from '@openheaders/oracle/request-lifecycle-hub';
 import { RuleFireHub } from '@openheaders/oracle/rule-fire-hub';
@@ -6,12 +9,16 @@ import { TabLifecycleBus } from '@openheaders/oracle/tab-lifecycle-bus';
 import type { CdpAttachObservable } from '../correlator-host';
 import {
   CdpAttachController,
+  ChromeCdpRequestControlPort,
   ChromeCdpTabControlPort,
+  compileFetchPatterns,
   createCdpControlReplay,
+  startCdpFetchInterceptor,
   startDevtoolsPortPresence,
   startLifecycleHost,
 } from '../correlator-host';
 import { startDevtoolsSessionCoordinator } from '../devtools-session-coordinator';
+import { getRulesPaused } from '../dnr-manager';
 import { createPersistentWatchSessionFloors, startLifecyclePortHost } from '../lifecycle-port-host';
 import { setupOnRuleMatchedDebugBridge } from '../modules/on-rule-matched-debug';
 import { startTabTelemetryFiresBridge } from '../modules/tab-telemetry-fires-bridge';
@@ -59,20 +66,38 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   // `background.ts`'s `subscribeKey('inspection.cdpEnabled')`) feeds the
   // master switch. Default OFF → the intersection is ∅, nothing attaches,
   // and the heuristic path is byte-for-byte unchanged.
-  // Control plane (T2): the declarative standing-state port over the
-  // debugger source's session sender, and the replay seam that re-applies a
-  // tab's derived CDP state on every (re-)attach. `deriveState` is empty
-  // until Phases D/F compile debug rules into CDP state; the seam exists now
-  // so replay-on-reattach is structural, not retrofitted.
+  // Control plane (T2): the declarative standing-state port + the imperative
+  // per-request port, both over the debugger source's session sender, and the
+  // replay seam that re-applies a tab's derived CDP state on every (re-)attach.
   const tabControlPort = new ChromeCdpTabControlPort(lifecycleHost.debuggerSource);
-  const cdpControlReplay = createCdpControlReplay({
-    tabControlPort,
-    deriveState: () => EMPTY_TAB_CONTROL_STATE,
-  });
+  const requestControlPort = new ChromeCdpRequestControlPort(lifecycleHost.debuggerSource);
+  // Phase D1: `deriveState` compiles `Fetch.enable` patterns from the live
+  // debug-tier rules — but ONLY for ARMED tabs (§2 Option C: debug-tier
+  // control is inert until the user arms the tab; a panel-open-but-unarmed
+  // tab attaches via its port yet gets no Fetch interception). The controller
+  // owns the armed set but is constructed below (it needs the replay), so the
+  // gate reads it through a small forward ref; `deriveState` only ever runs
+  // from `replay`, which fires after attach, so the ref is always set by then.
+  let isTabArmed: (tabId: number) => boolean = () => false;
+  const deriveState = (tabId: number): CdpTabControlState => {
+    if (!isTabArmed(tabId)) return EMPTY_TAB_CONTROL_STATE;
+    const liveRules = getRules().filter((rule) => isRuleEffective(rule, getPauseMarkers(), getRulesPaused()));
+    const fetchPatterns = compileFetchPatterns(liveRules);
+    return fetchPatterns.length === 0 ? EMPTY_TAB_CONTROL_STATE : { ...EMPTY_TAB_CONTROL_STATE, fetchPatterns };
+  };
+  const cdpControlReplay = createCdpControlReplay({ tabControlPort, deriveState });
   const cdpAttachController = new CdpAttachController({
     source: lifecycleHost.debuggerSource,
     router: lifecycleHost.router,
     replay: cdpControlReplay,
+  });
+  isTabArmed = (tabId) => cdpAttachController.isArmed(tabId);
+  // Pass-through interceptor (D1): answer each `Fetch.requestPaused` with an
+  // unmodified continue. Nothing is mocked/rewritten yet (D2); the loop just
+  // proves armed-tab traffic flows through the pause→answer path untouched.
+  startCdpFetchInterceptor({
+    subscribeFetch: (listener) => lifecycleHost.debuggerSource.subscribeFetch(listener),
+    requestControlPort,
   });
   startDevtoolsPortPresence({
     onConnected: (tabId) => cdpAttachController.notePortConnected(tabId),

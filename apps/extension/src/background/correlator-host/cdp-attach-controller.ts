@@ -177,6 +177,16 @@ export class CdpAttachController implements CdpAttachObservable {
     this.reconcile();
   }
 
+  /**
+   * Whether a tab is explicitly armed for the debug control plane (§2
+   * Option C). Distinct from "attached": a panel-open tab is attached via
+   * its live port but UNarmed, so debug-tier control (Fetch patterns,
+   * overrides) stays inert. `deriveState` reads this to keep that gate.
+   */
+  isArmed(tabId: number): boolean {
+    return this.armed.has(tabId);
+  }
+
   /** The master switch changed. Updates the flag + reconciles. */
   setEnabled(enabled: boolean): void {
     if (this.enabled === enabled) return;

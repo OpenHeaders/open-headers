@@ -166,18 +166,14 @@
   background: var(--dt-accent-system);
 }
 
-.dt-kv--oh-system .dt-btn-link,
 .dt-kv--oh-system .dt-kv-oh-value {
   color: var(--dt-accent-system);
 }
 
-/* Modified/added header name + value share the link blue so the
- * row reads at a glance as "this one's ours". */
-.dt-kv--oh-added .dt-btn-link,
-.dt-kv--oh-modified .dt-btn-link {
-  color: var(--dt-link, #1677ff);
-}
-
+/* Modified/added value carries the link blue so the row reads at a
+ * glance as "this one's ours". The header NAME stays default text color
+ * (see the de-blue rule below) — overridability is conveyed by the
+ * Override button's enabled/disabled state, not the name color. */
 .dt-kv--oh-added .dt-kv-oh-value,
 .dt-kv--oh-modified .dt-kv-oh-value {
   color: var(--dt-link, #1677ff);
@@ -187,9 +183,29 @@
  * on the value — "the page never saw this". Covers both the server-sent
  * case (server header stripped by a remove rule) and the cancelled-
  * injection case (one rule injected, another rule removed). */
-.dt-kv--oh-removed .dt-btn-link,
 .dt-kv--oh-removed .dt-kv-oh-value {
   color: var(--dt-row-attributed-removed-accent);
+}
+
+/* Header names render in default text color across every row — the blue
+ * link look (which used to signal "clickable to override" / "ours") is
+ * redundant now that the Override button states convey overridability,
+ * and the leading status dot marks rule-attributed rows. */
+.dt-headers-pane .dt-kv .dt-btn-link {
+  color: var(--dt-text);
+}
+
+/* Leading status dot — blue square marking a header a rule acted on,
+ * mirroring the Cookies tab's status square. */
+.dt-kv-status-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 1px;
+  background: var(--dt-link);
+  margin-right: 6px;
+  vertical-align: middle;
+  flex-shrink: 0;
 }
 .dt-kv--oh-removed .dt-kv-oh-value {
   text-decoration: line-through;

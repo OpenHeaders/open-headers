@@ -253,6 +253,19 @@ describe('CdpAttachController', () => {
       expect(h.detach).toHaveBeenCalledWith(5);
       expect(h.route).toHaveBeenCalledWith(5, 'heuristic');
     });
+
+    it('isArmed tracks the armed set and is false for a port-live-but-unarmed tab', () => {
+      h.controller.setEnabled(true);
+      h.controller.notePortConnected(5);
+      // Attached via its port, but NOT armed → debug-tier control must be inert.
+      expect(h.controller.isArmed(5)).toBe(false);
+
+      h.controller.noteArmed(5);
+      expect(h.controller.isArmed(5)).toBe(true);
+
+      h.controller.noteDisarmed(5);
+      expect(h.controller.isArmed(5)).toBe(false);
+    });
   });
 
   describe('control-plane replay (§4.6 replay over persistence)', () => {

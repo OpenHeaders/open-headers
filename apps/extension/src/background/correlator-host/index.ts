@@ -16,6 +16,9 @@ export type {
 export { CdpAttachController } from './cdp-attach-controller';
 export type { CdpControlReplayOptions } from './cdp-control-replay';
 export { createCdpControlReplay } from './cdp-control-replay';
+export type { CdpFetchInterceptorOptions } from './cdp-fetch-interceptor';
+export { startCdpFetchInterceptor } from './cdp-fetch-interceptor';
+export { compileFetchPatterns } from './cdp-fetch-patterns';
 export type { CdpSessionSender } from './cdp-session-sender';
 export { ChromeCdpRequestControlPort } from './chrome-cdp-request-control-port';
 export { ChromeCdpTabControlPort } from './chrome-cdp-tab-control-port';

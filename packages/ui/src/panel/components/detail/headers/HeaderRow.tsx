@@ -179,8 +179,11 @@ export function AttributedHeaderRow({
     currentResolvedName !== ruleCtx.snapshotMod.headerName;
   const editedSinceFire = (ruleEdited ?? false) || valueDrifted || nameDrifted;
 
-  const handleRowMouseOver = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!ruleCtx) return;
+  // Edit opens the rule popover on click, anchored to the button — the
+  // host's outside-click dismiss only attaches while open, so the opening
+  // click never self-closes it.
+  const openEditPopover = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
     rulePopover.open({
       anchorEl: e.currentTarget,
       attribution,
@@ -190,10 +193,6 @@ export function AttributedHeaderRow({
       currentResolvedName,
       applicability,
     });
-  };
-  const handleRowMouseOut = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!ruleCtx) return;
-    rulePopover.scheduleClose(e.relatedTarget);
   };
 
   const showResolvedValue = kind === 'added' || kind === 'modified' || kind === 'system';
@@ -228,14 +227,10 @@ export function AttributedHeaderRow({
     // overlay so they align to the panel edge even when the inner `.dt-kv`
     // is a content-hugging attributed pill (blue/grey/red).
     <div className="dt-kv-row">
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: hover-only popover trigger; primary affordance is the rule's full editor reachable via the popover. */}
-      {/* biome-ignore lint/a11y/useKeyWithMouseEvents: hover-anchored popover; keyboard users use "Open in workspace" inside the popover. */}
-      <div
-        className={classes}
-        style={{ fontFamily: 'monospace' }}
-        onMouseOver={ruleCtx ? handleRowMouseOver : undefined}
-        onMouseOut={ruleCtx ? handleRowMouseOut : undefined}
-      >
+      {ruleCtx && (
+        <span className="dt-kv-status-dot" title="A rule applies to this header" aria-label="Rule applies" />
+      )}
+      <div className={classes} style={{ fontFamily: 'monospace' }}>
         <HeaderInfoTrigger name={name} direction={meta.direction} category={meta.category} />
         {isProtected ? (
           <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{displayName}</span>
@@ -270,6 +265,16 @@ export function AttributedHeaderRow({
         >
           {copied ? <CheckOutlined /> : <CopyOutlined />}
         </button>
+        {ruleCtx && (
+          <button
+            type="button"
+            className="dt-btn dt-btn-primary dt-kv-action"
+            title="Edit the rule that set this header"
+            onClick={openEditPopover}
+          >
+            Edit
+          </button>
+        )}
         <button
           type="button"
           className="dt-btn dt-btn-primary dt-kv-action"
