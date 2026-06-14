@@ -77,8 +77,8 @@ export const ParadigmSection: React.FC = () => (
       ownership.
     </DocParagraph>
     <DocParagraph>
-      Cross-user cloud sync is explicitly off the roadmap. Team collaboration ships through user-controlled storage
-      backends (Git, on the roadmap) — never through a vendor server.
+      Team collaboration ships through user-controlled storage
+      backends (Git, on the roadmap) — not through a vendor server.
     </DocParagraph>
     <DiagramFrame>
       <ParadigmLocalFirstDiagram />
