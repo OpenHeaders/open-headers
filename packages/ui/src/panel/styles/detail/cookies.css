@@ -174,23 +174,30 @@
 .dt-cookie-name .dt-cookie-chips {
   margin-left: auto;
 }
-/* Value cell — becomes the positioning context for the row-hover
- * Override overlay (anchored to its right edge, over the value's
- * tail). */
-.dt-cookie-value {
-  position: relative;
-}
-.dt-cookie-value {
-  /* Width governed by the colgroup; just clip overflow. */
+/* Value cell — width governed by the colgroup. No positioning context
+ * here: the hover action overlay anchors to the row (`.dt-cookie-row`),
+ * so the buttons sit at the row's right edge (like the Headers tab)
+ * rather than mid-row over the value's tail. */
+
+/* Inner flex line: caret · value · type hint. The value flexes and
+ * truncates with a trailing ellipsis; the caret and hint hold their size.
+ * Without this the value (an inline-block capped at 100%) overflowed past
+ * the caret and the cell edge, clipping its own ellipsis out of view —
+ * leaving only "…" in a narrow column. */
+.dt-cookie-value-main {
+  display: flex;
+  align-items: baseline;
+  min-width: 0;
 }
 .dt-cookie-value-text {
-  display: inline-block;
-  max-width: 100%;
+  flex: 0 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  vertical-align: bottom;
+  white-space: nowrap;
 }
 .dt-cookie-value-hint {
+  flex: 0 0 auto;
   display: inline-block;
   margin-left: 6px;
   padding: 0 4px;
@@ -204,6 +211,7 @@
   font-family: var(--dt-font-sans, system-ui);
 }
 .dt-cookie-caret {
+  flex: 0 0 auto;
   display: inline-block;
   width: 10px;
   margin-right: 2px;

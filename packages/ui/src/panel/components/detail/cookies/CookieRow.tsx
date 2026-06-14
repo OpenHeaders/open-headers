@@ -171,20 +171,22 @@ export function CookieRow({
           )}
         </td>
         <td className="dt-cookie-value">
-          {canExpand && (
-            <span className="dt-cookie-caret" aria-hidden="true">
-              {expanded ? '▾' : '▸'}
+          <span className="dt-cookie-value-main">
+            {canExpand && (
+              <span className="dt-cookie-caret" aria-hidden="true">
+                {expanded ? '▾' : '▸'}
+              </span>
+            )}
+            <span
+              className="dt-cookie-value-text"
+              title={row.edited && row.sentValue != null ? `Edited — request carried: ${row.sentValue}` : undefined}
+            >
+              {valueText}
             </span>
-          )}
-          <span
-            className="dt-cookie-value-text"
-            title={row.edited && row.sentValue != null ? `Edited — request carried: ${row.sentValue}` : undefined}
-          >
-            {valueText}
+            {introspection.kind === 'jwt' && <span className="dt-cookie-value-hint">JWT</span>}
+            {introspection.kind === 'json' && <span className="dt-cookie-value-hint">JSON</span>}
+            {introspection.kind === 'base64' && <span className="dt-cookie-value-hint">b64</span>}
           </span>
-          {introspection.kind === 'jwt' && <span className="dt-cookie-value-hint">JWT</span>}
-          {introspection.kind === 'json' && <span className="dt-cookie-value-hint">JSON</span>}
-          {introspection.kind === 'base64' && <span className="dt-cookie-value-hint">b64</span>}
           <span className="dt-cookie-row-actions" onClick={(e) => e.stopPropagation()}>
             <button
               type="button"
