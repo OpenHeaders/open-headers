@@ -12,8 +12,10 @@
  * extension's cookies permission can.
  */
 
+import { useInfoPopoverContainer } from '@openheaders/ui/shared/info-popover';
 import { Button, Input, Popover, Radio, Select, Switch } from 'antd';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useCallback, useState } from 'react';
+import { usePopoverViewportFit } from '../../use-popover-viewport-fit';
 import {
   type CookieEditFormValues,
   type CookieSameSiteValue,
@@ -51,13 +53,15 @@ interface FormBodyProps {
   mode: 'add' | 'edit';
   canonical: CookieEditFormValues;
   busy: boolean;
+  /** Viewport-fit cap (room beneath the trigger); the form scrolls inside it. */
+  maxHeight?: number;
   onCancel: () => void;
   onSave: (edit: JarCookieEdit) => void;
 }
 
 // Mounted fresh each time the popover opens (destroyOnHidden), so its
 // local state seeds from the current canonical without an effect.
-function CookieEditFormBody({ mode, canonical, busy, onCancel, onSave }: FormBodyProps) {
+function CookieEditFormBody({ mode, canonical, busy, maxHeight, onCancel, onSave }: FormBodyProps) {
   const [values, setValues] = useState<CookieEditFormValues>(canonical);
 
   const set = <K extends keyof CookieEditFormValues>(key: K, val: CookieEditFormValues[K]): void => {
@@ -69,7 +73,10 @@ function CookieEditFormBody({ mode, canonical, busy, onCancel, onSave }: FormBod
   const canSave = valid && (mode === 'add' || dirty);
 
   return (
-    <div className="dt-cookie-edit-popover">
+    <div
+      className="dt-cookie-edit-popover"
+      style={maxHeight != null ? { maxHeight, overflowY: 'auto' } : undefined}
+    >
       <div className="dt-cookie-edit-popover-title">{mode === 'add' ? 'Add cookie' : 'Edit cookie'}</div>
       <div className="dt-cookie-edit-form">
         <label className="dt-cookie-edit-field dt-cookie-edit-field--wide">
@@ -200,6 +207,20 @@ interface Props {
 export function CookieEditPopover({ mode, canonical, onSubmit, placement = 'bottomRight', children }: Props) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Height-aware like the View / toolbar menus: measure the room beneath the
+  // trigger on open and cap the form to it, so the popover stays pinned to its
+  // button and shrinks + scrolls inside as it nears the footer instead of
+  // overflowing. `autoAdjustOverflow={false}` keeps it on its anchor (no flip);
+  // the measured cap handles the overflow.
+  const { triggerRef, onOpenChange: onFitOpenChange, maxHeight } = usePopoverViewportFit<HTMLSpanElement>();
+  // Portal into the inspector pane root (like View) so the root's
+  // `overflow: hidden` clips the form and its footer covers any graze —
+  // instead of floating in `<body>` where nothing contains it.
+  const resolveContainer = useInfoPopoverContainer();
+  const getPopupContainer = useCallback(
+    (node: HTMLElement) => resolveContainer?.(node) ?? document.body,
+    [resolveContainer],
+  );
 
   const handleSave = (edit: JarCookieEdit): void => {
     setBusy(true);
@@ -210,29 +231,36 @@ export function CookieEditPopover({ mode, canonical, onSubmit, placement = 'bott
   };
 
   return (
-    <Popover
-      open={open}
-      onOpenChange={(next) => {
-        if (!busy) setOpen(next);
-      }}
-      trigger="click"
-      placement={placement}
-      destroyOnHidden
-      // Content must be non-empty even while closed — antd refuses to open
-      // a popover whose content is falsy, so a `open ? … : null` here would
-      // never open on the first click. `destroyOnHidden` keeps it lazy:
-      // the body only mounts (and re-seeds from `canonical`) once shown.
-      content={
-        <CookieEditFormBody
-          mode={mode}
-          canonical={canonical}
-          busy={busy}
-          onCancel={() => setOpen(false)}
-          onSave={handleSave}
-        />
-      }
-    >
-      {children}
-    </Popover>
+    <span ref={triggerRef} className="dt-cookie-edit-trigger">
+      <Popover
+        open={open}
+        onOpenChange={(next) => {
+          if (busy) return;
+          onFitOpenChange(next);
+          setOpen(next);
+        }}
+        trigger="click"
+        placement={placement}
+        autoAdjustOverflow={false}
+        destroyOnHidden
+        {...(resolveContainer ? { getPopupContainer } : {})}
+        // Content must be non-empty even while closed — antd refuses to open
+        // a popover whose content is falsy, so a `open ? … : null` here would
+        // never open on the first click. `destroyOnHidden` keeps it lazy:
+        // the body only mounts (and re-seeds from `canonical`) once shown.
+        content={
+          <CookieEditFormBody
+            mode={mode}
+            canonical={canonical}
+            busy={busy}
+            maxHeight={maxHeight}
+            onCancel={() => setOpen(false)}
+            onSave={handleSave}
+          />
+        }
+      >
+        {children}
+      </Popover>
+    </span>
   );
 }

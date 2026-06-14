@@ -588,9 +588,18 @@
 /* ── Add / edit popover — anchored to the row's pencil / the toolbar's
  *    Add button. Compact two-column grid sized for the short DevTools
  *    panel (low height, wide). ────────────────────────────────────── */
+/* Measuring wrapper around the edit popover's trigger — holds the ref the
+ * viewport-fit hook reads to size the form to the room beneath it. Inline so
+ * it doesn't disturb the pencil / Add button's own layout. */
+.dt-cookie-edit-trigger {
+  display: inline-flex;
+}
 .dt-cookie-edit-popover {
   width: 380px;
   max-width: 80vw;
+  /* maxHeight + inner scroll are applied inline from `usePopoverViewportFit`
+   * so the form shrinks to the room beneath its trigger and scrolls inside,
+   * staying anchored as it nears the footer (same as the toolbar menus). */
 }
 .dt-cookie-edit-popover-title {
   font-weight: 600;

@@ -34,7 +34,23 @@ export interface UsePopoverPlacementApi {
   measured: boolean;
 }
 
-export function usePopoverPlacement(anchorEl: HTMLElement, width: number): UsePopoverPlacementApi {
+export function usePopoverPlacement(
+  anchorEl: HTMLElement,
+  width: number,
+  opts?: { trackScroll?: boolean; boundsEl?: HTMLElement | null },
+): UsePopoverPlacementApi {
+  // Whether to re-anchor on scroll. Hover popovers track their trigger as the
+  // page scrolls; a pinned editor opts out (`trackScroll: false`) so it stays
+  // put relative to the panel while the list scrolls underneath it, rather
+  // than drifting along with its (scrolling) anchor row.
+  const trackScroll = opts?.trackScroll ?? true;
+  // Optional clipping/positioning container. When provided, the returned
+  // `top`/`left` are relative to it (the consumer renders `position: absolute`
+  // and portals into it, so the container's `overflow` clips and its footer
+  // covers) and the height cap follows the container — which may be a pane
+  // shorter than the window. When absent, coordinates are viewport-relative
+  // for `position: fixed`.
+  const boundsEl = opts?.boundsEl ?? null;
   const [position, setPosition] = useState<PopoverPlacement>(() => computeAnchoredPosition(anchorEl, width));
   const [measured, setMeasured] = useState(false);
   const elRef = useRef<HTMLElement | null>(null);
@@ -45,8 +61,26 @@ export function usePopoverPlacement(anchorEl: HTMLElement, width: number): UsePo
     // reconnect picks up the real rect. Permanent loss is the
     // consumer's responsibility to close (see file header).
     if (!anchorEl.isConnected) return;
-    setPosition(computeAnchoredPosition(anchorEl, width, heightRef.current));
-  }, [anchorEl, width]);
+    const r = boundsEl?.getBoundingClientRect();
+    // Clamp the container rect to the VISIBLE window before sizing the cap.
+    // `.dt-panel-root` is `height: 100vh`, so when it's offset below a top
+    // bar (the workbench) its `bottom` sits past the window edge; capping to
+    // that hidden region let the popover run under the footer. Matching the
+    // toolbar/View cap means measuring against the visible viewport.
+    const bounds = r
+      ? {
+          top: Math.max(r.top, 0),
+          bottom: Math.min(r.bottom, window.innerHeight),
+          left: Math.max(r.left, 0),
+          right: Math.min(r.right, window.innerWidth),
+        }
+      : undefined;
+    const p = computeAnchoredPosition(anchorEl, width, heightRef.current, bounds);
+    // Coordinates stay relative to the actual container origin (raw rect) so
+    // `position: absolute` inside it lands correctly; the container's overflow
+    // then clips any remainder.
+    setPosition(r ? { ...p, top: p.top - r.top, left: p.left - r.left } : p);
+  }, [anchorEl, width, boundsEl]);
 
   // ref-callback only stores the element; measurement is driven by the
   // ResizeObserver below so the FIRST height we record is the LAST
@@ -85,6 +119,17 @@ export function usePopoverPlacement(anchorEl: HTMLElement, width: number): UsePo
     return () => ro.disconnect();
   }, [anchorEl, recompute]);
 
+  // Bounds-side observer — re-fits the height cap when the container pane
+  // resizes (e.g. dragging the dock divider), which doesn't fire a window
+  // `resize`. Without this the popover keeps a stale, too-tall cap and spills
+  // past the pane's footer when the pane shortens.
+  useEffect(() => {
+    if (!boundsEl) return;
+    const ro = new ResizeObserver(() => recompute());
+    ro.observe(boundsEl);
+    return () => ro.disconnect();
+  }, [boundsEl, recompute]);
+
   // Reveal-after-settle: defer `measured: true` by two animation
   // frames so any late layout pass (font swap, AntD `TextArea`
   // autoSize, child portal mount) has had a chance to settle the
@@ -103,16 +148,18 @@ export function usePopoverPlacement(anchorEl: HTMLElement, width: number): UsePo
     };
   }, []);
 
-  // Window scroll / resize — anchor coords change with viewport.
+  // Window resize always re-fits. Scroll tracking (capture, so it catches
+  // inner scroll containers) re-anchors a moving trigger — gated by
+  // `trackScroll` so a pinned editor stays put as the panel scrolls.
   useEffect(() => {
-    const onScroll = () => recompute();
-    window.addEventListener('scroll', onScroll, true);
-    window.addEventListener('resize', onScroll);
+    const onChange = () => recompute();
+    window.addEventListener('resize', onChange);
+    if (trackScroll) window.addEventListener('scroll', onChange, true);
     return () => {
-      window.removeEventListener('scroll', onScroll, true);
-      window.removeEventListener('resize', onScroll);
+      window.removeEventListener('resize', onChange);
+      if (trackScroll) window.removeEventListener('scroll', onChange, true);
     };
-  }, [recompute]);
+  }, [recompute, trackScroll]);
 
   return { position, popoverRef, measured };
 }

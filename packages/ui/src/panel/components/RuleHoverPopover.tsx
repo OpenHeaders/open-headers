@@ -69,6 +69,7 @@ import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import { App, Button, Select, Tag, Tooltip, theme } from 'antd';
 import type { GlobalToken } from 'antd/es/theme/interface';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   findCurrentMod,
   type HeaderAttribution,
@@ -550,7 +551,16 @@ export function RuleHoverPopover({
     if (liveRule) setConflictBaseline(liveRule);
   }, [draftFingerprint, currentModFingerprint, lastPrimedFingerprint, liveRule, setConflictBaseline]);
 
-  const { position, popoverRef, measured } = usePopoverPlacement(anchorEl, POPOVER_WIDTH);
+  // Render into the inspector root so the root's `overflow: hidden` clips the
+  // popover to the pane and its always-on-top footer covers any graze — the
+  // same containment the toolbar/View menus get. Positioned absolute + bounded
+  // to the pane (not the window), so it can't spill past the footer, and
+  // pinned (no scroll re-anchor) so it stays put as the list scrolls.
+  const boundsEl = useMemo(() => anchorEl.closest<HTMLElement>('.dt-panel-root'), [anchorEl]);
+  const { position, popoverRef, measured } = usePopoverPlacement(anchorEl, POPOVER_WIDTH, {
+    trackScroll: false,
+    boundsEl,
+  });
 
   const updateDraft = (patch: Partial<ModDraft>) => {
     setDraft((prev) => ({ ...prev, ...patch }));
@@ -664,7 +674,7 @@ export function RuleHoverPopover({
 
   const ruleDeleted = !liveRule && !!ctx;
 
-  return (
+  const popoverNode = (
     <div
       ref={popoverRef}
       role="dialog"
@@ -672,7 +682,9 @@ export function RuleHoverPopover({
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       style={{
-        position: 'fixed',
+        // Absolute inside the inspector root (so its overflow clips us); fixed
+        // when there's no container to portal into (degraded fallback).
+        position: boundsEl ? 'absolute' : 'fixed',
         top: position.top,
         left: position.left,
         width: POPOVER_WIDTH,
@@ -682,6 +694,14 @@ export function RuleHoverPopover({
         borderRadius: token.borderRadiusLG,
         boxShadow: token.boxShadowSecondary,
         padding: 12,
+        // Height-aware: cap to the room on the popover's side (measured from
+        // the anchor to the footer / viewport top) and scroll inside, so it
+        // stays anchored to the Edit button and shrinks to clear the footer
+        // rather than spilling past the panel. `usePopoverPlacement` measures
+        // the capped height, so anchoring stays correct.
+        maxHeight: position.maxHeight,
+        overflowY: 'auto',
+        overflowX: 'hidden',
         visibility: measured ? 'visible' : 'hidden',
         opacity: measured && visible ? 1 : 0,
         transform: measured && visible ? 'scale(1)' : 'scale(0.96)',
@@ -982,6 +1002,11 @@ export function RuleHoverPopover({
       </div>
     </div>
   );
+
+  // Portal into the inspector root so the root's `overflow: hidden` clips the
+  // popover and its footer covers any graze. Fall back to inline render (fixed
+  // positioning) when no container resolves.
+  return boundsEl ? createPortal(popoverNode, boundsEl) : popoverNode;
 }
 
 interface SnapshotBlockProps {
