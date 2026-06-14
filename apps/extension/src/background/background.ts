@@ -55,11 +55,11 @@ import { installStorageListeners } from './bootstrap/storage-listeners';
 import { installStoreBroadcasts } from './bootstrap/store-broadcasts';
 import { setupSyncHandshake } from './bootstrap/sync-handshake';
 import { installWsFrameRouting } from './bootstrap/ws-frame-routing';
-
 import { setRulesPaused } from './dnr-manager';
 import { setupInjectListener } from './inject-manager';
 import { updateExtensionBadge } from './modules/badge-manager';
 import { rehydrateCacheBypassFromSessionRules } from './modules/cache-bypass';
+import { registerCdpTabPinControls } from './modules/cdp-tab-pin';
 import {
   kickActiveContextRefresh,
   reconcileLiveSchedules,
@@ -157,9 +157,11 @@ async function initializeExtension(): Promise<void> {
     configuredRuleCount: 0,
   });
 
-  const { lifecycleStore, setCdpEnabled, setCdpScopeMode, cdpAttach } = startLifecyclePipeline();
+  const { lifecycleStore, setCdpEnabled, setCdpScopeMode, cdpAttach, pinCdpTab, unpinCdpTab } =
+    startLifecyclePipeline();
   installCdpMasterSwitch(setCdpEnabled);
   installCdpScopeMode(setCdpScopeMode);
+  registerCdpTabPinControls({ pin: pinCdpTab, unpin: unpinCdpTab });
   installLifecycleStatusReporters({ cdpAttach });
 
   setupTabListeners({ updateBadge: debouncedUpdateBadge, lifecycleStore });

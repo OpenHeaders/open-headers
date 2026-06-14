@@ -29,12 +29,16 @@ import React from 'react';
 import { getBuildInfo } from '@openheaders/ui/shared/build-info';
 import { type StatusLevel, type StatusSnapshot, type StatusSubsystem, SUBSYSTEM_LABELS } from './types';
 
+// `cdp` is intentionally absent: deep request inspection has its own
+// standalone "Debug mode" control pill in the footer (see
+// `shared/debug-mode/DebugModePill`), so it is not mirrored as a System
+// Status row. The reporter still populates `snapshot.cdp` — the Debug mode
+// pill reads it for its state dot + roster.
 export const SUBSYSTEM_ORDER: StatusSubsystem[] = [
   'sync',
   'activity',
   'rules',
   'requests',
-  'cdp',
   'permissions',
   'secrets',
   'live',

@@ -33,6 +33,10 @@ export interface RuleRpc {
     req: { tabId: number; enabled: boolean };
     res: { success: boolean; error?: string };
   };
+  setCdpTabPin: {
+    req: { tabId: number; pinned: boolean };
+    res: { success: boolean; error?: string };
+  };
   getLocalRules: {
     req: Record<string, never>;
     res: { rules: Rule[] };

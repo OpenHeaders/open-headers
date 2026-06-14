@@ -483,7 +483,19 @@ describe('CdpAttachController', () => {
 
   describe('observability (status pill)', () => {
     it('getState baseline is OFF, no tabs, no fault', () => {
-      expect(h.controller.getState()).toEqual({ enabled: false, attachedTabs: [], lastFault: null });
+      expect(h.controller.getState()).toEqual({ enabled: false, attachedTabs: [], pinnedTabs: [], lastFault: null });
+    });
+
+    it('a pin while OFF emits and surfaces in pinnedTabs (so the control reflects it pre-enable)', () => {
+      const states: Array<{ enabled: boolean; pinnedTabs: readonly number[] }> = [];
+      h.controller.onChange((s) => states.push({ enabled: s.enabled, pinnedTabs: s.pinnedTabs }));
+
+      h.controller.notePinned(9);
+      expect(states.at(-1)).toEqual({ enabled: false, pinnedTabs: [9] });
+      expect(h.controller.getState().pinnedTabs).toEqual([9]);
+
+      h.controller.noteUnpinned(9);
+      expect(states.at(-1)).toEqual({ enabled: false, pinnedTabs: [] });
     });
 
     it('flag-ON emits On-with-no-tabs first, then On-with-1-tab once the attach commits', async () => {
@@ -542,6 +554,7 @@ describe('CdpAttachController', () => {
       expect(h.controller.getState()).toEqual({
         enabled: true,
         attachedTabs: [],
+        pinnedTabs: [],
         lastFault: { kind: 'attach-failed', tabId: 5 },
       });
       // Never marked cdp-owned — stays at its heuristic default.
@@ -558,6 +571,7 @@ describe('CdpAttachController', () => {
       expect(h.controller.getState()).toEqual({
         enabled: true,
         attachedTabs: [],
+        pinnedTabs: [],
         lastFault: { kind: 'fell-back', tabId: 5 },
       });
     });
@@ -568,7 +582,7 @@ describe('CdpAttachController', () => {
       await flush();
 
       h.fireDetach(5, 'target_closed');
-      expect(h.controller.getState()).toEqual({ enabled: true, attachedTabs: [], lastFault: null });
+      expect(h.controller.getState()).toEqual({ enabled: true, attachedTabs: [], pinnedTabs: [], lastFault: null });
     });
 
     it('a flag flip clears a stale fault', async () => {

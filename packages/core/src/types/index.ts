@@ -1,8 +1,8 @@
 // ── Common ─────────────────────────────────────────────────────────
 
 // ── CDP attach-scope vocabulary ────────────────────────────────────
-export type { CdpScopeMode } from './cdp';
-export { cdpScopeModeSchema } from './cdp';
+export type { CdpRosterTab, CdpScopeMode } from './cdp';
+export { cdpRosterTabSchema, cdpScopeModeSchema, readCdpPinnedTabs, readCdpRoster } from './cdp';
 // ── Collection ─────────────────────────────────────────────────────
 export type {
   Collection,

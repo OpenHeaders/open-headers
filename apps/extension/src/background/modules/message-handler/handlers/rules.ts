@@ -17,6 +17,7 @@ import {
 } from '@openheaders/oracle/entity/rule-store';
 import { pruneOrphanOwners } from '@openheaders/oracle/test-run/test-run-store';
 import { disableCacheBypassForTab, enableCacheBypassForTab } from '../../cache-bypass';
+import { setCdpTabPin } from '../../cdp-tab-pin';
 import type { HandlerMap } from '../types';
 
 /** Sweep test-run owners whose rule/collection/folder no longer exists. */
@@ -81,6 +82,15 @@ export const ruleHandlers: HandlerMap = {
       .then(() => respond({ success: true }))
       .catch((err: Error) => respond({ success: false, error: err.message }));
     return true;
+  },
+
+  setCdpTabPin: ({ message, respond }) => {
+    const tabId = message.tabId as number;
+    const pinned = !!message.pinned;
+    // Synchronous pass-through into the reconciler input; the attach/detach
+    // it triggers is the controller's own (async) job, surfaced on the pill.
+    setCdpTabPin(tabId, pinned);
+    respond({ success: true });
   },
 
   getLocalRules: ({ respond }) => {

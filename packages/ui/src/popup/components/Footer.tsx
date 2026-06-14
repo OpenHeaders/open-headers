@@ -2,6 +2,7 @@ import { BugOutlined, GlobalOutlined, StarOutlined } from '@ant-design/icons';
 import { getCapability } from '@openheaders/core/capabilities';
 import { hostNavigation } from '@openheaders/core/navigation';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
+import { DebugModePill } from '@openheaders/ui/shared/debug-mode';
 import type { StatusPillProps } from '@openheaders/ui/shared/status';
 import { productStatusExtras, StatusPill } from '@openheaders/ui/shared/status';
 import { useSurface } from '@openheaders/ui/shared/surface';
@@ -92,6 +93,7 @@ const Footer: React.FC = () => {
 
       <div>
         <Space size={8} align="center">
+          <DebugModePill tabSource="active" placement="top" />
           <StatusPill
             className="rules-statusbar-item footer-system-status"
             density="full"

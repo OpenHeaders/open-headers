@@ -11,6 +11,7 @@ import { BulbFilled, BulbOutlined } from '@ant-design/icons';
 import { Dropdown, type MenuProps, Space, theme } from 'antd';
 import type React from 'react';
 import { useActiveEditorLifecycle } from '@openheaders/ui/shared/awareness';
+import { DebugModePill } from '@openheaders/ui/shared/debug-mode';
 import { LifecyclePill } from '@openheaders/ui/shared/editor-shell';
 import { productStatusExtras, StatusPill } from '@openheaders/ui/shared/status';
 import { useInspectorNav } from '../hooks/useInspectorNav';
@@ -99,6 +100,7 @@ const StatusBar: React.FC<StatusBarProps> = ({
       </div>
 
       <div className="rules-statusbar-right">
+        <DebugModePill tabSource="none" />
         <StatusPill
           density="full"
           label="System status"

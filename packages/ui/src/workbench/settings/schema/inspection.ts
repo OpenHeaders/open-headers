@@ -36,7 +36,7 @@ registerSetting({
   schema: cdpScopeModeSchema,
   label: 'Inspect which tabs',
   description:
-    'Which tabs deep inspection attaches to while it’s on. DevTools tabs attaches to tabs with their developer tools open. Current tab follows the active tab without needing developer tools open — switching to a new-tab or internal page leaves the prior tab attached rather than thrashing. Both combines the two. Individual tabs can also be pinned in from the footer regardless of this choice.',
+    'Which tabs deep inspection attaches to while it’s on. “Where DevTools is open” attaches to browser tabs with their developer tools open. “The focused tab” follows the active browser tab without needing developer tools open — switching to a new-tab or internal page leaves the prior tab attached rather than thrashing. “Both” combines the two. Individual browser tabs can also be pinned in from the footer regardless of this choice.',
   category: 'inspection',
   tags: ['network', 'inspection', 'requests', 'debugging', 'devtools', 'scope'],
   scope: 'user',
@@ -44,13 +44,17 @@ registerSetting({
   capabilityUnavailableHint:
     'This browser doesn’t expose the debugging protocol, so deep request inspection isn’t available here.',
   enumOptions: [
-    { value: 'devtools', label: 'DevTools tabs', description: 'Tabs with their developer tools open.' },
+    {
+      value: 'devtools',
+      label: 'Where DevTools is open',
+      description: 'Browser tabs with their developer tools open.',
+    },
     {
       value: 'active',
-      label: 'Current tab',
-      description: 'The active tab, following focus — no developer tools needed.',
+      label: 'The focused tab',
+      description: 'The active browser tab, following focus — no developer tools needed.',
     },
-    { value: 'both', label: 'Both', description: 'DevTools tabs and the current tab.' },
+    { value: 'both', label: 'Both', description: 'DevTools tabs and the focused tab.' },
   ],
 });
 

@@ -27,8 +27,9 @@ interface InstallLifecycleStatusReportersOpts {
 }
 
 export function installLifecycleStatusReporters({ cdpAttach }: InstallLifecycleStatusReportersOpts): void {
+  const browser = getBrowserAPI();
   // Hosts without CDP never get the reporter → the `cdp` pill stays grey.
-  if (getBrowserAPI().debugger === undefined) return;
+  if (browser.debugger === undefined) return;
 
   installCdpStatusReporter({
     report: (entry) =>
@@ -40,5 +41,16 @@ export function installLifecycleStatusReporters({ cdpAttach }: InstallLifecycleS
       }),
     getState: () => cdpAttach.getState(),
     onChange: (listener) => cdpAttach.onChange(listener),
+    // Roster metadata is resolved SW-side (the UI is chrome-free) and shipped
+    // in the status context. A tab closed mid-flight rejects → dropped.
+    resolveTab: async (tabId) => {
+      try {
+        const tab = await browser.tabs.get(tabId);
+        return { windowId: tab.windowId, index: tab.index, title: tab.title ?? '', url: tab.url ?? '' };
+      } catch {
+        return null;
+      }
+    },
+    isPinned: (tabId) => cdpAttach.isPinned(tabId),
   });
 }

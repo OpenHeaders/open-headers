@@ -123,6 +123,14 @@ export interface CdpAttachFault {
 export interface CdpAttachState {
   readonly enabled: boolean;
   readonly attachedTabs: readonly number[];
+  /**
+   * Tabs explicitly pinned into scope — the per-tab overlay, surfaced
+   * independently of `attachedTabs` because a pin is recorded even while the
+   * master switch is OFF (it just doesn't attach yet). The control surface
+   * reads this so the "include this tab" toggle reflects the pin before the
+   * user enables inspection.
+   */
+  readonly pinnedTabs: readonly number[];
   readonly lastFault: CdpAttachFault | null;
 }
 
@@ -134,6 +142,8 @@ export interface CdpAttachState {
 export interface CdpAttachObservable {
   getState(): CdpAttachState;
   onChange(listener: (state: CdpAttachState) => void): () => void;
+  /** Whether a tab is explicitly pinned — the roster's per-tab pin flag. */
+  isPinned(tabId: number): boolean;
 }
 
 export class CdpAttachController implements CdpAttachObservable {
@@ -205,12 +215,17 @@ export class CdpAttachController implements CdpAttachObservable {
     if (this.pinned.has(tabId)) return;
     this.pinned.add(tabId);
     this.reconcile();
+    // The pinned set is part of the observable state, so a pin emits even when
+    // the master switch is OFF (no attach happens, but the control toggle must
+    // reflect the pin immediately). When ON, the async attach emits again.
+    this.emit();
   }
 
   /** A tab was unpinned. Updates the overlay set + reconciles. */
   noteUnpinned(tabId: number): void {
     if (!this.pinned.delete(tabId)) return;
     this.reconcile();
+    this.emit();
   }
 
   /** Whether a tab is explicitly pinned (the per-tab overlay). */
@@ -262,7 +277,12 @@ export class CdpAttachController implements CdpAttachObservable {
 
   /** Snapshot the effective state. */
   getState(): CdpAttachState {
-    return { enabled: this.enabled, attachedTabs: [...this.attached], lastFault: this.lastFault };
+    return {
+      enabled: this.enabled,
+      attachedTabs: [...this.attached],
+      pinnedTabs: [...this.pinned],
+      lastFault: this.lastFault,
+    };
   }
 
   /** Subscribe to effective-state changes. Returns the unsubscribe handle. */
