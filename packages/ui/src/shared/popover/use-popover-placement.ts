@@ -34,16 +34,44 @@ export interface UsePopoverPlacementApi {
   measured: boolean;
 }
 
+// Breathing room left between the popover's bottom and the footer's top once
+// the cap engages. Small because the cap measures the footer's REAL top, not a
+// viewport guess that has to over-reserve for the footer's own height.
+const FOOTER_CAP_GAP = 8;
+// Floor — one row's worth, so the popover stays a thin scroll strip rather than
+// collapsing as the footer rises to meet it on a very short pane.
+const MIN_CAP_HEIGHT = 24;
+
 export function usePopoverPlacement(
   anchorEl: HTMLElement,
   width: number,
-  opts?: { trackScroll?: boolean; boundsEl?: HTMLElement | null },
+  opts?: {
+    trackScroll?: boolean;
+    boundsEl?: HTMLElement | null;
+    footerEl?: HTMLElement | null;
+    staticAfterMeasure?: boolean;
+  },
 ): UsePopoverPlacementApi {
   // Whether to re-anchor on scroll. Hover popovers track their trigger as the
   // page scrolls; a pinned editor opts out (`trackScroll: false`) so it stays
   // put relative to the panel while the list scrolls underneath it, rather
   // than drifting along with its (scrolling) anchor row.
   const trackScroll = opts?.trackScroll ?? true;
+  // The pane's bottom bar (e.g. the panel status bar). When supplied, the
+  // height cap tracks this element's REAL top on BOTH sides — so the popover's
+  // bottom stays above it and the content scrolls inside as the pane shortens,
+  // even when the popover opened ABOVE its trigger (the room-above cap alone
+  // ignores a footer rising from below). Re-read live on resize; because the
+  // footer is stable, that never jitters the placement the way re-reading the
+  // scrolling anchor would.
+  const footerEl = opts?.footerEl ?? null;
+  // Freeze the anchored position once it has settled (after the reveal
+  // frames). A pinned editor over a list whose rows shift sub-pixel as the
+  // pane reflows would otherwise re-anchor on every resize frame — visible as
+  // a jitter the static (Ant-positioned) toolbar popovers never show. Frozen,
+  // the top/left/side stay put like those; only the footer-tracked `maxHeight`
+  // keeps updating, so the bottom follows the footer without moving the popover.
+  const staticAfterMeasure = opts?.staticAfterMeasure ?? false;
   // Optional clipping/positioning container. When provided, the returned
   // `top`/`left` are relative to it (the consumer renders `position: absolute`
   // and portals into it, so the container's `overflow` clips and its footer
@@ -55,6 +83,11 @@ export function usePopoverPlacement(
   const [measured, setMeasured] = useState(false);
   const elRef = useRef<HTMLElement | null>(null);
   const heightRef = useRef<number | undefined>(undefined);
+  // Latched true once the position has settled (see reveal effect). While true,
+  // `recompute` stops re-anchoring top/left/side, so resize / scroll / content
+  // observers can't drift the popover — only the footer-tracked `maxHeight`
+  // keeps updating.
+  const frozenRef = useRef(false);
 
   const recompute = useCallback(() => {
     // Skip during transient detachment — the next observer fire after
@@ -62,11 +95,31 @@ export function usePopoverPlacement(
     // consumer's responsibility to close (see file header).
     if (!anchorEl.isConnected) return;
     const r = boundsEl?.getBoundingClientRect();
-    // Clamp the container rect to the VISIBLE window before sizing the cap.
-    // `.dt-panel-root` is `height: 100vh`, so when it's offset below a top
+    // Footer-tracked cap for a given (container-relative) popover top: the room
+    // down to the footer's real top, floored. Returns Infinity with no footer,
+    // so callers fall back to the anchor-derived `maxHeight` below.
+    const footerCap = (top: number): number => {
+      if (!footerEl) return Number.POSITIVE_INFINITY;
+      const footerTop = footerEl.getBoundingClientRect().top - (r?.top ?? 0);
+      return Math.max(footerTop - top - FOOTER_CAP_GAP, MIN_CAP_HEIGHT);
+    };
+
+    // Placement is pinned after settle — only the live footer cap keeps
+    // tracking, so the bottom follows the footer on resize without re-reading
+    // (and jittering against) the moving anchor.
+    if (staticAfterMeasure && frozenRef.current) {
+      if (!footerEl) return;
+      setPosition((prev) => {
+        const capped = footerCap(prev.top);
+        return capped === prev.maxHeight ? prev : { ...prev, maxHeight: capped };
+      });
+      return;
+    }
+
+    // Clamp the container rect to the VISIBLE window before sizing the fallback
+    // cap. `.dt-panel-root` is `height: 100vh`, so when it's offset below a top
     // bar (the workbench) its `bottom` sits past the window edge; capping to
-    // that hidden region let the popover run under the footer. Matching the
-    // toolbar/View cap means measuring against the visible viewport.
+    // that hidden region let the popover run under the footer.
     const bounds = r
       ? {
           top: Math.max(r.top, 0),
@@ -77,10 +130,13 @@ export function usePopoverPlacement(
       : undefined;
     const p = computeAnchoredPosition(anchorEl, width, heightRef.current, bounds);
     // Coordinates stay relative to the actual container origin (raw rect) so
-    // `position: absolute` inside it lands correctly; the container's overflow
-    // then clips any remainder.
-    setPosition(r ? { ...p, top: p.top - r.top, left: p.left - r.left } : p);
-  }, [anchorEl, width, boundsEl]);
+    // `position: absolute` inside it lands correctly. The footer cap (when a
+    // footer is supplied) supersedes the anchor-derived one on both sides.
+    const top = r ? p.top - r.top : p.top;
+    const left = r ? p.left - r.left : p.left;
+    const maxHeight = footerEl ? footerCap(top) : p.maxHeight;
+    setPosition({ top, left, side: p.side, maxHeight });
+  }, [anchorEl, width, boundsEl, footerEl, staticAfterMeasure]);
 
   // ref-callback only stores the element; measurement is driven by the
   // ResizeObserver below so the FIRST height we record is the LAST
@@ -140,13 +196,19 @@ export function usePopoverPlacement(
     let raf1 = 0;
     let raf2 = 0;
     raf1 = requestAnimationFrame(() => {
-      raf2 = requestAnimationFrame(() => setMeasured(true));
+      raf2 = requestAnimationFrame(() => {
+        setMeasured(true);
+        // Position has settled (initial anchor + the popover's own
+        // ResizeObserver has recorded its real height) — latch it so later
+        // resize/scroll/content observer fires can't re-anchor and jitter it.
+        if (staticAfterMeasure) frozenRef.current = true;
+      });
     });
     return () => {
       cancelAnimationFrame(raf1);
       cancelAnimationFrame(raf2);
     };
-  }, []);
+  }, [staticAfterMeasure]);
 
   // Window resize always re-fits. Scroll tracking (capture, so it catches
   // inner scroll containers) re-anchors a moving trigger — gated by

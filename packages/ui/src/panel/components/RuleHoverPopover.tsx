@@ -557,9 +557,18 @@ export function RuleHoverPopover({
   // to the pane (not the window), so it can't spill past the footer, and
   // pinned (no scroll re-anchor) so it stays put as the list scrolls.
   const boundsEl = useMemo(() => anchorEl.closest<HTMLElement>('.dt-panel-root'), [anchorEl]);
+  // The panel status bar — the cap tracks its real top so the popover's bottom
+  // stays above it on resize, on BOTH sides (the `above` placement, used when
+  // the row is near the bottom, has no footer awareness on its own).
+  const footerEl = useMemo(() => boundsEl?.querySelector<HTMLElement>(':scope > .rules-statusbar') ?? null, [boundsEl]);
   const { position, popoverRef, measured } = usePopoverPlacement(anchorEl, POPOVER_WIDTH, {
     trackScroll: false,
     boundsEl,
+    footerEl,
+    // Anchor once, then stay put (like the static toolbar popovers) so the
+    // panel reflowing during a resize can't jitter it; only the footer-tracked
+    // `maxHeight` keeps updating, shrinking the popover to clear the footer.
+    staticAfterMeasure: true,
   });
 
   const updateDraft = (patch: Partial<ModDraft>) => {
@@ -694,11 +703,10 @@ export function RuleHoverPopover({
         borderRadius: token.borderRadiusLG,
         boxShadow: token.boxShadowSecondary,
         padding: 12,
-        // Height-aware: cap to the room on the popover's side (measured from
-        // the anchor to the footer / viewport top) and scroll inside, so it
-        // stays anchored to the Edit button and shrinks to clear the footer
-        // rather than spilling past the panel. `usePopoverPlacement` measures
-        // the capped height, so anchoring stays correct.
+        // Footer-tracked cap (both sides): `usePopoverPlacement` measures the
+        // status bar's real top and shrinks this on resize so the bottom stays
+        // above the footer and the content scrolls inside, whether the popover
+        // opened below the row or flipped above it.
         maxHeight: position.maxHeight,
         overflowY: 'auto',
         overflowX: 'hidden',

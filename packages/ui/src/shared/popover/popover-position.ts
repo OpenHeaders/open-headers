@@ -38,11 +38,16 @@ export interface AnchorBounds {
 // timer — auto-closing the popover before the cursor reaches it.
 const EDGE_GAP = 2;
 const VIEWPORT_PAD = 8;
-// Clears the pane's bottom footer status bar plus a breathing gap for a
-// popover that opens downward (mirrors `usePopoverViewportFit`).
+// Fallback footer reserve for the downward cap when no footer element is
+// supplied to measure against — clears a typical bottom status bar plus a
+// breathing gap (mirrors `usePopoverViewportFit`).
 const FOOTER_RESERVE = 64;
-// Floor so the popover stays a usable strip even on a very short panel.
-const MIN_POPOVER_HEIGHT = 120;
+// Floor — one row's worth, matching the View menu's `MIN_MENU_PX`. Kept
+// this low so the cap keeps tracking the footer down to a thin scroll
+// strip on a short panel; a taller floor clamps the cap ABOVE the real
+// room, so the popover stops shrinking and its bottom punches through the
+// footer instead of scrolling inside.
+const MIN_POPOVER_HEIGHT = 24;
 
 export function computeAnchoredPosition(
   anchorEl: HTMLElement,
@@ -75,18 +80,12 @@ export function computeAnchoredPosition(
     MIN_POPOVER_HEIGHT,
   );
 
-  // Position for the height the popover ACTUALLY renders at — capped to
-  // `maxHeight`. Using the raw (uncapped) height here would clamp `top` with
-  // a stale, too-tall value and let the bottom slide under the always-on-top
-  // footer on resize. With the capped height: below sits at the trigger and
-  // its bottom lands at `bBottom - FOOTER_RESERVE` (sticky above the footer,
-  // shrinking as the pane shortens); above lands just over the trigger.
-  const effectiveHeight = Math.min(height, maxHeight);
-
-  const top =
-    side === 'above'
-      ? Math.max(bTop + VIEWPORT_PAD, rect.top - EDGE_GAP - effectiveHeight)
-      : rect.bottom + EDGE_GAP;
+  // `above` is placed for its FULL content height so its bottom lands just
+  // over the trigger (clamped to the bounds top); `below` sits just under it.
+  // A consumer that supplies a footer element caps the RENDERED height against
+  // that footer's real top on both sides, so the bottom stays above the footer
+  // and scrolls inside — this `top` just fixes where the popover is anchored.
+  const top = side === 'above' ? Math.max(bTop + VIEWPORT_PAD, rect.top - EDGE_GAP - height) : rect.bottom + EDGE_GAP;
 
   // Left-align with the anchor — the popover starts where the
   // hovered text starts and extends to the right. Centering on a
