@@ -1,0 +1,27 @@
+/*
+ * scrollbar.css — `.dt-scrollbar`, a shared always-visible inner scrollbar.
+ *
+ * Styling `::-webkit-scrollbar` opts the container out of the platform's
+ * auto-hiding overlay scrollbar, so once the content is taller than the room
+ * and scrolls, the bar stays shown instead of fading out — the user can
+ * always see there's more above/below.
+ *
+ * Applied (via className) to the inspector's edit popovers (header rule edit,
+ * cookie edit), the shared value-expander readout, and the toolbar's View
+ * menu + vertical filter pills. The context-menu's hover-reveal bar
+ * (`.dt-ctx-menu-scroll`) is intentionally different and stays separate.
+ */
+.dt-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+.dt-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.dt-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.55);
+  border-radius: 4px;
+  transition: background-color 0.2s ease-out;
+}
+.dt-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(128, 128, 128, 0.75);
+}

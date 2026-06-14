@@ -222,31 +222,6 @@
   overflow-y: auto;
 }
 
-/* Always-visible scrollbar for the View / More-filters menu — the thumb is
- * the only cue that the menu scrolls, so it must show whenever the content
- * overflows (a hover-revealed thumb hides that there's more below). The
- * scrollbar lives on the scroll element (`.dt-morefilters-menu`); the popover
- * is portaled to <body>, outside the dock-body scrollbar styling, so it needs
- * its own. An 8px gutter is reserved while scrollable so there is no layout
- * shift; grey reads on both themes, darkening on thumb hover. */
-.dt-morefilters-menu::-webkit-scrollbar {
-  width: 8px;
-}
-
-.dt-morefilters-menu::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.dt-morefilters-menu::-webkit-scrollbar-thumb {
-  background: rgba(128, 128, 128, 0.55);
-  border-radius: 4px;
-  transition: background-color 0.2s ease-out;
-}
-
-.dt-morefilters-menu::-webkit-scrollbar-thumb:hover {
-  background: rgba(128, 128, 128, 0.75);
-}
-
 .dt-morefilters-item {
   display: flex;
   align-items: center;
@@ -730,27 +705,6 @@
 
 .dt-filter-pills-popover .ant-popover-inner {
   padding: 4px;
-}
-
-/* Always-visible scrollbar for the resource "More" popover — same as the
- * View / More-filters menu: the thumb shows whenever the list overflows so the
- * user sees there's more, darkening on thumb hover. */
-.dt-filter-pills--vertical::-webkit-scrollbar {
-  width: 8px;
-}
-
-.dt-filter-pills--vertical::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.dt-filter-pills--vertical::-webkit-scrollbar-thumb {
-  background: rgba(128, 128, 128, 0.55);
-  border-radius: 4px;
-  transition: background-color 0.2s ease-out;
-}
-
-.dt-filter-pills--vertical::-webkit-scrollbar-thumb:hover {
-  background: rgba(128, 128, 128, 0.75);
 }
 
 .dt-filter-right {

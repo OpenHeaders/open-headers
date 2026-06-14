@@ -68,12 +68,12 @@ function JwtClaims({ jwt }: { jwt: JwtParts }) {
 
 function decodedBodyFor(i: ValueIntrospection): React.ReactNode {
   if (i.kind === 'jwt') return <JwtClaims jwt={i.jwt} />;
-  if (i.kind === 'json') return <pre className="dt-value-expand-pre">{JSON.stringify(i.parsed, null, 2)}</pre>;
+  if (i.kind === 'json') return <pre className="dt-value-expand-pre dt-scrollbar">{JSON.stringify(i.parsed, null, 2)}</pre>;
   if (i.kind === 'url-encoded') {
     return (
       <div className="dt-value-expand-decoded">
         <div className="dt-value-expand-label">URL-decoded</div>
-        <pre className="dt-value-expand-pre">{i.decoded}</pre>
+        <pre className="dt-value-expand-pre dt-scrollbar">{i.decoded}</pre>
       </div>
     );
   }
@@ -81,7 +81,7 @@ function decodedBodyFor(i: ValueIntrospection): React.ReactNode {
     return (
       <div className="dt-value-expand-decoded">
         <div className="dt-value-expand-label">Base64-decoded</div>
-        <pre className="dt-value-expand-pre">{i.decoded}</pre>
+        <pre className="dt-value-expand-pre dt-scrollbar">{i.decoded}</pre>
       </div>
     );
   }
@@ -100,7 +100,7 @@ export function ValueExpander({ introspection }: { introspection: ValueIntrospec
   const rawBody = (
     <div className="dt-value-expand-decoded">
       {hasDecoded && <div className="dt-value-expand-label">Raw</div>}
-      <pre className="dt-value-expand-pre">{i.value}</pre>
+      <pre className="dt-value-expand-pre dt-scrollbar">{i.value}</pre>
     </div>
   );
 

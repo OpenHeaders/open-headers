@@ -58,7 +58,7 @@ export function ResourceFilter({ value, onChange, compact }: ResourceFilterProps
   const overflowActiveCount = overflowFilters.reduce((n, f) => n + (value.has(f.key) ? 1 : 0), 0);
 
   const moreContent = (
-    <div className="dt-filter-pills dt-filter-pills--vertical">
+    <div className="dt-filter-pills dt-filter-pills--vertical dt-scrollbar">
       {overflowFilters.map((f) => (
         <button
           key={f.key}

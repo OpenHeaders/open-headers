@@ -74,7 +74,7 @@ function CookieEditFormBody({ mode, canonical, busy, maxHeight, onCancel, onSave
 
   return (
     <div
-      className="dt-cookie-edit-popover dt-popover-scroll"
+      className="dt-cookie-edit-popover dt-scrollbar"
       style={maxHeight != null ? { maxHeight, overflowY: 'auto' } : undefined}
     >
       <div className="dt-cookie-edit-popover-title">{mode === 'add' ? 'Add cookie' : 'Edit cookie'}</div>

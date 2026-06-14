@@ -688,7 +688,7 @@ export function RuleHoverPopover({
       ref={popoverRef}
       role="dialog"
       data-rule-popover-root=""
-      className="dt-popover-scroll"
+      className="dt-scrollbar"
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       style={{

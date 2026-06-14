@@ -55,7 +55,9 @@ export function ToolbarMenuPopover({
     [resolveContainer],
   );
   const rootClass = rootClassName ? `dt-morefilters-popover ${rootClassName}` : 'dt-morefilters-popover';
-  const menuClass = menuClassName ? `dt-morefilters-menu ${menuClassName}` : 'dt-morefilters-menu';
+  const menuClass = menuClassName
+    ? `dt-morefilters-menu dt-scrollbar ${menuClassName}`
+    : 'dt-morefilters-menu dt-scrollbar';
   return (
     <Popover
       content={
