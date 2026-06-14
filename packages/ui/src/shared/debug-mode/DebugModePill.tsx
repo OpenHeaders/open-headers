@@ -188,7 +188,29 @@ const DebugModeControls: React.FC<DebugModeControlsProps> = ({ entry, tabSource,
     // Scale antd controls down to the popover's text size — their default
     // (14px) reads oversized next to the 11px labels.
     <ConfigProvider theme={{ token: { fontSize: 12 } }}>
-      <div style={{ width: 300, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ width: 380, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {entry && entry.state !== 'green' && (
+          // Surface a fault (e.g. a banner-cancel fall-back, or an attach
+          // failure) so the yellow/red dot has an explanation on hover.
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+            <span
+              style={{
+                display: 'inline-block',
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                marginTop: 5,
+                flex: '0 0 auto',
+                background: entry.state === 'red' ? token.colorError : token.colorWarning,
+              }}
+            />
+            <Typography.Text
+              style={{ fontSize: 11, color: entry.state === 'red' ? token.colorError : token.colorWarning }}
+            >
+              {entry.message}
+            </Typography.Text>
+          </div>
+        )}
         <ControlRow label="Inspect" token={token}>
           <Select
             size="small"
@@ -205,34 +227,39 @@ const DebugModeControls: React.FC<DebugModeControlsProps> = ({ entry, tabSource,
           </ControlRow>
         )}
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Typography.Text style={{ fontSize: 10, color: token.colorTextTertiary }}>Attached tabs</Typography.Text>
-            {roster.length > 0 && (
-              <Badge
-                count={roster.length}
-                color={token.colorTextTertiary}
-                size="small"
-                style={{ color: token.colorBgContainer }}
-              />
+        {/* The roster section only exists once inspection is on — when off
+            there's nothing to attach, so the header + empty row are just noise. */}
+        {enabled && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Typography.Text style={{ fontSize: 10, color: token.colorTextTertiary }}>
+                Attached tabs
+              </Typography.Text>
+              {roster.length > 0 && (
+                <Badge
+                  count={roster.length}
+                  color={token.colorTextTertiary}
+                  size="small"
+                  style={{ color: token.colorBgContainer }}
+                />
+              )}
+            </div>
+            {roster.length > 0 ? (
+              roster.map((tab) => (
+                <RosterRow key={tab.tabId} tab={tab} token={token} isCurrent={tabId != null && tab.tabId === tabId} />
+              ))
+            ) : (
+              <Typography.Text style={{ fontSize: 11, color: token.colorTextTertiary, padding: '2px 4px' }}>
+                No tabs attached yet
+              </Typography.Text>
             )}
           </div>
-          {roster.length > 0 ? (
-            roster.map((tab) => <RosterRow key={tab.tabId} tab={tab} token={token} />)
-          ) : enabled ? (
-            <Typography.Text style={{ fontSize: 11, color: token.colorTextTertiary, padding: '2px 4px' }}>
-              No tabs attached yet
-            </Typography.Text>
-          ) : (
-            // Off: leave an empty row rather than a hint.
-            <div style={{ height: 18 }} />
-          )}
-        </div>
+        )}
 
         <div style={{ marginTop: 2, paddingTop: 8, borderTop: `1px solid ${token.colorBorderSecondary}` }}>
-          <Typography.Text style={{ fontSize: 11, color: token.colorTextTertiary }}>
-            While debug mode is on, the browser shows its “is debugging this browser” banner on every tab — it's a
-            browser-wide notice, not a per-tab one, so it appears even on tabs that aren't attached.
+          <Typography.Text style={{ fontSize: 10, color: token.colorTextTertiary }}>
+            While debug mode is on, the browser's banner “OH started debugging this browser” shows on every tab — not just the
+            ones it's attached to.
           </Typography.Text>
         </div>
       </div>
@@ -256,14 +283,19 @@ const ControlRow: React.FC<ControlRowProps> = ({ label, token, children }) => (
 interface RosterRowProps {
   tab: CdpRosterTab;
   token: ReturnType<typeof theme.useToken>['token'];
+  /** This roster row is the tab the surface is currently on. */
+  isCurrent: boolean;
 }
 
-const RosterRow: React.FC<RosterRowProps> = ({ tab, token }) => {
+const RosterRow: React.FC<RosterRowProps> = ({ tab, token, isCurrent }) => {
   const handle = { kind: 'chrome-tab' as const, tabId: tab.tabId, windowId: tab.windowId, url: tab.url || undefined };
-  const navigable = isPeerNavigable(handle);
+  // The tab you're already on isn't a "switch to" target — it's highlighted
+  // instead, not clickable and with no jump affordance.
+  const navigable = !isCurrent && isPeerNavigable(handle);
   const label = tab.title || tab.url || `Tab ${tab.tabId}`;
+  const tooltip = isCurrent ? "You're on this tab" : navigable ? `Switch to ${tab.url || label}` : tab.url || label;
   return (
-    <Tooltip title={navigable ? `Switch to ${tab.url || label}` : tab.url || label} placement="top">
+    <Tooltip title={tooltip} placement="top">
       <button
         type="button"
         disabled={!navigable}
@@ -275,7 +307,8 @@ const RosterRow: React.FC<RosterRowProps> = ({ tab, token }) => {
           width: '100%',
           padding: '2px 4px',
           border: 'none',
-          background: 'transparent',
+          borderRadius: 4,
+          background: isCurrent ? token.colorPrimaryBg : 'transparent',
           color: 'inherit',
           cursor: navigable ? 'pointer' : 'default',
           textAlign: 'left',
