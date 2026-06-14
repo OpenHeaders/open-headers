@@ -1,0 +1,23 @@
+/*
+ * popover-scroll.css — always-visible inner scrollbar for the inspector's
+ * edit popovers (header rule edit, cookie edit).
+ *
+ * Styling `::-webkit-scrollbar` opts the container out of the platform's
+ * auto-hiding overlay scrollbar, so once the form is taller than the room and
+ * scrolls, the bar stays shown instead of fading out — the user can always see
+ * there's more above/below. Same thumb treatment as the info popover.
+ */
+.dt-popover-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+.dt-popover-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.dt-popover-scroll::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.55);
+  border-radius: 4px;
+  transition: background-color 0.2s ease-out;
+}
+.dt-popover-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(128, 128, 128, 0.75);
+}
