@@ -50,8 +50,8 @@ import { getTestScopeForTab, isRuleUnderTest } from './modules/test-runner';
 
 const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
 
-/** Rules inject-manager can act on. Header rules are here for their `merge` operations. */
-type ScriptableRule = InjectRule | DelayRule | BodyRule | MockRule | HeaderRule;
+/** Mock/body/delay rules: their URL conditions target REQUEST urls. */
+type InterceptorRule = DelayRule | BodyRule | MockRule;
 
 /**
  * Page-install gate for rules whose URL conditions match REQUEST /
@@ -83,7 +83,13 @@ interface MessageRuleEntry extends PageInstallGate {
   rule: WsRule | SseRule;
 }
 
-let activeScriptableRules: ScriptableRule[] = [];
+/** A mock/body/delay rule paired with its pre-compiled install gate. */
+interface InterceptorRuleEntry extends PageInstallGate {
+  rule: InterceptorRule;
+}
+
+let activeInjectRules: InjectRule[] = [];
+let activeInterceptorRules: InterceptorRuleEntry[] = [];
 let activeHeaderMerges: HeaderMergeEntry[] = [];
 let activeMessageRules: MessageRuleEntry[] = [];
 
@@ -173,17 +179,21 @@ export const __testExtractHeaderMergeEntry = extractHeaderMergeEntry;
  * the set into its effective-fire-uid snapshot.
  */
 export function updateScriptableRules(rules: Rule[]): ReadonlySet<string> {
-  const scriptable: ScriptableRule[] = [];
+  const injectRules: InjectRule[] = [];
+  const interceptorRules: InterceptorRuleEntry[] = [];
   const headerMerges: HeaderMergeEntry[] = [];
   const messageRules: MessageRuleEntry[] = [];
   const installedUids = new Set<string>();
   for (const rule of rules) {
     switch (rule.type) {
       case 'inject':
+        injectRules.push(rule);
+        installedUids.add(rule.uid);
+        break;
       case 'delay':
       case 'body':
       case 'mock':
-        scriptable.push(rule);
+        interceptorRules.push({ rule, ...extractInstallGate(rule) });
         installedUids.add(rule.uid);
         break;
       case 'header': {
@@ -201,13 +211,18 @@ export function updateScriptableRules(rules: Rule[]): ReadonlySet<string> {
         break;
     }
   }
-  activeScriptableRules = scriptable;
+  activeInjectRules = injectRules;
+  activeInterceptorRules = interceptorRules;
   activeHeaderMerges = headerMerges;
   activeMessageRules = messageRules;
-  if (scriptable.length > 0 || headerMerges.length > 0 || messageRules.length > 0) {
+  const scriptableCount = injectRules.length + interceptorRules.length;
+  if (scriptableCount > 0 || headerMerges.length > 0 || messageRules.length > 0) {
+    const summary = [...injectRules, ...interceptorRules.map((e) => e.rule)]
+      .map((r) => `${r.type}:${r.name}`)
+      .join(', ');
     logger.info(
       'InjectManager',
-      `Updated scriptable rules: ${scriptable.length} active (${scriptable.map((r) => `${r.type}:${r.name}`).join(', ')}), ${headerMerges.length} header merges, ${messageRules.length} ws/sse`,
+      `Updated scriptable rules: ${scriptableCount} active (${summary}), ${headerMerges.length} header merges, ${messageRules.length} ws/sse`,
     );
   } else {
     logger.debug('InjectManager', 'Updated scriptable rules: 0 active');
@@ -229,7 +244,12 @@ export function setupInjectListener(): void {
     (details: chrome.webNavigation.WebNavigationTransitionCallbackDetails) => {
       // Main frame only
       if (details.frameId !== 0) return;
-      if (activeScriptableRules.length === 0 && activeHeaderMerges.length === 0 && activeMessageRules.length === 0)
+      if (
+        activeInjectRules.length === 0 &&
+        activeInterceptorRules.length === 0 &&
+        activeHeaderMerges.length === 0 &&
+        activeMessageRules.length === 0
+      )
         return;
 
       void injectForUrl(details.tabId, details.url);
@@ -273,20 +293,26 @@ export const __testShouldInstallForPage = shouldInstallForPage;
 
 // ── Injection logic ──────────────────────────────────────────────
 
+/**
+ * Log an injection failure, swallowing the benign "tab closed / not yet
+ * accessible" races that fire when a navigation outruns the inject.
+ */
+function logInjectFailure(what: string, tabId: number, error: unknown): void {
+  const msg = (error as Error).message;
+  if (!msg?.includes('Cannot access') && !msg?.includes('No tab')) {
+    logger.info('InjectManager', `Failed to inject ${what} into tab ${tabId}: ${msg}`);
+  }
+}
+
 async function injectForUrl(tabId: number, url: string): Promise<void> {
   // Test isolation: if this is a test tab, only inject rules in that session's
   // scope. If it is NOT a test tab, skip any rule currently under test in some
   // other session so the test doesn't leak into unrelated tabs.
   const testScope = getTestScopeForTab(tabId);
 
-  for (const rule of activeScriptableRules) {
-    // Header rules are tracked in this list only so dnr-manager can pass a
-    // single set of scriptable-capable rules over; their merge injections
-    // are driven separately from `activeHeaderMerges` below.
-    if (rule.type === 'header') continue;
-
-    // A rule with no URL-matching conditions never matches any URL —
-    // incomplete rules are already filtered upstream by isRuleComplete.
+  // Inject rules target the PAGE itself — their URL conditions are page
+  // urls, so the page url is the right thing to match.
+  for (const rule of activeInjectRules) {
     if (!doesUrlMatchRule(url, rule)) continue;
     if (testScope) {
       if (!testScope.has(rule.uid)) continue;
@@ -295,20 +321,38 @@ async function injectForUrl(tabId: number, url: string): Promise<void> {
     }
 
     try {
+      if (rule.action.source === 'url' && rule.action.sourceUrl) {
+        if (rule.action.injectType === 'css') {
+          await injectCSSUrl(tabId, rule.action.sourceUrl);
+        } else {
+          await injectScriptUrl(tabId, rule.action.sourceUrl);
+        }
+      } else if (rule.action.injectType === 'css') {
+        await injectCSS(tabId, rule);
+      } else {
+        await injectScript(tabId, rule.action.code, rule.action.position);
+      }
+    } catch (error) {
+      logInjectFailure(`"${rule.name}"`, tabId, error);
+    }
+  }
+
+  // Mock / body / delay interceptors target the REQUESTS a page makes —
+  // their URL conditions are request urls, matched in-page by the
+  // interceptor. They install wherever a matching request could originate
+  // (initiator-domain gate), exactly like header-merge / ws / sse — NOT
+  // only on pages whose own URL matches the request conditions.
+  for (const entry of activeInterceptorRules) {
+    if (!shouldInstallForPage(entry, url)) continue;
+    const rule = entry.rule;
+    if (testScope) {
+      if (!testScope.has(rule.uid)) continue;
+    } else if (isRuleUnderTest(rule.uid)) {
+      continue;
+    }
+
+    try {
       switch (rule.type) {
-        case 'inject':
-          if (rule.action.source === 'url' && rule.action.sourceUrl) {
-            if (rule.action.injectType === 'css') {
-              await injectCSSUrl(tabId, rule.action.sourceUrl);
-            } else {
-              await injectScriptUrl(tabId, rule.action.sourceUrl);
-            }
-          } else if (rule.action.injectType === 'css') {
-            await injectCSS(tabId, rule);
-          } else {
-            await injectScript(tabId, rule.action.code, rule.action.position);
-          }
-          break;
         case 'delay':
           await applyInjection(tabId, buildDelayInjection(rule), rule.name);
           break;
@@ -320,10 +364,7 @@ async function injectForUrl(tabId: number, url: string): Promise<void> {
           break;
       }
     } catch (error) {
-      const msg = (error as Error).message;
-      if (!msg?.includes('Cannot access') && !msg?.includes('No tab')) {
-        logger.info('InjectManager', `Failed to inject "${rule.name}" into tab ${tabId}: ${msg}`);
-      }
+      logInjectFailure(`"${rule.name}"`, tabId, error);
     }
   }
 
@@ -347,10 +388,7 @@ async function injectForUrl(tabId: number, url: string): Promise<void> {
       );
       await applyInjection(tabId, injection, 'header-merge');
     } catch (error) {
-      const msg = (error as Error).message;
-      if (!msg?.includes('Cannot access') && !msg?.includes('No tab')) {
-        logger.info('InjectManager', `Failed to inject header merge into tab ${tabId}: ${msg}`);
-      }
+      logInjectFailure('header merge', tabId, error);
     }
   }
 
@@ -369,10 +407,10 @@ async function injectForUrl(tabId: number, url: string): Promise<void> {
       const injection = entry.rule.type === 'ws' ? buildWsInjection(entry.rule) : buildSseInjection(entry.rule);
       await applyInjection(tabId, injection, entry.rule.name);
     } catch (error) {
-      const msg = (error as Error).message;
-      if (!msg?.includes('Cannot access') && !msg?.includes('No tab')) {
-        logger.info('InjectManager', `Failed to inject "${entry.rule.name}" into tab ${tabId}: ${msg}`);
-      }
+      logInjectFailure(`"${entry.rule.name}"`, tabId, error);
     }
   }
 }
+
+/** Test-only handle for the per-navigation injection pass. */
+export const __testInjectForUrl = injectForUrl;
