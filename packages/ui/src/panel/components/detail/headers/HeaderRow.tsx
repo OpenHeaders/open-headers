@@ -246,9 +246,6 @@ export function AttributedHeaderRow({
     // overlay so they align to the panel edge even when the inner `.dt-kv`
     // is a content-hugging attributed pill (blue/grey/red).
     <div className="dt-kv-row">
-      {ruleCtx && (
-        <span className="dt-kv-status-dot" title="A rule applies to this header" aria-label="Rule applies" />
-      )}
       <div className={classes} style={{ fontFamily: 'monospace' }}>
         <HeaderInfoTrigger name={name} direction={meta.direction} category={meta.category} />
         {/* Header name is plain text — rule creation lives on the Override

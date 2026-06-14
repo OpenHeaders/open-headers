@@ -459,6 +459,24 @@
      panel.css :root, matching the headers value + rule popover. */
   max-height: var(--oh-multiline-cap, 96px);
   overflow-y: auto;
+  /* Keep the wrapped text off the always-on scrollbar gutter (below). */
+  padding-right: 6px;
+}
+/* Always-visible scrollbar with a reserved gutter — bar shows the moment the
+ * value scrolls and the text wraps clear of it, matching the headers value. */
+.dt-cookie-expand-pre::-webkit-scrollbar {
+  width: 8px;
+}
+.dt-cookie-expand-pre::-webkit-scrollbar-track {
+  background: transparent;
+}
+.dt-cookie-expand-pre::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.55);
+  border-radius: 4px;
+  transition: background-color 0.2s ease-out;
+}
+.dt-cookie-expand-pre::-webkit-scrollbar-thumb:hover {
+  background: rgba(128, 128, 128, 0.75);
 }
 .dt-cookie-expand-decoded {
   display: block;
