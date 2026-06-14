@@ -44,20 +44,68 @@
 .dt-kv-content {
   flex: 1;
   min-width: 0;
+  /* Flex row so the colon, caret, value, and tags share one line: the
+     value takes the remaining width and truncates (collapsed) or wraps
+     within it (expanded), instead of an inline-block value capped at
+     100% wrapping to its own line below the colon. Spacing is per-item
+     margin (flex trims the colon's trailing whitespace). */
+  display: flex;
+  align-items: baseline;
 }
 
 .dt-kv-oh-value {
-  /* Inline-block so the tag group can sit right after the value on the
-     same line for short values and drop below it for long ones, while
-     the value keeps its own wrap-and-scroll box (see `.dt-kv-val`). */
-  display: inline-block;
-  vertical-align: top;
-  max-width: 100%;
-  word-break: break-all;
+  /* Collapsed by default: every header value is one truncated line so the
+     list stays scannable and a single long value (User-Agent, JWT) can't
+     bloat its row. The expand caret — shown only when the value is
+     actually clipped — toggles `--expanded` for the wrap + 4-line-cap +
+     inline-scroll view. Inline-block so a short value's tags sit right
+     after it on the same line. */
+  /* Flex child of `.dt-kv-content`: takes the remaining width, shrinks
+     below its content (min-width:0) so the single line truncates. */
+  flex: 0 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dt-kv-oh-value--expandable {
+  cursor: pointer;
+}
+.dt-kv-oh-value--expanded {
   white-space: pre-wrap;
+  word-break: break-all;
+  text-overflow: clip;
+  /* Visible-height cap; defined in panel.css :root. */
   max-height: var(--oh-multiline-cap, 96px);
   overflow-y: auto;
   overflow-x: hidden;
+}
+
+/* Colon separator between the header name and its value — pulled out of
+   the value span so it never inherits the value's attribution color or a
+   removed-row strikethrough, and so it stays put while the value clips. */
+.dt-kv-oh-sep {
+  flex: 0 0 auto;
+  margin-right: 4px;
+  color: var(--dt-text-muted);
+}
+
+/* Value expand/collapse caret — sits between the colon and the value,
+   outside the measured value span so it never feeds back into the
+   overflow measurement that decides whether to show it. */
+.dt-kv-value-caret {
+  flex: 0 0 auto;
+  border: none;
+  background: none;
+  padding: 0;
+  margin-right: 3px;
+  color: var(--dt-text-muted);
+  cursor: pointer;
+  font-size: 9px;
+  line-height: 1.5;
+}
+.dt-kv-value-caret:hover {
+  color: var(--dt-text);
 }
 
 .dt-kv--highlighted {
@@ -185,14 +233,6 @@
  * injection case (one rule injected, another rule removed). */
 .dt-kv--oh-removed .dt-kv-oh-value {
   color: var(--dt-row-attributed-removed-accent);
-}
-
-/* Header names render in default text color across every row — the blue
- * link look (which used to signal "clickable to override" / "ours") is
- * redundant now that the Override button states convey overridability,
- * and the leading status dot marks rule-attributed rows. */
-.dt-headers-pane .dt-kv .dt-btn-link {
-  color: var(--dt-text);
 }
 
 /* Leading status dot — blue square marking a header a rule acted on,

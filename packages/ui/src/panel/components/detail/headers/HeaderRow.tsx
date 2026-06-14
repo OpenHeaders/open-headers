@@ -1,6 +1,7 @@
 import { CheckOutlined, CopyOutlined } from '@ant-design/icons';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { getHeaderInfoContentForRow } from '@openheaders/ui/shared/info-popover/data/http-headers';
+import { useElementOverflow } from '@openheaders/ui/shared/hooks/useElementOverflow';
 import { useVariableResolver } from '@openheaders/ui/shared/hooks/useVariableResolver';
 import type { HeaderModification, HeaderOperation, Rule } from '@openheaders/core/types';
 import { useMemo, useState } from 'react';
@@ -104,6 +105,21 @@ export function AttributedHeaderRow({
   const displayName = formatHeaderName(name, nameCase);
   const kind = attribution.kind;
 
+  // Every header value collapses to a single truncated line; an expand
+  // caret appears only when the value is actually clipped (or already
+  // expanded), toggling the value in place to the wrap + 4-line-cap +
+  // inline-scroll view. Overflow is measured on `value`, the raw source —
+  // the resolved display text differs, but the ResizeObserver reads the
+  // live element regardless.
+  const [expanded, setExpanded] = useState(false);
+  // Measure overflow only while collapsed — when expanded the value wraps,
+  // so a live measure would read "not overflowing" and drop the caret for a
+  // frame on collapse. Freezing it to the collapsed truth keeps the caret
+  // stable across toggles.
+  const { ref: valueRef, overflowing } = useElementOverflow<HTMLSpanElement>({ dep: value, active: !expanded });
+  const showExpander = overflowing || expanded;
+  const toggleExpanded = (): void => setExpanded((v) => !v);
+
   const [copied, setCopied] = useState(false);
   const handleCopy = (e: React.MouseEvent<HTMLButtonElement>): void => {
     e.stopPropagation();
@@ -201,7 +217,6 @@ export function AttributedHeaderRow({
 
   const showResolvedValue = kind === 'added' || kind === 'modified' || kind === 'system';
 
-  const serverTitle = kind === 'server' ? 'Create a rule to override this header' : undefined;
   const systemTitle = kind === 'system' ? `Injected by ${attribution.label} (Open Headers system feature)` : undefined;
 
   // Override creates a rule against a server header. On rows that already
@@ -236,22 +251,35 @@ export function AttributedHeaderRow({
       )}
       <div className={classes} style={{ fontFamily: 'monospace' }}>
         <HeaderInfoTrigger name={name} direction={meta.direction} category={meta.category} />
-        {isProtected ? (
-          <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{displayName}</span>
-        ) : (
-          <button
-            type="button"
-            className="dt-btn-link"
-            style={{ fontFamily: 'monospace', fontWeight: 600 }}
-            onClick={() => onNameClick(name, value)}
-            title={serverTitle ?? systemTitle}
-          >
-            {displayName}
-          </button>
-        )}
+        {/* Header name is plain text — rule creation lives on the Override
+            button, so the name is no longer a clickable affordance. */}
+        <span className="dt-kv-name" style={{ fontFamily: 'monospace', fontWeight: 600 }} title={systemTitle}>
+          {displayName}
+        </span>
         <span className="dt-kv-content">
-          <span className="dt-kv-oh-value">
-            : {showResolvedValue ? <ResolvedHeaderValue value={value} collectionId={ruleCollectionId} /> : value}
+          <span className="dt-kv-oh-sep">:</span>
+          {showExpander && (
+            <button
+              type="button"
+              className="dt-kv-value-caret"
+              aria-label={expanded ? 'Collapse value' : 'Expand value'}
+              aria-expanded={expanded}
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleExpanded();
+              }}
+            >
+              {expanded ? '▾' : '▸'}
+            </button>
+          )}
+          <span
+            ref={valueRef}
+            className={`dt-kv-oh-value${expanded ? ' dt-kv-oh-value--expanded' : ''}${
+              showExpander ? ' dt-kv-oh-value--expandable' : ''
+            }`}
+            onClick={showExpander ? toggleExpanded : undefined}
+          >
+            {showResolvedValue ? <ResolvedHeaderValue value={value} collectionId={ruleCollectionId} /> : value}
           </span>
           {!isOhRow && chips}
           {!isOhRow && editedChip}

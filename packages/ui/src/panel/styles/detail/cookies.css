@@ -446,6 +446,11 @@
   white-space: pre-wrap;
   word-break: break-all;
   color: var(--dt-text);
+  /* Cap the expanded readout at ~4 lines and scroll inside rather than
+     letting a multi-KB value grow the row unbounded. Shared cap from
+     panel.css :root, matching the headers value + rule popover. */
+  max-height: var(--oh-multiline-cap, 96px);
+  overflow-y: auto;
 }
 .dt-cookie-expand-decoded {
   display: block;
