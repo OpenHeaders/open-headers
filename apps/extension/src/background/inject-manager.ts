@@ -35,6 +35,8 @@ import {
   buildDelayInjection,
   buildHeaderMergeInjection,
   buildMockInjection,
+  buildResetInjection,
+  buildSetupInjection,
   buildSseInjection,
   buildWsInjection,
 } from '@openheaders/rule-engine/content-scripts';
@@ -92,6 +94,14 @@ let activeInjectRules: InjectRule[] = [];
 let activeInterceptorRules: InterceptorRuleEntry[] = [];
 let activeHeaderMerges: HeaderMergeEntry[] = [];
 let activeMessageRules: MessageRuleEntry[] = [];
+
+// Signature of the live-pushable interceptor set (mock/body/delay/
+// header-merge/ws/sse — NOT inject, which is navigation-only). When it
+// changes after the first load, already-open tabs are refreshed in place
+// (reset + re-inject) so rule edits/deletes apply without a page reload.
+// `null` until the first `updateScriptableRules` so boot doesn't trigger
+// a mass push — fresh navigations install the current set anyway.
+let lastInterceptorSignature: string | null = null;
 
 function defaultSeparator(headerName: string): string {
   const lower = headerName.toLowerCase();
@@ -227,7 +237,39 @@ export function updateScriptableRules(rules: Rule[]): ReadonlySet<string> {
   } else {
     logger.debug('InjectManager', 'Updated scriptable rules: 0 active');
   }
+
+  // Live-update already-open tabs when the interceptor set changes. Skip
+  // the first call (boot): `null` signature means navigation will install
+  // the current set as tabs load, so there's nothing stale to refresh.
+  const signature = interceptorSignature(interceptorRules, headerMerges, messageRules);
+  if (lastInterceptorSignature !== null && signature !== lastInterceptorSignature) {
+    void pushInterceptorUpdate();
+  }
+  lastInterceptorSignature = signature;
+
   return installedUids;
+}
+
+/**
+ * Content-shaped fingerprint of the live-pushable interceptor set. Two
+ * rebuilds with identical interceptor content produce the same string,
+ * so a DNR-only change (or a no-op rebuild) never triggers a push.
+ */
+function interceptorSignature(
+  interceptors: InterceptorRuleEntry[],
+  headerMerges: HeaderMergeEntry[],
+  messageRules: MessageRuleEntry[],
+): string {
+  const gate = (e: PageInstallGate) => ({
+    r: e.regexSources,
+    i: e.initiatorDomains,
+    x: e.excludedInitiatorDomains,
+  });
+  return JSON.stringify({
+    i: interceptors.map((e) => ({ u: e.rule.uid, a: e.rule.action, ...gate(e) })),
+    h: headerMerges.map((e) => ({ u: e.ruleUid, q: e.requestMerges, s: e.responseMerges, ...gate(e) })),
+    m: messageRules.map((e) => ({ u: e.rule.uid, a: e.rule.action, ...gate(e) })),
+  });
 }
 
 /**
@@ -304,21 +346,36 @@ function logInjectFailure(what: string, tabId: number, error: unknown): void {
   }
 }
 
+type TestScope = ReturnType<typeof getTestScopeForTab>;
+
+/**
+ * Test-isolation gate. In a test tab, only that session's scoped rules
+ * apply; elsewhere, a rule under test in some other session is skipped so
+ * it can't leak into unrelated tabs. Returns true when the rule is blocked.
+ */
+function blockedByTestScope(uid: string, testScope: TestScope): boolean {
+  if (testScope) return !testScope.has(uid);
+  return isRuleUnderTest(uid);
+}
+
 async function injectForUrl(tabId: number, url: string): Promise<void> {
-  // Test isolation: if this is a test tab, only inject rules in that session's
-  // scope. If it is NOT a test tab, skip any rule currently under test in some
-  // other session so the test doesn't leak into unrelated tabs.
   const testScope = getTestScopeForTab(tabId);
 
-  // Inject rules target the PAGE itself — their URL conditions are page
-  // urls, so the page url is the right thing to match.
+  // Capture the page's pristine fetch/XHR/WebSocket/EventSource before any
+  // interceptor patches them, so a later live-update reset has clean
+  // references to restore to.
+  try {
+    await applyInjection(tabId, buildSetupInjection(), 'oh-setup');
+  } catch (error) {
+    logInjectFailure('oh-setup', tabId, error);
+  }
+
+  // Inject rules target the PAGE itself (page-url match, one-shot DOM
+  // injection). Navigation-only: re-running them would double-inject, so
+  // they are deliberately excluded from the live-update push.
   for (const rule of activeInjectRules) {
     if (!doesUrlMatchRule(url, rule)) continue;
-    if (testScope) {
-      if (!testScope.has(rule.uid)) continue;
-    } else if (isRuleUnderTest(rule.uid)) {
-      continue;
-    }
+    if (blockedByTestScope(rule.uid, testScope)) continue;
 
     try {
       if (rule.action.source === 'url' && rule.action.sourceUrl) {
@@ -337,19 +394,21 @@ async function injectForUrl(tabId: number, url: string): Promise<void> {
     }
   }
 
-  // Mock / body / delay interceptors target the REQUESTS a page makes —
-  // their URL conditions are request urls, matched in-page by the
-  // interceptor. They install wherever a matching request could originate
-  // (initiator-domain gate), exactly like header-merge / ws / sse — NOT
-  // only on pages whose own URL matches the request conditions.
+  await injectInterceptorsForTab(tabId, url, testScope);
+}
+
+/**
+ * Inject the live-pushable interceptors — mock/body/delay (REQUEST-url
+ * matched in-page), header merges, and ws/sse wrappers. All gate on the
+ * initiator-domain rule (`shouldInstallForPage`), not the page url. Used
+ * on navigation AND on the live-update push (where the caller resets
+ * first so this rebuilds a clean patch chain).
+ */
+async function injectInterceptorsForTab(tabId: number, url: string, testScope: TestScope): Promise<void> {
   for (const entry of activeInterceptorRules) {
     if (!shouldInstallForPage(entry, url)) continue;
     const rule = entry.rule;
-    if (testScope) {
-      if (!testScope.has(rule.uid)) continue;
-    } else if (isRuleUnderTest(rule.uid)) {
-      continue;
-    }
+    if (blockedByTestScope(rule.uid, testScope)) continue;
 
     try {
       switch (rule.type) {
@@ -368,16 +427,9 @@ async function injectForUrl(tabId: number, url: string): Promise<void> {
     }
   }
 
-  // Inject header merge scripts — installed wherever a matching request
-  // could originate (request-URL matching happens in-page), subject to the
-  // initiator-domain gate and the same test-session scope filter.
   for (const merge of activeHeaderMerges) {
     if (!shouldInstallForPage(merge, url)) continue;
-    if (testScope) {
-      if (!testScope.has(merge.ruleUid)) continue;
-    } else if (isRuleUnderTest(merge.ruleUid)) {
-      continue;
-    }
+    if (blockedByTestScope(merge.ruleUid, testScope)) continue;
 
     try {
       const injection = buildHeaderMergeInjection(
@@ -392,16 +444,9 @@ async function injectForUrl(tabId: number, url: string): Promise<void> {
     }
   }
 
-  // Inject ws/sse wrappers — same install model as header merges: the
-  // rule's URL conditions match the socket/stream endpoint in-page, the
-  // initiator-domain gate decides which pages get the wrapper.
   for (const entry of activeMessageRules) {
     if (!shouldInstallForPage(entry, url)) continue;
-    if (testScope) {
-      if (!testScope.has(entry.rule.uid)) continue;
-    } else if (isRuleUnderTest(entry.rule.uid)) {
-      continue;
-    }
+    if (blockedByTestScope(entry.rule.uid, testScope)) continue;
 
     try {
       const injection = entry.rule.type === 'ws' ? buildWsInjection(entry.rule) : buildSseInjection(entry.rule);
@@ -412,5 +457,32 @@ async function injectForUrl(tabId: number, url: string): Promise<void> {
   }
 }
 
-/** Test-only handle for the per-navigation injection pass. */
+/**
+ * Apply an interceptor-set change to already-open tabs without a reload:
+ * restore the pristine references (drop every chained OH patch), then
+ * re-inject the current interceptor set. Inject rules are excluded — they
+ * already ran on load and re-running would double-inject.
+ */
+async function pushInterceptorUpdate(): Promise<void> {
+  let tabs: chrome.tabs.Tab[];
+  try {
+    tabs = await browserAPI.tabs.query({});
+  } catch {
+    return;
+  }
+  if (!Array.isArray(tabs)) return;
+  for (const tab of tabs) {
+    const tabId = tab.id;
+    if (typeof tabId !== 'number' || !tab.url || !/^https?:/.test(tab.url)) continue;
+    try {
+      await applyInjection(tabId, buildResetInjection(), 'oh-reset');
+      await injectInterceptorsForTab(tabId, tab.url, getTestScopeForTab(tabId));
+    } catch (error) {
+      logInjectFailure('interceptor update', tabId, error);
+    }
+  }
+}
+
+/** Test-only handles for the injection passes. */
 export const __testInjectForUrl = injectForUrl;
+export const __testPushInterceptorUpdate = pushInterceptorUpdate;

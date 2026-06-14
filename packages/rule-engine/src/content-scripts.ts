@@ -152,6 +152,63 @@ const GRAPHQL_MATCHER_CODE = [
   '}',
 ].join('\n');
 
+// ── Interceptor setup / reset (real functions) ──────────────────────
+//
+// The interceptor funcs (delay/body/mock/header-merge/ws/sse) each wrap
+// fetch / XHR / WebSocket / EventSource by CHAINING over the current
+// reference. To apply a rule edit/delete WITHOUT a page reload, the
+// background drops every OH patch (reset) and re-injects the current
+// rule set fresh — no stacking, deletes take effect immediately. Reset
+// restores the pristine originals that setup captured at page load,
+// before any patch was installed.
+
+interface OhOriginals {
+  fetch: typeof window.fetch;
+  xhrOpen: typeof XMLHttpRequest.prototype.open;
+  xhrSend: typeof XMLHttpRequest.prototype.send;
+  xhrSetHeader: typeof XMLHttpRequest.prototype.setRequestHeader;
+  WebSocket: typeof window.WebSocket;
+  EventSource: typeof window.EventSource;
+}
+
+/** Capture the page's pristine fetch/XHR/WebSocket/EventSource once, at
+ *  document_start, before any interceptor patches them. */
+export function buildSetupInjection(): FuncInjection {
+  return { kind: 'func', func: ohSetupFunc as unknown as (cfg: never) => void, args: [null] };
+}
+
+function ohSetupFunc(): void {
+  const w = window as unknown as { __ohOrig?: OhOriginals };
+  if (w.__ohOrig) return; // pristine originals already captured this page
+  w.__ohOrig = {
+    fetch: window.fetch,
+    xhrOpen: XMLHttpRequest.prototype.open,
+    xhrSend: XMLHttpRequest.prototype.send,
+    xhrSetHeader: XMLHttpRequest.prototype.setRequestHeader,
+    WebSocket: window.WebSocket,
+    EventSource: window.EventSource,
+  };
+}
+
+/** Restore the pristine references, dropping every chained OH patch.
+ *  Re-injecting the current interceptor set afterwards rebuilds a clean
+ *  chain — this is how a rule edit goes live without a reload. */
+export function buildResetInjection(): FuncInjection {
+  return { kind: 'func', func: ohResetFunc as unknown as (cfg: never) => void, args: [null] };
+}
+
+function ohResetFunc(): void {
+  const w = window as unknown as { __ohOrig?: OhOriginals };
+  const o = w.__ohOrig;
+  if (!o) return;
+  window.fetch = o.fetch;
+  XMLHttpRequest.prototype.open = o.xhrOpen;
+  XMLHttpRequest.prototype.send = o.xhrSend;
+  XMLHttpRequest.prototype.setRequestHeader = o.xhrSetHeader;
+  window.WebSocket = o.WebSocket;
+  window.EventSource = o.EventSource;
+}
+
 // ── Static Delay (real function) ────────────────────────────────────
 
 export function buildDelayInjection(rule: DelayRule): FuncInjection {

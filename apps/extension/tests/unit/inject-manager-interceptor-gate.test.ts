@@ -34,7 +34,7 @@ const spies = vi.hoisted(() => ({
   buildBodyInjection: vi.fn(),
   buildDelayInjection: vi.fn(),
 }));
-const { applyInjection, injectScript, buildMockInjection, buildBodyInjection, buildDelayInjection } = spies;
+const { injectScript, buildMockInjection, buildBodyInjection, buildDelayInjection } = spies;
 
 vi.mock('@openheaders/rule-engine/inject', () => ({
   applyInjection: spies.applyInjection,
@@ -51,9 +51,11 @@ vi.mock('@openheaders/rule-engine/content-scripts', () => ({
   buildHeaderMergeInjection: vi.fn(),
   buildWsInjection: vi.fn(),
   buildSseInjection: vi.fn(),
+  buildSetupInjection: vi.fn(),
+  buildResetInjection: vi.fn(),
 }));
 
-import { __testInjectForUrl, updateScriptableRules } from '@/background/inject-manager';
+import { __testInjectForUrl, __testPushInterceptorUpdate, updateScriptableRules } from '@/background/inject-manager';
 
 const PLAYGROUND_PAGE = 'http://127.0.0.1:3000/src/rules/mock/index.html';
 
@@ -90,7 +92,7 @@ describe('mock/body/delay interceptor install gate', () => {
     await __testInjectForUrl(1, PLAYGROUND_PAGE);
 
     expect(buildMockInjection).toHaveBeenCalledWith(rule);
-    expect(applyInjection).toHaveBeenCalledTimes(1);
+    expect(buildMockInjection).toHaveBeenCalledTimes(1);
   });
 
   it('honours initiator-domains: skips a page outside the allowed initiator', async () => {
@@ -103,10 +105,10 @@ describe('mock/body/delay interceptor install gate', () => {
     updateScriptableRules([rule]);
 
     await __testInjectForUrl(1, PLAYGROUND_PAGE);
-    expect(applyInjection).not.toHaveBeenCalled();
+    expect(buildMockInjection).not.toHaveBeenCalled();
 
     await __testInjectForUrl(1, 'https://app.openheaders.io/dashboard');
-    expect(applyInjection).toHaveBeenCalledTimes(1);
+    expect(buildMockInjection).toHaveBeenCalledTimes(1);
   });
 
   it('installs body and delay interceptors on a non-matching page too', async () => {
@@ -135,7 +137,38 @@ describe('mock/body/delay interceptor install gate', () => {
 
     expect(buildBodyInjection).toHaveBeenCalledWith(bodyRule);
     expect(buildDelayInjection).toHaveBeenCalledWith(delayRule);
-    expect(applyInjection).toHaveBeenCalledTimes(2);
+  });
+
+  it('pushes interceptor updates to open tabs: reset then re-inject, inject rules excluded', async () => {
+    const injectRule: InjectRule = {
+      schemaVersion: 5,
+      uid: 'in222222',
+      path: 'rules/inject',
+      name: 'Inject',
+      type: 'inject',
+      enabled: true,
+      conditions: [{ uid: 'tcd00066', type: 'url-filter', values: ['*://127.0.0.1:3000/*'] }],
+      action: { injectType: 'script', source: 'code', code: 'void 0;', position: 'head' },
+    };
+    const rule = mockRule();
+    // Seed the active set (this auto-push runs against the default tabs
+    // mock, which returns undefined → no-op).
+    updateScriptableRules([rule, injectRule]);
+    spies.applyInjection.mockClear();
+    spies.buildMockInjection.mockClear();
+    injectScript.mockClear();
+
+    // Now an open tab exists — drive the push explicitly.
+    (chrome.tabs.query as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      { id: 7, url: 'http://127.0.0.1:3000/app' },
+    ]);
+    await __testPushInterceptorUpdate();
+
+    // Reset fires first, then the interceptor re-injects.
+    expect(spies.applyInjection).toHaveBeenCalledWith(7, undefined, 'oh-reset');
+    expect(spies.buildMockInjection).toHaveBeenCalledWith(rule);
+    // Inject rules are navigation-only — never part of the push.
+    expect(injectScript).not.toHaveBeenCalled();
   });
 
   it('inject rules still gate on the PAGE url (their conditions target pages)', async () => {
