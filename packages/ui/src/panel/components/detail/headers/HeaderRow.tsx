@@ -15,8 +15,10 @@ import type { HeaderRowMeta } from '../../../data/header-filter';
 import { formatHeaderName, type HeaderNameCase } from '../../../data/header-name-case';
 import { computeRuleApplicability, type RuleApplicability } from '../../../data/rule-applicability';
 import type { RulesByUid } from '../../../data/use-rules-lookup';
+import { introspectValue, introspectionHasDepth } from '../../../data/value-introspect';
 import { ResolvedHeaderValue } from '../../ResolvedHeaderValue';
 import { useRulePopover } from '../../RulePopoverHost';
+import { ValueExpander } from '../ValueExpander';
 import { ValueChips } from './value-chips';
 import type { SectionLabel } from './types';
 
@@ -105,20 +107,24 @@ export function AttributedHeaderRow({
   const displayName = formatHeaderName(name, nameCase);
   const kind = attribution.kind;
 
-  // Every header value collapses to a single truncated line; an expand
-  // caret appears only when the value is actually clipped (or already
-  // expanded), toggling the value in place to the wrap + 4-line-cap +
-  // inline-scroll view. Overflow is measured on `value`, the raw source —
-  // the resolved display text differs, but the ResizeObserver reads the
-  // live element regardless.
+  // The value cell stays a single truncated line; the caret (or a click
+  // anywhere on the row) reveals a standalone, freely-selectable readout
+  // below the row — never the value span itself, so clicking into the
+  // readout text to copy can't collapse it. The readout decodes JWT /
+  // JSON / base64 values via the shared expander.
   const [expanded, setExpanded] = useState(false);
-  // Measure overflow only while collapsed — when expanded the value wraps,
-  // so a live measure would read "not overflowing" and drop the caret for a
-  // frame on collapse. Freezing it to the collapsed truth keeps the caret
-  // stable across toggles.
-  const { ref: valueRef, overflowing } = useElementOverflow<HTMLSpanElement>({ dep: value, active: !expanded });
-  const showExpander = overflowing || expanded;
-  const toggleExpanded = (): void => setExpanded((v) => !v);
+  const introspection = useMemo(() => introspectValue(value), [value]);
+  // Overflow is measured on `value`, the raw source — the resolved display
+  // text differs, but the ResizeObserver reads the live element regardless.
+  // The span never wraps now, so the measure stays valid across toggles.
+  const { ref: valueRef, overflowing } = useElementOverflow<HTMLSpanElement>({ dep: value });
+  // Offer the caret / row toggle when the line is clipped OR the value
+  // carries decodable depth worth surfacing even when it fits (a short
+  // JWT / JSON / base64).
+  const showExpander = overflowing || introspectionHasDepth(introspection);
+  const toggle = (): void => {
+    if (showExpander) setExpanded((v) => !v);
+  };
 
   const [copied, setCopied] = useState(false);
   const handleCopy = (e: React.MouseEvent<HTMLButtonElement>): void => {
@@ -242,83 +248,84 @@ export function AttributedHeaderRow({
         : 'Create a rule to override this header';
 
   return (
-    // The full-width row hosts the hover target + right-aligned action
-    // overlay so they align to the panel edge even when the inner `.dt-kv`
-    // is a content-hugging attributed pill (blue/grey/red).
-    <div className="dt-kv-row">
-      <div className={classes} style={{ fontFamily: 'monospace' }}>
-        <HeaderInfoTrigger name={name} direction={meta.direction} category={meta.category} />
-        {/* Header name is plain text — rule creation lives on the Override
-            button, so the name is no longer a clickable affordance. */}
-        <span className="dt-kv-name" style={{ fontFamily: 'monospace', fontWeight: 600 }} title={systemTitle}>
-          {displayName}
-        </span>
-        <span className="dt-kv-content">
-          <span className="dt-kv-oh-sep">:</span>
-          {showExpander && (
+    <>
+      {/* The full-width row hosts the hover target + right-aligned action
+          overlay so they align to the panel edge even when the inner `.dt-kv`
+          is a content-hugging attributed pill (blue/grey/red). */}
+      <div className={`dt-kv-row${showExpander ? ' dt-kv-row--expandable' : ''}`} onClick={toggle}>
+        <div className={classes} style={{ fontFamily: 'monospace' }}>
+          <HeaderInfoTrigger name={name} direction={meta.direction} category={meta.category} />
+          {/* Header name is plain text — rule creation lives on the Override
+              button, so the name is no longer a clickable affordance. */}
+          <span className="dt-kv-name" style={{ fontFamily: 'monospace', fontWeight: 600 }} title={systemTitle}>
+            {displayName}
+          </span>
+          <span className="dt-kv-content">
+            <span className="dt-kv-oh-sep">:</span>
+            {showExpander && (
+              <button
+                type="button"
+                className="dt-kv-value-caret"
+                aria-label={expanded ? 'Collapse value' : 'Expand value'}
+                aria-expanded={expanded}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggle();
+                }}
+              >
+                {expanded ? '▾' : '▸'}
+              </button>
+            )}
+            <span ref={valueRef} className="dt-kv-oh-value">
+              {showResolvedValue ? <ResolvedHeaderValue value={value} collectionId={ruleCollectionId} /> : value}
+            </span>
+            {!isOhRow && chips}
+            {!isOhRow && editedChip}
+          </span>
+        </div>
+        {isOhRow && chips}
+        {isOhRow && editedChip}
+        <span className="dt-kv-row-actions">
+          <button
+            type="button"
+            className="dt-btn dt-btn-primary dt-kv-action dt-kv-action--icon"
+            title={copied ? 'Copied' : 'Copy value'}
+            aria-label={copied ? 'Copied' : 'Copy value'}
+            onClick={handleCopy}
+          >
+            {copied ? <CheckOutlined /> : <CopyOutlined />}
+          </button>
+          {ruleCtx && (
             <button
               type="button"
-              className="dt-kv-value-caret"
-              aria-label={expanded ? 'Collapse value' : 'Expand value'}
-              aria-expanded={expanded}
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleExpanded();
-              }}
+              className="dt-btn dt-btn-primary dt-kv-action"
+              title="Edit the rule that set this header"
+              onClick={openEditPopover}
             >
-              {expanded ? '▾' : '▸'}
+              Edit
             </button>
           )}
-          <span
-            ref={valueRef}
-            className={`dt-kv-oh-value${expanded ? ' dt-kv-oh-value--expanded' : ''}${
-              showExpander ? ' dt-kv-oh-value--expandable' : ''
-            }`}
-            onClick={showExpander ? toggleExpanded : undefined}
-          >
-            {showResolvedValue ? <ResolvedHeaderValue value={value} collectionId={ruleCollectionId} /> : value}
-          </span>
-          {!isOhRow && chips}
-          {!isOhRow && editedChip}
-        </span>
-      </div>
-      {isOhRow && chips}
-      {isOhRow && editedChip}
-      <span className="dt-kv-row-actions">
-        <button
-          type="button"
-          className="dt-btn dt-btn-primary dt-kv-action dt-kv-action--icon"
-          title={copied ? 'Copied' : 'Copy value'}
-          aria-label={copied ? 'Copied' : 'Copy value'}
-          onClick={handleCopy}
-        >
-          {copied ? <CheckOutlined /> : <CopyOutlined />}
-        </button>
-        {ruleCtx && (
           <button
             type="button"
             className="dt-btn dt-btn-primary dt-kv-action"
-            title="Edit the rule that set this header"
-            onClick={openEditPopover}
+            disabled={overrideDisabled}
+            aria-disabled={overrideDisabled || undefined}
+            title={overrideTitle}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (overrideDisabled) return;
+              onNameClick(name, value);
+            }}
           >
-            Edit
+            Override
           </button>
-        )}
-        <button
-          type="button"
-          className="dt-btn dt-btn-primary dt-kv-action"
-          disabled={overrideDisabled}
-          aria-disabled={overrideDisabled || undefined}
-          title={overrideTitle}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (overrideDisabled) return;
-            onNameClick(name, value);
-          }}
-        >
-          Override
-        </button>
-      </span>
-    </div>
+        </span>
+      </div>
+      {expanded && showExpander && (
+        <div className="dt-kv-expand-row">
+          <ValueExpander introspection={introspection} />
+        </div>
+      )}
+    </>
   );
 }

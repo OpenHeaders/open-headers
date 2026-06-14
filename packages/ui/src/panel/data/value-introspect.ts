@@ -1,6 +1,7 @@
 /**
- * Pure introspection of cookie values — detects JWTs, JSON, base64
- * blobs, and percent-encoding. Drives the inline value expander.
+ * Pure introspection of an arbitrary string value — detects JWTs, JSON,
+ * base64 blobs, and percent-encoding. Drives the inline value expander
+ * shared by the headers and cookies tabs.
  *
  * Detection is best-effort and ordered (most specific first). The
  * caller renders whichever the result type points to; the original
@@ -19,7 +20,7 @@ export interface JwtParts {
   nbfSec?: number;
 }
 
-export type CookieValueIntrospection =
+export type ValueIntrospection =
   | { kind: 'plain'; value: string }
   | { kind: 'url-encoded'; value: string; decoded: string }
   | { kind: 'json'; value: string; parsed: unknown }
@@ -119,7 +120,7 @@ function looksLikePlainBase64(s: string): boolean {
   return /[+/=0-9]/.test(s);
 }
 
-export function introspectCookieValue(rawValue: string): CookieValueIntrospection {
+export function introspectValue(rawValue: string): ValueIntrospection {
   // 1. JWT (most specific — three base64url segments separated by dots).
   const jwt = tryParseJwt(rawValue);
   if (jwt) return { kind: 'jwt', value: rawValue, jwt };
@@ -158,6 +159,6 @@ export function introspectCookieValue(rawValue: string): CookieValueIntrospectio
   return { kind: 'plain', value: rawValue };
 }
 
-export function introspectionHasDepth(i: CookieValueIntrospection): boolean {
+export function introspectionHasDepth(i: ValueIntrospection): boolean {
   return i.kind !== 'plain';
 }

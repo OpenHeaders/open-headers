@@ -24,7 +24,7 @@ import { cookieRowIndicator } from '../../../data/cookie-indicators';
 import type { JarCookieEdit } from '../../../data/cookie-jar-cache';
 import type { CookieRow as CookieRowModel } from '../../../data/cookie-model';
 import type { CookieRole } from '../../../data/cookie-role';
-import type { CookieValueIntrospection } from '../../../data/cookie-value-introspect';
+import type { ValueIntrospection } from '../../../data/value-introspect';
 import { CookieChips } from './CookieChips';
 import { CookieEditPopover } from './CookieEditPopover';
 import { CookieValueExpander } from './CookieValueExpander';
@@ -46,7 +46,7 @@ interface Props {
   /** Hide just the role chip — the surface groups by role and the
    *  group heading already names it. Lifecycle / context chips stay. */
   suppressRoleChip: boolean;
-  introspection: CookieValueIntrospection;
+  introspection: ValueIntrospection;
   now: number;
   /** Column count for the expander's colSpan — derived from the
    *  fixed slot count (Name/Value/Scope/Expires/Size/Sec = 6). */

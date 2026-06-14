@@ -17,7 +17,7 @@ import type { CookieRow as CookieRowModel } from '../../../data/cookie-model';
 import type { CookieFilterToken, CookieRowMeta } from '../../../data/cookie-filter';
 import { matchesCookieQuery } from '../../../data/cookie-filter';
 import { classifyCookie, roleSectionLabel, roleSortOrder, type CookieRole } from '../../../data/cookie-role';
-import { introspectCookieValue } from '../../../data/cookie-value-introspect';
+import { introspectValue } from '../../../data/value-introspect';
 import type { DevpanelCookiesSortSetting } from '../../../../workbench/settings/schema/devpanel-cookies';
 import { CookieColumnInfo } from './CookieColumnInfo';
 import { CookieRow } from './CookieRow';
@@ -128,7 +128,7 @@ interface PreparedRow {
   role: CookieRole;
   vendor: string | undefined;
   meta: CookieRowMeta;
-  introspection: ReturnType<typeof introspectCookieValue>;
+  introspection: ReturnType<typeof introspectValue>;
 }
 
 export function CookieSection({
@@ -174,7 +174,7 @@ export function CookieSection({
         session: row.session,
         thirdParty: meta.thirdParty,
       });
-      const introspection = introspectCookieValue(row.value);
+      const introspection = introspectValue(row.value);
       return { row, role: classification.role, vendor: classification.vendor, meta, introspection };
     });
   }, [rows, problemNames, pageOrigin, now]);

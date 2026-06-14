@@ -16,6 +16,7 @@
 @import './detail/initiator.css';
 @import './detail/timing.css';
 @import './detail/cookies.css';
+@import './detail/value-expander.css';
 @import './detail/popover-scroll.css';
 @import './detail/hex.css';
 @import './detail/payload.css';

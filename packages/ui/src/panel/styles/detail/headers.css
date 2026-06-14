@@ -352,6 +352,12 @@
 .dt-headers-pane .dt-kv-row {
   position: relative;
 }
+/* A click anywhere on a row with depth toggles its value readout (mirrors
+   the Cookies tab) — the cursor hint makes that affordance obvious. The
+   readout itself is a sibling below the row, so its text stays selectable. */
+.dt-kv-row--expandable {
+  cursor: pointer;
+}
 .dt-kv-row-actions {
   position: absolute;
   right: 6px;

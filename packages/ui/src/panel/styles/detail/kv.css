@@ -54,12 +54,11 @@
 }
 
 .dt-kv-oh-value {
-  /* Collapsed by default: every header value is one truncated line so the
-     list stays scannable and a single long value (User-Agent, JWT) can't
-     bloat its row. The expand caret — shown only when the value is
-     actually clipped — toggles `--expanded` for the wrap + 4-line-cap +
-     inline-scroll view. Inline-block so a short value's tags sit right
-     after it on the same line. */
+  /* Always one truncated line so the list stays scannable and a single
+     long value (User-Agent, JWT) can't bloat its row. The expand caret
+     reveals a standalone readout below the row (see `.dt-kv-expand-row`)
+     instead of wrapping in place — so the value text stays freely
+     selectable and never doubles as the toggle. */
   /* Flex child of `.dt-kv-content`: takes the remaining width, shrinks
      below its content (min-width:0) so the single line truncates. */
   flex: 0 1 auto;
@@ -68,36 +67,16 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.dt-kv-oh-value--expandable {
-  cursor: pointer;
-}
-.dt-kv-oh-value--expanded {
-  white-space: pre-wrap;
-  word-break: break-all;
-  text-overflow: clip;
-  /* Visible-height cap; defined in panel.css :root. */
-  max-height: var(--oh-multiline-cap, 96px);
-  overflow-y: auto;
-  overflow-x: hidden;
-  /* Keep the wrapped text off the always-on scrollbar gutter (below). */
-  padding-right: 6px;
-}
-/* Always-visible scrollbar with a reserved gutter — so the bar shows the
- * moment the value scrolls (not only mid-scroll) and the text wraps clear of
- * it instead of running underneath. Same grey thumb as the edit popovers. */
-.dt-kv-oh-value--expanded::-webkit-scrollbar {
-  width: 8px;
-}
-.dt-kv-oh-value--expanded::-webkit-scrollbar-track {
-  background: transparent;
-}
-.dt-kv-oh-value--expanded::-webkit-scrollbar-thumb {
-  background: rgba(128, 128, 128, 0.55);
-  border-radius: 4px;
-  transition: background-color 0.2s ease-out;
-}
-.dt-kv-oh-value--expanded::-webkit-scrollbar-thumb:hover {
-  background: rgba(128, 128, 128, 0.75);
+
+/* Standalone value readout below an expanded header row — mirrors the
+   Cookies tab's expander cell. A sibling of `.dt-kv-row` (not a child) so
+   the row's hover action overlay stays anchored to the row itself. The
+   readout chrome lives here; the inner toggle + panes are the shared
+   value-expander (value-expander.css). */
+.dt-kv-expand-row {
+  background: var(--dt-row-hover);
+  padding: 8px 12px 10px 24px;
+  border-bottom: 1px solid var(--dt-border);
 }
 
 /* Colon separator between the header name and its value — pulled out of

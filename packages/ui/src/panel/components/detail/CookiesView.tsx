@@ -20,7 +20,7 @@
  *   - panel/data/cookie-filter   (query grammar)
  *   - panel/data/cookie-insights (rule engine for warnings + dropped detection)
  *   - panel/data/cookie-role     (auth / tracking / pref classifier)
- *   - panel/data/cookie-value-introspect (JWT / JSON / base64 detector)
+ *   - panel/data/value-introspect (JWT / JSON / base64 detector)
  *
  * Request cookie attributes that aren't in HAR — Domain, Path, Expires,
  * HttpOnly, Secure, SameSite, Partition — come from the browser jar

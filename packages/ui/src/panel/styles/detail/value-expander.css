@@ -1,0 +1,129 @@
+/*
+ * value-expander.css — the standalone value readout shared by the
+ * headers and cookies tabs (see components/detail/ValueExpander.tsx).
+ *
+ * Just the inner chrome: the Decoded / Raw toggle, the wrapped readout
+ * `<pre>`, and the JWT claims view. The surrounding container — a table
+ * cell on cookies, a row div on headers — supplies its own background /
+ * padding (see `.dt-cookie-expand-cell`, `.dt-kv-expand-row`).
+ */
+
+.dt-value-expand-label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--dt-text-muted);
+  margin-bottom: 3px;
+}
+.dt-value-expand-pre {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--dt-text);
+  /* Cap the expanded readout at ~4 lines and scroll inside rather than
+     letting a multi-KB value grow the row unbounded. Shared cap from
+     panel.css :root, matching the headers value + rule popover. */
+  max-height: var(--oh-multiline-cap, 96px);
+  overflow-y: auto;
+  /* Keep the wrapped text off the always-on scrollbar gutter (below). */
+  padding-right: 6px;
+}
+/* Always-visible scrollbar with a reserved gutter — bar shows the moment the
+ * value scrolls and the text wraps clear of it, matching the edit popovers. */
+.dt-value-expand-pre::-webkit-scrollbar {
+  width: 8px;
+}
+.dt-value-expand-pre::-webkit-scrollbar-track {
+  background: transparent;
+}
+.dt-value-expand-pre::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.55);
+  border-radius: 4px;
+  transition: background-color 0.2s ease-out;
+}
+.dt-value-expand-pre::-webkit-scrollbar-thumb:hover {
+  background: rgba(128, 128, 128, 0.75);
+}
+.dt-value-expand-decoded {
+  display: block;
+}
+/* Decoded / Raw segmented toggle inside the value expander. */
+.dt-value-expand-toggle {
+  display: inline-flex;
+  margin-bottom: 6px;
+  border: 1px solid var(--dt-border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.dt-value-expand-tab {
+  border: none;
+  background: none;
+  color: var(--dt-text-muted);
+  font-family: inherit;
+  font-size: 10px;
+  line-height: 1.6;
+  padding: 1px 8px;
+  cursor: pointer;
+}
+.dt-value-expand-tab + .dt-value-expand-tab {
+  border-left: 1px solid var(--dt-border);
+}
+.dt-value-expand-tab:hover {
+  background: var(--dt-row-hover);
+}
+.dt-value-expand-tab--active {
+  background: var(--dt-link);
+  color: var(--dt-bg);
+}
+.dt-value-jwt {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dt-value-jwt-section {
+  display: block;
+}
+.dt-value-jwt-label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--dt-text-muted);
+  margin-bottom: 2px;
+}
+.dt-value-jwt-pre {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--dt-text);
+  background: var(--dt-bg);
+  border: 1px solid var(--dt-border);
+  border-radius: 3px;
+  padding: 4px 6px;
+}
+.dt-value-jwt-sig {
+  color: var(--dt-text-muted);
+}
+.dt-value-jwt-claims {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+  font-size: 10px;
+  color: var(--dt-text-muted);
+}
+.dt-value-jwt-claims em {
+  font-style: normal;
+  color: var(--dt-text);
+}
+.dt-value-jwt-claim-expired em {
+  color: var(--dt-status-red);
+}
+.dt-value-jwt-claim-warn em {
+  color: var(--dt-status-yellow);
+}
