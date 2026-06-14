@@ -120,8 +120,13 @@ const TEST_BRIDGE_CODE = [
 
 const URL_MATCHER_CODE = [
   'function __ohMatchesUrl(url, regexSources) {',
+  // Resolve relative URLs against the page base — the patterns are
+  // absolute, matching what the network layer sees. Absolute URLs are
+  // idempotent under this resolution.
+  '  var abs = url;',
+  '  try { abs = new URL(url, document.baseURI).href; } catch (e) {}',
   '  for (var i = 0; i < regexSources.length; i++) {',
-  '    try { if (new RegExp(regexSources[i], "i").test(url)) return true; } catch (e) {}',
+  '    try { if (new RegExp(regexSources[i], "i").test(abs)) return true; } catch (e) {}',
   '  }',
   '  return false;',
   '}',
@@ -170,8 +175,18 @@ export function buildDelayInjection(rule: DelayRule): FuncInjection {
 function delayInjectionFunc(cfg: DelayConfig): void {
   const regexes = cfg.regexSources.map((s) => new RegExp(s, 'i'));
   function matches(url: string): boolean {
+    // Resolve relative / scheme-relative URLs against the page base so
+    // `fetch('/api/x')` matches an absolute-URL pattern — the regexes are
+    // compiled from absolute patterns, which is also what the network
+    // layer sees. Absolute URLs resolve to themselves (idempotent).
+    let abs = url;
+    try {
+      abs = new URL(url, document.baseURI).href;
+    } catch {
+      /* not resolvable — match against the raw value */
+    }
     for (let i = 0; i < regexes.length; i++) {
-      if (regexes[i]!.test(url)) return true;
+      if (regexes[i]!.test(abs)) return true;
     }
     return false;
   }
@@ -248,8 +263,18 @@ export function buildBodyInjection(rule: BodyRule): Injection {
 function staticBodyInjectionFunc(cfg: StaticBodyConfig): void {
   const regexes = cfg.regexSources.map((s) => new RegExp(s, 'i'));
   function matches(url: string): boolean {
+    // Resolve relative / scheme-relative URLs against the page base so
+    // `fetch('/api/x')` matches an absolute-URL pattern — the regexes are
+    // compiled from absolute patterns, which is also what the network
+    // layer sees. Absolute URLs resolve to themselves (idempotent).
+    let abs = url;
+    try {
+      abs = new URL(url, document.baseURI).href;
+    } catch {
+      /* not resolvable — match against the raw value */
+    }
     for (let i = 0; i < regexes.length; i++) {
-      if (regexes[i]!.test(url)) return true;
+      if (regexes[i]!.test(abs)) return true;
     }
     return false;
   }
@@ -353,8 +378,18 @@ export function buildMockInjection(rule: MockRule): Injection {
 function staticMockInjectionFunc(cfg: StaticMockConfig): void {
   const regexes = cfg.regexSources.map((s) => new RegExp(s, 'i'));
   function matches(url: string): boolean {
+    // Resolve relative / scheme-relative URLs against the page base so
+    // `fetch('/api/x')` matches an absolute-URL pattern — the regexes are
+    // compiled from absolute patterns, which is also what the network
+    // layer sees. Absolute URLs resolve to themselves (idempotent).
+    let abs = url;
+    try {
+      abs = new URL(url, document.baseURI).href;
+    } catch {
+      /* not resolvable — match against the raw value */
+    }
     for (let i = 0; i < regexes.length; i++) {
-      if (regexes[i]!.test(url)) return true;
+      if (regexes[i]!.test(abs)) return true;
     }
     return false;
   }
@@ -461,8 +496,18 @@ export function buildHeaderMergeInjection(
 function headerMergeInjectionFunc(cfg: HeaderMergeConfig): void {
   const regexes = cfg.regexSources.map((s) => new RegExp(s, 'i'));
   function matches(url: string): boolean {
+    // Resolve relative / scheme-relative URLs against the page base so
+    // `fetch('/api/x')` matches an absolute-URL pattern — the regexes are
+    // compiled from absolute patterns, which is also what the network
+    // layer sees. Absolute URLs resolve to themselves (idempotent).
+    let abs = url;
+    try {
+      abs = new URL(url, document.baseURI).href;
+    } catch {
+      /* not resolvable — match against the raw value */
+    }
     for (let i = 0; i < regexes.length; i++) {
-      if (regexes[i]!.test(url)) return true;
+      if (regexes[i]!.test(abs)) return true;
     }
     return false;
   }
@@ -599,8 +644,18 @@ export function buildWsInjection(rule: WsRule): FuncInjection {
 function wsInjectionFunc(cfg: WsConfig): void {
   const regexes = cfg.regexSources.map((s) => new RegExp(s, 'i'));
   function matches(url: string): boolean {
+    // Resolve relative / scheme-relative URLs against the page base so
+    // `fetch('/api/x')` matches an absolute-URL pattern — the regexes are
+    // compiled from absolute patterns, which is also what the network
+    // layer sees. Absolute URLs resolve to themselves (idempotent).
+    let abs = url;
+    try {
+      abs = new URL(url, document.baseURI).href;
+    } catch {
+      /* not resolvable — match against the raw value */
+    }
     for (let i = 0; i < regexes.length; i++) {
-      if (regexes[i]!.test(url)) return true;
+      if (regexes[i]!.test(abs)) return true;
     }
     return false;
   }
@@ -735,8 +790,18 @@ export function buildSseInjection(rule: SseRule): FuncInjection {
 function sseInjectionFunc(cfg: SseConfig): void {
   const regexes = cfg.regexSources.map((s) => new RegExp(s, 'i'));
   function matches(url: string): boolean {
+    // Resolve relative / scheme-relative URLs against the page base so
+    // `fetch('/api/x')` matches an absolute-URL pattern — the regexes are
+    // compiled from absolute patterns, which is also what the network
+    // layer sees. Absolute URLs resolve to themselves (idempotent).
+    let abs = url;
+    try {
+      abs = new URL(url, document.baseURI).href;
+    } catch {
+      /* not resolvable — match against the raw value */
+    }
     for (let i = 0; i < regexes.length; i++) {
-      if (regexes[i]!.test(url)) return true;
+      if (regexes[i]!.test(abs)) return true;
     }
     return false;
   }
