@@ -67,6 +67,17 @@ function JwtClaims({ jwt }: { jwt: JwtParts }) {
 }
 
 function decodedBodyFor(i: ValueIntrospection): React.ReactNode {
+  if (i.kind === 'prefixed') {
+    // A recognized scheme (e.g. `Bearer`) in front of a decodable
+    // credential — label the scheme, then render the credential's own
+    // decoded view beneath it.
+    return (
+      <div className="dt-value-expand-decoded">
+        <div className="dt-value-expand-label">{i.label}</div>
+        {decodedBodyFor(i.inner)}
+      </div>
+    );
+  }
   if (i.kind === 'jwt') return <JwtClaims jwt={i.jwt} />;
   if (i.kind === 'json') return <pre className="dt-value-expand-pre dt-scrollbar">{JSON.stringify(i.parsed, null, 2)}</pre>;
   if (i.kind === 'url-encoded') {

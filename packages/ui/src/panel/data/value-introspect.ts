@@ -25,7 +25,12 @@ export type ValueIntrospection =
   | { kind: 'url-encoded'; value: string; decoded: string }
   | { kind: 'json'; value: string; parsed: unknown }
   | { kind: 'jwt'; value: string; jwt: JwtParts }
-  | { kind: 'base64'; value: string; decoded: string };
+  | { kind: 'base64'; value: string; decoded: string }
+  // A recognized leading label (e.g. an HTTP auth scheme) wrapping the
+  // introspection of the remainder. Structural only — the core
+  // `introspectValue` never emits it; a composing layer that owns the
+  // label vocabulary does (see auth-scheme.ts).
+  | { kind: 'prefixed'; value: string; label: string; inner: ValueIntrospection };
 
 function looksLikePercentEncoded(s: string): boolean {
   return /%[0-9A-Fa-f]{2}/.test(s);
@@ -161,4 +166,10 @@ export function introspectValue(rawValue: string): ValueIntrospection {
 
 export function introspectionHasDepth(i: ValueIntrospection): boolean {
   return i.kind !== 'plain';
+}
+
+/** The encoding kind to surface as a one-glyph hint — peels a `prefixed`
+ *  wrapper down to the credential it carries. */
+export function introspectionHint(i: ValueIntrospection): ValueIntrospection['kind'] {
+  return i.kind === 'prefixed' ? introspectionHint(i.inner) : i.kind;
 }

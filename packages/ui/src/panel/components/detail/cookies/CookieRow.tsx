@@ -24,7 +24,7 @@ import { cookieRowIndicator } from '../../../data/cookie-indicators';
 import type { JarCookieEdit } from '../../../data/cookie-jar-cache';
 import type { CookieRow as CookieRowModel } from '../../../data/cookie-model';
 import type { CookieRole } from '../../../data/cookie-role';
-import type { ValueIntrospection } from '../../../data/value-introspect';
+import { introspectionHint, type ValueIntrospection } from '../../../data/value-introspect';
 import { CookieChips } from './CookieChips';
 import { CookieEditPopover } from './CookieEditPopover';
 import { CookieValueExpander } from './CookieValueExpander';
@@ -97,6 +97,7 @@ export function CookieRow({
   // their decoded view, plain values show the full raw value (useful when
   // the Value cell truncates a long one).
   const canExpand = row.value.length > 0;
+  const hintKind = introspectionHint(introspection);
   const indicator = cookieRowIndicator(!!row.edited, ruleTouched);
 
   const valueText = decodeValues ? urlDecodeSafe(row.value) : row.value;
@@ -183,9 +184,9 @@ export function CookieRow({
             >
               {valueText}
             </span>
-            {introspection.kind === 'jwt' && <span className="dt-cookie-value-hint">JWT</span>}
-            {introspection.kind === 'json' && <span className="dt-cookie-value-hint">JSON</span>}
-            {introspection.kind === 'base64' && <span className="dt-cookie-value-hint">b64</span>}
+            {hintKind === 'jwt' && <span className="dt-cookie-value-hint">JWT</span>}
+            {hintKind === 'json' && <span className="dt-cookie-value-hint">JSON</span>}
+            {hintKind === 'base64' && <span className="dt-cookie-value-hint">b64</span>}
           </span>
           <span className="dt-cookie-row-actions" onClick={(e) => e.stopPropagation()}>
             <button

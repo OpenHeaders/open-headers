@@ -15,7 +15,8 @@ import type { HeaderRowMeta } from '../../../data/header-filter';
 import { formatHeaderName, type HeaderNameCase } from '../../../data/header-name-case';
 import { computeRuleApplicability, type RuleApplicability } from '../../../data/rule-applicability';
 import type { RulesByUid } from '../../../data/use-rules-lookup';
-import { introspectValue, introspectionHasDepth } from '../../../data/value-introspect';
+import { introspectWithAuthScheme } from '../../../data/auth-scheme';
+import { introspectionHasDepth } from '../../../data/value-introspect';
 import { ResolvedHeaderValue } from '../../ResolvedHeaderValue';
 import { useRulePopover } from '../../RulePopoverHost';
 import { ValueExpander } from '../ValueExpander';
@@ -113,7 +114,7 @@ export function AttributedHeaderRow({
   // readout text to copy can't collapse it. The readout decodes JWT /
   // JSON / base64 values via the shared expander.
   const [expanded, setExpanded] = useState(false);
-  const introspection = useMemo(() => introspectValue(value), [value]);
+  const introspection = useMemo(() => introspectWithAuthScheme(value), [value]);
   // Overflow is measured on `value`, the raw source — the resolved display
   // text differs, but the ResizeObserver reads the live element regardless.
   // The span never wraps now, so the measure stays valid across toggles.
