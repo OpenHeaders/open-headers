@@ -122,8 +122,10 @@ export function isRuleComplete(rule: Rule | Omit<Rule, 'uid' | 'path'>): boolean
       return true;
     }
     case 'mock': {
+      // statusCode `0` ("keep original") is a valid choice, so it never gates
+      // completeness — the response body is what the rule actually returns.
       const mr = rule as { action: { statusCode: number; responseBody: string } };
-      if (!mr.action.statusCode || !mr.action.responseBody) return false;
+      if (!mr.action.responseBody) return false;
       return true;
     }
     case 'ws':

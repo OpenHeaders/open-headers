@@ -30,6 +30,7 @@
 
 import {
   deriveSideEffectsForEnvelope,
+  flattenToLeaves,
   type MutationBatch,
   type MutationBody,
   type MutatorContext,
@@ -163,6 +164,29 @@ export function buildUpdateBatch(
           id: ruleUid,
           path: `action.${subKey}`,
           value: subVal,
+        });
+      }
+      continue;
+    }
+
+    // Non-header rule actions are scalar leaf trees (no set-modeled
+    // subpaths). `seedRule`'s create flattens them to per-leaf paths
+    // (`action.statusCode`, `action.bodyType`, …); writing the whole
+    // action back as one `setField` at `action` would leave those
+    // create-time leaves in place, and `unflattenLeaves` lets the stale
+    // leaves clobber the edit at materialize time — the hazard
+    // rule-projection.ts warns about. Mirror create's granularity so
+    // per-leaf max-HLC-wins resolves the edit cleanly. Undefined leaves
+    // never travel on the wire (flatten module contract).
+    if (key === 'action' && isPlainObject(value)) {
+      for (const leaf of flattenToLeaves(value)) {
+        if (leaf.value === undefined) continue;
+        bodies.push({
+          kind: 'setField',
+          type: RULE_ENTITY_TYPE,
+          id: ruleUid,
+          path: leaf.path ? `action.${leaf.path}` : 'action',
+          value: leaf.value,
         });
       }
       continue;

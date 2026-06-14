@@ -356,7 +356,9 @@ function validateMockAction(rule: MockRule): ActionValueIssue[] {
   const out: ActionValueIssue[] = [];
 
   const sc = rule.action.statusCode;
-  if (typeof sc === 'number' && Number.isFinite(sc) && (sc < 100 || sc > 599 || !Number.isInteger(sc))) {
+  // `0` is the "keep original status code" sentinel — the response keeps
+  // whatever the real server returned, so it is not a wire status code.
+  if (typeof sc === 'number' && Number.isFinite(sc) && sc !== 0 && (sc < 100 || sc > 599 || !Number.isInteger(sc))) {
     out.push({
       path: 'statusCode',
       raw: String(sc),
