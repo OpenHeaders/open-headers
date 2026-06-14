@@ -27,6 +27,10 @@ const { Text } = Typography;
 export interface SuggestionPopoverProps {
   suggestions: ReadonlyArray<VariableSuggestion>;
   activeIndex: number;
+  /** Caps the scroll list to the room on the popover's chosen side (set by
+   *  the caller's placement). Overrides the CSS default so the list shrinks +
+   *  scrolls instead of overflowing the viewport. */
+  maxListHeight?: number;
   /** Notify parent when the user hovers an option — sets active index. */
   onActiveIndexChange: (index: number) => void;
   /** Notify parent when the user clicks an option. */
@@ -36,6 +40,7 @@ export interface SuggestionPopoverProps {
 const SuggestionPopover: React.FC<SuggestionPopoverProps> = ({
   suggestions,
   activeIndex,
+  maxListHeight,
   onActiveIndexChange,
   onSelect,
 }) => {
@@ -77,7 +82,11 @@ const SuggestionPopover: React.FC<SuggestionPopoverProps> = ({
         boxShadow: token.boxShadowSecondary,
       }}
     >
-      <div ref={listRef} className="oh-template-popover-list">
+      <div
+        ref={listRef}
+        className="oh-template-popover-list"
+        style={maxListHeight != null ? { maxHeight: maxListHeight } : undefined}
+      >
         {suggestions.length === 0 ? (
           <div className="oh-template-popover-empty">
             <Text type="secondary" style={{ fontSize: 12 }}>

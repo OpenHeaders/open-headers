@@ -105,6 +105,18 @@ const SPLIT = '}}';
 const TEMPLATE_REGEX = /\{\{([^}]*)\}\}/g;
 const MAX_POPOVER_ROWS = 60;
 
+// Suggestion-popover geometry. Used to pick a side (below by default, above
+// when the field sits low and below can't fit) and cap the list to the room
+// on that side, so the dropdown never opens straight into the footer. Row /
+// footer sizes are approximations — they only seed the open-time side choice;
+// the list's own scroll absorbs any error past the cap.
+const POPOVER_GAP = 4;
+const POPOVER_VIEWPORT_MARGIN = 8;
+const POPOVER_LIST_MAX = 320; // mirrors `.oh-template-popover-list` max-height
+const POPOVER_FOOTER_H = 34; // approx `.oh-template-popover-footer` height
+const POPOVER_ROW_H = 30; // approx row height, for the open-time fit estimate
+const POPOVER_LIST_MIN = 72; // keep a couple of rows visible even when cramped
+
 type RefState = 'resolved' | 'unresolved' | 'reserved';
 
 function escapeHtml(s: string): string {
@@ -264,7 +276,15 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
     // so the popover floats above whatever container the editable
     // lives in (clipped panels, hover popovers, modals). Recomputed
     // on open + on scroll/resize from the editable's bounding rect.
-    const [popoverCoords, setPopoverCoords] = useState<{ top: number; left: number } | null>(null);
+    // `top` anchors a downward popover; `bottom` anchors an upward one
+    // (grows up from just above the field); `maxListHeight` caps the
+    // scroll list to the room on the chosen side.
+    const [popoverCoords, setPopoverCoords] = useState<{
+      left: number;
+      top?: number;
+      bottom?: number;
+      maxListHeight: number;
+    } | null>(null);
     // Shared hover-popover host — single instance per app root, owns
     // open-state + close-grace timer. We just emit hover events.
     const popoverHost = useVariablePopover();
@@ -362,17 +382,35 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       popoverHost.closeNow();
     }, [value, isOpen]);
 
-    // Suggestion popover positioning — keep it pinned beneath the
-    // editable as the user types / the page scrolls. Portal-mounted
-    // so it ignores the editable's ancestor clipping (a clipped
-    // overflow on a hover popover / Modal / panel container would
-    // otherwise crop the dropdown).
+    // Suggestion popover positioning — keep it pinned to the editable as the
+    // user types / the page scrolls. Portal-mounted so it ignores the
+    // editable's ancestor clipping (a clipped overflow on a hover popover /
+    // Modal / panel container would otherwise crop the dropdown). Opens below
+    // by default; flips above when the field sits low enough that the dropdown
+    // can't fit below and there's more room above — so a field near a panel's
+    // footer doesn't open the list straight into it.
+    // biome-ignore lint/correctness/useExhaustiveDependencies: `update` reads `suggestions.length` only to size the fit threshold; keeping it out of deps means a filter change doesn't re-fire this (the open-time full-list size is the right, stable threshold). `update` itself re-reads the rect — and re-picks the side — live on scroll/resize.
     useEffect(() => {
       if (!isOpen) return;
       const update = () => {
         const rect = editableRef.current?.getBoundingClientRect();
         if (!rect) return;
-        setPopoverCoords({ top: rect.bottom + 4, left: rect.left });
+        const wantHeight =
+          Math.min(Math.max(suggestions.length, 1) * POPOVER_ROW_H, POPOVER_LIST_MAX) + POPOVER_FOOTER_H;
+        const roomBelow = window.innerHeight - rect.bottom - POPOVER_GAP - POPOVER_VIEWPORT_MARGIN;
+        const roomAbove = rect.top - POPOVER_GAP - POPOVER_VIEWPORT_MARGIN;
+        // Below by default; flip above when below can't fit the list and above
+        // has more room. Re-evaluated on every `update` (not frozen at open),
+        // so a window/pane resize re-picks the side live. `update` fires only
+        // on scroll/resize — never per keystroke — so it stays put mid-type.
+        const placeAbove = roomBelow < wantHeight && roomAbove > roomBelow;
+        const room = placeAbove ? roomAbove : roomBelow;
+        const maxListHeight = Math.max(POPOVER_LIST_MIN, Math.min(POPOVER_LIST_MAX, room - POPOVER_FOOTER_H));
+        setPopoverCoords(
+          placeAbove
+            ? { left: rect.left, bottom: window.innerHeight - rect.top + POPOVER_GAP, maxListHeight }
+            : { left: rect.left, top: rect.bottom + POPOVER_GAP, maxListHeight },
+        );
       };
       update();
       window.addEventListener('scroll', update, true);
@@ -658,10 +696,14 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
         {isOpen &&
           popoverCoords &&
           createPortal(
-            <div className="oh-template-popover-anchor" style={{ top: popoverCoords.top, left: popoverCoords.left }}>
+            <div
+              className="oh-template-popover-anchor"
+              style={{ top: popoverCoords.top, bottom: popoverCoords.bottom, left: popoverCoords.left }}
+            >
               <SuggestionPopover
                 suggestions={suggestions}
                 activeIndex={activeIndex}
+                maxListHeight={popoverCoords.maxListHeight}
                 onActiveIndexChange={setActiveIndex}
                 onSelect={insertReference}
               />
