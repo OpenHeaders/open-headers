@@ -33,7 +33,12 @@ import type {
   Rule,
   TrackedResourceType,
 } from '@openheaders/core/types';
-import { doesHostMatchDomains, doesUrlMatchRule, getRuleMatchPatterns, isDebugTierRule } from '@openheaders/core/utils';
+import {
+  doesHostMatchDomains,
+  doesUrlMatchRule,
+  getRuleMatchPatterns,
+  isFetchRealizableNow,
+} from '@openheaders/core/utils';
 import type {
   CdpContinueRequest,
   CdpFulfillResponse,
@@ -119,9 +124,10 @@ export function resolveFetchReaction(event: CdpRequestPaused, rules: readonly Ru
   const postData = event.request.postData;
 
   for (const rule of rules) {
+    // Narrow to the Fetch-capable union for `rule.action` below; the
+    // debug-tier + static gate is the shared core predicate.
     if (rule.type !== 'mock' && rule.type !== 'body') continue;
-    if (!isDebugTierRule(rule)) continue;
-    if ((rule.action.bodyType || 'static') === 'dynamic') continue;
+    if (!isFetchRealizableNow(rule)) continue;
     if (!requestStageMatches(rule, ctx)) continue;
     if (!graphqlGate(rule.action, postData)) continue;
 

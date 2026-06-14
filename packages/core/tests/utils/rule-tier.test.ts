@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { RuleCondition } from '../../src/types/rule';
-import { isDebugTierRule } from '../../src/utils/rule-tier';
+import { isDebugTierRule, isFetchRealizableNow } from '../../src/utils/rule-tier';
 
 const base = {
   schemaVersion: 5 as const,
@@ -23,7 +23,9 @@ const mockAction = {
   contentType: 'application/json',
   bodyType: 'static' as const,
 };
+const mockActionDynamic = { ...mockAction, bodyType: 'dynamic' as const };
 const bodyAction = { bodyType: 'static' as const, body: '', resourceType: 'rest' as const };
+const bodyActionDynamic = { ...bodyAction, bodyType: 'dynamic' as const };
 
 describe('isDebugTierRule', () => {
   // ── Non-Fetch-capable action types are always standard ──────────
@@ -119,5 +121,52 @@ describe('isDebugTierRule', () => {
 
   it('body with no resource-types condition is debug', () => {
     expect(isDebugTierRule({ ...base, type: 'body', conditions: [hostCondition], action: bodyAction })).toBe(true);
+  });
+});
+
+describe('isFetchRealizableNow', () => {
+  // Realizable = debug-tier AND a static reaction. The dormant badge/notice
+  // gate on this so they never promise an effect arming can't yet deliver.
+
+  it('static debug-tier mock is realizable now', () => {
+    expect(isFetchRealizableNow({ ...base, type: 'mock', conditions: [hostCondition], action: mockAction })).toBe(true);
+  });
+
+  it('static debug-tier body is realizable now', () => {
+    expect(isFetchRealizableNow({ ...base, type: 'body', conditions: [hostCondition], action: bodyAction })).toBe(true);
+  });
+
+  it('dynamic debug-tier mock is NOT realizable now (arming can not eval its JS body)', () => {
+    expect(
+      isFetchRealizableNow({ ...base, type: 'mock', conditions: [hostCondition], action: mockActionDynamic }),
+    ).toBe(false);
+  });
+
+  it('dynamic debug-tier body is NOT realizable now', () => {
+    expect(
+      isFetchRealizableNow({ ...base, type: 'body', conditions: [hostCondition], action: bodyActionDynamic }),
+    ).toBe(false);
+  });
+
+  it('static mock confined to xhr is NOT realizable now (not debug-tier — injection already covers it)', () => {
+    expect(
+      isFetchRealizableNow({
+        ...base,
+        type: 'mock',
+        conditions: [hostCondition, resourceTypes('xhr')],
+        action: mockAction,
+      }),
+    ).toBe(false);
+  });
+
+  it('non-Fetch-capable rule types are never realizable now', () => {
+    expect(
+      isFetchRealizableNow({
+        ...base,
+        type: 'header',
+        conditions: [hostCondition],
+        action: { requestHeaders: [], responseHeaders: [] },
+      }),
+    ).toBe(false);
   });
 });

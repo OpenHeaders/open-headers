@@ -65,3 +65,19 @@ export function isDebugTierRule(rule: Rule): boolean {
   if (types === null) return true;
   return types.some((type) => !INJECTION_REACHABLE_RESOURCE_TYPES.has(type));
 }
+
+/**
+ * True iff a debug-tier rule's full effect is realizable RIGHT NOW once its
+ * tab is in CDP scope: debug-tier AND a *static* reaction. A dynamic
+ * `mock`/`body` body is user JS the request-stage interceptor can't eval, so
+ * bringing a tab into scope does nothing for it (until the Response-stage
+ * round-trip lands) — badging it dormant would imply a fix that arming can't
+ * deliver. The single source of truth for the static test the Fetch reaction
+ * uses, so the badge can never claim "realizable" for something the
+ * interceptor passes through.
+ */
+export function isFetchRealizableNow(rule: Rule): boolean {
+  if (rule.type !== 'mock' && rule.type !== 'body') return false;
+  if (!isDebugTierRule(rule)) return false;
+  return rule.action.bodyType !== 'dynamic';
+}

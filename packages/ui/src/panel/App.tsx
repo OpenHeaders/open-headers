@@ -1,6 +1,7 @@
 import 'allotment/dist/style.css';
 import { hostNavigation } from '@openheaders/core/navigation';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
+import { isFetchRealizableNow, isRuleComplete } from '@openheaders/core/utils';
 import {
   EnvironmentProvider,
   FilesProvider,
@@ -307,6 +308,13 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   // Rules registry — needed to attribute which request/response
   // headers were added / modified / removed by an Open Headers rule.
   const rulesByUid = useRulesLookup();
+  // Never-silent (C3·S3): does a live debug-tier rule exist whose extended
+  // reach Debug mode could realize now? Gates the footer dormant-notice chip
+  // so it stays silent when there's nothing to be dormant about.
+  const hasRealizableDebugRule = useMemo(
+    () => [...rulesByUid.values()].some((r) => r.enabled && isRuleComplete(r) && isFetchRealizableNow(r)),
+    [rulesByUid],
+  );
   // "Disable Cache" toolbar toggle — panel-scoped, auto-cleans on unmount.
   const cacheBypass = useCacheBypass();
   // Live Rules Mode setting — drives per-rule cache-bypass attribution
@@ -827,6 +835,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
         cachedCount={data.cachedCount}
         pageCount={data.pageCount}
         pageOrigin={data.navTiming?.pageOrigin}
+        hasRealizableDebugRule={hasRealizableDebugRule}
       />
     </div>
   );

@@ -13,6 +13,7 @@ import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import { Dropdown, type MenuProps, Space, theme } from 'antd';
 import type React from 'react';
 import { formatFooterDuration } from '../data/footer-timing';
+import { DebugModeDormantNotice } from './DebugModeDormantNotice';
 
 declare const __APP_VERSION__: string;
 
@@ -64,6 +65,9 @@ interface PanelStatusBarProps {
   pageCount?: number;
   /** Origin of the navigation the timing milestones describe. */
   pageOrigin?: string | null;
+  /** True when a live debug-tier rule is realizable now (debug-tier + static),
+   * so the dormant-notice chip has something to be dormant about. */
+  hasRealizableDebugRule?: boolean;
 }
 
 /** Host portion of an origin for the compact current-page label. */
@@ -89,6 +93,7 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
   failedCount = 0,
   cachedCount = 0,
   pageOrigin,
+  hasRealizableDebugRule = false,
 }) => {
   const { token } = theme.useToken();
   const { themeMode, setThemeMode } = useTheme();
@@ -193,6 +198,7 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
       </div>
 
       <div className="rules-statusbar-right">
+        <DebugModeDormantNotice hasRealizableRule={hasRealizableDebugRule} />
         <DebugModePill tabSource="inspected" />
         <StatusPill density="full" label="System status" renderSubsystemExtras={productStatusExtras} />
         {showThemeSwitcher && (

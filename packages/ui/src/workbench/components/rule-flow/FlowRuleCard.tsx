@@ -10,8 +10,9 @@ import { DeleteOutlined, EditOutlined, HolderOutlined } from '@ant-design/icons'
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useRules } from '@openheaders/ui/shared/hooks/useRules';
+import { hasCapability } from '@openheaders/core/capabilities';
 import type { Rule } from '@openheaders/core/types';
-import { getActionDetail, isRuleComplete } from '@openheaders/core/utils';
+import { getActionDetail, isFetchRealizableNow, isRuleComplete } from '@openheaders/core/utils';
 import { Button, Popconfirm, Space, Switch, Tag, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useMemo } from 'react';
@@ -133,10 +134,19 @@ const FlowRuleCard: React.FC<FlowRuleCardProps> = ({
   const { token } = theme.useToken();
   const { updateLocalRule, deleteLocalRule, pausedUids } = useRules();
   const confirmOnDelete = useSettingValue('general.confirmOnDelete');
+  const cdpEnabled = useSettingValue('inspection.cdpEnabled');
   const complete = isRuleComplete(rule);
   const paused = pausedUids.has(rule.uid);
   const isActive = rule.enabled && complete && !paused;
   const detail = useMemo(() => getActionDetail(rule), [rule]);
+
+  // Never-silent (C3·S3): a live debug-tier rule reaches navigations / workers
+  // / OOPIFs only while Debug mode is on. With it off its deep reach is
+  // dormant — it still runs over page xhr, so this flags the missing reach,
+  // not a broken rule. Chromium-only (no CDP elsewhere); dynamic debug rules
+  // are excluded (arming can't realize them yet), via isFetchRealizableNow.
+  const deepReachDormant =
+    isActive && !cdpEnabled && hasCapability('cdpInspection') && isFetchRealizableNow(rule);
 
   // dnd-kit subscribes regardless so the hooks order stays stable, but in
   // read-only mode (test results) we hide the handle and ignore listeners.
@@ -212,6 +222,16 @@ const FlowRuleCard: React.FC<FlowRuleCardProps> = ({
               <Tag color="warning" style={{ fontSize: 10, margin: 0, lineHeight: '16px' }}>
                 Paused
               </Tag>
+            )}
+            {deepReachDormant && (
+              <Tooltip
+                title="Nav / worker / OOPIF reach is dormant until Debug mode is on (turn it on from the footer). This rule still runs over page requests (xhr/fetch)."
+                placement="top"
+              >
+                <Tag color="blue" style={{ fontSize: 10, margin: 0, lineHeight: '16px' }}>
+                  Debug mode off
+                </Tag>
+              </Tooltip>
             )}
             {statusOverlay && <StatusOverlayTag overlay={statusOverlay} />}
           </Space>
