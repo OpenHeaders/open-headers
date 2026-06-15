@@ -1,4 +1,5 @@
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
+import { MATERIAL_DEBUG_PAUSE_MS } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarEntry } from '@openheaders/core/types';
 import type { SupersessionAnchor } from '@openheaders/ui/panel/data/request-state';
 import { classifyRowAnnotations, type RowAnnotationContext } from '@openheaders/ui/panel/data/row-annotations';
@@ -164,6 +165,36 @@ describe('classifyRowAnnotations — never finished (preserved unknown)', () => 
     });
     expect(kinds(lc, ctx({ anchor: NAV_ANCHOR }))).toContain('interrupted');
     expect(kinds(lc, ctx({ anchor: NAV_ANCHOR }))).not.toContain('never-finished');
+  });
+});
+
+describe('classifyRowAnnotations — debug-mode interception hold', () => {
+  it('material hold on a clean 200 → debug-paused (info); detail names the ms, click lands on timing', () => {
+    const lc = makeLifecycle({ completedAtMs: 2_000, pausedByDebugMs: 42 });
+    const annotations = classifyRowAnnotations(lc, ctx({ source: 'cdp' }));
+    expect(annotations.map((a) => a.kind)).toEqual(['debug-paused']);
+    expect(annotations[0].severity).toBe('info');
+    expect(annotations[0].detail).toContain('42 ms');
+    expect(annotations[0].section).toBe('timing');
+  });
+
+  it('immaterial sub-threshold hold → no annotation', () => {
+    const lc = makeLifecycle({ completedAtMs: 2_000, pausedByDebugMs: MATERIAL_DEBUG_PAUSE_MS - 1 });
+    expect(kinds(lc, ctx({ source: 'cdp' }))).toEqual([]);
+  });
+
+  it('no hold recorded → no annotation', () => {
+    expect(kinds(makeLifecycle({ completedAtMs: 2_000 }), ctx({ source: 'cdp' }))).toEqual([]);
+  });
+
+  it('rides alongside a warn annotation — interrupted keeps the lead glyph', () => {
+    const lc = makeLifecycle({
+      phase: 'headers-received',
+      loadingStoppedAtMs: 2_500,
+      pausedByDebugMs: 30,
+      har: null,
+    });
+    expect(kinds(lc, ctx({ source: 'cdp' }))).toEqual(['interrupted', 'debug-paused']);
   });
 });
 

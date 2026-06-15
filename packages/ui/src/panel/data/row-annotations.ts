@@ -22,6 +22,7 @@
  */
 
 import type { LifecycleSource, RequestLifecycle } from '@openheaders/core/request-lifecycle';
+import { MATERIAL_DEBUG_PAUSE_MS } from '@openheaders/core/request-lifecycle';
 import { currentResponseBody, lifecycleTransferredBytes } from './inspector-row-projection';
 import type { DetailSection } from './inspector-tab';
 import {
@@ -32,7 +33,7 @@ import {
   type SupersessionAnchor,
 } from './request-state';
 
-export type RowAnnotationKind = 'interrupted' | 'never-finished' | 'fidelity-gap' | 'synthetic';
+export type RowAnnotationKind = 'interrupted' | 'never-finished' | 'fidelity-gap' | 'synthetic' | 'debug-paused';
 
 export type RowAnnotationSeverity = 'warn' | 'info';
 
@@ -109,6 +110,22 @@ const SYNTHETIC_MEMORY: RowAnnotation = {
   section: 'headers',
 };
 
+// Built per-row because the held duration is part of the copy. The hold is a
+// measured fact stamped on the lifecycle by the control plane (`pausedByDebugMs`);
+// the rail re-checks materiality as defence in depth against an immaterial value.
+function debugPausedAnnotation(pausedByDebugMs: number): RowAnnotation {
+  return {
+    kind: 'debug-paused',
+    severity: 'info',
+    label: 'Debug-mode hold',
+    detail:
+      `${Math.round(pausedByDebugMs)} ms of this row’s time was spent paused in debug-mode interception, not ` +
+      'waiting on the server or network — debug mode held the request while it inspected it, so the row’s total ' +
+      'time runs longer than the request itself took.',
+    section: 'timing',
+  };
+}
+
 /**
  * Classify one row. Returns the annotations in severity order (`warn`
  * first) — the rail's single glyph is `annotations[0]`, the tooltip and
@@ -129,6 +146,10 @@ const SYNTHETIC_MEMORY: RowAnnotation = {
  *     limits of the default path; CDP-enhanced records them).
  *   - `synthetic` — the row's lifecycle was synthesized (`oh-har:` /
  *     `oh-mem:`), not observed on the request wire.
+ *   - `debug-paused` — the control plane held this request in CDP `Fetch`
+ *     interception for a material duration (`pausedByDebugMs`); the hold is
+ *     debug-mode overhead, not server/network time, so the row's total time
+ *     overstates what the request actually took.
  */
 export function classifyRowAnnotations(
   lifecycle: RequestLifecycle,
@@ -156,6 +177,10 @@ export function classifyRowAnnotations(
     currentResponseBody(lifecycle) == null
   ) {
     annotations.push(FIDELITY_GAP);
+  }
+
+  if (lifecycle.pausedByDebugMs != null && lifecycle.pausedByDebugMs >= MATERIAL_DEBUG_PAUSE_MS) {
+    annotations.push(debugPausedAnnotation(lifecycle.pausedByDebugMs));
   }
 
   if (lifecycle.requestId.startsWith(SYNTHETIC_PREFIXES[0])) annotations.push(SYNTHETIC_HAR);

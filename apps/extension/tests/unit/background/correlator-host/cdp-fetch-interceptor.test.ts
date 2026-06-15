@@ -9,7 +9,7 @@
 import type { RequestRecord, Rule } from '@openheaders/core/types';
 import type { CdpAuthRequired, CdpFetchEvent, CdpRequestPaused } from '@openheaders/oracle/correlator-cdp';
 import { createInMemoryRequestControlPort } from '@openheaders/oracle/correlator-cdp';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { startCdpFetchInterceptor } from '@/background/correlator-host/cdp-fetch-interceptor';
 
@@ -93,13 +93,15 @@ function harness(rules: readonly Rule[]) {
   const stream = fakeFetchStream();
   const port = createInMemoryRequestControlPort();
   const fires: Array<{ tabId: number; record: RequestRecord }> = [];
+  const pauses: Array<{ tabId: number; requestId: string; pausedMs: number }> = [];
   const stop = startCdpFetchInterceptor({
     subscribeFetch: stream.subscribeFetch,
     requestControlPort: port,
     getRules: () => rules,
     reportFire: (tabId, record) => fires.push({ tabId, record }),
+    reportPause: (tabId, requestId, pausedMs) => pauses.push({ tabId, requestId, pausedMs }),
   });
-  return { stream, port, fires, stop };
+  return { stream, port, fires, pauses, stop };
 }
 
 describe('startCdpFetchInterceptor (D2)', () => {
@@ -270,5 +272,53 @@ describe('startCdpFetchInterceptor — auth challenges (D3)', () => {
         request: { requestId: 'auth-1', authChallengeResponse: { response: 'Default' } },
       },
     ]);
+  });
+});
+
+describe('startCdpFetchInterceptor — interception-hold recording (D4c)', () => {
+  // The hold = answer-land − pause-receipt. Date.now's first call is the
+  // receipt stamp; every later call (the fire `t`, the pause measurement) reads
+  // the answer-land value, so the difference is the controlled hold.
+  afterEach(() => vi.restoreAllMocks());
+
+  it('records a material hold for a pass-through paused request, keyed by its store id', async () => {
+    vi.spyOn(Date, 'now').mockReturnValueOnce(1_000).mockReturnValue(1_042);
+    const { stream, pauses } = harness([]);
+
+    stream.emit(makePaused({ requestId: 'a', sessionId: 'page', networkId: 'net-7' }));
+    await Promise.resolve();
+
+    expect(pauses).toEqual([{ tabId: 7, requestId: 'page::net-7', pausedMs: 42 }]);
+  });
+
+  it('records the hold for a fulfilled request (the hold is independent of the answer)', async () => {
+    vi.spyOn(Date, 'now').mockReturnValueOnce(1_000).mockReturnValue(1_010);
+    const { stream, pauses, fires } = harness([mockRule()]);
+
+    stream.emit(makePaused({ requestId: 'fx', networkId: 'net-9' }));
+    await Promise.resolve();
+
+    expect(pauses).toEqual([{ tabId: 7, requestId: 'page::net-9', pausedMs: 10 }]);
+    expect(fires).toHaveLength(1);
+  });
+
+  it('does not record an immaterial sub-threshold hold', async () => {
+    vi.spyOn(Date, 'now').mockReturnValueOnce(1_000).mockReturnValue(1_002);
+    const { stream, pauses } = harness([]);
+
+    stream.emit(makePaused({ networkId: 'net-7' }));
+    await Promise.resolve();
+
+    expect(pauses).toHaveLength(0);
+  });
+
+  it('does not record a hold when the pause carries no networkId (no lifecycle to join)', async () => {
+    vi.spyOn(Date, 'now').mockReturnValueOnce(1_000).mockReturnValue(9_999);
+    const { stream, pauses } = harness([]);
+
+    stream.emit(makePaused({}));
+    await Promise.resolve();
+
+    expect(pauses).toHaveLength(0);
   });
 });

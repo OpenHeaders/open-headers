@@ -38,7 +38,7 @@ export type {
   StreamMessage,
   WsStreamMessage,
 } from './types';
-export { MAX_STREAM_MESSAGES_PER_REQUEST } from './types';
+export { MATERIAL_DEBUG_PAUSE_MS, MAX_STREAM_MESSAGES_PER_REQUEST } from './types';
 export type {
   LifecycleClearSessionMessage,
   LifecycleConsumerMessage,

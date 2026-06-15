@@ -18,6 +18,7 @@
  * detached) is logged and dropped — it must never throw into the event fan.
  */
 
+import { MATERIAL_DEBUG_PAUSE_MS } from '@openheaders/core/request-lifecycle';
 import type { RequestRecord, Rule } from '@openheaders/core/types';
 import type {
   CdpAuthRequired,
@@ -39,32 +40,64 @@ export interface CdpFetchInterceptorOptions {
   readonly getRules: () => readonly Rule[];
   /** Report an authoritative fire (fulfill / rewrite) into the rule-fire plane. */
   readonly reportFire: (tabId: number, record: RequestRecord) => void;
+  /**
+   * Record the CDP `Fetch` interception hold (ms) for a paused request onto
+   * its lifecycle — the control-plane → observation seam (D4c). `requestId`
+   * is the store join key ({@link cdpStoreRequestId}); the host applies it as
+   * a `pausedByDebugMs` phase patch. Only called for a material hold on a
+   * request that carries a `networkId`.
+   */
+  readonly reportPause: (tabId: number, requestId: string, pausedMs: number) => void;
 }
 
 /** Start the rule-driven interceptor; returns the unsubscribe handle. */
 export function startCdpFetchInterceptor(options: CdpFetchInterceptorOptions): () => void {
-  const { subscribeFetch, requestControlPort, getRules, reportFire } = options;
+  const { subscribeFetch, requestControlPort, getRules, reportFire, reportPause } = options;
   return subscribeFetch((event) => {
     if (event.method === 'Fetch.authRequired') {
       handleAuthRequired(event, options);
       return;
     }
     if (event.method !== 'Fetch.requestPaused') return;
+    // Pause-receipt stamp (D4c). The hold we introduce is this instant to
+    // answer-land (the control command resolving). Every paused request on a
+    // controlled tab incurs the hold — pass-through included, since even a
+    // no-op continue paid the SW round-trip — so all three answers measure it.
+    const receivedAtMs = Date.now();
     const target: CdpSessionTarget = { tabId: event.tabId, sessionId: event.sessionId };
     const reaction = resolveFetchReaction(event, getRules());
 
-    if (reaction.kind === 'pass-through') {
-      answer(requestControlPort.continueRequest(target, { requestId: event.requestId }), event);
-      return;
-    }
-
-    const fire = () => reportFire(event.tabId, buildFireRecord(event, reaction.ruleUid));
     const command =
       reaction.kind === 'fulfill'
         ? requestControlPort.fulfill(target, reaction.response)
-        : requestControlPort.continueRequest(target, reaction.request);
-    answer(command.then(fire), event);
+        : reaction.kind === 'continue'
+          ? requestControlPort.continueRequest(target, reaction.request)
+          : requestControlPort.continueRequest(target, { requestId: event.requestId });
+
+    const settled = command.then(() => {
+      if (reaction.kind !== 'pass-through') reportFire(event.tabId, buildFireRecord(event, reaction.ruleUid));
+      emitPauseIfMaterial(event, receivedAtMs, reportPause);
+    });
+    answer(settled, event);
   });
+}
+
+/**
+ * Emit the interception hold for a paused request once its answer has landed.
+ * Skips a request with no `networkId` (no lifecycle to join the hold to — the
+ * same carve-out as the fire record) and an immaterial sub-{@link
+ * MATERIAL_DEBUG_PAUSE_MS} hold (not worth a store patch). The store applies it
+ * as a refining `pausedByDebugMs` phase patch keyed by {@link cdpStoreRequestId}.
+ */
+function emitPauseIfMaterial(
+  event: CdpRequestPaused,
+  receivedAtMs: number,
+  reportPause: (tabId: number, requestId: string, pausedMs: number) => void,
+): void {
+  if (!event.networkId) return;
+  const pausedMs = Date.now() - receivedAtMs;
+  if (pausedMs < MATERIAL_DEBUG_PAUSE_MS) return;
+  reportPause(event.tabId, cdpStoreRequestId(event.sessionId, event.networkId), pausedMs);
 }
 
 /**

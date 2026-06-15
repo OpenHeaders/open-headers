@@ -133,6 +133,9 @@ export function patchRefines(prev: RequestLifecycle, patch: RequestLifecyclePatc
   ) {
     return false;
   }
+  if ('pausedByDebugMs' in patch && patch.pausedByDebugMs === undefined && prev.pausedByDebugMs !== undefined) {
+    return false;
+  }
   if ('requestHeaders' in patch && patch.requestHeaders === undefined && prev.requestHeaders !== undefined) {
     return false;
   }

@@ -107,6 +107,19 @@ export type StreamMessage = WsStreamMessage | SseStreamMessage;
 export const MAX_STREAM_MESSAGES_PER_REQUEST = 5_000;
 
 /**
+ * Materiality floor for {@link RequestLifecycle.pausedByDebugMs} — the
+ * smallest CDP `Fetch` hold (ms) worth recording. Below it the interception
+ * pause is indistinguishable from measurement noise and not worth a store
+ * patch or a row annotation. Lives in core so the emit-site guard (host
+ * interceptor) and the rail-admission guard (panel classifier) apply ONE
+ * threshold — the same single-source rationale as
+ * {@link MAX_STREAM_MESSAGES_PER_REQUEST}'s shared ring bound. The rail's
+ * re-check is defence in depth: if an immaterial value ever reaches the
+ * store, the annotation still suppresses it.
+ */
+export const MATERIAL_DEBUG_PAUSE_MS = 5;
+
+/**
  * Per-request authoritative state owned by the engine-side store.
  *
  * Consumer-owned derived state ("inspector display id", "rule-engine
@@ -229,6 +242,21 @@ export interface RequestLifecycle {
    * Resets with the hop on redirect.
    */
   readonly loadingStoppedAtMs?: number;
+  /**
+   * Milliseconds this hop sat suspended in CDP `Fetch` interception while
+   * debug mode decided how to answer it — the latency the control plane
+   * itself introduced (answer-land minus pause-receipt), not server or
+   * network time. Lets the inspector/waterfall attribute the hold to
+   * interception overhead instead of mis-reading it as the server being
+   * slow. A measured, attribution-historical duration stamped once at
+   * answer-land; never live state and never recomputed. Set only when the
+   * hold is material ({@link MATERIAL_DEBUG_PAUSE_MS}) — a sub-millisecond
+   * pass-through is not worth a store patch. CDP-only and only on a tab the
+   * control plane owns; the heuristic path never pauses a request, so it is
+   * always unset there. Resets with the hop on redirect — each wire attempt
+   * is paused on its own.
+   */
+  readonly pausedByDebugMs?: number;
 
   // Resolution — populated as phase advances; monotonic per invariant 5.
   readonly statusCode?: number;
@@ -397,6 +425,9 @@ export interface RequestLifecyclePatch {
   /** The frame-stopped-loading instant for a still-in-flight request. See
    * the `RequestLifecycle` field of the same name. */
   loadingStoppedAtMs?: number;
+  /** The CDP `Fetch` interception hold for this hop. See the
+   * `RequestLifecycle` field of the same name. */
+  pausedByDebugMs?: number;
   /** The current hop's request headers + their provisional status. Seeded
    * cooked at request-start, superseded by the on-the-wire set (a value
    * refinement). See the `RequestLifecycle` fields of the same names. */

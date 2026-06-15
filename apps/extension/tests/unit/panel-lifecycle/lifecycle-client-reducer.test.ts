@@ -214,6 +214,41 @@ describe('reduceClientUpdate — in-flight progress mirror (twin of the engine r
   });
 });
 
+describe('reduceClientUpdate — pausedByDebugMs mirror (twin of the engine reducer)', () => {
+  it('carries the CDP Fetch interception hold stamped on a phase patch', () => {
+    const prev = makeLifecycle({ phase: 'headers-received' });
+    const result = reduceClientUpdate(prev, {
+      kind: 'phase',
+      tabId: 1,
+      requestId: 'r1',
+      patch: { pausedByDebugMs: 42 },
+    });
+    expect((result as RequestLifecycle).pausedByDebugMs).toBe(42);
+  });
+
+  it('noops a pause whose lifecycle has not started yet (the rare pre-started arrival)', () => {
+    const result = reduceClientUpdate(undefined, {
+      kind: 'phase',
+      tabId: 1,
+      requestId: 'r1',
+      patch: { pausedByDebugMs: 42 },
+    });
+    expect(result).toBe(NOOP);
+  });
+
+  it('resets the hold with the hop on redirect', () => {
+    const prev = makeLifecycle({ phase: 'headers-received', pausedByDebugMs: 42 });
+    const result = reduceClientUpdate(prev, {
+      kind: 'redirect',
+      tabId: 1,
+      requestId: 'r1',
+      hop: { sourceUrl: prev.url, redirectUrl: 'https://openheaders.io/b', statusCode: 302, timestampMs: 110 },
+      nextUrl: 'https://openheaders.io/b',
+    });
+    expect((result as RequestLifecycle).pausedByDebugMs).toBeUndefined();
+  });
+});
+
 describe('reduceClientUpdate — request headers + provisional (twin of the engine reducer)', () => {
   it('carries the cooked request headers + provisional flag from a phase patch', () => {
     const prev = makeLifecycle();

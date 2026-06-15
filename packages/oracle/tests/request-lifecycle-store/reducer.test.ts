@@ -296,6 +296,48 @@ describe('reducer — in-flight progress (lastActivityAtMs / running byte counts
   });
 });
 
+describe('reducer — pausedByDebugMs (CDP Fetch interception hold)', () => {
+  it('applies the hold carried on a phase patch (the control-plane wire)', () => {
+    const state = makeLifecycle({ phase: 'headers-received' });
+    const r = reduce(state, { kind: 'phase', tabId: 1, requestId: 'req-1', patch: { pausedByDebugMs: 42 } });
+    expect(r.kind).toBe('update');
+    if (r.kind !== 'update') return;
+    expect(r.next.pausedByDebugMs).toBe(42);
+    // A pure pause patch carries no phase change.
+    expect(r.next.phase).toBe('headers-received');
+  });
+
+  it('rejects a patch that would clear a known hold (invariant 5)', () => {
+    const state = makeLifecycle({ pausedByDebugMs: 42 });
+    const r = reduce(state, { kind: 'phase', tabId: 1, requestId: 'req-1', patch: { pausedByDebugMs: undefined } });
+    expect(r).toEqual({ kind: 'reject', reason: 'patch-disappearance' });
+  });
+
+  it('drops a pause whose lifecycle has not started yet (the rare pre-started arrival)', () => {
+    const r = reduce(undefined, { kind: 'phase', tabId: 1, requestId: 'req-1', patch: { pausedByDebugMs: 42 } });
+    expect(r).toEqual({ kind: 'reject', reason: 'unknown-request' });
+  });
+
+  it('resets the hold on redirect (per wire attempt, re-paused on the next hop)', () => {
+    const state = makeLifecycle({ phase: 'headers-received', pausedByDebugMs: 42 });
+    const r = reduce(state, {
+      kind: 'redirect',
+      tabId: 1,
+      requestId: 'req-1',
+      hop: {
+        sourceUrl: 'https://openheaders.io/',
+        redirectUrl: 'https://openheaders.io/ro',
+        statusCode: 302,
+        timestampMs: 1_500,
+      },
+      nextUrl: 'https://openheaders.io/ro',
+    });
+    expect(r.kind).toBe('update');
+    if (r.kind !== 'update') return;
+    expect(r.next.pausedByDebugMs).toBeUndefined();
+  });
+});
+
 describe('reducer — hopNetworkStartMs (footer anchor = network start)', () => {
   it('applies a network start carried on a phase patch (the CDP path)', () => {
     const state = makeLifecycle();

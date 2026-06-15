@@ -183,6 +183,12 @@ describe('invariant 5 — monotonic information content (fields refine, never di
     expect(patchRefines(prev, { bytesReceivedSoFar: undefined } as unknown as RequestLifecyclePatch)).toBe(false);
     expect(patchRefines(prev, { bytesTransferredSoFar: undefined } as unknown as RequestLifecyclePatch)).toBe(false);
   });
+
+  it('patchRefines: the debug-pause hold refines on first set and rejects a later clear', () => {
+    expect(patchRefines(makeLifecycle(), { pausedByDebugMs: 42 })).toBe(true);
+    const prev = makeLifecycle({ pausedByDebugMs: 42 });
+    expect(patchRefines(prev, { pausedByDebugMs: undefined } as unknown as RequestLifecyclePatch)).toBe(false);
+  });
 });
 
 describe('invariant 6 — redirect is the only retrograde transition', () => {

@@ -67,6 +67,7 @@ function applyPatch(prev: RequestLifecycle, patch: RequestLifecyclePatch): Reque
     ...(patch.bytesReceivedSoFar !== undefined ? { bytesReceivedSoFar: patch.bytesReceivedSoFar } : {}),
     ...(patch.bytesTransferredSoFar !== undefined ? { bytesTransferredSoFar: patch.bytesTransferredSoFar } : {}),
     ...(patch.loadingStoppedAtMs !== undefined ? { loadingStoppedAtMs: patch.loadingStoppedAtMs } : {}),
+    ...(patch.pausedByDebugMs !== undefined ? { pausedByDebugMs: patch.pausedByDebugMs } : {}),
     ...(patch.requestHeaders !== undefined ? { requestHeaders: patch.requestHeaders } : {}),
     ...(patch.requestHeadersProvisional !== undefined
       ? { requestHeadersProvisional: patch.requestHeadersProvisional }
@@ -98,6 +99,8 @@ function applyRedirect(prev: RequestLifecycle, hop: RedirectHop, nextUrl: string
     bytesReceivedSoFar: undefined,
     bytesTransferredSoFar: undefined,
     loadingStoppedAtMs: undefined,
+    // The debug-pause hold is per wire attempt; twin of the engine-side reset.
+    pausedByDebugMs: undefined,
     // Request headers are per-hop; the redirect target re-learns its own set.
     requestHeaders: undefined,
     requestHeadersProvisional: undefined,

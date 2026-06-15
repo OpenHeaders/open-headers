@@ -151,14 +151,20 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   });
   isTabInScope = (tabId) => cdpAttachController.isInScope(tabId);
   // Rule-driven interceptor (D2): each `Fetch.requestPaused` is re-checked
-  // against the live rules and answered — static `mock` → fulfill, static
-  // `body` → request-body rewrite, everything else → pass-through — with a
-  // fulfill/rewrite reported as an authoritative fire.
+  // against the live rules and answered — static `response` → fulfill, static
+  // `request-body` → request-body rewrite, everything else → pass-through —
+  // with a fulfill/rewrite reported as an authoritative fire.
   startCdpFetchInterceptor({
     subscribeFetch: (listener) => lifecycleHost.debuggerSource.subscribeFetch(listener),
     requestControlPort,
     getRules: liveRules,
     reportFire: (tabId, record) => reportFire(tabId, record),
+    // Control-plane → observation seam (D4c): record the interception hold onto
+    // the request's lifecycle so the inspector attributes it to debug mode, not
+    // the server. The store is the same in-process intake the correlators feed;
+    // a pause whose lifecycle has not `started` yet is dropped (rare, cosmetic).
+    reportPause: (tabId, requestId, pausedMs) =>
+      lifecycleHost.store.apply({ kind: 'phase', tabId, requestId, patch: { pausedByDebugMs: pausedMs } }),
   });
   startDevtoolsPortPresence({
     onConnected: (tabId) => cdpAttachController.notePortConnected(tabId),

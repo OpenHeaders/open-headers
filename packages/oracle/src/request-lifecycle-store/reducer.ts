@@ -139,6 +139,9 @@ function reduceRedirect(prev: RequestLifecycle | undefined, hop: RedirectHop, ne
     bytesReceivedSoFar: undefined,
     bytesTransferredSoFar: undefined,
     loadingStoppedAtMs: undefined,
+    // The debug-pause hold is per wire attempt; the redirect target re-pauses
+    // (or doesn't) on its own.
+    pausedByDebugMs: undefined,
     // Request headers are per-hop; the redirect target re-learns its own
     // cooked → on-the-wire set from the new hop's request events.
     requestHeaders: undefined,
@@ -202,6 +205,7 @@ function applyPatch(prev: RequestLifecycle, patch: RequestLifecyclePatch): Reque
     ...(patch.bytesReceivedSoFar !== undefined ? { bytesReceivedSoFar: patch.bytesReceivedSoFar } : {}),
     ...(patch.bytesTransferredSoFar !== undefined ? { bytesTransferredSoFar: patch.bytesTransferredSoFar } : {}),
     ...(patch.loadingStoppedAtMs !== undefined ? { loadingStoppedAtMs: patch.loadingStoppedAtMs } : {}),
+    ...(patch.pausedByDebugMs !== undefined ? { pausedByDebugMs: patch.pausedByDebugMs } : {}),
     ...(patch.requestHeaders !== undefined ? { requestHeaders: patch.requestHeaders } : {}),
     ...(patch.requestHeadersProvisional !== undefined
       ? { requestHeadersProvisional: patch.requestHeadersProvisional }
