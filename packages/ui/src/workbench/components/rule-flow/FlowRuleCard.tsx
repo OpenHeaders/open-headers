@@ -147,6 +147,15 @@ const FlowRuleCard: React.FC<FlowRuleCardProps> = ({
   // are excluded (arming can't realize them yet), via isFetchRealizableNow.
   const deepReachDormant =
     isActive && !cdpEnabled && hasCapability('cdpInspection') && isFetchRealizableNow(rule);
+  // Tier-aware copy: mock/body keep their page-xhr injection path while
+  // dormant, so the badge flags only the missing deep reach. An auth rule
+  // has NO injection equivalent — answering a 401/407 is debugger-only — so
+  // with Debug mode off it does nothing at all; the tooltip must not promise
+  // a fallback that doesn't exist.
+  const deepReachTooltip =
+    rule.type === 'auth'
+      ? 'This rule answers an HTTP/proxy auth challenge, which only the debugger can do — it does nothing until Debug mode is on (turn it on from the footer).'
+      : 'Nav / worker / OOPIF reach is dormant until Debug mode is on (turn it on from the footer). This rule still runs over page requests (xhr/fetch).';
 
   // dnd-kit subscribes regardless so the hooks order stays stable, but in
   // read-only mode (test results) we hide the handle and ignore listeners.
@@ -224,10 +233,7 @@ const FlowRuleCard: React.FC<FlowRuleCardProps> = ({
               </Tag>
             )}
             {deepReachDormant && (
-              <Tooltip
-                title="Nav / worker / OOPIF reach is dormant until Debug mode is on (turn it on from the footer). This rule still runs over page requests (xhr/fetch)."
-                placement="top"
-              >
+              <Tooltip title={deepReachTooltip} placement="top">
                 <Tag color="blue" style={{ fontSize: 10, margin: 0, lineHeight: '16px' }}>
                   Debug mode off
                 </Tag>

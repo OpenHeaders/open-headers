@@ -30,7 +30,7 @@ import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import { canonicalizeRule, parseRule, serializeRule } from '@openheaders/core/codec/yaml';
 import { freshDocument } from '@openheaders/core/schemas';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { BlockRule, BodyModType, BodyResourceType, BodyRule, DelayRule, ExtensionRuleType, HeaderModification, HeaderRule, InjectAction, InjectRule, InjectSource, InjectTrigger, InjectType, MessageFilter, MessageOperation, MockBodyType, MockRule, QueryParamOperation, QueryParamRule, RedirectRule, Rule, RuleCondition, RuleDraft, SseRule, TreeNode, WsDirection, WsRule } from '@openheaders/core/types';
+import type { AuthRule, BlockRule, BodyModType, BodyResourceType, BodyRule, DelayRule, ExtensionRuleType, HeaderModification, HeaderRule, InjectAction, InjectRule, InjectSource, InjectTrigger, InjectType, MessageFilter, MessageOperation, MockBodyType, MockRule, QueryParamOperation, QueryParamRule, RedirectRule, Rule, RuleCondition, RuleDraft, SseRule, TreeNode, WsDirection, WsRule } from '@openheaders/core/types';
 import { generateUid, isRuleComplete } from '@openheaders/core/utils';
 import type { MenuProps } from 'antd';
 import { Alert, App, Button, Dropdown, Form, Switch, Tooltip, Typography, theme } from 'antd';
@@ -65,6 +65,7 @@ import { get as getSetting } from '../settings/store';
 import ConditionEditor from './ConditionEditor';
 import EditorHeader from './EditorHeader';
 import { ActionValueBanner } from './rule-fields/ActionValueBanner';
+import AuthRuleFields from './rule-fields/AuthRuleFields';
 import BlockRuleFields from './rule-fields/BlockRuleFields';
 import BodyRuleFields, { BODY_DYNAMIC_TEMPLATE } from './rule-fields/BodyRuleFields';
 import DelayRuleFields from './rule-fields/DelayRuleFields';
@@ -382,6 +383,15 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
             sseFilterValue: sr.action.messageFilter?.value ?? '',
             ssePayload: sr.action.payload ?? '',
             sseInjectTrigger: sr.action.injectTrigger ?? 'open',
+          });
+          break;
+        }
+        case 'auth': {
+          const ar = rule as AuthRule;
+          form.setFieldsValue({
+            ...baseValues,
+            authUsername: ar.action.username,
+            authPassword: ar.action.password,
           });
           break;
         }
@@ -1348,6 +1358,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                         {selectedType === 'mock' && <MockRuleFields />}
                         {selectedType === 'ws' && <WsRuleFields />}
                         {selectedType === 'sse' && <SseRuleFields />}
+                        {selectedType === 'auth' && <AuthRuleFields />}
                         {/* Single-mount inline action validation. The validator
                       lives in core; new rule types pick the banner up
                       automatically when their case is added there. */}
@@ -1585,6 +1596,15 @@ function buildRule(
               : undefined,
         },
       } as Omit<SseRule, 'uid' | 'path'>;
+    case 'auth':
+      return {
+        ...base,
+        type: 'auth',
+        action: {
+          username: (formValues.authUsername as string) ?? '',
+          password: (formValues.authPassword as string) ?? '',
+        },
+      } as Omit<AuthRule, 'uid' | 'path'>;
     default:
       return null;
   }

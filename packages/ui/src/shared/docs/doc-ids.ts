@@ -35,6 +35,7 @@ const ACTION_DOC_ID: Record<string, string> = {
   delay: 'delay',
   body: 'body',
   mock: 'mock',
+  auth: 'auth',
   // Query param operations
   'qp-add': 'qp-add',
   'qp-override': 'qp-override',

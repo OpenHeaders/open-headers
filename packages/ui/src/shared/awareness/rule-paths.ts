@@ -64,6 +64,9 @@ export interface ActionPathBundle {
   messageFilterValue: string;
   messagePayload: string;
   messageInjectTrigger: string;
+  // Auth-rule credential leaves.
+  authUsername: string;
+  authPassword: string;
   // Set-tree generators.
   headerMod(
     direction: 'request' | 'response',
@@ -124,6 +127,8 @@ export function createActionPaths(opts: ActionPathsOptions): ActionPathBundle {
     messageFilterValue: `${a}.messageFilter.value`,
     messagePayload: `${a}.payload`,
     messageInjectTrigger: `${a}.injectTrigger`,
+    authUsername: `${a}.username`,
+    authPassword: `${a}.password`,
     headerMod: (direction, uid, leaf) => `${headerSet(direction)}.${uid}.${leaf}`,
     condition: (uid, leaf) => `conditions.${uid}.${leaf}`,
     queryParam: (uid, leaf) => `${a}.${qp}.${uid}.${leaf}`,

@@ -11,6 +11,7 @@ import {
   CodeOutlined,
   DatabaseOutlined,
   FileTextOutlined,
+  KeyOutlined,
   LinkOutlined,
   NotificationOutlined,
   SendOutlined,
@@ -101,6 +102,13 @@ export const ALL_RULE_TYPES: RuleTypeMenuItem[] = [
     icon: <NotificationOutlined />,
     label: 'Modify Server-Sent Events',
     description: 'Replace, inject, or drop SSE events (page streams only)',
+    desktopOnly: false,
+  },
+  {
+    key: 'auth',
+    icon: <KeyOutlined />,
+    label: 'Answer Auth Challenge',
+    description: 'Provide credentials for an HTTP/proxy auth challenge (requires Debug mode)',
     desktopOnly: false,
   },
 ];
