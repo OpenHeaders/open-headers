@@ -132,12 +132,12 @@ describe('resolveFetchReaction', () => {
     expect(reaction.kind).toBe('pass-through');
   });
 
-  it('rewrites the request body for a static body rule', () => {
+  it('rewrites the request body for a static request-body rule', () => {
     const bodyRule = {
       ...ruleBase,
-      type: 'body',
+      type: 'request-body',
       conditions: [domain('api.openheaders.io')],
-      action: { bodyType: 'static', body: '{"v":1}', resourceType: 'rest' },
+      action: { bodyType: 'static', requestBody: '{"v":1}', resourceType: 'rest' },
     } as Rule;
     const reaction = resolveFetchReaction(
       paused({ request: { url: 'https://api.openheaders.io/u', method: 'POST' } }),

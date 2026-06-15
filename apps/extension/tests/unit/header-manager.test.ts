@@ -475,17 +475,17 @@ describe('header-manager', () => {
   // ── Non-header rule types are ignored ──
 
   describe('non-header rule types', () => {
-    it('ignores desktop-only rule types (body, delay, mock)', async () => {
+    it('ignores desktop-only rule types (request-body, delay, mock)', async () => {
       const bodyRule: Rule = {
         schemaVersion: 5,
         uid: 'bdy1',
         path: 'rules/body',
         name: 'Body Rule',
-        type: 'body',
+        type: 'request-body',
         enabled: true,
         published: true,
         conditions: hostConditions(['openheaders.io']),
-        action: { bodyType: 'static', body: '{"replaced": true}', resourceType: 'rest' },
+        action: { bodyType: 'static', requestBody: '{"replaced": true}', resourceType: 'rest' },
       };
 
       updateNetworkRules([bodyRule]);

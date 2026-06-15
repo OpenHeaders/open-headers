@@ -59,7 +59,7 @@ describe('shadow-arbitration', () => {
       rule({ uid: 'header-1', type: 'header' }),
       rule({ uid: 'delay-1', type: 'delay' }),
       rule({ uid: 'mock-1', type: 'response', responseSource: 'mock' }),
-      rule({ uid: 'body-1', type: 'body' }),
+      rule({ uid: 'body-1', type: 'request-body' }),
     ];
     const result = arbitrate(matching);
 
@@ -94,7 +94,7 @@ describe('shadow-arbitration', () => {
     const matching = [
       rule({ uid: 'redirect-1', name: 'Rewrite /v1 to /v2', type: 'redirect' }),
       rule({ uid: 'header-1', type: 'header' }),
-      rule({ uid: 'body-1', type: 'body' }),
+      rule({ uid: 'body-1', type: 'request-body' }),
       rule({ uid: 'mock-1', type: 'response', responseSource: 'mock' }),
       rule({ uid: 'delay-1', type: 'delay' }),
     ];
@@ -167,7 +167,7 @@ describe('shadow-arbitration', () => {
   it('mock-source response intercepts body rules and response-side header rules', () => {
     const matching = [
       rule({ uid: 'mock-1', name: 'Mock api', type: 'response', responseSource: 'mock' }),
-      rule({ uid: 'body-1', type: 'body' }),
+      rule({ uid: 'body-1', type: 'request-body' }),
       headerRule('header-res', [{ side: 'response', operation: 'set', name: 'x-test' }]),
       headerRule('header-req', [{ side: 'request', operation: 'set', name: 'authorization' }]),
     ];
@@ -191,7 +191,7 @@ describe('shadow-arbitration', () => {
   it('network-source response does NOT intercept body or response-side header rules', () => {
     const matching = [
       rule({ uid: 'resp-1', name: 'Modify api', type: 'response', responseSource: 'network' }),
-      rule({ uid: 'body-1', type: 'body' }),
+      rule({ uid: 'body-1', type: 'request-body' }),
       headerRule('header-res', [{ side: 'response', operation: 'set', name: 'x-test' }]),
     ];
     const result = arbitrate(matching);

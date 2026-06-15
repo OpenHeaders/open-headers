@@ -147,12 +147,12 @@ describe('startCdpFetchInterceptor (D2)', () => {
     expect(fires[0]?.record.resourceType).toBe('main_frame');
   });
 
-  it('rewrites the request body for a matching static body rule', async () => {
+  it('rewrites the request body for a matching static request-body rule', async () => {
     const bodyRule: Rule = {
       ...ruleBase,
-      type: 'body',
+      type: 'request-body',
       conditions: [{ uid: 'cnd00001', type: 'request-domains', values: ['api.openheaders.io'] }],
-      action: { bodyType: 'static', body: '{"override":1}', resourceType: 'rest' },
+      action: { bodyType: 'static', requestBody: '{"override":1}', resourceType: 'rest' },
     } as Rule;
     const { stream, port, fires } = harness([bodyRule]);
 

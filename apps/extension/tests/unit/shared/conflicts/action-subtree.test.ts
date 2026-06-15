@@ -104,8 +104,8 @@ const injectRule: Rule = {
 
 const bodyRule: Rule = {
   ...makeBase('r-b'),
-  type: 'body',
-  action: { bodyType: 'replace', body: '{}', resourceType: 'xhr' },
+  type: 'request-body',
+  action: { bodyType: 'replace', requestBody: '{}', resourceType: 'xhr' },
 } as unknown as Rule;
 
 const responseRule: Rule = {
@@ -129,7 +129,7 @@ const FIXTURES: ReadonlyArray<{ name: string; rule: Rule }> = [
   { name: 'redirect', rule: redirectRule },
   { name: 'delay', rule: delayRule },
   { name: 'inject', rule: injectRule },
-  { name: 'body', rule: bodyRule },
+  { name: 'request-body', rule: bodyRule },
   { name: 'response', rule: responseRule },
   { name: 'block', rule: blockRule },
 ];

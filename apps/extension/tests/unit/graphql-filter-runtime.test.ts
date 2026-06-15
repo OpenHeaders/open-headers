@@ -16,10 +16,10 @@
  */
 
 import type {
-  BodyAction,
-  BodyModType,
-  BodyResourceType,
-  BodyRule,
+  ApiResourceType,
+  RequestBodyAction,
+  RequestBodyRule,
+  RequestBodyType,
   ResponseAction,
   ResponseBodyType,
   ResponseRule,
@@ -32,7 +32,7 @@ vi.mock('@utils/logger', () => ({
 }));
 
 import {
-  buildBodyInjection,
+  buildRequestBodyInjection,
   buildResponseInjection,
   type FuncInjection,
 } from '@openheaders/rule-engine/content-scripts';
@@ -75,22 +75,22 @@ afterEach(() => {
 });
 
 function bodyRule(opts: {
-  bodyType: BodyModType;
+  bodyType: RequestBodyType;
   body: string;
-  resourceType: BodyResourceType;
-  graphqlFilter?: BodyAction['graphqlFilter'];
-}): BodyRule {
+  resourceType: ApiResourceType;
+  graphqlFilter?: RequestBodyAction['graphqlFilter'];
+}): RequestBodyRule {
   return {
     schemaVersion: 5,
     uid: 'bdy00001',
     path: 'rules/body',
     name: 'Body',
-    type: 'body',
+    type: 'request-body',
     enabled: true,
     conditions: [{ uid: 'tcd00036', type: 'request-domains', values: ['openheaders.io'] }],
     action: {
       bodyType: opts.bodyType,
-      body: opts.body,
+      requestBody: opts.body,
       resourceType: opts.resourceType,
       graphqlFilter: opts.graphqlFilter,
     },
@@ -101,7 +101,7 @@ function responseRule(opts: {
   responseSource: ResponseSource;
   bodyType: ResponseBodyType;
   responseBody: string;
-  resourceType?: BodyResourceType;
+  resourceType?: ApiResourceType;
   graphqlFilter?: ResponseAction['graphqlFilter'];
 }): ResponseRule {
   return {
@@ -146,7 +146,7 @@ describe('static body — graphql operation filter', () => {
       resourceType: 'graphql',
       graphqlFilter: { key: 'operationName', operator: 'Equals', value: 'getUsers' },
     });
-    installFunc(buildBodyInjection(rule) as FuncInjection);
+    installFunc(buildRequestBodyInjection(rule) as FuncInjection);
 
     await window.fetch(URL, {
       method: 'POST',
@@ -162,7 +162,7 @@ describe('static body — graphql operation filter', () => {
       resourceType: 'graphql',
       graphqlFilter: { key: 'operationName', operator: 'Equals', value: 'getUsers' },
     });
-    installFunc(buildBodyInjection(rule) as FuncInjection);
+    installFunc(buildRequestBodyInjection(rule) as FuncInjection);
 
     const original = JSON.stringify({ operationName: 'getPosts', query: '...' });
     await window.fetch(URL, { method: 'POST', body: original });
@@ -176,7 +176,7 @@ describe('static body — graphql operation filter', () => {
       resourceType: 'graphql',
       graphqlFilter: { key: 'query', operator: 'Contains', value: 'users {' },
     });
-    installFunc(buildBodyInjection(rule) as FuncInjection);
+    installFunc(buildRequestBodyInjection(rule) as FuncInjection);
 
     await window.fetch(URL, {
       method: 'POST',
@@ -192,7 +192,7 @@ describe('static body — graphql operation filter', () => {
       resourceType: 'graphql',
       graphqlFilter: { key: 'operationName', operator: 'Equals', value: 'getUsers' },
     });
-    installFunc(buildBodyInjection(rule) as FuncInjection);
+    installFunc(buildRequestBodyInjection(rule) as FuncInjection);
 
     const original = 'not-json-at-all';
     await window.fetch(URL, { method: 'POST', body: original });
@@ -205,7 +205,7 @@ describe('static body — graphql operation filter', () => {
       body: '{"replaced":true}',
       resourceType: 'rest',
     });
-    installFunc(buildBodyInjection(rule) as FuncInjection);
+    installFunc(buildRequestBodyInjection(rule) as FuncInjection);
 
     await window.fetch(URL, { method: 'POST', body: 'anything' });
     expect(lastFetchBody()).toBe('{"replaced":true}');
@@ -220,7 +220,7 @@ describe('dynamic body — graphql operation filter', () => {
       resourceType: 'graphql',
       graphqlFilter: { key: 'operationName', operator: 'Equals', value: 'getUsers' },
     });
-    const inj = buildBodyInjection(rule);
+    const inj = buildRequestBodyInjection(rule);
     expect(inj.kind).toBe('inline-script');
     if (inj.kind !== 'inline-script') return;
     installInline(inj.code);

@@ -12,7 +12,7 @@
  * Same fix already shipped for header-merge / ws / sse.
  */
 
-import type { BodyRule, DelayRule, InjectRule, ResponseRule } from '@openheaders/core/types';
+import type { DelayRule, InjectRule, RequestBodyRule, ResponseRule } from '@openheaders/core/types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@utils/logger', () => ({
@@ -31,10 +31,10 @@ const spies = vi.hoisted(() => ({
   injectScriptUrl: vi.fn(() => Promise.resolve()),
   injectCSSUrl: vi.fn(() => Promise.resolve()),
   buildResponseInjection: vi.fn(),
-  buildBodyInjection: vi.fn(),
+  buildRequestBodyInjection: vi.fn(),
   buildDelayInjection: vi.fn(),
 }));
-const { injectScript, buildResponseInjection, buildBodyInjection, buildDelayInjection } = spies;
+const { injectScript, buildResponseInjection, buildRequestBodyInjection, buildDelayInjection } = spies;
 
 vi.mock('@openheaders/rule-engine/inject', () => ({
   applyInjection: spies.applyInjection,
@@ -46,7 +46,7 @@ vi.mock('@openheaders/rule-engine/inject', () => ({
 
 vi.mock('@openheaders/rule-engine/content-scripts', () => ({
   buildResponseInjection: spies.buildResponseInjection,
-  buildBodyInjection: spies.buildBodyInjection,
+  buildRequestBodyInjection: spies.buildRequestBodyInjection,
   buildDelayInjection: spies.buildDelayInjection,
   buildHeaderMergeInjection: vi.fn(),
   buildWsInjection: vi.fn(),
@@ -113,15 +113,15 @@ describe('mock/body/delay interceptor install gate', () => {
   });
 
   it('installs body and delay interceptors on a non-matching page too', async () => {
-    const bodyRule: BodyRule = {
+    const bodyRule: RequestBodyRule = {
       schemaVersion: 5,
       uid: 'bd111111',
       path: 'rules/body',
       name: 'Body',
-      type: 'body',
+      type: 'request-body',
       enabled: true,
       conditions: [{ uid: 'tcd00063', type: 'url-filter', values: ['*://127.0.0.1:3000/echo/mocked*'] }],
-      action: { bodyType: 'static', body: '{"x":1}', resourceType: 'rest' },
+      action: { bodyType: 'static', requestBody: '{"x":1}', resourceType: 'rest' },
     };
     const delayRule: DelayRule = {
       schemaVersion: 5,
@@ -136,7 +136,7 @@ describe('mock/body/delay interceptor install gate', () => {
     updateScriptableRules([bodyRule, delayRule]);
     await __testInjectForUrl(1, PLAYGROUND_PAGE);
 
-    expect(buildBodyInjection).toHaveBeenCalledWith(bodyRule);
+    expect(buildRequestBodyInjection).toHaveBeenCalledWith(bodyRule);
     expect(buildDelayInjection).toHaveBeenCalledWith(delayRule);
   });
 

@@ -19,9 +19,9 @@ describe('RULE_FIELD scalar leaves', () => {
     expect(RULE_FIELD.injectType).toBe('action.injectType');
     expect(RULE_FIELD.injectSource).toBe('action.source');
     expect(RULE_FIELD.injectPosition).toBe('action.position');
-    expect(RULE_FIELD.body).toBe('action.body');
-    expect(RULE_FIELD.bodyType).toBe('action.bodyType');
-    expect(RULE_FIELD.bodyResourceType).toBe('action.resourceType');
+    expect(RULE_FIELD.requestBody).toBe('action.requestBody');
+    expect(RULE_FIELD.requestBodyType).toBe('action.bodyType');
+    expect(RULE_FIELD.apiResourceType).toBe('action.resourceType');
     expect(RULE_FIELD.delayMs).toBe('action.delayMs');
     expect(RULE_FIELD.responseSource).toBe('action.responseSource');
     expect(RULE_FIELD.responseStatusCode).toBe('action.statusCode');
