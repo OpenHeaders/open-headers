@@ -9,7 +9,7 @@
  *
  * Conditional blocks read trigger values via `Form.Item shouldUpdate`
  * render props (not `Form.useWatch`) — same first-render timing
- * rationale as BodyRuleFields.
+ * rationale as RequestBodyRuleFields.
  */
 
 import { InfoCircleOutlined } from '@ant-design/icons';

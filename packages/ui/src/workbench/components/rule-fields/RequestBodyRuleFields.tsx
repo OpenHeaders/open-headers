@@ -1,5 +1,5 @@
 /**
- * BodyRuleFields — Modify Request Body rule configuration.
+ * RequestBodyRuleFields — Modify Request Body rule configuration.
  *
  * Layout:
  *   - Resource Type selector: REST API / GraphQL API
@@ -7,9 +7,9 @@
  *     on requests whose JSON payload's configured field matches the
  *     user's value (Equals or Contains). Honored by the fetch/XHR
  *     monkey-patch in `content-scripts.ts` for both static and dynamic
- *     body rules.
+ *     request-body rules.
  *   - Static Data / Dynamic (JavaScript) toggle
- *   - Code editor for body content
+ *   - Code editor for request body content
  *
  * Conditional blocks read their trigger value via `Form.Item shouldUpdate`
  * render props, not `Form.useWatch`. The useWatch subscription model has a
@@ -20,7 +20,7 @@
  * field changes it declares.
  *
  * The dynamic-template prefill side effect lives in the parent editor's
- * `onValuesChange`, which sees the bodyModType change via `changedValues`
+ * `onValuesChange`, which sees the requestBodyType change via `changedValues`
  * the moment the Radio flips — no parallel hook needed here.
  */
 
@@ -35,14 +35,14 @@ import ScalarConflictChip from '@openheaders/ui/shared/conflicts/ScalarConflictC
 
 const { Text } = Typography;
 
-export const BODY_DYNAMIC_TEMPLATE = `function modifyRequestBody(args) {
+export const REQUEST_BODY_DYNAMIC_TEMPLATE = `function modifyRequestBody(args) {
   const { method, url, body, bodyAsJson } = args;
   // Change request body below depending upon request attributes received in args
 
   return body;
 }`;
 
-const BodyRuleFields: React.FC = () => {
+const RequestBodyRuleFields: React.FC = () => {
   const { openDocs } = useInspectorNav();
   const form = Form.useFormInstance();
   const paths = useActionPaths();
@@ -56,8 +56,8 @@ const BodyRuleFields: React.FC = () => {
         <InfoCircleOutlined
           style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
           onClick={() => {
-            const bodyType = form.getFieldValue('bodyModType');
-            openDocs(getDocId(bodyType === 'dynamic' ? 'body-dynamic' : 'body-static', 'action'));
+            const bodyType = form.getFieldValue('requestBodyType');
+            openDocs(getDocId(bodyType === 'dynamic' ? 'request-body-dynamic' : 'request-body-static', 'action'));
           }}
         />
       </div>
@@ -73,8 +73,8 @@ const BodyRuleFields: React.FC = () => {
         <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
           Select Resource Type
         </Text>
-        <EntityField path={paths.bodyResourceType}>
-          <Form.Item name="bodyResourceType" style={{ marginBottom: 0 }}>
+        <EntityField path={paths.apiResourceType}>
+          <Form.Item name="requestResourceType" style={{ marginBottom: 0 }}>
             <Radio.Group>
               <Radio value="rest">REST API</Radio>
               <Radio value="graphql">GraphQL API</Radio>
@@ -84,9 +84,9 @@ const BodyRuleFields: React.FC = () => {
       </div>
 
       {/* GraphQL Operation filter — shown only when resourceType === 'graphql'. */}
-      <Form.Item noStyle shouldUpdate={(prev, cur) => prev.bodyResourceType !== cur.bodyResourceType}>
+      <Form.Item noStyle shouldUpdate={(prev, cur) => prev.requestResourceType !== cur.requestResourceType}>
         {({ getFieldValue }) => {
-          if (getFieldValue('bodyResourceType') !== 'graphql') return null;
+          if (getFieldValue('requestResourceType') !== 'graphql') return null;
           return (
             <div style={{ marginBottom: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
@@ -95,17 +95,17 @@ const BodyRuleFields: React.FC = () => {
                 </Text>
                 <InfoCircleOutlined
                   style={{ fontSize: 11, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
-                  onClick={() => openDocs(getDocId('body-graphql', 'action'))}
+                  onClick={() => openDocs(getDocId('request-body-graphql', 'action'))}
                 />
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <EntityField path={paths.graphqlKey}>
-                  <Form.Item name="bodyGraphqlKey" style={{ marginBottom: 0, flex: 1 }}>
+                  <Form.Item name="requestGraphqlKey" style={{ marginBottom: 0, flex: 1 }}>
                     <Input size="small" placeholder="Key e.g. operationName" />
                   </Form.Item>
                 </EntityField>
                 <EntityField path={paths.graphqlOperator}>
-                  <Form.Item name="bodyGraphqlOperator" style={{ marginBottom: 0, width: 120 }}>
+                  <Form.Item name="requestGraphqlOperator" style={{ marginBottom: 0, width: 120 }}>
                     <Select
                       size="small"
                       options={[
@@ -116,7 +116,7 @@ const BodyRuleFields: React.FC = () => {
                   </Form.Item>
                 </EntityField>
                 <EntityField path={paths.graphqlValue}>
-                  <Form.Item name="bodyGraphqlValue" style={{ marginBottom: 0, flex: 1 }}>
+                  <Form.Item name="requestGraphqlValue" style={{ marginBottom: 0, flex: 1 }}>
                     <Input size="small" placeholder="value e.g. getUsers" />
                   </Form.Item>
                 </EntityField>
@@ -125,9 +125,9 @@ const BodyRuleFields: React.FC = () => {
                   size="small"
                   onClick={() => {
                     form.setFieldsValue({
-                      bodyGraphqlKey: undefined,
-                      bodyGraphqlOperator: 'Equals',
-                      bodyGraphqlValue: undefined,
+                      requestGraphqlKey: undefined,
+                      requestGraphqlOperator: 'Equals',
+                      requestGraphqlValue: undefined,
                     });
                   }}
                 >
@@ -145,8 +145,8 @@ const BodyRuleFields: React.FC = () => {
           <Text strong style={{ fontSize: 12 }}>
             Request Body
           </Text>
-          <EntityField path={paths.bodyType}>
-            <Form.Item name="bodyModType" style={{ marginBottom: 0 }}>
+          <EntityField path={paths.requestBodyType}>
+            <Form.Item name="requestBodyType" style={{ marginBottom: 0 }}>
               <Radio.Group size="small">
                 <Radio.Button value="static">Static Data</Radio.Button>
                 <Radio.Button value="dynamic">
@@ -155,7 +155,7 @@ const BodyRuleFields: React.FC = () => {
                     style={{ fontSize: 11, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
                     onClick={(e) => {
                       e.stopPropagation();
-                      openDocs(getDocId('body-dynamic', 'action'));
+                      openDocs(getDocId('request-body-dynamic', 'action'));
                     }}
                   />
                 </Radio.Button>
@@ -165,10 +165,10 @@ const BodyRuleFields: React.FC = () => {
         </div>
 
         {/* Dynamic info banner + the static/dynamic CodeEditor swap — both
-            depend on bodyModType, so they live in one shouldUpdate block. */}
-        <Form.Item noStyle shouldUpdate={(prev, cur) => prev.bodyModType !== cur.bodyModType}>
+            depend on requestBodyType, so they live in one shouldUpdate block. */}
+        <Form.Item noStyle shouldUpdate={(prev, cur) => prev.requestBodyType !== cur.requestBodyType}>
           {({ getFieldValue }) => {
-            const isDynamic = getFieldValue('bodyModType') === 'dynamic';
+            const isDynamic = getFieldValue('requestBodyType') === 'dynamic';
             return (
               <>
                 {isDynamic && (
@@ -190,10 +190,10 @@ const BodyRuleFields: React.FC = () => {
                 {isDynamic ? (
                   <>
                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
-                      <ScalarConflictChip formName="bodyDynamicContent" schemaPath={paths.body} />
+                      <ScalarConflictChip formName="requestDynamicBody" schemaPath={paths.requestBody} />
                     </div>
-                    <EntityField path={paths.body}>
-                      <Form.Item name="bodyDynamicContent" style={{ marginBottom: 0 }}>
+                    <EntityField path={paths.requestBody}>
+                      <Form.Item name="requestDynamicBody" style={{ marginBottom: 0 }}>
                         <CodeEditor language="javascript" minHeight={240} />
                       </Form.Item>
                     </EntityField>
@@ -201,10 +201,10 @@ const BodyRuleFields: React.FC = () => {
                 ) : (
                   <>
                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
-                      <ScalarConflictChip formName="bodyStaticContent" schemaPath={paths.body} />
+                      <ScalarConflictChip formName="requestStaticBody" schemaPath={paths.requestBody} />
                     </div>
-                    <EntityField path={paths.body}>
-                      <Form.Item name="bodyStaticContent" style={{ marginBottom: 0 }}>
+                    <EntityField path={paths.requestBody}>
+                      <Form.Item name="requestStaticBody" style={{ marginBottom: 0 }}>
                         <CodeEditor language="json" placeholder={'{"key": "value"}'} minHeight={160} />
                       </Form.Item>
                     </EntityField>
@@ -219,4 +219,4 @@ const BodyRuleFields: React.FC = () => {
   );
 };
 
-export default BodyRuleFields;
+export default RequestBodyRuleFields;

@@ -84,7 +84,7 @@ const RULE_TYPE_LABEL: Record<string, string> = {
   redirect: 'Redirect',
   'query-param': 'Query Param',
   inject: 'Inject',
-  body: 'API Request',
+  'request-body': 'API Request',
   delay: 'Delay',
   response: 'API Response',
 };
@@ -95,7 +95,7 @@ const RULE_TYPE_DESCRIPTION: Record<string, string> = {
   redirect: 'Redirect requests',
   'query-param': 'Modify query parameters',
   inject: 'Inject scripts or CSS',
-  body: 'Modify API request body (fetch/XHR)',
+  'request-body': 'Modify API request body (fetch/XHR)',
   delay: 'Delay response',
   response: 'Mock or modify API response (fetch/XHR)',
 };

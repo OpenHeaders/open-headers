@@ -59,11 +59,11 @@ export const PRIORITY_TIERS: PriorityTier[] = [
     ruleTypes: ['inject'],
   },
   {
-    key: 'body',
+    key: 'request-body',
     label: 'API Request Body',
     description: 'Modify fetch/XHR request bodies',
     color: '#2f54eb',
-    ruleTypes: ['body'],
+    ruleTypes: ['request-body'],
   },
   {
     key: 'response',

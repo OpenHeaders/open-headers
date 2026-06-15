@@ -316,7 +316,7 @@ const DEFAULT_ICON: Record<string, string> = {
   'query-param': 'TagTwoTone',
   inject: 'CodeTwoTone',
   delay: 'ClockCircleTwoTone',
-  body: 'FileTextTwoTone',
+  'request-body': 'FileTextTwoTone',
   response: 'ApiTwoTone',
 };
 

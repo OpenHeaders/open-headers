@@ -307,9 +307,9 @@ const DELAY_TREE: SystemTemplateNode[] = [
   ]),
 ];
 
-// ── Body templates ──────────────────────────────────────────────
+// ── Request-body templates ──────────────────────────────────────
 
-const BODY_TREE: SystemTemplateNode[] = [
+const REQUEST_BODY_TREE: SystemTemplateNode[] = [
   f('REST', [
     t({
       key: 'rest-body-override',
@@ -318,9 +318,9 @@ const BODY_TREE: SystemTemplateNode[] = [
       description: 'Replace the request body with a static JSON payload',
       conditions: [{ uid: 'sct00019', type: 'request-domains', values: ['api.openheaders.io'] }],
       formValues: {
-        bodyResourceType: 'rest',
-        bodyModType: 'static',
-        bodyStaticContent: '{\n  "name": "Test User",\n  "email": "user@openheaders.io"\n}',
+        requestResourceType: 'rest',
+        requestBodyType: 'static',
+        requestStaticBody: '{\n  "name": "Test User",\n  "email": "user@openheaders.io"\n}',
       },
     }),
   ]),
@@ -332,13 +332,13 @@ const BODY_TREE: SystemTemplateNode[] = [
       description: 'Override a GraphQL request body with a custom query and variables',
       conditions: [{ uid: 'sct00020', type: 'request-domains', values: ['api.openheaders.io'] }],
       formValues: {
-        bodyResourceType: 'graphql',
-        bodyModType: 'static',
-        bodyStaticContent:
+        requestResourceType: 'graphql',
+        requestBodyType: 'static',
+        requestStaticBody:
           '{\n  "query": "query GetUser($id: ID!) { user(id: $id) { name email } }",\n  "operationName": "GetUser",\n  "variables": { "id": "1" }\n}',
-        bodyGraphqlKey: 'operationName',
-        bodyGraphqlOperator: 'Equals',
-        bodyGraphqlValue: 'GetUser',
+        requestGraphqlKey: 'operationName',
+        requestGraphqlOperator: 'Equals',
+        requestGraphqlValue: 'GetUser',
       },
     }),
   ]),
@@ -517,7 +517,7 @@ export const SYSTEM_TEMPLATE_TREE_BY_TYPE: Record<string, SystemTemplateNode[]> 
   'query-param': QUERY_PARAM_TREE,
   inject: INJECT_TREE,
   delay: DELAY_TREE,
-  body: BODY_TREE,
+  'request-body': REQUEST_BODY_TREE,
   response: RESPONSE_TREE,
 };
 

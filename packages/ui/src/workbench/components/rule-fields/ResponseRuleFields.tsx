@@ -242,7 +242,7 @@ const ResponseRuleFields: React.FC = () => {
         <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
           Select Resource Type
         </Text>
-        <EntityField path={paths.bodyResourceType}>
+        <EntityField path={paths.apiResourceType}>
           <Form.Item name="responseResourceType" style={{ marginBottom: 0 }}>
             <Radio.Group>
               <Radio value="rest">REST API</Radio>
@@ -264,7 +264,7 @@ const ResponseRuleFields: React.FC = () => {
                 </Text>
                 <InfoCircleOutlined
                   style={{ fontSize: 11, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
-                  onClick={() => openDocs(getDocId('body-graphql', 'action'))}
+                  onClick={() => openDocs(getDocId('request-body-graphql', 'action'))}
                 />
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>

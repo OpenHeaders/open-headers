@@ -49,7 +49,7 @@ import EditorHeader from './EditorHeader';
 import { mergeTemplateForSave } from './merge-template-for-save';
 import { ActionValueBanner } from './rule-fields/ActionValueBanner';
 import BlockRuleFields from './rule-fields/BlockRuleFields';
-import BodyRuleFields, { BODY_DYNAMIC_TEMPLATE } from './rule-fields/BodyRuleFields';
+import RequestBodyRuleFields, { REQUEST_BODY_DYNAMIC_TEMPLATE } from './rule-fields/RequestBodyRuleFields';
 import DelayRuleFields from './rule-fields/DelayRuleFields';
 import HeaderRuleFields from './rule-fields/HeaderRuleFields';
 import InjectRuleFields, { maybePrefillInjectCode } from './rule-fields/InjectRuleFields';
@@ -71,7 +71,7 @@ const RULE_TYPE_OPTIONS = [
   { value: 'query-param', label: 'Query Param Rule' },
   { value: 'inject', label: 'Inject Rule' },
   { value: 'delay', label: 'Delay Rule' },
-  { value: 'body', label: 'API Request Body Rule' },
+  { value: 'request-body', label: 'API Request Body Rule' },
   { value: 'response', label: 'API Response Rule' },
 ];
 
@@ -350,9 +350,9 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
       setHeaderResCount(resH?.length ?? 0);
 
       // Dynamic-template prefill — same posture as RuleEditor.
-      if (changedValues.bodyModType === 'dynamic') {
-        const dyn = form.getFieldValue('bodyDynamicContent') as string | undefined;
-        if (!dyn?.trim()) form.setFieldValue('bodyDynamicContent', BODY_DYNAMIC_TEMPLATE);
+      if (changedValues.requestBodyType === 'dynamic') {
+        const dyn = form.getFieldValue('requestDynamicBody') as string | undefined;
+        if (!dyn?.trim()) form.setFieldValue('requestDynamicBody', REQUEST_BODY_DYNAMIC_TEMPLATE);
       }
       if (changedValues.responseBodyType === 'dynamic' || 'responseSource' in changedValues) {
         if (form.getFieldValue('responseBodyType') === 'dynamic') {
@@ -465,7 +465,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
             {selectedType === 'query-param' && <QueryParamRuleFields />}
             {selectedType === 'inject' && <InjectRuleFields />}
             {selectedType === 'delay' && <DelayRuleFields />}
-            {selectedType === 'body' && <BodyRuleFields />}
+            {selectedType === 'request-body' && <RequestBodyRuleFields />}
             {selectedType === 'response' && <ResponseRuleFields />}
             {selectedType === 'ws' && <WsRuleFields />}
             {selectedType === 'sse' && <SseRuleFields />}

@@ -45,9 +45,9 @@ export interface ActionPathBundle {
   injectCode: string;
   injectSourceUrl: string;
   injectPosition: string;
-  bodyType: string;
-  body: string;
-  bodyResourceType: string;
+  requestBodyType: string;
+  requestBody: string;
+  apiResourceType: string;
   graphqlKey: string;
   graphqlOperator: string;
   graphqlValue: string;
@@ -110,9 +110,9 @@ export function createActionPaths(opts: ActionPathsOptions): ActionPathBundle {
     injectCode: `${a}.code`,
     injectSourceUrl: `${a}.sourceUrl`,
     injectPosition: `${a}.position`,
-    bodyType: `${a}.bodyType`,
-    body: `${a}.body`,
-    bodyResourceType: `${a}.resourceType`,
+    requestBodyType: `${a}.bodyType`,
+    requestBody: `${a}.requestBody`,
+    apiResourceType: `${a}.resourceType`,
     graphqlKey: `${a}.graphqlFilter.key`,
     graphqlOperator: `${a}.graphqlFilter.operator`,
     graphqlValue: `${a}.graphqlFilter.value`,

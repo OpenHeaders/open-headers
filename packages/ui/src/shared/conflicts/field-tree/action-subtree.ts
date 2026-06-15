@@ -123,9 +123,9 @@ function buildActionUnion(paths: ActionPathBundle, discriminatorField: string): 
         sourceUrl: leaf('string'),
         position: leaf('string'),
       }),
-      body: obj({
+      'request-body': obj({
         bodyType: leaf('string'),
-        body: leaf('string'),
+        requestBody: leaf('string'),
         resourceType: leaf('string'),
       }),
       response: obj({

@@ -378,14 +378,14 @@ export function renderActionDetails(
     'query-param': 'Count',
     inject: 'Type',
     delay: 'Duration',
-    body: 'Format',
+    'request-body': 'Format',
     response: 'Status',
   };
   const valueKey: Record<string, string> = {
     header: 'Value',
     redirect: 'URL',
     inject: 'Position',
-    body: 'Body',
+    'request-body': 'Body',
     response: 'Content-Type',
   };
 

@@ -3,7 +3,7 @@
  * per-type field components (`rule-fields/*`).
  *
  * RuleEditor and TemplateEditor reuse the same per-rule-type field
- * components (`HeaderRuleFields`, `BodyRuleFields`, …) but persist
+ * components (`HeaderRuleFields`, `RequestBodyRuleFields`, …) but persist
  * action data under different schema roots:
  *
  *   - Rule:     `action.requestHeaders.<uid>.value` etc.

@@ -162,7 +162,7 @@ function assembleSyntheticRule(
         type: 'delay',
         action: { delayMs: (formValues.delayMs as number) ?? 0 },
       };
-    // The form field names are prefixed (`injectCode`, `bodyModType`,
+    // The form field names are prefixed (`injectCode`, `requestBodyType`,
     // `responseHeaderRows`, …) to keep them unambiguous in the shared
     // form-state object. Map them back to the schema's action shape here.
     case 'inject':
@@ -178,25 +178,25 @@ function assembleSyntheticRule(
           bypassCSP: formValues.injectBypassCSP as boolean | undefined,
         },
       };
-    case 'body': {
-      const bodyType = (formValues.bodyModType as 'static' | 'dynamic') ?? 'static';
+    case 'request-body': {
+      const bodyType = (formValues.requestBodyType as 'static' | 'dynamic') ?? 'static';
       const bodyContent =
         bodyType === 'dynamic'
-          ? ((formValues.bodyDynamicContent as string) ?? '')
-          : ((formValues.bodyStaticContent as string) ?? '');
-      const gqlKey = ((formValues.bodyGraphqlKey as string) ?? '').trim();
+          ? ((formValues.requestDynamicBody as string) ?? '')
+          : ((formValues.requestStaticBody as string) ?? '');
+      const gqlKey = ((formValues.requestGraphqlKey as string) ?? '').trim();
       return {
         ...baseShell,
-        type: 'body',
+        type: 'request-body',
         action: {
           bodyType,
-          body: bodyContent,
-          resourceType: (formValues.bodyResourceType as 'rest' | 'graphql') ?? 'rest',
+          requestBody: bodyContent,
+          resourceType: (formValues.requestResourceType as 'rest' | 'graphql') ?? 'rest',
           graphqlFilter: gqlKey
             ? {
                 key: gqlKey,
-                operator: ((formValues.bodyGraphqlOperator as string) || 'Equals') as 'Equals' | 'Contains',
-                value: (formValues.bodyGraphqlValue as string) ?? '',
+                operator: ((formValues.requestGraphqlOperator as string) || 'Equals') as 'Equals' | 'Contains',
+                value: (formValues.requestGraphqlValue as string) ?? '',
               }
             : undefined,
         },

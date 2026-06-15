@@ -23,7 +23,7 @@ const RULE_TYPE_LABEL: Record<string, string> = {
   'query-param': 'Query Param',
   inject: 'Inject',
   delay: 'Delay',
-  body: 'API Request Body',
+  'request-body': 'API Request Body',
   response: 'API Response',
 };
 
@@ -210,8 +210,8 @@ const SaveAsTemplateModal: React.FC<SaveAsTemplateModalProps> = ({
               formValues.injectCode ||
               formValues.responseStaticBody ||
               formValues.responseDynamicBody ||
-              formValues.bodyStaticContent ||
-              formValues.bodyDynamicContent
+              formValues.requestStaticBody ||
+              formValues.requestDynamicBody
             );
             const total = count || (hasScalar ? 1 : 0);
             return total > 0 ? (

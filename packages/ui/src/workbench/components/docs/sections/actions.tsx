@@ -114,8 +114,8 @@ export const ActionsSection: React.FC = () => (
             <DocLink to="query-param">Query Params</DocLink> — add, replace, or remove URL parameters.
           </li>
           <li>
-            <DocLink to="body">Request Body</DocLink> — rewrite the outgoing fetch / XHR body (static, dynamic, or
-            GraphQL-filtered).
+            <DocLink to="request-body">Request Body</DocLink> — rewrite the outgoing fetch / XHR body (static, dynamic,
+            or GraphQL-filtered).
           </li>
         </ul>
       </Card>
@@ -251,7 +251,7 @@ export const HeaderActionsSection: React.FC = () => (
   </>
 );
 
-// ── Actions: Block / Redirect / QueryParam / Inject / Delay / Body / Mock ──
+// ── Actions: Block / Redirect / QueryParam / Inject / Delay / Request Body / Response ──
 
 export const BlockSection: React.FC = () => (
   <>
@@ -493,7 +493,7 @@ export const DelaySection: React.FC = () => (
   </>
 );
 
-export const BodySection: React.FC = () => (
+export const RequestBodySection: React.FC = () => (
   <>
     <SurfaceContext surfaces={['popup', 'side-panel', 'workbench', 'devtools']} />
     <DocParagraph>
@@ -504,7 +504,7 @@ export const BodySection: React.FC = () => (
       <BodyInterceptDiagram />
     </DiagramFrame>
 
-    <Anchor id="body-static">
+    <Anchor id="request-body-static">
       <ActionHeading title="Static body" engine="script" />
       <DocParagraph>
         Replaces the entire request body with a fixed string. Works for both REST and GraphQL — the rule doesn't parse
@@ -515,7 +515,7 @@ export const BodySection: React.FC = () => (
       </DiagramFrame>
     </Anchor>
 
-    <Anchor id="body-dynamic">
+    <Anchor id="request-body-dynamic">
       <ActionHeading title="Dynamic body" engine="script" />
       <DocParagraph>
         Write a function that receives the original body and request context, then returns the modified body. The
@@ -526,7 +526,7 @@ export const BodySection: React.FC = () => (
       </DiagramFrame>
     </Anchor>
 
-    <Anchor id="body-graphql">
+    <Anchor id="request-body-graphql">
       <ActionHeading title="GraphQL filter" engine="script" />
       <DocParagraph>
         When Resource Type is GraphQL, the rule fires only on requests whose JSON payload's configured field matches the

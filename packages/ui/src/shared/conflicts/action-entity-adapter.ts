@@ -48,7 +48,7 @@ import type { PathConflict } from './types';
 export interface ActionEntityAccessors<E extends { uid: string }> {
   signature: (entity: E) => string;
   /** Discriminator that selects the action-shape (header / inject /
-   *  body / response / …). Both rule (`rule.type`) and template
+   *  request-body / response / …). Both rule (`rule.type`) and template
    *  (`template.ruleType`) project to the same Rule['type'] union. */
   getRuleType: (entity: E) => Rule['type'];
   /** Schema field at the entity root that holds the rule-type
@@ -147,7 +147,7 @@ function buildSetDefs<E extends { uid: string }>(
       redirect: [],
       inject: [],
       delay: [],
-      body: [],
+      'request-body': [],
       response: [],
       ws: [],
       sse: [],
@@ -358,7 +358,7 @@ const SCALAR_LABEL: Record<string, string> = {
   code: 'Inject code',
   sourceUrl: 'Inject source URL',
   position: 'Inject position',
-  body: 'Body',
+  requestBody: 'Request body',
   bodyType: 'Body type',
   resourceType: 'Resource type',
   statusCode: 'Response status code',

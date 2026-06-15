@@ -10,12 +10,12 @@
 export {
   ActionsSection,
   BlockSection,
-  BodySection,
   DelaySection,
   HeaderActionsSection,
   InjectSection,
   QueryParamSection,
   RedirectSection,
+  RequestBodySection,
   ResponseSection,
 } from './actions';
 export {

@@ -35,7 +35,7 @@ const RULE_TYPE_ICON: Record<string, typeof StopOutlined> = {
   'query-param': LinkOutlined,
   inject: CodeOutlined,
   delay: ClockCircleOutlined,
-  body: FileOutlined,
+  'request-body': FileOutlined,
   response: FileOutlined,
   ws: ThunderboltOutlined,
   sse: NotificationOutlined,

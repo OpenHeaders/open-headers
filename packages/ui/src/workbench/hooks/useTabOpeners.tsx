@@ -61,7 +61,7 @@ const RULE_TYPE_LABELS: Record<string, string> = {
   'query-param': 'Query Param Rule',
   inject: 'Inject Rule',
   delay: 'Delay Rule',
-  body: 'API Request Body Rule',
+  'request-body': 'API Request Body Rule',
   response: 'API Response Rule',
   ws: 'WebSocket Rule',
   sse: 'SSE Rule',

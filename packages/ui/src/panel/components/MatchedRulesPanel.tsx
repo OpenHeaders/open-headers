@@ -40,8 +40,8 @@ function formatRuleTypeFromSnapshot(type: Rule['type']): string {
       return 'Block';
     case 'response':
       return 'Response';
-    case 'body':
-      return 'Body';
+    case 'request-body':
+      return 'Request Body';
     case 'delay':
       return 'Delay';
     case 'inject':

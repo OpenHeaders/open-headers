@@ -245,7 +245,7 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
       'query-param',
       'inject',
       'delay',
-      'body',
+      'request-body',
       'response',
       'ws',
       'sse',

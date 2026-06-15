@@ -154,7 +154,7 @@ export const FACTORY_SIDEBAR_EXPANSIONS: SidebarExpansionsState = {
     'sys-tpl-query-param',
     'sys-tpl-inject',
     'sys-tpl-delay',
-    'sys-tpl-body',
+    'sys-tpl-request-body',
     'sys-tpl-response',
   ],
 };

@@ -30,7 +30,7 @@ import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import { canonicalizeRule, parseRule, serializeRule } from '@openheaders/core/codec/yaml';
 import { freshDocument } from '@openheaders/core/schemas';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { AuthRule, BlockRule, BodyModType, BodyResourceType, BodyRule, DelayRule, ExtensionRuleType, HeaderModification, HeaderRule, InjectAction, InjectRule, InjectSource, InjectTrigger, InjectType, MessageFilter, MessageOperation, QueryParamOperation, QueryParamRule, RedirectRule, ResponseBodyType, ResponseRule, ResponseSource, Rule, RuleCondition, RuleDraft, SseRule, TreeNode, WsDirection, WsRule } from '@openheaders/core/types';
+import type { ApiResourceType, AuthRule, BlockRule, DelayRule, ExtensionRuleType, HeaderModification, HeaderRule, InjectAction, InjectRule, InjectSource, InjectTrigger, InjectType, MessageFilter, MessageOperation, QueryParamOperation, QueryParamRule, RedirectRule, RequestBodyRule, RequestBodyType, ResponseBodyType, ResponseRule, ResponseSource, Rule, RuleCondition, RuleDraft, SseRule, TreeNode, WsDirection, WsRule } from '@openheaders/core/types';
 import { generateUid, isRuleComplete } from '@openheaders/core/utils';
 import type { MenuProps } from 'antd';
 import { Alert, App, Button, Dropdown, Form, Switch, Tooltip, Typography, theme } from 'antd';
@@ -67,7 +67,7 @@ import EditorHeader from './EditorHeader';
 import { ActionValueBanner } from './rule-fields/ActionValueBanner';
 import AuthRuleFields from './rule-fields/AuthRuleFields';
 import BlockRuleFields from './rule-fields/BlockRuleFields';
-import BodyRuleFields, { BODY_DYNAMIC_TEMPLATE } from './rule-fields/BodyRuleFields';
+import RequestBodyRuleFields, { REQUEST_BODY_DYNAMIC_TEMPLATE } from './rule-fields/RequestBodyRuleFields';
 import DelayRuleFields from './rule-fields/DelayRuleFields';
 import HeaderRuleFields from './rule-fields/HeaderRuleFields';
 import InjectRuleFields, { maybePrefillInjectCode } from './rule-fields/InjectRuleFields';
@@ -93,7 +93,7 @@ const RULE_TYPE_TITLE: Record<string, string> = {
   redirect: 'Redirect Rule',
   'query-param': 'Query Param Rule',
   inject: 'Inject Rule',
-  body: 'API Request Body Rule',
+  'request-body': 'API Request Body Rule',
   delay: 'Delay Rule',
   response: 'API Response Rule',
   ws: 'WebSocket Rule',
@@ -326,17 +326,17 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
           form.setFieldsValue({ ...baseValues, delayMs: dr.action.delayMs });
           break;
         }
-        case 'body': {
-          const br = rule as BodyRule;
+        case 'request-body': {
+          const br = rule as RequestBodyRule;
           form.setFieldsValue({
             ...baseValues,
-            bodyModType: br.action.bodyType || 'static',
-            bodyStaticContent: br.action.bodyType === 'dynamic' ? '' : br.action.body,
-            bodyDynamicContent: br.action.bodyType === 'dynamic' ? br.action.body : '',
-            bodyResourceType: br.action.resourceType || 'rest',
-            bodyGraphqlKey: br.action.graphqlFilter?.key || '',
-            bodyGraphqlOperator: br.action.graphqlFilter?.operator || 'Equals',
-            bodyGraphqlValue: br.action.graphqlFilter?.value || '',
+            requestBodyType: br.action.bodyType || 'static',
+            requestStaticBody: br.action.bodyType === 'dynamic' ? '' : br.action.requestBody,
+            requestDynamicBody: br.action.bodyType === 'dynamic' ? br.action.requestBody : '',
+            requestResourceType: br.action.resourceType || 'rest',
+            requestGraphqlKey: br.action.graphqlFilter?.key || '',
+            requestGraphqlOperator: br.action.graphqlFilter?.operator || 'Equals',
+            requestGraphqlValue: br.action.graphqlFilter?.value || '',
           });
           break;
         }
@@ -850,9 +850,9 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       // components — so the child rule-field components stay pure-render
       // and don't need a parallel Form.useWatch subscription for side
       // effects. `changedValues` tells us exactly which Radio just flipped.
-      if (changedValues.bodyModType === 'dynamic') {
-        const dyn = form.getFieldValue('bodyDynamicContent') as string | undefined;
-        if (!dyn?.trim()) form.setFieldValue('bodyDynamicContent', BODY_DYNAMIC_TEMPLATE);
+      if (changedValues.requestBodyType === 'dynamic') {
+        const dyn = form.getFieldValue('requestDynamicBody') as string | undefined;
+        if (!dyn?.trim()) form.setFieldValue('requestDynamicBody', REQUEST_BODY_DYNAMIC_TEMPLATE);
       }
       // Response rules carry two dynamic contracts: mock source builds a
       // synthetic body via buildResponse(), network source transforms the
@@ -921,11 +921,11 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         } else {
           targets.push({ field: 'responseStaticBody', language: 'json' });
         }
-      } else if (ruleType === 'body') {
-        if (pre.bodyModType === 'dynamic') {
-          targets.push({ field: 'bodyDynamicContent', language: 'javascript' });
+      } else if (ruleType === 'request-body') {
+        if (pre.requestBodyType === 'dynamic') {
+          targets.push({ field: 'requestDynamicBody', language: 'javascript' });
         } else {
-          targets.push({ field: 'bodyStaticContent', language: 'json' });
+          targets.push({ field: 'requestStaticBody', language: 'json' });
         }
       }
       for (const { field, language } of targets) {
@@ -1366,7 +1366,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                         {selectedType === 'query-param' && <QueryParamRuleFields ruleUid={ruleUid} />}
                         {selectedType === 'inject' && <InjectRuleFields />}
                         {selectedType === 'delay' && <DelayRuleFields />}
-                        {selectedType === 'body' && <BodyRuleFields />}
+                        {selectedType === 'request-body' && <RequestBodyRuleFields />}
                         {selectedType === 'response' && <ResponseRuleFields />}
                         {selectedType === 'ws' && <WsRuleFields />}
                         {selectedType === 'sse' && <SseRuleFields />}
@@ -1525,27 +1525,27 @@ function buildRule(
         type: 'delay',
         action: { delayMs: (formValues.delayMs as number) || 0 },
       } as Omit<DelayRule, 'uid' | 'path'>;
-    case 'body':
+    case 'request-body':
       return {
         ...base,
-        type: 'body',
+        type: 'request-body',
         action: {
-          bodyType: ((formValues.bodyModType as string) ?? 'static') as BodyModType,
-          body:
-            formValues.bodyModType === 'dynamic'
-              ? ((formValues.bodyDynamicContent as string) ?? '')
-              : ((formValues.bodyStaticContent as string) ?? ''),
-          resourceType: ((formValues.bodyResourceType as string) ?? 'rest') as BodyResourceType,
+          bodyType: ((formValues.requestBodyType as string) ?? 'static') as RequestBodyType,
+          requestBody:
+            formValues.requestBodyType === 'dynamic'
+              ? ((formValues.requestDynamicBody as string) ?? '')
+              : ((formValues.requestStaticBody as string) ?? ''),
+          resourceType: ((formValues.requestResourceType as string) ?? 'rest') as ApiResourceType,
           graphqlFilter:
-            formValues.bodyResourceType === 'graphql' && (formValues.bodyGraphqlKey as string)?.trim()
+            formValues.requestResourceType === 'graphql' && (formValues.requestGraphqlKey as string)?.trim()
               ? {
-                  key: (formValues.bodyGraphqlKey as string).trim(),
-                  operator: ((formValues.bodyGraphqlOperator as string) || 'Equals') as 'Equals' | 'Contains',
-                  value: (formValues.bodyGraphqlValue as string) || '',
+                  key: (formValues.requestGraphqlKey as string).trim(),
+                  operator: ((formValues.requestGraphqlOperator as string) || 'Equals') as 'Equals' | 'Contains',
+                  value: (formValues.requestGraphqlValue as string) || '',
                 }
               : undefined,
         },
-      } as Omit<BodyRule, 'uid' | 'path'>;
+      } as Omit<RequestBodyRule, 'uid' | 'path'>;
     case 'response':
       return {
         ...base,
@@ -1568,7 +1568,7 @@ function buildRule(
               .map((h) => [h.name!.trim(), h.value ?? '']),
           ),
           bodyType: ((formValues.responseBodyType as string) ?? 'static') as ResponseBodyType,
-          resourceType: ((formValues.responseResourceType as string) ?? 'rest') as BodyResourceType,
+          resourceType: ((formValues.responseResourceType as string) ?? 'rest') as ApiResourceType,
           graphqlFilter:
             formValues.responseResourceType === 'graphql' && (formValues.responseGraphqlKey as string)?.trim()
               ? {

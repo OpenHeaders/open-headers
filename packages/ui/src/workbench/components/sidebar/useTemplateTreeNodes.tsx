@@ -25,7 +25,7 @@ const RULE_TYPE_LABEL: Record<string, string> = {
   'query-param': 'Query Param',
   inject: 'Inject',
   delay: 'Delay',
-  body: 'API Request Body',
+  'request-body': 'API Request Body',
   response: 'API Response',
 };
 

@@ -33,7 +33,7 @@ const ACTION_DOC_ID: Record<string, string> = {
   'query-param': 'query-param',
   inject: 'inject',
   delay: 'delay',
-  body: 'body',
+  'request-body': 'request-body',
   response: 'response',
   auth: 'auth',
   // Query param operations
@@ -44,10 +44,10 @@ const ACTION_DOC_ID: Record<string, string> = {
   // Inject types
   'inject-script': 'inject-script',
   'inject-css': 'inject-css',
-  // Body types
-  'body-static': 'body-static',
-  'body-dynamic': 'body-dynamic',
-  'body-graphql': 'body-graphql',
+  // Request-body types
+  'request-body-static': 'request-body-static',
+  'request-body-dynamic': 'request-body-dynamic',
+  'request-body-graphql': 'request-body-graphql',
   // Response types
   'response-static': 'response-static',
   'response-dynamic': 'response-dynamic',
@@ -91,10 +91,10 @@ export const DOC_ID_TO_SECTION: Record<string, string> = {
   // Inject sub-anchors
   'inject-script': 'inject',
   'inject-css': 'inject',
-  // Body sub-anchors
-  'body-static': 'body',
-  'body-dynamic': 'body',
-  'body-graphql': 'body',
+  // Request-body sub-anchors
+  'request-body-static': 'request-body',
+  'request-body-dynamic': 'request-body',
+  'request-body-graphql': 'request-body',
   // Response sub-anchors
   'response-static': 'response',
   'response-dynamic': 'response',
