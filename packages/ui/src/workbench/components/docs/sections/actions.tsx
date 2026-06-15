@@ -8,12 +8,6 @@ import {
   BlockDiagram,
   BlockUseCasesDiagram,
   BlockWontApplyDiagram,
-  BodyDynamicDiagram,
-  BodyGraphqlDiagram,
-  BodyInterceptDiagram,
-  BodyStaticDiagram,
-  BodyUseCasesDiagram,
-  BodyWontApplyDiagram,
   DelayNavDiagram,
   DelayRoutingDiagram,
   DelayUseCasesDiagram,
@@ -46,6 +40,12 @@ import {
   RedirectWontApplyDiagram,
   RemoveDiagram,
   RemoveWontApplyDiagram,
+  RequestBodyDynamicDiagram,
+  RequestBodyGraphqlDiagram,
+  RequestBodyInterceptDiagram,
+  RequestBodyStaticDiagram,
+  RequestBodyUseCasesDiagram,
+  RequestBodyWontApplyDiagram,
 } from '../diagrams';
 import {
   Anchor,
@@ -501,7 +501,7 @@ export const RequestBodySection: React.FC = () => (
       and <code>XMLHttpRequest</code>.
     </DocParagraph>
     <DiagramFrame caption="The rule fires between page.js and the network — three transform shapes">
-      <BodyInterceptDiagram />
+      <RequestBodyInterceptDiagram />
     </DiagramFrame>
 
     <Anchor id="request-body-static">
@@ -511,7 +511,7 @@ export const RequestBodySection: React.FC = () => (
         the body, it substitutes wholesale.
       </DocParagraph>
       <DiagramFrame caption="Whole body replaced — original is discarded.">
-        <BodyStaticDiagram />
+        <RequestBodyStaticDiagram />
       </DiagramFrame>
     </Anchor>
 
@@ -522,7 +522,7 @@ export const RequestBodySection: React.FC = () => (
         function receives <code>{'{ method, url, body, bodyAsJson }'}</code>.
       </DocParagraph>
       <DiagramFrame caption="Function sees the original; returns whatever should be sent.">
-        <BodyDynamicDiagram />
+        <RequestBodyDynamicDiagram />
       </DiagramFrame>
     </Anchor>
 
@@ -539,12 +539,12 @@ export const RequestBodySection: React.FC = () => (
         text. Requests without a JSON body, or with a missing or non-matching field, pass through untouched.
       </DocParagraph>
       <DiagramFrame caption="Field-level gate — operations that don't match flow through untouched.">
-        <BodyGraphqlDiagram />
+        <RequestBodyGraphqlDiagram />
       </DiagramFrame>
     </Anchor>
 
     <DiagramFrame caption="GET/HEAD have nothing to replace; static resources don't enter the script intercept.">
-      <BodyWontApplyDiagram />
+      <RequestBodyWontApplyDiagram />
     </DiagramFrame>
 
     <DocHeading level={3}>When to use this</DocHeading>
@@ -553,7 +553,7 @@ export const RequestBodySection: React.FC = () => (
       operations, and anonymizing PII before replay are the four typical patterns.
     </DocParagraph>
     <DiagramFrame caption="Four typical patterns — pair with URL Pattern or Domains to scope.">
-      <BodyUseCasesDiagram />
+      <RequestBodyUseCasesDiagram />
     </DiagramFrame>
   </>
 );

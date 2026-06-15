@@ -66,7 +66,8 @@ const HEADER_TREE: SystemTemplateNode[] = [
         responseHeaders: [
           { uid: 'shm00001', operation: 'override', headerName: 'Access-Control-Allow-Origin', value: '*' },
           {
-            uid: 'shm00002', operation: 'override',
+            uid: 'shm00002',
+            operation: 'override',
             headerName: 'Access-Control-Allow-Methods',
             value: 'GET, POST, PUT, DELETE, OPTIONS',
           },
@@ -129,7 +130,12 @@ const HEADER_TREE: SystemTemplateNode[] = [
       conditions: [{ uid: 'sct00005', type: 'request-domains', values: ['openheaders.io'] }],
       formValues: {
         requestHeaders: [
-          { uid: 'shm00011', operation: 'override', headerName: 'User-Agent', value: 'Mozilla/5.0 (compatible; CustomBot/1.0)' },
+          {
+            uid: 'shm00011',
+            operation: 'override',
+            headerName: 'User-Agent',
+            value: 'Mozilla/5.0 (compatible; CustomBot/1.0)',
+          },
         ],
         responseHeaders: [],
       },
@@ -157,7 +163,13 @@ const HEADER_TREE: SystemTemplateNode[] = [
       formValues: {
         requestHeaders: [],
         responseHeaders: [
-          { uid: 'shm00014', operation: 'merge', headerName: 'Content-Type', value: 'x-openheaders-merged', mergeSeparator: ', ' },
+          {
+            uid: 'shm00014',
+            operation: 'merge',
+            headerName: 'Content-Type',
+            value: 'x-openheaders-merged',
+            mergeSeparator: ', ',
+          },
         ],
       },
     }),
@@ -185,7 +197,11 @@ const BLOCK_TREE: SystemTemplateNode[] = [
       name: 'Block Ads',
       description: 'Block common ad network domains',
       conditions: [
-        { uid: 'sct00010', type: 'request-domains', values: ['doubleclick.net', 'googlesyndication.com', 'adservice.google.com'] },
+        {
+          uid: 'sct00010',
+          type: 'request-domains',
+          values: ['doubleclick.net', 'googlesyndication.com', 'adservice.google.com'],
+        },
       ],
       formValues: {},
     }),

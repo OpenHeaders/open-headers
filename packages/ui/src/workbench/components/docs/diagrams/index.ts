@@ -10,14 +10,6 @@
 export { ActionsRuleAnatomyDiagram, ActionsTaxonomyDiagram } from './actions';
 export { BlockDiagram, BlockUseCasesDiagram, BlockWontApplyDiagram } from './block';
 export {
-  BodyDynamicDiagram,
-  BodyGraphqlDiagram,
-  BodyInterceptDiagram,
-  BodyStaticDiagram,
-  BodyUseCasesDiagram,
-  BodyWontApplyDiagram,
-} from './body';
-export {
   ConditionsHostVsOriginDiagram,
   ConditionsMatchingDiagram,
   ConditionsRuleFiresDiagram,
@@ -110,6 +102,14 @@ export {
   RedirectUseCasesDiagram,
   RedirectWontApplyDiagram,
 } from './redirect';
+export {
+  RequestBodyDynamicDiagram,
+  RequestBodyGraphqlDiagram,
+  RequestBodyInterceptDiagram,
+  RequestBodyStaticDiagram,
+  RequestBodyUseCasesDiagram,
+  RequestBodyWontApplyDiagram,
+} from './request-body';
 export {
   RequestTrackingDiagram,
   RequestTrackingPhasesDiagram,

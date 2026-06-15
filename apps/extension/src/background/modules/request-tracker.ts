@@ -17,10 +17,6 @@ import {
   isRuleComplete,
   type MatchPattern,
 } from '@openheaders/core/utils';
-import { broadcast } from '@utils/bridge';
-import { tabs } from '@utils/browser-api';
-import type { ActiveRule, ObservationSource, TrackedResource, TrackedResourceType } from '@/types/browser';
-import { computeVerdict } from '@openheaders/oracle/tracking/verdict-engine';
 import { getRules as getRawRules } from '@openheaders/oracle/entity/rule-store';
 import { getResolvedRules, getUnresolvableRuleUids } from '@openheaders/oracle/rule-engine/variables-resolver';
 import {
@@ -31,6 +27,10 @@ import {
   replaceTabResources,
   setTrackedResource,
 } from '@openheaders/oracle/tracking/tab-tracking-store';
+import { computeVerdict } from '@openheaders/oracle/tracking/verdict-engine';
+import { broadcast } from '@utils/bridge';
+import { tabs } from '@utils/browser-api';
+import type { ActiveRule, ObservationSource, TrackedResource, TrackedResourceType } from '@/types/browser';
 
 /** Read the current rule list in resolved form, falling back to the
  *  raw rule-store view before the first compile has populated the

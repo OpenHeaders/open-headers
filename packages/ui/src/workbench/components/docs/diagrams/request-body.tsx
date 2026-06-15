@@ -1,13 +1,13 @@
 /**
  * Request Body — diagrams.
  *
- *   • BodyInterceptDiagram      — pipeline overview (page.js → intercept
- *                                  → 3 transform shapes → network)
- *   • BodyStaticDiagram         — fixed-string replacement
- *   • BodyDynamicDiagram        — function(orig) → modified body
- *   • BodyGraphqlDiagram        — JSON-field filter gating the rule
- *   • BodyWontApplyDiagram      — GET/HEAD + static-resource gotchas
- *   • BodyUseCasesDiagram       — common patterns at a glance
+ *   • RequestBodyInterceptDiagram   — pipeline overview (page.js → intercept
+ *                                      → 3 transform shapes → network)
+ *   • RequestBodyStaticDiagram      — fixed-string replacement
+ *   • RequestBodyDynamicDiagram     — function(orig) → modified body
+ *   • RequestBodyGraphqlDiagram     — JSON-field filter gating the rule
+ *   • RequestBodyWontApplyDiagram   — GET/HEAD + static-resource gotchas
+ *   • RequestBodyUseCasesDiagram    — common patterns at a glance
  */
 
 import type React from 'react';
@@ -25,7 +25,7 @@ import {
   TEXT_DIM,
 } from './_shared';
 
-export const BodyInterceptDiagram: React.FC = () => (
+export const RequestBodyInterceptDiagram: React.FC = () => (
   <svg
     viewBox="0 0 300 220"
     width="100%"
@@ -98,7 +98,7 @@ const ARROW_Y_E = ARROW_Y_S + 22;
 const AFTER_Y = ARROW_Y_E + 4;
 const STAMP_Y = AFTER_Y + ROW_H + 22;
 
-const BodyCard: React.FC<{
+const RequestBodyCard: React.FC<{
   idSuffix: string;
   rule: string;
   beforeLines: React.ReactNode[];
@@ -179,8 +179,8 @@ const BodyCard: React.FC<{
   );
 };
 
-export const BodyStaticDiagram: React.FC = () => (
-  <BodyCard
+export const RequestBodyStaticDiagram: React.FC = () => (
+  <RequestBodyCard
     idSuffix="st"
     rule='Static body: { "userId": "test-1" }'
     beforeLines={[<tspan key="b">{'POST /api/save  body:'}</tspan>, <tspan key="b2">{'{ "userId": "abc" }'}</tspan>]}
@@ -195,8 +195,8 @@ export const BodyStaticDiagram: React.FC = () => (
   />
 );
 
-export const BodyDynamicDiagram: React.FC = () => (
-  <BodyCard
+export const RequestBodyDynamicDiagram: React.FC = () => (
+  <RequestBodyCard
     idSuffix="dyn"
     rule="Dynamic body: fn(orig) → stamped"
     beforeLines={[
@@ -219,7 +219,7 @@ export const BodyDynamicDiagram: React.FC = () => (
   />
 );
 
-export const BodyGraphqlDiagram: React.FC = () => {
+export const RequestBodyGraphqlDiagram: React.FC = () => {
   const ID = 'bd-gql';
   return (
     <svg
@@ -331,7 +331,7 @@ export const BodyGraphqlDiagram: React.FC = () => {
   );
 };
 
-export const BodyWontApplyDiagram: React.FC = () => {
+export const RequestBodyWontApplyDiagram: React.FC = () => {
   const errColor = 'var(--ant-color-error)';
   const errBorder = 'var(--ant-color-error-border)';
   return (
@@ -390,7 +390,7 @@ export const BodyWontApplyDiagram: React.FC = () => {
   );
 };
 
-export const BodyUseCasesDiagram: React.FC = () => {
+export const RequestBodyUseCasesDiagram: React.FC = () => {
   type Card = { title: string; example: string };
   const CARDS: Card[] = [
     { title: 'Test fixtures', example: 'Force a known payload' },
