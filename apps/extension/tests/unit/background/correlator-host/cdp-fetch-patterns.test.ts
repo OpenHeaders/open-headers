@@ -21,6 +21,7 @@ const base = {
 };
 
 const mockAction = {
+  responseSource: 'mock' as const,
   statusCode: 200,
   responseHeaders: {},
   responseBody: '',
@@ -42,7 +43,7 @@ function resourceTypes(...values: string[]): RuleCondition {
 }
 
 function mockRule(conditions: RuleCondition[]): Rule {
-  return { ...base, type: 'mock', conditions, action: mockAction };
+  return { ...base, type: 'response', conditions, action: mockAction };
 }
 
 describe('compileFetchPatterns', () => {

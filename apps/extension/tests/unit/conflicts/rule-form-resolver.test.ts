@@ -2,7 +2,7 @@
  * `applyResolutionToForm` per-rule-type write coverage.
  *
  * Path → form-name mapping is rule-type-aware (header rows live as
- * indexed Form.List entries, scalar fields live at top level, mock
+ * indexed Form.List entries, scalar fields live at top level, response
  * `responseHeaders` is a Record so write is skipped). Tests assert
  * each branch's behavior + that unsupported paths return false without
  * mutating the form.
@@ -116,10 +116,16 @@ describe('applyResolutionToForm', () => {
     expect(form.setFieldValue as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
   });
 
-  it('returns false for mock Record-keyed responseHeaders (out of scope)', () => {
-    const mockRule = { ...RULE_HEADER, type: 'mock', action: { responseHeaders: { 'X-A': 'v' } } } as unknown as Rule;
+  it('returns false for response Record-keyed responseHeaders (out of scope)', () => {
+    const responseRule = {
+      ...RULE_HEADER,
+      type: 'response',
+      action: { responseHeaders: { 'X-A': 'v' } },
+    } as unknown as Rule;
     const form = makeForm();
-    expect(applyResolutionToForm(form, mockRule, 'action.responseHeaders.X-A.value', leafConflict('x'))).toBe(false);
+    expect(applyResolutionToForm(form, responseRule, 'action.responseHeaders.X-A.value', leafConflict('x'))).toBe(
+      false,
+    );
   });
 
   it('set-add: appends saved row payload to form array', () => {

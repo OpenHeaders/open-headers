@@ -37,9 +37,10 @@ const ruleBase = {
 function mockRule(overrides: Partial<Rule> = {}): Rule {
   return {
     ...ruleBase,
-    type: 'mock',
+    type: 'response',
     conditions: [{ uid: 'cnd00001', type: 'request-domains', values: ['api.openheaders.io'] }],
     action: {
+      responseSource: 'mock',
       statusCode: 201,
       responseHeaders: { 'X-Mock': 'yes' },
       responseBody: '{"mocked":true}',
@@ -169,9 +170,10 @@ describe('startCdpFetchInterceptor (D2)', () => {
   it('passes through (no fire) a dynamic mock — the host cannot eval its body', () => {
     const dynamic = mockRule({
       action: {
+        responseSource: 'mock',
         statusCode: 200,
         responseHeaders: {},
-        responseBody: 'function modifyResponse(){return {}}',
+        responseBody: 'function buildResponse(){return {}}',
         contentType: 'application/json',
         bodyType: 'dynamic',
       },

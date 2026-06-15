@@ -58,7 +58,7 @@ describe('shadow-arbitration', () => {
       rule({ uid: 'query-1', type: 'query-param' }),
       rule({ uid: 'header-1', type: 'header' }),
       rule({ uid: 'delay-1', type: 'delay' }),
-      rule({ uid: 'mock-1', type: 'mock' }),
+      rule({ uid: 'mock-1', type: 'response', responseSource: 'mock' }),
       rule({ uid: 'body-1', type: 'body' }),
     ];
     const result = arbitrate(matching);
@@ -95,7 +95,7 @@ describe('shadow-arbitration', () => {
       rule({ uid: 'redirect-1', name: 'Rewrite /v1 to /v2', type: 'redirect' }),
       rule({ uid: 'header-1', type: 'header' }),
       rule({ uid: 'body-1', type: 'body' }),
-      rule({ uid: 'mock-1', type: 'mock' }),
+      rule({ uid: 'mock-1', type: 'response', responseSource: 'mock' }),
       rule({ uid: 'delay-1', type: 'delay' }),
     ];
     const result = arbitrate(matching);
@@ -164,15 +164,16 @@ describe('shadow-arbitration', () => {
 
   // ── mock-intercept ────────────────────────────────────────────
 
-  it('mock intercepts body rules and response-side header rules', () => {
+  it('mock-source response intercepts body rules and response-side header rules', () => {
     const matching = [
-      rule({ uid: 'mock-1', name: 'Mock api', type: 'mock' }),
+      rule({ uid: 'mock-1', name: 'Mock api', type: 'response', responseSource: 'mock' }),
       rule({ uid: 'body-1', type: 'body' }),
       headerRule('header-res', [{ side: 'response', operation: 'set', name: 'x-test' }]),
       headerRule('header-req', [{ side: 'request', operation: 'set', name: 'authorization' }]),
     ];
     const result = arbitrate(matching);
 
+    expect(result.find((r) => r.uid === 'mock-1')!.actionClass).toBe('mock');
     expect(result.find((r) => r.uid === 'body-1')!.shadowedBy).toEqual({
       uid: 'mock-1',
       name: 'Mock api',
@@ -185,6 +186,22 @@ describe('shadow-arbitration', () => {
     });
     // Request-side header mods are still effective — the outgoing request is real.
     expect(result.find((r) => r.uid === 'header-req')!.shadowedBy).toBeUndefined();
+  });
+
+  it('network-source response does NOT intercept body or response-side header rules', () => {
+    const matching = [
+      rule({ uid: 'resp-1', name: 'Modify api', type: 'response', responseSource: 'network' }),
+      rule({ uid: 'body-1', type: 'body' }),
+      headerRule('header-res', [{ side: 'response', operation: 'set', name: 'x-test' }]),
+    ];
+    const result = arbitrate(matching);
+
+    // A network-source response rewrites the REAL reply rather than
+    // fabricating it, so it is classed 'response-modify' and never shadows
+    // peers that also act on the response.
+    expect(result.find((r) => r.uid === 'resp-1')!.actionClass).toBe('response-modify');
+    expect(result.find((r) => r.uid === 'body-1')!.shadowedBy).toBeUndefined();
+    expect(result.find((r) => r.uid === 'header-res')!.shadowedBy).toBeUndefined();
   });
 
   // ── header-stacking-ambiguous ─────────────────────────────────
@@ -261,7 +278,7 @@ describe('shadow-arbitration', () => {
     const matching = [
       rule({ uid: 'block-1', name: 'Block', type: 'block' }),
       rule({ uid: 'redirect-1', name: 'Rewrite', type: 'redirect' }),
-      rule({ uid: 'mock-1', type: 'mock' }),
+      rule({ uid: 'mock-1', type: 'response', responseSource: 'mock' }),
       rule({ uid: 'delay-1', type: 'delay' }),
       rule({ uid: 'inject-1', type: 'inject' }),
       headerRule('h1', [{ side: 'request', operation: 'set', name: 'x-custom' }]),

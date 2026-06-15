@@ -34,9 +34,9 @@ describe('prettyRulePath', () => {
     expect(prettyRulePath(RULE, 'action.requestHeaders.deadbeef.value')).toBe('Request header (value)');
   });
 
-  it('renders mock + query-param + condition shapes', () => {
-    const mock = { ...RULE, type: 'mock', action: { responseHeaders: { 'X-Foo': 'bar' } } } as unknown as Rule;
-    expect(prettyRulePath(mock, 'action.responseHeaders.X-Foo.value')).toBe('Mock response header X-Foo (value)');
+  it('renders response + query-param + condition shapes', () => {
+    const response = { ...RULE, type: 'response', action: { responseHeaders: { 'X-Foo': 'bar' } } } as unknown as Rule;
+    expect(prettyRulePath(response, 'action.responseHeaders.X-Foo.value')).toBe('Response header X-Foo (value)');
 
     const qp = {
       ...RULE,

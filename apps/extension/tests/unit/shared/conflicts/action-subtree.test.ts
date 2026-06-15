@@ -2,7 +2,7 @@
  * Parity tests for `ACTION_SUBTREE` — pin the new declarative descriptor
  * against the existing `createActionEntityAdapters` factory's read-side
  * output, modulo the explicitly out-of-scope keys (conditions paths
- * + mock-response-header paths, both handled by the entity adapter
+ * + response-header paths, both handled by the entity adapter
  * wrapper rather than the walker).
  *
  * The test fixtures cover all 8 rule types so every union branch
@@ -10,11 +10,11 @@
  */
 
 import type { Rule, RuleCondition, Template } from '@openheaders/core/types';
-import { describe, expect, it } from 'vitest';
 import { RULE_ACTION_PATHS, TEMPLATE_ACTION_PATHS } from '@openheaders/ui/shared/awareness';
 import { createActionEntityAdapters } from '@openheaders/ui/shared/conflicts/action-entity-adapter';
 import { buildActionEntitySchema } from '@openheaders/ui/shared/conflicts/field-tree/action-subtree';
 import { makeConflictAdapter } from '@openheaders/ui/shared/conflicts/field-tree/make-conflict-adapter';
+import { describe, expect, it } from 'vitest';
 
 const factoryAdapters = createActionEntityAdapters<Rule>(RULE_ACTION_PATHS, {
   signature: (r) => r.uid,
@@ -46,7 +46,7 @@ const templateWalkerAdapters = makeConflictAdapter<Template>({
  * Strip keys the entity adapter wrapper handles outside the walker:
  *   - `conditions.*` — emitted manually because path key `field` aliases
  *     schema field `type`.
- *   - mock rule's `<root>.responseHeaders.*` — Record-shape with virtual
+ *   - response rule's `<root>.responseHeaders.*` — Record-shape with virtual
  *     `{name, value}` per-entry pairs; the walker would need a
  *     keyed-virtual-pair node kind to express it cleanly.
  */
@@ -54,13 +54,16 @@ function stripWrapperKeys(map: Record<string, string>, ruleType: Rule['type']): 
   const out: Record<string, string> = {};
   for (const [k, v] of Object.entries(map)) {
     if (k.startsWith('conditions.')) continue;
-    if (ruleType === 'mock' && /^action\.responseHeaders\./.test(k)) continue;
+    if (ruleType === 'response' && /^action\.responseHeaders\./.test(k)) continue;
     out[k] = v;
   }
   return out;
 }
 
-function makeBase(uid: string, name = 'r'): { uid: string; path: string; name: string; enabled: boolean; schemaVersion: 5; conditions: RuleCondition[] } {
+function makeBase(
+  uid: string,
+  name = 'r',
+): { uid: string; path: string; name: string; enabled: boolean; schemaVersion: 5; conditions: RuleCondition[] } {
   return { uid, path: `rules/${uid}.yaml`, name, enabled: true, schemaVersion: 5, conditions: [] };
 }
 
@@ -105,15 +108,16 @@ const bodyRule: Rule = {
   action: { bodyType: 'replace', body: '{}', resourceType: 'xhr' },
 } as unknown as Rule;
 
-const mockRule: Rule = {
+const responseRule: Rule = {
   ...makeBase('r-m'),
-  type: 'mock',
+  type: 'response',
   action: {
+    responseSource: 'mock',
     statusCode: 200,
     responseHeaders: { 'X-Foo': 'bar' },
     responseBody: '{}',
     contentType: 'application/json',
-    bodyType: 'json',
+    bodyType: 'static',
   },
 } as unknown as Rule;
 
@@ -126,13 +130,13 @@ const FIXTURES: ReadonlyArray<{ name: string; rule: Rule }> = [
   { name: 'delay', rule: delayRule },
   { name: 'inject', rule: injectRule },
   { name: 'body', rule: bodyRule },
-  { name: 'mock', rule: mockRule },
+  { name: 'response', rule: responseRule },
   { name: 'block', rule: blockRule },
 ];
 
 describe('ACTION_SUBTREE — Rule walker parity vs. createActionEntityAdapters', () => {
   for (const { name, rule } of FIXTURES) {
-    it(`extractBaseline matches factory output for ${name} rule (modulo conditions + mock-headers)`, () => {
+    it(`extractBaseline matches factory output for ${name} rule (modulo conditions + response-headers)`, () => {
       const factoryBaseline = stripWrapperKeys(factoryAdapters.tracking.extractBaseline(rule), rule.type);
       const walkerBaseline = stripWrapperKeys(walkerAdapters.tracking.extractBaseline(rule), rule.type);
       // Factory does not emit optional-undefined inject/body leaves
@@ -171,7 +175,9 @@ describe('ACTION_SUBTREE — Rule walker parity vs. createActionEntityAdapters',
   it('readPath leaf reads parity for header rule', () => {
     const path = 'action.requestHeaders.thm00097.value';
     expect(walkerAdapters.tracking.readPath(headerRule, path)).toBe('v');
-    expect(walkerAdapters.tracking.readPath(headerRule, path)).toBe(factoryAdapters.tracking.readPath(headerRule, path));
+    expect(walkerAdapters.tracking.readPath(headerRule, path)).toBe(
+      factoryAdapters.tracking.readPath(headerRule, path),
+    );
   });
 
   it('readPath returns null for path that does not apply to this rule type', () => {
@@ -223,9 +229,9 @@ describe('ACTION_SUBTREE — union:<prefix> whole-branch resolution', () => {
 
   it('applyResolutionToEntity returns false when rowPayload is missing', () => {
     const target = JSON.parse(JSON.stringify(headerRule)) as Rule;
-    expect(
-      walkerAdapters.resolve.applyResolutionToEntity(target, 'union:action', { base: '', theirs: '' }),
-    ).toBe(false);
+    expect(walkerAdapters.resolve.applyResolutionToEntity(target, 'union:action', { base: '', theirs: '' })).toBe(
+      false,
+    );
     expect(target.type).toBe('header');
   });
 });
@@ -243,7 +249,7 @@ describe('ACTION_SUBTREE — Template bundle uses the alternative actionRoot + q
     },
   } as unknown as Template;
 
-  it("emits paths under formValues.queryParams (not action.params)", () => {
+  it('emits paths under formValues.queryParams (not action.params)', () => {
     const baseline = templateWalkerAdapters.tracking.extractBaseline(template);
     expect(baseline['formValues.queryParams.qp000002.param']).toBe('q');
     expect(baseline['formValues.queryParams.qp000002.value']).toBe('1');

@@ -40,9 +40,10 @@ function paused(overrides: Partial<CdpRequestPaused> = {}): CdpRequestPaused {
 function mock(conditions: Rule['conditions'], action?: Record<string, unknown>): Rule {
   return {
     ...ruleBase,
-    type: 'mock',
+    type: 'response',
     conditions,
     action: {
+      responseSource: 'mock',
       statusCode: 200,
       responseHeaders: {},
       responseBody: 'ok',
@@ -121,6 +122,13 @@ describe('resolveFetchReaction', () => {
 
   it('passes through a dynamic mock (host cannot eval the body)', () => {
     const reaction = resolveFetchReaction(paused(), [mock([domain('api.openheaders.io')], { bodyType: 'dynamic' })]);
+    expect(reaction.kind).toBe('pass-through');
+  });
+
+  it('passes through a network-source response (request stage cannot realize a real-reply modify)', () => {
+    const reaction = resolveFetchReaction(paused(), [
+      mock([domain('api.openheaders.io')], { responseSource: 'network' }),
+    ]);
     expect(reaction.kind).toBe('pass-through');
   });
 

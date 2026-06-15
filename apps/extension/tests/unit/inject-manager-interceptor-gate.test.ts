@@ -12,7 +12,7 @@
  * Same fix already shipped for header-merge / ws / sse.
  */
 
-import type { BodyRule, DelayRule, InjectRule, MockRule } from '@openheaders/core/types';
+import type { BodyRule, DelayRule, InjectRule, ResponseRule } from '@openheaders/core/types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@utils/logger', () => ({
@@ -30,11 +30,11 @@ const spies = vi.hoisted(() => ({
   injectCSS: vi.fn(() => Promise.resolve()),
   injectScriptUrl: vi.fn(() => Promise.resolve()),
   injectCSSUrl: vi.fn(() => Promise.resolve()),
-  buildMockInjection: vi.fn(),
+  buildResponseInjection: vi.fn(),
   buildBodyInjection: vi.fn(),
   buildDelayInjection: vi.fn(),
 }));
-const { injectScript, buildMockInjection, buildBodyInjection, buildDelayInjection } = spies;
+const { injectScript, buildResponseInjection, buildBodyInjection, buildDelayInjection } = spies;
 
 vi.mock('@openheaders/rule-engine/inject', () => ({
   applyInjection: spies.applyInjection,
@@ -45,7 +45,7 @@ vi.mock('@openheaders/rule-engine/inject', () => ({
 }));
 
 vi.mock('@openheaders/rule-engine/content-scripts', () => ({
-  buildMockInjection: spies.buildMockInjection,
+  buildResponseInjection: spies.buildResponseInjection,
   buildBodyInjection: spies.buildBodyInjection,
   buildDelayInjection: spies.buildDelayInjection,
   buildHeaderMergeInjection: vi.fn(),
@@ -59,16 +59,17 @@ import { __testInjectForUrl, __testPushInterceptorUpdate, updateScriptableRules 
 
 const PLAYGROUND_PAGE = 'http://127.0.0.1:3000/src/rules/mock/index.html';
 
-function mockRule(overrides: Partial<MockRule> = {}): MockRule {
+function mockRule(overrides: Partial<ResponseRule> = {}): ResponseRule {
   return {
     schemaVersion: 5,
     uid: 'mk111111',
-    path: 'rules/mock',
+    path: 'rules/response',
     name: 'Mock echo',
-    type: 'mock',
+    type: 'response',
     enabled: true,
     conditions: [{ uid: 'tcd00060', type: 'url-filter', values: ['*://127.0.0.1:3000/echo/mocked*'] }],
     action: {
+      responseSource: 'mock',
       statusCode: 418,
       contentType: 'application/json',
       bodyType: 'static',
@@ -91,8 +92,8 @@ describe('mock/body/delay interceptor install gate', () => {
     updateScriptableRules([rule]);
     await __testInjectForUrl(1, PLAYGROUND_PAGE);
 
-    expect(buildMockInjection).toHaveBeenCalledWith(rule);
-    expect(buildMockInjection).toHaveBeenCalledTimes(1);
+    expect(buildResponseInjection).toHaveBeenCalledWith(rule);
+    expect(buildResponseInjection).toHaveBeenCalledTimes(1);
   });
 
   it('honours initiator-domains: skips a page outside the allowed initiator', async () => {
@@ -105,10 +106,10 @@ describe('mock/body/delay interceptor install gate', () => {
     updateScriptableRules([rule]);
 
     await __testInjectForUrl(1, PLAYGROUND_PAGE);
-    expect(buildMockInjection).not.toHaveBeenCalled();
+    expect(buildResponseInjection).not.toHaveBeenCalled();
 
     await __testInjectForUrl(1, 'https://app.openheaders.io/dashboard');
-    expect(buildMockInjection).toHaveBeenCalledTimes(1);
+    expect(buildResponseInjection).toHaveBeenCalledTimes(1);
   });
 
   it('installs body and delay interceptors on a non-matching page too', async () => {
@@ -155,7 +156,7 @@ describe('mock/body/delay interceptor install gate', () => {
     // mock, which returns undefined → no-op).
     updateScriptableRules([rule, injectRule]);
     spies.applyInjection.mockClear();
-    spies.buildMockInjection.mockClear();
+    spies.buildResponseInjection.mockClear();
     injectScript.mockClear();
 
     // Now an open tab exists — drive the push explicitly.
@@ -166,7 +167,7 @@ describe('mock/body/delay interceptor install gate', () => {
 
     // Reset fires first, then the interceptor re-injects.
     expect(spies.applyInjection).toHaveBeenCalledWith(7, undefined, 'oh-reset');
-    expect(spies.buildMockInjection).toHaveBeenCalledWith(rule);
+    expect(spies.buildResponseInjection).toHaveBeenCalledWith(rule);
     // Inject rules are navigation-only — never part of the push.
     expect(injectScript).not.toHaveBeenCalled();
   });

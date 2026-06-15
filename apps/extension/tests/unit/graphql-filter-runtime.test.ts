@@ -11,18 +11,31 @@
  *   - resourceType === 'rest' (or filter omitted) → no payload check;
  *     rule fires on every URL match like before.
  *
- * Covers all four code paths: static body, dynamic body, static mock,
- * dynamic mock.
+ * Covers all four code paths: static body, dynamic body, static response
+ * (mock source), dynamic response (network source).
  */
 
-import type { BodyAction, BodyModType, BodyResourceType, BodyRule, MockAction, MockBodyType, MockRule } from '@openheaders/core/types';
+import type {
+  BodyAction,
+  BodyModType,
+  BodyResourceType,
+  BodyRule,
+  ResponseAction,
+  ResponseBodyType,
+  ResponseRule,
+  ResponseSource,
+} from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@utils/logger', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-import { buildBodyInjection, buildMockInjection, type FuncInjection } from '@openheaders/rule-engine/content-scripts';
+import {
+  buildBodyInjection,
+  buildResponseInjection,
+  type FuncInjection,
+} from '@openheaders/rule-engine/content-scripts';
 
 interface OrigEnv {
   fetch: typeof window.fetch;
@@ -84,21 +97,23 @@ function bodyRule(opts: {
   };
 }
 
-function mockRule(opts: {
-  bodyType: MockBodyType;
+function responseRule(opts: {
+  responseSource: ResponseSource;
+  bodyType: ResponseBodyType;
   responseBody: string;
   resourceType?: BodyResourceType;
-  graphqlFilter?: MockAction['graphqlFilter'];
-}): MockRule {
+  graphqlFilter?: ResponseAction['graphqlFilter'];
+}): ResponseRule {
   return {
     schemaVersion: 5,
-    uid: 'mck00001',
-    path: 'rules/mock',
-    name: 'Mock',
-    type: 'mock',
+    uid: 'rsp00001',
+    path: 'rules/response',
+    name: 'Response',
+    type: 'response',
     enabled: true,
     conditions: [{ uid: 'tcd00037', type: 'request-domains', values: ['openheaders.io'] }],
     action: {
+      responseSource: opts.responseSource,
       statusCode: 201,
       responseHeaders: {},
       responseBody: opts.responseBody,
@@ -224,15 +239,16 @@ describe('dynamic body — graphql operation filter', () => {
   });
 });
 
-describe('static mock — graphql operation filter', () => {
+describe('static response (mock source) — graphql operation filter', () => {
   it('mocks when filter matches', async () => {
-    const rule = mockRule({
+    const rule = responseRule({
+      responseSource: 'mock',
       bodyType: 'static',
       responseBody: '{"mocked":true}',
       resourceType: 'graphql',
       graphqlFilter: { key: 'operationName', operator: 'Equals', value: 'getUsers' },
     });
-    installFunc(buildMockInjection(rule) as FuncInjection);
+    installFunc(buildResponseInjection(rule) as FuncInjection);
 
     const res = await window.fetch(URL, {
       method: 'POST',
@@ -243,13 +259,14 @@ describe('static mock — graphql operation filter', () => {
   });
 
   it('passes through when filter does not match', async () => {
-    const rule = mockRule({
+    const rule = responseRule({
+      responseSource: 'mock',
       bodyType: 'static',
       responseBody: '{"mocked":true}',
       resourceType: 'graphql',
       graphqlFilter: { key: 'operationName', operator: 'Equals', value: 'getUsers' },
     });
-    installFunc(buildMockInjection(rule) as FuncInjection);
+    installFunc(buildResponseInjection(rule) as FuncInjection);
 
     const res = await window.fetch(URL, {
       method: 'POST',
@@ -260,15 +277,16 @@ describe('static mock — graphql operation filter', () => {
   });
 });
 
-describe('dynamic mock — graphql operation filter', () => {
+describe('dynamic response (network source) — graphql operation filter', () => {
   it('only invokes modifyResponse when filter matches', async () => {
-    const rule = mockRule({
+    const rule = responseRule({
+      responseSource: 'network',
       bodyType: 'dynamic',
       responseBody: 'function modifyResponse(args){ return JSON.stringify({ wrapped: args.responseJSON }); }',
       resourceType: 'graphql',
       graphqlFilter: { key: 'operationName', operator: 'Equals', value: 'getUsers' },
     });
-    const inj = buildMockInjection(rule);
+    const inj = buildResponseInjection(rule);
     expect(inj.kind).toBe('inline-script');
     if (inj.kind !== 'inline-script') return;
 

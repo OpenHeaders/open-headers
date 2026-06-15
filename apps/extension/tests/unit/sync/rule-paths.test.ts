@@ -5,8 +5,8 @@
  * was removed alongside `mapAntdIdToFieldPath` in the same diff.
  */
 
-import { describe, expect, it } from 'vitest';
 import { RULE_FIELD } from '@openheaders/ui/shared/awareness';
+import { describe, expect, it } from 'vitest';
 
 describe('RULE_FIELD scalar leaves', () => {
   it('exposes top-level + per-action scalar paths', () => {
@@ -23,10 +23,11 @@ describe('RULE_FIELD scalar leaves', () => {
     expect(RULE_FIELD.bodyType).toBe('action.bodyType');
     expect(RULE_FIELD.bodyResourceType).toBe('action.resourceType');
     expect(RULE_FIELD.delayMs).toBe('action.delayMs');
-    expect(RULE_FIELD.mockStatusCode).toBe('action.statusCode');
-    expect(RULE_FIELD.mockResponseBody).toBe('action.responseBody');
-    expect(RULE_FIELD.mockContentType).toBe('action.contentType');
-    expect(RULE_FIELD.mockBodyType).toBe('action.bodyType');
+    expect(RULE_FIELD.responseSource).toBe('action.responseSource');
+    expect(RULE_FIELD.responseStatusCode).toBe('action.statusCode');
+    expect(RULE_FIELD.responseBody).toBe('action.responseBody');
+    expect(RULE_FIELD.responseContentType).toBe('action.contentType');
+    expect(RULE_FIELD.responseBodyType).toBe('action.bodyType');
   });
 });
 
@@ -54,9 +55,9 @@ describe('RULE_FIELD set-row generators (itemId-keyed)', () => {
     expect(RULE_FIELD.queryParam('qp000003', 'operation')).toBe('action.params.qp000003.operation');
   });
 
-  it('mockHeader uses header name as the schema-key identity', () => {
-    expect(RULE_FIELD.mockHeader('X-Foo', 'name')).toBe('action.responseHeaders.X-Foo.name');
-    expect(RULE_FIELD.mockHeader('X-Foo', 'value')).toBe('action.responseHeaders.X-Foo.value');
+  it('responseHeader uses header name as the schema-key identity', () => {
+    expect(RULE_FIELD.responseHeader('X-Foo', 'name')).toBe('action.responseHeaders.X-Foo.name');
+    expect(RULE_FIELD.responseHeader('X-Foo', 'value')).toBe('action.responseHeaders.X-Foo.value');
   });
 
   it('itemId paths are reorder-stable — moving a row does not change its path', () => {
