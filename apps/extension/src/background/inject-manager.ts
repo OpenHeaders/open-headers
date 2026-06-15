@@ -20,10 +20,10 @@
 declare const browser: typeof chrome | undefined;
 
 import type {
-  BodyRule,
   DelayRule,
   HeaderRule,
   InjectRule,
+  RequestBodyRule,
   ResponseRule,
   Rule,
   SseRule,
@@ -31,9 +31,9 @@ import type {
 } from '@openheaders/core/types';
 import { compileRuleForInjection, doesHostMatchDomains, doesUrlMatchRule } from '@openheaders/core/utils';
 import {
-  buildBodyInjection,
   buildDelayInjection,
   buildHeaderMergeInjection,
+  buildRequestBodyInjection,
   buildResetInjection,
   buildResponseInjection,
   buildSetupInjection,
@@ -52,8 +52,8 @@ import { getTestScopeForTab, isRuleUnderTest } from './modules/test-runner';
 
 const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
 
-/** Response/body/delay rules: their URL conditions target REQUEST urls. */
-type InterceptorRule = DelayRule | BodyRule | ResponseRule;
+/** Response/request-body/delay rules: their URL conditions target REQUEST urls. */
+type InterceptorRule = DelayRule | RequestBodyRule | ResponseRule;
 
 /**
  * Page-install gate for rules whose URL conditions match REQUEST /
@@ -201,7 +201,7 @@ export function updateScriptableRules(rules: Rule[]): ReadonlySet<string> {
         installedUids.add(rule.uid);
         break;
       case 'delay':
-      case 'body':
+      case 'request-body':
       case 'response':
         interceptorRules.push({ rule, ...extractInstallGate(rule) });
         installedUids.add(rule.uid);
@@ -415,8 +415,8 @@ async function injectInterceptorsForTab(tabId: number, url: string, testScope: T
         case 'delay':
           await applyInjection(tabId, buildDelayInjection(rule), rule.name);
           break;
-        case 'body':
-          await applyInjection(tabId, buildBodyInjection(rule), rule.name);
+        case 'request-body':
+          await applyInjection(tabId, buildRequestBodyInjection(rule), rule.name);
           break;
         case 'response':
           await applyInjection(tabId, buildResponseInjection(rule), rule.name);

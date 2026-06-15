@@ -19,7 +19,7 @@
  *
  *   2. **redirect-retarget** — a redirect (or query-param) rule sends the
  *      request to a different URL. Lower-priority modify rules (header,
- *      body, response, delay) that matched the pre-redirect URL are shadowed
+ *      request-body, response, delay) that matched the pre-redirect URL are shadowed
  *      because the user-visible response comes from the REDIRECT target,
  *      not the matched URL. Chrome does technically run modifyHeaders on
  *      the pre-redirect request, but that request is discarded, so from
@@ -46,7 +46,7 @@
  *      No session-wide commit inspection needed, because the outcome is
  *      deterministic from the rule set alone.
  *
- * Anything else (redirect-chain "stale-pattern", body replaces response
+ * Anything else (redirect-chain "stale-pattern", request-body replaces response
  * + cookie mod ordering, etc.) is deliberately not modelled. The flow
  * visualization is the diagnostic surface for those — adjacent
  * green/grey cards in the same tier already tell the story.
@@ -86,10 +86,10 @@ export type ActionClass =
   | 'redirect'
   | 'query-param'
   | 'header'
-  | 'body'
+  | 'request-body'
   // 'mock' = a synthetic-reply (mock-source) response rule; it intercepts.
   // 'response-modify' = a network-source response rule; it rewrites the real
-  // reply and is shadowable like a body rule, but never itself a shadower.
+  // reply and is shadowable like a request-body rule, but never itself a shadower.
   | 'mock'
   | 'response-modify'
   | 'delay'
@@ -104,8 +104,8 @@ export type ActionClass =
  * headers, etc.). Keeping them decoupled lets arbitration reason about
  * user-visible outcomes without re-implementing Chrome's matcher.
  *
- * Scriptable-only types (body, response) don't have a DNR priority; we give
- * them header's value (100) so they sit below redirects in the
+ * Scriptable-only types (request-body, response) don't have a DNR priority;
+ * we give them header's value (100) so they sit below redirects in the
  * arbitration order, which matches real-world behavior (they run against
  * a request that survives DNR arbitration).
  */
@@ -116,7 +116,7 @@ const RULE_PRIORITY: Record<Rule['type'], number> = {
   'query-param': 150,
   header: 100,
   response: 100,
-  body: 100,
+  'request-body': 100,
   ws: 100,
   sse: 100,
   // Auth answers a challenge over CDP against a request that survives DNR —
@@ -135,9 +135,9 @@ const RULE_ACTION_CLASS: Record<Rule['type'], ActionClass> = {
   // Default for response rules — the synthetic-reply (mock) source. The
   // network source is reclassified to 'response-modify' in actionClassFor().
   response: 'mock',
-  body: 'body',
+  'request-body': 'request-body',
   // ws/sse wrappers act in-page on connections that survive DNR — like
-  // body/response they sit below retargeters and are shadowable by block
+  // request-body/response they sit below retargeters and are shadowable by block
   // (a blocked upgrade never opens a socket for the wrapper to act on).
   ws: 'message',
   sse: 'message',
@@ -153,7 +153,7 @@ const RULE_ACTION_CLASS: Record<Rule['type'], ActionClass> = {
  * `response`, which splits on its source axis: a `mock` source fabricates
  * the reply (class `mock` — the mock-intercept shadower), while a `network`
  * source rewrites the real reply (class `response-modify` — shadowable like
- * a body rule, but never itself a shadower).
+ * a request-body rule, but never itself a shadower).
  */
 function actionClassFor(rule: MatchingRule): ActionClass {
   if (rule.type === 'response') {
@@ -249,7 +249,7 @@ export function arbitrateWithStrategy(
 
 /**
  * Block is the only terminal action in the data model — Chrome cancels the request,
- * so redirect / query-param / header / delay / body / response all silently
+ * so redirect / query-param / header / delay / request-body / response all silently
  * fail. Inject's CSP strip runs on the response, which never comes, so
  * it's moot rather than "shadowed" in the user-visible sense (we treat
  * it as non-participating). Two blocks stack conceptually — we don't
@@ -275,7 +275,7 @@ function applyBlockShadow(decorated: ArbitratedRule[]): void {
 
 /**
  * Redirect and query-param rules rewrite the request URL. Lower-priority
- * *modify* classes (header, body, response, delay) that matched the
+ * *modify* classes (header, request-body, response, delay) that matched the
  * pre-redirect URL are semantically shadowed: Chrome does run their
  * modifications on the pre-redirect request, but that request is
  * discarded the moment the redirect fires, so the user never sees the
@@ -321,7 +321,7 @@ function applyRedirectShadow(decorated: ArbitratedRule[]): void {
  * never reaches the network). Any other rule whose effect targets the
  * response is moot from the user's perspective:
  *
- *   - Body rules run on the response body → mocked.
+ *   - Request-body rules rewrite a request that never leaves the browser → moot.
  *   - Network-source response rules rewrite the real reply → operate on
  *     bytes the fabricated response replaced → mocked.
  *   - Header rules with response-side modifications run on the response
@@ -341,7 +341,7 @@ function applyMockIntercept(decorated: ArbitratedRule[]): void {
   for (const r of decorated) {
     if (r.shadowedBy) continue;
     if (r.uid === mock.uid) continue;
-    if (r.actionClass === 'body' || r.actionClass === 'response-modify') {
+    if (r.actionClass === 'request-body' || r.actionClass === 'response-modify') {
       r.shadowedBy = { uid: mock.uid, name: mock.name, kind: 'mock-intercept' };
       continue;
     }

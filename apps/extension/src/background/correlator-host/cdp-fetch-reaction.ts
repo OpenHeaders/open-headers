@@ -30,8 +30,8 @@
  */
 
 import type {
-  BodyAction,
   ConditionType,
+  RequestBodyAction,
   ResourceType,
   ResponseAction,
   Rule,
@@ -143,7 +143,7 @@ export function resolveFetchReaction(event: CdpRequestPaused, rules: readonly Ru
     // debug-tier + static gate is the shared core predicate. It also rejects
     // `network`-source responses, so the `response` branch only ever sees a
     // mock-source (synthetic-fulfill) action.
-    if (rule.type !== 'response' && rule.type !== 'body') continue;
+    if (rule.type !== 'response' && rule.type !== 'request-body') continue;
     if (!isFetchRealizableNow(rule)) continue;
     if (!requestStageMatches(rule, ctx)) continue;
     if (!graphqlGate(rule.action, postData)) continue;
@@ -151,7 +151,7 @@ export function resolveFetchReaction(event: CdpRequestPaused, rules: readonly Ru
     if (rule.type === 'response') {
       return { kind: 'fulfill', ruleUid: rule.uid, response: buildFulfill(event.requestId, rule.action) };
     }
-    return { kind: 'continue', ruleUid: rule.uid, request: buildBodyRewrite(event.requestId, rule.action) };
+    return { kind: 'continue', ruleUid: rule.uid, request: buildRequestBodyRewrite(event.requestId, rule.action) };
   }
   return { kind: 'pass-through' };
 }
@@ -221,7 +221,7 @@ function requestStageMatches(rule: Rule, ctx: RequestStageContext): boolean {
 }
 
 /** True unless a GraphQL filter is active and the request body fails it. */
-function graphqlGate(action: ResponseAction | BodyAction, postData: string | undefined): boolean {
+function graphqlGate(action: ResponseAction | RequestBodyAction, postData: string | undefined): boolean {
   if (action.resourceType !== 'graphql' || !action.graphqlFilter?.key) return true;
   return matchesGraphqlBody(postData ?? '', action.graphqlFilter);
 }
@@ -253,8 +253,8 @@ function buildFulfill(requestId: string, action: ResponseAction): CdpFulfillResp
   };
 }
 
-function buildBodyRewrite(requestId: string, action: BodyAction): CdpContinueRequest {
-  return { requestId, postData: toBase64(action.body) };
+function buildRequestBodyRewrite(requestId: string, action: RequestBodyAction): CdpContinueRequest {
+  return { requestId, postData: toBase64(action.requestBody) };
 }
 
 function hostOf(url: string): string | null {

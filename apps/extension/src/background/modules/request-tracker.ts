@@ -181,7 +181,7 @@ export interface MatchingRule {
 function computeDeferred(rule: Rule): boolean {
   switch (rule.type) {
     case 'delay':
-    case 'body':
+    case 'request-body':
     case 'response':
     case 'inject':
       return true;
@@ -314,7 +314,16 @@ export function getActiveRulesForTab(tabId: number | undefined, tabUrl: string):
   const rules = getRules();
   const unresolvable = getUnresolvableRuleUids();
 
-  const extensionTypes = new Set(['header', 'block', 'redirect', 'query-param', 'inject', 'delay', 'body', 'response']);
+  const extensionTypes = new Set([
+    'header',
+    'block',
+    'redirect',
+    'query-param',
+    'inject',
+    'delay',
+    'request-body',
+    'response',
+  ]);
 
   const normalizedTabUrl = normalizeUrlForTracking(tabUrl);
 
