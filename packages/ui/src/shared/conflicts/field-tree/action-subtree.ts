@@ -14,7 +14,7 @@
  * names are now aligned: `conditions.<uid>.type` reads `c.type`).
  * The walker handles `name` + `action.*`.
  *
- * `MockAction.responseHeaders` (Record-shape; per-entry `name` and
+ * `ResponseAction.responseHeaders` (Record-shape; per-entry `name` and
  * `value` keys are virtual on the form side) is left out of the union
  * branch and handled by the entity adapter wrapper for the same reason.
  *
@@ -128,7 +128,8 @@ function buildActionUnion(paths: ActionPathBundle, discriminatorField: string): 
         body: leaf('string'),
         resourceType: leaf('string'),
       }),
-      mock: obj({
+      response: obj({
+        responseSource: leaf('string'),
         statusCode: leaf('number', { coercion: 'number-strict' }),
         responseBody: leaf('string'),
         contentType: leaf('string'),
@@ -162,7 +163,7 @@ function buildActionUnion(paths: ActionPathBundle, discriminatorField: string): 
 /**
  * Build the per-entity field-tree schema (entity root). The walker
  * handles `name` + the action subtree; the entity adapter wrapper
- * layers conditions and (mock-only) response-header path emission on
+ * layers conditions and (response-only) response-header path emission on
  * top of the walker's projection.
  */
 export interface BuildActionEntitySchemaOptions {

@@ -163,7 +163,7 @@ function assembleSyntheticRule(
         action: { delayMs: (formValues.delayMs as number) ?? 0 },
       };
     // The form field names are prefixed (`injectCode`, `bodyModType`,
-    // `mockResponseHeaders`, …) to keep them unambiguous in the shared
+    // `responseHeaderRows`, …) to keep them unambiguous in the shared
     // form-state object. Map them back to the schema's action shape here.
     case 'inject':
       return {
@@ -202,36 +202,37 @@ function assembleSyntheticRule(
         },
       };
     }
-    case 'mock': {
-      const bodyType = (formValues.mockBodyType as 'static' | 'dynamic') ?? 'static';
+    case 'response': {
+      const bodyType = (formValues.responseBodyType as 'static' | 'dynamic') ?? 'static';
       const responseBody =
         bodyType === 'dynamic'
-          ? ((formValues.mockDynamicBody as string) ?? '')
-          : ((formValues.mockStaticBody as string) ?? '');
+          ? ((formValues.responseDynamicBody as string) ?? '')
+          : ((formValues.responseStaticBody as string) ?? '');
       // Form.List rows → Record<string, string>. Mirrors the save-path
       // conversion in RuleEditor so the validator sees the shape Chrome
       // would actually receive.
       const responseHeaders = Object.fromEntries(
-        ((formValues.mockResponseHeaders as Array<{ name?: string; value?: string }>) ?? [])
+        ((formValues.responseHeaderRows as Array<{ name?: string; value?: string }>) ?? [])
           .filter((h) => h.name?.trim())
           .map((h) => [h.name!.trim(), h.value ?? '']),
       );
-      const gqlKey = ((formValues.mockGraphqlKey as string) ?? '').trim();
+      const gqlKey = ((formValues.responseGraphqlKey as string) ?? '').trim();
       return {
         ...baseShell,
-        type: 'mock',
+        type: 'response',
         action: {
-          statusCode: (formValues.mockStatusCode as number) ?? 200,
+          responseSource: ((formValues.responseSource as string) ?? 'mock') as 'mock' | 'network',
+          statusCode: (formValues.responseStatusCode as number) ?? 200,
           responseHeaders,
           responseBody,
-          contentType: (formValues.mockContentType as string) ?? 'application/json',
+          contentType: (formValues.responseContentType as string) ?? 'application/json',
           bodyType,
-          resourceType: formValues.mockResourceType as 'rest' | 'graphql' | undefined,
+          resourceType: formValues.responseResourceType as 'rest' | 'graphql' | undefined,
           graphqlFilter: gqlKey
             ? {
                 key: gqlKey,
-                operator: ((formValues.mockGraphqlOperator as string) || 'Equals') as 'Equals' | 'Contains',
-                value: (formValues.mockGraphqlValue as string) ?? '',
+                operator: ((formValues.responseGraphqlOperator as string) || 'Equals') as 'Equals' | 'Contains',
+                value: (formValues.responseGraphqlValue as string) ?? '',
               }
             : undefined,
         },

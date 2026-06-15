@@ -98,14 +98,14 @@ export function mergeRuleForSave(
     case 'block':
       return merged;
     default: {
-      // redirect / inject / body / delay / mock — scalar action subtrees.
+      // redirect / inject / body / delay / response — scalar action subtrees.
       const f = (form as { action?: Record<string, unknown> }).action ?? {};
       const b = (baseline as { action?: Record<string, unknown> }).action ?? {};
       const l = (live as { action?: Record<string, unknown> }).action ?? {};
       const mergedAction = mergeScalarLeaves(f, b, l);
-      // Mock's responseHeaders is a Record<string,string>; merge per-key
+      // Response's responseHeaders is a Record<string,string>; merge per-key
       // so a peer adding a new response header survives our save.
-      if (form.type === 'mock') {
+      if (form.type === 'response') {
         const fh = (f.responseHeaders as Record<string, string> | undefined) ?? {};
         const bh = (b.responseHeaders as Record<string, string> | undefined) ?? {};
         const lh = (l.responseHeaders as Record<string, string> | undefined) ?? {};

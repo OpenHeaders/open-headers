@@ -19,7 +19,7 @@
  * `QueryParamEntrySchema`. The bundle's set-row generators (`headerMod`,
  * `condition`, `queryParam`) consume that uid; reorders preserve paths.
  *
- * `mockHeader(name, leaf)` is the exception: `MockAction.responseHeaders`
+ * `responseHeader(name, leaf)` is the exception: `ResponseAction.responseHeaders`
  * is a `Record<string, string>` whose schema key IS the header name, so
  * the name itself is the row identity (renaming = remove + add). No
  * uid needed.
@@ -52,10 +52,11 @@ export interface ActionPathBundle {
   graphqlOperator: string;
   graphqlValue: string;
   delayMs: string;
-  mockStatusCode: string;
-  mockResponseBody: string;
-  mockContentType: string;
-  mockBodyType: string;
+  responseSource: string;
+  responseStatusCode: string;
+  responseBody: string;
+  responseContentType: string;
+  responseBodyType: string;
   // WS / SSE message-rule scalar leaves.
   messageOperation: string;
   messageDirection: string;
@@ -75,11 +76,11 @@ export interface ActionPathBundle {
   ): string;
   condition(uid: string, leaf: 'values' | 'type' | 'headerName'): string;
   queryParam(uid: string, leaf: 'param' | 'value' | 'operation'): string;
-  mockHeader(name: string, leaf: 'name' | 'value'): string;
+  responseHeader(name: string, leaf: 'name' | 'value'): string;
   // Set roots (used for path-prefix presence + set-level conflict keys).
   headerSet(direction: 'request' | 'response'): string;
   queryParamSet: string;
-  mockResponseHeaderSet: string;
+  responseHeaderSet: string;
 }
 
 export interface ActionPathsOptions {
@@ -116,10 +117,11 @@ export function createActionPaths(opts: ActionPathsOptions): ActionPathBundle {
     graphqlOperator: `${a}.graphqlFilter.operator`,
     graphqlValue: `${a}.graphqlFilter.value`,
     delayMs: `${a}.delayMs`,
-    mockStatusCode: `${a}.statusCode`,
-    mockResponseBody: `${a}.responseBody`,
-    mockContentType: `${a}.contentType`,
-    mockBodyType: `${a}.bodyType`,
+    responseSource: `${a}.responseSource`,
+    responseStatusCode: `${a}.statusCode`,
+    responseBody: `${a}.responseBody`,
+    responseContentType: `${a}.contentType`,
+    responseBodyType: `${a}.bodyType`,
     messageOperation: `${a}.operation`,
     messageDirection: `${a}.direction`,
     messageEventName: `${a}.eventName`,
@@ -132,10 +134,10 @@ export function createActionPaths(opts: ActionPathsOptions): ActionPathBundle {
     headerMod: (direction, uid, leaf) => `${headerSet(direction)}.${uid}.${leaf}`,
     condition: (uid, leaf) => `conditions.${uid}.${leaf}`,
     queryParam: (uid, leaf) => `${a}.${qp}.${uid}.${leaf}`,
-    mockHeader: (name, leaf) => `${a}.responseHeaders.${name}.${leaf}`,
+    responseHeader: (name, leaf) => `${a}.responseHeaders.${name}.${leaf}`,
     headerSet,
     queryParamSet: `${a}.${qp}`,
-    mockResponseHeaderSet: `${a}.responseHeaders`,
+    responseHeaderSet: `${a}.responseHeaders`,
   };
 }
 

@@ -134,7 +134,7 @@ const RULE_TYPE_LABEL: Record<Rule['type'], string> = {
   delay: 'Delay',
   inject: 'Inject',
   body: 'Body',
-  mock: 'Mock',
+  response: 'Response',
   'query-param': 'Query Param',
   ws: 'WebSocket',
   sse: 'SSE',

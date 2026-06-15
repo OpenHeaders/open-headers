@@ -14,9 +14,9 @@ export {
   DelaySection,
   HeaderActionsSection,
   InjectSection,
-  MockSection,
   QueryParamSection,
   RedirectSection,
+  ResponseSection,
 } from './actions';
 export {
   ExecutionSection,

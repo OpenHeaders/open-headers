@@ -34,7 +34,7 @@ const ACTION_DOC_ID: Record<string, string> = {
   inject: 'inject',
   delay: 'delay',
   body: 'body',
-  mock: 'mock',
+  response: 'response',
   auth: 'auth',
   // Query param operations
   'qp-add': 'qp-add',
@@ -48,9 +48,9 @@ const ACTION_DOC_ID: Record<string, string> = {
   'body-static': 'body-static',
   'body-dynamic': 'body-dynamic',
   'body-graphql': 'body-graphql',
-  // Mock types
-  'mock-static': 'mock-static',
-  'mock-dynamic': 'mock-dynamic',
+  // Response types
+  'response-static': 'response-static',
+  'response-dynamic': 'response-dynamic',
   // Redirect
   'redirect-url': 'redirect-url',
   'redirect-regex': 'redirect-regex',
@@ -95,9 +95,9 @@ export const DOC_ID_TO_SECTION: Record<string, string> = {
   'body-static': 'body',
   'body-dynamic': 'body',
   'body-graphql': 'body',
-  // Mock sub-anchors
-  'mock-static': 'mock',
-  'mock-dynamic': 'mock',
+  // Response sub-anchors
+  'response-static': 'response',
+  'response-dynamic': 'response',
   // Redirect sub-anchors
   'redirect-url': 'redirect',
   'redirect-regex': 'redirect',

@@ -246,7 +246,7 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
       'inject',
       'delay',
       'body',
-      'mock',
+      'response',
       'ws',
       'sse',
     ] as const;

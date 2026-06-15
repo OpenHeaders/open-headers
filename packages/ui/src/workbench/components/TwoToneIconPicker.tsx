@@ -317,7 +317,7 @@ const DEFAULT_ICON: Record<string, string> = {
   inject: 'CodeTwoTone',
   delay: 'ClockCircleTwoTone',
   body: 'FileTextTwoTone',
-  mock: 'ApiTwoTone',
+  response: 'ApiTwoTone',
 };
 
 export function getDefaultIconForType(ruleType: string): string {

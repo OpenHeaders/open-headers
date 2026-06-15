@@ -36,7 +36,7 @@ const RULE_TYPE_ICON: Record<string, typeof StopOutlined> = {
   inject: CodeOutlined,
   delay: ClockCircleOutlined,
   body: FileOutlined,
-  mock: FileOutlined,
+  response: FileOutlined,
   ws: ThunderboltOutlined,
   sse: NotificationOutlined,
 };

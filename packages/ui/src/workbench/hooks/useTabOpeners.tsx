@@ -62,7 +62,7 @@ const RULE_TYPE_LABELS: Record<string, string> = {
   inject: 'Inject Rule',
   delay: 'Delay Rule',
   body: 'API Request Body Rule',
-  mock: 'API Response Rule',
+  response: 'API Response Rule',
   ws: 'WebSocket Rule',
   sse: 'SSE Rule',
 };

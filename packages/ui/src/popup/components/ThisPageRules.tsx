@@ -86,7 +86,7 @@ const RULE_TYPE_LABEL: Record<string, string> = {
   inject: 'Inject',
   body: 'API Request',
   delay: 'Delay',
-  mock: 'API Response',
+  response: 'API Response',
 };
 
 const RULE_TYPE_DESCRIPTION: Record<string, string> = {
@@ -97,7 +97,7 @@ const RULE_TYPE_DESCRIPTION: Record<string, string> = {
   inject: 'Inject scripts or CSS',
   body: 'Modify API request body (fetch/XHR)',
   delay: 'Delay response',
-  mock: 'Override API response (fetch/XHR)',
+  response: 'Mock or modify API response (fetch/XHR)',
 };
 
 import type { RequestRecord, TabTelemetrySnapshot as TelemetrySnapshot } from '@openheaders/core/types';

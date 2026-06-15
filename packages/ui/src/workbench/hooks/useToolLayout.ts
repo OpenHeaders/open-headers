@@ -155,7 +155,7 @@ export const FACTORY_SIDEBAR_EXPANSIONS: SidebarExpansionsState = {
     'sys-tpl-inject',
     'sys-tpl-delay',
     'sys-tpl-body',
-    'sys-tpl-mock',
+    'sys-tpl-response',
   ],
 };
 

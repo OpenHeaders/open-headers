@@ -156,7 +156,8 @@ export const ComparisonSection: React.FC = () => (
       <DocLink to="header-actions">nine</DocLink> — header Add / Replace / Append / Remove / Merge,{' '}
       <DocLink to="block">Block</DocLink>, <DocLink to="redirect">Redirect</DocLink>,{' '}
       <DocLink to="query-param">Query Params</DocLink>, <DocLink to="inject">Inject</DocLink>,{' '}
-      <DocLink to="delay">Delay</DocLink>, <DocLink to="body">Body</DocLink>, <DocLink to="mock">Mock</DocLink> — all
+      <DocLink to="delay">Delay</DocLink>, <DocLink to="body">Body</DocLink>,{' '}
+      <DocLink to="response">Response</DocLink> — all
       driven by the same <DocLink to="conditions">condition language</DocLink>, all observable through the same{' '}
       <DocLink to="request-tracking">request-tracking</DocLink> surface.
     </DocParagraph>

@@ -379,14 +379,14 @@ export function renderActionDetails(
     inject: 'Type',
     delay: 'Duration',
     body: 'Format',
-    mock: 'Status',
+    response: 'Status',
   };
   const valueKey: Record<string, string> = {
     header: 'Value',
     redirect: 'URL',
     inject: 'Position',
     body: 'Body',
-    mock: 'Content-Type',
+    response: 'Content-Type',
   };
 
   const rows: Array<{ key: string; value: string | string[] }> = [{ key: typeLabel, value: detail.tooltip }];

@@ -84,10 +84,10 @@ export const ALL_RULE_TYPES: RuleTypeMenuItem[] = [
     desktopOnly: false,
   },
   {
-    key: 'mock',
+    key: 'response',
     icon: <DatabaseOutlined />,
-    label: 'Modify API Response',
-    description: 'Override API response status code and body (fetch/XHR only)',
+    label: 'Modify Response',
+    description: 'Mock or modify API response status, body, and headers (fetch/XHR only)',
     desktopOnly: false,
   },
   {

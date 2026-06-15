@@ -26,7 +26,7 @@ const RULE_TYPE_LABEL: Record<string, string> = {
   inject: 'Inject',
   delay: 'Delay',
   body: 'API Request Body',
-  mock: 'API Response',
+  response: 'API Response',
 };
 
 interface UseTemplateTreeNodesParams {

@@ -66,11 +66,11 @@ export const PRIORITY_TIERS: PriorityTier[] = [
     ruleTypes: ['body'],
   },
   {
-    key: 'mock',
-    label: 'API Response',
-    description: 'Override fetch/XHR response status and body',
+    key: 'response',
+    label: 'Modify Response',
+    description: 'Mock or modify fetch/XHR response status, body, and headers',
     color: '#1890ff',
-    ruleTypes: ['mock'],
+    ruleTypes: ['response'],
   },
   {
     key: 'delay',

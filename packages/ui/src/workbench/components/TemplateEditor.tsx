@@ -54,7 +54,7 @@ import DelayRuleFields from './rule-fields/DelayRuleFields';
 import HeaderRuleFields from './rule-fields/HeaderRuleFields';
 import InjectRuleFields, { maybePrefillInjectCode } from './rule-fields/InjectRuleFields';
 import { SseRuleFields, WsRuleFields } from './rule-fields/MessageRuleFields';
-import MockRuleFields, { MOCK_DYNAMIC_TEMPLATE } from './rule-fields/MockRuleFields';
+import ResponseRuleFields, { RESPONSE_BUILD_TEMPLATE, RESPONSE_MODIFY_TEMPLATE } from './rule-fields/ResponseRuleFields';
 import QueryParamRuleFields from './rule-fields/QueryParamRuleFields';
 import RedirectRuleFields from './rule-fields/RedirectRuleFields';
 import TwoToneIconPicker from './TwoToneIconPicker';
@@ -72,7 +72,7 @@ const RULE_TYPE_OPTIONS = [
   { value: 'inject', label: 'Inject Rule' },
   { value: 'delay', label: 'Delay Rule' },
   { value: 'body', label: 'API Request Body Rule' },
-  { value: 'mock', label: 'API Response Rule' },
+  { value: 'response', label: 'API Response Rule' },
 ];
 
 const META_KEYS = new Set([
@@ -354,9 +354,14 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
         const dyn = form.getFieldValue('bodyDynamicContent') as string | undefined;
         if (!dyn?.trim()) form.setFieldValue('bodyDynamicContent', BODY_DYNAMIC_TEMPLATE);
       }
-      if (changedValues.mockBodyType === 'dynamic') {
-        const dyn = form.getFieldValue('mockDynamicBody') as string | undefined;
-        if (!dyn?.trim()) form.setFieldValue('mockDynamicBody', MOCK_DYNAMIC_TEMPLATE);
+      if (changedValues.responseBodyType === 'dynamic' || 'responseSource' in changedValues) {
+        if (form.getFieldValue('responseBodyType') === 'dynamic') {
+          const isNetwork = form.getFieldValue('responseSource') === 'network';
+          const desired = isNetwork ? RESPONSE_MODIFY_TEMPLATE : RESPONSE_BUILD_TEMPLATE;
+          const other = isNetwork ? RESPONSE_BUILD_TEMPLATE : RESPONSE_MODIFY_TEMPLATE;
+          const cur = (form.getFieldValue('responseDynamicBody') as string | undefined) ?? '';
+          if (!cur.trim() || cur === other) form.setFieldValue('responseDynamicBody', desired);
+        }
       }
       if ('injectType' in changedValues) {
         maybePrefillInjectCode(form, changedValues.injectType);
@@ -461,7 +466,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
             {selectedType === 'inject' && <InjectRuleFields />}
             {selectedType === 'delay' && <DelayRuleFields />}
             {selectedType === 'body' && <BodyRuleFields />}
-            {selectedType === 'mock' && <MockRuleFields />}
+            {selectedType === 'response' && <ResponseRuleFields />}
             {selectedType === 'ws' && <WsRuleFields />}
             {selectedType === 'sse' && <SseRuleFields />}
             {selectedType && <ActionValueBanner ruleType={selectedType} />}

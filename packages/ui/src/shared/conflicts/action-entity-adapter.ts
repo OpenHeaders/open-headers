@@ -3,7 +3,7 @@
  *
  * Both entities reuse the same per-rule-type field components
  * (`rule-fields/*`) and therefore observe identical conflict structure
- * (header/param/condition sets, scalar action leaves, mock response
+ * (header/param/condition sets, scalar action leaves, response
  * headers). They differ only along three axes:
  *
  *   1. **Action root key.** Rule persists action data under `action.*`;
@@ -48,7 +48,7 @@ import type { PathConflict } from './types';
 export interface ActionEntityAccessors<E extends { uid: string }> {
   signature: (entity: E) => string;
   /** Discriminator that selects the action-shape (header / inject /
-   *  body / mock / …). Both rule (`rule.type`) and template
+   *  body / response / …). Both rule (`rule.type`) and template
    *  (`template.ruleType`) project to the same Rule['type'] union. */
   getRuleType: (entity: E) => Rule['type'];
   /** Schema field at the entity root that holds the rule-type
@@ -148,7 +148,7 @@ function buildSetDefs<E extends { uid: string }>(
       inject: [],
       delay: [],
       body: [],
-      mock: [],
+      response: [],
       ws: [],
       sse: [],
       // Auth credentials are scalar leaves (tracked via ScalarConflictChip),
@@ -171,7 +171,7 @@ function makeTrackingAdapter<E extends { uid: string }>(
     `^${a}\\.(requestHeaders|responseHeaders)\\.([a-z0-9]{8})\\.(value|headerName|operation|mergeSeparator)$`,
   );
   const queryParamRe = new RegExp(`^${a}\\.${paths.queryParamKey}\\.([a-z0-9]{8})\\.(param|value|operation)$`);
-  const mockHeaderRe = new RegExp(`^${a}\\.responseHeaders\\.([^.]+)\\.(name|value)$`);
+  const responseHeaderRe = new RegExp(`^${a}\\.responseHeaders\\.([^.]+)\\.(name|value)$`);
   const conditionsRe = /^conditions\.([a-z0-9]{8})\.(values|type|headerName)$/;
   const walker = makeConflictAdapter<E>({
     schema: buildActionEntitySchema(paths, { discriminatorField: accessors.discriminatorField }),
@@ -219,11 +219,11 @@ function makeTrackingAdapter<E extends { uid: string }>(
       if (!item) return null;
       return String(item[leaf] ?? '');
     }
-    const mockHeader = mockHeaderRe.exec(path);
-    if (mockHeader) {
-      if (accessors.getRuleType(entity) !== 'mock') return null;
-      const headerName = mockHeader[1];
-      const leaf = mockHeader[2] as 'name' | 'value';
+    const responseHeader = responseHeaderRe.exec(path);
+    if (responseHeader) {
+      if (accessors.getRuleType(entity) !== 'response') return null;
+      const headerName = responseHeader[1];
+      const leaf = responseHeader[2] as 'name' | 'value';
       const map = (root.responseHeaders as Record<string, string> | undefined) ?? {};
       if (!(headerName in map)) return null;
       if (leaf === 'name') return headerName;
@@ -256,7 +256,7 @@ function makeTrackingAdapter<E extends { uid: string }>(
 
   function extractBaseline(entity: E): PathMap {
     // Walker handles `name` + the action subtree (header/respHeader sets,
-    // query-param sets, per-type scalars). Conditions + mock response
+    // query-param sets, per-type scalars). Conditions + response
     // headers wrap on top — both have schema-vs-path-key shapes that
     // don't round-trip cleanly through the descriptor.
     const out: PathMap = { ...walker.tracking.extractBaseline(entity) };
@@ -264,11 +264,11 @@ function makeTrackingAdapter<E extends { uid: string }>(
       out[paths.condition(c.uid, 'values')] = (c.values ?? []).join(', ');
       out[paths.condition(c.uid, 'type')] = String(c.type);
     }
-    if (accessors.getRuleType(entity) === 'mock') {
+    if (accessors.getRuleType(entity) === 'response') {
       const map = (accessors.getActionRoot(entity)?.responseHeaders as Record<string, string> | undefined) ?? {};
       for (const [headerName, headerValue] of Object.entries(map)) {
-        out[paths.mockHeader(headerName, 'name')] = headerName;
-        out[paths.mockHeader(headerName, 'value')] = String(headerValue ?? '');
+        out[paths.responseHeader(headerName, 'name')] = headerName;
+        out[paths.responseHeader(headerName, 'value')] = String(headerValue ?? '');
       }
     }
     return out;
@@ -361,9 +361,9 @@ const SCALAR_LABEL: Record<string, string> = {
   body: 'Body',
   bodyType: 'Body type',
   resourceType: 'Resource type',
-  statusCode: 'Mock status code',
-  responseBody: 'Mock response body',
-  contentType: 'Mock content type',
+  statusCode: 'Response status code',
+  responseBody: 'Response body',
+  contentType: 'Response content type',
   operation: 'Operation',
   direction: 'Direction',
   eventName: 'Event name',
@@ -398,7 +398,7 @@ function makeResolveAdapter<E extends { uid: string }>(
     `^${a}\\.(requestHeaders|responseHeaders)\\.([a-z0-9]{8})\\.(value|headerName|operation|mergeSeparator)$`,
   );
   const queryParamRe = new RegExp(`^${a}\\.${paths.queryParamKey}\\.([a-z0-9]{8})\\.(param|value|operation)$`);
-  const mockHeaderRe = new RegExp(`^${a}\\.responseHeaders\\.([^.]+)\\.(name|value)$`);
+  const responseHeaderRe = new RegExp(`^${a}\\.responseHeaders\\.([^.]+)\\.(name|value)$`);
   const headerSetReq = paths.headerSet('request');
   const headerSetRes = paths.headerSet('response');
   const queryParamSet = paths.queryParamSet;
@@ -540,11 +540,11 @@ function makeResolveAdapter<E extends { uid: string }>(
       const name = findParamName(entity, uid);
       return name ? `Query param ${name} (${leaf})` : `Query param (${leaf})`;
     }
-    const mockHeader = mockHeaderRe.exec(path);
-    if (mockHeader) {
-      const headerName = mockHeader[1];
-      const leaf = mockHeader[2];
-      return `Mock response header ${headerName} (${leaf})`;
+    const responseHeader = responseHeaderRe.exec(path);
+    if (responseHeader) {
+      const headerName = responseHeader[1];
+      const leaf = responseHeader[2];
+      return `Response header ${headerName} (${leaf})`;
     }
     const tail = path.slice(a.length + 1);
     if (!tail.includes('.') && SCALAR_LABEL[tail]) return SCALAR_LABEL[tail];

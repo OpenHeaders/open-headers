@@ -344,9 +344,9 @@ const BODY_TREE: SystemTemplateNode[] = [
   ]),
 ];
 
-// ── Mock / API Response templates ───────────────────────────────
+// ── Response (Modify Response) templates ─────────────────────────
 
-const MOCK_TREE: SystemTemplateNode[] = [
+const RESPONSE_TREE: SystemTemplateNode[] = [
   f('Status Codes', [
     t({
       key: 'mock-200',
@@ -355,10 +355,11 @@ const MOCK_TREE: SystemTemplateNode[] = [
       description: 'Return a successful JSON response for a REST API endpoint',
       conditions: [{ uid: 'sct00021', type: 'request-domains', values: ['api.openheaders.io'] }],
       formValues: {
-        mockResourceType: 'rest',
-        mockStatusCode: 200,
-        mockBodyType: 'static',
-        mockStaticBody: '{\n  "status": "ok",\n  "data": []\n}',
+        responseSource: 'mock',
+        responseResourceType: 'rest',
+        responseStatusCode: 200,
+        responseBodyType: 'static',
+        responseStaticBody: '{\n  "status": "ok",\n  "data": []\n}',
       },
     }),
     t({
@@ -368,10 +369,11 @@ const MOCK_TREE: SystemTemplateNode[] = [
       description: 'Return a 404 Not Found response',
       conditions: [{ uid: 'sct00022', type: 'request-domains', values: ['api.openheaders.io'] }],
       formValues: {
-        mockResourceType: 'rest',
-        mockStatusCode: 404,
-        mockBodyType: 'static',
-        mockStaticBody: '{\n  "error": "Not Found"\n}',
+        responseSource: 'mock',
+        responseResourceType: 'rest',
+        responseStatusCode: 404,
+        responseBodyType: 'static',
+        responseStaticBody: '{\n  "error": "Not Found"\n}',
       },
     }),
     t({
@@ -381,10 +383,11 @@ const MOCK_TREE: SystemTemplateNode[] = [
       description: 'Return a 500 Internal Server Error — test error handling',
       conditions: [{ uid: 'sct00023', type: 'request-domains', values: ['api.openheaders.io'] }],
       formValues: {
-        mockResourceType: 'rest',
-        mockStatusCode: 500,
-        mockBodyType: 'static',
-        mockStaticBody: '{\n  "error": "Internal Server Error"\n}',
+        responseSource: 'mock',
+        responseResourceType: 'rest',
+        responseStatusCode: 500,
+        responseBodyType: 'static',
+        responseStaticBody: '{\n  "error": "Internal Server Error"\n}',
       },
     }),
   ]),
@@ -396,14 +399,15 @@ const MOCK_TREE: SystemTemplateNode[] = [
       description: 'Return a custom response for a specific GraphQL operation',
       conditions: [{ uid: 'sct00024', type: 'request-domains', values: ['api.openheaders.io'] }],
       formValues: {
-        mockResourceType: 'graphql',
-        mockStatusCode: 200,
-        mockBodyType: 'static',
-        mockStaticBody:
+        responseSource: 'mock',
+        responseResourceType: 'graphql',
+        responseStatusCode: 200,
+        responseBodyType: 'static',
+        responseStaticBody:
           '{\n  "data": {\n    "user": {\n      "id": "1",\n      "name": "Test User",\n      "email": "user@openheaders.io"\n    }\n  }\n}',
-        mockGraphqlKey: 'operationName',
-        mockGraphqlOperator: 'Equals',
-        mockGraphqlValue: 'GetUser',
+        responseGraphqlKey: 'operationName',
+        responseGraphqlOperator: 'Equals',
+        responseGraphqlValue: 'GetUser',
       },
     }),
   ]),
@@ -416,10 +420,11 @@ const MOCK_TREE: SystemTemplateNode[] = [
         'Intercept the real REST API response and modify it with JavaScript — inject test data, remove fields, or transform the response shape',
       conditions: [{ uid: 'sct00025', type: 'request-domains', values: ['api.openheaders.io'] }],
       formValues: {
-        mockResourceType: 'rest',
-        mockStatusCode: 0,
-        mockBodyType: 'dynamic',
-        mockDynamicBody: `function modifyResponse(args) {
+        responseSource: 'network',
+        responseResourceType: 'rest',
+        responseStatusCode: 0,
+        responseBodyType: 'dynamic',
+        responseDynamicBody: `function modifyResponse(args) {
   const { method, url, response, responseJSON } = args;
   if (!responseJSON) return response;
 
@@ -462,13 +467,14 @@ const MOCK_TREE: SystemTemplateNode[] = [
         'Intercept a specific GraphQL operation response and modify it with JavaScript — reshape data, inject mock fields, or simulate errors',
       conditions: [{ uid: 'sct00026', type: 'request-domains', values: ['api.openheaders.io'] }],
       formValues: {
-        mockResourceType: 'graphql',
-        mockStatusCode: 0,
-        mockBodyType: 'dynamic',
-        mockGraphqlKey: 'operationName',
-        mockGraphqlOperator: 'Equals',
-        mockGraphqlValue: 'GetUser',
-        mockDynamicBody: `function modifyResponse(args) {
+        responseSource: 'network',
+        responseResourceType: 'graphql',
+        responseStatusCode: 0,
+        responseBodyType: 'dynamic',
+        responseGraphqlKey: 'operationName',
+        responseGraphqlOperator: 'Equals',
+        responseGraphqlValue: 'GetUser',
+        responseDynamicBody: `function modifyResponse(args) {
   const { method, url, response, responseJSON, requestData } = args;
   if (!responseJSON?.data) return response;
 
@@ -512,7 +518,7 @@ export const SYSTEM_TEMPLATE_TREE_BY_TYPE: Record<string, SystemTemplateNode[]> 
   inject: INJECT_TREE,
   delay: DELAY_TREE,
   body: BODY_TREE,
-  mock: MOCK_TREE,
+  response: RESPONSE_TREE,
 };
 
 /** Walk a system template tree and return a flat list of all templates. */

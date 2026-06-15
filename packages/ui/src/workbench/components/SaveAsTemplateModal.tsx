@@ -24,7 +24,7 @@ const RULE_TYPE_LABEL: Record<string, string> = {
   inject: 'Inject',
   delay: 'Delay',
   body: 'API Request Body',
-  mock: 'API Response',
+  response: 'API Response',
 };
 
 interface SaveAsTemplateModalProps {
@@ -208,8 +208,8 @@ const SaveAsTemplateModal: React.FC<SaveAsTemplateModalProps> = ({
               formValues.redirectTo ||
               formValues.delayMs ||
               formValues.injectCode ||
-              formValues.mockStaticBody ||
-              formValues.mockDynamicBody ||
+              formValues.responseStaticBody ||
+              formValues.responseDynamicBody ||
               formValues.bodyStaticContent ||
               formValues.bodyDynamicContent
             );

@@ -30,7 +30,7 @@ import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import { canonicalizeRule, parseRule, serializeRule } from '@openheaders/core/codec/yaml';
 import { freshDocument } from '@openheaders/core/schemas';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { AuthRule, BlockRule, BodyModType, BodyResourceType, BodyRule, DelayRule, ExtensionRuleType, HeaderModification, HeaderRule, InjectAction, InjectRule, InjectSource, InjectTrigger, InjectType, MessageFilter, MessageOperation, MockBodyType, MockRule, QueryParamOperation, QueryParamRule, RedirectRule, Rule, RuleCondition, RuleDraft, SseRule, TreeNode, WsDirection, WsRule } from '@openheaders/core/types';
+import type { AuthRule, BlockRule, BodyModType, BodyResourceType, BodyRule, DelayRule, ExtensionRuleType, HeaderModification, HeaderRule, InjectAction, InjectRule, InjectSource, InjectTrigger, InjectType, MessageFilter, MessageOperation, QueryParamOperation, QueryParamRule, RedirectRule, ResponseBodyType, ResponseRule, ResponseSource, Rule, RuleCondition, RuleDraft, SseRule, TreeNode, WsDirection, WsRule } from '@openheaders/core/types';
 import { generateUid, isRuleComplete } from '@openheaders/core/utils';
 import type { MenuProps } from 'antd';
 import { Alert, App, Button, Dropdown, Form, Switch, Tooltip, Typography, theme } from 'antd';
@@ -72,7 +72,7 @@ import DelayRuleFields from './rule-fields/DelayRuleFields';
 import HeaderRuleFields from './rule-fields/HeaderRuleFields';
 import InjectRuleFields, { maybePrefillInjectCode } from './rule-fields/InjectRuleFields';
 import { SseRuleFields, WsRuleFields } from './rule-fields/MessageRuleFields';
-import MockRuleFields, { MOCK_DYNAMIC_TEMPLATE } from './rule-fields/MockRuleFields';
+import ResponseRuleFields, { RESPONSE_BUILD_TEMPLATE, RESPONSE_MODIFY_TEMPLATE } from './rule-fields/ResponseRuleFields';
 import { mergeRuleForSave } from './rule-fields/merge-rule-for-save';
 import { prettyRulePathMap } from './rule-fields/pretty-path';
 import QueryParamRuleFields from './rule-fields/QueryParamRuleFields';
@@ -95,7 +95,7 @@ const RULE_TYPE_TITLE: Record<string, string> = {
   inject: 'Inject Rule',
   body: 'API Request Body Rule',
   delay: 'Delay Rule',
-  mock: 'API Response Rule',
+  response: 'API Response Rule',
   ws: 'WebSocket Rule',
   sse: 'SSE Rule',
 };
@@ -340,20 +340,21 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
           });
           break;
         }
-        case 'mock': {
-          const mr = rule as MockRule;
+        case 'response': {
+          const rr2 = rule as ResponseRule;
           form.setFieldsValue({
             ...baseValues,
-            mockStatusCode: mr.action.statusCode || undefined,
-            mockContentType: mr.action.contentType,
-            mockStaticBody: mr.action.bodyType === 'dynamic' ? '' : mr.action.responseBody,
-            mockDynamicBody: mr.action.bodyType === 'dynamic' ? mr.action.responseBody : '',
-            mockBodyType: mr.action.bodyType || 'static',
-            mockResourceType: mr.action.resourceType || 'rest',
-            mockGraphqlKey: mr.action.graphqlFilter?.key || '',
-            mockGraphqlOperator: mr.action.graphqlFilter?.operator || 'Equals',
-            mockGraphqlValue: mr.action.graphqlFilter?.value || '',
-            mockResponseHeaders: Object.entries(mr.action.responseHeaders ?? {}).map(([name, value]) => ({
+            responseSource: rr2.action.responseSource || 'mock',
+            responseStatusCode: rr2.action.statusCode || undefined,
+            responseContentType: rr2.action.contentType,
+            responseStaticBody: rr2.action.bodyType === 'dynamic' ? '' : rr2.action.responseBody,
+            responseDynamicBody: rr2.action.bodyType === 'dynamic' ? rr2.action.responseBody : '',
+            responseBodyType: rr2.action.bodyType || 'static',
+            responseResourceType: rr2.action.resourceType || 'rest',
+            responseGraphqlKey: rr2.action.graphqlFilter?.key || '',
+            responseGraphqlOperator: rr2.action.graphqlFilter?.operator || 'Equals',
+            responseGraphqlValue: rr2.action.graphqlFilter?.value || '',
+            responseHeaderRows: Object.entries(rr2.action.responseHeaders ?? {}).map(([name, value]) => ({
               name,
               value,
             })),
@@ -853,9 +854,20 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         const dyn = form.getFieldValue('bodyDynamicContent') as string | undefined;
         if (!dyn?.trim()) form.setFieldValue('bodyDynamicContent', BODY_DYNAMIC_TEMPLATE);
       }
-      if (changedValues.mockBodyType === 'dynamic') {
-        const dyn = form.getFieldValue('mockDynamicBody') as string | undefined;
-        if (!dyn?.trim()) form.setFieldValue('mockDynamicBody', MOCK_DYNAMIC_TEMPLATE);
+      // Response rules carry two dynamic contracts: mock source builds a
+      // synthetic body via buildResponse(), network source transforms the
+      // real reply via modifyResponse(). Prefill the matching starter when
+      // the user flips to Dynamic, and swap it when they flip source — but
+      // only while the buffer is still the untouched opposite starter so a
+      // hand-written function is never clobbered.
+      if (changedValues.responseBodyType === 'dynamic' || 'responseSource' in changedValues) {
+        if (form.getFieldValue('responseBodyType') === 'dynamic') {
+          const isNetwork = form.getFieldValue('responseSource') === 'network';
+          const desired = isNetwork ? RESPONSE_MODIFY_TEMPLATE : RESPONSE_BUILD_TEMPLATE;
+          const other = isNetwork ? RESPONSE_BUILD_TEMPLATE : RESPONSE_MODIFY_TEMPLATE;
+          const cur = (form.getFieldValue('responseDynamicBody') as string | undefined) ?? '';
+          if (!cur.trim() || cur === other) form.setFieldValue('responseDynamicBody', desired);
+        }
       }
       if ('injectType' in changedValues) {
         maybePrefillInjectCode(form, changedValues.injectType);
@@ -903,11 +915,11 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       const targets: Array<{ field: string; language: LanguageId }> = [];
       if (ruleType === 'inject') {
         targets.push({ field: 'injectCode', language: pre.injectType === 'css' ? 'css' : 'javascript' });
-      } else if (ruleType === 'mock') {
-        if (pre.mockBodyType === 'dynamic') {
-          targets.push({ field: 'mockDynamicBody', language: 'javascript' });
+      } else if (ruleType === 'response') {
+        if (pre.responseBodyType === 'dynamic') {
+          targets.push({ field: 'responseDynamicBody', language: 'javascript' });
         } else {
-          targets.push({ field: 'mockStaticBody', language: 'json' });
+          targets.push({ field: 'responseStaticBody', language: 'json' });
         }
       } else if (ruleType === 'body') {
         if (pre.bodyModType === 'dynamic') {
@@ -1355,7 +1367,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                         {selectedType === 'inject' && <InjectRuleFields />}
                         {selectedType === 'delay' && <DelayRuleFields />}
                         {selectedType === 'body' && <BodyRuleFields />}
-                        {selectedType === 'mock' && <MockRuleFields />}
+                        {selectedType === 'response' && <ResponseRuleFields />}
                         {selectedType === 'ws' && <WsRuleFields />}
                         {selectedType === 'sse' && <SseRuleFields />}
                         {selectedType === 'auth' && <AuthRuleFields />}
@@ -1534,38 +1546,39 @@ function buildRule(
               : undefined,
         },
       } as Omit<BodyRule, 'uid' | 'path'>;
-    case 'mock':
+    case 'response':
       return {
         ...base,
-        type: 'mock',
+        type: 'response',
         action: {
-          statusCode: (formValues.mockStatusCode as number) || 0,
+          responseSource: ((formValues.responseSource as string) ?? 'mock') as ResponseSource,
+          statusCode: (formValues.responseStatusCode as number) || 0,
           responseBody:
-            formValues.mockBodyType === 'dynamic'
-              ? ((formValues.mockDynamicBody as string) ?? '')
-              : ((formValues.mockStaticBody as string) ?? ''),
-          contentType: (formValues.mockContentType as string) ?? 'application/json',
+            formValues.responseBodyType === 'dynamic'
+              ? ((formValues.responseDynamicBody as string) ?? '')
+              : ((formValues.responseStaticBody as string) ?? ''),
+          contentType: (formValues.responseContentType as string) ?? 'application/json',
           // Form.List rows → Record<string, string>. Drops empty
           // names; later occurrences of the same name silently
           // win (matches Object.fromEntries semantics — fine because
           // duplicate response headers are nonsensical).
           responseHeaders: Object.fromEntries(
-            ((formValues.mockResponseHeaders as Array<{ name?: string; value?: string }>) ?? [])
+            ((formValues.responseHeaderRows as Array<{ name?: string; value?: string }>) ?? [])
               .filter((h) => h.name?.trim())
               .map((h) => [h.name!.trim(), h.value ?? '']),
           ),
-          bodyType: ((formValues.mockBodyType as string) ?? 'static') as MockBodyType,
-          resourceType: ((formValues.mockResourceType as string) ?? 'rest') as BodyResourceType,
+          bodyType: ((formValues.responseBodyType as string) ?? 'static') as ResponseBodyType,
+          resourceType: ((formValues.responseResourceType as string) ?? 'rest') as BodyResourceType,
           graphqlFilter:
-            formValues.mockResourceType === 'graphql' && (formValues.mockGraphqlKey as string)?.trim()
+            formValues.responseResourceType === 'graphql' && (formValues.responseGraphqlKey as string)?.trim()
               ? {
-                  key: (formValues.mockGraphqlKey as string).trim(),
-                  operator: ((formValues.mockGraphqlOperator as string) || 'Equals') as 'Equals' | 'Contains',
-                  value: (formValues.mockGraphqlValue as string) || '',
+                  key: (formValues.responseGraphqlKey as string).trim(),
+                  operator: ((formValues.responseGraphqlOperator as string) || 'Equals') as 'Equals' | 'Contains',
+                  value: (formValues.responseGraphqlValue as string) || '',
                 }
               : undefined,
         },
-      } as Omit<MockRule, 'uid' | 'path'>;
+      } as Omit<ResponseRule, 'uid' | 'path'>;
     case 'ws':
       return {
         ...base,

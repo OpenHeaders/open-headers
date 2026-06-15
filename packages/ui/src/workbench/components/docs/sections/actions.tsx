@@ -136,8 +136,8 @@ export const ActionsSection: React.FC = () => (
             <DocLink to="header-actions">Header Actions</DocLink> — same five operations apply to response headers.
           </li>
           <li>
-            <DocLink to="mock">Response Body + Status</DocLink> — intercept the reply and return synthetic body, status,
-            or headers.
+            <DocLink to="response">Modify Response</DocLink> — mock or modify the reply: synthetic body, status, or
+            headers.
           </li>
         </ul>
       </Card>
@@ -558,7 +558,7 @@ export const BodySection: React.FC = () => (
   </>
 );
 
-export const MockSection: React.FC = () => (
+export const ResponseSection: React.FC = () => (
   <>
     <SurfaceContext surfaces={['popup', 'side-panel', 'workbench', 'devtools']} />
     <DocParagraph>
@@ -569,7 +569,7 @@ export const MockSection: React.FC = () => (
       <MockFlowDiagram />
     </DiagramFrame>
 
-    <Anchor id="mock-static">
+    <Anchor id="response-static">
       <ActionHeading title="Static response" engine="script" />
       <DocParagraph>
         Returns a fixed body with full control over the synthetic response — status code, Content-Type, and any
@@ -581,7 +581,7 @@ export const MockSection: React.FC = () => (
       </DiagramFrame>
     </Anchor>
 
-    <Anchor id="mock-dynamic">
+    <Anchor id="response-dynamic">
       <ActionHeading title="Dynamic response" engine="script" />
       <DocParagraph>
         The real request is made first. Your function receives the response and request context, then returns the
