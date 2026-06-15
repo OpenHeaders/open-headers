@@ -35,7 +35,7 @@ describe('WorkspaceIntentSchema — accepts every kind', () => {
     ['open-docs', { kind: 'open-docs', section: 'doc-system-status' }],
     ['edit-rule', { kind: 'edit-rule', uid: UID_A }],
     ['create-rule (no template/draft)', { kind: 'create-rule', ruleType: 'header' }],
-    ['create-rule (template)', { kind: 'create-rule', ruleType: 'mock', templateKey: 'my-tpl' }],
+    ['create-rule (template)', { kind: 'create-rule', ruleType: 'response', templateKey: 'my-tpl' }],
     ['create-rule (draft)', { kind: 'create-rule', ruleType: 'inject', draftNonce: 'xyz-123' }],
     [
       'create-rule (context)',
@@ -165,7 +165,7 @@ describe('intentToHash / hashToIntent — round-trip', () => {
     { kind: 'open-docs', section: 'keyboard-shortcuts' },
     { kind: 'edit-rule', uid: UID_A },
     { kind: 'create-rule', ruleType: 'header' },
-    { kind: 'create-rule', ruleType: 'mock', templateKey: 'template-abc' },
+    { kind: 'create-rule', ruleType: 'response', templateKey: 'template-abc' },
     { kind: 'create-rule', ruleType: 'inject', draftNonce: 'nonce-xyz' },
     { kind: 'edit-environment', uid: UID_A },
     { kind: 'create-environment' },

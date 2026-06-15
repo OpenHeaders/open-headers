@@ -58,7 +58,7 @@ export function serializeRule(write: WriteableDocument<Rule>): string {
  *
  * `buildFreshDocument` enforces top-level rule field order via
  * `RULE_FIELD_ORDER`; nested rows (header mods, query params,
- * conditions) and Record-shaped collections (mock responseHeaders)
+ * conditions) and Record-shaped collections (response responseHeaders)
  * serialize in JS insertion order. Form.List rows enter insertion
  * order via the form's register sequence; oracle-projected rows enter
  * via the materialize pipeline. Without normalization the two paths
@@ -88,10 +88,10 @@ export function canonicalizeRule(rule: Rule): Rule {
         type: 'query-param',
         action: { params: (rule.action.params ?? []).map(canonicalQueryParamEntry) },
       } as Rule;
-    case 'mock':
+    case 'response':
       return {
         ...baseClone,
-        type: 'mock',
+        type: 'response',
         action: { ...rule.action, responseHeaders: canonicalRecord(rule.action.responseHeaders) },
       } as Rule;
     default:

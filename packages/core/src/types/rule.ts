@@ -8,7 +8,7 @@
  * A rule = conditions (when to match) + action (what to do).
  * Conditions are AND-evaluated: all must match for the rule to fire.
  * Actions are type-specific: header, redirect, body, inject, block, delay,
- * mock, query-param, ws, sse.
+ * response, query-param, ws, sse.
  *
  * Persisted shapes (RuleBase, RuleCondition, every per-type action + rule,
  * the `Rule` discriminated union) are derived from the valibot schemas so
@@ -42,15 +42,16 @@ import type {
   InjectTypeSchema,
   MessageFilterSchema,
   MessageOperationSchema,
-  MockActionSchema,
-  MockBodyTypeSchema,
-  MockRuleSchema,
   QueryParamActionSchema,
   QueryParamEntrySchema,
   QueryParamOperationSchema,
   QueryParamRuleSchema,
   RedirectActionSchema,
   RedirectRuleSchema,
+  ResponseActionSchema,
+  ResponseBodyTypeSchema,
+  ResponseRuleSchema,
+  ResponseSourceSchema,
   RuleBaseSchema,
   RuleConditionSchema,
   RuleSchema,
@@ -69,7 +70,7 @@ export type RuleType = v.InferOutput<typeof RuleTypeSchema>;
 /**
  * Rule types supported by the browser extension.
  * DNR-based: header, block, redirect, query-param (declarativeNetRequest API).
- * Script-based: inject, delay, body, mock, ws, sse (chrome.scripting API —
+ * Script-based: inject, delay, body, response, ws, sse (chrome.scripting API —
  * monkey-patches fetch/XHR/WebSocket/EventSource).
  */
 export type ExtensionRuleType =
@@ -80,7 +81,7 @@ export type ExtensionRuleType =
   | 'inject'
   | 'delay'
   | 'body'
-  | 'mock'
+  | 'response'
   | 'ws'
   | 'sse'
   | 'auth';
@@ -89,19 +90,19 @@ export type ExtensionRuleType =
 export type DnrRuleType = 'header' | 'block' | 'redirect' | 'query-param';
 
 /** Script-based rule types — use chrome.scripting API to monkey-patch fetch/XHR/WebSocket/EventSource. */
-export type ScriptRuleType = 'inject' | 'delay' | 'body' | 'mock' | 'ws' | 'sse';
+export type ScriptRuleType = 'inject' | 'delay' | 'body' | 'response' | 'ws' | 'sse';
 
 /**
  * Rule types with a CDP `Fetch` realization — the only types that can be
- * *debug-tier* (CDP Control Plane, Phase D). `body`/`mock` synthesize or
+ * *debug-tier* (CDP Control Plane, Phase D). `body`/`response` synthesize or
  * rewrite over `Fetch.fulfillRequest`/`continueRequest`; `auth` answers a
- * challenge over `Fetch.continueWithAuth`. Whether a `body`/`mock` rule
+ * challenge over `Fetch.continueWithAuth`. Whether a `body`/`response` rule
  * actually IS debug-tier depends on its reach (see `isDebugTierRule`);
  * `auth` is unconditionally debug-tier (no DNR / injection equivalent).
  * Like `DnrRuleType`/`ScriptRuleType`, this is a capability subset, not a
  * persisted shape — tier is never stored on the rule.
  */
-export type FetchCapableRuleType = 'body' | 'mock' | 'auth';
+export type FetchCapableRuleType = 'body' | 'response' | 'auth';
 
 // ── Conditions ────────────────────────────────────────────────────
 
@@ -164,11 +165,12 @@ export type BlockRule = v.InferOutput<typeof BlockRuleSchema>;
 export type DelayAction = v.InferOutput<typeof DelayActionSchema>;
 export type DelayRule = v.InferOutput<typeof DelayRuleSchema>;
 
-// ── Mock rule (Modify API Response) ──────────────────────────────
+// ── Response rule (Modify Response) ──────────────────────────────
 
-export type MockBodyType = v.InferOutput<typeof MockBodyTypeSchema>;
-export type MockAction = v.InferOutput<typeof MockActionSchema>;
-export type MockRule = v.InferOutput<typeof MockRuleSchema>;
+export type ResponseSource = v.InferOutput<typeof ResponseSourceSchema>;
+export type ResponseBodyType = v.InferOutput<typeof ResponseBodyTypeSchema>;
+export type ResponseAction = v.InferOutput<typeof ResponseActionSchema>;
+export type ResponseRule = v.InferOutput<typeof ResponseRuleSchema>;
 
 // ── Query Param rule ──────────────────────────────────────────────
 

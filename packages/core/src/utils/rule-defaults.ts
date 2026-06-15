@@ -83,16 +83,17 @@ export function buildEmptyRule(type: RuleType, name: string): RuleSeed {
         type: 'delay',
         action: { delayMs: 0 },
       };
-    case 'mock':
+    case 'response':
       return {
         ...base,
-        type: 'mock',
+        type: 'response',
         action: {
-          statusCode: 200,
-          responseHeaders: {},
-          responseBody: '',
-          contentType: 'application/json',
+          responseSource: 'mock',
           bodyType: 'static',
+          responseBody: '',
+          statusCode: 200,
+          contentType: 'application/json',
+          responseHeaders: {},
         },
       };
     case 'query-param':

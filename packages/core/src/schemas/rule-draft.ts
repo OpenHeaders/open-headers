@@ -14,6 +14,8 @@ import {
   InjectSourceSchema,
   InjectTypeSchema,
   QueryParamOperationSchema,
+  ResponseBodyTypeSchema,
+  ResponseSourceSchema,
 } from './rule';
 
 // Shared draft base fields — carried by every rule-draft variant.
@@ -55,14 +57,15 @@ export const BodyRuleDraftSchema = v.object({
   resourceType: v.optional(BodyResourceTypeSchema),
 });
 
-export const MockRuleDraftSchema = v.object({
-  type: v.literal('mock'),
+export const ResponseRuleDraftSchema = v.object({
+  type: v.literal('response'),
   ...RuleDraftBaseFields,
+  responseSource: v.optional(ResponseSourceSchema),
   statusCode: v.optional(v.number()),
   responseBody: v.optional(v.string()),
   responseHeaders: v.optional(v.record(v.string(), v.string())),
   contentType: v.optional(v.string()),
-  bodyType: v.optional(BodyModTypeSchema),
+  bodyType: v.optional(ResponseBodyTypeSchema),
   resourceType: v.optional(BodyResourceTypeSchema),
 });
 
@@ -106,7 +109,7 @@ export const RuleDraftSchema = v.variant('type', [
   HeaderRuleDraftSchema,
   RedirectRuleDraftSchema,
   BodyRuleDraftSchema,
-  MockRuleDraftSchema,
+  ResponseRuleDraftSchema,
   BlockRuleDraftSchema,
   DelayRuleDraftSchema,
   QueryParamRuleDraftSchema,

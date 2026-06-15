@@ -29,7 +29,7 @@ export const IntentRuleTypeSchema = v.picklist([
   'inject',
   'delay',
   'body',
-  'mock',
+  'response',
   'ws',
   'sse',
   'auth',

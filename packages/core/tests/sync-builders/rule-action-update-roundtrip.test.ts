@@ -16,7 +16,7 @@
 import { describe, expect, it } from 'vitest';
 import { InMemoryDocumentStore, type MutatorContext } from '../../src/sync';
 import { buildAddBatch, buildUpdateBatch, type RuleMutationPayload } from '../../src/sync-builders/rule-mutations';
-import type { MockRule, RedirectRule, Rule } from '../../src/types';
+import type { RedirectRule, ResponseRule, Rule } from '../../src/types';
 
 const ctx = (physicalMs: number): MutatorContext => ({
   workspaceId: 'ws-1',
@@ -30,29 +30,31 @@ function applyBatch(store: InMemoryDocumentStore, payload: RuleMutationPayload):
   for (const env of payload.batch.mutations) store.apply(env);
 }
 
-const mockSeed: MockRule = {
+const responseSeed: ResponseRule = {
   schemaVersion: 5,
   uid: 'rule-1',
-  path: 'rules/Mock',
-  name: 'Mock',
+  path: 'rules/Response',
+  name: 'Response',
   enabled: true,
-  type: 'mock',
+  type: 'response',
   conditions: [],
   action: {
-    statusCode: 200,
-    responseHeaders: {},
-    responseBody: '',
-    contentType: 'application/json',
+    responseSource: 'mock',
     bodyType: 'static',
+    responseBody: '',
+    statusCode: 200,
+    contentType: 'application/json',
+    responseHeaders: {},
   },
 };
 
 describe('non-header rule action update round-trip', () => {
-  it('persists every edited mock action leaf instead of reverting to create defaults', () => {
+  it('persists every edited response action leaf instead of reverting to create defaults', () => {
     const store = new InMemoryDocumentStore();
-    applyBatch(store, buildAddBatch(mockSeed, ctx(1_000)));
+    applyBatch(store, buildAddBatch(responseSeed, ctx(1_000)));
 
-    const editedAction: MockRule['action'] = {
+    const editedAction: ResponseRule['action'] = {
+      responseSource: 'network', // flipped mock → network
       statusCode: 0, // "keep original status code" sentinel
       responseBody: 'function modifyResponse(args) { return args.response; }',
       contentType: 'application/json',
@@ -63,12 +65,13 @@ describe('non-header rule action update round-trip', () => {
     };
     applyBatch(
       store,
-      buildUpdateBatch('rule-1', 'mock', { action: editedAction }, ctx(2_000), () => []),
+      buildUpdateBatch('rule-1', 'response', { action: editedAction }, ctx(2_000), () => []),
     );
 
     const data = store.materializeOne('rule', 'rule-1')?.data as Rule;
-    expect(data.type).toBe('mock');
-    const action = (data as MockRule).action;
+    expect(data.type).toBe('response');
+    const action = (data as ResponseRule).action;
+    expect(action.responseSource).toBe('network');
     expect(action.statusCode).toBe(0);
     expect(action.bodyType).toBe('dynamic');
     expect(action.responseBody).toBe('function modifyResponse(args) { return args.response; }');
@@ -81,13 +84,13 @@ describe('non-header rule action update round-trip', () => {
 
   it('a second update supersedes the first (no stale residue)', () => {
     const store = new InMemoryDocumentStore();
-    applyBatch(store, buildAddBatch(mockSeed, ctx(1_000)));
+    applyBatch(store, buildAddBatch(responseSeed, ctx(1_000)));
     applyBatch(
       store,
       buildUpdateBatch(
         'rule-1',
-        'mock',
-        { action: { ...mockSeed.action, statusCode: 0, bodyType: 'dynamic', responseBody: 'A' } },
+        'response',
+        { action: { ...responseSeed.action, statusCode: 0, bodyType: 'dynamic', responseBody: 'A' } },
         ctx(2_000),
         () => [],
       ),
@@ -96,14 +99,14 @@ describe('non-header rule action update round-trip', () => {
       store,
       buildUpdateBatch(
         'rule-1',
-        'mock',
-        { action: { ...mockSeed.action, statusCode: 404, bodyType: 'static', responseBody: 'B' } },
+        'response',
+        { action: { ...responseSeed.action, statusCode: 404, bodyType: 'static', responseBody: 'B' } },
         ctx(3_000),
         () => [],
       ),
     );
 
-    const action = (store.materializeOne('rule', 'rule-1')?.data as MockRule).action;
+    const action = (store.materializeOne('rule', 'rule-1')?.data as ResponseRule).action;
     expect(action.statusCode).toBe(404);
     expect(action.bodyType).toBe('static');
     expect(action.responseBody).toBe('B');

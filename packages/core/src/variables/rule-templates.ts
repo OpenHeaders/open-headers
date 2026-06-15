@@ -70,8 +70,13 @@ export function collectRuleTemplateStrings(rule: Rule): string[] {
     case 'delay':
       // Delay rules have no user-templated string fields today.
       break;
-    case 'mock':
-      if (rule.action.responseBody) out.push(rule.action.responseBody);
+    case 'response':
+      // Dynamic JS bodies are NOT templated — the resolver skips them, so
+      // this walker must too. Only `static` response content is a {{VAR}}
+      // candidate. Response headers are always literal values, regardless.
+      if (rule.action.bodyType === 'static' && rule.action.responseBody) {
+        out.push(rule.action.responseBody);
+      }
       for (const value of Object.values(rule.action.responseHeaders)) {
         if (value) out.push(value);
       }

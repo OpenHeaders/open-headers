@@ -17,11 +17,12 @@ function resourceTypes(...values: string[]): RuleCondition {
 }
 
 const mockAction = {
-  statusCode: 200,
-  responseHeaders: {},
-  responseBody: '',
-  contentType: 'application/json',
+  responseSource: 'mock' as const,
   bodyType: 'static' as const,
+  responseBody: '',
+  statusCode: 200,
+  contentType: 'application/json',
+  responseHeaders: {},
 };
 const mockActionDynamic = { ...mockAction, bodyType: 'dynamic' as const };
 const bodyAction = { bodyType: 'static' as const, body: '', resourceType: 'rest' as const };
@@ -86,29 +87,34 @@ describe('isDebugTierRule', () => {
 
   it('mock confined to xhr is standard (injection covers it)', () => {
     expect(
-      isDebugTierRule({ ...base, type: 'mock', conditions: [hostCondition, resourceTypes('xhr')], action: mockAction }),
+      isDebugTierRule({
+        ...base,
+        type: 'response',
+        conditions: [hostCondition, resourceTypes('xhr')],
+        action: mockAction,
+      }),
     ).toBe(false);
   });
 
   it('mock with no resource-types condition is debug (unrestricted reach)', () => {
-    expect(isDebugTierRule({ ...base, type: 'mock', conditions: [hostCondition], action: mockAction })).toBe(true);
+    expect(isDebugTierRule({ ...base, type: 'response', conditions: [hostCondition], action: mockAction })).toBe(true);
   });
 
   it('mock with an empty resource-types condition is debug (unrestricted)', () => {
     expect(
-      isDebugTierRule({ ...base, type: 'mock', conditions: [hostCondition, resourceTypes()], action: mockAction }),
+      isDebugTierRule({ ...base, type: 'response', conditions: [hostCondition, resourceTypes()], action: mockAction }),
     ).toBe(true);
   });
 
   it('mock targeting a navigation/document is debug', () => {
-    expect(isDebugTierRule({ ...base, type: 'mock', conditions: [resourceTypes('page')], action: mockAction })).toBe(
-      true,
-    );
+    expect(
+      isDebugTierRule({ ...base, type: 'response', conditions: [resourceTypes('page')], action: mockAction }),
+    ).toBe(true);
   });
 
   it('mock spanning xhr + a non-fetch type is debug (reach exceeds injection)', () => {
     expect(
-      isDebugTierRule({ ...base, type: 'mock', conditions: [resourceTypes('xhr', 'media')], action: mockAction }),
+      isDebugTierRule({ ...base, type: 'response', conditions: [resourceTypes('xhr', 'media')], action: mockAction }),
     ).toBe(true);
   });
 
@@ -142,7 +148,9 @@ describe('isFetchRealizableNow', () => {
   // gate on this so they never promise an effect arming can't yet deliver.
 
   it('static debug-tier mock is realizable now', () => {
-    expect(isFetchRealizableNow({ ...base, type: 'mock', conditions: [hostCondition], action: mockAction })).toBe(true);
+    expect(isFetchRealizableNow({ ...base, type: 'response', conditions: [hostCondition], action: mockAction })).toBe(
+      true,
+    );
   });
 
   it('static debug-tier body is realizable now', () => {
@@ -151,7 +159,7 @@ describe('isFetchRealizableNow', () => {
 
   it('dynamic debug-tier mock is NOT realizable now (arming can not eval its JS body)', () => {
     expect(
-      isFetchRealizableNow({ ...base, type: 'mock', conditions: [hostCondition], action: mockActionDynamic }),
+      isFetchRealizableNow({ ...base, type: 'response', conditions: [hostCondition], action: mockActionDynamic }),
     ).toBe(false);
   });
 
@@ -165,7 +173,7 @@ describe('isFetchRealizableNow', () => {
     expect(
       isFetchRealizableNow({
         ...base,
-        type: 'mock',
+        type: 'response',
         conditions: [hostCondition, resourceTypes('xhr')],
         action: mockAction,
       }),

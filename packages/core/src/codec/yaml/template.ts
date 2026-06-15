@@ -82,8 +82,8 @@ function canonicalFormValues(
     }
     if (Array.isArray(out.responseHeaders) && (out.responseHeaders as unknown[]).length > 0) {
       const first = (out.responseHeaders as unknown[])[0];
-      // Header rules: array of HeaderModification. Mock rules: not
-      // expressed via Template (template ruleType excludes mock today),
+      // Header rules: array of HeaderModification. Response rules: not
+      // expressed via Template (template ruleType excludes response today),
       // so the array form is the only shape we encounter.
       if (first && typeof first === 'object' && 'uid' in (first as object)) {
         out.responseHeaders = (out.responseHeaders as HeaderModification[]).map(canonicalHeaderModification);

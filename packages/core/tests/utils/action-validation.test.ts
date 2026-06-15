@@ -5,9 +5,9 @@ import type {
   DelayRule,
   HeaderRule,
   InjectRule,
-  MockRule,
   QueryParamRule,
   RedirectRule,
+  ResponseRule,
   Rule,
   RuleCondition,
   SseRule,
@@ -45,8 +45,8 @@ function inject(action: InjectRule['action']): InjectRule {
   return { ...baseFields, type: 'inject', action } as InjectRule;
 }
 
-function mock(action: MockRule['action']): MockRule {
-  return { ...baseFields, type: 'mock', action } as MockRule;
+function response(action: ResponseRule['action']): ResponseRule {
+  return { ...baseFields, type: 'response', action } as ResponseRule;
 }
 
 function body(action: BodyRule['action']): BodyRule {
@@ -279,16 +279,32 @@ describe('validateActionValues — inject (URL mode)', () => {
   });
 });
 
-describe('validateActionValues — mock', () => {
-  it('accepts a canonical mock', () => {
+describe('validateActionValues — response', () => {
+  it('accepts a canonical mock response', () => {
     expect(
       validateActionValues(
-        mock({
+        response({
+          responseSource: 'mock',
+          bodyType: 'static',
           statusCode: 200,
           responseHeaders: { 'X-Custom': '1' },
           responseBody: '{"ok":true}',
           contentType: 'application/json',
+        }),
+      ),
+    ).toEqual([]);
+  });
+
+  it('accepts a network response with keep-original status (0)', () => {
+    expect(
+      validateActionValues(
+        response({
+          responseSource: 'network',
           bodyType: 'static',
+          statusCode: 0,
+          responseHeaders: {},
+          responseBody: '{"ok":true}',
+          contentType: '',
         }),
       ),
     ).toEqual([]);
@@ -296,12 +312,13 @@ describe('validateActionValues — mock', () => {
 
   it('errors on out-of-range status', () => {
     const issues = validateActionValues(
-      mock({
+      response({
+        responseSource: 'mock',
+        bodyType: 'static',
         statusCode: 99,
         responseHeaders: {},
         responseBody: '',
         contentType: 'text/plain',
-        bodyType: 'static',
       }),
     );
     expect(issues[0]).toMatchObject({ kind: 'invalid-status-code', severity: 'error' });
@@ -309,12 +326,13 @@ describe('validateActionValues — mock', () => {
 
   it('warns on a malformed content-type', () => {
     const issues = validateActionValues(
-      mock({
+      response({
+        responseSource: 'mock',
+        bodyType: 'static',
         statusCode: 200,
         responseHeaders: {},
         responseBody: '',
         contentType: 'json',
-        bodyType: 'static',
       }),
     );
     expect(issues[0]).toMatchObject({ kind: 'invalid-content-type', severity: 'warning' });
@@ -322,25 +340,27 @@ describe('validateActionValues — mock', () => {
 
   it('errors on a bad response header name', () => {
     const issues = validateActionValues(
-      mock({
+      response({
+        responseSource: 'mock',
+        bodyType: 'static',
         statusCode: 200,
         responseHeaders: { 'Bad Name': '1' },
         responseBody: '',
         contentType: 'application/json',
-        bodyType: 'static',
       }),
     );
     expect(issues.some((i) => i.kind === 'invalid-header-name' && i.severity === 'error')).toBe(true);
   });
 
-  it('errors when graphqlFilter is incomplete on a graphql mock', () => {
+  it('errors when graphqlFilter is incomplete on a graphql response', () => {
     const issues = validateActionValues(
-      mock({
+      response({
+        responseSource: 'mock',
+        bodyType: 'static',
         statusCode: 200,
         responseHeaders: {},
         responseBody: '',
         contentType: 'application/json',
-        bodyType: 'static',
         resourceType: 'graphql',
         graphqlFilter: { key: '', operator: 'Equals', value: 'X' },
       }),

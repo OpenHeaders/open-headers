@@ -132,7 +132,7 @@ function stripSetFields(rule: Rule, out: Array<{ path: SetPath; item: unknown }>
   // header rules carry set-modeled requestHeaders + responseHeaders on
   // the action. Other rule variants don't expose these paths to the
   // catalog, so we leave their actions intact (params on query-param,
-  // body / mock / etc. ride as scalar leaves).
+  // body / response / etc. ride as scalar leaves).
   if (rule.type === 'header') {
     const action = shell.action;
     if (isPlainObject(action)) {

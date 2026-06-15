@@ -26,10 +26,10 @@ import type {
   HeaderRuleDraftHeaderSchema,
   HeaderRuleDraftSchema,
   InjectRuleDraftSchema,
-  MockRuleDraftSchema,
   QueryParamDraftEntrySchema,
   QueryParamRuleDraftSchema,
   RedirectRuleDraftSchema,
+  ResponseRuleDraftSchema,
   RuleDraftBaseSchema,
   RuleDraftSchema,
 } from '../schemas/rule-draft';
@@ -41,7 +41,7 @@ export type HeaderRuleDraft = v.InferOutput<typeof HeaderRuleDraftSchema>;
 
 export type RedirectRuleDraft = v.InferOutput<typeof RedirectRuleDraftSchema>;
 export type BodyRuleDraft = v.InferOutput<typeof BodyRuleDraftSchema>;
-export type MockRuleDraft = v.InferOutput<typeof MockRuleDraftSchema>;
+export type ResponseRuleDraft = v.InferOutput<typeof ResponseRuleDraftSchema>;
 export type BlockRuleDraft = v.InferOutput<typeof BlockRuleDraftSchema>;
 export type DelayRuleDraft = v.InferOutput<typeof DelayRuleDraftSchema>;
 

@@ -12,9 +12,9 @@ import type {
   DelayRule,
   HeaderRule,
   InjectRule,
-  MockRule,
   QueryParamRule,
   RedirectRule,
+  ResponseRule,
   Rule,
   SseRule,
   WsRule,
@@ -145,16 +145,19 @@ export function getActionDetail(rule: Rule): ActionDetail {
         tooltip: 'Modifies request body (fetch/XHR)',
       };
     }
-    case 'mock': {
-      const mr = rule as MockRule;
-      const mockFormat = mr.action.resourceType === 'graphql' ? 'GraphQL' : 'REST';
+    case 'response': {
+      const rr = rule as ResponseRule;
+      const format = rr.action.resourceType === 'graphql' ? 'GraphQL' : 'REST';
+      const isMock = rr.action.responseSource === 'mock';
+      // network + statusCode 0 keeps the real status — no number to show.
+      const status = isMock || rr.action.statusCode !== 0 ? `${rr.action.statusCode} ` : '';
       return {
-        ruleType: 'mock',
+        ruleType: 'response',
         direction: 'response' as const,
-        operation: mr.action.bodyType,
-        label: `${mr.action.statusCode} ${mockFormat}`,
-        value: mr.action.contentType || '',
-        tooltip: 'Overrides API response (fetch/XHR)',
+        operation: rr.action.bodyType,
+        label: `${status}${format}`,
+        value: rr.action.contentType || '',
+        tooltip: isMock ? 'Returns a synthetic response (fetch/XHR)' : 'Modifies the real response (fetch/XHR)',
       };
     }
     case 'ws': {

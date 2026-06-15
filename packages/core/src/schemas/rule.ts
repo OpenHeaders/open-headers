@@ -20,7 +20,7 @@ export const RuleTypeSchema = v.picklist([
   'inject',
   'block',
   'delay',
-  'mock',
+  'response',
   'query-param',
   'ws',
   'sse',
@@ -208,7 +208,8 @@ export const InjectRuleSchema = v.object({
 // Block actions have no fields. Chrome DNR's `block` returns
 // `ERR_BLOCKED_BY_CLIENT` at the network layer — there's no synthetic
 // status code and no response body. For "block with a custom response",
-// use a `mock` rule with the desired status code and body.
+// use a `response` rule (responseSource: 'mock') with the desired status
+// code and body.
 
 export const BlockActionSchema = v.object({});
 
@@ -230,24 +231,48 @@ export const DelayRuleSchema = v.object({
   action: DelayActionSchema,
 });
 
-// ── Mock rule ──────────────────────────────────────────────────────
+// ── Response rule ──────────────────────────────────────────────────
+//
+// "Modify Response" — two independent axes, a 2×2:
+//
+//   responseSource — does the request reach the server?
+//     - 'mock'    : synthetic response, the request never leaves the
+//                   browser (origin fetch is skipped entirely).
+//     - 'network' : the real request is sent, then its response is
+//                   modified before the page sees it.
+//   bodyType — how the body is produced:
+//     - 'static'  : `responseBody` is literal content.
+//     - 'dynamic' : `responseBody` is JS — `mock` builds a synthetic
+//                   response from `buildResponse({method,url,requestBody})`;
+//                   `network` transforms the real one via `modifyResponse(args)`.
+//
+// Field semantics across cells:
+//   - statusCode: mock → the full status (0 falls back to 200);
+//     network → an override, `0` keeps the real status (the "keep
+//     original" sentinel, see action-validation.ts).
+//   - contentType: mock → the response Content-Type; network → an
+//     optional CT override, applied only when non-empty.
+//   - responseHeaders: mock → the response headers; network → headers
+//     merged onto/over the real ones, an empty map keeps the server's.
 
-export const MockBodyTypeSchema = v.picklist(['static', 'dynamic']);
+export const ResponseSourceSchema = v.picklist(['mock', 'network']);
+export const ResponseBodyTypeSchema = v.picklist(['static', 'dynamic']);
 
-export const MockActionSchema = v.object({
-  statusCode: v.number(),
-  responseHeaders: v.record(v.string(), v.string()),
+export const ResponseActionSchema = v.object({
+  responseSource: ResponseSourceSchema,
+  bodyType: ResponseBodyTypeSchema,
   responseBody: v.string(),
+  statusCode: v.number(),
   contentType: v.string(),
-  bodyType: MockBodyTypeSchema,
+  responseHeaders: v.record(v.string(), v.string()),
   resourceType: v.optional(BodyResourceTypeSchema),
   graphqlFilter: v.optional(GraphqlFilterSchema),
 });
 
-export const MockRuleSchema = v.object({
+export const ResponseRuleSchema = v.object({
   ...RuleBaseFields,
-  type: v.literal('mock'),
-  action: MockActionSchema,
+  type: v.literal('response'),
+  action: ResponseActionSchema,
 });
 
 // ── Query-param rule ───────────────────────────────────────────────
@@ -283,7 +308,7 @@ export const QueryParamRuleSchema = v.object({
 // ── WS message rule ────────────────────────────────────────────────
 //
 // Acts on page-context WebSocket traffic via the MAIN-world constructor
-// wrapper (cooperative — same delivery plane as body/mock). The rule's
+// wrapper (cooperative — same delivery plane as body/response). The rule's
 // URL conditions match the socket endpoint (`ws://` / `wss://`); the
 // action then selects frames by direction and optional content filter.
 //
@@ -375,7 +400,7 @@ export const RuleSchema = v.variant('type', [
   InjectRuleSchema,
   BlockRuleSchema,
   DelayRuleSchema,
-  MockRuleSchema,
+  ResponseRuleSchema,
   QueryParamRuleSchema,
   WsRuleSchema,
   SseRuleSchema,

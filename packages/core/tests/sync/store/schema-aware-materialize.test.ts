@@ -81,7 +81,7 @@ describe('materialize empty-set canonicalization', () => {
     const store = new InMemoryDocumentStore(schemas);
 
     store.apply(env({ kind: 'create', type: 'rule', id: 'r1', payload: { type: 'header', action: {} } }, 1_000));
-    store.apply(env({ kind: 'create', type: 'rule', id: 'r2', payload: { type: 'mock' } }, 1_000));
+    store.apply(env({ kind: 'create', type: 'rule', id: 'r2', payload: { type: 'response' } }, 1_000));
 
     const headerRule = store.materializeOne('rule', 'r1')?.data as {
       conditions: unknown[];

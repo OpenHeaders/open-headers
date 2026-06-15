@@ -13,7 +13,7 @@
  * obvious from one glance — the `targets` field surfaces every domain
  * the conditions match, and the `payload` field surfaces the action's
  * literal target (script source URL, redirect URL, header name+value,
- * mock status code, etc.).
+ * response status code, etc.).
  */
 
 import type {
@@ -23,9 +23,9 @@ import type {
   DelayRule,
   HeaderRule,
   InjectRule,
-  MockRule,
   QueryParamRule,
   RedirectRule,
+  ResponseRule,
   Rule,
   RuleCondition,
   SseRule,
@@ -59,7 +59,7 @@ const ACTION_VERB: Record<Rule['type'], string> = {
   inject: 'Inject code into matching pages',
   block: 'Block requests',
   delay: 'Delay requests',
-  mock: 'Return a mocked response',
+  response: 'Modify the response',
   'query-param': 'Modify query parameters',
   ws: 'Modify WebSocket messages',
   sse: 'Modify server-sent events',
@@ -120,9 +120,18 @@ function summarizeDelay(rule: DelayRule): string {
   return `Delay ${rule.action.delayMs}ms before forwarding`;
 }
 
-function summarizeMock(rule: MockRule): string {
-  const bytes = byteLength(rule.action.responseBody);
-  return `Return ${rule.action.statusCode} (${formatBytes(bytes)} body, ${rule.action.contentType})`;
+function summarizeResponse(rule: ResponseRule): string {
+  const isMock = rule.action.responseSource === 'mock';
+  if (rule.action.bodyType === 'dynamic') {
+    return isMock ? 'Return a synthetic response computed by JavaScript' : 'Modify the real response with JavaScript';
+  }
+  const bytes = formatBytes(byteLength(rule.action.responseBody));
+  if (isMock) {
+    return `Return ${rule.action.statusCode} (${bytes} body, ${rule.action.contentType})`;
+  }
+  // network + statusCode 0 keeps the real status — no number to show.
+  const status = rule.action.statusCode !== 0 ? `${rule.action.statusCode} ` : '';
+  return `Modify the real response → ${status}(${bytes} body)`;
 }
 
 function summarizeBody(rule: BodyRule): string {
@@ -190,8 +199,8 @@ function payloadFor(rule: Rule): string {
       return summarizeBlock(rule);
     case 'delay':
       return summarizeDelay(rule);
-    case 'mock':
-      return summarizeMock(rule);
+    case 'response':
+      return summarizeResponse(rule);
     case 'body':
       return summarizeBody(rule);
     case 'query-param':
@@ -220,8 +229,8 @@ function caveatsFor(rule: Rule): string[] {
   if (rule.type === 'body' && rule.action.bodyType === 'dynamic') {
     out.push('Body is computed dynamically — may execute embedded expressions.');
   }
-  if (rule.type === 'mock' && rule.action.bodyType === 'dynamic') {
-    out.push('Mock body is computed dynamically — may execute embedded expressions.');
+  if (rule.type === 'response' && rule.action.bodyType === 'dynamic') {
+    out.push('Response body is computed dynamically — may execute embedded expressions.');
   }
   if (rule.type === 'auth') {
     out.push('Sends credentials to answer authentication challenges on matching requests.');

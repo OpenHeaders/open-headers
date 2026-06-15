@@ -10,9 +10,9 @@ import type {
   DelayRule,
   HeaderRule,
   InjectRule,
-  MockRule,
   QueryParamRule,
   RedirectRule,
+  ResponseRule,
   RuleCondition,
   SseRule,
   WsRule,
@@ -112,20 +112,38 @@ describe('summarizeRule', () => {
     expect(summarizeRule(rule).payload).toBe('Delay 250ms before forwarding');
   });
 
-  it('mock rule reports status + body size', () => {
-    const rule: MockRule = {
+  it('mock-source response rule reports status + body size', () => {
+    const rule: ResponseRule = {
       ...base(),
-      type: 'mock',
+      type: 'response',
       conditions: [],
       action: {
+        responseSource: 'mock',
+        bodyType: 'static',
         statusCode: 503,
         responseBody: '{"err":1}',
         responseHeaders: {},
         contentType: 'application/json',
-        bodyType: 'static',
       },
     };
     expect(summarizeRule(rule).payload).toMatch(/Return 503/);
+  });
+
+  it('network-source response rule reports it modifies the real response', () => {
+    const rule: ResponseRule = {
+      ...base(),
+      type: 'response',
+      conditions: [],
+      action: {
+        responseSource: 'network',
+        bodyType: 'static',
+        statusCode: 0,
+        responseBody: '{"patched":true}',
+        responseHeaders: {},
+        contentType: '',
+      },
+    };
+    expect(summarizeRule(rule).payload).toMatch(/Modify the real response/);
   });
 
   it('body rule (dynamic) carries the dynamic-body caveat', () => {

@@ -1,7 +1,7 @@
 schemaVersion: 5
-uid: rulemck1
+uid: rulersp1
 name: Mock /me endpoint
-type: mock
+type: response
 enabled: true
 conditions:
   - uid: cnd00006
@@ -9,9 +9,10 @@ conditions:
     values:
       - api.openheaders.io
 action:
+  responseSource: mock
+  bodyType: static
+  responseBody: "{\"id\":\"user-1\",\"email\":\"hello@openheaders.io\"}"
   statusCode: 200
+  contentType: application/json
   responseHeaders:
     Content-Type: application/json
-  responseBody: "{\"id\":\"user-1\",\"email\":\"hello@openheaders.io\"}"
-  contentType: application/json
-  bodyType: static

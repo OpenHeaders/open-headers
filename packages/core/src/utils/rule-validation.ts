@@ -33,7 +33,8 @@ import { type PauseMarkers, resolvePauseState } from './pause';
  *   - inject: code (inline) or sourceUrl (URL mode) must be non-empty
  *   - body: body content non-empty
  *   - delay: delayMs > 0
- *   - mock: statusCode + responseBody
+ *   - response: mock source needs a body to return; network source only
+ *     overrides the real reply, so conditions alone are sufficient
  *   - ws/sse: payload required for modify/inject; drop needs conditions only
  */
 export function isRuleComplete(rule: Rule | Omit<Rule, 'uid' | 'path'>): boolean {
@@ -121,11 +122,14 @@ export function isRuleComplete(rule: Rule | Omit<Rule, 'uid' | 'path'>): boolean
       if (!dr.action.delayMs || dr.action.delayMs <= 0) return false;
       return true;
     }
-    case 'mock': {
-      // statusCode `0` ("keep original") is a valid choice, so it never gates
-      // completeness — the response body is what the rule actually returns.
-      const mr = rule as { action: { statusCode: number; responseBody: string } };
-      if (!mr.action.responseBody) return false;
+    case 'response': {
+      // mock source synthesizes the whole reply, so it needs a body to
+      // return (static content or JS). network source only modifies the
+      // real reply — every override is optional, so conditions alone make
+      // it complete. statusCode `0` ("keep original") never gates either way.
+      const rr = rule as { action: { responseSource: 'mock' | 'network'; responseBody: string } };
+      if (rr.action.responseSource === 'network') return true;
+      if (!rr.action.responseBody) return false;
       return true;
     }
     case 'ws':

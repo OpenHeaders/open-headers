@@ -9,11 +9,11 @@
  * persisted shapes.
  *
  * Reach, not just action: page-context injection (the fetch/XHR
- * monkey-patch that backs `body`/`mock`) can only synthesize or rewrite a
+ * monkey-patch that backs `body`/`response`) can only synthesize or rewrite a
  * response for a page-issued `xhr` request. Navigations, workers,
  * out-of-process iframes, non-fetch subresources, and sockets are beyond
  * its reach — only `Fetch.fulfillRequest`/`continueRequest` touch them. So
- * a `mock`/`body` rule confined to `xhr` is injection-expressible
+ * a `response`/`body` rule confined to `xhr` is injection-expressible
  * (standard); one whose reach exceeds `xhr` needs Fetch (debug).
  *
  * The classification is ADDITIVE, never a gate: an un-armed debug-tier rule
@@ -42,7 +42,7 @@ const INJECTION_REACHABLE_RESOURCE_TYPES: ReadonlySet<string> = new Set(['xhr'])
  * `Fetch.continueWithAuth` (Phase D3) — it has no DNR / injection
  * equivalent, so it is unconditionally debug-tier (see below).
  */
-const FETCH_CAPABLE_TYPES: ReadonlySet<ExtensionRuleType> = new Set<ExtensionRuleType>(['body', 'mock', 'auth']);
+const FETCH_CAPABLE_TYPES: ReadonlySet<ExtensionRuleType> = new Set<ExtensionRuleType>(['body', 'response', 'auth']);
 
 /**
  * The resource-type reach a rule declares via its `resource-types`
@@ -76,7 +76,7 @@ export function isDebugTierRule(rule: Rule): boolean {
 /**
  * True iff a debug-tier rule's full effect is realizable RIGHT NOW once its
  * tab is in CDP scope: debug-tier AND a *static* reaction. A dynamic
- * `mock`/`body` body is user JS the request-stage interceptor can't eval, so
+ * `response`/`body` body is user JS the request-stage interceptor can't eval, so
  * bringing a tab into scope does nothing for it (until the Response-stage
  * round-trip lands) — badging it dormant would imply a fix that arming can't
  * deliver. The single source of truth for the static test the Fetch reaction
@@ -88,7 +88,7 @@ export function isFetchRealizableNow(rule: Rule): boolean {
   // is always realizable once its tab is in scope — realizability collapses
   // to debug-tier membership (always true for auth).
   if (rule.type === 'auth') return isDebugTierRule(rule);
-  if (rule.type !== 'mock' && rule.type !== 'body') return false;
+  if (rule.type !== 'response' && rule.type !== 'body') return false;
   if (!isDebugTierRule(rule)) return false;
   return rule.action.bodyType !== 'dynamic';
 }

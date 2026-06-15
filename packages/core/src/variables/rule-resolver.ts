@@ -16,10 +16,10 @@ import type {
   DelayRule,
   HeaderRule,
   InjectRule,
-  MockRule,
   QueryParamRule,
   RedirectRule,
   ResolutionContext,
+  ResponseRule,
   Rule,
   RuleCondition,
   SseRule,
@@ -95,8 +95,8 @@ function walkRule(
       return base as BlockRule;
     case 'delay':
       return base as DelayRule;
-    case 'mock':
-      return resolveMockRule(base as MockRule, resolver, context, errors);
+    case 'response':
+      return resolveResponseRule(base as ResponseRule, resolver, context, errors);
     case 'query-param':
       return resolveQueryParamRule(base as QueryParamRule, resolver, context, errors);
     case 'ws':
@@ -310,12 +310,12 @@ function resolveInjectRule(
   };
 }
 
-function resolveMockRule(
-  rule: MockRule,
+function resolveResponseRule(
+  rule: ResponseRule,
   resolver: VariableResolver,
   context: ResolutionContext | undefined,
   errors: ResolutionError[] | undefined,
-): MockRule {
+): ResponseRule {
   const resolvedHeaders: Record<string, string> = {};
   for (const [key, value] of Object.entries(rule.action.responseHeaders)) {
     resolvedHeaders[key] = resolveString(value, resolver, context, errors);
@@ -325,7 +325,11 @@ function resolveMockRule(
     ...rule,
     action: {
       ...rule.action,
-      responseBody: resolveString(rule.action.responseBody, resolver, context, errors),
+      // Only resolve variables in static body content, not in dynamic JS code.
+      responseBody:
+        rule.action.bodyType === 'static'
+          ? resolveString(rule.action.responseBody, resolver, context, errors)
+          : rule.action.responseBody,
       responseHeaders: resolvedHeaders,
     },
   };

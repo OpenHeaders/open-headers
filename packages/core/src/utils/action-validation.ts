@@ -25,9 +25,9 @@ import type {
   DelayRule,
   HeaderRule,
   InjectRule,
-  MockRule,
   QueryParamRule,
   RedirectRule,
+  ResponseRule,
   Rule,
   SseRule,
   WsRule,
@@ -96,8 +96,8 @@ export function validateActionValues(rule: Rule | Omit<Rule, 'uid' | 'path'>): A
       return validateDelayAction(rule as DelayRule);
     case 'inject':
       return validateInjectAction(rule as InjectRule);
-    case 'mock':
-      return validateMockAction(rule as MockRule);
+    case 'response':
+      return validateResponseAction(rule as ResponseRule);
     case 'body':
       return validateBodyAction(rule as BodyRule);
     case 'query-param':
@@ -348,15 +348,17 @@ function validateDelayAction(rule: DelayRule): ActionValueIssue[] {
   return out;
 }
 
-// ── mock ────────────────────────────────────────────────────────
+// ── response ────────────────────────────────────────────────────
 //
-// Mock has the most fields: status code, headers map, content type,
-// body, optional graphql filter. We validate everything Chrome's
-// scriptable response handler treats as structurally meaningful.
+// "Modify Response" has the most fields: status code, headers map,
+// content type, body, optional graphql filter. The validatable surfaces
+// are identical across the 2×2 — only their meaning shifts (mock = the
+// full response, network = overrides over the real one). We validate
+// every value the scriptable response handler treats as meaningful.
 
 const CONTENT_TYPE_PATTERN = /^[a-z]+\/[a-z0-9.+-]+(?:\s*;\s*[\w.-]+\s*=\s*[\w."'.\-/+]+)*$/i;
 
-function validateMockAction(rule: MockRule): ActionValueIssue[] {
+function validateResponseAction(rule: ResponseRule): ActionValueIssue[] {
   const out: ActionValueIssue[] = [];
 
   const sc = rule.action.statusCode;
