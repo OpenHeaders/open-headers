@@ -6,7 +6,7 @@
  *
  * Regression: a static mock scoped to `*://127.0.0.1:3000/echo/mocked*`
  * never intercepted from a playground page at
- * `/src/rules/mock/index.html` because the old gate matched the PAGE url
+ * `/src/rules/response/index.html` because the old gate matched the PAGE url
  * against the request-URL condition (it failed) and skipped the inject —
  * so standard-mode mocking silently did nothing while CDP mode worked.
  * Same fix already shipped for header-merge / ws / sse.
@@ -57,7 +57,7 @@ vi.mock('@openheaders/rule-engine/content-scripts', () => ({
 
 import { __testInjectForUrl, __testPushInterceptorUpdate, updateScriptableRules } from '@/background/inject-manager';
 
-const PLAYGROUND_PAGE = 'http://127.0.0.1:3000/src/rules/mock/index.html';
+const PLAYGROUND_PAGE = 'http://127.0.0.1:3000/src/rules/response/index.html';
 
 function mockRule(overrides: Partial<ResponseRule> = {}): ResponseRule {
   return {
