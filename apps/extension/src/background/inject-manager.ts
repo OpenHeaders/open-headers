@@ -29,7 +29,12 @@ import type {
   SseRule,
   WsRule,
 } from '@openheaders/core/types';
-import { compileRuleForInjection, doesHostMatchDomains, doesUrlMatchRule } from '@openheaders/core/utils';
+import {
+  compileRuleForInjection,
+  doesHostMatchDomains,
+  doesUrlMatchRule,
+  isFetchRealizableNow,
+} from '@openheaders/core/utils';
 import {
   buildDelayInjection,
   buildHeaderMergeInjection,
@@ -102,6 +107,28 @@ let activeMessageRules: MessageRuleEntry[] = [];
 // `null` until the first `updateScriptableRules` so boot doesn't trigger
 // a mass push — fresh navigations install the current set anyway.
 let lastInterceptorSignature: string | null = null;
+
+/**
+ * Whether CDP `Fetch` is the live owner of a tab's realizable debug-tier
+ * rules. Injected by the lifecycle pipeline as
+ * `(tabId) => router.ownerOf(tabId) === 'cdp'`; defaults to "never" so a
+ * host without CDP (or before the pipeline wires it) keeps the unchanged
+ * injection-only behaviour.
+ *
+ * When it returns true for a tab, that tab's `response`/`request-body` rules
+ * that are realizable now over Fetch (`isFetchRealizableNow`) are realized by
+ * CDP EXCLUSIVELY: the page-context interceptor is suppressed for them so the
+ * request reaches the network where CDP fulfils / rewrites it — which (unlike
+ * the in-page wrapper) makes the modification visible in the Network panel —
+ * and so the rule fires exactly once, never on both planes. The decision is
+ * derived per-request from tier + ownership; nothing is stored on the rule.
+ */
+let cdpOwnsRealizableRules: (tabId: number) => boolean = () => false;
+
+/** Wire the CDP-ownership query (see {@link cdpOwnsRealizableRules}). */
+export function setCdpControlQuery(query: (tabId: number) => boolean): void {
+  cdpOwnsRealizableRules = query;
+}
 
 function defaultSeparator(headerName: string): string {
   const lower = headerName.toLowerCase();
@@ -405,10 +432,17 @@ async function injectForUrl(tabId: number, url: string): Promise<void> {
  * first so this rebuilds a clean patch chain).
  */
 async function injectInterceptorsForTab(tabId: number, url: string, testScope: TestScope): Promise<void> {
+  const cdpOwned = cdpOwnsRealizableRules(tabId);
   for (const entry of activeInterceptorRules) {
     if (!shouldInstallForPage(entry, url)) continue;
     const rule = entry.rule;
     if (blockedByTestScope(rule.uid, testScope)) continue;
+    // Precedence (D4): when CDP `Fetch` owns this tab, it realizes the rule's
+    // realizable-now effect for ALL contexts — and visibly in the Network
+    // panel. Suppress the in-page wrapper so the rule fires once, not twice.
+    // Network-source / dynamic responses stay on injection (CDP can't realize
+    // them yet); delay is never Fetch-capable, so it is never suppressed.
+    if (cdpOwned && isFetchRealizableNow(rule)) continue;
 
     try {
       switch (rule.type) {
@@ -475,14 +509,43 @@ async function pushInterceptorUpdate(): Promise<void> {
     const tabId = tab.id;
     if (typeof tabId !== 'number' || !tab.url || !/^https?:/.test(tab.url)) continue;
     try {
-      await applyInjection(tabId, buildResetInjection(), 'oh-reset');
-      await injectInterceptorsForTab(tabId, tab.url, getTestScopeForTab(tabId));
+      await resetAndReinjectTab(tabId, tab.url);
     } catch (error) {
       logInjectFailure('interceptor update', tabId, error);
     }
   }
 }
 
+/** Drop every chained OH patch on a tab, then re-inject its current
+ *  (suppression-filtered) interceptor set. The shared body of the live-update
+ *  push and the per-tab CDP-scope refresh. */
+async function resetAndReinjectTab(tabId: number, url: string): Promise<void> {
+  await applyInjection(tabId, buildResetInjection(), 'oh-reset');
+  await injectInterceptorsForTab(tabId, url, getTestScopeForTab(tabId));
+}
+
+/**
+ * Re-derive one tab's interceptor set in place — driven when the tab enters
+ * or leaves CDP scope so the {@link cdpOwnsRealizableRules} suppression
+ * engages/disengages without a page reload (reset + re-inject the filtered
+ * set). Fire-and-forget; a closed/inaccessible tab is a benign no-op.
+ */
+export async function refreshInterceptorsForTab(tabId: number): Promise<void> {
+  let tab: chrome.tabs.Tab | undefined;
+  try {
+    tab = await browserAPI.tabs.get(tabId);
+  } catch {
+    return;
+  }
+  if (!tab?.url || !/^https?:/.test(tab.url)) return;
+  try {
+    await resetAndReinjectTab(tabId, tab.url);
+  } catch (error) {
+    logInjectFailure('cdp scope refresh', tabId, error);
+  }
+}
+
 /** Test-only handles for the injection passes. */
 export const __testInjectForUrl = injectForUrl;
 export const __testPushInterceptorUpdate = pushInterceptorUpdate;
+export const __testRefreshInterceptorsForTab = refreshInterceptorsForTab;

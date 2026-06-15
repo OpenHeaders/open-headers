@@ -8,7 +8,7 @@ import { RequestLifecycleHub } from '@openheaders/oracle/request-lifecycle-hub';
 import { resolveRulesForCompile } from '@openheaders/oracle/rule-engine/variables-resolver';
 import { RuleFireHub } from '@openheaders/oracle/rule-fire-hub';
 import { TabLifecycleBus } from '@openheaders/oracle/tab-lifecycle-bus';
-import type { CdpAttachObservable } from '../correlator-host';
+import type { CdpAttachObservable, CdpControlReplay } from '../correlator-host';
 import {
   CdpAttachController,
   ChromeCdpRequestControlPort,
@@ -22,6 +22,7 @@ import {
 } from '../correlator-host';
 import { startDevtoolsSessionCoordinator } from '../devtools-session-coordinator';
 import { getRulesPaused } from '../dnr-manager';
+import { refreshInterceptorsForTab, setCdpControlQuery } from '../inject-manager';
 import { createPersistentWatchSessionFloors, startLifecyclePortHost } from '../lifecycle-port-host';
 import { setupOnRuleMatchedDebugBridge } from '../modules/on-rule-matched-debug';
 import { startTabTelemetryFiresBridge } from '../modules/tab-telemetry-fires-bridge';
@@ -124,10 +125,29 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   // worker- and iframe-originated requests, not just the root page target.
   lifecycleHost.debuggerSource.onChildAttached((tabId, sessionId) => cdpControlReplay.applyChild(tabId, sessionId));
   lifecycleHost.debuggerSource.onChildDetached((tabId, sessionId) => cdpControlReplay.forgetChild(tabId, sessionId));
+  // Precedence (D4): the page-context interceptor suppression reads the router
+  // (the single source of tab ownership) and re-derives a tab's injection set
+  // in lock-step with the control-plane replay/release. When a tab's ownership
+  // flips — attach commits it to 'cdp', any detach (incl. banner-cancel) routes
+  // it back to 'heuristic' — `refreshInterceptorsForTab` suppresses (or
+  // re-enables) the in-page wrapper for the realizable debug-tier rules CDP now
+  // owns, with no page reload. Child-session apply/forget never change tab
+  // ownership, so they keep using the raw replay above.
+  setCdpControlQuery((tabId) => lifecycleHost.router.ownerOf(tabId) === 'cdp');
+  const replayWithInjectionRefresh: CdpControlReplay = {
+    replay(tabId) {
+      cdpControlReplay.replay(tabId);
+      void refreshInterceptorsForTab(tabId);
+    },
+    release(tabId) {
+      cdpControlReplay.release(tabId);
+      void refreshInterceptorsForTab(tabId);
+    },
+  };
   const cdpAttachController = new CdpAttachController({
     source: lifecycleHost.debuggerSource,
     router: lifecycleHost.router,
-    replay: cdpControlReplay,
+    replay: replayWithInjectionRefresh,
   });
   isTabInScope = (tabId) => cdpAttachController.isInScope(tabId);
   // Rule-driven interceptor (D2): each `Fetch.requestPaused` is re-checked
