@@ -28,7 +28,7 @@ const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
  *   never creates an inline <script> tag, so it bypasses the page's CSP.
  * - `inline-script` injections use the legacy `<script>` tag approach, which
  *   is subject to the page's CSP and may be blocked on strict-CSP sites. This
- *   path is only used for dynamic body/mock rules that embed user JavaScript.
+ *   path is only used for dynamic body/response rules that embed user JavaScript.
  */
 export async function applyInjection(tabId: number, injection: Injection, ruleName: string): Promise<void> {
   if (injection.kind === 'func') {

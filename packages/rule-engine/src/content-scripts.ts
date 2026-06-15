@@ -3,14 +3,14 @@
  *
  * Two injection strategies coexist:
  *
- *   1. **Real-function injection** (static delay/body/mock/header-merge) —
+ *   1. **Real-function injection** (static delay/body/response/header-merge) —
  *      returns a `{func, args}` pair that inject-manager passes directly to
  *      `chrome.scripting.executeScript({world:'MAIN'})`. The func body runs in
  *      the page's MAIN world with extension privilege, **without** creating an
  *      inline <script> tag, so it is not subject to the page's CSP. This is
  *      the CSP-safe path that works on strict-CSP sites like GitHub.
  *
- *   2. **Inline-script injection** (dynamic body/mock, inject rules) — returns
+ *   2. **Inline-script injection** (dynamic body/response, inject rules) — returns
  *      a string of JavaScript that inject-manager wraps in a page-side <script>
  *      tag. Needed because these rules embed user-authored JS (modifyRequestBody,
  *      modifyResponse, arbitrary inject code) which can't be embedded inside a
@@ -36,7 +36,7 @@
  * is an opaque cross-realm object.
  */
 
-import type { BodyRule, DelayRule, MockRule, SseRule, WsRule } from '@openheaders/core/types';
+import type { BodyRule, DelayRule, ResponseRule, SseRule, WsRule } from '@openheaders/core/types';
 import { compileRuleForInjection } from '@openheaders/core/utils';
 import type { FuncInjection, Injection } from './builders/types';
 
@@ -64,12 +64,19 @@ interface StaticBodyConfig {
   graphqlFilter?: GraphqlFilter;
 }
 
-interface StaticMockConfig {
+interface StaticResponseConfig {
   ruleUid: string;
   regexSources: string[];
+  // 'mock' = synthetic reply, the request never leaves the browser;
+  // 'network' = the real request is sent, then its response is rewritten.
+  source: 'mock' | 'network';
+  // Raw action fields — the func applies the per-source fallbacks: mock
+  // treats `statusCode === 0` as 200 and `contentType === ''` as JSON;
+  // network treats `0` as "keep the real status" and `''` as "no CT override".
   statusCode: number;
   body: string;
-  headers: Record<string, string>;
+  contentType: string;
+  responseHeaders: Record<string, string>;
   graphqlFilter?: GraphqlFilter;
 }
 
@@ -154,7 +161,7 @@ const GRAPHQL_MATCHER_CODE = [
 
 // ── Interceptor setup / reset (real functions) ──────────────────────
 //
-// The interceptor funcs (delay/body/mock/header-merge/ws/sse) each wrap
+// The interceptor funcs (delay/body/response/header-merge/ws/sse) each wrap
 // fetch / XHR / WebSocket / EventSource by CHAINING over the current
 // reference. To apply a rule edit/delete WITHOUT a page reload, the
 // background drops every OH patch (reset) and re-injects the current
@@ -408,31 +415,39 @@ function staticBodyInjectionFunc(cfg: StaticBodyConfig): void {
   };
 }
 
-// ── Static Mock (real function) ─────────────────────────────────────
+// ── Static Response (real function) ─────────────────────────────────
+//
+// "Modify Response" with a static body, across both source cells:
+//   - mock    → synthesize the reply, skip the origin fetch entirely.
+//   - network → send the real request, then swap its body for the static
+//               one (status/CT/headers per the network field semantics).
+// Dynamic bodyType (user JS) takes the inline-script path below.
 
-export function buildMockInjection(rule: MockRule): Injection {
+export function buildResponseInjection(rule: ResponseRule): Injection {
   const bodyType = rule.action.bodyType || 'static';
   if (bodyType === 'dynamic') {
-    return { kind: 'inline-script', code: generateDynamicMockScript(rule) };
+    return { kind: 'inline-script', code: generateDynamicResponseScript(rule) };
   }
-  const { statusCode, responseBody, contentType, responseHeaders } = rule.action;
-  const config: StaticMockConfig = {
+  const { responseSource, statusCode, responseBody, contentType, responseHeaders } = rule.action;
+  const config: StaticResponseConfig = {
     ruleUid: rule.uid,
     regexSources: compileRuleForInjection(rule),
-    statusCode: statusCode || 200,
+    source: responseSource,
+    statusCode,
     body: responseBody,
-    headers: { 'Content-Type': contentType || 'application/json', ...responseHeaders },
+    contentType,
+    responseHeaders,
     graphqlFilter:
       rule.action.resourceType === 'graphql' && rule.action.graphqlFilter?.key ? rule.action.graphqlFilter : undefined,
   };
   return {
     kind: 'func',
-    func: staticMockInjectionFunc as unknown as (cfg: never) => void,
+    func: staticResponseInjectionFunc as unknown as (cfg: never) => void,
     args: [config],
   };
 }
 
-function staticMockInjectionFunc(cfg: StaticMockConfig): void {
+function staticResponseInjectionFunc(cfg: StaticResponseConfig): void {
   const regexes = cfg.regexSources.map((s) => new RegExp(s, 'i'));
   function matches(url: string): boolean {
     // Resolve relative / scheme-relative URLs against the page base so
@@ -467,10 +482,21 @@ function staticMockInjectionFunc(cfg: StaticMockConfig): void {
 
   function fire(url: string): void {
     try {
-      window.postMessage({ __ohFire: true, ruleUid: cfg.ruleUid, url, kind: 'mock', t: Date.now() }, '*');
+      window.postMessage({ __ohFire: true, ruleUid: cfg.ruleUid, url, kind: 'response', t: Date.now() }, '*');
     } catch {
       /* swallow */
     }
+  }
+
+  // mock: build headers from scratch (CT defaults to JSON). network: start
+  // from the real response and layer the override on top (empty CT = no
+  // override, empty map = keep the server's headers).
+  function buildHeaders(real?: Headers): Headers {
+    const h = real ? new Headers(real) : new Headers();
+    const ct = cfg.contentType || (cfg.source === 'mock' ? 'application/json' : '');
+    if (ct) h.set('Content-Type', ct);
+    for (const k in cfg.responseHeaders) h.set(k, cfg.responseHeaders[k]!);
+    return h;
   }
 
   const origFetch = window.fetch;
@@ -482,7 +508,17 @@ function staticMockInjectionFunc(cfg: StaticMockConfig): void {
       const bodyStr = typeof reqBody === 'string' ? reqBody : reqBody == null ? '' : String(reqBody);
       if (!matchesGraphQL(bodyStr, cfg.graphqlFilter)) return origFetch.apply(this, args);
       fire(url);
-      return Promise.resolve(new Response(cfg.body, { status: cfg.statusCode, headers: cfg.headers }));
+      if (cfg.source === 'mock') {
+        return Promise.resolve(new Response(cfg.body, { status: cfg.statusCode || 200, headers: buildHeaders() }));
+      }
+      return origFetch.apply(this, args).then(
+        (real) =>
+          new Response(cfg.body, {
+            status: cfg.statusCode || real.status,
+            statusText: real.statusText,
+            headers: buildHeaders(real.headers),
+          }),
+      );
     }
     return origFetch.apply(this, args);
   };
@@ -513,16 +549,41 @@ function staticMockInjectionFunc(cfg: StaticMockConfig): void {
         return;
       }
       fire(url);
-      Object.defineProperty(this, 'status', { get: () => cfg.statusCode });
-      Object.defineProperty(this, 'statusText', { get: () => 'OK' });
-      Object.defineProperty(this, 'responseText', { get: () => cfg.body });
-      Object.defineProperty(this, 'response', { get: () => cfg.body });
-      Object.defineProperty(this, 'readyState', { writable: true, value: 4 });
-      setTimeout(() => {
-        (this as XMLHttpRequest & { readyState: number }).readyState = 4;
-        if (this.onreadystatechange) this.onreadystatechange.call(this, new Event('readystatechange'));
-        if (this.onload) this.onload.call(this, new ProgressEvent('load'));
-      }, 10);
+      if (cfg.source === 'mock') {
+        // Synthetic: never call the real send, fabricate readyState 4.
+        Object.defineProperty(this, 'status', { get: () => cfg.statusCode || 200 });
+        Object.defineProperty(this, 'statusText', { get: () => 'OK' });
+        Object.defineProperty(this, 'responseText', { get: () => cfg.body });
+        Object.defineProperty(this, 'response', { get: () => cfg.body });
+        Object.defineProperty(this, 'readyState', { writable: true, value: 4 });
+        setTimeout(() => {
+          (this as XMLHttpRequest & { readyState: number }).readyState = 4;
+          if (this.onreadystatechange) this.onreadystatechange.call(this, new Event('readystatechange'));
+          if (this.onload) this.onload.call(this, new ProgressEvent('load'));
+        }, 10);
+        return;
+      }
+      // network: send for real, swap the body once the response lands.
+      // `status === 0` keeps the real status. Header overrides are
+      // fetch-only — XHR exposes no writable response-header surface.
+      const origOnLoad = this.onload;
+      const origOnRSC = this.onreadystatechange;
+      this.onload = null;
+      this.onreadystatechange = null;
+      this.addEventListener(
+        'load',
+        () => {
+          Object.defineProperty(this, 'responseText', { get: () => cfg.body, configurable: true });
+          Object.defineProperty(this, 'response', { get: () => cfg.body, configurable: true });
+          if (cfg.statusCode !== 0) {
+            Object.defineProperty(this, 'status', { get: () => cfg.statusCode, configurable: true });
+          }
+          if (origOnRSC) origOnRSC.call(this, new Event('readystatechange'));
+          if (origOnLoad) origOnLoad.call(this, new ProgressEvent('load'));
+        },
+        { once: true },
+      );
+      origXHRSend.apply(this, args);
       return;
     }
     origXHRSend.apply(this, args);
@@ -1008,18 +1069,33 @@ XMLHttpRequest.prototype.send = function(body) {
 })();`;
 }
 
-// ── Dynamic Mock (inline script — user JS embedded) ─────────────────
+// ── Dynamic Response (inline script — user JS embedded) ─────────────
+//
+// Both dynamic cells embed arbitrary user JS, so they take the
+// inline-<script> path (CSP-bound). The source axis picks the contract:
+//   - network → user defines `modifyResponse(args)`; the real request is
+//               sent and its response transformed.
+//   - mock    → user defines `buildResponse({method,url,requestBody})`;
+//               nothing is fetched and a synthetic reply is built from the
+//               return value.
+
+function generateDynamicResponseScript(rule: ResponseRule): string {
+  return rule.action.responseSource === 'mock' ? dynamicMockResponseScript(rule) : dynamicNetworkResponseScript(rule);
+}
 
 /**
- * Dynamic mode — make the REAL request, then pass the response to the user's
- * modifyResponse() function. Embeds arbitrary user JS — inline-script path only.
+ * network + dynamic — send the REAL request, then hand the response to the
+ * user's modifyResponse(). CT/header overrides are merged onto the real
+ * response headers (fetch only; XHR exposes no writable header surface).
  */
-function generateDynamicMockScript(rule: MockRule): string {
+function dynamicNetworkResponseScript(rule: ResponseRule): string {
   const regexSources = compileRuleForInjection(rule);
-  const { statusCode, responseBody } = rule.action;
+  const { statusCode, responseBody, contentType, responseHeaders } = rule.action;
   const regexSourcesJSON = JSON.stringify(regexSources);
   const overrideStatus = statusCode || 0;
   const ruleUidLit = JSON.stringify(rule.uid);
+  const contentTypeLit = JSON.stringify(contentType || '');
+  const headersJSON = JSON.stringify(responseHeaders || {});
   const graphqlFilter =
     rule.action.resourceType === 'graphql' && rule.action.graphqlFilter?.key ? rule.action.graphqlFilter : null;
   const graphqlFilterJSON = JSON.stringify(graphqlFilter);
@@ -1031,7 +1107,16 @@ ${GRAPHQL_MATCHER_CODE}
 var RULE_UID = ${ruleUidLit};
 var REGEX_SOURCES = ${regexSourcesJSON};
 var OVERRIDE_STATUS = ${overrideStatus};
+var CONTENT_TYPE = ${contentTypeLit};
+var EXTRA_HEADERS = ${headersJSON};
 var GRAPHQL_FILTER = ${graphqlFilterJSON};
+
+function __ohMergeHeaders(real) {
+  var h = new Headers(real);
+  if (CONTENT_TYPE) h.set('Content-Type', CONTENT_TYPE);
+  for (var k in EXTRA_HEADERS) h.set(k, EXTRA_HEADERS[k]);
+  return h;
+}
 
 ${responseBody}
 
@@ -1044,7 +1129,7 @@ window.fetch = function() {
   var __reqBody = (args[1] && args[1].body) || '';
   var __reqBodyStr = typeof __reqBody === 'string' ? __reqBody : (__reqBody == null ? '' : String(__reqBody));
   if (!__ohMatchesGraphQL(__reqBodyStr, GRAPHQL_FILTER)) return origFetch.apply(self, args);
-  __ohFire(RULE_UID, url, 'mock');
+  __ohFire(RULE_UID, url, 'response');
 
   var requestMethod = (args[1] && args[1].method) || 'GET';
   var requestHeaders = (args[1] && args[1].headers) || {};
@@ -1069,7 +1154,7 @@ window.fetch = function() {
         var modified = modifyResponse(modifyArgs);
         var body = typeof modified === 'object' ? JSON.stringify(modified) : String(modified);
         var status = OVERRIDE_STATUS || response.status;
-        return new Response(body, { status: status, statusText: response.statusText, headers: response.headers });
+        return new Response(body, { status: status, statusText: response.statusText, headers: __ohMergeHeaders(response.headers) });
       } catch(err) {
         console.error('[Open Headers] modifyResponse() error:', err);
         return response;
@@ -1094,7 +1179,7 @@ XMLHttpRequest.prototype.send = function(body) {
   if (!__ohMatchesGraphQL(__xhrBodyStr, GRAPHQL_FILTER)) {
     return origXHRSend.apply(this, arguments);
   }
-  __ohFire(RULE_UID, this.__ohUrl, 'mock');
+  __ohFire(RULE_UID, this.__ohUrl, 'response');
 
   var xhrUrl = this.__ohUrl;
   var xhrMethod = this.__ohMethod;
@@ -1137,6 +1222,102 @@ XMLHttpRequest.prototype.send = function(body) {
 
   this.addEventListener('load', realOnLoad, { once: true });
   return origXHRSend.call(this, body);
+};
+})();`;
+}
+
+/**
+ * mock + dynamic — never touch the network. The user's buildResponse()
+ * returns the body for a synthetic reply; status/CT/headers come from the
+ * rule's static fields (statusCode falls back to 200, CT to JSON).
+ */
+function dynamicMockResponseScript(rule: ResponseRule): string {
+  const regexSources = compileRuleForInjection(rule);
+  const { statusCode, responseBody, contentType, responseHeaders } = rule.action;
+  const regexSourcesJSON = JSON.stringify(regexSources);
+  const status = statusCode || 200;
+  const ruleUidLit = JSON.stringify(rule.uid);
+  const contentTypeLit = JSON.stringify(contentType || 'application/json');
+  const headersJSON = JSON.stringify(responseHeaders || {});
+  const graphqlFilter =
+    rule.action.resourceType === 'graphql' && rule.action.graphqlFilter?.key ? rule.action.graphqlFilter : null;
+  const graphqlFilterJSON = JSON.stringify(graphqlFilter);
+
+  return `(function(){
+${TEST_BRIDGE_CODE}
+${URL_MATCHER_CODE}
+${GRAPHQL_MATCHER_CODE}
+var RULE_UID = ${ruleUidLit};
+var REGEX_SOURCES = ${regexSourcesJSON};
+var STATUS = ${status};
+var CONTENT_TYPE = ${contentTypeLit};
+var EXTRA_HEADERS = ${headersJSON};
+var GRAPHQL_FILTER = ${graphqlFilterJSON};
+
+function __ohBuildHeaders() {
+  var h = {};
+  h['Content-Type'] = CONTENT_TYPE;
+  for (var k in EXTRA_HEADERS) h[k] = EXTRA_HEADERS[k];
+  return h;
+}
+
+${responseBody}
+
+var origFetch = window.fetch;
+window.fetch = function() {
+  var args = arguments;
+  var self = this;
+  var url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url) || '';
+  if (!__ohMatchesUrl(url, REGEX_SOURCES)) return origFetch.apply(self, args);
+  var __reqBody = (args[1] && args[1].body) || '';
+  var __reqBodyStr = typeof __reqBody === 'string' ? __reqBody : (__reqBody == null ? '' : String(__reqBody));
+  if (!__ohMatchesGraphQL(__reqBodyStr, GRAPHQL_FILTER)) return origFetch.apply(self, args);
+  __ohFire(RULE_UID, url, 'response');
+  try {
+    var requestMethod = (args[1] && args[1].method) || 'GET';
+    var built = buildResponse({ method: requestMethod, url: url, requestBody: __reqBodyStr });
+    var body = typeof built === 'object' ? JSON.stringify(built) : String(built);
+    return Promise.resolve(new Response(body, { status: STATUS, headers: __ohBuildHeaders() }));
+  } catch(err) {
+    console.error('[Open Headers] buildResponse() error:', err);
+    return origFetch.apply(self, args);
+  }
+};
+
+var origXHROpen = XMLHttpRequest.prototype.open;
+var origXHRSend = XMLHttpRequest.prototype.send;
+XMLHttpRequest.prototype.open = function() {
+  this.__ohUrl = arguments[1] || '';
+  this.__ohMethod = arguments[0] || 'GET';
+  return origXHROpen.apply(this, arguments);
+};
+XMLHttpRequest.prototype.send = function(body) {
+  var self = this;
+  if (!this.__ohUrl || !__ohMatchesUrl(this.__ohUrl, REGEX_SOURCES)) {
+    return origXHRSend.apply(this, arguments);
+  }
+  var __xhrBodyStr = typeof body === 'string' ? body : (body == null ? '' : String(body));
+  if (!__ohMatchesGraphQL(__xhrBodyStr, GRAPHQL_FILTER)) {
+    return origXHRSend.apply(this, arguments);
+  }
+  __ohFire(RULE_UID, this.__ohUrl, 'response');
+  try {
+    var built = buildResponse({ method: this.__ohMethod, url: this.__ohUrl, requestBody: __xhrBodyStr });
+    var out = typeof built === 'object' ? JSON.stringify(built) : String(built);
+    Object.defineProperty(this, 'status', { get: function() { return STATUS; }, configurable: true });
+    Object.defineProperty(this, 'statusText', { get: function() { return 'OK'; }, configurable: true });
+    Object.defineProperty(this, 'responseText', { get: function() { return out; }, configurable: true });
+    Object.defineProperty(this, 'response', { get: function() { return out; }, configurable: true });
+    Object.defineProperty(this, 'readyState', { writable: true, value: 4 });
+    setTimeout(function() {
+      self.readyState = 4;
+      if (self.onreadystatechange) self.onreadystatechange.call(self, new Event('readystatechange'));
+      if (self.onload) self.onload.call(self, new ProgressEvent('load'));
+    }, 10);
+  } catch(err) {
+    console.error('[Open Headers] buildResponse() error:', err);
+    return origXHRSend.apply(this, arguments);
+  }
 };
 })();`;
 }

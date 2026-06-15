@@ -112,7 +112,7 @@ export interface DnrRedirect {
 //      CSP-safe because it does NOT create an inline <script> tag.
 //   2. `inline-script` — a string of JavaScript wrapped in a <script> tag
 //      injected into the page's DOM. Subject to the page's CSP — used for
-//      rules that embed arbitrary user JS (dynamic body/mock) which can't
+//      rules that embed arbitrary user JS (dynamic body/response) which can't
 //      be embedded inside a closed TypeScript function.
 //
 // The func signature uses `never` as the parameter type because it's

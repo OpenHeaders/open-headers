@@ -44,7 +44,7 @@ export const SCRIPTABLE_TYPES: ReadonlySet<Rule['type']> = new Set([
   'inject',
   'delay',
   'body',
-  'mock',
+  'response',
   'header',
   'ws',
   'sse',
