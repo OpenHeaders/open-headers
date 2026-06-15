@@ -43,7 +43,7 @@ const compilers: Record<string, RuleCompiler<Rule>> = {
 export const SCRIPTABLE_TYPES: ReadonlySet<Rule['type']> = new Set([
   'inject',
   'delay',
-  'body',
+  'request-body',
   'response',
   'header',
   'ws',

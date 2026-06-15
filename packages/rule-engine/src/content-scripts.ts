@@ -36,7 +36,7 @@
  * is an opaque cross-realm object.
  */
 
-import type { BodyRule, DelayRule, ResponseRule, SseRule, WsRule } from '@openheaders/core/types';
+import type { DelayRule, RequestBodyRule, ResponseRule, SseRule, WsRule } from '@openheaders/core/types';
 import { compileRuleForInjection } from '@openheaders/core/utils';
 import type { FuncInjection, Injection } from './builders/types';
 
@@ -303,17 +303,17 @@ function delayInjectionFunc(cfg: DelayConfig): void {
   };
 }
 
-// ── Static Body (real function) ─────────────────────────────────────
+// ── Static Request Body (real function) ─────────────────────────────
 
-export function buildBodyInjection(rule: BodyRule): Injection {
+export function buildRequestBodyInjection(rule: RequestBodyRule): Injection {
   const bodyType = rule.action.bodyType || 'static';
   if (bodyType === 'dynamic') {
-    return { kind: 'inline-script', code: generateDynamicBodyScript(rule) };
+    return { kind: 'inline-script', code: generateDynamicRequestBodyScript(rule) };
   }
   const config: StaticBodyConfig = {
     ruleUid: rule.uid,
     regexSources: compileRuleForInjection(rule),
-    body: rule.action.body,
+    body: rule.action.requestBody,
     graphqlFilter:
       rule.action.resourceType === 'graphql' && rule.action.graphqlFilter?.key ? rule.action.graphqlFilter : undefined,
   };
@@ -362,7 +362,7 @@ function staticBodyInjectionFunc(cfg: StaticBodyConfig): void {
 
   function fire(url: string): void {
     try {
-      window.postMessage({ __ohFire: true, ruleUid: cfg.ruleUid, url, kind: 'body', t: Date.now() }, '*');
+      window.postMessage({ __ohFire: true, ruleUid: cfg.ruleUid, url, kind: 'request-body', t: Date.now() }, '*');
     } catch {
       /* swallow */
     }
@@ -1008,9 +1008,9 @@ function sseInjectionFunc(cfg: SseConfig): void {
  * Stays as a string-template inline-script injection because it embeds arbitrary
  * user JavaScript. On strict-CSP sites this will be blocked — pre-existing limitation.
  */
-function generateDynamicBodyScript(rule: BodyRule): string {
+function generateDynamicRequestBodyScript(rule: RequestBodyRule): string {
   const regexSources = compileRuleForInjection(rule);
-  const { body: userCode } = rule.action;
+  const { requestBody: userCode } = rule.action;
   const regexSourcesJSON = JSON.stringify(regexSources);
   const ruleUidLit = JSON.stringify(rule.uid);
   const graphqlFilter =
@@ -1034,7 +1034,7 @@ window.fetch = function() {
   if (__ohMatchesUrl(url, REGEX_SOURCES) && args[1] && args[1].body) {
     var bodyStr = typeof args[1].body === 'string' ? args[1].body : JSON.stringify(args[1].body);
     if (!__ohMatchesGraphQL(bodyStr, GRAPHQL_FILTER)) return origFetch.apply(this, args);
-    __ohFire(RULE_UID, url, 'body');
+    __ohFire(RULE_UID, url, 'request-body');
     try {
       var bodyAsJson = null;
       try { bodyAsJson = JSON.parse(bodyStr); } catch(e) {}
@@ -1056,7 +1056,7 @@ XMLHttpRequest.prototype.send = function(body) {
   if (this.__ohUrl && __ohMatchesUrl(this.__ohUrl, REGEX_SOURCES) && body) {
     var bodyStr = typeof body === 'string' ? body : JSON.stringify(body);
     if (!__ohMatchesGraphQL(bodyStr, GRAPHQL_FILTER)) return origXHRSend.call(this, body);
-    __ohFire(RULE_UID, this.__ohUrl, 'body');
+    __ohFire(RULE_UID, this.__ohUrl, 'request-body');
     try {
       var bodyAsJson = null;
       try { bodyAsJson = JSON.parse(bodyStr); } catch(e) {}
