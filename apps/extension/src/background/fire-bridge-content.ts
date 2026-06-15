@@ -6,7 +6,7 @@
  * whether or not any consumer is currently interested in the page.
  *
  * Listens for `window.postMessage` payloads tagged with `__ohFire: true`
- * from MAIN-world generated scripts (delay/body/mock/header-merge) and
+ * from MAIN-world generated scripts (delay/body/response/header-merge) and
  * forwards them to the background via the shared bridge as `tabFire`
  * messages. The background drops fires on the floor for tabs that
  * aren't being tracked, so the overhead on untracked tabs is one message

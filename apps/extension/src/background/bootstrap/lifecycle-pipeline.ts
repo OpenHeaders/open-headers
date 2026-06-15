@@ -93,8 +93,8 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   // fires after attach, so the ref is always set by then.
   let isTabInScope: (tabId: number) => boolean = () => false;
   // `{{…}}` is resolved here (env / collection / workspace vars + vault) the
-  // same way the DNR/injection compile path resolves it — so a templated mock
-  // body, body rewrite, or auth credential ships its literal value over CDP,
+  // same way the DNR/injection compile path resolves it — so a templated
+  // response body, body rewrite, or auth credential ships its literal value over CDP,
   // not the raw template. The resolve is cheap (no I/O) and passes a strict
   // subset of the store's rules, so it never clobbers the DNR snapshot memo.
   const liveRules = (): Rule[] =>
@@ -105,7 +105,7 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
     const fetchPatterns = compileFetchPatterns(rules);
     if (fetchPatterns.length === 0) return EMPTY_TAB_CONTROL_STATE;
     // Opt this tab into auth-challenge interception only when an auth rule is
-    // actually in scope — a tab whose debug rules are all mock/body never
+    // actually in scope — a tab whose debug rules are all response/body never
     // widens its pause surface to 401/407 challenges.
     const fetchHandleAuthRequests = rules.some((rule) => rule.type === 'auth');
     return { ...EMPTY_TAB_CONTROL_STATE, fetchPatterns, fetchHandleAuthRequests };

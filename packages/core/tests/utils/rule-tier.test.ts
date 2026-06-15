@@ -25,6 +25,7 @@ const mockAction = {
   responseHeaders: {},
 };
 const mockActionDynamic = { ...mockAction, bodyType: 'dynamic' as const };
+const networkAction = { ...mockAction, responseSource: 'network' as const };
 const bodyAction = { bodyType: 'static' as const, body: '', resourceType: 'rest' as const };
 const bodyActionDynamic = { ...bodyAction, bodyType: 'dynamic' as const };
 const authAction = { username: 'devuser', password: '{{vault.PW}}' };
@@ -166,6 +167,12 @@ describe('isFetchRealizableNow', () => {
   it('dynamic debug-tier body is NOT realizable now', () => {
     expect(
       isFetchRealizableNow({ ...base, type: 'body', conditions: [hostCondition], action: bodyActionDynamic }),
+    ).toBe(false);
+  });
+
+  it('static network-source response is NOT realizable now (modifies the real reply — Response stage not built)', () => {
+    expect(
+      isFetchRealizableNow({ ...base, type: 'response', conditions: [hostCondition], action: networkAction }),
     ).toBe(false);
   });
 

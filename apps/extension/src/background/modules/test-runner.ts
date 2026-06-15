@@ -760,7 +760,7 @@ function buildRun(run: ActiveRun): TestRun {
   // Static arbitration pass over the full observed-URL set. For every
   // no-fire rule in scope, check whether any URL the tab hit during the
   // run would have put it into a matching set where a sibling rule
-  // (block / redirect / query-param / mock / delay) shadowed it. The
+  // (block / redirect / query-param / response / delay) shadowed it. The
   // first matching URL's attribution wins — we're only trying to give
   // the user a reason, not enumerate every conflict.
   //

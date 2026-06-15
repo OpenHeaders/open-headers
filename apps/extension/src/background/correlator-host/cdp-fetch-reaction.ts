@@ -8,19 +8,23 @@
  * {@link compileFetchPatterns} in cdp-fetch-patterns.ts). The `Fetch.enable`
  * `urlPattern` set is only a COARSE pre-filter — THIS is the authoritative
  * match: it re-checks every request-stage condition (url, request-domains /
- * methods / resource-types and their excludes, plus the body/mock GraphQL
+ * methods / resource-types and their excludes, plus the response/body GraphQL
  * filter) against the paused request before reacting.
  *
- * Only STATIC `mock`/`body` rules are realizable here: a static `mock`
- * becomes a fulfill, a static `body` becomes a request-body rewrite (the
- * page-context wrapper does the same — it replaces the outgoing fetch/XHR
+ * Only request-stage-realizable rules act here: a static `mock`-source
+ * `response` becomes a fulfill, a static `body` becomes a request-body rewrite
+ * (the page-context wrapper does the same — it replaces the outgoing fetch/XHR
  * body, it does not touch the server's response). Falls through to
  * pass-through for:
- *   - dynamic `mock`/`body` (their bodies are user JS the host can't eval);
+ *   - dynamic `response`/`body` (their bodies are user JS the host can't eval);
+ *   - a `network`-source `response` (it modifies the REAL reply — a
+ *     Response-stage round-trip this request stage doesn't have yet);
  *   - a rule carrying a condition the request stage can't evaluate
  *     (initiator-domains, domain-type, response-header) — enforcing it via
  *     injection's own page gate is correct, over-applying via Fetch is not.
- * A passed-through rule still runs its page-context injection path; only its
+ * `isFetchRealizableNow` is the single gate for the first two; it returns
+ * false for both, so they never reach the fulfill branch below. A
+ * passed-through rule still runs its page-context injection path; only its
  * extended all-context reach is unavailable until D2b adds the Response-stage
  * round-trip and a host eval mechanism.
  */
@@ -28,8 +32,8 @@
 import type {
   BodyAction,
   ConditionType,
-  MockAction,
   ResourceType,
+  ResponseAction,
   Rule,
   TrackedResourceType,
 } from '@openheaders/core/types';
@@ -63,7 +67,7 @@ export type CdpAuthReaction =
   | { readonly kind: 'provide'; readonly ruleUid: string; readonly username: string; readonly password: string }
   | { readonly kind: 'default' };
 
-type GraphqlFilter = NonNullable<MockAction['graphqlFilter']>;
+type GraphqlFilter = NonNullable<ResponseAction['graphqlFilter']>;
 
 /**
  * Conditions evaluable at the request stage. A rule carrying any condition
@@ -136,13 +140,15 @@ export function resolveFetchReaction(event: CdpRequestPaused, rules: readonly Ru
 
   for (const rule of rules) {
     // Narrow to the Fetch-capable union for `rule.action` below; the
-    // debug-tier + static gate is the shared core predicate.
-    if (rule.type !== 'mock' && rule.type !== 'body') continue;
+    // debug-tier + static gate is the shared core predicate. It also rejects
+    // `network`-source responses, so the `response` branch only ever sees a
+    // mock-source (synthetic-fulfill) action.
+    if (rule.type !== 'response' && rule.type !== 'body') continue;
     if (!isFetchRealizableNow(rule)) continue;
     if (!requestStageMatches(rule, ctx)) continue;
     if (!graphqlGate(rule.action, postData)) continue;
 
-    if (rule.type === 'mock') {
+    if (rule.type === 'response') {
       return { kind: 'fulfill', ruleUid: rule.uid, response: buildFulfill(event.requestId, rule.action) };
     }
     return { kind: 'continue', ruleUid: rule.uid, request: buildBodyRewrite(event.requestId, rule.action) };
@@ -215,7 +221,7 @@ function requestStageMatches(rule: Rule, ctx: RequestStageContext): boolean {
 }
 
 /** True unless a GraphQL filter is active and the request body fails it. */
-function graphqlGate(action: MockAction | BodyAction, postData: string | undefined): boolean {
+function graphqlGate(action: ResponseAction | BodyAction, postData: string | undefined): boolean {
   if (action.resourceType !== 'graphql' || !action.graphqlFilter?.key) return true;
   return matchesGraphqlBody(postData ?? '', action.graphqlFilter);
 }
@@ -233,7 +239,7 @@ function matchesGraphqlBody(bodyStr: string, filter: GraphqlFilter): boolean {
   }
 }
 
-function buildFulfill(requestId: string, action: MockAction): CdpFulfillResponse {
+function buildFulfill(requestId: string, action: ResponseAction): CdpFulfillResponse {
   // Default Content-Type first, then the action's headers — an exact-name
   // entry overrides the default, mirroring the injection's object spread.
   const headerMap = new Map<string, string>([['Content-Type', action.contentType || 'application/json']]);

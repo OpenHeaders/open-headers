@@ -5,7 +5,7 @@
  *   - inject: user-authored JS/CSS injection
  *   - delay: monkey-patches fetch/XHR with setTimeout
  *   - body: monkey-patches fetch/XHR to modify request/response bodies
- *   - mock: monkey-patches fetch/XHR to return fake responses
+ *   - response: monkey-patches fetch/XHR to synthesize or rewrite responses
  *   - ws: wraps the WebSocket constructor to modify/inject/drop frames
  *   - sse: wraps the EventSource constructor to modify/inject/drop events
  *
@@ -13,7 +13,7 @@
  * - Keeps the current set of scriptable rules in memory
  * - Listens to webNavigation.onCommitted for main frame navigations
  * - For each navigation, checks URL matches and injects appropriate scripts
- * - delay/body/mock inject at document_start (before page JS runs)
+ * - delay/body/response inject at document_start (before page JS runs)
  * - inject rules respect their configured position
  */
 
@@ -24,7 +24,7 @@ import type {
   DelayRule,
   HeaderRule,
   InjectRule,
-  MockRule,
+  ResponseRule,
   Rule,
   SseRule,
   WsRule,
@@ -34,8 +34,8 @@ import {
   buildBodyInjection,
   buildDelayInjection,
   buildHeaderMergeInjection,
-  buildMockInjection,
   buildResetInjection,
+  buildResponseInjection,
   buildSetupInjection,
   buildSseInjection,
   buildWsInjection,
@@ -52,8 +52,8 @@ import { getTestScopeForTab, isRuleUnderTest } from './modules/test-runner';
 
 const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
 
-/** Mock/body/delay rules: their URL conditions target REQUEST urls. */
-type InterceptorRule = DelayRule | BodyRule | MockRule;
+/** Response/body/delay rules: their URL conditions target REQUEST urls. */
+type InterceptorRule = DelayRule | BodyRule | ResponseRule;
 
 /**
  * Page-install gate for rules whose URL conditions match REQUEST /
@@ -85,7 +85,7 @@ interface MessageRuleEntry extends PageInstallGate {
   rule: WsRule | SseRule;
 }
 
-/** A mock/body/delay rule paired with its pre-compiled install gate. */
+/** A response/body/delay rule paired with its pre-compiled install gate. */
 interface InterceptorRuleEntry extends PageInstallGate {
   rule: InterceptorRule;
 }
@@ -95,7 +95,7 @@ let activeInterceptorRules: InterceptorRuleEntry[] = [];
 let activeHeaderMerges: HeaderMergeEntry[] = [];
 let activeMessageRules: MessageRuleEntry[] = [];
 
-// Signature of the live-pushable interceptor set (mock/body/delay/
+// Signature of the live-pushable interceptor set (response/body/delay/
 // header-merge/ws/sse — NOT inject, which is navigation-only). When it
 // changes after the first load, already-open tabs are refreshed in place
 // (reset + re-inject) so rule edits/deletes apply without a page reload.
@@ -181,7 +181,7 @@ export const __testExtractHeaderMergeEntry = extractHeaderMergeEntry;
 /**
  * Update the set of active scriptable rules. Called by dnr-manager whenever
  * rules change. Accepts every rule with any in-page side effect (inject,
- * delay, body, mock, header); header-merge entries are derived from header
+ * delay, body, response, header); header-merge entries are derived from header
  * rules internally so dnr-manager doesn't have to know about them.
  *
  * Returns the uids that actually received an in-page artifact — a header
@@ -202,7 +202,7 @@ export function updateScriptableRules(rules: Rule[]): ReadonlySet<string> {
         break;
       case 'delay':
       case 'body':
-      case 'mock':
+      case 'response':
         interceptorRules.push({ rule, ...extractInstallGate(rule) });
         installedUids.add(rule.uid);
         break;
@@ -398,7 +398,7 @@ async function injectForUrl(tabId: number, url: string): Promise<void> {
 }
 
 /**
- * Inject the live-pushable interceptors — mock/body/delay (REQUEST-url
+ * Inject the live-pushable interceptors — response/body/delay (REQUEST-url
  * matched in-page), header merges, and ws/sse wrappers. All gate on the
  * initiator-domain rule (`shouldInstallForPage`), not the page url. Used
  * on navigation AND on the live-update push (where the caller resets
@@ -418,8 +418,8 @@ async function injectInterceptorsForTab(tabId: number, url: string, testScope: T
         case 'body':
           await applyInjection(tabId, buildBodyInjection(rule), rule.name);
           break;
-        case 'mock':
-          await applyInjection(tabId, buildMockInjection(rule), rule.name);
+        case 'response':
+          await applyInjection(tabId, buildResponseInjection(rule), rule.name);
           break;
       }
     } catch (error) {

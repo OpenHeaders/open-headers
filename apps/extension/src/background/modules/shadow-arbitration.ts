@@ -19,13 +19,13 @@
  *
  *   2. **redirect-retarget** — a redirect (or query-param) rule sends the
  *      request to a different URL. Lower-priority modify rules (header,
- *      body, mock, delay) that matched the pre-redirect URL are shadowed
+ *      body, response, delay) that matched the pre-redirect URL are shadowed
  *      because the user-visible response comes from the REDIRECT target,
  *      not the matched URL. Chrome does technically run modifyHeaders on
  *      the pre-redirect request, but that request is discarded, so from
  *      the user's perspective "my header rule did nothing."
  *
- *   3. **mock-intercept** — a scriptable mock rule fabricates the response.
+ *   3. **mock-intercept** — a mock-source response rule fabricates the response.
  *      Response-side header modifications and body rules in the same
  *      matching set operate on fabricated bytes (or on a real response
  *      the user will never see). Marked so the test view can explain
@@ -87,7 +87,11 @@ export type ActionClass =
   | 'query-param'
   | 'header'
   | 'body'
+  // 'mock' = a synthetic-reply (mock-source) response rule; it intercepts.
+  // 'response-modify' = a network-source response rule; it rewrites the real
+  // reply and is shadowable like a body rule, but never itself a shadower.
   | 'mock'
+  | 'response-modify'
   | 'delay'
   | 'inject-csp'
   | 'message'
@@ -100,7 +104,7 @@ export type ActionClass =
  * headers, etc.). Keeping them decoupled lets arbitration reason about
  * user-visible outcomes without re-implementing Chrome's matcher.
  *
- * Scriptable-only types (body, mock) don't have a DNR priority; we give
+ * Scriptable-only types (body, response) don't have a DNR priority; we give
  * them header's value (100) so they sit below redirects in the
  * arbitration order, which matches real-world behavior (they run against
  * a request that survives DNR arbitration).
@@ -111,7 +115,7 @@ const RULE_PRIORITY: Record<Rule['type'], number> = {
   redirect: 150,
   'query-param': 150,
   header: 100,
-  mock: 100,
+  response: 100,
   body: 100,
   ws: 100,
   sse: 100,
@@ -128,10 +132,12 @@ const RULE_ACTION_CLASS: Record<Rule['type'], ActionClass> = {
   'query-param': 'query-param',
   delay: 'delay',
   header: 'header',
-  mock: 'mock',
+  // Default for response rules — the synthetic-reply (mock) source. The
+  // network source is reclassified to 'response-modify' in actionClassFor().
+  response: 'mock',
   body: 'body',
   // ws/sse wrappers act in-page on connections that survive DNR — like
-  // body/mock they sit below retargeters and are shadowable by block
+  // body/response they sit below retargeters and are shadowable by block
   // (a blocked upgrade never opens a socket for the wrapper to act on).
   ws: 'message',
   sse: 'message',
@@ -141,6 +147,20 @@ const RULE_ACTION_CLASS: Record<Rule['type'], ActionClass> = {
   // participates passively, shadowable like the other priority-100 classes.
   auth: 'auth',
 };
+
+/**
+ * Action class for a matching rule. Every type maps statically except
+ * `response`, which splits on its source axis: a `mock` source fabricates
+ * the reply (class `mock` — the mock-intercept shadower), while a `network`
+ * source rewrites the real reply (class `response-modify` — shadowable like
+ * a body rule, but never itself a shadower).
+ */
+function actionClassFor(rule: MatchingRule): ActionClass {
+  if (rule.type === 'response') {
+    return rule.responseSource === 'mock' ? 'mock' : 'response-modify';
+  }
+  return RULE_ACTION_CLASS[rule.type];
+}
 
 export interface ArbitratedRule extends MatchingRule {
   priority: number;
@@ -164,7 +184,7 @@ export function arbitrate(matching: MatchingRule[]): ArbitratedRule[] {
   const decorated: ArbitratedRule[] = matching.map((r) => ({
     ...r,
     priority: RULE_PRIORITY[r.type],
-    actionClass: RULE_ACTION_CLASS[r.type],
+    actionClass: actionClassFor(r),
   }));
 
   applyBlockShadow(decorated);
@@ -203,7 +223,7 @@ export function arbitrateWithStrategy(
     return matching.map((r) => ({
       ...r,
       priority: RULE_PRIORITY[r.type],
-      actionClass: RULE_ACTION_CLASS[r.type],
+      actionClass: actionClassFor(r),
     }));
   }
 
@@ -229,7 +249,7 @@ export function arbitrateWithStrategy(
 
 /**
  * Block is the only terminal action in the data model — Chrome cancels the request,
- * so redirect / query-param / header / delay / body / mock all silently
+ * so redirect / query-param / header / delay / body / response all silently
  * fail. Inject's CSP strip runs on the response, which never comes, so
  * it's moot rather than "shadowed" in the user-visible sense (we treat
  * it as non-participating). Two blocks stack conceptually — we don't
@@ -255,7 +275,7 @@ function applyBlockShadow(decorated: ArbitratedRule[]): void {
 
 /**
  * Redirect and query-param rules rewrite the request URL. Lower-priority
- * *modify* classes (header, body, mock, delay) that matched the
+ * *modify* classes (header, body, response, delay) that matched the
  * pre-redirect URL are semantically shadowed: Chrome does run their
  * modifications on the pre-redirect request, but that request is
  * discarded the moment the redirect fires, so the user never sees the
@@ -297,17 +317,22 @@ function applyRedirectShadow(decorated: ArbitratedRule[]): void {
 // ── Phase 3: mock intercepts response-side modifiers ───────────────
 
 /**
- * A mock rule fabricates the response bytes. Any other rule whose effect
- * targets the response is moot from the user's perspective:
+ * A mock-source response rule fabricates the response bytes (the request
+ * never reaches the network). Any other rule whose effect targets the
+ * response is moot from the user's perspective:
  *
  *   - Body rules run on the response body → mocked.
+ *   - Network-source response rules rewrite the real reply → operate on
+ *     bytes the fabricated response replaced → mocked.
  *   - Header rules with response-side modifications run on the response
  *     headers → mocked. Header rules with only request-side modifications
  *     are NOT shadowed (their effect on the outgoing request is real;
  *     what comes back just happens to be a mock).
  *
- * If multiple mocks match, the first is attribution-source (Chrome's
- * interception-wins-race semantics for scriptable rules).
+ * Only a `mock`-source response rule fabricates — a `network`-source one
+ * (`response-modify`) modifies the real reply and is itself a target here,
+ * never the shadower. If multiple mocks match, the first is
+ * attribution-source (interception-wins-race for scriptable rules).
  */
 function applyMockIntercept(decorated: ArbitratedRule[]): void {
   const mock = decorated.find((r) => r.actionClass === 'mock');
@@ -316,7 +341,7 @@ function applyMockIntercept(decorated: ArbitratedRule[]): void {
   for (const r of decorated) {
     if (r.shadowedBy) continue;
     if (r.uid === mock.uid) continue;
-    if (r.actionClass === 'body') {
+    if (r.actionClass === 'body' || r.actionClass === 'response-modify') {
       r.shadowedBy = { uid: mock.uid, name: mock.name, kind: 'mock-intercept' };
       continue;
     }

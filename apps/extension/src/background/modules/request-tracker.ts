@@ -9,7 +9,7 @@
  * rule-store view until the first DNR compile populates the snapshot.
  */
 
-import type { HeaderOperation, HeaderRule, Rule } from '@openheaders/core/types';
+import type { HeaderOperation, HeaderRule, ResponseSource, Rule } from '@openheaders/core/types';
 import {
   doesUrlMatchEntry as coreDoesUrlMatchEntry,
   getActionDetail,
@@ -161,6 +161,13 @@ export interface MatchingRule {
    * modifications. Normalized away from the wire shape.
    */
   headerOps?: MatchingRuleHeaderOp[];
+  /**
+   * Populated only for `response` rules — the source axis. Shadow
+   * arbitration only treats a `mock`-source response as a fabricating
+   * intercept; a `network`-source one modifies the real reply and never
+   * shadows the response-side modifiers around it.
+   */
+  responseSource?: ResponseSource;
 }
 
 /**
@@ -175,7 +182,7 @@ function computeDeferred(rule: Rule): boolean {
   switch (rule.type) {
     case 'delay':
     case 'body':
-    case 'mock':
+    case 'response':
     case 'inject':
       return true;
     case 'header':
@@ -255,6 +262,7 @@ export function matchRulesToRequest(url: string): MatchingRule[] {
           const ops = extractHeaderOps(rule);
           if (ops.length > 0) matching.headerOps = ops;
         }
+        if (rule.type === 'response') matching.responseSource = rule.action.responseSource;
         out.push(matching);
         break;
       }
@@ -306,7 +314,7 @@ export function getActiveRulesForTab(tabId: number | undefined, tabUrl: string):
   const rules = getRules();
   const unresolvable = getUnresolvableRuleUids();
 
-  const extensionTypes = new Set(['header', 'block', 'redirect', 'query-param', 'inject', 'delay', 'body', 'mock']);
+  const extensionTypes = new Set(['header', 'block', 'redirect', 'query-param', 'inject', 'delay', 'body', 'response']);
 
   const normalizedTabUrl = normalizeUrlForTracking(tabUrl);
 

@@ -90,5 +90,11 @@ export function isFetchRealizableNow(rule: Rule): boolean {
   if (rule.type === 'auth') return isDebugTierRule(rule);
   if (rule.type !== 'response' && rule.type !== 'body') return false;
   if (!isDebugTierRule(rule)) return false;
+  // A `network`-source response rule modifies the REAL reply — that needs a
+  // Response-stage round-trip the request-stage interceptor doesn't have yet.
+  // Only a `mock`-source response (synthetic fulfill) and a request-body
+  // rewrite are realizable now; network passes through until that stage lands,
+  // so the dormant badge must not promise reach arming can't deliver.
+  if (rule.type === 'response' && rule.action.responseSource !== 'mock') return false;
   return rule.action.bodyType !== 'dynamic';
 }

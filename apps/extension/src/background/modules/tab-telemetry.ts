@@ -90,7 +90,7 @@ export interface ObservedFireMeta {
   pattern: string;
   /**
    * True if the rule's type can *also* emit a scriptable fire (delay, body,
-   * mock, inject, header with header-merge). Gates the 500ms buffer. Pure DNR
+   * response, inject, header with header-merge). Gates the 500ms buffer. Pure DNR
    * types (block, redirect, query-param, plain header) pass false and are
    * recorded immediately.
    */
