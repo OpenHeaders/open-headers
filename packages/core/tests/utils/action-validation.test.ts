@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type {
   BlockRule,
-  BodyRule,
   DelayRule,
   HeaderRule,
   InjectRule,
   QueryParamRule,
   RedirectRule,
+  RequestBodyRule,
   ResponseRule,
   Rule,
   RuleCondition,
@@ -49,8 +49,8 @@ function response(action: ResponseRule['action']): ResponseRule {
   return { ...baseFields, type: 'response', action } as ResponseRule;
 }
 
-function body(action: BodyRule['action']): BodyRule {
-  return { ...baseFields, type: 'body', action } as BodyRule;
+function requestBody(action: RequestBodyRule['action']): RequestBodyRule {
+  return { ...baseFields, type: 'request-body', action } as RequestBodyRule;
 }
 
 function queryParam(action: QueryParamRule['action']): QueryParamRule {
@@ -369,16 +369,18 @@ describe('validateActionValues — response', () => {
   });
 });
 
-describe('validateActionValues — body', () => {
+describe('validateActionValues — request-body', () => {
   it('accepts a static body without graphql filter', () => {
-    expect(validateActionValues(body({ bodyType: 'static', body: '{"ok":1}', resourceType: 'rest' }))).toEqual([]);
+    expect(
+      validateActionValues(requestBody({ bodyType: 'static', requestBody: '{"ok":1}', resourceType: 'rest' })),
+    ).toEqual([]);
   });
 
   it('errors when graphql filter has empty key', () => {
     const issues = validateActionValues(
-      body({
+      requestBody({
         bodyType: 'static',
-        body: '{"ok":1}',
+        requestBody: '{"ok":1}',
         resourceType: 'graphql',
         graphqlFilter: { key: '', operator: 'Equals', value: 'X' },
       }),

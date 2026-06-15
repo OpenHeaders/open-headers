@@ -16,7 +16,7 @@ import { RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
 export const RuleTypeSchema = v.picklist([
   'header',
   'redirect',
-  'body',
+  'request-body',
   'inject',
   'block',
   'delay',
@@ -149,10 +149,14 @@ export const RedirectRuleSchema = v.object({
   action: RedirectActionSchema,
 });
 
-// ── Body rule ──────────────────────────────────────────────────────
+// ── Request-body rule ──────────────────────────────────────────────
 
-export const BodyModTypeSchema = v.picklist(['static', 'dynamic']);
-export const BodyResourceTypeSchema = v.picklist(['rest', 'graphql']);
+export const RequestBodyTypeSchema = v.picklist(['static', 'dynamic']);
+
+// REST vs GraphQL payload shape — shared by the request-body and response
+// rules (both can target either API style). Distinct from Chrome's DNR
+// `ResourceType` (page/xhr/script/…), which lives in `types/rule.ts`.
+export const ApiResourceTypeSchema = v.picklist(['rest', 'graphql']);
 
 export const GraphqlFilterSchema = v.object({
   key: v.string(),
@@ -160,17 +164,17 @@ export const GraphqlFilterSchema = v.object({
   value: v.string(),
 });
 
-export const BodyActionSchema = v.object({
-  bodyType: BodyModTypeSchema,
-  body: v.string(),
-  resourceType: BodyResourceTypeSchema,
+export const RequestBodyActionSchema = v.object({
+  bodyType: RequestBodyTypeSchema,
+  requestBody: v.string(),
+  resourceType: ApiResourceTypeSchema,
   graphqlFilter: v.optional(GraphqlFilterSchema),
 });
 
-export const BodyRuleSchema = v.object({
+export const RequestBodyRuleSchema = v.object({
   ...RuleBaseFields,
-  type: v.literal('body'),
-  action: BodyActionSchema,
+  type: v.literal('request-body'),
+  action: RequestBodyActionSchema,
 });
 
 // ── Inject rule ────────────────────────────────────────────────────
@@ -265,7 +269,7 @@ export const ResponseActionSchema = v.object({
   statusCode: v.number(),
   contentType: v.string(),
   responseHeaders: v.record(v.string(), v.string()),
-  resourceType: v.optional(BodyResourceTypeSchema),
+  resourceType: v.optional(ApiResourceTypeSchema),
   graphqlFilter: v.optional(GraphqlFilterSchema),
 });
 
@@ -308,7 +312,7 @@ export const QueryParamRuleSchema = v.object({
 // ── WS message rule ────────────────────────────────────────────────
 //
 // Acts on page-context WebSocket traffic via the MAIN-world constructor
-// wrapper (cooperative — same delivery plane as body/response). The rule's
+// wrapper (cooperative — same delivery plane as request-body/response). The rule's
 // URL conditions match the socket endpoint (`ws://` / `wss://`); the
 // action then selects frames by direction and optional content filter.
 //
@@ -396,7 +400,7 @@ export const AuthRuleSchema = v.object({
 export const RuleSchema = v.variant('type', [
   HeaderRuleSchema,
   RedirectRuleSchema,
-  BodyRuleSchema,
+  RequestBodyRuleSchema,
   InjectRuleSchema,
   BlockRuleSchema,
   DelayRuleSchema,

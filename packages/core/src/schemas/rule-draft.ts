@@ -8,12 +8,12 @@
 
 import * as v from 'valibot';
 import {
-  BodyModTypeSchema,
-  BodyResourceTypeSchema,
+  ApiResourceTypeSchema,
   HeaderOperationSchema,
   InjectSourceSchema,
   InjectTypeSchema,
   QueryParamOperationSchema,
+  RequestBodyTypeSchema,
   ResponseBodyTypeSchema,
   ResponseSourceSchema,
 } from './rule';
@@ -49,12 +49,12 @@ export const RedirectRuleDraftSchema = v.object({
   redirectTo: v.optional(v.string()),
 });
 
-export const BodyRuleDraftSchema = v.object({
-  type: v.literal('body'),
+export const RequestBodyRuleDraftSchema = v.object({
+  type: v.literal('request-body'),
   ...RuleDraftBaseFields,
-  bodyType: v.optional(BodyModTypeSchema),
-  body: v.optional(v.string()),
-  resourceType: v.optional(BodyResourceTypeSchema),
+  bodyType: v.optional(RequestBodyTypeSchema),
+  requestBody: v.optional(v.string()),
+  resourceType: v.optional(ApiResourceTypeSchema),
 });
 
 export const ResponseRuleDraftSchema = v.object({
@@ -66,7 +66,7 @@ export const ResponseRuleDraftSchema = v.object({
   responseHeaders: v.optional(v.record(v.string(), v.string())),
   contentType: v.optional(v.string()),
   bodyType: v.optional(ResponseBodyTypeSchema),
-  resourceType: v.optional(BodyResourceTypeSchema),
+  resourceType: v.optional(ApiResourceTypeSchema),
 });
 
 export const BlockRuleDraftSchema = v.object({
@@ -108,7 +108,7 @@ export const InjectRuleDraftSchema = v.object({
 export const RuleDraftSchema = v.variant('type', [
   HeaderRuleDraftSchema,
   RedirectRuleDraftSchema,
-  BodyRuleDraftSchema,
+  RequestBodyRuleDraftSchema,
   ResponseRuleDraftSchema,
   BlockRuleDraftSchema,
   DelayRuleDraftSchema,

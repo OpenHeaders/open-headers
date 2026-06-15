@@ -6,12 +6,12 @@
 import { describe, expect, it } from 'vitest';
 import type {
   BlockRule,
-  BodyRule,
   DelayRule,
   HeaderRule,
   InjectRule,
   QueryParamRule,
   RedirectRule,
+  RequestBodyRule,
   ResponseRule,
   RuleCondition,
   SseRule,
@@ -146,12 +146,12 @@ describe('summarizeRule', () => {
     expect(summarizeRule(rule).payload).toMatch(/Modify the real response/);
   });
 
-  it('body rule (dynamic) carries the dynamic-body caveat', () => {
-    const rule: BodyRule = {
+  it('request-body rule (dynamic) carries the dynamic-body caveat', () => {
+    const rule: RequestBodyRule = {
       ...base(),
-      type: 'body',
+      type: 'request-body',
       conditions: [],
-      action: { bodyType: 'dynamic', body: '${x}', resourceType: 'rest' },
+      action: { bodyType: 'dynamic', requestBody: '${x}', resourceType: 'rest' },
     };
     expect(summarizeRule(rule).caveats.some((c) => /dynamic/.test(c))).toBe(true);
   });

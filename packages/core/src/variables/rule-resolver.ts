@@ -12,12 +12,12 @@
 import type {
   AuthRule,
   BlockRule,
-  BodyRule,
   DelayRule,
   HeaderRule,
   InjectRule,
   QueryParamRule,
   RedirectRule,
+  RequestBodyRule,
   ResolutionContext,
   ResponseRule,
   Rule,
@@ -86,8 +86,8 @@ function walkRule(
       return resolveHeaderRule(base as HeaderRule, resolver, context, errors);
     case 'redirect':
       return resolveRedirectRule(base as RedirectRule, resolver, context, errors);
-    case 'body':
-      return resolveBodyRule(base as BodyRule, resolver, context, errors);
+    case 'request-body':
+      return resolveRequestBodyRule(base as RequestBodyRule, resolver, context, errors);
     case 'inject':
       return resolveInjectRule(base as InjectRule, resolver, context, errors);
     case 'block':
@@ -276,21 +276,21 @@ function resolveRedirectRule(
   };
 }
 
-function resolveBodyRule(
-  rule: BodyRule,
+function resolveRequestBodyRule(
+  rule: RequestBodyRule,
   resolver: VariableResolver,
   context: ResolutionContext | undefined,
   errors: ResolutionError[] | undefined,
-): BodyRule {
+): RequestBodyRule {
   return {
     ...rule,
     action: {
       ...rule.action,
       // Only resolve variables in static body content, not in dynamic JS code
-      body:
+      requestBody:
         rule.action.bodyType === 'static'
-          ? resolveString(rule.action.body, resolver, context, errors)
-          : rule.action.body,
+          ? resolveString(rule.action.requestBody, resolver, context, errors)
+          : rule.action.requestBody,
     },
   };
 }

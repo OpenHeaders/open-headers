@@ -7,8 +7,8 @@
  *
  * A rule = conditions (when to match) + action (what to do).
  * Conditions are AND-evaluated: all must match for the rule to fire.
- * Actions are type-specific: header, redirect, body, inject, block, delay,
- * response, query-param, ws, sse.
+ * Actions are type-specific: header, redirect, request-body, inject, block,
+ * delay, response, query-param, ws, sse.
  *
  * Persisted shapes (RuleBase, RuleCondition, every per-type action + rule,
  * the `Rule` discriminated union) are derived from the valibot schemas so
@@ -20,14 +20,11 @@
 
 import type * as v from 'valibot';
 import type {
+  ApiResourceTypeSchema,
   AuthActionSchema,
   AuthRuleSchema,
   BlockActionSchema,
   BlockRuleSchema,
-  BodyActionSchema,
-  BodyModTypeSchema,
-  BodyResourceTypeSchema,
-  BodyRuleSchema,
   ConditionTypeSchema,
   DelayActionSchema,
   DelayRuleSchema,
@@ -48,6 +45,9 @@ import type {
   QueryParamRuleSchema,
   RedirectActionSchema,
   RedirectRuleSchema,
+  RequestBodyActionSchema,
+  RequestBodyRuleSchema,
+  RequestBodyTypeSchema,
   ResponseActionSchema,
   ResponseBodyTypeSchema,
   ResponseRuleSchema,
@@ -70,8 +70,8 @@ export type RuleType = v.InferOutput<typeof RuleTypeSchema>;
 /**
  * Rule types supported by the browser extension.
  * DNR-based: header, block, redirect, query-param (declarativeNetRequest API).
- * Script-based: inject, delay, body, response, ws, sse (chrome.scripting API —
- * monkey-patches fetch/XHR/WebSocket/EventSource).
+ * Script-based: inject, delay, request-body, response, ws, sse (chrome.scripting
+ * API — monkey-patches fetch/XHR/WebSocket/EventSource).
  */
 export type ExtensionRuleType =
   | 'header'
@@ -80,7 +80,7 @@ export type ExtensionRuleType =
   | 'query-param'
   | 'inject'
   | 'delay'
-  | 'body'
+  | 'request-body'
   | 'response'
   | 'ws'
   | 'sse'
@@ -90,19 +90,19 @@ export type ExtensionRuleType =
 export type DnrRuleType = 'header' | 'block' | 'redirect' | 'query-param';
 
 /** Script-based rule types — use chrome.scripting API to monkey-patch fetch/XHR/WebSocket/EventSource. */
-export type ScriptRuleType = 'inject' | 'delay' | 'body' | 'response' | 'ws' | 'sse';
+export type ScriptRuleType = 'inject' | 'delay' | 'request-body' | 'response' | 'ws' | 'sse';
 
 /**
  * Rule types with a CDP `Fetch` realization — the only types that can be
- * *debug-tier* (CDP Control Plane, Phase D). `body`/`response` synthesize or
- * rewrite over `Fetch.fulfillRequest`/`continueRequest`; `auth` answers a
- * challenge over `Fetch.continueWithAuth`. Whether a `body`/`response` rule
- * actually IS debug-tier depends on its reach (see `isDebugTierRule`);
- * `auth` is unconditionally debug-tier (no DNR / injection equivalent).
- * Like `DnrRuleType`/`ScriptRuleType`, this is a capability subset, not a
- * persisted shape — tier is never stored on the rule.
+ * *debug-tier* (CDP Control Plane, Phase D). `request-body`/`response`
+ * synthesize or rewrite over `Fetch.fulfillRequest`/`continueRequest`; `auth`
+ * answers a challenge over `Fetch.continueWithAuth`. Whether a
+ * `request-body`/`response` rule actually IS debug-tier depends on its reach
+ * (see `isDebugTierRule`); `auth` is unconditionally debug-tier (no DNR /
+ * injection equivalent). Like `DnrRuleType`/`ScriptRuleType`, this is a
+ * capability subset, not a persisted shape — tier is never stored on the rule.
  */
-export type FetchCapableRuleType = 'body' | 'response' | 'auth';
+export type FetchCapableRuleType = 'request-body' | 'response' | 'auth';
 
 // ── Conditions ────────────────────────────────────────────────────
 
@@ -141,12 +141,13 @@ export type HeaderRule = v.InferOutput<typeof HeaderRuleSchema>;
 export type RedirectAction = v.InferOutput<typeof RedirectActionSchema>;
 export type RedirectRule = v.InferOutput<typeof RedirectRuleSchema>;
 
-// ── Body rule ──────────────────────────────────────────────────────
+// ── Request-body rule ──────────────────────────────────────────────
 
-export type BodyModType = v.InferOutput<typeof BodyModTypeSchema>;
-export type BodyResourceType = v.InferOutput<typeof BodyResourceTypeSchema>;
-export type BodyAction = v.InferOutput<typeof BodyActionSchema>;
-export type BodyRule = v.InferOutput<typeof BodyRuleSchema>;
+export type RequestBodyType = v.InferOutput<typeof RequestBodyTypeSchema>;
+/** REST vs GraphQL payload shape — shared by request-body and response rules. */
+export type ApiResourceType = v.InferOutput<typeof ApiResourceTypeSchema>;
+export type RequestBodyAction = v.InferOutput<typeof RequestBodyActionSchema>;
+export type RequestBodyRule = v.InferOutput<typeof RequestBodyRuleSchema>;
 
 // ── Inject rule (script/CSS injection) ─────────────────────────────
 

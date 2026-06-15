@@ -53,12 +53,12 @@ export function collectRuleTemplateStrings(rule: Rule): string[] {
     case 'redirect':
       if (rule.action.redirectTo) out.push(rule.action.redirectTo);
       break;
-    case 'body':
+    case 'request-body':
       // Dynamic JS bodies are NOT templated — the resolver skips them
       // and so must this walker. Only `static` body content is a
       // candidate for {{VAR}} substitution.
-      if (rule.action.bodyType === 'static' && rule.action.body) {
-        out.push(rule.action.body);
+      if (rule.action.bodyType === 'static' && rule.action.requestBody) {
+        out.push(rule.action.requestBody);
       }
       break;
     case 'inject':

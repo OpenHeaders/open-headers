@@ -19,12 +19,12 @@
 import type {
   AuthRule,
   BlockRule,
-  BodyRule,
   DelayRule,
   HeaderRule,
   InjectRule,
   QueryParamRule,
   RedirectRule,
+  RequestBodyRule,
   ResponseRule,
   Rule,
   RuleCondition,
@@ -55,7 +55,7 @@ export interface RuleSummary {
 const ACTION_VERB: Record<Rule['type'], string> = {
   header: 'Modify request/response headers',
   redirect: 'Redirect requests',
-  body: 'Rewrite response body',
+  'request-body': 'Rewrite request body',
   inject: 'Inject code into matching pages',
   block: 'Block requests',
   delay: 'Delay requests',
@@ -134,10 +134,10 @@ function summarizeResponse(rule: ResponseRule): string {
   return `Modify the real response → ${status}(${bytes} body)`;
 }
 
-function summarizeBody(rule: BodyRule): string {
-  const bytes = byteLength(rule.action.body);
+function summarizeRequestBody(rule: RequestBodyRule): string {
+  const bytes = byteLength(rule.action.requestBody);
   const resource = rule.action.resourceType === 'graphql' ? 'GraphQL' : 'REST';
-  return `Replace ${resource} response body (${rule.action.bodyType}, ${formatBytes(bytes)})`;
+  return `Replace ${resource} request body (${rule.action.bodyType}, ${formatBytes(bytes)})`;
 }
 
 function summarizeWs(rule: WsRule): string {
@@ -201,8 +201,8 @@ function payloadFor(rule: Rule): string {
       return summarizeDelay(rule);
     case 'response':
       return summarizeResponse(rule);
-    case 'body':
-      return summarizeBody(rule);
+    case 'request-body':
+      return summarizeRequestBody(rule);
     case 'query-param':
       return summarizeQueryParam(rule);
     case 'ws':
@@ -226,8 +226,8 @@ function caveatsFor(rule: Rule): string[] {
       out.push('Bypasses page Content-Security-Policy.');
     }
   }
-  if (rule.type === 'body' && rule.action.bodyType === 'dynamic') {
-    out.push('Body is computed dynamically — may execute embedded expressions.');
+  if (rule.type === 'request-body' && rule.action.bodyType === 'dynamic') {
+    out.push('Request body is computed dynamically — may execute embedded expressions.');
   }
   if (rule.type === 'response' && rule.action.bodyType === 'dynamic') {
     out.push('Response body is computed dynamically — may execute embedded expressions.');

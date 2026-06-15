@@ -133,14 +133,11 @@ export type {
 export type { ExecutedRequestSnapshot } from './request-execution';
 // ── Rule ───────────────────────────────────────────────────────────
 export type {
+  ApiResourceType,
   AuthAction,
   AuthRule,
   BlockAction,
   BlockRule,
-  BodyAction,
-  BodyModType,
-  BodyResourceType,
-  BodyRule,
   ConditionType,
   DelayAction,
   DelayRule,
@@ -164,6 +161,9 @@ export type {
   QueryParamRule,
   RedirectAction,
   RedirectRule,
+  RequestBodyAction,
+  RequestBodyRule,
+  RequestBodyType,
   ResourceType,
   ResponseAction,
   ResponseBodyType,
@@ -182,7 +182,6 @@ export type {
 // ── Rule draft (pre-fill handoff) ─────────────────────────────────
 export type {
   BlockRuleDraft,
-  BodyRuleDraft,
   DelayRuleDraft,
   HeaderRuleDraft,
   HeaderRuleDraftHeader,
@@ -190,6 +189,7 @@ export type {
   QueryParamDraftEntry,
   QueryParamRuleDraft,
   RedirectRuleDraft,
+  RequestBodyRuleDraft,
   ResponseRuleDraft,
   RuleDraft,
   RuleDraftBase,

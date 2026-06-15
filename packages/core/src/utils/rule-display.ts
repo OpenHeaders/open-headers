@@ -8,12 +8,12 @@
 
 import type {
   AuthRule,
-  BodyRule,
   DelayRule,
   HeaderRule,
   InjectRule,
   QueryParamRule,
   RedirectRule,
+  RequestBodyRule,
   ResponseRule,
   Rule,
   SseRule,
@@ -134,10 +134,10 @@ export function getActionDetail(rule: Rule): ActionDetail {
         value: '',
         tooltip: 'Delays network requests (fetch/XHR)',
       };
-    case 'body': {
-      const br = rule as BodyRule;
+    case 'request-body': {
+      const br = rule as RequestBodyRule;
       return {
-        ruleType: 'body',
+        ruleType: 'request-body',
         direction: 'request' as const,
         operation: br.action.bodyType,
         label: br.action.resourceType === 'graphql' ? 'GraphQL' : 'REST',

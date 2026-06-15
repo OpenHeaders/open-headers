@@ -21,12 +21,12 @@
  */
 
 import type {
-  BodyRule,
   DelayRule,
   HeaderRule,
   InjectRule,
   QueryParamRule,
   RedirectRule,
+  RequestBodyRule,
   ResponseRule,
   Rule,
   SseRule,
@@ -98,8 +98,8 @@ export function validateActionValues(rule: Rule | Omit<Rule, 'uid' | 'path'>): A
       return validateInjectAction(rule as InjectRule);
     case 'response':
       return validateResponseAction(rule as ResponseRule);
-    case 'body':
-      return validateBodyAction(rule as BodyRule);
+    case 'request-body':
+      return validateRequestBodyAction(rule as RequestBodyRule);
     case 'query-param':
       return validateQueryParamAction(rule as QueryParamRule);
     case 'ws':
@@ -467,12 +467,12 @@ function validateMessageAction(action: WsRule['action'] | SseRule['action']): Ac
   return out;
 }
 
-// ── body ────────────────────────────────────────────────────────
+// ── request-body ────────────────────────────────────────────────
 //
-// Body content is opaque to us. The only validatable surface is the
-// optional graphql filter shape.
+// Request body content is opaque to us. The only validatable surface is
+// the optional graphql filter shape.
 
-function validateBodyAction(rule: BodyRule): ActionValueIssue[] {
+function validateRequestBodyAction(rule: RequestBodyRule): ActionValueIssue[] {
   const out: ActionValueIssue[] = [];
   if (rule.action.resourceType === 'graphql' && rule.action.graphqlFilter) {
     const f = rule.action.graphqlFilter;

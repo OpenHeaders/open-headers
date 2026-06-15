@@ -59,11 +59,11 @@ export function buildEmptyRule(type: RuleType, name: string): RuleSeed {
         type: 'redirect',
         action: { redirectTo: '' },
       };
-    case 'body':
+    case 'request-body':
       return {
         ...base,
-        type: 'body',
-        action: { bodyType: 'static', body: '', resourceType: 'rest' },
+        type: 'request-body',
+        action: { bodyType: 'static', requestBody: '', resourceType: 'rest' },
       };
     case 'inject':
       return {

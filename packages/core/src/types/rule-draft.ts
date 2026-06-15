@@ -21,7 +21,6 @@
 import type * as v from 'valibot';
 import type {
   BlockRuleDraftSchema,
-  BodyRuleDraftSchema,
   DelayRuleDraftSchema,
   HeaderRuleDraftHeaderSchema,
   HeaderRuleDraftSchema,
@@ -29,6 +28,7 @@ import type {
   QueryParamDraftEntrySchema,
   QueryParamRuleDraftSchema,
   RedirectRuleDraftSchema,
+  RequestBodyRuleDraftSchema,
   ResponseRuleDraftSchema,
   RuleDraftBaseSchema,
   RuleDraftSchema,
@@ -40,7 +40,7 @@ export type HeaderRuleDraftHeader = v.InferOutput<typeof HeaderRuleDraftHeaderSc
 export type HeaderRuleDraft = v.InferOutput<typeof HeaderRuleDraftSchema>;
 
 export type RedirectRuleDraft = v.InferOutput<typeof RedirectRuleDraftSchema>;
-export type BodyRuleDraft = v.InferOutput<typeof BodyRuleDraftSchema>;
+export type RequestBodyRuleDraft = v.InferOutput<typeof RequestBodyRuleDraftSchema>;
 export type ResponseRuleDraft = v.InferOutput<typeof ResponseRuleDraftSchema>;
 export type BlockRuleDraft = v.InferOutput<typeof BlockRuleDraftSchema>;
 export type DelayRuleDraft = v.InferOutput<typeof DelayRuleDraftSchema>;

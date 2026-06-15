@@ -28,7 +28,7 @@ export const IntentRuleTypeSchema = v.picklist([
   'query-param',
   'inject',
   'delay',
-  'body',
+  'request-body',
   'response',
   'ws',
   'sse',

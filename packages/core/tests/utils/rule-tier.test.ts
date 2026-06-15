@@ -26,7 +26,7 @@ const mockAction = {
 };
 const mockActionDynamic = { ...mockAction, bodyType: 'dynamic' as const };
 const networkAction = { ...mockAction, responseSource: 'network' as const };
-const bodyAction = { bodyType: 'static' as const, body: '', resourceType: 'rest' as const };
+const bodyAction = { bodyType: 'static' as const, requestBody: '', resourceType: 'rest' as const };
 const bodyActionDynamic = { ...bodyAction, bodyType: 'dynamic' as const };
 const authAction = { username: 'devuser', password: '{{vault.PW}}' };
 
@@ -122,13 +122,15 @@ describe('isDebugTierRule', () => {
   // ── body: same reach rule ───────────────────────────────────────
 
   it('body confined to xhr is standard', () => {
-    expect(isDebugTierRule({ ...base, type: 'body', conditions: [resourceTypes('xhr')], action: bodyAction })).toBe(
-      false,
-    );
+    expect(
+      isDebugTierRule({ ...base, type: 'request-body', conditions: [resourceTypes('xhr')], action: bodyAction }),
+    ).toBe(false);
   });
 
   it('body with no resource-types condition is debug', () => {
-    expect(isDebugTierRule({ ...base, type: 'body', conditions: [hostCondition], action: bodyAction })).toBe(true);
+    expect(isDebugTierRule({ ...base, type: 'request-body', conditions: [hostCondition], action: bodyAction })).toBe(
+      true,
+    );
   });
 
   // ── auth: unconditionally debug-tier (CDP-only, no injection equivalent) ──
@@ -155,7 +157,9 @@ describe('isFetchRealizableNow', () => {
   });
 
   it('static debug-tier body is realizable now', () => {
-    expect(isFetchRealizableNow({ ...base, type: 'body', conditions: [hostCondition], action: bodyAction })).toBe(true);
+    expect(
+      isFetchRealizableNow({ ...base, type: 'request-body', conditions: [hostCondition], action: bodyAction }),
+    ).toBe(true);
   });
 
   it('dynamic debug-tier mock is NOT realizable now (arming can not eval its JS body)', () => {
@@ -166,7 +170,7 @@ describe('isFetchRealizableNow', () => {
 
   it('dynamic debug-tier body is NOT realizable now', () => {
     expect(
-      isFetchRealizableNow({ ...base, type: 'body', conditions: [hostCondition], action: bodyActionDynamic }),
+      isFetchRealizableNow({ ...base, type: 'request-body', conditions: [hostCondition], action: bodyActionDynamic }),
     ).toBe(false);
   });
 

@@ -31,7 +31,7 @@ import { type PauseMarkers, resolvePauseState } from './pause';
  *   - redirect: redirectTo
  *   - query-param: at least one param entry with a non-empty param name
  *   - inject: code (inline) or sourceUrl (URL mode) must be non-empty
- *   - body: body content non-empty
+ *   - request-body: request body content non-empty
  *   - delay: delayMs > 0
  *   - response: mock source needs a body to return; network source only
  *     overrides the real reply, so conditions alone are sufficient
@@ -112,9 +112,9 @@ export function isRuleComplete(rule: Rule | Omit<Rule, 'uid' | 'path'>): boolean
       }
       return true;
     }
-    case 'body': {
-      const br = rule as { action: { body: string } };
-      if (!br.action.body?.trim()) return false;
+    case 'request-body': {
+      const br = rule as { action: { requestBody: string } };
+      if (!br.action.requestBody?.trim()) return false;
       return true;
     }
     case 'delay': {

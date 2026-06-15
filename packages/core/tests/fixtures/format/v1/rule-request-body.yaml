@@ -1,7 +1,7 @@
 schemaVersion: 5
 uid: rulebdy1
 name: Inject feature flag override
-type: body
+type: request-body
 enabled: false
 conditions:
   - uid: cnd00002
@@ -10,5 +10,5 @@ conditions:
       - api.openheaders.io
 action:
   bodyType: static
-  body: "{\"featureFlag\":\"on\"}"
+  requestBody: "{\"featureFlag\":\"on\"}"
   resourceType: rest
