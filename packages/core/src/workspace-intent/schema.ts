@@ -20,7 +20,7 @@ export const RuleFlowScopeSchema = v.picklist(['this-page', 'collection', 'folde
 
 export type RuleFlowScope = v.InferOutput<typeof RuleFlowScopeSchema>;
 
-/** The 10 extension rule types — matches `ExtensionRuleType`. */
+/** The 11 extension rule types — matches `ExtensionRuleType`. */
 export const IntentRuleTypeSchema = v.picklist([
   'header',
   'block',
@@ -32,6 +32,7 @@ export const IntentRuleTypeSchema = v.picklist([
   'mock',
   'ws',
   'sse',
+  'auth',
 ]);
 
 /**

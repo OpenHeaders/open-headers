@@ -7,6 +7,7 @@
  */
 
 import type {
+  AuthRule,
   BodyRule,
   DelayRule,
   HeaderRule,
@@ -188,6 +189,18 @@ export function getActionDetail(rule: Rule): ActionDetail {
             : op === 'inject'
               ? 'Injects a server-sent event (page)'
               : 'Rewrites server-sent events (page)',
+      };
+    }
+    case 'auth': {
+      const ar = rule as AuthRule;
+      // Surface the username only — the password is a secret and never
+      // appears in any display detail.
+      return {
+        ruleType: 'auth',
+        direction: 'request' as const,
+        label: ar.action.username || 'credentials',
+        value: '',
+        tooltip: 'Answers an HTTP/proxy authentication challenge (fetch/XHR/navigation)',
       };
     }
     default: {

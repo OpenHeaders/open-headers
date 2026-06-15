@@ -138,6 +138,7 @@ const RULE_TYPE_LABEL: Record<Rule['type'], string> = {
   'query-param': 'Query Param',
   ws: 'WebSocket',
   sse: 'SSE',
+  auth: 'Auth',
 };
 
 interface ModDraft {

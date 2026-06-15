@@ -35,6 +35,7 @@
  */
 
 import type {
+  CdpAuthRequired,
   CdpBufferedResponseBody,
   CdpCallFrame,
   CdpEventSource,
@@ -417,6 +418,11 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
   private handleFetchEvent(method: string, tabId: number, sessionId: string, params: object): void {
     if (method === 'Fetch.requestPaused') {
       this.fanFetch(normalizeRequestPaused(tabId, sessionId, params as RawRequestPaused));
+      return;
+    }
+    if (method === 'Fetch.authRequired') {
+      this.fanFetch(normalizeAuthRequired(tabId, sessionId, params as RawAuthRequired));
+      return;
     }
     // Other Fetch.* events are not part of the consumed subset.
   }
@@ -807,6 +813,21 @@ interface RawRequestPaused {
   readonly networkId?: string;
 }
 
+interface RawAuthChallenge {
+  readonly source?: 'Server' | 'Proxy';
+  readonly origin: string;
+  readonly scheme: string;
+  readonly realm: string;
+}
+
+interface RawAuthRequired {
+  readonly requestId: string;
+  readonly request: RawRequest;
+  readonly frameId?: string;
+  readonly resourceType: string;
+  readonly authChallenge: RawAuthChallenge;
+}
+
 /** `Network.getResponseBody` result — body text + whether it is base64. */
 interface RawGetResponseBody {
   readonly body: string;
@@ -1084,6 +1105,26 @@ function normalizeRequestPaused(tabId: number, sessionId: string, p: RawRequestP
     resourceType: p.resourceType,
     ...(p.frameId !== undefined ? { frameId: p.frameId } : {}),
     ...(p.networkId !== undefined ? { networkId: p.networkId } : {}),
+  };
+}
+
+function normalizeAuthRequired(tabId: number, sessionId: string, p: RawAuthRequired): CdpAuthRequired {
+  return {
+    method: 'Fetch.authRequired',
+    tabId,
+    sessionId,
+    requestId: p.requestId,
+    request: normalizeRequest(p.request),
+    resourceType: p.resourceType,
+    ...(p.frameId !== undefined ? { frameId: p.frameId } : {}),
+    authChallenge: {
+      // CDP marks `source` optional; default to `Server` (a 401), the
+      // common case, when the browser omits it.
+      source: p.authChallenge.source ?? 'Server',
+      origin: p.authChallenge.origin,
+      scheme: p.authChallenge.scheme,
+      realm: p.authChallenge.realm,
+    },
   };
 }
 

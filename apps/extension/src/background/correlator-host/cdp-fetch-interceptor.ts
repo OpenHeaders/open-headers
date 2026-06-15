@@ -20,6 +20,7 @@
 
 import type { RequestRecord, Rule } from '@openheaders/core/types';
 import type {
+  CdpAuthRequired,
   CdpFetchEvent,
   CdpRequestControlPort,
   CdpRequestPaused,
@@ -27,7 +28,7 @@ import type {
 } from '@openheaders/oracle/correlator-cdp';
 import { cdpStoreRequestId } from '@openheaders/oracle/correlator-cdp';
 import { logger } from '@utils/logger';
-import { cdpResourceTypeToTracked, resolveFetchReaction } from './cdp-fetch-reaction';
+import { cdpResourceTypeToTracked, resolveAuthReaction, resolveFetchReaction } from './cdp-fetch-reaction';
 
 export interface CdpFetchInterceptorOptions {
   /** The `Fetch.*` control-input stream — `ChromeDebuggerEventSource.subscribeFetch`. */
@@ -44,6 +45,10 @@ export interface CdpFetchInterceptorOptions {
 export function startCdpFetchInterceptor(options: CdpFetchInterceptorOptions): () => void {
   const { subscribeFetch, requestControlPort, getRules, reportFire } = options;
   return subscribeFetch((event) => {
+    if (event.method === 'Fetch.authRequired') {
+      handleAuthRequired(event, options);
+      return;
+    }
     if (event.method !== 'Fetch.requestPaused') return;
     const target: CdpSessionTarget = { tabId: event.tabId, sessionId: event.sessionId };
     const reaction = resolveFetchReaction(event, getRules());
@@ -62,8 +67,39 @@ export function startCdpFetchInterceptor(options: CdpFetchInterceptorOptions): (
   });
 }
 
+/**
+ * Answer a second-stage auth challenge (D3): resolve the matching auth
+ * rule's credentials and reply `ProvideCredentials`, or `Default` when no
+ * rule owns the challenge (the browser then runs its native flow). A
+ * provided answer reports an authoritative fire — only after the command
+ * lands. Credentials never enter the fire record nor any log line.
+ */
+function handleAuthRequired(event: CdpAuthRequired, options: CdpFetchInterceptorOptions): void {
+  const { requestControlPort, getRules, reportFire } = options;
+  const target: CdpSessionTarget = { tabId: event.tabId, sessionId: event.sessionId };
+  const reaction = resolveAuthReaction(event, getRules());
+
+  if (reaction.kind === 'default') {
+    answer(
+      requestControlPort.continueWithAuth(target, {
+        requestId: event.requestId,
+        authChallengeResponse: { response: 'Default' },
+      }),
+      event,
+    );
+    return;
+  }
+
+  const command = requestControlPort.continueWithAuth(target, {
+    requestId: event.requestId,
+    authChallengeResponse: { response: 'ProvideCredentials', username: reaction.username, password: reaction.password },
+  });
+  const fire = () => reportFire(event.tabId, buildAuthFireRecord(event, reaction.ruleUid));
+  answer(command.then(fire), event);
+}
+
 /** Swallow + log an answer failure so it never throws into the event fan. */
-function answer(command: Promise<void>, event: CdpRequestPaused): void {
+function answer(command: Promise<void>, event: CdpRequestPaused | CdpAuthRequired): void {
   void command.catch((err: unknown) => {
     logger.debug('CdpFetchInterceptor', 'answer failed', {
       tabId: event.tabId,
@@ -83,5 +119,18 @@ function buildFireRecord(event: CdpRequestPaused, ruleUid: string): RequestRecor
     evidence: 'confirmed',
     // Session-namespaced CDP id — the lifecycle row's key on the CDP path.
     ...(event.networkId ? { requestId: cdpStoreRequestId(event.sessionId, event.networkId) } : {}),
+  };
+}
+
+/** Fire record for an answered auth challenge. Carries no credentials — the
+ *  auth event has no `networkId`, so no lifecycle id is attached either. */
+function buildAuthFireRecord(event: CdpAuthRequired, ruleUid: string): RequestRecord {
+  return {
+    ruleUid,
+    url: event.request.url,
+    pattern: '',
+    resourceType: cdpResourceTypeToTracked(event.resourceType),
+    t: Date.now(),
+    evidence: 'confirmed',
   };
 }

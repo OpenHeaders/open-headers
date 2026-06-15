@@ -112,6 +112,15 @@ export interface CdpTabControlState {
   readonly overrides: CdpEnvironmentOverrides | null;
   readonly bootstrapScripts: readonly CdpBootstrapScript[];
   readonly fetchPatterns: readonly CdpFetchPattern[];
+  /**
+   * `Fetch.enable { handleAuthRequests }` (Phase D3). When true, an
+   * intercepted request that hits a 401/407 fires a second-stage
+   * `Fetch.authRequired` the host answers with `continueWithAuth`. Derived
+   * per-tab from "an in-scope rule is auth-capable" — kept narrow so a tab
+   * with no auth rule never widens its pause surface to challenges.
+   * Meaningful only alongside a non-empty {@link fetchPatterns} set.
+   */
+  readonly fetchHandleAuthRequests: boolean;
   readonly bypassCsp: boolean;
 }
 
@@ -125,6 +134,7 @@ export const EMPTY_TAB_CONTROL_STATE: CdpTabControlState = {
   overrides: null,
   bootstrapScripts: [],
   fetchPatterns: [],
+  fetchHandleAuthRequests: false,
   bypassCsp: false,
 };
 
@@ -165,7 +175,11 @@ export type CdpControlCommand =
   | { readonly kind: 'emulate-network-conditions'; readonly conditions: CdpNetworkConditions }
   | { readonly kind: 'clear-network-conditions' }
   | { readonly kind: 'set-bypass-csp'; readonly enabled: boolean }
-  | { readonly kind: 'enable-fetch'; readonly patterns: readonly CdpFetchPattern[] }
+  | {
+      readonly kind: 'enable-fetch';
+      readonly patterns: readonly CdpFetchPattern[];
+      readonly handleAuthRequests: boolean;
+    }
   | { readonly kind: 'disable-fetch' };
 
 /**
@@ -198,15 +212,25 @@ export function reconcileTabControl(prev: CdpTabControlState, next: CdpTabContro
     commands.push({ kind: 'set-bypass-csp', enabled: next.bypassCsp });
   }
 
-  if (!fetchPatternsEqual(prev.fetchPatterns, next.fetchPatterns)) {
-    // `Fetch.enable` replaces the active pattern set wholesale, so a changed
-    // non-empty set re-enables with the new patterns; an emptied set
-    // `disable`s interception entirely (the un-armed / no-debug-rule state).
-    commands.push(
-      next.fetchPatterns.length === 0
-        ? { kind: 'disable-fetch' }
-        : { kind: 'enable-fetch', patterns: next.fetchPatterns },
-    );
+  // `Fetch.enable` takes the pattern set AND `handleAuthRequests` together,
+  // so a change to EITHER re-issues the command wholesale. A non-empty set
+  // re-enables with the current patterns + auth flag; an emptied set
+  // `disable`s interception entirely (the out-of-scope / no-debug-rule
+  // state). An auth-flag flip on an already-empty set is a no-op — there is
+  // nothing intercepted for a challenge to fire on.
+  const fetchChanged =
+    !fetchPatternsEqual(prev.fetchPatterns, next.fetchPatterns) ||
+    prev.fetchHandleAuthRequests !== next.fetchHandleAuthRequests;
+  if (fetchChanged) {
+    if (next.fetchPatterns.length === 0) {
+      if (prev.fetchPatterns.length > 0) commands.push({ kind: 'disable-fetch' });
+    } else {
+      commands.push({
+        kind: 'enable-fetch',
+        patterns: next.fetchPatterns,
+        handleAuthRequests: next.fetchHandleAuthRequests,
+      });
+    }
   }
 
   return commands;

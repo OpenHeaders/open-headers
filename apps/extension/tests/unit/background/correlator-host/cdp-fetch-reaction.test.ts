@@ -7,12 +7,13 @@
  */
 
 import type { Rule } from '@openheaders/core/types';
-import type { CdpRequestPaused } from '@openheaders/oracle/correlator-cdp';
+import type { CdpAuthRequired, CdpRequestPaused } from '@openheaders/oracle/correlator-cdp';
 import { describe, expect, it } from 'vitest';
 
 import {
   cdpResourceTypeToCondition,
   cdpResourceTypeToTracked,
+  resolveAuthReaction,
   resolveFetchReaction,
 } from '@/background/correlator-host/cdp-fetch-reaction';
 
@@ -182,6 +183,81 @@ describe('resolveFetchReaction', () => {
     if (reaction.kind !== 'fulfill') throw new Error('expected fulfill');
     expect(reaction.ruleUid).toBe('a');
     expect(atob(reaction.response.body ?? '')).toBe('first');
+  });
+});
+
+function authChallenge(overrides: Partial<CdpAuthRequired> = {}): CdpAuthRequired {
+  return {
+    method: 'Fetch.authRequired',
+    tabId: 1,
+    sessionId: 'page',
+    requestId: 'i1',
+    request: { url: 'https://staging.openheaders.io/', method: 'GET' },
+    resourceType: 'Document',
+    authChallenge: { source: 'Proxy', origin: 'https://staging.openheaders.io', scheme: 'basic', realm: 'dev' },
+    ...overrides,
+  };
+}
+
+function authRule(conditions: Rule['conditions'], action?: Record<string, unknown>): Rule {
+  return {
+    ...ruleBase,
+    type: 'auth',
+    conditions,
+    action: { username: 'devuser', password: 's3cr3t', ...action },
+  } as Rule;
+}
+
+describe('resolveAuthReaction', () => {
+  it('provides the matching auth rule credentials', () => {
+    const reaction = resolveAuthReaction(authChallenge(), [authRule([domain('staging.openheaders.io')])]);
+    expect(reaction.kind).toBe('provide');
+    if (reaction.kind !== 'provide') return;
+    expect(reaction.ruleUid).toBe('r1');
+    expect(reaction.username).toBe('devuser');
+    expect(reaction.password).toBe('s3cr3t');
+  });
+
+  it('answers Default when no auth rule matches the challenged URL (never cancels)', () => {
+    const reaction = resolveAuthReaction(authChallenge(), [authRule([domain('other.openheaders.io')])]);
+    expect(reaction.kind).toBe('default');
+  });
+
+  it('answers Default when there is no auth rule at all', () => {
+    const reaction = resolveAuthReaction(authChallenge(), [mock([domain('staging.openheaders.io')])]);
+    expect(reaction.kind).toBe('default');
+  });
+
+  it('answers Default for an auth rule carrying a condition the stage cannot evaluate (never over-applies)', () => {
+    const reaction = resolveAuthReaction(authChallenge(), [
+      authRule([
+        domain('staging.openheaders.io'),
+        { uid: 'c2', type: 'initiator-domains', values: ['app.openheaders.io'] },
+      ]),
+    ]);
+    expect(reaction.kind).toBe('default');
+  });
+
+  it('enforces request-methods on the challenged request', () => {
+    const postOnly = authRule([
+      domain('staging.openheaders.io'),
+      { uid: 'c2', type: 'request-methods', values: ['POST'] },
+    ]);
+    expect(resolveAuthReaction(authChallenge(), [postOnly]).kind).toBe('default');
+    expect(
+      resolveAuthReaction(authChallenge({ request: { url: 'https://staging.openheaders.io/', method: 'POST' } }), [
+        postOnly,
+      ]).kind,
+    ).toBe('provide');
+  });
+
+  it('returns the first matching auth rule', () => {
+    const a = { ...authRule([domain('staging.openheaders.io')], { username: 'first' }), uid: 'a' } as Rule;
+    const b = { ...authRule([domain('staging.openheaders.io')], { username: 'second' }), uid: 'b' } as Rule;
+    const reaction = resolveAuthReaction(authChallenge(), [a, b]);
+    if (reaction.kind !== 'provide') throw new Error('expected provide');
+    expect(reaction.ruleUid).toBe('a');
+    expect(reaction.username).toBe('first');
   });
 });
 

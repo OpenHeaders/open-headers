@@ -7,13 +7,13 @@
  */
 
 import type { RequestRecord, Rule } from '@openheaders/core/types';
-import type { CdpFetchEvent } from '@openheaders/oracle/correlator-cdp';
+import type { CdpAuthRequired, CdpFetchEvent, CdpRequestPaused } from '@openheaders/oracle/correlator-cdp';
 import { createInMemoryRequestControlPort } from '@openheaders/oracle/correlator-cdp';
 import { describe, expect, it } from 'vitest';
 
 import { startCdpFetchInterceptor } from '@/background/correlator-host/cdp-fetch-interceptor';
 
-function makePaused(overrides: Partial<CdpFetchEvent> = {}): CdpFetchEvent {
+function makePaused(overrides: Partial<CdpRequestPaused> = {}): CdpRequestPaused {
   return {
     method: 'Fetch.requestPaused',
     tabId: 7,
@@ -46,6 +46,30 @@ function mockRule(overrides: Partial<Rule> = {}): Rule {
       contentType: 'application/json',
       bodyType: 'static',
     },
+    ...overrides,
+  } as Rule;
+}
+
+function makeAuthRequired(overrides: Partial<CdpAuthRequired> = {}): CdpAuthRequired {
+  return {
+    method: 'Fetch.authRequired',
+    tabId: 7,
+    sessionId: 'page',
+    requestId: 'auth-1',
+    request: { url: 'https://staging.openheaders.io/', method: 'GET' },
+    resourceType: 'Document',
+    authChallenge: { source: 'Proxy', origin: 'https://staging.openheaders.io', scheme: 'basic', realm: 'dev' },
+    ...overrides,
+  };
+}
+
+/** A debug-tier auth rule over `staging.openheaders.io`. */
+function authRule(overrides: Partial<Rule> = {}): Rule {
+  return {
+    ...ruleBase,
+    type: 'auth',
+    conditions: [{ uid: 'cnd00001', type: 'request-domains', values: ['staging.openheaders.io'] }],
+    action: { username: 'devuser', password: 's3cr3t-pw' },
     ...overrides,
   } as Rule;
 }
@@ -178,5 +202,71 @@ describe('startCdpFetchInterceptor (D2)', () => {
     stream.emit(makePaused());
 
     expect(port.reactions).toHaveLength(0);
+  });
+});
+
+describe('startCdpFetchInterceptor — auth challenges (D3)', () => {
+  it('answers a matching challenge with ProvideCredentials and reports an authoritative fire', async () => {
+    const { stream, port, fires } = harness([authRule()]);
+
+    stream.emit(makeAuthRequired({ requestId: 'ax' }));
+    await Promise.resolve();
+
+    expect(port.reactions).toHaveLength(1);
+    const reaction = port.reactions[0];
+    if (reaction?.kind !== 'continue-with-auth') throw new Error('expected continue-with-auth');
+    expect(reaction.target).toEqual({ tabId: 7, sessionId: 'page' });
+    expect(reaction.request).toEqual({
+      requestId: 'ax',
+      authChallengeResponse: { response: 'ProvideCredentials', username: 'devuser', password: 's3cr3t-pw' },
+    });
+
+    expect(fires).toHaveLength(1);
+    expect(fires[0]).toMatchObject({ tabId: 7, record: { ruleUid: 'r1', evidence: 'confirmed' } });
+  });
+
+  it('the auth fire record carries no credentials and no requestId (the auth event has no networkId)', async () => {
+    const { stream, fires } = harness([authRule()]);
+
+    stream.emit(makeAuthRequired());
+    await Promise.resolve();
+
+    const record = fires[0]?.record;
+    expect(record?.requestId).toBeUndefined();
+    // RequestRecord has no credential fields; assert the serialized record
+    // never contains the secret value.
+    expect(JSON.stringify(record)).not.toContain('s3cr3t-pw');
+  });
+
+  it('answers Default (no fire) when no auth rule owns the challenge', async () => {
+    const { stream, port, fires } = harness([
+      authRule({ conditions: [{ uid: 'cnd00001', type: 'request-domains', values: ['other.openheaders.io'] }] }),
+    ]);
+
+    stream.emit(makeAuthRequired());
+    await Promise.resolve();
+
+    expect(port.reactions).toEqual([
+      {
+        kind: 'continue-with-auth',
+        target: { tabId: 7, sessionId: 'page' },
+        request: { requestId: 'auth-1', authChallengeResponse: { response: 'Default' } },
+      },
+    ]);
+    expect(fires).toHaveLength(0);
+  });
+
+  it('answers Default when there are no auth rules at all', () => {
+    const { stream, port } = harness([mockRule()]);
+
+    stream.emit(makeAuthRequired());
+
+    expect(port.reactions).toEqual([
+      {
+        kind: 'continue-with-auth',
+        target: { tabId: 7, sessionId: 'page' },
+        request: { requestId: 'auth-1', authChallengeResponse: { response: 'Default' } },
+      },
+    ]);
   });
 });

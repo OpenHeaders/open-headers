@@ -151,6 +151,9 @@ function buildSetDefs<E extends { uid: string }>(
       mock: [],
       ws: [],
       sse: [],
+      // Auth credentials are scalar leaves (tracked via ScalarConflictChip),
+      // not set-modeled subtrees — no set definitions.
+      auth: [],
     },
     conditions: conditionsDef,
   };

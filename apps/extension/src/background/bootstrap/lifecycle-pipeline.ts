@@ -5,6 +5,7 @@ import { getPauseMarkers } from '@openheaders/oracle/entity/pause-markers-store'
 import { getRules } from '@openheaders/oracle/entity/rule-store';
 import { PageStreamHub } from '@openheaders/oracle/page-stream-hub';
 import { RequestLifecycleHub } from '@openheaders/oracle/request-lifecycle-hub';
+import { resolveRulesForCompile } from '@openheaders/oracle/rule-engine/variables-resolver';
 import { RuleFireHub } from '@openheaders/oracle/rule-fire-hub';
 import { TabLifecycleBus } from '@openheaders/oracle/tab-lifecycle-bus';
 import type { CdpAttachObservable } from '../correlator-host';
@@ -91,12 +92,23 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   // a small forward ref; `deriveState` only ever runs from `replay`, which
   // fires after attach, so the ref is always set by then.
   let isTabInScope: (tabId: number) => boolean = () => false;
+  // `{{…}}` is resolved here (env / collection / workspace vars + vault) the
+  // same way the DNR/injection compile path resolves it — so a templated mock
+  // body, body rewrite, or auth credential ships its literal value over CDP,
+  // not the raw template. The resolve is cheap (no I/O) and passes a strict
+  // subset of the store's rules, so it never clobbers the DNR snapshot memo.
   const liveRules = (): Rule[] =>
-    getRules().filter((rule) => isRuleEffective(rule, getPauseMarkers(), getRulesPaused()));
+    resolveRulesForCompile(getRules().filter((rule) => isRuleEffective(rule, getPauseMarkers(), getRulesPaused())));
   const deriveState = (tabId: number): CdpTabControlState => {
     if (!isTabInScope(tabId)) return EMPTY_TAB_CONTROL_STATE;
-    const fetchPatterns = compileFetchPatterns(liveRules());
-    return fetchPatterns.length === 0 ? EMPTY_TAB_CONTROL_STATE : { ...EMPTY_TAB_CONTROL_STATE, fetchPatterns };
+    const rules = liveRules();
+    const fetchPatterns = compileFetchPatterns(rules);
+    if (fetchPatterns.length === 0) return EMPTY_TAB_CONTROL_STATE;
+    // Opt this tab into auth-challenge interception only when an auth rule is
+    // actually in scope — a tab whose debug rules are all mock/body never
+    // widens its pause surface to 401/407 challenges.
+    const fetchHandleAuthRequests = rules.some((rule) => rule.type === 'auth');
+    return { ...EMPTY_TAB_CONTROL_STATE, fetchPatterns, fetchHandleAuthRequests };
   };
   // Authoritative fire sink for D2 fulfill/rewrite. Resolved to the fires
   // bridge below (constructed after the rule-fire hub); a fulfill only fires

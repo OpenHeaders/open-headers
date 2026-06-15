@@ -40,6 +40,7 @@ import {
   isFetchRealizableNow,
 } from '@openheaders/core/utils';
 import type {
+  CdpAuthRequired,
   CdpContinueRequest,
   CdpFulfillResponse,
   CdpHeaderEntry,
@@ -51,6 +52,16 @@ export type CdpFetchReaction =
   | { readonly kind: 'fulfill'; readonly ruleUid: string; readonly response: CdpFulfillResponse }
   | { readonly kind: 'continue'; readonly ruleUid: string; readonly request: CdpContinueRequest }
   | { readonly kind: 'pass-through' };
+
+/**
+ * The answer the interceptor gives a paused AUTH challenge (D3).
+ * `provide` carries the resolved credentials + the rule uid (for the fire);
+ * `default` lets the browser run its native auth flow when no rule owns the
+ * challenge — we never `CancelAuth` a challenge we didn't match.
+ */
+export type CdpAuthReaction =
+  | { readonly kind: 'provide'; readonly ruleUid: string; readonly username: string; readonly password: string }
+  | { readonly kind: 'default' };
 
 type GraphqlFilter = NonNullable<MockAction['graphqlFilter']>;
 
@@ -137,6 +148,31 @@ export function resolveFetchReaction(event: CdpRequestPaused, rules: readonly Ru
     return { kind: 'continue', ruleUid: rule.uid, request: buildBodyRewrite(event.requestId, rule.action) };
   }
   return { kind: 'pass-through' };
+}
+
+/**
+ * The first in-scope auth rule whose conditions match the challenged
+ * request supplies credentials; with no match we answer `default` so the
+ * browser runs its native dialog / proxy flow. Pure, like
+ * {@link resolveFetchReaction} — it reuses the same request-stage matcher,
+ * so an auth rule carrying a condition the auth stage can't evaluate
+ * (initiator-domains, etc.) falls through to `default` rather than
+ * over-applying. Credentials are already `{{…}}`-resolved upstream
+ * (`liveRules`), so they are passed verbatim and never logged.
+ */
+export function resolveAuthReaction(event: CdpAuthRequired, rules: readonly Rule[]): CdpAuthReaction {
+  const ctx: RequestStageContext = {
+    url: event.request.url,
+    method: event.request.method,
+    resourceType: cdpResourceTypeToCondition(event.resourceType),
+  };
+  for (const rule of rules) {
+    if (rule.type !== 'auth') continue;
+    if (!isFetchRealizableNow(rule)) continue;
+    if (!requestStageMatches(rule, ctx)) continue;
+    return { kind: 'provide', ruleUid: rule.uid, username: rule.action.username, password: rule.action.password };
+  }
+  return { kind: 'default' };
 }
 
 /** Authoritative request-stage condition re-check (URL + domain/method/resource excludes). */

@@ -416,13 +416,20 @@ export interface CdpEventSourceMessageReceived {
 
 // ── Fetch-interception vocabulary (control-input, NOT observation) ────
 //
-// `Fetch.requestPaused` is the inbound edge of the Phase-D control loop: a
-// request (or response) matched by an active `Fetch.enable` pattern is
-// suspended until the control plane answers it through the
-// {@link CdpRequestControlPort} (continue / fulfill / continueWithAuth).
+// The Fetch domain raises TWO control-input event kinds, both carried on
+// the same {@link subscribeFetch} channel and discriminated by `method`:
+//
+//   - `Fetch.requestPaused` — a request (or response) matched by an active
+//     `Fetch.enable` pattern, suspended until answered through the
+//     {@link CdpRequestControlPort} (continue / fulfill).
+//   - `Fetch.authRequired` — the SECOND-stage challenge: when
+//     `Fetch.enable { handleAuthRequests: true }` is active, an auth-needing
+//     request fires this after `requestPaused`, awaiting a `continueWithAuth`
+//     answer (provide credentials / default / cancel).
+//
 // Unlike the `Network.*` stream — which the correlator reduces into
-// lifecycles — this event drives the request-control port in the host and
-// never reaches the correlator, so it rides its own {@link subscribeFetch}
+// lifecycles — these events drive the request-control port in the host and
+// never reach the correlator, so they ride their own {@link subscribeFetch}
 // channel (sibling to `subscribePage`), keeping the observation plane clean.
 
 /**
@@ -448,8 +455,47 @@ export interface CdpRequestPaused {
   readonly networkId?: string;
 }
 
-/** The Fetch-domain control-input event stream (Phase D onward). */
-export type CdpFetchEvent = CdpRequestPaused;
+/**
+ * The auth challenge a server (401) or proxy (407) presented —
+ * `Fetch.AuthChallenge`. The host resolves credentials from the matching
+ * auth rule and answers; with no match it replies `Default` so the browser
+ * runs its native flow (never silently cancelling a challenge we don't own).
+ */
+export interface CdpAuthChallenge {
+  readonly source: 'Server' | 'Proxy';
+  readonly origin: string;
+  readonly scheme: string;
+  readonly realm: string;
+}
+
+/**
+ * `Fetch.authRequired` — a request paused at the AUTH stage (Phase D3). The
+ * server / proxy returned a challenge and `Fetch.enable { handleAuthRequests:
+ * true }` routed it here for a {@link CdpRequestControlPort.continueWithAuth}
+ * answer. `requestId` is the FETCH interception id (the key every answer
+ * command uses), the same id space as {@link CdpRequestPaused.requestId}.
+ */
+export interface CdpAuthRequired {
+  readonly method: 'Fetch.authRequired';
+  readonly tabId: number;
+  /** Session the challenge arrived on — page target or a flattened child. */
+  readonly sessionId: string;
+  /** Fetch interception id — the key for `continueWithAuth`. */
+  readonly requestId: string;
+  readonly request: CdpRequestParams;
+  /** CDP resource type for the challenged request (`Document`, `XHR`, …). */
+  readonly resourceType: string;
+  /** Frame the request belongs to; absent for worker requests. */
+  readonly frameId?: string;
+  readonly authChallenge: CdpAuthChallenge;
+}
+
+/**
+ * The Fetch-domain control-input event stream (Phase D onward). A union of
+ * the request-stage pause and the auth-stage challenge, discriminated by
+ * `method`; both ride the single {@link subscribeFetch} channel.
+ */
+export type CdpFetchEvent = CdpRequestPaused | CdpAuthRequired;
 
 export type CdpNetworkEvent =
   | CdpRequestWillBeSent

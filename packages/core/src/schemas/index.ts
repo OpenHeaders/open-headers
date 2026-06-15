@@ -1,6 +1,8 @@
 export { CollectionSchema, FolderSchema } from './collection';
 export { MIN_SCHEMA_VERSION, RelativePathSchema, SchemaVersionSchema, UidSchema, UuidV7Schema } from './common';
 export { DaemonConfigSchema } from './daemon-config';
+export type { ParsedDocument, WriteableDocument } from './document';
+export { freshDocument, makeParsed, mergePatch } from './document';
 export {
   OrgSchema,
   SessionSchema,
@@ -22,8 +24,6 @@ export {
   WorkspaceRoleAssignmentSchema,
   WorkspaceRoleSchema,
 } from './identity-acl';
-export type { ParsedDocument, WriteableDocument } from './document';
-export { freshDocument, makeParsed, mergePatch } from './document';
 export {
   CaptureNameSchema,
   CaptureSchema,
@@ -56,6 +56,8 @@ export {
   RequestSchema,
 } from './request';
 export {
+  AuthActionSchema,
+  AuthRuleSchema,
   BlockActionSchema,
   BlockRuleSchema,
   BodyActionSchema,

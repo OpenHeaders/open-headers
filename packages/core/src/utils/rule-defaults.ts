@@ -115,5 +115,11 @@ export function buildEmptyRule(type: RuleType, name: string): RuleSeed {
         type: 'sse',
         action: { operation: 'modify', payload: '' },
       };
+    case 'auth':
+      return {
+        ...base,
+        type: 'auth',
+        action: { username: '', password: '' },
+      };
   }
 }

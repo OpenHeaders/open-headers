@@ -24,6 +24,7 @@ export const RuleTypeSchema = v.picklist([
   'query-param',
   'ws',
   'sse',
+  'auth',
 ]);
 
 // ── Conditions ──────────────────────────────────────────────────────
@@ -344,6 +345,27 @@ export const SseRuleSchema = v.object({
   action: SseActionSchema,
 });
 
+// ── Auth rule ──────────────────────────────────────────────────────
+//
+// Answers an HTTP/proxy authentication challenge (a 401/407 second-stage
+// `Fetch.authRequired`) on a matching request — the dev-proxy / staging
+// basic-auth case. Inherently CDP-only: page-context injection can't
+// satisfy a challenge, so an auth rule is ALWAYS debug-tier (CDP Control
+// Plane, Phase D3). `username` / `password` are template-resolvable
+// (`{{vault.*}}` / env / collection / workspace vars) so the real secret
+// lives in the vault, not plaintext in the synced rule.
+
+export const AuthActionSchema = v.object({
+  username: v.string(),
+  password: v.string(),
+});
+
+export const AuthRuleSchema = v.object({
+  ...RuleBaseFields,
+  type: v.literal('auth'),
+  action: AuthActionSchema,
+});
+
 // ── Discriminated union ────────────────────────────────────────────
 
 export const RuleSchema = v.variant('type', [
@@ -357,4 +379,5 @@ export const RuleSchema = v.variant('type', [
   QueryParamRuleSchema,
   WsRuleSchema,
   SseRuleSchema,
+  AuthRuleSchema,
 ]);

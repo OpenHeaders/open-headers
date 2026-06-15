@@ -38,9 +38,11 @@ const INJECTION_REACHABLE_RESOURCE_TYPES: ReadonlySet<string> = new Set(['xhr'])
  * Action types with a CDP `Fetch` realization. Only these can be
  * debug-tier; the rest are always standard (DNR for
  * header/block/redirect/query-param; page-context script for
- * inject/delay/ws/sse). Phase D3's auth action joins this set.
+ * inject/delay/ws/sse). `auth` answers a challenge over
+ * `Fetch.continueWithAuth` (Phase D3) — it has no DNR / injection
+ * equivalent, so it is unconditionally debug-tier (see below).
  */
-const FETCH_CAPABLE_TYPES: ReadonlySet<ExtensionRuleType> = new Set<ExtensionRuleType>(['body', 'mock']);
+const FETCH_CAPABLE_TYPES: ReadonlySet<ExtensionRuleType> = new Set<ExtensionRuleType>(['body', 'mock', 'auth']);
 
 /**
  * The resource-type reach a rule declares via its `resource-types`
@@ -61,6 +63,11 @@ function declaredResourceTypes(rule: Rule): readonly string[] | null {
  */
 export function isDebugTierRule(rule: Rule): boolean {
   if (!FETCH_CAPABLE_TYPES.has(rule.type)) return false;
+  // An auth challenge (401/407) can only be answered over CDP `Fetch` —
+  // page injection has no way to satisfy it — so an auth rule is
+  // debug-tier regardless of its declared reach (the `xhr` contest below
+  // is meaningless when there is no injection path at all).
+  if (rule.type === 'auth') return true;
   const types = declaredResourceTypes(rule);
   if (types === null) return true;
   return types.some((type) => !INJECTION_REACHABLE_RESOURCE_TYPES.has(type));
@@ -77,6 +84,10 @@ export function isDebugTierRule(rule: Rule): boolean {
  * interceptor passes through.
  */
 export function isFetchRealizableNow(rule: Rule): boolean {
+  // An auth rule carries only static credentials (no user-JS body), so it
+  // is always realizable once its tab is in scope — realizability collapses
+  // to debug-tier membership (always true for auth).
+  if (rule.type === 'auth') return isDebugTierRule(rule);
   if (rule.type !== 'mock' && rule.type !== 'body') return false;
   if (!isDebugTierRule(rule)) return false;
   return rule.action.bodyType !== 'dynamic';

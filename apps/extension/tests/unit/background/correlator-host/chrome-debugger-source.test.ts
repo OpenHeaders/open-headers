@@ -101,6 +101,17 @@ function rawRequestPaused(requestId: string, url: string, overrides: Record<stri
   };
 }
 
+function rawAuthRequired(requestId: string, url: string, overrides: Record<string, unknown> = {}): object {
+  return {
+    requestId,
+    request: { url, method: 'GET', headers: { Accept: '*/*' } },
+    frameId: 'F1',
+    resourceType: 'Document',
+    authChallenge: { source: 'Proxy', origin: 'https://proxy.openheaders.io', scheme: 'basic', realm: 'staging' },
+    ...overrides,
+  };
+}
+
 function attachedToTarget(sessionId: string, type: string): object {
   return {
     sessionId,
@@ -911,6 +922,84 @@ describe('ChromeDebuggerEventSource — Fetch.requestPaused (control-input strea
     expect(net).toHaveLength(0);
     expect(pages).toHaveLength(0);
     expect(fetches).toHaveLength(1);
+  });
+});
+
+describe('ChromeDebuggerEventSource — Fetch.authRequired (auth-challenge control-input, D3)', () => {
+  it('normalizes an auth challenge on the root session', async () => {
+    source = new ChromeDebuggerEventSource();
+    const out: CdpFetchEvent[] = [];
+    source.subscribeFetch((e) => out.push(e));
+    await source.attach(TAB);
+
+    emitRoot('Fetch.authRequired', rawAuthRequired('fetch-a1', 'https://staging.openheaders.io/'));
+
+    expect(out).toEqual([
+      {
+        method: 'Fetch.authRequired',
+        tabId: TAB,
+        sessionId: 'page',
+        requestId: 'fetch-a1',
+        request: { url: 'https://staging.openheaders.io/', method: 'GET', headers: { Accept: '*/*' } },
+        resourceType: 'Document',
+        frameId: 'F1',
+        authChallenge: {
+          source: 'Proxy',
+          origin: 'https://proxy.openheaders.io',
+          scheme: 'basic',
+          realm: 'staging',
+        },
+      },
+    ]);
+  });
+
+  it('defaults challenge source to Server when omitted, and omits frameId when absent', async () => {
+    source = new ChromeDebuggerEventSource();
+    const out: CdpFetchEvent[] = [];
+    source.subscribeFetch((e) => out.push(e));
+    await source.attach(TAB);
+
+    emitRoot('Fetch.authRequired', {
+      requestId: 'fetch-a2',
+      request: { url: 'https://staging.openheaders.io/api', method: 'POST' },
+      resourceType: 'XHR',
+      authChallenge: { origin: 'https://staging.openheaders.io', scheme: 'basic', realm: '' },
+    });
+
+    expect(out[0]).toEqual({
+      method: 'Fetch.authRequired',
+      tabId: TAB,
+      sessionId: 'page',
+      requestId: 'fetch-a2',
+      request: { url: 'https://staging.openheaders.io/api', method: 'POST' },
+      resourceType: 'XHR',
+      authChallenge: { source: 'Server', origin: 'https://staging.openheaders.io', scheme: 'basic', realm: '' },
+    });
+  });
+
+  it('routes an auth challenge on a flattened child session by sessionId', async () => {
+    source = new ChromeDebuggerEventSource();
+    const out: CdpFetchEvent[] = [];
+    source.subscribeFetch((e) => out.push(e));
+    await source.attach(TAB);
+
+    emitRoot('Target.attachedToTarget', attachedToTarget(CHILD_SESSION, 'iframe'));
+    emitChild(CHILD_SESSION, 'Fetch.authRequired', rawAuthRequired('fetch-ac', 'https://widgets.openheaders.io/x'));
+
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ method: 'Fetch.authRequired', sessionId: CHILD_SESSION, requestId: 'fetch-ac' });
+  });
+
+  it('drops an auth challenge from an unkept child session (target-type filter)', async () => {
+    source = new ChromeDebuggerEventSource();
+    const out: CdpFetchEvent[] = [];
+    source.subscribeFetch((e) => out.push(e));
+    await source.attach(TAB);
+
+    emitRoot('Target.attachedToTarget', attachedToTarget('sw-session', 'service_worker'));
+    emitChild('sw-session', 'Fetch.authRequired', rawAuthRequired('fetch-asw', 'https://api.openheaders.io/sync'));
+
+    expect(out).toHaveLength(0);
   });
 });
 

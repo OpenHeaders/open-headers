@@ -10,6 +10,7 @@
  */
 
 import type {
+  AuthRule,
   BlockRule,
   BodyRule,
   DelayRule,
@@ -102,6 +103,8 @@ function walkRule(
       return resolveWsRule(base as WsRule, resolver, context, errors);
     case 'sse':
       return resolveSseRule(base as SseRule, resolver, context, errors);
+    case 'auth':
+      return resolveAuthRule(base as AuthRule, resolver, context, errors);
   }
 }
 
@@ -371,6 +374,24 @@ function resolveSseRule(
             },
           }
         : {}),
+    },
+  };
+}
+
+function resolveAuthRule(
+  rule: AuthRule,
+  resolver: VariableResolver,
+  context: ResolutionContext | undefined,
+  errors: ResolutionError[] | undefined,
+): AuthRule {
+  return {
+    ...rule,
+    action: {
+      ...rule.action,
+      // Resolve credentials so a `{{vault.*}}` reference becomes the literal
+      // value the challenge response needs; a typed literal passes through.
+      username: resolveString(rule.action.username, resolver, context, errors),
+      password: resolveString(rule.action.password, resolver, context, errors),
     },
   };
 }

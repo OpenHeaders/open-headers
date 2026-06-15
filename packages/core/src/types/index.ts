@@ -133,6 +133,8 @@ export type {
 export type { ExecutedRequestSnapshot } from './request-execution';
 // ── Rule ───────────────────────────────────────────────────────────
 export type {
+  AuthAction,
+  AuthRule,
   BlockAction,
   BlockRule,
   BodyAction,

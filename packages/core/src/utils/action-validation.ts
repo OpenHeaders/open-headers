@@ -105,6 +105,10 @@ export function validateActionValues(rule: Rule | Omit<Rule, 'uid' | 'path'>): A
     case 'ws':
     case 'sse':
       return validateMessageAction((rule as WsRule | SseRule).action);
+    case 'auth':
+      // Credentials are opaque — any username/password byte sequence is
+      // legal in a challenge response, so there is no value to reject.
+      return [];
     default:
       return [];
   }

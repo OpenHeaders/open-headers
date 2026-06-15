@@ -137,6 +137,13 @@ export function isRuleComplete(rule: Rule | Omit<Rule, 'uid' | 'path'>): boolean
       if (wr.action.operation === 'drop') return true;
       return Boolean(wr.action.payload?.trim());
     }
+    case 'auth': {
+      // A username identifies the credentials answered to a challenge; an
+      // empty password is valid (some basic-auth setups use it), but with
+      // no username the rule has nothing to provide.
+      const ar = rule as { action: { username: string } };
+      return Boolean(ar.action.username?.trim());
+    }
     default:
       return false;
   }

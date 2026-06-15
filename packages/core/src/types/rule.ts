@@ -20,6 +20,8 @@
 
 import type * as v from 'valibot';
 import type {
+  AuthActionSchema,
+  AuthRuleSchema,
   BlockActionSchema,
   BlockRuleSchema,
   BodyActionSchema,
@@ -80,7 +82,8 @@ export type ExtensionRuleType =
   | 'body'
   | 'mock'
   | 'ws'
-  | 'sse';
+  | 'sse'
+  | 'auth';
 
 /** DNR rule types — use declarativeNetRequest API. */
 export type DnrRuleType = 'header' | 'block' | 'redirect' | 'query-param';
@@ -89,14 +92,16 @@ export type DnrRuleType = 'header' | 'block' | 'redirect' | 'query-param';
 export type ScriptRuleType = 'inject' | 'delay' | 'body' | 'mock' | 'ws' | 'sse';
 
 /**
- * Rule types with a CDP `Fetch` realization (response synthesis / body
- * rewrite) — the only types that can be *debug-tier* (CDP Control Plane,
- * Phase D). Whether a given rule of one of these types actually IS
- * debug-tier depends on its reach, not just its type: see `isDebugTierRule`.
+ * Rule types with a CDP `Fetch` realization — the only types that can be
+ * *debug-tier* (CDP Control Plane, Phase D). `body`/`mock` synthesize or
+ * rewrite over `Fetch.fulfillRequest`/`continueRequest`; `auth` answers a
+ * challenge over `Fetch.continueWithAuth`. Whether a `body`/`mock` rule
+ * actually IS debug-tier depends on its reach (see `isDebugTierRule`);
+ * `auth` is unconditionally debug-tier (no DNR / injection equivalent).
  * Like `DnrRuleType`/`ScriptRuleType`, this is a capability subset, not a
  * persisted shape — tier is never stored on the rule.
  */
-export type FetchCapableRuleType = 'body' | 'mock';
+export type FetchCapableRuleType = 'body' | 'mock' | 'auth';
 
 // ── Conditions ────────────────────────────────────────────────────
 
@@ -182,6 +187,11 @@ export type WsAction = v.InferOutput<typeof WsActionSchema>;
 export type WsRule = v.InferOutput<typeof WsRuleSchema>;
 export type SseAction = v.InferOutput<typeof SseActionSchema>;
 export type SseRule = v.InferOutput<typeof SseRuleSchema>;
+
+// ── Auth rule ──────────────────────────────────────────────────────
+
+export type AuthAction = v.InferOutput<typeof AuthActionSchema>;
+export type AuthRule = v.InferOutput<typeof AuthRuleSchema>;
 
 // ── Union ──────────────────────────────────────────────────────────
 

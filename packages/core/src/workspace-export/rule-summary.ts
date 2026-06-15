@@ -17,6 +17,7 @@
  */
 
 import type {
+  AuthRule,
   BlockRule,
   BodyRule,
   DelayRule,
@@ -62,6 +63,7 @@ const ACTION_VERB: Record<Rule['type'], string> = {
   'query-param': 'Modify query parameters',
   ws: 'Modify WebSocket messages',
   sse: 'Modify server-sent events',
+  auth: 'Answer authentication challenges',
 };
 
 /**
@@ -159,6 +161,13 @@ function summarizeSse(rule: SseRule): string {
   }
 }
 
+function summarizeAuth(rule: AuthRule): string {
+  // The username is identity, not secret, so it is shown; the password is
+  // never surfaced — the recipient judges intent from the target domains.
+  const user = rule.action.username.trim();
+  return user ? `Provide credentials as "${user}"` : 'Provide credentials';
+}
+
 function summarizeQueryParam(rule: QueryParamRule): string {
   const ops = rule.action.params.map((p) =>
     p.operation === 'remove-all' ? 'remove all' : `${p.operation} ${p.param}`,
@@ -191,6 +200,8 @@ function payloadFor(rule: Rule): string {
       return summarizeWs(rule);
     case 'sse':
       return summarizeSse(rule);
+    case 'auth':
+      return summarizeAuth(rule);
   }
 }
 
@@ -211,6 +222,9 @@ function caveatsFor(rule: Rule): string[] {
   }
   if (rule.type === 'mock' && rule.action.bodyType === 'dynamic') {
     out.push('Mock body is computed dynamically — may execute embedded expressions.');
+  }
+  if (rule.type === 'auth') {
+    out.push('Sends credentials to answer authentication challenges on matching requests.');
   }
   return out;
 }

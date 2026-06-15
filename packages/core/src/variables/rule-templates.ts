@@ -91,6 +91,12 @@ export function collectRuleTemplateStrings(rule: Rule): string[] {
       if (rule.action.messageFilter?.value) out.push(rule.action.messageFilter.value);
       if (rule.action.eventName) out.push(rule.action.eventName);
       break;
+    case 'auth':
+      // Credentials are template-resolvable so the real secret can live in
+      // the vault (`{{vault.*}}`) rather than plaintext on the rule.
+      if (rule.action.username) out.push(rule.action.username);
+      if (rule.action.password) out.push(rule.action.password);
+      break;
   }
 
   return out;

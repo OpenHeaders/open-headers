@@ -141,7 +141,9 @@ describe('resolveRuleWithDiagnostics', () => {
   it('reserved-namespace references (dynamic) surface with reason reserved-namespace', () => {
     const rule = makeHeaderRule({
       action: {
-        requestHeaders: [{ uid: 'hmd00005', operation: 'override', headerName: 'X-Ts', value: '{{dynamic.timestamp}}' }],
+        requestHeaders: [
+          { uid: 'hmd00005', operation: 'override', headerName: 'X-Ts', value: '{{dynamic.timestamp}}' },
+        ],
         responseHeaders: [],
       },
     });
@@ -332,5 +334,42 @@ describe('resolveRuleWithDiagnostics', () => {
     const { errors } = resolveRuleWithDiagnostics(rule, resolver);
     expect(errors).toHaveLength(1);
     expect(errors[0].reference).toBe('MISSING');
+  });
+
+  it('auth rules resolve username + password from variables (vault-backed credentials)', () => {
+    resolver.setWorkspaceVariables(
+      makeWorkspaceVars([makeVariable('PROXY_USER', 'devuser'), makeVariable('PROXY_PW', 's3cr3t-pw')]),
+    );
+    const rule = {
+      schemaVersion: 5 as const,
+      uid: 'r7a8b9c0',
+      path: 'rules/auth',
+      name: 'Auth',
+      type: 'auth' as const,
+      enabled: true,
+      conditions: [{ uid: 'cnd00012', type: 'request-domains' as const, values: ['staging.openheaders.io'] }],
+      action: { username: '{{PROXY_USER}}', password: '{{PROXY_PW}}' },
+    };
+    const { rule: resolved, errors } = resolveRuleWithDiagnostics(rule, resolver);
+    expect(errors).toEqual([]);
+    const action = (resolved as typeof rule).action;
+    expect(action.username).toBe('devuser');
+    expect(action.password).toBe('s3cr3t-pw');
+  });
+
+  it('auth unresolved password reference surfaces a diagnostic', () => {
+    const rule = {
+      schemaVersion: 5 as const,
+      uid: 'r8a9b0c1',
+      path: 'rules/auth-bad',
+      name: 'Auth bad',
+      type: 'auth' as const,
+      enabled: true,
+      conditions: [{ uid: 'cnd00013', type: 'request-domains' as const, values: ['staging.openheaders.io'] }],
+      action: { username: 'devuser', password: '{{MISSING_PW}}' },
+    };
+    const { errors } = resolveRuleWithDiagnostics(rule, resolver);
+    expect(errors).toHaveLength(1);
+    expect(errors[0].reference).toBe('MISSING_PW');
   });
 });

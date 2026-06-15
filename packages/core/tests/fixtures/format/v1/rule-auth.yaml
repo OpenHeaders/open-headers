@@ -1,0 +1,13 @@
+schemaVersion: 5
+uid: ruleath1
+name: Staging proxy auth
+type: auth
+enabled: true
+conditions:
+  - uid: cnd00007
+    type: request-domains
+    values:
+      - staging.openheaders.io
+action:
+  username: devuser
+  password: "{{vault.STAGING_PROXY_PW}}"

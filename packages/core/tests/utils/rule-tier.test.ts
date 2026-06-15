@@ -26,6 +26,7 @@ const mockAction = {
 const mockActionDynamic = { ...mockAction, bodyType: 'dynamic' as const };
 const bodyAction = { bodyType: 'static' as const, body: '', resourceType: 'rest' as const };
 const bodyActionDynamic = { ...bodyAction, bodyType: 'dynamic' as const };
+const authAction = { username: 'devuser', password: '{{vault.PW}}' };
 
 describe('isDebugTierRule', () => {
   // ── Non-Fetch-capable action types are always standard ──────────
@@ -122,6 +123,18 @@ describe('isDebugTierRule', () => {
   it('body with no resource-types condition is debug', () => {
     expect(isDebugTierRule({ ...base, type: 'body', conditions: [hostCondition], action: bodyAction })).toBe(true);
   });
+
+  // ── auth: unconditionally debug-tier (CDP-only, no injection equivalent) ──
+
+  it('auth rule is debug-tier', () => {
+    expect(isDebugTierRule({ ...base, type: 'auth', conditions: [hostCondition], action: authAction })).toBe(true);
+  });
+
+  it('auth confined to xhr is STILL debug-tier (no injection path to contest reach)', () => {
+    expect(
+      isDebugTierRule({ ...base, type: 'auth', conditions: [hostCondition, resourceTypes('xhr')], action: authAction }),
+    ).toBe(true);
+  });
 });
 
 describe('isFetchRealizableNow', () => {
@@ -168,5 +181,20 @@ describe('isFetchRealizableNow', () => {
         action: { requestHeaders: [], responseHeaders: [] },
       }),
     ).toBe(false);
+  });
+
+  it('auth rule is realizable now (static credentials, always debug-tier)', () => {
+    expect(isFetchRealizableNow({ ...base, type: 'auth', conditions: [hostCondition], action: authAction })).toBe(true);
+  });
+
+  it('auth confined to xhr is realizable now (unconditionally debug-tier)', () => {
+    expect(
+      isFetchRealizableNow({
+        ...base,
+        type: 'auth',
+        conditions: [hostCondition, resourceTypes('xhr')],
+        action: authAction,
+      }),
+    ).toBe(true);
   });
 });

@@ -46,6 +46,7 @@ describe('ChromeCdpTabControlPort', () => {
       overrides: null,
       bootstrapScripts: [],
       fetchPatterns: [],
+      fetchHandleAuthRequests: false,
       bypassCsp: false,
     });
     expect(sendCalls()).toEqual([[{ tabId: TAB }, 'Network.setCacheDisabled', { cacheDisabled: true }]]);
@@ -59,6 +60,7 @@ describe('ChromeCdpTabControlPort', () => {
       overrides: null,
       bootstrapScripts: [],
       fetchPatterns: [],
+      fetchHandleAuthRequests: false,
       bypassCsp: false,
     } as const;
     await port.apply(ROOT, armed);
@@ -80,6 +82,7 @@ describe('ChromeCdpTabControlPort', () => {
       overrides: null,
       bootstrapScripts: [],
       fetchPatterns: [],
+      fetchHandleAuthRequests: false,
       bypassCsp: false,
     } as const;
     await port.apply(ROOT, armed);
@@ -105,6 +108,7 @@ describe('ChromeCdpTabControlPort', () => {
       overrides: null,
       bootstrapScripts: [],
       fetchPatterns: [],
+      fetchHandleAuthRequests: false,
       bypassCsp: false,
     } as const;
     await port.apply(ROOT, base);
@@ -127,6 +131,7 @@ describe('ChromeCdpTabControlPort', () => {
       overrides: null,
       bootstrapScripts: [],
       fetchPatterns: [],
+      fetchHandleAuthRequests: false,
       bypassCsp: false,
     });
     expect(sendCalls()).toEqual([
@@ -144,6 +149,7 @@ describe('ChromeCdpTabControlPort', () => {
         overrides: null,
         bootstrapScripts: [],
         fetchPatterns: [],
+        fetchHandleAuthRequests: false,
         bypassCsp: false,
       }),
     ).rejects.toThrow('target gone');
@@ -156,9 +162,30 @@ describe('ChromeCdpTabControlPort', () => {
       overrides: null,
       bootstrapScripts: [],
       fetchPatterns: [],
+      fetchHandleAuthRequests: false,
       bypassCsp: false,
     });
     expect(sendCalls()).toEqual([[{ tabId: TAB }, 'Network.setCacheDisabled', { cacheDisabled: true }]]);
+  });
+
+  it('maps an enable-fetch diff onto Fetch.enable carrying patterns + handleAuthRequests (D3)', async () => {
+    const port = new ChromeCdpTabControlPort(source);
+    await port.apply(ROOT, {
+      cacheDisabled: false,
+      networkConditions: null,
+      overrides: null,
+      bootstrapScripts: [],
+      fetchPatterns: [{ urlPattern: '*://staging.openheaders.io/*' }],
+      fetchHandleAuthRequests: true,
+      bypassCsp: false,
+    });
+    expect(sendCalls()).toEqual([
+      [
+        { tabId: TAB },
+        'Fetch.enable',
+        { patterns: [{ urlPattern: '*://staging.openheaders.io/*' }], handleAuthRequests: true },
+      ],
+    ]);
   });
 });
 

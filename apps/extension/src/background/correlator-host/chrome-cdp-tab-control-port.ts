@@ -98,8 +98,11 @@ export class ChromeCdpTabControlPort implements CdpTabControlPort {
       case 'enable-fetch':
         // `Fetch.enable` replaces the active pattern set wholesale, so a
         // changed set is just another enable with the new patterns.
+        // `handleAuthRequests` opts this session into the second-stage
+        // `Fetch.authRequired` challenge events (D3).
         return this.sender.sendOnSession(tabId, sessionId, 'Fetch.enable', {
           patterns: command.patterns.map(fetchPatternParams),
+          handleAuthRequests: command.handleAuthRequests,
         });
       case 'disable-fetch':
         return this.sender.sendOnSession(tabId, sessionId, 'Fetch.disable');

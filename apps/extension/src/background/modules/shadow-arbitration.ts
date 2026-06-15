@@ -90,7 +90,8 @@ export type ActionClass =
   | 'mock'
   | 'delay'
   | 'inject-csp'
-  | 'message';
+  | 'message'
+  | 'auth';
 
 /**
  * DNR priority ladder used for arbitration. These are *conceptual*
@@ -114,6 +115,9 @@ const RULE_PRIORITY: Record<Rule['type'], number> = {
   body: 100,
   ws: 100,
   sse: 100,
+  // Auth answers a challenge over CDP against a request that survives DNR —
+  // same tier as the other scriptable/CDP effects, below the retargeters.
+  auth: 100,
   delay: 2,
 };
 
@@ -131,6 +135,11 @@ const RULE_ACTION_CLASS: Record<Rule['type'], ActionClass> = {
   // (a blocked upgrade never opens a socket for the wrapper to act on).
   ws: 'message',
   sse: 'message',
+  // Auth provides credentials when a request reaches a challenge. It never
+  // shadows another class, but a block (request never sent) or a redirect
+  // (the challenged request is discarded) makes its effect moot — so it
+  // participates passively, shadowable like the other priority-100 classes.
+  auth: 'auth',
 };
 
 export interface ArbitratedRule extends MatchingRule {

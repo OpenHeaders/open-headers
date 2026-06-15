@@ -72,6 +72,8 @@ export type {
 export { EMPTY_TAB_CONTROL_STATE, reconcileTabControl } from './control-port';
 export { CdpCorrelator } from './correlator';
 export type {
+  CdpAuthChallenge,
+  CdpAuthRequired,
   CdpBufferedResponseBody,
   CdpCallFrame,
   CdpEventSource,

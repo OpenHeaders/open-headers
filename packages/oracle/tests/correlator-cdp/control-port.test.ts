@@ -84,7 +84,7 @@ describe('reconcileTabControl', () => {
 
   it('emits enable-fetch when patterns appear and disable-fetch when they vanish', () => {
     expect(reconcileTabControl(EMPTY_TAB_CONTROL_STATE, state({ fetchPatterns: [API_PATTERN] }))).toEqual([
-      { kind: 'enable-fetch', patterns: [API_PATTERN] },
+      { kind: 'enable-fetch', patterns: [API_PATTERN], handleAuthRequests: false },
     ]);
     expect(reconcileTabControl(state({ fetchPatterns: [API_PATTERN] }), EMPTY_TAB_CONTROL_STATE)).toEqual([
       { kind: 'disable-fetch' },
@@ -100,8 +100,31 @@ describe('reconcileTabControl', () => {
   it('re-enables fetch when the pattern set changes', () => {
     const next = state({ fetchPatterns: [API_PATTERN, { urlPattern: '*://openheaders.io/auth' }] });
     expect(reconcileTabControl(state({ fetchPatterns: [API_PATTERN] }), next)).toEqual([
-      { kind: 'enable-fetch', patterns: next.fetchPatterns },
+      { kind: 'enable-fetch', patterns: next.fetchPatterns, handleAuthRequests: false },
     ]);
+  });
+
+  it('carries handleAuthRequests on enable-fetch when an auth-capable rule is in scope', () => {
+    expect(
+      reconcileTabControl(
+        EMPTY_TAB_CONTROL_STATE,
+        state({ fetchPatterns: [API_PATTERN], fetchHandleAuthRequests: true }),
+      ),
+    ).toEqual([{ kind: 'enable-fetch', patterns: [API_PATTERN], handleAuthRequests: true }]);
+  });
+
+  it('re-enables fetch when only the auth flag flips on a non-empty pattern set', () => {
+    const prev = state({ fetchPatterns: [API_PATTERN], fetchHandleAuthRequests: false });
+    const next = state({ fetchPatterns: [API_PATTERN], fetchHandleAuthRequests: true });
+    expect(reconcileTabControl(prev, next)).toEqual([
+      { kind: 'enable-fetch', patterns: [API_PATTERN], handleAuthRequests: true },
+    ]);
+  });
+
+  it('an auth-flag flip on an empty pattern set is a no-op (nothing to intercept)', () => {
+    const prev = state({ fetchHandleAuthRequests: false });
+    const next = state({ fetchHandleAuthRequests: true });
+    expect(reconcileTabControl(prev, next)).toEqual([]);
   });
 
   it('a replay from empty re-issues the whole standing set', () => {
@@ -110,12 +133,13 @@ describe('reconcileTabControl', () => {
       networkConditions: SLOW_3G,
       bypassCsp: true,
       fetchPatterns: [API_PATTERN],
+      fetchHandleAuthRequests: true,
     });
     expect(reconcileTabControl(EMPTY_TAB_CONTROL_STATE, armed)).toEqual([
       { kind: 'set-cache-disabled', cacheDisabled: true },
       { kind: 'emulate-network-conditions', conditions: SLOW_3G },
       { kind: 'set-bypass-csp', enabled: true },
-      { kind: 'enable-fetch', patterns: [API_PATTERN] },
+      { kind: 'enable-fetch', patterns: [API_PATTERN], handleAuthRequests: true },
     ]);
   });
 });
