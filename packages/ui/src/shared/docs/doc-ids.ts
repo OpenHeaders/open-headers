@@ -51,6 +51,7 @@ const ACTION_DOC_ID: Record<string, string> = {
   // Response types
   'response-static': 'response-static',
   'response-dynamic': 'response-dynamic',
+  'response-graphql': 'response-graphql',
   // Redirect
   'redirect-url': 'redirect-url',
   'redirect-regex': 'redirect-regex',
@@ -98,6 +99,7 @@ export const DOC_ID_TO_SECTION: Record<string, string> = {
   // Response sub-anchors
   'response-static': 'response',
   'response-dynamic': 'response',
+  'response-graphql': 'response',
   // Redirect sub-anchors
   'redirect-url': 'redirect',
   'redirect-regex': 'redirect',

@@ -264,7 +264,7 @@ const ResponseRuleFields: React.FC = () => {
                 </Text>
                 <InfoCircleOutlined
                   style={{ fontSize: 11, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
-                  onClick={() => openDocs(getDocId('request-body-graphql', 'action'))}
+                  onClick={() => openDocs(getDocId('response-graphql', 'action'))}
                 />
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>

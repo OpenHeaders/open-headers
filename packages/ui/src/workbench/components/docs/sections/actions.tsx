@@ -596,6 +596,15 @@ export const ResponseSection: React.FC = () => (
       </DiagramFrame>
     </Anchor>
 
+    <Anchor id="response-graphql">
+      <ActionHeading title="GraphQL filter" engine="script" />
+      <DocParagraph>
+        When Resource Type is GraphQL, the rule fires only on requests whose JSON payload's configured field matches the
+        value you set (Equals or Contains) — so a single endpoint that multiplexes many operations can be intercepted one
+        operation at a time. Requests whose payload doesn't match pass straight through to the network untouched.
+      </DocParagraph>
+    </Anchor>
+
     <DiagramFrame caption="Static resources and page navigations never enter the script intercept.">
       <MockWontApplyDiagram />
     </DiagramFrame>
