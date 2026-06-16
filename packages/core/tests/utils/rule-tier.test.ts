@@ -147,12 +147,11 @@ describe('isDebugTierRule', () => {
 });
 
 describe('isFetchRealizableNow', () => {
-  // Realizable = debug-tier AND a reaction the host can run at the network
-  // layer now: every static reaction, plus both `response` dynamic cells
-  // (D2b-2a evals buildResponse at the request stage, D2b-2b evals
-  // modifyResponse over the real reply at the Response stage). The dormant
-  // badge/notice gate on this so they never promise an effect arming can't
-  // yet deliver.
+  // As of D2b-2c, realizable = debug-tier (every Fetch-capable cell — static
+  // and all dynamic — now runs at the network layer: mock/network static +
+  // dynamic response, and dynamic request-body via modifyRequestBody). The
+  // dormant badge/notice gate on this so they never promise an effect arming
+  // can't yet deliver.
 
   it('static debug-tier mock is realizable now', () => {
     expect(isFetchRealizableNow({ ...base, type: 'response', conditions: [hostCondition], action: mockAction })).toBe(
@@ -172,10 +171,10 @@ describe('isFetchRealizableNow', () => {
     ).toBe(true);
   });
 
-  it('dynamic debug-tier body is NOT realizable now (request-body transform waits for D2b-2c)', () => {
+  it('dynamic debug-tier body IS realizable now (host evals modifyRequestBody over the outgoing body, D2b-2c)', () => {
     expect(
       isFetchRealizableNow({ ...base, type: 'request-body', conditions: [hostCondition], action: bodyActionDynamic }),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it('static network-source response IS realizable now (Response-stage round-trip, D2b-1)', () => {
@@ -230,5 +229,16 @@ describe('isFetchRealizableNow', () => {
         action: authAction,
       }),
     ).toBe(true);
+  });
+
+  it('is fully dynamic-capable — every dynamic Fetch-capable cell is realizable (D2b-2c closes the gap)', () => {
+    const dynamicCells = [
+      { type: 'response' as const, action: mockActionDynamic },
+      { type: 'response' as const, action: { ...networkAction, bodyType: 'dynamic' as const } },
+      { type: 'request-body' as const, action: bodyActionDynamic },
+    ];
+    for (const cell of dynamicCells) {
+      expect(isFetchRealizableNow({ ...base, conditions: [hostCondition], ...cell })).toBe(true);
+    }
   });
 });

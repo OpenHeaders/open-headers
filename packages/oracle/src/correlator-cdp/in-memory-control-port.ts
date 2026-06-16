@@ -17,8 +17,10 @@ import {
   type CdpContinueWithAuth,
   type CdpControlCommand,
   type CdpFulfillResponse,
+  type CdpGetRequestPostData,
   type CdpGetResponseBody,
   type CdpRequestControlPort,
+  type CdpRequestPostData,
   type CdpResponseBody,
   type CdpSessionTarget,
   type CdpTabControlPort,
@@ -75,11 +77,21 @@ export type RecordedReaction =
   | { readonly kind: 'continue'; readonly target: CdpSessionTarget; readonly request: CdpContinueRequest }
   | { readonly kind: 'continue-response'; readonly target: CdpSessionTarget; readonly request: CdpContinueResponse }
   | { readonly kind: 'continue-with-auth'; readonly target: CdpSessionTarget; readonly request: CdpContinueWithAuth }
-  | { readonly kind: 'get-response-body'; readonly target: CdpSessionTarget; readonly request: CdpGetResponseBody };
+  | { readonly kind: 'get-response-body'; readonly target: CdpSessionTarget; readonly request: CdpGetResponseBody }
+  | {
+      readonly kind: 'get-request-post-data';
+      readonly target: CdpSessionTarget;
+      readonly request: CdpGetRequestPostData;
+    };
 
 /** A scripted answer for the next `getResponseBody` — a body or a rejection. */
 type ScriptedResponseBody =
   | { readonly ok: true; readonly body: CdpResponseBody }
+  | { readonly ok: false; readonly error: string };
+
+/** A scripted answer for the next `getRequestPostData` — a body or a rejection. */
+type ScriptedRequestPostData =
+  | { readonly ok: true; readonly postData: CdpRequestPostData }
   | { readonly ok: false; readonly error: string };
 
 export interface InMemoryRequestControlPort extends CdpRequestControlPort {
@@ -89,12 +101,17 @@ export interface InMemoryRequestControlPort extends CdpRequestControlPort {
   enqueueResponseBody(body: CdpResponseBody): void;
   /** Queue a rejection for the next `getResponseBody` (the unreadable-body path). */
   rejectNextResponseBody(error: string): void;
+  /** Queue the body the next `getRequestPostData` resolves to (FIFO). */
+  enqueueRequestPostData(postData: CdpRequestPostData): void;
+  /** Queue a rejection for the next `getRequestPostData` (the unreadable-body path). */
+  rejectNextRequestPostData(error: string): void;
 }
 
 /** Create an in-memory {@link CdpRequestControlPort} that records reactions. */
 export function createInMemoryRequestControlPort(): InMemoryRequestControlPort {
   const reactions: RecordedReaction[] = [];
   const bodies: ScriptedResponseBody[] = [];
+  const postDatas: ScriptedRequestPostData[] = [];
 
   return {
     available: true,
@@ -104,6 +121,12 @@ export function createInMemoryRequestControlPort(): InMemoryRequestControlPort {
     },
     rejectNextResponseBody(error: string): void {
       bodies.push({ ok: false, error });
+    },
+    enqueueRequestPostData(postData: CdpRequestPostData): void {
+      postDatas.push({ ok: true, postData });
+    },
+    rejectNextRequestPostData(error: string): void {
+      postDatas.push({ ok: false, error });
     },
     async fulfill(target: CdpSessionTarget, response: CdpFulfillResponse): Promise<void> {
       reactions.push({ kind: 'fulfill', target, response });
@@ -124,6 +147,14 @@ export function createInMemoryRequestControlPort(): InMemoryRequestControlPort {
       const scripted = bodies.shift() ?? { ok: true, body: { body: '', base64Encoded: false } };
       if (!scripted.ok) throw new Error(scripted.error);
       return scripted.body;
+    },
+    async getRequestPostData(target: CdpSessionTarget, request: CdpGetRequestPostData): Promise<CdpRequestPostData> {
+      reactions.push({ kind: 'get-request-post-data', target, request });
+      // No scripted entry ⇒ an empty body (the request-stage fallback only runs
+      // when `hasPostData` flagged a body, so the default models a readable one).
+      const scripted = postDatas.shift() ?? { ok: true, postData: { postData: '' } };
+      if (!scripted.ok) throw new Error(scripted.error);
+      return scripted.postData;
     },
   };
 }

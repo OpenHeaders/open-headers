@@ -13,16 +13,19 @@ import { describe, expect, it } from 'vitest';
 import {
   buildEvalFulfill,
   buildNetworkEvalFulfill,
+  buildRequestBodyEvalContinue,
   cdpResourceTypeToCondition,
   cdpResourceTypeToTracked,
   decodeResponseBody,
   mockResponseEvalArg,
   networkResponseEvalArg,
+  requestBodyEvalArg,
   resolveAuthReaction,
   resolveFetchReaction,
   resolveResponseReaction,
   wrapMockResponseFn,
   wrapNetworkResponseFn,
+  wrapRequestBodyFn,
 } from '@/background/correlator-host/cdp-fetch-reaction';
 
 const ruleBase = {
@@ -195,6 +198,27 @@ describe('resolveFetchReaction', () => {
     expect(reaction.kind).toBe('continue');
     if (reaction.kind !== 'continue') return;
     expect(atob(reaction.request.postData ?? '')).toBe('{"v":1}');
+  });
+
+  it('yields an eval-continue plan for a dynamic request-body rule (D2b-2c)', () => {
+    const bodyRule = {
+      ...ruleBase,
+      type: 'request-body',
+      conditions: [domain('api.openheaders.io')],
+      action: {
+        bodyType: 'dynamic',
+        requestBody: 'function modifyRequestBody(a){return a.body.toUpperCase();}',
+        resourceType: 'rest',
+      },
+    } as Rule;
+    const reaction = resolveFetchReaction(
+      paused({ request: { url: 'https://api.openheaders.io/u', method: 'POST', postData: '{"v":1}' } }),
+      [bodyRule],
+    );
+    expect(reaction.kind).toBe('eval-continue');
+    if (reaction.kind !== 'eval-continue') return;
+    expect(reaction.ruleUid).toBe('r1');
+    expect(reaction.plan).toEqual({ userCode: 'function modifyRequestBody(a){return a.body.toUpperCase();}' });
   });
 
   it('overrides the default Content-Type when the action sets one', () => {
@@ -596,5 +620,41 @@ describe('network+dynamic eval helpers (D2b-2b)', () => {
   it('decodeResponseBody returns plain text verbatim and decodes base64 as UTF-8', () => {
     expect(decodeResponseBody({ body: 'hello', base64Encoded: false })).toBe('hello');
     expect(decodeResponseBody({ body: utf8B64('héllo ☕'), base64Encoded: true })).toBe('héllo ☕');
+  });
+});
+
+describe('request-body+dynamic eval helpers (D2b-2c)', () => {
+  it('requestBodyEvalArg builds the faithful modifyArgs (method/url/body/bodyAsJson)', () => {
+    const event = paused({ request: { url: 'https://api.openheaders.io/u', method: 'POST' } });
+    expect(requestBodyEvalArg(event, '{"q":1}')).toEqual({
+      method: 'POST',
+      url: 'https://api.openheaders.io/u',
+      body: '{"q":1}',
+      bodyAsJson: { q: 1 },
+    });
+  });
+
+  it('requestBodyEvalArg guards bodyAsJson to null on a non-JSON body', () => {
+    const arg = requestBodyEvalArg(paused({ request: { url: 'https://api.openheaders.io/u', method: 'POST' } }), 'raw');
+    expect(arg.body).toBe('raw');
+    expect(arg.bodyAsJson).toBeNull();
+  });
+
+  it('wrapRequestBodyFn defines modifyRequestBody, calls it, and JSON-stringifies an object result in-realm', () => {
+    const decl = wrapRequestBodyFn('function modifyRequestBody(a){ return { wrapped: a.bodyAsJson }; }');
+    const fn = new Function(`return (${decl})`)() as (arg: unknown) => string;
+    expect(fn({ body: '{"v":1}', bodyAsJson: { v: 1 } })).toBe('{"wrapped":{"v":1}}');
+  });
+
+  it('wrapRequestBodyFn String()-coerces a non-object result (matching the injection path)', () => {
+    const decl = wrapRequestBodyFn('function modifyRequestBody(a){ return a.body.toUpperCase(); }');
+    const fn = new Function(`return (${decl})`)() as (arg: unknown) => string;
+    expect(fn({ body: 'hi' })).toBe('HI');
+  });
+
+  it('buildRequestBodyEvalContinue base64-encodes the eval body onto the continue', () => {
+    const cont = buildRequestBodyEvalContinue('req-9', '{"new":1}');
+    expect(cont.requestId).toBe('req-9');
+    expect(atob(cont.postData ?? '')).toBe('{"new":1}');
   });
 });

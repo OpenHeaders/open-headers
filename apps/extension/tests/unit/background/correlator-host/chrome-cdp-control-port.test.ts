@@ -254,6 +254,22 @@ describe('ChromeCdpRequestControlPort', () => {
     await expect(port.getResponseBody(ROOT, { requestId: 'fetch-5' })).rejects.toThrow('unexpected shape');
   });
 
+  it('maps getRequestPostData onto Fetch.getRequestPostData and returns the parsed body (D2b-2c)', async () => {
+    const port = new ChromeCdpRequestControlPort(source);
+    chromeMock.debugger.sendCommand.mockResolvedValueOnce({ postData: '{"q":"value"}' });
+    const result = await port.getRequestPostData(CHILD, { requestId: 'fetch-6' });
+    expect(sendCalls()).toEqual([
+      [{ tabId: TAB, sessionId: 'child-worker-1' }, 'Fetch.getRequestPostData', { requestId: 'fetch-6' }],
+    ]);
+    expect(result).toEqual({ postData: '{"q":"value"}' });
+  });
+
+  it('rejects when Fetch.getRequestPostData returns an unexpected shape', async () => {
+    const port = new ChromeCdpRequestControlPort(source);
+    chromeMock.debugger.sendCommand.mockResolvedValueOnce({ nope: true });
+    await expect(port.getRequestPostData(ROOT, { requestId: 'fetch-7' })).rejects.toThrow('unexpected shape');
+  });
+
   it('maps continueWithAuth onto Fetch.continueWithAuth with the challenge response', async () => {
     const port = new ChromeCdpRequestControlPort(source);
     await port.continueWithAuth(ROOT, {

@@ -12,8 +12,10 @@ import type {
   CdpContinueResponse,
   CdpContinueWithAuth,
   CdpFulfillResponse,
+  CdpGetRequestPostData,
   CdpGetResponseBody,
   CdpRequestControlPort,
+  CdpRequestPostData,
   CdpResponseBody,
   CdpSessionTarget,
 } from '@openheaders/oracle/correlator-cdp';
@@ -23,6 +25,11 @@ import type { CdpSessionSender } from './cdp-session-sender';
 interface RawFetchResponseBody {
   readonly body: string;
   readonly base64Encoded: boolean;
+}
+
+/** `Fetch.getRequestPostData` result — the outgoing body string (no base64 flag). */
+interface RawFetchRequestPostData {
+  readonly postData: string;
 }
 
 export class ChromeCdpRequestControlPort implements CdpRequestControlPort {
@@ -85,5 +92,18 @@ export class ChromeCdpRequestControlPort implements CdpRequestControlPort {
       throw new Error('Fetch.getResponseBody returned an unexpected shape');
     }
     return { body: raw.body, base64Encoded: raw.base64Encoded };
+  }
+
+  async getRequestPostData(target: CdpSessionTarget, request: CdpGetRequestPostData): Promise<CdpRequestPostData> {
+    // The interception id (NOT the network id) keys `Fetch.getRequestPostData` —
+    // this reads the outgoing body of a request paused at the Fetch Request stage.
+    const result = await this.sender.sendOnSession(target.tabId, target.sessionId, 'Fetch.getRequestPostData', {
+      requestId: request.requestId,
+    });
+    const raw = result as RawFetchRequestPostData | undefined;
+    if (typeof raw?.postData !== 'string') {
+      throw new Error('Fetch.getRequestPostData returned an unexpected shape');
+    }
+    return { postData: raw.postData };
   }
 }

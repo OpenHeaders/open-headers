@@ -14,6 +14,9 @@
  *     the request frame, then fulfills — D2b-2a); a static `request-body`
  *     becomes a request-body rewrite (the page-context wrapper does the same —
  *     it replaces the outgoing fetch/XHR body, not the server's response); a
+ *     DYNAMIC `request-body` becomes an `eval-continue` (the interceptor reads
+ *     the outgoing body, evals `modifyRequestBody` over it in the request
+ *     frame, then continues with the rewritten body — D2b-2c); a
  *     `network`-source `response` (static OR dynamic body) becomes an
  *     `await-response` continue (`interceptResponse:true`) that sends the real
  *     request and re-pauses at the Response stage. Its response-header
@@ -28,17 +31,13 @@
  *     `modifyResponse` over it, then fulfills the result (D2b-2b). Either way
  *     over the real status (or the override) and the merged headers.
  *
- * Falls through to pass-through for:
- *   - dynamic `request-body` (its body is user JS the host can't eval at the
- *     network layer yet — D2b-2c);
- *   - a rule carrying a condition no stage can evaluate (initiator-domains,
- *     domain-type) — enforcing it via injection's own page gate is correct,
- *     over-applying via Fetch is not.
- * `isFetchRealizableNow` is the single gate for the not-yet-realizable dynamic
- * cell; it returns false for it, so it never reaches a fulfill branch. A
- * passed-through rule still runs its page-context injection path; only its
- * extended all-context reach is unavailable until D2b-2c adds the last of
- * the host eval mechanism.
+ * Falls through to pass-through for a rule carrying a condition no stage can
+ * evaluate (initiator-domains, domain-type) — enforcing it via injection's own
+ * page gate is correct, over-applying via Fetch is not.
+ * `isFetchRealizableNow` is the single gate; every Fetch-capable cell (static +
+ * all dynamic) now realizes, so a passed-through rule is one whose conditions
+ * the network layer can't see, never an unsupported reaction. A passed-through
+ * rule still runs its page-context injection path.
  */
 
 import type {
@@ -96,6 +95,20 @@ export interface CdpNetworkEvalPlan {
   readonly responseHeaders: Readonly<Record<string, string>>;
 }
 
+/**
+ * A dynamic `request-body` match (D2b-2c): just the user code. The
+ * request-body cell has no status/CT/header envelope (it rewrites the OUTGOING
+ * body, not the reply), so unlike {@link CdpResponseEvalPlan} the plan carries
+ * nothing else. The interceptor reads the outgoing body (inline `postData` or
+ * `getRequestPostData`), evals `modifyRequestBody` over it in the request
+ * frame, then `continueRequest`s the transformed body — the real request goes
+ * out rewritten, exactly as the static `request-body` cell continues, only the
+ * body comes from the eval rather than a literal.
+ */
+export interface CdpRequestBodyEvalPlan {
+  readonly userCode: string;
+}
+
 /** The answer the interceptor gives a paused request at the REQUEST stage. */
 export type CdpFetchReaction =
   | { readonly kind: 'fulfill'; readonly ruleUid: string; readonly response: CdpFulfillResponse }
@@ -108,6 +121,11 @@ export type CdpFetchReaction =
   // fulfills. The fire is DEFERRED to that fulfill — an eval fault releases the
   // request and never fires (fire = the modification actually ran).
   | { readonly kind: 'eval-fulfill'; readonly ruleUid: string; readonly plan: CdpResponseEvalPlan }
+  // A dynamic `request-body`: the interceptor reads the outgoing body, evals
+  // `modifyRequestBody` over it, then continues with the rewritten body. The
+  // fire is DEFERRED to that continue — an eval / body-read fault (or a
+  // bodyless request) releases it with its original body and never fires.
+  | { readonly kind: 'eval-continue'; readonly ruleUid: string; readonly plan: CdpRequestBodyEvalPlan }
   | { readonly kind: 'pass-through' };
 
 /** The answer the interceptor gives a paused request at the RESPONSE stage. */
@@ -238,12 +256,17 @@ export function resolveFetchReaction(event: CdpRequestPaused, rules: readonly Ru
     if (!requestStageMatches(rule, ctx)) continue;
     if (rule.type === 'response') {
       // A `mock`+dynamic body is user JS — defer to the interceptor's eval.
-      // (network+dynamic and request-body+dynamic stay unrealizable until
-      // D2b-2b/c, so `isFetchRealizableNow` already excluded them above.)
+      // (network+dynamic resolves at the Response stage above.)
       if (rule.action.bodyType === 'dynamic') {
         return { kind: 'eval-fulfill', ruleUid: rule.uid, plan: buildResponseEvalPlan(rule.action) };
       }
       return { kind: 'fulfill', ruleUid: rule.uid, response: buildFulfill(event.requestId, rule.action) };
+    }
+    // A dynamic `request-body` is `modifyRequestBody` user JS over the outgoing
+    // body — defer to the interceptor's body-read + eval (D2b-2c). A static body
+    // substitutes its literal here.
+    if (rule.action.bodyType === 'dynamic') {
+      return { kind: 'eval-continue', ruleUid: rule.uid, plan: buildRequestBodyEvalPlan(rule.action) };
     }
     return { kind: 'continue', ruleUid: rule.uid, request: buildRequestBodyRewrite(event.requestId, rule.action) };
   }
@@ -474,6 +497,13 @@ function buildNetworkEvalPlan(action: ResponseAction): CdpNetworkEvalPlan {
   };
 }
 
+/** The plan for a dynamic `request-body` rule — just the `modifyRequestBody`
+ *  user code (the cell rewrites the outgoing body, so there is no reply
+ *  envelope to carry). */
+function buildRequestBodyEvalPlan(action: RequestBodyAction): CdpRequestBodyEvalPlan {
+  return { userCode: action.requestBody };
+}
+
 /**
  * Wrap a `mock`+dynamic rule's user code into a function declaration that
  * defines `buildResponse`, calls it over the request arg, and returns the body
@@ -498,6 +528,21 @@ export function wrapNetworkResponseFn(userCode: string): string {
   return `function(arg){
 ${userCode}
 var __oh = modifyResponse(arg);
+return typeof __oh === 'object' ? JSON.stringify(__oh) : String(__oh);
+}`;
+}
+
+/**
+ * Wrap a dynamic `request-body` rule's user code into a function declaration
+ * that defines `modifyRequestBody`, calls it over the modifyArgs arg, and
+ * returns the new body stringified IN the isolated world — byte-identical to
+ * the injection path's realm-local `typeof o === 'object' ? JSON.stringify :
+ * String`.
+ */
+export function wrapRequestBodyFn(userCode: string): string {
+  return `function(arg){
+${userCode}
+var __oh = modifyRequestBody(arg);
 return typeof __oh === 'object' ? JSON.stringify(__oh) : String(__oh);
 }`;
 }
@@ -530,6 +575,24 @@ export function networkResponseEvalArg(event: CdpRequestPaused, responseBodyText
   };
 }
 
+/**
+ * The `{method,url,body,bodyAsJson}` a dynamic `request-body`'s
+ * `modifyRequestBody` receives — faithful to the injection path's
+ * `generateDynamicRequestBodyScript` shape: `method`/`url` from the paused
+ * request, `body` the outgoing body text (inline `postData` or
+ * `getRequestPostData`, supplied by the interceptor), `bodyAsJson` the body
+ * parsed (guarded → null). Built host-side and passed by value, like
+ * {@link networkResponseEvalArg}.
+ */
+export function requestBodyEvalArg(event: CdpRequestPaused, bodyText: string): CdpEvalArg {
+  return {
+    method: event.request.method,
+    url: event.request.url,
+    body: bodyText,
+    bodyAsJson: parseJsonOrNull(bodyText),
+  };
+}
+
 /** The real reply's Content-Type (case-insensitive), or '' when absent. */
 function responseContentType(headers: readonly CdpHeaderEntry[]): string {
   return headers.find((h) => h.name.toLowerCase() === 'content-type')?.value ?? '';
@@ -558,6 +621,14 @@ export function buildEvalFulfill(requestId: string, plan: CdpResponseEvalPlan, b
 
 function buildRequestBodyRewrite(requestId: string, action: RequestBodyAction): CdpContinueRequest {
   return { requestId, postData: toBase64(action.requestBody) };
+}
+
+/** Continue an intercepted request for a dynamic `request-body` match with the
+ *  eval's transformed body (D2b-2c) — the same `continueRequest{postData}`
+ *  shape as the static {@link buildRequestBodyRewrite}, only the body comes from
+ *  the eval rather than the rule literal. */
+export function buildRequestBodyEvalContinue(requestId: string, evalBody: string): CdpContinueRequest {
+  return { requestId, postData: toBase64(evalBody) };
 }
 
 /** The `network`-source override envelope shared by the static and dynamic

@@ -80,17 +80,17 @@ export function isDebugTierRule(rule: Rule): boolean {
 /**
  * True iff a debug-tier rule's full effect is realizable RIGHT NOW once its
  * tab is in CDP scope: debug-tier AND a reaction the host can run at the
- * network layer. Every static reaction qualifies; among dynamic bodies, both
- * `response` cells do (D2b-2a evals `buildResponse` at the request stage,
- * D2b-2b evals `modifyResponse` over the real reply at the Response stage).
- * Dynamic `request-body` is still user JS the host can't run at the network
- * layer (D2b-2c adds it), so bringing a tab into scope does nothing for it —
- * badging it dormant would imply a fix arming can't deliver. The single source of truth for the
+ * network layer. As of D2b-2c EVERY Fetch-capable cell qualifies, so
+ * realizability has collapsed to debug-tier membership: static bodies (`mock`
+ * fulfills synthetically at the request stage, `network` substitutes at the
+ * Response stage — D2b-1), and all three dynamic bodies (`mock`+dynamic evals
+ * `buildResponse` — D2b-2a; `network`+dynamic evals `modifyResponse` over the
+ * real reply — D2b-2b; `request-body`+dynamic evals `modifyRequestBody` over
+ * the outgoing body — D2b-2c). The single source of truth for the
  * realizability test the Fetch reaction uses, so the badge can never claim
  * "realizable" for something the interceptor passes through. D4a's
  * injection-suppression set and the dormant badge both derive from this
- * predicate, so widening it is what extends them — never widen ahead of the
- * landed capability.
+ * predicate.
  */
 export function isFetchRealizableNow(rule: Rule): boolean {
   // An auth rule carries only static credentials (no user-JS body), so it
@@ -98,15 +98,7 @@ export function isFetchRealizableNow(rule: Rule): boolean {
   // to debug-tier membership (always true for auth).
   if (rule.type === 'auth') return isDebugTierRule(rule);
   if (rule.type !== 'response' && rule.type !== 'request-body') return false;
-  if (!isDebugTierRule(rule)) return false;
-  // A static body is always realizable — `mock` fulfills synthetically at the
-  // request stage, `network` sends the real request and substitutes the static
-  // body at the Response stage (D2b-1).
-  if (rule.action.bodyType !== 'dynamic') return true;
-  // Among dynamic bodies, a `response` rule is realizable regardless of source:
-  // `mock`+dynamic evals `buildResponse` in the request frame and fulfills
-  // synthetically (D2b-2a); `network`+dynamic evals `modifyResponse` over the
-  // real reply at the Response stage (D2b-2b). Dynamic `request-body` (the
-  // outgoing-body transform) is the last cell — it waits for D2b-2c.
-  return rule.type === 'response';
+  // Every Fetch-capable cell — static or dynamic, every source — now realizes
+  // at the network layer, so realizability is exactly debug-tier membership.
+  return isDebugTierRule(rule);
 }

@@ -546,6 +546,158 @@ describe('startCdpFetchInterceptor — network+dynamic eval (D2b-2b)', () => {
   });
 });
 
+describe('startCdpFetchInterceptor — request-body+dynamic eval (D2b-2c)', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  /** A debug-tier dynamic (modifyRequestBody) request-body rule over `api.openheaders.io`. */
+  const dynamicBodyRule = (overrides: Partial<Rule> = {}): Rule =>
+    ({
+      ...ruleBase,
+      type: 'request-body',
+      conditions: [{ uid: 'cnd00001', type: 'request-domains', values: ['api.openheaders.io'] }],
+      action: {
+        bodyType: 'dynamic',
+        requestBody: 'function modifyRequestBody(a){return a.body.toUpperCase()}',
+        resourceType: 'rest',
+      },
+      ...overrides,
+    }) as Rule;
+
+  /** A POST paused at the Request stage with an inline outgoing body in a frame. */
+  const bodyPaused = (overrides: Partial<CdpRequestPaused> = {}): CdpRequestPaused =>
+    makePaused({
+      requestId: 'rb-1',
+      networkId: 'net-9',
+      frameId: 'frame-1',
+      request: { url: 'https://api.openheaders.io/u', method: 'POST', postData: '{"in":1}', hasPostData: true },
+      ...overrides,
+    });
+
+  it('evals modifyRequestBody over the inline body and continues the rewritten body, firing once', async () => {
+    const { stream, port, evalPort, fires } = harness([dynamicBodyRule()]);
+    evalPort.enqueue({ ok: true, value: '{"IN":1}' });
+
+    stream.emit(bodyPaused());
+    await settle();
+
+    // No fallback read needed — the inline body fed the eval directly.
+    expect(port.reactions.some((r) => r.kind === 'get-request-post-data')).toBe(false);
+    expect(evalPort.calls).toHaveLength(1);
+    const call = evalPort.calls[0];
+    expect(call?.target).toEqual({ tabId: 7, sessionId: 'page' });
+    expect(call?.frameId).toBe('frame-1');
+    expect(call?.functionDeclaration).toContain('function modifyRequestBody(a){return a.body.toUpperCase()}');
+    expect(call?.arg).toEqual({
+      method: 'POST',
+      url: 'https://api.openheaders.io/u',
+      body: '{"in":1}',
+      bodyAsJson: { in: 1 },
+    });
+
+    const cont = port.reactions.find((r) => r.kind === 'continue');
+    if (cont?.kind !== 'continue') throw new Error('expected continue');
+    expect(cont.request.requestId).toBe('rb-1');
+    expect(atob(cont.request.postData ?? '')).toBe('{"IN":1}');
+
+    // Exactly one fire, only after the continue landed, keyed by the store id.
+    expect(fires).toHaveLength(1);
+    expect(fires[0]?.record.requestId).toBe('page::net-9');
+  });
+
+  it('reads a large outgoing body via getRequestPostData when not inline', async () => {
+    const { stream, port, evalPort, fires } = harness([dynamicBodyRule()]);
+    port.enqueueRequestPostData({ postData: '{"big":1}' });
+    evalPort.enqueue({ ok: true, value: '{"big":1,"patched":true}' });
+
+    // hasPostData flags a body, but it does not ride inline on the pause.
+    stream.emit(
+      bodyPaused({
+        requestId: 'rb-2',
+        request: { url: 'https://api.openheaders.io/u', method: 'POST', hasPostData: true },
+      }),
+    );
+    await settle();
+
+    const read = port.reactions.find((r) => r.kind === 'get-request-post-data');
+    if (read?.kind !== 'get-request-post-data') throw new Error('expected get-request-post-data');
+    expect(read.request).toEqual({ requestId: 'rb-2' });
+    expect(evalPort.calls[0]?.arg).toEqual({
+      method: 'POST',
+      url: 'https://api.openheaders.io/u',
+      body: '{"big":1}',
+      bodyAsJson: { big: 1 },
+    });
+
+    const cont = port.reactions.find((r) => r.kind === 'continue');
+    if (cont?.kind !== 'continue') throw new Error('expected continue');
+    expect(atob(cont.request.postData ?? '')).toBe('{"big":1,"patched":true}');
+    expect(fires).toHaveLength(1);
+  });
+
+  it('releases the request with its original body (no fire) when the eval fails', async () => {
+    const { stream, port, evalPort, fires } = harness([dynamicBodyRule()]);
+    evalPort.enqueue({ ok: false, error: 'boom' });
+
+    stream.emit(bodyPaused({ requestId: 'rb-3' }));
+    await settle();
+
+    expect(evalPort.calls).toHaveLength(1);
+    const cont = port.reactions.find((r) => r.kind === 'continue');
+    if (cont?.kind !== 'continue') throw new Error('expected release continue');
+    expect(cont.request).toEqual({ requestId: 'rb-3' }); // no postData ⇒ original body
+    expect(fires).toHaveLength(0);
+  });
+
+  it('releases without reading or evaluating (no fire) when the request has no frame', async () => {
+    const { stream, port, evalPort, fires } = harness([dynamicBodyRule()]);
+
+    stream.emit(bodyPaused({ requestId: 'rb-4', frameId: undefined }));
+    await settle();
+
+    expect(port.reactions.some((r) => r.kind === 'get-request-post-data')).toBe(false);
+    expect(evalPort.calls).toHaveLength(0);
+    const cont = port.reactions.find((r) => r.kind === 'continue');
+    if (cont?.kind !== 'continue') throw new Error('expected release continue');
+    expect(cont.request).toEqual({ requestId: 'rb-4' });
+    expect(fires).toHaveLength(0);
+  });
+
+  it('passes a bodyless request through untouched (no eval, no fire)', async () => {
+    const { stream, port, evalPort, fires } = harness([dynamicBodyRule()]);
+
+    // A plain GET — no inline postData and no hasPostData flag.
+    stream.emit(bodyPaused({ requestId: 'rb-5', request: { url: 'https://api.openheaders.io/u', method: 'GET' } }));
+    await settle();
+
+    expect(port.reactions.some((r) => r.kind === 'get-request-post-data')).toBe(false);
+    expect(evalPort.calls).toHaveLength(0);
+    const cont = port.reactions.find((r) => r.kind === 'continue');
+    if (cont?.kind !== 'continue') throw new Error('expected pass-through continue');
+    expect(cont.request).toEqual({ requestId: 'rb-5' });
+    expect(fires).toHaveLength(0);
+  });
+
+  it('releases the request (no fire) when the outgoing body read fails', async () => {
+    const { stream, port, evalPort, fires } = harness([dynamicBodyRule()]);
+    port.rejectNextRequestPostData('Request body has unsupported encoding');
+
+    stream.emit(
+      bodyPaused({
+        requestId: 'rb-6',
+        request: { url: 'https://api.openheaders.io/u', method: 'POST', hasPostData: true },
+      }),
+    );
+    await settle();
+
+    expect(port.reactions.some((r) => r.kind === 'get-request-post-data')).toBe(true);
+    expect(evalPort.calls).toHaveLength(0);
+    const cont = port.reactions.find((r) => r.kind === 'continue');
+    if (cont?.kind !== 'continue') throw new Error('expected release continue');
+    expect(cont.request).toEqual({ requestId: 'rb-6' });
+    expect(fires).toHaveLength(0);
+  });
+});
+
 describe('startCdpFetchInterceptor — auth challenges (D3)', () => {
   it('answers a matching challenge with ProvideCredentials and reports an authoritative fire', async () => {
     const { stream, port, fires } = harness([authRule()]);

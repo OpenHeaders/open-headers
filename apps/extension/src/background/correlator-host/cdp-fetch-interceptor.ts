@@ -7,7 +7,9 @@
  *   - REQUEST stage ({@link resolveFetchReaction}) — a static `mock` match →
  *     `fulfillRequest`; a `mock`+dynamic match → eval `buildResponse` in the
  *     request frame, then `fulfillRequest` the result; a static `request-body`
- *     match → `continueRequest` with a rewritten body; a static
+ *     match → `continueRequest` with a rewritten body; a `request-body`+dynamic
+ *     match → read the outgoing body, eval `modifyRequestBody` over it in the
+ *     request frame, then `continueRequest` the result; a static
  *     `network`-source `response` match → `continueRequest{interceptResponse:true}`
  *     (send the real request, pause again at the Response stage); anything
  *     else → pass-through.
@@ -43,15 +45,18 @@ import type { CdpFetchReaction, CdpResponseReaction } from './cdp-fetch-reaction
 import {
   buildEvalFulfill,
   buildNetworkEvalFulfill,
+  buildRequestBodyEvalContinue,
   cdpResourceTypeToTracked,
   decodeResponseBody,
   mockResponseEvalArg,
   networkResponseEvalArg,
+  requestBodyEvalArg,
   resolveAuthReaction,
   resolveFetchReaction,
   resolveResponseReaction,
   wrapMockResponseFn,
   wrapNetworkResponseFn,
+  wrapRequestBodyFn,
 } from './cdp-fetch-reaction';
 
 export interface CdpFetchInterceptorOptions {
@@ -151,6 +156,11 @@ function handleRequestStage(
     return;
   }
 
+  if (reaction.kind === 'eval-continue') {
+    handleEvalContinue(event, reaction, options, receivedAtMs);
+    return;
+  }
+
   const command =
     reaction.kind === 'fulfill'
       ? requestControlPort.fulfill(target, reaction.response)
@@ -209,6 +219,73 @@ function handleEvalFulfill(
       return requestControlPort
         .continueRequest(target, { requestId: event.requestId })
         .then(() => emitPauseIfMaterial(event, receivedAtMs, 0, reportPause));
+    });
+  answer(settled, event);
+}
+
+/**
+ * Answer a dynamic `request-body` match (D2b-2c): read the outgoing body
+ * (inline `postData` when present, else `getRequestPostData`), eval
+ * `modifyRequestBody` over it in the request frame's isolated world, then
+ * `continueRequest` the rewritten body — the real request goes out transformed,
+ * firing once only after the continue lands. A bodyless request (nothing for
+ * the transform to act on, mirroring the injection wrapper's body-present gate),
+ * a worker request with no frame, a hard body-read failure, or an eval fault
+ * releases the request with its ORIGINAL body (plain `continueRequest`) and does
+ * NOT fire. The whole hold (read + eval) is request-stage debug overhead — no
+ * Response stage, so no two-hop pendingHolds sum.
+ */
+function handleEvalContinue(
+  event: CdpRequestPaused,
+  reaction: Extract<CdpFetchReaction, { kind: 'eval-continue' }>,
+  options: CdpFetchInterceptorOptions,
+  receivedAtMs: number,
+): void {
+  const { requestControlPort, evalPort, reportFire, reportPause } = options;
+  const target: CdpSessionTarget = { tabId: event.tabId, sessionId: event.sessionId };
+  const release = (): Promise<void> =>
+    requestControlPort
+      .continueRequest(target, { requestId: event.requestId })
+      .then(() => emitPauseIfMaterial(event, receivedAtMs, 0, reportPause));
+
+  // No outgoing body ⇒ nothing for `modifyRequestBody` to transform; send
+  // untouched, no fire (faithful to the injection wrapper's body-present gate).
+  const inlineBody = event.request.postData;
+  if (inlineBody === undefined && event.request.hasPostData !== true) {
+    answer(release(), event);
+    return;
+  }
+
+  // No frame ⇒ no isolated world to eval in (worker / OOPIF). Injection never
+  // reached these either, so release the request untouched, no fire.
+  const frameId = event.frameId;
+  if (!frameId) {
+    answer(release(), event);
+    return;
+  }
+
+  const fn = wrapRequestBodyFn(reaction.plan.userCode);
+  // Inline body when CDP carried it on the pause, else read the large/binary
+  // body via `getRequestPostData` (the request-side mirror of `getResponseBody`).
+  const bodyText =
+    inlineBody !== undefined
+      ? Promise.resolve(inlineBody)
+      : requestControlPort.getRequestPostData(target, { requestId: event.requestId }).then((r) => r.postData);
+  const settled = bodyText
+    // A hard body-read failure (request gone / unsupported encoding) → release,
+    // no fire. An inline body never rejects; a resolved empty body still evals.
+    .catch(() => null)
+    .then((body) => {
+      if (body === null) return release();
+      return evalPort.callInIsolatedWorld(target, frameId, fn, requestBodyEvalArg(event, body)).then((outcome) => {
+        if (!outcome.ok) return release();
+        return requestControlPort
+          .continueRequest(target, buildRequestBodyEvalContinue(event.requestId, outcome.value))
+          .then(() => {
+            reportFire(event.tabId, buildFireRecord(event, reaction.ruleUid));
+            emitPauseIfMaterial(event, receivedAtMs, 0, reportPause);
+          });
+      });
     });
   answer(settled, event);
 }

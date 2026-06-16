@@ -219,4 +219,29 @@ describe('createInMemoryRequestControlPort', () => {
       'no resource with given identifier',
     );
   });
+
+  it('records a getRequestPostData call and answers from the scripted FIFO queue (D2b-2c)', async () => {
+    const port = createInMemoryRequestControlPort();
+    port.enqueueRequestPostData({ postData: 'first' });
+    port.enqueueRequestPostData({ postData: 'second' });
+
+    expect(await port.getRequestPostData(TARGET, { requestId: 'p1' })).toEqual({ postData: 'first' });
+    expect(await port.getRequestPostData(TARGET, { requestId: 'p2' })).toEqual({ postData: 'second' });
+    const isRead = (r: RecordedReaction): r is Extract<RecordedReaction, { kind: 'get-request-post-data' }> =>
+      r.kind === 'get-request-post-data';
+    expect(port.reactions.filter(isRead).map((r) => r.request.requestId)).toEqual(['p1', 'p2']);
+  });
+
+  it('defaults an unscripted getRequestPostData to an empty body', async () => {
+    const port = createInMemoryRequestControlPort();
+    expect(await port.getRequestPostData(TARGET, { requestId: 'p3' })).toEqual({ postData: '' });
+  });
+
+  it('rejects a getRequestPostData scripted to fail (the unreadable-body path)', async () => {
+    const port = createInMemoryRequestControlPort();
+    port.rejectNextRequestPostData('Request body has unsupported encoding');
+    await expect(port.getRequestPostData(TARGET, { requestId: 'p4' })).rejects.toThrow(
+      'Request body has unsupported encoding',
+    );
+  });
 });

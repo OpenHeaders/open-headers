@@ -281,6 +281,18 @@ export interface CdpResponseBody {
   readonly base64Encoded: boolean;
 }
 
+/**
+ * The outgoing request body text for a request paused at the Fetch Request
+ * stage (`Fetch.getRequestPostData`). Unlike {@link CdpResponseBody} there is
+ * NO `base64Encoded` flag — the result is the body string returned verbatim;
+ * the read rejects on a non-text / unsupported-encoding body rather than
+ * base64-wrapping it. The input a dynamic `request-body` transform runs over
+ * when the body is too large to ride inline on the pause (D2b-2c).
+ */
+export interface CdpRequestPostData {
+  readonly postData: string;
+}
+
 /** `Fetch.fulfillRequest` params. `body` is base64-encoded (CDP's `body`). */
 export interface CdpFulfillResponse {
   readonly requestId: string;
@@ -322,6 +334,17 @@ export interface CdpGetResponseBody {
   readonly requestId: string;
 }
 
+/**
+ * `Fetch.getRequestPostData` params — the outgoing body for a request paused at
+ * the Fetch Request stage. `requestId` is the live FETCH INTERCEPTION id (the
+ * same key continue / fulfill use). The request-side mirror of {@link
+ * CdpGetResponseBody}: a control-plane read on a paused request, not the
+ * observation-plane network-id read.
+ */
+export interface CdpGetRequestPostData {
+  readonly requestId: string;
+}
+
 /** `Fetch.continueWithAuth`'s `authChallengeResponse` variants. */
 export type CdpAuthChallengeResponse =
   | { readonly response: 'Default' }
@@ -355,4 +378,13 @@ export interface CdpRequestControlPort {
    * then releases the reply untouched.
    */
   getResponseBody(target: CdpSessionTarget, request: CdpGetResponseBody): Promise<CdpResponseBody>;
+  /**
+   * Read the outgoing request body for a request paused at the Request stage
+   * (`Fetch.getRequestPostData`) — the input a dynamic `request-body` transform
+   * runs over when the body is too large to ride inline on the pause (D2b-2c).
+   * Returns the raw `{postData}` (plain text, no base64). Rejects when the body
+   * is unreadable (request gone / unsupported encoding) — the caller then
+   * releases the request with its original body untouched, no fire.
+   */
+  getRequestPostData(target: CdpSessionTarget, request: CdpGetRequestPostData): Promise<CdpRequestPostData>;
 }
