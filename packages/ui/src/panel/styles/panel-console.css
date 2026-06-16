@@ -1,0 +1,141 @@
+/* Console tool window — per-tab console output + uncaught-exception stream. */
+
+.dt-console-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.dt-console-filter-input {
+  flex: 1 1 auto;
+  min-width: 60px;
+  height: 22px;
+  padding: 0 6px;
+  font-size: 11px;
+  color: var(--dt-text);
+  background: var(--dt-input-bg);
+  border: 1px solid var(--dt-input-border);
+  border-radius: 2px;
+  outline: none;
+}
+
+.dt-console-filter-input:focus {
+  border-color: var(--dt-tab-active-border);
+}
+
+.dt-console-clear-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  color: var(--dt-text-muted);
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+.dt-console-clear-btn:hover {
+  background: var(--dt-row-hover);
+  color: var(--dt-text);
+}
+
+.dt-console-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  font-size: 11px;
+}
+
+/* Capture-stopped banner — pinned to the top of the scroll area so it stays
+   visible while the user reads the last-captured entries below it. */
+.dt-console-banner {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 8px;
+  font-size: 11px;
+  color: var(--dt-status-orange);
+  background: color-mix(in srgb, var(--dt-status-orange) 12%, var(--dt-bg));
+  border-bottom: 1px solid var(--dt-border);
+}
+
+.dt-console-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 1px 8px;
+  border-bottom: 1px solid var(--dt-row-zebra);
+}
+
+.dt-console-row:hover {
+  background: var(--dt-row-hover);
+}
+
+.dt-console-dot {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--dt-text-muted);
+}
+
+.dt-console-row[data-level='info'] .dt-console-dot {
+  background: var(--dt-link);
+}
+
+.dt-console-row[data-level='warning'] .dt-console-dot {
+  background: var(--dt-status-orange);
+}
+
+.dt-console-row[data-level='error'] .dt-console-dot {
+  background: var(--dt-status-red);
+}
+
+.dt-console-time {
+  flex: 0 0 auto;
+  color: var(--dt-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.dt-console-msg {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--dt-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dt-console-loc {
+  flex: 0 0 auto;
+  max-width: 40%;
+  color: var(--dt-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: right;
+}
+
+/* Severity tint for problem rows — soft background plus colored message, so
+   errors and warnings read at a glance against the plain log/info rows. */
+.dt-console-row[data-level='warning'] {
+  background: color-mix(in srgb, var(--dt-status-orange) 8%, transparent);
+}
+
+.dt-console-row[data-level='error'] {
+  background: color-mix(in srgb, var(--dt-status-red) 8%, transparent);
+}
+
+.dt-console-row[data-level='error'] .dt-console-msg {
+  color: var(--dt-status-red);
+}

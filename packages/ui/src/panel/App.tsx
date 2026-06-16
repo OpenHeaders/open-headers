@@ -39,6 +39,7 @@ import { VariablePopoverProvider } from '@openheaders/ui/workbench/components/te
 import { EnvSwitcherProvider, useEnvSwitcher } from '@openheaders/ui/workbench/services/env-switcher';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { ConsoleView } from './components/ConsoleView';
 import { PANEL_DEFAULT_SECTION_ID, PANEL_DOC_GROUPS } from './components/docs/registry';
 import { InspectorDetailContent } from './components/InspectorDetailContent';
 import { InspectorEditorGroupRenderer } from './components/InspectorEditorGroupRenderer';
@@ -64,6 +65,7 @@ import type { DetailSection } from './data/inspector-tab';
 import { buildInspectorTab } from './data/inspector-tab';
 import { useParityDebugHook } from './data/parity-debug-hook';
 import { PANEL_TOOL_WINDOW_MAP, type PanelToolWindowId } from './data/tool-windows';
+import { useConsoleClient } from './data/use-console-client';
 import { useFireClient } from './data/use-fire-client';
 import { useInspectorEditorGroups } from './data/use-inspector-editor-groups';
 import { useLifecycleClient } from './data/use-lifecycle-client';
@@ -207,6 +209,11 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   const pageClient = usePageClient();
   const fireClient = useFireClient();
   const resourceTimingClient = useResourceTimingClient();
+  // Console stream lives at the panel root (like the other port clients) so its
+  // buffer + port survive tool-window switches — re-opening the Console tab
+  // replays nothing. Clear is console-local, so it stays out of the panel-wide
+  // `ui.clear()` resettables below.
+  const consoleClient = useConsoleClient();
   const ui = usePanelUiState({
     resettables: useMemo(
       // Lifecycle clears via `clearSession` (local mirror + engine session
@@ -660,6 +667,14 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
               onAnnotationJump={handleAnnotationJump}
             />
           );
+        case 'console':
+          return (
+            <ConsoleView
+              entries={consoleClient.snapshot.entries}
+              onClear={() => consoleClient.store.clear()}
+              onHide={() => tl.toggleWindow('console')}
+            />
+          );
         case 'rules':
           return (
             <RuleExecutions
@@ -704,6 +719,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       data.dangling,
       data.lookupByRequestId,
       data.pages,
+      consoleClient,
       lifecycleClient.source,
       selectedId,
       handleSelect,

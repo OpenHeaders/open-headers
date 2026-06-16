@@ -5,7 +5,14 @@
  * window IDs and their icons/labels/default slots are defined here.
  */
 
-import { AuditOutlined, BookOutlined, GlobalOutlined, SearchOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import {
+  AuditOutlined,
+  BookOutlined,
+  CodeOutlined,
+  GlobalOutlined,
+  SearchOutlined,
+  ThunderboltOutlined,
+} from '@ant-design/icons';
 import type {
   DockSlot,
   DockState as GenericDockState,
@@ -15,7 +22,7 @@ import type {
 } from '@openheaders/ui/shared/dock-layout';
 import { ALL_DOCK_SLOTS, DOCK_LABELS, dockRegion } from '@openheaders/ui/shared/dock-layout';
 
-export type PanelToolWindowId = 'network' | 'rules' | 'search' | 'docs' | 'matched-rules';
+export type PanelToolWindowId = 'network' | 'console' | 'rules' | 'search' | 'docs' | 'matched-rules';
 export type PanelDockSlot = DockSlot;
 export type PanelToolRegion = ToolRegion;
 export type PanelDockState = GenericDockState<PanelToolWindowId>;
@@ -25,6 +32,7 @@ export type PanelToolWindowDef = GenericToolWindowDef<PanelToolWindowId>;
 
 export const PANEL_TOOL_WINDOWS: readonly PanelToolWindowDef[] = [
   { id: 'network', label: 'Network', icon: <GlobalOutlined />, core: true, defaultSlot: 'left-top' },
+  { id: 'console', label: 'Console', icon: <CodeOutlined />, core: false, defaultSlot: 'left-bottom' },
   { id: 'rules', label: 'Rule Activity', icon: <AuditOutlined />, core: false, defaultSlot: 'left-bottom' },
   { id: 'search', label: 'Search', icon: <SearchOutlined />, core: false, defaultSlot: 'left-bottom' },
   { id: 'docs', label: 'Docs', icon: <BookOutlined />, core: false, defaultSlot: 'right-top' },
