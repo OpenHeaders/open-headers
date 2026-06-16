@@ -93,7 +93,7 @@ const Footer: React.FC = () => {
 
       <div>
         <Space size={8} align="center">
-          <DebugModePill tabSource="active" placement="top" />
+          <DebugModePill tabSource="active" placement="top" onOpenDocs={handleOpenDocs} />
           <StatusPill
             className="rules-statusbar-item footer-system-status"
             density="full"

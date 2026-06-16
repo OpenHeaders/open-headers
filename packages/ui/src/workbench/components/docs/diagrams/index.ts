@@ -30,6 +30,12 @@ export {
   DelayWontApplyDiagram,
   DelayXhrDiagram,
 } from './delay';
+export {
+  DebugModeReachDiagram,
+  DebugModeScopeDiagram,
+  DebugModeStatesDiagram,
+  DebugModeSurfaceDiagram,
+} from './debug-mode';
 export { DirectVsIndirectDiagram } from './direct-vs-indirect';
 export { ExecutionDnrReachDiagram, ExecutionScriptReachDiagram, ExecutionStackDiagram } from './execution';
 export {

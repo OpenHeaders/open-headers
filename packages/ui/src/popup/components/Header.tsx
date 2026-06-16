@@ -4,7 +4,7 @@ import { hostNavigation } from '@openheaders/core/navigation';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { useSurface } from '@openheaders/ui/shared/surface';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
-import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
+import { useSetting, useSettingsReady } from '@openheaders/ui/workbench/settings/hooks';
 import { App, Button, Space, Switch, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect } from 'react';
@@ -21,6 +21,7 @@ const Header: React.FC = () => {
   const surface = useSurface();
   const { setHeaderActions } = useKeyboardNav();
   const [isRulesExecutionPaused, setIsRulesExecutionPaused] = useSetting('rulesEngine.paused');
+  const settingsReady = useSettingsReady();
   const openSettingsLabel = usePopupShortcutLabel('open-settings');
   const togglePauseLabel = usePopupShortcutLabel('toggle-rules-pause');
   const toggleSurfaceLabel = usePopupShortcutLabel('toggle-surface');
@@ -115,23 +116,29 @@ const Header: React.FC = () => {
           >
             Rules
           </Text>
-          <Tooltip
-            title={
-              <ShortcutHintTitle label={togglePauseLabel}>
-                {isRulesExecutionPaused
-                  ? 'Resume rules execution'
-                  : 'Pause all rules (preserves individual rule settings)'}
-              </ShortcutHintTitle>
-            }
-          >
-            <Switch
-              size="default"
-              checked={!isRulesExecutionPaused}
-              onChange={handleGlobalRulesToggle}
-              checkedChildren="Active"
-              unCheckedChildren="Paused"
-            />
-          </Tooltip>
+          {/* Mount the switch only after settings hydrate, else it animates from
+              the default on popup re-open; width reserved so the chip can't shift. */}
+          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 64 }}>
+            {settingsReady && (
+              <Tooltip
+                title={
+                  <ShortcutHintTitle label={togglePauseLabel}>
+                    {isRulesExecutionPaused
+                      ? 'Resume rules execution'
+                      : 'Pause all rules (preserves individual rule settings)'}
+                  </ShortcutHintTitle>
+                }
+              >
+                <Switch
+                  size="default"
+                  checked={!isRulesExecutionPaused}
+                  onChange={handleGlobalRulesToggle}
+                  checkedChildren="Active"
+                  unCheckedChildren="Paused"
+                />
+              </Tooltip>
+            )}
+          </span>
         </div>
         <Tooltip title={<ShortcutHintTitle label={toggleSurfaceLabel}>{switchTooltip}</ShortcutHintTitle>}>
           <Button

@@ -19,6 +19,7 @@ export {
   ResponseSection,
 } from './actions';
 export {
+  DebugModeSection,
   ExecutionSection,
   LimitationsSection,
   MultiTabSection,

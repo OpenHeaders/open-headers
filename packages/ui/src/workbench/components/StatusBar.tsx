@@ -100,7 +100,7 @@ const StatusBar: React.FC<StatusBarProps> = ({
       </div>
 
       <div className="rules-statusbar-right">
-        <DebugModePill tabSource="none" />
+        <DebugModePill tabSource="none" onOpenDocs={openDocs} />
         <StatusPill
           density="full"
           label="System status"

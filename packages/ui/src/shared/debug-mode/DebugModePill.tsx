@@ -8,10 +8,11 @@
  * browser" banner on each attached tab — the control's label matches what the
  * user actually sees.
  *
- * The on/off switch lives in the popover title row; scope + pin are shown
- * regardless of on/off, so the user can pick the scope and pin tabs BEFORE
- * enabling. Everything derives from canonical state (settings + the live SW
- * attach snapshot); nothing is cached locally:
+ * The on/off switch sits inline in the footer (right of the dot + label);
+ * the label + dot open the popover for scope + pin + roster, shown regardless
+ * of on/off so the user can pick the scope and pin tabs BEFORE enabling.
+ * Everything derives from canonical state (settings + the live SW attach
+ * snapshot); nothing is cached locally:
  *   - master toggle  → `inspection.cdpEnabled` setting (title row).
  *   - scope dropdown → `inspection.cdpScope` setting.
  *   - attached roster → the live `cdp` Status entry's `context.tabs`, each row
@@ -26,14 +27,14 @@
  * titles, and jump-to-tab all go through host seams, never `chrome.*`.
  */
 
-import { ExportOutlined, PushpinFilled } from '@ant-design/icons';
+import { ExportOutlined, InfoCircleOutlined, PushpinFilled } from '@ant-design/icons';
 import { hostBridge } from '@openheaders/core/bridge';
 import { hasCapability } from '@openheaders/core/capabilities';
 import { hostNavigation } from '@openheaders/core/navigation';
 import type { CdpRosterTab, CdpScopeMode } from '@openheaders/core/types';
 import { readCdpPinnedTabs, readCdpRoster } from '@openheaders/core/types';
-import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
-import { Badge, ConfigProvider, Popover, Select, Switch, Tooltip, Typography, theme } from 'antd';
+import { useSetting, useSettingsReady } from '@openheaders/ui/workbench/settings/hooks';
+import { Badge, Button, ConfigProvider, Popover, Select, Switch, Tooltip, Typography, theme } from 'antd';
 import type { TooltipPlacement } from 'antd/es/tooltip';
 import React, { useEffect, useState } from 'react';
 import { isPeerNavigable, peerNavigate } from '../awareness/peer-navigate';
@@ -46,6 +47,14 @@ import type { StatusEntry } from '../status/types';
  * tab-agnostic, so it shows no pin row.
  */
 export type DebugModeTabSource = 'inspected' | 'active' | 'none';
+
+/**
+ * Docs anchor for the "Debug Mode" reference section. Surfaces that mount
+ * the pill pass this through `onOpenDocs` (workspace `openDocs` hook, or the
+ * popup/sidepanel `#/docs/<id>` route) when the popover's (i) button is
+ * clicked — mirrors `STATUS_DOCS_SECTION_ID` on the System Status pill.
+ */
+export const DEBUG_DOCS_SECTION_ID = 'debug-mode';
 
 const SCOPE_OPTIONS: { label: string; value: CdpScopeMode }[] = [
   { label: 'Where DevTools is open', value: 'devtools' },
@@ -72,12 +81,20 @@ export interface DebugModePillProps {
   className?: string;
   /** Popover placement; footers open upward by default. */
   placement?: TooltipPlacement;
+  /**
+   * If provided, the popover title shows an (i) button that calls this with
+   * `DEBUG_DOCS_SECTION_ID`. Surfaces with a docs panel wire it to their
+   * `openDocs`; popup / sidepanel open `workbench.html#/docs/<id>`. Omit to
+   * hide the button.
+   */
+  onOpenDocs?: (sectionId: string) => void;
 }
 
-export const DebugModePill: React.FC<DebugModePillProps> = ({ tabSource, className, placement = 'top' }) => {
+export const DebugModePill: React.FC<DebugModePillProps> = ({ tabSource, className, placement = 'top', onOpenDocs }) => {
   const { token } = theme.useToken();
   const { snapshot } = useStatus();
   const [enabled, setEnabled] = useSetting('inspection.cdpEnabled');
+  const settingsReady = useSettingsReady();
 
   // Render nothing where the host can't drive the debugging protocol.
   if (!hasCapability('cdpInspection')) return null;
@@ -96,35 +113,49 @@ export const DebugModePill: React.FC<DebugModePillProps> = ({ tabSource, classNa
       <Typography.Text strong style={{ fontSize: 12 }}>
         Debug mode
       </Typography.Text>
-      <Tooltip title={enabled ? 'Turn off deep request inspection' : 'Turn on deep request inspection'}>
-        <Switch
-          checked={enabled}
-          onChange={setEnabled}
-          checkedChildren={<span style={{ fontSize: 11 }}>Enabled</span>}
-          unCheckedChildren={<span style={{ fontSize: 11 }}>Disabled</span>}
-          aria-label="Toggle debug mode"
-        />
-      </Tooltip>
+      {onOpenDocs && (
+        <Tooltip title="About debug mode">
+          <Button
+            type="text"
+            size="small"
+            icon={<InfoCircleOutlined style={{ fontSize: 12 }} />}
+            onClick={() => onOpenDocs(DEBUG_DOCS_SECTION_ID)}
+            aria-label="Open debug mode documentation"
+            style={{ padding: '0 4px', height: 20, minWidth: 'auto' }}
+          />
+        </Tooltip>
+      )}
     </div>
   );
 
   return (
-    <Popover
-      placement={placement}
-      trigger={['click', 'hover']}
-      title={title}
-      content={<DebugModeControls entry={entry} tabSource={tabSource} enabled={enabled} />}
-    >
-      <span
-        className={className ?? 'rules-statusbar-item'}
-        role="button"
-        aria-label="Debug mode controls"
-        style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+      <Popover
+        placement={placement}
+        trigger={['click', 'hover']}
+        title={title}
+        content={<DebugModeControls entry={entry} tabSource={tabSource} enabled={enabled} />}
       >
-        <span className="rules-dot" style={{ background: dotColor }} />
-        Debug mode
+        <span
+          className={className ?? 'rules-statusbar-item'}
+          role="button"
+          aria-label="Debug mode controls"
+          style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+        >
+          <span className="rules-dot" style={{ background: dotColor }} />
+          Debug mode
+        </span>
+      </Popover>
+      {/* Mount the switch only after settings hydrate, else it animates from the
+          default on popup re-open; width reserved so the late mount can't shift. */}
+      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 28 }}>
+        {settingsReady && (
+          <Tooltip title={enabled ? 'Turn off deep request inspection' : 'Turn on deep request inspection'}>
+            <Switch size="small" checked={enabled} onChange={setEnabled} aria-label="Toggle debug mode" />
+          </Tooltip>
+        )}
       </span>
-    </Popover>
+    </span>
   );
 };
 
@@ -188,7 +219,9 @@ const DebugModeControls: React.FC<DebugModeControlsProps> = ({ entry, tabSource,
     // Scale antd controls down to the popover's text size — their default
     // (14px) reads oversized next to the 11px labels.
     <ConfigProvider theme={{ token: { fontSize: 12 } }}>
-      <div style={{ width: 380, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div
+        style={{ width: 'min(380px, calc(100vw - 48px))', display: 'flex', flexDirection: 'column', gap: 10 }}
+      >
         {entry && entry.state !== 'green' && (
           // Surface a fault (e.g. a banner-cancel fall-back, or an attach
           // failure) so the yellow/red dot has an explanation on hover.
