@@ -1,12 +1,13 @@
 /**
  * `deriveTabControlState` — the pure assembly of an in-scope tab's standing CDP
- * control state from its live rules plus the per-tab cache toggle. The
- * load-bearing property: the four planes — network (`fetchPatterns`), delivery
- * (`bootstrapScripts`), CSP-bypass (`bypassCsp`), and cache (`cacheDisabled`) —
- * are INDEPENDENT, so the empty short-circuit gates on ALL FOUR being empty: a
- * tab whose sole contribution is on any one plane (a lone `ws` wrapper's
- * bootstrap, an inject-`bypassCSP`, or just the cache toggle) must not collapse
- * to the EMPTY singleton.
+ * control state from its live rules plus the per-tab cache toggle and throttle
+ * profile. The load-bearing property: the five planes — network
+ * (`fetchPatterns`), delivery (`bootstrapScripts`), CSP-bypass (`bypassCsp`),
+ * cache (`cacheDisabled`), and conditions (`networkConditions`) — are
+ * INDEPENDENT, so the empty short-circuit gates on ALL FIVE being empty: a tab
+ * whose sole contribution is on any one plane (a lone `ws` wrapper's bootstrap,
+ * an inject-`bypassCSP`, the cache toggle, or just a throttle profile) must not
+ * collapse to the EMPTY singleton.
  */
 
 import type { InjectRule, ResponseRule, RuleCondition, WsRule } from '@openheaders/core/types';
@@ -143,6 +144,40 @@ describe('deriveTabControlState', () => {
 
   it('leaves cacheDisabled false on a non-empty state with no cache toggle', () => {
     expect(deriveTabControlState([responseRule()]).cacheDisabled).toBe(false);
+  });
+
+  const slow3g = {
+    offline: false,
+    latencyMs: 2000,
+    downloadThroughputBps: 50000,
+    uploadThroughputBps: 50000,
+  } as const;
+
+  it('carries networkConditions for a throttle-only tab (the fifth-plane early-return trap)', () => {
+    const state = deriveTabControlState([], { networkConditions: slow3g });
+    // No rules + no other control → the four other planes are empty/false.
+    expect(state.fetchPatterns).toEqual([]);
+    expect(state.bootstrapScripts).toEqual([]);
+    expect(state.bypassCsp).toBe(false);
+    expect(state.cacheDisabled).toBe(false);
+    // …yet the tab is NOT the EMPTY singleton: the throttle is its sole plane,
+    // and throttle has NO banner-free fallback, so losing it would be silent.
+    expect(state.networkConditions).toEqual(slow3g);
+    expect(state).not.toBe(EMPTY_TAB_CONTROL_STATE);
+  });
+
+  it('stays EMPTY when networkConditions is null and no rule contributes', () => {
+    expect(deriveTabControlState([], { networkConditions: null })).toBe(EMPTY_TAB_CONTROL_STATE);
+  });
+
+  it('carries networkConditions alongside a non-empty rule-derived state', () => {
+    const state = deriveTabControlState([responseRule()], { networkConditions: slow3g });
+    expect(state.fetchPatterns).toEqual([{ urlPattern: '*://api.openheaders.io/*' }]);
+    expect(state.networkConditions).toEqual(slow3g);
+  });
+
+  it('leaves networkConditions null on a non-empty state with no throttle', () => {
+    expect(deriveTabControlState([responseRule()]).networkConditions).toBeNull();
   });
 
   it('opts into auth-challenge interception only when an auth rule is in scope', () => {

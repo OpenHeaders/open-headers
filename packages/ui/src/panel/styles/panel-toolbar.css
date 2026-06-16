@@ -823,3 +823,49 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* ── Debug controls cluster (Disable cache + network throttle) ───
+ * The Chrome-style pair of debug affordances: a "Disable cache"
+ * checkbox and the throttle dropdown, side by side. Each control
+ * carries a trailing `(i)` info trigger. */
+.dt-debug-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.dt-debug-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+/* Throttle trigger reuses the compact `dt-toolbar-dropdown` look; the
+ * disabled state (tab not in Debug-mode scope) dims it and blocks the
+ * pointer so the wrapping span owns the "available only in Debug mode"
+ * tooltip. */
+.dt-throttle-trigger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.dt-throttle-disabled-wrap {
+  display: inline-flex;
+}
+
+.dt-throttle-custom-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 8px;
+}
+
+.dt-throttle-custom-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}

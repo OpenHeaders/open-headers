@@ -1,5 +1,6 @@
 import { forgetDelayBypassForTab, resolveDelayBypass } from '../dnr-manager';
 import { forgetCacheBypassForTab } from '../modules/cache-bypass';
+import { forgetNetworkConditionsForTab } from '../modules/network-conditions';
 
 declare const browser: typeof chrome | undefined;
 
@@ -27,6 +28,7 @@ export function setupDelayBypassCleanup(): void {
     api.tabs.onRemoved.addListener((tabId: number) => {
       forgetDelayBypassForTab(tabId);
       void forgetCacheBypassForTab(tabId);
+      forgetNetworkConditionsForTab(tabId);
     });
   }
 }

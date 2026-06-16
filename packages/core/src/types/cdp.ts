@@ -56,6 +56,34 @@ export function readCdpRoster(context: Record<string, unknown> | undefined): rea
   return result.success ? result.output : [];
 }
 
+/**
+ * A network-throttle profile carried over the bridge to the service worker's
+ * per-tab throttle store (`setNetworkConditions` RPC). Structurally the wire
+ * twin of the engine's `CdpNetworkConditions` — kept in core so the chrome-free
+ * panel can name the shape without reaching into `@openheaders/oracle`.
+ * Throughputs are bytes/second; `-1` disables a cap. `null` over the wire means
+ * "no throttle" (lift any active emulation).
+ */
+export const networkThrottleConditionsSchema = v.object({
+  offline: v.boolean(),
+  latencyMs: v.number(),
+  downloadThroughputBps: v.number(),
+  uploadThroughputBps: v.number(),
+});
+
+export type NetworkThrottleConditions = v.InferOutput<typeof networkThrottleConditionsSchema>;
+
+/**
+ * Validate an untrusted bridge payload into a {@link NetworkThrottleConditions},
+ * or `null` for the "no throttle" / unparseable case. The SW handler runs this
+ * before storing so a malformed profile can never reach the throttle plane.
+ */
+export function readNetworkThrottleConditions(raw: unknown): NetworkThrottleConditions | null {
+  if (raw == null) return null;
+  const result = v.safeParse(networkThrottleConditionsSchema, raw);
+  return result.success ? result.output : null;
+}
+
 const cdpPinnedTabsSchema = v.array(v.number());
 
 /**

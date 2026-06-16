@@ -69,6 +69,7 @@ import {
   setFallbackPriorityProbe,
   startLiveScheduler,
 } from './modules/live-refresh-scheduler';
+import { rehydrateNetworkConditionsFromSession } from './modules/network-conditions';
 import { reconcileOAuthSchedules, startOAuthScheduler } from './modules/oauth-refresh-scheduler';
 import { hydrateObservabilityLog, recordLog } from './modules/observability-log';
 import { installParityRuleImport } from './modules/parity-rule-import';
@@ -282,6 +283,7 @@ async function initializeExtension(): Promise<void> {
   // rebuildAll so diffs see the pre-sleep baseline rather than empty state.
   await rehydrateObserverFromStorage();
   await rehydrateCacheBypassFromSessionRules();
+  await rehydrateNetworkConditionsFromSession();
   await rehydrateTabTracking();
   let didInitialApply = false;
   if (restoredRules.length > 0) {

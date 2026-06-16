@@ -1,40 +1,46 @@
 /**
  * Compose an in-scope tab's standing {@link CdpTabControlState} from its live
- * rules plus the per-tab cache toggle — the pure assembly `deriveState`
- * (lifecycle-pipeline) runs once a tab is confirmed in scope. The host meeting
- * point: it folds the network plane ({@link compileFetchPatterns} →
+ * rules plus the per-tab cache toggle and throttle profile — the pure assembly
+ * `deriveState` (lifecycle-pipeline) runs once a tab is confirmed in scope. The
+ * host meeting point: it folds the network plane ({@link compileFetchPatterns} →
  * `Fetch.enable`), the delivery plane ({@link compileBootstrapScripts} →
  * `Page.addScriptToEvaluateOnNewDocument`), the CSP-bypass plane (`bypassCsp` →
- * `Page.setBypassCSP`), and the cache plane (`cacheDisabled` →
- * `Network.setCacheDisabled`) into one replayed value.
+ * `Page.setBypassCSP`), the cache plane (`cacheDisabled` →
+ * `Network.setCacheDisabled`), and the conditions plane (`networkConditions` →
+ * `Network.emulateNetworkConditions`) into one replayed value.
  *
- * The four planes are INDEPENDENT: a tab whose only debug rule is a `ws`
+ * The five planes are INDEPENDENT: a tab whose only debug rule is a `ws`
  * wrapper has no Fetch patterns but DOES carry a bootstrap script; a tab whose
  * only rule is an unrestricted `response` carries the reverse; an
  * inject-`bypassCSP` rule is page-DOM, so it contributes to NEITHER yet still
- * needs `bypassCsp`; and a tab whose sole CDP state is the cache toggle has all
- * three rule-derived planes empty yet still needs `cacheDisabled`. Unlike the
- * other three, the cache plane is NOT rule-derived — it is the per-tab "disable
- * cache" toggle (the DNR cache-bypass module's intent), threaded in as an
- * option. So the empty-state short-circuit gates on ALL FOUR being empty —
- * never on a subset, which would discard a tab whose sole contribution is on a
- * plane the guard forgot.
+ * needs `bypassCsp`; a tab whose sole CDP state is the cache toggle has all
+ * three rule-derived planes empty yet still needs `cacheDisabled`; and a tab
+ * whose sole state is a throttle profile has all FOUR of those empty yet still
+ * needs `networkConditions`. Unlike the rule-derived planes, cache and
+ * conditions are per-tab panel controls threaded in as options. So the
+ * empty-state short-circuit gates on ALL FIVE being empty — never on a subset,
+ * which would discard a tab whose sole contribution is on a plane the guard
+ * forgot.
  */
 
 import type { Rule } from '@openheaders/core/types';
-import { type CdpTabControlState, EMPTY_TAB_CONTROL_STATE } from '@openheaders/oracle/correlator-cdp';
+import {
+  type CdpNetworkConditions,
+  type CdpTabControlState,
+  EMPTY_TAB_CONTROL_STATE,
+} from '@openheaders/oracle/correlator-cdp';
 import { compileBootstrapScripts } from './cdp-bootstrap-scripts';
 import { compileFetchPatterns } from './cdp-fetch-patterns';
 
 /**
- * The standing CDP control state for an in-scope tab with these live rules and
- * cache toggle. Returns {@link EMPTY_TAB_CONTROL_STATE} only when the tab
- * contributes nothing on any plane — no Fetch pattern, no bootstrap script, no
- * CSP bypass, and no cache disable.
+ * The standing CDP control state for an in-scope tab with these live rules,
+ * cache toggle, and throttle profile. Returns {@link EMPTY_TAB_CONTROL_STATE}
+ * only when the tab contributes nothing on any plane — no Fetch pattern, no
+ * bootstrap script, no CSP bypass, no cache disable, and no throttle.
  */
 export function deriveTabControlState(
   rules: readonly Rule[],
-  options: { readonly cacheDisabled?: boolean } = {},
+  options: { readonly cacheDisabled?: boolean; readonly networkConditions?: CdpNetworkConditions | null } = {},
 ): CdpTabControlState {
   const fetchPatterns = compileFetchPatterns(rules);
   const bootstrapScripts = compileBootstrapScripts(rules);
@@ -44,11 +50,22 @@ export function deriveTabControlState(
   // `Page.setBypassCSP`. Derived from the same flag the DNR CSP-strip gates on,
   // so CSP drops at the engine level only when a rule explicitly asks.
   const bypassCsp = rules.some((rule) => rule.type === 'inject' && rule.action.bypassCSP === true);
-  // Cache disable is a FOURTH independent plane — and the only one not
-  // rule-derived: the per-tab "disable cache" toggle, threaded in so it joins
-  // the all-empty guard (a cache-only tab has the three rule planes empty).
+  // Cache disable is a FOURTH independent plane — not rule-derived: the per-tab
+  // "disable cache" toggle, threaded in so it joins the all-empty guard (a
+  // cache-only tab has the three rule planes empty).
   const cacheDisabled = options.cacheDisabled === true;
-  if (fetchPatterns.length === 0 && bootstrapScripts.length === 0 && !bypassCsp && !cacheDisabled) {
+  // Network conditions is a FIFTH independent plane — also not rule-derived: the
+  // per-tab throttle profile. It has NO banner-free fallback (unlike cache's DNR
+  // path), so a throttle-only tab must not collapse to EMPTY or its profile is
+  // silently lost. `null` = no throttle.
+  const networkConditions = options.networkConditions ?? null;
+  if (
+    fetchPatterns.length === 0 &&
+    bootstrapScripts.length === 0 &&
+    !bypassCsp &&
+    !cacheDisabled &&
+    networkConditions === null
+  ) {
     return EMPTY_TAB_CONTROL_STATE;
   }
   // Opt into auth-challenge interception only when an auth rule is actually in
@@ -62,5 +79,6 @@ export function deriveTabControlState(
     bootstrapScripts,
     bypassCsp,
     cacheDisabled,
+    networkConditions,
   };
 }

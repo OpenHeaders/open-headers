@@ -21,6 +21,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { FilterConfig } from '../data/filter-engine';
 import { PANEL_TOOL_WINDOW_MAP, type PanelToolWindowId } from '../data/tool-windows';
 import type { PanelViewState } from '../data/use-panel-tool-layout';
+import { DebugControlsCluster } from './DebugControlsCluster';
 import { PanelWorkspaceSelector } from './PanelWorkspaceSelector';
 import { RuleExecutionsHint } from './RuleExecutions';
 import { ToolbarMenuPopover } from './ToolbarMenuPopover';
@@ -92,13 +93,9 @@ function IconDownload() {
 function MoreFiltersMenu({
   filterConfig,
   onFilterConfigChange,
-  cacheBypassEnabled,
-  onToggleCacheBypass,
 }: {
   filterConfig: FilterConfig;
   onFilterConfigChange: (cfg: FilterConfig) => void;
-  cacheBypassEnabled: boolean;
-  onToggleCacheBypass: () => void;
 }) {
   const thirdPartyReady = filterConfig.pageOrigin != null;
   const flags = [
@@ -106,7 +103,6 @@ function MoreFiltersMenu({
     filterConfig.hideExtensionUrls,
     filterConfig.onlyBlockedRequests,
     filterConfig.onlyThirdParty,
-    cacheBypassEnabled,
   ];
   const activeCount = flags.reduce((n, v) => n + (v ? 1 : 0), 0);
   const active = activeCount > 0;
@@ -153,16 +149,6 @@ function MoreFiltersMenu({
         3rd-party requests
       </label>
       <div className="dt-morefilters-divider" />
-      {/* Debugging tools — non-filter toggles that affect how requests
-          are fetched rather than how they're displayed. */}
-      <label
-        className="dt-morefilters-item"
-        title="Adds Cache-Control: no-cache to every request on this tab, forcing revalidation with the server. Only bypasses the HTTP cache — Chrome's own Disable Cache (in the Network tab) additionally bypasses the renderer memory cache. Rule-matched requests stay fresh automatically via Live Rules Mode."
-      >
-        <input type="checkbox" checked={cacheBypassEnabled} onChange={onToggleCacheBypass} />
-        Bypass HTTP Cache
-      </label>
-      <div className="dt-morefilters-divider" />
       <button
         type="button"
         className="dt-morefilters-reset"
@@ -175,7 +161,6 @@ function MoreFiltersMenu({
             onlyBlockedRequests: false,
             onlyThirdParty: false,
           });
-          if (cacheBypassEnabled) onToggleCacheBypass();
         }}
       >
         Reset to default
@@ -373,9 +358,9 @@ export interface PanelToolbarProps {
   onExportHar: (sanitize?: boolean) => void;
   onCopyAllHar: (sanitize?: boolean) => void;
   canExport: boolean;
-  /** "Bypass HTTP Cache" toggle — lives inside the More-filters
-   *  overflow dropdown. DNR-backed, scoped to the inspected tab.
-   *  See `use-cache-bypass.ts` for lifecycle. */
+  /** "Disable cache" toggle — a first-class toolbar control beside the
+   *  throttle dropdown (the debug-controls cluster). DNR-backed in standard
+   *  mode, whole-tab CDP in Debug mode. See `use-cache-bypass.ts`. */
   cacheBypassEnabled: boolean;
   onToggleCacheBypass: () => void;
   /** Whether the activity bar renders labels. When false, the brand
@@ -610,12 +595,8 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
             <input type="checkbox" checked={preserveLog} onChange={(e) => onPreserveLogChange(e.target.checked)} />
             Preserve log
           </label>
-          <MoreFiltersMenu
-            filterConfig={filterConfig}
-            onFilterConfigChange={onFilterConfigChange}
-            cacheBypassEnabled={cacheBypassEnabled}
-            onToggleCacheBypass={onToggleCacheBypass}
-          />
+          <DebugControlsCluster cacheBypassEnabled={cacheBypassEnabled} onToggleCacheBypass={onToggleCacheBypass} />
+          <MoreFiltersMenu filterConfig={filterConfig} onFilterConfigChange={onFilterConfigChange} />
           <ViewMenu />
           <div className="dt-toolbar-separator" />
           <ExportMenu onExport={onExportHar} onCopy={onCopyAllHar} disabled={!canExport} />

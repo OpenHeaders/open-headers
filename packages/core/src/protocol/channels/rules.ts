@@ -8,6 +8,7 @@ import type {
   ActiveRule,
   Collection,
   CollectionTree,
+  NetworkThrottleConditions,
   PerfResourceEntry,
   Rule,
   RuleDraft,
@@ -32,6 +33,14 @@ export interface RuleRpc {
   setCacheBypass: {
     req: { tabId: number; enabled: boolean };
     res: { success: boolean; error?: string };
+  };
+  setNetworkConditions: {
+    req: { tabId: number; conditions: NetworkThrottleConditions | null };
+    res: { success: boolean; error?: string };
+  };
+  getNetworkConditions: {
+    req: { tabId: number };
+    res: { conditions: NetworkThrottleConditions | null };
   };
   setCdpTabPin: {
     req: { tabId: number; pinned: boolean };

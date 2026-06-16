@@ -1,6 +1,6 @@
-/** Rule + rule-collection/folder CRUD, drafts, and cache-bypass RPCs. */
+/** Rule + rule-collection/folder CRUD, drafts, cache-bypass, and throttle RPCs. */
 
-import type { TreeNode } from '@openheaders/core/types';
+import { readNetworkThrottleConditions, type TreeNode } from '@openheaders/core/types';
 import { createRuleDraft, takeRuleDraft } from '@openheaders/oracle/entity/rule-draft-store';
 import {
   createCollection,
@@ -18,6 +18,7 @@ import {
 import { pruneOrphanOwners } from '@openheaders/oracle/test-run/test-run-store';
 import { disableCacheBypassForTab, enableCacheBypassForTab } from '../../cache-bypass';
 import { setCdpTabPin } from '../../cdp-tab-pin';
+import { getNetworkConditionsForTab, setNetworkConditionsForTab } from '../../network-conditions';
 import type { HandlerMap } from '../types';
 
 /** Sweep test-run owners whose rule/collection/folder no longer exists. */
@@ -82,6 +83,20 @@ export const ruleHandlers: HandlerMap = {
       .then(() => respond({ success: true }))
       .catch((err: Error) => respond({ success: false, error: err.message }));
     return true;
+  },
+
+  setNetworkConditions: ({ message, respond }) => {
+    const tabId = message.tabId as number;
+    // Validate the untrusted payload before it reaches the throttle plane —
+    // an unparseable / absent profile clears any active throttle.
+    const conditions = readNetworkThrottleConditions(message.conditions);
+    setNetworkConditionsForTab(tabId, conditions);
+    respond({ success: true });
+  },
+
+  getNetworkConditions: ({ message, respond }) => {
+    const tabId = message.tabId as number;
+    respond({ conditions: getNetworkConditionsForTab(tabId) });
   },
 
   setCdpTabPin: ({ message, respond }) => {
