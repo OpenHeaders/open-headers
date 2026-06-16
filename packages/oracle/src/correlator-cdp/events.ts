@@ -46,7 +46,7 @@
  * (Slice 2).
  */
 
-import type { CdpHeaderEntry } from './control-port';
+import type { CdpHeaderEntry, CdpResponseBody } from './control-port';
 import type { CdpPageEvent } from './page-events';
 
 export interface CdpRequestParams {
@@ -545,12 +545,6 @@ export type CdpNetworkEvent =
  */
 export function cdpStoreRequestId(sessionId: string, requestId: string): string {
   return `${sessionId}::${requestId}`;
-}
-
-/** Result of `Network.getResponseBody` — body text + its encoding flag. */
-export interface CdpResponseBody {
-  readonly body: string;
-  readonly base64Encoded: boolean;
 }
 
 /**

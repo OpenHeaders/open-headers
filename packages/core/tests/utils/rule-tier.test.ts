@@ -148,9 +148,11 @@ describe('isDebugTierRule', () => {
 
 describe('isFetchRealizableNow', () => {
   // Realizable = debug-tier AND a reaction the host can run at the network
-  // layer now: every static reaction, plus `mock`+dynamic (D2b-2a evals
-  // buildResponse in the request frame). The dormant badge/notice gate on this
-  // so they never promise an effect arming can't yet deliver.
+  // layer now: every static reaction, plus both `response` dynamic cells
+  // (D2b-2a evals buildResponse at the request stage, D2b-2b evals
+  // modifyResponse over the real reply at the Response stage). The dormant
+  // badge/notice gate on this so they never promise an effect arming can't
+  // yet deliver.
 
   it('static debug-tier mock is realizable now', () => {
     expect(isFetchRealizableNow({ ...base, type: 'response', conditions: [hostCondition], action: mockAction })).toBe(
@@ -182,7 +184,7 @@ describe('isFetchRealizableNow', () => {
     ).toBe(true);
   });
 
-  it('dynamic network-source response is NOT realizable now (host can not eval the modify yet)', () => {
+  it('dynamic network-source response IS realizable now (host evals modifyResponse over the real reply, D2b-2b)', () => {
     expect(
       isFetchRealizableNow({
         ...base,
@@ -190,7 +192,7 @@ describe('isFetchRealizableNow', () => {
         conditions: [hostCondition],
         action: { ...networkAction, bodyType: 'dynamic' },
       }),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it('static mock confined to xhr is NOT realizable now (not debug-tier — injection already covers it)', () => {

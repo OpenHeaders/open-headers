@@ -14,27 +14,30 @@
  *     the request frame, then fulfills — D2b-2a); a static `request-body`
  *     becomes a request-body rewrite (the page-context wrapper does the same —
  *     it replaces the outgoing fetch/XHR body, not the server's response); a
- *     static `network`-source `response` becomes an `await-response` continue
- *     (`interceptResponse:true`) that sends the real request and re-pauses at
- *     the Response stage. Its response-header conditions are DEFERRED to that
- *     stage (the real reply's headers don't exist yet).
+ *     `network`-source `response` (static OR dynamic body) becomes an
+ *     `await-response` continue (`interceptResponse:true`) that sends the real
+ *     request and re-pauses at the Response stage. Its response-header
+ *     conditions are DEFERRED to that stage (the real reply's headers don't
+ *     exist yet).
  *   - {@link resolveResponseReaction} — RESPONSE stage, reached only for an
  *     `await-response` request. Re-matches (now evaluating response-header
- *     conditions against the real reply) and fulfills with the rule's static
- *     body, the real status (or the override), and the real headers with the
- *     CT / response-header overrides layered on — mirroring the injection
- *     path's `new Response(cfg.body, { status, headers })`.
+ *     conditions against the real reply) and either fulfills with the rule's
+ *     static body (mirroring `new Response(cfg.body, { status, headers })`) or,
+ *     for a DYNAMIC body, yields an `eval-response-fulfill` plan — the
+ *     interceptor reads the real reply (`getResponseBody`), evals
+ *     `modifyResponse` over it, then fulfills the result (D2b-2b). Either way
+ *     over the real status (or the override) and the merged headers.
  *
  * Falls through to pass-through for:
- *   - `network`+dynamic `response` and dynamic `request-body` (their bodies are
- *     user JS the host can't eval at the network layer yet — D2b-2b/c);
+ *   - dynamic `request-body` (its body is user JS the host can't eval at the
+ *     network layer yet — D2b-2c);
  *   - a rule carrying a condition no stage can evaluate (initiator-domains,
  *     domain-type) — enforcing it via injection's own page gate is correct,
  *     over-applying via Fetch is not.
  * `isFetchRealizableNow` is the single gate for the not-yet-realizable dynamic
- * cells; it returns false for them, so they never reach a fulfill branch. A
+ * cell; it returns false for it, so it never reaches a fulfill branch. A
  * passed-through rule still runs its page-context injection path; only its
- * extended all-context reach is unavailable until D2b-2b/c adds the rest of
+ * extended all-context reach is unavailable until D2b-2c adds the last of
  * the host eval mechanism.
  */
 
@@ -59,6 +62,7 @@ import type {
   CdpFulfillResponse,
   CdpHeaderEntry,
   CdpRequestPaused,
+  CdpResponseBody,
 } from '@openheaders/oracle/correlator-cdp';
 
 /**
@@ -69,6 +73,23 @@ import type {
  * returned body under this envelope. No network is touched (mock).
  */
 export interface CdpResponseEvalPlan {
+  readonly userCode: string;
+  readonly statusCode: number;
+  readonly contentType: string;
+  readonly responseHeaders: Readonly<Record<string, string>>;
+}
+
+/**
+ * A `network`+dynamic `response` match (D2b-2b): the user code plus the
+ * override envelope, carried from the Response stage where the real reply
+ * exists. Structurally like {@link CdpResponseEvalPlan} but the envelope
+ * semantics are the `network` ones — `statusCode === 0` keeps the real status,
+ * `contentType === ''` keeps the real Content-Type (mock bakes in 200 / JSON).
+ * The interceptor reads the real body (`getResponseBody`), evals `modifyResponse`
+ * over it in the request frame, then fulfills the result under this envelope
+ * merged onto the real headers.
+ */
+export interface CdpNetworkEvalPlan {
   readonly userCode: string;
   readonly statusCode: number;
   readonly contentType: string;
@@ -92,6 +113,10 @@ export type CdpFetchReaction =
 /** The answer the interceptor gives a paused request at the RESPONSE stage. */
 export type CdpResponseReaction =
   | { readonly kind: 'fulfill'; readonly ruleUid: string; readonly response: CdpFulfillResponse }
+  // A `network`+dynamic body: the interceptor reads the real reply, evals
+  // `modifyResponse` over it, then fulfills. The fire is DEFERRED to that
+  // fulfill — an eval / body-read fault releases the real reply and never fires.
+  | { readonly kind: 'eval-response-fulfill'; readonly ruleUid: string; readonly plan: CdpNetworkEvalPlan }
   | { readonly kind: 'pass-through' };
 
 /**
@@ -251,6 +276,11 @@ export function resolveResponseReaction(event: CdpRequestPaused, rules: readonly
     if (!isFetchRealizableNow(rule)) continue;
     if (!graphqlGate(rule.action, postData)) continue;
     if (!responseStageMatches(rule, ctx, responseHeaders)) continue;
+    // A `network`+dynamic body is `modifyResponse` user JS over the real reply
+    // — defer to the interceptor's body-read + eval (D2b-2b).
+    if (rule.action.bodyType === 'dynamic') {
+      return { kind: 'eval-response-fulfill', ruleUid: rule.uid, plan: buildNetworkEvalPlan(rule.action) };
+    }
     return { kind: 'fulfill', ruleUid: rule.uid, response: buildNetworkFulfill(event, rule.action) };
   }
   return { kind: 'pass-through' };
@@ -431,6 +461,19 @@ function buildResponseEvalPlan(action: ResponseAction): CdpResponseEvalPlan {
   };
 }
 
+/** The override envelope for a `network`+dynamic rule — the raw action fields
+ *  (no mock defaults): `statusCode === 0` keeps the real status, an empty
+ *  `contentType` keeps the real CT, exactly as the static network path reads
+ *  them. The `userCode` is the `modifyResponse` body. */
+function buildNetworkEvalPlan(action: ResponseAction): CdpNetworkEvalPlan {
+  return {
+    userCode: action.responseBody,
+    statusCode: action.statusCode,
+    contentType: action.contentType,
+    responseHeaders: action.responseHeaders,
+  };
+}
+
 /**
  * Wrap a `mock`+dynamic rule's user code into a function declaration that
  * defines `buildResponse`, calls it over the request arg, and returns the body
@@ -445,11 +488,61 @@ return typeof __oh === 'object' ? JSON.stringify(__oh) : String(__oh);
 }`;
 }
 
+/**
+ * Wrap a `network`+dynamic rule's user code into a function declaration that
+ * defines `modifyResponse`, calls it over the modifyArgs arg, and returns the
+ * body stringified IN the isolated world — byte-identical to the injection
+ * path's realm-local `typeof o === 'object' ? JSON.stringify : String`.
+ */
+export function wrapNetworkResponseFn(userCode: string): string {
+  return `function(arg){
+${userCode}
+var __oh = modifyResponse(arg);
+return typeof __oh === 'object' ? JSON.stringify(__oh) : String(__oh);
+}`;
+}
+
 /** The `{method,url,requestBody}` a `mock`+dynamic `buildResponse` receives,
  *  sourced from the paused request (the injection path reads the same fields
  *  off the live fetch/XHR). `postData` is the request body text. */
 export function mockResponseEvalArg(event: CdpRequestPaused): CdpEvalArg {
   return { method: event.request.method, url: event.request.url, requestBody: event.request.postData ?? '' };
+}
+
+/**
+ * The `modifyArgs` a `network`+dynamic `modifyResponse` receives — faithful to
+ * the injection path's `dynamicNetworkResponse` shape, sourced from the paused
+ * request + the real reply: `response` is the decoded real body, `responseType`
+ * the real reply's Content-Type, `requestHeaders` the real outgoing headers
+ * (strictly more faithful than injection's XHR `{}`), `requestData` the outgoing
+ * body, `responseJSON` the body parsed (guarded → null). Built host-side and
+ * passed by value, like {@link mockResponseEvalArg}.
+ */
+export function networkResponseEvalArg(event: CdpRequestPaused, responseBodyText: string): CdpEvalArg {
+  return {
+    method: event.request.method,
+    url: event.request.url,
+    response: responseBodyText,
+    responseType: responseContentType(event.responseHeaders ?? []),
+    requestHeaders: event.request.headers ?? {},
+    requestData: event.request.postData ?? null,
+    responseJSON: parseJsonOrNull(responseBodyText),
+  };
+}
+
+/** The real reply's Content-Type (case-insensitive), or '' when absent. */
+function responseContentType(headers: readonly CdpHeaderEntry[]): string {
+  return headers.find((h) => h.name.toLowerCase() === 'content-type')?.value ?? '';
+}
+
+/** Parse JSON, or null on any failure — the guarded parse the injection path
+ *  runs in-realm, done host-side here (deterministic, same result). */
+function parseJsonOrNull(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
 }
 
 /** Fulfill a `mock`+dynamic match with the eval's returned body under the
@@ -467,6 +560,16 @@ function buildRequestBodyRewrite(requestId: string, action: RequestBodyAction): 
   return { requestId, postData: toBase64(action.requestBody) };
 }
 
+/** The `network`-source override envelope shared by the static and dynamic
+ *  fulfills — `statusCode === 0` keeps the real status, `contentType === ''`
+ *  keeps the real CT. Both {@link ResponseAction} and {@link CdpNetworkEvalPlan}
+ *  satisfy it structurally. */
+interface NetworkFulfillEnvelope {
+  readonly statusCode: number;
+  readonly contentType: string;
+  readonly responseHeaders: Readonly<Record<string, string>>;
+}
+
 /**
  * Fulfill an intercepted real reply for a `network`-source static rule: the
  * rule's literal body (the real bytes are discarded, mirroring the injection
@@ -475,24 +578,51 @@ function buildRequestBodyRewrite(requestId: string, action: RequestBodyAction): 
  * response-header overrides layered on.
  */
 function buildNetworkFulfill(event: CdpRequestPaused, action: ResponseAction): CdpFulfillResponse {
-  const responseCode = action.statusCode !== 0 ? action.statusCode : (event.responseStatusCode ?? 200);
+  return assembleNetworkFulfill(event, action, action.responseBody);
+}
+
+/**
+ * Fulfill an intercepted real reply for a `network`+dynamic rule with the
+ * eval's transformed body (D2b-2b) under the plan's override envelope merged
+ * onto the real status / headers — the same assembly as the static path, only
+ * the body differs (the eval result, not the rule literal).
+ */
+export function buildNetworkEvalFulfill(
+  event: CdpRequestPaused,
+  plan: CdpNetworkEvalPlan,
+  evalBody: string,
+): CdpFulfillResponse {
+  return assembleNetworkFulfill(event, plan, evalBody);
+}
+
+/** Real status (unless overridden), merged headers, and `body` — the shared
+ *  core of every `network`-source fulfill. */
+function assembleNetworkFulfill(
+  event: CdpRequestPaused,
+  envelope: NetworkFulfillEnvelope,
+  body: string,
+): CdpFulfillResponse {
+  const responseCode = envelope.statusCode !== 0 ? envelope.statusCode : (event.responseStatusCode ?? 200);
   const fulfill: CdpFulfillResponse = {
     requestId: event.requestId,
     responseCode,
-    responseHeaders: mergeNetworkHeaders(event.responseHeaders ?? [], action),
-    body: toBase64(action.responseBody),
+    responseHeaders: mergeNetworkHeaders(event.responseHeaders ?? [], envelope.contentType, envelope.responseHeaders),
+    body: toBase64(body),
   };
   // Keep the real status phrase (the injection path keeps `real.statusText`).
   return event.responseStatusText ? { ...fulfill, responsePhrase: event.responseStatusText } : fulfill;
 }
 
-/** Real reply headers minus body-framing, with the rule's CT / response-header
+/** Real reply headers minus body-framing, with the CT / response-header
  *  overrides replacing any same-named entries (an empty CT is no override). */
-function mergeNetworkHeaders(real: readonly CdpHeaderEntry[], action: ResponseAction): CdpHeaderEntry[] {
+function mergeNetworkHeaders(
+  real: readonly CdpHeaderEntry[],
+  contentType: string,
+  responseHeaders: Readonly<Record<string, string>>,
+): CdpHeaderEntry[] {
   const overrides = new Map<string, CdpHeaderEntry>();
-  if (action.contentType) overrides.set('content-type', { name: 'Content-Type', value: action.contentType });
-  for (const [name, value] of Object.entries(action.responseHeaders))
-    overrides.set(name.toLowerCase(), { name, value });
+  if (contentType) overrides.set('content-type', { name: 'Content-Type', value: contentType });
+  for (const [name, value] of Object.entries(responseHeaders)) overrides.set(name.toLowerCase(), { name, value });
 
   const out: CdpHeaderEntry[] = [];
   for (const h of real) {
@@ -518,4 +648,15 @@ function toBase64(text: string): string {
   let binary = '';
   for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]!);
   return btoa(binary);
+}
+
+/** A `getResponseBody` result → UTF-8 text — the real body the `modifyResponse`
+ *  eval runs over. `base64Encoded` bodies (binary / non-UTF-8) are decoded; a
+ *  plain-text body is returned verbatim. */
+export function decodeResponseBody(body: CdpResponseBody): string {
+  if (!body.base64Encoded) return body.body;
+  const binary = atob(body.body);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new TextDecoder('utf-8').decode(bytes);
 }

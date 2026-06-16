@@ -12,13 +12,17 @@ import { describe, expect, it } from 'vitest';
 
 import {
   buildEvalFulfill,
+  buildNetworkEvalFulfill,
   cdpResourceTypeToCondition,
   cdpResourceTypeToTracked,
+  decodeResponseBody,
   mockResponseEvalArg,
+  networkResponseEvalArg,
   resolveAuthReaction,
   resolveFetchReaction,
   resolveResponseReaction,
   wrapMockResponseFn,
+  wrapNetworkResponseFn,
 } from '@/background/correlator-host/cdp-fetch-reaction';
 
 const ruleBase = {
@@ -168,11 +172,13 @@ describe('resolveFetchReaction', () => {
     expect(reaction.kind).toBe('await-response');
   });
 
-  it('passes through a network-source DYNAMIC response (host cannot eval the body yet)', () => {
+  it('sends a network-source DYNAMIC response to the Response stage too (D2b-2b)', () => {
     const reaction = resolveFetchReaction(paused(), [
       mock([domain('api.openheaders.io')], { responseSource: 'network', bodyType: 'dynamic' }),
     ]);
-    expect(reaction.kind).toBe('pass-through');
+    expect(reaction.kind).toBe('await-response');
+    if (reaction.kind !== 'await-response') return;
+    expect(reaction.request).toEqual({ requestId: 'i1', interceptResponse: true });
   });
 
   it('rewrites the request body for a static request-body rule', () => {
@@ -333,11 +339,35 @@ describe('resolveResponseReaction', () => {
     expect(resolveResponseReaction(respPaused(), [mock([domain('api.openheaders.io')])]).kind).toBe('pass-through');
   });
 
-  it('passes through a network-source dynamic rule (not realizable yet)', () => {
+  it('yields an eval-response-fulfill plan for a network+dynamic rule (D2b-2b)', () => {
     const reaction = resolveResponseReaction(respPaused(), [
-      networkMock([domain('api.openheaders.io')], { bodyType: 'dynamic' }),
+      networkMock([domain('api.openheaders.io')], {
+        bodyType: 'dynamic',
+        responseBody: 'function modifyResponse(a){return a.response;}',
+        statusCode: 0,
+        contentType: '',
+        responseHeaders: { 'X-Mod': 'yes' },
+      }),
     ]);
-    expect(reaction.kind).toBe('pass-through');
+    expect(reaction.kind).toBe('eval-response-fulfill');
+    if (reaction.kind !== 'eval-response-fulfill') return;
+    expect(reaction.ruleUid).toBe('r1');
+    expect(reaction.plan.userCode).toBe('function modifyResponse(a){return a.response;}');
+    // Network envelope: no mock defaults — 0 keeps the real status, '' keeps CT.
+    expect(reaction.plan.statusCode).toBe(0);
+    expect(reaction.plan.contentType).toBe('');
+    expect(reaction.plan.responseHeaders).toEqual({ 'X-Mod': 'yes' });
+  });
+
+  it('still evaluates response-header conditions for a network+dynamic rule', () => {
+    const rule = networkMock(
+      [domain('api.openheaders.io'), { uid: 'c2', type: 'response-header', headerName: 'X-Origin', values: ['real'] }],
+      { bodyType: 'dynamic' },
+    );
+    expect(resolveResponseReaction(respPaused(), [rule]).kind).toBe('eval-response-fulfill');
+    expect(
+      resolveResponseReaction(respPaused({ responseHeaders: [{ name: 'X-Origin', value: 'cache' }] }), [rule]).kind,
+    ).toBe('pass-through');
   });
 });
 
@@ -470,5 +500,101 @@ describe('mock+dynamic eval helpers (D2b-2a)', () => {
       { name: 'X-Mock', value: 'yes' },
     ]);
     expect(atob(fulfill.body ?? '')).toBe('{"ok":1}');
+  });
+});
+
+describe('network+dynamic eval helpers (D2b-2b)', () => {
+  const utf8B64 = (s: string): string => btoa(String.fromCharCode(...new TextEncoder().encode(s)));
+
+  const respWithBody = (overrides: Partial<CdpRequestPaused> = {}): CdpRequestPaused =>
+    paused({
+      responseStatusCode: 200,
+      responseStatusText: 'OK',
+      responseHeaders: [
+        { name: 'Content-Type', value: 'application/json' },
+        { name: 'Content-Length', value: '5' },
+        { name: 'X-Origin', value: 'real' },
+      ],
+      ...overrides,
+    });
+
+  it('networkResponseEvalArg builds the faithful modifyArgs from the request + real reply', () => {
+    const event = paused({
+      request: {
+        url: 'https://api.openheaders.io/u',
+        method: 'POST',
+        postData: '{"q":1}',
+        headers: { 'X-Token': 'abc' },
+      },
+      responseHeaders: [{ name: 'Content-Type', value: 'application/json' }],
+    });
+    expect(networkResponseEvalArg(event, '{"id":7}')).toEqual({
+      method: 'POST',
+      url: 'https://api.openheaders.io/u',
+      response: '{"id":7}',
+      responseType: 'application/json',
+      requestHeaders: { 'X-Token': 'abc' },
+      requestData: '{"q":1}',
+      responseJSON: { id: 7 },
+    });
+  });
+
+  it('networkResponseEvalArg reads responseType case-insensitively from the real headers', () => {
+    const arg = networkResponseEvalArg(paused({ responseHeaders: [{ name: 'content-type', value: 'text/html' }] }), '');
+    expect(arg.responseType).toBe('text/html');
+  });
+
+  it('networkResponseEvalArg guards responseJSON to null and defaults absent request fields', () => {
+    const arg = networkResponseEvalArg(paused(), 'not json');
+    expect(arg.responseJSON).toBeNull();
+    expect(arg.requestData).toBeNull();
+    expect(arg.requestHeaders).toEqual({});
+  });
+
+  it('wrapNetworkResponseFn defines modifyResponse, calls it, and JSON-stringifies an object result in-realm', () => {
+    const decl = wrapNetworkResponseFn('function modifyResponse(a){ return { echoed: a.response }; }');
+    const fn = new Function(`return (${decl})`)() as (arg: unknown) => string;
+    expect(fn({ response: 'hi' })).toBe('{"echoed":"hi"}');
+  });
+
+  it('wrapNetworkResponseFn String()-coerces a non-object result (matching the injection path)', () => {
+    const decl = wrapNetworkResponseFn('function modifyResponse(a){ return a.response.toUpperCase(); }');
+    const fn = new Function(`return (${decl})`)() as (arg: unknown) => string;
+    expect(fn({ response: 'hi' })).toBe('HI');
+  });
+
+  it('buildNetworkEvalFulfill lays the eval body over the real status/headers (status 0 keeps real)', () => {
+    const fulfill = buildNetworkEvalFulfill(
+      respWithBody(),
+      { userCode: '', statusCode: 0, contentType: '', responseHeaders: { 'X-Mod': 'yes' } },
+      '{"transformed":1}',
+    );
+    expect(fulfill.responseCode).toBe(200);
+    expect(fulfill.responsePhrase).toBe('OK');
+    expect(atob(fulfill.body ?? '')).toBe('{"transformed":1}');
+    // Real headers minus framing (Content-Length dropped), override appended.
+    expect(fulfill.responseHeaders).toEqual([
+      { name: 'Content-Type', value: 'application/json' },
+      { name: 'X-Origin', value: 'real' },
+      { name: 'X-Mod', value: 'yes' },
+    ]);
+  });
+
+  it('buildNetworkEvalFulfill applies a status + Content-Type override', () => {
+    const fulfill = buildNetworkEvalFulfill(
+      respWithBody({ responseHeaders: [{ name: 'X-Origin', value: 'real' }] }),
+      { userCode: '', statusCode: 503, contentType: 'text/plain', responseHeaders: {} },
+      'down',
+    );
+    expect(fulfill.responseCode).toBe(503);
+    expect(fulfill.responseHeaders).toEqual([
+      { name: 'X-Origin', value: 'real' },
+      { name: 'Content-Type', value: 'text/plain' },
+    ]);
+  });
+
+  it('decodeResponseBody returns plain text verbatim and decodes base64 as UTF-8', () => {
+    expect(decodeResponseBody({ body: 'hello', base64Encoded: false })).toBe('hello');
+    expect(decodeResponseBody({ body: utf8B64('héllo ☕'), base64Encoded: true })).toBe('héllo ☕');
   });
 });

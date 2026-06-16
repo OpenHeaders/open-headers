@@ -3,12 +3,12 @@
  * wiring is forbidden (see `CdpCorrelatorStub.fromChromeDebugger`).
  */
 
+import type { CdpResponseBody } from '../../src/correlator-cdp/control-port';
 import type {
   CdpBufferedResponseBody,
   CdpEventSource,
   CdpFetchEvent,
   CdpNetworkEvent,
-  CdpResponseBody,
 } from '../../src/correlator-cdp/events';
 import type { CdpPageEvent } from '../../src/correlator-cdp/page-events';
 

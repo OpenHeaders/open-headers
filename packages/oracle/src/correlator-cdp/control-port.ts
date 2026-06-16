@@ -268,6 +268,19 @@ export interface CdpHeaderEntry {
   readonly value: string;
 }
 
+/**
+ * Body text + its encoding flag — the shape both body reads return. The
+ * observation-plane read (`Network.getResponseBody`, served only for a
+ * finished request) and the control-plane read (`Fetch.getResponseBody`, on a
+ * request paused at the Fetch Response stage — {@link
+ * CdpRequestControlPort.getResponseBody}) share it; the two differ in domain
+ * and id space, not in result shape.
+ */
+export interface CdpResponseBody {
+  readonly body: string;
+  readonly base64Encoded: boolean;
+}
+
 /** `Fetch.fulfillRequest` params. `body` is base64-encoded (CDP's `body`). */
 export interface CdpFulfillResponse {
   readonly requestId: string;
@@ -298,6 +311,17 @@ export interface CdpContinueResponse {
   readonly requestId: string;
 }
 
+/**
+ * `Fetch.getResponseBody` params — the real reply's body for a request paused
+ * at the Fetch Response stage. `requestId` is the live FETCH INTERCEPTION id
+ * (the same key fulfill / continueResponse use), NOT the network id the
+ * observation-plane `Network.getResponseBody` takes; this is a control-plane
+ * read on a paused request, a different domain and id space.
+ */
+export interface CdpGetResponseBody {
+  readonly requestId: string;
+}
+
 /** `Fetch.continueWithAuth`'s `authChallengeResponse` variants. */
 export type CdpAuthChallengeResponse =
   | { readonly response: 'Default' }
@@ -323,4 +347,12 @@ export interface CdpRequestControlPort {
   /** Release a Response-stage pause unmodified (the no-longer-matches path). */
   continueResponse(target: CdpSessionTarget, request: CdpContinueResponse): Promise<void>;
   continueWithAuth(target: CdpSessionTarget, request: CdpContinueWithAuth): Promise<void>;
+  /**
+   * Read the real reply's body for a request paused at the Response stage
+   * (`Fetch.getResponseBody`) — the input a `network`+dynamic transform runs
+   * over (D2b-2b). Returns the raw `{body, base64Encoded}`; the caller decodes.
+   * Rejects when the body is unreadable (request gone / evicted) — the caller
+   * then releases the reply untouched.
+   */
+  getResponseBody(target: CdpSessionTarget, request: CdpGetResponseBody): Promise<CdpResponseBody>;
 }

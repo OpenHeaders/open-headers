@@ -240,6 +240,20 @@ describe('ChromeCdpRequestControlPort', () => {
     ]);
   });
 
+  it('maps getResponseBody onto Fetch.getResponseBody and returns the parsed body (D2b-2b)', async () => {
+    const port = new ChromeCdpRequestControlPort(source);
+    chromeMock.debugger.sendCommand.mockResolvedValueOnce({ body: 'eyJpZCI6MX0=', base64Encoded: true });
+    const result = await port.getResponseBody(ROOT, { requestId: 'fetch-4' });
+    expect(sendCalls()).toEqual([[{ tabId: TAB }, 'Fetch.getResponseBody', { requestId: 'fetch-4' }]]);
+    expect(result).toEqual({ body: 'eyJpZCI6MX0=', base64Encoded: true });
+  });
+
+  it('rejects when Fetch.getResponseBody returns an unexpected shape', async () => {
+    const port = new ChromeCdpRequestControlPort(source);
+    chromeMock.debugger.sendCommand.mockResolvedValueOnce({ nope: true });
+    await expect(port.getResponseBody(ROOT, { requestId: 'fetch-5' })).rejects.toThrow('unexpected shape');
+  });
+
   it('maps continueWithAuth onto Fetch.continueWithAuth with the challenge response', async () => {
     const port = new ChromeCdpRequestControlPort(source);
     await port.continueWithAuth(ROOT, {

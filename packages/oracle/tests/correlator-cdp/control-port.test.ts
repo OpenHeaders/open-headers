@@ -21,6 +21,7 @@ import {
 import {
   createInMemoryRequestControlPort,
   createInMemoryTabControlPort,
+  type RecordedReaction,
 } from '../../src/correlator-cdp/in-memory-control-port';
 
 const SLOW_3G: CdpNetworkConditions = {
@@ -180,11 +181,42 @@ describe('createInMemoryTabControlPort', () => {
 });
 
 describe('createInMemoryRequestControlPort', () => {
-  it('records fulfill / continue / answer-auth reactions in order', async () => {
+  it('records fulfill / continue / continue-response / answer-auth reactions in order', async () => {
     const port = createInMemoryRequestControlPort();
     await port.fulfill(TARGET, { requestId: 'r1', responseCode: 200 });
     await port.continueRequest(TARGET, { requestId: 'r2' });
+    await port.continueResponse(TARGET, { requestId: 'r2b' });
     await port.continueWithAuth(TARGET, { requestId: 'r3', authChallengeResponse: { response: 'CancelAuth' } });
-    expect(port.reactions.map((r) => r.kind)).toEqual(['fulfill', 'continue', 'continue-with-auth']);
+    expect(port.reactions.map((r) => r.kind)).toEqual([
+      'fulfill',
+      'continue',
+      'continue-response',
+      'continue-with-auth',
+    ]);
+  });
+
+  it('records a getResponseBody call and answers from the scripted FIFO queue (D2b-2b)', async () => {
+    const port = createInMemoryRequestControlPort();
+    port.enqueueResponseBody({ body: 'first', base64Encoded: false });
+    port.enqueueResponseBody({ body: 'second', base64Encoded: true });
+
+    expect(await port.getResponseBody(TARGET, { requestId: 'r4' })).toEqual({ body: 'first', base64Encoded: false });
+    expect(await port.getResponseBody(TARGET, { requestId: 'r5' })).toEqual({ body: 'second', base64Encoded: true });
+    const isRead = (r: RecordedReaction): r is Extract<RecordedReaction, { kind: 'get-response-body' }> =>
+      r.kind === 'get-response-body';
+    expect(port.reactions.filter(isRead).map((r) => r.request.requestId)).toEqual(['r4', 'r5']);
+  });
+
+  it('defaults an unscripted getResponseBody to an empty body (so the eval still runs)', async () => {
+    const port = createInMemoryRequestControlPort();
+    expect(await port.getResponseBody(TARGET, { requestId: 'r6' })).toEqual({ body: '', base64Encoded: false });
+  });
+
+  it('rejects a getResponseBody scripted to fail (the unreadable-body path)', async () => {
+    const port = createInMemoryRequestControlPort();
+    port.rejectNextResponseBody('no resource with given identifier');
+    await expect(port.getResponseBody(TARGET, { requestId: 'r7' })).rejects.toThrow(
+      'no resource with given identifier',
+    );
   });
 });

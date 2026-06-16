@@ -386,6 +386,166 @@ describe('startCdpFetchInterceptor — mock+dynamic eval (D2b-2a)', () => {
   });
 });
 
+describe('startCdpFetchInterceptor — network+dynamic eval (D2b-2b)', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  /** A debug-tier network-source response with a DYNAMIC (modifyResponse) body. */
+  const dynamicNetworkRule = (overrides: Partial<Rule> = {}): Rule =>
+    mockRule({
+      action: {
+        responseSource: 'network',
+        statusCode: 0,
+        responseHeaders: { 'X-Mod': 'yes' },
+        responseBody: 'function modifyResponse(a){return a.response}',
+        contentType: '',
+        bodyType: 'dynamic',
+      },
+      ...overrides,
+    } as Partial<Rule>);
+
+  const responseStage = (overrides: Partial<CdpRequestPaused> = {}): CdpRequestPaused =>
+    makePaused({
+      requestId: 'resp-1',
+      networkId: 'net-9',
+      frameId: 'frame-1',
+      responseStatusCode: 200,
+      responseStatusText: 'OK',
+      responseHeaders: [{ name: 'Content-Type', value: 'application/json' }],
+      ...overrides,
+    });
+
+  it('reads the real body, evals modifyResponse over it, and fulfills the transformed body, firing once', async () => {
+    const { stream, port, evalPort, fires } = harness([dynamicNetworkRule()]);
+    port.enqueueResponseBody({ body: '{"id":1}', base64Encoded: false });
+    evalPort.enqueue({ ok: true, value: '{"id":1,"patched":true}' });
+
+    stream.emit(makePaused({ requestId: 'req-1', networkId: 'net-9' }));
+    await Promise.resolve();
+    stream.emit(responseStage());
+    await settle();
+
+    // The body was read at the Response stage by the interception id.
+    const read = port.reactions.find((r) => r.kind === 'get-response-body');
+    if (read?.kind !== 'get-response-body') throw new Error('expected get-response-body');
+    expect(read.request).toEqual({ requestId: 'resp-1' });
+
+    // The eval ran in the request frame over the faithful modifyArgs.
+    expect(evalPort.calls).toHaveLength(1);
+    const call = evalPort.calls[0];
+    expect(call?.frameId).toBe('frame-1');
+    expect(call?.functionDeclaration).toContain('function modifyResponse(a){return a.response}');
+    expect(call?.arg).toMatchObject({
+      method: 'GET',
+      url: 'https://api.openheaders.io/users',
+      response: '{"id":1}',
+      responseType: 'application/json',
+      responseJSON: { id: 1 },
+    });
+
+    const fulfill = port.reactions.find((r) => r.kind === 'fulfill');
+    if (fulfill?.kind !== 'fulfill') throw new Error('expected fulfill');
+    expect(fulfill.response.requestId).toBe('resp-1');
+    expect(fulfill.response.responseCode).toBe(200); // status 0 keeps the real status
+    expect(atob(fulfill.response.body ?? '')).toBe('{"id":1,"patched":true}');
+    expect(fulfill.response.responseHeaders).toEqual([
+      { name: 'Content-Type', value: 'application/json' },
+      { name: 'X-Mod', value: 'yes' },
+    ]);
+
+    // Exactly one fire, only after the fulfill landed, keyed by the store id.
+    expect(fires).toHaveLength(1);
+    expect(fires[0]?.record.requestId).toBe('page::net-9');
+  });
+
+  it('still evals modifyResponse on a readable-but-empty body', async () => {
+    const { stream, port, evalPort, fires } = harness([dynamicNetworkRule()]);
+    port.enqueueResponseBody({ body: '', base64Encoded: false });
+    evalPort.enqueue({ ok: true, value: 'synthesized' });
+
+    stream.emit(makePaused({ requestId: 'req-1', networkId: 'net-9' }));
+    await Promise.resolve();
+    stream.emit(responseStage());
+    await settle();
+
+    expect(evalPort.calls).toHaveLength(1);
+    expect(evalPort.calls[0]?.arg.response).toBe('');
+    const fulfill = port.reactions.find((r) => r.kind === 'fulfill');
+    if (fulfill?.kind !== 'fulfill') throw new Error('expected fulfill');
+    expect(atob(fulfill.response.body ?? '')).toBe('synthesized');
+    expect(fires).toHaveLength(1);
+  });
+
+  it('releases the real reply (continueResponse, no fire) when the eval fails', async () => {
+    const { stream, port, evalPort, fires } = harness([dynamicNetworkRule()]);
+    port.enqueueResponseBody({ body: '{"id":1}', base64Encoded: false });
+    evalPort.enqueue({ ok: false, error: 'boom' });
+
+    stream.emit(makePaused({ requestId: 'req-1', networkId: 'net-9' }));
+    await Promise.resolve();
+    stream.emit(responseStage());
+    await settle();
+
+    expect(evalPort.calls).toHaveLength(1);
+    expect(port.reactions.some((r) => r.kind === 'fulfill')).toBe(false);
+    const release = port.reactions.find((r) => r.kind === 'continue-response');
+    if (release?.kind !== 'continue-response') throw new Error('expected continue-response');
+    expect(release.request).toEqual({ requestId: 'resp-1' });
+    expect(fires).toHaveLength(0);
+  });
+
+  it('releases the real reply (no fire) when the body read fails', async () => {
+    const { stream, port, evalPort, fires } = harness([dynamicNetworkRule()]);
+    port.rejectNextResponseBody('no resource with given identifier');
+
+    stream.emit(makePaused({ requestId: 'req-1', networkId: 'net-9' }));
+    await Promise.resolve();
+    stream.emit(responseStage());
+    await settle();
+
+    expect(port.reactions.some((r) => r.kind === 'get-response-body')).toBe(true);
+    // Unreadable body ⇒ never evaled, never fulfilled — the real reply is released.
+    expect(evalPort.calls).toHaveLength(0);
+    expect(port.reactions.some((r) => r.kind === 'fulfill')).toBe(false);
+    expect(port.reactions.some((r) => r.kind === 'continue-response')).toBe(true);
+    expect(fires).toHaveLength(0);
+  });
+
+  it('releases without reading the body or evaluating (no fire) when the reply has no frame', async () => {
+    const { stream, port, evalPort, fires } = harness([dynamicNetworkRule()]);
+
+    stream.emit(makePaused({ requestId: 'req-1', networkId: 'net-9' }));
+    await Promise.resolve();
+    stream.emit(responseStage({ frameId: undefined }));
+    await settle();
+
+    expect(port.reactions.some((r) => r.kind === 'get-response-body')).toBe(false);
+    expect(evalPort.calls).toHaveLength(0);
+    const release = port.reactions.find((r) => r.kind === 'continue-response');
+    if (release?.kind !== 'continue-response') throw new Error('expected continue-response');
+    expect(release.request).toEqual({ requestId: 'resp-1' });
+    expect(fires).toHaveLength(0);
+  });
+
+  it('sums the request-stage and response-stage holds (body read + eval included)', async () => {
+    vi.spyOn(Date, 'now')
+      .mockReturnValueOnce(1_000) // request-stage receipt
+      .mockReturnValueOnce(1_004) // request-stage answer-land (hold = 4)
+      .mockReturnValueOnce(2_000) // response-stage receipt
+      .mockReturnValue(2_020); // fire `t` + response-stage measurement (hold = 20)
+    const { stream, port, evalPort, pauses, fires } = harness([dynamicNetworkRule()]);
+    port.enqueueResponseBody({ body: '{"id":1}', base64Encoded: false });
+    evalPort.enqueue({ ok: true, value: '{"patched":1}' });
+
+    stream.emit(makePaused({ requestId: 'req-1', networkId: 'net-9' }));
+    await Promise.resolve();
+    stream.emit(responseStage());
+    await settle();
+
+    expect(pauses).toEqual([{ tabId: 7, requestId: 'page::net-9', pausedMs: 24 }]);
+    expect(fires).toHaveLength(1);
+  });
+});
+
 describe('startCdpFetchInterceptor — auth challenges (D3)', () => {
   it('answers a matching challenge with ProvideCredentials and reports an authoritative fire', async () => {
     const { stream, port, fires } = harness([authRule()]);

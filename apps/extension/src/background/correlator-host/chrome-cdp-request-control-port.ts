@@ -12,10 +12,18 @@ import type {
   CdpContinueResponse,
   CdpContinueWithAuth,
   CdpFulfillResponse,
+  CdpGetResponseBody,
   CdpRequestControlPort,
+  CdpResponseBody,
   CdpSessionTarget,
 } from '@openheaders/oracle/correlator-cdp';
 import type { CdpSessionSender } from './cdp-session-sender';
+
+/** `Fetch.getResponseBody` result — body text + whether it is base64. */
+interface RawFetchResponseBody {
+  readonly body: string;
+  readonly base64Encoded: boolean;
+}
 
 export class ChromeCdpRequestControlPort implements CdpRequestControlPort {
   private readonly sender: CdpSessionSender;
@@ -64,5 +72,18 @@ export class ChromeCdpRequestControlPort implements CdpRequestControlPort {
       requestId: request.requestId,
       authChallengeResponse: request.authChallengeResponse,
     });
+  }
+
+  async getResponseBody(target: CdpSessionTarget, request: CdpGetResponseBody): Promise<CdpResponseBody> {
+    // The interception id (NOT the network id) keys `Fetch.getResponseBody` —
+    // this reads the real reply of a request paused at the Fetch Response stage.
+    const result = await this.sender.sendOnSession(target.tabId, target.sessionId, 'Fetch.getResponseBody', {
+      requestId: request.requestId,
+    });
+    const raw = result as RawFetchResponseBody | undefined;
+    if (typeof raw?.body !== 'string' || typeof raw.base64Encoded !== 'boolean') {
+      throw new Error('Fetch.getResponseBody returned an unexpected shape');
+    }
+    return { body: raw.body, base64Encoded: raw.base64Encoded };
   }
 }

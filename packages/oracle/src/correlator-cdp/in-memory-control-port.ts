@@ -17,7 +17,9 @@ import {
   type CdpContinueWithAuth,
   type CdpControlCommand,
   type CdpFulfillResponse,
+  type CdpGetResponseBody,
   type CdpRequestControlPort,
+  type CdpResponseBody,
   type CdpSessionTarget,
   type CdpTabControlPort,
   type CdpTabControlState,
@@ -72,20 +74,37 @@ export type RecordedReaction =
   | { readonly kind: 'fulfill'; readonly target: CdpSessionTarget; readonly response: CdpFulfillResponse }
   | { readonly kind: 'continue'; readonly target: CdpSessionTarget; readonly request: CdpContinueRequest }
   | { readonly kind: 'continue-response'; readonly target: CdpSessionTarget; readonly request: CdpContinueResponse }
-  | { readonly kind: 'continue-with-auth'; readonly target: CdpSessionTarget; readonly request: CdpContinueWithAuth };
+  | { readonly kind: 'continue-with-auth'; readonly target: CdpSessionTarget; readonly request: CdpContinueWithAuth }
+  | { readonly kind: 'get-response-body'; readonly target: CdpSessionTarget; readonly request: CdpGetResponseBody };
+
+/** A scripted answer for the next `getResponseBody` — a body or a rejection. */
+type ScriptedResponseBody =
+  | { readonly ok: true; readonly body: CdpResponseBody }
+  | { readonly ok: false; readonly error: string };
 
 export interface InMemoryRequestControlPort extends CdpRequestControlPort {
   /** Every reaction in call order. */
   readonly reactions: readonly RecordedReaction[];
+  /** Queue the body the next `getResponseBody` resolves to (FIFO). */
+  enqueueResponseBody(body: CdpResponseBody): void;
+  /** Queue a rejection for the next `getResponseBody` (the unreadable-body path). */
+  rejectNextResponseBody(error: string): void;
 }
 
 /** Create an in-memory {@link CdpRequestControlPort} that records reactions. */
 export function createInMemoryRequestControlPort(): InMemoryRequestControlPort {
   const reactions: RecordedReaction[] = [];
+  const bodies: ScriptedResponseBody[] = [];
 
   return {
     available: true,
     reactions,
+    enqueueResponseBody(body: CdpResponseBody): void {
+      bodies.push({ ok: true, body });
+    },
+    rejectNextResponseBody(error: string): void {
+      bodies.push({ ok: false, error });
+    },
     async fulfill(target: CdpSessionTarget, response: CdpFulfillResponse): Promise<void> {
       reactions.push({ kind: 'fulfill', target, response });
     },
@@ -97,6 +116,14 @@ export function createInMemoryRequestControlPort(): InMemoryRequestControlPort {
     },
     async continueWithAuth(target: CdpSessionTarget, request: CdpContinueWithAuth): Promise<void> {
       reactions.push({ kind: 'continue-with-auth', target, request });
+    },
+    async getResponseBody(target: CdpSessionTarget, request: CdpGetResponseBody): Promise<CdpResponseBody> {
+      reactions.push({ kind: 'get-response-body', target, request });
+      // No scripted entry ⇒ an empty body (models a readable but body-less
+      // reply), so the eval still runs rather than the request hanging.
+      const scripted = bodies.shift() ?? { ok: true, body: { body: '', base64Encoded: false } };
+      if (!scripted.ok) throw new Error(scripted.error);
+      return scripted.body;
     },
   };
 }

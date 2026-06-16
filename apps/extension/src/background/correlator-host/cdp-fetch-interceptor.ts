@@ -13,8 +13,11 @@
  *     else → pass-through.
  *   - RESPONSE stage ({@link resolveResponseReaction}) — reached only for an
  *     intercepted reply; `fulfillRequest`s the rule's static body over the
- *     real status/headers, or `continueResponse`s it unmodified when no rule
- *     still matches.
+ *     real status/headers, or — for a `network`+dynamic rule — reads the real
+ *     body (`getResponseBody`), evals `modifyResponse` over it in the request
+ *     frame, then `fulfillRequest`s the transformed body; `continueResponse`s
+ *     the reply unmodified when no rule still matches (or the eval / body read
+ *     faults).
  * A fulfilled / rewritten request enters the rule-fire plane as an
  * AUTHORITATIVE fire — reported only after the answer command lands (for a
  * `network`-source rule, that is the Response-stage fulfill, NOT the
@@ -36,15 +39,19 @@ import type {
 } from '@openheaders/oracle/correlator-cdp';
 import { cdpStoreRequestId } from '@openheaders/oracle/correlator-cdp';
 import { logger } from '@utils/logger';
-import type { CdpFetchReaction } from './cdp-fetch-reaction';
+import type { CdpFetchReaction, CdpResponseReaction } from './cdp-fetch-reaction';
 import {
   buildEvalFulfill,
+  buildNetworkEvalFulfill,
   cdpResourceTypeToTracked,
+  decodeResponseBody,
   mockResponseEvalArg,
+  networkResponseEvalArg,
   resolveAuthReaction,
   resolveFetchReaction,
   resolveResponseReaction,
   wrapMockResponseFn,
+  wrapNetworkResponseFn,
 } from './cdp-fetch-reaction';
 
 export interface CdpFetchInterceptorOptions {
@@ -54,9 +61,10 @@ export interface CdpFetchInterceptorOptions {
   readonly requestControlPort: CdpRequestControlPort;
   /**
    * Runs a dynamic rule's user JS in the request frame's isolated world
-   * (D2b-2). A `mock`+dynamic match evals `buildResponse` here, then fulfills
-   * with the returned body; an eval fault releases the request and does NOT
-   * fire (fire = the modification actually ran).
+   * (D2b-2). A `mock`+dynamic match evals `buildResponse` at the request stage
+   * then fulfills; a `network`+dynamic match evals `modifyResponse` over the
+   * real reply at the Response stage then fulfills. An eval fault releases the
+   * request and does NOT fire (fire = the modification actually ran).
    */
   readonly evalPort: CdpEvalPort;
   /** The live, already-effective rules to match a paused request against. */
@@ -208,8 +216,10 @@ function handleEvalFulfill(
 /**
  * Answer a RESPONSE-stage pause (reached only via an `await-response`
  * continue). Fulfill the matching `network`-source static rule with its body +
- * merged overrides and fire once; a no-longer-matching rule releases the reply
- * unmodified. The emitted hold sums the request-stage + response-stage holds.
+ * merged overrides and fire once; a `network`+dynamic rule reads the real reply
+ * and evals `modifyResponse` over it first (D2b-2b); a no-longer-matching rule
+ * releases the reply unmodified. The emitted hold sums the request-stage +
+ * response-stage holds.
  */
 function handleResponseStage(
   event: CdpRequestPaused,
@@ -221,6 +231,11 @@ function handleResponseStage(
   const target: CdpSessionTarget = { tabId: event.tabId, sessionId: event.sessionId };
   const reaction = resolveResponseReaction(event, getRules());
 
+  if (reaction.kind === 'eval-response-fulfill') {
+    handleResponseEvalFulfill(event, reaction, options, receivedAtMs, pendingHolds);
+    return;
+  }
+
   const command =
     reaction.kind === 'fulfill'
       ? requestControlPort.fulfill(target, reaction.response)
@@ -228,12 +243,81 @@ function handleResponseStage(
 
   const settled = command.then(() => {
     if (reaction.kind === 'fulfill') reportFire(event.tabId, buildFireRecord(event, reaction.ruleUid));
-    const priorHoldMs = event.networkId
-      ? takeHold(pendingHolds, cdpStoreRequestId(event.sessionId, event.networkId))
-      : 0;
-    emitPauseIfMaterial(event, receivedAtMs, priorHoldMs, reportPause);
+    settleResponsePause(event, receivedAtMs, pendingHolds, reportPause);
   });
   answer(settled, event);
+}
+
+/**
+ * Answer a `network`+dynamic match (D2b-2b): read the real reply
+ * (`getResponseBody`), eval `modifyResponse` over it in the request frame's
+ * isolated world, then fulfill the transformed body under the rule's override
+ * envelope merged onto the real status / headers — firing once, only after the
+ * fulfill lands. A readable-but-empty body still evals (faithful to injection);
+ * a hard body-read failure, an eval fault, or a worker request with no frame
+ * releases the REAL reply untouched (`continueResponse`) and does NOT fire.
+ * The whole Response-stage hold (body read + eval + fulfill) joins the
+ * request-stage hold so the emitted `pausedByDebugMs` is the per-request total.
+ */
+function handleResponseEvalFulfill(
+  event: CdpRequestPaused,
+  reaction: Extract<CdpResponseReaction, { kind: 'eval-response-fulfill' }>,
+  options: CdpFetchInterceptorOptions,
+  receivedAtMs: number,
+  pendingHolds: Map<string, number>,
+): void {
+  const { requestControlPort, evalPort, reportFire, reportPause } = options;
+  const target: CdpSessionTarget = { tabId: event.tabId, sessionId: event.sessionId };
+  const release = (): Promise<void> =>
+    requestControlPort
+      .continueResponse(target, { requestId: event.requestId })
+      .then(() => settleResponsePause(event, receivedAtMs, pendingHolds, reportPause));
+
+  // No frame ⇒ no isolated world to eval in (worker / OOPIF). Injection never
+  // reached these either, so release the real reply untouched, no fire.
+  const frameId = event.frameId;
+  if (!frameId) {
+    answer(release(), event);
+    return;
+  }
+
+  const fn = wrapNetworkResponseFn(reaction.plan.userCode);
+  const settled = requestControlPort
+    .getResponseBody(target, { requestId: event.requestId })
+    .then((body) => decodeResponseBody(body))
+    // A hard body-read failure (request gone / evicted) → release, no fire. An
+    // empty resolved body is NOT a failure — it evals as '' (injection would).
+    .catch(() => null)
+    .then((responseText) => {
+      if (responseText === null) return release();
+      return evalPort
+        .callInIsolatedWorld(target, frameId, fn, networkResponseEvalArg(event, responseText))
+        .then((outcome) => {
+          if (!outcome.ok) return release();
+          return requestControlPort
+            .fulfill(target, buildNetworkEvalFulfill(event, reaction.plan, outcome.value))
+            .then(() => {
+              reportFire(event.tabId, buildFireRecord(event, reaction.ruleUid));
+              settleResponsePause(event, receivedAtMs, pendingHolds, reportPause);
+            });
+        });
+    });
+  answer(settled, event);
+}
+
+/**
+ * Emit the per-request interception hold for a settled Response-stage pause:
+ * take the carried request-stage hold and add this stage's elapsed, so the
+ * total spans both hops (the real server round-trip between them excluded).
+ */
+function settleResponsePause(
+  event: CdpRequestPaused,
+  receivedAtMs: number,
+  pendingHolds: Map<string, number>,
+  reportPause: (tabId: number, requestId: string, pausedMs: number) => void,
+): void {
+  const priorHoldMs = event.networkId ? takeHold(pendingHolds, cdpStoreRequestId(event.sessionId, event.networkId)) : 0;
+  emitPauseIfMaterial(event, receivedAtMs, priorHoldMs, reportPause);
 }
 
 /**
