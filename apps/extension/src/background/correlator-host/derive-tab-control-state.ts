@@ -1,19 +1,24 @@
 /**
  * Compose an in-scope tab's standing {@link CdpTabControlState} from its live
- * rules — the pure assembly `deriveState` (lifecycle-pipeline) runs once a tab
- * is confirmed in scope. The host meeting point: it folds the network plane
- * ({@link compileFetchPatterns} → `Fetch.enable`), the delivery plane
- * ({@link compileBootstrapScripts} → `Page.addScriptToEvaluateOnNewDocument`),
- * and the CSP-bypass plane (`bypassCsp` → `Page.setBypassCSP`) into one
- * replayed value.
+ * rules plus the per-tab cache toggle — the pure assembly `deriveState`
+ * (lifecycle-pipeline) runs once a tab is confirmed in scope. The host meeting
+ * point: it folds the network plane ({@link compileFetchPatterns} →
+ * `Fetch.enable`), the delivery plane ({@link compileBootstrapScripts} →
+ * `Page.addScriptToEvaluateOnNewDocument`), the CSP-bypass plane (`bypassCsp` →
+ * `Page.setBypassCSP`), and the cache plane (`cacheDisabled` →
+ * `Network.setCacheDisabled`) into one replayed value.
  *
- * The three planes are INDEPENDENT: a tab whose only debug rule is a `ws`
+ * The four planes are INDEPENDENT: a tab whose only debug rule is a `ws`
  * wrapper has no Fetch patterns but DOES carry a bootstrap script; a tab whose
- * only rule is an unrestricted `response` carries the reverse; and an
+ * only rule is an unrestricted `response` carries the reverse; an
  * inject-`bypassCSP` rule is page-DOM, so it contributes to NEITHER yet still
- * needs `bypassCsp`. So the empty-state short-circuit gates on ALL THREE being
- * empty — never on a subset, which would discard a tab whose sole contribution
- * is on a plane the guard forgot.
+ * needs `bypassCsp`; and a tab whose sole CDP state is the cache toggle has all
+ * three rule-derived planes empty yet still needs `cacheDisabled`. Unlike the
+ * other three, the cache plane is NOT rule-derived — it is the per-tab "disable
+ * cache" toggle (the DNR cache-bypass module's intent), threaded in as an
+ * option. So the empty-state short-circuit gates on ALL FOUR being empty —
+ * never on a subset, which would discard a tab whose sole contribution is on a
+ * plane the guard forgot.
  */
 
 import type { Rule } from '@openheaders/core/types';
@@ -22,11 +27,15 @@ import { compileBootstrapScripts } from './cdp-bootstrap-scripts';
 import { compileFetchPatterns } from './cdp-fetch-patterns';
 
 /**
- * The standing CDP control state for an in-scope tab with these live rules.
- * Returns {@link EMPTY_TAB_CONTROL_STATE} only when the tab contributes nothing
- * on any plane — no Fetch pattern, no bootstrap script, and no CSP bypass.
+ * The standing CDP control state for an in-scope tab with these live rules and
+ * cache toggle. Returns {@link EMPTY_TAB_CONTROL_STATE} only when the tab
+ * contributes nothing on any plane — no Fetch pattern, no bootstrap script, no
+ * CSP bypass, and no cache disable.
  */
-export function deriveTabControlState(rules: readonly Rule[]): CdpTabControlState {
+export function deriveTabControlState(
+  rules: readonly Rule[],
+  options: { readonly cacheDisabled?: boolean } = {},
+): CdpTabControlState {
   const fetchPatterns = compileFetchPatterns(rules);
   const bootstrapScripts = compileBootstrapScripts(rules);
   // CSP bypass is a THIRD independent plane: an inject-`bypassCSP` rule is
@@ -35,10 +44,23 @@ export function deriveTabControlState(rules: readonly Rule[]): CdpTabControlStat
   // `Page.setBypassCSP`. Derived from the same flag the DNR CSP-strip gates on,
   // so CSP drops at the engine level only when a rule explicitly asks.
   const bypassCsp = rules.some((rule) => rule.type === 'inject' && rule.action.bypassCSP === true);
-  if (fetchPatterns.length === 0 && bootstrapScripts.length === 0 && !bypassCsp) return EMPTY_TAB_CONTROL_STATE;
+  // Cache disable is a FOURTH independent plane — and the only one not
+  // rule-derived: the per-tab "disable cache" toggle, threaded in so it joins
+  // the all-empty guard (a cache-only tab has the three rule planes empty).
+  const cacheDisabled = options.cacheDisabled === true;
+  if (fetchPatterns.length === 0 && bootstrapScripts.length === 0 && !bypassCsp && !cacheDisabled) {
+    return EMPTY_TAB_CONTROL_STATE;
+  }
   // Opt into auth-challenge interception only when an auth rule is actually in
   // scope — a tab whose debug rules are all response/body/wrapper never widens
   // its pause surface to 401/407 challenges.
   const fetchHandleAuthRequests = rules.some((rule) => rule.type === 'auth');
-  return { ...EMPTY_TAB_CONTROL_STATE, fetchPatterns, fetchHandleAuthRequests, bootstrapScripts, bypassCsp };
+  return {
+    ...EMPTY_TAB_CONTROL_STATE,
+    fetchPatterns,
+    fetchHandleAuthRequests,
+    bootstrapScripts,
+    bypassCsp,
+    cacheDisabled,
+  };
 }

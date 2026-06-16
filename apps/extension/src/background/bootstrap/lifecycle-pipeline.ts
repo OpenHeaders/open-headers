@@ -25,6 +25,7 @@ import { startDevtoolsSessionCoordinator } from '../devtools-session-coordinator
 import { getRulesPaused } from '../dnr-manager';
 import { refreshInterceptorsForTab, setCdpControlQuery } from '../inject-manager';
 import { createPersistentWatchSessionFloors, startLifecyclePortHost } from '../lifecycle-port-host';
+import { isCacheBypassActive } from '../modules/cache-bypass';
 import { setupOnRuleMatchedDebugBridge } from '../modules/on-rule-matched-debug';
 import { recordReportedFire } from '../modules/tab-telemetry';
 import { startTabTelemetryFiresBridge } from '../modules/tab-telemetry-fires-bridge';
@@ -107,8 +108,15 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   // subset of the store's rules, so it never clobbers the DNR snapshot memo.
   const liveRules = (): Rule[] =>
     resolveRulesForCompile(getRules().filter((rule) => isRuleEffective(rule, getPauseMarkers(), getRulesPaused())));
+  // The cache plane is the only standing-state input that is NOT rule-derived:
+  // it is the per-tab "disable cache" toggle owned by the DNR cache-bypass
+  // module, read here and threaded into the derive so it joins the all-empty
+  // guard. The DNR rule stays installed as the un-armed/detached fallback —
+  // `Network.setCacheDisabled` is a whole-tab superset, idempotent against it.
   const deriveState = (tabId: number): CdpTabControlState =>
-    isTabInScope(tabId) ? deriveTabControlState(liveRules()) : EMPTY_TAB_CONTROL_STATE;
+    isTabInScope(tabId)
+      ? deriveTabControlState(liveRules(), { cacheDisabled: isCacheBypassActive(tabId) })
+      : EMPTY_TAB_CONTROL_STATE;
   // Authoritative fire sink for D2 fulfill/rewrite. Resolved to the fires
   // bridge below (constructed after the rule-fire hub); a fulfill only fires
   // once a tab is armed and traffic flows, so the ref is always set by then.

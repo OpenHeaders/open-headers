@@ -1,10 +1,12 @@
 /**
  * `deriveTabControlState` — the pure assembly of an in-scope tab's standing CDP
- * control state from its live rules. The load-bearing property (Phase E1b gate
- * 3): the network plane (`fetchPatterns`) and the delivery plane
- * (`bootstrapScripts`) are INDEPENDENT, so the empty short-circuit gates on
- * BOTH being empty — a wrapper-only tab (e.g. a lone `ws` rule) must still
- * carry its bootstrap even though it has no Fetch patterns.
+ * control state from its live rules plus the per-tab cache toggle. The
+ * load-bearing property: the four planes — network (`fetchPatterns`), delivery
+ * (`bootstrapScripts`), CSP-bypass (`bypassCsp`), and cache (`cacheDisabled`) —
+ * are INDEPENDENT, so the empty short-circuit gates on ALL FOUR being empty: a
+ * tab whose sole contribution is on any one plane (a lone `ws` wrapper's
+ * bootstrap, an inject-`bypassCSP`, or just the cache toggle) must not collapse
+ * to the EMPTY singleton.
  */
 
 import type { InjectRule, ResponseRule, RuleCondition, WsRule } from '@openheaders/core/types';
@@ -116,6 +118,31 @@ describe('deriveTabControlState', () => {
 
   it('leaves bypassCsp false on a non-empty state with no inject-bypassCSP rule', () => {
     expect(deriveTabControlState([responseRule()]).bypassCsp).toBe(false);
+  });
+
+  it('carries cacheDisabled for a cache-only tab (the fourth-plane early-return trap)', () => {
+    const state = deriveTabControlState([], { cacheDisabled: true });
+    // No rules → the three rule-derived planes are empty.
+    expect(state.fetchPatterns).toEqual([]);
+    expect(state.bootstrapScripts).toEqual([]);
+    expect(state.bypassCsp).toBe(false);
+    // …yet the tab is NOT the EMPTY singleton: cacheDisabled is its sole plane.
+    expect(state.cacheDisabled).toBe(true);
+    expect(state).not.toBe(EMPTY_TAB_CONTROL_STATE);
+  });
+
+  it('stays EMPTY when cache is off and no rule contributes', () => {
+    expect(deriveTabControlState([], { cacheDisabled: false })).toBe(EMPTY_TAB_CONTROL_STATE);
+  });
+
+  it('carries cacheDisabled alongside a non-empty rule-derived state', () => {
+    const state = deriveTabControlState([responseRule()], { cacheDisabled: true });
+    expect(state.fetchPatterns).toEqual([{ urlPattern: '*://api.openheaders.io/*' }]);
+    expect(state.cacheDisabled).toBe(true);
+  });
+
+  it('leaves cacheDisabled false on a non-empty state with no cache toggle', () => {
+    expect(deriveTabControlState([responseRule()]).cacheDisabled).toBe(false);
   });
 
   it('opts into auth-challenge interception only when an auth rule is in scope', () => {
