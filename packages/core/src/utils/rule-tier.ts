@@ -102,3 +102,59 @@ export function isFetchRealizableNow(rule: Rule): boolean {
   // at the network layer, so realizability is exactly debug-tier membership.
   return isDebugTierRule(rule);
 }
+
+/**
+ * Rule types delivered as an in-page wrapper that can ride a document-bootstrap
+ * script (CDP Control Plane, Phase E1). The script-based wrapper set minus
+ * `inject` (a one-shot page-DOM injection at a configured position, not a
+ * fetch/XHR/socket wrapper that races page scripts), plus `header` (whose
+ * MERGE operations install an in-page wrapper — its set/append/remove ops are
+ * pure DNR and carry no wrapper, which the compile step simply finds nothing
+ * to render for).
+ */
+const BOOTSTRAP_WRAPPER_TYPES: ReadonlySet<ExtensionRuleType> = new Set<ExtensionRuleType>([
+  'delay',
+  'ws',
+  'sse',
+  'header',
+  'response',
+  'request-body',
+]);
+
+/**
+ * True iff the rule declares an initiator-domain condition (include or
+ * exclude) with at least one non-blank value — a PAGE-origin gate.
+ */
+function hasInitiatorDomainCondition(rule: Rule): boolean {
+  return rule.conditions.some(
+    (cond) =>
+      (cond.type === 'initiator-domains' || cond.type === 'exclude-initiator-domains') &&
+      cond.values.some((value) => value.trim().length > 0),
+  );
+}
+
+/**
+ * True iff the rule's in-page wrapper should be DELIVERED via a CDP document-
+ * bootstrap script on an in-scope tab (Phase E1b) — the delivery-precedence
+ * twin of {@link isFetchRealizableNow}'s modification precedence:
+ *
+ *   - {@link isFetchRealizableNow} → realized at the NETWORK layer (CDP `Fetch`),
+ *     with NO in-page wrapper (D4a suppresses injection for it).
+ *   - `isBootstrapEligible` → the COMPLEMENT among in-page wrappers, delivered
+ *     race-free BEFORE page scripts via `Page.addScriptToEvaluateOnNewDocument`
+ *     instead of racing the page on `webNavigation.onCommitted`.
+ *
+ * One partition line, two precedence axes. Three gates:
+ *   1. a residual wrapper (NOT network-realized) — else the network owns it;
+ *   2. a wrapper TYPE (not `inject`, which is page-DOM / navigation-only);
+ *   3. NO initiator-domain condition — a page-origin gate the per-document
+ *      `onCommitted` path enforces precisely, but a bootstrap script (which
+ *      persists across navigations) cannot, so initiator-gated wrappers stay
+ *      on the `onCommitted` path.
+ */
+export function isBootstrapEligible(rule: Rule): boolean {
+  if (!BOOTSTRAP_WRAPPER_TYPES.has(rule.type)) return false;
+  if (isFetchRealizableNow(rule)) return false;
+  if (hasInitiatorDomainCondition(rule)) return false;
+  return true;
+}

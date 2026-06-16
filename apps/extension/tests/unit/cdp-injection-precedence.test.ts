@@ -1,27 +1,31 @@
 /**
- * D4 precedence law — one mechanism per rule per request (fire-uniqueness).
+ * D4a / E1b precedence law — one delivery per rule per request (fire-uniqueness).
  *
- * When a tab is under CDP control, its realizable debug-tier `response` /
- * `request-body` rules are realized by CDP `Fetch` EXCLUSIVELY: the
- * page-context interceptor is suppressed for them, so the request reaches the
- * network where CDP fulfils / rewrites it (visible in the Network panel) and
- * the rule fires exactly once — never on both the injection plane and the
- * Fetch plane.
+ * When a tab is under CDP control, every rule it owns is delivered on EXACTLY
+ * ONE plane, never two — so the rule fires once, not on both the page-context
+ * interceptor and the CDP plane. Two precedence axes split on the single
+ * `isFetchRealizableNow` partition line:
  *
- * The named regression this gate catches: a static `request-body` rule on an
- * in-scope tab that matches a page `xhr` would otherwise be rewritten by the
- * in-page wrapper AND re-rewritten by CDP, double-firing. The other half of
- * the partition (CDP DOES act on these rules) is pinned by the
- * `cdp-fetch-reaction` tests; here we prove injection yields.
+ *   - MODIFICATION (D4a): a realizable debug-tier `response` / `request-body`
+ *     is realized at the NETWORK layer (CDP `Fetch`, visible in the Network
+ *     panel); the `onCommitted` wrapper is suppressed for it.
+ *   - DELIVERY (E1b): the COMPLEMENT — the residual, page-independent wrappers
+ *     (`isBootstrapEligible`: `delay`, `ws`/`sse`, header-merge, an `xhr`-only
+ *     response) — is delivered BEFORE page scripts via a CDP document-bootstrap
+ *     script; the `onCommitted` wrapper is suppressed for it on the FRESH
+ *     document so it installs once.
  *
- * Suppression is exactly `isFetchRealizableNow`, and as of D2b-2c EVERY
- * Fetch-capable cell is realizable: static + dynamic `mock`/`network` responses
- * (D2b-1/2a/2b) AND the dynamic `request-body` transform (D2b-2c's outgoing-body
- * eval), so all join the suppressed set automatically — the predicate is the
- * single gate, so widening it extends suppression with no inject-manager change.
- * What still stays on the injection plane: a `delay`, or an `xhr`-only response
- * (not debug-tier at all) — CDP can't own them, so suppressing them would
- * silently disable the rule. No dynamic cell stays on injection any more.
+ * The named regression D4a catches: a static `request-body` on an in-scope tab
+ * matching a page `xhr` would otherwise be rewritten by the in-page wrapper AND
+ * re-rewritten by CDP, double-firing. E1b adds: a `delay` would otherwise be
+ * installed by BOTH the bootstrap and `onCommitted`, double-installing.
+ *
+ * Two delivery carve-outs stay on the `onCommitted` path even under CDP control:
+ * an initiator-domain-gated wrapper (a page-origin gate a bootstrap script,
+ * which persists across navigations, cannot enforce), and ANY wrapper on the
+ * current-document refresh path (a bootstrap reaches only FUTURE documents, so
+ * the current page's wrappers must still install — an arming tab never loses
+ * them mid-page). Both are proven below.
  */
 
 import type { DelayRule, RequestBodyRule, ResponseRule } from '@openheaders/core/types';
@@ -67,7 +71,12 @@ vi.mock('@openheaders/rule-engine/content-scripts', () => ({
   buildResetInjection: vi.fn(),
 }));
 
-import { __testInjectForUrl, setCdpControlQuery, updateScriptableRules } from '@/background/inject-manager';
+import {
+  __testInjectForUrl,
+  __testRefreshInterceptorsForTab,
+  setCdpControlQuery,
+  updateScriptableRules,
+} from '@/background/inject-manager';
 
 const PAGE = 'https://app.openheaders.io/dashboard';
 const CDP_TAB = 7;
@@ -110,6 +119,22 @@ function responseRule(action: Partial<ResponseRule['action']> = {}): ResponseRul
       resourceType: 'rest',
       ...action,
     },
+  };
+}
+
+/** A delay rule — never Fetch-capable, so a residual wrapper (bootstrap-eligible
+ *  unless initiator-gated). */
+function delayRule(overrides: Partial<DelayRule> = {}): DelayRule {
+  return {
+    schemaVersion: 5,
+    uid: 'dl111111',
+    path: 'rules/delay',
+    name: 'Delay',
+    type: 'delay',
+    enabled: true,
+    conditions: [{ uid: 'tcd00062', type: 'url-filter', values: ['*://api.openheaders.io/*'] }],
+    action: { delayMs: 250 },
+    ...overrides,
   };
 }
 
@@ -183,29 +208,52 @@ describe('D4 precedence — CDP owns realizable debug-tier rules exclusively', (
     expect(buildRequestBodyInjection).not.toHaveBeenCalled();
   });
 
-  it('keeps a delay interceptor on injection even under CDP control (not Fetch-capable)', async () => {
-    const rule: DelayRule = {
-      schemaVersion: 5,
-      uid: 'dl111111',
-      path: 'rules/delay',
-      name: 'Delay',
-      type: 'delay',
-      enabled: true,
-      conditions: [{ uid: 'tcd00062', type: 'url-filter', values: ['*://api.openheaders.io/*'] }],
-      action: { delayMs: 250 },
-    };
+  it('suppresses a delay wrapper on the fresh document under CDP control (E1b — bootstrap delivers it)', async () => {
+    updateScriptableRules([delayRule()]);
+
+    await __testInjectForUrl(CDP_TAB, PAGE);
+    expect(buildDelayInjection).not.toHaveBeenCalled();
+  });
+
+  it('suppresses an xhr-only response on the fresh document under CDP control (E1b — residual wrapper)', async () => {
+    const rule = responseRule();
+    rule.conditions = [...rule.conditions, { uid: 'tcd00063', type: 'resource-types', values: ['xhr'] }];
+    updateScriptableRules([rule]);
+
+    await __testInjectForUrl(CDP_TAB, PAGE);
+    expect(buildResponseInjection).not.toHaveBeenCalled();
+  });
+
+  it('keeps an initiator-domain-gated delay on injection (a page-origin gate bootstrap cannot enforce)', async () => {
+    const rule = delayRule({
+      conditions: [
+        { uid: 'tcd00064', type: 'url-filter', values: ['*://api.openheaders.io/*'] },
+        { uid: 'tcd00065', type: 'initiator-domains', values: ['app.openheaders.io'] },
+      ],
+    });
     updateScriptableRules([rule]);
 
     await __testInjectForUrl(CDP_TAB, PAGE);
     expect(buildDelayInjection).toHaveBeenCalledWith(rule);
   });
 
-  it('keeps an xhr-only response on injection even under CDP control (not debug-tier)', async () => {
-    const rule = responseRule();
-    rule.conditions = [...rule.conditions, { uid: 'tcd00063', type: 'resource-types', values: ['xhr'] }];
+  it('still installs the delay wrapper on injection on the same tab NOT under CDP control', async () => {
+    const rule = delayRule();
     updateScriptableRules([rule]);
 
-    await __testInjectForUrl(CDP_TAB, PAGE);
-    expect(buildResponseInjection).toHaveBeenCalledWith(rule);
+    await __testInjectForUrl(PLAIN_TAB, PAGE);
+    expect(buildDelayInjection).toHaveBeenCalledWith(rule);
+  });
+
+  it('re-installs the delay wrapper on the CURRENT document refresh under CDP control (no mid-page loss)', async () => {
+    const rule = delayRule();
+    updateScriptableRules([rule]);
+    (chrome.tabs.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: CDP_TAB, url: PAGE });
+
+    // The scope-change / live-edit refresh acts on the already-loaded document,
+    // which a bootstrap script never reached — so the residual wrapper installs
+    // here even though the fresh-document path suppresses it.
+    await __testRefreshInterceptorsForTab(CDP_TAB);
+    expect(buildDelayInjection).toHaveBeenCalledWith(rule);
   });
 });

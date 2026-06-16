@@ -14,8 +14,8 @@ import {
   ChromeCdpEvalPort,
   ChromeCdpRequestControlPort,
   ChromeCdpTabControlPort,
-  compileFetchPatterns,
   createCdpControlReplay,
+  deriveTabControlState,
   startCdpActiveTab,
   startCdpFetchInterceptor,
   startDevtoolsPortPresence,
@@ -88,9 +88,11 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   // D2b-2: the host eval seam — runs a dynamic rule's user JS in the request
   // frame's isolated world so its body computes at the network layer.
   const evalPort = new ChromeCdpEvalPort(lifecycleHost.debuggerSource);
-  // Phase D1: `deriveState` compiles `Fetch.enable` patterns from the live
-  // debug-tier rules for any tab that is IN SCOPE — there is no
-  // observe-vs-control split: a tab the reconciler attached (via its scope
+  // Phase D/E: `deriveState` compiles the standing CDP control state for any
+  // tab that is IN SCOPE — the network plane (`Fetch.enable` patterns from the
+  // Fetch-realizable rules) AND the delivery plane (document-bootstrap sources
+  // from the residual wrappers, Phase E1b) — both replayed together. There is
+  // no observe-vs-control split: a tab the reconciler attached (via its scope
   // mode or an explicit pin) gets the full control suite, and what each rule
   // does is the rule's own job. The controller owns the scope derivation but
   // is constructed below (it needs the replay), so the gate reads it through
@@ -104,17 +106,8 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   // subset of the store's rules, so it never clobbers the DNR snapshot memo.
   const liveRules = (): Rule[] =>
     resolveRulesForCompile(getRules().filter((rule) => isRuleEffective(rule, getPauseMarkers(), getRulesPaused())));
-  const deriveState = (tabId: number): CdpTabControlState => {
-    if (!isTabInScope(tabId)) return EMPTY_TAB_CONTROL_STATE;
-    const rules = liveRules();
-    const fetchPatterns = compileFetchPatterns(rules);
-    if (fetchPatterns.length === 0) return EMPTY_TAB_CONTROL_STATE;
-    // Opt this tab into auth-challenge interception only when an auth rule is
-    // actually in scope — a tab whose debug rules are all response/body never
-    // widens its pause surface to 401/407 challenges.
-    const fetchHandleAuthRequests = rules.some((rule) => rule.type === 'auth');
-    return { ...EMPTY_TAB_CONTROL_STATE, fetchPatterns, fetchHandleAuthRequests };
-  };
+  const deriveState = (tabId: number): CdpTabControlState =>
+    isTabInScope(tabId) ? deriveTabControlState(liveRules()) : EMPTY_TAB_CONTROL_STATE;
   // Authoritative fire sink for D2 fulfill/rewrite. Resolved to the fires
   // bridge below (constructed after the rule-fire hub); a fulfill only fires
   // once a tab is armed and traffic flows, so the ref is always set by then.

@@ -1,11 +1,12 @@
 /**
  * Inject Manager — applies rules that require chrome.scripting API.
  *
- * Handles 6 rule types that can't use declarativeNetRequest:
+ * Handles the rule types that can't use declarativeNetRequest:
  *   - inject: user-authored JS/CSS injection
  *   - delay: monkey-patches fetch/XHR with setTimeout
- *   - body: monkey-patches fetch/XHR to modify request/response bodies
+ *   - request-body: monkey-patches fetch/XHR to rewrite request bodies
  *   - response: monkey-patches fetch/XHR to synthesize or rewrite responses
+ *   - header (merge): monkey-patches fetch/XHR to merge into request/response headers
  *   - ws: wraps the WebSocket constructor to modify/inject/drop frames
  *   - sse: wraps the EventSource constructor to modify/inject/drop events
  *
@@ -13,8 +14,16 @@
  * - Keeps the current set of scriptable rules in memory
  * - Listens to webNavigation.onCommitted for main frame navigations
  * - For each navigation, checks URL matches and injects appropriate scripts
- * - delay/body/response inject at document_start (before page JS runs)
+ * - the interceptor wrappers inject at document_start (before page JS runs)
  * - inject rules respect their configured position
+ *
+ * CDP delivery precedence (Phase D4a / E1b): when a tab is under CDP control,
+ * its Fetch-realizable rules are realized at the network layer (no in-page
+ * wrapper) and its residual wrappers ({@link isBootstrapEligible}) are delivered
+ * before page scripts via a document-bootstrap script. The `onCommitted` path
+ * suppresses both on the FRESH document so a rule is never delivered twice; the
+ * current-document refresh paths keep installing them (bootstrap reaches only
+ * future documents) so an arming tab never loses its wrappers mid-page.
  */
 
 declare const browser: typeof chrome | undefined;
@@ -33,6 +42,7 @@ import {
   compileRuleForInjection,
   doesHostMatchDomains,
   doesUrlMatchRule,
+  isBootstrapEligible,
   isFetchRealizableNow,
 } from '@openheaders/core/utils';
 import {
@@ -44,6 +54,7 @@ import {
   buildSetupInjection,
   buildSseInjection,
   buildWsInjection,
+  extractHeaderMerges,
 } from '@openheaders/rule-engine/content-scripts';
 import {
   applyInjection,
@@ -80,7 +91,7 @@ interface PageInstallGate {
 
 /** A header merge operation extracted from a HeaderRule. */
 interface HeaderMergeEntry extends PageInstallGate {
-  ruleUid: string;
+  rule: HeaderRule;
   requestMerges: Array<{ headerName: string; value: string; separator: string }>;
   responseMerges: Array<{ headerName: string; value: string; separator: string }>;
 }
@@ -130,31 +141,20 @@ export function setCdpControlQuery(query: (tabId: number) => boolean): void {
   cdpOwnsRealizableRules = query;
 }
 
-function defaultSeparator(headerName: string): string {
-  const lower = headerName.toLowerCase();
-  return lower === 'cookie' || lower === 'set-cookie' ? '; ' : ', ';
-}
-
 /**
- * Extract the merge operations from a HeaderRule. Returns null if the
- * rule has no merges — caller should skip installing an injection in that
- * case. This lives here (not in the header compiler) because header merge
- * injection is strictly a scriptable concern — inject-manager reads it
- * from the rule store, never from a compiled plan.
+ * Whether the active rule set contains at least one bootstrap-eligible wrapper
+ * ({@link isBootstrapEligible}) — i.e. a residual, page-independent wrapper that
+ * a CDP-owned tab delivers via a document-bootstrap script (`oh-setup` + the
+ * wrapper) instead of the `onCommitted` path. When true for an in-scope tab,
+ * the bootstrap supplies `oh-setup` and those wrappers on a fresh document, so
+ * the `onCommitted` path must NOT install them again (the "never both" law).
  */
-/**
- * Skip a merge mod whose template fields didn't fully resolve at
- * compile time. Mirrors the header-compiler's per-mod guard: if any of
- * the strings the page would inject still contains `{{`, the SW
- * resolver couldn't satisfy a reference (TOTP in `reject` mode, broken
- * var, missing env). Shipping the literal would inject a `{{...}}`
- * substring into the page's headers — silently wrong. Drop instead.
- */
-function isMergeModResolvable(m: { headerName: string; value?: string; mergeSeparator?: string }): boolean {
-  if (m.headerName.includes('{{')) return false;
-  if (typeof m.value === 'string' && m.value.includes('{{')) return false;
-  if (typeof m.mergeSeparator === 'string' && m.mergeSeparator.includes('{{')) return false;
-  return true;
+function hasBootstrapEligibleWrapper(): boolean {
+  return (
+    activeInterceptorRules.some((e) => isBootstrapEligible(e.rule)) ||
+    activeMessageRules.some((e) => isBootstrapEligible(e.rule)) ||
+    activeHeaderMerges.some((e) => isBootstrapEligible(e.rule))
+  );
 }
 
 /** Build the install gate from a rule's conditions (see PageInstallGate). */
@@ -176,27 +176,19 @@ function extractInstallGate(rule: Rule): PageInstallGate {
   };
 }
 
+/**
+ * Pair a HeaderRule's merge operations (the shared {@link extractHeaderMerges}
+ * extraction) with its page-install gate. Returns null when the rule has no
+ * merges — its set/append/remove ops are pure DNR and carry no wrapper.
+ */
 function extractHeaderMergeEntry(rule: HeaderRule): HeaderMergeEntry | null {
-  const requestMerges = (rule.action.requestHeaders ?? [])
-    .filter((m) => m.operation === 'merge' && m.headerName?.trim() && m.value?.trim() && isMergeModResolvable(m))
-    .map((m) => ({
-      headerName: m.headerName,
-      value: m.value!,
-      separator: m.mergeSeparator || defaultSeparator(m.headerName),
-    }));
-  const responseMerges = (rule.action.responseHeaders ?? [])
-    .filter((m) => m.operation === 'merge' && m.headerName?.trim() && m.value?.trim() && isMergeModResolvable(m))
-    .map((m) => ({
-      headerName: m.headerName,
-      value: m.value!,
-      separator: m.mergeSeparator || defaultSeparator(m.headerName),
-    }));
-  if (requestMerges.length === 0 && responseMerges.length === 0) return null;
+  const merges = extractHeaderMerges(rule);
+  if (merges === null) return null;
   return {
-    ruleUid: rule.uid,
+    rule,
     ...extractInstallGate(rule),
-    requestMerges,
-    responseMerges,
+    requestMerges: merges.requestMerges,
+    responseMerges: merges.responseMerges,
   };
 }
 
@@ -294,7 +286,7 @@ function interceptorSignature(
   });
   return JSON.stringify({
     i: interceptors.map((e) => ({ u: e.rule.uid, a: e.rule.action, ...gate(e) })),
-    h: headerMerges.map((e) => ({ u: e.ruleUid, q: e.requestMerges, s: e.responseMerges, ...gate(e) })),
+    h: headerMerges.map((e) => ({ u: e.rule.uid, q: e.requestMerges, s: e.responseMerges, ...gate(e) })),
     m: messageRules.map((e) => ({ u: e.rule.uid, a: e.rule.action, ...gate(e) })),
   });
 }
@@ -388,18 +380,29 @@ function blockedByTestScope(uid: string, testScope: TestScope): boolean {
 async function injectForUrl(tabId: number, url: string): Promise<void> {
   const testScope = getTestScopeForTab(tabId);
 
+  // CDP delivery precedence (E1b): on an in-scope tab with bootstrap-eligible
+  // wrappers, a document-bootstrap script already ran `oh-setup` + those
+  // wrappers BEFORE any page script on THIS fresh document. So skip the
+  // `onCommitted` setup + those wrappers here, or the rule installs twice.
+  // (Reaches only fresh documents — the refresh/push paths still install,
+  // since bootstrap never touched the current document; see resetAndReinjectTab.)
+  const bootstrapCoversDocument = cdpOwnsRealizableRules(tabId) && hasBootstrapEligibleWrapper();
+
   // Capture the page's pristine fetch/XHR/WebSocket/EventSource before any
   // interceptor patches them, so a later live-update reset has clean
-  // references to restore to.
-  try {
-    await applyInjection(tabId, buildSetupInjection(), 'oh-setup');
-  } catch (error) {
-    logInjectFailure('oh-setup', tabId, error);
+  // references to restore to. Skipped when the bootstrap already captured them.
+  if (!bootstrapCoversDocument) {
+    try {
+      await applyInjection(tabId, buildSetupInjection(), 'oh-setup');
+    } catch (error) {
+      logInjectFailure('oh-setup', tabId, error);
+    }
   }
 
   // Inject rules target the PAGE itself (page-url match, one-shot DOM
   // injection). Navigation-only: re-running them would double-inject, so
-  // they are deliberately excluded from the live-update push.
+  // they are deliberately excluded from the live-update push. Never
+  // bootstrapped (they are not fetch/socket wrappers) — always installed here.
   for (const rule of activeInjectRules) {
     if (!doesUrlMatchRule(url, rule)) continue;
     if (blockedByTestScope(rule.uid, testScope)) continue;
@@ -421,28 +424,46 @@ async function injectForUrl(tabId: number, url: string): Promise<void> {
     }
   }
 
-  await injectInterceptorsForTab(tabId, url, testScope);
+  await injectInterceptorsForTab(tabId, url, testScope, bootstrapCoversDocument);
 }
 
 /**
- * Inject the live-pushable interceptors — response/body/delay (REQUEST-url
- * matched in-page), header merges, and ws/sse wrappers. All gate on the
- * initiator-domain rule (`shouldInstallForPage`), not the page url. Used
- * on navigation AND on the live-update push (where the caller resets
- * first so this rebuilds a clean patch chain).
+ * Inject the live-pushable interceptors — response/request-body/delay
+ * (REQUEST-url matched in-page), header merges, and ws/sse wrappers. All gate
+ * on the initiator-domain rule (`shouldInstallForPage`), not the page url. Used
+ * on navigation AND on the live-update push (where the caller resets first so
+ * this rebuilds a clean patch chain).
+ *
+ * `suppressBootstrapEligible` is true ONLY on the fresh-document `onCommitted`
+ * path of a CDP-owned tab, where a bootstrap script already delivered the
+ * residual wrappers: those rules are skipped here so they install once, not
+ * twice. The refresh/push paths pass false — bootstrap reaches only FUTURE
+ * documents, so the current document's residual wrappers must still install
+ * here (an arming tab never loses its wrappers mid-page).
  */
-async function injectInterceptorsForTab(tabId: number, url: string, testScope: TestScope): Promise<void> {
+async function injectInterceptorsForTab(
+  tabId: number,
+  url: string,
+  testScope: TestScope,
+  suppressBootstrapEligible: boolean,
+): Promise<void> {
   const cdpOwned = cdpOwnsRealizableRules(tabId);
+  // True when this tab's CDP delivery (network realization OR bootstrap) already
+  // owns the rule for this document — so the `onCommitted` path must not also
+  // install its in-page wrapper. `isBootstrapEligible` is the complement of
+  // `isFetchRealizableNow`, so the two clauses never overlap.
+  const ownedByCdp = (rule: Rule): boolean =>
+    cdpOwned && (isFetchRealizableNow(rule) || (suppressBootstrapEligible && isBootstrapEligible(rule)));
+
   for (const entry of activeInterceptorRules) {
     if (!shouldInstallForPage(entry, url)) continue;
     const rule = entry.rule;
     if (blockedByTestScope(rule.uid, testScope)) continue;
-    // Precedence (D4): when CDP `Fetch` owns this tab, it realizes the rule's
-    // realizable-now effect for ALL contexts — and visibly in the Network
-    // panel. Suppress the in-page wrapper so the rule fires once, not twice.
-    // Network-source / dynamic responses stay on injection (CDP can't realize
-    // them yet); delay is never Fetch-capable, so it is never suppressed.
-    if (cdpOwned && isFetchRealizableNow(rule)) continue;
+    // Precedence (D4a / E1b): CDP realizes the realizable-now effect at the
+    // network layer (visible in the Network panel), and delivers the residual
+    // wrapper via the document-bootstrap script. Either way the `onCommitted`
+    // wrapper would be a second delivery — suppress it so the rule fires once.
+    if (ownedByCdp(rule)) continue;
 
     try {
       switch (rule.type) {
@@ -463,11 +484,12 @@ async function injectInterceptorsForTab(tabId: number, url: string, testScope: T
 
   for (const merge of activeHeaderMerges) {
     if (!shouldInstallForPage(merge, url)) continue;
-    if (blockedByTestScope(merge.ruleUid, testScope)) continue;
+    if (blockedByTestScope(merge.rule.uid, testScope)) continue;
+    if (ownedByCdp(merge.rule)) continue;
 
     try {
       const injection = buildHeaderMergeInjection(
-        merge.ruleUid,
+        merge.rule.uid,
         merge.regexSources,
         merge.requestMerges,
         merge.responseMerges,
@@ -481,6 +503,7 @@ async function injectInterceptorsForTab(tabId: number, url: string, testScope: T
   for (const entry of activeMessageRules) {
     if (!shouldInstallForPage(entry, url)) continue;
     if (blockedByTestScope(entry.rule.uid, testScope)) continue;
+    if (ownedByCdp(entry.rule)) continue;
 
     try {
       const injection = entry.rule.type === 'ws' ? buildWsInjection(entry.rule) : buildSseInjection(entry.rule);
@@ -518,10 +541,12 @@ async function pushInterceptorUpdate(): Promise<void> {
 
 /** Drop every chained OH patch on a tab, then re-inject its current
  *  (suppression-filtered) interceptor set. The shared body of the live-update
- *  push and the per-tab CDP-scope refresh. */
+ *  push and the per-tab CDP-scope refresh — both act on the CURRENT document,
+ *  which a bootstrap script never reached, so the residual wrappers install
+ *  here (suppress=false); only network realization (D4a) is still suppressed. */
 async function resetAndReinjectTab(tabId: number, url: string): Promise<void> {
   await applyInjection(tabId, buildResetInjection(), 'oh-reset');
-  await injectInterceptorsForTab(tabId, url, getTestScopeForTab(tabId));
+  await injectInterceptorsForTab(tabId, url, getTestScopeForTab(tabId), false);
 }
 
 /**

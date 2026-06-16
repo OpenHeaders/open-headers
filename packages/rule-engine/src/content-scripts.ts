@@ -36,7 +36,7 @@
  * is an opaque cross-realm object.
  */
 
-import type { DelayRule, RequestBodyRule, ResponseRule, SseRule, WsRule } from '@openheaders/core/types';
+import type { DelayRule, HeaderRule, RequestBodyRule, ResponseRule, SseRule, WsRule } from '@openheaders/core/types';
 import { compileRuleForInjection } from '@openheaders/core/utils';
 import type { FuncInjection, Injection } from './builders/types';
 
@@ -591,6 +591,53 @@ function staticResponseInjectionFunc(cfg: StaticResponseConfig): void {
 }
 
 // ── Static Header Merge (real function) ─────────────────────────────
+
+function defaultSeparator(headerName: string): string {
+  const lower = headerName.toLowerCase();
+  return lower === 'cookie' || lower === 'set-cookie' ? '; ' : ', ';
+}
+
+/**
+ * Skip a merge mod whose template fields didn't fully resolve. If any of the
+ * strings the page would inject still contains `{{`, the SW resolver couldn't
+ * satisfy a reference (TOTP in `reject` mode, broken var, missing env);
+ * shipping the literal would inject a `{{...}}` substring into the page's
+ * headers — silently wrong. Drop instead.
+ */
+function isMergeModResolvable(m: { headerName: string; value?: string; mergeSeparator?: string }): boolean {
+  if (m.headerName.includes('{{')) return false;
+  if (typeof m.value === 'string' && m.value.includes('{{')) return false;
+  if (typeof m.mergeSeparator === 'string' && m.mergeSeparator.includes('{{')) return false;
+  return true;
+}
+
+/**
+ * The merge operations a HeaderRule contributes to an in-page wrapper, or
+ * `null` when it has none (its set/append/remove ops are pure DNR and carry no
+ * wrapper). The producer half of {@link buildHeaderMergeInjection}; lives here,
+ * beside the builder, so BOTH delivery paths — the `onCommitted` injector and
+ * the CDP bootstrap compiler — read one extraction with no drift.
+ */
+export function extractHeaderMerges(
+  rule: HeaderRule,
+): Pick<HeaderMergeConfig, 'requestMerges' | 'responseMerges'> | null {
+  const requestMerges = (rule.action.requestHeaders ?? [])
+    .filter((m) => m.operation === 'merge' && m.headerName?.trim() && m.value?.trim() && isMergeModResolvable(m))
+    .map((m) => ({
+      headerName: m.headerName,
+      value: m.value!,
+      separator: m.mergeSeparator || defaultSeparator(m.headerName),
+    }));
+  const responseMerges = (rule.action.responseHeaders ?? [])
+    .filter((m) => m.operation === 'merge' && m.headerName?.trim() && m.value?.trim() && isMergeModResolvable(m))
+    .map((m) => ({
+      headerName: m.headerName,
+      value: m.value!,
+      separator: m.mergeSeparator || defaultSeparator(m.headerName),
+    }));
+  if (requestMerges.length === 0 && responseMerges.length === 0) return null;
+  return { requestMerges, responseMerges };
+}
 
 export function buildHeaderMergeInjection(
   ruleUid: string,
