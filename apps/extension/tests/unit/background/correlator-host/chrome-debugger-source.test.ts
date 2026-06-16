@@ -20,9 +20,10 @@
 import type { CdpFetchEvent, CdpNetworkEvent, CdpPageEvent } from '@openheaders/oracle/correlator-cdp';
 import { CdpCorrelator, cdpStoreRequestId } from '@openheaders/oracle/correlator-cdp';
 import { RequestLifecycleStore } from '@openheaders/oracle/request-lifecycle-store';
+import { OH_BINDING } from '@openheaders/rule-engine/content-scripts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ChromeDebuggerEventSource } from '@/background/correlator-host/chrome-debugger-source';
+import { type CdpBindingFire, ChromeDebuggerEventSource } from '@/background/correlator-host/chrome-debugger-source';
 import { clearMainFrameId, isMainFrame } from '@/background/correlator-host/main-frame-registry';
 import { chrome as chromeMock } from '../../../__mocks__/chrome';
 
@@ -110,6 +111,11 @@ function rawAuthRequired(requestId: string, url: string, overrides: Record<strin
     authChallenge: { source: 'Proxy', origin: 'https://proxy.openheaders.io', scheme: 'basic', realm: 'staging' },
     ...overrides,
   };
+}
+
+function rawBindingCalled(payload: unknown, name: string = OH_BINDING): object {
+  // CDP carries executionContextId too; the adapter reads only name + payload.
+  return { name, payload: typeof payload === 'string' ? payload : JSON.stringify(payload), executionContextId: 7 };
 }
 
 function attachedToTarget(sessionId: string, type: string): object {
@@ -1029,6 +1035,114 @@ describe('ChromeDebuggerEventSource — Fetch.authRequired (auth-challenge contr
 
     emitRoot('Target.attachedToTarget', attachedToTarget('sw-session', 'service_worker'));
     emitChild('sw-session', 'Fetch.authRequired', rawAuthRequired('fetch-asw', 'https://api.openheaders.io/sync'));
+
+    expect(out).toHaveLength(0);
+  });
+});
+
+describe('ChromeDebuggerEventSource — Runtime.bindingCalled (private fire-bridge, E4)', () => {
+  const onSession = (method: string, sessionId?: string) =>
+    chromeMock.debugger.sendCommand.mock.calls.find(
+      (c) => c[1] === method && (c[0] as chrome.debugger.DebuggerSession).sessionId === sessionId,
+    );
+
+  it('attach enables Runtime and adds the fire binding on the page target', async () => {
+    source = new ChromeDebuggerEventSource();
+    await source.attach(TAB);
+
+    // bindingCalled is delivered only to a Runtime-enabled client, so both are
+    // issued on the root (sessionId undefined → bare {tabId} debuggee).
+    expect(onSession('Runtime.enable', undefined)).toBeDefined();
+    expect(onSession('Runtime.addBinding', undefined)?.[2]).toEqual({ name: OH_BINDING });
+  });
+
+  it('adds the fire binding on a kept iframe AND a kept worker child (uniform across child types)', async () => {
+    source = new ChromeDebuggerEventSource();
+    await source.attach(TAB);
+
+    emitRoot('Target.attachedToTarget', attachedToTarget(CHILD_SESSION, 'iframe'));
+    emitRoot('Target.attachedToTarget', attachedToTarget('child-worker-1', 'worker'));
+
+    // Unlike Page.enable (iframe-only), the binding fans to every kept child —
+    // a worker has a Runtime domain + global, so the transport is uniform.
+    expect(onSession('Runtime.enable', CHILD_SESSION)).toBeDefined();
+    expect(onSession('Runtime.addBinding', CHILD_SESSION)?.[2]).toEqual({ name: OH_BINDING });
+    expect(onSession('Runtime.enable', 'child-worker-1')).toBeDefined();
+    expect(onSession('Runtime.addBinding', 'child-worker-1')?.[2]).toEqual({ name: OH_BINDING });
+  });
+
+  it('routes a bindingCalled on the root by tabId, dropping kind', async () => {
+    source = new ChromeDebuggerEventSource();
+    const out: CdpBindingFire[] = [];
+    source.subscribeBinding((f) => out.push(f));
+    await source.attach(TAB);
+
+    emitRoot(
+      'Runtime.bindingCalled',
+      rawBindingCalled({ ruleUid: 'wsr00001', url: 'wss://stream.openheaders.io/feed', kind: 'ws', t: 1234 }),
+    );
+
+    expect(out).toEqual([{ tabId: TAB, ruleUid: 'wsr00001', url: 'wss://stream.openheaders.io/feed', t: 1234 }]);
+  });
+
+  it('routes a bindingCalled on a kept child by the owning tabId (OOPIF wrapper fire)', async () => {
+    source = new ChromeDebuggerEventSource();
+    const out: CdpBindingFire[] = [];
+    source.subscribeBinding((f) => out.push(f));
+    await source.attach(TAB);
+
+    emitRoot('Target.attachedToTarget', attachedToTarget(CHILD_SESSION, 'iframe'));
+    emitChild(
+      CHILD_SESSION,
+      'Runtime.bindingCalled',
+      rawBindingCalled({ ruleUid: 'dly00001', url: 'https://widgets.openheaders.io/x', kind: 'delay', t: 9 }),
+    );
+
+    // A child wrapper's fire belongs to the tab — routed by tabId, not session.
+    expect(out).toEqual([{ tabId: TAB, ruleUid: 'dly00001', url: 'https://widgets.openheaders.io/x', t: 9 }]);
+  });
+
+  it('drops a bindingCalled from an unkept child session (target-type filter)', async () => {
+    source = new ChromeDebuggerEventSource();
+    const out: CdpBindingFire[] = [];
+    source.subscribeBinding((f) => out.push(f));
+    await source.attach(TAB);
+
+    emitRoot('Target.attachedToTarget', attachedToTarget('sw-session', 'service_worker'));
+    emitChild('sw-session', 'Runtime.bindingCalled', rawBindingCalled({ ruleUid: 'x', url: 'u', kind: 'ws', t: 1 }));
+
+    expect(out).toHaveLength(0);
+  });
+
+  it('drops non-bindingCalled Runtime.* (the enable byproduct stream) on every plane', async () => {
+    source = new ChromeDebuggerEventSource();
+    const fires: CdpBindingFire[] = [];
+    const net: CdpNetworkEvent[] = [];
+    const pages: CdpPageEvent[] = [];
+    source.subscribeBinding((f) => fires.push(f));
+    source.subscribe((e) => net.push(e));
+    source.subscribePage((e) => pages.push(e));
+    await source.attach(TAB);
+
+    // Enabling Runtime turns these on; we consume none of them.
+    emitRoot('Runtime.executionContextCreated', { context: { id: 1, name: '' } });
+    emitRoot('Runtime.consoleAPICalled', { type: 'log', args: [], executionContextId: 1, timestamp: 1 });
+    emitRoot('Runtime.exceptionThrown', { timestamp: 1, exceptionDetails: {} });
+
+    expect(fires).toHaveLength(0);
+    expect(net).toHaveLength(0);
+    expect(pages).toHaveLength(0);
+  });
+
+  it('drops a malformed or foreign-name bindingCalled (a page can call the fixed-name binding)', async () => {
+    source = new ChromeDebuggerEventSource();
+    const out: CdpBindingFire[] = [];
+    source.subscribeBinding((f) => out.push(f));
+    await source.attach(TAB);
+
+    emitRoot('Runtime.bindingCalled', rawBindingCalled('not-json{')); // unparseable payload
+    emitRoot('Runtime.bindingCalled', rawBindingCalled({ ruleUid: 'r', t: 'soon' })); // wrong shape
+    emitRoot('Runtime.bindingCalled', rawBindingCalled({ ruleUid: 'r', url: 'u', t: 1 }, 'someOtherBinding')); // not ours
 
     expect(out).toHaveLength(0);
   });

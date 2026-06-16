@@ -28,12 +28,17 @@
  * semantics (including future `|`/`||` anchor support) live in ONE place:
  * core's rule-matcher module.
  *
- * On match, each function fires a `window.postMessage({__ohFire:true,...})`.
- * The always-on ISOLATED fire-bridge content script (registered via
- * manifest.json) catches the message and forwards it to the background
- * tab-telemetry service. postMessage is the canonical MAIN↔ISOLATED channel
- * in MV3 — it performs structured cloning, unlike CustomEvent.detail which
- * is an opaque cross-realm object.
+ * On match, each function reports a fire through the dispatcher `oh-setup`
+ * installs at `window.__ohOrig.fire`. The dispatcher decides the channel once,
+ * at capture time: a CDP-attached tab exposes a private `Runtime.addBinding`
+ * global (the SW added it; `oh-setup` captures the reference), so the fire goes
+ * straight to the debugger — invisible to the page, which can neither observe
+ * nor intercept it. Otherwise the dispatcher falls back to
+ * `window.postMessage({__ohFire:true,...})`, which the always-on ISOLATED
+ * fire-bridge content script (registered via manifest.json) forwards to the
+ * background tab-telemetry service. postMessage is the canonical MAIN↔ISOLATED
+ * channel in MV3 — it performs structured cloning, unlike CustomEvent.detail
+ * which is an opaque cross-realm object.
  */
 
 import type { DelayRule, HeaderRule, RequestBodyRule, ResponseRule, SseRule, WsRule } from '@openheaders/core/types';
@@ -42,6 +47,18 @@ import type { FuncInjection, Injection } from './builders/types';
 
 // Re-export the injection types so existing importers keep working.
 export type { FuncInjection, Injection, InlineScriptInjection } from './builders/types';
+
+/**
+ * Name of the page-invisible fire channel. On a CDP-attached (in-scope) tab the
+ * SW installs a global of this name via `Runtime.addBinding`; calling it emits a
+ * `Runtime.bindingCalled` event straight to the debugger, bypassing the DOM. The
+ * SW (`addBinding`) and `oh-setup` (which feature-detects the global) share this
+ * one constant. Un-armed tabs have no such global, so the dispatcher falls back
+ * to `window.postMessage`. Short + unobtrusive; a fixed name is page-guessable
+ * (a page could fabricate a fire) but cannot OBSERVE a real one — a randomized
+ * per-attach nonce is the deferred fabrication-hardening follow-up.
+ */
+export const OH_BINDING = '__ohb';
 
 // ── Per-rule config shapes passed into injected funcs ───────────────
 
@@ -117,10 +134,12 @@ interface SseConfig {
 const TEST_BRIDGE_CODE = [
   'function __ohFire(ruleUid, url, kind) {',
   '  try {',
-  // window.postMessage is the canonical MAIN→ISOLATED channel in MV3 — it
-  // performs structured cloning of the payload, unlike CustomEvent.detail
-  // which is an opaque cross-realm object and often comes through as null.
-  '    window.postMessage({ __ohFire: true, ruleUid: ruleUid, url: url, kind: kind, t: Date.now() }, "*");',
+  // Route through the one dispatcher oh-setup installed (binding on an in-scope
+  // tab, else postMessage). oh-setup always runs before any wrapper on this
+  // document, so __ohOrig.fire is present; if it somehow is not, drop the fire
+  // rather than re-deciding the channel here.
+  '    var o = window.__ohOrig;',
+  '    if (o && o.fire) o.fire(ruleUid, url, kind);',
   '  } catch (e) {}',
   '}',
 ].join('\n');
@@ -176,17 +195,28 @@ interface OhOriginals {
   xhrSetHeader: typeof XMLHttpRequest.prototype.setRequestHeader;
   WebSocket: typeof window.WebSocket;
   EventSource: typeof window.EventSource;
+  /** The one fire dispatcher (see {@link ohSetupFunc}). Every wrapper reports
+   *  through this so the binding-vs-postMessage choice lives in one place. */
+  fire: (ruleUid: string, url: string, kind: string) => void;
 }
 
 /** Capture the page's pristine fetch/XHR/WebSocket/EventSource once, at
- *  document_start, before any interceptor patches them. */
+ *  document_start, before any interceptor patches them, and install the fire
+ *  dispatcher every wrapper reports through. */
 export function buildSetupInjection(): FuncInjection {
-  return { kind: 'func', func: ohSetupFunc as unknown as (cfg: never) => void, args: [null] };
+  return { kind: 'func', func: ohSetupFunc as unknown as (cfg: never) => void, args: [OH_BINDING] };
 }
 
-function ohSetupFunc(): void {
-  const w = window as unknown as { __ohOrig?: OhOriginals };
+function ohSetupFunc(bindingName: string): void {
+  const w = window as unknown as { __ohOrig?: OhOriginals } & Record<string, unknown>;
   if (w.__ohOrig) return; // pristine originals already captured this page
+  // Capture the private fire binding the SW installed on a CDP-attached tab
+  // (absent on un-armed tabs). Held in this closure — NOT re-read from
+  // window[bindingName] at fire time — so a real fire still reaches the
+  // debugger even if the page later overwrites the global. The page can see
+  // the global exists, but bindingCalled never touches the DOM.
+  const bound = w[bindingName];
+  const fireBinding = typeof bound === 'function' ? (bound as unknown as (payload: string) => void) : undefined;
   w.__ohOrig = {
     fetch: window.fetch,
     xhrOpen: XMLHttpRequest.prototype.open,
@@ -194,6 +224,17 @@ function ohSetupFunc(): void {
     xhrSetHeader: XMLHttpRequest.prototype.setRequestHeader,
     WebSocket: window.WebSocket,
     EventSource: window.EventSource,
+    fire(ruleUid: string, url: string, kind: string): void {
+      try {
+        if (fireBinding) {
+          fireBinding(JSON.stringify({ ruleUid, url, kind, t: Date.now() }));
+          return;
+        }
+        window.postMessage({ __ohFire: true, ruleUid, url, kind, t: Date.now() }, '*');
+      } catch {
+        /* swallow */
+      }
+    },
   };
 }
 
@@ -256,11 +297,7 @@ function delayInjectionFunc(cfg: DelayConfig): void {
   }
 
   function fire(url: string): void {
-    try {
-      window.postMessage({ __ohFire: true, ruleUid: cfg.ruleUid, url, kind: 'delay', t: Date.now() }, '*');
-    } catch {
-      /* swallow */
-    }
+    (window as unknown as { __ohOrig?: OhOriginals }).__ohOrig?.fire(cfg.ruleUid, url, 'delay');
   }
 
   const origFetch = window.fetch;
@@ -361,11 +398,7 @@ function staticBodyInjectionFunc(cfg: StaticBodyConfig): void {
   }
 
   function fire(url: string): void {
-    try {
-      window.postMessage({ __ohFire: true, ruleUid: cfg.ruleUid, url, kind: 'request-body', t: Date.now() }, '*');
-    } catch {
-      /* swallow */
-    }
+    (window as unknown as { __ohOrig?: OhOriginals }).__ohOrig?.fire(cfg.ruleUid, url, 'request-body');
   }
 
   const origFetch = window.fetch;
@@ -481,11 +514,7 @@ function staticResponseInjectionFunc(cfg: StaticResponseConfig): void {
   }
 
   function fire(url: string): void {
-    try {
-      window.postMessage({ __ohFire: true, ruleUid: cfg.ruleUid, url, kind: 'response', t: Date.now() }, '*');
-    } catch {
-      /* swallow */
-    }
+    (window as unknown as { __ohOrig?: OhOriginals }).__ohOrig?.fire(cfg.ruleUid, url, 'response');
   }
 
   // mock: build headers from scratch (CT defaults to JSON). network: start
@@ -678,11 +707,7 @@ function headerMergeInjectionFunc(cfg: HeaderMergeConfig): void {
   }
 
   function fire(url: string): void {
-    try {
-      window.postMessage({ __ohFire: true, ruleUid: cfg.ruleUid, url, kind: 'header-merge', t: Date.now() }, '*');
-    } catch {
-      /* swallow */
-    }
+    (window as unknown as { __ohOrig?: OhOriginals }).__ohOrig?.fire(cfg.ruleUid, url, 'header-merge');
   }
 
   function mergeValue(existing: string, newVal: string, sep: string): string {
@@ -839,11 +864,7 @@ function wsInjectionFunc(cfg: WsConfig): void {
   }
 
   function fire(url: string): void {
-    try {
-      window.postMessage({ __ohFire: true, ruleUid: cfg.ruleUid, url, kind: 'ws', t: Date.now() }, '*');
-    } catch {
-      /* swallow */
-    }
+    (window as unknown as { __ohOrig?: OhOriginals }).__ohOrig?.fire(cfg.ruleUid, url, 'ws');
   }
 
   type SyntheticMessageEvent = MessageEvent & { __ohSynthetic?: boolean };
@@ -985,11 +1006,7 @@ function sseInjectionFunc(cfg: SseConfig): void {
   }
 
   function fire(url: string): void {
-    try {
-      window.postMessage({ __ohFire: true, ruleUid: cfg.ruleUid, url, kind: 'sse', t: Date.now() }, '*');
-    } catch {
-      /* swallow */
-    }
+    (window as unknown as { __ohOrig?: OhOriginals }).__ohOrig?.fire(cfg.ruleUid, url, 'sse');
   }
 
   type SyntheticMessageEvent = MessageEvent & { __ohSynthetic?: boolean };

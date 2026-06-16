@@ -26,6 +26,7 @@ import { getRulesPaused } from '../dnr-manager';
 import { refreshInterceptorsForTab, setCdpControlQuery } from '../inject-manager';
 import { createPersistentWatchSessionFloors, startLifecyclePortHost } from '../lifecycle-port-host';
 import { setupOnRuleMatchedDebugBridge } from '../modules/on-rule-matched-debug';
+import { recordReportedFire } from '../modules/tab-telemetry';
 import { startTabTelemetryFiresBridge } from '../modules/tab-telemetry-fires-bridge';
 import { startCdpPageBridge, startDevtoolsPageNavBridge, startPagePortHost } from '../page-port-host';
 import { startResourceTimingRelay } from '../resource-timing-relay';
@@ -164,6 +165,13 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
     reportPause: (tabId, requestId, pausedMs) =>
       lifecycleHost.store.apply({ kind: 'phase', tabId, requestId, patch: { pausedByDebugMs: pausedMs } }),
   });
+  // Private fire-bridge (E4): residual in-page wrappers on a CDP-attached tab
+  // report via Runtime.addBinding (page-invisible) instead of window.postMessage.
+  // Route those binding fires into the SAME tab-telemetry plane the un-armed
+  // postMessage path (`tabFire`) feeds — keyed by the tab the binding fired on.
+  lifecycleHost.debuggerSource.subscribeBinding((fire) =>
+    recordReportedFire(fire.tabId, fire.ruleUid, fire.url, fire.t),
+  );
   startDevtoolsPortPresence({
     onConnected: (tabId) => cdpAttachController.notePortConnected(tabId),
     onDisconnected: (tabId) => cdpAttachController.notePortDisconnected(tabId),

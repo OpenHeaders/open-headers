@@ -52,6 +52,10 @@
  */
 
 import type { DeliveryMode, Evidence, RequestRecord, TabTelemetrySnapshot } from '@openheaders/core/types';
+import { doesUrlMatchEntry, getRuleMatchPatterns } from '@openheaders/core/utils';
+import { getRules } from '@openheaders/oracle/entity/rule-store';
+import { getResolvedRules } from '@openheaders/oracle/rule-engine/variables-resolver';
+import { logger } from '@utils/logger';
 import type { TrackedResourceType } from '@/types/browser';
 import type { ShadowAttribution } from './shadow-arbitration';
 
@@ -490,6 +494,34 @@ export function recordScriptableFire(
     ...(identity ? { requestId: identity.requestId } : {}),
   };
   appendFire(state, record);
+}
+
+/**
+ * Record a scriptable fire reported by an in-page wrapper, resolving the URL
+ * pattern it matched. The single intake for both delivery channels: the
+ * `postMessage` fire-bridge (`tabFire`) on un-armed tabs, and the private
+ * `Runtime.addBinding` channel (E4) on CDP-attached tabs. Always attributed
+ * `xmlhttprequest` (these are fetch/XHR/ws/sse wrappers); a no-pattern match
+ * falls back to `*`. No-op for untracked tabs.
+ */
+export function recordReportedFire(tabId: number, ruleUid: string, url: string, t: number): void {
+  logger.info('TabFire', `tab ${tabId} scriptable ${ruleUid} ${url}`);
+  const pattern = findMatchingPattern(ruleUid, url) ?? '*';
+  recordScriptableFire(tabId, ruleUid, url, t, { pattern, resourceType: 'xmlhttprequest' });
+}
+
+/** Resolve the URL-condition pattern a scriptable rule matched against. Matches
+ *  against the resolved rule — raw `{{VAR}}` URL tokens never match a real
+ *  request URL — falling through to the raw store before the first compile. */
+function findMatchingPattern(ruleUid: string, url: string): string | undefined {
+  const resolved = getResolvedRules();
+  const pool = resolved.length > 0 ? resolved : getRules();
+  const rule = pool.find((r) => r.uid === ruleUid);
+  if (!rule) return undefined;
+  for (const entry of getRuleMatchPatterns(rule)) {
+    if (doesUrlMatchEntry(url, entry)) return entry.pattern;
+  }
+  return undefined;
 }
 
 // ── Delivery-mode back-fill ─────────────────────────────────────────

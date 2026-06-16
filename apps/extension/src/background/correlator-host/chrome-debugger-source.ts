@@ -52,6 +52,7 @@ import type {
   CdpSessionTarget,
   CdpStackTrace,
 } from '@openheaders/oracle/correlator-cdp';
+import { OH_BINDING } from '@openheaders/rule-engine/content-scripts';
 import { logger } from '@utils/logger';
 import { type BrowserAPI, getBrowserAPI } from '@/types/browser';
 import { clearMainFrameId, setMainFrameId } from './main-frame-registry';
@@ -61,7 +62,25 @@ type PageListener = (event: CdpPageEvent) => void;
 type FetchListener = (event: CdpFetchEvent) => void;
 type DetachListener = (tabId: number, reason: string) => void;
 type ChildSessionListener = (tabId: number, sessionId: string) => void;
+type BindingListener = (fire: CdpBindingFire) => void;
 type DebuggerApi = BrowserAPI['debugger'];
+
+/**
+ * A residual in-page wrapper's fire, delivered over the private
+ * `Runtime.addBinding` channel (E4) instead of `window.postMessage` — the page
+ * can neither observe nor forge it (a forged DOM message never enters this
+ * channel). Routed by `tabId` only: a worker/OOPIF wrapper's fire belongs to
+ * its owning tab, so child sessions are not filtered out (unlike page-timing).
+ * The payload mirrors the un-armed postMessage one; `kind` is parsed but
+ * dropped, since the fire plane keys on `(tabId, ruleUid, url, t)` — exactly
+ * what `fire-bridge-content.ts` relays to `tabFire`.
+ */
+export interface CdpBindingFire {
+  readonly tabId: number;
+  readonly ruleUid: string;
+  readonly url: string;
+  readonly t: number;
+}
 
 /** Protocol version handed to `chrome.debugger.attach`. */
 const CDP_PROTOCOL_VERSION = '1.3';
@@ -123,6 +142,7 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
   private readonly detachListeners = new Set<DetachListener>();
   private readonly childAttachListeners = new Set<ChildSessionListener>();
   private readonly childDetachListeners = new Set<ChildSessionListener>();
+  private readonly bindingListeners = new Set<BindingListener>();
   /** Root (page-target) tabs we hold a `chrome.debugger` attachment for. */
   private readonly attachedTabs = new Set<number>();
   /** Flattened child sessions we kept and enabled `Network` on → owning root tab. */
@@ -155,6 +175,21 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
     this.fetchListeners.add(listener);
     return () => {
       this.fetchListeners.delete(listener);
+    };
+  }
+
+  /**
+   * Subscribe to private fire-bridge events (E4) — a residual wrapper's fire on
+   * any session of a CDP-attached tab, delivered via `Runtime.bindingCalled`
+   * instead of `window.postMessage`. Page-invisible: the page can neither read
+   * nor forge these (a forged DOM message never reaches the debugger). NOT part
+   * of the oracle `CdpEventSource` interface — rule fires are a host concern, so
+   * the pipeline consumes this directly off the chrome adapter.
+   */
+  subscribeBinding(listener: BindingListener): () => void {
+    this.bindingListeners.add(listener);
+    return () => {
+      this.bindingListeners.delete(listener);
     };
   }
 
@@ -311,6 +346,10 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
     // from the root session alone, so child Page.* never enters the feed.
     await this.enablePage({ tabId });
     await this.enableAutoAttach({ tabId });
+    // Private fire-bridge (E4): a Runtime binding the in-page wrappers report
+    // through instead of window.postMessage — page-invisible. Fanned to kept
+    // children too (handleTargetAttached) so an OOPIF wrapper's fire reaches us.
+    await this.enableRuntimeBinding({ tabId });
     // Seed the main-frame registry before any navigation: the first
     // navigation's requestWillBeSent precedes its frameNavigated, so
     // without the seed the main/sub document split misses the first nav.
@@ -349,6 +388,7 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
     this.detachListeners.clear();
     this.childAttachListeners.clear();
     this.childDetachListeners.clear();
+    this.bindingListeners.clear();
     this.attachedTabs.clear();
     this.childSessions.clear();
   }
@@ -409,6 +449,21 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
       this.handleFetchEvent(method, tabId, fetchChildSessionId ?? ROOT_SESSION_ID, params);
       return;
     }
+    if (method.startsWith('Runtime.')) {
+      // Private fire-bridge (E4): a residual wrapper reported its fire by
+      // calling the OH binding — delivered as Runtime.bindingCalled, invisible
+      // to the page. Enabling Runtime to receive it also emits
+      // executionContextCreated/consoleAPICalled/exceptionThrown, which we
+      // consume nothing of, so drop every non-bindingCalled Runtime.* here.
+      // (Phase G console capture reuses the enable and keeps those.) Route by
+      // tabId — a worker/OOPIF fire belongs to the tab — but gate the session
+      // like Network./Fetch.: only the root or a kept child.
+      if (method !== 'Runtime.bindingCalled' || params === undefined) return;
+      const bindingChildSessionId = source.sessionId;
+      if (bindingChildSessionId !== undefined && !this.childSessions.has(bindingChildSessionId)) return;
+      this.handleBindingCalled(tabId, params as RawBindingCalled);
+      return;
+    }
     if (!method.startsWith('Network.') || params === undefined) return;
     // A child session only routes once we have chosen to keep it (type
     // filter applied in `handleTargetAttached`); the root has no id.
@@ -428,6 +483,14 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
       return;
     }
     // Other Fetch.* events are not part of the consumed subset.
+  }
+
+  private handleBindingCalled(tabId: number, params: RawBindingCalled): void {
+    // One binding is ever added; ignore any other name (defensive — a future
+    // binding, or a stray event).
+    if (params.name !== OH_BINDING) return;
+    const fire = parseBindingFire(tabId, params.payload);
+    if (fire !== null) this.fanBinding(fire);
   }
 
   private handleNetworkEvent(method: string, tabId: number, sessionId: string, params: object): void {
@@ -532,6 +595,13 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
     // precedes those Page commands. Workers have no Page domain (Network-only);
     // child Page.* stays out of page-timing (the router fans the root alone).
     if (params.targetInfo.type === 'iframe') void this.enablePage(session);
+    // The private fire-bridge reaches every kept child (E4): a worker/OOPIF
+    // wrapper's fire belongs to the tab, so addBinding + Runtime.enable on the
+    // child's own session and route any bindingCalled there by tabId. Workers
+    // have a Runtime domain + global, so this is uniform across child types —
+    // moot for now (no worker wrapper exists yet; the deferred reach), but the
+    // transport is in place for when one lands.
+    void this.enableRuntimeBinding(session);
     for (const listener of this.childAttachListeners) listener(tabId, childSessionId);
   }
 
@@ -562,6 +632,28 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
 
   private enablePage(session: chrome.debugger.DebuggerSession): Promise<void> {
     return this.send(session, 'Page.enable');
+  }
+
+  /**
+   * Enable the Runtime domain and install the page-invisible fire binding on a
+   * session (E4). `Runtime.bindingCalled` is delivered only to a client that
+   * has enabled Runtime, so the enable is required, not optional — it also
+   * turns on executionContextCreated/consoleAPICalled/exceptionThrown, which
+   * the event router drops (we consume only bindingCalled; Phase G console
+   * capture reuses this enable and keeps those). The binding (no
+   * executionContextId) lands on every global on the session — main world
+   * included — and survives reloads, so a bootstrap wrapper on a fresh document
+   * finds it already present. Enable precedes addBinding so no early fire is
+   * missed.
+   */
+  private async enableRuntimeBinding(session: chrome.debugger.DebuggerSession): Promise<void> {
+    // Issue both on the session's serialized command queue in order — enable
+    // before addBinding, so the binding never exists on a not-yet-enabled
+    // Runtime and no early fire is lost — but without awaiting between them, so
+    // the child fan-out (`void this.enableRuntimeBinding`) records both at once.
+    const enabled = this.send(session, 'Runtime.enable');
+    const bound = this.send(session, 'Runtime.addBinding', { name: OH_BINDING });
+    await Promise.all([enabled, bound]);
   }
 
   private enableAutoAttach(session: chrome.debugger.DebuggerSession): Promise<void> {
@@ -626,6 +718,10 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
 
   private fanFetch(event: CdpFetchEvent): void {
     for (const listener of this.fetchListeners) listener(event);
+  }
+
+  private fanBinding(fire: CdpBindingFire): void {
+    for (const listener of this.bindingListeners) listener(fire);
   }
 
   private api(): DebuggerApi | undefined {
@@ -839,6 +935,14 @@ interface RawAuthRequired {
   readonly frameId?: string;
   readonly resourceType: string;
   readonly authChallenge: RawAuthChallenge;
+}
+
+/** `Runtime.bindingCalled` — `payload` is the wrapper's JSON.stringify of
+ *  `{ruleUid,url,kind,t}`; `name` discriminates which addBinding fired. */
+interface RawBindingCalled {
+  readonly name: string;
+  readonly payload: string;
+  readonly executionContextId?: number;
 }
 
 /** `Network.getResponseBody` result — body text + whether it is base64. */
@@ -1147,6 +1251,28 @@ function normalizeAuthRequired(tabId: number, sessionId: string, p: RawAuthRequi
       realm: p.authChallenge.realm,
     },
   };
+}
+
+// ── runtime-domain parser (private fire-bridge) ──────────────────────
+
+/**
+ * Parse a `Runtime.bindingCalled` payload into a routed fire, or `null` when it
+ * is malformed. A page CAN call the fixed-name binding (the v1 fabrication gap),
+ * so the payload is validated, never trusted blindly. `kind` is parsed but
+ * dropped — the fire plane keys on `(tabId, ruleUid, url, t)`, mirroring the
+ * un-armed postMessage path that relays only those to `tabFire`.
+ */
+function parseBindingFire(tabId: number, payload: string): CdpBindingFire | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(payload);
+  } catch {
+    return null;
+  }
+  if (typeof parsed !== 'object' || parsed === null) return null;
+  const p = parsed as { ruleUid?: unknown; url?: unknown; t?: unknown };
+  if (typeof p.ruleUid !== 'string' || typeof p.url !== 'string' || typeof p.t !== 'number') return null;
+  return { tabId, ruleUid: p.ruleUid, url: p.url, t: p.t };
 }
 
 // ── page-domain normalizers (root target only) ───────────────────────

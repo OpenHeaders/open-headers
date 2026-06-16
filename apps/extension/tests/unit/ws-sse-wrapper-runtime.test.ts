@@ -24,7 +24,12 @@ vi.mock('@utils/logger', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-import { buildSseInjection, buildWsInjection, type FuncInjection } from '@openheaders/rule-engine/content-scripts';
+import {
+  buildSetupInjection,
+  buildSseInjection,
+  buildWsInjection,
+  type FuncInjection,
+} from '@openheaders/rule-engine/content-scripts';
 
 // ── Fakes (jsdom ships neither WebSocket nor EventSource) ──────────
 
@@ -75,10 +80,15 @@ beforeEach(() => {
   win.WebSocket = FakeWebSocket;
   win.EventSource = FakeEventSource;
   postMessageSpy = vi.spyOn(window, 'postMessage');
+  // oh-setup installs the fire dispatcher every wrapper reports through; it
+  // always runs first in production. With no Runtime binding present (un-armed
+  // tab), the dispatcher falls back to postMessage — the channel asserted here.
+  installFunc(buildSetupInjection());
 });
 
 afterEach(() => {
   postMessageSpy.mockRestore();
+  delete (window as unknown as { __ohOrig?: unknown }).__ohOrig;
 });
 
 function installFunc(injection: FuncInjection): void {
@@ -327,9 +337,7 @@ describe('sse wrapper', () => {
   });
 
   it('injects a named event on stream open', async () => {
-    installFunc(
-      buildSseInjection(sseRule({ operation: 'inject', eventName: 'price-update', payload: '{"px":9}' })),
-    );
+    installFunc(buildSseInjection(sseRule({ operation: 'inject', eventName: 'price-update', payload: '{"px":9}' })));
     const es = new win.EventSource(SSE_URL);
     const seen: unknown[] = [];
     es.addEventListener('price-update', (ev) => seen.push((ev as MessageEvent).data));
