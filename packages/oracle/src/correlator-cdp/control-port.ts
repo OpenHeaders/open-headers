@@ -180,7 +180,9 @@ export type CdpControlCommand =
       readonly patterns: readonly CdpFetchPattern[];
       readonly handleAuthRequests: boolean;
     }
-  | { readonly kind: 'disable-fetch' };
+  | { readonly kind: 'disable-fetch' }
+  | { readonly kind: 'add-bootstrap-script'; readonly key: string; readonly source: string }
+  | { readonly kind: 'remove-bootstrap-script'; readonly key: string };
 
 /**
  * Pure diff: the CDP commands that carry a session from `prev` to `next`.
@@ -188,10 +190,10 @@ export type CdpControlCommand =
  * value changed emits a command, so a re-apply of unchanged state is empty
  * and a replay from {@link EMPTY_TAB_CONTROL_STATE} re-issues the whole set.
  *
- * Coverage grows per phase: D adds Fetch-enable patterns, E adds
- * bootstrap-script add/remove (which needs CDP-returned script-id tracking,
- * handled in the adapter), F adds the override fan-out. Today, the three
- * single-value idempotent standing commands.
+ * Coverage grows per phase: D added Fetch-enable patterns, E adds
+ * bootstrap-script add/remove (keyed on the stable `key`; the CDP-returned
+ * script-id lifecycle is tracked adapter-side), F will add the override
+ * fan-out.
  */
 export function reconcileTabControl(prev: CdpTabControlState, next: CdpTabControlState): CdpControlCommand[] {
   const commands: CdpControlCommand[] = [];
@@ -230,6 +232,29 @@ export function reconcileTabControl(prev: CdpTabControlState, next: CdpTabContro
         patterns: next.fetchPatterns,
         handleAuthRequests: next.fetchHandleAuthRequests,
       });
+    }
+  }
+
+  // Bootstrap scripts diff by their stable `key`, NOT the CDP-returned id (the
+  // adapter owns that). A dropped or changed key removes; a new or changed key
+  // adds. A changed-source key therefore emits remove THEN add — removes are
+  // collected before adds — so the adapter retires the old script id before
+  // recording the new one. Unchanged keys emit nothing, so a replay from
+  // EMPTY_TAB_CONTROL_STATE re-adds the whole set with fresh ids.
+  if (prev.bootstrapScripts !== next.bootstrapScripts) {
+    const nextByKey = new Map(next.bootstrapScripts.map((script) => [script.key, script]));
+    const prevByKey = new Map(prev.bootstrapScripts.map((script) => [script.key, script]));
+    for (const script of prev.bootstrapScripts) {
+      const replacement = nextByKey.get(script.key);
+      if (replacement === undefined || replacement.source !== script.source) {
+        commands.push({ kind: 'remove-bootstrap-script', key: script.key });
+      }
+    }
+    for (const script of next.bootstrapScripts) {
+      const existing = prevByKey.get(script.key);
+      if (existing === undefined || existing.source !== script.source) {
+        commands.push({ kind: 'add-bootstrap-script', key: script.key, source: script.source });
+      }
     }
   }
 

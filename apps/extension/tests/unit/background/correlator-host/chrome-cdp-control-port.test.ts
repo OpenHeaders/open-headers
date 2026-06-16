@@ -187,6 +187,119 @@ describe('ChromeCdpTabControlPort', () => {
       ],
     ]);
   });
+
+  it('maps an add-bootstrap-script diff onto Page.addScriptToEvaluateOnNewDocument (E1a)', async () => {
+    const port = new ChromeCdpTabControlPort(source);
+    chromeMock.debugger.sendCommand.mockResolvedValueOnce({ identifier: 'script-1' });
+    await port.apply(ROOT, {
+      cacheDisabled: false,
+      networkConditions: null,
+      overrides: null,
+      bootstrapScripts: [{ key: 'wrapper', source: 'globalThis.__oh_wrap__()' }],
+      fetchPatterns: [],
+      fetchHandleAuthRequests: false,
+      bypassCsp: false,
+    });
+    expect(sendCalls()).toEqual([
+      [{ tabId: TAB }, 'Page.addScriptToEvaluateOnNewDocument', { source: 'globalThis.__oh_wrap__()' }],
+    ]);
+  });
+
+  it('removes a bootstrap script by the id captured from the add (E1a)', async () => {
+    const port = new ChromeCdpTabControlPort(source);
+    chromeMock.debugger.sendCommand.mockResolvedValueOnce({ identifier: 'script-1' });
+    await port.apply(ROOT, {
+      cacheDisabled: false,
+      networkConditions: null,
+      overrides: null,
+      bootstrapScripts: [{ key: 'wrapper', source: 'globalThis.__oh_wrap__()' }],
+      fetchPatterns: [],
+      fetchHandleAuthRequests: false,
+      bypassCsp: false,
+    });
+    vi.clearAllMocks();
+    await port.apply(ROOT, {
+      cacheDisabled: false,
+      networkConditions: null,
+      overrides: null,
+      bootstrapScripts: [],
+      fetchPatterns: [],
+      fetchHandleAuthRequests: false,
+      bypassCsp: false,
+    });
+    expect(sendCalls()).toEqual([
+      [{ tabId: TAB }, 'Page.removeScriptToEvaluateOnNewDocument', { identifier: 'script-1' }],
+    ]);
+  });
+
+  it('re-bootstraps a changed source: removes the old id then adds and tracks the new one (E1a)', async () => {
+    const port = new ChromeCdpTabControlPort(source);
+    chromeMock.debugger.sendCommand.mockResolvedValueOnce({ identifier: 'script-1' });
+    await port.apply(ROOT, {
+      cacheDisabled: false,
+      networkConditions: null,
+      overrides: null,
+      bootstrapScripts: [{ key: 'wrapper', source: 'v1' }],
+      fetchPatterns: [],
+      fetchHandleAuthRequests: false,
+      bypassCsp: false,
+    });
+    vi.clearAllMocks();
+    // The remove consumes the first queued value (its result is ignored); the
+    // re-add consumes the second and captures the fresh id.
+    chromeMock.debugger.sendCommand.mockResolvedValueOnce({}).mockResolvedValueOnce({ identifier: 'script-2' });
+    await port.apply(ROOT, {
+      cacheDisabled: false,
+      networkConditions: null,
+      overrides: null,
+      bootstrapScripts: [{ key: 'wrapper', source: 'v2' }],
+      fetchPatterns: [],
+      fetchHandleAuthRequests: false,
+      bypassCsp: false,
+    });
+    expect(sendCalls()).toEqual([
+      [{ tabId: TAB }, 'Page.removeScriptToEvaluateOnNewDocument', { identifier: 'script-1' }],
+      [{ tabId: TAB }, 'Page.addScriptToEvaluateOnNewDocument', { source: 'v2' }],
+    ]);
+
+    // Dropping the key now removes the NEW id, proving the id map transitioned.
+    vi.clearAllMocks();
+    await port.apply(ROOT, {
+      cacheDisabled: false,
+      networkConditions: null,
+      overrides: null,
+      bootstrapScripts: [],
+      fetchPatterns: [],
+      fetchHandleAuthRequests: false,
+      bypassCsp: false,
+    });
+    expect(sendCalls()).toEqual([
+      [{ tabId: TAB }, 'Page.removeScriptToEvaluateOnNewDocument', { identifier: 'script-2' }],
+    ]);
+  });
+
+  it('forget clears the id map so a re-apply re-adds the bootstrap script (E1a)', async () => {
+    const port = new ChromeCdpTabControlPort(source);
+    const withScript = {
+      cacheDisabled: false,
+      networkConditions: null,
+      overrides: null,
+      bootstrapScripts: [{ key: 'wrapper', source: 'globalThis.__oh_wrap__()' }],
+      fetchPatterns: [],
+      fetchHandleAuthRequests: false,
+      bypassCsp: false,
+    } as const;
+    chromeMock.debugger.sendCommand.mockResolvedValueOnce({ identifier: 'script-1' });
+    await port.apply(ROOT, withScript);
+    port.forget(ROOT);
+    vi.clearAllMocks();
+
+    chromeMock.debugger.sendCommand.mockResolvedValueOnce({ identifier: 'script-9' });
+    await port.apply(ROOT, withScript);
+    expect(sendCalls()).toEqual([
+      [{ tabId: TAB }, 'Page.addScriptToEvaluateOnNewDocument', { source: 'globalThis.__oh_wrap__()' }],
+    ]);
+  });
 });
 
 describe('ChromeCdpRequestControlPort', () => {

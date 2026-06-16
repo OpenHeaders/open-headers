@@ -23,6 +23,7 @@ import {
   EMPTY_TAB_CONTROL_STATE,
   reconcileTabControl,
 } from '@openheaders/oracle/correlator-cdp';
+import { logger } from '@utils/logger';
 import type { CdpSessionSender } from './cdp-session-sender';
 
 /** `Network.emulateNetworkConditions` params that lift every throttle. */
@@ -32,6 +33,11 @@ const NO_THROTTLE = {
   downloadThroughput: -1,
   uploadThroughput: -1,
 } as const;
+
+/** `Page.addScriptToEvaluateOnNewDocument` result — the per-script id to remove by. */
+interface RawAddScriptResult {
+  readonly identifier: string;
+}
 
 function targetKey(target: CdpSessionTarget): string {
   return `${target.tabId}:${target.sessionId}`;
@@ -50,6 +56,15 @@ export class ChromeCdpTabControlPort implements CdpTabControlPort {
   private readonly sender: CdpSessionSender;
   /** Per-target last-applied state — the `prev` side of every diff. */
   private readonly lastApplied = new Map<string, CdpTabControlState>();
+  /**
+   * Per-target bootstrap-script ids: `targetKey → (scriptKey → CDP identifier)`.
+   * `Page.addScriptToEvaluateOnNewDocument` returns an identifier the matching
+   * remove needs, but the pure {@link reconcileTabControl} only knows the
+   * stable `key`. So this key→id mapping is the adapter's documented stateful
+   * exception to the dumb-executor rule. Dropped on `forget` exactly as
+   * {@link lastApplied} is — a re-attach replays the adds with fresh ids.
+   */
+  private readonly bootstrapIds = new Map<string, Map<string, string>>();
 
   constructor(sender: CdpSessionSender) {
     this.sender = sender;
@@ -74,7 +89,9 @@ export class ChromeCdpTabControlPort implements CdpTabControlPort {
   }
 
   forget(target: CdpSessionTarget): void {
-    this.lastApplied.delete(targetKey(target));
+    const key = targetKey(target);
+    this.lastApplied.delete(key);
+    this.bootstrapIds.delete(key);
   }
 
   private execute(target: CdpSessionTarget, command: CdpControlCommand): Promise<unknown> {
@@ -106,7 +123,60 @@ export class ChromeCdpTabControlPort implements CdpTabControlPort {
         });
       case 'disable-fetch':
         return this.sender.sendOnSession(tabId, sessionId, 'Fetch.disable');
+      case 'add-bootstrap-script':
+        return this.addBootstrapScript(target, command.key, command.source);
+      case 'remove-bootstrap-script':
+        return this.removeBootstrapScript(target, command.key);
     }
+  }
+
+  /**
+   * `Page.addScriptToEvaluateOnNewDocument` — install a document-bootstrap
+   * script and remember the CDP-returned identifier under `(target, key)` so
+   * a later remove can target it. The script runs before any page script on
+   * every subsequent document load until removed.
+   */
+  private async addBootstrapScript(target: CdpSessionTarget, key: string, source: string): Promise<void> {
+    const result = await this.sender.sendOnSession(
+      target.tabId,
+      target.sessionId,
+      'Page.addScriptToEvaluateOnNewDocument',
+      { source },
+    );
+    const raw = result as RawAddScriptResult | undefined;
+    if (typeof raw?.identifier !== 'string') {
+      throw new Error('Page.addScriptToEvaluateOnNewDocument returned an unexpected shape');
+    }
+    const mapKey = targetKey(target);
+    let ids = this.bootstrapIds.get(mapKey);
+    if (ids === undefined) {
+      ids = new Map<string, string>();
+      this.bootstrapIds.set(mapKey, ids);
+    }
+    ids.set(key, raw.identifier);
+  }
+
+  /**
+   * `Page.removeScriptToEvaluateOnNewDocument` — retire the bootstrap script
+   * tracked under `(target, key)`. A missing id (the add never landed, or the
+   * map was already `forget`-ten) is tolerated: log and skip rather than send
+   * a bogus identifier.
+   */
+  private async removeBootstrapScript(target: CdpSessionTarget, key: string): Promise<void> {
+    const ids = this.bootstrapIds.get(targetKey(target));
+    const identifier = ids?.get(key);
+    if (ids === undefined || identifier === undefined) {
+      logger.debug('CdpTabControl', 'remove-bootstrap-script: no tracked id', {
+        tabId: target.tabId,
+        sessionId: target.sessionId,
+        key,
+      });
+      return;
+    }
+    await this.sender.sendOnSession(target.tabId, target.sessionId, 'Page.removeScriptToEvaluateOnNewDocument', {
+      identifier,
+    });
+    ids.delete(key);
   }
 }
 

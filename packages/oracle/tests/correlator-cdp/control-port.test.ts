@@ -12,6 +12,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  type CdpBootstrapScript,
   type CdpFetchPattern,
   type CdpNetworkConditions,
   type CdpTabControlState,
@@ -36,6 +37,8 @@ function state(overrides: Partial<CdpTabControlState> = {}): CdpTabControlState 
 }
 
 const API_PATTERN: CdpFetchPattern = { urlPattern: '*://openheaders.io/api/*', requestStage: 'Request' };
+
+const WRAPPER_SCRIPT: CdpBootstrapScript = { key: 'wrapper', source: 'globalThis.__oh_wrap__()' };
 
 const TARGET = { tabId: 7, sessionId: 'page' };
 
@@ -128,6 +131,52 @@ describe('reconcileTabControl', () => {
     expect(reconcileTabControl(prev, next)).toEqual([]);
   });
 
+  it('adds a bootstrap script when a new key appears', () => {
+    expect(reconcileTabControl(EMPTY_TAB_CONTROL_STATE, state({ bootstrapScripts: [WRAPPER_SCRIPT] }))).toEqual([
+      { kind: 'add-bootstrap-script', key: 'wrapper', source: 'globalThis.__oh_wrap__()' },
+    ]);
+  });
+
+  it('removes a bootstrap script when its key is dropped', () => {
+    expect(reconcileTabControl(state({ bootstrapScripts: [WRAPPER_SCRIPT] }), EMPTY_TAB_CONTROL_STATE)).toEqual([
+      { kind: 'remove-bootstrap-script', key: 'wrapper' },
+    ]);
+  });
+
+  it('removes then adds when a bootstrap script source changes (re-bootstrap)', () => {
+    const next = state({ bootstrapScripts: [{ key: 'wrapper', source: 'globalThis.__oh_wrap_v2__()' }] });
+    expect(reconcileTabControl(state({ bootstrapScripts: [WRAPPER_SCRIPT] }), next)).toEqual([
+      { kind: 'remove-bootstrap-script', key: 'wrapper' },
+      { kind: 'add-bootstrap-script', key: 'wrapper', source: 'globalThis.__oh_wrap_v2__()' },
+    ]);
+  });
+
+  it('treats an equal-valued bootstrap set as unchanged (structural, not identity)', () => {
+    const a = state({ bootstrapScripts: [{ ...WRAPPER_SCRIPT }] });
+    const b = state({ bootstrapScripts: [{ ...WRAPPER_SCRIPT }] });
+    expect(reconcileTabControl(a, b)).toEqual([]);
+  });
+
+  it('collects all removes before all adds when keys are both dropped and added', () => {
+    const prev = state({
+      bootstrapScripts: [
+        { key: 'a', source: 'A' },
+        { key: 'b', source: 'B' },
+      ],
+    });
+    const next = state({
+      bootstrapScripts: [
+        { key: 'b', source: 'B' },
+        { key: 'c', source: 'C' },
+      ],
+    });
+    // `a` dropped → remove; `b` unchanged → no-op; `c` new → add. Removes first.
+    expect(reconcileTabControl(prev, next)).toEqual([
+      { kind: 'remove-bootstrap-script', key: 'a' },
+      { kind: 'add-bootstrap-script', key: 'c', source: 'C' },
+    ]);
+  });
+
   it('a replay from empty re-issues the whole standing set', () => {
     const armed = state({
       cacheDisabled: true,
@@ -135,12 +184,14 @@ describe('reconcileTabControl', () => {
       bypassCsp: true,
       fetchPatterns: [API_PATTERN],
       fetchHandleAuthRequests: true,
+      bootstrapScripts: [WRAPPER_SCRIPT],
     });
     expect(reconcileTabControl(EMPTY_TAB_CONTROL_STATE, armed)).toEqual([
       { kind: 'set-cache-disabled', cacheDisabled: true },
       { kind: 'emulate-network-conditions', conditions: SLOW_3G },
       { kind: 'set-bypass-csp', enabled: true },
       { kind: 'enable-fetch', patterns: [API_PATTERN], handleAuthRequests: true },
+      { kind: 'add-bootstrap-script', key: 'wrapper', source: 'globalThis.__oh_wrap__()' },
     ]);
   });
 });
@@ -177,6 +228,16 @@ describe('createInMemoryTabControlPort', () => {
     await port.apply(child, state({ cacheDisabled: true }));
     // The child has no prior state, so it re-issues despite the root match.
     expect(port.applied[1]?.commands).toEqual([{ kind: 'set-cache-disabled', cacheDisabled: true }]);
+  });
+
+  it('records bootstrap add then remove as the desired script set changes', async () => {
+    const port = createInMemoryTabControlPort();
+    await port.apply(TARGET, state({ bootstrapScripts: [WRAPPER_SCRIPT] }));
+    expect(port.applied[0]?.commands).toEqual([
+      { kind: 'add-bootstrap-script', key: 'wrapper', source: 'globalThis.__oh_wrap__()' },
+    ]);
+    await port.apply(TARGET, EMPTY_TAB_CONTROL_STATE);
+    expect(port.applied[1]?.commands).toEqual([{ kind: 'remove-bootstrap-script', key: 'wrapper' }]);
   });
 });
 
