@@ -5,10 +5,12 @@
  *
  * Rule-driven, two interception stages:
  *   - REQUEST stage ({@link resolveFetchReaction}) — a static `mock` match →
- *     `fulfillRequest`; a static `request-body` match → `continueRequest`
- *     with a rewritten body; a static `network`-source `response` match →
- *     `continueRequest{interceptResponse:true}` (send the real request, pause
- *     again at the Response stage); anything else → pass-through.
+ *     `fulfillRequest`; a `mock`+dynamic match → eval `buildResponse` in the
+ *     request frame, then `fulfillRequest` the result; a static `request-body`
+ *     match → `continueRequest` with a rewritten body; a static
+ *     `network`-source `response` match → `continueRequest{interceptResponse:true}`
+ *     (send the real request, pause again at the Response stage); anything
+ *     else → pass-through.
  *   - RESPONSE stage ({@link resolveResponseReaction}) — reached only for an
  *     intercepted reply; `fulfillRequest`s the rule's static body over the
  *     real status/headers, or `continueResponse`s it unmodified when no rule
@@ -26,6 +28,7 @@ import { MATERIAL_DEBUG_PAUSE_MS } from '@openheaders/core/request-lifecycle';
 import type { RequestRecord, Rule } from '@openheaders/core/types';
 import type {
   CdpAuthRequired,
+  CdpEvalPort,
   CdpFetchEvent,
   CdpRequestControlPort,
   CdpRequestPaused,
@@ -33,11 +36,15 @@ import type {
 } from '@openheaders/oracle/correlator-cdp';
 import { cdpStoreRequestId } from '@openheaders/oracle/correlator-cdp';
 import { logger } from '@utils/logger';
+import type { CdpFetchReaction } from './cdp-fetch-reaction';
 import {
+  buildEvalFulfill,
   cdpResourceTypeToTracked,
+  mockResponseEvalArg,
   resolveAuthReaction,
   resolveFetchReaction,
   resolveResponseReaction,
+  wrapMockResponseFn,
 } from './cdp-fetch-reaction';
 
 export interface CdpFetchInterceptorOptions {
@@ -45,6 +52,13 @@ export interface CdpFetchInterceptorOptions {
   readonly subscribeFetch: (listener: (event: CdpFetchEvent) => void) => () => void;
   /** The imperative per-paused-request port. */
   readonly requestControlPort: CdpRequestControlPort;
+  /**
+   * Runs a dynamic rule's user JS in the request frame's isolated world
+   * (D2b-2). A `mock`+dynamic match evals `buildResponse` here, then fulfills
+   * with the returned body; an eval fault releases the request and does NOT
+   * fire (fire = the modification actually ran).
+   */
+  readonly evalPort: CdpEvalPort;
   /** The live, already-effective rules to match a paused request against. */
   readonly getRules: () => readonly Rule[];
   /** Report an authoritative fire (fulfill / rewrite) into the rule-fire plane. */
@@ -124,6 +138,11 @@ function handleRequestStage(
     return;
   }
 
+  if (reaction.kind === 'eval-fulfill') {
+    handleEvalFulfill(event, reaction, options, receivedAtMs);
+    return;
+  }
+
   const command =
     reaction.kind === 'fulfill'
       ? requestControlPort.fulfill(target, reaction.response)
@@ -135,6 +154,54 @@ function handleRequestStage(
     if (reaction.kind !== 'pass-through') reportFire(event.tabId, buildFireRecord(event, reaction.ruleUid));
     emitPauseIfMaterial(event, receivedAtMs, 0, reportPause);
   });
+  answer(settled, event);
+}
+
+/**
+ * Answer a `mock`+dynamic match (D2b-2a): eval `buildResponse` in the request
+ * frame's isolated world, then fulfill with the returned body under the rule's
+ * static envelope — firing once, only after the fulfill lands. An eval fault
+ * (throw / timeout / unreachable world) or a worker request with no frame to
+ * eval in releases the request with a plain continue and does NOT fire —
+ * nothing was modified. The whole hold (eval included) is debug overhead: no
+ * server round-trip happens, so the synthetic reply's latency is all ours.
+ */
+function handleEvalFulfill(
+  event: CdpRequestPaused,
+  reaction: Extract<CdpFetchReaction, { kind: 'eval-fulfill' }>,
+  options: CdpFetchInterceptorOptions,
+  receivedAtMs: number,
+): void {
+  const { requestControlPort, evalPort, reportFire, reportPause } = options;
+  const target: CdpSessionTarget = { tabId: event.tabId, sessionId: event.sessionId };
+
+  // No frame ⇒ no isolated world to eval in (worker / OOPIF without a
+  // frameId). Injection never reached these either, so release untouched.
+  if (!event.frameId) {
+    const released = requestControlPort
+      .continueRequest(target, { requestId: event.requestId })
+      .then(() => emitPauseIfMaterial(event, receivedAtMs, 0, reportPause));
+    answer(released, event);
+    return;
+  }
+
+  const fn = wrapMockResponseFn(reaction.plan.userCode);
+  const settled = evalPort
+    .callInIsolatedWorld(target, event.frameId, fn, mockResponseEvalArg(event))
+    .then((outcome) => {
+      if (outcome.ok) {
+        return requestControlPort
+          .fulfill(target, buildEvalFulfill(event.requestId, reaction.plan, outcome.value))
+          .then(() => {
+            reportFire(event.tabId, buildFireRecord(event, reaction.ruleUid));
+            emitPauseIfMaterial(event, receivedAtMs, 0, reportPause);
+          });
+      }
+      // Eval error / timeout / unreachable world → clean release, no fire.
+      return requestControlPort
+        .continueRequest(target, { requestId: event.requestId })
+        .then(() => emitPauseIfMaterial(event, receivedAtMs, 0, reportPause));
+    });
   answer(settled, event);
 }
 

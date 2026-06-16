@@ -72,6 +72,7 @@ export type {
 } from './control-port';
 export { EMPTY_TAB_CONTROL_STATE, reconcileTabControl } from './control-port';
 export { CdpCorrelator } from './correlator';
+export type { CdpEvalArg, CdpEvalOutcome, CdpEvalPort } from './eval-port';
 export type {
   CdpAuthChallenge,
   CdpAuthRequired,
@@ -112,6 +113,8 @@ export type {
   RecordedTabControl,
 } from './in-memory-control-port';
 export { createInMemoryRequestControlPort, createInMemoryTabControlPort } from './in-memory-control-port';
+export type { InMemoryEvalPort, RecordedEvalCall } from './in-memory-eval-port';
+export { createInMemoryEvalPort } from './in-memory-eval-port';
 export type {
   CdpDomContentEventFired,
   CdpFrameNavigated,

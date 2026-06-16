@@ -11,11 +11,14 @@ import type { CdpAuthRequired, CdpRequestPaused } from '@openheaders/oracle/corr
 import { describe, expect, it } from 'vitest';
 
 import {
+  buildEvalFulfill,
   cdpResourceTypeToCondition,
   cdpResourceTypeToTracked,
+  mockResponseEvalArg,
   resolveAuthReaction,
   resolveFetchReaction,
   resolveResponseReaction,
+  wrapMockResponseFn,
 } from '@/background/correlator-host/cdp-fetch-reaction';
 
 const ruleBase = {
@@ -121,9 +124,29 @@ describe('resolveFetchReaction', () => {
     expect(reaction.kind).toBe('pass-through');
   });
 
-  it('passes through a dynamic mock (host cannot eval the body)', () => {
-    const reaction = resolveFetchReaction(paused(), [mock([domain('api.openheaders.io')], { bodyType: 'dynamic' })]);
-    expect(reaction.kind).toBe('pass-through');
+  it('yields an eval-fulfill plan for a mock+dynamic rule (D2b-2a)', () => {
+    const reaction = resolveFetchReaction(paused(), [
+      mock([domain('api.openheaders.io')], {
+        bodyType: 'dynamic',
+        responseBody: 'function buildResponse(a){return {id:a.url};}',
+      }),
+    ]);
+    expect(reaction.kind).toBe('eval-fulfill');
+    if (reaction.kind !== 'eval-fulfill') return;
+    expect(reaction.ruleUid).toBe('r1');
+    expect(reaction.plan.userCode).toBe('function buildResponse(a){return {id:a.url};}');
+    expect(reaction.plan.statusCode).toBe(200);
+    expect(reaction.plan.contentType).toBe('text/plain');
+    expect(reaction.plan.responseHeaders).toEqual({});
+  });
+
+  it('defaults a mock+dynamic plan status to 200 and CT to JSON', () => {
+    const reaction = resolveFetchReaction(paused(), [
+      mock([domain('api.openheaders.io')], { bodyType: 'dynamic', statusCode: 0, contentType: '' }),
+    ]);
+    if (reaction.kind !== 'eval-fulfill') throw new Error('expected eval-fulfill');
+    expect(reaction.plan.statusCode).toBe(200);
+    expect(reaction.plan.contentType).toBe('application/json');
   });
 
   it('sends a network-source static response to the Response stage (interceptResponse, no fire yet)', () => {
@@ -407,5 +430,45 @@ describe('CDP resource-type mapping', () => {
     expect(cdpResourceTypeToTracked('XHR')).toBe('xmlhttprequest');
     expect(cdpResourceTypeToTracked('Fetch')).toBe('xmlhttprequest');
     expect(cdpResourceTypeToTracked('Other')).toBe('other');
+  });
+});
+
+describe('mock+dynamic eval helpers (D2b-2a)', () => {
+  it('mockResponseEvalArg sources method/url/requestBody from the paused request', () => {
+    const arg = mockResponseEvalArg(
+      paused({ request: { url: 'https://api.openheaders.io/u', method: 'POST', postData: '{"a":1}' } }),
+    );
+    expect(arg).toEqual({ method: 'POST', url: 'https://api.openheaders.io/u', requestBody: '{"a":1}' });
+  });
+
+  it('mockResponseEvalArg defaults an absent request body to empty string', () => {
+    expect(mockResponseEvalArg(paused()).requestBody).toBe('');
+  });
+
+  it('wrapMockResponseFn defines buildResponse, calls it, and JSON-stringifies an object result in-realm', () => {
+    const decl = wrapMockResponseFn('function buildResponse(a){ return { id: a.url }; }');
+    const fn = new Function(`return (${decl})`)() as (arg: unknown) => string;
+    expect(fn({ method: 'GET', url: 'u', requestBody: '' })).toBe('{"id":"u"}');
+  });
+
+  it('wrapMockResponseFn String()-coerces a non-object result (matching the injection path)', () => {
+    const decl = wrapMockResponseFn('function buildResponse(){ return 42; }');
+    const fn = new Function(`return (${decl})`)() as (arg: unknown) => string;
+    expect(fn({})).toBe('42');
+  });
+
+  it('buildEvalFulfill lays the plan envelope (status/CT/headers) over the eval body', () => {
+    const fulfill = buildEvalFulfill(
+      'req-1',
+      { userCode: '', statusCode: 201, contentType: 'application/json', responseHeaders: { 'X-Mock': 'yes' } },
+      '{"ok":1}',
+    );
+    expect(fulfill.requestId).toBe('req-1');
+    expect(fulfill.responseCode).toBe(201);
+    expect(fulfill.responseHeaders).toEqual([
+      { name: 'Content-Type', value: 'application/json' },
+      { name: 'X-Mock', value: 'yes' },
+    ]);
+    expect(atob(fulfill.body ?? '')).toBe('{"ok":1}');
   });
 });

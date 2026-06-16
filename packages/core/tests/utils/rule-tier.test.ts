@@ -147,8 +147,10 @@ describe('isDebugTierRule', () => {
 });
 
 describe('isFetchRealizableNow', () => {
-  // Realizable = debug-tier AND a static reaction. The dormant badge/notice
-  // gate on this so they never promise an effect arming can't yet deliver.
+  // Realizable = debug-tier AND a reaction the host can run at the network
+  // layer now: every static reaction, plus `mock`+dynamic (D2b-2a evals
+  // buildResponse in the request frame). The dormant badge/notice gate on this
+  // so they never promise an effect arming can't yet deliver.
 
   it('static debug-tier mock is realizable now', () => {
     expect(isFetchRealizableNow({ ...base, type: 'response', conditions: [hostCondition], action: mockAction })).toBe(
@@ -162,13 +164,13 @@ describe('isFetchRealizableNow', () => {
     ).toBe(true);
   });
 
-  it('dynamic debug-tier mock is NOT realizable now (arming can not eval its JS body)', () => {
+  it('dynamic debug-tier mock IS realizable now (host evals buildResponse, D2b-2a)', () => {
     expect(
       isFetchRealizableNow({ ...base, type: 'response', conditions: [hostCondition], action: mockActionDynamic }),
-    ).toBe(false);
+    ).toBe(true);
   });
 
-  it('dynamic debug-tier body is NOT realizable now', () => {
+  it('dynamic debug-tier body is NOT realizable now (request-body transform waits for D2b-2c)', () => {
     expect(
       isFetchRealizableNow({ ...base, type: 'request-body', conditions: [hostCondition], action: bodyActionDynamic }),
     ).toBe(false);

@@ -22,6 +22,7 @@ export type { CdpFetchInterceptorOptions } from './cdp-fetch-interceptor';
 export { startCdpFetchInterceptor } from './cdp-fetch-interceptor';
 export { compileFetchPatterns } from './cdp-fetch-patterns';
 export type { CdpSessionSender } from './cdp-session-sender';
+export { ChromeCdpEvalPort } from './chrome-cdp-eval-port';
 export { ChromeCdpRequestControlPort } from './chrome-cdp-request-control-port';
 export { ChromeCdpTabControlPort } from './chrome-cdp-tab-control-port';
 export { ChromeDebuggerEventSource, cdpRootTarget, ROOT_SESSION_ID } from './chrome-debugger-source';

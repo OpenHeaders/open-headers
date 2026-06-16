@@ -11,6 +11,7 @@ import { TabLifecycleBus } from '@openheaders/oracle/tab-lifecycle-bus';
 import type { CdpAttachObservable, CdpControlReplay } from '../correlator-host';
 import {
   CdpAttachController,
+  ChromeCdpEvalPort,
   ChromeCdpRequestControlPort,
   ChromeCdpTabControlPort,
   compileFetchPatterns,
@@ -84,6 +85,9 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   // replay seam that re-applies a tab's derived CDP state on every (re-)attach.
   const tabControlPort = new ChromeCdpTabControlPort(lifecycleHost.debuggerSource);
   const requestControlPort = new ChromeCdpRequestControlPort(lifecycleHost.debuggerSource);
+  // D2b-2: the host eval seam — runs a dynamic rule's user JS in the request
+  // frame's isolated world so its body computes at the network layer.
+  const evalPort = new ChromeCdpEvalPort(lifecycleHost.debuggerSource);
   // Phase D1: `deriveState` compiles `Fetch.enable` patterns from the live
   // debug-tier rules for any tab that is IN SCOPE — there is no
   // observe-vs-control split: a tab the reconciler attached (via its scope
@@ -157,6 +161,7 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   startCdpFetchInterceptor({
     subscribeFetch: (listener) => lifecycleHost.debuggerSource.subscribeFetch(listener),
     requestControlPort,
+    evalPort,
     getRules: liveRules,
     reportFire: (tabId, record) => reportFire(tabId, record),
     // Control-plane → observation seam (D4c): record the interception hold onto

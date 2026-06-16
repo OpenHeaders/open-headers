@@ -15,12 +15,14 @@
  * `cdp-fetch-reaction` tests; here we prove injection yields.
  *
  * Suppression is exactly `isFetchRealizableNow`: a `network`-source STATIC
- * response is now realizable (D2b-1's Response-stage round-trip), so it joins
- * the suppressed set automatically — the predicate is the single gate, so
- * widening it extends suppression with no inject-manager change. What still
- * stays on the injection plane: a `dynamic` response/request-body (host can't
- * eval its body yet), a `delay`, or an `xhr`-only response (not debug-tier at
- * all) — CDP can't own them, so suppressing them would silently disable the rule.
+ * response (D2b-1's Response-stage round-trip) and a `mock`+dynamic response
+ * (D2b-2a's isolated-world eval) are both realizable now, so each joins the
+ * suppressed set automatically — the predicate is the single gate, so widening
+ * it extends suppression with no inject-manager change. What still stays on the
+ * injection plane: a `network`+dynamic response or a dynamic `request-body`
+ * (host can't eval those bodies yet — D2b-2b/c), a `delay`, or an `xhr`-only
+ * response (not debug-tier at all) — CDP can't own them, so suppressing them
+ * would silently disable the rule.
  */
 
 import type { DelayRule, RequestBodyRule, ResponseRule } from '@openheaders/core/types';
@@ -144,6 +146,13 @@ describe('D4 precedence — CDP owns realizable debug-tier rules exclusively', (
 
   it('suppresses a static network-source response on a CDP-controlled tab (D2b-1 — now realizable)', async () => {
     updateScriptableRules([responseRule({ responseSource: 'network' })]);
+
+    await __testInjectForUrl(CDP_TAB, PAGE);
+    expect(buildResponseInjection).not.toHaveBeenCalled();
+  });
+
+  it('suppresses a mock+dynamic response on a CDP-controlled tab (D2b-2a — now realizable)', async () => {
+    updateScriptableRules([responseRule({ bodyType: 'dynamic', responseBody: 'function buildResponse(){return {}}' })]);
 
     await __testInjectForUrl(CDP_TAB, PAGE);
     expect(buildResponseInjection).not.toHaveBeenCalled();

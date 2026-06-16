@@ -8,8 +8,11 @@
 
 import type { RequestRecord, Rule } from '@openheaders/core/types';
 import type { CdpAuthRequired, CdpFetchEvent, CdpRequestPaused } from '@openheaders/oracle/correlator-cdp';
-import { createInMemoryRequestControlPort } from '@openheaders/oracle/correlator-cdp';
+import { createInMemoryEvalPort, createInMemoryRequestControlPort } from '@openheaders/oracle/correlator-cdp';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+
+/** Flush microtasks + a macrotask so a chained eval→fulfill→fire settles. */
+const settle = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
 import { startCdpFetchInterceptor } from '@/background/correlator-host/cdp-fetch-interceptor';
 
@@ -92,16 +95,18 @@ function fakeFetchStream() {
 function harness(rules: readonly Rule[]) {
   const stream = fakeFetchStream();
   const port = createInMemoryRequestControlPort();
+  const evalPort = createInMemoryEvalPort();
   const fires: Array<{ tabId: number; record: RequestRecord }> = [];
   const pauses: Array<{ tabId: number; requestId: string; pausedMs: number }> = [];
   const stop = startCdpFetchInterceptor({
     subscribeFetch: stream.subscribeFetch,
     requestControlPort: port,
+    evalPort,
     getRules: () => rules,
     reportFire: (tabId, record) => fires.push({ tabId, record }),
     reportPause: (tabId, requestId, pausedMs) => pauses.push({ tabId, requestId, pausedMs }),
   });
-  return { stream, port, fires, pauses, stop };
+  return { stream, port, evalPort, fires, pauses, stop };
 }
 
 describe('startCdpFetchInterceptor (D2)', () => {
@@ -167,27 +172,6 @@ describe('startCdpFetchInterceptor (D2)', () => {
     expect(atob(reaction.request.postData ?? '')).toBe('{"override":1}');
     expect(fires).toHaveLength(1);
     expect(fires[0]?.record.ruleUid).toBe('r1');
-  });
-
-  it('passes through (no fire) a dynamic mock — the host cannot eval its body', () => {
-    const dynamic = mockRule({
-      action: {
-        responseSource: 'mock',
-        statusCode: 200,
-        responseHeaders: {},
-        responseBody: 'function buildResponse(){return {}}',
-        contentType: 'application/json',
-        bodyType: 'dynamic',
-      },
-    } as Partial<Rule>);
-    const { stream, port, fires } = harness([dynamic]);
-
-    stream.emit(makePaused());
-
-    const reaction = port.reactions[0];
-    if (reaction?.kind !== 'continue') throw new Error('expected pass-through continue');
-    expect(reaction.request).toEqual({ requestId: 'intercept-1' });
-    expect(fires).toHaveLength(0);
   });
 
   it('omits the fire requestId when the pause carries no networkId', async () => {
@@ -303,6 +287,102 @@ describe('startCdpFetchInterceptor — network-source Response-stage round-trip 
 
     expect(pauses).toEqual([{ tabId: 7, requestId: 'page::net-9', pausedMs: 14 }]);
     expect(fires).toHaveLength(1);
+  });
+});
+
+describe('startCdpFetchInterceptor — mock+dynamic eval (D2b-2a)', () => {
+  /** A debug-tier mock-source response with a DYNAMIC (user-JS) body. */
+  const dynamicMock = (overrides: Partial<Rule> = {}): Rule =>
+    mockRule({
+      action: {
+        responseSource: 'mock',
+        statusCode: 200,
+        responseHeaders: { 'X-Mock': 'yes' },
+        responseBody: 'function buildResponse(){return {ok:1}}',
+        contentType: 'application/json',
+        bodyType: 'dynamic',
+      },
+      ...overrides,
+    } as Partial<Rule>);
+
+  it('evals buildResponse in the request frame and fulfills with the result, firing once', async () => {
+    const { stream, port, evalPort, fires } = harness([dynamicMock()]);
+    evalPort.enqueue({ ok: true, value: '{"ok":1}' });
+
+    stream.emit(makePaused({ requestId: 'dx', networkId: 'net-9', frameId: 'frame-1' }));
+    await settle();
+
+    // The eval ran in the request's frame, wrapping the user code, over the
+    // request arg the injection path's buildResponse receives.
+    expect(evalPort.calls).toHaveLength(1);
+    const call = evalPort.calls[0];
+    expect(call?.target).toEqual({ tabId: 7, sessionId: 'page' });
+    expect(call?.frameId).toBe('frame-1');
+    expect(call?.functionDeclaration).toContain('function buildResponse(){return {ok:1}}');
+    expect(call?.arg).toEqual({ method: 'GET', url: 'https://api.openheaders.io/users', requestBody: '' });
+
+    const fulfill = port.reactions.find((r) => r.kind === 'fulfill');
+    if (fulfill?.kind !== 'fulfill') throw new Error('expected fulfill');
+    expect(fulfill.response.requestId).toBe('dx');
+    expect(fulfill.response.responseCode).toBe(200);
+    expect(fulfill.response.responseHeaders).toEqual([
+      { name: 'Content-Type', value: 'application/json' },
+      { name: 'X-Mock', value: 'yes' },
+    ]);
+    expect(atob(fulfill.response.body ?? '')).toBe('{"ok":1}');
+
+    // Exactly one fire, only after the fulfill landed, keyed by the store id.
+    expect(fires).toHaveLength(1);
+    expect(fires[0]?.record.requestId).toBe('page::net-9');
+  });
+
+  it('passes the outgoing request body to the eval arg', async () => {
+    const { stream, evalPort } = harness([dynamicMock()]);
+    evalPort.enqueue({ ok: true, value: '{}' });
+
+    stream.emit(
+      makePaused({
+        requestId: 'dx',
+        frameId: 'frame-1',
+        request: { url: 'https://api.openheaders.io/u', method: 'POST', postData: '{"in":1}' },
+      }),
+    );
+    await settle();
+
+    expect(evalPort.calls[0]?.arg).toEqual({
+      method: 'POST',
+      url: 'https://api.openheaders.io/u',
+      requestBody: '{"in":1}',
+    });
+  });
+
+  it('releases the request (no fire) when the eval fails', async () => {
+    const { stream, port, evalPort, fires } = harness([dynamicMock()]);
+    evalPort.enqueue({ ok: false, error: 'boom' });
+
+    stream.emit(makePaused({ requestId: 'dx', networkId: 'net-9', frameId: 'frame-1' }));
+    await settle();
+
+    expect(evalPort.calls).toHaveLength(1);
+    expect(port.reactions.some((r) => r.kind === 'fulfill')).toBe(false);
+    const release = port.reactions.find((r) => r.kind === 'continue');
+    if (release?.kind !== 'continue') throw new Error('expected release continue');
+    expect(release.request).toEqual({ requestId: 'dx' });
+    expect(fires).toHaveLength(0);
+  });
+
+  it('releases without evaluating (no fire) when the paused request has no frame', async () => {
+    const { stream, port, evalPort, fires } = harness([dynamicMock()]);
+
+    stream.emit(makePaused({ requestId: 'dx', networkId: 'net-9' })); // no frameId
+    await settle();
+
+    expect(evalPort.calls).toHaveLength(0);
+    expect(port.reactions.some((r) => r.kind === 'fulfill')).toBe(false);
+    const release = port.reactions.find((r) => r.kind === 'continue');
+    if (release?.kind !== 'continue') throw new Error('expected release continue');
+    expect(release.request).toEqual({ requestId: 'dx' });
+    expect(fires).toHaveLength(0);
   });
 });
 

@@ -9,9 +9,11 @@
  *
  * Two interception stages, two entry points:
  *   - {@link resolveFetchReaction} — REQUEST stage. A static `mock`-source
- *     `response` becomes a fulfill; a static `request-body` becomes a
- *     request-body rewrite (the page-context wrapper does the same — it
- *     replaces the outgoing fetch/XHR body, not the server's response); a
+ *     `response` becomes a fulfill; a `mock`-source `response` with a DYNAMIC
+ *     body becomes an `eval-fulfill` (the interceptor evals `buildResponse` in
+ *     the request frame, then fulfills — D2b-2a); a static `request-body`
+ *     becomes a request-body rewrite (the page-context wrapper does the same —
+ *     it replaces the outgoing fetch/XHR body, not the server's response); a
  *     static `network`-source `response` becomes an `await-response` continue
  *     (`interceptResponse:true`) that sends the real request and re-pauses at
  *     the Response stage. Its response-header conditions are DEFERRED to that
@@ -24,15 +26,16 @@
  *     path's `new Response(cfg.body, { status, headers })`.
  *
  * Falls through to pass-through for:
- *   - dynamic `response`/`request-body` (their bodies are user JS the host
- *     can't eval at the network layer yet — D2b-2);
+ *   - `network`+dynamic `response` and dynamic `request-body` (their bodies are
+ *     user JS the host can't eval at the network layer yet — D2b-2b/c);
  *   - a rule carrying a condition no stage can evaluate (initiator-domains,
  *     domain-type) — enforcing it via injection's own page gate is correct,
  *     over-applying via Fetch is not.
- * `isFetchRealizableNow` is the single gate for the dynamic case; it returns
- * false for it, so it never reaches a fulfill branch. A passed-through rule
- * still runs its page-context injection path; only its extended all-context
- * reach is unavailable until D2b-2 adds the host eval mechanism.
+ * `isFetchRealizableNow` is the single gate for the not-yet-realizable dynamic
+ * cells; it returns false for them, so they never reach a fulfill branch. A
+ * passed-through rule still runs its page-context injection path; only its
+ * extended all-context reach is unavailable until D2b-2b/c adds the rest of
+ * the host eval mechanism.
  */
 
 import type {
@@ -52,10 +55,25 @@ import {
 import type {
   CdpAuthRequired,
   CdpContinueRequest,
+  CdpEvalArg,
   CdpFulfillResponse,
   CdpHeaderEntry,
   CdpRequestPaused,
 } from '@openheaders/oracle/correlator-cdp';
+
+/**
+ * A dynamic `mock`-source `response` match (D2b-2a): the user code plus the
+ * static reply envelope. The body is user JS, so the pure reaction can't build
+ * the fulfill here — it yields this plan and the interceptor evals
+ * `buildResponse` in the request frame's isolated world, then fulfills the
+ * returned body under this envelope. No network is touched (mock).
+ */
+export interface CdpResponseEvalPlan {
+  readonly userCode: string;
+  readonly statusCode: number;
+  readonly contentType: string;
+  readonly responseHeaders: Readonly<Record<string, string>>;
+}
 
 /** The answer the interceptor gives a paused request at the REQUEST stage. */
 export type CdpFetchReaction =
@@ -65,6 +83,10 @@ export type CdpFetchReaction =
   // `interceptResponse:true`. The fire is DEFERRED to the Response stage —
   // the action only takes effect once the reply is fulfilled there.
   | { readonly kind: 'await-response'; readonly ruleUid: string; readonly request: CdpContinueRequest }
+  // A dynamic `mock`-source body: the interceptor evals the user fn, then
+  // fulfills. The fire is DEFERRED to that fulfill — an eval fault releases the
+  // request and never fires (fire = the modification actually ran).
+  | { readonly kind: 'eval-fulfill'; readonly ruleUid: string; readonly plan: CdpResponseEvalPlan }
   | { readonly kind: 'pass-through' };
 
 /** The answer the interceptor gives a paused request at the RESPONSE stage. */
@@ -190,6 +212,12 @@ export function resolveFetchReaction(event: CdpRequestPaused, rules: readonly Ru
 
     if (!requestStageMatches(rule, ctx)) continue;
     if (rule.type === 'response') {
+      // A `mock`+dynamic body is user JS — defer to the interceptor's eval.
+      // (network+dynamic and request-body+dynamic stay unrealizable until
+      // D2b-2b/c, so `isFetchRealizableNow` already excluded them above.)
+      if (rule.action.bodyType === 'dynamic') {
+        return { kind: 'eval-fulfill', ruleUid: rule.uid, plan: buildResponseEvalPlan(rule.action) };
+      }
       return { kind: 'fulfill', ruleUid: rule.uid, response: buildFulfill(event.requestId, rule.action) };
     }
     return { kind: 'continue', ruleUid: rule.uid, request: buildRequestBodyRewrite(event.requestId, rule.action) };
@@ -373,17 +401,65 @@ function matchesGraphqlBody(bodyStr: string, filter: GraphqlFilter): boolean {
   }
 }
 
+/** Default Content-Type first, then the rule's response headers — an
+ *  exact-name entry overrides the default, mirroring the injection's object
+ *  spread. Shared by the static and dynamic `mock` fulfills. */
+function fulfillHeaders(contentType: string, extra: Readonly<Record<string, string>>): CdpHeaderEntry[] {
+  const headerMap = new Map<string, string>([['Content-Type', contentType]]);
+  for (const [name, value] of Object.entries(extra)) headerMap.set(name, value);
+  return [...headerMap].map(([name, value]) => ({ name, value }));
+}
+
 function buildFulfill(requestId: string, action: ResponseAction): CdpFulfillResponse {
-  // Default Content-Type first, then the action's headers — an exact-name
-  // entry overrides the default, mirroring the injection's object spread.
-  const headerMap = new Map<string, string>([['Content-Type', action.contentType || 'application/json']]);
-  for (const [name, value] of Object.entries(action.responseHeaders)) headerMap.set(name, value);
-  const responseHeaders: CdpHeaderEntry[] = [...headerMap].map(([name, value]) => ({ name, value }));
   return {
     requestId,
     responseCode: action.statusCode || 200,
-    responseHeaders,
+    responseHeaders: fulfillHeaders(action.contentType || 'application/json', action.responseHeaders),
     body: toBase64(action.responseBody),
+  };
+}
+
+/** The static reply envelope for a `mock`+dynamic rule — defaults applied here
+ *  (status → 200, CT → JSON) exactly as the injection path's `dynamicMock`
+ *  script does, so only the body remains for the eval to supply. */
+function buildResponseEvalPlan(action: ResponseAction): CdpResponseEvalPlan {
+  return {
+    userCode: action.responseBody,
+    statusCode: action.statusCode || 200,
+    contentType: action.contentType || 'application/json',
+    responseHeaders: action.responseHeaders,
+  };
+}
+
+/**
+ * Wrap a `mock`+dynamic rule's user code into a function declaration that
+ * defines `buildResponse`, calls it over the request arg, and returns the body
+ * stringified IN the isolated world — byte-identical to the injection path's
+ * realm-local `typeof o === 'object' ? JSON.stringify : String`.
+ */
+export function wrapMockResponseFn(userCode: string): string {
+  return `function(arg){
+${userCode}
+var __oh = buildResponse(arg);
+return typeof __oh === 'object' ? JSON.stringify(__oh) : String(__oh);
+}`;
+}
+
+/** The `{method,url,requestBody}` a `mock`+dynamic `buildResponse` receives,
+ *  sourced from the paused request (the injection path reads the same fields
+ *  off the live fetch/XHR). `postData` is the request body text. */
+export function mockResponseEvalArg(event: CdpRequestPaused): CdpEvalArg {
+  return { method: event.request.method, url: event.request.url, requestBody: event.request.postData ?? '' };
+}
+
+/** Fulfill a `mock`+dynamic match with the eval's returned body under the
+ *  rule's static envelope (status/CT/headers from {@link buildResponseEvalPlan}). */
+export function buildEvalFulfill(requestId: string, plan: CdpResponseEvalPlan, body: string): CdpFulfillResponse {
+  return {
+    requestId,
+    responseCode: plan.statusCode,
+    responseHeaders: fulfillHeaders(plan.contentType, plan.responseHeaders),
+    body: toBase64(body),
   };
 }
 
