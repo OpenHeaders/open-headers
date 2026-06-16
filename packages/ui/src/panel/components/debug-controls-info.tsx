@@ -49,6 +49,28 @@ export function buildCacheInfo({ cdpOwned, onEnableDebug }: DebugInfoParams): In
   };
 }
 
+export function buildUserAgentInfo({ cdpOwned, onEnableDebug }: DebugInfoParams): InfoPopoverContent {
+  return {
+    title: 'User-Agent override',
+    summary: 'Sends a custom User-Agent for this tab so you can see how a server responds to a different client.',
+    description: cdpOwned
+      ? 'Active on this tab through Debug mode. The override applies to requests and to page scripts; clearing it restores the real User-Agent.'
+      : 'Overriding the User-Agent needs Debug mode — there is no standard-mode fallback. Enable Debug mode and keep this tab in scope to override it.',
+    sections: [
+      {
+        heading: 'Debug mode',
+        items: [
+          {
+            label: 'Network.setUserAgentOverride',
+            desc: 'Sets the User-Agent header and navigator.userAgent for the whole tab.',
+          },
+        ],
+      },
+    ],
+    actions: cdpOwned ? undefined : enableDebugAction(onEnableDebug),
+  };
+}
+
 export function buildThrottleInfo({ cdpOwned, onEnableDebug }: DebugInfoParams): InfoPopoverContent {
   return {
     title: 'Network throttling',

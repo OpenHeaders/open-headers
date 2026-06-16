@@ -11,7 +11,7 @@
  * over persistence* — turns on:
  *
  *   - {@link CdpTabControlPort} — DECLARATIVE standing state. A tab's CDP
- *     environment (cache, throttle, UA/geo/tz/locale overrides, bootstrap
+ *     environment (cache, throttle, UA/tz/locale overrides, bootstrap
  *     scripts, Fetch-enable patterns, CSP bypass) is a single desired-state
  *     value, {@link CdpTabControlState}, `apply`'d to the session. It is
  *     idempotent and replayed verbatim on every (re-)attach, because the
@@ -55,18 +55,20 @@ export interface CdpNetworkConditions {
   readonly uploadThroughputBps: number;
 }
 
-/** A geolocation override (`Emulation.setGeolocationOverride`). */
-export interface CdpGeolocation {
-  readonly latitude: number;
-  readonly longitude: number;
-  readonly accuracy: number;
-}
-
 /**
- * Tab environment overrides (Phase F): UA + the `Emulation.*` cluster.
- * Every field is optional; an absent field leaves that facet at the
- * browser default, a present one pins it. `geolocation: null` denies
- * geolocation outright (distinct from absent = no override).
+ * Tab environment overrides (Phase F). Two clusters, distinguished by their
+ * CDP carrier and their network visibility:
+ *
+ *   - The UA triple — `userAgent` + `acceptLanguage` + `platform` — travels
+ *     as ONE `Network.setUserAgentOverride`. These are the on-the-wire facets:
+ *     `userAgent`/`acceptLanguage` set the matching request headers AND the
+ *     `navigator.*` properties (F3a).
+ *   - The `Emulation.*` cluster — `locale` / `timezoneId` / `emulatedMedia` —
+ *     each its own command. These touch NO request header; they only change
+ *     what the page's own JS/CSS observes (F3b).
+ *
+ * Every field is optional; an absent field leaves that facet at the browser
+ * default, a present one pins it.
  */
 export interface CdpEnvironmentOverrides {
   readonly userAgent?: string;
@@ -74,7 +76,6 @@ export interface CdpEnvironmentOverrides {
   readonly platform?: string;
   readonly locale?: string;
   readonly timezoneId?: string;
-  readonly geolocation?: CdpGeolocation | null;
   readonly emulatedMedia?: string;
 }
 
@@ -174,6 +175,20 @@ export type CdpControlCommand =
   | { readonly kind: 'set-cache-disabled'; readonly cacheDisabled: boolean }
   | { readonly kind: 'emulate-network-conditions'; readonly conditions: CdpNetworkConditions }
   | { readonly kind: 'clear-network-conditions' }
+  // The UA triple → one `Network.setUserAgentOverride`. `userAgent` is
+  // optional here even though CDP requires it: when only `acceptLanguage` /
+  // `platform` are pinned the adapter fills in the page's captured real UA
+  // (the documented adapter-side stateful exception), so the oracle stays
+  // unaware of the real UA. CDP has no clean UA reset, so a flip-to-empty
+  // emits `clear-user-agent-override`, which the adapter answers by re-sending
+  // that captured real UA.
+  | {
+      readonly kind: 'set-user-agent-override';
+      readonly userAgent?: string;
+      readonly acceptLanguage?: string;
+      readonly platform?: string;
+    }
+  | { readonly kind: 'clear-user-agent-override' }
   | { readonly kind: 'set-bypass-csp'; readonly enabled: boolean }
   | {
       readonly kind: 'enable-fetch';
@@ -190,10 +205,10 @@ export type CdpControlCommand =
  * value changed emits a command, so a re-apply of unchanged state is empty
  * and a replay from {@link EMPTY_TAB_CONTROL_STATE} re-issues the whole set.
  *
- * Coverage grows per phase: D added Fetch-enable patterns, E adds
+ * Coverage grows per phase: D added Fetch-enable patterns, E added
  * bootstrap-script add/remove (keyed on the stable `key`; the CDP-returned
- * script-id lifecycle is tracked adapter-side), F will add the override
- * fan-out.
+ * script-id lifecycle is tracked adapter-side), F3a adds the UA-override fan-out
+ * (the `Emulation.*` facets land in F3b).
  */
 export function reconcileTabControl(prev: CdpTabControlState, next: CdpTabControlState): CdpControlCommand[] {
   const commands: CdpControlCommand[] = [];
@@ -208,6 +223,16 @@ export function reconcileTabControl(prev: CdpTabControlState, next: CdpTabContro
         ? { kind: 'clear-network-conditions' }
         : { kind: 'emulate-network-conditions', conditions: next.networkConditions },
     );
+  }
+
+  // Environment overrides fan out per facet (the `networkConditions` field-by-
+  // field style, not one bundled command). F3a covers the UA triple — a change
+  // to any of `userAgent`/`acceptLanguage`/`platform` re-emits the single
+  // `set-user-agent-override` they share; a flip to all-three-empty emits the
+  // clear. The `Emulation.*` facets (locale/timezone/media) join here in F3b;
+  // `overridesEqual` already spans them so an unchanged re-apply stays empty.
+  if (!overridesEqual(prev.overrides, next.overrides)) {
+    reconcileUserAgentOverride(prev.overrides, next.overrides, commands);
   }
 
   if (prev.bypassCsp !== next.bypassCsp) {
@@ -283,6 +308,55 @@ function networkConditionsEqual(a: CdpNetworkConditions | null, b: CdpNetworkCon
     a.downloadThroughputBps === b.downloadThroughputBps &&
     a.uploadThroughputBps === b.uploadThroughputBps
   );
+}
+
+function overridesEqual(a: CdpEnvironmentOverrides | null, b: CdpEnvironmentOverrides | null): boolean {
+  if (a === b) return true;
+  if (a === null || b === null) return false;
+  return (
+    a.userAgent === b.userAgent &&
+    a.acceptLanguage === b.acceptLanguage &&
+    a.platform === b.platform &&
+    a.locale === b.locale &&
+    a.timezoneId === b.timezoneId &&
+    a.emulatedMedia === b.emulatedMedia
+  );
+}
+
+/**
+ * Diff the UA triple (`userAgent`/`acceptLanguage`/`platform`) and push the one
+ * command that carries it. The three share a single `Network.setUserAgentOverride`,
+ * so a change to ANY re-emits the whole set. When all three become absent the
+ * triple is cleared — but CDP keeps the override live until the real UA is
+ * re-sent, so this emits `clear-user-agent-override` and leaves the captured-UA
+ * restore to the adapter. Only present facets ride the set command; an absent
+ * `userAgent` is filled adapter-side from the captured real UA.
+ */
+function reconcileUserAgentOverride(
+  prev: CdpEnvironmentOverrides | null,
+  next: CdpEnvironmentOverrides | null,
+  commands: CdpControlCommand[],
+): void {
+  const nextUserAgent = next?.userAgent;
+  const nextAcceptLanguage = next?.acceptLanguage;
+  const nextPlatform = next?.platform;
+  if (
+    prev?.userAgent === nextUserAgent &&
+    prev?.acceptLanguage === nextAcceptLanguage &&
+    prev?.platform === nextPlatform
+  ) {
+    return;
+  }
+  if (nextUserAgent === undefined && nextAcceptLanguage === undefined && nextPlatform === undefined) {
+    commands.push({ kind: 'clear-user-agent-override' });
+    return;
+  }
+  commands.push({
+    kind: 'set-user-agent-override',
+    ...(nextUserAgent !== undefined ? { userAgent: nextUserAgent } : {}),
+    ...(nextAcceptLanguage !== undefined ? { acceptLanguage: nextAcceptLanguage } : {}),
+    ...(nextPlatform !== undefined ? { platform: nextPlatform } : {}),
+  });
 }
 
 // ── per-request reactions (imperative, never replayed) ───────────────────

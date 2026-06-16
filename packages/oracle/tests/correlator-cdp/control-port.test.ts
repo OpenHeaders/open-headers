@@ -13,6 +13,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   type CdpBootstrapScript,
+  type CdpEnvironmentOverrides,
   type CdpFetchPattern,
   type CdpNetworkConditions,
   type CdpTabControlState,
@@ -35,6 +36,8 @@ const SLOW_3G: CdpNetworkConditions = {
 function state(overrides: Partial<CdpTabControlState> = {}): CdpTabControlState {
   return { ...EMPTY_TAB_CONTROL_STATE, ...overrides };
 }
+
+const UA_OVERRIDE: CdpEnvironmentOverrides = { userAgent: 'Test-Agent/1.0 (openheaders.io)' };
 
 const API_PATTERN: CdpFetchPattern = { urlPattern: '*://openheaders.io/api/*', requestStage: 'Request' };
 
@@ -78,6 +81,52 @@ describe('reconcileTabControl', () => {
     expect(reconcileTabControl(state({ networkConditions: SLOW_3G }), fast)).toEqual([
       { kind: 'emulate-network-conditions', conditions: { ...SLOW_3G, offline: true } },
     ]);
+  });
+
+  it('emits set-user-agent-override when a UA override appears and clear when it vanishes', () => {
+    expect(reconcileTabControl(EMPTY_TAB_CONTROL_STATE, state({ overrides: UA_OVERRIDE }))).toEqual([
+      { kind: 'set-user-agent-override', userAgent: 'Test-Agent/1.0 (openheaders.io)' },
+    ]);
+    expect(reconcileTabControl(state({ overrides: UA_OVERRIDE }), EMPTY_TAB_CONTROL_STATE)).toEqual([
+      { kind: 'clear-user-agent-override' },
+    ]);
+  });
+
+  it('treats equal-valued overrides as unchanged (structural, not identity)', () => {
+    const a = state({ overrides: { ...UA_OVERRIDE } });
+    const b = state({ overrides: { ...UA_OVERRIDE } });
+    expect(reconcileTabControl(a, b)).toEqual([]);
+  });
+
+  it('re-emits set-user-agent-override when the UA string changes', () => {
+    const next = state({ overrides: { userAgent: 'Test-Agent/2.0 (openheaders.io)' } });
+    expect(reconcileTabControl(state({ overrides: UA_OVERRIDE }), next)).toEqual([
+      { kind: 'set-user-agent-override', userAgent: 'Test-Agent/2.0 (openheaders.io)' },
+    ]);
+  });
+
+  it('carries acceptLanguage and platform on the set command when present', () => {
+    const overrides: CdpEnvironmentOverrides = {
+      userAgent: 'Test-Agent/1.0 (openheaders.io)',
+      acceptLanguage: 'fr-FR',
+      platform: 'Linux',
+    };
+    expect(reconcileTabControl(EMPTY_TAB_CONTROL_STATE, state({ overrides }))).toEqual([
+      {
+        kind: 'set-user-agent-override',
+        userAgent: 'Test-Agent/1.0 (openheaders.io)',
+        acceptLanguage: 'fr-FR',
+        platform: 'Linux',
+      },
+    ]);
+  });
+
+  it('emits no UA command when only a non-UA facet changes (Emulation.* lands in F3b)', () => {
+    const prev = state({ overrides: { ...UA_OVERRIDE } });
+    const next = state({ overrides: { ...UA_OVERRIDE, timezoneId: 'Europe/Berlin' } });
+    // The override bag changed (so the branch runs), but the UA triple did not,
+    // so F3a emits nothing for it — the timezone facet emits once F3b wires it.
+    expect(reconcileTabControl(prev, next)).toEqual([]);
   });
 
   it('emits set-bypass-csp only when it changes', () => {
@@ -181,6 +230,7 @@ describe('reconcileTabControl', () => {
     const armed = state({
       cacheDisabled: true,
       networkConditions: SLOW_3G,
+      overrides: UA_OVERRIDE,
       bypassCsp: true,
       fetchPatterns: [API_PATTERN],
       fetchHandleAuthRequests: true,
@@ -189,6 +239,7 @@ describe('reconcileTabControl', () => {
     expect(reconcileTabControl(EMPTY_TAB_CONTROL_STATE, armed)).toEqual([
       { kind: 'set-cache-disabled', cacheDisabled: true },
       { kind: 'emulate-network-conditions', conditions: SLOW_3G },
+      { kind: 'set-user-agent-override', userAgent: 'Test-Agent/1.0 (openheaders.io)' },
       { kind: 'set-bypass-csp', enabled: true },
       { kind: 'enable-fetch', patterns: [API_PATTERN], handleAuthRequests: true },
       { kind: 'add-bootstrap-script', key: 'wrapper', source: 'globalThis.__oh_wrap__()' },

@@ -39,6 +39,11 @@ interface RawAddScriptResult {
   readonly identifier: string;
 }
 
+/** `Runtime.evaluate` result — only the returned-by-value primitive is read. */
+interface RawEvaluateResult {
+  readonly result?: { readonly value?: unknown };
+}
+
 function targetKey(target: CdpSessionTarget): string {
   return `${target.tabId}:${target.sessionId}`;
 }
@@ -65,6 +70,17 @@ export class ChromeCdpTabControlPort implements CdpTabControlPort {
    * {@link lastApplied} is — a re-attach replays the adds with fresh ids.
    */
   private readonly bootstrapIds = new Map<string, Map<string, string>>();
+  /**
+   * Per-target captured real User-Agent: `targetKey → navigator.userAgent`.
+   * CDP has no clean UA reset — `Network.setUserAgentOverride` keeps the
+   * override live until the real UA is re-sent, which only the page knows. So
+   * the adapter reads the page's UA once (before the first override lands) and
+   * replays it on `clear-user-agent-override`. Like {@link bootstrapIds}, this
+   * is the adapter's documented stateful exception to the dumb-executor rule,
+   * dropped on `forget` — a re-attach (which itself clears all CDP overrides)
+   * re-captures.
+   */
+  private readonly capturedUserAgents = new Map<string, string>();
 
   constructor(sender: CdpSessionSender) {
     this.sender = sender;
@@ -92,6 +108,7 @@ export class ChromeCdpTabControlPort implements CdpTabControlPort {
     const key = targetKey(target);
     this.lastApplied.delete(key);
     this.bootstrapIds.delete(key);
+    this.capturedUserAgents.delete(key);
   }
 
   private execute(target: CdpSessionTarget, command: CdpControlCommand): Promise<unknown> {
@@ -110,6 +127,10 @@ export class ChromeCdpTabControlPort implements CdpTabControlPort {
         );
       case 'clear-network-conditions':
         return this.sender.sendOnSession(tabId, sessionId, 'Network.emulateNetworkConditions', { ...NO_THROTTLE });
+      case 'set-user-agent-override':
+        return this.setUserAgentOverride(target, command.userAgent, command.acceptLanguage, command.platform);
+      case 'clear-user-agent-override':
+        return this.clearUserAgentOverride(target);
       case 'set-bypass-csp':
         return this.sender.sendOnSession(tabId, sessionId, 'Page.setBypassCSP', { enabled: command.enabled });
       case 'enable-fetch':
@@ -177,6 +198,85 @@ export class ChromeCdpTabControlPort implements CdpTabControlPort {
       identifier,
     });
     ids.delete(key);
+  }
+
+  /**
+   * `Network.setUserAgentOverride` — pin the UA triple. Captures the page's real
+   * UA first (so a later clear can restore it), then sends only the present
+   * facets. When `userAgent` is absent (only `acceptLanguage`/`platform` pinned)
+   * CDP still requires a UA value, so the captured real UA fills it; if even
+   * that is unavailable the override is skipped (clearing then needs a reload).
+   */
+  private async setUserAgentOverride(
+    target: CdpSessionTarget,
+    userAgent: string | undefined,
+    acceptLanguage: string | undefined,
+    platform: string | undefined,
+  ): Promise<void> {
+    const realUserAgent = await this.captureRealUserAgent(target);
+    const effectiveUserAgent = userAgent ?? realUserAgent;
+    if (effectiveUserAgent === undefined) {
+      logger.debug('CdpTabControl', 'set-user-agent-override: no UA to send', {
+        tabId: target.tabId,
+        sessionId: target.sessionId,
+      });
+      return;
+    }
+    await this.sender.sendOnSession(target.tabId, target.sessionId, 'Network.setUserAgentOverride', {
+      userAgent: effectiveUserAgent,
+      ...(acceptLanguage !== undefined ? { acceptLanguage } : {}),
+      ...(platform !== undefined ? { platform } : {}),
+    });
+  }
+
+  /**
+   * Restore the page's real UA — CDP has no UA reset, so re-send the captured
+   * real UA. A missing capture (the read failed, or nothing was ever overridden)
+   * is tolerated: log and skip, leaving the override to clear on the next reload
+   * or detach.
+   */
+  private async clearUserAgentOverride(target: CdpSessionTarget): Promise<void> {
+    const realUserAgent = this.capturedUserAgents.get(targetKey(target));
+    if (realUserAgent === undefined) {
+      logger.debug('CdpTabControl', 'clear-user-agent-override: no captured UA', {
+        tabId: target.tabId,
+        sessionId: target.sessionId,
+      });
+      return;
+    }
+    await this.sender.sendOnSession(target.tabId, target.sessionId, 'Network.setUserAgentOverride', {
+      userAgent: realUserAgent,
+    });
+  }
+
+  /**
+   * Read `navigator.userAgent` once per target and cache it. Called before the
+   * first override lands (the page still reports its real UA then; a re-attach
+   * has cleared any prior override). A read fault leaves the cache empty — the
+   * override still applies, only the clean clear is forfeited.
+   */
+  private async captureRealUserAgent(target: CdpSessionTarget): Promise<string | undefined> {
+    const key = targetKey(target);
+    const existing = this.capturedUserAgents.get(key);
+    if (existing !== undefined) return existing;
+    try {
+      const result = await this.sender.sendOnSession(target.tabId, target.sessionId, 'Runtime.evaluate', {
+        expression: 'navigator.userAgent',
+        returnByValue: true,
+      });
+      const value = (result as RawEvaluateResult | undefined)?.result?.value;
+      if (typeof value === 'string' && value.length > 0) {
+        this.capturedUserAgents.set(key, value);
+        return value;
+      }
+    } catch (err) {
+      logger.debug('CdpTabControl', 'capture real UA failed', {
+        tabId: target.tabId,
+        sessionId: target.sessionId,
+        message: (err as Error).message,
+      });
+    }
+    return undefined;
   }
 }
 

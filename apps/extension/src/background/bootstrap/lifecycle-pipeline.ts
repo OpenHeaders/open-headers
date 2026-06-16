@@ -28,6 +28,7 @@ import { createPersistentWatchSessionFloors, startLifecyclePortHost } from '../l
 import { isCacheBypassActive } from '../modules/cache-bypass';
 import { getNetworkConditionsForTab, registerNetworkConditionsReplay } from '../modules/network-conditions';
 import { setupOnRuleMatchedDebugBridge } from '../modules/on-rule-matched-debug';
+import { getTabOverridesForTab, registerTabOverridesReplay } from '../modules/tab-overrides';
 import { recordReportedFire } from '../modules/tab-telemetry';
 import { startTabTelemetryFiresBridge } from '../modules/tab-telemetry-fires-bridge';
 import { startCdpPageBridge, startDevtoolsPageNavBridge, startPagePortHost } from '../page-port-host';
@@ -109,17 +110,19 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   // subset of the store's rules, so it never clobbers the DNR snapshot memo.
   const liveRules = (): Rule[] =>
     resolveRulesForCompile(getRules().filter((rule) => isRuleEffective(rule, getPauseMarkers(), getRulesPaused())));
-  // Cache and conditions are the two standing-state inputs that are NOT
-  // rule-derived: the per-tab "disable cache" toggle (DNR cache-bypass module)
-  // and the per-tab throttle profile (network-conditions module), read here and
-  // threaded into the derive so each joins the all-empty guard. The DNR cache
-  // rule stays installed as the un-armed/detached fallback; throttle has NO such
-  // fallback, so its profile only lives while the tab is in scope.
+  // Cache, conditions, and overrides are the three standing-state inputs that
+  // are NOT rule-derived: the per-tab "disable cache" toggle (DNR cache-bypass
+  // module), the per-tab throttle profile (network-conditions module), and the
+  // per-tab environment overrides (tab-overrides module) — read here and threaded
+  // into the derive so each joins the all-empty guard. The DNR cache rule stays
+  // installed as the un-armed/detached fallback; throttle and overrides have NO
+  // such fallback, so they only live while the tab is in scope.
   const deriveState = (tabId: number): CdpTabControlState =>
     isTabInScope(tabId)
       ? deriveTabControlState(liveRules(), {
           cacheDisabled: isCacheBypassActive(tabId),
           networkConditions: getNetworkConditionsForTab(tabId),
+          overrides: getTabOverridesForTab(tabId),
         })
       : EMPTY_TAB_CONTROL_STATE;
   // Authoritative fire sink for D2 fulfill/rewrite. Resolved to the fires
@@ -141,6 +144,9 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   // standing state immediately rather than waiting for the next re-attach.
   // Raw replay (no injection refresh) — throttle is orthogonal to injection.
   registerNetworkConditionsReplay((tabId) => cdpControlReplay.replay(tabId));
+  // Apply-now for a live override change — same seam as throttle: overrides are
+  // CDP-only and set on an in-scope tab, so re-derive + re-apply immediately.
+  registerTabOverridesReplay((tabId) => cdpControlReplay.replay(tabId));
   // Precedence (D4): the page-context interceptor suppression reads the router
   // (the single source of tab ownership) and re-derives a tab's injection set
   // in lock-step with the control-plane replay/release. When a tab's ownership

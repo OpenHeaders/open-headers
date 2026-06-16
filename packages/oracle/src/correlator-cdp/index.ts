@@ -62,7 +62,6 @@ export type {
   CdpEnvironmentOverrides,
   CdpFetchPattern,
   CdpFulfillResponse,
-  CdpGeolocation,
   CdpGetRequestPostData,
   CdpGetResponseBody,
   CdpHeaderEntry,

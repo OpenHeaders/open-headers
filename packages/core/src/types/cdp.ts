@@ -84,6 +84,41 @@ export function readNetworkThrottleConditions(raw: unknown): NetworkThrottleCond
   return result.success ? result.output : null;
 }
 
+/**
+ * Tab environment overrides carried over the bridge to the service worker's
+ * per-tab overrides store (`setTabOverrides` RPC). Structurally the wire twin of
+ * the engine's `CdpEnvironmentOverrides` — kept in core so the chrome-free panel
+ * can name the shape without reaching into `@openheaders/oracle`. Every facet is
+ * optional; an absent facet leaves the browser default. The UA triple
+ * (`userAgent`/`acceptLanguage`/`platform`) is the on-the-wire cluster (F3a); the
+ * `Emulation.*` facets (`locale`/`timezoneId`/`emulatedMedia`) are page-only
+ * (F3b). `null` over the wire means "no overrides".
+ */
+export const tabEnvironmentOverridesSchema = v.object({
+  userAgent: v.optional(v.string()),
+  acceptLanguage: v.optional(v.string()),
+  platform: v.optional(v.string()),
+  locale: v.optional(v.string()),
+  timezoneId: v.optional(v.string()),
+  emulatedMedia: v.optional(v.string()),
+});
+
+export type TabEnvironmentOverrides = v.InferOutput<typeof tabEnvironmentOverridesSchema>;
+
+/**
+ * Validate an untrusted bridge payload into a {@link TabEnvironmentOverrides}, or
+ * `null` for the "no overrides" / unparseable case, AND for an all-empty object
+ * (every facet absent) so a cleared-to-empty payload collapses to `null` rather
+ * than pinning an empty override. The SW handler runs this before storing so a
+ * malformed bag can never reach the override plane.
+ */
+export function readTabEnvironmentOverrides(raw: unknown): TabEnvironmentOverrides | null {
+  if (raw == null) return null;
+  const result = v.safeParse(tabEnvironmentOverridesSchema, raw);
+  if (!result.success) return null;
+  return Object.values(result.output).some((value) => value !== undefined) ? result.output : null;
+}
+
 const cdpPinnedTabsSchema = v.array(v.number());
 
 /**

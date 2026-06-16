@@ -12,6 +12,7 @@ import type {
   PerfResourceEntry,
   Rule,
   RuleDraft,
+  TabEnvironmentOverrides,
   TabTelemetrySnapshot,
 } from '../../types';
 import type { FolderDescriptor } from './common';
@@ -41,6 +42,14 @@ export interface RuleRpc {
   getNetworkConditions: {
     req: { tabId: number };
     res: { conditions: NetworkThrottleConditions | null };
+  };
+  setTabOverrides: {
+    req: { tabId: number; overrides: TabEnvironmentOverrides | null };
+    res: { success: boolean; error?: string };
+  };
+  getTabOverrides: {
+    req: { tabId: number };
+    res: { overrides: TabEnvironmentOverrides | null };
   };
   setCdpTabPin: {
     req: { tabId: number; pinned: boolean };

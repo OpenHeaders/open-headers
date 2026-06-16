@@ -1,7 +1,7 @@
 // ── Common ─────────────────────────────────────────────────────────
 
 // ── CDP attach-scope vocabulary ────────────────────────────────────
-export type { CdpRosterTab, CdpScopeMode, NetworkThrottleConditions } from './cdp';
+export type { CdpRosterTab, CdpScopeMode, NetworkThrottleConditions, TabEnvironmentOverrides } from './cdp';
 export {
   cdpRosterTabSchema,
   cdpScopeModeSchema,
@@ -9,6 +9,8 @@ export {
   readCdpPinnedTabs,
   readCdpRoster,
   readNetworkThrottleConditions,
+  readTabEnvironmentOverrides,
+  tabEnvironmentOverridesSchema,
 } from './cdp';
 // ── Collection ─────────────────────────────────────────────────────
 export type {

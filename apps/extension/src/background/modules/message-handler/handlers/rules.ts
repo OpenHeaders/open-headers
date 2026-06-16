@@ -1,6 +1,6 @@
 /** Rule + rule-collection/folder CRUD, drafts, cache-bypass, and throttle RPCs. */
 
-import { readNetworkThrottleConditions, type TreeNode } from '@openheaders/core/types';
+import { readNetworkThrottleConditions, readTabEnvironmentOverrides, type TreeNode } from '@openheaders/core/types';
 import { createRuleDraft, takeRuleDraft } from '@openheaders/oracle/entity/rule-draft-store';
 import {
   createCollection,
@@ -19,6 +19,7 @@ import { pruneOrphanOwners } from '@openheaders/oracle/test-run/test-run-store';
 import { disableCacheBypassForTab, enableCacheBypassForTab } from '../../cache-bypass';
 import { setCdpTabPin } from '../../cdp-tab-pin';
 import { getNetworkConditionsForTab, setNetworkConditionsForTab } from '../../network-conditions';
+import { getTabOverridesForTab, setTabOverridesForTab } from '../../tab-overrides';
 import type { HandlerMap } from '../types';
 
 /** Sweep test-run owners whose rule/collection/folder no longer exists. */
@@ -97,6 +98,20 @@ export const ruleHandlers: HandlerMap = {
   getNetworkConditions: ({ message, respond }) => {
     const tabId = message.tabId as number;
     respond({ conditions: getNetworkConditionsForTab(tabId) });
+  },
+
+  setTabOverrides: ({ message, respond }) => {
+    const tabId = message.tabId as number;
+    // Validate the untrusted payload before it reaches the override plane — an
+    // unparseable / absent / all-empty bag clears any active overrides.
+    const overrides = readTabEnvironmentOverrides(message.overrides);
+    setTabOverridesForTab(tabId, overrides);
+    respond({ success: true });
+  },
+
+  getTabOverrides: ({ message, respond }) => {
+    const tabId = message.tabId as number;
+    respond({ overrides: getTabOverridesForTab(tabId) });
   },
 
   setCdpTabPin: ({ message, respond }) => {

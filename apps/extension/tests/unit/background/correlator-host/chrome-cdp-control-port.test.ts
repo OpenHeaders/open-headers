@@ -300,6 +300,133 @@ describe('ChromeCdpTabControlPort', () => {
       [{ tabId: TAB }, 'Page.addScriptToEvaluateOnNewDocument', { source: 'globalThis.__oh_wrap__()' }],
     ]);
   });
+
+  it('captures the real UA then maps a set-user-agent-override onto Network.setUserAgentOverride (F3a)', async () => {
+    const port = new ChromeCdpTabControlPort(source);
+    // The capture read resolves first (the page's real UA), then the override lands.
+    chromeMock.debugger.sendCommand.mockResolvedValueOnce({ result: { value: 'Real-UA/1.0 (openheaders.io)' } });
+    await port.apply(ROOT, {
+      cacheDisabled: false,
+      networkConditions: null,
+      overrides: { userAgent: 'Spoof-UA/1.0 (openheaders.io)' },
+      bootstrapScripts: [],
+      fetchPatterns: [],
+      fetchHandleAuthRequests: false,
+      bypassCsp: false,
+    });
+    expect(sendCalls()).toEqual([
+      [{ tabId: TAB }, 'Runtime.evaluate', { expression: 'navigator.userAgent', returnByValue: true }],
+      [{ tabId: TAB }, 'Network.setUserAgentOverride', { userAgent: 'Spoof-UA/1.0 (openheaders.io)' }],
+    ]);
+  });
+
+  it('carries acceptLanguage and platform onto Network.setUserAgentOverride (F3a)', async () => {
+    const port = new ChromeCdpTabControlPort(source);
+    chromeMock.debugger.sendCommand.mockResolvedValueOnce({ result: { value: 'Real-UA/1.0 (openheaders.io)' } });
+    await port.apply(ROOT, {
+      cacheDisabled: false,
+      networkConditions: null,
+      overrides: { userAgent: 'Spoof-UA/1.0 (openheaders.io)', acceptLanguage: 'fr-FR', platform: 'Linux' },
+      bootstrapScripts: [],
+      fetchPatterns: [],
+      fetchHandleAuthRequests: false,
+      bypassCsp: false,
+    });
+    expect(sendCalls()).toEqual([
+      [{ tabId: TAB }, 'Runtime.evaluate', { expression: 'navigator.userAgent', returnByValue: true }],
+      [
+        { tabId: TAB },
+        'Network.setUserAgentOverride',
+        { userAgent: 'Spoof-UA/1.0 (openheaders.io)', acceptLanguage: 'fr-FR', platform: 'Linux' },
+      ],
+    ]);
+  });
+
+  it('restores the captured real UA on clear-user-agent-override (CDP has no UA reset)', async () => {
+    const port = new ChromeCdpTabControlPort(source);
+    chromeMock.debugger.sendCommand.mockResolvedValueOnce({ result: { value: 'Real-UA/1.0 (openheaders.io)' } });
+    const overridden = {
+      cacheDisabled: false,
+      networkConditions: null,
+      overrides: { userAgent: 'Spoof-UA/1.0 (openheaders.io)' },
+      bootstrapScripts: [],
+      fetchPatterns: [],
+      fetchHandleAuthRequests: false,
+      bypassCsp: false,
+    } as const;
+    await port.apply(ROOT, overridden);
+    vi.clearAllMocks();
+    await port.apply(ROOT, { ...overridden, overrides: null });
+    expect(sendCalls()).toEqual([
+      [{ tabId: TAB }, 'Network.setUserAgentOverride', { userAgent: 'Real-UA/1.0 (openheaders.io)' }],
+    ]);
+  });
+
+  it('captures the real UA once per target — a second override change does not re-read it', async () => {
+    const port = new ChromeCdpTabControlPort(source);
+    chromeMock.debugger.sendCommand.mockResolvedValueOnce({ result: { value: 'Real-UA/1.0 (openheaders.io)' } });
+    const base = {
+      cacheDisabled: false,
+      networkConditions: null,
+      overrides: { userAgent: 'Spoof-UA/1.0 (openheaders.io)' },
+      bootstrapScripts: [],
+      fetchPatterns: [],
+      fetchHandleAuthRequests: false,
+      bypassCsp: false,
+    } as const;
+    await port.apply(ROOT, base);
+    vi.clearAllMocks();
+    await port.apply(ROOT, { ...base, overrides: { userAgent: 'Spoof-UA/2.0 (openheaders.io)' } });
+    // No Runtime.evaluate this time — the cached capture is reused.
+    expect(sendCalls()).toEqual([
+      [{ tabId: TAB }, 'Network.setUserAgentOverride', { userAgent: 'Spoof-UA/2.0 (openheaders.io)' }],
+    ]);
+  });
+
+  it('skips the clear when the UA capture failed — the override clears on reload instead', async () => {
+    const port = new ChromeCdpTabControlPort(source);
+    // A non-string capture result leaves the cache empty; the override still
+    // applies (the command carries its own userAgent), but a later clear has
+    // nothing to restore.
+    chromeMock.debugger.sendCommand.mockResolvedValueOnce({ result: { value: null } });
+    const overridden = {
+      cacheDisabled: false,
+      networkConditions: null,
+      overrides: { userAgent: 'Spoof-UA/1.0 (openheaders.io)' },
+      bootstrapScripts: [],
+      fetchPatterns: [],
+      fetchHandleAuthRequests: false,
+      bypassCsp: false,
+    } as const;
+    await port.apply(ROOT, overridden);
+    vi.clearAllMocks();
+    await port.apply(ROOT, { ...overridden, overrides: null });
+    expect(sendCalls()).toEqual([]);
+  });
+
+  it('forget clears the captured UA so a re-apply re-reads it (the detach/reattach path)', async () => {
+    const port = new ChromeCdpTabControlPort(source);
+    const overridden = {
+      cacheDisabled: false,
+      networkConditions: null,
+      overrides: { userAgent: 'Spoof-UA/1.0 (openheaders.io)' },
+      bootstrapScripts: [],
+      fetchPatterns: [],
+      fetchHandleAuthRequests: false,
+      bypassCsp: false,
+    } as const;
+    chromeMock.debugger.sendCommand.mockResolvedValueOnce({ result: { value: 'Real-UA/1.0 (openheaders.io)' } });
+    await port.apply(ROOT, overridden);
+    port.forget(ROOT);
+    vi.clearAllMocks();
+
+    chromeMock.debugger.sendCommand.mockResolvedValueOnce({ result: { value: 'Real-UA/2.0 (openheaders.io)' } });
+    await port.apply(ROOT, overridden);
+    expect(sendCalls()).toEqual([
+      [{ tabId: TAB }, 'Runtime.evaluate', { expression: 'navigator.userAgent', returnByValue: true }],
+      [{ tabId: TAB }, 'Network.setUserAgentOverride', { userAgent: 'Spoof-UA/1.0 (openheaders.io)' }],
+    ]);
+  });
 });
 
 describe('ChromeCdpRequestControlPort', () => {

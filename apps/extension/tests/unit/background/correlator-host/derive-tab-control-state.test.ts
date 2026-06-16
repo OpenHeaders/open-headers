@@ -1,13 +1,13 @@
 /**
  * `deriveTabControlState` — the pure assembly of an in-scope tab's standing CDP
- * control state from its live rules plus the per-tab cache toggle and throttle
- * profile. The load-bearing property: the five planes — network
- * (`fetchPatterns`), delivery (`bootstrapScripts`), CSP-bypass (`bypassCsp`),
- * cache (`cacheDisabled`), and conditions (`networkConditions`) — are
- * INDEPENDENT, so the empty short-circuit gates on ALL FIVE being empty: a tab
- * whose sole contribution is on any one plane (a lone `ws` wrapper's bootstrap,
- * an inject-`bypassCSP`, the cache toggle, or just a throttle profile) must not
- * collapse to the EMPTY singleton.
+ * control state from its live rules plus the per-tab cache toggle, throttle
+ * profile, and environment overrides. The load-bearing property: the six planes —
+ * network (`fetchPatterns`), delivery (`bootstrapScripts`), CSP-bypass
+ * (`bypassCsp`), cache (`cacheDisabled`), conditions (`networkConditions`), and
+ * overrides (`overrides`) — are INDEPENDENT, so the empty short-circuit gates on
+ * ALL SIX being empty: a tab whose sole contribution is on any one plane (a lone
+ * `ws` wrapper's bootstrap, an inject-`bypassCSP`, the cache toggle, a throttle
+ * profile, or just a UA override) must not collapse to the EMPTY singleton.
  */
 
 import type { InjectRule, ResponseRule, RuleCondition, WsRule } from '@openheaders/core/types';
@@ -178,6 +178,36 @@ describe('deriveTabControlState', () => {
 
   it('leaves networkConditions null on a non-empty state with no throttle', () => {
     expect(deriveTabControlState([responseRule()]).networkConditions).toBeNull();
+  });
+
+  const uaOverride = { userAgent: 'Test-Agent/1.0 (openheaders.io)' } as const;
+
+  it('carries overrides for a UA-override-only tab (the sixth-plane early-return trap)', () => {
+    const state = deriveTabControlState([], { overrides: uaOverride });
+    // No rules + no other control → the five other planes are empty/false/null.
+    expect(state.fetchPatterns).toEqual([]);
+    expect(state.bootstrapScripts).toEqual([]);
+    expect(state.bypassCsp).toBe(false);
+    expect(state.cacheDisabled).toBe(false);
+    expect(state.networkConditions).toBeNull();
+    // …yet the tab is NOT the EMPTY singleton: the override is its sole plane,
+    // and overrides have NO banner-free fallback, so losing it would be silent.
+    expect(state.overrides).toEqual(uaOverride);
+    expect(state).not.toBe(EMPTY_TAB_CONTROL_STATE);
+  });
+
+  it('stays EMPTY when overrides is null and no rule contributes', () => {
+    expect(deriveTabControlState([], { overrides: null })).toBe(EMPTY_TAB_CONTROL_STATE);
+  });
+
+  it('carries overrides alongside a non-empty rule-derived state', () => {
+    const state = deriveTabControlState([responseRule()], { overrides: uaOverride });
+    expect(state.fetchPatterns).toEqual([{ urlPattern: '*://api.openheaders.io/*' }]);
+    expect(state.overrides).toEqual(uaOverride);
+  });
+
+  it('leaves overrides null on a non-empty state with no override', () => {
+    expect(deriveTabControlState([responseRule()]).overrides).toBeNull();
   });
 
   it('opts into auth-challenge interception only when an auth rule is in scope', () => {

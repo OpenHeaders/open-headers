@@ -1,6 +1,7 @@
 import { forgetDelayBypassForTab, resolveDelayBypass } from '../dnr-manager';
 import { forgetCacheBypassForTab } from '../modules/cache-bypass';
 import { forgetNetworkConditionsForTab } from '../modules/network-conditions';
+import { forgetTabOverridesForTab } from '../modules/tab-overrides';
 
 declare const browser: typeof chrome | undefined;
 
@@ -29,6 +30,7 @@ export function setupDelayBypassCleanup(): void {
       forgetDelayBypassForTab(tabId);
       void forgetCacheBypassForTab(tabId);
       forgetNetworkConditionsForTab(tabId);
+      forgetTabOverridesForTab(tabId);
     });
   }
 }

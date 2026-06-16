@@ -78,6 +78,7 @@ import { precompileRulePatterns, rehydrateTabTracking, restoreTrackingState } fr
 import { scheduleUpdate } from './modules/rule-engine';
 import { rehydrateFromStorage as rehydrateObserverFromStorage } from './modules/rule-state-observer';
 import { initializeActiveTabTracking, setupPeriodicCleanup, setupTabListeners } from './modules/tab-listeners';
+import { rehydrateTabOverridesFromSession } from './modules/tab-overrides';
 import { setupTestRunnerPorts } from './modules/test-runner';
 import { bootstrapTotpScheduler } from './modules/totp-scheduler';
 import { initializeViewMode } from './modules/view-mode';
@@ -284,6 +285,7 @@ async function initializeExtension(): Promise<void> {
   await rehydrateObserverFromStorage();
   await rehydrateCacheBypassFromSessionRules();
   await rehydrateNetworkConditionsFromSession();
+  await rehydrateTabOverridesFromSession();
   await rehydrateTabTracking();
   let didInitialApply = false;
   if (restoredRules.length > 0) {
