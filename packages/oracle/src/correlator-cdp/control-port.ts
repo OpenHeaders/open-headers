@@ -56,6 +56,20 @@ export interface CdpNetworkConditions {
 }
 
 /**
+ * Emulated CSS media state (`Emulation.setEmulatedMedia`). All page-only — these
+ * change what the page's media queries resolve to, never a request header.
+ * `colorScheme` and `reducedMotion` ride the call's `features` array (the CDP
+ * `prefers-color-scheme` / `prefers-reduced-motion` feature names); `print`
+ * flips the call's top-level `media` type to print. Every facet is optional; an
+ * absent facet (or `print: false`) leaves that media dimension at its real value.
+ */
+export interface CdpEmulatedMedia {
+  readonly colorScheme?: 'light' | 'dark';
+  readonly reducedMotion?: 'reduce' | 'no-preference';
+  readonly print?: boolean;
+}
+
+/**
  * Tab environment overrides (Phase F). Two clusters, distinguished by their
  * CDP carrier and their network visibility:
  *
@@ -65,7 +79,8 @@ export interface CdpNetworkConditions {
  *     `navigator.*` properties (F3a).
  *   - The `Emulation.*` cluster — `locale` / `timezoneId` / `emulatedMedia` —
  *     each its own command. These touch NO request header; they only change
- *     what the page's own JS/CSS observes (F3b).
+ *     what the page's own JS/CSS observes (F3b). `emulatedMedia` is a small
+ *     struct so several media dimensions ride one `setEmulatedMedia`.
  *
  * Every field is optional; an absent field leaves that facet at the browser
  * default, a present one pins it.
@@ -76,7 +91,7 @@ export interface CdpEnvironmentOverrides {
   readonly platform?: string;
   readonly locale?: string;
   readonly timezoneId?: string;
-  readonly emulatedMedia?: string;
+  readonly emulatedMedia?: CdpEmulatedMedia;
 }
 
 /**
@@ -189,6 +204,15 @@ export type CdpControlCommand =
       readonly platform?: string;
     }
   | { readonly kind: 'clear-user-agent-override' }
+  // The `Emulation.*` facets — one command each. Unlike UA, every facet has a
+  // CLEAN CDP reset (the empty-valued `Emulation.*` call restores the host
+  // default), so a flip-to-absent emits a plain `clear` with no captured value.
+  | { readonly kind: 'set-locale-override'; readonly locale: string }
+  | { readonly kind: 'clear-locale-override' }
+  | { readonly kind: 'set-timezone-override'; readonly timezoneId: string }
+  | { readonly kind: 'clear-timezone-override' }
+  | { readonly kind: 'set-emulated-media'; readonly media: CdpEmulatedMedia }
+  | { readonly kind: 'clear-emulated-media' }
   | { readonly kind: 'set-bypass-csp'; readonly enabled: boolean }
   | {
       readonly kind: 'enable-fetch';
@@ -207,8 +231,9 @@ export type CdpControlCommand =
  *
  * Coverage grows per phase: D added Fetch-enable patterns, E added
  * bootstrap-script add/remove (keyed on the stable `key`; the CDP-returned
- * script-id lifecycle is tracked adapter-side), F3a adds the UA-override fan-out
- * (the `Emulation.*` facets land in F3b).
+ * script-id lifecycle is tracked adapter-side), F3a added the UA-override fan-out
+ * and F3b completes the overrides plane with the per-facet `Emulation.*` commands
+ * (locale / timezone / media).
  */
 export function reconcileTabControl(prev: CdpTabControlState, next: CdpTabControlState): CdpControlCommand[] {
   const commands: CdpControlCommand[] = [];
@@ -226,13 +251,16 @@ export function reconcileTabControl(prev: CdpTabControlState, next: CdpTabContro
   }
 
   // Environment overrides fan out per facet (the `networkConditions` field-by-
-  // field style, not one bundled command). F3a covers the UA triple — a change
-  // to any of `userAgent`/`acceptLanguage`/`platform` re-emits the single
-  // `set-user-agent-override` they share; a flip to all-three-empty emits the
-  // clear. The `Emulation.*` facets (locale/timezone/media) join here in F3b;
-  // `overridesEqual` already spans them so an unchanged re-apply stays empty.
+  // field style, not one bundled command). The UA triple shares one
+  // `set-user-agent-override` (a change to any of `userAgent`/`acceptLanguage`/
+  // `platform` re-emits it; all-three-empty emits the clear); the three
+  // `Emulation.*` facets each carry their own set/clear. `overridesEqual` spans
+  // every facet, so an unchanged re-apply runs none of the four diffs.
   if (!overridesEqual(prev.overrides, next.overrides)) {
     reconcileUserAgentOverride(prev.overrides, next.overrides, commands);
+    reconcileLocaleOverride(prev.overrides, next.overrides, commands);
+    reconcileTimezoneOverride(prev.overrides, next.overrides, commands);
+    reconcileEmulatedMedia(prev.overrides, next.overrides, commands);
   }
 
   if (prev.bypassCsp !== next.bypassCsp) {
@@ -319,8 +347,14 @@ function overridesEqual(a: CdpEnvironmentOverrides | null, b: CdpEnvironmentOver
     a.platform === b.platform &&
     a.locale === b.locale &&
     a.timezoneId === b.timezoneId &&
-    a.emulatedMedia === b.emulatedMedia
+    emulatedMediaEqual(a.emulatedMedia, b.emulatedMedia)
   );
+}
+
+function emulatedMediaEqual(a: CdpEmulatedMedia | undefined, b: CdpEmulatedMedia | undefined): boolean {
+  if (a === b) return true;
+  if (a === undefined || b === undefined) return false;
+  return a.colorScheme === b.colorScheme && a.reducedMotion === b.reducedMotion && a.print === b.print;
 }
 
 /**
@@ -357,6 +391,60 @@ function reconcileUserAgentOverride(
     ...(nextAcceptLanguage !== undefined ? { acceptLanguage: nextAcceptLanguage } : {}),
     ...(nextPlatform !== undefined ? { platform: nextPlatform } : {}),
   });
+}
+
+/**
+ * Diff the `locale` facet → `Emulation.setLocaleOverride`. A present locale pins
+ * it; an absent one clears (the adapter sends the empty-locale reset that
+ * restores the host default). Unchanged ⇒ no command.
+ */
+function reconcileLocaleOverride(
+  prev: CdpEnvironmentOverrides | null,
+  next: CdpEnvironmentOverrides | null,
+  commands: CdpControlCommand[],
+): void {
+  if (prev?.locale === next?.locale) return;
+  commands.push(
+    next?.locale !== undefined
+      ? { kind: 'set-locale-override', locale: next.locale }
+      : { kind: 'clear-locale-override' },
+  );
+}
+
+/**
+ * Diff the `timezoneId` facet → `Emulation.setTimezoneOverride`. A present zone
+ * pins it; an absent one clears (the empty-timezone reset). Unchanged ⇒ no command.
+ */
+function reconcileTimezoneOverride(
+  prev: CdpEnvironmentOverrides | null,
+  next: CdpEnvironmentOverrides | null,
+  commands: CdpControlCommand[],
+): void {
+  if (prev?.timezoneId === next?.timezoneId) return;
+  commands.push(
+    next?.timezoneId !== undefined
+      ? { kind: 'set-timezone-override', timezoneId: next.timezoneId }
+      : { kind: 'clear-timezone-override' },
+  );
+}
+
+/**
+ * Diff the `emulatedMedia` facet → `Emulation.setEmulatedMedia`. A present struct
+ * pins the media state wholesale (the call replaces the active set, so a partial
+ * struct change re-sends the full desired state); an absent struct clears (the
+ * empty-media reset). Unchanged (structural) ⇒ no command.
+ */
+function reconcileEmulatedMedia(
+  prev: CdpEnvironmentOverrides | null,
+  next: CdpEnvironmentOverrides | null,
+  commands: CdpControlCommand[],
+): void {
+  if (emulatedMediaEqual(prev?.emulatedMedia, next?.emulatedMedia)) return;
+  commands.push(
+    next?.emulatedMedia !== undefined
+      ? { kind: 'set-emulated-media', media: next.emulatedMedia }
+      : { kind: 'clear-emulated-media' },
+  );
 }
 
 // ── per-request reactions (imperative, never replayed) ───────────────────

@@ -15,6 +15,7 @@
 
 import {
   type CdpControlCommand,
+  type CdpEmulatedMedia,
   type CdpFetchPattern,
   type CdpNetworkConditions,
   type CdpSessionTarget,
@@ -55,6 +56,20 @@ function emulateParams(conditions: CdpNetworkConditions): Record<string, unknown
     downloadThroughput: conditions.downloadThroughputBps,
     uploadThroughput: conditions.uploadThroughputBps,
   };
+}
+
+/**
+ * Map the oracle {@link CdpEmulatedMedia} struct onto `Emulation.setEmulatedMedia`
+ * params. `colorScheme` / `reducedMotion` ride the `features` array under their
+ * CSS feature names; `print` flips the top-level `media` type. The call replaces
+ * the active media state wholesale, so the params carry the full desired set —
+ * an absent facet simply contributes no feature (and `media` stays screen).
+ */
+function emulatedMediaParams(media: CdpEmulatedMedia): Record<string, unknown> {
+  const features: { name: string; value: string }[] = [];
+  if (media.colorScheme !== undefined) features.push({ name: 'prefers-color-scheme', value: media.colorScheme });
+  if (media.reducedMotion !== undefined) features.push({ name: 'prefers-reduced-motion', value: media.reducedMotion });
+  return { media: media.print === true ? 'print' : '', features };
 }
 
 export class ChromeCdpTabControlPort implements CdpTabControlPort {
@@ -131,6 +146,27 @@ export class ChromeCdpTabControlPort implements CdpTabControlPort {
         return this.setUserAgentOverride(target, command.userAgent, command.acceptLanguage, command.platform);
       case 'clear-user-agent-override':
         return this.clearUserAgentOverride(target);
+      // The `Emulation.*` facets each have a clean reset: the empty-valued call
+      // restores the host default, so a clear needs no captured value (unlike UA).
+      case 'set-locale-override':
+        return this.sender.sendOnSession(tabId, sessionId, 'Emulation.setLocaleOverride', { locale: command.locale });
+      case 'clear-locale-override':
+        return this.sender.sendOnSession(tabId, sessionId, 'Emulation.setLocaleOverride', { locale: '' });
+      case 'set-timezone-override':
+        return this.sender.sendOnSession(tabId, sessionId, 'Emulation.setTimezoneOverride', {
+          timezoneId: command.timezoneId,
+        });
+      case 'clear-timezone-override':
+        return this.sender.sendOnSession(tabId, sessionId, 'Emulation.setTimezoneOverride', { timezoneId: '' });
+      case 'set-emulated-media':
+        return this.sender.sendOnSession(
+          tabId,
+          sessionId,
+          'Emulation.setEmulatedMedia',
+          emulatedMediaParams(command.media),
+        );
+      case 'clear-emulated-media':
+        return this.sender.sendOnSession(tabId, sessionId, 'Emulation.setEmulatedMedia', { media: '', features: [] });
       case 'set-bypass-csp':
         return this.sender.sendOnSession(tabId, sessionId, 'Page.setBypassCSP', { enabled: command.enabled });
       case 'enable-fetch':

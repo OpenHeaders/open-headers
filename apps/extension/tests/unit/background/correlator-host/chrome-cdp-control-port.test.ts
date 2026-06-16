@@ -427,6 +427,92 @@ describe('ChromeCdpTabControlPort', () => {
       [{ tabId: TAB }, 'Network.setUserAgentOverride', { userAgent: 'Spoof-UA/1.0 (openheaders.io)' }],
     ]);
   });
+
+  it('maps a locale override onto Emulation.setLocaleOverride, and the clear onto the empty-locale reset (F3b)', async () => {
+    const port = new ChromeCdpTabControlPort(source);
+    const withLocale = {
+      cacheDisabled: false,
+      networkConditions: null,
+      overrides: { locale: 'fr-FR' },
+      bootstrapScripts: [],
+      fetchPatterns: [],
+      fetchHandleAuthRequests: false,
+      bypassCsp: false,
+    } as const;
+    await port.apply(ROOT, withLocale);
+    expect(sendCalls()).toEqual([[{ tabId: TAB }, 'Emulation.setLocaleOverride', { locale: 'fr-FR' }]]);
+    vi.clearAllMocks();
+    await port.apply(ROOT, { ...withLocale, overrides: null });
+    expect(sendCalls()).toEqual([[{ tabId: TAB }, 'Emulation.setLocaleOverride', { locale: '' }]]);
+  });
+
+  it('maps a timezone override onto Emulation.setTimezoneOverride, and the clear onto the empty-zone reset (F3b)', async () => {
+    const port = new ChromeCdpTabControlPort(source);
+    const withZone = {
+      cacheDisabled: false,
+      networkConditions: null,
+      overrides: { timezoneId: 'Europe/Berlin' },
+      bootstrapScripts: [],
+      fetchPatterns: [],
+      fetchHandleAuthRequests: false,
+      bypassCsp: false,
+    } as const;
+    await port.apply(ROOT, withZone);
+    expect(sendCalls()).toEqual([[{ tabId: TAB }, 'Emulation.setTimezoneOverride', { timezoneId: 'Europe/Berlin' }]]);
+    vi.clearAllMocks();
+    await port.apply(ROOT, { ...withZone, overrides: null });
+    expect(sendCalls()).toEqual([[{ tabId: TAB }, 'Emulation.setTimezoneOverride', { timezoneId: '' }]]);
+  });
+
+  it('maps an emulated-media struct onto Emulation.setEmulatedMedia features, and the clear onto the empty reset (F3b)', async () => {
+    const port = new ChromeCdpTabControlPort(source);
+    const withMedia = {
+      cacheDisabled: false,
+      networkConditions: null,
+      overrides: { emulatedMedia: { colorScheme: 'dark', reducedMotion: 'reduce', print: true } },
+      bootstrapScripts: [],
+      fetchPatterns: [],
+      fetchHandleAuthRequests: false,
+      bypassCsp: false,
+    } as const;
+    await port.apply(ROOT, withMedia);
+    expect(sendCalls()).toEqual([
+      [
+        { tabId: TAB },
+        'Emulation.setEmulatedMedia',
+        {
+          media: 'print',
+          features: [
+            { name: 'prefers-color-scheme', value: 'dark' },
+            { name: 'prefers-reduced-motion', value: 'reduce' },
+          ],
+        },
+      ],
+    ]);
+    vi.clearAllMocks();
+    await port.apply(ROOT, { ...withMedia, overrides: null });
+    expect(sendCalls()).toEqual([[{ tabId: TAB }, 'Emulation.setEmulatedMedia', { media: '', features: [] }]]);
+  });
+
+  it('emits screen media (not print) when only a color-scheme feature is pinned (F3b)', async () => {
+    const port = new ChromeCdpTabControlPort(source);
+    await port.apply(ROOT, {
+      cacheDisabled: false,
+      networkConditions: null,
+      overrides: { emulatedMedia: { colorScheme: 'light' } },
+      bootstrapScripts: [],
+      fetchPatterns: [],
+      fetchHandleAuthRequests: false,
+      bypassCsp: false,
+    });
+    expect(sendCalls()).toEqual([
+      [
+        { tabId: TAB },
+        'Emulation.setEmulatedMedia',
+        { media: '', features: [{ name: 'prefers-color-scheme', value: 'light' }] },
+      ],
+    ]);
+  });
 });
 
 describe('ChromeCdpRequestControlPort', () => {

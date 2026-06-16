@@ -1,6 +1,7 @@
 /**
  * `(i)` info-popover content for the toolbar's debug controls — the cache
- * toggle and the throttle dropdown. Built as functions (not static data) so
+ * toggle, the throttle dropdown, and the environment overrides. Built as
+ * functions (not static data) so
  * the copy can switch on the inspected tab's mode and so the "Enable Debug
  * mode" call-to-action can carry a live handler.
  */
@@ -49,21 +50,29 @@ export function buildCacheInfo({ cdpOwned, onEnableDebug }: DebugInfoParams): In
   };
 }
 
-export function buildUserAgentInfo({ cdpOwned, onEnableDebug }: DebugInfoParams): InfoPopoverContent {
+export function buildOverridesInfo({ cdpOwned, onEnableDebug }: DebugInfoParams): InfoPopoverContent {
   return {
-    title: 'User-Agent override',
-    summary: 'Sends a custom User-Agent for this tab so you can see how a server responds to a different client.',
+    title: 'Environment overrides',
+    summary: 'Pins this tab’s page environment — User-Agent, locale, timezone, and emulated media — to see how a site responds to a different client.',
     description: cdpOwned
-      ? 'Active on this tab through Debug mode. The override applies to requests and to page scripts; clearing it restores the real User-Agent.'
-      : 'Overriding the User-Agent needs Debug mode — there is no standard-mode fallback. Enable Debug mode and keep this tab in scope to override it.',
+      ? 'Active on this tab through Debug mode. The User-Agent facets apply to requests and to page scripts; locale, timezone, and media change only what the page’s own scripts and CSS observe. Reset all restores the real environment.'
+      : 'Environment overrides need Debug mode — there is no standard-mode fallback. Enable Debug mode and keep this tab in scope to override it.',
     sections: [
       {
-        heading: 'Debug mode',
+        heading: 'On the wire + page scripts',
         items: [
           {
             label: 'Network.setUserAgentOverride',
-            desc: 'Sets the User-Agent header and navigator.userAgent for the whole tab.',
+            desc: 'Sets the User-Agent / Accept-Language headers, the platform, and the matching navigator.* values.',
           },
+        ],
+      },
+      {
+        heading: 'Page environment only',
+        items: [
+          { label: 'Emulation.setLocaleOverride', desc: 'Changes the locale page scripts read.' },
+          { label: 'Emulation.setTimezoneOverride', desc: 'Changes the timezone Date and Intl resolve to.' },
+          { label: 'Emulation.setEmulatedMedia', desc: 'Forces color-scheme / reduced-motion / print media queries.' },
         ],
       },
     ],

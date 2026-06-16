@@ -1,11 +1,11 @@
 /**
  * The toolbar's Chrome-style debug-controls cluster: "Disable cache" + the
- * network-throttle dropdown + the User-Agent override, side by side. Derives the
- * shared "Enable Debug mode" action all controls' (i) popovers offer.
+ * network-throttle dropdown + the environment overrides, side by side. Derives
+ * the shared "Enable Debug mode" action all controls' (i) popovers offer.
  *
  * The cache toggle always renders (its DNR path works on every host). The
- * throttle dropdown and the UA override are CDP-only, so they render only where
- * Debug-mode inspection is supported.
+ * throttle dropdown and the overrides panel are CDP-only, so they render only
+ * where Debug-mode inspection is supported.
  */
 
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
@@ -14,7 +14,7 @@ import { useNetworkConditions } from '../data/use-network-conditions';
 import { useTabOverrides } from '../data/use-tab-overrides';
 import { DisableCacheControl } from './DisableCacheControl';
 import { NetworkThrottleControl } from './NetworkThrottleControl';
-import { UserAgentControl } from './UserAgentControl';
+import { OverridesControl } from './OverridesControl';
 
 export interface DebugControlsClusterProps {
   cacheBypassEnabled: boolean;
@@ -51,9 +51,9 @@ export const DebugControlsCluster: React.FC<DebugControlsClusterProps> = ({
         />
       )}
       {overrides.hasCdpCapability && (
-        <UserAgentControl
-          userAgent={overrides.userAgent}
-          setUserAgent={overrides.setUserAgent}
+        <OverridesControl
+          overrides={overrides.overrides}
+          setOverrides={overrides.setOverrides}
           cdpOwned={overrides.cdpOwned}
           onEnableDebug={onEnableDebug}
         />

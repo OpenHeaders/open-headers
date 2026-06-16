@@ -59,6 +59,7 @@ export type {
   CdpContinueResponse,
   CdpContinueWithAuth,
   CdpControlCommand,
+  CdpEmulatedMedia,
   CdpEnvironmentOverrides,
   CdpFetchPattern,
   CdpFulfillResponse,

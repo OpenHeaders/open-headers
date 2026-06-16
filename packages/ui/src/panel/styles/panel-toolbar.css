@@ -870,27 +870,58 @@
   gap: 12px;
 }
 
-/* User-Agent trigger mirrors the throttle trigger: same compact dropdown look
+/* Overrides trigger mirrors the throttle trigger: same compact dropdown look
  * and the same disabled-out-of-scope dimming so the wrapping span owns the
  * "available only in Debug mode" tooltip. */
-.dt-useragent-trigger:disabled {
+.dt-overrides-trigger:disabled {
   opacity: 0.5;
   cursor: not-allowed;
   pointer-events: none;
 }
 
-.dt-useragent-disabled-wrap {
+.dt-overrides-disabled-wrap {
   display: inline-flex;
 }
 
-.dt-useragent-form {
+.dt-overrides-form {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
   padding-top: 8px;
 }
 
-.dt-useragent-hint {
+/* Each facet is a label + control row; most sit side by side, the User-Agent
+ * textarea stacks so it gets the full width. */
+.dt-overrides-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dt-overrides-row--stacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.dt-overrides-label {
+  flex: 0 0 120px;
+  font-size: 13px;
+}
+
+.dt-overrides-row--stacked .dt-overrides-label {
+  flex: none;
+}
+
+/* The control fills the rest of a side-by-side row. */
+.dt-overrides-row > .ant-input,
+.dt-overrides-row > .ant-select,
+.dt-overrides-row > .ant-segmented {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.dt-overrides-group-hint {
   margin: 0;
   font-size: 12px;
   opacity: 0.7;

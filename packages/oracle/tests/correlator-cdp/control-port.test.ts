@@ -121,12 +121,69 @@ describe('reconcileTabControl', () => {
     ]);
   });
 
-  it('emits no UA command when only a non-UA facet changes (Emulation.* lands in F3b)', () => {
+  it('emits only the timezone command when the UA triple is unchanged but timezone changes (F3b)', () => {
     const prev = state({ overrides: { ...UA_OVERRIDE } });
     const next = state({ overrides: { ...UA_OVERRIDE, timezoneId: 'Europe/Berlin' } });
-    // The override bag changed (so the branch runs), but the UA triple did not,
-    // so F3a emits nothing for it — the timezone facet emits once F3b wires it.
-    expect(reconcileTabControl(prev, next)).toEqual([]);
+    // The override bag changed (branch runs), the UA triple did not, so only the
+    // timezone facet emits — the per-facet diffs are independent.
+    expect(reconcileTabControl(prev, next)).toEqual([{ kind: 'set-timezone-override', timezoneId: 'Europe/Berlin' }]);
+  });
+
+  it('emits set-locale-override when a locale appears and clear when it vanishes', () => {
+    expect(reconcileTabControl(EMPTY_TAB_CONTROL_STATE, state({ overrides: { locale: 'fr-FR' } }))).toEqual([
+      { kind: 'set-locale-override', locale: 'fr-FR' },
+    ]);
+    expect(reconcileTabControl(state({ overrides: { locale: 'fr-FR' } }), EMPTY_TAB_CONTROL_STATE)).toEqual([
+      { kind: 'clear-locale-override' },
+    ]);
+  });
+
+  it('emits set-timezone-override when a zone appears and clear when it vanishes', () => {
+    expect(reconcileTabControl(EMPTY_TAB_CONTROL_STATE, state({ overrides: { timezoneId: 'Europe/Berlin' } }))).toEqual(
+      [{ kind: 'set-timezone-override', timezoneId: 'Europe/Berlin' }],
+    );
+    expect(reconcileTabControl(state({ overrides: { timezoneId: 'Europe/Berlin' } }), EMPTY_TAB_CONTROL_STATE)).toEqual(
+      [{ kind: 'clear-timezone-override' }],
+    );
+  });
+
+  it('emits set-emulated-media when a media struct appears and clear when it vanishes', () => {
+    const media = { colorScheme: 'dark' } as const;
+    expect(reconcileTabControl(EMPTY_TAB_CONTROL_STATE, state({ overrides: { emulatedMedia: media } }))).toEqual([
+      { kind: 'set-emulated-media', media },
+    ]);
+    expect(reconcileTabControl(state({ overrides: { emulatedMedia: media } }), EMPTY_TAB_CONTROL_STATE)).toEqual([
+      { kind: 'clear-emulated-media' },
+    ]);
+  });
+
+  it('re-emits set-emulated-media on a partial media-struct change (structural compare)', () => {
+    const prev = state({ overrides: { emulatedMedia: { colorScheme: 'dark' } } });
+    const next = state({ overrides: { emulatedMedia: { colorScheme: 'dark', print: true } } });
+    expect(reconcileTabControl(prev, next)).toEqual([
+      { kind: 'set-emulated-media', media: { colorScheme: 'dark', print: true } },
+    ]);
+  });
+
+  it('treats an equal-valued media struct as unchanged (structural, not identity)', () => {
+    const a = state({ overrides: { emulatedMedia: { colorScheme: 'dark', reducedMotion: 'reduce' } } });
+    const b = state({ overrides: { emulatedMedia: { colorScheme: 'dark', reducedMotion: 'reduce' } } });
+    expect(reconcileTabControl(a, b)).toEqual([]);
+  });
+
+  it('fans out all four override facets independently when the whole bag appears', () => {
+    const overrides: CdpEnvironmentOverrides = {
+      userAgent: 'Test-Agent/1.0 (openheaders.io)',
+      locale: 'fr-FR',
+      timezoneId: 'Europe/Berlin',
+      emulatedMedia: { colorScheme: 'dark' },
+    };
+    expect(reconcileTabControl(EMPTY_TAB_CONTROL_STATE, state({ overrides }))).toEqual([
+      { kind: 'set-user-agent-override', userAgent: 'Test-Agent/1.0 (openheaders.io)' },
+      { kind: 'set-locale-override', locale: 'fr-FR' },
+      { kind: 'set-timezone-override', timezoneId: 'Europe/Berlin' },
+      { kind: 'set-emulated-media', media: { colorScheme: 'dark' } },
+    ]);
   });
 
   it('emits set-bypass-csp only when it changes', () => {

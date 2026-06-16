@@ -85,6 +85,20 @@ export function readNetworkThrottleConditions(raw: unknown): NetworkThrottleCond
 }
 
 /**
+ * Emulated CSS media state — the wire twin of the engine's `CdpEmulatedMedia`.
+ * `colorScheme` / `reducedMotion` map to the matching CSS media features;
+ * `print` flips the emulated media type. Every facet optional; an absent facet
+ * (or `print: false`) leaves that media dimension at its real value.
+ */
+export const tabEmulatedMediaSchema = v.object({
+  colorScheme: v.optional(v.picklist(['light', 'dark'])),
+  reducedMotion: v.optional(v.picklist(['reduce', 'no-preference'])),
+  print: v.optional(v.boolean()),
+});
+
+export type TabEmulatedMedia = v.InferOutput<typeof tabEmulatedMediaSchema>;
+
+/**
  * Tab environment overrides carried over the bridge to the service worker's
  * per-tab overrides store (`setTabOverrides` RPC). Structurally the wire twin of
  * the engine's `CdpEnvironmentOverrides` — kept in core so the chrome-free panel
@@ -100,23 +114,32 @@ export const tabEnvironmentOverridesSchema = v.object({
   platform: v.optional(v.string()),
   locale: v.optional(v.string()),
   timezoneId: v.optional(v.string()),
-  emulatedMedia: v.optional(v.string()),
+  emulatedMedia: v.optional(tabEmulatedMediaSchema),
 });
 
 export type TabEnvironmentOverrides = v.InferOutput<typeof tabEnvironmentOverridesSchema>;
 
+/** An emulated-media struct with no pinned facet (or only `print: false`). */
+function isEmptyEmulatedMedia(media: TabEmulatedMedia): boolean {
+  return media.colorScheme === undefined && media.reducedMotion === undefined && media.print !== true;
+}
+
 /**
  * Validate an untrusted bridge payload into a {@link TabEnvironmentOverrides}, or
- * `null` for the "no overrides" / unparseable case, AND for an all-empty object
- * (every facet absent) so a cleared-to-empty payload collapses to `null` rather
- * than pinning an empty override. The SW handler runs this before storing so a
- * malformed bag can never reach the override plane.
+ * `null` for the "no overrides" / unparseable case, AND for an all-empty bag so a
+ * cleared-to-empty payload collapses to `null` rather than pinning an empty
+ * override. An `emulatedMedia` struct that holds no pinned facet is dropped
+ * first (so a media-only-then-cleared bag also collapses). The SW handler runs
+ * this before storing so a malformed bag can never reach the override plane.
  */
 export function readTabEnvironmentOverrides(raw: unknown): TabEnvironmentOverrides | null {
   if (raw == null) return null;
   const result = v.safeParse(tabEnvironmentOverridesSchema, raw);
   if (!result.success) return null;
-  return Object.values(result.output).some((value) => value !== undefined) ? result.output : null;
+  const { emulatedMedia, ...rest } = result.output;
+  const media = emulatedMedia !== undefined && !isEmptyEmulatedMedia(emulatedMedia) ? emulatedMedia : undefined;
+  const normalized: TabEnvironmentOverrides = media !== undefined ? { ...rest, emulatedMedia: media } : rest;
+  return Object.values(normalized).some((value) => value !== undefined) ? normalized : null;
 }
 
 const cdpPinnedTabsSchema = v.array(v.number());
