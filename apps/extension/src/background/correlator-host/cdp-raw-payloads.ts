@@ -215,6 +215,69 @@ export interface RawBindingCalled {
   readonly executionContextId?: number;
 }
 
+/**
+ * `Runtime.RemoteObject` (subset) — a console arg / thrown value. Primitives
+ * carry `value`; non-primitives carry `description` (+ an inline `preview`).
+ * `value` is a JSON value, hence `unknown`. Phase G renders text from these
+ * inline fields only — no `Runtime.getProperties` round-trip in v1.
+ */
+export interface RawRemoteObject {
+  readonly type: string;
+  readonly subtype?: string;
+  readonly className?: string;
+  readonly value?: unknown;
+  readonly unserializableValue?: string;
+  readonly description?: string;
+  readonly preview?: RawObjectPreview;
+}
+
+/** `Runtime.PropertyPreview` (subset) — one member of an inline preview. */
+export interface RawPropertyPreview {
+  readonly name: string;
+  readonly type: string;
+  readonly subtype?: string;
+  readonly value?: string;
+  readonly valuePreview?: RawObjectPreview;
+}
+
+/** `Runtime.ObjectPreview` (subset) — the inline shallow render of an object
+ *  or array. `overflow` flags that members were truncated. */
+export interface RawObjectPreview {
+  readonly type: string;
+  readonly subtype?: string;
+  readonly description?: string;
+  readonly overflow: boolean;
+  readonly properties: readonly RawPropertyPreview[];
+}
+
+/** `Runtime.consoleAPICalled` — a `console.*` call. `type` is the call kind
+ *  (`log`/`warning`/`error`/…); `timestamp` is wall-clock ms. */
+export interface RawConsoleApiCalled {
+  readonly type: string;
+  readonly args: readonly RawRemoteObject[];
+  readonly timestamp: number;
+  readonly executionContextId?: number;
+  readonly stackTrace?: RawStackTrace;
+}
+
+/** `Runtime.ExceptionDetails` (subset) — the body of an uncaught error /
+ *  unhandled rejection. `exception` is the thrown value; `text` is the
+ *  fallback label (`Uncaught` / `Uncaught (in promise)`). */
+export interface RawExceptionDetails {
+  readonly text: string;
+  readonly lineNumber: number;
+  readonly columnNumber: number;
+  readonly url?: string;
+  readonly exception?: RawRemoteObject;
+  readonly stackTrace?: RawStackTrace;
+}
+
+/** `Runtime.exceptionThrown` — an uncaught error or unhandled rejection. */
+export interface RawExceptionThrown {
+  readonly timestamp: number;
+  readonly exceptionDetails: RawExceptionDetails;
+}
+
 /** `Network.getResponseBody` result — body text + whether it is base64. */
 export interface RawGetResponseBody {
   readonly body: string;

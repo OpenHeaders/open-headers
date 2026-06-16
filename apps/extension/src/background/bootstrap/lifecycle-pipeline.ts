@@ -1,5 +1,6 @@
 import type { CdpScopeMode, RequestRecord, Rule } from '@openheaders/core/types';
 import { isRuleEffective } from '@openheaders/core/utils';
+import { ConsoleStreamHub } from '@openheaders/oracle/console-stream-hub';
 import { type CdpTabControlState, EMPTY_TAB_CONTROL_STATE } from '@openheaders/oracle/correlator-cdp';
 import { getPauseMarkers } from '@openheaders/oracle/entity/pause-markers-store';
 import { getRules } from '@openheaders/oracle/entity/rule-store';
@@ -8,6 +9,7 @@ import { RequestLifecycleHub } from '@openheaders/oracle/request-lifecycle-hub';
 import { resolveRulesForCompile } from '@openheaders/oracle/rule-engine/variables-resolver';
 import { RuleFireHub } from '@openheaders/oracle/rule-fire-hub';
 import { TabLifecycleBus } from '@openheaders/oracle/tab-lifecycle-bus';
+import { startConsoleStreamPortHost } from '../console-stream-port-host';
 import type { CdpAttachObservable, CdpControlReplay } from '../correlator-host';
 import {
   CdpAttachController,
@@ -252,6 +254,17 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
     isCdpOwned: (tabId) => lifecycleHost.router.ownerOf(tabId) === 'cdp',
   });
   reportFire = (tabId, record) => firesBridge.notifyAuthoritativeFire(tabId, record);
+
+  // Console capture (Phase G): a CDP-attached tab's console output + uncaught
+  // exceptions ride E4's standing Runtime.enable — already arriving, formerly
+  // dropped, now un-dropped in the debugger source's Runtime.* router and fanned
+  // here as host-neutral ConsoleEntry. The hub holds a bounded per-tab log
+  // (replay source) and broadcasts live to oh-console:<tabId> ports; tab-cleared
+  // is bus-driven on tab close (mirror of the page + rule-fire hubs).
+  // Observation-only — no page effect, no oracle/control involvement.
+  const consoleStreamHub = new ConsoleStreamHub({ bus: tabLifecycleBus });
+  startConsoleStreamPortHost({ hub: consoleStreamHub });
+  lifecycleHost.debuggerSource.subscribeConsole((tabId, entry) => consoleStreamHub.recordEntry(tabId, entry));
 
   setupOnRuleMatchedDebugBridge({
     onAuthoritativeFire: (tabId, record) => firesBridge.notifyAuthoritativeFire(tabId, record),

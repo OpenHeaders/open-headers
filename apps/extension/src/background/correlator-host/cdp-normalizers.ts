@@ -6,6 +6,7 @@
  * synthetic root session id (page timings are a main-frame, root-only concern).
  */
 
+import type { ConsoleArg, ConsoleEntry, ConsoleLevel } from '@openheaders/core/console-stream';
 import type {
   CdpAuthRequired,
   CdpCallFrame,
@@ -22,15 +23,21 @@ import type {
 import type {
   RawAuthRequired,
   RawCallFrame,
+  RawConsoleApiCalled,
   RawDataReceived,
   RawEventSourceMessageReceived,
+  RawExceptionDetails,
+  RawExceptionThrown,
   RawFrameNavigated,
   RawFrameStoppedLoading,
   RawInitiator,
   RawLoadingFailed,
   RawLoadingFinished,
+  RawObjectPreview,
   RawPageFrame,
   RawPageLifecycleTimestamp,
+  RawPropertyPreview,
+  RawRemoteObject,
   RawRequest,
   RawRequestPaused,
   RawRequestWillBeSent,
@@ -323,6 +330,138 @@ export function parseBindingFire(tabId: number, payload: string): CdpBindingFire
   const p = parsed as { ruleUid?: unknown; url?: unknown; t?: unknown };
   if (typeof p.ruleUid !== 'string' || typeof p.url !== 'string' || typeof p.t !== 'number') return null;
   return { tabId, ruleUid: p.ruleUid, url: p.url, t: p.t };
+}
+
+// ── runtime-domain normalizers (console capture, Phase G) ────────────
+
+/**
+ * `Runtime.consoleAPICalled` → host-neutral {@link ConsoleEntry}. Each
+ * `RemoteObject` arg renders to display text from its inline
+ * value/description/preview — no `Runtime.getProperties` round-trip in v1, so
+ * a deep object shows its shallow preview, not its full contents.
+ */
+export function normalizeConsoleApiCalled(p: RawConsoleApiCalled): ConsoleEntry {
+  return {
+    source: 'console-api',
+    level: consoleApiLevel(p.type),
+    args: p.args.map(renderRemoteObject),
+    timestamp: p.timestamp,
+    ...topFrameLocation(p.stackTrace),
+  };
+}
+
+/**
+ * `Runtime.exceptionThrown` → an `error`-level {@link ConsoleEntry}. The
+ * message is the thrown value's description (an Error's `name: message\n  at
+ * …`), falling back to the `Uncaught` label; location prefers the top stack
+ * frame, then the details' own `url`/`lineNumber`.
+ */
+export function normalizeExceptionThrown(p: RawExceptionThrown): ConsoleEntry {
+  const d = p.exceptionDetails;
+  return {
+    source: 'exception',
+    level: 'error',
+    args: [{ type: 'error', subtype: 'error', text: exceptionText(d) }],
+    timestamp: p.timestamp,
+    ...exceptionLocation(d),
+  };
+}
+
+/** Bucket the CDP console call `type` onto the display-level union. Unknown
+ *  types (`dir`/`table`/`trace`/`group`/…) fall to `log`. */
+function consoleApiLevel(type: string): ConsoleLevel {
+  switch (type) {
+    case 'error':
+    case 'assert':
+      return 'error';
+    case 'warning':
+      return 'warning';
+    case 'info':
+      return 'info';
+    case 'debug':
+      return 'debug';
+    default:
+      return 'log';
+  }
+}
+
+function renderRemoteObject(o: RawRemoteObject): ConsoleArg {
+  return {
+    type: o.type,
+    ...(o.subtype !== undefined ? { subtype: o.subtype } : {}),
+    text: remoteObjectText(o),
+  };
+}
+
+/** Render one `RemoteObject` to display text from its inline fields only. */
+function remoteObjectText(o: RawRemoteObject): string {
+  if (o.type === 'string') return typeof o.value === 'string' ? o.value : (o.description ?? '');
+  if (o.type === 'undefined') return 'undefined';
+  if (o.subtype === 'null') return 'null';
+  if (o.unserializableValue !== undefined) return o.unserializableValue;
+  if (o.type === 'number' || o.type === 'boolean' || o.type === 'bigint') {
+    if (o.value !== undefined) return String(o.value);
+    if (o.description !== undefined) return o.description;
+  }
+  if (o.preview !== undefined) return previewText(o.preview);
+  if (o.description !== undefined) return o.description;
+  if (o.value !== undefined) return primitiveText(o.value);
+  return o.className ?? o.type;
+}
+
+/** Render an inline object/array preview as `{a: 1, b: 'x'}` / `[1, 2, …]`. */
+function previewText(preview: RawObjectPreview): string {
+  const isArray = preview.subtype === 'array';
+  const parts = preview.properties.map((prop) =>
+    isArray ? propertyValueText(prop) : `${prop.name}: ${propertyValueText(prop)}`,
+  );
+  if (preview.overflow) parts.push('…');
+  const body = parts.join(', ');
+  if (isArray) return `[${body}]`;
+  const label = preview.description !== undefined && preview.description !== 'Object' ? `${preview.description} ` : '';
+  return `${label}{${body}}`;
+}
+
+function propertyValueText(prop: RawPropertyPreview): string {
+  if (prop.value !== undefined) return prop.type === 'string' ? `'${prop.value}'` : prop.value;
+  if (prop.valuePreview !== undefined) return previewText(prop.valuePreview);
+  return prop.subtype ?? prop.type;
+}
+
+function primitiveText(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (value === null) return 'null';
+  return String(value);
+}
+
+function exceptionText(d: RawExceptionDetails): string {
+  if (d.exception !== undefined) {
+    const rendered = remoteObjectText(d.exception);
+    if (rendered.length > 0) return rendered;
+  }
+  return d.text;
+}
+
+/** Top stack frame's source location, when the event carried a stack. */
+function topFrameLocation(stack: RawStackTrace | undefined): Pick<ConsoleEntry, 'url' | 'lineNumber' | 'columnNumber'> {
+  const frame = stack?.callFrames[0];
+  if (frame === undefined) return {};
+  return {
+    ...(frame.url.length > 0 ? { url: frame.url } : {}),
+    lineNumber: frame.lineNumber,
+    columnNumber: frame.columnNumber,
+  };
+}
+
+/** Exception location — the stack top frame, else the details' own fields. */
+function exceptionLocation(d: RawExceptionDetails): Pick<ConsoleEntry, 'url' | 'lineNumber' | 'columnNumber'> {
+  const fromStack = topFrameLocation(d.stackTrace);
+  if (fromStack.lineNumber !== undefined) return fromStack;
+  return {
+    ...(d.url !== undefined && d.url.length > 0 ? { url: d.url } : {}),
+    lineNumber: d.lineNumber,
+    columnNumber: d.columnNumber,
+  };
 }
 
 // ── page-domain normalizers (root target only) ───────────────────────

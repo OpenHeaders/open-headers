@@ -34,6 +34,7 @@
  * `chrome`); the namespace is simply undefined on non-Chromium hosts.
  */
 
+import type { ConsoleEntry } from '@openheaders/core/console-stream';
 import type {
   CdpBufferedResponseBody,
   CdpEventSource,
@@ -47,8 +48,10 @@ import { logger } from '@utils/logger';
 import { type BrowserAPI, getBrowserAPI } from '@/types/browser';
 import {
   normalizeAuthRequired,
+  normalizeConsoleApiCalled,
   normalizeDataReceived,
   normalizeEventSourceMessageReceived,
+  normalizeExceptionThrown,
   normalizeFrameNavigated,
   normalizeFrameStoppedLoading,
   normalizeLoadingFailed,
@@ -71,9 +74,11 @@ import type {
   RawAttachedToTarget,
   RawAuthRequired,
   RawBindingCalled,
+  RawConsoleApiCalled,
   RawDataReceived,
   RawDetachedFromTarget,
   RawEventSourceMessageReceived,
+  RawExceptionThrown,
   RawFrameNavigated,
   RawFrameStoppedLoading,
   RawGetFrameTree,
@@ -109,6 +114,7 @@ type FetchListener = (event: CdpFetchEvent) => void;
 type DetachListener = (tabId: number, reason: string) => void;
 type ChildSessionListener = (tabId: number, sessionId: string) => void;
 type BindingListener = (fire: CdpBindingFire) => void;
+type ConsoleListener = (tabId: number, entry: ConsoleEntry) => void;
 type DebuggerApi = BrowserAPI['debugger'];
 
 /** Protocol version handed to `chrome.debugger.attach`. */
@@ -155,6 +161,7 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
   private readonly childAttachListeners = new Set<ChildSessionListener>();
   private readonly childDetachListeners = new Set<ChildSessionListener>();
   private readonly bindingListeners = new Set<BindingListener>();
+  private readonly consoleListeners = new Set<ConsoleListener>();
   /** Root (page-target) tabs we hold a `chrome.debugger` attachment for. */
   private readonly attachedTabs = new Set<number>();
   /** Flattened child sessions we kept and enabled `Network` on → owning root tab. */
@@ -202,6 +209,22 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
     this.bindingListeners.add(listener);
     return () => {
       this.bindingListeners.delete(listener);
+    };
+  }
+
+  /**
+   * Subscribe to captured console output (Phase G) — a CDP-attached tab's
+   * `console.*` calls + uncaught exceptions, delivered as host-neutral
+   * {@link ConsoleEntry}s already routed by `tabId` (root + kept
+   * worker/OOPIF children). Rides E4's standing `Runtime.enable`; observation
+   * only (no page effect). NOT part of the oracle `CdpEventSource` interface —
+   * console is a host concern, so the pipeline consumes this directly off the
+   * chrome adapter (mirror of `subscribeBinding`).
+   */
+  subscribeConsole(listener: ConsoleListener): () => void {
+    this.consoleListeners.add(listener);
+    return () => {
+      this.consoleListeners.delete(listener);
     };
   }
 
@@ -401,6 +424,7 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
     this.childAttachListeners.clear();
     this.childDetachListeners.clear();
     this.bindingListeners.clear();
+    this.consoleListeners.clear();
     this.attachedTabs.clear();
     this.childSessions.clear();
   }
@@ -462,18 +486,23 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
       return;
     }
     if (method.startsWith('Runtime.')) {
-      // Private fire-bridge (E4): a residual wrapper reported its fire by
-      // calling the OH binding — delivered as Runtime.bindingCalled, invisible
-      // to the page. Enabling Runtime to receive it also emits
-      // executionContextCreated/consoleAPICalled/exceptionThrown, which we
-      // consume nothing of, so drop every non-bindingCalled Runtime.* here.
-      // (Phase G console capture reuses the enable and keeps those.) Route by
-      // tabId — a worker/OOPIF fire belongs to the tab — but gate the session
-      // like Network./Fetch.: only the root or a kept child.
-      if (method !== 'Runtime.bindingCalled' || params === undefined) return;
-      const bindingChildSessionId = source.sessionId;
-      if (bindingChildSessionId !== undefined && !this.childSessions.has(bindingChildSessionId)) return;
-      this.handleBindingCalled(tabId, params as RawBindingCalled);
+      // E4 fire-bridge + Phase G console capture both ride the standing
+      // Runtime.enable: bindingCalled is the page-invisible fire channel;
+      // consoleAPICalled/exceptionThrown are the page's console output +
+      // uncaught errors. All three route by tabId (a worker/OOPIF line belongs
+      // to the tab) but gate the session like Network./Fetch.: only the root or
+      // a kept child. Every other Runtime.* the enable emits
+      // (executionContextCreated/…) is not consumed.
+      if (params === undefined) return;
+      const runtimeChildSessionId = source.sessionId;
+      if (runtimeChildSessionId !== undefined && !this.childSessions.has(runtimeChildSessionId)) return;
+      if (method === 'Runtime.bindingCalled') {
+        this.handleBindingCalled(tabId, params as RawBindingCalled);
+      } else if (method === 'Runtime.consoleAPICalled') {
+        this.fanConsole(tabId, normalizeConsoleApiCalled(params as RawConsoleApiCalled));
+      } else if (method === 'Runtime.exceptionThrown') {
+        this.fanConsole(tabId, normalizeExceptionThrown(params as RawExceptionThrown));
+      }
       return;
     }
     if (!method.startsWith('Network.') || params === undefined) return;
@@ -734,6 +763,10 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
 
   private fanBinding(fire: CdpBindingFire): void {
     for (const listener of this.bindingListeners) listener(fire);
+  }
+
+  private fanConsole(tabId: number, entry: ConsoleEntry): void {
+    for (const listener of this.consoleListeners) listener(tabId, entry);
   }
 
   private api(): DebuggerApi | undefined {

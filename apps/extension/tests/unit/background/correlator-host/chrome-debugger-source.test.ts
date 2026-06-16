@@ -17,6 +17,7 @@
  *     with zero reducer rejections.
  */
 
+import type { ConsoleEntry } from '@openheaders/core/console-stream';
 import type { CdpFetchEvent, CdpNetworkEvent, CdpPageEvent } from '@openheaders/oracle/correlator-cdp';
 import { CdpCorrelator, cdpStoreRequestId } from '@openheaders/oracle/correlator-cdp';
 import { RequestLifecycleStore } from '@openheaders/oracle/request-lifecycle-store';
@@ -116,6 +117,12 @@ function rawAuthRequired(requestId: string, url: string, overrides: Record<strin
 function rawBindingCalled(payload: unknown, name: string = OH_BINDING): object {
   // CDP carries executionContextId too; the adapter reads only name + payload.
   return { name, payload: typeof payload === 'string' ? payload : JSON.stringify(payload), executionContextId: 7 };
+}
+
+function rawConsoleApiCalled(type: string, args: object[], overrides: Record<string, unknown> = {}): object {
+  // CDP carries executionContextId / stackTrace too; the normalizer reads the
+  // type, args, timestamp, and (optionally) the stack's top frame.
+  return { type, args, executionContextId: 1, timestamp: 1700, ...overrides };
 }
 
 function attachedToTarget(sessionId: string, type: string): object {
@@ -1114,24 +1121,27 @@ describe('ChromeDebuggerEventSource — Runtime.bindingCalled (private fire-brid
     expect(out).toHaveLength(0);
   });
 
-  it('drops non-bindingCalled Runtime.* (the enable byproduct stream) on every plane', async () => {
+  it('drops the residual Runtime.* the enable emits but we never consume (executionContext*) on every plane', async () => {
     source = new ChromeDebuggerEventSource();
     const fires: CdpBindingFire[] = [];
     const net: CdpNetworkEvent[] = [];
     const pages: CdpPageEvent[] = [];
+    const console: ConsoleEntry[] = [];
     source.subscribeBinding((f) => fires.push(f));
     source.subscribe((e) => net.push(e));
     source.subscribePage((e) => pages.push(e));
+    source.subscribeConsole((_tabId, entry) => console.push(entry));
     await source.attach(TAB);
 
-    // Enabling Runtime turns these on; we consume none of them.
+    // consoleAPICalled / exceptionThrown are now consumed (console capture);
+    // the execution-context lifecycle events stay the dropped byproduct.
     emitRoot('Runtime.executionContextCreated', { context: { id: 1, name: '' } });
-    emitRoot('Runtime.consoleAPICalled', { type: 'log', args: [], executionContextId: 1, timestamp: 1 });
-    emitRoot('Runtime.exceptionThrown', { timestamp: 1, exceptionDetails: {} });
+    emitRoot('Runtime.executionContextsCleared', {});
 
     expect(fires).toHaveLength(0);
     expect(net).toHaveLength(0);
     expect(pages).toHaveLength(0);
+    expect(console).toHaveLength(0);
   });
 
   it('drops a malformed or foreign-name bindingCalled (a page can call the fixed-name binding)', async () => {
@@ -1145,6 +1155,102 @@ describe('ChromeDebuggerEventSource — Runtime.bindingCalled (private fire-brid
     emitRoot('Runtime.bindingCalled', rawBindingCalled({ ruleUid: 'r', url: 'u', t: 1 }, 'someOtherBinding')); // not ours
 
     expect(out).toHaveLength(0);
+  });
+});
+
+describe('ChromeDebuggerEventSource — Runtime console capture (Phase G)', () => {
+  it('routes a consoleAPICalled on the root by tabId, bucketing the level', async () => {
+    source = new ChromeDebuggerEventSource();
+    const out: Array<{ tabId: number; entry: ConsoleEntry }> = [];
+    source.subscribeConsole((tabId, entry) => out.push({ tabId, entry }));
+    await source.attach(TAB);
+
+    emitRoot('Runtime.consoleAPICalled', rawConsoleApiCalled('warning', [{ type: 'string', value: 'careful' }]));
+
+    expect(out).toHaveLength(1);
+    expect(out[0].tabId).toBe(TAB);
+    expect(out[0].entry.source).toBe('console-api');
+    expect(out[0].entry.level).toBe('warning');
+    expect(out[0].entry.args).toEqual([{ type: 'string', text: 'careful' }]);
+  });
+
+  it('routes an exceptionThrown as an error entry with location on the root', async () => {
+    source = new ChromeDebuggerEventSource();
+    const out: ConsoleEntry[] = [];
+    source.subscribeConsole((_tabId, entry) => out.push(entry));
+    await source.attach(TAB);
+
+    emitRoot('Runtime.exceptionThrown', {
+      timestamp: 1800,
+      exceptionDetails: {
+        text: 'Uncaught',
+        lineNumber: 4,
+        columnNumber: 9,
+        url: 'https://app.openheaders.io/a.js',
+        exception: {
+          type: 'object',
+          subtype: 'error',
+          className: 'TypeError',
+          description: 'TypeError: x is not a function',
+        },
+      },
+    });
+
+    expect(out).toHaveLength(1);
+    expect(out[0].source).toBe('exception');
+    expect(out[0].level).toBe('error');
+    expect(out[0].args[0].text).toBe('TypeError: x is not a function');
+    expect(out[0].url).toBe('https://app.openheaders.io/a.js');
+    expect(out[0].lineNumber).toBe(4);
+  });
+
+  it('routes a consoleAPICalled on a kept child by the owning tabId (OOPIF console)', async () => {
+    source = new ChromeDebuggerEventSource();
+    const out: Array<{ tabId: number; entry: ConsoleEntry }> = [];
+    source.subscribeConsole((tabId, entry) => out.push({ tabId, entry }));
+    await source.attach(TAB);
+
+    emitRoot('Target.attachedToTarget', attachedToTarget(CHILD_SESSION, 'iframe'));
+    emitChild(
+      CHILD_SESSION,
+      'Runtime.consoleAPICalled',
+      rawConsoleApiCalled('log', [{ type: 'string', value: 'from iframe' }]),
+    );
+
+    // A child's console line belongs to the tab — routed by tabId, not session.
+    expect(out).toHaveLength(1);
+    expect(out[0].tabId).toBe(TAB);
+    expect(out[0].entry.args[0].text).toBe('from iframe');
+  });
+
+  it('drops a consoleAPICalled from an unkept child session (target-type filter)', async () => {
+    source = new ChromeDebuggerEventSource();
+    const out: ConsoleEntry[] = [];
+    source.subscribeConsole((_tabId, entry) => out.push(entry));
+    await source.attach(TAB);
+
+    emitRoot('Target.attachedToTarget', attachedToTarget('sw-session', 'service_worker'));
+    emitChild('sw-session', 'Runtime.consoleAPICalled', rawConsoleApiCalled('log', [{ type: 'string', value: 'sw' }]));
+
+    expect(out).toHaveLength(0);
+  });
+
+  it('console capture does not perturb the fire bridge — bindingCalled still routes (E4 regression guard)', async () => {
+    source = new ChromeDebuggerEventSource();
+    const fires: CdpBindingFire[] = [];
+    const consoleOut: ConsoleEntry[] = [];
+    source.subscribeBinding((f) => fires.push(f));
+    source.subscribeConsole((_tabId, entry) => consoleOut.push(entry));
+    await source.attach(TAB);
+
+    emitRoot('Runtime.consoleAPICalled', rawConsoleApiCalled('log', [{ type: 'string', value: 'hi' }]));
+    emitRoot(
+      'Runtime.bindingCalled',
+      rawBindingCalled({ ruleUid: 'wsr00001', url: 'wss://stream.openheaders.io/feed', kind: 'ws', t: 1234 }),
+    );
+
+    expect(consoleOut).toHaveLength(1);
+    expect(fires).toEqual([{ tabId: TAB, ruleUid: 'wsr00001', url: 'wss://stream.openheaders.io/feed', t: 1234 }]);
   });
 });
 

@@ -96,6 +96,10 @@
       "import": "./src/rule-fire-hub/index.ts",
       "default": "./dist/rule-fire-hub/index.js"
     },
+    "./console-stream-hub": {
+      "import": "./src/console-stream-hub/index.ts",
+      "default": "./dist/console-stream-hub/index.js"
+    },
     "./tab-lifecycle-bus": {
       "import": "./src/tab-lifecycle-bus/index.ts",
       "default": "./dist/tab-lifecycle-bus/index.js"

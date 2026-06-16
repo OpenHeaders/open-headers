@@ -119,6 +119,10 @@
       "import": "./src/assets/index.ts",
       "default": "./dist/assets/index.js"
     },
+    "./console-stream": {
+      "import": "./src/console-stream/index.ts",
+      "default": "./dist/console-stream/index.js"
+    },
     "./request-lifecycle": {
       "import": "./src/request-lifecycle/index.ts",
       "default": "./dist/request-lifecycle/index.js"
