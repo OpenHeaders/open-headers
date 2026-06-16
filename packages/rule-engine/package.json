@@ -28,8 +28,8 @@
       "default": "./dist/builders/index.js"
     },
     "./content-scripts": {
-      "import": "./src/content-scripts.ts",
-      "default": "./dist/content-scripts.js"
+      "import": "./src/content-scripts/index.ts",
+      "default": "./dist/content-scripts/index.js"
     },
     "./rule-validator": {
       "import": "./src/rule-validator.ts",
