@@ -811,6 +811,10 @@ interface RawRequestPaused {
   readonly frameId?: string;
   readonly resourceType: string;
   readonly networkId?: string;
+  readonly responseStatusCode?: number;
+  readonly responseStatusText?: string;
+  readonly responseHeaders?: ReadonlyArray<{ readonly name: string; readonly value: string }>;
+  readonly responseErrorReason?: string;
 }
 
 interface RawAuthChallenge {
@@ -1105,6 +1109,14 @@ function normalizeRequestPaused(tabId: number, sessionId: string, p: RawRequestP
     resourceType: p.resourceType,
     ...(p.frameId !== undefined ? { frameId: p.frameId } : {}),
     ...(p.networkId !== undefined ? { networkId: p.networkId } : {}),
+    // Response-stage fields — present only when the pause is the second
+    // (Response) stage of a request continued with `interceptResponse:true`.
+    ...(p.responseStatusCode !== undefined ? { responseStatusCode: p.responseStatusCode } : {}),
+    ...(p.responseStatusText !== undefined ? { responseStatusText: p.responseStatusText } : {}),
+    ...(p.responseHeaders !== undefined
+      ? { responseHeaders: p.responseHeaders.map((h) => ({ name: h.name, value: h.value })) }
+      : {}),
+    ...(p.responseErrorReason !== undefined ? { responseErrorReason: p.responseErrorReason } : {}),
   };
 }
 

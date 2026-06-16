@@ -80,12 +80,14 @@ export function isDebugTierRule(rule: Rule): boolean {
 /**
  * True iff a debug-tier rule's full effect is realizable RIGHT NOW once its
  * tab is in CDP scope: debug-tier AND a *static* reaction. A dynamic
- * `response`/`request-body` body is user JS the request-stage interceptor can't eval, so
- * bringing a tab into scope does nothing for it (until the Response-stage
- * round-trip lands) — badging it dormant would imply a fix that arming can't
- * deliver. The single source of truth for the static test the Fetch reaction
- * uses, so the badge can never claim "realizable" for something the
- * interceptor passes through.
+ * `response`/`request-body` body is user JS the host can't eval at the network
+ * layer yet, so bringing a tab into scope does nothing for it (until the
+ * isolated-world eval lands in D2b-2) — badging it dormant would imply a fix
+ * that arming can't deliver. The single source of truth for the static test
+ * the Fetch reaction uses, so the badge can never claim "realizable" for
+ * something the interceptor passes through. D4a's injection-suppression set
+ * and the dormant badge both derive from this predicate, so widening it is
+ * what extends them — never widen ahead of the landed capability.
  */
 export function isFetchRealizableNow(rule: Rule): boolean {
   // An auth rule carries only static credentials (no user-JS body), so it
@@ -94,11 +96,12 @@ export function isFetchRealizableNow(rule: Rule): boolean {
   if (rule.type === 'auth') return isDebugTierRule(rule);
   if (rule.type !== 'response' && rule.type !== 'request-body') return false;
   if (!isDebugTierRule(rule)) return false;
-  // A `network`-source response rule modifies the REAL reply — that needs a
-  // Response-stage round-trip the request-stage interceptor doesn't have yet.
-  // Only a `mock`-source response (synthetic fulfill) and a request-body
-  // rewrite are realizable now; network passes through until that stage lands,
-  // so the dormant badge must not promise reach arming can't deliver.
-  if (rule.type === 'response' && rule.action.responseSource !== 'mock') return false;
+  // Only a *static* reaction is realizable now: a dynamic body is user JS the
+  // host can't eval at the network layer yet (D2b-2 adds the isolated-world
+  // eval), so arming a tab does nothing for it — badging it dormant would
+  // imply a fix arming can't deliver. Both response sources are realizable
+  // when static — `mock` fulfills synthetically at the request stage,
+  // `network` sends the real request and substitutes the static body at the
+  // Response stage (D2b-1).
   return rule.action.bodyType !== 'dynamic';
 }

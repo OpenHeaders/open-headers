@@ -13,6 +13,7 @@
 
 import {
   type CdpContinueRequest,
+  type CdpContinueResponse,
   type CdpContinueWithAuth,
   type CdpControlCommand,
   type CdpFulfillResponse,
@@ -70,6 +71,7 @@ export function createInMemoryTabControlPort(): InMemoryTabControlPort {
 export type RecordedReaction =
   | { readonly kind: 'fulfill'; readonly target: CdpSessionTarget; readonly response: CdpFulfillResponse }
   | { readonly kind: 'continue'; readonly target: CdpSessionTarget; readonly request: CdpContinueRequest }
+  | { readonly kind: 'continue-response'; readonly target: CdpSessionTarget; readonly request: CdpContinueResponse }
   | { readonly kind: 'continue-with-auth'; readonly target: CdpSessionTarget; readonly request: CdpContinueWithAuth };
 
 export interface InMemoryRequestControlPort extends CdpRequestControlPort {
@@ -89,6 +91,9 @@ export function createInMemoryRequestControlPort(): InMemoryRequestControlPort {
     },
     async continueRequest(target: CdpSessionTarget, request: CdpContinueRequest): Promise<void> {
       reactions.push({ kind: 'continue', target, request });
+    },
+    async continueResponse(target: CdpSessionTarget, request: CdpContinueResponse): Promise<void> {
+      reactions.push({ kind: 'continue-response', target, request });
     },
     async continueWithAuth(target: CdpSessionTarget, request: CdpContinueWithAuth): Promise<void> {
       reactions.push({ kind: 'continue-with-auth', target, request });

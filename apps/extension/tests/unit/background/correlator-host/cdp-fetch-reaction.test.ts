@@ -15,6 +15,7 @@ import {
   cdpResourceTypeToTracked,
   resolveAuthReaction,
   resolveFetchReaction,
+  resolveResponseReaction,
 } from '@/background/correlator-host/cdp-fetch-reaction';
 
 const ruleBase = {
@@ -125,9 +126,28 @@ describe('resolveFetchReaction', () => {
     expect(reaction.kind).toBe('pass-through');
   });
 
-  it('passes through a network-source response (request stage cannot realize a real-reply modify)', () => {
+  it('sends a network-source static response to the Response stage (interceptResponse, no fire yet)', () => {
     const reaction = resolveFetchReaction(paused(), [
       mock([domain('api.openheaders.io')], { responseSource: 'network' }),
+    ]);
+    expect(reaction.kind).toBe('await-response');
+    if (reaction.kind !== 'await-response') return;
+    expect(reaction.ruleUid).toBe('r1');
+    expect(reaction.request).toEqual({ requestId: 'i1', interceptResponse: true });
+  });
+
+  it('defers a network-source rule with a response-header condition to the Response stage', () => {
+    const reaction = resolveFetchReaction(paused(), [
+      mock([domain('api.openheaders.io'), { uid: 'c2', type: 'response-header', headerName: 'X-Cache', values: [] }], {
+        responseSource: 'network',
+      }),
+    ]);
+    expect(reaction.kind).toBe('await-response');
+  });
+
+  it('passes through a network-source DYNAMIC response (host cannot eval the body yet)', () => {
+    const reaction = resolveFetchReaction(paused(), [
+      mock([domain('api.openheaders.io')], { responseSource: 'network', bodyType: 'dynamic' }),
     ]);
     expect(reaction.kind).toBe('pass-through');
   });
@@ -191,6 +211,110 @@ describe('resolveFetchReaction', () => {
     if (reaction.kind !== 'fulfill') throw new Error('expected fulfill');
     expect(reaction.ruleUid).toBe('a');
     expect(atob(reaction.response.body ?? '')).toBe('first');
+  });
+});
+
+describe('resolveResponseReaction', () => {
+  const networkMock = (conditions: Rule['conditions'], action?: Record<string, unknown>): Rule =>
+    mock(conditions, { responseSource: 'network', ...action });
+
+  const respPaused = (overrides: Partial<CdpRequestPaused> = {}): CdpRequestPaused =>
+    paused({
+      responseStatusCode: 200,
+      responseStatusText: 'OK',
+      responseHeaders: [
+        { name: 'Content-Type', value: 'application/json' },
+        { name: 'X-Origin', value: 'real' },
+      ],
+      ...overrides,
+    });
+
+  it('fulfills a network-source static rule with the literal body over the real status/headers', () => {
+    const reaction = resolveResponseReaction(respPaused(), [
+      networkMock([domain('api.openheaders.io')], {
+        responseBody: 'overridden',
+        statusCode: 0,
+        contentType: '',
+        responseHeaders: { 'X-Mock': 'yes' },
+      }),
+    ]);
+    if (reaction.kind !== 'fulfill') throw new Error('expected fulfill');
+    expect(reaction.ruleUid).toBe('r1');
+    // statusCode 0 keeps the real status; the real phrase is preserved.
+    expect(reaction.response.responseCode).toBe(200);
+    expect(reaction.response.responsePhrase).toBe('OK');
+    expect(atob(reaction.response.body ?? '')).toBe('overridden');
+    // real headers kept (empty CT = no override) + the override appended.
+    expect(reaction.response.responseHeaders).toEqual([
+      { name: 'Content-Type', value: 'application/json' },
+      { name: 'X-Origin', value: 'real' },
+      { name: 'X-Mock', value: 'yes' },
+    ]);
+  });
+
+  it('overrides the real status and Content-Type when set', () => {
+    const reaction = resolveResponseReaction(respPaused(), [
+      networkMock([domain('api.openheaders.io')], { statusCode: 503, contentType: 'text/plain' }),
+    ]);
+    if (reaction.kind !== 'fulfill') throw new Error('expected fulfill');
+    expect(reaction.response.responseCode).toBe(503);
+    expect(reaction.response.responseHeaders).toEqual([
+      { name: 'X-Origin', value: 'real' },
+      { name: 'Content-Type', value: 'text/plain' },
+    ]);
+  });
+
+  it('drops body-framing headers (the substituted body invalidates them)', () => {
+    const reaction = resolveResponseReaction(
+      respPaused({
+        responseHeaders: [
+          { name: 'Content-Encoding', value: 'gzip' },
+          { name: 'Content-Length', value: '999' },
+          { name: 'X-Keep', value: '1' },
+        ],
+      }),
+      [networkMock([domain('api.openheaders.io')], { contentType: '' })],
+    );
+    if (reaction.kind !== 'fulfill') throw new Error('expected fulfill');
+    expect(reaction.response.responseHeaders).toEqual([{ name: 'X-Keep', value: '1' }]);
+  });
+
+  it('evaluates a response-header condition against the real reply', () => {
+    const rule = networkMock([
+      domain('api.openheaders.io'),
+      { uid: 'c2', type: 'response-header', headerName: 'X-Origin', values: ['real'] },
+    ]);
+    expect(resolveResponseReaction(respPaused(), [rule]).kind).toBe('fulfill');
+    expect(
+      resolveResponseReaction(respPaused({ responseHeaders: [{ name: 'X-Origin', value: 'cache' }] }), [rule]).kind,
+    ).toBe('pass-through');
+  });
+
+  it('honors exclude-response-header (a present-and-matching header disqualifies)', () => {
+    const rule = networkMock([
+      domain('api.openheaders.io'),
+      { uid: 'c2', type: 'exclude-response-header', headerName: 'X-Origin', values: ['real'] },
+    ]);
+    expect(resolveResponseReaction(respPaused(), [rule]).kind).toBe('pass-through');
+  });
+
+  it('passes through when the real request failed (responseErrorReason set)', () => {
+    const reaction = resolveResponseReaction(
+      respPaused({ responseStatusCode: undefined, responseHeaders: undefined, responseErrorReason: 'Failed' }),
+      [networkMock([domain('api.openheaders.io')])],
+    );
+    expect(reaction.kind).toBe('pass-through');
+  });
+
+  it('ignores a mock-source rule (it acts at the request stage, not the response stage)', () => {
+    expect(resolveResponseReaction(respPaused(), [mock([domain('api.openheaders.io')])]).kind).toBe('pass-through');
+  });
+
+  it('passes through a network-source dynamic rule (not realizable yet)', () => {
+    const reaction = resolveResponseReaction(respPaused(), [
+      networkMock([domain('api.openheaders.io')], { bodyType: 'dynamic' }),
+    ]);
+    expect(reaction.kind).toBe('pass-through');
   });
 });
 

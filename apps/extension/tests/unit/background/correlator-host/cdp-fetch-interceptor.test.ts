@@ -209,6 +209,103 @@ describe('startCdpFetchInterceptor (D2)', () => {
   });
 });
 
+describe('startCdpFetchInterceptor — network-source Response-stage round-trip (D2b-1)', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  /** A debug-tier network-source static response over `api.openheaders.io`. */
+  const networkRule = (overrides: Partial<Rule> = {}): Rule =>
+    mockRule({
+      action: {
+        responseSource: 'network',
+        statusCode: 0,
+        responseHeaders: { 'X-Mock': 'yes' },
+        responseBody: '{"overridden":true}',
+        contentType: '',
+        bodyType: 'static',
+      },
+      ...overrides,
+    } as Partial<Rule>);
+
+  const responseStage = (overrides: Partial<CdpRequestPaused> = {}): CdpRequestPaused =>
+    makePaused({
+      requestId: 'resp-1',
+      networkId: 'net-9',
+      responseStatusCode: 200,
+      responseStatusText: 'OK',
+      responseHeaders: [{ name: 'Content-Type', value: 'application/json' }],
+      ...overrides,
+    });
+
+  it('continues the request stage with interceptResponse and does NOT fire yet', async () => {
+    const { stream, port, fires } = harness([networkRule()]);
+
+    stream.emit(makePaused({ requestId: 'req-1', networkId: 'net-9' }));
+    await Promise.resolve();
+
+    expect(port.reactions).toEqual([
+      {
+        kind: 'continue',
+        target: { tabId: 7, sessionId: 'page' },
+        request: { requestId: 'req-1', interceptResponse: true },
+      },
+    ]);
+    expect(fires).toHaveLength(0);
+  });
+
+  it('fulfills at the Response stage with the literal body + merged headers, firing once', async () => {
+    const { stream, port, fires } = harness([networkRule()]);
+
+    stream.emit(makePaused({ requestId: 'req-1', networkId: 'net-9' }));
+    await Promise.resolve();
+    stream.emit(responseStage());
+    await Promise.resolve();
+
+    const fulfill = port.reactions.find((r) => r.kind === 'fulfill');
+    if (fulfill?.kind !== 'fulfill') throw new Error('expected a fulfill');
+    expect(fulfill.response.requestId).toBe('resp-1');
+    expect(fulfill.response.responseCode).toBe(200);
+    expect(atob(fulfill.response.body ?? '')).toBe('{"overridden":true}');
+    expect(fulfill.response.responseHeaders).toEqual([
+      { name: 'Content-Type', value: 'application/json' },
+      { name: 'X-Mock', value: 'yes' },
+    ]);
+
+    // Exactly one fire — at the Response stage, keyed by the store id.
+    expect(fires).toHaveLength(1);
+    expect(fires[0]?.record.requestId).toBe('page::net-9');
+  });
+
+  it('releases the reply with continueResponse (no fire) when no rule still matches', async () => {
+    const { stream, port, fires } = harness([networkRule()]);
+
+    stream.emit(makePaused({ requestId: 'req-1', networkId: 'net-9' }));
+    await Promise.resolve();
+    stream.emit(responseStage({ request: { url: 'https://other.openheaders.io/x', method: 'GET' } }));
+    await Promise.resolve();
+
+    expect(port.reactions.some((r) => r.kind === 'continue-response')).toBe(true);
+    expect(port.reactions.some((r) => r.kind === 'fulfill')).toBe(false);
+    expect(fires).toHaveLength(0);
+  });
+
+  it('sums the request-stage and response-stage holds into one pausedByDebugMs', async () => {
+    vi.spyOn(Date, 'now')
+      .mockReturnValueOnce(1_000) // request-stage receipt
+      .mockReturnValueOnce(1_004) // request-stage answer-land (hold = 4)
+      .mockReturnValueOnce(2_000) // response-stage receipt
+      .mockReturnValue(2_010); // fire `t` + response-stage measurement (hold = 10)
+    const { stream, pauses, fires } = harness([networkRule()]);
+
+    stream.emit(makePaused({ requestId: 'req-1', networkId: 'net-9' }));
+    await Promise.resolve();
+    stream.emit(responseStage());
+    await Promise.resolve();
+
+    expect(pauses).toEqual([{ tabId: 7, requestId: 'page::net-9', pausedMs: 14 }]);
+    expect(fires).toHaveLength(1);
+  });
+});
+
 describe('startCdpFetchInterceptor — auth challenges (D3)', () => {
   it('answers a matching challenge with ProvideCredentials and reports an authoritative fire', async () => {
     const { stream, port, fires } = harness([authRule()]);

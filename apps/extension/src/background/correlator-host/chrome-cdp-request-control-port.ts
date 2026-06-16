@@ -9,6 +9,7 @@
 
 import type {
   CdpContinueRequest,
+  CdpContinueResponse,
   CdpContinueWithAuth,
   CdpFulfillResponse,
   CdpRequestControlPort,
@@ -49,6 +50,12 @@ export class ChromeCdpRequestControlPort implements CdpRequestControlPort {
         ? { headers: request.headers.map((h) => ({ name: h.name, value: h.value })) }
         : {}),
       ...(request.interceptResponse !== undefined ? { interceptResponse: request.interceptResponse } : {}),
+    });
+  }
+
+  async continueResponse(target: CdpSessionTarget, request: CdpContinueResponse): Promise<void> {
+    await this.sender.sendOnSession(target.tabId, target.sessionId, 'Fetch.continueResponse', {
+      requestId: request.requestId,
     });
   }
 

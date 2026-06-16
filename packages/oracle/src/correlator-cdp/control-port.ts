@@ -287,6 +287,17 @@ export interface CdpContinueRequest {
   readonly interceptResponse?: boolean;
 }
 
+/**
+ * `Fetch.continueResponse` params. The release answer for a Response-stage
+ * pause whose rule no longer matches (changed mid-flight, or a response-stage
+ * condition that failed) — the real reply flows to the page untouched. Body
+ * substitution always goes through {@link CdpFulfillResponse} instead, so this
+ * carries only the interception handle.
+ */
+export interface CdpContinueResponse {
+  readonly requestId: string;
+}
+
 /** `Fetch.continueWithAuth`'s `authChallengeResponse` variants. */
 export type CdpAuthChallengeResponse =
   | { readonly response: 'Default' }
@@ -309,5 +320,7 @@ export interface CdpRequestControlPort {
   readonly available: boolean;
   fulfill(target: CdpSessionTarget, response: CdpFulfillResponse): Promise<void>;
   continueRequest(target: CdpSessionTarget, request: CdpContinueRequest): Promise<void>;
+  /** Release a Response-stage pause unmodified (the no-longer-matches path). */
+  continueResponse(target: CdpSessionTarget, request: CdpContinueResponse): Promise<void>;
   continueWithAuth(target: CdpSessionTarget, request: CdpContinueWithAuth): Promise<void>;
 }

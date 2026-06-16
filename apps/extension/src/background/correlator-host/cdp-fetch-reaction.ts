@@ -1,32 +1,38 @@
 /**
- * Phase-D2 reaction logic: given a paused request and the live rules, decide
- * how to answer it — synthesize a mock response (`fulfillRequest`), rewrite
- * the outgoing request body (`continueRequest` with `postData`), or let it
- * flow through unmodified.
+ * Phase-D reaction logic: given a paused request and the live rules, decide
+ * how to answer it. Pure and host-side (typed against the oracle control
+ * vocabulary, like {@link compileFetchPatterns} in cdp-fetch-patterns.ts).
+ * The `Fetch.enable` `urlPattern` set is only a COARSE pre-filter — THIS is
+ * the authoritative match: it re-checks every condition (url, request-domains
+ * / methods / resource-types and their excludes, the GraphQL filter, and — at
+ * the Response stage — response-header conditions) before reacting.
  *
- * Pure and host-side (typed against the oracle control vocabulary, like
- * {@link compileFetchPatterns} in cdp-fetch-patterns.ts). The `Fetch.enable`
- * `urlPattern` set is only a COARSE pre-filter — THIS is the authoritative
- * match: it re-checks every request-stage condition (url, request-domains /
- * methods / resource-types and their excludes, plus the response/body GraphQL
- * filter) against the paused request before reacting.
+ * Two interception stages, two entry points:
+ *   - {@link resolveFetchReaction} — REQUEST stage. A static `mock`-source
+ *     `response` becomes a fulfill; a static `request-body` becomes a
+ *     request-body rewrite (the page-context wrapper does the same — it
+ *     replaces the outgoing fetch/XHR body, not the server's response); a
+ *     static `network`-source `response` becomes an `await-response` continue
+ *     (`interceptResponse:true`) that sends the real request and re-pauses at
+ *     the Response stage. Its response-header conditions are DEFERRED to that
+ *     stage (the real reply's headers don't exist yet).
+ *   - {@link resolveResponseReaction} — RESPONSE stage, reached only for an
+ *     `await-response` request. Re-matches (now evaluating response-header
+ *     conditions against the real reply) and fulfills with the rule's static
+ *     body, the real status (or the override), and the real headers with the
+ *     CT / response-header overrides layered on — mirroring the injection
+ *     path's `new Response(cfg.body, { status, headers })`.
  *
- * Only request-stage-realizable rules act here: a static `mock`-source
- * `response` becomes a fulfill, a static `body` becomes a request-body rewrite
- * (the page-context wrapper does the same — it replaces the outgoing fetch/XHR
- * body, it does not touch the server's response). Falls through to
- * pass-through for:
- *   - dynamic `response`/`body` (their bodies are user JS the host can't eval);
- *   - a `network`-source `response` (it modifies the REAL reply — a
- *     Response-stage round-trip this request stage doesn't have yet);
- *   - a rule carrying a condition the request stage can't evaluate
- *     (initiator-domains, domain-type, response-header) — enforcing it via
- *     injection's own page gate is correct, over-applying via Fetch is not.
- * `isFetchRealizableNow` is the single gate for the first two; it returns
- * false for both, so they never reach the fulfill branch below. A
- * passed-through rule still runs its page-context injection path; only its
- * extended all-context reach is unavailable until D2b adds the Response-stage
- * round-trip and a host eval mechanism.
+ * Falls through to pass-through for:
+ *   - dynamic `response`/`request-body` (their bodies are user JS the host
+ *     can't eval at the network layer yet — D2b-2);
+ *   - a rule carrying a condition no stage can evaluate (initiator-domains,
+ *     domain-type) — enforcing it via injection's own page gate is correct,
+ *     over-applying via Fetch is not.
+ * `isFetchRealizableNow` is the single gate for the dynamic case; it returns
+ * false for it, so it never reaches a fulfill branch. A passed-through rule
+ * still runs its page-context injection path; only its extended all-context
+ * reach is unavailable until D2b-2 adds the host eval mechanism.
  */
 
 import type {
@@ -51,10 +57,19 @@ import type {
   CdpRequestPaused,
 } from '@openheaders/oracle/correlator-cdp';
 
-/** The answer the interceptor gives a paused request. */
+/** The answer the interceptor gives a paused request at the REQUEST stage. */
 export type CdpFetchReaction =
   | { readonly kind: 'fulfill'; readonly ruleUid: string; readonly response: CdpFulfillResponse }
   | { readonly kind: 'continue'; readonly ruleUid: string; readonly request: CdpContinueRequest }
+  // Send the real request and intercept its reply: a `continueRequest` with
+  // `interceptResponse:true`. The fire is DEFERRED to the Response stage —
+  // the action only takes effect once the reply is fulfilled there.
+  | { readonly kind: 'await-response'; readonly ruleUid: string; readonly request: CdpContinueRequest }
+  | { readonly kind: 'pass-through' };
+
+/** The answer the interceptor gives a paused request at the RESPONSE stage. */
+export type CdpResponseReaction =
+  | { readonly kind: 'fulfill'; readonly ruleUid: string; readonly response: CdpFulfillResponse }
   | { readonly kind: 'pass-through' };
 
 /**
@@ -85,6 +100,21 @@ const REQUEST_STAGE_CONDITIONS: ReadonlySet<ConditionType> = new Set<ConditionTy
   'resource-types',
   'exclude-resource-types',
 ]);
+
+/**
+ * Conditions the Response stage CAN additionally evaluate — the real reply's
+ * headers are observable there. A `network`-source rule defers these at the
+ * request stage (they don't disqualify it from being sent to the Response
+ * stage) and {@link responseStageMatches} evaluates them once the reply lands.
+ */
+const RESPONSE_STAGE_ONLY_CONDITIONS: ReadonlySet<ConditionType> = new Set<ConditionType>([
+  'response-header',
+  'exclude-response-header',
+]);
+
+/** Response headers describing the original body's framing — dropped when we
+ *  substitute the body, so the browser recomputes them from the new bytes. */
+const BODY_FRAMING_HEADERS: ReadonlySet<string> = new Set(['content-encoding', 'content-length', 'transfer-encoding']);
 
 /** CDP `Fetch.requestPaused` resource type → our condition vocabulary. */
 const CDP_TO_CONDITION_RESOURCE_TYPE: Readonly<Record<string, ResourceType>> = {
@@ -129,7 +159,7 @@ interface RequestStageContext {
   readonly resourceType: ResourceType;
 }
 
-/** The first realizable debug-tier rule's answer for `event`, or pass-through. */
+/** The first realizable debug-tier rule's request-stage answer, or pass-through. */
 export function resolveFetchReaction(event: CdpRequestPaused, rules: readonly Rule[]): CdpFetchReaction {
   const ctx: RequestStageContext = {
     url: event.request.url,
@@ -140,18 +170,60 @@ export function resolveFetchReaction(event: CdpRequestPaused, rules: readonly Ru
 
   for (const rule of rules) {
     // Narrow to the Fetch-capable union for `rule.action` below; the
-    // debug-tier + static gate is the shared core predicate. It also rejects
-    // `network`-source responses, so the `response` branch only ever sees a
-    // mock-source (synthetic-fulfill) action.
+    // debug-tier + static gate is the shared core predicate (it admits both
+    // response sources when static, rejecting only dynamic bodies).
     if (rule.type !== 'response' && rule.type !== 'request-body') continue;
     if (!isFetchRealizableNow(rule)) continue;
-    if (!requestStageMatches(rule, ctx)) continue;
     if (!graphqlGate(rule.action, postData)) continue;
 
+    if (rule.type === 'response' && rule.action.responseSource === 'network') {
+      // Send the real request and intercept the reply; the body substitution
+      // + override merge happen at the Response stage, where the response-header
+      // conditions (deferred here) become evaluable.
+      if (!requestStageMatches(rule, ctx, true)) continue;
+      return {
+        kind: 'await-response',
+        ruleUid: rule.uid,
+        request: { requestId: event.requestId, interceptResponse: true },
+      };
+    }
+
+    if (!requestStageMatches(rule, ctx)) continue;
     if (rule.type === 'response') {
       return { kind: 'fulfill', ruleUid: rule.uid, response: buildFulfill(event.requestId, rule.action) };
     }
     return { kind: 'continue', ruleUid: rule.uid, request: buildRequestBodyRewrite(event.requestId, rule.action) };
+  }
+  return { kind: 'pass-through' };
+}
+
+/**
+ * The Response-stage answer for an intercepted reply (reached only via an
+ * {@link CdpFetchReaction} `await-response`). Re-matches the live rules — now
+ * able to evaluate response-header conditions against the real reply — and
+ * fulfills the first matching `network`-source static `response` with its
+ * literal body, the real status (or override), and the merged headers. A
+ * failed real request, or no longer matching rule, releases the reply
+ * untouched (pass-through → `continueResponse`).
+ */
+export function resolveResponseReaction(event: CdpRequestPaused, rules: readonly Rule[]): CdpResponseReaction {
+  // A network-layer failure has no reply to fulfill from — let it surface.
+  if (event.responseErrorReason !== undefined) return { kind: 'pass-through' };
+  const ctx: RequestStageContext = {
+    url: event.request.url,
+    method: event.request.method,
+    resourceType: cdpResourceTypeToCondition(event.resourceType),
+  };
+  const postData = event.request.postData;
+  const responseHeaders = event.responseHeaders ?? [];
+
+  for (const rule of rules) {
+    if (rule.type !== 'response') continue;
+    if (rule.action.responseSource !== 'network') continue;
+    if (!isFetchRealizableNow(rule)) continue;
+    if (!graphqlGate(rule.action, postData)) continue;
+    if (!responseStageMatches(rule, ctx, responseHeaders)) continue;
+    return { kind: 'fulfill', ruleUid: rule.uid, response: buildNetworkFulfill(event, rule.action) };
   }
   return { kind: 'pass-through' };
 }
@@ -181,14 +253,47 @@ export function resolveAuthReaction(event: CdpAuthRequired, rules: readonly Rule
   return { kind: 'default' };
 }
 
-/** Authoritative request-stage condition re-check (URL + domain/method/resource excludes). */
-function requestStageMatches(rule: Rule, ctx: RequestStageContext): boolean {
+/**
+ * Authoritative request-stage condition re-check (URL + domain/method/resource
+ * excludes). `deferResponseHeaders` lets a `network`-source rule keep its
+ * response-header conditions for the Response stage instead of being
+ * disqualified here.
+ */
+function requestStageMatches(rule: Rule, ctx: RequestStageContext, deferResponseHeaders = false): boolean {
   for (const c of rule.conditions) {
     // An unconfigured row carries no constraint (mirrors the DNR builder).
     if (c.values.length === 0 && c.type !== 'domain-type') continue;
+    if (REQUEST_STAGE_CONDITIONS.has(c.type)) continue;
+    // A deferred response-header condition is evaluated at the Response stage,
+    // so it must not disqualify the rule here.
+    if (deferResponseHeaders && RESPONSE_STAGE_ONLY_CONDITIONS.has(c.type)) continue;
+    return false;
+  }
+  return matchesRequestStageValues(rule, ctx);
+}
+
+/**
+ * Re-check at the Response stage: every request-stage condition (URL +
+ * domain/method/resource) PLUS the response-header conditions against the real
+ * reply. A condition no stage can evaluate (initiator-domains, domain-type)
+ * still passes the rule through.
+ */
+function responseStageMatches(
+  rule: Rule,
+  ctx: RequestStageContext,
+  responseHeaders: readonly CdpHeaderEntry[],
+): boolean {
+  for (const c of rule.conditions) {
+    if (RESPONSE_STAGE_ONLY_CONDITIONS.has(c.type)) continue; // evaluated below
+    if (c.values.length === 0 && c.type !== 'domain-type') continue;
     if (!REQUEST_STAGE_CONDITIONS.has(c.type)) return false;
   }
+  if (!matchesRequestStageValues(rule, ctx)) return false;
+  return matchesResponseHeaderConditions(rule, responseHeaders);
+}
 
+/** The URL + domain/method/resource value checks shared by both stages. */
+function matchesRequestStageValues(rule: Rule, ctx: RequestStageContext): boolean {
   // No URL conditions ⇒ match-all (the coarse `Fetch.enable` pattern was `*`).
   if (getRuleMatchPatterns(rule).length > 0 && !doesUrlMatchRule(ctx.url, rule)) return false;
 
@@ -218,6 +323,35 @@ function requestStageMatches(rule: Rule, ctx: RequestStageContext): boolean {
     }
   }
   return true;
+}
+
+/**
+ * Evaluate the rule's response-header / exclude-response-header conditions
+ * against the real reply. A row matches when its named header is present and
+ * (with values) one value is a substring of the header value — Chrome's
+ * response-header semantics; empty values mean "any value". An exclude row
+ * inverts: a present-and-matching header disqualifies the rule.
+ */
+function matchesResponseHeaderConditions(rule: Rule, headers: readonly CdpHeaderEntry[]): boolean {
+  for (const c of rule.conditions) {
+    if (c.type !== 'response-header' && c.type !== 'exclude-response-header') continue;
+    const name = (c.headerName ?? '').trim();
+    if (!name) continue; // an unconfigured header row carries no constraint
+    const values = c.values.map((v) => v.trim()).filter(Boolean);
+    const present = responseHasHeader(headers, name, values);
+    if (c.type === 'response-header' ? !present : present) return false;
+  }
+  return true;
+}
+
+/** True iff `headers` carries `name` (case-insensitive) with a value containing
+ *  any of `values` — or, with no values, the header present at all. */
+function responseHasHeader(headers: readonly CdpHeaderEntry[], name: string, values: readonly string[]): boolean {
+  const lc = name.toLowerCase();
+  const matches = headers.filter((h) => h.name.toLowerCase() === lc);
+  if (matches.length === 0) return false;
+  if (values.length === 0) return true;
+  return matches.some((h) => values.some((v) => h.value.includes(v)));
 }
 
 /** True unless a GraphQL filter is active and the request body fails it. */
@@ -255,6 +389,43 @@ function buildFulfill(requestId: string, action: ResponseAction): CdpFulfillResp
 
 function buildRequestBodyRewrite(requestId: string, action: RequestBodyAction): CdpContinueRequest {
   return { requestId, postData: toBase64(action.requestBody) };
+}
+
+/**
+ * Fulfill an intercepted real reply for a `network`-source static rule: the
+ * rule's literal body (the real bytes are discarded, mirroring the injection
+ * path's `new Response(cfg.body, …)`), the real status unless overridden
+ * (`statusCode === 0` keeps it), and the real headers with the CT /
+ * response-header overrides layered on.
+ */
+function buildNetworkFulfill(event: CdpRequestPaused, action: ResponseAction): CdpFulfillResponse {
+  const responseCode = action.statusCode !== 0 ? action.statusCode : (event.responseStatusCode ?? 200);
+  const fulfill: CdpFulfillResponse = {
+    requestId: event.requestId,
+    responseCode,
+    responseHeaders: mergeNetworkHeaders(event.responseHeaders ?? [], action),
+    body: toBase64(action.responseBody),
+  };
+  // Keep the real status phrase (the injection path keeps `real.statusText`).
+  return event.responseStatusText ? { ...fulfill, responsePhrase: event.responseStatusText } : fulfill;
+}
+
+/** Real reply headers minus body-framing, with the rule's CT / response-header
+ *  overrides replacing any same-named entries (an empty CT is no override). */
+function mergeNetworkHeaders(real: readonly CdpHeaderEntry[], action: ResponseAction): CdpHeaderEntry[] {
+  const overrides = new Map<string, CdpHeaderEntry>();
+  if (action.contentType) overrides.set('content-type', { name: 'Content-Type', value: action.contentType });
+  for (const [name, value] of Object.entries(action.responseHeaders))
+    overrides.set(name.toLowerCase(), { name, value });
+
+  const out: CdpHeaderEntry[] = [];
+  for (const h of real) {
+    const lc = h.name.toLowerCase();
+    if (BODY_FRAMING_HEADERS.has(lc) || overrides.has(lc)) continue;
+    out.push(h);
+  }
+  out.push(...overrides.values());
+  return out;
 }
 
 function hostOf(url: string): string | null {

@@ -224,6 +224,22 @@ describe('ChromeCdpRequestControlPort', () => {
     ]);
   });
 
+  it('maps continueRequest carrying interceptResponse onto Fetch.continueRequest (D2b-1)', async () => {
+    const port = new ChromeCdpRequestControlPort(source);
+    await port.continueRequest(ROOT, { requestId: 'fetch-2b', interceptResponse: true });
+    expect(sendCalls()).toEqual([
+      [{ tabId: TAB }, 'Fetch.continueRequest', { requestId: 'fetch-2b', interceptResponse: true }],
+    ]);
+  });
+
+  it('maps continueResponse onto Fetch.continueResponse (the Response-stage release)', async () => {
+    const port = new ChromeCdpRequestControlPort(source);
+    await port.continueResponse(CHILD, { requestId: 'fetch-2c' });
+    expect(sendCalls()).toEqual([
+      [{ tabId: TAB, sessionId: 'child-worker-1' }, 'Fetch.continueResponse', { requestId: 'fetch-2c' }],
+    ]);
+  });
+
   it('maps continueWithAuth onto Fetch.continueWithAuth with the challenge response', async () => {
     const port = new ChromeCdpRequestControlPort(source);
     await port.continueWithAuth(ROOT, {

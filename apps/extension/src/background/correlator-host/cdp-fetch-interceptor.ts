@@ -3,16 +3,20 @@
  * {@link CdpFetchEvent} control-input stream and answer each
  * `Fetch.requestPaused` through the {@link CdpRequestControlPort}.
  *
- * D2 — rule-driven. {@link resolveFetchReaction} re-checks the paused
- * request against the live rules (the `Fetch.enable` `urlPattern` set was
- * only a coarse pre-filter) and decides the answer:
- *   - a static `mock` match → `fulfillRequest` (synthesized response);
- *   - a static `body` match → `continueRequest` with a rewritten request
- *     body (`postData`);
- *   - anything else → `continueRequest` pass-through (nothing modified).
+ * Rule-driven, two interception stages:
+ *   - REQUEST stage ({@link resolveFetchReaction}) — a static `mock` match →
+ *     `fulfillRequest`; a static `request-body` match → `continueRequest`
+ *     with a rewritten body; a static `network`-source `response` match →
+ *     `continueRequest{interceptResponse:true}` (send the real request, pause
+ *     again at the Response stage); anything else → pass-through.
+ *   - RESPONSE stage ({@link resolveResponseReaction}) — reached only for an
+ *     intercepted reply; `fulfillRequest`s the rule's static body over the
+ *     real status/headers, or `continueResponse`s it unmodified when no rule
+ *     still matches.
  * A fulfilled / rewritten request enters the rule-fire plane as an
- * AUTHORITATIVE fire — reported only after the answer command lands, so a
- * fire means the action actually ran.
+ * AUTHORITATIVE fire — reported only after the answer command lands (for a
+ * `network`-source rule, that is the Response-stage fulfill, NOT the
+ * request-stage continue), so a fire means the action actually ran once.
  *
  * Fire-and-forget: a failed answer (the request already gone, the tab
  * detached) is logged and dropped — it must never throw into the event fan.
@@ -29,7 +33,12 @@ import type {
 } from '@openheaders/oracle/correlator-cdp';
 import { cdpStoreRequestId } from '@openheaders/oracle/correlator-cdp';
 import { logger } from '@utils/logger';
-import { cdpResourceTypeToTracked, resolveAuthReaction, resolveFetchReaction } from './cdp-fetch-reaction';
+import {
+  cdpResourceTypeToTracked,
+  resolveAuthReaction,
+  resolveFetchReaction,
+  resolveResponseReaction,
+} from './cdp-fetch-reaction';
 
 export interface CdpFetchInterceptorOptions {
   /** The `Fetch.*` control-input stream — `ChromeDebuggerEventSource.subscribeFetch`. */
@@ -50,54 +59,151 @@ export interface CdpFetchInterceptorOptions {
   readonly reportPause: (tabId: number, requestId: string, pausedMs: number) => void;
 }
 
+/**
+ * Cap on in-flight `await-response` holds — a backstop against leaking a hold
+ * whose Response stage never arrives (the request was aborted mid-flight).
+ * Far above any realistic concurrent intercepted-reply count.
+ */
+const MAX_PENDING_RESPONSE_HOLDS = 1024;
+
 /** Start the rule-driven interceptor; returns the unsubscribe handle. */
 export function startCdpFetchInterceptor(options: CdpFetchInterceptorOptions): () => void {
-  const { subscribeFetch, requestControlPort, getRules, reportFire, reportPause } = options;
+  const { subscribeFetch } = options;
+  // Request-stage holds for `await-response` requests, awaiting their Response
+  // stage so the emitted `pausedByDebugMs` sums BOTH hops (the real server
+  // round-trip between them is not debug overhead). Keyed by the store id.
+  const pendingHolds = new Map<string, number>();
   return subscribeFetch((event) => {
     if (event.method === 'Fetch.authRequired') {
       handleAuthRequired(event, options);
       return;
     }
     if (event.method !== 'Fetch.requestPaused') return;
-    // Pause-receipt stamp (D4c). The hold we introduce is this instant to
-    // answer-land (the control command resolving). Every paused request on a
-    // controlled tab incurs the hold — pass-through included, since even a
-    // no-op continue paid the SW round-trip — so all three answers measure it.
-    const receivedAtMs = Date.now();
-    const target: CdpSessionTarget = { tabId: event.tabId, sessionId: event.sessionId };
-    const reaction = resolveFetchReaction(event, getRules());
+    if (isResponseStagePause(event)) {
+      handleResponseStage(event, options, pendingHolds);
+      return;
+    }
+    handleRequestStage(event, options, pendingHolds);
+  });
+}
 
-    const command =
-      reaction.kind === 'fulfill'
-        ? requestControlPort.fulfill(target, reaction.response)
-        : reaction.kind === 'continue'
-          ? requestControlPort.continueRequest(target, reaction.request)
-          : requestControlPort.continueRequest(target, { requestId: event.requestId });
+/** A Response-stage pause carries the real reply (or its network-error reason). */
+function isResponseStagePause(event: CdpRequestPaused): boolean {
+  return event.responseStatusCode !== undefined || event.responseErrorReason !== undefined;
+}
 
-    const settled = command.then(() => {
-      if (reaction.kind !== 'pass-through') reportFire(event.tabId, buildFireRecord(event, reaction.ruleUid));
-      emitPauseIfMaterial(event, receivedAtMs, reportPause);
+/**
+ * Answer a REQUEST-stage pause. A static `mock` / `request-body` match fulfills
+ * / rewrites and fires here; a `network`-source match continues with
+ * `interceptResponse` and DEFERS its fire to the Response stage (recording the
+ * request-stage hold so the two hops add up); anything else passes through.
+ *
+ * Pause-receipt stamp (D4c): the hold we introduce is this instant to
+ * answer-land. Every paused request on a controlled tab incurs it —
+ * pass-through included, since even a no-op continue paid the SW round-trip.
+ */
+function handleRequestStage(
+  event: CdpRequestPaused,
+  options: CdpFetchInterceptorOptions,
+  pendingHolds: Map<string, number>,
+): void {
+  const { requestControlPort, getRules, reportFire, reportPause } = options;
+  const receivedAtMs = Date.now();
+  const target: CdpSessionTarget = { tabId: event.tabId, sessionId: event.sessionId };
+  const reaction = resolveFetchReaction(event, getRules());
+
+  if (reaction.kind === 'await-response') {
+    const settled = requestControlPort.continueRequest(target, reaction.request).then(() => {
+      // Carry the request-stage hold to the Response stage; the fire waits
+      // until the reply is actually fulfilled there.
+      if (event.networkId) {
+        rememberHold(pendingHolds, cdpStoreRequestId(event.sessionId, event.networkId), Date.now() - receivedAtMs);
+      }
     });
     answer(settled, event);
+    return;
+  }
+
+  const command =
+    reaction.kind === 'fulfill'
+      ? requestControlPort.fulfill(target, reaction.response)
+      : reaction.kind === 'continue'
+        ? requestControlPort.continueRequest(target, reaction.request)
+        : requestControlPort.continueRequest(target, { requestId: event.requestId });
+
+  const settled = command.then(() => {
+    if (reaction.kind !== 'pass-through') reportFire(event.tabId, buildFireRecord(event, reaction.ruleUid));
+    emitPauseIfMaterial(event, receivedAtMs, 0, reportPause);
   });
+  answer(settled, event);
+}
+
+/**
+ * Answer a RESPONSE-stage pause (reached only via an `await-response`
+ * continue). Fulfill the matching `network`-source static rule with its body +
+ * merged overrides and fire once; a no-longer-matching rule releases the reply
+ * unmodified. The emitted hold sums the request-stage + response-stage holds.
+ */
+function handleResponseStage(
+  event: CdpRequestPaused,
+  options: CdpFetchInterceptorOptions,
+  pendingHolds: Map<string, number>,
+): void {
+  const { requestControlPort, getRules, reportFire, reportPause } = options;
+  const receivedAtMs = Date.now();
+  const target: CdpSessionTarget = { tabId: event.tabId, sessionId: event.sessionId };
+  const reaction = resolveResponseReaction(event, getRules());
+
+  const command =
+    reaction.kind === 'fulfill'
+      ? requestControlPort.fulfill(target, reaction.response)
+      : requestControlPort.continueResponse(target, { requestId: event.requestId });
+
+  const settled = command.then(() => {
+    if (reaction.kind === 'fulfill') reportFire(event.tabId, buildFireRecord(event, reaction.ruleUid));
+    const priorHoldMs = event.networkId
+      ? takeHold(pendingHolds, cdpStoreRequestId(event.sessionId, event.networkId))
+      : 0;
+    emitPauseIfMaterial(event, receivedAtMs, priorHoldMs, reportPause);
+  });
+  answer(settled, event);
 }
 
 /**
  * Emit the interception hold for a paused request once its answer has landed.
- * Skips a request with no `networkId` (no lifecycle to join the hold to — the
- * same carve-out as the fire record) and an immaterial sub-{@link
- * MATERIAL_DEBUG_PAUSE_MS} hold (not worth a store patch). The store applies it
- * as a refining `pausedByDebugMs` phase patch keyed by {@link cdpStoreRequestId}.
+ * `priorHoldMs` adds any earlier-stage hold (the request stage of a two-stage
+ * `network`-source request) so the total is per-request, not per-stage. Skips
+ * a request with no `networkId` (no lifecycle to join the hold to — the same
+ * carve-out as the fire record) and an immaterial sub-{@link
+ * MATERIAL_DEBUG_PAUSE_MS} total (not worth a store patch). The store applies
+ * it as a refining `pausedByDebugMs` phase patch keyed by {@link cdpStoreRequestId}.
  */
 function emitPauseIfMaterial(
   event: CdpRequestPaused,
   receivedAtMs: number,
+  priorHoldMs: number,
   reportPause: (tabId: number, requestId: string, pausedMs: number) => void,
 ): void {
   if (!event.networkId) return;
-  const pausedMs = Date.now() - receivedAtMs;
+  const pausedMs = priorHoldMs + (Date.now() - receivedAtMs);
   if (pausedMs < MATERIAL_DEBUG_PAUSE_MS) return;
   reportPause(event.tabId, cdpStoreRequestId(event.sessionId, event.networkId), pausedMs);
+}
+
+/** Record a request-stage hold, evicting the oldest if the map is at its cap. */
+function rememberHold(pending: Map<string, number>, key: string, holdMs: number): void {
+  if (pending.size >= MAX_PENDING_RESPONSE_HOLDS) {
+    const oldest = pending.keys().next().value;
+    if (oldest !== undefined) pending.delete(oldest);
+  }
+  pending.set(key, holdMs);
+}
+
+/** Take (and clear) a recorded request-stage hold, or 0 if none was kept. */
+function takeHold(pending: Map<string, number>, key: string): number {
+  const holdMs = pending.get(key) ?? 0;
+  pending.delete(key);
+  return holdMs;
 }
 
 /**

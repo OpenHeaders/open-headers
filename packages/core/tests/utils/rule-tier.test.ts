@@ -174,9 +174,20 @@ describe('isFetchRealizableNow', () => {
     ).toBe(false);
   });
 
-  it('static network-source response is NOT realizable now (modifies the real reply — Response stage not built)', () => {
+  it('static network-source response IS realizable now (Response-stage round-trip, D2b-1)', () => {
     expect(
       isFetchRealizableNow({ ...base, type: 'response', conditions: [hostCondition], action: networkAction }),
+    ).toBe(true);
+  });
+
+  it('dynamic network-source response is NOT realizable now (host can not eval the modify yet)', () => {
+    expect(
+      isFetchRealizableNow({
+        ...base,
+        type: 'response',
+        conditions: [hostCondition],
+        action: { ...networkAction, bodyType: 'dynamic' },
+      }),
     ).toBe(false);
   });
 

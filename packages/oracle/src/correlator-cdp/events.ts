@@ -46,6 +46,7 @@
  * (Slice 2).
  */
 
+import type { CdpHeaderEntry } from './control-port';
 import type { CdpPageEvent } from './page-events';
 
 export interface CdpRequestParams {
@@ -438,6 +439,16 @@ export interface CdpEventSourceMessageReceived {
  * command keys on), distinct from `networkId` (the
  * `Network.requestWillBeSent` id of the same request, which joins the pause
  * to the observed lifecycle).
+ *
+ * The same event shape carries BOTH interception stages, discriminated by
+ * whether the response-stage fields are present:
+ *   - Request stage — no `response*` fields. The request is paused before it
+ *     leaves; answered with continue / fulfill.
+ *   - Response stage — `responseStatusCode` (or `responseErrorReason`) set.
+ *     Reached only for a request the host sent there with
+ *     `continueRequest{interceptResponse:true}`; the real reply's status and
+ *     headers are now observable, so a reaction can layer overrides onto them
+ *     and answer with fulfill / continueResponse.
  */
 export interface CdpRequestPaused {
   readonly method: 'Fetch.requestPaused';
@@ -453,6 +464,15 @@ export interface CdpRequestPaused {
   readonly frameId?: string;
   /** `Network.requestWillBeSent` id of the same request — lifecycle join key. */
   readonly networkId?: string;
+  /** Real reply status — present iff this is the Response stage. */
+  readonly responseStatusCode?: number;
+  /** Real reply status phrase (`OK`, `Not Found`) — Response stage only. */
+  readonly responseStatusText?: string;
+  /** Real reply headers (multiplicity preserved) — Response stage only. */
+  readonly responseHeaders?: readonly CdpHeaderEntry[];
+  /** Set instead of a status when the real request failed at the network
+   *  layer — there is no reply to fulfill from, so release it untouched. */
+  readonly responseErrorReason?: string;
 }
 
 /**

@@ -14,11 +14,13 @@
  * the partition (CDP DOES act on these rules) is pinned by the
  * `cdp-fetch-reaction` tests; here we prove injection yields.
  *
- * Suppression is exactly `isFetchRealizableNow`: a `network`-source or
- * `dynamic` response (debug-tier but not realizable now), a `delay`, or an
- * `xhr`-only response (not debug-tier at all) all stay on the injection plane
- * even under CDP control — CDP can't own them, so suppressing them would
- * silently disable the rule.
+ * Suppression is exactly `isFetchRealizableNow`: a `network`-source STATIC
+ * response is now realizable (D2b-1's Response-stage round-trip), so it joins
+ * the suppressed set automatically — the predicate is the single gate, so
+ * widening it extends suppression with no inject-manager change. What still
+ * stays on the injection plane: a `dynamic` response/request-body (host can't
+ * eval its body yet), a `delay`, or an `xhr`-only response (not debug-tier at
+ * all) — CDP can't own them, so suppressing them would silently disable the rule.
  */
 
 import type { DelayRule, RequestBodyRule, ResponseRule } from '@openheaders/core/types';
@@ -140,8 +142,15 @@ describe('D4 precedence — CDP owns realizable debug-tier rules exclusively', (
     expect(buildResponseInjection).not.toHaveBeenCalled();
   });
 
-  it('keeps a network-source response on injection even under CDP control (not realizable now)', async () => {
-    const rule = responseRule({ responseSource: 'network' });
+  it('suppresses a static network-source response on a CDP-controlled tab (D2b-1 — now realizable)', async () => {
+    updateScriptableRules([responseRule({ responseSource: 'network' })]);
+
+    await __testInjectForUrl(CDP_TAB, PAGE);
+    expect(buildResponseInjection).not.toHaveBeenCalled();
+  });
+
+  it('keeps a dynamic network-source response on injection even under CDP control (not realizable now)', async () => {
+    const rule = responseRule({ responseSource: 'network', bodyType: 'dynamic', responseBody: 'return response;' });
     updateScriptableRules([rule]);
 
     await __testInjectForUrl(CDP_TAB, PAGE);

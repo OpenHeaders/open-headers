@@ -56,6 +56,7 @@ export type {
   CdpAuthChallengeResponse,
   CdpBootstrapScript,
   CdpContinueRequest,
+  CdpContinueResponse,
   CdpContinueWithAuth,
   CdpControlCommand,
   CdpEnvironmentOverrides,
