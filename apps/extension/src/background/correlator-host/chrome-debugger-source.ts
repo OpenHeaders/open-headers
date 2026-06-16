@@ -35,27 +35,73 @@
  */
 
 import type {
-  CdpAuthRequired,
   CdpBufferedResponseBody,
-  CdpCallFrame,
   CdpEventSource,
   CdpFetchEvent,
-  CdpInitiator,
   CdpNetworkEvent,
   CdpPageEvent,
-  CdpPageFrame,
-  CdpRequestParams,
-  CdpRequestPaused,
-  CdpResourceTiming,
   CdpResponseBody,
-  CdpResponseParams,
-  CdpSessionTarget,
-  CdpStackTrace,
 } from '@openheaders/oracle/correlator-cdp';
 import { OH_BINDING } from '@openheaders/rule-engine/content-scripts';
 import { logger } from '@utils/logger';
 import { type BrowserAPI, getBrowserAPI } from '@/types/browser';
+import {
+  normalizeAuthRequired,
+  normalizeDataReceived,
+  normalizeEventSourceMessageReceived,
+  normalizeFrameNavigated,
+  normalizeFrameStoppedLoading,
+  normalizeLoadingFailed,
+  normalizeLoadingFinished,
+  normalizePageLifecycle,
+  normalizeRequestPaused,
+  normalizeRequestWillBeSent,
+  normalizeRequestWillBeSentExtraInfo,
+  normalizeResponseReceived,
+  normalizeResponseReceivedExtraInfo,
+  normalizeWebSocketClosed,
+  normalizeWebSocketCreated,
+  normalizeWebSocketFrame,
+  normalizeWebSocketFrameError,
+  normalizeWebSocketHandshakeResponseReceived,
+  normalizeWebSocketWillSendHandshakeRequest,
+  parseBindingFire,
+} from './cdp-normalizers';
+import type {
+  RawAttachedToTarget,
+  RawAuthRequired,
+  RawBindingCalled,
+  RawDataReceived,
+  RawDetachedFromTarget,
+  RawEventSourceMessageReceived,
+  RawFrameNavigated,
+  RawFrameStoppedLoading,
+  RawGetFrameTree,
+  RawGetResponseBody,
+  RawLoadingFailed,
+  RawLoadingFinished,
+  RawPageLifecycleTimestamp,
+  RawRequestPaused,
+  RawRequestWillBeSent,
+  RawRequestWillBeSentExtraInfo,
+  RawResponseReceived,
+  RawResponseReceivedExtraInfo,
+  RawStreamResourceContent,
+  RawWebSocketClosed,
+  RawWebSocketCreated,
+  RawWebSocketFrameError,
+  RawWebSocketFrameEvent,
+  RawWebSocketHandshakeResponseReceived,
+  RawWebSocketWillSendHandshakeRequest,
+} from './cdp-raw-payloads';
+import { type CdpBindingFire, ROOT_SESSION_ID } from './cdp-session';
 import { clearMainFrameId, setMainFrameId } from './main-frame-registry';
+
+export type { CdpBindingFire } from './cdp-session';
+// Re-exported for importers that consumed these from this module before the
+// raw-payloads / normalizers split (cdp-control-replay, the correlator-host
+// barrel, tests).
+export { cdpRootTarget, ROOT_SESSION_ID } from './cdp-session';
 
 type Listener = (event: CdpNetworkEvent) => void;
 type PageListener = (event: CdpPageEvent) => void;
@@ -64,23 +110,6 @@ type DetachListener = (tabId: number, reason: string) => void;
 type ChildSessionListener = (tabId: number, sessionId: string) => void;
 type BindingListener = (fire: CdpBindingFire) => void;
 type DebuggerApi = BrowserAPI['debugger'];
-
-/**
- * A residual in-page wrapper's fire, delivered over the private
- * `Runtime.addBinding` channel (E4) instead of `window.postMessage` — the page
- * can neither observe nor forge it (a forged DOM message never enters this
- * channel). Routed by `tabId` only: a worker/OOPIF wrapper's fire belongs to
- * its owning tab, so child sessions are not filtered out (unlike page-timing).
- * The payload mirrors the un-armed postMessage one; `kind` is parsed but
- * dropped, since the fire plane keys on `(tabId, ruleUid, url, t)` — exactly
- * what `fire-bridge-content.ts` relays to `tabFire`.
- */
-export interface CdpBindingFire {
-  readonly tabId: number;
-  readonly ruleUid: string;
-  readonly url: string;
-  readonly t: number;
-}
 
 /** Protocol version handed to `chrome.debugger.attach`. */
 const CDP_PROTOCOL_VERSION = '1.3';
@@ -95,23 +124,6 @@ const CDP_PROTOCOL_VERSION = '1.3';
  */
 const MAX_RESPONSE_BODY_TOTAL_BUFFER_BYTES = 250 * 1024 * 1024;
 const MAX_EAGER_POST_BODY_BYTES = 64 * 1024;
-
-/**
- * Synthetic session id stamped on root (page-target) events. The
- * `chrome.debugger` root session has no id of its own — events arrive
- * with `source.sessionId === undefined` — so we name it explicitly to
- * keep the `(tabId, sessionId, requestId)` identity uniform. `tabId`
- * already namespaces across tabs; a chrome-issued child session id is a
- * long opaque string and never collides with this literal.
- */
-export const ROOT_SESSION_ID = 'page';
-
-/** The root (page-target) control target for a tab — the session the
- *  tab-wide standing CDP state (cache / throttle / overrides / bootstrap)
- *  is applied to. Child-session control rides the child's own target. */
-export function cdpRootTarget(tabId: number): CdpSessionTarget {
-  return { tabId, sessionId: ROOT_SESSION_ID };
-}
 
 /**
  * Child target types we auto-attach to (B1 product call). The parity
@@ -726,686 +738,6 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
 
   private api(): DebuggerApi | undefined {
     return getBrowserAPI().debugger;
-  }
-}
-
-// ── raw CDP protocol payloads (untyped `object` in @types/chrome) ─────
-//
-// `chrome.debugger.onEvent` hands params as a bare `object`; these
-// interfaces shape the subset we read so the normalizers below stay
-// field-checked. Field names are CDP-verbatim.
-
-interface RawRequest {
-  readonly url: string;
-  readonly method: string;
-  readonly headers?: Record<string, string>;
-  readonly hasPostData?: boolean;
-  readonly postData?: string;
-  readonly initialPriority?: string;
-}
-
-interface RawResourceTiming {
-  readonly requestTime: number;
-  readonly proxyStart?: number;
-  readonly proxyEnd?: number;
-  readonly dnsStart?: number;
-  readonly dnsEnd?: number;
-  readonly connectStart?: number;
-  readonly connectEnd?: number;
-  readonly sslStart?: number;
-  readonly sslEnd?: number;
-  readonly sendStart?: number;
-  readonly sendEnd?: number;
-  readonly receiveHeadersStart?: number;
-  readonly receiveHeadersEnd?: number;
-  readonly workerStart?: number;
-  readonly workerReady?: number;
-  readonly workerFetchStart?: number;
-  readonly workerRespondWithSettled?: number;
-}
-
-interface RawResponse {
-  readonly url: string;
-  readonly status: number;
-  readonly statusText: string;
-  readonly headers?: Record<string, string>;
-  readonly mimeType?: string;
-  readonly charset?: string;
-  readonly remoteIPAddress?: string;
-  readonly remotePort?: number;
-  readonly connectionId?: number;
-  readonly protocol?: string;
-  readonly fromDiskCache?: boolean;
-  readonly fromServiceWorker?: boolean;
-  readonly encodedDataLength?: number;
-  readonly timing?: RawResourceTiming;
-}
-
-interface RawCallFrame {
-  readonly functionName: string;
-  readonly scriptId: string;
-  readonly url: string;
-  readonly lineNumber: number;
-  readonly columnNumber: number;
-}
-
-interface RawStackTrace {
-  readonly description?: string;
-  readonly callFrames: readonly RawCallFrame[];
-  readonly parent?: RawStackTrace;
-}
-
-interface RawInitiator {
-  readonly type: string;
-  readonly url?: string;
-  readonly lineNumber?: number;
-  readonly columnNumber?: number;
-  readonly stack?: RawStackTrace;
-}
-
-interface RawRequestWillBeSent {
-  readonly requestId: string;
-  readonly loaderId: string;
-  readonly documentURL: string;
-  readonly request: RawRequest;
-  readonly timestamp: number;
-  readonly wallTime: number;
-  readonly initiator?: RawInitiator;
-  readonly redirectResponse?: RawResponse;
-  readonly type?: string;
-  readonly frameId?: string;
-}
-
-interface RawResponseReceived {
-  readonly requestId: string;
-  readonly timestamp: number;
-  readonly type: string;
-  readonly response: RawResponse;
-}
-
-interface RawDataReceived {
-  readonly requestId: string;
-  readonly timestamp: number;
-  readonly dataLength: number;
-  readonly encodedDataLength: number;
-}
-
-interface RawLoadingFinished {
-  readonly requestId: string;
-  readonly timestamp: number;
-  readonly encodedDataLength: number;
-}
-
-interface RawLoadingFailed {
-  readonly requestId: string;
-  readonly timestamp: number;
-  readonly type: string;
-  readonly errorText: string;
-  readonly canceled?: boolean;
-  readonly blockedReason?: string;
-}
-
-interface RawRequestWillBeSentExtraInfo {
-  readonly requestId: string;
-  readonly headers: Record<string, string>;
-}
-
-interface RawWebSocketCreated {
-  readonly requestId: string;
-  readonly url: string;
-  readonly initiator?: RawInitiator;
-}
-
-interface RawWebSocketWillSendHandshakeRequest {
-  readonly requestId: string;
-  readonly timestamp: number;
-  readonly wallTime: number;
-  readonly request: { readonly headers: Record<string, string> };
-}
-
-interface RawWebSocketHandshakeResponseReceived {
-  readonly requestId: string;
-  readonly timestamp: number;
-  readonly response: {
-    readonly status: number;
-    readonly statusText: string;
-    readonly headers: Record<string, string>;
-    readonly headersText?: string;
-    readonly requestHeaders?: Record<string, string>;
-    readonly requestHeadersText?: string;
-  };
-}
-
-interface RawWebSocketFrameEvent {
-  readonly requestId: string;
-  readonly timestamp: number;
-  readonly response: {
-    readonly opcode: number;
-    readonly mask: boolean;
-    readonly payloadData: string;
-  };
-}
-
-interface RawWebSocketFrameError {
-  readonly requestId: string;
-  readonly timestamp: number;
-  readonly errorMessage: string;
-}
-
-interface RawWebSocketClosed {
-  readonly requestId: string;
-  readonly timestamp: number;
-}
-
-interface RawEventSourceMessageReceived {
-  readonly requestId: string;
-  readonly timestamp: number;
-  readonly eventName: string;
-  readonly eventId: string;
-  readonly data: string;
-}
-
-interface RawResponseReceivedExtraInfo {
-  readonly requestId: string;
-  readonly headers: Record<string, string>;
-}
-
-interface RawRequestPaused {
-  readonly requestId: string;
-  readonly request: RawRequest;
-  readonly frameId?: string;
-  readonly resourceType: string;
-  readonly networkId?: string;
-  readonly responseStatusCode?: number;
-  readonly responseStatusText?: string;
-  readonly responseHeaders?: ReadonlyArray<{ readonly name: string; readonly value: string }>;
-  readonly responseErrorReason?: string;
-}
-
-interface RawAuthChallenge {
-  readonly source?: 'Server' | 'Proxy';
-  readonly origin: string;
-  readonly scheme: string;
-  readonly realm: string;
-}
-
-interface RawAuthRequired {
-  readonly requestId: string;
-  readonly request: RawRequest;
-  readonly frameId?: string;
-  readonly resourceType: string;
-  readonly authChallenge: RawAuthChallenge;
-}
-
-/** `Runtime.bindingCalled` — `payload` is the wrapper's JSON.stringify of
- *  `{ruleUid,url,kind,t}`; `name` discriminates which addBinding fired. */
-interface RawBindingCalled {
-  readonly name: string;
-  readonly payload: string;
-  readonly executionContextId?: number;
-}
-
-/** `Network.getResponseBody` result — body text + whether it is base64. */
-interface RawGetResponseBody {
-  readonly body: string;
-  readonly base64Encoded: boolean;
-}
-
-/** `Network.streamResourceContent` result — bytes received so far, base64. */
-interface RawStreamResourceContent {
-  readonly bufferedData: string;
-}
-
-/** `Page.getFrameTree` result — only the root frame's id is consumed. */
-interface RawGetFrameTree {
-  readonly frameTree?: {
-    readonly frame?: { readonly id?: string };
-  };
-}
-
-interface RawTargetInfo {
-  readonly type: string;
-  readonly targetId: string;
-  readonly title?: string;
-  readonly url?: string;
-  readonly attached?: boolean;
-}
-
-interface RawAttachedToTarget {
-  readonly sessionId: string;
-  readonly targetInfo: RawTargetInfo;
-  readonly waitingForDebugger?: boolean;
-}
-
-interface RawDetachedFromTarget {
-  readonly sessionId: string;
-  readonly targetId?: string;
-}
-
-interface RawPageFrame {
-  readonly id: string;
-  readonly parentId?: string;
-  readonly loaderId: string;
-  readonly url: string;
-}
-
-interface RawFrameNavigated {
-  readonly frame: RawPageFrame;
-}
-
-interface RawPageLifecycleTimestamp {
-  readonly timestamp: number;
-}
-
-interface RawFrameStoppedLoading {
-  readonly frameId: string;
-}
-
-// ── normalizers (raw CDP params → oracle CdpNetworkEvent) ────────────
-
-function normalizeRequestWillBeSent(tabId: number, sessionId: string, p: RawRequestWillBeSent): CdpNetworkEvent {
-  return {
-    method: 'Network.requestWillBeSent',
-    tabId,
-    sessionId,
-    requestId: p.requestId,
-    loaderId: p.loaderId,
-    documentURL: p.documentURL,
-    request: normalizeRequest(p.request),
-    timestamp: p.timestamp,
-    wallTime: p.wallTime,
-    ...(p.initiator !== undefined ? { initiator: normalizeInitiator(p.initiator) } : {}),
-    ...(p.redirectResponse !== undefined ? { redirectResponse: normalizeResponse(p.redirectResponse) } : {}),
-    ...(p.type !== undefined ? { type: p.type } : {}),
-    ...(p.frameId !== undefined ? { frameId: p.frameId } : {}),
-  };
-}
-
-function normalizeResponseReceived(tabId: number, sessionId: string, p: RawResponseReceived): CdpNetworkEvent {
-  return {
-    method: 'Network.responseReceived',
-    tabId,
-    sessionId,
-    requestId: p.requestId,
-    timestamp: p.timestamp,
-    type: p.type,
-    response: normalizeResponse(p.response),
-  };
-}
-
-function normalizeDataReceived(tabId: number, sessionId: string, p: RawDataReceived): CdpNetworkEvent {
-  return {
-    method: 'Network.dataReceived',
-    tabId,
-    sessionId,
-    requestId: p.requestId,
-    timestamp: p.timestamp,
-    dataLength: p.dataLength,
-    encodedDataLength: p.encodedDataLength,
-  };
-}
-
-function normalizeLoadingFinished(tabId: number, sessionId: string, p: RawLoadingFinished): CdpNetworkEvent {
-  return {
-    method: 'Network.loadingFinished',
-    tabId,
-    sessionId,
-    requestId: p.requestId,
-    timestamp: p.timestamp,
-    encodedDataLength: p.encodedDataLength,
-  };
-}
-
-function normalizeLoadingFailed(tabId: number, sessionId: string, p: RawLoadingFailed): CdpNetworkEvent {
-  return {
-    method: 'Network.loadingFailed',
-    tabId,
-    sessionId,
-    requestId: p.requestId,
-    timestamp: p.timestamp,
-    type: p.type,
-    errorText: p.errorText,
-    ...(p.canceled !== undefined ? { canceled: p.canceled } : {}),
-    ...(p.blockedReason !== undefined ? { blockedReason: p.blockedReason } : {}),
-  };
-}
-
-function normalizeRequestWillBeSentExtraInfo(
-  tabId: number,
-  sessionId: string,
-  p: RawRequestWillBeSentExtraInfo,
-): CdpNetworkEvent {
-  return {
-    method: 'Network.requestWillBeSentExtraInfo',
-    tabId,
-    sessionId,
-    requestId: p.requestId,
-    headers: p.headers,
-  };
-}
-
-function normalizeResponseReceivedExtraInfo(
-  tabId: number,
-  sessionId: string,
-  p: RawResponseReceivedExtraInfo,
-): CdpNetworkEvent {
-  return {
-    method: 'Network.responseReceivedExtraInfo',
-    tabId,
-    sessionId,
-    requestId: p.requestId,
-    headers: p.headers,
-  };
-}
-
-// ── WebSocket / EventSource normalizers ──────────────────────────────
-
-function normalizeWebSocketCreated(tabId: number, sessionId: string, p: RawWebSocketCreated): CdpNetworkEvent {
-  return {
-    method: 'Network.webSocketCreated',
-    tabId,
-    sessionId,
-    requestId: p.requestId,
-    url: p.url,
-    ...(p.initiator !== undefined ? { initiator: normalizeInitiator(p.initiator) } : {}),
-    // The event carries no timestamp at the wire; the arrival wall-clock is
-    // the row's provisional start (the handshake's wall instant follows).
-    atWallMs: Date.now(),
-  };
-}
-
-function normalizeWebSocketWillSendHandshakeRequest(
-  tabId: number,
-  sessionId: string,
-  p: RawWebSocketWillSendHandshakeRequest,
-): CdpNetworkEvent {
-  return {
-    method: 'Network.webSocketWillSendHandshakeRequest',
-    tabId,
-    sessionId,
-    requestId: p.requestId,
-    timestamp: p.timestamp,
-    wallTime: p.wallTime,
-    headers: p.request.headers,
-  };
-}
-
-function normalizeWebSocketHandshakeResponseReceived(
-  tabId: number,
-  sessionId: string,
-  p: RawWebSocketHandshakeResponseReceived,
-): CdpNetworkEvent {
-  return {
-    method: 'Network.webSocketHandshakeResponseReceived',
-    tabId,
-    sessionId,
-    requestId: p.requestId,
-    timestamp: p.timestamp,
-    response: {
-      status: p.response.status,
-      statusText: p.response.statusText,
-      headers: p.response.headers,
-      ...(p.response.headersText !== undefined ? { headersText: p.response.headersText } : {}),
-      ...(p.response.requestHeaders !== undefined ? { requestHeaders: p.response.requestHeaders } : {}),
-      ...(p.response.requestHeadersText !== undefined ? { requestHeadersText: p.response.requestHeadersText } : {}),
-    },
-  };
-}
-
-function normalizeWebSocketFrame(
-  method: 'Network.webSocketFrameSent' | 'Network.webSocketFrameReceived',
-  tabId: number,
-  sessionId: string,
-  p: RawWebSocketFrameEvent,
-): CdpNetworkEvent {
-  return {
-    method,
-    tabId,
-    sessionId,
-    requestId: p.requestId,
-    timestamp: p.timestamp,
-    response: {
-      opcode: p.response.opcode,
-      mask: p.response.mask,
-      payloadData: p.response.payloadData,
-    },
-  };
-}
-
-function normalizeWebSocketFrameError(tabId: number, sessionId: string, p: RawWebSocketFrameError): CdpNetworkEvent {
-  return {
-    method: 'Network.webSocketFrameError',
-    tabId,
-    sessionId,
-    requestId: p.requestId,
-    timestamp: p.timestamp,
-    errorMessage: p.errorMessage,
-  };
-}
-
-function normalizeWebSocketClosed(tabId: number, sessionId: string, p: RawWebSocketClosed): CdpNetworkEvent {
-  return {
-    method: 'Network.webSocketClosed',
-    tabId,
-    sessionId,
-    requestId: p.requestId,
-    timestamp: p.timestamp,
-  };
-}
-
-function normalizeEventSourceMessageReceived(
-  tabId: number,
-  sessionId: string,
-  p: RawEventSourceMessageReceived,
-): CdpNetworkEvent {
-  return {
-    method: 'Network.eventSourceMessageReceived',
-    tabId,
-    sessionId,
-    requestId: p.requestId,
-    timestamp: p.timestamp,
-    eventName: p.eventName,
-    eventId: p.eventId,
-    data: p.data,
-  };
-}
-
-// ── fetch-domain normalizer (control-input) ──────────────────────────
-
-function normalizeRequestPaused(tabId: number, sessionId: string, p: RawRequestPaused): CdpRequestPaused {
-  return {
-    method: 'Fetch.requestPaused',
-    tabId,
-    sessionId,
-    requestId: p.requestId,
-    request: normalizeRequest(p.request),
-    resourceType: p.resourceType,
-    ...(p.frameId !== undefined ? { frameId: p.frameId } : {}),
-    ...(p.networkId !== undefined ? { networkId: p.networkId } : {}),
-    // Response-stage fields — present only when the pause is the second
-    // (Response) stage of a request continued with `interceptResponse:true`.
-    ...(p.responseStatusCode !== undefined ? { responseStatusCode: p.responseStatusCode } : {}),
-    ...(p.responseStatusText !== undefined ? { responseStatusText: p.responseStatusText } : {}),
-    ...(p.responseHeaders !== undefined
-      ? { responseHeaders: p.responseHeaders.map((h) => ({ name: h.name, value: h.value })) }
-      : {}),
-    ...(p.responseErrorReason !== undefined ? { responseErrorReason: p.responseErrorReason } : {}),
-  };
-}
-
-function normalizeAuthRequired(tabId: number, sessionId: string, p: RawAuthRequired): CdpAuthRequired {
-  return {
-    method: 'Fetch.authRequired',
-    tabId,
-    sessionId,
-    requestId: p.requestId,
-    request: normalizeRequest(p.request),
-    resourceType: p.resourceType,
-    ...(p.frameId !== undefined ? { frameId: p.frameId } : {}),
-    authChallenge: {
-      // CDP marks `source` optional; default to `Server` (a 401), the
-      // common case, when the browser omits it.
-      source: p.authChallenge.source ?? 'Server',
-      origin: p.authChallenge.origin,
-      scheme: p.authChallenge.scheme,
-      realm: p.authChallenge.realm,
-    },
-  };
-}
-
-// ── runtime-domain parser (private fire-bridge) ──────────────────────
-
-/**
- * Parse a `Runtime.bindingCalled` payload into a routed fire, or `null` when it
- * is malformed. A page CAN call the fixed-name binding (the v1 fabrication gap),
- * so the payload is validated, never trusted blindly. `kind` is parsed but
- * dropped — the fire plane keys on `(tabId, ruleUid, url, t)`, mirroring the
- * un-armed postMessage path that relays only those to `tabFire`.
- */
-function parseBindingFire(tabId: number, payload: string): CdpBindingFire | null {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(payload);
-  } catch {
-    return null;
-  }
-  if (typeof parsed !== 'object' || parsed === null) return null;
-  const p = parsed as { ruleUid?: unknown; url?: unknown; t?: unknown };
-  if (typeof p.ruleUid !== 'string' || typeof p.url !== 'string' || typeof p.t !== 'number') return null;
-  return { tabId, ruleUid: p.ruleUid, url: p.url, t: p.t };
-}
-
-// ── page-domain normalizers (root target only) ───────────────────────
-
-function normalizeFrameNavigated(tabId: number, p: RawFrameNavigated): CdpPageEvent {
-  return {
-    method: 'Page.frameNavigated',
-    tabId,
-    sessionId: ROOT_SESSION_ID,
-    frame: normalizePageFrame(p.frame),
-  };
-}
-
-function normalizePageLifecycle(
-  method: 'Page.domContentEventFired' | 'Page.loadEventFired',
-  tabId: number,
-  p: RawPageLifecycleTimestamp,
-): CdpPageEvent {
-  return { method, tabId, sessionId: ROOT_SESSION_ID, timestamp: p.timestamp };
-}
-
-function normalizeFrameStoppedLoading(tabId: number, p: RawFrameStoppedLoading): CdpPageEvent {
-  // The protocol event carries no timestamp; the arrival wall-clock is the
-  // fact's instant (it feeds no timing math, only the teardown record).
-  return {
-    method: 'Page.frameStoppedLoading',
-    tabId,
-    sessionId: ROOT_SESSION_ID,
-    frameId: p.frameId,
-    atWallMs: Date.now(),
-  };
-}
-
-function normalizePageFrame(f: RawPageFrame): CdpPageFrame {
-  return {
-    id: f.id,
-    loaderId: f.loaderId,
-    url: f.url,
-    ...(f.parentId !== undefined ? { parentId: f.parentId } : {}),
-  };
-}
-
-function normalizeRequest(r: RawRequest): CdpRequestParams {
-  return {
-    url: r.url,
-    method: r.method,
-    ...(r.headers !== undefined ? { headers: r.headers } : {}),
-    ...(r.hasPostData !== undefined ? { hasPostData: r.hasPostData } : {}),
-    ...(r.postData !== undefined ? { postData: r.postData } : {}),
-    ...(r.initialPriority !== undefined ? { initialPriority: r.initialPriority } : {}),
-  };
-}
-
-function normalizeResponse(r: RawResponse): CdpResponseParams {
-  return {
-    url: r.url,
-    status: r.status,
-    statusText: r.statusText,
-    ...(r.headers !== undefined ? { headers: r.headers } : {}),
-    ...(r.fromDiskCache !== undefined ? { fromDiskCache: r.fromDiskCache } : {}),
-    ...(r.fromServiceWorker !== undefined ? { fromServiceWorker: r.fromServiceWorker } : {}),
-    ...(r.remoteIPAddress !== undefined ? { remoteIPAddress: r.remoteIPAddress } : {}),
-    ...(r.remotePort !== undefined ? { remotePort: r.remotePort } : {}),
-    ...(r.connectionId !== undefined ? { connectionId: r.connectionId } : {}),
-    ...(r.protocol !== undefined ? { protocol: r.protocol } : {}),
-    ...(r.mimeType !== undefined ? { mimeType: r.mimeType } : {}),
-    ...(r.charset !== undefined ? { charset: r.charset } : {}),
-    ...(r.timing !== undefined ? { timing: normalizeTiming(r.timing) } : {}),
-    ...(r.encodedDataLength !== undefined ? { encodedDataLength: r.encodedDataLength } : {}),
-  };
-}
-
-function normalizeTiming(t: RawResourceTiming): CdpResourceTiming {
-  return {
-    requestTime: t.requestTime,
-    ...(t.proxyStart !== undefined ? { proxyStart: t.proxyStart } : {}),
-    ...(t.proxyEnd !== undefined ? { proxyEnd: t.proxyEnd } : {}),
-    ...(t.dnsStart !== undefined ? { dnsStart: t.dnsStart } : {}),
-    ...(t.dnsEnd !== undefined ? { dnsEnd: t.dnsEnd } : {}),
-    ...(t.connectStart !== undefined ? { connectStart: t.connectStart } : {}),
-    ...(t.connectEnd !== undefined ? { connectEnd: t.connectEnd } : {}),
-    ...(t.sslStart !== undefined ? { sslStart: t.sslStart } : {}),
-    ...(t.sslEnd !== undefined ? { sslEnd: t.sslEnd } : {}),
-    ...(t.sendStart !== undefined ? { sendStart: t.sendStart } : {}),
-    ...(t.sendEnd !== undefined ? { sendEnd: t.sendEnd } : {}),
-    ...(t.receiveHeadersStart !== undefined ? { receiveHeadersStart: t.receiveHeadersStart } : {}),
-    ...(t.receiveHeadersEnd !== undefined ? { receiveHeadersEnd: t.receiveHeadersEnd } : {}),
-    ...(t.workerStart !== undefined ? { workerStart: t.workerStart } : {}),
-    ...(t.workerReady !== undefined ? { workerReady: t.workerReady } : {}),
-    ...(t.workerFetchStart !== undefined ? { workerFetchStart: t.workerFetchStart } : {}),
-    ...(t.workerRespondWithSettled !== undefined ? { workerRespondWithSettled: t.workerRespondWithSettled } : {}),
-  };
-}
-
-function normalizeInitiator(i: RawInitiator): CdpInitiator {
-  return {
-    type: normalizeInitiatorType(i.type),
-    ...(i.url !== undefined ? { url: i.url } : {}),
-    ...(i.lineNumber !== undefined ? { lineNumber: i.lineNumber } : {}),
-    ...(i.columnNumber !== undefined ? { columnNumber: i.columnNumber } : {}),
-    ...(i.stack !== undefined ? { stack: normalizeStackTrace(i.stack) } : {}),
-  };
-}
-
-function normalizeStackTrace(s: RawStackTrace): CdpStackTrace {
-  return {
-    ...(s.description !== undefined ? { description: s.description } : {}),
-    callFrames: s.callFrames.map(normalizeCallFrame),
-    ...(s.parent !== undefined ? { parent: normalizeStackTrace(s.parent) } : {}),
-  };
-}
-
-function normalizeCallFrame(f: RawCallFrame): CdpCallFrame {
-  return {
-    functionName: f.functionName,
-    scriptId: f.scriptId,
-    url: f.url,
-    lineNumber: f.lineNumber,
-    columnNumber: f.columnNumber,
-  };
-}
-
-/** Clamp the CDP initiator type onto the oracle's known union. */
-function normalizeInitiatorType(type: string): CdpInitiator['type'] {
-  switch (type) {
-    case 'parser':
-    case 'script':
-    case 'preload':
-    case 'SignedExchange':
-    case 'preflight':
-      return type;
-    default:
-      return 'other';
   }
 }
 
