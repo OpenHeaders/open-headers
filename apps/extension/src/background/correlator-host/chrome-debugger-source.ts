@@ -305,9 +305,10 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
     }
     this.attachedTabs.add(tabId);
     await this.enableNetwork({ tabId });
-    // Page domain on the root target only — the main frame's navigation +
-    // load lifecycle is the page-timing source; child targets never carry
-    // page-level events.
+    // The root's main-frame navigation + load lifecycle is the page-timing
+    // source. Page is also enabled on iframe children (handleTargetAttached)
+    // for Page-plane control delivery, but the event router fans page timings
+    // from the root session alone, so child Page.* never enters the feed.
     await this.enablePage({ tabId });
     await this.enableAutoAttach({ tabId });
     // Seed the main-frame registry before any navigation: the first
@@ -391,8 +392,10 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
       return;
     }
     if (method.startsWith('Page.')) {
-      // Page lifecycle is enabled on the root target only (page timings are
-      // a main-frame concern); a child session never carries these.
+      // Page timings are a main-frame concern, sourced from the root session
+      // alone. An iframe child also has Page enabled (for control delivery),
+      // so it can emit Page.* — drop those here so page-timing stays
+      // root-sourced.
       if (source.sessionId === undefined && params !== undefined) this.handlePageEvent(method, tabId, params);
       return;
     }
@@ -523,6 +526,12 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
     const session = { tabId, sessionId: childSessionId };
     void this.enableNetwork(session);
     void this.enableAutoAttach(session);
+    // An OOPIF is page-like (has a Page domain): enable it so the fanned
+    // Page-plane state (E1b bootstrap, E2 CSP bypass) lands inside the iframe,
+    // not just the main frame — queued before `applyChild` runs so the enable
+    // precedes those Page commands. Workers have no Page domain (Network-only);
+    // child Page.* stays out of page-timing (the router fans the root alone).
+    if (params.targetInfo.type === 'iframe') void this.enablePage(session);
     for (const listener of this.childAttachListeners) listener(tabId, childSessionId);
   }
 

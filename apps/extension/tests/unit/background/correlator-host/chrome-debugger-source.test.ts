@@ -563,6 +563,37 @@ describe('ChromeDebuggerEventSource — attach handshake + child sessions (B1)',
     expect(out[1]?.requestId).toBe('r-1');
   });
 
+  it('enables the Page domain on a kept iframe child (Page-plane control delivery into the OOPIF)', async () => {
+    source = new ChromeDebuggerEventSource();
+    await source.attach(TAB);
+
+    emitRoot('Target.attachedToTarget', attachedToTarget(CHILD_SESSION, 'iframe'));
+
+    // An OOPIF is page-like, so the fanned bootstrap / bypassCSP commands need
+    // its Page domain enabled to land — distinct from the root's Page.enable.
+    const childPageEnable = chromeMock.debugger.sendCommand.mock.calls.find(
+      (c) => c[1] === 'Page.enable' && (c[0] as chrome.debugger.DebuggerSession).sessionId === CHILD_SESSION,
+    );
+    expect(childPageEnable).toBeDefined();
+  });
+
+  it('does not enable the Page domain on a kept worker child (no Page domain)', async () => {
+    const WORKER_SESSION = 'child-worker-1';
+    source = new ChromeDebuggerEventSource();
+    await source.attach(TAB);
+
+    emitRoot('Target.attachedToTarget', attachedToTarget(WORKER_SESSION, 'worker'));
+
+    const onWorker = (method: string) =>
+      chromeMock.debugger.sendCommand.mock.calls.find(
+        (c) => c[1] === method && (c[0] as chrome.debugger.DebuggerSession).sessionId === WORKER_SESSION,
+      );
+    // The worker is kept for Network interception (Fetch reach) but gets no
+    // Page plane — its wrapper delivery is a separate, deferred mechanism.
+    expect(onWorker('Network.enable')).toBeDefined();
+    expect(onWorker('Page.enable')).toBeUndefined();
+  });
+
   it('does not enable Network on a service_worker child and drops its events (filter)', async () => {
     source = new ChromeDebuggerEventSource();
     const out: CdpNetworkEvent[] = [];
