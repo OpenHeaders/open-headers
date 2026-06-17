@@ -1,6 +1,6 @@
 /**
  * The toolbar's Chrome-style debug-controls cluster: "Disable cache" + the
- * network-throttle dropdown + the environment overrides, side by side. Derives
+ * network-throttle dropdown + the system overrides, side by side. Derives
  * the shared "Enable Debug mode" action all controls' (i) popovers offer.
  *
  * The cache toggle always renders (its DNR path works on every host). The
@@ -42,21 +42,29 @@ export const DebugControlsCluster: React.FC<DebugControlsClusterProps> = ({
         onEnableDebug={onEnableDebug}
       />
       {throttle.hasCdpCapability && (
-        <NetworkThrottleControl
-          profileKey={throttle.profileKey}
-          conditions={throttle.conditions}
-          setConditions={throttle.setConditions}
-          cdpOwned={throttle.cdpOwned}
-          onEnableDebug={onEnableDebug}
-        />
+        <>
+          {/* Each control is its own group — a divider before the throttle dropdown. */}
+          <div className="dt-toolbar-separator" />
+          <NetworkThrottleControl
+            profileKey={throttle.profileKey}
+            conditions={throttle.conditions}
+            setConditions={throttle.setConditions}
+            cdpOwned={throttle.cdpOwned}
+            onEnableDebug={onEnableDebug}
+          />
+        </>
       )}
       {overrides.hasCdpCapability && (
-        <OverridesControl
-          overrides={overrides.overrides}
-          setOverrides={overrides.setOverrides}
-          cdpOwned={overrides.cdpOwned}
-          onEnableDebug={onEnableDebug}
-        />
+        <>
+          {/* …and a divider before the system overrides. */}
+          <div className="dt-toolbar-separator" />
+          <OverridesControl
+            overrides={overrides.overrides}
+            setOverrides={overrides.setOverrides}
+            cdpOwned={overrides.cdpOwned}
+            onEnableDebug={onEnableDebug}
+          />
+        </>
       )}
     </div>
   );

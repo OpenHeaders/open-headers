@@ -1,6 +1,6 @@
 /**
- * Per-tab environment-overrides store — the background half of the panel's
- * User-Agent / environment controls (CDP Control Plane, Phase F3).
+ * Per-tab system-overrides store — the background half of the panel's
+ * User-Agent / system controls (CDP Control Plane, Phase F3).
  *
  * Like the throttle store and unlike the cache toggle there is NO fallback:
  * `Network.setUserAgentOverride` (and the F3b `Emulation.*` facets) are CDP-only,
@@ -20,13 +20,13 @@
  * instead of waiting for the next re-attach.
  */
 
-import { readTabEnvironmentOverrides, type TabEnvironmentOverrides } from '@openheaders/core/types';
+import { readTabSystemOverrides, type TabSystemOverrides } from '@openheaders/core/types';
 import { logger } from '@utils/logger';
 
 const STORAGE_KEY = 'cdp.tabOverrides';
 
-/** Per-tab desired environment overrides. Absent = no overrides. */
-const overrides = new Map<number, TabEnvironmentOverrides>();
+/** Per-tab desired system overrides. Absent = no overrides. */
+const overrides = new Map<number, TabSystemOverrides>();
 
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
 /** Registered by the lifecycle pipeline — re-applies a tab's standing CDP
@@ -38,7 +38,7 @@ function getSessionStorage(): chrome.storage.StorageArea | null {
   return chrome.storage.session;
 }
 
-export function getTabOverridesForTab(tabId: number): TabEnvironmentOverrides | null {
+export function getTabOverridesForTab(tabId: number): TabSystemOverrides | null {
   return overrides.get(tabId) ?? null;
 }
 
@@ -56,12 +56,12 @@ export function registerTabOverridesReplay(replay: (tabId: number) => void): voi
 }
 
 /**
- * Set (or clear, with `null`) a tab's environment overrides. Updates the
+ * Set (or clear, with `null`) a tab's system overrides. Updates the
  * in-memory map first so a triggered replay re-derives the new value, persists
  * the change, then replays the tab so an in-scope attachment applies it
  * immediately.
  */
-export function setTabOverridesForTab(tabId: number, value: TabEnvironmentOverrides | null): void {
+export function setTabOverridesForTab(tabId: number, value: TabSystemOverrides | null): void {
   if (value === null) overrides.delete(tabId);
   else overrides.set(tabId, value);
   schedulePersist();
@@ -88,7 +88,7 @@ function schedulePersist(): void {
 async function persistNow(): Promise<void> {
   const session = getSessionStorage();
   if (!session) return;
-  const obj: Record<string, TabEnvironmentOverrides> = {};
+  const obj: Record<string, TabSystemOverrides> = {};
   for (const [tabId, value] of overrides.entries()) obj[String(tabId)] = value;
   try {
     await session.set({ [STORAGE_KEY]: obj });
@@ -112,7 +112,7 @@ export async function rehydrateTabOverridesFromSession(): Promise<void> {
     if (!raw || typeof raw !== 'object') return;
     for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
       const tabId = Number(key);
-      const parsed = readTabEnvironmentOverrides(value);
+      const parsed = readTabSystemOverrides(value);
       if (Number.isInteger(tabId) && tabId > 0 && parsed) overrides.set(tabId, parsed);
     }
     if (overrides.size > 0) {

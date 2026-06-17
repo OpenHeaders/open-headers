@@ -1,5 +1,5 @@
 /**
- * `useTabOverrides` — state + lifecycle for the panel's environment-override
+ * `useTabOverrides` — state + lifecycle for the panel's system-override
  * controls (CDP Control Plane, Phase F3). Surfaces the full override bag — the
  * UA triple (F3a) plus the `Emulation.*` facets locale / timezone / media (F3b).
  *
@@ -15,21 +15,21 @@
  * so the hook exposes a single `setOverrides(next)` write rather than per-facet
  * setters: the draft (seeded from the current bag on open) is what prevents one
  * facet's edit from clobbering another. `setOverrides` normalizes through
- * {@link readTabEnvironmentOverrides} so the optimistic state matches what the SW
+ * {@link readTabSystemOverrides} so the optimistic state matches what the SW
  * will store (empty facets dropped, an all-empty bag collapsed to `null`).
  */
 
 import { hostBridge } from '@openheaders/core/bridge';
 import { hostNavigation } from '@openheaders/core/navigation';
-import { readTabEnvironmentOverrides, type TabEnvironmentOverrides } from '@openheaders/core/types';
+import { readTabSystemOverrides, type TabSystemOverrides } from '@openheaders/core/types';
 import { useCallback, useEffect, useState } from 'react';
 import { useInspectedTabCdp } from './use-inspected-tab-cdp';
 
 export interface UseTabOverridesResult {
-  /** The active override bag, or `null` when the tab uses its real environment. */
-  overrides: TabEnvironmentOverrides | null;
+  /** The active override bag, or `null` when the tab uses its real system. */
+  overrides: TabSystemOverrides | null;
   /** Replace the whole override bag (or `null` to clear all). Writes through to the SW. */
-  setOverrides: (next: TabEnvironmentOverrides | null) => void;
+  setOverrides: (next: TabSystemOverrides | null) => void;
   /** The inspected tab is CDP-controlled — overrides are operable (no fallback). */
   cdpOwned: boolean;
   /** Whether the Debug-mode master switch is on (for the dormant tooltip copy). */
@@ -40,7 +40,7 @@ export interface UseTabOverridesResult {
 
 export function useTabOverrides(): UseTabOverridesResult {
   const { hasCdpCapability, cdpEnabled, cdpOwned } = useInspectedTabCdp();
-  const [overrides, setOverridesState] = useState<TabEnvironmentOverrides | null>(null);
+  const [overrides, setOverridesState] = useState<TabSystemOverrides | null>(null);
 
   // Read the SW's stored overrides once on mount — they are authoritative and
   // outlive this panel, so the control must reflect them rather than reset.
@@ -59,11 +59,11 @@ export function useTabOverrides(): UseTabOverridesResult {
     };
   }, []);
 
-  const setOverrides = useCallback((next: TabEnvironmentOverrides | null) => {
+  const setOverrides = useCallback((next: TabSystemOverrides | null) => {
     const tabId = hostNavigation.inspectedTabId();
     if (tabId == null) return;
     // Collapse empties exactly as the SW will, so the optimistic state is the truth.
-    const normalized = readTabEnvironmentOverrides(next);
+    const normalized = readTabSystemOverrides(next);
     setOverridesState(normalized);
     void hostBridge.call('setTabOverrides', { tabId, overrides: normalized }).catch(() => {});
   }, []);

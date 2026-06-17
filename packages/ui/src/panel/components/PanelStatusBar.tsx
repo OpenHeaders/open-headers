@@ -170,9 +170,8 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
           </span>
         )}
 
-        {/* This-navigation milestones — divider keeps them legibly apart
-            from the cumulative counts so Finish reads as per-page. */}
-        {hasTiming && <div className="rules-statusbar-divider" style={{ background: token.colorBorderSecondary }} />}
+        {/* This-navigation milestones. The per-item dividers (panel-shell.css)
+            already separate Finish from the cumulative counts. */}
         {finishTime && <span className="rules-statusbar-item">Finish: {finishTime}</span>}
         {dclText && (
           <span className="rules-statusbar-item" style={{ color: '#1a73e8' }} title="DOMContentLoaded">
@@ -219,7 +218,7 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
                 })) as MenuProps['items'],
               }}
               placement="topRight"
-              trigger={['click']}
+              trigger={['hover']}
             >
               <div
                 className="rules-statusbar-item"

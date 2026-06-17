@@ -1,6 +1,6 @@
 /**
  * Compose an in-scope tab's standing {@link CdpTabControlState} from its live
- * rules plus the per-tab cache toggle, throttle profile, and environment
+ * rules plus the per-tab cache toggle, throttle profile, and system
  * overrides — the pure assembly `deriveState` (lifecycle-pipeline) runs once a
  * tab is confirmed in scope. The host meeting point: it folds the network plane
  * ({@link compileFetchPatterns} → `Fetch.enable`), the delivery plane
@@ -28,7 +28,7 @@
 
 import type { Rule } from '@openheaders/core/types';
 import {
-  type CdpEnvironmentOverrides,
+  type CdpSystemOverrides,
   type CdpNetworkConditions,
   type CdpTabControlState,
   EMPTY_TAB_CONTROL_STATE,
@@ -38,7 +38,7 @@ import { compileFetchPatterns } from './cdp-fetch-patterns';
 
 /**
  * The standing CDP control state for an in-scope tab with these live rules,
- * cache toggle, throttle profile, and environment overrides. Returns
+ * cache toggle, throttle profile, and system overrides. Returns
  * {@link EMPTY_TAB_CONTROL_STATE} only when the tab contributes nothing on any
  * plane — no Fetch pattern, no bootstrap script, no CSP bypass, no cache
  * disable, no throttle, and no overrides.
@@ -48,7 +48,7 @@ export function deriveTabControlState(
   options: {
     readonly cacheDisabled?: boolean;
     readonly networkConditions?: CdpNetworkConditions | null;
-    readonly overrides?: CdpEnvironmentOverrides | null;
+    readonly overrides?: CdpSystemOverrides | null;
   } = {},
 ): CdpTabControlState {
   const fetchPatterns = compileFetchPatterns(rules);
@@ -68,7 +68,7 @@ export function deriveTabControlState(
   // path), so a throttle-only tab must not collapse to EMPTY or its profile is
   // silently lost. `null` = no throttle.
   const networkConditions = options.networkConditions ?? null;
-  // Environment overrides is a SIXTH independent plane — also not rule-derived:
+  // System overrides is a SIXTH independent plane — also not rule-derived:
   // the per-tab UA / (F3b) Emulation overrides. Like throttle it has NO
   // banner-free fallback (CDP-only), so an overrides-only tab must not collapse
   // to EMPTY or its overrides are silently lost. `null` = no overrides.

@@ -1,6 +1,6 @@
 /** Rule + rule-collection/folder CRUD, drafts, cache-bypass, and throttle RPCs. */
 
-import { readNetworkThrottleConditions, readTabEnvironmentOverrides, type TreeNode } from '@openheaders/core/types';
+import { readNetworkThrottleConditions, readTabSystemOverrides, type TreeNode } from '@openheaders/core/types';
 import { createRuleDraft, takeRuleDraft } from '@openheaders/oracle/entity/rule-draft-store';
 import {
   createCollection,
@@ -104,7 +104,7 @@ export const ruleHandlers: HandlerMap = {
     const tabId = message.tabId as number;
     // Validate the untrusted payload before it reaches the override plane — an
     // unparseable / absent / all-empty bag clears any active overrides.
-    const overrides = readTabEnvironmentOverrides(message.overrides);
+    const overrides = readTabSystemOverrides(message.overrides);
     setTabOverridesForTab(tabId, overrides);
     respond({ success: true });
   },

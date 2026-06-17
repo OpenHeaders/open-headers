@@ -12,6 +12,7 @@ import {
 } from '@openheaders/ui/shared/dock-layout';
 import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-scope-view-state';
 import { instanceLabel, instanceLabelPlural } from '@openheaders/ui/shared/host-vocabulary';
+import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 import EnvironmentSelector from '@openheaders/ui/workbench/components/EnvironmentSelector';
 import { useIsModified, useResetSetting, useSetting, useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
@@ -23,7 +24,9 @@ import { PANEL_TOOL_WINDOW_MAP, type PanelToolWindowId } from '../data/tool-wind
 import type { PanelViewState } from '../data/use-panel-tool-layout';
 import { DebugControlsCluster } from './DebugControlsCluster';
 import { PanelWorkspaceSelector } from './PanelWorkspaceSelector';
+import { PRESERVE_LOG_INFO } from './preserve-log-info';
 import { RuleExecutionsHint } from './RuleExecutions';
+import { MORE_FILTERS_INFO, VIEW_INFO } from './toolbar-menu-info';
 import { ToolbarMenuPopover } from './ToolbarMenuPopover';
 
 type SidebarLayoutVariantSetting = 'proportional' | 'compact' | 'stacked' | 'dynamic';
@@ -188,19 +191,22 @@ function ViewMenu() {
   const resetPageContext = useResetSetting('devpanelLayout.footerShowPageContext');
   const resetTimingMode = useResetSetting('devpanelLayout.footerTimingMode');
   // Reset is offered only when something actually differs from the defaults.
-  const anyModified =
-    useIsModified('devpanelLayout.footerShowModified') ||
-    useIsModified('devpanelLayout.footerShowFailed') ||
-    useIsModified('devpanelLayout.footerShowCached') ||
-    useIsModified('devpanelLayout.footerShowPageContext') ||
-    useIsModified('devpanelLayout.footerTimingMode');
+  // Each hook is called unconditionally and folded afterwards — chaining the
+  // calls through `||` directly would short-circuit once one is true, skipping
+  // the rest and changing the hook count between renders (React error #300).
+  const modifiedDirty = useIsModified('devpanelLayout.footerShowModified');
+  const failedDirty = useIsModified('devpanelLayout.footerShowFailed');
+  const cachedDirty = useIsModified('devpanelLayout.footerShowCached');
+  const pageContextDirty = useIsModified('devpanelLayout.footerShowPageContext');
+  const timingModeDirty = useIsModified('devpanelLayout.footerTimingMode');
+  const anyModified = modifiedDirty || failedDirty || cachedDirty || pageContextDirty || timingModeDirty;
 
   const flags = [showModified, showFailed, showCached, showPageContext];
   const activeCount = flags.reduce((n, v) => n + (v ? 1 : 0), 0);
 
   return (
     <ToolbarMenuPopover
-      label="View"
+      label="Footer View"
       activeCount={activeCount}
       active={false}
       placement="bottomLeft"
@@ -559,6 +565,7 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
       </div>
       <div className="dt-header-rows">
         <div className="dt-toolbar">
+          <div className="dt-toolbar-left">
           <button
             type="button"
             className="dt-toolbar-icon dt-toolbar-icon--record"
@@ -591,13 +598,37 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
             <IconSearch />
           </button>
           <div className="dt-toolbar-separator" />
-          <label className="dt-checkbox" title="Keep requests across page navigations. Off clears the list on each navigation or reload, like the browser's own Network panel.">
-            <input type="checkbox" checked={preserveLog} onChange={(e) => onPreserveLogChange(e.target.checked)} />
-            Preserve log
-          </label>
+          <span className="dt-debug-control">
+            <label className="dt-checkbox" title="Keep requests across page navigations. Off clears the list on each navigation or reload, like the browser's own Network panel.">
+              <input type="checkbox" checked={preserveLog} onChange={(e) => onPreserveLogChange(e.target.checked)} />
+              Preserve log
+            </label>
+            <InfoTrigger
+              content={PRESERVE_LOG_INFO}
+              className="dt-header-info-trigger dt-debug-info-trigger"
+              ariaLabel="About Preserve log"
+            />
+          </span>
+          <div className="dt-toolbar-separator" />
           <DebugControlsCluster cacheBypassEnabled={cacheBypassEnabled} onToggleCacheBypass={onToggleCacheBypass} />
-          <MoreFiltersMenu filterConfig={filterConfig} onFilterConfigChange={onFilterConfigChange} />
-          <ViewMenu />
+          <div className="dt-toolbar-separator" />
+          <span className="dt-debug-control">
+            <MoreFiltersMenu filterConfig={filterConfig} onFilterConfigChange={onFilterConfigChange} />
+            <InfoTrigger
+              content={MORE_FILTERS_INFO}
+              className="dt-header-info-trigger dt-debug-info-trigger"
+              ariaLabel="About More filters"
+            />
+          </span>
+          <div className="dt-toolbar-separator" />
+          <span className="dt-debug-control">
+            <ViewMenu />
+            <InfoTrigger
+              content={VIEW_INFO}
+              className="dt-header-info-trigger dt-debug-info-trigger"
+              ariaLabel="About Footer View"
+            />
+          </span>
           <div className="dt-toolbar-separator" />
           <ExportMenu onExport={onExportHar} onCopy={onCopyAllHar} disabled={!canExport} />
           {rulesVisible && (
@@ -606,7 +637,8 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
               <RuleExecutionsHint />
             </>
           )}
-          <div className="dt-toolbar-spacer" />
+          </div>
+          <div className="dt-toolbar-right">
           <PanelWorkspaceSelector />
           <EnvironmentSelector
             environments={environments}
@@ -751,6 +783,7 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
               <SettingOutlined style={{ fontSize: 14 }} />
             </button>
           </Tooltip>
+          </div>
         </div>
       </div>
       <div className={`dt-brand-spacer${showToolWindowLabels ? '' : ' dt-brand-spacer--compact'}`} aria-hidden="true" />

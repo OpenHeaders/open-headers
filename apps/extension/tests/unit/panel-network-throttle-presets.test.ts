@@ -13,21 +13,30 @@ import {
 import { describe, expect, it } from 'vitest';
 
 describe('conditionsForPreset', () => {
-  it('returns the documented Slow 3G figures', () => {
-    expect(conditionsForPreset('slow-3g')).toEqual({
+  it('returns the documented Fast 4G figures', () => {
+    expect(conditionsForPreset('fast-4g')).toEqual({
       offline: false,
-      latencyMs: 2000,
-      downloadThroughputBps: 50000,
-      uploadThroughputBps: 50000,
+      latencyMs: 165,
+      downloadThroughputBps: 1012500,
+      uploadThroughputBps: 168750,
     });
   });
 
-  it('returns the documented Fast 3G figures', () => {
-    expect(conditionsForPreset('fast-3g')).toEqual({
+  it('returns the documented Slow 4G figures', () => {
+    expect(conditionsForPreset('slow-4g')).toEqual({
       offline: false,
       latencyMs: 562.5,
       downloadThroughputBps: 180000,
       uploadThroughputBps: 84375,
+    });
+  });
+
+  it('returns the documented 3G figures', () => {
+    expect(conditionsForPreset('3g')).toEqual({
+      offline: false,
+      latencyMs: 2000,
+      downloadThroughputBps: 50000,
+      uploadThroughputBps: 50000,
     });
   });
 
@@ -65,8 +74,9 @@ describe('profileLabel', () => {
   });
 
   it('labels the named presets', () => {
-    expect(profileLabel('slow-3g')).toBe('Slow 3G');
-    expect(profileLabel('fast-3g')).toBe('Fast 3G');
+    expect(profileLabel('fast-4g')).toBe('Fast 4G');
+    expect(profileLabel('slow-4g')).toBe('Slow 4G');
+    expect(profileLabel('3g')).toBe('3G');
     expect(profileLabel('offline')).toBe('Offline');
   });
 });

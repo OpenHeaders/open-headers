@@ -115,7 +115,7 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   // Cache, conditions, and overrides are the three standing-state inputs that
   // are NOT rule-derived: the per-tab "disable cache" toggle (DNR cache-bypass
   // module), the per-tab throttle profile (network-conditions module), and the
-  // per-tab environment overrides (tab-overrides module) — read here and threaded
+  // per-tab system overrides (tab-overrides module) — read here and threaded
   // into the derive so each joins the all-empty guard. The DNR cache rule stays
   // installed as the un-armed/detached fallback; throttle and overrides have NO
   // such fallback, so they only live while the tab is in scope.

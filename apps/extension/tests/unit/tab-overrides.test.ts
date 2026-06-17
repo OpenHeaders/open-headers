@@ -1,5 +1,5 @@
 /**
- * Tab-overrides module — per-tab environment-override store backing the panel's
+ * Tab-overrides module — per-tab system-override store backing the panel's
  * User-Agent control (CDP Control Plane, Phase F3). Covers the in-memory map,
  * the apply-now replay seam, the `chrome.storage.session` persistence
  * round-trip, and SW-wake rehydration.
@@ -11,7 +11,7 @@ vi.mock('@utils/logger', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-import type { TabEnvironmentOverrides } from '@openheaders/core/types';
+import type { TabSystemOverrides } from '@openheaders/core/types';
 import {
   __resetTabOverridesForTests,
   forgetTabOverridesForTab,
@@ -22,7 +22,7 @@ import {
   setTabOverridesForTab,
 } from '@/background/modules/tab-overrides';
 
-const UA: TabEnvironmentOverrides = { userAgent: 'Test-Agent/1.0 (openheaders.io)' };
+const UA: TabSystemOverrides = { userAgent: 'Test-Agent/1.0 (openheaders.io)' };
 
 const STORAGE_KEY = 'cdp.tabOverrides';
 

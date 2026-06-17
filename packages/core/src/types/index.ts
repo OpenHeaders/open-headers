@@ -6,7 +6,7 @@ export type {
   CdpScopeMode,
   NetworkThrottleConditions,
   TabEmulatedMedia,
-  TabEnvironmentOverrides,
+  TabSystemOverrides,
 } from './cdp';
 export {
   cdpRosterTabSchema,
@@ -15,9 +15,9 @@ export {
   readCdpPinnedTabs,
   readCdpRoster,
   readNetworkThrottleConditions,
-  readTabEnvironmentOverrides,
+  readTabSystemOverrides,
   tabEmulatedMediaSchema,
-  tabEnvironmentOverridesSchema,
+  tabSystemOverridesSchema,
 } from './cdp';
 // ── Collection ─────────────────────────────────────────────────────
 export type {

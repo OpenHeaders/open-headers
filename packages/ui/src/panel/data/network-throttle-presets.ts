@@ -4,41 +4,112 @@
  * the service worker only stores whatever conditions it is handed, so adding /
  * tuning a preset is a UI-only change.
  *
- * Throughputs are bytes/second. The 3G figures are the widely-used effective
- * values (nominal link speed scaled by a real-world utilisation factor):
- * Slow 3G ≈ 400 kbit/s, Fast 3G ≈ 1.44 Mbit/s down. `null` conditions mean
- * "no throttling" — the dropdown's default.
+ * Throughputs are bytes/second. The mobile defaults (Fast 4G / Slow 4G / 3G)
+ * mirror the browser's own presets; the "More presets" submenu adds wired
+ * profiles (fiber / cable / DSL) and further mobile tiers (5G / 2G). All are
+ * effective values — nominal link speed scaled by a real-world utilisation
+ * factor. `null` conditions mean "no throttling" — the dropdown's default.
  */
 
 import type { NetworkThrottleConditions } from '@openheaders/core/types';
 
-export type ThrottleProfileKey = 'none' | 'offline' | 'slow-3g' | 'fast-3g' | 'custom';
+export type ThrottlePresetKey =
+  | 'offline'
+  | 'fiber'
+  | 'cable'
+  | 'dsl'
+  | 'fast-5g'
+  | 'slow-5g'
+  | 'fast-4g'
+  | 'slow-4g'
+  | '3g'
+  | 'fast-2g'
+  | 'slow-2g';
+
+export type ThrottleProfileKey = 'none' | 'custom' | ThrottlePresetKey;
 
 export interface ThrottlePreset {
-  readonly key: 'offline' | 'slow-3g' | 'fast-3g';
+  readonly key: ThrottlePresetKey;
   readonly label: string;
+  /** `common` presets show directly; `wired` / `mobile` live in the "More presets" submenu. */
+  readonly group: 'common' | 'wired' | 'mobile';
   readonly conditions: NetworkThrottleConditions;
 }
 
 export const NO_THROTTLE_LABEL = 'No throttling';
 export const CUSTOM_LABEL = 'Custom';
 
-/** The named presets, in dropdown order under the "Presets" group. */
+/** Every named preset. `common` ones surface directly; `wired` / `mobile` ones
+ *  sit under the "More presets" submenu, in this order within each group. */
 export const THROTTLE_PRESETS: readonly ThrottlePreset[] = [
+  // Common — the everyday mobile defaults (browser-matched values).
   {
-    key: 'slow-3g',
-    label: 'Slow 3G',
-    conditions: { offline: false, latencyMs: 2000, downloadThroughputBps: 50000, uploadThroughputBps: 50000 },
+    key: 'fast-4g',
+    label: 'Fast 4G',
+    group: 'common',
+    conditions: { offline: false, latencyMs: 165, downloadThroughputBps: 1012500, uploadThroughputBps: 168750 },
   },
   {
-    key: 'fast-3g',
-    label: 'Fast 3G',
+    key: 'slow-4g',
+    label: 'Slow 4G',
+    group: 'common',
     conditions: { offline: false, latencyMs: 562.5, downloadThroughputBps: 180000, uploadThroughputBps: 84375 },
+  },
+  {
+    key: '3g',
+    label: '3G',
+    group: 'common',
+    conditions: { offline: false, latencyMs: 2000, downloadThroughputBps: 50000, uploadThroughputBps: 50000 },
   },
   {
     key: 'offline',
     label: 'Offline',
+    group: 'common',
     conditions: { offline: true, latencyMs: 0, downloadThroughputBps: 0, uploadThroughputBps: 0 },
+  },
+  // Wired / broadband.
+  {
+    key: 'fiber',
+    label: 'Fiber',
+    group: 'wired',
+    conditions: { offline: false, latencyMs: 2, downloadThroughputBps: 62500000, uploadThroughputBps: 62500000 },
+  },
+  {
+    key: 'cable',
+    label: 'Cable',
+    group: 'wired',
+    conditions: { offline: false, latencyMs: 8, downloadThroughputBps: 25000000, uploadThroughputBps: 2500000 },
+  },
+  {
+    key: 'dsl',
+    label: 'DSL',
+    group: 'wired',
+    conditions: { offline: false, latencyMs: 25, downloadThroughputBps: 2500000, uploadThroughputBps: 625000 },
+  },
+  // Mobile — the faster (5G) and slower (2G) tiers around the defaults.
+  {
+    key: 'fast-5g',
+    label: 'Fast 5G',
+    group: 'mobile',
+    conditions: { offline: false, latencyMs: 8, downloadThroughputBps: 12500000, uploadThroughputBps: 3750000 },
+  },
+  {
+    key: 'slow-5g',
+    label: 'Slow 5G',
+    group: 'mobile',
+    conditions: { offline: false, latencyMs: 18, downloadThroughputBps: 3750000, uploadThroughputBps: 1250000 },
+  },
+  {
+    key: 'fast-2g',
+    label: 'Fast 2G',
+    group: 'mobile',
+    conditions: { offline: false, latencyMs: 2000, downloadThroughputBps: 35000, uploadThroughputBps: 12500 },
+  },
+  {
+    key: 'slow-2g',
+    label: 'Slow 2G',
+    group: 'mobile',
+    conditions: { offline: false, latencyMs: 3000, downloadThroughputBps: 12500, uploadThroughputBps: 6250 },
   },
 ];
 

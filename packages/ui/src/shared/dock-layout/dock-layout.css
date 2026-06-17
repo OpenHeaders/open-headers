@@ -1096,10 +1096,15 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   padding: 2px 12px;
   font-size: 11px;
   flex-shrink: 0;
   height: 24px;
+  /* Strict single row when the panel is narrow (e.g. docked to a sidebar): the
+     left metrics group gives up width and clips its overflow; the right group
+     (status pills + Debug toggle) never shrinks, so it stays fully visible. */
+  overflow: hidden;
 }
 
 .rules-statusbar-left,
@@ -1109,11 +1114,26 @@
   gap: 14px;
 }
 
+/* Informational metrics — shrink first and clip what doesn't fit. */
+.rules-statusbar-left {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Status pills / controls — never shrink, always visible. */
+.rules-statusbar-right {
+  flex: 0 0 auto;
+}
+
 .rules-statusbar-item {
   display: flex;
   align-items: center;
   gap: 4px;
   cursor: default;
+  /* Each metric stays on one line; the left group clips rather than wrapping. */
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .rules-statusbar-divider {

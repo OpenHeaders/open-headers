@@ -18,6 +18,8 @@
   padding: 0 4px;
   height: 26px;
   min-height: 26px;
+  min-width: 0;
+  overflow: hidden;
   background: var(--dt-frame-bg);
 }
 
@@ -95,15 +97,26 @@
   flex-shrink: 0;
 }
 
-/* Pushes everything after it to the right edge of the toolbar — used
- * to anchor the env switcher + layout cluster against the right side
- * (mirrors the workspace TopBar's right-aligned slot). `margin-left:
- * auto` is more robust than `flex: 1` here because the toolbar's
- * other children are individually flex-shrink:0 and the spacer would
- * otherwise compete with them for the leftover space. */
-.dt-toolbar-spacer {
-  margin-left: auto;
-  flex-shrink: 0;
+/* The toolbar splits into two groups so it degrades cleanly when the panel is
+ * narrow (e.g. docked to a sidebar): the left controls group grows to fill,
+ * then gives up width and clips its overflow; the right group (workspace + env
+ * selector + layout cluster + settings) never shrinks, so those stay reachable.
+ * The left group's `flex-grow` replaces the old `margin-left:auto` spacer in
+ * anchoring the right group to the edge. */
+.dt-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.dt-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
 }
 
 .dt-toolbar-icon {
@@ -172,6 +185,30 @@
 
 .dt-toolbar-dropdown--active {
   color: var(--dt-link);
+}
+
+/* In the top toolbar, dropdowns read as bordered value pickers (like a
+ * native select) — a box with full-contrast text on a surface fill.
+ * Scoped to `.dt-toolbar` so the footer / detail-tab Sort dropdowns that
+ * share this class keep their flat menu-trigger look. */
+.dt-toolbar .dt-toolbar-dropdown {
+  border: 1px solid var(--dt-border);
+  background: var(--dt-bg-alt);
+  color: var(--dt-text);
+}
+
+/* Hover / focus / open just turns the box edge blue — text and fill stay
+ * put, matching the native select. */
+.dt-toolbar .dt-toolbar-dropdown:hover,
+.dt-toolbar .dt-toolbar-dropdown:focus-visible,
+.dt-toolbar .dt-toolbar-dropdown[aria-expanded='true'] {
+  background: var(--dt-bg-alt);
+  border-color: var(--dt-link);
+}
+
+/* Caret stays muted against the black label, like a native select. */
+.dt-toolbar .dt-toolbar-dropdown-caret {
+  color: var(--dt-text-muted);
 }
 
 .dt-toolbar-dropdown-caret {
@@ -288,6 +325,10 @@
   height: 1px;
   background: var(--dt-border);
   margin: 4px 0;
+  /* In a scrolling flex column the empty 1px divider would otherwise be
+   * compressed to 0 (its min-content height) once the content overflows —
+   * pin its size so it survives the scroll. */
+  flex-shrink: 0;
 }
 
 /* Network sort-mode picker: a labeled radio list inside the View
@@ -842,6 +883,25 @@
   flex-shrink: 0;
 }
 
+/* A divider sitting inside the cluster would inherit its wider 8px gap and
+ * read looser than the toolbar's other separators. Pull it back so the
+ * cache/throttle↔overrides divider matches the 4px rhythm of the
+ * Preserve-log↔cluster divider (and every other toolbar separator). */
+.dt-debug-controls .dt-toolbar-separator {
+  margin: 0 -4px;
+}
+
+/* The trailing (i) info trigger stays hidden until its control is hovered
+ * (or the trigger is focused / its popover is open) — the same hover-reveal
+ * affordance the network table's column headers use. The shared
+ * `.dt-header-info-trigger` base holds it at opacity 0 and keeps its layout
+ * box, so revealing it never reflows the cluster. */
+.dt-debug-control:hover .dt-debug-info-trigger,
+.dt-debug-info-trigger:focus-visible,
+.dt-debug-info-trigger[aria-expanded='true'] {
+  opacity: 1;
+}
+
 /* Throttle trigger reuses the compact `dt-toolbar-dropdown` look; the
  * disabled state (tab not in Debug-mode scope) dims it and blocks the
  * pointer so the wrapping span owns the "available only in Debug mode"
@@ -856,18 +916,38 @@
   display: inline-flex;
 }
 
-.dt-throttle-custom-form {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding-top: 8px;
-}
-
+/* Custom-throttle builder submenu (hover-opened, mirroring the Sort builder) —
+ * a labeled number field per facet, on the compact menu type-scale. */
 .dt-throttle-custom-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.dt-throttle-custom-label {
+  flex: 0 0 auto;
+  width: 64px;
+  font-size: 11px;
+  color: var(--dt-text);
+}
+
+.dt-throttle-custom-row input {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 11px;
+  padding: 2px 6px;
+  border: 1px solid var(--dt-border);
+  border-radius: 3px;
+  background: var(--dt-bg);
+  color: var(--dt-text);
+}
+
+.dt-throttle-custom-unit {
+  flex: 0 0 auto;
+  width: 38px;
+  font-size: 10px;
+  color: var(--dt-text-muted);
 }
 
 /* Overrides trigger mirrors the throttle trigger: same compact dropdown look
@@ -883,11 +963,17 @@
   display: inline-flex;
 }
 
+/* The overrides editor renders inside the toolbar popover (no modal), so it
+ * carries its own width + padding on the compact menu type-scale. */
 .dt-overrides-form {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding-top: 8px;
+  gap: 8px;
+  width: 360px;
+  padding: 10px 12px;
+  /* Capped to the room below the trigger (inline `max-height`) so a tall
+   * override list scrolls inside the popover instead of overrunning the panel. */
+  overflow-y: auto;
 }
 
 /* Each facet is a label + control row; most sit side by side, the User-Agent
@@ -895,7 +981,7 @@
 .dt-overrides-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .dt-overrides-row--stacked {
@@ -905,8 +991,9 @@
 }
 
 .dt-overrides-label {
-  flex: 0 0 120px;
-  font-size: 13px;
+  flex: 0 0 96px;
+  font-size: 11px;
+  color: var(--dt-text);
 }
 
 .dt-overrides-row--stacked .dt-overrides-label {
@@ -923,6 +1010,37 @@
 
 .dt-overrides-group-hint {
   margin: 0;
-  font-size: 12px;
+  font-size: 11px;
   opacity: 0.7;
+}
+
+/* Footer: Reset all (text button) on the left, Apply (accent) on the right —
+ * shares the Sort builder's Apply styling. */
+.dt-overrides-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--dt-border);
+}
+
+.dt-overrides-reset {
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 11px;
+  color: var(--dt-text-muted);
+  cursor: pointer;
+  padding: 0;
+}
+
+.dt-overrides-reset:hover:not(:disabled) {
+  color: var(--dt-text);
+  text-decoration: underline;
+}
+
+.dt-overrides-reset:disabled {
+  opacity: 0.5;
+  cursor: default;
 }

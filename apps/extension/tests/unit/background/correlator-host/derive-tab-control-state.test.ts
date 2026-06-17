@@ -1,7 +1,7 @@
 /**
  * `deriveTabControlState` — the pure assembly of an in-scope tab's standing CDP
  * control state from its live rules plus the per-tab cache toggle, throttle
- * profile, and environment overrides. The load-bearing property: the six planes —
+ * profile, and system overrides. The load-bearing property: the six planes —
  * network (`fetchPatterns`), delivery (`bootstrapScripts`), CSP-bypass
  * (`bypassCsp`), cache (`cacheDisabled`), conditions (`networkConditions`), and
  * overrides (`overrides`) — are INDEPENDENT, so the empty short-circuit gates on

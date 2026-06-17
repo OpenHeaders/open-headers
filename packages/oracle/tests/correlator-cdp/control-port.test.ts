@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   type CdpBootstrapScript,
-  type CdpEnvironmentOverrides,
+  type CdpSystemOverrides,
   type CdpFetchPattern,
   type CdpNetworkConditions,
   type CdpTabControlState,
@@ -37,7 +37,7 @@ function state(overrides: Partial<CdpTabControlState> = {}): CdpTabControlState 
   return { ...EMPTY_TAB_CONTROL_STATE, ...overrides };
 }
 
-const UA_OVERRIDE: CdpEnvironmentOverrides = { userAgent: 'Test-Agent/1.0 (openheaders.io)' };
+const UA_OVERRIDE: CdpSystemOverrides = { userAgent: 'Test-Agent/1.0 (openheaders.io)' };
 
 const API_PATTERN: CdpFetchPattern = { urlPattern: '*://openheaders.io/api/*', requestStage: 'Request' };
 
@@ -106,7 +106,7 @@ describe('reconcileTabControl', () => {
   });
 
   it('carries acceptLanguage and platform on the set command when present', () => {
-    const overrides: CdpEnvironmentOverrides = {
+    const overrides: CdpSystemOverrides = {
       userAgent: 'Test-Agent/1.0 (openheaders.io)',
       acceptLanguage: 'fr-FR',
       platform: 'Linux',
@@ -172,7 +172,7 @@ describe('reconcileTabControl', () => {
   });
 
   it('fans out all four override facets independently when the whole bag appears', () => {
-    const overrides: CdpEnvironmentOverrides = {
+    const overrides: CdpSystemOverrides = {
       userAgent: 'Test-Agent/1.0 (openheaders.io)',
       locale: 'fr-FR',
       timezoneId: 'Europe/Berlin',

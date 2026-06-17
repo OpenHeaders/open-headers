@@ -1,8 +1,10 @@
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
+import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { type ReactNode, useMemo } from 'react';
 import type { FilterConfig } from '../../data/filter-engine';
 import { FilterInput } from '../FilterInput';
 import { ResourceFilter } from '../ResourceFilter';
+import { RESOURCE_FILTER_INFO, SORT_INFO } from './filter-strip-info';
 
 interface NetworkPanelHeaderProps {
   urlFilter: string;
@@ -76,9 +78,24 @@ export function NetworkPanelHeader({
             </svg>
           </button>
           <div className="dt-filter-separator" />
-          <ResourceFilter value={filter} onChange={onFilterChange} compact />
+          <span className="dt-debug-control">
+            <ResourceFilter value={filter} onChange={onFilterChange} compact />
+            <InfoTrigger
+              content={RESOURCE_FILTER_INFO}
+              className="dt-header-info-trigger dt-debug-info-trigger"
+              ariaLabel="About request type filters"
+            />
+          </span>
           <div className="dt-filter-separator" />
-          {sortMenu}
+          <span className="dt-debug-control">
+            {sortMenu}
+            <InfoTrigger
+              content={SORT_INFO}
+              className="dt-header-info-trigger dt-debug-info-trigger"
+              ariaLabel="About sorting"
+            />
+          </span>
+          <div className="dt-filter-separator" />
           {viewMenu}
         </div>
       }

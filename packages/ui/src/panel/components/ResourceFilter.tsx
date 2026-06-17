@@ -17,11 +17,11 @@ const FILTERS: Array<{ key: string; label: string }> = [
 ];
 
 /** Keys shown inline when `compact` is on — the rest collapse into a
- *  "More ▾" dropdown. `all` always leads; the remaining three cover
- *  the network-activity types people filter to most often (API traffic,
- *  realtime channels, binary modules). Everything still reachable via
- *  "More" — nothing is ever hidden, just demoted one click. */
-const COMPACT_INLINE_KEYS = new Set(['all', 'xhr', 'ws', 'wasm']);
+ *  "More ▾" dropdown. `all` always leads; the remaining two cover the
+ *  network-activity types people filter to most often (API traffic,
+ *  realtime channels). Everything still reachable via "More" — nothing
+ *  is ever hidden, just demoted one click. */
+const COMPACT_INLINE_KEYS = new Set(['all', 'xhr', 'ws']);
 
 interface ResourceFilterProps {
   value: ReadonlySet<string>;

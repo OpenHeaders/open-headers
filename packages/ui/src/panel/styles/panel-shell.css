@@ -47,6 +47,21 @@
   z-index: 1100;
 }
 
+/* Chrome-style vertical dividers between the footer's metric items. Scoped to
+ * the panel footer's left (data) group — the right group keeps its own explicit
+ * dividers, and the first item has no leading divider. The 14px container gap is
+ * replaced by symmetric padding/margin around each divider so the line sits
+ * centered between two metrics. */
+.dt-panel-root .rules-statusbar-left {
+  gap: 0;
+}
+
+.dt-panel-root .rules-statusbar-left > .rules-statusbar-item:not(:first-child) {
+  margin-left: 12px;
+  padding-left: 12px;
+  border-left: 1px solid var(--dt-border);
+}
+
 /* ── App header (full-width, above sidebars) ───────────── */
 /* No border-bottom — the 3px grey gutter above the dock-body cards
    below provides the visual separation, same as the workspace TopBar. */

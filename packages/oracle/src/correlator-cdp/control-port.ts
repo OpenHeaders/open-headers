@@ -70,7 +70,7 @@ export interface CdpEmulatedMedia {
 }
 
 /**
- * Tab environment overrides (Phase F). Two clusters, distinguished by their
+ * Tab system overrides (Phase F). Two clusters, distinguished by their
  * CDP carrier and their network visibility:
  *
  *   - The UA triple — `userAgent` + `acceptLanguage` + `platform` — travels
@@ -85,7 +85,7 @@ export interface CdpEmulatedMedia {
  * Every field is optional; an absent field leaves that facet at the browser
  * default, a present one pins it.
  */
-export interface CdpEnvironmentOverrides {
+export interface CdpSystemOverrides {
   readonly userAgent?: string;
   readonly acceptLanguage?: string;
   readonly platform?: string;
@@ -125,7 +125,7 @@ export interface CdpFetchPattern {
 export interface CdpTabControlState {
   readonly cacheDisabled: boolean;
   readonly networkConditions: CdpNetworkConditions | null;
-  readonly overrides: CdpEnvironmentOverrides | null;
+  readonly overrides: CdpSystemOverrides | null;
   readonly bootstrapScripts: readonly CdpBootstrapScript[];
   readonly fetchPatterns: readonly CdpFetchPattern[];
   /**
@@ -250,7 +250,7 @@ export function reconcileTabControl(prev: CdpTabControlState, next: CdpTabContro
     );
   }
 
-  // Environment overrides fan out per facet (the `networkConditions` field-by-
+  // System overrides fan out per facet (the `networkConditions` field-by-
   // field style, not one bundled command). The UA triple shares one
   // `set-user-agent-override` (a change to any of `userAgent`/`acceptLanguage`/
   // `platform` re-emits it; all-three-empty emits the clear); the three
@@ -338,7 +338,7 @@ function networkConditionsEqual(a: CdpNetworkConditions | null, b: CdpNetworkCon
   );
 }
 
-function overridesEqual(a: CdpEnvironmentOverrides | null, b: CdpEnvironmentOverrides | null): boolean {
+function overridesEqual(a: CdpSystemOverrides | null, b: CdpSystemOverrides | null): boolean {
   if (a === b) return true;
   if (a === null || b === null) return false;
   return (
@@ -367,8 +367,8 @@ function emulatedMediaEqual(a: CdpEmulatedMedia | undefined, b: CdpEmulatedMedia
  * `userAgent` is filled adapter-side from the captured real UA.
  */
 function reconcileUserAgentOverride(
-  prev: CdpEnvironmentOverrides | null,
-  next: CdpEnvironmentOverrides | null,
+  prev: CdpSystemOverrides | null,
+  next: CdpSystemOverrides | null,
   commands: CdpControlCommand[],
 ): void {
   const nextUserAgent = next?.userAgent;
@@ -399,8 +399,8 @@ function reconcileUserAgentOverride(
  * restores the host default). Unchanged ⇒ no command.
  */
 function reconcileLocaleOverride(
-  prev: CdpEnvironmentOverrides | null,
-  next: CdpEnvironmentOverrides | null,
+  prev: CdpSystemOverrides | null,
+  next: CdpSystemOverrides | null,
   commands: CdpControlCommand[],
 ): void {
   if (prev?.locale === next?.locale) return;
@@ -416,8 +416,8 @@ function reconcileLocaleOverride(
  * pins it; an absent one clears (the empty-timezone reset). Unchanged ⇒ no command.
  */
 function reconcileTimezoneOverride(
-  prev: CdpEnvironmentOverrides | null,
-  next: CdpEnvironmentOverrides | null,
+  prev: CdpSystemOverrides | null,
+  next: CdpSystemOverrides | null,
   commands: CdpControlCommand[],
 ): void {
   if (prev?.timezoneId === next?.timezoneId) return;
@@ -435,8 +435,8 @@ function reconcileTimezoneOverride(
  * empty-media reset). Unchanged (structural) ⇒ no command.
  */
 function reconcileEmulatedMedia(
-  prev: CdpEnvironmentOverrides | null,
-  next: CdpEnvironmentOverrides | null,
+  prev: CdpSystemOverrides | null,
+  next: CdpSystemOverrides | null,
   commands: CdpControlCommand[],
 ): void {
   if (emulatedMediaEqual(prev?.emulatedMedia, next?.emulatedMedia)) return;

@@ -38,7 +38,11 @@ export const DisableCacheControl: React.FC<DisableCacheControlProps> = ({
           Disable cache
         </label>
       </Tooltip>
-      <InfoTrigger content={buildCacheInfo({ cdpOwned, onEnableDebug })} ariaLabel="About Disable cache" />
+      <InfoTrigger
+        content={buildCacheInfo({ cdpOwned, onEnableDebug })}
+        className="dt-header-info-trigger dt-debug-info-trigger"
+        ariaLabel="About Disable cache"
+      />
     </span>
   );
 };
