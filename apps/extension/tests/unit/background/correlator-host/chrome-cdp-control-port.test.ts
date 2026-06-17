@@ -100,6 +100,41 @@ describe('ChromeCdpTabControlPort', () => {
     ]);
   });
 
+  it('a forget racing an in-flight apply wins: the baseline stays empty so the next attach replays the full set (PC1)', async () => {
+    const port = new ChromeCdpTabControlPort(source);
+    const armed = {
+      cacheDisabled: true,
+      networkConditions: null,
+      overrides: null,
+      bootstrapScripts: [],
+      fetchPatterns: [],
+      fetchHandleAuthRequests: false,
+      bypassCsp: false,
+    } as const;
+
+    // Suspend the single set-cache-disabled command mid-batch, so a detach can
+    // land in the window before `apply` commits its `lastApplied` baseline.
+    let resolveCommand!: () => void;
+    chromeMock.debugger.sendCommand.mockReturnValueOnce(
+      new Promise<undefined>((resolve) => {
+        resolveCommand = () => resolve(undefined);
+      }),
+    );
+    const inFlight = port.apply(ROOT, armed);
+    // The tab detached: its release `forget`s the target while the apply above
+    // is still awaiting its command.
+    port.forget(ROOT);
+    resolveCommand();
+    await inFlight;
+
+    // The raced forget must win: `lastApplied` stays empty, so the next attach
+    // re-diffs from empty and re-issues the whole standing set — not a no-op
+    // against a baseline the in-flight apply resurrected after forget.
+    vi.clearAllMocks();
+    await port.apply(ROOT, armed);
+    expect(sendCalls()).toEqual([[{ tabId: TAB }, 'Network.setCacheDisabled', { cacheDisabled: true }]]);
+  });
+
   it('clears network conditions with the no-throttle reset params', async () => {
     const port = new ChromeCdpTabControlPort(source);
     const base = {

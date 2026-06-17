@@ -96,6 +96,20 @@ export class ChromeCdpTabControlPort implements CdpTabControlPort {
    * re-captures.
    */
   private readonly capturedUserAgents = new Map<string, string>();
+  /**
+   * Per-target apply generation — the ordering guard that lets a `forget`
+   * racing an in-flight `apply` win. Each `apply` stamps a fresh monotonic
+   * generation at entry and commits its {@link lastApplied} baseline only if
+   * the stamp is still live; `forget` drops it alongside the other per-target
+   * state. So an `apply` whose commands were still awaiting when a detach
+   * landed declines to resurrect the baseline `forget` just cleared — without
+   * which the late commit would leave a stale baseline that the next re-attach
+   * (the root target key is stable across re-attaches) reconciles from,
+   * silently dropping the tab's standing state. The one per-target value kept
+   * for ordering rather than CDP bookkeeping.
+   */
+  private readonly applyEpochs = new Map<string, number>();
+  private applyGeneration = 0;
 
   constructor(sender: CdpSessionSender) {
     this.sender = sender;
@@ -107,6 +121,8 @@ export class ChromeCdpTabControlPort implements CdpTabControlPort {
 
   async apply(target: CdpSessionTarget, state: CdpTabControlState): Promise<void> {
     const key = targetKey(target);
+    const generation = ++this.applyGeneration;
+    this.applyEpochs.set(key, generation);
     const prev = this.lastApplied.get(key) ?? EMPTY_TAB_CONTROL_STATE;
     const commands = reconcileTabControl(prev, state);
     // Commit the remembered state only after every command lands. If one
@@ -118,6 +134,10 @@ export class ChromeCdpTabControlPort implements CdpTabControlPort {
     for (const command of commands) {
       await this.execute(target, command);
     }
+    // A `forget` (detach) that raced this apply dropped its generation stamp
+    // while the commands were awaiting; don't resurrect the baseline it
+    // cleared. See {@link applyEpochs}.
+    if (this.applyEpochs.get(key) !== generation) return;
     this.lastApplied.set(key, state);
   }
 
@@ -126,6 +146,7 @@ export class ChromeCdpTabControlPort implements CdpTabControlPort {
     this.lastApplied.delete(key);
     this.bootstrapIds.delete(key);
     this.capturedUserAgents.delete(key);
+    this.applyEpochs.delete(key);
   }
 
   private execute(target: CdpSessionTarget, command: CdpControlCommand): Promise<unknown> {
