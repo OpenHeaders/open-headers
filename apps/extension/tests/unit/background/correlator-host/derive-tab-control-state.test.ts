@@ -5,12 +5,14 @@
  * network (`fetchPatterns`), delivery (`bootstrapScripts`), CSP-bypass
  * (`bypassCsp`), cache (`cacheDisabled`), conditions (`networkConditions`), and
  * overrides (`overrides`) — are INDEPENDENT, so the empty short-circuit gates on
- * ALL SIX being empty: a tab whose sole contribution is on any one plane (a lone
- * `ws` wrapper's bootstrap, an inject-`bypassCSP`, the cache toggle, a throttle
- * profile, or just a UA override) must not collapse to the EMPTY singleton.
+ * every field that lifts the state off EMPTY: a tab whose sole contribution is
+ * on any one plane (a lone `ws` wrapper's bootstrap, an inject-`bypassCSP`, the
+ * cache toggle, a throttle profile, or just a UA override) — or on the network
+ * plane's auth-challenge opt-in (`fetchHandleAuthRequests`) — must not collapse
+ * to the EMPTY singleton.
  */
 
-import type { InjectRule, ResponseRule, RuleCondition, WsRule } from '@openheaders/core/types';
+import type { AuthRule, InjectRule, ResponseRule, RuleCondition, WsRule } from '@openheaders/core/types';
 import { EMPTY_TAB_CONTROL_STATE } from '@openheaders/oracle/correlator-cdp';
 import { describe, expect, it } from 'vitest';
 
@@ -73,6 +75,20 @@ function injectBypassCspRule(): InjectRule {
       position: 'head',
       bypassCSP: true,
     },
+  };
+}
+
+/** Auth rule → unconditionally debug-tier; widens `Fetch.enable` with the auth opt-in. */
+function authRule(): AuthRule {
+  return {
+    schemaVersion: 5,
+    uid: 'au000001',
+    path: 'rules/auth',
+    name: 'Auth',
+    type: 'auth',
+    enabled: true,
+    conditions: [urlFilter],
+    action: { username: 'u', password: 'p' },
   };
 }
 
@@ -212,16 +228,16 @@ describe('deriveTabControlState', () => {
 
   it('opts into auth-challenge interception only when an auth rule is in scope', () => {
     expect(deriveTabControlState([wsRule()]).fetchHandleAuthRequests).toBe(false);
-    const auth = {
-      schemaVersion: 5 as const,
-      uid: 'au000001',
-      path: 'rules/auth',
-      name: 'Auth',
-      type: 'auth' as const,
-      enabled: true,
-      conditions: [urlFilter],
-      action: { username: 'u', password: 'p' },
-    };
-    expect(deriveTabControlState([auth]).fetchHandleAuthRequests).toBe(true);
+    expect(deriveTabControlState([authRule()]).fetchHandleAuthRequests).toBe(true);
+  });
+
+  it('carries the auth opt-in for an auth-only tab (the seventh-facet early-return trap)', () => {
+    const state = deriveTabControlState([authRule()]);
+    // An auth rule is unconditionally debug-tier, so it also contributes a Fetch
+    // pattern today — but the all-empty guard tests the opt-in directly, so the
+    // tab survives on its auth facet rather than leaning on that coupling.
+    expect(state.fetchPatterns).toEqual([{ urlPattern: '*://api.openheaders.io/*' }]);
+    expect(state.fetchHandleAuthRequests).toBe(true);
+    expect(state).not.toBe(EMPTY_TAB_CONTROL_STATE);
   });
 });

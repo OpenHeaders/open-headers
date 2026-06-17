@@ -21,15 +21,20 @@
  * `networkConditions`; and a tab whose sole state is a UA override has all FIVE
  * empty yet still needs `overrides`. Unlike the rule-derived planes, cache,
  * conditions, and overrides are per-tab panel controls threaded in as options.
- * So the empty-state short-circuit gates on ALL SIX being empty — never on a
- * subset, which would discard a tab whose sole contribution is on a plane the
- * guard forgot.
+ * The network plane also carries the auth-challenge opt-in
+ * (`fetchHandleAuthRequests`, which widens `Fetch.enable` to pause 401/407): an
+ * `auth` rule is unconditionally debug-tier and so always contributes a Fetch
+ * pattern too, yet the guard tests the opt-in directly rather than leaning on
+ * that coupling. So the empty-state short-circuit gates on EVERY field that can
+ * lift the state off its EMPTY default — the six planes and the network plane's
+ * auth opt-in — never on a subset, which would discard a tab whose sole
+ * contribution is on a facet the guard forgot.
  */
 
 import type { Rule } from '@openheaders/core/types';
 import {
-  type CdpSystemOverrides,
   type CdpNetworkConditions,
+  type CdpSystemOverrides,
   type CdpTabControlState,
   EMPTY_TAB_CONTROL_STATE,
 } from '@openheaders/oracle/correlator-cdp';
@@ -40,8 +45,8 @@ import { compileFetchPatterns } from './cdp-fetch-patterns';
  * The standing CDP control state for an in-scope tab with these live rules,
  * cache toggle, throttle profile, and system overrides. Returns
  * {@link EMPTY_TAB_CONTROL_STATE} only when the tab contributes nothing on any
- * plane — no Fetch pattern, no bootstrap script, no CSP bypass, no cache
- * disable, no throttle, and no overrides.
+ * plane — no Fetch pattern, no auth-challenge opt-in, no bootstrap script, no
+ * CSP bypass, no cache disable, no throttle, and no overrides.
  */
 export function deriveTabControlState(
   rules: readonly Rule[],
@@ -73,8 +78,15 @@ export function deriveTabControlState(
   // banner-free fallback (CDP-only), so an overrides-only tab must not collapse
   // to EMPTY or its overrides are silently lost. `null` = no overrides.
   const overrides = options.overrides ?? null;
+  // Opt into auth-challenge interception only when an auth rule is actually in
+  // scope — a tab whose debug rules are all response/body/wrapper never widens
+  // its pause surface to 401/407 challenges. Derived above the all-empty guard
+  // so it joins it: the auth opt-in lifts the state off EMPTY even though, today,
+  // an auth rule always contributes a Fetch pattern too.
+  const fetchHandleAuthRequests = rules.some((rule) => rule.type === 'auth');
   if (
     fetchPatterns.length === 0 &&
+    !fetchHandleAuthRequests &&
     bootstrapScripts.length === 0 &&
     !bypassCsp &&
     !cacheDisabled &&
@@ -83,10 +95,6 @@ export function deriveTabControlState(
   ) {
     return EMPTY_TAB_CONTROL_STATE;
   }
-  // Opt into auth-challenge interception only when an auth rule is actually in
-  // scope — a tab whose debug rules are all response/body/wrapper never widens
-  // its pause surface to 401/407 challenges.
-  const fetchHandleAuthRequests = rules.some((rule) => rule.type === 'auth');
   return {
     ...EMPTY_TAB_CONTROL_STATE,
     fetchPatterns,
