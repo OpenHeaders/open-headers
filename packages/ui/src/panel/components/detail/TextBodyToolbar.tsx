@@ -17,6 +17,9 @@ interface TextBodyToolbarProps {
   override?: DetectedFormat | null;
   onApplyOverride?: (format: DetectedFormat) => void;
   onClearOverride?: () => void;
+  /** Trailing action(s) after the controls, behind a divider (e.g. an
+   *  override CTA). The whole row stays left-aligned. */
+  action?: React.ReactNode;
 }
 
 export default function TextBodyToolbar({
@@ -27,6 +30,7 @@ export default function TextBodyToolbar({
   override,
   onApplyOverride,
   onClearOverride,
+  action,
 }: TextBodyToolbarProps) {
   return (
     <div className="dt-response-toolbar">
@@ -61,6 +65,12 @@ export default function TextBodyToolbar({
           </button>
         ) : null}
         {lineInfo && <span className="dt-response-toolbar-info">{lineInfo}</span>}
+        {action && (
+          <>
+            <span className="dt-toolbar-divider" aria-hidden="true" />
+            {action}
+          </>
+        )}
       </div>
     </div>
   );

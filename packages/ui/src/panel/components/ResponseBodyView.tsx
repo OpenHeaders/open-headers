@@ -9,6 +9,7 @@ import { base64ToBytes } from '../data/base64';
 import { isTextMime } from '../data/mime';
 import { classifyBodyState } from '../data/response-body-state';
 import HexViewer from './detail/HexViewer';
+import OverrideBodyButton from './detail/OverrideBodyButton';
 import ResponseViewerToolbar, { type ViewMode } from './detail/ResponseViewerToolbar';
 import Skeleton from './detail/Skeleton';
 import TextBodyViewer from './detail/TextBodyViewer';
@@ -19,6 +20,8 @@ interface ResponseBodyViewProps {
   searchLineNumber?: number;
   /** N-th occurrence of `searchHighlight` in this body (0-based). */
   searchMatchIndex?: number;
+  /** Open the create-rule editor pre-filled to mock this response. */
+  onOverrideResponse?: () => void;
 }
 
 /**
@@ -34,12 +37,24 @@ function ResponseNotice({ title, detail }: { title: string; detail: string }) {
   );
 }
 
-export function ResponseBodyView({ row, searchHighlight, searchMatchIndex }: ResponseBodyViewProps) {
+export function ResponseBodyView({
+  row,
+  searchHighlight,
+  searchMatchIndex,
+  onOverrideResponse,
+}: ResponseBodyViewProps) {
   const lc = row.lifecycle;
   const declaredMime =
     lifecycleMimeType(lc) ?? currentHarEntry(lc)?.response?.content?.mimeType ?? '';
   const state = useMemo(() => classifyBodyState(lc), [lc]);
   const highlight = searchHighlight ?? '';
+  const overrideAction = onOverrideResponse ? (
+    <OverrideBodyButton
+      label="Override Response"
+      title="Create a rule that serves this response as an editable mock"
+      onClick={onOverrideResponse}
+    />
+  ) : undefined;
 
   const [viewMode, setViewMode] = useState<ViewMode>('hex');
 
@@ -113,6 +128,7 @@ export function ResponseBodyView({ row, searchHighlight, searchMatchIndex }: Res
           declaredMime={declaredMime}
           searchQuery={highlight || undefined}
           searchMatchIndex={searchMatchIndex}
+          toolbarAction={overrideAction}
         />
       );
     }
@@ -120,7 +136,7 @@ export function ResponseBodyView({ row, searchHighlight, searchMatchIndex }: Res
     return (
       <div className="dt-response-view">
         <div className="dt-response-view-content">{content}</div>
-        <ResponseViewerToolbar mode={viewMode} onModeChange={setViewMode} />
+        <ResponseViewerToolbar mode={viewMode} onModeChange={setViewMode} action={overrideAction} />
       </div>
     );
   }
@@ -132,6 +148,7 @@ export function ResponseBodyView({ row, searchHighlight, searchMatchIndex }: Res
       declaredMime={declaredMime}
       searchQuery={highlight || undefined}
       searchMatchIndex={searchMatchIndex}
+      toolbarAction={overrideAction}
     />
   );
 }

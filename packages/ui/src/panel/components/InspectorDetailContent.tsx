@@ -18,7 +18,10 @@ import {
   type InspectorRowWithFires,
   lifecycleMimeType,
 } from '../data/inspector-row-projection';
+import { base64ToBytes } from '../data/base64';
+import { isTextMime } from '../data/mime';
 import { hasObservedResponseData, isPreservedUnknown, supersessionAnchorFromPages } from '../data/request-state';
+import { classifyBodyState } from '../data/response-body-state';
 import { classifyRowAnnotations, type RowAnnotation } from '../data/row-annotations';
 import { findRuleCollectionId } from '../data/rule-collection';
 import {
@@ -27,7 +30,10 @@ import {
   buildHeaderDraftFromRequest,
   buildRedirectDraftFromRequest,
   buildReplaceHostDraftFromRequest,
+  buildQueryParamDraftFromRequest,
   buildReplaceUrlPartDraftFromRequest,
+  buildRequestBodyDraftFromRequest,
+  buildResponseDraftFromRequest,
   handOffRuleDraft,
 } from '../data/rule-draft-bridge';
 import type { RepeatStats } from '../data/timing-repeats';
@@ -84,6 +90,67 @@ function hasCookies(har: ReturnType<typeof currentHarEntry>): boolean {
   if (!har) return false;
   if (har.request?.cookies && har.request.cookies.length > 0) return true;
   return (har.response?.headers ?? []).some((h) => h.name.toLowerCase() === 'set-cookie');
+}
+
+/**
+ * Pull the captured response into the fields the "Override Response"
+ * draft needs. The body is carried only when it's meaningfully text
+ * (the same gate the Response tab uses to offer a binary body as text) —
+ * a binary mock pre-filled as garbled UTF-8 would help no one, so those
+ * seed just the status and content-type and leave the body for the user.
+ */
+function capturedResponseDraftInput(
+  lc: RequestLifecycle,
+  har: ReturnType<typeof currentHarEntry>,
+): { responseBody: string; statusCode?: number; contentType: string } {
+  const contentType = lifecycleMimeType(lc) ?? har?.response?.content?.mimeType ?? '';
+  const state = classifyBodyState(lc);
+  let responseBody = '';
+  if (state.kind === 'text') {
+    responseBody = state.content;
+  } else if (state.kind === 'binary' && isTextMime(contentType)) {
+    try {
+      responseBody = new TextDecoder('utf-8', { fatal: false }).decode(base64ToBytes(state.base64));
+    } catch {
+      responseBody = '';
+    }
+  }
+  return { responseBody, statusCode: lc.statusCode, contentType };
+}
+
+/**
+ * Pull the captured outgoing body into the field the "Override request
+ * body" draft needs. Prefers the raw wire text; for form bodies captured
+ * as parsed params only, reconstructs the `name=value&…` source string.
+ */
+function capturedRequestBodyDraftInput(har: ReturnType<typeof currentHarEntry>): { requestBody: string } {
+  const postData = har?.request?.postData;
+  if (!postData) return { requestBody: '' };
+  if (postData.text) return { requestBody: postData.text };
+  if (postData.params && postData.params.length > 0) {
+    return { requestBody: postData.params.map((p) => `${p.name}=${p.value ?? ''}`).join('&') };
+  }
+  return { requestBody: '' };
+}
+
+function decodeComponentSafe(s: string): string {
+  try {
+    return decodeURIComponent(s);
+  } catch {
+    return s;
+  }
+}
+
+/**
+ * Pull the captured query string into the params the "Override query
+ * params" draft needs — decoded to match what the Payload tab displays
+ * (the rule re-encodes on apply, so the values must be plain).
+ */
+function capturedQueryParamsDraftInput(
+  har: ReturnType<typeof currentHarEntry>,
+): { params: Array<{ param: string; value?: string }> } {
+  const qs = har?.request?.queryString ?? [];
+  return { params: qs.map((q) => ({ param: decodeComponentSafe(q.name), value: decodeComponentSafe(q.value) })) };
 }
 
 export function InspectorDetailContent({
@@ -233,6 +300,12 @@ export function InspectorDetailContent({
   const createReplaceUrlPart = (): void => void handOff(() => buildReplaceUrlPartDraftFromRequest(lc));
   const createDelay = (): void => void handOff(() => buildDelayDraftFromRequest(lc));
   const createCancel = (): void => void handOff(() => buildBlockDraftFromRequest(lc));
+  const createOverrideResponse = (): void =>
+    void handOff(() => buildResponseDraftFromRequest(lc, capturedResponseDraftInput(lc, har)));
+  const createOverrideRequestBody = (): void =>
+    void handOff(() => buildRequestBodyDraftFromRequest(lc, capturedRequestBodyDraftInput(har)));
+  const createOverrideQueryParams = (): void =>
+    void handOff(() => buildQueryParamDraftFromRequest(lc, capturedQueryParamsDraftInput(har)));
 
   const section = activeSection;
 
@@ -327,7 +400,13 @@ export function InspectorDetailContent({
         )}
 
         {section === 'payload' && har && (
-          <PayloadView har={har} searchHighlight={searchHighlight} searchSection={searchSection} />
+          <PayloadView
+            har={har}
+            searchHighlight={searchHighlight}
+            searchSection={searchSection}
+            onOverrideRequestBody={createOverrideRequestBody}
+            onOverrideQueryParams={createOverrideQueryParams}
+          />
         )}
 
         {section === 'messages' && showMessages && <MessagesView lifecycle={lc} har={har} source={source} />}
@@ -362,7 +441,7 @@ export function InspectorDetailContent({
         )}
       </div>
 
-      {section === 'preview' && <PreviewView row={row} />}
+      {section === 'preview' && <PreviewView row={row} onOverrideResponse={createOverrideResponse} />}
 
       {section === 'response' && (
         <ResponseBodyView
@@ -370,6 +449,7 @@ export function InspectorDetailContent({
           searchHighlight={searchSection === 'Response' ? searchHighlight : undefined}
           searchLineNumber={searchSection === 'Response' ? searchLineNumber : undefined}
           searchMatchIndex={searchSection === 'Response' ? searchMatchIndex : undefined}
+          onOverrideResponse={createOverrideResponse}
         />
       )}
     </div>

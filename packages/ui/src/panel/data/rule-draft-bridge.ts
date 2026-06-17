@@ -3,9 +3,11 @@
  * stashes it in the background via `createRuleDraft`, and opens the
  * workspace at `#/create/<type>/draft-<nonce>`.
  *
- * Only the header CTA is wired for v1; the other five rule types
- * render as placeholder buttons that call `openPlaceholderRuleDraft`
- * with a tooltip explaining the upcoming release.
+ * The header/redirect/delay/block CTAs scaffold from URL and method
+ * only. The response and request-body CTAs additionally carry the
+ * captured body (and, for responses, status + content-type), so
+ * "Override Response" / "Override request body" open pre-filled with the
+ * real payload the user is looking at rather than a blank mock.
  */
 
 import { hostBridge } from '@openheaders/core/bridge';
@@ -14,7 +16,10 @@ import type {
   BlockRuleDraft,
   DelayRuleDraft,
   HeaderRuleDraft,
+  QueryParamRuleDraft,
   RedirectRuleDraft,
+  RequestBodyRuleDraft,
+  ResponseRuleDraft,
   RuleDraft,
 } from '@openheaders/core/types';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
@@ -77,6 +82,60 @@ export function buildDelayDraftFromRequest(lc: RequestLifecycle, delayMs = 1000)
 
 export function buildBlockDraftFromRequest(lc: RequestLifecycle): BlockRuleDraft {
   return { type: 'block', url: lc.url };
+}
+
+/** Build a "mock response" draft seeded from the captured response —
+ *  the editor opens with the real status, content-type, and body
+ *  pre-filled as a static mock the user can edit in place. A status of
+ *  `0` (the "keep original" sentinel) falls back to `200`. */
+export function buildResponseDraftFromRequest(
+  lc: RequestLifecycle,
+  captured: { responseBody?: string; statusCode?: number; contentType?: string },
+): ResponseRuleDraft {
+  const method = lc.method ? [lc.method.toUpperCase()] : undefined;
+  return {
+    type: 'response',
+    url: lc.url,
+    ...(method ? { requestMethods: method } : {}),
+    responseSource: 'mock',
+    bodyType: 'static',
+    statusCode: captured.statusCode && captured.statusCode > 0 ? captured.statusCode : 200,
+    responseBody: captured.responseBody ?? '',
+    contentType: captured.contentType ?? '',
+  };
+}
+
+/** Build an "override request body" draft seeded from the captured
+ *  outgoing body — the editor opens with the real payload pre-filled as
+ *  a static body the user can edit in place. */
+export function buildRequestBodyDraftFromRequest(
+  lc: RequestLifecycle,
+  captured: { requestBody?: string },
+): RequestBodyRuleDraft {
+  const method = lc.method ? [lc.method.toUpperCase()] : undefined;
+  return {
+    type: 'request-body',
+    url: lc.url,
+    ...(method ? { requestMethods: method } : {}),
+    bodyType: 'static',
+    requestBody: captured.requestBody ?? '',
+  };
+}
+
+/** Build an "override query params" draft seeded from the captured query
+ *  string — each observed param becomes an `override` entry pre-filled
+ *  with its current value, so the editor opens ready to retune them. */
+export function buildQueryParamDraftFromRequest(
+  lc: RequestLifecycle,
+  captured: { params: ReadonlyArray<{ param: string; value?: string }> },
+): QueryParamRuleDraft {
+  const method = lc.method ? [lc.method.toUpperCase()] : undefined;
+  return {
+    type: 'query-param',
+    url: lc.url,
+    ...(method ? { requestMethods: method } : {}),
+    params: captured.params.map((p) => ({ operation: 'override' as const, param: p.param, value: p.value ?? '' })),
+  };
 }
 
 /**

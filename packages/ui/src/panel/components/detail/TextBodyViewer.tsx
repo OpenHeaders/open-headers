@@ -33,9 +33,18 @@ interface TextBodyViewerProps {
   searchQuery?: string;
   /** 0-based index of the specific match the user clicked. */
   searchMatchIndex?: number;
+  /** Trailing toolbar action behind a divider (e.g. an override CTA).
+   *  Opt-in so consumers that don't want it keep a plain toolbar. */
+  toolbarAction?: React.ReactNode;
 }
 
-export default function TextBodyViewer({ text, declaredMime, searchQuery, searchMatchIndex }: TextBodyViewerProps) {
+export default function TextBodyViewer({
+  text,
+  declaredMime,
+  searchQuery,
+  searchMatchIndex,
+  toolbarAction,
+}: TextBodyViewerProps) {
   const sniffed = useSniffedContent(text, declaredMime);
   const lang = detectLanguage(sniffed.effectiveMime);
   const showPrettyPrint = canPrettyPrint(sniffed.effectiveMime);
@@ -97,6 +106,7 @@ export default function TextBodyViewer({ text, declaredMime, searchQuery, search
           override={sniffed.override}
           onApplyOverride={sniffed.applyOverride}
           onClearOverride={sniffed.clearOverride}
+          action={toolbarAction}
         />
       </div>
     );
@@ -130,6 +140,7 @@ export default function TextBodyViewer({ text, declaredMime, searchQuery, search
         override={sniffed.override}
         onApplyOverride={sniffed.applyOverride}
         onClearOverride={sniffed.clearOverride}
+        action={toolbarAction}
       />
     </div>
   );

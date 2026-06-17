@@ -5,7 +5,26 @@
   flex-direction: column;
   flex: 1;
   min-height: 0;
+}
+
+/* Scrollable region holding the Query/Body sections; the override footer
+ * is pinned below it so the Payload tab gets a bottom bar like the
+ * Response/Preview tabs even when its content is short. */
+.dt-payload-sections {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
   padding: 4px 0;
+}
+
+/* Pinned bottom footer carrying the override CTAs, left-aligned. The
+ * compound selector beats `.dt-response-toolbar`'s space-between
+ * regardless of stylesheet order. */
+.dt-response-toolbar.dt-payload-footer {
+  justify-content: flex-start;
+  gap: 8px;
 }
 
 /* Raw-text request body fills the remaining pane height so Monaco owns

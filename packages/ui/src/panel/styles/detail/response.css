@@ -152,6 +152,25 @@
   border-color: var(--dt-link);
 }
 
+/* Override CTA — the same blue `dt-btn-primary` tag as the Headers
+ * section, sized down to sit in the short (22px) body toolbars / meta-bar
+ * / footers. `.dt-btn` already carries height/padding, so the compound
+ * selector wins regardless of stylesheet order. */
+.dt-btn.dt-body-override-cta {
+  height: 16px;
+  padding: 0 6px;
+  font-size: 10px;
+}
+
+/* Vertical separator between a bar's existing controls and the trailing
+ * override CTA. Sits as a flex item; the bar's gap spaces it. */
+.dt-toolbar-divider {
+  width: 1px;
+  height: 14px;
+  flex-shrink: 0;
+  background: var(--dt-border);
+}
+
 /* Monaco viewer wrapper. */
 .dt-codemirror-wrap {
   flex: 1;

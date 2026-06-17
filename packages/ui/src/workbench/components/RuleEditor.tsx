@@ -54,7 +54,13 @@ import { ConflictsProvider, type FieldConflictsApi } from '@openheaders/ui/share
 import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell';
 import { stableStringify } from '@openheaders/ui/shared/forms';
 import { applyRuleCreate, applyRulePublish } from '@openheaders/ui/shared/sync/rule-write-client';
-import { buildDraftConditions, buildDraftHeaders } from '../draft-conditions';
+import {
+  applyQueryParamDraftOverlay,
+  applyRequestBodyDraftOverlay,
+  applyResponseDraftOverlay,
+  buildDraftConditions,
+  buildDraftHeaders,
+} from '../draft-conditions';
 import { useInspectorNav } from '../hooks/useInspectorNav';
 import type { RuleDraftData } from '../hooks/useSaveRuleFlow';
 import { formatString } from '../languages/prettier';
@@ -443,6 +449,12 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         else if (targetsRequest) overlay.responseHeaders = [];
       } else if (initialDraft.type === 'redirect') {
         if (initialDraft.redirectTo) overlay.redirectTo = initialDraft.redirectTo;
+      } else if (initialDraft.type === 'response') {
+        applyResponseDraftOverlay(overlay, initialDraft);
+      } else if (initialDraft.type === 'request-body') {
+        applyRequestBodyDraftOverlay(overlay, initialDraft);
+      } else if (initialDraft.type === 'query-param') {
+        applyQueryParamDraftOverlay(overlay, initialDraft);
       }
 
       if (Object.keys(overlay).length > 0) {
@@ -811,6 +823,12 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       else if (targetsRequest) overlay.responseHeaders = [];
     } else if (initialDraft.type === 'redirect') {
       if (initialDraft.redirectTo) overlay.redirectTo = initialDraft.redirectTo;
+    } else if (initialDraft.type === 'response') {
+      applyResponseDraftOverlay(overlay, initialDraft);
+    } else if (initialDraft.type === 'request-body') {
+      applyRequestBodyDraftOverlay(overlay, initialDraft);
+    } else if (initialDraft.type === 'query-param') {
+      applyQueryParamDraftOverlay(overlay, initialDraft);
     }
 
     if (Object.keys(overlay).length > 0) {

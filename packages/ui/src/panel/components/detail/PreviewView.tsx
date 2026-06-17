@@ -7,6 +7,7 @@ import {
 } from '../../data/inspector-row-projection';
 import { classifyBodyState } from '../../data/response-body-state';
 import { JsonTree } from '../JsonTree';
+import OverrideBodyButton from './OverrideBodyButton';
 import Skeleton from './Skeleton';
 
 // Lazy-loaded — keeps Monaco out of the panel's initial chunk graph.
@@ -114,6 +115,8 @@ function ImagePreview({
 
 interface PreviewViewProps {
   row: InspectorRowWithFires;
+  /** Open the create-rule editor pre-filled to mock this response. */
+  onOverrideResponse?: () => void;
 }
 
 function PreviewNotice({ title, detail }: { title: string; detail: string }) {
@@ -125,12 +128,15 @@ function PreviewNotice({ title, detail }: { title: string; detail: string }) {
   );
 }
 
-export default function PreviewView({ row }: PreviewViewProps) {
+export default function PreviewView({ row, onOverrideResponse }: PreviewViewProps) {
   const lc = row.lifecycle;
   const har = currentHarEntry(lc);
   const mime = lifecycleMimeType(lc) ?? har?.response?.content?.mimeType ?? '';
   const size = lifecycleTransferredBytes(lc) ?? har?.response?.content?.size ?? 0;
   const state = useMemo(() => classifyBodyState(lc), [lc]);
+  // Only offer the override CTA once a body is actually present — the
+  // non-body states (loading / no-response / empty) have nothing to mock.
+  const showOverride = !!onOverrideResponse && (state.kind === 'text' || state.kind === 'binary');
 
   const textContent = useMemo(() => {
     if (state.kind === 'text') return state.content;
@@ -152,6 +158,16 @@ export default function PreviewView({ row }: PreviewViewProps) {
       <span>{formatFileSize(size)}</span>
       {extra}
       <span>{mime}</span>
+      {showOverride && onOverrideResponse && (
+        <>
+          <span className="dt-toolbar-divider" aria-hidden="true" />
+          <OverrideBodyButton
+            label="Override Response"
+            title="Create a rule that serves this response as an editable mock"
+            onClick={onOverrideResponse}
+          />
+        </>
+      )}
     </div>
   );
 
