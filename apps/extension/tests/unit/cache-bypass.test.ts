@@ -23,12 +23,14 @@ vi.mock('@utils/browser-api', () => ({
 }));
 
 import {
+  __resetCacheBypassForTests,
   CACHE_BYPASS_ID_BASE,
   disableCacheBypassForTab,
   enableCacheBypassForTab,
   forgetCacheBypassForTab,
   getActiveCacheBypassTabIds,
   isCacheBypassActive,
+  registerCacheBypassReplay,
   rehydrateCacheBypassFromSessionRules,
 } from '@/background/modules/cache-bypass';
 
@@ -53,6 +55,8 @@ afterEach(async () => {
   for (const id of getActiveCacheBypassTabIds()) {
     await disableCacheBypassForTab(id);
   }
+  // Also drops any registered replay so a test's spy can't fire in the next.
+  __resetCacheBypassForTests();
   updateSessionRulesSpy.mockClear();
 });
 
@@ -152,6 +156,23 @@ describe('rehydrateCacheBypassFromSessionRules', () => {
 
     expect(updateSessionRulesSpy).toHaveBeenCalledTimes(1);
     expect(isCacheBypassActive(42)).toBe(false);
+  });
+});
+
+describe('apply-now replay seam', () => {
+  it('replays the tab on enable and on disable', async () => {
+    const replay = vi.fn();
+    registerCacheBypassReplay(replay);
+
+    await enableCacheBypassForTab(7);
+    expect(replay).toHaveBeenCalledWith(7);
+    // The replay fires after activeTabs is mutated, so a re-derive sees on.
+    expect(isCacheBypassActive(7)).toBe(true);
+
+    replay.mockClear();
+    await disableCacheBypassForTab(7);
+    expect(replay).toHaveBeenCalledWith(7);
+    expect(isCacheBypassActive(7)).toBe(false);
   });
 });
 

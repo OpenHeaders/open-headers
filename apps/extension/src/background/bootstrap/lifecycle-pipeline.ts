@@ -27,7 +27,7 @@ import { startDevtoolsSessionCoordinator } from '../devtools-session-coordinator
 import { getRulesPaused } from '../dnr-manager';
 import { refreshInterceptorsForTab, setCdpControlQuery } from '../inject-manager';
 import { createPersistentWatchSessionFloors, startLifecyclePortHost } from '../lifecycle-port-host';
-import { isCacheBypassActive } from '../modules/cache-bypass';
+import { isCacheBypassActive, registerCacheBypassReplay } from '../modules/cache-bypass';
 import { getNetworkConditionsForTab, registerNetworkConditionsReplay } from '../modules/network-conditions';
 import { setupOnRuleMatchedDebugBridge } from '../modules/on-rule-matched-debug';
 import { getTabOverridesForTab, registerTabOverridesReplay } from '../modules/tab-overrides';
@@ -151,6 +151,11 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   // Apply-now for a live override change — same seam as throttle: overrides are
   // CDP-only and set on an in-scope tab, so re-derive + re-apply immediately.
   registerTabOverridesReplay((tabId) => cdpControlReplay.replay(tabId));
+  // Apply-now for a live "disable cache" toggle — same raw seam: the DNR
+  // revalidation hint already applied, but the CDP-exact `Network.setCacheDisabled`
+  // would lag to the next re-attach, so re-derive + re-apply it now. Cache is
+  // orthogonal to injection, so no refresh.
+  registerCacheBypassReplay((tabId) => cdpControlReplay.replay(tabId));
   // Precedence (D4): the page-context interceptor suppression reads the router
   // (the single source of tab ownership) and re-derives a tab's injection set
   // in lock-step with the control-plane replay/release. When a tab's ownership

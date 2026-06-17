@@ -22,15 +22,22 @@
  *   - For offline-only cached responses (e.g. service-worker-served
  *     content) we don't intercept at all.
  *
+ * Apply-now: the DNR revalidation hint installs/removes immediately on a
+ * toggle, but the CDP-exact `Network.setCacheDisabled` (folded into the tab's
+ * standing state on attach) would otherwise lag a live flip until the next
+ * re-attach. A live toggle on an already-attached tab triggers a per-tab replay
+ * through the registered seam, so the exact cache disable engages immediately —
+ * the same apply-now seam the throttle and overrides planes carry.
+ *
  * Rule ID range: `CACHE_BYPASS_ID_BASE + tabId`. Well above the
  * session-rule space used by test runs (1_000_000+) so `rebuildAll`
  * can preserve these rules across updates — see the carve-out in
  * `applySessionRules` in `dnr-manager.ts`.
  */
 
+import { CACHE_BYPASS_ID_BASE } from '@openheaders/rule-engine';
 import { declarativeNetRequest } from '@utils/browser-api';
 import { logger } from '@utils/logger';
-import { CACHE_BYPASS_ID_BASE } from '@openheaders/rule-engine';
 
 export { CACHE_BYPASS_ID_BASE };
 
@@ -71,12 +78,25 @@ function buildCacheBypassRule(tabId: number): chrome.declarativeNetRequest.Rule 
  *  `applySessionRules` can preserve them across rule-rebuild passes. */
 const activeTabs = new Set<number>();
 
+/** Registered by the lifecycle pipeline — re-applies a tab's standing CDP
+ *  state so a live cache toggle reaches an attached tab without a reattach. */
+let replayTab: ((tabId: number) => void) | null = null;
+
 export function isCacheBypassActive(tabId: number): boolean {
   return activeTabs.has(tabId);
 }
 
 export function getActiveCacheBypassTabIds(): readonly number[] {
   return [...activeTabs];
+}
+
+/**
+ * Register the per-tab replay seam. The pipeline wires this at startup (only on
+ * hosts with CDP); before it lands a toggle still installs/removes the DNR
+ * revalidation hint, it just won't apply-now the CDP-exact cache disable.
+ */
+export function registerCacheBypassReplay(replay: (tabId: number) => void): void {
+  replayTab = replay;
 }
 
 export async function enableCacheBypassForTab(tabId: number): Promise<void> {
@@ -93,6 +113,7 @@ export async function enableCacheBypassForTab(tabId: number): Promise<void> {
     });
     activeTabs.add(tabId);
     logger.debug('CacheBypass', `Enabled for tab ${tabId}`);
+    replayTab?.(tabId);
   } catch (err) {
     logger.error('CacheBypass', `Failed to enable for tab ${tabId}: ${(err as Error).message}`);
   }
@@ -109,6 +130,7 @@ export async function disableCacheBypassForTab(tabId: number): Promise<void> {
     });
     activeTabs.delete(tabId);
     logger.debug('CacheBypass', `Disabled for tab ${tabId}`);
+    replayTab?.(tabId);
   } catch (err) {
     logger.error('CacheBypass', `Failed to disable for tab ${tabId}: ${(err as Error).message}`);
   }
@@ -155,4 +177,10 @@ export async function rehydrateCacheBypassFromSessionRules(): Promise<void> {
   } catch (err) {
     logger.info('CacheBypass', `Rehydration failed: ${(err as Error).message}`);
   }
+}
+
+/** Test-only — drop all state so tests start from a clean module. */
+export function __resetCacheBypassForTests(): void {
+  activeTabs.clear();
+  replayTab = null;
 }
