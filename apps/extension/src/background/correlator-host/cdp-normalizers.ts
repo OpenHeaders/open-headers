@@ -338,16 +338,97 @@ export function parseBindingFire(tabId: number, payload: string): CdpBindingFire
  * `Runtime.consoleAPICalled` → host-neutral {@link ConsoleEntry}. Each
  * `RemoteObject` arg renders to display text from its inline
  * value/description/preview — no `Runtime.getProperties` round-trip in v1, so
- * a deep object shows its shallow preview, not its full contents.
+ * a deep object shows its shallow preview, not its full contents. A leading
+ * format string with `printf` specifiers consumes the trailing args (see
+ * {@link substituteFormat}).
  */
 export function normalizeConsoleApiCalled(p: RawConsoleApiCalled): ConsoleEntry {
   return {
     source: 'console-api',
     level: consoleApiLevel(p.type),
-    args: p.args.map(renderRemoteObject),
+    args: renderConsoleArgs(p.args),
     timestamp: p.timestamp,
     ...topFrameLocation(p.stackTrace),
   };
+}
+
+/** Render console args, applying leading-format-string substitution if present. */
+function renderConsoleArgs(args: readonly RawRemoteObject[]): ConsoleArg[] {
+  if (args.length === 0) return [];
+  return substituteFormat(args) ?? args.map(renderRemoteObject);
+}
+
+/** Value-producing format specifiers — each consumes one trailing arg. `%o`/`%O`
+ *  render the object inline; `%s` renders any arg as text. `%c` (CSS styling)
+ *  consumes its arg but the styled run is deferred to the panel; `%%` is a
+ *  literal percent. */
+const FORMAT_SPECIFIER = /%[sdifoOc%]/;
+const VALUE_SPECIFIERS = new Set(['s', 'd', 'i', 'f', 'o', 'O']);
+
+/**
+ * Apply a leading format string's specifiers (`%s`/`%d`/`%i`/`%f`/`%o`/`%O`/`%c`,
+ * `%%`) against the trailing args, mirroring the browser console. Returns the
+ * substituted string (followed by any args left unconsumed) when `args[0]` is a
+ * format string carrying a specifier, else `null` so the caller renders each arg
+ * independently. A specifier with no arg left to consume stays literal.
+ */
+function substituteFormat(args: readonly RawRemoteObject[]): ConsoleArg[] | null {
+  const head = args[0];
+  if (head.type !== 'string' || typeof head.value !== 'string') return null;
+  const format = head.value;
+  if (!FORMAT_SPECIFIER.test(format)) return null;
+
+  let out = '';
+  let next = 1;
+  for (let i = 0; i < format.length; i++) {
+    const ch = format[i];
+    if (ch !== '%' || i + 1 >= format.length) {
+      out += ch;
+      continue;
+    }
+    const spec = format[i + 1];
+    if (spec === '%') {
+      out += '%';
+      i++;
+    } else if (spec === 'c') {
+      if (next < args.length) next++; // consume the style arg; styled run deferred to the panel
+      i++;
+    } else if (VALUE_SPECIFIERS.has(spec)) {
+      if (next >= args.length) {
+        out += `%${spec}`; // no arg to consume — leave the specifier literal
+      } else {
+        out += formatArg(spec, args[next]);
+        next++;
+      }
+      i++;
+    } else {
+      out += ch; // unknown specifier — emit the percent, render the rest literally
+    }
+  }
+
+  return [{ type: 'string', text: out }, ...args.slice(next).map(renderRemoteObject)];
+}
+
+/** Render one arg for a value specifier: `%d`/`%i` truncate to an integer,
+ *  `%f` keeps the float, `%s`/`%o`/`%O` render the arg's text. */
+function formatArg(spec: string, o: RawRemoteObject): string {
+  if (spec === 'd' || spec === 'i') {
+    const n = numericValue(o);
+    return Number.isNaN(n) ? 'NaN' : String(Math.trunc(n));
+  }
+  if (spec === 'f') {
+    const n = numericValue(o);
+    return Number.isNaN(n) ? 'NaN' : String(n);
+  }
+  return remoteObjectText(o);
+}
+
+/** Coerce an arg to a number for `%d`/`%i`/`%f`, else `NaN`. */
+function numericValue(o: RawRemoteObject): number {
+  if (typeof o.value === 'number') return o.value;
+  if (typeof o.value === 'string') return Number(o.value);
+  if (o.type === 'number' && o.description !== undefined) return Number(o.description);
+  return Number.NaN;
 }
 
 /**
@@ -403,6 +484,9 @@ function remoteObjectText(o: RawRemoteObject): string {
     if (o.value !== undefined) return String(o.value);
     if (o.description !== undefined) return o.description;
   }
+  // An error's `description` is its clean stack string; the backend's inline
+  // `preview` for it is the redundant `{stack, message}` shape — prefer the stack.
+  if (o.subtype === 'error' && o.description !== undefined) return o.description;
   if (o.preview !== undefined) return previewText(o.preview);
   if (o.description !== undefined) return o.description;
   if (o.value !== undefined) return primitiveText(o.value);

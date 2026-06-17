@@ -117,6 +117,31 @@ describe('normalizeConsoleApiCalled — arg rendering', () => {
     expect(entry.args[0].text).toBe('function foo() {}');
   });
 
+  it('renders an error arg as its description stack, not the {stack, message} preview', () => {
+    const stack = 'Error: kaboom\n    at f (https://app.openheaders.io/m.js:3:9)';
+    const entry = normalizeConsoleApiCalled(
+      consoleCall('error', [
+        {
+          type: 'object',
+          subtype: 'error',
+          className: 'Error',
+          description: stack,
+          preview: {
+            type: 'object',
+            subtype: 'error',
+            description: 'Error: kaboom',
+            overflow: false,
+            properties: [
+              { name: 'stack', type: 'string', value: stack },
+              { name: 'message', type: 'string', value: 'kaboom' },
+            ],
+          },
+        },
+      ]),
+    );
+    expect(entry.args[0]).toEqual({ type: 'object', subtype: 'error', text: stack });
+  });
+
   it('lifts the top stack frame into the entry location', () => {
     const entry = normalizeConsoleApiCalled(
       consoleCall('log', [{ type: 'string', value: 'x' }], {
@@ -136,6 +161,100 @@ describe('normalizeConsoleApiCalled — arg rendering', () => {
     expect(entry.url).toBe('https://app.openheaders.io/m.js');
     expect(entry.lineNumber).toBe(11);
     expect(entry.columnNumber).toBe(4);
+  });
+});
+
+describe('normalizeConsoleApiCalled — format substitution', () => {
+  it('substitutes %s / %d value specifiers from the trailing args into one string', () => {
+    const entry = normalizeConsoleApiCalled(
+      consoleCall('log', [
+        { type: 'string', value: 'user %s aged %d' },
+        { type: 'string', value: 'Alice' },
+        { type: 'number', value: 30 },
+      ]),
+    );
+    expect(entry.args).toEqual([{ type: 'string', text: 'user Alice aged 30' }]);
+  });
+
+  it('renders %% as a literal percent', () => {
+    const entry = normalizeConsoleApiCalled(consoleCall('log', [{ type: 'string', value: '100%% done' }]));
+    expect(entry.args).toEqual([{ type: 'string', text: '100% done' }]);
+  });
+
+  it('substitutes %o by rendering the object arg inline', () => {
+    const entry = normalizeConsoleApiCalled(
+      consoleCall('log', [
+        { type: 'string', value: 'data %o' },
+        {
+          type: 'object',
+          description: 'Object',
+          preview: {
+            type: 'object',
+            description: 'Object',
+            overflow: false,
+            properties: [{ name: 'x', type: 'number', value: '1' }],
+          },
+        },
+      ]),
+    );
+    expect(entry.args).toEqual([{ type: 'string', text: 'data {x: 1}' }]);
+  });
+
+  it('appends args left over after substitution as their own rendered args', () => {
+    const entry = normalizeConsoleApiCalled(
+      consoleCall('log', [
+        { type: 'string', value: 'hi %s' },
+        { type: 'string', value: 'there' },
+        { type: 'number', value: 7 },
+      ]),
+    );
+    expect(entry.args).toEqual([
+      { type: 'string', text: 'hi there' },
+      { type: 'number', text: '7' },
+    ]);
+  });
+
+  it('leaves a value specifier literal when no arg is available to consume', () => {
+    const entry = normalizeConsoleApiCalled(
+      consoleCall('log', [
+        { type: 'string', value: '%s %s' },
+        { type: 'string', value: 'a' },
+      ]),
+    );
+    expect(entry.args).toEqual([{ type: 'string', text: 'a %s' }]);
+  });
+
+  it('consumes a %c style arg and drops the styling (panel-side CSS deferred)', () => {
+    const entry = normalizeConsoleApiCalled(
+      consoleCall('log', [
+        { type: 'string', value: '%cTitle' },
+        { type: 'string', value: 'color: red' },
+      ]),
+    );
+    expect(entry.args).toEqual([{ type: 'string', text: 'Title' }]);
+  });
+
+  it('coerces a non-numeric arg to NaN for %d', () => {
+    const entry = normalizeConsoleApiCalled(
+      consoleCall('log', [
+        { type: 'string', value: 'n=%d' },
+        { type: 'string', value: 'abc' },
+      ]),
+    );
+    expect(entry.args).toEqual([{ type: 'string', text: 'n=NaN' }]);
+  });
+
+  it('leaves a plain string arg untouched when it carries no specifiers', () => {
+    const entry = normalizeConsoleApiCalled(
+      consoleCall('log', [
+        { type: 'string', value: 'just text' },
+        { type: 'string', value: 'next' },
+      ]),
+    );
+    expect(entry.args).toEqual([
+      { type: 'string', text: 'just text' },
+      { type: 'string', text: 'next' },
+    ]);
   });
 });
 
