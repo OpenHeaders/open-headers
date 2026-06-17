@@ -112,7 +112,9 @@ export class ChromeCdpTabControlPort implements CdpTabControlPort {
     // Commit the remembered state only after every command lands. If one
     // rejects, `lastApplied` stays at `prev`, so a later `apply` re-diffs
     // and re-issues the whole set — safe because every command is
-    // idempotent.
+    // idempotent (including `add-bootstrap-script`, which retires any prior
+    // tracked id before re-adding, so a re-issue replaces rather than
+    // duplicates).
     for (const command of commands) {
       await this.execute(target, command);
     }
@@ -192,8 +194,20 @@ export class ChromeCdpTabControlPort implements CdpTabControlPort {
    * script and remember the CDP-returned identifier under `(target, key)` so
    * a later remove can target it. The script runs before any page script on
    * every subsequent document load until removed.
+   *
+   * Idempotent on re-issue: a key already tracked here is retired first, so a
+   * re-emitted add (the `lastApplied`-rollback retry path — a prior add lands,
+   * a later command rejects, the next `apply` re-diffs from `prev`) REPLACES
+   * rather than installing a second server-side script and orphaning the old
+   * id. The malformed-result throw below is the one residual: it fires after
+   * the server installed the script but before tracking, leaving an untracked
+   * copy a remove-by-key can't reach — a CDP contract violation that detach /
+   * {@link forget} clears (a re-attach drops every bootstrap script anyway).
    */
   private async addBootstrapScript(target: CdpSessionTarget, key: string, source: string): Promise<void> {
+    if (this.bootstrapIds.get(targetKey(target))?.get(key) !== undefined) {
+      await this.removeBootstrapScript(target, key);
+    }
     const result = await this.sender.sendOnSession(
       target.tabId,
       target.sessionId,

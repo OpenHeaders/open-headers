@@ -301,6 +301,43 @@ describe('ChromeCdpTabControlPort', () => {
     ]);
   });
 
+  it('re-issuing an add for an already-tracked key removes the prior id before re-adding (idempotent add, X2)', async () => {
+    const port = new ChromeCdpTabControlPort(source);
+    const twoScripts = {
+      cacheDisabled: false,
+      networkConditions: null,
+      overrides: null,
+      bootstrapScripts: [
+        { key: 'a', source: 'A()' },
+        { key: 'b', source: 'B()' },
+      ],
+      fetchPatterns: [],
+      fetchHandleAuthRequests: false,
+      bypassCsp: false,
+    } as const;
+    // First apply: add(a) lands and is tracked, add(b) rejects — so `lastApplied`
+    // stays empty and the retry re-diffs from empty, re-issuing add(a) for a key
+    // whose server-side script is already installed (id-a1).
+    chromeMock.debugger.sendCommand
+      .mockResolvedValueOnce({ identifier: 'id-a1' })
+      .mockRejectedValueOnce(new Error('target gone'));
+    await expect(port.apply(ROOT, twoScripts)).rejects.toThrow('target gone');
+    vi.clearAllMocks();
+
+    // Retry: the re-issued add(a) must REMOVE id-a1 first (net one server-side
+    // script per key) rather than orphaning it under a second install.
+    chromeMock.debugger.sendCommand
+      .mockResolvedValueOnce({ identifier: 'id-a2' })
+      .mockResolvedValueOnce({ identifier: 'id-b2' })
+      .mockResolvedValueOnce({ identifier: 'id-unused' });
+    await port.apply(ROOT, twoScripts);
+    expect(sendCalls()).toEqual([
+      [{ tabId: TAB }, 'Page.removeScriptToEvaluateOnNewDocument', { identifier: 'id-a1' }],
+      [{ tabId: TAB }, 'Page.addScriptToEvaluateOnNewDocument', { source: 'A()' }],
+      [{ tabId: TAB }, 'Page.addScriptToEvaluateOnNewDocument', { source: 'B()' }],
+    ]);
+  });
+
   it('captures the real UA then maps a set-user-agent-override onto Network.setUserAgentOverride (F3a)', async () => {
     const port = new ChromeCdpTabControlPort(source);
     // The capture read resolves first (the page's real UA), then the override lands.
