@@ -47,7 +47,7 @@ registerCapability('openExternalUrl', (url) =>
     .catch((err: Error) => ({ ok: false, error: err.message })),
 );
 
-// Deep request inspection (opt-in CDP path) is available only where the
+// Debug mode (opt-in CDP path) is available only where the
 // runtime exposes the debugging protocol — Chromium-family surfaces.
 // Firefox / Safari leave `debugger` undefined, so the capability stays
 // absent and shared UI renders the master-switch row disabled.

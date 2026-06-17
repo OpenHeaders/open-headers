@@ -1,4 +1,6 @@
+import { hasCapability } from '@openheaders/core/capabilities';
 import { hostNavigation } from '@openheaders/core/navigation';
+import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import { Typography } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useRef } from 'react';
@@ -147,6 +149,12 @@ function useOverlayColumns(): OverlayColumns {
   // tick. No per-key hook call, so adding shortcuts can't trip React's
   // rules of hooks.
   const chords = usePopupShortcutChords();
+  // The Debug mode toggle isn't a popup chord — it's the cross-surface
+  // `keyboard.toggleDebugMode`, read here so the overlay lists it alongside
+  // the popup actions. Hidden where the host can't drive the debugging
+  // protocol, matching the footer pill.
+  const debugChord = useSettingValue('keyboard.toggleDebugMode');
+  const debugAvailable = hasCapability('cdpInspection');
 
   return useMemo<OverlayColumns>(() => {
     const grouped: Record<PopupShortcutGroup, ShortcutEntry[]> = {
@@ -165,6 +173,14 @@ function useOverlayColumns(): OverlayColumns {
         description: def.description,
       });
     }
+    if (debugAvailable) {
+      const parts = displayChordParts(typeof debugChord === 'string' ? debugChord : '');
+      grouped.actions.push({
+        keys: parts.length > 0 ? parts : ['—'],
+        combo: true,
+        description: 'Toggle debug mode',
+      });
+    }
     grouped.browser.push(BROWSER_SHORTCUT);
 
     const groups: ShortcutGroup[] = GROUP_ORDER.map((group) => ({
@@ -179,7 +195,7 @@ function useOverlayColumns(): OverlayColumns {
         (g) => g.title === GROUP_TITLES.row || g.title === GROUP_TITLES.browser || g.title === GROUP_TITLES.tourGuide,
       ),
     };
-  }, [chords]);
+  }, [chords, debugChord, debugAvailable]);
 }
 
 const Kbd: React.FC<{ children: string }> = ({ children }) => <span className="kbd-key">{children}</span>;

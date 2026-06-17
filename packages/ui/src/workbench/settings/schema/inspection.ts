@@ -1,5 +1,6 @@
 /**
- * Request Inspection category — the opt-in deep request-inspection path.
+ * Debug mode category — the opt-in path that attaches the browser's
+ * debugging protocol.
  *
  * `inspection.cdpEnabled` is the global master switch. It decides *whether*
  * the browser's debugging protocol is used; the developer-tools session on
@@ -18,15 +19,14 @@ registerSetting({
   type: 'boolean',
   default: false,
   schema: v.boolean(),
-  label: 'Deep request inspection',
+  label: 'Debug mode',
   description:
-    'Attach the browser’s debugging protocol to tabs with their developer tools open, capturing requests at creation with richer detail than the default path. The browser shows a debugging banner on each attached tab while this is on; it stays off by default.',
+    'Inspect and modify requests with the same depth as your browser’s built-in developer tools — page loads, workers, and iframes, not just page-level fetches. The browser shows a debugging banner on each attached tab while this is on; it stays off by default.',
   category: 'inspection',
   tags: ['network', 'inspection', 'requests', 'debugging', 'devtools'],
   scope: 'user',
   requiresCapability: 'cdpInspection',
-  capabilityUnavailableHint:
-    'This browser doesn’t expose the debugging protocol, so deep request inspection isn’t available here.',
+  capabilityUnavailableHint: 'This browser doesn’t expose the debugging protocol, so debug mode isn’t available here.',
 });
 
 registerSetting({
@@ -34,15 +34,14 @@ registerSetting({
   type: 'enum',
   default: 'devtools',
   schema: cdpScopeModeSchema,
-  label: 'Inspect which tabs',
+  label: 'Attach to which tabs',
   description:
-    'Which tabs deep inspection attaches to while it’s on. “Where DevTools is open” attaches to browser tabs with their developer tools open. “The focused tab” follows the active browser tab without needing developer tools open — switching to a new-tab or internal page leaves the prior tab attached rather than thrashing. “Both” combines the two. Individual browser tabs can also be pinned in from the footer regardless of this choice.',
+    'Which tabs debug mode attaches to while it’s on. “Where DevTools is open” attaches to browser tabs with their developer tools open. “The focused tab” follows the active browser tab without needing developer tools open — switching to a new-tab or internal page leaves the prior tab attached rather than thrashing. “Both” combines the two. Individual browser tabs can also be pinned in from the footer regardless of this choice.',
   category: 'inspection',
   tags: ['network', 'inspection', 'requests', 'debugging', 'devtools', 'scope'],
   scope: 'user',
   requiresCapability: 'cdpInspection',
-  capabilityUnavailableHint:
-    'This browser doesn’t expose the debugging protocol, so deep request inspection isn’t available here.',
+  capabilityUnavailableHint: 'This browser doesn’t expose the debugging protocol, so debug mode isn’t available here.',
   enumOptions: [
     {
       value: 'devtools',

@@ -25,7 +25,7 @@ import '@openheaders/ui/workbench/styles/rule-flow.less';
 // `getActiveWorkspaceId`) — so register just the pairing one here.
 registerCapability('pairWithCode', pairWithCode);
 
-// Deep request inspection (opt-in CDP path) is surface-agnostic, so the
+// Debug mode (opt-in CDP path) is surface-agnostic, so the
 // workbench advertises it too — gated on the runtime exposing the
 // debugging protocol (Chromium-family; absent on Firefox / Safari).
 if (getBrowserAPI().debugger !== undefined) {

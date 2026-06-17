@@ -612,7 +612,7 @@ export const DebugModeSection: React.FC = () => (
 
     <DocHeading level={3}>Choosing what to inspect</DocHeading>
     <DocParagraph>
-      The <strong>Inspect</strong> dropdown decides which tabs debug mode attaches to —{' '}
+      The <strong>Attach to</strong> dropdown decides which tabs debug mode attaches to —{' '}
       <strong>Where DevTools is open</strong> (only tabs with the Open Headers panel open; the narrowest default),{' '}
       <strong>The focused tab</strong> (follows the active tab as you switch), or <strong>Both</strong> (the union of
       the two).

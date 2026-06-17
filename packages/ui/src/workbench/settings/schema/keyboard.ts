@@ -29,6 +29,7 @@ const chordSchema = v.pipe(
 
 declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
+    'keyboard.toggleDebugMode': string;
     'keyboard.commandPalette': string;
     'keyboard.openSettings': string;
     'keyboard.toggleLeftSidebar': string;
@@ -50,6 +51,23 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'keyboard.formatCode': string;
   }
 }
+
+// Cross-surface: the one shortcut wired on every surface that mounts the
+// Debug mode control (popup, side panel, workbench, DevTools panel).
+registerSetting({
+  key: 'keyboard.toggleDebugMode',
+  type: 'keybinding',
+  default: 'shift+d',
+  schema: chordSchema,
+  label: 'Toggle Debug Mode',
+  description: 'Turn debug mode on or off from any surface. Fires only when no text field is focused.',
+  category: 'keyboard',
+  subcategory: 'global',
+  tags: ['debug', 'devtools', 'inspection', 'cdp'],
+  scope: 'user',
+  requiresCapability: 'cdpInspection',
+  capabilityUnavailableHint: 'This browser doesn’t expose the debugging protocol, so debug mode isn’t available here.',
+});
 
 registerSetting({
   key: 'keyboard.commandPalette',

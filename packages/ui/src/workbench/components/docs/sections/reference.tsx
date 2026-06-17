@@ -1,6 +1,7 @@
+import { hasCapability } from '@openheaders/core/capabilities';
 import { Card, theme } from 'antd';
 import type React from 'react';
-import { SHORTCUTS, useShortcutLabel } from '../../../hooks/useWorkspaceShortcuts';
+import { SHORTCUTS, useChordLabel, useShortcutLabel } from '../../../hooks/useWorkspaceShortcuts';
 import { KeyboardRegionsDiagram, ResourceTypesAnatomyDiagram } from '../diagrams';
 import { DiagramFrame, DocParagraph, SurfaceContext } from '../shared';
 import { ResourceTypeTable } from './concepts';
@@ -23,28 +24,31 @@ export const ResourceTypesSection: React.FC = () => (
 
 // ── Reference: Keyboard Shortcuts ────────────────────────────────
 
-const ShortcutRow: React.FC<{ id: string; label: string; codeBg: string }> = ({ id, label, codeBg }) => {
-  const chord = useShortcutLabel(id);
-  return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-      <span style={{ fontSize: 12 }}>{label}</span>
-      <code
-        style={{
-          fontSize: 11,
-          padding: '1px 6px',
-          background: codeBg,
-          borderRadius: 3,
-          whiteSpace: 'nowrap',
-        }}
-      >
-        {chord}
-      </code>
-    </div>
-  );
-};
+const ChordRow: React.FC<{ label: string; chord: string; codeBg: string }> = ({ label, chord, codeBg }) => (
+  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <span style={{ fontSize: 12 }}>{label}</span>
+    <code
+      style={{
+        fontSize: 11,
+        padding: '1px 6px',
+        background: codeBg,
+        borderRadius: 3,
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {chord}
+    </code>
+  </div>
+);
+
+const ShortcutRow: React.FC<{ id: string; label: string; codeBg: string }> = ({ id, label, codeBg }) => (
+  <ChordRow label={label} chord={useShortcutLabel(id)} codeBg={codeBg} />
+);
 
 export const KeyboardShortcutsSection: React.FC = () => {
   const { token } = theme.useToken();
+  const debugChord = useChordLabel('keyboard.toggleDebugMode');
+  const debugAvailable = hasCapability('cdpInspection');
   return (
     <>
       <SurfaceContext surfaces={['workbench']} />
@@ -55,6 +59,13 @@ export const KeyboardShortcutsSection: React.FC = () => {
       <DiagramFrame caption="Four chords park your focus in one of four shell regions.">
         <KeyboardRegionsDiagram />
       </DiagramFrame>
+      {debugAvailable && (
+        <Card size="small" style={{ marginBottom: 8 }} title="All surfaces">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <ChordRow label="Toggle debug mode" chord={debugChord} codeBg={token.colorFillQuaternary} />
+          </div>
+        </Card>
+      )}
       {(['panels', 'tabs', 'navigation', 'actions'] as const).map((category) => {
         const items = SHORTCUTS.filter((s) => s.category === category);
         if (items.length === 0) return null;

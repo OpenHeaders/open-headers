@@ -123,10 +123,11 @@ registerCategory({
 
 registerCategory({
   id: 'inspection',
-  label: 'Request Inspection',
+  label: 'Debug mode',
   icon: <BugOutlined />,
   order: 21,
-  description: 'The opt-in deep request-inspection path — attaching the browser debugging protocol to capture requests at creation.',
+  description:
+    'The opt-in path that attaches your browser’s debugging protocol — inspect and modify requests with the same depth as the built-in developer tools.',
 });
 
 registerCategory({
@@ -152,6 +153,7 @@ registerCategory({
   order: 80,
   description: 'Customize keyboard shortcuts.',
   subcategories: [
+    { id: 'global', label: 'All Surfaces', order: 5 },
     { id: 'workbench-general', label: 'Workbench', order: 10 },
     { id: 'workbench-layout', label: 'Workbench · Layout', order: 20 },
     { id: 'workbench-tabs', label: 'Workbench · Tabs', order: 30 },

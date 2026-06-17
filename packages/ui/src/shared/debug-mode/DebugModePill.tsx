@@ -1,6 +1,6 @@
 /**
- * DebugModePill — the standalone footer control for deep request inspection
- * (the browser's debugging protocol). Sits to the LEFT of the System Status
+ * DebugModePill — the standalone footer control for debug mode (the
+ * browser's debugging protocol). Sits to the LEFT of the System Status
  * pill on every surface and opens its own popover on hover / click, mirroring
  * the System Status trigger.
  *
@@ -33,6 +33,8 @@ import { hasCapability } from '@openheaders/core/capabilities';
 import { hostNavigation } from '@openheaders/core/navigation';
 import type { CdpRosterTab, CdpScopeMode } from '@openheaders/core/types';
 import { readCdpPinnedTabs, readCdpRoster } from '@openheaders/core/types';
+import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
+import { useChordLabel } from '@openheaders/ui/workbench/hooks/useWorkspaceShortcuts';
 import { useSetting, useSettingsReady } from '@openheaders/ui/workbench/settings/hooks';
 import { Badge, Button, ConfigProvider, Popover, Select, Switch, Tooltip, Typography, theme } from 'antd';
 import type { TooltipPlacement } from 'antd/es/tooltip';
@@ -40,6 +42,7 @@ import React, { useEffect, useState } from 'react';
 import { isPeerNavigable, peerNavigate } from '../awareness/peer-navigate';
 import { useStatus } from '../hooks/useStatus';
 import type { StatusEntry } from '../status/types';
+import { useDebugModeShortcut } from './useDebugModeShortcut';
 
 /**
  * Where the "this tab" pin resolves its target. The panel inspects a fixed
@@ -95,6 +98,11 @@ export const DebugModePill: React.FC<DebugModePillProps> = ({ tabSource, classNa
   const { snapshot } = useStatus();
   const [enabled, setEnabled] = useSetting('inspection.cdpEnabled');
   const settingsReady = useSettingsReady();
+  const toggleLabel = useChordLabel('keyboard.toggleDebugMode');
+
+  // The shortcut binds on every surface that mounts this pill — including
+  // the DevTools panel, which has no shortcut registry of its own.
+  useDebugModeShortcut();
 
   // Render nothing where the host can't drive the debugging protocol.
   if (!hasCapability('cdpInspection')) return null;
@@ -150,7 +158,13 @@ export const DebugModePill: React.FC<DebugModePillProps> = ({ tabSource, classNa
           default on popup re-open; width reserved so the late mount can't shift. */}
       <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 28 }}>
         {settingsReady && (
-          <Tooltip title={enabled ? 'Turn off deep request inspection' : 'Turn on deep request inspection'}>
+          <Tooltip
+            title={
+              <ShortcutHintTitle label={toggleLabel}>
+                {enabled ? 'Turn off debug mode' : 'Turn on debug mode'}
+              </ShortcutHintTitle>
+            }
+          >
             <Switch size="small" checked={enabled} onChange={setEnabled} aria-label="Toggle debug mode" />
           </Tooltip>
         )}
@@ -244,7 +258,7 @@ const DebugModeControls: React.FC<DebugModeControlsProps> = ({ entry, tabSource,
             </Typography.Text>
           </div>
         )}
-        <ControlRow label="Inspect" token={token}>
+        <ControlRow label="Attach to" token={token}>
           <Select
             size="small"
             value={scope}

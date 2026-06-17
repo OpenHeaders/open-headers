@@ -46,7 +46,7 @@ import { type InspectorFire, isAppliedFire } from './types';
  *  root-anchored page inputs they derive from — so a capture sees both ends
  *  of the redirect-leg math without rerunning the projection. */
 export interface ParityFooter {
-  /** Which correlator fed the panel — `'cdp'` (deep request inspection) vs
+  /** Which correlator fed the panel — `'cdp'` (debug mode) vs
    *  the heuristic webRequest path. A footer capture asserts the path it
    *  meant to exercise actually ran. */
   source: string;

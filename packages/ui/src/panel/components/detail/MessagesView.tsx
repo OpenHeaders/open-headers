@@ -95,7 +95,7 @@ export default function MessagesView({ lifecycle, har, source }: MessagesViewPro
       <div className="dt-empty" style={{ padding: 24 }}>
         {source === 'cdp'
           ? 'No WebSocket frames exchanged yet.'
-          : 'WebSocket frames are only visible with deep request inspection enabled for this tab.'}
+          : 'WebSocket frames are only visible with debug mode enabled for this tab.'}
       </div>
     );
   }

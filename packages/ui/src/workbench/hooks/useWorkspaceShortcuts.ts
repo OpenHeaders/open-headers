@@ -335,6 +335,16 @@ export function getShortcut(id: string): ShortcutDef | undefined {
   return SHORTCUTS.find((s) => s.id === id);
 }
 
+/**
+ * Live, platform-appropriate display label for any chord setting key —
+ * for shortcuts that aren't part of the `SHORTCUTS` table (e.g. the
+ * cross-surface Debug mode toggle). Repaints on rebind.
+ */
+export function useChordLabel(settingKey: SettingKey): string {
+  const chord = useSettingValue(settingKey);
+  return formatChord(typeof chord === 'string' ? chord : '');
+}
+
 // ── Chord matching ────────────────────────────────────────────────
 
 const CODE_TO_KEY: Record<string, string> = {

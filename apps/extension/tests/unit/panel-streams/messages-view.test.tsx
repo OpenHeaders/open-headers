@@ -135,9 +135,7 @@ describe('MessagesView — empty states and truncation', () => {
 
   it('heuristic leg explains the missing plane', () => {
     render(<MessagesView lifecycle={makeWsLifecycle([])} har={null} source="heuristic" />);
-    expect(
-      screen.getByText('WebSocket frames are only visible with deep request inspection enabled for this tab.'),
-    ).toBeTruthy();
+    expect(screen.getByText('WebSocket frames are only visible with debug mode enabled for this tab.')).toBeTruthy();
   });
 
   it('shows the ring-truncation banner when frames were dropped', () => {
