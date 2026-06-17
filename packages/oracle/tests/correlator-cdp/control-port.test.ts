@@ -13,12 +13,13 @@ import { describe, expect, it } from 'vitest';
 
 import {
   type CdpBootstrapScript,
-  type CdpSystemOverrides,
   type CdpFetchPattern,
   type CdpNetworkConditions,
+  type CdpSystemOverrides,
   type CdpTabControlState,
   EMPTY_TAB_CONTROL_STATE,
   reconcileTabControl,
+  workerControlState,
 } from '../../src/correlator-cdp/control-port';
 import {
   createInMemoryRequestControlPort,
@@ -301,6 +302,67 @@ describe('reconcileTabControl', () => {
       { kind: 'enable-fetch', patterns: [API_PATTERN], handleAuthRequests: true },
       { kind: 'add-bootstrap-script', key: 'wrapper', source: 'globalThis.__oh_wrap__()' },
     ]);
+  });
+});
+
+describe('workerControlState', () => {
+  const FULL = state({
+    cacheDisabled: true,
+    networkConditions: SLOW_3G,
+    overrides: {
+      userAgent: 'Test-Agent/1.0 (openheaders.io)',
+      acceptLanguage: 'fr-FR',
+      platform: 'Linux',
+      locale: 'fr-FR',
+      timezoneId: 'Europe/Berlin',
+      emulatedMedia: { colorScheme: 'dark' },
+    },
+    bypassCsp: true,
+    fetchPatterns: [API_PATTERN],
+    fetchHandleAuthRequests: true,
+    bootstrapScripts: [WRAPPER_SCRIPT],
+  });
+
+  it('keeps the Network/Fetch planes a worker target can run', () => {
+    const worker = workerControlState(FULL);
+    expect(worker.cacheDisabled).toBe(true);
+    expect(worker.networkConditions).toEqual(SLOW_3G);
+    expect(worker.fetchPatterns).toEqual([API_PATTERN]);
+    expect(worker.fetchHandleAuthRequests).toBe(true);
+  });
+
+  it('drops the page-only planes — Page.setBypassCSP and the bootstrap scripts', () => {
+    const worker = workerControlState(FULL);
+    expect(worker.bypassCsp).toBe(false);
+    expect(worker.bootstrapScripts).toEqual([]);
+  });
+
+  it('splits the mixed overrides plane: keeps the UA triple, drops the Emulation facets', () => {
+    expect(workerControlState(FULL).overrides).toEqual({
+      userAgent: 'Test-Agent/1.0 (openheaders.io)',
+      acceptLanguage: 'fr-FR',
+      platform: 'Linux',
+    });
+  });
+
+  it('projects an Emulation-only overrides set to null (no UA facet survives)', () => {
+    const emulationOnly = state({ overrides: { locale: 'fr-FR', timezoneId: 'Europe/Berlin' } });
+    expect(workerControlState(emulationOnly).overrides).toBeNull();
+  });
+
+  it('keeps a null overrides null', () => {
+    expect(workerControlState(EMPTY_TAB_CONTROL_STATE).overrides).toBeNull();
+  });
+
+  it('reconciles to no page-only command — only Network/Fetch reach the worker', () => {
+    const kinds = reconcileTabControl(EMPTY_TAB_CONTROL_STATE, workerControlState(FULL)).map((c) => c.kind);
+    expect(kinds).toContain('enable-fetch');
+    expect(kinds).toContain('set-user-agent-override');
+    expect(kinds).not.toContain('set-bypass-csp');
+    expect(kinds).not.toContain('set-locale-override');
+    expect(kinds).not.toContain('set-timezone-override');
+    expect(kinds).not.toContain('set-emulated-media');
+    expect(kinds).not.toContain('add-bootstrap-script');
   });
 });
 

@@ -155,6 +155,54 @@ export const EMPTY_TAB_CONTROL_STATE: CdpTabControlState = {
 };
 
 /**
+ * Project a tab's standing state onto the subset a flattened WORKER child
+ * session can run. A worker target carries only the Network/Fetch domains —
+ * no Page, no Emulation — so the page-only planes are dropped before the
+ * state is fanned to it: the `Emulation.*` locale / timezone / media facets,
+ * `Page.setBypassCSP`, and the `Page.addScriptToEvaluateOnNewDocument`
+ * bootstrap scripts. Fanning one of those to a worker would reject (the domain
+ * is absent), and under the adapter's fail-fast `apply` that rejection aborts
+ * the whole batch — silently dropping the worker's OWN `Fetch.enable` and
+ * leaving worker-originated requests unintercepted.
+ *
+ * The Network-domain planes survive: cache, network conditions, the
+ * `Fetch.enable` interception patterns + auth flag, and the UA triple
+ * (`Network.setUserAgentOverride` — the on-the-wire override). `overrides` is
+ * a MIXED plane, so it is split rather than dropped wholesale: the UA facets
+ * stay, the `Emulation.*` facets go (see {@link workerOverrides}). OOPIFs are
+ * page-like (they keep a Page domain) and are fanned the full state, so only
+ * worker children project through here.
+ */
+export function workerControlState(state: CdpTabControlState): CdpTabControlState {
+  return {
+    cacheDisabled: state.cacheDisabled,
+    networkConditions: state.networkConditions,
+    overrides: workerOverrides(state.overrides),
+    bootstrapScripts: [],
+    fetchPatterns: state.fetchPatterns,
+    fetchHandleAuthRequests: state.fetchHandleAuthRequests,
+    bypassCsp: false,
+  };
+}
+
+/**
+ * Project `overrides` onto its worker-valid facets — the UA triple alone
+ * (`Network.setUserAgentOverride`). The `Emulation.*` facets (locale /
+ * timezoneId / emulatedMedia) are page-only and dropped. Returns null when no
+ * UA facet survives, so the diff sees "no override" rather than an empty struct.
+ */
+function workerOverrides(overrides: CdpSystemOverrides | null): CdpSystemOverrides | null {
+  if (overrides === null) return null;
+  const { userAgent, acceptLanguage, platform } = overrides;
+  if (userAgent === undefined && acceptLanguage === undefined && platform === undefined) return null;
+  return {
+    ...(userAgent !== undefined ? { userAgent } : {}),
+    ...(acceptLanguage !== undefined ? { acceptLanguage } : {}),
+    ...(platform !== undefined ? { platform } : {}),
+  };
+}
+
+/**
  * The declarative standing-state port. The Phase-C foundation's load-bearing
  * seam: the attach controller `apply`s the derived state after every clean
  * attach and `forget`s it on detach, so replay-on-reattach falls out of the

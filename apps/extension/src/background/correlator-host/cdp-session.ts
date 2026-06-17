@@ -27,6 +27,22 @@ export function cdpRootTarget(tabId: number): CdpSessionTarget {
 }
 
 /**
+ * The kind of a flattened child session the debugger source keeps and fans
+ * standing CDP control state onto. An `iframe` (OOPIF) is page-like — it has
+ * the Page/Emulation domains, so it takes the full state; a `worker` has only
+ * the Network/Fetch domains, so its fanned state is projected onto the
+ * worker-valid subset (the oracle's `workerControlState`). Carried out to the
+ * control-replay fan so the projection happens where the target type is known.
+ */
+export type ChildTargetKind = 'iframe' | 'worker';
+
+/** A kept child session and its target kind — the unit the control replay fans over. */
+export interface KeptChildSession {
+  readonly sessionId: string;
+  readonly kind: ChildTargetKind;
+}
+
+/**
  * A residual in-page wrapper's fire, delivered over the private
  * `Runtime.addBinding` channel (E4) instead of `window.postMessage` — the page
  * can neither observe nor forge it (a forged DOM message never enters this

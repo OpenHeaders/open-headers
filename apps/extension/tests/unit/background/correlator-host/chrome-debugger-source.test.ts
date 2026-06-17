@@ -646,22 +646,22 @@ describe('ChromeDebuggerEventSource — attach handshake + child sessions (B1)',
 });
 
 describe('ChromeDebuggerEventSource — child-session control observers (D2)', () => {
-  it('fires onChildAttached for a kept child and tracks it in childSessionsOf', async () => {
+  it('fires onChildAttached with the target kind and tracks it in childSessionsOf', async () => {
     source = new ChromeDebuggerEventSource();
-    const attached: Array<[number, string]> = [];
-    source.onChildAttached((tabId, sessionId) => attached.push([tabId, sessionId]));
+    const attached: Array<[number, string, string]> = [];
+    source.onChildAttached((tabId, sessionId, kind) => attached.push([tabId, sessionId, kind]));
     await source.attach(TAB);
 
     emitRoot('Target.attachedToTarget', attachedToTarget(CHILD_SESSION, 'worker'));
 
-    expect(attached).toEqual([[TAB, CHILD_SESSION]]);
-    expect(source.childSessionsOf(TAB)).toEqual([CHILD_SESSION]);
+    expect(attached).toEqual([[TAB, CHILD_SESSION, 'worker']]);
+    expect(source.childSessionsOf(TAB)).toEqual([{ sessionId: CHILD_SESSION, kind: 'worker' }]);
   });
 
   it('does not fire onChildAttached for an un-kept target type (service_worker)', async () => {
     source = new ChromeDebuggerEventSource();
-    const attached: Array<[number, string]> = [];
-    source.onChildAttached((tabId, sessionId) => attached.push([tabId, sessionId]));
+    const attached: Array<[number, string, string]> = [];
+    source.onChildAttached((tabId, sessionId, kind) => attached.push([tabId, sessionId, kind]));
     await source.attach(TAB);
 
     emitRoot('Target.attachedToTarget', attachedToTarget('sw-session', 'service_worker'));
@@ -670,16 +670,16 @@ describe('ChromeDebuggerEventSource — child-session control observers (D2)', (
     expect(source.childSessionsOf(TAB)).toEqual([]);
   });
 
-  it('fires onChildDetached on Target.detachedFromTarget and forgets the child', async () => {
+  it('fires onChildDetached with the target kind and forgets the child', async () => {
     source = new ChromeDebuggerEventSource();
-    const detached: Array<[number, string]> = [];
-    source.onChildDetached((tabId, sessionId) => detached.push([tabId, sessionId]));
+    const detached: Array<[number, string, string]> = [];
+    source.onChildDetached((tabId, sessionId, kind) => detached.push([tabId, sessionId, kind]));
     await source.attach(TAB);
 
     emitRoot('Target.attachedToTarget', attachedToTarget(CHILD_SESSION, 'iframe'));
     emitRoot('Target.detachedFromTarget', { sessionId: CHILD_SESSION });
 
-    expect(detached).toEqual([[TAB, CHILD_SESSION]]);
+    expect(detached).toEqual([[TAB, CHILD_SESSION, 'iframe']]);
     expect(source.childSessionsOf(TAB)).toEqual([]);
   });
 

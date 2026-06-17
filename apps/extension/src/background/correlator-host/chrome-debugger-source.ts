@@ -99,10 +99,10 @@ import type {
   RawWebSocketHandshakeResponseReceived,
   RawWebSocketWillSendHandshakeRequest,
 } from './cdp-raw-payloads';
-import { type CdpBindingFire, ROOT_SESSION_ID } from './cdp-session';
+import { type CdpBindingFire, type ChildTargetKind, type KeptChildSession, ROOT_SESSION_ID } from './cdp-session';
 import { clearMainFrameId, setMainFrameId } from './main-frame-registry';
 
-export type { CdpBindingFire } from './cdp-session';
+export type { CdpBindingFire, ChildTargetKind, KeptChildSession } from './cdp-session';
 // Re-exported for importers that consumed these from this module before the
 // raw-payloads / normalizers split (cdp-control-replay, the correlator-host
 // barrel, tests).
@@ -112,7 +112,7 @@ type Listener = (event: CdpNetworkEvent) => void;
 type PageListener = (event: CdpPageEvent) => void;
 type FetchListener = (event: CdpFetchEvent) => void;
 type DetachListener = (tabId: number, reason: string) => void;
-type ChildSessionListener = (tabId: number, sessionId: string) => void;
+type ChildSessionListener = (tabId: number, sessionId: string, kind: ChildTargetKind) => void;
 type BindingListener = (fire: CdpBindingFire) => void;
 type ConsoleListener = (tabId: number, entry: ConsoleEntry) => void;
 type DebuggerApi = BrowserAPI['debugger'];
@@ -132,9 +132,10 @@ const MAX_RESPONSE_BODY_TOTAL_BUFFER_BYTES = 250 * 1024 * 1024;
 const MAX_EAGER_POST_BODY_BYTES = 64 * 1024;
 
 /**
- * Child target types we auto-attach to (B1 product call). The parity
- * goal is 1-to-1 with Chrome's own page Network tab, which under a
- * per-tab attach equals the heuristic's `webRequest` coverage:
+ * Map a raw CDP target type onto the {@link ChildTargetKind} we auto-attach to
+ * (B1 product call) — or `undefined` for one we skip. The parity goal is
+ * 1-to-1 with Chrome's own page Network tab, which under a per-tab attach
+ * equals the heuristic's `webRequest` coverage:
  *
  *   - `iframe` — out-of-process iframes. The headline B1 gap; their
  *     traffic never flows through the page session.
@@ -142,16 +143,19 @@ const MAX_EAGER_POST_BODY_BYTES = 64 * 1024;
  *     to the owning page's `tabId`, and Chrome's page Network tab shows
  *     them, so excluding them would undercount.
  *
- * Excluded: `service_worker` / `shared_worker`. `webRequest` reports them
+ * Skipped: `service_worker` / `shared_worker`. `webRequest` reports them
  * with `tabId === -1` (dropped by the heuristic), and Chrome surfaces
  * them in a *separate* DevTools instance, not the page tab — attaching
  * would invert parity the other way and surface cross-page traffic the
  * user never saw. They are also not reachable from a per-tab attach (they
  * are browser-scoped targets, not children of the tab target); full
  * coverage would require a browser-level debuggee, deferred out of this
- * epic.
+ * epic. Returning the typed kind (not a boolean) carries the page-vs-worker
+ * distinction out to the control-replay fan, which projects a worker's state.
  */
-const ATTACHABLE_CHILD_TARGET_TYPES: ReadonlySet<string> = new Set(['iframe', 'worker']);
+function childTargetKind(type: string): ChildTargetKind | undefined {
+  return type === 'iframe' || type === 'worker' ? type : undefined;
+}
 
 export class ChromeDebuggerEventSource implements CdpEventSource {
   private readonly listeners = new Set<Listener>();
@@ -164,8 +168,12 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
   private readonly consoleListeners = new Set<ConsoleListener>();
   /** Root (page-target) tabs we hold a `chrome.debugger` attachment for. */
   private readonly attachedTabs = new Set<number>();
-  /** Flattened child sessions we kept and enabled `Network` on → owning root tab. */
-  private readonly childSessions = new Map<string, number>();
+  /**
+   * Flattened child sessions we kept and enabled `Network` on → their owning
+   * root tab and target kind. The kind rides along so the control-replay fan
+   * can project a worker's standing state onto its Network/Fetch-only subset.
+   */
+  private readonly childSessions = new Map<string, { readonly owner: number; readonly kind: ChildTargetKind }>();
   private readonly removeListeners: Array<() => void> = [];
 
   constructor() {
@@ -341,11 +349,11 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
     };
   }
 
-  /** The kept child session ids for a tab (workers / OOPIFs), in no order. */
-  childSessionsOf(tabId: number): string[] {
-    const sessions: string[] = [];
-    for (const [sessionId, owner] of this.childSessions) {
-      if (owner === tabId) sessions.push(sessionId);
+  /** The kept child sessions for a tab (workers / OOPIFs) with their kind, in no order. */
+  childSessionsOf(tabId: number): KeptChildSession[] {
+    const sessions: KeptChildSession[] = [];
+    for (const [sessionId, { owner, kind }] of this.childSessions) {
+      if (owner === tabId) sessions.push({ sessionId, kind });
     }
     return sessions;
   }
@@ -622,8 +630,9 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
 
   private handleTargetAttached(tabId: number, params: RawAttachedToTarget): void {
     const childSessionId = params.sessionId;
-    if (!ATTACHABLE_CHILD_TARGET_TYPES.has(params.targetInfo.type)) return;
-    this.childSessions.set(childSessionId, tabId);
+    const kind = childTargetKind(params.targetInfo.type);
+    if (kind === undefined) return;
+    this.childSessions.set(childSessionId, { owner: tabId, kind });
     // Enable Network on the child and recurse auto-attach so nested
     // OOPIFs/workers under this child attach too (flatten only reaches
     // direct children per session).
@@ -635,7 +644,7 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
     // not just the main frame — queued before `applyChild` runs so the enable
     // precedes those Page commands. Workers have no Page domain (Network-only);
     // child Page.* stays out of page-timing (the router fans the root alone).
-    if (params.targetInfo.type === 'iframe') void this.enablePage(session);
+    if (kind === 'iframe') void this.enablePage(session);
     // The private fire-bridge reaches every kept child (E4): a worker/OOPIF
     // wrapper's fire belongs to the tab, so addBinding + Runtime.enable on the
     // child's own session and route any bindingCalled there by tabId. Workers
@@ -643,14 +652,14 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
     // moot for now (no worker wrapper exists yet; the deferred reach), but the
     // transport is in place for when one lands.
     void this.enableRuntimeBinding(session);
-    for (const listener of this.childAttachListeners) listener(tabId, childSessionId);
+    for (const listener of this.childAttachListeners) listener(tabId, childSessionId, kind);
   }
 
   private handleTargetDetached(params: RawDetachedFromTarget): void {
-    const tabId = this.childSessions.get(params.sessionId);
-    if (tabId === undefined) return;
+    const child = this.childSessions.get(params.sessionId);
+    if (child === undefined) return;
     this.childSessions.delete(params.sessionId);
-    for (const listener of this.childDetachListeners) listener(tabId, params.sessionId);
+    for (const listener of this.childDetachListeners) listener(child.owner, params.sessionId, child.kind);
   }
 
   private handleDetach(source: chrome.debugger.Debuggee, reason: string): void {
@@ -742,10 +751,10 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
   }
 
   private forgetChildrenOf(tabId: number): void {
-    for (const [sessionId, owner] of this.childSessions) {
+    for (const [sessionId, { owner, kind }] of this.childSessions) {
       if (owner !== tabId) continue;
       this.childSessions.delete(sessionId);
-      for (const listener of this.childDetachListeners) listener(tabId, sessionId);
+      for (const listener of this.childDetachListeners) listener(tabId, sessionId, kind);
     }
   }
 

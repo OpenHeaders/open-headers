@@ -139,7 +139,9 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   // Fan the tab's standing CDP state onto child sessions (workers / OOPIFs)
   // as they attach/detach during its lifetime, so Fetch interception reaches
   // worker- and iframe-originated requests, not just the root page target.
-  lifecycleHost.debuggerSource.onChildAttached((tabId, sessionId) => cdpControlReplay.applyChild(tabId, sessionId));
+  lifecycleHost.debuggerSource.onChildAttached((tabId, sessionId, kind) =>
+    cdpControlReplay.applyChild(tabId, sessionId, kind),
+  );
   lifecycleHost.debuggerSource.onChildDetached((tabId, sessionId) => cdpControlReplay.forgetChild(tabId, sessionId));
   // Apply-now for a live throttle change: the panel only lets a user set a
   // profile on an in-scope (attached) tab, so re-derive + re-apply that tab's

@@ -60,7 +60,6 @@ export type {
   CdpContinueWithAuth,
   CdpControlCommand,
   CdpEmulatedMedia,
-  CdpSystemOverrides,
   CdpFetchPattern,
   CdpFulfillResponse,
   CdpGetRequestPostData,
@@ -71,10 +70,11 @@ export type {
   CdpRequestPostData,
   CdpResponseBody,
   CdpSessionTarget,
+  CdpSystemOverrides,
   CdpTabControlPort,
   CdpTabControlState,
 } from './control-port';
-export { EMPTY_TAB_CONTROL_STATE, reconcileTabControl } from './control-port';
+export { EMPTY_TAB_CONTROL_STATE, reconcileTabControl, workerControlState } from './control-port';
 export { CdpCorrelator } from './correlator';
 export type { CdpEvalArg, CdpEvalOutcome, CdpEvalPort } from './eval-port';
 export type {
