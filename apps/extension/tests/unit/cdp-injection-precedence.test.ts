@@ -237,6 +237,33 @@ describe('D4 precedence — CDP owns realizable debug-tier rules exclusively', (
     expect(buildDelayInjection).toHaveBeenCalledWith(rule);
   });
 
+  // X1: a debug-tier `response`/`request-body` carrying a condition NO Fetch
+  // stage can evaluate (initiator-domains, domain-type) is declined by the CDP
+  // reaction resolvers (they pass it through). Suppressing its injection too
+  // would realize it NOWHERE on an in-scope tab — yet it worked over page xhr
+  // while out of scope. `isCdpEvaluable` keeps such a rule on injection.
+
+  it('keeps an initiator-domain-gated debug-tier response on injection (CDP cannot evaluate the initiator gate)', async () => {
+    const rule = responseRule();
+    rule.conditions = [
+      ...rule.conditions,
+      { uid: 'tcd00066', type: 'initiator-domains', values: ['app.openheaders.io'] },
+    ];
+    updateScriptableRules([rule]);
+
+    await __testInjectForUrl(CDP_TAB, PAGE);
+    expect(buildResponseInjection).toHaveBeenCalledWith(rule);
+  });
+
+  it('keeps a domain-type-gated debug-tier response on injection (no Fetch stage evaluates domain-type)', async () => {
+    const rule = responseRule();
+    rule.conditions = [...rule.conditions, { uid: 'tcd00067', type: 'domain-type', values: ['thirdParty'] }];
+    updateScriptableRules([rule]);
+
+    await __testInjectForUrl(CDP_TAB, PAGE);
+    expect(buildResponseInjection).toHaveBeenCalledWith(rule);
+  });
+
   it('still installs the delay wrapper on injection on the same tab NOT under CDP control', async () => {
     const rule = delayRule();
     updateScriptableRules([rule]);

@@ -89,7 +89,14 @@ export {
   formatUrlPattern,
   getRuleMatchPatterns,
 } from './rule-matcher';
-export { isBootstrapEligible, isDebugTierRule, isFetchRealizableNow } from './rule-tier';
+export {
+  CDP_REQUEST_STAGE_CONDITIONS,
+  CDP_RESPONSE_STAGE_CONDITIONS,
+  isBootstrapEligible,
+  isCdpEvaluable,
+  isDebugTierRule,
+  isFetchRealizableNow,
+} from './rule-tier';
 export { isRuleComplete, isRuleDraft, isRuleEffective, isRuleResolvable } from './rule-validation';
 export type { TestTargetUrlResult } from './test-target-url';
 export { parseTestTargetUrl } from './test-target-url';

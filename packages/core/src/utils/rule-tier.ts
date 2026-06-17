@@ -23,7 +23,7 @@
  * when armed", not "inert".
  */
 
-import type { ExtensionRuleType, Rule } from '../types/rule';
+import type { ConditionType, ExtensionRuleType, Rule } from '../types/rule';
 
 /**
  * Resource types page-context fetch/XHR injection can intercept for
@@ -101,6 +101,54 @@ export function isFetchRealizableNow(rule: Rule): boolean {
   // Every Fetch-capable cell — static or dynamic, every source — now realizes
   // at the network layer, so realizability is exactly debug-tier membership.
   return isDebugTierRule(rule);
+}
+
+/**
+ * Conditions a CDP `Fetch` interception can evaluate at the REQUEST stage — URL,
+ * request domain/method/resource and their excludes. A paused request exposes
+ * none of the initiator, document party, or response headers.
+ */
+export const CDP_REQUEST_STAGE_CONDITIONS: ReadonlySet<ConditionType> = new Set<ConditionType>([
+  'url-filter',
+  'url-regex',
+  'request-domains',
+  'exclude-request-domains',
+  'request-methods',
+  'exclude-request-methods',
+  'resource-types',
+  'exclude-resource-types',
+]);
+
+/**
+ * Conditions only the RESPONSE stage can additionally evaluate — the real
+ * reply's headers are observable there. A `network`-source rule defers these
+ * past the request stage; no other interception reaches them.
+ */
+export const CDP_RESPONSE_STAGE_CONDITIONS: ReadonlySet<ConditionType> = new Set<ConditionType>([
+  'response-header',
+  'exclude-response-header',
+]);
+
+/**
+ * True iff EVERY condition the rule carries is evaluable by some CDP `Fetch`
+ * stage. The complement — `initiator-domains`, `exclude-initiator-domains`,
+ * `domain-type` — is a page-origin / document-party gate no network-layer stage
+ * can see, so the reaction resolvers DECLINE such a rule (pass-through). Derived
+ * from the stage sets, never the three names, so a future condition stays right.
+ *
+ * D4a's injection-suppression pairs this with {@link isFetchRealizableNow}: a
+ * debug-tier rule is owned by CDP — its in-page wrapper suppressed — only when
+ * CDP can ACTUALLY realize it. One carrying an un-evaluable condition keeps its
+ * page-context injection path (over `xhr`, page-gated) instead of realizing
+ * nowhere.
+ */
+export function isCdpEvaluable(rule: Rule): boolean {
+  return rule.conditions.every((c) => {
+    // An empty row carries no constraint (a `domain-type` row constrains even
+    // when empty) — mirrors the resolver's stage re-check.
+    if (c.values.length === 0 && c.type !== 'domain-type') return true;
+    return CDP_REQUEST_STAGE_CONDITIONS.has(c.type) || CDP_RESPONSE_STAGE_CONDITIONS.has(c.type);
+  });
 }
 
 /**

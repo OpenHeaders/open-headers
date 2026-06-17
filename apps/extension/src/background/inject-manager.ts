@@ -43,6 +43,7 @@ import {
   doesHostMatchDomains,
   doesUrlMatchRule,
   isBootstrapEligible,
+  isCdpEvaluable,
   isFetchRealizableNow,
 } from '@openheaders/core/utils';
 import {
@@ -451,9 +452,13 @@ async function injectInterceptorsForTab(
   // True when this tab's CDP delivery (network realization OR bootstrap) already
   // owns the rule for this document — so the `onCommitted` path must not also
   // install its in-page wrapper. `isBootstrapEligible` is the complement of
-  // `isFetchRealizableNow`, so the two clauses never overlap.
+  // `isFetchRealizableNow`, so the two clauses never overlap. A realizable rule
+  // is only network-owned when CDP can actually evaluate its conditions
+  // (`isCdpEvaluable`); one gated on initiator/document-party (which the reaction
+  // resolvers decline) stays on injection rather than realizing nowhere.
   const ownedByCdp = (rule: Rule): boolean =>
-    cdpOwned && (isFetchRealizableNow(rule) || (suppressBootstrapEligible && isBootstrapEligible(rule)));
+    cdpOwned &&
+    ((isFetchRealizableNow(rule) && isCdpEvaluable(rule)) || (suppressBootstrapEligible && isBootstrapEligible(rule)));
 
   for (const entry of activeInterceptorRules) {
     if (!shouldInstallForPage(entry, url)) continue;

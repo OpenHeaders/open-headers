@@ -41,7 +41,6 @@
  */
 
 import type {
-  ConditionType,
   RequestBodyAction,
   ResourceType,
   ResponseAction,
@@ -49,6 +48,8 @@ import type {
   TrackedResourceType,
 } from '@openheaders/core/types';
 import {
+  CDP_REQUEST_STAGE_CONDITIONS,
+  CDP_RESPONSE_STAGE_CONDITIONS,
   doesHostMatchDomains,
   doesUrlMatchRule,
   getRuleMatchPatterns,
@@ -148,34 +149,6 @@ export type CdpAuthReaction =
   | { readonly kind: 'default' };
 
 type GraphqlFilter = NonNullable<ResponseAction['graphqlFilter']>;
-
-/**
- * Conditions evaluable at the request stage. A rule carrying any condition
- * outside this set is not Fetch-realizable here (we can't observe the
- * initiator, document party, or response headers of a paused request), so it
- * passes through rather than over-applying.
- */
-const REQUEST_STAGE_CONDITIONS: ReadonlySet<ConditionType> = new Set<ConditionType>([
-  'url-filter',
-  'url-regex',
-  'request-domains',
-  'exclude-request-domains',
-  'request-methods',
-  'exclude-request-methods',
-  'resource-types',
-  'exclude-resource-types',
-]);
-
-/**
- * Conditions the Response stage CAN additionally evaluate — the real reply's
- * headers are observable there. A `network`-source rule defers these at the
- * request stage (they don't disqualify it from being sent to the Response
- * stage) and {@link responseStageMatches} evaluates them once the reply lands.
- */
-const RESPONSE_STAGE_ONLY_CONDITIONS: ReadonlySet<ConditionType> = new Set<ConditionType>([
-  'response-header',
-  'exclude-response-header',
-]);
 
 /** Response headers describing the original body's framing — dropped when we
  *  substitute the body, so the browser recomputes them from the new bytes. */
@@ -344,10 +317,10 @@ function requestStageMatches(rule: Rule, ctx: RequestStageContext, deferResponse
   for (const c of rule.conditions) {
     // An unconfigured row carries no constraint (mirrors the DNR builder).
     if (c.values.length === 0 && c.type !== 'domain-type') continue;
-    if (REQUEST_STAGE_CONDITIONS.has(c.type)) continue;
+    if (CDP_REQUEST_STAGE_CONDITIONS.has(c.type)) continue;
     // A deferred response-header condition is evaluated at the Response stage,
     // so it must not disqualify the rule here.
-    if (deferResponseHeaders && RESPONSE_STAGE_ONLY_CONDITIONS.has(c.type)) continue;
+    if (deferResponseHeaders && CDP_RESPONSE_STAGE_CONDITIONS.has(c.type)) continue;
     return false;
   }
   return matchesRequestStageValues(rule, ctx);
@@ -365,9 +338,9 @@ function responseStageMatches(
   responseHeaders: readonly CdpHeaderEntry[],
 ): boolean {
   for (const c of rule.conditions) {
-    if (RESPONSE_STAGE_ONLY_CONDITIONS.has(c.type)) continue; // evaluated below
+    if (CDP_RESPONSE_STAGE_CONDITIONS.has(c.type)) continue; // evaluated below
     if (c.values.length === 0 && c.type !== 'domain-type') continue;
-    if (!REQUEST_STAGE_CONDITIONS.has(c.type)) return false;
+    if (!CDP_REQUEST_STAGE_CONDITIONS.has(c.type)) return false;
   }
   if (!matchesRequestStageValues(rule, ctx)) return false;
   return matchesResponseHeaderConditions(rule, responseHeaders);

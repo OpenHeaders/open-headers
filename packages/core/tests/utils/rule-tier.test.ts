@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { RuleCondition } from '../../src/types/rule';
-import { isDebugTierRule, isFetchRealizableNow } from '../../src/utils/rule-tier';
+import { isCdpEvaluable, isDebugTierRule, isFetchRealizableNow } from '../../src/utils/rule-tier';
 
 const base = {
   schemaVersion: 5 as const,
@@ -240,5 +240,91 @@ describe('isFetchRealizableNow', () => {
     for (const cell of dynamicCells) {
       expect(isFetchRealizableNow({ ...base, conditions: [hostCondition], ...cell })).toBe(true);
     }
+  });
+});
+
+describe('isCdpEvaluable', () => {
+  // A condition no Fetch stage can observe (initiator / document party) makes a
+  // rule un-evaluable — the reaction resolvers decline it, so it must keep its
+  // injection path rather than being suppressed into realizing nowhere (X1).
+  const initiator: RuleCondition = { uid: 'cnd00003', type: 'initiator-domains', values: ['app.openheaders.io'] };
+  const responseHeader: RuleCondition = {
+    uid: 'cnd00004',
+    type: 'response-header',
+    headerName: 'content-type',
+    values: ['json'],
+  };
+
+  it('only request-stage conditions → evaluable', () => {
+    expect(
+      isCdpEvaluable({
+        ...base,
+        type: 'response',
+        conditions: [hostCondition, resourceTypes('xhr')],
+        action: mockAction,
+      }),
+    ).toBe(true);
+  });
+
+  it('a response-header condition → evaluable (the Response stage observes it)', () => {
+    expect(
+      isCdpEvaluable({ ...base, type: 'response', conditions: [hostCondition, responseHeader], action: networkAction }),
+    ).toBe(true);
+  });
+
+  it('an initiator-domains condition → NOT evaluable', () => {
+    expect(
+      isCdpEvaluable({ ...base, type: 'response', conditions: [hostCondition, initiator], action: mockAction }),
+    ).toBe(false);
+  });
+
+  it('an exclude-initiator-domains condition → NOT evaluable', () => {
+    expect(
+      isCdpEvaluable({
+        ...base,
+        type: 'response',
+        conditions: [{ uid: 'cnd00005', type: 'exclude-initiator-domains', values: ['ads.openheaders.io'] }],
+        action: mockAction,
+      }),
+    ).toBe(false);
+  });
+
+  it('a domain-type condition → NOT evaluable', () => {
+    expect(
+      isCdpEvaluable({
+        ...base,
+        type: 'response',
+        conditions: [{ uid: 'cnd00006', type: 'domain-type', values: ['thirdParty'] }],
+        action: mockAction,
+      }),
+    ).toBe(false);
+  });
+
+  it('an empty domain-type row still disqualifies (it constrains even when empty)', () => {
+    expect(
+      isCdpEvaluable({
+        ...base,
+        type: 'response',
+        conditions: [{ uid: 'cnd00007', type: 'domain-type', values: [] }],
+        action: mockAction,
+      }),
+    ).toBe(false);
+  });
+
+  it('an empty initiator-domains row carries no constraint and stays evaluable', () => {
+    expect(
+      isCdpEvaluable({
+        ...base,
+        type: 'response',
+        conditions: [hostCondition, { uid: 'cnd00008', type: 'initiator-domains', values: [] }],
+        action: mockAction,
+      }),
+    ).toBe(true);
+  });
+
+  it('a request-body rule gated on initiator-domains → NOT evaluable', () => {
+    expect(
+      isCdpEvaluable({ ...base, type: 'request-body', conditions: [hostCondition, initiator], action: bodyAction }),
+    ).toBe(false);
   });
 });
