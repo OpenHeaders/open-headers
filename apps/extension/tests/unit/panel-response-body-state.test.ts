@@ -58,7 +58,7 @@ function makeLifecycle(opts: LifecycleOpts = {}): RequestLifecycle {
     redirectHops: [],
     startedAtMs: 0,
     hopStartedAtMs: 0,
-    statusCode: 'statusCode' in opts ? opts.statusCode : har.response?.status ?? 200,
+    statusCode: 'statusCode' in opts ? opts.statusCode : (har.response?.status ?? 200),
     statusText: 'statusText' in opts ? opts.statusText : har.response?.statusText,
     fromCache: opts.fromCache,
     error: opts.error,
@@ -149,6 +149,42 @@ describe('classifyBodyState — request-level failure', () => {
       error: { code: 'net::ERR_ABORTED', reason: 'aborted' },
     });
     expect(classifyBodyState(lc)).toEqual({ kind: 'no-response' });
+  });
+});
+
+describe('classifyBodyState — followed redirects (no readable body)', () => {
+  const redirectHar = makeHar({
+    response: {
+      status: 301,
+      statusText: 'Moved Permanently',
+      headers: [{ name: 'Location', value: '/echo/redirected' }],
+      content: { size: 0, mimeType: 'x-unknown' },
+      redirectURL: '/echo/redirected',
+    },
+  });
+
+  it('301 with no attached body returns unavailable:redirect, not loading (no infinite skeleton)', () => {
+    const lc = makeLifecycle({ statusCode: 301, har: redirectHar, body: null });
+    expect(classifyBodyState(lc)).toEqual({
+      kind: 'unavailable',
+      reason: 'redirect',
+      message: 'No content available because this request was redirected',
+    });
+  });
+
+  it.each([302, 303, 307, 308])('%d with no body returns unavailable:redirect', (status) => {
+    const lc = makeLifecycle({ statusCode: status, body: null });
+    expect(classifyBodyState(lc)).toMatchObject({ kind: 'unavailable', reason: 'redirect' });
+  });
+
+  it('304 stays not-applicable:status-304 — a cache validator, not a redirect', () => {
+    const lc = makeLifecycle({ statusCode: 304, body: null });
+    expect(classifyBodyState(lc)).toMatchObject({ kind: 'not-applicable', reason: 'status-304' });
+  });
+
+  it('un-followed 3xx that did carry a body still renders the body', () => {
+    const lc = makeLifecycle({ statusCode: 302, body: makeBody('<html>Redirecting…</html>') });
+    expect(classifyBodyState(lc)).toMatchObject({ kind: 'text', content: '<html>Redirecting…</html>' });
   });
 });
 

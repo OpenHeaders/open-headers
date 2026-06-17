@@ -43,7 +43,7 @@ export type NotApplicableReason =
   | 'informational'
   | 'websocket';
 
-export type UnavailableReason = 'opaque' | 'cache' | 'unknown';
+export type UnavailableReason = 'opaque' | 'cache' | 'redirect' | 'unknown';
 
 const NOT_APPLICABLE_COPY: Record<NotApplicableReason, string> = {
   preflight: 'No content available for preflight request',
@@ -59,12 +59,24 @@ const NOT_APPLICABLE_COPY: Record<NotApplicableReason, string> = {
 const UNAVAILABLE_COPY: Record<UnavailableReason, string> = {
   opaque: 'Response body not available — opaque cross-origin response',
   cache: 'Body not available — response was served from cache before DevTools opened',
+  redirect: 'No content available because this request was redirected',
   unknown:
     'Body not captured. The host returned no content — the response was streamed without buffering or served from cache.',
 };
 
 function isInformational(status: number | undefined): boolean {
   return status != null && status >= 100 && status < 200 && status !== 101;
+}
+
+/**
+ * A followed redirect — a 3xx that the host resolved into a new request. Its
+ * body was consumed to follow the hop and is never readable; the destination
+ * response carries the renderable body. The redirect-hop row surfaces this
+ * status with no attached body, so it would otherwise spin on the in-flight
+ * skeleton forever. 304 is excluded — it is a cache validator, not a redirect.
+ */
+function isFollowedRedirectStatus(status: number | undefined): boolean {
+  return status === 301 || status === 302 || status === 303 || status === 307 || status === 308;
 }
 
 function isOpaqueResponse(lifecycle: RequestLifecycle): boolean {
@@ -144,6 +156,10 @@ export function classifyBodyState(lifecycle: RequestLifecycle): BodyState {
   // Body hasn't been attached yet (host hasn't called body-attached).
   const body = currentResponseBody(lifecycle);
   if (body == null) {
+    // A redirect hop never delivers a readable body — don't spin forever.
+    if (isFollowedRedirectStatus(status)) {
+      return { kind: 'unavailable', reason: 'redirect', message: UNAVAILABLE_COPY.redirect };
+    }
     return { kind: 'loading' };
   }
 
