@@ -79,27 +79,31 @@ export function ResponseBodyView({
     }
   }, [state, bytes]);
 
+  // Every state carries the override footer — even with no body to show,
+  // the user may want to mock one (the CTA is a rule scaffold, not a
+  // mirror of the captured response).
+  const shell = (content: React.ReactNode) => (
+    <div className="dt-response-view">
+      <div className="dt-response-view-content">{content}</div>
+      {overrideAction && <div className="dt-response-toolbar">{overrideAction}</div>}
+    </div>
+  );
+
   // ── Non-body states ──────────────────────────────────────
   if (state.kind === 'loading') {
-    return (
-      <div className="dt-response-view">
-        <div className="dt-response-view-content">
-          <Skeleton />
-        </div>
-      </div>
-    );
+    return shell(<Skeleton />);
   }
   if (state.kind === 'not-applicable') {
-    return <ResponseNotice title="No response body" detail={state.message} />;
+    return shell(<ResponseNotice title="No response body" detail={state.message} />);
   }
   if (state.kind === 'no-response') {
-    return <ResponseNotice title="Nothing to preview" detail="This request has no response data available" />;
+    return shell(<ResponseNotice title="Nothing to preview" detail="This request has no response data available" />);
   }
   if (state.kind === 'unavailable') {
-    return <ResponseNotice title="Failed to load response data" detail={state.message} />;
+    return shell(<ResponseNotice title="Failed to load response data" detail={state.message} />);
   }
   if (state.kind === 'empty') {
-    return <ResponseNotice title="(empty response body)" detail="The server returned an empty body." />;
+    return shell(<ResponseNotice title="(empty response body)" detail="The server returned an empty body." />);
   }
 
   // ── Binary content ─────────────────────────────────────────

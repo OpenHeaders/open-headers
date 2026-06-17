@@ -134,9 +134,16 @@ export default function PreviewView({ row, onOverrideResponse }: PreviewViewProp
   const mime = lifecycleMimeType(lc) ?? har?.response?.content?.mimeType ?? '';
   const size = lifecycleTransferredBytes(lc) ?? har?.response?.content?.size ?? 0;
   const state = useMemo(() => classifyBodyState(lc), [lc]);
-  // Only offer the override CTA once a body is actually present — the
-  // non-body states (loading / no-response / empty) have nothing to mock.
-  const showOverride = !!onOverrideResponse && (state.kind === 'text' || state.kind === 'binary');
+  // The override CTA is a rule scaffold, not a mirror of the captured
+  // response — it shows in every state (even no-body ones, where the user
+  // may want to mock a response that doesn't exist yet).
+  const overrideButton = onOverrideResponse ? (
+    <OverrideBodyButton
+      label="Override Response"
+      title="Create a rule that serves this response as an editable mock"
+      onClick={onOverrideResponse}
+    />
+  ) : null;
 
   const textContent = useMemo(() => {
     if (state.kind === 'text') return state.content;
@@ -158,41 +165,39 @@ export default function PreviewView({ row, onOverrideResponse }: PreviewViewProp
       <span>{formatFileSize(size)}</span>
       {extra}
       <span>{mime}</span>
-      {showOverride && onOverrideResponse && (
+      {overrideButton && (
         <>
           <span className="dt-toolbar-divider" aria-hidden="true" />
-          <OverrideBodyButton
-            label="Override Response"
-            title="Create a rule that serves this response as an editable mock"
-            onClick={onOverrideResponse}
-          />
+          {overrideButton}
         </>
       )}
     </div>
   );
 
+  // Non-body states get the override in a plain footer (no size/mime to
+  // show), matching the Response tab's no-body shell.
+  const shell = (content: React.ReactNode) => (
+    <div className="dt-response-view">
+      <div className="dt-response-view-content">{content}</div>
+      {overrideButton && <div className="dt-response-toolbar">{overrideButton}</div>}
+    </div>
+  );
+
   // ── Non-body states — match Response tab messaging ───────
   if (state.kind === 'loading') {
-    return (
-      <div className="dt-response-view">
-        <div className="dt-response-view-content">
-          <Skeleton />
-        </div>
-        {metaBar()}
-      </div>
-    );
+    return shell(<Skeleton />);
   }
   if (state.kind === 'not-applicable') {
-    return <PreviewNotice title="No preview available" detail={state.message} />;
+    return shell(<PreviewNotice title="No preview available" detail={state.message} />);
   }
   if (state.kind === 'no-response') {
-    return <PreviewNotice title="Nothing to preview" detail="This request has no response data available" />;
+    return shell(<PreviewNotice title="Nothing to preview" detail="This request has no response data available" />);
   }
   if (state.kind === 'unavailable') {
-    return <PreviewNotice title="Failed to load response data" detail={state.message} />;
+    return shell(<PreviewNotice title="Failed to load response data" detail={state.message} />);
   }
   if (state.kind === 'empty') {
-    return <PreviewNotice title="(empty response body)" detail="The server returned an empty body." />;
+    return shell(<PreviewNotice title="(empty response body)" detail="The server returned an empty body." />);
   }
 
   let content: React.ReactNode;
