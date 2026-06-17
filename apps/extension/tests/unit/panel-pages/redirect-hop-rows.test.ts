@@ -9,6 +9,7 @@ import type { InspectorHarEntry } from '@openheaders/core/types';
 import type { InspectorRowWithFires } from '@openheaders/ui/panel/data/inspector-row-projection';
 import { waterfallSortValue } from '@openheaders/ui/panel/data/network-columns';
 import {
+  parseRedirectHopRequestId,
   synthesizeRedirectHopLifecycle,
   synthesizeRedirectHopLifecycles,
 } from '@openheaders/ui/panel/data/redirect-hop-rows';
@@ -147,6 +148,24 @@ describe('synthesizeRedirectHopLifecycles', () => {
     const out = synthesizeRedirectHopLifecycles(lc);
     expect(out).toHaveLength(1);
     expect(out[0].statusCode).toBe(302);
+  });
+});
+
+describe('parseRedirectHopRequestId', () => {
+  it('round-trips a synthesized hop id back to its real id + hop index', () => {
+    expect(parseRedirectHopRequestId('oh-redir:42.3#0')).toEqual({ realRequestId: '42.3', hop: 0 });
+    expect(parseRedirectHopRequestId('oh-redir:doc#2')).toEqual({ realRequestId: 'doc', hop: 2 });
+  });
+
+  it('returns null for non-synthetic ids', () => {
+    expect(parseRedirectHopRequestId('42.3')).toBeNull();
+    expect(parseRedirectHopRequestId('oh-har:1#0')).toBeNull();
+  });
+
+  it('returns null for a malformed synthetic id', () => {
+    expect(parseRedirectHopRequestId('oh-redir:42.3')).toBeNull(); // no hop suffix
+    expect(parseRedirectHopRequestId('oh-redir:#0')).toBeNull(); // empty real id
+    expect(parseRedirectHopRequestId('oh-redir:r1#x')).toBeNull(); // non-numeric hop
   });
 });
 

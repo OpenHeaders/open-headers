@@ -48,6 +48,7 @@ import {
   displayResourceBytes,
   displayTransferredBytes,
   type InspectorRowWithFires,
+  stampRedirectRewrites,
 } from './inspector-row-projection';
 import type { LifecycleClientSnapshot } from './lifecycle-client-store';
 import { synthesizeMemoryCacheLifecycles } from './memory-cache-rows';
@@ -385,7 +386,10 @@ export function projectPanelData(input: UsePanelDataInput): UsePanelDataResult {
   const scopedPages = pages.filter((p) => inView(p.committedAtMs ?? p.startedAtMs));
 
   const baseRows = buildInspectorRows(merged, opts);
-  const { rows, dangling } = attachFiresToRows(baseRows, fires);
+  const { rows: firedRows, dangling } = attachFiresToRows(baseRows, fires);
+  // Label OH-induced internal-redirect hops (a query-param/redirect rule's own
+  // 307) so the rail reads them as our rewrite, not a server redirect.
+  const rows = stampRedirectRewrites(firedRows);
 
   // Footer byte/count totals over the full in-view set — the same pure helper
   // the view re-runs over its filtered subset, so the footer can read

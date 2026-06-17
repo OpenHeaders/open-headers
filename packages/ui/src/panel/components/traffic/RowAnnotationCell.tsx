@@ -13,11 +13,13 @@
 
 import { InfoPopover, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
+import type { RedirectRewriteKind } from '../../data/redirect-hop-rows';
 import { classifyRowAnnotations, type RowAnnotation, type RowAnnotationContext } from '../../data/row-annotations';
 
 interface RowAnnotationCellProps {
   lifecycle: RequestLifecycle;
   ctx: RowAnnotationContext;
+  redirectRewrite?: RedirectRewriteKind;
   onJump: (requestId: string) => void;
 }
 
@@ -41,8 +43,8 @@ function annotationPopoverContent(annotations: readonly RowAnnotation[], onJump:
   };
 }
 
-export function RowAnnotationCell({ lifecycle, ctx, onJump }: RowAnnotationCellProps) {
-  const annotations = classifyRowAnnotations(lifecycle, ctx);
+export function RowAnnotationCell({ lifecycle, ctx, redirectRewrite, onJump }: RowAnnotationCellProps) {
+  const annotations = classifyRowAnnotations(lifecycle, ctx, redirectRewrite);
   if (annotations.length === 0) return <span className="dt-col-annot" />;
   const top = annotations[0];
   const jump = () => onJump(lifecycle.requestId);

@@ -6,9 +6,11 @@ import {
   attachFiresToRows,
   currentHarEntry,
   currentResponseBody,
+  type InspectorRowWithFires,
   isFailedLifecycle,
   isPendingLifecycle,
   resolvePageref,
+  stampRedirectRewrites,
 } from '@openheaders/ui/panel/data/inspector-row-projection';
 import type { InspectorFire } from '@openheaders/ui/panel/data/types';
 import { describe, expect, it } from 'vitest';
@@ -241,5 +243,60 @@ describe('attachFiresToRows', () => {
     const fires = [fire({ requestId: 'r1', t: 1 }), fire({ requestId: 'r1', t: 2 })];
     const result = attachFiresToRows([r], fires);
     expect(result.rows[0].fires.map((f) => f.t)).toEqual([1, 2]);
+  });
+});
+
+describe('stampRedirectRewrites', () => {
+  function rowWithFires(lc: RequestLifecycle, fires: InspectorFire[] = []): InspectorRowWithFires {
+    return { lifecycle: lc, displayId: 1, consolidatedRetryOf: [], fires };
+  }
+
+  function rewriteFire(type: 'query-param' | 'redirect', over: Partial<InspectorFire> = {}): InspectorFire {
+    return fire({
+      ruleUid: `rule_${type}`,
+      requestId: 'r1',
+      ruleSnapshot: { ruleUid: `rule_${type}`, name: type, type, enabled: true },
+      ...over,
+    });
+  }
+
+  it('marks a synthetic hop row when its real request carries a query-param fire', () => {
+    const real = rowWithFires(lifecycle({ requestId: 'r1' }), [rewriteFire('query-param')]);
+    const hop = rowWithFires(lifecycle({ requestId: 'oh-redir:r1#0', statusCode: 307 }));
+    const out = stampRedirectRewrites([real, hop]);
+    expect(out.find((r) => r.lifecycle.requestId === 'oh-redir:r1#0')?.redirectRewrite).toBe('query-param');
+    // The real row that carried the fire is not itself a rewrite hop.
+    expect(out.find((r) => r.lifecycle.requestId === 'r1')?.redirectRewrite).toBeUndefined();
+  });
+
+  it('marks the hop with the redirect kind for a redirect-rule fire', () => {
+    const real = rowWithFires(lifecycle({ requestId: 'r1' }), [rewriteFire('redirect')]);
+    const hop = rowWithFires(lifecycle({ requestId: 'oh-redir:r1#0', statusCode: 307 }));
+    const out = stampRedirectRewrites([real, hop]);
+    expect(out.find((r) => r.lifecycle.requestId === 'oh-redir:r1#0')?.redirectRewrite).toBe('redirect');
+  });
+
+  it('ignores a shadowed fire — the rule did not actually apply', () => {
+    const shadowed = rewriteFire('query-param', {
+      shadowedBy: { uid: 'rule_block', name: 'block', kind: 'block-terminal' },
+    });
+    const real = rowWithFires(lifecycle({ requestId: 'r1' }), [shadowed]);
+    const hop = rowWithFires(lifecycle({ requestId: 'oh-redir:r1#0', statusCode: 307 }));
+    const out = stampRedirectRewrites([real, hop]);
+    expect(out.find((r) => r.lifecycle.requestId === 'oh-redir:r1#0')?.redirectRewrite).toBeUndefined();
+  });
+
+  it('leaves a genuine server redirect hop unmarked (no redirect-class fire)', () => {
+    const real = rowWithFires(lifecycle({ requestId: 'r1' }), [
+      fire({ requestId: 'r1', ruleSnapshot: { ruleUid: 'h', name: 'h', type: 'header', enabled: true } }),
+    ]);
+    const hop = rowWithFires(lifecycle({ requestId: 'oh-redir:r1#0', statusCode: 301 }));
+    const out = stampRedirectRewrites([real, hop]);
+    expect(out.find((r) => r.lifecycle.requestId === 'oh-redir:r1#0')?.redirectRewrite).toBeUndefined();
+  });
+
+  it('returns the same array reference when nothing matches', () => {
+    const rows = [rowWithFires(lifecycle({ requestId: 'r1' }))];
+    expect(stampRedirectRewrites(rows)).toBe(rows);
   });
 });

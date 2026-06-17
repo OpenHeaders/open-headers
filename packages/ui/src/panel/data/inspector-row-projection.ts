@@ -17,6 +17,7 @@ import type { Page } from '@openheaders/core/page-stream';
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarBody, InspectorHarEntry } from '@openheaders/core/types';
 import type { InspectorRow } from './inspector-facet';
+import { parseRedirectHopRequestId, type RedirectRewriteKind } from './redirect-hop-rows';
 import type { InspectorFire } from './types';
 
 /**
@@ -224,6 +225,10 @@ export interface RowsWithFires {
 export interface InspectorRowWithFires extends InspectorRow {
   /** Fires attached to this row, in arrival order. Empty when none matched. */
   readonly fires: readonly InspectorFire[];
+  /** Set on a synthetic redirect-hop row whose underlying request carries a
+   *  non-shadowed query-param/redirect fire — i.e. the hop is an Open Headers
+   *  internal redirect, not a server one. Drives the row-annotation rail. */
+  readonly redirectRewrite?: RedirectRewriteKind;
 }
 
 export function attachFiresToRows(rows: readonly InspectorRow[], fires: readonly InspectorFire[]): RowsWithFires {
@@ -260,4 +265,42 @@ export function attachFiresToRows(rows: readonly InspectorRow[], fires: readonly
   }
 
   return { rows: projected, dangling };
+}
+
+/**
+ * Stamp `redirectRewrite` onto synthetic redirect-hop rows whose underlying
+ * request carries a non-shadowed query-param/redirect fire. Such a hop is the
+ * internal redirect Open Headers' own DNR `query-param`/`redirect` rule
+ * produced — the rail labels it so a self-inflicted 307 doesn't read as a
+ * mysterious server redirect.
+ *
+ * Keyed on the real row's lifecycle requestId (which the synthetic hop id
+ * embeds), NOT on `fire.requestId` — so the join holds across both correlator
+ * id spaces (webRequest and CDP), where the fire-to-row binding may have gone
+ * through URL/time translation. Pure; returns the input array when nothing
+ * matches (the overwhelmingly common case — no redirect-class rule armed).
+ */
+export function stampRedirectRewrites(rows: readonly InspectorRowWithFires[]): readonly InspectorRowWithFires[] {
+  const rewriteByRequestId = new Map<string, RedirectRewriteKind>();
+  for (const row of rows) {
+    for (const fire of row.fires) {
+      if (fire.shadowedBy) continue;
+      const type = fire.ruleSnapshot?.type;
+      if (type === 'query-param' || type === 'redirect') {
+        rewriteByRequestId.set(row.lifecycle.requestId, type);
+      }
+    }
+  }
+  if (rewriteByRequestId.size === 0) return rows;
+
+  let changed = false;
+  const stamped = rows.map((row) => {
+    const parsed = parseRedirectHopRequestId(row.lifecycle.requestId);
+    if (!parsed) return row;
+    const kind = rewriteByRequestId.get(parsed.realRequestId);
+    if (!kind) return row;
+    changed = true;
+    return { ...row, redirectRewrite: kind };
+  });
+  return changed ? stamped : rows;
 }

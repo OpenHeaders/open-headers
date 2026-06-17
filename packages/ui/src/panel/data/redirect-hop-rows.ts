@@ -27,6 +27,31 @@ import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 const SYNTHETIC_ID_PREFIX = 'oh-redir:';
 
 /**
+ * Rule kinds whose DNR realization is an internal redirect — both rewrite the
+ * request URL via a `redirect` action, so they surface as a synthetic hop row.
+ * The annotation rail labels such a hop so the user reads it as their own rule,
+ * not a server redirect.
+ */
+export type RedirectRewriteKind = 'query-param' | 'redirect';
+
+/**
+ * Parse a synthetic redirect-hop requestId back into its real lifecycle id and
+ * hop index, or `null` for any non-synthetic id. The real id is everything
+ * between the prefix and the final `#` (host request ids are `#`-free), so the
+ * split is unambiguous.
+ */
+export function parseRedirectHopRequestId(requestId: string): { realRequestId: string; hop: number } | null {
+  if (!requestId.startsWith(SYNTHETIC_ID_PREFIX)) return null;
+  const rest = requestId.slice(SYNTHETIC_ID_PREFIX.length);
+  const hash = rest.lastIndexOf('#');
+  if (hash <= 0) return null;
+  const realRequestId = rest.slice(0, hash);
+  const hop = Number(rest.slice(hash + 1));
+  if (realRequestId.length === 0 || !Number.isInteger(hop) || hop < 0) return null;
+  return { realRequestId, hop };
+}
+
+/**
  * Synthesize the terminal lifecycle for a single redirect hop of `lc`.
  *
  * `hop` indexes the redirect chain (`0 .. redirectHopCount - 1`); the hop's

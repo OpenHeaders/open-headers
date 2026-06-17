@@ -68,7 +68,12 @@ function TrafficRowImpl({
           {dotTier !== null && <span className={`dt-fire-dot ${DOT_CLASS[dotTier]}`} title={DOT_TITLE[dotTier]} />}
         </span>
       )}
-      <RowAnnotationCell lifecycle={row.lifecycle} ctx={ctx.annotationCtx} onJump={ctx.onAnnotationJump} />
+      <RowAnnotationCell
+        lifecycle={row.lifecycle}
+        ctx={ctx.annotationCtx}
+        redirectRewrite={row.redirectRewrite}
+        onJump={ctx.onAnnotationJump}
+      />
       {columns.map((col) => (
         <span key={col.key} className={col.align === 'right' ? 'dt-col-right' : undefined}>
           {renderCell(col, row, sizeInfo, ctx)}

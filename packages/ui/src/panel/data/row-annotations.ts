@@ -25,6 +25,7 @@ import type { LifecycleSource, RequestLifecycle } from '@openheaders/core/reques
 import { MATERIAL_DEBUG_PAUSE_MS } from '@openheaders/core/request-lifecycle';
 import { currentResponseBody, lifecycleTransferredBytes } from './inspector-row-projection';
 import type { DetailSection } from './inspector-tab';
+import type { RedirectRewriteKind } from './redirect-hop-rows';
 import {
   effectiveStatusCode,
   hasObservedResponseData,
@@ -33,7 +34,13 @@ import {
   type SupersessionAnchor,
 } from './request-state';
 
-export type RowAnnotationKind = 'interrupted' | 'never-finished' | 'fidelity-gap' | 'synthetic' | 'debug-paused';
+export type RowAnnotationKind =
+  | 'interrupted'
+  | 'never-finished'
+  | 'fidelity-gap'
+  | 'synthetic'
+  | 'debug-paused'
+  | 'rule-rewrite';
 
 export type RowAnnotationSeverity = 'warn' | 'info';
 
@@ -110,6 +117,27 @@ const SYNTHETIC_MEMORY: RowAnnotation = {
   section: 'headers',
 };
 
+const QUERY_PARAM_REWRITE: RowAnnotation = {
+  kind: 'rule-rewrite',
+  severity: 'info',
+  label: 'Query-param rewrite',
+  detail:
+    'This redirect is Open Headers applying a query-param rule, not the server. Rewriting a URL’s query string is ' +
+    'performed as an internal redirect, so it shows as its own hop; the request then continues to the rewritten ' +
+    'URL with its method, body, cookies, and headers carried across unchanged.',
+  section: 'headers',
+};
+
+const REDIRECT_RULE_REWRITE: RowAnnotation = {
+  kind: 'rule-rewrite',
+  severity: 'info',
+  label: 'Redirect rule',
+  detail:
+    'This redirect is Open Headers applying a redirect rule, not the server. It is performed as an internal ' +
+    'redirect, so the original request shows as its own hop before the request continues to the rewritten URL.',
+  section: 'headers',
+};
+
 // Built per-row because the held duration is part of the copy. The hold is a
 // measured fact stamped on the lifecycle by the control plane (`pausedByDebugMs`);
 // the rail re-checks materiality as defence in depth against an immaterial value.
@@ -150,10 +178,15 @@ function debugPausedAnnotation(pausedByDebugMs: number): RowAnnotation {
  *     interception for a material duration (`pausedByDebugMs`); the hold is
  *     debug-mode overhead, not server/network time, so the row's total time
  *     overstates what the request actually took.
+ *   - `rule-rewrite` — a synthetic redirect-hop row whose `redirectRewrite`
+ *     marks it as an Open Headers `query-param`/`redirect` rule's own internal
+ *     redirect (the projection joins the rule fire; see `stampRedirectRewrites`),
+ *     so the 307 reads as our rewrite rather than a server redirect.
  */
 export function classifyRowAnnotations(
   lifecycle: RequestLifecycle,
   ctx: RowAnnotationContext,
+  redirectRewrite?: RedirectRewriteKind,
 ): readonly RowAnnotation[] {
   const annotations: RowAnnotation[] = [];
 
@@ -185,6 +218,9 @@ export function classifyRowAnnotations(
 
   if (lifecycle.requestId.startsWith(SYNTHETIC_PREFIXES[0])) annotations.push(SYNTHETIC_HAR);
   else if (lifecycle.requestId.startsWith(SYNTHETIC_PREFIXES[1])) annotations.push(SYNTHETIC_MEMORY);
+
+  if (redirectRewrite === 'query-param') annotations.push(QUERY_PARAM_REWRITE);
+  else if (redirectRewrite === 'redirect') annotations.push(REDIRECT_RULE_REWRITE);
 
   return annotations;
 }

@@ -222,8 +222,8 @@ export function InspectorDetailContent({
   // annotation rail glyph reads; the Headers tab renders them as insight
   // cards so glyph and explanation can never diverge.
   const rowAnnotations = useMemo<readonly RowAnnotation[]>(
-    () => classifyRowAnnotations(lc, { anchor: supersessionAnchorFromPages(pages), source }),
-    [lc, pages, source],
+    () => classifyRowAnnotations(lc, { anchor: supersessionAnchorFromPages(pages), source }, row.redirectRewrite),
+    [lc, pages, source, row.redirectRewrite],
   );
   // Live Rules Mode system-attribution gate: yellow the cache-bypass
   // request headers when a user header rule fired and didn't itself

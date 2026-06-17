@@ -221,3 +221,28 @@ describe('classifyRowAnnotations — synthesized rows', () => {
     expect(annotations[0].detail).toContain('Resource Timing');
   });
 });
+
+describe('classifyRowAnnotations — rule-induced redirect hops', () => {
+  // The synthetic 307 hop a query-param/redirect rule produces — completed, with
+  // its status and no body — would otherwise stay blank in the parity cells.
+  const hop = makeLifecycle({ requestId: 'oh-redir:42#0', statusCode: 307, statusText: '', completedAtMs: 1_050 });
+
+  it('query-param rewrite → rule-rewrite (info), click lands on headers', () => {
+    const annotations = classifyRowAnnotations(hop, ctx(), 'query-param');
+    expect(annotations.map((a) => a.kind)).toEqual(['rule-rewrite']);
+    expect(annotations[0].severity).toBe('info');
+    expect(annotations[0].label).toBe('Query-param rewrite');
+    expect(annotations[0].detail).toContain('query-param rule, not the server');
+    expect(annotations[0].section).toBe('headers');
+  });
+
+  it('redirect rule → rule-rewrite with the redirect-rule copy', () => {
+    const annotations = classifyRowAnnotations(hop, ctx(), 'redirect');
+    expect(annotations.map((a) => a.kind)).toEqual(['rule-rewrite']);
+    expect(annotations[0].label).toBe('Redirect rule');
+  });
+
+  it('no rewrite kind → no annotation (a server redirect hop stays blank)', () => {
+    expect(kinds(hop, ctx())).toEqual([]);
+  });
+});
