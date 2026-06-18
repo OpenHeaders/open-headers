@@ -1,6 +1,6 @@
 import { hostNavigation } from '@openheaders/core/navigation';
 import type { ConnectionOpener } from '../../data/connection-openers';
-import { currentHarEntry, type InspectorRowWithFires } from '../../data/inspector-row-projection';
+import { currentHarEntry, effectiveResourceType, type InspectorRowWithFires } from '../../data/inspector-row-projection';
 import {
   hasObservedResponseData,
   isDimStatusCell,
@@ -56,7 +56,7 @@ export function renderCell(col: ColumnDef, row: InspectorRowWithFires, sizeInfo:
     return <span className="dt-col-muted">{row.displayId}</span>;
   }
   if (col.key === 'name') {
-    const rawType = normalizeResourceType(lc.resourceType);
+    const rawType = normalizeResourceType(effectiveResourceType(lc));
     const { name } = extractName(lc.url);
     return (
       <span className="dt-col-name">
@@ -117,7 +117,7 @@ export function renderCell(col: ColumnDef, row: InspectorRowWithFires, sizeInfo:
     );
   }
   if (col.key === 'type') {
-    const rawType = normalizeResourceType(lc.resourceType);
+    const rawType = normalizeResourceType(effectiveResourceType(lc));
     const label = RESOURCE_LABEL[rawType] ?? rawType;
     // A redirect leg reads "<type> / Redirect" — host parity.
     return <span>{row.isRedirectHop ? `${label} / Redirect` : label}</span>;

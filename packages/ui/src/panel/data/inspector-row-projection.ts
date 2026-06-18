@@ -37,6 +37,19 @@ export function currentHarEntry(lifecycle: RequestLifecycle): InspectorHarEntry 
 }
 
 /**
+ * Resource type to display — the devtools HAR's own `_resourceType` for the
+ * current hop when present, else the lifecycle's webRequest-vocabulary type.
+ * `chrome.webRequest` collapses `fetch()` and `XMLHttpRequest` both to
+ * `xmlhttprequest`; the devtools HAR distinguishes them (`fetch` vs `xhr`), so
+ * preferring it surfaces the precise kind in the heuristic path too — matching
+ * the host and CDP mode, never guessing one over the other. Falls back to the
+ * webRequest type only until the HAR lands (a pending row).
+ */
+export function effectiveResourceType(lifecycle: RequestLifecycle): string {
+  return currentHarEntry(lifecycle)?._resourceType ?? lifecycle.resourceType;
+}
+
+/**
  * The "current" response body for a lifecycle — the body for the
  * current hop. `null` until `body-attached` arrives. Redirect bodies
  * (3xx response bodies, usually empty) are intentionally NOT
