@@ -1,5 +1,5 @@
 import type { Page } from '@openheaders/core/page-stream';
-import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
+import type { RedirectHop, RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarBody, InspectorHarEntry } from '@openheaders/core/types';
 import type { InspectorRow } from '@openheaders/ui/panel/data/inspector-facet';
 import {
@@ -260,8 +260,22 @@ describe('stampRedirectRewrites', () => {
     });
   }
 
+  // A rule's own internal redirect — only hops the real lifecycle marks
+  // `internal` carry the rewrite label, never a server redirect leg.
+  function internalHop(): RedirectHop {
+    return {
+      sourceUrl: 'https://openheaders.io',
+      redirectUrl: 'https://openheaders.io/x',
+      statusCode: 307,
+      timestampMs: 1000,
+      internal: true,
+    };
+  }
+
   it('marks a synthetic hop row when its real request carries a query-param fire', () => {
-    const real = rowWithFires(lifecycle({ requestId: 'r1' }), [rewriteFire('query-param')]);
+    const real = rowWithFires(lifecycle({ requestId: 'r1', redirectHopCount: 1, redirectHops: [internalHop()] }), [
+      rewriteFire('query-param'),
+    ]);
     const hop = rowWithFires(lifecycle({ requestId: 'oh-redir:r1#0', statusCode: 307 }));
     const out = stampRedirectRewrites([real, hop]);
     expect(out.find((r) => r.lifecycle.requestId === 'oh-redir:r1#0')?.redirectRewrite).toBe('query-param');
@@ -270,7 +284,9 @@ describe('stampRedirectRewrites', () => {
   });
 
   it('marks the hop with the redirect kind for a redirect-rule fire', () => {
-    const real = rowWithFires(lifecycle({ requestId: 'r1' }), [rewriteFire('redirect')]);
+    const real = rowWithFires(lifecycle({ requestId: 'r1', redirectHopCount: 1, redirectHops: [internalHop()] }), [
+      rewriteFire('redirect'),
+    ]);
     const hop = rowWithFires(lifecycle({ requestId: 'oh-redir:r1#0', statusCode: 307 }));
     const out = stampRedirectRewrites([real, hop]);
     expect(out.find((r) => r.lifecycle.requestId === 'oh-redir:r1#0')?.redirectRewrite).toBe('redirect');
