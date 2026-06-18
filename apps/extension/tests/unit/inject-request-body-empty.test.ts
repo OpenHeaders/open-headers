@@ -48,7 +48,9 @@ beforeEach(() => {
   // The wrapper routes a fire through window.__ohOrig.fire (oh-setup installs it
   // in production); a spy here captures whether the rule fired.
   fireSpy = vi.fn();
-  (window as unknown as { __ohOrig?: { fire: (...a: unknown[]) => void } }).__ohOrig = { fire: fireSpy };
+  (window as unknown as { __ohOrig?: { fire: (...a: unknown[]) => void } }).__ohOrig = {
+    fire: fireSpy as unknown as (...a: unknown[]) => void,
+  };
 });
 
 afterEach(() => {
