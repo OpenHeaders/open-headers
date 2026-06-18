@@ -74,9 +74,13 @@ function staticResponseInjectionFunc(cfg: StaticResponseConfig): void {
 
   // mock: build headers from scratch (CT defaults to JSON). network: start
   // from the real response and layer the override on top (empty CT = no
-  // override, empty map = keep the server's headers).
+  // override, empty map = keep the server's headers). The real body-framing
+  // headers describe the original bytes, so drop them before the substituted
+  // body lands — the attached fulfill path strips the same set, and a user
+  // override (applied after) can still re-set one.
   function buildHeaders(real?: Headers): Headers {
     const h = real ? new Headers(real) : new Headers();
+    if (real) for (const k of ['content-encoding', 'content-length', 'transfer-encoding']) h.delete(k);
     const ct = cfg.contentType || (cfg.source === 'mock' ? 'application/json' : '');
     if (ct) h.set('Content-Type', ct);
     for (const k in cfg.responseHeaders) h.set(k, cfg.responseHeaders[k]!);
@@ -218,6 +222,7 @@ var GRAPHQL_FILTER = ${graphqlFilterJSON};
 
 function __ohMergeHeaders(real) {
   var h = new Headers(real);
+  h.delete('content-encoding'); h.delete('content-length'); h.delete('transfer-encoding');
   if (CONTENT_TYPE) h.set('Content-Type', CONTENT_TYPE);
   for (var k in EXTRA_HEADERS) h.set(k, EXTRA_HEADERS[k]);
   return h;
