@@ -237,6 +237,17 @@ describe('ws wrapper — inject', () => {
     expect(seen).toEqual(['{"hello":1}']);
   });
 
+  it('injected synthetic frame carries the URL origin, not the full URL', async () => {
+    installFunc(buildWsInjection(wsRule({ operation: 'inject', direction: 'receive', payload: '{"hello":1}' })));
+    const ws = new win.WebSocket(WS_URL);
+    const origins: string[] = [];
+    ws.addEventListener('message', (ev) => origins.push((ev as MessageEvent).origin));
+
+    ws.dispatchEvent(new Event('open'));
+    await nextTick();
+    expect(origins).toEqual(['wss://stream.openheaders.io']);
+  });
+
   it('auto-responds on a matching incoming message (send + message trigger)', async () => {
     installFunc(
       buildWsInjection(
@@ -345,6 +356,17 @@ describe('sse wrapper', () => {
     es.dispatchEvent(new Event('open'));
     await nextTick();
     expect(seen).toEqual(['{"px":9}']);
+  });
+
+  it('injected synthetic event carries the URL origin, not the full URL', async () => {
+    installFunc(buildSseInjection(sseRule({ operation: 'inject', eventName: 'price-update', payload: '{"px":9}' })));
+    const es = new win.EventSource(SSE_URL);
+    const origins: string[] = [];
+    es.addEventListener('price-update', (ev) => origins.push((ev as MessageEvent).origin));
+
+    es.dispatchEvent(new Event('open'));
+    await nextTick();
+    expect(origins).toEqual(['https://api.openheaders.io']);
   });
 
   it('non-matching stream URLs are untouched', () => {

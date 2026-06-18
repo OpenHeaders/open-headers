@@ -76,6 +76,17 @@ function wsInjectionFunc(cfg: WsConfig): void {
     (window as unknown as { __ohOrig?: OhOriginals }).__ohOrig?.fire(cfg.ruleUid, url, 'ws');
   }
 
+  function originOf(url: string): string {
+    // A real frame's MessageEvent.origin is the socket's origin, not the
+    // full endpoint URL — resolve relative endpoints against the page base
+    // (as matches() does), then take the origin.
+    try {
+      return new URL(url, document.baseURI).origin;
+    } catch {
+      return url;
+    }
+  }
+
   type SyntheticMessageEvent = MessageEvent & { __ohSynthetic?: boolean };
 
   function deliver(ws: WebSocket, data: string, origin: string): void {
@@ -125,7 +136,7 @@ function wsInjectionFunc(cfg: WsConfig): void {
           if (cfg.direction === 'send') {
             if (ws.readyState === OrigWebSocket.OPEN) ws.send(cfg.payload);
           } else {
-            deliver(ws, cfg.payload, urlStr);
+            deliver(ws, cfg.payload, originOf(urlStr));
           }
         }, 0);
       };

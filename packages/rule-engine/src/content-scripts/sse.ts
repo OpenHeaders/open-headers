@@ -70,6 +70,17 @@ function sseInjectionFunc(cfg: SseConfig): void {
     (window as unknown as { __ohOrig?: OhOriginals }).__ohOrig?.fire(cfg.ruleUid, url, 'sse');
   }
 
+  function originOf(url: string): string {
+    // A real event's MessageEvent.origin is the stream's origin, not the
+    // full endpoint URL — resolve relative endpoints against the page base
+    // (as matches() does), then take the origin.
+    try {
+      return new URL(url, document.baseURI).origin;
+    } catch {
+      return url;
+    }
+  }
+
   type SyntheticMessageEvent = MessageEvent & { __ohSynthetic?: boolean };
 
   const eventType = cfg.eventName || 'message';
@@ -101,7 +112,7 @@ function sseInjectionFunc(cfg: SseConfig): void {
       const injectSoon = (): void => {
         setTimeout(() => {
           fire(urlStr);
-          deliver(es, cfg.payload, urlStr, '');
+          deliver(es, cfg.payload, originOf(urlStr), '');
         }, 0);
       };
       if (cfg.injectTrigger === 'message') {
