@@ -123,6 +123,8 @@ function staticBodyInjectionFunc(cfg: StaticBodyConfig): void {
  * Dynamic mode — make the real request, then pass to user's modifyRequestBody() function.
  * Stays as a string-template inline-script injection because it embeds arbitrary
  * user JavaScript. On strict-CSP sites this will be blocked — pre-existing limitation.
+ * The body-present gate is `!= null` (not truthiness) so a present-but-empty body
+ * (`body: ''` / `send('')`) is still a body — transformed and fired, never skipped.
  */
 function generateDynamicRequestBodyScript(rule: RequestBodyRule): string {
   const regexSources = compileRuleForInjection(rule);
@@ -147,7 +149,7 @@ var origFetch = window.fetch;
 window.fetch = function() {
   var args = Array.prototype.slice.call(arguments);
   var url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url) || '';
-  if (__ohMatchesUrl(url, REGEX_SOURCES) && args[1] && args[1].body) {
+  if (__ohMatchesUrl(url, REGEX_SOURCES) && args[1] && args[1].body != null) {
     var bodyStr = typeof args[1].body === 'string' ? args[1].body : JSON.stringify(args[1].body);
     if (!__ohMatchesGraphQL(bodyStr, GRAPHQL_FILTER)) return origFetch.apply(this, args);
     __ohFire(RULE_UID, url, 'request-body');
@@ -169,7 +171,7 @@ XMLHttpRequest.prototype.open = function() {
   return origXHROpen.apply(this, arguments);
 };
 XMLHttpRequest.prototype.send = function(body) {
-  if (this.__ohUrl && __ohMatchesUrl(this.__ohUrl, REGEX_SOURCES) && body) {
+  if (this.__ohUrl && __ohMatchesUrl(this.__ohUrl, REGEX_SOURCES) && body != null) {
     var bodyStr = typeof body === 'string' ? body : JSON.stringify(body);
     if (!__ohMatchesGraphQL(bodyStr, GRAPHQL_FILTER)) return origXHRSend.call(this, body);
     __ohFire(RULE_UID, this.__ohUrl, 'request-body');
