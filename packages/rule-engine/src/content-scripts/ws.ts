@@ -42,17 +42,21 @@ export function buildWsInjection(rule: WsRule): FuncInjection {
  */
 function wsInjectionFunc(cfg: WsConfig): void {
   const regexes = cfg.regexSources.map((s) => new RegExp(s, 'i'));
-  function matches(url: string): boolean {
-    // Resolve relative / scheme-relative URLs against the page base so
-    // `fetch('/api/x')` matches an absolute-URL pattern — the regexes are
-    // compiled from absolute patterns, which is also what the network
-    // layer sees. Absolute URLs resolve to themselves (idempotent).
-    let abs = url;
+  function resolveWsUrl(url: string): string {
+    // Resolve relative / scheme-relative endpoints against the page base, then
+    // map the resolved http(s) scheme to ws(s): a relative socket resolves to
+    // the page's http(s) base scheme, but the wire is ws(s), so a scheme-
+    // specific ws(s) url-filter (and the frame origin) must see the ws(s) form.
+    // Absolute ws(s) endpoints pass through unchanged.
     try {
-      abs = new URL(url, document.baseURI).href;
+      return new URL(url, document.baseURI).href.replace(/^http/, 'ws');
     } catch {
-      /* not resolvable — match against the raw value */
+      return url;
     }
+  }
+
+  function matches(url: string): boolean {
+    const abs = resolveWsUrl(url);
     for (let i = 0; i < regexes.length; i++) {
       if (regexes[i]!.test(abs)) return true;
     }
@@ -77,11 +81,11 @@ function wsInjectionFunc(cfg: WsConfig): void {
   }
 
   function originOf(url: string): string {
-    // A real frame's MessageEvent.origin is the socket's origin, not the
-    // full endpoint URL — resolve relative endpoints against the page base
-    // (as matches() does), then take the origin.
+    // A real frame's MessageEvent.origin is the socket's origin, not the full
+    // endpoint URL — resolve to the ws(s) form (as matches() does), then take
+    // the origin.
     try {
-      return new URL(url, document.baseURI).origin;
+      return new URL(resolveWsUrl(url)).origin;
     } catch {
       return url;
     }

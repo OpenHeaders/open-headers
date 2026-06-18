@@ -300,6 +300,43 @@ describe('ws wrapper — constructor surface', () => {
   });
 });
 
+describe('ws wrapper — relative endpoint URL resolution', () => {
+  // A relative socket endpoint resolves to the page's http(s) base scheme; the
+  // wrapper maps it to ws(s) so a scheme-specific `wss://` url-filter (and the
+  // synthetic frame origin) still matches `new WebSocket('/feed')`.
+  let base: HTMLBaseElement;
+  beforeEach(() => {
+    base = document.createElement('base');
+    base.setAttribute('href', 'https://stream.openheaders.io/app/');
+    document.head.appendChild(base);
+  });
+  afterEach(() => {
+    base.remove();
+  });
+
+  it('intercepts a relative socket whose ws(s) form matches the url-filter', () => {
+    installFunc(buildWsInjection(wsRule({ operation: 'modify', direction: 'receive', payload: '{"mocked":1}' })));
+    const ws = new win.WebSocket('/feed');
+    const seen: unknown[] = [];
+    ws.addEventListener('message', (ev) => seen.push((ev as MessageEvent).data));
+
+    ws.dispatchEvent(message('{"real":1}'));
+    expect(seen).toEqual(['{"mocked":1}']);
+    expect(firedUids()).toEqual(['wsr00001']);
+  });
+
+  it('injected frame on a relative socket carries the ws(s) origin', async () => {
+    installFunc(buildWsInjection(wsRule({ operation: 'inject', direction: 'receive', payload: '{"hello":1}' })));
+    const ws = new win.WebSocket('/feed');
+    const origins: string[] = [];
+    ws.addEventListener('message', (ev) => origins.push((ev as MessageEvent).origin));
+
+    ws.dispatchEvent(new Event('open'));
+    await nextTick();
+    expect(origins).toEqual(['wss://stream.openheaders.io']);
+  });
+});
+
 // ── EventSource ─────────────────────────────────────────────────────
 
 describe('sse wrapper', () => {
