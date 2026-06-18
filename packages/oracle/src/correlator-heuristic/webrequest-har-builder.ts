@@ -106,6 +106,14 @@ interface PartialHarState {
   /** A joined devtools HAR claimed the CURRENT hop's slot — stop refining
    *  it. Reset on hop advance: a later hop's slot is still partial-owned. */
   superseded: boolean;
+  /**
+   * `true` between an `onBeforeRedirect` and the redirect target's own
+   * `onBeforeRequest` (Chrome re-fires it per hop under the same requestId).
+   * Tells that `onBeforeRequest` it is the next hop — keep the advanced
+   * `hopIndex` and the hop-0 `seedUrl`, refine the hop's start/method/url —
+   * rather than resetting the state to a fresh hop-0 request.
+   */
+  redirectPending: boolean;
 }
 
 /** Sticky identity of one Resource Timing entry inside its document. */
@@ -123,6 +131,17 @@ export class WebRequestHarBuilder {
   observe(event: WebRequestEvent): readonly RequestLifecycleUpdate[] {
     switch (event.method_kind) {
       case 'onBeforeRequest': {
+        const existing = this.getState(event.tabId, event.requestId);
+        if (existing?.redirectPending) {
+          // Redirect target re-issue — the hop after a redirect. Keep the
+          // advanced hop index and the hop-0 seedUrl (the RT pairing key);
+          // refine this hop's start/method/url from the real event.
+          existing.redirectPending = false;
+          existing.startedAtMs = event.timeStamp;
+          existing.method = event.method;
+          existing.url = event.url;
+          return [];
+        }
         const tabMap = this.ensureTab(event.tabId);
         if (tabMap.has(event.requestId)) tabMap.delete(event.requestId);
         tabMap.set(event.requestId, {
@@ -133,6 +152,7 @@ export class WebRequestHarBuilder {
           method: event.method,
           url: event.url,
           superseded: false,
+          redirectPending: false,
         });
         this.evictIfOver(tabMap);
         return [];
@@ -173,6 +193,9 @@ export class WebRequestHarBuilder {
         state.startedAtMs = event.timeStamp;
         state.url = event.redirectUrl;
         state.superseded = false;
+        // The redirect target's own onBeforeRequest carries this hop's real
+        // start/method/url; it refines the seed instead of resetting it.
+        state.redirectPending = true;
         delete state.requestHeaders;
         delete state.headersReceivedAtMs;
         delete state.response;

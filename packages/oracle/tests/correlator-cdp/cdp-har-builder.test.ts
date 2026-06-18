@@ -407,6 +407,61 @@ describe('CdpHarBuilder — *ExtraInfo header merge', () => {
     const entry = lastHarEntry(builder.observe(cdpResponse(ctx, { response: RESPONSE })));
     expect(entry.response?.cookies).toEqual([{ name: 'late', value: '1' }]);
   });
+
+  const U0 = 'https://api.openheaders.io/users';
+  const U1 = 'https://api.openheaders.io/redirected';
+  const U2 = 'https://api.openheaders.io/redirected?added=yes';
+
+  it('an internal-redirect hop consumes no wire ordinal — the final hop gets the real request headers', () => {
+    const ctx: TraceCtx = { tabId: TAB, requestId: 'redir-internal-extra' };
+    const builder = new CdpHarBuilder();
+    builder.observe(cdpStart(ctx, { wallTime: 1000 }));
+    // hop 0 crossed the wire — its on-the-wire request headers.
+    builder.observe(cdpRequestExtra(ctx, { Cookie: 'sid=hop0' }));
+    // hop 0 → hop 1: a real server 301.
+    builder.observe(
+      cdpRedirect(ctx, { url: U0, status: 301, statusText: 'Moved Permanently' }, U1, { timestamp: 100.1 }),
+    );
+    // hop 1 → hop 2: the rule's own 307 internal redirect — never crossed the
+    // wire, so it gets no ExtraInfo and must not consume an ordinal.
+    const hop1Updates = builder.observe(
+      cdpRedirect(ctx, { url: U1, status: 307, statusText: 'Internal Redirect' }, U2, { timestamp: 100.2 }),
+    );
+    // hop 2's on-the-wire request headers — must land on hop 2, not hop 1.
+    builder.observe(cdpRequestExtra(ctx, { Cookie: 'sid=hop2', 'X-Wire-Final': 'yes' }));
+    builder.observe(cdpResponse(ctx, { response: { url: U2, status: 200, statusText: 'OK' }, timestamp: 100.6 }));
+    const hop2 = lastHarEntry(builder.observe(cdpFinished(ctx, { timestamp: 100.7 })));
+
+    expect(hop2.request?.headers).toEqual([
+      { name: 'Cookie', value: 'sid=hop2' },
+      { name: 'X-Wire-Final', value: 'yes' },
+    ]);
+    // The internal hop did not steal the final hop's wire headers.
+    const u1 = hop1Updates.find((u) => u.kind === 'har-attached');
+    if (u1?.kind !== 'har-attached') throw new Error('expected har-attached for hop 1');
+    expect(u1.har.request?.headers ?? []).not.toContainEqual({ name: 'X-Wire-Final', value: 'yes' });
+  });
+
+  it('the final hop gets its wire request headers even when they race ahead of its redirect base', () => {
+    const ctx: TraceCtx = { tabId: TAB, requestId: 'redir-internal-extra-early' };
+    const builder = new CdpHarBuilder();
+    builder.observe(cdpStart(ctx, { wallTime: 1000 }));
+    builder.observe(cdpRequestExtra(ctx, { Cookie: 'sid=hop0' }));
+    builder.observe(
+      cdpRedirect(ctx, { url: U0, status: 301, statusText: 'Moved Permanently' }, U1, { timestamp: 100.1 }),
+    );
+    // The final hop's wire headers arrive BEFORE its redirect base (the common
+    // extra-before-base race) — ordinal-mis-paired to the internal hop, then
+    // shifted onto the real hop when the internal redirect is recognized.
+    builder.observe(cdpRequestExtra(ctx, { Cookie: 'sid=hop2', 'X-Wire-Final': 'yes' }));
+    builder.observe(
+      cdpRedirect(ctx, { url: U1, status: 307, statusText: 'Internal Redirect' }, U2, { timestamp: 100.2 }),
+    );
+    builder.observe(cdpResponse(ctx, { response: { url: U2, status: 200, statusText: 'OK' }, timestamp: 100.6 }));
+    const hop2 = lastHarEntry(builder.observe(cdpFinished(ctx, { timestamp: 100.7 })));
+
+    expect(hop2.request?.headers).toContainEqual({ name: 'X-Wire-Final', value: 'yes' });
+  });
 });
 
 describe('CdpHarBuilder — initiator chain', () => {

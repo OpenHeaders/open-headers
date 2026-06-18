@@ -91,6 +91,12 @@ export interface OnBeforeRedirectEvent extends WebRequestEventBase {
   readonly fromCache?: boolean;
   /** Server IP the hop was sent to — HAR `serverIPAddress` for the hop. */
   readonly ip?: string;
+  /**
+   * Set only on the SYNTHETIC redirect the correlator emits for a DNR
+   * in-place URL rewrite (webRequest fires no real `onBeforeRedirect` for
+   * it). Marks the resulting hop as an Open Headers internal redirect.
+   */
+  readonly internal?: boolean;
 }
 
 /** `chrome.webRequest.onCompleted`. */

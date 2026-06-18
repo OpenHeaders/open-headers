@@ -211,6 +211,19 @@ function newRequestHarState(): RequestHarState {
 }
 
 /**
+ * Move an on-the-wire header set ordinal-mis-paired to an internal-redirect
+ * hop (`from`) onto the live hop (`to`). No-op unless `from` actually holds an
+ * extra and `to` is still empty — so a correctly-paired set is never disturbed.
+ */
+function shiftExtraToLiveHop(byHop: Array<Readonly<Record<string, string>>>, from: number, to: number): void {
+  const extra = byHop[from];
+  if (extra !== undefined && byHop[to] === undefined) {
+    byHop[to] = extra;
+    delete byHop[from];
+  }
+}
+
+/**
  * Default monotonic→wall resolver — treats the monotonic instant as wall ms
  * when no per-request offset is known, the same zero-offset degradation
  * {@link ../correlator-cdp/cdp-wall-clock.CdpWallClock} documents. Production
@@ -357,6 +370,13 @@ export class CdpHarBuilder {
         );
         if (finalized !== undefined) updates.push(finalized);
         existing.hopCursor += 1;
+        // An internal redirect (a DNR redirect/query-param rule's own 307)
+        // never crosses the wire, so it receives no `*ExtraInfo`. Its hop must
+        // not consume an on-the-wire ordinal — otherwise the next real hop's
+        // wire header sets shunt onto it and the real hop is left provisional.
+        if (event.redirectResponse.statusText === 'Internal Redirect') {
+          this.skipInternalRedirectHop(existing);
+        }
       }
     } else {
       // Fresh lifecycle (also resets a reused requestId after gc). An
@@ -384,6 +404,21 @@ export class CdpHarBuilder {
     const headers = this.requestHeaderUpdate(event.tabId, requestId, state, state.hopCursor);
     if (headers !== undefined) updates.push(headers);
     return updates;
+  }
+
+  /**
+   * Realign the on-the-wire ordinal cursors after an internal-redirect hop
+   * (just finalized at `hopCursor - 1`). That hop crossed no wire, so it gets
+   * no `*ExtraInfo`: shift any extra ordinal-mis-paired onto it across to the
+   * live hop (the extra-before-base race), then advance both cursors past it
+   * so subsequent wire header sets pair with hops that did cross the wire.
+   */
+  private skipInternalRedirectHop(state: RequestHarState): void {
+    const internalHop = state.hopCursor - 1;
+    shiftExtraToLiveHop(state.requestExtraByHop, internalHop, state.hopCursor);
+    shiftExtraToLiveHop(state.responseExtraByHop, internalHop, state.hopCursor);
+    state.reqExtraCursor = Math.max(state.reqExtraCursor, state.hopCursor);
+    state.respExtraCursor = Math.max(state.respExtraCursor, state.hopCursor);
   }
 
   /**

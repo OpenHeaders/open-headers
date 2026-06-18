@@ -40,11 +40,20 @@ interface HopCursorEntry {
    */
   method: string;
   /**
-   * `true` between `onBeforeRedirect` and the matching `onSendHeaders`:
+   * `true` between `onBeforeRedirect` and the matching `onBeforeRequest`:
    * the new hop's index is known but its FIFO record is still owed.
    * `false` otherwise.
    */
   pendingRecord: boolean;
+  /**
+   * The current hop's URL, captured at `onBeforeRequest`. A declarativeNetRequest
+   * `redirect`/`query-param` rule rewrites the URL in place — webRequest fires
+   * NO `onBeforeRedirect`, it just reports a different URL at `onSendHeaders`
+   * than at `onBeforeRequest`. The correlator compares `onSendHeaders`' URL
+   * against this to detect that rewrite and synthesize the internal-redirect
+   * hop (see {@link currentUrl}).
+   */
+  url: string;
 }
 
 /** Optional drop hook — fires when an entry is evicted by the per-tab cap. */
@@ -69,22 +78,24 @@ export class HopCursor {
    * hop 0 happens inline in the correlator's `onBeforeRequest` handler
    * — `pendingRecord` is therefore `false` here.
    */
-  start(tabId: number, requestId: string, method: string): void {
+  start(tabId: number, requestId: string, method: string, url = ''): void {
     const tabMap = this.ensureTab(tabId);
     // Insertion-order LRU touch: delete-and-reinsert on restart so the
     // cursor sits at the tail (matches `InFlightFifo` posture). A
     // duplicate `start` is a correlator-side bug, but normalising the
     // order keeps the bounded buffer honest.
     if (tabMap.has(requestId)) tabMap.delete(requestId);
-    tabMap.set(requestId, { hopIndex: 0, method, pendingRecord: false });
+    tabMap.set(requestId, { hopIndex: 0, method, pendingRecord: false, url });
     this.evictIfOver(tabId, tabMap);
   }
 
   /**
-   * Record that an `onBeforeRedirect` fired. The hop index increments
-   * eagerly so subsequent reads see the new hop; the FIFO record is
-   * deferred to `consumePendingRecord` at the matching
-   * `onSendHeaders`.
+   * Record that an `onBeforeRedirect` fired (a server redirect, OR the
+   * synthetic one the correlator emits for a DNR in-place rewrite). The hop
+   * index increments eagerly so subsequent reads see the new hop; the FIFO
+   * record is deferred to `consumePendingRecord` at the next hop-bearing
+   * event (the target's `onBeforeRequest` for a server redirect, or the
+   * rewriting `onSendHeaders` for a DNR rewrite).
    *
    * No-op if the cursor was never started (defensive — a redirect
    * event for an unattached lifecycle should never reach here, but the
@@ -98,22 +109,33 @@ export class HopCursor {
   }
 
   /**
-   * Called from `onSendHeaders`. If a redirect is pending, returns the
-   * new hop's `{ hopIndex, method }` so the correlator can record it
-   * into {@link InFlightFifo}, and updates the stored method to match
-   * what's actually being sent (303-correct). Returns `undefined` if
-   * the cursor has no pending redirect — the `onSendHeaders` for hop 0
-   * is consumed for its CORS-context side-effect, not for FIFO
-   * bookkeeping.
+   * The current hop's URL (as last recorded at `onBeforeRequest` /
+   * `onSendHeaders`), or `undefined` if untracked. The correlator compares
+   * `onSendHeaders`' URL against this to spot a DNR in-place rewrite (no
+   * `onBeforeRedirect`, URL changed) and synthesize the redirect hop.
+   */
+  currentUrl(tabId: number, requestId: string): string | undefined {
+    return this.perTab.get(tabId)?.get(requestId)?.url;
+  }
+
+  /**
+   * Consume the pending hop record at the hop-bearing event after an
+   * `onBeforeRedirect`. Returns the new hop's `{ hopIndex, method }` so the
+   * correlator can record it into {@link InFlightFifo}, updating the stored
+   * method + URL to what's actually being sent (303 rewrites POST→GET; a DNR
+   * rewrite changes the URL). Returns `undefined` if no redirect is pending —
+   * a fresh hop's event has nothing owed.
    */
   consumePendingRecord(
     tabId: number,
     requestId: string,
     method: string,
+    url?: string,
   ): { hopIndex: number; method: string } | undefined {
     const entry = this.perTab.get(tabId)?.get(requestId);
-    if (!entry || !entry.pendingRecord) return undefined;
+    if (!entry?.pendingRecord) return undefined;
     entry.method = method;
+    if (url !== undefined) entry.url = url;
     entry.pendingRecord = false;
     return { hopIndex: entry.hopIndex, method };
   }

@@ -143,6 +143,7 @@ function redirectUpdate(event: Extract<WebRequestEvent, { method_kind: 'onBefore
       redirectUrl: event.redirectUrl,
       statusCode: event.statusCode,
       timestampMs: event.timeStamp,
+      ...(event.internal ? { internal: true } : {}),
     },
     nextUrl: event.redirectUrl,
   };

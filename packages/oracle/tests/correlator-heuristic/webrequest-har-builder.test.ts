@@ -252,6 +252,44 @@ describe('WebRequestHarBuilder — redirect hops', () => {
       expect(attached[0].har.request?.headers).toEqual([{ name: 'Accept', value: '*/*' }]);
     }
   });
+
+  it('keeps the advanced hop index when the redirect target re-fires onBeforeRequest', () => {
+    const builder = new WebRequestHarBuilder();
+    observeAll(builder, [
+      start(),
+      sendHeaders(),
+      headersReceived({
+        statusCode: 302,
+        statusLine: 'HTTP/1.1 302 Found',
+        responseHeaders: [{ name: 'Location', value: URL_B }],
+      }),
+      {
+        method_kind: 'onBeforeRedirect',
+        tabId: TAB,
+        requestId: REQUEST_ID,
+        url: URL_A,
+        method: 'GET',
+        type: 'main_frame',
+        timeStamp: T0 + 500,
+        statusCode: 302,
+        redirectUrl: URL_B,
+        ip: '140.82.121.4',
+      },
+    ]);
+    // Chrome re-fires onBeforeRequest for the redirect target under the same
+    // requestId. The next hop must keep hop index 1 (not reset to 0) and take
+    // its start from this event, not the redirect instant.
+    const hop1 = observeAll(builder, [
+      start({ url: URL_B, timeStamp: T0 + 505 }),
+      sendHeaders({ url: URL_B, timeStamp: T0 + 510, requestHeaders: [{ name: 'Accept', value: '*/*' }] }),
+      headersReceived({ url: URL_B, timeStamp: T0 + 900 }),
+    ]);
+    const attached = harAttached(hop1);
+    expect(attached).toHaveLength(1);
+    if (attached[0]?.kind !== 'har-attached') throw new Error('expected har-attached');
+    expect(attached[0].hopIndex).toBe(1);
+    expect(attached[0].har.startedDateTime).toBe(new Date(T0 + 505).toISOString());
+  });
 });
 
 describe('WebRequestHarBuilder — floor timings', () => {

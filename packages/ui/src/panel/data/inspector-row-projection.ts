@@ -282,6 +282,9 @@ export function attachFiresToRows(rows: readonly InspectorRow[], fires: readonly
  */
 export function stampRedirectRewrites(rows: readonly InspectorRowWithFires[]): readonly InspectorRowWithFires[] {
   const rewriteByRequestId = new Map<string, RedirectRewriteKind>();
+  // Which hop indices of each chain are Open Headers' own internal rewrites —
+  // read from the real (un-split) lifecycle, which carries the full chain.
+  const internalHopsByRequestId = new Map<string, Set<number>>();
   for (const row of rows) {
     for (const fire of row.fires) {
       if (fire.shadowedBy) continue;
@@ -289,6 +292,13 @@ export function stampRedirectRewrites(rows: readonly InspectorRowWithFires[]): r
       if (type === 'query-param' || type === 'redirect') {
         rewriteByRequestId.set(row.lifecycle.requestId, type);
       }
+    }
+    if (parseRedirectHopRequestId(row.lifecycle.requestId) === null) {
+      const internal = new Set<number>();
+      row.lifecycle.redirectHops.forEach((hop, i) => {
+        if (hop.internal) internal.add(i);
+      });
+      if (internal.size > 0) internalHopsByRequestId.set(row.lifecycle.requestId, internal);
     }
   }
   if (rewriteByRequestId.size === 0) return rows;
@@ -299,6 +309,10 @@ export function stampRedirectRewrites(rows: readonly InspectorRowWithFires[]): r
     if (!parsed) return row;
     const kind = rewriteByRequestId.get(parsed.realRequestId);
     if (!kind) return row;
+    // Only the rule's own internal-redirect hop gets the label — a server
+    // redirect leg in the same chain (e.g. a 301 ahead of the rule's 307)
+    // must not read as a rewrite.
+    if (!internalHopsByRequestId.get(parsed.realRequestId)?.has(parsed.hop)) return row;
     changed = true;
     return { ...row, redirectRewrite: kind };
   });

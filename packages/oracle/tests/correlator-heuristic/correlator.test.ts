@@ -8,21 +8,19 @@
  * attachment, and per-tab forget.
  */
 
-import { describe, expect, it, vi } from 'vitest';
-
 import type {
+  RequestLifecycle,
   RequestLifecycleListener,
   RequestLifecycleUpdate,
 } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarBody, InspectorHarEntry } from '@openheaders/core/types';
+import { describe, expect, it, vi } from 'vitest';
 
 import { HeuristicCorrelator } from '../../src/correlator-heuristic/correlator';
 import type { WebRequestEvent, WebRequestEventSource } from '../../src/correlator-heuristic/events';
 import type { HarEvent, HarEventSource } from '../../src/correlator-heuristic/har-events';
-import {
-  FINALIZED_RETENTION_MS,
-  HAR_FORWARD_HOLD_MS,
-} from '../../src/correlator-heuristic/late-arrival-constants';
+import { FINALIZED_RETENTION_MS, HAR_FORWARD_HOLD_MS } from '../../src/correlator-heuristic/late-arrival-constants';
+import { reduce } from '../../src/request-lifecycle-store/reducer';
 
 /** In-memory webRequest source for tests. */
 class TestWebRequestSource implements WebRequestEventSource {
@@ -772,9 +770,7 @@ describe('HeuristicCorrelator — H6 error refinement on terminal phase', () => 
       type: 'xmlhttprequest',
       timeStamp: STARTED_AT_MS + 2,
       statusCode: 200,
-      responseHeaders: [
-        { name: 'Access-Control-Allow-Origin', value: 'https://other.openheaders.io' },
-      ],
+      responseHeaders: [{ name: 'Access-Control-Allow-Origin', value: 'https://other.openheaders.io' }],
     });
     webRequest.emit({
       method_kind: 'onErrorOccurred',
@@ -944,9 +940,7 @@ describe('HeuristicCorrelator — H5 detach scope', () => {
       error: 'net::ERR_FAILED',
     });
 
-    const failed = collected.find(
-      (u) => u.kind === 'phase' && u.patch.phase === 'failed' && u.requestId === 'wr-2',
-    );
+    const failed = collected.find((u) => u.kind === 'phase' && u.patch.phase === 'failed' && u.requestId === 'wr-2');
     if (failed?.kind !== 'phase') throw new Error('expected failed phase for wr-2');
     expect(failed.patch.error?.code).toBe('net::ERR_FAILED');
     correlator.dispose();
@@ -960,9 +954,10 @@ describe('HeuristicCorrelator — H8/H9 per-hop HAR + body attribution', () => {
 
   /**
    * Drive a full 3-hop chain (HOP0 → HOP1 → HOP2). Each hop emits the
-   * webRequest events Chrome would fire, in order: hop 0 starts via
-   * onBeforeRequest; subsequent hops record via onSendHeaders following
-   * onBeforeRedirect.
+   * webRequest events Chrome fires, in order: every hop begins at its own
+   * onBeforeRequest (Chrome re-fires it for each redirect target under the
+   * same requestId), then onSendHeaders, with onBeforeRedirect closing the
+   * non-terminal hops.
    */
   function emit3HopChain(
     webRequest: TestWebRequestSource,
@@ -993,7 +988,16 @@ describe('HeuristicCorrelator — H8/H9 per-hop HAR + body attribution', () => {
       statusCode: 302,
       redirectUrl: URL_HOP1,
     });
-    // Hop 1
+    // Hop 1 — Chrome re-fires onBeforeRequest for the redirect target.
+    webRequest.emit({
+      method_kind: 'onBeforeRequest',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_HOP1,
+      method: m1,
+      type: 'xmlhttprequest',
+      timeStamp: opts.startMs + 8,
+    });
     webRequest.emit({
       method_kind: 'onSendHeaders',
       tabId: TAB,
@@ -1014,7 +1018,16 @@ describe('HeuristicCorrelator — H8/H9 per-hop HAR + body attribution', () => {
       statusCode: 302,
       redirectUrl: URL_HOP2,
     });
-    // Hop 2 — terminal hop, no further redirect.
+    // Hop 2 — terminal hop, its own onBeforeRequest, no further redirect.
+    webRequest.emit({
+      method_kind: 'onBeforeRequest',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_HOP2,
+      method: m2,
+      type: 'xmlhttprequest',
+      timeStamp: opts.startMs + 18,
+    });
     webRequest.emit({
       method_kind: 'onSendHeaders',
       tabId: TAB,
@@ -1129,7 +1142,17 @@ describe('HeuristicCorrelator — H8/H9 per-hop HAR + body attribution', () => {
       statusCode: 303,
       redirectUrl: URL_HOP1,
     });
-    // Hop 1 — outgoing method is GET.
+    // Hop 1 — the redirect target's own onBeforeRequest carries the
+    // rewritten GET method; the new hop's FIFO entry records here.
+    webRequest.emit({
+      method_kind: 'onBeforeRequest',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_HOP1,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: STARTED_AT_MS + 8,
+    });
     webRequest.emit({
       method_kind: 'onSendHeaders',
       tabId: TAB,
@@ -1157,14 +1180,26 @@ describe('HeuristicCorrelator — H8/H9 per-hop HAR + body attribution', () => {
     correlator.dispose();
   });
 
-  it('forward race — a HAR for hop 1 arriving before onSendHeaders is held and drained on record', () => {
+  it('forward race — a HAR arriving before its onBeforeRequest is held and drained on record', () => {
     const { webRequest, har } = makeSources();
     const correlator = new HeuristicCorrelator({ webRequest, har });
     const collected: RequestLifecycleUpdate[] = [];
     correlator.subscribe((u) => collected.push(u));
     correlator.attachTab(TAB);
 
-    // Hop 0 + redirect, but hop-1 onSendHeaders has not fired yet.
+    // The HAR lands before this request's onBeforeRequest has been processed
+    // (an intra-process reordering); no FIFO entry yet, so the entry buffers.
+    har.emit({
+      kind: 'har-entry',
+      tabId: TAB,
+      entry: harEntry({
+        startedDateTime: new Date(STARTED_AT_MS).toISOString(),
+        request: { method: 'GET', url: URL_HOP0, headers: [], queryString: [] },
+      }),
+    });
+    expect(collected.filter((u) => u.kind === 'har-attached')).toHaveLength(0);
+
+    // onBeforeRequest finally lands — record runs, drain attaches at hop 0.
     webRequest.emit({
       method_kind: 'onBeforeRequest',
       tabId: TAB,
@@ -1174,45 +1209,11 @@ describe('HeuristicCorrelator — H8/H9 per-hop HAR + body attribution', () => {
       type: 'xmlhttprequest',
       timeStamp: STARTED_AT_MS,
     });
-    webRequest.emit({
-      method_kind: 'onBeforeRedirect',
-      tabId: TAB,
-      requestId: 'wr-1',
-      url: URL_HOP0,
-      method: 'GET',
-      type: 'xmlhttprequest',
-      timeStamp: STARTED_AT_MS + 5,
-      statusCode: 302,
-      redirectUrl: URL_HOP1,
-    });
-
-    // HAR for hop 1 lands early — no FIFO entry for URL_HOP1 yet,
-    // entry is buffered.
-    har.emit({
-      kind: 'har-entry',
-      tabId: TAB,
-      entry: harEntry({
-        startedDateTime: new Date(STARTED_AT_MS + 10).toISOString(),
-        request: { method: 'GET', url: URL_HOP1, headers: [], queryString: [] },
-      }),
-    });
-    expect(collected.filter((u) => u.kind === 'har-attached')).toHaveLength(0);
-
-    // Now onSendHeaders for hop 1 — record runs, drain attaches.
-    webRequest.emit({
-      method_kind: 'onSendHeaders',
-      tabId: TAB,
-      requestId: 'wr-1',
-      url: URL_HOP1,
-      method: 'GET',
-      type: 'xmlhttprequest',
-      timeStamp: STARTED_AT_MS + 10,
-    });
 
     const attached = collected.filter((u) => u.kind === 'har-attached');
     expect(attached).toHaveLength(1);
     if (attached[0]?.kind !== 'har-attached') throw new Error('expected har-attached');
-    expect(attached[0].hopIndex).toBe(1);
+    expect(attached[0].hopIndex).toBe(0);
     correlator.dispose();
   });
 
@@ -1244,6 +1245,16 @@ describe('HeuristicCorrelator — H8/H9 per-hop HAR + body attribution', () => {
       statusCode: 302,
       redirectUrl: URL_HOP1,
     });
+    // Hop 1 — redirect target's own onBeforeRequest, then it redirects too.
+    webRequest.emit({
+      method_kind: 'onBeforeRequest',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_HOP1,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: STARTED_AT_MS + 8,
+    });
     webRequest.emit({
       method_kind: 'onSendHeaders',
       tabId: TAB,
@@ -1263,6 +1274,16 @@ describe('HeuristicCorrelator — H8/H9 per-hop HAR + body attribution', () => {
       timeStamp: STARTED_AT_MS + 15,
       statusCode: 302,
       redirectUrl: URL_HOP0,
+    });
+    // Hop 2 — back to URL_HOP0; its own onBeforeRequest.
+    webRequest.emit({
+      method_kind: 'onBeforeRequest',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_HOP0,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: STARTED_AT_MS + 18,
     });
     webRequest.emit({
       method_kind: 'onSendHeaders',
@@ -1336,6 +1357,229 @@ describe('HeuristicCorrelator — H8/H9 per-hop HAR + body attribution', () => {
     const attached = collected.filter((u) => u.kind === 'har-attached');
     // Each of the three hops should still attach exactly once.
     expect(attached.map((u) => (u.kind === 'har-attached' ? u.hopIndex : -1))).toEqual([2]);
+    correlator.dispose();
+  });
+});
+
+describe('HeuristicCorrelator — DNR in-place URL rewrite', () => {
+  // A declarativeNetRequest `redirect`/`query-param` rule rewrites the URL IN
+  // PLACE: webRequest fires NO onBeforeRedirect for it — onSendHeaders simply
+  // carries a different URL than the hop's onBeforeRequest. The correlator
+  // synthesizes the internal-redirect hop from that change so the chain matches
+  // the host's devtools view (a separate 307 leg + the rewritten destination).
+  const U0 = 'http://localhost:3000/net/status/301';
+  const U1 = 'http://localhost:3000/echo/redirected';
+  const U2 = 'http://localhost:3000/echo/redirected?added=yes&overridden=server';
+
+  function legHar(url: string, status: number, statusText: string, atMs: number): InspectorHarEntry {
+    return harEntry({
+      startedDateTime: new Date(atMs).toISOString(),
+      request: { method: 'GET', url, headers: [], queryString: [] },
+      response: { status, statusText, headers: [], content: { size: 0, mimeType: 'text/plain' } },
+    });
+  }
+
+  function foldLifecycle(updates: readonly RequestLifecycleUpdate[], requestId: string): RequestLifecycle | undefined {
+    let lc: RequestLifecycle | undefined;
+    for (const u of updates) {
+      const rid = u.kind === 'started' ? u.lifecycle.requestId : u.requestId;
+      if (rid !== requestId) continue;
+      const res = reduce(lc, u);
+      if (res.kind === 'insert' || res.kind === 'update') lc = res.next;
+      else if (res.kind === 'delete') lc = undefined;
+    }
+    return lc;
+  }
+
+  it('a rewrite after a server 301 splits into 301 → 307 → 200 hops', () => {
+    const { webRequest, har } = makeSources();
+    const correlator = new HeuristicCorrelator({ webRequest, har });
+    const collected: RequestLifecycleUpdate[] = [];
+    correlator.subscribe((u) => collected.push(u));
+    correlator.attachTab(TAB);
+
+    const t = STARTED_AT_MS;
+    // Hop 0 — real server 301 (onHeadersReceived(3xx) + onBeforeRedirect).
+    webRequest.emit({
+      method_kind: 'onBeforeRequest',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: U0,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: t,
+    });
+    webRequest.emit({
+      method_kind: 'onSendHeaders',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: U0,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: t + 1,
+      requestHeaders: [],
+    });
+    webRequest.emit({
+      method_kind: 'onHeadersReceived',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: U0,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: t + 2,
+      statusCode: 301,
+      statusLine: 'HTTP/1.1 301 Moved Permanently',
+      responseHeaders: [],
+    });
+    webRequest.emit({
+      method_kind: 'onBeforeRedirect',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: U0,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: t + 3,
+      statusCode: 301,
+      redirectUrl: U1,
+    });
+    // Hop 1 — the 301 target. The query-param rule rewrites it IN PLACE: no
+    // onBeforeRedirect; onSendHeaders carries the rewritten URL (U2) not U1.
+    webRequest.emit({
+      method_kind: 'onBeforeRequest',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: U1,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: t + 4,
+    });
+    webRequest.emit({
+      method_kind: 'onSendHeaders',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: U2,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: t + 5,
+      requestHeaders: [],
+    });
+    webRequest.emit({
+      method_kind: 'onHeadersReceived',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: U2,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: t + 6,
+      statusCode: 200,
+      statusLine: 'HTTP/1.1 200 OK',
+      responseHeaders: [],
+    });
+    webRequest.emit({
+      method_kind: 'onCompleted',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: U2,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: t + 7,
+      statusCode: 200,
+      statusLine: 'HTTP/1.1 200 OK',
+    });
+
+    // Devtools records all three legs (it sees the internal 307).
+    har.emit({ kind: 'har-entry', tabId: TAB, entry: legHar(U0, 301, 'Moved Permanently', t) });
+    har.emit({ kind: 'har-entry', tabId: TAB, entry: legHar(U1, 307, 'Internal Redirect', t + 4) });
+    har.emit({ kind: 'har-entry', tabId: TAB, entry: legHar(U2, 200, 'OK', t + 6) });
+
+    const lc = foldLifecycle(collected, 'wr-1');
+    if (!lc) throw new Error('expected a lifecycle');
+
+    // The in-place rewrite became its own 307 hop; the chain is 301 → 307 → 200.
+    expect(lc.redirectHopCount).toBe(2);
+    expect(lc.redirectHops.map((h) => h.statusCode)).toEqual([301, 307]);
+    expect(lc.redirectHops[1]?.sourceUrl).toBe(U1);
+    expect(lc.redirectHops[1]?.redirectUrl).toBe(U2);
+    // The server 301 is not a rule rewrite; only the in-place 307 is internal.
+    expect(lc.redirectHops[0]?.internal).toBeFalsy();
+    expect(lc.redirectHops[1]?.internal).toBe(true);
+    expect(lc.har[0]?.response?.status).toBe(301);
+    expect(lc.har[1]?.response?.status).toBe(307);
+    expect(lc.har[2]?.response?.status).toBe(200);
+    expect(lc.phase).toBe('completed');
+    expect(lc.statusCode).toBe(200);
+    correlator.dispose();
+  });
+
+  it('a rewrite on the initial request splits into 307 → 200 hops', () => {
+    const { webRequest, har } = makeSources();
+    const correlator = new HeuristicCorrelator({ webRequest, har });
+    const collected: RequestLifecycleUpdate[] = [];
+    correlator.subscribe((u) => collected.push(u));
+    correlator.attachTab(TAB);
+
+    const t = STARTED_AT_MS;
+    const Ua = 'http://localhost:3000/echo?test=qp-add&run=x';
+    const Ub = 'http://localhost:3000/echo?test=qp-add&run=x&added=yes';
+    // The query-param rule rewrites the initial request in place — onBeforeRequest
+    // carries Ua, onSendHeaders the rewritten Ub, with no onBeforeRedirect.
+    webRequest.emit({
+      method_kind: 'onBeforeRequest',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: Ua,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: t,
+    });
+    webRequest.emit({
+      method_kind: 'onSendHeaders',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: Ub,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: t + 1,
+      requestHeaders: [],
+    });
+    webRequest.emit({
+      method_kind: 'onHeadersReceived',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: Ub,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: t + 2,
+      statusCode: 200,
+      statusLine: 'HTTP/1.1 200 OK',
+      responseHeaders: [],
+    });
+    webRequest.emit({
+      method_kind: 'onCompleted',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: Ub,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: t + 3,
+      statusCode: 200,
+      statusLine: 'HTTP/1.1 200 OK',
+    });
+
+    har.emit({ kind: 'har-entry', tabId: TAB, entry: legHar(Ua, 307, 'Internal Redirect', t) });
+    har.emit({ kind: 'har-entry', tabId: TAB, entry: legHar(Ub, 200, 'OK', t + 1) });
+
+    const lc = foldLifecycle(collected, 'wr-1');
+    if (!lc) throw new Error('expected a lifecycle');
+
+    expect(lc.redirectHopCount).toBe(1);
+    expect(lc.redirectHops.map((h) => h.statusCode)).toEqual([307]);
+    expect(lc.redirectHops[0]?.sourceUrl).toBe(Ua);
+    expect(lc.redirectHops[0]?.internal).toBe(true);
+    expect(lc.har[0]?.response?.status).toBe(307);
+    expect(lc.har[1]?.response?.status).toBe(200);
+    expect(lc.phase).toBe('completed');
+    expect(lc.statusCode).toBe(200);
     correlator.dispose();
   });
 });

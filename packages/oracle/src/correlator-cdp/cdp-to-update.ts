@@ -145,6 +145,10 @@ function redirectUpdate(
       // monotonic value there would be a different scale from every other
       // row's wall-clock start and mis-order the redirect chain.
       timestampMs: wallSecondsToMs(event.wallTime),
+      // An Open Headers `redirect`/`query-param` rule realizes as a synthetic
+      // internal redirect, which carries this status text instead of a server
+      // reason phrase — the marker the annotation rail keys its rewrite label on.
+      ...(prior.statusText === 'Internal Redirect' ? { internal: true } : {}),
     },
     nextUrl: event.request.url,
   };

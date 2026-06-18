@@ -49,6 +49,13 @@ export interface RedirectHop {
   statusCode: number;
   /** Wall-clock ms at which `onBeforeRedirect` fired. */
   timestampMs: number;
+  /**
+   * `true` when this hop is an Open Headers internal redirect — a
+   * `redirect`/`query-param` rule rewriting the URL — rather than a server
+   * 3xx. Drives the row-annotation rail's "rule rewrite" label so it lands
+   * only on the rule's own hop, never on a server redirect in the same chain.
+   */
+  internal?: boolean;
 }
 
 /**

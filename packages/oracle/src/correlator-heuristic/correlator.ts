@@ -27,10 +27,11 @@
  *     via {@link refineUpdateWithCors}                                ✓
  *   - H8/H9 per-hop HAR + body attribution via {@link HopCursor}: the
  *     correlator stamps `hopIndex` into {@link InFlightFifo} at record
- *     time (hop 0 at `onBeforeRequest`; hops ≥ 1 at the
- *     `onSendHeaders` following an `onBeforeRedirect`). HAR entries
- *     and their bodies inherit the stamp via the FIFO + body-join
- *     map.                                                            ✓
+ *     time. Each hop begins at its own `onBeforeRequest` (Chrome re-fires
+ *     it for every redirect target under the same requestId): hop 0 on a
+ *     fresh request, hops ≥ 1 on the `onBeforeRequest` following an
+ *     `onBeforeRedirect`. HAR entries and their bodies inherit the stamp
+ *     via the FIFO + body-join map.                                    ✓
  *   - HAR-only lifecycle synthesis: a failure-shaped HAR entry that
  *     expires un-joined (a request webRequest never saw — canceled
  *     while renderer-queued) mints its own `oh-har:` lifecycle instead
@@ -202,6 +203,18 @@ export class HeuristicCorrelator implements RequestCorrelator {
   private onWebRequestEvent(event: WebRequestEvent): void {
     if (!this.attached.has(event.tabId)) return;
     this.gcLateArrival(event.timeStamp);
+    // A DNR `redirect`/`query-param` rule rewrites the URL IN PLACE — webRequest
+    // fires NO `onBeforeRedirect` for it; the only signal is that `onSendHeaders`
+    // carries a different URL than the hop's `onBeforeRequest`. Synthesize the
+    // internal-redirect hop from that change (the host's devtools records it as
+    // its own 307 entry) and process it before the real event, so the chain
+    // surfaces the rule's own leg + its rewritten destination.
+    const rewrite = this.synthesizeInPlaceRewrite(event);
+    if (rewrite !== undefined) this.processWebRequestEvent(rewrite);
+    this.processWebRequestEvent(event);
+  }
+
+  private processWebRequestEvent(event: WebRequestEvent): void {
     // Bookkeeping before mapping — keeps the FIFO and hop-cursor
     // authoritative even if a listener throws downstream (the for-loop
     // in `emit` already tolerates, but ordering is clearer this way).
@@ -225,34 +238,97 @@ export class HeuristicCorrelator implements RequestCorrelator {
   }
 
   /**
-   * Side-effects on {@link InFlightFifo} + {@link HopCursor} that
-   * thread the correct hop index into every HAR / body attachment
-   * downstream (H8/H9).
+   * Detect a DNR in-place URL rewrite and return the synthetic
+   * `onBeforeRedirect` that represents it, or `undefined` when the event is
+   * not a rewrite. A `redirect`/`query-param` rule changes the URL between
+   * `onBeforeRequest` and `onSendHeaders` with no `onBeforeRedirect` of its
+   * own; comparing `onSendHeaders`' URL to the hop's recorded URL surfaces it.
+   * The synthetic hop is the internal redirect (`source → rewritten`, 307) the
+   * host's devtools also records — feeding it through the normal pipeline makes
+   * the chain reconstruction identical to a server redirect's.
+   */
+  private synthesizeInPlaceRewrite(event: WebRequestEvent): WebRequestEvent | undefined {
+    if (event.method_kind !== 'onSendHeaders') return undefined;
+    const hopUrl = this.hopCursor.currentUrl(event.tabId, event.requestId);
+    if (hopUrl === undefined || hopUrl === '' || hopUrl === event.url) return undefined;
+    return {
+      method_kind: 'onBeforeRedirect',
+      tabId: event.tabId,
+      requestId: event.requestId,
+      url: hopUrl,
+      method: event.method,
+      type: event.type,
+      timeStamp: event.timeStamp,
+      statusCode: 307,
+      redirectUrl: event.url,
+      internal: true,
+    };
+  }
+
+  /**
+   * Side-effects on {@link InFlightFifo} + {@link HopCursor} that thread the
+   * correct hop index into every HAR / body attachment downstream (H8/H9).
+   * Each hop begins at its own event — `onBeforeRequest` for a fresh request
+   * or a server redirect's target, `onSendHeaders` for a DNR in-place rewrite
+   * (whose synthetic `onBeforeRedirect` ran just before):
    *
-   *   - `onBeforeRequest` seeds hop 0 into both stores in lockstep.
-   *   - `onBeforeRedirect` advances the cursor but defers the FIFO
-   *     record: the next hop's actual outgoing method is unknown at
-   *     this point (a 303 rewrites POST→GET) and the HAR's method
-   *     gate would otherwise miss the join.
-   *   - `onSendHeaders` for hops ≥ 1 consumes the pending record and
-   *     stamps the FIFO entry with the now-known method. Hop 0's
-   *     `onSendHeaders` produces no FIFO record (it already exists)
-   *     but still runs for CORS-context capture downstream.
+   *   - A fresh `onBeforeRequest` (no pending redirect) seeds hop 0.
+   *   - `onBeforeRedirect` (server or synthetic) advances the cursor and marks
+   *     the next hop's FIFO record pending.
+   *   - The next hop-bearing event — the target's `onBeforeRequest` (server
+   *     redirect) or the rewriting `onSendHeaders` (DNR rewrite) — consumes the
+   *     pending record and stamps the FIFO entry at the advanced hop index with
+   *     the now-known URL + method.
    *
-   *   - `onCompleted` / `onErrorOccurred` stamp the terminal time onto
-   *     the (still-held) FIFO record — the wire-measured duration that
-   *     breaks warm-burst same-URL ties when the late HAR arrives.
+   *   - `onCompleted` / `onErrorOccurred` stamp the terminal time onto the
+   *     (still-held) FIFO record — the wire-measured duration that breaks
+   *     warm-burst same-URL ties when the late HAR arrives.
    *
-   * Bookkeeping is silent on the H6 / non-CORS paths (`onHeadersReceived`).
-   * Hop-cursor entries are released at terminal-phase emission (`emit`
-   * does the `forget`).
+   * Hop-cursor entries are released at terminal-phase emission (`emit` does
+   * the `forget`).
    */
   private maybeUpdateHopBookkeeping(event: WebRequestEvent): void {
     switch (event.method_kind) {
-      case 'onBeforeRequest':
-        this.inFlight.record(event.tabId, event.url, event.requestId, event.timeStamp, event.method, 0);
-        this.hopCursor.start(event.tabId, event.requestId, event.method);
+      case 'onBeforeRequest': {
+        // A pending redirect (set by the preceding onBeforeRedirect) marks
+        // this as a server redirect's target — hop ≥ 1. Record it at the
+        // advanced hop index with this hop's own URL + method. Otherwise it's
+        // a fresh request: seed hop 0.
+        const pending = this.hopCursor.consumePendingRecord(event.tabId, event.requestId, event.method, event.url);
+        if (pending !== undefined) {
+          this.inFlight.record(
+            event.tabId,
+            event.url,
+            event.requestId,
+            event.timeStamp,
+            pending.method,
+            pending.hopIndex,
+          );
+        } else {
+          this.inFlight.record(event.tabId, event.url, event.requestId, event.timeStamp, event.method, 0);
+          this.hopCursor.start(event.tabId, event.requestId, event.method, event.url);
+        }
         return;
+      }
+      case 'onSendHeaders': {
+        // A DNR in-place rewrite synthesized a redirect just before this event,
+        // leaving the rewritten hop's FIFO record owed — its own
+        // `onBeforeRequest` never fires, so record it here. A normal
+        // `onSendHeaders` has no pending record and is a no-op.
+        const pending = this.hopCursor.consumePendingRecord(event.tabId, event.requestId, event.method, event.url);
+        if (pending !== undefined) {
+          this.inFlight.record(
+            event.tabId,
+            event.url,
+            event.requestId,
+            event.timeStamp,
+            pending.method,
+            pending.hopIndex,
+          );
+          this.drainHarWaiting(event.tabId);
+        }
+        return;
+      }
       case 'onBeforeRedirect':
         this.hopCursor.noteRedirect(event.tabId, event.requestId);
         return;
@@ -260,23 +336,6 @@ export class HeuristicCorrelator implements RequestCorrelator {
       case 'onErrorOccurred':
         this.inFlight.noteTerminal(event.tabId, event.url, event.requestId, event.timeStamp);
         return;
-      case 'onSendHeaders': {
-        const pending = this.hopCursor.consumePendingRecord(event.tabId, event.requestId, event.method);
-        if (pending === undefined) return;
-        this.inFlight.record(
-          event.tabId,
-          event.url,
-          event.requestId,
-          event.timeStamp,
-          pending.method,
-          pending.hopIndex,
-        );
-        // A late HAR for the newly-recorded hop may already be sitting
-        // in the waiting buffer — drain to surface those attachments
-        // before the next event.
-        this.drainHarWaiting(event.tabId);
-        return;
-      }
       default:
         return;
     }
@@ -364,10 +423,10 @@ export class HeuristicCorrelator implements RequestCorrelator {
     const match = this.inFlight.popMatching(tabId, url, ts, method, harEntryDurationMs(entry));
     if (match === undefined) {
       // Forward race (H7): no in-flight slot recorded yet. Hold so the
-      // matching onBeforeRequest (or onSendHeaders for hops ≥ 1) — if
-      // it lands within the window — can drain this entry. Failure-
-      // shaped entries get the short fuse: their expiry synthesizes the
-      // `(canceled)` row, and the panel reads wrong until it lands.
+      // matching onBeforeRequest — if it lands within the window — can drain
+      // this entry. Failure-shaped entries get the short fuse: their expiry
+      // synthesizes the `(canceled)` row, and the panel reads wrong until it
+      // lands.
       if (onJoinMiss && diag) onJoinMiss({ tabId, url, method, harTimestamp: ts, ...diag });
       this.harWaiting.hold(tabId, entry, ts, hasHarFailureVerdict(entry) ? HAR_FAILURE_HOLD_MS : HAR_FORWARD_HOLD_MS);
       return;
