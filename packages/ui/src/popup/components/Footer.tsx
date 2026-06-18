@@ -70,7 +70,7 @@ const Footer: React.FC = () => {
       style={{ backgroundColor: token.colorBgContainer, borderTop: `1px solid ${token.colorBorderSecondary}` }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <Tooltip title="How to reach the super-charged network panel">
+        <Tooltip title="How to reach the super-charged browser dev-tools panel">
           <Button
             icon={<BugOutlined />}
             size="middle"

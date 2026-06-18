@@ -1,6 +1,6 @@
 {
   "name": "Open Headers",
-  "description": "Manage everything inside the browser extension. Modify live HTTP Requests. Team Collaboration. Works Offline. Like it should be.",
+  "description": "Your existing Web DevToolkit, inside a browser extension. Modify live browser requests. Manage API Collections. Team Collaboration.",
   "author": "Open Headers",
   "version": "0.0.0",
   "manifest_version": 3,
