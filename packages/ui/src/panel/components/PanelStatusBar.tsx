@@ -7,13 +7,12 @@
 
 import { BulbFilled, BulbOutlined } from '@ant-design/icons';
 import { useTheme } from '@openheaders/ui/context';
-import { DebugModePill } from '@openheaders/ui/shared/debug-mode';
+import { DebugModeDormantNotice, DebugModePill } from '@openheaders/ui/shared/debug-mode';
 import { productStatusExtras, StatusPill } from '@openheaders/ui/shared/status';
 import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import { Dropdown, type MenuProps, Space, theme } from 'antd';
 import type React from 'react';
 import { formatFooterDuration } from '../data/footer-timing';
-import { DebugModeDormantNotice } from './DebugModeDormantNotice';
 
 declare const __APP_VERSION__: string;
 
@@ -197,7 +196,7 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
       </div>
 
       <div className="rules-statusbar-right">
-        <DebugModeDormantNotice hasRealizableRule={hasRealizableDebugRule} />
+        <DebugModeDormantNotice tabSource="inspected" hasRealizableRule={hasRealizableDebugRule} />
         <DebugModePill tabSource="inspected" />
         <StatusPill density="full" label="System status" renderSubsystemExtras={productStatusExtras} />
         {showThemeSwitcher && (

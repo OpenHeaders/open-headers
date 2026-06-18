@@ -30,7 +30,6 @@
 import { ExportOutlined, InfoCircleOutlined, PushpinFilled } from '@ant-design/icons';
 import { hostBridge } from '@openheaders/core/bridge';
 import { hasCapability } from '@openheaders/core/capabilities';
-import { hostNavigation } from '@openheaders/core/navigation';
 import type { CdpRosterTab, CdpScopeMode } from '@openheaders/core/types';
 import { readCdpPinnedTabs, readCdpRoster } from '@openheaders/core/types';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
@@ -38,18 +37,12 @@ import { useChordLabel } from '@openheaders/ui/workbench/hooks/useWorkspaceShort
 import { useSetting, useSettingsReady } from '@openheaders/ui/workbench/settings/hooks';
 import { Badge, Button, ConfigProvider, Popover, Select, Switch, Tooltip, Typography, theme } from 'antd';
 import type { TooltipPlacement } from 'antd/es/tooltip';
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { isPeerNavigable, peerNavigate } from '../awareness/peer-navigate';
 import { useStatus } from '../hooks/useStatus';
 import type { StatusEntry } from '../status/types';
+import { type DebugModeTabSource, useControlTabId } from './useControlTabId';
 import { useDebugModeShortcut } from './useDebugModeShortcut';
-
-/**
- * Where the "this tab" pin resolves its target. The panel inspects a fixed
- * tab; the popup / side panel follow the active tab; the workbench is
- * tab-agnostic, so it shows no pin row.
- */
-export type DebugModeTabSource = 'inspected' | 'active' | 'none';
 
 /**
  * Docs anchor for the "Debug Mode" reference section. Surfaces that mount
@@ -172,43 +165,6 @@ export const DebugModePill: React.FC<DebugModePillProps> = ({ tabSource, classNa
     </span>
   );
 };
-
-/**
- * Resolve the tab the "include this browser tab" pin acts on for the current
- * surface. `inspected` reads the fixed panel tab synchronously; `active`
- * follows the focused tab and re-resolves whenever it changes; `none` yields
- * `null`.
- */
-function useControlTabId(tabSource: DebugModeTabSource): number | null {
-  const [tabId, setTabId] = useState<number | null>(() =>
-    tabSource === 'inspected' ? hostNavigation.inspectedTabId() : null,
-  );
-
-  useEffect(() => {
-    if (tabSource === 'inspected') {
-      setTabId(hostNavigation.inspectedTabId());
-      return;
-    }
-    if (tabSource !== 'active') {
-      setTabId(null);
-      return;
-    }
-    let cancelled = false;
-    const resolve = (): void => {
-      void hostNavigation.getActiveTab().then((tab) => {
-        if (!cancelled) setTabId(tab?.id ?? null);
-      });
-    };
-    resolve();
-    const unsubscribe = hostNavigation.observeActiveTabContext(resolve);
-    return () => {
-      cancelled = true;
-      unsubscribe();
-    };
-  }, [tabSource]);
-
-  return tabId;
-}
 
 interface DebugModeControlsProps {
   entry: StatusEntry | undefined;

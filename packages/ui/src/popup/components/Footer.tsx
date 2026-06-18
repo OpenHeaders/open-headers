@@ -1,15 +1,17 @@
 import { BugOutlined, GlobalOutlined, StarOutlined } from '@ant-design/icons';
 import { getCapability } from '@openheaders/core/capabilities';
 import { hostNavigation } from '@openheaders/core/navigation';
+import { isFetchRealizableNow, isRuleComplete } from '@openheaders/core/utils';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
-import { DebugModePill } from '@openheaders/ui/shared/debug-mode';
+import { DebugModeDormantNotice, DebugModePill } from '@openheaders/ui/shared/debug-mode';
+import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import type { StatusPillProps } from '@openheaders/ui/shared/status';
 import { productStatusExtras, StatusPill } from '@openheaders/ui/shared/status';
 import { useSurface } from '@openheaders/ui/shared/surface';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 import { Button, Space, Tooltip, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useKeyboardNav } from '../shortcuts/KeyboardNavContext';
 import { usePopupShortcutLabel } from '../shortcuts/popup-shortcuts';
 import DebugNetworkPanel from './DebugNetworkPanel';
@@ -18,7 +20,16 @@ const Footer: React.FC = () => {
   const { setFooterActions, setIsShortcutsOverlayVisible } = useKeyboardNav();
   const surface = useSurface();
   const { token } = theme.useToken();
+  const { rules } = useRules();
   const [debugNetworkOpen, setDebugNetworkOpen] = useState(false);
+
+  // Never-silent (C3·S3): does a live debug-tier rule exist whose extended
+  // reach Debug mode could realize now? Gates the footer dormant-notice chip
+  // so it stays silent when there's nothing to be dormant about.
+  const hasRealizableDebugRule = useMemo(
+    () => rules.some((r) => r.enabled && isRuleComplete(r) && isFetchRealizableNow(r)),
+    [rules],
+  );
 
   const helpLabel = usePopupShortcutLabel('toggle-shortcuts-help');
   const _workspaceLabel = usePopupShortcutLabel('open-workspace');
@@ -93,6 +104,7 @@ const Footer: React.FC = () => {
 
       <div>
         <Space size={8} align="center">
+          <DebugModeDormantNotice tabSource="active" hasRealizableRule={hasRealizableDebugRule} />
           <DebugModePill tabSource="active" placement="top" onOpenDocs={handleOpenDocs} />
           <StatusPill
             className="rules-statusbar-item footer-system-status"
