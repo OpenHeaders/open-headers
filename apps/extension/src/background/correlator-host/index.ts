@@ -22,6 +22,8 @@ export { createCdpControlReplay } from './cdp-control-replay';
 export type { CdpFetchInterceptorOptions } from './cdp-fetch-interceptor';
 export { startCdpFetchInterceptor } from './cdp-fetch-interceptor';
 export { compileFetchPatterns } from './cdp-fetch-patterns';
+export type { CdpPinTabCleanupOptions } from './cdp-pin-tab-cleanup';
+export { installCdpPinTabCleanup } from './cdp-pin-tab-cleanup';
 export type { CdpSessionSender } from './cdp-session-sender';
 export { ChromeCdpEvalPort } from './chrome-cdp-eval-port';
 export { ChromeCdpRequestControlPort } from './chrome-cdp-request-control-port';

@@ -18,6 +18,7 @@ import {
   ChromeCdpTabControlPort,
   createCdpControlReplay,
   deriveTabControlState,
+  installCdpPinTabCleanup,
   startCdpActiveTab,
   startCdpFetchInterceptor,
   startDevtoolsPortPresence,
@@ -214,6 +215,11 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   // reconciles against a current value; the controller ignores it in
   // `devtools` mode.
   startCdpActiveTab({ onActiveTab: (tabId) => cdpAttachController.noteActiveTab(tabId) });
+  // A closed tab's pin has no self-clearing input (the port/active-tab inputs
+  // fan their own teardown on close, the pin overlay does not), so drop it on
+  // tab-forgotten — else the pin lingers in the roster and the next reconcile
+  // tries to re-attach a dead tab.
+  installCdpPinTabCleanup({ bus: tabLifecycleBus, controller: cdpAttachController });
 
   // Watch-session floors persist per-tab so a panel reconnect/remount (or
   // an SW restart) restores the session rather than dropping in-flight rows.
