@@ -441,6 +441,12 @@ export const scripting = browserAPI.scripting
   : null;
 
 // Cross-browser cookies API
+//
+// Firefox's `cookies.*` reject on failure (an invalid `__Host-`/`__Secure-`
+// or `SameSite=None`-without-Secure write, a revoked permission mid-read);
+// each branch routes the rejection back through the callback with the
+// null/empty sentinel so the callback always fires exactly once — Chrome's
+// callback form already does — and a caller awaiting it can't hang.
 export const cookies = browserAPI.cookies
   ? {
       getAll: (
@@ -448,8 +454,9 @@ export const cookies = browserAPI.cookies
         callback?: (cookies: chrome.cookies.Cookie[]) => void,
       ): void | Promise<void> => {
         if (isFirefox) {
-          return (browserAPI.cookies.getAll(details) as unknown as Promise<chrome.cookies.Cookie[]>).then(
-            callback || (() => {}),
+          const cb = callback || (() => {});
+          return (browserAPI.cookies.getAll(details) as unknown as Promise<chrome.cookies.Cookie[]>).then(cb, () =>
+            cb([]),
           );
         } else {
           return browserAPI.cookies.getAll(details, callback!);
@@ -460,8 +467,9 @@ export const cookies = browserAPI.cookies
         callback?: (cookie: chrome.cookies.Cookie | null) => void,
       ): void | Promise<void> => {
         if (isFirefox) {
-          return (browserAPI.cookies.set(details) as unknown as Promise<chrome.cookies.Cookie | null>).then(
-            callback || (() => {}),
+          const cb = callback || (() => {});
+          return (browserAPI.cookies.set(details) as unknown as Promise<chrome.cookies.Cookie | null>).then(cb, () =>
+            cb(null),
           );
         } else {
           return browserAPI.cookies.set(details, callback!);
@@ -472,8 +480,10 @@ export const cookies = browserAPI.cookies
         callback?: (details: chrome.cookies.CookieDetails | null) => void,
       ): void | Promise<void> => {
         if (isFirefox) {
+          const cb = callback || (() => {});
           return (browserAPI.cookies.remove(details) as unknown as Promise<chrome.cookies.CookieDetails | null>).then(
-            callback || (() => {}),
+            cb,
+            () => cb(null),
           );
         } else {
           return browserAPI.cookies.remove(details, callback!);
