@@ -145,6 +145,51 @@ describe('synthesizeMemoryCacheLifecycles', () => {
     expect(out[0].startedAtMs).toBe(1050);
   });
 
+  it('does not synthesize a phantom for a redirected request (RT names the pre-redirect URL)', () => {
+    // The page fetched `source`; a DNR query-param rule rewrote it to `final`
+    // via a 307 internal redirect, so the one real lifecycle's `url` is `final`
+    // while Resource Timing names the entry by `source`. Keying the dedup on
+    // the chain root (the redirect's sourceUrl) must cancel the RT entry.
+    const source = 'https://openheaders.io/echo?test=qp&run=1';
+    const final = 'https://openheaders.io/echo?test=qp&run=1&added=yes';
+    const real: RequestLifecycle = {
+      ...realLifecycle(final),
+      requestId: 'real-redir',
+      redirectHopCount: 1,
+      redirectHops: [{ sourceUrl: source, redirectUrl: final, statusCode: 307, timestampMs: 1000 }],
+    };
+    const out = synthesizeMemoryCacheLifecycles({
+      entries: [entry(source, { transferSize: 1500 })],
+      timeOriginMs: 1000,
+      realLifecycles: [real],
+      tabId: TAB,
+    });
+    expect(out).toEqual([]);
+  });
+
+  it('still synthesizes a genuine cache hit of a redirect source URL (surplus accounting holds)', () => {
+    // Same source fetched twice: once redirected (real lifecycle, root = source),
+    // once served from cache. RT has two entries named `source`; the redirected
+    // lifecycle cancels one, leaving exactly one synthetic for the real hit.
+    const source = 'https://openheaders.io/echo?test=qp&run=1';
+    const final = 'https://openheaders.io/echo?test=qp&run=1&added=yes';
+    const real: RequestLifecycle = {
+      ...realLifecycle(final),
+      requestId: 'real-redir',
+      redirectHopCount: 1,
+      redirectHops: [{ sourceUrl: source, redirectUrl: final, statusCode: 307, timestampMs: 1000 }],
+    };
+    const out = synthesizeMemoryCacheLifecycles({
+      entries: [entry(source, { transferSize: 1500 }), entry(source, { deliveryType: 'cache', startTime: 50 })],
+      timeOriginMs: 1000,
+      realLifecycles: [real],
+      tabId: TAB,
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0].url).toBe(source);
+    expect(out[0].startedAtMs).toBe(1050);
+  });
+
   it('assigns distinct requestIds when a URL is hit from cache more than once', () => {
     const url = 'https://openheaders.io/dup.png';
     const out = synthesizeMemoryCacheLifecycles({

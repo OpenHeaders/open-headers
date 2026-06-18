@@ -53,7 +53,14 @@ export function synthesizeMemoryCacheLifecycles(input: MemoryCacheSynthesisInput
 
   const realCountByUrl = new Map<string, number>();
   for (const lc of realLifecycles) {
-    realCountByUrl.set(lc.url, (realCountByUrl.get(lc.url) ?? 0) + 1);
+    // Resource Timing names a redirected resource by the URL the page first
+    // requested (the chain root), never its final hop — so the dedup
+    // denominator must key on that same root. Keying on `lc.url` (the final
+    // hop) leaves every redirected request — including a DNR query-param /
+    // redirect rule's own 307 — looking like an unmatched RT entry, which
+    // then synthesizes a phantom memory-cache row for the pre-redirect URL.
+    const rtName = lc.redirectHops.length > 0 ? lc.redirectHops[0].sourceUrl : lc.url;
+    realCountByUrl.set(rtName, (realCountByUrl.get(rtName) ?? 0) + 1);
   }
 
   const entriesByUrl = new Map<string, ResourceTimingEntry[]>();
