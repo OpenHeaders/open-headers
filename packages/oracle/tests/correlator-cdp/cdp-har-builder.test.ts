@@ -508,6 +508,33 @@ describe('CdpHarBuilder — redirect hops', () => {
     expect(u1.har.response?.status).toBe(200);
     expect(u1.har.response?._transferSize).toBe(512);
   });
+
+  it('times an internal redirect (no ResourceTiming) by the issue→next-hop span, not 0 ms', () => {
+    // A DNR query-param / redirect rule produces a 307 internal redirect that
+    // carries no ResourceTiming block. The hop must still report its real
+    // duration (the leg's wall span) rather than collapsing to a flat 0 ms.
+    const internalCtx: TraceCtx = { tabId: TAB, requestId: 'redir-internal' };
+    const builder = new CdpHarBuilder();
+    builder.observe(cdpStart(internalCtx, { wallTime: 1000, timestamp: 999 }));
+    const hop0 = builder.observe(
+      cdpRedirect(
+        internalCtx,
+        {
+          url: 'http://localhost:3000/echo?test=qp-add',
+          status: 307,
+          statusText: 'Internal Redirect',
+          // No `timing` — the internal redirect never crossed the wire.
+        },
+        'http://localhost:3000/echo?test=qp-add&added=yes',
+        { timestamp: 999.004, wallTime: 1000.004 },
+      ),
+    );
+    const u0 = hop0.find((u) => u.kind === 'har-attached');
+    if (u0?.kind !== 'har-attached') throw new Error('expected har-attached for hop 0');
+    expect(u0.har.response?.status).toBe(307);
+    // total = (999.004 − 999) × 1000 = 4 ms — the leg's wall span.
+    expect(u0.har.time).toBeCloseTo(4, 6);
+  });
 });
 
 // ── decoded content size (dataReceived) + request payload ───────────

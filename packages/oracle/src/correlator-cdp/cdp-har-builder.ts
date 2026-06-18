@@ -453,7 +453,13 @@ export class CdpHarBuilder {
     if (hop === undefined) return undefined;
     hop.response = redirectResponse;
     hop.transferSize = redirectResponse.encodedDataLength;
-    hop.totalMs = totalTimeMs(redirectResponse.timing, nextRequestSec);
+    // A server redirect carries a real ResourceTiming block; a DNR/internal
+    // redirect (a query-param / redirect rule's own 307) has none, so
+    // `totalTimeMs` is undefined. Fall back to the issue→next-hop wall span —
+    // the leg's true duration — instead of leaving `time` absent, which the
+    // hop row renders as a flat 0 ms.
+    hop.totalMs =
+      totalTimeMs(redirectResponse.timing, nextRequestSec) ?? Math.max(0, (nextRequestSec - hop.issuedSec) * 1000);
     hop.terminalSec = nextRequestSec;
     return this.emitHop(tabId, requestId, state, hopIndex);
   }
