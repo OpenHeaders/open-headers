@@ -285,8 +285,23 @@ export function deriveFireEvidenceByRule(
 export function fireTier(lifecycle: RequestLifecycle, fire: InspectorFire): FireDotTier {
   const evidence = deriveFireEvidence(lifecycle, fire);
   if (evidence.verdict === 'contradicted') return 'contradicted';
-  if (evidence.verdict === 'corroborated' || isAppliedFire(fire)) return 'applied';
+  if (evidence.verdict === 'corroborated' || isAppliedFire(fire) || hasCapturedOverride(lifecycle, fire.ruleUid)) {
+    return 'applied';
+  }
   return 'inferred';
+}
+
+/**
+ * Whether the modifier captured this rule's actual effect on the row — a
+ * two-sided response/request-body override keyed to the fire's rule. It is the
+ * response/request-body analog of wire-header corroboration: a header change is
+ * provable on the wire, but a body change is invisible to the wire, so its
+ * proof is the captured served/original (sent/original) the modifier relayed.
+ * Present ⇒ the rule verifiably applied — including in standard mode, where the
+ * page-reported fire alone would only read `inferred`.
+ */
+export function hasCapturedOverride(lifecycle: RequestLifecycle, ruleUid: string): boolean {
+  return lifecycle.responseOverride?.ruleUid === ruleUid || lifecycle.requestOverride?.ruleUid === ruleUid;
 }
 
 /** Row-level tier for the fire-rail dot: contradicted > applied > inferred.

@@ -406,6 +406,7 @@ export function InspectorDetailContent({
             searchSection={searchSection}
             onOverrideRequestBody={createOverrideRequestBody}
             onOverrideQueryParams={createOverrideQueryParams}
+            requestOverride={lc.requestOverride}
           />
         )}
 

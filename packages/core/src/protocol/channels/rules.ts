@@ -15,6 +15,7 @@ import type {
   TabSystemOverrides,
   TabTelemetrySnapshot,
 } from '../../types';
+import type { InspectorRequestSnapshot, InspectorResponseSnapshot } from '../../request-lifecycle';
 import type { FolderDescriptor } from './common';
 
 export interface RuleRpc {
@@ -107,6 +108,33 @@ export interface RuleRpc {
   };
   tabFire: {
     req: { ruleUid: string; url: string; t: number };
+    res: { success: boolean };
+  };
+  // Two-sided response capture relayed by the injection wrapper — the served
+  // body the page received plus the real server `original` (network source).
+  // The background handler joins it to the request's lifecycle by (url, method,
+  // start) since the page never knows the requestId.
+  tabResponseOverride: {
+    req: {
+      ruleUid: string;
+      url: string;
+      method: string;
+      startedAt: number;
+      served: InspectorResponseSnapshot;
+      original?: InspectorResponseSnapshot;
+    };
+    res: { success: boolean };
+  };
+  // The request-side twin — a request-body rule's two-sided capture.
+  tabRequestOverride: {
+    req: {
+      ruleUid: string;
+      url: string;
+      method: string;
+      startedAt: number;
+      sent: InspectorRequestSnapshot;
+      original?: InspectorRequestSnapshot;
+    };
     res: { success: boolean };
   };
   perfResourceEntries: {

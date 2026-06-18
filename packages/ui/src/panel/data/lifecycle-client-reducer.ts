@@ -44,6 +44,10 @@ export function reduceClientUpdate(
       return prev === undefined ? NOOP : attachHar(prev, update.hopIndex, update.har);
     case 'body-attached':
       return prev === undefined ? NOOP : attachBody(prev, update.hopIndex, update.body);
+    case 'response-override-attached':
+      return prev === undefined ? NOOP : { ...prev, responseOverride: update.override };
+    case 'request-override-attached':
+      return prev === undefined ? NOOP : { ...prev, requestOverride: update.override };
     case 'message-appended':
       // The ring policy lives in core (`appendStreamMessage`) so this mirror
       // and the engine reducer can never diverge on the bound.

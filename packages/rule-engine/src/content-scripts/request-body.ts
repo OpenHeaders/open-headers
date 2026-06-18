@@ -70,6 +70,28 @@ function staticBodyInjectionFunc(cfg: StaticBodyConfig): void {
     (window as unknown as { __ohOrig?: OhOriginals }).__ohOrig?.fire(cfg.ruleUid, url, 'request-body');
   }
 
+  function absoluteUrl(url: string): string {
+    try {
+      return new URL(url, document.baseURI).href;
+    } catch {
+      return url;
+    }
+  }
+
+  // Relay the two-sided request-body capture — what the page produced
+  // (`original`) and what actually goes on the wire (`sent`). Page-invisible;
+  // the request hasn't been sent yet, so `Date.now()` is the join anchor.
+  function captureRequest(url: string, method: string, original: string, sent: string): void {
+    (window as unknown as { __ohOrig?: OhOriginals }).__ohOrig?.captureRequest({
+      ruleUid: cfg.ruleUid,
+      url: absoluteUrl(url),
+      method,
+      startedAt: Date.now(),
+      sent: { method, body: { content: sent, encoding: '' } },
+      original: { method, body: { content: original, encoding: '' } },
+    });
+  }
+
   const origFetch = window.fetch;
   window.fetch = function (this: typeof window, ...args: Parameters<typeof fetch>): ReturnType<typeof fetch> {
     const input = args[0];
@@ -79,6 +101,8 @@ function staticBodyInjectionFunc(cfg: StaticBodyConfig): void {
       const bodyStr = typeof reqBody === 'string' ? reqBody : reqBody == null ? '' : String(reqBody);
       if (!matchesGraphQL(bodyStr, cfg.graphqlFilter)) return origFetch.apply(this, args);
       fire(url);
+      const method = (args[1] as RequestInit).method || 'GET';
+      captureRequest(url, method, bodyStr, cfg.body);
       args[1] = Object.assign({}, args[1], { body: cfg.body });
     }
     return origFetch.apply(this, args);
@@ -87,7 +111,7 @@ function staticBodyInjectionFunc(cfg: StaticBodyConfig): void {
   const origXHRSend = XMLHttpRequest.prototype.send;
   const origXHROpen = XMLHttpRequest.prototype.open;
   XMLHttpRequest.prototype.open = function (
-    this: XMLHttpRequest & { __ohUrl?: string },
+    this: XMLHttpRequest & { __ohUrl?: string; __ohMethod?: string },
     method: string,
     url: string | URL,
     async: boolean = true,
@@ -95,10 +119,11 @@ function staticBodyInjectionFunc(cfg: StaticBodyConfig): void {
     password?: string | null,
   ): void {
     this.__ohUrl = typeof url === 'string' ? url : url.href;
+    this.__ohMethod = method;
     origXHROpen.call(this, method, url, async, username, password);
   } as typeof XMLHttpRequest.prototype.open;
   XMLHttpRequest.prototype.send = function (
-    this: XMLHttpRequest & { __ohUrl?: string },
+    this: XMLHttpRequest & { __ohUrl?: string; __ohMethod?: string },
     ...args: Parameters<XMLHttpRequest['send']>
   ): void {
     const url = this.__ohUrl ?? '';
@@ -110,6 +135,7 @@ function staticBodyInjectionFunc(cfg: StaticBodyConfig): void {
         return;
       }
       fire(url);
+      captureRequest(url, this.__ohMethod ?? 'GET', bodyStr, cfg.body);
       origXHRSend.call(this, cfg.body);
       return;
     }
@@ -143,6 +169,17 @@ var RULE_UID = ${ruleUidLit};
 var REGEX_SOURCES = ${regexSourcesJSON};
 var GRAPHQL_FILTER = ${graphqlFilterJSON};
 
+function __ohAbs(u) { try { return new URL(u, document.baseURI).href; } catch (e) { return u; } }
+function __ohCaptureRequest(url, method, original, sent) {
+  try {
+    if (window.__ohOrig && window.__ohOrig.captureRequest) window.__ohOrig.captureRequest({
+      ruleUid: RULE_UID, url: __ohAbs(url), method: method, startedAt: Date.now(),
+      sent: { method: method, body: { content: sent, encoding: '' } },
+      original: { method: method, body: { content: original, encoding: '' } },
+    });
+  } catch (e) {}
+}
+
 ${userCode}
 
 var origFetch = window.fetch;
@@ -156,8 +193,11 @@ window.fetch = function() {
     try {
       var bodyAsJson = null;
       try { bodyAsJson = JSON.parse(bodyStr); } catch(e) {}
-      var modified = modifyRequestBody({ method: (args[1].method || 'GET'), url: url, body: bodyStr, bodyAsJson: bodyAsJson });
-      args[1] = Object.assign({}, args[1], { body: typeof modified === 'object' ? JSON.stringify(modified) : String(modified) });
+      var method = args[1].method || 'GET';
+      var modified = modifyRequestBody({ method: method, url: url, body: bodyStr, bodyAsJson: bodyAsJson });
+      var sentBody = typeof modified === 'object' ? JSON.stringify(modified) : String(modified);
+      __ohCaptureRequest(url, method, bodyStr, sentBody);
+      args[1] = Object.assign({}, args[1], { body: sentBody });
     } catch(err) { console.error('[Open Headers] modifyRequestBody() error:', err); }
   }
   return origFetch.apply(this, args);
@@ -179,7 +219,9 @@ XMLHttpRequest.prototype.send = function(body) {
       var bodyAsJson = null;
       try { bodyAsJson = JSON.parse(bodyStr); } catch(e) {}
       var modified = modifyRequestBody({ method: this.__ohMethod, url: this.__ohUrl, body: bodyStr, bodyAsJson: bodyAsJson });
-      body = typeof modified === 'object' ? JSON.stringify(modified) : String(modified);
+      var sentBody = typeof modified === 'object' ? JSON.stringify(modified) : String(modified);
+      __ohCaptureRequest(this.__ohUrl, this.__ohMethod, bodyStr, sentBody);
+      body = sentBody;
     } catch(err) { console.error('[Open Headers] modifyRequestBody() error:', err); }
   }
   return origXHRSend.call(this, body);

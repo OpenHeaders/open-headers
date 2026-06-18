@@ -27,13 +27,18 @@ export {
 } from './invariants';
 export { appendStreamMessage } from './stream-messages';
 export type {
+  InspectorOverrideBody,
+  InspectorRequestSnapshot,
+  InspectorResponseSnapshot,
   RedirectHop,
   RequestError,
   RequestLifecycle,
   RequestLifecycleJsonSafeProof,
   RequestLifecyclePatch,
   RequestLifecycleUpdate,
+  RequestOverride,
   RequestPhase,
+  ResponseOverride,
   SseStreamMessage,
   StreamMessage,
   WsStreamMessage,

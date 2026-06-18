@@ -6,6 +6,7 @@
  * authoritative fire.
  */
 
+import type { RequestOverride, ResponseOverride } from '@openheaders/core/request-lifecycle';
 import type { RequestRecord, Rule } from '@openheaders/core/types';
 import type { CdpAuthRequired, CdpFetchEvent, CdpRequestPaused } from '@openheaders/oracle/correlator-cdp';
 import { createInMemoryEvalPort, createInMemoryRequestControlPort } from '@openheaders/oracle/correlator-cdp';
@@ -98,6 +99,8 @@ function harness(rules: readonly Rule[]) {
   const evalPort = createInMemoryEvalPort();
   const fires: Array<{ tabId: number; record: RequestRecord }> = [];
   const pauses: Array<{ tabId: number; requestId: string; pausedMs: number }> = [];
+  const responseOverrides: Array<{ tabId: number; requestId: string; override: ResponseOverride }> = [];
+  const requestOverrides: Array<{ tabId: number; requestId: string; override: RequestOverride }> = [];
   const stop = startCdpFetchInterceptor({
     subscribeFetch: stream.subscribeFetch,
     requestControlPort: port,
@@ -105,8 +108,10 @@ function harness(rules: readonly Rule[]) {
     getRules: () => rules,
     reportFire: (tabId, record) => fires.push({ tabId, record }),
     reportPause: (tabId, requestId, pausedMs) => pauses.push({ tabId, requestId, pausedMs }),
+    reportResponseOverride: (tabId, requestId, override) => responseOverrides.push({ tabId, requestId, override }),
+    reportRequestOverride: (tabId, requestId, override) => requestOverrides.push({ tabId, requestId, override }),
   });
-  return { stream, port, evalPort, fires, pauses, stop };
+  return { stream, port, evalPort, fires, pauses, responseOverrides, requestOverrides, stop };
 }
 
 describe('startCdpFetchInterceptor (D2)', () => {
@@ -242,7 +247,9 @@ describe('startCdpFetchInterceptor — network-source Response-stage round-trip 
     stream.emit(makePaused({ requestId: 'req-1', networkId: 'net-9' }));
     await Promise.resolve();
     stream.emit(responseStage());
-    await Promise.resolve();
+    // The static network fulfill now reads the real body first (the `original`
+    // for the override capture), so flush the read→fulfill chain.
+    await settle();
 
     const fulfill = port.reactions.find((r) => r.kind === 'fulfill');
     if (fulfill?.kind !== 'fulfill') throw new Error('expected a fulfill');
@@ -257,6 +264,25 @@ describe('startCdpFetchInterceptor — network-source Response-stage round-trip 
     // Exactly one fire — at the Response stage, keyed by the store id.
     expect(fires).toHaveLength(1);
     expect(fires[0]?.record.requestId).toBe('page::net-9');
+  });
+
+  it('reports a two-sided response override (served body + real original) for the dual view', async () => {
+    const { stream, port, responseOverrides } = harness([networkRule()]);
+    port.enqueueResponseBody({ body: '{"real":true}', base64Encoded: false });
+
+    stream.emit(makePaused({ requestId: 'req-1', networkId: 'net-9' }));
+    await Promise.resolve();
+    stream.emit(responseStage());
+    await settle();
+
+    // The real reply body is read before the fulfill so the override carries it.
+    expect(port.reactions.some((r) => r.kind === 'get-response-body')).toBe(true);
+    expect(responseOverrides).toHaveLength(1);
+    const { requestId, override } = responseOverrides[0]!;
+    expect(requestId).toBe('page::net-9');
+    expect(override.served.body?.content).toBe('{"overridden":true}');
+    expect(override.original?.body?.content).toBe('{"real":true}');
+    expect(override.original?.statusCode).toBe(200);
   });
 
   it('releases the reply with continueResponse (no fire) when no rule still matches', async () => {
@@ -283,7 +309,7 @@ describe('startCdpFetchInterceptor — network-source Response-stage round-trip 
     stream.emit(makePaused({ requestId: 'req-1', networkId: 'net-9' }));
     await Promise.resolve();
     stream.emit(responseStage());
-    await Promise.resolve();
+    await settle();
 
     expect(pauses).toEqual([{ tabId: 7, requestId: 'page::net-9', pausedMs: 14 }]);
     expect(fires).toHaveLength(1);

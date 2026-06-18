@@ -19,6 +19,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { HeuristicCorrelator } from '../../src/correlator-heuristic/correlator';
 import type { WebRequestEvent, WebRequestEventSource } from '../../src/correlator-heuristic/events';
 import type { HarEvent, HarEventSource } from '../../src/correlator-heuristic/har-events';
+import type { OverrideEvent, OverrideEventSource } from '../../src/correlator-heuristic/override-events';
 import { FINALIZED_RETENTION_MS, HAR_FORWARD_HOLD_MS } from '../../src/correlator-heuristic/late-arrival-constants';
 import { reduce } from '../../src/request-lifecycle-store/reducer';
 
@@ -59,6 +60,22 @@ class TestHarSource implements HarEventSource {
 
   listenerCount(): number {
     return this.listeners.size;
+  }
+}
+
+/** In-memory override source for tests. */
+class TestOverrideSource implements OverrideEventSource {
+  private readonly listeners = new Set<(event: OverrideEvent) => void>();
+
+  subscribe(listener: (event: OverrideEvent) => void): () => void {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  emit(event: OverrideEvent): void {
+    for (const fn of this.listeners) fn(event);
   }
 }
 
@@ -1588,5 +1605,149 @@ describe('HeuristicCorrelator — exposes no chrome surface', () => {
   it('module export does not name fromChromeWebRequest (kept out of oracle)', () => {
     const ctor = HeuristicCorrelator as unknown as Record<string, unknown>;
     expect(ctor.fromChromeWebRequest).toBeUndefined();
+  });
+});
+
+describe('HeuristicCorrelator — override join (page-relayed served/original)', () => {
+  const servedOverride = (): OverrideEvent => ({
+    tabId: TAB,
+    url: URL_A,
+    method: 'GET',
+    startedAtMs: STARTED_AT_MS,
+    response: {
+      ruleUid: 'r1',
+      served: { statusCode: 200, body: { content: '{"served":true}', encoding: '' } },
+      original: { statusCode: 200, body: { content: '{"server":true}', encoding: '' } },
+    },
+  });
+
+  it('attaches a response override to a started lifecycle (backward join by url/method)', () => {
+    const { webRequest, har } = makeSources();
+    const override = new TestOverrideSource();
+    const correlator = new HeuristicCorrelator({ webRequest, har, override });
+    const collected: RequestLifecycleUpdate[] = [];
+    correlator.subscribe((u) => collected.push(u));
+    correlator.attachTab(TAB);
+
+    webRequest.emit(startEvent); // lifecycle started (requestId wr-1, URL_A)
+    override.emit(servedOverride()); // relayed after the response
+
+    const attached = collected.find((u) => u.kind === 'response-override-attached');
+    expect(attached).toBeDefined();
+    if (attached?.kind !== 'response-override-attached') throw new Error('expected response-override-attached');
+    expect(attached.requestId).toBe('wr-1');
+    expect(attached.override.served.body?.content).toBe('{"served":true}');
+    expect(attached.override.original?.body?.content).toBe('{"server":true}');
+    correlator.dispose();
+  });
+
+  it('buffers an override that arrives before its lifecycle and drains on started (forward race)', () => {
+    const { webRequest, har } = makeSources();
+    const override = new TestOverrideSource();
+    const correlator = new HeuristicCorrelator({ webRequest, har, override });
+    const collected: RequestLifecycleUpdate[] = [];
+    correlator.subscribe((u) => collected.push(u));
+    correlator.attachTab(TAB);
+
+    override.emit(servedOverride()); // relayed BEFORE the request went out
+    expect(collected.some((u) => u.kind === 'response-override-attached')).toBe(false);
+
+    webRequest.emit(startEvent); // started → drains the buffered override
+    const attached = collected.find((u) => u.kind === 'response-override-attached');
+    if (attached?.kind !== 'response-override-attached') throw new Error('expected response-override-attached');
+    expect(attached.requestId).toBe('wr-1');
+    correlator.dispose();
+  });
+
+  it('drops an override that matches no lifecycle (different url)', () => {
+    const { webRequest, har } = makeSources();
+    const override = new TestOverrideSource();
+    const correlator = new HeuristicCorrelator({ webRequest, har, override });
+    const collected: RequestLifecycleUpdate[] = [];
+    correlator.subscribe((u) => collected.push(u));
+    correlator.attachTab(TAB);
+
+    webRequest.emit(startEvent); // URL_A
+    override.emit({ ...servedOverride(), url: URL_B }); // no matching lifecycle
+    expect(collected.some((u) => u.kind === 'response-override-attached')).toBe(false);
+    correlator.dispose();
+  });
+
+  it('joins an override to the chain-root url after a redirect rewrote the request', () => {
+    const { webRequest, har } = makeSources();
+    const override = new TestOverrideSource();
+    const correlator = new HeuristicCorrelator({ webRequest, har, override });
+    const collected: RequestLifecycleUpdate[] = [];
+    correlator.subscribe((u) => collected.push(u));
+    correlator.attachTab(TAB);
+
+    // hop 0: the original url the page fetched (started → mirror keyed on URL_A).
+    webRequest.emit(startEvent);
+    // a query-param/redirect rule rewrites URL_A → URL_B.
+    webRequest.emit({
+      method_kind: 'onBeforeRedirect',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_A,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: STARTED_AT_MS + 1,
+      statusCode: 307,
+      redirectUrl: URL_B,
+    });
+    // the redirect target re-fires onBeforeRequest with the REWRITTEN url — the
+    // per-event mapper maps it to a second `started`(URL_B) the store rejects;
+    // the mirror must keep the first (URL_A), not overwrite to URL_B.
+    webRequest.emit({
+      method_kind: 'onBeforeRequest',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_B,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: STARTED_AT_MS + 2,
+    });
+
+    // the page relays the override with the ORIGINAL url it fetched (URL_A).
+    override.emit({
+      tabId: TAB,
+      url: URL_A,
+      method: 'GET',
+      startedAtMs: STARTED_AT_MS,
+      response: { ruleUid: 'r1', served: { body: { content: 'served', encoding: '' } } },
+    });
+
+    const attached = collected.find((u) => u.kind === 'response-override-attached');
+    if (attached?.kind !== 'response-override-attached') throw new Error('expected response-override-attached');
+    expect(attached.requestId).toBe('wr-1');
+    correlator.dispose();
+  });
+
+  it('attaches a request override (request-body) by url/method', () => {
+    const { webRequest, har } = makeSources();
+    const override = new TestOverrideSource();
+    const correlator = new HeuristicCorrelator({ webRequest, har, override });
+    const collected: RequestLifecycleUpdate[] = [];
+    correlator.subscribe((u) => collected.push(u));
+    correlator.attachTab(TAB);
+
+    webRequest.emit(startEvent);
+    override.emit({
+      tabId: TAB,
+      url: URL_A,
+      method: 'GET',
+      startedAtMs: STARTED_AT_MS,
+      request: {
+        ruleUid: 'r1',
+        sent: { body: { content: 'sent', encoding: '' } },
+        original: { body: { content: 'page', encoding: '' } },
+      },
+    });
+
+    const attached = collected.find((u) => u.kind === 'request-override-attached');
+    if (attached?.kind !== 'request-override-attached') throw new Error('expected request-override-attached');
+    expect(attached.requestId).toBe('wr-1');
+    expect(attached.override.original?.body?.content).toBe('page');
+    correlator.dispose();
   });
 });

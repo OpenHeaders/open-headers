@@ -51,6 +51,7 @@
 
 import type {
   RequestCorrelator,
+  RequestLifecycle,
   RequestLifecycleListener,
   RequestLifecycleUpdate,
   Unsubscribe,
@@ -79,6 +80,7 @@ import type { HarWaitingDropLogger } from './har-waiting-buffer';
 import { HarWaitingBuffer } from './har-waiting-buffer';
 import { HopCursor } from './hop-cursor';
 import type { FifoEvictionLogger, InFlightMatch } from './in-flight-fifo';
+import type { OverrideEvent, OverrideEventSource } from './override-events';
 import { InFlightFifo } from './in-flight-fifo';
 import { HAR_FAILURE_HOLD_MS, HAR_FORWARD_HOLD_MS } from './late-arrival-constants';
 import { RecentLifecyclesMirror } from './recent-lifecycles-mirror';
@@ -94,10 +96,24 @@ import { webRequestEventToUpdates } from './webrequest-to-update';
  * samples the inspected page; without it every partial HAR keeps its
  * webRequest-floor timing block.
  */
+/**
+ * Per-tab cap on overrides held awaiting their lifecycle's `started`. The
+ * forward race is sub-second, so the queue is normally near-empty; the cap is
+ * a backstop against a tab that relays overrides whose requests never reach
+ * webRequest. Drop-oldest.
+ */
+const MAX_PENDING_OVERRIDES = 256;
+
 export interface HeuristicCorrelatorSources {
   readonly webRequest: WebRequestEventSource;
   readonly har: HarEventSource;
   readonly resourceTiming?: ResourceTimingEventSource;
+  /**
+   * Page-relayed rule-modification captures (response/request-body overrides).
+   * Optional — present only on a host with the fire-bridge relay wired; absent
+   * → no override attachment (every prior caller's behavior unchanged).
+   */
+  readonly override?: OverrideEventSource;
 }
 
 /**
@@ -152,8 +168,17 @@ export class HeuristicCorrelator implements RequestCorrelator {
   private readonly webRequestUnsubscribe: () => void;
   private readonly harUnsubscribe: () => void;
   private readonly resourceTimingUnsubscribe: () => void;
+  private readonly overrideUnsubscribe: () => void;
   /** Monotonic suffix for `oh-har:` synthesized request ids. */
   private harOnlySequence = 0;
+  /**
+   * Overrides relayed before their webRequest lifecycle started — the
+   * request-body wrapper relays at send time, which can beat the request's own
+   * `onBeforeRequest` to the correlator. Held per tab and retried when a
+   * matching `started` lands. (A response override relays after the reply, so
+   * it never lands here; the buffer is uniform regardless.)
+   */
+  private readonly pendingOverrides = new Map<number, OverrideEvent[]>();
 
   constructor(sources: HeuristicCorrelatorSources, diagnostics?: CorrelatorDiagnostics) {
     this.diagnostics = diagnostics;
@@ -163,6 +188,7 @@ export class HeuristicCorrelator implements RequestCorrelator {
     this.harUnsubscribe = sources.har.subscribe((event) => this.onHarEvent(event));
     this.resourceTimingUnsubscribe =
       sources.resourceTiming?.subscribe((event) => this.onResourceTimingEvent(event)) ?? (() => {});
+    this.overrideUnsubscribe = sources.override?.subscribe((event) => this.onOverrideEvent(event)) ?? (() => {});
   }
 
   attachTab(tabId: number): void {
@@ -179,6 +205,7 @@ export class HeuristicCorrelator implements RequestCorrelator {
     this.corsContext.forgetTab(tabId);
     this.hopCursor.forgetTab(tabId);
     this.partialHar.forgetTab(tabId);
+    this.pendingOverrides.delete(tabId);
   }
 
   subscribe(listener: RequestLifecycleListener): Unsubscribe {
@@ -193,6 +220,7 @@ export class HeuristicCorrelator implements RequestCorrelator {
     this.webRequestUnsubscribe();
     this.harUnsubscribe();
     this.resourceTimingUnsubscribe();
+    this.overrideUnsubscribe();
     this.listeners.clear();
     this.attached.clear();
     this.recentLifecycles.clear();
@@ -389,6 +417,67 @@ export class HeuristicCorrelator implements RequestCorrelator {
     for (const update of this.partialHar.observeResourceTiming(event)) this.emit(update);
   }
 
+  /**
+   * Attach a page-relayed override to its lifecycle. The relay carries no
+   * requestId (the page never sees one), so resolve it by `(url, method,
+   * start)` against the recent-lifecycles mirror — the request reached the
+   * network (its webRequest lifecycle exists and is retained), so the join is
+   * a backward lookup, not a forward race. A `mock`-source rule never hit the
+   * network, so no lifecycle exists and the override is dropped here (a future
+   * slice mints a synthetic row for it, the memory-cache sibling). Emits the
+   * matching override-attached update; the reducer sets it last-write-wins.
+   */
+  private onOverrideEvent(event: OverrideEvent): void {
+    if (!this.attached.has(event.tabId)) return;
+    const requestId = this.recentLifecycles.findByUrlMethod(event.tabId, event.url, event.method, event.startedAtMs);
+    if (requestId === undefined) {
+      this.bufferOverride(event);
+      return;
+    }
+    this.emitOverride(requestId, event);
+  }
+
+  /** Emit the matching override-attached update(s) for a resolved requestId. */
+  private emitOverride(requestId: string, event: OverrideEvent): void {
+    if (event.response !== undefined) {
+      this.emit({ kind: 'response-override-attached', tabId: event.tabId, requestId, override: event.response });
+    }
+    if (event.request !== undefined) {
+      this.emit({ kind: 'request-override-attached', tabId: event.tabId, requestId, override: event.request });
+    }
+  }
+
+  /** Hold an override whose lifecycle has not started yet (forward race). */
+  private bufferOverride(event: OverrideEvent): void {
+    let queue = this.pendingOverrides.get(event.tabId);
+    if (queue === undefined) {
+      queue = [];
+      this.pendingOverrides.set(event.tabId, queue);
+    }
+    queue.push(event);
+    if (queue.length > MAX_PENDING_OVERRIDES) queue.shift();
+  }
+
+  /**
+   * Drain held overrides matching a just-started lifecycle's `(url, method)`.
+   * Called from `emit` AFTER the `started` has fanned to listeners, so the
+   * store already holds the lifecycle the override-attached update refines.
+   */
+  private drainPendingOverrides(lifecycle: RequestLifecycle): void {
+    const queue = this.pendingOverrides.get(lifecycle.tabId);
+    if (queue === undefined) return;
+    const remaining: OverrideEvent[] = [];
+    for (const event of queue) {
+      if (event.url === lifecycle.url && event.method === lifecycle.method) {
+        this.emitOverride(lifecycle.requestId, event);
+      } else {
+        remaining.push(event);
+      }
+    }
+    if (remaining.length > 0) this.pendingOverrides.set(lifecycle.tabId, remaining);
+    else this.pendingOverrides.delete(lifecycle.tabId);
+  }
+
   private onHarEvent(event: HarEvent): void {
     if (!this.attached.has(event.tabId)) return;
     if (event.kind === 'har-entry') {
@@ -572,8 +661,24 @@ export class HeuristicCorrelator implements RequestCorrelator {
 
   private emit(update: RequestLifecycleUpdate): void {
     if (update.kind === 'started') {
-      this.recentLifecycles.set(update.lifecycle.tabId, update.lifecycle.requestId, update.lifecycle);
-    } else if (
+      const started = update.lifecycle;
+      // First `started` wins. A redirect target re-fires `onBeforeRequest`
+      // under the same requestId (a DNR query-param/redirect rewrite, or a
+      // server 3xx), which the per-event mapper maps to a second `started`
+      // carrying the REWRITTEN url — the store rejects it as a duplicate, but
+      // this mirror would otherwise overwrite the chain-root snapshot. Keeping
+      // the first preserves the original url/method the page saw — the key a
+      // page-relayed override joins on (the page never sees the in-flight
+      // rewrite, so it relays the chain-root url).
+      const isNew = !this.recentLifecycles.has(started.tabId, started.requestId);
+      if (isNew) this.recentLifecycles.set(started.tabId, started.requestId, started);
+      // Drain after the `started` fans below, so the store holds the lifecycle
+      // before any buffered override-attached refines it.
+      for (const listener of this.listeners) listener(update);
+      if (isNew) this.drainPendingOverrides(started);
+      return;
+    }
+    if (
       update.kind === 'phase' &&
       (update.patch.phase === 'completed' || update.patch.phase === 'failed') &&
       update.patch.completedAtMs !== undefined

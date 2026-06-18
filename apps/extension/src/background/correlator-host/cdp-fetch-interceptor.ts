@@ -30,11 +30,19 @@
  */
 
 import { MATERIAL_DEBUG_PAUSE_MS } from '@openheaders/core/request-lifecycle';
+import type {
+  InspectorRequestSnapshot,
+  InspectorResponseSnapshot,
+  RequestOverride,
+  ResponseOverride,
+} from '@openheaders/core/request-lifecycle';
 import type { RequestRecord, Rule } from '@openheaders/core/types';
 import type {
   CdpAuthRequired,
   CdpEvalPort,
   CdpFetchEvent,
+  CdpFulfillResponse,
+  CdpHeaderEntry,
   CdpRequestControlPort,
   CdpRequestPaused,
   CdpSessionTarget,
@@ -84,6 +92,91 @@ export interface CdpFetchInterceptorOptions {
    * request that carries a `networkId`.
    */
   readonly reportPause: (tabId: number, requestId: string, pausedMs: number) => void;
+  /**
+   * Report a two-sided RESPONSE capture for a `network`-source rule — the
+   * served body fulfilled to the page plus the real server `original` read
+   * before the fulfill. The control-plane twin of the standard mode's injection
+   * relay: it gives the inspector's Served | Original view its data in Debug
+   * mode (where injection is suppressed). `requestId` is the store join key
+   * ({@link cdpStoreRequestId}); only called for a request carrying a `networkId`.
+   */
+  readonly reportResponseOverride?: (tabId: number, requestId: string, override: ResponseOverride) => void;
+  /** The request-side twin — a `request-body` rule's `sent` (rewritten) body
+   *  plus the page's `original`. */
+  readonly reportRequestOverride?: (tabId: number, requestId: string, override: RequestOverride) => void;
+}
+
+/** Decode a base64 `Fetch` body back to UTF-8 text for a capture snapshot. */
+function base64ToText(b64: string): string {
+  try {
+    const binary = atob(b64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new TextDecoder('utf-8').decode(bytes);
+  } catch {
+    return '';
+  }
+}
+
+/** CDP header entries → snapshot header pairs (plain, mutable copy). */
+function headerSnapshot(headers: readonly CdpHeaderEntry[]): { name: string; value: string }[] {
+  return headers.map((h) => ({ name: h.name, value: h.value }));
+}
+
+/** The served response snapshot from the fulfill the interceptor sent. */
+function servedResponseSnapshot(response: CdpFulfillResponse): InspectorResponseSnapshot {
+  return {
+    statusCode: response.responseCode,
+    ...(response.responsePhrase !== undefined ? { statusText: response.responsePhrase } : {}),
+    headers: headerSnapshot(response.responseHeaders ?? []),
+    body: { content: base64ToText(response.body ?? ''), encoding: '' },
+  };
+}
+
+/** The real server response snapshot at the Response stage + its decoded body. */
+function originalResponseSnapshot(event: CdpRequestPaused, body: string): InspectorResponseSnapshot {
+  return {
+    ...(event.responseStatusCode !== undefined ? { statusCode: event.responseStatusCode } : {}),
+    ...(event.responseStatusText !== undefined ? { statusText: event.responseStatusText } : {}),
+    headers: headerSnapshot(event.responseHeaders ?? []),
+    body: { content: body, encoding: '' },
+  };
+}
+
+/** Emit a response override for a paused request that carries a networkId. */
+function emitResponseOverride(
+  event: CdpRequestPaused,
+  ruleUid: string,
+  served: CdpFulfillResponse,
+  originalBody: string | null,
+  options: CdpFetchInterceptorOptions,
+): void {
+  if (options.reportResponseOverride === undefined || !event.networkId) return;
+  const override: ResponseOverride = {
+    ruleUid,
+    served: servedResponseSnapshot(served),
+    ...(originalBody !== null ? { original: originalResponseSnapshot(event, originalBody) } : {}),
+  };
+  options.reportResponseOverride(event.tabId, cdpStoreRequestId(event.sessionId, event.networkId), override);
+}
+
+/** Emit a request-body override for a paused request that carries a networkId. */
+function emitRequestOverride(
+  event: CdpRequestPaused,
+  ruleUid: string,
+  sentBody: string,
+  originalBody: string | null,
+  options: CdpFetchInterceptorOptions,
+): void {
+  if (options.reportRequestOverride === undefined || !event.networkId) return;
+  const method = event.request.method;
+  const sent: InspectorRequestSnapshot = { method, body: { content: sentBody, encoding: '' } };
+  const override: RequestOverride = {
+    ruleUid,
+    sent,
+    ...(originalBody !== null ? { original: { method, body: { content: originalBody, encoding: '' } } } : {}),
+  };
+  options.reportRequestOverride(event.tabId, cdpStoreRequestId(event.sessionId, event.networkId), override);
 }
 
 /**
@@ -170,6 +263,11 @@ function handleRequestStage(
 
   const settled = command.then(() => {
     if (reaction.kind !== 'pass-through') reportFire(event.tabId, buildFireRecord(event, reaction.ruleUid));
+    // A static `request-body` rewrite (continue with new postData) — relay the
+    // sent (rewritten) body beside the page's original for the Payload split.
+    if (reaction.kind === 'continue' && reaction.request.postData !== undefined) {
+      emitRequestOverride(event, reaction.ruleUid, base64ToText(reaction.request.postData), event.request.postData ?? null, options);
+    }
     emitPauseIfMaterial(event, receivedAtMs, 0, reportPause);
   });
   answer(settled, event);
@@ -283,6 +381,7 @@ function handleEvalContinue(
           .continueRequest(target, buildRequestBodyEvalContinue(event.requestId, outcome.value))
           .then(() => {
             reportFire(event.tabId, buildFireRecord(event, reaction.ruleUid));
+            emitRequestOverride(event, reaction.ruleUid, outcome.value, body, options);
             emitPauseIfMaterial(event, receivedAtMs, 0, reportPause);
           });
       });
@@ -313,13 +412,29 @@ function handleResponseStage(
     return;
   }
 
-  const command =
-    reaction.kind === 'fulfill'
-      ? requestControlPort.fulfill(target, reaction.response)
-      : requestControlPort.continueResponse(target, { requestId: event.requestId });
+  if (reaction.kind === 'fulfill') {
+    const fulfillReaction = reaction;
+    // Read the real reply body first (the `original` for the Served | Original
+    // view), then fulfill the substituted body. A body-read failure relays the
+    // override served-only.
+    const settled = requestControlPort
+      .getResponseBody(target, { requestId: event.requestId })
+      .then(
+        (body) => decodeResponseBody(body),
+        () => null,
+      )
+      .then((originalBody) =>
+        requestControlPort.fulfill(target, fulfillReaction.response).then(() => {
+          reportFire(event.tabId, buildFireRecord(event, fulfillReaction.ruleUid));
+          emitResponseOverride(event, fulfillReaction.ruleUid, fulfillReaction.response, originalBody, options);
+          settleResponsePause(event, receivedAtMs, pendingHolds, reportPause);
+        }),
+      );
+    answer(settled, event);
+    return;
+  }
 
-  const settled = command.then(() => {
-    if (reaction.kind === 'fulfill') reportFire(event.tabId, buildFireRecord(event, reaction.ruleUid));
+  const settled = requestControlPort.continueResponse(target, { requestId: event.requestId }).then(() => {
     settleResponsePause(event, receivedAtMs, pendingHolds, reportPause);
   });
   answer(settled, event);
@@ -371,12 +486,12 @@ function handleResponseEvalFulfill(
         .callInIsolatedWorld(target, frameId, fn, networkResponseEvalArg(event, responseText))
         .then((outcome) => {
           if (!outcome.ok) return release();
-          return requestControlPort
-            .fulfill(target, buildNetworkEvalFulfill(event, reaction.plan, outcome.value))
-            .then(() => {
-              reportFire(event.tabId, buildFireRecord(event, reaction.ruleUid));
-              settleResponsePause(event, receivedAtMs, pendingHolds, reportPause);
-            });
+          const fulfill = buildNetworkEvalFulfill(event, reaction.plan, outcome.value);
+          return requestControlPort.fulfill(target, fulfill).then(() => {
+            reportFire(event.tabId, buildFireRecord(event, reaction.ruleUid));
+            emitResponseOverride(event, reaction.ruleUid, fulfill, responseText, options);
+            settleResponsePause(event, receivedAtMs, pendingHolds, reportPause);
+          });
         });
     });
   answer(settled, event);

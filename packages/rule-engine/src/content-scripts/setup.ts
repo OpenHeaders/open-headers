@@ -11,7 +11,7 @@
  */
 
 import type { FuncInjection } from '../builders/types';
-import type { OhOriginals } from './types';
+import type { OhOriginals, OhRequestCapture, OhResponseCapture } from './types';
 
 /**
  * Name of the page-invisible fire channel. On a CDP-attached (in-scope) tab the
@@ -56,6 +56,23 @@ function ohSetupFunc(bindingName: string): void {
           return;
         }
         window.postMessage({ __ohFire: true, ruleUid, url, kind, t: Date.now() }, '*');
+      } catch {
+        /* swallow */
+      }
+    },
+    captureResponse(capture: OhResponseCapture): void {
+      // Standard-mode only — the fire bridge forwards this to the heuristic
+      // correlator. (A CDP-armed tab suppresses injection and captures via the
+      // Fetch interceptor instead, so this never double-reports.)
+      try {
+        window.postMessage({ __ohResponseCapture: true, ...capture }, '*');
+      } catch {
+        /* swallow */
+      }
+    },
+    captureRequest(capture: OhRequestCapture): void {
+      try {
+        window.postMessage({ __ohRequestCapture: true, ...capture }, '*');
       } catch {
         /* swallow */
       }

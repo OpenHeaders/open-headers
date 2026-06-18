@@ -127,6 +127,68 @@ export const MAX_STREAM_MESSAGES_PER_REQUEST = 5_000;
 export const MATERIAL_DEBUG_PAUSE_MS = 5;
 
 /**
+ * A captured body payload for a rule-modified exchange — `encoding: 'base64'`
+ * for binary, `''` for UTF-8 text. Same shape as the wire body's
+ * `{ content, encoding }` so consumers render it through one path.
+ */
+export interface InspectorOverrideBody {
+  readonly content: string;
+  readonly encoding: '' | 'base64';
+}
+
+/**
+ * One side of a rule-modified RESPONSE — the status / headers / body the
+ * server actually sent, or the ones the page actually received. Captured by
+ * the MODIFIER itself (the page-context injection wrapper, or the CDP `Fetch`
+ * interceptor) at the moment it acted — NOT inferred from the wire HAR, which
+ * does not reliably fire `onRequestFinished` for a wrapper-substituted fetch.
+ * Every field is optional: a rule may override only the body, only the status,
+ * etc., leaving the rest as the server sent it.
+ */
+export interface InspectorResponseSnapshot {
+  readonly statusCode?: number;
+  readonly statusText?: string;
+  readonly headers?: readonly { name: string; value: string }[];
+  readonly body?: InspectorOverrideBody;
+}
+
+/**
+ * One side of a rule-modified REQUEST — what the page produced, or what
+ * actually went on the wire. The request counterpart of
+ * {@link InspectorResponseSnapshot} (Payload tab).
+ */
+export interface InspectorRequestSnapshot {
+  readonly method?: string;
+  readonly headers?: readonly { name: string; value: string }[];
+  readonly body?: InspectorOverrideBody;
+}
+
+/**
+ * A response rule's two-sided capture: what the page received (`served`,
+ * present once the rule ran) and the real server response (`original`,
+ * network-source only — a `mock` rule never hit the server, so there is no
+ * original). Sourced from the modifier so it is independent of the devtools
+ * HAR. The detail panes render `served` and `original` side by side; `served`
+ * is what the body/size/state read prefer.
+ */
+export interface ResponseOverride {
+  readonly ruleUid: string;
+  readonly served: InspectorResponseSnapshot;
+  readonly original?: InspectorResponseSnapshot;
+}
+
+/**
+ * A request-body rule's two-sided capture: what actually went to the server
+ * (`sent`, the wire) and what the page originally produced (`original`). The
+ * request-side twin of {@link ResponseOverride}.
+ */
+export interface RequestOverride {
+  readonly ruleUid: string;
+  readonly sent: InspectorRequestSnapshot;
+  readonly original?: InspectorRequestSnapshot;
+}
+
+/**
  * Per-request authoritative state owned by the engine-side store.
  *
  * Consumer-owned derived state ("inspector display id", "rule-engine
@@ -324,6 +386,27 @@ export interface RequestLifecycle {
    * (invariant 8's exception). Same shape rationale as `har`.
    */
   readonly harBodyByHop: readonly (InspectorHarBody | null)[];
+
+  /**
+   * Two-sided capture of a response rule's effect on this request — the
+   * `served` response the page received and, for a network-source rule, the
+   * `original` server response. Populated by `response-override-attached`,
+   * sourced from the modifier (page-context injection wrapper / CDP `Fetch`
+   * interceptor), NOT the wire HAR — so it lands even when `onRequestFinished`
+   * never fires for the wrapper-substituted fetch. Absent when no response rule
+   * modified the request. The detail panes prefer `served` for body/size/state
+   * and render `original` alongside it. Carries the modified final exchange;
+   * never reset on redirect (a response rule acts on the request that crosses
+   * the wire).
+   */
+  readonly responseOverride?: ResponseOverride;
+  /**
+   * The request-side counterpart — what the page produced (`original`) vs what
+   * went on the wire (`sent`) — for a request-body rule. Drives the Payload
+   * tab's side-by-side view. Sourced from the modifier, same rationale as
+   * {@link responseOverride}.
+   */
+  readonly requestOverride?: RequestOverride;
 }
 
 // ── JSON-safe wire contract ──────────────────────────────────────────
@@ -402,6 +485,14 @@ export type RequestLifecycleUpdate =
   | { kind: 'redirect'; tabId: number; requestId: string; hop: RedirectHop; nextUrl: string }
   | { kind: 'har-attached'; tabId: number; requestId: string; hopIndex: number; har: InspectorHarEntry }
   | { kind: 'body-attached'; tabId: number; requestId: string; hopIndex: number; body: InspectorHarBody }
+  /**
+   * The two-sided response capture for a request a response rule modified —
+   * served (+ original for a network-source rule). Sets {@link
+   * RequestLifecycle.responseOverride}; last write wins (a re-fire refines it).
+   */
+  | { kind: 'response-override-attached'; tabId: number; requestId: string; override: ResponseOverride }
+  /** The request-side twin — sets {@link RequestLifecycle.requestOverride}. */
+  | { kind: 'request-override-attached'; tabId: number; requestId: string; override: RequestOverride }
   /**
    * One WS frame / SSE event appended to the lifecycle's message stream.
    * Order-preserving; the reducers enforce the ring bound

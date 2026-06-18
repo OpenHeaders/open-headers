@@ -14,7 +14,7 @@
  */
 
 import type { Page } from '@openheaders/core/page-stream';
-import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
+import type { InspectorOverrideBody, RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarBody, InspectorHarEntry } from '@openheaders/core/types';
 import type { InspectorRow } from './inspector-facet';
 import { parseRedirectHopRequestId, type RedirectRewriteKind } from './redirect-hop-rows';
@@ -59,6 +59,38 @@ export function effectiveResourceType(lifecycle: RequestLifecycle): string {
 export function currentResponseBody(lifecycle: RequestLifecycle): InspectorHarBody | null {
   const idx = lifecycle.redirectHopCount;
   return lifecycle.harBodyByHop[idx] ?? null;
+}
+
+/**
+ * The body the page actually RECEIVED for a response a rule modified — the
+ * `served` side of {@link RequestLifecycle.responseOverride}, captured by the
+ * modifier (not the wire). `null` when no response rule modified this request
+ * or the served capture carried no body. The body/size/state reads prefer this
+ * over the wire body: the wire carries the unmodified server reply (or, for a
+ * page-substituted fetch, nothing the devtools HAR ever delivers), so it is the
+ * served capture — not the wire — that tells the inspector what the page saw.
+ */
+export function servedResponseBody(lifecycle: RequestLifecycle): InspectorOverrideBody | null {
+  return lifecycle.responseOverride?.served?.body ?? null;
+}
+
+/**
+ * Decoded byte length of the served override body — UTF-8 bytes for text,
+ * decoded bytes for base64 — so the Size cell reflects what the page received
+ * instead of the wire-only partial HAR's `0`. `null` when there is no served
+ * body or a base64 payload fails to decode.
+ */
+export function servedResponseBodyBytes(lifecycle: RequestLifecycle): number | null {
+  const body = servedResponseBody(lifecycle);
+  if (body == null) return null;
+  if (body.encoding === 'base64') {
+    try {
+      return atob(body.content).length;
+    } catch {
+      return null;
+    }
+  }
+  return new TextEncoder().encode(body.content).byteLength;
 }
 
 /**
@@ -137,7 +169,11 @@ export function displayTransferredBytes(lifecycle: RequestLifecycle): number | n
   if (lifecycle.completedAtMs == null && lifecycle.bytesTransferredSoFar != null) {
     return lifecycle.bytesTransferredSoFar;
   }
-  return lifecycleTransferredBytes(lifecycle);
+  // A page-modified response never crossed the wire as the bytes the page saw,
+  // so the wire HAR carries no usable transfer count — fall back to the served
+  // body's size so the Size cell reads the served payload, not `0`.
+  const served = servedResponseBodyBytes(lifecycle);
+  return lifecycleTransferredBytes(lifecycle) ?? served;
 }
 
 /** Decoded resource bytes to DISPLAY — the running `bytesReceivedSoFar` while
@@ -149,7 +185,10 @@ export function displayResourceBytes(lifecycle: RequestLifecycle): number | null
     return lifecycle.bytesReceivedSoFar;
   }
   const size = currentHarEntry(lifecycle)?.response?.content?.size;
-  return typeof size === 'number' && size >= 0 ? size : null;
+  if (typeof size === 'number' && size >= 0) return size;
+  // No wire content size (a page-modified response's wire HAR is partial) —
+  // the served body's decoded size is what the page received.
+  return servedResponseBodyBytes(lifecycle);
 }
 
 /**

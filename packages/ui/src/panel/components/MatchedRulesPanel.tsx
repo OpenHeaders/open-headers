@@ -14,7 +14,13 @@ import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { Rule } from '@openheaders/core/types';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import { useMemo } from 'react';
-import { type FireDotTier, type FireEvidence, deriveFireEvidence, fireTier } from '../data/fire-evidence';
+import {
+  type FireDotTier,
+  type FireEvidence,
+  deriveFireEvidence,
+  fireTier,
+  hasCapturedOverride,
+} from '../data/fire-evidence';
 import type { InspectorRowWithFires } from '../data/inspector-row-projection';
 import type { InspectorFire } from '../data/types';
 import type { RulesByUid } from '../data/use-rules-lookup';
@@ -83,9 +89,13 @@ interface FireRowProps {
   lifecycle: RequestLifecycle;
 }
 
-function evidenceLabel(fire: InspectorFire, evidence: FireEvidence): string {
+function evidenceLabel(fire: InspectorFire, evidence: FireEvidence, lifecycle: RequestLifecycle): string {
   if (evidence.verdict === 'contradicted') return 'contradicted';
   if (fire.authoritative) return 'authoritative';
+  // A captured two-sided override (served/original or sent/original) is the
+  // body-rule's confirmation — the modifier ran and we recorded both sides —
+  // even when the page-reported fire alone would read 'fallback'.
+  if (hasCapturedOverride(lifecycle, fire.ruleUid)) return 'confirmed';
   switch (fire.evidence) {
     case 'confirmed':
       return 'confirmed';
@@ -111,12 +121,15 @@ function contradictionDetail(evidence: FireEvidence): string {
   return ` ${hit.mod.headerName} carries "${(hit.observed ?? []).join(', ')}" instead of the claimed value.`;
 }
 
-function evidenceTitle(fire: InspectorFire, evidence: FireEvidence): string {
+function evidenceTitle(fire: InspectorFire, evidence: FireEvidence, lifecycle: RequestLifecycle): string {
   if (evidence.verdict === 'contradicted') {
     return `Contradicted — the captured headers disprove a modification this rule claimed.${contradictionDetail(evidence)}`;
   }
   if (fire.authoritative) {
     return 'Authoritative — the rule engine confirmed this DNR rule executed on the request.';
+  }
+  if (hasCapturedOverride(lifecycle, fire.ruleUid)) {
+    return 'Confirmed — the rule modified the body in page context and both sides (served vs. original) were captured for this request.';
   }
   switch (fire.evidence) {
     case 'confirmed':
@@ -166,8 +179,8 @@ function FireRow({ fire, rule, lifecycle }: FireRowProps) {
       onMouseOut={rule ? handleMouseOut : undefined}
     >
       <div className="dt-matched-rule-head">
-        <span className={`dt-exec-badge ${BADGE_CLASS[tier]}`} title={evidenceTitle(fire, evidence)}>
-          {evidenceLabel(fire, evidence)}
+        <span className={`dt-exec-badge ${BADGE_CLASS[tier]}`} title={evidenceTitle(fire, evidence, lifecycle)}>
+          {evidenceLabel(fire, evidence, lifecycle)}
         </span>
         <span className="dt-matched-rule-type">{type}</span>
         <span className="dt-matched-rule-name">{label}</span>

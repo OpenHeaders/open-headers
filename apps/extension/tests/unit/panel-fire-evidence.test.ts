@@ -269,6 +269,34 @@ describe('fireTier / rowFireTier — dot semantics', () => {
     expect(fireTier(rawLc, snapshotFire([mod()]))).toBe('inferred');
   });
 
+  it('a captured response override upgrades a page-reported fire to applied', () => {
+    const lc: RequestLifecycle = {
+      ...rawLc,
+      responseOverride: {
+        ruleUid: 'r1',
+        served: { body: { content: 'served', encoding: '' } },
+        original: { body: { content: 'server', encoding: '' } },
+      },
+    };
+    expect(fireTier(lc, snapshotFire([], { evidence: 'matched', authoritative: false }))).toBe('applied');
+  });
+
+  it('a captured request override upgrades by rule too', () => {
+    const lc: RequestLifecycle = {
+      ...rawLc,
+      requestOverride: { ruleUid: 'r1', sent: { body: { content: 'sent', encoding: '' } } },
+    };
+    expect(fireTier(lc, snapshotFire([], { evidence: 'matched', authoritative: false }))).toBe('applied');
+  });
+
+  it('an override for a different rule does not upgrade the fire', () => {
+    const lc: RequestLifecycle = {
+      ...rawLc,
+      responseOverride: { ruleUid: 'r2', served: { body: { content: 'served', encoding: '' } } },
+    };
+    expect(fireTier(lc, snapshotFire([], { evidence: 'matched', authoritative: false }))).toBe('inferred');
+  });
+
   it('rowFireTier: contradicted > applied > inferred; null without fires', () => {
     expect(rowFireTier(rawLc, [])).toBeNull();
     expect(rowFireTier(rawLc, [snapshotFire([mod()])])).toBe('inferred');

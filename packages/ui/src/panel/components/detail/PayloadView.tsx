@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import type { RequestOverride } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarEntry } from '@openheaders/core/types';
 import { HighlightedText } from './HighlightedText';
 import OverrideBodyButton from './OverrideBodyButton';
+import SplitBodyView from './SplitBodyView';
 import TextBodyViewer from './TextBodyViewer';
 
 type QsViewMode = 'parsed' | 'source' | 'url-encoded';
@@ -66,6 +68,10 @@ interface PayloadViewProps {
   onOverrideRequestBody?: () => void;
   /** Open the create-rule editor pre-filled to override the query params. */
   onOverrideQueryParams?: () => void;
+  /** Two-sided request-body capture (a request-body rule fired): the page's
+   *  original body beside what actually went on the wire. Splits the Request
+   *  Body section when present. */
+  requestOverride?: RequestOverride;
 }
 
 export default function PayloadView({
@@ -74,6 +80,7 @@ export default function PayloadView({
   searchSection,
   onOverrideRequestBody,
   onOverrideQueryParams,
+  requestOverride,
 }: PayloadViewProps) {
   const queryString = har.request?.queryString ?? [];
   const postData = har.request?.postData;
@@ -157,6 +164,28 @@ export default function PayloadView({
                     </span>
                   </div>
                 ))}
+              </div>
+            ) : requestOverride?.original?.body ? (
+              // A request-body rule fired: the page's original body beside what
+              // actually went to the server.
+              <div className="dt-payload-body-wrap">
+                <SplitBodyView
+                  startLabel="Original · page"
+                  start={
+                    <TextBodyViewer
+                      text={requestOverride.original.body.content}
+                      declaredMime={postData.mimeType ?? ''}
+                    />
+                  }
+                  endLabel="Sent · server"
+                  end={
+                    <TextBodyViewer
+                      text={requestOverride.sent.body?.content ?? postData.text ?? ''}
+                      declaredMime={postData.mimeType ?? ''}
+                      searchQuery={bodyHighlight}
+                    />
+                  }
+                />
               </div>
             ) : (
               <div className="dt-payload-body-wrap">

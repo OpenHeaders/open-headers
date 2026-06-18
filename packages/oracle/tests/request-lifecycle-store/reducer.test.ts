@@ -477,3 +477,45 @@ describe('reducer — message stream (message-appended)', () => {
     expect(result.next.messagesDropped).toBe(1);
   });
 });
+
+describe('reducer — override-attached (served/original capture)', () => {
+  it('sets responseOverride on the lifecycle (last write wins)', () => {
+    const state = makeLifecycle({ phase: 'completed', statusCode: 200 });
+    const result = reduce(state, {
+      kind: 'response-override-attached',
+      tabId: 1,
+      requestId: 'req-1',
+      override: {
+        ruleUid: 'r1',
+        served: { statusCode: 200, body: { content: 'served', encoding: '' } },
+        original: { statusCode: 200, body: { content: 'server', encoding: '' } },
+      },
+    });
+    if (result.kind !== 'update') throw new Error('expected update');
+    expect(result.next.responseOverride?.served.body?.content).toBe('served');
+    expect(result.next.responseOverride?.original?.body?.content).toBe('server');
+  });
+
+  it('sets requestOverride on the lifecycle', () => {
+    const state = makeLifecycle({ phase: 'completed', statusCode: 200 });
+    const result = reduce(state, {
+      kind: 'request-override-attached',
+      tabId: 1,
+      requestId: 'req-1',
+      override: { ruleUid: 'r1', sent: { body: { content: 'sent', encoding: '' } }, original: { body: { content: 'page', encoding: '' } } },
+    });
+    if (result.kind !== 'update') throw new Error('expected update');
+    expect(result.next.requestOverride?.sent.body?.content).toBe('sent');
+    expect(result.next.requestOverride?.original?.body?.content).toBe('page');
+  });
+
+  it('rejects an override for an unknown lifecycle', () => {
+    const result = reduce(undefined, {
+      kind: 'response-override-attached',
+      tabId: 1,
+      requestId: 'req-1',
+      override: { ruleUid: 'r1', served: { body: { content: 'x', encoding: '' } } },
+    });
+    expect(result).toEqual({ kind: 'reject', reason: 'unknown-request' });
+  });
+});

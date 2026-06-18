@@ -9,7 +9,7 @@ import type { ResponseRule } from '@openheaders/core/types';
 import { compileRuleForInjection } from '@openheaders/core/utils';
 import type { Injection } from '../builders/types';
 import { GRAPHQL_MATCHER_CODE, TEST_BRIDGE_CODE, URL_MATCHER_CODE } from './inline-helpers';
-import type { GraphqlFilter, OhOriginals, StaticResponseConfig } from './types';
+import type { GraphqlFilter, OhCaptureSnapshot, OhOriginals, StaticResponseConfig } from './types';
 
 export function buildResponseInjection(rule: ResponseRule): Injection {
   const bodyType = rule.action.bodyType || 'static';
@@ -72,6 +72,71 @@ function staticResponseInjectionFunc(cfg: StaticResponseConfig): void {
     (window as unknown as { __ohOrig?: OhOriginals }).__ohOrig?.fire(cfg.ruleUid, url, 'response');
   }
 
+  function headerPairs(h: Headers): { name: string; value: string }[] {
+    const out: { name: string; value: string }[] = [];
+    h.forEach((value, name) => out.push({ name, value }));
+    return out;
+  }
+
+  function absoluteUrl(url: string): string {
+    try {
+      return new URL(url, document.baseURI).href;
+    } catch {
+      return url;
+    }
+  }
+
+  function parseXhrHeaders(raw: string): { name: string; value: string }[] {
+    const out: { name: string; value: string }[] = [];
+    for (const line of (raw || '').trim().split(/\r?\n/)) {
+      const i = line.indexOf(':');
+      if (i > 0) out.push({ name: line.slice(0, i).trim(), value: line.slice(i + 1).trim() });
+    }
+    return out;
+  }
+
+  // Relay the two-sided capture for a network-source match: the `served` body
+  // the page receives (the static override) plus the real server `original`,
+  // read off a CLONE in the background so the page's served Response is never
+  // blocked. A clone-read failure (binary / already-consumed) relays
+  // served-only. The inspector joins this to the request by (url, method,
+  // start) — `startedAt` is the request's start instant.
+  function captureNetwork(real: Response, servedHeaders: Headers, url: string, method: string, startedAt: number): void {
+    const served: OhCaptureSnapshot = {
+      statusCode: cfg.statusCode || real.status,
+      statusText: real.statusText,
+      headers: headerPairs(servedHeaders),
+      body: { content: cfg.body, encoding: '' },
+    };
+    const relay = (original?: OhCaptureSnapshot): void => {
+      (window as unknown as { __ohOrig?: OhOriginals }).__ohOrig?.captureResponse({
+        ruleUid: cfg.ruleUid,
+        url: absoluteUrl(url),
+        method,
+        startedAt,
+        served,
+        ...(original ? { original } : {}),
+      });
+    };
+    try {
+      real
+        .clone()
+        .text()
+        .then(
+          (text) =>
+            relay({
+              statusCode: real.status,
+              statusText: real.statusText,
+              headers: headerPairs(real.headers),
+              body: { content: text, encoding: '' },
+            }),
+          () => relay(),
+        );
+    } catch {
+      relay();
+    }
+  }
+
   // mock: build headers from scratch (CT defaults to JSON). network: start
   // from the real response and layer the override on top (empty CT = no
   // override, empty map = keep the server's headers). The real body-framing
@@ -99,14 +164,17 @@ function staticResponseInjectionFunc(cfg: StaticResponseConfig): void {
       if (cfg.source === 'mock') {
         return Promise.resolve(new Response(cfg.body, { status: cfg.statusCode || 200, headers: buildHeaders() }));
       }
-      return origFetch.apply(this, args).then(
-        (real) =>
-          new Response(cfg.body, {
-            status: cfg.statusCode || real.status,
-            statusText: real.statusText,
-            headers: buildHeaders(real.headers),
-          }),
-      );
+      const method = (args[1] as RequestInit | undefined)?.method || 'GET';
+      const startedAt = Date.now();
+      return origFetch.apply(this, args).then((real) => {
+        const servedHeaders = buildHeaders(real.headers);
+        captureNetwork(real, servedHeaders, url, method, startedAt);
+        return new Response(cfg.body, {
+          status: cfg.statusCode || real.status,
+          statusText: real.statusText,
+          headers: servedHeaders,
+        });
+      });
     }
     return origFetch.apply(this, args);
   };
@@ -114,7 +182,7 @@ function staticResponseInjectionFunc(cfg: StaticResponseConfig): void {
   const origXHROpen = XMLHttpRequest.prototype.open;
   const origXHRSend = XMLHttpRequest.prototype.send;
   XMLHttpRequest.prototype.open = function (
-    this: XMLHttpRequest & { __ohUrl?: string },
+    this: XMLHttpRequest & { __ohUrl?: string; __ohMethod?: string },
     method: string,
     url: string | URL,
     async: boolean = true,
@@ -122,10 +190,11 @@ function staticResponseInjectionFunc(cfg: StaticResponseConfig): void {
     password?: string | null,
   ): void {
     this.__ohUrl = typeof url === 'string' ? url : url.href;
+    this.__ohMethod = method;
     origXHROpen.call(this, method, url, async, username, password);
   } as typeof XMLHttpRequest.prototype.open;
   XMLHttpRequest.prototype.send = function (
-    this: XMLHttpRequest & { __ohUrl?: string },
+    this: XMLHttpRequest & { __ohUrl?: string; __ohMethod?: string },
     ...args: Parameters<XMLHttpRequest['send']>
   ): void {
     const url = this.__ohUrl ?? '';
@@ -156,16 +225,42 @@ function staticResponseInjectionFunc(cfg: StaticResponseConfig): void {
       // fetch-only — XHR exposes no writable response-header surface.
       const origOnLoad = this.onload;
       const origOnRSC = this.onreadystatechange;
+      const startedAt = Date.now();
+      const method = this.__ohMethod ?? 'GET';
       this.onload = null;
       this.onreadystatechange = null;
       this.addEventListener(
         'load',
         () => {
+          // Capture the real reply (the `original`) before overriding the
+          // getters, then relay both sides for the Served | Original view.
+          const originalText = this.responseText;
+          const originalStatus = this.status;
+          const originalStatusText = this.statusText;
+          const headers = parseXhrHeaders(this.getAllResponseHeaders());
           Object.defineProperty(this, 'responseText', { get: () => cfg.body, configurable: true });
           Object.defineProperty(this, 'response', { get: () => cfg.body, configurable: true });
           if (cfg.statusCode !== 0) {
             Object.defineProperty(this, 'status', { get: () => cfg.statusCode, configurable: true });
           }
+          (window as unknown as { __ohOrig?: OhOriginals }).__ohOrig?.captureResponse({
+            ruleUid: cfg.ruleUid,
+            url: absoluteUrl(url),
+            method,
+            startedAt,
+            served: {
+              statusCode: cfg.statusCode || originalStatus,
+              statusText: originalStatusText,
+              headers,
+              body: { content: cfg.body, encoding: '' },
+            },
+            original: {
+              statusCode: originalStatus,
+              statusText: originalStatusText,
+              headers,
+              body: { content: originalText, encoding: '' },
+            },
+          });
           if (origOnRSC) origOnRSC.call(this, new Event('readystatechange'));
           if (origOnLoad) origOnLoad.call(this, new ProgressEvent('load'));
         },
@@ -228,6 +323,22 @@ function __ohMergeHeaders(real) {
   return h;
 }
 
+function __ohHeaderPairs(h) { var out = []; h.forEach(function(v, n) { out.push({ name: n, value: v }); }); return out; }
+function __ohAbs(u) { try { return new URL(u, document.baseURI).href; } catch (e) { return u; } }
+// Relay the two-sided capture (served / original) for the heuristic inspector
+// — page-invisible, never blocks the page. Mirrors the static path's capture.
+function __ohCaptureResponse(cap) {
+  try { if (window.__ohOrig && window.__ohOrig.captureResponse) window.__ohOrig.captureResponse(cap); } catch (e) {}
+}
+function __ohParseXhrHeaders(raw) {
+  var out = [];
+  (raw || '').trim().split(/\\r?\\n/).forEach(function(line) {
+    var i = line.indexOf(':');
+    if (i > 0) out.push({ name: line.slice(0, i).trim(), value: line.slice(i + 1).trim() });
+  });
+  return out;
+}
+
 ${responseBody}
 
 var origFetch = window.fetch;
@@ -244,6 +355,7 @@ window.fetch = function() {
   var requestMethod = (args[1] && args[1].method) || 'GET';
   var requestHeaders = (args[1] && args[1].headers) || {};
   var requestData = (args[1] && args[1].body) || null;
+  var __ohStart = Date.now();
 
   return origFetch.apply(self, args).then(function(response) {
     return response.clone().text().then(function(responseText) {
@@ -264,7 +376,13 @@ window.fetch = function() {
         var modified = modifyResponse(modifyArgs);
         var body = typeof modified === 'object' ? JSON.stringify(modified) : String(modified);
         var status = OVERRIDE_STATUS || response.status;
-        return new Response(body, { status: status, statusText: response.statusText, headers: __ohMergeHeaders(response.headers) });
+        var servedHeaders = __ohMergeHeaders(response.headers);
+        __ohCaptureResponse({
+          ruleUid: RULE_UID, url: __ohAbs(url), method: requestMethod, startedAt: __ohStart,
+          served: { statusCode: status, statusText: response.statusText, headers: __ohHeaderPairs(servedHeaders), body: { content: body, encoding: '' } },
+          original: { statusCode: response.status, statusText: response.statusText, headers: __ohHeaderPairs(response.headers), body: { content: responseText, encoding: '' } },
+        });
+        return new Response(body, { status: status, statusText: response.statusText, headers: servedHeaders });
       } catch(err) {
         console.error('[Open Headers] modifyResponse() error:', err);
         return response;
@@ -299,8 +417,12 @@ XMLHttpRequest.prototype.send = function(body) {
   this.onreadystatechange = null;
   this.onload = null;
 
+  var __ohStart = Date.now();
   var realOnLoad = function() {
     var responseText = self.responseText;
+    var __ohStatus = self.status;
+    var __ohStatusText = self.statusText;
+    var __ohHeaders = __ohParseXhrHeaders(self.getAllResponseHeaders());
     var responseJSON = null;
     try { responseJSON = JSON.parse(responseText); } catch(e) {}
 
@@ -322,6 +444,11 @@ XMLHttpRequest.prototype.send = function(body) {
       if (OVERRIDE_STATUS) {
         Object.defineProperty(self, 'status', { get: function() { return OVERRIDE_STATUS; }, configurable: true });
       }
+      __ohCaptureResponse({
+        ruleUid: RULE_UID, url: __ohAbs(xhrUrl), method: xhrMethod, startedAt: __ohStart,
+        served: { statusCode: OVERRIDE_STATUS || __ohStatus, statusText: __ohStatusText, headers: __ohHeaders, body: { content: modifiedBody, encoding: '' } },
+        original: { statusCode: __ohStatus, statusText: __ohStatusText, headers: __ohHeaders, body: { content: responseText, encoding: '' } },
+      });
     } catch(err) {
       console.error('[Open Headers] modifyResponse() error:', err);
     }

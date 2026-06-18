@@ -21,6 +21,7 @@
  * works across realms.
  */
 
+import type { InspectorRequestSnapshot, InspectorResponseSnapshot } from '@openheaders/core/request-lifecycle';
 import { call } from '@utils/bridge';
 
 interface OhFirePayload {
@@ -31,20 +32,77 @@ interface OhFirePayload {
   t: number;
 }
 
+interface OhResponseCapturePayload {
+  __ohResponseCapture: true;
+  ruleUid: string;
+  url: string;
+  method: string;
+  startedAt: number;
+  served: InspectorResponseSnapshot;
+  original?: InspectorResponseSnapshot;
+}
+
+interface OhRequestCapturePayload {
+  __ohRequestCapture: true;
+  ruleUid: string;
+  url: string;
+  method: string;
+  startedAt: number;
+  sent: InspectorRequestSnapshot;
+  original?: InspectorRequestSnapshot;
+}
+
 (() => {
   window.addEventListener('message', (ev: MessageEvent) => {
     if (ev.source !== window) return;
-    const data = ev.data as OhFirePayload | null | undefined;
-    if (!data || data.__ohFire !== true) return;
-    // Fire-and-forget: the background handler always resolves with
-    // `{ success: true }`. The `catch` swallows SW-evicted / context-
+    const data = ev.data as (
+      | OhFirePayload
+      | OhResponseCapturePayload
+      | OhRequestCapturePayload
+      | null
+      | undefined
+    ) & {
+      __ohFire?: true;
+      __ohResponseCapture?: true;
+      __ohRequestCapture?: true;
+    };
+    if (!data) return;
+    // Fire-and-forget for both bridges: the background handlers resolve with
+    // `{ success: true }`; the `catch` swallows SW-evicted / context-
     // invalidated errors that surface through `BridgeError`.
-    call('tabFire', {
-      ruleUid: data.ruleUid,
-      url: data.url,
-      t: data.t,
-    }).catch(() => {
-      /* background service worker evicted or reloading — ignore */
-    });
+    if (data.__ohFire === true) {
+      const fire = data as OhFirePayload;
+      call('tabFire', { ruleUid: fire.ruleUid, url: fire.url, t: fire.t }).catch(() => {
+        /* background service worker evicted or reloading — ignore */
+      });
+      return;
+    }
+    if (data.__ohResponseCapture === true) {
+      const cap = data as OhResponseCapturePayload;
+      call('tabResponseOverride', {
+        ruleUid: cap.ruleUid,
+        url: cap.url,
+        method: cap.method,
+        startedAt: cap.startedAt,
+        served: cap.served,
+        ...(cap.original !== undefined ? { original: cap.original } : {}),
+      }).catch(() => {
+        /* background service worker evicted or reloading — ignore */
+      });
+      return;
+    }
+    if (data.__ohRequestCapture === true) {
+      const cap = data as OhRequestCapturePayload;
+      call('tabRequestOverride', {
+        ruleUid: cap.ruleUid,
+        url: cap.url,
+        method: cap.method,
+        startedAt: cap.startedAt,
+        sent: cap.sent,
+        ...(cap.original !== undefined ? { original: cap.original } : {}),
+      }).catch(() => {
+        /* background service worker evicted or reloading — ignore */
+      });
+    }
   });
 })();

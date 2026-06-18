@@ -38,6 +38,7 @@ import { ChromeHarEventSource } from './chrome-har-source';
 import { ChromeResourceTimingEventSource } from './chrome-resource-timing-source';
 import { ChromeWebRequestEventSource } from './chrome-webrequest-source';
 import { LifecycleDiagnostics } from './lifecycle-diagnostics';
+import { overrideEventSource } from './override-source';
 import { installTabLifecycleBridge } from './tab-lifecycle-bridge';
 import { TabSourceRouter } from './tab-source-router';
 
@@ -83,6 +84,9 @@ export function startLifecycleHost(options: LifecycleHostOptions): LifecycleHost
       webRequest: webRequestSource,
       har: harSource,
       resourceTiming: resourceTimingSource,
+      // Page-relayed rule-modification captures (response/request overrides) —
+      // the fire bridge feeds this via the `tabResponseOverride` handler.
+      override: overrideEventSource,
     },
     diagnostics,
   );

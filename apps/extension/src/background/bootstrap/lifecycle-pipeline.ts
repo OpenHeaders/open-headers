@@ -198,6 +198,14 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
     // a pause whose lifecycle has not `started` yet is dropped (rare, cosmetic).
     reportPause: (tabId, requestId, pausedMs) =>
       lifecycleHost.store.apply({ kind: 'phase', tabId, requestId, patch: { pausedByDebugMs: pausedMs } }),
+    // Control-plane twin of the standard-mode injection relay: feed the
+    // interceptor's two-sided captures into the store so the inspector's
+    // Served | Original (response) and Original | Sent (request) views have
+    // their data in Debug mode, where injection is suppressed.
+    reportResponseOverride: (tabId, requestId, override) =>
+      lifecycleHost.store.apply({ kind: 'response-override-attached', tabId, requestId, override }),
+    reportRequestOverride: (tabId, requestId, override) =>
+      lifecycleHost.store.apply({ kind: 'request-override-attached', tabId, requestId, override }),
   });
   // Private fire-bridge (E4): residual in-page wrappers on a CDP-attached tab
   // report via Runtime.addBinding (page-invisible) instead of window.postMessage.

@@ -88,6 +88,50 @@
   flex: 1;
   min-height: 0;
 }
+
+/* Side-by-side Served | Original panes (a rule-modified exchange) with a
+ * draggable divider — see SplitBodyView. The panes' flex-basis is set inline
+ * from the drag fraction; the divider is its own grabbable column. */
+.dt-body-split {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.dt-body-split-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--dt-bg);
+  overflow: hidden;
+}
+.dt-body-split-divider {
+  flex: 0 0 5px;
+  align-self: stretch;
+  cursor: col-resize;
+  background: var(--dt-border);
+  /* Widen the grab target without widening the visible line. */
+  background-clip: padding-box;
+  border-left: 2px solid transparent;
+  border-right: 2px solid transparent;
+  box-sizing: border-box;
+  touch-action: none;
+}
+.dt-body-split-divider:hover,
+.dt-body-split-divider:active {
+  background-color: var(--dt-accent, var(--dt-text-muted));
+}
+.dt-body-split-label {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--dt-text-muted);
+  background: var(--dt-bg-alt);
+  border-bottom: 1px solid var(--dt-border);
+}
 .dt-response-view-content {
   flex: 1;
   min-height: 0;

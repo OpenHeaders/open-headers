@@ -1,18 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import {
   currentHarEntry,
   type InspectorRowWithFires,
   lifecycleMimeType,
   lifecycleTransferredBytes,
 } from '../data/inspector-row-projection';
-import { base64ToBytes } from '../data/base64';
-import { isTextMime } from '../data/mime';
-import { classifyBodyState } from '../data/response-body-state';
-import HexViewer from './detail/HexViewer';
+import { classifyBodyState, classifyResponseSnapshot, snapshotMime } from '../data/response-body-state';
+import BodyStateView from './detail/BodyStateView';
 import OverrideBodyButton from './detail/OverrideBodyButton';
-import ResponseViewerToolbar, { type ViewMode } from './detail/ResponseViewerToolbar';
-import Skeleton from './detail/Skeleton';
-import TextBodyViewer from './detail/TextBodyViewer';
+import SplitBodyView from './detail/SplitBodyView';
 
 interface ResponseBodyViewProps {
   row: InspectorRowWithFires;
@@ -25,29 +21,17 @@ interface ResponseBodyViewProps {
 }
 
 /**
- * Center a short explanatory message when the response body is
- * deliberately absent or unreachable.
+ * The Response tab. Renders the body the page received — and, when a response
+ * rule modified a real (`network`-source) exchange, the real server response
+ * beside it (Served | Original). The body rendering itself lives in the shared
+ * {@link BodyStateView}; this component only decides single-pane vs split and
+ * classifies each side.
  */
-function ResponseNotice({ title, detail }: { title: string; detail: string }) {
-  return (
-    <div className="dt-response-notice">
-      <strong>{title}</strong>
-      <span className="dt-col-muted">{detail}</span>
-    </div>
-  );
-}
-
-export function ResponseBodyView({
-  row,
-  searchHighlight,
-  searchMatchIndex,
-  onOverrideResponse,
-}: ResponseBodyViewProps) {
+export function ResponseBodyView({ row, searchHighlight, searchMatchIndex, onOverrideResponse }: ResponseBodyViewProps) {
   const lc = row.lifecycle;
-  const declaredMime =
-    lifecycleMimeType(lc) ?? currentHarEntry(lc)?.response?.content?.mimeType ?? '';
-  const state = useMemo(() => classifyBodyState(lc), [lc]);
-  const highlight = searchHighlight ?? '';
+  const declaredMime = lifecycleMimeType(lc) ?? currentHarEntry(lc)?.response?.content?.mimeType ?? '';
+  const servedState = useMemo(() => classifyBodyState(lc), [lc]);
+  const fallbackBytes = lifecycleTransferredBytes(lc) ?? 0;
   const overrideAction = onOverrideResponse ? (
     <OverrideBodyButton
       label="Override Response"
@@ -56,103 +40,37 @@ export function ResponseBodyView({
     />
   ) : undefined;
 
-  const [viewMode, setViewMode] = useState<ViewMode>('hex');
-
-  const bytes = useMemo(() => {
-    if (state.kind !== 'binary') return null;
-    try {
-      return base64ToBytes(state.base64);
-    } catch {
-      return null;
-    }
-  }, [state]);
-
-  const binaryAsText = useMemo(() => {
-    if (state.kind !== 'binary' || !bytes) return null;
-    // Some servers return text with a binary-looking mime (e.g.
-    // application/octet-stream carrying JSON). Try a strict UTF-8
-    // decode; on failure we stay in hex mode.
-    try {
-      return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
-    } catch {
-      return null;
-    }
-  }, [state, bytes]);
-
-  // Every state carries the override footer — even with no body to show,
-  // the user may want to mock one (the CTA is a rule scaffold, not a
-  // mirror of the captured response).
-  const shell = (content: React.ReactNode) => (
-    <div className="dt-response-view">
-      <div className="dt-response-view-content">{content}</div>
-      {overrideAction && <div className="dt-response-toolbar">{overrideAction}</div>}
-    </div>
+  const servedPane = (
+    <BodyStateView
+      state={servedState}
+      declaredMime={declaredMime}
+      searchHighlight={searchHighlight}
+      searchMatchIndex={searchMatchIndex}
+      toolbarAction={overrideAction}
+      fallbackByteCount={fallbackBytes}
+    />
   );
 
-  // ── Non-body states ──────────────────────────────────────
-  if (state.kind === 'loading') {
-    return shell(<Skeleton />);
-  }
-  if (state.kind === 'not-applicable') {
-    return shell(<ResponseNotice title="No response body" detail={state.message} />);
-  }
-  if (state.kind === 'no-response') {
-    return shell(<ResponseNotice title="Nothing to preview" detail="This request has no response data available" />);
-  }
-  if (state.kind === 'unavailable') {
-    return shell(<ResponseNotice title="Failed to load response data" detail={state.message} />);
-  }
-  if (state.kind === 'empty') {
-    return shell(<ResponseNotice title="(empty response body)" detail="The server returned an empty body." />);
-  }
-
-  // ── Binary content ─────────────────────────────────────────
-  if (state.kind === 'binary') {
-    let content: React.ReactNode;
-    if (viewMode === 'base64') {
-      content = <pre className="dt-body-pre dt-body-pre--base64">{state.base64}</pre>;
-    } else if (viewMode === 'utf8' && bytes) {
-      const lossy = new TextDecoder('utf-8', { fatal: false }).decode(bytes);
-      content = <pre className="dt-body-pre">{lossy}</pre>;
-    } else if (bytes) {
-      content = <HexViewer data={bytes} />;
-    } else {
-      content = (
-        <span className="dt-col-muted">Binary payload ({lifecycleTransferredBytes(lc) ?? 0} bytes).</span>
-      );
-    }
-
-    // Binary bodies whose MIME is text-ish (e.g. base64-encoded JSON)
-    // can still be offered as text — route through `TextBodyViewer`
-    // when we have a clean UTF-8 decode and a text-shaped mime.
-    if (viewMode === 'utf8' && binaryAsText && isTextMime(declaredMime)) {
-      return (
-        <TextBodyViewer
-          text={binaryAsText}
-          declaredMime={declaredMime}
-          searchQuery={highlight || undefined}
-          searchMatchIndex={searchMatchIndex}
-          toolbarAction={overrideAction}
-        />
-      );
-    }
-
+  // Two-sided: a network-source rule served a modified body over a real reply.
+  // Show the real server response beside the served one — the original pane is
+  // read-only (no Override CTA).
+  const original = lc.responseOverride?.original;
+  if (original) {
     return (
-      <div className="dt-response-view">
-        <div className="dt-response-view-content">{content}</div>
-        <ResponseViewerToolbar mode={viewMode} onModeChange={setViewMode} action={overrideAction} />
-      </div>
+      <SplitBodyView
+        startLabel="Served · Open Headers"
+        start={servedPane}
+        endLabel="Original · server"
+        end={
+          <BodyStateView
+            state={classifyResponseSnapshot(original)}
+            declaredMime={snapshotMime(original) || declaredMime}
+            fallbackByteCount={fallbackBytes}
+          />
+        }
+      />
     );
   }
 
-  // ── Text content ───────────────────────────────────────────
-  return (
-    <TextBodyViewer
-      text={state.content}
-      declaredMime={declaredMime}
-      searchQuery={highlight || undefined}
-      searchMatchIndex={searchMatchIndex}
-      toolbarAction={overrideAction}
-    />
-  );
+  return servedPane;
 }

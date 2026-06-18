@@ -24,6 +24,8 @@ import type {
   RequestLifecycle,
   RequestLifecyclePatch,
   RequestLifecycleUpdate,
+  RequestOverride,
+  ResponseOverride,
   StreamMessage,
 } from '@openheaders/core/request-lifecycle';
 import {
@@ -73,6 +75,10 @@ export function reduce(prev: RequestLifecycle | undefined, update: RequestLifecy
       return reduceHarAttached(prev, update.hopIndex, update.har);
     case 'body-attached':
       return reduceBodyAttached(prev, update.hopIndex, update.body);
+    case 'response-override-attached':
+      return reduceResponseOverride(prev, update.override);
+    case 'request-override-attached':
+      return reduceRequestOverride(prev, update.override);
     case 'message-appended':
       return reduceMessageAppended(prev, update.message);
     case 'gone':
@@ -172,6 +178,19 @@ function reduceBodyAttached(
 ): ReducerResult {
   if (prev === undefined) return { kind: 'reject', reason: 'unknown-request' };
   return { kind: 'update', next: { ...prev, harBodyByHop: setHopSlot(prev.harBodyByHop, hopIndex, body) } };
+}
+
+// Response/request override is a single authoritative capture from the
+// modifier; last write wins (a re-fire refines it). Not invariant-gated —
+// like HAR/body attachment, it is orthogonal to the phase machine.
+function reduceResponseOverride(prev: RequestLifecycle | undefined, override: ResponseOverride): ReducerResult {
+  if (prev === undefined) return { kind: 'reject', reason: 'unknown-request' };
+  return { kind: 'update', next: { ...prev, responseOverride: override } };
+}
+
+function reduceRequestOverride(prev: RequestLifecycle | undefined, override: RequestOverride): ReducerResult {
+  if (prev === undefined) return { kind: 'reject', reason: 'unknown-request' };
+  return { kind: 'update', next: { ...prev, requestOverride: override } };
 }
 
 // The ring policy itself lives in core (`appendStreamMessage`) so the

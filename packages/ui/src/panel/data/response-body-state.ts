@@ -14,8 +14,9 @@
  * threading another condition through two UI files.
  */
 
+import type { InspectorResponseSnapshot } from '@openheaders/core/request-lifecycle';
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
-import { currentHarEntry, currentResponseBody } from './inspector-row-projection';
+import { currentHarEntry, currentResponseBody, servedResponseBody } from './inspector-row-projection';
 import { classifyRequestState, isRequestFailed } from './request-state';
 
 export type BodyState =
@@ -152,6 +153,18 @@ export function classifyBodyState(lifecycle: RequestLifecycle): BodyState {
     return { kind: 'no-response' };
   }
 
+  // ── Rule-served body ─────────────────────────────────────
+  // A response rule modified what the page received in page context; the
+  // modifier captured the served body directly. Prefer it over the wire body:
+  // the wire carries the unmodified server reply (or, for a page-substituted
+  // fetch, a body the devtools HAR never delivers — the skeleton this fixes).
+  const served = servedResponseBody(lifecycle);
+  if (served != null) {
+    if (served.content === '') return { kind: 'empty' };
+    if (served.encoding === 'base64') return { kind: 'binary', base64: served.content };
+    return { kind: 'text', content: served.content };
+  }
+
   // ── In-flight ────────────────────────────────────────────
   // Body hasn't been attached yet (host hasn't called body-attached).
   const body = currentResponseBody(lifecycle);
@@ -180,4 +193,29 @@ export function classifyBodyState(lifecycle: RequestLifecycle): BodyState {
     return { kind: 'binary', base64: body.content };
   }
   return { kind: 'text', content: body.content };
+}
+
+/**
+ * Classify one side of a rule-modified exchange ({@link
+ * InspectorResponseSnapshot}) for the split Served | Original view. The
+ * snapshot was captured by the modifier with its body in hand, so this is a
+ * direct body classification — no in-flight / wire-failure states. A snapshot
+ * with no body (the modifier withheld one, or the original read failed) is
+ * `no-response`; an empty body is `empty`.
+ */
+export function classifyResponseSnapshot(snapshot: InspectorResponseSnapshot): BodyState {
+  const body = snapshot.body;
+  if (body == null) return { kind: 'no-response' };
+  if (body.content === '') return { kind: 'empty' };
+  if (body.encoding === 'base64') return { kind: 'binary', base64: body.content };
+  return { kind: 'text', content: body.content };
+}
+
+/** MIME for a captured snapshot — its `Content-Type` header value (sans
+ *  parameters), or `''` when absent. Drives the body viewer's highlight. */
+export function snapshotMime(snapshot: InspectorResponseSnapshot): string {
+  const header = snapshot.headers?.find((h) => h.name.toLowerCase() === 'content-type');
+  const value = header?.value ?? '';
+  const semi = value.indexOf(';');
+  return (semi === -1 ? value : value.slice(0, semi)).trim();
 }
