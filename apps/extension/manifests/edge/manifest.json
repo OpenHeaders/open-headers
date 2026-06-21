@@ -4,7 +4,6 @@
   "author": "Open Headers",
   "version": "0.0.0",
   "manifest_version": 3,
-  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAjDUqQqn/vQXtHwJjoLDXZ1yX0KEAQhY+nkXWNQD6E/aKSdCH1seiI1lcFtQXitVoTUEkndOXQqTXG0UZVNhRYa4z2JwOugiqsSfgtYxrp3V7Kkjc32QS2LHIi2JUBJ4jSym3c1YdYd+F0wwo/CdiqEjcRoYG9hfNYxpSNKpN1pQoJvace0CFqrtiNj0mUxza9zO3ordyYQKm1ezy9LuarRkPXRPN1x9QusC6fmqB0jnmW9zKiONzGzPs+tTZsqjCZP+n73gGz0Rh0LMXL7wNh2yCwZZbqgdN9Og8poyzbtaMiVGJVIh217mlo8pF2qKbcvdAw15vYLicxONGWBvd1QIDAQAB",
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
@@ -25,10 +24,8 @@
     "debugger",
     "activeTab",
     "scripting",
-    "downloads",
     "cookies",
     "browsingData",
-    "system.display",
     "windows",
     "sidePanel",
     "identity",

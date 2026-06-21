@@ -350,21 +350,6 @@ export const declarativeNetRequest = browserAPI.declarativeNetRequest
     }
   : null;
 
-type DownloadCallback = (downloadId: number) => void;
-
-// Cross-browser downloads API
-export const downloads = browserAPI.downloads
-  ? {
-      download: (options: chrome.downloads.DownloadOptions, callback?: DownloadCallback): void | Promise<void> => {
-        if (isFirefox) {
-          return (browserAPI.downloads.download(options) as unknown as Promise<number>).then(callback || (() => {}));
-        } else {
-          return browserAPI.downloads.download(options, callback!);
-        }
-      },
-    }
-  : null;
-
 /**
  * Cross-browser scripting API.
  *

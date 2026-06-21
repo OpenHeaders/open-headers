@@ -23,7 +23,6 @@
     "webNavigation",
     "activeTab",
     "scripting",
-    "downloads",
     "cookies",
     "sidePanel",
     "identity"
