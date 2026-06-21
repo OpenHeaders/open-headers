@@ -2,7 +2,7 @@ import { execSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import react from '@vitejs/plugin-react';
-import { defineConfig, build as viteBuild } from 'vite';
+import { defineConfig, type Plugin, build as viteBuild } from 'vite';
 
 const browser = process.env.BROWSER || 'chrome';
 const isDev = process.argv.includes('--watch');
@@ -34,6 +34,47 @@ const buildInfo = {
   date: new Date().toISOString(),
   channel,
 };
+
+/**
+ * Firefox-only: keep the ~8 MB `ts.worker` (the bundled TS compiler +
+ * lib.*.d.ts) out of the build — Firefox add-on validation rejects any
+ * single file over 5 MB. Two swaps are needed because the worker enters
+ * the graph from two directions:
+ *
+ *   1. `./ts-language-service` — our explicit TS service setup + worker
+ *      import. Swapped to a no-op stub.
+ *   2. Monaco's `language/typescript/monaco.contribution` — side-effect
+ *      imported by Monaco's full `editor.main` entry; its `tsMode` does
+ *      `new Worker(new URL('./ts.worker', …))`, which Vite bundles on its
+ *      own. Swapped to an empty stub so the TS service never registers.
+ *
+ * Firefox keeps JS/TS syntax highlighting (the `basic-languages`
+ * tokenizers); only the worker-backed language service is dropped.
+ * Chrome/Edge/Safari are untouched and keep full type-aware completions.
+ *
+ * Done as a `resolveId` swap rather than `resolve.alias` because alias
+ * does not reliably match the relative `./ts-language-service` specifier
+ * across the workspace package boundary.
+ */
+function firefoxTsServiceStubPlugin(): Plugin {
+  const serviceStub = path.resolve(
+    __dirname,
+    '../../packages/ui/src/workbench/components/monaco/ts-language-service.firefox.ts',
+  );
+  const contributionStub = path.resolve(
+    __dirname,
+    '../../packages/ui/src/workbench/components/monaco/monaco-ts-contribution.firefox.ts',
+  );
+  return {
+    name: 'firefox-ts-service-stub',
+    enforce: 'pre',
+    resolveId(source) {
+      if (source === './ts-language-service') return serviceStub;
+      if (source.includes('language/typescript/monaco.contribution')) return contributionStub;
+      return null;
+    },
+  };
+}
 
 /**
  * Vite plugin to ensure Chrome Web Store compliance.
@@ -156,7 +197,7 @@ function buildFireBridgePlugin() {
           outDir: `dist/${browser}/js/content/fire-bridge`,
           emptyOutDir: false,
           minify: isDev ? false : 'terser',
-          sourcemap: browser === 'firefox' ? 'inline' : false,
+          sourcemap: false,
           lib: {
             entry: path.resolve(__dirname, 'src/background/fire-bridge-content.ts'),
             formats: ['iife'],
@@ -199,7 +240,7 @@ function buildPerfObserverPlugin() {
           outDir: `dist/${browser}/js/content/perf-observer`,
           emptyOutDir: false,
           minify: isDev ? false : 'terser',
-          sourcemap: browser === 'firefox' ? 'inline' : false,
+          sourcemap: false,
           lib: {
             entry: path.resolve(__dirname, 'src/background/perf-observer-content.ts'),
             formats: ['iife'],
@@ -218,6 +259,7 @@ function buildPerfObserverPlugin() {
 
 export default defineConfig({
   plugins: [
+    ...(browser === 'firefox' ? [firefoxTsServiceStubPlugin()] : []),
     react(),
     chromeSafePlugin(),
     copyAssetsPlugin(),
@@ -259,7 +301,7 @@ export default defineConfig({
         },
       } as Record<string, unknown>,
     }),
-    sourcemap: browser === 'firefox' ? 'inline' : false,
+    sourcemap: false,
     // Disable module preload polyfill — it references `document` which
     // crashes the background service worker.
     modulePreload: false,

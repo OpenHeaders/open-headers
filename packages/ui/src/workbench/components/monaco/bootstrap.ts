@@ -57,18 +57,16 @@ import 'monaco-editor/esm/vs/basic-languages/typescript/typescript.contribution'
 import 'monaco-editor/esm/vs/basic-languages/css/css.contribution';
 import 'monaco-editor/esm/vs/basic-languages/html/html.contribution';
 import 'monaco-editor/esm/vs/basic-languages/xml/xml.contribution';
-// LSP contributions — JSON / CSS / HTML / TS workers + semantic features.
+// LSP contributions — JSON / CSS / HTML workers + semantic features. The
+// TS/JS language service lives in `./ts-language-service` so the Firefox
+// build can alias it to a no-op stub: its `ts.worker` (the bundled TS
+// compiler, ~8 MB) exceeds Firefox add-on validation's 5 MB per-file limit.
 import 'monaco-editor/esm/vs/language/json/monaco.contribution';
 import 'monaco-editor/esm/vs/language/css/monaco.contribution';
 import 'monaco-editor/esm/vs/language/html/monaco.contribution';
-import {
-  javascriptDefaults,
-  ScriptTarget,
-  typescriptDefaults,
-} from 'monaco-editor/esm/vs/language/typescript/monaco.contribution';
 import { allVariants } from '@openheaders/ui/themes';
-import { OH_AMBIENT_DTS } from '../script-editor/oh-types';
 import { registerPrettierFormatters } from './formatters';
+import { configureTsLanguageService, loadTsWorker } from './ts-language-service';
 
 // ── Phase 1: synchronous monaco-singleton configuration ──────────
 //
@@ -86,41 +84,10 @@ for (const variant of allVariants()) {
   monacoEdCore.editor.defineTheme(variant.monacoTheme, variant.monacoDefinition);
 }
 
-// JS language-service configuration for every JS-flavored Monaco
-// editor in the extension (scripts tab, raw-JavaScript body, etc.).
-// `allowNonTsExtensions: true` + `allowJs: true` let inmemory JS
-// models participate in the TS program alongside the ambient lib.
-const JS_COMPILER_OPTIONS = {
-  target: ScriptTarget.ESNext,
-  allowNonTsExtensions: true,
-  allowJs: true,
-  lib: ['esnext', 'dom'],
-  strict: false,
-  noEmit: true,
-};
-const JS_DIAGNOSTICS_OPTIONS = {
-  noSemanticValidation: false,
-  noSyntaxValidation: false,
-  // Silence top-level-await diagnostics (1375 / 1378) — the script
-  // sandbox wraps user source in an async function, so
-  // `await oh.variables.get(...)` at the top level is fine.
-  diagnosticCodesToIgnore: [1375, 1378],
-};
-
-javascriptDefaults.setCompilerOptions(JS_COMPILER_OPTIONS);
-javascriptDefaults.setDiagnosticsOptions(JS_DIAGNOSTICS_OPTIONS);
-// `typescriptDefaults` is applied too so a user who ever points an
-// editor at `language="typescript"` still sees `oh.*`. Same ambient
-// file path keys the same lib slot in both services.
-typescriptDefaults.setCompilerOptions(JS_COMPILER_OPTIONS);
-typescriptDefaults.setDiagnosticsOptions(JS_DIAGNOSTICS_OPTIONS);
-
-// `file:///oh.d.ts` uses the `file` scheme Monaco auto-assigns to
-// anonymous models so the declaration and the user's model share a
-// program. Ambient `declare const oh: {…}` (no import / export) →
-// visible globally in every JS / TS model.
-javascriptDefaults.addExtraLib(OH_AMBIENT_DTS, 'file:///oh.d.ts');
-typescriptDefaults.addExtraLib(OH_AMBIENT_DTS, 'file:///oh.d.ts');
+// JS/TS language-service configuration (compiler options, diagnostics,
+// ambient `oh.*` lib) for every JS-flavored editor. No-op on Firefox,
+// where `./ts-language-service` resolves to the stub.
+configureTsLanguageService();
 
 // Register Prettier as Monaco's `DocumentFormattingEditProvider` for
 // languages Monaco has no built-in formatter for (JS / XML). JSON /
@@ -153,21 +120,23 @@ function kickBootstrap(): Promise<void> {
   bootstrapPromise = (async () => {
     const [
       { default: EditorWorker },
-      { default: TsWorker },
       { default: JsonWorker },
       { default: CssWorker },
       { default: HtmlWorker },
+      TsWorker,
     ] = await Promise.all([
       import('monaco-editor/esm/vs/editor/editor.worker?worker'),
-      import('monaco-editor/esm/vs/language/typescript/ts.worker?worker'),
       import('monaco-editor/esm/vs/language/json/json.worker?worker'),
       import('monaco-editor/esm/vs/language/css/css.worker?worker'),
       import('monaco-editor/esm/vs/language/html/html.worker?worker'),
+      // Resolves to the TS worker constructor — or `null` on Firefox,
+      // where the language service is stubbed out (see ./ts-language-service).
+      loadTsWorker(),
     ]);
 
     self.MonacoEnvironment = {
       getWorker(_: string, label: string): Worker {
-        if (label === 'typescript' || label === 'javascript') return new TsWorker();
+        if ((label === 'typescript' || label === 'javascript') && TsWorker) return new TsWorker();
         if (label === 'json') return new JsonWorker();
         if (label === 'css' || label === 'scss' || label === 'less') return new CssWorker();
         if (label === 'html' || label === 'handlebars' || label === 'razor') return new HtmlWorker();
