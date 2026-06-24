@@ -70,7 +70,7 @@ const Footer: React.FC = () => {
       style={{ backgroundColor: token.colorBgContainer, borderTop: `1px solid ${token.colorBorderSecondary}` }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <Tooltip title="How to reach the super-charged browser dev-tools panel">
+        <Tooltip title="How to reach our super-charged browser dev-tools.">
           <Button
             icon={<BugOutlined />}
             size="middle"
@@ -79,7 +79,7 @@ const Footer: React.FC = () => {
             style={{ height: '36px', padding: '0 14px', fontWeight: 500, boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}
           >
             <span className="oh-collapse-label">
-              <span style={{ fontSize: 13 }}>Debug Network.</span>{' '}
+              <span style={{ fontSize: 13 }}>Network Debug.</span>{' '}
               <span style={{ fontSize: 10, fontStyle: 'italic', color: token.colorTextSecondary }}>
                 Like it should be
               </span>
