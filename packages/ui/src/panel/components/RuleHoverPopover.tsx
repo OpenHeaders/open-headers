@@ -76,6 +76,7 @@ import {
   isAttributionEdited,
   type RuleAttributionContext,
 } from '../data/header-attribution';
+import { buildHeaderModUpdate } from '../data/header-mod-edit';
 import type { RuleApplicability } from '../data/rule-applicability';
 import { findRuleCollectionId } from '../data/rule-collection';
 import { ResolvedHeaderValue } from './ResolvedHeaderValue';
@@ -583,37 +584,12 @@ export function RuleHoverPopover({
     const live = draftRef.current;
     setSaving(true);
     try {
-      const list =
-        target.direction === 'request' ? headerRule.action.requestHeaders : headerRule.action.responseHeaders;
-      const idx = list.indexOf(currentMod);
-      if (idx === -1) {
+      const built = buildHeaderModUpdate(headerRule, target.direction, currentMod, live);
+      if (!built.ok) {
         message.warning('Rule changed elsewhere — close and reopen the popover.');
         return;
       }
-      const next = list.slice();
-      const isRemove = live.operation === 'remove';
-      // Preserve the row's persisted uid on edit — the synthesizer keys
-      // identity by it, so a fresh uid here would tombstone + re-add and
-      // lose the synchronized HLC chain.
-      const uid = currentMod.uid;
-      next[idx] = isRemove
-        ? { uid, operation: 'remove', headerName: live.headerName }
-        : live.operation === 'merge'
-          ? {
-              uid,
-              operation: 'merge',
-              headerName: live.headerName,
-              value: live.value,
-              mergeSeparator: live.mergeSeparator,
-            }
-          : { uid, operation: live.operation, headerName: live.headerName, value: live.value };
-      const updates: Partial<HeaderRule> = {
-        action: {
-          requestHeaders: target.direction === 'request' ? next : headerRule.action.requestHeaders,
-          responseHeaders: target.direction === 'response' ? next : headerRule.action.responseHeaders,
-        },
-      };
-      const result: RuleMutationResult = await mutator.updateRule(headerRule.uid, updates);
+      const result: RuleMutationResult = await mutator.updateRule(headerRule.uid, built.updates);
       surfaceResult(result, message, () => {
         // Dirty auto-clears when the broadcast lands and currentMod
         // matches draft. No explicit reset needed.
