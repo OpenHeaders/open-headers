@@ -177,11 +177,34 @@ export async function openWorkspaceIntent(raw: unknown, context: IntentCallerCon
     return failLogged(intent, 'query-failed', err);
   }
 
-  const target = selectTargetTab(candidates, context);
+  // An extension page (workbench.html) can't open in an incognito window —
+  // Chromium forces it into a normal window unless the extension is `split`
+  // (TabsCreateFunction's `needs_original_profile`). So an incognito caller's
+  // window can never host the workbench: the same-window preference would never
+  // match and we'd cold-create a duplicate on every click. Drop the caller
+  // window for an incognito caller so selection reuses the most-recent existing
+  // workbench tab (in a normal window) instead of spawning new ones.
+  const selectionContext = await relaxCallerWindowForIncognito(context);
+
+  const target = selectTargetTab(candidates, selectionContext);
   if (target === null || typeof target.id !== 'number') {
     return coldPath(intent, workspaceUrl, context.callerWorkspaceId);
   }
   return warmPath(intent, target, workspaceUrl, context.callerWorkspaceId);
+}
+
+/**
+ * Strip `callerWindowId` when the caller's window is incognito — that window
+ * can't hold the workbench (see call site), so same-window selection is futile
+ * and would force a fresh tab each time. Without it, selection falls back to
+ * cross-window recency reuse. Best-effort: an unresolvable window is left as-is.
+ */
+async function relaxCallerWindowForIncognito(context: IntentCallerContext): Promise<IntentCallerContext> {
+  if (typeof context.callerWindowId !== 'number') return context;
+  const win = await getWindow(context.callerWindowId);
+  if (!win?.incognito) return context;
+  const { callerWindowId: _incognitoWindow, ...rest } = context;
+  return rest;
 }
 
 async function warmPath(
@@ -257,6 +280,24 @@ async function coldPath(
   }
   if (typeof tab.id !== 'number') {
     return failLogged(intent, 'create-missing-id', new Error('tabs.create returned no id'));
+  }
+  // Focus the new tab's window. `active: true` only makes the tab active WITHIN
+  // its window; when that window isn't the focused one — an incognito caller's
+  // tab lands in a (background) normal window — the user wouldn't be switched to
+  // it without this. Mirrors the window-focus the warm path does on reuse.
+  // Best-effort: a focus failure doesn't undo the successful create.
+  if (typeof tab.windowId === 'number') {
+    try {
+      await updateWindow(tab.windowId, { focused: true });
+    } catch (err) {
+      recordLog({
+        subsystem: 'workspace',
+        op: 'navigator/focus-failed',
+        level: 'warn',
+        message: formatError(err),
+        context: { errorClass: errorClassOf(err) },
+      });
+    }
   }
   recordLog({
     subsystem: 'workspace',
@@ -357,6 +398,37 @@ function queryTabs(queryInfo: chrome.tabs.QueryInfo): Promise<chrome.tabs.Tab[]>
       const lastError = api.runtime.lastError;
       if (lastError) reject(new Error(lastError.message ?? 'tabs.query failed'));
       else resolve(tabs);
+    });
+  });
+}
+
+/** Read a window by id; `null` on any failure (gone, no API) — best-effort. */
+function getWindow(windowId: number): Promise<chrome.windows.Window | null> {
+  return new Promise((resolve) => {
+    const api = getBrowserAPI() as unknown as {
+      windows?: {
+        // biome-ignore lint/suspicious/noConfusingVoidType: Chrome API returns void in callback-style; runtime branches on Promise.
+        get?: (id: number, cb?: (w: chrome.windows.Window) => void) => Promise<chrome.windows.Window> | void;
+      };
+      runtime: { lastError?: chrome.runtime.LastError };
+    };
+    const get = api.windows?.get;
+    if (!get) {
+      resolve(null);
+      return;
+    }
+    try {
+      const maybe = get(windowId);
+      if (maybe && typeof (maybe as Promise<unknown>).then === 'function') {
+        (maybe as Promise<chrome.windows.Window>).then(resolve, () => resolve(null));
+        return;
+      }
+    } catch {
+      // Callback-style below.
+    }
+    get(windowId, (w?: chrome.windows.Window) => {
+      if (api.runtime.lastError || !w) resolve(null);
+      else resolve(w);
     });
   });
 }

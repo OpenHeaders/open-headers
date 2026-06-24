@@ -124,16 +124,12 @@ describe('selectTargetTab', () => {
   });
 
   it('returns null when every same-window tab is bound to a different workspace', () => {
-    const tabs = [
-      makeTab({ id: 10, windowId: 5, url: 'chrome-extension://x/workbench.html#/ws/wsA/edit/abcd1234' }),
-    ];
+    const tabs = [makeTab({ id: 10, windowId: 5, url: 'chrome-extension://x/workbench.html#/ws/wsA/edit/abcd1234' })];
     expect(selectTargetTab(tabs, { callerWindowId: 5, callerWorkspaceId: 'wsB' })).toBeNull();
   });
 
   it('ignores the workspace filter when callerWorkspaceId is undefined', () => {
-    const tabs = [
-      makeTab({ id: 10, windowId: 5, url: 'chrome-extension://x/workbench.html#/ws/wsA/edit/abcd1234' }),
-    ];
+    const tabs = [makeTab({ id: 10, windowId: 5, url: 'chrome-extension://x/workbench.html#/ws/wsA/edit/abcd1234' })];
     expect(selectTargetTab(tabs, { callerWindowId: 5 })?.id).toBe(10);
   });
 });
@@ -149,6 +145,7 @@ interface ChromeMocks {
   create: ReturnType<typeof vi.fn>;
   sendMessage: ReturnType<typeof vi.fn>;
   windowsUpdate: ReturnType<typeof vi.fn>;
+  windowsGet: ReturnType<typeof vi.fn>;
 }
 
 function installChromeMocks(): ChromeMocks {
@@ -157,6 +154,9 @@ function installChromeMocks(): ChromeMocks {
   const create = vi.fn<(...args: unknown[]) => Promise<chrome.tabs.Tab>>();
   const sendMessage = vi.fn<(...args: unknown[]) => Promise<unknown>>();
   const windowsUpdate = vi.fn<(...args: unknown[]) => Promise<chrome.windows.Window>>();
+  // Defaults to null (caller window not incognito / unresolvable) so existing
+  // tests keep the same-window behavior; incognito tests override per case.
+  const windowsGet = vi.fn<(...args: unknown[]) => Promise<chrome.windows.Window | null>>().mockResolvedValue(null);
 
   // Replace only the methods the navigator touches. The shared chrome
   // mock sets up callback-style defaults; we override with promise-
@@ -178,9 +178,10 @@ function installChromeMocks(): ChromeMocks {
     },
     windows: {
       update: windowsUpdate,
+      get: windowsGet,
     },
   };
-  return { query, update, create, sendMessage, windowsUpdate };
+  return { query, update, create, sendMessage, windowsUpdate, windowsGet };
 }
 
 beforeEach(() => {
@@ -271,6 +272,44 @@ describe('openWorkspaceIntent — cold path', () => {
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.path).toBe('cold');
     expect(create).toHaveBeenCalledOnce();
+  });
+});
+
+describe('openWorkspaceIntent — incognito caller reuse', () => {
+  // An incognito caller's window can never hold the workbench (extension page),
+  // so the same-window preference would never match and we'd cold-create a
+  // duplicate every time. The navigator drops the incognito caller window and
+  // reuses the existing (normal-window) workbench tab instead.
+  it('reuses the existing normal-window workbench tab instead of creating a new one', async () => {
+    const { query, update, sendMessage, windowsUpdate, windowsGet, create } = installChromeMocks();
+    // A workbench tab exists in a normal window (3); the caller is window 8 (incognito).
+    query.mockResolvedValueOnce([makeTab({ id: 10, windowId: 3 })]);
+    windowsGet.mockResolvedValueOnce({ id: 8, incognito: true } as chrome.windows.Window);
+    update.mockResolvedValue(undefined);
+    windowsUpdate.mockResolvedValue({} as chrome.windows.Window);
+    sendMessage.mockResolvedValueOnce(undefined);
+
+    const result = await openWorkspaceIntent(DOCS_INTENT, { surface: 'popup', callerWindowId: 8 });
+
+    expect(result).toEqual({ ok: true, tabId: 10, windowId: 3, path: 'warm' });
+    expect(create).not.toHaveBeenCalled();
+    expect(sendMessage).toHaveBeenCalledWith(10, { type: 'workspace-intent', intent: DOCS_INTENT });
+  });
+
+  it('cold-creates AND focuses the new tab’s window for an incognito caller', async () => {
+    const { query, create, windowsGet, windowsUpdate } = installChromeMocks();
+    query.mockResolvedValueOnce([]);
+    windowsGet.mockResolvedValueOnce({ id: 8, incognito: true } as chrome.windows.Window);
+    create.mockResolvedValueOnce(makeTab({ id: 42, windowId: 3 }));
+    windowsUpdate.mockResolvedValue({} as chrome.windows.Window);
+
+    const result = await openWorkspaceIntent(DOCS_INTENT, { surface: 'popup', callerWindowId: 8 });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.path).toBe('cold');
+    expect(create).toHaveBeenCalledOnce();
+    // The new tab landed in normal window 3 (not the incognito caller window);
+    // focus it so the user is switched to the freshly-opened workbench.
+    expect(windowsUpdate).toHaveBeenCalledWith(3, { focused: true });
   });
 });
 
