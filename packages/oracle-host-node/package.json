@@ -1,6 +1,6 @@
 {
   "name": "@openheaders/oracle-host-node",
-  "version": "2026.5.0",
+  "version": "26.6.0",
   "private": true,
   "description": "Node host adapter for @openheaders/oracle — SQLite-backed sync persistence, WebSocket server, file-backed host storage",
   "type": "module",

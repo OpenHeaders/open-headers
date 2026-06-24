@@ -15,7 +15,7 @@
  */
 
 export interface BuildInfo {
-  /** Free-text label, e.g. "2026.5.0" or "2026.5.0-beta.1". */
+  /** Free-text label, e.g. "26.6.0" or "26.6.0-beta.1". */
   version: string;
   /** 7-char git SHA. */
   commit: string;
