@@ -8,7 +8,8 @@
 import { BulbFilled, BulbOutlined } from '@ant-design/icons';
 import { useTheme } from '@openheaders/ui/context';
 import { DebugModeDormantNotice, DebugModePill } from '@openheaders/ui/shared/debug-mode';
-import { productStatusExtras, StatusPill } from '@openheaders/ui/shared/status';
+import { productStatusExtras, StatusPill, type StatusPillProps } from '@openheaders/ui/shared/status';
+import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import { Dropdown, type MenuProps, Space, theme } from 'antd';
 import type React from 'react';
@@ -96,6 +97,13 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
 }) => {
   const { token } = theme.useToken();
   const { themeMode, setThemeMode } = useTheme();
+
+  // The DevTools panel can't host the workbench Docs panel itself, so the
+  // pill (i) buttons open the workbench and scroll it to the section —
+  // same route the popup/sidepanel footer uses (`open-docs` intent).
+  const handleOpenDocs: StatusPillProps['onOpenDocs'] = (sectionId) => {
+    void openWorkspace({ kind: 'open-docs', section: sectionId }, 'devpanel');
+  };
 
   const showVersion = useSettingValue('devpanelLayout.footerShowVersion');
   const showThemeSwitcher = useSettingValue('devpanelLayout.footerShowThemeSwitcher');
@@ -197,8 +205,13 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
 
       <div className="rules-statusbar-right">
         <DebugModeDormantNotice tabSource="inspected" hasRealizableRule={hasRealizableDebugRule} />
-        <DebugModePill tabSource="inspected" />
-        <StatusPill density="full" label="System status" renderSubsystemExtras={productStatusExtras} />
+        <DebugModePill tabSource="inspected" onOpenDocs={handleOpenDocs} />
+        <StatusPill
+          density="full"
+          label="System status"
+          renderSubsystemExtras={productStatusExtras}
+          onOpenDocs={handleOpenDocs}
+        />
         {showThemeSwitcher && (
           <>
             <div className="rules-statusbar-divider" style={{ background: token.colorBorderSecondary }} />
