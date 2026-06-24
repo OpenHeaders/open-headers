@@ -26,7 +26,7 @@ registerSetting({
   tags: ['network', 'inspection', 'requests', 'debugging', 'devtools'],
   scope: 'user',
   requiresCapability: 'cdpInspection',
-  capabilityUnavailableHint: 'This browser doesn’t expose the debugging protocol, so debug mode isn’t available here.',
+  capabilityUnavailableHint: 'Debug mode is available in Chrome and Edge.',
 });
 
 registerSetting({
@@ -41,7 +41,7 @@ registerSetting({
   tags: ['network', 'inspection', 'requests', 'debugging', 'devtools', 'scope'],
   scope: 'user',
   requiresCapability: 'cdpInspection',
-  capabilityUnavailableHint: 'This browser doesn’t expose the debugging protocol, so debug mode isn’t available here.',
+  capabilityUnavailableHint: 'Debug mode is available in Chrome and Edge.',
   enumOptions: [
     {
       value: 'devtools',

@@ -22,9 +22,12 @@
  *     when the current tab isn't already covered by the scope (else it would
  *     be redundant).
  *
- * Capability-gated: renders nothing on hosts without the `cdpInspection`
- * capability (Firefox / Safari / desktop). Chrome-free — tab id resolution,
- * titles, and jump-to-tab all go through host seams, never `chrome.*`.
+ * Capability-gated: where the browser lacks the `cdpInspection` capability
+ * (Firefox / Safari) the control still renders, but disabled with a tooltip
+ * pointing to Chrome / Edge so the feature stays discoverable. Non-browser
+ * hosts (desktop) have nothing to debug and render nothing. Chrome-free — tab
+ * id resolution, titles, and jump-to-tab all go through host seams, never
+ * `chrome.*`.
  */
 
 import { ExportOutlined, InfoCircleOutlined, PushpinFilled } from '@ant-design/icons';
@@ -39,6 +42,7 @@ import { Badge, Button, ConfigProvider, Popover, Select, Switch, Tooltip, Typogr
 import type { TooltipPlacement } from 'antd/es/tooltip';
 import React from 'react';
 import { isPeerNavigable, peerNavigate } from '../awareness/peer-navigate';
+import { getCurrentHost } from '../host-vocabulary';
 import { useStatus } from '../hooks/useStatus';
 import type { StatusEntry } from '../status/types';
 import { type DebugModeTabSource, useControlTabId } from './useControlTabId';
@@ -51,6 +55,9 @@ import { useDebugModeShortcut } from './useDebugModeShortcut';
  * clicked — mirrors `STATUS_DOCS_SECTION_ID` on the System Status pill.
  */
 export const DEBUG_DOCS_SECTION_ID = 'debug-mode';
+
+/** Shown when the control renders disabled on a browser without the protocol. */
+export const DEBUG_UNAVAILABLE_HINT = 'Debug mode is available in Chrome and Edge.';
 
 const SCOPE_OPTIONS: { label: string; value: CdpScopeMode }[] = [
   { label: 'Where DevTools is open', value: 'devtools' },
@@ -97,8 +104,28 @@ export const DebugModePill: React.FC<DebugModePillProps> = ({ tabSource, classNa
   // the DevTools panel, which has no shortcut registry of its own.
   useDebugModeShortcut();
 
-  // Render nothing where the host can't drive the debugging protocol.
-  if (!hasCapability('cdpInspection')) return null;
+  // Where the browser can't drive the debugging protocol, keep the control
+  // visible-but-disabled so the feature stays discoverable (Firefox / Safari).
+  // Non-browser hosts (desktop) have nothing to debug, so render nothing.
+  if (!hasCapability('cdpInspection')) {
+    if (getCurrentHost() !== 'extension') return null;
+    return (
+      <Tooltip title={DEBUG_UNAVAILABLE_HINT}>
+        <span
+          className={className ?? 'rules-statusbar-item'}
+          aria-label={`Debug mode — ${DEBUG_UNAVAILABLE_HINT}`}
+          aria-disabled
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 8, opacity: 0.45, cursor: 'not-allowed' }}
+        >
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <span className="rules-dot" style={{ background: token.colorTextTertiary }} />
+            Debug mode
+          </span>
+          <Switch size="small" disabled checked={false} aria-label="Toggle debug mode" />
+        </span>
+      </Tooltip>
+    );
+  }
 
   const entry = snapshot.cdp;
   const dotColor = !enabled
