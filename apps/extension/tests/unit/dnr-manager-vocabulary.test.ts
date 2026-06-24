@@ -44,6 +44,12 @@ async function vocabularyUnder(flags: BrowserFlags) {
   return mod.resourceVocabularyForBrowser();
 }
 
+// Each case does `vi.resetModules()` + a cold re-import of the whole
+// dnr-manager graph (rule-engine, oracle) to re-evaluate under different
+// browser flags. That cold import can exceed the 10s default when the full
+// suite saturates the machine, so give this file headroom.
+vi.setConfig({ testTimeout: 30_000 });
+
 describe('resourceVocabularyForBrowser — per-browser pinning', () => {
   it('Chrome compiles against the Chromium vocabulary', async () => {
     const vocab = await vocabularyUnder({ isChrome: true });
