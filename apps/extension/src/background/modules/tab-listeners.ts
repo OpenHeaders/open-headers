@@ -15,6 +15,7 @@ import {
   transferTabTracking,
 } from '@openheaders/oracle/tracking/tab-tracking-store';
 
+import { isMainFrame } from '../correlator-host/main-frame-registry';
 import { checkIfUrlMatchesAnyRule } from './request-tracker';
 import { mainFrameRequestIdsMatchingCommit } from '../tab-telemetry-source/main-frame-chain';
 import {
@@ -331,6 +332,9 @@ export function setupTabListeners(options: SetupTabListenersOptions): void {
         const matchingRequestIds = mainFrameRequestIdsMatchingCommit(
           lifecycleStore.snapshotTab(details.tabId),
           details.url,
+          // CDP-owned tabs tag navigations `document`; resolve the main-frame
+          // split against the registry just as the fire's buffering did.
+          (lc) => isMainFrame(lc.tabId, lc.frameId),
         );
         tabTelemetryOnPageCommit(details.tabId, details.url, matchingRequestIds);
         lastMainFrameUrlByTab.set(details.tabId, details.url);

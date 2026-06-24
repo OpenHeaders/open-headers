@@ -15,6 +15,7 @@ import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import { RequestLifecycleStore } from '@openheaders/oracle/request-lifecycle-store';
 import { TabLifecycleBus } from '@openheaders/oracle/tab-lifecycle-bus';
 
+import { clearMainFrameId, setMainFrameId } from '@/background/correlator-host/main-frame-registry';
 import { startTabTelemetrySource } from '@/background/tab-telemetry-source';
 import { mainFrameRequestIdsMatchingCommit } from '@/background/tab-telemetry-source/main-frame-chain';
 import { deriveObservedUrls } from '@/background/tab-telemetry-source/observed-urls';
@@ -63,6 +64,7 @@ beforeEach(() => {
 
 afterEach(() => {
   dispose();
+  clearMainFrameId(1);
 });
 
 describe('tab-telemetry-source — started projection', () => {
@@ -223,6 +225,61 @@ describe('tab-telemetry-source — phase projection', () => {
 
     expect(getTabSnapshot(1).counters['rule-block']).toBe(1);
   });
+
+  it('promotes a failed CDP-document navigation fire (registry-resolved main frame)', () => {
+    // CDP tags navigations `document`; the driver buffered the fire as
+    // main_frame via the registry, so the failed-nav promotion must resolve
+    // the same way or the fire is stranded (no rule attribution).
+    setMainFrameId(1, 'frame-main');
+    startTracking(1, 'test:t1');
+    store.apply({
+      kind: 'started',
+      lifecycle: makeLifecycle({
+        tabId: 1,
+        requestId: 'cdp-err',
+        url: 'https://openheaders.io/',
+        resourceType: 'document',
+        frameId: 'frame-main',
+      }),
+    });
+    recordObservedFire(1, 'rule-block', 'https://openheaders.io/', 'cdp-err', 1_000, {
+      resourceType: 'main_frame',
+      pattern: 'https://openheaders.io/',
+      deferred: false,
+    });
+    expect(getTabSnapshot(1).fires).toHaveLength(0);
+
+    store.apply({ kind: 'phase', tabId: 1, requestId: 'cdp-err', patch: { phase: 'failed' } });
+
+    expect(getTabSnapshot(1).counters['rule-block']).toBe(1);
+  });
+
+  it('does NOT promote a failed CDP sub-frame document fire (registry says not main frame)', () => {
+    setMainFrameId(1, 'frame-main');
+    startTracking(1, 'test:t1');
+    store.apply({
+      kind: 'started',
+      lifecycle: makeLifecycle({
+        tabId: 1,
+        requestId: 'cdp-iframe',
+        url: 'https://openheaders.io/embed',
+        resourceType: 'document',
+        frameId: 'frame-child',
+      }),
+    });
+    // A sub-frame document fire is recorded immediately (not buffered), so a
+    // failed phase must not double-count via main-frame promotion.
+    recordObservedFire(1, 'rule-block', 'https://openheaders.io/embed', 'cdp-iframe', 1_000, {
+      resourceType: 'sub_frame',
+      pattern: 'https://openheaders.io/embed',
+      deferred: false,
+    });
+    const before = getTabSnapshot(1).counters['rule-block'];
+
+    store.apply({ kind: 'phase', tabId: 1, requestId: 'cdp-iframe', patch: { phase: 'failed' } });
+
+    expect(getTabSnapshot(1).counters['rule-block']).toBe(before);
+  });
 });
 
 describe('tab-telemetry-source — main-frame chain via store snapshot', () => {
@@ -257,7 +314,7 @@ describe('tab-telemetry-source — main-frame chain via store snapshot', () => {
       nextUrl: 'chrome-extension://abc/delay.html#https://openheaders.io/',
     });
 
-    const matches = mainFrameRequestIdsMatchingCommit(store.snapshotTab(1), 'https://openheaders.io/');
+    const matches = mainFrameRequestIdsMatchingCommit(store.snapshotTab(1), 'https://openheaders.io/', () => false);
     expect([...matches]).toEqual(['mf-1']);
 
     onPageCommit(1, 'https://openheaders.io/', matches);
@@ -281,7 +338,7 @@ describe('tab-telemetry-source — main-frame chain via store snapshot', () => {
       deferred: false,
     });
 
-    const matches = mainFrameRequestIdsMatchingCommit(store.snapshotTab(1), 'https://elsewhere.example/');
+    const matches = mainFrameRequestIdsMatchingCommit(store.snapshotTab(1), 'https://elsewhere.example/', () => false);
     expect(matches.size).toBe(0);
     onPageCommit(1, 'https://elsewhere.example/', matches);
     expect(getTabSnapshot(1).fires).toHaveLength(0);

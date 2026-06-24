@@ -20,19 +20,42 @@
  * navigation has been observed yet.
  */
 
+import type { Page } from '@openheaders/core/page-stream';
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import { useEffect, useRef, useState } from 'react';
 
-/** Latest top-level (`main_frame`) navigation start, or -1 if none. */
-function latestNavStartMs(lifecycles: readonly RequestLifecycle[]): number {
+/**
+ * Latest top-level navigation start, or -1 if none.
+ *
+ * A top-level navigation in EITHER correlator vocabulary: the heuristic
+ * (webRequest) path tags it `main_frame` (self-identifying); the CDP path
+ * tags every document — top-level AND iframe — `document`, so the
+ * main-frame one is the document whose committed loader id binds to an
+ * observed page (an iframe document carries its own loader id, never a
+ * page's main-frame loader id). Without the CDP branch a debug-mode
+ * (CDP-owned) tab's navigations are never seen, so the Preserve-log floor
+ * never advances and the prior page's requests aren't cleared on navigation.
+ */
+function latestNavStartMs(lifecycles: readonly RequestLifecycle[], pages: readonly Page[]): number {
+  const pageLoaderIds = new Set<string>();
+  for (const page of pages) if (page.loaderId) pageLoaderIds.add(page.loaderId);
   let nav = -1;
   for (const lc of lifecycles) {
-    if (lc.resourceType === 'main_frame' && lc.startedAtMs > nav) nav = lc.startedAtMs;
+    if (isTopLevelNavigation(lc, pageLoaderIds) && lc.startedAtMs > nav) nav = lc.startedAtMs;
   }
   return nav;
 }
 
-export function useNavClearFloor(lifecycles: readonly RequestLifecycle[], preserveLog: boolean): number {
+function isTopLevelNavigation(lifecycle: RequestLifecycle, pageLoaderIds: ReadonlySet<string>): boolean {
+  if (lifecycle.resourceType === 'main_frame') return true;
+  return lifecycle.resourceType === 'document' && lifecycle.loaderId != null && pageLoaderIds.has(lifecycle.loaderId);
+}
+
+export function useNavClearFloor(
+  lifecycles: readonly RequestLifecycle[],
+  pages: readonly Page[],
+  preserveLog: boolean,
+): number {
   const [floorMs, setFloorMs] = useState(-1);
   // Read inside the lifecycle-driven effect via a ref so toggling Preserve
   // log does NOT itself move the floor — only an actual navigation does.
@@ -40,14 +63,17 @@ export function useNavClearFloor(lifecycles: readonly RequestLifecycle[], preser
   preserveRef.current = preserveLog;
   const seenNavRef = useRef(-1);
 
+  // `pages` is a dep too: a CDP navigation's document is only recognizable
+  // as top-level once its page lands (loader-id bind), which can trail the
+  // lifecycle by a tick.
   useEffect(() => {
-    const nav = latestNavStartMs(lifecycles);
+    const nav = latestNavStartMs(lifecycles, pages);
     if (nav <= seenNavRef.current) return; // no new top-level navigation
     seenNavRef.current = nav;
     // A navigation arriving while Preserve log is OFF clears the prior log;
     // while ON the floor stays put so the new page accumulates.
     if (!preserveRef.current) setFloorMs(nav);
-  }, [lifecycles]);
+  }, [lifecycles, pages]);
 
   return floorMs;
 }

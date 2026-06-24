@@ -230,7 +230,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   // Preserve-log boundary: a monotonic clear floor that advances on
   // navigation while the toggle is off and freezes when on, so re-enabling
   // never resurrects the past (browser-parity).
-  const navClearFloorMs = useNavClearFloor(lifecycleClient.snapshot.ordered, ui.preserveLog);
+  const navClearFloorMs = useNavClearFloor(lifecycleClient.snapshot.ordered, pageClient.snapshot.pages, ui.preserveLog);
   // Stop recording → requests that start while stopped are dropped from the
   // view (browser-parity); resuming records from that point forward.
   const recordingWindows = useRecordingWindows(ui.recording);

@@ -13,7 +13,9 @@
 import type { RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle';
 import type { RequestLifecycleStore } from '@openheaders/oracle/request-lifecycle-store';
 
+import { isMainFrame } from '../correlator-host/main-frame-registry';
 import { isTracked as isTabTracked, onMainFrameError, updateRequestDeliveryMode } from '../modules/tab-telemetry';
+import { isMainFrameNavigation } from './main-frame-chain';
 
 export interface ProjectionOptions {
   readonly store: RequestLifecycleStore;
@@ -37,7 +39,10 @@ function projectPhase(
 
   if (patch.phase === 'failed') {
     const lifecycle = options.store.get(tabId, requestId);
-    if (lifecycle?.resourceType === 'main_frame') {
+    // Promote the buffered fire of a failed navigation — incl. CDP-owned
+    // tabs, where the lifecycle is tagged `document` (resolve the main-frame
+    // split via the registry, as the fire's buffering did).
+    if (lifecycle && isMainFrameNavigation(lifecycle, (lc) => isMainFrame(lc.tabId, lc.frameId))) {
       onMainFrameError(tabId, requestId);
     }
   }
