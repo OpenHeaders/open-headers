@@ -17,11 +17,11 @@ import { registerSetting } from '../registry';
 registerSetting({
   key: 'inspection.cdpEnabled',
   type: 'boolean',
-  default: false,
+  default: true,
   schema: v.boolean(),
   label: 'Debug mode',
   description:
-    'Inspect and modify requests with the same depth as your browser’s built-in developer tools — page loads, workers, and iframes, not just page-level fetches. The browser shows a debugging banner on each attached tab while this is on; it stays off by default.',
+    'Inspect and modify requests with the same depth as your browser’s built-in developer tools — page loads, workers, and iframes, not just page-level fetches. The browser shows a debugging banner on each attached tab while this is on; it’s on by default, and you can turn it off any time.',
   category: 'inspection',
   tags: ['network', 'inspection', 'requests', 'debugging', 'devtools'],
   scope: 'user',

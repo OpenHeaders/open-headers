@@ -1,7 +1,7 @@
 /**
  * `inspection.cdpEnabled` master-switch schema registration.
  *
- * Pins the locked shape: a global, user-scope boolean defaulting OFF,
+ * Pins the locked shape: a global, user-scope boolean defaulting ON,
  * gated on the `cdpInspection` host capability so Firefox / Safari render
  * it disabled. Imports the real schema module (no inline re-declaration)
  * so a drift in the registration is caught here.
@@ -17,7 +17,7 @@ describe('inspection.cdpEnabled schema', () => {
     const def = getDef('inspection.cdpEnabled');
     expect(def).toBeDefined();
     expect(def?.type).toBe('boolean');
-    expect(def?.default).toBe(false);
+    expect(def?.default).toBe(true);
     expect(def?.scope).toBe('user');
     expect(def?.category).toBe('inspection');
     expect(def?.requiresCapability).toBe('cdpInspection');
