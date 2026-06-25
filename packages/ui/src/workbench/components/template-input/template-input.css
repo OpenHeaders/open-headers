@@ -30,6 +30,17 @@
   max-width: 100%;
 }
 
+/* Single-line fields scroll horizontally to keep the caret in view but
+ * must NOT paint a scrollbar — otherwise the field sprouts a bar that
+ * the native <input>s beside it (Key / Description) can't show. The
+ * inline `scrollbar-width: none` covers Firefox / modern engines; this
+ * WebKit rule covers Safari and overrides the reveal-on-hover bar that
+ * `.rules-thin-scrollbar` would otherwise apply. Multiline keeps its
+ * vertical scrollbar. */
+.oh-template-input-singleline::-webkit-scrollbar {
+  display: none !important;
+}
+
 .oh-template-input-editable:empty::before {
   /* Placeholder via a pseudo element — shown only when the editable
    * is empty. `data-placeholder` is populated from the `placeholder`

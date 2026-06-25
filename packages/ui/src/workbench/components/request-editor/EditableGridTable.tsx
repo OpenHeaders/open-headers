@@ -36,7 +36,7 @@
  *     doesn't (file references don't round-trip through text).
  */
 
-import { DeleteOutlined, HolderOutlined, InfoCircleOutlined, MoreOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, HolderOutlined, InfoCircleOutlined, MoreOutlined } from '@ant-design/icons';
 import type { DragEndEvent } from '@dnd-kit/core';
 import { closestCenter, DndContext, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import {
@@ -115,8 +115,8 @@ export interface EditableGridTableProps<Row> {
    *  clicks it, the table swaps for a textarea with the serialized
    *  rows; clicking again parses the textarea back into rows. */
   bulkEdit?: BulkEditConfig<Row>;
-  /** Per-column width overrides — default is `minmax(180px, 1fr)`
-   *  for each of Key / Value / Description. */
+  /** Per-column width overrides — default is `minmax(0, 1fr)` for each
+   *  of Key / Value / Description (flex to fit, no fixed min). */
   columnWidths?: {
     key?: string;
     value?: string;
@@ -157,16 +157,35 @@ export interface KeyValueRowConflictBridge {
   onDismiss(path: string): void;
 }
 
-const DEFAULT_COLUMN_WIDTH = 'minmax(180px, 1fr)';
+// `minmax(0, 1fr)` (not a fixed px floor) so the columns flex DOWN to
+// fit a narrow pane instead of forcing a table wider than its container.
+// A px floor (e.g. `minmax(180px, 1fr)`) sums to a hard ~620px minimum
+// for three columns, which overflows the side-by-side request pane and
+// drags the whole tab (heading + clipped border) into a horizontal
+// scroll. Every cell already sets `min-width: 0`, so the inputs shrink
+// with their column and scroll their own overflow internally.
+const DEFAULT_COLUMN_WIDTH = 'minmax(0, 1fr)';
 
 const cellFont: React.CSSProperties = {
   fontFamily: "'SF Mono', 'Fira Code', monospace",
   fontSize: 12,
 };
 
-// Hover-reveal for the drag handle + delete button. Same transition
-// on both so the row controls appear together and disappear together.
-// Injected once at module load so every usage shares the same CSS rule.
+// Column-header label cell. `min-width: 0` + ellipsis so the label
+// truncates within its (possibly narrow) flex column instead of
+// spilling into the neighbouring column / trailing actions.
+const headerLabelStyle: React.CSSProperties = {
+  padding: '6px 10px',
+  minWidth: 0,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+};
+
+// Hover-reveal for the drag handle + delete button (same transition so
+// the row controls appear/disappear together), plus the hover highlight
+// for the `⋯` options-menu rows. Injected once at module load so every
+// usage shares the same CSS rule.
 const STYLE_ID = 'editable-grid-row-styles';
 if (typeof document !== 'undefined' && !document.getElementById(STYLE_ID)) {
   const style = document.createElement('style');
@@ -177,6 +196,25 @@ if (typeof document !== 'undefined' && !document.getElementById(STYLE_ID)) {
 .editable-grid-row:hover .editable-grid-drag-handle,
 .editable-grid-row:hover .editable-grid-delete { opacity: 1; }
 .editable-grid-row .editable-grid-drag-handle:active { cursor: grabbing; }
+.editable-grid-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+.editable-grid-menu-item:hover {
+  background: var(--ant-color-fill-tertiary, rgba(0, 0, 0, 0.04));
+}
   `;
   document.head.appendChild(style);
 }
@@ -199,6 +237,7 @@ export function EditableGridTable<Row>({
   const [bulkText, setBulkText] = useState('');
   const [showValueColumn, setShowValueColumn] = useState(true);
   const [showDescriptionColumn, setShowDescriptionColumn] = useState(true);
+  const [optionsOpen, setOptionsOpen] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -276,54 +315,75 @@ export function EditableGridTable<Row>({
 
   // ── Header cell sequence (keeps the grid template in sync) ──────
 
-  const columnsPopoverContent = (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 140 }}>
-      <div style={{ fontSize: 11, color: token.colorTextSecondary, fontWeight: 500, marginBottom: 4 }}>
+  // Table-level actions live in the `⋯` overflow menu, not as inline
+  // header buttons: the grid's trailing column is only ~32px wide (it
+  // aligns with the per-row delete button), so a visible "Bulk Edit"
+  // button would overflow it and collide with the rightmost column
+  // label once the columns flex narrow.
+  // Column toggles are full-row hoverable items: the row is the click
+  // target (the AntD Checkbox is a non-interactive indicator via
+  // `pointer-events: none`) so clicking anywhere on the row flips it and
+  // the whole row highlights on hover.
+  const toggleColumnItem = (label: string, checked: boolean, toggle: () => void) => (
+    <div
+      className="editable-grid-menu-item"
+      role="checkbox"
+      aria-checked={checked}
+      tabIndex={0}
+      onClick={toggle}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          toggle();
+        }
+      }}
+    >
+      <Checkbox checked={checked} style={{ pointerEvents: 'none' }} />
+      <span>{label}</span>
+    </div>
+  );
+
+  const optionsPopoverContent = (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 160 }}>
+      {bulkEdit && (
+        <>
+          <button
+            type="button"
+            className="editable-grid-menu-item"
+            onClick={() => {
+              setOptionsOpen(false);
+              if (bulkMode) exitBulk();
+              else enterBulk();
+            }}
+          >
+            <EditOutlined style={{ color: token.colorTextTertiary }} />
+            {bulkMode ? 'Key-Value Edit' : 'Bulk Edit'}
+          </button>
+          <div style={{ height: 1, background: token.colorBorderSecondary, margin: '4px 0' }} />
+        </>
+      )}
+      <div style={{ fontSize: 11, color: token.colorTextSecondary, fontWeight: 500, padding: '2px 8px' }}>
         Show columns
       </div>
-      <Checkbox checked={showValueColumn} onChange={(e) => setShowValueColumn(e.target.checked)}>
-        Value
-      </Checkbox>
-      <Checkbox checked={showDescriptionColumn} onChange={(e) => setShowDescriptionColumn(e.target.checked)}>
-        Description
-      </Checkbox>
+      {toggleColumnItem('Value', showValueColumn, () => setShowValueColumn((v) => !v))}
+      {toggleColumnItem('Description', showDescriptionColumn, () => setShowDescriptionColumn((v) => !v))}
     </div>
   );
 
   const trailingActionsCell = (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'flex-end',
-        gap: 6,
-        padding: '4px 8px',
-        whiteSpace: 'nowrap',
-      }}
-    >
-      {bulkEdit && (
-        <button
-          type="button"
-          onClick={bulkMode ? exitBulk : enterBulk}
-          style={{
-            color: token.colorPrimary,
-            fontWeight: 500,
-            background: 'transparent',
-            border: 'none',
-            padding: '2px 4px',
-            cursor: 'pointer',
-            fontSize: 12,
-          }}
-        >
-          {bulkMode ? 'Key-Value Edit' : 'Bulk Edit'}
-        </button>
-      )}
-      <Popover content={columnsPopoverContent} trigger="click" placement="bottomRight">
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+      <Popover
+        content={optionsPopoverContent}
+        trigger="click"
+        placement="bottomRight"
+        open={optionsOpen}
+        onOpenChange={setOptionsOpen}
+      >
         <Button
           size="small"
           type="text"
           icon={<MoreOutlined />}
-          aria-label="Show columns menu"
+          aria-label="Table options"
           style={{ color: token.colorTextTertiary }}
         />
       </Popover>
@@ -361,12 +421,12 @@ export function EditableGridTable<Row>({
       >
         <span />
         {!hideEnabled && <span />}
-        <span style={{ padding: '6px 10px' }}>Key</span>
+        <span style={headerLabelStyle}>Key</span>
         {showValueColumn && (
-          <span style={{ padding: '6px 10px', borderLeft: `1px solid ${token.colorBorderSecondary}` }}>Value</span>
+          <span style={{ ...headerLabelStyle, borderLeft: `1px solid ${token.colorBorderSecondary}` }}>Value</span>
         )}
         {showDescriptionColumn && (
-          <span style={{ padding: '6px 10px', borderLeft: `1px solid ${token.colorBorderSecondary}` }}>
+          <span style={{ ...headerLabelStyle, borderLeft: `1px solid ${token.colorBorderSecondary}` }}>
             Description
           </span>
         )}

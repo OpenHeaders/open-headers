@@ -661,6 +661,11 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       whiteSpace: multiline ? 'pre-wrap' : 'pre',
       overflowX: multiline ? 'hidden' : 'auto',
       overflowY: multiline ? 'auto' : 'hidden',
+      // Single-line fields scroll horizontally to keep the caret in view
+      // (like a native <input>) but must NOT show a scrollbar — otherwise
+      // the value cell sprouts a bar that the sibling native Key /
+      // Description inputs can't have. Multiline keeps its vertical bar.
+      scrollbarWidth: multiline ? undefined : 'none',
       wordBreak: multiline ? 'break-word' : 'normal',
       transition: 'border-color 0.2s, box-shadow 0.2s',
       boxShadow: isFocused && variant !== 'borderless' ? focusShadow : undefined,
@@ -671,7 +676,7 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       <span className={`oh-template-input-wrapper${className ? ` ${className}` : ''}`}>
         <div
           ref={mergedRef}
-          className={`oh-template-input-editable${secret ? ' oh-template-input-secret' : ''}`}
+          className={`oh-template-input-editable${multiline ? '' : ' oh-template-input-singleline'}${secret ? ' oh-template-input-secret' : ''}`}
           contentEditable
           suppressContentEditableWarning
           role="combobox"

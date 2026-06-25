@@ -31,7 +31,11 @@ import { useCallback, useMemo, useRef } from 'react';
 import { EditableGridTable, type EditableRowAdapter } from './request-editor/EditableGridTable';
 import { TemplateInput } from './template-input';
 
-const FORM_DATA_COLUMN_WIDTHS = { value: 'minmax(280px, 1.6fr)' };
+// Value column gets a wider proportional share (1.6fr) for the file
+// picker, but no fixed px floor — it flexes down to fit a narrow pane
+// instead of forcing a horizontal scroll (see EditableGridTable's
+// DEFAULT_COLUMN_WIDTH note).
+const FORM_DATA_COLUMN_WIDTHS = { value: 'minmax(0, 1.6fr)' };
 
 // Injected once at module load: hover-reveal for the per-file delete
 // button inside the multipart file dropdown.
