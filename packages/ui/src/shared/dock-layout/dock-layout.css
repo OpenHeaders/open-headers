@@ -967,6 +967,58 @@
   background: rgba(255, 255, 255, 0.38);
 }
 
+/* ── Always-visible thin scrollbars (opt-in host) ────────────────────
+   The dock-body reveal above is scoped to `.rules-dock-body` and skips
+   editor panes on purpose (Monaco / tab strips keep their own bars).
+   Editor surfaces that opt in — currently the API request editor's
+   request + response tab panes — add `.rules-thin-scrollbar` to the
+   scroll host. Unlike the dock-body reveal, the thumb is FAINTLY VISIBLE
+   AT REST (so overflow is discoverable + the thumb is grabbable without
+   hovering first) and darkens while the host is hovered / focus-within,
+   strongest when the pointer is on the thumb itself. The 6px gutter is
+   reserved on overflow so the state change animates colour only (no
+   layout shift). Webkit pseudo only — Chromium ignores it once
+   `scrollbar-width` is set, which is why we hand-roll it. Monaco draws
+   its own non-native scrollbars, so nested code editors are unaffected. */
+.rules-thin-scrollbar *::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+  background: transparent;
+}
+.rules-thin-scrollbar *::-webkit-scrollbar-track {
+  background: transparent;
+}
+.rules-thin-scrollbar *::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 3px;
+  transition: background-color 0.2s ease-out;
+}
+.rules-thin-scrollbar *::-webkit-scrollbar-corner {
+  background: transparent;
+}
+.rules-thin-scrollbar *::-webkit-scrollbar-button {
+  display: none;
+}
+
+.rules-thin-scrollbar:hover *::-webkit-scrollbar-thumb,
+.rules-thin-scrollbar:focus-within *::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.3);
+}
+.rules-thin-scrollbar *::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.45);
+}
+
+[data-theme='dark'] .rules-thin-scrollbar *::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+}
+[data-theme='dark'] .rules-thin-scrollbar:hover *::-webkit-scrollbar-thumb,
+[data-theme='dark'] .rules-thin-scrollbar:focus-within *::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.34);
+}
+[data-theme='dark'] .rules-thin-scrollbar *::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.48);
+}
+
 .rules-panel-header-action {
   display: inline-flex;
   align-items: center;

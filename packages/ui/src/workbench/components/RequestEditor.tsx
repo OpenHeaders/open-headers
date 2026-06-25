@@ -5,6 +5,11 @@
  * runner can ship. Tab layout: Docs · Params · Authorization · Headers
  * · Body · Scripts · Settings.
  *
+ * This module is the orchestrator: it owns the draft + live-mirror
+ * state, the sync/conflict wiring, and save/send, then composes the
+ * focused pieces under `./request-editor/` (URL bar, tab catalog, tab
+ * content, per-section resolvability, response panel).
+ *
  * Sync engine alignment (matches RuleEditor + TemplateEditor):
  *
  *   - `useEditorShell` returns branded `headerProps` + `scopeProps`
@@ -22,22 +27,19 @@
  * persisting first.
  */
 
-import { CaretRightOutlined, DownOutlined, LoadingOutlined, ThunderboltOutlined } from '@ant-design/icons';
-import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/useLiveWorkflows';
+import { CaretRightOutlined, LoadingOutlined } from '@ant-design/icons';
 import { useRequests } from '@openheaders/ui/shared/hooks/useRequests';
-import { useVariableResolver } from '@openheaders/ui/shared/hooks/useVariableResolver';
 import { canonicalizeRequest, parseRequest, serializeRequest } from '@openheaders/core/codec/yaml';
 import { freshDocument } from '@openheaders/core/schemas';
 import { REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { AuthConfig, CredentialsMode, HttpMethod, QueryParam, Request, RequestBody, RequestHeader } from '@openheaders/core/types';
-import { buildUrlDisplay, isRequestComplete, parseUrlQuery } from '@openheaders/core/utils';
-import { resolveTemplate } from '@openheaders/core/variables';
-import { App, Button, Dropdown, Select, Tabs, Tag, Tooltip, Typography, theme } from 'antd';
+import type { ExecutedRequestSnapshot, Request } from '@openheaders/core/types';
+import { isRequestComplete } from '@openheaders/core/utils';
+import { App, Button, Tabs, Tooltip, Typography, theme } from 'antd';
+import { Allotment } from 'allotment';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
 import { getRequestSyncMirrorForWorkspace } from '@openheaders/ui/context';
-import { EntityField, EntityScopeProvider, REQUEST_PATHS, useSetActiveFieldFocus } from '@openheaders/ui/shared/awareness';
+import { EntityScopeProvider, REQUEST_PATHS, useSetActiveFieldFocus } from '@openheaders/ui/shared/awareness';
 import { readFieldPath } from '@openheaders/ui/shared/awareness/field-path';
 import {
   type ConflictResolution,
@@ -45,27 +47,35 @@ import {
   EntityConflictDialog,
   hasDialogOnlyConflict,
   type PathConflict,
-  prettyPathMap,
   useAutoMergeForm,
 } from '@openheaders/ui/shared/conflicts';
 import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell';
 import { ensureScheme, needsSchemeNormalization } from '@openheaders/ui/shared/fetch';
 import { stableStringify } from '@openheaders/ui/shared/forms';
 import { useWorkbenchEditingScopeWorkspaceId } from '../hooks/EditingScopeWorkspaceContext';
+import type { DraftData } from '../hooks/useSaveRequestFlow';
 import EditorHeader from './EditorHeader';
 import { useRequestWorkflowStepContext } from './live/useRequestWorkflowStepContext';
 import { mergeRequestForSave } from './merge-request-for-save';
 import { requestResolveAdapter } from './request-conflict-adapter';
-import AuthorizationTab from './request-editor/AuthorizationTab';
-import BodyTab from './request-editor/BodyTab';
-import DocsTab from './request-editor/DocsTab';
-import HeadersTab from './request-editor/HeadersTab';
-import { type KeyValueRow, type KeyValueRowConflictBridge, makeKvRow } from './request-editor/KeyValueTable';
-import ParamsTab from './request-editor/ParamsTab';
-import ScriptsTab from './request-editor/ScriptsTab';
-import SettingsTab, { type RequestSettingsDraft } from './request-editor/SettingsTab';
+import {
+  type Draft,
+  buildRequestUpdates,
+  canonicalRequestProjection,
+  draftFromRequest,
+  emptyDraft,
+  rowsToHeaders,
+  rowsToParams,
+} from './request-editor/draft';
+import { type KeyValueRowConflictBridge } from './request-editor/KeyValueTable';
+import { type TabKey, buildRequestTabItems } from './request-editor/request-tab-items';
+import RequestTabContent from './request-editor/RequestTabContent';
+import RequestUrlBar from './request-editor/RequestUrlBar';
+import ResponsePanel from './request-editor/response/ResponsePanel';
+import { useRequestEditorLayout } from './request-editor/useRequestEditorLayout';
+import { useSectionUnresolved } from './request-editor/useSectionUnresolved';
 import type { AutoSuggestionContextValue } from './template-input';
-import { SuggestionContextProvider, TemplateInput } from './template-input';
+import { SuggestionContextProvider } from './template-input';
 import { useRequestConflicts } from './use-request-conflicts';
 
 const { Text } = Typography;
@@ -80,7 +90,7 @@ interface RequestEditorProps {
   preferredFolderPath?: string;
   onDirtyChange?: (dirty: boolean) => void;
   registerSaveRef?: (save: () => void) => void;
-  onSaveDraft?: (draftData: import('../hooks/useSaveRequestFlow').DraftData) => void;
+  onSaveDraft?: (draftData: DraftData) => void;
   /**
    * "Use response in workflow" action — available only in request-edit
    * mode where the request has a stable uid. `target` picks where the
@@ -98,201 +108,6 @@ export interface ExtractSeedStep {
   requestName: string;
   method: string;
 }
-
-const METHOD_OPTIONS: { value: HttpMethod; label: string }[] = [
-  { value: 'GET', label: 'GET' },
-  { value: 'POST', label: 'POST' },
-  { value: 'PUT', label: 'PUT' },
-  { value: 'PATCH', label: 'PATCH' },
-  { value: 'DELETE', label: 'DELETE' },
-  { value: 'HEAD', label: 'HEAD' },
-  { value: 'OPTIONS', label: 'OPTIONS' },
-];
-
-const METHOD_COLORS: Record<HttpMethod, string> = {
-  GET: '#61affe',
-  POST: '#49cc90',
-  PUT: '#fca130',
-  PATCH: '#50e3c2',
-  DELETE: '#f93e3e',
-  HEAD: '#9012fe',
-  OPTIONS: '#0d5aa7',
-};
-
-// ── Draft shape ───────────────────────────────────────────────────
-
-interface Draft {
-  method: HttpMethod;
-  url: string;
-  description: string;
-  headers: KeyValueRow[];
-  params: KeyValueRow[];
-  auth: AuthConfig;
-  body: RequestBody;
-  credentialsMode?: CredentialsMode;
-  followRedirects?: boolean;
-  preRequestScript?: string;
-  postResponseScript?: string;
-}
-
-function headersFromRequest(list: RequestHeader[]): KeyValueRow[] {
-  return list.map((h) =>
-    makeKvRow({
-      uid: h.uid,
-      key: h.key,
-      value: h.value,
-      description: h.description,
-      enabled: h.enabled !== false,
-    }),
-  );
-}
-function paramsFromRequest(list: QueryParam[]): KeyValueRow[] {
-  return list.map((p) =>
-    makeKvRow({
-      uid: p.uid,
-      key: p.key,
-      value: p.value,
-      description: p.description,
-      enabled: p.enabled !== false,
-      hasEquals: p.hasEquals,
-    }),
-  );
-}
-function rowsToHeaders(rows: KeyValueRow[]): RequestHeader[] {
-  return rows
-    .filter((r) => r.key.trim())
-    .map((r) => ({
-      uid: r.uid,
-      key: r.key,
-      value: r.value,
-      description: r.description?.trim() ? r.description : undefined,
-      enabled: r.enabled,
-    }));
-}
-function rowsToParams(rows: KeyValueRow[]): QueryParam[] {
-  return rows
-    .filter((r) => r.key.trim())
-    .map((r) => ({
-      uid: r.uid,
-      key: r.key,
-      value: r.value,
-      description: r.description?.trim() ? r.description : undefined,
-      enabled: r.enabled,
-      hasEquals: r.hasEquals,
-    }));
-}
-
-/** Shed KeyValueTable's transient fields (uid, description) so the
- *  pure `buildUrlDisplay` utility sees only the fields it cares
- *  about — key, value, enabled, hasEquals. */
-function draftParamsToQueryParams(
-  rows: KeyValueRow[],
-): Array<{ key: string; value: string; enabled?: boolean; hasEquals?: boolean }> {
-  return rows.map((r) => ({ key: r.key, value: r.value, enabled: r.enabled, hasEquals: r.hasEquals }));
-}
-
-/** Merge parsed-from-URL params with the existing draft rows so
- *  metadata (description + enabled + uid) rides along for any row
- *  whose key still matches. Duplicate keys are handled via a
- *  consume-from-pool pattern: each parsed row claims the first
- *  existing row with a matching key and removes it from the pool,
- *  so `?a=1&a=2` against `[{a,1,descX},{a,2,descY}]` preserves both
- *  descriptions on the correct rows. Unmatched parsed rows come in
- *  fresh (enabled, no description); unmatched existing rows drop. */
-function mergeParamsFromUrl(
-  parsed: ReadonlyArray<{ key: string; value: string; hasEquals?: boolean }>,
-  existing: KeyValueRow[],
-): KeyValueRow[] {
-  const pool = existing.slice();
-  return parsed.map((p) => {
-    const idx = pool.findIndex((r) => r.key === p.key);
-    const match = idx >= 0 ? pool[idx] : undefined;
-    if (idx >= 0) pool.splice(idx, 1);
-    return makeKvRow({
-      key: p.key,
-      value: p.value,
-      description: match?.description ?? '',
-      enabled: match?.enabled ?? true,
-      hasEquals: p.hasEquals,
-    });
-  });
-}
-
-function draftFromRequest(req: Request): Draft {
-  // Split any legacy `?…` suffix off of `req.url` into structured
-  // params so the editor's bidirectional URL↔Params sync has a clean
-  // base URL to work with. Existing `req.params` entries keep their
-  // metadata and are appended AFTER the URL-derived ones, preserving
-  // the visual order a user would expect (URL first, table after).
-  const parsed = parseUrlQuery(req.url);
-  const urlParams: KeyValueRow[] = parsed.params.map((p) =>
-    makeKvRow({ key: p.key, value: p.value, description: '', enabled: true, hasEquals: p.hasEquals }),
-  );
-  return {
-    method: req.method,
-    url: parsed.base,
-    description: req.description ?? '',
-    headers: headersFromRequest(req.headers),
-    params: [...urlParams, ...paramsFromRequest(req.params)],
-    auth: req.auth,
-    body: req.body,
-    credentialsMode: req.credentialsMode,
-    followRedirects: req.followRedirects,
-    preRequestScript: req.preRequestScript,
-    postResponseScript: req.postResponseScript,
-  };
-}
-
-function emptyDraft(): Draft {
-  return {
-    method: 'GET',
-    url: '',
-    description: '',
-    headers: [],
-    params: [],
-    auth: { type: 'inherit' },
-    body: { type: 'none' },
-  };
-}
-
-/** Pure projection: Draft → updateRequest payload. Used at save time
- *  AND for derived dirty / conflict baseline + form projection. One
- *  source of truth so dirty / save / conflict tracker all agree. */
-function buildRequestUpdates(draft: Draft): {
-  description: string | undefined;
-  method: HttpMethod;
-  url: string;
-  headers: RequestHeader[];
-  params: QueryParam[];
-  auth: AuthConfig;
-  body: RequestBody;
-  credentialsMode: CredentialsMode | undefined;
-  followRedirects: boolean | undefined;
-  preRequestScript: string | undefined;
-  postResponseScript: string | undefined;
-} {
-  return {
-    description: draft.description.trim() ? draft.description : undefined,
-    method: draft.method,
-    url: draft.url,
-    headers: rowsToHeaders(draft.headers),
-    params: rowsToParams(draft.params),
-    auth: draft.auth,
-    body: draft.body,
-    credentialsMode: draft.credentialsMode,
-    followRedirects: draft.followRedirects,
-    preRequestScript: draft.preRequestScript,
-    postResponseScript: draft.postResponseScript,
-  };
-}
-
-/** Project a live `Request` into the same shape `buildRequestUpdates`
- *  emits — fingerprint comparison stays apples-to-apples. */
-function canonicalRequestProjection(req: Request): ReturnType<typeof buildRequestUpdates> {
-  return buildRequestUpdates(draftFromRequest(req));
-}
-
-type TabKey = 'docs' | 'params' | 'authorization' | 'headers' | 'body' | 'scripts' | 'settings';
 
 // ── Component ──────────────────────────────────────────────────────
 
@@ -327,6 +142,11 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   const [sending, setSending] = useState(false);
   const [response, setResponse] = useState<ExecutedRequestSnapshot | null>(null);
 
+  // Request/response split orientation — global, persisted preference
+  // (see useRequestEditorLayout). `horizontal` = side-by-side,
+  // `vertical` = stacked.
+  const [layout, setLayout] = useRequestEditorLayout();
+
   // ── Live mirror integration ───────────────────────────────────
   //
   // Subscribe to broadcasts so concurrent commits land in `liveRequest`.
@@ -344,14 +164,6 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     return mirror.subscribeRequestMirror(requestUid, sync);
   }, [isCreateMode, requestUid, editingScopeWorkspaceId]);
 
-  // Resolvability gate for the Send button — mirrors the DNR compile
-  // gate for rules. The executor ALSO enforces this (returns an error
-  // snapshot when a resolve fails), but disabling the Send button up
-  // front is better UX: the user sees exactly which refs are broken
-  // (inline red-dashed mirror + Variables panel) and fixes them
-  // before clicking. Reserved namespaces (`{{file.X}}` / `{{dynamic.X}}`)
-  // are excluded from blocking per `isRequestResolvable`'s contract.
-  const requestResolver = useVariableResolver();
   const draftCollectionId = useMemo(() => {
     const path = summary?.path;
     if (!path) return undefined;
@@ -368,108 +180,13 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     () => ({ collectionId: draftCollectionId, workflowStep: workflowStepCtx }),
     [draftCollectionId, workflowStepCtx],
   );
-  // Per-section resolvability — one resolver walk per tab so the
-  // inline tab dots can flag exactly which section needs attention.
-  // Each entry returns `true` when at least one `{{ref}}` in that
-  // tab's strings fails to resolve (excluding reserved-namespace
-  // refs, which are always intentionally unresolved until those
-  // features ship).
-  const sectionUnresolved = useMemo(() => {
-    const context = draftCollectionId ? { collectionId: draftCollectionId } : undefined;
-    const flat = (name: string) => requestResolver.resolve(name, context);
-    const scoped = (name: string, ns: Parameters<typeof requestResolver.resolveScopedWithDiagnostics>[1]) =>
-      requestResolver.resolveScopedWithDiagnostics(name, ns, context);
-    const anyUnresolved = (strings: readonly string[]): boolean => {
-      for (const s of strings) {
-        if (!s) continue;
-        const { errors } = resolveTemplate(s, flat, scoped);
-        if (errors.some((e) => e.reason !== 'reserved-namespace')) return true;
-      }
-      return false;
-    };
-    const urlStrings = [draft.url];
-    const paramStrings: string[] = [];
-    for (const r of draft.params) {
-      if (r.enabled === false) continue;
-      if (r.key) paramStrings.push(r.key);
-      if (r.value) paramStrings.push(r.value);
-    }
-    const headerStrings: string[] = [];
-    for (const r of draft.headers) {
-      if (r.enabled === false) continue;
-      if (r.key) headerStrings.push(r.key);
-      if (r.value) headerStrings.push(r.value);
-    }
-    const authStrings: string[] = [];
-    const auth = draft.auth;
-    switch (auth.type) {
-      case 'basic':
-        if (auth.username) authStrings.push(auth.username);
-        if (auth.password) authStrings.push(auth.password);
-        break;
-      case 'bearer':
-        if (auth.token) authStrings.push(auth.token);
-        break;
-      case 'api-key':
-        if (auth.key) authStrings.push(auth.key);
-        if (auth.value) authStrings.push(auth.value);
-        break;
-    }
-    // Body walk — exhaustive over the discriminated union so an
-    // unresolved `{{ref}}` in a form / graphql variant is reflected
-    // in the section badge, not silently dropped. Mirrors the
-    // collector in `core/live/request-scan.ts`.
-    const bodyStrings: string[] = [];
-    const body = draft.body;
-    switch (body.type) {
-      case 'none':
-        break;
-      case 'json':
-      case 'xml':
-      case 'text':
-        if (body.content) bodyStrings.push(body.content);
-        break;
-      case 'graphql':
-        if (body.content) bodyStrings.push(body.content);
-        if (body.graphqlVariables) bodyStrings.push(body.graphqlVariables);
-        break;
-      case 'form':
-        for (const part of body.formParts) {
-          if (part.enabled === false) continue;
-          if (part.key) bodyStrings.push(part.key);
-          if (part.value) bodyStrings.push(part.value);
-        }
-        break;
-      case 'multipart':
-        for (const part of body.multipartParts) {
-          if (part.enabled === false) continue;
-          if (part.name) bodyStrings.push(part.name);
-          if (part.kind === 'text' && part.value) bodyStrings.push(part.value);
-        }
-        break;
-      default: {
-        const _exhaustive: never = body;
-        void _exhaustive;
-      }
-    }
-    return {
-      url: anyUnresolved(urlStrings),
-      params: anyUnresolved(paramStrings),
-      headers: anyUnresolved(headerStrings),
-      auth: anyUnresolved(authStrings),
-      body: anyUnresolved(bodyStrings),
-    };
-  }, [draft, draftCollectionId, requestResolver]);
 
-  // Aggregate flag — drives the Send button + tab-bar method greying.
-  // Equivalent to walking every string via `isRequestResolvable`;
-  // since `sectionUnresolved` already pays that cost, we just OR.
-  const hasUnresolvedRefs =
-    sectionUnresolved.url ||
-    sectionUnresolved.params ||
-    sectionUnresolved.headers ||
-    sectionUnresolved.auth ||
-    sectionUnresolved.body;
+  // Resolvability gate for the Send button — mirrors the DNR compile
+  // gate for rules. Disabling Send up front is better UX than letting
+  // the executor return an error snapshot: the user sees exactly which
+  // section's refs are broken (inline red-dashed mirror + tab dots) and
+  // fixes them before clicking.
+  const { sectionUnresolved, hasUnresolvedRefs } = useSectionUnresolved(draft, draftCollectionId);
 
   // Edit mode: load full request from SW. Create mode: nothing to load.
   const initializedUidRef = useRef<string | null>(null);
@@ -614,21 +331,6 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     for (const [path, conflict] of allConflicts) conflicts.acceptTheirs(path, conflict.theirs);
   }, [allConflicts, conflicts, liveRequest, projectWithResolutions]);
 
-  const applyResolutions = useCallback(
-    (resolutions: Map<string, ConflictResolution>) => {
-      if (!liveRequest) return;
-      const projected = projectWithResolutions(resolutions);
-      if (projected) setDraft(projected.draft);
-      for (const [path, choice] of resolutions) {
-        const conflict = allConflicts.get(path);
-        if (!conflict) continue;
-        if (choice === 'theirs') conflicts.acceptTheirs(path, conflict.theirs);
-        else conflicts.dismiss(path);
-      }
-    },
-    [allConflicts, conflicts, liveRequest, projectWithResolutions],
-  );
-
   // Phase 6 commit seam — parses the merge-editor's result YAML back
   // to a Request (siblings omitted: the merge surface only carries
   // `request.yaml`; body/variables/scripts round-trip outside this
@@ -679,12 +381,6 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     }
   }, [isConflictDialogOpen, liveRequest, draft]);
 
-  const conflictPathLabels = useMemo(
-    () =>
-      liveRequest ? prettyPathMap(requestResolveAdapter, liveRequest, allConflicts.keys()) : new Map<string, string>(),
-    [liveRequest, allConflicts],
-  );
-
   // Init: load full request from SW. The seed flow is:
   //   setLiveRequest → useReprime sees liveEntity → onPrimed advances
   //   the conflict baseline + primedFingerprint via auto-rebase
@@ -709,13 +405,14 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
 
   // ── Field focus publishing ───────────────────────────────────
   //
-  // EntityField wraps the URL + method inputs and publishes through
-  // `useSetActiveFieldFocus` directly. Per-row cells (Headers / Params)
-  // use the existing `data-field-path` ancestor scheme — the
-  // EditableGridTable shell tags each cell with the canonical schema
-  // path; this editor's onFocusCapture reads the path off the focused
-  // element and routes it through the same context. Order of
-  // precedence: EntityField (innermost capture wins) > sub-row marker.
+  // RequestUrlBar's EntityField wraps the URL + method inputs and
+  // publishes through `useSetActiveFieldFocus` directly. Per-row cells
+  // (Headers / Params) use the existing `data-field-path` ancestor
+  // scheme — the EditableGridTable shell tags each cell with the
+  // canonical schema path; this editor's onFocusCapture reads the path
+  // off the focused element and routes it through the same context.
+  // Order of precedence: EntityField (innermost capture wins) > sub-row
+  // marker.
   const setActiveFieldFocus = useSetActiveFieldFocus();
   const handleEditorFocusCapture = useCallback(
     (e: React.FocusEvent<HTMLDivElement>) => {
@@ -850,133 +547,21 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     );
   }
 
-  const methodColor = METHOD_COLORS[draft.method] ?? '#999';
+  const tabItems = buildRequestTabItems(draft, sectionUnresolved);
 
-  // Counters. Auto-gen header count is body-aware (Content-Type +
-  // Content-Length fall off when the body is `none`), so we derive it
-  // from the same predicate `HeadersTab` uses rather than hard-coding.
-  const paramCount = draft.params.filter((p) => p.enabled && p.key.trim()).length;
-  const autoHeaderCount = draft.body.type === 'none' ? 6 : 8;
-  const headerCount = autoHeaderCount + draft.headers.filter((h) => h.enabled && h.key.trim()).length;
-  const scriptsMark = (draft.preRequestScript?.trim() ? 1 : 0) + (draft.postResponseScript?.trim() ? 1 : 0);
-
-  // Settings is "dirty" if any wired knob differs from default
-  const settingsDirty =
-    draft.credentialsMode === 'include' || (draft.followRedirects !== undefined && draft.followRedirects !== true);
-
-  const tabItems = [
-    {
-      key: 'docs' as const,
-      label: 'Docs',
-    },
-    {
-      key: 'params' as const,
-      label: (
-        <span>
-          Params {paramCount > 0 && <TabCount n={paramCount} />}
-          {sectionUnresolved.params && <TabDot tone="error" />}
-        </span>
-      ),
-    },
-    {
-      key: 'authorization' as const,
-      label: (
-        <span>
-          Authorization
-          {sectionUnresolved.auth && <TabDot tone="error" />}
-        </span>
-      ),
-    },
-    {
-      key: 'headers' as const,
-      label: (
-        <span>
-          Headers <TabCount n={headerCount} />
-          {sectionUnresolved.headers && <TabDot tone="error" />}
-        </span>
-      ),
-    },
-    {
-      key: 'body' as const,
-      label: (
-        <span>
-          Body {sectionUnresolved.body ? <TabDot tone="error" /> : draft.body.type !== 'none' ? <TabDot /> : null}
-        </span>
-      ),
-    },
-    {
-      key: 'scripts' as const,
-      label: <span>Scripts {scriptsMark > 0 && <TabDot />}</span>,
-    },
-    {
-      key: 'settings' as const,
-      label: <span>Settings {settingsDirty && <TabDot />}</span>,
-    },
-  ];
-
-  const settingsValue: RequestSettingsDraft = {
-    credentialsMode: draft.credentialsMode,
-    followRedirects: draft.followRedirects,
-  };
-
-  // Header consolidates the full URL row: method select + URL input
-  // in the title (title has flex:1 so the URL input grows), Send in
-  // the actions slot, Save standardized on the right. No separate URL
-  // bar row below — frees ~40px of vertical space and puts the primary
+  // Header consolidates the full URL row: method select + URL input in
+  // the title (title has flex:1 so the URL input grows), Send in the
+  // actions slot, Save standardized on the right. No separate URL bar
+  // row below — frees ~40px of vertical space and puts the primary
   // interaction + save in a single line (request-name label dropped:
   // the tab pill already carries that identity).
   const headerTitle = (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
-      <EntityField path={REQUEST_PATHS.method}>
-        <Select
-          value={draft.method}
-          onChange={(method) => setDraft((d) => ({ ...d, method }))}
-          options={METHOD_OPTIONS}
-          size="small"
-          style={{ width: 96, flexShrink: 0 }}
-          popupMatchSelectWidth={false}
-          labelRender={({ label }) => (
-            <span style={{ fontWeight: 700, color: methodColor, fontSize: 12 }}>{label}</span>
-          )}
-        />
-      </EntityField>
-      <EntityField path={REQUEST_PATHS.url}>
-        <TemplateInput
-          value={buildUrlDisplay(draft.url, draftParamsToQueryParams(draft.params))}
-          onChange={(next) => {
-            const parsed = parseUrlQuery(next);
-            setDraft((d) => ({
-              ...d,
-              url: parsed.base,
-              params: mergeParamsFromUrl(parsed.params, d.params),
-            }));
-          }}
-          placeholder="Enter URL or paste text"
-          size="small"
-          status={sectionUnresolved.url ? 'error' : undefined}
-          style={{
-            flex: 1,
-            minWidth: 0,
-            fontFamily: "'SF Mono', monospace",
-            fontSize: 12,
-            // Fill the 24px min-height so the text sits on the vertical
-            // center. The component's default `lineHeight: 1.5714` combined
-            // with monospace metrics pushes glyphs slightly above center.
-            lineHeight: '22px',
-          }}
-          onPressEnter={() => void handleSend()}
-          onBlur={() => {
-            const trimmed = draft.url.trim();
-            if (trimmed.length > 0 && needsSchemeNormalization(trimmed)) {
-              const normalized = ensureScheme(trimmed);
-              if (normalized !== draft.url) {
-                setDraft((d) => ({ ...d, url: normalized }));
-              }
-            }
-          }}
-        />
-      </EntityField>
-    </div>
+    <RequestUrlBar
+      draft={draft}
+      setDraft={setDraft}
+      urlUnresolved={sectionUnresolved.url}
+      onSend={() => void handleSend()}
+    />
   );
 
   const headerActions = (
@@ -1042,53 +627,86 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
             </div>
           )}
 
-          {/* Editor / response split. The sub-tab bar (Docs · Params · …)
-            renders OUTSIDE the scroll container so it never participates
-            in scrolling — simpler + more robust than `position: sticky`,
-            and leaves child panes free to mount their own sticky rails
-            (e.g. the Authorization tab's auth-type picker) without
-            colliding with an outer sticky header. We pass empty `items`
-            to AntD Tabs so only the bar renders; the active pane is
-            rendered manually below inside its own scroller. */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-            <div style={{ flex: response ? '0 0 55%' : 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-              <div style={{ padding: '8px 16px 0' }}>
-                <Tabs
-                  size="small"
-                  activeKey={activeTab}
-                  onChange={(k) => setActiveTab(k as TabKey)}
-                  items={tabItems.map((item) => ({ key: item.key, label: item.label }))}
-                  className="rules-request-tabs"
-                  tabBarStyle={{ marginBottom: 0 }}
+          {/* Editor / response split. The response pane is always
+            attached so the user has a stable target before the first
+            Send (empty-state hint until then). The divider is a draggable
+            Allotment sash with per-pane minimums; orientation
+            (`horizontal` side-by-side / `vertical` stacked) is a global
+            persisted preference toggled from the Response header.
+
+            Allotment captures its orientation at mount and ignores later
+            `vertical` prop changes, so we remount on `layout` change via
+            `key` (same discipline as the workbench EditorGroupRenderer).
+
+            The sub-tab bar (Docs · Params · …) renders OUTSIDE the scroll
+            container so it never participates in scrolling — simpler +
+            more robust than `position: sticky`, and leaves child panes
+            free to mount their own sticky rails (e.g. the Authorization
+            tab's auth-type picker) without colliding with an outer sticky
+            header. */}
+          <div style={{ flex: 1, minHeight: 0 }}>
+            {/* Inherits the editor region's standard split seam — the same
+              6px colorBgLayout band the workbench paints between dock
+              panels / editor leaves — so the request/response divider
+              reads consistently with the rest of the shell. */}
+            <Allotment key={layout} vertical={layout === 'vertical'} proportionalLayout separator>
+              <Allotment.Pane minSize={layout === 'vertical' ? 140 : 320} preferredSize="55%">
+                <div
+                  className="rules-thin-scrollbar"
+                  style={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0 }}
+                >
+                  <div style={{ padding: '8px 16px 0' }}>
+                    <Tabs
+                      size="small"
+                      activeKey={activeTab}
+                      onChange={(k) => setActiveTab(k as TabKey)}
+                      items={tabItems}
+                      className="rules-request-tabs"
+                      tabBarStyle={{ marginBottom: 0 }}
+                    />
+                  </div>
+                  {/* Vertical padding rides on the inner wrapper, NOT the
+                    scroll container: a `position: sticky; top: 0` header
+                    inside (Params / Headers / Body tables) clips at the
+                    scroll container's padding box but pins at its content
+                    box, so a container `padding-top` leaves a gap above the
+                    header where scrolled rows bleed through. With the
+                    container's vertical padding at 0 the header pins flush
+                    to the scrollport top; the inner padding just scrolls
+                    away. */}
+                  <div style={{ flex: 1, overflow: 'auto', padding: '0 16px' }}>
+                    <div style={{ padding: '10px 0' }}>
+                      <RequestTabContent
+                        tab={activeTab}
+                        draft={draft}
+                        setDraft={setDraft}
+                        headerConflictBridge={isCreateMode ? undefined : headerConflictBridge}
+                        paramConflictBridge={isCreateMode ? undefined : paramConflictBridge}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </Allotment.Pane>
+              <Allotment.Pane minSize={layout === 'vertical' ? 120 : 280}>
+                <ResponsePanel
+                  response={response}
+                  sending={sending}
+                  layout={layout}
+                  onLayoutChange={setLayout}
+                  onClear={() => setResponse(null)}
+                  onExtractToWorkflow={
+                    mode === 'request-edit' && requestUid && onExtractToWorkflow
+                      ? (target) =>
+                          onExtractToWorkflow(target, {
+                            requestUid,
+                            requestName: summary?.name ?? 'Request',
+                            method: draft.method,
+                          })
+                      : undefined
+                  }
                 />
-              </div>
-              <div style={{ flex: 1, overflow: 'auto', padding: '10px 16px' }}>
-                <TabContent
-                  tab={activeTab}
-                  draft={draft}
-                  setDraft={setDraft}
-                  settingsValue={settingsValue}
-                  headerConflictBridge={isCreateMode ? undefined : headerConflictBridge}
-                  paramConflictBridge={isCreateMode ? undefined : paramConflictBridge}
-                />
-              </div>
-            </div>
-            {response && (
-              <ResponsePanel
-                response={response}
-                onClear={() => setResponse(null)}
-                onExtractToWorkflow={
-                  mode === 'request-edit' && requestUid && onExtractToWorkflow
-                    ? (target) =>
-                        onExtractToWorkflow(target, {
-                          requestUid,
-                          requestName: summary?.name ?? 'Request',
-                          method: draft.method,
-                        })
-                    : undefined
-                }
-              />
-            )}
+              </Allotment.Pane>
+            </Allotment>
           </div>
 
           <EntityConflictDialog
@@ -1105,410 +723,5 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     </EntityScopeProvider>
   );
 };
-
-// ── Tab content renderer ──────────────────────────────────────────
-
-const TabContent: React.FC<{
-  tab: TabKey;
-  draft: Draft;
-  setDraft: React.Dispatch<React.SetStateAction<Draft>>;
-  settingsValue: RequestSettingsDraft;
-  headerConflictBridge?: KeyValueRowConflictBridge;
-  paramConflictBridge?: KeyValueRowConflictBridge;
-}> = ({ tab, draft, setDraft, settingsValue, headerConflictBridge, paramConflictBridge }) => {
-  switch (tab) {
-    case 'docs':
-      return <DocsTab value={draft.description} onChange={(description) => setDraft((d) => ({ ...d, description }))} />;
-    case 'params':
-      return (
-        <ParamsTab
-          rows={draft.params}
-          onChange={(params) => setDraft((d) => ({ ...d, params }))}
-          conflictBridge={paramConflictBridge}
-        />
-      );
-    case 'authorization':
-      return <AuthorizationTab auth={draft.auth} onChange={(auth) => setDraft((d) => ({ ...d, auth }))} />;
-    case 'headers':
-      return (
-        <HeadersTab
-          rows={draft.headers}
-          onChange={(headers) => setDraft((d) => ({ ...d, headers }))}
-          body={draft.body}
-          conflictBridge={headerConflictBridge}
-        />
-      );
-    case 'body':
-      return <BodyTab body={draft.body} onChange={(body) => setDraft((d) => ({ ...d, body }))} />;
-    case 'scripts':
-      return (
-        <ScriptsTab
-          preRequestScript={draft.preRequestScript ?? ''}
-          postResponseScript={draft.postResponseScript ?? ''}
-          onPreRequestChange={(preRequestScript) => setDraft((d) => ({ ...d, preRequestScript }))}
-          onPostResponseChange={(postResponseScript) => setDraft((d) => ({ ...d, postResponseScript }))}
-        />
-      );
-    case 'settings':
-      return (
-        <SettingsTab
-          value={settingsValue}
-          onChange={(next) =>
-            setDraft((d) => ({
-              ...d,
-              credentialsMode: next.credentialsMode,
-              followRedirects: next.followRedirects,
-            }))
-          }
-        />
-      );
-  }
-};
-
-// ── Mini count badges on tab labels ───────────────────────────────
-
-const TabCount: React.FC<{ n: number }> = ({ n }) => {
-  const { token } = theme.useToken();
-  return (
-    <span
-      style={{
-        display: 'inline-block',
-        marginLeft: 4,
-        padding: '0 6px',
-        fontSize: 10,
-        fontWeight: 500,
-        color: token.colorTextSecondary,
-        background: token.colorFillSecondary,
-        borderRadius: 8,
-        lineHeight: '16px',
-      }}
-    >
-      {n}
-    </span>
-  );
-};
-
-/** Small colored dot shown on a tab label to flag that the section
- *  has content OR an unresolved `{{ref}}`. `tone='error'` renders in
- *  red to match the inline mirror + sidebar badge — orange is
- *  reserved for the unsaved/dirty state on the Save button. */
-const TabDot: React.FC<{ tone?: 'default' | 'error' }> = ({ tone = 'default' }) => {
-  const { token } = theme.useToken();
-  return (
-    <span
-      style={{
-        display: 'inline-block',
-        width: 6,
-        height: 6,
-        borderRadius: '50%',
-        background: tone === 'error' ? token.colorError : token.colorPrimary,
-        marginLeft: 4,
-        verticalAlign: 'middle',
-      }}
-    />
-  );
-};
-
-// ── Response panel ────────────────────────────────────────────────
-
-type ResponseTabKey = 'body' | 'headers' | 'assertions' | 'script-log';
-
-const ResponsePanel: React.FC<{
-  response: ExecutedRequestSnapshot;
-  onClear: () => void;
-  /**
-   * "Use response in workflow" action — when provided, renders a
-   * dropdown letting the user either create a new workflow draft with
-   * this request seeded as step 1, or attach this request as a new step
-   * to an existing workflow. Undefined when the request isn't yet
-   * saved (no stable uid to reference).
-   */
-  onExtractToWorkflow?: (target: 'new' | { workflowUid: string }) => void;
-}> = ({ response, onClear, onExtractToWorkflow }) => {
-  const { token } = theme.useToken();
-  // Pull the list of existing workflows so the Extract dropdown can
-  // offer "Attach to …" with a submenu of current workflows. Lightweight
-  // — the hook already reads the same listener the sidebar uses.
-  const { workflows: liveWorkflows } = useLiveWorkflows();
-  const scripts = response.scripts ?? null;
-  const assertions = scripts?.postResponse?.assertions ?? [];
-  const assertionsPassed = assertions.filter((a) => a.passed).length;
-  const assertionsFailed = assertions.length - assertionsPassed;
-  const preLog = scripts?.preRequest?.consoleLog ?? [];
-  const postLog = scripts?.postResponse?.consoleLog ?? [];
-  const hasScriptLog = preLog.length > 0 || postLog.length > 0;
-  const [activeTab, setActiveTab] = useState<ResponseTabKey>('body');
-
-  const statusColor =
-    response.error !== null
-      ? token.colorError
-      : response.status >= 500
-        ? token.colorError
-        : response.status >= 400
-          ? token.colorWarning
-          : response.status >= 200 && response.status < 300
-            ? token.colorSuccess
-            : token.colorTextSecondary;
-
-  return (
-    <div
-      style={{
-        flex: 1,
-        display: 'flex',
-        flexDirection: 'column',
-        minHeight: 0,
-        borderTop: `1px solid ${token.colorBorderSecondary}`,
-        background: token.colorBgLayout,
-      }}
-    >
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-          padding: '6px 16px',
-          borderBottom: `1px solid ${token.colorBorderSecondary}`,
-        }}
-      >
-        <Text strong style={{ fontSize: 12 }}>
-          Response
-        </Text>
-        {response.error ? (
-          <Tag color="error">{response.error}</Tag>
-        ) : (
-          <>
-            <Tag color="default" style={{ color: statusColor, borderColor: statusColor }}>
-              {response.status} {response.statusText}
-            </Tag>
-            <Text type="secondary" style={{ fontSize: 11 }}>
-              {response.durationMs} ms · {formatBytes(response.bodyBytes)}
-            </Text>
-          </>
-        )}
-        <div style={{ flex: 1 }} />
-        {onExtractToWorkflow && !response.error && (
-          <Dropdown
-            trigger={['click']}
-            menu={{
-              items: [
-                {
-                  key: 'new',
-                  icon: <ThunderboltOutlined />,
-                  label: 'Create new workflow',
-                  onClick: () => onExtractToWorkflow('new'),
-                },
-                {
-                  key: 'attach',
-                  icon: <ThunderboltOutlined />,
-                  label: 'Attach to existing workflow',
-                  disabled: liveWorkflows.length === 0,
-                  children:
-                    liveWorkflows.length === 0
-                      ? undefined
-                      : liveWorkflows.map((w) => ({
-                          key: `attach-${w.uid}`,
-                          label: w.name,
-                          onClick: () => onExtractToWorkflow({ workflowUid: w.uid }),
-                        })),
-                },
-              ],
-            }}
-          >
-            <Button size="small">
-              Use response in workflow <DownOutlined style={{ fontSize: 10 }} />
-            </Button>
-          </Dropdown>
-        )}
-        <Button size="small" type="text" onClick={onClear}>
-          Clear
-        </Button>
-      </div>
-      <Tabs
-        size="small"
-        activeKey={activeTab}
-        onChange={(k) => setActiveTab(k as ResponseTabKey)}
-        className="rules-response-tabs"
-        style={{ flex: 1, padding: '0 16px', display: 'flex', flexDirection: 'column', minHeight: 0 }}
-        items={[
-          {
-            key: 'body',
-            label: 'Body',
-            children: (
-              <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
-                {response.bodyTruncated && (
-                  <Text type="warning" style={{ fontSize: 11, display: 'block', marginBottom: 6 }}>
-                    Response truncated at {formatBytes(2 * 1024 * 1024)} (original {formatBytes(response.bodyBytes)}).
-                  </Text>
-                )}
-                <pre
-                  style={{
-                    fontFamily: "'SF Mono', 'Fira Code', monospace",
-                    fontSize: 12,
-                    margin: 0,
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word',
-                    color: token.colorText,
-                  }}
-                >
-                  {formatBody(response)}
-                </pre>
-              </div>
-            ),
-          },
-          {
-            key: 'headers',
-            label: `Headers (${response.headers.length})`,
-            children: (
-              <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
-                {response.headers.map((h) => (
-                  <div key={`${h.key}:${h.value}`} style={{ display: 'flex', gap: 8, fontSize: 11, padding: '2px 0' }}>
-                    <Text strong style={{ fontFamily: "'SF Mono', monospace", fontSize: 11, minWidth: 180 }}>
-                      {h.key}
-                    </Text>
-                    <Text
-                      style={{
-                        fontFamily: "'SF Mono', monospace",
-                        fontSize: 11,
-                        wordBreak: 'break-all',
-                        color: token.colorTextSecondary,
-                      }}
-                    >
-                      {h.value}
-                    </Text>
-                  </div>
-                ))}
-              </div>
-            ),
-          },
-          ...(assertions.length > 0
-            ? [
-                {
-                  key: 'assertions' as ResponseTabKey,
-                  label: `Assertions${assertionsFailed > 0 ? ` (${assertionsFailed} failed)` : assertionsPassed > 0 ? ` (${assertionsPassed} passed)` : ''}`,
-                  children: (
-                    <div style={{ flex: 1, overflow: 'auto', minHeight: 0, paddingTop: 4 }}>
-                      {assertions.map((a, idx) => (
-                        <div
-                          key={`${a.name}:${idx}`}
-                          style={{
-                            display: 'flex',
-                            gap: 8,
-                            fontSize: 12,
-                            padding: '4px 0',
-                            alignItems: 'flex-start',
-                          }}
-                        >
-                          <Tag color={a.passed ? 'success' : 'error'} style={{ marginInlineEnd: 0 }}>
-                            {a.passed ? 'PASS' : 'FAIL'}
-                          </Tag>
-                          <div style={{ flex: 1 }}>
-                            <Text>{a.name}</Text>
-                            {!a.passed && a.message && (
-                              <div>
-                                <Text type="secondary" style={{ fontSize: 11 }}>
-                                  {a.message}
-                                </Text>
-                              </div>
-                            )}
-                          </div>
-                          {typeof a.durationMs === 'number' && (
-                            <Text type="secondary" style={{ fontSize: 11 }}>
-                              {a.durationMs} ms
-                            </Text>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ),
-                },
-              ]
-            : []),
-          ...(hasScriptLog
-            ? [
-                {
-                  key: 'script-log' as ResponseTabKey,
-                  label: `Console (${preLog.length + postLog.length})`,
-                  children: (
-                    <div style={{ flex: 1, overflow: 'auto', minHeight: 0, paddingTop: 4 }}>
-                      {preLog.length > 0 && (
-                        <>
-                          <Text strong style={{ fontSize: 11 }}>
-                            Pre-request
-                          </Text>
-                          <ScriptLogList entries={preLog} />
-                        </>
-                      )}
-                      {postLog.length > 0 && (
-                        <>
-                          <Text strong style={{ fontSize: 11 }}>
-                            Post-response
-                          </Text>
-                          <ScriptLogList entries={postLog} />
-                        </>
-                      )}
-                    </div>
-                  ),
-                },
-              ]
-            : []),
-        ]}
-      />
-    </div>
-  );
-};
-
-const ScriptLogList: React.FC<{ entries: import('@openheaders/core/scripts').ScriptConsoleEntry[] }> = ({
-  entries,
-}) => {
-  const { token } = theme.useToken();
-  const color = (level: string): string =>
-    level === 'error'
-      ? token.colorError
-      : level === 'warn'
-        ? token.colorWarning
-        : level === 'debug'
-          ? token.colorTextTertiary
-          : token.colorTextSecondary;
-  return (
-    <div style={{ marginBottom: 8 }}>
-      {entries.map((e, idx) => (
-        <div
-          key={`${e.timeMs}:${idx}`}
-          style={{
-            display: 'flex',
-            gap: 8,
-            fontFamily: "'SF Mono', monospace",
-            fontSize: 11,
-            padding: '2px 0',
-            alignItems: 'flex-start',
-          }}
-        >
-          <Text style={{ color: token.colorTextTertiary, minWidth: 48 }}>{e.timeMs}ms</Text>
-          <Text style={{ color: color(e.level), minWidth: 44, textTransform: 'uppercase' }}>{e.level}</Text>
-          <Text style={{ color: token.colorText, wordBreak: 'break-all' }}>{e.args.join(' ')}</Text>
-        </div>
-      ))}
-    </div>
-  );
-};
-
-function formatBody(resp: ExecutedRequestSnapshot): string {
-  if (!resp.body) return '(empty body)';
-  const ct = resp.headers.find((h) => h.key.toLowerCase() === 'content-type')?.value ?? '';
-  if (ct.includes('json')) {
-    try {
-      return JSON.stringify(JSON.parse(resp.body), null, 2);
-    } catch {
-      return resp.body;
-    }
-  }
-  return resp.body;
-}
-
-function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
-}
 
 export default RequestEditor;

@@ -344,7 +344,11 @@ export function EditableGridTable<Row>({
           display: 'grid',
           gridTemplateColumns: gridTemplate,
           alignItems: 'center',
-          background: token.colorFillAlter,
+          // Opaque sticky header: composite the alpha header tint over the
+          // panel background so scrolled rows can't bleed through it.
+          // `colorFillAlter` alone is semi-transparent and lets content
+          // show through as the rows pass behind.
+          background: `linear-gradient(${token.colorFillAlter}, ${token.colorFillAlter}), ${token.colorBgContainer}`,
           borderBottom: `1px solid ${token.colorBorderSecondary}`,
           fontSize: 12,
           fontWeight: 500,
