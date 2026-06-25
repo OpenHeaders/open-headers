@@ -32,6 +32,14 @@ html, body, #root {
   height: 100%;
   margin: 0;
   padding: 0;
+  // Pin the workbench to the viewport: `.rules-shell` is a fixed
+  // 100vh/100vw shell that owns ALL scrolling in its inner containers,
+  // so the root must never scroll. `overflow: hidden` removes any
+  // document scrollbar; `overscroll-behavior: none` kills the macOS
+  // elastic rubber-band so a scroll gesture that overshoots can't drag
+  // the whole page and expose white gutters past the content edges.
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 // ThemeContext writes `--oh-ui-font-family` on :root from the active
