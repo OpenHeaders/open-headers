@@ -21,7 +21,7 @@ import ParamsTab from '@openheaders/ui/workbench/components/request-editor/Param
 // reads workbench settings via `useSyncExternalStore`; the schema
 // barrel registers default values so tests don't crash on first read.
 import '@openheaders/ui/workbench/settings/schema';
-import type { RequestBody } from '@openheaders/core/types';
+import type { AuthConfig, RequestBody } from '@openheaders/core/types';
 import { cleanup, render } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -48,11 +48,12 @@ function row(uid: string, key: string, value: string): KeyValueRow {
 }
 
 const NO_BODY: RequestBody = { type: 'none' };
+const NO_AUTH: AuthConfig = { type: 'none' };
 
 describe('ParamsTab — per-row data-field-path', () => {
   it('wraps each cell with params.<uid>.<leaf>', () => {
     const rows: KeyValueRow[] = [row('aaaaaaaa', 'q', '1'), row('bbbbbbbb', 'r', '2')];
-    const { container } = render(<ParamsTab rows={rows} onChange={vi.fn()} />);
+    const { container } = render(<ParamsTab rows={rows} onChange={vi.fn()} auth={NO_AUTH} />);
     const wrappers = container.querySelectorAll<HTMLElement>('[data-field-path^="params."]');
     const paths = Array.from(wrappers).map((el) => el.dataset.fieldPath ?? '');
     expect(paths).toContain('params.aaaaaaaa.key');
@@ -64,7 +65,7 @@ describe('ParamsTab — per-row data-field-path', () => {
 
   it('focus-capture target inside a value cell resolves to params.<uid>.value', () => {
     const rows: KeyValueRow[] = [row('aaaaaaaa', 'q', '1')];
-    const { container } = render(<ParamsTab rows={rows} onChange={vi.fn()} />);
+    const { container } = render(<ParamsTab rows={rows} onChange={vi.fn()} auth={NO_AUTH} />);
     const wrapper = container.querySelector<HTMLElement>('[data-field-path="params.aaaaaaaa.value"]');
     expect(wrapper).not.toBeNull();
     const innerFocusable = wrapper?.querySelector<HTMLElement>('[contenteditable],input,textarea');
@@ -76,7 +77,7 @@ describe('ParamsTab — per-row data-field-path', () => {
 describe('HeadersTab — per-row data-field-path', () => {
   it('wraps each cell with headers.<uid>.<leaf>', () => {
     const rows: KeyValueRow[] = [row('cccccccc', 'X-Token', 'abc'), row('dddddddd', 'X-Trace', 'xyz')];
-    const { container } = render(<HeadersTab rows={rows} onChange={vi.fn()} body={NO_BODY} />);
+    const { container } = render(<HeadersTab rows={rows} onChange={vi.fn()} body={NO_BODY} auth={NO_AUTH} />);
     const wrappers = container.querySelectorAll<HTMLElement>('[data-field-path^="headers."]');
     const paths = Array.from(wrappers).map((el) => el.dataset.fieldPath ?? '');
     expect(paths).toContain('headers.cccccccc.key');
@@ -87,7 +88,7 @@ describe('HeadersTab — per-row data-field-path', () => {
 
   it('focus on the key cell resolves to headers.<uid>.key', () => {
     const rows: KeyValueRow[] = [row('cccccccc', 'X-Token', 'abc')];
-    const { container } = render(<HeadersTab rows={rows} onChange={vi.fn()} body={NO_BODY} />);
+    const { container } = render(<HeadersTab rows={rows} onChange={vi.fn()} body={NO_BODY} auth={NO_AUTH} />);
     const wrapper = container.querySelector<HTMLElement>('[data-field-path="headers.cccccccc.key"]');
     expect(wrapper).not.toBeNull();
     // Key cell renders a rich `TemplateInput` (contentEditable) for
@@ -103,7 +104,7 @@ describe('HeadersTab — per-row data-field-path', () => {
     // The cell wrappers tag the ghost with paths against that synthetic
     // uid; once the user types the ghost materializes with the same uid.
     const rows: KeyValueRow[] = [row('cccccccc', 'X-Token', 'abc')];
-    const { container } = render(<HeadersTab rows={rows} onChange={vi.fn()} body={NO_BODY} />);
+    const { container } = render(<HeadersTab rows={rows} onChange={vi.fn()} body={NO_BODY} auth={NO_AUTH} />);
     const allHeaderPaths = Array.from(container.querySelectorAll<HTMLElement>('[data-field-path^="headers."]')).map(
       (el) => el.dataset.fieldPath ?? '',
     );

@@ -16,11 +16,12 @@
  */
 
 import { EyeInvisibleOutlined, EyeOutlined, InfoCircleOutlined } from '@ant-design/icons';
-import type { RequestBody } from '@openheaders/core/types';
+import type { AuthConfig, RequestBody } from '@openheaders/core/types';
 import { Button, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
 import { REQUEST_PATHS } from '@openheaders/ui/shared/awareness';
+import { previewAuthContributions } from './auth-preview';
 import KeyValueTable, {
   type KeyValueRow,
   type KeyValueRowConflictBridge,
@@ -120,11 +121,13 @@ interface HeadersTabProps {
   onChange: (rows: KeyValueRow[]) => void;
   /** Needed so `Content-Type` / `Content-Length` only show when a body exists. */
   body: RequestBody;
+  /** Drives the auth-derived `Authorization` preview row. */
+  auth: AuthConfig;
   /** Inline conflict chips for header cells + set-remove rows. */
   conflictBridge?: KeyValueRowConflictBridge;
 }
 
-const HeadersTab: React.FC<HeadersTabProps> = ({ rows, onChange, body, conflictBridge }) => {
+const HeadersTab: React.FC<HeadersTabProps> = ({ rows, onChange, body, auth, conflictBridge }) => {
   const { token } = theme.useToken();
   const [showAuto, setShowAuto] = useState(false);
   const [disabledAutoKeys, setDisabledAutoKeys] = useState<Set<string>>(new Set());
@@ -143,13 +146,30 @@ const HeadersTab: React.FC<HeadersTabProps> = ({ rows, onChange, body, conflictB
     });
   };
 
-  const suggestions: SuggestionRow[] = autoHeaders.map((h) => ({
+  // Auth-derived rows are always visible (locked, no toggle — they're
+  // configured from the Authorization tab and always go on the wire), so
+  // the user sees the synthesized `Authorization` header the moment they
+  // pick an auth type. The browser-managed auto-headers stay behind the
+  // Show/Hide toggle since they're environment noise the user rarely cares
+  // about.
+  const authHeaders = useMemo(() => previewAuthContributions(auth).headers, [auth]);
+
+  const authSuggestions: SuggestionRow[] = authHeaders.map((h) => ({
+    key: h.key,
+    value: h.value,
+    hint: h.hint,
+    enabled: true,
+  }));
+  const browserSuggestions: SuggestionRow[] = autoHeaders.map((h) => ({
     key: h.key,
     value: h.value,
     hint: h.hint,
     enabled: !disabledAutoKeys.has(h.key),
-    onToggle: (next) => toggleAutoKey(h.key, next),
+    onToggle: (next: boolean) => toggleAutoKey(h.key, next),
   }));
+  const suggestions: SuggestionRow[] = showAuto
+    ? [...authSuggestions, ...browserSuggestions]
+    : authSuggestions;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -165,7 +185,7 @@ const HeadersTab: React.FC<HeadersTabProps> = ({ rows, onChange, body, conflictB
             onClick={() => setShowAuto((s) => !s)}
             style={{ color: token.colorTextSecondary, fontSize: 12 }}
           >
-            {showAuto ? 'Hide auto-generated headers' : `${autoHeaders.length} hidden`}
+            {showAuto ? 'Hide auto-generated headers' : `${browserSuggestions.length} hidden`}
           </Button>
           {showAuto && (
             <Tooltip title="These headers will be automatically added and sent with the request. Click the info icon on a row for per-header detail.">
@@ -179,7 +199,7 @@ const HeadersTab: React.FC<HeadersTabProps> = ({ rows, onChange, body, conflictB
         onChange={onChange}
         keyPlaceholder="Header"
         valuePlaceholder="Value"
-        suggestionRows={showAuto ? suggestions : []}
+        suggestionRows={suggestions}
         bulkEdit={{
           serialize: headerRowsToText,
           parse: headerTextToRows,

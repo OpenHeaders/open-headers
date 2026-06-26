@@ -64,7 +64,10 @@ export interface SuggestionRow {
   hint?: string;
   /** Current enable state — toggled by the row's checkbox. */
   enabled: boolean;
-  onToggle: (next: boolean) => void;
+  /** Omit for a locked, always-applied preview row (e.g. an
+   *  auth-derived `Authorization` header) — the checkbox renders
+   *  disabled since the row can't be toggled off from here. */
+  onToggle?: (next: boolean) => void;
 }
 
 /**
@@ -578,11 +581,12 @@ export function EditableGridTable<Row>({
                   <input
                     type="checkbox"
                     checked={s.enabled}
-                    onChange={(e) => s.onToggle(e.target.checked)}
+                    disabled={!s.onToggle}
+                    onChange={(e) => s.onToggle?.(e.target.checked)}
                     style={{
                       width: 14,
                       height: 14,
-                      cursor: 'pointer',
+                      cursor: s.onToggle ? 'pointer' : 'default',
                       opacity: s.enabled ? 0.65 : 1,
                     }}
                   />

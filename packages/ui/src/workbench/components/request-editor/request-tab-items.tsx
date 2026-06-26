@@ -7,6 +7,7 @@
 
 import { theme } from 'antd';
 import type React from 'react';
+import { previewAuthContributions } from './auth-preview';
 import type { Draft } from './draft';
 import type { SectionUnresolved } from './useSectionUnresolved';
 
@@ -62,9 +63,15 @@ export function buildRequestTabItems(
   draft: Draft,
   sectionUnresolved: SectionUnresolved,
 ): { key: TabKey; label: React.ReactNode }[] {
-  const paramCount = draft.params.filter((p) => p.enabled && p.key.trim()).length;
-  const autoHeaderCount = draft.body.type === 'none' ? 6 : 8;
-  const headerCount = autoHeaderCount + draft.headers.filter((h) => h.enabled && h.key.trim()).length;
+  // Header badge counts the rows the user actually owns — their enabled
+  // header rows plus the auth-derived `Authorization` row (shown locked
+  // at the top of the table). The browser-managed auto-headers are NOT
+  // counted: they're environment noise revealed behind the "N hidden"
+  // toggle, not the user's own headers. Params likewise count user rows
+  // plus any auth credential that rides on the URL.
+  const authContrib = previewAuthContributions(draft.auth);
+  const paramCount = authContrib.params.length + draft.params.filter((p) => p.enabled && p.key.trim()).length;
+  const headerCount = authContrib.headers.length + draft.headers.filter((h) => h.enabled && h.key.trim()).length;
   const scriptsMark = (draft.preRequestScript?.trim() ? 1 : 0) + (draft.postResponseScript?.trim() ? 1 : 0);
   // Settings is "dirty" if any wired knob differs from default.
   const settingsDirty =
@@ -94,7 +101,7 @@ export function buildRequestTabItems(
       key: 'headers',
       label: (
         <span>
-          Headers <TabCount n={headerCount} />
+          Headers {headerCount > 0 && <TabCount n={headerCount} />}
           {sectionUnresolved.headers && <TabDot tone="error" />}
         </span>
       ),

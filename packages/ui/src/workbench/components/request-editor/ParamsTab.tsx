@@ -8,13 +8,17 @@
  * (`key:value` lines; `//` disables, ` # …` trailing description).
  */
 
+import type { AuthConfig } from '@openheaders/core/types';
 import { Typography } from 'antd';
 import type React from 'react';
+import { useMemo } from 'react';
 import { REQUEST_PATHS } from '@openheaders/ui/shared/awareness';
+import { previewAuthContributions } from './auth-preview';
 import KeyValueTable, {
   type KeyValueRow,
   type KeyValueRowConflictBridge,
   makeKvRow,
+  type SuggestionRow,
 } from './KeyValueTable';
 
 const { Text } = Typography;
@@ -22,6 +26,9 @@ const { Text } = Typography;
 interface ParamsTabProps {
   rows: KeyValueRow[];
   onChange: (rows: KeyValueRow[]) => void;
+  /** Drives the auth-derived query-param preview (API Key / OAuth 2.0
+   *  configured to send the credential on the URL). */
+  auth: AuthConfig;
   /** Inline conflict chips for param cells + set-remove rows. */
   conflictBridge?: KeyValueRowConflictBridge;
 }
@@ -64,7 +71,20 @@ function annotateHasEquals(rows: KeyValueRow[]): KeyValueRow[] {
   return rows.map((r) => (r.value !== '' && !r.hasEquals ? { ...r, hasEquals: true } : r));
 }
 
-const ParamsTab: React.FC<ParamsTabProps> = ({ rows, onChange, conflictBridge }) => {
+const ParamsTab: React.FC<ParamsTabProps> = ({ rows, onChange, auth, conflictBridge }) => {
+  // Locked, always-visible preview rows for an auth credential that rides
+  // on the URL (API Key → Query Params, OAuth 2.0 → Request URL). Unlike
+  // Headers there are no browser-managed auto-params to hide, so the auth
+  // row shows directly — no Show/Hide toggle. The executor always appends
+  // them; they're configured from the Authorization tab.
+  const authParams = useMemo(() => previewAuthContributions(auth).params, [auth]);
+  const suggestions: SuggestionRow[] = authParams.map((p) => ({
+    key: p.key,
+    value: p.value,
+    hint: p.hint,
+    enabled: true,
+  }));
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <Text strong style={{ fontSize: 13 }}>
@@ -75,6 +95,7 @@ const ParamsTab: React.FC<ParamsTabProps> = ({ rows, onChange, conflictBridge })
         onChange={(next) => onChange(annotateHasEquals(next))}
         keyPlaceholder="Key"
         valuePlaceholder="Value"
+        suggestionRows={suggestions}
         bulkEdit={{
           serialize: rowsToText,
           parse: textToRows,

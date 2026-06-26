@@ -39,6 +39,7 @@ const RequestTabContent: React.FC<RequestTabContentProps> = ({
         <ParamsTab
           rows={draft.params}
           onChange={(params) => setDraft((d) => ({ ...d, params }))}
+          auth={draft.auth}
           conflictBridge={paramConflictBridge}
         />
       );
@@ -50,6 +51,7 @@ const RequestTabContent: React.FC<RequestTabContentProps> = ({
           rows={draft.headers}
           onChange={(headers) => setDraft((d) => ({ ...d, headers }))}
           body={draft.body}
+          auth={draft.auth}
           conflictBridge={headerConflictBridge}
         />
       );
