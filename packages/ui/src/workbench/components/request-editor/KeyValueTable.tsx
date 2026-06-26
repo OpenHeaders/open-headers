@@ -107,6 +107,35 @@ const KeyValueTable: React.FC<KeyValueTableProps> = ({
 }) => {
   const { token } = theme.useToken();
 
+  // Every cell (Key / Value / Description) is the same rich field: a
+  // borderless `TemplateInput` with `{{ref}}` highlighting that shows an
+  // ellipsis when idle and expands to a word-wrapped, auto-growing
+  // editor on focus (`expandOnFocus`) — so long values are editable
+  // without a horizontal scrollbar. They differ only by which field
+  // they read/write + the placeholder.
+  const cellRenderer =
+    (get: (r: KeyValueRow) => string, set: (r: KeyValueRow, v: string) => KeyValueRow, placeholder: string) =>
+    (
+      row: KeyValueRow,
+      update: (next: KeyValueRow) => void,
+      ctx: { isPlaceholder: boolean; dim: boolean; expanded: boolean },
+    ) => (
+      <TemplateInput
+        variant="borderless"
+        expandOnFocus
+        expanded={ctx.expanded}
+        value={get(row)}
+        placeholder={placeholder}
+        onChange={(next) => update(set(row, next))}
+        style={{
+          ...cellFont,
+          flex: 1,
+          padding: '4px 6px',
+          color: ctx.dim ? token.colorTextQuaternary : token.colorText,
+        }}
+      />
+    );
+
   return (
     <EditableGridTable<KeyValueRow>
       rows={rows}
@@ -118,19 +147,20 @@ const KeyValueTable: React.FC<KeyValueTableProps> = ({
       bulkEdit={bulkEdit}
       rowPath={rowPath}
       conflictBridge={conflictBridge}
-      renderValueCell={(row, update, ctx) => (
-        <TemplateInput
-          variant="borderless"
-          value={row.value}
-          placeholder={valuePlaceholder}
-          onChange={(next) => update({ ...row, value: next })}
-          style={{
-            ...cellFont,
-            flex: 1,
-            padding: '4px 6px',
-            color: ctx.dim ? token.colorTextQuaternary : token.colorText,
-          }}
-        />
+      renderKeyCell={cellRenderer(
+        (r) => r.key,
+        (r, v) => ({ ...r, key: v }),
+        keyPlaceholder,
+      )}
+      renderValueCell={cellRenderer(
+        (r) => r.value,
+        (r, v) => ({ ...r, value: v }),
+        valuePlaceholder,
+      )}
+      renderDescriptionCell={cellRenderer(
+        (r) => r.description ?? '',
+        (r, v) => ({ ...r, description: v }),
+        'Description',
       )}
     />
   );

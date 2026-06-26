@@ -61,6 +61,22 @@ export interface TemplateInputProps {
   /** When true, render a multiline surface. Default false — single-line
    *  (Enter is swallowed, newlines are stripped from paste). */
   multiline?: boolean;
+  /** When true, keep single-line SEMANTICS (no literal newlines) but
+   *  switch the DISPLAY on focus: collapsed (blurred) shows one line
+   *  with an ellipsis; focused word-wraps the value and auto-grows up to
+   *  `maxRows` lines, then inner-scrolls. Used in dense table cells so a
+   *  long value is comfortably editable without a horizontal scrollbar.
+   *  Ignored when `multiline` is set. */
+  expandOnFocus?: boolean;
+  /** Controlled override for `expandOnFocus`'s expanded state. When set,
+   *  it drives the collapsed/expanded display instead of the field's own
+   *  focus — lets a parent expand a whole group of fields together (e.g.
+   *  every cell in a table row expands when any one of them is focused).
+   *  Undefined → falls back to the field's own focus. */
+  expanded?: boolean;
+  /** Row cap for `expandOnFocus`'s grown editor before it inner-scrolls.
+   *  Default 5. */
+  maxRows?: number;
   /** Placeholder. Rendered via a `::before` pseudo when the field is empty. */
   placeholder?: string;
   /** Mirrors AntD `Input` size prop — tunes the editable's padding. */
@@ -230,6 +246,9 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       onChange,
       suggestionContext,
       multiline = false,
+      expandOnFocus = false,
+      expanded,
+      maxRows = 5,
       placeholder = '',
       size = 'middle',
       variant = 'outlined',
@@ -644,6 +663,15 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
     const focusShadow =
       status === 'error' ? `0 0 0 2px ${token.colorErrorBorderHover}` : `0 0 0 2px ${token.controlOutline}`;
 
+    // Wrapped, growable surface: always for `multiline`, or for an
+    // `expandOnFocus` field while it's active. "Active" is the controlled
+    // `expanded` prop when supplied (so a row can expand all its cells
+    // together), else the field's own focus. Collapsed-ellipsis is the
+    // inactive state of an `expandOnFocus` field.
+    const expandActive = expanded ?? isFocused;
+    const displayExpanded = multiline || (expandOnFocus && expandActive);
+    const displayCollapsed = expandOnFocus && !expandActive;
+
     const editableStyle: React.CSSProperties = {
       minHeight: sizeMinHeight,
       padding: sizePadding,
@@ -658,15 +686,21 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       cursor: 'text',
       width: '100%',
       boxSizing: 'border-box',
-      whiteSpace: multiline ? 'pre-wrap' : 'pre',
-      overflowX: multiline ? 'hidden' : 'auto',
-      overflowY: multiline ? 'auto' : 'hidden',
-      // Single-line fields scroll horizontally to keep the caret in view
-      // (like a native <input>) but must NOT show a scrollbar — otherwise
-      // the value cell sprouts a bar that the sibling native Key /
-      // Description inputs can't have. Multiline keeps its vertical bar.
-      scrollbarWidth: multiline ? undefined : 'none',
-      wordBreak: multiline ? 'break-word' : 'normal',
+      // Display mode (separate from `multiline` newline SEMANTICS):
+      //   - expanded → word-wrap + vertical scroll (multiline surface,
+      //     or an expand-on-focus field while it has focus)
+      //   - collapsed-ellipsis → one line, clipped with an ellipsis
+      //     (an expand-on-focus field while blurred)
+      //   - default single-line → one line, horizontal caret-scroll
+      whiteSpace: displayExpanded ? 'pre-wrap' : displayCollapsed ? 'nowrap' : 'pre',
+      overflowX: displayExpanded || displayCollapsed ? 'hidden' : 'auto',
+      overflowY: displayExpanded ? 'auto' : 'hidden',
+      textOverflow: displayCollapsed ? 'ellipsis' : undefined,
+      // Auto-grow cap for the focused expand-on-focus editor: ~maxRows
+      // lines (lineHeight 1.5714) + a little padding allowance; past it
+      // the surface inner-scrolls.
+      maxHeight: expandOnFocus && expandActive ? `${(maxRows * 1.5714 + 0.9).toFixed(2)}em` : undefined,
+      wordBreak: displayExpanded ? 'break-word' : 'normal',
       transition: 'border-color 0.2s, box-shadow 0.2s',
       boxShadow: isFocused && variant !== 'borderless' ? focusShadow : undefined,
       ...style,
@@ -676,7 +710,7 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       <span className={`oh-template-input-wrapper${className ? ` ${className}` : ''}`}>
         <div
           ref={mergedRef}
-          className={`oh-template-input-editable${multiline ? '' : ' oh-template-input-singleline'}${secret ? ' oh-template-input-secret' : ''}`}
+          className={`oh-template-input-editable${secret ? ' oh-template-input-secret' : ''}`}
           contentEditable
           suppressContentEditableWarning
           role="combobox"

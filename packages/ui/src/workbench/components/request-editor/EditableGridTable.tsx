@@ -49,9 +49,10 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { Button, Checkbox, Input, Popover, Tooltip, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { ConflictDiffChip, SetRowConflictChip } from '@openheaders/ui/shared/awareness';
 import type { PathConflict } from '@openheaders/ui/shared/conflicts/types';
+import { GRID_RESIZING_BODY_CLASS, type ResizableColumn, useGridColumnResize } from './use-grid-column-resize';
 
 /** Read-only informational row rendered above user rows — e.g. Headers'
  *  browser-managed auto-generated entries. Not draggable, not part of
@@ -106,7 +107,23 @@ export interface EditableGridTableProps<Row> {
   renderValueCell: (
     row: Row,
     update: (next: Row) => void,
-    context: { isPlaceholder: boolean; dim: boolean },
+    context: { isPlaceholder: boolean; dim: boolean; expanded: boolean },
+  ) => React.ReactNode;
+  /** Optional override for the Key cell's control. Same contract as
+   *  `renderValueCell` — when omitted the shell renders a plain
+   *  `<Input>`. Callers that want a rich field (e.g. `TemplateInput`
+   *  for `{{ref}}` highlighting + a scrollable overflow) pass this. */
+  renderKeyCell?: (
+    row: Row,
+    update: (next: Row) => void,
+    context: { isPlaceholder: boolean; dim: boolean; expanded: boolean },
+  ) => React.ReactNode;
+  /** Optional override for the Description cell's control. Same
+   *  contract as `renderValueCell`; omit for the default `<Input>`. */
+  renderDescriptionCell?: (
+    row: Row,
+    update: (next: Row) => void,
+    context: { isPlaceholder: boolean; dim: boolean; expanded: boolean },
   ) => React.ReactNode;
   keyPlaceholder?: string;
   hideEnabled?: boolean;
@@ -157,19 +174,31 @@ export interface KeyValueRowConflictBridge {
   onDismiss(path: string): void;
 }
 
-// `minmax(0, 1fr)` (not a fixed px floor) so the columns flex DOWN to
-// fit a narrow pane instead of forcing a table wider than its container.
-// A px floor (e.g. `minmax(180px, 1fr)`) sums to a hard ~620px minimum
-// for three columns, which overflows the side-by-side request pane and
-// drags the whole tab (heading + clipped border) into a horizontal
-// scroll. Every cell already sets `min-width: 0`, so the inputs shrink
-// with their column and scroll their own overflow internally.
-const DEFAULT_COLUMN_WIDTH = 'minmax(0, 1fr)';
+// Smallest a flex column shrinks to — also the resize-drag floor. Kept
+// low so the default (all flex) still fits the narrow side-by-side
+// request pane: 3 × MIN + the ~80px fixed columns stays under its ~288px
+// content width, so columns flex to fit instead of forcing a horizontal
+// scroll (the 180px floor this replaced summed to a ~620px hard minimum
+// that overflowed). The min also stops a column vanishing when its
+// neighbours are dragged wide.
+const RESIZE_MIN_WIDTH = 50;
+
+// `minmax(MIN, 1fr)` flex track for a column with no user resize. Every
+// cell sets `min-width: 0`, so inputs shrink with their column and
+// scroll their own overflow internally.
+const DEFAULT_COLUMN_WIDTH = `minmax(${RESIZE_MIN_WIDTH}px, 1fr)`;
 
 const cellFont: React.CSSProperties = {
   fontFamily: "'SF Mono', 'Fira Code', monospace",
   fontSize: 12,
 };
+
+// One collapsed-cell line height (matches the cell field's middle
+// minHeight). Rows top-align (`align-items: start`) so an expanded cell's
+// first line lines up with its siblings; giving the small leading/
+// trailing controls this min-height keeps them on that first line
+// instead of floating to the top of a grown row.
+const ROW_CONTROL_HEIGHT = 32;
 
 // Column-header label cell. `min-width: 0` + ellipsis so the label
 // truncates within its (possibly narrow) flex column instead of
@@ -215,6 +244,31 @@ if (typeof document !== 'undefined' && !document.getElementById(STYLE_ID)) {
 .editable-grid-menu-item:hover {
   background: var(--ant-color-fill-tertiary, rgba(0, 0, 0, 0.04));
 }
+.editable-grid-col-resizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 8px;
+  cursor: col-resize;
+  user-select: none;
+  touch-action: none;
+  z-index: 3;
+}
+.editable-grid-col-resizer:hover::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  right: 0;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--ant-color-primary, #1677ff);
+}
+body.${GRID_RESIZING_BODY_CLASS} {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
   `;
   document.head.appendChild(style);
 }
@@ -224,6 +278,8 @@ export function EditableGridTable<Row>({
   onChange,
   adapter,
   renderValueCell,
+  renderKeyCell,
+  renderDescriptionCell,
   keyPlaceholder = 'Key',
   hideEnabled = false,
   suggestionRows = [],
@@ -238,22 +294,63 @@ export function EditableGridTable<Row>({
   const [showValueColumn, setShowValueColumn] = useState(true);
   const [showDescriptionColumn, setShowDescriptionColumn] = useState(true);
   const [optionsOpen, setOptionsOpen] = useState(false);
+  const resize = useGridColumnResize(RESIZE_MIN_WIDTH);
+
+  // Ordered visible flex columns. The LAST one always flexes (absorbs
+  // the remaining width); only the columns before it carry a resize
+  // handle + an optional px override.
+  const flexColumns = useMemo<ResizableColumn[]>(() => {
+    const cols: ResizableColumn[] = ['key'];
+    if (showValueColumn) cols.push('value');
+    if (showDescriptionColumn) cols.push('description');
+    return cols;
+  }, [showValueColumn, showDescriptionColumn]);
+  const lastFlexColumn = flexColumns[flexColumns.length - 1];
+
+  // Table container — its client width is the visible budget a resize
+  // must fit within (measured live at drag start).
+  const tableContainerRef = useRef<HTMLDivElement>(null);
+  const fixedColumnsWidth = 20 + (hideEnabled ? 0 : 28) + 32;
+  // The most a dragged column can grow before the OTHER columns would be
+  // squeezed under their minimums (fixed columns at their size, already-
+  // resized columns at their px, remaining flex columns at MIN). Beyond
+  // this the table would overflow, so the drag clamps here instead.
+  const columnResizeMax = useCallback(
+    (dragged: ResizableColumn) => {
+      let othersMin = fixedColumnsWidth;
+      for (const c of flexColumns) {
+        if (c === dragged) continue;
+        const isResized = c !== lastFlexColumn && resize.widths[c] != null;
+        othersMin += isResized ? (resize.widths[c] as number) : RESIZE_MIN_WIDTH;
+      }
+      const avail = tableContainerRef.current?.clientWidth ?? Number.POSITIVE_INFINITY;
+      return avail - othersMin;
+    },
+    [fixedColumnsWidth, flexColumns, lastFlexColumn, resize.widths],
+  );
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  // Compute grid template from current visibility + custom widths.
+  // Compute grid template from visibility + caller widths + user resize
+  // overrides. A non-last column with a drag override becomes a fixed px
+  // track; everything else keeps its flex track so the last column
+  // absorbs the remaining width.
   const gridTemplate = useMemo(() => {
+    const trackFor = (col: ResizableColumn) => {
+      if (col !== lastFlexColumn && resize.widths[col] != null) return `${resize.widths[col]}px`;
+      return columnWidths?.[col] ?? DEFAULT_COLUMN_WIDTH;
+    };
     const parts: string[] = ['20px'];
     if (!hideEnabled) parts.push('28px');
-    parts.push(columnWidths?.key ?? DEFAULT_COLUMN_WIDTH);
-    if (showValueColumn) parts.push(columnWidths?.value ?? DEFAULT_COLUMN_WIDTH);
-    if (showDescriptionColumn) parts.push(columnWidths?.description ?? DEFAULT_COLUMN_WIDTH);
+    parts.push(trackFor('key'));
+    if (showValueColumn) parts.push(trackFor('value'));
+    if (showDescriptionColumn) parts.push(trackFor('description'));
     parts.push('32px');
     return parts.join(' ');
-  }, [hideEnabled, showValueColumn, showDescriptionColumn, columnWidths]);
+  }, [hideEnabled, showValueColumn, showDescriptionColumn, columnWidths, resize.widths, lastFlexColumn]);
 
   // Persistent empty ghost row: materializes as soon as the user types
   // into any cell and a fresh ghost appears below.
@@ -390,8 +487,37 @@ export function EditableGridTable<Row>({
     </div>
   );
 
+  // Header label cell + (for every flex column except the last) a
+  // draggable resizer at its right edge. The drag rewrites the shared
+  // grid template, so all rows reflow together; double-click resets the
+  // column to its flex default.
+  const renderHeaderLabel = (col: ResizableColumn, label: string, withBorder: boolean) => (
+    <span
+      ref={resize.registerHeaderRef(col)}
+      style={{
+        ...headerLabelStyle,
+        position: 'relative',
+        ...(withBorder ? { borderLeft: `1px solid ${token.colorBorderSecondary}` } : null),
+      }}
+    >
+      {label}
+      {col !== lastFlexColumn && (
+        // biome-ignore lint/a11y/noStaticElementInteractions: pointer-drag-only resize affordance
+        <span
+          className="editable-grid-col-resizer"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label={`Resize ${label} column`}
+          onPointerDown={(e) => resize.beginResize(e, col, columnResizeMax(col))}
+          onDoubleClick={() => resize.resetColumn(col)}
+        />
+      )}
+    </span>
+  );
+
   return (
     <div
+      ref={tableContainerRef}
       style={{
         border: `1px solid ${token.colorBorderSecondary}`,
         borderRadius: 4,
@@ -421,15 +547,9 @@ export function EditableGridTable<Row>({
       >
         <span />
         {!hideEnabled && <span />}
-        <span style={headerLabelStyle}>Key</span>
-        {showValueColumn && (
-          <span style={{ ...headerLabelStyle, borderLeft: `1px solid ${token.colorBorderSecondary}` }}>Value</span>
-        )}
-        {showDescriptionColumn && (
-          <span style={{ ...headerLabelStyle, borderLeft: `1px solid ${token.colorBorderSecondary}` }}>
-            Description
-          </span>
-        )}
+        {renderHeaderLabel('key', 'Key', false)}
+        {showValueColumn && renderHeaderLabel('value', 'Value', true)}
+        {showDescriptionColumn && renderHeaderLabel('description', 'Description', true)}
         {trailingActionsCell}
       </div>
 
@@ -550,6 +670,8 @@ export function EditableGridTable<Row>({
                     showDescriptionColumn={showDescriptionColumn}
                     keyPlaceholder={keyPlaceholder}
                     renderValueCell={renderValueCell}
+                    renderKeyCell={renderKeyCell}
+                    renderDescriptionCell={renderDescriptionCell}
                     rowPath={rowPath}
                     conflictBridge={conflictBridge}
                     isPersisted={!isPlaceholder}
@@ -576,6 +698,8 @@ interface SortableEditableRowProps<Row> {
   showDescriptionColumn: boolean;
   keyPlaceholder: string;
   renderValueCell: EditableGridTableProps<Row>['renderValueCell'];
+  renderKeyCell?: EditableGridTableProps<Row>['renderKeyCell'];
+  renderDescriptionCell?: EditableGridTableProps<Row>['renderDescriptionCell'];
   rowPath?: EditableGridTableProps<Row>['rowPath'];
   conflictBridge?: KeyValueRowConflictBridge;
   /** True for materialized rows (not the trailing ghost). Conflict
@@ -596,6 +720,8 @@ function SortableEditableRow<Row>({
   showDescriptionColumn,
   keyPlaceholder,
   renderValueCell,
+  renderKeyCell,
+  renderDescriptionCell,
   rowPath,
   conflictBridge,
   isPersisted,
@@ -638,10 +764,16 @@ function SortableEditableRow<Row>({
   const enabled = adapter.getEnabled(row);
   const dim = !enabled || isPlaceholder;
 
+  // Row-level expand: focusing any cell expands EVERY cell in the row
+  // (each grows to its own content) so the whole row is readable while
+  // editing — not just the focused cell. Collapses back to ellipses when
+  // focus leaves the row entirely.
+  const [rowFocused, setRowFocused] = useState(false);
+
   const style: React.CSSProperties = {
     display: 'grid',
     gridTemplateColumns: gridTemplate,
-    alignItems: 'center',
+    alignItems: 'start',
     borderBottom: `1px solid ${token.colorBorderSecondary}`,
     transform: CSS.Transform.toString(transform),
     transition,
@@ -650,7 +782,15 @@ function SortableEditableRow<Row>({
   };
 
   return (
-    <div ref={setNodeRef} style={style} className="editable-grid-row">
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="editable-grid-row"
+      onFocusCapture={() => setRowFocused(true)}
+      onBlurCapture={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setRowFocused(false);
+      }}
+    >
       <span
         {...(isPlaceholder ? {} : attributes)}
         {...(isPlaceholder ? {} : listeners)}
@@ -659,6 +799,7 @@ function SortableEditableRow<Row>({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
+          minHeight: ROW_CONTROL_HEIGHT,
           cursor: isPlaceholder ? 'default' : 'grab',
           color: token.colorTextTertiary,
           fontSize: 12,
@@ -668,7 +809,14 @@ function SortableEditableRow<Row>({
         <HolderOutlined />
       </span>
       {!hideEnabled && (
-        <span style={{ textAlign: 'center' }}>
+        <span
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: ROW_CONTROL_HEIGHT,
+          }}
+        >
           <input
             type="checkbox"
             checked={enabled}
@@ -682,19 +830,25 @@ function SortableEditableRow<Row>({
         data-field-path={rowPath ? rowPath(id, 'key') : undefined}
         style={{ display: 'flex', alignItems: 'center', minWidth: 0, gap: 4 }}
       >
-        <Input
-          variant="borderless"
-          value={localKey}
-          placeholder={keyPlaceholder}
-          onChange={(e) => onUpdate(adapter.setKey(row, e.target.value))}
-          style={{
-            ...cellFont,
-            padding: '4px 10px',
-            flex: 1,
-            minWidth: 0,
-            color: dim ? token.colorTextQuaternary : token.colorText,
-          }}
-        />
+        {renderKeyCell ? (
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center' }}>
+            {renderKeyCell(row, onUpdate, { isPlaceholder, dim, expanded: rowFocused })}
+          </div>
+        ) : (
+          <Input
+            variant="borderless"
+            value={localKey}
+            placeholder={keyPlaceholder}
+            onChange={(e) => onUpdate(adapter.setKey(row, e.target.value))}
+            style={{
+              ...cellFont,
+              padding: '4px 10px',
+              flex: 1,
+              minWidth: 0,
+              color: dim ? token.colorTextQuaternary : token.colorText,
+            }}
+          />
+        )}
         {keyConflict && conflictBridge && keyPath && (
           <ConflictDiffChip
             theirs={keyConflict.theirs}
@@ -722,7 +876,7 @@ function SortableEditableRow<Row>({
           }}
         >
           <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center' }}>
-            {renderValueCell(row, onUpdate, { isPlaceholder, dim })}
+            {renderValueCell(row, onUpdate, { isPlaceholder, dim, expanded: rowFocused })}
           </div>
           {valueConflict && conflictBridge && valuePath && (
             <ConflictDiffChip
@@ -757,19 +911,25 @@ function SortableEditableRow<Row>({
             gap: 4,
           }}
         >
-          <Input
-            variant="borderless"
-            value={localDescription}
-            placeholder="Description"
-            onChange={(e) => onUpdate(adapter.setDescription(row, e.target.value))}
-            style={{
-              padding: '4px 10px',
-              fontSize: 12,
-              flex: 1,
-              minWidth: 0,
-              color: dim ? token.colorTextQuaternary : token.colorText,
-            }}
-          />
+          {renderDescriptionCell ? (
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center' }}>
+              {renderDescriptionCell(row, onUpdate, { isPlaceholder, dim, expanded: rowFocused })}
+            </div>
+          ) : (
+            <Input
+              variant="borderless"
+              value={localDescription}
+              placeholder="Description"
+              onChange={(e) => onUpdate(adapter.setDescription(row, e.target.value))}
+              style={{
+                padding: '4px 10px',
+                fontSize: 12,
+                flex: 1,
+                minWidth: 0,
+                color: dim ? token.colorTextQuaternary : token.colorText,
+              }}
+            />
+          )}
           {descConflict && conflictBridge && descPath && (
             <ConflictDiffChip
               theirs={descConflict.theirs}
@@ -785,7 +945,15 @@ function SortableEditableRow<Row>({
           )}
         </div>
       )}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'flex-end',
+          minHeight: ROW_CONTROL_HEIGHT,
+          gap: 4,
+        }}
+      >
         {setRowConflict && conflictBridge && (
           <SetRowConflictChip
             baseSummary={setRowConflict.base}

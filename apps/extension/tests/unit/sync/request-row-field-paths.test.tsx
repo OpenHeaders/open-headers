@@ -90,7 +90,9 @@ describe('HeadersTab — per-row data-field-path', () => {
     const { container } = render(<HeadersTab rows={rows} onChange={vi.fn()} body={NO_BODY} />);
     const wrapper = container.querySelector<HTMLElement>('[data-field-path="headers.cccccccc.key"]');
     expect(wrapper).not.toBeNull();
-    const innerInput = wrapper?.querySelector<HTMLInputElement>('input');
+    // Key cell renders a rich `TemplateInput` (contentEditable) for
+    // Params/Headers — accept either it or a plain input.
+    const innerInput = wrapper?.querySelector<HTMLElement>('[contenteditable],input,textarea');
     expect(readFieldPath(innerInput ?? null)).toBe('headers.cccccccc.key');
   });
 
