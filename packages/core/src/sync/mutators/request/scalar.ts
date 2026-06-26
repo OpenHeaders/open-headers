@@ -7,14 +7,17 @@
  * factories into one — a posture the established catalogs reach for
  * when the per-path body is identical save for the path string itself.
  *
- * `auth` and `body` are scalars here even though both are
- * discriminated unions on disk. Per `types.ts`'s rationale: per-field
- * LWW within a variant would need branch-aware paths the catalog
- * can't know in advance, so whole-object replacement is the v1
- * contract. Concurrent two-surface body-form-part edits collapse to
- * last-writer-wins on the whole `body`. The editor surface is the
- * single producer today; sub-field LWW lands as a Phase B+ wrinkle
- * if a multi-surface request editor ships.
+ * `auth` and `body` are listed as scalar paths even though both are
+ * discriminated unions on disk — this factory is the generic single-
+ * path setter, so a caller MAY hand either a whole new variant value.
+ * The request write-path builder (`request-mutations` `buildUpdateBatch`)
+ * does NOT take that route: it routes object-valued scalars through
+ * `synthesizeFieldDiff`, emitting a per-leaf flatten-diff that mirrors
+ * create's granularity. A whole-object `setField('auth', …)` would
+ * collide with the create-time `auth.type` leaf and let the stale
+ * discriminant clobber the edit at materialize time. Per-leaf
+ * PERSISTENCE is live; per-leaf CONFLICT tracking inside the variants
+ * stays deferred (SYNC_ENGINE_STATUS.md §427).
  */
 
 import type { MutatorContext, MutatorIntent } from '../types';

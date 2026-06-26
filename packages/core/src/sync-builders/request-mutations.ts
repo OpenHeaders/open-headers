@@ -28,18 +28,18 @@
  */
 
 import {
-  mintBatch,
   type MutationBatch,
   type MutationBody,
+  type MutatorContext,
+  mintBatch,
   REQUEST_ENTITY_TYPE,
   REQUEST_HEADERS_PATH,
   REQUEST_PARAMS_PATH,
-  type MutatorContext,
   type SideEffectIntent,
 } from '@openheaders/core/sync';
+import { type LiveSetEntry, synthesizeFieldDiff, synthesizeSetDiff } from '@openheaders/core/sync-builders';
 import type { Request } from '@openheaders/core/types';
 import { seedRequest } from './request-projection';
-import { type LiveSetEntry, synthesizeSetDiff } from '@openheaders/core/sync-builders';
 
 export interface RequestMutationPayload {
   batch: MutationBatch;
@@ -54,10 +54,17 @@ export interface RequestMutationPayload {
  * one pass. SW + renderer both satisfy this — see
  * `oracle.liveOrderedSetItems` and `RequestSyncMirror.liveOrderedSetItems`.
  */
-export type LiveSetEntries = (
-  requestUid: string,
-  setPath: string,
-) => ReadonlyArray<LiveSetEntry>;
+export type LiveSetEntries = (requestUid: string, setPath: string) => ReadonlyArray<LiveSetEntry>;
+
+/**
+ * Current materialized value reader for object-valued scalar paths
+ * (`auth`, `body`). Threaded as the baseline for {@link synthesizeFieldDiff}
+ * so a variant switch tombstones the leaves that vanish. Returns
+ * `undefined` when the path has no live value yet — the diff then emits
+ * `setField` for every new leaf and no `unsetField`. SW + renderer both
+ * satisfy this from their canonical request snapshot.
+ */
+export type LiveFieldValue = (requestUid: string, path: string) => unknown;
 
 /** New request → seed batch. No side effects. */
 export function buildAddBatch(request: Request, ctx: MutatorContext): RequestMutationPayload {
@@ -92,14 +99,20 @@ const isSetPath = (key: string): SetPath | null =>
  * tombstone an itemId we didn't observe; a concurrent
  * `removeFromSet(itemId)` is idempotent under tombstone HLC compare.
  *
- * `auth` and `body` flow through `setField` — they're variant scalars
- * by §request-mutator-catalog v1 trade-off (see catalog `types.ts`).
+ * `auth` and `body` are discriminated unions flattened to per-leaf paths
+ * at create time (`auth.type`, `body.content`, …). A whole-object
+ * `setField` at `auth` would collide with those create-time leaves and
+ * let the stale discriminant clobber the edit at materialize time — so
+ * object-valued scalars route through {@link synthesizeFieldDiff}, which
+ * mirrors create's granularity and tombstones leaves that vanish on a
+ * variant switch. `liveFieldValue` supplies the diff baseline.
  */
 export function buildUpdateBatch(
   requestUid: string,
   updates: Partial<Omit<Request, 'uid' | 'path'>>,
   ctx: MutatorContext,
   liveSetEntries: LiveSetEntries,
+  liveFieldValue: LiveFieldValue,
 ): RequestMutationPayload {
   const bodies: MutationBody[] = [];
 
@@ -115,6 +128,21 @@ export function buildUpdateBatch(
           path: setPath,
           live: liveSetEntries(requestUid, setPath),
           newItems: value,
+        }),
+      );
+      continue;
+    }
+
+    // Object/array-valued scalars (`auth`, `body`) — emit a per-leaf
+    // flatten-diff so the edit shares create's representation.
+    if (value !== null && typeof value === 'object') {
+      bodies.push(
+        ...synthesizeFieldDiff({
+          type: REQUEST_ENTITY_TYPE,
+          id: requestUid,
+          basePath: key,
+          oldValue: liveFieldValue(requestUid, key),
+          newValue: value,
         }),
       );
       continue;

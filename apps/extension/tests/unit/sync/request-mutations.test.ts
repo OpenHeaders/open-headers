@@ -9,16 +9,19 @@
  *   - unchanged → emit nothing
  */
 
-import {
-  type AddToSetMutation,
-  type MoveBeforeMutation,
-  type MutationBody,
-  REQUEST_HEADERS_PATH,
-  type RemoveFromSetMutation,
-  type MutatorContext,
+import type {
+  AddToSetMutation,
+  MoveBeforeMutation,
+  MutationBody,
+  MutatorContext,
+  RemoveFromSetMutation,
 } from '@openheaders/core/sync';
+import {
+  buildUpdateBatch,
+  type LiveFieldValue,
+  type LiveSetEntries,
+} from '@openheaders/core/sync-builders/request-mutations';
 import { describe, expect, it } from 'vitest';
-import { buildUpdateBatch, type LiveSetEntries } from '@openheaders/core/sync-builders/request-mutations';
 
 const ctx: MutatorContext = {
   workspaceId: 'ws-1',
@@ -31,6 +34,10 @@ const liveOf =
   (entries: ReadonlyArray<{ itemId: string; orderKey: string; item: unknown }>): LiveSetEntries =>
   () =>
     entries;
+
+// These cases only touch set-modeled paths, so the field-diff baseline
+// is never consulted.
+const noFields: LiveFieldValue = () => undefined;
 
 const header = (uid: string, key: string, value: string) => ({ uid, key, value, enabled: true });
 
@@ -53,7 +60,7 @@ describe('buildUpdateBatch — request set replacement', () => {
     const updates = {
       headers: [header('h2', 'X-B', 'b'), header('h1', 'X-A', 'a'), header('h3', 'X-C', 'c')],
     };
-    const { batch } = buildUpdateBatch('rq', updates, ctx, liveOf(live));
+    const { batch } = buildUpdateBatch('rq', updates, ctx, liveOf(live), noFields);
     const bodies = batch.mutations.map((m) => m.body);
     expect(bodies.length).toBeGreaterThan(0);
     expect(onlyMoves(bodies).length).toBe(bodies.length);
@@ -70,7 +77,7 @@ describe('buildUpdateBatch — request set replacement', () => {
     const updates = {
       headers: [header('h1', 'X-A', 'a'), header('h2', 'X-B', 'b')],
     };
-    const { batch } = buildUpdateBatch('rq', updates, ctx, liveOf(live));
+    const { batch } = buildUpdateBatch('rq', updates, ctx, liveOf(live), noFields);
     expect(batch.mutations).toHaveLength(0);
   });
 
@@ -82,7 +89,7 @@ describe('buildUpdateBatch — request set replacement', () => {
     const updates = {
       headers: [header('h1', 'X-A', 'a'), header('h2', 'X-B', 'EDITED')],
     };
-    const { batch } = buildUpdateBatch('rq', updates, ctx, liveOf(live));
+    const { batch } = buildUpdateBatch('rq', updates, ctx, liveOf(live), noFields);
     const bodies = batch.mutations.map((m) => m.body);
     // Only the changed row emits an addToSet; the unchanged row emits nothing.
     expect(bodies).toHaveLength(1);
@@ -103,7 +110,7 @@ describe('buildUpdateBatch — request set replacement', () => {
       // h2 vanishes; h3 is new; h1 stays unchanged.
       headers: [header('h1', 'X-A', 'a'), header('h3', 'X-C', 'c')],
     };
-    const { batch } = buildUpdateBatch('rq', updates, ctx, liveOf(live));
+    const { batch } = buildUpdateBatch('rq', updates, ctx, liveOf(live), noFields);
     const bodies = batch.mutations.map((m) => m.body);
     const removes = onlyRemoves(bodies);
     const adds = onlyAdds(bodies);
@@ -124,7 +131,7 @@ describe('buildUpdateBatch — request set replacement', () => {
       // h3 moves to front, h2 content edit, h1 unchanged.
       headers: [header('h3', 'X-C', 'c'), header('h2', 'X-B', 'EDITED'), header('h1', 'X-A', 'a')],
     };
-    const { batch } = buildUpdateBatch('rq', updates, ctx, liveOf(live));
+    const { batch } = buildUpdateBatch('rq', updates, ctx, liveOf(live), noFields);
     const bodies = batch.mutations.map((m) => m.body);
     // Architectural invariant 1: no tombstones — content change rides
     // per-itemId LWW, so the explicit removeFromSet is redundant.
@@ -148,7 +155,7 @@ describe('buildUpdateBatch — request set replacement', () => {
     const updates = {
       headers: [header('h1', 'X-A', 'a'), header('h2', 'X-B', 'b')],
     };
-    const { batch } = buildUpdateBatch('rq', updates, ctx, liveOf(live));
+    const { batch } = buildUpdateBatch('rq', updates, ctx, liveOf(live), noFields);
     for (const add of onlyAdds(batch.mutations.map((m) => m.body))) {
       expect(add.orderKey).toBeDefined();
       expect(typeof add.orderKey).toBe('string');
@@ -167,7 +174,7 @@ describe('buildUpdateBatch — request set replacement', () => {
     const updates = {
       headers: [header('h3', 'X-C', 'c'), header('h1', 'X-A', 'a'), header('h2', 'X-B', 'b')],
     };
-    const { batch } = buildUpdateBatch('rq', updates, ctx, liveOf(live));
+    const { batch } = buildUpdateBatch('rq', updates, ctx, liveOf(live), noFields);
     const bodies = batch.mutations.map((m) => m.body);
     expect(bodies).toHaveLength(1);
     expect(bodies[0].kind).toBe('moveBefore');
@@ -196,7 +203,7 @@ describe('buildUpdateBatch — request set replacement', () => {
         header('h1', 'X-1', '1'),
       ],
     };
-    const { batch } = buildUpdateBatch('rq', updates, ctx, liveOf(live));
+    const { batch } = buildUpdateBatch('rq', updates, ctx, liveOf(live), noFields);
     const bodies = batch.mutations.map((m) => m.body);
     expect(bodies).toHaveLength(1);
     expect(bodies[0].kind).toBe('moveBefore');

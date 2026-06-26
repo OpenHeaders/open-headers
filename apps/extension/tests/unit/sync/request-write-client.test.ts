@@ -37,14 +37,13 @@ vi.mock('@utils/logger', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
+import { REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
+import type { RendererContextHandle, RequestSyncMirror } from '@openheaders/ui/context';
 import {
   applyRequestCreate,
   applyRequestDelete,
   applyRequestUpdate,
 } from '@openheaders/ui/shared/sync/request-write-client';
-import { REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { RequestSyncMirror } from '@openheaders/ui/context';
-import type { RendererContextHandle } from '@openheaders/ui/context';
 
 type LiveOrdered = Array<{ itemId: string; orderKey: string }>;
 
@@ -54,9 +53,7 @@ function makeMirror(request: Request, ordered: Record<string, LiveOrdered>): Req
       uid === request.uid
         ? {
             request,
-            setItemIds: Object.fromEntries(
-              Object.entries(ordered).map(([k, v]) => [k, v.map((e) => e.itemId)]),
-            ),
+            setItemIds: Object.fromEntries(Object.entries(ordered).map(([k, v]) => [k, v.map((e) => e.itemId)])),
             setOrderKeys: ordered,
           }
         : null,
@@ -219,9 +216,24 @@ describe('applyRequestUpdate — set-modeled paths via shared synthesizer', () =
     const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
     const removes = batch.mutations.map((m) => m.body).filter((b) => b.kind === 'removeFromSet');
     const adds = batch.mutations.map((m) => m.body).filter((b): b is AddToSetMutation => b.kind === 'addToSet');
-    expect(removes.map((r) => 'itemId' in r ? r.itemId : '')).toEqual(['h2']);
+    expect(removes.map((r) => ('itemId' in r ? r.itemId : ''))).toEqual(['h2']);
     expect(adds.map((a) => a.itemId)).toEqual(['h3']);
     expect(typeof adds[0].orderKey).toBe('string');
+  });
+
+  it('emits a per-leaf auth diff (not a whole-object setField) when switching the variant', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    // baseRequest seeds `auth: { type: 'none' }`; switch it to basic.
+    const mirror = makeMirror(baseRequest([]), {});
+    await applyRequestUpdate(
+      'rq-1',
+      { auth: { type: 'basic', username: 'u', password: 'p' } },
+      { workspaceId: 'ws-1', surfaceId: 'workbench', mirror, context: makeContextHandle() },
+    );
+    const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
+    const paths = batch.mutations.map((m) => (m.body.kind === 'setField' ? m.body.path : m.body.kind));
+    expect(paths).not.toContain('auth');
+    expect(paths).toEqual(expect.arrayContaining(['auth.type', 'auth.username', 'auth.password']));
   });
 
   it('returns not-found when the mirror has no entry for the request', async () => {

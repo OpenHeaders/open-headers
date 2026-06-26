@@ -12,11 +12,9 @@
  * call the imperative functions directly with an explicit workspace id.
  */
 
+import { buildAddBatch, buildDeleteBatch, buildUpdateBatch } from '@openheaders/core/sync-builders/request-mutations';
 import type { Request } from '@openheaders/core/types';
-import {
-  getRequestSyncMirrorForWorkspace,
-  type RequestSyncMirror,
-} from '../../context/request-sync-mirror';
+import { getRequestSyncMirrorForWorkspace, type RequestSyncMirror } from '../../context/request-sync-mirror';
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,
@@ -24,11 +22,6 @@ import {
   resolveRendererContext,
   type SyncSimpleResult,
 } from './apply-payload';
-import {
-  buildAddBatch,
-  buildDeleteBatch,
-  buildUpdateBatch,
-} from '@openheaders/core/sync-builders/request-mutations';
 
 export type RequestUpdates = Partial<Omit<Request, 'uid' | 'path' | 'schemaVersion'>>;
 
@@ -68,17 +61,31 @@ export async function applyRequestUpdate(
   // canonical request snapshot to find each row's content via uid
   // lookup. The diff-detect needs `(itemId, orderKey, item)` triplets to
   // distinguish pure-reorder from content edits.
-  const payload = buildUpdateBatch(requestUid, updates, ctx, (uid, path) => {
-    const orderKeys = mirror.liveOrderedSetItems(uid, path);
-    if (orderKeys.length === 0) return [];
-    const snap = mirror.getRequestMirror(uid)?.request;
-    const rows: ReadonlyArray<{ uid: string }> | undefined =
-      snap && path === 'headers' ? snap.headers : snap && path === 'params' ? snap.params : undefined;
-    if (!rows) return orderKeys.map((e) => ({ itemId: e.itemId, orderKey: e.orderKey, item: undefined }));
-    const byUid = new Map<string, unknown>();
-    for (const row of rows) byUid.set(row.uid, row);
-    return orderKeys.map((e) => ({ itemId: e.itemId, orderKey: e.orderKey, item: byUid.get(e.itemId) }));
-  });
+  const payload = buildUpdateBatch(
+    requestUid,
+    updates,
+    ctx,
+    (uid, path) => {
+      const orderKeys = mirror.liveOrderedSetItems(uid, path);
+      if (orderKeys.length === 0) return [];
+      const snap = mirror.getRequestMirror(uid)?.request;
+      const rows: ReadonlyArray<{ uid: string }> | undefined =
+        snap && path === 'headers' ? snap.headers : snap && path === 'params' ? snap.params : undefined;
+      if (!rows) return orderKeys.map((e) => ({ itemId: e.itemId, orderKey: e.orderKey, item: undefined }));
+      const byUid = new Map<string, unknown>();
+      for (const row of rows) byUid.set(row.uid, row);
+      return orderKeys.map((e) => ({ itemId: e.itemId, orderKey: e.orderKey, item: byUid.get(e.itemId) }));
+    },
+    // Baseline for the auth / body per-leaf flatten-diff — the live
+    // materialized variant, read from the same canonical snapshot.
+    (uid, path) => {
+      const snap = mirror.getRequestMirror(uid)?.request;
+      if (!snap) return undefined;
+      if (path === 'auth') return snap.auth;
+      if (path === 'body') return snap.body;
+      return undefined;
+    },
+  );
   const ack = await applySyncPayload(payload);
   if (ack.ok) {
     return { ok: true, request: { ...entry.request, ...updates } as Request };
@@ -90,19 +97,13 @@ export async function applyRequestUpdate(
 /** Seed a brand-new request through the oracle. Caller mints the full
  *  `Request` shape; the helper handles the create + per-row addToSet
  *  envelopes via the projection layer. */
-export async function applyRequestCreate(
-  request: Request,
-  opts: RequestWriteOptions,
-): Promise<RequestSimpleResult> {
+export async function applyRequestCreate(request: Request, opts: RequestWriteOptions): Promise<RequestSimpleResult> {
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildAddBatch(request, ctx);
   return applySyncPayload(payload);
 }
 
-export async function applyRequestDelete(
-  requestUid: string,
-  opts: RequestWriteOptions,
-): Promise<RequestSimpleResult> {
+export async function applyRequestDelete(requestUid: string, opts: RequestWriteOptions): Promise<RequestSimpleResult> {
   const mirror = resolveMirror(opts, getRequestSyncMirrorForWorkspace);
   await mirror.hydrated;
   if (!mirror.getRequestMirror(requestUid)) return { ok: false, reason: 'not-found' };

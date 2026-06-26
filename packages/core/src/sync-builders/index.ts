@@ -8,6 +8,10 @@
  */
 
 export {
+  type FieldDiffArgs,
+  synthesizeFieldDiff,
+} from './field-diff';
+export {
   type LiveSetEntry,
   type SetDiffArgs,
   synthesizeSetDiff,

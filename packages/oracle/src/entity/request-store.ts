@@ -453,11 +453,22 @@ export async function updateRequest(
 
   // SW-side oracle exposes `(itemId, item, key)`; adapt to the
   // `LiveSetEntries` shape (`orderKey` rename) so the diff-detect can
-  // compute `moveBefore` against fractional keys.
-  const payload = buildUpdateBatch(uid, updates, ctx, (requestUid, setPath) =>
-    oracle
-      .liveOrderedSetItems(REQUEST_ENTITY_TYPE, requestUid, setPath)
-      .map((entry) => ({ itemId: entry.itemId, orderKey: entry.key, item: entry.item })),
+  // compute `moveBefore` against fractional keys. The second reader
+  // supplies the live `auth` / `body` variant as the per-leaf
+  // flatten-diff baseline from the canonical pre-image.
+  const payload = buildUpdateBatch(
+    uid,
+    updates,
+    ctx,
+    (requestUid, setPath) =>
+      oracle
+        .liveOrderedSetItems(REQUEST_ENTITY_TYPE, requestUid, setPath)
+        .map((entry) => ({ itemId: entry.itemId, orderKey: entry.key, item: entry.item })),
+    (_requestUid, path) => {
+      if (path === 'auth') return existing.auth;
+      if (path === 'body') return existing.body;
+      return undefined;
+    },
   );
   if (payload.batch.mutations.length === 0) {
     // No-op patch — return the canonical pre-image.
