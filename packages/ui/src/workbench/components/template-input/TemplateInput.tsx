@@ -114,6 +114,11 @@ export interface TemplateInputProps {
    *  where users still need to read which variable they picked but
    *  typed-in secrets should not be drive-by-readable. */
   secret?: boolean;
+  /** When true, show a small red dot at the field's right end whenever
+   *  its value contains an UNRESOLVED `{{ref}}` (reserved namespaces
+   *  excluded). Lets a row flag a missing variable without the user
+   *  expanding it to hunt for the highlighted ref. */
+  flagUnresolved?: boolean;
 }
 
 const PREFIX = '{{';
@@ -263,6 +268,7 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       'aria-label': ariaLabel,
       status,
       secret = false,
+      flagUnresolved = false,
     },
     ref,
   ) => {
@@ -321,6 +327,17 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       },
       [resolver, effectiveContext.collectionId],
     );
+
+    // Whether the value holds an UNRESOLVED ref — drives the optional
+    // right-end dot. Reuses the highlighter's classifier so the dot stays
+    // in lockstep with the red ref highlight; only walked when opted in.
+    const hasUnresolvedRef = useMemo(() => {
+      if (!flagUnresolved || !value) return false;
+      for (const m of value.matchAll(new RegExp(TEMPLATE_REGEX.source, TEMPLATE_REGEX.flags))) {
+        if (classify(m[1]) === 'unresolved') return true;
+      }
+      return false;
+    }, [flagUnresolved, value, classify]);
 
     // Hydrate recents on workspace switch; prune against current suggestions.
     useEffect(() => {
@@ -704,10 +721,17 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       transition: 'border-color 0.2s, box-shadow 0.2s',
       boxShadow: isFocused && variant !== 'borderless' ? focusShadow : undefined,
       ...style,
+      // An expand-on-focus caller sets a tall `line-height` to vertically
+      // center the single collapsed line in the cell; once it expands,
+      // force the normal line-height so the wrapped multi-line editor
+      // isn't loosely spaced. (After `...style` so it wins.)
+      ...(expandOnFocus && expandActive ? { lineHeight: 1.5714 } : null),
     };
 
     return (
-      <span className={`oh-template-input-wrapper${className ? ` ${className}` : ''}`}>
+      <span
+        className={`oh-template-input-wrapper${hasUnresolvedRef ? ' oh-template-input-wrapper--flagged' : ''}${className ? ` ${className}` : ''}`}
+      >
         <div
           ref={mergedRef}
           className={`oh-template-input-editable${displayExpanded ? ' oh-template-input-editable--expanded' : ''}${secret ? ' oh-template-input-secret' : ''}`}
@@ -749,6 +773,13 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
             </div>,
             document.body,
           )}
+        {hasUnresolvedRef && (
+          <span
+            className="oh-template-input-unresolved-dot"
+            aria-hidden="true"
+            title="Contains an unresolved variable"
+          />
+        )}
       </span>
     );
   },

@@ -75,6 +75,7 @@ const RequestUrlBar: React.FC<RequestUrlBarProps> = ({ draft, setDraft, urlUnres
           placeholder="Enter URL or paste text"
           size="small"
           status={urlUnresolved ? 'error' : undefined}
+          flagUnresolved
           // Same treatment as the request table's cells: a long URL shows
           // an ellipsis when idle and, on focus, word-wraps + auto-grows
           // (up to ~5 rows, then inner-scrolls) so it's comfortably

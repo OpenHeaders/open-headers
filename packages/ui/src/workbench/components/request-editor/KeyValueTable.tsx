@@ -114,7 +114,14 @@ const KeyValueTable: React.FC<KeyValueTableProps> = ({
   // without a horizontal scrollbar. They differ only by which field
   // they read/write + the placeholder.
   const cellRenderer =
-    (get: (r: KeyValueRow) => string, set: (r: KeyValueRow, v: string) => KeyValueRow, placeholder: string) =>
+    (
+      get: (r: KeyValueRow) => string,
+      set: (r: KeyValueRow, v: string) => KeyValueRow,
+      placeholder: string,
+      // Key + Value resolve `{{vars}}` (flag a missing one); Description
+      // is plain metadata, so it never flags.
+      flagUnresolved: boolean,
+    ) =>
     (
       row: KeyValueRow,
       update: (next: KeyValueRow) => void,
@@ -124,6 +131,7 @@ const KeyValueTable: React.FC<KeyValueTableProps> = ({
         variant="borderless"
         expandOnFocus
         expanded={ctx.expanded}
+        flagUnresolved={flagUnresolved}
         value={get(row)}
         placeholder={placeholder}
         onChange={(next) => update(set(row, next))}
@@ -131,6 +139,11 @@ const KeyValueTable: React.FC<KeyValueTableProps> = ({
           ...cellFont,
           flex: 1,
           padding: '4px 6px',
+          // Fill the cell's content box (32px min-height − 8px vertical
+          // padding) so the single collapsed line sits vertically
+          // centered; TemplateInput reverts to the normal line-height
+          // once the field expands.
+          lineHeight: '24px',
           color: ctx.dim ? token.colorTextQuaternary : token.colorText,
         }}
       />
@@ -151,16 +164,19 @@ const KeyValueTable: React.FC<KeyValueTableProps> = ({
         (r) => r.key,
         (r, v) => ({ ...r, key: v }),
         keyPlaceholder,
+        true,
       )}
       renderValueCell={cellRenderer(
         (r) => r.value,
         (r, v) => ({ ...r, value: v }),
         valuePlaceholder,
+        true,
       )}
       renderDescriptionCell={cellRenderer(
         (r) => r.description ?? '',
         (r, v) => ({ ...r, description: v }),
         'Description',
+        false,
       )}
     />
   );

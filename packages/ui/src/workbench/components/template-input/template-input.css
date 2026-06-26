@@ -50,6 +50,28 @@
   background: var(--ant-color-text-tertiary, rgba(0, 0, 0, 0.45));
 }
 
+/* Unresolved-variable flag: a small red dot pinned to the field's right
+ * end, shown even when the value is collapsed to an ellipsis — so a row
+ * advertises a missing `{{ref}}` without the user expanding it to hunt
+ * for the highlighted ref. The wrapper reserves right space (border-box,
+ * so it never overflows) and the editable's `width: 100%` shrinks to
+ * clear the dot. */
+.oh-template-input-wrapper--flagged {
+  box-sizing: border-box;
+  padding-right: 14px;
+}
+.oh-template-input-unresolved-dot {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ant-color-error, #ff4d4f);
+  pointer-events: none;
+}
+
 .oh-template-input-editable:empty::before {
   /* Placeholder via a pseudo element — shown only when the editable
    * is empty. `data-placeholder` is populated from the `placeholder`
