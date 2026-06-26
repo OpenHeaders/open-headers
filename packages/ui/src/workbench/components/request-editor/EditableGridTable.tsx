@@ -225,6 +225,8 @@ if (typeof document !== 'undefined' && !document.getElementById(STYLE_ID)) {
 .editable-grid-row:hover .editable-grid-drag-handle,
 .editable-grid-row:hover .editable-grid-delete { opacity: 1; }
 .editable-grid-row .editable-grid-drag-handle:active { cursor: grabbing; }
+.editable-grid-header .editable-grid-select-all { opacity: 0; transition: opacity 120ms ease; }
+.editable-grid-header:hover .editable-grid-select-all { opacity: 1; }
 .editable-grid-menu-item {
   display: flex;
   align-items: center;
@@ -334,6 +336,22 @@ export function EditableGridTable<Row>({
       commit(effectiveRows.filter((r) => adapter.getId(r) !== id));
     },
     [adapter, commit, effectiveRows],
+  );
+
+  // ── Select-all (header checkbox) ────────────────────────────────
+  // A single hover-revealed checkbox in the enabled-column header
+  // toggles `enabled` across every materialized row at once. Binary
+  // by design — checked only when all rows are on, empty in every
+  // other case (no indeterminate dash); clicking an empty box enables
+  // all, clicking a full box disables all. The trailing ghost row is
+  // excluded from the count + toggle.
+  const toggleableRows = useMemo(() => rows.filter((r) => !adapter.isEmpty(r)), [rows, adapter]);
+  const allEnabled = toggleableRows.length > 0 && toggleableRows.every((r) => adapter.getEnabled(r));
+  const toggleAll = useCallback(
+    (checked: boolean) => {
+      onChange(rows.map((r) => (adapter.isEmpty(r) ? r : adapter.setEnabled(r, checked))));
+    },
+    [adapter, onChange, rows],
   );
 
   const handleDragEnd = useCallback(
@@ -484,6 +502,7 @@ export function EditableGridTable<Row>({
         ))}
       {/* Header row — sticky to the parent scroll container. */}
       <div
+        className="editable-grid-header"
         style={{
           display: 'grid',
           gridTemplateColumns: gridTemplate,
@@ -504,7 +523,22 @@ export function EditableGridTable<Row>({
         }}
       >
         <span />
-        {!hideEnabled && <span />}
+        {!hideEnabled &&
+          (toggleableRows.length > 0 ? (
+            <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <input
+                type="checkbox"
+                className="editable-grid-select-all"
+                checked={allEnabled}
+                onChange={(e) => toggleAll(e.target.checked)}
+                aria-label="Enable or disable all rows"
+                title="Enable / disable all"
+                style={{ width: 14, height: 14, cursor: 'pointer' }}
+              />
+            </span>
+          ) : (
+            <span />
+          ))}
         {renderHeaderLabel('key', 'Key', false)}
         {showValueColumn && renderHeaderLabel('value', 'Value', true)}
         {showDescriptionColumn && renderHeaderLabel('description', 'Description', true)}
