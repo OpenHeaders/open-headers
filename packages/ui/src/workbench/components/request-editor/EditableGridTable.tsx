@@ -49,10 +49,10 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { Button, Checkbox, Input, Popover, Tooltip, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { ConflictDiffChip, SetRowConflictChip } from '@openheaders/ui/shared/awareness';
 import type { PathConflict } from '@openheaders/ui/shared/conflicts/types';
-import { GRID_RESIZING_BODY_CLASS, type ResizableColumn, useGridColumnResize } from './use-grid-column-resize';
+import { GRID_COL_RESIZER_CLASS, type ResizableColumn, useGridColumnResize } from './use-grid-column-resize';
 
 /** Read-only informational row rendered above user rows — e.g. Headers'
  *  browser-managed auto-generated entries. Not draggable, not part of
@@ -244,31 +244,6 @@ if (typeof document !== 'undefined' && !document.getElementById(STYLE_ID)) {
 .editable-grid-menu-item:hover {
   background: var(--ant-color-fill-tertiary, rgba(0, 0, 0, 0.04));
 }
-.editable-grid-col-resizer {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  right: 0;
-  width: 8px;
-  cursor: col-resize;
-  user-select: none;
-  touch-action: none;
-  z-index: 3;
-}
-.editable-grid-col-resizer:hover::after {
-  content: '';
-  position: absolute;
-  top: 4px;
-  bottom: 4px;
-  right: 0;
-  width: 2px;
-  border-radius: 1px;
-  background: var(--ant-color-primary, #1677ff);
-}
-body.${GRID_RESIZING_BODY_CLASS} {
-  cursor: col-resize !important;
-  user-select: none !important;
-}
   `;
   document.head.appendChild(style);
 }
@@ -294,40 +269,16 @@ export function EditableGridTable<Row>({
   const [showValueColumn, setShowValueColumn] = useState(true);
   const [showDescriptionColumn, setShowDescriptionColumn] = useState(true);
   const [optionsOpen, setOptionsOpen] = useState(false);
-  const resize = useGridColumnResize(RESIZE_MIN_WIDTH);
 
-  // Ordered visible flex columns. The LAST one always flexes (absorbs
-  // the remaining width); only the columns before it carry a resize
-  // handle + an optional px override.
-  const flexColumns = useMemo<ResizableColumn[]>(() => {
-    const cols: ResizableColumn[] = ['key'];
-    if (showValueColumn) cols.push('value');
-    if (showDescriptionColumn) cols.push('description');
-    return cols;
-  }, [showValueColumn, showDescriptionColumn]);
-  const lastFlexColumn = flexColumns[flexColumns.length - 1];
-
-  // Table container — its client width is the visible budget a resize
-  // must fit within (measured live at drag start).
-  const tableContainerRef = useRef<HTMLDivElement>(null);
-  const fixedColumnsWidth = 20 + (hideEnabled ? 0 : 28) + 32;
-  // The most a dragged column can grow before the OTHER columns would be
-  // squeezed under their minimums (fixed columns at their size, already-
-  // resized columns at their px, remaining flex columns at MIN). Beyond
-  // this the table would overflow, so the drag clamps here instead.
-  const columnResizeMax = useCallback(
-    (dragged: ResizableColumn) => {
-      let othersMin = fixedColumnsWidth;
-      for (const c of flexColumns) {
-        if (c === dragged) continue;
-        const isResized = c !== lastFlexColumn && resize.widths[c] != null;
-        othersMin += isResized ? (resize.widths[c] as number) : RESIZE_MIN_WIDTH;
-      }
-      const avail = tableContainerRef.current?.clientWidth ?? Number.POSITIVE_INFINITY;
-      return avail - othersMin;
-    },
-    [fixedColumnsWidth, flexColumns, lastFlexColumn, resize.widths],
-  );
+  // Draggable column widths + full-height dividers — the whole concern
+  // lives in this hook; we just attach its container/header refs, read px
+  // overrides into the grid template, and render the dividers it reports.
+  const resize = useGridColumnResize({
+    showValueColumn,
+    showDescriptionColumn,
+    hideEnabled,
+    minWidth: RESIZE_MIN_WIDTH,
+  });
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -340,8 +291,8 @@ export function EditableGridTable<Row>({
   // absorbs the remaining width.
   const gridTemplate = useMemo(() => {
     const trackFor = (col: ResizableColumn) => {
-      if (col !== lastFlexColumn && resize.widths[col] != null) return `${resize.widths[col]}px`;
-      return columnWidths?.[col] ?? DEFAULT_COLUMN_WIDTH;
+      const px = resize.columnPxWidth(col);
+      return px != null ? `${px}px` : (columnWidths?.[col] ?? DEFAULT_COLUMN_WIDTH);
     };
     const parts: string[] = ['20px'];
     if (!hideEnabled) parts.push('28px');
@@ -350,7 +301,7 @@ export function EditableGridTable<Row>({
     if (showDescriptionColumn) parts.push(trackFor('description'));
     parts.push('32px');
     return parts.join(' ');
-  }, [hideEnabled, showValueColumn, showDescriptionColumn, columnWidths, resize.widths, lastFlexColumn]);
+  }, [hideEnabled, showValueColumn, showDescriptionColumn, columnWidths, resize.columnPxWidth]);
 
   // Persistent empty ghost row: materializes as soon as the user types
   // into any cell and a fresh ghost appears below.
@@ -487,43 +438,50 @@ export function EditableGridTable<Row>({
     </div>
   );
 
-  // Header label cell + (for every flex column except the last) a
-  // draggable resizer at its right edge. The drag rewrites the shared
-  // grid template, so all rows reflow together; double-click resets the
-  // column to its flex default.
+  // Header label cell. The resize handle isn't here — it's a full-height
+  // overlay (rendered below) positioned at this cell's right edge — but
+  // we register the cell ref so the overlay can read that edge and a drag
+  // can measure the column's start width.
   const renderHeaderLabel = (col: ResizableColumn, label: string, withBorder: boolean) => (
     <span
       ref={resize.registerHeaderRef(col)}
       style={{
         ...headerLabelStyle,
-        position: 'relative',
         ...(withBorder ? { borderLeft: `1px solid ${token.colorBorderSecondary}` } : null),
       }}
     >
       {label}
-      {col !== lastFlexColumn && (
-        // biome-ignore lint/a11y/noStaticElementInteractions: pointer-drag-only resize affordance
-        <span
-          className="editable-grid-col-resizer"
-          role="separator"
-          aria-orientation="vertical"
-          aria-label={`Resize ${label} column`}
-          onPointerDown={(e) => resize.beginResize(e, col, columnResizeMax(col))}
-          onDoubleClick={() => resize.resetColumn(col)}
-        />
-      )}
     </span>
   );
 
   return (
     <div
-      ref={tableContainerRef}
+      ref={resize.containerRef}
       style={{
+        position: 'relative',
         border: `1px solid ${token.colorBorderSecondary}`,
         borderRadius: 4,
         overflow: 'visible',
       }}
     >
+      {/* Full-height draggable column dividers — grabbable from any row,
+        not just the header. The drag rewrites the shared grid template so
+        every row reflows together; double-click resets the column to its
+        flex default. */}
+      {!bulkMode &&
+        resize.dividers.map(({ col, x }) => (
+          // biome-ignore lint/a11y/noStaticElementInteractions: pointer-drag-only resize affordance
+          <span
+            key={col}
+            className={GRID_COL_RESIZER_CLASS}
+            role="separator"
+            aria-orientation="vertical"
+            aria-label={`Resize ${col} column`}
+            style={{ left: x - 4 }}
+            onPointerDown={(e) => resize.beginResize(e, col)}
+            onDoubleClick={() => resize.resetColumn(col)}
+          />
+        ))}
       {/* Header row — sticky to the parent scroll container. */}
       <div
         style={{
