@@ -710,7 +710,7 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       <span className={`oh-template-input-wrapper${className ? ` ${className}` : ''}`}>
         <div
           ref={mergedRef}
-          className={`oh-template-input-editable${secret ? ' oh-template-input-secret' : ''}`}
+          className={`oh-template-input-editable${displayExpanded ? ' oh-template-input-editable--expanded' : ''}${secret ? ' oh-template-input-secret' : ''}`}
           contentEditable
           suppressContentEditableWarning
           role="combobox"

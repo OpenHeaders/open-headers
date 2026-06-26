@@ -1070,8 +1070,13 @@ body {
   justify-content: space-between;
   gap: 12px;
   flex-shrink: 0;
-  height: 40px;
-  padding: 0 16px;
+  // `min-height`, not a fixed `height`: single-line titles stay 40px,
+  // but the RequestEditor's URL field grows the header while focused
+  // (expand-on-focus) instead of spilling its multi-line content over
+  // the editor body.
+  min-height: 40px;
+  padding: 4px 16px;
+  box-sizing: border-box;
   position: relative;
 }
 

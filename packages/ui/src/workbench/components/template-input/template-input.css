@@ -30,6 +30,26 @@
   max-width: 100%;
 }
 
+/* Expanded (focused, multi-line) field: an always-visible vertical
+ * scrollbar so the user can see/grab it the whole time they're editing —
+ * styling `::-webkit-scrollbar` opts out of the platform overlay bar that
+ * otherwise only appears mid-scroll. (Fields inside a `.rules-thin-
+ * scrollbar` pane keep that pane's thinner reveal treatment, which wins
+ * on specificity; this covers the ones outside it, e.g. the URL bar.) */
+.oh-template-input-editable--expanded::-webkit-scrollbar {
+  width: 8px;
+}
+.oh-template-input-editable--expanded::-webkit-scrollbar-track {
+  background: transparent;
+}
+.oh-template-input-editable--expanded::-webkit-scrollbar-thumb {
+  background: var(--ant-color-text-quaternary, rgba(0, 0, 0, 0.25));
+  border-radius: 4px;
+}
+.oh-template-input-editable--expanded::-webkit-scrollbar-thumb:hover {
+  background: var(--ant-color-text-tertiary, rgba(0, 0, 0, 0.45));
+}
+
 .oh-template-input-editable:empty::before {
   /* Placeholder via a pseudo element — shown only when the editable
    * is empty. `data-placeholder` is populated from the `placeholder`
