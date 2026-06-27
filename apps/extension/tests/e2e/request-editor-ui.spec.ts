@@ -2,7 +2,7 @@
  * Request-editor UI e2e — the DOM-level counterpart to
  * `request-executor.spec.ts`.
  *
- * Where the RPC spec proves all 42 auth × body wire paths through the
+ * Where the RPC spec proves all 49 auth × body wire paths through the
  * executor directly, this one proves the *UI wiring* the RPC spec can't
  * touch: for every combo, open the request in the editor by clicking it
  * in the sidebar → click Send → assert the response panel renders a 200
@@ -20,12 +20,12 @@
 
 import path from 'node:path';
 import { type BrowserContext, chromium, expect, type Page, test } from '@playwright/test';
-import { API_CLIENT_COMBOS, API_ECHO_URL } from '../../../../playground/scripts/api-client-matrix';
+import { API_CLIENT_COMBOS, API_ECHO_URL, OAUTH2_SEED_AUTH } from '../../../../playground/scripts/api-client-matrix';
 import { WorkbenchPage } from './pages/workbench-page';
 
 const extensionPath = path.resolve(__dirname, '../../dist/chrome');
 
-/** The full 6×7 = 42 cross, driven through the UI. */
+/** The full 7×7 = 49 cross, driven through the UI. */
 const COMBOS = API_CLIENT_COMBOS;
 
 let context: BrowserContext;
@@ -44,6 +44,14 @@ test.beforeAll(async () => {
 
   const page: Page = await context.newPage();
   workbench = await WorkbenchPage.open(page, extensionId);
+
+  // Seed the oauth2 token once via the real client-credentials flow so the
+  // oauth2 sends carry a genuine bearer (the response still 200s either
+  // way — this keeps the UI path faithful to the RPC spec).
+  const seed = await workbench.rpc<{ success: boolean; error?: string }>('oauthClientCredentials', {
+    config: OAUTH2_SEED_AUTH,
+  });
+  expect(seed.success, seed.error).toBe(true);
 
   // Seed every combo through the real CRUD path, then reload so the
   // sidebar renders them deterministically.

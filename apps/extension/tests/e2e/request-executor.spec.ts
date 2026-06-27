@@ -23,7 +23,12 @@
 
 import path from 'node:path';
 import { type BrowserContext, chromium, expect, type Page, test } from '@playwright/test';
-import { API_CLIENT_COMBOS, API_ECHO_URL, type ApiClientCombo } from '../../../../playground/scripts/api-client-matrix';
+import {
+  API_CLIENT_COMBOS,
+  API_ECHO_URL,
+  type ApiClientCombo,
+  OAUTH2_SEED_AUTH,
+} from '../../../../playground/scripts/api-client-matrix';
 
 const extensionPath = path.resolve(__dirname, '../../dist/chrome');
 
@@ -49,6 +54,14 @@ test.beforeAll(async () => {
     },
     { timeout: 15000 },
   );
+
+  // Seed the oauth2 token once via the real client-credentials flow: the
+  // SW POSTs to the playground IdP and persists the bundle under the
+  // shared `credentialRef`, so both the header and query oauth2 combos
+  // attach a genuine bearer. Same active workspace as executeRequest
+  // (both default to it), so the executor reads the seeded token.
+  const seed = await rpc<{ success: boolean; error?: string }>('oauthClientCredentials', { config: OAUTH2_SEED_AUTH });
+  expect(seed.success, seed.error).toBe(true);
 });
 
 test.afterAll(async () => {
@@ -84,7 +97,11 @@ interface EchoResponse {
     | { kind: 'xml'; contentType: string | null; raw: string }
     | { kind: 'text'; contentType: string | null; raw: string }
     | { kind: 'urlencoded'; contentType: string | null; parsed: Record<string, string | string[]> }
-    | { kind: 'multipart'; contentType: string | null; parts: Array<{ name: string; value?: string; filename?: string }> };
+    | {
+        kind: 'multipart';
+        contentType: string | null;
+        parts: Array<{ name: string; value?: string; filename?: string }>;
+      };
 }
 
 interface ExecSnapshot {
@@ -126,13 +143,8 @@ function assertAuth(echo: EchoResponse, expected: ApiClientCombo['expected']['au
       expect(echo.headers[expected.name]).toBe(expected.value);
       break;
     case 'query':
-      // api-key in the query string.
+      // api-key in the query string / oauth2 sendAs:query.
       expect(echo.query[expected.name]).toBe(expected.value);
-      break;
-    case 'deferred':
-      // oauth2 with no seeded token — nothing attached.
-      expect(echo.auth.kind).toBe('none');
-      expect(echo.query.access_token).toBeUndefined();
       break;
   }
 }
