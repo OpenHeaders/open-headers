@@ -16,12 +16,16 @@
  *      Advanced (Refresh Token URL + Auth / Token / Refresh request
  *      extra params) + "Get new access token" button.
  *
- * The grant-type dropdown maps UI labels to the flow enum:
- *   • "Authorization Code"            → authorization-code-pkce (+ PKCE off)
- *   • "Authorization Code (With PKCE)" → authorization-code-pkce
- *   • "Implicit"                       → authorization-code-pkce (marked reserved)
- *   • "Password Credentials"           → client-credentials (reserved)
- *   • "Client Credentials"             → client-credentials
+ * The grant-type dropdown offers only the two flows that actually run
+ * end-to-end on a browser extension:
+ *   • "Authorization Code (With PKCE)" → authorization-code-pkce (browser flow)
+ *   • "Client Credentials"             → client-credentials (machine-to-machine)
+ *
+ * Deprecated / ill-fitting flows (Implicit, Password Credentials, Device
+ * Code) are intentionally not offered: PKCE supersedes Implicit for public
+ * clients, Password Credentials handles raw passwords, and Device Code
+ * earns its keep only where there is no browser. They can return when a
+ * real integration needs one.
  */
 
 import { CopyOutlined, DownOutlined, InfoCircleOutlined, RightOutlined } from '@ant-design/icons';
@@ -38,12 +42,7 @@ const { Text, Link } = Typography;
 
 // ── Grant type UI model ───────────────────────────────────────────
 
-type GrantTypeId =
-  | 'authorization-code'
-  | 'authorization-code-pkce'
-  | 'implicit'
-  | 'password-credentials'
-  | 'client-credentials';
+type GrantTypeId = 'authorization-code-pkce' | 'client-credentials';
 
 interface GrantTypeDef {
   id: GrantTypeId;
@@ -55,34 +54,15 @@ interface GrantTypeDef {
     accessTokenUrl: boolean;
     clientId: boolean;
     clientSecret: boolean;
-    usernamePassword: boolean;
     pkce: boolean;
     scope: boolean;
     state: boolean;
   };
   /** Maps back to the persisted flow. */
   v5Flow: OAuth2Flow;
-  /** Note shown when the grant type is partial / reserved. */
-  reservedNote?: string;
 }
 
 const GRANT_TYPES: GrantTypeDef[] = [
-  {
-    id: 'authorization-code',
-    label: 'Authorization Code',
-    fields: {
-      callbackUrl: true,
-      authUrl: true,
-      accessTokenUrl: true,
-      clientId: true,
-      clientSecret: true,
-      usernamePassword: false,
-      pkce: false,
-      scope: true,
-      state: true,
-    },
-    v5Flow: 'authorization-code-pkce',
-  },
   {
     id: 'authorization-code-pkce',
     label: 'Authorization Code (With PKCE)',
@@ -92,46 +72,11 @@ const GRANT_TYPES: GrantTypeDef[] = [
       accessTokenUrl: true,
       clientId: true,
       clientSecret: true,
-      usernamePassword: false,
       pkce: true,
       scope: true,
       state: true,
     },
     v5Flow: 'authorization-code-pkce',
-  },
-  {
-    id: 'implicit',
-    label: 'Implicit',
-    fields: {
-      callbackUrl: true,
-      authUrl: true,
-      accessTokenUrl: false,
-      clientId: true,
-      clientSecret: false,
-      usernamePassword: false,
-      pkce: false,
-      scope: true,
-      state: true,
-    },
-    v5Flow: 'authorization-code-pkce',
-    reservedNote: 'Implicit flow is deprecated by the OAuth 2.1 draft; runs as Authorization Code under the hood.',
-  },
-  {
-    id: 'password-credentials',
-    label: 'Password Credentials',
-    fields: {
-      callbackUrl: false,
-      authUrl: false,
-      accessTokenUrl: true,
-      clientId: true,
-      clientSecret: true,
-      usernamePassword: true,
-      pkce: false,
-      scope: true,
-      state: false,
-    },
-    v5Flow: 'client-credentials',
-    reservedNote: 'Password Credentials is deprecated upstream; surfaced for legacy integrations only.',
   },
   {
     id: 'client-credentials',
@@ -142,7 +87,6 @@ const GRANT_TYPES: GrantTypeDef[] = [
       accessTokenUrl: true,
       clientId: true,
       clientSecret: true,
-      usernamePassword: false,
       pkce: false,
       scope: true,
       state: false,
@@ -152,16 +96,14 @@ const GRANT_TYPES: GrantTypeDef[] = [
 ];
 
 function getGrantType(auth: OAuth2Auth): GrantTypeDef {
-  // `auth.grantType` carries the user's UI choice verbatim — prefer it
-  // over `flow` so picking e.g. `authorization-code` (without PKCE) or
-  // `implicit` round-trips cleanly. Fall back to the `flow` mapping
-  // only for legacy rows that never wrote a grantType.
+  // Prefer the persisted UI choice. Rows that stored a grant type we no
+  // longer offer (`authorization-code` / `implicit` / `password-credentials`)
+  // fall through to the working flow their wire `flow` already maps to.
   if (auth.grantType) {
     const match = GRANT_TYPES.find((g) => g.id === auth.grantType);
     if (match) return match;
   }
-  if (auth.flow === 'client-credentials') return GRANT_TYPES[4];
-  return GRANT_TYPES[1];
+  return auth.flow === 'client-credentials' ? GRANT_TYPES[1] : GRANT_TYPES[0];
 }
 
 // ── Component ─────────────────────────────────────────────────────
@@ -343,12 +285,6 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
             />
           </LabeledRow>
 
-          {grantType.reservedNote && (
-            <Text type="secondary" style={{ fontSize: 11, marginLeft: 152 }}>
-              {grantType.reservedNote}
-            </Text>
-          )}
-
           {grantType.fields.callbackUrl && (
             <>
               <LabeledRow label="Callback URL">
@@ -428,17 +364,6 @@ const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) =
                 onChange={(e) => onChange({ ...auth, clientSecret: e.target.value || undefined })}
               />
             </LabeledRow>
-          )}
-
-          {grantType.fields.usernamePassword && (
-            <>
-              <LabeledRow label="Username">
-                <Input size="small" placeholder="Username" />
-              </LabeledRow>
-              <LabeledRow label="Password">
-                <Input.Password size="small" placeholder="Password" />
-              </LabeledRow>
-            </>
           )}
 
           {grantType.fields.pkce && (
