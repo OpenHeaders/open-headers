@@ -119,7 +119,13 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
               </Tag>
             ) : (
               <>
-                <Tag color="default" style={{ color: statusColor, borderColor: statusColor, marginInlineEnd: 0 }}>
+                <Tag
+                  color="default"
+                  // Styled status chip with no semantic role/name — the one
+                  // response-panel element e2e can't target via getByRole/text.
+                  data-testid="oh-response-status"
+                  style={{ color: statusColor, borderColor: statusColor, marginInlineEnd: 0 }}
+                >
                   {response.status} {response.statusText}
                 </Tag>
                 <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
