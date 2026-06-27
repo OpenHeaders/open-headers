@@ -64,6 +64,9 @@ async function rpc<T = unknown>(page: Page, type: string, payload: Record<string
 }
 
 interface FileRef {
+  /** Per-upload identity (`file:<uuid>`). The BlobStore keys by this —
+   *  `getFile` / `deleteFile` take a fileId, not a content hash. */
+  fileId: string;
   hash: string;
   filename: string;
   mimeType?: string;
@@ -98,10 +101,10 @@ async function uploadFile(page: Page, filename: string, content: string, mimeTyp
   return resp.fileRef!;
 }
 
-async function getFileText(page: Page, hash: string): Promise<string | null> {
-  return page.evaluate(async (h: string) => {
+async function getFileText(page: Page, fileId: string): Promise<string | null> {
+  return page.evaluate(async (id: string) => {
     const resp = await new Promise<{ found: boolean; bytesBase64?: string }>((resolve) => {
-      chrome.runtime.sendMessage({ type: 'getFile', hash: h }, (r) => {
+      chrome.runtime.sendMessage({ type: 'getFile', fileId: id }, (r) => {
         void chrome.runtime.lastError;
         resolve(r);
       });
@@ -111,7 +114,7 @@ async function getFileText(page: Page, hash: string): Promise<string | null> {
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
     return new TextDecoder().decode(bytes);
-  }, hash);
+  }, fileId);
 }
 
 test.describe('Phase 12 — BlobStore bridge', () => {
@@ -137,27 +140,30 @@ test.describe('Phase 12 — BlobStore bridge', () => {
     const page = await newRpcPage();
     try {
       const ref = await uploadFile(page, 'roundtrip.txt', 'round trip payload 🚀');
-      const text = await getFileText(page, ref.hash);
+      const text = await getFileText(page, ref.fileId);
       expect(text).toBe('round trip payload 🚀');
     } finally {
       await page.close();
     }
   });
 
-  test('re-uploading the same bytes dedupes by hash (filename stable)', async () => {
+  test('re-uploading the same bytes makes a distinct file (identity = fileId, not hash)', async () => {
     const page = await newRpcPage();
     try {
       const first = await uploadFile(page, 'first-name.txt', 'the same bytes');
       const second = await uploadFile(page, 'different-name.txt', 'the same bytes');
-      // Same hash — same blob.
+      // Same bytes ⇒ same content hash, but every upload mints a fresh
+      // fileId — "identical bytes under two filenames = two files".
       expect(second.hash).toBe(first.hash);
-      // First insertion wins the filename so existing FileRef references
-      // stay stable across uploads.
-      expect(second.filename).toBe('first-name.txt');
+      expect(second.fileId).not.toBe(first.fileId);
+      // Each upload keeps its own filename; neither clobbers the other.
+      expect(first.filename).toBe('first-name.txt');
+      expect(second.filename).toBe('different-name.txt');
 
       const list = (await rpc(page, 'listFiles')) as { files: FileRef[] };
-      const matches = list.files.filter((f) => f.hash === first.hash);
-      expect(matches).toHaveLength(1);
+      const sameHash = list.files.filter((f) => f.hash === first.hash);
+      expect(sameHash).toHaveLength(2);
+      expect(sameHash.map((f) => f.fileId).sort()).toEqual([first.fileId, second.fileId].sort());
     } finally {
       await page.close();
     }
@@ -168,9 +174,9 @@ test.describe('Phase 12 — BlobStore bridge', () => {
     try {
       const ref = await uploadFile(page, 'to-delete.txt', 'disposable');
       const before = (await rpc(page, 'listFiles')) as { files: FileRef[] };
-      expect(before.files.find((f) => f.hash === ref.hash)).toBeDefined();
+      expect(before.files.find((f) => f.fileId === ref.fileId)).toBeDefined();
 
-      const del = (await rpc(page, 'deleteFile', { hash: ref.hash })) as {
+      const del = (await rpc(page, 'deleteFile', { fileId: ref.fileId })) as {
         success: boolean;
         removed: boolean;
       };
@@ -178,10 +184,10 @@ test.describe('Phase 12 — BlobStore bridge', () => {
       expect(del.removed).toBe(true);
 
       const after = (await rpc(page, 'listFiles')) as { files: FileRef[] };
-      expect(after.files.find((f) => f.hash === ref.hash)).toBeUndefined();
+      expect(after.files.find((f) => f.fileId === ref.fileId)).toBeUndefined();
 
       // Second delete is a no-op.
-      const delAgain = (await rpc(page, 'deleteFile', { hash: ref.hash })) as {
+      const delAgain = (await rpc(page, 'deleteFile', { fileId: ref.fileId })) as {
         success: boolean;
         removed: boolean;
       };
@@ -192,11 +198,11 @@ test.describe('Phase 12 — BlobStore bridge', () => {
     }
   });
 
-  test('getFile returns found: false for an unknown hash', async () => {
+  test('getFile returns found: false for an unknown fileId', async () => {
     const page = await newRpcPage();
     try {
       const resp = (await rpc(page, 'getFile', {
-        hash: 'sha256:0000000000000000000000000000000000000000000000000000000000000000',
+        fileId: 'file:does-not-exist',
       })) as { found: boolean };
       expect(resp.found).toBe(false);
     } finally {
@@ -209,7 +215,7 @@ test.describe('Phase 12 — BlobStore bridge', () => {
     try {
       // Embed every byte value 0-255 so we catch any 8-bit clean-path
       // regression in the bridge's base64 handling.
-      const { uploadedSize, hash } = (await page.evaluate(async () => {
+      const { uploadedSize, fileId } = (await page.evaluate(async () => {
         const bytes = new Uint8Array(256);
         for (let i = 0; i < 256; i++) bytes[i] = i;
         let binary = '';
@@ -231,13 +237,13 @@ test.describe('Phase 12 — BlobStore bridge', () => {
             },
           );
         });
-        return { uploadedSize: resp.fileRef?.size, hash: resp.fileRef?.hash };
-      })) as { uploadedSize: number; hash: string };
+        return { uploadedSize: resp.fileRef?.size, fileId: resp.fileRef?.fileId };
+      })) as { uploadedSize: number; fileId: string };
       expect(uploadedSize).toBe(256);
 
-      const matches = await page.evaluate(async (h: string) => {
+      const matches = await page.evaluate(async (id: string) => {
         const resp = await new Promise<{ found: boolean; bytesBase64?: string }>((resolve) => {
-          chrome.runtime.sendMessage({ type: 'getFile', hash: h }, (r) => {
+          chrome.runtime.sendMessage({ type: 'getFile', fileId: id }, (r) => {
             void chrome.runtime.lastError;
             resolve(r);
           });
@@ -251,7 +257,7 @@ test.describe('Phase 12 — BlobStore bridge', () => {
           if (view[i] !== i) return { ok: false as const, reason: `byte ${i}=${view[i]}` };
         }
         return { ok: true as const };
-      }, hash);
+      }, fileId);
       expect(matches.ok, matches.ok ? undefined : (matches as { reason: string }).reason).toBe(true);
     } finally {
       await page.close();
