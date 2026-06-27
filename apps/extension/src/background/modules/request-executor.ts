@@ -384,7 +384,12 @@ function resolvedToSnapshot(req: ResolvedRequest): RequestSnapshot {
     method: req.method,
     url: req.url,
     headers: req.headers.map((h) => ({ key: h.key, value: h.value })),
-    params: [],
+    // Resolved query params (structured, pre-URL-fold) — the script
+    // reads these off `oh.request.params` and can replace them via a
+    // `params` mutation. The auth-injected query entries (api-key /
+    // oauth2 `sendAs:'query'`) are included, mirroring how the
+    // auth-injected `Authorization` header rides `headers`.
+    params: req.params.map((p) => ({ key: p.key, value: p.value })),
     // The body is already a discriminated-union value; pass it through
     // verbatim so the script sandbox sees the same shape we'll send.
     body: req.body,
@@ -395,6 +400,10 @@ function applyMutation(target: ResolvedRequest, mutation: RequestMutation): void
   if (mutation.method) target.method = mutation.method;
   if (mutation.url) target.url = mutation.url;
   if (mutation.headers) target.headers = mutation.headers.map((h) => ({ key: h.key, value: h.value }));
+  // Params are a full-list replacement (same contract as headers). The
+  // structured list still gets folded into the URL at the wire, so a
+  // script-set param reaches the server exactly like a user-set one.
+  if (mutation.params) target.params = mutation.params.map((p) => ({ key: p.key, value: p.value }));
   // Body mutations are discriminated unions in their own right — assign
   // the whole new shape rather than cherry-picking fields. Any field
   // not on the chosen variant simply doesn't exist on the new value.
@@ -559,6 +568,16 @@ interface ResolvedRequest {
   method: HttpMethod;
   url: string;
   headers: Array<{ key: string; value: string }>;
+  /**
+   * Query params kept as a structured list — NOT yet folded into `url`.
+   * Resolved (templates substituted) and auth-augmented (api-key /
+   * oauth2 `sendAs:'query'` push their entries here), but appended to
+   * the URL only at the wire in {@link executeResolved}. Carrying them
+   * structured this far is what lets a pre-request script read them off
+   * the snapshot and replace them via a `params` mutation — symmetric
+   * with how `headers` round-trip through scripts.
+   */
+  params: Array<{ key: string; value: string }>;
   body: RequestBody;
   /** Wire-level cookie policy. `'omit'` unless the request opts into `'include'`. */
   credentialsMode: CredentialsMode;
@@ -569,7 +588,7 @@ interface ResolvedRequest {
    * max-redirects cap.
    */
   followRedirects?: boolean;
-  // auth and params are folded into `url` + `headers` below.
+  // auth folds into `url` + `headers`; params ride structured to the wire.
 }
 
 /** Tagged error thrown from {@link resolveRequest} when any `{{ref}}`
@@ -661,8 +680,12 @@ async function resolveRequest(request: Request, options: ExecuteRequestOptions):
     return result.result;
   };
 
-  // ── URL with query params ───────────────────────────────────────
-  let resolvedUrl = resolveStr(request.url);
+  // ── URL + query params ──────────────────────────────────────────
+  // The base URL keeps any query string the user typed inline; the
+  // structured params (enabled, non-empty key, resolved) ride separately
+  // and are folded into the URL only at the wire (`executeResolved`), so
+  // a pre-request script can read + replace them first.
+  const resolvedUrl = resolveStr(request.url);
   const enabledParams = request.params
     .filter((p) => (p.enabled ?? true) && p.key.trim())
     .map((p) => ({ key: resolveStr(p.key), value: resolveStr(p.value) }));
@@ -673,11 +696,10 @@ async function resolveRequest(request: Request, options: ExecuteRequestOptions):
     .map((h) => ({ key: resolveStr(h.key), value: resolveStr(h.value) }));
 
   // ── Auth folds into headers/params ──────────────────────────────
+  // api-key-in-query + oauth2 `sendAs:'query'` push onto `enabledParams`,
+  // so they ride the structured param list to the wire alongside the
+  // user's params.
   await applyAuth(request.auth, headers, enabledParams, resolveStr);
-
-  // Append params to URL after auth — api-key-in-query lives in
-  // enabledParams and MUST be appended too.
-  resolvedUrl = appendQueryParams(resolvedUrl, enabledParams);
 
   // ── Body ────────────────────────────────────────────────────────
   const resolvedBody = buildResolvedBody(request.body, resolveStr);
@@ -701,6 +723,7 @@ async function resolveRequest(request: Request, options: ExecuteRequestOptions):
       method: request.method,
       url: resolvedUrl,
       headers,
+      params: enabledParams,
       body: resolvedBody,
       // Cookie-jar policy. `'omit'` is the safe default when the request
       // doesn't explicitly opt in — even with `<all_urls>` granted, we
@@ -952,7 +975,12 @@ async function executeResolved(
   // mDNS + single-label hosts (intranet / hosts-file / dev-server
   // pattern) and `https://` for everything else. Templated URLs
   // (`{{BASE}}/x`) are left alone — the template may carry the scheme.
-  req = { ...req, url: ensureScheme(trimmed) };
+  //
+  // Structured params fold into the URL HERE, at the wire — after the
+  // pre-request script has had its chance to read + replace them. This
+  // is the single point where `req.params` becomes query string, so the
+  // server sees script-set params exactly like user-set ones.
+  req = { ...req, url: appendQueryParams(ensureScheme(trimmed), req.params) };
 
   // Pre-flight URL validation — catch malformed inputs BEFORE fetch
   // so the user sees "Invalid URL: <reason>" instead of the browser's

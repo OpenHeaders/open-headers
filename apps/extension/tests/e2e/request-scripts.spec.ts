@@ -267,22 +267,46 @@ test.describe('Request executor — pre-request scripts', () => {
     expect(pre.error!.message).toMatch(/timeout/i);
   });
 
-  test('params are NOT visible to scripts, yet still reach the wire (known limitation)', async () => {
-    // resolvedToSnapshot hardcodes `params: []` and the sandbox exposes no
-    // param-mutation API, so a script can neither read nor write query
-    // params — the executor folds them into the URL before the script
-    // runs. This asserts the CURRENT behavior: the param rides the wire,
-    // but the script sees an empty params list.
+  test('reads the request query params off the snapshot', async () => {
+    // params ride structured to the wire, so a pre-request script sees them
+    // on `oh.request.params` (the executor folds them into the URL only
+    // after the script runs).
     const { echo } = await execScripted(
       draft({
         method: 'GET',
         body: { type: 'none' },
         params: [{ uid: 'p1', key: 'real', value: '1' }],
-        preRequestScript: `oh.setHeader('X-Param-Count', String(oh.request.params.length));`,
+        preRequestScript: `
+          oh.setHeader('X-Param-Count', String(oh.request.params.length));
+          oh.setHeader('X-Param-Key', oh.request.params[0] ? oh.request.params[0].key : 'none');
+          oh.setHeader('X-Param-Value', oh.request.params[0] ? oh.request.params[0].value : 'none');
+        `,
       }),
     );
     expect(echo.query.real).toBe('1');
-    expect(echo.headers['x-param-count']).toBe('0');
+    expect(echo.headers['x-param-count']).toBe('1');
+    expect(echo.headers['x-param-key']).toBe('real');
+    expect(echo.headers['x-param-value']).toBe('1');
+  });
+
+  test('mutates query params on the wire via setQueryParam / removeQueryParam', async () => {
+    const { snapshot, echo } = await execScripted(
+      draft({
+        method: 'GET',
+        body: { type: 'none' },
+        params: [
+          { uid: 'p1', key: 'keep', value: 'orig' },
+          { uid: 'p2', key: 'drop', value: 'x' },
+        ],
+        preRequestScript: `
+          oh.setQueryParam('keep', 'changed');
+          oh.setQueryParam('added', 'new');
+          oh.removeQueryParam('drop');
+        `,
+      }),
+    );
+    expect(echo.query).toEqual({ keep: 'changed', added: 'new' });
+    expect(snapshot.scripts!.preRequest!.mutation!.params).toBeDefined();
   });
 });
 

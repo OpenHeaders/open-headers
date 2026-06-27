@@ -149,6 +149,8 @@ interface ScriptApi {
   setMethod(method: RequestSnapshot['method']): void;
   setHeader(key: string, value: string): void;
   removeHeader(key: string): void;
+  setQueryParam(key: string, value: string): void;
+  removeQueryParam(key: string): void;
   setBody(body: RequestSnapshot['body']): void;
 }
 
@@ -167,6 +169,7 @@ function buildScriptApi(
   emitMutation: (m: RequestMutation) => void,
 ): ScriptApi {
   const draftHeaders: Array<{ key: string; value: string }> = [...req.request.headers];
+  const draftParams: Array<{ key: string; value: string }> = [...req.request.params];
   let draftUrl = req.request.url;
   let draftMethod = req.request.method;
   let draftBody = req.request.body;
@@ -176,6 +179,7 @@ function buildScriptApi(
       url: draftUrl !== req.request.url ? draftUrl : undefined,
       method: draftMethod !== req.request.method ? draftMethod : undefined,
       headers: arraysShallowEqual(draftHeaders, req.request.headers) ? undefined : [...draftHeaders],
+      params: arraysShallowEqual(draftParams, req.request.params) ? undefined : [...draftParams],
       body: bodyChanged(draftBody, req.request.body) ? draftBody : undefined,
     });
   };
@@ -228,7 +232,14 @@ function buildScriptApi(
 
   const api: ScriptApi = {
     get request() {
-      return { ...req.request, url: draftUrl, method: draftMethod, headers: [...draftHeaders], body: draftBody };
+      return {
+        ...req.request,
+        url: draftUrl,
+        method: draftMethod,
+        headers: [...draftHeaders],
+        params: [...draftParams],
+        body: draftBody,
+      };
     },
     response: req.response,
     variables: {
@@ -274,6 +285,20 @@ function buildScriptApi(
       const lower = key.toLowerCase();
       for (let i = draftHeaders.length - 1; i >= 0; i -= 1) {
         if (draftHeaders[i]!.key.toLowerCase() === lower) draftHeaders.splice(i, 1);
+      }
+      flushMutation();
+    },
+    setQueryParam(key, value) {
+      // Query-param keys are case-sensitive (unlike header names) — match
+      // exactly. Replace the first row with that key, else append.
+      const idx = draftParams.findIndex((p) => p.key === key);
+      if (idx >= 0) draftParams[idx] = { key, value };
+      else draftParams.push({ key, value });
+      flushMutation();
+    },
+    removeQueryParam(key) {
+      for (let i = draftParams.length - 1; i >= 0; i -= 1) {
+        if (draftParams[i]!.key === key) draftParams.splice(i, 1);
       }
       flushMutation();
     },
