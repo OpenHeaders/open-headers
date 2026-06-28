@@ -87,6 +87,7 @@ type RequestMutation = {
   method?: string;
   url?: string;
   headers?: Array<{ key: string; value: string }>;
+  params?: Array<{ key: string; value: string }>;
   body?: unknown;
 };
 
