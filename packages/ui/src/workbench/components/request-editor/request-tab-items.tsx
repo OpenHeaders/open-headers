@@ -43,6 +43,7 @@ const TabDot: React.FC<{ tone?: 'default' | 'error' }> = ({ tone = 'default' }) 
   const { token } = theme.useToken();
   return (
     <span
+      data-testid={tone === 'error' ? 'oh-section-unresolved' : undefined}
       style={{
         display: 'inline-block',
         width: 6,
