@@ -208,6 +208,11 @@ export class WorkbenchPage {
    * Replace the contents of the Nth VISIBLE Monaco editor. Uses
    * `insertText` (a single bulk insert) rather than per-key typing so
    * Monaco's auto-closing brackets don't mangle JSON / script braces.
+   *
+   * Keep `text` to a SINGLE LINE. Monaco applies per-line auto-indent +
+   * bracket-close on the `\n`s in a multi-line insert, which lands stray
+   * `}` and shifting indentation — collapse multi-statement scripts onto
+   * one line instead.
    */
   async fillMonaco(index: number, text: string): Promise<void> {
     const ed = this.page.locator('.monaco-editor').filter({ visible: true }).nth(index);

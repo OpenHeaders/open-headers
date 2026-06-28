@@ -402,4 +402,56 @@ test.describe('Request executor — post-response scripts', () => {
       expect.objectContaining({ name: 'saw both', passed: true }),
     );
   });
+
+  test('a script cannot make raw network calls — only oh.sendRequest reaches the wire', async () => {
+    // Security boundary: the sandbox CSP sets `connect-src 'none'`, so a
+    // script's own fetch / XHR / WebSocket is refused. The only outbound
+    // path is `oh.sendRequest`, which the SW runs on the script's behalf.
+    //
+    // The echo endpoint sends `Access-Control-Allow-Origin: *`, so WITHOUT
+    // the CSP a raw fetch from the sandbox's opaque origin would SUCCEED —
+    // which is what makes this a real check of `connect-src`, not just
+    // "fetch threw for some reason". The script logs the observed outcome
+    // (+ the error) so a run shows the block rather than only asserting it.
+    const { snapshot } = await execScripted(
+      draft({
+        postResponseScript: `
+          let rawBlocked = false;
+          let rawErr = '';
+          try {
+            const r = await fetch('${API_ECHO_URL}?raw=1');
+            console.log('raw-fetch-outcome', 'ALLOWED', 'status=' + r.status);
+          } catch (e) {
+            rawBlocked = true;
+            rawErr = e instanceof Error ? e.message : String(e);
+            console.log('raw-fetch-outcome', 'BLOCKED', rawErr);
+          }
+          const viaHost = await oh.sendRequest({
+            method: 'GET',
+            url: '${API_ECHO_URL}?via=host',
+            headers: [],
+            params: [],
+            body: { type: 'none' },
+          });
+          console.log('oh-sendRequest-status', viaHost.status);
+          oh.test('raw fetch is blocked by the sandbox CSP', () => oh.expect(rawBlocked).toBeTruthy());
+          oh.test('oh.sendRequest still reaches the wire', () => oh.expect(viaHost.status).toBe(200));
+        `,
+      }),
+    );
+    const post = snapshot.scripts!.postResponse!;
+    // Echo the sandbox's own console output into the test run so the block
+    // (and its error) is visible, not just inferred from a green assertion.
+    for (const entry of post.consoleLog) {
+      console.log('[sandbox]', entry.args.join(' '));
+    }
+    // The logged outcome must say BLOCKED — ties the visible log to the gate.
+    expect(post.consoleLog.some((e) => e.args.includes('raw-fetch-outcome') && e.args.includes('BLOCKED'))).toBe(true);
+    expect(post.assertions).toContainEqual(
+      expect.objectContaining({ name: 'raw fetch is blocked by the sandbox CSP', passed: true }),
+    );
+    expect(post.assertions).toContainEqual(
+      expect.objectContaining({ name: 'oh.sendRequest still reaches the wire', passed: true }),
+    );
+  });
 });

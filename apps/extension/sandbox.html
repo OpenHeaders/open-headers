@@ -9,6 +9,12 @@
       extension's chrome.* APIs or other extension pages, and (b) relaxes
       the default script-src to allow `'unsafe-eval'` so user-provided
       pre-request / test scripts can be compiled via `new Function(...)`.
+
+      The sandbox CSP also sets `connect-src 'none'`: a user script cannot
+      open its own fetch / XHR / WebSocket. All network from a script must
+      go through `oh.sendRequest`, which posts to the SW and runs the
+      fetch there (with host permissions, no CORS gating) — so the only
+      outbound path is the mediated, workspace-scoped one.
     -->
 </head>
 <body>

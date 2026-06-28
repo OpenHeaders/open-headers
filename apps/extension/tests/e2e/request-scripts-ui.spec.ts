@@ -26,7 +26,7 @@ let workbench: WorkbenchPage;
 let page: Page;
 const uids = new Map<string, string>();
 
-const SEEDS = ['scripts-ui-pre', 'scripts-ui-console', 'scripts-ui-pass', 'scripts-ui-fail'];
+const SEEDS = ['scripts-ui-pre', 'scripts-ui-console', 'scripts-ui-pass', 'scripts-ui-fail', 'scripts-ui-csp'];
 
 test.beforeAll(async () => {
   context = await chromium.launchPersistentContext('', {
@@ -107,5 +107,25 @@ test.describe('Request editor — scripts written in the DOM run on Send', () =>
     await workbench.openResponseTab(/Assertions/);
     await expect(workbench.responseRegion().getByText('FAIL', { exact: true })).toBeVisible();
     await expect(workbench.responseRegion().getByText('always fails')).toBeVisible();
+  });
+
+  test('a raw fetch from a script is blocked; the Console tab shows BLOCKED', async () => {
+    // The sandbox CSP (`connect-src 'none'`) refuses a script's own fetch.
+    // Driven through the editor end-to-end: type the script → Send → the
+    // Console tab surfaces the BLOCKED outcome. `/api/echo` is CORS-open,
+    // so without the CSP this would log ALLOWED instead.
+    await workbench.openRequest(uids.get('scripts-ui-csp')!);
+    await workbench.openEditorTab(/Scripts/);
+    // Single line on purpose: typed into Monaco via insertText, a multi-line
+    // script trips the editor's auto-indent / auto-close-brackets and lands
+    // a stray `}`. One statement keeps the inserted text verbatim.
+    await workbench.fillMonaco(
+      0,
+      `try { await fetch('${API_ECHO_URL}?raw=1'); console.log('raw-fetch-outcome', 'ALLOWED'); } catch (e) { console.log('raw-fetch-outcome', 'BLOCKED', e instanceof Error ? e.message : String(e)); }`,
+    );
+    await workbench.send();
+    await workbench.responseStatusText();
+    await workbench.openResponseTab(/Console/);
+    await expect(workbench.responseRegion().getByText(/raw-fetch-outcome BLOCKED/)).toBeVisible();
   });
 });
