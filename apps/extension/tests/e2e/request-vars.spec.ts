@@ -67,10 +67,24 @@ const COLL_VARS = [
   variable('dupCollWs', 'from-coll'),
 ];
 const WS_VARS = [variable('wsOnly', 'ws-value'), variable('dupCollWs', 'from-ws'), variable('dupVaultWs', 'from-ws')];
+
+const TOTP_NAME = 'totpSecret';
+/** RFC 6238 test seed (base32). `{{vault.totpSecret}}` resolves to a
+ *  rolling 6-digit code; reuse inside the same window trips the gate. */
+const TOTP_SECRET = {
+  uid: mkUid(),
+  kind: 'totp' as const,
+  name: TOTP_NAME,
+  seed: 'JBSWY3DPEHPK3PXP',
+  algorithm: 'SHA1' as const,
+  digits: 6,
+  period: 30,
+};
 const VAULT_SECRETS = [
   vaultString('vaultOnly', 'vault-value'),
   vaultString('dupVaultEnv', 'from-vault'),
   vaultString('dupVaultWs', 'from-vault'),
+  TOTP_SECRET,
 ];
 
 const COLLECTION_NAME = 'varcoll';
@@ -258,6 +272,31 @@ async function sendDraft(spec: DraftSpec): Promise<EchoResponse> {
   return JSON.parse(snapshot.body) as EchoResponse;
 }
 
+/** Send a draft and return the raw snapshot (no success assertion) —
+ *  used when the executor is EXPECTED to fail the request (TOTP cooldown
+ *  gate, unresolved gate). */
+async function sendDraftRaw(spec: DraftSpec): Promise<{ status: number; body: string; error?: string | null }> {
+  const draft = {
+    schemaVersion: 5,
+    uid: mkUid(),
+    path: spec.path ?? 'requests/_floating',
+    name: 'var-probe',
+    method: spec.method ?? 'GET',
+    url: spec.url ?? API_ECHO_URL,
+    headers: (spec.headers ?? []).map((h) => ({ key: h.key, value: h.value, enabled: true })),
+    params: (spec.params ?? []).map((p) => ({ key: p.key, value: p.value, enabled: true })),
+    auth: spec.auth ?? { type: 'none' },
+    body: spec.body ?? { type: 'none' },
+  };
+  const exec = await rpc<{
+    success: boolean;
+    snapshot?: { status: number; body: string; error?: string | null };
+    error?: string;
+  }>('executeRequest', { draft, environmentId: envUid });
+  expect(exec.success, exec.error).toBe(true);
+  return exec.snapshot!;
+}
+
 /** Resolve a single reference through a probe header and read it back. */
 async function resolveViaHeader(ref: string, opts: { underCollection?: boolean } = {}): Promise<string> {
   const echo = await sendDraft({
@@ -338,5 +377,117 @@ test.describe('Request executor — flat-reference precedence', () => {
 
   test('vault beats workspace', async () => {
     expect(await resolveViaHeader('{{dupVaultWs}}')).toBe('from-vault');
+  });
+});
+
+// ── Vault TOTP + cooldown gate ─────────────────────────────────────
+//
+// A `kind:'totp'` vault entry resolves to the CURRENT 6-digit code (the
+// resolver reads the precomputed TotpRegistry buildResolver installs).
+// The executor then refuses to reuse that code inside the same window —
+// the cooldown gate the wire-facing executor adds on top of resolution.
+
+test.describe('Request executor — vault TOTP + cooldown', () => {
+  test('resolves to a 6-digit code, then refuses reuse in the same window', async () => {
+    // First send: the code resolves onto the wire and the round-trip
+    // records the usage.
+    const first = await sendDraftRaw({ headers: [{ key: 'X-Totp', value: `{{vault.${TOTP_NAME}}}` }] });
+    expect(first.error ?? null).toBeNull();
+    expect(first.status).toBe(200);
+    const echo = JSON.parse(first.body) as EchoResponse;
+    expect(echo.headers['x-totp']).toMatch(/^\d{6}$/);
+
+    // Second send in the same window reuses the code → the gate blocks it
+    // before the wire with an actionable "wait Ns" error.
+    const second = await sendDraftRaw({ headers: [{ key: 'X-Totp', value: `{{vault.${TOTP_NAME}}}` }] });
+    expect(second.error ?? '').toMatch(/can't be reused/i);
+    expect(second.status).toBe(0);
+  });
+});
+
+// ── File scope ({{file.X}}) ────────────────────────────────────────
+//
+// `{{file.<name>}}` resolves to the file's content hash (NOT bytes) — the
+// resolver stays string-pure; the executor reads bytes only for multipart
+// parts. Proves buildResolver wires the file registry (`setFileRegistry`).
+
+test.describe('Request executor — file scope', () => {
+  test('{{file.NAME}} resolves to the uploaded file content hash', async () => {
+    const bytesBase64 = Buffer.from('open-headers file scope probe').toString('base64');
+    const put = await rpc<{ success: boolean; fileRef?: { hash: string }; error?: string }>('putFile', {
+      filename: 'probe.txt',
+      mimeType: 'text/plain',
+      bytesBase64,
+    });
+    expect(put.success, put.error).toBe(true);
+    const hash = put.fileRef!.hash;
+    expect(hash).toMatch(/^sha256:[0-9a-f]{64}$/);
+
+    expect(await resolveViaHeader('{{file.probe.txt}}')).toBe(hash);
+  });
+});
+
+// ── Live scope ({{live.X}}) ────────────────────────────────────────
+//
+// A Live Variable binds a workflow-step capture. After one refresh the
+// extracted value lands in the live cache; buildResolver feeds that
+// snapshot via `setLiveRegistry`, so `{{live.NAME}}` resolves to it.
+
+test.describe('Request executor — live scope', () => {
+  test('{{live.NAME}} resolves to the refreshed workflow capture', async () => {
+    const reqRes = await rpc<{ success: boolean; request?: { uid: string }; error?: string }>('createLocalRequest', {
+      name: 'live-refresh-src',
+      seed: { method: 'GET', url: 'http://127.0.0.1:3000/live/refresh' },
+    });
+    expect(reqRes.success, reqRes.error).toBe(true);
+    const requestUid = reqRes.request!.uid;
+
+    const wfRes = await rpc<{ success: boolean; workflow?: { uid: string }; error?: string }>('createLiveWorkflow', {
+      name: 'live-var-scope-wf',
+      enabled: true,
+      refresh: { kind: 'manual' },
+      steps: [
+        {
+          id: 'fetch',
+          requestUid,
+          captures: [{ name: 'token', extractor: { kind: 'json-path', path: '$.access_token' } }],
+        },
+      ],
+    });
+    expect(wfRes.success, wfRes.error).toBe(true);
+    const workflowUid = wfRes.workflow!.uid;
+
+    const lvRes = await rpc<{ success: boolean; variable?: { uid: string }; error?: string }>('createLiveVariable', {
+      name: 'liveScopeToken',
+      workflowUid,
+      stepId: 'fetch',
+      captureName: 'token',
+      enabled: true,
+    });
+    expect(lvRes.success, lvRes.error).toBe(true);
+    const lvUid = lvRes.variable!.uid;
+
+    // The live registry the executor feeds only includes EFFECTIVE
+    // (published + enabled) workflows + LVs — Save is publish. New
+    // entities start as drafts, so publish both before resolving.
+    const wfPub = await rpc<{ success: boolean; error?: string }>('updateLiveWorkflow', {
+      uid: workflowUid,
+      updates: { published: true },
+    });
+    expect(wfPub.success, wfPub.error).toBe(true);
+    const lvPub = await rpc<{ success: boolean; error?: string }>('updateLiveVariable', {
+      uid: lvUid,
+      updates: { published: true },
+    });
+    expect(lvPub.success, lvPub.error).toBe(true);
+
+    const refreshed = await rpc<{ success: boolean; error?: string }>('refreshLiveWorkflowNow', { workflowUid });
+    expect(refreshed.success, refreshed.error).toBe(true);
+
+    expect(await resolveViaHeader('{{live.liveScopeToken}}')).toBe('live-e2e-refreshed-token');
+
+    await rpc('deleteLiveVariable', { uid: lvUid });
+    await rpc('deleteLiveWorkflow', { uid: workflowUid });
+    await rpc('deleteLocalRequest', { requestUid });
   });
 });
