@@ -1,6 +1,6 @@
 {
   "name": "@openheaders/ui",
-  "version": "2026.6.0",
+  "version": "2026.6.1",
   "private": true,
   "description": "OpenHeaders shared UI — workbench, devtools panel, popup primitives, design-system shared components",
   "type": "module",

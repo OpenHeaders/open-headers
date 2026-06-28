@@ -141,8 +141,8 @@ function copyAssetsPlugin() {
             // Chrome's manifest.version must be dotted integers (no
             // `-beta.N`), so betas land as `X.Y.Z.N`. The free-text
             // `version_name` field carries the real label users see in
-            // `chrome://extensions` so `2026.6.0-beta.1` is not silently
-            // displayed as `2026.6.0.1`.
+            // `chrome://extensions` so `2026.6.1-beta.1` is not silently
+            // displayed as `2026.6.1.1`.
             manifest.version = manifestNumericVersion;
             if (isBeta) {
               manifest.version_name = pkgVersion;
@@ -378,7 +378,7 @@ export default defineConfig({
   },
 
   // Build-time constants.
-  // __APP_VERSION__ uses the numeric manifest-style version (e.g. 2026.6.0.1 instead of 2026.6.0-beta.1)
+  // __APP_VERSION__ uses the numeric manifest-style version (e.g. 2026.6.1.1 instead of 2026.6.1-beta.1)
   // so callers reading runtime.getManifest().version line up with this constant exactly.
   // globalThis override prevents Vite from using detection code that violates CSP.
   define: {
