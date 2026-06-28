@@ -9,6 +9,9 @@ export default defineConfig({
   reporter: 'list',
   use: {
     trace: 'on-first-retry',
+    // Cap individual actions so a wrong selector fails fast with a clear
+    // locator error instead of stalling the whole test to the 60s budget.
+    actionTimeout: 15000,
   },
   projects: [
     {

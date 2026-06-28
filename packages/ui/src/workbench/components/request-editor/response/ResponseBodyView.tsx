@@ -24,6 +24,10 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
         </Text>
       )}
       <pre
+        // Role-less rendered body — same exception as the status chip:
+        // a single inline test id so e2e can read it directly instead of
+        // sniffing the DOM for a JSON-shaped <pre>.
+        data-testid="oh-response-body"
         style={{
           fontFamily: "'SF Mono', 'Fira Code', monospace",
           fontSize: 12,

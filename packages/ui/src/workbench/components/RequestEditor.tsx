@@ -522,6 +522,11 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
       body: draft.body,
       credentialsMode: draft.credentialsMode,
       followRedirects: draft.followRedirects,
+      // Test-fire must run the same pre-request / post-response scripts a
+      // saved send would — without these the sandbox hooks are skipped and
+      // the response panel never shows the script outcome.
+      preRequestScript: draft.preRequestScript,
+      postResponseScript: draft.postResponseScript,
     };
     const snapshot = await execute({ draft: draftRequest });
     setSending(false);
