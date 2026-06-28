@@ -90,9 +90,11 @@ export type RequestIncompleteReason =
  * the executor refuses to dispatch when false, so literal `{{env.X}}`
  * never hits the wire.
  *
- * Reserved-namespace errors (`{{file.X}}` / `{{dynamic.X}}`) are
- * excluded from gating — those references are intentionally
- * unresolved until those features ship.
+ * Reserved-namespace errors (`{{dynamic.X}}`) are excluded from gating —
+ * that reference is intentionally unresolved until the feature ships.
+ * `{{file.X}}` is NOT reserved: it resolves to the content hash when the
+ * file registry is fed, and gates as `unset-in-scope` when the file is
+ * missing — same as any other scope.
  *
  * Pure — no resolver instance required. Callers supply the same
  * lookup shape `resolveTemplate` takes; the helper can be used from

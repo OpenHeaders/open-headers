@@ -4,11 +4,13 @@
  * One resolver walk per tab so the inline tab dots can flag exactly
  * which section needs attention. Each flag is `true` when at least one
  * `{{ref}}` in that tab's strings fails to resolve — excluding
- * reserved-namespace refs (`{{file.X}}` / `{{dynamic.X}}`), which are
- * intentionally unresolved until those features ship. `hasUnresolvedRefs`
- * is the OR aggregate that gates the Send button + tab-bar greying
- * (equivalent to walking every string via `isRequestResolvable`, but the
- * per-section walk already pays that cost).
+ * reserved-namespace refs (`{{dynamic.X}}`), which are intentionally
+ * unresolved until that feature ships. `{{file.X}}` is a real scope
+ * (resolves to the content hash via the file registry the resolver is
+ * fed); a missing file flags as `unset-in-scope` like any other scope.
+ * `hasUnresolvedRefs` is the OR aggregate that gates the Send button +
+ * tab-bar greying (equivalent to walking every string via
+ * `isRequestResolvable`, but the per-section walk already pays that cost).
  */
 
 import { resolveTemplate } from '@openheaders/core/variables';

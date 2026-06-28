@@ -635,8 +635,9 @@ async function resolveRequest(request: Request, options: ExecuteRequestOptions):
   // draft can't be resolved. Mirrors the DNR compile pipeline's
   // `getUnresolvableRuleUids` filter — shipping literal `{{env.var}}`
   // on the wire is almost never the user's intent. `isRequestResolvable`
-  // excludes reserved-namespace errors (`{{file.X}}` / `{{dynamic.X}}`)
-  // so those don't block until their features ship.
+  // excludes reserved-namespace errors (`{{dynamic.X}}`) so they don't
+  // block until that feature ships; `{{file.X}}` resolves here (the file
+  // registry is fed above) and only blocks when the file is missing.
   const resolvable = isRequestResolvable(
     request,
     (name) => resolver.resolve(name, context),

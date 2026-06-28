@@ -15,21 +15,23 @@
  * directly.
  */
 
+import { isLiveVariableEffective } from '@openheaders/core/live';
+import { type ResolvedLiveValue, VariableResolver } from '@openheaders/core/variables';
+import { feedCollectionVariablesToResolver } from '@openheaders/ui/shared/variables';
+import { useMemo } from 'react';
 import { useEnvVarVault } from './useEnvVarVault';
+import { useFiles } from './useFiles';
 import { useAllLiveCaches } from './useLiveCache';
 import { useLiveVariables } from './useLiveVariables';
 import { useLiveWorkflows } from './useLiveWorkflows';
 import { useRequests } from './useRequests';
 import { useRules } from './useRules';
-import { isLiveVariableEffective } from '@openheaders/core/live';
-import { type ResolvedLiveValue, VariableResolver } from '@openheaders/core/variables';
-import { useMemo } from 'react';
-import { feedCollectionVariablesToResolver } from '@openheaders/ui/shared/variables';
 
 export function useVariableResolver(): VariableResolver {
   const { environments, activeEnvironmentId, defaultEnvironmentId, workspaceVariables, vault } = useEnvVarVault();
   const { localCollections, templateCollections } = useRules();
   const { collections: requestCollections } = useRequests();
+  const { files } = useFiles();
   const { variables: liveVariables } = useLiveVariables();
   const { workflows: liveWorkflows } = useLiveWorkflows();
 
@@ -79,6 +81,12 @@ export function useVariableResolver(): VariableResolver {
       requestCollections,
       templateCollections,
     });
+    // File registry — powers `{{file.X}}` (resolves to the content hash,
+    // not bytes). Without this the editor falsely flags references to
+    // files that exist, since the SW executor feeds the same registry
+    // and resolves them on the wire. Missing files still surface as
+    // `unset-in-scope`, matching the executor's gate.
+    r.setFileRegistry(files);
     r.setLiveRegistry(liveRegistry);
     // Renderer surfaces (template-input syntax highlighting, Inspector)
     // only need to know whether a `{{vault.X}}` reference is resolvable;
@@ -99,6 +107,7 @@ export function useVariableResolver(): VariableResolver {
     localCollections,
     requestCollections,
     templateCollections,
+    files,
     liveRegistry,
   ]);
 }
