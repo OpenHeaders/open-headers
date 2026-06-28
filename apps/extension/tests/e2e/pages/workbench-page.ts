@@ -202,6 +202,11 @@ export class WorkbenchPage {
     await this.page.getByRole('button', { name: label, exact: true }).click();
   }
 
+  /** Toggle a Settings-tab switch by its accessible name (aria-label). */
+  async toggleSwitch(name: string): Promise<void> {
+    await this.page.getByRole('switch', { name, exact: true }).filter({ visible: true }).first().click();
+  }
+
   // ── Monaco editors (body content, scripts) ──────────────────────
 
   /**

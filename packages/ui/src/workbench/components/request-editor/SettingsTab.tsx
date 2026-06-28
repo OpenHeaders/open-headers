@@ -128,6 +128,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange }) => {
         control={
           <Switch
             size="small"
+            aria-label="Automatically follow redirects"
             checked={followRedirects}
             onChange={(checked) => onChange({ ...value, followRedirects: checked })}
           />
@@ -179,6 +180,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ value, onChange }) => {
         control={
           <Switch
             size="small"
+            aria-label="Disable cookie jar"
             checked={cookieJarDisabled}
             onChange={(checked) => onChange({ ...value, credentialsMode: checked ? undefined : 'include' })}
           />
