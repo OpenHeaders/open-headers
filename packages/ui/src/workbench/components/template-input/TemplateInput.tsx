@@ -144,21 +144,20 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-/** Walk backward from caret to find the most recent unclosed `{{`.
- *  Returns the open-brace start index (0-based) + the query (text
- *  between `{{` and caret). `null` means no active template context.
- *
- *  The query is rejected if it contains any `}` — variable references
- *  don't contain braces, so a `}` in the query means we've walked past
- *  the closing brace of an already-complete ref (caret sits between
- *  `}` and `}` at the end of `{{env.wat}}`, for example). */
-function detectMeasure(text: string, caret: number): { start: number; query: string } | null {
+/** Open-brace context for the suggestion popover. A single `{` is
+ *  enough to trigger — users reach for the variable list on the first
+ *  brace, not the second. `double` flags `{{` (unambiguous template
+ *  intent) vs a lone `{` (which might still be literal); the caller
+ *  uses it to keep an empty list hidden for a lone brace. The query
+ *  captures only non-brace chars, so a closed `{{ref}}` stops matching
+ *  once the caret moves past its `}}`. */
+const MEASURE_RX = /(\{\{?)([^{}]*)$/;
+
+function detectMeasure(text: string, caret: number): { start: number; query: string; double: boolean } | null {
   const before = text.slice(0, caret);
-  const openIdx = before.lastIndexOf(PREFIX);
-  if (openIdx === -1) return null;
-  const after = before.slice(openIdx + PREFIX.length);
-  if (after.includes('}')) return null;
-  return { start: openIdx, query: after };
+  const m = MEASURE_RX.exec(before);
+  if (!m) return null;
+  return { start: m.index, query: m[2], double: m[1].length === 2 };
 }
 
 /** When the caret sits inside an already-complete `{{ref}}`, find the
@@ -294,6 +293,10 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
     const [isOpen, setIsOpen] = useState(false);
     const [query, setQuery] = useState('');
     const [measureStart, setMeasureStart] = useState<number | null>(null);
+    // True once the caret follows `{{` — a lone `{` keeps this false so
+    // we can hide an empty list (probably a literal brace) while still
+    // showing it the moment a match exists.
+    const [measureDouble, setMeasureDouble] = useState(false);
     const [activeIndex, setActiveIndex] = useState(0);
     const [recents, setRecents] = useState<VariableRecents | null>(null);
     const [isFocused, setIsFocused] = useState(false);
@@ -473,6 +476,7 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
           return measure.start;
         });
         setQuery(measure.query);
+        setMeasureDouble(measure.double);
         setIsOpen(true);
       },
       [effectiveDisable],
@@ -758,6 +762,11 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
         />
         {isOpen &&
           popoverCoords &&
+          // A lone `{` only opens the popover once it has a match —
+          // `{{` (clear template intent) always opens, even to show
+          // "No matches" — so a literal brace in a value doesn't flash
+          // an empty list.
+          (suggestions.length > 0 || measureDouble) &&
           createPortal(
             <div
               className="oh-template-popover-anchor"
