@@ -125,7 +125,7 @@ const StatusBar: React.FC<StatusBarProps> = ({
                 })) as MenuProps['items'],
               }}
               placement="topRight"
-              trigger={['click']}
+              trigger={['hover']}
             >
               <div
                 className="rules-statusbar-item"
