@@ -7,7 +7,7 @@
  * (the editor is the write surface), TOTP rows mount a live preview.
  */
 
-import { EyeInvisibleOutlined, EyeOutlined } from '@ant-design/icons';
+import { CaretRightOutlined, EyeInvisibleOutlined, EyeOutlined } from '@ant-design/icons';
 import { Tooltip, Typography, theme } from 'antd';
 import { type CSSProperties, useState } from 'react';
 import { scopeBadge } from '../../shared/scope-colors';
@@ -31,12 +31,44 @@ export function ScopeSection({ scope, variables, subtitle, onOpenEditor }: Scope
   const { token } = theme.useToken();
   const config = SCOPE_CONFIG[scope];
   const hasVariables = variables.length > 0;
-  // A populated table draws its own bottom border, so the section
-  // divider would stack a second line right under it. Keep the divider
-  // only to separate empty sections.
+  // Each scope collapses independently so users can hide the scopes
+  // they aren't fiddling with. Default open — the panel reads top-down.
+  const [expanded, setExpanded] = useState(true);
+  const toggle = () => setExpanded((e) => !e);
+  // A populated, expanded table draws its own bottom border, so the
+  // section divider would stack a second line right under it. Keep the
+  // divider in every other case to separate sections.
+  const showTable = expanded && hasVariables;
   return (
-    <div style={{ borderBottom: hasVariables ? undefined : `1px solid ${token.colorBorderSecondary}`, padding: '8px 0' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+    <div style={{ borderBottom: showTable ? undefined : `1px solid ${token.colorBorderSecondary}`, padding: '8px 0' }}>
+      <div
+        role="button"
+        tabIndex={0}
+        aria-expanded={expanded}
+        onClick={toggle}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            toggle();
+          }
+        }}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          marginBottom: expanded ? 6 : 0,
+          cursor: 'pointer',
+        }}
+      >
+        <CaretRightOutlined
+          style={{
+            color: token.colorTextTertiary,
+            fontSize: 10,
+            flexShrink: 0,
+            transition: 'transform 0.2s',
+            transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
+          }}
+        />
         {scopeBadge(scope, 16)}
         <Text strong style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
           {config.label}
@@ -64,9 +96,15 @@ export function ScopeSection({ scope, variables, subtitle, onOpenEditor }: Scope
                 <Text
                   role="button"
                   tabIndex={0}
-                  onClick={onOpenEditor}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenEditor();
+                  }}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') onOpenEditor();
+                    if (e.key === 'Enter') {
+                      e.stopPropagation();
+                      onOpenEditor();
+                    }
                   }}
                   style={{ fontSize: 10, color: token.colorPrimary, cursor: 'pointer' }}
                 >
@@ -81,13 +119,14 @@ export function ScopeSection({ scope, variables, subtitle, onOpenEditor }: Scope
           </Text>
         </span>
       </div>
-      {hasVariables ? (
-        <ScopeVariableTable variables={variables} />
-      ) : (
-        <Text type="secondary" style={{ fontSize: 10 }}>
-          No {scope === 'vault' ? 'secrets' : 'variables'} defined.
-        </Text>
-      )}
+      {expanded &&
+        (hasVariables ? (
+          <ScopeVariableTable variables={variables} />
+        ) : (
+          <Text type="secondary" style={{ fontSize: 10 }}>
+            No {scope === 'vault' ? 'secrets' : 'variables'} defined.
+          </Text>
+        ))}
     </div>
   );
 }
