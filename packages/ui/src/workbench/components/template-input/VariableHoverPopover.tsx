@@ -17,7 +17,7 @@ import { useVariableLookup, type VariableCandidate, type VariableLookupResult } 
 import { type MutationResult, useVariableMutator } from '@openheaders/ui/shared/hooks/useVariableMutator';
 import type { Collection, Environment, Variable, VariableScope, Vault, VaultSecret, WorkspaceVariables } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
-import { App, Button, Dropdown, Input, type MenuProps, Tag, Tooltip, theme } from 'antd';
+import { App, Button, Dropdown, type GetRef, Input, type MenuProps, Tag, Tooltip, theme } from 'antd';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePopoverPlacement } from '@openheaders/ui/shared/popover';
 import { buildChordsFromEvent, useShortcutLabel } from '../../hooks/useWorkspaceShortcuts';
@@ -107,21 +107,25 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
   }, [lookup]);
 
   const { position, popoverRef, measured } = usePopoverPlacement(anchorEl, POPOVER_WIDTH);
+  const valueRef = useRef<GetRef<typeof Input.TextArea>>(null);
   const [draft, setDraft] = useState<string>(() => currentValue(candidate, lookup.active?.value ?? ''));
   const [draftDirty, setDraftDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   // Focus the value input on a deliberate (create-flow) open so the user
-  // can type + Cmd/Ctrl+S without a click. The root is `visibility:
-  // hidden` until `measured` (hidden elements reject focus); we defer one
-  // more frame so the reveal paint lands, then focus the rendered textarea
-  // (the host shows a single popover). Hover opens omit `autoFocus`.
+  // can type + Cmd/Ctrl+S without a click. Hover opens omit `autoFocus`.
+  //
+  // Gated on `measured`: this runs as a passive effect after the commit
+  // that reveals the popover, so the textarea is mounted and focusable.
+  // The root's pre-measure hide is `opacity`-based (not `visibility`),
+  // which the textarea would otherwise inherit and that silently rejects
+  // focus — see the root style below.
   useEffect(() => {
     if (!autoFocus || !measured) return;
-    const raf = requestAnimationFrame(() => {
-      document.querySelector<HTMLTextAreaElement>('[data-variable-popover-root] textarea')?.focus();
-    });
-    return () => cancelAnimationFrame(raf);
+    valueRef.current?.focus();
   }, [autoFocus, measured]);
+  // Returning focus + caret + suggestions to the launching field on close
+  // is owned by `TemplateInput` (the opener) via the host's `onClose` — it
+  // alone knows the caret semantics and how to reopen its suggestion list.
   // Ref-mirror of `draft` updated synchronously in onChange, so the
   // save path (Enter hotkey OR Save click) always reads the most
   // recent text. Reading `draft` from closure is unsafe: the keydown
@@ -276,16 +280,24 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
         borderRadius: token.borderRadiusLG,
         boxShadow: token.boxShadowSecondary,
         padding: 12,
-        // Visibility = AND of:
+        // Reveal = AND of:
         //   `measured` — placement hook has seen layout settle across
-        //     two frames (open transition guard, prevents flicker).
+        //     two frames (open transition guard, prevents flicker at the
+        //     estimated position).
         //   `visible` — host hasn't started the close animation
         //     (close transition guard, mirrors the open transition).
-        // Either being false fades opacity / transform to 0; both
-        // true reveals at full opacity. The CSS transition handles
-        // the animation in both directions.
-        visibility: measured ? 'visible' : 'hidden',
+        // Either being false fades opacity / transform to 0; both true
+        // reveals at full opacity. The CSS transition animates both ways.
+        //
+        // The hide is `opacity`-based, NOT `visibility` — the value
+        // textarea inherits the root's `visibility`, and a `visibility:
+        // hidden` ancestor silently rejects `focus()`, breaking the
+        // create-flow auto-focus. `opacity: 0` hides it just as
+        // completely for the pre-measure frames without blocking focus;
+        // `pointer-events: none` keeps the not-yet-revealed popover from
+        // catching stray clicks.
         opacity: measured && visible ? 1 : 0,
+        pointerEvents: measured ? undefined : 'none',
         transform: measured && visible ? 'scale(1)' : 'scale(0.96)',
         transformOrigin: `${position.side === 'above' ? 'bottom' : 'top'} left`,
         transition: 'opacity 120ms ease-out, transform 120ms ease-out',
@@ -315,8 +327,9 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
 
       <Input.TextArea
         // Focus is driven by the `measured`-gated effect above (not the
-        // native `autoFocus`, which would fire while the root is still
-        // `visibility: hidden`).
+        // native `autoFocus`, which would fire on mount before the popover
+        // is positioned and revealed).
+        ref={valueRef}
         value={draft}
         onChange={(e) => {
           draftRef.current = e.target.value;

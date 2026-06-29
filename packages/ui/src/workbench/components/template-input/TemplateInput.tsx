@@ -380,6 +380,32 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       return detectCreateTarget(query, effectiveContext.collectionId);
     }, [measureDouble, suggestions.length, query, effectiveContext.collectionId]);
 
+    // Called when the create popover closes (Escape / save / outside-click).
+    // Drop the user back into the field exactly where they left off — focus,
+    // restore the caret by offset (survives the save re-render), and
+    // re-measure so the suggestion list reopens, now showing the just-created
+    // match. Skip when focus has moved to an outside target (dismissed by
+    // clicking elsewhere) so we don't yank it back. Runs after the popover's
+    // close animation, outside any React commit, so the re-measure's state
+    // updates apply cleanly.
+    const restoreAfterCreate = useCallback(
+      (caretOffset: number) => {
+        const root = editableRef.current;
+        if (!root) return;
+        const active = document.activeElement;
+        const focusMovedOutside =
+          !!active &&
+          active !== document.body &&
+          active !== root &&
+          !active.closest('[data-variable-popover-root]');
+        if (focusMovedOutside) return;
+        root.focus();
+        if (caretOffset >= 0) setCaretOffset(root, caretOffset);
+        updateMeasure(root.textContent ?? '', caretOffset >= 0 ? caretOffset : getCaretOffset(root));
+      },
+      [updateMeasure],
+    );
+
     // Hand the reference to the shared create popover (the "Add to"
     // flow), anchored to its `{{ref}}` token when rendered. The popover
     // defaults "Add to" to the reference's own scope.
@@ -395,6 +421,9 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
           break;
         }
       }
+      // Remember the caret so we can drop the user back exactly where they
+      // left off (inside the `{{ref}}` token) when the popover closes.
+      const caretOffset = getCaretOffset(root);
       // Guard the `[value, isOpen]` effect from closing this open.
       openingCreateRef.current = true;
       setIsOpen(false);
@@ -403,9 +432,9 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       // popover hover-dismisses immediately (no pointer sustains it).
       popoverHost.open(
         { anchorEl: anchor, reference: target.reference, collectionId: effectiveContext.collectionId, autoFocus: true },
-        { pinned: true },
+        { pinned: true, onClose: () => restoreAfterCreate(caretOffset) },
       );
-    }, [createTarget, popoverHost, effectiveContext.collectionId]);
+    }, [createTarget, popoverHost, effectiveContext.collectionId, restoreAfterCreate]);
 
     const handleKeyDown = useCallback(
       (e: KeyboardEvent<HTMLDivElement>) => {
@@ -434,6 +463,10 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
           if (e.key === 'Escape') {
             e.preventDefault();
             e.stopPropagation();
+            // Suppress this Escape's keyup re-measure, which would otherwise
+            // reopen the list it just closed (the caret is still in the ref).
+            // Focus + caret stay put; typing or moving re-measures and reopens.
+            suppressReopenRef.current = true;
             setIsOpen(false);
             return;
           }
@@ -451,6 +484,10 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
           if (e.key === 'Escape') {
             e.preventDefault();
             e.stopPropagation();
+            // Suppress this Escape's keyup re-measure, which would otherwise
+            // reopen the list it just closed (the caret is still in the ref).
+            // Focus + caret stay put; typing or moving re-measures and reopens.
+            suppressReopenRef.current = true;
             setIsOpen(false);
             return;
           }

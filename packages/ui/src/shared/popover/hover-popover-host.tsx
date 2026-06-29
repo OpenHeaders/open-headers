@@ -34,6 +34,11 @@ export interface HoverPopoverOpenOptions {
    *  save, never by hover-out. Use for click-to-open editors so a
    *  mouse-leave before the first inside-click can't close the popover. */
   pinned?: boolean;
+  /** Called once when THIS session ends (unmount), however it was
+   *  dismissed (Escape / save / outside-click). The opener uses it to
+   *  restore its own focus/caret/derived UI — only it knows that context.
+   *  Runs after the close animation, outside any React commit. */
+  onClose?: () => void;
 }
 
 export interface HoverPopoverApi<TState extends HoverPopoverBaseState> {
@@ -151,6 +156,9 @@ export function createHoverPopoverHost<TState extends HoverPopoverBaseState>(
     const [closing, setClosing] = useState(false);
     const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const unmountTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    // The current session's close callback (set per `open`). Fired once at
+    // unmount, then cleared so a reopened session can't double-invoke it.
+    const onCloseRef = useRef<(() => void) | null>(null);
 
     const cancelClose = useCallback(() => {
       if (closeTimer.current) {
@@ -174,6 +182,12 @@ export function createHoverPopoverHost<TState extends HoverPopoverBaseState>(
       setClosing(true);
       cancelUnmount();
       unmountTimer.current = setTimeout(() => {
+        // Notify the opener before tearing down so it can read where focus
+        // currently is (still inside the popover ⇒ restore; moved to an
+        // outside target ⇒ leave alone). Cleared so a reopen can't re-fire.
+        const onClose = onCloseRef.current;
+        onCloseRef.current = null;
+        onClose?.();
         setState(null);
         setInteracted(false);
         setClosing(false);
@@ -216,6 +230,9 @@ export function createHoverPopoverHost<TState extends HoverPopoverBaseState>(
         // outside-click / Escape / save only — `scheduleClose` no-ops while
         // `interacted` is true, so a mouse-leave can't close it.
         if (pinned) interactedRef.current = true;
+        // Bind this session's close callback (committed only past the
+        // sticky-edit guard above, so an ignored re-hover can't clobber it).
+        onCloseRef.current = opts?.onClose ?? null;
         setState(next);
       },
       [cancelClose, cancelUnmount, state],
