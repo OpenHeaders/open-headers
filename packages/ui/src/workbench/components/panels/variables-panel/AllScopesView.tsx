@@ -59,6 +59,7 @@ export function AllScopesView({
             : 'no live variables defined'
         }
         onOpenEditor={openScopeEditor('live')}
+        isLast
       />
     </>
   );

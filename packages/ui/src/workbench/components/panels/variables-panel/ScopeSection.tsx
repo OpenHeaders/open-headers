@@ -25,9 +25,12 @@ interface ScopeSectionProps {
    *  scopes with no editor available in the current context (e.g.,
    *  Environment when no env is selected and there's no default). */
   onOpenEditor?: (() => void) | null;
+  /** Suppresses the bottom divider on the final section — a trailing
+   *  separator with nothing below it is just noise. */
+  isLast?: boolean;
 }
 
-export function ScopeSection({ scope, variables, subtitle, onOpenEditor }: ScopeSectionProps) {
+export function ScopeSection({ scope, variables, subtitle, onOpenEditor, isLast }: ScopeSectionProps) {
   const { token } = theme.useToken();
   const config = SCOPE_CONFIG[scope];
   const hasVariables = variables.length > 0;
@@ -36,11 +39,13 @@ export function ScopeSection({ scope, variables, subtitle, onOpenEditor }: Scope
   const [expanded, setExpanded] = useState(true);
   const toggle = () => setExpanded((e) => !e);
   // A populated, expanded table draws its own bottom border, so the
-  // section divider would stack a second line right under it. Keep the
-  // divider in every other case to separate sections.
+  // section divider would stack a second line right under it. The last
+  // section never needs one — nothing follows it. Keep the divider in
+  // every other case to separate sections.
   const showTable = expanded && hasVariables;
+  const showDivider = !showTable && !isLast;
   return (
-    <div style={{ borderBottom: showTable ? undefined : `1px solid ${token.colorBorderSecondary}`, padding: '8px 0' }}>
+    <div style={{ borderBottom: showDivider ? `1px solid ${token.colorBorderSecondary}` : undefined, padding: '8px 0' }}>
       <div
         role="button"
         tabIndex={0}
