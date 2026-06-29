@@ -539,16 +539,27 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
         const after = text.slice(consumeEnd);
         const insert = `${PREFIX}${suggestion.reference}${SPLIT}`;
         const next = `${before}${insert}${after}`;
-        const newCaret = measureStart + insert.length;
+        // A namespace scaffold (`{{scope.}}`) lands the caret INSIDE,
+        // right after the dot, and reopens the popover scoped to that
+        // namespace so the user keeps typing the variable name. A real
+        // reference lands the caret after `}}` and records a recent.
+        const isScaffold = suggestion.preview.kind === 'namespace';
+        const newCaret = isScaffold
+          ? measureStart + PREFIX.length + suggestion.reference.length
+          : measureStart + insert.length;
         root.innerHTML = renderHighlightedHtml(next, newCaret, classify);
         setCaretOffset(root, newCaret);
-        setIsOpen(false);
         onChange?.(next);
+        if (isScaffold) {
+          updateMeasure(next, newCaret);
+          return;
+        }
+        setIsOpen(false);
         void addRecent(activeWorkspaceId, suggestion.reference)
           .then(() => listRecents(activeWorkspaceId))
           .then((updated) => setRecents(updated));
       },
-      [activeWorkspaceId, measureStart, onChange, classify],
+      [activeWorkspaceId, measureStart, onChange, classify, updateMeasure],
     );
 
     const handleKeyDown = useCallback(

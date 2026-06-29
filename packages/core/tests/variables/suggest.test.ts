@@ -58,11 +58,13 @@ function refs(list: ReadonlyArray<VariableSuggestion>): string[] {
 
 describe('buildSuggestions', () => {
   describe('scope inclusion', () => {
-    it('returns empty when no registries are populated (still offers reserved dynamic + file)', () => {
+    it('offers empty-scope scaffolds + reserved rows when no registries are populated', () => {
       const ctx: SuggestionContext = {};
       const out = buildSuggestions(makeRegistries(), ctx);
-      // Only reserved file + dynamic show up with empty registries.
-      expect(refs(out)).toEqual(['file.', 'dynamic.']);
+      // Every creatable scope stays discoverable even when empty
+      // (collection is gated on a collectionId, so it's absent here);
+      // the reserved file + dynamic rows follow.
+      expect(refs(out)).toEqual(['vault.', 'env.', 'workspace.', 'file.', 'dynamic.']);
     });
 
     it('offers vault entries when present', () => {
@@ -238,7 +240,10 @@ describe('buildSuggestions', () => {
 
     it('allowed.file=false and allowed.dynamic=false hide reserved rows', () => {
       const out = buildSuggestions(makeRegistries(), { allowed: { file: false, dynamic: false } });
-      expect(out).toHaveLength(0);
+      // Reserved rows gone; only the empty-scope discovery scaffolds remain.
+      expect(refs(out)).not.toContain('file.');
+      expect(refs(out)).not.toContain('dynamic.');
+      expect(refs(out)).toEqual(['vault.', 'env.', 'workspace.']);
     });
   });
 

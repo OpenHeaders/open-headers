@@ -143,6 +143,10 @@ export interface SuggestionRegistries {
  *     disable the row. Picking inserts the literal text anyway so the
  *     user's intent isn't lost; the resolver emits `reserved-namespace`
  *     at runtime.
+ *   - `namespace` — an empty-but-usable scope, surfaced so the scope
+ *     stays discoverable; show `subtitle`. Picking scaffolds
+ *     `{{scope.}}` with the caret left inside (see the input's
+ *     insert handler).
  *   - `step-runtime` — step captures have no value until the chain
  *     runs, so previews carry no value; the UI shows "Captured at
  *     runtime" or similar.
@@ -155,6 +159,7 @@ export type SuggestionPreview =
   | { kind: 'value'; value: string; masked: boolean; definitionallyStale?: boolean }
   | { kind: 'stale'; value: string; masked: boolean; definitionallyStale?: boolean }
   | { kind: 'reserved'; subtitle: string }
+  | { kind: 'namespace'; subtitle: string }
   | { kind: 'step-runtime' }
   /** Vault TOTP entry — UI shows "TOTP" badge + algorithm/digits/period
    *  hint. No `value` because the code is computed at request time. */
@@ -406,6 +411,29 @@ export function buildSuggestions(registries: SuggestionRegistries, context: Sugg
     }
   }
 
+  // Namespace scaffolds — every user-creatable scope the site allows
+  // surfaces even when it has no variables yet, so the scope stays
+  // discoverable. Only emitted for scopes that contributed no concrete
+  // entry above; picking one scaffolds `{{scope.}}` (see the input's
+  // insert handler). The set mirrors the "Add to" create scopes.
+  const SCAFFOLD_SCOPES: Array<{ ns: ScopeNamespace; subtitle: string }> = [
+    { ns: 'vault', subtitle: 'Add a secret' },
+    { ns: 'env', subtitle: 'Add an environment variable' },
+    { ns: 'collection', subtitle: 'Add a collection variable' },
+    { ns: 'workspace', subtitle: 'Add a workspace variable' },
+  ];
+  for (const { ns, subtitle } of SCAFFOLD_SCOPES) {
+    if (!scopeAllowed(ns, context)) continue;
+    if (out.some((s) => s.scope === ns)) continue;
+    out.push({
+      reference: `${ns}.`,
+      scope: ns,
+      name: '',
+      preview: { kind: 'namespace', subtitle },
+      priority: BASE_PRIORITY - DISABLED_PENALTY + 1,
+    });
+  }
+
   // 7. file — reserved/disabled in v1.
   // `file` lives in SCOPE_NAMESPACES in the resolver, but the plan
   // treats it as reserved until a full file-blob registry ships (v2).
@@ -446,6 +474,14 @@ export function buildSuggestions(registries: SuggestionRegistries, context: Sugg
  */
 type MatchRank = 0 | 1 | 2;
 
+/** Display tier for the sort: concrete values first, empty-scope
+ *  discovery rows next, reserved "coming soon" rows last. */
+function displayTier(s: VariableSuggestion): 0 | 1 | 2 {
+  if (s.preview.kind === 'reserved') return 2;
+  if (s.preview.kind === 'namespace') return 1;
+  return 0;
+}
+
 function matchRank(reference: string, name: string, query: string): MatchRank | null {
   if (query === '') return 0;
   // Prefix matches are checked against BOTH the full reference
@@ -479,6 +515,10 @@ export function filterSuggestions(all: ReadonlyArray<VariableSuggestion>, query:
   const trimmed = query;
   const ranked: Array<{ rank: MatchRank; s: VariableSuggestion }> = [];
   for (const s of all) {
+    // Namespace scaffolds drop out once the query commits to a scope
+    // (contains a `.`): by then the user is naming a variable inside
+    // that scope, not browsing scopes.
+    if (s.preview.kind === 'namespace' && trimmed.includes('.')) continue;
     // Never surface reserved rows just because their prefix matches —
     // they only appear when the query is empty or matches something
     // before the dot. We still accept matches on `file.` / `dynamic.`
@@ -490,6 +530,12 @@ export function filterSuggestions(all: ReadonlyArray<VariableSuggestion>, query:
 
   ranked.sort((a, b) => {
     if (a.rank !== b.rank) return a.rank - b.rank;
+    // Concrete values rank above empty-scope discovery rows, which rank
+    // above reserved "coming soon" rows — a real value is always the
+    // likelier pick than a scope category.
+    const ta = displayTier(a.s);
+    const tb = displayTier(b.s);
+    if (ta !== tb) return ta - tb;
     const pa = SCOPE_PRIORITY[a.s.scope];
     const pb = SCOPE_PRIORITY[b.s.scope];
     if (pa !== pb) return pa - pb;

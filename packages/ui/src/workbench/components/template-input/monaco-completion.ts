@@ -82,7 +82,10 @@ export function registerVariableCompletionProvider(
 
           const query = afterOpen;
           const all = opts.getSuggestions();
-          const ranked = filterSuggestions(all, query);
+          // Drop namespace-scaffold rows here — empty-scope discovery is
+          // a line-input (TemplateInput) affordance; in a code/JSON body
+          // a per-scope `{{scope.}}` row would be noise.
+          const ranked = filterSuggestions(all, query).filter((s) => s.preview.kind !== 'namespace');
 
           // `{{` is already in the buffer at columns
           // `openIdx+1..openIdx+2` (1-based); caret is at `column`.
@@ -149,6 +152,8 @@ function scopeDetail(s: VariableSuggestion): string {
     }
     case 'reserved':
       return `${SCOPE_LABEL[s.scope]} — coming soon`;
+    case 'namespace':
+      return `${SCOPE_LABEL[s.scope]} — ${s.preview.subtitle}`;
     case 'step-runtime':
       return `${SCOPE_LABEL[s.scope]} — captured at runtime`;
     case 'totp':
@@ -166,6 +171,7 @@ function previewDocumentation(s: VariableSuggestion): string | null {
     case 'stale':
       return s.preview.masked ? 'Value hidden (stale live variable).' : `**Stale value:** \`${s.preview.value}\``;
     case 'reserved':
+    case 'namespace':
       return s.preview.subtitle;
     case 'step-runtime':
       return 'Captured when the workflow runs.';
