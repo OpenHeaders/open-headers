@@ -1,6 +1,6 @@
 {
   "name": "@openheaders/oracle",
-  "version": "2026.6.1",
+  "version": "2026.6.2",
   "private": true,
   "description": "OpenHeaders oracle — entity-agnostic sync engine, workspace state, conflict resolution",
   "type": "module",
