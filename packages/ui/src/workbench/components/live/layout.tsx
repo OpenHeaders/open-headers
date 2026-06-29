@@ -91,6 +91,36 @@ export const Section: React.FC<SectionProps> = ({ title, children }) => {
   );
 };
 
+interface InlineDescriptionProps {
+  description: string;
+  onChangeDescription: (next: string) => void;
+  descriptionPlaceholder?: string;
+}
+
+/**
+ * Standalone description text-area — the description half of
+ * {@link InlineNameDescription}, reusable on its own where the entity is
+ * renamed elsewhere (e.g. `LiveWorkflowEditor` renames via the tab strip
+ * / sidebar, so only the description belongs in the form body). Grows to
+ * fill its row via `flex: 1`; full-width when it has no name sibling.
+ */
+export const InlineDescription: React.FC<InlineDescriptionProps> = ({
+  description,
+  onChangeDescription,
+  descriptionPlaceholder = 'Description (optional)',
+}) => {
+  return (
+    <Input.TextArea
+      size="small"
+      style={{ flex: 1, width: '100%' }}
+      autoSize={{ minRows: 1, maxRows: 3 }}
+      placeholder={descriptionPlaceholder}
+      value={description}
+      onChange={(e) => onChangeDescription(e.target.value)}
+    />
+  );
+};
+
 interface InlineNameDescriptionProps {
   name: string;
   description: string;
@@ -104,12 +134,12 @@ interface InlineNameDescriptionProps {
 
 /**
  * Inline Name + Description row. Name is a short identifier input on
- * the left; Description is a flexible text-area filling the rest.
+ * the left; Description ({@link InlineDescription}) is a flexible
+ * text-area filling the rest.
  *
- * Used by both `LiveWorkflowEditor` (workflow name/description) and
- * `LiveVariableEditor` CreateMode (LV name/description). Extracted to
- * keep the rhythm identical across both editors — the same rows on
- * different entity types should look and behave the same.
+ * Used by `LiveVariableEditor` CreateMode (LV name/description). Kept as
+ * the canonical "rename in the form" row so editors that DO own their
+ * name inline look and behave identically.
  */
 export const InlineNameDescription: React.FC<InlineNameDescriptionProps> = ({
   name,
@@ -129,13 +159,10 @@ export const InlineNameDescription: React.FC<InlineNameDescriptionProps> = ({
         value={name}
         onChange={(e) => onChangeName(e.target.value)}
       />
-      <Input.TextArea
-        size="small"
-        style={{ flex: 1 }}
-        autoSize={{ minRows: 1, maxRows: 3 }}
-        placeholder={descriptionPlaceholder}
-        value={description}
-        onChange={(e) => onChangeDescription(e.target.value)}
+      <InlineDescription
+        description={description}
+        onChangeDescription={onChangeDescription}
+        descriptionPlaceholder={descriptionPlaceholder}
       />
     </div>
   );

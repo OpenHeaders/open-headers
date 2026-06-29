@@ -78,7 +78,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { computeRequestTrail } from '../../breadcrumbs';
 import EditorHeader from '../EditorHeader';
 import { buildDependencyRows } from './dependencies-view';
-import { InlineNameDescription, Section } from './layout';
+import { InlineDescription, Section } from './layout';
 import { LIVE_WORKFLOW_FIELD } from '@openheaders/ui/shared/awareness/live-paths';
 import { readFieldPath } from '@openheaders/ui/shared/awareness/field-path';
 import {
@@ -1044,17 +1044,13 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({ draft, setDraft }) 
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {/* InlineNameDescription holds two inputs (name + description) so
-          we wrap with a coarse `name` path; sub-field discrimination
-          would require splitting the component. The dominant collision
-          target is the workflow name; description rarely conflicts. */}
-      <div data-field-path={LIVE_WORKFLOW_FIELD.name}>
-        <InlineNameDescription
-          name={draft.name}
+      {/* The workflow name is owned by the tab strip / sidebar rename, so
+          the form body carries only the description (no redundant name
+          input). */}
+      <div data-field-path={LIVE_WORKFLOW_FIELD.description}>
+        <InlineDescription
           description={draft.description}
-          onChangeName={(name) => setDraft({ ...draft, name })}
           onChangeDescription={(description) => setDraft({ ...draft, description })}
-          namePlaceholder="Workflow name"
         />
       </div>
 
