@@ -22,6 +22,9 @@ interface VariablePopoverState {
   anchorEl: HTMLElement;
   reference: string;
   collectionId?: string;
+  /** Focus the value input on open — set by deliberate opens (the create
+   *  flow), omitted for hover opens. */
+  autoFocus?: boolean;
 }
 
 const POPOVER_INSIDE_SELECTORS: ReadonlyArray<string> = [
@@ -49,6 +52,7 @@ function VariablePopoverBody({
       anchorEl={state.anchorEl}
       reference={state.reference}
       collectionId={state.collectionId}
+      autoFocus={state.autoFocus}
       onClose={onClose}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}

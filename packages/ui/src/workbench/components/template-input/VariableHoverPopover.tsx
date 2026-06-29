@@ -39,6 +39,11 @@ export interface VariableHoverPopoverProps {
   /** Host-controlled visibility for the open/close transition.
    *  Defaults to true so the popover can be used standalone. */
   visible?: boolean;
+  /** Focus the value input on mount. Set for deliberate (keyboard /
+   *  click) opens like the create flow so the user can type + save
+   *  immediately; omit for hover opens, which must not steal focus from
+   *  the field being typed in. */
+  autoFocus?: boolean;
 }
 
 /** Map a resolver scope (`VariableScope`) plus the popover-only
@@ -62,6 +67,7 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
   onMouseEnter,
   onMouseLeave,
   visible = true,
+  autoFocus = false,
 }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
@@ -104,6 +110,18 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
   const [draft, setDraft] = useState<string>(() => currentValue(candidate, lookup.active?.value ?? ''));
   const [draftDirty, setDraftDirty] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Focus the value input on a deliberate (create-flow) open so the user
+  // can type + Cmd/Ctrl+S without a click. The root is `visibility:
+  // hidden` until `measured` (hidden elements reject focus); we defer one
+  // more frame so the reveal paint lands, then focus the rendered textarea
+  // (the host shows a single popover). Hover opens omit `autoFocus`.
+  useEffect(() => {
+    if (!autoFocus || !measured) return;
+    const raf = requestAnimationFrame(() => {
+      document.querySelector<HTMLTextAreaElement>('[data-variable-popover-root] textarea')?.focus();
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [autoFocus, measured]);
   // Ref-mirror of `draft` updated synchronously in onChange, so the
   // save path (Enter hotkey OR Save click) always reads the most
   // recent text. Reading `draft` from closure is unsafe: the keydown
@@ -296,6 +314,9 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
       </div>
 
       <Input.TextArea
+        // Focus is driven by the `measured`-gated effect above (not the
+        // native `autoFocus`, which would fire while the root is still
+        // `visibility: hidden`).
         value={draft}
         onChange={(e) => {
           draftRef.current = e.target.value;

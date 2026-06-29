@@ -402,7 +402,7 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       // until the user Escapes / clicks out / saves. Without this the
       // popover hover-dismisses immediately (no pointer sustains it).
       popoverHost.open(
-        { anchorEl: anchor, reference: target.reference, collectionId: effectiveContext.collectionId },
+        { anchorEl: anchor, reference: target.reference, collectionId: effectiveContext.collectionId, autoFocus: true },
         { pinned: true },
       );
     }, [createTarget, popoverHost, effectiveContext.collectionId]);
