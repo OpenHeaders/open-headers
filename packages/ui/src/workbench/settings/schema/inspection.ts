@@ -9,6 +9,7 @@
  * and the worker reconciles the attached set from it.
  */
 
+import { hasCapability } from '@openheaders/core/capabilities';
 import type { CdpScopeMode } from '@openheaders/core/types';
 import { cdpScopeModeSchema } from '@openheaders/core/types';
 import * as v from 'valibot';
@@ -18,10 +19,16 @@ registerSetting({
   key: 'inspection.cdpEnabled',
   type: 'boolean',
   default: true,
+  // Host-aware: on by default only where the debugging protocol exists
+  // (Chromium-family, signalled by the `cdpInspection` capability). On
+  // Firefox / Safari the capability is absent, so the master switch
+  // defaults — and reads — OFF rather than stranding tabs on a protocol
+  // the runtime can't speak.
+  getDefault: () => hasCapability('cdpInspection'),
   schema: v.boolean(),
   label: 'Debug mode',
   description:
-    'Inspect and modify requests with the same depth as your browser’s built-in developer tools — page loads, workers, and iframes, not just page-level fetches. The browser shows a debugging banner on each attached tab while this is on; it’s on by default, and you can turn it off any time.',
+    'Inspect and modify requests with the same depth as your browser’s built-in developer tools — page loads, workers, and iframes, not just page-level fetches. The browser shows a debugging banner on each attached tab while this is on; it’s on by default in Chrome and Edge, and you can turn it off any time.',
   category: 'inspection',
   tags: ['network', 'inspection', 'requests', 'debugging', 'devtools'],
   scope: 'user',

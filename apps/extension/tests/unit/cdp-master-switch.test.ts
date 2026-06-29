@@ -11,6 +11,7 @@
  */
 
 import '@openheaders/ui/workbench/settings/schema/inspection';
+import { registerCapability, unregisterCapability } from '@openheaders/core/capabilities';
 import type { DictStorage, SettingScope } from '@openheaders/ui/workbench/settings/storage/adapter';
 import {
   __resetStoreForTests,
@@ -52,9 +53,13 @@ beforeEach(() => {
   __resetStoreForTests();
   memory = new MemoryDictStorage();
   configureSettingsStorage(memory);
+  // The worker registers `cdpInspection` on hosts that expose the
+  // debugging protocol; these specs exercise that (Chromium) path.
+  registerCapability('cdpInspection', () => true);
 });
 
 afterEach(() => {
+  unregisterCapability('cdpInspection');
   __resetStoreForTests();
 });
 
@@ -113,5 +118,20 @@ describe('installCdpMasterSwitch', () => {
     storeSet('inspection.cdpEnabled', true);
 
     expect(setCdpEnabled).not.toHaveBeenCalled();
+  });
+
+  it('seeds OFF on a host without the capability, even with a stale persisted ON', async () => {
+    // Firefox / Safari: no `cdpInspection`, so the master switch must read
+    // OFF regardless of any value left in storage — otherwise the
+    // reconciler strands tabs on a debugging protocol the runtime can't
+    // speak.
+    unregisterCapability('cdpInspection');
+    memory.state.set('user', { 'inspection.cdpEnabled': true });
+    await initSettingsStore();
+
+    const setCdpEnabled = vi.fn();
+    installCdpMasterSwitch(setCdpEnabled);
+
+    expect(setCdpEnabled).toHaveBeenCalledWith(false);
   });
 });

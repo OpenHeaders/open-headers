@@ -17,6 +17,7 @@
 import '@/host/install-host-storage';
 import '@/host/install-host-bridge';
 import '@/host/install-host-logger';
+import '@/host/install-cdp-capability';
 import '@/host/install-lifeline-server';
 import './modules/live-chain-adapter';
 

@@ -1,3 +1,4 @@
+import { hasCapability, registerCapability, unregisterCapability } from '@openheaders/core/capabilities';
 import { __resetRegistryForTests, registerSetting } from '@openheaders/ui/workbench/settings/registry';
 import type { DictStorage, SettingScope } from '@openheaders/ui/workbench/settings/storage/adapter';
 import {
@@ -18,6 +19,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'store.name': string;
     'store.count': number;
     'store.flag': boolean;
+    'store.gated': boolean;
   }
 }
 
@@ -83,6 +85,21 @@ function registerTestSchema(): void {
     category: 'store-test',
     scope: 'user',
   });
+  // Capability-gated boolean: ON by default only where the host
+  // registered `cdpInspection`; elsewhere it reads its host-aware
+  // default regardless of any persisted value.
+  registerSetting({
+    key: 'store.gated',
+    type: 'boolean',
+    default: true,
+    getDefault: () => hasCapability('cdpInspection'),
+    schema: v.boolean(),
+    label: 'Gated',
+    description: '',
+    category: 'store-test',
+    scope: 'user',
+    requiresCapability: 'cdpInspection',
+  });
 }
 
 beforeEach(() => {
@@ -94,6 +111,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  unregisterCapability('cdpInspection');
   vi.useRealTimers();
 });
 
@@ -165,5 +183,27 @@ describe('settings store', () => {
     await memory.save('user', { 'store.name': 'from-other-context' });
     expect(storeGet('store.name')).toBe('from-other-context');
     expect(spy).toHaveBeenCalled();
+  });
+
+  describe('capability-gated settings', () => {
+    it('reads the host-aware default, ignoring any persisted value, when the capability is absent', async () => {
+      // Host without `cdpInspection` (Firefox / Safari): a stale persisted
+      // ON must not leak through — the value reads as its default OFF.
+      memory.state.set('user', { 'store.gated': true });
+      await initSettingsStore();
+
+      expect(storeGet('store.gated')).toBe(false);
+      expect(isModified('store.gated')).toBe(false);
+    });
+
+    it('reads the persisted value when the host has the capability', async () => {
+      registerCapability('cdpInspection', () => true);
+      memory.state.set('user', { 'store.gated': false });
+      await initSettingsStore();
+
+      expect(storeGet('store.gated')).toBe(false);
+      // Default is ON where supported, so a persisted OFF is a real change.
+      expect(isModified('store.gated')).toBe(true);
+    });
   });
 });

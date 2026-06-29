@@ -5,6 +5,7 @@ import '@/host/install-build-info';
 import '@/host/install-awareness-host';
 import '@/host/install-navigation-host';
 import '@/host/install-assets-host';
+import '@/host/install-cdp-capability';
 import { registerCapability } from '@openheaders/core/capabilities';
 import { eagerInitRendererMirrors, ThemeProvider } from '@openheaders/ui/context';
 import Workbench from '@openheaders/ui/workbench/App';
@@ -13,7 +14,6 @@ import { App as AntApp } from 'antd';
 import { createRoot } from 'react-dom/client';
 import { pairWithCode } from '@/host/pair-with-code';
 import { resolveWorkbenchIdentity } from '@/host/surface-identity-resolvers';
-import { getBrowserAPI } from '@/types/browser';
 import '@openheaders/ui/shared/dock-layout/dock-layout.css';
 import '@openheaders/ui/workbench/styles/rules.less';
 import '@openheaders/ui/workbench/styles/rule-flow.less';
@@ -25,12 +25,8 @@ import '@openheaders/ui/workbench/styles/rule-flow.less';
 // `getActiveWorkspaceId`) — so register just the pairing one here.
 registerCapability('pairWithCode', pairWithCode);
 
-// Debug mode (opt-in CDP path) is surface-agnostic, so the
-// workbench advertises it too — gated on the runtime exposing the
-// debugging protocol (Chromium-family; absent on Firefox / Safari).
-if (getBrowserAPI().debugger !== undefined) {
-  registerCapability('cdpInspection', () => true);
-}
+// Debug mode (opt-in CDP path) is registered by `install-cdp-capability`
+// imported above — gated on the runtime exposing the debugging protocol.
 
 // Subscribe every entity mirror to `syncBroadcast` and kick off each
 // snapshot RPC before React mounts — see `eager-mirror-init.ts` for

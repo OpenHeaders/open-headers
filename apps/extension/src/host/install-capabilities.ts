@@ -17,7 +17,7 @@
 
 import { hostBridge } from '@openheaders/core/bridge';
 import { registerCapability } from '@openheaders/core/capabilities';
-import { getBrowserAPI } from '@/types/browser';
+import './install-cdp-capability';
 import { pairWithCode } from './pair-with-code';
 
 registerCapability('getActiveWorkspaceId', () =>
@@ -47,13 +47,8 @@ registerCapability('openExternalUrl', (url) =>
     .catch((err: Error) => ({ ok: false, error: err.message })),
 );
 
-// Debug mode (opt-in CDP path) is available only where the
-// runtime exposes the debugging protocol — Chromium-family surfaces.
-// Firefox / Safari leave `debugger` undefined, so the capability stays
-// absent and shared UI renders the master-switch row disabled.
-if (getBrowserAPI().debugger !== undefined) {
-  registerCapability('cdpInspection', () => true);
-}
+// Debug mode (opt-in CDP path) is registered by `install-cdp-capability`
+// imported above — gated on the runtime exposing the debugging protocol.
 
 // In-app daemon pairing (WS-A2): exchange a typed 6-digit code for an
 // auth token over a direct localhost/LAN HTTP fetch. Unlike the caps

@@ -25,6 +25,7 @@
  *      vice versa.
  */
 
+import { hasCapability } from '@openheaders/core/capabilities';
 import { hostLogger as logger } from '@openheaders/core/logger';
 import * as v from 'valibot';
 import { allDefaults, allDefs, getDef, subscribeRegistry } from './registry';
@@ -234,8 +235,16 @@ subscribeRegistry(() => {
 // ── Read API ─────────────────────────────────────────────────────────
 
 export function get<K extends SettingKey>(key: K): SettingsMap[K] {
-  if (state.values.has(key)) return state.values.get(key) as SettingsMap[K];
   const def = getDef(key);
+  // A setting whose required host capability is absent reads as its
+  // (host-aware) default, ignoring any seeded or persisted value: the
+  // feature can't run on this host, so its value must stay inert. This
+  // is the `requiresCapability` contract, enforced for every reader —
+  // the UI rows and the SW effectors that share this store alike.
+  if (def?.requiresCapability && !hasCapability(def.requiresCapability)) {
+    return effectiveDefault(def);
+  }
+  if (state.values.has(key)) return state.values.get(key) as SettingsMap[K];
   if (!def) throw new Error(`Settings: no definition registered for key "${key}"`);
   return effectiveDefault(def);
 }
@@ -245,6 +254,11 @@ export function isReady(): boolean {
 }
 
 export function isModified<K extends SettingKey>(key: K): boolean {
+  // Capability-gated settings the host can't run read as their default
+  // (see `get`), so they're never "modified" here regardless of any
+  // stale persisted value.
+  const def = getDef(key);
+  if (def?.requiresCapability && !hasCapability(def.requiresCapability)) return false;
   return state.modified.has(key);
 }
 
