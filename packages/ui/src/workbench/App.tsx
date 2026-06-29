@@ -1741,6 +1741,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
             mode="create"
             onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
             registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
+            onCreateWorkflow={() => openCreateLiveWorkflow()}
             onCreated={(lv) =>
               replaceTab(tab.id, {
                 id: `live-var-${lv.uid}`,

@@ -25,6 +25,7 @@ import {
   EyeInvisibleOutlined,
   EyeOutlined,
   InfoCircleOutlined,
+  PlusOutlined,
   ReloadOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
@@ -85,6 +86,9 @@ interface CreateProps {
   registerSaveRef?: (save: () => void) => void;
   /** Called when a new LV lands — host replaces the create tab with an edit tab. */
   onCreated: (lv: LiveVariable) => void;
+  /** Opens a fresh workflow-create tab — surfaced as an empty-state CTA
+   *  when no workflows exist yet to bind to. */
+  onCreateWorkflow?: () => void;
 }
 
 interface EditProps {
@@ -166,7 +170,7 @@ export default LiveVariableEditor;
 
 // ── Create mode ─────────────────────────────────────────────────────
 
-const CreateMode: React.FC<CreateProps> = ({ onDirtyChange, registerSaveRef, onCreated }) => {
+const CreateMode: React.FC<CreateProps> = ({ onDirtyChange, registerSaveRef, onCreated, onCreateWorkflow }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
   const { workflows } = useLiveWorkflows();
@@ -255,21 +259,33 @@ const CreateMode: React.FC<CreateProps> = ({ onDirtyChange, registerSaveRef, onC
 
             <Section title="Binding">
               <FieldRow label="Workflow">
-                <Select
-                  size="small"
-                  style={{ width: '100%' }}
-                  showSearch
-                  optionFilterProp="label"
-                  placeholder={
-                    workflows.length === 0
-                      ? 'No workflows yet — create one from the Workflows sidebar'
-                      : 'Select a workflow'
-                  }
-                  value={draft.workflowUid || undefined}
-                  onChange={(workflowUid) => setDraft({ ...draft, workflowUid, stepId: '', captureName: '' })}
-                  options={workflows.map((w) => ({ value: w.uid, label: w.name }))}
-                  notFoundContent={<Text type="secondary">No workflows yet.</Text>}
-                />
+                {workflows.length === 0 && onCreateWorkflow ? (
+                  // No workflow to bind to yet — make the empty state
+                  // actionable instead of pointing at the sidebar. A live
+                  // var captures from a workflow step, so creating one is
+                  // the natural next move.
+                  <Button
+                    size="small"
+                    type="dashed"
+                    icon={<PlusOutlined />}
+                    style={{ width: '100%' }}
+                    onClick={onCreateWorkflow}
+                  >
+                    Create a workflow
+                  </Button>
+                ) : (
+                  <Select
+                    size="small"
+                    style={{ width: '100%' }}
+                    showSearch
+                    optionFilterProp="label"
+                    placeholder="Select a workflow"
+                    value={draft.workflowUid || undefined}
+                    onChange={(workflowUid) => setDraft({ ...draft, workflowUid, stepId: '', captureName: '' })}
+                    options={workflows.map((w) => ({ value: w.uid, label: w.name }))}
+                    notFoundContent={<Text type="secondary">No workflows yet.</Text>}
+                  />
+                )}
               </FieldRow>
               <FieldRow label="Step">
                 <Select
