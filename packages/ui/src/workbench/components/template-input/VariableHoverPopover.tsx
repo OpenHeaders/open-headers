@@ -175,10 +175,16 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
   // (if any) maps to a creatable scope.
   const isUnresolved = !lookup.active && !lookup.parseError;
   const createOptions = isUnresolved ? buildCreateOptions(lookup, !!activeEnvironmentId, !!collectionId) : [];
+  // Default the create destination to Workspace — the broadest scope,
+  // always available — rather than whichever option sorts first
+  // (Collection, once the rule's collection is known). The user can
+  // still pick any other scope from the dropdown.
+  const defaultAddTo: CreateScope | null =
+    createOptions.find((o) => o.key === 'workspace' && !o.disabled)?.key ??
+    createOptions.find((o) => !o.disabled)?.key ??
+    null;
   const effectiveAddTo: CreateScope | null =
-    addTo && createOptions.some((o) => o.key === addTo && !o.disabled)
-      ? addTo
-      : (createOptions.find((o) => !o.disabled)?.key ?? null);
+    addTo && createOptions.some((o) => o.key === addTo && !o.disabled) ? addTo : defaultAddTo;
 
   // Envs that DEFINE this name but aren't the active resolution target
   // (e.g. user is in dev env, but staging defines it). Click → switch.
@@ -714,7 +720,7 @@ function labelForCreateScope(s: CreateScope): string {
     case 'collection':
       return 'Collection';
     case 'workspace':
-      return 'Globals';
+      return 'Workspace';
     case 'vault':
       return 'Vault';
   }
@@ -759,7 +765,7 @@ function buildCreateOptions(
         case 'collection':
           return hasCollection ? { key: 'collection', label: 'Collection', colorKey: 'collection' } : null;
         case 'workspace':
-          return { key: 'workspace', label: 'Globals', colorKey: 'workspace' };
+          return { key: 'workspace', label: 'Workspace', colorKey: 'workspace' };
         case 'vault':
           return { key: 'vault', label: 'Vault', colorKey: 'vault' };
         default:
