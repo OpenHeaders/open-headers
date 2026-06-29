@@ -30,8 +30,12 @@ interface ScopeSectionProps {
 export function ScopeSection({ scope, variables, subtitle, onOpenEditor }: ScopeSectionProps) {
   const { token } = theme.useToken();
   const config = SCOPE_CONFIG[scope];
+  const hasVariables = variables.length > 0;
+  // A populated table draws its own bottom border, so the section
+  // divider would stack a second line right under it. Keep the divider
+  // only to separate empty sections.
   return (
-    <div style={{ borderBottom: `1px solid ${token.colorBorderSecondary}`, padding: '8px 0' }}>
+    <div style={{ borderBottom: hasVariables ? undefined : `1px solid ${token.colorBorderSecondary}`, padding: '8px 0' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
         {scopeBadge(scope, 16)}
         <Text strong style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
@@ -77,7 +81,7 @@ export function ScopeSection({ scope, variables, subtitle, onOpenEditor }: Scope
           </Text>
         </span>
       </div>
-      {variables.length > 0 ? (
+      {hasVariables ? (
         <ScopeVariableTable variables={variables} />
       ) : (
         <Text type="secondary" style={{ fontSize: 10 }}>
