@@ -11,6 +11,6 @@ export {
   useAutoSuggestionContext,
 } from './SuggestionContextProvider';
 export { default as SuggestionRow } from './SuggestionRow';
-export type { TemplateInputProps } from './TemplateInput';
 export { default as TemplateInput } from './TemplateInput';
+export type { TemplateInputProps } from './types';
 export { useMonacoVariableCompletions } from './useMonacoVariableCompletions';

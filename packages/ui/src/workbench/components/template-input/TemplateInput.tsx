@@ -24,12 +24,7 @@
 import { useVariableResolver } from '@openheaders/ui/shared/hooks/useVariableResolver';
 import { useVariableSuggestions } from '@openheaders/ui/shared/hooks/useVariableSuggestions';
 import { useWorkspaces } from '@openheaders/ui/shared/hooks/useWorkspaces';
-import {
-  filterSuggestions,
-  parseReference,
-  type SuggestionContext,
-  type VariableSuggestion,
-} from '@openheaders/core/variables';
+import { filterSuggestions, type VariableSuggestion } from '@openheaders/core/variables';
 import { theme } from 'antd';
 import type React from 'react';
 import {
@@ -48,215 +43,18 @@ import { createPortal } from 'react-dom';
 // popover chrome without per-app CSS plumbing.
 import './template-input.css';
 import { useSettingValue } from '../../settings/hooks';
+import { getCaretOffset, setCaretOffset } from './caret';
+import { type CreateTarget, detectCreateTarget } from './create-target';
+import { type RefState, renderHighlightedHtml, TEMPLATE_REGEX } from './highlight';
+import { detectMeasure, findExistingCloseEnd, PREFIX, SPLIT } from './measure';
+import { computePopoverCoords, type PopoverCoords } from './popover-coords';
 import { addRecent, listRecents, pruneRecents, type VariableRecents } from './recents';
 import { useAutoSuggestionContext } from './SuggestionContextProvider';
 import SuggestionPopover from './SuggestionPopover';
+import type { TemplateInputProps } from './types';
 import { useVariablePopover } from './VariablePopoverHost';
 
-export interface TemplateInputProps {
-  /** Controlled value. Optional so the component composes with AntD
-   *  `<Form.Item>` (which injects value/onChange at clone time). */
-  value?: string;
-  /** Controlled change handler. Optional for the same reason. */
-  onChange?: (next: string) => void;
-  /** Scope/context override — controls which scopes are offered. When
-   *  omitted, the component sources context from the nearest
-   *  {@link SuggestionContextProvider} via {@link useAutoSuggestionContext}. */
-  suggestionContext?: SuggestionContext;
-  /** When true, render a multiline surface. Default false — single-line
-   *  (Enter is swallowed, newlines are stripped from paste). */
-  multiline?: boolean;
-  /** When true, keep single-line SEMANTICS (no literal newlines) but
-   *  switch the DISPLAY on focus: collapsed (blurred) shows one line
-   *  with an ellipsis; focused word-wraps the value and auto-grows up to
-   *  `maxRows` lines, then inner-scrolls. Used in dense table cells so a
-   *  long value is comfortably editable without a horizontal scrollbar.
-   *  Ignored when `multiline` is set. */
-  expandOnFocus?: boolean;
-  /** Controlled override for `expandOnFocus`'s expanded state. When set,
-   *  it drives the collapsed/expanded display instead of the field's own
-   *  focus — lets a parent expand a whole group of fields together (e.g.
-   *  every cell in a table row expands when any one of them is focused).
-   *  Undefined → falls back to the field's own focus. */
-  expanded?: boolean;
-  /** Row cap for `expandOnFocus`'s grown editor before it inner-scrolls.
-   *  Default 5. */
-  maxRows?: number;
-  /** Placeholder. Rendered via a `::before` pseudo when the field is empty. */
-  placeholder?: string;
-  /** Mirrors AntD `Input` size prop — tunes the editable's padding. */
-  size?: 'small' | 'middle' | 'large';
-  /** Matches AntD variant — `outlined` (default) shows border + radius,
-   *  `borderless` drops them (used inside table cells). */
-  variant?: 'outlined' | 'borderless';
-  /** When true, disable the popover entirely — the field becomes a
-   *  plain editable div. Used for fields that shouldn't suggest anything
-   *  (LV manualOverride, extractor paths). */
-  disableSuggestions?: boolean;
-  /** Forwarded to the editable element. Applied AFTER the base styles
-   *  so callers can override padding / color / flex / width. */
-  style?: React.CSSProperties;
-  /** Additional class forwarded to the root wrapper. */
-  className?: string;
-  /** `onPressEnter` parity with AntD Input — fires when Enter is
-   *  pressed and the popover is not handling it. */
-  onPressEnter?: () => void;
-  /** Forwarded to the editable. */
-  onFocus?: (e: React.FocusEvent<HTMLDivElement>) => void;
-  /** Forwarded to the editable. */
-  onBlur?: (e: React.FocusEvent<HTMLDivElement>) => void;
-  /** Forwarded to the editable. */
-  autoFocus?: boolean;
-  /** Forwarded to the editable. */
-  id?: string;
-  /** Forwarded to the editable. */
-  'aria-label'?: string;
-  /** AntD-compatible status override. `'error'` paints the border red
-   *  regardless of focus state — use for unresolved-ref signalling. */
-  status?: 'error';
-  /** When true, literal characters render masked (disc) while
-   *  `{{ref}}` spans stay visible. Use for password / token fields
-   *  where users still need to read which variable they picked but
-   *  typed-in secrets should not be drive-by-readable. */
-  secret?: boolean;
-  /** When true, show a small red dot at the field's right end whenever
-   *  its value contains an UNRESOLVED `{{ref}}` (reserved namespaces
-   *  excluded). Lets a row flag a missing variable without the user
-   *  expanding it to hunt for the highlighted ref. */
-  flagUnresolved?: boolean;
-}
-
-const PREFIX = '{{';
-const SPLIT = '}}';
-
-// Reference namespaces a user can create a variable in, with their
-// display label — drives the "Create '<name>' in <Scope>" action when a
-// scoped reference names a variable that doesn't exist yet.
-const CREATABLE_NS_LABEL: Record<string, string> = {
-  vault: 'Vault',
-  env: 'Environment',
-  collection: 'Collection',
-  workspace: 'Workspace',
-};
-const TEMPLATE_REGEX = /\{\{([^}]*)\}\}/g;
 const MAX_POPOVER_ROWS = 60;
-
-// Suggestion-popover geometry. Used to pick a side (below by default, above
-// when the field sits low and below can't fit) and cap the list to the room
-// on that side, so the dropdown never opens straight into the footer. Row /
-// footer sizes are approximations — they only seed the open-time side choice;
-// the list's own scroll absorbs any error past the cap.
-const POPOVER_GAP = 4;
-const POPOVER_VIEWPORT_MARGIN = 8;
-const POPOVER_LIST_MAX = 320; // mirrors `.oh-template-popover-list` max-height
-const POPOVER_FOOTER_H = 34; // approx `.oh-template-popover-footer` height
-const POPOVER_ROW_H = 30; // approx row height, for the open-time fit estimate
-const POPOVER_LIST_MIN = 72; // keep a couple of rows visible even when cramped
-
-type RefState = 'resolved' | 'unresolved' | 'reserved';
-
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-/** Open-brace context for the suggestion popover. A single `{` is
- *  enough to trigger — users reach for the variable list on the first
- *  brace, not the second. `double` flags `{{` (unambiguous template
- *  intent) vs a lone `{` (which might still be literal); the caller
- *  uses it to keep an empty list hidden for a lone brace. The query
- *  captures only non-brace chars, so a closed `{{ref}}` stops matching
- *  once the caret moves past its `}}`. */
-const MEASURE_RX = /(\{\{?)([^{}]*)$/;
-
-function detectMeasure(text: string, caret: number): { start: number; query: string; double: boolean } | null {
-  const before = text.slice(0, caret);
-  const m = MEASURE_RX.exec(before);
-  if (!m) return null;
-  return { start: m.index, query: m[2], double: m[1].length === 2 };
-}
-
-/** When the caret sits inside an already-complete `{{ref}}`, find the
- *  position AFTER its closing `}}`. Returns the original caret
- *  position if there's no closing `}}` before the next `{{` (or no
- *  following text at all) — meaning the user is composing a brand-new
- *  ref and we shouldn't consume anything. */
-function findExistingCloseEnd(text: string, caret: number): number {
-  const forward = text.slice(caret);
-  const nextOpen = forward.indexOf(PREFIX);
-  const nextClose = forward.indexOf(SPLIT);
-  if (nextClose === -1) return caret;
-  if (nextOpen !== -1 && nextOpen < nextClose) return caret;
-  return caret + nextClose + SPLIT.length;
-}
-
-/** Caret char-offset within `root` (counts only text nodes). `-1` if
- *  the current selection is outside `root`. */
-function getCaretOffset(root: HTMLElement): number {
-  const sel = window.getSelection();
-  if (!sel || sel.rangeCount === 0) return -1;
-  const range = sel.getRangeAt(0);
-  if (!root.contains(range.endContainer)) return -1;
-  const pre = range.cloneRange();
-  pre.selectNodeContents(root);
-  pre.setEnd(range.endContainer, range.endOffset);
-  return pre.toString().length;
-}
-
-/** Place the caret at `offset` characters into `root`. Silently no-ops
- *  if the root is shorter than `offset` (we clamp to end). */
-function setCaretOffset(root: HTMLElement, offset: number): void {
-  const sel = window.getSelection();
-  if (!sel) return;
-  const total = (root.textContent ?? '').length;
-  const target = Math.max(0, Math.min(offset, total));
-  const range = document.createRange();
-  let remaining = target;
-  let placed = false;
-
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-  let node = walker.nextNode();
-  while (node) {
-    const len = node.nodeValue?.length ?? 0;
-    if (remaining <= len) {
-      range.setStart(node, remaining);
-      range.collapse(true);
-      placed = true;
-      break;
-    }
-    remaining -= len;
-    node = walker.nextNode();
-  }
-  if (!placed) {
-    // Empty editable — anchor at the root itself.
-    range.selectNodeContents(root);
-    range.collapse(false);
-  }
-  sel.removeAllRanges();
-  sel.addRange(range);
-}
-
-/** Render `value` as HTML with `{{ref}}` wrapped in classified spans.
- *  When `caret` is inside a ref's `[start, end)` range (exclusive of
- *  the braces on either side — see `caretInsideRange`), that ref
- *  renders with the neutral `editing` class. */
-function renderHighlightedHtml(value: string, caret: number | null, classify: (inner: string) => RefState): string {
-  if (value.length === 0) return '';
-  const regex = new RegExp(TEMPLATE_REGEX.source, TEMPLATE_REGEX.flags);
-  let out = '';
-  let last = 0;
-  for (const match of value.matchAll(regex)) {
-    const start = match.index ?? 0;
-    const end = start + match[0].length;
-    if (start > last) out += escapeHtml(value.slice(last, start));
-    const inner = match[1];
-    const editing = caret !== null && caret > start && caret < end;
-    const state = editing ? 'editing' : classify(inner);
-    out += `<span class="oh-template-ref oh-template-ref-${state}" data-ref="${escapeHtml(inner)}">${escapeHtml(match[0])}</span>`;
-    last = end;
-  }
-  if (last < value.length) out += escapeHtml(value.slice(last));
-  return out;
-}
 
 const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
   (
@@ -325,19 +123,11 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
     const [activeIndex, setActiveIndex] = useState(0);
     const [recents, setRecents] = useState<VariableRecents | null>(null);
     const [isFocused, setIsFocused] = useState(false);
-    // Suggestion popover coords. Portal-rendered to `document.body`
-    // so the popover floats above whatever container the editable
-    // lives in (clipped panels, hover popovers, modals). Recomputed
-    // on open + on scroll/resize from the editable's bounding rect.
-    // `top` anchors a downward popover; `bottom` anchors an upward one
-    // (grows up from just above the field); `maxListHeight` caps the
-    // scroll list to the room on the chosen side.
-    const [popoverCoords, setPopoverCoords] = useState<{
-      left: number;
-      top?: number;
-      bottom?: number;
-      maxListHeight: number;
-    } | null>(null);
+    // Suggestion popover coords. Portal-rendered to `document.body` so the
+    // popover floats above whatever container the editable lives in
+    // (clipped panels, hover popovers, modals). Recomputed on open + on
+    // scroll/resize from the editable's bounding rect.
+    const [popoverCoords, setPopoverCoords] = useState<PopoverCoords | null>(null);
     // Shared hover-popover host — single instance per app root, owns
     // open-state + close-grace timer. We just emit hover events.
     const popoverHost = useVariablePopover();
@@ -465,22 +255,7 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       const update = () => {
         const rect = editableRef.current?.getBoundingClientRect();
         if (!rect) return;
-        const wantHeight =
-          Math.min(Math.max(suggestions.length, 1) * POPOVER_ROW_H, POPOVER_LIST_MAX) + POPOVER_FOOTER_H;
-        const roomBelow = window.innerHeight - rect.bottom - POPOVER_GAP - POPOVER_VIEWPORT_MARGIN;
-        const roomAbove = rect.top - POPOVER_GAP - POPOVER_VIEWPORT_MARGIN;
-        // Below by default; flip above when below can't fit the list and above
-        // has more room. Re-evaluated on every `update` (not frozen at open),
-        // so a window/pane resize re-picks the side live. `update` fires only
-        // on scroll/resize — never per keystroke — so it stays put mid-type.
-        const placeAbove = roomBelow < wantHeight && roomAbove > roomBelow;
-        const room = placeAbove ? roomAbove : roomBelow;
-        const maxListHeight = Math.max(POPOVER_LIST_MIN, Math.min(POPOVER_LIST_MAX, room - POPOVER_FOOTER_H));
-        setPopoverCoords(
-          placeAbove
-            ? { left: rect.left, bottom: window.innerHeight - rect.top + POPOVER_GAP, maxListHeight }
-            : { left: rect.left, top: rect.bottom + POPOVER_GAP, maxListHeight },
-        );
+        setPopoverCoords(computePopoverCoords(rect, suggestions.length, window.innerHeight));
       };
       update();
       window.addEventListener('scroll', update, true);
@@ -600,16 +375,9 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
     // When the caret sits in a scoped reference whose variable doesn't
     // exist yet (`{{vault.okay}}` with no `vault.okay` defined), offer
     // to create it in that scope instead of a dead-end "No matches".
-    const createTarget = useMemo<{ reference: string; name: string; scopeLabel: string } | null>(() => {
+    const createTarget = useMemo<CreateTarget | null>(() => {
       if (!measureDouble || suggestions.length > 0) return null;
-      const parsed = parseReference(query);
-      if (!parsed.ok) return null;
-      const { namespace, name } = parsed.ref;
-      if (!namespace || !name) return null;
-      const scopeLabel = CREATABLE_NS_LABEL[namespace];
-      if (!scopeLabel) return null;
-      if (namespace === 'collection' && !effectiveContext.collectionId) return null;
-      return { reference: query, name, scopeLabel };
+      return detectCreateTarget(query, effectiveContext.collectionId);
     }, [measureDouble, suggestions.length, query, effectiveContext.collectionId]);
 
     // Hand the reference to the shared create popover (the "Add to"
