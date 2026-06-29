@@ -83,7 +83,7 @@ import WorkflowStatusPanel from './components/live/WorkflowStatusPanel';
 import ActivityFeedPanel from './components/panels/ActivityFeedPanel';
 import { viewActivityEntity } from './components/panels/activity-view-router';
 import DocsPanel from './components/panels/DocsPanel';
-import VariablesPanel from './components/panels/VariablesPanel';
+import VariablesPanel from './components/panels/variables-panel';
 import RequestCollectionOverview from './components/RequestCollectionOverview';
 import RequestEditor from './components/RequestEditor';
 import RequestFolderOverview from './components/RequestFolderOverview';
