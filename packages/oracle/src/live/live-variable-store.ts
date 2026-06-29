@@ -23,27 +23,29 @@
  * Storage: `oh.ws.<id>.liveVariables` (cache-owned).
  */
 
+import { liveVariablesToPublishOnRun } from '@openheaders/core/live';
 import { LiveVariableSchema } from '@openheaders/core/schemas';
 import type { MutationBatch, MutatorContext, SideEffectIntent } from '@openheaders/core/sync';
-import type { LiveVariable, LiveVariableOverride } from '@openheaders/core/types';
-import { generateUid, toFolderName } from '@openheaders/core/utils';
-import { logger } from '@openheaders/core/utils';
-import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import {
   buildAddLiveVariableBatch,
   buildDeleteLiveVariableBatch,
   buildUpdateLiveVariableBatch,
 } from '@openheaders/core/sync-builders/live-variable-mutations';
+import type { LiveVariable, LiveVariableOverride } from '@openheaders/core/types';
+import { generateUid, logger, toFolderName } from '@openheaders/core/utils';
+import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
+import { requireActiveWorkspaceId } from '@openheaders/oracle/sync';
 import { LIVE_VARIABLE_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
 import type { LiveVariableCache } from '@openheaders/oracle/sync/live-variable-cache';
 import {
   getActiveCacheForRegistration,
   getCacheForWorkspace,
   getOracleForCurrentWorkspace,
+  getOracleForWorkspace,
   nextSwMutatorContext,
+  nextSwMutatorContextForWorkspace,
 } from '@openheaders/oracle/sync/service';
 import { driftRecorder } from '@openheaders/oracle/sync/storage-drift';
-import { requireActiveWorkspaceId } from '@openheaders/oracle/sync';
 
 // ── In-memory state (scoped to the active workspace) ───────────────
 
@@ -187,6 +189,34 @@ export async function deleteLiveVariable(uid: string): Promise<boolean> {
   if (!variables.some((v) => v.uid === uid)) return false;
   await applyLiveVariableMutationOrThrow((ctx) => buildDeleteLiveVariableBatch(uid, ctx), 'deleteLiveVariable');
   return true;
+}
+
+/**
+ * Apply the pure {@link liveVariablesToPublishOnRun} rule — publish every
+ * draft binding the run produced a value for — so the workflow's refresh
+ * (manual OR auto) is what brings a binding live: "produced by the
+ * trigger", no separate publish gesture. The decision lives in core
+ * (testable in isolation); this is the thin imperative shell that applies
+ * it through the sync oracle.
+ *
+ * Per-workspace by construction: the chain runs against the dispatch's
+ * workspace, which may not be the runtime-Active one, so this routes the
+ * mutation through that workspace's oracle rather than the Active mirror.
+ */
+export async function publishLiveVariablesProducedByRun(
+  workspaceId: string,
+  workflowUid: string,
+  stepCaptures: Record<string, Record<string, string>>,
+): Promise<void> {
+  const oracle = getOracleForWorkspace(workspaceId);
+  const ctx = nextSwMutatorContextForWorkspace(workspaceId, { surfaceId: 'sw' });
+  if (!oracle || !ctx) return;
+  const bound = getLiveVariablesForWorkflowInWorkspace(workflowUid, workspaceId);
+  for (const uid of liveVariablesToPublishOnRun(bound, stepCaptures)) {
+    const payload = buildUpdateLiveVariableBatch(uid, { published: true }, ctx);
+    if (payload.batch.mutations.length === 0) continue;
+    await oracle.apply(payload.batch, payload.sideEffects);
+  }
 }
 
 /**

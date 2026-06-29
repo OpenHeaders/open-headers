@@ -32,6 +32,7 @@ const recordRefreshErrorMock = vi.fn();
 const setLiveRefreshAdapterMock = vi.fn();
 const getActiveWorkspaceIdMock = vi.fn<() => string>(() => 'ws-1');
 const recordLogMock = vi.fn();
+const publishLiveVariablesProducedByRunMock = vi.fn();
 
 vi.mock('@utils/logger', () => ({
   logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -49,6 +50,10 @@ vi.mock('@openheaders/oracle/entity/request-store', () => ({
 vi.mock('@openheaders/oracle/live/live-cache-store', () => ({
   putWorkflowRunCache: (...args: unknown[]) => putWorkflowRunCacheMock(...args),
   recordRefreshError: (...args: unknown[]) => recordRefreshErrorMock(...args),
+}));
+
+vi.mock('@openheaders/oracle/live/live-variable-store', () => ({
+  publishLiveVariablesProducedByRun: (...args: unknown[]) => publishLiveVariablesProducedByRunMock(...args),
 }));
 
 // The C7 health classifier reads the workflow's credential-step set from
@@ -159,6 +164,7 @@ beforeEach(async () => {
   getActiveWorkspaceIdMock.mockReset();
   getActiveWorkspaceIdMock.mockReturnValue('ws-1');
   recordLogMock.mockReset();
+  publishLiveVariablesProducedByRunMock.mockReset();
   adapterModule = await import('@/background/modules/live-chain-adapter');
 });
 
@@ -199,6 +205,26 @@ describe('single-step workflow', () => {
     expect(input.stepResponseBytes.login).toBeGreaterThan(0);
     // interval policy → expiresAt = extractedAt + seconds*1000
     expect(input.expiresAt).toBe(input.extractedAt + 300_000);
+  });
+
+  it('publishes the exposed live vars a successful run produced', async () => {
+    getRequestMock.mockReturnValue(makeRequest());
+    executeForLiveChainMock.mockResolvedValue(makeSnapshot(JSON.stringify({ access_token: 'tok-abc' })));
+
+    await adapterModule.liveChainAdapter.refreshWorkflow({
+      workspaceId: 'ws-1',
+      workflow: makeWorkflow(),
+      environmentId: 'env-prod',
+    });
+
+    // The trigger produces the var: after the captures commit, draft
+    // bindings whose capture yielded a value are published. The store
+    // helper owns the "which LVs / idempotency" decision; the adapter
+    // just hands it (workspace, workflow, captures).
+    expect(publishLiveVariablesProducedByRunMock).toHaveBeenCalledTimes(1);
+    expect(publishLiveVariablesProducedByRunMock).toHaveBeenCalledWith('ws-1', 'wflowxxx', {
+      login: { token: 'tok-abc' },
+    });
   });
 
   it('stamps workflowUid+stepId on the executor call (bypass header source)', async () => {
@@ -331,6 +357,8 @@ describe('fetch-phase failures', () => {
     ).rejects.toBeInstanceOf(adapterModule.ChainRefreshError);
 
     expect(putWorkflowRunCacheMock).not.toHaveBeenCalled();
+    // A failed run produces no value, so it must not publish any binding.
+    expect(publishLiveVariablesProducedByRunMock).not.toHaveBeenCalled();
     expect(recordRefreshErrorMock).toHaveBeenCalledTimes(1);
     const [errInput, errWs] = recordRefreshErrorMock.mock.calls[0];
     expect(errWs).toBe('ws-1');

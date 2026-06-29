@@ -49,3 +49,30 @@ export function isLiveVariableEffective(lv: LiveVariable): boolean {
   if (lv.enabled !== true) return false;
   return true;
 }
+
+/**
+ * The pure rule behind "the workflow's trigger produces the var": given
+ * the LVs bound to a workflow and the captures a successful run produced
+ * (`stepId → captureName → value`), return the uids of the DRAFT bindings
+ * that run should publish — every draft LV whose capture yielded a value.
+ * A binding goes live exactly when a run first extracts its value.
+ *
+ * Pure + caller-applies, mirroring {@link planLiveVariableReconcile}: the
+ * SW chain adapter feeds the run's captures and flips `published: true`
+ * on each returned uid. Already-published bindings and captures with no
+ * value are excluded, so re-running is idempotent. `enabled` is the
+ * user's separate on/off switch and is intentionally not consulted here —
+ * publishing only records that the value has been produced.
+ */
+export function liveVariablesToPublishOnRun(
+  bound: readonly LiveVariable[],
+  stepCaptures: Readonly<Record<string, Readonly<Record<string, string>>>>,
+): string[] {
+  const uids: string[] = [];
+  for (const lv of bound) {
+    if (lv.published === true) continue;
+    const value = stepCaptures[lv.stepId]?.[lv.captureName];
+    if (typeof value === 'string') uids.push(lv.uid);
+  }
+  return uids;
+}

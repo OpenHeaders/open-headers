@@ -58,6 +58,7 @@ import {
   recordManualBypassFailureForRun,
   recordRefreshError,
 } from '@openheaders/oracle/live/live-cache-store';
+import { publishLiveVariablesProducedByRun } from '@openheaders/oracle/live/live-variable-store';
 import { logger } from '@utils/logger';
 import { __setLiveRefreshAdapter, type LiveRefreshAdapter } from './live-refresh-scheduler';
 import { recordLog } from './observability-log';
@@ -205,6 +206,13 @@ async function commitSuccess(
     },
     workspaceId,
   );
+
+  // A successful run is what brings an exposed binding live: publish any
+  // draft live var bound to this workflow whose capture just produced a
+  // value. This is the user-facing contract — the workflow's trigger
+  // (manual Refresh or an auto policy) produces the live var; Save only
+  // activates the workflow.
+  await publishLiveVariablesProducedByRun(workspaceId, workflow.uid, stepCaptures);
 }
 
 /**

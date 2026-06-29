@@ -511,6 +511,10 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
       //    this workflow's captures but NOT tracked by the draft's
       //    liveUid set) are intentionally left alone — the LV list
       //    page is the surface that owns those.
+      // Reconciled LVs are created/updated as drafts here; the workflow's
+      // refresh (manual or auto) is what publishes a binding once it has
+      // actually produced a value — see `commitSuccess` in the live chain
+      // adapter. Save only activates the workflow (below).
       const plan = planLiveVariableReconcile(workflow.uid, draft, variables);
       for (const op of plan.creates) {
         await createVariable({
@@ -771,6 +775,7 @@ const CreateMode: React.FC<CreateProps> = ({ draftName, seedStep, onDirtyChange,
   const { message } = App.useApp();
   const { createWorkflow } = useLiveWorkflows();
   const { createVariable } = useLiveVariables();
+  const editingWorkspaceId = useWorkbenchEditingScopeWorkspaceId();
 
   const [draft, setDraft] = useState<Draft>(() => emptyDraft(seedStep));
 
@@ -807,8 +812,16 @@ const CreateMode: React.FC<CreateProps> = ({ draftName, seedStep, onDirtyChange,
         enabled: true,
       });
     }
+    // Save = publish (mirrors EditMode + RuleEditor): activate the
+    // workflow so the SW scheduler will fire it. The first Save is the
+    // only chance — the edit tab opens clean, where Save is disabled
+    // (`!isDirty`), so a workflow left as a draft here can never be
+    // published. Its exposed LVs go live on the first successful run.
+    if (editingWorkspaceId) {
+      await applyLiveWorkflowPublish(wf.uid, { workspaceId: editingWorkspaceId, surfaceId: 'workbench' });
+    }
     onCreated(wf);
-  }, [draft, draftName, createWorkflow, createVariable, message, onCreated]);
+  }, [draft, draftName, createWorkflow, createVariable, editingWorkspaceId, message, onCreated]);
 
   const handleSaveSync = useCallback(() => void handleSave(), [handleSave]);
 

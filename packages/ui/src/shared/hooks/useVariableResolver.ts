@@ -15,7 +15,7 @@
  * directly.
  */
 
-import { isLiveVariableEffective } from '@openheaders/core/live';
+import { isLiveVariableEffective, isWorkflowEffective } from '@openheaders/core/live';
 import { type ResolvedLiveValue, VariableResolver } from '@openheaders/core/variables';
 import { feedCollectionVariablesToResolver } from '@openheaders/ui/shared/variables';
 import { useMemo } from 'react';
@@ -40,9 +40,18 @@ export function useVariableResolver(): VariableResolver {
 
   const liveRegistry = useMemo(() => {
     const nowMs = Date.now();
+    // A binding only resolves when BOTH the LV and its backing workflow
+    // are effective (published + enabled + complete) — mirrors the SW's
+    // `buildLiveRegistryFor`. Without the workflow gate the Inspector /
+    // editor would show a draft workflow's vars as live while the wire
+    // (which checks the workflow) refuses to resolve them.
+    const effectiveWorkflowUids = new Set(liveWorkflows.filter(isWorkflowEffective).map((w) => w.uid));
     const registry = new Map<string, ResolvedLiveValue>();
     for (const lv of liveVariables) {
       if (!isLiveVariableEffective(lv)) continue;
+      // Manual override is user-set and independent of execution — it
+      // resolves regardless of workflow state, so handle it before the
+      // workflow gate (mirrors `buildLiveRegistryFor`'s order).
       if (lv.manualOverride) {
         const activeOverride = lv.manualOverride.until === undefined || lv.manualOverride.until > nowMs;
         if (activeOverride) {
@@ -53,6 +62,8 @@ export function useVariableResolver(): VariableResolver {
           continue;
         }
       }
+      // Cached-capture path requires the backing workflow to be effective.
+      if (!effectiveWorkflowUids.has(lv.workflowUid)) continue;
       const runs = liveCaches[lv.workflowUid] ?? [];
       const run =
         runs.find((r) => r.environmentId === activeEnvironmentId) ?? runs.find((r) => r.environmentId === null) ?? null;
@@ -67,7 +78,7 @@ export function useVariableResolver(): VariableResolver {
       });
     }
     return registry;
-  }, [liveVariables, liveCaches, activeEnvironmentId]);
+  }, [liveVariables, liveWorkflows, liveCaches, activeEnvironmentId]);
 
   return useMemo(() => {
     const r = new VariableResolver();
