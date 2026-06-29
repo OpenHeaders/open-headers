@@ -957,7 +957,7 @@ function ScopeSection({
         </span>
       </div>
       {variables.length > 0 ? (
-        variables.map((v) => <VariableRow key={`${scope}-${v.name}`} variable={v} compact />)
+        <ScopeVariableTable variables={variables} />
       ) : (
         <Text type="secondary" style={{ fontSize: 10 }}>
           No {scope === 'vault' ? 'secrets' : 'variables'} defined.
@@ -967,31 +967,53 @@ function ScopeSection({
   );
 }
 
-// ── Variable row ──────────────────────────────────────────────────
+// ── Read-only scope table ─────────────────────────────────────────
+//
+// The All-scopes view lays each scope's variables out as an aligned
+// Variable | Value grid — the same two-column shape as the editor
+// tables — so keys and values sit in fixed columns and stay easy to
+// scan whatever the name length. Read-only: sensitive values mask to
+// bullets (the editor is the write surface), TOTP rows mount a live
+// preview.
 
-function VariableRow({
-  variable,
-  compact = false,
-  onOpenEditor,
-}: {
-  variable: DisplayVariable;
-  compact?: boolean;
-  /** When non-null, the row is clickable — clicking opens the
-   *  variable's owning-scope editor (Inspector → editor handoff). The
-   *  reveal-eye / TOTP-preview interactions stay within their own
-   *  click targets and stop propagation so they don't trigger the row
-   *  click. Null hides the affordance. */
-  onOpenEditor?: (() => void) | null;
-}) {
+function ScopeVariableTable({ variables }: { variables: DisplayVariable[] }) {
   const { token } = theme.useToken();
-  const [revealed, setRevealed] = useState(false);
-  const scopeConfig = SCOPE_CONFIG[variable.scope];
-  const displayValue = variable.isSensitive && !revealed ? '••••••••' : variable.value;
+  return (
+    <div style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: 6, overflow: 'hidden' }}>
+      {variables.map((v, i) => (
+        <ScopeVariableRow key={`${v.scope}-${v.name}`} variable={v} isLast={i === variables.length - 1} />
+      ))}
+    </div>
+  );
+}
 
-  if (compact) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', fontSize: 11 }}>
-        <Text style={{ fontFamily: "'SF Mono', monospace", fontSize: 10 }}>{variable.name}</Text>
+function ScopeVariableRow({ variable, isLast }: { variable: DisplayVariable; isLast: boolean }) {
+  const { token } = theme.useToken();
+  const cellStyle: React.CSSProperties = { display: 'flex', alignItems: 'center', padding: '4px 8px', minWidth: 0 };
+  const textStyle: React.CSSProperties = {
+    flex: 1,
+    minWidth: 0,
+    fontFamily: "'SF Mono', 'Fira Code', monospace",
+    fontSize: 11,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  };
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        borderBottom: isLast ? undefined : `1px solid ${token.colorBorderSecondary}`,
+        alignItems: 'stretch',
+      }}
+    >
+      <div style={cellStyle}>
+        <span style={{ ...textStyle, color: token.colorText }} title={variable.name}>
+          {variable.name}
+        </span>
+      </div>
+      <div style={{ ...cellStyle, borderLeft: `1px solid ${token.colorBorderSecondary}` }}>
         {variable.totp ? (
           <TotpPreview
             seed={variable.totp.seed}
@@ -1003,20 +1025,35 @@ function VariableRow({
         ) : (
           <Text
             type="secondary"
-            style={{
-              fontSize: 10,
-              maxWidth: 140,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
+            style={textStyle}
+            title={variable.isSensitive ? undefined : variable.value || undefined}
           >
             {variable.isSensitive ? '••••••••' : variable.value || '(empty)'}
           </Text>
         )}
       </div>
-    );
-  }
+    </div>
+  );
+}
+
+// ── Variable row ──────────────────────────────────────────────────
+
+function VariableRow({
+  variable,
+  onOpenEditor,
+}: {
+  variable: DisplayVariable;
+  /** When non-null, the row is clickable — clicking opens the
+   *  variable's owning-scope editor (Inspector → editor handoff). The
+   *  reveal-eye / TOTP-preview interactions stay within their own
+   *  click targets and stop propagation so they don't trigger the row
+   *  click. Null hides the affordance. */
+  onOpenEditor?: (() => void) | null;
+}) {
+  const { token } = theme.useToken();
+  const [revealed, setRevealed] = useState(false);
+  const scopeConfig = SCOPE_CONFIG[variable.scope];
+  const displayValue = variable.isSensitive && !revealed ? '••••••••' : variable.value;
 
   const clickable = onOpenEditor != null;
   return (
