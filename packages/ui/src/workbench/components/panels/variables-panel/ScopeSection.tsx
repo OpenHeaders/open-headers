@@ -7,8 +7,9 @@
  * (the editor is the write surface), TOTP rows mount a live preview.
  */
 
+import { EyeInvisibleOutlined, EyeOutlined } from '@ant-design/icons';
 import { Tooltip, Typography, theme } from 'antd';
-import type React from 'react';
+import { type CSSProperties, useState } from 'react';
 import { scopeBadge } from '../../shared/scope-colors';
 import TotpPreview from '../../totp/TotpPreview';
 import { SCOPE_CONFIG, type DisplayScope, type DisplayVariable } from './types';
@@ -54,19 +55,22 @@ export function ScopeSection({ scope, variables, subtitle, onOpenEditor }: Scope
         )}
         <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
           {onOpenEditor ? (
-            <Tooltip title={`Open the ${config.label.toLowerCase()} variables editor`}>
-              <Text
-                role="button"
-                tabIndex={0}
-                onClick={onOpenEditor}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') onOpenEditor();
-                }}
-                style={{ fontSize: 10, color: token.colorPrimary, cursor: 'pointer' }}
-              >
-                Edit
-              </Text>
-            </Tooltip>
+            <>
+              <Tooltip title={`Open the ${config.label.toLowerCase()} variables editor`}>
+                <Text
+                  role="button"
+                  tabIndex={0}
+                  onClick={onOpenEditor}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') onOpenEditor();
+                  }}
+                  style={{ fontSize: 10, color: token.colorPrimary, cursor: 'pointer' }}
+                >
+                  Edit
+                </Text>
+              </Tooltip>
+              <span style={{ width: 1, height: 10, background: token.colorBorderSecondary, flexShrink: 0 }} />
+            </>
           ) : null}
           <Text type="secondary" style={{ fontSize: 9, whiteSpace: 'nowrap' }}>
             {config.priority} priority
@@ -97,8 +101,10 @@ function ScopeVariableTable({ variables }: { variables: DisplayVariable[] }) {
 
 function ScopeVariableRow({ variable, isLast }: { variable: DisplayVariable; isLast: boolean }) {
   const { token } = theme.useToken();
-  const cellStyle: React.CSSProperties = { display: 'flex', alignItems: 'center', padding: '4px 8px', minWidth: 0 };
-  const textStyle: React.CSSProperties = {
+  const [revealed, setRevealed] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const cellStyle: CSSProperties = { display: 'flex', alignItems: 'center', padding: '4px 8px', minWidth: 0 };
+  const textStyle: CSSProperties = {
     flex: 1,
     minWidth: 0,
     fontFamily: "'SF Mono', 'Fira Code', monospace",
@@ -107,6 +113,8 @@ function ScopeVariableRow({ variable, isLast }: { variable: DisplayVariable; isL
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
   };
+  const showValue = !variable.isSensitive || revealed;
+  const valueText = showValue ? variable.value || '(empty)' : '••••••••';
   return (
     <div
       style={{
@@ -121,7 +129,11 @@ function ScopeVariableRow({ variable, isLast }: { variable: DisplayVariable; isL
           {variable.name}
         </span>
       </div>
-      <div style={{ ...cellStyle, borderLeft: `1px solid ${token.colorBorderSecondary}` }}>
+      <div
+        style={{ ...cellStyle, gap: 4, borderLeft: `1px solid ${token.colorBorderSecondary}` }}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+      >
         {variable.totp ? (
           <TotpPreview
             seed={variable.totp.seed}
@@ -131,9 +143,38 @@ function ScopeVariableRow({ variable, isLast }: { variable: DisplayVariable; isL
             density="compact"
           />
         ) : (
-          <Text type="secondary" style={textStyle} title={variable.isSensitive ? undefined : variable.value || undefined}>
-            {variable.isSensitive ? '••••••••' : variable.value || '(empty)'}
-          </Text>
+          <>
+            <Text type="secondary" style={textStyle} title={showValue ? variable.value || undefined : undefined}>
+              {valueText}
+            </Text>
+            {variable.isSensitive && (
+              // Eye reveals on hover — peripheral read surface, so the
+              // affordance stays out of the way until the row is hovered
+              // (or the control is focused for keyboard users).
+              <Tooltip title={revealed ? 'Hide value' : 'Show value'}>
+                <span
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setRevealed((r) => !r)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') setRevealed((r) => !r);
+                  }}
+                  onFocus={() => setHovered(true)}
+                  onBlur={() => setHovered(false)}
+                  style={{
+                    cursor: 'pointer',
+                    fontSize: 11,
+                    color: token.colorTextTertiary,
+                    flexShrink: 0,
+                    opacity: hovered || revealed ? 1 : 0,
+                    transition: 'opacity 0.12s',
+                  }}
+                >
+                  {revealed ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+                </span>
+              </Tooltip>
+            )}
+          </>
         )}
       </div>
     </div>
