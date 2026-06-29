@@ -175,11 +175,16 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
   // (if any) maps to a creatable scope.
   const isUnresolved = !lookup.active && !lookup.parseError;
   const createOptions = isUnresolved ? buildCreateOptions(lookup, !!activeEnvironmentId, !!collectionId) : [];
-  // Default the create destination to Workspace — the broadest scope,
-  // always available — rather than whichever option sorts first
-  // (Collection, once the rule's collection is known). The user can
-  // still pick any other scope from the dropdown.
+  // Default the create destination to the scope the reference already
+  // names (`{{vault.x}}` → Vault), then fall back to Workspace — the
+  // broadest, always-available scope — rather than whichever option
+  // sorts first. The user can still pick any other scope.
+  const namespaceScope: CreateScope | null =
+    lookup.namespace && lookup.namespace in NAMESPACE_CREATE_SCOPE
+      ? NAMESPACE_CREATE_SCOPE[lookup.namespace as keyof typeof NAMESPACE_CREATE_SCOPE]
+      : null;
   const defaultAddTo: CreateScope | null =
+    (namespaceScope ? createOptions.find((o) => o.key === namespaceScope && !o.disabled)?.key : undefined) ??
     createOptions.find((o) => o.key === 'workspace' && !o.disabled)?.key ??
     createOptions.find((o) => !o.disabled)?.key ??
     null;
@@ -704,6 +709,16 @@ function surfaceResult(
 // ── Create flow ──────────────────────────────────────────────────────
 
 type CreateScope = 'environment' | 'collection' | 'workspace' | 'vault';
+
+/** Reference namespace → its create scope. Only the user-creatable
+ *  namespaces map; reserved/runtime ones (live, step, file, dynamic)
+ *  are absent, so a default falls through to Workspace. */
+const NAMESPACE_CREATE_SCOPE = {
+  env: 'environment',
+  vault: 'vault',
+  collection: 'collection',
+  workspace: 'workspace',
+} as const;
 
 interface CreateOption {
   key: CreateScope;

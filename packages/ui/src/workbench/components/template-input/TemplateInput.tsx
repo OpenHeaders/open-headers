@@ -24,7 +24,12 @@
 import { useVariableResolver } from '@openheaders/ui/shared/hooks/useVariableResolver';
 import { useVariableSuggestions } from '@openheaders/ui/shared/hooks/useVariableSuggestions';
 import { useWorkspaces } from '@openheaders/ui/shared/hooks/useWorkspaces';
-import { filterSuggestions, type SuggestionContext, type VariableSuggestion } from '@openheaders/core/variables';
+import {
+  filterSuggestions,
+  parseReference,
+  type SuggestionContext,
+  type VariableSuggestion,
+} from '@openheaders/core/variables';
 import { theme } from 'antd';
 import type React from 'react';
 import {
@@ -123,6 +128,16 @@ export interface TemplateInputProps {
 
 const PREFIX = '{{';
 const SPLIT = '}}';
+
+// Reference namespaces a user can create a variable in, with their
+// display label — drives the "Create '<name>' in <Scope>" action when a
+// scoped reference names a variable that doesn't exist yet.
+const CREATABLE_NS_LABEL: Record<string, string> = {
+  vault: 'Vault',
+  env: 'Environment',
+  collection: 'Collection',
+  workspace: 'Workspace',
+};
 const TEMPLATE_REGEX = /\{\{([^}]*)\}\}/g;
 const MAX_POPOVER_ROWS = 60;
 
@@ -272,6 +287,16 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
     ref,
   ) => {
     const editableRef = useRef<HTMLDivElement | null>(null);
+    // One-shot: set when a keyboard action opens the create popover, so
+    // the Enter/Tab key's own keyup doesn't immediately re-open the
+    // suggestion list (a mouse click has no such keyup, hence it works).
+    const suppressReopenRef = useRef(false);
+    // One-shot: set when `triggerCreate` opens the shared create popover.
+    // `triggerCreate` sets `isOpen` false to dismiss the suggestion list,
+    // which would otherwise fire the `[value, isOpen]` effect below and
+    // `closeNow()` the popover we just opened (a mouse keeps it alive by
+    // hovering; the keyboard path has nothing, so it'd vanish).
+    const openingCreateRef = useRef(false);
     const mergedRef = useCallback(
       (instance: HTMLDivElement | null) => {
         editableRef.current = instance;
@@ -418,6 +443,12 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
     // dropdown takes over; the user can re-hover to reopen.
     // biome-ignore lint/correctness/useExhaustiveDependencies: re-run on `value` / `isOpen`.
     useEffect(() => {
+      // `triggerCreate` flips `isOpen` false to dismiss the suggestion
+      // list while opening the create popover — don't close that popover.
+      if (openingCreateRef.current) {
+        openingCreateRef.current = false;
+        return;
+      }
       popoverHost.closeNow();
     }, [value, isOpen]);
 
@@ -509,6 +540,10 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
     }, [multiline, onChange, classify, updateMeasure]);
 
     const handleKeyUpOrMouseUp = useCallback(() => {
+      if (suppressReopenRef.current) {
+        suppressReopenRef.current = false;
+        return;
+      }
       const root = editableRef.current;
       if (!root || document.activeElement !== root) return;
       const caretPos = getCaretOffset(root);
@@ -562,6 +597,48 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       [activeWorkspaceId, measureStart, onChange, classify, updateMeasure],
     );
 
+    // When the caret sits in a scoped reference whose variable doesn't
+    // exist yet (`{{vault.okay}}` with no `vault.okay` defined), offer
+    // to create it in that scope instead of a dead-end "No matches".
+    const createTarget = useMemo<{ reference: string; name: string; scopeLabel: string } | null>(() => {
+      if (!measureDouble || suggestions.length > 0) return null;
+      const parsed = parseReference(query);
+      if (!parsed.ok) return null;
+      const { namespace, name } = parsed.ref;
+      if (!namespace || !name) return null;
+      const scopeLabel = CREATABLE_NS_LABEL[namespace];
+      if (!scopeLabel) return null;
+      if (namespace === 'collection' && !effectiveContext.collectionId) return null;
+      return { reference: query, name, scopeLabel };
+    }, [measureDouble, suggestions.length, query, effectiveContext.collectionId]);
+
+    // Hand the reference to the shared create popover (the "Add to"
+    // flow), anchored to its `{{ref}}` token when rendered. The popover
+    // defaults "Add to" to the reference's own scope.
+    const triggerCreate = useCallback(() => {
+      const target = createTarget;
+      if (!target) return;
+      const root = editableRef.current;
+      if (!root) return;
+      let anchor: HTMLElement = root;
+      for (const span of root.querySelectorAll<HTMLElement>('.oh-template-ref')) {
+        if (span.getAttribute('data-ref') === target.reference) {
+          anchor = span;
+          break;
+        }
+      }
+      // Guard the `[value, isOpen]` effect from closing this open.
+      openingCreateRef.current = true;
+      setIsOpen(false);
+      // Pinned: a deliberate create action, not a hover — stay open
+      // until the user Escapes / clicks out / saves. Without this the
+      // popover hover-dismisses immediately (no pointer sustains it).
+      popoverHost.open(
+        { anchorEl: anchor, reference: target.reference, collectionId: effectiveContext.collectionId },
+        { pinned: true },
+      );
+    }, [createTarget, popoverHost, effectiveContext.collectionId]);
+
     const handleKeyDown = useCallback(
       (e: KeyboardEvent<HTMLDivElement>) => {
         if (isOpen && suggestions.length > 0) {
@@ -593,6 +670,23 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
             return;
           }
         }
+        // Empty list but the reference is creatable: Enter/Tab opens the
+        // create flow; Escape dismisses.
+        if (isOpen && suggestions.length === 0 && createTarget) {
+          if (e.key === 'Enter' || e.key === 'Tab') {
+            e.preventDefault();
+            e.stopPropagation();
+            suppressReopenRef.current = true;
+            triggerCreate();
+            return;
+          }
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            e.stopPropagation();
+            setIsOpen(false);
+            return;
+          }
+        }
         // Enter handling outside the popover: single-line swallows,
         // multiline leaves the browser to insert a `<br>`.
         if (e.key === 'Enter') {
@@ -602,7 +696,7 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
           }
         }
       },
-      [isOpen, suggestions, activeIndex, insertReference, multiline, onPressEnter],
+      [isOpen, suggestions, activeIndex, insertReference, multiline, onPressEnter, createTarget, triggerCreate],
     );
 
     // Hover-over-{{ref}} → ask the shared popover host to open. Delegated
@@ -789,6 +883,18 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
                 maxListHeight={popoverCoords.maxListHeight}
                 onActiveIndexChange={setActiveIndex}
                 onSelect={insertReference}
+                createAction={
+                  createTarget
+                    ? {
+                        label: (
+                          <>
+                            Create “{createTarget.name}” in {createTarget.scopeLabel}
+                          </>
+                        ),
+                        onSelect: triggerCreate,
+                      }
+                    : undefined
+                }
               />
             </div>,
             document.body,
