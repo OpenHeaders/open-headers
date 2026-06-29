@@ -175,21 +175,15 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
   // (if any) maps to a creatable scope.
   const isUnresolved = !lookup.active && !lookup.parseError;
   const createOptions = isUnresolved ? buildCreateOptions(lookup, !!activeEnvironmentId, !!collectionId) : [];
-  // Default the create destination to the scope the reference already
-  // names (`{{vault.x}}` → Vault), then fall back to Workspace — the
-  // broadest, always-available scope — rather than whichever option
-  // sorts first. The user can still pick any other scope.
+  // The create flow (picker / committed scope / hint) is derived as one
+  // view-model so the three can't drift. A namespaced reference locks the
+  // scope to its prefix; a bare reference is a free choice.
   const namespaceScope: CreateScope | null =
     lookup.namespace && lookup.namespace in NAMESPACE_CREATE_SCOPE
       ? NAMESPACE_CREATE_SCOPE[lookup.namespace as keyof typeof NAMESPACE_CREATE_SCOPE]
       : null;
-  const defaultAddTo: CreateScope | null =
-    (namespaceScope ? createOptions.find((o) => o.key === namespaceScope && !o.disabled)?.key : undefined) ??
-    createOptions.find((o) => o.key === 'workspace' && !o.disabled)?.key ??
-    createOptions.find((o) => !o.disabled)?.key ??
-    null;
-  const effectiveAddTo: CreateScope | null =
-    addTo && createOptions.some((o) => o.key === addTo && !o.disabled) ? addTo : defaultAddTo;
+  const createFlow = resolveCreateFlow(namespaceScope, addTo, createOptions);
+  const effectiveAddTo = createFlow.scope;
 
   // Envs that DEFINE this name but aren't the active resolution target
   // (e.g. user is in dev env, but staging defines it). Click → switch.
@@ -372,7 +366,17 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', minWidth: 0 }}>
           {isUnresolved ? (
-            createOptions.length > 0 ? (
+            createFlow.fixedScope ? (
+              <Tooltip
+                title={`Scope is fixed by the {{${lookup.namespace}.}} prefix — edit the reference to change it.`}
+                zIndex={1090}
+              >
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+                  {scopeBadge(createScopeToColorKey(createFlow.fixedScope), 14)}
+                  Add to: {labelForCreateScope(createFlow.fixedScope)}
+                </span>
+              </Tooltip>
+            ) : createFlow.picker === 'dropdown' ? (
               <Dropdown
                 trigger={['click']}
                 // Same stacking concern as the Save tooltip — the
@@ -426,7 +430,7 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
             </>
           )}
         </div>
-        {(isUnresolved ? createOptions.length > 0 : editable) && (
+        {(isUnresolved ? createFlow.picker !== 'none' : editable) && (
           <Tooltip
             title={<ShortcutHintTitle label={saveLabel}>Save</ShortcutHintTitle>}
             placement="bottomRight"
@@ -454,9 +458,14 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
         )}
       </div>
 
-      {isUnresolved && !activeEnvironmentId && createOptions.some((o) => o.key === 'environment') && (
+      {createFlow.unavailable === 'no-active-env' && (
         <div style={{ marginTop: 8, fontSize: 11, color: token.colorTextSecondary }}>
           No environment selected — pick one in the env switcher to add an environment variable.
+        </div>
+      )}
+      {createFlow.unavailable === 'no-collection' && (
+        <div style={{ marginTop: 8, fontSize: 11, color: token.colorTextSecondary }}>
+          No active collection — open a collection to add a collection variable.
         </div>
       )}
     </div>
@@ -788,6 +797,64 @@ function buildCreateOptions(
       }
     })
     .filter((o): o is CreateOption => o !== null);
+}
+
+/** How "Add to" is presented: a fixed label (a namespaced ref locks the
+ *  scope), a switchable dropdown (a bare ref), or none (a reserved
+ *  namespace — nothing creatable). */
+type CreatePicker = 'fixed' | 'dropdown' | 'none';
+
+interface CreateFlow {
+  picker: CreatePicker;
+  /** Scope the Save commits to, or null when nothing is creatable here
+   *  (Save stays disabled). */
+  scope: CreateScope | null;
+  /** Scope to label when `picker === 'fixed'`, even if it isn't creatable
+   *  in this context. */
+  fixedScope: CreateScope | null;
+  /** Why a locked / offered scope isn't creatable here, for the hint. */
+  unavailable: 'no-active-env' | 'no-collection' | null;
+}
+
+/** Single source of truth for the create flow — which "Add to" control to
+ *  show, the scope it commits to, and any unavailability hint, all derived
+ *  together so they can't drift. A namespaced reference (`{{vault.x}}`)
+ *  LOCKS the scope to its prefix so the user can't create a variable the
+ *  reference will never resolve; a bare reference is a free choice. */
+function resolveCreateFlow(
+  namespaceScope: CreateScope | null,
+  addTo: CreateScope | null,
+  createOptions: CreateOption[],
+): CreateFlow {
+  const enabled = (key: CreateScope) => createOptions.some((o) => o.key === key && !o.disabled);
+
+  if (namespaceScope) {
+    const available = enabled(namespaceScope);
+    const unavailable = available
+      ? null
+      : namespaceScope === 'environment'
+        ? 'no-active-env'
+        : namespaceScope === 'collection'
+          ? 'no-collection'
+          : null;
+    return { picker: 'fixed', scope: available ? namespaceScope : null, fixedScope: namespaceScope, unavailable };
+  }
+
+  if (createOptions.length === 0) {
+    return { picker: 'none', scope: null, fixedScope: null, unavailable: null };
+  }
+
+  // Bare ref → free choice. Default to Workspace (the broadest), else the
+  // first enabled option. Surface the env hint when Environment is offered
+  // but disabled (no active env).
+  const scope =
+    addTo && enabled(addTo)
+      ? addTo
+      : (createOptions.find((o) => o.key === 'workspace' && !o.disabled)?.key ??
+        createOptions.find((o) => !o.disabled)?.key ??
+        null);
+  const unavailable = createOptions.some((o) => o.key === 'environment' && o.disabled) ? 'no-active-env' : null;
+  return { picker: 'dropdown', scope, fixedScope: null, unavailable };
 }
 
 export default VariableHoverPopover;
