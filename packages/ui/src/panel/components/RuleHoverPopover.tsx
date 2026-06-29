@@ -363,13 +363,12 @@ export function RuleHoverPopover({
 }: RuleHoverPopoverProps) {
   const { token } = theme.useToken();
   const { message } = App.useApp();
-  // The panel doesn't mount `<RuleProvider>` (it doesn't need the
-  // full CRUD surface), so `useRules()` returns its empty default for
-  // `localCollections` here. Pre-existing limitation for collection-
-  // scoped variable resolution inside the popover — addressed
-  // separately. The LIVE RULE itself must be reactive: pull it from
-  // the rule sync mirror via `useLiveRule(uid)` (works regardless of
-  // provider mount).
+  // The panel mounts `<RuleProvider surfaceId="panel">` (App.tsx), so
+  // `useRules()` returns the workspace's collections here — collection-
+  // scoped variables (`{{collection.X}}`) resolve in the Inspector just
+  // like the workbench. The live rule is still pulled reactively from
+  // the rule sync mirror via `useLiveRule(uid)`, which updates the
+  // popover on commits from any surface.
   const { localCollections } = useRules();
   const workspaceId = useActiveWorkspaceId();
   const mutator = useRuleMutator({ workspaceId, surfaceId: 'devpanel' });

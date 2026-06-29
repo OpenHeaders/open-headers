@@ -10,6 +10,7 @@ import {
   OAuthBundlesProvider,
   PauseMarkersProvider,
   RequestsProvider,
+  RuleProvider,
   VaultProvider,
   WorkspaceVariablesProvider,
 } from '@openheaders/ui/context';
@@ -139,43 +140,45 @@ export default function App({ resolveIdentity }: AppProps) {
             <DevPanelAwarenessPublisher />
             <ShellEventBusContext.Provider value={busHandle.bus}>
               <PauseMarkersProvider surfaceId="panel">
-                <EnvironmentProvider surfaceId="panel">
-                  <WorkspaceVariablesProvider surfaceId="panel">
-                    <VaultProvider surfaceId="panel">
-                      <LiveVariablesProvider surfaceId="panel">
-                        <LiveWorkflowsProvider surfaceId="panel">
-                          <RequestsProvider surfaceId="panel">
-                            <FilesProvider>
-                              <OAuthBundlesProvider surfaceId="panel">
-                                <EnvSwitcherProvider>
-                                  <VariablePopoverProvider>
-                                    <RulePopoverProvider>
-                                      <DocsNavProvider>
-                                        <InfoPopoverContainerProvider
-                                          resolver={(trigger) =>
-                                            // A trigger inside the hover-anchored waterfall popover
-                                            // portals into that popover's overlay — hovering the
-                                            // nested info popover then still counts as hovering the
-                                            // outer content, so the outer popover stays open.
-                                            trigger.closest<HTMLElement>('.dt-waterfall-pop-overlay') ??
-                                            trigger.closest<HTMLElement>('.dt-panel-root') ??
-                                            null
-                                          }
-                                        >
-                                          <PanelContent />
-                                        </InfoPopoverContainerProvider>
-                                      </DocsNavProvider>
-                                    </RulePopoverProvider>
-                                  </VariablePopoverProvider>
-                                </EnvSwitcherProvider>
-                              </OAuthBundlesProvider>
-                            </FilesProvider>
-                          </RequestsProvider>
-                        </LiveWorkflowsProvider>
-                      </LiveVariablesProvider>
-                    </VaultProvider>
-                  </WorkspaceVariablesProvider>
-                </EnvironmentProvider>
+                <RuleProvider surfaceId="panel">
+                  <EnvironmentProvider surfaceId="panel">
+                    <WorkspaceVariablesProvider surfaceId="panel">
+                      <VaultProvider surfaceId="panel">
+                        <LiveVariablesProvider surfaceId="panel">
+                          <LiveWorkflowsProvider surfaceId="panel">
+                            <RequestsProvider surfaceId="panel">
+                              <FilesProvider>
+                                <OAuthBundlesProvider surfaceId="panel">
+                                  <EnvSwitcherProvider>
+                                    <VariablePopoverProvider>
+                                      <RulePopoverProvider>
+                                        <DocsNavProvider>
+                                          <InfoPopoverContainerProvider
+                                            resolver={(trigger) =>
+                                              // A trigger inside the hover-anchored waterfall popover
+                                              // portals into that popover's overlay — hovering the
+                                              // nested info popover then still counts as hovering the
+                                              // outer content, so the outer popover stays open.
+                                              trigger.closest<HTMLElement>('.dt-waterfall-pop-overlay') ??
+                                              trigger.closest<HTMLElement>('.dt-panel-root') ??
+                                              null
+                                            }
+                                          >
+                                            <PanelContent />
+                                          </InfoPopoverContainerProvider>
+                                        </DocsNavProvider>
+                                      </RulePopoverProvider>
+                                    </VariablePopoverProvider>
+                                  </EnvSwitcherProvider>
+                                </OAuthBundlesProvider>
+                              </FilesProvider>
+                            </RequestsProvider>
+                          </LiveWorkflowsProvider>
+                        </LiveVariablesProvider>
+                      </VaultProvider>
+                    </WorkspaceVariablesProvider>
+                  </EnvironmentProvider>
+                </RuleProvider>
               </PauseMarkersProvider>
             </ShellEventBusContext.Provider>
           </ActiveTabEntityProvider>
