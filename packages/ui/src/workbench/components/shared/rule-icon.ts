@@ -1,45 +1,27 @@
 /**
- * Shared rule icon rendering — used by both Sidebar and TabBar.
+ * Shared rule icon rendering — used by sidebar rows, tabs, overviews,
+ * the command palette, rule-flow cards, and the popup rule table.
  *
- * Uniform color scheme:
+ * Renders the rule-type code (HEAD, REQ, RES, …) in place of a line
+ * glyph, colored by state so a row/tab reads its status at a glance:
  *   - Yellow (warning): paused (overrides active state)
  *   - Gray: draft / incomplete / disabled
  *   - Blue (#1677ff): active (enabled + complete)
  *
- * Direction arrows:
+ * Direction arrow (trails the code, so every row's left edge is the
+ * code's first letter):
  *   - ↑ request (header request, body)
  *   - ↓ response (header response, mock/API response)
+ *
+ * The create/picker menus use the same codes but with a neutral
+ * (hue-less) gradient — see `ruleTypeBadge` in rule-type-menu.tsx.
  */
 
-import {
-  ArrowDownOutlined,
-  ArrowUpOutlined,
-  ClockCircleOutlined,
-  CodeOutlined,
-  FileOutlined,
-  LinkOutlined,
-  NotificationOutlined,
-  SendOutlined,
-  StopOutlined,
-  SwapOutlined,
-  ThunderboltOutlined,
-} from '@ant-design/icons';
-import type { Rule } from '@openheaders/core/types';
+import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
+import type { ExtensionRuleType, Rule } from '@openheaders/core/types';
 import { getActionDetail } from '@openheaders/core/utils';
 import { createElement } from 'react';
-
-const RULE_TYPE_ICON: Record<string, typeof StopOutlined> = {
-  header: SwapOutlined,
-  block: StopOutlined,
-  redirect: SendOutlined,
-  'query-param': LinkOutlined,
-  inject: CodeOutlined,
-  delay: ClockCircleOutlined,
-  'request-body': FileOutlined,
-  response: FileOutlined,
-  ws: ThunderboltOutlined,
-  sse: NotificationOutlined,
-};
+import { RULE_TYPE_CODES } from './rule-codes';
 
 const GRAY = 'var(--ant-color-text-tertiary, #999)';
 const BLUE = '#1677ff';
@@ -53,19 +35,30 @@ interface RuleIconOptions {
   isActive: boolean;
   /**
    * Whether the rule is paused via an ancestor collection/folder. Takes
-   * precedence over `isActive` — paused icons render in the warning
+   * precedence over `isActive` — paused codes render in the warning
    * (yellow) color regardless of enabled/complete state.
    */
   paused?: boolean;
-  /** Icon size in px. Default 12. */
+  /** Base size in px (drives code font size + slot widths). Default 12. */
   size?: number;
   /** Explicit direction override — use when rule object is not available (e.g. popup). */
   direction?: 'request' | 'response';
   /** Skip the fixed-width arrow slot when no direction is resolved. Lists
    *  keep the slot so rules align vertically; inline surfaces (tooltips,
-   *  breadcrumbs) want the empty slot gone so the icon hugs neighboring
+   *  breadcrumbs) want the empty slot gone so the code hugs neighboring
    *  text. Default false — current list behavior preserved. */
   compactArrow?: boolean;
+}
+
+/**
+ * Width (px) of the leading code + trailing arrow area, so rule names in
+ * a list all start at the same x. Sized for the longest code ("JS/CSS")
+ * plus a trailing direction arrow.
+ */
+function ruleIconLeadWidth(size = 12): number {
+  const codeFontSize = Math.max(9, Math.round(size * 0.82));
+  const arrowSize = Math.round(size * 0.75);
+  return Math.round(codeFontSize * 0.62 * 6) + arrowSize + 6;
 }
 
 /**
@@ -82,56 +75,51 @@ export function buildRuleIcon({
 }: RuleIconOptions): React.ReactNode {
   const detail = rule ? getActionDetail(rule) : undefined;
   const dir = direction ?? detail?.direction;
-  const Icon = RULE_TYPE_ICON[ruleType] ?? SwapOutlined;
-  const iconColor = paused ? YELLOW : isActive ? BLUE : GRAY;
+  const color = paused ? YELLOW : isActive ? BLUE : GRAY;
 
-  // Fixed-width container for the arrow area — ensures vertical alignment
-  // whether an arrow is present or not. Skipped entirely when there's no
-  // direction AND the caller opted into compactArrow (e.g. tooltip).
+  const code = RULE_TYPE_CODES[ruleType as ExtensionRuleType] ?? ruleType.toUpperCase();
+  const codeFontSize = Math.max(9, Math.round(size * 0.82));
   const arrowSize = Math.round(size * 0.75);
-  const arrowWidth = arrowSize + 2;
-  const arrowContent = dir
+
+  const codeEl = createElement(
+    'span',
+    {
+      style: {
+        color,
+        fontFamily: "ui-monospace, 'SF Mono', Menlo, monospace",
+        fontSize: codeFontSize,
+        fontWeight: 700,
+        letterSpacing: '0.02em',
+        lineHeight: 1,
+        whiteSpace: 'nowrap',
+      },
+    },
+    code,
+  );
+
+  // Direction arrow trails the code so every row's left edge is the
+  // code's first letter (a uniform column), never an arrow.
+  const arrowEl = dir
     ? createElement(dir === 'response' ? ArrowDownOutlined : ArrowUpOutlined, {
-        style: { fontSize: arrowSize, color: iconColor },
+        style: { fontSize: arrowSize, color, marginInlineStart: 2, flexShrink: 0 },
       })
     : null;
-  const arrowSlot =
-    arrowContent || !compactArrow
-      ? createElement(
-          'span',
-          {
-            style: {
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: arrowWidth,
-              flexShrink: 0,
-            },
-          },
-          arrowContent,
-        )
-      : null;
 
-  // Fixed-width container for the icon too — different icons (Send, Stop, Code, etc.)
-  // have different intrinsic widths; this ensures the content after always starts at the same x.
-  const iconSlot = createElement(
+  // Lead slot: code then (optional) arrow. Fixed width in list mode so
+  // the rule name after always starts at the same x — even for rows with
+  // no arrow, the reserved width keeps the column aligned. Compact
+  // surfaces (tabs, tooltips) hug the content instead.
+  return createElement(
     'span',
     {
       style: {
         display: 'inline-flex',
         alignItems: 'center',
-        justifyContent: 'center',
-        width: size + 2,
         flexShrink: 0,
+        ...(compactArrow ? {} : { width: ruleIconLeadWidth(size) }),
       },
     },
-    createElement(Icon, { style: { fontSize: size, color: iconColor } }),
-  );
-
-  return createElement(
-    'span',
-    { style: { display: 'inline-flex', alignItems: 'center', gap: 0 } },
-    arrowSlot,
-    iconSlot,
+    codeEl,
+    arrowEl,
   );
 }

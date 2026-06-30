@@ -7,20 +7,14 @@
  * Tree navigation uses shared utilities from @openheaders/core/utils.
  */
 
-import {
-  FolderOpenOutlined,
-  FolderOutlined,
-  PlusOutlined,
-  RightOutlined,
-  SaveOutlined,
-  ThunderboltOutlined,
-} from '@ant-design/icons';
+import { FolderOpenOutlined, FolderOutlined, PlusOutlined, RightOutlined, SaveOutlined } from '@ant-design/icons';
 import type { Collection, CollectionTree, TreeNode } from '@openheaders/core/types';
 import { buildBreadcrumbTrail, findNodeChildren } from '@openheaders/core/utils';
 import { Button, Input, type InputRef, Modal, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useShortcutLabel } from '../hooks/useWorkspaceShortcuts';
+import { buildRuleIcon } from './shared/rule-icon';
 
 const { Text } = Typography;
 
@@ -684,9 +678,7 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
                       color: token.colorTextSecondary,
                     }}
                   >
-                    <ThunderboltOutlined
-                      style={{ fontSize: 11, color: node.enabled ? token.colorPrimary : token.colorTextTertiary }}
-                    />
+                    {buildRuleIcon({ ruleType: node.ruleType, isActive: node.enabled })}
                     <span>{node.name}</span>
                   </div>
                 );

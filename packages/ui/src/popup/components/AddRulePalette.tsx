@@ -14,7 +14,7 @@
 import { CodeOutlined, SearchOutlined } from '@ant-design/icons';
 import type { ExtensionRuleType } from '@openheaders/core/types';
 import { TEMPLATES_BY_TYPE } from '@openheaders/ui/workbench/rule-templates';
-import { ALL_RULE_TYPES } from '@openheaders/ui/workbench/rule-type-menu';
+import { ALL_RULE_TYPES, ruleTypeBadge } from '@openheaders/ui/workbench/rule-type-menu';
 import { Empty, Input, Modal, Typography } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -42,7 +42,7 @@ function buildPaletteItems(): PaletteItem[] {
       subtitle: t.description,
       icon: <CodeOutlined style={{ opacity: 0.55 }} />,
       group: t.label,
-      groupIcon: t.icon,
+      groupIcon: ruleTypeBadge(t.key),
     });
     for (const tpl of TEMPLATES_BY_TYPE[t.key] ?? []) {
       items.push({
@@ -53,7 +53,7 @@ function buildPaletteItems(): PaletteItem[] {
         subtitle: tpl.description,
         icon: <span style={{ fontSize: 14 }}>{tpl.icon}</span>,
         group: t.label,
-        groupIcon: t.icon,
+        groupIcon: ruleTypeBadge(t.key),
       });
     }
   }
@@ -97,7 +97,7 @@ export function AddRulePalette({ open, onClose, onSelect }: AddRulePaletteProps)
   const grouped = useMemo(() => {
     const order = new Map<string, { groupIcon: React.ReactNode; items: PaletteItem[] }>();
     for (const t of ALL_RULE_TYPES) {
-      order.set(t.label, { groupIcon: t.icon, items: [] });
+      order.set(t.label, { groupIcon: ruleTypeBadge(t.key), items: [] });
     }
     for (const item of filtered) {
       order.get(item.group)?.items.push(item);

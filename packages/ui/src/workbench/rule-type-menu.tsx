@@ -22,6 +22,7 @@ import {
 import type { ExtensionRuleType } from '@openheaders/core/types';
 import type React from 'react';
 import { createElement } from 'react';
+import { RULE_TYPE_CODES } from './components/shared/rule-codes';
 import { TEMPLATES_BY_TYPE } from './rule-templates';
 
 export interface RuleTypeMenuItem {
@@ -67,7 +68,7 @@ export const ALL_RULE_TYPES: RuleTypeMenuItem[] = [
   {
     key: 'inject',
     icon: <CodeOutlined />,
-    label: 'Inject Scripts/CSS',
+    label: 'Inject Script/Stylesheet',
     description: 'Inject JavaScript or CSS into pages',
     desktopOnly: false,
   },
@@ -115,25 +116,6 @@ export const ALL_RULE_TYPES: RuleTypeMenuItem[] = [
   },
 ];
 
-/** Short, behavior-colored codes shown in the rule-type picker menus in
- *  place of a line icon — lighter to scan than 11 glyphs. Color tokens
- *  live in rules.less (`--rule-<type>-color`, light + dark). The
- *  stateful sidebar/tab rule icons stay on `buildRuleIcon` (they carry
- *  active/paused/draft color + direction arrows, which a code can't). */
-const RULE_TYPE_CODES: Record<ExtensionRuleType, string> = {
-  header: 'HEAD',
-  block: 'BLOCK',
-  redirect: 'REDIR',
-  'query-param': 'QUERY',
-  inject: 'JS/CSS',
-  'request-body': 'REQ',
-  delay: 'DELAY',
-  response: 'RES',
-  ws: 'WS',
-  sse: 'SSE',
-  auth: 'AUTH',
-};
-
 /** Render a rule-type code badge — a neutral gradient fill (no hue) so
  *  it never reads as a status/scope color. Fixed-width slot keeps menu
  *  labels aligned across codes of different length. */
@@ -145,7 +127,7 @@ export function ruleTypeBadge(type: ExtensionRuleType): React.ReactNode {
         display: 'inline-block',
         width: 48,
         flexShrink: 0,
-        backgroundImage: 'linear-gradient(180deg, var(--rule-code-from), var(--rule-code-to))',
+        backgroundImage: 'linear-gradient(180deg, var(--rule-code-from, #6b7689), var(--rule-code-to, #3d4456))',
         WebkitBackgroundClip: 'text',
         backgroundClip: 'text',
         WebkitTextFillColor: 'transparent',

@@ -31,6 +31,20 @@ html {
   background-color: transparent;
 }
 
+/* Rule-type code badge tokens — neutral gradient shared by `ruleTypeBadge()`.
+ * Mirrors the workbench definition in rules.less so the codes render
+ * identically in the popup's Add-Rule palette. Defined at root so the
+ * portaled palette modal inherits them. */
+:root {
+  --rule-code-from: #6b7689;
+  --rule-code-to:   #3d4456;
+}
+
+[data-theme='dark'] {
+  --rule-code-from: #c7d0de;
+  --rule-code-to:   #8b95a8;
+}
+
 body {
   // Pre-mount default — matches the System Sans preset's stack. Once
   // ThemeContext mounts it overwrites `--oh-ui-font-family` on :root with
