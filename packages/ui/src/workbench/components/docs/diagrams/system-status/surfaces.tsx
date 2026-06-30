@@ -108,7 +108,7 @@ export const SystemStatusWorkbenchSurfaceDiagram: React.FC = () => {
  * Popup surface: the extension popup hangs from the toolbar icon.
  * Inside the popup, the status indicator lives in the FOOTER (not
  * the header) — rendered as a colored dot + "System status" label.
- * Matches the real UI: small `● System status 2026.6.3` strip at the
+ * Matches the real UI: small `● System status 2026.6.4` strip at the
  * bottom of the popup, alongside the Debug + help icons.
  */
 export const SystemStatusPopupSurfaceDiagram: React.FC = () => {
@@ -223,7 +223,7 @@ export const SystemStatusPopupSurfaceDiagram: React.FC = () => {
         </text>
         {/* Right-aligned version chip */}
         <text x={PU_X + PU_W - 8} y={FOOTER_Y + FOOTER_H / 2 + 3} textAnchor="end" fontSize={8} fill={TEXT_DIM}>
-          2026.6.3
+          2026.6.4
         </text>
       </BrowserFrame>
 
