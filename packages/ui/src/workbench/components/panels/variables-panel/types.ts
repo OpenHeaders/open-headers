@@ -8,12 +8,30 @@
 import type { TotpAlgorithm } from '@openheaders/core/types';
 import { SCOPE_COLORS } from '../../shared/scope-colors';
 
+// Per-scope metadata for the "All scopes" view. `rank` is the small
+// trailing label in each section header; `namespace` is the reference
+// prefix ({{namespace.name}}). The four real scopes form a fallback
+// ladder for a bare {{name}} (highest → lowest precedence in the
+// resolver): whichever ranks higher wins when the same name is defined
+// in more than one. Live is namespace-only — reached solely via
+// {{live.*}}, never part of bare-name fallback — so it has no ladder
+// position ("namespaced"). The hover tooltip is `ScopeRankTooltip`.
 export const SCOPE_CONFIG = {
-  vault: { label: 'Vault', priority: 'highest', color: SCOPE_COLORS.vault.color },
-  environment: { label: 'Environment', priority: 'high', color: SCOPE_COLORS.environment.color },
-  collection: { label: 'Collection', priority: 'medium', color: SCOPE_COLORS.collection.color },
-  workspace: { label: 'Workspace', priority: 'lowest', color: SCOPE_COLORS.workspace.color },
-  live: { label: 'Live', priority: 'resolved', color: SCOPE_COLORS.live.color },
+  vault: { label: 'Vault', namespace: 'vault', rank: 'highest priority', color: SCOPE_COLORS.vault.color },
+  environment: { label: 'Environment', namespace: 'env', rank: 'high priority', color: SCOPE_COLORS.environment.color },
+  collection: {
+    label: 'Collection',
+    namespace: 'collection',
+    rank: 'medium priority',
+    color: SCOPE_COLORS.collection.color,
+  },
+  workspace: {
+    label: 'Workspace',
+    namespace: 'workspace',
+    rank: 'lowest priority',
+    color: SCOPE_COLORS.workspace.color,
+  },
+  live: { label: 'Live', namespace: 'live', rank: 'namespaced', color: SCOPE_COLORS.live.color },
 } as const;
 
 export type DisplayScope = keyof typeof SCOPE_CONFIG;

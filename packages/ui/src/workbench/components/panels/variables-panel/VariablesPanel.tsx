@@ -1,18 +1,18 @@
 /**
  * VariablesPanel — right-pane live view of variable scopes (surfaced to
- * users as "Scope"). Two modes, gated by the active tab's kind:
+ * users as "Scope"). One scrolling panel with two collapsible sections:
  *
- *   - "In Rule / Request / Template" — only variables referenced in the
- *     focused entity, resolved against every scope so the user sees the
- *     exact value that will hit DNR / the executor.
- *   - "All" — every scope's variables grouped by priority. The default,
- *     and the only option on tabs that don't reference variables.
+ *   - "In ‹rule/request/template›" — the variables the focused entity
+ *     references, resolved against every scope so the user sees the exact
+ *     value that will hit DNR / the executor. A hint stands in when no
+ *     variable-referencing tab is focused.
+ *   - "All scopes" — every scope's variables grouped by priority.
  *
  * This file is the presentational container: it owns layout only and
  * reads everything else from `useVariablesPanel`. The model lives in the
  * sibling builders (`scope-context`, `live-registry`, `scope-resolver`,
- * `scope-variables`); the views are `ModeBar` / `InContextView` /
- * `AllScopesView`.
+ * `scope-variables`); the views are `InContextView` / `AllScopesView`,
+ * wrapped in the collapsible `PanelSection`.
  */
 
 import { PanelHeader, createPanelHeaderWiring } from '@openheaders/ui/shared/dock-layout';
@@ -22,7 +22,7 @@ import { useMemo } from 'react';
 import type { WorkbenchTab } from '../../../types';
 import { AllScopesView } from './AllScopesView';
 import { InContextView } from './InContextView';
-import { ModeBar } from './ModeBar';
+import { PanelSection } from './PanelSection';
 import { useVariablesPanel, type VariablesPanelHandlers } from './use-variables-panel';
 
 interface VariablesPanelProps extends VariablesPanelHandlers {
@@ -38,6 +38,9 @@ const VariablesPanel: React.FC<VariablesPanelProps> = (props) => {
   const headerWiring = useMemo(() => createPanelHeaderWiring({ onHide: onClose }), [onClose]);
   const vm = useVariablesPanel(activeTab, props);
 
+  const noun = vm.scopeKind === 'request' ? 'request' : vm.scopeKind === 'template' ? 'template' : 'rule';
+  const inContextTitle = vm.contextEntityName ? `In ${noun}: ${vm.contextEntityName}` : 'In context';
+
   return (
     <div
       className="rules-right-panel rules-right-panel--variables"
@@ -45,16 +48,8 @@ const VariablesPanel: React.FC<VariablesPanelProps> = (props) => {
     >
       <PanelHeader wiring={headerWiring} title={<strong>Scope</strong>} info={info} />
 
-      <div style={{ padding: '8px 12px', flex: 1, overflowY: 'auto' }}>
-        <ModeBar
-          mode={vm.mode}
-          setMode={vm.setMode}
-          scopeKind={vm.scopeKind}
-          contextLabel={vm.contextLabel}
-          contextEntityName={vm.contextEntityName}
-        />
-
-        {vm.mode === 'in-context' && vm.scopeKind !== 'none' ? (
+      <div style={{ padding: '0 12px', flex: 1, overflowY: 'auto' }}>
+        <PanelSection title={inContextTitle}>
           <InContextView
             vars={vm.inContextVars}
             errors={vm.inContextErrors}
@@ -62,7 +57,9 @@ const VariablesPanel: React.FC<VariablesPanelProps> = (props) => {
             hasContext={vm.hasContextEntity}
             openVariableEditor={vm.openVariableEditor}
           />
-        ) : (
+        </PanelSection>
+
+        <PanelSection title="All scopes" isLast>
           <AllScopesView
             allVars={vm.allVars}
             activeEnvironmentName={vm.activeEnvironmentName}
@@ -70,7 +67,7 @@ const VariablesPanel: React.FC<VariablesPanelProps> = (props) => {
             activeCollectionName={vm.activeCollectionName}
             openScopeEditor={vm.openScopeEditor}
           />
-        )}
+        </PanelSection>
       </div>
     </div>
   );

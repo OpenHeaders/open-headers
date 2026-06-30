@@ -63,3 +63,30 @@ export function scopeBadge(scope: ScopeKey, size = 14, muted = false): React.Rea
     letter,
   );
 }
+
+/** Neutral "?" badge for a reference that resolved to no scope. Same
+ *  footprint as `scopeBadge` so it lines up in a glyph column; styled
+ *  like the muted variant (gray outline, no fill). */
+export function unknownScopeBadge(size = 14): React.ReactNode {
+  return createElement(
+    'span',
+    {
+      style: {
+        width: size,
+        height: size,
+        borderRadius: Math.round(size * 0.25),
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: size * 0.65,
+        fontWeight: 700,
+        color: '#999',
+        background: 'transparent',
+        border: '1px solid #999',
+        flexShrink: 0,
+        lineHeight: 1,
+      },
+    },
+    '?',
+  );
+}

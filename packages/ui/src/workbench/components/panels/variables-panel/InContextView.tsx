@@ -1,15 +1,17 @@
 /**
  * "In Rule / Request / Template" view — the variables the focused entity
- * actually references, each resolved against every scope, plus a
- * resolved/unresolved summary and the structured resolution-error list.
+ * actually references, each resolved against every scope. Rendered as the
+ * same Variable | Value table the "All scopes" view uses, with a leading
+ * scope-glyph column so each row shows which scope it resolved from, plus
+ * a resolved/unresolved summary and the structured resolution-error list.
  */
 
 import type { ResolutionError } from '@openheaders/core/variables';
-import { Empty, Typography, theme } from 'antd';
+import { Typography, theme } from 'antd';
 import type { DispatchVariable } from '../scope-editor-dispatch';
 import { ResolutionErrorList } from './ResolutionErrorList';
 import type { DisplayVariable, ScopeKind } from './types';
-import { VariableRow } from './VariableRow';
+import { VariableTable } from './VariableTable';
 
 const { Text } = Typography;
 
@@ -26,14 +28,9 @@ export function InContextView({ vars, errors, scopeKind, hasContext, openVariabl
   const noun = scopeKind === 'request' ? 'request' : scopeKind === 'template' ? 'template' : 'rule';
   if (!hasContext) {
     return (
-      <Empty
-        image={Empty.PRESENTED_IMAGE_SIMPLE}
-        description={
-          <Text type="secondary" style={{ fontSize: 11 }}>
-            Open a {noun} to see the variables it references.
-          </Text>
-        }
-      />
+      <Text type="secondary" style={{ fontSize: 11 }}>
+        Open a request or rule to see the variables it references.
+      </Text>
     );
   }
   if (vars.length === 0) {
@@ -46,9 +43,12 @@ export function InContextView({ vars, errors, scopeKind, hasContext, openVariabl
   const resolvedCount = vars.filter((v) => v.resolved).length;
   return (
     <>
-      {vars.map((v) => (
-        <VariableRow key={v.name} variable={v} onOpenEditor={openVariableEditor(v, v.name)} />
-      ))}
+      <VariableTable
+        variables={vars}
+        showScopeGlyph
+        emptyMode="unresolved"
+        onRowClick={(v) => openVariableEditor(v, v.name)}
+      />
       <div style={{ marginTop: 10, fontSize: 11 }}>
         {resolvedCount === vars.length ? (
           <Text style={{ color: token.colorSuccess, fontSize: 11 }}>

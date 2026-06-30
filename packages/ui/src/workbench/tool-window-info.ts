@@ -31,16 +31,20 @@ const TOOL_WINDOW_INFO: Record<ToolWindowId, InfoPopoverContent> = {
   'var-scope': {
     title: 'Scope',
     summary:
-      'The variables referenced by the active tab and every scope they resolve against for the current selection. Use Variables for the full catalogue of what exists.',
+      'The variables the active tab references and every scope they resolve against. A bare {{name}} falls through the priority order below; namespaced refs like {{live.*}} target one scope directly.',
     sections: [
       {
-        heading: 'Resolution order',
+        heading: 'Priority order',
         items: [
-          { label: 'Environment', desc: 'Highest precedence; the active environment wins.' },
+          { label: 'Vault', desc: 'Per-user secrets, never synced — highest priority.' },
+          { label: 'Environment', desc: 'The active environment, falling back to the default environment.' },
           { label: 'Collection', desc: "The active entity's collection." },
-          { label: 'Workspace', desc: 'Shared across the workspace.' },
-          { label: 'Vault', desc: 'Secrets, resolved last.' },
+          { label: 'Workspace', desc: 'Shared across the workspace — lowest priority.' },
         ],
+      },
+      {
+        heading: 'Namespaced',
+        items: [{ label: 'Live', desc: 'Workflow-backed; reached only via {{live.*}}, resolved from the latest run.' }],
       },
     ],
   },

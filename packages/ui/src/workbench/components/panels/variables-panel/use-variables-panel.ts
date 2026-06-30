@@ -3,8 +3,8 @@
  * derivation so the `VariablesPanel` container stays purely
  * presentational: it pulls each scope's source, composes the model
  * builders (context → live registry → resolver → display variables),
- * wires the Inspector → editor dispatchers, and manages the
- * in-context / all mode toggle. Returns a flat view-model.
+ * and wires the Inspector → editor dispatchers. Returns a flat
+ * view-model the container renders as two collapsible sections.
  *
  * Resolution runs in the renderer — the SW already ships a snapshot of
  * every scope via `environmentsChanged`, so a second resolver instance
@@ -20,17 +20,15 @@ import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/useLiveWorkflows'
 import { useRequests } from '@openheaders/ui/shared/hooks/useRequests';
 import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import { type CollectionFamilies, findCollectionByUid } from '@openheaders/ui/shared/variables';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo } from 'react';
 import type { WorkbenchTab } from '../../../types';
 import { buildScopeEditorDispatch, buildVariableEditorDispatch, type DispatchVariable } from '../scope-editor-dispatch';
 import { buildLiveRegistry } from './live-registry';
 import { resolveScopeContext } from './scope-context';
-import { getContextLabel, getScopeKind } from './scope-kind';
+import { getScopeKind } from './scope-kind';
 import { buildScopeResolver } from './scope-resolver';
 import { buildAllScopeVariables, buildInContextVariables } from './scope-variables';
 import type { AllScopeVariables, DisplayScope, DisplayVariable, ScopeKind } from './types';
-
-export type PanelMode = 'in-context' | 'all';
 
 /** Per-scope variables-editor openers. When present, each scope's rows
  *  + section title surface a clickable "open editor" affordance that
@@ -51,10 +49,7 @@ export interface VariablesPanelHandlers {
 }
 
 export interface VariablesPanelViewModel {
-  mode: PanelMode;
-  setMode: (mode: PanelMode) => void;
   scopeKind: ScopeKind;
-  contextLabel: string | null;
   contextEntityName: string | null;
   hasContextEntity: boolean;
   inContextVars: DisplayVariable[];
@@ -96,12 +91,6 @@ export function useVariablesPanel(
   const { byWorkflowUid: liveCaches } = useAllLiveCaches(liveWorkflowUids);
 
   const scopeKind = useMemo(() => getScopeKind(activeTab), [activeTab]);
-  const contextLabel = getContextLabel(scopeKind);
-
-  // Initialize mode to match the focused tab: a variable-referencing
-  // tab starts contextual so the first thing the user sees is their
-  // rule/request's own variables; otherwise fall back to "All".
-  const [mode, setMode] = useState<PanelMode>(() => (getScopeKind(activeTab) === 'none' ? 'all' : 'in-context'));
 
   const { activeRule, activeRequest, activeTemplate, activeCollectionId } = useMemo(
     () =>
@@ -128,24 +117,6 @@ export function useVariablesPanel(
       templateCollectionTrees,
     ],
   );
-
-  // Auto-apply the "natural" mode whenever the focused tab changes: a
-  // rule/request tab starts in its context view; anything else starts in
-  // "All". The toggle choice is per-tab — switching tabs resets to the
-  // new tab's default.
-  const lastTabIdRef = useRef<string | null>(activeTab?.id ?? null);
-  useEffect(() => {
-    const tabId = activeTab?.id ?? null;
-    if (lastTabIdRef.current !== tabId) {
-      lastTabIdRef.current = tabId;
-      setMode(scopeKind === 'none' ? 'all' : 'in-context');
-      return;
-    }
-    // Same tab id but its scope kind dropped to 'none' (a rare mode
-    // transition on the same tab): force 'all' so the panel can't get
-    // stuck showing a context view whose toggle is now hidden.
-    if (scopeKind === 'none' && mode === 'in-context') setMode('all');
-  }, [activeTab, scopeKind, mode]);
 
   const contextEntity: Rule | Request | Template | null = activeRule ?? activeRequest ?? activeTemplate;
   const contextEntityName = activeRule?.name ?? activeRequest?.name ?? activeTemplate?.name ?? null;
@@ -276,10 +247,7 @@ export function useVariablesPanel(
   );
 
   return {
-    mode,
-    setMode,
     scopeKind,
-    contextLabel,
     contextEntityName,
     hasContextEntity: contextEntity !== null,
     inContextVars,
