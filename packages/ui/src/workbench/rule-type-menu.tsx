@@ -32,7 +32,9 @@ export interface RuleTypeMenuItem {
   desktopOnly: boolean;
 }
 
-/** All rule types with their menu metadata. */
+/** All rule types with their menu metadata. Array order is the
+ *  definitive display order across every create/picker menu (and the
+ *  popup palette groups). */
 export const ALL_RULE_TYPES: RuleTypeMenuItem[] = [
   {
     key: 'header',
@@ -42,17 +44,17 @@ export const ALL_RULE_TYPES: RuleTypeMenuItem[] = [
     desktopOnly: false,
   },
   {
-    key: 'block',
-    icon: <StopOutlined />,
-    label: 'Block Requests',
-    description: 'Prevent requests from completing',
+    key: 'request-body',
+    icon: <FileTextOutlined />,
+    label: 'Modify API Request Body',
+    description: 'Override or transform API request body (fetch/XHR only)',
     desktopOnly: false,
   },
   {
-    key: 'redirect',
-    icon: <SendOutlined />,
-    label: 'Redirect Requests',
-    description: 'Redirect to a different URL',
+    key: 'response',
+    icon: <DatabaseOutlined />,
+    label: 'Modify API Response',
+    description: 'Mock or modify API response status, body, and headers (fetch/XHR only)',
     desktopOnly: false,
   },
   {
@@ -70,27 +72,6 @@ export const ALL_RULE_TYPES: RuleTypeMenuItem[] = [
     desktopOnly: false,
   },
   {
-    key: 'request-body',
-    icon: <FileTextOutlined />,
-    label: 'Modify API Request Body',
-    description: 'Override or transform API request body (fetch/XHR only)',
-    desktopOnly: false,
-  },
-  {
-    key: 'delay',
-    icon: <ClockCircleOutlined />,
-    label: 'Delay Requests',
-    description: 'Add latency to network requests (fetch/XHR only)',
-    desktopOnly: false,
-  },
-  {
-    key: 'response',
-    icon: <DatabaseOutlined />,
-    label: 'Modify Response',
-    description: 'Mock or modify API response status, body, and headers (fetch/XHR only)',
-    desktopOnly: false,
-  },
-  {
     key: 'ws',
     icon: <ThunderboltOutlined />,
     label: 'Modify WebSocket Messages',
@@ -105,6 +86,27 @@ export const ALL_RULE_TYPES: RuleTypeMenuItem[] = [
     desktopOnly: false,
   },
   {
+    key: 'block',
+    icon: <StopOutlined />,
+    label: 'Block Requests',
+    description: 'Prevent requests from completing',
+    desktopOnly: false,
+  },
+  {
+    key: 'redirect',
+    icon: <SendOutlined />,
+    label: 'Redirect Requests',
+    description: 'Redirect to a different URL',
+    desktopOnly: false,
+  },
+  {
+    key: 'delay',
+    icon: <ClockCircleOutlined />,
+    label: 'Delay Requests',
+    description: 'Add latency to network requests (fetch/XHR only)',
+    desktopOnly: false,
+  },
+  {
     key: 'auth',
     icon: <KeyOutlined />,
     label: 'Answer Auth Challenge',
@@ -113,13 +115,59 @@ export const ALL_RULE_TYPES: RuleTypeMenuItem[] = [
   },
 ];
 
+/** Short, behavior-colored codes shown in the rule-type picker menus in
+ *  place of a line icon — lighter to scan than 11 glyphs. Color tokens
+ *  live in rules.less (`--rule-<type>-color`, light + dark). The
+ *  stateful sidebar/tab rule icons stay on `buildRuleIcon` (they carry
+ *  active/paused/draft color + direction arrows, which a code can't). */
+const RULE_TYPE_CODES: Record<ExtensionRuleType, string> = {
+  header: 'HEAD',
+  block: 'BLOCK',
+  redirect: 'REDIR',
+  'query-param': 'QUERY',
+  inject: 'JS/CSS',
+  'request-body': 'REQ',
+  delay: 'DELAY',
+  response: 'RES',
+  ws: 'WS',
+  sse: 'SSE',
+  auth: 'AUTH',
+};
+
+/** Render a rule-type code badge — a neutral gradient fill (no hue) so
+ *  it never reads as a status/scope color. Fixed-width slot keeps menu
+ *  labels aligned across codes of different length. */
+export function ruleTypeBadge(type: ExtensionRuleType): React.ReactNode {
+  return createElement(
+    'span',
+    {
+      style: {
+        display: 'inline-block',
+        width: 48,
+        flexShrink: 0,
+        backgroundImage: 'linear-gradient(180deg, var(--rule-code-from), var(--rule-code-to))',
+        WebkitBackgroundClip: 'text',
+        backgroundClip: 'text',
+        WebkitTextFillColor: 'transparent',
+        color: 'transparent',
+        fontFamily: "ui-monospace, 'SF Mono', Menlo, monospace",
+        fontSize: 11,
+        fontWeight: 700,
+        letterSpacing: '0.03em',
+        lineHeight: 1,
+      },
+    },
+    RULE_TYPE_CODES[type],
+  );
+}
+
 /**
  * Build Ant Design menu items for rule creation menus (no templates).
  */
 export function buildRuleTypeMenuItems(onClick: (type: string) => void) {
   return ALL_RULE_TYPES.map((t) => ({
     key: t.key,
-    icon: t.icon,
+    icon: ruleTypeBadge(t.key),
     label: t.label,
     onClick: () => onClick(t.key),
   }));
@@ -147,7 +195,7 @@ export function buildRuleTypeMenuItemsWithTemplates(
       // No templates — direct click
       return {
         key: t.key,
-        icon: t.icon,
+        icon: ruleTypeBadge(t.key),
         label: t.label,
         onClick: () => onClickType(t.key),
       };
@@ -156,7 +204,7 @@ export function buildRuleTypeMenuItemsWithTemplates(
     // Has templates — cascading submenu
     return {
       key: t.key,
-      icon: t.icon,
+      icon: ruleTypeBadge(t.key),
       label: t.label,
       children: [
         {
@@ -176,12 +224,14 @@ export function buildRuleTypeMenuItemsWithTemplates(
 }
 
 /**
- * Build menu items using createElement (for Sidebar which avoids JSX in callbacks).
+ * Build menu items for the Sidebar create menu. Mirrors
+ * {@link buildRuleTypeMenuItems}; kept as a separate export so the
+ * Sidebar's `menus.ts` can cast the result to its `ItemType[]` shape.
  */
 export function buildRuleTypeMenuItemsCE(onClick: (type: string) => void) {
   return ALL_RULE_TYPES.map((t) => ({
     key: t.key,
-    icon: createElement((t.icon as React.ReactElement).type as React.ComponentType<Record<string, unknown>>),
+    icon: ruleTypeBadge(t.key),
     label: t.label,
     onClick: () => onClick(t.key),
   }));

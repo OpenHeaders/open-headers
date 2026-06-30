@@ -1904,6 +1904,14 @@ body {
   --scope-file-bg:           #E2E8F0;
   --scope-dynamic-color:     #737373;
   --scope-dynamic-bg:        #F5F5F4;
+
+  /* Rule-type code badge — a single neutral gradient shared by ALL codes
+   * (`ruleTypeBadge()` in rule-type-menu.tsx, the create/picker menus).
+   * Deliberately hue-less so it can't be mistaken for the status colors
+   * used on real rule rows/tabs (blue = active, gold = paused, gray =
+   * draft) or the scope-color badges. Codes differentiate by text. */
+  --rule-code-from: #6b7689;
+  --rule-code-to:   #3d4456;
 }
 
 [data-theme='dark'] {
@@ -1923,6 +1931,9 @@ body {
   --scope-file-bg:           #1E293B;
   --scope-dynamic-color:     #A3A3A3;
   --scope-dynamic-bg:        #262626;
+
+  --rule-code-from: #c7d0de;
+  --rule-code-to:   #8b95a8;
 }
 
 // ── Code editor format overlay ────────────────────────────────────
