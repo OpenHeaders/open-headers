@@ -20,6 +20,20 @@ const EXAMPLE = 'token';
  *  it never participates in bare-name resolution. */
 const BARE_PRECEDENCE: readonly DisplayScope[] = ['vault', 'environment', 'collection', 'workspace'];
 
+/** `(i)` content for the panel's two top-level sections, so each one is
+ *  self-explanatory next to its caret. */
+export const IN_CONTEXT_INFO: InfoPopoverContent = {
+  title: 'In context',
+  summary:
+    'The variables the active rule, request, or template references — each resolved through every scope so you see the exact value that will apply. Empty until you open one.',
+};
+
+export const ALL_SCOPES_INFO: InfoPopoverContent = {
+  title: 'All scopes',
+  summary:
+    "Every variable defined across all scopes, grouped by resolution priority. Open a scope's (i) for how to reference it and where it ranks.",
+};
+
 /** One-line orientation per scope — the InfoPopover summary line. */
 const SCOPE_SUMMARY: Record<DisplayScope, string> = {
   vault: 'Per-user secrets, stored in your vault and never synced.',

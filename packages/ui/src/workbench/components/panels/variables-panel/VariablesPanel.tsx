@@ -23,6 +23,7 @@ import type { WorkbenchTab } from '../../../types';
 import { AllScopesView } from './AllScopesView';
 import { InContextView } from './InContextView';
 import { PanelSection } from './PanelSection';
+import { ALL_SCOPES_INFO, IN_CONTEXT_INFO } from './scope-info';
 import { useVariablesPanel, type VariablesPanelHandlers } from './use-variables-panel';
 
 interface VariablesPanelProps extends VariablesPanelHandlers {
@@ -49,7 +50,7 @@ const VariablesPanel: React.FC<VariablesPanelProps> = (props) => {
       <PanelHeader wiring={headerWiring} title={<strong>Scope</strong>} info={info} />
 
       <div style={{ padding: '0 12px', flex: 1, overflowY: 'auto' }}>
-        <PanelSection title={inContextTitle}>
+        <PanelSection title={inContextTitle} info={IN_CONTEXT_INFO}>
           <InContextView
             vars={vm.inContextVars}
             errors={vm.inContextErrors}
@@ -59,7 +60,7 @@ const VariablesPanel: React.FC<VariablesPanelProps> = (props) => {
           />
         </PanelSection>
 
-        <PanelSection title="All scopes" isLast>
+        <PanelSection title="All scopes" info={ALL_SCOPES_INFO} isLast>
           <AllScopesView
             allVars={vm.allVars}
             activeEnvironmentName={vm.activeEnvironmentName}

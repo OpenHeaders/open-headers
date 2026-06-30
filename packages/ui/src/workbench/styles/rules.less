@@ -1734,11 +1734,12 @@ body {
   overflow: hidden;
 }
 
-// Scope-section header (Scope panel → "All scopes"): the "Edit" link and
-// the (i) info trigger stay hidden until the row is hovered or focused,
-// or the (i)'s popover is open. Holding them at opacity:0 keeps their
-// layout box so revealing never reflows the header — the same
-// hover-reveal the network table's (i) affordances use.
+// Scope-panel section headers — both the top-level In-context / All-scopes
+// sections and each scope row: the "Edit" link and the (i) info trigger
+// stay hidden until the row is hovered or focused, or the (i)'s popover is
+// open. Holding them at opacity:0 keeps their layout box so revealing
+// never reflows the header — the same hover-reveal the network table's (i)
+// affordances use.
 .vp-scope-head {
   .vp-scope-reveal {
     opacity: 0;
