@@ -70,7 +70,7 @@ import CollectionOverview from './components/CollectionOverview';
 import CollectionVariablesEditor from './components/CollectionVariablesEditor';
 import CommandPalette from './components/CommandPalette';
 import EditorGroupRenderer, { type RenderLeafHeaderContext } from './components/EditorGroupRenderer';
-import EmptyState from './components/EmptyState';
+import EmptyState, { type VariableCreateScope } from './components/EmptyState';
 import EnvironmentEditor from './components/EnvironmentEditor';
 import FolderOverview from './components/FolderOverview';
 import ImportCurlModal from './components/ImportCurlModal';
@@ -867,6 +867,30 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     }
     openEnvironmentEdit(env.uid, env.name, true);
   }, [envApi, openEnvironmentEdit, message]);
+
+  // Route the empty-state "Create variable" dropdown to each scope's
+  // existing create/manage surface. Collection scope is disabled in the
+  // menu (it can only be authored inside a collection), so it never
+  // reaches here.
+  const handleCreateVariable = useCallback(
+    (scope: VariableCreateScope) => {
+      switch (scope) {
+        case 'environment':
+          void handleCreateEnvironment();
+          break;
+        case 'workspace':
+          openWorkspaceVariables();
+          break;
+        case 'live':
+          openCreateLiveVariable();
+          break;
+        case 'vault':
+          openVault();
+          break;
+      }
+    },
+    [handleCreateEnvironment, openWorkspaceVariables, openCreateLiveVariable, openVault],
+  );
 
   // ── Workspace switch with dirty-draft guard ────────────────────
   //
@@ -1880,7 +1904,17 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   // editor component.
   const renderLeafHeader = useCallback((_: RenderLeafHeaderContext): React.ReactNode => null, []);
 
-  const renderEmpty = useCallback(() => <EmptyState onCreateRule={openCreateTab} />, [openCreateTab]);
+  const renderEmpty = useCallback(
+    () => (
+      <EmptyState
+        onCreateRule={openCreateTab}
+        onCreateRequest={() => openCreateRequestTab()}
+        onCreateWorkflow={() => openCreateLiveWorkflow()}
+        onCreateVariable={handleCreateVariable}
+      />
+    ),
+    [openCreateTab, openCreateRequestTab, openCreateLiveWorkflow, handleCreateVariable],
+  );
 
   // Bound `View` handler for ActivityFeedPanel — routes per
   // entityType to the matching tab-opener via the pure helper in
