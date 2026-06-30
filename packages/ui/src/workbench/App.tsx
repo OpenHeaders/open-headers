@@ -2315,6 +2315,9 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
           <SaveToCollectionModal
             open={ruleSaveFlow.saveModalOpen}
             entityName={ruleSaveFlow.saveModalEntityName}
+            rules={rules}
+            pausedUids={pausedUids}
+            unresolvableRuleUids={unresolvableRuleUids}
             collectionTrees={localCollectionTrees}
             collections={localCollections}
             onSave={(params) => void ruleSaveFlow.handleSaveModalConfirm(params)}

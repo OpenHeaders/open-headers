@@ -8,8 +8,8 @@
  */
 
 import { FolderOpenOutlined, FolderOutlined, PlusOutlined, RightOutlined, SaveOutlined } from '@ant-design/icons';
-import type { Collection, CollectionTree, TreeNode } from '@openheaders/core/types';
-import { buildBreadcrumbTrail, findNodeChildren } from '@openheaders/core/utils';
+import type { Collection, CollectionTree, Rule, TreeNode } from '@openheaders/core/types';
+import { buildBreadcrumbTrail, findNodeChildren, isRuleComplete } from '@openheaders/core/utils';
 import { Button, Input, type InputRef, Modal, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -27,6 +27,12 @@ interface SaveToCollectionModalProps {
   onCreateCollection: (name: string) => Promise<Collection | null>;
   onCreateFolder: (name: string, parentPath: string) => Promise<{ uid: string; path: string; name: string } | null>;
   onCancel: () => void;
+  /** Full workspace rules — lets rule rows render the same stateful icon
+   *  as the sidebar (direction arrow + active/draft color). Absent for
+   *  the request/template variants, which never list rule nodes. */
+  rules?: Rule[];
+  pausedUids?: Set<string>;
+  unresolvableRuleUids?: Set<string>;
 }
 
 type SelectableRow =
@@ -36,6 +42,9 @@ type SelectableRow =
 const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
   open,
   entityName,
+  rules,
+  pausedUids,
+  unresolvableRuleUids,
   collectionTrees,
   collections,
   onSave,
@@ -666,6 +675,14 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
                 );
               }
               if (node.type === 'rule') {
+                // Mirror the sidebar's stateful icon: arrow (direction) +
+                // color (active/draft) computed from the full rule, same
+                // predicates as `useRulesTreeNodes`.
+                const fullRule = rules?.find((r) => r.uid === node.uid);
+                const complete = fullRule ? isRuleComplete(fullRule) : true;
+                const paused = pausedUids?.has(node.uid) ?? false;
+                const unresolved = complete && (unresolvableRuleUids?.has(node.uid) ?? false);
+                const isActive = node.enabled && complete && !paused && !unresolved;
                 return (
                   <div
                     key={node.uid}
@@ -678,7 +695,7 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
                       color: token.colorTextSecondary,
                     }}
                   >
-                    {buildRuleIcon({ ruleType: node.ruleType, isActive: node.enabled })}
+                    {buildRuleIcon({ ruleType: node.ruleType, rule: fullRule, isActive, paused })}
                     <span>{node.name}</span>
                   </div>
                 );
