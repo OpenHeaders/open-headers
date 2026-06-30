@@ -1,16 +1,6 @@
 /**
- * Workspace Sharing — trust controls for workspace-export imports plus
- * the persisted UI state for the import-preview's diff viewer.
- *
- * The "Allowed fetch hosts" setting drives the URL-fetch import source's
- * allowlist (design §5.1). The SW reads this comma-separated list from
- * `oh.settings.user[workspaceSharing.allowedFetchHosts]` on every fetch;
- * empty / unset values fall back to the conservative default
- * (`github.com`, `raw.githubusercontent.com`, `gist.github.com`).
- *
- * Single source of truth: this dict entry. No mirror to a separate key,
- * no SW writes — the renderer's settings UI is the only place this
- * value is edited.
+ * Workspace Sharing — persisted UI state for the import-preview's diff
+ * viewer.
  *
  * The `importPreview*` keys back the diff-viewer toolbar in the import
  * modal — each toolbar control reads/writes its own setting so the
@@ -18,12 +8,10 @@
  */
 
 import * as v from 'valibot';
-import { ALLOWED_FETCH_HOSTS_SETTING_KEY, DEFAULT_ALLOWED_FETCH_HOSTS } from '@openheaders/core/storage';
 import { registerSetting } from '../registry';
 
 declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
-    [ALLOWED_FETCH_HOSTS_SETTING_KEY]: string;
     'workspaceSharing.importPreviewShowMergeStrategy': boolean;
     'workspaceSharing.importPreviewDiffViewer': 'side-by-side' | 'unified';
     'workspaceSharing.importPreviewDiffWhitespace': 'none' | 'ignore';
@@ -34,21 +22,6 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'workspaceSharing.importPreviewDiffSoftWrap': boolean;
   }
 }
-
-const hostListSchema = v.pipe(v.string(), v.maxLength(2048));
-
-registerSetting({
-  key: ALLOWED_FETCH_HOSTS_SETTING_KEY,
-  type: 'string',
-  default: DEFAULT_ALLOWED_FETCH_HOSTS.join(', '),
-  schema: hostListSchema,
-  label: 'Allowed fetch hosts',
-  description:
-    'Comma- or whitespace-separated list of HTTPS hosts the URL-fetch import source may retrieve workspace exports from. Subdomains are matched (e.g. `github.com` matches `gist.github.com`). Off-allowlist hosts and off-allowlist redirect targets are refused before any network call.',
-  category: 'workspaceSharing',
-  tags: ['allowlist', 'hosts', 'import', 'fetch', 'security', 'ssrf', 'sharing'],
-  scope: 'user',
-});
 
 registerSetting({
   key: 'workspaceSharing.importPreviewShowMergeStrategy',

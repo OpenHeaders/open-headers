@@ -1,4 +1,4 @@
-/** Workspace export, import, handoff, remote-fetch, and script-review RPCs. */
+/** Workspace export, import, and script-review RPCs. */
 
 import {
   buildWorkspaceExport,
@@ -12,9 +12,7 @@ import {
 } from '@openheaders/oracle/entity/request-scripts-review-store';
 import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import { runtime as browserRuntime, isChrome, isEdge, isFirefox, isSafari } from '@utils/browser-api';
-import { fetchWorkspaceExportYaml, getAllowedFetchHosts } from '../../workspace-export-fetch';
 import { gatherWorkspaceExport } from '../../workspace-export-gatherer';
-import { consumeImportHandoff, registerImportHandoff } from '../../workspace-export-handoff-store';
 import { findExportImportMatches } from '../../workspace-import-dedup';
 import {
   importWorkspace as importWorkspaceFromExport,
@@ -33,7 +31,6 @@ export const exportImportHandlers: HandlerMap = {
     const vaultMode = (message.vaultMode as 'omitted' | 'encrypted' | 'plaintext' | undefined) ?? 'omitted';
     const passphrase = message.passphrase as string | undefined;
     const passphraseHint = message.passphraseHint as string | undefined;
-    const destination = message.destination as 'file' | 'clipboard' | 'deep-link' | undefined;
     const platform: 'chrome' | 'firefox' | 'edge' | 'safari' = isFirefox
       ? 'firefox'
       : isEdge
@@ -68,7 +65,6 @@ export const exportImportHandlers: HandlerMap = {
         const envelope = buildWorkspaceExport(res.input, {
           vaultMode,
           ...(secretsBlock ? { secretsBlock: secretsBlock.block } : {}),
-          ...(destination ? { destination } : {}),
         });
         const yaml = serializeWorkspaceExport(envelope);
         respond({
@@ -117,34 +113,6 @@ export const exportImportHandlers: HandlerMap = {
     })
       .then((res) => respond(res))
       .catch(() => respond({ exportIdSameTarget: [], exportIdOtherTargets: [], workspaceUidMatches: [] }));
-    return true;
-  },
-
-  registerImportHandoff: ({ message, respond }) => {
-    registerImportHandoff(message.yaml as string)
-      .then((handoffId) => respond({ success: true, handoffId }))
-      .catch((error: Error) => respond({ success: false, error: error.message }));
-    return true;
-  },
-
-  consumeImportHandoff: ({ message, respond }) => {
-    consumeImportHandoff(message.handoffId as string)
-      .then((yaml) => respond({ yaml }))
-      .catch(() => respond({ yaml: null }));
-    return true;
-  },
-
-  fetchWorkspaceExportYaml: ({ message, respond }) => {
-    fetchWorkspaceExportYaml(message.url as string)
-      .then((res) => respond(res))
-      .catch((error: Error) => respond({ ok: false, reason: 'network-error' as const, message: error.message }));
-    return true;
-  },
-
-  getAllowedFetchHosts: ({ respond }) => {
-    getAllowedFetchHosts()
-      .then((hosts) => respond({ hosts }))
-      .catch(() => respond({ hosts: [] }));
     return true;
   },
 

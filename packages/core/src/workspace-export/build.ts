@@ -12,9 +12,7 @@
  *     drops `entities.vault` (the plaintext form would defeat the
  *     encryption) and emits the `secrets` block instead.
  *   - `plaintext` — vault is carried verbatim under `entities.vault`,
- *     red banner in the modal warns the user. Builder refuses this mode
- *     when `destination === 'deep-link'` (plaintext secrets in URL
- *     history would leak).
+ *     red banner in the modal warns the user.
  *
  * What the builder strips (every export, regardless of scope):
  *   - OAuth2 `clientSecret` from any `Request.auth.type === 'oauth2'`
@@ -102,8 +100,6 @@ export interface BuildWorkspaceExportInput {
   };
 }
 
-export type ExportDestination = 'file' | 'clipboard' | 'deep-link';
-
 export interface BuildWorkspaceExportOptions {
   /** Vault include mode; defaults to `'omitted'`. */
   vaultMode?: ExportRedactionMode;
@@ -115,22 +111,6 @@ export interface BuildWorkspaceExportOptions {
    * to one well-tested helper.
    */
   secretsBlock?: ExportSecrets;
-  /**
-   * The intended destination, used to enforce deep-link policy:
-   * plaintext-vault exports are refused for `'deep-link'` because the
-   * URL would land in browser history (design §3.3).
-   */
-  destination?: ExportDestination;
-}
-
-/** Thrown when caller attempts a plaintext-vault export to a deep-link. */
-export class PlaintextDeepLinkRefusedError extends Error {
-  constructor() {
-    super(
-      'Plaintext-vault exports are refused on the deep-link destination because the URL would land in browser history. Use the file or clipboard destination, or switch to encrypted include.',
-    );
-    this.name = 'PlaintextDeepLinkRefusedError';
-  }
 }
 
 /** Thrown when caller specifies `vaultMode: 'encrypted'` without `secretsBlock`. */
@@ -169,9 +149,6 @@ export function buildWorkspaceExport(
 ): WorkspaceExport {
   const vaultMode: ExportRedactionMode = opts.vaultMode ?? 'omitted';
 
-  if (vaultMode === 'plaintext' && opts.destination === 'deep-link') {
-    throw new PlaintextDeepLinkRefusedError();
-  }
   if (vaultMode === 'encrypted' && !opts.secretsBlock) {
     throw new MissingSecretsBlockError();
   }

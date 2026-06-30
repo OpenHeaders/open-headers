@@ -7,8 +7,6 @@ export {
   setHostStorage,
 } from './host-storage';
 export {
-  ALLOWED_FETCH_HOSTS_SETTING_KEY,
-  DEFAULT_ALLOWED_FETCH_HOSTS,
   isSensitiveKey,
   OH,
   type OrgBindingPrefs,

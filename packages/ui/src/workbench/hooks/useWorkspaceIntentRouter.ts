@@ -29,15 +29,11 @@
  * hash-route fires before the SW's data RPCs have responded.
  */
 
-import type { RuleDraft } from '@openheaders/core/types';
-import { decodeWorkspaceExportDeepLink } from '@openheaders/core/workspace-export';
-import { hashToBoundIntent, type WorkspaceIntent } from '@openheaders/core/workspace-intent';
 import { hostBridge } from '@openheaders/core/bridge';
+import type { RuleDraft } from '@openheaders/core/types';
+import { hashToBoundIntent, type WorkspaceIntent } from '@openheaders/core/workspace-intent';
 import { useEffect, useRef } from 'react';
 import type { RuleFlowScope } from '../types';
-
-/** Provenance attached to the import preview when an intent opens it. */
-export type ImportIntentSource = 'link' | 'playground' | 'context-menu';
 
 interface UseWorkspaceIntentRouterOptions {
   isStatusLoaded: boolean;
@@ -71,17 +67,6 @@ interface UseWorkspaceIntentRouterOptions {
   openLiveVariableEdit: (uid: string, name: string) => void;
   openLiveWorkflowEdit: (uid: string, name: string) => void;
   openCreateLiveVariable: () => void;
-  /**
-   * Open the workspace-export import preview modal. The router resolves
-   * inline / handoff payload forms into raw YAML before invoking; URL
-   * fetch is currently surfaced as an error (lands in PR 4 with the
-   * allowlisted SW fetch path). The `error` arm lets the modal render
-   * a hard error banner ("the link expired", "couldn't decode payload")
-   * without bouncing through a toast.
-   */
-  openImportPreview: (
-    args: { rawText: string; source: ImportIntentSource } | { error: string; source: ImportIntentSource },
-  ) => void;
   /** `open-export-modal` — show the export modal scoped to the active
    *  workspace. Dispatched from popup / sidepanel surfaces. */
   openExportModal: () => void;
@@ -110,83 +95,6 @@ function isDataFreeIntent(intent: WorkspaceIntent): boolean {
 
 function assertNever(x: never): never {
   throw new Error(`Unhandled WorkspaceIntent kind: ${JSON.stringify(x)}`);
-}
-
-/**
- * Resolve an `open-import` intent to raw YAML by following whichever
- * payload form is set. The intent schema guarantees exactly one of the
- * three is present — the `else` is unreachable in well-typed callers
- * but kept defensive for hand-constructed intents.
- */
-async function resolveImportIntent(
-  intent: Extract<WorkspaceIntent, { kind: 'open-import' }>,
-): Promise<{ rawText: string } | { error: string }> {
-  if (intent.payload !== undefined) {
-    try {
-      const yaml = await decodeWorkspaceExportDeepLink(intent.payload);
-      return { rawText: yaml };
-    } catch (err) {
-      return { error: `Could not decode the inline import link: ${(err as Error).message}` };
-    }
-  }
-  if (intent.handoffId !== undefined) {
-    try {
-      const { yaml } = await hostBridge.call('consumeImportHandoff', { handoffId: intent.handoffId });
-      if (yaml === null) {
-        return {
-          error:
-            'This import link has expired or was already used. Ask the sender to share a fresh link, or import the file directly.',
-        };
-      }
-      return { rawText: yaml };
-    } catch (err) {
-      return { error: `Could not retrieve the import payload: ${(err as Error).message}` };
-    }
-  }
-  if (intent.fetchUrl !== undefined) {
-    try {
-      const res = await hostBridge.call('fetchWorkspaceExportYaml', { url: intent.fetchUrl });
-      if (res.ok) return { rawText: res.yaml };
-      // Map specific reasons to user-facing copy. The reasons are
-      // already discrete so the modal can render them verbatim.
-      const prefix = (() => {
-        switch (res.reason) {
-          case 'host-not-allowlisted':
-          case 'redirect-host-not-allowlisted':
-            return 'Refused — host not on the allowlist.';
-          case 'not-https':
-            return 'Refused — only https:// imports are allowed.';
-          case 'body-too-large':
-            return 'Refused — response body exceeds the 1 MB cap.';
-          case 'too-many-redirects':
-            return 'Refused — too many redirects.';
-          case 'invalid-url':
-            return 'Could not parse the URL.';
-          case 'http-error':
-            return 'Server returned an error response.';
-          case 'network-error':
-            return 'Network error fetching the URL.';
-          default:
-            return 'Could not fetch the URL.';
-        }
-      })();
-      return { error: `${prefix} ${res.message}` };
-    } catch (err) {
-      return { error: `Could not fetch import URL: ${(err as Error).message}` };
-    }
-  }
-  return { error: 'Import link is malformed (no payload).' };
-}
-
-function dispatchImportIntent(
-  intent: Extract<WorkspaceIntent, { kind: 'open-import' }>,
-  openImportPreview: UseWorkspaceIntentRouterOptions['openImportPreview'],
-): void {
-  const via: ImportIntentSource = intent.source?.via ?? 'link';
-  void resolveImportIntent(intent).then((result) => {
-    if ('error' in result) openImportPreview({ error: result.error, source: via });
-    else openImportPreview({ rawText: result.rawText, source: via });
-  });
 }
 
 export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOptions): void {
@@ -250,7 +158,8 @@ export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOption
           // Absent/expired drafts still open a bare create tab of the
           // requested type — better than a blank screen with no clue.
           if (intent.draftNonce) {
-            hostBridge.call('takeRuleDraft', { nonce: intent.draftNonce })
+            hostBridge
+              .call('takeRuleDraft', { nonce: intent.draftNonce })
               .then((res) => {
                 const draft = (res?.draft ?? null) as RuleDraft | null;
                 o.openCreateTab(intent.ruleType, intent.context, undefined, draft ?? undefined);
@@ -290,7 +199,8 @@ export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOption
         case 'open-run-report':
           // Recover the owner stamp from the persisted run so the bottom
           // panel's contextual Test Runs tab can resolve its bucket.
-          hostBridge.call('getTestRun', { runId: intent.runId })
+          hostBridge
+            .call('getTestRun', { runId: intent.runId })
             .then((data) => {
               const run = data?.run ?? null;
               const owner = run ? { type: run.ownerType, id: run.ownerId } : undefined;
@@ -313,9 +223,6 @@ export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOption
           // "use this request as a workflow step" flow now lives on the
           // Request editor's "Use response in workflow" dropdown.
           o.openCreateLiveVariable();
-          return;
-        case 'open-import':
-          dispatchImportIntent(intent, o.openImportPreview);
           return;
         case 'open-export-modal':
           o.openExportModal();
@@ -381,7 +288,8 @@ export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOption
         return;
       case 'create-rule':
         if (pending.draftNonce) {
-          hostBridge.call('takeRuleDraft', { nonce: pending.draftNonce })
+          hostBridge
+            .call('takeRuleDraft', { nonce: pending.draftNonce })
             .then((res) => {
               const draft = (res?.draft ?? null) as RuleDraft | null;
               o.openCreateTab(pending.ruleType, pending.context, undefined, draft ?? undefined);
@@ -413,7 +321,8 @@ export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOption
         o.openRuleFlow(pending.scope, pending.entityId, undefined, pending.url);
         return;
       case 'open-run-report':
-        hostBridge.call('getTestRun', { runId: pending.runId })
+        hostBridge
+          .call('getTestRun', { runId: pending.runId })
           .then((data) => {
             const run = data?.run ?? null;
             const owner = run ? { type: run.ownerType, id: run.ownerId } : undefined;
@@ -429,9 +338,6 @@ export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOption
         return;
       case 'create-live-variable':
         o.openCreateLiveVariable();
-        return;
-      case 'open-import':
-        dispatchImportIntent(pending, o.openImportPreview);
         return;
       case 'open-export-modal':
         o.openExportModal();

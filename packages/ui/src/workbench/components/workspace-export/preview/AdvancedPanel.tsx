@@ -6,23 +6,16 @@
  *
  * Header carries a close glyph; bottom of the panel scrolls when the
  * toggle list runs long.
- *
- * On low-trust sources (URL-fetch / deep-link / playground) the panel
- * shows an explainer instead of toggles — design §5.5 (the override
- * surface stays out of foot-gun reach for non-local sources).
  */
 
-import { CloseOutlined, InfoCircleOutlined } from '@ant-design/icons';
-import { Alert, Checkbox, Space, Typography, theme } from 'antd';
+import { CloseOutlined } from '@ant-design/icons';
+import { Checkbox, Space, Typography, theme } from 'antd';
 import type React from 'react';
 import type { ImportTargetSelection } from './TargetControl';
-import type { ImportPreviewSource } from './types';
 
 const { Text } = Typography;
 
 export interface AdvancedTogglesListProps {
-  lowTrustSource: boolean;
-  source: ImportPreviewSource;
   backupRestore: boolean;
   onBackupRestoreChange: (next: boolean) => void;
   trustExport: boolean;
@@ -44,8 +37,6 @@ export interface AdvancedTogglesListProps {
  *  Hosts that already provide their own header / surface (drawers,
  *  popovers) embed this directly. */
 export const AdvancedTogglesList: React.FC<AdvancedTogglesListProps> = ({
-  lowTrustSource,
-  source,
   backupRestore,
   onBackupRestoreChange,
   trustExport,
@@ -62,18 +53,6 @@ export const AdvancedTogglesList: React.FC<AdvancedTogglesListProps> = ({
   onRefuseUidCollisionChange,
   targetMode,
 }) => {
-  const sourceLabel = source === 'link' ? 'deep-link' : 'URL-fetch';
-  if (lowTrustSource) {
-    return (
-      <Alert
-        type="info"
-        showIcon
-        icon={<InfoCircleOutlined />}
-        message="Hidden for low-trust sources"
-        description={`Save the file locally and use "Import from file…" if you need to override the protective defaults for this ${sourceLabel} import.`}
-      />
-    );
-  }
   return (
     <Space direction="vertical" size={10} style={{ width: '100%' }}>
       <Toggle
@@ -134,8 +113,6 @@ export interface AdvancedPanelProps extends AdvancedTogglesListProps {
 
 const AdvancedPanel: React.FC<AdvancedPanelProps> = ({
   onToggle,
-  lowTrustSource,
-  source,
   backupRestore,
   onBackupRestoreChange,
   trustExport,
@@ -196,8 +173,6 @@ const AdvancedPanel: React.FC<AdvancedPanelProps> = ({
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 12 }}>
         <AdvancedTogglesList
-          lowTrustSource={lowTrustSource}
-          source={source}
           backupRestore={backupRestore}
           onBackupRestoreChange={onBackupRestoreChange}
           trustExport={trustExport}

@@ -16,14 +16,12 @@ export type {
   DecryptVaultBlockResult,
   EncryptVaultBlockOptions,
   EncryptVaultBlockResult,
-  ExportDestination,
 } from './build';
 export {
   buildWorkspaceExport,
   decryptVaultBlock,
   encryptVaultBlock,
   MissingSecretsBlockError,
-  PlaintextDeepLinkRefusedError,
   VaultDecryptionFailedError,
   VaultPayloadShapeError,
 } from './build';
@@ -46,14 +44,6 @@ export type {
   LocalFolder,
 } from './deep-copy-hierarchy';
 export { deepCopyHierarchy } from './deep-copy-hierarchy';
-export type { DecodeDeepLinkOptions, EncodeDeepLinkOptions } from './deep-link';
-export {
-  DEFAULT_DEEP_LINK_MAX_DECOMPRESSED_BYTES,
-  DeepLinkDecompressionBombError,
-  DeepLinkPayloadTooLargeError,
-  decodeWorkspaceExportDeepLink,
-  encodeWorkspaceExportDeepLink,
-} from './deep-link';
 export type {
   CollisionState,
   CollisionStrategy,

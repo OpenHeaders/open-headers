@@ -1078,13 +1078,6 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     openCreateLiveVariable,
     openExportModal: () => setExportModalState({ open: true, scope: { kind: 'workspace' } }),
     openImportModal: () => setImportSourceModalOpen(true),
-    openImportPreview: (args) => {
-      if ('error' in args) {
-        setImportPreviewState({ open: true, rawText: null, initialError: args.error, source: args.source });
-      } else {
-        setImportPreviewState({ open: true, rawText: args.rawText, source: args.source });
-      }
-    },
   });
 
   // ── Sync tab labels with rule/template changes; close on delete ─

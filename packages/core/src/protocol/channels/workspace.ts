@@ -1,7 +1,6 @@
 /**
  * Workspace-domain bridge RPCs — workspace list/CRUD, import/export,
- * handoff staging, export-YAML fetch, script-review badges, the fetch
- * allowlist, and the basic connection/rules presence calls.
+ * script-review badges, and the basic connection/rules presence calls.
  */
 
 import type { ImportReport } from '../../import';
@@ -80,8 +79,6 @@ export interface WorkspaceRpc {
       vaultMode?: 'omitted' | 'encrypted' | 'plaintext';
       passphrase?: string;
       passphraseHint?: string;
-      /** Drives the deep-link plaintext refusal in `buildWorkspaceExport`. */
-      destination?: 'file' | 'clipboard' | 'deep-link';
     };
     res: {
       success: boolean;
@@ -190,53 +187,6 @@ export interface WorkspaceRpc {
     res: import('../../types').DedupMatchesResult;
   };
   /**
-   * Stage a YAML payload in the SW's handoff registry (5min TTL).
-   * Caller embeds the returned `handoffId` in a workspace-intent
-   * `{kind: 'open-import', handoffId, source: {via: …}}` and dispatches
-   * via `openWorkspaceIntent`. Used when the YAML is too large for an
-   * inline deep link or the caller (popup, playground) doesn't have
-   * a URL bar to drop the link into.
-   */
-  registerImportHandoff: {
-    req: { yaml: string };
-    res: { success: boolean; handoffId?: string; error?: string };
-  };
-  /**
-   * Drain a previously-staged handoff. Single-use — re-consuming an
-   * id returns `null`. Returns `null` for unknown/expired ids; the
-   * renderer surfaces this as "the link expired, ask the sender to
-   * resend" rather than as a hard failure.
-   */
-  consumeImportHandoff: {
-    req: { handoffId: string };
-    res: { yaml: string | null };
-  };
-  /**
-   * Fetch a workspace-export YAML/JSON from an https:// URL. SW
-   * enforces the host allowlist + 1 MB streaming cap + manual redirect
-   * validation; the renderer's role is purely to pass the URL and
-   * surface the discriminated outcome in the preview-modal error
-   * gutter (design §5.1).
-   */
-  fetchWorkspaceExportYaml: {
-    req: { url: string };
-    res:
-      | { ok: true; yaml: string; finalUrl: string }
-      | {
-          ok: false;
-          reason:
-            | 'invalid-url'
-            | 'not-https'
-            | 'host-not-allowlisted'
-            | 'too-many-redirects'
-            | 'redirect-host-not-allowlisted'
-            | 'body-too-large'
-            | 'http-error'
-            | 'network-error';
-          message: string;
-        };
-  };
-  /**
    * Read the active workspace's set of imported request uids that
    * carry `preRequestScript` / `postResponseScript` and haven't been
    * opened in the inspector since import. The sidebar surfaces these
@@ -255,14 +205,6 @@ export interface WorkspaceRpc {
   clearRequestScriptsReviewPending: {
     req: { uid: string };
     res: { success: boolean };
-  };
-  /** Read the resolved allowlist (parsed from `oh.settings.user`,
-   *  falling back to defaults when unset). The Settings UI stores the
-   *  raw comma-separated string; this RPC returns the parsed list for
-   *  diagnostics surfaces. */
-  getAllowedFetchHosts: {
-    req: Record<string, never>;
-    res: { hosts: string[] };
   };
   checkConnection: {
     req: Record<string, never>;

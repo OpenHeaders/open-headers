@@ -70,7 +70,6 @@ import { AdvancedTogglesList } from './preview/AdvancedPanel';
 import { applyMergeResultsToEnvelope, diffResultToImportBundle } from './preview/diff-to-import-bundle';
 import RejectionBanner, { type ParseRejection } from './preview/RejectionBanner';
 import StatusChips from './preview/StatusChips';
-import StripScriptsTopRow from './preview/StripScriptsTopRow';
 import TargetControl, { type ImportTargetSelection } from './preview/TargetControl';
 import type { ImportPreviewSource } from './preview/types';
 import { VaultDecryptedBanner, VaultEncryptedBlock, VaultPartialDecryptPanel } from './preview/VaultBlocks';
@@ -181,10 +180,9 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [backupRestore, setBackupRestore] = useState(false);
   const [trustExport, setTrustExport] = useState(false);
-  // Strip-scripts default depends on source trust posture (design §5.5).
-  // Low-trust sources (URL fetch / deep link) pre-check; local sources start unchecked.
-  const isLowTrustSource = source === 'link' || source === 'playground' || source === 'context-menu';
-  const [stripScripts, setStripScripts] = useState<boolean>(isLowTrustSource);
+  // Strip-scripts is an opt-in Advanced toggle; defaults off for the
+  // local file/clipboard/menu sources this modal serves (design §5.5).
+  const [stripScripts, setStripScripts] = useState(false);
   const [omitOAuthConfigs, setOmitOAuthConfigs] = useState(false);
   const [keepTargetCollectionOrder, setKeepTargetCollectionOrder] = useState(false);
   const [includeWorkspaceSettings, setIncludeWorkspaceSettings] = useState(false);
@@ -243,7 +241,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
     setParsed({ envelope: result.export, drops: result.drops });
     setBackupRestore(false);
     setTrustExport(false);
-    setStripScripts(isLowTrustSource);
+    setStripScripts(false);
     setOmitOAuthConfigs(false);
     setKeepTargetCollectionOrder(false);
     setIncludeWorkspaceSettings(false);
@@ -259,7 +257,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
     void hashImportSource(rawText)
       .then(setSourceHash)
       .catch(() => setSourceHash(''));
-  }, [open, rawText, initialError, isLowTrustSource]);
+  }, [open, rawText, initialError]);
 
   // Reset on close so a second open starts clean.
   useEffect(() => {
@@ -742,9 +740,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
             description={
               source === 'file'
                 ? 'Drop a .openheaders.yaml file to preview it.'
-                : source === 'link' || source === 'playground'
-                  ? 'Resolving import link…'
-                  : 'Paste a workspace export to preview it.'
+                : 'Paste a workspace export to preview it.'
             }
           />
         ) : (
@@ -784,7 +780,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
                 const count =
                   (backupRestore ? 1 : 0) +
                   (trustExport ? 1 : 0) +
-                  (stripScripts && !isLowTrustSource ? 1 : 0) +
+                  (stripScripts ? 1 : 0) +
                   (omitOAuthConfigs ? 1 : 0) +
                   (keepTargetCollectionOrder ? 1 : 0) +
                   (refuseUidCollision ? 1 : 0);
@@ -820,13 +816,6 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
                     </div>
                   )}
                 </div>
-              )}
-              {/* Strip-scripts row for low-trust sources. Pre-checked
-                  by default for URL-fetch / deep-link / playground;
-                  the user can flip it off here as easily as in the
-                  legacy preview. */}
-              {preview && isLowTrustSource && (
-                <StripScriptsTopRow source={source ?? 'link'} stripScripts={stripScripts} onChange={setStripScripts} />
               )}
               {/* Vault decrypt prompt — when the envelope carries an
                   encrypted secrets block the user must unlock it
@@ -928,8 +917,6 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
         zIndex={1200}
       >
         <AdvancedTogglesList
-          lowTrustSource={isLowTrustSource}
-          source={source ?? 'file'}
           backupRestore={backupRestore}
           onBackupRestoreChange={setBackupRestore}
           trustExport={trustExport}

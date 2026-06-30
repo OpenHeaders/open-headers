@@ -200,51 +200,6 @@ export const CreateLiveVariableIntentSchema = v.object({
   seedRequestUid: v.optional(UidSchema),
 });
 
-// ── Workspace Export — open import preview (PR 3) ──────────────────
-
-/**
- * Inline-payload size cap. The payload is the raw base64url(gzip(YAML))
- * string carried in the hash. 32 KB is a balance: keeps URLs under most
- * browsers' 64 KB soft cap (with room for the rest of the URL) and
- * pushes anything larger through the handoff registry instead.
- *
- * Enforced on encode (refuse to mint an oversized link) and decode
- * (refuse to honor an oversized inbound link) so neither side becomes
- * a unilateral relaxation point.
- */
-export const IMPORT_INLINE_PAYLOAD_MAX_BYTES = 32 * 1024;
-
-const ImportSourceSchema = v.object({
-  via: v.picklist(['link', 'playground', 'context-menu']),
-});
-
-/**
- * Open the import-preview modal with a workspace-export envelope.
- * Exactly one of `payload` / `handoffId` / `fetchUrl` must be set —
- * the three carry the YAML bytes in different ways:
- *
- *   - `payload`    — inline base64url(gzip(YAML)), bounded by
- *                    `IMPORT_INLINE_PAYLOAD_MAX_BYTES`
- *   - `handoffId`  — id pointing at an SW-registered payload (5min TTL)
- *   - `fetchUrl`   — https URL the SW will fetch (allowlisted; PR 4)
- *
- * The "exactly one" invariant is enforced via `v.check` so a malformed
- * link is rejected at the schema gate, not deeper in the renderer.
- */
-export const OpenImportPreviewIntentSchema = v.pipe(
-  v.object({
-    kind: v.literal('open-import'),
-    payload: v.optional(v.pipe(v.string(), v.maxLength(IMPORT_INLINE_PAYLOAD_MAX_BYTES))),
-    handoffId: v.optional(UidSchema),
-    fetchUrl: v.optional(BoundedStringSchema),
-    source: v.optional(ImportSourceSchema),
-  }),
-  v.check(
-    (i) => Number(i.payload !== undefined) + Number(i.handoffId !== undefined) + Number(i.fetchUrl !== undefined) === 1,
-    'open-import requires exactly one of payload, handoffId, or fetchUrl',
-  ),
-);
-
 // ── Union + kind picklist ───────────────────────────────────────────
 
 export const WorkspaceIntentSchema = v.variant('kind', [
@@ -267,7 +222,6 @@ export const WorkspaceIntentSchema = v.variant('kind', [
   EditLiveVariableIntentSchema,
   EditLiveWorkflowIntentSchema,
   CreateLiveVariableIntentSchema,
-  OpenImportPreviewIntentSchema,
   OpenExportModalIntentSchema,
   OpenImportModalIntentSchema,
 ]);
@@ -299,7 +253,6 @@ export const WORKSPACE_INTENT_KINDS = [
   'edit-live-variable',
   'edit-live-workflow',
   'create-live-variable',
-  'open-import',
   'open-export-modal',
   'open-import-modal',
 ] as const;

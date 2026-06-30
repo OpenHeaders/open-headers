@@ -170,8 +170,7 @@ registerCategory({
   label: 'Workspace Sharing',
   icon: <CloudDownloadOutlined />,
   order: 85,
-  description:
-    'Trust controls for workspace exports — allowlisted hosts the URL-fetch import source may retrieve from.',
+  description: 'Display preferences for the workspace-export import preview.',
 });
 
 registerCategory({

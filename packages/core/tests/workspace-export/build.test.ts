@@ -304,21 +304,6 @@ describe('buildWorkspaceExport — vault include modes', () => {
     expect(exp.meta.redactions.vault).toBe('plaintext');
   });
 
-  it('plaintext + deep-link destination is refused', () => {
-    const input = baseInput();
-    input.entities.vault = { schemaVersion: 5, secrets: [] };
-    expect(() => buildWorkspaceExport(input, { vaultMode: 'plaintext', destination: 'deep-link' })).toThrow(
-      /Plaintext-vault/,
-    );
-  });
-
-  it('plaintext on file/clipboard destinations is allowed', () => {
-    const input = baseInput();
-    input.entities.vault = { schemaVersion: 5, secrets: [] };
-    expect(() => buildWorkspaceExport(input, { vaultMode: 'plaintext', destination: 'file' })).not.toThrow();
-    expect(() => buildWorkspaceExport(input, { vaultMode: 'plaintext', destination: 'clipboard' })).not.toThrow();
-  });
-
   it('encrypted mode requires a pre-computed secretsBlock', () => {
     expect(() => buildWorkspaceExport(baseInput(), { vaultMode: 'encrypted' })).toThrow(/secretsBlock/);
   });

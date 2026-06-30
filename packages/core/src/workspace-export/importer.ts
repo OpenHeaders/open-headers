@@ -33,7 +33,6 @@
 import type {
   Collection,
   Environment,
-  Folder,
   LiveVariable,
   LiveWorkflow,
   Request,
@@ -127,9 +126,7 @@ export interface ImporterOptions {
   /**
    * Strip request scripts on import (design §5.5). Replaces every
    * incoming `Request.preRequestScript` / `postResponseScript` with
-   * `undefined`. Surfaced as the top-level info row on low-trust
-   * sources (URL-fetch / deep-link, pre-checked) and as an Advanced
-   * toggle on file / clipboard / menu sources.
+   * `undefined`. Surfaced as an Advanced toggle in the import preview.
    */
   stripScripts?: boolean;
   /**
@@ -221,7 +218,7 @@ interface TreeSlice<E extends { uid: string; path: string; name: string }> {
  * serializer carried it (PR 1B — see `yaml.ts` header). Falls back to
  * the explicit prefix for entities whose path doesn't conform.
  */
-function sliceByTree<E extends { uid: string; path: string; name: string }>(
+function _sliceByTree<E extends { uid: string; path: string; name: string }>(
   entities: E[],
   collections: Collection[],
   folders: LocalFolder[],

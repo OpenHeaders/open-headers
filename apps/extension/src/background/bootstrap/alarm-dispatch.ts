@@ -1,11 +1,10 @@
+import { subscribeKey } from '@openheaders/ui/workbench/settings/store';
 import { alarms } from '@utils/browser-api';
 import { logger } from '@utils/logger';
-import { subscribeKey } from '@openheaders/ui/workbench/settings/store';
 import { handleActivityPruneAlarm, isActivityPruneAlarm } from '../activity-prune-scheduler';
 import { handleLiveAlarm, isLiveRefreshAlarm } from '../modules/live-refresh-scheduler';
 import { handleOAuthAlarm, isOAuthRefreshAlarm } from '../modules/oauth-refresh-scheduler';
 import { handleTotpAlarm, isTotpAlarm } from '../modules/totp-scheduler';
-import { isHandoffSweepAlarm, sweepExpiredHandoffs } from '../modules/workspace-export-handoff-store';
 import {
   connectWebSocket,
   getReconnectAttempts,
@@ -66,8 +65,6 @@ export function installAlarmDispatch(): void {
       await handleLiveAlarm(alarm);
     } else if (isTotpAlarm(alarm)) {
       await handleTotpAlarm();
-    } else if (isHandoffSweepAlarm(alarm)) {
-      await sweepExpiredHandoffs();
     } else if (isActivityPruneAlarm(alarm)) {
       await handleActivityPruneAlarm();
     }

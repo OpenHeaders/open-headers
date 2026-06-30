@@ -8,20 +8,18 @@
  */
 
 export {
-  ALLOWED_FETCH_HOSTS_SETTING_KEY,
-  DEFAULT_ALLOWED_FETCH_HOSTS,
   getHostStorage,
-  hostStorage,
   type HostStorage,
+  hostStorage,
   OH,
   type PersistedLocalFolder,
   type PersistedPanelLayout,
   type PersistedPopupState,
   type PersistedTabSession,
   requireHostStorage,
-  setHostStorage,
   type StorageArea,
   type StorageKey,
+  setHostStorage,
   storageKey,
   UI,
   type WorkspaceKeys,

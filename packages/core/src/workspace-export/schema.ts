@@ -68,7 +68,7 @@ export const ExportSourceSchema = v.object({
  * Redaction enum — three values per design §1.1 / §3.1:
  * - `omitted` (default for vault, always for ephemeral state)
  * - `encrypted` (passphrase-derived AES-GCM envelope; vault only)
- * - `plaintext` (advanced; vault only; refused on deep-link destination)
+ * - `plaintext` (advanced; vault only)
  */
 export const ExportRedactionModeSchema = v.picklist(['omitted', 'encrypted', 'plaintext']);
 

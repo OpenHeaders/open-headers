@@ -1,7 +1,5 @@
 /**
- * ExportModal — emit a workspace-export envelope as YAML.
- *
- * Destinations: download file, copy to clipboard, copy deep link.
+ * ExportModal — emit a workspace-export envelope as a downloaded YAML file.
  *
  * Vault include modes (design §3.1 / §3.2 / §3.3):
  *   - Omit (default) — no vault in the envelope.
@@ -10,25 +8,15 @@
  *     fingerprint + key fingerprint to share out-of-band so the recipient
  *     can confirm "we typed the same passphrase".
  *   - Plaintext (advanced) — secrets ride in the envelope verbatim. Red
- *     banner + "I understand" gate. Refused outright on the deep-link
- *     destination (URL would land in browser history).
+ *     banner + "I understand" gate.
  *
  * Filename: `<workspace-slug>-<scope>.openheaders.yaml`. The double
  * extension keeps editor syntax-highlighting while making the file
  * recognizable to the importer's drag-drop handler.
  */
 
-import {
-  CopyOutlined,
-  DownloadOutlined,
-  InfoCircleOutlined,
-  LinkOutlined,
-  LockOutlined,
-  WarningOutlined,
-} from '@ant-design/icons';
+import { DownloadOutlined, InfoCircleOutlined, LockOutlined, WarningOutlined } from '@ant-design/icons';
 import { slugify } from '@openheaders/core/utils';
-import { DeepLinkPayloadTooLargeError, encodeWorkspaceExportDeepLink } from '@openheaders/core/workspace-export';
-import { IMPORT_INLINE_PAYLOAD_MAX_BYTES, intentToHash } from '@openheaders/core/workspace-intent';
 import {
   Alert,
   App as AntApp,
@@ -46,25 +34,7 @@ import {
 import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import type { ExportSelection } from '@openheaders/core/types';
-import { hostAssets } from '@openheaders/core/assets';
 import { hostBridge } from '@openheaders/core/bridge';
-
-/**
- * Build the deep-link base URL. There is no hosted companion site — the
- * extension is the entire surface — so the link self-references the
- * caller's own workbench page (`chrome-extension://<id>/workbench.html`
- * on Chromium / `moz-extension://<uuid>/workbench.html` on Firefox).
- *
- * The published extension has a stable id on each store (Chrome `key` in
- * the manifest, Firefox `browser_specific_settings.gecko.id`), so the
- * URL a sender mints resolves to the recipient's installed copy as long
- * as they are on the same browser family. Cross-browser shares
- * (Chrome → Firefox) require copying the YAML and using "Import from
- * file…" instead — the link scheme cannot bridge browsers.
- */
-function buildImportBaseUrl(): string {
-  return hostAssets.resolveUrl('workbench.html');
-}
 
 const { Text, Paragraph } = Typography;
 
@@ -161,9 +131,7 @@ const ExportModal: React.FC<ExportModalProps> = ({ open, workspaceId, workspaceN
   const vaultOk = passphraseOk && plaintextOk;
 
   const fetchYaml = useCallback(
-    async (
-      destination: 'file' | 'clipboard' | 'deep-link',
-    ): Promise<{ yaml: string; fingerprints: FingerprintPair | null } | null> => {
+    async (): Promise<{ yaml: string; fingerprints: FingerprintPair | null } | null> => {
       const swScope =
         scope.kind === 'workspace'
           ? { kind: 'workspace' as const }
@@ -177,7 +145,6 @@ const ExportModal: React.FC<ExportModalProps> = ({ open, workspaceId, workspaceN
         scope: swScope,
         vaultMode,
         ...(vaultMode === 'encrypted' ? { passphrase, ...(passphraseHint ? { passphraseHint } : {}) } : {}),
-        destination,
       });
       if (!resp?.success || !resp.yaml) {
         message.error(resp?.error ?? 'Export failed');
@@ -196,7 +163,7 @@ const ExportModal: React.FC<ExportModalProps> = ({ open, workspaceId, workspaceN
     if (!vaultOk) return;
     setBusy(true);
     try {
-      const result = await fetchYaml('file');
+      const result = await fetchYaml();
       if (!result) return;
       downloadYaml(filename, result.yaml);
       if (result.fingerprints) {
@@ -211,65 +178,6 @@ const ExportModal: React.FC<ExportModalProps> = ({ open, workspaceId, workspaceN
     }
   }, [fetchYaml, filename, message, onCancel, vaultOk]);
 
-  const onCopyDeepLink = useCallback(async () => {
-    if (!vaultOk) return;
-    if (vaultMode === 'plaintext') {
-      message.error('Plaintext-vault exports cannot be shared as a deep link.');
-      return;
-    }
-    setBusy(true);
-    try {
-      const result = await fetchYaml('deep-link');
-      if (!result) return;
-      try {
-        const payload = await encodeWorkspaceExportDeepLink(result.yaml, {
-          maxCompressedBytes: IMPORT_INLINE_PAYLOAD_MAX_BYTES,
-        });
-        const hash = intentToHash({ kind: 'open-import', payload });
-        const url = `${buildImportBaseUrl()}${hash}`;
-        await navigator.clipboard.writeText(url);
-        if (result.fingerprints) {
-          setLastFingerprints(result.fingerprints);
-          message.success('Deep link copied — share fingerprints with recipient');
-        } else {
-          message.success('Copied deep link to clipboard');
-          onCancel();
-        }
-      } catch (err) {
-        if (err instanceof DeepLinkPayloadTooLargeError) {
-          message.warning('This export is too large for a deep link — falling back to a downloaded file.');
-          downloadYaml(filename, result.yaml);
-          onCancel();
-          return;
-        }
-        message.error(err instanceof Error ? err.message : 'Could not build deep link');
-      }
-    } finally {
-      setBusy(false);
-    }
-  }, [fetchYaml, filename, message, onCancel, vaultMode, vaultOk]);
-
-  const onCopy = useCallback(async () => {
-    if (!vaultOk) return;
-    setBusy(true);
-    try {
-      const result = await fetchYaml('clipboard');
-      if (!result) return;
-      await navigator.clipboard.writeText(result.yaml);
-      if (result.fingerprints) {
-        setLastFingerprints(result.fingerprints);
-        message.success('YAML copied — share fingerprints with recipient');
-      } else {
-        message.success('Copied YAML to clipboard');
-        onCancel();
-      }
-    } catch (err) {
-      message.error(err instanceof Error ? err.message : 'Could not copy to clipboard');
-    } finally {
-      setBusy(false);
-    }
-  }, [fetchYaml, message, onCancel, vaultOk]);
-
   const scopeLabel =
     scope.kind === 'workspace' ? <Tag color="blue">Whole workspace</Tag> : <Tag color="purple">{scope.label}</Tag>;
 
@@ -283,18 +191,6 @@ const ExportModal: React.FC<ExportModalProps> = ({ open, workspaceId, workspaceN
       footer={
         <Space>
           <Button onClick={onCancel}>Cancel</Button>
-          <Button
-            icon={<LinkOutlined />}
-            onClick={onCopyDeepLink}
-            loading={busy}
-            disabled={!vaultOk || vaultMode === 'plaintext'}
-            title={vaultMode === 'plaintext' ? 'Plaintext-vault exports cannot be shared as a deep link' : undefined}
-          >
-            Copy deep link
-          </Button>
-          <Button icon={<CopyOutlined />} onClick={onCopy} loading={busy} disabled={!vaultOk}>
-            Copy YAML
-          </Button>
           <Button type="primary" icon={<DownloadOutlined />} onClick={onDownload} loading={busy} disabled={!vaultOk}>
             Download
           </Button>
@@ -383,8 +279,7 @@ const ExportModal: React.FC<ExportModalProps> = ({ open, workspaceId, workspaceN
             description={
               <div>
                 <Paragraph style={{ marginBottom: 8 }}>
-                  Use only when sharing with a system you fully trust (e.g. backup to your own encrypted drive). Cannot
-                  be sent as a deep link — the URL would land in browser history.
+                  Use only when sharing with a system you fully trust (e.g. backup to your own encrypted drive).
                 </Paragraph>
                 <Paragraph style={{ marginBottom: 8 }}>
                   <Button
