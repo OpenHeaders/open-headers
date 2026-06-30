@@ -94,6 +94,19 @@ const SIDEBAR_VIEW_LABEL: Record<SidebarView, string> = {
   variables: 'Variables',
 };
 
+// Views with no expandable collection/folder tree: their section
+// headers are the only collapsible level, so Expand/Collapse All
+// toggles every listed section instead of operating on tree keys.
+// List every section the view renders, including the shared
+// ENVIRONMENTS footer.
+const TREELESS_VIEW_SECTIONS: Partial<Record<SidebarView, readonly string[]>> = {
+  variables: ['vault', 'workspace-vars', 'live-variables', 'environments'],
+  workflows: ['workflows', 'environments'],
+};
+
+const sectionsAllSet = (keys: readonly string[], open: boolean): Record<string, boolean> =>
+  Object.fromEntries(keys.map((k) => [k, open]));
+
 interface SidebarProps {
   view: SidebarView;
   /** Title-bar `(i)` popover copy for the active view. */
@@ -333,12 +346,16 @@ const Sidebar: React.FC<SidebarProps> = ({
     [setExpandedKeys],
   );
 
-  // Expand/Collapse All operate on the visible tree only — sections
-  // are a layout choice owned by the user, not a deeper level of the
-  // tree, so a click here never opens or closes a section. The one
-  // exception: if every section in the view is collapsed, Expand All
-  // would be a visible no-op, so we fall back to opening sections too
-  // and let the user climb out of an all-closed state in one click.
+  // Expand/Collapse All behaves by view shape:
+  //   - Tree-bearing views (http-rules, api-requests): operate on the
+  //     visible collection/folder tree only. Sections are a layout
+  //     choice the user owns, so a click never opens or closes one —
+  //     except that, when every section is collapsed, Expand All would
+  //     be a visible no-op, so it also opens the sections to let the
+  //     user climb out of an all-closed state in one click.
+  //   - Tree-less views (variables, workflows): the sections ARE the
+  //     only collapsible level, so Expand/Collapse All toggles every
+  //     section in TREELESS_VIEW_SECTIONS open/closed.
   //
   // `replaceOwnedKeys()` swaps in this view's `nextOwned` tree-key
   // set while preserving every other panel's expansions (keys owned
@@ -399,26 +416,10 @@ const Sidebar: React.FC<SidebarProps> = ({
       return;
     }
 
-    // Views without expandable trees: fall back to opening sections
-    // so the button isn't a no-op when sections are collapsed.
-    if (view === 'variables') {
-      const anyOpen =
-        sectionsExpanded.vault === true ||
-        sectionsExpanded['workspace-vars'] === true ||
-        sectionsExpanded['live-variables'] === true ||
-        sectionsExpanded.environments === true;
-      if (!anyOpen) {
-        setSectionsExpanded({
-          vault: true,
-          'workspace-vars': true,
-          environments: true,
-          'live-variables': true,
-        });
-      }
-    } else if (view === 'workflows') {
-      if (sectionsExpanded.workflows !== true) {
-        setSectionsExpanded({ workflows: true });
-      }
+    // Tree-less views: open every section.
+    const treelessSections = TREELESS_VIEW_SECTIONS[view];
+    if (treelessSections) {
+      setSectionsExpanded(sectionsAllSet(treelessSections, true));
     }
   }, [
     view,
@@ -430,12 +431,18 @@ const Sidebar: React.FC<SidebarProps> = ({
     setExpandedKeys,
   ]);
 
-  // Collapse All only clears tree keys; sections stay as the user
-  // left them. Symmetric with Expand All — a click never closes a
-  // section the user explicitly opened.
+  // Collapse All clears this view's tree keys; in tree-bearing views
+  // sections stay as the user left them (symmetric with Expand All —
+  // a click never closes a section the user explicitly opened). In
+  // tree-less views the sections are the only collapsible level, so it
+  // closes every one.
   const collapseAll = useCallback(() => {
     setExpandedKeys((prev) => replaceOwnedKeys(prev, new Set<string>(), view));
-  }, [view, setExpandedKeys]);
+    const treelessSections = TREELESS_VIEW_SECTIONS[view];
+    if (treelessSections) {
+      setSectionsExpanded(sectionsAllSet(treelessSections, false));
+    }
+  }, [view, setExpandedKeys, setSectionsExpanded]);
 
   const confirmOnDelete = useSettingValue('general.confirmOnDelete');
   const confirmDelete = useCallback(
