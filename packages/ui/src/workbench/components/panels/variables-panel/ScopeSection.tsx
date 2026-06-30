@@ -1,16 +1,19 @@
 /**
  * Per-scope block for the "All scopes" view: a labelled header (badge,
- * scope name, optional subtitle, "Edit" affordance, priority) over an
+ * scope name, optional subtitle, "Edit" affordance, and an (i) info
+ * trigger that explains the scope + its resolution priority) over an
  * aligned Variable | Value table (the shared `VariableTable`). Read-only
  * — sensitive values mask to bullets (the editor is the write surface),
- * TOTP rows mount a live preview.
+ * TOTP rows mount a live preview. The Edit link and (i) reveal on row
+ * hover/focus (CSS, see `.vp-scope-head` in rules.less).
  */
 
 import { CaretRightOutlined } from '@ant-design/icons';
+import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { Tooltip, Typography, theme } from 'antd';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { scopeBadge } from '../../shared/scope-colors';
-import { ScopeRankTooltip } from './ScopeRankTooltip';
+import { buildScopeInfo } from './scope-info';
 import { SCOPE_CONFIG, type DisplayScope, type DisplayVariable } from './types';
 import { VariableTable } from './VariableTable';
 
@@ -38,11 +41,7 @@ export function ScopeSection({ scope, variables, subtitle, onOpenEditor, isLast 
   // they aren't fiddling with. Default open — the panel reads top-down.
   const [expanded, setExpanded] = useState(true);
   const toggle = () => setExpanded((e) => !e);
-  // "Edit" is peripheral chrome on a peripheral panel — reveal it on
-  // row hover (or when the link itself is keyboard-focused) so the
-  // header stays quiet until the user reaches for it.
-  const [hovered, setHovered] = useState(false);
-  const [editFocused, setEditFocused] = useState(false);
+  const scopeInfo = useMemo(() => buildScopeInfo(scope), [scope]);
   // A populated, expanded table draws its own bottom border, so the
   // section divider would stack a second line right under it. The last
   // section never needs one — nothing follows it. Keep the divider in
@@ -52,18 +51,19 @@ export function ScopeSection({ scope, variables, subtitle, onOpenEditor, isLast 
   return (
     <div style={{ borderBottom: showDivider ? `1px solid ${token.colorBorderSecondary}` : undefined, padding: '8px 0' }}>
       <div
+        className="vp-scope-head"
         role="button"
         tabIndex={0}
         aria-expanded={expanded}
         onClick={toggle}
         onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
+          // Only toggle on keys aimed at the row itself — let the Edit
+          // link and the (i) trigger handle their own Enter/Space.
+          if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
             e.preventDefault();
             toggle();
           }
         }}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -85,6 +85,7 @@ export function ScopeSection({ scope, variables, subtitle, onOpenEditor, isLast 
         <Text strong style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
           {config.label}
         </Text>
+        <InfoTrigger content={scopeInfo} className="vp-scope-reveal" ariaLabel={`About ${config.label} variables`} />
         {subtitle && (
           <Text
             type="secondary"
@@ -101,49 +102,30 @@ export function ScopeSection({ scope, variables, subtitle, onOpenEditor, isLast 
             : {subtitle}
           </Text>
         )}
-        <span
-          style={{
-            marginLeft: 'auto',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            flexShrink: 0,
-            opacity: hovered || editFocused ? 1 : 0,
-            transition: 'opacity 0.12s',
-          }}
-        >
-          {onOpenEditor ? (
-            <>
-              <Tooltip title={`Open the ${config.label.toLowerCase()} variables editor`}>
-                <Text
-                  role="button"
-                  tabIndex={0}
-                  onClick={(e) => {
+        {onOpenEditor ? (
+          <span style={{ marginLeft: 'auto', flexShrink: 0 }}>
+            <Tooltip title={`Open the ${config.label.toLowerCase()} variables editor`}>
+              <Text
+                className="vp-scope-reveal"
+                role="button"
+                tabIndex={0}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenEditor();
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
                     e.stopPropagation();
                     onOpenEditor();
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.stopPropagation();
-                      onOpenEditor();
-                    }
-                  }}
-                  onFocus={() => setEditFocused(true)}
-                  onBlur={() => setEditFocused(false)}
-                  style={{ fontSize: 10, color: token.colorPrimary, cursor: 'pointer' }}
-                >
-                  Edit
-                </Text>
-              </Tooltip>
-              <span style={{ width: 1, height: 10, background: token.colorBorderSecondary, flexShrink: 0 }} />
-            </>
-          ) : null}
-          <Tooltip title={<ScopeRankTooltip scope={scope} />} overlayStyle={{ maxWidth: 300 }}>
-            <Text type="secondary" style={{ fontSize: 9, whiteSpace: 'nowrap', cursor: 'help' }}>
-              {config.rank}
-            </Text>
-          </Tooltip>
-        </span>
+                  }
+                }}
+                style={{ fontSize: 10, color: token.colorPrimary, cursor: 'pointer' }}
+              >
+                Edit
+              </Text>
+            </Tooltip>
+          </span>
+        ) : null}
       </div>
       {expanded &&
         (hasVariables ? (

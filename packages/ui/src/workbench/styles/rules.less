@@ -1223,11 +1223,6 @@ body {
   color: var(--ant-color-text-tertiary, #8c8c8c);
 }
 
-.oh-empty-hint.ant-typography {
-  font-size: 12px;
-  margin-top: 4px;
-}
-
 // Per-tab panel — each open tab gets its own scroll container and its
 // own container-query context. Inactive panels use `display: none` so
 // they take no layout / paint cost and don't run resize observers. The
@@ -1737,6 +1732,30 @@ body {
   flex-direction: column;
   height: 100%;
   overflow: hidden;
+}
+
+// Scope-section header (Scope panel → "All scopes"): the "Edit" link and
+// the (i) info trigger stay hidden until the row is hovered or focused,
+// or the (i)'s popover is open. Holding them at opacity:0 keeps their
+// layout box so revealing never reflows the header — the same
+// hover-reveal the network table's (i) affordances use.
+.vp-scope-head {
+  .vp-scope-reveal {
+    opacity: 0;
+    transition: opacity 80ms linear;
+  }
+
+  &:hover .vp-scope-reveal,
+  &:focus-within .vp-scope-reveal,
+  .vp-scope-reveal[aria-expanded='true'] {
+    opacity: 1;
+  }
+
+  // The (i) sits inline right after the scope name — drop its default
+  // right margin so the header's flex gap alone controls spacing.
+  .oh-info-trigger {
+    margin: 0;
+  }
 }
 
 // ── Regions (focus-aware containers) ──────────────────────────────

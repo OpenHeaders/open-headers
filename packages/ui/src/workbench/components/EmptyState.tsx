@@ -144,11 +144,6 @@ const EmptyState: React.FC<EmptyStateProps> = ({
           onClick={onCreateWorkflow}
         />
       </div>
-      {showHints && (
-        <Text type="secondary" className="oh-empty-hint">
-          Or pick an item from the sidebar
-        </Text>
-      )}
     </div>
   );
 };
