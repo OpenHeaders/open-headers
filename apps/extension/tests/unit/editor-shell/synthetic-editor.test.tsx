@@ -97,6 +97,51 @@ describe('editor-shell — BC1 (comparison shape)', () => {
   });
 });
 
+// ── Open/reprime transient: no spurious dirty flash ─────────────────
+
+describe('editor-shell — settling transient (no dirty flash)', () => {
+  it('stays clean while the form fingerprint lags a freshly-primed baseline, then opens dirty on a real edit', () => {
+    const populate = vi.fn();
+    const { result, rerender } = renderHook(
+      ({ formFp }: { formFp: string }) =>
+        useReprime<Env>({
+          liveEntity: baseEnv,
+          scope: { entityType: 'environment', entityId: baseEnv.uid },
+          enabled: true,
+          formFingerprint: formFp,
+          signature: envSig,
+          populate,
+        }),
+      {
+        wrapper: ({ children }) => <Wrapper>{children}</Wrapper>,
+        // Form fingerprint starts empty — `Form.useWatch` hasn't
+        // reflected the populate's `setFieldsValue` yet. This is the
+        // real open-tab transient that used to flash a dirty dot.
+        initialProps: { formFp: '' },
+      },
+    );
+
+    // populate fired and primed advanced to the entity signature, but
+    // the form fingerprint still lags. Dirty MUST stay false — the
+    // mismatch is the settling transient, not a user edit.
+    expect(populate).toHaveBeenCalledTimes(1);
+    expect(result.current.primedFingerprint).toBe(envSig(baseEnv));
+    expect(result.current.isDirty).toBe(false);
+
+    // Form catches up to the primed baseline — still clean.
+    act(() => {
+      rerender({ formFp: envSig(baseEnv) });
+    });
+    expect(result.current.isDirty).toBe(false);
+
+    // A real edit now diverges from the settled baseline — dirty opens.
+    act(() => {
+      rerender({ formFp: 'user-edited' });
+    });
+    expect(result.current.isDirty).toBe(true);
+  });
+});
+
 // ── T2 — BC2 (partial): reprime gating across dirty cycle ───────────
 
 describe('editor-shell — BC2 (reprime timing, narrowed)', () => {

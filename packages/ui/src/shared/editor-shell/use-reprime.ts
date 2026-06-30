@@ -12,7 +12,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useEntityReprime, type EntityReprimeScope } from '../forms';
+import { type EntityReprimeScope, useEntityReprime } from '../forms';
 
 export interface UseReprimeInput<E> {
   liveEntity: E | null | undefined;
@@ -42,13 +42,34 @@ export function useReprime<E>(input: UseReprimeInput<E>): UseReprimeOutput {
   const { liveEntity, scope, enabled, formFingerprint, signature, populate, onPrimed } = input;
 
   const [primedFingerprint, setPrimedFingerprint] = useState<string | null>(null);
+  // The baseline the form has actually converged onto at least once.
+  // `populate` advances `primedFingerprint` synchronously, but
+  // `formFingerprint` (derived from `Form.useWatch`) lags `setFieldsValue`
+  // by a render, and per-type fields register their values over a few
+  // renders. Until the form fingerprint first MATCHES a freshly-primed
+  // baseline, a mismatch is that settling transient — not a user edit —
+  // so dirty must stay false. Without this gate the editor flashes a
+  // spurious "dirty" the moment a tab opens or re-primes.
+  const [settledFingerprint, setSettledFingerprint] = useState<string | null>(null);
 
-  const liveFingerprint = useMemo(
-    () => (liveEntity ? signature(liveEntity) : null),
-    [liveEntity, signature],
-  );
+  const liveFingerprint = useMemo(() => (liveEntity ? signature(liveEntity) : null), [liveEntity, signature]);
 
-  const isDirty = primedFingerprint !== null && formFingerprint !== primedFingerprint;
+  // Dirty only once the form has settled onto the current baseline. Until
+  // then `settledFingerprint !== primedFingerprint`, so a transient
+  // `formFingerprint !== primedFingerprint` reads as clean.
+  const isDirty =
+    primedFingerprint !== null && settledFingerprint === primedFingerprint && formFingerprint !== primedFingerprint;
+
+  // Record convergence: the first render the form matches the current
+  // baseline marks it settled, opening the dirty gate for later edits. A
+  // re-prime advances `primedFingerprint`, which re-arms the gate (the
+  // stale `settledFingerprint` no longer equals it) until the form
+  // catches up again.
+  useEffect(() => {
+    if (primedFingerprint !== null && formFingerprint === primedFingerprint) {
+      setSettledFingerprint(primedFingerprint);
+    }
+  }, [formFingerprint, primedFingerprint]);
 
   // Refs so editors don't have to memoize callbacks for correctness.
   const onPrimedRef = useRef(onPrimed);
