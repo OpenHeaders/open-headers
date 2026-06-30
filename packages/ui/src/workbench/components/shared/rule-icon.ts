@@ -51,14 +51,17 @@ interface RuleIconOptions {
 }
 
 /**
- * Width (px) of the leading code + trailing arrow area, so rule names in
- * a list all start at the same x. Sized for the longest code ("JS/CSS")
- * plus a trailing direction arrow.
+ * Width (px) of the leading code (+ trailing arrow) area, so rule names
+ * in a list all start at the same x. Sized to the longest code
+ * ("JS/CSS", 6 chars) plus a small gap — NOT "6 chars + an arrow column":
+ * the longest code is arrow-less (inject has no direction), and every
+ * shorter code plus its trailing arrow (e.g. "HEAD↑") is still narrower
+ * than it, so reserving a separate arrow column only pads short codes
+ * with dead space.
  */
 function ruleIconLeadWidth(size = 12): number {
   const codeFontSize = Math.max(9, Math.round(size * 0.82));
-  const arrowSize = Math.round(size * 0.75);
-  return Math.round(codeFontSize * 0.62 * 6) + arrowSize + 6;
+  return Math.round(codeFontSize * 0.62 * 6) + 3;
 }
 
 /**
