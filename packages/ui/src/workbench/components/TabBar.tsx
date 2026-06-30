@@ -1105,11 +1105,14 @@ const TabBar: React.FC<TabBarProps> = ({
     const container = scrollRef.current;
     const isLastTab = tabs.length > 0 && tabs[tabs.length - 1].id === activeTabId;
 
+    // Instant, not smooth: selecting a tab (e.g. from the sidebar)
+    // should snap the strip to it. A smooth scroll across many tabs
+    // reads as a sluggish "rubber band" between click and arrival.
     if (isLastTab) {
-      container.scrollTo({ left: container.scrollWidth, behavior: 'smooth' });
+      container.scrollTo({ left: container.scrollWidth, behavior: 'instant' });
     } else {
       const el = container.querySelector(`[data-tab-id="${activeTabId}"]`);
-      el?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+      el?.scrollIntoView({ behavior: 'instant', block: 'nearest', inline: 'nearest' });
     }
   }, [activeTabId, tabs]);
 
