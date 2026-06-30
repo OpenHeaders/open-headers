@@ -10,7 +10,7 @@
  * it lives in here.
  */
 
-import type { Collection, Rule, RuleDraft, RuleType, Template } from '@openheaders/core/types';
+import type { Collection, Request, Rule, RuleDraft, RuleType, Template } from '@openheaders/core/types';
 import { buildEmptyRequest, buildEmptyRule, generateUid, toFolderName } from '@openheaders/core/utils';
 import { App } from 'antd';
 import { useCallback, useState } from 'react';
@@ -123,6 +123,19 @@ export interface UseTabOpenersApi {
    * fills in when no context is available.
    */
   openCreateRequestTab: (context?: { collectionId?: string; folderPath?: string }) => void;
+  /**
+   * Open a fresh `rule-create` scratch seeded with another tab's current
+   * rule content ("Duplicate Tab"). The copy is a scratch regardless of
+   * whether the source was live or draft — nothing persists until the
+   * user saves and picks a destination.
+   */
+  openDuplicateRuleScratch: (content: Omit<Rule, 'uid' | 'path'>) => void;
+  /**
+   * Open a fresh `request-create` scratch seeded with another tab's
+   * current request content ("Duplicate Tab"). Mirrors
+   * {@link openDuplicateRuleScratch} for the request family.
+   */
+  openDuplicateRequestScratch: (content: Omit<Request, 'uid' | 'path' | 'schemaVersion'>) => void;
   /** Open an existing Live Variable in a dedicated edit tab. */
   openLiveVariableEdit: (uid: string, name: string) => void;
   /**
@@ -755,6 +768,39 @@ export function useTabOpeners({
     [allTabs, addTab, requestCollections, workspaceId, surfaceId],
   );
 
+  const openDuplicateRuleScratch = useCallback(
+    (content: Omit<Rule, 'uid' | 'path'>) => {
+      const tabId = `rule-create-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      addTab({
+        id: tabId,
+        label: content.name,
+        ruleType: content.type,
+        dirty: true,
+        mode: 'rule-create',
+        draftName: content.name,
+        seedRuleContent: content,
+      });
+    },
+    [addTab],
+  );
+
+  const openDuplicateRequestScratch = useCallback(
+    (content: Omit<Request, 'uid' | 'path' | 'schemaVersion'>) => {
+      const tabId = `req-create-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      addTab({
+        id: tabId,
+        label: content.name,
+        // Tab icon reads `ruleType` as the method hint for requests.
+        ruleType: content.method,
+        dirty: true,
+        mode: 'request-create',
+        draftName: content.name,
+        seedRequestContent: content,
+      });
+    },
+    [addTab],
+  );
+
   const openCreateLiveWorkflow = useCallback(
     (context?: { seedStep?: { requestUid: string; requestName: string; method: string } }) => {
       // Pick a unique draft name so multiple "New Workflow" drafts can
@@ -810,6 +856,8 @@ export function useTabOpeners({
     openTemplateCollectionVariables,
     openRequestEditTab,
     openCreateRequestTab,
+    openDuplicateRuleScratch,
+    openDuplicateRequestScratch,
     openLiveVariableEdit,
     openLiveWorkflowEdit,
     openCreateLiveVariable,

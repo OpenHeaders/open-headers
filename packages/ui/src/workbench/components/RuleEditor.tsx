@@ -139,10 +139,19 @@ interface RuleEditorProps {
    *  Same semantics as `initialTemplateKey` — first-mount form overlay
    *  on unpublished rules only. */
   initialDraft?: RuleDraft;
+  /** Full-fidelity create-mode seed from "Duplicate Tab" — the source
+   *  rule's content (conditions + per-type action) minus identity. The
+   *  form is hydrated from it on first mount, then behaves like any
+   *  other scratch draft. Honored in create mode only. */
+  seedRuleContent?: Omit<Rule, 'uid' | 'path'>;
   onSaved?: (uid: string) => void;
   onDirtyChange?: (dirty: boolean) => void;
   registerSaveRef?: (saveFn: () => void) => void;
   registerSaveAsTemplateRef?: (fn: () => void) => void;
+  /** Publishes a snapshot fn that projects the live form into content-
+   *  only rule data (minus identity) — read by "Duplicate Tab" to seed
+   *  a fresh scratch. Works in both edit and create modes. */
+  registerDuplicateRef?: (fn: () => Omit<Rule, 'uid' | 'path'> | null) => void;
 }
 
 const RuleEditor: React.FC<RuleEditorProps> = ({
@@ -156,10 +165,12 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   preferredFolderPath: _preferredFolderPath,
   initialTemplateKey,
   initialDraft,
+  seedRuleContent,
   onSaved,
   onDirtyChange,
   registerSaveRef,
   registerSaveAsTemplateRef,
+  registerDuplicateRef,
 }) => {
   const isCreateMode = mode === 'rule-create';
   const { message } = App.useApp();
@@ -277,7 +288,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   // on initial seed and broadcast catch-up; conflict-tracker baseline
   // advancement happens in `onPrimed`, not here.
   const populateFormFromRule = useCallback(
-    (rule: Rule) => {
+    (rule: Omit<Rule, 'uid' | 'path'>) => {
       const baseValues = {
         ruleType: rule.type,
         conditions: rule.conditions,
@@ -803,6 +814,14 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     const type = (seedRuleType ?? 'header') as ExtensionRuleType;
     form.setFieldsValue({ ruleType: type, conditions: [] });
 
+    // "Duplicate Tab" seed wins over template / inspector-draft overlays
+    // — it carries the full source rule, so we replay its whole shape
+    // through the same populate path edit mode uses.
+    if (seedRuleContent) {
+      populateFormFromRule(seedRuleContent);
+      return;
+    }
+
     if (initialTemplateKey) {
       applyTemplate(initialTemplateKey);
       return;
@@ -844,13 +863,28 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   }, [
     isCreateMode,
     seedRuleType,
+    seedRuleContent,
     initialTemplateKey,
     initialDraft,
     draftUrlStrategy,
     form,
     applyTemplate,
+    populateFormFromRule,
     setDefaultHeaderTab,
   ]);
+
+  // ── Duplicate snapshot ─────────────────────────────────────────
+  // Publish a fn that projects the LIVE form (incl. uncommitted edits)
+  // into content-only rule data so "Duplicate Tab" can seed a fresh
+  // scratch. name/enabled ride refs so the published closure stays
+  // stable while always reading current values.
+  const ruleNameRef = useRef(ruleName);
+  ruleNameRef.current = ruleName;
+  const isEnabledRef = useRef(isEnabled);
+  isEnabledRef.current = isEnabled;
+  useEffect(() => {
+    registerDuplicateRef?.(() => buildRule(form.getFieldsValue(), ruleNameRef.current, isEnabledRef.current));
+  }, [registerDuplicateRef, form]);
 
   const handleValuesChange = useCallback(
     (changedValues: Record<string, unknown>) => {

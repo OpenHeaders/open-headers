@@ -2,7 +2,7 @@
  * Types for the workbench.html full-page editor.
  */
 
-import type { Request, RuleDraft } from '@openheaders/core/types';
+import type { Request, Rule, RuleDraft } from '@openheaders/core/types';
 export type TabMode =
   | 'edit'
   | 'collection-overview'
@@ -53,6 +53,22 @@ export interface WorkbenchTab {
    * inert.
    */
   initialDraft?: RuleDraft;
+  /**
+   * Full-fidelity seed for a `rule-create` tab minted by "Duplicate Tab".
+   * Carries the source rule's current editor content (conditions +
+   * per-type action, incl. unsaved edits) minus identity. The create
+   * editor hydrates its whole form from this on first mount — distinct
+   * from `initialDraft`, which is a partial pre-fill. Nothing is
+   * persisted until the user saves the scratch and picks a destination.
+   */
+  seedRuleContent?: Omit<Rule, 'uid' | 'path'>;
+  /**
+   * Full-fidelity seed for a `request-create` tab minted by "Duplicate
+   * Tab". Carries the source request's current editor content (URL,
+   * method, headers, params, auth, body, scripts, …) plus name, minus
+   * identity. The create editor seeds its draft from this on first mount.
+   */
+  seedRequestContent?: Omit<Request, 'uid' | 'path' | 'schemaVersion'>;
   /**
    * For request-create tabs opened from a specific collection/folder
    * (sidebar "Add Request", CollectionOverview, FolderOverview): the
@@ -202,7 +218,10 @@ export interface ClosedTab {
 
 export type { DockSlot, SidebarLayoutVariant, ToolRegion } from '@openheaders/ui/shared/dock-layout';
 
-import type { DockState as GenericDockState, ToolLayoutState as GenericToolLayoutState } from '@openheaders/ui/shared/dock-layout';
+import type {
+  DockState as GenericDockState,
+  ToolLayoutState as GenericToolLayoutState,
+} from '@openheaders/ui/shared/dock-layout';
 
 /** Identifiers for every tool window known to the extension shell. */
 export type ToolWindowId =

@@ -230,6 +230,9 @@ export interface EditorGroupRendererProps {
   /** Forwarded to the focused leaf's TabBar so App.tsx can reach the tab-search toggle. */
   registerTabSearchToggle?: (toggle: () => void) => void;
   onTabDoubleClick?: (tabId: string) => void;
+  /** Duplicate a rule/request tab into a fresh scratch — surfaced on
+   *  the tab context menu, forwarded to each leaf's TabBar. */
+  onDuplicate?: (tabId: string) => void;
   onCloseTab: (tabId: string) => void;
   onCloseOther: (tabId: string) => void;
   onCloseAll: () => void;
@@ -261,6 +264,7 @@ export const EditorGroupRenderer: React.FC<EditorGroupRendererProps> = ({
   onCreateMenuOpenChange,
   registerTabSearchToggle,
   onTabDoubleClick,
+  onDuplicate,
   onCloseTab,
   onCloseOther,
   onCloseAll,
@@ -466,6 +470,7 @@ export const EditorGroupRenderer: React.FC<EditorGroupRendererProps> = ({
           onSwitch={groups.switchTab}
           onClose={onCloseTab}
           onTabDoubleClick={onTabDoubleClick}
+          onDuplicate={onDuplicate}
           onCreateRule={onCreateRule}
           onCloseOther={onCloseOther}
           onCloseAll={onCloseAll}

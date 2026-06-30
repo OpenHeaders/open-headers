@@ -17,6 +17,7 @@ import {
   ApartmentOutlined,
   AppstoreOutlined,
   CloseOutlined,
+  CopyOutlined,
   DownOutlined,
   ExperimentOutlined,
   FileTextOutlined,
@@ -292,6 +293,10 @@ interface TabBarProps {
   onClose: (tabId: string) => void;
   /** Double-click on any tab — App wires this to zen-mode toggle. */
   onTabDoubleClick?: (tabId: string) => void;
+  /** Duplicate a rule/request tab into a fresh scratch (Postman-style).
+   *  Absent / inert for non-rule/request tabs — the menu item only
+   *  renders for duplicable modes. */
+  onDuplicate?: (tabId: string) => void;
   onCreateRule: (type: string) => void;
   onCloseOther: (tabId: string) => void;
   onCloseAll: () => void;
@@ -1056,6 +1061,7 @@ const TabBar: React.FC<TabBarProps> = ({
   onSwitch,
   onClose,
   onTabDoubleClick,
+  onDuplicate,
   onCreateRule,
   onCloseOther,
   onCloseAll,
@@ -1149,8 +1155,27 @@ const TabBar: React.FC<TabBarProps> = ({
   const buildContextMenu = useCallback(
     (tab: WorkbenchTab, tabIndex: number): { items: ItemType[] } => {
       const splitDisabled = tabs.length < 2;
+      // "Duplicate Tab" only applies to Rules and Requests — the copy
+      // lands as a scratch (never live, never a stored draft) regardless
+      // of whether the source was published or still drafting.
+      const isDuplicable =
+        tab.mode === 'edit' ||
+        tab.mode === 'rule-create' ||
+        tab.mode === 'request-edit' ||
+        tab.mode === 'request-create';
       return {
         items: [
+          ...(isDuplicable && onDuplicate
+            ? [
+                {
+                  key: 'duplicate',
+                  label: 'Duplicate Tab',
+                  icon: menuIconWrap(<CopyOutlined />),
+                  onClick: () => onDuplicate(tab.id),
+                } satisfies ItemType,
+                { type: 'divider' as const },
+              ]
+            : []),
           { key: 'close', label: menuItemLabel('Close', 'close-tab'), onClick: () => onClose(tab.id) },
           {
             key: 'close-other',
@@ -1273,6 +1298,7 @@ const TabBar: React.FC<TabBarProps> = ({
     [
       tabs.length,
       menuIconWrap,
+      onDuplicate,
       onClose,
       onCloseOther,
       onCloseAll,

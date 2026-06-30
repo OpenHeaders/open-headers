@@ -41,7 +41,7 @@ import {
   WORKSPACE_VARIABLES_ENTITY_TYPE,
   WORKSPACE_VARIABLES_ID,
 } from '@openheaders/core/sync';
-import type { ExportSelection, ExtensionRuleType } from '@openheaders/core/types';
+import type { ExportSelection, ExtensionRuleType, Request, Rule } from '@openheaders/core/types';
 import { isRequestResolvable, isRuleResolvable, slugify } from '@openheaders/core/utils';
 import { hostBridge } from '@openheaders/core/bridge';
 import { focusFirstDropdownItem } from '@openheaders/ui/shared/focus-dropdown-item';
@@ -828,6 +828,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     openTemplateCollectionVariables,
     openRequestEditTab: openRequestEditTabRaw,
     openCreateRequestTab,
+    openDuplicateRuleScratch,
+    openDuplicateRequestScratch,
     openLiveVariableEdit,
     openLiveWorkflowEdit,
     openCreateLiveVariable,
@@ -969,6 +971,43 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   const registerSaveAsTemplateRef = useCallback((tabId: string, fn: () => void) => {
     saveAsTemplateRefMap.current.set(tabId, fn);
   }, []);
+
+  // ── Duplicate snapshot refs ────────────────────────────────────
+  // Each mounted rule/request editor publishes a fn that projects its
+  // live form into content-only domain data. "Duplicate Tab" reads the
+  // anchor tab's snapshot and opens a fresh scratch seeded with it.
+  // Tabs stay mounted (display:none) so a background tab's snapshot is
+  // readable without switching to it first.
+  const ruleDuplicateRefMap = useRef<Map<string, () => Omit<Rule, 'uid' | 'path'> | null>>(new Map());
+  const registerRuleDuplicateRef = useCallback((tabId: string, fn: () => Omit<Rule, 'uid' | 'path'> | null) => {
+    ruleDuplicateRefMap.current.set(tabId, fn);
+  }, []);
+  const requestDuplicateRefMap = useRef<Map<string, () => Omit<Request, 'uid' | 'path' | 'schemaVersion'> | null>>(
+    new Map(),
+  );
+  const registerRequestDuplicateRef = useCallback(
+    (tabId: string, fn: () => Omit<Request, 'uid' | 'path' | 'schemaVersion'> | null) => {
+      requestDuplicateRefMap.current.set(tabId, fn);
+    },
+    [],
+  );
+
+  const handleDuplicateTab = useCallback(
+    (tabId: string) => {
+      const tab = allTabs.find((t) => t.id === tabId);
+      if (!tab) return;
+      if (tab.mode === 'edit' || tab.mode === 'rule-create') {
+        const content = ruleDuplicateRefMap.current.get(tabId)?.();
+        if (content) openDuplicateRuleScratch(content);
+        return;
+      }
+      if (tab.mode === 'request-edit' || tab.mode === 'request-create') {
+        const content = requestDuplicateRefMap.current.get(tabId)?.();
+        if (content) openDuplicateRequestScratch(content);
+      }
+    },
+    [allTabs, openDuplicateRuleScratch, openDuplicateRequestScratch],
+  );
 
   // ── Handle rule saved (edit mode) ─────────────────────────────
   const handleSaved = useCallback(
@@ -1485,6 +1524,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
             onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
             registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
             registerSaveAsTemplateRef={(fn) => registerSaveAsTemplateRef(tab.id, fn)}
+            registerDuplicateRef={(fn) => registerRuleDuplicateRef(tab.id, fn)}
           />
         );
       }
@@ -1682,6 +1722,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
             requestUid={tab.requestUid}
             onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
             registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
+            registerDuplicateRef={(fn) => registerRequestDuplicateRef(tab.id, fn)}
             onExtractToWorkflow={(target, seedStep) => {
               if (target === 'new') {
                 openCreateLiveWorkflow({ seedStep });
@@ -1702,11 +1743,13 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
             seedDraftName={tab.draftName ?? tab.label}
             initialTemplateKey={tab.templateKey}
             initialDraft={tab.initialDraft}
+            seedRuleContent={tab.seedRuleContent}
             preferredCollectionId={tab.preferredCollectionId}
             preferredFolderPath={tab.preferredFolderPath}
             onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
             registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
             registerSaveAsTemplateRef={(fn) => registerSaveAsTemplateRef(tab.id, fn)}
+            registerDuplicateRef={(fn) => registerRuleDuplicateRef(tab.id, fn)}
             onSaveDraft={(d) => ruleSaveFlow.handleSaveDraft(tab.id, d)}
           />
         );
@@ -1716,10 +1759,12 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
           <RequestEditor
             mode="request-create"
             draftName={tab.draftName ?? tab.label}
+            seedRequestContent={tab.seedRequestContent}
             preferredCollectionId={tab.preferredCollectionId}
             preferredFolderPath={tab.preferredFolderPath}
             onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
             registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
+            registerDuplicateRef={(fn) => registerRequestDuplicateRef(tab.id, fn)}
             onSaveDraft={(draftData) => requestSaveFlow.handleSaveDraft(tab.id, draftData)}
           />
         );
@@ -1794,6 +1839,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       handleDirtyChange,
       registerSaveRef,
       registerSaveAsTemplateRef,
+      registerRuleDuplicateRef,
+      registerRequestDuplicateRef,
       openEditTab,
       openCreateTab,
       openFolderOverview,
@@ -2159,6 +2206,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
                 onCreateMenuOpenChange={setCreateMenuOpen}
                 registerTabSearchToggle={registerTabSearchToggle}
                 onTabDoubleClick={tl.toggleZenMode}
+                onDuplicate={handleDuplicateTab}
                 onCloseTab={handleCloseTab}
                 onCloseOther={handleCloseOther}
                 onCloseAll={handleCloseAll}

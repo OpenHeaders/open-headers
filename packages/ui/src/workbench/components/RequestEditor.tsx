@@ -88,9 +88,18 @@ interface RequestEditorProps {
   draftName?: string;
   preferredCollectionId?: string;
   preferredFolderPath?: string;
+  /** Full-fidelity create-mode seed from "Duplicate Tab" — the source
+   *  request's content (URL, method, headers, params, auth, body,
+   *  scripts, …) plus name, minus identity. The draft is initialized
+   *  from it on mount. Honored in create mode only. */
+  seedRequestContent?: Omit<Request, 'uid' | 'path' | 'schemaVersion'>;
   onDirtyChange?: (dirty: boolean) => void;
   registerSaveRef?: (save: () => void) => void;
   onSaveDraft?: (draftData: DraftData) => void;
+  /** Publishes a snapshot fn that projects the live draft into content-
+   *  only request data (plus name, minus identity) — read by "Duplicate
+   *  Tab" to seed a fresh scratch. Works in both edit and create modes. */
+  registerDuplicateRef?: (fn: () => Omit<Request, 'uid' | 'path' | 'schemaVersion'> | null) => void;
   /**
    * "Use response in workflow" action — available only in request-edit
    * mode where the request has a stable uid. `target` picks where the
@@ -117,9 +126,11 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   draftName,
   preferredCollectionId,
   preferredFolderPath,
+  seedRequestContent,
   onDirtyChange,
   registerSaveRef,
   onSaveDraft,
+  registerDuplicateRef,
   onExtractToWorkflow,
 }) => {
   const { token } = theme.useToken();
@@ -134,7 +145,14 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     [requests, requestUid],
   );
 
-  const [draft, setDraft] = useState<Draft>(() => emptyDraft());
+  const [draft, setDraft] = useState<Draft>(() =>
+    // "Duplicate Tab" seeds a scratch from the source request's content.
+    // `draftFromRequest` rebuilds fresh rows/arrays, so the new editor's
+    // draft never shares references with the original.
+    isCreateMode && seedRequestContent
+      ? draftFromRequest({ schemaVersion: 5, uid: 'seed', path: '', ...seedRequestContent })
+      : emptyDraft(),
+  );
   const [loading, setLoading] = useState(!isCreateMode);
   const [isInitialized, setIsInitialized] = useState(false);
   const [liveRequest, setLiveRequest] = useState<Request | null>(null);
@@ -482,6 +500,19 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   const handleSaveSync = useCallback(() => {
     void handleSave();
   }, [handleSave]);
+
+  // ── Duplicate snapshot ─────────────────────────────────────────
+  // Publish a fn that projects the LIVE draft (incl. uncommitted edits)
+  // into content-only request data so "Duplicate Tab" can seed a fresh
+  // scratch. draft + name ride refs so the published closure stays
+  // stable while always reading current values.
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+  const requestNameRef = useRef('');
+  requestNameRef.current = summary?.name ?? draftName ?? 'New Request';
+  useEffect(() => {
+    registerDuplicateRef?.(() => ({ name: requestNameRef.current, ...buildRequestUpdates(draftRef.current) }));
+  }, [registerDuplicateRef]);
 
   const shell = useEditorShell({
     entityType: REQUEST_ENTITY_TYPE,
