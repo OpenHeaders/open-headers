@@ -49,7 +49,6 @@ import {
   useLocalInstanceId,
   useSetActiveTabEntity,
 } from '@openheaders/ui/shared/awareness';
-import { stableStringify } from '@openheaders/ui/shared/forms';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/useActiveWorkspaceId';
 import { type RuleMutationResult, useRuleMutator } from '@openheaders/ui/shared/hooks/useRuleMutator';
 import { useRules } from '@openheaders/ui/shared/hooks/useRules';
@@ -74,6 +73,7 @@ import type { RuleApplicability } from '../data/rule-applicability';
 import { findRuleCollectionId } from '../data/rule-collection';
 import { isSnapshotResolutionReliable, ruleCtxFromAttribution, tagLabelFor, tagTitleFor } from './rule-hover-format';
 import { SnapshotBlock } from './SnapshotBlock';
+import { useModDraft } from './use-mod-draft';
 
 export interface RuleHoverPopoverTarget {
   direction: 'request' | 'response';
@@ -135,13 +135,6 @@ const RULE_TYPE_LABEL: Record<Rule['type'], string> = {
   sse: 'SSE',
   auth: 'Auth',
 };
-
-interface ModDraft {
-  operation: HeaderOperation;
-  headerName: string;
-  value: string;
-  mergeSeparator?: string;
-}
 
 export function RuleHoverPopover({
   anchorEl,
@@ -206,15 +199,21 @@ export function RuleHoverPopover({
   // template is unchanged).
   const ruleEdited = useMemo(() => (ctx ? isAttributionEdited(liveRule, ctx) : false), [liveRule, ctx]);
 
-  const [draft, setDraft] = useState<ModDraft>(() => ({
-    operation: currentMod?.operation ?? target?.operation ?? 'override',
-    headerName: currentMod?.headerName ?? target?.headerName ?? '',
-    value: currentMod?.value ?? '',
-    mergeSeparator: currentMod?.mergeSeparator,
-  }));
   const [saving, setSaving] = useState(false);
-  const draftRef = useRef(draft);
-  draftRef.current = draft;
+
+  // Baseline coordination ref — the seam between the draft hook (whose
+  // re-prime / auto-rebase effects advance the conflict tracker's
+  // baseline) and `useRuleConflicts` (which consumes the hook's
+  // `isDirty`, so it must be called after it). The tracker's setter is
+  // wired in below; the hook's effects fire post-render, by which time
+  // the ref is populated. Same seam as `RuleEditor`'s `setBaselineRef`.
+  const setConflictBaselineRef = useRef<(r: Rule) => void>(() => undefined);
+  const { draft, setDraft, draftRef, updateDraft, isDirty } = useModDraft({
+    currentMod,
+    target,
+    liveRule,
+    setConflictBaselineRef,
+  });
 
   const liveRuleUid = liveRule?.uid ?? null;
   // Devpanel popover edits one specific header mod. Identity is the mod's
@@ -223,52 +222,6 @@ export function RuleHoverPopover({
   // wrappers below — the path they publish must match the workbench's
   // for the same row.
   const headerModUid = currentMod?.uid ?? null;
-
-  // ── Derived dirty (matches `shared/forms/index.ts` convention) ──
-  //
-  // Compare draft to currentMod via a stable fingerprint. Self-heals
-  // on every revert path:
-  //   - Manual revert (typed back to original): fingerprints align,
-  //     dirty clears.
-  //   - External save lands: currentMod refreshes via `useRules` →
-  //     fingerprints align (assuming user isn't editing) → dirty
-  //     clears. The re-prime effect below also catches this case
-  //     when the user happens to be editing (gate stays on isDirty).
-  //   - Save commit: broadcast lands carrying values we just submitted
-  //     → currentMod matches draft → dirty clears.
-  const draftFingerprint = useMemo(
-    () =>
-      stableStringify({
-        operation: draft.operation,
-        headerName: draft.headerName,
-        value: draft.value,
-        mergeSeparator: draft.mergeSeparator ?? null,
-      }),
-    [draft],
-  );
-  const currentModFingerprint = useMemo(
-    () =>
-      currentMod
-        ? stableStringify({
-            operation: currentMod.operation,
-            headerName: currentMod.headerName,
-            value: currentMod.value ?? '',
-            mergeSeparator: currentMod.mergeSeparator ?? null,
-          })
-        : null,
-    [currentMod],
-  );
-  // `lastPrimedFingerprint` is the baseline the draft was last synced
-  // from (init / re-prime / take-theirs / save echo). Comparing against
-  // it (NOT against the live `currentMod`) is what distinguishes "user
-  // has untouched edits" from "form is briefly stale because a
-  // broadcast just landed". Without this, an external save would flip
-  // `isDirty` true on a clean popover, gate the re-prime effect, and
-  // leave the draft stuck on the old value. Mirrors the workbench
-  // pattern (see `RuleEditor`).
-  const [lastPrimedFingerprint, setLastPrimedFingerprint] = useState<string | null>(null);
-  const isDirty =
-    lastPrimedFingerprint !== null && currentModFingerprint !== null && draftFingerprint !== lastPrimedFingerprint;
 
   // ── Surface awareness wiring ────────────────────────────────────
   //
@@ -302,7 +255,7 @@ export function RuleHoverPopover({
     isDirty,
     enabled: !!liveRuleUid,
   });
-  const { setBaseline: setConflictBaseline } = conflicts;
+  setConflictBaselineRef.current = conflicts.setBaseline;
   // Per-row chip data — recomputed against the current draft each
   // render. Returns null when no peer divergence at that path.
   const headerNamePath =
@@ -310,42 +263,6 @@ export function RuleHoverPopover({
   const valuePath = headerModUid && target ? RULE_FIELD.headerMod(target.direction, headerModUid, 'value') : null;
   const headerNameConflict = headerNamePath ? conflicts.getConflict(headerNamePath, draft.headerName) : null;
   const valueConflict = valuePath ? conflicts.getConflict(valuePath, draft.value) : null;
-
-  // Re-prime on rule version bump (another tab saved) only when the
-  // user hasn't started editing yet. Gate is the derived `isDirty`
-  // (against `lastPrimedFingerprint`, NOT current canonical — see
-  // baseline state above for the architectural rationale). Re-prime
-  // also seeds the conflict tracker's baseline; doing it here (NOT on
-  // every `liveRule` change) keeps `getConflict`'s `base` pinned to
-  // the value the popover was last synced from, so when an external
-  // save lands while the user has unsaved typing, base != theirs and
-  // the diff chip renders correctly.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: prime only when the underlying entry changes.
-  useEffect(() => {
-    if (isDirty) return;
-    if (!currentMod) return;
-    setDraft({
-      operation: currentMod.operation,
-      headerName: currentMod.headerName,
-      value: currentMod.value ?? '',
-      mergeSeparator: currentMod.mergeSeparator,
-    });
-    if (currentModFingerprint) setLastPrimedFingerprint(currentModFingerprint);
-    if (liveRule) setConflictBaseline(liveRule);
-  }, [currentMod?.operation, currentMod?.headerName, currentMod?.value, currentMod?.mergeSeparator]);
-
-  // Auto-rebase: as soon as the draft converges with the current
-  // canonical (manual revert / take-theirs / save echo), snap the
-  // baseline so dirty clears without imperative bookkeeping. Same
-  // pattern as `RuleEditor`. The conflict baseline catches up here
-  // too — if the user took theirs / reverted, the chip should hide.
-  useEffect(() => {
-    if (currentModFingerprint === null) return;
-    if (draftFingerprint !== currentModFingerprint) return;
-    if (lastPrimedFingerprint === currentModFingerprint) return;
-    setLastPrimedFingerprint(currentModFingerprint);
-    if (liveRule) setConflictBaseline(liveRule);
-  }, [draftFingerprint, currentModFingerprint, lastPrimedFingerprint, liveRule, setConflictBaseline]);
 
   // Render into the inspector root so the root's `overflow: hidden` clips the
   // popover to the pane and its always-on-top footer covers any graze — the
@@ -366,12 +283,6 @@ export function RuleHoverPopover({
     // `maxHeight` keeps updating, shrinking the popover to clear the footer.
     staticAfterMeasure: true,
   });
-
-  const updateDraft = (patch: Partial<ModDraft>) => {
-    setDraft((prev) => ({ ...prev, ...patch }));
-    // Dirty derives from draft vs currentMod equality — no imperative
-    // flag needed.
-  };
 
   const handleSave = async () => {
     if (!headerRule || !currentMod || !target) return;
