@@ -1,6 +1,6 @@
 {
   "name": "@openheaders/oracle-host-browser",
-  "version": "2026.6.4",
+  "version": "2026.7.0",
   "private": true,
   "description": "Browser host adapter for @openheaders/oracle — IndexedDB-backed sync persistence and blob storage",
   "type": "module",

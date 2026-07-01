@@ -79,7 +79,7 @@ describe('SyncWelcomeMessageSchema', () => {
     role: HANDSHAKE_ROLES.DESKTOP,
     nodeId: 'desktop-main',
     workspaceId: '018f1c5e-7b9a-7c4d-9f02-001122334455',
-    agent: '@openheaders/desktop@2026.6.4',
+    agent: '@openheaders/desktop@2026.7.0',
   };
 
   const reject: SyncWelcomeReject = {
