@@ -31,7 +31,6 @@ import { freshDocument } from '@openheaders/core/schemas';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { AuthRule, DelayRule, ExtensionRuleType, HeaderRule, InjectRule, QueryParamRule, RedirectRule, RequestBodyRule, ResponseRule, Rule, RuleDraft, SseRule, WsRule } from '@openheaders/core/types';
 import { isRuleComplete } from '@openheaders/core/utils';
-import type { MenuProps } from 'antd';
 import { Alert, App, Button, Dropdown, Form, Switch, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -64,12 +63,11 @@ import { useInspectorNav } from '../../hooks/useInspectorNav';
 import type { RuleDraftData } from '../../hooks/useSaveRuleFlow';
 import { formatString } from '../../languages/prettier';
 import type { LanguageId } from '../../languages/registry';
-import { SYSTEM_TEMPLATE_TREE_BY_TYPE, TEMPLATES_BY_TYPE } from '../../rule-templates';
 import { useSettingValue } from '../../settings/hooks';
 import { get as getSetting } from '../../settings/store';
 import ConditionEditor from './ConditionEditor';
-import { buildSystemMenuItems, buildUserMenuItems } from './rule-editor/template-menu';
 import { useHeaderPreviewTabs } from './rule-editor/useHeaderPreviewTabs';
+import { useRuleTemplates } from './rule-editor/useRuleTemplates';
 import EditorHeader from '../shell/EditorHeader';
 import { ActionValueBanner } from '../rule-fields/ActionValueBanner';
 import AuthRuleFields from '../rule-fields/AuthRuleFields';
@@ -737,66 +735,24 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   }, [ruleUid, isEnabled, mutator]);
 
   // ── Template selector ─────────────────────────────────────────
-  const [selectedTemplate, setSelectedTemplate] = useState<string>(initialTemplateKey ?? 'empty');
-
-  const builtinTemplates = useMemo(() => TEMPLATES_BY_TYPE[selectedType ?? 'header'] ?? [], [selectedType]);
-  const systemTemplateTree = useMemo(
-    () => SYSTEM_TEMPLATE_TREE_BY_TYPE[selectedType ?? 'header'] ?? [],
-    [selectedType],
-  );
-  const filteredUserTemplates = useMemo(
-    () => userTemplates.filter((t) => t.ruleType === (selectedType ?? 'header')),
-    [userTemplates, selectedType],
-  );
-
-  const applyTemplate = useCallback(
-    (key: string) => {
-      setSelectedTemplate(key);
-      const type = selectedType ?? 'header';
-
-      // Reset form first — clears all Form.List items to zero.
-      // Then setFieldsValue only adds items (never needs to clear), so it works
-      // correctly for empty arrays and properly notifies useWatch for badge counts.
-      form.resetFields();
-
-      // Set header tab + badge counts from known data (avoids useWatch timing issues)
-      const updateHeaderState = (fv: Record<string, unknown>) => {
-        const reqLen = Array.isArray(fv.requestHeaders) ? (fv.requestHeaders as unknown[]).length : 0;
-        const resLen = Array.isArray(fv.responseHeaders) ? (fv.responseHeaders as unknown[]).length : 0;
-        setHeaderReqCount(reqLen);
-        setHeaderResCount(resLen);
-        setDefaultHeaderTab(reqLen, resLen);
-      };
-
-      if (key === 'empty') {
-        form.setFieldsValue({ ruleType: type, conditions: [] });
-        updateHeaderState({});
-        return;
-      }
-
-      const builtins = TEMPLATES_BY_TYPE[type] ?? [];
-      const builtin = builtins.find((t) => t.key === key);
-      if (builtin) {
-        form.setFieldsValue({ ruleType: type, conditions: builtin.conditions, ...builtin.formValues });
-        updateHeaderState(builtin.formValues);
-      } else {
-        // User templates (key is the uid)
-        const userTpl = userTemplates.find((t) => t.uid === key);
-        if (userTpl) {
-          const values: Record<string, unknown> = { ruleType: type };
-          if (userTpl.includes.conditions && userTpl.conditions) {
-            values.conditions = userTpl.conditions;
-          }
-          if (userTpl.includes.formValues && userTpl.formValues) {
-            Object.assign(values, userTpl.formValues);
-          }
-          form.setFieldsValue(values);
-          updateHeaderState(userTpl.formValues ?? {});
-        }
-      }
-    },
-    [selectedType, form, userTemplates, setDefaultHeaderTab],
-  );
+  const {
+    applyTemplate,
+    systemMenuItems,
+    userMenuItems,
+    activeSystemTemplate,
+    activeUserTemplate,
+    activeSource,
+    selectedDescription,
+  } = useRuleTemplates({
+    selectedType,
+    form,
+    userTemplates,
+    templateCollectionTrees,
+    initialTemplateKey,
+    setDefaultHeaderTab,
+    setHeaderReqCount,
+    setHeaderResCount,
+  });
 
   // Create-mode bootstrap. `useReprime` stays disabled (no liveRule),
   // so its `onPrimed` overlay path never fires — instead we seed the
@@ -1102,54 +1058,6 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   useEffect(() => {
     registerSaveAsTemplateRef?.(openSaveAsTemplate);
   }, [registerSaveAsTemplateRef, openSaveAsTemplate]);
-
-  // ── Template selector menus ───────────────────────────────────
-  // System Templates + User Templates render as hierarchical dropdowns:
-  //   Collection/Root → Folder → Template leaf. For system templates the
-  //   tree comes from SYSTEM_TEMPLATE_TREE_BY_TYPE; for user templates it
-  //   comes from templateCollectionTrees filtered by the current rule type.
-
-  const systemMenuItems = useMemo(
-    () => buildSystemMenuItems(systemTemplateTree, applyTemplate),
-    [systemTemplateTree, applyTemplate],
-  );
-
-  const userMenuItems = useMemo(() => {
-    const type = selectedType ?? 'header';
-    const items: NonNullable<MenuProps['items']> = [];
-    for (const col of templateCollectionTrees) {
-      const childItems = buildUserMenuItems(col.tree, type, applyTemplate);
-      if (childItems.length === 0) continue;
-      items.push({
-        key: `usr-col:${col.uid}`,
-        label: col.name,
-        icon: <FolderOpenOutlined />,
-        children: childItems,
-      });
-    }
-    return items;
-  }, [templateCollectionTrees, selectedType, applyTemplate]);
-
-  // Which source the current selection belongs to — drives active button state.
-  const activeSystemTemplate = useMemo(
-    () => (selectedTemplate === 'empty' ? undefined : builtinTemplates.find((t) => t.key === selectedTemplate)),
-    [selectedTemplate, builtinTemplates],
-  );
-  const activeUserTemplate = useMemo(
-    () => (selectedTemplate === 'empty' ? undefined : filteredUserTemplates.find((t) => t.uid === selectedTemplate)),
-    [selectedTemplate, filteredUserTemplates],
-  );
-  const activeSource: 'blank' | 'system' | 'user' = activeSystemTemplate
-    ? 'system'
-    : activeUserTemplate
-      ? 'user'
-      : 'blank';
-
-  const selectedDescription = useMemo(() => {
-    if (activeSystemTemplate) return activeSystemTemplate.description.split('\n')[0];
-    if (activeUserTemplate?.description) return activeUserTemplate.description.split('\n')[0];
-    return null;
-  }, [activeSystemTemplate, activeUserTemplate]);
 
   // Collection the rule belongs to — used by the resolution banner so
   // collection-scoped `{{collection.X}}` references resolve correctly.
