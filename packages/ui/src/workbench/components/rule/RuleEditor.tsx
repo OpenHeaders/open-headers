@@ -22,7 +22,6 @@ import {
   FileOutlined,
   FolderOpenOutlined,
   FolderOpenTwoTone,
-  FolderOutlined,
   InfoCircleOutlined,
 } from '@ant-design/icons';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/useRuleMutator';
@@ -30,7 +29,7 @@ import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import { canonicalizeRule, parseRule, serializeRule } from '@openheaders/core/codec/yaml';
 import { freshDocument } from '@openheaders/core/schemas';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { AuthRule, DelayRule, ExtensionRuleType, HeaderRule, InjectRule, QueryParamRule, RedirectRule, RequestBodyRule, ResponseRule, Rule, RuleDraft, SseRule, TreeNode, WsRule } from '@openheaders/core/types';
+import type { AuthRule, DelayRule, ExtensionRuleType, HeaderRule, InjectRule, QueryParamRule, RedirectRule, RequestBodyRule, ResponseRule, Rule, RuleDraft, SseRule, WsRule } from '@openheaders/core/types';
 import { isRuleComplete } from '@openheaders/core/utils';
 import type { MenuProps } from 'antd';
 import { Alert, App, Button, Dropdown, Form, Switch, Tooltip, Typography, theme } from 'antd';
@@ -65,10 +64,11 @@ import { useInspectorNav } from '../../hooks/useInspectorNav';
 import type { RuleDraftData } from '../../hooks/useSaveRuleFlow';
 import { formatString } from '../../languages/prettier';
 import type { LanguageId } from '../../languages/registry';
-import { SYSTEM_TEMPLATE_TREE_BY_TYPE, type SystemTemplateNode, TEMPLATES_BY_TYPE } from '../../rule-templates';
+import { SYSTEM_TEMPLATE_TREE_BY_TYPE, TEMPLATES_BY_TYPE } from '../../rule-templates';
 import { useSettingValue } from '../../settings/hooks';
 import { get as getSetting } from '../../settings/store';
 import ConditionEditor from './ConditionEditor';
+import { buildSystemMenuItems, buildUserMenuItems } from './rule-editor/template-menu';
 import EditorHeader from '../shell/EditorHeader';
 import { ActionValueBanner } from '../rule-fields/ActionValueBanner';
 import AuthRuleFields from '../rule-fields/AuthRuleFields';
@@ -1115,75 +1115,16 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   //   tree comes from SYSTEM_TEMPLATE_TREE_BY_TYPE; for user templates it
   //   comes from templateCollectionTrees filtered by the current rule type.
 
-  const buildSystemMenuItems = useCallback(
-    (nodes: SystemTemplateNode[]): NonNullable<MenuProps['items']> => {
-      return nodes.map((node) => {
-        if (node.kind === 'folder') {
-          return {
-            key: `sys-folder:${node.name}`,
-            label: node.name,
-            icon: <FolderOutlined />,
-            children: buildSystemMenuItems(node.children),
-          };
-        }
-        const tpl = node.template;
-        return {
-          key: `sys:${tpl.key}`,
-          label: (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-              <span>{tpl.icon}</span>
-              <span>{tpl.name}</span>
-            </span>
-          ),
-          onClick: () => applyTemplate(tpl.key),
-        };
-      });
-    },
-    [applyTemplate],
-  );
-
   const systemMenuItems = useMemo(
-    () => buildSystemMenuItems(systemTemplateTree),
-    [systemTemplateTree, buildSystemMenuItems],
-  );
-
-  const buildUserMenuItems = useCallback(
-    (nodes: TreeNode[], ruleType: string): NonNullable<MenuProps['items']> => {
-      const items: NonNullable<MenuProps['items']> = [];
-      for (const node of nodes) {
-        if (node.type === 'folder') {
-          const childItems = buildUserMenuItems(node.children, ruleType);
-          if (childItems.length > 0) {
-            items.push({
-              key: `usr-folder:${node.uid}`,
-              label: node.name,
-              icon: <FolderOutlined />,
-              children: childItems,
-            });
-          }
-        } else if (node.type === 'template' && node.ruleType === ruleType) {
-          items.push({
-            key: `usr:${node.uid}`,
-            label: (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                {renderTwoToneIcon(node.icon, { fontSize: 14 })}
-                <span>{node.name}</span>
-              </span>
-            ),
-            onClick: () => applyTemplate(node.uid),
-          });
-        }
-      }
-      return items;
-    },
-    [applyTemplate],
+    () => buildSystemMenuItems(systemTemplateTree, applyTemplate),
+    [systemTemplateTree, applyTemplate],
   );
 
   const userMenuItems = useMemo(() => {
     const type = selectedType ?? 'header';
     const items: NonNullable<MenuProps['items']> = [];
     for (const col of templateCollectionTrees) {
-      const childItems = buildUserMenuItems(col.tree, type);
+      const childItems = buildUserMenuItems(col.tree, type, applyTemplate);
       if (childItems.length === 0) continue;
       items.push({
         key: `usr-col:${col.uid}`,
@@ -1193,7 +1134,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       });
     }
     return items;
-  }, [templateCollectionTrees, selectedType, buildUserMenuItems]);
+  }, [templateCollectionTrees, selectedType, applyTemplate]);
 
   // Which source the current selection belongs to — drives active button state.
   const activeSystemTemplate = useMemo(
