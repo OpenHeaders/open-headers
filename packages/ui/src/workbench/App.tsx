@@ -39,7 +39,6 @@ import {
   WORKSPACE_VARIABLES_ENTITY_TYPE,
 } from '@openheaders/core/sync';
 import { hostBridge } from '@openheaders/core/bridge';
-import { focusFirstDropdownItem } from '@openheaders/ui/shared/focus-dropdown-item';
 import type { InputRef } from 'antd';
 import { App as AntApp, theme } from 'antd';
 import type React from 'react';
@@ -106,6 +105,7 @@ import {
   type WorkbenchViewState,
 } from './hooks/useToolLayout';
 import { useUrlWorkspaceBindingMirror } from './hooks/useUrlWorkspaceBindingMirror';
+import { useWorkbenchShortcutActions } from './hooks/useWorkbenchShortcutActions';
 import { useWorkbenchSidebarState } from './hooks/useWorkbenchSidebarState';
 import { useWorkbenchWorkspaceSlice } from './hooks/useWorkbenchWorkspaceSlice';
 import { useWorkspaceIntentRouter } from './hooks/useWorkspaceIntentRouter';
@@ -115,7 +115,7 @@ import { EnvSwitcherProvider } from './services/env-switcher';
 import { ConnectionProvider } from './settings/ConnectionContext';
 import { get as getSetting } from './settings/store';
 import { SettingsModal } from './settings/ui';
-import { getFocusedDock, getFocusedRegion } from './stores/focus-region-store';
+import { getFocusedDock } from './stores/focus-region-store';
 import { getToolWindowInfo } from './tool-window-info';
 import type { DockSlot, ToolWindowId, WorkbenchTab } from './types';
 
@@ -405,41 +405,38 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     setFocusedDock: tl.setFocusedDock,
   });
 
-  // ── Region cycling — shared semantics for clicks and Alt+1..4 ───
-  const cycleRegion = useCallback(
-    (region: 'left' | 'right' | 'bottom' | 'editor') => {
-      if (region === 'editor') {
-        focus.focusRegion('editor');
-        return;
-      }
-      const isFocused = getFocusedRegion() === region;
-      const isOpen = tl.isRegionOpen(region);
-      if (isOpen && isFocused) {
-        tl.toggleRegion(region);
-        focus.focusRegion('editor');
-        return;
-      }
-      if (!isOpen) tl.toggleRegion(region);
-      focus.focusRegion(region);
-    },
-    [tl, focus],
-  );
-
-  const togglePanel = useCallback(
-    (panel: 'sidebar' | 'bottomPanel' | 'inspector') => {
-      const region: 'left' | 'right' | 'bottom' =
-        panel === 'sidebar' ? 'left' : panel === 'inspector' ? 'right' : 'bottom';
-      tl.toggleRegion(region);
-    },
-    [tl],
-  );
-
   // Right-pane-open callback for useInspectorNav.
   const { onOpenDocs, openDocs, currentSectionRef: docsCurrentSectionRef } = useInspectorNav();
   onOpenDocs.current = useCallback(() => {
     if (tl.state.hidden.includes('docs')) tl.restoreWindow('docs');
     tl.activateWindow('docs');
   }, [tl]);
+
+  // ── Keyboard / command handlers ───────────────────────────────
+  // Region cycling + panel toggles, save / tab-nav / close, show-
+  // shortcuts, and the +create menu opener — all consumed by the two
+  // shortcut/command registries below.
+  const {
+    cycleRegion,
+    togglePanel,
+    handleSave,
+    handlePrevTab,
+    handleNextTab,
+    handleCloseActiveTab,
+    handleShowShortcuts,
+    openCreateMenu,
+  } = useWorkbenchShortcutActions({
+    tl,
+    focus,
+    switchTab,
+    activeTabId,
+    saveRefMap,
+    tabs: groups.tabs,
+    openDocs,
+    docsCurrentSectionRef,
+    handleCloseTab,
+    setCreateMenuOpen,
+  });
 
   // ── Tab openers ────────────────────────────────────────────────
   const openers = useTabOpeners({
@@ -771,31 +768,6 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     ],
   );
 
-  const handleSave = useCallback(() => {
-    if (activeTabId) saveRefMap.current.get(activeTabId)?.();
-  }, [activeTabId, saveRefMap]);
-
-  // ── Tab navigation for shortcuts ─────────────────────────────
-  const tabs = groups.tabs;
-
-  const handlePrevTab = useCallback(() => {
-    if (tabs.length < 2 || !activeTabId) return;
-    const idx = tabs.findIndex((t) => t.id === activeTabId);
-    const prev = idx > 0 ? tabs[idx - 1] : tabs[tabs.length - 1];
-    switchTab(prev.id);
-  }, [tabs, activeTabId, switchTab]);
-
-  const handleNextTab = useCallback(() => {
-    if (tabs.length < 2 || !activeTabId) return;
-    const idx = tabs.findIndex((t) => t.id === activeTabId);
-    const next = idx < tabs.length - 1 ? tabs[idx + 1] : tabs[0];
-    switchTab(next.id);
-  }, [tabs, activeTabId, switchTab]);
-
-  const handleCloseActiveTab = useCallback(() => {
-    if (activeTabId) void handleCloseTab(activeTabId);
-  }, [activeTabId, handleCloseTab]);
-
   // Sidebar filter focus refs — one per sidebar-backed tool window.
   // The `/` shortcut routes to the filter in the currently focused
   // dock so it doesn't yank focus across panels (e.g. typing `/`
@@ -803,34 +775,6 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   // http-rules filter, not whichever sidebar happened to mount last).
   type SidebarViewId = 'http-rules' | 'api-requests' | 'variables' | 'workflows';
   const sidebarFilterRefs = useRef<Map<SidebarViewId, InputRef | null>>(new Map());
-
-  // Keyboard shortcuts help:
-  //   • Docs closed → open and navigate to keyboard-shortcuts.
-  //   • Docs open and ALREADY on keyboard-shortcuts → toggle closed
-  //     (so the shortcut both shows and hides the cheatsheet when
-  //     you're parked on it).
-  //   • Docs open on a different section → navigate to keyboard-
-  //     shortcuts without closing (don't bury the user's place).
-  const handleShowShortcuts = useCallback(() => {
-    const docsSlot = tl.dockOf('docs');
-    const docsTabActive = docsSlot ? tl.state.docks[docsSlot].active === 'docs' : false;
-    const onShortcutsSection = docsCurrentSectionRef.current === 'keyboard-shortcuts';
-    if (docsTabActive && onShortcutsSection) {
-      tl.toggleWindow('docs');
-      return;
-    }
-    openDocs('keyboard-shortcuts');
-  }, [tl, openDocs, docsCurrentSectionRef]);
-
-  // The +create dropdown needs to open from multiple entry points
-  // (command palette item, ⌥N shortcut). Share the "open + focus first
-  // item" helper so both paths behave identically.
-  const openCreateMenu = useCallback(() => {
-    setCreateMenuOpen((prev) => {
-      if (!prev) focusFirstDropdownItem();
-      return !prev;
-    });
-  }, []);
 
   // ── Command palette data ──────────────────────────────────────
   const { groups: cmdGroups, sections: cmdSections } = useCommandPaletteData({
