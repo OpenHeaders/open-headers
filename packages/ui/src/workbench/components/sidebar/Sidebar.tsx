@@ -14,17 +14,7 @@
  * ./sidebar/ — this file owns state + chrome + JSX assembly only.
  */
 
-import {
-  AimOutlined,
-  BorderLeftOutlined,
-  CloseOutlined,
-  ExportOutlined,
-  MenuUnfoldOutlined,
-  PlusOutlined,
-  SearchOutlined,
-} from '@ant-design/icons';
-import type { MenuProps } from 'antd';
-import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
+import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { useEnvironments } from '@openheaders/ui/shared/hooks/useEnvironments';
 import { useAllLiveCaches } from '@openheaders/ui/shared/hooks/useLiveCache';
@@ -45,6 +35,7 @@ import type { WorkbenchTab } from '../../types';
 import { buildCreateMenuItems, buildRequestImportMenuItems } from './build-sidebar-menus';
 import { FolderDndTree, type FolderDndConfig } from './FolderDndTree';
 import { SectionHeader } from './SectionHeader';
+import SidebarHeaderActions from './SidebarHeaderActions';
 import { TreeNodeRow } from './TreeNodeRow';
 import type { SidebarView, TreeNode } from './types';
 import type { SidebarExportEntity } from '../workspace-export/build-export-scope';
@@ -61,17 +52,6 @@ import { useVariableSingletonNodes } from './useVariableSingletonNodes';
 import { useWorkflowNodes } from './useWorkflowNodes';
 
 export type { SidebarView };
-
-// Per-view display label — mirrors the `tool-windows.tsx` registry
-// entries so the sidebar's PanelHeader title matches the activity-bar
-// chip identity. No icon: the activity bar already surfaces the icon
-// and repeating it in the header is visual noise.
-const SIDEBAR_VIEW_LABEL: Record<SidebarView, string> = {
-  'http-rules': 'HTTP Rules',
-  'api-requests': 'API Requests',
-  workflows: 'Workflows',
-  variables: 'Variables',
-};
 
 interface SidebarProps {
   view: SidebarView;
@@ -619,179 +599,31 @@ const Sidebar: React.FC<SidebarProps> = ({
     return <FolderDndTree nodes={nodes} renderNode={renderTreeNodeRow} config={config} />;
   };
 
-  // ── Header chrome — PanelHeader (name + actions + options + hide) on
-  // top, filter input row below. PanelHeader is mandatory per the dock-
-  // layout convention; the filter row is panel-specific UX that doesn't
-  // fit in the 32px header alongside the action cluster.
-  const viewLabel = SIDEBAR_VIEW_LABEL[view];
-  const headerWiring = createPanelHeaderWiring({ onHide });
-  const behaviorMenuItems: MenuProps['items'] = [
-    {
-      key: 'behavior',
-      label: 'Behavior',
-      children: [
-        {
-          key: 'single-click',
-          label: `${openWithSingleClick ? '✓ ' : ''}Open Entries with Single Click`,
-          onClick: () => setOpenWithSingleClick((v) => !v),
-        },
-        {
-          key: 'collections-single-click',
-          label: `${openCollectionsWithSingleClick ? '✓ ' : ''}Open Collections with Single Click`,
-          onClick: () => setOpenCollectionsWithSingleClick((v) => !v),
-        },
-        {
-          key: 'folders-single-click',
-          label: `${openFoldersWithSingleClick ? '✓ ' : ''}Open Folders with Single Click`,
-          onClick: () => setOpenFoldersWithSingleClick((v) => !v),
-        },
-        {
-          key: 'always-select',
-          label: `${alwaysSelectOpened ? '✓ ' : ''}Always Select Opened Tab`,
-          onClick: () => setAlwaysSelectOpened((v) => !v),
-        },
-      ],
-    },
-  ];
-  const headerActions = (
-    <>
-      {view === 'http-rules' && (
-        <Dropdown menu={{ items: createMenuItems }} trigger={['click']} placement="bottomRight">
-          <Tooltip title="New rule" placement="bottom">
-            <span role="button" tabIndex={0} className="rules-panel-header-action" aria-label="New rule">
-              <PlusOutlined />
-            </span>
-          </Tooltip>
-        </Dropdown>
-      )}
-      {view === 'api-requests' && (
-        <Dropdown menu={{ items: requestImportMenuItems }} trigger={['click']} placement="bottomRight">
-          <Tooltip title="Add request" placement="bottom">
-            <span role="button" tabIndex={0} className="rules-panel-header-action" aria-label="Add request">
-              <PlusOutlined />
-            </span>
-          </Tooltip>
-        </Dropdown>
-      )}
-      {view === 'variables' && (
-        <Tooltip title="New environment" placement="bottom">
-          <span
-            role="button"
-            tabIndex={0}
-            className="rules-panel-header-action"
-            onClick={() => void createNewEnvironment()}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') void createNewEnvironment();
-            }}
-            aria-label="New environment"
-          >
-            <PlusOutlined />
-          </span>
-        </Tooltip>
-      )}
-      {view === 'workflows' && (
-        <Tooltip title="New workflow" placement="bottom">
-          <span
-            role="button"
-            tabIndex={0}
-            className="rules-panel-header-action"
-            onClick={() => onCreateWorkflow?.()}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') onCreateWorkflow?.();
-            }}
-            aria-label="New workflow"
-          >
-            <PlusOutlined />
-          </span>
-        </Tooltip>
-      )}
-      {exportSelectedIds.size > 0 && onExportSelection && (
-        <>
-          <Tooltip title={`Export ${exportSelectedIds.size} selected…`} placement="bottom">
-            <span
-              role="button"
-              tabIndex={0}
-              className="rules-panel-header-action"
-              style={{ color: token.colorPrimary, width: 'auto', padding: '0 4px' }}
-              onClick={handleExportSelectedClick}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') handleExportSelectedClick();
-              }}
-              aria-label={`Export ${exportSelectedIds.size} selected items`}
-            >
-              <ExportOutlined />
-              <span style={{ marginLeft: 4, fontSize: 11, fontWeight: 600 }}>{exportSelectedIds.size}</span>
-            </span>
-          </Tooltip>
-          <Tooltip title="Clear selection" placement="bottom">
-            <span
-              role="button"
-              tabIndex={0}
-              className="rules-panel-header-action"
-              onClick={clearExportSelection}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') clearExportSelection();
-              }}
-              aria-label="Clear export selection"
-            >
-              <CloseOutlined />
-            </span>
-          </Tooltip>
-        </>
-      )}
-      <Tooltip title="Select Opened Tab" placement="bottom">
-        <span
-          role="button"
-          tabIndex={0}
-          className="rules-panel-header-action"
-          onClick={selectOpenedFile}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') selectOpenedFile();
-          }}
-          aria-label="Select opened tab"
-        >
-          <AimOutlined />
-        </span>
-      </Tooltip>
-      <Tooltip title="Expand All" placement="bottom">
-        <span
-          role="button"
-          tabIndex={0}
-          className="rules-panel-header-action"
-          onClick={expandAll}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') expandAll();
-          }}
-          aria-label="Expand all"
-        >
-          <MenuUnfoldOutlined />
-        </span>
-      </Tooltip>
-      <Tooltip title="Collapse All" placement="bottom">
-        <span
-          role="button"
-          tabIndex={0}
-          className="rules-panel-header-action"
-          onClick={collapseAll}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') collapseAll();
-          }}
-          aria-label="Collapse all"
-        >
-          <BorderLeftOutlined />
-        </span>
-      </Tooltip>
-    </>
-  );
-
   return (
     <div className="rules-sidebar">
-      <PanelHeader
-        wiring={headerWiring}
-        title={<strong>{viewLabel}</strong>}
+      <SidebarHeaderActions
+        view={view}
         info={info}
-        actions={headerActions}
-        optionsMenuItems={behaviorMenuItems}
+        onHide={onHide}
+        createMenuItems={createMenuItems}
+        requestImportMenuItems={requestImportMenuItems}
+        createNewEnvironment={createNewEnvironment}
+        onCreateWorkflow={onCreateWorkflow}
+        exportSelectedIds={exportSelectedIds}
+        onExportSelection={onExportSelection}
+        handleExportSelectedClick={handleExportSelectedClick}
+        clearExportSelection={clearExportSelection}
+        selectOpenedFile={selectOpenedFile}
+        expandAll={expandAll}
+        collapseAll={collapseAll}
+        openWithSingleClick={openWithSingleClick}
+        setOpenWithSingleClick={setOpenWithSingleClick}
+        openCollectionsWithSingleClick={openCollectionsWithSingleClick}
+        setOpenCollectionsWithSingleClick={setOpenCollectionsWithSingleClick}
+        openFoldersWithSingleClick={openFoldersWithSingleClick}
+        setOpenFoldersWithSingleClick={setOpenFoldersWithSingleClick}
+        alwaysSelectOpened={alwaysSelectOpened}
+        setAlwaysSelectOpened={setAlwaysSelectOpened}
       />
       <div className="rules-sidebar-filter-row">
         <Input
