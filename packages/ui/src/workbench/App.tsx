@@ -24,7 +24,6 @@ import { useLiveVariables } from '@openheaders/ui/shared/hooks/useLiveVariables'
 import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/useLiveWorkflows';
 import { useRequests } from '@openheaders/ui/shared/hooks/useRequests';
 import { useRules } from '@openheaders/ui/shared/hooks/useRules';
-import { useVariableResolver } from '@openheaders/ui/shared/hooks/useVariableResolver';
 import { useWorkspaces } from '@openheaders/ui/shared/hooks/useWorkspaces';
 import {
   COLLECTION_ENTITY_TYPE,
@@ -42,7 +41,6 @@ import {
   WORKSPACE_VARIABLES_ID,
 } from '@openheaders/core/sync';
 import type { ExtensionRuleType, Request, Rule } from '@openheaders/core/types';
-import { isRequestResolvable, isRuleResolvable } from '@openheaders/core/utils';
 import { hostBridge } from '@openheaders/core/bridge';
 import { focusFirstDropdownItem } from '@openheaders/ui/shared/focus-dropdown-item';
 import type { InputRef } from 'antd';
@@ -110,9 +108,9 @@ import {
 import { useCommandPaletteData } from './hooks/useCommandPaletteData';
 import { useEditingScopeWorkspaceId } from './hooks/useEditingScopeWorkspaceId';
 import { useEditorGroups } from './hooks/useEditorGroups';
+import { useEntityStatusSets } from './hooks/useEntityStatusSets';
 import { useFocusRegion } from './hooks/useFocusRegion';
 import { InspectorNavProvider, useInspectorNav } from './hooks/useInspectorNav';
-import { useRequestScriptsReviewPending } from './hooks/useRequestScriptsReviewPending';
 import { type ResponsiveLayout, useResponsiveLayout } from './hooks/useResponsiveLayout';
 import { useAdoptActiveWorkspaceIntoSurface } from './hooks/useAdoptActiveWorkspaceIntoSurface';
 import { SurfaceWorkspaceAdoptProvider } from './hooks/SurfaceWorkspaceAdoptContext';
@@ -316,45 +314,6 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   const liveWorkflowsApi = useLiveWorkflows();
   const { modal, message } = AntApp.useApp();
 
-  // Unresolvable-reference sets — used to grey the method tag on
-  // tab strip + drag preview. Derived once at the shell level so we
-  // don't re-walk workbench/requests per pill render. Matches the DNR
-  // compile gate's discipline — workbench/requests with unresolved refs
-  // can't run, so the UI treats them like draft/paused.
-  const variableResolver = useVariableResolver();
-  const unresolvableRuleUids = useMemo(() => {
-    const out = new Set<string>();
-    for (const rule of rules) {
-      const collectionId = localCollections.find((c) => rule.path.startsWith(`${c.path}/`))?.uid;
-      const context = collectionId ? { collectionId } : undefined;
-      if (
-        !isRuleResolvable(
-          rule,
-          (name) => variableResolver.resolve(name, context),
-          (name, ns) => variableResolver.resolveScopedWithDiagnostics(name, ns, context),
-        )
-      )
-        out.add(rule.uid);
-    }
-    return out;
-  }, [rules, localCollections, variableResolver]);
-  const unresolvableRequestUids = useMemo(() => {
-    const out = new Set<string>();
-    for (const request of requestsApi.requests) {
-      const owner = requestsApi.collections.find((c) => request.path.startsWith(`${c.path}/`));
-      const context = owner ? { collectionId: owner.uid } : undefined;
-      if (
-        !isRequestResolvable(
-          request,
-          (name) => variableResolver.resolve(name, context),
-          (name, ns) => variableResolver.resolveScopedWithDiagnostics(name, ns, context),
-        )
-      )
-        out.add(request.uid);
-    }
-    return out;
-  }, [requestsApi.requests, requestsApi.collections, variableResolver]);
-
   // Editing-scope workspace id — owned by `WorkbenchTabAware` above;
   // mirrored into context by `EditingScopeWorkspaceProvider` so every consumer
   // (here, child editors, mutator-options builders) reads from the
@@ -387,54 +346,27 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   );
   const getFocusedLeafTabs = useCallback(() => groups.focusedLeaf.tabs, [groups.focusedLeaf]);
 
-  // Project tab-level dirty state down to per-entity sets so the
-  // sidebar can mirror the tab-bar dirty dot. The tab is the source
-  // of truth (`tab.dirty` is maintained by the editor via
-  // `onDirtyChange`); deriving sets here keeps the Sidebar from
-  // having to know tab shape. Create-mode tabs are skipped — they
-  // don't map to an existing sidebar row yet.
-  const dirtyRuleUids = useMemo(() => {
-    const out = new Set<string>();
-    for (const tab of allTabs) {
-      if (tab.mode === 'edit' && tab.dirty && tab.ruleUid) out.add(tab.ruleUid);
-    }
-    return out;
-  }, [allTabs]);
-  const dirtyRequestUids = useMemo(() => {
-    const out = new Set<string>();
-    for (const tab of allTabs) {
-      if (tab.mode === 'request-edit' && tab.dirty && tab.requestUid) out.add(tab.requestUid);
-    }
-    return out;
-  }, [allTabs]);
-  // Editing-scope: pending-script reminders are workspace-scoped state
-  // the user clears by opening tabs. Diverged tab on X reads X's
-  // pending list, not the global default's.
-  const scriptsReviewPendingUids = useRequestScriptsReviewPending(editingScopeWorkspaceId);
-  const dirtyWorkflowUids = useMemo(() => {
-    const out = new Set<string>();
-    for (const tab of allTabs) {
-      if (tab.mode === 'live-workflow-edit' && tab.dirty && tab.liveWorkflowUid) out.add(tab.liveWorkflowUid);
-    }
-    return out;
-  }, [allTabs]);
-  // A workflow is "unresolved" if any of its step requests has
-  // unresolvable template refs in the active scope chain — reuses the
-  // per-request resolvability set already computed above. Structural
-  // errors (cycles, unknown step refs, etc.) are NOT mixed in here;
-  // those go through `isWorkflowComplete` and show as "draft".
-  const unresolvableWorkflowUids = useMemo(() => {
-    const out = new Set<string>();
-    for (const wf of liveWorkflowsApi.workflows) {
-      for (const step of wf.steps) {
-        if (step.requestUid && unresolvableRequestUids.has(step.requestUid)) {
-          out.add(wf.uid);
-          break;
-        }
-      }
-    }
-    return out;
-  }, [liveWorkflowsApi.workflows, unresolvableRequestUids]);
+  // Decoration sets — greyed method tags (unresolvable refs), dirty dots,
+  // and pending-script badges — the sidebar, editor group, and drag
+  // preview mirror. Derived once here so no surface re-walks the entity
+  // lists per pill render.
+  const {
+    unresolvableRuleUids,
+    unresolvableRequestUids,
+    dirtyRuleUids,
+    dirtyRequestUids,
+    scriptsReviewPendingUids,
+    dirtyWorkflowUids,
+    unresolvableWorkflowUids,
+  } = useEntityStatusSets({
+    rules,
+    localCollections,
+    requests: requestsApi.requests,
+    requestCollections: requestsApi.collections,
+    workflows: liveWorkflowsApi.workflows,
+    allTabs,
+    editingScopeWorkspaceId,
+  });
 
   // ── Tab lifecycle (dirty confirmation, leaf-scoped batch ops) ──
   const {
