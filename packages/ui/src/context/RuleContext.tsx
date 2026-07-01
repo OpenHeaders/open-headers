@@ -11,24 +11,17 @@
  *      id's key when the active workspace changes.
  */
 
-import { COLLECTION_ENTITY_TYPE, FOLDER_ENTITY_TYPE, type FolderParentRef } from '@openheaders/core/sync';
 import type { Collection, CollectionTree, Rule, Template, TreeNode } from '@openheaders/core/types';
 import type { PauseMarker } from '@openheaders/core/utils';
-import { computePausedUids, generateUid, toFolderName } from '@openheaders/core/utils';
+import { computePausedUids } from '@openheaders/core/utils';
 import { hostBridge } from '@openheaders/core/bridge';
 import type React from 'react';
 import { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePauseMarkersContext } from './PauseMarkersContext';
+import { useLocalEntityCrud } from './use-local-entity-crud';
 import { useTemplateCrud } from './use-template-crud';
 import { buildLocalCollectionTrees, buildTemplateCollectionTrees } from '../shared/local-tree-builder';
 import { hostStorage, type PersistedLocalFolder, UI, wsKeys } from '@openheaders/core/storage';
-import {
-  applyCollectionCreate,
-  applyCollectionDelete,
-  applyRenameCollection,
-} from '../shared/sync/collection-write-client';
-import { applyFolderCreate, applyFolderDelete, applyFolderRename } from '../shared/sync/folder-write-client';
-import { applyRuleDelete, applyRuleUpdate } from '../shared/sync/rule-write-client';
 
 // ── Context shape ─────────────────────────────────────────────────
 
@@ -592,196 +585,17 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
     replaceMarkers(next);
   }, [localCollectionTrees, pauseMarkers, replaceMarkers]);
 
-  // ── Local rule CRUD ───────────────────────────────────────────
-  //
-  // Create is no longer in the context surface. Every "+ New Rule"
-  // gesture mints a real entity via `applyRuleCreate` at click time
-  // (in `useTabOpeners.openCreateTab`); the rule starts unpublished
-  // and the editor's Save button is the publication gate.
+  // ── Local rule / collection / folder CRUD ────────────────────
 
-  const updateLocalRuleFn = useCallback(
-    async (uid: string, updates: Partial<Omit<Rule, 'uid' | 'path'>>): Promise<boolean> => {
-      if (!activeWorkspaceId) return false;
-      const result = await applyRuleUpdate(uid, updates, { workspaceId: activeWorkspaceId, surfaceId });
-      if (result.ok) {
-        refreshRules();
-        return true;
-      }
-      return false;
-    },
-    [activeWorkspaceId, surfaceId, refreshRules],
-  );
-
-  const deleteLocalRuleFn = useCallback(
-    async (uid: string): Promise<boolean> => {
-      if (!activeWorkspaceId) return false;
-      const result = await applyRuleDelete(uid, { workspaceId: activeWorkspaceId, surfaceId });
-      if (result.ok) {
-        refreshRules();
-        return true;
-      }
-      return false;
-    },
-    [activeWorkspaceId, surfaceId, refreshRules],
-  );
-
-  // ── Override-branch parent-path resolver ──────────────────────
-  //
-  // Mirror the SW's `resolveFolderParent` by walking the per-workspace
-  // storage snapshots already cached in `localCollections` state and
-  // the `foldersRef` ref. Pure synchronous lookups — no IO, no oracle
-  // reads — so override-branch mutators can compute the parent ref at
-  // gesture time. (`resolveTemplateFolderParent`'s mirror lives in
-  // `useTemplateCrud`.)
-  const resolveOverrideRuleFolderParent = useCallback(
-    (parentPath: string): FolderParentRef | null => {
-      const collection = localCollections.find((c) => c.path === parentPath);
-      if (collection) return { type: COLLECTION_ENTITY_TYPE, uid: collection.uid };
-      const folder = foldersRef.current.find((f) => f.path === parentPath);
-      if (folder) return { type: FOLDER_ENTITY_TYPE, uid: folder.uid };
-      return null;
-    },
-    [localCollections],
-  );
-
-  const createLocalCollectionFn = useCallback(
-    async (name: string): Promise<Collection | null> => {
-      if (isOverridden) {
-        const wsId = activeWorkspaceIdRef.current;
-        if (!wsId) return null;
-        const result = await applyCollectionCreate({ name }, { workspaceId: wsId, surfaceId });
-        if (result.ok) {
-          refreshRules();
-          return result.collection;
-        }
-        return null;
-      }
-      const resp = await hostBridge.call('createLocalCollection', { name }).catch(() => null);
-      if (resp?.success && resp.collection) {
-        refreshRules();
-        return resp.collection;
-      }
-      return null;
-    },
-    [isOverridden, surfaceId, refreshRules],
-  );
-
-  const renameLocalCollectionFn = useCallback(
-    async (uid: string, name: string): Promise<boolean> => {
-      if (isOverridden) {
-        const wsId = activeWorkspaceIdRef.current;
-        if (!wsId) return false;
-        const result = await applyRenameCollection({ collectionUid: uid, name }, { workspaceId: wsId, surfaceId });
-        if (result.ok) {
-          refreshRules();
-          return true;
-        }
-        return false;
-      }
-      const resp = await hostBridge.call('renameLocalCollection', { collectionUid: uid, name }).catch(() => null);
-      if (resp?.success) {
-        refreshRules();
-        return true;
-      }
-      return false;
-    },
-    [isOverridden, surfaceId, refreshRules],
-  );
-
-  const deleteLocalCollectionFn = useCallback(
-    async (uid: string): Promise<boolean> => {
-      if (isOverridden) {
-        const wsId = activeWorkspaceIdRef.current;
-        if (!wsId) return false;
-        const result = await applyCollectionDelete({ collectionUid: uid }, { workspaceId: wsId, surfaceId });
-        if (result.ok) {
-          refreshRules();
-          return true;
-        }
-        return false;
-      }
-      const resp = await hostBridge.call('deleteLocalCollection', { collectionUid: uid }).catch(() => null);
-      if (resp?.success) {
-        refreshRules();
-        return true;
-      }
-      return false;
-    },
-    [isOverridden, surfaceId, refreshRules],
-  );
-
-  const createLocalFolderFn = useCallback(
-    async (name: string, parentPath: string): Promise<{ uid: string; path: string; name: string } | null> => {
-      if (isOverridden) {
-        const wsId = activeWorkspaceIdRef.current;
-        if (!wsId) return null;
-        const parent = resolveOverrideRuleFolderParent(parentPath);
-        if (!parent) return null;
-        const folderUid = generateUid();
-        const folderName = toFolderName(name, folderUid);
-        const result = await applyFolderCreate({ folderUid, parent, name }, { workspaceId: wsId, surfaceId });
-        if (!result.ok) return null;
-        refreshRules();
-        return { uid: folderUid, path: `${parentPath}/${folderName}`, name };
-      }
-      const resp = await hostBridge.call('createLocalFolder', { name, parentPath }).catch(() => null);
-      if (resp?.success && resp.folder) {
-        refreshRules();
-        return resp.folder;
-      }
-      return null;
-    },
-    [isOverridden, surfaceId, refreshRules, resolveOverrideRuleFolderParent],
-  );
-
-  const renameLocalFolderFn = useCallback(
-    async (uid: string, name: string): Promise<boolean> => {
-      if (isOverridden) {
-        const wsId = activeWorkspaceIdRef.current;
-        if (!wsId) return false;
-        const result = await applyFolderRename({ folderUid: uid, name }, { workspaceId: wsId, surfaceId });
-        if (result.ok) {
-          refreshRules();
-          return true;
-        }
-        return false;
-      }
-      const resp = await hostBridge.call('renameLocalFolder', { folderUid: uid, name }).catch(() => null);
-      if (resp?.success) {
-        refreshRules();
-        return true;
-      }
-      return false;
-    },
-    [isOverridden, surfaceId, refreshRules],
-  );
-
-  const deleteLocalFolderFn = useCallback(
-    async (uid: string): Promise<boolean> => {
-      if (isOverridden) {
-        const wsId = activeWorkspaceIdRef.current;
-        if (!wsId) return false;
-        const folder = foldersRef.current.find((f) => f.uid === uid);
-        if (!folder) return false;
-        const parentPath = folder.path.substring(0, folder.path.lastIndexOf('/'));
-        const parent = resolveOverrideRuleFolderParent(parentPath);
-        if (!parent) return false;
-        const result = await applyFolderDelete({ folderUid: uid, parent }, { workspaceId: wsId, surfaceId });
-        if (result.ok) {
-          refreshRules();
-          return true;
-        }
-        return false;
-      }
-      const resp = await hostBridge.call('deleteLocalFolder', { folderUid: uid }).catch(() => null);
-      if (resp?.success) {
-        refreshRules();
-        return true;
-      }
-      return false;
-    },
-    [isOverridden, surfaceId, refreshRules, resolveOverrideRuleFolderParent],
-  );
+  const localEntityCrud = useLocalEntityCrud({
+    isOverridden,
+    surfaceId,
+    activeWorkspaceId,
+    activeWorkspaceIdRef,
+    localCollections,
+    foldersRef,
+    refreshRules,
+  });
 
   // ── Template CRUD ─────────────────────────────────────────────
 
@@ -816,14 +630,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
     clearNestedPauseOverrides,
     refreshRules,
     updateUiState,
-    updateLocalRule: updateLocalRuleFn,
-    deleteLocalRule: deleteLocalRuleFn,
-    createLocalCollection: createLocalCollectionFn,
-    renameLocalCollection: renameLocalCollectionFn,
-    deleteLocalCollection: deleteLocalCollectionFn,
-    createLocalFolder: createLocalFolderFn,
-    renameLocalFolder: renameLocalFolderFn,
-    deleteLocalFolder: deleteLocalFolderFn,
+    ...localEntityCrud,
     templates,
     templateCollections,
     templateCollectionTrees,
