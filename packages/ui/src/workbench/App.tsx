@@ -66,7 +66,7 @@ import SaveToCollectionModal from './components/save/SaveToCollectionModal';
 import ShellLayout from './components/shell/ShellLayout';
 import type { SidebarView } from './components/sidebar/types';
 import StatusBar from './components/shell/StatusBar';
-import { renderTabLabel, tabIcon } from './components/tabbar/TabBar';
+import { renderTabLabel, tabIcon } from './components/tabbar/tab-format';
 import TopBar from './components/shell/TopBar';
 import WorkbenchTabBody from './components/shell/WorkbenchTabBody';
 import WorkbenchToolWindow from './components/shell/WorkbenchToolWindow';
