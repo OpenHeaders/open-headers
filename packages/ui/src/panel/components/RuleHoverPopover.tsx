@@ -36,7 +36,6 @@
 import { SaveOutlined } from '@ant-design/icons';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { HeaderModification, HeaderOperation, HeaderRule, Rule } from '@openheaders/core/types';
-import { getHeaderOperationCapability, validateHeaderName, validateHeaderValue } from '@openheaders/core/utils';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { useLiveRule } from '@openheaders/ui/context';
 import {
@@ -50,17 +49,15 @@ import {
   useSetActiveTabEntity,
 } from '@openheaders/ui/shared/awareness';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/useActiveWorkspaceId';
-import { type RuleMutationResult, useRuleMutator } from '@openheaders/ui/shared/hooks/useRuleMutator';
+import { useRuleMutator } from '@openheaders/ui/shared/hooks/useRuleMutator';
 import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import { usePopoverPlacement } from '@openheaders/ui/shared/popover';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 import { useRuleConflicts } from '@openheaders/ui/workbench/components/rule-fields/use-rule-conflicts';
 import { buildRuleIcon } from '@openheaders/ui/workbench/components/shared/rule-icon';
 import { TemplateInput } from '@openheaders/ui/workbench/components/template-input';
-import { buildChordsFromEvent, useShortcutLabel } from '@openheaders/ui/workbench/hooks/useWorkspaceShortcuts';
-import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import { App, Button, Select, Tag, Tooltip, theme } from 'antd';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   findCurrentMod,
@@ -68,12 +65,12 @@ import {
   isAttributionEdited,
   type RuleAttributionContext,
 } from '../data/header-attribution';
-import { buildHeaderModUpdate } from '../data/header-mod-edit';
 import type { RuleApplicability } from '../data/rule-applicability';
 import { findRuleCollectionId } from '../data/rule-collection';
 import { isSnapshotResolutionReliable, ruleCtxFromAttribution, tagLabelFor, tagTitleFor } from './rule-hover-format';
 import { SnapshotBlock } from './SnapshotBlock';
 import { useModDraft } from './use-mod-draft';
+import { useRuleHoverSave } from './use-rule-hover-save';
 
 export interface RuleHoverPopoverTarget {
   direction: 'request' | 'response';
@@ -199,8 +196,6 @@ export function RuleHoverPopover({
   // template is unchanged).
   const ruleEdited = useMemo(() => (ctx ? isAttributionEdited(liveRule, ctx) : false), [liveRule, ctx]);
 
-  const [saving, setSaving] = useState(false);
-
   // Baseline coordination ref — the seam between the draft hook (whose
   // re-prime / auto-rebase effects advance the conflict tracker's
   // baseline) and `useRuleConflicts` (which consumes the hook's
@@ -284,78 +279,21 @@ export function RuleHoverPopover({
     staticAfterMeasure: true,
   });
 
-  const handleSave = async () => {
-    if (!headerRule || !currentMod || !target) return;
-    const live = draftRef.current;
-    setSaving(true);
-    try {
-      const built = buildHeaderModUpdate(headerRule, target.direction, currentMod, live);
-      if (!built.ok) {
-        message.warning('Rule changed elsewhere — close and reopen the popover.');
-        return;
-      }
-      const result: RuleMutationResult = await mutator.updateRule(headerRule.uid, built.updates);
-      surfaceResult(result, message, () => {
-        // Dirty auto-clears when the broadcast lands and currentMod
-        // matches draft. No explicit reset needed.
-        conflicts.clearDismissed();
-        onClose();
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Save shortcut listener — mirrors variable popover so Cmd/Ctrl+S
-  // saves regardless of focused element while the popover is mounted.
-  const saveLabel = useShortcutLabel('save');
-  const saveChord = useSettingValue('keyboard.save');
-  const handleSaveRef = useRef<(() => void) | null>(null);
-  useEffect(() => {
-    if (typeof saveChord !== 'string' || !saveChord) return;
-    const onKey = (e: KeyboardEvent) => {
-      const chords = buildChordsFromEvent(e);
-      if (chords.includes(saveChord)) {
-        e.preventDefault();
-        e.stopPropagation();
-        handleSaveRef.current?.();
-      }
-    };
-    window.addEventListener('keydown', onKey, true);
-    return () => window.removeEventListener('keydown', onKey, true);
-  }, [saveChord]);
-
   const editable = isHeader && !!currentMod && !!headerRule;
 
-  // Full draft validation — same validators core uses for the workbench
-  // editor and `isRuleComplete`. Templates pass through (resolved at
-  // runtime; structural validity isn't decidable at edit time).
-  const isResponse = target?.direction === 'response';
-  const trimmedName = draft.headerName.trim();
-  const nameValidation =
-    editable && trimmedName && !trimmedName.includes('{{')
-      ? validateHeaderName(trimmedName, isResponse)
-      : { valid: true as const, message: '' };
-  const valueValidation =
-    editable && draft.operation !== 'remove' && draft.value && !draft.value.includes('{{')
-      ? validateHeaderValue(draft.value, trimmedName)
-      : { valid: true as const, message: '' };
-  const capability =
-    editable && target ? getHeaderOperationCapability(target.direction, draft.operation, draft.headerName) : null;
-
-  // Save is gated on every error: empty name, invalid name, invalid
-  // value, capability violation. Mirrors the workbench editor's
-  // `isRuleComplete` contract — broken edits never reach the rule
-  // store.
-  const canSave =
-    editable &&
-    isDirty &&
-    !saving &&
-    trimmedName.length > 0 &&
-    nameValidation.valid &&
-    valueValidation.valid &&
-    (!capability || capability.allowed);
-  handleSaveRef.current = canSave ? () => void handleSave() : null;
+  const { saving, canSave, nameValidation, valueValidation, capability, handleSave, saveLabel } = useRuleHoverSave({
+    headerRule,
+    currentMod,
+    target,
+    draft,
+    draftRef,
+    isDirty,
+    editable,
+    mutator,
+    message,
+    clearDismissed: conflicts.clearDismissed,
+    onClose,
+  });
 
   const openInEditor = () => {
     const uid = liveRule?.uid ?? ctx?.ruleUid;
@@ -715,24 +653,4 @@ function findFallbackMod(
   const exact = list.find((m) => m.headerName.toLowerCase() === lower && m.operation === target.operation);
   if (exact) return exact;
   return list.find((m) => m.headerName.toLowerCase() === lower) ?? null;
-}
-
-function surfaceResult(
-  result: RuleMutationResult,
-  message: ReturnType<typeof App.useApp>['message'],
-  onSuccess: () => void,
-): void {
-  if (result.ok) {
-    message.success('Rule updated');
-    onSuccess();
-    return;
-  }
-  switch (result.reason) {
-    case 'not-found':
-      message.error('Rule not found — it may have been deleted.');
-      return;
-    case 'other':
-      message.error(result.message ?? 'Save failed');
-      return;
-  }
 }
