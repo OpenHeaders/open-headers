@@ -18,17 +18,9 @@ import { Dropdown } from 'antd';
 import type { ItemType } from 'antd/es/menu/interface';
 import type React from 'react';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { LayoutMenuIcon } from '@openheaders/ui/shared/dock-layout';
+import { type EditorTabDragData, LayoutMenuIcon } from '@openheaders/ui/shared/dock-layout';
 import { useDragIntent } from '../data/drag-intent';
 import type { ClosedTab, InspectorTab } from '../data/inspector-tab';
-
-// ── Drag data contract ──────────────────────────────────────────
-
-export interface EditorTabDragData {
-  kind: 'editor-tab';
-  leafId: string;
-  tabId: string;
-}
 
 // ── Method badge ────────────────────────────────────────────────
 

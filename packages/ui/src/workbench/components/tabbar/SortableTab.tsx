@@ -10,6 +10,7 @@
 import { FolderOpenOutlined } from '@ant-design/icons';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import type { EditorTabDragData } from '@openheaders/ui/shared/dock-layout';
 import { Dropdown, Tooltip, theme } from 'antd';
 import type { ItemType } from 'antd/es/menu/interface';
 import type React from 'react';
@@ -17,7 +18,6 @@ import { useState } from 'react';
 import { scratchLabelForMode } from '../../breadcrumbs';
 import { useDragIntent } from '../../drag-intent';
 import type { WorkbenchTab } from '../../types';
-import type { EditorTabDragData } from './TabBar';
 import TabPillContent from './TabPillContent';
 import { type TabEntityLookups, emptyPlaceholderStyle, tabIcon } from './tab-format';
 

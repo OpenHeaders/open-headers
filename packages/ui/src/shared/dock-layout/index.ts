@@ -2,6 +2,8 @@ export { ALL_DOCK_SLOTS, DOCK_LABELS, dockRegion, regionDocks } from './constant
 export { default as DockSlotIcon } from './DockSlotIcon';
 export type { DockTabStripProps } from './DockTabStrip';
 export { default as DockTabStrip } from './DockTabStrip';
+export type { DragData, EditorTabDragData, ToolWindowDragData } from './drag-data';
+export { asDragData } from './drag-data';
 export { default as DropZoneOverlay } from './DropZoneOverlay';
 export { makeEditorTabCollisionDetection } from './editor-tab-collision';
 export type { FocusStore } from './focus-store';

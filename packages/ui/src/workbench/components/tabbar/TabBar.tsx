@@ -31,18 +31,6 @@ import TabSearchDropdown from './TabSearchDropdown';
 import { buildTabContextMenu } from './build-tab-context-menu';
 import { EMPTY_SET } from './tab-format';
 
-// ── Editor tab drag data contract ───────────────────────────────
-// Exported so ShellLayout's shared DndContext can type-narrow drag
-// events and decide whether they belong to editor tabs or tool windows.
-// `leafId` identifies the source editor group so cross-leaf moves and
-// split-drop operations can resolve the origin without extra lookup.
-
-export interface EditorTabDragData {
-  kind: 'editor-tab';
-  leafId: string;
-  tabId: string;
-}
-
 // ── Props ────────────────────────────────────────────────────────
 
 interface TabBarProps {

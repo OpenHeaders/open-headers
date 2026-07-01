@@ -19,19 +19,9 @@ import {
 } from '@dnd-kit/core';
 import { useCallback, useMemo, useState } from 'react';
 import { ALL_DOCK_SLOTS } from './constants';
+import { asDragData } from './drag-data';
 import type { DockSlot } from './types';
 import type { DockLayoutApi } from './use-dock-layout';
-
-type ToolWindowDragData<T extends string> = { kind: 'tool-window'; toolWindowId: T; fromSlot: DockSlot };
-type EditorTabDragData = { kind: 'editor-tab'; leafId: string; tabId: string };
-type DragData<T extends string> = ToolWindowDragData<T> | EditorTabDragData;
-
-function asDragData<T extends string>(current: unknown): DragData<T> | null {
-  if (!current || typeof current !== 'object') return null;
-  const record = current as { kind?: unknown };
-  if (record.kind === 'tool-window' || record.kind === 'editor-tab') return current as DragData<T>;
-  return null;
-}
 
 type DockWindowsMap<T extends string> = Record<DockSlot, T[]>;
 
