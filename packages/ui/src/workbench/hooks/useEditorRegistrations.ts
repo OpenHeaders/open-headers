@@ -27,7 +27,7 @@ interface UseEditorRegistrationsOptions {
   openDuplicateRequestScratch: (content: Omit<Request, 'uid' | 'path' | 'schemaVersion'>) => void;
 }
 
-interface EditorRegistrations {
+export interface EditorRegistrations {
   handleDirtyChange: (tabId: string, dirty: boolean) => void;
   handleSaved: (tabId: string, uid: string) => void;
   registerSaveRef: (tabId: string, saveFn: () => void) => void;

@@ -38,7 +38,6 @@ import {
   VAULT_ENTITY_TYPE,
   WORKSPACE_VARIABLES_ENTITY_TYPE,
 } from '@openheaders/core/sync';
-import type { ExtensionRuleType } from '@openheaders/core/types';
 import { hostBridge } from '@openheaders/core/bridge';
 import { focusFirstDropdownItem } from '@openheaders/ui/shared/focus-dropdown-item';
 import type { InputRef } from 'antd';
@@ -59,43 +58,24 @@ import 'allotment/dist/style.css';
 import { createShellEventBus, ShellEventBusContext } from '@openheaders/ui/shared/dock-layout';
 import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-scope-view-state';
 import { instanceLabel } from '@openheaders/ui/shared/host-vocabulary';
-import { findFolderByUid } from '@openheaders/ui/shared/variables';
 import { computeBreadcrumbs } from './breadcrumbs';
 import BottomPanel from './components/runs/BottomPanel';
-import CollectionOverview from './components/overviews/CollectionOverview';
-import CollectionVariablesEditor from './components/variables/CollectionVariablesEditor';
 import CommandPalette from './components/shell/CommandPalette';
 import EditorGroupRenderer, { type RenderLeafHeaderContext } from './components/shell/EditorGroupRenderer';
 import EmptyState, { type VariableCreateScope } from './components/shell/EmptyState';
-import EnvironmentEditor from './components/variables/EnvironmentEditor';
-import FolderOverview from './components/overviews/FolderOverview';
-import LiveVariablesEditor from './components/variables/LiveVariablesEditor';
-import LiveVariableEditor from './components/live/LiveVariableEditor';
-import LiveWorkflowEditor from './components/live/LiveWorkflowEditor';
 import WorkflowStatusPanel from './components/live/WorkflowStatusPanel';
 import ActivityFeedPanel from './components/panels/ActivityFeedPanel';
 import { viewActivityEntity } from './components/panels/activity-view-router';
 import DocsPanel from './components/panels/DocsPanel';
 import VariablesPanel from './components/panels/variables-panel';
-import RequestCollectionOverview from './components/overviews/RequestCollectionOverview';
-import RequestEditor from './components/request-editor/RequestEditor';
-import RequestFolderOverview from './components/overviews/RequestFolderOverview';
-import RuleEditor from './components/rule/RuleEditor';
-import RuleFlow from './components/rule-flow/RuleFlow';
-import RunReportView from './components/runs/RunReportView';
 import SaveToCollectionModal from './components/save/SaveToCollectionModal';
 import ShellLayout from './components/shell/ShellLayout';
 import Sidebar from './components/sidebar/Sidebar';
 import StatusBar from './components/shell/StatusBar';
 import { renderTabLabel, tabIcon } from './components/tabbar/TabBar';
-import TemplateCollectionOverview from './components/overviews/TemplateCollectionOverview';
-import TemplateEditor from './components/template/TemplateEditor';
-import TemplateFolderOverview from './components/overviews/TemplateFolderOverview';
 import TopBar from './components/shell/TopBar';
+import WorkbenchTabBody from './components/shell/WorkbenchTabBody';
 import { VariablePopoverProvider } from './components/template-input/VariablePopoverHost';
-import VaultEditor from './components/variables/VaultEditor';
-import WorkspaceManager from './components/workspace/WorkspaceManager';
-import WorkspaceVariablesEditor from './components/variables/WorkspaceVariablesEditor';
 import ImportExportModals, { type ImportExportModalsHandle } from './components/workspace-export/ImportExportModals';
 import { buildEntityExportScope, buildSelectionExportScope } from './components/workspace-export/build-export-scope';
 import { findLeaf } from './editor-groups';
@@ -134,7 +114,7 @@ import { useWorkspaceTabTitle } from './hooks/useWorkspaceTabTitle';
 import { EnvSwitcherProvider } from './services/env-switcher';
 import { ConnectionProvider } from './settings/ConnectionContext';
 import { get as getSetting } from './settings/store';
-import { SettingsModal, SettingsTab } from './settings/ui';
+import { SettingsModal } from './settings/ui';
 import { getFocusedDock, getFocusedRegion } from './stores/focus-region-store';
 import { getToolWindowInfo } from './tool-window-info';
 import type { DockSlot, ToolWindowId, WorkbenchTab } from './types';
@@ -948,328 +928,47 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
 
   // ── Per-tab body renderer ─────────────────────────────────────
   const renderTabBody = useCallback(
-    ({ tab }: { tab: WorkbenchTab }): React.ReactNode => {
-      if (tab.mode === 'edit' && tab.ruleUid) {
-        return (
-          <RuleEditor
-            ruleUid={tab.ruleUid}
-            tabId={tab.id}
-            initialTemplateKey={tab.templateKey}
-            initialDraft={tab.initialDraft}
-            onSaved={(uid) => handleSaved(tab.id, uid)}
-            onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
-            registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
-            registerSaveAsTemplateRef={(fn) => registerSaveAsTemplateRef(tab.id, fn)}
-            registerDuplicateRef={(fn) => registerRuleDuplicateRef(tab.id, fn)}
-          />
-        );
-      }
-      if (tab.mode === 'collection-overview' && tab.entityId) {
-        // Dispatch by family — uids never collide, so a single uid
-        // disambiguates which overview component to mount. Falls
-        // through to the rule-collection overview (matches pre-
-        // session-50 behavior + handles the still-loading case).
-        if (requestsApi.collections.some((c) => c.uid === tab.entityId)) {
-          return (
-            <RequestCollectionOverview
-              collectionUid={tab.entityId}
-              onSelectRequest={openRequestEditTab}
-              onCreateRequest={openCreateRequestTab}
-              onOpenFolderOverview={openRequestFolderOverview}
-              onOpenCollectionVariables={openRequestCollectionVariables}
-            />
-          );
-        }
-        if (templateCollections.some((c) => c.uid === tab.entityId)) {
-          return (
-            <TemplateCollectionOverview
-              collectionUid={tab.entityId}
-              onSelectTemplate={openTemplateEditTab}
-              onOpenFolderOverview={openTemplateFolderOverview}
-              onOpenCollectionVariables={openTemplateCollectionVariables}
-            />
-          );
-        }
-        return (
-          <CollectionOverview
-            collectionUid={tab.entityId}
-            onSelectRule={openEditTab}
-            onCreateRule={openCreateTab}
-            onOpenFolderOverview={openFolderOverview}
-            onOpenRuleFlow={openRuleFlow}
-            onOpenTestRuns={openTestRunsPanel}
-            onOpenCollectionVariables={openCollectionVariables}
-          />
-        );
-      }
-      if (tab.mode === 'folder-overview' && tab.entityId) {
-        // Family-dispatch by folder uid lookup. Folder uids — like
-        // collection uids — are globally unique, so a single uid picks
-        // the right component. Falls through to the rule-family
-        // FolderOverview for the still-loading case (no match in any
-        // family yet) so the user sees a brief "Folder not found" empty
-        // state instead of nothing.
-        const owner = findFolderByUid(tab.entityId, {
-          ruleTrees: localCollectionTrees,
-          requestTrees: requestsApi.collectionTrees,
-          templateTrees: templateCollectionTrees,
-        });
-        if (owner?.family === 'request') {
-          return (
-            <RequestFolderOverview
-              folderUid={tab.entityId}
-              onSelectRequest={openRequestEditTab}
-              onCreateRequest={openCreateRequestTab}
-              onOpenFolderOverview={openRequestFolderOverview}
-            />
-          );
-        }
-        if (owner?.family === 'template') {
-          return (
-            <TemplateFolderOverview
-              folderUid={tab.entityId}
-              onSelectTemplate={openTemplateEditTab}
-              onOpenFolderOverview={openTemplateFolderOverview}
-            />
-          );
-        }
-        return (
-          <FolderOverview
-            folderUid={tab.entityId}
-            onSelectRule={openEditTab}
-            onCreateRule={openCreateTab}
-            onOpenFolderOverview={openFolderOverview}
-            onOpenRuleFlow={openRuleFlow}
-            onOpenTestRuns={openTestRunsPanel}
-          />
-        );
-      }
-      if (tab.mode === 'template-edit' && tab.templateUid) {
-        return (
-          <TemplateEditor
-            templateUid={tab.templateUid}
-            onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
-            registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
-          />
-        );
-      }
-      if (tab.mode === 'rule-flow') {
-        return (
-          <RuleFlow
-            scope={tab.flowScope ?? 'all-active'}
-            entityId={tab.entityId}
-            initialTabUrl={tab.flowTabUrl}
-            onSelectRule={openEditTab}
-            onCreateRule={openCreateTab}
-          />
-        );
-      }
-      if (tab.mode === 'run-report' && tab.testRunId) {
-        return (
-          <RunReportView
-            runId={tab.testRunId}
-            onSelectRule={openEditTab}
-            onAfterDelete={() => handleRunReportDeleted(tab.id)}
-          />
-        );
-      }
-      if (tab.mode === 'settings') {
-        return (
-          <SettingsTab initialSettingKey={tab.settingsInitialKey} initialCategoryId={tab.settingsInitialCategory} />
-        );
-      }
-      if (tab.mode === 'workspace-manager') {
-        return (
-          <WorkspaceManager
-            api={workspacesApi}
-            activeWorkspaceId={editingScopeWorkspaceId}
-            onSwitch={handleSwitchWorkspace}
-          />
-        );
-      }
-      if (tab.mode === 'env-edit' && tab.environmentUid) {
-        return (
-          <EnvironmentEditor
-            environmentUid={tab.environmentUid}
-            onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
-            registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
-          />
-        );
-      }
-      if (tab.mode === 'workspace-vars') {
-        return (
-          <WorkspaceVariablesEditor
-            onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
-            registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
-          />
-        );
-      }
-      if (tab.mode === 'vault') {
-        return (
-          <VaultEditor
-            onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
-            registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
-          />
-        );
-      }
-      if (tab.mode === 'live-vars') {
-        return (
-          <LiveVariablesEditor
-            onOpenWorkflow={openLiveWorkflowEdit}
-            onEditBinding={openLiveVariableEdit}
-            onCreateLiveVariable={openCreateLiveVariable}
-          />
-        );
-      }
-      if (tab.mode === 'collection-vars' && tab.collectionUid) {
-        return (
-          <CollectionVariablesEditor
-            kind="rule"
-            collectionUid={tab.collectionUid}
-            onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
-            registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
-          />
-        );
-      }
-      if (tab.mode === 'request-collection-vars' && tab.collectionUid) {
-        return (
-          <CollectionVariablesEditor
-            kind="request"
-            collectionUid={tab.collectionUid}
-            onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
-            registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
-          />
-        );
-      }
-      if (tab.mode === 'template-collection-vars' && tab.collectionUid) {
-        return (
-          <CollectionVariablesEditor
-            kind="template"
-            collectionUid={tab.collectionUid}
-            onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
-            registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
-          />
-        );
-      }
-      if (tab.mode === 'request-edit' && tab.requestUid) {
-        return (
-          <RequestEditor
-            mode="request-edit"
-            requestUid={tab.requestUid}
-            onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
-            registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
-            registerDuplicateRef={(fn) => registerRequestDuplicateRef(tab.id, fn)}
-            onExtractToWorkflow={(target, seedStep) => {
-              if (target === 'new') {
-                openCreateLiveWorkflow({ seedStep });
-                return;
-              }
-              const wf = liveWorkflowsApi.workflows.find((w) => w.uid === target.workflowUid);
-              openLiveWorkflowEdit(target.workflowUid, wf?.name ?? 'Workflow', seedStep);
-            }}
-          />
-        );
-      }
-      if (tab.mode === 'rule-create') {
-        return (
-          <RuleEditor
-            mode="rule-create"
-            tabId={tab.id}
-            seedRuleType={tab.ruleType as ExtensionRuleType}
-            seedDraftName={tab.draftName ?? tab.label}
-            initialTemplateKey={tab.templateKey}
-            initialDraft={tab.initialDraft}
-            seedRuleContent={tab.seedRuleContent}
-            preferredCollectionId={tab.preferredCollectionId}
-            preferredFolderPath={tab.preferredFolderPath}
-            onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
-            registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
-            registerSaveAsTemplateRef={(fn) => registerSaveAsTemplateRef(tab.id, fn)}
-            registerDuplicateRef={(fn) => registerRuleDuplicateRef(tab.id, fn)}
-            onSaveDraft={(d) => ruleSaveFlow.handleSaveDraft(tab.id, d)}
-          />
-        );
-      }
-      if (tab.mode === 'request-create') {
-        return (
-          <RequestEditor
-            mode="request-create"
-            draftName={tab.draftName ?? tab.label}
-            seedRequestContent={tab.seedRequestContent}
-            preferredCollectionId={tab.preferredCollectionId}
-            preferredFolderPath={tab.preferredFolderPath}
-            onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
-            registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
-            registerDuplicateRef={(fn) => registerRequestDuplicateRef(tab.id, fn)}
-            onSaveDraft={(draftData) => requestSaveFlow.handleSaveDraft(tab.id, draftData)}
-          />
-        );
-      }
-      if (tab.mode === 'live-variable-edit' && tab.liveVariableUid) {
-        return (
-          <LiveVariableEditor
-            mode="edit"
-            variableUid={tab.liveVariableUid}
-            onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
-            registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
-            openWorkflowTab={openLiveWorkflowEdit}
-          />
-        );
-      }
-      if (tab.mode === 'live-variable-create') {
-        return (
-          <LiveVariableEditor
-            mode="create"
-            onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
-            registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
-            onCreateWorkflow={() => openCreateLiveWorkflow()}
-            onCreated={(lv) =>
-              replaceTab(tab.id, {
-                id: `live-var-${lv.uid}`,
-                label: lv.name,
-                ruleType: '',
-                dirty: false,
-                mode: 'live-variable-edit',
-                liveVariableUid: lv.uid,
-              })
-            }
-          />
-        );
-      }
-      if (tab.mode === 'live-workflow-edit' && tab.liveWorkflowUid) {
-        return (
-          <LiveWorkflowEditor
-            mode="edit"
-            workflowUid={tab.liveWorkflowUid}
-            seedStep={tab.liveWorkflowSeedStep}
-            onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
-            registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
-          />
-        );
-      }
-      if (tab.mode === 'live-workflow-create') {
-        return (
-          <LiveWorkflowEditor
-            mode="create"
-            draftName={tab.draftName ?? tab.label}
-            seedStep={tab.liveWorkflowSeedStep}
-            onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
-            registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
-            onCreated={(wf) =>
-              replaceTab(tab.id, {
-                id: `live-workflow-${wf.uid}`,
-                label: wf.name,
-                ruleType: '',
-                dirty: false,
-                mode: 'live-workflow-edit',
-                liveWorkflowUid: wf.uid,
-              })
-            }
-          />
-        );
-      }
-      return null;
-    },
+    ({ tab }: { tab: WorkbenchTab }): React.ReactNode => (
+      <WorkbenchTabBody
+        tab={tab}
+        handleSaved={handleSaved}
+        handleDirtyChange={handleDirtyChange}
+        registerSaveRef={registerSaveRef}
+        registerSaveAsTemplateRef={registerSaveAsTemplateRef}
+        registerRuleDuplicateRef={registerRuleDuplicateRef}
+        registerRequestDuplicateRef={registerRequestDuplicateRef}
+        openEditTab={openEditTab}
+        openCreateTab={openCreateTab}
+        openFolderOverview={openFolderOverview}
+        openRequestFolderOverview={openRequestFolderOverview}
+        openTemplateFolderOverview={openTemplateFolderOverview}
+        openRuleFlow={openRuleFlow}
+        openCollectionVariables={openCollectionVariables}
+        openCreateRequestTab={openCreateRequestTab}
+        openRequestCollectionVariables={openRequestCollectionVariables}
+        openRequestEditTab={openRequestEditTab}
+        openTemplateEditTab={openTemplateEditTab}
+        openTemplateCollectionVariables={openTemplateCollectionVariables}
+        openLiveWorkflowEdit={openLiveWorkflowEdit}
+        openLiveVariableEdit={openLiveVariableEdit}
+        openCreateLiveVariable={openCreateLiveVariable}
+        openCreateLiveWorkflow={openCreateLiveWorkflow}
+        openTestRunsPanel={openTestRunsPanel}
+        handleRunReportDeleted={handleRunReportDeleted}
+        handleSwitchWorkspace={handleSwitchWorkspace}
+        onRuleSaveDraft={ruleSaveFlow.handleSaveDraft}
+        onRequestSaveDraft={requestSaveFlow.handleSaveDraft}
+        replaceTab={replaceTab}
+        workspacesApi={workspacesApi}
+        editingScopeWorkspaceId={editingScopeWorkspaceId}
+        requestCollections={requestsApi.collections}
+        templateCollections={templateCollections}
+        localCollectionTrees={localCollectionTrees}
+        requestCollectionTrees={requestsApi.collectionTrees}
+        templateCollectionTrees={templateCollectionTrees}
+        liveWorkflows={liveWorkflowsApi.workflows}
+      />
+    ),
     [
       handleSaved,
       handleDirtyChange,
