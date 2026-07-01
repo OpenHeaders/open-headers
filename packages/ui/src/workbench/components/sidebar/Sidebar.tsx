@@ -59,6 +59,7 @@ import { useEnvironmentNodes } from './useEnvironmentNodes';
 import { useRequestTreeNodes } from './useRequestTreeNodes';
 import { useRulesTreeNodes } from './useRulesTreeNodes';
 import { useSelectOpenedTab } from './useSelectOpenedTab';
+import { useSidebarCreateActions } from './useSidebarCreateActions';
 import { useTemplateTreeNodes } from './useTemplateTreeNodes';
 import { useVariableSingletonNodes } from './useVariableSingletonNodes';
 import { useWorkflowNodes } from './useWorkflowNodes';
@@ -603,52 +604,23 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   // ── Create-new entrypoints ─────────────────────────────────────
 
-  const createNewRequestCollection = useCallback(async () => {
-    const baseName = 'New Requests Collection';
-    const existingNames = new Set(requestCollections.map((c) => c.name));
-    let name = baseName;
-    let counter = 2;
-    while (existingNames.has(name)) name = `${baseName} (${counter++})`;
-    const col = await createRequestCollectionRpc(name);
-    if (col) {
-      setSectionsExpanded((prev) => ({ ...prev, 'api-requests': true }));
-      setExpandedKeys((prev) => {
-        const next = new Set(prev);
-        next.add(`req-col-${col.uid}`);
-        return next;
-      });
-    } else {
-      message.error('Failed to create request collection');
-    }
-  }, [createRequestCollectionRpc, requestCollections, message]);
-
-  const createNewEnvironment = useCallback(async () => {
-    const baseName = 'New Environment';
-    const existingNames = new Set(environments.map((e) => e.name));
-    let name = baseName;
-    let counter = 2;
-    while (existingNames.has(name)) name = `${baseName} (${counter++})`;
-    const env = await createEnvironment(name);
-    if (env) {
-      setSectionsExpanded((prev) => ({ ...prev, environments: true }));
-      onSelectEnvironment?.(env.uid, env.name, true);
-    } else {
-      message.error('Failed to create environment');
-    }
-  }, [createEnvironment, environments, onSelectEnvironment, message]);
-
-  const createNewCollection = useCallback(async () => {
-    const baseName = 'New Rules Collection';
-    const existingNames = new Set(localCollections.map((c) => c.name));
-    let name = baseName;
-    let counter = 2;
-    while (existingNames.has(name)) name = `${baseName} (${counter++})`;
-    const col = await createLocalCollection(name);
-    if (col) {
-      setSectionsExpanded((prev) => ({ ...prev, rules: true }));
-      onOpenCollectionOverview?.(col.uid, col.name, true);
-    }
-  }, [createLocalCollection, localCollections, onOpenCollectionOverview]);
+  const { createNewCollection, createNewRequestCollection, createNewTemplateCollection, createNewEnvironment } =
+    useSidebarCreateActions({
+      localCollections,
+      requestCollections,
+      templateCollections,
+      environments,
+      createLocalCollection,
+      createRequestCollectionRpc,
+      createTemplateCollection,
+      createEnvironment,
+      setSectionsExpanded,
+      setExpandedKeys,
+      onOpenCollectionOverview,
+      onOpenTemplateCollectionOverview,
+      onSelectEnvironment,
+      message,
+    });
 
   // ── Flat items for keyboard nav ──────────────────────────────
   // Only nodes from sections THIS view actually renders.
@@ -1282,17 +1254,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'pointer' }}
                     onClick={(e) => {
                       e.stopPropagation();
-                      const baseName = 'User Templates';
-                      const existingNames = new Set(templateCollections.map((c) => c.name));
-                      let name = baseName;
-                      let counter = 2;
-                      while (existingNames.has(name)) name = `${baseName} (${counter++})`;
-                      void createTemplateCollection(name).then((col) => {
-                        if (col) {
-                          setSectionsExpanded((prev) => ({ ...prev, templates: true }));
-                          onOpenTemplateCollectionOverview?.(col.uid, col.name, true);
-                        }
-                      });
+                      void createNewTemplateCollection();
                     }}
                   />
                 </Tooltip>
@@ -1308,19 +1270,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   // section-level empty-state instead of one per list —
                   // otherwise the section flashes "No items in this section"
                   // twice in a row, which reads like a layout bug.
-                  const createUserCollection = (): void => {
-                    const baseName = 'User Templates';
-                    const existingNames = new Set(templateCollections.map((c) => c.name));
-                    let name = baseName;
-                    let counter = 2;
-                    while (existingNames.has(name)) name = `${baseName} (${counter++})`;
-                    void createTemplateCollection(name).then((col) => {
-                      if (col) {
-                        setSectionsExpanded((prev) => ({ ...prev, templates: true }));
-                        onOpenTemplateCollectionOverview?.(col.uid, col.name, true);
-                      }
-                    });
-                  };
+                  const createUserCollection = () => void createNewTemplateCollection();
                   if (systemTemplateNodes.length === 0 && templateNodes.length === 0) {
                     return renderEmptyState(createUserCollection);
                   }
