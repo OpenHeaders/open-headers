@@ -38,6 +38,24 @@ const TAB_ICON_YELLOW = 'var(--ant-color-warning, #faad14)';
  *  unresolved state yet (tests, transient call sites). */
 export const EMPTY_SET: ReadonlySet<string> = new Set<string>();
 
+/**
+ * The entity-lookup bundle every tab-strip surface needs to render a
+ * tab icon and resolve its draft/paused/unresolved state. Shared so the
+ * pill content, the sortable wrapper, the cross-leaf marker, and the
+ * search overlay declare one identical set of props instead of four
+ * verbatim copies. Positionally mirrors {@link tabIcon}'s lookup params.
+ */
+export interface TabEntityLookups {
+  rules: Rule[];
+  templates: Template[];
+  requests: Request[];
+  pausedUids: ReadonlySet<string>;
+  unresolvableRuleUids: ReadonlySet<string>;
+  unresolvableRequestUids: ReadonlySet<string>;
+  liveWorkflows: LiveWorkflow[];
+  unresolvableWorkflowUids: ReadonlySet<string>;
+}
+
 export function tabIcon(
   tab: WorkbenchTab,
   rules: Rule[],

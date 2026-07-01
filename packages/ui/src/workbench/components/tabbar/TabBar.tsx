@@ -13,7 +13,7 @@
  *   - Auto-scroll active tab into view
  */
 
-import { CloseOutlined, CopyOutlined, DownOutlined, FolderOpenOutlined, PlusOutlined } from '@ant-design/icons';
+import { CopyOutlined, DownOutlined, FolderOpenOutlined, PlusOutlined } from '@ant-design/icons';
 import { horizontalListSortingStrategy, SortableContext, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { LiveWorkflow, Request, Rule, Template } from '@openheaders/core/types';
@@ -29,8 +29,9 @@ import { buildRuleTypeMenuItems } from '../../rule-type-menu';
 import type { ClosedTab, WorkbenchTab } from '../../types';
 import LayoutMenuIcon from '../shell/LayoutMenuIcon';
 import { menuItemLabel } from '../shared/MenuItemShortcutLabel';
+import TabPillContent from './TabPillContent';
 import TabSearchDropdown from './TabSearchDropdown';
-import { EMPTY_SET, emptyPlaceholderStyle, isCreateDraftMode, isRuleDraftTab, renderTabLabel, tabIcon } from './tab-format';
+import { EMPTY_SET, emptyPlaceholderStyle, tabIcon } from './tab-format';
 
 // ── Editor tab drag data contract ───────────────────────────────
 // Exported so ShellLayout's shared DndContext can type-narrow drag
@@ -132,99 +133,6 @@ interface TabBarProps {
    */
   registerTabSearchToggle?: (toggle: () => void) => void;
 }
-
-// ── Tab visual (pill) ────────────────────────────────────────────
-//
-// Pure presentational content for a tab: icon, label, unsaved dot,
-// optional close affordance. Used by both the interactive
-// `SortableTab` wrapper and the read-only cross-leaf insertion marker
-// so they share a single source of truth for tab layout/sizing.
-//
-// `hidden` renders the content with `visibility: hidden` so its width
-// and height still contribute to layout but nothing paints — that's
-// how SortableTab's in-place placeholder and the cross-leaf insertion
-// marker both look like a pure blue dashed rectangle while keeping
-// the same footprint as a real tab.
-
-interface TabPillContentProps {
-  tab: WorkbenchTab;
-  /** Live-derived display label — pre-computed by the parent via
-   *  `tabDisplayLabel(tab, lookups)`. Reads here instead of `tab.label`
-   *  so a rename in any surface lands without an imperative sync hook. */
-  displayLabel: string;
-  rules: Rule[];
-  templates: Template[];
-  requests: Request[];
-  pausedUids: ReadonlySet<string>;
-  unresolvableRuleUids: ReadonlySet<string>;
-  unresolvableRequestUids: ReadonlySet<string>;
-  liveWorkflows: LiveWorkflow[];
-  unresolvableWorkflowUids: ReadonlySet<string>;
-  onClose?: (id: string) => void;
-  closeIconColor: string;
-  hidden?: boolean;
-}
-
-const TabPillContent: React.FC<TabPillContentProps> = ({
-  tab,
-  displayLabel,
-  rules,
-  templates,
-  requests,
-  pausedUids,
-  unresolvableRuleUids,
-  unresolvableRequestUids,
-  liveWorkflows,
-  unresolvableWorkflowUids,
-  onClose,
-  closeIconColor,
-  hidden,
-}) => {
-  const inner = (
-    <>
-      <span className="rules-type-badge">
-        {tabIcon(
-          tab,
-          rules,
-          templates,
-          pausedUids,
-          requests,
-          unresolvableRequestUids,
-          unresolvableRuleUids,
-          liveWorkflows,
-          unresolvableWorkflowUids,
-        )}
-      </span>
-      <span className="rules-tab-label" style={isRuleDraftTab(tab, rules) ? { fontStyle: 'italic' } : undefined}>
-        {renderTabLabel(tab, displayLabel)}
-      </span>
-      {/* Gray dot signals a not-yet-persisted scratch tab (always wins
-          over orange so the "scratch vs real entity" distinction reads
-          regardless of dirty edits). Orange dot only fires on a
-          persisted entity whose form has uncommitted edits. */}
-      {(isCreateDraftMode(tab) || tab.dirty) && (
-        <span className="rules-tab-unsaved" style={{ background: isCreateDraftMode(tab) ? '#999' : '#ff7875' }} />
-      )}
-      {onClose && (
-        <CloseOutlined
-          className="rules-tab-close"
-          style={{ fontSize: 10, color: closeIconColor }}
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => {
-            e.stopPropagation();
-            onClose(tab.id);
-          }}
-        />
-      )}
-    </>
-  );
-  if (!hidden) return inner;
-  return (
-    <span style={{ display: 'contents', visibility: 'hidden' }} aria-hidden="true">
-      {inner}
-    </span>
-  );
-};
 
 // ── Cross-leaf insertion marker ───────────────────────────────────
 //

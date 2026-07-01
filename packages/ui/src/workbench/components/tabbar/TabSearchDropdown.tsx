@@ -8,27 +8,18 @@
  */
 
 import { FolderOpenOutlined, SearchOutlined } from '@ant-design/icons';
-import type { LiveWorkflow, Request, Rule, Template } from '@openheaders/core/types';
 import type { InputRef } from 'antd';
 import { Input, theme } from 'antd';
 import type React from 'react';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import type { ClosedTab, WorkbenchTab } from '../../types';
-import { isCreateDraftMode, tabIcon } from './tab-format';
+import { type TabEntityLookups, isCreateDraftMode, tabIcon } from './tab-format';
 
-interface TabSearchProps {
+interface TabSearchProps extends TabEntityLookups {
   open: boolean;
   onClose: () => void;
   tabs: WorkbenchTab[];
   activeTabId: string | null;
-  rules: Rule[];
-  templates: Template[];
-  requests: Request[];
-  pausedUids: ReadonlySet<string>;
-  unresolvableRuleUids: ReadonlySet<string>;
-  unresolvableRequestUids: ReadonlySet<string>;
-  liveWorkflows: LiveWorkflow[];
-  unresolvableWorkflowUids: ReadonlySet<string>;
   /** Breadcrumb path for a tab (workspace excluded) — rendered as muted
    *  secondary line so users can disambiguate rows with the same name. */
   getTabPath?: (tab: WorkbenchTab) => string[];
