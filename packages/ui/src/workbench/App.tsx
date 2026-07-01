@@ -36,9 +36,7 @@ import {
   TEMPLATE_COLLECTION_ENTITY_TYPE,
   TEMPLATE_ENTITY_TYPE,
   VAULT_ENTITY_TYPE,
-  VAULT_ID,
   WORKSPACE_VARIABLES_ENTITY_TYPE,
-  WORKSPACE_VARIABLES_ID,
 } from '@openheaders/core/sync';
 import type { ExtensionRuleType, Request, Rule } from '@openheaders/core/types';
 import { hostBridge } from '@openheaders/core/bridge';
@@ -61,8 +59,8 @@ import 'allotment/dist/style.css';
 import { createShellEventBus, ShellEventBusContext } from '@openheaders/ui/shared/dock-layout';
 import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-scope-view-state';
 import { instanceLabel } from '@openheaders/ui/shared/host-vocabulary';
-import { findCollectionByPath, findFolderByUid } from '@openheaders/ui/shared/variables';
-import { computeBreadcrumbs, scratchLabelForMode } from './breadcrumbs';
+import { findFolderByUid } from '@openheaders/ui/shared/variables';
+import { computeBreadcrumbs } from './breadcrumbs';
 import BottomPanel from './components/runs/BottomPanel';
 import CollectionOverview from './components/overviews/CollectionOverview';
 import CollectionVariablesEditor from './components/variables/CollectionVariablesEditor';
@@ -119,6 +117,7 @@ import { useSaveRuleFlow } from './hooks/useSaveRuleFlow';
 import { useTabLifecycle } from './hooks/useTabLifecycle';
 import { useTabOpeners } from './hooks/useTabOpeners';
 import { useTabSyncEffects } from './hooks/useTabSyncEffects';
+import { useWorkbenchActiveTab } from './hooks/useWorkbenchActiveTab';
 import {
   readWorkspaceFallThrough,
   useToolLayout,
@@ -131,13 +130,11 @@ import { useWorkbenchWorkspaceSlice } from './hooks/useWorkbenchWorkspaceSlice';
 import { useWorkspaceIntentRouter } from './hooks/useWorkspaceIntentRouter';
 import { useWorkspaceShortcuts } from './hooks/useWorkspaceShortcuts';
 import { useWorkspaceTabTitle } from './hooks/useWorkspaceTabTitle';
-import { type EnvSwitcherCollectionContext, EnvSwitcherProvider } from './services/env-switcher';
+import { EnvSwitcherProvider } from './services/env-switcher';
 import { ConnectionProvider } from './settings/ConnectionContext';
-import { useSettingValue } from './settings/hooks';
 import { get as getSetting } from './settings/store';
 import { SettingsModal, SettingsTab } from './settings/ui';
 import { getFocusedDock, getFocusedRegion } from './stores/focus-region-store';
-import { type TabDisplayLookups, tabDisplayLabel } from './tab-display';
 import { getToolWindowInfo } from './tool-window-info';
 import type { DockSlot, ToolWindowId, WorkbenchTab } from './types';
 
@@ -721,12 +718,6 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     }
   }, [activeTabId, pendingRenameTabId, setPendingRenameTabId]);
 
-  // ── Tab-title composition (`#<n> Open Headers` when ≥2 tabs) ──
-  // Must mount once at the shell; subsequent route-aware title
-  // mutations flow through `setBase` on this single owner so every
-  // workspace tab writes the same prefix uniformly.
-  const { setBase: setTabTitleBase } = useWorkspaceTabTitle();
-
   // ── Workspace Intent routing (cold-hash + warm-message) ────────
   useWorkspaceIntentRouter({
     isStatusLoaded,
@@ -770,235 +761,36 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
 
   const handleDeleteRule = useCallback((uid: string) => void deleteLocalRule(uid), [deleteLocalRule]);
 
-  // ── Active tab + breadcrumbs ──────────────────────────────────
-  const activeTab = useMemo(
-    () => groups.focusedLeaf.tabs.find((t) => t.id === groups.focusedLeaf.activeTabId),
-    [groups.focusedLeaf],
-  );
-
-  // The active tab's backing entity, expressed as a generic
-  // `(entityType, entityId)` pair the breadcrumb wraps its inline-rename
-  // input with. Returns null for tab modes that don't represent a single
-  // entity (settings, landing, multi-vars views) — the breadcrumb skips
-  // the `<EntityField>` wrap in those cases. Adding a new editable tab
-  // mode means adding its branch here; no infrastructure changes.
-  const activeTabEntity = useMemo<{ entityType: string; entityId: string } | null>(() => {
-    if (!activeTab) return null;
-    switch (activeTab.mode) {
-      case 'edit':
-        return activeTab.ruleUid ? { entityType: RULE_ENTITY_TYPE, entityId: activeTab.ruleUid } : null;
-      case 'request-edit':
-        return activeTab.requestUid ? { entityType: REQUEST_ENTITY_TYPE, entityId: activeTab.requestUid } : null;
-      case 'template-edit':
-        return activeTab.templateUid ? { entityType: TEMPLATE_ENTITY_TYPE, entityId: activeTab.templateUid } : null;
-      case 'live-variable-edit':
-        return activeTab.liveVariableUid
-          ? { entityType: LIVE_VARIABLE_ENTITY_TYPE, entityId: activeTab.liveVariableUid }
-          : null;
-      case 'live-workflow-edit':
-        return activeTab.liveWorkflowUid
-          ? { entityType: LIVE_WORKFLOW_ENTITY_TYPE, entityId: activeTab.liveWorkflowUid }
-          : null;
-      case 'env-edit':
-        return activeTab.environmentUid
-          ? { entityType: ENVIRONMENT_ENTITY_TYPE, entityId: activeTab.environmentUid }
-          : null;
-      case 'workspace-vars':
-        // Singleton entity — fixed id; the publisher composes presence
-        // from the editor's `useEditorDirty` + `EntityScopeProvider`.
-        return { entityType: WORKSPACE_VARIABLES_ENTITY_TYPE, entityId: WORKSPACE_VARIABLES_ID };
-      case 'vault':
-        return { entityType: VAULT_ENTITY_TYPE, entityId: VAULT_ID };
-      case 'collection-vars':
-        return activeTab.collectionUid
-          ? { entityType: COLLECTION_ENTITY_TYPE, entityId: activeTab.collectionUid }
-          : null;
-      case 'request-collection-vars':
-        return activeTab.collectionUid
-          ? { entityType: REQUEST_COLLECTION_ENTITY_TYPE, entityId: activeTab.collectionUid }
-          : null;
-      case 'template-collection-vars':
-        return activeTab.collectionUid
-          ? { entityType: TEMPLATE_COLLECTION_ENTITY_TYPE, entityId: activeTab.collectionUid }
-          : null;
-      // Create-mode tabs (no minted uid yet) deliberately return null.
-      default:
-        return null;
-    }
-  }, [activeTab]);
-
-  // Breadcrumb for the focused-leaf active tab — rendered in the footer
-  // (split editors still each have their own floating action cluster,
-  // but the footer breadcrumb is single-valued and follows focus).
-  // Scratch tabs (create modes before first save — the entity doesn't
-  // exist in storage yet) get an extra "Scratch" segment injected before
-  // the entity label so the footer matches the tab-tooltip treatment.
-  // "Scratch" is chosen over "Draft" because persisted entities can also
-  // hold a draft state, and the two concepts would collide.
-  // Live-derived display label lookups — single source of truth for
-  // every surface that wants to show an entity's current name. Used by
-  // the breadcrumb (footer) and threaded into `<TabBar>` via
-  // `getDisplayLabel`. Replaces the imperative `tab.label` mirror that
-  // used to live in `useTabSyncEffects`; renames now flow through
-  // entity-cache subscriptions and re-render the consumer.
-  const tabDisplayLookups = useMemo<TabDisplayLookups>(
-    () => ({
-      rules,
-      templates,
-      environments: envApi.environments,
-      requests: requestsApi.requests,
-      localCollectionTrees,
-      requestCollectionTrees: requestsApi.collectionTrees,
-      templateCollectionTrees,
-      liveVariables: liveVarsApi.variables,
-      liveWorkflows: liveWorkflowsApi.workflows,
-    }),
-    [
-      rules,
-      templates,
-      envApi.environments,
-      requestsApi.requests,
-      localCollectionTrees,
-      requestsApi.collectionTrees,
-      templateCollectionTrees,
-      liveVarsApi.variables,
-      liveWorkflowsApi.workflows,
-    ],
-  );
-  const getTabDisplayLabel = useCallback(
-    (tab: WorkbenchTab) => tabDisplayLabel(tab, tabDisplayLookups),
-    [tabDisplayLookups],
-  );
-
-  const activeBreadcrumbSegments = useMemo(() => {
-    if (!activeTab) return [];
-    const base = computeBreadcrumbs(
-      activeTab,
-      getTabDisplayLabel(activeTab),
-      rules,
-      localCollectionTrees,
-      requestsApi.collectionTrees,
-      requestsApi.requests,
-      templateCollectionTrees,
-    );
-    const scratchLabel = scratchLabelForMode(activeTab.mode);
-    if (scratchLabel && base.length >= 2) {
-      return [...base.slice(0, -1), scratchLabel, base[base.length - 1]];
-    }
-    return base;
-  }, [
+  // ── Active-tab derivations (entity, breadcrumbs, labels, env ctx) ─
+  // Everything the shell reads off "which tab is focused right now" —
+  // plus the shell's single `document.title` composer, whose only
+  // consumer is the title effect inside the hook.
+  const {
     activeTab,
+    activeTabEntity,
     getTabDisplayLabel,
-    rules,
-    localCollectionTrees,
-    requestsApi.collectionTrees,
-    requestsApi.requests,
-    templateCollectionTrees,
-  ]);
-  // Editing-scope: the StatusBar workspace pill describes what this
-  // tab is editing, not what the global oracle thinks. The divergence
-  // pill (separate component in the same StatusBar) carries the
-  // tab-vs-default delta.
-  const activeWorkspace = useMemo(
-    () => workspacesApi.workspaces.find((w) => w.id === editingScopeWorkspaceId),
-    [workspacesApi.workspaces, editingScopeWorkspaceId],
-  );
-
-  const activeTabCollectionId = useMemo((): string | null => {
-    if (!activeTab) return null;
-    const { mode } = activeTab;
-    if (mode === 'collection-overview' || mode === 'folder-overview') return activeTab.entityId ?? null;
-    if (mode === 'collection-vars' || mode === 'request-collection-vars' || mode === 'template-collection-vars') {
-      return activeTab.collectionUid ?? null;
-    }
-    // Editor tabs: resolve the entity, then derive the owning
-    // collection by walking the right family's path prefix. The shared
-    // helper checks each family independently so a rule's path never
-    // matches a request collection (or vice versa).
-    const families = {
-      ruleCollections: localCollections,
-      requestCollections: requestsApi.collections,
-      templateCollections,
-    };
-    if (mode === 'edit' && activeTab.ruleUid) {
-      const rule = rules.find((r) => r.uid === activeTab.ruleUid);
-      return rule ? (findCollectionByPath(rule.path, families)?.uid ?? null) : null;
-    }
-    if (mode === 'request-edit' && activeTab.requestUid) {
-      const req = requestsApi.requests.find((r) => r.uid === activeTab.requestUid);
-      return req ? (findCollectionByPath(req.path, families)?.uid ?? null) : null;
-    }
-    if (mode === 'template-edit' && activeTab.templateUid) {
-      const tmpl = templates.find((t) => t.uid === activeTab.templateUid);
-      return tmpl ? (findCollectionByPath(tmpl.path, families)?.uid ?? null) : null;
-    }
-    if (mode === 'request-create' && activeTab.preferredCollectionId) {
-      return activeTab.preferredCollectionId;
-    }
-    return null;
-  }, [
-    activeTab,
+    activeBreadcrumbSegments,
+    activeWorkspace,
+    activeTabCollectionId,
+    allCollectionsForEnv,
+    envSwitcherCollectionContext,
+  } = useWorkbenchActiveTab({
+    focusedLeaf: groups.focusedLeaf,
     rules,
     templates,
+    environments: envApi.environments,
+    requests: requestsApi.requests,
     localCollections,
+    requestCollections: requestsApi.collections,
     templateCollections,
-    requestsApi.requests,
-    requestsApi.collections,
-  ]);
-
-  const collectionEnvAutoSwitch = useSettingValue('general.collectionEnvAutoSwitch');
-
-  const allCollectionsForEnv = useMemo(
-    () => [...localCollections, ...requestsApi.collections, ...templateCollections],
-    [localCollections, requestsApi.collections, templateCollections],
-  );
-
-  // Track the active collection's default env separately so the env-
-  // switcher's auto-switch effect re-runs when the user pins a new
-  // default via the env-selector pin icon (vs only when they
-  // navigate).
-  const activeCollectionDefaultEnvId = useMemo(() => {
-    if (!activeTabCollectionId) return null;
-    return allCollectionsForEnv.find((c) => c.uid === activeTabCollectionId)?.defaultEnvironmentId ?? null;
-  }, [activeTabCollectionId, allCollectionsForEnv]);
-
-  // Active-env policy lives in the env-switcher service. WorkbenchContent
-  // hands it the workbench-specific inputs; the service owns the
-  // auto-switch effect, the apply-defaults session-override map, and
-  // exposes `pickActiveEnvironment` for every UI surface (sidebar,
-  // popover, env editor, command palette) via `useEnvSwitcher()`.
-  const envSwitcherCollectionContext = useMemo<EnvSwitcherCollectionContext>(
-    () => ({
-      activeTabCollectionId,
-      allCollectionsForEnv,
-      collectionEnvAutoSwitch,
-      activeCollectionDefaultEnvId,
-      // Editing-scope: env-switcher session overrides clear on tab
-      // workspace change (diverged tab on X clears X's overrides), not
-      // on global oracle change.
-      activeWorkspaceId: editingScopeWorkspaceId,
-    }),
-    [
-      activeTabCollectionId,
-      allCollectionsForEnv,
-      collectionEnvAutoSwitch,
-      activeCollectionDefaultEnvId,
-      editingScopeWorkspaceId,
-    ],
-  );
-
-  // Thread the active tab label through the shell's single
-  // `document.title` composer. `setTabTitleBase` handles the `#<n>`
-  // prefix rule internally — callers only pass the contextual piece
-  // (e.g. `my-rule — Open Headers`), so multi-tab users see titles
-  // like `#2 my-rule — Open Headers`. No other component writes
-  // document.title for this surface; the invariant is enforced by
-  // having exactly one `useWorkspaceTabTitle` mount at the shell
-  // root. Passing `null` resets to the default "Open Headers".
-  useEffect(() => {
-    const label = activeTab?.label?.trim();
-    setTabTitleBase(label ? `${label} — Open Headers` : null);
-  }, [activeTab?.label, setTabTitleBase]);
+    localCollectionTrees,
+    requestCollectionTrees: requestsApi.collectionTrees,
+    templateCollectionTrees,
+    liveVariables: liveVarsApi.variables,
+    liveWorkflows: liveWorkflowsApi.workflows,
+    workspaces: workspacesApi.workspaces,
+    editingScopeWorkspaceId,
+  });
 
   const handleBreadcrumbRenameFor = useCallback(
     (tab: WorkbenchTab, newName: string) => {
