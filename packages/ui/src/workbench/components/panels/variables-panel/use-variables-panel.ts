@@ -22,7 +22,7 @@ import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import { type CollectionFamilies, findCollectionByUid } from '@openheaders/ui/shared/variables';
 import { useMemo } from 'react';
 import type { WorkbenchTab } from '../../../types';
-import { buildScopeEditorDispatch, buildVariableEditorDispatch, type DispatchVariable } from '../scope-editor-dispatch';
+import { buildScopeEditorDispatch } from '../scope-editor-dispatch';
 import { buildLiveRegistry } from './live-registry';
 import { resolveScopeContext } from './scope-context';
 import { getScopeKind } from './scope-kind';
@@ -38,9 +38,9 @@ export interface VariablesPanelHandlers {
   onOpenVault?: () => void;
   onOpenWorkspaceVariables?: () => void;
   onOpenLiveVariables?: () => void;
-  /** Open a specific live-variable's edit tab. When wired, an In-Context
-   *  row whose value came from a known LV uid routes here instead of the
-   *  LV list page — the user lands on the edit tab for THIS variable. */
+  /** Open a specific live-variable's edit tab. Reserved for a per-LV row
+   *  handoff (see `buildVariableEditorDispatch`); the Scope panel no longer
+   *  wires rows to it — In-Context rows are copy-first, not click-to-edit. */
   onOpenLiveVariableEdit?: (uid: string, name: string) => void;
   onOpenEnvironmentEdit?: (uid: string, name: string) => void;
   onOpenRuleCollectionVariables?: (uid: string, name: string) => void;
@@ -59,7 +59,6 @@ export interface VariablesPanelViewModel {
   defaultEnvironmentName: string | null;
   activeCollectionName: string | null;
   openScopeEditor: (scope: DisplayScope) => (() => void) | null;
-  openVariableEditor: (variable: DispatchVariable, name: string) => (() => void) | null;
 }
 
 export function useVariablesPanel(
@@ -70,7 +69,6 @@ export function useVariablesPanel(
     onOpenVault,
     onOpenWorkspaceVariables,
     onOpenLiveVariables,
-    onOpenLiveVariableEdit,
     onOpenEnvironmentEdit,
     onOpenRuleCollectionVariables,
     onOpenRequestCollectionVariables,
@@ -150,10 +148,9 @@ export function useVariablesPanel(
     ? (findCollectionByUid(activeCollectionId, families)?.name ?? null)
     : null;
 
-  // Inspector → editor dispatchers. Section-level uses scope only;
-  // row-level prefers per-entity openers when the row carries a uid
-  // (today: live rows). Both delegate to the same null-vs-callback
-  // contract so the consumer hides the affordance when null.
+  // Section-level Inspector → editor dispatch: each scope's "Edit" link
+  // resolves to the right per-family / per-entity editor, or null (which
+  // hides the link). In-Context rows are copy-first and don't dispatch.
   const openScopeEditor = useMemo(
     () =>
       buildScopeEditorDispatch(
@@ -181,39 +178,6 @@ export function useVariablesPanel(
       environments,
       activeCollectionId,
       families,
-    ],
-  );
-
-  const openVariableEditor = useMemo(
-    () =>
-      buildVariableEditorDispatch(
-        {
-          onOpenVault,
-          onOpenWorkspaceVariables,
-          onOpenLiveVariables,
-          onOpenLiveVariableEdit,
-          onOpenEnvironmentEdit,
-          onOpenRuleCollectionVariables,
-          onOpenRequestCollectionVariables,
-          onOpenTemplateCollectionVariables,
-        },
-        { activeCollectionId, families, activeEnvironmentId, defaultEnvironmentId, environments, liveVariables },
-      ),
-    [
-      onOpenVault,
-      onOpenWorkspaceVariables,
-      onOpenLiveVariables,
-      onOpenLiveVariableEdit,
-      onOpenEnvironmentEdit,
-      onOpenRuleCollectionVariables,
-      onOpenRequestCollectionVariables,
-      onOpenTemplateCollectionVariables,
-      activeEnvironmentId,
-      defaultEnvironmentId,
-      environments,
-      activeCollectionId,
-      families,
-      liveVariables,
     ],
   );
 
@@ -257,6 +221,5 @@ export function useVariablesPanel(
     defaultEnvironmentName,
     activeCollectionName,
     openScopeEditor,
-    openVariableEditor,
   };
 }

@@ -56,7 +56,6 @@ const VariablesPanel: React.FC<VariablesPanelProps> = (props) => {
             errors={vm.inContextErrors}
             scopeKind={vm.scopeKind}
             hasContext={vm.hasContextEntity}
-            openVariableEditor={vm.openVariableEditor}
           />
         </PanelSection>
 

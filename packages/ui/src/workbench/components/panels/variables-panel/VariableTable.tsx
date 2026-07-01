@@ -5,15 +5,17 @@
  * "In context" view renders a single mixed-scope table and turns on the
  * leading scope-glyph column so each row shows which scope it resolved
  * from. Sensitive values mask to bullets with a hover/focus reveal;
- * TOTP rows mount a live preview.
+ * TOTP rows mount a live preview. Rows are static — the value is
+ * selectable, and a hover copy button lifts it to the clipboard (the
+ * real value, even while masked).
  */
 
-import { EyeInvisibleOutlined, EyeOutlined } from '@ant-design/icons';
+import { CheckOutlined, CopyOutlined, EyeInvisibleOutlined, EyeOutlined } from '@ant-design/icons';
 import { Tooltip, Typography, theme } from 'antd';
-import { type CSSProperties, useState } from 'react';
+import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import { scopeBadge, unknownScopeBadge } from '../../shared/scope-colors';
 import TotpPreview from '../../totp/TotpPreview';
-import { SCOPE_CONFIG, type DisplayVariable } from './types';
+import { type DisplayVariable } from './types';
 
 const { Text } = Typography;
 
@@ -29,12 +31,9 @@ interface VariableTableProps {
    *  (V/E/C/W/↻); unresolved rows show a muted "?" instead. */
   showScopeGlyph?: boolean;
   emptyMode?: EmptyMode;
-  /** Per-row opener. Returning a callback makes the row clickable
-   *  (Inspector → editor handoff); null leaves it static. */
-  onRowClick?: (variable: DisplayVariable) => (() => void) | null;
 }
 
-export function VariableTable({ variables, showScopeGlyph = false, emptyMode = 'empty', onRowClick }: VariableTableProps) {
+export function VariableTable({ variables, showScopeGlyph = false, emptyMode = 'empty' }: VariableTableProps) {
   const { token } = theme.useToken();
   return (
     <div style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: 6, overflow: 'hidden' }}>
@@ -45,7 +44,6 @@ export function VariableTable({ variables, showScopeGlyph = false, emptyMode = '
           showScopeGlyph={showScopeGlyph}
           emptyMode={emptyMode}
           isLast={i === variables.length - 1}
-          onClick={onRowClick?.(v) ?? null}
         />
       ))}
     </div>
@@ -57,10 +55,9 @@ interface VariableTableRowProps {
   showScopeGlyph: boolean;
   emptyMode: EmptyMode;
   isLast: boolean;
-  onClick: (() => void) | null;
 }
 
-function VariableTableRow({ variable, showScopeGlyph, emptyMode, isLast, onClick }: VariableTableRowProps) {
+function VariableTableRow({ variable, showScopeGlyph, emptyMode, isLast }: VariableTableRowProps) {
   const { token } = theme.useToken();
   const [revealed, setRevealed] = useState(false);
   const [hovered, setHovered] = useState(false);
@@ -76,34 +73,15 @@ function VariableTableRow({ variable, showScopeGlyph, emptyMode, isLast, onClick
     whiteSpace: 'nowrap',
   };
   const showValue = !variable.isSensitive || revealed;
-  const clickable = onClick != null;
   const unresolved = !variable.resolved && emptyMode === 'unresolved';
 
   return (
     <div
-      role={clickable ? 'button' : undefined}
-      tabIndex={clickable ? 0 : undefined}
-      onClick={clickable ? onClick : undefined}
-      onKeyDown={
-        clickable
-          ? (e) => {
-              if (e.key === 'Enter') onClick();
-            }
-          : undefined
-      }
-      title={
-        clickable
-          ? variable.resolved
-            ? `Open the ${SCOPE_CONFIG[variable.scope].label.toLowerCase()} editor`
-            : 'Open editor'
-          : undefined
-      }
       style={{
         display: 'grid',
         gridTemplateColumns: showScopeGlyph ? 'auto 1fr 1fr' : '1fr 1fr',
         borderBottom: isLast ? undefined : border,
         alignItems: 'stretch',
-        cursor: clickable ? 'pointer' : undefined,
       }}
     >
       {showScopeGlyph && (
@@ -136,6 +114,11 @@ function VariableTableRow({ variable, showScopeGlyph, emptyMode, isLast, onClick
             <Text type="secondary" style={textStyle} title={showValue ? variable.value || undefined : undefined}>
               {showValue ? variable.value || '(empty)' : '••••••••'}
             </Text>
+            {variable.value !== '' && (
+              // Copies the real value even while masked — a secret can be
+              // lifted without exposing it on screen.
+              <CopyButton value={variable.value} visible={hovered} onHoverChange={setHovered} />
+            )}
             {variable.isSensitive && (
               // Eye reveals on hover — peripheral read surface, so the
               // affordance stays out of the way until the row is hovered
@@ -144,15 +127,9 @@ function VariableTableRow({ variable, showScopeGlyph, emptyMode, isLast, onClick
                 <span
                   role="button"
                   tabIndex={0}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setRevealed((r) => !r);
-                  }}
+                  onClick={() => setRevealed((r) => !r)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.stopPropagation();
-                      setRevealed((r) => !r);
-                    }
+                    if (e.key === 'Enter') setRevealed((r) => !r);
                   }}
                   onFocus={() => setHovered(true)}
                   onBlur={() => setHovered(false)}
@@ -173,5 +150,64 @@ function VariableTableRow({ variable, showScopeGlyph, emptyMode, isLast, onClick
         )}
       </div>
     </div>
+  );
+}
+
+/** Hover-revealed clipboard button for a row's value. Copies `value`
+ *  verbatim (the resolved secret, not the masked bullets) and flips to a
+ *  check for a beat on success. */
+function CopyButton({
+  value,
+  visible,
+  onHoverChange,
+}: {
+  value: string;
+  visible: boolean;
+  onHoverChange: (v: boolean) => void;
+}) {
+  const { token } = theme.useToken();
+  const [copied, setCopied] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+    },
+    [],
+  );
+  const copy = () => {
+    const clip = navigator.clipboard;
+    if (!clip) return;
+    clip
+      .writeText(value)
+      .then(() => {
+        setCopied(true);
+        if (timer.current) clearTimeout(timer.current);
+        timer.current = setTimeout(() => setCopied(false), 1200);
+      })
+      .catch(() => {});
+  };
+  return (
+    <Tooltip title={copied ? 'Copied' : 'Copy value'}>
+      <span
+        role="button"
+        tabIndex={0}
+        onClick={copy}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') copy();
+        }}
+        onFocus={() => onHoverChange(true)}
+        onBlur={() => onHoverChange(false)}
+        style={{
+          cursor: 'pointer',
+          fontSize: 11,
+          color: copied ? token.colorSuccess : token.colorTextTertiary,
+          flexShrink: 0,
+          opacity: visible || copied ? 1 : 0,
+          transition: 'opacity 0.12s',
+        }}
+      >
+        {copied ? <CheckOutlined /> : <CopyOutlined />}
+      </span>
+    </Tooltip>
   );
 }

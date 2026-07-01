@@ -8,7 +8,6 @@
 
 import type { ResolutionError } from '@openheaders/core/variables';
 import { Typography, theme } from 'antd';
-import type { DispatchVariable } from '../scope-editor-dispatch';
 import { ResolutionErrorList } from './ResolutionErrorList';
 import type { DisplayVariable, ScopeKind } from './types';
 import { VariableTable } from './VariableTable';
@@ -20,10 +19,9 @@ interface InContextViewProps {
   errors: ResolutionError[];
   scopeKind: ScopeKind;
   hasContext: boolean;
-  openVariableEditor: (variable: DispatchVariable, name: string) => (() => void) | null;
 }
 
-export function InContextView({ vars, errors, scopeKind, hasContext, openVariableEditor }: InContextViewProps) {
+export function InContextView({ vars, errors, scopeKind, hasContext }: InContextViewProps) {
   const { token } = theme.useToken();
   const noun = scopeKind === 'request' ? 'request' : scopeKind === 'template' ? 'template' : 'rule';
   if (!hasContext) {
@@ -43,12 +41,7 @@ export function InContextView({ vars, errors, scopeKind, hasContext, openVariabl
   const resolvedCount = vars.filter((v) => v.resolved).length;
   return (
     <>
-      <VariableTable
-        variables={vars}
-        showScopeGlyph
-        emptyMode="unresolved"
-        onRowClick={(v) => openVariableEditor(v, v.name)}
-      />
+      <VariableTable variables={vars} showScopeGlyph emptyMode="unresolved" />
       <div style={{ marginTop: 10, fontSize: 11 }}>
         {resolvedCount === vars.length ? (
           <Text style={{ color: token.colorSuccess, fontSize: 11 }}>
