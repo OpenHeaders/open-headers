@@ -1,8 +1,6 @@
 import { ExclamationCircleOutlined, FileTextOutlined, InfoCircleOutlined } from '@ant-design/icons';
-import { getCapability } from '@openheaders/core/capabilities';
 import { resolvePauseState } from '@openheaders/core/utils';
 import { scheduleFrame } from '@openheaders/ui/shared/frame-scheduler';
-import { useRowActionRegistration } from '@openheaders/ui/shared/hooks/useRowActionRegistration';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/useRuleMutator';
 import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import { useTablePagination } from '@openheaders/ui/shared/hooks/useTablePagination';
@@ -22,6 +20,7 @@ import MatchedRequestsPanel from './this-page-rules/MatchedRequestsPanel';
 import { buildThisPageRows } from './this-page-rules/rows';
 import ThisPageToolbar from './this-page-rules/ThisPageToolbar';
 import type { TableRecord } from './this-page-rules/types';
+import { useThisPageRuleRowActions } from './this-page-rules/useThisPageRuleRowActions';
 import { useThisPageRulesData } from './this-page-rules/useThisPageRulesData';
 
 const { Text } = Typography;
@@ -154,63 +153,14 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
     onPageInfoChange,
   });
 
-  // Register row actions for keyboard navigation
-  const handleToggleRow = useCallback(
-    (index: number) => {
-      const record = dataSourceRef.current[index];
-      if (!record) return;
-      const isEnabled = record.isEnabled !== false;
-      setActiveRules((prev) => prev.map((r) => (r.id === record.id ? { ...r, isEnabled: !isEnabled } : r)));
-      void ruleMutator.toggleRule(record.id, !isEnabled).then((resp) => {
-        if (resp.ok) {
-          // Nudge the SW to revalidate tracked requests + rebuild DNR
-          void getCapability('notifyRulesChanged')?.().catch(() => undefined);
-        } else {
-          setActiveRules((prev) => prev.map((r) => (r.id === record.id ? { ...r, isEnabled } : r)));
-        }
-      });
-    },
-    [ruleMutator],
-  );
-
-  const handleEditRow = useCallback(
-    (index: number) => {
-      const record = dataSourceRef.current[index];
-      if (!record) return;
-      openRulesIntent({ kind: 'edit-rule', uid: record.id });
-    },
-    [openRulesIntent],
-  );
-
-  const handleCopyRow = useCallback((index: number) => {
-    const record = dataSourceRef.current[index];
-    if (!record?.summary) return;
-    void navigator.clipboard.writeText(record.summary);
-    setCopiedRowId(record.key);
-    setTimeout(() => setCopiedRowId(null), 1000);
-  }, []);
-
-  const handleDeleteRow = useCallback(
-    (index: number) => {
-      const record = dataSourceRef.current[index];
-      if (!record) return;
-      setActiveRules((prev) => prev.filter((r) => r.id !== record.id));
-      void ruleMutator.deleteRule(record.id).then((resp) => {
-        if (resp.ok) {
-          void message.success('Rule deleted');
-        } else {
-          void message.error('Failed to delete rule');
-        }
-      });
-    },
-    [message, ruleMutator],
-  );
-
-  useRowActionRegistration(onRowActionsChange, {
-    onToggleRow: handleToggleRow,
-    onEditRow: handleEditRow,
-    onCopyRow: handleCopyRow,
-    onDeleteRow: handleDeleteRow,
+  useThisPageRuleRowActions({
+    dataSourceRef,
+    setActiveRules,
+    ruleMutator,
+    openRulesIntent,
+    setCopiedRowId,
+    message,
+    onRowActionsChange,
   });
 
   const handleTableChange = (
