@@ -52,6 +52,7 @@ import {
   RESOURCE_TYPE_TOOLTIP,
 } from './this-page-rules/format';
 import MatchedRequestsPanel from './this-page-rules/MatchedRequestsPanel';
+import { buildSortOrderMenuItems } from './this-page-rules/sort-order-menu';
 import type { ActiveRule, CurrentTabInfo, TableRecord } from './this-page-rules/types';
 
 const { Text } = Typography;
@@ -634,112 +635,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
               />
               <Dropdown
                 menu={{
-                  items: [
-                    {
-                      key: 'label',
-                      label: (
-                        <Text type="secondary" style={{ fontSize: '11px', fontWeight: 600 }}>
-                          SORT ORDER
-                        </Text>
-                      ),
-                      disabled: true,
-                    },
-                    {
-                      key: 'status',
-                      label: (
-                        <div
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            minWidth: 220,
-                          }}
-                        >
-                          <div>
-                            <div>By status</div>
-                            <Text type="secondary" style={{ fontSize: '11px' }}>
-                              Active → Paused → Disabled · priority within each
-                            </Text>
-                          </div>
-                          {sortMode === 'status' && !sortedInfo.order && <CheckOutlined style={{ color: '#1677ff' }} />}
-                        </div>
-                      ),
-                      onClick: () => handleSortModeChange('status'),
-                    },
-                    {
-                      key: 'priority',
-                      label: (
-                        <div
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            minWidth: 220,
-                          }}
-                        >
-                          <div>
-                            <div>By priority</div>
-                            <Text type="secondary" style={{ fontSize: '11px' }}>
-                              Block → Redirect → Query → Header → Inject · A-Z within each
-                            </Text>
-                          </div>
-                          {sortMode === 'priority' && !sortedInfo.order && (
-                            <CheckOutlined style={{ color: '#1677ff' }} />
-                          )}
-                        </div>
-                      ),
-                      onClick: () => handleSortModeChange('priority'),
-                    },
-                    {
-                      key: 'manual',
-                      label: (
-                        <div
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            minWidth: 220,
-                          }}
-                        >
-                          <div>
-                            <div>Workspace order</div>
-                            <Text type="secondary" style={{ fontSize: '11px' }}>
-                              Matches the workspace sidebar tree order
-                            </Text>
-                          </div>
-                          {sortMode === 'manual' && !sortedInfo.order && <CheckOutlined style={{ color: '#1677ff' }} />}
-                        </div>
-                      ),
-                      onClick: () => handleSortModeChange('manual'),
-                    },
-                    ...(sortedInfo.order
-                      ? [
-                          { type: 'divider' as const, key: 'div' },
-                          {
-                            key: 'column-sort',
-                            label: (
-                              <div
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'space-between',
-                                  minWidth: 220,
-                                }}
-                              >
-                                <div>
-                                  <div>By column</div>
-                                  <Text type="secondary" style={{ fontSize: '11px' }}>
-                                    Sorted by {String(sortedInfo.columnKey)} — click an option above to reset
-                                  </Text>
-                                </div>
-                                <CheckOutlined style={{ color: '#1677ff' }} />
-                              </div>
-                            ),
-                            disabled: true,
-                          },
-                        ]
-                      : []),
-                  ],
+                  items: buildSortOrderMenuItems({ sortMode, sortedInfo, onSortModeChange: handleSortModeChange }),
                 }}
                 placement="bottomRight"
                 trigger={['click']}

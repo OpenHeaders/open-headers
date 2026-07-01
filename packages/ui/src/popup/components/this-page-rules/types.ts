@@ -1,6 +1,9 @@
 import type { RequestRecord, SilentMatchRecord } from '@openheaders/core/types';
 import type { RuleVerdict } from '@openheaders/ui/shared/verdict';
 
+/** Secondary ordering applied to the This Page rules table. */
+export type SortMode = 'status' | 'priority' | 'manual';
+
 export interface MatchedRequestRow extends RequestRecord {
   key: string;
   /** True when the matched URL is the current tab URL (main-frame). */
