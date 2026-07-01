@@ -13,6 +13,7 @@ import { exportNodeFields } from './export-fields';
 import { composeBadge, iconEl, methodTag } from './icons';
 import { containerActionMenuItems, containerAddMenuItems } from './menus';
 import type { TreeNode } from './types';
+import type { SidebarExportEntity } from '../workspace-export/build-export-scope';
 
 interface UseRequestTreeNodesParams {
   requestCollectionTrees: readonly { uid: string; name: string; path: string; tree: CoreTreeNode[] }[];
@@ -44,7 +45,7 @@ interface UseRequestTreeNodesParams {
   deleteRequestCollectionRpc: (uid: string) => Promise<unknown> | unknown;
   onSelectRequest?: (uid: string, name: string, method?: string, autoRename?: boolean) => void;
   onCreateRequest?: (context?: { collectionId?: string; folderPath?: string }) => void;
-  onExportEntity?: (entity: import('../../App').SidebarExportEntity) => void;
+  onExportEntity?: (entity: SidebarExportEntity) => void;
   /** Open the request-collection variables editor tab. */
   onOpenCollectionVariables?: (uid: string, name: string) => void;
   /** Open the request-collection overview tab (matches the rule-collection

@@ -11,6 +11,7 @@ import { createElement, useMemo } from 'react';
 import { scopeBadge } from '../shared/scope-colors';
 import { exportNodeFields } from './export-fields';
 import type { TreeNode } from './types';
+import type { SidebarExportEntity } from '../workspace-export/build-export-scope';
 
 interface UseEnvironmentNodesParams {
   environments: readonly { uid: string; name: string }[];
@@ -29,7 +30,7 @@ interface UseEnvironmentNodesParams {
   pickActiveEnvironment: (uid: string | null) => void;
   setDefaultEnvironment: (uid: string | null) => Promise<unknown> | unknown;
   onSelectEnvironment?: (uid: string, name: string, autoRename?: boolean) => void;
-  onExportEntity?: (entity: import('../../App').SidebarExportEntity) => void;
+  onExportEntity?: (entity: SidebarExportEntity) => void;
 }
 
 export function useEnvironmentNodes(p: UseEnvironmentNodesParams): TreeNode[] {

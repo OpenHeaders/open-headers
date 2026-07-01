@@ -72,6 +72,7 @@ import { FolderDndTree, type FolderDndConfig } from './FolderDndTree';
 import { SectionHeader } from './SectionHeader';
 import { TreeNodeRow } from './TreeNodeRow';
 import type { SidebarView, TreeNode } from './types';
+import type { SidebarExportEntity } from '../workspace-export/build-export-scope';
 import { useDraftOverlay } from './useDraftOverlay';
 import { useEnvironmentNodes } from './useEnvironmentNodes';
 import { useRequestTreeNodes } from './useRequestTreeNodes';
@@ -117,18 +118,18 @@ interface SidebarProps {
   onDeleteRule?: (uid: string) => void;
   /**
    * Open the workspace-export modal scoped to a single sidebar entity.
-   * Single callback for every entity kind — keeps the consumer (App.tsx)
+   * Single callback for every entity kind — keeps the consumer
    * authoritative on how an entity-ref maps to an `ExportModalScope`.
    */
-  onExportEntity?: (entity: import('../../App').SidebarExportEntity) => void;
+  onExportEntity?: (entity: SidebarExportEntity) => void;
   /**
    * Open the workspace-export modal scoped to a multi-select set of
    * sidebar entities. Aggregation into a single `ExportSelection`
-   * (per-type uid lists) lives in App.tsx so the sidebar stays
+   * (per-type uid lists) lives in the consumer so the sidebar stays
    * responsibility-pure: it tracks selection, owns the keyboard/mouse
    * gestures, and hands the consumer the resolved entity list.
    */
-  onExportSelection?: (entities: import('../../App').SidebarExportEntity[]) => void;
+  onExportSelection?: (entities: SidebarExportEntity[]) => void;
   onOpenCollectionOverview?: (uid: string, name: string, autoRename?: boolean) => void;
   onOpenFolderOverview?: (uid: string, name: string, autoRename?: boolean) => void;
   onOpenRequestCollectionOverview?: (uid: string, name: string, autoRename?: boolean) => void;
@@ -935,8 +936,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     lastExportSelectAnchorRef.current = null;
   }, [view, filterText]);
 
-  const resolveExportSelectionEntities = useCallback((): import('../../App').SidebarExportEntity[] => {
-    const byId = new Map<string, import('../../App').SidebarExportEntity>();
+  const resolveExportSelectionEntities = useCallback((): SidebarExportEntity[] => {
+    const byId = new Map<string, SidebarExportEntity>();
     for (const n of allFlatItems) {
       if (exportSelectedIds.has(n.id) && n.exportEntity) byId.set(n.id, n.exportEntity);
     }

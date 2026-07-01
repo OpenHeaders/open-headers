@@ -9,6 +9,7 @@ import { exportNodeFields } from './export-fields';
 import { composeBadge, iconEl } from './icons';
 import { containerActionMenuItems, containerAddMenuItems } from './menus';
 import type { TreeNode } from './types';
+import type { SidebarExportEntity } from '../workspace-export/build-export-scope';
 
 interface UseRulesTreeNodesParams {
   rules: readonly Rule[];
@@ -43,9 +44,9 @@ interface UseRulesTreeNodesParams {
    * Open the workspace-export modal scoped to a single sidebar entity.
    * Used by the rule leaf, the collection group, and the folder row.
    * Resolution from `(kind, uid, name)` → `ExportModalScope` lives in
-   * `App.tsx`'s `buildEntityExportScope` so this hook stays UI-only.
+   * `build-export-scope`'s `buildEntityExportScope` so this hook stays UI-only.
    */
-  onExportEntity?: (entity: import('../../App').SidebarExportEntity) => void;
+  onExportEntity?: (entity: SidebarExportEntity) => void;
   onOpenCollectionOverview?: (uid: string, name: string, autoRename?: boolean) => void;
   onOpenFolderOverview?: (uid: string, name: string, autoRename?: boolean) => void;
   /** Open the rule-collection variables editor tab. */

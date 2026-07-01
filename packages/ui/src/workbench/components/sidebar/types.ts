@@ -7,6 +7,7 @@
  */
 
 import type { ItemType } from 'antd/es/menu/interface';
+import type { SidebarExportEntity } from '../workspace-export/build-export-scope';
 
 /**
  * Which management surface the Sidebar renders. Each view shows a
@@ -70,7 +71,7 @@ export interface TreeNode {
    * so cmd/ctrl+click and shift+click can build a single combined export
    * across heterogeneous picks (rules, requests, collections, …).
    */
-  exportEntity?: import('../../App').SidebarExportEntity;
+  exportEntity?: SidebarExportEntity;
   /** Items shown on `+` — create affordances only (Add Rule / Add
    *  Request / Add Folder). */
   addMenuItems?: ItemType[];

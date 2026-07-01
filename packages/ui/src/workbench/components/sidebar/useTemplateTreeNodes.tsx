@@ -17,6 +17,7 @@ import {
   templateFolderMenuItems,
 } from './menus';
 import type { TreeNode } from './types';
+import type { SidebarExportEntity } from '../workspace-export/build-export-scope';
 
 const RULE_TYPE_LABEL: Record<string, string> = {
   header: 'Header',
@@ -51,7 +52,7 @@ interface UseTemplateTreeNodesParams {
   onSelectTemplate?: (uid: string) => void;
   onOpenTemplateCollectionOverview?: (uid: string, name: string, autoRename?: boolean) => void;
   onOpenTemplateFolderOverview?: (uid: string, name: string, autoRename?: boolean) => void;
-  onExportEntity?: (entity: import('../../App').SidebarExportEntity) => void;
+  onExportEntity?: (entity: SidebarExportEntity) => void;
   /** Open the template-collection variables editor tab. */
   onOpenCollectionVariables?: (uid: string, name: string) => void;
 }

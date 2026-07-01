@@ -6,6 +6,7 @@ import type { WorkbenchTab } from '../../types';
 import { exportNodeFields } from './export-fields';
 import { composeBadge } from './icons';
 import type { TreeNode } from './types';
+import type { SidebarExportEntity } from '../workspace-export/build-export-scope';
 
 interface LiveCache {
   environmentId: string | null;
@@ -35,7 +36,7 @@ interface UseWorkflowNodesParams {
   dirtyWorkflowUids?: ReadonlySet<string>;
   /** Workflow uids with step-request templates that don't resolve. */
   unresolvableWorkflowUids?: ReadonlySet<string>;
-  onExportEntity?: (entity: import('../../App').SidebarExportEntity) => void;
+  onExportEntity?: (entity: SidebarExportEntity) => void;
 }
 
 /**

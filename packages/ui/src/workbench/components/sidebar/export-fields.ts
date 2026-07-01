@@ -6,7 +6,7 @@
  * export when the user cmd/ctrl-clicks across heterogeneous picks.
  */
 
-import type { SidebarExportEntity } from '../../App';
+import type { SidebarExportEntity } from '../workspace-export/build-export-scope';
 import type { TreeNode } from './types';
 
 export function exportNodeFields(
