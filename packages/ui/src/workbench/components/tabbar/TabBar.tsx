@@ -13,7 +13,7 @@
  *   - Auto-scroll active tab into view
  */
 
-import { CopyOutlined, DownOutlined, PlusOutlined } from '@ant-design/icons';
+import { DownOutlined, PlusOutlined } from '@ant-design/icons';
 import { horizontalListSortingStrategy, SortableContext } from '@dnd-kit/sortable';
 import type { LiveWorkflow, Request, Rule, Template } from '@openheaders/core/types';
 import { Dropdown, Tooltip, theme } from 'antd';
@@ -25,11 +25,10 @@ import { useDragIntent } from '../../drag-intent';
 import { useShortcutLabel } from '../../hooks/useWorkspaceShortcuts';
 import { buildRuleTypeMenuItems } from '../../rule-type-menu';
 import type { ClosedTab, WorkbenchTab } from '../../types';
-import LayoutMenuIcon from '../shell/LayoutMenuIcon';
-import { menuItemLabel } from '../shared/MenuItemShortcutLabel';
 import CrossLeafInsertionMarker from './CrossLeafInsertionMarker';
 import SortableTab from './SortableTab';
 import TabSearchDropdown from './TabSearchDropdown';
+import { buildTabContextMenu } from './build-tab-context-menu';
 import { EMPTY_SET } from './tab-format';
 
 // ── Editor tab drag data contract ───────────────────────────────
@@ -230,169 +229,34 @@ const TabBar: React.FC<TabBarProps> = ({
   const newRuleLabel = useShortcutLabel('new-rule');
 
   // ── Context menu builder ───────────────────────────────────────
-  const menuIconWrap = useCallback(
-    (node: React.ReactNode) => (
-      <span
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: 22,
-          height: 18,
-        }}
-      >
-        {node}
-      </span>
-    ),
-    [],
-  );
-
   const buildContextMenu = useCallback(
-    (tab: WorkbenchTab, tabIndex: number): { items: ItemType[] } => {
-      const splitDisabled = tabs.length < 2;
-      // "Duplicate Tab" only applies to Rules and Requests — the copy
-      // lands as a scratch (never live, never a stored draft) regardless
-      // of whether the source was published or still drafting.
-      const isDuplicable =
-        tab.mode === 'edit' ||
-        tab.mode === 'rule-create' ||
-        tab.mode === 'request-edit' ||
-        tab.mode === 'request-create';
-      return {
-        items: [
-          ...(isDuplicable && onDuplicate
-            ? [
-                {
-                  key: 'duplicate',
-                  label: 'Duplicate Tab',
-                  icon: menuIconWrap(<CopyOutlined />),
-                  onClick: () => onDuplicate(tab.id),
-                } satisfies ItemType,
-                { type: 'divider' as const },
-              ]
-            : []),
-          { key: 'close', label: menuItemLabel('Close', 'close-tab'), onClick: () => onClose(tab.id) },
-          {
-            key: 'close-other',
-            label: 'Close Other Tabs',
-            disabled: tabs.length <= 1,
-            onClick: () => onCloseOther(tab.id),
-          },
-          { key: 'close-all', label: 'Close All Tabs', onClick: () => onCloseAll() },
-          { key: 'close-unmodified', label: 'Close Unmodified Tabs', onClick: () => onCloseUnmodified() },
-          { type: 'divider' as const },
-          {
-            key: 'close-left',
-            label: 'Close Tabs to the Left',
-            icon: menuIconWrap(<LayoutMenuIcon kind="close-tabs-left" />),
-            disabled: tabIndex === 0,
-            onClick: () => onCloseToLeft(tab.id),
-          },
-          {
-            key: 'close-right',
-            label: 'Close Tabs to the Right',
-            icon: menuIconWrap(<LayoutMenuIcon kind="close-tabs-right" />),
-            disabled: tabIndex === tabs.length - 1,
-            onClick: () => onCloseToRight(tab.id),
-          },
-          { type: 'divider' as const },
-          {
-            key: 'split-and-move',
-            label: 'Split and Move',
-            disabled: splitDisabled,
-            children: [
-              {
-                key: 'split-move-right',
-                label: 'Right',
-                icon: menuIconWrap(<LayoutMenuIcon kind="split-right" />),
-                disabled: splitDisabled,
-                onClick: () => onSplitAndMoveRight?.(tab.id),
-              },
-              {
-                key: 'split-move-left',
-                label: 'Left',
-                icon: menuIconWrap(<LayoutMenuIcon kind="split-left" />),
-                disabled: splitDisabled,
-                onClick: () => onSplitAndMoveLeft?.(tab.id),
-              },
-              {
-                key: 'split-move-down',
-                label: 'Down',
-                icon: menuIconWrap(<LayoutMenuIcon kind="split-down" />),
-                disabled: splitDisabled,
-                onClick: () => onSplitAndMoveDown?.(tab.id),
-              },
-              {
-                key: 'split-move-up',
-                label: 'Up',
-                icon: menuIconWrap(<LayoutMenuIcon kind="split-up" />),
-                disabled: splitDisabled,
-                onClick: () => onSplitAndMoveUp?.(tab.id),
-              },
-            ],
-          },
-          ...(oppositeDirection
-            ? [
-                {
-                  key: 'move-opposite',
-                  label: 'Move To Opposite Group',
-                  icon: menuIconWrap(
-                    <LayoutMenuIcon
-                      kind={
-                        oppositeDirection === 'right'
-                          ? 'split-right'
-                          : oppositeDirection === 'left'
-                            ? 'split-left'
-                            : oppositeDirection === 'down'
-                              ? 'split-down'
-                              : 'split-up'
-                      }
-                    />,
-                  ),
-                  onClick: () => onMoveToOppositeGroup?.(tab.id),
-                } satisfies ItemType,
-              ]
-            : []),
-          {
-            key: 'flip-orientation',
-            label: 'Change Splitter Orientation',
-            icon: parentOrientation
-              ? menuIconWrap(
-                  <LayoutMenuIcon kind={parentOrientation === 'horizontal' ? 'split-horizontal' : 'split-vertical'} />,
-                )
-              : undefined,
-            disabled: !canUnsplit,
-            onClick: () => onChangeSplitterOrientation?.(),
-          },
-          {
-            key: 'unsplit',
-            label: 'Unsplit',
-            icon: parentOrientation
-              ? menuIconWrap(
-                  <LayoutMenuIcon
-                    kind={parentOrientation === 'horizontal' ? 'unsplit-horizontal' : 'unsplit-vertical'}
-                  />,
-                )
-              : undefined,
-            disabled: !canUnsplit,
-            onClick: () => onUnsplit?.(),
-          },
-          ...(canUnsplitAll
-            ? [
-                {
-                  key: 'unsplit-all',
-                  label: 'Unsplit All',
-                  icon: menuIconWrap(<LayoutMenuIcon kind="unsplit-all" />),
-                  onClick: () => onUnsplitAll?.(),
-                } satisfies ItemType,
-              ]
-            : []),
-        ],
-      };
-    },
+    (tab: WorkbenchTab, tabIndex: number): { items: ItemType[] } =>
+      buildTabContextMenu({
+        tab,
+        tabIndex,
+        tabCount: tabs.length,
+        onDuplicate,
+        onClose,
+        onCloseOther,
+        onCloseAll,
+        onCloseUnmodified,
+        onCloseToLeft,
+        onCloseToRight,
+        onSplitAndMoveRight,
+        onSplitAndMoveLeft,
+        onSplitAndMoveDown,
+        onSplitAndMoveUp,
+        onMoveToOppositeGroup,
+        oppositeDirection,
+        parentOrientation,
+        onChangeSplitterOrientation,
+        onUnsplit,
+        onUnsplitAll,
+        canUnsplit,
+        canUnsplitAll,
+      }),
     [
       tabs.length,
-      menuIconWrap,
       onDuplicate,
       onClose,
       onCloseOther,
