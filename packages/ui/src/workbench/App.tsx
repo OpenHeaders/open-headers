@@ -38,7 +38,7 @@ import {
   VAULT_ENTITY_TYPE,
   WORKSPACE_VARIABLES_ENTITY_TYPE,
 } from '@openheaders/core/sync';
-import type { ExtensionRuleType, Request, Rule } from '@openheaders/core/types';
+import type { ExtensionRuleType } from '@openheaders/core/types';
 import { hostBridge } from '@openheaders/core/bridge';
 import { focusFirstDropdownItem } from '@openheaders/ui/shared/focus-dropdown-item';
 import type { InputRef } from 'antd';
@@ -106,6 +106,7 @@ import {
 import { useCommandPaletteData } from './hooks/useCommandPaletteData';
 import { useEditingScopeWorkspaceId } from './hooks/useEditingScopeWorkspaceId';
 import { useEditorGroups } from './hooks/useEditorGroups';
+import { useEditorRegistrations } from './hooks/useEditorRegistrations';
 import { useEntityStatusSets } from './hooks/useEntityStatusSets';
 import { useFocusRegion } from './hooks/useFocusRegion';
 import { InspectorNavProvider, useInspectorNav } from './hooks/useInspectorNav';
@@ -644,72 +645,26 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     replaceTab,
   });
 
-  // ── Dirty tracking / save refs ─────────────────────────────────
-  const handleDirtyChange = useCallback(
-    (tabId: string, dirty: boolean) => {
-      dirtyMap.current.set(tabId, dirty);
-      updateTab(tabId, { dirty });
-    },
-    [dirtyMap, updateTab],
-  );
-
-  const registerSaveRef = useCallback(
-    (tabId: string, saveFn: () => void) => {
-      saveRefMap.current.set(tabId, saveFn);
-    },
-    [saveRefMap],
-  );
-
-  const saveAsTemplateRefMap = useRef<Map<string, () => void>>(new Map());
-  const registerSaveAsTemplateRef = useCallback((tabId: string, fn: () => void) => {
-    saveAsTemplateRefMap.current.set(tabId, fn);
-  }, []);
-
-  // ── Duplicate snapshot refs ────────────────────────────────────
-  // Each mounted rule/request editor publishes a fn that projects its
-  // live form into content-only domain data. "Duplicate Tab" reads the
-  // anchor tab's snapshot and opens a fresh scratch seeded with it.
-  // Tabs stay mounted (display:none) so a background tab's snapshot is
-  // readable without switching to it first.
-  const ruleDuplicateRefMap = useRef<Map<string, () => Omit<Rule, 'uid' | 'path'> | null>>(new Map());
-  const registerRuleDuplicateRef = useCallback((tabId: string, fn: () => Omit<Rule, 'uid' | 'path'> | null) => {
-    ruleDuplicateRefMap.current.set(tabId, fn);
-  }, []);
-  const requestDuplicateRefMap = useRef<Map<string, () => Omit<Request, 'uid' | 'path' | 'schemaVersion'> | null>>(
-    new Map(),
-  );
-  const registerRequestDuplicateRef = useCallback(
-    (tabId: string, fn: () => Omit<Request, 'uid' | 'path' | 'schemaVersion'> | null) => {
-      requestDuplicateRefMap.current.set(tabId, fn);
-    },
-    [],
-  );
-
-  const handleDuplicateTab = useCallback(
-    (tabId: string) => {
-      const tab = allTabs.find((t) => t.id === tabId);
-      if (!tab) return;
-      if (tab.mode === 'edit' || tab.mode === 'rule-create') {
-        const content = ruleDuplicateRefMap.current.get(tabId)?.();
-        if (content) openDuplicateRuleScratch(content);
-        return;
-      }
-      if (tab.mode === 'request-edit' || tab.mode === 'request-create') {
-        const content = requestDuplicateRefMap.current.get(tabId)?.();
-        if (content) openDuplicateRequestScratch(content);
-      }
-    },
-    [allTabs, openDuplicateRuleScratch, openDuplicateRequestScratch],
-  );
-
-  // ── Handle rule saved (edit mode) ─────────────────────────────
-  const handleSaved = useCallback(
-    (tabId: string, uid: string) => {
-      const rule = rules.find((r) => r.uid === uid);
-      updateTab(tabId, { label: rule?.name ?? undefined, dirty: false });
-    },
-    [rules, updateTab],
-  );
+  // ── Editor mounting glue (dirty / save / duplicate registration) ─
+  // Every editor `renderTabBody` mounts registers its imperative
+  // handles here; the tab-bar's Duplicate reads the snapshot refs.
+  const {
+    handleDirtyChange,
+    handleSaved,
+    registerSaveRef,
+    registerSaveAsTemplateRef,
+    registerRuleDuplicateRef,
+    registerRequestDuplicateRef,
+    handleDuplicateTab,
+  } = useEditorRegistrations({
+    dirtyMap,
+    saveRefMap,
+    updateTab,
+    allTabs,
+    rules,
+    openDuplicateRuleScratch,
+    openDuplicateRequestScratch,
+  });
 
   // Clear stale rename state on tab switch.
   useEffect(() => {
