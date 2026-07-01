@@ -73,9 +73,6 @@ import EditorGroupRenderer, { type RenderLeafHeaderContext } from './components/
 import EmptyState, { type VariableCreateScope } from './components/shell/EmptyState';
 import EnvironmentEditor from './components/variables/EnvironmentEditor';
 import FolderOverview from './components/overviews/FolderOverview';
-import ImportCurlModal from './components/import/ImportCurlModal';
-import ImportHarModal from './components/import/ImportHarModal';
-import ImportPostmanModal from './components/import/ImportPostmanModal';
 import LiveVariablesEditor from './components/variables/LiveVariablesEditor';
 import LiveVariableEditor from './components/live/LiveVariableEditor';
 import LiveWorkflowEditor from './components/live/LiveWorkflowEditor';
@@ -103,9 +100,7 @@ import { VariablePopoverProvider } from './components/template-input/VariablePop
 import VaultEditor from './components/variables/VaultEditor';
 import WorkspaceManager from './components/workspace/WorkspaceManager';
 import WorkspaceVariablesEditor from './components/variables/WorkspaceVariablesEditor';
-import ExportModal, { type ExportModalScope } from './components/workspace-export/ExportModal';
-import ImportPreviewModal, { type ImportPreviewSource } from './components/workspace-export/ImportPreviewModal';
-import ImportSourceModal from './components/workspace-export/ImportSourceModal';
+import ImportExportModals, { type ImportExportModalsHandle } from './components/workspace-export/ImportExportModals';
 import { buildEntityExportScope, buildSelectionExportScope } from './components/workspace-export/build-export-scope';
 import { findLeaf } from './editor-groups';
 import {
@@ -468,95 +463,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsMaximized, setSettingsMaximized] = useState(false);
   const [settingsTarget, setSettingsTarget] = useState<{ settingKey?: string; categoryId?: string }>({});
-  const [importCurlOpen, setImportCurlOpen] = useState(false);
-  const [importCurlContext, setImportCurlContext] = useState<{ collectionId?: string } | undefined>(undefined);
-  const [importHarOpen, setImportHarOpen] = useState(false);
-  const [importHarContext, setImportHarContext] = useState<{ collectionId?: string } | undefined>(undefined);
-  const [importPostmanOpen, setImportPostmanOpen] = useState(false);
-  const [exportModalState, setExportModalState] = useState<{ open: false } | { open: true; scope: ExportModalScope }>({
-    open: false,
-  });
-  const [importPreviewState, setImportPreviewState] = useState<
-    | { open: false }
-    | { open: true; rawText: string; initialError?: string; source: ImportPreviewSource }
-    | { open: true; rawText: null; initialError: string; source: ImportPreviewSource }
-  >({ open: false });
-  /**
-   * Multi-file import queue (design §5.5). When the user drops or
-   * picks more than one workspace-export file, we open the preview
-   * modal for the first file and stash the rest here. On modal close
-   * (cancel or success) we shift the queue and open the next.
-   */
-  const [, setPendingImportFiles] = useState<File[]>([]);
-  const advanceImportQueue = useCallback(() => {
-    setPendingImportFiles((queue) => {
-      if (queue.length === 0) {
-        setImportPreviewState({ open: false });
-        return queue;
-      }
-      const [next, ...rest] = queue;
-      void next
-        .text()
-        .then((text) => setImportPreviewState({ open: true, rawText: text, source: 'file' }))
-        .catch((err: Error) =>
-          setImportPreviewState({
-            open: true,
-            rawText: null,
-            initialError: `Couldn't read ${next.name}: ${err.message}`,
-            source: 'file',
-          }),
-        );
-      return rest;
-    });
-  }, []);
-  const importFileInputRef = useRef<HTMLInputElement>(null);
-  const [importSourceModalOpen, setImportSourceModalOpen] = useState(false);
-  // Hand-off: when the preview modal becomes visible, the source modal
-  // has done its job — close it so the preview stands alone. The brief
-  // skeleton state inside the source modal covers the parse + SW
-  // preview RPC window so the user sees one continuous loading
-  // affordance instead of a 1 s frozen-button gap.
-  useEffect(() => {
-    if (!importSourceModalOpen) return;
-    if (importPreviewState.open) setImportSourceModalOpen(false);
-  }, [importSourceModalOpen, importPreviewState.open]);
-  // Click the menu entry / receive an `open-import-modal` intent →
-  // show the drop-zone modal. The native picker is owned by the modal
-  // itself; the bare `<input>` below is kept only for compatibility
-  // with older direct-click sites that haven't migrated to the modal
-  // yet (none currently — the menu now goes through the modal).
-  const openImportFilePicker = useCallback(() => {
-    setImportSourceModalOpen(true);
-  }, []);
-  const onImportFileChosen = useCallback(async (file: File) => {
-    try {
-      const text = await file.text();
-      setImportPreviewState({ open: true, rawText: text, source: 'file' });
-    } catch (err) {
-      // File-read failures (sandbox quirks, perms) — surface inline. Modal
-      // will display a parse-error banner if the bytes turn out to be
-      // unreadable.
-      setImportPreviewState({ open: true, rawText: '', source: 'file' });
-      void err;
-    }
-  }, []);
-
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
-
-  /**
-   * Look up a prior import report by source hash (ARCHITECTURE §23).
-   * Shared across every import modal so the re-import-diff panel
-   * renders uniformly. Errors are swallowed to `null` — the diff is
-   * a nice-to-have, not a blocker on the import flow.
-   */
-  const findPreviousImportReport = useCallback(async (sourceHash: string) => {
-    try {
-      const { report } = await hostBridge.call('findImportReportBySourceHash', { sourceHash });
-      return report;
-    } catch {
-      return null;
-    }
-  }, []);
 
   // Auto-collapse sidebar on narrow viewports (first-open only).
   const sidebarAutoCollapsedRef = useRef(false);
@@ -575,48 +482,12 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   const shellRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => attachBus(shellRef.current), [attachBus]);
 
-  // Workspace-export drag-and-drop. The whole shell is a drop target;
-  // a `.openheaders.yaml` / `.json` file opens the import preview modal.
-  // We cancel non-file drags so the browser doesn't navigate the tab.
-  useEffect(() => {
-    const root = shellRef.current;
-    if (!root) return;
-    const isExportFile = (file: File): boolean => {
-      const name = file.name.toLowerCase();
-      return (
-        name.endsWith('.openheaders.yaml') || name.endsWith('.openheaders.yml') || name.endsWith('.openheaders.json')
-      );
-    };
-    const onDragOver = (e: DragEvent) => {
-      if (!e.dataTransfer) return;
-      const types = Array.from(e.dataTransfer.types);
-      if (types.includes('Files')) e.preventDefault();
-    };
-    const onDrop = (e: DragEvent) => {
-      const dropped = Array.from(e.dataTransfer?.files ?? []).filter(isExportFile);
-      if (dropped.length === 0) return;
-      e.preventDefault();
-      const [first, ...rest] = dropped;
-      setPendingImportFiles(rest);
-      void first
-        .text()
-        .then((text) => setImportPreviewState({ open: true, rawText: text, source: 'file' }))
-        .catch((err: Error) =>
-          setImportPreviewState({
-            open: true,
-            rawText: null,
-            initialError: `Couldn't read ${first.name}: ${err.message}`,
-            source: 'file',
-          }),
-        );
-    };
-    root.addEventListener('dragover', onDragOver);
-    root.addEventListener('drop', onDrop);
-    return () => {
-      root.removeEventListener('dragover', onDragOver);
-      root.removeEventListener('drop', onDrop);
-    };
-  }, []);
+  // Imperative handle for the import/export modal farm — the sidebar,
+  // top-bar menu, and command-palette intents fire openers on it. The
+  // modal state and the shell-wide file drop target live inside the
+  // component (mounted at the bottom of the shell); the shell owns only
+  // the ref.
+  const importExportRef = useRef<ImportExportModalsHandle>(null);
 
   const focus = useFocusRegion({
     shellRef,
@@ -945,8 +816,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     openLiveVariableEdit,
     openLiveWorkflowEdit,
     openCreateLiveVariable,
-    openExportModal: () => setExportModalState({ open: true, scope: { kind: 'workspace' } }),
-    openImportModal: () => setImportSourceModalOpen(true),
+    openExportModal: () => importExportRef.current?.openExportModal({ kind: 'workspace' }),
+    openImportModal: () => importExportRef.current?.openImportSource(),
   });
 
   // ── Sync tab labels with rule/template changes; close on delete ─
@@ -1840,9 +1711,9 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
               onSelectRule={openEditTab}
               onCreateRule={openCreateTab}
               onDeleteRule={handleDeleteRule}
-              onExportEntity={(args) => setExportModalState({ open: true, scope: buildEntityExportScope(args) })}
+              onExportEntity={(args) => importExportRef.current?.openExportModal(buildEntityExportScope(args))}
               onExportSelection={(entities) =>
-                setExportModalState({ open: true, scope: buildSelectionExportScope(entities) })
+                importExportRef.current?.openExportModal(buildSelectionExportScope(entities))
               }
               onOpenCollectionOverview={openCollectionOverview}
               onOpenFolderOverview={openFolderOverview}
@@ -1862,15 +1733,9 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
               onCreateWorkflow={(seedStep) => openCreateLiveWorkflow(seedStep ? { seedStep } : undefined)}
               onSelectRequest={openRequestEditTab}
               onCreateRequest={openCreateRequestTab}
-              onImportCurl={(ctx) => {
-                setImportCurlContext(ctx);
-                setImportCurlOpen(true);
-              }}
-              onImportHar={(ctx) => {
-                setImportHarContext(ctx);
-                setImportHarOpen(true);
-              }}
-              onImportPostman={() => setImportPostmanOpen(true)}
+              onImportCurl={(ctx) => importExportRef.current?.openImportCurl(ctx)}
+              onImportHar={(ctx) => importExportRef.current?.openImportHar(ctx)}
+              onImportPostman={() => importExportRef.current?.openImportPostman()}
               filterRef={(node: InputRef | null) => {
                 if (node) sidebarFilterRefs.current.set(id as SidebarViewId, node);
                 else sidebarFilterRefs.current.delete(id as SidebarViewId);
@@ -2032,8 +1897,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
             onSetActiveWorkspace={workspacesApi.setActiveWorkspace}
             onOpenWorkspaceManager={openWorkspaceManager}
             onOpenBackendSettings={() => openSettings({ categoryId: 'backend' })}
-            onExportWorkspace={() => setExportModalState({ open: true, scope: { kind: 'workspace' } })}
-            onImportWorkspace={openImportFilePicker}
+            onExportWorkspace={() => importExportRef.current?.openExportModal({ kind: 'workspace' })}
+            onImportWorkspace={() => importExportRef.current?.openImportSource()}
             environments={envApi.environments}
             activeEnvironmentId={envApi.activeEnvironmentId}
             onCreateEnvironment={() => void handleCreateEnvironment()}
@@ -2195,145 +2060,11 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
             sections={cmdSections}
           />
 
-          <ImportCurlModal
-            open={importCurlOpen}
-            collections={requestsApi.collections}
-            initialCollectionId={importCurlContext?.collectionId}
-            onCancel={() => setImportCurlOpen(false)}
-            createRequest={async ({ name, collectionUid, seed }) => {
-              // The parser's output already carries every field the
-              // editor would normally enter; pass the full seed so the
-              // store builds the request with the imported shape.
-              const created = await requestsApi.createRequest({ name, collectionUid, seed });
-              return created ? { uid: created.uid } : null;
-            }}
-            findPreviousReport={findPreviousImportReport}
-            onImported={({ requestUid, name, method, report }) => {
-              setImportCurlOpen(false);
-              // Open the freshly-imported request in an editor tab so
-              // the user can immediately inspect or tweak it. Use the
-              // caller-chosen name + method so the tab label + method
-              // glyph match the new request on first paint (avoids a
-              // "Imported request / GET" flash before the hook hydrates).
-              openRequestEditTab(requestUid, name, method);
-              // Persist the structured import report (ARCHITECTURE §23).
-              // Fire-and-forget — the request itself already landed; a
-              // failure to persist the report is a nice-to-have loss,
-              // not a hard error. Surfaces at triage time via the
-              // observability log if it matters.
-              void hostBridge.call('recordImportReport', { report }).catch(() => undefined);
-            }}
-          />
-
-          <ImportHarModal
-            open={importHarOpen}
-            collections={requestsApi.collections}
-            initialCollectionId={importHarContext?.collectionId}
-            onCancel={() => setImportHarOpen(false)}
-            createRequest={async ({ name, collectionUid, seed }) => {
-              const created = await requestsApi.createRequest({ name, collectionUid, seed });
-              return created ? { uid: created.uid } : null;
-            }}
-            findPreviousReport={findPreviousImportReport}
-            onImported={({ report }) => {
-              setImportHarOpen(false);
-              // HAR imports can produce many requests at once — we don't
-              // auto-open an editor tab (Postman / Insomnia don't either)
-              // to avoid flooding the tab bar. The user browses the
-              // sidebar to find their new entries. The structured report
-              // still lands in storage for audit.
-              void hostBridge.call('recordImportReport', { report }).catch(() => undefined);
-            }}
-          />
-
-          <ImportPostmanModal
-            open={importPostmanOpen}
-            onCancel={() => setImportPostmanOpen(false)}
-            createCollection={async (name) => {
-              const c = await requestsApi.createCollection(name);
-              return c ? { uid: c.uid, path: c.path } : null;
-            }}
-            createFolder={async (name, parentPath) => {
-              const f = await requestsApi.createFolder(name, parentPath);
-              return f ? { uid: f.uid, path: f.path } : null;
-            }}
-            createRequest={async ({ name, parentPath, seed }) => {
-              const r = await requestsApi.createRequest({ name, parentPath, seed });
-              return r ? { uid: r.uid } : null;
-            }}
-            createEnvironment={async ({ name, variables }) => {
-              const e = await envApi.createEnvironment(name, variables);
-              return e ? { uid: e.uid } : null;
-            }}
-            findPreviousReport={findPreviousImportReport}
-            onImported={({ report }) => {
-              setImportPostmanOpen(false);
-              // Postman imports are multi-entity — like HAR, we don't
-              // auto-open an editor tab. The user navigates to the new
-              // collection from the sidebar. Structured report still
-              // lands in storage for audit.
-              void hostBridge.call('recordImportReport', { report }).catch(() => undefined);
-            }}
-          />
-
-          {exportModalState.open && workspacesApi.activeWorkspace ? (
-            <ExportModal
-              open
-              workspaceId={workspacesApi.activeWorkspace.id}
-              workspaceName={workspacesApi.activeWorkspace.name}
-              scope={exportModalState.scope}
-              onCancel={() => setExportModalState({ open: false })}
-            />
-          ) : null}
-
-          <input
-            ref={importFileInputRef}
-            type="file"
-            accept=".yaml,.yml,.json,application/yaml,application/json,text/yaml,text/plain"
-            multiple
-            style={{ display: 'none' }}
-            onChange={(e) => {
-              const picked = Array.from(e.currentTarget.files ?? []);
-              e.currentTarget.value = '';
-              if (picked.length === 0) return;
-              const [first, ...rest] = picked;
-              setPendingImportFiles(rest);
-              void onImportFileChosen(first);
-            }}
-          />
-
-          <ImportSourceModal
-            open={importSourceModalOpen}
-            // Skeleton is on while the preview modal is being prepared.
-            // It flips off (with the modal closing) the moment the
-            // preview modal goes `open: true` — see the effect just
-            // above the render that watches `importPreviewState.open`.
-            loading={importPreviewState.open}
-            onCancel={() => setImportSourceModalOpen(false)}
-            onFileChosen={(file) => {
-              void onImportFileChosen(file);
-            }}
-          />
-
-          <ImportPreviewModal
-            open={importPreviewState.open}
-            rawText={importPreviewState.open ? importPreviewState.rawText : null}
-            initialError={importPreviewState.open ? importPreviewState.initialError : undefined}
-            source={importPreviewState.open ? importPreviewState.source : undefined}
-            workspaces={workspacesApi.workspaces}
-            activeWorkspaceId={editingScopeWorkspaceId}
-            onCancel={() => advanceImportQueue()}
-            onImported={({ targetWorkspaceId, importedCount, sourceLabel }) => {
-              const summary = `Imported ${importedCount} entit${importedCount === 1 ? 'y' : 'ies'} from "${sourceLabel}"`;
-              message.success(summary);
-              advanceImportQueue();
-              // If the target isn't the editing-scope workspace, offer
-              // to switch — `handleSwitchWorkspace` is mode-aware so the
-              // jump lands per-tab in per-tab mode and globally otherwise.
-              if (targetWorkspaceId !== editingScopeWorkspaceId) {
-                void handleSwitchWorkspace(targetWorkspaceId);
-              }
-            }}
+          <ImportExportModals
+            ref={importExportRef}
+            onSwitchWorkspace={handleSwitchWorkspace}
+            onOpenRequest={openRequestEditTab}
+            dropTargetRef={shellRef}
           />
 
           <ConnectionProvider value={{ isConnected }}>
