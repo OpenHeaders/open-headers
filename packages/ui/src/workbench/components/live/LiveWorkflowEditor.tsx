@@ -43,35 +43,22 @@ import {
   draftFromWorkflow as draftFromWorkflowCore,
   isWorkflowComplete,
   newDraftCapture,
-  pickPrimaryLv,
   planLiveVariableReconcile,
   stripDraftSteps,
-  toDraftCapture,
   validateStepRequestsExist,
   validateWorkflowShape,
 } from '@openheaders/core/live';
 import { LIVE_WORKFLOW_ENTITY_TYPE } from '@openheaders/core/sync';
 import { generateUid } from '@openheaders/core/utils';
 import { EntityScopeProvider, useSetActiveFieldFocus } from '@openheaders/ui/shared/awareness';
-import {
-  type ConflictResolution,
-  EntityConflictBanner,
-  hasDialogOnlyConflict,
-  EntityConflictDialog,
-  prettyPathMap,
-  useAutoMergeForm,
-} from '@openheaders/ui/shared/conflicts';
+import { EntityConflictBanner, EntityConflictDialog, hasDialogOnlyConflict } from '@openheaders/ui/shared/conflicts';
 import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell';
-import { liveWorkflowResolveAdapter } from './live-workflow-conflict-adapter';
 import { rebindCaptureReferences } from './rebind-capture-references';
 import { rebindStepReferences } from './rebind-step-references';
-import {
-  projectLiveWorkflowToForm,
-  useLiveWorkflowConflicts,
-} from './use-live-workflow-conflicts';
+import { useLiveWorkflowConflictResolution } from './use-live-workflow-conflict-resolution';
 import { applyLiveWorkflowPublish } from '@openheaders/ui/shared/sync/live-workflow-write-client';
 import { useWorkbenchEditingScopeWorkspaceId } from '../../hooks/EditingScopeWorkspaceContext';
-import type { LiveWorkflow, WorkflowStep } from '@openheaders/core/types';
+import type { LiveWorkflow } from '@openheaders/core/types';
 import { Alert, App, Button, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -233,240 +220,26 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
   });
   const isDirty = reprime.isDirty;
 
-  const conflicts = useLiveWorkflowConflicts({
-    liveEntity: workflow,
+  const {
+    allConflicts,
+    clearDismissed,
+    isConflictDialogOpen,
+    setConflictDialogOpen,
+    handleKeepAllMine,
+    handleUseAllSaved,
+    handleResolveText,
+    savedText,
+    baseText,
+    mineText,
+  } = useLiveWorkflowConflictResolution({
+    workflow,
+    draft,
+    setDraft,
     isDirty,
-    enabled: workflow != null,
-    entityType: LIVE_WORKFLOW_ENTITY_TYPE,
+    boundVars,
+    setBaselineRef,
+    baselineLiveWorkflowRef,
   });
-  setBaselineRef.current = conflicts.setBaseline;
-
-  const formProjection = useMemo(
-    () =>
-      draft
-        ? projectLiveWorkflowToForm({
-            name: draft.name,
-            description: draft.description,
-            enabled: draft.enabled,
-            refresh: draft.refresh,
-            steps: stripDraftSteps(draft.steps),
-          })
-        : null,
-    [draft],
-  );
-
-  // Per-leaf auto-rebase. Covers workflow-level scalars + per-step +
-  // per-capture leaves; the resolve adapter handles the path → field
-  // dispatch (scalar / refresh sub-leaf / steps.<uid>.* / steps.<uid>.
-  // captures.<uid>.*). Draft.steps round-trips through stripDraftSteps
-  // so the transient WorkflowStep[] matches the adapter's expected
-  // shape, then re-wrap as DraftStep[] preserving each capture's
-  // existing exposure metadata (looked up by uid).
-  const applyAutoMerge = useCallback(
-    (path: string, theirs: string) => {
-      if (!workflow || !draft) return;
-      const transient: LiveWorkflow = {
-        ...workflow,
-        name: draft.name,
-        description: draft.description,
-        enabled: draft.enabled,
-        refresh: draft.refresh,
-        steps: stripDraftSteps(draft.steps),
-      };
-      if (!liveWorkflowResolveAdapter.applyResolutionToEntity(transient, path, { base: '', theirs })) return;
-      setDraft((d) => {
-        if (!d) return d;
-        // Rewrap captures as DraftCaptures, preserving each existing
-        // draft capture's exposure metadata (matched by uid). New /
-        // unmatched captures fall back to the toDraftCapture default.
-        const draftCapByUid = new Map<string, DraftStep['captures'][number]>();
-        for (const s of d.steps) for (const c of s.captures) draftCapByUid.set(c.uid, c);
-        const nextSteps: DraftStep[] = transient.steps.map((s) => ({
-          ...s,
-          captures: s.captures.map((c) => {
-            const existing = draftCapByUid.get(c.uid);
-            return existing
-              ? { ...c, exposed: existing.exposed, liveName: existing.liveName, liveUid: existing.liveUid }
-              : toDraftCapture(c, pickPrimaryLv(s.id, c.name, boundVars));
-          }),
-        }));
-        return {
-          ...d,
-          name: transient.name,
-          description: transient.description ?? '',
-          enabled: transient.enabled,
-          refresh: transient.refresh,
-          steps: nextSteps,
-        };
-      });
-    },
-    [workflow, draft, boundVars],
-  );
-  useAutoMergeForm({ conflicts, formProjection, applyToForm: applyAutoMerge });
-
-  const allConflicts = useMemo(
-    () => (formProjection ? conflicts.getAllConflicts(formProjection) : new Map()),
-    [conflicts, formProjection],
-  );
-  const [isConflictDialogOpen, setConflictDialogOpen] = useState(false);
-
-  const projectWithResolutions = useCallback(
-    (resolutions: ReadonlyMap<string, ConflictResolution>): LiveWorkflow | null => {
-      if (!workflow || !draft) return null;
-      const transient: LiveWorkflow = {
-        ...workflow,
-        name: draft.name,
-        description: draft.description,
-        enabled: draft.enabled,
-        refresh: draft.refresh,
-      };
-      for (const [path, choice] of resolutions) {
-        if (choice !== 'theirs') continue;
-        const conflict = allConflicts.get(path);
-        if (!conflict) continue;
-        liveWorkflowResolveAdapter.applyResolutionToEntity(transient, path, conflict);
-      }
-      return transient;
-    },
-    [allConflicts, draft, workflow],
-  );
-
-  const adoptProjected = useCallback((projected: LiveWorkflow) => {
-    setDraft((d) =>
-      d
-        ? {
-            ...d,
-            name: projected.name,
-            description: projected.description ?? '',
-            enabled: projected.enabled,
-            refresh: projected.refresh,
-          }
-        : d,
-    );
-  }, []);
-
-  const handleKeepAllMine = useCallback(() => {
-    for (const path of allConflicts.keys()) conflicts.dismiss(path);
-  }, [allConflicts, conflicts]);
-
-  const handleUseAllSaved = useCallback(() => {
-    if (!workflow) return;
-    const all = new Map<string, ConflictResolution>();
-    for (const path of allConflicts.keys()) all.set(path, 'theirs');
-    const projected = projectWithResolutions(all);
-    if (!projected) return;
-    adoptProjected(projected);
-    for (const [path, conflict] of allConflicts) conflicts.acceptTheirs(path, conflict.theirs);
-  }, [allConflicts, conflicts, workflow, projectWithResolutions, adoptProjected]);
-
-  const applyResolutions = useCallback(
-    (resolutions: Map<string, ConflictResolution>) => {
-      const projected = projectWithResolutions(resolutions);
-      if (projected) adoptProjected(projected);
-      for (const [path, choice] of resolutions) {
-        const conflict = allConflicts.get(path);
-        if (!conflict) continue;
-        if (choice === 'theirs') conflicts.acceptTheirs(path, conflict.theirs);
-        else conflicts.dismiss(path);
-      }
-    },
-    [allConflicts, conflicts, projectWithResolutions, adoptProjected],
-  );
-
-  // Phase 6 commit seam — parses the merge-editor's result text back to
-  // the projection, adopts to draft, then dismisses every conflict path.
-  // Steps are reconstructed as DraftSteps via toDraftCapture so the
-  // editor's per-capture exposure metadata is rebuilt from the bound
-  // LiveVariable set. Throws on malformed JSON.
-  const handleResolveText = useCallback(
-    (text: string) => {
-      if (!workflow) return;
-      const raw = JSON.parse(text) as Partial<{
-        name: string;
-        description: string;
-        enabled: boolean;
-        refresh: LiveWorkflow['refresh'];
-        steps: WorkflowStep[];
-      }>;
-      const nextSteps: DraftStep[] | undefined = Array.isArray(raw.steps)
-        ? raw.steps.map((step) => ({
-            ...step,
-            captures: step.captures.map((c) => toDraftCapture(c, pickPrimaryLv(step.id, c.name, boundVars))),
-          }))
-        : undefined;
-      setDraft((d) =>
-        d
-          ? {
-              ...d,
-              name: typeof raw.name === 'string' ? raw.name : d.name,
-              description: typeof raw.description === 'string' ? raw.description : d.description,
-              enabled: typeof raw.enabled === 'boolean' ? raw.enabled : d.enabled,
-              refresh: raw.refresh !== undefined ? raw.refresh : d.refresh,
-              steps: nextSteps !== undefined ? nextSteps : d.steps,
-            }
-          : d,
-      );
-      for (const path of allConflicts.keys()) conflicts.dismiss(path);
-    },
-    [workflow, allConflicts, conflicts, boundVars],
-  );
-
-  const conflictPathLabels = useMemo(
-    () =>
-      workflow
-        ? prettyPathMap(liveWorkflowResolveAdapter, workflow, allConflicts.keys())
-        : new Map<string, string>(),
-    [workflow, allConflicts],
-  );
-
-  const savedText = useMemo(() => {
-    if (!isConflictDialogOpen || !workflow) return '';
-    return JSON.stringify(
-      {
-        name: workflow.name,
-        description: workflow.description ?? '',
-        enabled: workflow.enabled,
-        refresh: workflow.refresh,
-        steps: workflow.steps,
-      },
-      null,
-      2,
-    );
-  }, [isConflictDialogOpen, workflow]);
-
-  // Baseline JSON for the merge-editor preview's Show Base layouts.
-  // Same shape as savedText / mineText so the 3-pane diff aligns.
-  const baseText = useMemo(() => {
-    if (!isConflictDialogOpen) return undefined;
-    const baseline = baselineLiveWorkflowRef.current;
-    if (!baseline) return undefined;
-    return JSON.stringify(
-      {
-        name: baseline.name,
-        description: baseline.description ?? '',
-        enabled: baseline.enabled,
-        refresh: baseline.refresh,
-        steps: baseline.steps,
-      },
-      null,
-      2,
-    );
-  }, [isConflictDialogOpen]);
-
-  const mineText = useMemo(() => {
-    if (!isConflictDialogOpen || !draft) return '';
-    return JSON.stringify(
-      {
-        name: draft.name,
-        description: draft.description,
-        enabled: draft.enabled,
-        refresh: draft.refresh,
-        steps: stripDraftSteps(draft.steps),
-      },
-      null,
-      2,
-    );
-  }, [isConflictDialogOpen, draft]);
 
   // Per-field focus path. Live editors don't use antd Form, so focus
   // mapping rides `data-field-path` attributes on field-section
@@ -547,7 +320,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
       }
       // Dirty derives from form-vs-canonical equality; broadcast echo
       // brings live in line with form, useReprime auto-rebase clears.
-      conflicts.clearDismissed();
+      clearDismissed();
       return;
     }
     if (result.reason === 'not-found') {
@@ -565,7 +338,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
     createVariable,
     updateVariable,
     deleteVariable,
-    conflicts,
+    clearDismissed,
   ]);
 
   const handleSaveSync = useCallback(() => void handleSave(), [handleSave]);
