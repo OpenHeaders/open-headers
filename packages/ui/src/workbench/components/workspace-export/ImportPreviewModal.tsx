@@ -64,7 +64,7 @@ import {
 import { useUiTheme } from '@openheaders/ui/context';
 import type { MergeApplyOutcome, MergeFile } from '@openheaders/ui/shared/merge-editor';
 import { MergeConflictModal } from '@openheaders/ui/shared/merge-editor';
-import { renderWorkspacePrefix } from '../workspace-prefix';
+import { renderWorkspacePrefix } from '../workspace/workspace-prefix';
 import { buildImportStatusChips } from './preview/buildImportStatusChips';
 import { AdvancedTogglesList } from './preview/AdvancedPanel';
 import { applyMergeResultsToEnvelope, diffResultToImportBundle } from './preview/diff-to-import-bundle';

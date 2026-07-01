@@ -33,8 +33,8 @@ import type { RequestBody } from '@openheaders/core/types';
 import { Radio, Select, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useRef } from 'react';
-import CodeEditor from '../CodeEditor';
-import MultipartEditor from '../MultipartEditor';
+import CodeEditor from '../shared/CodeEditor';
+import MultipartEditor from './MultipartEditor';
 import FormEditor from './FormEditor';
 
 const { Text } = Typography;

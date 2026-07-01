@@ -50,7 +50,7 @@ import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { liveVariableResolveAdapter } from './live-variable-conflict-adapter';
 import { projectLiveVariableToForm, useLiveVariableConflicts } from './use-live-variable-conflicts';
-import EditorHeader from '../EditorHeader';
+import EditorHeader from '../shell/EditorHeader';
 import { FieldRow, InlineNameDescription, LIVE_ROW_GAP, LIVE_ROW_LABEL_WIDTH, Section } from './layout';
 import {
   classifyRun,

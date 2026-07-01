@@ -7,7 +7,7 @@ import {
 import type { Template, TemplateNode, TreeNode as CoreTreeNode } from '@openheaders/core/types';
 import { createElement, useCallback, useMemo } from 'react';
 import { TEMPLATES_BY_TYPE } from '../../rule-templates';
-import { renderTwoToneIcon } from '../TwoToneIconPicker';
+import { renderTwoToneIcon } from '../shared/TwoToneIconPicker';
 import { exportNodeFields } from './export-fields';
 import { iconEl } from './icons';
 import {

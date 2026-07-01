@@ -38,7 +38,7 @@ import type { InputRef } from 'antd';
 import { Divider, Input, Popover, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { renderWorkspacePrefix } from '../../workbench/components/workspace-prefix';
+import { renderWorkspacePrefix } from '../../workbench/components/workspace/workspace-prefix';
 import { useBackendReach } from '../hooks/useBackendReach';
 import { OrgIcon } from '../workspace-org/OrgIcon';
 import { WorkspaceOrgBadge } from '../workspace-org/WorkspaceOrgBadge';

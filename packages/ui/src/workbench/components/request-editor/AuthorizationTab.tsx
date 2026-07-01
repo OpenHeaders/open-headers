@@ -12,7 +12,7 @@ import type { AuthConfig } from '@openheaders/core/types';
 import { Select, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback } from 'react';
-import OAuth2AuthEditor from '../OAuth2AuthEditor';
+import OAuth2AuthEditor from './OAuth2AuthEditor';
 import { TemplateInput } from '../template-input';
 
 const { Text } = Typography;

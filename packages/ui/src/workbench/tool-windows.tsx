@@ -20,7 +20,7 @@ import {
   SisternodeOutlined,
 } from '@ant-design/icons';
 import { DOCK_LABELS as _LABELS, type ToolWindowDef as GenericToolWindowDef } from '@openheaders/ui/shared/dock-layout';
-import ActivityFeedIcon from './components/ActivityFeedIcon';
+import ActivityFeedIcon from './components/panels/ActivityFeedIcon';
 import type { ToolWindowId } from './types';
 
 export type ToolWindowDef = GenericToolWindowDef<ToolWindowId>;

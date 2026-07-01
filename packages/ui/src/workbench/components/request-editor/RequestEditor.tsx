@@ -1,0 +1,763 @@
+/**
+ * RequestEditor — HTTP request editor tab.
+ *
+ * Full-fidelity editor for the request shape the SW's `executeRequest`
+ * runner can ship. Tab layout: Docs · Params · Authorization · Headers
+ * · Body · Scripts · Settings.
+ *
+ * This module is the orchestrator: it owns the draft + live-mirror
+ * state, the sync/conflict wiring, and save/send, then composes the
+ * focused pieces under `./request-editor/` (URL bar, tab catalog, tab
+ * content, per-section resolvability, response panel).
+ *
+ * Sync engine alignment (matches RuleEditor + TemplateEditor):
+ *
+ *   - `useEditorShell` returns branded `headerProps` + `scopeProps`
+ *     mounted into `<EditorHeader>` + `<EntityScopeProvider>`; the
+ *     scope drives `<EntityField>` + per-row `data-field-path` markers
+ *     so all publishers contribute the same `(entity, path)` triple
+ *     to `<SurfaceAwarenessPublisher>`. Also bundles dirty-publishing.
+ *   - `useReprime` owns the form-vs-canonical comparison (BC1 by
+ *     construction); dirty derives structurally. Create-mode dirty is
+ *     `isCreateMode ? true : reprime.isDirty` at the editor surface.
+ *   - `useRequestConflicts` + `<EntityConflictBanner>` +
+ *     `<EntityConflictDialog>` surface concurrent-edit divergence.
+ *
+ * Send operates on the LOCAL draft so users can test-fire without
+ * persisting first.
+ */
+
+import { CaretRightOutlined, LoadingOutlined } from '@ant-design/icons';
+import { useRequests } from '@openheaders/ui/shared/hooks/useRequests';
+import { canonicalizeRequest, parseRequest, serializeRequest } from '@openheaders/core/codec/yaml';
+import { freshDocument } from '@openheaders/core/schemas';
+import { REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
+import type { ExecutedRequestSnapshot, Request } from '@openheaders/core/types';
+import { isRequestComplete } from '@openheaders/core/utils';
+import { App, Button, Tabs, Tooltip, Typography, theme } from 'antd';
+import { Allotment } from 'allotment';
+import type React from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getRequestSyncMirrorForWorkspace } from '@openheaders/ui/context';
+import { EntityScopeProvider, REQUEST_PATHS, useSetActiveFieldFocus } from '@openheaders/ui/shared/awareness';
+import { readFieldPath } from '@openheaders/ui/shared/awareness/field-path';
+import {
+  type ConflictResolution,
+  EntityConflictBanner,
+  EntityConflictDialog,
+  hasDialogOnlyConflict,
+  type PathConflict,
+  useAutoMergeForm,
+} from '@openheaders/ui/shared/conflicts';
+import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell';
+import { ensureScheme, needsSchemeNormalization } from '@openheaders/ui/shared/fetch';
+import { stableStringify } from '@openheaders/ui/shared/forms';
+import { useWorkbenchEditingScopeWorkspaceId } from '../../hooks/EditingScopeWorkspaceContext';
+import type { DraftData } from '../../hooks/useSaveRequestFlow';
+import EditorHeader from '../shell/EditorHeader';
+import { useRequestWorkflowStepContext } from '../live/useRequestWorkflowStepContext';
+import { mergeRequestForSave } from './merge-request-for-save';
+import { requestResolveAdapter } from './request-conflict-adapter';
+import {
+  type Draft,
+  buildRequestUpdates,
+  canonicalRequestProjection,
+  draftFromRequest,
+  emptyDraft,
+  rowsToHeaders,
+  rowsToParams,
+} from './draft';
+import { type KeyValueRowConflictBridge } from './KeyValueTable';
+import { type TabKey, buildRequestTabItems } from './request-tab-items';
+import RequestTabContent from './RequestTabContent';
+import RequestUrlBar from './RequestUrlBar';
+import ResponsePanel from './response/ResponsePanel';
+import { useRequestEditorLayout } from './useRequestEditorLayout';
+import { useSectionUnresolved } from './useSectionUnresolved';
+import type { AutoSuggestionContextValue } from '../template-input';
+import { SuggestionContextProvider } from '../template-input';
+import { useRequestConflicts } from './use-request-conflicts';
+
+const { Text } = Typography;
+
+// ── Types ──────────────────────────────────────────────────────────
+
+interface RequestEditorProps {
+  mode: 'request-edit' | 'request-create';
+  requestUid?: string;
+  draftName?: string;
+  preferredCollectionId?: string;
+  preferredFolderPath?: string;
+  /** Full-fidelity create-mode seed from "Duplicate Tab" — the source
+   *  request's content (URL, method, headers, params, auth, body,
+   *  scripts, …) plus name, minus identity. The draft is initialized
+   *  from it on mount. Honored in create mode only. */
+  seedRequestContent?: Omit<Request, 'uid' | 'path' | 'schemaVersion'>;
+  onDirtyChange?: (dirty: boolean) => void;
+  registerSaveRef?: (save: () => void) => void;
+  onSaveDraft?: (draftData: DraftData) => void;
+  /** Publishes a snapshot fn that projects the live draft into content-
+   *  only request data (plus name, minus identity) — read by "Duplicate
+   *  Tab" to seed a fresh scratch. Works in both edit and create modes. */
+  registerDuplicateRef?: (fn: () => Omit<Request, 'uid' | 'path' | 'schemaVersion'> | null) => void;
+  /**
+   * "Use response in workflow" action — available only in request-edit
+   * mode where the request has a stable uid. `target` picks where the
+   * seeded step lands: a fresh draft workflow (`'new'`) or an existing
+   * workflow identified by uid. Either way the host opens the workflow
+   * editor with the request pre-seeded as a step so the user can wire
+   * the response's values into `{{live.*}}` captures.
+   */
+  onExtractToWorkflow?: (target: 'new' | { workflowUid: string }, seedStep: ExtractSeedStep) => void;
+}
+
+/** Payload the request editor hands the extract action. */
+export interface ExtractSeedStep {
+  requestUid: string;
+  requestName: string;
+  method: string;
+}
+
+// ── Component ──────────────────────────────────────────────────────
+
+const RequestEditor: React.FC<RequestEditorProps> = ({
+  mode,
+  requestUid,
+  draftName,
+  preferredCollectionId,
+  preferredFolderPath,
+  seedRequestContent,
+  onDirtyChange,
+  registerSaveRef,
+  onSaveDraft,
+  registerDuplicateRef,
+  onExtractToWorkflow,
+}) => {
+  const { token } = theme.useToken();
+  const { message } = App.useApp();
+  const { requests, collections: requestCollections, getRequest, updateRequest, execute } = useRequests();
+
+  const isCreateMode = mode === 'request-create';
+  const [activeTab, setActiveTab] = useState<TabKey>('params');
+
+  const summary = useMemo(
+    () => (requestUid ? (requests.find((r) => r.uid === requestUid) ?? null) : null),
+    [requests, requestUid],
+  );
+
+  const [draft, setDraft] = useState<Draft>(() =>
+    // "Duplicate Tab" seeds a scratch from the source request's content.
+    // `draftFromRequest` rebuilds fresh rows/arrays, so the new editor's
+    // draft never shares references with the original.
+    isCreateMode && seedRequestContent
+      ? draftFromRequest({ schemaVersion: 5, uid: 'seed', path: '', ...seedRequestContent })
+      : emptyDraft(),
+  );
+  const [loading, setLoading] = useState(!isCreateMode);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [liveRequest, setLiveRequest] = useState<Request | null>(null);
+
+  const [sending, setSending] = useState(false);
+  const [response, setResponse] = useState<ExecutedRequestSnapshot | null>(null);
+
+  // Request/response split orientation — global, persisted preference
+  // (see useRequestEditorLayout). `horizontal` = side-by-side,
+  // `vertical` = stacked.
+  const [layout, setLayout] = useRequestEditorLayout();
+
+  // ── Live mirror integration ───────────────────────────────────
+  //
+  // Subscribe to broadcasts so concurrent commits land in `liveRequest`.
+  // The reprime hook below replays into the draft when clean; conflicts
+  // surface against the live snapshot when dirty.
+  const editingScopeWorkspaceId = useWorkbenchEditingScopeWorkspaceId();
+  useEffect(() => {
+    if (isCreateMode || !requestUid || !editingScopeWorkspaceId) return;
+    const mirror = getRequestSyncMirrorForWorkspace(editingScopeWorkspaceId);
+    const sync = () => {
+      const entry = mirror.getRequestMirror(requestUid);
+      setLiveRequest(entry?.request ?? null);
+    };
+    sync();
+    return mirror.subscribeRequestMirror(requestUid, sync);
+  }, [isCreateMode, requestUid, editingScopeWorkspaceId]);
+
+  const draftCollectionId = useMemo(() => {
+    const path = summary?.path;
+    if (!path) return undefined;
+    const hit = requestCollections.find((c) => path.startsWith(`${c.path}/`));
+    return hit?.uid;
+  }, [summary?.path, requestCollections]);
+
+  // When this request is referenced by a single workflow step, surface
+  // `{{step.X.Y}}` captures from strictly-earlier steps. Unique-binding
+  // only: see `useRequestWorkflowStepContext` for why multi-binding
+  // stays silent.
+  const workflowStepCtx = useRequestWorkflowStepContext(requestUid);
+  const suggestionContext = useMemo<AutoSuggestionContextValue>(
+    () => ({ collectionId: draftCollectionId, workflowStep: workflowStepCtx }),
+    [draftCollectionId, workflowStepCtx],
+  );
+
+  // Resolvability gate for the Send button — mirrors the DNR compile
+  // gate for rules. Disabling Send up front is better UX than letting
+  // the executor return an error snapshot: the user sees exactly which
+  // section's refs are broken (inline red-dashed mirror + tab dots) and
+  // fixes them before clicking.
+  const { sectionUnresolved, hasUnresolvedRefs } = useSectionUnresolved(draft, draftCollectionId);
+
+  // Edit mode: load full request from SW. Create mode: nothing to load.
+  const initializedUidRef = useRef<string | null>(null);
+
+  // Form-fingerprint: structural projection of the draft. Empty string
+  // pre-init so useReprime has a stable input; `enabled` gates seeding
+  // until the SW load completes.
+  const formFingerprint = useMemo(
+    () => (isInitialized ? stableStringify(buildRequestUpdates(draft)) : ''),
+    [draft, isInitialized],
+  );
+
+  // Conflict-baseline ref pattern (canonical recipe — see RuleEditor /
+  // EnvironmentEditor / VaultEditor).
+  const setBaselineRef = useRef<(e: Request) => void>(() => undefined);
+  // Save-time merge baseline: snapshot of the request at the most
+  // recent re-prime — feeds `mergeRequestForSave` so the save batch
+  // only carries leaves the user actually edited.
+  const baselineRequestRef = useRef<Request | null>(null);
+
+  const reprime = useReprime<Request>({
+    liveEntity: liveRequest,
+    scope: { entityType: REQUEST_ENTITY_TYPE, entityId: requestUid ?? null },
+    enabled: isInitialized && !isCreateMode,
+    formFingerprint,
+    signature: (e) => stableStringify(canonicalRequestProjection(e)),
+    populate: (e) => setDraft(draftFromRequest(e)),
+    onPrimed: (e) => {
+      setBaselineRef.current(e);
+      baselineRequestRef.current = e;
+    },
+  });
+  // Create mode: dirty until Save mints the entity. Edit mode: hook owns
+  // the `formFp !== primedFp` comparison (BC1 by construction).
+  const isDirty = isCreateMode ? true : reprime.isDirty;
+
+  const conflicts = useRequestConflicts({
+    liveRequest,
+    isDirty,
+    enabled: !isCreateMode,
+  });
+  setBaselineRef.current = conflicts.setBaseline;
+
+  const formProjection = useMemo(() => {
+    if (!liveRequest || !isInitialized) return null;
+    const transient: Request = { ...liveRequest, ...buildRequestUpdates(draft) };
+    return conflicts.projectEntity(transient);
+  }, [draft, liveRequest, isInitialized, conflicts]);
+
+  const formSetOrders = useMemo(() => {
+    const out = new Map<string, string[]>();
+    out.set(
+      REQUEST_PATHS.headerSet,
+      draft.headers.map((h) => h.uid).filter((u): u is string => !!u),
+    );
+    out.set(
+      REQUEST_PATHS.paramSet,
+      draft.params.map((p) => p.uid).filter((u): u is string => !!u),
+    );
+    return out;
+  }, [draft.headers, draft.params]);
+
+  const allConflicts = useMemo(
+    () => (formProjection ? conflicts.getAllConflicts(formProjection, formSetOrders) : new Map<string, PathConflict>()),
+    [formProjection, formSetOrders, conflicts],
+  );
+
+  const [isConflictDialogOpen, setConflictDialogOpen] = useState(false);
+
+  // Inline conflict bridges for the Headers + Params tables. Each cell
+  // already writes the local leaf via the table's onChange path; the
+  // bridge only acks the tracker so the chip dismisses + baseline
+  // catches up. Set-remove flows the same way: the row's `onRemove`
+  // drops the row locally, then the bridge acks the `set:*` path.
+  const headerConflictBridge = useMemo<KeyValueRowConflictBridge>(
+    () => ({
+      setPath: REQUEST_PATHS.headerSet,
+      getLeafConflict: (path, local) => conflicts.getConflict(path, local),
+      getSetConflict: (setPath, uid, formContainsUid) => conflicts.getSetConflict(setPath, uid, formContainsUid),
+      onAcceptTheirs: (path, theirs) => conflicts.acceptTheirs(path, theirs),
+      onDismiss: (path) => conflicts.dismiss(path),
+    }),
+    [conflicts],
+  );
+  const paramConflictBridge = useMemo<KeyValueRowConflictBridge>(
+    () => ({
+      setPath: REQUEST_PATHS.paramSet,
+      getLeafConflict: (path, local) => conflicts.getConflict(path, local),
+      getSetConflict: (setPath, uid, formContainsUid) => conflicts.getSetConflict(setPath, uid, formContainsUid),
+      onAcceptTheirs: (path, theirs) => conflicts.acceptTheirs(path, theirs),
+      onDismiss: (path) => conflicts.dismiss(path),
+    }),
+    [conflicts],
+  );
+
+  // Per-leaf auto-rebase — see EnvironmentEditor for the discipline.
+  const applyAutoMerge = useCallback(
+    (path: string, theirs: string) => {
+      if (!liveRequest) return;
+      const merged = JSON.parse(JSON.stringify({ ...liveRequest, ...buildRequestUpdates(draft) })) as Request;
+      if (!requestResolveAdapter.applyResolutionToEntity(merged, path, { base: '', theirs })) return;
+      setDraft(draftFromRequest(merged));
+    },
+    [liveRequest, draft],
+  );
+  useAutoMergeForm({
+    conflicts,
+    formProjection: formProjection ?? undefined,
+    applyToForm: applyAutoMerge,
+  });
+
+  // Shared helper: clone the live request, fold in current draft +
+  // optional resolutions, then return both the projected request and
+  // the corresponding draft. One source of truth for the "use saved"
+  // affordances and for the dialog's right-pane preview text.
+  const projectWithResolutions = useCallback(
+    (resolutions: ReadonlyMap<string, ConflictResolution>): { req: Request; draft: Draft } | null => {
+      if (!liveRequest) return null;
+      const merged = JSON.parse(JSON.stringify({ ...liveRequest, ...buildRequestUpdates(draft) })) as Request;
+      for (const [path, choice] of resolutions) {
+        if (choice !== 'theirs') continue;
+        const conflict = allConflicts.get(path);
+        if (!conflict) continue;
+        requestResolveAdapter.applyResolutionToEntity(merged, path, conflict);
+      }
+      return { req: merged, draft: draftFromRequest(merged) };
+    },
+    [liveRequest, draft, allConflicts],
+  );
+
+  const handleKeepAllMine = useCallback(() => {
+    for (const path of allConflicts.keys()) conflicts.dismiss(path);
+  }, [allConflicts, conflicts]);
+
+  const handleUseAllSaved = useCallback(() => {
+    if (!liveRequest) return;
+    const all = new Map<string, ConflictResolution>();
+    for (const path of allConflicts.keys()) all.set(path, 'theirs');
+    const projected = projectWithResolutions(all);
+    if (!projected) return;
+    setDraft(projected.draft);
+    for (const [path, conflict] of allConflicts) conflicts.acceptTheirs(path, conflict.theirs);
+  }, [allConflicts, conflicts, liveRequest, projectWithResolutions]);
+
+  // Phase 6 commit seam — parses the merge-editor's result YAML back
+  // to a Request (siblings omitted: the merge surface only carries
+  // `request.yaml`; body/variables/scripts round-trip outside this
+  // path), populates the draft, dismisses every conflict path. Throws
+  // on parse failure — the merge modal renders the error inline.
+  const handleResolveText = useCallback(
+    (text: string) => {
+      if (!liveRequest) return;
+      const parsed = parseRequest(text, { path: liveRequest.path });
+      setDraft(draftFromRequest(parsed.value));
+      for (const path of allConflicts.keys()) conflicts.dismiss(path);
+    },
+    [liveRequest, allConflicts, conflicts],
+  );
+
+  const savedYaml = useMemo(() => {
+    if (!isConflictDialogOpen || !liveRequest) return '';
+    try {
+      return serializeRequest(freshDocument(canonicalizeRequest(liveRequest))).requestYaml;
+    } catch {
+      return '';
+    }
+  }, [isConflictDialogOpen, liveRequest]);
+
+  // Baseline YAML for the merge-editor preview's Show Base layouts.
+  // Captured at dialog-open from the form's baseline-request ref.
+  const baseYaml = useMemo(() => {
+    if (!isConflictDialogOpen) return undefined;
+    const baseline = baselineRequestRef.current;
+    if (!baseline) return undefined;
+    try {
+      return serializeRequest(freshDocument(canonicalizeRequest(baseline))).requestYaml;
+    } catch {
+      return undefined;
+    }
+  }, [isConflictDialogOpen]);
+
+  // Local projection serialized for the merge editor's mine pane —
+  // live request + current draft, no per-path picks (the merge editor
+  // surface owns picks now).
+  const mineText = useMemo(() => {
+    if (!isConflictDialogOpen || !liveRequest) return '';
+    const merged = { ...liveRequest, ...buildRequestUpdates(draft) } as Request;
+    try {
+      return serializeRequest(freshDocument(canonicalizeRequest(merged))).requestYaml;
+    } catch {
+      return '';
+    }
+  }, [isConflictDialogOpen, liveRequest, draft]);
+
+  // Init: load full request from SW. The seed flow is:
+  //   setLiveRequest → useReprime sees liveEntity → onPrimed advances
+  //   the conflict baseline + primedFingerprint via auto-rebase
+  //   (formFp === liveFp after populate). No manual baseline plumbing.
+  useEffect(() => {
+    if (isCreateMode) {
+      setIsInitialized(true);
+      return;
+    }
+    if (!summary || !requestUid || initializedUidRef.current === requestUid) return;
+    initializedUidRef.current = requestUid;
+    setLoading(true);
+    void getRequest(requestUid).then((full) => {
+      if (full) {
+        setDraft(draftFromRequest(full));
+        setLiveRequest(full);
+      }
+      setLoading(false);
+      setIsInitialized(true);
+    });
+  }, [isCreateMode, requestUid, summary, getRequest]);
+
+  // ── Field focus publishing ───────────────────────────────────
+  //
+  // RequestUrlBar's EntityField wraps the URL + method inputs and
+  // publishes through `useSetActiveFieldFocus` directly. Per-row cells
+  // (Headers / Params) use the existing `data-field-path` ancestor
+  // scheme — the EditableGridTable shell tags each cell with the
+  // canonical schema path; this editor's onFocusCapture reads the path
+  // off the focused element and routes it through the same context.
+  // Order of precedence: EntityField (innermost capture wins) > sub-row
+  // marker.
+  const setActiveFieldFocus = useSetActiveFieldFocus();
+  const handleEditorFocusCapture = useCallback(
+    (e: React.FocusEvent<HTMLDivElement>) => {
+      if (isCreateMode || !requestUid) return;
+      const path = readFieldPath(e.target);
+      if (!path) return;
+      setActiveFieldFocus({ entityType: REQUEST_ENTITY_TYPE, entityId: requestUid, path });
+    },
+    [isCreateMode, requestUid, setActiveFieldFocus],
+  );
+  const handleEditorBlurCapture = useCallback(
+    (e: React.FocusEvent<HTMLDivElement>) => {
+      const next = e.relatedTarget as HTMLElement | null;
+      if (next && e.currentTarget.contains(next)) return;
+      setActiveFieldFocus(null);
+    },
+    [setActiveFieldFocus],
+  );
+
+  const handleSave = useCallback(async () => {
+    if (isCreateMode) {
+      onSaveDraft?.({
+        name: draftName ?? 'New Request',
+        description: draft.description.trim() ? draft.description : undefined,
+        method: draft.method,
+        url: draft.url,
+        headers: rowsToHeaders(draft.headers),
+        params: rowsToParams(draft.params),
+        auth: draft.auth,
+        body: draft.body,
+        credentialsMode: draft.credentialsMode,
+        followRedirects: draft.followRedirects,
+        preRequestScript: draft.preRequestScript,
+        postResponseScript: draft.postResponseScript,
+      });
+      return;
+    }
+    if (!requestUid || !isDirty) return;
+    // Save-time per-field merge: rebases the form against the latest
+    // canonical so the batch only carries leaves the user actually
+    // edited. Closes the race window where a peer commit broadcasts
+    // between the auto-merge effect's previous tick and this save.
+    const updates = mergeRequestForSave(buildRequestUpdates(draft), baselineRequestRef.current, liveRequest);
+    const result = await updateRequest(requestUid, updates);
+    if (result.ok) {
+      conflicts.clearDismissed();
+      // Dirty derives from form-vs-canonical equality; the broadcast
+      // echo brings live in line with form, auto-rebase clears.
+    } else if (result.reason === 'not-found') {
+      message.error('Request was deleted from another tab');
+    } else {
+      message.error(`Failed to update request${'message' in result ? `: ${result.message}` : ''}`);
+    }
+  }, [
+    isCreateMode,
+    requestUid,
+    draft,
+    draftName,
+    isDirty,
+    liveRequest,
+    updateRequest,
+    onSaveDraft,
+    conflicts,
+    message,
+  ]);
+
+  const handleSaveSync = useCallback(() => {
+    void handleSave();
+  }, [handleSave]);
+
+  // ── Duplicate snapshot ─────────────────────────────────────────
+  // Publish a fn that projects the LIVE draft (incl. uncommitted edits)
+  // into content-only request data so "Duplicate Tab" can seed a fresh
+  // scratch. draft + name ride refs so the published closure stays
+  // stable while always reading current values.
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+  const requestNameRef = useRef('');
+  requestNameRef.current = summary?.name ?? draftName ?? 'New Request';
+  useEffect(() => {
+    registerDuplicateRef?.(() => ({ name: requestNameRef.current, ...buildRequestUpdates(draftRef.current) }));
+  }, [registerDuplicateRef]);
+
+  const shell = useEditorShell({
+    entityType: REQUEST_ENTITY_TYPE,
+    entityId: requestUid ?? null,
+    isDirty,
+    isComplete: liveRequest ? isRequestComplete(liveRequest) : undefined,
+    isUnresolved: hasUnresolvedRefs,
+    onSave: handleSaveSync,
+    onDirtyChange,
+    registerSaveRef,
+  });
+
+  const handleSend = useCallback(async () => {
+    if (sending) return;
+    setSending(true);
+    setResponse(null);
+
+    let path = summary?.path;
+    if (!path) {
+      const preferredCollection = preferredCollectionId
+        ? requestCollections.find((c) => c.uid === preferredCollectionId)
+        : null;
+      const parentPath = preferredFolderPath ?? preferredCollection?.path ?? 'requests/draft';
+      path = `${parentPath}/draft`;
+    }
+
+    const draftRequest: Request = {
+      schemaVersion: 5,
+      uid: summary?.uid ?? 'draft',
+      path,
+      name: summary?.name ?? draftName ?? 'Draft',
+      description: draft.description.trim() ? draft.description : undefined,
+      method: draft.method,
+      url: draft.url,
+      headers: rowsToHeaders(draft.headers),
+      params: rowsToParams(draft.params),
+      auth: draft.auth,
+      body: draft.body,
+      credentialsMode: draft.credentialsMode,
+      followRedirects: draft.followRedirects,
+      // Test-fire must run the same pre-request / post-response scripts a
+      // saved send would — without these the sandbox hooks are skipped and
+      // the response panel never shows the script outcome.
+      preRequestScript: draft.preRequestScript,
+      postResponseScript: draft.postResponseScript,
+    };
+    const snapshot = await execute({ draft: draftRequest });
+    setSending(false);
+    setResponse(snapshot);
+  }, [sending, summary, draftName, draft, execute, preferredCollectionId, preferredFolderPath, requestCollections]);
+
+  if (!isCreateMode && !summary) {
+    return (
+      <div style={{ padding: 24, textAlign: 'center' }}>
+        <Text type="secondary">Request not found.</Text>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div style={{ padding: 24, textAlign: 'center' }}>
+        <Text type="secondary">
+          <LoadingOutlined style={{ marginRight: 6 }} />
+          Loading request…
+        </Text>
+      </div>
+    );
+  }
+
+  const tabItems = buildRequestTabItems(draft, sectionUnresolved);
+
+  // Header consolidates the full URL row: method select + URL input in
+  // the title (title has flex:1 so the URL input grows), Send in the
+  // actions slot, Save standardized on the right. No separate URL bar
+  // row below — frees ~40px of vertical space and puts the primary
+  // interaction + save in a single line (request-name label dropped:
+  // the tab pill already carries that identity).
+  const headerTitle = (
+    <RequestUrlBar
+      draft={draft}
+      setDraft={setDraft}
+      urlUnresolved={sectionUnresolved.url}
+      onSend={() => void handleSend()}
+    />
+  );
+
+  const headerActions = (
+    <Tooltip
+      title={
+        hasUnresolvedRefs
+          ? 'Request has unresolved variables. Define them in vault, environment, collection, workspace, or a live workflow before sending.'
+          : undefined
+      }
+    >
+      <Button
+        type="primary"
+        icon={sending ? <LoadingOutlined /> : <CaretRightOutlined />}
+        size="small"
+        onClick={() => void handleSend()}
+        disabled={sending || hasUnresolvedRefs}
+      >
+        {sending ? 'Sending…' : 'Send'}
+      </Button>
+    </Tooltip>
+  );
+
+  return (
+    <EntityScopeProvider shell={shell.scopeProps}>
+      <SuggestionContextProvider value={suggestionContext}>
+        <div
+          style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}
+          onFocusCapture={handleEditorFocusCapture}
+          onBlurCapture={handleEditorBlurCapture}
+        >
+          <EditorHeader title={headerTitle} actions={headerActions} shell={shell.headerProps} />
+
+          <EntityConflictBanner
+            count={allConflicts.size}
+            forceVisible={hasDialogOnlyConflict(allConflicts)}
+            onReview={() => setConflictDialogOpen(true)}
+            onKeepAllMine={handleKeepAllMine}
+            onUseAllSaved={handleUseAllSaved}
+          />
+
+          {needsSchemeNormalization(draft.url) && (
+            <div
+              style={{
+                padding: '4px 16px',
+                borderBottom: `1px solid ${token.colorBorderSecondary}`,
+              }}
+            >
+              <Tooltip
+                title="Your URL has no scheme. It will be sent as https:// — click the URL bar and press Tab or Enter to lock it in."
+                placement="bottomLeft"
+              >
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: token.colorTextTertiary,
+                    fontFamily: "'SF Mono', monospace",
+                    cursor: 'help',
+                  }}
+                >
+                  → {ensureScheme(draft.url.trim())}
+                </span>
+              </Tooltip>
+            </div>
+          )}
+
+          {/* Editor / response split. The response pane is always
+            attached so the user has a stable target before the first
+            Send (empty-state hint until then). The divider is a draggable
+            Allotment sash with per-pane minimums; orientation
+            (`horizontal` side-by-side / `vertical` stacked) is a global
+            persisted preference toggled from the Response header.
+
+            Allotment captures its orientation at mount and ignores later
+            `vertical` prop changes, so we remount on `layout` change via
+            `key` (same discipline as the workbench EditorGroupRenderer).
+
+            The sub-tab bar (Docs · Params · …) renders OUTSIDE the scroll
+            container so it never participates in scrolling — simpler +
+            more robust than `position: sticky`, and leaves child panes
+            free to mount their own sticky rails (e.g. the Authorization
+            tab's auth-type picker) without colliding with an outer sticky
+            header. */}
+          <div style={{ flex: 1, minHeight: 0 }}>
+            {/* Inherits the editor region's standard split seam — the same
+              6px colorBgLayout band the workbench paints between dock
+              panels / editor leaves — so the request/response divider
+              reads consistently with the rest of the shell. */}
+            <Allotment key={layout} vertical={layout === 'vertical'} proportionalLayout separator>
+              <Allotment.Pane minSize={layout === 'vertical' ? 140 : 320} preferredSize="55%">
+                <div
+                  className="rules-thin-scrollbar"
+                  style={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0 }}
+                >
+                  <div style={{ padding: '8px 16px 0' }}>
+                    <Tabs
+                      size="small"
+                      activeKey={activeTab}
+                      onChange={(k) => setActiveTab(k as TabKey)}
+                      items={tabItems}
+                      className="rules-request-tabs"
+                      tabBarStyle={{ marginBottom: 0 }}
+                    />
+                  </div>
+                  {/* Vertical padding rides on the inner wrapper, NOT the
+                    scroll container: a `position: sticky; top: 0` header
+                    inside (Params / Headers / Body tables) clips at the
+                    scroll container's padding box but pins at its content
+                    box, so a container `padding-top` leaves a gap above the
+                    header where scrolled rows bleed through. With the
+                    container's vertical padding at 0 the header pins flush
+                    to the scrollport top; the inner padding just scrolls
+                    away. */}
+                  <div style={{ flex: 1, overflow: 'auto', padding: '0 16px' }}>
+                    <div style={{ padding: '10px 0' }}>
+                      <RequestTabContent
+                        tab={activeTab}
+                        draft={draft}
+                        setDraft={setDraft}
+                        headerConflictBridge={isCreateMode ? undefined : headerConflictBridge}
+                        paramConflictBridge={isCreateMode ? undefined : paramConflictBridge}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </Allotment.Pane>
+              <Allotment.Pane minSize={layout === 'vertical' ? 120 : 280}>
+                <ResponsePanel
+                  response={response}
+                  sending={sending}
+                  layout={layout}
+                  onLayoutChange={setLayout}
+                  onClear={() => setResponse(null)}
+                  onExtractToWorkflow={
+                    mode === 'request-edit' && requestUid && onExtractToWorkflow
+                      ? (target) =>
+                          onExtractToWorkflow(target, {
+                            requestUid,
+                            requestName: summary?.name ?? 'Request',
+                            method: draft.method,
+                          })
+                      : undefined
+                  }
+                />
+              </Allotment.Pane>
+            </Allotment>
+          </div>
+
+          <EntityConflictDialog
+            open={isConflictDialogOpen}
+            savedText={savedYaml}
+            mineText={mineText}
+            baseText={baseYaml}
+            language="yaml"
+            onResolveText={handleResolveText}
+            onClose={() => setConflictDialogOpen(false)}
+          />
+        </div>
+      </SuggestionContextProvider>
+    </EntityScopeProvider>
+  );
+};
+
+export default RequestEditor;

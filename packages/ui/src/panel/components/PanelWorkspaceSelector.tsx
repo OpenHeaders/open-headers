@@ -16,7 +16,7 @@ import { useSurface } from '@openheaders/ui/shared/surface';
 import { WorkspaceOrgBadge } from '@openheaders/ui/shared/workspace-org/WorkspaceOrgBadge';
 import { WorkspaceDropdownBody } from '@openheaders/ui/shared/workspace-dropdown/WorkspaceDropdownBody';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
-import { renderWorkspacePrefix } from '@openheaders/ui/workbench/components/workspace-prefix';
+import { renderWorkspacePrefix } from '@openheaders/ui/workbench/components/workspace/workspace-prefix';
 import { Button, Dropdown, Space, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';

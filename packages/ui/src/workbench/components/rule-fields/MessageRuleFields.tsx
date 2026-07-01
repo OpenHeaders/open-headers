@@ -18,7 +18,7 @@ import type React from 'react';
 import { EntityField, useActionPaths } from '@openheaders/ui/shared/awareness';
 import ScalarConflictChip from '@openheaders/ui/shared/conflicts/ScalarConflictChip';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
-import CodeEditor from '../CodeEditor';
+import CodeEditor from '../shared/CodeEditor';
 
 const { Text } = Typography;
 

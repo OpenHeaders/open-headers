@@ -19,7 +19,7 @@ import { Checkbox, Form, type FormInstance, Input, Select, Typography } from 'an
 import type React from 'react';
 import { EntityField, useActionPaths } from '@openheaders/ui/shared/awareness';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
-import CodeEditor from '../CodeEditor';
+import CodeEditor from '../shared/CodeEditor';
 import { getDocId } from '../docs/doc-ids';
 import ScalarConflictChip from '@openheaders/ui/shared/conflicts/ScalarConflictChip';
 

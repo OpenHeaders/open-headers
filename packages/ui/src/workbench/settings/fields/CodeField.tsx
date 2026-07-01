@@ -10,7 +10,7 @@
 
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
-import CodeEditor from '../../components/CodeEditor';
+import CodeEditor from '../../components/shared/CodeEditor';
 import { useUntypedSetting } from '../hooks';
 import type { SettingDef } from '../types';
 import FieldRow from './FieldRow';

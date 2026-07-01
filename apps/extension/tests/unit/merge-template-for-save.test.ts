@@ -2,7 +2,7 @@ import type { HeaderModification, RuleCondition, Template } from '@openheaders/c
 import {
   mergeTemplateForSave,
   type TemplateSaveBatch,
-} from '@openheaders/ui/workbench/components/merge-template-for-save';
+} from '@openheaders/ui/workbench/components/template/merge-template-for-save';
 import { describe, expect, it } from 'vitest';
 
 const hmod = (uid: string, headerName: string, value: string): HeaderModification => ({

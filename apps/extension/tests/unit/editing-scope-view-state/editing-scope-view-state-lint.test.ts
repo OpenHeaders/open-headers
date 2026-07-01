@@ -144,7 +144,7 @@ describe('per-tab-state lint', () => {
   });
 
   it('v3: Sidebar.tsx receives expandedKeys + sectionsExpanded as props (no internal useState for them)', () => {
-    const source = readFile('workbench/components/Sidebar.tsx');
+    const source = readFile('workbench/components/sidebar/Sidebar.tsx');
     expect(source).toMatch(/expandedKeys\s*:\s*Set<string>/);
     expect(source).toMatch(/setExpandedKeys\s*:\s*React\.Dispatch<React\.SetStateAction<Set<string>>>/);
     expect(source).toMatch(/sectionsExpanded\s*:\s*Record<string,\s*boolean>/);

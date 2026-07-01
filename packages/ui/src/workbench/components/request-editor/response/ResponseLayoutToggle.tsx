@@ -7,7 +7,7 @@
 
 import { Button, Tooltip, theme } from 'antd';
 import type React from 'react';
-import LayoutMenuIcon from '../../LayoutMenuIcon';
+import LayoutMenuIcon from '../../shell/LayoutMenuIcon';
 import type { RequestEditorLayout } from '../useRequestEditorLayout';
 
 interface ResponseLayoutToggleProps {

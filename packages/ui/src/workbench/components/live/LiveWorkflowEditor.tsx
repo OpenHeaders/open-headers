@@ -76,7 +76,7 @@ import { Alert, App, Button, Switch, Tag, Tooltip, Typography, theme } from 'ant
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { computeRequestTrail } from '../../breadcrumbs';
-import EditorHeader from '../EditorHeader';
+import EditorHeader from '../shell/EditorHeader';
 import { buildDependencyRows } from './dependencies-view';
 import { InlineDescription, Section } from './layout';
 import { LIVE_WORKFLOW_FIELD } from '@openheaders/ui/shared/awareness/live-paths';

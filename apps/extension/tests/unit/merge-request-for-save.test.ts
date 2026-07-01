@@ -2,7 +2,7 @@ import type { QueryParam, Request, RequestHeader } from '@openheaders/core/types
 import {
   mergeRequestForSave,
   type RequestSaveBatch,
-} from '@openheaders/ui/workbench/components/merge-request-for-save';
+} from '@openheaders/ui/workbench/components/request-editor/merge-request-for-save';
 import { describe, expect, it } from 'vitest';
 
 const hdr = (uid: string, key: string, value: string): RequestHeader => ({ uid, key, value });

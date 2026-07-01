@@ -9,9 +9,9 @@
 import { ApiOutlined, FolderOutlined, GlobalOutlined, LockOutlined, SettingOutlined } from '@ant-design/icons';
 import type { CollectionTree, Environment, Rule, Template, TreeNode } from '@openheaders/core/types';
 import { useMemo } from 'react';
-import type { CommandPaletteGroup, CommandPaletteItem, CommandPaletteSection } from '../components/CommandPalette';
+import type { CommandPaletteGroup, CommandPaletteItem, CommandPaletteSection } from '../components/shell/CommandPalette';
 import { buildRuleIcon } from '../components/shared/rule-icon';
-import { renderTwoToneIcon } from '../components/TwoToneIconPicker';
+import { renderTwoToneIcon } from '../components/shared/TwoToneIconPicker';
 import { useShortcutLabel } from '../hooks/useWorkspaceShortcuts';
 import { TEMPLATES_BY_TYPE } from '../rule-templates';
 import { allCategories, allDefs } from '../settings';
