@@ -18,9 +18,7 @@ import {
   AimOutlined,
   BorderLeftOutlined,
   CloseOutlined,
-  DownloadOutlined,
   ExportOutlined,
-  FolderOpenOutlined,
   MenuUnfoldOutlined,
   PlusOutlined,
   SearchOutlined,
@@ -41,10 +39,10 @@ import type { InputRef } from 'antd';
 import { App, Dropdown, Input, Modal, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { buildRuleTypeMenuItems } from '../../rule-type-menu';
 import { useEnvSwitcher } from '../../services/env-switcher';
 import { useSettingValue } from '../../settings/hooks';
 import type { WorkbenchTab } from '../../types';
+import { buildCreateMenuItems, buildRequestImportMenuItems } from './build-sidebar-menus';
 import { FolderDndTree, type FolderDndConfig } from './FolderDndTree';
 import { SectionHeader } from './SectionHeader';
 import { TreeNodeRow } from './TreeNodeRow';
@@ -737,69 +735,15 @@ const Sidebar: React.FC<SidebarProps> = ({
     [allFlatItems, focusedId, expandedKeys, toggleExpand, exportSelectedIds.size],
   );
 
-  const createMenuItems = [
-    {
-      key: 'collection',
-      icon: <FolderOpenOutlined />,
-      label: 'New Collection',
-      onClick: () => void createNewCollection(),
-    },
-    { type: 'divider' as const, key: 'div-collection' },
-    ...buildRuleTypeMenuItems(onCreateRule),
-  ];
+  const createMenuItems = buildCreateMenuItems({ onCreateRule, createNewCollection });
 
-  const requestImportMenuItems = [
-    {
-      key: 'collection',
-      icon: <FolderOpenOutlined />,
-      label: 'New Collection',
-      onClick: () => void createNewRequestCollection(),
-    },
-    ...(onCreateRequest
-      ? [
-          { type: 'divider' as const, key: 'div-request' },
-          {
-            key: 'new-request',
-            icon: <PlusOutlined />,
-            label: 'New Request',
-            onClick: () => onCreateRequest(),
-          },
-        ]
-      : []),
-    ...(onImportCurl || onImportHar || onImportPostman
-      ? ([{ type: 'divider' as const, key: 'div-import' }] as const)
-      : []),
-    ...(onImportCurl
-      ? [
-          {
-            key: 'import-curl',
-            icon: <DownloadOutlined />,
-            label: 'Import from cURL',
-            onClick: () => onImportCurl(),
-          },
-        ]
-      : []),
-    ...(onImportHar
-      ? [
-          {
-            key: 'import-har',
-            icon: <DownloadOutlined />,
-            label: 'Import from HAR',
-            onClick: () => onImportHar(),
-          },
-        ]
-      : []),
-    ...(onImportPostman
-      ? [
-          {
-            key: 'import-postman',
-            icon: <DownloadOutlined />,
-            label: 'Import from Postman',
-            onClick: () => onImportPostman(),
-          },
-        ]
-      : []),
-  ];
+  const requestImportMenuItems = buildRequestImportMenuItems({
+    createNewRequestCollection,
+    onCreateRequest,
+    onImportCurl,
+    onImportHar,
+    onImportPostman,
+  });
 
   const renderTreeNodeRow = (node: TreeNode) => (
     <TreeNodeRow
