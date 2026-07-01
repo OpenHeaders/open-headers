@@ -27,7 +27,7 @@ import {
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/useRuleMutator';
 import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { AuthRule, DelayRule, ExtensionRuleType, HeaderRule, InjectRule, QueryParamRule, RedirectRule, RequestBodyRule, ResponseRule, Rule, RuleDraft, SseRule, WsRule } from '@openheaders/core/types';
+import type { ExtensionRuleType, Rule, RuleDraft } from '@openheaders/core/types';
 import { isRuleComplete } from '@openheaders/core/utils';
 import { Alert, App, Button, Dropdown, Form, Switch, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
@@ -41,16 +41,8 @@ import {
 } from '@openheaders/ui/shared/awareness';
 import { EntityConflictBanner, EntityConflictDialog } from '@openheaders/ui/shared/conflicts';
 import { ConflictsProvider } from '@openheaders/ui/shared/conflicts/Field';
-import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell';
-import { stableStringify } from '@openheaders/ui/shared/forms';
+import { useEditorShell } from '@openheaders/ui/shared/editor-shell';
 import { applyRuleCreate, applyRulePublish } from '@openheaders/ui/shared/sync/rule-write-client';
-import {
-  applyQueryParamDraftOverlay,
-  applyRequestBodyDraftOverlay,
-  applyResponseDraftOverlay,
-  buildDraftConditions,
-  buildDraftHeaders,
-} from '../../draft-conditions';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import type { RuleDraftData } from '../../hooks/useSaveRuleFlow';
 import { formatString } from '../../languages/prettier';
@@ -60,6 +52,7 @@ import { get as getSetting } from '../../settings/store';
 import ConditionEditor from './ConditionEditor';
 import { useHeaderPreviewTabs } from './rule-editor/useHeaderPreviewTabs';
 import { useRuleConflictResolution } from './rule-editor/useRuleConflictResolution';
+import { useRuleForm } from './rule-editor/useRuleForm';
 import { useRuleTemplates } from './rule-editor/useRuleTemplates';
 import EditorHeader from '../shell/EditorHeader';
 import { ActionValueBanner } from '../rule-fields/ActionValueBanner';
@@ -231,174 +224,19 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   /** Single source of truth for name. */
   const ruleName = liveRule?.name ?? seedDraftName ?? 'Rule';
 
-  // ── Form fingerprint inputs to `useReprime` ──────────────────────
-  // Dirty + auto-rebase + comparison shape are owned by the shell
-  // hook; the editor only supplies the form's canonical-shape
-  // projection plus a matching `signature` over the live entity.
-  const formValues = Form.useWatch([], form) as Record<string, unknown> | undefined;
-  const formFingerprint = useMemo(
-    () => (formValues ? stableStringify(buildRule(formValues, ruleName, isEnabled)) : ''),
-    [formValues, ruleName, isEnabled],
-  );
-  const canonicalProjection = useCallback(
-    (rule: Rule) =>
-      stableStringify({
-        name: rule.name,
-        enabled: rule.enabled,
-        conditions: rule.conditions,
-        type: rule.type,
-        action: (rule as { action?: unknown }).action ?? null,
-      }),
-    [],
-  );
-
-  // Refs threaded into `useReprime`'s `onPrimed` so the conflict
-  // tracker (defined below — needs `isDirty` from reprime) can wire
-  // its baseline setter without a forward declaration, and so the
-  // first-mount overlay / template-apply runs once across the
-  // populate + auto-rebase lifecycle.
+  // Baseline coordination refs — the shared layer between `useRuleForm`
+  // (whose `onPrimed` writes both after every populate / auto-rebase),
+  // the conflict tracker (wires its setter into `setBaselineRef`, reads
+  // `baselineRuleRef` for the merge-editor base), and the save flow
+  // (reads `baselineRuleRef` for the per-field merge). Kept here so all
+  // three share one layer instead of threading through each other.
   const setBaselineRef = useRef<(r: Rule) => void>(() => undefined);
-  const overlayAppliedRef = useRef(false);
   // Snapshot of the rule the form was last seeded from. Drives the
   // per-field save merge: Save broadcasts only leaves that diverge from
   // baseline so a peer's concurrent commit on a different leaf survives.
   // Advances in lockstep with the conflict tracker baseline (both wired
   // through `onPrimed`).
   const baselineRuleRef = useRef<Rule | null>(null);
-
-  // Populate the form from a persisted rule. `useReprime` calls this
-  // on initial seed and broadcast catch-up; conflict-tracker baseline
-  // advancement happens in `onPrimed`, not here.
-  const populateFormFromRule = useCallback(
-    (rule: Omit<Rule, 'uid' | 'path'>) => {
-      const baseValues = {
-        ruleType: rule.type,
-        conditions: rule.conditions,
-      };
-      switch (rule.type) {
-        case 'header': {
-          const hr = rule as HeaderRule;
-          const reqH = hr.action.requestHeaders ?? [];
-          const resH = hr.action.responseHeaders ?? [];
-          form.setFieldsValue({ ...baseValues, requestHeaders: reqH, responseHeaders: resH });
-          setHeaderReqCount(reqH.length);
-          setHeaderResCount(resH.length);
-          setDefaultHeaderTab(reqH.length, resH.length);
-          break;
-        }
-        case 'block':
-          form.setFieldsValue(baseValues);
-          break;
-        case 'redirect': {
-          const rr = rule as RedirectRule;
-          form.setFieldsValue({ ...baseValues, redirectTo: rr.action.redirectTo });
-          break;
-        }
-        case 'query-param': {
-          const qr = rule as QueryParamRule;
-          form.setFieldsValue({
-            ...baseValues,
-            queryParams: qr.action.params.map((p) => ({
-              uid: p.uid,
-              param: p.param,
-              value: p.value ?? '',
-              operation: p.operation,
-            })),
-          });
-          break;
-        }
-        case 'inject': {
-          const ir = rule as InjectRule;
-          form.setFieldsValue({
-            ...baseValues,
-            injectType: ir.action.injectType,
-            injectSource: ir.action.source || 'code',
-            injectCode: ir.action.code,
-            injectSourceUrl: ir.action.sourceUrl || '',
-            injectPosition: ir.action.position,
-            injectBypassCSP: ir.action.bypassCSP ?? false,
-          });
-          break;
-        }
-        case 'delay': {
-          const dr = rule as DelayRule;
-          form.setFieldsValue({ ...baseValues, delayMs: dr.action.delayMs });
-          break;
-        }
-        case 'request-body': {
-          const br = rule as RequestBodyRule;
-          form.setFieldsValue({
-            ...baseValues,
-            requestBodyType: br.action.bodyType || 'static',
-            requestStaticBody: br.action.bodyType === 'dynamic' ? '' : br.action.requestBody,
-            requestDynamicBody: br.action.bodyType === 'dynamic' ? br.action.requestBody : '',
-            requestResourceType: br.action.resourceType || 'rest',
-            requestGraphqlKey: br.action.graphqlFilter?.key || '',
-            requestGraphqlOperator: br.action.graphqlFilter?.operator || 'Equals',
-            requestGraphqlValue: br.action.graphqlFilter?.value || '',
-          });
-          break;
-        }
-        case 'response': {
-          const rr2 = rule as ResponseRule;
-          form.setFieldsValue({
-            ...baseValues,
-            responseSource: rr2.action.responseSource || 'mock',
-            responseStatusCode: rr2.action.statusCode || undefined,
-            responseContentType: rr2.action.contentType,
-            responseStaticBody: rr2.action.bodyType === 'dynamic' ? '' : rr2.action.responseBody,
-            responseDynamicBody: rr2.action.bodyType === 'dynamic' ? rr2.action.responseBody : '',
-            responseBodyType: rr2.action.bodyType || 'static',
-            responseResourceType: rr2.action.resourceType || 'rest',
-            responseGraphqlKey: rr2.action.graphqlFilter?.key || '',
-            responseGraphqlOperator: rr2.action.graphqlFilter?.operator || 'Equals',
-            responseGraphqlValue: rr2.action.graphqlFilter?.value || '',
-            responseHeaderRows: Object.entries(rr2.action.responseHeaders ?? {}).map(([name, value]) => ({
-              name,
-              value,
-            })),
-          });
-          break;
-        }
-        case 'ws': {
-          const wr = rule as WsRule;
-          form.setFieldsValue({
-            ...baseValues,
-            wsOperation: wr.action.operation,
-            wsDirection: wr.action.direction,
-            wsFilterType: wr.action.messageFilter?.matchType ?? 'none',
-            wsFilterValue: wr.action.messageFilter?.value ?? '',
-            wsPayload: wr.action.payload ?? '',
-            wsInjectTrigger: wr.action.injectTrigger ?? 'open',
-          });
-          break;
-        }
-        case 'sse': {
-          const sr = rule as SseRule;
-          form.setFieldsValue({
-            ...baseValues,
-            sseOperation: sr.action.operation,
-            sseEventName: sr.action.eventName ?? '',
-            sseFilterType: sr.action.messageFilter?.matchType ?? 'none',
-            sseFilterValue: sr.action.messageFilter?.value ?? '',
-            ssePayload: sr.action.payload ?? '',
-            sseInjectTrigger: sr.action.injectTrigger ?? 'open',
-          });
-          break;
-        }
-        case 'auth': {
-          const ar = rule as AuthRule;
-          form.setFieldsValue({
-            ...baseValues,
-            authUsername: ar.action.username,
-            authPassword: ar.action.password,
-          });
-          break;
-        }
-      }
-    },
-    [form, setDefaultHeaderTab],
-  );
 
   // ── Template selector ─────────────────────────────────────────
   const {
@@ -420,76 +258,31 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     setHeaderResCount,
   });
 
-  // Reprime owns dirty derivation, comparison shape (BC1), populate
-  // gating, and auto-rebase. `onPrimed` runs after every populate /
-  // auto-rebase: advances the conflict tracker baseline (via ref so
-  // the tracker, defined below, can wire its setter without a forward
-  // reference), and on the first invocation applies the inspector-CTA
-  // `initialDraft` overlay or `initialTemplateKey` template.
-  const reprime = useReprime<Rule>({
-    liveEntity: liveRule,
-    scope: { entityType: RULE_ENTITY_TYPE, entityId: ruleUid ?? '' },
-    enabled: !isCreateMode && liveRule != null,
-    formFingerprint,
-    signature: canonicalProjection,
-    populate: populateFormFromRule,
-    onPrimed: (rule) => {
-      setBaselineRef.current(rule);
-      baselineRuleRef.current = rule;
-      if (overlayAppliedRef.current) return;
-      overlayAppliedRef.current = true;
-
-      if (initialTemplateKey) {
-        applyTemplate(initialTemplateKey);
-        return;
-      }
-
-      if (rule.published === true || !initialDraft || initialDraft.type !== rule.type) return;
-
-      const overlay: Record<string, unknown> = {};
-      const conditions = buildDraftConditions(initialDraft, draftUrlStrategy);
-      if (conditions.length > 0) overlay.conditions = conditions;
-
-      if (initialDraft.type === 'header') {
-        // Preserve the draft's direction intent: if the draft targets
-        // only response headers, leave requestHeaders empty so the
-        // editor's "jump to response tab" heuristic fires.
-        const targetsResponse = !!initialDraft.responseHeaders?.length;
-        const targetsRequest = !!initialDraft.requestHeaders?.length;
-        if (initialDraft.requestHeaders) overlay.requestHeaders = buildDraftHeaders(initialDraft.requestHeaders);
-        else if (targetsResponse) overlay.requestHeaders = [];
-        if (initialDraft.responseHeaders) overlay.responseHeaders = buildDraftHeaders(initialDraft.responseHeaders);
-        else if (targetsRequest) overlay.responseHeaders = [];
-      } else if (initialDraft.type === 'redirect') {
-        if (initialDraft.redirectTo) overlay.redirectTo = initialDraft.redirectTo;
-      } else if (initialDraft.type === 'response') {
-        applyResponseDraftOverlay(overlay, initialDraft);
-      } else if (initialDraft.type === 'request-body') {
-        applyRequestBodyDraftOverlay(overlay, initialDraft);
-      } else if (initialDraft.type === 'query-param') {
-        applyQueryParamDraftOverlay(overlay, initialDraft);
-      }
-
-      if (Object.keys(overlay).length > 0) {
-        form.setFieldsValue(overlay);
-        if (rule.type === 'header') {
-          const reqLen = Array.isArray(overlay.requestHeaders)
-            ? (overlay.requestHeaders as unknown[]).length
-            : ((rule as HeaderRule).action.requestHeaders?.length ?? 0);
-          const resLen = Array.isArray(overlay.responseHeaders)
-            ? (overlay.responseHeaders as unknown[]).length
-            : ((rule as HeaderRule).action.responseHeaders?.length ?? 0);
-          setHeaderReqCount(reqLen);
-          setHeaderResCount(resLen);
-          setDefaultHeaderTab(reqLen, resLen);
-        }
-      }
-    },
+  // Form population + dirty derivation: the reactive form snapshot, the
+  // reprime pass (dirty / populate gating / auto-rebase) with its
+  // overlay-apply `onPrimed`, and the create-mode bootstrap seed.
+  // `applyTemplate` (from the template hook above) threads in so
+  // `onPrimed` needs no forward reference; the two baseline refs thread
+  // in as the shared coordination layer.
+  const { formValues, isDirty, populateFormFromRule } = useRuleForm({
+    liveRule,
+    ruleUid,
+    isCreateMode,
+    ruleName,
+    isEnabled,
+    form,
+    seedRuleType,
+    seedRuleContent,
+    initialTemplateKey,
+    initialDraft,
+    draftUrlStrategy,
+    applyTemplate,
+    setBaselineRef,
+    baselineRuleRef,
+    setDefaultHeaderTab,
+    setHeaderReqCount,
+    setHeaderResCount,
   });
-  // Create mode: the editor is dirty from the moment it opens — there's
-  // no canonical entity to compare against. Edit mode: derive dirty from
-  // form-vs-canonical equality (BC1 by construction in `useReprime`).
-  const isDirty = isCreateMode ? true : reprime.isDirty;
 
   const {
     fieldConflictsApi,
@@ -521,76 +314,6 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     if (!ruleUid) return;
     void mutator.toggleRule(ruleUid, !isEnabled);
   }, [ruleUid, isEnabled, mutator]);
-
-  // Create-mode bootstrap. `useReprime` stays disabled (no liveRule),
-  // so its `onPrimed` overlay path never fires — instead we seed the
-  // form here from `seedRuleType` and run the same template / draft
-  // overlay logic that edit mode runs in `onPrimed`. Gated by
-  // `overlayAppliedRef` so subsequent renders don't re-stomp the form.
-  useEffect(() => {
-    if (!isCreateMode || overlayAppliedRef.current) return;
-    overlayAppliedRef.current = true;
-    const type = (seedRuleType ?? 'header') as ExtensionRuleType;
-    form.setFieldsValue({ ruleType: type, conditions: [] });
-
-    // "Duplicate Tab" seed wins over template / inspector-draft overlays
-    // — it carries the full source rule, so we replay its whole shape
-    // through the same populate path edit mode uses.
-    if (seedRuleContent) {
-      populateFormFromRule(seedRuleContent);
-      return;
-    }
-
-    if (initialTemplateKey) {
-      applyTemplate(initialTemplateKey);
-      return;
-    }
-
-    if (!initialDraft || initialDraft.type !== type) return;
-
-    const overlay: Record<string, unknown> = {};
-    const conditions = buildDraftConditions(initialDraft, draftUrlStrategy);
-    if (conditions.length > 0) overlay.conditions = conditions;
-
-    if (initialDraft.type === 'header') {
-      const targetsResponse = !!initialDraft.responseHeaders?.length;
-      const targetsRequest = !!initialDraft.requestHeaders?.length;
-      if (initialDraft.requestHeaders) overlay.requestHeaders = buildDraftHeaders(initialDraft.requestHeaders);
-      else if (targetsResponse) overlay.requestHeaders = [];
-      if (initialDraft.responseHeaders) overlay.responseHeaders = buildDraftHeaders(initialDraft.responseHeaders);
-      else if (targetsRequest) overlay.responseHeaders = [];
-    } else if (initialDraft.type === 'redirect') {
-      if (initialDraft.redirectTo) overlay.redirectTo = initialDraft.redirectTo;
-    } else if (initialDraft.type === 'response') {
-      applyResponseDraftOverlay(overlay, initialDraft);
-    } else if (initialDraft.type === 'request-body') {
-      applyRequestBodyDraftOverlay(overlay, initialDraft);
-    } else if (initialDraft.type === 'query-param') {
-      applyQueryParamDraftOverlay(overlay, initialDraft);
-    }
-
-    if (Object.keys(overlay).length > 0) {
-      form.setFieldsValue(overlay);
-      if (type === 'header') {
-        const reqLen = Array.isArray(overlay.requestHeaders) ? (overlay.requestHeaders as unknown[]).length : 0;
-        const resLen = Array.isArray(overlay.responseHeaders) ? (overlay.responseHeaders as unknown[]).length : 0;
-        setHeaderReqCount(reqLen);
-        setHeaderResCount(resLen);
-        setDefaultHeaderTab(reqLen, resLen);
-      }
-    }
-  }, [
-    isCreateMode,
-    seedRuleType,
-    seedRuleContent,
-    initialTemplateKey,
-    initialDraft,
-    draftUrlStrategy,
-    form,
-    applyTemplate,
-    populateFormFromRule,
-    setDefaultHeaderTab,
-  ]);
 
   // ── Duplicate snapshot ─────────────────────────────────────────
   // Publish a fn that projects the LIVE form (incl. uncommitted edits)
@@ -646,12 +369,6 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     },
     [form],
   );
-
-  // `buildRule` is a pure helper in the sibling `build-rule` module.
-  // Closures over `ruleName` / `isEnabled` are explicit function
-  // arguments — keeps it usable BOTH as the save-time projection AND
-  // the dirty-derivation projection without React hook-order
-  // constraints.
 
   const handleSubmit = useCallback(async () => {
     // Create mode: hand the form values to the SaveRuleFlow modal,
