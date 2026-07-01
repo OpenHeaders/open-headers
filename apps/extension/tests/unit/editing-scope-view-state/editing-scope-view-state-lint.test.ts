@@ -132,15 +132,20 @@ describe('per-tab-state lint', () => {
     expect(source).toMatch(/sidebarExpansions/);
   });
 
-  it('v3: workbench App.tsx mounts useWorkbenchSidebarState and threads setters into Sidebar', () => {
-    const source = readFile('workbench/App.tsx');
-    expect(source).toMatch(/useWorkbenchSidebarState\s*\(\s*perTab\s*\)/);
-    expect(source).toMatch(/setExpandedKeys=\{sidebarState\.setExpandedKeys\}/);
+  it('v3: workbench mounts useWorkbenchSidebarState and threads setters into Sidebar', () => {
+    // App.tsx owns the per-tab sidebar state and hands it to the
+    // tool-window renderer; WorkbenchToolWindow threads the setters
+    // into each Sidebar instance.
+    const app = readFile('workbench/App.tsx');
+    expect(app).toMatch(/useWorkbenchSidebarState\s*\(\s*perTab\s*\)/);
+    expect(app).toMatch(/sidebarState=\{sidebarState\}/);
+    const toolWindow = readFile('workbench/components/shell/WorkbenchToolWindow.tsx');
+    expect(toolWindow).toMatch(/setExpandedKeys=\{sidebarState\.setExpandedKeys\}/);
     // Section state is per-view: each Sidebar instance receives its
     // own slice of the global map (see SidebarSectionsByView). The
     // setter is wrapped so writes route to the correct view's slice.
-    expect(source).toMatch(/sidebarState\.getSectionsForView\(\s*id\s*\)/);
-    expect(source).toMatch(/sidebarState\.setSectionsForView\(\s*id\s*,/);
+    expect(toolWindow).toMatch(/sidebarState\.getSectionsForView\(\s*id\s*\)/);
+    expect(toolWindow).toMatch(/sidebarState\.setSectionsForView\(\s*id\s*,/);
   });
 
   it('v3: Sidebar.tsx receives expandedKeys + sectionsExpanded as props (no internal useState for them)', () => {

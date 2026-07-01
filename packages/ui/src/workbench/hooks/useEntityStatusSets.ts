@@ -15,7 +15,7 @@ interface UseEntityStatusSetsOptions {
   editingScopeWorkspaceId: string | null;
 }
 
-interface EntityStatusSets {
+export interface EntityStatusSets {
   unresolvableRuleUids: Set<string>;
   unresolvableRequestUids: Set<string>;
   dirtyRuleUids: Set<string>;

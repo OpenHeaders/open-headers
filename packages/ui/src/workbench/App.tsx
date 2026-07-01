@@ -58,25 +58,20 @@ import { createShellEventBus, ShellEventBusContext } from '@openheaders/ui/share
 import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-scope-view-state';
 import { instanceLabel } from '@openheaders/ui/shared/host-vocabulary';
 import { computeBreadcrumbs } from './breadcrumbs';
-import BottomPanel from './components/runs/BottomPanel';
 import CommandPalette from './components/shell/CommandPalette';
 import EditorGroupRenderer, { type RenderLeafHeaderContext } from './components/shell/EditorGroupRenderer';
 import EmptyState, { type VariableCreateScope } from './components/shell/EmptyState';
-import WorkflowStatusPanel from './components/live/WorkflowStatusPanel';
-import ActivityFeedPanel from './components/panels/ActivityFeedPanel';
 import { viewActivityEntity } from './components/panels/activity-view-router';
-import DocsPanel from './components/panels/DocsPanel';
-import VariablesPanel from './components/panels/variables-panel';
 import SaveToCollectionModal from './components/save/SaveToCollectionModal';
 import ShellLayout from './components/shell/ShellLayout';
-import Sidebar from './components/sidebar/Sidebar';
+import type { SidebarView } from './components/sidebar/types';
 import StatusBar from './components/shell/StatusBar';
 import { renderTabLabel, tabIcon } from './components/tabbar/TabBar';
 import TopBar from './components/shell/TopBar';
 import WorkbenchTabBody from './components/shell/WorkbenchTabBody';
+import WorkbenchToolWindow from './components/shell/WorkbenchToolWindow';
 import { VariablePopoverProvider } from './components/template-input/VariablePopoverHost';
 import ImportExportModals, { type ImportExportModalsHandle } from './components/workspace-export/ImportExportModals';
-import { buildEntityExportScope, buildSelectionExportScope } from './components/workspace-export/build-export-scope';
 import { findLeaf } from './editor-groups';
 import {
   EditingScopeWorkspaceProvider,
@@ -116,7 +111,6 @@ import { ConnectionProvider } from './settings/ConnectionContext';
 import { get as getSetting } from './settings/store';
 import { SettingsModal } from './settings/ui';
 import { getFocusedDock } from './stores/focus-region-store';
-import { getToolWindowInfo } from './tool-window-info';
 import type { DockSlot, ToolWindowId, WorkbenchTab } from './types';
 
 // ── Shell loader ────────────────────────────────────────────────────
@@ -773,8 +767,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   // dock so it doesn't yank focus across panels (e.g. typing `/`
   // while interacting with the http-rules sidebar must focus the
   // http-rules filter, not whichever sidebar happened to mount last).
-  type SidebarViewId = 'http-rules' | 'api-requests' | 'variables' | 'workflows';
-  const sidebarFilterRefs = useRef<Map<SidebarViewId, InputRef | null>>(new Map());
+  const sidebarFilterRefs = useRef<Map<SidebarView, InputRef | null>>(new Map());
 
   // ── Command palette data ──────────────────────────────────────
   const { groups: cmdGroups, sections: cmdSections } = useCommandPaletteData({
@@ -829,7 +822,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       if (!focusedDock) return;
       const activeWindow = tl.state.docks[focusedDock]?.active;
       if (!activeWindow) return;
-      const ref = sidebarFilterRefs.current.get(activeWindow as SidebarViewId);
+      const ref = sidebarFilterRefs.current.get(activeWindow as SidebarView);
       ref?.focus();
     },
     onCommandPalette: () => setCommandPaletteOpen(true),
@@ -1013,129 +1006,55 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   );
 
   // ── Tool window renderer ──────────────────────────────────────
-  //
-  // The three left-top tool windows (`http-workbench`, `api-requests`,
-  // `variables`) are all powered by the same `Sidebar` component —
-  // a `view` prop gates which sections render so keyboard nav,
-  // filter, and toolbar stay shared behavior instead of three forks.
+  // Thin render prop for `ShellLayout` — the per-slot body dispatch
+  // lives in `WorkbenchToolWindow`.
   const renderToolWindow = useCallback(
-    (id: ToolWindowId, slot: DockSlot): React.ReactNode => {
-      switch (id) {
-        case 'http-rules':
-        case 'api-requests':
-        case 'variables':
-        case 'workflows':
-          return (
-            <Sidebar
-              view={id}
-              info={getToolWindowInfo(id)}
-              activeTabId={activeTabId}
-              onSelectRule={openEditTab}
-              onCreateRule={openCreateTab}
-              onDeleteRule={handleDeleteRule}
-              onExportEntity={(args) => importExportRef.current?.openExportModal(buildEntityExportScope(args))}
-              onExportSelection={(entities) =>
-                importExportRef.current?.openExportModal(buildSelectionExportScope(entities))
-              }
-              onOpenCollectionOverview={openCollectionOverview}
-              onOpenFolderOverview={openFolderOverview}
-              onOpenRequestCollectionOverview={openRequestCollectionOverview}
-              onOpenRequestFolderOverview={openRequestFolderOverview}
-              onSelectTemplate={openTemplateEditTab}
-              onOpenTemplateCollectionOverview={openTemplateCollectionOverview}
-              onOpenTemplateFolderOverview={openTemplateFolderOverview}
-              onSelectEnvironment={openEnvironmentEdit}
-              onOpenWorkspaceVariables={openWorkspaceVariables}
-              onOpenVault={openVault}
-              onOpenLiveVariables={openLiveVariables}
-              onOpenCollectionVariables={openCollectionVariables}
-              onOpenRequestCollectionVariables={openRequestCollectionVariables}
-              onOpenTemplateCollectionVariables={openTemplateCollectionVariables}
-              onSelectLiveWorkflow={openLiveWorkflowEdit}
-              onCreateWorkflow={(seedStep) => openCreateLiveWorkflow(seedStep ? { seedStep } : undefined)}
-              onSelectRequest={openRequestEditTab}
-              onCreateRequest={openCreateRequestTab}
-              onImportCurl={(ctx) => importExportRef.current?.openImportCurl(ctx)}
-              onImportHar={(ctx) => importExportRef.current?.openImportHar(ctx)}
-              onImportPostman={() => importExportRef.current?.openImportPostman()}
-              filterRef={(node: InputRef | null) => {
-                if (node) sidebarFilterRefs.current.set(id as SidebarViewId, node);
-                else sidebarFilterRefs.current.delete(id as SidebarViewId);
-              }}
-              dirtyRuleUids={dirtyRuleUids}
-              dirtyRequestUids={dirtyRequestUids}
-              scriptsReviewPendingUids={scriptsReviewPendingUids}
-              dirtyWorkflowUids={dirtyWorkflowUids}
-              unresolvableWorkflowUids={unresolvableWorkflowUids}
-              allTabs={allTabs}
-              onSwitchTab={switchTab}
-              onCloseDraftTab={handleCloseTab}
-              onHide={() => tl.closeDock(slot)}
-              expandedKeys={sidebarState.expandedKeys}
-              setExpandedKeys={sidebarState.setExpandedKeys}
-              sectionsExpanded={sidebarState.getSectionsForView(id)}
-              setSectionsExpanded={(updater) => sidebarState.setSectionsForView(id, updater)}
-            />
-          );
-        case 'workflow-status':
-          return (
-            <WorkflowStatusPanel
-              info={getToolWindowInfo('workflow-status')}
-              onClose={() => tl.toggleWindow('workflow-status')}
-              // `openLiveWorkflowEdit` expects `(uid, name, seedStep?)`.
-              // The sidebar only knows the uid; look up the name from
-              // the workflow list so the tab title renders correctly.
-              onOpenWorkflow={(uid) => {
-                const wf = liveWorkflowsApi.workflows.find((w) => w.uid === uid);
-                openLiveWorkflowEdit(uid, wf?.name ?? 'Workflow');
-              }}
-            />
-          );
-        case 'activity':
-          return (
-            <ActivityFeedPanel
-              info={getToolWindowInfo('activity')}
-              onClose={() => tl.toggleWindow('activity')}
-              onViewEntity={handleViewActivityEntity}
-            />
-          );
-        case 'docs':
-          return <DocsPanel info={getToolWindowInfo('docs')} onClose={() => tl.toggleWindow('docs')} />;
-        case 'var-scope':
-          return (
-            <VariablesPanel
-              info={getToolWindowInfo('var-scope')}
-              onClose={() => tl.toggleWindow('var-scope')}
-              activeTab={activeTab ?? null}
-              onOpenVault={openVault}
-              onOpenWorkspaceVariables={openWorkspaceVariables}
-              onOpenLiveVariables={openLiveVariables}
-              onOpenLiveVariableEdit={openLiveVariableEdit}
-              onOpenEnvironmentEdit={openEnvironmentEdit}
-              onOpenRuleCollectionVariables={openCollectionVariables}
-              onOpenRequestCollectionVariables={openRequestCollectionVariables}
-              onOpenTemplateCollectionVariables={openTemplateCollectionVariables}
-            />
-          );
-        case 'deep-network-inspection':
-        case 'test-runs':
-          return (
-            <BottomPanel
-              info={getToolWindowInfo(id)}
-              activeTab={id === 'test-runs' ? 'test-runs' : 'inspection'}
-              onTabChange={() => {
-                /* BottomPanel is now slot-scoped — tab strip lives on the dock */
-              }}
-              contextOwner={contextOwner}
-              onOpenTestRun={openRunReport}
-              activeRunId={activeTab?.mode === 'run-report' ? (activeTab.testRunId ?? null) : null}
-              onHide={() => tl.closeDock(slot)}
-            />
-          );
-        default:
-          return null;
-      }
-    },
+    (id: ToolWindowId, slot: DockSlot): React.ReactNode => (
+      <WorkbenchToolWindow
+        id={id}
+        slot={slot}
+        tl={tl}
+        activeTabId={activeTabId}
+        allTabs={allTabs}
+        switchTab={switchTab}
+        openEditTab={openEditTab}
+        openCreateTab={openCreateTab}
+        openCollectionOverview={openCollectionOverview}
+        openFolderOverview={openFolderOverview}
+        openRequestCollectionOverview={openRequestCollectionOverview}
+        openRequestFolderOverview={openRequestFolderOverview}
+        openTemplateEditTab={openTemplateEditTab}
+        openTemplateCollectionOverview={openTemplateCollectionOverview}
+        openTemplateFolderOverview={openTemplateFolderOverview}
+        openEnvironmentEdit={openEnvironmentEdit}
+        openWorkspaceVariables={openWorkspaceVariables}
+        openVault={openVault}
+        openLiveVariables={openLiveVariables}
+        openCollectionVariables={openCollectionVariables}
+        openRequestCollectionVariables={openRequestCollectionVariables}
+        openTemplateCollectionVariables={openTemplateCollectionVariables}
+        openLiveWorkflowEdit={openLiveWorkflowEdit}
+        openCreateLiveWorkflow={openCreateLiveWorkflow}
+        openRequestEditTab={openRequestEditTab}
+        openCreateRequestTab={openCreateRequestTab}
+        openLiveVariableEdit={openLiveVariableEdit}
+        openRunReport={openRunReport}
+        handleDeleteRule={handleDeleteRule}
+        handleCloseTab={handleCloseTab}
+        handleViewActivityEntity={handleViewActivityEntity}
+        importExportRef={importExportRef}
+        sidebarFilterRefs={sidebarFilterRefs}
+        dirtyRuleUids={dirtyRuleUids}
+        dirtyRequestUids={dirtyRequestUids}
+        scriptsReviewPendingUids={scriptsReviewPendingUids}
+        dirtyWorkflowUids={dirtyWorkflowUids}
+        unresolvableWorkflowUids={unresolvableWorkflowUids}
+        sidebarState={sidebarState}
+        activeTab={activeTab}
+        contextOwner={contextOwner}
+        liveWorkflows={liveWorkflowsApi.workflows}
+      />
+    ),
     [
       activeTabId,
       openEditTab,
