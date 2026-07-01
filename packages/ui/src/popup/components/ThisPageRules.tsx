@@ -13,7 +13,7 @@ import {
 import { hostBridge } from '@openheaders/core/bridge';
 import { getCapability } from '@openheaders/core/capabilities';
 import { hostNavigation } from '@openheaders/core/navigation';
-import type { SilentMatchRecord } from '@openheaders/core/types';
+import type { RequestRecord, TabTelemetrySnapshot as TelemetrySnapshot } from '@openheaders/core/types';
 import { resolvePauseState } from '@openheaders/core/utils';
 import { scheduleFrame } from '@openheaders/ui/shared/frame-scheduler';
 import { useRowActionRegistration } from '@openheaders/ui/shared/hooks/useRowActionRegistration';
@@ -61,6 +61,18 @@ import {
   truncateValue,
 } from './columns/sharedColumnRenderers';
 import DeleteConfirmOverlay from './DeleteConfirmOverlay';
+import {
+  ALL_RESOURCE_TYPES,
+  EMPTY_SNAPSHOT,
+  formatTimestampFull,
+  formatTimestampShort,
+  renderHighlightedUrl,
+  RESOURCE_TYPE_LABEL,
+  RESOURCE_TYPE_TOOLTIP,
+  RULE_TYPE_DESCRIPTION,
+  RULE_TYPE_LABEL,
+} from './this-page-rules/format';
+import type { ActiveRule, CurrentTabInfo, MatchedRequestRow, TableRecord } from './this-page-rules/types';
 
 const { Text } = Typography;
 
@@ -75,230 +87,6 @@ function useOpenRulesIntent(): (intent: WorkspaceIntent) => void {
       void openWorkspace(intent, surface.mode);
     },
     [surface.mode],
-  );
-}
-
-const RULE_TYPE_LABEL: Record<string, string> = {
-  header: 'Header',
-  block: 'Block',
-  redirect: 'Redirect',
-  'query-param': 'Query Param',
-  inject: 'Inject',
-  'request-body': 'API Request',
-  delay: 'Delay',
-  response: 'API Response',
-};
-
-const RULE_TYPE_DESCRIPTION: Record<string, string> = {
-  header: 'Modify HTTP headers',
-  block: 'Block requests',
-  redirect: 'Redirect requests',
-  'query-param': 'Modify query parameters',
-  inject: 'Inject scripts or CSS',
-  'request-body': 'Modify API request body (fetch/XHR)',
-  delay: 'Delay response',
-  response: 'Mock or modify API response (fetch/XHR)',
-};
-
-import type { RequestRecord, TabTelemetrySnapshot as TelemetrySnapshot } from '@openheaders/core/types';
-
-const EMPTY_SNAPSHOT: TelemetrySnapshot = {
-  counters: {},
-  fires: [],
-  byRule: {},
-  uniqueRequestCount: 0,
-};
-
-interface MatchedRequestRow extends RequestRecord {
-  key: string;
-  /** True when the matched URL is the current tab URL (main-frame). */
-  isTabUrl: boolean;
-}
-
-/** Human-readable labels for resource types shown in the Match column. */
-const RESOURCE_TYPE_LABEL: Record<string, string> = {
-  main_frame: 'Page',
-  sub_frame: 'Frame',
-  xmlhttprequest: 'Fetch/XHR',
-  script: 'Script',
-  stylesheet: 'CSS',
-  image: 'Image',
-  font: 'Font',
-  media: 'Media',
-  websocket: 'WebSocket',
-  ping: 'Ping',
-  other: 'Other',
-};
-
-const RESOURCE_TYPE_TOOLTIP: Record<string, string> = {
-  main_frame: 'Matches the page URL directly',
-  sub_frame: 'Applied to an iframe loaded by this page',
-  xmlhttprequest: 'Applied to fetch() and XMLHttpRequest calls',
-  script: 'Applied to script resources',
-  stylesheet: 'Applied to stylesheets',
-  image: 'Applied to images',
-  font: 'Applied to font files',
-  media: 'Applied to audio/video resources',
-  websocket: 'Applied to WebSocket connections',
-  ping: 'Applied to ping/beacon requests',
-  other: 'Applied to other resources',
-};
-
-/**
- * Render order for the inline resource-type filter row at the top of
- * the This Page view. Kept in sync with the `rulesEngine.visibleResourceTypes`
- * schema's enum order so the Settings multi-select and the popup row
- * always show types in the same sequence.
- */
-const ALL_RESOURCE_TYPES: readonly TrackedResourceType[] = [
-  'main_frame',
-  'sub_frame',
-  'xmlhttprequest',
-  'script',
-  'stylesheet',
-  'image',
-  'font',
-  'media',
-  'websocket',
-  'ping',
-  'other',
-];
-
-function formatTimestampShort(timestamp: number): React.ReactNode {
-  const d = new Date(timestamp);
-  const h = String(d.getHours()).padStart(2, '0');
-  const m = String(d.getMinutes()).padStart(2, '0');
-  const s = String(d.getSeconds()).padStart(2, '0');
-  const ms = String(d.getMilliseconds()).padStart(3, '0');
-  return (
-    <>
-      {h}:{m}:{s}
-      <span style={{ fontSize: '9px', opacity: 0.6 }}>.{ms}</span>
-    </>
-  );
-}
-
-function formatTimestampFull(timestamp: number): React.ReactNode {
-  const d = new Date(timestamp);
-  const months = [
-    'January',
-    'February',
-    'March',
-    'April',
-    'May',
-    'June',
-    'July',
-    'August',
-    'September',
-    'October',
-    'November',
-    'December',
-  ];
-  const day = d.getDate();
-  const month = months[d.getMonth()];
-  const year = d.getFullYear();
-  const h = String(d.getHours()).padStart(2, '0');
-  const m = String(d.getMinutes()).padStart(2, '0');
-  const s = String(d.getSeconds()).padStart(2, '0');
-  const ms = String(d.getMilliseconds()).padStart(3, '0');
-  return (
-    <>
-      {day} {month} {year} {h}:{m}:{s}
-      <span style={{ fontSize: '9px', opacity: 0.6 }}>.{ms}</span>
-    </>
-  );
-}
-
-interface ActiveRule {
-  id: string;
-  name: string;
-  ruleType: string;
-  summary: string;
-  actionLabel?: string;
-  actionOperation?: string;
-  actionTooltip?: string;
-  actionDirection?: string;
-  actionValue?: string;
-  actionItems?: string[];
-  isEnabled?: boolean;
-  domains?: string[];
-  path?: string;
-  /**
-   * Verdict rendered by the verdict engine for this rule on the
-   * current tab. See `@openheaders/ui/shared/verdict` for the canonical taxonomy and
-   * rank / label / tooltip metadata.
-   */
-  verdict?: RuleVerdict;
-  /** Short human-readable reason text supplied by the engine. */
-  verdictReason?: string;
-  /**
-   * Cached / SW-shortcut subresource URLs that match the rule's
-   * pattern but didn't fire webRequest. Merged into the per-rule
-   * sub-table as synthetic records with `evidence: 'silent'`.
-   */
-  silentRecords?: SilentMatchRecord[];
-}
-
-interface CurrentTabInfo {
-  id: number;
-  url: string;
-  domain: string;
-  title: string;
-}
-
-interface TableRecord extends ActiveRule {
-  key: string | number;
-  statusRank: number;
-  /**
-   * Primary sort key — lower = stronger signal. Clusters the table
-   * into visual sections (firing → silent → page → related → idle)
-   * regardless of the secondary sort mode. See `VERDICT_RANK` in
-   * `@openheaders/ui/shared/verdict` for the canonical ordering.
-   */
-  verdictRank: number;
-  /** Total fire events for this rule on the current page (from counters). */
-  fireCount: number;
-  /** Unique-URL records for this rule, newest first. */
-  records: RequestRecord[];
-  /** Highest evidence tier present across `records`, or 'none' if empty. */
-  dominantEvidence: RequestRecord['evidence'] | 'none';
-  /**
-   * First shadower seen across this rule's records, or undefined if none are
-   * shadowed. Only rendered when the experimental shadow-detection setting
-   * is enabled; always computed so tooltips can reference it when flagged on.
-   */
-  dominantShadow?: { uid: string; name: string };
-  /** Number of shadowed records (out of `records.length`). */
-  shadowedCount: number;
-}
-
-/**
- * Renders a URL with the portion matching the pattern highlighted.
- * Strips wildcards from the pattern to find the core string in the URL.
- */
-function renderHighlightedUrl(url: string, pattern: string): React.ReactNode {
-  // Strip wildcard prefixes to get the matchable core: "*.example.com" → "example.com"
-  const core = pattern.replace(/^\*\.?/, '').toLowerCase();
-  if (!core || core === '*') {
-    return <span style={{ wordBreak: 'break-all' }}>{url}</span>;
-  }
-
-  const lowerUrl = url.toLowerCase();
-  const matchIndex = lowerUrl.indexOf(core);
-  if (matchIndex === -1) {
-    return <span style={{ wordBreak: 'break-all' }}>{url}</span>;
-  }
-
-  const before = url.substring(0, matchIndex);
-  const matched = url.substring(matchIndex, matchIndex + core.length);
-  const after = url.substring(matchIndex + core.length);
-
-  return (
-    <span style={{ wordBreak: 'break-all' }}>
-      <span style={{ opacity: 0.6 }}>{before}</span>
-      <span style={{ color: '#69b1ff', fontWeight: 600 }}>{matched}</span>
-      <span style={{ opacity: 0.6 }}>{after}</span>
-    </span>
   );
 }
 
