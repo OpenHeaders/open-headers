@@ -25,9 +25,10 @@
  */
 
 import { type CollisionDetection, closestCenter, DndContext, DragOverlay, MeasuringStrategy } from '@dnd-kit/core';
-import { Allotment, type AllotmentHandle, LayoutPriority } from 'allotment';
+import { Allotment, LayoutPriority } from 'allotment';
 import type React from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { BAR_LABELED_MIN } from './constants';
 import { BottomRegion, SideRegion } from './DockRegions';
 import { computeDropZoneRects } from './drop-zone-rects';
 import DropZoneOverlay from './DropZoneOverlay';
@@ -39,6 +40,7 @@ import type {
   SidebarLayoutVariant,
   ToolWindowDef,
 } from './types';
+import { useActivityBarSizing } from './use-activity-bar-sizing';
 import { useDockDrag } from './use-dock-drag';
 import type { DockLayoutApi } from './use-dock-layout';
 import VerticalActivityBar from './VerticalActivityBar';
@@ -84,14 +86,6 @@ export interface ShellLayoutProps<T extends string> {
 }
 
 // ── ShellLayout ───────────────────────────────────────────────────────
-
-// Activity-bar size constants — kept in one place so the Pane min/max,
-// the host settings schema, and the render path agree. Compact (icon-
-// only) mode pins the bar; labeled mode allows free resize within
-// [BAR_LABELED_MIN, BAR_LABELED_MAX] driven by the user's settings.
-const BAR_COMPACT_WIDTH = 36;
-const BAR_LABELED_MIN = 64;
-const BAR_LABELED_MAX = 160;
 
 function ShellLayoutInner<T extends string>({
   tl,
@@ -463,129 +457,8 @@ function ShellLayoutInner<T extends string>({
     [dragging, shellSize, sizes, bottomPanelAlignment, barWidths.left, barWidths.right],
   );
 
-  // Bar pane sizing. In icon-only (compact) mode, both rails are
-  // locked to BAR_COMPACT_WIDTH by setting min == max; the user can't
-  // drag the sash. With labels visible, the user can drag between
-  // BAR_LABELED_MIN and BAR_LABELED_MAX, persisted per-rail via the
-  // host settings.
-  const barMin = showToolWindowLabels ? BAR_LABELED_MIN : BAR_COMPACT_WIDTH;
-  const barMax = showToolWindowLabels ? BAR_LABELED_MAX : BAR_COMPACT_WIDTH;
-  const leftBarPreferred = showToolWindowLabels ? activityBarWidths.left : BAR_COMPACT_WIDTH;
-  const rightBarPreferred = showToolWindowLabels ? activityBarWidths.right : BAR_COMPACT_WIDTH;
-
-  // The bars Allotment never unmounts — toggling labels just shifts
-  // pane min/max bounds and we re-apply each pane's `preferredSize`
-  // imperatively via the ref below. A `key` swap here would cause
-  // the entire tree to unmount/remount (visible flash on every label
-  // toggle); reusing the same instance keeps the transition seamless,
-  // the way it behaves in mature IDE shells.
-  const barsAllotmentRef = useRef<AllotmentHandle>(null);
-  const barsMountedRef = useRef(false);
-
-  useLayoutEffect(() => {
-    // First mount: rely on each pane's `preferredSize` prop to lay
-    // out the bars; calling into Allotment before its children have
-    // registered with the layout service throws (`undefined.minimumSize`).
-    if (!barsMountedRef.current) {
-      barsMountedRef.current = true;
-      return;
-    }
-    // Subsequent updates (label toggle changes leftBarPreferred /
-    // rightBarPreferred): Allotment doesn't auto-re-apply preferredSize
-    // on prop change, so without a nudge the bars stay clamped to the
-    // previous mode's min/max. Use `resize()` (not `reset()`) — we
-    // ship `onReset={handleBarsReset}` to make sash-dblclick snap to
-    // min, and `ref.reset()` delegates to that onReset, which would
-    // snap the bars to min on every prop change (e.g. right after the
-    // user releases a drag and the persisted width flows back in via
-    // preferredSize). Bypassing `reset()` keeps prop-driven sizing
-    // independent of dblclick-driven sizing.
-    const row = barsRowRef.current;
-    if (!row) return;
-    const total = row.clientWidth;
-    if (total <= 0) return;
-    const middleW = Math.max(0, total - leftBarPreferred - rightBarPreferred);
-    barsAllotmentRef.current?.resize([leftBarPreferred, middleW, rightBarPreferred]);
-  }, [leftBarPreferred, rightBarPreferred]);
-
-  // Allotment fires `onChange` for many things beyond user drags —
-  // remount fit-passes, container resizes, pane prop changes — and
-  // each event can land a few pixels off the user's stored width.
-  // Persisting from `onChange` lets that drift accumulate across
-  // toggles and eventually overwrites both rails with the same value.
-  // Instead, persist only when an actual sash drag ENDS: bind mouse
-  // listeners scoped to the outer bars Allotment, snapshot the live
-  // bar widths on mouseup, and write them once.
-  const barsRowRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    const root = barsRowRef.current;
-    if (!root) return;
-    let dragging = false;
-
-    const onPointerDown = (e: PointerEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (!target) return;
-      // Only count drags on sashes that belong to the outer bars
-      // Allotment (direct child of `.rules-main-row`), not the
-      // nested per-alignment Allotments inside the center pane.
-      const sash = target.closest('.sash');
-      if (!sash) return;
-      const outerSplitView = root.firstElementChild;
-      if (!outerSplitView || !outerSplitView.contains(sash)) return;
-      dragging = true;
-    };
-
-    const onPointerUp = () => {
-      if (!dragging) return;
-      dragging = false;
-      if (!showToolWindowLabels) return;
-      const leftBar = root.querySelector<HTMLElement>('.rules-activity-bar--left');
-      const rightBar = root.querySelector<HTMLElement>('.rules-activity-bar--right');
-      if (!leftBar || !rightBar) return;
-      const nextLeft = Math.round(leftBar.getBoundingClientRect().width);
-      const nextRight = Math.round(rightBar.getBoundingClientRect().width);
-      if (nextLeft === activityBarWidths.left && nextRight === activityBarWidths.right) return;
-      onActivityBarResize({ left: nextLeft, right: nextRight });
-    };
-
-    document.addEventListener('pointerdown', onPointerDown, true);
-    document.addEventListener('pointerup', onPointerUp, true);
-    document.addEventListener('pointercancel', onPointerUp, true);
-    return () => {
-      document.removeEventListener('pointerdown', onPointerDown, true);
-      document.removeEventListener('pointerup', onPointerUp, true);
-      document.removeEventListener('pointercancel', onPointerUp, true);
-    };
-  }, [activityBarWidths.left, activityBarWidths.right, onActivityBarResize, showToolWindowLabels]);
-
-  // Sash double-click on the activity-bar sashes snaps both rails to
-  // BAR_LABELED_MIN; the middle column absorbs the slack. We compute
-  // sizes from the live DOM so the snap respects the user's middle
-  // column width instead of overwriting it.
-  //
-  // ⚠ Allotment's `sashreset` listener (allotment.tsx:289) is registered
-  // in a useIsomorphicLayoutEffect with empty deps, so it captures the
-  // `onReset` prop ONCE at mount and never refreshes. A plain useCallback
-  // here would be invoked with stale closure values (e.g. an early
-  // `showToolWindowLabels === false` if labels were toggled on later).
-  // Use a ref shim: the `onReset` prop we hand to Allotment is stable;
-  // it just dispatches to the latest implementation stored in the ref.
-  const barsResetImplRef = useRef<() => void>(() => {});
-  barsResetImplRef.current = () => {
-    if (!showToolWindowLabels) return;
-    const row = barsRowRef.current;
-    if (!row) return;
-    const total = row.clientWidth;
-    if (total <= 0) return;
-    const leftW = BAR_LABELED_MIN;
-    const rightW = BAR_LABELED_MIN;
-    const middleW = Math.max(0, total - leftW - rightW);
-    barsAllotmentRef.current?.resize([leftW, middleW, rightW]);
-    if (leftW !== activityBarWidths.left || rightW !== activityBarWidths.right) {
-      onActivityBarResize({ left: leftW, right: rightW });
-    }
-  };
-  const handleBarsReset = useCallback(() => barsResetImplRef.current(), []);
+  const { barMin, barMax, leftBarPreferred, rightBarPreferred, barsAllotmentRef, barsRowRef, handleBarsReset } =
+    useActivityBarSizing({ showToolWindowLabels, activityBarWidths, onActivityBarResize });
 
   const mainRow = (
     <div className="rules-main-row" ref={barsRowRef}>

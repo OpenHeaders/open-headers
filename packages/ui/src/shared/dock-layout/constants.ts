@@ -35,3 +35,11 @@ export function regionDocks(region: ToolRegion): [DockSlot, DockSlot] {
   if (region === 'right') return ['right-top', 'right-bottom'];
   return ['bottom-left', 'bottom-right'];
 }
+
+// Activity-bar size constants — kept in one place so the Pane min/max,
+// the host settings schema, and the render path agree. Compact (icon-
+// only) mode pins the bar; labeled mode allows free resize within
+// [BAR_LABELED_MIN, BAR_LABELED_MAX] driven by the user's settings.
+export const BAR_COMPACT_WIDTH = 36;
+export const BAR_LABELED_MIN = 64;
+export const BAR_LABELED_MAX = 160;
