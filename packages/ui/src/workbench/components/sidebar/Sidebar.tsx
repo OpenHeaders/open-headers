@@ -36,18 +36,15 @@ import { useRequests } from '@openheaders/ui/shared/hooks/useRequests';
 import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/useRuleMutator';
 import { useVariableResolver } from '@openheaders/ui/shared/hooks/useVariableResolver';
-import type { TreeNode as CoreTreeNode } from '@openheaders/core/types';
 import { isRuleResolvable } from '@openheaders/core/utils';
 import type { InputRef } from 'antd';
 import { App, Dropdown, Input, Modal, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { TEMPLATES_BY_TYPE } from '../../rule-templates';
 import { buildRuleTypeMenuItems } from '../../rule-type-menu';
 import { useEnvSwitcher } from '../../services/env-switcher';
 import { useSettingValue } from '../../settings/hooks';
 import type { WorkbenchTab } from '../../types';
-import { replaceOwnedKeys } from './expanded-key-ownership';
 import { FolderDndTree, type FolderDndConfig } from './FolderDndTree';
 import { SectionHeader } from './SectionHeader';
 import { TreeNodeRow } from './TreeNodeRow';
@@ -60,6 +57,7 @@ import { useRequestTreeNodes } from './useRequestTreeNodes';
 import { useRulesTreeNodes } from './useRulesTreeNodes';
 import { useSelectOpenedTab } from './useSelectOpenedTab';
 import { useSidebarCreateActions } from './useSidebarCreateActions';
+import { useSidebarExpansion } from './useSidebarExpansion';
 import { useTemplateTreeNodes } from './useTemplateTreeNodes';
 import { useVariableSingletonNodes } from './useVariableSingletonNodes';
 import { useWorkflowNodes } from './useWorkflowNodes';
@@ -76,19 +74,6 @@ const SIDEBAR_VIEW_LABEL: Record<SidebarView, string> = {
   workflows: 'Workflows',
   variables: 'Variables',
 };
-
-// Views with no expandable collection/folder tree: their section
-// headers are the only collapsible level, so Expand/Collapse All
-// toggles every listed section instead of operating on tree keys.
-// List every section the view renders, including the shared
-// ENVIRONMENTS footer.
-const TREELESS_VIEW_SECTIONS: Partial<Record<SidebarView, readonly string[]>> = {
-  variables: ['vault', 'workspace-vars', 'live-variables', 'environments'],
-  workflows: ['workflows', 'environments'],
-};
-
-const sectionsAllSet = (keys: readonly string[], open: boolean): Record<string, boolean> =>
-  Object.fromEntries(keys.map((k) => [k, open]));
 
 interface SidebarProps {
   view: SidebarView;
@@ -310,101 +295,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [alwaysSelectOpened, setAlwaysSelectOpened] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const toggleSection = useCallback(
-    (key: string) => {
-      setSectionsExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
-    },
-    [setSectionsExpanded],
-  );
-
-  const toggleExpand = useCallback(
-    (key: string) => {
-      setExpandedKeys((prev) => {
-        const next = new Set(prev);
-        if (next.has(key)) next.delete(key);
-        else next.add(key);
-        return next;
-      });
-    },
-    [setExpandedKeys],
-  );
-
-  // Expand/Collapse All behaves by view shape:
-  //   - Tree-bearing views (http-rules, api-requests): operate on the
-  //     visible collection/folder tree only. Sections are a layout
-  //     choice the user owns, so a click never opens or closes one —
-  //     except that, when every section is collapsed, Expand All would
-  //     be a visible no-op, so it also opens the sections to let the
-  //     user climb out of an all-closed state in one click.
-  //   - Tree-less views (variables, workflows): the sections ARE the
-  //     only collapsible level, so Expand/Collapse All toggles every
-  //     section in TREELESS_VIEW_SECTIONS open/closed.
-  //
-  // `replaceOwnedKeys()` swaps in this view's `nextOwned` tree-key
-  // set while preserving every other panel's expansions (keys owned
-  // by other views or with no recognized prefix).
-  const expandAll = useCallback(() => {
-    const collectFolderKeys = (nodes: CoreTreeNode[], prefix: string, into: Set<string>) => {
-      for (const n of nodes) {
-        if (n.type === 'folder') {
-          into.add(`${prefix}${n.uid}`);
-          collectFolderKeys(n.children, prefix, into);
-        }
-      }
-    };
-
-    if (view === 'http-rules') {
-      const rulesOpen = sectionsExpanded.rules === true;
-      const templatesOpen = sectionsExpanded.templates === true;
-      const allClosed = !rulesOpen && !templatesOpen && sectionsExpanded.environments !== true;
-      if (allClosed) {
-        setSectionsExpanded({ rules: true, templates: true, environments: true });
-      }
-      const ownedKeys = new Set<string>();
-      if (rulesOpen || allClosed) {
-        for (const col of localCollectionTrees) {
-          ownedKeys.add(`col-${col.uid}`);
-          collectFolderKeys(col.tree, 'folder-', ownedKeys);
-        }
-      }
-      if (templatesOpen || allClosed) {
-        for (const col of templateCollectionTrees) {
-          ownedKeys.add(`tpl-col-${col.uid}`);
-          collectFolderKeys(col.tree, 'tpl-folder-', ownedKeys);
-        }
-        ownedKeys.add('sys-tpl-col');
-        for (const [ruleType, tpls] of Object.entries(TEMPLATES_BY_TYPE)) {
-          if (tpls.length === 0) continue;
-          ownedKeys.add(`sys-tpl-${ruleType}`);
-        }
-      }
-      setExpandedKeys((prev) => replaceOwnedKeys(prev, ownedKeys, view));
-      return;
-    }
-
-    if (view === 'api-requests') {
-      const reqOpen = sectionsExpanded['api-requests'] === true;
-      const allClosed = !reqOpen && sectionsExpanded.environments !== true;
-      if (allClosed) {
-        setSectionsExpanded({ 'api-requests': true, environments: true });
-      }
-      const ownedKeys = new Set<string>();
-      if (reqOpen || allClosed) {
-        for (const col of requestCollectionTrees) {
-          ownedKeys.add(`req-col-${col.uid}`);
-          collectFolderKeys(col.tree, 'req-folder-', ownedKeys);
-        }
-      }
-      setExpandedKeys((prev) => replaceOwnedKeys(prev, ownedKeys, view));
-      return;
-    }
-
-    // Tree-less views: open every section.
-    const treelessSections = TREELESS_VIEW_SECTIONS[view];
-    if (treelessSections) {
-      setSectionsExpanded(sectionsAllSet(treelessSections, true));
-    }
-  }, [
+  const { toggleSection, toggleExpand, expandAll, collapseAll } = useSidebarExpansion({
     view,
     sectionsExpanded,
     localCollectionTrees,
@@ -412,20 +303,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     requestCollectionTrees,
     setSectionsExpanded,
     setExpandedKeys,
-  ]);
-
-  // Collapse All clears this view's tree keys; in tree-bearing views
-  // sections stay as the user left them (symmetric with Expand All —
-  // a click never closes a section the user explicitly opened). In
-  // tree-less views the sections are the only collapsible level, so it
-  // closes every one.
-  const collapseAll = useCallback(() => {
-    setExpandedKeys((prev) => replaceOwnedKeys(prev, new Set<string>(), view));
-    const treelessSections = TREELESS_VIEW_SECTIONS[view];
-    if (treelessSections) {
-      setSectionsExpanded(sectionsAllSet(treelessSections, false));
-    }
-  }, [view, setExpandedKeys, setSectionsExpanded]);
+  });
 
   const confirmOnDelete = useSettingValue('general.confirmOnDelete');
   const confirmDelete = useCallback(
