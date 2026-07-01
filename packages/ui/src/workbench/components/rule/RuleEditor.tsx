@@ -69,6 +69,7 @@ import { useSettingValue } from '../../settings/hooks';
 import { get as getSetting } from '../../settings/store';
 import ConditionEditor from './ConditionEditor';
 import { buildSystemMenuItems, buildUserMenuItems } from './rule-editor/template-menu';
+import { useHeaderPreviewTabs } from './rule-editor/useHeaderPreviewTabs';
 import EditorHeader from '../shell/EditorHeader';
 import { ActionValueBanner } from '../rule-fields/ActionValueBanner';
 import AuthRuleFields from '../rule-fields/AuthRuleFields';
@@ -183,24 +184,17 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   const [form] = Form.useForm();
   const [_saving, setSaving] = useState(false);
   const [saveAsTemplateOpen, setSaveAsTemplateOpen] = useState(false);
-  // ── Header state (lifted from HeaderRuleFields for reliable timing) ──
-  // useWatch has inherent first-render timing issues — parent owns the truth.
-  const [headerActiveTab, setHeaderActiveTab] = useState('request');
-  const [headerReqCount, setHeaderReqCount] = useState(0);
-  const [headerResCount, setHeaderResCount] = useState(0);
-  // Once the user explicitly clicks Request/Response, their choice is
-  // sticky — incoming live-update re-primes never override it. Without
-  // this, a broadcast-driven re-prime (clean editor, peer commits an
-  // unrelated mutation) would snap back to the auto-default tab.
-  const userPickedHeaderTabRef = useRef(false);
-  const handleHeaderTabChange = useCallback((tab: string) => {
-    userPickedHeaderTabRef.current = true;
-    setHeaderActiveTab(tab);
-  }, []);
-  const setDefaultHeaderTab = useCallback((reqLen: number, resLen: number) => {
-    if (userPickedHeaderTabRef.current) return;
-    setHeaderActiveTab(resLen > 0 && reqLen === 0 ? 'response' : 'request');
-  }, []);
+  // Header-preview tab + badge state, lifted from HeaderRuleFields so the
+  // parent owns the truth (useWatch has first-render timing issues).
+  const {
+    headerActiveTab,
+    headerReqCount,
+    headerResCount,
+    handleHeaderTabChange,
+    setDefaultHeaderTab,
+    setHeaderReqCount,
+    setHeaderResCount,
+  } = useHeaderPreviewTabs();
 
   // URL-derivation strategy for `initialDraft.url` → url-filter condition.
   // Read live so a user who changes the setting mid-session gets the new
