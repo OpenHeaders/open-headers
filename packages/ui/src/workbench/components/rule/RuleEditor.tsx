@@ -41,7 +41,6 @@ import {
   RULE_ACTION_PATHS,
   useLocalInstanceId,
 } from '@openheaders/ui/shared/awareness';
-import type { ConflictResolution } from '@openheaders/ui/shared/conflicts';
 import {
   EntityConflictBanner,
   EntityConflictDialog,
@@ -80,10 +79,9 @@ import { SseRuleFields, WsRuleFields } from '../rule-fields/MessageRuleFields';
 import ResponseRuleFields, { RESPONSE_BUILD_TEMPLATE, RESPONSE_MODIFY_TEMPLATE } from '../rule-fields/ResponseRuleFields';
 import { buildRule } from '../rule-fields/build-rule';
 import { mergeRuleForSave } from '../rule-fields/merge-rule-for-save';
-import { prettyRulePathMap } from '../rule-fields/pretty-path';
 import QueryParamRuleFields from '../rule-fields/QueryParamRuleFields';
 import RedirectRuleFields from '../rule-fields/RedirectRuleFields';
-import { applyResolutionToForm, applyResolutionToRule } from '../rule-fields/rule-form-resolver';
+import { applyResolutionToForm } from '../rule-fields/rule-form-resolver';
 import type { PathConflict } from '../rule-fields/use-rule-conflicts';
 import { useRuleConflicts } from '../rule-fields/use-rule-conflicts';
 import SaveAsTemplateModal from '../save/SaveAsTemplateModal';
@@ -489,16 +487,6 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   });
   setBaselineRef.current = conflicts.setBaseline;
 
-  const conflictBridge = useMemo(
-    () => ({
-      getConflict: conflicts.getConflict,
-      getSetConflict: conflicts.getSetConflict,
-      onAcceptTheirs: conflicts.acceptTheirs,
-      onDismissConflict: conflicts.dismiss,
-    }),
-    [conflicts.getConflict, conflicts.getSetConflict, conflicts.acceptTheirs, conflicts.dismiss],
-  );
-
   // Field-tree conflicts API exposed to per-type rule-fields/* via
   // context. `<ScalarConflictChip>` + `<FieldConflictChip>` +
   // `<SetRowChip>` all subscribe through the provider so the per-type
@@ -637,23 +625,6 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     }
   }, [allConflicts, conflicts, form, liveRule]);
 
-  const applyResolutions = useCallback(
-    (resolutions: Map<string, ConflictResolution>) => {
-      if (!liveRule) return;
-      for (const [path, choice] of resolutions) {
-        const conflict = allConflicts.get(path);
-        if (!conflict) continue;
-        if (choice === 'theirs') {
-          applyResolutionToForm(form, liveRule, path, conflict);
-          conflicts.acceptTheirs(path, conflict.theirs);
-        } else {
-          conflicts.dismiss(path);
-        }
-      }
-    },
-    [allConflicts, conflicts, form, liveRule],
-  );
-
   // Phase 6 commit seam for the merge-editor surface. The user has
   // edited the result text directly; parse it back to a Rule, populate
   // the form, and dismiss every conflict path so chips disappear. The
@@ -723,11 +694,6 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       return '';
     }
   }, [isConflictDialogOpen, liveRule, formValues, ruleName, isEnabled]);
-
-  const conflictPathLabels = useMemo(
-    () => (liveRule ? prettyRulePathMap(liveRule, allConflicts.keys()) : new Map<string, string>()),
-    [liveRule, allConflicts],
-  );
 
   const handleToggleEnabled = useCallback(() => {
     if (!ruleUid) return;
