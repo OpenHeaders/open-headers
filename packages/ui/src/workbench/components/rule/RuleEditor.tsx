@@ -400,6 +400,26 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     [form, setDefaultHeaderTab],
   );
 
+  // ── Template selector ─────────────────────────────────────────
+  const {
+    applyTemplate,
+    systemMenuItems,
+    userMenuItems,
+    activeSystemTemplate,
+    activeUserTemplate,
+    activeSource,
+    selectedDescription,
+  } = useRuleTemplates({
+    selectedType,
+    form,
+    userTemplates,
+    templateCollectionTrees,
+    initialTemplateKey,
+    setDefaultHeaderTab,
+    setHeaderReqCount,
+    setHeaderResCount,
+  });
+
   // Reprime owns dirty derivation, comparison shape (BC1), populate
   // gating, and auto-rebase. `onPrimed` runs after every populate /
   // auto-rebase: advances the conflict tracker baseline (via ref so
@@ -501,26 +521,6 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     if (!ruleUid) return;
     void mutator.toggleRule(ruleUid, !isEnabled);
   }, [ruleUid, isEnabled, mutator]);
-
-  // ── Template selector ─────────────────────────────────────────
-  const {
-    applyTemplate,
-    systemMenuItems,
-    userMenuItems,
-    activeSystemTemplate,
-    activeUserTemplate,
-    activeSource,
-    selectedDescription,
-  } = useRuleTemplates({
-    selectedType,
-    form,
-    userTemplates,
-    templateCollectionTrees,
-    initialTemplateKey,
-    setDefaultHeaderTab,
-    setHeaderReqCount,
-    setHeaderResCount,
-  });
 
   // Create-mode bootstrap. `useReprime` stays disabled (no liveRule),
   // so its `onPrimed` overlay path never fires — instead we seed the
