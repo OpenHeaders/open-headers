@@ -33,10 +33,8 @@ import { useEnvSwitcher } from '../../services/env-switcher';
 import { useSettingValue } from '../../settings/hooks';
 import type { WorkbenchTab } from '../../types';
 import { buildCreateMenuItems, buildRequestImportMenuItems } from './build-sidebar-menus';
-import { FolderDndTree, type FolderDndConfig } from './FolderDndTree';
 import { SectionHeader } from './SectionHeader';
 import SidebarHeaderActions from './SidebarHeaderActions';
-import { TreeNodeRow } from './TreeNodeRow';
 import type { SidebarView, TreeNode } from './types';
 import type { SidebarExportEntity } from '../workspace-export/build-export-scope';
 import { useDraftOverlay } from './useDraftOverlay';
@@ -47,6 +45,7 @@ import { useRulesTreeNodes } from './useRulesTreeNodes';
 import { useSidebarCreateActions } from './useSidebarCreateActions';
 import { useSidebarExpansion } from './useSidebarExpansion';
 import { useSidebarInteraction } from './useSidebarInteraction';
+import { useSidebarNodeRenderers } from './useSidebarNodeRenderers';
 import { useTemplateTreeNodes } from './useTemplateTreeNodes';
 import { useVariableSingletonNodes } from './useVariableSingletonNodes';
 import { useWorkflowNodes } from './useWorkflowNodes';
@@ -548,56 +547,16 @@ const Sidebar: React.FC<SidebarProps> = ({
     onImportPostman,
   });
 
-  const renderTreeNodeRow = (node: TreeNode) => (
-    <TreeNodeRow
-      key={node.id}
-      node={node}
-      isSelected={isSelected(node.id)}
-      isFocused={isFocused(node.id)}
-      isRenaming={renamingId === node.id}
-      isExpanded={node.expandable ? expandedKeys.has(node.id) : undefined}
-      isExportSelected={isExportSelected(node.id)}
-      onClick={(e) => handleItemClick(node, e)}
-      onDoubleClick={() => handleItemDoubleClick(node)}
-      onStartRename={() => {
-        if (renamingId === node.id) setRenamingId(null);
-        else setRenamingId(node.id);
-      }}
-    />
-  );
-
-  const renderEmptyState = (emptyCreate?: () => void) => (
-    <div className="rules-sidebar-empty-state">
-      <span style={{ color: token.colorTextSecondary, fontSize: 12, fontWeight: 600 }}>No items in this section</span>
-      {emptyCreate && (
-        <button
-          type="button"
-          className="rules-sidebar-create-btn"
-          style={{ color: token.colorText }}
-          onClick={emptyCreate}
-        >
-          <PlusOutlined style={{ fontSize: 10 }} /> Create
-        </button>
-      )}
-    </div>
-  );
-
-  const renderNodes = (nodes: TreeNode[], emptyCreate?: () => void) => {
-    if (nodes.length === 0) return renderEmptyState(emptyCreate);
-    return nodes.map(renderTreeNodeRow);
-  };
-
-  /** Variant of `renderNodes` that wraps folder rows in dnd-kit so
-   *  same-parent reorder gestures emit `moveFolder` mutations. The
-   *  per-tree config supplies the id prefixes + mutator binding. */
-  const renderFolderDndNodes = (
-    nodes: TreeNode[],
-    config: FolderDndConfig,
-    emptyCreate?: () => void,
-  ) => {
-    if (nodes.length === 0) return renderEmptyState(emptyCreate);
-    return <FolderDndTree nodes={nodes} renderNode={renderTreeNodeRow} config={config} />;
-  };
+  const { renderTreeNodeRow, renderEmptyState, renderNodes, renderFolderDndNodes } = useSidebarNodeRenderers({
+    isSelected,
+    isFocused,
+    isExportSelected,
+    handleItemClick,
+    handleItemDoubleClick,
+    renamingId,
+    setRenamingId,
+    expandedKeys,
+  });
 
   return (
     <div className="rules-sidebar">
