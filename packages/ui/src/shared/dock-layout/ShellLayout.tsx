@@ -24,23 +24,10 @@
  * slots without ShellLayout knowing anything about domain data.
  */
 
-import {
-  type CollisionDetection,
-  closestCenter,
-  DndContext,
-  type DragEndEvent,
-  type DragOverEvent,
-  DragOverlay,
-  type DragStartEvent,
-  MeasuringStrategy,
-  PointerSensor,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core';
+import { type CollisionDetection, closestCenter, DndContext, DragOverlay, MeasuringStrategy } from '@dnd-kit/core';
 import { Allotment, type AllotmentHandle, LayoutPriority } from 'allotment';
 import type React from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ALL_DOCK_SLOTS } from './constants';
 import { BottomRegion, SideRegion } from './DockRegions';
 import { computeDropZoneRects } from './drop-zone-rects';
 import DropZoneOverlay from './DropZoneOverlay';
@@ -52,6 +39,7 @@ import type {
   SidebarLayoutVariant,
   ToolWindowDef,
 } from './types';
+import { useDockDrag } from './use-dock-drag';
 import type { DockLayoutApi } from './use-dock-layout';
 import VerticalActivityBar from './VerticalActivityBar';
 
@@ -95,17 +83,6 @@ export interface ShellLayoutProps<T extends string> {
   focusStore: FocusStore;
 }
 
-type ToolWindowDragData<T extends string> = { kind: 'tool-window'; toolWindowId: T; fromSlot: DockSlot };
-type EditorTabDragData = { kind: 'editor-tab'; leafId: string; tabId: string };
-type DragData<T extends string> = ToolWindowDragData<T> | EditorTabDragData;
-
-function asDragData<T extends string>(current: unknown): DragData<T> | null {
-  if (!current || typeof current !== 'object') return null;
-  const record = current as { kind?: unknown };
-  if (record.kind === 'tool-window' || record.kind === 'editor-tab') return current as DragData<T>;
-  return null;
-}
-
 // ── ShellLayout ───────────────────────────────────────────────────────
 
 // Activity-bar size constants — kept in one place so the Pane min/max,
@@ -115,8 +92,6 @@ function asDragData<T extends string>(current: unknown): DragData<T> | null {
 const BAR_COMPACT_WIDTH = 36;
 const BAR_LABELED_MIN = 64;
 const BAR_LABELED_MAX = 160;
-
-type DockWindowsMap<T extends string> = Record<DockSlot, T[]>;
 
 function ShellLayoutInner<T extends string>({
   tl,
@@ -136,146 +111,18 @@ function ShellLayoutInner<T extends string>({
   collisionDetection,
   focusStore,
 }: ShellLayoutProps<T>) {
-  const [draggingId, setDraggingId] = useState<T | null>(null);
-  const [draggingTabId, setDraggingTabId] = useState<string | null>(null);
-  const [preview, setPreview] = useState<DockWindowsMap<T> | null>(null);
-
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
-
-  const getWindows = useCallback(
-    (slot: DockSlot): T[] => preview?.[slot] ?? tl.state.docks[slot].windows,
-    [preview, tl.state.docks],
-  );
-
-  const resolveTarget = useCallback(
-    (nodeId: string, source: DockWindowsMap<T>): { slot: DockSlot; index: number } | null => {
-      if (nodeId.startsWith('dock:')) {
-        const slot = nodeId.slice(5) as DockSlot;
-        return { slot, index: source[slot].length };
-      }
-      if (nodeId.startsWith('drop:')) {
-        const slot = nodeId.slice(5) as DockSlot;
-        return { slot, index: source[slot].length };
-      }
-      if (nodeId.startsWith('tw:')) {
-        const twId = nodeId.slice(3) as T;
-        for (const slot of ALL_DOCK_SLOTS) {
-          const idx = source[slot].indexOf(twId);
-          if (idx >= 0) return { slot, index: idx };
-        }
-      }
-      return null;
-    },
-    [],
-  );
-
-  const handleDragStart = useCallback(
-    (event: DragStartEvent) => {
-      const data = asDragData<T>(event.active.data.current);
-      if (!data) return;
-      if (data.kind === 'editor-tab') {
-        setDraggingTabId(data.tabId);
-        return;
-      }
-      setDraggingId(data.toolWindowId);
-      const snapshot = {} as DockWindowsMap<T>;
-      for (const slot of ALL_DOCK_SLOTS) snapshot[slot] = [...tl.state.docks[slot].windows];
-      setPreview(snapshot);
-    },
-    [tl.state.docks],
-  );
-
-  const handleDragOver = useCallback(
-    (event: DragOverEvent) => {
-      const data = asDragData<T>(event.active.data.current);
-      if (!data || data.kind === 'editor-tab') return;
-      const { active, over } = event;
-      if (!over) return;
-      setPreview((prev) => {
-        if (!prev) return prev;
-        const activeLoc = resolveTarget(String(active.id), prev);
-        const overLoc = resolveTarget(String(over.id), prev);
-        if (!activeLoc || !overLoc) return prev;
-        const activeTw = String(active.id).slice(3) as T;
-
-        // Same-slot reorder: do NOT mutate the preview here. The
-        // SortableContext + verticalListSortingStrategy already provides
-        // stable visual feedback via CSS transforms during the drag; the
-        // actual reorder is applied once in handleDragEnd. Mutating the
-        // items array mid-drag shifts other tabs under the cursor, which
-        // makes the cursor's "closest" target flip on the next frame and
-        // cascades into double-jumps and out-of-strip overflow.
-        if (activeLoc.slot === overLoc.slot) return prev;
-
-        // Cross-slot move: update the preview so the tab visually
-        // "joins" the new slot during the drag.
-        const next = { ...prev } as DockWindowsMap<T>;
-        next[activeLoc.slot] = prev[activeLoc.slot].filter((id) => id !== activeTw);
-        const destList = [...prev[overLoc.slot]];
-        const insertIndex = String(over.id).startsWith('dock:') ? destList.length : overLoc.index;
-        const clamped = Math.max(0, Math.min(insertIndex, destList.length));
-        destList.splice(clamped, 0, activeTw);
-        next[overLoc.slot] = destList;
-        return next;
-      });
-    },
-    [resolveTarget],
-  );
-
-  const handleDragEnd = useCallback(
-    (event: DragEndEvent) => {
-      const data = asDragData<T>(event.active.data.current);
-
-      if (data?.kind === 'editor-tab') {
-        setDraggingTabId(null);
-        return;
-      }
-
-      const activeTw = data?.kind === 'tool-window' ? data.toolWindowId : null;
-      const finalPreview = preview;
-      const overId = event.over?.id ? String(event.over.id) : null;
-      setDraggingId(null);
-      setPreview(null);
-      if (!activeTw || !finalPreview) return;
-
-      // Locate where activeTw lives in the final preview vs current
-      // state. If preview moved it to a different slot during drag-over,
-      // commit that cross-slot move. If preview matches state (same-slot
-      // case — handleDragOver intentionally skipped it), compute the
-      // target index from `over` and apply once.
-      for (const slot of ALL_DOCK_SLOTS) {
-        const previewIdx = finalPreview[slot].indexOf(activeTw);
-        if (previewIdx < 0) continue;
-        const sourceIdx = tl.state.docks[slot].windows.indexOf(activeTw);
-
-        if (sourceIdx < 0) {
-          // Cross-slot: activeTw arrived in this slot via drag-over.
-          tl.moveWindow(activeTw, slot, previewIdx);
-          return;
-        }
-
-        // Same slot — only reorder when dropped onto a specific tab. A
-        // drop on `dock:`/`drop:` (strip empty area or drop overlay for
-        // the same slot) is a no-op so dragging above/below the list
-        // doesn't fling the tab to the end.
-        if (overId?.startsWith('tw:')) {
-          const overTw = overId.slice(3) as T;
-          const overIdx = tl.state.docks[slot].windows.indexOf(overTw);
-          if (overIdx >= 0 && overIdx !== sourceIdx) {
-            tl.moveWindow(activeTw, slot, overIdx);
-          }
-        }
-        return;
-      }
-    },
-    [preview, tl],
-  );
-
-  const handleDragCancel = useCallback(() => {
-    setDraggingId(null);
-    setDraggingTabId(null);
-    setPreview(null);
-  }, []);
+  const {
+    sensors,
+    draggingId,
+    draggingTabId,
+    dragging,
+    highlightedSlot,
+    getWindows,
+    handleDragStart,
+    handleDragOver,
+    handleDragEnd,
+    handleDragCancel,
+  } = useDockDrag(tl);
 
   const leftOpen = tl.isRegionOpen('left');
   const rightOpen = tl.isRegionOpen('right');
@@ -610,15 +457,6 @@ function ShellLayoutInner<T extends string>({
       </div>
     );
   }
-
-  const dragging = draggingId !== null;
-  const highlightedSlot = useMemo<DockSlot | null>(() => {
-    if (!preview || !draggingId) return null;
-    for (const slot of ALL_DOCK_SLOTS) {
-      if (preview[slot].includes(draggingId)) return slot;
-    }
-    return null;
-  }, [preview, draggingId]);
 
   const dropZoneRects = useMemo<Record<DockSlot, DropZoneRect> | null>(
     () => (dragging ? computeDropZoneRects({ shellSize, sizes, bottomPanelAlignment, barWidths }) : null),
