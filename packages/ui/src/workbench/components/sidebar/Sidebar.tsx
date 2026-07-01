@@ -29,27 +29,13 @@ import type { MenuProps } from 'antd';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { useEnvironments } from '@openheaders/ui/shared/hooks/useEnvironments';
-import { useFolderMutator } from '@openheaders/ui/shared/hooks/useFolderMutator';
 import { useAllLiveCaches } from '@openheaders/ui/shared/hooks/useLiveCache';
 import { useLiveVariables } from '@openheaders/ui/shared/hooks/useLiveVariables';
 import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/useLiveWorkflows';
-import { useRequestFolderMutator } from '@openheaders/ui/shared/hooks/useRequestFolderMutator';
 import { useRequests } from '@openheaders/ui/shared/hooks/useRequests';
 import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/useRuleMutator';
-import { useTemplateFolderMutator } from '@openheaders/ui/shared/hooks/useTemplateFolderMutator';
 import { useVariableResolver } from '@openheaders/ui/shared/hooks/useVariableResolver';
-import {
-  COLLECTION_ENTITY_TYPE,
-  FOLDER_ENTITY_TYPE,
-  type FolderParentRef,
-  REQUEST_COLLECTION_ENTITY_TYPE,
-  REQUEST_FOLDER_ENTITY_TYPE,
-  type RequestFolderParentRef,
-  TEMPLATE_COLLECTION_ENTITY_TYPE,
-  TEMPLATE_FOLDER_ENTITY_TYPE,
-  type TemplateFolderParentRef,
-} from '@openheaders/core/sync';
 import type { TreeNode as CoreTreeNode } from '@openheaders/core/types';
 import { isRuleResolvable } from '@openheaders/core/utils';
 import type { InputRef } from 'antd';
@@ -61,12 +47,6 @@ import { buildRuleTypeMenuItems } from '../../rule-type-menu';
 import { useEnvSwitcher } from '../../services/env-switcher';
 import { useSettingValue } from '../../settings/hooks';
 import type { WorkbenchTab } from '../../types';
-import { getCollectionSyncMirrorForWorkspace } from '@openheaders/ui/context';
-import { getFolderSyncMirrorForWorkspace } from '@openheaders/ui/context';
-import { getRequestCollectionSyncMirrorForWorkspace } from '@openheaders/ui/context';
-import { getRequestFolderSyncMirrorForWorkspace } from '@openheaders/ui/context';
-import { getTemplateCollectionSyncMirrorForWorkspace } from '@openheaders/ui/context';
-import { getTemplateFolderSyncMirrorForWorkspace } from '@openheaders/ui/context';
 import { replaceOwnedKeys } from './expanded-key-ownership';
 import { FolderDndTree, type FolderDndConfig } from './FolderDndTree';
 import { SectionHeader } from './SectionHeader';
@@ -74,6 +54,7 @@ import { TreeNodeRow } from './TreeNodeRow';
 import type { SidebarView, TreeNode } from './types';
 import type { SidebarExportEntity } from '../workspace-export/build-export-scope';
 import { useDraftOverlay } from './useDraftOverlay';
+import { useFolderDndConfigs } from './useFolderDndConfigs';
 import { useEnvironmentNodes } from './useEnvironmentNodes';
 import { useRequestTreeNodes } from './useRequestTreeNodes';
 import { useRulesTreeNodes } from './useRulesTreeNodes';
@@ -480,113 +461,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   );
 
   // ── Folder reorder dnd configs (one per tree) ─────────────────────
-  const { moveFolder: moveRulesFolder } = useFolderMutator({
-    workspaceId: activeWorkspaceId,
-    surfaceId: 'workbench',
+  const { rulesFolderDndConfig, requestFolderDndConfig, templateFolderDndConfig } = useFolderDndConfigs({
+    activeWorkspaceId,
   });
-  const { moveRequestFolder } = useRequestFolderMutator({
-    workspaceId: activeWorkspaceId,
-    surfaceId: 'workbench',
-  });
-  const { moveTemplateFolder } = useTemplateFolderMutator({
-    workspaceId: activeWorkspaceId,
-    surfaceId: 'workbench',
-  });
-
-  const rulesFolderDndConfig = useMemo<FolderDndConfig>(() => {
-    const toRef = (p: { kind: 'collection' | 'folder'; uid: string }): FolderParentRef => ({
-      type: p.kind === 'collection' ? COLLECTION_ENTITY_TYPE : FOLDER_ENTITY_TYPE,
-      uid: p.uid,
-    });
-    return {
-      collectionIdPrefix: 'col-',
-      folderIdPrefix: 'folder-',
-      lookupSiblings: (parent) => {
-        if (!activeWorkspaceId) return [];
-        return parent.kind === 'collection'
-          ? getCollectionSyncMirrorForWorkspace(activeWorkspaceId).liveOrderedSetItems(
-              parent.uid,
-              'folders',
-            )
-          : getFolderSyncMirrorForWorkspace(activeWorkspaceId).liveOrderedSetItems(
-              parent.uid,
-              'folders',
-            );
-      },
-      moveFolder: ({ folderUid, parent, orderKey, oldParent }) => {
-        void moveRulesFolder({
-          folderUid,
-          newParent: toRef(parent),
-          orderKey,
-          ...(oldParent ? { oldParent: toRef(oldParent) } : {}),
-        });
-      },
-    };
-  }, [moveRulesFolder, activeWorkspaceId]);
-
-  const requestFolderDndConfig = useMemo<FolderDndConfig>(() => {
-    const toRef = (p: { kind: 'collection' | 'folder'; uid: string }): RequestFolderParentRef => ({
-      type:
-        p.kind === 'collection' ? REQUEST_COLLECTION_ENTITY_TYPE : REQUEST_FOLDER_ENTITY_TYPE,
-      uid: p.uid,
-    });
-    return {
-      collectionIdPrefix: 'req-col-',
-      folderIdPrefix: 'req-folder-',
-      lookupSiblings: (parent) => {
-        if (!activeWorkspaceId) return [];
-        return parent.kind === 'collection'
-          ? getRequestCollectionSyncMirrorForWorkspace(activeWorkspaceId).liveOrderedSetItems(
-              parent.uid,
-              'folders',
-            )
-          : getRequestFolderSyncMirrorForWorkspace(activeWorkspaceId).liveOrderedSetItems(
-              parent.uid,
-              'folders',
-            );
-      },
-      moveFolder: ({ folderUid, parent, orderKey, oldParent }) => {
-        void moveRequestFolder({
-          folderUid,
-          newParent: toRef(parent),
-          orderKey,
-          ...(oldParent ? { oldParent: toRef(oldParent) } : {}),
-        });
-      },
-    };
-  }, [moveRequestFolder, activeWorkspaceId]);
-
-  const templateFolderDndConfig = useMemo<FolderDndConfig>(() => {
-    const toRef = (p: { kind: 'collection' | 'folder'; uid: string }): TemplateFolderParentRef => ({
-      type:
-        p.kind === 'collection' ? TEMPLATE_COLLECTION_ENTITY_TYPE : TEMPLATE_FOLDER_ENTITY_TYPE,
-      uid: p.uid,
-    });
-    return {
-      collectionIdPrefix: 'tpl-col-',
-      folderIdPrefix: 'tpl-folder-',
-      lookupSiblings: (parent) => {
-        if (!activeWorkspaceId) return [];
-        return parent.kind === 'collection'
-          ? getTemplateCollectionSyncMirrorForWorkspace(activeWorkspaceId).liveOrderedSetItems(
-              parent.uid,
-              'folders',
-            )
-          : getTemplateFolderSyncMirrorForWorkspace(activeWorkspaceId).liveOrderedSetItems(
-              parent.uid,
-              'folders',
-            );
-      },
-      moveFolder: ({ folderUid, parent, orderKey, oldParent }) => {
-        void moveTemplateFolder({
-          folderUid,
-          newParent: toRef(parent),
-          orderKey,
-          ...(oldParent ? { oldParent: toRef(oldParent) } : {}),
-        });
-      },
-    };
-  }, [moveTemplateFolder, activeWorkspaceId]);
 
   // ── Section nodes via hooks ────────────────────────────────────
 
