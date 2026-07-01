@@ -51,8 +51,8 @@ import {
   RESOURCE_TYPE_LABEL,
   RESOURCE_TYPE_TOOLTIP,
 } from './this-page-rules/format';
-import { buildMatchedRequestColumns } from './this-page-rules/matched-columns';
-import type { ActiveRule, CurrentTabInfo, MatchedRequestRow, TableRecord } from './this-page-rules/types';
+import MatchedRequestsPanel from './this-page-rules/MatchedRequestsPanel';
+import type { ActiveRule, CurrentTabInfo, TableRecord } from './this-page-rules/types';
 
 const { Text } = Typography;
 
@@ -1087,118 +1087,23 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
               toggleExpandedRow(record.key, pageRelativeIndex >= 0 ? pageRelativeIndex : undefined);
               (document.activeElement as HTMLElement)?.blur();
             },
-            expandedRowRender: (record: TableRecord) => {
-              // Only render content for the active expanded row — destroys stale virtual tables
-              if (record.key !== expandedRowKey) return null;
-              // `record.records` is already newest-first (reversed in dataSource build).
-              const allMatches = record.records;
-              // If this rule has URL matches for the search, filter to those URLs.
-              // If the rule matched only by properties (name/value/domain/tag), show all URLs.
-              const hasUrlMatches = searchText && record.id ? urlMatchCountMap.has(record.id) : false;
-              const matches = hasUrlMatches
-                ? allMatches.filter((m) => m.url.toLowerCase().includes(searchText.toLowerCase()))
-                : allMatches;
-
-              // Report nested row count to keyboard nav when this is the keyboard-expanded row
-              if (record.key === expandedRowKey) {
-                queueMicrotask(() => setNestedRowCount(matches.length));
-              }
-
-              if (matches.length === 0) {
-                // Empty-state copy tailored to WHY the record list is
-                // empty. Two paths land here:
-                //   (a) searchText narrowed to zero matches — tell the
-                //       user to clear / widen the search
-                //   (b) the rule has no fires and no silent matches — in
-                //       which case the verdict tells us what would help
-                const emptyHint = searchText
-                  ? `No matched requests contain "${searchText}". Clear or widen the search to see all matches.`
-                  : record.verdict === 'related'
-                    ? 'Rule targets a related domain — matches will appear if the page makes requests to that domain.'
-                    : record.verdict === 'page'
-                      ? 'Pattern matches this page. Matches will appear as the page issues requests that fit the pattern — interact with the page or reload to trigger them.'
-                      : 'No matched requests yet — reload the page to capture.';
-                return (
-                  <Text type="secondary" style={{ fontSize: '12px', fontStyle: 'italic' }}>
-                    {emptyHint}
-                  </Text>
-                );
-              }
-
-              const matchedData: MatchedRequestRow[] = matches.map((m, i) => ({
-                ...m,
-                key: `${record.id}-match-${i}`,
-                isTabUrl: m.url === currentTab?.url,
-              }));
-
-              const matchedColumns = buildMatchedRequestColumns({ copiedRowId, setCopiedRowId, shadowDetection });
-
-              const formatTimestamp = (ts: number) => {
-                const d = new Date(ts);
-                const hh = String(d.getHours()).padStart(2, '0');
-                const mm = String(d.getMinutes()).padStart(2, '0');
-                const ss = String(d.getSeconds()).padStart(2, '0');
-                const ms = String(d.getMilliseconds()).padStart(3, '0');
-                return `${hh}:${mm}:${ss}.${ms}`;
-              };
-
-              const copyAllRequests = () => {
-                const header = 'Time\tRequest URL\tType\tPattern';
-                const rows = matchedData.map((m) => {
-                  const rt = m.resourceType || (m.isTabUrl ? 'main_frame' : 'other');
-                  return `${formatTimestamp(m.t)}\t${m.url}\t${RESOURCE_TYPE_LABEL[rt] ?? rt}\t${m.pattern}`;
-                });
-                void navigator.clipboard.writeText(`${header}\n${rows.join('\n')}`);
-                setCopiedRowId('__all_requests__');
-                setTimeout(() => setCopiedRowId(null), 1000);
-              };
-
-              return (
-                <div>
-                  <div
-                    className="value-cell"
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}
-                  >
-                    <Text type="secondary" style={{ fontSize: '11px' }}>
-                      {hasUrlMatches
-                        ? `${matches.length} of ${allMatches.length} request${allMatches.length !== 1 ? 's' : ''} matching "${searchText}"`
-                        : `${matches.length} request${matches.length !== 1 ? 's' : ''} matched`}
-                    </Text>
-                    <Badge status="processing" />
-                    {copiedRowId === '__all_requests__' ? (
-                      <CheckOutlined style={{ fontSize: '11px', color: '#52c41a', cursor: 'default' }} />
-                    ) : (
-                      <Tooltip title="Copy requests as TSV">
-                        <CopyTwoTone
-                          className="value-copy-icon"
-                          style={{ fontSize: '11px', cursor: 'pointer' }}
-                          onClick={copyAllRequests}
-                        />
-                      </Tooltip>
-                    )}
-                  </div>
-                  <Table<MatchedRequestRow>
-                    key={`${record.key}-${expandCountRef.current}`}
-                    ref={nestedTableRef}
-                    columns={matchedColumns}
-                    dataSource={matchedData}
-                    pagination={false}
-                    size="small"
-                    virtual
-                    scroll={matches.length > 3 ? { y: 120 } : undefined}
-                    showHeader={matches.length > 1}
-                    rowClassName={(_record, index) => (index === nestedFocusIndex ? 'keyboard-focused-nested-row' : '')}
-                    onRow={(_record, index) => ({
-                      onClick: () => {
-                        if (index !== undefined) {
-                          setNestedFocusIndex(index);
-                        }
-                      },
-                    })}
-                  />
-                </div>
-              );
-            },
+            expandedRowRender: (record: TableRecord) => (
+              <MatchedRequestsPanel
+                record={record}
+                expandedRowKey={expandedRowKey}
+                searchText={searchText}
+                urlMatchCountMap={urlMatchCountMap}
+                currentTab={currentTab}
+                setNestedRowCount={setNestedRowCount}
+                copiedRowId={copiedRowId}
+                setCopiedRowId={setCopiedRowId}
+                shadowDetection={shadowDetection}
+                expandCountRef={expandCountRef}
+                nestedTableRef={nestedTableRef}
+                nestedFocusIndex={nestedFocusIndex}
+                setNestedFocusIndex={setNestedFocusIndex}
+              />
+            ),
             rowExpandable: () => true,
           }}
           locale={{
