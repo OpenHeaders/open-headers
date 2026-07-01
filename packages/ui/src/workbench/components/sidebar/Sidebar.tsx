@@ -14,7 +14,7 @@
  * ./sidebar/ — this file owns state + chrome + JSX assembly only.
  */
 
-import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
+import { SearchOutlined } from '@ant-design/icons';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { useEnvironments } from '@openheaders/ui/shared/hooks/useEnvironments';
 import { useAllLiveCaches } from '@openheaders/ui/shared/hooks/useLiveCache';
@@ -26,16 +26,20 @@ import { useRuleMutator } from '@openheaders/ui/shared/hooks/useRuleMutator';
 import { useVariableResolver } from '@openheaders/ui/shared/hooks/useVariableResolver';
 import { isRuleResolvable } from '@openheaders/core/utils';
 import type { InputRef } from 'antd';
-import { App, Dropdown, Input, Modal, Tooltip, theme } from 'antd';
+import { App, Input, Modal, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEnvSwitcher } from '../../services/env-switcher';
 import { useSettingValue } from '../../settings/hooks';
 import type { WorkbenchTab } from '../../types';
 import { buildCreateMenuItems, buildRequestImportMenuItems } from './build-sidebar-menus';
-import { SectionHeader } from './SectionHeader';
+import EnvironmentsSection from './EnvironmentsSection';
+import RequestsSection from './RequestsSection';
+import RulesSection from './RulesSection';
 import SidebarHeaderActions from './SidebarHeaderActions';
 import type { SidebarView, TreeNode } from './types';
+import VariablesSection from './VariablesSection';
+import WorkflowsSection from './WorkflowsSection';
 import type { SidebarExportEntity } from '../workspace-export/build-export-scope';
 import { useDraftOverlay } from './useDraftOverlay';
 import { useFolderDndConfigs } from './useFolderDndConfigs';
@@ -627,191 +631,65 @@ const Sidebar: React.FC<SidebarProps> = ({
         style={{ outline: 'none' }}
       >
         {view === 'api-requests' && (
-          <>
-            <SectionHeader
-              title="REQUESTS"
-              expanded={sectionsExpanded['api-requests']}
-              onToggle={() => toggleSection('api-requests')}
-              actions={
-                <Dropdown menu={{ items: requestImportMenuItems }} trigger={['click']} placement="bottomRight">
-                  <PlusOutlined
-                    style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'pointer' }}
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                </Dropdown>
-              }
-            />
-            {sectionsExpanded['api-requests'] && (
-              <div style={{ flex: 1, overflowY: 'auto' }}>
-                {renderFolderDndNodes(
-                  requestNodes,
-                  requestFolderDndConfig,
-                  () => void createNewRequestCollection(),
-                )}
-              </div>
-            )}
-          </>
+          <RequestsSection
+            sectionsExpanded={sectionsExpanded}
+            toggleSection={toggleSection}
+            requestImportMenuItems={requestImportMenuItems}
+            requestNodes={requestNodes}
+            requestFolderDndConfig={requestFolderDndConfig}
+            createNewRequestCollection={createNewRequestCollection}
+            renderFolderDndNodes={renderFolderDndNodes}
+          />
         )}
 
         {view === 'http-rules' && (
-          <>
-            <SectionHeader
-              title="RULES"
-              expanded={sectionsExpanded.rules}
-              onToggle={() => toggleSection('rules')}
-              actions={
-                <Dropdown menu={{ items: createMenuItems }} trigger={['click']} placement="bottomRight">
-                  <PlusOutlined
-                    style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'pointer' }}
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                </Dropdown>
-              }
-            />
-            {sectionsExpanded.rules && (
-              <div style={{ flex: 1, overflowY: 'auto' }}>
-                {renderFolderDndNodes(rulesNodes, rulesFolderDndConfig, () => void createNewCollection())}
-              </div>
-            )}
-
-            <SectionHeader
-              title="TEMPLATES"
-              expanded={sectionsExpanded.templates}
-              onToggle={() => toggleSection('templates')}
-              actions={
-                <Tooltip title="New template collection" placement="bottom">
-                  <PlusOutlined
-                    style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'pointer' }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      void createNewTemplateCollection();
-                    }}
-                  />
-                </Tooltip>
-              }
-            />
-            {sectionsExpanded.templates && (
-              <div style={{ flex: 1, overflowY: 'auto' }}>
-                {(() => {
-                  // System and user templates render side-by-side under the
-                  // single TEMPLATES section header. When both lists are
-                  // empty (filter excludes everything, or fresh workspace
-                  // before any user collection is created), render ONE
-                  // section-level empty-state instead of one per list —
-                  // otherwise the section flashes "No items in this section"
-                  // twice in a row, which reads like a layout bug.
-                  const createUserCollection = () => void createNewTemplateCollection();
-                  if (systemTemplateNodes.length === 0 && templateNodes.length === 0) {
-                    return renderEmptyState(createUserCollection);
-                  }
-                  return (
-                    <>
-                      {systemTemplateNodes.length > 0 && systemTemplateNodes.map(renderTreeNodeRow)}
-                      {templateNodes.length > 0 &&
-                        renderFolderDndNodes(templateNodes, templateFolderDndConfig, createUserCollection)}
-                    </>
-                  );
-                })()}
-              </div>
-            )}
-          </>
+          <RulesSection
+            sectionsExpanded={sectionsExpanded}
+            toggleSection={toggleSection}
+            createMenuItems={createMenuItems}
+            rulesNodes={rulesNodes}
+            rulesFolderDndConfig={rulesFolderDndConfig}
+            createNewCollection={createNewCollection}
+            systemTemplateNodes={systemTemplateNodes}
+            templateNodes={templateNodes}
+            templateFolderDndConfig={templateFolderDndConfig}
+            createNewTemplateCollection={createNewTemplateCollection}
+            renderTreeNodeRow={renderTreeNodeRow}
+            renderEmptyState={renderEmptyState}
+            renderFolderDndNodes={renderFolderDndNodes}
+          />
         )}
 
-        {view === 'variables' &&
-          (() => {
-            // Variables view sections each contain a single opener
-            // row. With an active filter, hide a section when neither
-            // its title nor its row label contains the query — and
-            // force-expand when it does, so a filter never silently
-            // hides matches behind a collapsed chevron.
-            const lower = filterText.toLowerCase();
-            const matches = (label: string) => !lower || label.toLowerCase().includes(lower);
-            const showVault = matches('vault') || matches('Vault');
-            const showWorkspace = matches('workspace variables');
-            const showLive = matches('live variables');
-            const vaultOpen = sectionsExpanded.vault || (lower !== '' && showVault);
-            const wsOpen = sectionsExpanded['workspace-vars'] || (lower !== '' && showWorkspace);
-            const liveOpen = sectionsExpanded['live-variables'] || (lower !== '' && showLive);
-            return (
-              <>
-                {showVault && (
-                  <>
-                    <SectionHeader title="VAULT" expanded={vaultOpen} onToggle={() => toggleSection('vault')} />
-                    {vaultOpen && <div style={{ overflowY: 'auto' }}>{renderNodes([vaultNode])}</div>}
-                  </>
-                )}
-
-                {showWorkspace && (
-                  <>
-                    <SectionHeader
-                      title="WORKSPACE VARIABLES"
-                      expanded={wsOpen}
-                      onToggle={() => toggleSection('workspace-vars')}
-                    />
-                    {wsOpen && <div style={{ overflowY: 'auto' }}>{renderNodes([workspaceVarsNode])}</div>}
-                  </>
-                )}
-
-                {showLive && (
-                  <>
-                    <SectionHeader
-                      title="LIVE VARIABLES"
-                      expanded={liveOpen}
-                      onToggle={() => toggleSection('live-variables')}
-                    />
-                    {liveOpen && <div style={{ overflowY: 'auto' }}>{renderNodes([liveVarsNode])}</div>}
-                  </>
-                )}
-              </>
-            );
-          })()}
+        {view === 'variables' && (
+          <VariablesSection
+            sectionsExpanded={sectionsExpanded}
+            toggleSection={toggleSection}
+            filterText={filterText}
+            vaultNode={vaultNode}
+            workspaceVarsNode={workspaceVarsNode}
+            liveVarsNode={liveVarsNode}
+            renderNodes={renderNodes}
+          />
+        )}
 
         {view === 'workflows' && (
-          <>
-            <SectionHeader
-              title="WORKFLOWS"
-              expanded={sectionsExpanded.workflows}
-              onToggle={() => toggleSection('workflows')}
-              actions={
-                <Tooltip title="New workflow" placement="bottom">
-                  <PlusOutlined
-                    style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'pointer' }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSectionsExpanded((prev) => ({ ...prev, workflows: true }));
-                      onCreateWorkflow?.();
-                    }}
-                  />
-                </Tooltip>
-              }
-            />
-            {sectionsExpanded.workflows && (
-              <div style={{ overflowY: 'auto' }}>{renderNodes(workflowNodes, () => onCreateWorkflow?.())}</div>
-            )}
-          </>
+          <WorkflowsSection
+            sectionsExpanded={sectionsExpanded}
+            toggleSection={toggleSection}
+            setSectionsExpanded={setSectionsExpanded}
+            onCreateWorkflow={onCreateWorkflow}
+            workflowNodes={workflowNodes}
+            renderNodes={renderNodes}
+          />
         )}
 
-        <SectionHeader
-          title="ENVIRONMENTS"
-          expanded={sectionsExpanded.environments}
-          onToggle={() => toggleSection('environments')}
-          actions={
-            <Tooltip title="New environment" placement="bottom">
-              <PlusOutlined
-                style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'pointer' }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void createNewEnvironment();
-                }}
-              />
-            </Tooltip>
-          }
+        <EnvironmentsSection
+          sectionsExpanded={sectionsExpanded}
+          toggleSection={toggleSection}
+          createNewEnvironment={createNewEnvironment}
+          environmentNodes={environmentNodes}
+          renderNodes={renderNodes}
         />
-        {sectionsExpanded.environments && (
-          <div style={{ flex: 1, overflowY: 'auto' }}>
-            {renderNodes(environmentNodes, () => void createNewEnvironment())}
-          </div>
-        )}
       </div>
     </div>
   );
