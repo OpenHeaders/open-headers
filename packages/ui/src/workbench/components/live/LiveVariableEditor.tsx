@@ -49,6 +49,13 @@ import { App, Button, Input, InputNumber, Select, Switch, Tag, Tooltip, Typograp
 import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { liveVariableResolveAdapter } from './live-variable-conflict-adapter';
+import {
+  type CreateDraft,
+  type EditDraft,
+  editDraftFromVariable,
+  emptyCreateDraft,
+  fingerprintEdit,
+} from './live-variable-drafts';
 import { projectLiveVariableToForm, useLiveVariableConflicts } from './use-live-variable-conflicts';
 import EditorHeader from '../shell/EditorHeader';
 import { FieldRow, InlineNameDescription, LIVE_ROW_GAP, LIVE_ROW_LABEL_WIDTH, Section } from './layout';
@@ -101,63 +108,6 @@ interface EditProps {
 }
 
 type Props = CreateProps | EditProps;
-
-interface CreateDraft {
-  name: string;
-  description: string;
-  enabled: boolean;
-  requireFreshOnRuleBuild: boolean;
-  workflowUid: string;
-  stepId: string;
-  captureName: string;
-}
-
-function emptyCreateDraft(): CreateDraft {
-  return {
-    name: '',
-    description: '',
-    enabled: true,
-    requireFreshOnRuleBuild: false,
-    workflowUid: '',
-    stepId: '',
-    captureName: '',
-  };
-}
-
-// ── Edit mode ───────────────────────────────────────────────────────
-
-interface EditDraft {
-  name: string;
-  description: string;
-  enabled: boolean;
-  requireFreshOnRuleBuild: boolean;
-  workflowUid: string;
-  stepId: string;
-  captureName: string;
-  manualOverride: { value: string; until: number | null } | null;
-}
-
-function editDraftFromVariable(lv: LiveVariable): EditDraft {
-  return {
-    name: lv.name,
-    description: lv.description ?? '',
-    enabled: lv.enabled,
-    requireFreshOnRuleBuild: Boolean(lv.requireFreshOnRuleBuild),
-    workflowUid: lv.workflowUid,
-    stepId: lv.stepId,
-    captureName: lv.captureName,
-    manualOverride: lv.manualOverride
-      ? {
-          value: lv.manualOverride.value,
-          until: typeof lv.manualOverride.until === 'number' ? lv.manualOverride.until : null,
-        }
-      : null,
-  };
-}
-
-function fingerprintEdit(d: EditDraft): string {
-  return JSON.stringify(d);
-}
 
 // ── Unified component ───────────────────────────────────────────────
 
