@@ -29,7 +29,7 @@ import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { ExtensionRuleType, Rule, RuleDraft } from '@openheaders/core/types';
 import { isRuleComplete } from '@openheaders/core/utils';
-import { Alert, App, Button, Dropdown, Form, Switch, Typography, theme } from 'antd';
+import { Alert, App, Button, Dropdown, Form, Switch, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -650,6 +650,19 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                    *  information and nudged scroll as counts changed. */}
                   {/* ── Templates ── */}
                   <div style={{ marginBottom: 16 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                      <Text strong style={{ fontSize: 13 }}>
+                        Templates
+                      </Text>
+                      {/* No docs section for templates yet, so unlike the
+                          Actions / Conditions (i) this one explains in a
+                          hover tooltip instead of navigating. */}
+                      <Tooltip title="Start from a preset instead of a blank form. System Templates ship with the app; User Templates are ones you save yourself via ⋮ → Save as User Template. Applying a template only pre-fills the fields — adjust anything before saving.">
+                        <InfoCircleOutlined
+                          style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
+                        />
+                      </Tooltip>
+                    </div>
                     <div
                       style={{
                         display: 'flex',
