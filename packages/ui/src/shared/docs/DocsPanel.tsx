@@ -102,41 +102,53 @@ const DocsPanel: React.FC<DocsPanelProps> = ({ groups, defaultSectionId, info, o
     requestAnimationFrame(() => panelRef.current?.focus());
   }, [pendingSection, pendingCounter, clearPending]);
 
-  // Section change in reading view: reset scroll OR pin to a pending
-  // sub-anchor once the section's children have committed.
+  // Reset scroll on SECTION change (and on returning from the TOC) —
+  // but never merely because `pendingAnchor` flipped. The anchor-pin
+  // effect below clears `pendingAnchor` once the position has settled;
+  // if this reset keyed on it, that clear would re-run the effect and
+  // yank an anchor-pinned reader back to the top ~180ms after landing.
+  // `pendingAnchor` is therefore read through a ref, not a dependency.
+  const pendingAnchorRef = useRef(pendingAnchor);
+  pendingAnchorRef.current = pendingAnchor;
   useEffect(() => {
     if (view !== 'reading') return;
+    if (pendingAnchorRef.current) return;
+    const container = scrollRef.current;
+    if (container) container.scrollTop = 0;
+  }, [activeId, view]);
+
+  // Pin to a pending sub-anchor once the section's children have
+  // committed, re-pinning while layout settles (images, lazy blocks);
+  // 180ms of stability clears the pending flag.
+  useEffect(() => {
+    if (view !== 'reading' || !pendingAnchor) return;
     const container = scrollRef.current;
     if (!container) return;
-    if (pendingAnchor) {
-      let disposed = false;
-      let stabilityTimer: ReturnType<typeof setTimeout> | null = null;
-      const pin = () => {
+    let disposed = false;
+    let stabilityTimer: ReturnType<typeof setTimeout> | null = null;
+    const pin = () => {
+      if (disposed) return;
+      const target = anchorsRef.current.get(pendingAnchor);
+      if (!target) return;
+      const containerRect = container.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      if (containerRect.height === 0 || targetRect.height === 0) return;
+      const desired = Math.max(0, container.scrollTop + (targetRect.top - containerRect.top) - 8);
+      container.scrollTop = desired;
+      if (stabilityTimer) clearTimeout(stabilityTimer);
+      stabilityTimer = setTimeout(() => {
         if (disposed) return;
-        const target = anchorsRef.current.get(pendingAnchor);
-        if (!target) return;
-        const containerRect = container.getBoundingClientRect();
-        const targetRect = target.getBoundingClientRect();
-        if (containerRect.height === 0 || targetRect.height === 0) return;
-        const desired = Math.max(0, container.scrollTop + (targetRect.top - containerRect.top) - 8);
-        container.scrollTop = desired;
-        if (stabilityTimer) clearTimeout(stabilityTimer);
-        stabilityTimer = setTimeout(() => {
-          if (disposed) return;
-          setPendingAnchor(null);
-        }, 180);
-      };
-      pin();
-      const ro = new ResizeObserver(pin);
-      ro.observe(container);
-      return () => {
-        disposed = true;
-        ro.disconnect();
-        if (stabilityTimer) clearTimeout(stabilityTimer);
-      };
-    } else {
-      container.scrollTop = 0;
-    }
+        setPendingAnchor(null);
+      }, 180);
+    };
+    pin();
+    const ro = new ResizeObserver(pin);
+    ro.observe(container);
+    return () => {
+      disposed = true;
+      ro.disconnect();
+      if (stabilityTimer) clearTimeout(stabilityTimer);
+    };
   }, [activeId, pendingAnchor, view]);
 
   const activeIndex = FLAT_SECTIONS.findIndex((s) => s.id === activeId);
