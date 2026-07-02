@@ -159,7 +159,7 @@ describe('per-tab-state lint', () => {
   });
 
   it('BC-V21-6: useEditorGroups shadow-write reads workspaceId at fire time, not closed over', () => {
-    const source = readFile('workbench/hooks/useEditorGroups.ts');
+    const source = readFile('workbench/hooks/use-editor-groups-session.ts');
     // The shadow write site reads `activeWorkspaceIdRef.current` (or
     // similar fire-time read) inside the timer callback — not from a
     // captured closure variable.
@@ -178,6 +178,8 @@ describe('per-tab-state lint', () => {
     expect(ownerSource).not.toMatch(/subscribe\(\s*'workspaceChanged'/);
     const editorSource = readFile('workbench/hooks/useEditorGroups.ts');
     expect(editorSource).not.toMatch(/subscribe\(\s*'workspaceChanged'/);
+    const editorSessionSource = readFile('workbench/hooks/use-editor-groups-session.ts');
+    expect(editorSessionSource).not.toMatch(/subscribe\(\s*'workspaceChanged'/);
     const sidebarSource = readFile('workbench/hooks/useWorkbenchSidebarState.ts');
     expect(sidebarSource).not.toMatch(/subscribe\(\s*'workspaceChanged'/);
   });
@@ -185,7 +187,7 @@ describe('per-tab-state lint', () => {
   it('post-v3: sub-hooks re-derive on slice workspaceId change', () => {
     // Each sub-hook watches the slice's workspaceId as a useEffect dep
     // and re-initializes its local state from the slice's data field.
-    const editorSource = readFile('workbench/hooks/useEditorGroups.ts');
+    const editorSource = readFile('workbench/hooks/use-editor-groups-session.ts');
     expect(editorSource).toMatch(/perTab\.initial\.workspace\?\.workspaceId/);
     const sidebarSource = readFile('workbench/hooks/useWorkbenchSidebarState.ts');
     expect(sidebarSource).toMatch(/perTab\.initial\.workspace\?\.workspaceId/);

@@ -11,21 +11,17 @@
  * context menu.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-scope-view-state';
-import { hostStorage, type PersistedTabSession, wsKeys } from '@openheaders/core/storage';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   activateTabInLeaf,
   type EditorLeaf,
   type EditorNode,
   findLeaf,
-  findLeafContainingTab,
   findOppositeLeaf,
-  findParentSplit,
   firstLeaf,
   flipParentSplit,
   insertTabIntoLeaf,
-  makeLeaf,
   moveTabBetweenLeaves,
   removeTabFromLeaf,
   reorderTabInLeaf,
@@ -37,146 +33,20 @@ import {
   updateTabInLeaf,
 } from '../editor-groups';
 import type { ClosedTab, WorkbenchTab } from '../types';
-import { FACTORY_SIDEBAR_EXPANSIONS, type WorkbenchViewState, type WorkbenchWorkspaceData } from './useToolLayout';
+import {
+  type EditorGroupsState,
+  locateTab,
+  maybeCollapseEmpty,
+  stateFromTabSession,
+  type UseEditorGroupsApi,
+} from './editor-groups-shared';
+import { useEditorGroupsSession } from './use-editor-groups-session';
+import type { WorkbenchViewState } from './useToolLayout';
 
 const MAX_RECENTLY_CLOSED = 20;
 const SKIP_RECENTLY_CLOSED: Set<string> = new Set(['create', 'collection-overview', 'folder-overview']);
-const ROOT_LEAF_ID = 'leaf-root';
 
-// ── Session persistence ─────────────────────────────────────────────
-//
-// v2.1: editor-tab session lives in the per-tab snapshot's workspace
-// slice (`workspace.data.editorTabs`). The workspace's legacy
-// `wsKeys(id).tabSession` key is kept as a SHADOW the per-tab loader
-// reads when a new tab opens whose donor was captured in a different
-// workspace. The shadow is a fall-through cache, not authoritative
-// state — only the snapshot drives the open tab's editor groups.
-//
-// In-tab workspace switches are handled by `useWorkbenchWorkspaceSlice`
-// (the slice owner). When that hook stamps a new `workspace` slice,
-// `perTab.initial.workspace?.workspaceId` changes; the effect below
-// observes the change and re-derives the editor tree from the new
-// slice's `editorTabs`. This hook does NOT subscribe to
-// `workspaceChanged` directly — single-owner write path keeps the
-// slice's `workspaceId` invariant honest (BC-V21-4).
-//
-// The split tree itself is intentionally NOT persisted — rehydrating
-// a multi-leaf layout across viewport sizes is a usability trap. We
-// flatten into the root leaf on restore.
-const SESSION_DEBOUNCE_MS = 500;
-
-interface EditorGroupsState {
-  root: EditorNode;
-  focusedLeafId: string;
-  nextId: number;
-}
-
-function initialState(): EditorGroupsState {
-  return {
-    root: makeLeaf(ROOT_LEAF_ID),
-    focusedLeafId: ROOT_LEAF_ID,
-    nextId: 1,
-  };
-}
-
-function stateFromTabSession(session: PersistedTabSession<WorkbenchTab>): EditorGroupsState {
-  const clean = session.tabs.map((t) => ({ ...t, dirty: false }));
-  const rootLeaf = makeLeaf(ROOT_LEAF_ID);
-  const filled = clean.reduce<EditorNode>((acc, tab) => insertTabIntoLeaf(acc, ROOT_LEAF_ID, tab), rootLeaf);
-  const activeId =
-    session.activeTabId && clean.some((t) => t.id === session.activeTabId)
-      ? session.activeTabId
-      : (clean[0]?.id ?? null);
-  const root = activeId ? activateTabInLeaf(filled, ROOT_LEAF_ID, activeId) : filled;
-  return { root, focusedLeafId: ROOT_LEAF_ID, nextId: 1 };
-}
-
-function locateTab(root: EditorNode, tabId: string): EditorLeaf | null {
-  return findLeafContainingTab(root, tabId);
-}
-
-/**
- * When a leaf is collapsed (all tabs closed) and it has a sibling, fold
- * the split away so we don't leave empty panes in the grid. Returns the
- * new root and the leaf id that should take focus after the fold.
- */
-function maybeCollapseEmpty(root: EditorNode, leafId: string): { root: EditorNode; focusLeafId: string } {
-  const leaf = findLeaf(root, leafId);
-  if (!leaf || leaf.tabs.length > 0) return { root, focusLeafId: leafId };
-  // Root leaf stays even if empty.
-  const parent = findParentSplit(root, leafId);
-  if (!parent) return { root, focusLeafId: leafId };
-
-  // Pick the sibling's first leaf as the new focus target.
-  const opposite = findOppositeLeaf(root, leafId);
-  const survivingId = opposite?.id ?? leafId;
-  const next = unsplitLeaf(root, leafId);
-  return { root: next, focusLeafId: survivingId };
-}
-
-export interface UseEditorGroupsApi {
-  // Tree state
-  root: EditorNode;
-  focusedLeafId: string;
-  focusedLeaf: EditorLeaf;
-
-  // Flat views (derived)
-  /** All tabs across every leaf — used for "is this rule already open" lookups. */
-  allTabs: WorkbenchTab[];
-  /** The focused leaf's tab strip. */
-  tabs: WorkbenchTab[];
-  /** The focused leaf's active tab id. */
-  activeTabId: string | null;
-
-  // Global state
-  recentlyClosed: ClosedTab[];
-  dirtyMap: React.MutableRefObject<Map<string, boolean>>;
-  saveRefMap: React.MutableRefObject<Map<string, () => void>>;
-
-  // Lookups
-  findTabLeafId: (tabId: string) => string | null;
-
-  // Basic tab operations — route automatically to the containing leaf.
-  addTab: (tab: WorkbenchTab) => void;
-  closeTab: (tabId: string, force?: boolean) => void;
-  switchTab: (tabId: string) => void;
-  updateTab: (tabId: string, updates: Partial<WorkbenchTab>) => void;
-  replaceTab: (oldId: string, newTab: WorkbenchTab) => void;
-  reorderTab: (fromId: string, toId: string) => void;
-  reopenTab: (closed: ClosedTab) => void;
-
-  // Focus
-  focusLeaf: (leafId: string) => void;
-
-  // Batch close helpers — scoped to whichever leaf owns the anchor tab.
-  closeOtherTabs: (tabId: string) => void;
-  closeAllTabs: () => void;
-  closeUnmodifiedTabs: () => void;
-  closeTabsToLeft: (tabId: string) => void;
-  closeTabsToRight: (tabId: string) => void;
-
-  // Split operations (driven by context menu). "Split and move <dir>" —
-  // our tabs are editor instances, not filesystem files, so duplicating
-  // the same tab across groups is meaningless. Every split action moves
-  // the tab into the freshly-created group rather than cloning it.
-  splitAndMoveRight: (leafId: string, tabId: string) => void;
-  splitAndMoveLeft: (leafId: string, tabId: string) => void;
-  splitAndMoveDown: (leafId: string, tabId: string) => void;
-  splitAndMoveUp: (leafId: string, tabId: string) => void;
-  moveToOppositeGroup: (leafId: string, tabId: string) => void;
-  changeSplitterOrientation: (leafId: string) => void;
-  unsplit: (leafId: string) => void;
-  unsplitAll: () => void;
-
-  // Cross-leaf DnD primitive
-  moveTabToLeaf: (fromLeafId: string, toLeafId: string, tabId: string, insertAt?: number) => void;
-  splitLeafWithDrop: (
-    targetLeafId: string,
-    direction: 'left' | 'right' | 'top' | 'bottom',
-    fromLeafId: string,
-    tabId: string,
-  ) => void;
-}
+export type { EditorGroupsState, EditorGroupsTransform, UseEditorGroupsApi } from './editor-groups-shared';
 
 export interface UseEditorGroupsArgs {
   perTab: EditingScopeViewStateApi<WorkbenchViewState>;
@@ -188,90 +58,14 @@ export function useEditorGroups({ perTab }: UseEditorGroupsArgs): UseEditorGroup
   // `perTab.initial.workspace` from either: the donor's matching
   // slice, the workspace's tabSession shadow, or factory defaults —
   // so this read is always safe.
-  const initialEditorTabsRef = useRef(
-    perTab.initial.workspace?.data.editorTabs ?? { tabs: [], activeTabId: null },
-  );
+  const initialEditorTabsRef = useRef(perTab.initial.workspace?.data.editorTabs ?? { tabs: [], activeTabId: null });
   const [state, setState] = useState<EditorGroupsState>(() => stateFromTabSession(initialEditorTabsRef.current));
   const [recentlyClosed, setRecentlyClosed] = useState<ClosedTab[]>([]);
 
   const dirtyMap = useRef<Map<string, boolean>>(new Map());
   const saveRefMap = useRef<Map<string, () => void>>(new Map());
-  const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Workspace id stamped on the slice — used at fire time for the
-  // shadow-write key. Initialized from the resolved snapshot;
-  // `workspaceChanged` events update it before any write fires
-  // (BC-V21-6 narrows the race-at-fire-time class).
-  const activeWorkspaceIdRef = useRef<string | null>(perTab.initial.workspace?.workspaceId ?? null);
-  // First render's effect must NOT persist (would overwrite the
-  // resolved slice with the same state we just loaded — wasted write
-  // and a debounce-window flicker for the donor record).
-  const skipNextPersistRef = useRef<boolean>(true);
 
-  const onPersist = perTab.onPersist;
-
-  // ── Resync on workspace switch ──────────────────────────────────
-  // The slice owner (`useWorkbenchWorkspaceSlice`) is the only writer
-  // of new `workspace` slices on workspaceChanged events. We observe
-  // the slice's `workspaceId` here and re-derive the tree from the
-  // new `editorTabs` data — without reading any shadow ourselves and
-  // without racing onPersist with the owner.
-  const sliceWorkspaceId = perTab.initial.workspace?.workspaceId ?? null;
-  const sliceEditorTabs = perTab.initial.workspace?.data.editorTabs;
-  useEffect(() => {
-    if (activeWorkspaceIdRef.current === sliceWorkspaceId) return;
-    activeWorkspaceIdRef.current = sliceWorkspaceId;
-    if (persistTimerRef.current) {
-      clearTimeout(persistTimerRef.current);
-      persistTimerRef.current = null;
-    }
-    // Drop transient per-tab editor metadata that's bound to the
-    // outgoing workspace — dirtiness tracking and save callbacks
-    // reference uids that don't exist in the new workspace.
-    dirtyMap.current.clear();
-    saveRefMap.current.clear();
-    skipNextPersistRef.current = true;
-    setState(stateFromTabSession(sliceEditorTabs ?? { tabs: [], activeTabId: null }));
-  }, [sliceWorkspaceId, sliceEditorTabs]);
-
-  // ── Persist tab session on every state change (debounced) ───────
-  useEffect(() => {
-    if (skipNextPersistRef.current) {
-      skipNextPersistRef.current = false;
-      return;
-    }
-    const workspaceId = activeWorkspaceIdRef.current;
-    if (!workspaceId) return;
-    if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
-    persistTimerRef.current = setTimeout(() => {
-      const projection: PersistedTabSession<WorkbenchTab> = {
-        tabs: treeAllTabs(state.root),
-        activeTabId: findLeaf(state.root, state.focusedLeafId)?.activeTabId ?? null,
-      };
-      onPersist((prev) => {
-        if (prev.workspace) {
-          return {
-            ...prev,
-            workspace: {
-              ...prev.workspace,
-              data: { ...prev.workspace.data, editorTabs: projection },
-            },
-          };
-        }
-        const sliceData: WorkbenchWorkspaceData = {
-          editorTabs: projection,
-          sidebarExpansions: FACTORY_SIDEBAR_EXPANSIONS,
-        };
-        return { ...prev, workspace: { workspaceId, data: sliceData } };
-      });
-      // Shadow-write to the workspace's `tabSession` so a future tab
-      // opening in this workspace whose donor was captured elsewhere
-      // can fall through to this layout (design § 2.2).
-      void hostStorage.set(wsKeys(workspaceId).tabSession, projection);
-    }, SESSION_DEBOUNCE_MS);
-    return () => {
-      if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
-    };
-  }, [state, onPersist]);
+  useEditorGroupsSession({ perTab, state, setState, dirtyMap, saveRefMap });
 
   /** Atomically mutate the tree via a transform, optionally changing focus. */
   const transform = useCallback((fn: (prev: EditorGroupsState) => EditorGroupsState) => {
