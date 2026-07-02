@@ -748,24 +748,21 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                               kicker: 'Rule Editor',
                               title: 'Conditions',
                               summary: 'Conditions decide which requests this rule applies to.',
-                              description:
-                                'Rows combine with AND — every row must match. To match any of several values, list them inside one row (the OR badge marks rows that accept multiple values).',
+                              description: (
+                                <>
+                                  <p>
+                                    Rows combine with <strong>AND</strong> — every row must match.
+                                  </p>
+                                  <p>
+                                    Values inside one row combine with <strong>OR</strong> (the OR badge marks rows
+                                    that accept multiple values).
+                                  </p>
+                                  <p>Add at least one condition.</p>
+                                </>
+                              ),
                             }}
                             docId="conditions"
                           />
-                        </div>
-                        <div
-                          style={{
-                            fontSize: 12,
-                            color: 'var(--ant-color-text-secondary)',
-                            lineHeight: 1.5,
-                            marginBottom: 10,
-                          }}
-                        >
-                          Each row targets one DNR field, so rows combine with <strong>AND</strong> — every row must
-                          match. To match any of several values, list them inside one row (the <strong>OR</strong> badge
-                          marks rows that accept multiple values; <strong>1 value</strong> rows take a single scalar).
-                          Add at least one condition.
                         </div>
                         <Form.Item name="conditions" style={{ marginBottom: 0 }}>
                           <ConditionEditor />

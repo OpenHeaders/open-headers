@@ -17,7 +17,7 @@
  * `isRuleComplete` so it can never leave stale DNR rules behind.
  */
 
-import { CloseOutlined, HolderOutlined, InfoCircleOutlined, PlusOutlined, WarningOutlined } from '@ant-design/icons';
+import { CloseOutlined, HolderOutlined, PlusOutlined, WarningOutlined } from '@ant-design/icons';
 import type { DragEndEvent } from '@dnd-kit/core';
 import { closestCenter, DndContext, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import {
@@ -29,11 +29,12 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import type { HeaderDirection } from '@openheaders/core/utils';
 import { generateUid, getHeaderOperationCapability } from '@openheaders/core/utils';
-import { Alert, Button, Form, Input, Select, Tabs, Tooltip, Typography } from 'antd';
+import { Button, Form, Input, Select, Tabs, Typography } from 'antd';
 import type React from 'react';
 import { EntityField, TabPresenceBadge, useActionPaths, useEntityScope } from '@openheaders/ui/shared/awareness';
 import { FieldConflictChip, SetRowChip } from '@openheaders/ui/shared/conflicts/Field';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
+import DocInfo from '../shared/DocInfo';
 import SectionInfo from '../shared/SectionInfo';
 import { getDocId } from '../docs/doc-ids';
 import { TemplateInput } from '../template-input';
@@ -142,17 +143,7 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId }: Modif
                           {({ getFieldValue }) => {
                             const op =
                               (getFieldValue([name, field.name, 'operation']) as HeaderOp | undefined) ?? 'override';
-                            return (
-                              <InfoCircleOutlined
-                                style={{
-                                  fontSize: 10,
-                                  color: 'var(--ant-color-text-quaternary)',
-                                  cursor: 'pointer',
-                                  flexShrink: 0,
-                                }}
-                                onClick={() => openDocsInline(getDocId(op, 'action'))}
-                              />
-                            );
+                            return <DocInfo docId={getDocId(op, 'action')} />;
                           }}
                         </Form.Item>
                         <Form.Item
@@ -524,18 +515,9 @@ const HeaderRuleFields: React.FC<HeaderRuleFieldsProps> = ({
   const paths = useActionPaths();
   const scope = useEntityScope();
   const entityType = scope.entityType;
-  const hasResponse = resCount > 0;
 
   return (
     <div style={{ marginBottom: 16 }}>
-      {hasResponse && (
-        <Alert
-          type="info"
-          showIcon
-          style={{ marginBottom: 12, fontSize: 12 }}
-          message="Response header actions are not visible in the browser DevTools Network tab, but they are actually applied. The browser shows the original server headers."
-        />
-      )}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
         <Text strong style={{ fontSize: 13 }}>
           Actions
@@ -562,6 +544,14 @@ const HeaderRuleFields: React.FC<HeaderRuleFieldsProps> = ({
             label: (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                 Request Headers
+                <SectionInfo
+                  content={{
+                    kicker: 'Header Rule',
+                    title: 'Request Headers',
+                    summary: 'Header actions applied to the outgoing request before it leaves the browser.',
+                  }}
+                  docId="header-actions"
+                />
                 {reqCount > 0 && <CountChip count={reqCount} />}
                 {ruleUid && entityType && excludeInstanceId !== undefined && (
                   <TabPresenceBadge
@@ -587,6 +577,16 @@ const HeaderRuleFields: React.FC<HeaderRuleFieldsProps> = ({
             label: (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                 Response Headers
+                <SectionInfo
+                  content={{
+                    kicker: 'Header Rule',
+                    title: 'Response Headers',
+                    summary: 'Header actions applied to the response before the page sees it.',
+                    description:
+                      'The browser’s own DevTools Network tab always shows the original server headers, so these changes are invisible there even though they are applied. The Open Headers DevTools window has no such limitation — it shows the headers exactly as served to the page.',
+                  }}
+                  docId="header-actions"
+                />
                 {resCount > 0 && <CountChip count={resCount} />}
                 {ruleUid && entityType && excludeInstanceId !== undefined && (
                   <TabPresenceBadge

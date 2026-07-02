@@ -12,13 +12,12 @@
  * rationale as RequestBodyRuleFields.
  */
 
-import { InfoCircleOutlined } from '@ant-design/icons';
 import { Alert, Form, Input, Radio, Select, Typography } from 'antd';
 import type React from 'react';
 import { EntityField, useActionPaths } from '@openheaders/ui/shared/awareness';
 import ScalarConflictChip from '@openheaders/ui/shared/conflicts/ScalarConflictChip';
-import { useInspectorNav } from '../../hooks/useInspectorNav';
 import CodeEditor from '../shared/CodeEditor';
+import SectionInfo from '../shared/SectionInfo';
 
 const { Text } = Typography;
 
@@ -51,7 +50,6 @@ const INTRO = {
 } as const;
 
 const MessageRuleFields: React.FC<MessageRuleFieldsProps> = ({ kind }) => {
-  const { openDocs } = useInspectorNav();
   const paths = useActionPaths();
   const f = FIELD[kind];
   const unit = kind === 'ws' ? 'frame' : 'event';
@@ -62,9 +60,16 @@ const MessageRuleFields: React.FC<MessageRuleFieldsProps> = ({ kind }) => {
         <Text strong style={{ fontSize: 13 }}>
           Actions
         </Text>
-        <InfoCircleOutlined
-          style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
-          onClick={() => openDocs('execution')}
+        <SectionInfo
+          content={{
+            kicker: kind === 'ws' ? 'WebSocket Rule' : 'SSE Rule',
+            title: 'Actions',
+            summary:
+              kind === 'ws'
+                ? 'Modifies, injects, or drops WebSocket frames on matching connections before the page or the wire sees them.'
+                : 'Modifies, injects, or drops server-sent events on matching streams before listeners see them.',
+          }}
+          docId="execution"
         />
       </div>
       <Alert type="info" showIcon style={{ marginBottom: 12, fontSize: 12 }} message={INTRO[kind]} />

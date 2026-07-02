@@ -2,12 +2,11 @@
  * RedirectRuleFields — redirect target configuration.
  */
 
-import { InfoCircleOutlined } from '@ant-design/icons';
 import { Form, Radio, Tooltip, Typography } from 'antd';
 import type React from 'react';
 import { EntityField, useActionPaths } from '@openheaders/ui/shared/awareness';
-import { useInspectorNav } from '../../hooks/useInspectorNav';
 import { getDocId } from '../docs/doc-ids';
+import DocInfo from '../shared/DocInfo';
 import SectionInfo from '../shared/SectionInfo';
 import { TemplateInput } from '../template-input';
 import ScalarConflictChip from '@openheaders/ui/shared/conflicts/ScalarConflictChip';
@@ -15,7 +14,6 @@ import ScalarConflictChip from '@openheaders/ui/shared/conflicts/ScalarConflictC
 const { Text } = Typography;
 
 const RedirectRuleFields: React.FC = () => {
-  const { openDocs } = useInspectorNav();
   const paths = useActionPaths();
 
   return (
@@ -40,10 +38,7 @@ const RedirectRuleFields: React.FC = () => {
         <Text type="secondary" style={{ fontSize: 12 }}>
           Redirects to
         </Text>
-        <InfoCircleOutlined
-          style={{ fontSize: 11, color: 'var(--ant-color-text-quaternary)', cursor: 'pointer' }}
-          onClick={() => openDocs(getDocId('redirect-regex', 'action'))}
-        />
+        <DocInfo docId={getDocId('redirect-regex', 'action')} />
       </div>
 
       <div style={{ marginBottom: 10 }}>

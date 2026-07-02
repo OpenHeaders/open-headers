@@ -24,13 +24,12 @@
  * the moment the Radio flips — no parallel hook needed here.
  */
 
-import { InfoCircleOutlined } from '@ant-design/icons';
 import { Alert, Button, Form, Input, Radio, Select, Typography } from 'antd';
 import type React from 'react';
 import { EntityField, useActionPaths } from '@openheaders/ui/shared/awareness';
-import { useInspectorNav } from '../../hooks/useInspectorNav';
 import CodeEditor from '../shared/CodeEditor';
 import { getDocId } from '../docs/doc-ids';
+import DocInfo from '../shared/DocInfo';
 import SectionInfo from '../shared/SectionInfo';
 import ScalarConflictChip from '@openheaders/ui/shared/conflicts/ScalarConflictChip';
 
@@ -44,7 +43,6 @@ export const REQUEST_BODY_DYNAMIC_TEMPLATE = `function modifyRequestBody(args) {
 }`;
 
 const RequestBodyRuleFields: React.FC = () => {
-  const { openDocs } = useInspectorNav();
   const form = Form.useFormInstance();
   const paths = useActionPaths();
 
@@ -99,10 +97,7 @@ const RequestBodyRuleFields: React.FC = () => {
                 <Text type="secondary" style={{ fontSize: 12 }}>
                   GraphQL Operation (Request Payload Filter)
                 </Text>
-                <InfoCircleOutlined
-                  style={{ fontSize: 11, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
-                  onClick={() => openDocs(getDocId('request-body-graphql', 'action'))}
-                />
+                <DocInfo docId={getDocId('request-body-graphql', 'action')} />
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <EntityField path={paths.graphqlKey}>
@@ -156,14 +151,7 @@ const RequestBodyRuleFields: React.FC = () => {
               <Radio.Group size="small">
                 <Radio.Button value="static">Static Data</Radio.Button>
                 <Radio.Button value="dynamic">
-                  Dynamic (JavaScript){' '}
-                  <InfoCircleOutlined
-                    style={{ fontSize: 11, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openDocs(getDocId('request-body-dynamic', 'action'));
-                    }}
-                  />
+                  Dynamic (JavaScript) <DocInfo docId={getDocId('request-body-dynamic', 'action')} />
                 </Radio.Button>
               </Radio.Group>
             </Form.Item>

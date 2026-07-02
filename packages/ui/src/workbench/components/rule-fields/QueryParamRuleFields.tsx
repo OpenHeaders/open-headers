@@ -5,14 +5,14 @@
  * Operations: Add / Replace, Remove, Remove All
  */
 
-import { CloseOutlined, InfoCircleOutlined, PlusOutlined } from '@ant-design/icons';
+import { CloseOutlined, PlusOutlined } from '@ant-design/icons';
 import { generateUid } from '@openheaders/core/utils';
 import { Alert, Button, Form, Input, Select, Typography } from 'antd';
 import type React from 'react';
 import { EntityField, useActionPaths } from '@openheaders/ui/shared/awareness';
 import { FieldConflictChip, SetRowChip } from '@openheaders/ui/shared/conflicts/Field';
-import { useInspectorNav } from '../../hooks/useInspectorNav';
 import { getDocId } from '../docs/doc-ids';
+import DocInfo from '../shared/DocInfo';
 import SectionInfo from '../shared/SectionInfo';
 import { TemplateInput } from '../template-input';
 
@@ -25,7 +25,6 @@ interface QueryParamRuleFieldsProps {
 }
 
 const QueryParamRuleFields: React.FC<QueryParamRuleFieldsProps> = ({ ruleUid }) => {
-  const { openDocs } = useInspectorNav();
   const paths = useActionPaths();
 
   return (
@@ -121,27 +120,17 @@ const QueryParamRuleFields: React.FC<QueryParamRuleFieldsProps> = ({ ruleUid }) 
                   {({ getFieldValue }) => {
                     const op = getFieldValue(['queryParams', field.name, 'operation']);
                     return (
-                      <InfoCircleOutlined
-                        style={{
-                          fontSize: 10,
-                          color: 'var(--ant-color-text-quaternary)',
-                          cursor: 'pointer',
-                          flexShrink: 0,
-                        }}
-                        onClick={() =>
-                          openDocs(
-                            getDocId(
-                              op === 'remove-all'
-                                ? 'qp-remove-all'
-                                : op === 'remove'
-                                  ? 'qp-remove'
-                                  : op === 'override'
-                                    ? 'qp-override'
-                                    : 'qp-add',
-                              'action',
-                            ),
-                          )
-                        }
+                      <DocInfo
+                        docId={getDocId(
+                          op === 'remove-all'
+                            ? 'qp-remove-all'
+                            : op === 'remove'
+                              ? 'qp-remove'
+                              : op === 'override'
+                                ? 'qp-override'
+                                : 'qp-add',
+                          'action',
+                        )}
                       />
                     );
                   }}

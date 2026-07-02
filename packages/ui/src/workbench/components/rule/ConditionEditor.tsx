@@ -35,7 +35,7 @@
  * nothing. They remain in the schema for forward-compat with older imports.
  */
 
-import { CloseOutlined, InfoCircleOutlined, PlusOutlined, WarningFilled } from '@ant-design/icons';
+import { CloseOutlined, PlusOutlined, WarningFilled } from '@ant-design/icons';
 import type { ConditionType, RuleCondition } from '@openheaders/core/types';
 import {
   applyDomainValueCleanup,
@@ -56,8 +56,8 @@ import type React from 'react';
 import { useCallback, useMemo } from 'react';
 import { ConflictDiffChip, EntityField, SetRowConflictChip, useActionPaths } from '@openheaders/ui/shared/awareness';
 import { useFieldConflicts } from '@openheaders/ui/shared/conflicts/Field';
-import { useInspectorNav } from '../../hooks/useInspectorNav';
 import { getDocId } from '../docs/doc-ids';
+import DocInfo from '../shared/DocInfo';
 import { TemplateInput } from '../template-input';
 
 // ── Condition type definitions ───────────────────────────────────
@@ -302,7 +302,6 @@ function ConditionSetRowChip({
 const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange }) => {
   const paths = useActionPaths();
   const { token } = theme.useToken();
-  const { openDocs } = useInspectorNav();
 
   // Group structural issues by row so each row can render its own banner.
   // Single pass, recomputed only when the condition list changes.
@@ -496,10 +495,7 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
                   options={buildTypeOptions(value, index)}
                 />
               </EntityField>
-              <InfoCircleOutlined
-                style={{ fontSize: 10, color: token.colorTextQuaternary, cursor: 'pointer', flexShrink: 0 }}
-                onClick={() => openDocs(getDocId(condition.type, 'condition'))}
-              />
+              <DocInfo docId={getDocId(condition.type, 'condition')} />
 
               {/* Header name (before value for header types) */}
               {def?.inputType === 'header' && (
