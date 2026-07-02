@@ -59,6 +59,7 @@ import {
 } from '../data/header-attribution';
 import type { RuleApplicability } from '../data/rule-applicability';
 import { findRuleCollectionId } from '../data/rule-collection';
+import { HEADER_OPERATION_OPTIONS } from './rule-quick-editor/header-operation-options';
 import { QuickEditorShell, RULE_TYPE_LABEL } from './rule-quick-editor/QuickEditorShell';
 import { isSnapshotResolutionReliable, ruleCtxFromAttribution, tagLabelFor, tagTitleFor } from './rule-hover-format';
 import { SnapshotBlock } from './SnapshotBlock';
@@ -101,14 +102,7 @@ export interface RuleHoverPopoverProps {
   visible?: boolean;
 }
 
-const OPERATION_OPTIONS: { value: HeaderOperation; label: string }[] = [
-  // Mirror the workbench HeaderRuleFields labels so the popover and the
-  // full editor agree on what each op is called.
-  { value: 'override', label: 'Add / Replace' },
-  { value: 'add', label: 'Append' },
-  { value: 'remove', label: 'Remove' },
-  { value: 'merge', label: 'Merge' },
-];
+const OPERATION_OPTIONS = HEADER_OPERATION_OPTIONS;
 
 export function RuleHoverPopover({
   anchorEl,

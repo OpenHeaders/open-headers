@@ -34,6 +34,13 @@ interface HeaderSectionProps {
   showChips: boolean;
   driftedRows: ReadonlySet<AnnotatedHeader>;
   onCreateHeaderRule: (direction: 'request' | 'response', headerName: string, value?: string) => void;
+  /** Server-row Override button — opens the in-panel create popover. */
+  onOverrideHeader: (
+    direction: 'request' | 'response',
+    headerName: string,
+    value: string,
+    anchorEl: HTMLElement,
+  ) => void;
   searchHighlight?: string;
   searchSection?: string;
   searchLineNumber?: number;
@@ -78,6 +85,7 @@ export function HeaderSection({
   showChips,
   driftedRows,
   onCreateHeaderRule,
+  onOverrideHeader,
   searchHighlight,
   searchSection,
   searchLineNumber,
@@ -264,7 +272,7 @@ export function HeaderSection({
                   rulesByUid={rulesByUid}
                   nameCase={nameCase}
                   showChips={showChips}
-                  onNameClick={(name, value) => onCreateHeaderRule(direction, name, value)}
+                  onOverride={(name, value, anchorEl) => onOverrideHeader(direction, name, value, anchorEl)}
                 />
               ))}
             </div>
@@ -290,7 +298,7 @@ export function HeaderSection({
                     rulesByUid={rulesByUid}
                     nameCase={nameCase}
                     showChips={showChips}
-                    onNameClick={(name, value) => onCreateHeaderRule(direction, name, value)}
+                    onOverride={(name, value, anchorEl) => onOverrideHeader(direction, name, value, anchorEl)}
                   />
                 ))}
               </div>

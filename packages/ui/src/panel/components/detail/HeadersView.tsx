@@ -66,6 +66,14 @@ export interface HeadersViewProps {
   collectionIdFor: (h: AnnotatedHeader) => string | undefined;
   /** Open the Create Rule editor pre-filled with this header. */
   onCreateHeaderRule: (direction: 'request' | 'response', headerName: string, value?: string) => void;
+  /** Open the in-panel create popover for a server header row's
+   *  Override button, anchored to it. */
+  onOverrideHeader: (
+    direction: 'request' | 'response',
+    headerName: string,
+    value: string,
+    anchorEl: HTMLElement,
+  ) => void;
   /** Open the Create Rule editor pre-filled with a URL/block/delay action
    *  for this request. The view never builds the draft itself — that
    *  lives in `rule-draft-bridge.ts` — but it does need a callback per
@@ -89,6 +97,7 @@ export function HeadersView({
   rulesByUid,
   collectionIdFor,
   onCreateHeaderRule,
+  onOverrideHeader,
   onCreateRedirect,
   onCreateReplaceHost,
   onCreateReplaceUrlPart,
@@ -351,6 +360,7 @@ export function HeadersView({
         showChips={showChips}
         driftedRows={driftedRows}
         onCreateHeaderRule={onCreateHeaderRule}
+        onOverrideHeader={onOverrideHeader}
         searchHighlight={searchHighlight}
         searchSection={searchSection}
         searchLineNumber={searchLineNumber}
@@ -371,6 +381,7 @@ export function HeadersView({
         showChips={showChips}
         driftedRows={driftedRows}
         onCreateHeaderRule={onCreateHeaderRule}
+        onOverrideHeader={onOverrideHeader}
         searchHighlight={searchHighlight}
         searchSection={searchSection}
         searchLineNumber={searchLineNumber}

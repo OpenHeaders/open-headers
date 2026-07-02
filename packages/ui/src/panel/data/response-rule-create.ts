@@ -11,6 +11,7 @@
 import type { ResponseRule, ResponseRuleDraft } from '@openheaders/core/types';
 import type { DraftUrlStrategy } from '@openheaders/core/utils';
 import { buildDraftConditions } from '@openheaders/ui/workbench/draft-conditions';
+import { generateQuickRuleName } from './quick-rule-name';
 import type { ResponseQuickDraft } from './response-rule-edit';
 
 export type ResponseRuleSeed = Omit<ResponseRule, 'uid' | 'path' | 'schemaVersion'>;
@@ -41,12 +42,7 @@ export function mergeQuickIntoResponseDraft(draft: ResponseRuleDraft, quick: Res
 /** "New API Response Rule" deduped against existing rule names — same
  *  scheme as the workbench's `generateDraftName`. */
 export function generateResponseRuleName(rules: ReadonlyArray<{ name: string }>): string {
-  const baseName = 'New API Response Rule';
-  const existing = new Set(rules.map((r) => r.name));
-  if (!existing.has(baseName)) return baseName;
-  let counter = 2;
-  while (existing.has(`${baseName} (${counter})`)) counter++;
-  return `${baseName} (${counter})`;
+  return generateQuickRuleName('New API Response Rule', rules);
 }
 
 /**

@@ -49,6 +49,7 @@ import PreviewView from './detail/PreviewView';
 import RawDataView from './detail/RawDataView';
 import TimingView from './detail/TimingView';
 import { ResponseBodyView } from './ResponseBodyView';
+import { useRulePopover } from './RulePopoverHost';
 
 interface InspectorDetailContentProps {
   row: InspectorRowWithFires;
@@ -339,6 +340,27 @@ export function InspectorDetailContent({
   const createHeaderRule = (direction: 'request' | 'response', headerName: string, value?: string): void => {
     void handOff(() => buildHeaderDraftFromRequest(lc, { direction, headerName, value }));
   };
+  // Server-row Override opens the in-panel create popover seeded with
+  // that row's header; other header CTAs (insight cards, cookies, "+
+  // Add Header") keep the workbench handoff above.
+  const rulePopover = useRulePopover();
+  const overrideHeader = (
+    direction: 'request' | 'response',
+    headerName: string,
+    value: string,
+    anchorEl: HTMLElement,
+  ): void => {
+    rulePopover.open(
+      {
+        mode: 'create-header',
+        anchorEl,
+        draft: buildHeaderDraftFromRequest(lc, { direction, headerName, value }),
+        direction,
+        requestId: lc.requestId,
+      },
+      { pinned: true },
+    );
+  };
   const createRedirect = (): void => void handOff(() => buildRedirectDraftFromRequest(lc));
   const createReplaceHost = (): void => void handOff(() => buildReplaceHostDraftFromRequest(lc));
   const createReplaceUrlPart = (): void => void handOff(() => buildReplaceUrlPartDraftFromRequest(lc));
@@ -432,6 +454,7 @@ export function InspectorDetailContent({
             rulesByUid={rulesByUid}
             collectionIdFor={collectionIdFor}
             onCreateHeaderRule={createHeaderRule}
+            onOverrideHeader={overrideHeader}
             onCreateRedirect={createRedirect}
             onCreateReplaceHost={createReplaceHost}
             onCreateReplaceUrlPart={createReplaceUrlPart}

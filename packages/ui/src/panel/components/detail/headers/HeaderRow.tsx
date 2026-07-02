@@ -36,7 +36,9 @@ interface AttributedHeaderRowProps {
   rulesByUid: RulesByUid;
   nameCase: HeaderNameCase;
   showChips: boolean;
-  onNameClick: (name: string, value: string) => void;
+  /** Override button on a server row — opens the in-panel create
+   *  popover anchored to the button. */
+  onOverride: (name: string, value: string, anchorEl: HTMLElement) => void;
 }
 
 function isHighlightedHeader(
@@ -101,7 +103,7 @@ export function AttributedHeaderRow({
   rulesByUid,
   nameCase,
   showChips,
-  onNameClick,
+  onOverride,
 }: AttributedHeaderRowProps) {
   const rulePopover = useRulePopover();
   const { name, value, attribution } = row;
@@ -315,7 +317,7 @@ export function AttributedHeaderRow({
             onClick={(e) => {
               e.stopPropagation();
               if (overrideDisabled) return;
-              onNameClick(name, value);
+              onOverride(name, value, e.currentTarget);
             }}
           >
             Override

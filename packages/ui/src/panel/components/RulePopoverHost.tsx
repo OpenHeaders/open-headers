@@ -6,10 +6,12 @@
  * `useDismiss`, fresh mount per session).
  */
 
-import type { ResponseRuleDraft, Rule } from '@openheaders/core/types';
+import type { HeaderRuleDraft, ResponseRuleDraft, Rule } from '@openheaders/core/types';
+import type { HeaderDirection } from '@openheaders/core/utils';
 import { createHoverPopoverHost, type HoverPopoverBodyProps } from '@openheaders/ui/shared/popover';
 import type { HeaderAttribution } from '../data/header-attribution';
 import type { RuleApplicability } from '../data/rule-applicability';
+import { HeaderQuickCreate } from './rule-quick-editor/HeaderQuickCreate';
 import { ResponseQuickCreate } from './rule-quick-editor/ResponseQuickCreate';
 import { ResponseQuickEditor } from './rule-quick-editor/ResponseQuickEditor';
 import { RuleHoverPopover, type RuleHoverPopoverTarget } from './RuleHoverPopover';
@@ -22,6 +24,18 @@ interface ResponseCreatePopoverState {
   draft: ResponseRuleDraft;
   /** Inspected request the draft was captured from — the popover's
    *  session identity (there is no rule uid to key on yet). */
+  requestId: string;
+}
+
+/** Create mode for a header rule — opened from a server header row's
+ *  Override button; Save mints + publishes (`HeaderQuickCreate`). */
+interface HeaderCreatePopoverState {
+  mode: 'create-header';
+  anchorEl: HTMLElement;
+  draft: HeaderRuleDraft;
+  direction: HeaderDirection;
+  /** Inspected request — with the direction and the clicked header's
+   *  name, the popover's session identity. */
   requestId: string;
 }
 
@@ -52,7 +66,7 @@ interface RuleEditPopoverState {
   applicability?: RuleApplicability | null;
 }
 
-type RulePopoverState = RuleEditPopoverState | ResponseCreatePopoverState;
+type RulePopoverState = RuleEditPopoverState | ResponseCreatePopoverState | HeaderCreatePopoverState;
 
 const POPOVER_INSIDE_SELECTORS: ReadonlyArray<string> = [
   '[data-rule-popover-root]',
@@ -94,6 +108,19 @@ function RulePopoverBody({
       />
     );
   }
+  if (state.mode === 'create-header') {
+    return (
+      <HeaderQuickCreate
+        anchorEl={state.anchorEl}
+        draft={state.draft}
+        direction={state.direction}
+        onClose={onClose}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+        visible={visible}
+      />
+    );
+  }
   if (state.rule?.type === 'response') {
     return (
       <ResponseQuickEditor
@@ -126,8 +153,13 @@ function RulePopoverBody({
 const host = createHoverPopoverHost<RulePopoverState>({
   identity: (s) => {
     // Create sessions have no rule uid yet — key on the inspected
-    // request the draft was captured from.
+    // request the draft was captured from (plus, for headers, the
+    // clicked row so each Override button is its own session).
     if (s.mode === 'create-response') return `create-response|${s.requestId}`;
+    if (s.mode === 'create-header') {
+      const mods = s.direction === 'request' ? s.draft.requestHeaders : s.draft.responseHeaders;
+      return `create-header|${s.requestId}|${s.direction}|${mods?.[0]?.headerName ?? ''}`;
+    }
     // When the rule is gone (deleted since fire), identity falls back
     // to the snapshotted ruleUid carried in the attribution so the
     // popover still keys deterministically off the row that opened it.
