@@ -31,47 +31,23 @@
 import { CloseOutlined } from '@ant-design/icons';
 import { hashImportSource } from '@openheaders/core/import';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
-import {
-  type DiffResult,
-  decryptVaultBlock,
-  type ImportDrop,
-  type MissingDep,
-  parseWorkspaceExport,
-  type SerializableEntityKind,
-  serializeEntityYaml,
-  type StrategyMap,
-  VaultDecryptionFailedError,
-  VaultPayloadShapeError,
-  type WorkspaceExport,
-} from '@openheaders/core/workspace-export';
-import { Alert, App as AntApp, Button, Drawer, Empty, Modal, Space, Spin, Typography, theme } from 'antd';
+import { type ImportDrop, parseWorkspaceExport, type WorkspaceExport } from '@openheaders/core/workspace-export';
+import { Alert, Button, Drawer, Empty, Modal, Spin, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DedupMatchesResult } from '@openheaders/core/types';
 import { hostBridge } from '@openheaders/core/bridge';
-import {
-  parseCollection,
-  parseEnvironment,
-  parseFolder,
-  parseLiveVariable,
-  parseLiveWorkflow,
-  parseRequest,
-  parseRule,
-  parseTemplate,
-  parseVault,
-  parseWorkspaceVariables,
-} from '@openheaders/core/codec/yaml';
 import { useUiTheme } from '@openheaders/ui/context';
-import type { MergeApplyOutcome, MergeFile } from '@openheaders/ui/shared/merge-editor';
 import { MergeConflictModal } from '@openheaders/ui/shared/merge-editor';
 import { renderWorkspacePrefix } from '../workspace/workspace-prefix';
 import { buildImportStatusChips } from './preview/buildImportStatusChips';
 import { AdvancedTogglesList } from './preview/AdvancedPanel';
-import { applyMergeResultsToEnvelope, diffResultToImportBundle } from './preview/diff-to-import-bundle';
 import RejectionBanner, { type ParseRejection } from './preview/RejectionBanner';
 import StatusChips from './preview/StatusChips';
 import TargetControl, { type ImportTargetSelection } from './preview/TargetControl';
-import type { ImportPreviewSource } from './preview/types';
+import type { ImportPreviewSource, PreviewState } from './preview/types';
+import { useImportMergeSession } from './preview/use-import-merge-session';
+import { useVaultDecrypt } from './preview/use-vault-decrypt';
 import { VaultDecryptedBanner, VaultEncryptedBlock, VaultPartialDecryptPanel } from './preview/VaultBlocks';
 
 const { Text } = Typography;
@@ -103,14 +79,8 @@ interface ImportPreviewModalProps {
   onImported: (result: { targetWorkspaceId: string; importedCount: number; sourceLabel: string }) => void;
 }
 
-interface PreviewState {
-  diff: DiffResult;
-  missingDeps: MissingDep[];
-  snapshotHash: string;
-  targetWorkspaceId: string | null;
-}
-
-// ParseRejection lives in ./preview/RejectionBanner — re-imported below.
+// PreviewState lives in ./preview/types — shared with the merge-session
+// hook. ParseRejection lives in ./preview/RejectionBanner.
 
 // ── Modal ──────────────────────────────────────────────────────────
 
@@ -125,7 +95,6 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
   onCancel,
   onImported,
 }) => {
-  const { message } = AntApp.useApp();
   const { token } = theme.useToken();
   const { isDarkMode, monacoTheme } = useUiTheme();
 
@@ -142,25 +111,9 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
   const [parseRejection, setParseRejection] = useState<ParseRejection | null>(null);
   const [parsed, setParsed] = useState<{ envelope: WorkspaceExport; drops: ImportDrop[] } | null>(null);
   const [sourceHash, setSourceHash] = useState<string | null>(null);
-  // Vault decryption state — when the envelope carries a `secrets` block,
-  // the user enters a passphrase and we decrypt client-side, then inject
-  // the resulting secrets into envelope.entities.vault.secrets so the
-  // importer's standard vault path picks them up. The passphrase never
-  // crosses the bridge — only the decrypted secrets do, and only inside
-  // the `incoming` envelope payload of `importWorkspace`.
-  const [vaultPassphrase, setVaultPassphrase] = useState('');
-  const [vaultDecryptError, setVaultDecryptError] = useState<string | null>(null);
-  const [vaultDecrypting, setVaultDecrypting] = useState(false);
-  const [vaultFingerprints, setVaultFingerprints] = useState<{ ciphertext: string; key: string } | null>(null);
-  // Per-secret decode failures surfaced by `decryptVaultBlock` — these
-  // are well-formed envelope + correct passphrase, but one or more
-  // entries inside the AES-GCM payload didn't validate against
-  // `VaultSecretSchema`. Surfaced alongside the decrypted banner so the
-  // user can see "N secret(s) skipped" with the per-entry reason
-  // (design §3.2 — fail-soft per secret instead of all-or-nothing).
-  const [vaultPartialDrops, setVaultPartialDrops] = useState<{ index: number; reason: string }[]>([]);
-  /** When set, the rendered envelope has decrypted secrets injected. */
-  const [decryptedEnvelope, setDecryptedEnvelope] = useState<WorkspaceExport | null>(null);
+  // Vault decryption state + handler — see `useVaultDecrypt` for the
+  // passphrase / injection semantics.
+  const vault = useVaultDecrypt(parsed?.envelope ?? null);
   // Default to `current` unconditionally — the user is already in
   // their workspace and "import here" is the most common intent. The
   // segmented control still lets them flip to `new` / `picked` if
@@ -249,15 +202,11 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
     setStaleSnapshotHash(null);
     // Reset vault decrypt state when a fresh envelope arrives — a new
     // file shouldn't carry over the prior passphrase or decrypted vault.
-    setVaultPassphrase('');
-    setVaultDecryptError(null);
-    setVaultFingerprints(null);
-    setVaultPartialDrops([]);
-    setDecryptedEnvelope(null);
+    vault.reset();
     void hashImportSource(rawText)
       .then(setSourceHash)
       .catch(() => setSourceHash(''));
-  }, [open, rawText, initialError]);
+  }, [open, rawText, initialError, vault.reset]);
 
   // Reset on close so a second open starts clean.
   useEffect(() => {
@@ -276,19 +225,15 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
     setDedup(null);
     setStaleSnapshotHash(null);
     setSourceHash(null);
-    setVaultPassphrase('');
-    setVaultDecryptError(null);
-    setVaultFingerprints(null);
-    setVaultPartialDrops([]);
-    setDecryptedEnvelope(null);
-  }, [open]);
+    vault.reset();
+  }, [open, vault.reset]);
 
   // The envelope used for preview + import. When the user has decrypted
   // the secrets block, swap in the decrypted envelope; otherwise the
   // parsed (encrypted) envelope is what we ship — the importer treats a
   // missing entities.vault as "no secrets to merge", which is what we
   // want for un-decrypted imports.
-  const effectiveEnvelope: WorkspaceExport | null = decryptedEnvelope ?? parsed?.envelope ?? null;
+  const effectiveEnvelope: WorkspaceExport | null = vault.decryptedEnvelope ?? parsed?.envelope ?? null;
 
   // ── Stage 2: SW-side preview (diff + missing-deps) ────────────────
   useEffect(() => {
@@ -398,191 +343,26 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
   }, [parsed, preview, target.mode]);
 
   // ── Merge-editor surface (Phase 7.3.3a) ───────────────────────────
-  // Per-codec parser dispatcher. Each non-singleton codec needs the
-  // entity's `path` from the envelope; we look it up by uid across the
-  // typed buckets. Throws on unknown uid / unknown entityType so the
-  // merge editor surfaces the broken row inline.
-  const deserializeMergeFile = useCallback(
-    (text: string, file: MergeFile): unknown => {
-      if (!effectiveEnvelope) throw new Error('No envelope available for path lookup.');
-      const ent = effectiveEnvelope.entities;
-      const findPath = (uid: string): string => {
-        const lists: ReadonlyArray<{ uid: string; path?: string }>[] = [
-          ent.collections,
-          ent.folders,
-          ent.rules,
-          ent.requests,
-          ent.templates,
-          ent.environments,
-          ent.liveWorkflows,
-          ent.liveVariables,
-        ];
-        for (const list of lists) {
-          const found = list.find((e) => e.uid === uid);
-          if (found?.path) return found.path;
-        }
-        throw new Error(`Could not resolve path for uid ${uid}`);
-      };
-      switch (file.group) {
-        case 'rule':
-          return parseRule(text, { path: findPath(file.id) }).value;
-        case 'request':
-          return parseRequest(text, { path: findPath(file.id) }).value;
-        case 'template':
-          return parseTemplate(text, { path: findPath(file.id) }).value;
-        case 'collection':
-          return parseCollection(text, { path: findPath(file.id) }).value;
-        case 'folder':
-          return parseFolder(text, { path: findPath(file.id) }).value;
-        case 'environment':
-          return parseEnvironment({ default: text }).value;
-        case 'liveWorkflow':
-          return parseLiveWorkflow(text, { path: findPath(file.id) }).value;
-        case 'liveVariable':
-          return parseLiveVariable(text, { path: findPath(file.id) }).value;
-        case 'workspaceVars':
-          return parseWorkspaceVariables(text).value;
-        case 'vault':
-          return parseVault(text).value;
-        default:
-          throw new Error(`Unknown merge entity type: ${String(file.group)}`);
-      }
-    },
-    [effectiveEnvelope],
-  );
-
-  // Bundle-wide commit through the merge editor: derive a fresh
-  // envelope + StrategyMap from per-file results, re-run the SW
-  // preview to detect concurrent edits, then submit through
-  // `importWorkspace`. Mirrors `handleImport` but the merged envelope
-  // carries the user's resolved entities instead of relying on a
-  // strategy map alone.
-  const handleMergeApply = useCallback(
-    async (filesArg: readonly MergeFile[], results: Map<string, string>): Promise<MergeApplyOutcome[]> => {
-      const failAll = (err: string): MergeApplyOutcome[] =>
-        filesArg.map((f) => ({ fileId: f.id, ok: false, status: 'resolved' as const, error: err }));
-      if (!effectiveEnvelope || !preview || !sourceHash) return failAll('Preview is not ready.');
-      let mergedEnvelope: WorkspaceExport;
-      let derivedStrategies: StrategyMap;
-      try {
-        const out = applyMergeResultsToEnvelope({
-          envelope: effectiveEnvelope,
-          files: filesArg,
-          results,
-          diff: preview.diff,
-          deserialize: deserializeMergeFile,
-        });
-        mergedEnvelope = out.envelope;
-        derivedStrategies = out.strategies;
-      } catch (err) {
-        return failAll(err instanceof Error ? err.message : String(err));
-      }
-      try {
-        const fresh = await hostBridge.call('previewWorkspaceImport', {
-          incoming: mergedEnvelope,
-          target,
-          backupRestore,
-        });
-        if (!fresh.success || !fresh.snapshotHash) return failAll(fresh.error ?? 'Preview re-check failed');
-        if (fresh.snapshotHash !== preview.snapshotHash) {
-          setStaleSnapshotHash(preview.snapshotHash);
-          if (fresh.diff && fresh.missingDeps) {
-            setPreview({
-              diff: fresh.diff,
-              missingDeps: fresh.missingDeps,
-              snapshotHash: fresh.snapshotHash,
-              targetWorkspaceId: fresh.targetWorkspaceId ?? null,
-            });
-          }
-          return failAll('Workspace changed since preview opened. Re-confirm in the legacy preview and retry.');
-        }
-        const res = await hostBridge.call('importWorkspace', {
-          incoming: mergedEnvelope,
-          strategies: derivedStrategies,
-          backupRestore,
-          trustExport,
-          stripScripts,
-          omitOAuthConfigs,
-          keepTargetCollectionOrder,
-          refuseUidCollision,
-          target,
-          sourceHash,
-        });
-        if (!res.success || !res.report || !res.targetWorkspaceId) {
-          return failAll(res.error ?? 'Import failed');
-        }
-        // Success — close the merge modal and notify the parent.
-        setMergePreviewOpen(false);
-        onImported({
-          targetWorkspaceId: res.targetWorkspaceId,
-          importedCount: res.report.summary.imported,
-          sourceLabel: mergedEnvelope.source.workspaceLabel ?? mergedEnvelope.workspace.name,
-        });
-        return filesArg.map((f) => ({ fileId: f.id, ok: true, status: 'resolved' as const }));
-      } catch (err) {
-        return failAll(err instanceof Error ? err.message : String(err));
-      }
-    },
-    [
-      effectiveEnvelope,
-      preview,
-      sourceHash,
-      target,
-      backupRestore,
-      trustExport,
-      stripScripts,
-      omitOAuthConfigs,
-      keepTargetCollectionOrder,
-      refuseUidCollision,
-      onImported,
-      deserializeMergeFile,
-    ],
-  );
-
-  // ── Vault decryption handler ────────────────────────────────────
-  const handleDecryptVault = useCallback(async () => {
-    if (!parsed?.envelope.secrets) return;
-    setVaultDecrypting(true);
-    setVaultDecryptError(null);
-    try {
-      const result = await decryptVaultBlock(parsed.envelope.secrets, vaultPassphrase);
-      // Inject decrypted secrets into a new envelope copy. The importer's
-      // standard vault path handles merge/replace/skip; we don't need to
-      // touch the importer to support encrypted exports.
-      const next: WorkspaceExport = {
-        ...parsed.envelope,
-        entities: {
-          ...parsed.envelope.entities,
-          vault: {
-            schemaVersion: 5,
-            secrets: result.secrets,
-          },
-        },
-      };
-      // Drop the encrypted block from the working copy — it served its
-      // purpose; the decrypted secrets are now in entities.vault and the
-      // importer reads from there.
-      delete (next as { secrets?: unknown }).secrets;
-      setDecryptedEnvelope(next);
-      setVaultFingerprints({ ciphertext: result.ciphertextFingerprint, key: result.keyFingerprint });
-      setVaultPartialDrops(result.drops);
-      setVaultPassphrase(''); // wipe from memory
-    } catch (err) {
-      if (err instanceof VaultDecryptionFailedError) {
-        setVaultDecryptError(
-          'Could not decrypt — wrong passphrase or tampered ciphertext. Check the passphrase with the sender.',
-        );
-      } else if (err instanceof VaultPayloadShapeError) {
-        setVaultDecryptError(`The encrypted payload didn't match an expected vault shape: ${err.message}`);
-      } else {
-        setVaultDecryptError(err instanceof Error ? err.message : 'Decryption failed');
-      }
-    } finally {
-      setVaultDecrypting(false);
-    }
-  }, [parsed, vaultPassphrase]);
-
-  // ── Strategy update helpers ──────────────────────────────────────
+  // Deserializer, bundle-wide commit and MergeFile projection live in
+  // `useImportMergeSession`; state stays here, setters go in.
+  const closeMergeModal = useCallback(() => setMergePreviewOpen(false), []);
+  const { handleMergeApply, buildMergeFiles } = useImportMergeSession({
+    effectiveEnvelope,
+    preview,
+    sourceHash,
+    target,
+    backupRestore,
+    trustExport,
+    stripScripts,
+    omitOAuthConfigs,
+    keepTargetCollectionOrder,
+    refuseUidCollision,
+    lastImportedSnapshots,
+    setPreview,
+    setStaleSnapshotHash,
+    closeMergeModal,
+    onImported,
+  });
 
   // ── Render ────────────────────────────────────────────────────────
 
@@ -821,24 +601,24 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
                   encrypted secrets block the user must unlock it
                   before importWorkspace will see the secrets. State
                   stays in ImportPreviewModal; this is just chrome. */}
-              {parsed?.envelope.secrets && !decryptedEnvelope && (
+              {parsed?.envelope.secrets && !vault.decryptedEnvelope && (
                 <VaultEncryptedBlock
                   envelope={parsed.envelope}
-                  passphrase={vaultPassphrase}
-                  onChangePassphrase={setVaultPassphrase}
-                  onDecrypt={() => void handleDecryptVault()}
-                  decrypting={vaultDecrypting}
-                  error={vaultDecryptError}
+                  passphrase={vault.passphrase}
+                  onChangePassphrase={vault.setPassphrase}
+                  onDecrypt={() => void vault.decrypt()}
+                  decrypting={vault.decrypting}
+                  error={vault.decryptError}
                 />
               )}
-              {decryptedEnvelope && vaultFingerprints && (
+              {vault.decryptedEnvelope && vault.fingerprints && (
                 <VaultDecryptedBanner
-                  fingerprints={vaultFingerprints}
-                  secretCount={decryptedEnvelope.entities.vault?.secrets.length ?? 0}
+                  fingerprints={vault.fingerprints}
+                  secretCount={vault.decryptedEnvelope.entities.vault?.secrets.length ?? 0}
                 />
               )}
-              {decryptedEnvelope && vaultPartialDrops.length > 0 && (
-                <VaultPartialDecryptPanel drops={vaultPartialDrops} />
+              {vault.decryptedEnvelope && vault.partialDrops.length > 0 && (
+                <VaultPartialDecryptPanel drops={vault.partialDrops} />
               )}
               {/* Concurrent-edit warning — `handleMergeApply` sets
                   `staleSnapshotHash` when the SW preview re-check finds
@@ -854,52 +634,15 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
             </div>
           }
           session={(() => {
-            // Project the preview's typed diff into the generic
-            // bundle/workspace shape, then hand-roll the session so
-            // `onApply` runs the bundle-wide commit through
-            // `importWorkspace` rather than the per-file `applyEntity`
-            // shape `buildImportMergeSession` defaults to.
-            const { bundle, workspace } = diffResultToImportBundle(preview.diff, effectiveEnvelope ?? undefined);
-            const files: MergeFile[] = bundle.entities.map((incoming) => {
-              const existing = workspace.findByPathOrUid(incoming);
-              const incomingYaml = serializeEntityYaml(incoming.entityType as SerializableEntityKind, incoming.entity);
-              if (existing === undefined) {
-                return {
-                  id: incoming.uid,
-                  label: incoming.path,
-                  language: 'yaml',
-                  group: incoming.entityType,
-                  kind: 'add' as const,
-                  theirs: incomingYaml,
-                  mine: '',
-                  initialResult: incomingYaml,
-                  badges: [{ label: 'added by import', tone: 'success' as const }],
-                };
-              }
-              const existingYaml = serializeEntityYaml(incoming.entityType as SerializableEntityKind, existing);
-              // 3-pane when we have a snapshot from a prior import —
-              // the snapshot is what we last brought in, so it's the
-              // honest common ancestor between `theirs` (new incoming)
-              // and `mine` (local evolution since then).
-              const snapshot = lastImportedSnapshots[incoming.uid];
-              return {
-                id: incoming.uid,
-                label: incoming.path,
-                language: 'yaml',
-                group: incoming.entityType,
-                kind: 'modify' as const,
-                base: snapshot,
-                theirs: incomingYaml,
-                mine: existingYaml,
-                initialResult: existingYaml,
-                badges: [{ label: 'collision', tone: 'warn' as const }],
-              };
-            });
+            // Hand-rolled session so `onApply` runs the bundle-wide
+            // commit through `importWorkspace` rather than the per-file
+            // `applyEntity` shape `buildImportMergeSession` defaults to.
+            const files = buildMergeFiles();
             return {
               title: `Import — ${files.length} ${files.length === 1 ? 'item' : 'items'}`,
               files,
               onApply: handleMergeApply,
-              onCancel: () => setMergePreviewOpen(false),
+              onCancel: closeMergeModal,
             };
           })()}
         />
