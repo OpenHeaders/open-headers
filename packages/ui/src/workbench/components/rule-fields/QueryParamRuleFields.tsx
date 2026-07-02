@@ -160,14 +160,28 @@ const QueryParamRuleFields: React.FC<QueryParamRuleFieldsProps> = ({ ruleUid }) 
                         {wrap(
                           'param',
                           <Form.Item {...field} name={[field.name, 'param']} style={{ marginBottom: 0, flex: 1 }}>
-                            <Input size="small" placeholder="Param Name" />
+                            <TemplateInput
+                              size="small"
+                              placeholder="Param Name"
+                              wrap
+                              maxRows={4}
+                              resizable
+                              allowClear
+                            />
                           </Form.Item>,
                         )}
                         {op !== 'remove' &&
                           wrap(
                             'value',
                             <Form.Item {...field} name={[field.name, 'value']} style={{ marginBottom: 0, flex: 1 }}>
-                              <TemplateInput size="small" placeholder="Param Value" />
+                              <TemplateInput
+                                size="small"
+                                placeholder="Param Value"
+                                wrap
+                                maxRows={4}
+                                resizable
+                                allowClear
+                              />
                             </Form.Item>,
                           )}
                       </>

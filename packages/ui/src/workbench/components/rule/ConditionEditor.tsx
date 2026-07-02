@@ -507,6 +507,10 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
                   <TemplateInput
                     size="small"
                     placeholder="Header name equals..."
+                    wrap
+                    maxRows={4}
+                    resizable
+                    allowClear
                     value={condition.headerName ?? ''}
                     onChange={(next) => updateCondition(index, { headerName: next })}
                     style={{ width: 180, flexShrink: 0 }}
@@ -552,22 +556,24 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
                 ) : (
                   (() => {
                     const isDomainList = isDomainListConditionType(condition.type);
-                    // Domain-list rows: textarea with a 4-line visible cap and
-                    // inner scroll. The line-height/font-size match
-                    // TemplateInput's small-size defaults. `--oh-multiline-cap`
-                    // is declared in `workbench/styles/rules.less` (:root) so
-                    // the same cap applies wherever the editor is mounted.
-                    const valueStyle: React.CSSProperties = isDomainList
-                      ? { flex: 1, minWidth: 0, maxHeight: 'var(--oh-multiline-cap, 96px)', minHeight: 32 }
-                      : { flex: 1, minWidth: 0 };
+                    // Both variants share the textarea treatment (wrap to 4
+                    // rows, inner scroll, resize grip, clear ✕); domain
+                    // lists additionally keep multiline SEMANTICS so pasted
+                    // newline-separated domains survive. The 4-row cap now
+                    // comes from the component's `maxRows`, not a style
+                    // override.
                     return (
                       <TemplateInput
                         size="small"
                         multiline={isDomainList}
+                        wrap
+                        maxRows={4}
+                        resizable
+                        allowClear
                         placeholder={def?.placeholder ?? 'value'}
                         value={condition.values.join(isDomainList ? ', ' : ', ')}
                         onChange={(next) => handleValuesText(index, next)}
-                        style={valueStyle}
+                        style={{ flex: 1, minWidth: 0, ...(isDomainList ? { minHeight: 32 } : null) }}
                       />
                     );
                   })()

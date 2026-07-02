@@ -184,7 +184,14 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId }: Modif
                                 style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
                                 validateStatus={showWarning ? 'warning' : undefined}
                               >
-                                <TemplateInput size="small" placeholder="Header Name" />
+                                <TemplateInput
+                                  size="small"
+                                  placeholder="Header Name"
+                                  wrap
+                                  maxRows={4}
+                                  resizable
+                                  allowClear
+                                />
                               </Form.Item>,
                             );
                           }}

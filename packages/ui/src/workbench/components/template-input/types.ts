@@ -40,8 +40,9 @@ export interface TemplateInputProps {
    *  every cell in a table row expands when any one of them is focused).
    *  Undefined → falls back to the field's own focus. */
   expanded?: boolean;
-  /** Row cap for `expandOnFocus`'s grown editor before it inner-scrolls.
-   *  Default 5. */
+  /** Row cap for the wrapped editor (`multiline`, `wrap`, or an active
+   *  `expandOnFocus` field) before it inner-scrolls. Default 5. Callers
+   *  can override the resulting cap via `style.maxHeight`. */
   maxRows?: number;
   /** When true, the expanded surface shows a textarea-style grip in its
    *  bottom-right corner. Dragging it sets an explicit height that

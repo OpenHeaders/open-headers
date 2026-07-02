@@ -411,7 +411,14 @@ const ResponseRuleFields: React.FC = () => {
                             name={[field.name, 'value']}
                             style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
                           >
-                            <TemplateInput size="small" placeholder="Header value" />
+                            <TemplateInput
+                              size="small"
+                              placeholder="Header value"
+                              wrap
+                              maxRows={4}
+                              resizable
+                              allowClear
+                            />
                           </Form.Item>,
                         )}
                         <Button

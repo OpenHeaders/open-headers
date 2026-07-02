@@ -53,7 +53,13 @@ const RedirectRuleFields: React.FC = () => {
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <EntityField path={paths.redirectTo}>
           <Form.Item name="redirectTo" style={{ marginBottom: 0, flex: 1, minWidth: 0 }}>
-            <TemplateInput placeholder="e.g. https://openheaders.io/redirected — use \1, \2 with URL Regex conditions" />
+            <TemplateInput
+              placeholder="e.g. https://openheaders.io/redirected — use \1, \2 with URL Regex conditions"
+              wrap
+              maxRows={4}
+              resizable
+              allowClear
+            />
           </Form.Item>
         </EntityField>
         <ScalarConflictChip formName="redirectTo" schemaPath={paths.redirectTo} />

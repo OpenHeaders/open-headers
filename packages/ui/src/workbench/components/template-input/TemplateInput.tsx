@@ -675,16 +675,17 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       overflowX: displayExpanded || displayCollapsed ? 'hidden' : 'auto',
       overflowY: displayExpanded ? 'auto' : 'hidden',
       textOverflow: displayCollapsed ? 'ellipsis' : undefined,
-      // Auto-grow cap for the wrapped editor (`wrap` always, or an
+      // Auto-grow cap for the wrapped editor (`multiline`, `wrap`, or an
       // expand-on-focus field while active): ~maxRows lines (lineHeight
       // 1.5714) + a little padding allowance; past it the surface
       // inner-scrolls. A grip-dragged manual height replaces the cap
-      // entirely — the user's chosen size wins.
+      // entirely — the user's chosen size wins. (Callers can still
+      // override via `style.maxHeight`, applied after this block.)
       height: displayExpanded && resizable && manualHeight != null ? manualHeight : undefined,
       maxHeight:
         displayExpanded && resizable && manualHeight != null
           ? 'none'
-          : wrap || (expandOnFocus && expandActive)
+          : displayExpanded
             ? `${(maxRows * 1.5714 + 0.9).toFixed(2)}em`
             : undefined,
       wordBreak: displayExpanded ? 'break-word' : 'normal',
