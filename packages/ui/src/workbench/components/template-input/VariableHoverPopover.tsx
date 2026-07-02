@@ -1,22 +1,25 @@
 /**
- * VariableHoverPopover — Postman-style popover that appears when a
- * `{{ref}}` token is hovered. Shows the resolved value as a directly
- * editable textarea + a Save button + the scope it resolves from.
+ * VariableHoverPopover — popover that appears when a `{{ref}}` token
+ * is hovered. Shows the resolved value as a directly editable textarea
+ * + a Save button + the scope it resolves from.
  *
  * Editable scopes (vault `string`, environment, collection, workspace,
  * live override) write through the same versioned bridge RPCs the
  * dedicated editors use. Read-only scopes (vault `totp`, step, file,
  * reserved/dynamic) disable the textarea and hide Save.
+ *
+ * The save dispatch (`runUpdate` / `runCreate` / `surfaceResult`) lives
+ * in `variable-popover-save.ts`; the "Add to" create flow in
+ * `variable-popover-create-flow.ts`.
  */
 
 import { SaveOutlined } from '@ant-design/icons';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { useEnvVarVault } from '@openheaders/ui/shared/hooks/useEnvVarVault';
 import { useRules } from '@openheaders/ui/shared/hooks/useRules';
-import { useVariableLookup, type VariableCandidate, type VariableLookupResult } from '@openheaders/ui/shared/hooks/useVariableLookup';
+import { useVariableLookup, type VariableCandidate } from '@openheaders/ui/shared/hooks/useVariableLookup';
 import { type MutationResult, useVariableMutator } from '@openheaders/ui/shared/hooks/useVariableMutator';
-import type { Collection, Environment, Variable, VariableScope, Vault, VaultSecret, WorkspaceVariables } from '@openheaders/core/types';
-import { generateUid } from '@openheaders/core/utils';
+import type { VariableScope } from '@openheaders/core/types';
 import { App, Button, Dropdown, type GetRef, Input, type MenuProps, Tag, Tooltip, theme } from 'antd';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePopoverPlacement } from '@openheaders/ui/shared/popover';
@@ -24,6 +27,15 @@ import { buildChordsFromEvent, useShortcutLabel } from '../../hooks/useWorkspace
 import { useEnvSwitcher } from '../../services/env-switcher';
 import { useSettingValue } from '../../settings/hooks';
 import { type ScopeKey, scopeBadge } from '../shared/scope-colors';
+import {
+  buildCreateOptions,
+  type CreateScope,
+  createScopeToColorKey,
+  labelForCreateScope,
+  NAMESPACE_CREATE_SCOPE,
+  resolveCreateFlow,
+} from './variable-popover-create-flow';
+import { runCreate, runUpdate, surfaceResult } from './variable-popover-save';
 
 /** Always mounted by `VariablePopoverHost` only when an open session
  *  is active — the host uses `key={reference}` so each open session
@@ -579,316 +591,6 @@ function describeUnresolved(lookup: ReturnType<typeof useVariableLookup>, candid
     return 'No Live Variable by that name (or no cached value yet).';
   }
   return 'Not defined in any scope.';
-}
-
-// ── Save dispatch ────────────────────────────────────────────────────
-//
-// `runUpdate` / `runCreate` splice the new value into the popover's
-// own data snapshot (sourced from `useEnvironments` / `useRules` in the
-// popover render) and call the mutator's pure `replace*` write methods.
-//
-// The popover and the mutator each call `useEnvironments` separately
-// — independent React state instances that hydrate via independent
-// post-mount effects. If we let the mutator do the read-modify-write
-// internally, it would race against the popover's view: the popover
-// might already see the variable while the mutator's view is still
-// the initial empty default, and the splice would write a list that
-// drops every other variable. Centralizing the read in the popover
-// (whose render we already gate on hydration) closes the race.
-
-interface UpdateSnapshot {
-  environments: Environment[];
-  workspaceVariables: WorkspaceVariables;
-  vault: Vault;
-  localCollections: Collection[];
-}
-
-interface CreateSnapshot {
-  activeEnvironment: Environment | null;
-  workspaceVariables: WorkspaceVariables;
-  vault: Vault;
-  localCollections: Collection[];
-  collectionId?: string;
-}
-
-async function runUpdate(
-  mutator: ReturnType<typeof useVariableMutator>,
-  c: VariableCandidate,
-  draft: string,
-  snap: UpdateSnapshot,
-): Promise<MutationResult> {
-  switch (c.scope) {
-    case 'vault': {
-      if (c.secret.kind !== 'string') {
-        return { ok: false, reason: 'other', message: 'TOTP secrets must be edited in the Vault editor' };
-      }
-      const idx = snap.vault.secrets.findIndex((s) => s.name === c.secret.name);
-      if (idx === -1) return { ok: false, reason: 'not-found' };
-      const next = snap.vault.secrets.slice();
-      const target = next[idx];
-      if (target.kind !== 'string') {
-        return { ok: false, reason: 'other', message: 'Vault entry kind changed under us' };
-      }
-      next[idx] = { ...target, value: draft };
-      return mutator.replaceVault(next);
-    }
-    case 'environment': {
-      const env = snap.environments.find((e) => e.uid === c.envUid);
-      if (!env) return { ok: false, reason: 'not-found' };
-      const idx = env.variables.findIndex((v) => v.name === c.variable.name);
-      if (idx === -1) return { ok: false, reason: 'not-found' };
-      const next = env.variables.slice();
-      next[idx] = { ...next[idx], value: draft };
-      return mutator.replaceEnvironmentVariables(env.uid, next);
-    }
-    case 'collection': {
-      const collection = snap.localCollections.find((cc) => cc.uid === c.collectionUid);
-      if (!collection) return { ok: false, reason: 'not-found' };
-      const variables = collection.variables ?? [];
-      const idx = variables.findIndex((v) => v.name === c.variable.name);
-      if (idx === -1) return { ok: false, reason: 'not-found' };
-      const next = variables.slice();
-      next[idx] = { ...next[idx], value: draft };
-      return mutator.replaceCollectionVariables(collection.uid, next);
-    }
-    case 'workspace': {
-      const idx = snap.workspaceVariables.variables.findIndex((v) => v.name === c.variable.name);
-      if (idx === -1) return { ok: false, reason: 'not-found' };
-      const next = snap.workspaceVariables.variables.slice();
-      next[idx] = { ...next[idx], value: draft };
-      return mutator.replaceWorkspaceVariables(next);
-    }
-    case 'live':
-      return mutator.setLiveOverride(c.lv.uid, { value: draft });
-    case 'step':
-    case 'file':
-    case 'reserved':
-      return { ok: false, reason: 'other', message: 'Not editable' };
-  }
-}
-
-async function runCreate(
-  mutator: ReturnType<typeof useVariableMutator>,
-  scope: CreateScope,
-  name: string,
-  value: string,
-  snap: CreateSnapshot,
-): Promise<MutationResult> {
-  switch (scope) {
-    case 'workspace': {
-      if (snap.workspaceVariables.variables.some((v) => v.name === name)) {
-        return { ok: false, reason: 'duplicate-name' };
-      }
-      const next: Variable[] = [
-        ...snap.workspaceVariables.variables,
-        { uid: generateUid(), name, value, type: 'default' },
-      ];
-      return mutator.replaceWorkspaceVariables(next);
-    }
-    case 'vault': {
-      if (snap.vault.secrets.some((s) => s.name === name)) {
-        return { ok: false, reason: 'duplicate-name' };
-      }
-      const next: VaultSecret[] = [
-        ...snap.vault.secrets,
-        { uid: generateUid(), kind: 'string', name, value },
-      ];
-      return mutator.replaceVault(next);
-    }
-    case 'environment': {
-      const env = snap.activeEnvironment;
-      if (!env) return { ok: false, reason: 'other', message: 'No active environment' };
-      if (env.variables.some((v) => v.name === name)) {
-        return { ok: false, reason: 'duplicate-name' };
-      }
-      const next: Variable[] = [
-        ...env.variables,
-        { uid: generateUid(), name, value, type: 'default' },
-      ];
-      return mutator.replaceEnvironmentVariables(env.uid, next);
-    }
-    case 'collection': {
-      if (!snap.collectionId) return { ok: false, reason: 'other', message: 'No collection in context' };
-      const collection = snap.localCollections.find((c) => c.uid === snap.collectionId);
-      if (!collection) return { ok: false, reason: 'not-found' };
-      const variables = collection.variables ?? [];
-      if (variables.some((v) => v.name === name)) {
-        return { ok: false, reason: 'duplicate-name' };
-      }
-      const next: Variable[] = [
-        ...variables,
-        { uid: generateUid(), name, value, type: 'default' },
-      ];
-      return mutator.replaceCollectionVariables(collection.uid, next);
-    }
-  }
-}
-
-/** Map a {@link MutationResult} to AntD message + onSuccess callback.
- *  Centralized so all writes surface uniformly. */
-function surfaceResult(
-  result: MutationResult,
-  message: ReturnType<typeof App.useApp>['message'],
-  onSuccess: () => void,
-): void {
-  if (result.ok) {
-    message.success('Saved');
-    onSuccess();
-    return;
-  }
-  switch (result.reason) {
-    case 'duplicate-name':
-      message.error('A variable with that name already exists in this scope.');
-      return;
-    case 'not-found':
-      message.error('Variable not found — it may have been deleted.');
-      return;
-    case 'other':
-      message.error(result.message ?? 'Save failed');
-      return;
-  }
-}
-
-// ── Create flow ──────────────────────────────────────────────────────
-
-type CreateScope = 'environment' | 'collection' | 'workspace' | 'vault';
-
-/** Reference namespace → its create scope. Only the user-creatable
- *  namespaces map; reserved/runtime ones (live, step, file, dynamic)
- *  are absent, so a default falls through to Workspace. */
-const NAMESPACE_CREATE_SCOPE = {
-  env: 'environment',
-  vault: 'vault',
-  collection: 'collection',
-  workspace: 'workspace',
-} as const;
-
-interface CreateOption {
-  key: CreateScope;
-  label: string;
-  colorKey: ScopeKey;
-  disabled?: boolean;
-  hint?: string;
-}
-
-function labelForCreateScope(s: CreateScope): string {
-  switch (s) {
-    case 'environment':
-      return 'Environment';
-    case 'collection':
-      return 'Collection';
-    case 'workspace':
-      return 'Workspace';
-    case 'vault':
-      return 'Vault';
-  }
-}
-
-function createScopeToColorKey(s: CreateScope): ScopeKey {
-  return s;
-}
-
-function buildCreateOptions(
-  lookup: VariableLookupResult,
-  hasActiveEnv: boolean,
-  hasCollection: boolean,
-): CreateOption[] {
-  // Reserved / runtime-only namespaces aren't creatable from the
-  // popover — they need their dedicated editors (Live Variables, file
-  // upload, workflow steps).
-  if (
-    lookup.namespace === 'live' ||
-    lookup.namespace === 'step' ||
-    lookup.namespace === 'file' ||
-    lookup.namespace === 'dynamic'
-  ) {
-    return [];
-  }
-  // Show every creatable destination regardless of the reference's
-  // explicit namespace — matches Postman. The user picks where the
-  // variable should live; the namespace dictates where the resolver
-  // looks but doesn't constrain where storage happens.
-  const all: CreateScope[] = ['environment', 'collection', 'workspace', 'vault'];
-  return all
-    .map<CreateOption | null>((k) => {
-      switch (k) {
-        case 'environment':
-          return {
-            key: 'environment',
-            label: 'Environment',
-            colorKey: 'environment',
-            disabled: !hasActiveEnv,
-            hint: hasActiveEnv ? undefined : 'no active env',
-          };
-        case 'collection':
-          return hasCollection ? { key: 'collection', label: 'Collection', colorKey: 'collection' } : null;
-        case 'workspace':
-          return { key: 'workspace', label: 'Workspace', colorKey: 'workspace' };
-        case 'vault':
-          return { key: 'vault', label: 'Vault', colorKey: 'vault' };
-        default:
-          return null;
-      }
-    })
-    .filter((o): o is CreateOption => o !== null);
-}
-
-/** How "Add to" is presented: a fixed label (a namespaced ref locks the
- *  scope), a switchable dropdown (a bare ref), or none (a reserved
- *  namespace — nothing creatable). */
-type CreatePicker = 'fixed' | 'dropdown' | 'none';
-
-interface CreateFlow {
-  picker: CreatePicker;
-  /** Scope the Save commits to, or null when nothing is creatable here
-   *  (Save stays disabled). */
-  scope: CreateScope | null;
-  /** Scope to label when `picker === 'fixed'`, even if it isn't creatable
-   *  in this context. */
-  fixedScope: CreateScope | null;
-  /** Why a locked / offered scope isn't creatable here, for the hint. */
-  unavailable: 'no-active-env' | 'no-collection' | null;
-}
-
-/** Single source of truth for the create flow — which "Add to" control to
- *  show, the scope it commits to, and any unavailability hint, all derived
- *  together so they can't drift. A namespaced reference (`{{vault.x}}`)
- *  LOCKS the scope to its prefix so the user can't create a variable the
- *  reference will never resolve; a bare reference is a free choice. */
-function resolveCreateFlow(
-  namespaceScope: CreateScope | null,
-  addTo: CreateScope | null,
-  createOptions: CreateOption[],
-): CreateFlow {
-  const enabled = (key: CreateScope) => createOptions.some((o) => o.key === key && !o.disabled);
-
-  if (namespaceScope) {
-    const available = enabled(namespaceScope);
-    const unavailable = available
-      ? null
-      : namespaceScope === 'environment'
-        ? 'no-active-env'
-        : namespaceScope === 'collection'
-          ? 'no-collection'
-          : null;
-    return { picker: 'fixed', scope: available ? namespaceScope : null, fixedScope: namespaceScope, unavailable };
-  }
-
-  if (createOptions.length === 0) {
-    return { picker: 'none', scope: null, fixedScope: null, unavailable: null };
-  }
-
-  // Bare ref → free choice. Default to Workspace (the broadest), else the
-  // first enabled option. Surface the env hint when Environment is offered
-  // but disabled (no active env).
-  const scope =
-    addTo && enabled(addTo)
-      ? addTo
-      : (createOptions.find((o) => o.key === 'workspace' && !o.disabled)?.key ??
-        createOptions.find((o) => !o.disabled)?.key ??
-        null);
-  const unavailable = createOptions.some((o) => o.key === 'environment' && o.disabled) ? 'no-active-env' : null;
-  return { picker: 'dropdown', scope, fixedScope: null, unavailable };
 }
 
 export default VariableHoverPopover;
