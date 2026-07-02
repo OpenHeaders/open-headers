@@ -222,8 +222,9 @@ const QueryParamRuleFields: React.FC<QueryParamRuleFieldsProps> = ({ ruleUid }) 
               onClick={() => add({ uid: generateUid(), param: '', value: '', operation: 'add' })}
               icon={<PlusOutlined />}
               size="small"
+              style={{ fontSize: 12 }}
             >
-              Add Action
+              Add action
             </Button>
           </>
         )}

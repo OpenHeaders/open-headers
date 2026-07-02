@@ -91,10 +91,32 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId }: Modif
           move(from, to);
         };
         const rowIds = fields.map((f) => f.key);
+        // Same card chrome as ConditionEditor — rounded bordered box,
+        // centered empty-state line, add-button row separated by an
+        // inset border — so Actions and Conditions read as siblings.
         return (
-          <>
+          <div
+            style={{
+              border: '1px solid var(--ant-color-border)',
+              borderRadius: 6,
+              background: 'var(--ant-color-bg-container)',
+            }}
+          >
+            {fields.length === 0 && (
+              <div
+                style={{
+                  padding: '12px 16px',
+                  color: 'var(--ant-color-text-tertiary)',
+                  fontSize: 12,
+                  textAlign: 'center',
+                }}
+              >
+                No actions — this rule leaves {direction} headers unchanged
+              </div>
+            )}
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
               <SortableContext items={rowIds} strategy={verticalListSortingStrategy}>
+                <div style={{ padding: fields.length > 0 ? '8px 10px 2px' : 0 }}>
                 {fields.map((field) => {
                   const rowUid = rowUidAt(field.name);
                   // `wrap` short-circuits to the children directly when the
@@ -401,17 +423,26 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId }: Modif
                     </SortableHeaderRow>
                   );
                 })}
+                </div>
               </SortableContext>
             </DndContext>
-            <Button
-              type="dashed"
-              size="small"
-              icon={<PlusOutlined />}
-              onClick={() => add({ uid: generateUid(), operation: 'override', headerName: '', value: '' })}
+            <div
+              style={{
+                padding: '6px 10px',
+                borderTop: fields.length > 0 ? '1px solid var(--ant-color-border-secondary)' : undefined,
+              }}
             >
-              Add Action
-            </Button>
-          </>
+              <Button
+                type="dashed"
+                size="small"
+                icon={<PlusOutlined />}
+                onClick={() => add({ uid: generateUid(), operation: 'override', headerName: '', value: '' })}
+                style={{ fontSize: 12 }}
+              >
+                Add action
+              </Button>
+            </div>
+          </div>
         );
       }}
     </Form.List>

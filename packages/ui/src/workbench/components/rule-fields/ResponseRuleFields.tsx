@@ -435,8 +435,14 @@ const ResponseRuleFields: React.FC = () => {
                   }}
                 </Form.Item>
               ))}
-              <Button type="dashed" size="small" icon={<PlusOutlined />} onClick={() => add({ name: '', value: '' })}>
-                Add Header
+              <Button
+                type="dashed"
+                size="small"
+                icon={<PlusOutlined />}
+                onClick={() => add({ name: '', value: '' })}
+                style={{ fontSize: 12 }}
+              >
+                Add header
               </Button>
             </>
           )}
