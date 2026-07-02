@@ -426,10 +426,13 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId }: Modif
                 </div>
               </SortableContext>
             </DndContext>
+            {/* Empty state: centered under the hint text. With rows: a
+                left-aligned footer row below an inset separator. */}
             <div
               style={{
-                padding: '6px 10px',
+                padding: fields.length > 0 ? '6px 10px' : '0 10px 14px',
                 borderTop: fields.length > 0 ? '1px solid var(--ant-color-border-secondary)' : undefined,
+                textAlign: fields.length > 0 ? undefined : 'center',
               }}
             >
               <Button

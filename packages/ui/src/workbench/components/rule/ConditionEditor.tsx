@@ -632,11 +632,13 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
         );
       })}
 
-      {/* Add condition */}
+      {/* Add condition. Empty state: centered under the hint text.
+          With rows: a left-aligned footer row below an inset separator. */}
       <div
         style={{
-          padding: '6px 10px',
+          padding: value.length > 0 ? '6px 10px' : '0 10px 14px',
           borderTop: value.length > 0 ? `1px solid ${token.colorBorderSecondary}` : undefined,
+          textAlign: value.length > 0 ? undefined : 'center',
         }}
       >
         <Button type="dashed" size="small" icon={<PlusOutlined />} onClick={addCondition} style={{ fontSize: 12 }}>
