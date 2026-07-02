@@ -57,10 +57,7 @@ import { matchesPanelFilters } from './components/traffic/row-filter';
 import type { FilterConfig } from './data/filter-engine';
 import { DEFAULT_FILTER_CONFIG, hasFilterError, parseFilter } from './data/filter-engine';
 import { focusStore, setFocusedDock, setFocusedRegion } from './data/focus-store';
-import { computeFooterSubset } from './data/panel-data-projection';
-import { formatFooterDuration } from './data/footer-timing';
 import type { InspectorRowWithFires } from './data/inspector-row-projection';
-import { formatBytesToKb } from './data/size-info';
 import type { DetailSection } from './data/inspector-tab';
 import { buildInspectorTab } from './data/inspector-tab';
 import { useParityDebugHook } from './data/parity-debug-hook';
@@ -77,6 +74,7 @@ import { useResourceTimingClient } from './data/use-resource-timing-client';
 import { type PanelViewState, usePanelEditingScopeViewState, usePanelToolLayout } from './data/use-panel-tool-layout';
 import { usePanelUiState } from './data/use-panel-ui-state';
 import { useCacheBypass } from './data/use-cache-bypass';
+import { useFooterSummary } from './data/use-footer-summary';
 import { useHarExport } from './data/use-har-export';
 import { useRulesLookup } from './data/use-rules-lookup';
 import { useSearchSession } from './data/use-search-session';
@@ -88,14 +86,6 @@ function sectionToTab(section: string): DetailSection {
   if (section === 'Query Params' || section === 'Request Body') return 'payload';
   if (section === 'Response') return 'response';
   return 'headers';
-}
-
-// Footer totals use decimal (1000-byte) units, matching the Size column
-// (`formatBytesToKb`) and the host network table's status-bar figures.
-function formatBytes(total: number): string {
-  if (total < 1000) return `${total} B`;
-  if (total < 1000 * 1000) return `${(total / 1000).toFixed(1)} kB`;
-  return `${(total / (1000 * 1000)).toFixed(1)} MB`;
 }
 
 // ── Shell event bus (created once, stable across renders) ────────────
@@ -345,7 +335,6 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   const [sidebarLayout] = useSetting('devpanelLayout.sidebarLayout');
   const [barWidthLeft, setBarWidthLeft] = useSetting('devpanelLayout.activityBarWidthLeft');
   const [barWidthRight, setBarWidthRight] = useSetting('devpanelLayout.activityBarWidthRight');
-  const [footerTimingMode] = useSetting('devpanelLayout.footerTimingMode');
   const toggleLabels = useCallback(() => setActivityLabels(!activityLabels), [activityLabels, setActivityLabels]);
   const handleBarResize = useCallback(
     (sizes: { left: number; right: number }) => {
@@ -532,36 +521,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
 
   const activeTab = groups.focusedLeaf.tabs.find((t) => t.id === groups.activeTabId);
   const selectedId = activeTab?.requestId ?? null;
-  const transferredSize = useMemo(() => formatBytes(data.totalBytesTransferred), [data.totalBytesTransferred]);
-  const resourceSize = useMemo(() => formatBytes(data.totalResourceSize), [data.totalResourceSize]);
-  // Filtered-subset footer figures. The browser's summary bar reads
-  // `subset / total` for requests / transferred / resources whenever the filter
-  // hides at least one row (count-based, exactly its `selectedNodeNumber !==
-  // nodeCount` trigger); Finish / DCL / Load stay full. Both byte sides are
-  // formatted in kB (`formatBytesToKb`) — the browser keeps the comparison in a
-  // single unit there (it never rolls the subset/total to MB the way the
-  // single-total form does), so the two figures stay directly comparable.
-  // Computed from the same `computeFooterTotals` the projection runs over the
-  // full set, and over the shared `filteredRows`, so the subset grows live as a
-  // passing row streams.
-  const footerSubset = useMemo(() => {
-    const totals = computeFooterSubset(data.rows, filteredRows);
-    if (!totals) return undefined;
-    return {
-      requestCount: totals.requestCount,
-      transferredSize: formatBytesToKb(totals.totalBytesTransferred),
-      resourceSize: formatBytesToKb(totals.totalResourceSize),
-      totalTransferredSize: formatBytesToKb(data.totalBytesTransferred),
-      totalResourceSize: formatBytesToKb(data.totalResourceSize),
-    };
-  }, [data.rows, filteredRows, data.totalBytesTransferred, data.totalResourceSize]);
-  // Footer timing scope: aggregate (whole preserve-log timeline, browser
-  // default) vs the latest navigation only. Coincide for a single navigation.
-  const aggregateTiming = footerTimingMode !== 'lastNav';
-  const finishTimeMs = aggregateTiming ? data.aggregateFinishMs : data.finishTimeMs;
-  const footerDclMs = aggregateTiming ? data.aggregateDclMs : data.footerDclMs;
-  const footerLoadMs = aggregateTiming ? data.aggregateLoadMs : data.footerLoadMs;
-  const finishTime = useMemo(() => formatFooterDuration(finishTimeMs), [finishTimeMs]);
+  const footer = useFooterSummary(data, filteredRows);
 
   // ── HAR export helpers ─────────────────────────────────────
   const { handleSaveAllAsHar, handleSaveAsHar, handleCopyAllAsHar, handleCopyAsHar } = useHarExport({
@@ -777,12 +737,12 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
 
       <PanelStatusBar
         requestCount={data.rows.length}
-        transferredSize={transferredSize}
-        resourceSize={resourceSize}
-        subset={footerSubset}
-        finishTime={finishTime}
-        dclMs={footerDclMs}
-        loadMs={footerLoadMs}
+        transferredSize={footer.transferredSize}
+        resourceSize={footer.resourceSize}
+        subset={footer.footerSubset}
+        finishTime={footer.finishTime}
+        dclMs={footer.footerDclMs}
+        loadMs={footer.footerLoadMs}
         tabCount={groups.allTabs.length}
         modifiedCount={data.modifiedCount}
         failedCount={data.failedCount}
