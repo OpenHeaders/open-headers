@@ -23,7 +23,7 @@ import ResponseConsoleView from './ResponseConsoleView';
 import ResponseEmptyState from './ResponseEmptyState';
 import { formatBytes } from './response-format';
 import ResponseHeadersView from './ResponseHeadersView';
-import ResponseLayoutToggle from './ResponseLayoutToggle';
+import SplitLayoutToggle from '../../shared/SplitLayoutToggle';
 
 const { Text } = Typography;
 
@@ -183,7 +183,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
               Clear
             </Button>
           )}
-          <ResponseLayoutToggle layout={layout} onChange={onLayoutChange} />
+          <SplitLayoutToggle layout={layout} onChange={onLayoutChange} />
         </div>
       </div>
       {!response ? (

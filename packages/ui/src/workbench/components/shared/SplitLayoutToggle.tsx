@@ -1,23 +1,24 @@
 /**
- * Segmented icon toggle for the request/response split orientation.
- * Reuses the dock-layout split glyphs so the affordance reads the same
- * as the tab strip's "Split and Move" menu: side-by-side (`split-right`)
- * vs stacked (`split-down`).
+ * Segmented icon toggle for a two-pane split orientation — used by the
+ * request editor's request/response split and the rule editor's
+ * actions/conditions split. Reuses the dock-layout split glyphs so the
+ * affordance reads the same as the tab strip's "Split and Move" menu:
+ * side-by-side (`split-right`) vs stacked (`split-down`).
  */
 
 import { Button, Tooltip, theme } from 'antd';
 import type React from 'react';
-import LayoutMenuIcon from '../../shell/LayoutMenuIcon';
-import type { RequestEditorLayout } from '../useRequestEditorLayout';
+import type { SplitLayout } from '../../hooks/useSplitLayoutPreference';
+import LayoutMenuIcon from '../shell/LayoutMenuIcon';
 
-interface ResponseLayoutToggleProps {
-  layout: RequestEditorLayout;
-  onChange: (next: RequestEditorLayout) => void;
+interface SplitLayoutToggleProps {
+  layout: SplitLayout;
+  onChange: (next: SplitLayout) => void;
 }
 
-const ResponseLayoutToggle: React.FC<ResponseLayoutToggleProps> = ({ layout, onChange }) => {
+const SplitLayoutToggle: React.FC<SplitLayoutToggleProps> = ({ layout, onChange }) => {
   const { token } = theme.useToken();
-  const renderButton = (value: RequestEditorLayout, kind: 'split-right' | 'split-down', tip: string) => {
+  const renderButton = (value: SplitLayout, kind: 'split-right' | 'split-down', tip: string) => {
     const active = layout === value;
     return (
       <Tooltip title={tip}>
@@ -48,4 +49,4 @@ const ResponseLayoutToggle: React.FC<ResponseLayoutToggleProps> = ({ layout, onC
   );
 };
 
-export default ResponseLayoutToggle;
+export default SplitLayoutToggle;

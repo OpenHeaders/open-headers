@@ -24,6 +24,7 @@ import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { ExtensionRuleType, Rule, RuleDraft } from '@openheaders/core/types';
 import { isRuleComplete } from '@openheaders/core/utils';
 import { Alert, App, Button, Dropdown, Form, type MenuProps, Switch, Tooltip, Typography, theme } from 'antd';
+import { Allotment } from 'allotment';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -38,6 +39,8 @@ import { ConflictsProvider } from '@openheaders/ui/shared/conflicts/Field';
 import { useEditorShell } from '@openheaders/ui/shared/editor-shell';
 import { applyRuleCreate, applyRulePublish } from '@openheaders/ui/shared/sync/rule-write-client';
 import SectionInfo from '../shared/SectionInfo';
+import SplitLayoutToggle from '../shared/SplitLayoutToggle';
+import { useRuleEditorLayout } from './useRuleEditorLayout';
 import type { RuleDraftData } from '../../hooks/useSaveRuleFlow';
 import { formatString } from '../../languages/prettier';
 import type { LanguageId } from '../../languages/registry';
@@ -137,6 +140,9 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   const isCreateMode = mode === 'rule-create';
   const { message } = App.useApp();
   const { token } = theme.useToken();
+  // Actions/conditions split orientation — global, persisted preference
+  // shared with every rule tab (see useRuleEditorLayout).
+  const [layout, setLayout] = useRuleEditorLayout();
   const { rules, activeWorkspaceId, localCollections, templates: userTemplates, templateCollectionTrees } = useRules();
   const mutator = useRuleMutator({ workspaceId: activeWorkspaceId, surfaceId: 'workbench' });
   const localInstanceId = useLocalInstanceId();
@@ -658,27 +664,31 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         shell={shell.headerProps}
         overflowItems={overflowItems}
       />
-      <div style={{ flex: 1, overflow: 'auto' }}>
-        {isDeletedRemotely && (
-          <Alert
-            type="warning"
-            showIcon
-            style={{ margin: 12, fontSize: 12 }}
-            message="This rule was deleted from another surface."
-            description="Restore creates a fresh copy with a new id (the original tombstone is permanent — see sync engine spec §7.2)."
-            action={
-              <Button size="small" type="primary" onClick={() => void handleUndelete()}>
-                Restore
-              </Button>
-            }
-          />
-        )}
+      {isDeletedRemotely && (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ margin: 12, fontSize: 12 }}
+          message="This rule was deleted from another surface."
+          description="Restore creates a fresh copy with a new id (the original tombstone is permanent — see sync engine spec §7.2)."
+          action={
+            <Button size="small" type="primary" onClick={() => void handleUndelete()}>
+              Restore
+            </Button>
+          }
+        />
+      )}
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          ...(isDeletedRemotely ? { pointerEvents: 'none', opacity: 0.6 } : null),
+        }}
+      >
         <EntityScopeProvider shell={shell.scopeProps}>
           <ActionPathsProvider value={RULE_ACTION_PATHS}>
-            <div
-              className="rules-rule-editor"
-              style={isDeletedRemotely ? { pointerEvents: 'none', opacity: 0.6 } : undefined}
-            >
               <SuggestionContextProvider value={{ collectionId: bannerCollectionId }}>
                 <Form
                   form={form}
@@ -686,19 +696,22 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                   onFinish={handleSubmit}
                   onValuesChange={handleValuesChange}
                   size="small"
+                  style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}
                 >
                   {/* Hidden: rule type (set at creation, can't change) */}
                   <Form.Item name="ruleType" hidden>
                     <input type="hidden" />
                   </Form.Item>
 
-                  <EntityConflictBanner
-                    count={allConflicts.size}
-                    forceVisible={dialogOnlyConflict}
-                    onReview={() => setConflictDialogOpen(true)}
-                    onKeepAllMine={handleKeepAllMine}
-                    onUseAllSaved={handleUseAllSaved}
-                  />
+                  <div style={{ padding: '0 16px' }}>
+                    <EntityConflictBanner
+                      count={allConflicts.size}
+                      forceVisible={dialogOnlyConflict}
+                      onReview={() => setConflictDialogOpen(true)}
+                      onKeepAllMine={handleKeepAllMine}
+                      onUseAllSaved={handleUseAllSaved}
+                    />
+                  </div>
 
                   {/* Unresolved-variable feedback lives in the inline mirror
                    *  (red-dashed `{{ref}}` at the source) + the Variables
@@ -706,68 +719,102 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                    *  the same state without reflowing the editor on every
                    *  keystroke. An always-on banner here duplicated that
                    *  information and nudged scroll as counts changed. */}
-                  {/* ── Two-column grid: fields left, conditions right (on wide screens) ── */}
+                  {/* ── Actions / Conditions split. Same UX as the request
+                    editor's request/response split: a draggable Allotment
+                    sash, per-pane scroll, orientation toggled from the
+                    Conditions pane header and persisted globally.
+                    Allotment captures its orientation at mount and ignores
+                    later `vertical` prop changes, so we remount on `layout`
+                    change via `key`. ── */}
                   <ConflictsProvider api={fieldConflictsApi}>
-                    <div className="rules-rule-editor-columns">
-                      {/* ── Per-type fields ── */}
-                      <div>
-                        {selectedType === 'header' && (
-                          <HeaderRuleFields
-                            activeTab={headerActiveTab}
-                            onTabChange={handleHeaderTabChange}
-                            reqCount={headerReqCount}
-                            resCount={headerResCount}
-                            ruleUid={ruleUid}
-                            excludeInstanceId={localInstanceId}
-                          />
-                        )}
-                        {selectedType === 'block' && <BlockRuleFields />}
-                        {selectedType === 'redirect' && <RedirectRuleFields />}
-                        {selectedType === 'query-param' && <QueryParamRuleFields ruleUid={ruleUid} />}
-                        {selectedType === 'inject' && <InjectRuleFields />}
-                        {selectedType === 'delay' && <DelayRuleFields />}
-                        {selectedType === 'request-body' && <RequestBodyRuleFields />}
-                        {selectedType === 'response' && <ResponseRuleFields />}
-                        {selectedType === 'ws' && <WsRuleFields />}
-                        {selectedType === 'sse' && <SseRuleFields />}
-                        {selectedType === 'auth' && <AuthRuleFields />}
-                        {/* Single-mount inline action validation. The validator
-                      lives in core; new rule types pick the banner up
-                      automatically when their case is added there. */}
-                        {selectedType && <ActionValueBanner ruleType={selectedType} />}
-                      </div>
-
-                      {/* ── Conditions section ── */}
-                      <div style={{ marginBottom: 20 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                          <Text strong style={{ fontSize: 13 }}>
-                            Conditions
-                          </Text>
-                          <SectionInfo
-                            content={{
-                              kicker: 'Rule Editor',
-                              title: 'Conditions',
-                              summary: 'Conditions decide which requests this rule applies to.',
-                              description: (
-                                <>
-                                  <p>
-                                    Rows combine with <strong>AND</strong> — every row must match.
-                                  </p>
-                                  <p>
-                                    Values inside one row combine with <strong>OR</strong> (the OR badge marks rows
-                                    that accept multiple values).
-                                  </p>
-                                  <p>Add at least one condition.</p>
-                                </>
-                              ),
-                            }}
-                            docId="conditions"
-                          />
-                        </div>
-                        <Form.Item name="conditions" style={{ marginBottom: 0 }}>
-                          <ConditionEditor />
-                        </Form.Item>
-                      </div>
+                    <div style={{ flex: 1, minHeight: 0 }}>
+                      <Allotment key={layout} vertical={layout === 'vertical'} proportionalLayout separator>
+                        <Allotment.Pane minSize={layout === 'vertical' ? 140 : 320} preferredSize="55%">
+                          <div
+                            className="rules-thin-scrollbar rules-rule-editor rules-rule-editor--pane"
+                            style={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0 }}
+                          >
+                            <div style={{ flex: 1, overflow: 'auto', padding: '0 16px' }}>
+                              <div style={{ padding: '10px 0' }}>
+                                {selectedType === 'header' && (
+                                  <HeaderRuleFields
+                                    activeTab={headerActiveTab}
+                                    onTabChange={handleHeaderTabChange}
+                                    reqCount={headerReqCount}
+                                    resCount={headerResCount}
+                                    ruleUid={ruleUid}
+                                    excludeInstanceId={localInstanceId}
+                                  />
+                                )}
+                                {selectedType === 'block' && <BlockRuleFields />}
+                                {selectedType === 'redirect' && <RedirectRuleFields />}
+                                {selectedType === 'query-param' && <QueryParamRuleFields ruleUid={ruleUid} />}
+                                {selectedType === 'inject' && <InjectRuleFields />}
+                                {selectedType === 'delay' && <DelayRuleFields />}
+                                {selectedType === 'request-body' && <RequestBodyRuleFields />}
+                                {selectedType === 'response' && <ResponseRuleFields />}
+                                {selectedType === 'ws' && <WsRuleFields />}
+                                {selectedType === 'sse' && <SseRuleFields />}
+                                {selectedType === 'auth' && <AuthRuleFields />}
+                                {/* Single-mount inline action validation. The validator
+                              lives in core; new rule types pick the banner up
+                              automatically when their case is added there. */}
+                                {selectedType && <ActionValueBanner ruleType={selectedType} />}
+                              </div>
+                            </div>
+                          </div>
+                        </Allotment.Pane>
+                        <Allotment.Pane minSize={layout === 'vertical' ? 120 : 280}>
+                          <div
+                            className="rules-thin-scrollbar rules-rule-editor rules-rule-editor--pane"
+                            style={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0 }}
+                          >
+                            {/* Pane header — mirrors the Response pane: title
+                              left, layout toggle pinned right. */}
+                            <div
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 6,
+                                padding: '6px 16px',
+                                borderBottom: `1px solid ${token.colorBorderSecondary}`,
+                              }}
+                            >
+                              <Text strong style={{ fontSize: 12 }}>
+                                Conditions
+                              </Text>
+                              <SectionInfo
+                                content={{
+                                  kicker: 'Rule Editor',
+                                  title: 'Conditions',
+                                  summary: 'Conditions decide which requests this rule applies to.',
+                                  description: (
+                                    <>
+                                      <p>
+                                        Rows combine with <strong>AND</strong> — every row must match.
+                                      </p>
+                                      <p>
+                                        Values inside one row combine with <strong>OR</strong> (the OR badge marks rows
+                                        that accept multiple values).
+                                      </p>
+                                      <p>Add at least one condition.</p>
+                                    </>
+                                  ),
+                                }}
+                                docId="conditions"
+                              />
+                              <div style={{ marginLeft: 'auto' }}>
+                                <SplitLayoutToggle layout={layout} onChange={setLayout} />
+                              </div>
+                            </div>
+                            <div style={{ flex: 1, overflow: 'auto', padding: '10px 16px' }}>
+                              <Form.Item name="conditions" style={{ marginBottom: 0 }}>
+                                <ConditionEditor />
+                              </Form.Item>
+                            </div>
+                          </div>
+                        </Allotment.Pane>
+                      </Allotment>
                     </div>
                   </ConflictsProvider>
                 </Form>
@@ -799,7 +846,6 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                   onCancel={() => setSaveAsTemplateOpen(false)}
                 />
               </SuggestionContextProvider>
-            </div>
           </ActionPathsProvider>
         </EntityScopeProvider>
       </div>

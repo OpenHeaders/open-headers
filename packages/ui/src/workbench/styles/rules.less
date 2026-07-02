@@ -1319,13 +1319,17 @@ body {
     max-width: 100%;
     padding: 24px 48px 48px;
   }
+}
 
-  .rules-rule-editor-columns {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 32px;
-    align-items: start;
-  }
+// Split-pane variant — the rule editor's Actions/Conditions Allotment
+// (request-editor UX) provides per-pane scroll + padding itself, so
+// the pane wrapper keeps `.rules-rule-editor`'s form-control styling
+// but drops the single-column readability clamp. Declared after the
+// container query above so it wins at every width.
+.rules-rule-editor--pane {
+  max-width: none;
+  margin: 0;
+  padding: 0;
 }
 
 // ── Request response Tabs ──────────────────────────────────────────
