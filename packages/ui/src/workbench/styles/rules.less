@@ -1125,6 +1125,20 @@ body {
   pointer-events: none;
 }
 
+// Bottom-docked variant (`appearance.editorHeaderPosition` = bottom).
+// Every editor renders the header as the first child of its flex
+// column with the scrollable body as the sibling, so `order: 1`
+// re-slots the row after the body without touching any editor. The
+// inset separator flips to the top edge to divide header from content.
+.rules-editor-header--bottom {
+  order: 1;
+
+  &::after {
+    bottom: auto;
+    top: 0;
+  }
+}
+
 .rules-editor-header-title {
   flex: 1;
   min-width: 0;

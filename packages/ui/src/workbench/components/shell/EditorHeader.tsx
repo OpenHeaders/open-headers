@@ -23,6 +23,7 @@ import type React from 'react';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import type { EditorLifecycleStatus, EditorShellHeaderWiring } from '@openheaders/ui/shared/editor-shell';
 import { useShortcutLabel } from '../../hooks/useWorkspaceShortcuts';
+import { useSettingValue } from '../../settings/hooks';
 
 export interface EditorHeaderProps {
   /** Entity identity — icon chip + name + status tags. */
@@ -58,9 +59,18 @@ const EditorHeader: React.FC<EditorHeaderProps> = ({ title, actions, overflowIte
   const saveAccent = isDirty;
   const saveLabelText = isDirty ? 'Save' : 'Saved';
 
+  // Every editor mounts this header as the first child of its flex
+  // column, with the scrollable body as the sibling — so the bottom
+  // placement is pure CSS `order` on the modifier class (see
+  // `.rules-editor-header--bottom` in rules.less), no per-editor
+  // wiring. Popups flip upward so they open over the content instead
+  // of under the status bar.
+  const atBottom = useSettingValue('appearance.editorHeaderPosition') === 'bottom';
+  const popupPlacement = atBottom ? ('topRight' as const) : ('bottomRight' as const);
+
   return (
     <div
-      className="rules-editor-header"
+      className={`rules-editor-header${atBottom ? ' rules-editor-header--bottom' : ''}`}
       style={{
         background: token.colorBgContainer,
       }}
@@ -75,7 +85,7 @@ const EditorHeader: React.FC<EditorHeaderProps> = ({ title, actions, overflowIte
           {onSave && (
             <Tooltip
               title={<ShortcutHintTitle label={saveLabel}>{saveLabelText}</ShortcutHintTitle>}
-              placement="bottomRight"
+              placement={popupPlacement}
             >
               <Button
                 size="small"
@@ -93,7 +103,7 @@ const EditorHeader: React.FC<EditorHeaderProps> = ({ title, actions, overflowIte
             </Tooltip>
           )}
           {hasOverflow && (
-            <Dropdown menu={{ items: overflowItems }} trigger={['click']} placement="bottomRight">
+            <Dropdown menu={{ items: overflowItems }} trigger={['click']} placement={popupPlacement}>
               <Button size="small" icon={<MoreOutlined />} style={{ fontSize: 11 }} aria-label="More actions" />
             </Dropdown>
           )}

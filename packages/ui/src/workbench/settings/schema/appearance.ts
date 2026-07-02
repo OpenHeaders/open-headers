@@ -101,6 +101,7 @@ function defaultFontFamilyPreset(): string {
 
 const themeSchema = v.picklist(['light', 'dark', 'auto']);
 const densitySchema = v.picklist(['comfortable', 'compact']);
+const editorHeaderPositionSchema = v.picklist(['top', 'bottom']);
 const accentSchema = v.pipe(v.string(), v.regex(/^#[0-9a-fA-F]{6}$/, 'Must be a 6-digit hex color like #1677ff'));
 const lightVariantSchema = v.picklist(LIGHT_VARIANT_IDS);
 const darkVariantSchema = v.picklist(DARK_VARIANT_IDS);
@@ -111,6 +112,7 @@ const uiScaleSchema = v.picklist([0.7, 0.8, 0.9, 1, 1.1, 1.25]);
 
 export type Theme = v.InferOutput<typeof themeSchema>;
 export type Density = v.InferOutput<typeof densitySchema>;
+export type EditorHeaderPosition = v.InferOutput<typeof editorHeaderPositionSchema>;
 export type LightVariant = v.InferOutput<typeof lightVariantSchema>;
 export type DarkVariant = v.InferOutput<typeof darkVariantSchema>;
 export type UiScale = v.InferOutput<typeof uiScaleSchema>;
@@ -127,6 +129,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'appearance.darkVariant': DarkVariant;
     'appearance.uiScale': UiScale;
     'appearance.fontFamilyPreset': AppearanceFontFamilyPreset;
+    'appearance.editorHeaderPosition': EditorHeaderPosition;
   }
 }
 
@@ -232,6 +235,23 @@ registerSetting({
   enumOptions: [
     { value: 'comfortable', label: 'Comfortable' },
     { value: 'compact', label: 'Compact' },
+  ],
+});
+
+registerSetting({
+  key: 'appearance.editorHeaderPosition',
+  type: 'enum',
+  default: 'top',
+  schema: editorHeaderPositionSchema,
+  label: 'Editor Header Position',
+  description:
+    'Where each editor docks its title-and-actions row (name, enable toggle, Save). Bottom keeps the top of the editor lighter and the primary actions near the content you are editing.',
+  category: 'appearance',
+  tags: ['header', 'toolbar', 'layout', 'save', 'actions', 'bottom'],
+  scope: 'user',
+  enumOptions: [
+    { value: 'top', label: 'Top', description: 'Classic placement above the editor content.' },
+    { value: 'bottom', label: 'Bottom', description: 'Docked below the editor content, above the status bar.' },
   ],
 });
 
