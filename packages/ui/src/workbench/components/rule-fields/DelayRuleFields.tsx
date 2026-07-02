@@ -2,18 +2,16 @@
  * DelayRuleFields — delay rule configuration.
  */
 
-import { InfoCircleOutlined } from '@ant-design/icons';
 import { Alert, Form, InputNumber, Typography } from 'antd';
 import type React from 'react';
 import { EntityField, useActionPaths } from '@openheaders/ui/shared/awareness';
-import { useInspectorNav } from '../../hooks/useInspectorNav';
 import { getDocId } from '../docs/doc-ids';
+import SectionInfo from '../shared/SectionInfo';
 import ScalarConflictChip from '@openheaders/ui/shared/conflicts/ScalarConflictChip';
 
 const { Text } = Typography;
 
 const DelayRuleFields: React.FC = () => {
-  const { openDocs } = useInspectorNav();
   const paths = useActionPaths();
 
   return (
@@ -22,9 +20,13 @@ const DelayRuleFields: React.FC = () => {
         <Text strong style={{ fontSize: 13 }}>
           Actions
         </Text>
-        <InfoCircleOutlined
-          style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
-          onClick={() => openDocs(getDocId('delay', 'action'))}
+        <SectionInfo
+          content={{
+            kicker: 'Delay Rule',
+            title: 'Actions',
+            summary: 'Holds matching requests for the configured time before letting them continue.',
+          }}
+          docId={getDocId('delay', 'action')}
         />
       </div>
       <Alert

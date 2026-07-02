@@ -34,6 +34,7 @@ import type React from 'react';
 import { EntityField, TabPresenceBadge, useActionPaths, useEntityScope } from '@openheaders/ui/shared/awareness';
 import { FieldConflictChip, SetRowChip } from '@openheaders/ui/shared/conflicts/Field';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
+import SectionInfo from '../shared/SectionInfo';
 import { getDocId } from '../docs/doc-ids';
 import { TemplateInput } from '../template-input';
 
@@ -520,7 +521,6 @@ const HeaderRuleFields: React.FC<HeaderRuleFieldsProps> = ({
   ruleUid,
   excludeInstanceId,
 }) => {
-  const { openDocs } = useInspectorNav();
   const paths = useActionPaths();
   const scope = useEntityScope();
   const entityType = scope.entityType;
@@ -540,12 +540,16 @@ const HeaderRuleFields: React.FC<HeaderRuleFieldsProps> = ({
         <Text strong style={{ fontSize: 13 }}>
           Actions
         </Text>
-        <Tooltip title="Invalid combinations (e.g. Append on a custom header) mark the rule as a draft. Drafts are saved but not executed.">
-          <InfoCircleOutlined
-            style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
-            onClick={() => openDocs('header-actions')}
-          />
-        </Tooltip>
+        <SectionInfo
+          content={{
+            kicker: 'Header Rule',
+            title: 'Actions',
+            summary: 'Rewrites request and response headers on matching traffic.',
+            description:
+              'Invalid combinations (e.g. Append on a custom header) mark the rule as a draft. Drafts are saved but not executed.',
+          }}
+          docId="header-actions"
+        />
       </div>
       <Tabs
         size="small"

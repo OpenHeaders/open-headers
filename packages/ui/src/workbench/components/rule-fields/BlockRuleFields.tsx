@@ -3,26 +3,29 @@
  * Block rules only need conditions — no action configuration.
  */
 
-import { InfoCircleOutlined, StopOutlined } from '@ant-design/icons';
+import { StopOutlined } from '@ant-design/icons';
 import { Typography } from 'antd';
 import type React from 'react';
-import { useInspectorNav } from '../../hooks/useInspectorNav';
+import SectionInfo from '../shared/SectionInfo';
 import { getDocId } from '../docs/doc-ids';
 
 const { Text } = Typography;
 
 const BlockRuleFields: React.FC = () => {
-  const { openDocs } = useInspectorNav();
-
   return (
     <div style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
         <Text strong style={{ fontSize: 13 }}>
           Actions
         </Text>
-        <InfoCircleOutlined
-          style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
-          onClick={() => openDocs(getDocId('block', 'action'))}
+        <SectionInfo
+          content={{
+            kicker: 'Block Rule',
+            title: 'Actions',
+            summary: 'Blocking cancels matching requests before they leave the browser.',
+            description: 'No action configuration is needed — the block itself is the action; conditions decide what gets blocked.',
+          }}
+          docId={getDocId('block', 'action')}
         />
       </div>
       <div

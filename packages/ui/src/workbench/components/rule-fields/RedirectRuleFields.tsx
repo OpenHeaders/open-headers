@@ -8,6 +8,7 @@ import type React from 'react';
 import { EntityField, useActionPaths } from '@openheaders/ui/shared/awareness';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import { getDocId } from '../docs/doc-ids';
+import SectionInfo from '../shared/SectionInfo';
 import { TemplateInput } from '../template-input';
 import ScalarConflictChip from '@openheaders/ui/shared/conflicts/ScalarConflictChip';
 
@@ -23,9 +24,15 @@ const RedirectRuleFields: React.FC = () => {
         <Text strong style={{ fontSize: 13 }}>
           Actions
         </Text>
-        <InfoCircleOutlined
-          style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
-          onClick={() => openDocs(getDocId('redirect', 'action'))}
+        <SectionInfo
+          content={{
+            kicker: 'Redirect Rule',
+            title: 'Actions',
+            summary: 'Sends matching requests to a different URL before they reach the network.',
+            description:
+              'With a URL Regex condition, \\1, \\2 … substitute the captured groups into the target URL.',
+          }}
+          docId={getDocId('redirect', 'action')}
         />
       </div>
 

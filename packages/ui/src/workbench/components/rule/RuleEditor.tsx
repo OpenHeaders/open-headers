@@ -17,13 +17,7 @@
  * renames are never overwritten by a stale form value on save.
  */
 
-import {
-  DownOutlined,
-  FileOutlined,
-  FolderOpenOutlined,
-  FolderOpenTwoTone,
-  InfoCircleOutlined,
-} from '@ant-design/icons';
+import { DownOutlined, FileOutlined, FolderOpenOutlined, FolderOpenTwoTone } from '@ant-design/icons';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/useRuleMutator';
 import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
@@ -43,7 +37,7 @@ import { EntityConflictBanner, EntityConflictDialog } from '@openheaders/ui/shar
 import { ConflictsProvider } from '@openheaders/ui/shared/conflicts/Field';
 import { useEditorShell } from '@openheaders/ui/shared/editor-shell';
 import { applyRuleCreate, applyRulePublish } from '@openheaders/ui/shared/sync/rule-write-client';
-import { useInspectorNav } from '../../hooks/useInspectorNav';
+import SectionInfo from '../shared/SectionInfo';
 import type { RuleDraftData } from '../../hooks/useSaveRuleFlow';
 import { formatString } from '../../languages/prettier';
 import type { LanguageId } from '../../languages/registry';
@@ -143,7 +137,6 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   const isCreateMode = mode === 'rule-create';
   const { message } = App.useApp();
   const { token } = theme.useToken();
-  const { openDocs } = useInspectorNav();
   const { rules, activeWorkspaceId, localCollections, templates: userTemplates, templateCollectionTrees } = useRules();
   const mutator = useRuleMutator({ workspaceId: activeWorkspaceId, surfaceId: 'workbench' });
   const localInstanceId = useLocalInstanceId();
@@ -605,12 +598,18 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       <Text strong style={{ fontSize: 13 }}>
         Templates
       </Text>
-      {/* No docs section for templates yet, so unlike the Actions /
-          Conditions (i) this one explains in a hover tooltip instead
-          of navigating. */}
-      <Tooltip title="Start from a preset instead of a blank form. System templates ship with the app; user templates are ones you save yourself via ⋮ → Save as User Template. Applying a template only pre-fills the fields — adjust anything before saving.">
-        <InfoCircleOutlined style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }} />
-      </Tooltip>
+      {/* No `docId` — templates have no docs section yet, so the
+          popover carries the whole explanation without a "More
+          information" link. */}
+      <SectionInfo
+        content={{
+          kicker: 'Rule Editor',
+          title: 'Templates',
+          summary: 'Start from a preset instead of a blank form.',
+          description:
+            'System templates ship with the app; user templates are ones you save yourself via ⋮ → Save as User Template. Applying a template only pre-fills the fields — adjust anything before saving.',
+        }}
+      />
       <Dropdown
         menu={{ items: templatesMenuItems, selectable: true, selectedKeys: [selectedMenuKey] }}
         trigger={['click']}
@@ -744,9 +743,15 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                           <Text strong style={{ fontSize: 13 }}>
                             Conditions
                           </Text>
-                          <InfoCircleOutlined
-                            style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
-                            onClick={() => openDocs('conditions')}
+                          <SectionInfo
+                            content={{
+                              kicker: 'Rule Editor',
+                              title: 'Conditions',
+                              summary: 'Conditions decide which requests this rule applies to.',
+                              description:
+                                'Rows combine with AND — every row must match. To match any of several values, list them inside one row (the OR badge marks rows that accept multiple values).',
+                            }}
+                            docId="conditions"
                           />
                         </div>
                         <div

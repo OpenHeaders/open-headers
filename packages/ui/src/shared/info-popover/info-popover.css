@@ -26,9 +26,31 @@
 }
 .oh-info-popover-header {
   flex: 0 0 auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
   padding-bottom: 6px;
   border-bottom: 1px solid var(--ant-color-border-secondary);
   margin-bottom: 6px;
+}
+.oh-info-popover-header-text {
+  min-width: 0;
+}
+/* Top-right pinned link (the header never scrolls) — a quiet jump into
+ * the full docs surface for topics too big for a popover. */
+.oh-info-popover-header-link {
+  flex-shrink: 0;
+  font: inherit;
+  font-size: 11px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--ant-color-primary);
+  cursor: pointer;
+}
+.oh-info-popover-header-link:hover {
+  text-decoration: underline;
 }
 .oh-info-popover-scroll {
   flex: 1 1 auto;

@@ -78,8 +78,15 @@ function InfoPopoverBody({ content }: { content: InfoPopoverContent }) {
     // freely-sizing popover would overflow off-screen.
     <div className="oh-info-popover">
       <div className="oh-info-popover-header">
-        {content.kicker && <div className="oh-info-popover-kicker">{content.kicker}</div>}
-        <div className="oh-info-popover-title">{content.title}</div>
+        <div className="oh-info-popover-header-text">
+          {content.kicker && <div className="oh-info-popover-kicker">{content.kicker}</div>}
+          <div className="oh-info-popover-title">{content.title}</div>
+        </div>
+        {content.headerLink && (
+          <button type="button" className="oh-info-popover-header-link" onClick={content.headerLink.onClick}>
+            {content.headerLink.label}
+          </button>
+        )}
       </div>
       <div className="oh-info-popover-scroll">
         {content.diagram && <div className="oh-info-popover-diagram">{content.diagram}</div>}

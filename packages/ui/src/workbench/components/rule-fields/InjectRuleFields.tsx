@@ -21,6 +21,7 @@ import { EntityField, useActionPaths } from '@openheaders/ui/shared/awareness';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import CodeEditor from '../shared/CodeEditor';
 import { getDocId } from '../docs/doc-ids';
+import SectionInfo from '../shared/SectionInfo';
 import ScalarConflictChip from '@openheaders/ui/shared/conflicts/ScalarConflictChip';
 
 const { Text } = Typography;
@@ -61,10 +62,14 @@ const InjectRuleFields: React.FC = () => {
         <Text strong style={{ fontSize: 13 }}>
           Actions
         </Text>
-        <InfoCircleOutlined
-          style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
-          onClick={() =>
-            openDocs(getDocId(form.getFieldValue('injectType') === 'css' ? 'inject-css' : 'inject-script', 'action'))
+        <SectionInfo
+          content={{
+            kicker: 'Inject Rule',
+            title: 'Actions',
+            summary: 'Injects a script or stylesheet into matching pages as they load.',
+          }}
+          docId={() =>
+            getDocId(form.getFieldValue('injectType') === 'css' ? 'inject-css' : 'inject-script', 'action')
           }
         />
       </div>

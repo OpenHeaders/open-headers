@@ -39,6 +39,10 @@ export interface InfoPopoverContent {
   title: string;
   /** Optional uppercase mini-line above the title (e.g. category tag). */
   kicker?: string;
+  /** Optional link pinned to the header's top-right corner (the header
+   *  never scrolls, so it stays visible over long bodies). Used for
+   *  "More information" jumps into the full docs surface. */
+  headerLink?: InfoPopoverAction;
   /** Required. One-sentence orientation, body-weight, above any longer
    *  description. */
   summary: string;

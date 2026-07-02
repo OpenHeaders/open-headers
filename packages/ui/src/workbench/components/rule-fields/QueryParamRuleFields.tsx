@@ -13,6 +13,7 @@ import { EntityField, useActionPaths } from '@openheaders/ui/shared/awareness';
 import { FieldConflictChip, SetRowChip } from '@openheaders/ui/shared/conflicts/Field';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import { getDocId } from '../docs/doc-ids';
+import SectionInfo from '../shared/SectionInfo';
 import { TemplateInput } from '../template-input';
 
 const { Text } = Typography;
@@ -33,9 +34,15 @@ const QueryParamRuleFields: React.FC<QueryParamRuleFieldsProps> = ({ ruleUid }) 
         <Text strong style={{ fontSize: 13 }}>
           Actions
         </Text>
-        <InfoCircleOutlined
-          style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
-          onClick={() => openDocs(getDocId('query-param', 'action'))}
+        <SectionInfo
+          content={{
+            kicker: 'Query Param Rule',
+            title: 'Actions',
+            summary: 'Adds, replaces, or removes query parameters on matching request URLs.',
+            description:
+              'Remove All strips the entire query string — other operations in the same rule are ignored when it is present.',
+          }}
+          docId={getDocId('query-param', 'action')}
         />
       </div>
       <Form.Item noStyle shouldUpdate={(prev, cur) => prev.queryParams !== cur.queryParams}>

@@ -8,19 +8,17 @@
  * scope, surfaced by the dormant badge/notice elsewhere.
  */
 
-import { InfoCircleOutlined } from '@ant-design/icons';
 import { Form, Typography } from 'antd';
 import type React from 'react';
 import { EntityField, useActionPaths } from '@openheaders/ui/shared/awareness';
 import ScalarConflictChip from '@openheaders/ui/shared/conflicts/ScalarConflictChip';
-import { useInspectorNav } from '../../hooks/useInspectorNav';
 import { getDocId } from '../docs/doc-ids';
+import SectionInfo from '../shared/SectionInfo';
 import { TemplateInput } from '../template-input';
 
 const { Text } = Typography;
 
 const AuthRuleFields: React.FC = () => {
-  const { openDocs } = useInspectorNav();
   const paths = useActionPaths();
 
   return (
@@ -29,9 +27,15 @@ const AuthRuleFields: React.FC = () => {
         <Text strong style={{ fontSize: 13 }}>
           Actions
         </Text>
-        <InfoCircleOutlined
-          style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
-          onClick={() => openDocs(getDocId('auth', 'action'))}
+        <SectionInfo
+          content={{
+            kicker: 'Auth Rule',
+            title: 'Actions',
+            summary: 'Answers HTTP or proxy authentication challenges on matching requests with these credentials.',
+            description:
+              'Both fields resolve {{templates}}, so the real secret can live in the vault ({{vault.*}}) instead of plaintext on the rule. Takes effect only on tabs in Debug-mode scope.',
+          }}
+          docId={getDocId('auth', 'action')}
         />
       </div>
 

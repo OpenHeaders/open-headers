@@ -31,6 +31,7 @@ import { EntityField, useActionPaths } from '@openheaders/ui/shared/awareness';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import CodeEditor from '../shared/CodeEditor';
 import { getDocId } from '../docs/doc-ids';
+import SectionInfo from '../shared/SectionInfo';
 import ScalarConflictChip from '@openheaders/ui/shared/conflicts/ScalarConflictChip';
 
 const { Text } = Typography;
@@ -53,11 +54,16 @@ const RequestBodyRuleFields: React.FC = () => {
         <Text strong style={{ fontSize: 13 }}>
           Actions
         </Text>
-        <InfoCircleOutlined
-          style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
-          onClick={() => {
+        <SectionInfo
+          content={{
+            kicker: 'Request Body Rule',
+            title: 'Actions',
+            summary: 'Replaces the body of matching requests before they are sent.',
+            description: 'Static data swaps in a fixed payload; Dynamic runs JavaScript against the original body.',
+          }}
+          docId={() => {
             const bodyType = form.getFieldValue('requestBodyType');
-            openDocs(getDocId(bodyType === 'dynamic' ? 'request-body-dynamic' : 'request-body-static', 'action'));
+            return getDocId(bodyType === 'dynamic' ? 'request-body-dynamic' : 'request-body-static', 'action');
           }}
         />
       </div>

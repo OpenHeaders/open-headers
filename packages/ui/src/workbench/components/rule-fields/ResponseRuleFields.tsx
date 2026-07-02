@@ -37,6 +37,7 @@ import { EntityField, useActionPaths } from '@openheaders/ui/shared/awareness';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import CodeEditor from '../shared/CodeEditor';
 import { getDocId } from '../docs/doc-ids';
+import SectionInfo from '../shared/SectionInfo';
 import { TemplateInput } from '../template-input';
 import ScalarConflictChip from '@openheaders/ui/shared/conflicts/ScalarConflictChip';
 
@@ -176,11 +177,16 @@ const ResponseRuleFields: React.FC = () => {
         <Text strong style={{ fontSize: 13 }}>
           Actions
         </Text>
-        <InfoCircleOutlined
-          style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
-          onClick={() => {
+        <SectionInfo
+          content={{
+            kicker: 'Response Rule',
+            title: 'Actions',
+            summary: 'Serves a substitute response for matching requests instead of what the server returned.',
+            description: 'Static data serves a fixed payload; Dynamic runs JavaScript against the original response.',
+          }}
+          docId={() => {
             const bodyType = form.getFieldValue('responseBodyType');
-            openDocs(getDocId(bodyType === 'dynamic' ? 'response-dynamic' : 'response-static', 'action'));
+            return getDocId(bodyType === 'dynamic' ? 'response-dynamic' : 'response-static', 'action');
           }}
         />
       </div>
