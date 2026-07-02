@@ -29,7 +29,7 @@ import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { ExtensionRuleType, Rule, RuleDraft } from '@openheaders/core/types';
 import { isRuleComplete } from '@openheaders/core/utils';
-import { Alert, App, Button, Dropdown, Form, Switch, Tooltip, Typography, theme } from 'antd';
+import { Alert, App, Button, Dropdown, Form, type MenuProps, Switch, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -69,24 +69,10 @@ import { mergeRuleForSave } from '../rule-fields/merge-rule-for-save';
 import QueryParamRuleFields from '../rule-fields/QueryParamRuleFields';
 import RedirectRuleFields from '../rule-fields/RedirectRuleFields';
 import SaveAsTemplateModal from '../save/SaveAsTemplateModal';
-import { buildRuleIcon } from '../shared/rule-icon';
 import { renderTwoToneIcon } from '../shared/TwoToneIconPicker';
 import { SuggestionContextProvider } from '../template-input';
 
 const { Text } = Typography;
-
-const RULE_TYPE_TITLE: Record<string, string> = {
-  header: 'Header Rule',
-  block: 'Block Rule',
-  redirect: 'Redirect Rule',
-  'query-param': 'Query Param Rule',
-  inject: 'Inject Rule',
-  'request-body': 'API Request Body Rule',
-  delay: 'Delay Rule',
-  response: 'API Response Rule',
-  ws: 'WebSocket Rule',
-  sse: 'SSE Rule',
-};
 
 interface RuleEditorProps {
   /**
@@ -245,7 +231,6 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     userMenuItems,
     activeSystemTemplate,
     activeUserTemplate,
-    activeSource,
     selectedDescription,
   } = useRuleTemplates({
     selectedType,
@@ -554,18 +539,86 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     return preferredCollectionId;
   }, [liveRule, localCollections, preferredCollectionId]);
 
+  // The header title slot hosts the template picker instead of an
+  // "Edit <type>" caption — the tab pill already names the rule type,
+  // so repeating it here only cost vertical space. One button, one
+  // menu: Blank applies directly; System / User open the same
+  // hierarchical trees the old three-button row had.
+  const templatesMenuItems: MenuProps['items'] = [
+    {
+      key: 'blank',
+      icon: <FileOutlined />,
+      label: 'Blank',
+      onClick: () => applyTemplate('empty'),
+    },
+    {
+      key: 'system-templates',
+      icon: <FolderOpenOutlined />,
+      label: 'System',
+      disabled: systemMenuItems.length === 0,
+      children: systemMenuItems,
+    },
+    {
+      // Never disabled — with no user templates the submenu opens onto
+      // an explanatory empty state, so the feature stays discoverable.
+      key: 'user-templates',
+      icon: <FolderOpenTwoTone />,
+      label: 'User',
+      children: userMenuItems.length
+        ? userMenuItems
+        : [
+            {
+              key: 'user-templates-empty',
+              disabled: true,
+              label: (
+                <div style={{ maxWidth: 280, whiteSpace: 'normal', padding: '4px 2px' }}>
+                  <div style={{ fontWeight: 600, color: token.colorText, marginBottom: 2 }}>No user templates yet</div>
+                  <div style={{ fontSize: 12, color: token.colorTextSecondary, lineHeight: 1.5 }}>
+                    User templates are your own reusable presets for this rule type. Configure the rule the way you
+                    want, then choose <strong>⋮ → Save as User Template</strong> in the header — it will show up here
+                    for every new rule of this type.
+                  </div>
+                </div>
+              ),
+            },
+          ],
+    },
+  ];
+
+  const activeTemplateSuffix = activeSystemTemplate ? (
+    <span style={{ fontWeight: 400, opacity: 0.85 }}>
+      : {activeSystemTemplate.icon} {activeSystemTemplate.name}
+    </span>
+  ) : activeUserTemplate ? (
+    <span style={{ fontWeight: 400, opacity: 0.85, display: 'inline-flex', gap: 4 }}>
+      :{renderTwoToneIcon(activeUserTemplate.icon, { fontSize: 12 })}
+      {activeUserTemplate.name}
+    </span>
+  ) : (
+    <span style={{ fontWeight: 400, opacity: 0.85 }}>: Blank</span>
+  );
+
   const headerTitle = (
     <>
-      {buildRuleIcon({
-        ruleType: selectedType ?? 'header',
-        rule: liveRule,
-        isActive: isEnabled,
-        compactArrow: true,
-        size: 14,
-      })}
-      <Typography.Text strong style={{ fontSize: 13 }}>
-        Edit {RULE_TYPE_TITLE[selectedType ?? 'header'] ?? 'Rule'}
-      </Typography.Text>
+      <Dropdown menu={{ items: templatesMenuItems }} trigger={['click']}>
+        <Tooltip
+          title={
+            selectedDescription ??
+            'Start from a preset instead of a blank form. System templates ship with the app; user templates are ones you save yourself via ⋮ → Save as User Template. Applying a template only pre-fills the fields — adjust anything before saving.'
+          }
+          placement="bottomLeft"
+          mouseEnterDelay={0.5}
+        >
+          <Button size="small">
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <FolderOpenOutlined style={{ fontSize: 13 }} />
+              <span>Templates</span>
+              {activeTemplateSuffix}
+              <DownOutlined style={{ fontSize: 9 }} />
+            </span>
+          </Button>
+        </Tooltip>
+      </Dropdown>
       <PresenceBadge
         entityType={RULE_ENTITY_TYPE}
         entityId={ruleUid}
@@ -648,113 +701,6 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                    *  the same state without reflowing the editor on every
                    *  keystroke. An always-on banner here duplicated that
                    *  information and nudged scroll as counts changed. */}
-                  {/* ── Templates ── */}
-                  <div style={{ marginBottom: 16 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                      <Text strong style={{ fontSize: 13 }}>
-                        Templates
-                      </Text>
-                      {/* No docs section for templates yet, so unlike the
-                          Actions / Conditions (i) this one explains in a
-                          hover tooltip instead of navigating. */}
-                      <Tooltip title="Start from a preset instead of a blank form. System Templates ship with the app; User Templates are ones you save yourself via ⋮ → Save as User Template. Applying a template only pre-fills the fields — adjust anything before saving.">
-                        <InfoCircleOutlined
-                          style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
-                        />
-                      </Tooltip>
-                    </div>
-                    <div
-                      style={{
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        gap: 8,
-                        alignItems: 'center',
-                      }}
-                    >
-                      <Button
-                        size="small"
-                        type={activeSource === 'blank' ? 'primary' : 'default'}
-                        icon={<FileOutlined />}
-                        onClick={() => applyTemplate('empty')}
-                      >
-                        Blank
-                      </Button>
-
-                      <Dropdown
-                        menu={{ items: systemMenuItems }}
-                        trigger={['click']}
-                        disabled={systemMenuItems.length === 0}
-                      >
-                        <Button size="small" type={activeSource === 'system' ? 'primary' : 'default'}>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                            <FolderOpenOutlined style={{ fontSize: 13 }} />
-                            <span>System Templates</span>
-                            {activeSystemTemplate && (
-                              <span
-                                style={{
-                                  fontWeight: 400,
-                                  opacity: 0.85,
-                                }}
-                              >
-                                : {activeSystemTemplate.icon} {activeSystemTemplate.name}
-                              </span>
-                            )}
-                            <DownOutlined style={{ fontSize: 9 }} />
-                          </span>
-                        </Button>
-                      </Dropdown>
-
-                      {/* Never disabled — with no user templates the
-                          dropdown opens onto an explanatory empty state
-                          instead, so the feature stays discoverable. */}
-                      <Dropdown
-                        menu={{
-                          items: userMenuItems.length
-                            ? userMenuItems
-                            : [
-                                {
-                                  key: 'user-templates-empty',
-                                  disabled: true,
-                                  label: (
-                                    <div style={{ maxWidth: 280, whiteSpace: 'normal', padding: '4px 2px' }}>
-                                      <div style={{ fontWeight: 600, color: token.colorText, marginBottom: 2 }}>
-                                        No user templates yet
-                                      </div>
-                                      <div style={{ fontSize: 12, color: token.colorTextSecondary, lineHeight: 1.5 }}>
-                                        User templates are your own reusable presets for this rule type. Configure the
-                                        rule the way you want, then choose <strong>⋮ → Save as User Template</strong>{' '}
-                                        in the header — it will show up here for every new rule of this type.
-                                      </div>
-                                    </div>
-                                  ),
-                                },
-                              ],
-                        }}
-                        trigger={['click']}
-                      >
-                        <Button size="small" type={activeSource === 'user' ? 'primary' : 'default'}>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                            <FolderOpenTwoTone style={{ fontSize: 13 }} />
-                            <span>User Templates</span>
-                            {activeUserTemplate && (
-                              <span style={{ fontWeight: 400, opacity: 0.85, display: 'inline-flex', gap: 4 }}>
-                                :{renderTwoToneIcon(activeUserTemplate.icon, { fontSize: 12 })}
-                                {activeUserTemplate.name}
-                              </span>
-                            )}
-                            <DownOutlined style={{ fontSize: 9 }} />
-                          </span>
-                        </Button>
-                      </Dropdown>
-                    </div>
-
-                    {selectedDescription && (
-                      <div style={{ marginTop: 6, fontSize: 11, color: token.colorTextTertiary }}>
-                        {selectedDescription}
-                      </div>
-                    )}
-                  </div>
-
                   {/* ── Two-column grid: fields left, conditions right (on wide screens) ── */}
                   <ConflictsProvider api={fieldConflictsApi}>
                     <div className="rules-rule-editor-columns">
