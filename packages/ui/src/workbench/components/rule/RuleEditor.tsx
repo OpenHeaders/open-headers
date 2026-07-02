@@ -29,7 +29,7 @@ import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { ExtensionRuleType, Rule, RuleDraft } from '@openheaders/core/types';
 import { isRuleComplete } from '@openheaders/core/utils';
-import { Alert, App, Button, Dropdown, Form, Switch, Tooltip, Typography, theme } from 'antd';
+import { Alert, App, Button, Dropdown, Form, Switch, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -691,37 +691,48 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                         </Button>
                       </Dropdown>
 
-                      <Tooltip
-                        title={
-                          userMenuItems.length === 0 ? (
-                            <span>
-                              User templates are your own reusable presets for this rule type. Configure the rule the
-                              way you want, then choose <strong>⋮ → Save as User Template</strong> in the header — it
-                              will show up here for every new rule of this type.
-                            </span>
-                          ) : undefined
-                        }
+                      {/* Never disabled — with no user templates the
+                          dropdown opens onto an explanatory empty state
+                          instead, so the feature stays discoverable. */}
+                      <Dropdown
+                        menu={{
+                          items: userMenuItems.length
+                            ? userMenuItems
+                            : [
+                                {
+                                  key: 'user-templates-empty',
+                                  disabled: true,
+                                  label: (
+                                    <div style={{ maxWidth: 280, whiteSpace: 'normal', padding: '4px 2px' }}>
+                                      <div style={{ fontWeight: 600, color: token.colorText, marginBottom: 2 }}>
+                                        No user templates yet
+                                      </div>
+                                      <div style={{ fontSize: 12, color: token.colorTextSecondary, lineHeight: 1.5 }}>
+                                        User templates are your own reusable presets for this rule type. Configure the
+                                        rule the way you want, then choose <strong>⋮ → Save as User Template</strong>{' '}
+                                        in the header — it will show up here for every new rule of this type.
+                                      </div>
+                                    </div>
+                                  ),
+                                },
+                              ],
+                        }}
+                        trigger={['click']}
                       >
-                        <Dropdown
-                          menu={{ items: userMenuItems }}
-                          trigger={['click']}
-                          disabled={userMenuItems.length === 0}
-                        >
-                          <Button size="small" type={activeSource === 'user' ? 'primary' : 'default'}>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                              <FolderOpenTwoTone style={{ fontSize: 13 }} />
-                              <span>User Templates</span>
-                              {activeUserTemplate && (
-                                <span style={{ fontWeight: 400, opacity: 0.85, display: 'inline-flex', gap: 4 }}>
-                                  :{renderTwoToneIcon(activeUserTemplate.icon, { fontSize: 12 })}
-                                  {activeUserTemplate.name}
-                                </span>
-                              )}
-                              <DownOutlined style={{ fontSize: 9 }} />
-                            </span>
-                          </Button>
-                        </Dropdown>
-                      </Tooltip>
+                        <Button size="small" type={activeSource === 'user' ? 'primary' : 'default'}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                            <FolderOpenTwoTone style={{ fontSize: 13 }} />
+                            <span>User Templates</span>
+                            {activeUserTemplate && (
+                              <span style={{ fontWeight: 400, opacity: 0.85, display: 'inline-flex', gap: 4 }}>
+                                :{renderTwoToneIcon(activeUserTemplate.icon, { fontSize: 12 })}
+                                {activeUserTemplate.name}
+                              </span>
+                            )}
+                            <DownOutlined style={{ fontSize: 9 }} />
+                          </span>
+                        </Button>
+                      </Dropdown>
                     </div>
 
                     {selectedDescription && (
