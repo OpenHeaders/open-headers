@@ -85,6 +85,18 @@ export function ResponseBodyView({ row, searchHighlight, searchMatchIndex, onOve
 
     return (
       <div className="dt-body-dual">
+        {showDiff && servedState.kind === 'text' && originalState.kind === 'text' ? (
+          <Suspense fallback={<Skeleton />}>
+            <DiffBodyView
+              original={originalState.content}
+              modified={servedState.content}
+              declaredMime={snapshotMime(original) || declaredMime}
+            />
+          </Suspense>
+        ) : (
+          splitView
+        )}
+        {/* Bottom bar — matches the panel's other body toolbars. */}
         {canDiff && (
           <div className="dt-body-dual-bar">
             <div className="dt-response-toolbar-modes">
@@ -103,9 +115,9 @@ export function ResponseBodyView({ row, searchHighlight, searchMatchIndex, onOve
                 Full response
               </button>
             </div>
-            {/* In split mode the CTA lives in the actual pane's bottom
-                toolbar; the diff view has no per-pane toolbar, so it
-                surfaces here instead. */}
+            {/* In full-response mode the CTA lives in the modified pane's
+                own bottom toolbar; the diff view has no per-pane toolbar,
+                so it surfaces here instead. */}
             {showDiff && overrideAction && (
               <>
                 <span className="dt-toolbar-divider" aria-hidden="true" />
@@ -113,17 +125,6 @@ export function ResponseBodyView({ row, searchHighlight, searchMatchIndex, onOve
               </>
             )}
           </div>
-        )}
-        {showDiff && servedState.kind === 'text' && originalState.kind === 'text' ? (
-          <Suspense fallback={<Skeleton />}>
-            <DiffBodyView
-              original={originalState.content}
-              modified={servedState.content}
-              declaredMime={snapshotMime(original) || declaredMime}
-            />
-          </Suspense>
-        ) : (
-          splitView
         )}
       </div>
     );

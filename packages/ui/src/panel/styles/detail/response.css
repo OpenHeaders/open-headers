@@ -275,10 +275,12 @@
   align-items: center;
   gap: 8px;
   padding: 0 8px;
-  height: 24px;
+  height: 22px;
   flex-shrink: 0;
-  border-bottom: 1px solid var(--dt-border);
+  border-top: 1px solid var(--dt-border);
   background: var(--dt-bg);
+  font-size: 11px;
+  color: var(--dt-text-muted);
 }
 /* Column captions over the diff editor — mirrors .dt-body-split-label,
  * one caption per diff side. */
