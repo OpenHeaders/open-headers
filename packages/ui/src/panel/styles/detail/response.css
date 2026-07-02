@@ -221,6 +221,82 @@
   min-height: 0;
   overflow: hidden;
   display: flex;
+  position: relative;
+}
+
+/* Hover Find action — fades in over the viewer's top-right corner and
+ * opens Monaco's native find widget. Layered above sticky-scroll rows
+ * (4) and scrollbars (11), below the find widget (35) so the opened
+ * widget covers its launcher; the :has() gate keeps it hidden while
+ * the widget is up. */
+.dt-codeviewer-find {
+  position: absolute;
+  top: 4px;
+  right: 18px;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--dt-border);
+  border-radius: 3px;
+  background: var(--dt-bg);
+  color: var(--dt-text-muted);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease-out;
+}
+.dt-codemirror-wrap:hover .dt-codeviewer-find,
+.dt-codemirror-wrap:focus-within .dt-codeviewer-find {
+  opacity: 1;
+  pointer-events: auto;
+}
+.dt-codemirror-wrap:has(.find-widget.visible) .dt-codeviewer-find {
+  opacity: 0;
+  pointer-events: none;
+}
+.dt-codeviewer-find:hover {
+  background: var(--dt-row-hover);
+  color: var(--dt-text);
+}
+
+/* Two-sided override (Modified | Original) — column shell hosting the
+ * Diff / Side-by-side mode bar above whichever view is active. */
+.dt-body-dual {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.dt-body-dual-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+  height: 24px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--dt-border);
+  background: var(--dt-bg);
+}
+/* Column captions over the diff editor — mirrors .dt-body-split-label,
+ * one caption per diff side. */
+.dt-body-diff-labels {
+  display: flex;
+  flex-shrink: 0;
+}
+.dt-body-diff-labels > span {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 3px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--dt-text-muted);
+  background: var(--dt-bg-alt);
+  border-bottom: 1px solid var(--dt-border);
 }
 .dt-codemirror-wrap > * {
   flex: 1;
@@ -233,18 +309,6 @@
 .dt-monaco-search-active {
   background: rgba(255, 150, 0, 0.6);
   outline: 1px solid rgba(255, 150, 0, 0.8);
-}
-
-/* Hide Monaco's action-item hover bubbles (the small "(⌥⌘L)" keyboard-
- * shortcut popups attached to Find widget icons). Upstream bug:
- * https://github.com/microsoft/monaco-editor/issues/5137 — Monaco
- * hardcodes these to render ABOVE the icon with no public option to
- * flip them, so in an embedded surface near the viewport top they
- * clip and flicker. Aria-label keeps shortcuts available to screen
- * readers; the visual bubble is the only thing we drop. */
-.workbench-hover,
-.workbench-hover-container {
-  display: none !important;
 }
 
 /* Preview content. */

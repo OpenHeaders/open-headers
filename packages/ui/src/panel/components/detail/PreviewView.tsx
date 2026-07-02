@@ -14,7 +14,7 @@ interface PreviewViewProps {
 /**
  * The Preview tab — pretty-printed body the page received, and (for a
  * network-source response rule) the real server response beside it
- * (Served | Original). The rendering lives in the shared {@link PreviewPane};
+ * (Modified | Original). The rendering lives in the shared {@link PreviewPane};
  * this component decides single-pane vs split and classifies each side.
  */
 export default function PreviewView({ row, onOverrideResponse }: PreviewViewProps) {
@@ -40,7 +40,7 @@ export default function PreviewView({ row, onOverrideResponse }: PreviewViewProp
     const originalMime = snapshotMime(original) || mime;
     return (
       <SplitBodyView
-        startLabel="Served · Open Headers"
+        startLabel="Modified · Open Headers"
         start={servedPane}
         endLabel="Original · server"
         end={<PreviewPane state={classifyResponseSnapshot(original)} mime={originalMime} size={size} />}

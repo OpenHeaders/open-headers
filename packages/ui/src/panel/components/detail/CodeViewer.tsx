@@ -17,6 +17,9 @@ import { useEffect, useRef } from 'react';
 // Side-effect import: kicks Monaco's bootstrap at module load.
 import '@openheaders/ui/workbench/components/monaco/bootstrap';
 
+const IS_MAC = /Mac|iPhone|iPad|iPod/.test(navigator.userAgent);
+const FIND_TITLE = `Find (${IS_MAC ? '⌘F' : 'Ctrl+F'})`;
+
 interface CodeViewerProps {
   value: string;
   language: 'json' | 'css' | 'javascript' | 'html';
@@ -88,6 +91,23 @@ export default function CodeViewer({
 
   return (
     <div className="dt-codemirror-wrap">
+      <button
+        type="button"
+        className="dt-codeviewer-find"
+        title={FIND_TITLE}
+        aria-label="Find"
+        onClick={() => {
+          const editor = editorRef.current;
+          if (!editor) return;
+          editor.focus();
+          void editor.getAction('actions.find')?.run();
+        }}
+      >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+          <circle cx="11" cy="11" r="7" />
+          <line x1="21" y1="21" x2="16" y2="16" />
+        </svg>
+      </button>
       <Editor
         height="100%"
         defaultLanguage={language}

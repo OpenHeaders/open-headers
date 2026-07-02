@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { lazy, Suspense, useMemo, useState } from 'react';
 import {
   currentHarEntry,
   type InspectorRowWithFires,
@@ -8,7 +8,12 @@ import {
 import { classifyBodyState, classifyResponseSnapshot, snapshotMime } from '../data/response-body-state';
 import BodyStateView from './detail/BodyStateView';
 import OverrideBodyButton from './detail/OverrideBodyButton';
+import Skeleton from './detail/Skeleton';
 import SplitBodyView from './detail/SplitBodyView';
+
+// Lazy: keeps Monaco's diff bundle out of the panel's initial chunk —
+// it only loads when a two-sided override is actually inspected.
+const DiffBodyView = lazy(() => import('./detail/DiffBodyView'));
 
 interface ResponseBodyViewProps {
   row: InspectorRowWithFires;
@@ -23,15 +28,18 @@ interface ResponseBodyViewProps {
 /**
  * The Response tab. Renders the body the page received — and, when a response
  * rule modified a real (`network`-source) exchange, the real server response
- * beside it (Served | Original). The body rendering itself lives in the shared
- * {@link BodyStateView}; this component only decides single-pane vs split and
- * classifies each side.
+ * as well (Modified | Original). The two-sided view opens as a Monaco diff by
+ * default (both bodies text) with a Side-by-side toggle for the full
+ * responses; non-text pairs go straight to side-by-side. The body rendering
+ * itself lives in the shared {@link BodyStateView}; this component only
+ * decides single-pane vs two-sided and classifies each side.
  */
 export function ResponseBodyView({ row, searchHighlight, searchMatchIndex, onOverrideResponse }: ResponseBodyViewProps) {
   const lc = row.lifecycle;
   const declaredMime = lifecycleMimeType(lc) ?? currentHarEntry(lc)?.response?.content?.mimeType ?? '';
   const servedState = useMemo(() => classifyBodyState(lc), [lc]);
   const fallbackBytes = lifecycleTransferredBytes(lc) ?? 0;
+  const [dualMode, setDualMode] = useState<'diff' | 'split'>('diff');
   const overrideAction = onOverrideResponse ? (
     <OverrideBodyButton
       label="Override Response"
@@ -52,23 +60,78 @@ export function ResponseBodyView({ row, searchHighlight, searchMatchIndex, onOve
   );
 
   // Two-sided: a network-source rule served a modified body over a real reply.
-  // Show the real server response beside the served one — the original pane is
-  // read-only (no Override CTA).
+  // Show the real server response against the actual one — the original pane
+  // is read-only (no Override CTA).
   const original = lc.responseOverride?.original;
   if (original) {
-    return (
+    const originalState = classifyResponseSnapshot(original);
+    const canDiff = servedState.kind === 'text' && originalState.kind === 'text';
+    const showDiff = canDiff && dualMode === 'diff';
+
+    const splitView = (
       <SplitBodyView
-        startLabel="Served · Open Headers"
+        startLabel="Modified · Open Headers"
         start={servedPane}
         endLabel="Original · server"
         end={
           <BodyStateView
-            state={classifyResponseSnapshot(original)}
+            state={originalState}
             declaredMime={snapshotMime(original) || declaredMime}
             fallbackByteCount={fallbackBytes}
           />
         }
       />
+    );
+
+    return (
+      <div className="dt-body-dual">
+        {canDiff && (
+          <div className="dt-body-dual-bar">
+            <div className="dt-response-toolbar-modes">
+              <button
+                type="button"
+                className={`dt-response-toolbar-btn ${showDiff ? 'active' : ''}`}
+                onClick={() => setDualMode('diff')}
+              >
+                Diff
+              </button>
+              <button
+                type="button"
+                className={`dt-response-toolbar-btn ${showDiff ? '' : 'active'}`}
+                onClick={() => setDualMode('split')}
+              >
+                Side by side
+              </button>
+            </div>
+            {/* In split mode the CTA lives in the actual pane's bottom
+                toolbar; the diff view has no per-pane toolbar, so it
+                surfaces here instead. */}
+            {showDiff && overrideAction && (
+              <>
+                <span className="dt-toolbar-divider" aria-hidden="true" />
+                {overrideAction}
+              </>
+            )}
+          </div>
+        )}
+        {showDiff && servedState.kind === 'text' && originalState.kind === 'text' ? (
+          <>
+            <div className="dt-body-diff-labels">
+              <span>Original · server</span>
+              <span>Modified · Open Headers</span>
+            </div>
+            <Suspense fallback={<Skeleton />}>
+              <DiffBodyView
+                original={originalState.content}
+                modified={servedState.content}
+                declaredMime={snapshotMime(original) || declaredMime}
+              />
+            </Suspense>
+          </>
+        ) : (
+          splitView
+        )}
+      </div>
     );
   }
 
