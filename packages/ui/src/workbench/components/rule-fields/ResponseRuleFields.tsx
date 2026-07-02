@@ -244,9 +244,21 @@ const ResponseRuleFields: React.FC = () => {
           status/CT override the real reply only when set. */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
         <div style={{ flex: '0 0 140px' }}>
-          <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
-            Resource Type
-          </Text>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+            <Text strong style={{ fontSize: 12 }}>
+              Resource Type
+            </Text>
+            <SectionInfo
+              content={{
+                kicker: 'Response Rule',
+                title: 'Resource Type',
+                summary: 'Which API payload shape the rule targets — REST or GraphQL.',
+                description:
+                  'GraphQL unlocks an operation filter below, so the rule can match a single operation inside a shared endpoint.',
+              }}
+              docId={getDocId('response-graphql', 'action')}
+            />
+          </div>
           <EntityField path={paths.apiResourceType}>
             <Form.Item name="responseResourceType" style={{ marginBottom: 0 }}>
               <Select
@@ -260,9 +272,21 @@ const ResponseRuleFields: React.FC = () => {
           </EntityField>
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
-            Status Code
-          </Text>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+            <Text strong style={{ fontSize: 12 }}>
+              Status Code
+            </Text>
+            <SectionInfo
+              content={{
+                kicker: 'Response Rule',
+                title: 'Status Code',
+                summary: 'The HTTP status served with your response.',
+                description:
+                  "Pick a code to serve, or keep the original one from the server's reply when calling the server.",
+              }}
+              docId={getDocId('response-static', 'action')}
+            />
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <EntityField path={paths.responseStatusCode}>
               <Form.Item name="responseStatusCode" style={{ marginBottom: 0, flex: 1, minWidth: 0 }}>
@@ -283,9 +307,21 @@ const ResponseRuleFields: React.FC = () => {
           </div>
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
-            Content-Type
-          </Text>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+            <Text strong style={{ fontSize: 12 }}>
+              Content-Type
+            </Text>
+            <SectionInfo
+              content={{
+                kicker: 'Response Rule',
+                title: 'Content-Type',
+                summary: 'The Content-Type header served with the body — controls how the browser parses it.',
+                description:
+                  "Type any value; the suggestions are a convenience. When calling the server, it overrides the real reply's Content-Type only when set.",
+              }}
+              docId={getDocId('response-static', 'action')}
+            />
+          </div>
           <EntityField path={paths.responseContentType}>
             <Form.Item name="responseContentType" style={{ marginBottom: 0 }}>
               <AutoComplete
@@ -370,6 +406,16 @@ const ResponseRuleFields: React.FC = () => {
           <Text type="secondary" style={{ fontSize: 11 }}>
             (optional)
           </Text>
+          <SectionInfo
+            content={{
+              kicker: 'Response Rule',
+              title: 'Response Headers',
+              summary: 'Extra headers served alongside Content-Type.',
+              description:
+                "When calling the server these merge over the real reply's headers; when mocking they become the reply's headers. Empty rows are dropped on save.",
+            }}
+            docId={getDocId('response-static', 'action')}
+          />
         </div>
         <Form.List name="responseHeaderRows">
           {(fields, { add, remove }) => (
