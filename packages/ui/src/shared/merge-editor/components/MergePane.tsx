@@ -60,6 +60,7 @@ import type { MergeFile } from '../types';
 import { createPickStateController, type HunkPickState, type PickStateController } from '../use-hunk-pick-state';
 import HunkActionGutter from './HunkActionGutter';
 import { gridTemplate, type MergeLayout, paneVisibility } from './layout';
+import { DefaultHeader, PaneSlot, Sash } from './merge-pane-chrome';
 
 export type { MergeLayout } from './layout';
 
@@ -148,8 +149,6 @@ export interface MergePaneHandle {
 
 const PANE_BG_LIGHT = '#ffffff';
 const PANE_BG_DARK = '#1e1e1e';
-const HEADER_HEIGHT = 28;
-const HEADER_PAD = '4px 10px';
 
 const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane(props, ref) {
   const {
@@ -895,114 +894,6 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     </div>
   );
 });
-
-interface PaneSlotProps {
-  gridArea: string;
-  visible: boolean;
-  bg: string;
-  header: ReactNode;
-  containerRef: React.RefObject<HTMLDivElement | null>;
-  /** Optional flex-row flankers around the editor container. Used by
-   *  the result pane to render the per-side action gutters
-   *  (`<HunkActionGutter>`) flanking the editable Monaco surface. */
-  leftFlanker?: ReactNode;
-  rightFlanker?: ReactNode;
-}
-
-function PaneSlot({
-  gridArea,
-  visible,
-  bg,
-  header,
-  containerRef,
-  leftFlanker,
-  rightFlanker,
-}: PaneSlotProps): React.ReactElement {
-  return (
-    <div
-      style={{
-        gridArea,
-        // Hide via display:none; the inner editor instance + DOM
-        // container survive (React keeps the subtree mounted; CSS
-        // just removes it from layout). Re-showing triggers a Monaco
-        // layout() in the visibility effect upstream so the editor
-        // recovers its scroll geometry.
-        display: visible ? 'flex' : 'none',
-        flexDirection: 'column',
-        minWidth: 0,
-        minHeight: 0,
-        background: bg,
-      }}
-    >
-      <div
-        style={{
-          height: HEADER_HEIGHT,
-          padding: HEADER_PAD,
-          fontSize: 12,
-          fontWeight: 600,
-          display: 'flex',
-          alignItems: 'center',
-          borderBottom: '1px solid rgba(127,127,127,0.2)',
-        }}
-      >
-        {header}
-      </div>
-      <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex' }}>
-        {leftFlanker}
-        <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
-          <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
-        </div>
-        {rightFlanker}
-      </div>
-    </div>
-  );
-}
-
-function DefaultHeader({ label }: { label: string }): React.ReactElement {
-  return <span>{label}</span>;
-}
-
-interface SashProps {
-  gridArea: string;
-  axis: 'col' | 'row';
-  bg: string;
-  ariaLabel: string;
-  /** Approximate "first pane" share as a percentage (0–100). */
-  ariaValueNow: number;
-  onPointerDown: (e: React.PointerEvent) => void;
-  onKeyDown: (e: React.KeyboardEvent) => void;
-}
-
-function Sash({
-  gridArea,
-  axis,
-  bg,
-  ariaLabel,
-  ariaValueNow,
-  onPointerDown,
-  onKeyDown,
-}: SashProps): React.ReactElement {
-  return (
-    <div
-      className="oh-merge__sash"
-      style={{
-        gridArea,
-        background: bg,
-        cursor: axis === 'col' ? 'col-resize' : 'row-resize',
-        zIndex: 2,
-      }}
-      onPointerDown={onPointerDown}
-      onKeyDown={onKeyDown}
-      tabIndex={0}
-      role="separator"
-      aria-orientation={axis === 'col' ? 'vertical' : 'horizontal'}
-      aria-label={ariaLabel}
-      aria-valuenow={ariaValueNow}
-      aria-valuemin={0}
-      aria-valuemax={100}
-    />
-  );
-}
 
 export default MergePane;
 export type { MergeFile } from '../types';
