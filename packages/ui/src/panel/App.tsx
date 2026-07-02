@@ -57,7 +57,6 @@ import { matchesPanelFilters } from './components/traffic/row-filter';
 import type { FilterConfig } from './data/filter-engine';
 import { DEFAULT_FILTER_CONFIG, hasFilterError, parseFilter } from './data/filter-engine';
 import { focusStore, setFocusedDock, setFocusedRegion } from './data/focus-store';
-import { serializeHar, suggestHarFilename } from './data/har-export';
 import { computeFooterSubset } from './data/panel-data-projection';
 import { formatFooterDuration } from './data/footer-timing';
 import type { InspectorRowWithFires } from './data/inspector-row-projection';
@@ -78,6 +77,7 @@ import { useResourceTimingClient } from './data/use-resource-timing-client';
 import { type PanelViewState, usePanelEditingScopeViewState, usePanelToolLayout } from './data/use-panel-tool-layout';
 import { usePanelUiState } from './data/use-panel-ui-state';
 import { useCacheBypass } from './data/use-cache-bypass';
+import { useHarExport } from './data/use-har-export';
 import { useRulesLookup } from './data/use-rules-lookup';
 import { useSearchSession } from './data/use-search-session';
 
@@ -564,75 +564,10 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   const finishTime = useMemo(() => formatFooterDuration(finishTimeMs), [finishTimeMs]);
 
   // ── HAR export helpers ─────────────────────────────────────
-  const downloadHar = useCallback(
-    async (subset: readonly InspectorRowWithFires[], filename: string, sanitize: boolean) => {
-      // CDP mode: the host's own devtools.network HAR is byte-identical to its
-      // export, so prefer it per-entry and for the page block over our CDP
-      // synthesis (null in heuristic mode / non-DevTools hosts — export stays
-      // as-is).
-      const hostHar = (await hostNavigation.getInspectedHar()) ?? undefined;
-      // Resolve page anchors from the full row set, not just the exported
-      // subset — a single non-document export still needs its page's document.
-      const json = serializeHar(
-        subset,
-        data.pages,
-        sanitize,
-        data.rows.map((r) => r.lifecycle),
-        hostHar,
-      );
-      const blob = new Blob([json], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 0);
-    },
-    [data.pages, data.rows],
-  );
-
-  const handleSaveAllAsHar = useCallback(
-    (sanitize = false) => {
-      void downloadHar(data.rows, suggestHarFilename(data.rows), sanitize);
-    },
-    [data.rows, downloadHar],
-  );
-
-  const handleSaveAsHar = useCallback(
-    (row: InspectorRowWithFires, sanitize = false) => {
-      const single: readonly InspectorRowWithFires[] = [row];
-      void downloadHar(single, suggestHarFilename(single), sanitize);
-    },
-    [downloadHar],
-  );
-
-  const copyHar = useCallback(
-    async (subset: readonly InspectorRowWithFires[], sanitize: boolean) => {
-      const hostHar = (await hostNavigation.getInspectedHar()) ?? undefined;
-      const json = serializeHar(
-        subset,
-        data.pages,
-        sanitize,
-        data.rows.map((r) => r.lifecycle),
-        hostHar,
-      );
-      try {
-        await navigator.clipboard.writeText(json);
-      } catch {
-        // Best-effort — clipboard may be gated in some DevTools contexts.
-      }
-    },
-    [data.pages, data.rows],
-  );
-
-  const handleCopyAllAsHar = useCallback((sanitize = false) => copyHar(data.rows, sanitize), [data.rows, copyHar]);
-
-  const handleCopyAsHar = useCallback(
-    (row: InspectorRowWithFires, sanitize = false) => copyHar([row], sanitize),
-    [copyHar],
-  );
+  const { handleSaveAllAsHar, handleSaveAsHar, handleCopyAllAsHar, handleCopyAsHar } = useHarExport({
+    rows: data.rows,
+    pages: data.pages,
+  });
 
   // ── Tool window content ────────────────────────────────────
   const renderToolWindow = useCallback(
