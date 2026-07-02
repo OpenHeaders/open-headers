@@ -188,6 +188,11 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     // row marker.
     renderLineHighlightOnlyWhenFocus: true,
     bracketPairColorization: { enabled: bracketPairColorization },
+    // Keep the buffer still when the find widget opens — the default
+    // inserts a view zone above line 1 (shifting all rows down) so the
+    // widget doesn't cover the first lines; in these compact editors
+    // the jump is worse than the momentary overlap.
+    find: { addExtraSpaceOnTop: false },
     renderWhitespace: renderWhitespace === 'all' ? 'all' : renderWhitespace === 'boundary' ? 'boundary' : 'none',
     // Monaco's "fake" placeholder isn't native; we render our own overlay below.
   };

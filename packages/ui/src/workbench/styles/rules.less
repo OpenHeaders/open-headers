@@ -2024,6 +2024,13 @@ body {
     opacity: 1;
     pointer-events: auto;
   }
+
+  // While Monaco's find/replace widget is open it occupies the same
+  // corner — keep the launcher cluster hidden until the widget closes.
+  &:has(.find-widget.visible) .rules-code-editor-actions {
+    opacity: 0;
+    pointer-events: none;
+  }
 }
 
 // Corner resize grip — same affordance (and diagonal-lines glyph) as
