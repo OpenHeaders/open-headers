@@ -6,6 +6,7 @@
 
 import type { Page } from '@openheaders/core/page-stream';
 import type { LifecycleSource, RequestLifecycle } from '@openheaders/core/request-lifecycle';
+import type { Rule } from '@openheaders/core/types';
 import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ConnectionReuseInfo } from '../data/connection-reuse';
@@ -282,6 +283,18 @@ export function InspectorDetailContent({
   // all read (see `fire-evidence.ts`).
   const fireEvidenceByRule = useMemo(() => deriveFireEvidenceByRule(lc, row.fires), [lc, row.fires]);
 
+  // Live response rule that fired on this request — flips the Response
+  // tab's CTA from create ("Override Response") to edit ("Edit
+  // override"). Requires the rule to still exist; a deleted rule falls
+  // back to the create CTA.
+  const firedResponseRule = useMemo<Rule | null>(() => {
+    for (const fire of row.fires) {
+      const rule = rulesByUid.get(fire.ruleUid);
+      if (rule?.type === 'response') return rule;
+    }
+    return null;
+  }, [row.fires, rulesByUid]);
+
   // Before the response-gated HAR lands, the lifecycle carries the request
   // headers on their own (cooked/provisional, see `lc.requestHeaders`) so an
   // in-flight or never-completed row still shows what the browser assembled.
@@ -482,6 +495,7 @@ export function InspectorDetailContent({
           searchLineNumber={searchSection === 'Response' ? searchLineNumber : undefined}
           searchMatchIndex={searchSection === 'Response' ? searchMatchIndex : undefined}
           onOverrideResponse={createOverrideResponse}
+          firedResponseRule={firedResponseRule}
         />
       )}
     </div>

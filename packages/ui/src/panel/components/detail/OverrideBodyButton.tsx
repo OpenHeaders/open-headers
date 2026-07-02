@@ -12,7 +12,9 @@
 interface OverrideBodyButtonProps {
   label: string;
   title: string;
-  onClick: () => void;
+  /** Receives the click event so edit-mode callers can anchor the
+   *  quick-editor popover to the button; create-mode callers ignore it. */
+  onClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
 }
 
 export default function OverrideBodyButton({ label, title, onClick }: OverrideBodyButtonProps) {

@@ -1,3 +1,4 @@
+import type { Rule } from '@openheaders/core/types';
 import { lazy, Suspense, useMemo, useState } from 'react';
 import {
   currentHarEntry,
@@ -10,6 +11,7 @@ import BodyStateView from './detail/BodyStateView';
 import OverrideBodyButton from './detail/OverrideBodyButton';
 import Skeleton from './detail/Skeleton';
 import SplitBodyView from './detail/SplitBodyView';
+import { useRulePopover } from './RulePopoverHost';
 
 // Lazy: keeps Monaco's diff bundle out of the panel's initial chunk —
 // it only loads when a two-sided override is actually inspected.
@@ -23,6 +25,10 @@ interface ResponseBodyViewProps {
   searchMatchIndex?: number;
   /** Open the create-rule editor pre-filled to mock this response. */
   onOverrideResponse?: () => void;
+  /** Live response rule that fired on this request — flips the CTA
+   *  from "Override Response" (create) to "Edit override" (quick-edit
+   *  popover targeting this rule). */
+  firedResponseRule?: Rule | null;
 }
 
 /**
@@ -34,13 +40,29 @@ interface ResponseBodyViewProps {
  * body rendering itself lives in the shared {@link BodyStateView}; this
  * component only decides single-pane vs two-sided and classifies each side.
  */
-export function ResponseBodyView({ row, searchHighlight, searchMatchIndex, onOverrideResponse }: ResponseBodyViewProps) {
+export function ResponseBodyView({
+  row,
+  searchHighlight,
+  searchMatchIndex,
+  onOverrideResponse,
+  firedResponseRule,
+}: ResponseBodyViewProps) {
+  const rulePopover = useRulePopover();
   const lc = row.lifecycle;
   const declaredMime = lifecycleMimeType(lc) ?? currentHarEntry(lc)?.response?.content?.mimeType ?? '';
   const servedState = useMemo(() => classifyBodyState(lc), [lc]);
   const fallbackBytes = lifecycleTransferredBytes(lc) ?? 0;
   const [dualMode, setDualMode] = useState<'diff' | 'split'>('diff');
-  const overrideAction = onOverrideResponse ? (
+  // When a response rule fired on this request, the CTA edits THAT rule
+  // in place (pinned quick-editor popover — Save affects the next
+  // requests) instead of scaffolding a second rule over it.
+  const overrideAction = firedResponseRule ? (
+    <OverrideBodyButton
+      label="Edit override"
+      title="Edit the rule that produced this response — changes apply to future requests"
+      onClick={(e) => rulePopover.open({ anchorEl: e.currentTarget, rule: firedResponseRule }, { pinned: true })}
+    />
+  ) : onOverrideResponse ? (
     <OverrideBodyButton
       label="Override Response"
       title="Create a rule that serves this response as an editable mock"

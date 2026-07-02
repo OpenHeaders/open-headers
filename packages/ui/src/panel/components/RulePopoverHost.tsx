@@ -10,6 +10,7 @@ import type { Rule } from '@openheaders/core/types';
 import { createHoverPopoverHost, type HoverPopoverBodyProps } from '@openheaders/ui/shared/popover';
 import type { HeaderAttribution } from '../data/header-attribution';
 import type { RuleApplicability } from '../data/rule-applicability';
+import { ResponseQuickEditor } from './rule-quick-editor/ResponseQuickEditor';
 import { RuleHoverPopover, type RuleHoverPopoverTarget } from './RuleHoverPopover';
 
 interface RulePopoverState {
@@ -62,6 +63,21 @@ function RulePopoverBody({
   onMouseLeave,
   visible,
 }: HoverPopoverBodyProps<RulePopoverState>) {
+  // Per-type dispatch inside the one shared host: response rules get
+  // the compact response quick-editor; everything else stays on the
+  // header popover (which degrades to a summary for other rule types).
+  if (state.rule?.type === 'response') {
+    return (
+      <ResponseQuickEditor
+        anchorEl={state.anchorEl}
+        rule={state.rule}
+        onClose={onClose}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+        visible={visible}
+      />
+    );
+  }
   return (
     <RuleHoverPopover
       anchorEl={state.anchorEl}

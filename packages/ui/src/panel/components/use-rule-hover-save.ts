@@ -17,11 +17,10 @@ import {
   validateHeaderValue,
 } from '@openheaders/core/utils';
 import type { RuleMutationResult, UseRuleMutatorApi } from '@openheaders/ui/shared/hooks/useRuleMutator';
-import { buildChordsFromEvent, useShortcutLabel } from '@openheaders/ui/workbench/hooks/useWorkspaceShortcuts';
-import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import type { App } from 'antd';
-import { type RefObject, useEffect, useRef, useState } from 'react';
+import { type RefObject, useState } from 'react';
 import { buildHeaderModUpdate } from '../data/header-mod-edit';
+import { useSaveShortcut } from './rule-quick-editor/use-save-shortcut';
 import type { RuleHoverPopoverTarget } from './RuleHoverPopover';
 import type { ModDraft } from './use-mod-draft';
 
@@ -90,22 +89,7 @@ export function useRuleHoverSave({
 
   // Save shortcut listener — mirrors variable popover so Cmd/Ctrl+S
   // saves regardless of focused element while the popover is mounted.
-  const saveLabel = useShortcutLabel('save');
-  const saveChord = useSettingValue('keyboard.save');
-  const handleSaveRef = useRef<(() => void) | null>(null);
-  useEffect(() => {
-    if (typeof saveChord !== 'string' || !saveChord) return;
-    const onKey = (e: KeyboardEvent) => {
-      const chords = buildChordsFromEvent(e);
-      if (chords.includes(saveChord)) {
-        e.preventDefault();
-        e.stopPropagation();
-        handleSaveRef.current?.();
-      }
-    };
-    window.addEventListener('keydown', onKey, true);
-    return () => window.removeEventListener('keydown', onKey, true);
-  }, [saveChord]);
+  const { saveLabel, handleSaveRef } = useSaveShortcut();
 
   // Full draft validation — same validators core uses for the workbench
   // editor and `isRuleComplete`. Templates pass through (resolved at
