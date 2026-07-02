@@ -60,18 +60,79 @@ export function ResponseBodyView({ row, searchHighlight, searchMatchIndex, onOve
   );
 
   // Two-sided: a network-source rule served a modified body over a real reply.
-  // Show the real server response against the actual one — the original pane
-  // is read-only (no Override CTA).
+  // Show the real server response against the modified one — the original pane
+  // is read-only (no Override CTA). One bottom row everywhere: in diff mode
+  // DiffBodyView renders the bar (modes + hide-unchanged + CTA); in
+  // full-response mode the mode buttons ride along in the modified pane's own
+  // toolbar instead of adding a second row.
   const original = lc.responseOverride?.original;
   if (original) {
     const originalState = classifyResponseSnapshot(original);
     const canDiff = servedState.kind === 'text' && originalState.kind === 'text';
     const showDiff = canDiff && dualMode === 'diff';
 
-    const splitView = (
+    const modeButtons = canDiff ? (
+      <div className="dt-response-toolbar-modes">
+        <button
+          type="button"
+          className={`dt-response-toolbar-btn ${showDiff ? 'active' : ''}`}
+          onClick={() => setDualMode('diff')}
+        >
+          Diff
+        </button>
+        <button
+          type="button"
+          className={`dt-response-toolbar-btn ${showDiff ? '' : 'active'}`}
+          onClick={() => setDualMode('split')}
+        >
+          Full response
+        </button>
+      </div>
+    ) : null;
+
+    if (showDiff && servedState.kind === 'text' && originalState.kind === 'text') {
+      return (
+        <div className="dt-body-dual">
+          <Suspense fallback={<Skeleton />}>
+            <DiffBodyView
+              original={originalState.content}
+              modified={servedState.content}
+              declaredMime={snapshotMime(original) || declaredMime}
+              modeButtons={modeButtons}
+              overrideAction={overrideAction}
+            />
+          </Suspense>
+        </div>
+      );
+    }
+
+    return (
       <SplitBodyView
         startLabel="Modified · Open Headers"
-        start={servedPane}
+        start={
+          <BodyStateView
+            state={servedState}
+            declaredMime={declaredMime}
+            searchHighlight={searchHighlight}
+            searchMatchIndex={searchMatchIndex}
+            toolbarAction={
+              modeButtons ? (
+                <>
+                  {modeButtons}
+                  {overrideAction && (
+                    <>
+                      <span className="dt-toolbar-divider" aria-hidden="true" />
+                      {overrideAction}
+                    </>
+                  )}
+                </>
+              ) : (
+                overrideAction
+              )
+            }
+            fallbackByteCount={fallbackBytes}
+          />
+        }
         endLabel="Original · server"
         end={
           <BodyStateView
@@ -81,52 +142,6 @@ export function ResponseBodyView({ row, searchHighlight, searchMatchIndex, onOve
           />
         }
       />
-    );
-
-    return (
-      <div className="dt-body-dual">
-        {showDiff && servedState.kind === 'text' && originalState.kind === 'text' ? (
-          <Suspense fallback={<Skeleton />}>
-            <DiffBodyView
-              original={originalState.content}
-              modified={servedState.content}
-              declaredMime={snapshotMime(original) || declaredMime}
-            />
-          </Suspense>
-        ) : (
-          splitView
-        )}
-        {/* Bottom bar — matches the panel's other body toolbars. */}
-        {canDiff && (
-          <div className="dt-body-dual-bar">
-            <div className="dt-response-toolbar-modes">
-              <button
-                type="button"
-                className={`dt-response-toolbar-btn ${showDiff ? 'active' : ''}`}
-                onClick={() => setDualMode('diff')}
-              >
-                Diff
-              </button>
-              <button
-                type="button"
-                className={`dt-response-toolbar-btn ${showDiff ? '' : 'active'}`}
-                onClick={() => setDualMode('split')}
-              >
-                Full response
-              </button>
-            </div>
-            {/* In full-response mode the CTA lives in the modified pane's
-                own bottom toolbar; the diff view has no per-pane toolbar,
-                so it surfaces here instead. */}
-            {showDiff && overrideAction && (
-              <>
-                <span className="dt-toolbar-divider" aria-hidden="true" />
-                {overrideAction}
-              </>
-            )}
-          </div>
-        )}
-      </div>
     );
   }
 

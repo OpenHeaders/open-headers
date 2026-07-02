@@ -53,6 +53,10 @@ interface Props {
    *  title + strategy controls). The toolbar stays directly above the
    *  editor regardless. */
   header?: ReactNode;
+  /** Hide the built-in toolbar — for hosts that surface the option
+   *  controls in their own chrome (e.g. the DevTools panel's bottom
+   *  bar). Options stay controlled via `options`. */
+  showToolbar?: boolean;
 }
 
 const RichDiffEditor: React.FC<Props> = ({
@@ -62,6 +66,7 @@ const RichDiffEditor: React.FC<Props> = ({
   options,
   onOptionsChange,
   header,
+  showToolbar = true,
 }) => {
   const { token } = theme.useToken();
   const { isDarkMode, monacoTheme } = useUiTheme();
@@ -157,7 +162,7 @@ const RichDiffEditor: React.FC<Props> = ({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, height: '100%' }}>
       {header ? <div style={{ borderBottom: `1px solid ${token.colorBorderSecondary}` }}>{header}</div> : null}
-      <DiffEditorToolbar options={options} onChange={onOptionsChange} diffCount={diffCount} />
+      {showToolbar && <DiffEditorToolbar options={options} onChange={onOptionsChange} diffCount={diffCount} />}
       <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
         <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
         {loading && (

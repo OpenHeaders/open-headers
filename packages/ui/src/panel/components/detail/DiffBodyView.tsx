@@ -2,9 +2,11 @@
  * Diff view for a two-sided response override — original (what the
  * server sent) against modified (what Open Headers served to the
  * page). Rendered through the shared {@link RichDiffEditor}, which owns
- * the Monaco diff lifecycle (dispose-order, model swaps) and the
- * IDE-style toolbar: side-by-side vs unified, collapse-unchanged
- * (default on — only changed hunks show), whitespace and wrap toggles.
+ * the Monaco diff lifecycle (dispose-order, model swaps). Its built-in
+ * toolbar stays hidden — the panel idiom is a single bottom bar, so
+ * this component renders one: the caller's mode buttons (Diff / Full
+ * response), a hide-unchanged toggle (default on — only changed hunks
+ * show), and the caller's override CTA.
  *
  * Both sides are pretty-printed first when the language is known, so
  * the diff shows semantic changes rather than formatting noise
@@ -32,9 +34,19 @@ interface DiffBodyViewProps {
   modified: string;
   /** MIME driving syntax highlight + pretty-print eligibility. */
   declaredMime: string;
+  /** The caller's Diff / Full-response mode buttons — leads the bar. */
+  modeButtons?: React.ReactNode;
+  /** The caller's override CTA — trails the bar behind a divider. */
+  overrideAction?: React.ReactNode;
 }
 
-export default function DiffBodyView({ original, modified, declaredMime }: DiffBodyViewProps) {
+export default function DiffBodyView({
+  original,
+  modified,
+  declaredMime,
+  modeButtons,
+  overrideAction,
+}: DiffBodyViewProps) {
   const lang = detectLanguage(declaredMime);
   const shouldFormat = lang !== null && canPrettyPrint(declaredMime);
   const [pretty, setPretty] = useState<{ original: string; modified: string } | null>(null);
@@ -59,20 +71,39 @@ export default function DiffBodyView({ original, modified, declaredMime }: DiffB
   if (shouldFormat && pretty === null) return <Skeleton />;
 
   return (
-    <div className="dt-codemirror-wrap">
-      <RichDiffEditor
-        original={pretty?.original ?? original}
-        modified={pretty?.modified ?? modified}
-        language={lang ?? 'plaintext'}
-        options={options}
-        onOptionsChange={setOptions}
-        header={
-          <div className="dt-body-diff-labels">
-            <span>Original · server</span>
-            <span>Modified · Open Headers</span>
-          </div>
-        }
-      />
-    </div>
+    <>
+      <div className="dt-codemirror-wrap">
+        <RichDiffEditor
+          original={pretty?.original ?? original}
+          modified={pretty?.modified ?? modified}
+          language={lang ?? 'plaintext'}
+          options={options}
+          onOptionsChange={setOptions}
+          showToolbar={false}
+          header={
+            <div className="dt-body-diff-labels">
+              <span>Original · server</span>
+              <span>Modified · Open Headers</span>
+            </div>
+          }
+        />
+      </div>
+      <div className="dt-body-dual-bar">
+        {modeButtons}
+        <button
+          type="button"
+          className={`dt-response-toolbar-btn ${options.collapseUnchanged ? 'active' : ''}`}
+          onClick={() => setOptions({ ...options, collapseUnchanged: !options.collapseUnchanged })}
+        >
+          Hide unchanged
+        </button>
+        {overrideAction && (
+          <>
+            <span className="dt-toolbar-divider" aria-hidden="true" />
+            {overrideAction}
+          </>
+        )}
+      </div>
+    </>
   );
 }
