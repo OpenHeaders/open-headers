@@ -37,6 +37,11 @@
       "import": "./src/workbench/components/template-input/index.ts",
       "default": "./dist/workbench/components/template-input/index.js"
     },
+    "./workbench/components/diff-viewer": {
+      "types": "./dist/workbench/components/diff-viewer/index.d.ts",
+      "import": "./src/workbench/components/diff-viewer/index.ts",
+      "default": "./dist/workbench/components/diff-viewer/index.js"
+    },
     "./workbench/*": {
       "types": "./dist/workbench/*.d.ts",
       "import": "./src/workbench/*",
