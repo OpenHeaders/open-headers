@@ -289,9 +289,12 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           }}
         />
       )}
+      {/* z-index 12: above Monaco's sticky-scroll rows (4) and scrollbar
+          (11), below the find widget (35) so the opened widget covers
+          the cluster that launched it. */}
       <div
         className="rules-code-editor-actions"
-        style={{ position: 'absolute', top: 6, right: 14, zIndex: 2, display: 'flex', gap: 2 }}
+        style={{ position: 'absolute', top: 6, right: 14, zIndex: 12, display: 'flex', gap: 2 }}
       >
         <Tooltip title={<ShortcutHintTitle label={FIND_SHORTCUT}>Find</ShortcutHintTitle>} placement="top">
           <Button
