@@ -363,3 +363,18 @@ export function moveTabBetweenLeaves(
   const afterRemove = removeTabFromLeaf(root, fromLeafId, tabId);
   return insertTabIntoLeaf(afterRemove, toLeafId, tab, insertAt);
 }
+
+/** Empty a leaf in place (keep the leaf itself). */
+export function removeAllFromLeaf(root: EditorNode, leafId: string): EditorNode {
+  return (function walk(node: EditorNode): EditorNode {
+    if (node.kind === 'leaf') {
+      if (node.id !== leafId) return node;
+      if (node.tabs.length === 0 && node.activeTabId === null) return node;
+      return { ...node, tabs: [], activeTabId: null };
+    }
+    const a = walk(node.a);
+    const b = a !== node.a ? node.b : walk(node.b);
+    if (a === node.a && b === node.b) return node;
+    return { ...node, a, b };
+  })(root);
+}

@@ -16,20 +16,13 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   activateTabInLeaf,
   type EditorLeaf,
-  type EditorNode,
   findLeaf,
-  findOppositeLeaf,
   firstLeaf,
-  flipParentSplit,
   insertTabIntoLeaf,
-  moveTabBetweenLeaves,
   removeTabFromLeaf,
   reorderTabInLeaf,
   replaceTabInLeaf,
-  splitLeafWithTab,
   allTabs as treeAllTabs,
-  unsplitAll as treeUnsplitAll,
-  unsplitLeaf,
   updateTabInLeaf,
 } from '../editor-groups';
 import type { ClosedTab, WorkbenchTab } from '../types';
@@ -40,7 +33,10 @@ import {
   stateFromTabSession,
   type UseEditorGroupsApi,
 } from './editor-groups-shared';
+import { useEditorBatchClose } from './use-editor-batch-close';
+import { useEditorDndActions } from './use-editor-dnd-actions';
 import { useEditorGroupsSession } from './use-editor-groups-session';
+import { useEditorSplitActions } from './use-editor-split-actions';
 import type { WorkbenchViewState } from './useToolLayout';
 
 const MAX_RECENTLY_CLOSED = 20;
@@ -231,244 +227,11 @@ export function useEditorGroups({ perTab }: UseEditorGroupsArgs): UseEditorGroup
     [transform],
   );
 
-  // ── Batch close helpers ───────────────────────────────────────
+  const batchCloseActions = useEditorBatchClose({ transform, dirtyMap, saveRefMap });
 
-  const closeOtherTabs = useCallback(
-    (tabId: string) => {
-      transform((prev) => {
-        const leaf = locateTab(prev.root, tabId);
-        if (!leaf) return prev;
-        const keep = leaf.tabs.find((t) => t.id === tabId);
-        if (!keep) return prev;
-        for (const t of leaf.tabs) {
-          if (t.id !== tabId) {
-            dirtyMap.current.delete(t.id);
-            saveRefMap.current.delete(t.id);
-          }
-        }
-        const cleared = removeAllFromLeaf(prev.root, leaf.id);
-        const filled = insertTabIntoLeaf(cleared, leaf.id, keep);
-        return { ...prev, root: filled, focusedLeafId: leaf.id };
-      });
-    },
-    [transform],
-  );
+  const splitActions = useEditorSplitActions({ transform });
 
-  const closeAllTabs = useCallback(() => {
-    transform((prev) => {
-      const leaf = findLeaf(prev.root, prev.focusedLeafId);
-      if (!leaf) return prev;
-      for (const t of leaf.tabs) {
-        dirtyMap.current.delete(t.id);
-        saveRefMap.current.delete(t.id);
-      }
-      const emptied = removeAllFromLeaf(prev.root, leaf.id);
-      const folded = maybeCollapseEmpty(emptied, leaf.id);
-      return { ...prev, root: folded.root, focusedLeafId: folded.focusLeafId };
-    });
-  }, [transform]);
-
-  const closeUnmodifiedTabs = useCallback(() => {
-    transform((prev) => {
-      const leaf = findLeaf(prev.root, prev.focusedLeafId);
-      if (!leaf) return prev;
-      const keep = leaf.tabs.filter((t) => t.dirty || t.mode === 'request-create');
-      for (const t of leaf.tabs) {
-        if (!t.dirty && t.mode !== 'request-create') {
-          dirtyMap.current.delete(t.id);
-          saveRefMap.current.delete(t.id);
-        }
-      }
-      const nextActive =
-        leaf.activeTabId && keep.some((t) => t.id === leaf.activeTabId) ? leaf.activeTabId : (keep[0]?.id ?? null);
-      const cleared = removeAllFromLeaf(prev.root, leaf.id);
-      const filled = keep.reduce<EditorNode>((acc, t) => insertTabIntoLeaf(acc, leaf.id, t), cleared);
-      const withActive = nextActive ? activateTabInLeaf(filled, leaf.id, nextActive) : filled;
-      const folded = maybeCollapseEmpty(withActive, leaf.id);
-      return { ...prev, root: folded.root, focusedLeafId: folded.focusLeafId };
-    });
-  }, [transform]);
-
-  const closeTabsToLeft = useCallback(
-    (tabId: string) => {
-      transform((prev) => {
-        const leaf = locateTab(prev.root, tabId);
-        if (!leaf) return prev;
-        const idx = leaf.tabs.findIndex((t) => t.id === tabId);
-        if (idx <= 0) return prev;
-        const removed = leaf.tabs.slice(0, idx);
-        for (const t of removed) {
-          dirtyMap.current.delete(t.id);
-          saveRefMap.current.delete(t.id);
-        }
-        const keep = leaf.tabs.slice(idx);
-        const cleared = removeAllFromLeaf(prev.root, leaf.id);
-        const filled = keep.reduce<EditorNode>((acc, t) => insertTabIntoLeaf(acc, leaf.id, t), cleared);
-        const nextActive =
-          leaf.activeTabId && keep.some((t) => t.id === leaf.activeTabId) ? leaf.activeTabId : (keep[0]?.id ?? null);
-        const withActive = nextActive ? activateTabInLeaf(filled, leaf.id, nextActive) : filled;
-        return { ...prev, root: withActive };
-      });
-    },
-    [transform],
-  );
-
-  const closeTabsToRight = useCallback(
-    (tabId: string) => {
-      transform((prev) => {
-        const leaf = locateTab(prev.root, tabId);
-        if (!leaf) return prev;
-        const idx = leaf.tabs.findIndex((t) => t.id === tabId);
-        if (idx === -1 || idx === leaf.tabs.length - 1) return prev;
-        const removed = leaf.tabs.slice(idx + 1);
-        for (const t of removed) {
-          dirtyMap.current.delete(t.id);
-          saveRefMap.current.delete(t.id);
-        }
-        const keep = leaf.tabs.slice(0, idx + 1);
-        const cleared = removeAllFromLeaf(prev.root, leaf.id);
-        const filled = keep.reduce<EditorNode>((acc, t) => insertTabIntoLeaf(acc, leaf.id, t), cleared);
-        const nextActive =
-          leaf.activeTabId && keep.some((t) => t.id === leaf.activeTabId)
-            ? leaf.activeTabId
-            : (keep[keep.length - 1]?.id ?? null);
-        const withActive = nextActive ? activateTabInLeaf(filled, leaf.id, nextActive) : filled;
-        return { ...prev, root: withActive };
-      });
-    },
-    [transform],
-  );
-
-  // ── Split operations ──────────────────────────────────────────
-
-  const splitInDirection = useCallback(
-    (leafId: string, tabId: string, direction: 'left' | 'right' | 'top' | 'bottom') => {
-      transform((prev) => {
-        const leaf = findLeaf(prev.root, leafId);
-        if (!leaf) return prev;
-        const tab = leaf.tabs.find((t) => t.id === tabId);
-        if (!tab) return prev;
-        // Splitting a single-tab leaf is a no-op (would just move the tab).
-        if (leaf.tabs.length < 2) return prev;
-        const newLeafId = `leaf-${prev.nextId}`;
-        const splitId = `split-${prev.nextId}`;
-        const { root, newLeafId: createdId } = splitLeafWithTab(prev.root, leafId, direction, tab, newLeafId, splitId);
-        return { root, focusedLeafId: createdId, nextId: prev.nextId + 1 };
-      });
-    },
-    [transform],
-  );
-
-  const splitAndMoveRight = useCallback(
-    (leafId: string, tabId: string) => splitInDirection(leafId, tabId, 'right'),
-    [splitInDirection],
-  );
-  const splitAndMoveLeft = useCallback(
-    (leafId: string, tabId: string) => splitInDirection(leafId, tabId, 'left'),
-    [splitInDirection],
-  );
-  const splitAndMoveDown = useCallback(
-    (leafId: string, tabId: string) => splitInDirection(leafId, tabId, 'bottom'),
-    [splitInDirection],
-  );
-  const splitAndMoveUp = useCallback(
-    (leafId: string, tabId: string) => splitInDirection(leafId, tabId, 'top'),
-    [splitInDirection],
-  );
-
-  const moveToOppositeGroup = useCallback(
-    (leafId: string, tabId: string) => {
-      transform((prev) => {
-        const leaf = findLeaf(prev.root, leafId);
-        if (!leaf) return prev;
-        const opposite = findOppositeLeaf(prev.root, leafId);
-        if (opposite) {
-          const next = moveTabBetweenLeaves(prev.root, leafId, opposite.id, tabId);
-          const folded = maybeCollapseEmpty(next, leafId);
-          return { ...prev, root: folded.root, focusedLeafId: opposite.id };
-        }
-        // No sibling yet → create one via split-right (requires 2+ tabs).
-        if (leaf.tabs.length < 2) return prev;
-        const tab = leaf.tabs.find((t) => t.id === tabId);
-        if (!tab) return prev;
-        const newLeafId = `leaf-${prev.nextId}`;
-        const splitId = `split-${prev.nextId}`;
-        const { root, newLeafId: createdId } = splitLeafWithTab(prev.root, leafId, 'right', tab, newLeafId, splitId);
-        return { root, focusedLeafId: createdId, nextId: prev.nextId + 1 };
-      });
-    },
-    [transform],
-  );
-
-  const changeSplitterOrientation = useCallback(
-    (leafId: string) => {
-      transform((prev) => ({ ...prev, root: flipParentSplit(prev.root, leafId) }));
-    },
-    [transform],
-  );
-
-  const unsplit = useCallback(
-    (leafId: string) => {
-      transform((prev) => {
-        const next = unsplitLeaf(prev.root, leafId);
-        return { ...prev, root: next, focusedLeafId: leafId };
-      });
-    },
-    [transform],
-  );
-
-  const unsplitAllAction = useCallback(() => {
-    transform((prev) => {
-      const next = treeUnsplitAll(prev.root, prev.focusedLeafId);
-      const leaf = firstLeaf(next);
-      return { ...prev, root: next, focusedLeafId: leaf.id };
-    });
-  }, [transform]);
-
-  // ── Cross-leaf DnD ─────────────────────────────────────────────
-
-  const moveTabToLeaf = useCallback(
-    (fromLeafId: string, toLeafId: string, tabId: string, insertAt?: number) => {
-      transform((prev) => {
-        const next = moveTabBetweenLeaves(prev.root, fromLeafId, toLeafId, tabId, insertAt);
-        const folded =
-          fromLeafId !== toLeafId ? maybeCollapseEmpty(next, fromLeafId) : { root: next, focusLeafId: fromLeafId };
-        return { ...prev, root: folded.root, focusedLeafId: toLeafId };
-      });
-    },
-    [transform],
-  );
-
-  const splitLeafWithDrop = useCallback(
-    (targetLeafId: string, direction: 'left' | 'right' | 'top' | 'bottom', fromLeafId: string, tabId: string) => {
-      transform((prev) => {
-        const source = findLeaf(prev.root, fromLeafId);
-        if (!source) return prev;
-        const tab = source.tabs.find((t) => t.id === tabId);
-        if (!tab) return prev;
-        // Refuse to split a leaf into itself when it holds only one tab.
-        if (fromLeafId === targetLeafId && source.tabs.length < 2) return prev;
-
-        // Remove from source first.
-        const afterRemove = removeTabFromLeaf(prev.root, fromLeafId, tabId);
-        const target = findLeaf(afterRemove, targetLeafId);
-        if (!target) return prev;
-
-        const newLeafId = `leaf-${prev.nextId}`;
-        const splitId = `split-${prev.nextId}`;
-        const { root } = splitLeafWithTab(afterRemove, targetLeafId, direction, tab, newLeafId, splitId);
-        const folded =
-          fromLeafId !== targetLeafId ? maybeCollapseEmpty(root, fromLeafId) : { root, focusLeafId: newLeafId };
-        return {
-          ...prev,
-          root: folded.root,
-          focusedLeafId: newLeafId,
-          nextId: prev.nextId + 1,
-        };
-      });
-    },
-    [transform],
-  );
+  const dndActions = useEditorDndActions({ transform });
 
   return {
     root: state.root,
@@ -489,39 +252,10 @@ export function useEditorGroups({ perTab }: UseEditorGroupsArgs): UseEditorGroup
     reorderTab,
     reopenTab,
     focusLeaf,
-    closeOtherTabs,
-    closeAllTabs,
-    closeUnmodifiedTabs,
-    closeTabsToLeft,
-    closeTabsToRight,
-    splitAndMoveRight,
-    splitAndMoveLeft,
-    splitAndMoveDown,
-    splitAndMoveUp,
-    moveToOppositeGroup,
-    changeSplitterOrientation,
-    unsplit,
-    unsplitAll: unsplitAllAction,
-    moveTabToLeaf,
-    splitLeafWithDrop,
+    ...batchCloseActions,
+    ...splitActions,
+    ...dndActions,
   };
-}
-
-// ── Helpers ──────────────────────────────────────────────────────
-
-/** Empty a leaf in place (keep the leaf itself). */
-function removeAllFromLeaf(root: EditorNode, leafId: string): EditorNode {
-  return (function walk(node: EditorNode): EditorNode {
-    if (node.kind === 'leaf') {
-      if (node.id !== leafId) return node;
-      if (node.tabs.length === 0 && node.activeTabId === null) return node;
-      return { ...node, tabs: [], activeTabId: null };
-    }
-    const a = walk(node.a);
-    const b = a !== node.a ? node.b : walk(node.b);
-    if (a === node.a && b === node.b) return node;
-    return { ...node, a, b };
-  })(root);
 }
 
 // Re-export pure helpers for callers that only need read access.
