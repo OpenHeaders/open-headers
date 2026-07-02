@@ -831,15 +831,22 @@ body {
   // the tab bar. The 3 px gutter is reserved at all times so the
   // scrollbar never causes a layout shift on hover-in / hover-out.
   //
-  // We do NOT set `scrollbar-width` here: Chromium 121+ honors that
-  // property natively and, when set, ignores the
+  // We do NOT set `scrollbar-width` unscoped here: Chromium 121+
+  // honors that property natively and, when set, ignores the
   // `::-webkit-scrollbar` pseudo entirely — landing us back on the
   // browser's built-in "thin" (~12 px) scrollbar. The webkit pseudo
   // is the only way to get a sub-`thin` scrollbar in Chromium right
-  // now; Firefox falls back to its default `auto` width, which is
-  // acceptable for the rare case that someone runs the extension
-  // there. (When `scrollbar-width` finally lets us name a pixel
-  // size, we can drop the pseudo and use the standard property.)
+  // now. Firefox ignores the webkit pseudos and would paint its
+  // full-size classic scrollbar across the 32 px bar, so it gets the
+  // standard properties instead, scoped via `@supports
+  // (-moz-appearance: none)` (Firefox-only) so Chromium never sees
+  // them: `thin` width plus a transparent-at-rest `scrollbar-color`
+  // that the bar-hover rules below fade in, mirroring the webkit
+  // thumb behavior.
+  @supports (-moz-appearance: none) {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
   &::-webkit-scrollbar {
     height: 3px;
     background: transparent;
@@ -869,11 +876,17 @@ body {
   &::-webkit-scrollbar-thumb {
     background: rgba(128, 128, 128, 0.28);
   }
+  @supports (-moz-appearance: none) {
+    scrollbar-color: rgba(128, 128, 128, 0.28) transparent;
+  }
 }
 
 [data-theme='dark'] .rules-tabs-bar:hover .rules-tabs-scroll {
   &::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.18);
+  }
+  @supports (-moz-appearance: none) {
+    scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
   }
 }
 
