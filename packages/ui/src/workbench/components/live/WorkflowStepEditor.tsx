@@ -16,14 +16,7 @@
  *     future capability; clicking has no effect.
  */
 
-import {
-  DeleteOutlined,
-  DownOutlined,
-  FolderOpenOutlined,
-  FolderOutlined,
-  InfoCircleOutlined,
-  UpOutlined,
-} from '@ant-design/icons';
+import { DeleteOutlined, DownOutlined, InfoCircleOutlined, UpOutlined } from '@ant-design/icons';
 import type { DraftCapture, DraftStep, StructuralError } from '@openheaders/core/live';
 import { newDraftCapture } from '@openheaders/core/live';
 import type { PriorityRef, StepGate } from '@openheaders/core/types';
@@ -31,10 +24,10 @@ import { Button, Collapse, Input, Select, Space, Switch, Tag, Tooltip, Typograph
 import type React from 'react';
 import { useMemo } from 'react';
 import { scopeBadge } from '../shared/scope-colors';
-import { METHOD_COLORS } from '../sidebar/icons';
 import type { DependencyRow } from './dependencies-view';
 import ExtractorEditor from './ExtractorEditor';
 import { LIVE_WORKFLOW_FIELD } from '@openheaders/ui/shared/awareness/live-paths';
+import { buildRequestPickerOptions, type StepRequestChoice } from './workflow-step-request-options';
 import { buildWorkflowStepSections } from './workflow-step-sections';
 
 const { Text } = Typography;
@@ -43,20 +36,8 @@ interface Props {
   step: DraftStep;
   index: number;
   totalSteps: number;
-  /**
-   * Requests the step's Request picker can choose from. The structured
-   * `collectionName` + `folderTrail` feed the option label's rich
-   * breadcrumb render (folder icons + colored method). `null`
-   * `collectionName` means the request isn't associated with any
-   * collection — the option falls back to `<method> <name>`.
-   */
-  availableRequests: {
-    uid: string;
-    name: string;
-    method: string;
-    collectionName: string | null;
-    folderTrail: string[];
-  }[];
+  /** Requests the step's Request picker can choose from. */
+  availableRequests: StepRequestChoice[];
   onChange: (next: DraftStep) => void;
   onRemove?: () => void;
   onMoveUp?: () => void;
@@ -356,51 +337,7 @@ const WorkflowStepEditor: React.FC<Props> = ({
             placeholder="Select a request"
             value={step.requestUid || undefined}
             onChange={(uid) => onChange({ ...step, requestUid: uid })}
-            options={availableRequests.map((r) => {
-              const methodColor = METHOD_COLORS[r.method] ?? token.colorTextSecondary;
-              // String for filterOption + accessibility; stays consistent
-              // with the JSX the user sees (same segments, same order).
-              const titleSegments = [r.collectionName, ...r.folderTrail, `${r.method} ${r.name}`].filter(
-                (s): s is string => s !== null,
-              );
-              const title = titleSegments.join(' > ');
-              const separatorStyle = { color: token.colorTextQuaternary, margin: '0 4px' };
-              const iconStyle = { color: token.colorTextTertiary, fontSize: 11, marginRight: 4 };
-              return {
-                value: r.uid,
-                title,
-                label: (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', flexWrap: 'nowrap' }}>
-                    {r.collectionName !== null && (
-                      <>
-                        <FolderOpenOutlined style={iconStyle} />
-                        <span>{r.collectionName}</span>
-                        <span style={separatorStyle}>›</span>
-                      </>
-                    )}
-                    {r.folderTrail.map((f) => (
-                      <span key={f} style={{ display: 'inline-flex', alignItems: 'center' }}>
-                        <FolderOutlined style={iconStyle} />
-                        <span>{f}</span>
-                        <span style={separatorStyle}>›</span>
-                      </span>
-                    ))}
-                    <span
-                      style={{
-                        fontWeight: 700,
-                        color: methodColor,
-                        fontFamily: "'SF Mono', monospace",
-                        fontSize: 10,
-                        marginRight: 4,
-                      }}
-                    >
-                      {r.method}
-                    </span>
-                    <span>{r.name}</span>
-                  </span>
-                ),
-              };
-            })}
+            options={buildRequestPickerOptions(availableRequests, token)}
           />
           </Tooltip>
           </span>
