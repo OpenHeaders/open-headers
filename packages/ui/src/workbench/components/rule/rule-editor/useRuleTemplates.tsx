@@ -19,6 +19,14 @@ interface UseRuleTemplatesArgs {
 
 export interface RuleTemplates {
   applyTemplate: (key: string) => void;
+  /** Menu-facing variant of `applyTemplate`: no-op when the clicked
+   *  entry is already the active selection, so re-picking the current
+   *  template doesn't wipe the user's in-progress edits. */
+  selectTemplate: (key: string) => void;
+  /** Menu key of the active selection (`blank`, `sys:<key>`,
+   *  `usr:<uid>`) — feeds the dropdown's `selectedKeys` so the active
+   *  entry renders with the selected (blue) background. */
+  selectedMenuKey: string;
   systemMenuItems: NonNullable<MenuProps['items']>;
   userMenuItems: NonNullable<MenuProps['items']>;
   activeSystemTemplate: RuleTemplate | undefined;
@@ -110,16 +118,24 @@ export function useRuleTemplates({
     [selectedType, form, userTemplates, setDefaultHeaderTab],
   );
 
+  const selectTemplate = useCallback(
+    (key: string) => {
+      if (key === selectedTemplate) return;
+      applyTemplate(key);
+    },
+    [selectedTemplate, applyTemplate],
+  );
+
   const systemMenuItems = useMemo(
-    () => buildSystemMenuItems(systemTemplateTree, applyTemplate),
-    [systemTemplateTree, applyTemplate],
+    () => buildSystemMenuItems(systemTemplateTree, selectTemplate),
+    [systemTemplateTree, selectTemplate],
   );
 
   const userMenuItems = useMemo(() => {
     const type = selectedType ?? 'header';
     const items: NonNullable<MenuProps['items']> = [];
     for (const col of templateCollectionTrees) {
-      const childItems = buildUserMenuItems(col.tree, type, applyTemplate);
+      const childItems = buildUserMenuItems(col.tree, type, selectTemplate);
       if (childItems.length === 0) continue;
       items.push({
         key: `usr-col:${col.uid}`,
@@ -129,7 +145,7 @@ export function useRuleTemplates({
       });
     }
     return items;
-  }, [templateCollectionTrees, selectedType, applyTemplate]);
+  }, [templateCollectionTrees, selectedType, selectTemplate]);
 
   // Which source the current selection belongs to — drives active button state.
   const activeSystemTemplate = useMemo(
@@ -152,8 +168,18 @@ export function useRuleTemplates({
     return null;
   }, [activeSystemTemplate, activeUserTemplate]);
 
+  // Menu keys are prefixed per source (see template-menu.tsx) so the
+  // same uid can't collide across System / User trees.
+  const selectedMenuKey = activeSystemTemplate
+    ? `sys:${activeSystemTemplate.key}`
+    : activeUserTemplate
+      ? `usr:${activeUserTemplate.uid}`
+      : 'blank';
+
   return {
     applyTemplate,
+    selectTemplate,
+    selectedMenuKey,
     systemMenuItems,
     userMenuItems,
     activeSystemTemplate,

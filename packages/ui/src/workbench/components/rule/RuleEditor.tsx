@@ -227,6 +227,8 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   // ── Template selector ─────────────────────────────────────────
   const {
     applyTemplate,
+    selectTemplate,
+    selectedMenuKey,
     systemMenuItems,
     userMenuItems,
     activeSystemTemplate,
@@ -549,7 +551,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       key: 'blank',
       icon: <FileOutlined />,
       label: 'Blank',
-      onClick: () => applyTemplate('empty'),
+      onClick: () => selectTemplate('empty'),
     },
     {
       key: 'system-templates',
@@ -586,33 +588,37 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   ];
 
   const activeTemplateSuffix = activeSystemTemplate ? (
-    <span style={{ fontWeight: 400, opacity: 0.85 }}>
-      : {activeSystemTemplate.icon} {activeSystemTemplate.name}
+    <span>
+      {activeSystemTemplate.icon} {activeSystemTemplate.name}
     </span>
   ) : activeUserTemplate ? (
-    <span style={{ fontWeight: 400, opacity: 0.85, display: 'inline-flex', gap: 4 }}>
-      :{renderTwoToneIcon(activeUserTemplate.icon, { fontSize: 12 })}
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+      {renderTwoToneIcon(activeUserTemplate.icon, { fontSize: 12 })}
       {activeUserTemplate.name}
     </span>
   ) : (
-    <span style={{ fontWeight: 400, opacity: 0.85 }}>: Blank</span>
+    <span>Blank</span>
   );
 
   const headerTitle = (
     <>
-      <Dropdown menu={{ items: templatesMenuItems }} trigger={['click']}>
-        <Tooltip
-          title={
-            selectedDescription ??
-            'Start from a preset instead of a blank form. System templates ship with the app; user templates are ones you save yourself via ⋮ → Save as User Template. Applying a template only pre-fills the fields — adjust anything before saving.'
-          }
-          placement="bottomLeft"
-          mouseEnterDelay={0.5}
-        >
+      <Text strong style={{ fontSize: 13 }}>
+        Templates
+      </Text>
+      {/* No docs section for templates yet, so unlike the Actions /
+          Conditions (i) this one explains in a hover tooltip instead
+          of navigating. */}
+      <Tooltip title="Start from a preset instead of a blank form. System templates ship with the app; user templates are ones you save yourself via ⋮ → Save as User Template. Applying a template only pre-fills the fields — adjust anything before saving.">
+        <InfoCircleOutlined style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }} />
+      </Tooltip>
+      <Dropdown
+        menu={{ items: templatesMenuItems, selectable: true, selectedKeys: [selectedMenuKey] }}
+        trigger={['click']}
+      >
+        <Tooltip title={selectedDescription} placement="bottomLeft" mouseEnterDelay={0.5}>
           <Button size="small">
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
               <FolderOpenOutlined style={{ fontSize: 13 }} />
-              <span>Templates</span>
               {activeTemplateSuffix}
               <DownOutlined style={{ fontSize: 9 }} />
             </span>

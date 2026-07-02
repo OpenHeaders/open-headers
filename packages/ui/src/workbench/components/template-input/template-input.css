@@ -30,6 +30,17 @@
   max-width: 100%;
 }
 
+/* Single-line (non-expanded) fields scroll horizontally like a native
+ * <input>, which never paints a scrollbar — in a one-line-tall field
+ * the thumb has nowhere to go and lands on top of the value text.
+ * Scrolling itself still works (trackpad, caret past the edge). */
+.oh-template-input-editable:not(.oh-template-input-editable--expanded) {
+  scrollbar-width: none;
+}
+.oh-template-input-editable:not(.oh-template-input-editable--expanded)::-webkit-scrollbar {
+  display: none;
+}
+
 /* Expanded (focused, multi-line) field: an always-visible vertical
  * scrollbar so the user can see/grab it the whole time they're editing —
  * styling `::-webkit-scrollbar` opts out of the platform overlay bar that
