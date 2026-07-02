@@ -21,14 +21,7 @@
  * dirty the user's typing is preserved and LWW resolves at save time.
  */
 
-import {
-  EyeInvisibleOutlined,
-  EyeOutlined,
-  InfoCircleOutlined,
-  PlusOutlined,
-  ReloadOutlined,
-  ThunderboltOutlined,
-} from '@ant-design/icons';
+import { EyeInvisibleOutlined, EyeOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useEnvironments } from '@openheaders/ui/shared/hooks/useEnvironments';
 import { useLiveWorkflowCache } from '@openheaders/ui/shared/hooks/useLiveCache';
 import { useLiveVariables } from '@openheaders/ui/shared/hooks/useLiveVariables';
@@ -39,19 +32,15 @@ import { readFieldPath } from '@openheaders/ui/shared/awareness/field-path';
 import { EntityConflictBanner, EntityConflictDialog } from '@openheaders/ui/shared/conflicts';
 import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell';
 import type { LiveVariable } from '@openheaders/core/types';
-import { App, Button, Input, InputNumber, Select, Switch, Tag, Tooltip, Typography, theme } from 'antd';
+import { App, Button, Input, InputNumber, Select, Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import {
-  type CreateDraft,
-  type EditDraft,
-  editDraftFromVariable,
-  emptyCreateDraft,
-  fingerprintEdit,
-} from './live-variable-drafts';
+import { type EditDraft, editDraftFromVariable, fingerprintEdit } from './live-variable-drafts';
+import LiveVariableCreateMode, { type CreateProps } from './LiveVariableCreateMode';
+import LiveVariableToggles from './LiveVariableToggles';
 import { useLiveVariableConflictResolution } from './use-live-variable-conflict-resolution';
 import EditorHeader from '../shell/EditorHeader';
-import { FieldRow, InlineNameDescription, LIVE_ROW_GAP, LIVE_ROW_LABEL_WIDTH, Section } from './layout';
+import { FieldRow, LIVE_ROW_GAP, LIVE_ROW_LABEL_WIDTH, Section } from './layout';
 import {
   classifyRun,
   describeRefreshPolicy,
@@ -62,34 +51,6 @@ import {
 } from './live-display';
 
 const { Text, Title } = Typography;
-
-// ── Shared labels for the Enabled + Wait-for-fresh toggles ──────────
-//
-// "Enabled" = when off, `{{live.<name>}}` stops resolving (the resolver
-// filter skips disabled LVs). The binding stays in storage so toggling
-// back on is a one-click restore.
-//
-// "Wait for fresh value" (persisted as `requireFreshOnRuleBuild`) — when
-// on, the DNR rule-compile path BLOCKS on a workflow refresh (up to ~5s)
-// so rules always pick up a freshly-fetched value. Off (default) =
-// async-warm: rules use the last cached value and a background refresh
-// runs. The tradeoff is latency vs staleness on cold start.
-const ENABLED_TOOLTIP = 'When off, {{live.NAME}} references stop resolving in rules and requests.';
-const FRESH_TOOLTIP =
-  'Before applying rules, wait for the backing workflow to finish a refresh (up to ~5s). Off: rules use the last cached value and refresh in the background — faster but can be briefly stale after the extension wakes.';
-
-// ── Create mode ─────────────────────────────────────────────────────
-
-interface CreateProps {
-  mode: 'create';
-  onDirtyChange?: (dirty: boolean) => void;
-  registerSaveRef?: (save: () => void) => void;
-  /** Called when a new LV lands — host replaces the create tab with an edit tab. */
-  onCreated: (lv: LiveVariable) => void;
-  /** Opens a fresh workflow-create tab — surfaced as an empty-state CTA
-   *  when no workflows exist yet to bind to. */
-  onCreateWorkflow?: () => void;
-}
 
 interface EditProps {
   mode: 'edit';
@@ -106,202 +67,10 @@ type Props = CreateProps | EditProps;
 
 const LiveVariableEditor: React.FC<Props> = (props) => {
   if (props.mode === 'edit') return <EditMode {...props} />;
-  return <CreateMode {...props} />;
+  return <LiveVariableCreateMode {...props} />;
 };
 
 export default LiveVariableEditor;
-
-// ── Create mode ─────────────────────────────────────────────────────
-
-const CreateMode: React.FC<CreateProps> = ({ onDirtyChange, registerSaveRef, onCreated, onCreateWorkflow }) => {
-  const { token } = theme.useToken();
-  const { message } = App.useApp();
-  const { workflows } = useLiveWorkflows();
-  const { createVariable } = useLiveVariables();
-
-  const [draft, setDraft] = useState<CreateDraft>(() => emptyCreateDraft());
-
-  const isDirty = useMemo(() => {
-    return (
-      draft.name.trim().length > 0 ||
-      draft.description.trim().length > 0 ||
-      draft.workflowUid !== '' ||
-      draft.captureName !== ''
-    );
-  }, [draft]);
-
-  const handleSave = useCallback(async () => {
-    const name = draft.name.trim();
-    if (!name) {
-      message.error('Name is required');
-      return;
-    }
-    if (!draft.workflowUid || !draft.stepId || !draft.captureName) {
-      message.error('Select a workflow, step, and capture');
-      return;
-    }
-    const lv = await createVariable({
-      name,
-      workflowUid: draft.workflowUid,
-      stepId: draft.stepId,
-      captureName: draft.captureName,
-      description: draft.description.trim() ? draft.description : undefined,
-      requireFreshOnRuleBuild: draft.requireFreshOnRuleBuild,
-      enabled: draft.enabled,
-    });
-    if (!lv) {
-      message.error('Failed to create live variable');
-      return;
-    }
-    onCreated(lv);
-  }, [draft, createVariable, message, onCreated]);
-
-  const handleSaveSync = useCallback(() => void handleSave(), [handleSave]);
-
-  const shell = useEditorShell({
-    entityType: LIVE_VARIABLE_ENTITY_TYPE,
-    entityId: null,
-    isDirty,
-    onSave: handleSaveSync,
-    onDirtyChange,
-    registerSaveRef,
-  });
-
-  const selectedWorkflow = workflows.find((w) => w.uid === draft.workflowUid) ?? null;
-  const selectedSteps = selectedWorkflow?.steps ?? [];
-  const selectedStep = selectedSteps.find((s) => s.id === draft.stepId) ?? null;
-  const selectedCaptures = selectedStep?.captures ?? [];
-
-  const createHeaderTitle = (
-    <>
-      <ThunderboltOutlined style={{ fontSize: 14, color: token.colorPrimary }} />
-      <Title level={5} style={{ margin: 0 }}>
-        New Live Variable
-      </Title>
-    </>
-  );
-
-  return (
-    <EntityScopeProvider shell={shell.scopeProps}>
-    <div style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}>
-      <EditorHeader title={createHeaderTitle} shell={shell.headerProps} />
-      <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}>
-        <div style={{ maxWidth: 720, margin: '0 auto' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <InlineNameDescription
-              name={draft.name}
-              description={draft.description}
-              onChangeName={(name) => setDraft({ ...draft, name })}
-              onChangeDescription={(description) => setDraft({ ...draft, description })}
-              namePlaceholder="Name (e.g. accessToken)"
-            />
-            <Text type="secondary" style={{ fontSize: 10, marginTop: -4 }}>
-              Reference as {'{{'}live.{draft.name.trim() || 'NAME'}
-              {'}}'}
-            </Text>
-
-            <Section title="Binding">
-              <FieldRow label="Workflow">
-                {workflows.length === 0 && onCreateWorkflow ? (
-                  // No workflow to bind to yet — make the empty state
-                  // actionable instead of pointing at the sidebar. A live
-                  // var captures from a workflow step, so creating one is
-                  // the natural next move.
-                  <Button
-                    size="small"
-                    type="dashed"
-                    icon={<PlusOutlined />}
-                    style={{ width: '100%' }}
-                    onClick={onCreateWorkflow}
-                  >
-                    Create a workflow
-                  </Button>
-                ) : (
-                  <Select
-                    size="small"
-                    style={{ width: '100%' }}
-                    showSearch
-                    optionFilterProp="label"
-                    placeholder="Select a workflow"
-                    value={draft.workflowUid || undefined}
-                    onChange={(workflowUid) => setDraft({ ...draft, workflowUid, stepId: '', captureName: '' })}
-                    options={workflows.map((w) => ({ value: w.uid, label: w.name }))}
-                    notFoundContent={<Text type="secondary">No workflows yet.</Text>}
-                  />
-                )}
-              </FieldRow>
-              <FieldRow label="Step">
-                <Select
-                  size="small"
-                  style={{ width: '100%' }}
-                  placeholder="Select a step"
-                  disabled={!selectedWorkflow}
-                  value={draft.stepId || undefined}
-                  onChange={(stepId) => setDraft({ ...draft, stepId, captureName: '' })}
-                  options={selectedSteps.map((s) => ({
-                    value: s.id,
-                    label: `${s.id} (${s.captures.length} captures)`,
-                  }))}
-                />
-              </FieldRow>
-              <FieldRow label="Capture">
-                <Select
-                  size="small"
-                  style={{ width: '100%' }}
-                  placeholder="Select a capture"
-                  disabled={!selectedStep}
-                  value={draft.captureName || undefined}
-                  onChange={(captureName) => setDraft({ ...draft, captureName })}
-                  options={selectedCaptures.map((c) => ({ value: c.name, label: c.name }))}
-                />
-              </FieldRow>
-            </Section>
-
-            <div
-              style={{
-                display: 'flex',
-                gap: 20,
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                marginTop: 6,
-                paddingTop: 10,
-                borderTop: `1px solid ${token.colorBorderSecondary}`,
-              }}
-            >
-              <div
-                data-field-path={LIVE_VARIABLE_FIELD.enabled}
-                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-              >
-                <Switch size="small" checked={draft.enabled} onChange={(enabled) => setDraft({ ...draft, enabled })} />
-                <Text style={{ fontSize: 12 }}>Enabled</Text>
-                <Tooltip title={ENABLED_TOOLTIP}>
-                  <InfoCircleOutlined style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'help' }} />
-                </Tooltip>
-              </div>
-              <div
-                data-field-path={LIVE_VARIABLE_FIELD.requireFreshOnRuleBuild}
-                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-              >
-                <Switch
-                  size="small"
-                  checked={draft.requireFreshOnRuleBuild}
-                  onChange={(requireFreshOnRuleBuild) => setDraft({ ...draft, requireFreshOnRuleBuild })}
-                />
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  Wait for fresh value
-                </Text>
-                <Tooltip title={FRESH_TOOLTIP}>
-                  <InfoCircleOutlined style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'help' }} />
-                </Tooltip>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    </EntityScopeProvider>
-  );
-};
 
 // ── Edit mode ───────────────────────────────────────────────────────
 
@@ -726,44 +495,12 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
               )}
             </Section>
 
-            <div
-              style={{
-                display: 'flex',
-                gap: 20,
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                marginTop: 4,
-                paddingTop: 10,
-                borderTop: `1px solid ${token.colorBorderSecondary}`,
-              }}
-            >
-              <div
-                data-field-path={LIVE_VARIABLE_FIELD.enabled}
-                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-              >
-                <Switch size="small" checked={draft.enabled} onChange={(enabled) => setDraft({ ...draft, enabled })} />
-                <Text style={{ fontSize: 12 }}>Enabled</Text>
-                <Tooltip title={ENABLED_TOOLTIP}>
-                  <InfoCircleOutlined style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'help' }} />
-                </Tooltip>
-              </div>
-              <div
-                data-field-path={LIVE_VARIABLE_FIELD.requireFreshOnRuleBuild}
-                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-              >
-                <Switch
-                  size="small"
-                  checked={draft.requireFreshOnRuleBuild}
-                  onChange={(requireFreshOnRuleBuild) => setDraft({ ...draft, requireFreshOnRuleBuild })}
-                />
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  Wait for fresh value
-                </Text>
-                <Tooltip title={FRESH_TOOLTIP}>
-                  <InfoCircleOutlined style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'help' }} />
-                </Tooltip>
-              </div>
-            </div>
+            <LiveVariableToggles
+              enabled={draft.enabled}
+              requireFreshOnRuleBuild={draft.requireFreshOnRuleBuild}
+              onChangeEnabled={(enabled) => setDraft({ ...draft, enabled })}
+              onChangeRequireFresh={(requireFreshOnRuleBuild) => setDraft({ ...draft, requireFreshOnRuleBuild })}
+            />
           </div>
         </div>
       </div>
