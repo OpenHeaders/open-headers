@@ -7,16 +7,15 @@ import {
   PlusOutlined,
   SortAscendingOutlined,
 } from '@ant-design/icons';
-import type { ExtensionRuleType, RuleCondition, RuleType } from '@openheaders/core/types';
-import { getActionDetail, isRuleComplete, isRuleDraft, resolvePauseState } from '@openheaders/core/utils';
-import { resolveRule } from '@openheaders/core/variables';
+import type { ExtensionRuleType } from '@openheaders/core/types';
+import { resolvePauseState } from '@openheaders/core/utils';
 import { useRowActionRegistration } from '@openheaders/ui/shared/hooks/useRowActionRegistration';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/useRuleMutator';
 import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import { useTablePagination } from '@openheaders/ui/shared/hooks/useTablePagination';
 import { useVariableResolver } from '@openheaders/ui/shared/hooks/useVariableResolver';
 import { useSurface } from '@openheaders/ui/shared/surface';
-import { compareBySortMode, type PageInfo, type RowActions, type SortMode } from '@openheaders/ui/shared/table-shared';
+import type { PageInfo, RowActions, SortMode } from '@openheaders/ui/shared/table-shared';
 import { openWorkspace, type WorkspaceIntent } from '@openheaders/ui/shared/workspace-intent';
 import {
   App,
@@ -39,13 +38,9 @@ import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useKeyboardNav } from '../shortcuts/KeyboardNavContext';
 import { AddRulePalette } from './AddRulePalette';
-import {
-  type ActionDetail,
-  renderActionDetails,
-  renderConditionsSummary,
-  truncateValue,
-} from './columns/sharedColumnRenderers';
+import { renderActionDetails, renderConditionsSummary, truncateValue } from './columns/sharedColumnRenderers';
 import DeleteConfirmOverlay from './DeleteConfirmOverlay';
+import { rulesToRecords, type TableRecord } from './rules-table-records';
 import TestRunModal, { type TestRunOwnerType } from './TestRunModal';
 
 const NOT_CONNECTED_TIP = (
@@ -77,27 +72,6 @@ function useOpenRulesIntent(): (intent: WorkspaceIntent) => void {
 
 const { Search } = Input;
 const { Text } = Typography;
-
-/** 0 = active, 1 = paused, 2 = disabled, 3 = draft */
-type StatusRank = 0 | 1 | 2 | 3;
-
-interface TableRecord {
-  key: string;
-  id: string;
-  name: string;
-  path: string;
-  ruleType: RuleType;
-  actionDetail: ActionDetail;
-  domains: string[];
-  conditions: RuleCondition[];
-  isEnabled: boolean;
-  isComplete: boolean;
-  /** True for unpublished rules — derived from `isRuleDraft(rule)`.
-   *  Drives the gray "draft" row styling (publication gate, distinct
-   *  from completeness). */
-  isDraft: boolean;
-  statusRank: StatusRank;
-}
 
 interface RulesTableProps {
   focusedRowIndex?: number;
@@ -182,50 +156,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
     });
   }, [rules, message]);
 
-  // Build table records from all rules, sorted by status group then name.
-  // `actionDetail` and the displayed `conditions` flow from the RESOLVED
-  // rule (templates substituted) so the row reflects what reaches the
-  // wire — not the literal `{{ref}}` source. The original `rule` is
-  // still used for the IS-COMPLETE / pause checks because completeness
-  // is a structural property independent of variable values.
-  const dataSource: TableRecord[] = rules
-    .map((rule) => {
-      const isEnabled = rule.enabled;
-      const complete = isRuleComplete(rule);
-      const draft = isRuleDraft(rule);
-      const groupPaused = resolvePauseState(rule.path, pauseMarkers);
-      const resolved = resolveRule(rule, resolver);
-
-      // Status rank drives sort order: active first, then paused/disabled,
-      // drafts last. Unpublished rules are treated as "draft" regardless
-      // of completeness — they're not on the wire either way.
-      let statusRank: StatusRank;
-      if (draft)
-        statusRank = 3; // draft
-      else if (isEnabled && complete && !groupPaused)
-        statusRank = 0; // active
-      else if (isEnabled && complete && groupPaused)
-        statusRank = 1; // paused
-      else if (complete && !isEnabled)
-        statusRank = 2; // disabled
-      else statusRank = 3; // draft / incomplete
-
-      return {
-        key: rule.uid,
-        id: rule.uid,
-        name: rule.name,
-        path: rule.path,
-        ruleType: rule.type,
-        actionDetail: getActionDetail(resolved),
-        domains: resolved.conditions.filter((c) => c.type === 'request-domains').flatMap((c) => c.values),
-        conditions: resolved.conditions,
-        isEnabled,
-        isComplete: complete,
-        isDraft: draft,
-        statusRank,
-      };
-    })
-    .sort((a, b) => compareBySortMode(a, b, sortMode));
+  const dataSource: TableRecord[] = rulesToRecords(rules, pauseMarkers, resolver, sortMode);
 
   const dataSourceRef = useRef<TableRecord[]>([]);
 
