@@ -2005,21 +2005,22 @@ body {
   --rule-code-to:   #8b95a8;
 }
 
-// ── Code editor format overlay ────────────────────────────────────
+// ── Code editor corner actions overlay ────────────────────────────
 //
-// Fades the Format action in only when the editor is hovered or
-// focused so it stays out of the way during reading and pops when
-// the user is about to act. Focus-within covers keyboard users.
+// Fades the Find / Replace / Format cluster in only when the editor
+// is hovered or focused so it stays out of the way during reading and
+// pops when the user is about to act. Focus-within covers keyboard
+// users.
 
 .rules-code-editor {
-  .rules-code-editor-format {
+  .rules-code-editor-actions {
     opacity: 0;
     transition: opacity 120ms ease-out;
     pointer-events: none;
   }
 
-  &:hover .rules-code-editor-format,
-  &:focus-within .rules-code-editor-format {
+  &:hover .rules-code-editor-actions,
+  &:focus-within .rules-code-editor-actions {
     opacity: 1;
     pointer-events: auto;
   }

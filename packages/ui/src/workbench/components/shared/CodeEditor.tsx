@@ -14,7 +14,7 @@
  * `value` / `onChange` / `readOnly` / `placeholder` / `minHeight`.
  */
 
-import { AlignLeftOutlined } from '@ant-design/icons';
+import { AlignLeftOutlined, SearchOutlined, SwapOutlined } from '@ant-design/icons';
 import { useUiTheme } from '@openheaders/ui/context';
 import Editor from '@monaco-editor/react';
 import { Alert, Button, Tooltip, theme } from 'antd';
@@ -39,6 +39,12 @@ import { useMonacoVariableCompletions } from '../template-input';
  *  source-of-truth constant: adding a language here requires adding a
  *  provider somewhere Monaco can see. */
 const MONACO_FORMATTABLE_LANGUAGES = new Set(['javascript', 'json', 'css', 'html', 'xml']);
+
+// Monaco's own (fixed) keybindings for the find / replace widgets —
+// shown as tooltip hints on the corner action buttons.
+const IS_MAC = /Mac|iPhone|iPad|iPod/.test(navigator.userAgent);
+const FIND_SHORTCUT = IS_MAC ? '⌘F' : 'Ctrl+F';
+const REPLACE_SHORTCUT = IS_MAC ? '⌥⌘F' : 'Ctrl+H';
 
 interface CodeEditorProps {
   value?: string;
@@ -145,6 +151,15 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
   const runFormatRef = useRef(runFormat);
   runFormatRef.current = runFormat;
+
+  // Focus first so the widget seeds from the current selection and Esc
+  // returns focus to the buffer — same as invoking the keybinding.
+  const runEditorAction = useCallback((id: string) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.focus();
+    void editor.getAction(id)?.run();
+  }, []);
 
   const options: monaco.editor.IStandaloneEditorConstructionOptions = {
     minimap: { enabled: false },
@@ -274,9 +289,32 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           }}
         />
       )}
-      {!readOnly && formattable && (
-        <div className="rules-code-editor-format" style={{ position: 'absolute', top: 6, right: 14, zIndex: 2 }}>
-          <Tooltip title={formatTooltip} placement="left">
+      <div
+        className="rules-code-editor-actions"
+        style={{ position: 'absolute', top: 6, right: 14, zIndex: 2, display: 'flex', gap: 2 }}
+      >
+        <Tooltip title={<ShortcutHintTitle label={FIND_SHORTCUT}>Find</ShortcutHintTitle>} placement="top">
+          <Button
+            size="small"
+            type="text"
+            icon={<SearchOutlined />}
+            onClick={() => runEditorAction('actions.find')}
+            aria-label="Find"
+          />
+        </Tooltip>
+        {!readOnly && (
+          <Tooltip title={<ShortcutHintTitle label={REPLACE_SHORTCUT}>Replace</ShortcutHintTitle>} placement="top">
+            <Button
+              size="small"
+              type="text"
+              icon={<SwapOutlined />}
+              onClick={() => runEditorAction('editor.action.startFindReplaceAction')}
+              aria-label="Replace"
+            />
+          </Tooltip>
+        )}
+        {!readOnly && formattable && (
+          <Tooltip title={formatTooltip} placement="top">
             <Button
               size="small"
               type="text"
@@ -285,8 +323,8 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
               aria-label="Format code"
             />
           </Tooltip>
-        </div>
-      )}
+        )}
+      </div>
       {/* Grip strip — reserved row below the editor so Monaco's vertical
           scrollbar (which spans only the Editor element) ends above the
           grip instead of sharing its corner. */}
