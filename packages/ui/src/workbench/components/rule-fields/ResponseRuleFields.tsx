@@ -31,7 +31,7 @@
  */
 
 import { CloseOutlined, PlusOutlined } from '@ant-design/icons';
-import { Alert, AutoComplete, Button, Form, Input, Radio, Segmented, Select, Typography } from 'antd';
+import { AutoComplete, Button, Form, Input, Radio, Segmented, Select, Typography } from 'antd';
 import type React from 'react';
 import { EntityField, useActionPaths } from '@openheaders/ui/shared/awareness';
 import CodeEditor from '../shared/CodeEditor';
@@ -189,19 +189,23 @@ const ResponseRuleFields: React.FC = () => {
           }}
         />
       </div>
-      <Alert
-        type="info"
-        showIcon
-        style={{ marginBottom: 12, fontSize: 12 }}
-        message="Acts on fetch() and XMLHttpRequest responses for REST or GraphQL API requests."
-      />
-
       {/* Response source — a two-mode Segmented (mock vs modify). The labels
           carry the explanation; the caption below reframes per mode. */}
       <div style={{ marginBottom: 12 }}>
-        <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
-          Response source
-        </Text>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+          <Text strong style={{ fontSize: 12 }}>
+            Response source
+          </Text>
+          <SectionInfo
+            content={{
+              kicker: 'Response Rule',
+              title: 'Response source',
+              summary: 'Acts on fetch() and XMLHttpRequest responses for REST or GraphQL API requests.',
+              description:
+                "Mock serves your body without calling the server; Modify sends the real request and edits the reply before the page sees it.",
+            }}
+          />
+        </div>
         <EntityField path={paths.responseSource}>
           <Form.Item name="responseSource" style={{ marginBottom: 0 }}>
             <Segmented
@@ -234,19 +238,68 @@ const ResponseRuleFields: React.FC = () => {
         </Form.Item>
       </div>
 
-      {/* Resource Type */}
-      <div style={{ marginBottom: 12 }}>
-        <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
-          Select Resource Type
-        </Text>
-        <EntityField path={paths.apiResourceType}>
-          <Form.Item name="responseResourceType" style={{ marginBottom: 0 }}>
-            <Radio.Group>
-              <Radio value="rest">REST API</Radio>
-              <Radio value="graphql">GraphQL API</Radio>
-            </Radio.Group>
-          </Form.Item>
-        </EntityField>
+      {/* Resource Type · Status Code · Content-Type — one compact row.
+          Content-Type is the header controlling how the browser parses the
+          body; defaults to application/json. When calling the network,
+          status/CT override the real reply only when set. */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+        <div style={{ flex: '0 0 140px' }}>
+          <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
+            Resource Type
+          </Text>
+          <EntityField path={paths.apiResourceType}>
+            <Form.Item name="responseResourceType" style={{ marginBottom: 0 }}>
+              <Select
+                options={[
+                  { value: 'rest', label: 'REST API' },
+                  { value: 'graphql', label: 'GraphQL API' },
+                ]}
+                style={{ width: '100%' }}
+              />
+            </Form.Item>
+          </EntityField>
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
+            Status Code
+          </Text>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <EntityField path={paths.responseStatusCode}>
+              <Form.Item name="responseStatusCode" style={{ marginBottom: 0, flex: 1, minWidth: 0 }}>
+                <Select
+                  allowClear={{ clearIcon: <span style={{ fontSize: 12, padding: '0 4px' }}>✕</span> }}
+                  showSearch
+                  placeholder="Keep original status code"
+                  options={[{ value: 0, label: 'Keep original status code' }, ...STATUS_CODES]}
+                  style={{ width: '100%' }}
+                  filterOption={(input, option) => {
+                    const label = String(option?.label ?? '');
+                    return label.toLowerCase().includes(input.toLowerCase());
+                  }}
+                />
+              </Form.Item>
+            </EntityField>
+            <ScalarConflictChip formName="responseStatusCode" schemaPath={paths.responseStatusCode} />
+          </div>
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
+            Content-Type
+          </Text>
+          <EntityField path={paths.responseContentType}>
+            <Form.Item name="responseContentType" style={{ marginBottom: 0 }}>
+              <AutoComplete
+                options={CONTENT_TYPE_OPTIONS}
+                placeholder="application/json"
+                style={{ width: '100%' }}
+                filterOption={(input, option) => {
+                  const value = String(option?.value ?? '');
+                  return value.toLowerCase().includes(input.toLowerCase());
+                }}
+              />
+            </Form.Item>
+          </EntityField>
+        </div>
       </div>
 
       {/* GraphQL Operation filter — shown only when resourceType === 'graphql'. */}
@@ -301,54 +354,6 @@ const ResponseRuleFields: React.FC = () => {
           );
         }}
       </Form.Item>
-
-      <div style={{ marginBottom: 12 }}>
-        <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
-          Response Status Code
-        </Text>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <EntityField path={paths.responseStatusCode}>
-            <Form.Item name="responseStatusCode" style={{ marginBottom: 0, flex: 1, minWidth: 0 }}>
-              <Select
-                allowClear={{ clearIcon: <span style={{ fontSize: 12, padding: '0 4px' }}>✕</span> }}
-                showSearch
-                placeholder="Keep original status code"
-                options={[{ value: 0, label: 'Keep original status code' }, ...STATUS_CODES]}
-                style={{ width: '100%' }}
-                filterOption={(input, option) => {
-                  const label = String(option?.label ?? '');
-                  return label.toLowerCase().includes(input.toLowerCase());
-                }}
-              />
-            </Form.Item>
-          </EntityField>
-          <ScalarConflictChip formName="responseStatusCode" schemaPath={paths.responseStatusCode} />
-        </div>
-      </div>
-
-      {/* Content-Type — a single header that controls how the browser parses
-          the body. Defaults to application/json (the dominant API mocking
-          case). When calling the network, it overrides the real reply's CT
-          only if set. AutoComplete: typed value passes through verbatim,
-          the suggestions are convenience, not a constraint. */}
-      <div style={{ marginBottom: 12 }}>
-        <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
-          Content-Type
-        </Text>
-        <EntityField path={paths.responseContentType}>
-          <Form.Item name="responseContentType" style={{ marginBottom: 0 }}>
-            <AutoComplete
-              options={CONTENT_TYPE_OPTIONS}
-              placeholder="application/json"
-              style={{ width: '100%' }}
-              filterOption={(input, option) => {
-                const value = String(option?.value ?? '');
-                return value.toLowerCase().includes(input.toLowerCase());
-              }}
-            />
-          </Form.Item>
-        </EntityField>
-      </div>
 
       {/* Response Headers — additional headers applied alongside Content-Type.
           Stored in the schema as a Record<string, string>; the form-state
@@ -443,13 +448,30 @@ const ResponseRuleFields: React.FC = () => {
 
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-          <Text strong style={{ fontSize: 12 }}>
-            Response Body
-          </Text>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Text strong style={{ fontSize: 12 }}>
+              Response Body
+            </Text>
+            <SectionInfo
+              content={{
+                kicker: 'Response Rule',
+                title: 'Response Body',
+                summary: 'The payload served to the page for matching requests.',
+                description:
+                  'Static Data serves a fixed body; Dynamic (JavaScript) builds or transforms it at request time.',
+              }}
+              docId={() => {
+                const bodyType = form.getFieldValue('responseBodyType');
+                return getDocId(bodyType === 'dynamic' ? 'response-dynamic' : 'response-static', 'action');
+              }}
+            />
+          </div>
           <EntityField path={paths.responseBodyType}>
             <Form.Item name="responseBodyType" style={{ marginBottom: 0 }}>
               <Radio.Group size="small">
-                <Radio.Button value="static">Static Data</Radio.Button>
+                <Radio.Button value="static">
+                  Static Data <DocInfo docId={getDocId('response-static', 'action')} />
+                </Radio.Button>
                 <Radio.Button value="dynamic">
                   Dynamic (JavaScript) <DocInfo docId={getDocId('response-dynamic', 'action')} />
                 </Radio.Button>
