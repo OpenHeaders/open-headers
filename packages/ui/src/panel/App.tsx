@@ -58,7 +58,6 @@ import type { FilterConfig } from './data/filter-engine';
 import { DEFAULT_FILTER_CONFIG, hasFilterError, parseFilter } from './data/filter-engine';
 import { focusStore, setFocusedDock, setFocusedRegion } from './data/focus-store';
 import type { InspectorRowWithFires } from './data/inspector-row-projection';
-import type { DetailSection } from './data/inspector-tab';
 import { buildInspectorTab } from './data/inspector-tab';
 import { useParityDebugHook } from './data/parity-debug-hook';
 import { PANEL_TOOL_WINDOW_MAP, type PanelToolWindowId } from './data/tool-windows';
@@ -76,17 +75,9 @@ import { usePanelUiState } from './data/use-panel-ui-state';
 import { useCacheBypass } from './data/use-cache-bypass';
 import { useFooterSummary } from './data/use-footer-summary';
 import { useHarExport } from './data/use-har-export';
+import { useInspectorTabJumps } from './data/use-inspector-tab-jumps';
 import { useRulesLookup } from './data/use-rules-lookup';
 import { useSearchSession } from './data/use-search-session';
-
-// ── Helpers ──────────────────────────────────────────────────────────
-
-function sectionToTab(section: string): DetailSection {
-  if (section === 'Request Headers' || section === 'Response Headers' || section === 'General') return 'headers';
-  if (section === 'Query Params' || section === 'Request Body') return 'payload';
-  if (section === 'Response') return 'response';
-  return 'headers';
-}
 
 // ── Shell event bus (created once, stable across renders) ────────────
 
@@ -345,16 +336,10 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   );
 
   // ── Panel-level state ──────────────────────────────────────
-  const lastSectionRef = useRef<DetailSection>('headers');
   const [filter, setFilter] = useState<Set<string>>(new Set());
   const [urlFilter, setUrlFilter] = useState<string>('');
   const [filterConfig, setFilterConfig] = useState<FilterConfig>(DEFAULT_FILTER_CONFIG);
   const [showFilter, setShowFilter] = useState(true);
-  const [searchHighlight, setSearchHighlight] = useState<string | undefined>(undefined);
-  const [searchSection, setSearchSection] = useState<string | undefined>(undefined);
-  const [searchLineNumber, setSearchLineNumber] = useState<number | undefined>(undefined);
-  const [searchMatchIndex, setSearchMatchIndex] = useState<number | undefined>(undefined);
-  const [, setSearchNonce] = useState(0);
   const [visibleColumns, setVisibleColumns] = useState<Set<ColumnKey>>(() => new Set(DEFAULT_VISIBLE_COLUMNS));
 
   // Sync inspected-window origin into filter config so "Hide 3rd party"
@@ -401,59 +386,17 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   );
 
   // ── Open request as tab ────────────────────────────────────
-  const handleSelect = useCallback(
-    (requestId: string) => {
-      const row = data.lookupByRequestId.get(requestId);
-      if (!row) return;
-      const tab = buildInspectorTab({ lifecycle: row.lifecycle, displayId: row.displayId }, 'network');
-      tab.activeSection = lastSectionRef.current;
-      groups.addTab(tab);
-      setSearchHighlight(undefined);
-      setSearchSection(undefined);
-      setSearchLineNumber(undefined);
-    },
-    [data.lookupByRequestId, groups],
-  );
-
-  const handleCrossNav = useCallback(
-    (requestId: string) => {
-      tl.activateWindow('network');
-      handleSelect(requestId);
-    },
-    [tl, handleSelect],
-  );
-
-  // Annotation-rail click-through: open the row's inspector tab on the
-  // section the annotation targets (Headers, where the insight cards
-  // render) — same mechanism as a search-result jump.
-  const handleAnnotationJump = useCallback(
-    (requestId: string) => {
-      const row = data.lookupByRequestId.get(requestId);
-      if (!row) return;
-      const tab = buildInspectorTab({ lifecycle: row.lifecycle, displayId: row.displayId }, 'network');
-      tab.activeSection = 'headers';
-      groups.addTab(tab);
-      groups.updateTab(tab.id, { activeSection: 'headers' });
-    },
-    [data.lookupByRequestId, groups],
-  );
-
-  const handleSearchResult = useCallback(
-    (requestId: string, highlight: string, section: string, lineNumber: number, matchIndex: number) => {
-      const row = data.lookupByRequestId.get(requestId);
-      if (!row) return;
-      const tab = buildInspectorTab({ lifecycle: row.lifecycle, displayId: row.displayId }, 'network');
-      tab.activeSection = sectionToTab(section);
-      groups.addTab(tab);
-      groups.updateTab(tab.id, { activeSection: sectionToTab(section) });
-      setSearchHighlight(highlight);
-      setSearchSection(section);
-      setSearchLineNumber(lineNumber);
-      setSearchMatchIndex(matchIndex);
-      setSearchNonce((n) => n + 1);
-    },
-    [data.lookupByRequestId, groups],
-  );
+  const {
+    lastSectionRef,
+    handleSelect,
+    handleCrossNav,
+    handleAnnotationJump,
+    handleSearchResult,
+    searchHighlight,
+    searchSection,
+    searchLineNumber,
+    searchMatchIndex,
+  } = useInspectorTabJumps({ lookupByRequestId: data.lookupByRequestId, groups, tl });
 
   // ── Editor group tab body ──────────────────────────────────
   const renderTabBody = useCallback(
