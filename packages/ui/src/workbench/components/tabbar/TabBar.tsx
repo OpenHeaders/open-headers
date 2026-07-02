@@ -26,6 +26,7 @@ import { useShortcutLabel } from '../../hooks/useWorkspaceShortcuts';
 import { buildRuleTypeMenuItems } from '../../rule-type-menu';
 import type { ClosedTab, WorkbenchTab } from '../../types';
 import CrossLeafInsertionMarker from './CrossLeafInsertionMarker';
+import OverlayScrollThumb from './OverlayScrollThumb';
 import SortableTab from './SortableTab';
 import TabSearchDropdown from './TabSearchDropdown';
 import { buildTabContextMenu } from './build-tab-context-menu';
@@ -373,6 +374,11 @@ const TabBar: React.FC<TabBarProps> = ({
           )}
         </SortableContext>
       </div>
+
+      {/* Gecko-only stand-in for the 3px webkit scroll thumb (Firefox
+          has no native sub-`thin` scrollbar, so the native one is
+          hidden and this mirrors it). Renders null on Chromium. */}
+      <OverlayScrollThumb scrollRef={scrollRef} />
 
       {/* + button — sits IMMEDIATELY after the tabs strip in the bar's
           flex layout, never inside the scroll container. When tabs

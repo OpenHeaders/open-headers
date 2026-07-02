@@ -838,11 +838,13 @@ body {
   // is the only way to get a sub-`thin` scrollbar in Chromium right
   // now. Firefox ignores the webkit pseudos and would paint its
   // full-size classic scrollbar across the 32 px bar; its `thin` is
-  // still ~8 px and reserves layout space, so there the scrollbar is
-  // hidden outright — the edge-fade mask above signals overflow and
-  // wheel/trackpad scrolling still works. Scoped via `@supports
-  // (-moz-appearance: none)` (Firefox-only) because if Chromium saw
-  // `scrollbar-width` it would discard the webkit pseudo styling.
+  // still ~8 px and reserves layout space, so there the native
+  // scrollbar is hidden and `OverlayScrollThumb` (a sibling of this
+  // strip, styled by `.rules-tabs-overlay-thumb` below) mirrors the
+  // 3 px webkit thumb from scroll metrics instead. Scoped via
+  // `@supports (-moz-appearance: none)` (Firefox-only) because if
+  // Chromium saw `scrollbar-width` it would discard the webkit
+  // pseudo styling.
   @supports (-moz-appearance: none) {
     scrollbar-width: none;
   }
@@ -881,6 +883,29 @@ body {
   &::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.18);
   }
+}
+
+// Gecko stand-in for the webkit thumb above — same 3 px height, same
+// rest/hover colours. `OverlayScrollThumb` owns `left`/`width` (synced
+// from scroll metrics); CSS owns everything visual. `pointer-events:
+// none` because at 3 px the webkit thumb isn't practically draggable
+// either — wheel, auto-scroll and tab search are the navigation paths.
+.rules-tabs-overlay-thumb {
+  position: absolute;
+  bottom: 0;
+  height: 3px;
+  border-radius: 2px;
+  background: transparent;
+  pointer-events: none;
+  transition: background 0.15s ease;
+}
+
+.rules-tabs-bar:hover .rules-tabs-overlay-thumb {
+  background: rgba(128, 128, 128, 0.28);
+}
+
+[data-theme='dark'] .rules-tabs-bar:hover .rules-tabs-overlay-thumb {
+  background: rgba(255, 255, 255, 0.18);
 }
 
 // `+` button anchored to the strip's right edge, never shrinking. The
