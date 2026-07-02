@@ -1,36 +1,33 @@
-import { LayoutOutlined, ReloadOutlined, SettingOutlined, ShareAltOutlined } from '@ant-design/icons';
+import { LayoutOutlined, SettingOutlined } from '@ant-design/icons';
 import { hostAssets } from '@openheaders/core/assets';
 import { hostNavigation } from '@openheaders/core/navigation';
 import type { Environment } from '@openheaders/core/types';
 import type { DockLayoutApi } from '@openheaders/ui/shared/dock-layout';
-import {
-  DOCK_LABELS,
-  DockSlotIcon,
-  LayoutMenuIcon,
-  RegionToggle,
-  SidebarLayoutIcon,
-} from '@openheaders/ui/shared/dock-layout';
+import { LayoutMenuIcon, RegionToggle } from '@openheaders/ui/shared/dock-layout';
 import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-scope-view-state';
-import { instanceLabel, instanceLabelPlural } from '@openheaders/ui/shared/host-vocabulary';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 import EnvironmentSelector from '@openheaders/ui/workbench/components/shell/EnvironmentSelector';
-import { useIsModified, useResetSetting, useSetting, useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
-import { Dropdown, type MenuProps, Space, Tooltip, theme } from 'antd';
+import { useSetting, useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
+import { Dropdown, type MenuProps, Tooltip, theme } from 'antd';
 import type React from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import type { FilterConfig } from '../data/filter-engine';
-import { PANEL_TOOL_WINDOW_MAP, type PanelToolWindowId } from '../data/tool-windows';
+import type { PanelToolWindowId } from '../data/tool-windows';
 import type { PanelViewState } from '../data/use-panel-tool-layout';
 import { DebugControlsCluster } from './DebugControlsCluster';
 import { PanelWorkspaceSelector } from './PanelWorkspaceSelector';
 import { PRESERVE_LOG_INFO } from './preserve-log-info';
 import { RuleExecutionsHint } from './RuleExecutions';
+import {
+  alignmentGlyph,
+  type BottomPanelAlignmentSetting,
+  buildPanelLayoutMenu,
+  menuIconWrap,
+  menuLabel,
+} from './toolbar-layout-menu';
 import { MORE_FILTERS_INFO, VIEW_INFO } from './toolbar-menu-info';
-import { ToolbarMenuPopover } from './ToolbarMenuPopover';
-
-type SidebarLayoutVariantSetting = 'proportional' | 'compact' | 'stacked' | 'dynamic';
-type BottomPanelAlignmentSetting = 'center' | 'left' | 'right' | 'justify';
+import { ExportMenu, MoreFiltersMenu, ViewMenu } from './toolbar-menus';
 
 function IconRecord({ active }: { active: boolean }) {
   return active ? (
@@ -67,281 +64,6 @@ function IconSearch() {
       <circle cx="7" cy="7" r="4" fill="none" stroke="currentColor" strokeWidth="1.5" />
       <line x1="10" y1="10" x2="14" y2="14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
-  );
-}
-
-function IconDownload() {
-  return (
-    <svg viewBox="0 0 16 16" role="img" aria-hidden="true">
-      <path
-        d="M8 2v8m0 0l-3-3m3 3l3-3"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path d="M2 13h12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-/**
- * "More filters ▾" dropdown — mirrors Chrome's Network panel convention
- * of tucking secondary filters (data URLs, third-party) behind a
- * compact menu rather than eating first-class toolbar space. Each item
- * is a checkbox; toggling does not close the popover so the user can
- * flip multiple filters in one gesture.
- */
-function MoreFiltersMenu({
-  filterConfig,
-  onFilterConfigChange,
-}: {
-  filterConfig: FilterConfig;
-  onFilterConfigChange: (cfg: FilterConfig) => void;
-}) {
-  const thirdPartyReady = filterConfig.pageOrigin != null;
-  const flags = [
-    filterConfig.hideDataUrls,
-    filterConfig.hideExtensionUrls,
-    filterConfig.onlyBlockedRequests,
-    filterConfig.onlyThirdParty,
-  ];
-  const activeCount = flags.reduce((n, v) => n + (v ? 1 : 0), 0);
-  const active = activeCount > 0;
-
-  return (
-    <ToolbarMenuPopover label="More filters" activeCount={activeCount} placement="bottomLeft">
-      {/* Hide-* filters: exclude matching rows from the list. */}
-      <label className="dt-morefilters-item">
-        <input
-          type="checkbox"
-          checked={filterConfig.hideDataUrls}
-          onChange={(e) => onFilterConfigChange({ ...filterConfig, hideDataUrls: e.target.checked })}
-        />
-        Hide data URLs
-      </label>
-      <label className="dt-morefilters-item">
-        <input
-          type="checkbox"
-          checked={filterConfig.hideExtensionUrls}
-          onChange={(e) => onFilterConfigChange({ ...filterConfig, hideExtensionUrls: e.target.checked })}
-        />
-        Hide extension URLs
-      </label>
-      <div className="dt-morefilters-divider" />
-      {/* Only-* filters: restrict the list to matching rows. */}
-      <label className="dt-morefilters-item">
-        <input
-          type="checkbox"
-          checked={filterConfig.onlyBlockedRequests}
-          onChange={(e) => onFilterConfigChange({ ...filterConfig, onlyBlockedRequests: e.target.checked })}
-        />
-        Blocked requests
-      </label>
-      <label
-        className={`dt-morefilters-item${!thirdPartyReady ? ' dt-morefilters-item--disabled' : ''}`}
-        title={!thirdPartyReady ? 'Page origin not yet available' : undefined}
-      >
-        <input
-          type="checkbox"
-          checked={filterConfig.onlyThirdParty}
-          disabled={!thirdPartyReady}
-          onChange={(e) => onFilterConfigChange({ ...filterConfig, onlyThirdParty: e.target.checked })}
-        />
-        3rd-party requests
-      </label>
-      <div className="dt-morefilters-divider" />
-      <button
-        type="button"
-        className="dt-morefilters-reset"
-        disabled={!active}
-        onClick={() => {
-          onFilterConfigChange({
-            ...filterConfig,
-            hideDataUrls: false,
-            hideExtensionUrls: false,
-            onlyBlockedRequests: false,
-            onlyThirdParty: false,
-          });
-        }}
-      >
-        Reset to default
-      </button>
-    </ToolbarMenuPopover>
-  );
-}
-
-/**
- * "View ▾" dropdown — toggles which optional stats the footer shows.
- * Same checkbox-popover idiom as More filters; each toggle is a `user`
- * setting so the choice persists across panels. The badge counts the
- * stats currently surfaced beyond the always-on counts.
- */
-function ViewMenu() {
-  const [showModified, setShowModified] = useSetting('devpanelLayout.footerShowModified');
-  const [showFailed, setShowFailed] = useSetting('devpanelLayout.footerShowFailed');
-  const [showCached, setShowCached] = useSetting('devpanelLayout.footerShowCached');
-  const [showPageContext, setShowPageContext] = useSetting('devpanelLayout.footerShowPageContext');
-  const [timingMode, setTimingMode] = useSetting('devpanelLayout.footerTimingMode');
-
-  const resetModified = useResetSetting('devpanelLayout.footerShowModified');
-  const resetFailed = useResetSetting('devpanelLayout.footerShowFailed');
-  const resetCached = useResetSetting('devpanelLayout.footerShowCached');
-  const resetPageContext = useResetSetting('devpanelLayout.footerShowPageContext');
-  const resetTimingMode = useResetSetting('devpanelLayout.footerTimingMode');
-  // Reset is offered only when something actually differs from the defaults.
-  // Each hook is called unconditionally and folded afterwards — chaining the
-  // calls through `||` directly would short-circuit once one is true, skipping
-  // the rest and changing the hook count between renders (React error #300).
-  const modifiedDirty = useIsModified('devpanelLayout.footerShowModified');
-  const failedDirty = useIsModified('devpanelLayout.footerShowFailed');
-  const cachedDirty = useIsModified('devpanelLayout.footerShowCached');
-  const pageContextDirty = useIsModified('devpanelLayout.footerShowPageContext');
-  const timingModeDirty = useIsModified('devpanelLayout.footerTimingMode');
-  const anyModified = modifiedDirty || failedDirty || cachedDirty || pageContextDirty || timingModeDirty;
-
-  const flags = [showModified, showFailed, showCached, showPageContext];
-  const activeCount = flags.reduce((n, v) => n + (v ? 1 : 0), 0);
-
-  return (
-    <ToolbarMenuPopover
-      label="Footer View"
-      activeCount={activeCount}
-      active={false}
-      placement="bottomLeft"
-      title="Choose which footer stats to show"
-    >
-      <label className="dt-morefilters-item">
-        <input type="checkbox" checked={showModified} onChange={(e) => setShowModified(e.target.checked)} />
-        Modified count
-      </label>
-      <label className="dt-morefilters-item">
-        <input type="checkbox" checked={showFailed} onChange={(e) => setShowFailed(e.target.checked)} />
-        Failed count
-      </label>
-      <label className="dt-morefilters-item">
-        <input type="checkbox" checked={showCached} onChange={(e) => setShowCached(e.target.checked)} />
-        Cached count
-      </label>
-      <div className="dt-morefilters-divider" />
-      <label
-        className="dt-morefilters-item"
-        title="When the log spans more than one navigation, name the page the timing milestones describe."
-      >
-        <input type="checkbox" checked={showPageContext} onChange={(e) => setShowPageContext(e.target.checked)} />
-        Current page label
-      </label>
-      <label
-        className="dt-morefilters-item"
-        title="Finish / DOMContentLoaded / Load span the whole preserve-log timeline from the first navigation (the browser default). Uncheck to report only the latest navigation."
-      >
-        <input
-          type="checkbox"
-          checked={timingMode !== 'lastNav'}
-          onChange={(e) => setTimingMode(e.target.checked ? 'aggregate' : 'lastNav')}
-        />
-        Timing across all navigations
-      </label>
-      <div className="dt-morefilters-divider" />
-      <button
-        type="button"
-        className="dt-morefilters-reset"
-        disabled={!anyModified}
-        onClick={() => {
-          resetModified();
-          resetFailed();
-          resetCached();
-          resetPageContext();
-          resetTimingMode();
-        }}
-      >
-        Reset to default
-      </button>
-    </ToolbarMenuPopover>
-  );
-}
-
-function ExportMenu({
-  onExport,
-  onCopy,
-  disabled,
-}: { onExport: (sanitize?: boolean) => void; onCopy: (sanitize?: boolean) => void; disabled: boolean }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('mousedown', onDoc, true);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDoc, true);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
-
-  return (
-    <div ref={ref} className="dt-export-menu-wrap">
-      <button
-        type="button"
-        className="dt-toolbar-icon"
-        onClick={() => !disabled && setOpen((v) => !v)}
-        title="Export traffic"
-        disabled={disabled}
-      >
-        <IconDownload />
-      </button>
-      {open && (
-        <div className="dt-ctx-menu dt-export-menu">
-          <button
-            type="button"
-            className="dt-ctx-item"
-            onClick={() => {
-              onExport(false);
-              setOpen(false);
-            }}
-          >
-            Export all as HAR
-          </button>
-          <button
-            type="button"
-            className="dt-ctx-item"
-            onClick={() => {
-              onExport(true);
-              setOpen(false);
-            }}
-          >
-            Export all as HAR (sanitized)
-          </button>
-          <button
-            type="button"
-            className="dt-ctx-item"
-            onClick={() => {
-              onCopy(false);
-              setOpen(false);
-            }}
-          >
-            Copy all as HAR
-          </button>
-          <button
-            type="button"
-            className="dt-ctx-item"
-            onClick={() => {
-              onCopy(true);
-              setOpen(false);
-            }}
-          >
-            Copy all as HAR (sanitized)
-          </button>
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -447,110 +169,17 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
     setBottomAlignDropdownOpen(nextOpen);
   };
 
-  const menuIconWrap = (node: React.ReactNode): React.ReactNode => (
-    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 18 }}>
-      {node}
-    </span>
-  );
-
-  const menuLabel = (checked: boolean, text: React.ReactNode): React.ReactNode => (
-    <Space size={6}>
-      <span style={{ width: 12, display: 'inline-block' }}>{checked ? '✓' : ''}</span>
-      {text}
-    </Space>
-  );
-
-  const alignmentGlyph = (
-    a: BottomPanelAlignmentSetting,
-  ): 'bottom-full' | 'bottom-left' | 'bottom-right' | 'bottom-nested' =>
-    a === 'justify' ? 'bottom-full' : a === 'left' ? 'bottom-left' : a === 'right' ? 'bottom-right' : 'bottom-nested';
-
-  const layoutMenu: MenuProps['items'] = [
-    {
-      key: 'bottom-alignment',
-      icon: menuIconWrap(<LayoutMenuIcon kind={alignmentGlyph(bottomPanelAlignment)} />),
-      label: 'Bottom Panel Alignment',
-      children: (
-        [
-          { key: 'center', label: 'Center (nested)' },
-          { key: 'left', label: 'Left' },
-          { key: 'right', label: 'Right' },
-          { key: 'justify', label: 'Justify (full width)' },
-        ] as { key: BottomPanelAlignmentSetting; label: string }[]
-      ).map((opt) => ({
-        key: `bottom-${opt.key}`,
-        icon: menuIconWrap(<LayoutMenuIcon kind={alignmentGlyph(opt.key)} />),
-        label: menuLabel(bottomPanelAlignment === opt.key, opt.label),
-        onClick: () => setBottomPanelAlignment(opt.key),
-      })),
-    },
-    {
-      key: 'show-labels',
-      icon: menuIconWrap(<LayoutMenuIcon kind={showLabels ? 'show-labels' : 'hide-labels'} />),
-      label: menuLabel(showLabels, 'Show Tool Window Names'),
-      onClick: () => setShowLabels(!showLabels),
-    },
-    {
-      key: 'sidebar-layout',
-      icon: menuIconWrap(<SidebarLayoutIcon variant={sidebarLayout} />),
-      label: 'Activity Bar Layout',
-      children: (
-        [
-          { key: 'proportional', label: 'Proportional (even halves)' },
-          { key: 'compact', label: 'Compact (bottom pinned)' },
-          { key: 'stacked', label: 'Stacked (all at top)' },
-          { key: 'dynamic', label: 'Dynamic (follows panel heights)' },
-        ] as { key: SidebarLayoutVariantSetting; label: string }[]
-      ).map((opt) => ({
-        key: `sidebar-${opt.key}`,
-        icon: menuIconWrap(<SidebarLayoutIcon variant={opt.key} />),
-        label: menuLabel(sidebarLayout === opt.key, opt.label),
-        onClick: () => setSidebarLayout(opt.key),
-      })),
-    },
-    { type: 'divider' },
-    {
-      key: 'inheritance-info',
-      icon: menuIconWrap(<ShareAltOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />),
-      label: (
-        <span style={{ fontSize: 11, color: token.colorTextSecondary, whiteSpace: 'normal', lineHeight: 1.4 }}>
-          {perTab.isDonor
-            ? `This ${instanceLabel()} is the default — new ${instanceLabelPlural()} inherit this layout.`
-            : `Another ${instanceLabel()} is the default — new ${instanceLabelPlural()} inherit from there.`}
-        </span>
-      ),
-      disabled: true,
-    },
-    {
-      key: 'reset-layout',
-      icon: menuIconWrap(<ReloadOutlined style={{ fontSize: 12 }} />),
-      label: 'Reset layout to defaults',
-      onClick: () => perTab.resetToDefaults(),
-    },
-    { type: 'divider' },
-    {
-      key: 'restore',
-      icon: menuIconWrap(<LayoutMenuIcon kind="restore-hidden" />),
-      label: 'Restore Hidden Activity Bar Tools',
-      disabled: tl.state.hidden.length === 0,
-      children:
-        tl.state.hidden.length === 0
-          ? undefined
-          : tl.state.hidden.map((id) => {
-              const def = PANEL_TOOL_WINDOW_MAP[id];
-              return {
-                key: `restore-${id}`,
-                icon: menuIconWrap(<DockSlotIcon slot={def.defaultSlot} size={20} />),
-                label: (
-                  <Space size={6}>
-                    <span>{def.label}</span>
-                  </Space>
-                ),
-                onClick: () => tl.restoreWindow(id),
-              };
-            }),
-    },
-  ];
+  const layoutMenu = buildPanelLayoutMenu({
+    token,
+    tl,
+    perTab,
+    bottomPanelAlignment,
+    setBottomPanelAlignment,
+    showLabels,
+    setShowLabels,
+    sidebarLayout,
+    setSidebarLayout,
+  });
 
   return (
     <div className="dt-header">

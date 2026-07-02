@@ -1,0 +1,156 @@
+/**
+ * PanelToolbar's layout-menu builder — the dropdown items for bottom
+ * panel alignment, tool-window labels, activity-bar layout, layout
+ * inheritance info, reset, and hidden-tool restore. Also exports the
+ * small glyph/label helpers the toolbar's inline bottom-align dropdown
+ * shares with the menu.
+ */
+
+import { ReloadOutlined, ShareAltOutlined } from '@ant-design/icons';
+import type { DockLayoutApi } from '@openheaders/ui/shared/dock-layout';
+import { DockSlotIcon, LayoutMenuIcon, SidebarLayoutIcon } from '@openheaders/ui/shared/dock-layout';
+import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-scope-view-state';
+import { instanceLabel, instanceLabelPlural } from '@openheaders/ui/shared/host-vocabulary';
+import type { GlobalToken, MenuProps } from 'antd';
+import { Space } from 'antd';
+import type React from 'react';
+import { PANEL_TOOL_WINDOW_MAP, type PanelToolWindowId } from '../data/tool-windows';
+import type { PanelViewState } from '../data/use-panel-tool-layout';
+
+export type SidebarLayoutVariantSetting = 'proportional' | 'compact' | 'stacked' | 'dynamic';
+export type BottomPanelAlignmentSetting = 'center' | 'left' | 'right' | 'justify';
+
+export const menuIconWrap = (node: React.ReactNode): React.ReactNode => (
+  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 18 }}>
+    {node}
+  </span>
+);
+
+export const menuLabel = (checked: boolean, text: React.ReactNode): React.ReactNode => (
+  <Space size={6}>
+    <span style={{ width: 12, display: 'inline-block' }}>{checked ? '✓' : ''}</span>
+    {text}
+  </Space>
+);
+
+export const alignmentGlyph = (
+  a: BottomPanelAlignmentSetting,
+): 'bottom-full' | 'bottom-left' | 'bottom-right' | 'bottom-nested' =>
+  a === 'justify' ? 'bottom-full' : a === 'left' ? 'bottom-left' : a === 'right' ? 'bottom-right' : 'bottom-nested';
+
+export interface PanelLayoutMenuOptions {
+  token: GlobalToken;
+  tl: DockLayoutApi<PanelToolWindowId>;
+  perTab: EditingScopeViewStateApi<PanelViewState>;
+  bottomPanelAlignment: BottomPanelAlignmentSetting;
+  setBottomPanelAlignment: (v: BottomPanelAlignmentSetting) => void;
+  showLabels: boolean;
+  setShowLabels: (v: boolean) => void;
+  sidebarLayout: SidebarLayoutVariantSetting;
+  setSidebarLayout: (v: SidebarLayoutVariantSetting) => void;
+}
+
+/**
+ * Builds the layout dropdown's items. Rebuilt every render (as the
+ * inline array was) so setting values and the tool-layout state stay
+ * current — no memoization is required because no item closes over a
+ * value that must be referentially stable.
+ */
+export function buildPanelLayoutMenu({
+  token,
+  tl,
+  perTab,
+  bottomPanelAlignment,
+  setBottomPanelAlignment,
+  showLabels,
+  setShowLabels,
+  sidebarLayout,
+  setSidebarLayout,
+}: PanelLayoutMenuOptions): MenuProps['items'] {
+  return [
+    {
+      key: 'bottom-alignment',
+      icon: menuIconWrap(<LayoutMenuIcon kind={alignmentGlyph(bottomPanelAlignment)} />),
+      label: 'Bottom Panel Alignment',
+      children: (
+        [
+          { key: 'center', label: 'Center (nested)' },
+          { key: 'left', label: 'Left' },
+          { key: 'right', label: 'Right' },
+          { key: 'justify', label: 'Justify (full width)' },
+        ] as { key: BottomPanelAlignmentSetting; label: string }[]
+      ).map((opt) => ({
+        key: `bottom-${opt.key}`,
+        icon: menuIconWrap(<LayoutMenuIcon kind={alignmentGlyph(opt.key)} />),
+        label: menuLabel(bottomPanelAlignment === opt.key, opt.label),
+        onClick: () => setBottomPanelAlignment(opt.key),
+      })),
+    },
+    {
+      key: 'show-labels',
+      icon: menuIconWrap(<LayoutMenuIcon kind={showLabels ? 'show-labels' : 'hide-labels'} />),
+      label: menuLabel(showLabels, 'Show Tool Window Names'),
+      onClick: () => setShowLabels(!showLabels),
+    },
+    {
+      key: 'sidebar-layout',
+      icon: menuIconWrap(<SidebarLayoutIcon variant={sidebarLayout} />),
+      label: 'Activity Bar Layout',
+      children: (
+        [
+          { key: 'proportional', label: 'Proportional (even halves)' },
+          { key: 'compact', label: 'Compact (bottom pinned)' },
+          { key: 'stacked', label: 'Stacked (all at top)' },
+          { key: 'dynamic', label: 'Dynamic (follows panel heights)' },
+        ] as { key: SidebarLayoutVariantSetting; label: string }[]
+      ).map((opt) => ({
+        key: `sidebar-${opt.key}`,
+        icon: menuIconWrap(<SidebarLayoutIcon variant={opt.key} />),
+        label: menuLabel(sidebarLayout === opt.key, opt.label),
+        onClick: () => setSidebarLayout(opt.key),
+      })),
+    },
+    { type: 'divider' },
+    {
+      key: 'inheritance-info',
+      icon: menuIconWrap(<ShareAltOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />),
+      label: (
+        <span style={{ fontSize: 11, color: token.colorTextSecondary, whiteSpace: 'normal', lineHeight: 1.4 }}>
+          {perTab.isDonor
+            ? `This ${instanceLabel()} is the default — new ${instanceLabelPlural()} inherit this layout.`
+            : `Another ${instanceLabel()} is the default — new ${instanceLabelPlural()} inherit from there.`}
+        </span>
+      ),
+      disabled: true,
+    },
+    {
+      key: 'reset-layout',
+      icon: menuIconWrap(<ReloadOutlined style={{ fontSize: 12 }} />),
+      label: 'Reset layout to defaults',
+      onClick: () => perTab.resetToDefaults(),
+    },
+    { type: 'divider' },
+    {
+      key: 'restore',
+      icon: menuIconWrap(<LayoutMenuIcon kind="restore-hidden" />),
+      label: 'Restore Hidden Activity Bar Tools',
+      disabled: tl.state.hidden.length === 0,
+      children:
+        tl.state.hidden.length === 0
+          ? undefined
+          : tl.state.hidden.map((id) => {
+              const def = PANEL_TOOL_WINDOW_MAP[id];
+              return {
+                key: `restore-${id}`,
+                icon: menuIconWrap(<DockSlotIcon slot={def.defaultSlot} size={20} />),
+                label: (
+                  <Space size={6}>
+                    <span>{def.label}</span>
+                  </Space>
+                ),
+                onClick: () => tl.restoreWindow(id),
+              };
+            }),
+    },
+  ];
+}
