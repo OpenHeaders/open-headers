@@ -196,8 +196,22 @@ const TabBar: React.FC<TabBarProps> = ({
   }, [activeTabId, tabs]);
 
   // ── Horizontal wheel scroll ────────────────────────────────────
+  // Only translate predominantly-vertical wheel gestures; a horizontal
+  // trackpad pan already scrolls the strip natively via deltaX, and
+  // adding its stray deltaY component on top fights the native scroll
+  // (a rubber-band feel on slow pans, most visible in Firefox).
+  //
+  // Deltas are normalized to pixels first: Chromium always reports
+  // pixels (deltaMode 0), but Firefox reports physical mouse-wheel
+  // ticks in lines (deltaMode 1, ~3 per notch) — raw `+= deltaY`
+  // there moves the strip ~3 px per notch, i.e. not at all.
   const handleWheel = useCallback((e: React.WheelEvent) => {
-    if (scrollRef.current) scrollRef.current.scrollLeft += e.deltaY;
+    if (Math.abs(e.deltaX) >= Math.abs(e.deltaY)) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    const unit =
+      e.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16 : e.deltaMode === WheelEvent.DOM_DELTA_PAGE ? el.clientWidth : 1;
+    el.scrollLeft += e.deltaY * unit;
   }, []);
 
   // ── Register tab-search toggle with the workspace shortcut host ──
