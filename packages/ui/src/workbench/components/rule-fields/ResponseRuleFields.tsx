@@ -2,11 +2,11 @@
  * ResponseRuleFields — Modify Response rule configuration.
  *
  * Two independent axes (a 2×2):
- *   Response source — does the request reach the server?
- *     No  ('mock')    — respond without calling the server; the request
- *                       never leaves the browser.
- *     Yes ('network') — call the server, then change the reply before the
- *                       page sees it.
+ *   Response source — a two-mode Segmented:
+ *     Mock   ('mock')    — respond without calling the server; the request
+ *                          never leaves the browser.
+ *     Modify ('network') — call the server, then change the reply before
+ *                          the page sees it.
  *   Body type — how the body is produced:
  *     Static Data — a literal response body (JSON, HTML, etc.)
  *     Dynamic (JavaScript) — mock builds the body via buildResponse(),
@@ -31,7 +31,7 @@
  */
 
 import { CloseOutlined, PlusOutlined } from '@ant-design/icons';
-import { Alert, AutoComplete, Button, Form, Input, Radio, Select, Typography } from 'antd';
+import { Alert, AutoComplete, Button, Form, Input, Radio, Segmented, Select, Typography } from 'antd';
 import type React from 'react';
 import { EntityField, useActionPaths } from '@openheaders/ui/shared/awareness';
 import CodeEditor from '../shared/CodeEditor';
@@ -196,29 +196,21 @@ const ResponseRuleFields: React.FC = () => {
         message="Acts on fetch() and XMLHttpRequest responses for REST or GraphQL API requests."
       />
 
-      {/* Response source — does the request reach the server? Leads with the
-          network question so users pick by behavior, not by jargon. The live
-          status line below reframes the status/CT/header fields per mode. */}
+      {/* Response source — a two-mode Segmented (mock vs modify). The labels
+          carry the explanation; the caption below reframes per mode. */}
       <div style={{ marginBottom: 12 }}>
         <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
-          Response source — does the request reach the server?
+          Response source
         </Text>
         <EntityField path={paths.responseSource}>
           <Form.Item name="responseSource" style={{ marginBottom: 0 }}>
-            <Radio.Group style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <Radio value="mock">
-                <Text style={{ fontSize: 12 }}>No</Text>
-                <Text type="secondary" style={{ fontSize: 11, marginLeft: 6 }}>
-                  — respond without calling the server · the request never leaves the browser · also called "mock"
-                </Text>
-              </Radio>
-              <Radio value="network">
-                <Text style={{ fontSize: 12 }}>Yes</Text>
-                <Text type="secondary" style={{ fontSize: 11, marginLeft: 6 }}>
-                  — call the server, then change the response · the real request is sent; you modify what comes back
-                </Text>
-              </Radio>
-            </Radio.Group>
+            <Segmented
+              size="small"
+              options={[
+                { value: 'mock', label: '⚡ Mock — no request sent' },
+                { value: 'network', label: "🌐 Modify — edit the server's reply" },
+              ]}
+            />
           </Form.Item>
         </EntityField>
         <Form.Item noStyle shouldUpdate={(prev, cur) => prev.responseSource !== cur.responseSource}>
@@ -234,8 +226,8 @@ const ResponseRuleFields: React.FC = () => {
                 }}
               >
                 {isNetwork
-                  ? '🌐 The request is sent, then your changes are applied to the reply.'
-                  : '⚡ No request is sent — the page gets your response directly.'}
+                  ? 'The real request is sent; your changes are applied to the reply before the page sees it.'
+                  : 'The request never leaves the browser — the page gets your response directly.'}
               </div>
             );
           }}
