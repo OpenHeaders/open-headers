@@ -27,6 +27,13 @@ export interface TemplateInputProps {
    *  long value is comfortably editable without a horizontal scrollbar.
    *  Ignored when `multiline` is set. */
   expandOnFocus?: boolean;
+  /** Textarea-like display with single-line SEMANTICS: always
+   *  word-wrapped (focused or not), auto-grows with content up to
+   *  `maxRows` lines, then inner-scrolls. Unlike `expandOnFocus` it
+   *  never collapses on blur — the field keeps its size (including a
+   *  `resizable` grip-dragged height) regardless of focus. Ignored
+   *  when `multiline` is set; takes precedence over `expandOnFocus`. */
+  wrap?: boolean;
   /** Controlled override for `expandOnFocus`'s expanded state. When set,
    *  it drives the collapsed/expanded display instead of the field's own
    *  focus — lets a parent expand a whole group of fields together (e.g.
@@ -36,6 +43,17 @@ export interface TemplateInputProps {
   /** Row cap for `expandOnFocus`'s grown editor before it inner-scrolls.
    *  Default 5. */
   maxRows?: number;
+  /** When true, the expanded surface shows a textarea-style grip in its
+   *  bottom-right corner. Dragging it sets an explicit height that
+   *  overrides the `maxRows` auto-grow cap (the field inner-scrolls
+   *  within whatever height the user chose); double-clicking the grip
+   *  returns to auto-grow. Only meaningful with `multiline` or
+   *  `expandOnFocus`. */
+  resizable?: boolean;
+  /** AntD `Input`/`TextArea` parity: when true and the field has a
+   *  value, show an ✕ at the right edge that clears it (top-right on
+   *  an expanded surface, vertically centered on a single line). */
+  allowClear?: boolean;
   /** Placeholder. Rendered via a `::before` pseudo when the field is empty. */
   placeholder?: string;
   /** Mirrors AntD `Input` size prop — tunes the editable's padding. */

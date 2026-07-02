@@ -236,7 +236,14 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId }: Modif
                                       name={[field.name, 'value']}
                                       style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
                                     >
-                                      <TemplateInput size="small" placeholder="Value to append" />
+                                      <TemplateInput
+                                        size="small"
+                                        placeholder="Value to append"
+                                        wrap
+                                        maxRows={4}
+                                        resizable
+                                        allowClear
+                                      />
                                     </Form.Item>,
                                   )}
                                 </>
@@ -249,7 +256,14 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId }: Modif
                                 name={[field.name, 'value']}
                                 style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
                               >
-                                <TemplateInput size="small" placeholder="Header Value" />
+                                <TemplateInput
+                                  size="small"
+                                  placeholder="Header Value"
+                                  wrap
+                                  maxRows={4}
+                                  resizable
+                                  allowClear
+                                />
                               </Form.Item>,
                             );
                           }}

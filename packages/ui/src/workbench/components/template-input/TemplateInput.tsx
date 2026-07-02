@@ -21,6 +21,7 @@
  *     unresolved once the caret leaves.
  */
 
+import { CloseCircleFilled } from '@ant-design/icons';
 import { useVariableResolver } from '@openheaders/ui/shared/hooks/useVariableResolver';
 import { useVariableSuggestions } from '@openheaders/ui/shared/hooks/useVariableSuggestions';
 import { useWorkspaces } from '@openheaders/ui/shared/hooks/useWorkspaces';
@@ -64,8 +65,11 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       suggestionContext,
       multiline = false,
       expandOnFocus = false,
+      wrap = false,
       expanded,
       maxRows = 5,
+      resizable = false,
+      allowClear = false,
       placeholder = '',
       size = 'middle',
       variant = 'outlined',
@@ -600,12 +604,56 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
     // together), else the field's own focus. Collapsed-ellipsis is the
     // inactive state of an `expandOnFocus` field.
     const expandActive = expanded ?? isFocused;
-    const displayExpanded = multiline || (expandOnFocus && expandActive);
-    const displayCollapsed = expandOnFocus && !expandActive;
+    const displayExpanded = multiline || wrap || (expandOnFocus && expandActive);
+    const displayCollapsed = expandOnFocus && !wrap && !expandActive;
+
+    // Manual height from the resize grip. Overrides the maxRows
+    // auto-grow cap while the surface is expanded; kept across
+    // collapse/expand cycles so the field reopens at the user's size.
+    const [manualHeight, setManualHeight] = useState<number | null>(null);
+    const gripDragRef = useRef<{ startY: number; startHeight: number } | null>(null);
+    const handleGripPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+      const el = editableRef.current;
+      if (!el) return;
+      // preventDefault stops the pointerdown from blurring the editable;
+      // the explicit focus() covers grabbing the grip on a blurred
+      // (collapsed) field — focusing expands it, so the drag resizes the
+      // wrapped surface rather than the one-line ellipsis view.
+      e.preventDefault();
+      el.focus();
+      e.currentTarget.setPointerCapture(e.pointerId);
+      gripDragRef.current = { startY: e.clientY, startHeight: el.offsetHeight };
+    }, []);
+    const handleGripPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+      const drag = gripDragRef.current;
+      if (!drag) return;
+      const minHeight = 24;
+      setManualHeight(Math.max(minHeight, drag.startHeight + (e.clientY - drag.startY)));
+    }, []);
+    const handleGripPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+      gripDragRef.current = null;
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }, []);
+
+    // AntD-parity clear affordance: clears both the DOM (covers
+    // uncontrolled use) and the controlled value, keeping focus in the
+    // field so the user can type the replacement straight away.
+    const showClear = allowClear && (value ?? '').length > 0;
+    const handleClear = useCallback(() => {
+      const root = editableRef.current;
+      if (root) {
+        root.innerHTML = '';
+        root.focus();
+      }
+      onChange?.('');
+    }, [onChange]);
 
     const editableStyle: React.CSSProperties = {
       minHeight: sizeMinHeight,
       padding: sizePadding,
+      // Reserve just enough room that the last characters don't slide
+      // under the ✕ (12px icon + its inset + a 2px gap).
+      ...(showClear ? { paddingRight: displayExpanded ? 26 : 22 } : null),
       lineHeight: 1.5714,
       fontSize: size === 'small' ? 12 : size === 'large' ? 16 : 14,
       fontFamily: 'inherit',
@@ -627,10 +675,18 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       overflowX: displayExpanded || displayCollapsed ? 'hidden' : 'auto',
       overflowY: displayExpanded ? 'auto' : 'hidden',
       textOverflow: displayCollapsed ? 'ellipsis' : undefined,
-      // Auto-grow cap for the focused expand-on-focus editor: ~maxRows
-      // lines (lineHeight 1.5714) + a little padding allowance; past it
-      // the surface inner-scrolls.
-      maxHeight: expandOnFocus && expandActive ? `${(maxRows * 1.5714 + 0.9).toFixed(2)}em` : undefined,
+      // Auto-grow cap for the wrapped editor (`wrap` always, or an
+      // expand-on-focus field while active): ~maxRows lines (lineHeight
+      // 1.5714) + a little padding allowance; past it the surface
+      // inner-scrolls. A grip-dragged manual height replaces the cap
+      // entirely — the user's chosen size wins.
+      height: displayExpanded && resizable && manualHeight != null ? manualHeight : undefined,
+      maxHeight:
+        displayExpanded && resizable && manualHeight != null
+          ? 'none'
+          : wrap || (expandOnFocus && expandActive)
+            ? `${(maxRows * 1.5714 + 0.9).toFixed(2)}em`
+            : undefined,
       wordBreak: displayExpanded ? 'break-word' : 'normal',
       transition: 'border-color 0.2s, box-shadow 0.2s',
       boxShadow: isFocused && variant !== 'borderless' ? focusShadow : undefined,
@@ -670,6 +726,42 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
           onMouseOver={handleEditableMouseOver}
           onMouseOut={handleEditableMouseOut}
         />
+        {resizable && (
+          <div
+            className="oh-template-input-resize-grip"
+            onPointerDown={handleGripPointerDown}
+            onPointerMove={handleGripPointerMove}
+            onPointerUp={handleGripPointerUp}
+            onDoubleClick={() => setManualHeight(null)}
+            aria-hidden="true"
+          />
+        )}
+        {showClear && (
+          <CloseCircleFilled
+            className="oh-template-input-clear"
+            aria-label="Clear value"
+            style={{
+              // Inset left of the resize grip's column (a one-row expanded
+              // field puts "top-right" and "bottom-right" at the same
+              // spot, so side-by-side is the only non-overlapping layout —
+              // same as AntD TextArea's allowClear + resize). Also clears
+              // the unresolved dot when flagged. Top-right on an expanded
+              // surface, centered on a single line.
+              // Expanded: sit immediately left of the 8px scrollbar column
+              // (the grip below never collides — the scrollbar track stops
+              // above it). Single line: hug the right edge. The unresolved
+              // dot pushes either further left.
+              right: (displayExpanded ? 10 : 6) + (hasUnresolvedRef ? 10 : 0),
+              // Expanded: pin to the first line's center (size-dependent —
+              // small fields have no vertical padding). Single line:
+              // center in the field.
+              ...(displayExpanded ? { top: size === 'small' ? 4 : 9 } : { top: '50%', transform: 'translateY(-50%)' }),
+            }}
+            // preventDefault keeps the editable focused through the click.
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={handleClear}
+          />
+        )}
         {isOpen &&
           popoverCoords &&
           // A lone `{` only opens the popover once it has a match —
