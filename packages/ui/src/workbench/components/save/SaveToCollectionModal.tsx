@@ -7,14 +7,13 @@
  * Tree navigation uses shared utilities from @openheaders/core/utils.
  */
 
-import { FolderOpenOutlined, FolderOutlined, PlusOutlined, RightOutlined, SaveOutlined } from '@ant-design/icons';
+import { FolderOpenOutlined, FolderOutlined, PlusOutlined, SaveOutlined } from '@ant-design/icons';
 import type { Collection, CollectionTree, Rule } from '@openheaders/core/types';
-import { isRuleComplete } from '@openheaders/core/utils';
 import { Button, Input, type InputRef, Modal, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useShortcutLabel } from '../../hooks/useWorkspaceShortcuts';
-import { buildRuleIcon } from '../shared/rule-icon';
+import { renderCollectionRows, renderNodeRows } from './save-browser-rows';
 import { useSaveBrowser } from './use-save-browser';
 
 const { Text } = Typography;
@@ -418,44 +417,13 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
                 )}
               </div>
             )}
-            {filteredCollections.map((col) => {
-              const rowId = `col-${col.uid}`;
-              const isFocused = rowId === effectiveFocusId;
-              return (
-                <div
-                  key={col.uid}
-                  data-row-id={rowId}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    padding: '8px 12px',
-                    cursor: 'pointer',
-                    fontSize: 12,
-                    borderBottom: `1px solid ${token.colorBorderSecondary}`,
-                    background: isFocused ? token.colorPrimaryBg : undefined,
-                  }}
-                  onClick={() => {
-                    setSelectedCollectionId(col.uid);
-                    setSearch('');
-                    setFocusedId(null);
-                  }}
-                  onMouseEnter={(e) => {
-                    setFocusedId(rowId);
-                    if (!isFocused) (e.currentTarget as HTMLElement).style.background = 'rgba(128,128,128,0.08)';
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isFocused) (e.currentTarget as HTMLElement).style.background = '';
-                  }}
-                  role="option"
-                  aria-selected={isFocused}
-                  tabIndex={-1}
-                >
-                  <FolderOpenOutlined style={{ fontSize: 13, color: token.colorTextTertiary }} />
-                  <span style={{ flex: 1, color: token.colorText }}>{col.name}</span>
-                  <RightOutlined style={{ fontSize: 10, color: token.colorTextQuaternary }} />
-                </div>
-              );
+            {renderCollectionRows({
+              filteredCollections,
+              effectiveFocusId,
+              token,
+              setSelectedCollectionId,
+              setSearch,
+              setFocusedId,
             })}
           </>
         )}
@@ -512,73 +480,16 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
               </div>
             )}
 
-            {filteredCurrentNodes.map((node) => {
-              if (node.type === 'folder') {
-                const rowId = `fld-${node.uid}`;
-                const isFocused = rowId === effectiveFocusId;
-                return (
-                  <div
-                    key={node.uid}
-                    data-row-id={rowId}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      padding: '8px 12px',
-                      cursor: 'pointer',
-                      fontSize: 12,
-                      borderBottom: `1px solid ${token.colorBorderSecondary}`,
-                      background: isFocused ? token.colorPrimaryBg : undefined,
-                    }}
-                    onClick={() => {
-                      setSelectedFolderPath(node.path);
-                      setCreatingFolder(false);
-                      setFocusedId(null);
-                    }}
-                    onMouseEnter={(e) => {
-                      setFocusedId(rowId);
-                      if (!isFocused) (e.currentTarget as HTMLElement).style.background = 'rgba(128,128,128,0.08)';
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isFocused) (e.currentTarget as HTMLElement).style.background = '';
-                    }}
-                    role="option"
-                    aria-selected={isFocused}
-                    tabIndex={-1}
-                  >
-                    <FolderOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />
-                    <span style={{ flex: 1, color: token.colorText }}>{node.name}</span>
-                    <RightOutlined style={{ fontSize: 10, color: token.colorTextQuaternary }} />
-                  </div>
-                );
-              }
-              if (node.type === 'rule') {
-                // Mirror the sidebar's stateful icon: arrow (direction) +
-                // color (active/draft) computed from the full rule, same
-                // predicates as `useRulesTreeNodes`.
-                const fullRule = rules?.find((r) => r.uid === node.uid);
-                const complete = fullRule ? isRuleComplete(fullRule) : true;
-                const paused = pausedUids?.has(node.uid) ?? false;
-                const unresolved = complete && (unresolvableRuleUids?.has(node.uid) ?? false);
-                const isActive = node.enabled && complete && !paused && !unresolved;
-                return (
-                  <div
-                    key={node.uid}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      padding: '6px 12px',
-                      fontSize: 12,
-                      color: token.colorTextSecondary,
-                    }}
-                  >
-                    {buildRuleIcon({ ruleType: node.ruleType, rule: fullRule, isActive, paused })}
-                    <span>{node.name}</span>
-                  </div>
-                );
-              }
-              return null;
+            {renderNodeRows({
+              filteredCurrentNodes,
+              effectiveFocusId,
+              token,
+              setSelectedFolderPath,
+              setCreatingFolder,
+              setFocusedId,
+              rules,
+              pausedUids,
+              unresolvableRuleUids,
             })}
 
             {filteredCurrentNodes.length === 0 && !creatingFolder && (
