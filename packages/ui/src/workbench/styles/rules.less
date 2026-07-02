@@ -2027,7 +2027,8 @@ body {
 
 // Corner resize grip — same affordance (and diagonal-lines glyph) as
 // `.oh-template-input-resize-grip`; drags the editor height, double-
-// click resets to the default.
+// click resets to the default. Lives in a reserved strip below the
+// editor, so it never contends with Monaco's vertical scrollbar.
 .rules-code-editor-resize-grip {
   position: absolute;
   right: 2px;
@@ -2035,9 +2036,6 @@ body {
   width: 8px;
   height: 8px;
   cursor: ns-resize;
-  // Above Monaco's scrollbars (z-index 11 in scrollbars.css) so the
-  // corner hit-test reaches the grip, not the vertical slider.
-  z-index: 12;
   touch-action: none;
   background: linear-gradient(
     135deg,

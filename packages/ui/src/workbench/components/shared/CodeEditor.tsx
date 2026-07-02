@@ -194,6 +194,9 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         borderRadius: 6,
         overflow: 'hidden',
         position: 'relative',
+        // Matches every theme's `editor.background`, so the grip strip
+        // below the editor reads as part of the editor surface.
+        background: token.colorBgContainer,
       }}
       className="rules-code-editor"
     >
@@ -284,14 +287,18 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           </Tooltip>
         </div>
       )}
-      <div
-        className="rules-code-editor-resize-grip"
-        onPointerDown={handleGripPointerDown}
-        onPointerMove={handleGripPointerMove}
-        onPointerUp={handleGripPointerUp}
-        onDoubleClick={() => setManualHeight(null)}
-        aria-hidden="true"
-      />
+      {/* Grip strip — reserved row below the editor so Monaco's vertical
+          scrollbar (which spans only the Editor element) ends above the
+          grip instead of sharing its corner. */}
+      <div style={{ height: 12, position: 'relative' }} aria-hidden="true">
+        <div
+          className="rules-code-editor-resize-grip"
+          onPointerDown={handleGripPointerDown}
+          onPointerMove={handleGripPointerMove}
+          onPointerUp={handleGripPointerUp}
+          onDoubleClick={() => setManualHeight(null)}
+        />
+      </div>
     </div>
   );
 };
