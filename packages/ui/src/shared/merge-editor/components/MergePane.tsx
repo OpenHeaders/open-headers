@@ -43,12 +43,10 @@ import type { Hunk } from '../diff/line-diff';
 import { useCharDecorations } from '../monaco/use-char-decorations';
 import { useGridResize } from '../monaco/use-grid-resize';
 import { useHunkActionMarkers } from '../monaco/use-hunk-action-markers';
-import {
-  useHunkActionZones,
-  useHunkAlignmentPlaceholders,
-  useResultStatusZones,
-} from '../monaco/use-hunk-action-zones';
+import { useHunkActionZones } from '../monaco/use-hunk-action-zones';
+import { useHunkAlignmentPlaceholders } from '../monaco/use-hunk-alignment-placeholders';
 import { useHunkDecorations } from '../monaco/use-hunk-decorations';
+import { useResultStatusZones } from '../monaco/use-result-status-zones';
 import { useHunkTrackedRanges } from '../monaco/use-hunk-tracked-ranges';
 import { type MergeActionsContext, useMergeActions } from '../monaco/use-merge-actions';
 import { useMonacoEditorLifecycle } from '../monaco/use-monaco-editor-lifecycle';
