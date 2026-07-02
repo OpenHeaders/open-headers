@@ -693,9 +693,13 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 
                       <Tooltip
                         title={
-                          userMenuItems.length === 0
-                            ? 'No user templates yet for this rule type — save one first'
-                            : undefined
+                          userMenuItems.length === 0 ? (
+                            <span>
+                              User templates are your own reusable presets for this rule type. Configure the rule the
+                              way you want, then choose <strong>⋮ → Save as User Template</strong> in the header — it
+                              will show up here for every new rule of this type.
+                            </span>
+                          ) : undefined
                         }
                       >
                         <Dropdown
