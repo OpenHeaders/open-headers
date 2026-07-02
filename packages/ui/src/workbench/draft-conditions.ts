@@ -57,6 +57,7 @@ export function buildDraftHeaders(headers: readonly HeaderRuleDraftHeader[]): He
  */
 export function applyResponseDraftOverlay(overlay: Record<string, unknown>, draft: ResponseRuleDraft): void {
   if (draft.responseSource) overlay.responseSource = draft.responseSource;
+  if (draft.resourceType) overlay.responseResourceType = draft.resourceType;
   if (draft.bodyType) overlay.responseBodyType = draft.bodyType;
   if (draft.statusCode != null) overlay.responseStatusCode = draft.statusCode;
   if (draft.contentType != null) overlay.responseContentType = draft.contentType;

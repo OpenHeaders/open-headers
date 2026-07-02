@@ -13,6 +13,7 @@
 import { hostBridge } from '@openheaders/core/bridge';
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type {
+  ApiResourceType,
   BlockRuleDraft,
   DelayRuleDraft,
   HeaderRuleDraft,
@@ -102,7 +103,7 @@ function formatDraftBody(body: string): string {
  *  and pre-fills the real content-type and body as static data. */
 export function buildResponseDraftFromRequest(
   lc: RequestLifecycle,
-  captured: { responseBody?: string; contentType?: string },
+  captured: { responseBody?: string; contentType?: string; resourceType?: ApiResourceType },
 ): ResponseRuleDraft {
   const method = lc.method ? [lc.method.toUpperCase()] : undefined;
   return {
@@ -114,6 +115,7 @@ export function buildResponseDraftFromRequest(
     statusCode: 0,
     responseBody: formatDraftBody(captured.responseBody ?? ''),
     contentType: captured.contentType ?? '',
+    resourceType: captured.resourceType ?? 'rest',
   };
 }
 
@@ -122,7 +124,7 @@ export function buildResponseDraftFromRequest(
  *  a static body the user can edit in place. */
 export function buildRequestBodyDraftFromRequest(
   lc: RequestLifecycle,
-  captured: { requestBody?: string },
+  captured: { requestBody?: string; resourceType?: ApiResourceType },
 ): RequestBodyRuleDraft {
   const method = lc.method ? [lc.method.toUpperCase()] : undefined;
   return {
@@ -131,6 +133,7 @@ export function buildRequestBodyDraftFromRequest(
     ...(method ? { requestMethods: method } : {}),
     bodyType: 'static',
     requestBody: formatDraftBody(captured.requestBody ?? ''),
+    resourceType: captured.resourceType ?? 'rest',
   };
 }
 

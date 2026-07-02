@@ -93,6 +93,33 @@ function hasCookies(har: ReturnType<typeof currentHarEntry>): boolean {
 }
 
 /**
+ * Classify the captured request as REST or GraphQL so the override
+ * drafts pre-select the right resource type — GraphQL when the URL
+ * path points at a graphql endpoint, or when the outgoing JSON body
+ * carries the standard `query` field (single or batched).
+ */
+function detectApiResourceType(lc: RequestLifecycle, har: ReturnType<typeof currentHarEntry>): 'rest' | 'graphql' {
+  try {
+    if (new URL(lc.url).pathname.toLowerCase().includes('graphql')) return 'graphql';
+  } catch {
+    // non-URL values fall through to the body check
+  }
+  const text = har?.request?.postData?.text;
+  if (text) {
+    try {
+      const parsed: unknown = JSON.parse(text);
+      const ops = Array.isArray(parsed) ? parsed : [parsed];
+      if (ops.length > 0 && ops.every((op) => typeof (op as { query?: unknown })?.query === 'string')) {
+        return 'graphql';
+      }
+    } catch {
+      // not JSON — REST
+    }
+  }
+  return 'rest';
+}
+
+/**
  * Pull the captured response into the fields the "Override Response"
  * draft needs. The body is carried only when it's meaningfully text
  * (the same gate the Response tab uses to offer a binary body as text) —
@@ -102,7 +129,7 @@ function hasCookies(har: ReturnType<typeof currentHarEntry>): boolean {
 function capturedResponseDraftInput(
   lc: RequestLifecycle,
   har: ReturnType<typeof currentHarEntry>,
-): { responseBody: string; contentType: string } {
+): { responseBody: string; contentType: string; resourceType: 'rest' | 'graphql' } {
   const contentType = lifecycleMimeType(lc) ?? har?.response?.content?.mimeType ?? '';
   const state = classifyBodyState(lc);
   let responseBody = '';
@@ -115,7 +142,7 @@ function capturedResponseDraftInput(
       responseBody = '';
     }
   }
-  return { responseBody, contentType };
+  return { responseBody, contentType, resourceType: detectApiResourceType(lc, har) };
 }
 
 /**
@@ -123,14 +150,18 @@ function capturedResponseDraftInput(
  * body" draft needs. Prefers the raw wire text; for form bodies captured
  * as parsed params only, reconstructs the `name=value&…` source string.
  */
-function capturedRequestBodyDraftInput(har: ReturnType<typeof currentHarEntry>): { requestBody: string } {
+function capturedRequestBodyDraftInput(
+  lc: RequestLifecycle,
+  har: ReturnType<typeof currentHarEntry>,
+): { requestBody: string; resourceType: 'rest' | 'graphql' } {
+  const resourceType = detectApiResourceType(lc, har);
   const postData = har?.request?.postData;
-  if (!postData) return { requestBody: '' };
-  if (postData.text) return { requestBody: postData.text };
+  if (!postData) return { requestBody: '', resourceType };
+  if (postData.text) return { requestBody: postData.text, resourceType };
   if (postData.params && postData.params.length > 0) {
-    return { requestBody: postData.params.map((p) => `${p.name}=${p.value ?? ''}`).join('&') };
+    return { requestBody: postData.params.map((p) => `${p.name}=${p.value ?? ''}`).join('&'), resourceType };
   }
-  return { requestBody: '' };
+  return { requestBody: '', resourceType };
 }
 
 function decodeComponentSafe(s: string): string {
@@ -303,7 +334,7 @@ export function InspectorDetailContent({
   const createOverrideResponse = (): void =>
     void handOff(() => buildResponseDraftFromRequest(lc, capturedResponseDraftInput(lc, har)));
   const createOverrideRequestBody = (): void =>
-    void handOff(() => buildRequestBodyDraftFromRequest(lc, capturedRequestBodyDraftInput(har)));
+    void handOff(() => buildRequestBodyDraftFromRequest(lc, capturedRequestBodyDraftInput(lc, har)));
   const createOverrideQueryParams = (): void =>
     void handOff(() => buildQueryParamDraftFromRequest(lc, capturedQueryParamsDraftInput(har)));
 

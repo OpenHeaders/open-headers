@@ -94,6 +94,7 @@ export function buildEmptyRule(type: RuleType, name: string): RuleSeed {
           statusCode: 200,
           contentType: 'application/json',
           responseHeaders: {},
+          resourceType: 'rest',
         },
       };
     case 'query-param':

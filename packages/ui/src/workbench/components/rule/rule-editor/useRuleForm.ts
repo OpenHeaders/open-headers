@@ -14,7 +14,7 @@ import type {
   SseRule,
   WsRule,
 } from '@openheaders/core/types';
-import type { DraftUrlStrategy } from '@openheaders/core/utils';
+import { buildEmptyRule, type DraftUrlStrategy, type RuleSeed } from '@openheaders/core/utils';
 import { useReprime } from '@openheaders/ui/shared/editor-shell';
 import { stableStringify } from '@openheaders/ui/shared/forms';
 import { Form, type FormInstance } from 'antd';
@@ -58,9 +58,10 @@ export interface RuleForm {
   /** Live form snapshot (`Form.useWatch`) — feeds the conflict tracker. */
   formValues: Record<string, unknown> | undefined;
   isDirty: boolean;
-  /** Seeds the form from a persisted rule. Exposed so the conflict tracker's
-   *  merge-editor commit path can replay a resolved rule through it. */
-  populateFormFromRule: (rule: Omit<Rule, 'uid' | 'path'>) => void;
+  /** Seeds the form from a persisted rule (or a `buildEmptyRule` seed).
+   *  Exposed so the conflict tracker's merge-editor commit path can replay
+   *  a resolved rule through it. */
+  populateFormFromRule: (rule: RuleSeed) => void;
 }
 
 /**
@@ -133,7 +134,7 @@ export function useRuleForm({
   // on initial seed and broadcast catch-up; conflict-tracker baseline
   // advancement happens in `onPrimed`, not here.
   const populateFormFromRule = useCallback(
-    (rule: Omit<Rule, 'uid' | 'path'>) => {
+    (rule: RuleSeed) => {
       const baseValues = {
         ruleType: rule.type,
         conditions: rule.conditions,
@@ -353,6 +354,11 @@ export function useRuleForm({
       return;
     }
 
+    // Seed the per-type action defaults so choice fields (response
+    // source, resource type, body type, …) open with a selection
+    // instead of blank radios. Templates / draft overlays layer on top.
+    populateFormFromRule(buildEmptyRule(type, ruleName));
+
     if (initialTemplateKey) {
       applyTemplate(initialTemplateKey);
       return;
@@ -398,6 +404,7 @@ export function useRuleForm({
     initialTemplateKey,
     initialDraft,
     draftUrlStrategy,
+    ruleName,
     form,
     applyTemplate,
     populateFormFromRule,
