@@ -2025,6 +2025,39 @@ body {
   }
 }
 
+// Corner resize grip — same affordance (and diagonal-lines glyph) as
+// `.oh-template-input-resize-grip`; drags the editor height, double-
+// click resets to the default.
+.rules-code-editor-resize-grip {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 8px;
+  height: 8px;
+  cursor: ns-resize;
+  z-index: 3;
+  touch-action: none;
+  background: linear-gradient(
+    135deg,
+    transparent 0 45%,
+    var(--ant-color-text-quaternary, rgba(0, 0, 0, 0.25)) 45% 55%,
+    transparent 55% 70%,
+    var(--ant-color-text-quaternary, rgba(0, 0, 0, 0.25)) 70% 80%,
+    transparent 80%
+  );
+}
+
+.rules-code-editor-resize-grip:hover {
+  background: linear-gradient(
+    135deg,
+    transparent 0 45%,
+    var(--ant-color-text-tertiary, rgba(0, 0, 0, 0.45)) 45% 55%,
+    transparent 55% 70%,
+    var(--ant-color-text-tertiary, rgba(0, 0, 0, 0.45)) 70% 80%,
+    transparent 80%
+  );
+}
+
 /*
  * Keyboard-key chord chrome — used by docs-panel pager + anywhere
  * else in the workbench that needs the same "small key" look the

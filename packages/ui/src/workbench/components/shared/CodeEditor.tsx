@@ -76,6 +76,29 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   // or runs Format successfully.
   const [formatError, setFormatError] = useState<string | null>(null);
 
+  // Manual height from the corner resize grip (same affordance as
+  // TemplateInput's). Overrides `minHeight` once dragged; double-click
+  // resets to the default. Monaco follows via `automaticLayout`.
+  const [manualHeight, setManualHeight] = useState<number | null>(null);
+  const gripDragRef = useRef<{ startY: number; startHeight: number } | null>(null);
+  const editorHeight = manualHeight ?? minHeight;
+  const editorHeightRef = useRef(editorHeight);
+  editorHeightRef.current = editorHeight;
+  const handleGripPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    gripDragRef.current = { startY: e.clientY, startHeight: editorHeightRef.current };
+  }, []);
+  const handleGripPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const drag = gripDragRef.current;
+    if (!drag) return;
+    setManualHeight(Math.max(80, drag.startHeight + (e.clientY - drag.startY)));
+  }, []);
+  const handleGripPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    gripDragRef.current = null;
+    e.currentTarget.releasePointerCapture(e.pointerId);
+  }, []);
+
   const fontFamilyPreset = useSettingValue('editor.fontFamilyPreset');
   const fontFamily = resolveFontFamily(fontFamilyPreset);
   const fontSize = useSettingValue('editor.fontSize');
@@ -175,7 +198,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       className="rules-code-editor"
     >
       <Editor
-        height={minHeight}
+        height={editorHeight}
         defaultLanguage={toMonacoLanguage(language)}
         language={toMonacoLanguage(language)}
         theme={monacoTheme}
@@ -261,6 +284,14 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           </Tooltip>
         </div>
       )}
+      <div
+        className="rules-code-editor-resize-grip"
+        onPointerDown={handleGripPointerDown}
+        onPointerMove={handleGripPointerMove}
+        onPointerUp={handleGripPointerUp}
+        onDoubleClick={() => setManualHeight(null)}
+        aria-hidden="true"
+      />
     </div>
   );
 };
