@@ -494,7 +494,7 @@ export function InspectorDetailContent({
           searchHighlight={searchSection === 'Response' ? searchHighlight : undefined}
           searchLineNumber={searchSection === 'Response' ? searchLineNumber : undefined}
           searchMatchIndex={searchSection === 'Response' ? searchMatchIndex : undefined}
-          onOverrideResponse={createOverrideResponse}
+          buildOverrideDraft={() => buildResponseDraftFromRequest(lc, capturedResponseDraftInput(lc, har))}
           firedResponseRule={firedResponseRule}
         />
       )}

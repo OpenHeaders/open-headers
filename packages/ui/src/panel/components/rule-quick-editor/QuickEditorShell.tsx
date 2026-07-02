@@ -74,6 +74,10 @@ export interface QuickEditorShellProps {
   /** Editor body (or the per-type fallback text). */
   children: ReactNode;
   onOpenInEditor: () => void;
+  /** Footer-link gate. Defaults to `!!liveRule` (edit mode disables the
+   *  link when the rule is gone); create mode passes `true` — there is
+   *  no live rule yet but the link hands off the current draft. */
+  canOpenInEditor?: boolean;
   /** Save affordance — omitted when the body isn't editable. */
   save?: QuickEditorSave;
   onMouseEnter?: () => void;
@@ -92,6 +96,7 @@ export function QuickEditorShell({
   snapshot,
   children,
   onOpenInEditor,
+  canOpenInEditor,
   save,
   onMouseEnter,
   onMouseLeave,
@@ -224,7 +229,7 @@ export function QuickEditorShell({
           size="small"
           onClick={onOpenInEditor}
           style={{ padding: 0, fontSize: 11 }}
-          disabled={!liveRule}
+          disabled={!(canOpenInEditor ?? !!liveRule)}
         >
           Open in workspace →
         </Button>

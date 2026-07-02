@@ -6,14 +6,27 @@
  * `useDismiss`, fresh mount per session).
  */
 
-import type { Rule } from '@openheaders/core/types';
+import type { ResponseRuleDraft, Rule } from '@openheaders/core/types';
 import { createHoverPopoverHost, type HoverPopoverBodyProps } from '@openheaders/ui/shared/popover';
 import type { HeaderAttribution } from '../data/header-attribution';
 import type { RuleApplicability } from '../data/rule-applicability';
+import { ResponseQuickCreate } from './rule-quick-editor/ResponseQuickCreate';
 import { ResponseQuickEditor } from './rule-quick-editor/ResponseQuickEditor';
 import { RuleHoverPopover, type RuleHoverPopoverTarget } from './RuleHoverPopover';
 
-interface RulePopoverState {
+/** Create mode — no live rule yet; the popover edits a captured-response
+ *  draft and Save mints + publishes the rule (`ResponseQuickCreate`). */
+interface ResponseCreatePopoverState {
+  mode: 'create-response';
+  anchorEl: HTMLElement;
+  draft: ResponseRuleDraft;
+  /** Inspected request the draft was captured from — the popover's
+   *  session identity (there is no rule uid to key on yet). */
+  requestId: string;
+}
+
+interface RuleEditPopoverState {
+  mode?: 'edit';
   anchorEl: HTMLElement;
   /** Live rule for editing (may be null if the rule was deleted since
    *  the fire — popover degrades to read-only history view). */
@@ -39,6 +52,8 @@ interface RulePopoverState {
   applicability?: RuleApplicability | null;
 }
 
+type RulePopoverState = RuleEditPopoverState | ResponseCreatePopoverState;
+
 const POPOVER_INSIDE_SELECTORS: ReadonlyArray<string> = [
   '[data-rule-popover-root]',
   '[data-variable-popover-root]',
@@ -63,9 +78,22 @@ function RulePopoverBody({
   onMouseLeave,
   visible,
 }: HoverPopoverBodyProps<RulePopoverState>) {
-  // Per-type dispatch inside the one shared host: response rules get
-  // the compact response quick-editor; everything else stays on the
-  // header popover (which degrades to a summary for other rule types).
+  // Per-type dispatch inside the one shared host: create mode gets the
+  // response quick-create body, fired response rules get the compact
+  // response quick-editor, and everything else stays on the header
+  // popover (which degrades to a summary for other rule types).
+  if (state.mode === 'create-response') {
+    return (
+      <ResponseQuickCreate
+        anchorEl={state.anchorEl}
+        draft={state.draft}
+        onClose={onClose}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+        visible={visible}
+      />
+    );
+  }
   if (state.rule?.type === 'response') {
     return (
       <ResponseQuickEditor
@@ -97,6 +125,9 @@ function RulePopoverBody({
 
 const host = createHoverPopoverHost<RulePopoverState>({
   identity: (s) => {
+    // Create sessions have no rule uid yet — key on the inspected
+    // request the draft was captured from.
+    if (s.mode === 'create-response') return `create-response|${s.requestId}`;
     // When the rule is gone (deleted since fire), identity falls back
     // to the snapshotted ruleUid carried in the attribution so the
     // popover still keys deterministically off the row that opened it.

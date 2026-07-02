@@ -1,4 +1,4 @@
-import type { Rule } from '@openheaders/core/types';
+import type { ResponseRuleDraft, Rule } from '@openheaders/core/types';
 import { lazy, Suspense, useMemo, useState } from 'react';
 import {
   currentHarEntry,
@@ -23,8 +23,9 @@ interface ResponseBodyViewProps {
   searchLineNumber?: number;
   /** N-th occurrence of `searchHighlight` in this body (0-based). */
   searchMatchIndex?: number;
-  /** Open the create-rule editor pre-filled to mock this response. */
-  onOverrideResponse?: () => void;
+  /** Build the captured-response draft the create popover (and its
+   *  workbench handoff) seeds from. */
+  buildOverrideDraft?: () => ResponseRuleDraft;
   /** Live response rule that fired on this request — flips the CTA
    *  from "Override Response" (create) to "Edit override" (quick-edit
    *  popover targeting this rule). */
@@ -44,7 +45,7 @@ export function ResponseBodyView({
   row,
   searchHighlight,
   searchMatchIndex,
-  onOverrideResponse,
+  buildOverrideDraft,
   firedResponseRule,
 }: ResponseBodyViewProps) {
   const rulePopover = useRulePopover();
@@ -55,18 +56,25 @@ export function ResponseBodyView({
   const [dualMode, setDualMode] = useState<'diff' | 'split'>('diff');
   // When a response rule fired on this request, the CTA edits THAT rule
   // in place (pinned quick-editor popover — Save affects the next
-  // requests) instead of scaffolding a second rule over it.
+  // requests) instead of scaffolding a second rule over it. Otherwise
+  // the CTA opens the same popover in create mode, seeded from the
+  // captured response.
   const overrideAction = firedResponseRule ? (
     <OverrideBodyButton
       label="Edit override"
       title="Edit the rule that produced this response — changes apply to future requests"
       onClick={(e) => rulePopover.open({ anchorEl: e.currentTarget, rule: firedResponseRule }, { pinned: true })}
     />
-  ) : onOverrideResponse ? (
+  ) : buildOverrideDraft ? (
     <OverrideBodyButton
       label="Override Response"
       title="Create a rule that serves this response as an editable mock"
-      onClick={onOverrideResponse}
+      onClick={(e) =>
+        rulePopover.open(
+          { mode: 'create-response', anchorEl: e.currentTarget, draft: buildOverrideDraft(), requestId: lc.requestId },
+          { pinned: true },
+        )
+      }
     />
   ) : undefined;
 
