@@ -1,6 +1,8 @@
 /**
  * RuleHoverPopover — inline-edit popover anchored to a header row in
- * the inspector.
+ * the inspector. The header-mod plug-in body of the shared
+ * `QuickEditorShell` (which owns placement, title row, awareness and
+ * the footer).
  *
  * ## Two surfaces
  *
@@ -33,40 +35,31 @@
  *     link.
  */
 
-import { SaveOutlined } from '@ant-design/icons';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { HeaderModification, HeaderOperation, HeaderRule, Rule } from '@openheaders/core/types';
-import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { useLiveRule } from '@openheaders/ui/context';
 import {
   ConflictDiffChip,
   EntityField,
   EntityScopeProvider,
-  PresenceBadge,
   RULE_FIELD,
-  useEditorDirty,
-  useLocalInstanceId,
-  useSetActiveTabEntity,
 } from '@openheaders/ui/shared/awareness';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/useActiveWorkspaceId';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/useRuleMutator';
 import { useRules } from '@openheaders/ui/shared/hooks/useRules';
-import { usePopoverPlacement } from '@openheaders/ui/shared/popover';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 import { useRuleConflicts } from '@openheaders/ui/workbench/components/rule-fields/use-rule-conflicts';
-import { buildRuleIcon } from '@openheaders/ui/workbench/components/shared/rule-icon';
 import { TemplateInput } from '@openheaders/ui/workbench/components/template-input';
-import { App, Button, Select, Tag, Tooltip, theme } from 'antd';
-import { useEffect, useMemo, useRef } from 'react';
-import { createPortal } from 'react-dom';
+import { App, Button, Select, Tag, theme } from 'antd';
+import { useMemo, useRef } from 'react';
 import {
   findCurrentMod,
   type HeaderAttribution,
   isAttributionEdited,
-  type RuleAttributionContext,
 } from '../data/header-attribution';
 import type { RuleApplicability } from '../data/rule-applicability';
 import { findRuleCollectionId } from '../data/rule-collection';
+import { QuickEditorShell, RULE_TYPE_LABEL } from './rule-quick-editor/QuickEditorShell';
 import { isSnapshotResolutionReliable, ruleCtxFromAttribution, tagLabelFor, tagTitleFor } from './rule-hover-format';
 import { SnapshotBlock } from './SnapshotBlock';
 import { useModDraft } from './use-mod-draft';
@@ -108,8 +101,6 @@ export interface RuleHoverPopoverProps {
   visible?: boolean;
 }
 
-const POPOVER_WIDTH = 480;
-
 const OPERATION_OPTIONS: { value: HeaderOperation; label: string }[] = [
   // Mirror the workbench HeaderRuleFields labels so the popover and the
   // full editor agree on what each op is called.
@@ -118,20 +109,6 @@ const OPERATION_OPTIONS: { value: HeaderOperation; label: string }[] = [
   { value: 'remove', label: 'Remove' },
   { value: 'merge', label: 'Merge' },
 ];
-
-const RULE_TYPE_LABEL: Record<Rule['type'], string> = {
-  header: 'Header',
-  redirect: 'Redirect',
-  block: 'Block',
-  delay: 'Delay',
-  inject: 'Inject',
-  'request-body': 'Request Body',
-  response: 'Response',
-  'query-param': 'Query Param',
-  ws: 'WebSocket',
-  sse: 'SSE',
-  auth: 'Auth',
-};
 
 export function RuleHoverPopover({
   anchorEl,
@@ -157,7 +134,6 @@ export function RuleHoverPopover({
   const { localCollections } = useRules();
   const workspaceId = useActiveWorkspaceId();
   const mutator = useRuleMutator({ workspaceId, surfaceId: 'devpanel' });
-  const localInstanceId = useLocalInstanceId();
 
   const ctx = ruleCtxFromAttribution(attribution);
 
@@ -218,26 +194,6 @@ export function RuleHoverPopover({
   // for the same row.
   const headerModUid = currentMod?.uid ?? null;
 
-  // ── Surface awareness wiring ────────────────────────────────────
-  //
-  // The single `<SurfaceAwarenessPublisher>` mounted at the devpanel
-  // root composes the surface's awareness claim from three workspace
-  // contexts. The popover contributes:
-  //   - `ActiveTabEntity` — set when visible+rule, cleared on unmount
-  //   - `ActiveFieldFocus` — published by `<EntityField>` wrappers
-  //     around the headerName/value inputs (below in JSX)
-  //   - `ActiveEditorDirty` — `useEditorDirty(scope, isDirty)` writes
-  //     when this popover IS the active tab entity
-  const setActiveTabEntity = useSetActiveTabEntity();
-  useEffect(() => {
-    if (!visible || !liveRuleUid) return;
-    setActiveTabEntity({ entityType: RULE_ENTITY_TYPE, entityId: liveRuleUid });
-    return () => {
-      setActiveTabEntity(null);
-    };
-  }, [visible, liveRuleUid, setActiveTabEntity]);
-  useEditorDirty({ entityType: RULE_ENTITY_TYPE, entityId: liveRuleUid }, isDirty);
-
   // Conflict tracker — same hook the workbench uses, so a `<ConflictDiffChip>`
   // ("External change available — base / theirs") shows up next to the
   // headerName / value inputs whenever another surface commits a
@@ -258,26 +214,6 @@ export function RuleHoverPopover({
   const valuePath = headerModUid && target ? RULE_FIELD.headerMod(target.direction, headerModUid, 'value') : null;
   const headerNameConflict = headerNamePath ? conflicts.getConflict(headerNamePath, draft.headerName) : null;
   const valueConflict = valuePath ? conflicts.getConflict(valuePath, draft.value) : null;
-
-  // Render into the inspector root so the root's `overflow: hidden` clips the
-  // popover to the pane and its always-on-top footer covers any graze — the
-  // same containment the toolbar/View menus get. Positioned absolute + bounded
-  // to the pane (not the window), so it can't spill past the footer, and
-  // pinned (no scroll re-anchor) so it stays put as the list scrolls.
-  const boundsEl = useMemo(() => anchorEl.closest<HTMLElement>('.dt-panel-root'), [anchorEl]);
-  // The panel status bar — the cap tracks its real top so the popover's bottom
-  // stays above it on resize, on BOTH sides (the `above` placement, used when
-  // the row is near the bottom, has no footer awareness on its own).
-  const footerEl = useMemo(() => boundsEl?.querySelector<HTMLElement>(':scope > .rules-statusbar') ?? null, [boundsEl]);
-  const { position, popoverRef, measured } = usePopoverPlacement(anchorEl, POPOVER_WIDTH, {
-    trackScroll: false,
-    boundsEl,
-    footerEl,
-    // Anchor once, then stay put (like the static toolbar popovers) so the
-    // panel reflowing during a resize can't jitter it; only the footer-tracked
-    // `maxHeight` keeps updating, shrinking the popover to clear the footer.
-    staticAfterMeasure: true,
-  });
 
   const editable = isHeader && !!currentMod && !!headerRule;
 
@@ -303,117 +239,73 @@ export function RuleHoverPopover({
 
   const ruleDeleted = !liveRule && !!ctx;
 
-  const popoverNode = (
-    <div
-      ref={popoverRef}
-      role="dialog"
-      data-rule-popover-root=""
-      className="dt-scrollbar"
+  const tags = (
+    <>
+      {!ruleDeleted && ruleEdited && (
+        <Tag color="gold" style={{ marginInlineEnd: 0, fontSize: 10 }}>
+          Rule edited
+        </Tag>
+      )}
+      {!ruleDeleted &&
+        !ruleEdited &&
+        ctx &&
+        ((isSnapshotResolutionReliable(ctx.snapshotMod) &&
+          currentResolvedValue != null &&
+          ctx.snapshotMod.valueResolved != null &&
+          ctx.snapshotMod.valueResolved !== currentResolvedValue) ||
+          (!ctx.snapshotMod.headerName.includes('{{') &&
+            currentResolvedName != null &&
+            currentResolvedName !== ctx.snapshotMod.headerName)) && (
+          <Tag color="gold" style={{ marginInlineEnd: 0, fontSize: 10 }}>
+            Variable changed
+          </Tag>
+        )}
+      {ruleDeleted && (
+        <Tag color="red" style={{ marginInlineEnd: 0, fontSize: 10 }}>
+          Deleted
+        </Tag>
+      )}
+      {!ruleDeleted &&
+        applicability &&
+        applicability.kind !== 'will-fire' &&
+        applicability.kind !== 'rule-deleted' && (
+          <Tag color="red" style={{ marginInlineEnd: 0, fontSize: 10 }} title={tagTitleFor(applicability.kind)}>
+            {tagLabelFor(applicability.kind)}
+          </Tag>
+        )}
+    </>
+  );
+
+  const snapshot = ctx && attribution && (
+    <SnapshotBlock
+      attribution={attribution}
+      ctx={ctx}
+      liveRule={liveRule}
+      currentMod={currentMod}
+      ruleEdited={ruleEdited}
+      collectionId={collectionId}
+      currentResolvedValue={currentResolvedValue ?? null}
+      currentResolvedName={currentResolvedName ?? null}
+      applicability={applicability ?? null}
+    />
+  );
+
+  return (
+    <QuickEditorShell
+      anchorEl={anchorEl}
+      liveRule={liveRule}
+      ruleType={ruleType}
+      ruleName={ruleName}
+      liveRuleUid={liveRuleUid}
+      isDirty={isDirty}
+      tags={tags}
+      snapshot={snapshot}
+      onOpenInEditor={openInEditor}
+      save={editable ? { saving, canSave, saveLabel, onSave: () => void handleSave() } : undefined}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
-      style={{
-        // Absolute inside the inspector root (so its overflow clips us); fixed
-        // when there's no container to portal into (degraded fallback).
-        position: boundsEl ? 'absolute' : 'fixed',
-        top: position.top,
-        left: position.left,
-        width: POPOVER_WIDTH,
-        zIndex: 1080,
-        background: token.colorBgElevated,
-        border: `1px solid ${token.colorBorderSecondary}`,
-        borderRadius: token.borderRadiusLG,
-        boxShadow: token.boxShadowSecondary,
-        padding: 12,
-        // Footer-tracked cap (both sides): `usePopoverPlacement` measures the
-        // status bar's real top and shrinks this on resize so the bottom stays
-        // above the footer and the content scrolls inside, whether the popover
-        // opened below the row or flipped above it.
-        maxHeight: position.maxHeight,
-        overflowY: 'auto',
-        overflowX: 'hidden',
-        visibility: measured ? 'visible' : 'hidden',
-        opacity: measured && visible ? 1 : 0,
-        transform: measured && visible ? 'scale(1)' : 'scale(0.96)',
-        transformOrigin: `${position.side === 'above' ? 'bottom' : 'top'} left`,
-        transition: 'opacity 120ms ease-out, transform 120ms ease-out',
-      }}
+      visible={visible}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, minWidth: 0 }}>
-        <span style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>
-          {buildRuleIcon({
-            ruleType,
-            rule: liveRule ?? undefined,
-            isActive: liveRule?.enabled ?? true,
-            compactArrow: true,
-            size: 14,
-          })}
-        </span>
-        <span
-          style={{
-            fontWeight: 600,
-            fontSize: 13,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            flex: 1,
-            minWidth: 0,
-          }}
-          title={ruleName}
-        >
-          {ruleName}
-        </span>
-        {liveRuleUid && (
-          <PresenceBadge entityType={RULE_ENTITY_TYPE} entityId={liveRuleUid} excludeInstanceId={localInstanceId} />
-        )}
-        {!ruleDeleted && ruleEdited && (
-          <Tag color="gold" style={{ marginInlineEnd: 0, fontSize: 10 }}>
-            Rule edited
-          </Tag>
-        )}
-        {!ruleDeleted &&
-          !ruleEdited &&
-          ctx &&
-          ((isSnapshotResolutionReliable(ctx.snapshotMod) &&
-            currentResolvedValue != null &&
-            ctx.snapshotMod.valueResolved != null &&
-            ctx.snapshotMod.valueResolved !== currentResolvedValue) ||
-            (!ctx.snapshotMod.headerName.includes('{{') &&
-              currentResolvedName != null &&
-              currentResolvedName !== ctx.snapshotMod.headerName)) && (
-            <Tag color="gold" style={{ marginInlineEnd: 0, fontSize: 10 }}>
-              Variable changed
-            </Tag>
-          )}
-        {ruleDeleted && (
-          <Tag color="red" style={{ marginInlineEnd: 0, fontSize: 10 }}>
-            Deleted
-          </Tag>
-        )}
-        {!ruleDeleted &&
-          applicability &&
-          applicability.kind !== 'will-fire' &&
-          applicability.kind !== 'rule-deleted' && (
-            <Tag color="red" style={{ marginInlineEnd: 0, fontSize: 10 }} title={tagTitleFor(applicability.kind)}>
-              {tagLabelFor(applicability.kind)}
-            </Tag>
-          )}
-        <Tag style={{ marginInlineEnd: 0, fontSize: 10 }}>{RULE_TYPE_LABEL[ruleType]}</Tag>
-      </div>
-
-      {ctx && attribution && (
-        <SnapshotBlock
-          attribution={attribution}
-          ctx={ctx}
-          liveRule={liveRule}
-          currentMod={currentMod}
-          ruleEdited={ruleEdited}
-          collectionId={collectionId}
-          currentResolvedValue={currentResolvedValue ?? null}
-          currentResolvedName={currentResolvedName ?? null}
-          applicability={applicability ?? null}
-        />
-      )}
-
       {editable ? (
         // EntityScope binds the inner EntityField wrappers to the
         // popover's rule. headerModUid is the row's persisted uid;
@@ -587,55 +479,8 @@ export function RuleHoverPopover({
                 : `${RULE_TYPE_LABEL[ruleType]} rules are edited in the workbench.`}
         </div>
       )}
-
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginTop: 10,
-          gap: 8,
-        }}
-      >
-        <Button
-          type="link"
-          size="small"
-          onClick={openInEditor}
-          style={{ padding: 0, fontSize: 11 }}
-          disabled={!liveRule}
-        >
-          Open in workspace →
-        </Button>
-        {editable && (
-          <Tooltip
-            title={<ShortcutHintTitle label={saveLabel}>Save</ShortcutHintTitle>}
-            placement="bottomRight"
-            zIndex={1090}
-          >
-            <Button
-              size="small"
-              type="primary"
-              icon={<SaveOutlined />}
-              loading={saving}
-              disabled={!canSave}
-              onClick={() => void handleSave()}
-              style={{
-                fontSize: 11,
-                ...(canSave ? { background: '#f5722d', borderColor: '#f5722d' } : {}),
-              }}
-            >
-              Save
-            </Button>
-          </Tooltip>
-        )}
-      </div>
-    </div>
+    </QuickEditorShell>
   );
-
-  // Portal into the inspector root so the root's `overflow: hidden` clips the
-  // popover and its footer covers any graze. Fall back to inline render (fixed
-  // positioning) when no container resolves.
-  return boundsEl ? createPortal(popoverNode, boundsEl) : popoverNode;
 }
 
 /**
