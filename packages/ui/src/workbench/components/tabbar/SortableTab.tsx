@@ -99,6 +99,13 @@ const SortableTab: React.FC<SortableTabProps> = ({
         ? { color: token.colorText, background: token.colorFillSecondary }
         : { color: token.colorTextSecondary };
 
+  // Selecting a tab dismisses its path tooltip — once the user has
+  // committed to the tab the path is redundant next to the breadcrumb
+  // bar below. Suppression lifts on the next mouseenter (leaving and
+  // re-hovering this tab, or hovering any other tab, shows tooltips
+  // again); until then the still-hovering pointer keeps it closed.
+  const [tooltipSuppressed, setTooltipSuppressed] = useState(false);
+
   const content = (
     <div
       ref={setNodeRef}
@@ -110,10 +117,17 @@ const SortableTab: React.FC<SortableTabProps> = ({
       role="tab"
       tabIndex={0}
       aria-selected={isActive}
-      onClick={() => onSwitch(tab.id)}
+      onClick={() => {
+        setTooltipSuppressed(true);
+        onSwitch(tab.id);
+      }}
+      onMouseEnter={() => setTooltipSuppressed(false)}
       onDoubleClick={onDoubleClick ? () => onDoubleClick(tab.id) : undefined}
       onKeyDown={(e) => {
-        if (e.key === 'Enter') onSwitch(tab.id);
+        if (e.key === 'Enter') {
+          setTooltipSuppressed(true);
+          onSwitch(tab.id);
+        }
       }}
     >
       <TabPillContent
@@ -226,7 +240,7 @@ const SortableTab: React.FC<SortableTabProps> = ({
         mouseEnterDelay={0.5}
         mouseLeaveDelay={0}
         destroyTooltipOnHide
-        open={contextMenuOpen ? false : undefined}
+        open={contextMenuOpen || tooltipSuppressed ? false : undefined}
       >
         {content}
       </Tooltip>
