@@ -26,6 +26,24 @@ declare module 'monaco-editor/esm/vs/language/typescript/monaco.contribution' {
   export const ScriptTarget: typeof Monaco.typescript.ScriptTarget;
 }
 
+declare module 'monaco-editor/esm/vs/platform/hover/browser/hoverService' {
+  // Minimal surface of the chrome-tooltip hover service (find-widget
+  // buttons, input toggles). Only the members the bootstrap's position
+  // patch touches; extra runtime fields pass through untouched.
+  export interface ChromeHoverOptions {
+    position?: { hoverPosition?: number };
+  }
+  export class HoverService {
+    showInstantHover(
+      options: ChromeHoverOptions,
+      focus?: boolean,
+      skipLastFocusedUpdate?: boolean,
+      dontShow?: boolean,
+    ): unknown;
+    showDelayedHover(options: ChromeHoverOptions, lifecycleOptions?: { groupId?: string }): unknown;
+  }
+}
+
 declare module 'monaco-editor/esm/vs/editor/editor.worker?worker' {
   const WorkerFactory: { new (): Worker };
   export default WorkerFactory;

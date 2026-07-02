@@ -64,6 +64,7 @@ import 'monaco-editor/esm/vs/basic-languages/xml/xml.contribution';
 import 'monaco-editor/esm/vs/language/json/monaco.contribution';
 import 'monaco-editor/esm/vs/language/css/monaco.contribution';
 import 'monaco-editor/esm/vs/language/html/monaco.contribution';
+import { type ChromeHoverOptions, HoverService } from 'monaco-editor/esm/vs/platform/hover/browser/hoverService';
 import { allVariants } from '@openheaders/ui/themes';
 import { registerPrettierFormatters } from './formatters';
 import { configureTsLanguageService, loadTsWorker } from './ts-language-service';
@@ -96,6 +97,28 @@ configureTsLanguageService();
 // `editor.action.formatDocument`, which dispatches to whichever
 // provider owns the model's language.
 registerPrettierFormatters(monacoEdCore as unknown as typeof import('monaco-editor'));
+
+// Monaco's chrome tooltips (find-widget buttons, Aa / ab / .* input
+// toggles) default to ABOVE the control. The find widget sits at the
+// editor's top edge, so those hovers land outside the editor box where
+// the host wrapper's `overflow: hidden` clips them. No editor option
+// covers these hovers (`hover.above` only affects code-content hovers),
+// so a BELOW default is injected at the hover-service seam; callers
+// that pass an explicit position keep it. Code-content hovers render
+// through the editor hover contrib and are unaffected.
+const HOVER_POSITION_BELOW = 2;
+function withBelowDefault(options: ChromeHoverOptions): ChromeHoverOptions {
+  return options.position === undefined ? { ...options, position: { hoverPosition: HOVER_POSITION_BELOW } } : options;
+}
+const hoverProto = HoverService.prototype;
+const originalShowInstantHover = hoverProto.showInstantHover;
+hoverProto.showInstantHover = function (this: HoverService, options, focus, skipLastFocusedUpdate, dontShow) {
+  return originalShowInstantHover.call(this, withBelowDefault(options), focus, skipLastFocusedUpdate, dontShow);
+};
+const originalShowDelayedHover = hoverProto.showDelayedHover;
+hoverProto.showDelayedHover = function (this: HoverService, options, lifecycleOptions) {
+  return originalShowDelayedHover.call(this, withBelowDefault(options), lifecycleOptions);
+};
 
 // ── Phase 2: synchronous loader configuration ────────────────────
 //
