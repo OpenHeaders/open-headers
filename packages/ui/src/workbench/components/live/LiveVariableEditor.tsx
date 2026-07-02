@@ -36,19 +36,12 @@ import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/useLiveWorkflows'
 import { LIVE_VARIABLE_ENTITY_TYPE } from '@openheaders/core/sync';
 import { EntityScopeProvider, LIVE_VARIABLE_FIELD, useSetActiveFieldFocus } from '@openheaders/ui/shared/awareness';
 import { readFieldPath } from '@openheaders/ui/shared/awareness/field-path';
-import {
-  type ConflictResolution,
-  EntityConflictBanner,
-  EntityConflictDialog,
-  prettyPathMap,
-  useAutoMergeForm,
-} from '@openheaders/ui/shared/conflicts';
+import { EntityConflictBanner, EntityConflictDialog } from '@openheaders/ui/shared/conflicts';
 import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell';
 import type { LiveVariable } from '@openheaders/core/types';
 import { App, Button, Input, InputNumber, Select, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { liveVariableResolveAdapter } from './live-variable-conflict-adapter';
 import {
   type CreateDraft,
   type EditDraft,
@@ -56,7 +49,7 @@ import {
   emptyCreateDraft,
   fingerprintEdit,
 } from './live-variable-drafts';
-import { projectLiveVariableToForm, useLiveVariableConflicts } from './use-live-variable-conflicts';
+import { useLiveVariableConflictResolution } from './use-live-variable-conflict-resolution';
 import EditorHeader from '../shell/EditorHeader';
 import { FieldRow, InlineNameDescription, LIVE_ROW_GAP, LIVE_ROW_LABEL_WIDTH, Section } from './layout';
 import {
@@ -356,223 +349,25 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
   });
   const isDirty = reprime.isDirty;
 
-  const conflicts = useLiveVariableConflicts({
-    liveEntity: lv,
+  const {
+    allConflicts,
+    clearDismissed,
+    isConflictDialogOpen,
+    setConflictDialogOpen,
+    handleKeepAllMine,
+    handleUseAllSaved,
+    handleResolveText,
+    savedText,
+    baseText,
+    mineText,
+  } = useLiveVariableConflictResolution({
+    liveVariable: lv,
+    draft,
+    setDraft,
     isDirty,
-    enabled: lv != null,
-    entityType: LIVE_VARIABLE_ENTITY_TYPE,
+    setBaselineRef,
+    baselineLiveVariableRef,
   });
-  setBaselineRef.current = conflicts.setBaseline;
-
-  const formProjection = useMemo(
-    () =>
-      draft
-        ? projectLiveVariableToForm({
-            name: draft.name,
-            description: draft.description,
-            enabled: draft.enabled,
-            requireFreshOnRuleBuild: draft.requireFreshOnRuleBuild,
-            workflowUid: draft.workflowUid,
-            stepId: draft.stepId,
-            captureName: draft.captureName,
-          })
-        : null,
-    [draft],
-  );
-
-  // Per-leaf auto-rebase for §6.2 killer-demo conformance: peer commits
-  // to a leaf the user hasn't touched silently catch the draft up.
-  const applyAutoMerge = useCallback(
-    (path: string, theirs: string) => {
-      if (!lv || !draft) return;
-      const transient = { ...lv } as LiveVariable;
-      if (!liveVariableResolveAdapter.applyResolutionToEntity(transient, path, { base: '', theirs })) return;
-      setDraft((d) =>
-        d
-          ? {
-              ...d,
-              name: transient.name,
-              description: transient.description ?? '',
-              enabled: transient.enabled,
-              requireFreshOnRuleBuild: Boolean(transient.requireFreshOnRuleBuild),
-              workflowUid: transient.workflowUid,
-              stepId: transient.stepId,
-              captureName: transient.captureName,
-            }
-          : d,
-      );
-    },
-    [lv, draft],
-  );
-  useAutoMergeForm({ conflicts, formProjection, applyToForm: applyAutoMerge });
-
-  const allConflicts = useMemo(
-    () => (formProjection ? conflicts.getAllConflicts(formProjection) : new Map()),
-    [conflicts, formProjection],
-  );
-  const [isConflictDialogOpen, setConflictDialogOpen] = useState(false);
-
-  const projectWithResolutions = useCallback(
-    (resolutions: ReadonlyMap<string, ConflictResolution>): LiveVariable | null => {
-      if (!lv || !draft) return null;
-      const transient: LiveVariable = {
-        ...lv,
-        name: draft.name,
-        description: draft.description,
-        enabled: draft.enabled,
-        requireFreshOnRuleBuild: draft.requireFreshOnRuleBuild,
-        workflowUid: draft.workflowUid,
-        stepId: draft.stepId,
-        captureName: draft.captureName,
-      };
-      for (const [path, choice] of resolutions) {
-        if (choice !== 'theirs') continue;
-        const conflict = allConflicts.get(path);
-        if (!conflict) continue;
-        liveVariableResolveAdapter.applyResolutionToEntity(transient, path, conflict);
-      }
-      return transient;
-    },
-    [allConflicts, draft, lv],
-  );
-
-  const adoptProjected = useCallback((projected: LiveVariable) => {
-    setDraft((d) =>
-      d
-        ? {
-            ...d,
-            name: projected.name,
-            description: projected.description ?? '',
-            enabled: projected.enabled,
-            requireFreshOnRuleBuild: Boolean(projected.requireFreshOnRuleBuild),
-            workflowUid: projected.workflowUid,
-            stepId: projected.stepId,
-            captureName: projected.captureName,
-          }
-        : d,
-    );
-  }, []);
-
-  const handleKeepAllMine = useCallback(() => {
-    for (const path of allConflicts.keys()) conflicts.dismiss(path);
-  }, [allConflicts, conflicts]);
-
-  const handleUseAllSaved = useCallback(() => {
-    if (!lv) return;
-    const all = new Map<string, ConflictResolution>();
-    for (const path of allConflicts.keys()) all.set(path, 'theirs');
-    const projected = projectWithResolutions(all);
-    if (!projected) return;
-    adoptProjected(projected);
-    for (const [path, conflict] of allConflicts) conflicts.acceptTheirs(path, conflict.theirs);
-  }, [allConflicts, conflicts, lv, projectWithResolutions, adoptProjected]);
-
-  // Phase 6 commit seam — parse the merge-editor's result text back to
-  // the projection, adopt to draft, dismiss every conflict path. Save
-  // re-prime advances the tracker baseline. Throws on malformed JSON.
-  const handleResolveText = useCallback(
-    (text: string) => {
-      if (!lv) return;
-      const raw = JSON.parse(text) as Partial<{
-        name: string;
-        description: string;
-        enabled: boolean;
-        requireFreshOnRuleBuild: boolean;
-        workflowUid: string;
-        stepId: string;
-        captureName: string;
-      }>;
-      setDraft((d) =>
-        d
-          ? {
-              ...d,
-              name: typeof raw.name === 'string' ? raw.name : d.name,
-              description: typeof raw.description === 'string' ? raw.description : d.description,
-              enabled: typeof raw.enabled === 'boolean' ? raw.enabled : d.enabled,
-              requireFreshOnRuleBuild: Boolean(raw.requireFreshOnRuleBuild ?? d.requireFreshOnRuleBuild),
-              workflowUid: typeof raw.workflowUid === 'string' ? raw.workflowUid : d.workflowUid,
-              stepId: typeof raw.stepId === 'string' ? raw.stepId : d.stepId,
-              captureName: typeof raw.captureName === 'string' ? raw.captureName : d.captureName,
-            }
-          : d,
-      );
-      for (const path of allConflicts.keys()) conflicts.dismiss(path);
-    },
-    [lv, allConflicts, conflicts],
-  );
-
-  const applyResolutions = useCallback(
-    (resolutions: Map<string, ConflictResolution>) => {
-      const projected = projectWithResolutions(resolutions);
-      if (projected) adoptProjected(projected);
-      for (const [path, choice] of resolutions) {
-        const conflict = allConflicts.get(path);
-        if (!conflict) continue;
-        if (choice === 'theirs') conflicts.acceptTheirs(path, conflict.theirs);
-        else conflicts.dismiss(path);
-      }
-    },
-    [allConflicts, conflicts, projectWithResolutions, adoptProjected],
-  );
-
-  const conflictPathLabels = useMemo(
-    () => (lv ? prettyPathMap(liveVariableResolveAdapter, lv, allConflicts.keys()) : new Map<string, string>()),
-    [lv, allConflicts],
-  );
-
-  const savedText = useMemo(() => {
-    if (!isConflictDialogOpen || !lv) return '';
-    return JSON.stringify(
-      {
-        name: lv.name,
-        description: lv.description ?? '',
-        enabled: lv.enabled,
-        requireFreshOnRuleBuild: Boolean(lv.requireFreshOnRuleBuild),
-        workflowUid: lv.workflowUid,
-        stepId: lv.stepId,
-        captureName: lv.captureName,
-      },
-      null,
-      2,
-    );
-  }, [isConflictDialogOpen, lv]);
-
-  // Baseline JSON for the merge-editor preview's Show Base layouts.
-  const baseText = useMemo(() => {
-    if (!isConflictDialogOpen) return undefined;
-    const baseline = baselineLiveVariableRef.current;
-    if (!baseline) return undefined;
-    return JSON.stringify(
-      {
-        name: baseline.name,
-        description: baseline.description ?? '',
-        enabled: baseline.enabled,
-        requireFreshOnRuleBuild: Boolean(baseline.requireFreshOnRuleBuild),
-        workflowUid: baseline.workflowUid,
-        stepId: baseline.stepId,
-        captureName: baseline.captureName,
-      },
-      null,
-      2,
-    );
-  }, [isConflictDialogOpen]);
-
-  const mineText = useMemo(() => {
-    if (!isConflictDialogOpen || !draft) return '';
-    return JSON.stringify(
-      {
-        name: draft.name,
-        description: draft.description,
-        enabled: draft.enabled,
-        requireFreshOnRuleBuild: Boolean(draft.requireFreshOnRuleBuild),
-        workflowUid: draft.workflowUid,
-        stepId: draft.stepId,
-        captureName: draft.captureName,
-      },
-      null,
-      2,
-    );
-  }, [isConflictDialogOpen, draft]);
 
   // Per-field focus path. Live editors don't use antd Form, so focus
   // mapping rides `data-field-path` attributes on FieldRow wrappers;
@@ -613,7 +408,7 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
     if (result.success) {
       // Dirty derives from form-vs-canonical equality; broadcast echo
       // brings live in line with form, useReprime auto-rebase clears.
-      conflicts.clearDismissed();
+      clearDismissed();
       return;
     }
     if (result.reason === 'not-found') {
@@ -621,7 +416,7 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
       return;
     }
     message.error('Failed to save live variable');
-  }, [lv, draft, updateVariable, message, conflicts]);
+  }, [lv, draft, updateVariable, message, clearDismissed]);
 
   const handleSaveSync = useCallback(() => void handleSave(), [handleSave]);
 
