@@ -1,10 +1,4 @@
-import {
-  CheckOutlined,
-  ExperimentOutlined,
-  FileTextOutlined,
-  PlusOutlined,
-  SortAscendingOutlined,
-} from '@ant-design/icons';
+import { ExperimentOutlined, FileTextOutlined, PlusOutlined, SortAscendingOutlined } from '@ant-design/icons';
 import type { ExtensionRuleType } from '@openheaders/core/types';
 import { resolvePauseState } from '@openheaders/core/utils';
 import { useRowActionRegistration } from '@openheaders/ui/shared/hooks/useRowActionRegistration';
@@ -24,6 +18,7 @@ import { AddRulePalette } from './AddRulePalette';
 import DeleteConfirmOverlay from './DeleteConfirmOverlay';
 import { buildRulesTableColumns } from './rules-table-columns';
 import { rulesToRecords, type TableRecord } from './rules-table-records';
+import { buildRulesTableSortMenu } from './rules-table-sort-menu';
 import TestRunModal, { type TestRunOwnerType } from './TestRunModal';
 
 /** Open the full-page rules editor in a new tab. */
@@ -283,83 +278,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
     [openRulesIntent],
   );
 
-  const hasColumnSort = !!sortedInfo.order;
-  const sortMenuItems = [
-    {
-      key: 'label',
-      label: (
-        <Text type="secondary" style={{ fontSize: '11px', fontWeight: 600 }}>
-          SORT ORDER
-        </Text>
-      ),
-      disabled: true,
-    },
-    {
-      key: 'status',
-      label: (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minWidth: 220 }}>
-          <div>
-            <div>By status</div>
-            <Text type="secondary" style={{ fontSize: '11px' }}>
-              Active → Paused → Disabled → Draft · priority within each
-            </Text>
-          </div>
-          {sortMode === 'status' && !hasColumnSort && <CheckOutlined style={{ color: '#1677ff' }} />}
-        </div>
-      ),
-      onClick: () => handleSortModeChange('status'),
-    },
-    {
-      key: 'priority',
-      label: (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minWidth: 220 }}>
-          <div>
-            <div>By priority</div>
-            <Text type="secondary" style={{ fontSize: '11px' }}>
-              Block → Redirect → Query → Header → Inject · A-Z within each
-            </Text>
-          </div>
-          {sortMode === 'priority' && !hasColumnSort && <CheckOutlined style={{ color: '#1677ff' }} />}
-        </div>
-      ),
-      onClick: () => handleSortModeChange('priority'),
-    },
-    {
-      key: 'manual',
-      label: (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minWidth: 220 }}>
-          <div>
-            <div>Workspace order</div>
-            <Text type="secondary" style={{ fontSize: '11px' }}>
-              Matches the workspace sidebar tree order
-            </Text>
-          </div>
-          {sortMode === 'manual' && !hasColumnSort && <CheckOutlined style={{ color: '#1677ff' }} />}
-        </div>
-      ),
-      onClick: () => handleSortModeChange('manual'),
-    },
-    ...(hasColumnSort
-      ? [
-          { type: 'divider' as const, key: 'div' },
-          {
-            key: 'column-sort',
-            label: (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minWidth: 220 }}>
-                <div>
-                  <div>By column</div>
-                  <Text type="secondary" style={{ fontSize: '11px' }}>
-                    Sorted by {String(sortedInfo.columnKey)} — click an option above to reset
-                  </Text>
-                </div>
-                <CheckOutlined style={{ color: '#1677ff' }} />
-              </div>
-            ),
-            disabled: true,
-          },
-        ]
-      : []),
-  ];
+  const sortMenuItems = buildRulesTableSortMenu({ sortMode, sortedInfo, handleSortModeChange });
 
   // Compute the table's `scroll.x` from the columns Ant will actually
   // render at the current viewport. Hardcoding `scroll.x: 680` (the
