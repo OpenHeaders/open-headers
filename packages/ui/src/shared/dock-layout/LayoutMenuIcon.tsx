@@ -20,7 +20,9 @@ export type LayoutMenuIconKind =
   | 'unsplit-all'
   | 'close-tabs-left'
   | 'close-tabs-right'
-  | 'close-tabs-other';
+  | 'close-tabs-other'
+  | 'header-top'
+  | 'header-bottom';
 
 interface LayoutMenuIconProps {
   kind: LayoutMenuIconKind;
@@ -268,6 +270,19 @@ const LayoutMenuIcon: React.FC<LayoutMenuIconProps> = ({ kind, size = 16 }) => {
         <line x1={0.5} y1={4.5} x2={15.5} y2={4.5} stroke={stroke} strokeWidth={1} />
         <line x1={5.5} y1={0.5} x2={5.5} y2={4.5} stroke={stroke} strokeWidth={1} />
         <line x1={10.5} y1={0.5} x2={10.5} y2={4.5} stroke={stroke} strokeWidth={1} />
+      </>
+    );
+  } else if (kind === 'header-top' || kind === 'header-bottom') {
+    // Editor-header dock position: one clean shaded band — the header
+    // row — at the frame's top or bottom edge. Same geometry as the
+    // close-tabs tab-strip glyphs minus the cell dividers, since this
+    // row is a single header, not a strip of tabs.
+    const bandY = kind === 'header-top' ? 0.5 : 8.5;
+    const lineY = kind === 'header-top' ? 4.5 : 8.5;
+    content = (
+      <>
+        <rect x={0.5} y={bandY} width={15} height={4} fill={fill} stroke="none" fillOpacity={0.35} />
+        <line x1={0.5} y1={lineY} x2={15.5} y2={lineY} stroke={stroke} strokeWidth={1} />
       </>
     );
   } else {

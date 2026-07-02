@@ -17,13 +17,28 @@
  * focused on actions avoids mixing identity metadata with controls.
  */
 
-import { MoreOutlined, SaveOutlined } from '@ant-design/icons';
+import { CheckOutlined, MoreOutlined, SaveOutlined } from '@ant-design/icons';
 import { Button, Divider, Dropdown, type MenuProps, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import type { EditorLifecycleStatus, EditorShellHeaderWiring } from '@openheaders/ui/shared/editor-shell';
 import { useShortcutLabel } from '../../hooks/useWorkspaceShortcuts';
-import { useSettingValue } from '../../settings/hooks';
+import { useSetting } from '../../settings/hooks';
+import LayoutMenuIcon from './LayoutMenuIcon';
+
+const menuIconWrap = (node: React.ReactNode) => (
+  <span
+    style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: 22,
+      height: 18,
+    }}
+  >
+    {node}
+  </span>
+);
 
 export interface EditorHeaderProps {
   /** Entity identity — icon chip + name + status tags. */
@@ -53,11 +68,6 @@ const EditorHeader: React.FC<EditorHeaderProps> = ({ title, actions, overflowIte
   const onSave = wiring?.onSave;
   const { token } = theme.useToken();
   const saveLabel = useShortcutLabel('save');
-  const hasOverflow = (overflowItems?.length ?? 0) > 0;
-  const hasActions = actions != null || onSave || hasOverflow;
-  const saveDisabled = !isDirty;
-  const saveAccent = isDirty;
-  const saveLabelText = isDirty ? 'Save' : 'Saved';
 
   // Every editor mounts this header as the first child of its flex
   // column, with the scrollable body as the sibling — so the bottom
@@ -65,8 +75,41 @@ const EditorHeader: React.FC<EditorHeaderProps> = ({ title, actions, overflowIte
   // `.rules-editor-header--bottom` in rules.less), no per-editor
   // wiring. Popups flip upward so they open over the content instead
   // of under the status bar.
-  const atBottom = useSettingValue('appearance.editorHeaderPosition') === 'bottom';
+  const [headerPosition, setHeaderPosition] = useSetting('appearance.editorHeaderPosition');
+  const atBottom = headerPosition === 'bottom';
   const popupPlacement = atBottom ? ('topRight' as const) : ('bottomRight' as const);
+
+  // Dock items live in every editor's ⋯ menu so the setting is
+  // discoverable where it acts (it also lives in Settings →
+  // Appearance). Appended after the editor-specific items; the active
+  // side is marked with a trailing check.
+  const positionCheck = <CheckOutlined style={{ fontSize: 10, color: token.colorPrimary, marginLeft: 12 }} />;
+  const positionLabel = (text: string, active: boolean) => (
+    <span style={{ display: 'inline-flex', alignItems: 'center', flex: 1 }}>
+      <span style={{ flex: 1 }}>{text}</span>
+      {active && positionCheck}
+    </span>
+  );
+  const mergedOverflowItems: MenuProps['items'] = [
+    ...(overflowItems ?? []),
+    ...(overflowItems?.length ? [{ type: 'divider' as const }] : []),
+    {
+      key: 'editor-header-top',
+      icon: menuIconWrap(<LayoutMenuIcon kind="header-top" />),
+      label: positionLabel('Header on Top', !atBottom),
+      onClick: () => setHeaderPosition('top'),
+    },
+    {
+      key: 'editor-header-bottom',
+      icon: menuIconWrap(<LayoutMenuIcon kind="header-bottom" />),
+      label: positionLabel('Header at Bottom', atBottom),
+      onClick: () => setHeaderPosition('bottom'),
+    },
+  ];
+
+  const saveDisabled = !isDirty;
+  const saveAccent = isDirty;
+  const saveLabelText = isDirty ? 'Save' : 'Saved';
 
   return (
     <div
@@ -76,39 +119,33 @@ const EditorHeader: React.FC<EditorHeaderProps> = ({ title, actions, overflowIte
       }}
     >
       <div className="rules-editor-header-title">{title}</div>
-      {hasActions && (
-        <div className="rules-editor-header-actions">
-          {actions}
-          {actions != null && (onSave || hasOverflow) && (
-            <Divider type="vertical" style={{ margin: '0 4px', height: 20 }} />
-          )}
-          {onSave && (
-            <Tooltip
-              title={<ShortcutHintTitle label={saveLabel}>{saveLabelText}</ShortcutHintTitle>}
-              placement={popupPlacement}
+      <div className="rules-editor-header-actions">
+        {actions}
+        {actions != null && <Divider type="vertical" style={{ margin: '0 4px', height: 20 }} />}
+        {onSave && (
+          <Tooltip
+            title={<ShortcutHintTitle label={saveLabel}>{saveLabelText}</ShortcutHintTitle>}
+            placement={popupPlacement}
+          >
+            <Button
+              size="small"
+              type="primary"
+              icon={<SaveOutlined />}
+              onClick={onSave}
+              disabled={saveDisabled}
+              style={{
+                fontSize: 11,
+                ...(saveAccent ? { background: '#f5722d', borderColor: '#f5722d' } : {}),
+              }}
             >
-              <Button
-                size="small"
-                type="primary"
-                icon={<SaveOutlined />}
-                onClick={onSave}
-                disabled={saveDisabled}
-                style={{
-                  fontSize: 11,
-                  ...(saveAccent ? { background: '#f5722d', borderColor: '#f5722d' } : {}),
-                }}
-              >
-                {saveLabelText}
-              </Button>
-            </Tooltip>
-          )}
-          {hasOverflow && (
-            <Dropdown menu={{ items: overflowItems }} trigger={['click']} placement={popupPlacement}>
-              <Button size="small" icon={<MoreOutlined />} style={{ fontSize: 11 }} aria-label="More actions" />
-            </Dropdown>
-          )}
-        </div>
-      )}
+              {saveLabelText}
+            </Button>
+          </Tooltip>
+        )}
+        <Dropdown menu={{ items: mergedOverflowItems }} trigger={['click']} placement={popupPlacement}>
+          <Button size="small" icon={<MoreOutlined />} style={{ fontSize: 11 }} aria-label="More actions" />
+        </Dropdown>
+      </div>
     </div>
   );
 };
