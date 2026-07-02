@@ -1,5 +1,5 @@
 /**
- * SaveAsTemplateModal — "Save as Template" modal triggered from RuleEditor.
+ * SaveAsTemplateModal — "Save as User Template" modal triggered from RuleEditor.
  *
  * Step 1: Template metadata (name, icon, description, include toggles)
  * Step 2: Pick collection + folder (reuses SaveToCollectionModal pattern)
@@ -128,7 +128,7 @@ const SaveAsTemplateModal: React.FC<SaveAsTemplateModalProps> = ({
   return (
     <Modal
       open={open}
-      title="Save as Template"
+      title="Save as User Template"
       okText="Next"
       cancelText="Cancel"
       onOk={handleMetadataNext}

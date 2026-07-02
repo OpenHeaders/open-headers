@@ -142,7 +142,15 @@ const EditorHeader: React.FC<EditorHeaderProps> = ({ title, actions, overflowIte
             </Button>
           </Tooltip>
         )}
-        <Dropdown menu={{ items: mergedOverflowItems }} trigger={['click']} placement={popupPlacement}>
+        {/* min-width keeps long labels ("Save as User Template",
+            "Header at Bottom" + check) from cramping — the menu still
+            grows beyond it for longer editor-specific items. */}
+        <Dropdown
+          menu={{ items: mergedOverflowItems }}
+          trigger={['click']}
+          placement={popupPlacement}
+          overlayStyle={{ minWidth: 220 }}
+        >
           <Button size="small" icon={<MoreOutlined />} style={{ fontSize: 11 }} aria-label="More actions" />
         </Dropdown>
       </div>

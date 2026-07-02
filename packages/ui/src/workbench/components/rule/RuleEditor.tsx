@@ -587,7 +587,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     {
       key: 'save-as-template',
       icon: <FileOutlined />,
-      label: 'Save as Template',
+      label: 'Save as User Template',
       onClick: openSaveAsTemplate,
     },
   ];
