@@ -30,10 +30,10 @@
  * `conflict-adapters.ts` for the contract.
  */
 
-import type { AwarenessState } from '@openheaders/core/protocol';
+import { getActiveAwarenessMirror } from '@openheaders/ui/context';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useOptionalLocalInstanceId } from '../awareness';
-import { getActiveAwarenessMirror } from '@openheaders/ui/context';
+import type { PathMap, SetMember } from './conflict-adapters';
 import {
   decodeReorderConflictKey as _decodeReorder,
   decodeSetConflictKey as _decodeSet,
@@ -42,171 +42,16 @@ import {
   reorderConflictKey as _reorderKey,
   setConflictKey as _setKey,
 } from './conflict-keys';
-import type {
-  ConflictTrackingAdapter,
-  PathMap,
-  SetMember,
-  SetMemberSnapshot,
-} from './conflict-adapters';
-import type { ConflictRemoteInfo, PathConflict } from './types';
+import type { BaselineState, EntityConflictsApi, UseEntityConflictsArgs } from './entity-conflicts-api';
+import { findRemoteAttribution } from './remote-attribution';
+import type { PathConflict } from './types';
 // Note: this hook lives in `shared/conflicts/` next to the dialog
 // component. To keep test setups that import from the conflicts barrel
 // from transitively pulling in Monaco (via `EntityConflictDialog`),
 // per-entity shims (`useRuleConflicts`, etc.) import this hook from
 // the file path directly rather than via the barrel.
 
-interface BaselineState {
-  /** Stable identity for the entity the baseline was captured from
-   *  (typically `entity.uid`). */
-  signature: string;
-  paths: PathMap;
-  /** Per-set ordered uid arrays at baseline-prime time. Used to detect
-   *  "my order is untouched" so peer reorders auto-rebase silently
-   *  instead of waiting on dialog resolution. Map insertion order on
-   *  the snapshotSets adapter result preserves the entity's array
-   *  order — ordering is implicit but consistent. */
-  setOrders: ReadonlyMap<string, readonly string[]>;
-}
-
-export interface EntityConflictsApi<E> {
-  /** Re-seed the baseline. Call from the editor's populateFromEntity
-   *  on init / re-prime. */
-  setBaseline: (entity: E) => void;
-  /** Lookup conflict for a leaf path. Returns null when no conflict. */
-  getConflict: (path: string, localValue: string) => PathConflict | null;
-  /** All active conflicts on the entity, keyed by path. `form` is the
-   *  same path-keyed projection the adapter's `extractBaseline`
-   *  produces — caller computes it.
-   *
-   *  Optional `formSetOrders` supplies the form's ordered uid arrays
-   *  per set-modeled path. Required for `'set-reorder'` detection
-   *  (path keys are insertion-order sensitive in the live entity but
-   *  order is lost when the form gets projected to a path map). */
-  getAllConflicts: (
-    form: PathMap,
-    formSetOrders?: ReadonlyMap<string, readonly string[]>,
-  ) => Map<string, PathConflict>;
-  /** Per-row set conflict for a single (setPath, uid). Used by inline
-   *  row chips to surface "saved version removed this row" without
-   *  the caller having to project the whole form. */
-  getSetConflict: (setPath: string, uid: string, formContainsUid: boolean) => PathConflict | null;
-  /** Leaves where `form === baseline` (user didn't touch) AND `live`
-   *  diverged from baseline (peer committed). Caller writes each
-   *  `theirs` into the form and calls `acceptTheirs(path, theirs)`
-   *  to advance baseline — same shape as the manual "Use saved"
-   *  affordance, but applied automatically because there's no real
-   *  conflict (only one side edited). Implements §6.2's killer-demo
-   *  promise: different paths apply unconditionally. */
-  getAutoMergeable: (form: PathMap) => Map<string, string>;
-  /** Set-level reorder analogue of `getAutoMergeable`: returns the
-   *  saved-side ordered uid array per setPath where my form's order
-   *  matches baseline (untouched) AND live diverged. Caller reorders
-   *  the form's array in place via uid — leaf edits on rows that
-   *  moved carry their identity through the reorder. Returns empty
-   *  for sets where my order also diverged (membership or order
-   *  conflict — those keep going through the dialog).
-   *
-   *  For order-sensitive sets (DNR header rules, query-param actions),
-   *  the rebase is suppressed when ANY leaf in that set is locally
-   *  dirty: the user is reasoning by row position, and silent
-   *  reordering under a pending edit would change semantic meaning.
-   *  Those cases fall through to the dialog's set-reorder row.
-   *  `form` is the path-keyed projection that lets the hook compare
-   *  per-leaf form vs baseline under each set's prefix. */
-  getAutoMergeableSetOrders: (
-    form: PathMap,
-    formSetOrders: ReadonlyMap<string, readonly string[]>,
-  ) => Map<string, readonly string[]>;
-  /** Accept the external value at path: align baseline + dismiss. */
-  acceptTheirs: (path: string, theirs: string) => void;
-  /** Advance the per-set baseline order to a new ordering — used by
-   *  silent auto-rebase + manual "Use saved order" so subsequent peer
-   *  reorders compare against the most-recently accepted state, not
-   *  the stale at-prime order. Mirrors `acceptTheirs` for leaves. */
-  acceptTheirsSetOrder: (setPath: string, savedOrder: readonly string[]) => void;
-  /** Dismiss the chip without taking theirs. */
-  dismiss: (path: string) => void;
-  /** Clear all dismissed entries (e.g. on successful save). */
-  clearDismissed: () => void;
-  /** Project the live entity into the same path-keyed shape as the
-   *  baseline. Useful for entity-level diff dialog rendering. */
-  projectEntity: (entity: E) => PathMap;
-}
-
-export interface UseEntityConflictsArgs<E> {
-  liveEntity: E | null | undefined;
-  isDirty: boolean;
-  /** When false, getConflict returns null unconditionally. */
-  enabled: boolean;
-  /** Entity-type string for the awareness mirror lookup. Same string
-   *  the editor publishes via `<EntityScopeProvider entityType={…}>`. */
-  entityType: string;
-  /** Per-entity projection. Pure functions; the hook composes them
-   *  with awareness + state. */
-  adapter: ConflictTrackingAdapter<E>;
-}
-
-/** Strip the `{"kind":"<name>"}` marker emitted by the walker at
- *  `union:<prefix>` baseline keys down to the discriminator name. The
- *  marker is JSON to keep stable-stringify roundtripping; the dialog
- *  only needs the user-visible kind. */
-function parseDiscriminatorFromMarker(marker: string): string {
-  if (!marker) return '';
-  try {
-    const parsed = JSON.parse(marker) as { kind?: unknown };
-    if (parsed && typeof parsed.kind === 'string') return parsed.kind;
-  } catch {
-    // Non-JSON marker — fall through and return as-is.
-  }
-  return marker;
-}
-
-function describeRemote(presence: readonly AwarenessState[], now: number): ConflictRemoteInfo | undefined {
-  if (presence.length === 0) return undefined;
-  // Most-recent peer wins when several are in the candidate set.
-  const sorted = [...presence].sort((a, b) => b.lastActivityHlc.physicalMs - a.lastActivityHlc.physicalMs);
-  const top = sorted[0];
-  const agoMs = Math.max(0, now - top.lastActivityHlc.physicalMs);
-  return {
-    surfaceKind: top.identity.surfaceKind,
-    surfaceLabel: top.identity.label,
-    instanceId: top.identity.instanceId,
-    agoMs,
-  };
-}
-
-/**
- * Cascade peer lookup so attribution survives the saving peer moving
- * on. Signal weakens as we broaden scope, but a best-guess
- * attribution beats going silent — the user always wants to see
- * "this came from somewhere", even when that somewhere is their own
- * other tab they forgot about.
- *
- *   1. Peer focused on this exact field — strongest signal.
- *   2. Peer focused on this entity (different field) — still likely
- *      the same author who just navigated within the editor.
- *   3. Any peer alive on this workspace, most-recently-active first —
- *      catches "saved + closed tab" and cross-surface rename cases.
- *
- * The local surface is excluded at every tier; same-user-different-tab
- * is NOT excluded — that's the most useful case to surface.
- */
-function findRemoteAttribution(
-  mirror: ReturnType<typeof getActiveAwarenessMirror>,
-  entityType: string,
-  entityId: string,
-  path: string,
-  localInstanceId: string | undefined,
-  now: number,
-): ConflictRemoteInfo | undefined {
-  const opts = { excludeInstanceId: localInstanceId };
-  const fieldPeers = mirror.getPresenceForField({ type: entityType, id: entityId, path }, opts);
-  if (fieldPeers.length > 0) return describeRemote(fieldPeers, now);
-  const entityPeers = mirror.getPresenceForEntity({ type: entityType, id: entityId }, opts);
-  if (entityPeers.length > 0) return describeRemote(entityPeers, now);
-  const all = mirror.getPresence().filter((p) => p.identity.instanceId !== localInstanceId);
-  return describeRemote(all, now);
-}
+export type { EntityConflictsApi, UseEntityConflictsArgs } from './entity-conflicts-api';
 
 export function useEntityConflicts<E extends { uid: string }>(
   args: UseEntityConflictsArgs<E>,
