@@ -1,15 +1,5 @@
-import {
-  ApartmentOutlined,
-  CheckOutlined,
-  ExperimentOutlined,
-  FolderOpenOutlined,
-  FolderOutlined,
-  FolderTwoTone,
-  PauseCircleOutlined,
-  SortAscendingOutlined,
-} from '@ant-design/icons';
+import { CheckOutlined, FolderTwoTone, SortAscendingOutlined } from '@ant-design/icons';
 import type { FolderNode, TreeNode } from '@openheaders/core/types';
-import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { useRowActionRegistration } from '@openheaders/ui/shared/hooks/useRowActionRegistration';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/useRuleMutator';
 import { useRules } from '@openheaders/ui/shared/hooks/useRules';
@@ -17,12 +7,12 @@ import { useVariableResolver } from '@openheaders/ui/shared/hooks/useVariableRes
 import { useSurface } from '@openheaders/ui/shared/surface';
 import type { PageInfo, RowActions } from '@openheaders/ui/shared/table-shared';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
-import { App, Button, Dropdown, Empty, Input, Space, Switch, Table, Tooltip, Typography } from 'antd';
-import type { ColumnsType } from 'antd/es/table';
+import { App, Button, Dropdown, Empty, Input, Space, Table, Tooltip, Typography } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useKeyboardNav } from '../shortcuts/KeyboardNavContext';
 import { usePopupShortcutLabel } from '../shortcuts/popup-shortcuts';
+import { buildCollectionManagerColumns } from './collection-manager-columns';
 import {
   collectAllKeys,
   type CollectionTreeRecord,
@@ -31,7 +21,6 @@ import {
   filterTree,
   flattenVisible,
 } from './collection-tree-records';
-import { renderActionDetails, renderConditionsSummary } from './columns/sharedColumnRenderers';
 import TestRunModal, { type TestRunOwnerType } from './TestRunModal';
 
 const { Text } = Typography;
@@ -289,150 +278,12 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
 
   const totalRules = countAllRulesInRecords(treeRecords);
 
-  const columns: ColumnsType<CollectionTreeRecord> = [
-    {
-      title: 'Name',
-      dataIndex: 'name',
-      key: 'name',
-      width: 200,
-      render: (name: string, record: CollectionTreeRecord) => {
-        const paused = record.effectivelyPaused;
-        if (record.nodeType === 'rule') {
-          return (
-            <Tooltip title={name.length > 20 ? name : undefined}>
-              <Text style={{ fontSize: '13px', opacity: paused ? 0.5 : 1 }}>
-                {name.length > 20 ? `${name.substring(0, 14)}...${name.substring(name.length - 4)}` : name}
-              </Text>
-            </Tooltip>
-          );
-        }
-        const color = paused ? 'var(--ant-color-warning)' : 'var(--text-secondary)';
-        return (
-          <Space>
-            {record.nodeType === 'folder' ? (
-              <FolderOutlined style={{ color }} />
-            ) : (
-              <FolderOpenOutlined style={{ color }} />
-            )}
-            <Text strong style={{ fontSize: '13px', opacity: paused ? 0.6 : 1 }}>
-              {name}
-            </Text>
-            {paused && <PauseCircleOutlined style={{ fontSize: '12px', color: 'var(--ant-color-warning)' }} />}
-          </Space>
-        );
-      },
-    },
-    {
-      title: 'Details',
-      key: 'details',
-      width: 150,
-      render: (_: unknown, record: CollectionTreeRecord) => {
-        if (record.nodeType === 'rule' && record.actionDetail) {
-          const active = (record.isEnabled ?? false) && (record.isComplete ?? false) && !record.effectivelyPaused;
-          return renderActionDetails(record.actionDetail, record.effectivelyPaused ? 0.5 : 1, 28, active);
-        }
-        if (record.nodeType !== 'rule') {
-          if (record.effectivelyPaused) {
-            return (
-              <Text type="warning" style={{ fontSize: '12px' }}>
-                Paused · {record.enabledCount} of {record.ruleCount} enabled
-              </Text>
-            );
-          }
-          return (
-            <Text type="secondary" style={{ fontSize: '12px' }}>
-              {record.enabledCount} of {record.ruleCount} rule{record.ruleCount !== 1 ? 's' : ''} enabled
-            </Text>
-          );
-        }
-        return null;
-      },
-    },
-    {
-      title: 'Conditions',
-      key: 'conditions',
-      width: 110,
-      render: (_: unknown, record: CollectionTreeRecord) => {
-        if (record.nodeType === 'rule' && record.conditions) {
-          return renderConditionsSummary(record.conditions, false);
-        }
-        return null;
-      },
-    },
-    {
-      title: '',
-      key: 'actions',
-      width: 120,
-      align: 'center',
-      fixed: 'right',
-      render: (_: unknown, record: CollectionTreeRecord) => {
-        if (record.nodeType === 'rule') {
-          return (
-            // biome-ignore lint/a11y/useKeyWithClickEvents: stops row expand on switch click
-            // biome-ignore lint/a11y/noStaticElementInteractions: stops row expand on switch click
-            <span
-              onClick={(e: React.MouseEvent) => e.stopPropagation()}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-            >
-              <Switch size="small" checked={record.isEnabled} onChange={() => handleToggle(record)} />
-              <Tooltip title="Test this rule against a URL">
-                <Button
-                  type="text"
-                  size="small"
-                  icon={<ExperimentOutlined />}
-                  onClick={() => handleTest(record)}
-                  style={{ padding: '0 4px', height: 22, minWidth: 'auto' }}
-                />
-              </Tooltip>
-            </span>
-          );
-        }
-        return (
-          // biome-ignore lint/a11y/useKeyWithClickEvents: stops row expand on switch click
-          // biome-ignore lint/a11y/noStaticElementInteractions: stops row expand on switch click
-          <span
-            onClick={(e: React.MouseEvent) => e.stopPropagation()}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-          >
-            <Tooltip
-              title={
-                <ShortcutHintTitle label={togglePauseFocusedLabel}>
-                  {record.effectivelyPaused
-                    ? `Resume — pin ${record.ruleCount} rules active (overrides parent if needed)`
-                    : `Pause — suspend ${record.ruleCount} rules without changing individual settings`}
-                </ShortcutHintTitle>
-              }
-            >
-              <Switch
-                checked={!record.effectivelyPaused}
-                onChange={() => handleToggle(record)}
-                checkedChildren="Active"
-                unCheckedChildren="Paused"
-              />
-            </Tooltip>
-            <Tooltip title="Visualize rules as flow">
-              <Button
-                type="text"
-                size="small"
-                icon={<ApartmentOutlined />}
-                onClick={() => handleVisualize(record)}
-                style={{ padding: '0 4px', height: 22, minWidth: 'auto' }}
-              />
-            </Tooltip>
-            <Tooltip title={`Test this ${record.nodeType === 'collection' ? 'collection' : 'folder'} against a URL`}>
-              <Button
-                type="text"
-                size="small"
-                icon={<ExperimentOutlined />}
-                onClick={() => handleTest(record)}
-                style={{ padding: '0 4px', height: 22, minWidth: 'auto' }}
-              />
-            </Tooltip>
-          </span>
-        );
-      },
-    },
-  ];
+  const columns = buildCollectionManagerColumns({
+    togglePauseFocusedLabel,
+    handleToggle,
+    handleTest,
+    handleVisualize,
+  });
 
   return (
     <div className="header-rules-section" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
