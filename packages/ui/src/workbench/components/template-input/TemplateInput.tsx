@@ -598,6 +598,34 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
     const focusShadow =
       status === 'error' ? `0 0 0 2px ${token.colorErrorBorderHover}` : `0 0 0 2px ${token.controlOutline}`;
 
+    // Split the caller's `style` between the two elements. Layout keys
+    // (flex sizing, width) belong on the WRAPPER — the element that
+    // participates in the parent's flex/grid layout — while surface
+    // keys (padding, fonts, heights) belong on the editable, which
+    // fills the wrapper. Without the split the wrapper stays at its
+    // `width: 100%` default while e.g. `width: 180` lands on the
+    // editable, so the two disagree about the field's box — and the
+    // absolutely-positioned chrome (clear ✕, resize grip) anchors to
+    // the phantom full-row wrapper, painting over neighboring fields.
+    const [layoutStyle, surfaceStyle] = useMemo(() => {
+      const layoutKeys = new Set([
+        'flex',
+        'flexGrow',
+        'flexShrink',
+        'flexBasis',
+        'width',
+        'minWidth',
+        'maxWidth',
+        'alignSelf',
+      ]);
+      const layout: Record<string, unknown> = {};
+      const surface: Record<string, unknown> = {};
+      for (const [key, val] of Object.entries(style ?? {})) {
+        (layoutKeys.has(key) ? layout : surface)[key] = val;
+      }
+      return [layout as React.CSSProperties, surface as React.CSSProperties];
+    }, [style]);
+
     // Wrapped, growable surface: always for `multiline`, or for an
     // `expandOnFocus` field while it's active. "Active" is the controlled
     // `expanded` prop when supplied (so a row can expand all its cells
@@ -691,17 +719,18 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       wordBreak: displayExpanded ? 'break-word' : 'normal',
       transition: 'border-color 0.2s, box-shadow 0.2s',
       boxShadow: isFocused && variant !== 'borderless' ? focusShadow : undefined,
-      ...style,
+      ...surfaceStyle,
       // An expand-on-focus caller sets a tall `line-height` to vertically
       // center the single collapsed line in the cell; once it expands,
       // force the normal line-height so the wrapped multi-line editor
-      // isn't loosely spaced. (After `...style` so it wins.)
+      // isn't loosely spaced. (After the style spread so it wins.)
       ...(expandOnFocus && expandActive ? { lineHeight: 1.5714 } : null),
     };
 
     return (
       <span
         className={`oh-template-input-wrapper${hasUnresolvedRef ? ' oh-template-input-wrapper--flagged' : ''}${className ? ` ${className}` : ''}`}
+        style={layoutStyle}
       >
         <div
           ref={mergedRef}

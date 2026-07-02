@@ -66,8 +66,12 @@ export interface TemplateInputProps {
    *  plain editable div. Used for fields that shouldn't suggest anything
    *  (LV manualOverride, extractor paths). */
   disableSuggestions?: boolean;
-  /** Forwarded to the editable element. Applied AFTER the base styles
-   *  so callers can override padding / color / flex / width. */
+  /** Caller styles, applied AFTER the base styles. Layout keys (flex
+   *  sizing, width, alignSelf) land on the outer wrapper — the element
+   *  that participates in the parent's flex layout — while everything
+   *  else (padding, color, heights, fonts) lands on the editable, which
+   *  fills the wrapper. Callers just pass one object; the split is
+   *  internal. */
   style?: React.CSSProperties;
   /** Additional class forwarded to the root wrapper. */
   className?: string;
