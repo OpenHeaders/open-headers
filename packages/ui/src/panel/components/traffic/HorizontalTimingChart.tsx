@@ -131,7 +131,12 @@ export function HorizontalTimingChart({
                 style={{ width: c.widthPx, flex: 'none' }}
                 title={warmSocket ? WARM_SOCKET_TITLE : undefined}
               >
-                {c.kind === 'elapsed' && <span className="dt-wf-h-cellno">{c.step}</span>}
+                {/* Skipped (hatched) cells keep their step number too — the
+                    legend still lists 3/4/5 as "connection reused", so an
+                    unnumbered hatch zone left the reader to guess which steps
+                    it covered. Same chip as timed cells: it's the one
+                    treatment that stays legible on every cell and theme. */}
+                {c.kind !== 'zero' && <span className="dt-wf-h-cellno">{c.step}</span>}
               </div>
             );
           })}
