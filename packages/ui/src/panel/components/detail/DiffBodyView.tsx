@@ -1,17 +1,26 @@
 /**
- * Read-only Monaco diff for a two-sided response override — original
- * (what the server sent) on the left, modified (what Open Headers served
- * to the page) on the right. Both sides are pretty-printed first when
- * the language is known, so the diff shows semantic changes rather
- * than formatting noise (servers often ship minified bodies while the
- * override is hand-formatted).
+ * Diff view for a two-sided response override — original (what the
+ * server sent) against modified (what Open Headers served to the
+ * page). Rendered through the shared {@link RichDiffEditor}, which owns
+ * the Monaco diff lifecycle (dispose-order, model swaps) and the
+ * IDE-style toolbar: side-by-side vs unified, collapse-unchanged
+ * (default on — only changed hunks show), whitespace and wrap toggles.
+ *
+ * Both sides are pretty-printed first when the language is known, so
+ * the diff shows semantic changes rather than formatting noise
+ * (servers often ship minified bodies while the override is
+ * hand-formatted).
  */
 
-import { DiffEditor } from '@monaco-editor/react';
-import { useTheme } from '@openheaders/ui/context';
 import { useEffect, useState } from 'react';
-// Side-effect import: kicks Monaco's bootstrap at module load.
+// Side-effect import: kicks Monaco's bootstrap (theme registration) at
+// module load.
 import '@openheaders/ui/workbench/components/monaco/bootstrap';
+import {
+  DEFAULT_DIFF_VIEWER_OPTIONS,
+  type DiffViewerOptions,
+  RichDiffEditor,
+} from '@openheaders/ui/workbench/components/diff-viewer';
 import { canPrettyPrint, detectLanguage } from '../../data/mime';
 import { prettyPrintCode } from './pretty-print';
 import Skeleton from './Skeleton';
@@ -26,10 +35,10 @@ interface DiffBodyViewProps {
 }
 
 export default function DiffBodyView({ original, modified, declaredMime }: DiffBodyViewProps) {
-  const { monacoTheme } = useTheme();
   const lang = detectLanguage(declaredMime);
   const shouldFormat = lang !== null && canPrettyPrint(declaredMime);
   const [pretty, setPretty] = useState<{ original: string; modified: string } | null>(null);
+  const [options, setOptions] = useState<DiffViewerOptions>(DEFAULT_DIFF_VIEWER_OPTIONS);
 
   useEffect(() => {
     if (!shouldFormat || !lang) {
@@ -37,8 +46,8 @@ export default function DiffBodyView({ original, modified, declaredMime }: DiffB
       return;
     }
     let cancelled = false;
-    Promise.all([prettyPrintCode(original, lang), prettyPrintCode(modified, lang)]).then(([o, a]) => {
-      if (!cancelled) setPretty({ original: o, modified: a });
+    Promise.all([prettyPrintCode(original, lang), prettyPrintCode(modified, lang)]).then(([o, m]) => {
+      if (!cancelled) setPretty({ original: o, modified: m });
     });
     return () => {
       cancelled = true;
@@ -51,24 +60,18 @@ export default function DiffBodyView({ original, modified, declaredMime }: DiffB
 
   return (
     <div className="dt-codemirror-wrap">
-      <DiffEditor
-        height="100%"
-        language={lang ?? 'plaintext'}
-        theme={monacoTheme}
+      <RichDiffEditor
         original={pretty?.original ?? original}
         modified={pretty?.modified ?? modified}
-        options={{
-          readOnly: true,
-          renderSideBySide: true,
-          minimap: { enabled: false },
-          wordWrap: 'on',
-          automaticLayout: true,
-          scrollBeyondLastLine: false,
-          renderLineHighlight: 'none',
-          hideUnchangedRegions: { enabled: true },
-          find: { addExtraSpaceOnTop: false },
-          hover: { above: false },
-        }}
+        language={lang ?? 'plaintext'}
+        options={options}
+        onOptionsChange={setOptions}
+        header={
+          <div className="dt-body-diff-labels">
+            <span>Original · server</span>
+            <span>Modified · Open Headers</span>
+          </div>
+        }
       />
     </div>
   );

@@ -29,10 +29,10 @@ interface ResponseBodyViewProps {
  * The Response tab. Renders the body the page received — and, when a response
  * rule modified a real (`network`-source) exchange, the real server response
  * as well (Modified | Original). The two-sided view opens as a Monaco diff by
- * default (both bodies text) with a Side-by-side toggle for the full
- * responses; non-text pairs go straight to side-by-side. The body rendering
- * itself lives in the shared {@link BodyStateView}; this component only
- * decides single-pane vs two-sided and classifies each side.
+ * default (both bodies text, unchanged rows collapsed) with a Full-response
+ * toggle for the split view; non-text pairs go straight to the split. The
+ * body rendering itself lives in the shared {@link BodyStateView}; this
+ * component only decides single-pane vs two-sided and classifies each side.
  */
 export function ResponseBodyView({ row, searchHighlight, searchMatchIndex, onOverrideResponse }: ResponseBodyViewProps) {
   const lc = row.lifecycle;
@@ -100,7 +100,7 @@ export function ResponseBodyView({ row, searchHighlight, searchMatchIndex, onOve
                 className={`dt-response-toolbar-btn ${showDiff ? '' : 'active'}`}
                 onClick={() => setDualMode('split')}
               >
-                Side by side
+                Full response
               </button>
             </div>
             {/* In split mode the CTA lives in the actual pane's bottom
@@ -115,19 +115,13 @@ export function ResponseBodyView({ row, searchHighlight, searchMatchIndex, onOve
           </div>
         )}
         {showDiff && servedState.kind === 'text' && originalState.kind === 'text' ? (
-          <>
-            <div className="dt-body-diff-labels">
-              <span>Original · server</span>
-              <span>Modified · Open Headers</span>
-            </div>
-            <Suspense fallback={<Skeleton />}>
-              <DiffBodyView
-                original={originalState.content}
-                modified={servedState.content}
-                declaredMime={snapshotMime(original) || declaredMime}
-              />
-            </Suspense>
-          </>
+          <Suspense fallback={<Skeleton />}>
+            <DiffBodyView
+              original={originalState.content}
+              modified={servedState.content}
+              declaredMime={snapshotMime(original) || declaredMime}
+            />
+          </Suspense>
         ) : (
           splitView
         )}
