@@ -96,13 +96,13 @@ function hasCookies(har: ReturnType<typeof currentHarEntry>): boolean {
  * Pull the captured response into the fields the "Override Response"
  * draft needs. The body is carried only when it's meaningfully text
  * (the same gate the Response tab uses to offer a binary body as text) —
- * a binary mock pre-filled as garbled UTF-8 would help no one, so those
- * seed just the status and content-type and leave the body for the user.
+ * a binary body pre-filled as garbled UTF-8 would help no one, so those
+ * seed just the content-type and leave the body for the user.
  */
 function capturedResponseDraftInput(
   lc: RequestLifecycle,
   har: ReturnType<typeof currentHarEntry>,
-): { responseBody: string; statusCode?: number; contentType: string } {
+): { responseBody: string; contentType: string } {
   const contentType = lifecycleMimeType(lc) ?? har?.response?.content?.mimeType ?? '';
   const state = classifyBodyState(lc);
   let responseBody = '';
@@ -115,7 +115,7 @@ function capturedResponseDraftInput(
       responseBody = '';
     }
   }
-  return { responseBody, statusCode: lc.statusCode, contentType };
+  return { responseBody, contentType };
 }
 
 /**

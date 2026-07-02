@@ -232,18 +232,18 @@ registerSetting({
 registerSetting({
   key: 'rulesEngine.draftUrlStrategy',
   type: 'enum',
-  default: 'path-wildcard',
+  default: 'exact',
   schema: draftUrlStrategySchema,
   label: 'Draft URL Strategy',
   description:
-    'How pre-filled rules from the DevTools Inspector turn a captured URL into a url-filter pattern. Path wildcard (default) replaces the last path segment with * so sibling resources match. Host-only widens to the whole domain. Exact/raw keep the URL verbatim.',
+    'How pre-filled rules from the DevTools Inspector turn a captured URL into a url-filter pattern. Exact (default) keeps the URL verbatim so the rule matches only the inspected request. Path wildcard replaces the last path segment with * so sibling resources match. Host-only widens to the whole domain.',
   category: 'rulesEngine',
   tags: ['draft', 'devtools', 'inspector', 'url', 'pattern'],
   scope: 'user',
   enumOptions: [
-    { value: 'path-wildcard', label: 'Path wildcard', description: 'Wildcard the last path segment (recommended)' },
+    { value: 'exact', label: 'Exact URL', description: 'Match this URL verbatim, normalized (recommended)' },
+    { value: 'path-wildcard', label: 'Path wildcard', description: 'Wildcard the last path segment' },
     { value: 'host-only', label: 'Host only', description: 'Match every request on the host' },
-    { value: 'exact', label: 'Exact URL', description: 'Match this URL verbatim (normalized)' },
     { value: 'raw', label: 'Raw URL', description: 'Match this URL verbatim without normalization' },
   ],
 });

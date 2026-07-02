@@ -7,10 +7,10 @@
  * by the user via `rulesEngine.draftUrlStrategy`:
  *
  *   - `exact`         → the full URL verbatim, including query string
- *   - `path-wildcard` → wildcard the last path segment (default).
- *                       Most useful for REST endpoints where the user
- *                       wants the rule to cover siblings without
- *                       hand-editing.
+ *                       (default). Matches only the inspected request.
+ *   - `path-wildcard` → wildcard the last path segment. Most useful
+ *                       for REST endpoints where the user wants the
+ *                       rule to cover siblings without hand-editing.
  *   - `host-only`     → match every URL on the host
  *   - `raw`           → pass the URL straight through without any
  *                       transformation, same as `exact` today, kept

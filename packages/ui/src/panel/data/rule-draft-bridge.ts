@@ -84,23 +84,35 @@ export function buildBlockDraftFromRequest(lc: RequestLifecycle): BlockRuleDraft
   return { type: 'block', url: lc.url };
 }
 
-/** Build a "mock response" draft seeded from the captured response —
- *  the editor opens with the real status, content-type, and body
- *  pre-filled as a static mock the user can edit in place. A status of
- *  `0` (the "keep original" sentinel) falls back to `200`. */
+/** Pretty-print a JSON body so the editor opens already formatted —
+ *  non-JSON (and unparseable) bodies pass through untouched. */
+function formatDraftBody(body: string): string {
+  const trimmed = body.trim();
+  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return body;
+  try {
+    return JSON.stringify(JSON.parse(trimmed), null, 2);
+  } catch {
+    return body;
+  }
+}
+
+/** Build an "override response" draft seeded from the captured response —
+ *  the editor opens in network mode (the real request is still sent; only
+ *  the reply is replaced), keeps the original status code (`0` sentinel),
+ *  and pre-fills the real content-type and body as static data. */
 export function buildResponseDraftFromRequest(
   lc: RequestLifecycle,
-  captured: { responseBody?: string; statusCode?: number; contentType?: string },
+  captured: { responseBody?: string; contentType?: string },
 ): ResponseRuleDraft {
   const method = lc.method ? [lc.method.toUpperCase()] : undefined;
   return {
     type: 'response',
     url: lc.url,
     ...(method ? { requestMethods: method } : {}),
-    responseSource: 'mock',
+    responseSource: 'network',
     bodyType: 'static',
-    statusCode: captured.statusCode && captured.statusCode > 0 ? captured.statusCode : 200,
-    responseBody: captured.responseBody ?? '',
+    statusCode: 0,
+    responseBody: formatDraftBody(captured.responseBody ?? ''),
     contentType: captured.contentType ?? '',
   };
 }
@@ -118,7 +130,7 @@ export function buildRequestBodyDraftFromRequest(
     url: lc.url,
     ...(method ? { requestMethods: method } : {}),
     bodyType: 'static',
-    requestBody: captured.requestBody ?? '',
+    requestBody: formatDraftBody(captured.requestBody ?? ''),
   };
 }
 
