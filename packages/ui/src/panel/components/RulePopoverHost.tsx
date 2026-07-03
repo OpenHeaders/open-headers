@@ -26,6 +26,7 @@ import { DelayQuickCreate } from './rule-quick-editor/DelayQuickCreate';
 import { HeaderQuickCreate } from './rule-quick-editor/HeaderQuickCreate';
 import { QueryParamQuickCreate } from './rule-quick-editor/QueryParamQuickCreate';
 import { RedirectQuickCreate } from './rule-quick-editor/RedirectQuickCreate';
+import { RedirectQuickEditor } from './rule-quick-editor/RedirectQuickEditor';
 import { RequestBodyQuickCreate } from './rule-quick-editor/RequestBodyQuickCreate';
 import { ResponseQuickCreate } from './rule-quick-editor/ResponseQuickCreate';
 import { ResponseQuickEditor } from './rule-quick-editor/ResponseQuickEditor';
@@ -214,6 +215,18 @@ function RulePopoverBody({
   if (state.rule?.type === 'response') {
     return (
       <ResponseQuickEditor
+        anchorEl={state.anchorEl}
+        rule={state.rule}
+        onClose={onClose}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+        visible={visible}
+      />
+    );
+  }
+  if (state.rule?.type === 'redirect') {
+    return (
+      <RedirectQuickEditor
         anchorEl={state.anchorEl}
         rule={state.rule}
         onClose={onClose}
