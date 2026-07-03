@@ -123,6 +123,14 @@ export function useDismiss(opts: UseDismissOptions): void {
         // Escape — leave the key to it; this surface dismisses on the
         // NEXT press, after that layer released its claim.
         if (!claim.owns()) return;
+        // An OPEN select owns Escape too: antd's own handler (bubble
+        // phase, so it runs after this capture listener) closes just
+        // the dropdown. Consuming the key here would tear down the
+        // whole popover with the menu still up. antd flags the open
+        // state on the select root, which wraps the focused search
+        // input — the closed select doesn't carry the class, so its
+        // Escape still dismisses this surface.
+        if (e.target instanceof Element && e.target.closest('.ant-select-open')) return;
         e.stopPropagation();
         onEscape();
       }
