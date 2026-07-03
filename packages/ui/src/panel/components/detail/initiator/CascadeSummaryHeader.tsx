@@ -1,4 +1,4 @@
-import type { CascadeSummary } from '../../../data/cascade-summary';
+import type { CascadeSummary } from '../../../data/cascade/cascade-summary';
 import { formatBytes, formatMs } from './utils';
 
 export function CascadeSummaryHeader({ summary }: { summary: CascadeSummary }) {

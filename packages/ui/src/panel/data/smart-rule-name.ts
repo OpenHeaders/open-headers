@@ -15,6 +15,7 @@ import { uniqueName } from '@openheaders/ui/shared/naming';
 export type SmartNameKind =
   | 'redirect'
   | 'replace-host'
+  | 'localhost'
   | 'delay'
   | 'block'
   | 'header'

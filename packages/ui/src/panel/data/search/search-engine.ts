@@ -36,9 +36,9 @@
  * fallback in non-browser test environments — see `search-transport`).
  */
 
-import type { FilterConfig } from './filter-engine';
-import type { InspectorRow } from './inspector-facet';
-import { currentHarEntry, currentResponseBody } from './inspector-row-projection';
+import type { FilterConfig } from '../filter-engine';
+import type { InspectorRow } from '../inspector-facet';
+import { currentHarEntry, currentResponseBody } from '../inspector-row-projection';
 
 /**
  * Canonical section names emitted by {@link buildSearchableText}.

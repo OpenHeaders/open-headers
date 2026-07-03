@@ -1,7 +1,12 @@
 import type { Page } from '@openheaders/core/page-stream';
 import type { RedirectHop, RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarEntry, InspectorHarLog, InspectorHarPage } from '@openheaders/core/types';
-import { buildHar, sanitizeHarEntry, serializeHar, suggestHarFilename } from '@openheaders/ui/panel/data/har-export';
+import {
+  buildHar,
+  sanitizeHarEntry,
+  serializeHar,
+  suggestHarFilename,
+} from '@openheaders/ui/panel/data/har/har-export';
 import { buildInspectorRows } from '@openheaders/ui/panel/data/inspector-facet';
 import { attachFiresToRows, type InspectorRowWithFires } from '@openheaders/ui/panel/data/inspector-row-projection';
 import { describe, expect, it, vi } from 'vitest';

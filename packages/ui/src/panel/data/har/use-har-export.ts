@@ -8,8 +8,8 @@
 import { hostNavigation } from '@openheaders/core/navigation';
 import type { Page } from '@openheaders/core/page-stream';
 import { useCallback } from 'react';
+import type { InspectorRowWithFires } from '../inspector-row-projection';
 import { serializeHar, suggestHarFilename } from './har-export';
-import type { InspectorRowWithFires } from './inspector-row-projection';
 
 export interface UseHarExportOptions {
   rows: readonly InspectorRowWithFires[];

@@ -5,7 +5,7 @@
 
 import type { Page } from '@openheaders/core/page-stream';
 import type { InspectorHarPage } from '@openheaders/core/types';
-import { pagesToHarForRefs, pageToHar } from '@openheaders/ui/panel/data/page-to-har';
+import { pagesToHarForRefs, pageToHar } from '@openheaders/ui/panel/data/har/page-to-har';
 import { describe, expect, it } from 'vitest';
 
 function page(overrides: Partial<Page> = {}): Page {

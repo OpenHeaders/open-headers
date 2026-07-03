@@ -74,10 +74,10 @@ import { type PanelViewState, usePanelEditingScopeViewState, usePanelToolLayout 
 import { usePanelUiState } from './data/use-panel-ui-state';
 import { useCacheBypass } from './data/use-cache-bypass';
 import { useFooterSummary } from './data/use-footer-summary';
-import { useHarExport } from './data/use-har-export';
+import { useHarExport } from './data/har/use-har-export';
 import { useInspectorTabJumps } from './data/use-inspector-tab-jumps';
 import { useRulesLookup } from './data/use-rules-lookup';
-import { useSearchSession } from './data/use-search-session';
+import { useSearchSession } from './data/search/use-search-session';
 
 // ── Shell event bus (created once, stable across renders) ────────────
 

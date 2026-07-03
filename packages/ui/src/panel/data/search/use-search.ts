@@ -19,8 +19,8 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { DEFAULT_FILTER_CONFIG, type FilterConfig } from './filter-engine';
-import type { InspectorRow } from './inspector-facet';
+import { DEFAULT_FILTER_CONFIG, type FilterConfig } from '../filter-engine';
+import type { InspectorRow } from '../inspector-facet';
 import { getDefaultSearchClient, type SearchHandle } from './search-client';
 import type { SearchGroup, SearchProgress } from './search-engine';
 

@@ -33,9 +33,9 @@ import type {
   InspectorHarLog,
 } from '@openheaders/core/types';
 import { getBuildInfo } from '@openheaders/ui/shared/build-info';
-import type { InspectorRowWithFires } from './inspector-row-projection';
-import { currentHarEntry, resolvePageref } from './inspector-row-projection';
-import { selectMainDocByPage } from './page-anchor';
+import type { InspectorRowWithFires } from '../inspector-row-projection';
+import { currentHarEntry, resolvePageref } from '../inspector-row-projection';
+import { selectMainDocByPage } from '../page-anchor';
 import { type HarPage, pagesToHarForRefs } from './page-to-har';
 
 function getCreatorVersion(): string {

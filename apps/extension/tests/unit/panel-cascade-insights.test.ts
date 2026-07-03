@@ -1,6 +1,6 @@
-import { computeCascadeInsights } from '@openheaders/ui/panel/data/cascade-insights';
-import type { CascadeInsight } from '@openheaders/ui/panel/data/cascade-insights';
-import type { CascadeSummary, SubtreeStats } from '@openheaders/ui/panel/data/cascade-summary';
+import type { CascadeInsight } from '@openheaders/ui/panel/data/cascade/cascade-insights';
+import { computeCascadeInsights } from '@openheaders/ui/panel/data/cascade/cascade-insights';
+import type { CascadeSummary, SubtreeStats } from '@openheaders/ui/panel/data/cascade/cascade-summary';
 import { describe, expect, it } from 'vitest';
 
 function summary(over: Partial<CascadeSummary>): CascadeSummary {
@@ -50,7 +50,11 @@ describe('computeCascadeInsights', () => {
       ['d.example.com', { count: 1, bytes: 25_000, ms: 0, failures: 0 }],
     ]);
     void byHost;
-    expect(computeCascadeInsights(summary({ transferredBytes: 100_000, byHost: balanced })).some((i: CascadeInsight) => i.kind === 'host')).toBe(false);
+    expect(
+      computeCascadeInsights(summary({ transferredBytes: 100_000, byHost: balanced })).some(
+        (i: CascadeInsight) => i.kind === 'host',
+      ),
+    ).toBe(false);
   });
 
   it('flags third-party share above 50%', () => {

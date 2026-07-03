@@ -6,10 +6,10 @@ import {
   buildSearchableText,
   lineMatches,
   runSearch,
-  scanEntry,
   type SearchGroup,
   type SearchProgress,
-} from '@openheaders/ui/panel/data/search-engine';
+  scanEntry,
+} from '@openheaders/ui/panel/data/search/search-engine';
 import { describe, expect, it } from 'vitest';
 
 function makeRow(opts: {
@@ -207,19 +207,13 @@ describe('runSearch — perf / correctness invariants', () => {
     const body = `${prefix}NEEDLE${suffix}`;
     let captured: SearchGroup | null = null;
     const ctrl = new AbortController();
-    await runSearch(
-      [makeRow({ id: 'long-line', responseBody: body })],
-      'NEEDLE',
-      DEFAULT_FILTER_CONFIG,
-      ctrl.signal,
-      {
-        onGroup: (g) => {
-          captured = g;
-        },
-        onProgress: () => {},
-        onDone: () => {},
+    await runSearch([makeRow({ id: 'long-line', responseBody: body })], 'NEEDLE', DEFAULT_FILTER_CONFIG, ctrl.signal, {
+      onGroup: (g) => {
+        captured = g;
       },
-    );
+      onProgress: () => {},
+      onDone: () => {},
+    });
     expect(captured).not.toBeNull();
     const match = (captured as unknown as SearchGroup).matches[0];
     expect(match.lineText.length).toBeLessThanOrEqual(400);

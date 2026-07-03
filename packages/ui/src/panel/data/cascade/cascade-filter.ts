@@ -17,7 +17,7 @@
  * `is:third-party`) so the same matching path covers both code paths.
  */
 
-import type { InitiatorRowMeta } from './initiator-row-meta';
+import type { InitiatorRowMeta } from '../initiator-row-meta';
 
 type Token =
   | { kind: 'text'; value: string; negated: boolean }
@@ -99,7 +99,8 @@ function matchSize(value: string, bytes: number | null): boolean {
   const op = m[1] || '>';
   const num = Number.parseFloat(m[2]);
   const unit = (m[3] ?? '').toLowerCase();
-  const threshold = unit === 'k' || unit === 'kb' ? num * 1024 : unit === 'm' || unit === 'mb' ? num * 1024 * 1024 : num;
+  const threshold =
+    unit === 'k' || unit === 'kb' ? num * 1024 : unit === 'm' || unit === 'mb' ? num * 1024 * 1024 : num;
   switch (op) {
     case '>':
       return bytes > threshold;

@@ -9,7 +9,7 @@
 
 import type { Page } from '@openheaders/core/page-stream';
 import type { InspectorHarEntry } from '@openheaders/core/types';
-import { buildHarFromEntries } from '../../../data/har-export';
+import { buildHarFromEntries } from '../../../data/har/har-export';
 
 export type SnippetFormat =
   | 'curl-unix'

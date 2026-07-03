@@ -2,10 +2,10 @@ import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarBody, InspectorHarEntry } from '@openheaders/core/types';
 import { DEFAULT_FILTER_CONFIG } from '@openheaders/ui/panel/data/filter-engine';
 import type { InspectorRow } from '@openheaders/ui/panel/data/inspector-facet';
-import { SearchClient } from '@openheaders/ui/panel/data/search-client';
-import type { SearchGroup, SearchProgress } from '@openheaders/ui/panel/data/search-engine';
-import { createInlineTransport, type SearchTransport } from '@openheaders/ui/panel/data/search-transport';
-import type { MainToWorker, WorkerToMain } from '@openheaders/ui/panel/data/search-worker-protocol';
+import { SearchClient } from '@openheaders/ui/panel/data/search/search-client';
+import type { SearchGroup, SearchProgress } from '@openheaders/ui/panel/data/search/search-engine';
+import { createInlineTransport, type SearchTransport } from '@openheaders/ui/panel/data/search/search-transport';
+import type { MainToWorker, WorkerToMain } from '@openheaders/ui/panel/data/search/search-worker-protocol';
 import { describe, expect, it } from 'vitest';
 
 function fakeCrashableTransport(): SearchTransport & { fireError(): void } {

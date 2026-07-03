@@ -1,5 +1,5 @@
-import { matchesCascadeQuery, type parseCascadeQuery } from '../../../data/cascade-filter';
-import type { SubtreeStats } from '../../../data/cascade-summary';
+import { matchesCascadeQuery, type parseCascadeQuery } from '../../../data/cascade/cascade-filter';
+import type { SubtreeStats } from '../../../data/cascade/cascade-summary';
 import { computeInitiatorRowMeta, type InitiatorRowMeta } from '../../../data/initiator-row-meta';
 import { type InspectorRowWithFires, lifecycleTransferredBytes } from '../../../data/inspector-row-projection';
 

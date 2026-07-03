@@ -1,13 +1,10 @@
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarEntry } from '@openheaders/core/types';
-import { computeCascadeSummary } from '@openheaders/ui/panel/data/cascade-summary';
+import { computeCascadeSummary } from '@openheaders/ui/panel/data/cascade/cascade-summary';
 import { describe, expect, it } from 'vitest';
 
 let _seq = 0;
-function lifecycle(
-  url: string,
-  opts: { bytes?: number; duration?: number; status?: number } = {},
-): RequestLifecycle {
+function lifecycle(url: string, opts: { bytes?: number; duration?: number; status?: number } = {}): RequestLifecycle {
   const startedAtMs = ++_seq * 100;
   const har: InspectorHarEntry = {
     startedDateTime: new Date(startedAtMs).toISOString(),

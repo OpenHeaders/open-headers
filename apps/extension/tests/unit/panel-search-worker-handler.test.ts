@@ -2,8 +2,8 @@ import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarBody, InspectorHarEntry } from '@openheaders/core/types';
 import { DEFAULT_FILTER_CONFIG } from '@openheaders/ui/panel/data/filter-engine';
 import type { InspectorRow } from '@openheaders/ui/panel/data/inspector-facet';
-import { createSearchHandler } from '@openheaders/ui/panel/data/search-worker-handler';
-import type { MainToWorker, WorkerToMain } from '@openheaders/ui/panel/data/search-worker-protocol';
+import { createSearchHandler } from '@openheaders/ui/panel/data/search/search-worker-handler';
+import type { MainToWorker, WorkerToMain } from '@openheaders/ui/panel/data/search/search-worker-protocol';
 import { describe, expect, it } from 'vitest';
 
 function row(id: string, responseBody: string, displayId = 1): InspectorRow {

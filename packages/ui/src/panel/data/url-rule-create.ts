@@ -23,11 +23,11 @@ export type RedirectRuleSeed = Omit<RedirectRule, 'uid' | 'path' | 'schemaVersio
 export type DelayRuleSeed = Omit<DelayRule, 'uid' | 'path' | 'schemaVersion'>;
 export type BlockRuleSeed = Omit<BlockRule, 'uid' | 'path' | 'schemaVersion'>;
 
-/** Which CTA opened a URL-action create session. The two redirect
- *  variants share a rule type but seed different targets (and name
- *  themselves differently), so the variant — not the type — is the
- *  per-request session discriminator. */
-export type RedirectCreateVariant = 'redirect' | 'replace-host';
+/** Which menu entry opened a redirect create session. The variants
+ *  share a rule type but seed different targets (and name themselves
+ *  differently), so the variant — not the type — is the per-request
+ *  session discriminator. */
+export type RedirectCreateVariant = 'redirect' | 'replace-host' | 'localhost';
 export type UrlCreateVariant = RedirectCreateVariant | 'delay' | 'block';
 
 // ── Redirect ────────────────────────────────────────────────────────
@@ -56,12 +56,22 @@ export function newHostVarName(url: string): string | null {
   return domainVarName('new_host', url);
 }
 
+/** Domain-scoped variable name for the Point-to-localhost variant's
+ *  seed — `localhost_openheaders_io`, holding the local host:port
+ *  (e.g. `localhost:5173`) — so every localhost rule for a domain
+ *  shares one retargetable dev-server variable. */
+export function localhostVarName(url: string): string | null {
+  return domainVarName('localhost', url);
+}
+
 /** Seed the editable field from the captured draft. An empty target
  *  seeds a domain-scoped variable reference per variant — the plain
  *  Redirect URL variant as the whole target (`{{redirect_url_<domain>}}`),
  *  Replace host as the host slot of the captured URL
  *  (`https://{{new_host_<domain>}}/path?query`) so path and query are
- *  preserved verbatim. If the variable already exists it resolves
+ *  preserved verbatim, and Point to localhost as the host slot over
+ *  plain http (`http://{{localhost_<domain>}}/path?query`) — local dev
+ *  servers rarely speak TLS. If the variable already exists it resolves
  *  immediately (reuse), otherwise the popover's save gate holds until
  *  the user creates it via the reference's create flow. */
 export function seedRedirectQuickDraft(
@@ -74,12 +84,13 @@ export function seedRedirectQuickDraft(
     const varName = redirectVarName(draft.url ?? '');
     if (varName) return { redirectTo: `{{${varName}}}` };
   }
-  if (variant === 'replace-host') {
-    const varName = newHostVarName(draft.url ?? '');
+  if (variant === 'replace-host' || variant === 'localhost') {
+    const varName = variant === 'localhost' ? localhostVarName(draft.url ?? '') : newHostVarName(draft.url ?? '');
     if (varName) {
       try {
         const u = new URL(draft.url ?? '');
-        return { redirectTo: `${u.protocol}//{{${varName}}}${u.pathname}${u.search}${u.hash}` };
+        const scheme = variant === 'localhost' ? 'http:' : u.protocol;
+        return { redirectTo: `${scheme}//{{${varName}}}${u.pathname}${u.search}${u.hash}` };
       } catch {
         // non-URL captures fall through to the empty seed
       }

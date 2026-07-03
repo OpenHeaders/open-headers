@@ -13,8 +13,8 @@
  * be transferred zero-copy, and rows are read-only to the worker.
  */
 
-import type { FilterConfig } from './filter-engine';
-import type { InspectorRow } from './inspector-facet';
+import type { FilterConfig } from '../filter-engine';
+import type { InspectorRow } from '../inspector-facet';
 import type { SearchGroup, SearchProgress } from './search-engine';
 
 export type MainToWorker =

@@ -1,4 +1,4 @@
-import type { SubtreeStats } from '../../../data/cascade-summary';
+import type { SubtreeStats } from '../../../data/cascade/cascade-summary';
 import type { InitiatorRowMeta } from '../../../data/initiator-row-meta';
 import { formatBytes, formatMs } from './utils';
 

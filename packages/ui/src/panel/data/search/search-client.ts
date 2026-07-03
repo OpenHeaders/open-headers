@@ -10,8 +10,8 @@
  * The underlying worker is lazily created on first `submit()`.
  */
 
-import type { FilterConfig } from './filter-engine';
-import type { InspectorRow } from './inspector-facet';
+import type { FilterConfig } from '../filter-engine';
+import type { InspectorRow } from '../inspector-facet';
 import type { SearchGroup, SearchProgress } from './search-engine';
 import { createDefaultTransport, type SearchTransport } from './search-transport';
 import type { MainToWorker } from './search-worker-protocol';

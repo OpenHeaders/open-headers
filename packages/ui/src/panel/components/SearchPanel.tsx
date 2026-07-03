@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import type { FilterConfig } from '../data/filter-engine';
-import { buildResultView, type DisplayRow } from '../data/search-display';
-import { type SearchGroup, sectionHasLineColumn } from '../data/search-engine';
-import type { SearchSession } from '../data/use-search-session';
+import { buildResultView, type DisplayRow } from '../data/search/search-display';
+import { type SearchGroup, sectionHasLineColumn } from '../data/search/search-engine';
+import type { SearchSession } from '../data/search/use-search-session';
 import { FilterInput } from './FilterInput';
 
 interface SearchPanelProps {

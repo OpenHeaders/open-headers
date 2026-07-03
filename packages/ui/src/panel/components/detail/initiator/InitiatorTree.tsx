@@ -3,9 +3,9 @@ import { useMeasuredCssHeights } from '@openheaders/ui/shared/hooks/useMeasuredS
 import { useStickyAncestors } from '@openheaders/ui/shared/hooks/useStickyAncestors';
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { computeCascadeInsights } from '../../../data/cascade-insights';
-import { computeCascadeSummary } from '../../../data/cascade-summary';
-import { parseCascadeQuery } from '../../../data/cascade-filter';
+import { computeCascadeInsights } from '../../../data/cascade/cascade-insights';
+import { computeCascadeSummary } from '../../../data/cascade/cascade-summary';
+import { parseCascadeQuery } from '../../../data/cascade/cascade-filter';
 import type { InspectorRowWithFires } from '../../../data/inspector-row-projection';
 import ResourceIcon from '../../traffic/ResourceIcon';
 import { HighlightedText } from '../HighlightedText';

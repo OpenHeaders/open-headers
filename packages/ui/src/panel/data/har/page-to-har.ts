@@ -21,7 +21,7 @@ import type { Page } from '@openheaders/core/page-stream';
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarPage } from '@openheaders/core/types';
 
-import { type AnchoredPageTimings, anchorPageTimings } from './page-anchor';
+import { type AnchoredPageTimings, anchorPageTimings } from '../page-anchor';
 
 export interface HarPageTimings {
   onContentLoad: number;

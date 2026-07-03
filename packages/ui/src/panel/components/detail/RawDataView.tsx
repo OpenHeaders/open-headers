@@ -18,7 +18,7 @@ import type { Page } from '@openheaders/core/page-stream';
 import type { InspectorHarEntry } from '@openheaders/core/types';
 import { InfoTrigger, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { useMemo, useState } from 'react';
-import { buildHarFromEntries } from '../../data/har-export';
+import { buildHarFromEntries } from '../../data/har/har-export';
 import { ToolbarMenuPopover } from '../ToolbarMenuPopover';
 import type { AnnotatedHeader } from '../../data/header-attribution';
 import {

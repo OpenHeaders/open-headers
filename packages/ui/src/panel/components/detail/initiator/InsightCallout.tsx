@@ -1,4 +1,4 @@
-import type { CascadeInsight } from '../../../data/cascade-insights';
+import type { CascadeInsight } from '../../../data/cascade/cascade-insights';
 
 export function InsightCallout({ insight }: { insight: CascadeInsight }) {
   const icon = insight.kind === 'failure' ? '⚠' : '⚡';

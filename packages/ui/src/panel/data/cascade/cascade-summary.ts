@@ -16,8 +16,8 @@
  */
 
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
-import { isCascadeFailure } from './initiator-row-meta';
-import { currentHarEntry, lifecycleTransferredBytes } from './inspector-row-projection';
+import { isCascadeFailure } from '../initiator-row-meta';
+import { currentHarEntry, lifecycleTransferredBytes } from '../inspector-row-projection';
 
 export interface SubtreeStats {
   /** Descendants of this node (excludes the node itself). */

@@ -1,4 +1,4 @@
-import { matchesCascadeQuery, parseCascadeQuery } from '@openheaders/ui/panel/data/cascade-filter';
+import { matchesCascadeQuery, parseCascadeQuery } from '@openheaders/ui/panel/data/cascade/cascade-filter';
 import type { InitiatorRowMeta } from '@openheaders/ui/panel/data/initiator-row-meta';
 import { describe, expect, it } from 'vitest';
 

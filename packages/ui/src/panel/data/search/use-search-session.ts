@@ -12,8 +12,8 @@
  */
 
 import { useState } from 'react';
-import { DEFAULT_FILTER_CONFIG, type FilterConfig } from './filter-engine';
-import type { InspectorRow } from './inspector-facet';
+import { DEFAULT_FILTER_CONFIG, type FilterConfig } from '../filter-engine';
+import type { InspectorRow } from '../inspector-facet';
 import { type UseSearchResult, useSearch } from './use-search';
 
 export interface SearchSession {

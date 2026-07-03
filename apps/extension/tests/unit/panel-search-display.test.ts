@@ -1,5 +1,5 @@
-import { buildResultView } from '@openheaders/ui/panel/data/search-display';
-import type { SearchGroup, SearchMatch } from '@openheaders/ui/panel/data/search-engine';
+import { buildResultView } from '@openheaders/ui/panel/data/search/search-display';
+import type { SearchGroup, SearchMatch } from '@openheaders/ui/panel/data/search/search-engine';
 import { describe, expect, it } from 'vitest';
 
 function match(

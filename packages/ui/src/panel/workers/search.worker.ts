@@ -6,8 +6,8 @@
  * `search-worker-handler.ts` so it can be unit-tested off-thread.
  */
 
-import { createSearchHandler } from '../data/search-worker-handler';
-import type { MainToWorker } from '../data/search-worker-protocol';
+import { createSearchHandler } from '../data/search/search-worker-handler';
+import type { MainToWorker } from '../data/search/search-worker-protocol';
 
 const ctx = self as unknown as DedicatedWorkerGlobalScope;
 
