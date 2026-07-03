@@ -13,9 +13,6 @@ import {
   buildBlockRuleSeed,
   buildDelayRuleSeed,
   buildRedirectRuleSeed,
-  generateBlockRuleName,
-  generateDelayRuleName,
-  generateRedirectRuleName,
   mergeQuickIntoDelayDraft,
   mergeQuickIntoRedirectDraft,
   seedDelayQuickDraft,
@@ -66,15 +63,6 @@ describe('merge back into the handoff draft', () => {
   it('folds the edited delay and drops a cleared input', () => {
     expect(mergeQuickIntoDelayDraft(makeDelayDraft(), { delayMs: 5000 }).delayMs).toBe(5000);
     expect(mergeQuickIntoDelayDraft(makeDelayDraft({ delayMs: 250 }), { delayMs: null }).delayMs).toBe(250);
-  });
-});
-
-describe('name generation', () => {
-  it('uses the workbench base labels and counts up past taken names', () => {
-    expect(generateRedirectRuleName([])).toBe('New Redirect Rule');
-    expect(generateRedirectRuleName([{ name: 'New Redirect Rule' }])).toBe('New Redirect Rule (2)');
-    expect(generateDelayRuleName([])).toBe('New Delay Rule');
-    expect(generateBlockRuleName([])).toBe('New Block Rule');
   });
 });
 

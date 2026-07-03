@@ -21,8 +21,8 @@ import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import { App, Button, Select, Tag, theme } from 'antd';
 import { useRef, useState } from 'react';
 import { handOffRuleDraft } from '../../data/rule-draft-bridge';
+import { generateSmartRuleName } from '../../data/smart-rule-name';
 import {
-  generateHeaderRuleName,
   type HeaderDirection,
   type HeaderQuickDraft,
   mergeQuickIntoHeaderDraft,
@@ -60,9 +60,15 @@ export function HeaderQuickCreate({
   const { rules, localCollections } = useRules();
   const strategy = useSettingValue('rulesEngine.draftUrlStrategy');
 
-  // Frozen per popover session (the host remounts per identity).
-  const [name] = useState(() => generateHeaderRuleName(rules));
+  // Seed frozen per popover session (the host remounts per identity);
+  // the name pre-fills from it and stays editable via the shell's title.
   const [seed] = useState<HeaderQuickDraft>(() => seedHeaderQuickDraft(draft, direction));
+  const [name, setName] = useState(() =>
+    generateSmartRuleName(
+      { kind: 'header', url: draft.url ?? '', headerName: seed.headerName, headerOperation: seed.operation },
+      rules,
+    ),
+  );
   const [quick, setQuick] = useState<HeaderQuickDraft>(seed);
   const quickRef = useRef(quick);
   quickRef.current = quick;
@@ -105,6 +111,7 @@ export function HeaderQuickCreate({
       liveRule={null}
       ruleType="header"
       ruleName={name}
+      onRuleNameChange={setName}
       liveRuleUid={null}
       isDirty={isDirty}
       tags={

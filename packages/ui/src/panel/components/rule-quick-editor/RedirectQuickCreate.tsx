@@ -18,12 +18,13 @@ import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import { App, Typography, theme } from 'antd';
 import { useRef, useState } from 'react';
 import { handOffRuleDraft } from '../../data/rule-draft-bridge';
+import { generateSmartRuleName } from '../../data/smart-rule-name';
 import {
   buildRedirectRuleSeed,
-  generateRedirectRuleName,
   mergeQuickIntoRedirectDraft,
   type RedirectQuickDraft,
   seedRedirectQuickDraft,
+  type UrlCreateVariant,
 } from '../../data/url-rule-create';
 import { QuickEditorShell } from './QuickEditorShell';
 import { useQuickCreateSave } from './use-quick-create-save';
@@ -34,6 +35,8 @@ export interface RedirectQuickCreateProps {
   anchorEl: HTMLElement;
   /** Captured-request draft built by the CTA (`rule-draft-bridge`). */
   draft: RedirectRuleDraft;
+  /** Which CTA opened the session — names the rule per-variant. */
+  variant: UrlCreateVariant;
   onClose: () => void;
   onMouseEnter?: () => void;
   onMouseLeave?: (e: React.MouseEvent) => void;
@@ -43,6 +46,7 @@ export interface RedirectQuickCreateProps {
 export function RedirectQuickCreate({
   anchorEl,
   draft,
+  variant,
   onClose,
   onMouseEnter,
   onMouseLeave,
@@ -55,8 +59,16 @@ export function RedirectQuickCreate({
   const { rules, localCollections } = useRules();
   const strategy = useSettingValue('rulesEngine.draftUrlStrategy');
 
-  // Frozen per popover session (the host remounts per identity).
-  const [name] = useState(() => generateRedirectRuleName(rules));
+  // Pre-filled from the capture; editable via the shell's title.
+  const [name, setName] = useState(() =>
+    generateSmartRuleName(
+      {
+        kind: variant === 'replace-host' || variant === 'replace-url-part' ? variant : 'redirect',
+        url: draft.url ?? '',
+      },
+      rules,
+    ),
+  );
   const [seed] = useState<RedirectQuickDraft>(() => seedRedirectQuickDraft(draft));
   const [quick, setQuick] = useState<RedirectQuickDraft>(seed);
   const quickRef = useRef(quick);
@@ -91,6 +103,7 @@ export function RedirectQuickCreate({
       liveRule={null}
       ruleType="redirect"
       ruleName={name}
+      onRuleNameChange={setName}
       liveRuleUid={null}
       isDirty={isDirty}
       onOpenInEditor={openInEditor}

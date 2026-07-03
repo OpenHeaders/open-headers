@@ -22,13 +22,13 @@ import { useRef, useState } from 'react';
 import {
   appendQueryParamQuickRow,
   buildQueryParamRuleSeed,
-  generateQueryParamRuleName,
   mergeQuickIntoQueryParamDraft,
   type QueryParamQuickRow,
   queryParamRowsValid,
   seedQueryParamQuickRows,
 } from '../../data/payload-rule-create';
 import { handOffRuleDraft } from '../../data/rule-draft-bridge';
+import { generateSmartRuleName } from '../../data/smart-rule-name';
 import { QuickEditorShell } from './QuickEditorShell';
 import { useQuickCreateSave } from './use-quick-create-save';
 
@@ -68,8 +68,8 @@ export function QueryParamQuickCreate({
   const { rules, localCollections } = useRules();
   const strategy = useSettingValue('rulesEngine.draftUrlStrategy');
 
-  // Frozen per popover session (the host remounts per identity).
-  const [name] = useState(() => generateQueryParamRuleName(rules));
+  // Pre-filled from the capture; editable via the shell's title.
+  const [name, setName] = useState(() => generateSmartRuleName({ kind: 'query-param', url: draft.url ?? '' }, rules));
   const [seed] = useState<QueryParamQuickRow[]>(() => seedQueryParamQuickRows(draft));
   const [rows, setRows] = useState<QueryParamQuickRow[]>(seed);
   const rowsRef = useRef(rows);
@@ -114,6 +114,7 @@ export function QueryParamQuickCreate({
       liveRule={null}
       ruleType="query-param"
       ruleName={name}
+      onRuleNameChange={setName}
       liveRuleUid={null}
       isDirty={isDirty}
       onOpenInEditor={openInEditor}

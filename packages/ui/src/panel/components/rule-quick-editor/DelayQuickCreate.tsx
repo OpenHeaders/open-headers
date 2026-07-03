@@ -15,10 +15,10 @@ import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import { App, InputNumber, Typography, theme } from 'antd';
 import { useRef, useState } from 'react';
 import { handOffRuleDraft } from '../../data/rule-draft-bridge';
+import { generateSmartRuleName } from '../../data/smart-rule-name';
 import {
   buildDelayRuleSeed,
   type DelayQuickDraft,
-  generateDelayRuleName,
   mergeQuickIntoDelayDraft,
   seedDelayQuickDraft,
 } from '../../data/url-rule-create';
@@ -52,8 +52,8 @@ export function DelayQuickCreate({
   const { rules, localCollections } = useRules();
   const strategy = useSettingValue('rulesEngine.draftUrlStrategy');
 
-  // Frozen per popover session (the host remounts per identity).
-  const [name] = useState(() => generateDelayRuleName(rules));
+  // Pre-filled from the capture; editable via the shell's title.
+  const [name, setName] = useState(() => generateSmartRuleName({ kind: 'delay', url: draft.url ?? '' }, rules));
   const [seed] = useState<DelayQuickDraft>(() => seedDelayQuickDraft(draft));
   const [quick, setQuick] = useState<DelayQuickDraft>(seed);
   const quickRef = useRef(quick);
@@ -91,6 +91,7 @@ export function DelayQuickCreate({
       liveRule={null}
       ruleType="delay"
       ruleName={name}
+      onRuleNameChange={setName}
       liveRuleUid={null}
       isDirty={isDirty}
       onOpenInEditor={openInEditor}

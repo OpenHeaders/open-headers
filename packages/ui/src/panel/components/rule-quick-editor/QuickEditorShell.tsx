@@ -30,8 +30,8 @@ import {
 } from '@openheaders/ui/shared/awareness';
 import { usePopoverPlacement } from '@openheaders/ui/shared/popover';
 import { buildRuleIcon } from '@openheaders/ui/workbench/components/shared/rule-icon';
-import { Button, Tag, Tooltip, theme } from 'antd';
-import { type ReactNode, useEffect, useMemo } from 'react';
+import { Button, Input, Tag, Tooltip, theme } from 'antd';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 export const QUICK_EDITOR_WIDTH = 480;
@@ -63,6 +63,10 @@ export interface QuickEditorShellProps {
   liveRule: Rule | null;
   ruleType: Rule['type'];
   ruleName: string;
+  /** Create-mode rename — when supplied, the title becomes click-to-edit
+   *  so the user can fix the pre-filled name before Save mints the rule.
+   *  Edit mode omits it (renames belong to the workbench). */
+  onRuleNameChange?: (name: string) => void;
   /** Awareness identity. Null disables presence/dirty publishing. */
   liveRuleUid: string | null;
   /** Caller-derived dirty flag, published as `ActiveEditorDirty`. */
@@ -90,6 +94,7 @@ export function QuickEditorShell({
   liveRule,
   ruleType,
   ruleName,
+  onRuleNameChange,
   liveRuleUid,
   isDirty,
   tags,
@@ -104,6 +109,15 @@ export function QuickEditorShell({
 }: QuickEditorShellProps) {
   const { token } = theme.useToken();
   const localInstanceId = useLocalInstanceId();
+
+  // Create-mode rename: the title flips to an input on click; Enter or
+  // blur commits (empty reverts), Escape cancels.
+  const [editingName, setEditingName] = useState(false);
+  const commitName = (raw: string) => {
+    const next = raw.trim();
+    if (next && next !== ruleName) onRuleNameChange?.(next);
+    setEditingName(false);
+  };
 
   // ── Surface awareness wiring ────────────────────────────────────
   //
@@ -190,20 +204,39 @@ export function QuickEditorShell({
             size: 14,
           })}
         </span>
-        <span
-          style={{
-            fontWeight: 600,
-            fontSize: 13,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            flex: 1,
-            minWidth: 0,
-          }}
-          title={ruleName}
-        >
-          {ruleName}
-        </span>
+        {editingName && onRuleNameChange ? (
+          <Input
+            size="small"
+            defaultValue={ruleName}
+            autoFocus
+            style={{ flex: 1, minWidth: 0, fontWeight: 600, fontSize: 13 }}
+            onBlur={(e) => commitName(e.target.value)}
+            onPressEnter={(e) => commitName((e.target as HTMLInputElement).value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                e.stopPropagation();
+                setEditingName(false);
+              }
+            }}
+          />
+        ) : (
+          <span
+            style={{
+              fontWeight: 600,
+              fontSize: 13,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              flex: 1,
+              minWidth: 0,
+              cursor: onRuleNameChange ? 'text' : undefined,
+            }}
+            title={onRuleNameChange ? `${ruleName} — click to rename` : ruleName}
+            onClick={onRuleNameChange ? () => setEditingName(true) : undefined}
+          >
+            {ruleName}
+          </span>
+        )}
         {liveRuleUid && (
           <PresenceBadge entityType={RULE_ENTITY_TYPE} entityId={liveRuleUid} excludeInstanceId={localInstanceId} />
         )}

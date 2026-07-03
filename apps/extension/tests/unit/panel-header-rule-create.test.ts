@@ -12,7 +12,6 @@
 import type { HeaderRuleDraft } from '@openheaders/core/types';
 import {
   buildHeaderRuleSeed,
-  generateHeaderRuleName,
   mergeQuickIntoHeaderDraft,
   seedHeaderQuickDraft,
 } from '@openheaders/ui/panel/data/header-rule-create';
@@ -66,13 +65,6 @@ describe('mergeQuickIntoHeaderDraft', () => {
       'response',
     );
     expect(merged.responseHeaders).toEqual([{ operation: 'remove', headerName: 'cache-control' }]);
-  });
-});
-
-describe('generateHeaderRuleName', () => {
-  it('uses the base name when free and counts up past taken names', () => {
-    expect(generateHeaderRuleName([])).toBe('New Header Rule');
-    expect(generateHeaderRuleName([{ name: 'New Header Rule' }])).toBe('New Header Rule (2)');
   });
 });
 

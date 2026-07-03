@@ -20,6 +20,7 @@ import type { HeaderDirection } from '@openheaders/core/utils';
 import { createHoverPopoverHost, type HoverPopoverBodyProps } from '@openheaders/ui/shared/popover';
 import type { HeaderAttribution } from '../data/header-attribution';
 import type { RuleApplicability } from '../data/rule-applicability';
+import type { UrlCreateVariant } from '../data/url-rule-create';
 import { BlockQuickCreate } from './rule-quick-editor/BlockQuickCreate';
 import { DelayQuickCreate } from './rule-quick-editor/DelayQuickCreate';
 import { HeaderQuickCreate } from './rule-quick-editor/HeaderQuickCreate';
@@ -52,11 +53,6 @@ interface HeaderCreatePopoverState {
    *  name, the popover's session identity. */
   requestId: string;
 }
-
-/** Which CTA opened a URL-action create session. The three redirect
- *  variants share a rule type but seed different targets, so the
- *  variant — not the type — is the per-request session discriminator. */
-export type UrlCreateVariant = 'redirect' | 'replace-host' | 'replace-url-part' | 'delay' | 'block';
 
 /** Create mode for the URL-action rules (redirect / delay / block) —
  *  opened from the Headers tab's CTA row; Save mints + publishes. */
@@ -172,7 +168,9 @@ function RulePopoverBody({
       onMouseLeave,
       visible,
     };
-    if (state.draft.type === 'redirect') return <RedirectQuickCreate {...common} draft={state.draft} />;
+    if (state.draft.type === 'redirect') {
+      return <RedirectQuickCreate {...common} draft={state.draft} variant={state.variant} />;
+    }
     if (state.draft.type === 'delay') return <DelayQuickCreate {...common} draft={state.draft} />;
     return <BlockQuickCreate {...common} draft={state.draft} />;
   }
@@ -271,3 +269,4 @@ const host = createHoverPopoverHost<RulePopoverState>({
 
 export const RulePopoverProvider = host.Provider;
 export const useRulePopover = host.useApi;
+export type { UrlCreateVariant };

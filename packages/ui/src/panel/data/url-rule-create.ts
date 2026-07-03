@@ -17,11 +17,17 @@ import type {
 } from '@openheaders/core/types';
 import type { DraftUrlStrategy } from '@openheaders/core/utils';
 import { buildDraftConditions } from '@openheaders/ui/workbench/draft-conditions';
-import { generateQuickRuleName } from './quick-rule-name';
 
 export type RedirectRuleSeed = Omit<RedirectRule, 'uid' | 'path' | 'schemaVersion'>;
 export type DelayRuleSeed = Omit<DelayRule, 'uid' | 'path' | 'schemaVersion'>;
 export type BlockRuleSeed = Omit<BlockRule, 'uid' | 'path' | 'schemaVersion'>;
+
+/** Which CTA opened a URL-action create session. The three redirect
+ *  variants share a rule type but seed different targets (and name
+ *  themselves differently), so the variant — not the type — is the
+ *  per-request session discriminator. */
+export type RedirectCreateVariant = 'redirect' | 'replace-host' | 'replace-url-part';
+export type UrlCreateVariant = RedirectCreateVariant | 'delay' | 'block';
 
 // ── Redirect ────────────────────────────────────────────────────────
 
@@ -40,11 +46,6 @@ export function seedRedirectQuickDraft(draft: RedirectRuleDraft): RedirectQuickD
  *  workspace" link carries the CURRENT form state. */
 export function mergeQuickIntoRedirectDraft(draft: RedirectRuleDraft, quick: RedirectQuickDraft): RedirectRuleDraft {
   return { ...draft, redirectTo: quick.redirectTo };
-}
-
-/** "New Redirect Rule" deduped against existing rule names. */
-export function generateRedirectRuleName(rules: ReadonlyArray<{ name: string }>): string {
-  return generateQuickRuleName('New Redirect Rule', rules);
 }
 
 export function buildRedirectRuleSeed(
@@ -77,11 +78,6 @@ export function mergeQuickIntoDelayDraft(draft: DelayRuleDraft, quick: DelayQuic
   return { ...draft, ...(quick.delayMs != null ? { delayMs: quick.delayMs } : {}) };
 }
 
-/** "New Delay Rule" deduped against existing rule names. */
-export function generateDelayRuleName(rules: ReadonlyArray<{ name: string }>): string {
-  return generateQuickRuleName('New Delay Rule', rules);
-}
-
 export function buildDelayRuleSeed(
   draft: DelayRuleDraft,
   delayMs: number,
@@ -98,11 +94,6 @@ export function buildDelayRuleSeed(
 }
 
 // ── Block ───────────────────────────────────────────────────────────
-
-/** "New Block Rule" deduped against existing rule names. */
-export function generateBlockRuleName(rules: ReadonlyArray<{ name: string }>): string {
-  return generateQuickRuleName('New Block Rule', rules);
-}
 
 /** Block has no editable fields — the block itself is the action;
  *  conditions decide what gets blocked. */

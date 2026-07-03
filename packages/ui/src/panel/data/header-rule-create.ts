@@ -11,7 +11,6 @@
 import type { HeaderModification, HeaderRule, HeaderRuleDraft, HeaderRuleDraftHeader } from '@openheaders/core/types';
 import { type DraftUrlStrategy, generateUid, type HeaderDirection } from '@openheaders/core/utils';
 import { buildDraftConditions } from '@openheaders/ui/workbench/draft-conditions';
-import { generateQuickRuleName } from './quick-rule-name';
 
 export type HeaderRuleSeed = Omit<HeaderRule, 'uid' | 'path' | 'schemaVersion'>;
 
@@ -67,11 +66,6 @@ export function mergeQuickIntoHeaderDraft(
     requestHeaders: direction === 'request' ? [mod] : undefined,
     responseHeaders: direction === 'response' ? [mod] : undefined,
   };
-}
-
-/** "New Header Rule" deduped against existing rule names. */
-export function generateHeaderRuleName(rules: ReadonlyArray<{ name: string }>): string {
-  return generateQuickRuleName('New Header Rule', rules);
 }
 
 /**

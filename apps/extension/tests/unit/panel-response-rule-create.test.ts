@@ -12,7 +12,6 @@
 import type { ResponseRuleDraft } from '@openheaders/core/types';
 import {
   buildResponseRuleSeed,
-  generateResponseRuleName,
   mergeQuickIntoResponseDraft,
   seedQuickDraft,
 } from '@openheaders/ui/panel/data/response-rule-create';
@@ -59,17 +58,6 @@ describe('mergeQuickIntoResponseDraft', () => {
     expect(merged.url).toBe('https://api.openheaders.io/v1/users?page=2');
     expect(merged.requestMethods).toEqual(['GET']);
     expect(merged.responseSource).toBe('network');
-  });
-});
-
-describe('generateResponseRuleName', () => {
-  it('uses the base name when free', () => {
-    expect(generateResponseRuleName([])).toBe('New API Response Rule');
-  });
-
-  it('counts up past taken names', () => {
-    const rules = [{ name: 'New API Response Rule' }, { name: 'New API Response Rule (2)' }];
-    expect(generateResponseRuleName(rules)).toBe('New API Response Rule (3)');
   });
 });
 

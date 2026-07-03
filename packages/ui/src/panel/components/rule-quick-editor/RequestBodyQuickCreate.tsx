@@ -20,12 +20,12 @@ import { App, Tag, theme } from 'antd';
 import { useRef, useState } from 'react';
 import {
   buildRequestBodyRuleSeed,
-  generateRequestBodyRuleName,
   mergeQuickIntoRequestBodyDraft,
   type RequestBodyQuickDraft,
   seedRequestBodyQuickDraft,
 } from '../../data/payload-rule-create';
 import { handOffRuleDraft } from '../../data/rule-draft-bridge';
+import { generateSmartRuleName } from '../../data/smart-rule-name';
 import { QuickEditorShell } from './QuickEditorShell';
 import { useQuickCreateSave } from './use-quick-create-save';
 
@@ -54,8 +54,8 @@ export function RequestBodyQuickCreate({
   const { rules, localCollections } = useRules();
   const strategy = useSettingValue('rulesEngine.draftUrlStrategy');
 
-  // Frozen per popover session (the host remounts per identity).
-  const [name] = useState(() => generateRequestBodyRuleName(rules));
+  // Pre-filled from the capture; editable via the shell's title.
+  const [name, setName] = useState(() => generateSmartRuleName({ kind: 'request-body', url: draft.url ?? '' }, rules));
   const [seed] = useState<RequestBodyQuickDraft>(() => seedRequestBodyQuickDraft(draft));
   const [quick, setQuick] = useState<RequestBodyQuickDraft>(seed);
   const quickRef = useRef(quick);
@@ -99,6 +99,7 @@ export function RequestBodyQuickCreate({
       liveRule={null}
       ruleType="request-body"
       ruleName={name}
+      onRuleNameChange={setName}
       liveRuleUid={null}
       isDirty={isDirty}
       tags={

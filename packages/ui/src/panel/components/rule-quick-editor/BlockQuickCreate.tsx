@@ -16,7 +16,8 @@ import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import { App, Typography, theme } from 'antd';
 import { useState } from 'react';
 import { handOffRuleDraft } from '../../data/rule-draft-bridge';
-import { buildBlockRuleSeed, generateBlockRuleName } from '../../data/url-rule-create';
+import { generateSmartRuleName } from '../../data/smart-rule-name';
+import { buildBlockRuleSeed } from '../../data/url-rule-create';
 import { QuickEditorShell } from './QuickEditorShell';
 import { useQuickCreateSave } from './use-quick-create-save';
 
@@ -47,8 +48,8 @@ export function BlockQuickCreate({
   const { rules, localCollections } = useRules();
   const strategy = useSettingValue('rulesEngine.draftUrlStrategy');
 
-  // Frozen per popover session (the host remounts per identity).
-  const [name] = useState(() => generateBlockRuleName(rules));
+  // Pre-filled from the capture; editable via the shell's title.
+  const [name, setName] = useState(() => generateSmartRuleName({ kind: 'block', url: draft.url ?? '' }, rules));
 
   // Context-less create falls back to the first collection — the same
   // fallback `useTabOpeners.openCreateTab` applies in the workbench.
@@ -75,6 +76,7 @@ export function BlockQuickCreate({
       liveRule={null}
       ruleType="block"
       ruleName={name}
+      onRuleNameChange={setName}
       liveRuleUid={null}
       isDirty={false}
       onOpenInEditor={openInEditor}

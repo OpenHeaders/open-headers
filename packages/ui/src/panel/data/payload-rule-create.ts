@@ -16,7 +16,6 @@ import type {
 } from '@openheaders/core/types';
 import { type DraftUrlStrategy, generateUid } from '@openheaders/core/utils';
 import { buildDraftConditions } from '@openheaders/ui/workbench/draft-conditions';
-import { generateQuickRuleName } from './quick-rule-name';
 
 export type RequestBodyRuleSeed = Omit<RequestBodyRule, 'uid' | 'path' | 'schemaVersion'>;
 export type QueryParamRuleSeed = Omit<QueryParamRule, 'uid' | 'path' | 'schemaVersion'>;
@@ -39,11 +38,6 @@ export function mergeQuickIntoRequestBodyDraft(
   quick: RequestBodyQuickDraft,
 ): RequestBodyRuleDraft {
   return { ...draft, requestBody: quick.requestBody };
-}
-
-/** "New API Request Body Rule" deduped against existing rule names. */
-export function generateRequestBodyRuleName(rules: ReadonlyArray<{ name: string }>): string {
-  return generateQuickRuleName('New API Request Body Rule', rules);
 }
 
 export function buildRequestBodyRuleSeed(
@@ -110,11 +104,6 @@ export function mergeQuickIntoQueryParamDraft(
   rows: readonly QueryParamQuickRow[],
 ): QueryParamRuleDraft {
   return { ...draft, params: rows.map(draftEntryFromRow) };
-}
-
-/** "New Query Param Rule" deduped against existing rule names. */
-export function generateQueryParamRuleName(rules: ReadonlyArray<{ name: string }>): string {
-  return generateQuickRuleName('New Query Param Rule', rules);
 }
 
 /** A row is savable when its operation needs no param (remove-all) or

@@ -22,12 +22,8 @@ import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import { App, Tag } from 'antd';
 import { useRef, useState } from 'react';
 import { handOffRuleDraft } from '../../data/rule-draft-bridge';
-import {
-  buildResponseRuleSeed,
-  generateResponseRuleName,
-  mergeQuickIntoResponseDraft,
-  seedQuickDraft,
-} from '../../data/response-rule-create';
+import { generateSmartRuleName } from '../../data/smart-rule-name';
+import { buildResponseRuleSeed, mergeQuickIntoResponseDraft, seedQuickDraft } from '../../data/response-rule-create';
 import type { ResponseQuickDraft } from '../../data/response-rule-edit';
 import { QuickEditorShell } from './QuickEditorShell';
 import { ResponseQuickFields } from './ResponseQuickFields';
@@ -57,9 +53,11 @@ export function ResponseQuickCreate({
   const { rules, localCollections } = useRules();
   const strategy = useSettingValue('rulesEngine.draftUrlStrategy');
 
-  // Frozen per popover session (the host remounts per identity): the
-  // name the rule will be created under and the seeded form baseline.
-  const [name] = useState(() => generateResponseRuleName(rules));
+  // Pre-filled from the capture; editable via the shell's title. The
+  // seeded form baseline stays frozen per popover session.
+  const [name, setName] = useState(() =>
+    generateSmartRuleName({ kind: 'response', url: draft.url ?? '', responseSource: draft.responseSource }, rules),
+  );
   const [seed] = useState<ResponseQuickDraft>(() => seedQuickDraft(draft));
   const [quick, setQuick] = useState<ResponseQuickDraft>(seed);
   const quickRef = useRef(quick);
@@ -100,6 +98,7 @@ export function ResponseQuickCreate({
       liveRule={null}
       ruleType="response"
       ruleName={name}
+      onRuleNameChange={setName}
       liveRuleUid={null}
       isDirty={isDirty}
       tags={

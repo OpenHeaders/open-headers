@@ -13,8 +13,6 @@ import {
   appendQueryParamQuickRow,
   buildQueryParamRuleSeed,
   buildRequestBodyRuleSeed,
-  generateQueryParamRuleName,
-  generateRequestBodyRuleName,
   mergeQuickIntoQueryParamDraft,
   mergeQuickIntoRequestBodyDraft,
   type QueryParamQuickRow,
@@ -146,14 +144,6 @@ describe('appendQueryParamQuickRow', () => {
     expect(rows).toHaveLength(2);
     expect(grown).toHaveLength(3);
     expect(grown[2]).toMatchObject({ operation: 'add', param: '', value: '' });
-  });
-});
-
-describe('name generation', () => {
-  it('uses the workbench base labels and counts up past taken names', () => {
-    expect(generateRequestBodyRuleName([])).toBe('New API Request Body Rule');
-    expect(generateQueryParamRuleName([])).toBe('New Query Param Rule');
-    expect(generateQueryParamRuleName([{ name: 'New Query Param Rule' }])).toBe('New Query Param Rule (2)');
   });
 });
 
