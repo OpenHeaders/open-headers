@@ -22,7 +22,8 @@ import {
   isAttributionEdited,
 } from '../../data/headers/header-attribution';
 import { type HeaderFilterToken, parseHeaderQuery } from '../../data/headers/header-filter';
-import { computeHeaderFootprint, formatHeaderFootprint } from '../../data/headers/header-footprint';
+import { computeHeaderFootprint } from '../../data/headers/header-footprint';
+import { computeRuleFootprint, formatRuleFootprint } from '../../data/rule-footprint';
 import { computeHeaderInsights, type HeaderInsight, type HeaderInsightAction } from '../../data/headers/header-insights';
 import { formatHttpVersion } from '../../data/http-version';
 import {
@@ -87,6 +88,9 @@ export interface HeadersViewProps {
   onOverrideQueryParams: (anchorEl: HTMLElement) => void;
   onCreateDelay: (anchorEl: HTMLElement) => void;
   onCreateCancel: (anchorEl: HTMLElement) => void;
+  /** Open (or switch to) the Matched Rules tool window — the footprint
+   *  chip is its discoverable entry point from the request detail. */
+  onShowMatchedRules: () => void;
   searchHighlight?: string;
   searchSection?: string;
   searchLineNumber?: number;
@@ -107,6 +111,7 @@ export function HeadersView({
   onOverrideQueryParams,
   onCreateDelay,
   onCreateCancel,
+  onShowMatchedRules,
   searchHighlight,
   searchSection,
   searchLineNumber,
@@ -178,14 +183,18 @@ export function HeadersView({
 
   const footprint = useMemo(
     () =>
-      computeHeaderFootprint({
-        requestRows: requestHeaders,
-        responseRows: responseHeaders,
-        driftedRows,
+      computeRuleFootprint({
+        fires: row.fires,
+        rulesByUid,
+        header: computeHeaderFootprint({
+          requestRows: requestHeaders,
+          responseRows: responseHeaders,
+          driftedRows,
+        }),
       }),
-    [requestHeaders, responseHeaders, driftedRows],
+    [row.fires, rulesByUid, requestHeaders, responseHeaders, driftedRows],
   );
-  const footprintText = formatHeaderFootprint(footprint);
+  const footprintText = formatRuleFootprint(footprint);
 
   const handleInsightAction = (action: HeaderInsightAction, anchorEl: HTMLElement): void => {
     if (action.kind === 'add-header' || action.kind === 'override-header') {
@@ -275,10 +284,18 @@ export function HeadersView({
       </div>
 
       {footprintText && (
-        <div className="dt-header-footprint" title={footprint.ruleNames.join(', ')}>
+        <button
+          type="button"
+          className="dt-header-footprint dt-header-footprint--link"
+          title={`${footprint.ruleNames.join(', ')} — click to open Matched Rules`}
+          onClick={onShowMatchedRules}
+        >
           <span className="dt-header-footprint-dot" aria-hidden="true" />
           <span className="dt-header-footprint-text">{footprintText}</span>
-        </div>
+          <span className="dt-header-footprint-open" aria-hidden="true">
+            Matched Rules →
+          </span>
+        </button>
       )}
 
       {/* OH row annotations — structural facts about this row (interrupted

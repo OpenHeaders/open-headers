@@ -15,6 +15,10 @@ export interface HeaderFootprint {
   /** Number of distinct rules that touched at least one header on
    *  this request (request side + response side, deduped by ruleUid). */
   ruleCount: number;
+  /** The deduped rule uids behind `ruleCount` — lets the all-rule
+   *  footprint (`rule-footprint.ts`) union header-attributed rules with
+   *  the row's fire list without double-counting. */
+  ruleUids: ReadonlySet<string>;
   /** Number of header rows attributed to a rule (added/modified/removed). */
   affectedRowCount: number;
   driftedRowCount: number;
@@ -60,6 +64,7 @@ export function computeHeaderFootprint(inputs: FootprintInputs): HeaderFootprint
 
   return {
     ruleCount: ruleUids.size,
+    ruleUids,
     affectedRowCount,
     driftedRowCount,
     addedCount: added,
@@ -69,12 +74,11 @@ export function computeHeaderFootprint(inputs: FootprintInputs): HeaderFootprint
   };
 }
 
-/** Short text summary for the footprint chip — empty string when no
- *  rules touched the request, so the view can hide the chip outright. */
-export function formatHeaderFootprint(f: HeaderFootprint): string {
-  if (f.ruleCount === 0) return '';
+/** The header-row bits of the chip text (`N headers · X added · …`),
+ *  without the leading rule count — shared between the header-only
+ *  formatter below and the all-rule formatter in `rule-footprint.ts`. */
+export function headerFootprintBits(f: HeaderFootprint): string[] {
   const bits: string[] = [];
-  bits.push(`${f.ruleCount} rule${f.ruleCount === 1 ? '' : 's'}`);
   bits.push(`${f.affectedRowCount} header${f.affectedRowCount === 1 ? '' : 's'}`);
   const breakdown: string[] = [];
   if (f.addedCount > 0) breakdown.push(`${f.addedCount} added`);
@@ -82,5 +86,12 @@ export function formatHeaderFootprint(f: HeaderFootprint): string {
   if (f.removedCount > 0) breakdown.push(`${f.removedCount} removed`);
   if (breakdown.length > 0) bits.push(breakdown.join(' · '));
   if (f.driftedRowCount > 0) bits.push(`${f.driftedRowCount} drifted`);
-  return bits.join(' · ');
+  return bits;
+}
+
+/** Short text summary for the footprint chip — empty string when no
+ *  rules touched the request, so the view can hide the chip outright. */
+export function formatHeaderFootprint(f: HeaderFootprint): string {
+  if (f.ruleCount === 0) return '';
+  return [`${f.ruleCount} rule${f.ruleCount === 1 ? '' : 's'}`, ...headerFootprintBits(f)].join(' · ');
 }

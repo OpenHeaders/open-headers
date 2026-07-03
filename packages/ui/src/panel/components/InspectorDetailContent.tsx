@@ -68,6 +68,8 @@ interface InspectorDetailContentProps {
   source: LifecycleSource;
   /** Ask the engine to fetch this hop's response body (CDP rows, on demand). */
   requestResponseBody: (requestId: string, hopIndex: number) => void;
+  /** Open (or switch to) the Matched Rules tool window. */
+  onShowMatchedRules: () => void;
   searchHighlight?: string;
   searchSection?: string;
   searchLineNumber?: number;
@@ -201,6 +203,7 @@ export function InspectorDetailContent({
   onSectionChange,
   source,
   requestResponseBody,
+  onShowMatchedRules,
   searchHighlight,
   searchSection,
   searchLineNumber,
@@ -469,6 +472,7 @@ export function InspectorDetailContent({
             onOverrideQueryParams={createOverrideQueryParams}
             onCreateDelay={createDelay}
             onCreateCancel={createCancel}
+            onShowMatchedRules={onShowMatchedRules}
             searchHighlight={searchHighlight}
             searchSection={searchSection}
             searchLineNumber={searchLineNumber}

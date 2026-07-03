@@ -30,6 +30,27 @@
 .dt-header-footprint-text {
   font-variant-numeric: tabular-nums;
 }
+/* Headers-tab variant: the chip is a button that opens the Matched
+ * Rules tool window (CookiesView keeps the plain-div variant). */
+.dt-header-footprint--link {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--dt-border);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.dt-header-footprint--link:hover {
+  background: var(--dt-row-hover);
+}
+.dt-header-footprint--link:hover .dt-header-footprint-text {
+  color: var(--dt-text);
+}
+.dt-header-footprint-open {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--dt-link);
+}
 
 /* Insight cards. */
 .dt-header-insights {

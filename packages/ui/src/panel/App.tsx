@@ -295,6 +295,13 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       onOpenDocsRef.current = null;
     };
   }, [tl, onOpenDocsRef]);
+  // Footprint chip → Matched Rules tool window. Same restore-then-
+  // activate shape as `openDocs` above: never a toggle, so clicking the
+  // chip with the window already open just focuses it.
+  const showMatchedRules = useCallback(() => {
+    if (tl.state.hidden.includes('matched-rules')) tl.restoreWindow('matched-rules');
+    tl.activateWindow('matched-rules');
+  }, [tl]);
   const panelSizes = useMemo(getPanelSizes, []);
   // Search session lives at the panel level — SearchPanel itself
   // mounts/unmounts as the user toggles the Search tool window, and
@@ -431,6 +438,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
           }}
           source={lifecycleClient.source}
           requestResponseBody={lifecycleClient.requestResponseBody}
+          onShowMatchedRules={showMatchedRules}
           searchHighlight={isActiveTab ? searchHighlight : undefined}
           searchSection={isActiveTab ? searchSection : undefined}
           searchLineNumber={isActiveTab ? searchLineNumber : undefined}
@@ -454,6 +462,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       liveRulesMode,
       lifecycleClient.source,
       lifecycleClient.requestResponseBody,
+      showMatchedRules,
       searchHighlight,
       searchSection,
       searchLineNumber,
