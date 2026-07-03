@@ -42,7 +42,7 @@ describe('redirectVarName / newHostVarName', () => {
     expect(redirectVarName(URL)).toBe('redirect_url_openheaders_io');
     expect(redirectVarName('http://localhost:5173/')).toBe('redirect_url_localhost');
     expect(newHostVarName(URL)).toBe('new_host_openheaders_io');
-    expect(localhostPortVarName(URL)).toBe('localhost_port_openheaders_io');
+    expect(localhostPortVarName(URL)).toBe('port_localhost_openheaders_io');
   });
 
   it('returns null when the URL yields no domain', () => {
@@ -72,7 +72,7 @@ describe('seedRedirectQuickDraft', () => {
 
   it('seeds a literal localhost host with a templated port for the Point to localhost variant', () => {
     expect(seedRedirectQuickDraft(makeRedirectDraft({ redirectTo: undefined }), 'localhost')).toEqual({
-      redirectTo: 'http://localhost:{{localhost_port_openheaders_io}}/v1/users?page=2',
+      redirectTo: 'http://localhost:{{port_localhost_openheaders_io}}/v1/users?page=2',
     });
   });
 

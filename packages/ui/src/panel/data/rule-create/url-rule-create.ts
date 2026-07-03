@@ -57,11 +57,11 @@ export function newHostVarName(url: string): string | null {
 }
 
 /** Domain-scoped variable name for the Point-to-localhost variant's
- *  seed — `localhost_port_openheaders_io`, holding just the local port
+ *  seed — `port_localhost_openheaders_io`, holding just the local port
  *  (e.g. `5173`) — so every localhost rule for a domain shares one
  *  retargetable dev-server port variable. */
 export function localhostPortVarName(url: string): string | null {
-  return domainVarName('localhost_port', url);
+  return domainVarName('port_localhost', url);
 }
 
 /** Seed the editable field from the captured draft. An empty target
@@ -71,7 +71,7 @@ export function localhostPortVarName(url: string): string | null {
  *  (`https://{{new_host_<domain>}}/path?query`) so path and query are
  *  preserved verbatim, and Point to localhost as a literal localhost
  *  host with only the port templated
- *  (`http://localhost:{{localhost_port_<domain>}}/path?query`) — the
+ *  (`http://localhost:{{port_localhost_<domain>}}/path?query`) — the
  *  host IS the menu entry's promise, the port is the only unknown, and
  *  local dev servers rarely speak TLS. If the variable already exists
  *  it resolves immediately (reuse), otherwise the popover's save gate
