@@ -73,6 +73,7 @@ export function RequestBodyQuickCreate({
   const { saving, canSave, handleSave, saveLabel } = useQuickCreateSave({
     buildSeed: () => buildRequestBodyRuleSeed(draft, quickRef.current, name, strategy),
     parentPath,
+    workspaceId,
     mutator,
     message,
     onClose,

@@ -86,6 +86,7 @@ export function HeaderQuickCreate({
     direction,
     name,
     parentPath,
+    workspaceId,
     strategy,
     mutator,
     message,

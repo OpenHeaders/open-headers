@@ -57,6 +57,7 @@ export function BlockQuickCreate({
   const { saving, canSave, handleSave, saveLabel } = useQuickCreateSave({
     buildSeed: () => buildBlockRuleSeed(draft, name, strategy),
     parentPath,
+    workspaceId,
     mutator,
     message,
     onClose,

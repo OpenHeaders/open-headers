@@ -92,6 +92,7 @@ export function QueryParamQuickCreate({
   const { saving, canSave, handleSave, saveLabel } = useQuickCreateSave({
     buildSeed: () => buildQueryParamRuleSeed(draft, rowsRef.current, name, strategy),
     parentPath,
+    workspaceId,
     valid: queryParamRowsValid(rows),
     mutator,
     message,

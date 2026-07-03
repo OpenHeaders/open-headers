@@ -70,6 +70,7 @@ export function DelayQuickCreate({
     // fallback only satisfies the narrower builder signature.
     buildSeed: () => buildDelayRuleSeed(draft, quickRef.current.delayMs ?? 1000, name, strategy),
     parentPath,
+    workspaceId,
     // min 1: a 0ms delay makes the rule a no-op (the compiler skips
     // `delayMs === 0`), so it would save but never fire.
     valid: delayMs != null && delayMs >= 1,

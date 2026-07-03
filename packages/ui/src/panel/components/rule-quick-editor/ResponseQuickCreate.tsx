@@ -80,6 +80,7 @@ export function ResponseQuickCreate({
   const { saving, canSave, handleSave, saveLabel } = useQuickCreateSave({
     buildSeed: () => buildResponseRuleSeed(draft, quickRef.current, name, strategy),
     parentPath,
+    workspaceId,
     mutator,
     message,
     onClose,

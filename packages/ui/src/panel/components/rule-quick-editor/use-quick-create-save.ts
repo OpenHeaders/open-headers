@@ -6,6 +6,11 @@
  * false` at creation; publishing is the explicit second step, and a
  * publish failure degrades honestly to a draft.
  *
+ * A workspace with no collection yet gets one minted on the fly
+ * (`My Collection`) — the workbench's SaveToCollectionModal has room to
+ * ask for a destination; the compact popover doesn't, and blocking the
+ * user's first rule on a naming ceremony would be backwards.
+ *
  * Per-type bodies supply `buildSeed` (reading their live form state via
  * a ref) and an optional `valid` gate on top of the always-on `!saving`
  * — create Save needs no dirty gate (the user asked for the rule), only
@@ -14,17 +19,25 @@
 
 import type { RuleSeed } from '@openheaders/core/utils';
 import type { UseRuleMutatorApi } from '@openheaders/ui/shared/hooks/useRuleMutator';
+import { applyCollectionCreate } from '@openheaders/ui/shared/sync/collection-write-client';
 import type { App } from 'antd';
 import { useState } from 'react';
 import { useSaveShortcut } from './use-save-shortcut';
 
 type MessageApi = ReturnType<typeof App.useApp>['message'];
 
+/** Name for the collection minted when the workspace has none — the
+ *  user can rename it in the sidebar like any other collection. */
+export const DEFAULT_QUICK_COLLECTION_NAME = 'My Collection';
+
 interface UseQuickCreateSaveArgs {
   /** Builds the full rule seed from the CURRENT form state. */
   buildSeed: () => RuleSeed;
-  /** Destination collection path — null when the workspace has none. */
+  /** Destination collection path — null when the workspace has none
+   *  (Save then mints `My Collection` and creates into it). */
   parentPath: string | null;
+  /** Workspace the auto-minted collection lands in. */
+  workspaceId: string | null;
   /** Extra validity gate on top of `!saving`; defaults to true. */
   valid?: boolean;
   mutator: UseRuleMutatorApi;
@@ -42,6 +55,7 @@ export interface QuickCreateSaveApi {
 export function useQuickCreateSave({
   buildSeed,
   parentPath,
+  workspaceId,
   valid = true,
   mutator,
   message,
@@ -50,13 +64,27 @@ export function useQuickCreateSave({
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
-    if (!parentPath) {
-      message.error('Create a collection in the workspace first.');
-      return;
-    }
     setSaving(true);
     try {
-      const created = await mutator.createRule(buildSeed(), parentPath);
+      let destination = parentPath;
+      if (!destination) {
+        // First rule in a collection-less workspace: mint the default
+        // collection instead of bouncing the user to the workbench.
+        if (!workspaceId) {
+          message.error('No active workspace');
+          return;
+        }
+        const collectionResult = await applyCollectionCreate(
+          { name: DEFAULT_QUICK_COLLECTION_NAME },
+          { workspaceId, surfaceId: 'devpanel' },
+        );
+        if (!collectionResult.ok) {
+          message.error('Failed to create a collection for the rule');
+          return;
+        }
+        destination = collectionResult.collection.path;
+      }
+      const created = await mutator.createRule(buildSeed(), destination);
       if (!created.ok) {
         const detail = created.reason === 'other' ? created.message : undefined;
         message.error(detail ?? 'Failed to create rule');

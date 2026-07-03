@@ -31,6 +31,7 @@ interface UseHeaderCreateSaveArgs {
   name: string;
   /** Destination collection path — null when the workspace has none. */
   parentPath: string | null;
+  workspaceId: string | null;
   strategy: DraftUrlStrategy;
   mutator: UseRuleMutatorApi;
   message: MessageApi;
@@ -50,6 +51,7 @@ export function useHeaderCreateSave({
   direction,
   name,
   parentPath,
+  workspaceId,
   strategy,
   mutator,
   message,
@@ -73,6 +75,7 @@ export function useHeaderCreateSave({
   const save = useQuickCreateSave({
     buildSeed: () => buildHeaderRuleSeed(draft, quickRef.current, direction, name, strategy),
     parentPath,
+    workspaceId,
     valid:
       trimmedName.length > 0 && nameValidation.valid && valueValidation.valid && (!capability || capability.allowed),
     mutator,

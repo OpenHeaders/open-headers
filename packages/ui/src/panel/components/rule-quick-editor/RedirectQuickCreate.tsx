@@ -72,6 +72,7 @@ export function RedirectQuickCreate({
   const { saving, canSave, handleSave, saveLabel } = useQuickCreateSave({
     buildSeed: () => buildRedirectRuleSeed(draft, quickRef.current, name, strategy),
     parentPath,
+    workspaceId,
     valid: quick.redirectTo.trim().length > 0,
     mutator,
     message,
