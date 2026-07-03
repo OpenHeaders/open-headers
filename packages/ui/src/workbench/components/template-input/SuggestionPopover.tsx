@@ -53,10 +53,16 @@ const SuggestionPopover: React.FC<SuggestionPopoverProps> = ({
   const { token } = theme.useToken();
   const listRef = useRef<HTMLDivElement | null>(null);
   const rowRefs = useRef<Array<HTMLDivElement | null>>([]);
+  // Index of the last hover-set active row. Hover selection must not
+  // auto-scroll (the row is already under the pointer); only keyboard
+  // nav scrolls the list.
+  const hoverIndexRef = useRef(-1);
 
   // Keep activeIndex's row in view when arrow-nav pushes past the
   // viewport edge. Runs after render so layout is settled.
   useEffect(() => {
+    if (activeIndex === hoverIndexRef.current) return;
+    hoverIndexRef.current = -1;
     const list = listRef.current;
     const row = rowRefs.current[activeIndex];
     if (!list || !row) return;
@@ -136,7 +142,16 @@ const SuggestionPopover: React.FC<SuggestionPopoverProps> = ({
                 style={{
                   background: isActive ? token.colorFillSecondary : 'transparent',
                 }}
-                onMouseEnter={() => onActiveIndexChange(i)}
+                onMouseMove={() => {
+                  // mousemove, not mouseenter: keyboard scrolling shifts
+                  // rows under a stationary pointer, and the browser fires
+                  // enter/leave for that — hover would keep yanking the
+                  // active index back to the pointer's row. mousemove only
+                  // fires on real pointer motion.
+                  if (i === activeIndex) return;
+                  hoverIndexRef.current = i;
+                  onActiveIndexChange(i);
+                }}
                 onMouseDown={(e) => {
                   // Prevent the textarea from blurring before click
                   // registers — without this, the popover closes on
