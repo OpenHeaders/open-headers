@@ -1,6 +1,7 @@
 /**
  * InspectorDetailContent — detail view rendered inside an editor tab.
- * Owns the section tab bar, header attribution, and rule-draft handoff.
+ * Owns the section tab bar, header attribution, and the create-popover
+ * seeding for every rule CTA (drafts built via `rule-draft-bridge`).
  * Each section's body lives in its own component under `./detail/`.
  */
 
@@ -8,7 +9,7 @@ import type { Page } from '@openheaders/core/page-stream';
 import type { LifecycleSource, RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { BlockRuleDraft, DelayRuleDraft, RedirectRuleDraft, Rule } from '@openheaders/core/types';
 import { useRules } from '@openheaders/ui/shared/hooks/useRules';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import type { ConnectionReuseInfo } from '../data/connection-reuse';
 import { deriveFireEvidenceByRule } from '../data/fire-evidence';
 import { type AnnotatedHeader, attributeHeaders } from '../data/header-attribution';
@@ -35,7 +36,6 @@ import {
   buildReplaceUrlPartDraftFromRequest,
   buildRequestBodyDraftFromRequest,
   buildResponseDraftFromRequest,
-  handOffRuleDraft,
 } from '../data/rule-draft-bridge';
 import type { RepeatStats } from '../data/timing-repeats';
 import type { RulesByUid } from '../data/use-rules-lookup';
@@ -208,7 +208,6 @@ export function InspectorDetailContent({
   searchLineNumber,
   searchMatchIndex,
 }: InspectorDetailContentProps) {
-  const [error, setError] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const tabBodyRef = useRef<HTMLDivElement>(null);
   const { localCollections } = useRules();
@@ -327,16 +326,6 @@ export function InspectorDetailContent({
     [har?.response?.headers, row.fires, rulesByUid, cacheBypassEnabled, liveRulesFired, fireEvidenceByRule],
   );
 
-  const handOff = async (build: () => ReturnType<typeof buildHeaderDraftFromRequest> | unknown): Promise<void> => {
-    try {
-      setError(null);
-      const draft = build() as Parameters<typeof handOffRuleDraft>[0];
-      await handOffRuleDraft(draft);
-    } catch (err) {
-      setError((err as Error).message);
-    }
-  };
-
   // Every header CTA (server rows, insight cards, cookies, "+ Add
   // Header") opens the in-panel create popover seeded with that
   // gesture's header, anchored to the clicked control.
@@ -376,10 +365,30 @@ export function InspectorDetailContent({
   const createDelay = (anchorEl: HTMLElement): void => openUrlCreate(buildDelayDraftFromRequest(lc), 'delay', anchorEl);
   const createCancel = (anchorEl: HTMLElement): void =>
     openUrlCreate(buildBlockDraftFromRequest(lc), 'block', anchorEl);
-  const createOverrideRequestBody = (): void =>
-    void handOff(() => buildRequestBodyDraftFromRequest(lc, capturedRequestBodyDraftInput(lc, har)));
-  const createOverrideQueryParams = (): void =>
-    void handOff(() => buildQueryParamDraftFromRequest(lc, capturedQueryParamsDraftInput(har)));
+  // Payload-tab CTAs — the request-body / query-param create popovers,
+  // seeded from the captured payload.
+  const createOverrideRequestBody = (anchorEl: HTMLElement): void => {
+    rulePopover.open(
+      {
+        mode: 'create-request-body',
+        anchorEl,
+        draft: buildRequestBodyDraftFromRequest(lc, capturedRequestBodyDraftInput(lc, har)),
+        requestId: lc.requestId,
+      },
+      { pinned: true },
+    );
+  };
+  const createOverrideQueryParams = (anchorEl: HTMLElement): void => {
+    rulePopover.open(
+      {
+        mode: 'create-query-param',
+        anchorEl,
+        draft: buildQueryParamDraftFromRequest(lc, capturedQueryParamsDraftInput(har)),
+        requestId: lc.requestId,
+      },
+      { pinned: true },
+    );
+  };
 
   const section = activeSection;
 
@@ -436,12 +445,6 @@ export function InspectorDetailContent({
           </button>
         ))}
       </div>
-
-      {error && (
-        <div className="dt-body-info" style={{ margin: '4px 8px', color: 'var(--dt-status-red)' }}>
-          {error}
-        </div>
-      )}
 
       <div
         // Payload's raw-text body fills the pane (Monaco owns the scroll,

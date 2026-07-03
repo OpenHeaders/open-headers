@@ -10,7 +10,9 @@ import type {
   BlockRuleDraft,
   DelayRuleDraft,
   HeaderRuleDraft,
+  QueryParamRuleDraft,
   RedirectRuleDraft,
+  RequestBodyRuleDraft,
   ResponseRuleDraft,
   Rule,
 } from '@openheaders/core/types';
@@ -21,7 +23,9 @@ import type { RuleApplicability } from '../data/rule-applicability';
 import { BlockQuickCreate } from './rule-quick-editor/BlockQuickCreate';
 import { DelayQuickCreate } from './rule-quick-editor/DelayQuickCreate';
 import { HeaderQuickCreate } from './rule-quick-editor/HeaderQuickCreate';
+import { QueryParamQuickCreate } from './rule-quick-editor/QueryParamQuickCreate';
 import { RedirectQuickCreate } from './rule-quick-editor/RedirectQuickCreate';
+import { RequestBodyQuickCreate } from './rule-quick-editor/RequestBodyQuickCreate';
 import { ResponseQuickCreate } from './rule-quick-editor/ResponseQuickCreate';
 import { ResponseQuickEditor } from './rule-quick-editor/ResponseQuickEditor';
 import { RuleHoverPopover, type RuleHoverPopoverTarget } from './RuleHoverPopover';
@@ -65,6 +69,26 @@ interface UrlCreatePopoverState {
   requestId: string;
 }
 
+/** Create mode for a request-body rule — opened from the Payload tab's
+ *  "Override request body" CTA; Save mints + publishes. */
+interface RequestBodyCreatePopoverState {
+  mode: 'create-request-body';
+  anchorEl: HTMLElement;
+  draft: RequestBodyRuleDraft;
+  /** Inspected request — the popover's session identity. */
+  requestId: string;
+}
+
+/** Create mode for a query-param rule — opened from the Payload tab's
+ *  "Override query params" CTA; Save mints + publishes. */
+interface QueryParamCreatePopoverState {
+  mode: 'create-query-param';
+  anchorEl: HTMLElement;
+  draft: QueryParamRuleDraft;
+  /** Inspected request — the popover's session identity. */
+  requestId: string;
+}
+
 interface RuleEditPopoverState {
   mode?: 'edit';
   anchorEl: HTMLElement;
@@ -96,7 +120,9 @@ type RulePopoverState =
   | RuleEditPopoverState
   | ResponseCreatePopoverState
   | HeaderCreatePopoverState
-  | UrlCreatePopoverState;
+  | UrlCreatePopoverState
+  | RequestBodyCreatePopoverState
+  | QueryParamCreatePopoverState;
 
 const POPOVER_INSIDE_SELECTORS: ReadonlyArray<string> = [
   '[data-rule-popover-root]',
@@ -150,6 +176,30 @@ function RulePopoverBody({
     if (state.draft.type === 'delay') return <DelayQuickCreate {...common} draft={state.draft} />;
     return <BlockQuickCreate {...common} draft={state.draft} />;
   }
+  if (state.mode === 'create-request-body') {
+    return (
+      <RequestBodyQuickCreate
+        anchorEl={state.anchorEl}
+        draft={state.draft}
+        onClose={onClose}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+        visible={visible}
+      />
+    );
+  }
+  if (state.mode === 'create-query-param') {
+    return (
+      <QueryParamQuickCreate
+        anchorEl={state.anchorEl}
+        draft={state.draft}
+        onClose={onClose}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+        visible={visible}
+      />
+    );
+  }
   if (state.mode === 'create-header') {
     return (
       <HeaderQuickCreate
@@ -199,6 +249,8 @@ const host = createHoverPopoverHost<RulePopoverState>({
     // clicked row so each Override button is its own session).
     if (s.mode === 'create-response') return `create-response|${s.requestId}`;
     if (s.mode === 'create-url') return `create-url|${s.requestId}|${s.variant}`;
+    if (s.mode === 'create-request-body') return `create-request-body|${s.requestId}`;
+    if (s.mode === 'create-query-param') return `create-query-param|${s.requestId}`;
     if (s.mode === 'create-header') {
       const mods = s.direction === 'request' ? s.draft.requestHeaders : s.draft.responseHeaders;
       return `create-header|${s.requestId}|${s.direction}|${mods?.[0]?.headerName ?? ''}`;

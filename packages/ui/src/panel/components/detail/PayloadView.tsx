@@ -64,10 +64,12 @@ interface PayloadViewProps {
    *  without it, a search for "value" would light up both panes even
    *  though the match came from only one. */
   searchSection?: string;
-  /** Open the create-rule editor pre-filled to override this request body. */
-  onOverrideRequestBody?: () => void;
-  /** Open the create-rule editor pre-filled to override the query params. */
-  onOverrideQueryParams?: () => void;
+  /** Open the request-body create popover pre-filled from the capture,
+   *  anchored to the CTA button. */
+  onOverrideRequestBody?: (anchorEl: HTMLElement) => void;
+  /** Open the query-param create popover pre-filled from the capture,
+   *  anchored to the CTA button. */
+  onOverrideQueryParams?: (anchorEl: HTMLElement) => void;
   /** Two-sided request-body capture (a request-body rule fired): the page's
    *  original body beside what actually went on the wire. Splits the Request
    *  Body section when present. */
@@ -94,14 +96,14 @@ export default function PayloadView({
     <OverrideBodyButton
       label="Override query params"
       title="Create a rule that rewrites these query parameters"
-      onClick={onOverrideQueryParams}
+      onClick={(e) => onOverrideQueryParams(e.currentTarget)}
     />
   ) : undefined;
   const bodyOverrideAction = onOverrideRequestBody ? (
     <OverrideBodyButton
       label="Override request body"
       title="Create a rule that replaces this request body with an editable static body"
-      onClick={onOverrideRequestBody}
+      onClick={(e) => onOverrideRequestBody(e.currentTarget)}
     />
   ) : undefined;
 
