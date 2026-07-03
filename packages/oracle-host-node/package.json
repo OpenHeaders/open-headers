@@ -11,8 +11,8 @@
       "default": "./dist/host-runtime/pairing-http.js"
     },
     "./host-runtime/ws-server": {
-      "import": "./src/host-runtime/ws-server.ts",
-      "default": "./dist/host-runtime/ws-server.js"
+      "import": "./src/host-runtime/ws-server/index.ts",
+      "default": "./dist/host-runtime/ws-server/index.js"
     },
     "./host-storage": {
       "import": "./src/host-storage/index.ts",
