@@ -51,8 +51,8 @@ export {
   type AuditLogListOptions,
   InMemoryAuditLog,
 } from './audit-log';
-export type { ApplyInboundAwarenessFrameDeps } from './awareness-inbound';
-export { applyInboundAwarenessFrame } from './awareness-inbound';
+export type { ApplyInboundAwarenessFrameDeps } from './awareness/awareness-inbound';
+export { applyInboundAwarenessFrame } from './awareness/awareness-inbound';
 export { readDeltaStreamFromLog, readWorkspaceDeltaStream } from './delta-stream-reader';
 export {
   type HandshakeReply,

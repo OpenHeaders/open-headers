@@ -45,7 +45,7 @@ import {
   type MutatorContext,
 } from '@openheaders/core/sync';
 
-import type { EntityOracle } from './oracle';
+import type { EntityOracle } from '../oracle';
 
 export type GenerateInverseResult =
   | { ok: true; batch: MutationBatch }

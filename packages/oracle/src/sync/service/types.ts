@@ -4,7 +4,7 @@
  */
 
 import type { AwarenessState, SyncBroadcastEvent } from '@openheaders/core/protocol';
-import type { AwarenessStore } from '../awareness';
+import type { AwarenessStore } from '../awareness/awareness';
 import type { InMemoryBroadcast } from '../broadcast';
 import type { EntityCacheLike } from '../entity-registry';
 import type { MutationLog } from '../mutation-log';

@@ -5,8 +5,8 @@
  */
 
 import type { AwarenessPublishRequest, AwarenessPublishResponse, AwarenessState } from '@openheaders/core/protocol';
-import type { AwarenessStore } from '../awareness';
-import { handleAwarenessPublish } from '../awareness-bridge';
+import type { AwarenessStore } from '../awareness/awareness';
+import { handleAwarenessPublish } from '../awareness/awareness-bridge';
 import { currentActive, services } from './state';
 
 // ── Awareness ────────────────────────────────────────────────────────

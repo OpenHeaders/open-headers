@@ -48,7 +48,7 @@ import { logger } from '@openheaders/core/utils';
 import { peekActiveWorkspaceId, requireActiveWorkspaceId } from '../sync';
 import { listMutedActivityEntities, muteActivityEntity, unmuteActivityEntity } from '../sync/activity/activity-mute-cache';
 import { generateInverseMutation } from '../sync/activity/activity-revert';
-import { applyInboundAwarenessFrame } from '../sync/awareness-inbound';
+import { applyInboundAwarenessFrame } from '../sync/awareness/awareness-inbound';
 import { snapshotExtensionWorkspacePostStates } from '../sync/global-service';
 import { applyInboundMutationBatch, applyInboundMutationEnvelope } from '../sync/mutation-stream-bridge';
 import {

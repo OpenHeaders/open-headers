@@ -20,7 +20,7 @@
 import type { InverseSpecPriorAccess, MaterializedEntity } from '@openheaders/core/sync';
 import { getAtPath, hasPath, parsePath } from '@openheaders/core/sync';
 
-import type { EntityOracle } from './oracle';
+import type { EntityOracle } from '../oracle';
 
 export interface OracleInverseAccessInput {
   /** Local oracle for the envelope's workspace. May be null when the

@@ -16,7 +16,7 @@ import {
   __resetAwarenessLifelineSetupForTests,
   buildLifelinePortName,
   setupAwarenessLifelinePorts,
-} from '@openheaders/oracle/sync/awareness-lifeline';
+} from '@openheaders/oracle/sync/awareness/awareness-lifeline';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 interface FakePort extends IncomingLifelinePort {

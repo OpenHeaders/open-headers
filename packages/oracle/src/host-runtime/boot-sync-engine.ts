@@ -26,7 +26,7 @@
 
 import { logger } from '@openheaders/core/utils';
 import { ensureDefaultTemplateCollection } from '../entity/template-store';
-import { setupAwarenessLifelinePorts } from '../sync/awareness-lifeline';
+import { setupAwarenessLifelinePorts } from '../sync/awareness/awareness-lifeline';
 import {
   attachGlobalWorkspaceCoordRunner,
   initGlobalSyncService,

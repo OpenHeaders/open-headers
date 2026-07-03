@@ -6,7 +6,7 @@
 
 import { LIVE_VALUE_ENTITY_TYPE, OAUTH_BUNDLE_ENTITY_TYPE, VAULT_ENTITY_TYPE } from '@openheaders/core/sync';
 import { getOracleHostHooks } from '@openheaders/oracle/sync';
-import { createAwarenessStore } from '../awareness';
+import { createAwarenessStore } from '../awareness/awareness';
 import { wireBroadcastToSink } from '../bridge';
 import { InMemoryBroadcast } from '../broadcast';
 import {
