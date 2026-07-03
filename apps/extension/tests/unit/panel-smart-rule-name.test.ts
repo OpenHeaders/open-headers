@@ -18,6 +18,7 @@ describe('generateSmartRuleName — per-kind formulas', () => {
   it('names URL-action rules from host + path', () => {
     expect(generateSmartRuleName({ kind: 'redirect', url: URL }, [])).toBe('Redirect api.openheaders.io/v1/users');
     expect(generateSmartRuleName({ kind: 'replace-host', url: URL }, [])).toBe('Replace host · api.openheaders.io');
+    expect(generateSmartRuleName({ kind: 'localhost', url: URL }, [])).toBe('Point to localhost · api.openheaders.io');
     expect(generateSmartRuleName({ kind: 'delay', url: URL }, [])).toBe('Delay api.openheaders.io/v1/users');
     expect(generateSmartRuleName({ kind: 'block', url: URL }, [])).toBe('Block api.openheaders.io/v1/users');
   });
@@ -28,10 +29,7 @@ describe('generateSmartRuleName — per-kind formulas', () => {
 
   it('names header rules from the seeded operation + header + host', () => {
     expect(
-      generateSmartRuleName(
-        { kind: 'header', url: URL, headerName: 'Cache-Control', headerOperation: 'override' },
-        [],
-      ),
+      generateSmartRuleName({ kind: 'header', url: URL, headerName: 'Cache-Control', headerOperation: 'override' }, []),
     ).toBe('Set Cache-Control · api.openheaders.io');
     expect(
       generateSmartRuleName({ kind: 'header', url: URL, headerName: 'X-Powered-By', headerOperation: 'remove' }, []),

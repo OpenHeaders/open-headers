@@ -358,6 +358,8 @@ export function InspectorDetailContent({
     openUrlCreate(buildRedirectDraftFromRequest(lc), 'redirect', anchorEl);
   const createReplaceHost = (anchorEl: HTMLElement): void =>
     openUrlCreate(buildRedirectDraftFromRequest(lc), 'replace-host', anchorEl);
+  const createLocalhost = (anchorEl: HTMLElement): void =>
+    openUrlCreate(buildRedirectDraftFromRequest(lc), 'localhost', anchorEl);
   const createDelay = (anchorEl: HTMLElement): void => openUrlCreate(buildDelayDraftFromRequest(lc), 'delay', anchorEl);
   const createCancel = (anchorEl: HTMLElement): void =>
     openUrlCreate(buildBlockDraftFromRequest(lc), 'block', anchorEl);
@@ -463,6 +465,7 @@ export function InspectorDetailContent({
             onOverrideHeader={overrideHeader}
             onCreateRedirect={createRedirect}
             onCreateReplaceHost={createReplaceHost}
+            onCreateLocalhost={createLocalhost}
             onOverrideQueryParams={createOverrideQueryParams}
             onCreateDelay={createDelay}
             onCreateCancel={createCancel}

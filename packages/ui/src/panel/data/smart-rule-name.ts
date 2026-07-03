@@ -37,6 +37,7 @@ export interface SmartNameInput {
 const FALLBACK_BASE: Record<SmartNameKind, string> = {
   redirect: 'New Redirect Rule',
   'replace-host': 'New Redirect Rule',
+  localhost: 'New Redirect Rule',
   delay: 'New Delay Rule',
   block: 'New Block Rule',
   header: 'New Header Rule',
@@ -75,6 +76,8 @@ function baseName(input: SmartNameInput): string {
       return `Redirect ${hostPath}`;
     case 'replace-host':
       return `Replace host · ${parts.host}`;
+    case 'localhost':
+      return `Point to localhost · ${parts.host}`;
     case 'delay':
       return `Delay ${hostPath}`;
     case 'block':

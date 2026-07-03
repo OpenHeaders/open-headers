@@ -43,6 +43,7 @@ import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import { GeneralRow } from './headers/GeneralRow';
 import { HeaderSection } from './headers/HeaderSection';
 import { HeaderMoreFiltersMenu, HeaderViewMenu } from './headers/HeadersMenus';
+import { RedirectCtaMenu } from './headers/RedirectCtaMenu';
 import { InsightCard } from './headers/InsightCard';
 import { ProvisionalHeadersBanner } from './headers/ProvisionalHeadersBanner';
 import { formatBytes } from './headers/utils';
@@ -79,6 +80,7 @@ export interface HeadersViewProps {
    *  does need a callback per CTA so the parent can seed each variant. */
   onCreateRedirect: (anchorEl: HTMLElement) => void;
   onCreateReplaceHost: (anchorEl: HTMLElement) => void;
+  onCreateLocalhost: (anchorEl: HTMLElement) => void;
   /** Open the query-param override popover — surfaced here (not just the
    *  Payload tab) because the query string is part of the URL the user is
    *  looking at, and the CTA scaffolds even when the request has none. */
@@ -101,6 +103,7 @@ export function HeadersView({
   onOverrideHeader,
   onCreateRedirect,
   onCreateReplaceHost,
+  onCreateLocalhost,
   onOverrideQueryParams,
   onCreateDelay,
   onCreateCancel,
@@ -255,12 +258,11 @@ export function HeadersView({
       {/* Rule-creation CTA row — Headers tab is the primary surface for
         * "I see something I want to change → make a rule for it". */}
       <div className="dt-cta-row dt-header-cta-row">
-        <button type="button" className="dt-btn dt-btn-primary" onClick={(e) => onCreateRedirect(e.currentTarget)} title="Redirect this URL elsewhere">
-          Redirect URL
-        </button>
-        <button type="button" className="dt-btn dt-btn-primary" onClick={(e) => onCreateReplaceHost(e.currentTarget)} title="Redirect, keeping path and query but swapping the host">
-          Replace host
-        </button>
+        <RedirectCtaMenu
+          onCreateRedirect={onCreateRedirect}
+          onCreateReplaceHost={onCreateReplaceHost}
+          onCreateLocalhost={onCreateLocalhost}
+        />
         <button type="button" className="dt-btn dt-btn-primary" onClick={(e) => onOverrideQueryParams(e.currentTarget)} title="Add, replace or remove this request's query parameters">
           Override query params
         </button>
