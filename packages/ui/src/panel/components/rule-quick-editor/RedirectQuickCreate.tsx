@@ -145,7 +145,7 @@ export function RedirectQuickCreate({
       </div>
       {trimmedTarget && !targetResolves ? (
         <div style={{ marginTop: 6, fontSize: 11, color: token.colorWarning, lineHeight: 1.4 }}>
-          Variable missing — click the red reference to create it and enable Save.
+          Variable missing — hover the red reference to create it and enable Save.
         </div>
       ) : (
         <div style={{ marginTop: 6, fontSize: 11, color: token.colorTextTertiary, lineHeight: 1.4 }}>
