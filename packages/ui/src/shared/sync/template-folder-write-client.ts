@@ -16,8 +16,8 @@ import { type MutationEnvelope, type TemplateFolderParentRef } from '@openheader
 import {
   getTemplateFolderSyncMirrorForWorkspace,
   type TemplateFolderSyncMirror,
-} from '../../context/template-folder-sync-mirror';
-import { getTemplateSyncMirrorForWorkspace } from '../../context/template-sync-mirror';
+} from '../../context/mirrors/template-folder-sync-mirror';
+import { getTemplateSyncMirrorForWorkspace } from '../../context/mirrors/template-sync-mirror';
 import {
   buildCreateTemplateFolderBatch,
   buildDeleteTemplateFolderBatch,
@@ -27,7 +27,7 @@ import {
 } from '@openheaders/core/sync-builders/mutations/template-folder-mutations';
 import { buildDeleteBatch as buildDeleteTemplateBatch } from '@openheaders/core/sync-builders/mutations/template-mutations';
 
-export { createTemplateFolderSyncMirror } from '../../context/template-folder-sync-mirror';
+export { createTemplateFolderSyncMirror } from '../../context/mirrors/template-folder-sync-mirror';
 
 export type TemplateFolderSimpleResult = SyncSimpleResult;
 

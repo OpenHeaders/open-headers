@@ -40,7 +40,7 @@ import { generateWorkspaceId } from '@openheaders/core/utils';
 import {
   type ExtensionWorkspaceSyncMirror,
   getActiveExtensionWorkspaceSyncMirror,
-} from '../../context/extension-workspace-sync-mirror';
+} from '../../context/mirrors/extension-workspace-sync-mirror';
 import { ensureGlobalRendererContext, type RendererContextHandle } from '../../context/renderer-mutator-context';
 import { applySyncPayload, type SyncMutationPayload, type SyncSimpleResult } from './apply-payload';
 

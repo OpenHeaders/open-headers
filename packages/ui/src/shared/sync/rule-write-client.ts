@@ -24,7 +24,7 @@ import { generateUid, shouldAutoUnpublishOnUpdate, toFolderName } from '@openhea
 import {
   getRuleSyncMirrorForWorkspace,
   type RuleSyncMirror,
-} from '../../context/rule-sync-mirror';
+} from '../../context/mirrors/rule-sync-mirror';
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,

@@ -35,7 +35,7 @@ import {
 import {
   getLiveWorkflowSyncMirrorForWorkspace,
   type LiveWorkflowSyncMirror,
-} from '../../context/live-workflow-sync-mirror';
+} from '../../context/mirrors/live-workflow-sync-mirror';
 import {
   buildAddLiveWorkflowBatch,
   buildDeleteLiveWorkflowBatch,

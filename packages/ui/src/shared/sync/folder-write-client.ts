@@ -25,8 +25,8 @@ import {
   createFolderSyncMirror,
   type FolderSyncMirror,
   getFolderSyncMirrorForWorkspace,
-} from '../../context/folder-sync-mirror';
-import { getRuleSyncMirrorForWorkspace } from '../../context/rule-sync-mirror';
+} from '../../context/mirrors/folder-sync-mirror';
+import { getRuleSyncMirrorForWorkspace } from '../../context/mirrors/rule-sync-mirror';
 import {
   buildCreateFolderBatch,
   buildDeleteFolderBatch,
@@ -36,7 +36,7 @@ import {
 } from '@openheaders/core/sync-builders/mutations/folder-mutations';
 import { buildDeleteBatch as buildDeleteRuleBatch } from '@openheaders/core/sync-builders/mutations/rule-mutations';
 
-export { createFolderSyncMirror } from '../../context/folder-sync-mirror';
+export { createFolderSyncMirror } from '../../context/mirrors/folder-sync-mirror';
 
 export type FolderSimpleResult = SyncSimpleResult;
 

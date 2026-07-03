@@ -20,7 +20,7 @@ import {
   createFilesSyncMirror,
   type FilesSyncMirror,
   getFilesSyncMirrorForWorkspace,
-} from '../../context/files-sync-mirror';
+} from '../../context/mirrors/files-sync-mirror';
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,
@@ -30,7 +30,7 @@ import {
 import { buildAddFileRefBatch, buildRemoveFileRefBatch, buildRenameFileRefBatch } from '@openheaders/core/sync-builders/mutations/files-mutations';
 
 // Re-exported so tests can construct a mirror without going through the singleton.
-export { createFilesSyncMirror } from '../../context/files-sync-mirror';
+export { createFilesSyncMirror } from '../../context/mirrors/files-sync-mirror';
 
 export type FilesResult = SyncSimpleResult;
 

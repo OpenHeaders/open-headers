@@ -15,7 +15,7 @@ import type { Template } from '@openheaders/core/types';
 import {
   getTemplateSyncMirrorForWorkspace,
   type TemplateSyncMirror,
-} from '../../context/template-sync-mirror';
+} from '../../context/mirrors/template-sync-mirror';
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,

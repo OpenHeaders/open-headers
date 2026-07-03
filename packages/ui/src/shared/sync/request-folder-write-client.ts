@@ -19,8 +19,8 @@ import { type MutationEnvelope, type RequestFolderParentRef } from '@openheaders
 import {
   getRequestFolderSyncMirrorForWorkspace,
   type RequestFolderSyncMirror,
-} from '../../context/request-folder-sync-mirror';
-import { getRequestSyncMirrorForWorkspace } from '../../context/request-sync-mirror';
+} from '../../context/mirrors/request-folder-sync-mirror';
+import { getRequestSyncMirrorForWorkspace } from '../../context/mirrors/request-sync-mirror';
 import {
   buildCreateRequestFolderBatch,
   buildDeleteRequestFolderBatch,
@@ -30,7 +30,7 @@ import {
 } from '@openheaders/core/sync-builders/mutations/request-folder-mutations';
 import { buildDeleteBatch as buildDeleteRequestBatch } from '@openheaders/core/sync-builders/mutations/request-mutations';
 
-export { createRequestFolderSyncMirror } from '../../context/request-folder-sync-mirror';
+export { createRequestFolderSyncMirror } from '../../context/mirrors/request-folder-sync-mirror';
 
 export type RequestFolderSimpleResult = SyncSimpleResult;
 

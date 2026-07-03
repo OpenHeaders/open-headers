@@ -17,9 +17,9 @@ import { generateUid, toFolderName } from '@openheaders/core/utils';
 import {
   getTemplateCollectionSyncMirrorForWorkspace,
   type TemplateCollectionSyncMirror,
-} from '../../context/template-collection-sync-mirror';
-import { getTemplateFolderSyncMirrorForWorkspace } from '../../context/template-folder-sync-mirror';
-import { getTemplateSyncMirrorForWorkspace } from '../../context/template-sync-mirror';
+} from '../../context/mirrors/template-collection-sync-mirror';
+import { getTemplateFolderSyncMirrorForWorkspace } from '../../context/mirrors/template-folder-sync-mirror';
+import { getTemplateSyncMirrorForWorkspace } from '../../context/mirrors/template-sync-mirror';
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,
@@ -38,7 +38,7 @@ import { buildDeleteTemplateFolderEntityBatch } from '@openheaders/core/sync-bui
 import { buildDeleteBatch as buildDeleteTemplateBatch } from '@openheaders/core/sync-builders/mutations/template-mutations';
 import { buildVariablesReplacement } from '@openheaders/core/sync-builders';
 
-export { createTemplateCollectionSyncMirror } from '../../context/template-collection-sync-mirror';
+export { createTemplateCollectionSyncMirror } from '../../context/mirrors/template-collection-sync-mirror';
 
 export type TemplateCollectionSimpleResult = SyncSimpleResult;
 

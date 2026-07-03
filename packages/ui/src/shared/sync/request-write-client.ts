@@ -14,7 +14,7 @@
 
 import { buildAddBatch, buildDeleteBatch, buildUpdateBatch } from '@openheaders/core/sync-builders/mutations/request-mutations';
 import type { Request } from '@openheaders/core/types';
-import { getRequestSyncMirrorForWorkspace, type RequestSyncMirror } from '../../context/request-sync-mirror';
+import { getRequestSyncMirrorForWorkspace, type RequestSyncMirror } from '../../context/mirrors/request-sync-mirror';
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,

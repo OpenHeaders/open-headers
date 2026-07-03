@@ -38,14 +38,14 @@ import {
   createVaultSyncMirror,
   getVaultSyncMirrorForWorkspace,
   type VaultSyncMirror,
-} from '../../context/vault-sync-mirror';
+} from '../../context/mirrors/vault-sync-mirror';
 import {
   buildRemoveVaultSecretBatch,
   buildSetVaultSecretBatch,
 } from '@openheaders/core/sync-builders/mutations/vault-mutations';
 
 // Re-exported so tests can construct a mirror without going through the singleton.
-export { createVaultSyncMirror } from '../../context/vault-sync-mirror';
+export { createVaultSyncMirror } from '../../context/mirrors/vault-sync-mirror';
 
 export type VaultSimpleResult = SyncSimpleResult;
 

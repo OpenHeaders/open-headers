@@ -36,7 +36,7 @@ import {
 import {
   getLiveVariableSyncMirrorForWorkspace,
   type LiveVariableSyncMirror,
-} from '../../context/live-variable-sync-mirror';
+} from '../../context/mirrors/live-variable-sync-mirror';
 import {
   buildAddLiveVariableBatch,
   buildDeleteLiveVariableBatch,

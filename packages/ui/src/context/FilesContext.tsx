@@ -35,7 +35,7 @@ import type { FileRef } from '@openheaders/core/files';
 import { hostBridge } from '@openheaders/core/bridge';
 import type React from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { getFilesSyncMirrorForWorkspace } from './files-sync-mirror';
+import { getFilesSyncMirrorForWorkspace } from './mirrors/files-sync-mirror';
 
 export type RenameFileOutcome =
   | { ok: true; fileRef: FileRef }

@@ -31,7 +31,7 @@ import {
 } from '@openheaders/core/sync';
 import type { Environment, Variable } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
-import type { EnvSyncMirror } from '../../context/env-sync-mirror';
+import type { EnvSyncMirror } from '../../context/mirrors/env-sync-mirror';
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,
@@ -48,7 +48,7 @@ import {
 
 // `createEnvSyncMirror` is re-exported so tests can construct a mirror
 // without going through the singleton.
-export { createEnvSyncMirror } from '../../context/env-sync-mirror';
+export { createEnvSyncMirror } from '../../context/mirrors/env-sync-mirror';
 
 export type EnvSimpleResult = SyncSimpleResult;
 
