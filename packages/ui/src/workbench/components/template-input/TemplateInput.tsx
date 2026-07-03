@@ -334,10 +334,14 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
                 createAction={
                   createTarget
                     ? {
-                        label: (
+                        label: createTarget.scopeLabel ? (
                           <>
                             Create “{createTarget.name}” in {createTarget.scopeLabel}
                           </>
+                        ) : (
+                          // Bare reference — the create popover's "Add to"
+                          // picker chooses the destination scope.
+                          <>Create “{createTarget.name}”…</>
                         ),
                         onSelect: triggerCreate,
                       }

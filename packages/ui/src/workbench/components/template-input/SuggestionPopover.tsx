@@ -36,9 +36,11 @@ export interface SuggestionPopoverProps {
   onActiveIndexChange: (index: number) => void;
   /** Notify parent when the user clicks an option. */
   onSelect: (suggestion: VariableSuggestion) => void;
-  /** Shown in place of "No matches" when the typed reference names a
-   *  scope but no such variable exists yet — picking it opens the
-   *  inline create flow. Enter is routed here by the owning input. */
+  /** Shown UNDER the "No matches" empty state when the typed reference
+   *  names a creatable variable that doesn't exist yet — picking it
+   *  opens the inline create flow. The empty state stays visible so the
+   *  user sees WHY a create is being offered. Enter is routed here by
+   *  the owning input. */
   createAction?: { label: React.ReactNode; onSelect: () => void };
 }
 
@@ -100,29 +102,30 @@ const SuggestionPopover: React.FC<SuggestionPopoverProps> = ({
         style={maxListHeight != null ? { maxHeight: maxListHeight } : undefined}
       >
         {suggestions.length === 0 ? (
-          createAction ? (
-            // biome-ignore lint/a11y/useFocusableInteractive: ARIA listbox pattern — focus stays on the textarea (combobox); the row is the active descendant.
-            // biome-ignore lint/a11y/useKeyWithClickEvents: Enter is handled by the owning textarea's onKeyDown in TemplateInput, not on the row.
-            <div
-              role="option"
-              aria-selected
-              className="oh-template-popover-row oh-template-popover-row-active oh-template-popover-create"
-              style={{ background: token.colorFillSecondary }}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={createAction.onSelect}
-            >
-              <Text style={{ fontSize: 13 }}>
-                <PlusOutlined style={{ marginRight: 8, color: token.colorPrimary }} />
-                {createAction.label}
-              </Text>
-            </div>
-          ) : (
+          <>
             <div className="oh-template-popover-empty">
               <Text type="secondary" style={{ fontSize: 12 }}>
                 No matches
               </Text>
             </div>
-          )
+            {createAction && (
+              // biome-ignore lint/a11y/useFocusableInteractive: ARIA listbox pattern — focus stays on the textarea (combobox); the row is the active descendant.
+              // biome-ignore lint/a11y/useKeyWithClickEvents: Enter is handled by the owning textarea's onKeyDown in TemplateInput, not on the row.
+              <div
+                role="option"
+                aria-selected
+                className="oh-template-popover-row oh-template-popover-row-active oh-template-popover-create"
+                style={{ background: token.colorFillSecondary }}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={createAction.onSelect}
+              >
+                <Text style={{ fontSize: 13 }}>
+                  <PlusOutlined style={{ marginRight: 8, color: token.colorPrimary }} />
+                  {createAction.label}
+                </Text>
+              </div>
+            )}
+          </>
         ) : (
           suggestions.map((s, i) => {
             const isActive = i === activeIndex;
