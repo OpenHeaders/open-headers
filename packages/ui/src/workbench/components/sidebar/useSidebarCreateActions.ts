@@ -11,20 +11,19 @@
  */
 
 import type { Collection, Environment } from '@openheaders/core/types';
-import { App } from 'antd';
+import {
+  NEW_ENVIRONMENT_NAME,
+  NEW_REQUESTS_COLLECTION_NAME,
+  NEW_RULES_COLLECTION_NAME,
+  NEW_TEMPLATE_COLLECTION_NAME,
+  uniqueName,
+} from '@openheaders/ui/shared/naming';
+import type { App } from 'antd';
 import type React from 'react';
 import { useCallback } from 'react';
 
 /** Antd `message` API handed down from the sidebar's `App.useApp()` context. */
 type SidebarMessageApi = ReturnType<typeof App.useApp>['message'];
-
-/** Append `(2)`, `(3)`, … to `baseName` until it clears the pool. */
-function uniqueName(baseName: string, taken: ReadonlySet<string>): string {
-  let name = baseName;
-  let counter = 2;
-  while (taken.has(name)) name = `${baseName} (${counter++})`;
-  return name;
-}
 
 export interface UseSidebarCreateActionsParams {
   localCollections: Collection[];
@@ -67,7 +66,7 @@ export function useSidebarCreateActions({
   message,
 }: UseSidebarCreateActionsParams): SidebarCreateActions {
   const createNewCollection = useCallback(async () => {
-    const name = uniqueName('New Rules Collection', new Set(localCollections.map((c) => c.name)));
+    const name = uniqueName(NEW_RULES_COLLECTION_NAME, new Set(localCollections.map((c) => c.name)));
     const col = await createLocalCollection(name);
     if (col) {
       setSectionsExpanded((prev) => ({ ...prev, rules: true }));
@@ -76,7 +75,7 @@ export function useSidebarCreateActions({
   }, [createLocalCollection, localCollections, onOpenCollectionOverview]);
 
   const createNewRequestCollection = useCallback(async () => {
-    const name = uniqueName('New Requests Collection', new Set(requestCollections.map((c) => c.name)));
+    const name = uniqueName(NEW_REQUESTS_COLLECTION_NAME, new Set(requestCollections.map((c) => c.name)));
     const col = await createRequestCollectionRpc(name);
     if (col) {
       setSectionsExpanded((prev) => ({ ...prev, 'api-requests': true }));
@@ -91,7 +90,7 @@ export function useSidebarCreateActions({
   }, [createRequestCollectionRpc, requestCollections, message]);
 
   const createNewTemplateCollection = useCallback(async () => {
-    const name = uniqueName('User Templates', new Set(templateCollections.map((c) => c.name)));
+    const name = uniqueName(NEW_TEMPLATE_COLLECTION_NAME, new Set(templateCollections.map((c) => c.name)));
     const col = await createTemplateCollection(name);
     if (col) {
       setSectionsExpanded((prev) => ({ ...prev, templates: true }));
@@ -100,7 +99,7 @@ export function useSidebarCreateActions({
   }, [createTemplateCollection, templateCollections, onOpenTemplateCollectionOverview]);
 
   const createNewEnvironment = useCallback(async () => {
-    const name = uniqueName('New Environment', new Set(environments.map((e) => e.name)));
+    const name = uniqueName(NEW_ENVIRONMENT_NAME, new Set(environments.map((e) => e.name)));
     const env = await createEnvironment(name);
     if (env) {
       setSectionsExpanded((prev) => ({ ...prev, environments: true }));

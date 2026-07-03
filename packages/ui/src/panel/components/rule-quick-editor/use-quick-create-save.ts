@@ -7,9 +7,10 @@
  * publish failure degrades honestly to a draft.
  *
  * A workspace with no collection yet gets one minted on the fly
- * (`My Collection`) — the workbench's SaveToCollectionModal has room to
- * ask for a destination; the compact popover doesn't, and blocking the
- * user's first rule on a naming ceremony would be backwards.
+ * (`New Rules Collection` — the sidebar's create-action name) — the
+ * workbench's SaveToCollectionModal has room to ask for a destination;
+ * the compact popover doesn't, and blocking the user's first rule on a
+ * naming ceremony would be backwards.
  *
  * Per-type bodies supply `buildSeed` (reading their live form state via
  * a ref) and an optional `valid` gate on top of the always-on `!saving`
@@ -19,6 +20,7 @@
 
 import type { RuleSeed } from '@openheaders/core/utils';
 import type { UseRuleMutatorApi } from '@openheaders/ui/shared/hooks/useRuleMutator';
+import { NEW_RULES_COLLECTION_NAME } from '@openheaders/ui/shared/naming';
 import { applyCollectionCreate } from '@openheaders/ui/shared/sync/collection-write-client';
 import type { App } from 'antd';
 import { useState } from 'react';
@@ -26,15 +28,11 @@ import { useSaveShortcut } from './use-save-shortcut';
 
 type MessageApi = ReturnType<typeof App.useApp>['message'];
 
-/** Name for the collection minted when the workspace has none — the
- *  user can rename it in the sidebar like any other collection. */
-export const DEFAULT_QUICK_COLLECTION_NAME = 'My Collection';
-
 interface UseQuickCreateSaveArgs {
   /** Builds the full rule seed from the CURRENT form state. */
   buildSeed: () => RuleSeed;
   /** Destination collection path — null when the workspace has none
-   *  (Save then mints `My Collection` and creates into it). */
+   *  (Save then mints `New Rules Collection` and creates into it). */
   parentPath: string | null;
   /** Workspace the auto-minted collection lands in. */
   workspaceId: string | null;
@@ -75,7 +73,7 @@ export function useQuickCreateSave({
           return;
         }
         const collectionResult = await applyCollectionCreate(
-          { name: DEFAULT_QUICK_COLLECTION_NAME },
+          { name: NEW_RULES_COLLECTION_NAME },
           { workspaceId, surfaceId: 'devpanel' },
         );
         if (!collectionResult.ok) {
