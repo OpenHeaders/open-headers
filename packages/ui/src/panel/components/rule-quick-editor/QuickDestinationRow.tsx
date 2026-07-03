@@ -9,7 +9,7 @@
  */
 
 import { DownOutlined, RightOutlined } from '@ant-design/icons';
-import { Select, Tag, theme } from 'antd';
+import { ConfigProvider, Select, Tag, theme } from 'antd';
 import { useState } from 'react';
 import { listFolderOptions, type QuickFolderChoice } from '../../data/quick-rule-destination';
 import type { QuickCreateDestinationApi } from './use-quick-create-destination';
@@ -81,37 +81,39 @@ export function QuickDestinationRow({ api }: { api: QuickCreateDestinationApi })
         </span>
       </button>
       {open && (
-        <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-          <Select
-            size="small"
-            value={api.plan.collection?.uid}
-            placeholder={api.collectionLabel}
-            onChange={onCollectionChange}
-            options={api.trees.map((t) => ({ value: t.uid, label: t.name }))}
-            style={{ flex: 1, minWidth: 0 }}
-            dropdownStyle={{ zIndex: 1090 }}
-            disabled={api.trees.length === 0}
-          />
-          <Select
-            size="small"
-            value={folderValue}
-            onChange={onFolderChange}
-            options={[
-              {
-                value: AUTO_VALUE,
-                label: api.autoFolderName ? `Auto — ${api.autoFolderName}` : 'Auto — collection root',
-              },
-              { value: ROOT_VALUE, label: 'Collection root' },
-              ...folderOptions.map((f) => ({
-                value: f.path,
-                label: `${' '.repeat(f.depth * 2)}${f.name}`,
-              })),
-            ]}
-            style={{ flex: 1, minWidth: 0 }}
-            dropdownStyle={{ zIndex: 1090 }}
-            disabled={!activeTree}
-          />
-        </div>
+        <ConfigProvider theme={{ token: { fontSize: 12 } }}>
+          <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+            <Select
+              size="small"
+              value={api.plan.collection?.uid}
+              placeholder={api.collectionLabel}
+              onChange={onCollectionChange}
+              options={api.trees.map((t) => ({ value: t.uid, label: t.name }))}
+              style={{ flex: 1, minWidth: 0 }}
+              dropdownStyle={{ zIndex: 1090 }}
+              disabled={api.trees.length === 0}
+            />
+            <Select
+              size="small"
+              value={folderValue}
+              onChange={onFolderChange}
+              options={[
+                {
+                  value: AUTO_VALUE,
+                  label: api.autoFolderName ? `Auto — ${api.autoFolderName}` : 'Auto — collection root',
+                },
+                { value: ROOT_VALUE, label: 'Collection root' },
+                ...folderOptions.map((f) => ({
+                  value: f.path,
+                  label: `${' '.repeat(f.depth * 2)}${f.name}`,
+                })),
+              ]}
+              style={{ flex: 1, minWidth: 0 }}
+              dropdownStyle={{ zIndex: 1090 }}
+              disabled={!activeTree}
+            />
+          </div>
+        </ConfigProvider>
       )}
     </div>
   );
