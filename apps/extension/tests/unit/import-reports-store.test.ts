@@ -20,7 +20,7 @@ vi.mock('@utils/logger', () => ({
   },
 }));
 
-vi.mock('@/background/modules/workspace-store', () => ({
+vi.mock('@/background/modules/workspace/workspace-store', () => ({
   getActiveWorkspaceId: vi.fn(() => 'ws-imports'),
 }));
 

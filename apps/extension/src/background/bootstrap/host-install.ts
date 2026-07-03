@@ -15,7 +15,7 @@ import { createIdbSyncPersistenceProvider } from '@openheaders/oracle-host-brows
 import { installActivityPruneScheduler } from '../activity-prune-scheduler';
 import { isLoopbackBackend } from '../backend-target';
 import { recordLog } from '../modules/observability-log';
-import { listWorkspaces } from '../modules/workspace-store';
+import { listWorkspaces } from '../modules/workspace/workspace-store';
 import { setActivityLog } from '../sync-activity-installer';
 import { setPendingOutQueue } from '../sync-mutation-forwarder';
 

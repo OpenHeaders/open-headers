@@ -1,7 +1,7 @@
 import { report as reportStatus, subscribe as subscribeStatus } from '@openheaders/ui/shared/status';
 import { broadcast } from '@utils/bridge';
 import { installActivityStatusReporter } from '../activity-status-reporter';
-import { onActiveWorkspaceChange, peekActiveWorkspaceId } from '../modules/workspace-store';
+import { onActiveWorkspaceChange, peekActiveWorkspaceId } from '../modules/workspace/workspace-store';
 import { countUnreadActivityEntries, subscribeActivityEntries } from '../sync-activity-installer';
 import { installHandshakeStatusReporter } from '../sync-status-reporter';
 import type { SyncHandshakeHandles } from './sync-handshake';

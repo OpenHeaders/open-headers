@@ -261,7 +261,7 @@ function workspaceStoreMock() {
     },
   };
 }
-vi.mock('@/background/modules/workspace-store', workspaceStoreMock);
+vi.mock('@/background/modules/workspace/workspace-store', workspaceStoreMock);
 vi.mock('@openheaders/oracle/workspace/extension-workspace-store', workspaceStoreMock);
 
 vi.mock('@openheaders/oracle/entity/environment-store', () => ({

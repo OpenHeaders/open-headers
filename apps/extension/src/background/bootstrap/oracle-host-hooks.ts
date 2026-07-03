@@ -7,7 +7,7 @@ import { recordLog } from '../modules/observability-log';
 import { scheduleUpdate as scheduleRuleEngineUpdate } from '../modules/rule-engine';
 import { seedFromWorkspaceSwitch } from '../modules/rule-state-observer';
 import { getCachedTotpCodes } from '../modules/totp-scheduler';
-import { getActiveWorkspaceId, peekActiveWorkspaceId } from '../modules/workspace-store';
+import { getActiveWorkspaceId, peekActiveWorkspaceId } from '../modules/workspace/workspace-store';
 import { forwardAwarenessToBackend } from '../awareness-forwarder';
 import { observeForActivityFeed } from '../sync-activity-installer';
 import { forwardMutationToBackend } from '../sync-mutation-forwarder';

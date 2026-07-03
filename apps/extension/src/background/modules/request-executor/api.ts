@@ -14,7 +14,7 @@ import {
   recordUsage as recordTotpUsage,
 } from '@openheaders/oracle/entity/totp-cooldown-store';
 import { __setExecuteRequestDraft, isOffscreenSupported, runScript } from '../offscreen-host';
-import { getActiveWorkspaceId } from '../workspace-store';
+import { getActiveWorkspaceId } from '../workspace/workspace-store';
 import { errorSnapshot, executeResolved } from './execute';
 import { type ResolvedRequest, type ResolvedRequestOutcome, resolveRequest, UnresolvedRequestError } from './resolve';
 

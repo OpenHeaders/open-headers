@@ -112,9 +112,9 @@ function makeTab(partial: Partial<chrome.tabs.Tab> & { id: number }): chrome.tab
   } as chrome.tabs.Tab;
 }
 
-async function loadRegistry(): Promise<typeof import('@/background/modules/workspace-tab-registry')> {
+async function loadRegistry(): Promise<typeof import('@/background/modules/workspace/workspace-tab-registry')> {
   vi.resetModules();
-  return import('@/background/modules/workspace-tab-registry');
+  return import('@/background/modules/workspace/workspace-tab-registry');
 }
 
 async function flushBootstrap(): Promise<void> {

@@ -28,7 +28,7 @@ import {
   updateLiveWorkflow,
 } from '@openheaders/oracle/live/live-workflow-store';
 import { refreshLiveWorkflowByUser, resetCircuitForWorkflow } from '../../live-refresh-scheduler';
-import { getActiveWorkspaceId } from '../../workspace-store';
+import { getActiveWorkspaceId } from '../../workspace/workspace-store';
 import type { HandlerMap } from '../types';
 
 export const liveHandlers: HandlerMap = {

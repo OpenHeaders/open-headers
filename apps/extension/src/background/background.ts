@@ -83,9 +83,9 @@ import { rehydrateTabOverridesFromSession } from './modules/tab-overrides';
 import { setupTestRunnerPorts } from './modules/test-runner';
 import { bootstrapTotpScheduler } from './modules/totp-scheduler';
 import { initializeViewMode } from './modules/view-mode';
-import { hydrateActiveWorkspaceStores } from './modules/workspace-orchestrator';
-import { bootstrap as bootstrapWorkspaces, getActiveWorkspaceId } from './modules/workspace-store';
-import { setupWorkspaceTabRegistry } from './modules/workspace-tab-registry';
+import { hydrateActiveWorkspaceStores } from './modules/workspace/workspace-orchestrator';
+import { bootstrap as bootstrapWorkspaces, getActiveWorkspaceId } from './modules/workspace/workspace-store';
+import { setupWorkspaceTabRegistry } from './modules/workspace/workspace-tab-registry';
 import { selfHostLabel } from './self-host-label';
 import {
   connectWebSocket,

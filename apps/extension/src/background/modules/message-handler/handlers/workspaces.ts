@@ -1,8 +1,8 @@
 /** Workspace listing / duplication / tab-ordinal RPCs. */
 
-import { duplicateWorkspace as duplicateWorkspaceData } from '../../workspace-orchestrator';
-import { getActiveWorkspace, getActiveWorkspaceId, listWorkspaces } from '../../workspace-store';
-import { ordinalForTab, workspaceTabCount } from '../../workspace-tab-registry';
+import { duplicateWorkspace as duplicateWorkspaceData } from '../../workspace/workspace-orchestrator';
+import { getActiveWorkspace, getActiveWorkspaceId, listWorkspaces } from '../../workspace/workspace-store';
+import { ordinalForTab, workspaceTabCount } from '../../workspace/workspace-tab-registry';
 import type { HandlerMap } from '../types';
 
 export const workspaceHandlers: HandlerMap = {

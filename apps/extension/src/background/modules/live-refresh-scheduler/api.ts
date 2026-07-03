@@ -28,7 +28,7 @@ import { getOrCreateWorkspaceService, releaseWorkspaceService } from '@openheade
 import { alarms } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { createAlarmsRefreshTimer, RefreshScheduler } from '../refresh-scheduler';
-import { getActiveWorkspaceId, onActiveWorkspaceChange } from '../workspace-store';
+import { getActiveWorkspaceId, onActiveWorkspaceChange } from '../workspace/workspace-store';
 import { refreshAdapter } from './adapter';
 import { buildAlarmName, codec, type LiveAlarmPayload } from './codec';
 import { toCacheSummary } from './entries';

@@ -21,7 +21,7 @@ vi.mock('@utils/logger', () => ({
   logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-vi.mock('@/background/modules/workspace-store', () => ({
+vi.mock('@/background/modules/workspace/workspace-store', () => ({
   getWorkspace: vi.fn((id: string) => (id === 'ws-test' ? { id: 'ws-test', name: 'Test WS' } : null)),
 }));
 
@@ -40,12 +40,12 @@ vi.mock('@openheaders/oracle/storage', async () => {
   };
 });
 
-let gatherer: typeof import('@/background/modules/workspace-export-gatherer');
+let gatherer: typeof import('@/background/modules/workspace/workspace-export-gatherer');
 
 beforeEach(async () => {
   blobs.clear();
   vi.resetModules();
-  gatherer = await import('@/background/modules/workspace-export-gatherer');
+  gatherer = await import('@/background/modules/workspace/workspace-export-gatherer');
 });
 
 afterEach(() => {

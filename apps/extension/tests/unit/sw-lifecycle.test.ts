@@ -109,14 +109,14 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
       'oh.runtimeActive.active': 'ws-b',
     });
 
-    const first = await import('@/background/modules/workspace-store');
+    const first = await import('@/background/modules/workspace/workspace-store');
     await first.bootstrap();
     expect(first.listWorkspaces()).toHaveLength(2);
     expect(first.getActiveWorkspaceId()).toBe('ws-b');
 
     vi.resetModules();
     await installHostStorage();
-    const second = await import('@/background/modules/workspace-store');
+    const second = await import('@/background/modules/workspace/workspace-store');
     await second.bootstrap();
     expect(second.listWorkspaces()).toHaveLength(2);
     expect(second.getActiveWorkspaceId()).toBe('ws-b');
@@ -147,7 +147,7 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
       secrets: [{ uid: '32209dbc', kind: 'string', name: 'TOKEN', value: 'abc' }],
     });
 
-    let ws = await import('@/background/modules/workspace-store');
+    let ws = await import('@/background/modules/workspace/workspace-store');
     await ws.bootstrap();
     let oracleSync = await import('@openheaders/oracle/sync');
     oracleSync.setOracleHostHooks({ getActiveWorkspaceId: ws.getActiveWorkspaceId });
@@ -159,7 +159,7 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
 
     vi.resetModules();
     await installHostStorage();
-    ws = await import('@/background/modules/workspace-store');
+    ws = await import('@/background/modules/workspace/workspace-store');
     await ws.bootstrap();
     oracleSync = await import('@openheaders/oracle/sync');
     oracleSync.setOracleHostHooks({ getActiveWorkspaceId: ws.getActiveWorkspaceId });
@@ -205,7 +205,7 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
       [`oh.ws.${activeWs}.folders`]: [],
     });
 
-    let ws = await import('@/background/modules/workspace-store');
+    let ws = await import('@/background/modules/workspace/workspace-store');
     await ws.bootstrap();
     let oracleSync = await import('@openheaders/oracle/sync');
     oracleSync.setOracleHostHooks({ getActiveWorkspaceId: ws.getActiveWorkspaceId });
@@ -216,7 +216,7 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
 
     vi.resetModules();
     await installHostStorage();
-    ws = await import('@/background/modules/workspace-store');
+    ws = await import('@/background/modules/workspace/workspace-store');
     await ws.bootstrap();
     oracleSync = await import('@openheaders/oracle/sync');
     oracleSync.setOracleHostHooks({ getActiveWorkspaceId: ws.getActiveWorkspaceId });
@@ -276,11 +276,11 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
       [`oh.ws.${activeWs}.pauseMarkers`]: {},
     });
 
-    const ws = await import('@/background/modules/workspace-store');
+    const ws = await import('@/background/modules/workspace/workspace-store');
     await ws.bootstrap();
     const { setOracleHostHooks } = await import('@openheaders/oracle/sync');
     setOracleHostHooks({ getActiveWorkspaceId: ws.getActiveWorkspaceId });
-    const orchestrator = await import('@/background/modules/workspace-orchestrator');
+    const orchestrator = await import('@/background/modules/workspace/workspace-orchestrator');
     await orchestrator.hydrateActiveWorkspaceStores();
 
     const rules = await import('@openheaders/oracle/entity/rule-store');

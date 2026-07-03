@@ -28,7 +28,7 @@
 import { broadcast } from '@utils/bridge';
 import { logger } from '@utils/logger';
 import { getBrowserAPI } from '@/types/browser';
-import { recordLog } from './observability-log';
+import { recordLog } from '../observability-log';
 
 const WORKBENCH_HTML = 'workbench.html';
 

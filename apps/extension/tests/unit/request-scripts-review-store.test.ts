@@ -13,7 +13,7 @@ vi.mock('@utils/logger', () => ({
   logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-vi.mock('@/background/modules/workspace-store', () => ({
+vi.mock('@/background/modules/workspace/workspace-store', () => ({
   getActiveWorkspaceId: vi.fn(() => 'ws-active'),
 }));
 

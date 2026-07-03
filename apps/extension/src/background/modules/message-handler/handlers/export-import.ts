@@ -12,13 +12,13 @@ import {
 } from '@openheaders/oracle/entity/request-scripts-review-store';
 import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import { runtime as browserRuntime, isChrome, isEdge, isFirefox, isSafari } from '@utils/browser-api';
-import { gatherWorkspaceExport } from '../../workspace-export-gatherer';
-import { findExportImportMatches } from '../../workspace-import-dedup';
+import { gatherWorkspaceExport } from '../../workspace/workspace-export-gatherer';
+import { findExportImportMatches } from '../../workspace/workspace-import-dedup';
 import {
   importWorkspace as importWorkspaceFromExport,
   previewWorkspaceImport,
-} from '../../workspace-import-orchestrator';
-import { getActiveWorkspaceId } from '../../workspace-store';
+} from '../../workspace/workspace-import-orchestrator';
+import { getActiveWorkspaceId } from '../../workspace/workspace-store';
 import type { HandlerMap } from '../types';
 
 export const exportImportHandlers: HandlerMap = {

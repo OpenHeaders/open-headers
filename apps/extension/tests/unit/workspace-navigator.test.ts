@@ -22,7 +22,7 @@ vi.mock('@/background/modules/observability-log', () => ({
   clearObservabilityLog: vi.fn(),
 }));
 
-import { openWorkspaceIntent, selectTargetTab } from '@/background/modules/workspace-navigator';
+import { openWorkspaceIntent, selectTargetTab } from '@/background/modules/workspace/workspace-navigator';
 
 // ── Shared tab fixtures ─────────────────────────────────────────────
 

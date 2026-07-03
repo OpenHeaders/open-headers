@@ -2,7 +2,7 @@ import { logger } from '@utils/logger';
 import { getActiveEnvironmentId } from '@openheaders/oracle/entity/environment-store';
 import { kickActiveContextRefresh, reconcileLiveSchedules } from '../modules/live-refresh-scheduler';
 import { reconcileOAuthSchedules } from '../modules/oauth-refresh-scheduler';
-import { getActiveWorkspaceId } from '../modules/workspace-store';
+import { getActiveWorkspaceId } from '../modules/workspace/workspace-store';
 import { backgroundReady } from './background-ready';
 
 export function installNetworkEventHandlers(): void {

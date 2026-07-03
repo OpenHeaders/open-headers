@@ -12,7 +12,7 @@ import {
   listWorkspaces,
   peekActiveWorkspaceId,
   setActiveWorkspaceById,
-} from '../modules/workspace-store';
+} from '../modules/workspace/workspace-store';
 import { createSyncHandshakeInitiator } from '../sync-handshake-initiator';
 import { applyPeerStateVectorToPendingOut, flushPendingOutToBackend } from '../sync-mutation-forwarder';
 import { sendViaWebSocket } from '../websocket';

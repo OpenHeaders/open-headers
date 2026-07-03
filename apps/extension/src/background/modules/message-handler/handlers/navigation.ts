@@ -4,7 +4,7 @@ import type { ViewMode } from '@openheaders/core/types';
 import { runtime as browserRuntime, tabs } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { getViewModeController } from '@/background/view-mode/controller';
-import { openWorkspaceIntent } from '../../workspace-navigator';
+import { openWorkspaceIntent } from '../../workspace/workspace-navigator';
 import type { HandlerMap } from '../types';
 
 export const navigationHandlers: HandlerMap = {

@@ -74,7 +74,7 @@ vi.mock('@/background/modules/live-refresh-scheduler', () => ({
   __setLiveRefreshAdapter: (adapter: unknown) => setLiveRefreshAdapterMock(adapter),
 }));
 
-vi.mock('@/background/modules/workspace-store', () => ({
+vi.mock('@/background/modules/workspace/workspace-store', () => ({
   getActiveWorkspaceId: () => getActiveWorkspaceIdMock(),
 }));
 

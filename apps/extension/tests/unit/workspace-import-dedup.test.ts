@@ -20,7 +20,7 @@ const { blobs, workspaces } = vi.hoisted(() => ({
   ],
 }));
 
-vi.mock('@/background/modules/workspace-store', () => ({
+vi.mock('@/background/modules/workspace/workspace-store', () => ({
   listWorkspaces: vi.fn(() => workspaces),
 }));
 
@@ -34,12 +34,12 @@ vi.mock('@openheaders/oracle/storage', async () => {
   };
 });
 
-let dedup: typeof import('@/background/modules/workspace-import-dedup');
+let dedup: typeof import('@/background/modules/workspace/workspace-import-dedup');
 
 beforeEach(async () => {
   blobs.clear();
   vi.resetModules();
-  dedup = await import('@/background/modules/workspace-import-dedup');
+  dedup = await import('@/background/modules/workspace/workspace-import-dedup');
 });
 
 afterEach(() => {

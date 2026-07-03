@@ -21,7 +21,7 @@ vi.mock('@utils/logger', () => ({
   logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-vi.mock('@/background/modules/workspace-store', () => ({
+vi.mock('@/background/modules/workspace/workspace-store', () => ({
   getActiveWorkspaceId: vi.fn(() => 'ws-active'),
   listWorkspaces: vi.fn(() => [{ id: 'ws-active', name: 'Active' }]),
   getWorkspace: vi.fn((id: string) =>
@@ -153,7 +153,7 @@ class FifoLockRuntime {
   }
 }
 
-let orchestrator: typeof import('@/background/modules/workspace-import-orchestrator');
+let orchestrator: typeof import('@/background/modules/workspace/workspace-import-orchestrator');
 
 beforeEach(async () => {
   blobs.clear();
@@ -161,7 +161,7 @@ beforeEach(async () => {
   vi.resetModules();
   const { setOracleHostHooks } = await import('@openheaders/oracle/sync');
   setOracleHostHooks({ getActiveWorkspaceId: () => 'ws-active' });
-  orchestrator = await import('@/background/modules/workspace-import-orchestrator');
+  orchestrator = await import('@/background/modules/workspace/workspace-import-orchestrator');
 });
 
 afterEach(() => {

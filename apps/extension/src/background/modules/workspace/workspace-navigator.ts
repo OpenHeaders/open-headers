@@ -27,7 +27,7 @@
 import type { IntentCallerContext, WorkspaceIntent } from '@openheaders/core/workspace-intent';
 import { boundIntentToHash, hashToBoundIntent, parseIntent } from '@openheaders/core/workspace-intent';
 import { getBrowserAPI } from '@/types/browser';
-import { recordLog } from './observability-log';
+import { recordLog } from '../observability-log';
 import { ordinalForTab } from './workspace-tab-registry';
 
 /** Path of the workspace HTML file in the packed extension. */

@@ -36,7 +36,7 @@ import { attachLiveBypassExclusion, LIVE_BYPASS_HEADER_NAME } from '@openheaders
 import * as liveVarStore from '@openheaders/oracle/live/live-variable-store';
 import { LIVE_BYPASS_HEADER, liveBypassHeaderValue } from '@/background/modules/request-executor';
 import { computeRuleLiveBypass, __resetForTests as resetResolver } from '@openheaders/oracle/rule-engine/variables-resolver';
-import * as workspaceStore from '@/background/modules/workspace-store';
+import * as workspaceStore from '@/background/modules/workspace/workspace-store';
 import { __initSyncServiceForTests, dispose as disposeSyncService } from '@openheaders/oracle/sync/service';
 
 const LV_A: LiveVariable = {

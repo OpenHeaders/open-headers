@@ -2,7 +2,7 @@
 
 import { getRules } from '@openheaders/oracle/entity/rule-store';
 import { logger } from '@utils/logger';
-import { getActiveWorkspaceId, listWorkspaces } from '../../workspace-store';
+import { getActiveWorkspaceId, listWorkspaces } from '../../workspace/workspace-store';
 import type { HandlerMap } from '../types';
 
 export const connectionHandlers: HandlerMap = {

@@ -10,7 +10,7 @@ import { EXTENSION_WORKSPACE_GLOBAL_SCOPE, setWorkspaceOrgResolver } from '@open
 import { IdbAuditLog } from '@openheaders/oracle-host-browser/sync/idb-audit-log';
 import { isChrome, isEdge, isFirefox, isSafari } from '@utils/browser-api';
 import { logger } from '@utils/logger';
-import { getWorkspace, listWorkspaces } from '../modules/workspace-store';
+import { getWorkspace, listWorkspaces } from '../modules/workspace/workspace-store';
 
 function browserDisplayName(): string {
   if (isFirefox) return 'Firefox';
