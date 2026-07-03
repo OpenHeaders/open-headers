@@ -182,7 +182,6 @@ export function QuickEditorShell({
       ref={popoverRef}
       role="dialog"
       data-rule-popover-root=""
-      className="dt-scrollbar"
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       style={{
@@ -197,14 +196,16 @@ export function QuickEditorShell({
         border: `1px solid ${token.colorBorderSecondary}`,
         borderRadius: token.borderRadiusLG,
         boxShadow: token.boxShadowSecondary,
-        padding: 12,
         // Footer-tracked cap (both sides): `usePopoverPlacement` measures the
         // status bar's real top and shrinks this on resize so the bottom stays
-        // above the footer and the content scrolls inside, whether the popover
-        // opened below the row or flipped above it.
+        // above the footer and the CONTENT scrolls inside, whether the popover
+        // opened below the row or flipped above it. The shell footer (link +
+        // Save) stays pinned: only the inner column scrolls, so the scrollbar
+        // ends above the footer instead of running behind it.
         maxHeight: position.maxHeight,
-        overflowY: 'auto',
-        overflowX: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
         visibility: measured ? 'visible' : 'hidden',
         opacity: measured && visible ? 1 : 0,
         transform: measured && visible ? 'scale(1)' : 'scale(0.96)',
@@ -212,138 +213,150 @@ export function QuickEditorShell({
         transition: 'opacity 120ms ease-out, transform 120ms ease-out',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, minWidth: 0 }}>
-        <span style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>
-          {buildRuleIcon({
-            ruleType,
-            rule: liveRule ?? undefined,
-            isActive: liveRule?.enabled ?? true,
-            compactArrow: true,
-            size: 14,
-          })}
-        </span>
-        {editingName && onRuleNameChange ? (
-          // A single-line no-wrap textarea, not an <input>: inputs can't
-          // paint a scrollbar, so a long name would only be reachable by
-          // caret-scrubbing. This shows the panel's thin horizontal bar
-          // (shared `.dt-scrollbar`) when the name overflows. Horizontal
-          // scroll ONLY — the title row never grows vertically; the
-          // embedded ✕ clears in place (blur/Enter on empty reverts).
-          // The bordered box is the WRAPPER, not the textarea: its 22px
-          // right padding is the ✕'s reserved column, so the text (and
-          // its scrollbar) stop in front of the icon instead of sliding
-          // under it — right-padding inside a scrolling element doesn't
-          // survive at the scroll end.
-          <span
-            style={{
-              position: 'relative',
-              display: 'flex',
-              flex: 1,
-              minWidth: 0,
-              boxSizing: 'border-box',
-              height: 30,
-              paddingRight: 22,
-              border: `1px solid ${token.colorPrimary}`,
-              borderRadius: token.borderRadius,
-              background: token.colorBgContainer,
-            }}
-          >
-            <textarea
-              value={nameDraft}
-              onChange={(e) => setNameDraft(e.target.value)}
-              autoFocus
-              rows={1}
-              wrap="off"
-              spellCheck={false}
-              className="dt-scrollbar"
+      <div
+        className="dt-scrollbar"
+        style={{
+          flex: '1 1 auto',
+          minHeight: 0,
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          padding: '12px 12px 0',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, minWidth: 0 }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>
+            {buildRuleIcon({
+              ruleType,
+              rule: liveRule ?? undefined,
+              isActive: liveRule?.enabled ?? true,
+              compactArrow: true,
+              size: 14,
+            })}
+          </span>
+          {editingName && onRuleNameChange ? (
+            // A single-line no-wrap textarea, not an <input>: inputs can't
+            // paint a scrollbar, so a long name would only be reachable by
+            // caret-scrubbing. This shows the panel's thin horizontal bar
+            // (shared `.dt-scrollbar`) when the name overflows. Horizontal
+            // scroll ONLY — the title row never grows vertically; the
+            // embedded ✕ clears in place (blur/Enter on empty reverts).
+            // The bordered box is the WRAPPER, not the textarea: its 22px
+            // right padding is the ✕'s reserved column, so the text (and
+            // its scrollbar) stop in front of the icon instead of sliding
+            // under it — right-padding inside a scrolling element doesn't
+            // survive at the scroll end.
+            <span
               style={{
+                position: 'relative',
+                display: 'flex',
                 flex: 1,
                 minWidth: 0,
                 boxSizing: 'border-box',
-                height: '100%',
-                padding: '3px 0 3px 6px',
-                fontFamily: 'inherit',
-                fontWeight: 600,
-                fontSize: 12,
-                lineHeight: '18px',
-                whiteSpace: 'pre',
-                overflowX: 'auto',
-                overflowY: 'hidden',
-                resize: 'none',
-                border: 'none',
-                background: 'transparent',
-                color: token.colorText,
-                outline: 'none',
+                height: 30,
+                paddingRight: 22,
+                border: `1px solid ${token.colorPrimary}`,
+                borderRadius: token.borderRadius,
+                background: token.colorBgContainer,
               }}
-              onFocus={(e) => e.currentTarget.select()}
-              onBlur={(e) => commitName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  commitName(e.currentTarget.value);
-                } else if (e.key === 'Escape') {
-                  e.stopPropagation();
-                  setEditingName(false);
-                }
-              }}
-            />
-            {nameDraft.length > 0 && (
-              <CloseCircleFilled
-                aria-label="Clear rule name"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => setNameDraft('')}
+            >
+              <textarea
+                value={nameDraft}
+                onChange={(e) => setNameDraft(e.target.value)}
+                autoFocus
+                rows={1}
+                wrap="off"
+                spellCheck={false}
+                className="dt-scrollbar"
                 style={{
-                  position: 'absolute',
-                  right: 6,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
+                  flex: 1,
+                  minWidth: 0,
+                  boxSizing: 'border-box',
+                  height: '100%',
+                  padding: '3px 0 3px 6px',
+                  fontFamily: 'inherit',
+                  fontWeight: 600,
                   fontSize: 12,
-                  color: token.colorTextQuaternary,
-                  cursor: 'pointer',
+                  lineHeight: '18px',
+                  whiteSpace: 'pre',
+                  overflowX: 'auto',
+                  overflowY: 'hidden',
+                  resize: 'none',
+                  border: 'none',
+                  background: 'transparent',
+                  color: token.colorText,
+                  outline: 'none',
+                }}
+                onFocus={(e) => e.currentTarget.select()}
+                onBlur={(e) => commitName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    commitName(e.currentTarget.value);
+                  } else if (e.key === 'Escape') {
+                    e.stopPropagation();
+                    setEditingName(false);
+                  }
                 }}
               />
-            )}
-          </span>
-        ) : (
-          <span
-            className={onRuleNameChange ? 'dt-quick-rule-title' : undefined}
-            style={{
-              fontWeight: 600,
-              fontSize: 12,
-              lineHeight: '20px',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              flex: 1,
-              minWidth: 0,
-              cursor: onRuleNameChange ? 'text' : undefined,
-            }}
-            title={onRuleNameChange ? `${ruleName} — click to rename` : ruleName}
-            onClick={onRuleNameChange ? startEditingName : undefined}
-          >
-            {ruleName}
-          </span>
-        )}
-        {liveRuleUid && (
-          <PresenceBadge entityType={RULE_ENTITY_TYPE} entityId={liveRuleUid} excludeInstanceId={localInstanceId} />
-        )}
-        {tags}
+              {nameDraft.length > 0 && (
+                <CloseCircleFilled
+                  aria-label="Clear rule name"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => setNameDraft('')}
+                  style={{
+                    position: 'absolute',
+                    right: 6,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    fontSize: 12,
+                    color: token.colorTextQuaternary,
+                    cursor: 'pointer',
+                  }}
+                />
+              )}
+            </span>
+          ) : (
+            <span
+              className={onRuleNameChange ? 'dt-quick-rule-title' : undefined}
+              style={{
+                fontWeight: 600,
+                fontSize: 12,
+                lineHeight: '20px',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                flex: 1,
+                minWidth: 0,
+                cursor: onRuleNameChange ? 'text' : undefined,
+              }}
+              title={onRuleNameChange ? `${ruleName} — click to rename` : ruleName}
+              onClick={onRuleNameChange ? startEditingName : undefined}
+            >
+              {ruleName}
+            </span>
+          )}
+          {liveRuleUid && (
+            <PresenceBadge entityType={RULE_ENTITY_TYPE} entityId={liveRuleUid} excludeInstanceId={localInstanceId} />
+          )}
+          {tags}
+        </div>
+
+        {snapshot}
+
+        {children}
+
+        {destination}
+
+        {conditions}
       </div>
-
-      {snapshot}
-
-      {children}
-
-      {destination}
-
-      {conditions}
 
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          marginTop: 10,
+          flexShrink: 0,
+          padding: '10px 12px 12px',
           gap: 8,
         }}
       >
