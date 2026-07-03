@@ -9,7 +9,7 @@ import {
   removeJarCookie,
   setCookieJarWriter,
   writeJarCookie,
-} from '@openheaders/ui/panel/data/cookie-jar-cache';
+} from '@openheaders/ui/panel/data/cookies/cookie-jar-cache';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const URL = 'https://openheaders.io/api';

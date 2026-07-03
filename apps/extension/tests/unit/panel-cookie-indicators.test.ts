@@ -1,4 +1,4 @@
-import { cookieHeaderRuleTouched, cookieRowIndicator } from '@openheaders/ui/panel/data/cookie-indicators';
+import { cookieHeaderRuleTouched, cookieRowIndicator } from '@openheaders/ui/panel/data/cookies/cookie-indicators';
 import type { InspectorFire } from '@openheaders/ui/panel/data/types';
 import { describe, expect, it } from 'vitest';
 

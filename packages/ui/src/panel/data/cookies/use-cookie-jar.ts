@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useReducer } from 'react';
-import { getJarCookiesForUrl, subscribeCookieJar, type JarCookie } from './cookie-jar-cache';
+import { getJarCookiesForUrl, type JarCookie, subscribeCookieJar } from './cookie-jar-cache';
 
 export function useCookieJar(url: string): readonly JarCookie[] | null {
   const [, force] = useReducer((n: number) => n + 1, 0);

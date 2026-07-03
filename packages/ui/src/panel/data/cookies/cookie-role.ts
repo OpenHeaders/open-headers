@@ -367,7 +367,7 @@ const VENDORS: readonly VendorEntry[] = [
 // ── Generic keyword fallbacks ──────────────────────────────────────
 
 const AUTH_KEYWORDS: readonly RegExp[] = [
-  new RegExp('sess(?:ion)?', 'i'),
+  /sess(?:ion)?/i,
   new RegExp(w('auth'), 'i'),
   new RegExp(w('sid'), 'i'),
   new RegExp(w('jwt'), 'i'),
@@ -505,27 +505,39 @@ export function classifyCookieRole(input: ClassifyInput): CookieRole {
 
 export function roleChipLabel(role: CookieRole): string {
   switch (role) {
-    case 'auth': return 'auth?';
-    case 'tracking': return 'tracking?';
-    case 'pref': return 'pref';
-    case 'functional': return '';
+    case 'auth':
+      return 'auth?';
+    case 'tracking':
+      return 'tracking?';
+    case 'pref':
+      return 'pref';
+    case 'functional':
+      return '';
   }
 }
 
 export function roleSortOrder(role: CookieRole): number {
   switch (role) {
-    case 'auth': return 0;
-    case 'functional': return 1;
-    case 'pref': return 2;
-    case 'tracking': return 3;
+    case 'auth':
+      return 0;
+    case 'functional':
+      return 1;
+    case 'pref':
+      return 2;
+    case 'tracking':
+      return 3;
   }
 }
 
 export function roleSectionLabel(role: CookieRole): string {
   switch (role) {
-    case 'auth': return 'Auth & session';
-    case 'functional': return 'Functional';
-    case 'pref': return 'Preferences';
-    case 'tracking': return 'Analytics & tracking';
+    case 'auth':
+      return 'Auth & session';
+    case 'functional':
+      return 'Functional';
+    case 'pref':
+      return 'Preferences';
+    case 'tracking':
+      return 'Analytics & tracking';
   }
 }

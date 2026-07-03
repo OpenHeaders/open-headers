@@ -11,12 +11,12 @@
 import { useMemo, useRef, type RefObject } from 'react';
 import { useMeasuredCssHeights } from '@openheaders/ui/shared/hooks/useMeasuredStickyOffset';
 import { InfoPopover, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
-import { isJarEditableRow } from '../../../data/cookie-edit';
-import type { JarCookieEdit } from '../../../data/cookie-jar-cache';
-import type { CookieRow as CookieRowModel } from '../../../data/cookie-model';
-import type { CookieFilterToken, CookieRowMeta } from '../../../data/cookie-filter';
-import { matchesCookieQuery } from '../../../data/cookie-filter';
-import { classifyCookie, roleSectionLabel, roleSortOrder, type CookieRole } from '../../../data/cookie-role';
+import { isJarEditableRow } from '../../../data/cookies/cookie-edit';
+import type { JarCookieEdit } from '../../../data/cookies/cookie-jar-cache';
+import type { CookieRow as CookieRowModel } from '../../../data/cookies/cookie-model';
+import type { CookieFilterToken, CookieRowMeta } from '../../../data/cookies/cookie-filter';
+import { matchesCookieQuery } from '../../../data/cookies/cookie-filter';
+import { classifyCookie, roleSectionLabel, roleSortOrder, type CookieRole } from '../../../data/cookies/cookie-role';
 import { introspectWithAuthScheme } from '../../../data/auth-scheme';
 import type { ValueIntrospection } from '../../../data/value-introspect';
 import type { DevpanelCookiesSortSetting } from '../../../../workbench/settings/schema/devpanel-cookies';

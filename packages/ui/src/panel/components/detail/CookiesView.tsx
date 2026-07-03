@@ -16,10 +16,10 @@
  *   - cookies/CookieMenus        (More filters / View dropdowns)
  *   - cookies/CookieInsightCard  (actionable callout above the lists)
  *   - cookies/CookieValueExpander (JWT / JSON / base64 / URL-decoded panel)
- *   - panel/data/cookie-enrich   (HAR × jar join + Set-Cookie parser)
- *   - panel/data/cookie-filter   (query grammar)
- *   - panel/data/cookie-insights (rule engine for warnings + dropped detection)
- *   - panel/data/cookie-role     (auth / tracking / pref classifier)
+ *   - panel/data/cookies/cookie-enrich   (HAR × jar join + Set-Cookie parser)
+ *   - panel/data/cookies/cookie-filter   (query grammar)
+ *   - panel/data/cookies/cookie-insights (rule engine for warnings + dropped detection)
+ *   - panel/data/cookies/cookie-role     (auth / tracking / pref classifier)
  *   - panel/data/value-introspect (JWT / JSON / base64 detector)
  *
  * Request cookie attributes that aren't in HAR — Domain, Path, Expires,
@@ -32,27 +32,27 @@ import { App } from 'antd';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useMeasuredCssHeights } from '@openheaders/ui/shared/hooks/useMeasuredStickyOffset';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
-import { emptyEditForm, rowToKey } from '../../data/cookie-edit';
-import { enrichCookies } from '../../data/cookie-enrich';
-import { parseCookieQuery, type CookieFilterToken } from '../../data/cookie-filter';
-import { cookieHeaderRuleTouched } from '../../data/cookie-indicators';
+import { emptyEditForm, rowToKey } from '../../data/cookies/cookie-edit';
+import { enrichCookies } from '../../data/cookies/cookie-enrich';
+import { parseCookieQuery, type CookieFilterToken } from '../../data/cookies/cookie-filter';
+import { cookieHeaderRuleTouched } from '../../data/cookies/cookie-indicators';
 import {
   getEditedCookieKeys,
   isCookieJarWritable,
   type JarCookieEdit,
   removeJarCookie,
   writeJarCookie,
-} from '../../data/cookie-jar-cache';
+} from '../../data/cookies/cookie-jar-cache';
 import {
   computeCookieInsights,
   droppedCookieNames,
   problemCookieNames,
   type CookieInsight,
   type CookieInsightAction,
-} from '../../data/cookie-insights';
-import type { CookieRow as CookieRowModel } from '../../data/cookie-model';
+} from '../../data/cookies/cookie-insights';
+import type { CookieRow as CookieRowModel } from '../../data/cookies/cookie-model';
 import { currentHarEntry, type InspectorRowWithFires } from '../../data/inspector-row-projection';
-import { useCookieJar } from '../../data/use-cookie-jar';
+import { useCookieJar } from '../../data/cookies/use-cookie-jar';
 import { CookieEditPopover } from './cookies/CookieEditPopover';
 import { CookieInsightCard } from './cookies/CookieInsightCard';
 import { CookieMoreFiltersMenu, CookieViewMenu } from './cookies/CookieMenus';

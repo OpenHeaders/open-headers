@@ -14,7 +14,7 @@
  * stronger "this isn't the raw browser state" signal.
  */
 
-import type { InspectorFire } from './types';
+import type { InspectorFire } from '../types';
 
 export type CookieIndicator = 'rule' | 'edited' | null;
 

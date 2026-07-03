@@ -1,4 +1,8 @@
-import { formatAbsoluteExpiry, formatRelativeExpiry, urlDecodeSafe } from '@openheaders/ui/panel/data/cookie-format';
+import {
+  formatAbsoluteExpiry,
+  formatRelativeExpiry,
+  urlDecodeSafe,
+} from '@openheaders/ui/panel/data/cookies/cookie-format';
 import { describe, expect, it } from 'vitest';
 
 const NOW = Date.UTC(2026, 4, 18, 23, 0, 0);

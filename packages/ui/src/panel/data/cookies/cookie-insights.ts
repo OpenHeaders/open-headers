@@ -172,7 +172,8 @@ export function computeCookieInsights(input: CookieInsightInputs): readonly Cook
       id: 'oversized-cookie-payload',
       severity: 'warn',
       title: `Cookie header is ${requestPayload}B (over the 4KB common limit)`,
-      detail: 'Servers and intermediaries cap header size; oversized Cookie payloads can cause 4xx / 5xx without a clear error.',
+      detail:
+        'Servers and intermediaries cap header size; oversized Cookie payloads can cause 4xx / 5xx without a clear error.',
       cookieNames: input.request
         .filter((c) => c.attribution !== 'filtered-out')
         .sort((a, b) => b.size - a.size)
@@ -190,7 +191,8 @@ export function computeCookieInsights(input: CookieInsightInputs): readonly Cook
         id: 'third-party-set',
         severity: 'info',
         title: `${tp.length} third-party cookie${tp.length > 1 ? 's' : ''} set${reqOrigin ? ` by ${reqOrigin}` : ''}`,
-        detail: 'Modern browsers may block these in cross-site contexts unless they opt into CHIPS via the Partitioned attribute.',
+        detail:
+          'Modern browsers may block these in cross-site contexts unless they opt into CHIPS via the Partitioned attribute.',
         cookieNames: tp.map((c) => c.name),
       });
     }

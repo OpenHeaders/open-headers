@@ -2,7 +2,11 @@
  * Pure formatters for cookie display. No React, no DOM — easy to test.
  */
 
-export function formatRelativeExpiry(expirationDateSec: number | undefined, isSession: boolean | undefined, now: number = Date.now()): string {
+export function formatRelativeExpiry(
+  expirationDateSec: number | undefined,
+  isSession: boolean | undefined,
+  now: number = Date.now(),
+): string {
   if (isSession || expirationDateSec == null) return 'Session';
   const deltaMs = expirationDateSec * 1000 - now;
   const absMs = Math.abs(deltaMs);
@@ -21,7 +25,10 @@ export function formatRelativeExpiry(expirationDateSec: number | undefined, isSe
 export function formatAbsoluteExpiry(expirationDateSec: number | undefined, isSession: boolean | undefined): string {
   if (isSession || expirationDateSec == null) return 'Session';
   try {
-    return new Date(expirationDateSec * 1000).toISOString().replace('T', ' ').replace(/\.\d+Z$/, ' UTC');
+    return new Date(expirationDateSec * 1000)
+      .toISOString()
+      .replace('T', ' ')
+      .replace(/\.\d+Z$/, ' UTC');
   } catch {
     return '—';
   }

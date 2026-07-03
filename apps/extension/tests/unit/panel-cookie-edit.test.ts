@@ -7,8 +7,8 @@ import {
   isJarEditableRow,
   rowToEditForm,
   rowToKey,
-} from '@openheaders/ui/panel/data/cookie-edit';
-import type { CookieRow } from '@openheaders/ui/panel/data/cookie-model';
+} from '@openheaders/ui/panel/data/cookies/cookie-edit';
+import type { CookieRow } from '@openheaders/ui/panel/data/cookies/cookie-model';
 import { describe, expect, it } from 'vitest';
 
 function makeRow(over: Partial<CookieRow> = {}): CookieRow {

@@ -1,5 +1,5 @@
-import type { CookieRow } from '@openheaders/ui/panel/data/cookie-model';
-import { computeCookieInsights, problemCookieNames } from '@openheaders/ui/panel/data/cookie-insights';
+import { computeCookieInsights, problemCookieNames } from '@openheaders/ui/panel/data/cookies/cookie-insights';
+import type { CookieRow } from '@openheaders/ui/panel/data/cookies/cookie-model';
 import { describe, expect, it } from 'vitest';
 
 const NOW = Date.UTC(2026, 4, 18, 23, 0, 0);

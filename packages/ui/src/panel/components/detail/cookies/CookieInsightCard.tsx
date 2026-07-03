@@ -3,7 +3,7 @@
  * visual treatment, but renders `CookieInsightAction` instead.
  */
 
-import type { CookieInsight, CookieInsightAction } from '../../../data/cookie-insights';
+import type { CookieInsight, CookieInsightAction } from '../../../data/cookies/cookie-insights';
 
 export function CookieInsightCard({
   insight,

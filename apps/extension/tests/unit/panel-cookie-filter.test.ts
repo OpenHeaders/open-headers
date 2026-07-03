@@ -1,4 +1,8 @@
-import { type CookieRowMeta, matchesCookieQuery, parseCookieQuery } from '@openheaders/ui/panel/data/cookie-filter';
+import {
+  type CookieRowMeta,
+  matchesCookieQuery,
+  parseCookieQuery,
+} from '@openheaders/ui/panel/data/cookies/cookie-filter';
 import { describe, expect, it } from 'vitest';
 
 function meta(over: Partial<CookieRowMeta> = {}): CookieRowMeta {

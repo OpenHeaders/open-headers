@@ -1,12 +1,21 @@
-import { classifyCookie, classifyCookieRole, roleSortOrder } from '@openheaders/ui/panel/data/cookie-role';
+import { classifyCookie, classifyCookieRole, roleSortOrder } from '@openheaders/ui/panel/data/cookies/cookie-role';
 import { describe, expect, it } from 'vitest';
 
 describe('classifyCookieRole', () => {
   it('classifies common auth names as auth', () => {
     for (const name of [
-      'session', 'sess', 'auth', '_gh_sess', 'JSESSIONID', 'PHPSESSID',
-      'csrf_token', 'access_token', 'XSRF-TOKEN',
-      'connect.sid', 'authenticity_token', '__RequestVerificationToken',
+      'session',
+      'sess',
+      'auth',
+      '_gh_sess',
+      'JSESSIONID',
+      'PHPSESSID',
+      'csrf_token',
+      'access_token',
+      'XSRF-TOKEN',
+      'connect.sid',
+      'authenticity_token',
+      '__RequestVerificationToken',
     ]) {
       expect(classifyCookieRole({ name, value: 'v' })).toBe('auth');
     }
@@ -14,10 +23,29 @@ describe('classifyCookieRole', () => {
 
   it('classifies known trackers as tracking', () => {
     for (const name of [
-      '_ga', '_ga_ABC123', '_gid', '_fbp', '_fbc', 'IDE', 'NID',
-      '_pin_unauth_xyz', '_uetsid', 'MUID', 'datr', '_hjid', 'mp_abc',
-      '__hssrc', 'hubspotutk', 's_cc', 'mbox', 'amplitude_id',
-      '_clck', '_clsk', '__qca', 'tdid', 'cto_bundle',
+      '_ga',
+      '_ga_ABC123',
+      '_gid',
+      '_fbp',
+      '_fbc',
+      'IDE',
+      'NID',
+      '_pin_unauth_xyz',
+      '_uetsid',
+      'MUID',
+      'datr',
+      '_hjid',
+      'mp_abc',
+      '__hssrc',
+      'hubspotutk',
+      's_cc',
+      'mbox',
+      'amplitude_id',
+      '_clck',
+      '_clsk',
+      '__qca',
+      'tdid',
+      'cto_bundle',
     ]) {
       expect(classifyCookieRole({ name, value: 'v' })).toBe('tracking');
     }
@@ -40,12 +68,21 @@ describe('classifyCookieRole', () => {
     // auth heuristic if the vendor table didn't catch them first.
     const longRandom = 'A'.repeat(48);
     for (const name of [
-      'AWSALB', 'AWSALBCORS', 'AWSELB',
-      '__cf_bm', 'cf_clearance', '__cfduid',
-      '_abck', 'ak_bmsc', 'bm_sz',
-      'incap_ses_123_456', 'visid_incap_789',
-      'BIGipServerpool_app', 'ARRAffinity',
-      '_dd_s', 'dtCookie',
+      'AWSALB',
+      'AWSALBCORS',
+      'AWSELB',
+      '__cf_bm',
+      'cf_clearance',
+      '__cfduid',
+      '_abck',
+      'ak_bmsc',
+      'bm_sz',
+      'incap_ses_123_456',
+      'visid_incap_789',
+      'BIGipServerpool_app',
+      'ARRAffinity',
+      '_dd_s',
+      'dtCookie',
     ]) {
       expect(classifyCookieRole({ name, value: longRandom, httpOnly: true, session: false })).toBe('functional');
     }
@@ -76,8 +113,14 @@ describe('classifyCookieRole', () => {
   it('does NOT promote HttpOnly random cookies whose names suggest non-auth', () => {
     const longRandom = 'A'.repeat(48);
     for (const name of [
-      'consent_v2', 'tracking_id', 'analytics_blob', 'cart_token',
-      'preferred_layout', 'dismiss_banner', 'tour_state', 'color_mode_v2',
+      'consent_v2',
+      'tracking_id',
+      'analytics_blob',
+      'cart_token',
+      'preferred_layout',
+      'dismiss_banner',
+      'tour_state',
+      'color_mode_v2',
     ]) {
       expect(classifyCookieRole({ name, value: longRandom, httpOnly: true, session: false })).not.toBe('auth');
     }

@@ -22,8 +22,8 @@ import {
   editFormsEqual,
   formToEdit,
   isEditFormValid,
-} from '../../../data/cookie-edit';
-import type { JarCookieEdit } from '../../../data/cookie-jar-cache';
+} from '../../../data/cookies/cookie-edit';
+import type { JarCookieEdit } from '../../../data/cookies/cookie-jar-cache';
 
 const SAME_SITE_OPTIONS: Array<{ value: CookieSameSiteValue; label: string }> = [
   { value: 'unspecified', label: 'Unspecified' },

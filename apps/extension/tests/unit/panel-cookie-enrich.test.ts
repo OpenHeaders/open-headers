@@ -1,6 +1,6 @@
 import type { InspectorHarEntry } from '@openheaders/core/types';
-import { enrichCookies, parseSetCookieLine } from '@openheaders/ui/panel/data/cookie-enrich';
-import { cookieEditKey } from '@openheaders/ui/panel/data/cookie-jar-cache';
+import { enrichCookies, parseSetCookieLine } from '@openheaders/ui/panel/data/cookies/cookie-enrich';
+import { cookieEditKey } from '@openheaders/ui/panel/data/cookies/cookie-jar-cache';
 import type { JarCookie } from '@openheaders/ui/panel/host-cookie-jar';
 import { describe, expect, it } from 'vitest';
 

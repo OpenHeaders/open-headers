@@ -14,7 +14,7 @@
  */
 
 import { useState } from 'react';
-import { formatRelativeExpiry } from '../../data/cookie-format';
+import { formatRelativeExpiry } from '../../data/cookies/cookie-format';
 import type { JwtParts, ValueIntrospection } from '../../data/value-introspect';
 
 function JwtClaims({ jwt }: { jwt: JwtParts }) {

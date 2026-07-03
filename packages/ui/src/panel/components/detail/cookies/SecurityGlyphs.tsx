@@ -9,7 +9,7 @@
  * long-form breakdown for accessibility / copy.
  */
 
-import type { CookieRow } from '../../../data/cookie-model';
+import type { CookieRow } from '../../../data/cookies/cookie-model';
 
 type Tone = 'on' | 'off' | 'good' | 'warn' | 'err';
 

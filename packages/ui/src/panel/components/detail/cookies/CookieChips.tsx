@@ -16,9 +16,9 @@
  *   - problem      `!` — has an insight; the top callout explains why.
  */
 
-import type { CookieRow } from '../../../data/cookie-model';
-import type { CookieRole } from '../../../data/cookie-role';
-import { roleChipLabel } from '../../../data/cookie-role';
+import type { CookieRow } from '../../../data/cookies/cookie-model';
+import type { CookieRole } from '../../../data/cookies/cookie-role';
+import { roleChipLabel } from '../../../data/cookies/cookie-role';
 
 interface CookieChipsProps {
   row: CookieRow;

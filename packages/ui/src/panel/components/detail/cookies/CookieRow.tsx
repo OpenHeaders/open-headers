@@ -18,12 +18,12 @@
 
 import { CheckOutlined, CopyOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import { useState } from 'react';
-import { rowToEditForm } from '../../../data/cookie-edit';
-import { formatAbsoluteExpiry, formatRelativeExpiry, urlDecodeSafe } from '../../../data/cookie-format';
-import { cookieRowIndicator } from '../../../data/cookie-indicators';
-import type { JarCookieEdit } from '../../../data/cookie-jar-cache';
-import type { CookieRow as CookieRowModel } from '../../../data/cookie-model';
-import type { CookieRole } from '../../../data/cookie-role';
+import { rowToEditForm } from '../../../data/cookies/cookie-edit';
+import { formatAbsoluteExpiry, formatRelativeExpiry, urlDecodeSafe } from '../../../data/cookies/cookie-format';
+import { cookieRowIndicator } from '../../../data/cookies/cookie-indicators';
+import type { JarCookieEdit } from '../../../data/cookies/cookie-jar-cache';
+import type { CookieRow as CookieRowModel } from '../../../data/cookies/cookie-model';
+import type { CookieRole } from '../../../data/cookies/cookie-role';
 import { introspectionHint, type ValueIntrospection } from '../../../data/value-introspect';
 import { CookieChips } from './CookieChips';
 import { CookieEditPopover } from './CookieEditPopover';
