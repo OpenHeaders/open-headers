@@ -3,7 +3,7 @@
  */
 
 import type { TrackedResourceType } from '@/types/browser';
-import type { ShadowAttribution } from '../shadow-arbitration';
+import type { ShadowAttribution } from '../rules/shadow-arbitration';
 
 /** Metadata the caller supplies when reporting an observed (webRequest) fire. */
 export interface ObservedFireMeta {

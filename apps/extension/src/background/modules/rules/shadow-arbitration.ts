@@ -76,7 +76,7 @@
  */
 
 import type { Rule, ShadowAttribution, ShadowKind } from '@openheaders/core/types';
-import type { MatchingRule } from './request-tracker';
+import type { MatchingRule } from '../request-tracker';
 
 export type { ShadowAttribution, ShadowKind } from '@openheaders/core/types';
 

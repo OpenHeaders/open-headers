@@ -3,7 +3,7 @@ import { runtime } from '@utils/browser-api';
 import { markTabForDelayBypass } from '../dnr-manager';
 import { handleGeneralMessage } from '../modules/message-handler';
 import { revalidateTrackedRequests } from '../modules/request-tracker';
-import { scheduleUpdate } from '../modules/rule-engine';
+import { scheduleUpdate } from '../modules/rules/rule-engine';
 import { isWebSocketConnected, sendViaWebSocket } from '../websocket';
 import { debouncedUpdateBadge } from './badge-update';
 

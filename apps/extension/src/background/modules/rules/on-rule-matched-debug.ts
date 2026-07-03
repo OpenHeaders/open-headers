@@ -52,8 +52,8 @@
 
 import { logger } from '@utils/logger';
 import type { TrackedResourceType } from '@/types/browser';
-import { getDnrIdToRuleUid } from '../dnr-manager';
-import type { RequestRecord } from './tab-telemetry';
+import { getDnrIdToRuleUid } from '../../dnr-manager';
+import type { RequestRecord } from '../tab-telemetry';
 
 export interface OnRuleMatchedDebugOptions {
   /** Called for every authoritative fire the listener emits, in arrival

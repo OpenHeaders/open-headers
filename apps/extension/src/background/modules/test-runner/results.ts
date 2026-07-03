@@ -8,7 +8,7 @@
 import { computeOwnerHash } from '@openheaders/oracle/test-run/test-run-store';
 import { deriveObservedUrls } from '../../tab-telemetry-source/observed-urls';
 import { matchRulesToRequest } from '../request-tracker';
-import { arbitrate, type ShadowAttribution } from '../shadow-arbitration';
+import { arbitrate, type ShadowAttribution } from '../rules/shadow-arbitration';
 import { getTabSnapshotForScope } from '../tab-telemetry';
 import { type ActiveRun, newRunId, type TestFireEvent, type TestRuleStatus, type TestRun } from './run-registry';
 import type { StartRunOptions } from './start';

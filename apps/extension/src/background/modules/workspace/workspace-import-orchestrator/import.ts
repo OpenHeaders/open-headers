@@ -66,7 +66,7 @@ import { reinitForWorkspace } from '@openheaders/oracle/sync/service';
 import { bridgeLayoutStateSyncEngine } from '@openheaders/oracle/workspace/layout-store';
 import { logger } from '@utils/logger';
 import { recordLog } from '../../observability-log';
-import { scheduleUpdate } from '../../rule-engine';
+import { scheduleUpdate } from '../../rules/rule-engine';
 import { getActiveWorkspaceId } from '../workspace-store';
 import { applyPlanArray, estimatePlanBytes, isInTree, QUOTA_HEADROOM_BYTES } from './plan-helpers';
 import { buildLastImportedSnapshots } from './snapshots';

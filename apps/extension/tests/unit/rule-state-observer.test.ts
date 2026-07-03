@@ -21,7 +21,7 @@ import {
   __resetSnapshotForTests,
   observeRuleState,
   rehydrateFromStorage,
-} from '@/background/modules/rule-state-observer';
+} from '@/background/modules/rules/rule-state-observer';
 
 function rule(uid: string, opts: { domain?: string; enabled?: boolean; path?: string } = {}): Rule {
   const domain = opts.domain ?? 'api.openheaders.io';

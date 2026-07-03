@@ -25,7 +25,7 @@ vi.mock('@openheaders/oracle/entity/rule-store', () => ({
   ensureDefaultCollection: () => ensureDefaultCollectionMock(),
 }));
 
-import { installParityRuleImport, type ParityImportResult } from '@/background/modules/parity-rule-import';
+import { installParityRuleImport, type ParityImportResult } from '@/background/modules/rules/parity-rule-import';
 
 function headerSpec(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {

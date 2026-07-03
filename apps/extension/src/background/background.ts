@@ -73,11 +73,11 @@ import { rehydrateCacheBypassFromSessionRules } from './modules/net/cache-bypass
 import { rehydrateNetworkConditionsFromSession } from './modules/net/network-conditions';
 import { reconcileOAuthSchedules, startOAuthScheduler } from './modules/oauth-refresh-scheduler';
 import { hydrateObservabilityLog, recordLog } from './modules/observability-log';
-import { installParityRuleImport } from './modules/parity-rule-import';
 import { auditHostPermissions } from './modules/permissions-audit';
 import { precompileRulePatterns, rehydrateTabTracking, restoreTrackingState } from './modules/request-tracker';
-import { scheduleUpdate } from './modules/rule-engine';
-import { rehydrateFromStorage as rehydrateObserverFromStorage } from './modules/rule-state-observer';
+import { installParityRuleImport } from './modules/rules/parity-rule-import';
+import { scheduleUpdate } from './modules/rules/rule-engine';
+import { rehydrateFromStorage as rehydrateObserverFromStorage } from './modules/rules/rule-state-observer';
 import { initializeActiveTabTracking, setupPeriodicCleanup, setupTabListeners } from './modules/tab-listeners';
 import { rehydrateTabOverridesFromSession } from './modules/tab-overrides';
 import { setupTestRunnerPorts } from './modules/test-runner';

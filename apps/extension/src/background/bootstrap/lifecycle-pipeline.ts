@@ -30,7 +30,7 @@ import { refreshInterceptorsForTab, setCdpControlQuery } from '../inject-manager
 import { createPersistentWatchSessionFloors, startLifecyclePortHost } from '../lifecycle-port-host';
 import { isCacheBypassActive, registerCacheBypassReplay } from '../modules/net/cache-bypass';
 import { getNetworkConditionsForTab, registerNetworkConditionsReplay } from '../modules/net/network-conditions';
-import { setupOnRuleMatchedDebugBridge } from '../modules/on-rule-matched-debug';
+import { setupOnRuleMatchedDebugBridge } from '../modules/rules/on-rule-matched-debug';
 import { getTabOverridesForTab, registerTabOverridesReplay } from '../modules/tab-overrides';
 import { recordReportedFire } from '../modules/tab-telemetry';
 import { startTabTelemetryFiresBridge } from '../modules/tab-telemetry-fires-bridge';

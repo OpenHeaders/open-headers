@@ -10,7 +10,7 @@ import { getRules } from '@openheaders/oracle/entity/rule-store';
 import { get as getSetting } from '@openheaders/ui/workbench/settings/store';
 import { logger } from '@utils/logger';
 import { updateNetworkRules } from '@/background/dnr-manager';
-import { generateRulesHash } from './utils';
+import { generateRulesHash } from '../utils';
 
 interface ScheduleOptions {
   immediate?: boolean;

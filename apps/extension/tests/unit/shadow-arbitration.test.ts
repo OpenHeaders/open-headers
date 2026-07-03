@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MatchingRule, MatchingRuleHeaderOp } from '@/background/modules/request-tracker';
-import { arbitrate } from '@/background/modules/shadow-arbitration';
+import { arbitrate } from '@/background/modules/rules/shadow-arbitration';
 
 function rule(overrides: Partial<MatchingRule> & Pick<MatchingRule, 'uid' | 'type'>): MatchingRule {
   return {

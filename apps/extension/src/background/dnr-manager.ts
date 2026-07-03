@@ -55,7 +55,7 @@ import { declarativeNetRequest, isChrome, isEdge, isFirefox } from '@utils/brows
 import { logger } from '@utils/logger';
 import { updateScriptableRules } from './inject-manager';
 import { recordLog } from './modules/observability-log';
-import { observeRuleState } from './modules/rule-state-observer';
+import { observeRuleState } from './modules/rules/rule-state-observer';
 import { getActiveRunSnapshots, getActiveTestTabIds } from './modules/test-runner';
 import { refreshCachedTotpCodes } from './modules/totp-scheduler';
 

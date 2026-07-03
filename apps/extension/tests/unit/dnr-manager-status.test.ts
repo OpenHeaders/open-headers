@@ -51,7 +51,7 @@ vi.mock('@openheaders/oracle/entity/pause-markers-store', () => ({
   applyExternalSnapshot: vi.fn(),
 }));
 
-vi.mock('@/background/modules/rule-state-observer', () => ({
+vi.mock('@/background/modules/rules/rule-state-observer', () => ({
   observeRuleState: vi.fn(),
 }));
 

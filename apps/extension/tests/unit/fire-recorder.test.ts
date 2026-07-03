@@ -12,7 +12,7 @@ vi.mock('@/background/modules/request-tracker', () => ({
   matchRulesToRequest: vi.fn(() => []),
 }));
 
-vi.mock('@/background/modules/shadow-arbitration', () => ({
+vi.mock('@/background/modules/rules/shadow-arbitration', () => ({
   arbitrateWithStrategy: vi.fn((matches: unknown[]) => matches),
 }));
 
@@ -24,7 +24,7 @@ vi.mock('@/background/modules/tab-telemetry', () => ({
 import { getEffectiveFireUids } from '@/background/dnr-manager';
 import type { MatchingRule } from '@/background/modules/request-tracker';
 import { matchRulesToRequest } from '@/background/modules/request-tracker';
-import { arbitrateWithStrategy } from '@/background/modules/shadow-arbitration';
+import { arbitrateWithStrategy } from '@/background/modules/rules/shadow-arbitration';
 import { isTracked, recordObservedFire } from '@/background/modules/tab-telemetry';
 import { recordFiresForObservation } from '@/background/rule-engine-driver/fire-recorder';
 

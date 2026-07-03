@@ -69,7 +69,7 @@ vi.mock('@openheaders/oracle/live/live-variable-store', () => ({
   hydrateFromStorage: vi.fn(async () => []),
   bridgeLiveVariableSyncEngine: vi.fn(async () => {}),
 }));
-vi.mock('@/background/modules/rule-engine', () => ({
+vi.mock('@/background/modules/rules/rule-engine', () => ({
   scheduleUpdate: vi.fn(),
 }));
 vi.mock('@/background/modules/observability-log', () => ({

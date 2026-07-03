@@ -16,7 +16,7 @@ import { get as getSetting } from '@openheaders/ui/workbench/settings/store';
 import type { TrackedResourceType } from '@/types/browser';
 import { getEffectiveFireUids } from '../dnr-manager';
 import { matchRulesToRequest } from '../modules/request-tracker';
-import { arbitrateWithStrategy } from '../modules/shadow-arbitration';
+import { arbitrateWithStrategy } from '../modules/rules/shadow-arbitration';
 import { isTracked as isTabTracked, recordObservedFire } from '../modules/tab-telemetry';
 import { isTrackableUrl, normalizeUrlForTracking } from '../modules/url-utils';
 

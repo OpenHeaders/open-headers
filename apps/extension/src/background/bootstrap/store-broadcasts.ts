@@ -22,7 +22,7 @@ import { getLiveWorkflows, onLiveWorkflowStoreChange } from '@openheaders/oracle
 import { pruneOrphanOwners } from '@openheaders/oracle/test-run/test-run-store';
 import { broadcast } from '@utils/bridge';
 import { logger } from '@utils/logger';
-import { scheduleUpdate } from '../modules/rule-engine';
+import { scheduleUpdate } from '../modules/rules/rule-engine';
 import { getActiveWorkspaceId, listWorkspaces, onWorkspaceStoreChange } from '../modules/workspace/workspace-store';
 
 interface InstallStoreBroadcastsOpts {
