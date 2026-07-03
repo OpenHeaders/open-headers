@@ -20,7 +20,7 @@ import {
   buildUpdateBatch,
   type LiveFieldValue,
   type LiveSetEntries,
-} from '@openheaders/core/sync-builders/request-mutations';
+} from '@openheaders/core/sync-builders/mutations/request-mutations';
 import { describe, expect, it } from 'vitest';
 
 const ctx: MutatorContext = {

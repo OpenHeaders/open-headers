@@ -17,7 +17,7 @@ import {
   getOracleForCurrentWorkspace,
   snapshotRulePostStates,
 } from '@openheaders/oracle/sync/service';
-import { seedRule } from '@openheaders/core/sync-builders/rule-projection';
+import { seedRule } from '@openheaders/core/sync-builders/projections/rule-projection';
 
 const wsId = 'ws-snap';
 const ctx = (ms: number, surface = 's'): MutatorContext => ({

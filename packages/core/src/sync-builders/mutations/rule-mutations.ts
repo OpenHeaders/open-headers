@@ -41,7 +41,7 @@ import {
 } from '@openheaders/core/sync';
 import { type LiveSetEntry, synthesizeSetDiff } from '@openheaders/core/sync-builders';
 import type { Rule } from '@openheaders/core/types';
-import { seedRule } from './rule-projection';
+import { seedRule } from '../projections/rule-projection';
 
 export interface RuleMutationPayload {
   batch: MutationBatch;

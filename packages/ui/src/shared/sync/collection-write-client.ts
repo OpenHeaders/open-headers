@@ -41,10 +41,10 @@ import {
   buildSetDefaultEnvironmentIdBatch,
   buildSetPinnedAndDefaultBatch,
   buildSetPinnedEnvironmentsBatch,
-} from '@openheaders/core/sync-builders/collection-mutations';
-import { seedCollection } from '@openheaders/core/sync-builders/collection-projection';
-import { buildDeleteFolderEntityBatch } from '@openheaders/core/sync-builders/folder-mutations';
-import { buildDeleteBatch as buildDeleteRuleBatch } from '@openheaders/core/sync-builders/rule-mutations';
+} from '@openheaders/core/sync-builders/mutations/collection-mutations';
+import { seedCollection } from '@openheaders/core/sync-builders/projections/collection-projection';
+import { buildDeleteFolderEntityBatch } from '@openheaders/core/sync-builders/mutations/folder-mutations';
+import { buildDeleteBatch as buildDeleteRuleBatch } from '@openheaders/core/sync-builders/mutations/rule-mutations';
 import { buildVariablesReplacement } from '@openheaders/core/sync-builders';
 
 export { createCollectionSyncMirror } from '../../context/collection-sync-mirror';

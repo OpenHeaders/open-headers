@@ -16,7 +16,7 @@
 import {
   buildPruneFallbackPriorityBatch,
   buildReorderFallbackPriorityBatch,
-} from '@openheaders/core/sync-builders/live-fallback-priority-mutations';
+} from '@openheaders/core/sync-builders/mutations/live-fallback-priority-mutations';
 import type { LiveFallbackPriorityMember } from '@openheaders/core/types';
 import {
   applySyncPayload,

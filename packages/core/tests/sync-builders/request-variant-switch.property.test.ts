@@ -15,8 +15,8 @@
 
 import { describe, expect, it } from 'vitest';
 import { InMemoryDocumentStore, type MutationEnvelope, type MutatorContext } from '../../src/sync';
-import { buildAddBatch, buildUpdateBatch } from '../../src/sync-builders/request-mutations';
-import { projectRequest } from '../../src/sync-builders/request-projection';
+import { buildAddBatch, buildUpdateBatch } from '../../src/sync-builders/mutations/request-mutations';
+import { projectRequest } from '../../src/sync-builders/projections/request-projection';
 import type { AuthConfig, Request, RequestBody } from '../../src/types';
 import { makeRng, type Rng } from '../sync/harness/random';
 

@@ -32,7 +32,7 @@ import {
   buildPutLiveValueBatch,
   buildRemoveLiveValuesBatch,
   type LiveValueMutationPayload,
-} from '@openheaders/core/sync-builders/live-value-mutations';
+} from '@openheaders/core/sync-builders/mutations/live-value-mutations';
 import { logger } from '@openheaders/core/utils';
 import { requireActiveWorkspaceId } from '@openheaders/oracle/sync';
 import { LIVE_VALUE_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';

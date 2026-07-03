@@ -1,6 +1,6 @@
 // ── Rules ───────────────────────────────────────────────────────────
 
-import { buildAddBatch, buildDeleteBatch } from '@openheaders/core/sync-builders/rule-mutations';
+import { buildAddBatch, buildDeleteBatch } from '@openheaders/core/sync-builders/mutations/rule-mutations';
 import type { Rule } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { applyRuleMutationOrThrow } from './apply';

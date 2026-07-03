@@ -33,10 +33,10 @@ import {
   buildRemoveRequestCollectionVarBatch,
   buildRenameRequestCollectionBatch,
   buildSetRequestCollectionVarBatch,
-} from '@openheaders/core/sync-builders/request-collection-mutations';
-import { seedRequestCollection } from '@openheaders/core/sync-builders/request-collection-projection';
-import { buildDeleteRequestFolderEntityBatch } from '@openheaders/core/sync-builders/request-folder-mutations';
-import { buildDeleteBatch as buildDeleteRequestBatch } from '@openheaders/core/sync-builders/request-mutations';
+} from '@openheaders/core/sync-builders/mutations/request-collection-mutations';
+import { seedRequestCollection } from '@openheaders/core/sync-builders/projections/request-collection-projection';
+import { buildDeleteRequestFolderEntityBatch } from '@openheaders/core/sync-builders/mutations/request-folder-mutations';
+import { buildDeleteBatch as buildDeleteRequestBatch } from '@openheaders/core/sync-builders/mutations/request-mutations';
 import { buildVariablesReplacement } from '@openheaders/core/sync-builders';
 
 export { createRequestCollectionSyncMirror } from '../../context/request-collection-sync-mirror';

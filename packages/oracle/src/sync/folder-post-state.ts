@@ -15,8 +15,8 @@ import {
   type MutationEnvelope,
 } from '@openheaders/core/sync';
 import type { Folder } from '@openheaders/core/types';
-import { projectCollection } from '@openheaders/core/sync-builders/collection-projection';
-import { projectFolder } from '@openheaders/core/sync-builders/folder-projection';
+import { projectCollection } from '@openheaders/core/sync-builders/projections/collection-projection';
+import { projectFolder } from '@openheaders/core/sync-builders/projections/folder-projection';
 import {
   type FolderTreeKinds,
   projectAllFoldersGeneric,

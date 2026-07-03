@@ -3,10 +3,10 @@
 import {
   buildDeleteRequestCollectionBatch,
   buildRenameRequestCollectionBatch,
-} from '@openheaders/core/sync-builders/request-collection-mutations';
-import { seedRequestCollection } from '@openheaders/core/sync-builders/request-collection-projection';
-import { buildDeleteRequestFolderEntityBatch } from '@openheaders/core/sync-builders/request-folder-mutations';
-import { buildDeleteBatch } from '@openheaders/core/sync-builders/request-mutations';
+} from '@openheaders/core/sync-builders/mutations/request-collection-mutations';
+import { buildDeleteRequestFolderEntityBatch } from '@openheaders/core/sync-builders/mutations/request-folder-mutations';
+import { buildDeleteBatch } from '@openheaders/core/sync-builders/mutations/request-mutations';
+import { seedRequestCollection } from '@openheaders/core/sync-builders/projections/request-collection-projection';
 import type { Collection } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import {

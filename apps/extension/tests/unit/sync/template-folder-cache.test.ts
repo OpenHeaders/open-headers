@@ -16,7 +16,7 @@ import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
 import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
 import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
 import { createTemplateFolderCache } from '@openheaders/oracle/sync/template-folder-cache';
-import { seedTemplateCollection } from '@openheaders/core/sync-builders/template-collection-projection';
+import { seedTemplateCollection } from '@openheaders/core/sync-builders/projections/template-collection-projection';
 import {
   projectTemplateFolderByUid,
   projectTemplateFolderPostState,

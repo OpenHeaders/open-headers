@@ -57,26 +57,26 @@ import {
   type WorkspaceSnapshot,
 } from '@openheaders/core/protocol';
 import type { MutatorContext } from '@openheaders/core/sync';
-import { seedCollection } from '@openheaders/core/sync-builders/collection-projection';
-import { seedEnvironment } from '@openheaders/core/sync-builders/env-projection';
-import { seedFiles } from '@openheaders/core/sync-builders/files-projection';
-import { seedFolder } from '@openheaders/core/sync-builders/folder-projection';
-import { seedLayoutState } from '@openheaders/core/sync-builders/layout-state-projection';
-import { seedLiveFallbackPriority } from '@openheaders/core/sync-builders/live-fallback-priority-projection';
-import { seedLiveValues } from '@openheaders/core/sync-builders/live-value-projection';
-import { seedLiveVariable } from '@openheaders/core/sync-builders/live-variable-projection';
-import { seedLiveWorkflow } from '@openheaders/core/sync-builders/live-workflow-projection';
-import { seedOAuthBundle } from '@openheaders/core/sync-builders/oauth-bundle-projection';
-import { seedPauseMarkers } from '@openheaders/core/sync-builders/pause-markers-projection';
-import { seedRequestCollection } from '@openheaders/core/sync-builders/request-collection-projection';
-import { seedRequestFolder } from '@openheaders/core/sync-builders/request-folder-projection';
-import { seedRequest } from '@openheaders/core/sync-builders/request-projection';
-import { seedRule } from '@openheaders/core/sync-builders/rule-projection';
-import { seedTemplateCollection } from '@openheaders/core/sync-builders/template-collection-projection';
-import { seedTemplateFolder } from '@openheaders/core/sync-builders/template-folder-projection';
-import { seedTemplate } from '@openheaders/core/sync-builders/template-projection';
-import { seedVault } from '@openheaders/core/sync-builders/vault-projection';
-import { seedWorkspaceVariables } from '@openheaders/core/sync-builders/workspace-variables-projection';
+import { seedCollection } from '@openheaders/core/sync-builders/projections/collection-projection';
+import { seedEnvironment } from '@openheaders/core/sync-builders/projections/env-projection';
+import { seedFiles } from '@openheaders/core/sync-builders/projections/files-projection';
+import { seedFolder } from '@openheaders/core/sync-builders/projections/folder-projection';
+import { seedLayoutState } from '@openheaders/core/sync-builders/projections/layout-state-projection';
+import { seedLiveFallbackPriority } from '@openheaders/core/sync-builders/projections/live-fallback-priority-projection';
+import { seedLiveValues } from '@openheaders/core/sync-builders/projections/live-value-projection';
+import { seedLiveVariable } from '@openheaders/core/sync-builders/projections/live-variable-projection';
+import { seedLiveWorkflow } from '@openheaders/core/sync-builders/projections/live-workflow-projection';
+import { seedOAuthBundle } from '@openheaders/core/sync-builders/projections/oauth-bundle-projection';
+import { seedPauseMarkers } from '@openheaders/core/sync-builders/projections/pause-markers-projection';
+import { seedRequestCollection } from '@openheaders/core/sync-builders/projections/request-collection-projection';
+import { seedRequestFolder } from '@openheaders/core/sync-builders/projections/request-folder-projection';
+import { seedRequest } from '@openheaders/core/sync-builders/projections/request-projection';
+import { seedRule } from '@openheaders/core/sync-builders/projections/rule-projection';
+import { seedTemplateCollection } from '@openheaders/core/sync-builders/projections/template-collection-projection';
+import { seedTemplateFolder } from '@openheaders/core/sync-builders/projections/template-folder-projection';
+import { seedTemplate } from '@openheaders/core/sync-builders/projections/template-projection';
+import { seedVault } from '@openheaders/core/sync-builders/projections/vault-projection';
+import { seedWorkspaceVariables } from '@openheaders/core/sync-builders/projections/workspace-variables-projection';
 
 import { applySyncRequest } from './service';
 

@@ -41,7 +41,7 @@ import {
   buildAddLiveVariableBatch,
   buildDeleteLiveVariableBatch,
   buildUpdateLiveVariableBatch,
-} from '@openheaders/core/sync-builders/live-variable-mutations';
+} from '@openheaders/core/sync-builders/mutations/live-variable-mutations';
 
 export type LiveVariableUpdates = Partial<Omit<LiveVariable, 'uid' | 'path' | 'schemaVersion'>>;
 

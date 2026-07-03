@@ -23,8 +23,8 @@ import {
   buildUpdateBatch,
   type LiveFieldValue,
   type RequestMutationPayload,
-} from '../../src/sync-builders/request-mutations';
-import { projectRequest } from '../../src/sync-builders/request-projection';
+} from '../../src/sync-builders/mutations/request-mutations';
+import { projectRequest } from '../../src/sync-builders/projections/request-projection';
 import type { AuthConfig, Request, RequestBody } from '../../src/types';
 
 const ctx = (physicalMs: number): MutatorContext => ({

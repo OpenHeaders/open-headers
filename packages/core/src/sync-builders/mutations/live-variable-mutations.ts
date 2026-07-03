@@ -24,7 +24,7 @@ import {
   type SideEffectIntent,
 } from '@openheaders/core/sync';
 import type { LiveVariable } from '@openheaders/core/types';
-import { seedLiveVariable } from './live-variable-projection';
+import { seedLiveVariable } from '../projections/live-variable-projection';
 
 export interface LiveVariableMutationPayload {
   batch: MutationBatch;

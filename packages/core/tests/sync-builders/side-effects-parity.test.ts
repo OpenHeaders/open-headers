@@ -26,21 +26,21 @@ import {
   type MutatorIntent,
   RECOMPILE_DNR,
 } from '../../src/sync';
-import { buildDeleteCollectionBatch } from '../../src/sync-builders/collection-mutations';
-import { buildAddEnvironmentBatch, buildDeleteEnvironmentBatch } from '../../src/sync-builders/env-mutations';
+import { buildDeleteCollectionBatch } from '../../src/sync-builders/mutations/collection-mutations';
+import { buildAddEnvironmentBatch, buildDeleteEnvironmentBatch } from '../../src/sync-builders/mutations/env-mutations';
 import {
   buildAddLiveVariableBatch,
   buildDeleteLiveVariableBatch,
   buildUpdateLiveVariableBatch,
-} from '../../src/sync-builders/live-variable-mutations';
+} from '../../src/sync-builders/mutations/live-variable-mutations';
 import {
   buildAddLiveWorkflowBatch,
   buildDeleteLiveWorkflowBatch,
   buildUpdateLiveWorkflowBatch,
-} from '../../src/sync-builders/live-workflow-mutations';
-import { buildDeleteRequestCollectionBatch } from '../../src/sync-builders/request-collection-mutations';
-import { buildAddBatch, buildDeleteBatch, buildUpdateBatch } from '../../src/sync-builders/rule-mutations';
-import { buildDeleteTemplateCollectionBatch } from '../../src/sync-builders/template-collection-mutations';
+} from '../../src/sync-builders/mutations/live-workflow-mutations';
+import { buildDeleteRequestCollectionBatch } from '../../src/sync-builders/mutations/request-collection-mutations';
+import { buildAddBatch, buildDeleteBatch, buildUpdateBatch } from '../../src/sync-builders/mutations/rule-mutations';
+import { buildDeleteTemplateCollectionBatch } from '../../src/sync-builders/mutations/template-collection-mutations';
 import { buildVariablesReplacement } from '../../src/sync-builders/variables-replacement';
 import type { Environment, LiveVariable, LiveWorkflow, Rule } from '../../src/types';
 

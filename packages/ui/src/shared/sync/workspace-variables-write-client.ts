@@ -40,7 +40,7 @@ import {
 import {
   buildRemoveWorkspaceVarBatch,
   buildSetWorkspaceVarBatch,
-} from '@openheaders/core/sync-builders/workspace-variables-mutations';
+} from '@openheaders/core/sync-builders/mutations/workspace-variables-mutations';
 
 // Re-exported so tests can construct a mirror without going through the singleton.
 export { createWorkspaceVariablesSyncMirror } from '../../context/workspace-variables-sync-mirror';

@@ -6,8 +6,8 @@ import {
   buildDeleteFolderBatch,
   buildDeleteFolderEntityBatch,
   buildRenameFolderBatch,
-} from '@openheaders/core/sync-builders/folder-mutations';
-import { buildDeleteBatch } from '@openheaders/core/sync-builders/rule-mutations';
+} from '@openheaders/core/sync-builders/mutations/folder-mutations';
+import { buildDeleteBatch } from '@openheaders/core/sync-builders/mutations/rule-mutations';
 import { generateUid, logger, toFolderName } from '@openheaders/core/utils';
 import { applyFolderMutationOrThrow, applyRuleMutationOrThrow } from './apply';
 import { assertLoaded, collections, folders, type LocalFolder, rules } from './state';

@@ -11,7 +11,7 @@
 import { type MutatorContext, compareHlc } from '@openheaders/core/sync';
 import type { Rule } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
-import { seedRule } from '@openheaders/core/sync-builders/rule-projection';
+import { seedRule } from '@openheaders/core/sync-builders/projections/rule-projection';
 import {
   __initSyncServiceForTests,
   dispose as disposeSyncService,

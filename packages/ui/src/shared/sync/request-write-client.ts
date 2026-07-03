@@ -12,7 +12,7 @@
  * call the imperative functions directly with an explicit workspace id.
  */
 
-import { buildAddBatch, buildDeleteBatch, buildUpdateBatch } from '@openheaders/core/sync-builders/request-mutations';
+import { buildAddBatch, buildDeleteBatch, buildUpdateBatch } from '@openheaders/core/sync-builders/mutations/request-mutations';
 import type { Request } from '@openheaders/core/types';
 import { getRequestSyncMirrorForWorkspace, type RequestSyncMirror } from '../../context/request-sync-mirror';
 import {

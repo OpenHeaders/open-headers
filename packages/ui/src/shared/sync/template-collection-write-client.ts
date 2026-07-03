@@ -32,10 +32,10 @@ import {
   buildRemoveTemplateCollectionVarBatch,
   buildRenameTemplateCollectionBatch,
   buildSetTemplateCollectionVarBatch,
-} from '@openheaders/core/sync-builders/template-collection-mutations';
-import { seedTemplateCollection } from '@openheaders/core/sync-builders/template-collection-projection';
-import { buildDeleteTemplateFolderEntityBatch } from '@openheaders/core/sync-builders/template-folder-mutations';
-import { buildDeleteBatch as buildDeleteTemplateBatch } from '@openheaders/core/sync-builders/template-mutations';
+} from '@openheaders/core/sync-builders/mutations/template-collection-mutations';
+import { seedTemplateCollection } from '@openheaders/core/sync-builders/projections/template-collection-projection';
+import { buildDeleteTemplateFolderEntityBatch } from '@openheaders/core/sync-builders/mutations/template-folder-mutations';
+import { buildDeleteBatch as buildDeleteTemplateBatch } from '@openheaders/core/sync-builders/mutations/template-mutations';
 import { buildVariablesReplacement } from '@openheaders/core/sync-builders';
 
 export { createTemplateCollectionSyncMirror } from '../../context/template-collection-sync-mirror';

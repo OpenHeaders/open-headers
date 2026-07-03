@@ -14,7 +14,7 @@
  */
 import { SYNC_MUTATION_TYPE, SYNC_SNAPSHOT_TYPE, SYNC_SYNCED_TYPE } from '@openheaders/core/protocol';
 import { type MutatorContext, type StateVector } from '@openheaders/core/sync';
-import { seedRule } from '@openheaders/core/sync-builders/rule-projection';
+import { seedRule } from '@openheaders/core/sync-builders/projections/rule-projection';
 import type { Rule } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { respondToStateVector } from '@openheaders/oracle/sync';

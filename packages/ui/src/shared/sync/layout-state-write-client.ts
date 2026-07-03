@@ -16,7 +16,7 @@ import {
   resolveRendererContext,
   type SyncSimpleResult,
 } from './apply-payload';
-import { buildSetLayoutBatch } from '@openheaders/core/sync-builders/layout-state-mutations';
+import { buildSetLayoutBatch } from '@openheaders/core/sync-builders/mutations/layout-state-mutations';
 
 export type LayoutStateResult = SyncSimpleResult;
 

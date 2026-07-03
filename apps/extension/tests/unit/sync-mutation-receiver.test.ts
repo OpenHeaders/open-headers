@@ -28,7 +28,7 @@ import {
   VAULT_ENTITY_TYPE,
   VAULT_ID,
 } from '@openheaders/core/sync';
-import { seedRule } from '@openheaders/core/sync-builders/rule-projection';
+import { seedRule } from '@openheaders/core/sync-builders/projections/rule-projection';
 import type { Rule } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import {

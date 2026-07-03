@@ -18,7 +18,7 @@ import {
   LIVE_FALLBACK_PRIORITY_ID,
   LIVE_FALLBACK_PRIORITY_MEMBERS_PATH,
 } from '@openheaders/core/sync';
-import { orderFallbackPriorityMembers } from '@openheaders/core/sync-builders/live-fallback-priority-projection';
+import { orderFallbackPriorityMembers } from '@openheaders/core/sync-builders/projections/live-fallback-priority-projection';
 import type { LiveFallbackPriorityMember } from '@openheaders/core/types';
 import { makeSingletonEntityProjectors } from './flat-entity-post-state';
 import type { EntityOracle } from './oracle';

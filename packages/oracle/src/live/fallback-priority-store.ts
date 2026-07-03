@@ -30,11 +30,11 @@ import type { MutatorContext } from '@openheaders/core/sync';
 import {
   buildEnlistFallbackPriorityBatch,
   type LiveFallbackPriorityMutationPayload,
-} from '@openheaders/core/sync-builders/live-fallback-priority-mutations';
+} from '@openheaders/core/sync-builders/mutations/live-fallback-priority-mutations';
 import {
   maxFallbackPriorityOrder,
   orderFallbackPriorityMembers,
-} from '@openheaders/core/sync-builders/live-fallback-priority-projection';
+} from '@openheaders/core/sync-builders/projections/live-fallback-priority-projection';
 import { logger } from '@openheaders/core/utils';
 import { LIVE_FALLBACK_PRIORITY_REGISTRATION } from '../sync/entity-registry';
 import type { LiveFallbackPriorityCache } from '../sync/live-fallback-priority-cache';

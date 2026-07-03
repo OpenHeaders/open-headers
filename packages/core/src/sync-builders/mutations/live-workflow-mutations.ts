@@ -22,7 +22,7 @@ import {
   type SideEffectIntent,
 } from '@openheaders/core/sync';
 import type { LiveWorkflow } from '@openheaders/core/types';
-import { seedLiveWorkflow } from './live-workflow-projection';
+import { seedLiveWorkflow } from '../projections/live-workflow-projection';
 
 export interface LiveWorkflowMutationPayload {
   batch: MutationBatch;

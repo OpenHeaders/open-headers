@@ -24,7 +24,7 @@ import {
   type MutatorContext,
   mintBatch,
 } from '@openheaders/core/sync';
-import type { LiveValueRecord } from '../types/live-cache';
+import type { LiveValueRecord } from '../../types/live-cache';
 
 /** In-memory shape the cache hands to seed — the synced value map. */
 export interface LiveValueSnapshot {

@@ -20,7 +20,7 @@ import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
 import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
 import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
 import { projectVaultPostState, projectVaultSingleton } from '@openheaders/oracle/sync/vault-post-state';
-import { seedVault } from '@openheaders/core/sync-builders/vault-projection';
+import { seedVault } from '@openheaders/core/sync-builders/projections/vault-projection';
 
 const wsId = 'ws-1';
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();

@@ -17,7 +17,7 @@ import { createFolderCache } from '@openheaders/oracle/sync/folder-cache';
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
 import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
 import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
-import { seedCollection } from '@openheaders/core/sync-builders/collection-projection';
+import { seedCollection } from '@openheaders/core/sync-builders/projections/collection-projection';
 import type { PersistedLocalFolder } from '@openheaders/oracle/storage';
 
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();

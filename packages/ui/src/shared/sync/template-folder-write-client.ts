@@ -24,8 +24,8 @@ import {
   buildDeleteTemplateFolderEntityBatch,
   buildMoveTemplateFolderBatch,
   buildRenameTemplateFolderBatch,
-} from '@openheaders/core/sync-builders/template-folder-mutations';
-import { buildDeleteBatch as buildDeleteTemplateBatch } from '@openheaders/core/sync-builders/template-mutations';
+} from '@openheaders/core/sync-builders/mutations/template-folder-mutations';
+import { buildDeleteBatch as buildDeleteTemplateBatch } from '@openheaders/core/sync-builders/mutations/template-mutations';
 
 export { createTemplateFolderSyncMirror } from '../../context/template-folder-sync-mirror';
 

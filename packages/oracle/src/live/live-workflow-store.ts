@@ -28,7 +28,7 @@ import {
   buildAddLiveWorkflowBatch,
   buildDeleteLiveWorkflowBatch,
   buildUpdateLiveWorkflowBatch,
-} from '@openheaders/core/sync-builders/live-workflow-mutations';
+} from '@openheaders/core/sync-builders/mutations/live-workflow-mutations';
 import { LIVE_WORKFLOW_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
 import type { LiveWorkflowCache } from '@openheaders/oracle/sync/live-workflow-cache';
 import {

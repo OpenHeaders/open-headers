@@ -44,7 +44,7 @@ import {
   buildRemoveEnvVarBatch,
   buildRenameEnvironmentBatch,
   buildSetEnvVarBatch,
-} from '@openheaders/core/sync-builders/env-mutations';
+} from '@openheaders/core/sync-builders/mutations/env-mutations';
 
 // `createEnvSyncMirror` is re-exported so tests can construct a mirror
 // without going through the singleton.

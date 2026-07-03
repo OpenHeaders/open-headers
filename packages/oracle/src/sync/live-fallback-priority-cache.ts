@@ -17,7 +17,7 @@ import { LIVE_FALLBACK_PRIORITY_ENTITY_TYPE } from '@openheaders/core/sync';
 import {
   type LiveFallbackPrioritySnapshot,
   seedLiveFallbackPriority,
-} from '@openheaders/core/sync-builders/live-fallback-priority-projection';
+} from '@openheaders/core/sync-builders/projections/live-fallback-priority-projection';
 import type { LiveFallbackPriorityMember } from '@openheaders/core/types';
 import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import type { InMemoryBroadcast } from './broadcast';

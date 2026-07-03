@@ -1,7 +1,7 @@
 // ── Requests ────────────────────────────────────────────────────────
 
 import { REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
-import { buildAddBatch, buildDeleteBatch, buildUpdateBatch } from '@openheaders/core/sync-builders/request-mutations';
+import { buildAddBatch, buildDeleteBatch, buildUpdateBatch } from '@openheaders/core/sync-builders/mutations/request-mutations';
 import type { Collection, Request } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { REQUEST_COLLECTION_REGISTRATION, REQUEST_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';

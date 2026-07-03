@@ -28,7 +28,7 @@ import {
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
 import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
 import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
-import { seedCollection } from '@openheaders/core/sync-builders/collection-projection';
+import { seedCollection } from '@openheaders/core/sync-builders/projections/collection-projection';
 
 const wsId = 'ws-1';
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();

@@ -18,7 +18,7 @@ import {
   dispose as disposeSyncService,
 } from '@openheaders/oracle/sync/service';
 import { readWorkspaceStateVector } from '@openheaders/oracle/sync';
-import { seedRule } from '@openheaders/core/sync-builders/rule-projection';
+import { seedRule } from '@openheaders/core/sync-builders/projections/rule-projection';
 import { clearTestIdentitySnapshot, installTestIdentitySnapshot } from '../../helpers/identity-snapshot';
 
 const wsId = 'ws-sv';

@@ -11,7 +11,7 @@ import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
 import { createOAuthBundleCache } from '@openheaders/oracle/sync/oauth-bundle-cache';
 import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
 import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
-import type { OAuthBundleSnapshot } from '@openheaders/core/sync-builders/oauth-bundle-projection';
+import type { OAuthBundleSnapshot } from '@openheaders/core/sync-builders/projections/oauth-bundle-projection';
 
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();
 

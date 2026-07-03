@@ -42,7 +42,7 @@ import {
 import {
   buildRemoveVaultSecretBatch,
   buildSetVaultSecretBatch,
-} from '@openheaders/core/sync-builders/vault-mutations';
+} from '@openheaders/core/sync-builders/mutations/vault-mutations';
 
 // Re-exported so tests can construct a mirror without going through the singleton.
 export { createVaultSyncMirror } from '../../context/vault-sync-mirror';

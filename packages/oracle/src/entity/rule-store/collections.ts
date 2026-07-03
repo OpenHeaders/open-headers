@@ -11,10 +11,10 @@ import {
   buildDeleteCollectionBatch,
   buildRenameCollectionBatch,
   buildSetPinnedAndDefaultBatch,
-} from '@openheaders/core/sync-builders/collection-mutations';
-import { seedCollection } from '@openheaders/core/sync-builders/collection-projection';
-import { buildDeleteFolderEntityBatch } from '@openheaders/core/sync-builders/folder-mutations';
-import { buildDeleteBatch } from '@openheaders/core/sync-builders/rule-mutations';
+} from '@openheaders/core/sync-builders/mutations/collection-mutations';
+import { buildDeleteFolderEntityBatch } from '@openheaders/core/sync-builders/mutations/folder-mutations';
+import { buildDeleteBatch } from '@openheaders/core/sync-builders/mutations/rule-mutations';
+import { seedCollection } from '@openheaders/core/sync-builders/projections/collection-projection';
 import type { Collection, Variable } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { entityLockName, withLock } from '@openheaders/oracle/coordination';

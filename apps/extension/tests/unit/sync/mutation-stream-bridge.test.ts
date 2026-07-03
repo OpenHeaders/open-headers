@@ -9,7 +9,7 @@
 
 import { type ResolvedAuditEntry, resetAuditSink, setAuditSink } from '@openheaders/core/identity';
 import { type MutatorContext, RULE_ENTITY_TYPE } from '@openheaders/core/sync';
-import { seedRule } from '@openheaders/core/sync-builders/rule-projection';
+import { seedRule } from '@openheaders/core/sync-builders/projections/rule-projection';
 import type { Rule } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import {

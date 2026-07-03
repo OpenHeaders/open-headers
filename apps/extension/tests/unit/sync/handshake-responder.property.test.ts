@@ -32,7 +32,7 @@ import {
   type SyncSnapshotMessage,
   type SyncSyncedMessage,
 } from '@openheaders/core/protocol';
-import { seedRule } from '@openheaders/core/sync-builders/rule-projection';
+import { seedRule } from '@openheaders/core/sync-builders/projections/rule-projection';
 import type { Rule } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { respondToStateVector } from '@openheaders/oracle/sync';

@@ -29,7 +29,7 @@ import {
   type SideEffectIntent,
 } from '@openheaders/core/sync';
 import type { Template } from '@openheaders/core/types';
-import { seedTemplate } from './template-projection';
+import { seedTemplate } from '../projections/template-projection';
 import { type LiveSetEntry, synthesizeSetDiff } from '@openheaders/core/sync-builders';
 
 export interface TemplateMutationPayload {

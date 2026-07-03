@@ -9,7 +9,7 @@
 import type { SyncCollectionPostState } from '@openheaders/core/protocol';
 import { COLLECTION_ENTITY_TYPE, COLLECTION_VARS_PATH, FOLDER_CHILDREN_PATH } from '@openheaders/core/sync';
 import type { Collection } from '@openheaders/core/types';
-import { projectCollection } from '@openheaders/core/sync-builders/collection-projection';
+import { projectCollection } from '@openheaders/core/sync-builders/projections/collection-projection';
 import { buildVarNamesExtras, makeFlatEntityProjectors } from './flat-entity-post-state';
 import { buildFolderChildrenOrderKeys } from './folder-children-order-keys';
 import type { EntityOracle } from './oracle';

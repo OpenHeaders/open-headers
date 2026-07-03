@@ -23,7 +23,7 @@
  *
  * The `addToSet` auto-vivifies the singleton, so no `create` is needed at
  * runtime — only the seed path
- * (`sync-builders/live-fallback-priority-projection.ts`) mints the scalar
+ * (`sync-builders/projections/live-fallback-priority-projection.ts`) mints the scalar
  * shell.
  */
 

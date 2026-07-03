@@ -29,15 +29,15 @@ import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import {
   buildDeleteTemplateCollectionBatch,
   buildRenameTemplateCollectionBatch,
-} from '@openheaders/core/sync-builders/template-collection-mutations';
-import { seedTemplateCollection } from '@openheaders/core/sync-builders/template-collection-projection';
+} from '@openheaders/core/sync-builders/mutations/template-collection-mutations';
+import { seedTemplateCollection } from '@openheaders/core/sync-builders/projections/template-collection-projection';
 import {
   buildCreateTemplateFolderBatch,
   buildDeleteTemplateFolderBatch,
   buildDeleteTemplateFolderEntityBatch,
   buildRenameTemplateFolderBatch,
-} from '@openheaders/core/sync-builders/template-folder-mutations';
-import { buildAddBatch, buildDeleteBatch, buildUpdateBatch } from '@openheaders/core/sync-builders/template-mutations';
+} from '@openheaders/core/sync-builders/mutations/template-folder-mutations';
+import { buildAddBatch, buildDeleteBatch, buildUpdateBatch } from '@openheaders/core/sync-builders/mutations/template-mutations';
 import {
   TEMPLATE_COLLECTION_REGISTRATION,
   TEMPLATE_FOLDER_REGISTRATION,

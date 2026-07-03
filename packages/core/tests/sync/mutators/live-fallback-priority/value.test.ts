@@ -13,7 +13,7 @@ import {
   maxFallbackPriorityOrder,
   orderFallbackPriorityMembers,
   seedLiveFallbackPriority,
-} from '../../../../src/sync-builders/live-fallback-priority-projection';
+} from '../../../../src/sync-builders/projections/live-fallback-priority-projection';
 import type { LiveFallbackPriorityMember } from '../../../../src/types/live-fallback-priority';
 
 const ctx = (overrides: Partial<MutatorContext> = {}): MutatorContext => ({

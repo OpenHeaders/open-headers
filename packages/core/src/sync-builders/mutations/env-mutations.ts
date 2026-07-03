@@ -28,7 +28,7 @@ import {
   setEnvVar,
 } from '@openheaders/core/sync';
 import type { Environment, Variable } from '@openheaders/core/types';
-import { seedEnvironment } from './env-projection';
+import { seedEnvironment } from '../projections/env-projection';
 
 export type EnvMutationPayload = MutatorIntent;
 

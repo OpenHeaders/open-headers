@@ -8,7 +8,7 @@ import {
   putLiveValue,
   removeLiveValues,
 } from '../../../../src/sync';
-import { seedLiveValues } from '../../../../src/sync-builders/live-value-projection';
+import { seedLiveValues } from '../../../../src/sync-builders/projections/live-value-projection';
 import type { LiveValueRecord } from '../../../../src/types/live-cache';
 
 const ctx = (overrides: Partial<MutatorContext> = {}): MutatorContext => ({

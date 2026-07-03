@@ -15,7 +15,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { InMemoryDocumentStore, type MutatorContext } from '../../src/sync';
-import { buildAddBatch, buildUpdateBatch, type RuleMutationPayload } from '../../src/sync-builders/rule-mutations';
+import { buildAddBatch, buildUpdateBatch, type RuleMutationPayload } from '../../src/sync-builders/mutations/rule-mutations';
 import type { RedirectRule, ResponseRule, Rule } from '../../src/types';
 
 const ctx = (physicalMs: number): MutatorContext => ({

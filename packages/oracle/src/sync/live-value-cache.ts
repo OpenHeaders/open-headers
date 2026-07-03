@@ -19,7 +19,7 @@
  */
 
 import { LIVE_VALUE_ENTITY_TYPE } from '@openheaders/core/sync';
-import { type LiveValueSnapshot, seedLiveValues } from '@openheaders/core/sync-builders/live-value-projection';
+import { type LiveValueSnapshot, seedLiveValues } from '@openheaders/core/sync-builders/projections/live-value-projection';
 import type { LiveValueRecord, WorkflowRunCache } from '@openheaders/core/types';
 import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import type { InMemoryBroadcast } from './broadcast';

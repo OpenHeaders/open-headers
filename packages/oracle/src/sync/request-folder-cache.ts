@@ -11,7 +11,7 @@ import {
 } from '@openheaders/core/sync';
 import type { Collection, Folder } from '@openheaders/core/types';
 import { type PersistedLocalFolder, wsKeys } from '@openheaders/oracle/storage';
-import { buildCreateRequestFolderBatch } from '@openheaders/core/sync-builders/request-folder-mutations';
+import { buildCreateRequestFolderBatch } from '@openheaders/core/sync-builders/mutations/request-folder-mutations';
 import type { InMemoryBroadcast } from './broadcast';
 import { createFolderTreeCache, type FolderTreeCacheConfig } from './folder-tree-cache';
 import type { EntityOracle } from './oracle';

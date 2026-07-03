@@ -23,10 +23,10 @@ import {
   type MutationBody,
   type MutatorContext,
   mintBatch,
-} from '../sync';
-import type { LiveFallbackPriorityMember, LiveFallbackPrioritySnapshot } from '../types/live-fallback-priority';
+} from '../../sync';
+import type { LiveFallbackPriorityMember, LiveFallbackPrioritySnapshot } from '../../types/live-fallback-priority';
 
-export type { LiveFallbackPrioritySnapshot } from '../types/live-fallback-priority';
+export type { LiveFallbackPrioritySnapshot } from '../../types/live-fallback-priority';
 
 /**
  * Convert a priority snapshot into a `MutationBatch` of one `create` for

@@ -24,7 +24,7 @@ import {
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
 import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
 import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
-import { seedExtensionWorkspaces } from '@openheaders/core/sync-builders/extension-workspace-projection';
+import { seedExtensionWorkspaces } from '@openheaders/core/sync-builders/projections/extension-workspace-projection';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();
 const ctx = (ms: number): MutatorContext => ({

@@ -10,8 +10,8 @@ import {
   buildDeleteRequestFolderBatch,
   buildDeleteRequestFolderEntityBatch,
   buildRenameRequestFolderBatch,
-} from '@openheaders/core/sync-builders/request-folder-mutations';
-import { buildDeleteBatch } from '@openheaders/core/sync-builders/request-mutations';
+} from '@openheaders/core/sync-builders/mutations/request-folder-mutations';
+import { buildDeleteBatch } from '@openheaders/core/sync-builders/mutations/request-mutations';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { applyRequestFolderMutationOrThrow, applyRequestMutationOrThrow } from './apply';
 import { assertLoaded, collections, folders, type LocalFolder, requests } from './state';

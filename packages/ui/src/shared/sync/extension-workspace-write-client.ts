@@ -34,7 +34,7 @@ import {
   buildRemoveExtensionWorkspaceBatch,
   buildSetActiveExtensionWorkspaceBatch,
   buildSetExtensionWorkspaceBatch,
-} from '@openheaders/core/sync-builders/extension-workspace-mutations';
+} from '@openheaders/core/sync-builders/mutations/extension-workspace-mutations';
 import type { ExtensionWorkspace, ExtensionWorkspaceKind } from '@openheaders/core/types';
 import { generateWorkspaceId } from '@openheaders/core/utils';
 import {

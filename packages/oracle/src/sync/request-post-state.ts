@@ -10,7 +10,7 @@
 import type { SyncRequestPostState } from '@openheaders/core/protocol';
 import { REQUEST_ENTITY_TYPE, REQUEST_HEADERS_PATH, REQUEST_PARAMS_PATH } from '@openheaders/core/sync';
 import type { Request } from '@openheaders/core/types';
-import { projectRequest } from '@openheaders/core/sync-builders/request-projection';
+import { projectRequest } from '@openheaders/core/sync-builders/projections/request-projection';
 import { buildSetMembersExtras, makeFlatEntityProjectors } from './flat-entity-post-state';
 import type { EntityOracle } from './oracle';
 

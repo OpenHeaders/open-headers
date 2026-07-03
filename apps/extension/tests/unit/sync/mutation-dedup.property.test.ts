@@ -29,7 +29,7 @@ import { type MutatorContext } from '@openheaders/core/sync';
 import { SYNC_MUTATION_BATCH_TYPE, SYNC_MUTATION_TYPE } from '@openheaders/core/protocol';
 import type { Rule } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
-import { seedRule } from '@openheaders/core/sync-builders/rule-projection';
+import { seedRule } from '@openheaders/core/sync-builders/projections/rule-projection';
 import { dispatchSyncRpc } from '@openheaders/oracle/rpc';
 import {
   __resetMutationStreamBridgeForTests,

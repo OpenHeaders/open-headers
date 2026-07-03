@@ -13,7 +13,7 @@
 import { VaultSchema } from '@openheaders/core/schemas';
 import type { GuardedRead } from '@openheaders/core/storage';
 import { VAULT_ENTITY_TYPE } from '@openheaders/core/sync';
-import { seedVault } from '@openheaders/core/sync-builders/vault-projection';
+import { seedVault } from '@openheaders/core/sync-builders/projections/vault-projection';
 import type { Vault } from '@openheaders/core/types';
 import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import type { InMemoryBroadcast } from './broadcast';

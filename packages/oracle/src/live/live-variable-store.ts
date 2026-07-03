@@ -30,7 +30,7 @@ import {
   buildAddLiveVariableBatch,
   buildDeleteLiveVariableBatch,
   buildUpdateLiveVariableBatch,
-} from '@openheaders/core/sync-builders/live-variable-mutations';
+} from '@openheaders/core/sync-builders/mutations/live-variable-mutations';
 import type { LiveVariable, LiveVariableOverride } from '@openheaders/core/types';
 import { generateUid, logger, toFolderName } from '@openheaders/core/utils';
 import { hostStorage, wsKeys } from '@openheaders/oracle/storage';

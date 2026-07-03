@@ -27,7 +27,7 @@ import {
   buildAddBatch,
   buildDeleteBatch,
   buildUpdateBatch,
-} from '@openheaders/core/sync-builders/template-mutations';
+} from '@openheaders/core/sync-builders/mutations/template-mutations';
 
 export type TemplateUpdates = Partial<Omit<Template, 'uid' | 'path' | 'schemaVersion'>>;
 
