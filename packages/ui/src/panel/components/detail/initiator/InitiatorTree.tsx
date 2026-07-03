@@ -1,6 +1,6 @@
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
-import { useMeasuredCssHeights } from '@openheaders/ui/shared/hooks/useMeasuredStickyOffset';
-import { useStickyAncestors } from '@openheaders/ui/shared/hooks/useStickyAncestors';
+import { useMeasuredCssHeights } from '@openheaders/ui/shared/hooks/dom/useMeasuredStickyOffset';
+import { useStickyAncestors } from '@openheaders/ui/shared/hooks/dom/useStickyAncestors';
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { computeCascadeInsights } from '../../../data/cascade/cascade-insights';

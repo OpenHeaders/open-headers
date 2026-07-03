@@ -16,7 +16,7 @@
  */
 
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { useMeasuredCssHeights } from '@openheaders/ui/shared/hooks/useMeasuredStickyOffset';
+import { useMeasuredCssHeights } from '@openheaders/ui/shared/hooks/dom/useMeasuredStickyOffset';
 import {
   type AnnotatedHeader,
   isAttributionEdited,

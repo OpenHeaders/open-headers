@@ -16,8 +16,8 @@ import {
   validateHeaderName,
   validateHeaderValue,
 } from '@openheaders/core/utils';
+import { useSaveShortcut } from '@openheaders/ui/shared/hooks/dom/useSaveShortcut';
 import type { RuleMutationResult, UseRuleMutatorApi } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
-import { useSaveShortcut } from '@openheaders/ui/shared/hooks/useSaveShortcut';
 import type { App } from 'antd';
 import { type RefObject, useState } from 'react';
 import { buildHeaderModUpdate } from '../data/rule-create/header-mod-edit';

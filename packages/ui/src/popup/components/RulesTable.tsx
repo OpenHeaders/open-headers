@@ -1,11 +1,11 @@
 import { ExperimentOutlined, FileTextOutlined, PlusOutlined, SortAscendingOutlined } from '@ant-design/icons';
 import type { ExtensionRuleType } from '@openheaders/core/types';
 import { resolvePauseState } from '@openheaders/core/utils';
-import { useRowActionRegistration } from '@openheaders/ui/shared/hooks/useRowActionRegistration';
+import { useRowActionRegistration } from '@openheaders/ui/shared/hooks/dom/useRowActionRegistration';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
-import { useTablePagination } from '@openheaders/ui/shared/hooks/useTablePagination';
-import { useVariableResolver } from '@openheaders/ui/shared/hooks/useVariableResolver';
+import { useTablePagination } from '@openheaders/ui/shared/hooks/dom/useTablePagination';
+import { useVariableResolver } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
 import { useSurface } from '@openheaders/ui/shared/surface';
 import type { PageInfo, RowActions, SortMode } from '@openheaders/ui/shared/table-shared';
 import { openWorkspace, type WorkspaceIntent } from '@openheaders/ui/shared/workspace-intent';

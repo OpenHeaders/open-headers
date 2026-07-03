@@ -13,7 +13,7 @@
  */
 
 import { resolveTemplate } from '@openheaders/core/variables';
-import { useVariableResolver } from '@openheaders/ui/shared/hooks/useVariableResolver';
+import { useVariableResolver } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
 import { useMemo } from 'react';
 import type { Draft } from './draft';
 

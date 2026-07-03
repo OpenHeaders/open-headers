@@ -15,10 +15,10 @@
  *      unexpectedly — fallback should kick in).
  */
 
+import { useMeasuredCssHeights } from '@openheaders/ui/shared/hooks/dom/useMeasuredStickyOffset';
 import { render } from '@testing-library/react';
 import { useRef } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { useMeasuredCssHeights } from '@openheaders/ui/shared/hooks/useMeasuredStickyOffset';
 
 class NoopResizeObserver {
   observe(): void {}
@@ -41,25 +41,23 @@ afterEach(() => {
  */
 function stubBoundingHeightByTestId(map: Record<string, number>): { restore: () => void } {
   const original = HTMLElement.prototype.getBoundingClientRect;
-  const spy = vi
-    .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
-    .mockImplementation(function (this: HTMLElement) {
-      const id = this.dataset.testid;
-      const height = id && map[id] !== undefined ? map[id] : 0;
-      return {
-        x: 0,
-        y: 0,
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: height,
-        width: 0,
-        height,
-        toJSON() {
-          return { x: 0, y: 0, top: 0, left: 0, right: 0, bottom: height, width: 0, height };
-        },
-      } as DOMRect;
-    });
+  const spy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+    const id = this.dataset.testid;
+    const height = id && map[id] !== undefined ? map[id] : 0;
+    return {
+      x: 0,
+      y: 0,
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: height,
+      width: 0,
+      height,
+      toJSON() {
+        return { x: 0, y: 0, top: 0, left: 0, right: 0, bottom: height, width: 0, height };
+      },
+    } as DOMRect;
+  });
   return {
     restore: () => {
       spy.mockRestore();

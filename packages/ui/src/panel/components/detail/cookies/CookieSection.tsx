@@ -9,7 +9,7 @@
  */
 
 import { useMemo, useRef, type RefObject } from 'react';
-import { useMeasuredCssHeights } from '@openheaders/ui/shared/hooks/useMeasuredStickyOffset';
+import { useMeasuredCssHeights } from '@openheaders/ui/shared/hooks/dom/useMeasuredStickyOffset';
 import { InfoPopover, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { isJarEditableRow } from '../../../data/cookies/cookie-edit';
 import type { JarCookieEdit } from '../../../data/cookies/cookie-jar-cache';

@@ -1,8 +1,8 @@
 import { CheckOutlined, CopyOutlined } from '@ant-design/icons';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { getHeaderInfoContentForRow } from '@openheaders/ui/shared/info-popover/data/http-headers';
-import { useElementOverflow } from '@openheaders/ui/shared/hooks/useElementOverflow';
-import { useVariableResolver } from '@openheaders/ui/shared/hooks/useVariableResolver';
+import { useElementOverflow } from '@openheaders/ui/shared/hooks/dom/useElementOverflow';
+import { useVariableResolver } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
 import type { HeaderModification, HeaderOperation, Rule } from '@openheaders/core/types';
 import { useMemo, useState } from 'react';
 import {

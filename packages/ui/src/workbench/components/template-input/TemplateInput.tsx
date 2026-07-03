@@ -22,7 +22,7 @@
  */
 
 import { CloseCircleFilled } from '@ant-design/icons';
-import { useVariableResolver } from '@openheaders/ui/shared/hooks/useVariableResolver';
+import { useVariableResolver } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
 import { theme } from 'antd';
 import type React from 'react';
 import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';

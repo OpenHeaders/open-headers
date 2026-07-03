@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
 import type { RowActions } from '@openheaders/ui/shared/table-shared';
+import { useEffect } from 'react';
 
 export function useRowActionRegistration(
   onRowActionsChange: ((actions: RowActions) => void) | undefined,

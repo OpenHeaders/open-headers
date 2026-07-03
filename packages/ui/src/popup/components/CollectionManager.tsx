@@ -1,9 +1,9 @@
 import { CheckOutlined, FolderTwoTone, SortAscendingOutlined } from '@ant-design/icons';
 import type { FolderNode, TreeNode } from '@openheaders/core/types';
-import { useRowActionRegistration } from '@openheaders/ui/shared/hooks/useRowActionRegistration';
+import { useRowActionRegistration } from '@openheaders/ui/shared/hooks/dom/useRowActionRegistration';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
-import { useVariableResolver } from '@openheaders/ui/shared/hooks/useVariableResolver';
+import { useVariableResolver } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
 import { useSurface } from '@openheaders/ui/shared/surface';
 import type { PageInfo, RowActions } from '@openheaders/ui/shared/table-shared';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';

@@ -19,13 +19,13 @@ import { isLiveVariableEffective, isWorkflowEffective } from '@openheaders/core/
 import { type ResolvedLiveValue, VariableResolver } from '@openheaders/core/variables';
 import { feedCollectionVariablesToResolver } from '@openheaders/ui/shared/variables';
 import { useMemo } from 'react';
-import { useEnvVarVault } from './readers/useEnvVarVault';
-import { useFiles } from './readers/useFiles';
-import { useAllLiveCaches } from './readers/useLiveCache';
-import { useLiveVariables } from './readers/useLiveVariables';
-import { useLiveWorkflows } from './readers/useLiveWorkflows';
-import { useRequests } from './readers/useRequests';
-import { useRules } from './readers/useRules';
+import { useEnvVarVault } from '../readers/useEnvVarVault';
+import { useFiles } from '../readers/useFiles';
+import { useAllLiveCaches } from '../readers/useLiveCache';
+import { useLiveVariables } from '../readers/useLiveVariables';
+import { useLiveWorkflows } from '../readers/useLiveWorkflows';
+import { useRequests } from '../readers/useRequests';
+import { useRules } from '../readers/useRules';
 
 export function useVariableResolver(): VariableResolver {
   const { environments, activeEnvironmentId, defaultEnvironmentId, workspaceVariables, vault } = useEnvVarVault();

@@ -10,8 +10,8 @@
  * `useStickyAncestors` docstring for why).
  */
 
+import { deriveStickyChain } from '@openheaders/ui/shared/hooks/dom/useStickyAncestors';
 import { describe, expect, it } from 'vitest';
-import { deriveStickyChain } from '@openheaders/ui/shared/hooks/useStickyAncestors';
 
 interface Row {
   key: string;

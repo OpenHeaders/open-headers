@@ -13,12 +13,12 @@ import type { LiveVariable, LiveVariableOverride, Variable, VariableScope, Vault
 import { DYNAMIC_GENERATORS, parseReference, parseStepRefName, type VariableNamespace } from '@openheaders/core/variables';
 import { findCollectionByUid } from '@openheaders/ui/shared/variables';
 import { useMemo } from 'react';
-import { useEnvVarVault } from './readers/useEnvVarVault';
-import { useAllLiveCaches } from './readers/useLiveCache';
-import { useLiveVariables } from './readers/useLiveVariables';
-import { useLiveWorkflows } from './readers/useLiveWorkflows';
-import { useRequests } from './readers/useRequests';
-import { useRules } from './readers/useRules';
+import { useEnvVarVault } from '../readers/useEnvVarVault';
+import { useAllLiveCaches } from '../readers/useLiveCache';
+import { useLiveVariables } from '../readers/useLiveVariables';
+import { useLiveWorkflows } from '../readers/useLiveWorkflows';
+import { useRequests } from '../readers/useRequests';
+import { useRules } from '../readers/useRules';
 import { useVariableResolver } from './useVariableResolver';
 
 export type VariableCandidate =

@@ -1,6 +1,6 @@
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import { useCallback, useRef } from 'react';
-import { useMeasuredCssHeights } from '@openheaders/ui/shared/hooks/useMeasuredStickyOffset';
+import { useMeasuredCssHeights } from '@openheaders/ui/shared/hooks/dom/useMeasuredStickyOffset';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import type { ConnectionReuseInfo } from '../../data/connection-reuse';
 import { formatTimeMs } from '../../data/timing/format-time';

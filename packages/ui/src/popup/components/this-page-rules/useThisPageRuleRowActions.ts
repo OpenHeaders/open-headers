@@ -1,6 +1,6 @@
 import { getCapability } from '@openheaders/core/capabilities';
 import type { UseRuleMutatorApi } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
-import { useRowActionRegistration } from '@openheaders/ui/shared/hooks/useRowActionRegistration';
+import { useRowActionRegistration } from '@openheaders/ui/shared/hooks/dom/useRowActionRegistration';
 import type { RowActions } from '@openheaders/ui/shared/table-shared';
 import type { WorkspaceIntent } from '@openheaders/ui/shared/workspace-intent';
 import { App } from 'antd';

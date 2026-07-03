@@ -7,7 +7,7 @@
  * reason code never surfaces as "Revert failed: undefined").
  */
 
-import { humanizeRevertReason } from '@openheaders/ui/shared/hooks/useActivityRevert';
+import { humanizeRevertReason } from '@openheaders/ui/shared/hooks/activity/useActivityRevert';
 import { describe, expect, it } from 'vitest';
 
 describe('humanizeRevertReason', () => {

@@ -15,7 +15,7 @@
 import { Button, Space, Tag, Tooltip, Typography, theme } from 'antd';
 import { useEffect, useMemo, useRef } from 'react';
 import type { ActivityEntry, ActivityEntryKind } from '@openheaders/core/sync';
-import { canRevertEntry, getEntryInverse, getEntryRevertUnavailableReason } from '@openheaders/ui/shared/hooks/useActivityRevert';
+import { canRevertEntry, getEntryInverse, getEntryRevertUnavailableReason } from '@openheaders/ui/shared/hooks/activity/useActivityRevert';
 import { formatRelativeMs } from '../live/live-display';
 import type { ActivityFeedGroup } from './activity-feed-group';
 import { isViewableEntityType } from './activity-view-router';

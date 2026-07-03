@@ -1,7 +1,7 @@
-import { useMemo } from 'react';
 import type { Collection, LiveWorkflow, Request, Rule } from '@openheaders/core/types';
 import { isRequestResolvable, isRuleResolvable } from '@openheaders/core/utils';
-import { useVariableResolver } from '@openheaders/ui/shared/hooks/useVariableResolver';
+import { useVariableResolver } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
+import { useMemo } from 'react';
 import type { WorkbenchTab } from '../types';
 import { useRequestScriptsReviewPending } from './useRequestScriptsReviewPending';
 

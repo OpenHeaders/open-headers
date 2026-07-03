@@ -9,7 +9,7 @@
 
 import { filterSuggestions, type SuggestionContext, type VariableSuggestion } from '@openheaders/core/variables';
 import { useWorkspaces } from '@openheaders/ui/shared/hooks/readers/useWorkspaces';
-import { useVariableSuggestions } from '@openheaders/ui/shared/hooks/useVariableSuggestions';
+import { useVariableSuggestions } from '@openheaders/ui/shared/hooks/variables/useVariableSuggestions';
 import { claimEscape } from '@openheaders/ui/shared/popover';
 import type React from 'react';
 import { type ClipboardEvent, type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';

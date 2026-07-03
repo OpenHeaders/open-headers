@@ -4,7 +4,7 @@
  * unavailability hint, all derived together so they can't drift.
  */
 
-import type { VariableLookupResult } from '@openheaders/ui/shared/hooks/useVariableLookup';
+import type { VariableLookupResult } from '@openheaders/ui/shared/hooks/variables/useVariableLookup';
 import type { ScopeKey } from '../shared/scope-colors';
 
 export type CreateScope = 'environment' | 'collection' | 'workspace' | 'vault';

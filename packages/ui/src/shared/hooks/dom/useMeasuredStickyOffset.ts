@@ -1,4 +1,4 @@
-import { useEffect, type RefObject } from 'react';
+import { type RefObject, useEffect } from 'react';
 
 /**
  * Publishes each element's rendered height as a CSS custom property

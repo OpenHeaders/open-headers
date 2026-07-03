@@ -27,9 +27,9 @@ import type { ActivityEntry } from '@openheaders/core/sync';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
-import { useActivityFeed } from '@openheaders/ui/shared/hooks/useActivityFeed';
-import { useActivityMutes } from '@openheaders/ui/shared/hooks/useActivityMutes';
-import { humanizeRevertReason, useActivityRevert } from '@openheaders/ui/shared/hooks/useActivityRevert';
+import { useActivityFeed } from '@openheaders/ui/shared/hooks/activity/useActivityFeed';
+import { useActivityMutes } from '@openheaders/ui/shared/hooks/activity/useActivityMutes';
+import { humanizeRevertReason, useActivityRevert } from '@openheaders/ui/shared/hooks/activity/useActivityRevert';
 import { groupActivityEntriesByMutation } from './activity-feed-group';
 import ActivityFeedCard from './ActivityFeedCard';
 

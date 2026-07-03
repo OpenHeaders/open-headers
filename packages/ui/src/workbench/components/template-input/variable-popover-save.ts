@@ -24,8 +24,8 @@ import type {
   WorkspaceVariables,
 } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
-import type { VariableCandidate } from '@openheaders/ui/shared/hooks/useVariableLookup';
 import type { MutationResult, useVariableMutator } from '@openheaders/ui/shared/hooks/mutators/useVariableMutator';
+import type { VariableCandidate } from '@openheaders/ui/shared/hooks/variables/useVariableLookup';
 import type { App } from 'antd';
 import type { CreateScope } from './variable-popover-create-flow';
 

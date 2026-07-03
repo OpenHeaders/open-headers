@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PAGE_SIZE, type PageInfo } from '@openheaders/ui/shared/table-shared';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 interface UseTablePaginationOptions<T extends { key: string | number }> {
   dataSource: T[];
