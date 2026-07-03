@@ -20,7 +20,7 @@ vi.mock('@utils/browser-runtime', async (importOriginal) => {
 });
 
 import { cookies } from '@utils/browser-api';
-import { removeCookieForUrl, setCookieForUrl } from '@/background/modules/fetch-cookie-jar';
+import { removeCookieForUrl, setCookieForUrl } from '@/background/modules/net/fetch-cookie-jar';
 
 const cookiesApi = cookies!;
 

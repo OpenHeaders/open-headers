@@ -19,7 +19,7 @@ import {
   registerNetworkConditionsReplay,
   rehydrateNetworkConditionsFromSession,
   setNetworkConditionsForTab,
-} from '@/background/modules/network-conditions';
+} from '@/background/modules/net/network-conditions';
 
 const SLOW_3G: NetworkThrottleConditions = {
   offline: false,

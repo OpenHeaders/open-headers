@@ -30,7 +30,7 @@ afterEach(async () => {
   __resetPendingForTests();
 });
 
-import { __resetPendingForTests, enqueueInvalidation, flushPending } from '@/background/modules/cache-invalidator';
+import { __resetPendingForTests, enqueueInvalidation, flushPending } from '@/background/modules/net/cache-invalidator';
 
 describe('enqueueInvalidation', () => {
   it('is a no-op when called with empty origins and broad=false', async () => {

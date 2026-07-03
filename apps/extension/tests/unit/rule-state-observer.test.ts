@@ -12,7 +12,7 @@ vi.mock('@utils/logger', () => ({
 
 const { enqueueSpy } = vi.hoisted(() => ({ enqueueSpy: vi.fn() }));
 
-vi.mock('@/background/modules/cache-invalidator', () => ({
+vi.mock('@/background/modules/net/cache-invalidator', () => ({
   enqueueInvalidation: enqueueSpy,
 }));
 

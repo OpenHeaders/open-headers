@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, type vi } from 'vitest';
-import { removeCookieForUrl, setCookieForUrl } from '@/background/modules/fetch-cookie-jar';
+import { removeCookieForUrl, setCookieForUrl } from '@/background/modules/net/fetch-cookie-jar';
 
 // The handlers reach `chrome.cookies` through `@utils/browser-api`, which
 // resolves to the global chrome mock (stubbed in tests/setup.ts). We drive

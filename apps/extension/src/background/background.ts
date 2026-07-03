@@ -59,7 +59,6 @@ import { installWsFrameRouting } from './bootstrap/ws-frame-routing';
 import { setRulesPaused } from './dnr-manager';
 import { setupInjectListener } from './inject-manager';
 import { updateExtensionBadge } from './modules/badge-manager';
-import { rehydrateCacheBypassFromSessionRules } from './modules/cache-bypass';
 import { registerCdpTabPinControls } from './modules/cdp-tab-pin';
 import {
   kickActiveContextRefresh,
@@ -70,7 +69,8 @@ import {
   setFallbackPriorityProbe,
   startLiveScheduler,
 } from './modules/live-refresh-scheduler';
-import { rehydrateNetworkConditionsFromSession } from './modules/network-conditions';
+import { rehydrateCacheBypassFromSessionRules } from './modules/net/cache-bypass';
+import { rehydrateNetworkConditionsFromSession } from './modules/net/network-conditions';
 import { reconcileOAuthSchedules, startOAuthScheduler } from './modules/oauth-refresh-scheduler';
 import { hydrateObservabilityLog, recordLog } from './modules/observability-log';
 import { installParityRuleImport } from './modules/parity-rule-import';

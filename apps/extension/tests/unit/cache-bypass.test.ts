@@ -32,7 +32,7 @@ import {
   isCacheBypassActive,
   registerCacheBypassReplay,
   rehydrateCacheBypassFromSessionRules,
-} from '@/background/modules/cache-bypass';
+} from '@/background/modules/net/cache-bypass';
 
 interface UpdateSessionRulesArg {
   removeRuleIds: number[];

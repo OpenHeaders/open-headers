@@ -9,7 +9,7 @@ import type { ExecutedRequestSnapshot, Request } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { runStepRequest } from '@openheaders/oracle/live/request-exec/run-step-request';
 import { logger } from '@utils/logger';
-import { browserRequestTransport } from '../browser-request-transport';
+import { browserRequestTransport } from '../net/browser-request-transport';
 import { OAuth2FlowError, performRefresh as performOAuthRefresh } from '../oauth-flow';
 
 /**

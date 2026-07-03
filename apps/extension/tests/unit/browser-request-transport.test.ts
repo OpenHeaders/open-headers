@@ -7,7 +7,7 @@
 
 import type { TransportRequest } from '@openheaders/oracle/live/request-exec/transport';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { browserRequestTransport } from '@/background/modules/browser-request-transport';
+import { browserRequestTransport } from '@/background/modules/net/browser-request-transport';
 
 const fetchMock = vi.fn();
 

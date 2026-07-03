@@ -28,8 +28,8 @@ import { startDevtoolsSessionCoordinator } from '../devtools-session-coordinator
 import { getRulesPaused } from '../dnr-manager';
 import { refreshInterceptorsForTab, setCdpControlQuery } from '../inject-manager';
 import { createPersistentWatchSessionFloors, startLifecyclePortHost } from '../lifecycle-port-host';
-import { isCacheBypassActive, registerCacheBypassReplay } from '../modules/cache-bypass';
-import { getNetworkConditionsForTab, registerNetworkConditionsReplay } from '../modules/network-conditions';
+import { isCacheBypassActive, registerCacheBypassReplay } from '../modules/net/cache-bypass';
+import { getNetworkConditionsForTab, registerNetworkConditionsReplay } from '../modules/net/network-conditions';
 import { setupOnRuleMatchedDebugBridge } from '../modules/on-rule-matched-debug';
 import { getTabOverridesForTab, registerTabOverridesReplay } from '../modules/tab-overrides';
 import { recordReportedFire } from '../modules/tab-telemetry';

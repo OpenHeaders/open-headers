@@ -7,8 +7,8 @@ import {
   fetchCookieJarForUrl as fetchCookieJarForUrlHandler,
   removeCookieForUrl as removeCookieForUrlHandler,
   setCookieForUrl as setCookieForUrlHandler,
-} from '../../fetch-cookie-jar';
-import { fetchSourceMapText as fetchSourceMapTextHandler } from '../../fetch-source-map';
+} from '../../net/fetch-cookie-jar';
+import { fetchSourceMapText as fetchSourceMapTextHandler } from '../../net/fetch-source-map';
 import type { HandlerMap } from '../types';
 
 export const miscHandlers: HandlerMap = {
