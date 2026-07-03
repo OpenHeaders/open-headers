@@ -12,7 +12,7 @@ import type { FilterConfig } from '../data/filter-engine';
 import type { InspectorRowWithFires } from '../data/inspector-row-projection';
 import { WATERFALL_METRIC_ABBR, waterfallSortValue } from '../data/network-columns';
 import { supersessionAnchorFromPages } from '../data/request-state';
-import { pageMarkers, waterfallWindow } from '../data/waterfall-geometry';
+import { pageMarkers, waterfallWindow } from '../data/timing/waterfall-geometry';
 import { ColumnHeaderContextMenu, type ColumnHeaderContextMenuState } from './traffic/ColumnHeaderContextMenu';
 import type { ColumnDef, ColumnKey } from './traffic/columns';
 import { ALL_COLUMN_KEYS, COLUMN_DEFS, columnTrack, DEFAULT_VISIBLE_COLUMNS } from './traffic/columns';

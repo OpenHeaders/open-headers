@@ -1,4 +1,4 @@
-import { computeInFlightTiming } from '@openheaders/ui/panel/data/in-flight-timing';
+import { computeInFlightTiming } from '@openheaders/ui/panel/data/timing/in-flight-timing';
 import { describe, expect, it } from 'vitest';
 import { makeLifecycle } from '../__factories__/lifecycle';
 

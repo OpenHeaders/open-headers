@@ -1,4 +1,4 @@
-import { parseServerTiming } from '@openheaders/ui/panel/data/server-timing';
+import { parseServerTiming } from '@openheaders/ui/panel/data/timing/server-timing';
 import { describe, expect, it } from 'vitest';
 
 const SERVER_TIMING = 'Server-Timing';

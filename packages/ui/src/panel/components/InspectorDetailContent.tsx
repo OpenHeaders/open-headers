@@ -12,7 +12,7 @@ import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import { useEffect, useMemo, useRef } from 'react';
 import type { ConnectionReuseInfo } from '../data/connection-reuse';
 import { deriveFireEvidenceByRule } from '../data/fire-evidence';
-import { type AnnotatedHeader, attributeHeaders } from '../data/header-attribution';
+import { type AnnotatedHeader, attributeHeaders } from '../data/headers/header-attribution';
 import type { DetailSection } from '../data/inspector-tab';
 import {
   currentHarEntry,
@@ -35,7 +35,7 @@ import {
   buildRequestBodyDraftFromRequest,
   buildResponseDraftFromRequest,
 } from '../data/rule-draft-bridge';
-import type { RepeatStats } from '../data/timing-repeats';
+import type { RepeatStats } from '../data/timing/timing-repeats';
 import type { RulesByUid } from '../data/use-rules-lookup';
 import CookiesView from './detail/CookiesView';
 import EventStreamView, { isEventStream } from './detail/EventStreamView';

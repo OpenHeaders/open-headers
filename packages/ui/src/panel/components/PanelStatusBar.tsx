@@ -13,7 +13,7 @@ import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import { Dropdown, type MenuProps, Space, theme } from 'antd';
 import type React from 'react';
-import { formatFooterDuration } from '../data/footer-timing';
+import { formatFooterDuration } from '../data/timing/footer-timing';
 
 declare const __APP_VERSION__: string;
 

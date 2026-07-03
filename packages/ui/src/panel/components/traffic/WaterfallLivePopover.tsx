@@ -20,8 +20,8 @@
  *     breakdown (no link out).
  */
 
-import { formatTimeMs } from '../../data/format-time';
-import { computeInFlightTiming } from '../../data/in-flight-timing';
+import { formatTimeMs } from '../../data/timing/format-time';
+import { computeInFlightTiming } from '../../data/timing/in-flight-timing';
 import type { InspectorRowWithFires } from '../../data/inspector-row-projection';
 
 export function WaterfallLivePopover({

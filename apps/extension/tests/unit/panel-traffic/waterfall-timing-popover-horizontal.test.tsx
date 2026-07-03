@@ -9,9 +9,13 @@
  */
 
 import type { InspectorHarEntry } from '@openheaders/core/types';
-import { layoutHorizontal } from '@openheaders/ui/panel/data/horizontal-timing-layout';
 import { WaterfallTimingPopoverHorizontal } from '@openheaders/ui/panel/components/traffic/WaterfallTimingPopoverHorizontal';
-import { computeTimingLadder, type LadderContext, type TimingLadder } from '@openheaders/ui/panel/data/timing-ladder';
+import { layoutHorizontal } from '@openheaders/ui/panel/data/timing/horizontal-timing-layout';
+import {
+  computeTimingLadder,
+  type LadderContext,
+  type TimingLadder,
+} from '@openheaders/ui/panel/data/timing/timing-ladder';
 import { render } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { makeHar } from '../../__factories__/lifecycle';

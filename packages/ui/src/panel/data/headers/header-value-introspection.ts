@@ -122,7 +122,10 @@ export interface CacheControlInfo {
 }
 
 export function parseCacheControl(value: string): CacheControlInfo {
-  const parts = value.split(',').map((p) => p.trim()).filter(Boolean);
+  const parts = value
+    .split(',')
+    .map((p) => p.trim())
+    .filter(Boolean);
   const info: CacheControlInfo = {
     noStore: false,
     noCache: false,

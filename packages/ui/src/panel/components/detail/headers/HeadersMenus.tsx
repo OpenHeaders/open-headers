@@ -1,4 +1,4 @@
-import type { HeaderNameCase } from '../../../data/header-name-case';
+import type { HeaderNameCase } from '../../../data/headers/header-name-case';
 import { ToolbarMenuPopover } from '../../ToolbarMenuPopover';
 import type { HeaderLayoutMode, HeaderSortMode } from './types';
 

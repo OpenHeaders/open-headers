@@ -1,4 +1,4 @@
-import { computeHeaderInsights, type HeaderInsight } from '@openheaders/ui/panel/data/header-insights';
+import { computeHeaderInsights, type HeaderInsight } from '@openheaders/ui/panel/data/headers/header-insights';
 import { describe, expect, it } from 'vitest';
 
 function h(name: string, value: string) {
@@ -16,10 +16,7 @@ describe('computeHeaderInsights', () => {
       mimeType: 'application/json',
       statusCode: 200,
       requestHeaders: [h('Origin', 'https://app.openheaders.io')],
-      responseHeaders: [
-        h('Access-Control-Allow-Origin', '*'),
-        h('Access-Control-Allow-Credentials', 'true'),
-      ],
+      responseHeaders: [h('Access-Control-Allow-Origin', '*'), h('Access-Control-Allow-Credentials', 'true')],
     });
     const ins = findInsight(out, 'cors-wildcard-with-creds');
     expect(ins?.severity).toBe('err');

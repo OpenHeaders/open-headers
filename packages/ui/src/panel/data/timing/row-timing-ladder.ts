@@ -13,9 +13,9 @@
  * byte.
  */
 
-import { currentHarEntry, type InspectorRowWithFires } from './inspector-row-projection';
-import { waterfallSortValue } from './network-columns';
-import { classifyRequestState, effectiveStatusCode, statusCellText } from './request-state';
+import { currentHarEntry, type InspectorRowWithFires } from '../inspector-row-projection';
+import { waterfallSortValue } from '../network-columns';
+import { classifyRequestState, effectiveStatusCode, statusCellText } from '../request-state';
 import { computeTimingLadder, type LadderContext, type TimingLadder } from './timing-ladder';
 import { computeRawTimingLadder } from './timing-ladder-raw';
 import type { WaterfallTerminal } from './timing-popover-model';

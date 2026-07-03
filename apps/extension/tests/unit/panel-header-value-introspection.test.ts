@@ -5,7 +5,7 @@ import {
   parseContentType,
   parseHsts,
   parseSetCookie,
-} from '@openheaders/ui/panel/data/header-value-introspection';
+} from '@openheaders/ui/panel/data/headers/header-value-introspection';
 import { describe, expect, it } from 'vitest';
 
 describe('parseSetCookie', () => {

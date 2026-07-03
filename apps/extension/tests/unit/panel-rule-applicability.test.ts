@@ -1,6 +1,6 @@
 import type { HeaderRule, Rule, RuleSnapshotHeaderMod } from '@openheaders/core/types';
 import { VariableResolver } from '@openheaders/core/variables';
-import type { RuleAttributionContext } from '@openheaders/ui/panel/data/header-attribution';
+import type { RuleAttributionContext } from '@openheaders/ui/panel/data/headers/header-attribution';
 import { computeRuleApplicability } from '@openheaders/ui/panel/data/rule-applicability';
 import { beforeEach, describe, expect, it } from 'vitest';
 

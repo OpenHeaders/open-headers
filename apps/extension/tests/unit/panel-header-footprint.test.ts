@@ -1,5 +1,5 @@
-import type { AnnotatedHeader } from '@openheaders/ui/panel/data/header-attribution';
-import { computeHeaderFootprint, formatHeaderFootprint } from '@openheaders/ui/panel/data/header-footprint';
+import type { AnnotatedHeader } from '@openheaders/ui/panel/data/headers/header-attribution';
+import { computeHeaderFootprint, formatHeaderFootprint } from '@openheaders/ui/panel/data/headers/header-footprint';
 import { describe, expect, it } from 'vitest';
 
 function ctxFor(uid: string, name: string) {
@@ -56,9 +56,7 @@ describe('computeHeaderFootprint', () => {
 
   it('ignores system-attributed rows', () => {
     const f = computeHeaderFootprint({
-      requestRows: [
-        row({ attribution: { kind: 'system', source: 'cache-bypass', label: 'Bypass HTTP Cache' } }),
-      ],
+      requestRows: [row({ attribution: { kind: 'system', source: 'cache-bypass', label: 'Bypass HTTP Cache' } })],
       responseRows: [],
       driftedRows: new Set(),
     });

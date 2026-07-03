@@ -20,7 +20,7 @@ import { InfoTrigger, type InfoPopoverContent } from '@openheaders/ui/shared/inf
 import { useMemo, useState } from 'react';
 import { buildHarFromEntries } from '../../data/har/har-export';
 import { ToolbarMenuPopover } from '../ToolbarMenuPopover';
-import type { AnnotatedHeader } from '../../data/header-attribution';
+import type { AnnotatedHeader } from '../../data/headers/header-attribution';
 import {
   currentHarEntry,
   type InspectorRowWithFires,

@@ -20,10 +20,10 @@ import { useMeasuredCssHeights } from '@openheaders/ui/shared/hooks/useMeasuredS
 import {
   type AnnotatedHeader,
   isAttributionEdited,
-} from '../../data/header-attribution';
-import { type HeaderFilterToken, parseHeaderQuery } from '../../data/header-filter';
-import { computeHeaderFootprint, formatHeaderFootprint } from '../../data/header-footprint';
-import { computeHeaderInsights, type HeaderInsight, type HeaderInsightAction } from '../../data/header-insights';
+} from '../../data/headers/header-attribution';
+import { type HeaderFilterToken, parseHeaderQuery } from '../../data/headers/header-filter';
+import { computeHeaderFootprint, formatHeaderFootprint } from '../../data/headers/header-footprint';
+import { computeHeaderInsights, type HeaderInsight, type HeaderInsightAction } from '../../data/headers/header-insights';
 import { formatHttpVersion } from '../../data/http-version';
 import {
   effectiveStatusCode,

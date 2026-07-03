@@ -3,21 +3,21 @@ import { useCallback, useRef } from 'react';
 import { useMeasuredCssHeights } from '@openheaders/ui/shared/hooks/useMeasuredStickyOffset';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import type { ConnectionReuseInfo } from '../../data/connection-reuse';
-import { formatTimeMs } from '../../data/format-time';
-import { computeInFlightTiming } from '../../data/in-flight-timing';
+import { formatTimeMs } from '../../data/timing/format-time';
+import { computeInFlightTiming } from '../../data/timing/in-flight-timing';
 import { currentHarEntry, type InspectorRowWithFires } from '../../data/inspector-row-projection';
 import { waterfallStartMs } from '../../data/network-columns';
-import { parseServerTiming, type ServerTimingMetric } from '../../data/server-timing';
-import { computeTimingContext, type CacheLabel } from '../../data/timing-context';
+import { parseServerTiming, type ServerTimingMetric } from '../../data/timing/server-timing';
+import { computeTimingContext, type CacheLabel } from '../../data/timing/timing-context';
 import {
   computeTransferRate,
   type ElapsedRung,
   findBottleneck,
   findWarnings,
   type TransferRate,
-} from '../../data/timing-insight';
-import { noResponseTerminal, rowTimingLadder } from '../../data/row-timing-ladder';
-import type { RepeatStats } from '../../data/timing-repeats';
+} from '../../data/timing/timing-insight';
+import { noResponseTerminal, rowTimingLadder } from '../../data/timing/row-timing-ladder';
+import type { RepeatStats } from '../../data/timing/timing-repeats';
 import { formatSize } from '../traffic/formatters';
 import { HorizontalTimingChart } from '../traffic/HorizontalTimingChart';
 import { TimingLadderLegend } from '../traffic/TimingLadderLegend';

@@ -2,7 +2,7 @@ import {
   type HeaderRowMeta,
   matchesHeaderQuery,
   parseHeaderQuery,
-} from '@openheaders/ui/panel/data/header-filter';
+} from '@openheaders/ui/panel/data/headers/header-filter';
 import { describe, expect, it } from 'vitest';
 
 function meta(over: Partial<HeaderRowMeta> = {}): HeaderRowMeta {

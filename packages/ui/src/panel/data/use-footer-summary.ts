@@ -7,10 +7,10 @@
 
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import { useMemo } from 'react';
-import { formatFooterDuration } from './footer-timing';
 import type { InspectorRowWithFires } from './inspector-row-projection';
 import { computeFooterSubset, type UsePanelDataResult } from './panel-data-projection';
 import { formatBytesToKb } from './size-info';
+import { formatFooterDuration } from './timing/footer-timing';
 
 // Footer totals use decimal (1000-byte) units, matching the Size column
 // (`formatBytesToKb`) and the host network table's status-bar figures.

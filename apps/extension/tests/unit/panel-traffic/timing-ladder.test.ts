@@ -5,7 +5,11 @@
  */
 
 import type { InspectorHarEntry } from '@openheaders/core/types';
-import { computeTimingLadder, type LadderContext, type TimingRungKey } from '@openheaders/ui/panel/data/timing-ladder';
+import {
+  computeTimingLadder,
+  type LadderContext,
+  type TimingRungKey,
+} from '@openheaders/ui/panel/data/timing/timing-ladder';
 import { describe, expect, it } from 'vitest';
 import { makeHar } from '../../__factories__/lifecycle';
 
@@ -221,7 +225,16 @@ describe('computeTimingLadder — the floor block (no send leg recorded)', () =>
   });
 
   it('a full block with -1 setup legs still reads reused (send leg present)', () => {
-    const l = ladder({ blocked: 15, _blocked_queueing: 10, dns: -1, connect: -1, ssl: -1, send: 5, wait: 100, receive: 40 });
+    const l = ladder({
+      blocked: 15,
+      _blocked_queueing: 10,
+      dns: -1,
+      connect: -1,
+      ssl: -1,
+      send: 5,
+      wait: 100,
+      receive: 40,
+    });
     expect(states(l)).toMatchObject({ dns: 'reused', connect: 'reused', ssl: 'reused', queueing: 10 });
   });
 });

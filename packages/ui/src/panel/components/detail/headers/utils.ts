@@ -1,5 +1,5 @@
-import type { AnnotatedHeader } from '../../../data/header-attribution';
-import type { HeaderRowMeta } from '../../../data/header-filter';
+import type { AnnotatedHeader } from '../../../data/headers/header-attribution';
+import type { HeaderRowMeta } from '../../../data/headers/header-filter';
 
 // Headers commonly carried on every fetch — folded by the hide-noise toggle.
 const NOISE_HEADERS: ReadonlySet<string> = new Set([

@@ -16,7 +16,7 @@
  */
 
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
-import { waterfallStartMs } from './network-columns';
+import { waterfallStartMs } from '../network-columns';
 
 export interface InFlightTiming {
   /** Offset of the queue moment (issue time) from the zero, clamped to ≥ 0. */

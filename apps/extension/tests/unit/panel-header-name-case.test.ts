@@ -1,4 +1,4 @@
-import { formatHeaderName, type HeaderNameCase } from '@openheaders/ui/panel/data/header-name-case';
+import { formatHeaderName, type HeaderNameCase } from '@openheaders/ui/panel/data/headers/header-name-case';
 import { describe, expect, it } from 'vitest';
 
 const ORIGINAL: HeaderNameCase = 'original';

@@ -6,7 +6,7 @@
  * full precision rather than a fractional-minute reading the user must decode.
  */
 
-import { formatFooterDuration } from '@openheaders/ui/panel/data/footer-timing';
+import { formatFooterDuration } from '@openheaders/ui/panel/data/timing/footer-timing';
 import { describe, expect, it } from 'vitest';
 
 describe('formatFooterDuration', () => {

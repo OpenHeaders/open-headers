@@ -9,10 +9,10 @@ import {
   type AnnotatedHeader,
   findCurrentMod,
   isAttributionEdited,
-} from '../../../data/header-attribution';
-import { HEADER_CATEGORY_LABEL, type HeaderCategory } from '../../../data/header-category';
-import type { HeaderRowMeta } from '../../../data/header-filter';
-import { formatHeaderName, type HeaderNameCase } from '../../../data/header-name-case';
+} from '../../../data/headers/header-attribution';
+import { HEADER_CATEGORY_LABEL, type HeaderCategory } from '../../../data/headers/header-category';
+import type { HeaderRowMeta } from '../../../data/headers/header-filter';
+import { formatHeaderName, type HeaderNameCase } from '../../../data/headers/header-name-case';
 import { computeRuleApplicability, type RuleApplicability } from '../../../data/rule-applicability';
 import type { RulesByUid } from '../../../data/use-rules-lookup';
 import { introspectWithAuthScheme } from '../../../data/auth-scheme';

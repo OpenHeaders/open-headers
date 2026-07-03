@@ -18,7 +18,7 @@ import type {
 } from '@openheaders/core/types';
 import type { HeaderDirection } from '@openheaders/core/utils';
 import { createHoverPopoverHost, type HoverPopoverBodyProps } from '@openheaders/ui/shared/popover';
-import type { HeaderAttribution } from '../data/header-attribution';
+import type { HeaderAttribution } from '../data/headers/header-attribution';
 import type { RuleApplicability } from '../data/rule-applicability';
 import type { UrlCreateVariant } from '../data/url-rule-create';
 import { BlockQuickCreate } from './rule-quick-editor/BlockQuickCreate';

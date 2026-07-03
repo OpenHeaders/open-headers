@@ -13,7 +13,7 @@ import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { DevpanelNetworkWaterfallMetricSetting } from '@openheaders/ui/workbench/settings/schema/devpanel-network';
 import { currentHarEntry, type InspectorRowWithFires, lifecycleTransferredBytes } from './inspector-row-projection';
 import { effectiveStatusCode } from './request-state';
-import { rawFirstByteMs, rawSpanMs } from './timing-ladder-raw';
+import { rawFirstByteMs, rawSpanMs } from './timing/timing-ladder-raw';
 
 export type SortableColumnKey =
   | 'requestNumber'

@@ -56,7 +56,7 @@ import {
   findCurrentMod,
   type HeaderAttribution,
   isAttributionEdited,
-} from '../data/header-attribution';
+} from '../data/headers/header-attribution';
 import type { RuleApplicability } from '../data/rule-applicability';
 import { findRuleCollectionId } from '../data/rule-collection';
 import { HEADER_OPERATION_OPTIONS } from './rule-quick-editor/header-operation-options';

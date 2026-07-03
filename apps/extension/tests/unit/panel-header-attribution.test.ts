@@ -7,7 +7,11 @@ import type {
   RuleSnapshotHeaderMod,
 } from '@openheaders/core/types';
 import type { FireEvidence, ModEvidenceVerdict } from '@openheaders/ui/panel/data/fire-evidence';
-import { attributeHeaders, findCurrentMod, isAttributionEdited } from '@openheaders/ui/panel/data/header-attribution';
+import {
+  attributeHeaders,
+  findCurrentMod,
+  isAttributionEdited,
+} from '@openheaders/ui/panel/data/headers/header-attribution';
 import type { InspectorFire } from '@openheaders/ui/panel/data/types';
 import { describe, expect, it } from 'vitest';
 

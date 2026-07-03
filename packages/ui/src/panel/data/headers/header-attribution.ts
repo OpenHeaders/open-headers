@@ -66,8 +66,8 @@ import type {
   RuleSnapshot,
   RuleSnapshotHeaderMod,
 } from '@openheaders/core/types';
-import { type FireEvidence, type ModEvidenceVerdict, valueCarriesClaim } from './fire-evidence';
-import type { InspectorFire } from './types';
+import { type FireEvidence, type ModEvidenceVerdict, valueCarriesClaim } from '../fire-evidence';
+import type { InspectorFire } from '../types';
 
 /**
  * Rule-attribution context shared by every non-`server`/`system` row.

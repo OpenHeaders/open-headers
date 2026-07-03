@@ -22,7 +22,7 @@ import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import { Button, Segmented, Tooltip } from 'antd';
 import { useMemo, useRef, useState } from 'react';
 import { useStickToBottom } from './detail/streams/use-stick-to-bottom';
-import { formatClock } from '../data/format-time';
+import { formatClock } from '../data/timing/format-time';
 import { useInspectedTabCdp } from '../data/use-inspected-tab-cdp';
 
 interface ConsoleViewProps {

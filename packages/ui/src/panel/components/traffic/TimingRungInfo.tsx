@@ -13,7 +13,7 @@
  */
 
 import { InfoTrigger, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
-import type { TimingBand, TimingRungKey } from '../../data/timing-ladder';
+import type { TimingBand, TimingRungKey } from '../../data/timing/timing-ladder';
 
 /** One canonical example request, in wire order. `gap` slots are the
  * untracked slivers between phases; ms values are schematic but realistic

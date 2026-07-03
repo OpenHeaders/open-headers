@@ -6,9 +6,9 @@
  */
 
 import type { InspectorRawTiming } from '@openheaders/core/types';
-import type { LadderContext } from '@openheaders/ui/panel/data/timing-ladder';
-import { computeRawTimingLadder, rawFirstByteMs, rawSpanMs } from '@openheaders/ui/panel/data/timing-ladder-raw';
-import { ladderFootnotes, ladderGaps } from '@openheaders/ui/panel/data/timing-popover-model';
+import type { LadderContext } from '@openheaders/ui/panel/data/timing/timing-ladder';
+import { computeRawTimingLadder, rawFirstByteMs, rawSpanMs } from '@openheaders/ui/panel/data/timing/timing-ladder-raw';
+import { ladderFootnotes, ladderGaps } from '@openheaders/ui/panel/data/timing/timing-popover-model';
 import { describe, expect, it } from 'vitest';
 
 function ladder(raw: InspectorRawTiming, ctx: Partial<LadderContext> = {}) {

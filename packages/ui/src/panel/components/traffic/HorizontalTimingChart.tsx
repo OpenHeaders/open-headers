@@ -13,9 +13,9 @@
  * consumers render this identical component, so the bar can never drift.
  */
 
-import { formatTimeMs } from '../../data/format-time';
-import { layoutHorizontal } from '../../data/horizontal-timing-layout';
-import type { TimingLadder } from '../../data/timing-ladder';
+import { formatTimeMs } from '../../data/timing/format-time';
+import { layoutHorizontal } from '../../data/timing/horizontal-timing-layout';
+import type { TimingLadder } from '../../data/timing/timing-ladder';
 import {
   BAND_LABEL,
   BAND_WHERE,
@@ -23,7 +23,7 @@ import {
   isWarmSocketConnect,
   WARM_SOCKET_TITLE,
   type WaterfallTerminal,
-} from '../../data/timing-popover-model';
+} from '../../data/timing/timing-popover-model';
 import { TimingBandInfo, TimingMomentInfo, TimingTerminalInfo } from './TimingRungInfo';
 
 // Render-only heights for the tick axis + band-bracket rows.

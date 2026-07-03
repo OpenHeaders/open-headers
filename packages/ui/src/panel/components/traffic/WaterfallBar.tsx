@@ -23,9 +23,9 @@ import { type WaterfallMetric, waterfallStartMs } from '../../data/network-colum
 import type { InspectorRowWithFires } from '../../data/inspector-row-projection';
 import { extractName } from './formatters';
 import { isPreservedUnknown, PRESERVED_UNKNOWN_LABEL, type SupersessionAnchor } from '../../data/request-state';
-import { noResponseTerminal, rowTimingLadder } from '../../data/row-timing-ladder';
-import type { TimingLadder } from '../../data/timing-ladder';
-import { barColors } from '../../data/waterfall-colors';
+import { noResponseTerminal, rowTimingLadder } from '../../data/timing/row-timing-ladder';
+import type { TimingLadder } from '../../data/timing/timing-ladder';
+import { barColors } from '../../data/timing/waterfall-colors';
 import {
   barLabels,
   type DurationBarLayout,
@@ -33,7 +33,7 @@ import {
   timelineBarLayout,
   type TimelineBarLayout,
   timelineMetricLabel,
-} from '../../data/waterfall-geometry';
+} from '../../data/timing/waterfall-geometry';
 import type { DevpanelNetworkWaterfallPopoverLayoutSetting } from '@openheaders/ui/workbench/settings/schema/devpanel-network';
 import { WaterfallLivePopover } from './WaterfallLivePopover';
 import { WaterfallTimingPopover } from './WaterfallTimingPopover';

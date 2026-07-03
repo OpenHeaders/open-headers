@@ -21,9 +21,9 @@
  */
 
 import { Fragment } from 'react';
-import { formatTimeMs } from '../../data/format-time';
+import { formatTimeMs } from '../../data/timing/format-time';
 import type { WaterfallMetric } from '../../data/network-columns';
-import type { TimingLadder } from '../../data/timing-ladder';
+import type { TimingLadder } from '../../data/timing/timing-ladder';
 import {
   absentText,
   BAND_LABEL,
@@ -36,7 +36,7 @@ import {
   ladderFootnotes,
   WARM_SOCKET_TITLE,
   type WaterfallTerminal,
-} from '../../data/timing-popover-model';
+} from '../../data/timing/timing-popover-model';
 import {
   TimingBandInfo,
   TimingKeyMomentsInfo,

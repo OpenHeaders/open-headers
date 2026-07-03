@@ -1,4 +1,3 @@
-import { formatClock, formatTimeMs } from '@openheaders/ui/panel/data/format-time';
 import type { InspectorRowWithFires } from '@openheaders/ui/panel/data/inspector-row-projection';
 import {
   queueingMs,
@@ -6,7 +5,8 @@ import {
   waterfallSortValue,
   waterfallStartMs,
 } from '@openheaders/ui/panel/data/network-columns';
-import { rowTimingLadder } from '@openheaders/ui/panel/data/row-timing-ladder';
+import { formatClock, formatTimeMs } from '@openheaders/ui/panel/data/timing/format-time';
+import { rowTimingLadder } from '@openheaders/ui/panel/data/timing/row-timing-ladder';
 import {
   barLabels,
   durationBarLayout,
@@ -15,7 +15,7 @@ import {
   timelineBarLayout,
   timelineMetricLabel,
   waterfallWindow,
-} from '@openheaders/ui/panel/data/waterfall-geometry';
+} from '@openheaders/ui/panel/data/timing/waterfall-geometry';
 import { describe, expect, it } from 'vitest';
 import { makePage, makeRow } from '../__factories__/lifecycle';
 

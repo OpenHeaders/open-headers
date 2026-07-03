@@ -56,7 +56,7 @@ import { selectMainDocByLoader } from './page-anchor';
 import type { PageClientSnapshot } from './page-client-store';
 import { isInView, type PanelViewScope } from './panel-view-scope';
 import type { ResourceTimingClientSnapshot } from './resource-timing-client-store';
-import { computeRepeatStats, type RepeatStats } from './timing-repeats';
+import { computeRepeatStats, type RepeatStats } from './timing/timing-repeats';
 import type { InspectorFire } from './types';
 import type { RecordingWindow } from './use-recording-windows';
 

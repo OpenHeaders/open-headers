@@ -2,15 +2,15 @@ import { validateHeaderName } from '@openheaders/core/utils';
 import { useMemo, useState } from 'react';
 import {
   type AnnotatedHeader,
-} from '../../../data/header-attribution';
+} from '../../../data/headers/header-attribution';
 import {
   categorizeHeader,
   HEADER_CATEGORY_LABEL,
   HEADER_CATEGORY_ORDER,
   type HeaderCategory,
-} from '../../../data/header-category';
-import { type HeaderFilterToken, type HeaderRowMeta, matchesHeaderQuery } from '../../../data/header-filter';
-import { type HeaderNameCase, formatHeaderName } from '../../../data/header-name-case';
+} from '../../../data/headers/header-category';
+import { type HeaderFilterToken, type HeaderRowMeta, matchesHeaderQuery } from '../../../data/headers/header-filter';
+import { type HeaderNameCase, formatHeaderName } from '../../../data/headers/header-name-case';
 import type { InspectorRowWithFires } from '../../../data/inspector-row-projection';
 import { formatHeadersBlock, formatCurl, formatFetch } from '../../../data/request-formatters';
 import type { RulesByUid } from '../../../data/use-rules-lookup';

@@ -9,8 +9,8 @@
  * this identical legend over the same {@link TimingLadder}, so they can't drift.
  */
 
-import { formatTimeMs } from '../../data/format-time';
-import type { TimingLadder } from '../../data/timing-ladder';
+import { formatTimeMs } from '../../data/timing/format-time';
+import type { TimingLadder } from '../../data/timing/timing-ladder';
 import {
   absentText,
   BAND_ORDER,
@@ -18,7 +18,7 @@ import {
   isWarmSocketConnect,
   ladderFootnotes,
   WARM_SOCKET_TITLE,
-} from '../../data/timing-popover-model';
+} from '../../data/timing/timing-popover-model';
 import { TimingNotesInfo, TimingRungInfo } from './TimingRungInfo';
 
 export function TimingLadderLegend({ ladder, spec }: { ladder: TimingLadder; spec?: ExplainSpec | null }) {

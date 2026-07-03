@@ -1,6 +1,6 @@
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarEntry } from '@openheaders/core/types';
-import { computeRepeatStats } from '@openheaders/ui/panel/data/timing-repeats';
+import { computeRepeatStats } from '@openheaders/ui/panel/data/timing/timing-repeats';
 import { describe, expect, it } from 'vitest';
 
 let _counter = 0;

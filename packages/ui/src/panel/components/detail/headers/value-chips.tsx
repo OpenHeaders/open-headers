@@ -6,7 +6,7 @@ import {
   parseContentType,
   parseHsts,
   parseSetCookie,
-} from '../../../data/header-value-introspection';
+} from '../../../data/headers/header-value-introspection';
 import { humanSec } from './utils';
 
 /**

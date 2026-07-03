@@ -9,9 +9,13 @@
 
 import type { InspectorHarEntry } from '@openheaders/core/types';
 import { WaterfallTimingPopover } from '@openheaders/ui/panel/components/traffic/WaterfallTimingPopover';
-import { noResponseTerminal } from '@openheaders/ui/panel/data/row-timing-ladder';
-import { computeTimingLadder, type LadderContext, type TimingLadder } from '@openheaders/ui/panel/data/timing-ladder';
-import { computeRawTimingLadder } from '@openheaders/ui/panel/data/timing-ladder-raw';
+import { noResponseTerminal } from '@openheaders/ui/panel/data/timing/row-timing-ladder';
+import {
+  computeTimingLadder,
+  type LadderContext,
+  type TimingLadder,
+} from '@openheaders/ui/panel/data/timing/timing-ladder';
+import { computeRawTimingLadder } from '@openheaders/ui/panel/data/timing/timing-ladder-raw';
 import { render } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { makeHar, makeRow } from '../../__factories__/lifecycle';
@@ -49,9 +53,36 @@ function header(c: HTMLElement): string {
   return c.querySelector('.dt-waterfall-pop-start')?.textContent ?? '';
 }
 
-const NORMAL: Timings = { blocked: 15, _blocked_queueing: 10, dns: 20, connect: 65, ssl: 30, send: 5, wait: 100, receive: 40 };
-const REUSED: Timings = { blocked: 0.3, _blocked_queueing: 0, dns: -1, connect: -1, ssl: -1, send: 0.3, wait: 45, receive: 12 };
-const BLOCKED: Timings = { blocked: 1.98, _blocked_queueing: 0, dns: -1, connect: -1, ssl: -1, send: 0, wait: 0, receive: 0 };
+const NORMAL: Timings = {
+  blocked: 15,
+  _blocked_queueing: 10,
+  dns: 20,
+  connect: 65,
+  ssl: 30,
+  send: 5,
+  wait: 100,
+  receive: 40,
+};
+const REUSED: Timings = {
+  blocked: 0.3,
+  _blocked_queueing: 0,
+  dns: -1,
+  connect: -1,
+  ssl: -1,
+  send: 0.3,
+  wait: 45,
+  receive: 12,
+};
+const BLOCKED: Timings = {
+  blocked: 1.98,
+  _blocked_queueing: 0,
+  dns: -1,
+  connect: -1,
+  ssl: -1,
+  send: 0,
+  wait: 0,
+  receive: 0,
+};
 
 const ALL_EIGHT = [
   'Queueing',
@@ -75,7 +106,12 @@ describe('WaterfallTimingPopover — always the full ladder', () => {
       for (const trigger of Array.from(clone.querySelectorAll('.oh-info-trigger'))) trigger.remove();
       return clone.textContent ?? '';
     });
-    expect(heads).toEqual(['Key moments(since the first request)', 'Scheduling(Browser)', 'Connecting(Browser ↔ Network)', 'Transferring(Network)']);
+    expect(heads).toEqual([
+      'Key moments(since the first request)',
+      'Scheduling(Browser)',
+      'Connecting(Browser ↔ Network)',
+      'Transferring(Network)',
+    ]);
   });
 
   it('shows real instants and the honest TCP value for a normal request', () => {
@@ -121,7 +157,16 @@ describe('WaterfallTimingPopover — explain', () => {
 
 describe('WaterfallTimingPopover — warm socket (TCP 0µs, TLS ran)', () => {
   // react-core: connect == ssl → TCP 0µs but a real TLS handshake.
-  const WARM: Timings = { blocked: 0, _blocked_queueing: 0, dns: 0, connect: 12.179, ssl: 12.179, send: 0.2, wait: 117, receive: 0.7 };
+  const WARM: Timings = {
+    blocked: 0,
+    _blocked_queueing: 0,
+    dns: 0,
+    connect: 12.179,
+    ssl: 12.179,
+    send: 0.2,
+    wait: 117,
+    receive: 0.7,
+  };
 
   const tcpRow = (c: HTMLElement) => rowFor(c, 'TCP');
 
@@ -148,7 +193,13 @@ describe('WaterfallTimingPopover — warm socket (TCP 0µs, TLS ran)', () => {
 describe('WaterfallTimingPopover — reused connection', () => {
   it('marks the setup rungs reused and attributes the opener', () => {
     const { container } = render(
-      <WaterfallTimingPopover ladder={ladderOf(REUSED)} metric="duration" queuedAtMs={0} explain={false} reusedOpener="crypto.com" />,
+      <WaterfallTimingPopover
+        ladder={ladderOf(REUSED)}
+        metric="duration"
+        queuedAtMs={0}
+        explain={false}
+        reusedOpener="crypto.com"
+      />,
     );
     expect(valueOf(container, 'DNS Lookup')).toBe('connection reused');
     expect(valueOf(container, 'TCP')).toBe('connection reused');
@@ -214,7 +265,11 @@ describe('noResponseTerminal', () => {
         phase: 'failed',
         completedAtMs: 9100,
         error: { code: 'net::ERR_NAME_NOT_RESOLVED', reason: 'DNS failed' },
-        harOverrides: { status: 0, statusText: '', timings: { blocked: 2, _blocked_queueing: 0, dns: 50, connect: -1, ssl: -1, send: 0, wait: 0, receive: 0 } },
+        harOverrides: {
+          status: 0,
+          statusText: '',
+          timings: { blocked: 2, _blocked_queueing: 0, dns: 50, connect: -1, ssl: -1, send: 0, wait: 0, receive: 0 },
+        },
       },
       { reachedResponse: false },
     );
@@ -225,7 +280,10 @@ describe('noResponseTerminal', () => {
   });
 
   it('does not mark a request that reached a response', () => {
-    const { row, ladder } = rowAndLadder({ completedAtMs: 9100, harOverrides: { timings: NORMAL } }, { reachedResponse: true });
+    const { row, ladder } = rowAndLadder(
+      { completedAtMs: 9100, harOverrides: { timings: NORMAL } },
+      { reachedResponse: true },
+    );
     expect(noResponseTerminal(row, ladder)).toBeUndefined();
   });
 });

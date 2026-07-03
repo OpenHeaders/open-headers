@@ -1,5 +1,5 @@
-import type { ElapsedRung, TimingInsight } from '@openheaders/ui/panel/data/timing-insight';
-import { computeTransferRate, findBottleneck, findWarnings } from '@openheaders/ui/panel/data/timing-insight';
+import type { ElapsedRung, TimingInsight } from '@openheaders/ui/panel/data/timing/timing-insight';
+import { computeTransferRate, findBottleneck, findWarnings } from '@openheaders/ui/panel/data/timing/timing-insight';
 import { describe, expect, it } from 'vitest';
 
 function phase(key: ElapsedRung['key'], ms: number): ElapsedRung {

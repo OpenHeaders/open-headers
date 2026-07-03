@@ -1,6 +1,6 @@
 import { waterfallSortValue } from '@openheaders/ui/panel/data/network-columns';
-import { rowTimingLadder } from '@openheaders/ui/panel/data/row-timing-ladder';
-import type { TimingLadder, TimingRungKey } from '@openheaders/ui/panel/data/timing-ladder';
+import { rowTimingLadder } from '@openheaders/ui/panel/data/timing/row-timing-ladder';
+import type { TimingLadder, TimingRungKey } from '@openheaders/ui/panel/data/timing/timing-ladder';
 import { describe, expect, it } from 'vitest';
 import { makeRow } from '../__factories__/lifecycle';
 

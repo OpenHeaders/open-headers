@@ -8,8 +8,8 @@
  * renderers add no timing math of their own.
  */
 
+import type { WaterfallMetric } from '../network-columns';
 import { formatTimeMs } from './format-time';
-import type { WaterfallMetric } from './network-columns';
 import type { RungState, TimingBand, TimingLadder, TimingRungKey } from './timing-ladder';
 
 /**

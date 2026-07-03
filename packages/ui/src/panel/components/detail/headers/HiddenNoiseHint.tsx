@@ -1,6 +1,6 @@
 import { Popover } from 'antd';
-import type { AnnotatedHeader } from '../../../data/header-attribution';
-import type { HeaderRowMeta } from '../../../data/header-filter';
+import type { AnnotatedHeader } from '../../../data/headers/header-attribution';
+import type { HeaderRowMeta } from '../../../data/headers/header-filter';
 
 export type RowItem = { row: AnnotatedHeader; meta: HeaderRowMeta; originalIndex: number };
 

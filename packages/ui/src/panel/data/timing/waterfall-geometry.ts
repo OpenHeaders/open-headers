@@ -19,10 +19,10 @@
  */
 
 import type { Page } from '@openheaders/core/page-stream';
+import type { InspectorRowWithFires } from '../inspector-row-projection';
+import { timelineEndMs, type WaterfallMetric, waterfallSortValue, waterfallStartMs } from '../network-columns';
 import { formatFooterDuration } from './footer-timing';
 import { formatClock, formatTimeMs } from './format-time';
-import type { InspectorRowWithFires } from './inspector-row-projection';
-import { timelineEndMs, type WaterfallMetric, waterfallSortValue, waterfallStartMs } from './network-columns';
 import type { TimingLadder } from './timing-ladder';
 
 /** A bar never collapses below this width (% of column) so it stays visible. */

@@ -10,10 +10,10 @@
  * timing math of its own.
  */
 
-import { formatTimeMs } from '../../data/format-time';
+import { formatTimeMs } from '../../data/timing/format-time';
 import type { WaterfallMetric } from '../../data/network-columns';
-import type { TimingLadder } from '../../data/timing-ladder';
-import { explainSpec, type WaterfallTerminal } from '../../data/timing-popover-model';
+import type { TimingLadder } from '../../data/timing/timing-ladder';
+import { explainSpec, type WaterfallTerminal } from '../../data/timing/timing-popover-model';
 import { HorizontalTimingChart } from './HorizontalTimingChart';
 import { TimingLadderLegend } from './TimingLadderLegend';
 import { TimingKeyMomentsInfo } from './TimingRungInfo';

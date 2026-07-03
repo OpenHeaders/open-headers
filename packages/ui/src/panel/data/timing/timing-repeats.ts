@@ -8,7 +8,7 @@
  */
 
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
-import { currentHarEntry } from './inspector-row-projection';
+import { currentHarEntry } from '../inspector-row-projection';
 
 export interface RepeatStats {
   /** Total occurrences of this URL in the current session, including the selected one. */

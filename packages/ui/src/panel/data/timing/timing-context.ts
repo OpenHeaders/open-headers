@@ -12,10 +12,10 @@
  */
 
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
-import type { ConnectionReuseInfo } from './connection-reuse';
-import { formatHttpVersion } from './http-version';
-import { currentHarEntry } from './inspector-row-projection';
-import { classifyRequestState, type RequestState } from './request-state';
+import type { ConnectionReuseInfo } from '../connection-reuse';
+import { formatHttpVersion } from '../http-version';
+import { currentHarEntry } from '../inspector-row-projection';
+import { classifyRequestState, type RequestState } from '../request-state';
 
 export type CacheLabel = 'miss' | 'memory cache' | 'disk cache' | 'service worker';
 

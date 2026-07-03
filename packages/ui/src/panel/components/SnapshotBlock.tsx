@@ -12,7 +12,7 @@
 import type { HeaderModification, Rule, RuleSnapshotHeaderMod } from '@openheaders/core/types';
 import { theme } from 'antd';
 import type { GlobalToken } from 'antd/es/theme/interface';
-import type { HeaderAttribution, RuleAttributionContext } from '../data/header-attribution';
+import type { HeaderAttribution, RuleAttributionContext } from '../data/headers/header-attribution';
 import type { RuleApplicability } from '../data/rule-applicability';
 import { ResolvedHeaderValue } from './ResolvedHeaderValue';
 import {

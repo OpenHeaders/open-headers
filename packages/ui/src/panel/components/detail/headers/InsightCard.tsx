@@ -1,4 +1,4 @@
-import type { HeaderInsight, HeaderInsightAction } from '../../../data/header-insights';
+import type { HeaderInsight, HeaderInsightAction } from '../../../data/headers/header-insights';
 
 export function InsightCard({
   insight,
