@@ -358,6 +358,7 @@ export function QuickEditorShell({
           flexShrink: 0,
           padding: '10px 12px 12px',
           gap: 8,
+          borderTop: `1px solid ${token.colorBorderSecondary}`,
         }}
       >
         <Button
