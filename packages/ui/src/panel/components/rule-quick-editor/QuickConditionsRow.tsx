@@ -7,12 +7,12 @@
  * banners the Rule Editor shows, so everything a rule matches on is
  * editable without leaving the devtools window.
  *
- * The expanded editor is wrapped in a scoped `ConfigProvider`:
- * `fontSize: 12` matches the popover's type scale (same treatment as
- * the destination selects), and `zIndexPopupBase: 1040` lifts every
- * antd popup the editor spawns — Select dropdowns land at 1090
- * (SelectLike offset +50), above the popover shell's 1080, without
- * threading `dropdownStyle` through the workbench component.
+ * The expanded editor is wrapped in a scoped `ConfigProvider` with
+ * `fontSize: 12` to match the popover's type scale (same treatment as
+ * the destination selects). Its Select dropdowns and tooltips need no
+ * z-index plumbing: they portal to `document.body`, OUTSIDE the panel
+ * root's isolated stacking context, so they paint above the popover
+ * (whose 1080 is local to that context) by stacking-order alone.
  */
 
 import { DownOutlined, RightOutlined } from '@ant-design/icons';
@@ -76,7 +76,7 @@ export function QuickConditionsRow({ value, onChange }: QuickConditionsRowProps)
         </span>
       </button>
       {open && (
-        <ConfigProvider theme={{ token: { fontSize: 12, zIndexPopupBase: 1040 } }}>
+        <ConfigProvider theme={{ token: { fontSize: 12 } }}>
           <div style={{ marginTop: 6 }}>
             <ConditionEditor value={value} onChange={onChange} />
           </div>

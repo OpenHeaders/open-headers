@@ -47,6 +47,17 @@
   z-index: 1100;
 }
 
+/* Info popovers portalled INTO the panel root (the container resolver in
+ * App.tsx) share the quick-editor popovers' stacking context. AntD's
+ * top-level popups carry only the stylesheet default (`.ant-popover` =
+ * 1030), which loses to the quick editor's 1080 — a docs `(i)` clicked
+ * inside a popover painted BEHIND it. Lift above the quick editors
+ * (1080) but below the status bar (1100), which by design covers any
+ * popover that grazes it. */
+.dt-panel-root .oh-info-popover-overlay {
+  z-index: 1090;
+}
+
 /* Chrome-style vertical dividers between the footer's metric items. Scoped to
  * the panel footer's left (data) group — the right group keeps its own explicit
  * dividers, and the first item has no leading divider. The 14px container gap is
