@@ -23,11 +23,11 @@ export type RedirectRuleSeed = Omit<RedirectRule, 'uid' | 'path' | 'schemaVersio
 export type DelayRuleSeed = Omit<DelayRule, 'uid' | 'path' | 'schemaVersion'>;
 export type BlockRuleSeed = Omit<BlockRule, 'uid' | 'path' | 'schemaVersion'>;
 
-/** Which CTA opened a URL-action create session. The three redirect
+/** Which CTA opened a URL-action create session. The two redirect
  *  variants share a rule type but seed different targets (and name
  *  themselves differently), so the variant — not the type — is the
  *  per-request session discriminator. */
-export type RedirectCreateVariant = 'redirect' | 'replace-host' | 'replace-url-part';
+export type RedirectCreateVariant = 'redirect' | 'replace-host';
 export type UrlCreateVariant = RedirectCreateVariant | 'delay' | 'block';
 
 // ── Redirect ────────────────────────────────────────────────────────
@@ -36,19 +36,32 @@ export interface RedirectQuickDraft {
   redirectTo: string;
 }
 
+function domainVarName(prefix: string, url: string): string | null {
+  const domain = domainFolderName(url);
+  if (!domain) return null;
+  return `${prefix}_${domain.replace(/[^a-zA-Z0-9]+/g, '_')}`;
+}
+
 /** Domain-scoped variable name for the plain Redirect URL variant's
  *  seed — `redirect_url_openheaders_io` — so redirect targets are
  *  reusable per domain and don't collide across rules for other sites. */
 export function redirectVarName(url: string): string | null {
-  const domain = domainFolderName(url);
-  if (!domain) return null;
-  return `redirect_url_${domain.replace(/[^a-zA-Z0-9]+/g, '_')}`;
+  return domainVarName('redirect_url', url);
 }
 
-/** Seed the editable field from the captured draft. The Replace host /
- *  Replace URL part variants carry their pre-built target; the plain
- *  Redirect URL variant (empty target) seeds a `{{redirect_url_<domain>}}`
- *  reference instead — if the variable already exists it resolves
+/** Domain-scoped variable name for the Replace host variant's seed —
+ *  `new_host_openheaders_io` — so every replace-host rule for a domain
+ *  shares one retargetable host variable. */
+export function newHostVarName(url: string): string | null {
+  return domainVarName('new_host', url);
+}
+
+/** Seed the editable field from the captured draft. An empty target
+ *  seeds a domain-scoped variable reference per variant — the plain
+ *  Redirect URL variant as the whole target (`{{redirect_url_<domain>}}`),
+ *  Replace host as the host slot of the captured URL
+ *  (`https://{{new_host_<domain>}}/path?query`) so path and query are
+ *  preserved verbatim. If the variable already exists it resolves
  *  immediately (reuse), otherwise the popover's save gate holds until
  *  the user creates it via the reference's create flow. */
 export function seedRedirectQuickDraft(
@@ -56,9 +69,21 @@ export function seedRedirectQuickDraft(
   variant: RedirectCreateVariant = 'redirect',
 ): RedirectQuickDraft {
   const captured = draft.redirectTo ?? '';
-  if (variant === 'redirect' && !captured) {
+  if (captured) return { redirectTo: captured };
+  if (variant === 'redirect') {
     const varName = redirectVarName(draft.url ?? '');
     if (varName) return { redirectTo: `{{${varName}}}` };
+  }
+  if (variant === 'replace-host') {
+    const varName = newHostVarName(draft.url ?? '');
+    if (varName) {
+      try {
+        const u = new URL(draft.url ?? '');
+        return { redirectTo: `${u.protocol}//{{${varName}}}${u.pathname}${u.search}${u.hash}` };
+      } catch {
+        // non-URL captures fall through to the empty seed
+      }
+    }
   }
   return { redirectTo: captured };
 }

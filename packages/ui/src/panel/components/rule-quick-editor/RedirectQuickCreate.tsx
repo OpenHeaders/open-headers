@@ -1,8 +1,8 @@
 /**
  * RedirectQuickCreate — the redirect create-mode body of the shared
  * `QuickEditorShell`. Opened from the Headers tab's Redirect URL /
- * Replace host / Replace URL part CTAs — the three variants differ only
- * in the seeded target (`rule-draft-bridge`). Save mints the rule AND
+ * Replace host CTAs — the two variants differ only in the seeded
+ * target (`url-rule-create`). Save mints the rule AND
  * publishes it in one gesture into the workspace's first collection;
  * the footer link hands the CURRENT draft state off to the workbench
  * for full options (regex conditions, local-file target, …).
@@ -63,8 +63,7 @@ export function RedirectQuickCreate({
   const { rules } = useRules();
   const strategy = useSettingValue('rulesEngine.draftUrlStrategy');
 
-  const redirectVariant: RedirectCreateVariant =
-    variant === 'replace-host' || variant === 'replace-url-part' ? variant : 'redirect';
+  const redirectVariant: RedirectCreateVariant = variant === 'replace-host' ? variant : 'redirect';
 
   // Pre-filled from the capture; editable via the shell's title.
   const [name, setName] = useState(() =>

@@ -79,7 +79,10 @@ export interface HeadersViewProps {
    *  does need a callback per CTA so the parent can seed each variant. */
   onCreateRedirect: (anchorEl: HTMLElement) => void;
   onCreateReplaceHost: (anchorEl: HTMLElement) => void;
-  onCreateReplaceUrlPart: (anchorEl: HTMLElement) => void;
+  /** Open the query-param override popover — surfaced here (not just the
+   *  Payload tab) because the query string is part of the URL the user is
+   *  looking at, and the CTA scaffolds even when the request has none. */
+  onOverrideQueryParams: (anchorEl: HTMLElement) => void;
   onCreateDelay: (anchorEl: HTMLElement) => void;
   onCreateCancel: (anchorEl: HTMLElement) => void;
   searchHighlight?: string;
@@ -98,7 +101,7 @@ export function HeadersView({
   onOverrideHeader,
   onCreateRedirect,
   onCreateReplaceHost,
-  onCreateReplaceUrlPart,
+  onOverrideQueryParams,
   onCreateDelay,
   onCreateCancel,
   searchHighlight,
@@ -258,8 +261,8 @@ export function HeadersView({
         <button type="button" className="dt-btn dt-btn-primary" onClick={(e) => onCreateReplaceHost(e.currentTarget)} title="Redirect, keeping path and query but swapping the host">
           Replace host
         </button>
-        <button type="button" className="dt-btn dt-btn-primary" onClick={(e) => onCreateReplaceUrlPart(e.currentTarget)} title="Redirect with the URL pre-filled — edit any segment">
-          Replace URL part
+        <button type="button" className="dt-btn dt-btn-primary" onClick={(e) => onOverrideQueryParams(e.currentTarget)} title="Add, replace or remove this request's query parameters">
+          Override query params
         </button>
         <button type="button" className="dt-btn dt-btn-primary" onClick={(e) => onCreateDelay(e.currentTarget)} title="Delay this request">
           Delay request

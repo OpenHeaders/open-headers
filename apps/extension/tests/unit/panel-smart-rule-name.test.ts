@@ -18,9 +18,6 @@ describe('generateSmartRuleName — per-kind formulas', () => {
   it('names URL-action rules from host + path', () => {
     expect(generateSmartRuleName({ kind: 'redirect', url: URL }, [])).toBe('Redirect api.openheaders.io/v1/users');
     expect(generateSmartRuleName({ kind: 'replace-host', url: URL }, [])).toBe('Replace host · api.openheaders.io');
-    expect(generateSmartRuleName({ kind: 'replace-url-part', url: URL }, [])).toBe(
-      'Replace URL api.openheaders.io/v1/users',
-    );
     expect(generateSmartRuleName({ kind: 'delay', url: URL }, [])).toBe('Delay api.openheaders.io/v1/users');
     expect(generateSmartRuleName({ kind: 'block', url: URL }, [])).toBe('Block api.openheaders.io/v1/users');
   });

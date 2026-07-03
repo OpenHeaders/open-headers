@@ -31,9 +31,7 @@ import {
   buildDelayDraftFromRequest,
   buildHeaderDraftFromRequest,
   buildRedirectDraftFromRequest,
-  buildReplaceHostDraftFromRequest,
   buildQueryParamDraftFromRequest,
-  buildReplaceUrlPartDraftFromRequest,
   buildRequestBodyDraftFromRequest,
   buildResponseDraftFromRequest,
 } from '../data/rule-draft-bridge';
@@ -359,9 +357,7 @@ export function InspectorDetailContent({
   const createRedirect = (anchorEl: HTMLElement): void =>
     openUrlCreate(buildRedirectDraftFromRequest(lc), 'redirect', anchorEl);
   const createReplaceHost = (anchorEl: HTMLElement): void =>
-    openUrlCreate(buildReplaceHostDraftFromRequest(lc), 'replace-host', anchorEl);
-  const createReplaceUrlPart = (anchorEl: HTMLElement): void =>
-    openUrlCreate(buildReplaceUrlPartDraftFromRequest(lc), 'replace-url-part', anchorEl);
+    openUrlCreate(buildRedirectDraftFromRequest(lc), 'replace-host', anchorEl);
   const createDelay = (anchorEl: HTMLElement): void => openUrlCreate(buildDelayDraftFromRequest(lc), 'delay', anchorEl);
   const createCancel = (anchorEl: HTMLElement): void =>
     openUrlCreate(buildBlockDraftFromRequest(lc), 'block', anchorEl);
@@ -467,7 +463,7 @@ export function InspectorDetailContent({
             onOverrideHeader={overrideHeader}
             onCreateRedirect={createRedirect}
             onCreateReplaceHost={createReplaceHost}
-            onCreateReplaceUrlPart={createReplaceUrlPart}
+            onOverrideQueryParams={createOverrideQueryParams}
             onCreateDelay={createDelay}
             onCreateCancel={createCancel}
             searchHighlight={searchHighlight}

@@ -15,6 +15,7 @@ import {
   buildRedirectRuleSeed,
   mergeQuickIntoDelayDraft,
   mergeQuickIntoRedirectDraft,
+  newHostVarName,
   redirectVarName,
   seedDelayQuickDraft,
   seedRedirectQuickDraft,
@@ -35,14 +36,16 @@ function makeBlockDraft(over: Partial<BlockRuleDraft> = {}): BlockRuleDraft {
   return { type: 'block', url: URL, ...over };
 }
 
-describe('redirectVarName', () => {
+describe('redirectVarName / newHostVarName', () => {
   it('derives a domain-scoped variable name', () => {
     expect(redirectVarName(URL)).toBe('redirect_url_openheaders_io');
     expect(redirectVarName('http://localhost:5173/')).toBe('redirect_url_localhost');
+    expect(newHostVarName(URL)).toBe('new_host_openheaders_io');
   });
 
   it('returns null when the URL yields no domain', () => {
     expect(redirectVarName('not a url')).toBeNull();
+    expect(newHostVarName('not a url')).toBeNull();
   });
 });
 
@@ -59,13 +62,16 @@ describe('seedRedirectQuickDraft', () => {
     });
   });
 
-  it('keeps the pre-built target for the replace variants', () => {
-    expect(seedRedirectQuickDraft(makeRedirectDraft(), 'replace-url-part')).toEqual({
+  it('seeds the host variable in the host slot for the Replace host variant', () => {
+    expect(seedRedirectQuickDraft(makeRedirectDraft({ redirectTo: undefined }), 'replace-host')).toEqual({
+      redirectTo: 'https://{{new_host_openheaders_io}}/v1/users?page=2',
+    });
+  });
+
+  it('keeps a pre-built target untouched for any variant', () => {
+    expect(seedRedirectQuickDraft(makeRedirectDraft(), 'replace-host')).toEqual({
       redirectTo: 'https://staging.openheaders.io/v1/users?page=2',
     });
-    expect(
-      seedRedirectQuickDraft(makeRedirectDraft({ redirectTo: 'https://NEW_HOST/v1/users?page=2' }), 'replace-host'),
-    ).toEqual({ redirectTo: 'https://NEW_HOST/v1/users?page=2' });
   });
 
   it('seeds empty when the URL yields no variable name', () => {

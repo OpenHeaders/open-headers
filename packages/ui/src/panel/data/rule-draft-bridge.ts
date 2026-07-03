@@ -25,8 +25,6 @@ import type {
 } from '@openheaders/core/types';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 
-const HOST_PLACEHOLDER = 'NEW_HOST';
-
 /** Build a RuleDraft for a header rule pre-filled from a lifecycle. */
 export function buildHeaderDraftFromRequest(
   lc: RequestLifecycle,
@@ -51,30 +49,11 @@ export function buildHeaderDraftFromRequest(
 }
 
 /** Build a draft for a redirect rule pointing at the SAME url — the
- *  editor's redirectTo field opens empty for the user to fill. */
+ *  redirectTo field opens empty so the popover's variant-aware seeding
+ *  (`seedRedirectQuickDraft`) injects the domain-scoped variable
+ *  reference for both the Redirect URL and Replace host CTAs. */
 export function buildRedirectDraftFromRequest(lc: RequestLifecycle): RedirectRuleDraft {
   return { type: 'redirect', url: lc.url, redirectTo: '' };
-}
-
-/** Build a "replace host" redirect — preserves path/query but swaps
- *  the host for a clearly-marked placeholder so the user only has to
- *  replace one chunk. */
-export function buildReplaceHostDraftFromRequest(lc: RequestLifecycle): RedirectRuleDraft {
-  let target = lc.url;
-  try {
-    const u = new URL(lc.url);
-    u.host = HOST_PLACEHOLDER;
-    target = u.toString();
-  } catch {
-    // leave target as-is for non-URL values
-  }
-  return { type: 'redirect', url: lc.url, redirectTo: target };
-}
-
-/** Build a "replace URL part" redirect — copies the URL into the target
- *  verbatim, so the user can edit any segment in place. */
-export function buildReplaceUrlPartDraftFromRequest(lc: RequestLifecycle): RedirectRuleDraft {
-  return { type: 'redirect', url: lc.url, redirectTo: lc.url };
 }
 
 export function buildDelayDraftFromRequest(lc: RequestLifecycle, delayMs = 1000): DelayRuleDraft {

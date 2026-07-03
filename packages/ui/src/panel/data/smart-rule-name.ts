@@ -15,7 +15,6 @@ import { uniqueName } from '@openheaders/ui/shared/naming';
 export type SmartNameKind =
   | 'redirect'
   | 'replace-host'
-  | 'replace-url-part'
   | 'delay'
   | 'block'
   | 'header'
@@ -37,7 +36,6 @@ export interface SmartNameInput {
 const FALLBACK_BASE: Record<SmartNameKind, string> = {
   redirect: 'New Redirect Rule',
   'replace-host': 'New Redirect Rule',
-  'replace-url-part': 'New Redirect Rule',
   delay: 'New Delay Rule',
   block: 'New Block Rule',
   header: 'New Header Rule',
@@ -76,8 +74,6 @@ function baseName(input: SmartNameInput): string {
       return `Redirect ${hostPath}`;
     case 'replace-host':
       return `Replace host · ${parts.host}`;
-    case 'replace-url-part':
-      return `Replace URL ${hostPath}`;
     case 'delay':
       return `Delay ${hostPath}`;
     case 'block':
