@@ -17,3 +17,19 @@
 .dt-quick-rule-title:hover {
   background: var(--dt-row-hover);
 }
+
+/* The destination row's collapsed "Saving to …" toggle — same wash so
+   the whole row reads clickable before the first expand. */
+.dt-quick-dest-toggle {
+  background: none;
+  border: none;
+  border-radius: 4px;
+  padding: 2px 4px;
+  margin: -2px -4px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.dt-quick-dest-toggle:hover {
+  background: var(--dt-row-hover);
+}

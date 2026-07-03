@@ -51,6 +51,7 @@ export function QuickDestinationRow({ api }: { api: QuickCreateDestinationApi })
     <div style={{ marginTop: 8 }}>
       <button
         type="button"
+        className="dt-quick-dest-toggle"
         onClick={() => setOpen((v) => !v)}
         title="Choose where the rule is saved"
         style={{
@@ -58,10 +59,6 @@ export function QuickDestinationRow({ api }: { api: QuickCreateDestinationApi })
           alignItems: 'center',
           gap: 4,
           width: '100%',
-          background: 'none',
-          border: 'none',
-          padding: 0,
-          cursor: 'pointer',
           fontSize: 11,
           color: token.colorTextSecondary,
           minWidth: 0,
