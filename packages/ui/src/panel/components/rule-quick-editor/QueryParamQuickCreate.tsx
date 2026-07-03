@@ -143,6 +143,10 @@ export function QueryParamQuickCreate({
               <div style={{ flex: 1, minWidth: 0 }}>
                 <TemplateInput
                   size="small"
+                  wrap
+                  maxRows={4}
+                  resizable
+                  allowClear
                   value={row.param}
                   onChange={(v) => updateRow(row.uid, { param: v })}
                   placeholder="Param Name"
@@ -153,6 +157,10 @@ export function QueryParamQuickCreate({
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <TemplateInput
                     size="small"
+                    wrap
+                    maxRows={4}
+                    resizable
+                    allowClear
                     value={row.value}
                     onChange={(v) => updateRow(row.uid, { value: v })}
                     placeholder="Param Value"

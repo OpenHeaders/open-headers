@@ -117,6 +117,9 @@ export function RequestBodyQuickCreate({
       <div style={fieldLabelStyle}>Request Body</div>
       <TemplateInput
         multiline
+        maxRows={12}
+        resizable
+        allowClear
         value={quick.requestBody}
         onChange={(v) => setQuick({ requestBody: v })}
         placeholder={'{"query": "…", "variables": {}}'}
@@ -124,7 +127,6 @@ export function RequestBodyQuickCreate({
         style={{
           width: '100%',
           minHeight: 120,
-          maxHeight: 240,
           fontFamily: token.fontFamilyCode,
           fontSize: 12,
         }}

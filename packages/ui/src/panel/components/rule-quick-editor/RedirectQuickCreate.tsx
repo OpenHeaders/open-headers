@@ -130,13 +130,16 @@ export function RedirectQuickCreate({
       <div style={{ width: '100%', minWidth: 0 }}>
         <TemplateInput
           size="small"
-          multiline
+          wrap
+          maxRows={4}
+          resizable
+          allowClear
           value={quick.redirectTo}
           onChange={(v) => setQuick({ redirectTo: v })}
           placeholder="e.g. https://openheaders.io/redirected"
           suggestionContext={{ collectionId }}
           flagUnresolved
-          style={{ width: '100%', maxHeight: 'var(--oh-multiline-cap, 96px)', minHeight: 32 }}
+          style={{ width: '100%' }}
         />
       </div>
       {trimmedTarget && !targetResolves ? (

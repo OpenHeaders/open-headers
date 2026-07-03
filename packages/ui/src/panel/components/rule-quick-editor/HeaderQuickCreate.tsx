@@ -138,6 +138,10 @@ export function HeaderQuickCreate({
         <div style={{ flex: 1, minWidth: 0 }}>
           <TemplateInput
             size="small"
+            wrap
+            maxRows={4}
+            resizable
+            allowClear
             value={quick.headerName}
             onChange={(v) => updateQuick({ headerName: v })}
             placeholder="Header Name"
@@ -169,12 +173,15 @@ export function HeaderQuickCreate({
         <div style={{ marginTop: 6, width: '100%', minWidth: 0 }}>
           <TemplateInput
             size="small"
-            multiline
+            wrap
+            maxRows={4}
+            resizable
+            allowClear
             value={quick.value}
             onChange={(v) => updateQuick({ value: v })}
             placeholder={quick.operation === 'merge' ? 'Value to append' : 'Header Value'}
             suggestionContext={{ collectionId }}
-            style={{ width: '100%', maxHeight: 'var(--oh-multiline-cap, 96px)', minHeight: 32 }}
+            style={{ width: '100%' }}
           />
         </div>
       )}

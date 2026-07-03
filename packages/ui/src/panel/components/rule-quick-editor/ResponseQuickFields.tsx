@@ -95,6 +95,9 @@ export function ResponseQuickFields({ draft, updateDraft, entityUid, collectionI
           RULE_FIELD.responseBody,
           <TemplateInput
             multiline
+            maxRows={12}
+            resizable
+            allowClear
             value={draft.responseBody}
             onChange={(v) => updateDraft({ responseBody: v })}
             placeholder={'{"message": "custom response", "data": []}'}
@@ -102,7 +105,6 @@ export function ResponseQuickFields({ draft, updateDraft, entityUid, collectionI
             style={{
               width: '100%',
               minHeight: 120,
-              maxHeight: 240,
               fontFamily: token.fontFamilyCode,
               fontSize: 12,
             }}

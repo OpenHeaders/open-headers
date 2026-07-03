@@ -18,7 +18,7 @@
  * mod editor (`RuleHoverPopover`) is the first plug-in body.
  */
 
-import { SaveOutlined } from '@ant-design/icons';
+import { CloseCircleFilled, SaveOutlined } from '@ant-design/icons';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Rule } from '@openheaders/core/types';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
@@ -118,7 +118,14 @@ export function QuickEditorShell({
   // Create-mode rename: the title flips to an input on click; Enter or
   // blur commits (empty reverts), Escape cancels. Newlines can only
   // arrive via paste (the field swallows Enter) — flatten them.
+  // Controlled while editing so the embedded clear ✕ can empty the
+  // field in place and knows when to render.
   const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
+  const startEditingName = () => {
+    setNameDraft(ruleName);
+    setEditingName(true);
+  };
   const commitName = (raw: string) => {
     const next = raw.replace(/\s*\n\s*/g, ' ').trim();
     if (next && next !== ruleName) onRuleNameChange?.(next);
@@ -214,46 +221,67 @@ export function QuickEditorShell({
           // A single-line no-wrap textarea, not an <input>: inputs can't
           // paint a scrollbar, so a long name would only be reachable by
           // caret-scrubbing. This shows the panel's thin horizontal bar
-          // (shared `.dt-scrollbar`) when the name overflows.
-          <textarea
-            defaultValue={ruleName}
-            autoFocus
-            rows={1}
-            wrap="off"
-            spellCheck={false}
-            className="dt-scrollbar"
-            style={{
-              flex: 1,
-              minWidth: 0,
-              boxSizing: 'border-box',
-              height: 34,
-              padding: '3px 6px',
-              fontFamily: 'inherit',
-              fontWeight: 600,
-              fontSize: 13,
-              lineHeight: '18px',
-              whiteSpace: 'pre',
-              overflowX: 'auto',
-              overflowY: 'hidden',
-              resize: 'none',
-              border: `1px solid ${token.colorPrimary}`,
-              borderRadius: token.borderRadius,
-              background: token.colorBgContainer,
-              color: token.colorText,
-              outline: 'none',
-            }}
-            onFocus={(e) => e.currentTarget.select()}
-            onBlur={(e) => commitName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                commitName(e.currentTarget.value);
-              } else if (e.key === 'Escape') {
-                e.stopPropagation();
-                setEditingName(false);
-              }
-            }}
-          />
+          // (shared `.dt-scrollbar`) when the name overflows. Horizontal
+          // scroll ONLY — the title row never grows vertically; the
+          // embedded ✕ clears in place (blur/Enter on empty reverts).
+          <span style={{ position: 'relative', display: 'inline-flex', flex: 1, minWidth: 0 }}>
+            <textarea
+              value={nameDraft}
+              onChange={(e) => setNameDraft(e.target.value)}
+              autoFocus
+              rows={1}
+              wrap="off"
+              spellCheck={false}
+              className="dt-scrollbar"
+              style={{
+                flex: 1,
+                minWidth: 0,
+                boxSizing: 'border-box',
+                height: 34,
+                padding: '3px 22px 3px 6px',
+                fontFamily: 'inherit',
+                fontWeight: 600,
+                fontSize: 13,
+                lineHeight: '18px',
+                whiteSpace: 'pre',
+                overflowX: 'auto',
+                overflowY: 'hidden',
+                resize: 'none',
+                border: `1px solid ${token.colorPrimary}`,
+                borderRadius: token.borderRadius,
+                background: token.colorBgContainer,
+                color: token.colorText,
+                outline: 'none',
+              }}
+              onFocus={(e) => e.currentTarget.select()}
+              onBlur={(e) => commitName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  commitName(e.currentTarget.value);
+                } else if (e.key === 'Escape') {
+                  e.stopPropagation();
+                  setEditingName(false);
+                }
+              }}
+            />
+            {nameDraft.length > 0 && (
+              <CloseCircleFilled
+                aria-label="Clear rule name"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => setNameDraft('')}
+                style={{
+                  position: 'absolute',
+                  right: 6,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  fontSize: 12,
+                  color: token.colorTextQuaternary,
+                  cursor: 'pointer',
+                }}
+              />
+            )}
+          </span>
         ) : (
           <span
             style={{
@@ -267,7 +295,7 @@ export function QuickEditorShell({
               cursor: onRuleNameChange ? 'text' : undefined,
             }}
             title={onRuleNameChange ? `${ruleName} — click to rename` : ruleName}
-            onClick={onRuleNameChange ? () => setEditingName(true) : undefined}
+            onClick={onRuleNameChange ? startEditingName : undefined}
           >
             {ruleName}
           </span>
