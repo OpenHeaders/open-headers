@@ -45,7 +45,7 @@ export interface SearchTransport {
  * can be notified when the worker dies. Without this, a crash would
  * leave in-flight searches hanging forever. */
 export function createWorkerTransport(): SearchTransport {
-  const worker = new Worker(new URL('../workers/search.worker.ts', import.meta.url), {
+  const worker = new Worker(new URL('../../workers/search.worker.ts', import.meta.url), {
     type: 'module',
     name: 'openheaders-search',
   });
