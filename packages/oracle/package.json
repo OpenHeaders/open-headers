@@ -40,6 +40,10 @@
       "import": "./src/coordination/index.ts",
       "default": "./dist/coordination/index.js"
     },
+    "./entity/request-store": {
+      "import": "./src/entity/request-store/index.ts",
+      "default": "./dist/entity/request-store/index.js"
+    },
     "./entity/rule-store": {
       "import": "./src/entity/rule-store/index.ts",
       "default": "./dist/entity/rule-store/index.js"
