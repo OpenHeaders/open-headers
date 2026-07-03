@@ -9,6 +9,7 @@
 
 import { filterSuggestions, type SuggestionContext, type VariableSuggestion } from '@openheaders/core/variables';
 import { useVariableSuggestions } from '@openheaders/ui/shared/hooks/useVariableSuggestions';
+import { claimEscape } from '@openheaders/ui/shared/popover';
 import { useWorkspaces } from '@openheaders/ui/shared/hooks/useWorkspaces';
 import type React from 'react';
 import { type ClipboardEvent, type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -83,6 +84,17 @@ export function useTemplateSuggestions({
   // Shared hover-popover host — single instance per app root, owns
   // open-state + close-grace timer. We just emit hover events.
   const popoverHost = useVariablePopover();
+
+  // While the list is open it owns Escape: the claim makes every
+  // `useDismiss` surface beneath (the quick-editor popover, a variable
+  // popover) stand down, so Esc closes the LIST first and the popover
+  // only on the next press. The list's own Escape handling stays in the
+  // editable's keydown below.
+  useEffect(() => {
+    if (!isOpen) return;
+    const claim = claimEscape();
+    return () => claim.release();
+  }, [isOpen]);
 
   // Hydrate recents on workspace switch; prune against current suggestions.
   useEffect(() => {

@@ -31,6 +31,36 @@
 
 import { type RefObject, useEffect } from 'react';
 
+/**
+ * Escape claim stack — layered surfaces (a popover with a suggestion
+ * list or a nested popover on top) each hold an Escape claim; only the
+ * most recent claimant owns the key, so one press dismisses ONE layer
+ * (the topmost) instead of every listener at once. `useDismiss` claims
+ * while active; non-`useDismiss` layers (e.g. the template-input
+ * suggestion list) claim via {@link claimEscape} so the dismiss
+ * listeners beneath them stand down while they're open.
+ */
+export interface EscapeClaim {
+  owns(): boolean;
+  release(): void;
+}
+
+const escapeClaims: symbol[] = [];
+
+export function claimEscape(): EscapeClaim {
+  const token = Symbol('escape-claim');
+  escapeClaims.push(token);
+  return {
+    owns() {
+      return escapeClaims[escapeClaims.length - 1] === token;
+    },
+    release() {
+      const i = escapeClaims.indexOf(token);
+      if (i !== -1) escapeClaims.splice(i, 1);
+    },
+  };
+}
+
 export interface UseDismissOptions {
   /** Gate. When false, no listeners are attached — the hook is a noop.
    *  Drive this with the open-state of your popover so listeners are
@@ -80,6 +110,7 @@ export function useDismiss(opts: UseDismissOptions): void {
     if (!active) return;
     const refList = refs ?? [];
     const selList = insideSelectors ?? [];
+    const claim = claimEscape();
 
     const onMouseDown = (e: MouseEvent) => {
       const inside = isInsideAny(e.target, refList, selList);
@@ -88,6 +119,10 @@ export function useDismiss(opts: UseDismissOptions): void {
     };
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && onEscape) {
+        // A later-mounted layer (nested popover, suggestion list) owns
+        // Escape — leave the key to it; this surface dismisses on the
+        // NEXT press, after that layer released its claim.
+        if (!claim.owns()) return;
         e.stopPropagation();
         onEscape();
       }
@@ -96,6 +131,7 @@ export function useDismiss(opts: UseDismissOptions): void {
     window.addEventListener('mousedown', onMouseDown, true);
     window.addEventListener('keydown', onKeyDown, true);
     return () => {
+      claim.release();
       window.removeEventListener('mousedown', onMouseDown, true);
       window.removeEventListener('keydown', onKeyDown, true);
     };
