@@ -69,7 +69,13 @@ export function useHeaderCreateSave({
     quick.operation !== 'remove' && quick.value && !quick.value.includes('{{')
       ? validateHeaderValue(quick.value, trimmedName)
       : { valid: true as const, message: '' };
-  const capability = getHeaderOperationCapability(direction, quick.operation, quick.headerName);
+  // Capability judges the OPERATION only once the name itself is valid —
+  // its internal name check would otherwise duplicate `nameValidation`'s
+  // message, and misfire on template names (resolved at runtime).
+  const capability =
+    nameValidation.valid && !trimmedName.includes('{{')
+      ? getHeaderOperationCapability(direction, quick.operation, quick.headerName)
+      : null;
 
   const save = useQuickCreateSave({
     buildSeed: () => buildHeaderRuleSeed(draft, quickRef.current, direction, name, strategy),

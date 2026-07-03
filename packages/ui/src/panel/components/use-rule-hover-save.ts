@@ -104,8 +104,13 @@ export function useRuleHoverSave({
     editable && draft.operation !== 'remove' && draft.value && !draft.value.includes('{{')
       ? validateHeaderValue(draft.value, trimmedName)
       : { valid: true as const, message: '' };
+  // Capability judges the OPERATION only once the name itself is valid —
+  // its internal name check would otherwise duplicate `nameValidation`'s
+  // message, and misfire on template names (resolved at runtime).
   const capability =
-    editable && target ? getHeaderOperationCapability(target.direction, draft.operation, draft.headerName) : null;
+    editable && target && nameValidation.valid && !trimmedName.includes('{{')
+      ? getHeaderOperationCapability(target.direction, draft.operation, draft.headerName)
+      : null;
 
   // Save is gated on every error: empty name, invalid name, invalid
   // value, capability violation. Mirrors the workbench editor's
