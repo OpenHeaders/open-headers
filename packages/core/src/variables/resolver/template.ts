@@ -59,8 +59,8 @@ function toScopedResolution(ret: ResolvedVariable | null | ScopedResolution): Sc
  * callers who haven't wired namespace support yet.
  *
  * Unresolved references are left literal in the output. Unknown namespaces
- * and reserved namespaces (`dynamic`) also leave the reference literal —
- * the caller walks the returned `errors` list to surface issues in the UI.
+ * also leave the reference literal — the caller walks the returned
+ * `errors` list to surface issues in the UI.
  */
 export function resolveTemplate(
   template: string,
@@ -141,17 +141,7 @@ export function resolveTemplate(
         variables.push({ name: key, resolved: false });
 
         // Emit a structured error per unique unresolved reference.
-        if (ref.namespace === 'dynamic') {
-          errors.push({
-            reference: ref.raw,
-            reason: 'reserved-namespace',
-            namespace: ref.namespace,
-            variableName: ref.name,
-            activeEnvironmentId,
-            defaultEnvironmentId,
-            hint: buildHint('reserved-namespace', ref.namespace, activeEnvironmentId),
-          });
-        } else if (resolution.failureReason === 'step-out-of-context') {
+        if (resolution.failureReason === 'step-out-of-context') {
           errors.push({
             reference: ref.raw,
             reason: 'step-out-of-context',

@@ -102,9 +102,7 @@ export async function resolveRequest(
   };
 
   // Architectural gate: refuse to dispatch when any `{{ref}}` can't be
-  // resolved. `isRequestResolvable` excludes reserved-namespace errors
-  // (`{{file.X}}` / `{{dynamic.X}}`) so those don't block until their
-  // features ship.
+  // resolved.
   const resolvable = isRequestResolvable(
     request,
     (name) => resolver.resolve(name, context),

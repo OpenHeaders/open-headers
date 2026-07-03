@@ -98,9 +98,7 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       (inner: string): RefState => {
         const context = effectiveContext.collectionId ? { collectionId: effectiveContext.collectionId } : undefined;
         const { errors } = resolver.resolveTemplate(`{{${inner}}}`, context);
-        if (errors.length === 0) return 'resolved';
-        if (errors[0].reason === 'reserved-namespace') return 'reserved';
-        return 'unresolved';
+        return errors.length === 0 ? 'resolved' : 'unresolved';
       },
       [resolver, effectiveContext.collectionId],
     );

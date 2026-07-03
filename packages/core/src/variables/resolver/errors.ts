@@ -23,7 +23,6 @@ export interface ResolutionEnvSnapshot {
 export type ResolutionErrorReason =
   | 'empty' // `{{}}` or `{{ns.}}`
   | 'unknown-namespace' // `{{foo.X}}` — foo is not a registered namespace
-  | 'reserved-namespace' // `{{dynamic.X}}` — reserved for features not yet shipped
   | 'unset-in-scope' // `{{env.X}}` but X not in active env (and no default fallback)
   | 'step-out-of-context' // `{{step.X.Y}}` outside an active Live Workflow step
   | 'unresolved' // `{{X}}` — nowhere in the 4-scope chain
@@ -115,9 +114,6 @@ export function buildHint(
       return 'Reference is empty. Use {{name}} or {{namespace.name}}.';
     case 'unknown-namespace':
       return 'Unknown namespace. Valid namespaces: env, vault, collection, workspace, file, live, step, dynamic.';
-    case 'reserved-namespace':
-      if (namespace === 'dynamic') return 'Dynamic variables ($timestamp, $guid, …) are coming soon.';
-      return 'This namespace is reserved.';
     case 'unset-in-scope':
       if (namespace === 'env') {
         return activeEnvironmentId
@@ -132,6 +128,8 @@ export function buildHint(
         return 'No Live Variable by that name. Create one in Live Variables, or wait for its first refresh to populate.';
       if (namespace === 'step')
         return 'Step id or capture name not found in this workflow run. Check the workflow step configuration.';
+      if (namespace === 'dynamic')
+        return 'No built-in generator by that name. Pick one from the suggestion list ({{dynamic.uuid}}, {{dynamic.timestamp}}, …).';
       return 'Not set in this scope.';
     case 'step-out-of-context':
       return 'Step references ({{step.<stepId>.<captureName>}}) are only valid inside a Live Workflow step.';

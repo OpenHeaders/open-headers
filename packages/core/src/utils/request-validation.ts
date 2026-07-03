@@ -90,12 +90,6 @@ export type RequestIncompleteReason =
  * the executor refuses to dispatch when false, so literal `{{env.X}}`
  * never hits the wire.
  *
- * Reserved-namespace errors (`{{dynamic.X}}`) are excluded from gating —
- * that reference is intentionally unresolved until the feature ships.
- * `{{file.X}}` is NOT reserved: it resolves to the content hash when the
- * file registry is fed, and gates as `unset-in-scope` when the file is
- * missing — same as any other scope.
- *
  * Pure — no resolver instance required. Callers supply the same
  * lookup shape `resolveTemplate` takes; the helper can be used from
  * the extension background (request-executor, live-chain-adapter) and
@@ -114,10 +108,7 @@ export function isRequestResolvable(
   for (const s of strings) {
     if (!s) continue;
     const { errors } = resolveTemplate(s, lookup, scopedLookup, env);
-    for (const e of errors) {
-      if (e.reason === 'reserved-namespace') continue;
-      return false;
-    }
+    if (errors.length > 0) return false;
   }
   return true;
 }

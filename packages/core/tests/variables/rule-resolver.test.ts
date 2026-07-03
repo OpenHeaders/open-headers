@@ -138,7 +138,7 @@ describe('resolveRuleWithDiagnostics', () => {
     expect(refs).toEqual(['HOST', 'env.MISSING']);
   });
 
-  it('reserved-namespace references (dynamic) surface with reason reserved-namespace', () => {
+  it('{{dynamic.timestamp}} resolves to a generated value at rule compile', () => {
     const rule = makeHeaderRule({
       action: {
         requestHeaders: [
@@ -147,9 +147,10 @@ describe('resolveRuleWithDiagnostics', () => {
         responseHeaders: [],
       },
     });
-    const { errors } = resolveRuleWithDiagnostics(rule, resolver);
-    const err = errors.find((e) => e.reference === 'dynamic.timestamp');
-    expect(err?.reason).toBe('reserved-namespace');
+    const { rule: resolved, errors } = resolveRuleWithDiagnostics(rule, resolver);
+    expect(errors.find((e) => e.reference === 'dynamic.timestamp')).toBeUndefined();
+    const header = (resolved as typeof rule).action.requestHeaders[0];
+    expect(header.value).toMatch(/^\d{10,}$/);
   });
 
   it('unregistered {{file.X}} surfaces as unset-in-scope (not reserved)', () => {

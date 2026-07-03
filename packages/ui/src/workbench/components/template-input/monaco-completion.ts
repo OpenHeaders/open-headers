@@ -153,6 +153,7 @@ function scopeDetail(s: VariableSuggestion): string {
     case 'reserved':
       return `${SCOPE_LABEL[s.scope]} — coming soon`;
     case 'namespace':
+    case 'dynamic':
       return `${SCOPE_LABEL[s.scope]} — ${s.preview.subtitle}`;
     case 'step-runtime':
       return `${SCOPE_LABEL[s.scope]} — captured at runtime`;
@@ -172,6 +173,7 @@ function previewDocumentation(s: VariableSuggestion): string | null {
       return s.preview.masked ? 'Value hidden (stale live variable).' : `**Stale value:** \`${s.preview.value}\``;
     case 'reserved':
     case 'namespace':
+    case 'dynamic':
       return s.preview.subtitle;
     case 'step-runtime':
       return 'Captured when the workflow runs.';

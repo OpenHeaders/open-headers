@@ -29,17 +29,12 @@ export function getLastResolutionErrors(): ReadonlyMap<string, readonly Resoluti
  * Flat list of every resolution error aggregated across the rule set,
  * deduped by `reference`. Useful for subsystem-level reporting
  * (observability + Status) where per-rule attribution isn't required.
- * Reserved-namespace errors (`{{file.X}}` / `{{dynamic.X}}`) are
- * filtered out — those references are intentionally unresolved until
- * those features ship in v2, so they should not yellow-pill the
- * `rules` subsystem.
  */
 export function getLastAggregatedResolutionErrors(): ResolutionError[] {
   const seen = new Set<string>();
   const out: ResolutionError[] = [];
   for (const errors of activeState().lastResolutionErrors.values()) {
     for (const err of errors) {
-      if (err.reason === 'reserved-namespace') continue;
       if (seen.has(err.reference)) continue;
       seen.add(err.reference);
       out.push(err);
@@ -50,20 +45,19 @@ export function getLastAggregatedResolutionErrors(): ResolutionError[] {
 
 /**
  * Set of rule uids whose most recent resolution pass produced at
- * least one BLOCKING error (anything except `reserved-namespace`).
- * These rules are not shipped to DNR — a rule with `{{wat2}}` that
- * doesn't exist in any scope would otherwise set a header to the
- * literal string `{{wat2}}` on the wire, which is almost never the
- * user's intent. Re-exposed for the rule-state observer + sidebar so
- * the UI can surface the "unresolved" state distinct from draft.
+ * least one error. These rules are not shipped to DNR — a rule with
+ * `{{wat2}}` that doesn't exist in any scope would otherwise set a
+ * header to the literal string `{{wat2}}` on the wire, which is almost
+ * never the user's intent. Re-exposed for the rule-state observer +
+ * sidebar so the UI can surface the "unresolved" state distinct from
+ * draft.
  *
  * Returns an empty set until the first `resolveRulesForCompile` run.
  */
 export function getUnresolvableRuleUids(): ReadonlySet<string> {
   const out = new Set<string>();
   for (const [uid, errors] of activeState().lastResolutionErrors) {
-    const hasBlocker = errors.some((e) => e.reason !== 'reserved-namespace');
-    if (hasBlocker) out.add(uid);
+    if (errors.length > 0) out.add(uid);
   }
   return out;
 }

@@ -365,33 +365,22 @@ describe('isRuleResolvable', () => {
     expect(isRuleResolvable(headerWithValue(value), lookupFromMap({ HOST: 'openheaders.io' }))).toBe(false);
   });
 
-  it('allows reserved-namespace references (`{{file.X}}` / `{{dynamic.X}}`)', () => {
-    // These are intentionally unresolved until the feature ships;
-    // they must not block the rule from taking effect.
-    expect(
-      isRuleResolvable(
-        headerWithValue('{{file.fixture.json}}'),
-        () => null,
-        // No scoped lookup → resolver surfaces `reserved-namespace`
-        // for `dynamic.*`. `file.*` is a scope, not reserved, so the
-        // lookup returning null would normally produce `unset-in-scope`.
-        // Here we simulate the resolver's behavior without a scoped
-        // lookup — falls back to flat lookup; since no value found,
-        // emits `unresolved`. So for `file.X` specifically without a
-        // scoped lookup this returns false.
-      ),
-    ).toBe(false);
+  it('gates scoped references on the scoped lookup — misses block the rule', () => {
+    // `{{file.X}}` without a scoped lookup falls back to the flat
+    // lookup; no value found → `unresolved` → blocked.
+    expect(isRuleResolvable(headerWithValue('{{file.fixture.json}}'), () => null)).toBe(false);
 
-    // Dynamic namespace WITH the scoped-lookup wiring returns
-    // `reserved-namespace` which isRuleResolvable filters out.
+    // `{{dynamic.X}}` with a scoped lookup that misses surfaces
+    // `unset-in-scope` (unknown generator) → blocked.
+    expect(isRuleResolvable(headerWithValue('{{dynamic.notAGenerator}}'), () => null, () => null)).toBe(false);
+
+    // A scoped lookup that resolves (the real resolver path for a
+    // known generator) unblocks the rule.
     expect(
       isRuleResolvable(
-        headerWithValue('{{dynamic.$timestamp}}'),
+        headerWithValue('{{dynamic.timestamp}}'),
         () => null,
-        // Scoped lookup that returns null for every namespace —
-        // `resolveTemplate` detects `dynamic` as reserved and emits
-        // the specific error.
-        () => null,
+        (name) => ({ name, value: '1751500000', scope: 'dynamic', isSensitive: false }),
       ),
     ).toBe(true);
   });

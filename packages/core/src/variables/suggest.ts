@@ -21,15 +21,17 @@
  * `docs/VARIABLE_AUTOCOMPLETE_PLAN.md` for the full design.
  */
 
-import type { ReservedNamespace, ScopeNamespace } from './namespaces';
+import { DYNAMIC_GENERATORS } from './dynamic';
+import type { ScopeNamespace } from './namespaces';
 
 // ── Types: the scope universe the engine knows about ──────────────
 
 /**
- * Every namespace the suggester can offer — active scopes plus
- * reserved ones (shown disabled, with a "coming soon" subtitle).
+ * Every namespace the suggester can offer. `file` is treated as
+ * reserved here (shown disabled with a "coming soon" subtitle) until
+ * the file-blob registry ships.
  */
-export type SuggestionScope = ScopeNamespace | ReservedNamespace;
+export type SuggestionScope = ScopeNamespace;
 
 // ── Types: the context a mount site supplies ──────────────────────
 
@@ -116,7 +118,8 @@ export interface LiveSuggestionEntry {
  * from the same stores that feed the resolver — one source of truth.
  *
  * `step` has no registry: its suggestions come directly from
- * {@link SuggestionContext.workflowStep}. `file` and `dynamic` are
+ * {@link SuggestionContext.workflowStep}. `dynamic` needs no registry —
+ * its catalog is the built-in generator list. `file` is
  * reserved/disabled in v1 (shown with a "coming soon" subtitle).
  */
 export interface SuggestionRegistries {
@@ -150,6 +153,9 @@ export interface SuggestionRegistries {
  *   - `step-runtime` — step captures have no value until the chain
  *     runs, so previews carry no value; the UI shows "Captured at
  *     runtime" or similar.
+ *   - `dynamic` — a built-in generator; the value is freshly produced
+ *     per resolution, so the preview carries the generator's
+ *     description instead of a value.
  *
  * `definitionallyStale` rides the `value` / `stale` variants as an
  * orthogonal flag (a value can be expiry-stale, definitionally stale,
@@ -161,6 +167,7 @@ export type SuggestionPreview =
   | { kind: 'reserved'; subtitle: string }
   | { kind: 'namespace'; subtitle: string }
   | { kind: 'step-runtime' }
+  | { kind: 'dynamic'; subtitle: string }
   /** Vault TOTP entry — UI shows "TOTP" badge + algorithm/digits/period
    *  hint. No `value` because the code is computed at request time. */
   | { kind: 'totp'; algorithm: string; digits: number; period: number; issuer?: string };
@@ -183,6 +190,10 @@ export interface VariableSuggestion {
    *  renders them dimmed + non-pickable (or pickable-but-flagged,
    *  depending on behavior). */
   disabled?: boolean;
+  /** Sticky on the INITIAL (empty-query) list only — the `dynamic.`
+   *  scaffold leads the list so the namespace is always discoverable;
+   *  once the user types it competes by match rank like any scaffold. */
+  pinned?: boolean;
   /** Optional backing-workflow uid for live suggestions — lets the UI
    *  jump to the workflow editor from the row. */
   workflowUid?: string;
@@ -209,7 +220,7 @@ const BASE_PRIORITY = 100;
 /** Live entries whose cache row is past its expiry drop this far below
  *  their fresh peers so they sort after equally-matching fresh entries. */
 const STALE_PENALTY = 50;
-/** Reserved-namespace entries (file, dynamic) sink below every real
+/** Reserved-namespace entries (file) sink below every real
  *  suggestion regardless of match rank. */
 const DISABLED_PENALTY = 200;
 
@@ -449,16 +460,32 @@ export function buildSuggestions(registries: SuggestionRegistries, context: Sugg
     });
   }
 
-  // 8. dynamic — reserved.
+  // 8. dynamic — one pinned `dynamic.` scaffold plus one concrete row
+  // per built-in generator. The scaffold is the always-visible entry
+  // point (sticky first row); the generator rows stay hidden until the
+  // query commits to the scope (see `filterSuggestions`), so the
+  // top-level list isn't flooded with nine rows. Values regenerate per
+  // resolution, so previews carry the description instead of a value.
   if (scopeAllowed('dynamic', context)) {
     out.push({
       reference: 'dynamic.',
       scope: 'dynamic',
       name: '',
-      preview: { kind: 'reserved', subtitle: 'Dynamic generators ($timestamp, $guid, …) coming soon' },
-      priority: BASE_PRIORITY - DISABLED_PENALTY,
-      disabled: true,
+      preview: { kind: 'namespace', subtitle: 'Built-in generators — uuid, timestamp, …' },
+      priority: BASE_PRIORITY,
+      pinned: true,
     });
+    let order = 0;
+    for (const g of DYNAMIC_GENERATORS) {
+      out.push({
+        reference: `dynamic.${g.name}`,
+        scope: 'dynamic',
+        name: g.name,
+        preview: { kind: 'dynamic', subtitle: g.description },
+        priority: BASE_PRIORITY - order,
+      });
+      order++;
+    }
   }
 
   return out;
@@ -502,6 +529,9 @@ function matchRank(reference: string, name: string, query: string): MatchRank | 
  * `{{` and the caret) to the candidate list, returning matches in
  * display order:
  *
+ *   0. On an EMPTY query only: pinned rows (the `dynamic.` scaffold)
+ *      above everything — the initial list keeps the entry point
+ *      sticky; typing makes it compete by rank like any scaffold.
  *   1. Lower {@link MatchRank} first (exact prefix > ci prefix > ci
  *      substring).
  *   2. Scope priority ascending (vault above env above collection, …).
@@ -520,16 +550,29 @@ export function filterSuggestions(all: ReadonlyArray<VariableSuggestion>, query:
     // (contains a `.`): by then the user is naming a variable inside
     // that scope, not browsing scopes.
     if (s.preview.kind === 'namespace' && trimmed.includes('.')) continue;
+    // Generator rows stay hidden while the query is empty — the pinned
+    // `dynamic.` scaffold is the browse entry point; committing to it
+    // (or typing a match) reveals the catalog.
+    if (s.preview.kind === 'dynamic' && trimmed === '') continue;
     // Never surface reserved rows just because their prefix matches —
     // they only appear when the query is empty or matches something
-    // before the dot. We still accept matches on `file.` / `dynamic.`
-    // prefixes so the user can DISCOVER the reserved state.
+    // before the dot. We still accept matches on the `file.` prefix so
+    // the user can DISCOVER the reserved state.
     const rank = matchRank(s.reference, s.name, trimmed);
     if (rank === null) continue;
     ranked.push({ rank, s });
   }
 
+  // Pinned rows (the `dynamic.` scaffold) lead the INITIAL list only —
+  // once the user types, they compete by match rank like any scaffold.
+  const pinActive = trimmed === '';
+
   ranked.sort((a, b) => {
+    if (pinActive) {
+      const pinA = a.s.pinned === true ? 0 : 1;
+      const pinB = b.s.pinned === true ? 0 : 1;
+      if (pinA !== pinB) return pinA - pinB;
+    }
     if (a.rank !== b.rank) return a.rank - b.rank;
     // Concrete values rank above empty-scope discovery rows, which rank
     // above reserved "coming soon" rows — a real value is always the

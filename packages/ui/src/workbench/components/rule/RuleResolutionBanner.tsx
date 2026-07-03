@@ -42,7 +42,6 @@ const REASON_LABEL: Record<ResolutionError['reason'], string> = {
   unresolved: 'unresolved',
   'unset-in-scope': 'not in scope',
   'unknown-namespace': 'unknown namespace',
-  'reserved-namespace': 'reserved',
   'step-out-of-context': 'step ref out of scope',
   empty: 'empty',
   'invalid-resolved-value': 'invalid value',
@@ -176,7 +175,6 @@ const RuleResolutionBanner: React.FC<RuleResolutionBannerProps> = ({ collectionI
     for (const str of templateStrings) {
       const { errors: e } = resolver.resolveTemplate(str, ctx);
       for (const err of e) {
-        if (err.reason === 'reserved-namespace') continue;
         if (!seen.has(err.reference)) seen.set(err.reference, err);
       }
     }

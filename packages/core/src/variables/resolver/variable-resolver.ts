@@ -10,6 +10,7 @@ import type {
   VaultSecret,
   WorkspaceVariables,
 } from '../../types';
+import { resolveDynamicValue } from '../dynamic';
 import { parseStepRefName, type VariableNamespace } from '../namespaces';
 import type { ResolutionEnvSnapshot, ResolutionError, ScopedResolution } from './errors';
 import {
@@ -31,6 +32,7 @@ const NAMESPACE_TO_SCOPE: Partial<Record<VariableNamespace, VariableScope>> = {
   file: 'file',
   live: 'live',
   step: 'step',
+  dynamic: 'dynamic',
 };
 
 // ── VariableResolver ───────────────────────────────────────────────
@@ -391,6 +393,22 @@ export class VariableResolver {
             scope: 'live',
             // Default to masked — live values are overwhelmingly tokens.
             isSensitive: entry.isSensitive ?? true,
+          },
+        };
+      }
+      case 'dynamic': {
+        // Built-in generators — a fresh value per resolution pass. On
+        // the static-rule compile path the value is baked into the
+        // compiled rule and regenerates on the next recompile; per-send
+        // paths (API client, workflows) get a fresh value every send.
+        const value = resolveDynamicValue(name);
+        if (value === null) return { resolved: null };
+        return {
+          resolved: {
+            name,
+            value,
+            scope: 'dynamic',
+            isSensitive: false,
           },
         };
       }

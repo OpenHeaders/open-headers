@@ -49,8 +49,20 @@ import type {
  * `step` resolves a capture from an in-flight Live Workflow chain —
  * `{{step.<stepId>.<captureName>}}`. Only meaningful while a chain is
  * executing; surfaces a `step-out-of-context` error when absent.
+ *
+ * `dynamic` resolves a built-in generator (`{{dynamic.uuid}}`,
+ * `{{dynamic.timestamp}}`, …) — a fresh value per resolution pass.
+ * Only reachable via the explicit form; never part of the flat walk.
  */
-export type VariableScope = 'vault' | 'environment' | 'collection' | 'workspace' | 'file' | 'live' | 'step';
+export type VariableScope =
+  | 'vault'
+  | 'environment'
+  | 'collection'
+  | 'workspace'
+  | 'file'
+  | 'live'
+  | 'step'
+  | 'dynamic';
 
 // ── Variable ───────────────────────────────────────────────────────
 

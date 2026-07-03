@@ -31,6 +31,7 @@ function renderPreview(suggestion: VariableSuggestion, reveal: boolean): React.R
   switch (preview.kind) {
     case 'reserved':
     case 'namespace':
+    case 'dynamic':
       return (
         <Text type="secondary" italic style={{ fontSize: 11 }}>
           {preview.subtitle}

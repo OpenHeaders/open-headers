@@ -118,14 +118,18 @@ export function useTemplateSuggestions({
       for (let i = 0; i < recents.entries.length; i++) {
         recencyIndex.set(recents.entries[i].reference, i);
       }
+      const pinned: VariableSuggestion[] = [];
       const recent: VariableSuggestion[] = [];
       const rest: VariableSuggestion[] = [];
       for (const s of ranked) {
-        if (recencyIndex.has(s.reference)) recent.push(s);
+        // Pinned rows (the `dynamic.` scaffold) stay on top — recents
+        // must not push the sticky entry point off the first row.
+        if (s.pinned) pinned.push(s);
+        else if (recencyIndex.has(s.reference)) recent.push(s);
         else rest.push(s);
       }
       recent.sort((a, b) => (recencyIndex.get(a.reference) ?? 0) - (recencyIndex.get(b.reference) ?? 0));
-      return [...recent, ...rest].slice(0, MAX_POPOVER_ROWS);
+      return [...pinned, ...recent, ...rest].slice(0, MAX_POPOVER_ROWS);
     }
     return ranked.slice(0, MAX_POPOVER_ROWS);
   }, [isOpen, allSuggestions, query, recents]);

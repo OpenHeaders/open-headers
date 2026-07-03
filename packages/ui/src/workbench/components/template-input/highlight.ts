@@ -1,12 +1,12 @@
 /**
  * `{{ref}}` highlighting for TemplateInput — turns the plain value into
  * HTML where each reference is wrapped in a classified span. The caller
- * supplies a `classify` fn (resolved / unresolved / reserved); a ref the
- * caret currently sits inside renders with the neutral `editing` class so
- * it doesn't flicker red/blue mid-edit.
+ * supplies a `classify` fn (resolved / unresolved); a ref the caret
+ * currently sits inside renders with the neutral `editing` class so it
+ * doesn't flicker red/blue mid-edit.
  */
 
-export type RefState = 'resolved' | 'unresolved' | 'reserved';
+export type RefState = 'resolved' | 'unresolved';
 
 export const TEMPLATE_REGEX = /\{\{([^}]*)\}\}/g;
 

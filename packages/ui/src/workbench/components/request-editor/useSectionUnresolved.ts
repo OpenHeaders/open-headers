@@ -3,11 +3,10 @@
  *
  * One resolver walk per tab so the inline tab dots can flag exactly
  * which section needs attention. Each flag is `true` when at least one
- * `{{ref}}` in that tab's strings fails to resolve — excluding
- * reserved-namespace refs (`{{dynamic.X}}`), which are intentionally
- * unresolved until that feature ships. `{{file.X}}` is a real scope
- * (resolves to the content hash via the file registry the resolver is
- * fed); a missing file flags as `unset-in-scope` like any other scope.
+ * `{{ref}}` in that tab's strings fails to resolve. `{{file.X}}` is a
+ * real scope (resolves to the content hash via the file registry the
+ * resolver is fed); a missing file flags as `unset-in-scope` like any
+ * other scope, and `{{dynamic.X}}` flags only for unknown generators.
  * `hasUnresolvedRefs` is the OR aggregate that gates the Send button +
  * tab-bar greying (equivalent to walking every string via
  * `isRequestResolvable`, but the per-section walk already pays that cost).
@@ -41,7 +40,7 @@ export function useSectionUnresolved(
       for (const s of strings) {
         if (!s) continue;
         const { errors } = resolveTemplate(s, flat, scoped);
-        if (errors.some((e) => e.reason !== 'reserved-namespace')) return true;
+        if (errors.length > 0) return true;
       }
       return false;
     };

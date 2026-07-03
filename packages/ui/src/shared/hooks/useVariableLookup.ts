@@ -10,7 +10,7 @@
  */
 
 import type { LiveVariable, LiveVariableOverride, Variable, VariableScope, VaultSecret } from '@openheaders/core/types';
-import { parseReference, parseStepRefName, type VariableNamespace } from '@openheaders/core/variables';
+import { DYNAMIC_GENERATORS, parseReference, parseStepRefName, type VariableNamespace } from '@openheaders/core/variables';
 import { findCollectionByUid } from '@openheaders/ui/shared/variables';
 import { useMemo } from 'react';
 import { useEnvVarVault } from './readers/useEnvVarVault';
@@ -60,7 +60,11 @@ export type VariableCandidate =
       scope: 'file';
       name: string;
     }
-  | { scope: 'reserved'; namespace: VariableNamespace };
+  | {
+      scope: 'dynamic';
+      name: string;
+      description: string;
+    };
 
 export interface VariableLookupResult {
   /** Trimmed raw inner of the reference, e.g. `"TEST"` or `"env.X"`. */
@@ -231,9 +235,13 @@ export function useVariableLookup(reference: string, collectionId?: string): Var
       candidates.push({ scope: 'file', name: ref.name });
     }
 
-    // Reserved.
+    // Dynamic — built-in generators. Only a KNOWN generator yields a
+    // candidate; an unknown name falls through to "not defined".
     if (ref.namespace === 'dynamic') {
-      candidates.push({ scope: 'reserved', namespace: 'dynamic' });
+      const generator = DYNAMIC_GENERATORS.find((g) => g.name === ref.name);
+      if (generator) {
+        candidates.push({ scope: 'dynamic', name: generator.name, description: generator.description });
+      }
     }
 
     return {

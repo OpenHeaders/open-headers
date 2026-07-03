@@ -58,13 +58,29 @@ function refs(list: ReadonlyArray<VariableSuggestion>): string[] {
 
 describe('buildSuggestions', () => {
   describe('scope inclusion', () => {
-    it('offers empty-scope scaffolds + reserved rows when no registries are populated', () => {
+    it('offers empty-scope scaffolds + reserved + dynamic rows when no registries are populated', () => {
       const ctx: SuggestionContext = {};
       const out = buildSuggestions(makeRegistries(), ctx);
       // Every creatable scope stays discoverable even when empty
       // (collection is gated on a collectionId, so it's absent here);
-      // the reserved file + dynamic rows follow.
-      expect(refs(out)).toEqual(['vault.', 'env.', 'workspace.', 'file.', 'dynamic.']);
+      // the reserved file row, the pinned `dynamic.` scaffold, and the
+      // built-in generator rows follow.
+      expect(refs(out)).toEqual([
+        'vault.',
+        'env.',
+        'workspace.',
+        'file.',
+        'dynamic.',
+        'dynamic.timestamp',
+        'dynamic.isoTimestamp',
+        'dynamic.uuid',
+        'dynamic.randomInt',
+        'dynamic.randomAlphaNumeric',
+        'dynamic.randomBoolean',
+        'dynamic.randomColor',
+        'dynamic.randomEmail',
+        'dynamic.randomIP',
+      ]);
     });
 
     it('offers vault entries when present', () => {
@@ -228,22 +244,30 @@ describe('buildSuggestions', () => {
     });
   });
 
-  describe('reserved scopes', () => {
-    it('always surfaces file + dynamic as disabled entries with subtitle', () => {
+  describe('reserved + dynamic scopes', () => {
+    it('surfaces file as a disabled reserved entry with subtitle', () => {
       const out = buildSuggestions(makeRegistries(), {});
       const file = out.find((s) => s.scope === 'file');
-      const dyn = out.find((s) => s.scope === 'dynamic');
       expect(file?.disabled).toBe(true);
       expect(file?.preview).toMatchObject({ kind: 'reserved' });
-      expect(dyn?.disabled).toBe(true);
-      expect(dyn?.preview).toMatchObject({ kind: 'reserved' });
     });
 
-    it('allowed.file=false and allowed.dynamic=false hide reserved rows', () => {
+    it('surfaces the pinned dynamic. scaffold plus every generator as enabled entries', () => {
+      const out = buildSuggestions(makeRegistries(), {});
+      const scaffold = out.find((s) => s.reference === 'dynamic.');
+      expect(scaffold?.pinned).toBe(true);
+      expect(scaffold?.preview).toMatchObject({ kind: 'namespace' });
+      const generators = out.filter((s) => s.scope === 'dynamic' && s.preview.kind === 'dynamic');
+      expect(generators.map((s) => s.reference)).toContain('dynamic.uuid');
+      expect(generators.map((s) => s.reference)).toContain('dynamic.timestamp');
+      for (const s of generators) {
+        expect(s.disabled).toBeUndefined();
+      }
+    });
+
+    it('allowed.file=false and allowed.dynamic=false hide those rows', () => {
       const out = buildSuggestions(makeRegistries(), { allowed: { file: false, dynamic: false } });
-      // Reserved rows gone; only the empty-scope discovery scaffolds remain.
-      expect(refs(out)).not.toContain('file.');
-      expect(refs(out)).not.toContain('dynamic.');
+      // File + generator rows gone; only the empty-scope discovery scaffolds remain.
       expect(refs(out)).toEqual(['vault.', 'env.', 'workspace.']);
     });
   });
@@ -451,15 +475,47 @@ describe('filterSuggestions', () => {
   it('reserved rows sink below enabled rows with the same match rank', () => {
     const all = buildSuggestions(makeRegistries({ workspaceVariables: [v('foo', 'bar')] }), {});
     const filtered = filterSuggestions(all, '');
-    // workspace entry comes first, then file + dynamic disabled entries at the end.
+    // The pinned `dynamic.` scaffold leads the default list; concrete
+    // values follow; the reserved file row sinks below everything.
     const refsList = refs(filtered);
-    expect(refsList[0]).toBe('workspace.foo');
+    expect(refsList[0]).toBe('dynamic.');
+    expect(refsList[1]).toBe('workspace.foo');
     expect(refsList).toContain('file.');
-    expect(refsList).toContain('dynamic.');
     // Disabled entries must come AFTER enabled ones of the same rank.
     const wsIdx = refsList.indexOf('workspace.foo');
     const fileIdx = refsList.indexOf('file.');
     expect(wsIdx).toBeLessThan(fileIdx);
+  });
+
+  it('empty query hides generator rows and pins the dynamic. scaffold first', () => {
+    const all = buildSuggestions(makeRegistries({ workspaceVariables: [v('foo', 'bar')] }), {});
+    const filtered = filterSuggestions(all, '');
+    const refsList = refs(filtered);
+    expect(refsList[0]).toBe('dynamic.');
+    expect(refsList.some((r) => r.startsWith('dynamic.') && r !== 'dynamic.')).toBe(false);
+  });
+
+  it('committing to the scope ("dynamic.") reveals every generator, scaffold gone', () => {
+    const all = buildSuggestions(makeRegistries(), {});
+    const filtered = filterSuggestions(all, 'dynamic.');
+    const refsList = refs(filtered);
+    expect(refsList).not.toContain('dynamic.');
+    expect(refsList).toContain('dynamic.uuid');
+    expect(refsList).toContain('dynamic.timestamp');
+    expect(refsList).toHaveLength(9);
+  });
+
+  it('typing un-pins the scaffold — non-matching queries drop it', () => {
+    const all = buildSuggestions(makeRegistries({ workspaceVariables: [v('foo', 'bar')] }), {});
+    const filtered = filterSuggestions(all, 'foo');
+    expect(refs(filtered)[0]).toBe('workspace.foo');
+    expect(refs(filtered)).not.toContain('dynamic.');
+  });
+
+  it('generator rows match by name tail — "uuid" finds dynamic.uuid', () => {
+    const all = buildSuggestions(makeRegistries(), {});
+    const filtered = filterSuggestions(all, 'uuid');
+    expect(refs(filtered)).toContain('dynamic.uuid');
   });
 
   it('matches query with scope prefix — "env." narrows to env.* suggestions', () => {

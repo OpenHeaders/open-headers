@@ -355,10 +355,17 @@ describe('VariableResolver — explicit namespaces', () => {
     expect(variables[0]).toEqual({ name: 'file.fixture.json', resolved: false });
   });
 
-  it('{{dynamic.uuid}} is reserved for a future dedicated resolver', () => {
-    const { result, variables } = resolver.resolveTemplate('{{dynamic.uuid}}');
-    expect(result).toBe('{{dynamic.uuid}}');
-    expect(variables[0]).toEqual({ name: 'dynamic.uuid', resolved: false });
+  it('{{dynamic.uuid}} resolves to a fresh generated UUID', () => {
+    const { result, variables, errors } = resolver.resolveTemplate('{{dynamic.uuid}}');
+    expect(result).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+    expect(errors).toEqual([]);
+    expect(variables[0]).toMatchObject({ name: 'dynamic.uuid', resolved: true, scope: 'dynamic' });
+  });
+
+  it('{{dynamic.nope}} surfaces unset-in-scope (unknown generator)', () => {
+    const { result, errors } = resolver.resolveTemplate('{{dynamic.nope}}');
+    expect(result).toBe('{{dynamic.nope}}');
+    expect(errors[0]).toMatchObject({ reason: 'unset-in-scope', namespace: 'dynamic' });
   });
 
   it('{{foo.X}} is left literal (unknown namespace)', () => {
@@ -553,9 +560,10 @@ describe('VariableResolver — structured resolution errors', () => {
     expect(resolver.resolve('SHARED_NAME')?.value).toBe('from-env');
   });
 
-  it('emits a reserved-namespace error for {{dynamic.uuid}}', () => {
-    const { errors } = resolver.resolveTemplate('{{dynamic.uuid}}');
-    expect(errors[0]).toMatchObject({ reason: 'reserved-namespace', namespace: 'dynamic' });
+  it('emits an unset-in-scope error for an unknown {{dynamic.*}} generator', () => {
+    const { errors } = resolver.resolveTemplate('{{dynamic.notAGenerator}}');
+    expect(errors[0]).toMatchObject({ reason: 'unset-in-scope', namespace: 'dynamic' });
+    expect(errors[0].hint).toMatch(/generator/);
   });
 
   it('emits an unset-in-scope error for {{live.X}} when no live registry is set', () => {

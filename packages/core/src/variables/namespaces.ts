@@ -37,21 +37,15 @@ export type VariableNamespace = 'env' | 'vault' | 'collection' | 'workspace' | '
  * chain — `{{step.<stepId>.<captureName>}}`. Only meaningful while a
  * chain is executing. Outside that context (rules, regular requests),
  * the resolver surfaces a `step-out-of-context` structured error.
+ *
+ * `dynamic` resolves built-in generators (`{{dynamic.uuid}}`,
+ * `{{dynamic.timestamp}}`, …) — see `./dynamic.ts`. A fresh value is
+ * produced on every resolution pass.
  */
-export const SCOPE_NAMESPACES = ['env', 'vault', 'collection', 'workspace', 'file', 'live', 'step'] as const;
+export const SCOPE_NAMESPACES = ['env', 'vault', 'collection', 'workspace', 'file', 'live', 'step', 'dynamic'] as const;
 export type ScopeNamespace = (typeof SCOPE_NAMESPACES)[number];
 
-/**
- * Namespaces reserved but not user-scoped (handled by dedicated
- * resolvers that don't exist yet). `dynamic` is reserved for Postman-
- * style built-in generators (`$timestamp`, `$guid`, …) — not yet
- * shipped. Live Variables moved out of this list into `SCOPE_NAMESPACES`
- * under the `live` key.
- */
-export const RESERVED_NAMESPACES = ['dynamic'] as const;
-export type ReservedNamespace = (typeof RESERVED_NAMESPACES)[number];
-
-const ALL_NAMESPACES: readonly string[] = [...SCOPE_NAMESPACES, ...RESERVED_NAMESPACES];
+const ALL_NAMESPACES: readonly string[] = SCOPE_NAMESPACES;
 
 export function isVariableNamespace(s: string): s is VariableNamespace {
   return ALL_NAMESPACES.includes(s);
@@ -135,7 +129,7 @@ export function describeNamespace(ns: VariableNamespace): string {
     case 'workspace':
       return 'workspace-wide variables';
     case 'dynamic':
-      return 'built-in dynamic variables ($timestamp, $guid, …)';
+      return 'built-in dynamic generators ({{dynamic.uuid}}, {{dynamic.timestamp}}, …)';
     case 'file':
       return 'uploaded file references (by filename or sha256 hash)';
     case 'live':

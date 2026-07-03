@@ -158,14 +158,8 @@ export function isRuleComplete(rule: Rule | Omit<Rule, 'uid' | 'path'>): boolean
 /**
  * Does every `{{...}}` reference in this rule resolve against the
  * supplied lookups? Returns true iff the rule's templates would
- * produce zero blocking resolution errors in
- * {@link resolveTemplate}.
- *
- * "Blocking" excludes the `reserved-namespace` error class —
- * references like `{{file.X}}` / `{{dynamic.X}}` are intentionally
- * unresolved until those features ship and should not prevent a rule
- * from taking effect. Every other failure class
- * (`unresolved`, `unset-in-scope`, `unknown-namespace`,
+ * produce zero resolution errors in {@link resolveTemplate}. Every
+ * failure class (`unresolved`, `unset-in-scope`, `unknown-namespace`,
  * `step-out-of-context`, `empty`) indicates a rule the user probably
  * didn't want to execute — injecting the literal `{{env.URL}}` string
  * onto the wire is almost never the intent.
@@ -195,10 +189,7 @@ export function isRuleResolvable(
   for (const s of strings) {
     if (!s) continue;
     const { errors } = resolveTemplate(s, lookup, scopedLookup, env);
-    for (const e of errors) {
-      if (e.reason === 'reserved-namespace') continue;
-      return false;
-    }
+    if (errors.length > 0) return false;
   }
   return true;
 }

@@ -178,12 +178,6 @@
   border: 1px dashed var(--ant-color-error-border, rgba(255, 77, 79, 0.5));
 }
 
-.oh-template-ref-reserved {
-  color: var(--ant-color-warning, #faad14);
-  background: var(--ant-color-warning-bg, rgba(250, 173, 20, 0.08));
-  border: 1px dashed var(--ant-color-warning-border, rgba(250, 173, 20, 0.4));
-}
-
 /* Neutral state applied while the caret sits inside a ref's braces.
  * `color: inherit` picks up the editable's inline `colorText` so no
  * visual classification paints until the user commits by moving the

@@ -95,7 +95,7 @@ export async function runUpdate(
       return mutator.setLiveOverride(c.lv.uid, { value: draft });
     case 'step':
     case 'file':
-    case 'reserved':
+    case 'dynamic':
       return { ok: false, reason: 'other', message: 'Not editable' };
   }
 }

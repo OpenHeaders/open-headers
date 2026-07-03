@@ -1,6 +1,7 @@
+export type { DynamicGenerator, DynamicRuntime } from './dynamic';
+export { defaultDynamicRuntime, DYNAMIC_GENERATORS, resolveDynamicValue } from './dynamic';
 export type {
   ParseResult,
-  ReservedNamespace,
   ScopeNamespace,
   StepRefParts,
   VariableNamespace,
@@ -11,7 +12,6 @@ export {
   isVariableNamespace,
   parseReference,
   parseStepRefName,
-  RESERVED_NAMESPACES,
   SCOPE_NAMESPACES,
 } from './namespaces';
 export type {
@@ -51,5 +51,3 @@ export type {
   VaultSecretEntry,
 } from './suggest';
 export { buildSuggestions, filterSuggestions } from './suggest';
-export type { SystemVariable } from './system-variables';
-export { SYSTEM_VARIABLES } from './system-variables';

@@ -200,17 +200,24 @@ describe('isRequestResolvable', () => {
     expect(isRequestResolvable(req, () => null)).toBe(false);
   });
 
-  it('accepts reserved-namespace references (`{{dynamic.X}}`) — intentionally unresolved until feature ships', () => {
-    const req = makeRequest({ url: 'https://api.openheaders.io/t/{{dynamic.$timestamp}}' });
-    // Pass a scoped lookup that returns null — `resolveTemplate` will
-    // emit `reserved-namespace` for `dynamic.*`, which
-    // `isRequestResolvable` filters out of the gate.
+  it('gates `{{dynamic.X}}` on the scoped lookup like any other scope', () => {
+    const req = makeRequest({ url: 'https://api.openheaders.io/t/{{dynamic.timestamp}}' });
+    // Scoped lookup resolving the generator (the real resolver path)
+    // passes the gate; a miss (unknown generator) blocks the send.
+    expect(
+      isRequestResolvable(req, () => null, (name) => ({
+        name,
+        value: '1751500000',
+        scope: 'dynamic',
+        isSensitive: false,
+      })),
+    ).toBe(true);
     expect(
       isRequestResolvable(
         req,
         () => null,
         () => null,
       ),
-    ).toBe(true);
+    ).toBe(false);
   });
 });

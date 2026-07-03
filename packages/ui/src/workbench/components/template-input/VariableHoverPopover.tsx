@@ -6,7 +6,7 @@
  * Editable scopes (vault `string`, environment, collection, workspace,
  * live override) write through the same versioned bridge RPCs the
  * dedicated editors use. Read-only scopes (vault `totp`, step, file,
- * reserved/dynamic) disable the textarea and hide Save.
+ * dynamic) disable the textarea and hide Save.
  *
  * The save dispatch (`runUpdate` / `runCreate` / `surfaceResult`) lives
  * in `variable-popover-save.ts`; the "Add to" create flow in
@@ -58,13 +58,10 @@ export interface VariableHoverPopoverProps {
 }
 
 /** Map a resolver scope (`VariableScope`) plus the popover-only
- *  `'reserved'` / `'none'` discriminators to the canonical `ScopeKey`.
- *  `'reserved'` represents `{{dynamic.X}}` references which use the
- *  shared 'dynamic' palette entry. `'none'` (truly unresolved) returns
- *  null and the caller renders a neutral Tag. */
-function toScopeKey(scope: VariableScope | 'reserved' | 'none'): ScopeKey | null {
+ *  `'none'` discriminator to the canonical `ScopeKey`. `'none'` (truly
+ *  unresolved) returns null and the caller renders a neutral Tag. */
+function toScopeKey(scope: VariableScope | 'none'): ScopeKey | null {
   if (scope === 'none') return null;
-  if (scope === 'reserved') return 'dynamic';
   return scope;
 }
 
@@ -174,7 +171,7 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
   const { saveLabel, handleSaveRef } = useSaveShortcut();
 
   const editable = candidate ? isCandidateEditable(candidate) : false;
-  const resolvedScope: VariableScope | 'reserved' | 'none' = lookup.active?.scope ?? candidate?.scope ?? 'none';
+  const resolvedScope: VariableScope | 'none' = lookup.active?.scope ?? candidate?.scope ?? 'none';
   const scopeKey = toScopeKey(resolvedScope);
   const scopeLabel = candidate ? scopeLabelFor(candidate) : 'Unresolved';
 
@@ -514,7 +511,7 @@ function isCandidateEditable(c: VariableCandidate): boolean {
       return true;
     case 'step':
     case 'file':
-    case 'reserved':
+    case 'dynamic':
       return false;
   }
 }
@@ -551,16 +548,16 @@ function scopeLabelFor(c: VariableCandidate): string {
       return `Step · ${c.stepId}.${c.captureName}`;
     case 'file':
       return `File · ${c.name}`;
-    case 'reserved':
-      return c.namespace === 'dynamic' ? 'Dynamic (coming soon)' : 'Reserved';
+    case 'dynamic':
+      return 'Dynamic';
   }
 }
 
 function describeUnresolved(lookup: ReturnType<typeof useVariableLookup>, candidate: VariableCandidate | null): string {
   if (lookup.parseError === 'empty') return 'Empty reference';
   if (lookup.parseError === 'unknown-namespace') return 'Unknown namespace';
-  if (candidate?.scope === 'reserved' && candidate.namespace === 'dynamic') {
-    return 'Dynamic variables ($timestamp, $guid, …) are coming soon.';
+  if (lookup.namespace === 'dynamic') {
+    return 'No built-in generator by that name. Pick one from the {{dynamic.…}} suggestion list.';
   }
   if (candidate?.scope === 'step') {
     return 'Only resolves while a Live Workflow chain is running.';
