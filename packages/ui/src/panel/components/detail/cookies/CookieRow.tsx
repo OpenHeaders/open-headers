@@ -51,7 +51,9 @@ interface Props {
   /** Column count for the expander's colSpan — derived from the
    *  fixed slot count (Name/Value/Scope/Expires/Size/Sec = 6). */
   columnSpan: number;
-  onMakeRule: () => void;
+  /** Receives the Override button so the caller can anchor the in-panel
+   *  create popover to it. */
+  onMakeRule: (anchorEl: HTMLElement) => void;
   /** A rule that fired on this request modifies this row's cookie header. */
   ruleTouched: boolean;
   /** Jar-backed rows get Edit / Delete affordances; response Set-Cookie
@@ -202,7 +204,7 @@ export function CookieRow({
               type="button"
               className="dt-btn dt-btn-primary dt-cookie-action"
               title={row.direction === 'response' ? 'Create a rule to override this Set-Cookie' : 'Create a rule to override this Cookie value'}
-              onClick={onMakeRule}
+              onClick={(e) => onMakeRule(e.currentTarget)}
             >
               Override
             </button>

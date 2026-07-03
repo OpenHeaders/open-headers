@@ -5,7 +5,9 @@ export function InsightCard({
   onAction,
 }: {
   insight: HeaderInsight;
-  onAction: (action: HeaderInsightAction) => void;
+  /** Receives the clicked CTA button so the caller can anchor the
+   *  in-panel create popover to it. */
+  onAction: (action: HeaderInsightAction, anchorEl: HTMLElement) => void;
 }) {
   return (
     <div className="dt-header-insight" data-severity={insight.severity}>
@@ -20,7 +22,7 @@ export function InsightCard({
         <button
           type="button"
           className="dt-btn dt-btn-primary dt-header-insight-action"
-          onClick={() => onAction(insight.action!)}
+          onClick={(e) => onAction(insight.action!, e.currentTarget)}
         >
           {insight.action.label}
         </button>

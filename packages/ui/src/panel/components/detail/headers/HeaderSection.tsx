@@ -33,12 +33,12 @@ interface HeaderSectionProps {
   nameCase: HeaderNameCase;
   showChips: boolean;
   driftedRows: ReadonlySet<AnnotatedHeader>;
-  onCreateHeaderRule: (direction: 'request' | 'response', headerName: string, value?: string) => void;
-  /** Server-row Override button — opens the in-panel create popover. */
+  /** Row Override buttons + "+ Add Header" — opens the in-panel create
+   *  popover anchored to the clicked control. */
   onOverrideHeader: (
     direction: 'request' | 'response',
     headerName: string,
-    value: string,
+    value: string | undefined,
     anchorEl: HTMLElement,
   ) => void;
   searchHighlight?: string;
@@ -84,7 +84,6 @@ export function HeaderSection({
   nameCase,
   showChips,
   driftedRows,
-  onCreateHeaderRule,
   onOverrideHeader,
   searchHighlight,
   searchSection,
@@ -186,7 +185,7 @@ export function HeaderSection({
           className="dt-btn-primary dt-btn dt-header-section-add"
           onClick={(e) => {
             e.preventDefault();
-            onCreateHeaderRule(direction, '', '');
+            onOverrideHeader(direction, '', '', e.currentTarget);
           }}
         >
           + Add Header

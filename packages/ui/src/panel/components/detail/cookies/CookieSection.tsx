@@ -55,7 +55,9 @@ interface Props {
   groupByRole: boolean;
   now: number;
   summaryRef?: RefObject<HTMLElement | null>;
-  onMakeRule: (row: CookieRowModel) => void;
+  /** Row Override button — anchorEl is the clicked button, for the
+   *  in-panel create popover. */
+  onMakeRule: (row: CookieRowModel, anchorEl: HTMLElement) => void;
   /** Whether a host has wired a jar-write path — gates Edit / Delete. */
   writable: boolean;
   /** A rule that fired on this request modifies this direction's cookie
@@ -215,7 +217,7 @@ export function CookieSection({
       introspection={p.introspection}
       now={now}
       columnSpan={COLUMN_SPAN}
-      onMakeRule={() => onMakeRule(p.row)}
+      onMakeRule={(anchorEl) => onMakeRule(p.row, anchorEl)}
       ruleTouched={ruleTouched}
       canEdit={writable && isJarEditableRow(p.row)}
       onApplyEdit={onApplyEdit}

@@ -64,14 +64,13 @@ export interface HeadersViewProps {
   rulesByUid: RulesByUid;
   /** Resolves the collection that owns a rule, for `{{collection.X}}` scopes. */
   collectionIdFor: (h: AnnotatedHeader) => string | undefined;
-  /** Open the Create Rule editor pre-filled with this header. */
-  onCreateHeaderRule: (direction: 'request' | 'response', headerName: string, value?: string) => void;
-  /** Open the in-panel create popover for a server header row's
-   *  Override button, anchored to it. */
+  /** Open the in-panel create popover pre-filled with this header,
+   *  anchored to the clicked control (row Override buttons, insight
+   *  CTAs, "+ Add Header"). */
   onOverrideHeader: (
     direction: 'request' | 'response',
     headerName: string,
-    value: string,
+    value: string | undefined,
     anchorEl: HTMLElement,
   ) => void;
   /** Open the Create Rule editor pre-filled with a URL/block/delay action
@@ -96,7 +95,6 @@ export function HeadersView({
   provisionalRequestHeaders,
   rulesByUid,
   collectionIdFor,
-  onCreateHeaderRule,
   onOverrideHeader,
   onCreateRedirect,
   onCreateReplaceHost,
@@ -183,9 +181,9 @@ export function HeadersView({
   );
   const footprintText = formatHeaderFootprint(footprint);
 
-  const handleInsightAction = (action: HeaderInsightAction): void => {
+  const handleInsightAction = (action: HeaderInsightAction, anchorEl: HTMLElement): void => {
     if (action.kind === 'add-header' || action.kind === 'override-header') {
-      onCreateHeaderRule(action.direction, action.headerName, action.value ?? '');
+      onOverrideHeader(action.direction, action.headerName, action.value, anchorEl);
     }
   };
 
@@ -359,7 +357,6 @@ export function HeadersView({
         nameCase={nameCase}
         showChips={showChips}
         driftedRows={driftedRows}
-        onCreateHeaderRule={onCreateHeaderRule}
         onOverrideHeader={onOverrideHeader}
         searchHighlight={searchHighlight}
         searchSection={searchSection}
@@ -380,7 +377,6 @@ export function HeadersView({
         nameCase={nameCase}
         showChips={showChips}
         driftedRows={driftedRows}
-        onCreateHeaderRule={onCreateHeaderRule}
         onOverrideHeader={onOverrideHeader}
         searchHighlight={searchHighlight}
         searchSection={searchSection}

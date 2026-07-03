@@ -61,14 +61,23 @@ import { CookieSection } from './cookies/CookieSection';
 export interface CookiesViewProps {
   row: InspectorRowWithFires;
   pageOrigin: string | null;
-  onCreateHeaderRule: (direction: 'request' | 'response', headerName: string, value?: string) => void;
+  /** Open the in-panel create popover pre-filled with a Cookie /
+   *  Set-Cookie header rule, anchored to the clicked control. `value`
+   *  stays `undefined` for "override, value up to you" gestures and `''`
+   *  for the explicit empty override ("don't send any cookies"). */
+  onOverrideHeader: (
+    direction: 'request' | 'response',
+    headerName: string,
+    value: string | undefined,
+    anchorEl: HTMLElement,
+  ) => void;
 }
 
 // Empty HAR placeholder for lifecycles that haven't landed a HAR shell yet —
 // the cookie enrichment helpers expect a defined shape with optional fields.
 const EMPTY_HAR = { request: undefined, response: undefined } as unknown as InspectorHarEntry;
 
-export default function CookiesView({ row, pageOrigin, onCreateHeaderRule }: CookiesViewProps) {
+export default function CookiesView({ row, pageOrigin, onOverrideHeader }: CookiesViewProps) {
   const lc = row.lifecycle;
   const har = currentHarEntry(lc) ?? EMPTY_HAR;
 
@@ -195,20 +204,25 @@ export default function CookiesView({ row, pageOrigin, onCreateHeaderRule }: Coo
   if (problemsCount > 0) footprintBits.push(`${problemsCount} flagged`);
   const footprintText = footprintBits.join(' · ');
 
-  // ── CTAs ───────────────────────────────────────────────────────
-  const onCreateCookieOverride = (): void => onCreateHeaderRule('request', 'Cookie');
-  const onCreateSetCookieOverride = (): void => onCreateHeaderRule('response', 'Set-Cookie');
-  const onCreateRemoveAllCookies = (): void => onCreateHeaderRule('request', 'Cookie', '');
+  // ── CTAs — all open the in-panel create popover anchored to the
+  //    clicked control. `undefined` value = "override, fill in the
+  //    value"; `''` = explicit empty override (send no cookies). ──────
+  const onCreateCookieOverride = (anchorEl: HTMLElement): void =>
+    onOverrideHeader('request', 'Cookie', undefined, anchorEl);
+  const onCreateSetCookieOverride = (anchorEl: HTMLElement): void =>
+    onOverrideHeader('response', 'Set-Cookie', undefined, anchorEl);
+  const onCreateRemoveAllCookies = (anchorEl: HTMLElement): void =>
+    onOverrideHeader('request', 'Cookie', '', anchorEl);
 
-  const handleInsightAction = (action: CookieInsightAction): void => {
-    if (action.kind === 'override-set-cookie') onCreateHeaderRule('response', 'Set-Cookie');
-    else if (action.kind === 'remove-cookie') onCreateHeaderRule('request', 'Cookie', '');
-    else if (action.kind === 'override-cookie-header') onCreateHeaderRule('request', 'Cookie');
+  const handleInsightAction = (action: CookieInsightAction, anchorEl: HTMLElement): void => {
+    if (action.kind === 'override-set-cookie') onOverrideHeader('response', 'Set-Cookie', undefined, anchorEl);
+    else if (action.kind === 'remove-cookie') onOverrideHeader('request', 'Cookie', '', anchorEl);
+    else if (action.kind === 'override-cookie-header') onOverrideHeader('request', 'Cookie', undefined, anchorEl);
   };
 
-  const onMakeRule = (cookie: CookieRowModel): void => {
-    if (cookie.direction === 'request') onCreateHeaderRule('request', 'Cookie');
-    else onCreateHeaderRule('response', 'Set-Cookie');
+  const onMakeRule = (cookie: CookieRowModel, anchorEl: HTMLElement): void => {
+    if (cookie.direction === 'request') onOverrideHeader('request', 'Cookie', undefined, anchorEl);
+    else onOverrideHeader('response', 'Set-Cookie', undefined, anchorEl);
   };
 
   // ── Measured sticky offsets ────────────────────────────────────
@@ -269,13 +283,13 @@ export default function CookiesView({ row, pageOrigin, onCreateHeaderRule }: Coo
       </div>
 
       <div className="dt-cta-row dt-header-cta-row">
-        <button type="button" className="dt-btn dt-btn-primary" onClick={onCreateCookieOverride} title="Replace the Cookie header sent on this request">
+        <button type="button" className="dt-btn dt-btn-primary" onClick={(e) => onCreateCookieOverride(e.currentTarget)} title="Replace the Cookie header sent on this request">
           Override Request Cookies
         </button>
-        <button type="button" className="dt-btn dt-btn-primary" onClick={onCreateSetCookieOverride} title="Replace a Set-Cookie header coming back from the server">
+        <button type="button" className="dt-btn dt-btn-primary" onClick={(e) => onCreateSetCookieOverride(e.currentTarget)} title="Replace a Set-Cookie header coming back from the server">
           Override Response Cookies
         </button>
-        <button type="button" className="dt-btn dt-btn-primary" onClick={onCreateRemoveAllCookies} title="Drop the Cookie header entirely, so the server sees no cookies">
+        <button type="button" className="dt-btn dt-btn-primary" onClick={(e) => onCreateRemoveAllCookies(e.currentTarget)} title="Drop the Cookie header entirely, so the server sees no cookies">
           Don’t send any cookies
         </button>
         {writable && (

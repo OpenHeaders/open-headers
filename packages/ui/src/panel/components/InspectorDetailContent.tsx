@@ -285,9 +285,9 @@ export function InspectorDetailContent({
   const fireEvidenceByRule = useMemo(() => deriveFireEvidenceByRule(lc, row.fires), [lc, row.fires]);
 
   // Live response rule that fired on this request — flips the Response
-  // tab's CTA from create ("Override Response") to edit ("Edit
-  // override"). Requires the rule to still exist; a deleted rule falls
-  // back to the create CTA.
+  // and Preview tabs' CTA from create ("Override Response") to edit
+  // ("Edit override"). Requires the rule to still exist; a deleted rule
+  // falls back to the create CTA.
   const firedResponseRule = useMemo<Rule | null>(() => {
     for (const fire of row.fires) {
       const rule = rulesByUid.get(fire.ruleUid);
@@ -337,17 +337,14 @@ export function InspectorDetailContent({
     }
   };
 
-  const createHeaderRule = (direction: 'request' | 'response', headerName: string, value?: string): void => {
-    void handOff(() => buildHeaderDraftFromRequest(lc, { direction, headerName, value }));
-  };
-  // Server-row Override opens the in-panel create popover seeded with
-  // that row's header; other header CTAs (insight cards, cookies, "+
-  // Add Header") keep the workbench handoff above.
+  // Every header CTA (server rows, insight cards, cookies, "+ Add
+  // Header") opens the in-panel create popover seeded with that
+  // gesture's header, anchored to the clicked control.
   const rulePopover = useRulePopover();
   const overrideHeader = (
     direction: 'request' | 'response',
     headerName: string,
-    value: string,
+    value: string | undefined,
     anchorEl: HTMLElement,
   ): void => {
     rulePopover.open(
@@ -366,8 +363,6 @@ export function InspectorDetailContent({
   const createReplaceUrlPart = (): void => void handOff(() => buildReplaceUrlPartDraftFromRequest(lc));
   const createDelay = (): void => void handOff(() => buildDelayDraftFromRequest(lc));
   const createCancel = (): void => void handOff(() => buildBlockDraftFromRequest(lc));
-  const createOverrideResponse = (): void =>
-    void handOff(() => buildResponseDraftFromRequest(lc, capturedResponseDraftInput(lc, har)));
   const createOverrideRequestBody = (): void =>
     void handOff(() => buildRequestBodyDraftFromRequest(lc, capturedRequestBodyDraftInput(lc, har)));
   const createOverrideQueryParams = (): void =>
@@ -453,7 +448,6 @@ export function InspectorDetailContent({
             provisionalRequestHeaders={provisionalRequestHeaders}
             rulesByUid={rulesByUid}
             collectionIdFor={collectionIdFor}
-            onCreateHeaderRule={createHeaderRule}
             onOverrideHeader={overrideHeader}
             onCreateRedirect={createRedirect}
             onCreateReplaceHost={createReplaceHost}
@@ -501,7 +495,7 @@ export function InspectorDetailContent({
         )}
 
         {section === 'cookies' && (
-          <CookiesView row={row} pageOrigin={pageOrigin} onCreateHeaderRule={createHeaderRule} />
+          <CookiesView row={row} pageOrigin={pageOrigin} onOverrideHeader={overrideHeader} />
         )}
 
         {section === 'rawdata' && (
@@ -509,7 +503,13 @@ export function InspectorDetailContent({
         )}
       </div>
 
-      {section === 'preview' && <PreviewView row={row} onOverrideResponse={createOverrideResponse} />}
+      {section === 'preview' && (
+        <PreviewView
+          row={row}
+          buildOverrideDraft={() => buildResponseDraftFromRequest(lc, capturedResponseDraftInput(lc, har))}
+          firedResponseRule={firedResponseRule}
+        />
+      )}
 
       {section === 'response' && (
         <ResponseBodyView
