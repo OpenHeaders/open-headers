@@ -20,12 +20,13 @@ import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { useVariableLookup, type VariableCandidate } from '@openheaders/ui/shared/hooks/useVariableLookup';
 import { type MutationResult, useVariableMutator } from '@openheaders/ui/shared/hooks/mutators/useVariableMutator';
 import type { VariableScope } from '@openheaders/core/types';
-import { App, Button, Dropdown, type GetRef, Input, type MenuProps, Tag, Tooltip, theme } from 'antd';
+import { App, Button, Dropdown, Input, type MenuProps, Tag, Tooltip, theme } from 'antd';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePopoverPlacement } from '@openheaders/ui/shared/popover';
 import { useSaveShortcut } from '@openheaders/ui/shared/hooks/useSaveShortcut';
 import { useEnvSwitcher } from '../../services/env-switcher';
 import { type ScopeKey, scopeBadge } from '../shared/scope-colors';
+import TemplateInput from './TemplateInput';
 import {
   buildCreateOptions,
   type CreateScope,
@@ -115,7 +116,7 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
   }, [lookup]);
 
   const { position, popoverRef, measured } = usePopoverPlacement(anchorEl, POPOVER_WIDTH);
-  const valueRef = useRef<GetRef<typeof Input.TextArea>>(null);
+  const valueRef = useRef<HTMLDivElement | null>(null);
   const [draft, setDraft] = useState<string>(() => currentValue(candidate, lookup.active?.value ?? ''));
   const [draftDirty, setDraftDirty] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -317,22 +318,34 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
         </span>
       </div>
 
-      <Input.TextArea
-        // Focus is driven by the `measured`-gated effect above (not the
-        // native `autoFocus`, which would fire on mount before the popover
-        // is positioned and revealed).
-        ref={valueRef}
-        value={draft}
-        onChange={(e) => {
-          draftRef.current = e.target.value;
-          setDraft(e.target.value);
-          setDraftDirty(true);
-        }}
-        autoSize={{ minRows: 3, maxRows: 8 }}
-        disabled={!isUnresolved && !editable}
-        placeholder={isUnresolved ? 'Enter value' : ''}
-        style={{ fontFamily: token.fontFamilyCode, fontSize: 12 }}
-      />
+      {isUnresolved || editable ? (
+        <TemplateInput
+          // Focus is driven by the `measured`-gated effect above (not the
+          // component's `autoFocus`, which would fire on mount before the
+          // popover is positioned and revealed).
+          ref={valueRef}
+          value={draft}
+          onChange={(v) => {
+            draftRef.current = v;
+            setDraft(v);
+            setDraftDirty(true);
+          }}
+          multiline
+          maxRows={8}
+          resizable
+          allowClear
+          disableSuggestions
+          placeholder={isUnresolved ? 'Enter value' : ''}
+          style={{ width: '100%', fontFamily: token.fontFamilyCode, fontSize: 12 }}
+        />
+      ) : (
+        <Input.TextArea
+          value={draft}
+          autoSize={{ minRows: 3, maxRows: 8 }}
+          disabled
+          style={{ fontFamily: token.fontFamilyCode, fontSize: 12 }}
+        />
+      )}
 
       {isUnresolved && envSuggestions.length > 0 && (
         <div
