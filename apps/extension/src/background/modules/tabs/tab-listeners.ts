@@ -15,21 +15,21 @@ import {
   transferTabTracking,
 } from '@openheaders/oracle/tracking/tab-tracking-store';
 
-import { isMainFrame } from '../correlator-host/main-frame-registry';
-import { checkIfUrlMatchesAnyRule } from './request-tracker';
-import { mainFrameRequestIdsMatchingCommit } from '../tab-telemetry-source/main-frame-chain';
+import { isMainFrame } from '../../correlator-host/main-frame-registry';
+import { checkIfUrlMatchesAnyRule } from '../request-tracker';
+import { mainFrameRequestIdsMatchingCommit } from '../../tab-telemetry-source/main-frame-chain';
 import {
   onPageCommit as tabTelemetryOnPageCommit,
   startTracking as tabTelemetryStartTracking,
   stopTracking as tabTelemetryStopTracking,
-} from './tab-telemetry';
+} from '../tab-telemetry';
 import {
   onTabCommit as testRunnerOnTabCommit,
   onTabError as testRunnerOnTabError,
   onTabLoaded as testRunnerOnTabLoaded,
   onTabRemoved as testRunnerOnTabRemoved,
-} from './test-runner';
-import { isTrackableUrl, normalizeUrlForTracking } from './url-utils';
+} from '../test-runner';
+import { isTrackableUrl, normalizeUrlForTracking } from '../url-utils';
 
 /**
  * Active-tab telemetry tracking.

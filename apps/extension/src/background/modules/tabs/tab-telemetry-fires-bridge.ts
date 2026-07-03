@@ -29,8 +29,8 @@ import type { RequestRecord } from '@openheaders/core/types';
 import { buildRuleSnapshot } from '@openheaders/oracle/rule-engine/rule-snapshot';
 import type { RuleFireHub } from '@openheaders/oracle/rule-fire-hub';
 
-import { subscribeFiresAll } from './tab-telemetry';
-import { normalizeUrlForTracking } from './url-utils';
+import { subscribeFiresAll } from '../tab-telemetry';
+import { normalizeUrlForTracking } from '../url-utils';
 
 export interface RuleFiresBridge {
   /** Authoritative-side ingress — called by the DNR-debug listener with

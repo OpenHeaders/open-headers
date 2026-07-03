@@ -31,9 +31,9 @@ import { createPersistentWatchSessionFloors, startLifecyclePortHost } from '../l
 import { isCacheBypassActive, registerCacheBypassReplay } from '../modules/net/cache-bypass';
 import { getNetworkConditionsForTab, registerNetworkConditionsReplay } from '../modules/net/network-conditions';
 import { setupOnRuleMatchedDebugBridge } from '../modules/rules/on-rule-matched-debug';
-import { getTabOverridesForTab, registerTabOverridesReplay } from '../modules/tab-overrides';
 import { recordReportedFire } from '../modules/tab-telemetry';
-import { startTabTelemetryFiresBridge } from '../modules/tab-telemetry-fires-bridge';
+import { getTabOverridesForTab, registerTabOverridesReplay } from '../modules/tabs/tab-overrides';
+import { startTabTelemetryFiresBridge } from '../modules/tabs/tab-telemetry-fires-bridge';
 import { startCdpPageBridge, startDevtoolsPageNavBridge, startPagePortHost } from '../page-port-host';
 import { startResourceTimingRelay } from '../resource-timing-relay';
 import { startRuleEngineDriver } from '../rule-engine-driver';

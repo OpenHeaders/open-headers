@@ -1,7 +1,7 @@
 import { forgetDelayBypassForTab, resolveDelayBypass } from '../dnr-manager';
 import { forgetCacheBypassForTab } from '../modules/net/cache-bypass';
 import { forgetNetworkConditionsForTab } from '../modules/net/network-conditions';
-import { forgetTabOverridesForTab } from '../modules/tab-overrides';
+import { forgetTabOverridesForTab } from '../modules/tabs/tab-overrides';
 
 declare const browser: typeof chrome | undefined;
 

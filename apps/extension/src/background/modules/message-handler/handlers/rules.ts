@@ -16,10 +16,10 @@ import {
   renameFolder,
 } from '@openheaders/oracle/entity/rule-store';
 import { pruneOrphanOwners } from '@openheaders/oracle/test-run/test-run-store';
-import { setCdpTabPin } from '../../cdp-tab-pin';
 import { disableCacheBypassForTab, enableCacheBypassForTab } from '../../net/cache-bypass';
 import { getNetworkConditionsForTab, setNetworkConditionsForTab } from '../../net/network-conditions';
-import { getTabOverridesForTab, setTabOverridesForTab } from '../../tab-overrides';
+import { setCdpTabPin } from '../../tabs/cdp-tab-pin';
+import { getTabOverridesForTab, setTabOverridesForTab } from '../../tabs/tab-overrides';
 import type { HandlerMap } from '../types';
 
 /** Sweep test-run owners whose rule/collection/folder no longer exists. */

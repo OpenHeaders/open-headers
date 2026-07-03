@@ -59,7 +59,6 @@ import { installWsFrameRouting } from './bootstrap/ws-frame-routing';
 import { setRulesPaused } from './dnr-manager';
 import { setupInjectListener } from './inject-manager';
 import { updateExtensionBadge } from './modules/badge-manager';
-import { registerCdpTabPinControls } from './modules/cdp-tab-pin';
 import {
   kickActiveContextRefresh,
   reconcileLiveSchedules,
@@ -78,8 +77,9 @@ import { precompileRulePatterns, rehydrateTabTracking, restoreTrackingState } fr
 import { installParityRuleImport } from './modules/rules/parity-rule-import';
 import { scheduleUpdate } from './modules/rules/rule-engine';
 import { rehydrateFromStorage as rehydrateObserverFromStorage } from './modules/rules/rule-state-observer';
-import { initializeActiveTabTracking, setupPeriodicCleanup, setupTabListeners } from './modules/tab-listeners';
-import { rehydrateTabOverridesFromSession } from './modules/tab-overrides';
+import { registerCdpTabPinControls } from './modules/tabs/cdp-tab-pin';
+import { initializeActiveTabTracking, setupPeriodicCleanup, setupTabListeners } from './modules/tabs/tab-listeners';
+import { rehydrateTabOverridesFromSession } from './modules/tabs/tab-overrides';
 import { setupTestRunnerPorts } from './modules/test-runner';
 import { bootstrapTotpScheduler } from './modules/totp-scheduler';
 import { initializeViewMode } from './modules/view-mode';

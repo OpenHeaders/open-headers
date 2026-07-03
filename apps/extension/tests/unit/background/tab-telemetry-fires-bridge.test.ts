@@ -18,7 +18,7 @@ vi.mock('@/background/modules/tab-telemetry', () => ({
 }));
 
 import type { RuleFireHub } from '@openheaders/oracle/rule-fire-hub';
-import { startTabTelemetryFiresBridge } from '@/background/modules/tab-telemetry-fires-bridge';
+import { startTabTelemetryFiresBridge } from '@/background/modules/tabs/tab-telemetry-fires-bridge';
 
 function rec(overrides: Partial<RequestRecord> = {}): RequestRecord {
   return {

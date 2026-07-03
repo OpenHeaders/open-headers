@@ -16,7 +16,7 @@ import {
   __resetCdpTabPinControlsForTests,
   registerCdpTabPinControls,
   setCdpTabPin,
-} from '@/background/modules/cdp-tab-pin';
+} from '@/background/modules/tabs/cdp-tab-pin';
 
 function makeController() {
   const source = {

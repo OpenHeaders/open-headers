@@ -20,7 +20,7 @@ import {
   registerTabOverridesReplay,
   rehydrateTabOverridesFromSession,
   setTabOverridesForTab,
-} from '@/background/modules/tab-overrides';
+} from '@/background/modules/tabs/tab-overrides';
 
 const UA: TabSystemOverrides = { userAgent: 'Test-Agent/1.0 (openheaders.io)' };
 
