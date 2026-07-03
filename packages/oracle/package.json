@@ -48,6 +48,10 @@
       "import": "./src/entity/*.ts",
       "default": "./dist/entity/*.js"
     },
+    "./live/definitional-freshness": {
+      "import": "./src/live/definitional-freshness/index.ts",
+      "default": "./dist/live/definitional-freshness/index.js"
+    },
     "./live/live-cache-store": {
       "import": "./src/live/live-cache-store/index.ts",
       "default": "./dist/live/live-cache-store/index.js"
