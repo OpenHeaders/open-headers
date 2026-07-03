@@ -88,6 +88,10 @@
       "import": "./src/rpc/index.ts",
       "default": "./dist/rpc/index.js"
     },
+    "./rule-engine/variables-resolver": {
+      "import": "./src/rule-engine/variables-resolver/index.ts",
+      "default": "./dist/rule-engine/variables-resolver/index.js"
+    },
     "./rule-engine/*": {
       "import": "./src/rule-engine/*.ts",
       "default": "./dist/rule-engine/*.js"
