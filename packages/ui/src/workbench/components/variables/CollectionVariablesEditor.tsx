@@ -22,7 +22,7 @@
 
 import { useRequests } from '@openheaders/ui/shared/hooks/useRequests';
 import { useRules } from '@openheaders/ui/shared/hooks/useRules';
-import { useVariableMutator } from '@openheaders/ui/shared/hooks/useVariableMutator';
+import { useVariableMutator } from '@openheaders/ui/shared/hooks/mutators/useVariableMutator';
 import {
   COLLECTION_ENTITY_TYPE,
   REQUEST_COLLECTION_ENTITY_TYPE,

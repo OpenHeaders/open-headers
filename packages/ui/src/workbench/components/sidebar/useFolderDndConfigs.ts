@@ -31,9 +31,9 @@ import { getRequestCollectionSyncMirrorForWorkspace } from '@openheaders/ui/cont
 import { getRequestFolderSyncMirrorForWorkspace } from '@openheaders/ui/context';
 import { getTemplateCollectionSyncMirrorForWorkspace } from '@openheaders/ui/context';
 import { getTemplateFolderSyncMirrorForWorkspace } from '@openheaders/ui/context';
-import { useFolderMutator } from '@openheaders/ui/shared/hooks/useFolderMutator';
-import { useRequestFolderMutator } from '@openheaders/ui/shared/hooks/useRequestFolderMutator';
-import { useTemplateFolderMutator } from '@openheaders/ui/shared/hooks/useTemplateFolderMutator';
+import { useFolderMutator } from '@openheaders/ui/shared/hooks/mutators/useFolderMutator';
+import { useRequestFolderMutator } from '@openheaders/ui/shared/hooks/mutators/useRequestFolderMutator';
+import { useTemplateFolderMutator } from '@openheaders/ui/shared/hooks/mutators/useTemplateFolderMutator';
 import { useMemo } from 'react';
 import type { FolderDndConfig, FolderDndParent } from './FolderDndTree';
 

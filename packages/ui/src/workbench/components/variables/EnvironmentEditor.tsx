@@ -19,7 +19,7 @@
 
 import { CheckCircleTwoTone, StarFilled, StarOutlined } from '@ant-design/icons';
 import { useEnvironments } from '@openheaders/ui/shared/hooks/useEnvironments';
-import { useEnvironmentMutator } from '@openheaders/ui/shared/hooks/useEnvironmentMutator';
+import { useEnvironmentMutator } from '@openheaders/ui/shared/hooks/mutators/useEnvironmentMutator';
 import { ENVIRONMENT_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Environment, Variable } from '@openheaders/core/types';
 import { App, Button, Tag, Tooltip, Typography, theme } from 'antd';

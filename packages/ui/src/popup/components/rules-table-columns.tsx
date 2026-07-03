@@ -1,5 +1,5 @@
 import { DeleteOutlined, EditOutlined, ExperimentOutlined } from '@ant-design/icons';
-import type { UseRuleMutatorApi } from '@openheaders/ui/shared/hooks/useRuleMutator';
+import type { UseRuleMutatorApi } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import type { WorkspaceIntent } from '@openheaders/ui/shared/workspace-intent';
 import { App, Button, Popconfirm, Space, Switch, Tag, Tooltip, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';

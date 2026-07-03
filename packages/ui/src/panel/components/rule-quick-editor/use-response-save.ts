@@ -7,7 +7,7 @@
  */
 
 import type { ResponseRule } from '@openheaders/core/types';
-import type { RuleMutationResult, UseRuleMutatorApi } from '@openheaders/ui/shared/hooks/useRuleMutator';
+import type { RuleMutationResult, UseRuleMutatorApi } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import { useSaveShortcut } from '@openheaders/ui/shared/hooks/useSaveShortcut';
 import type { App } from 'antd';
 import { type RefObject, useState } from 'react';

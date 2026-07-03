@@ -16,7 +16,7 @@
 import type { ResponseRule, Rule } from '@openheaders/core/types';
 import { useLiveRule } from '@openheaders/ui/context';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/useActiveWorkspaceId';
-import { useRuleMutator } from '@openheaders/ui/shared/hooks/useRuleMutator';
+import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 import { App, Tag, theme } from 'antd';

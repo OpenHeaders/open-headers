@@ -10,7 +10,7 @@
 import { StopOutlined } from '@ant-design/icons';
 import type { BlockRuleDraft } from '@openheaders/core/types';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/useActiveWorkspaceId';
-import { useRuleMutator } from '@openheaders/ui/shared/hooks/useRuleMutator';
+import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import { App, Typography, theme } from 'antd';

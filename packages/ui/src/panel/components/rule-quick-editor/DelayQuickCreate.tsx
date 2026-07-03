@@ -9,7 +9,7 @@
 import type { DelayRuleDraft } from '@openheaders/core/types';
 import { stableStringify } from '@openheaders/ui/shared/forms';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/useActiveWorkspaceId';
-import { useRuleMutator } from '@openheaders/ui/shared/hooks/useRuleMutator';
+import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import { App, InputNumber, Typography, theme } from 'antd';

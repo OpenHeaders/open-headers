@@ -1,7 +1,7 @@
 import { CheckOutlined, FolderTwoTone, SortAscendingOutlined } from '@ant-design/icons';
 import type { FolderNode, TreeNode } from '@openheaders/core/types';
 import { useRowActionRegistration } from '@openheaders/ui/shared/hooks/useRowActionRegistration';
-import { useRuleMutator } from '@openheaders/ui/shared/hooks/useRuleMutator';
+import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import { useVariableResolver } from '@openheaders/ui/shared/hooks/useVariableResolver';
 import { useSurface } from '@openheaders/ui/shared/surface';

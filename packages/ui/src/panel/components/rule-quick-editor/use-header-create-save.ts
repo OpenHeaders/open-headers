@@ -15,7 +15,7 @@ import {
   validateHeaderName,
   validateHeaderValue,
 } from '@openheaders/core/utils';
-import type { UseRuleMutatorApi } from '@openheaders/ui/shared/hooks/useRuleMutator';
+import type { UseRuleMutatorApi } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import type { App } from 'antd';
 import type { RefObject } from 'react';
 import {

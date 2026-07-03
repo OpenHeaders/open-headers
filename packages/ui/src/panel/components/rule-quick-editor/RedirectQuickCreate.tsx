@@ -11,7 +11,7 @@
 import type { RedirectRuleDraft } from '@openheaders/core/types';
 import { stableStringify } from '@openheaders/ui/shared/forms';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/useActiveWorkspaceId';
-import { useRuleMutator } from '@openheaders/ui/shared/hooks/useRuleMutator';
+import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import { useVariableResolver } from '@openheaders/ui/shared/hooks/useVariableResolver';
 import { TemplateInput } from '@openheaders/ui/workbench/components/template-input';

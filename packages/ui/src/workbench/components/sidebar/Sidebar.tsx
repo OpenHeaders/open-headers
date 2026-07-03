@@ -22,7 +22,7 @@ import { useLiveVariables } from '@openheaders/ui/shared/hooks/useLiveVariables'
 import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/useLiveWorkflows';
 import { useRequests } from '@openheaders/ui/shared/hooks/useRequests';
 import { useRules } from '@openheaders/ui/shared/hooks/useRules';
-import { useRuleMutator } from '@openheaders/ui/shared/hooks/useRuleMutator';
+import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import { useVariableResolver } from '@openheaders/ui/shared/hooks/useVariableResolver';
 import { isRuleResolvable } from '@openheaders/core/utils';
 import type { InputRef } from 'antd';

@@ -18,7 +18,7 @@ import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { useEnvVarVault } from '@openheaders/ui/shared/hooks/useEnvVarVault';
 import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import { useVariableLookup, type VariableCandidate } from '@openheaders/ui/shared/hooks/useVariableLookup';
-import { type MutationResult, useVariableMutator } from '@openheaders/ui/shared/hooks/useVariableMutator';
+import { type MutationResult, useVariableMutator } from '@openheaders/ui/shared/hooks/mutators/useVariableMutator';
 import type { VariableScope } from '@openheaders/core/types';
 import { App, Button, Dropdown, type GetRef, Input, type MenuProps, Tag, Tooltip, theme } from 'antd';
 import { useEffect, useMemo, useRef, useState } from 'react';

@@ -24,7 +24,7 @@
 
 import { COLLECTION_ENTITY_TYPE } from '@openheaders/core/sync';
 import { generateUid, type RuleSeed, toFolderName } from '@openheaders/core/utils';
-import type { UseRuleMutatorApi } from '@openheaders/ui/shared/hooks/useRuleMutator';
+import type { UseRuleMutatorApi } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import { useSaveShortcut } from '@openheaders/ui/shared/hooks/useSaveShortcut';
 import { NEW_RULES_COLLECTION_NAME } from '@openheaders/ui/shared/naming';
 import { applyCollectionCreate } from '@openheaders/ui/shared/sync/collection-write-client';

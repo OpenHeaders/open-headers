@@ -1,7 +1,7 @@
 import { ExclamationCircleOutlined, FileTextOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { resolvePauseState } from '@openheaders/core/utils';
 import { scheduleFrame } from '@openheaders/ui/shared/frame-scheduler';
-import { useRuleMutator } from '@openheaders/ui/shared/hooks/useRuleMutator';
+import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import { useTablePagination } from '@openheaders/ui/shared/hooks/useTablePagination';
 import { useSurface } from '@openheaders/ui/shared/surface';

@@ -14,7 +14,7 @@
 
 import type { HeaderRuleDraft } from '@openheaders/core/types';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/useActiveWorkspaceId';
-import { useRuleMutator } from '@openheaders/ui/shared/hooks/useRuleMutator';
+import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import { TemplateInput } from '@openheaders/ui/workbench/components/template-input';
 import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
