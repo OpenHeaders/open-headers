@@ -298,11 +298,13 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
               // same as AntD TextArea's allowClear + resize). Also clears
               // the unresolved dot when flagged. Top-right on an expanded
               // surface, centered on a single line.
-              // Expanded: sit immediately left of the 8px scrollbar column
+              // Expanded: sit immediately left of the 6px scrollbar column
               // (the grip below never collides — the scrollbar track stops
-              // above it). Single line: hug the right edge. The unresolved
-              // dot pushes either further left.
-              right: (displayExpanded ? 10 : 6) + (hasUnresolvedRef ? 10 : 0),
+              // above it). Single line: hug the right edge. When flagged,
+              // the wrapper's 14px dot gutter insets the editable — and its
+              // scrollbar — by that much, so the offset shifts by the FULL
+              // gutter width to stay clear of the bar, not just the dot.
+              right: (displayExpanded ? 10 : 6) + (hasUnresolvedRef ? 14 : 0),
               // Expanded: pin to the first line's center (size-dependent —
               // small fields have no vertical padding). Single line:
               // center in the field.

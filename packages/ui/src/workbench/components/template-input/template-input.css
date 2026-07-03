@@ -48,7 +48,7 @@
  * scrollbar` pane keep that pane's thinner reveal treatment, which wins
  * on specificity; this covers the ones outside it, e.g. the URL bar.) */
 .oh-template-input-editable--expanded::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
 .oh-template-input-editable--expanded::-webkit-scrollbar-track {
   background: transparent;
