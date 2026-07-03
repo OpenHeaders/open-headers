@@ -26,7 +26,9 @@ import {
 } from '../../data/payload-rule-create';
 import { handOffRuleDraft } from '../../data/rule-draft-bridge';
 import { generateSmartRuleName } from '../../data/smart-rule-name';
+import { QuickDestinationRow } from './QuickDestinationRow';
 import { QuickEditorShell } from './QuickEditorShell';
+import { useQuickCreateDestination } from './use-quick-create-destination';
 import { useQuickCreateSave } from './use-quick-create-save';
 
 export interface RequestBodyQuickCreateProps {
@@ -51,7 +53,7 @@ export function RequestBodyQuickCreate({
   const { message } = App.useApp();
   const workspaceId = useActiveWorkspaceId();
   const mutator = useRuleMutator({ workspaceId, surfaceId: 'devpanel' });
-  const { rules, localCollections } = useRules();
+  const { rules } = useRules();
   const strategy = useSettingValue('rulesEngine.draftUrlStrategy');
 
   // Pre-filled from the capture; editable via the shell's title.
@@ -62,17 +64,12 @@ export function RequestBodyQuickCreate({
   quickRef.current = quick;
   const isDirty = stableStringify(quick) !== stableStringify(seed);
 
-  // Context-less create falls back to the first collection — the same
-  // fallback `useTabOpeners.openCreateTab` applies in the workbench.
-  // Its uid also scopes the body's `{{collection.X}}` suggestions to
-  // where the rule will actually live.
-  const destinationCollection = localCollections[0] ?? null;
-  const parentPath = destinationCollection?.path ?? null;
-  const collectionId = destinationCollection?.uid;
+  const dest = useQuickCreateDestination(draft.url);
+  const collectionId = dest.collectionId;
 
   const { saving, canSave, handleSave, saveLabel } = useQuickCreateSave({
     buildSeed: () => buildRequestBodyRuleSeed(draft, quickRef.current, name, strategy),
-    parentPath,
+    destination: dest.forSave,
     workspaceId,
     mutator,
     message,
@@ -102,6 +99,7 @@ export function RequestBodyQuickCreate({
       onRuleNameChange={setName}
       liveRuleUid={null}
       isDirty={isDirty}
+      destination={<QuickDestinationRow api={dest} />}
       tags={
         draft.resourceType === 'graphql' ? (
           <Tag style={{ marginInlineEnd: 0, fontSize: 10 }} color="purple">

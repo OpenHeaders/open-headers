@@ -1,16 +1,20 @@
 /**
- * Shared save chain for every quick-editor CREATE body: build the seed,
- * mint the entity, and cross the publication gate — the popover's Save
- * IS the publication gesture (parity with the workbench scratch Save in
- * `useSaveRuleFlow.persist`). The write client forces `published:
- * false` at creation; publishing is the explicit second step, and a
- * publish failure degrades honestly to a draft.
+ * Shared save chain for every quick-editor CREATE body: resolve the
+ * destination, build the seed, mint the entity, and cross the
+ * publication gate — the popover's Save IS the publication gesture
+ * (parity with the workbench scratch Save in `useSaveRuleFlow.persist`).
+ * The write client forces `published: false` at creation; publishing is
+ * the explicit second step, and a publish failure degrades honestly to
+ * a draft.
  *
- * A workspace with no collection yet gets one minted on the fly
- * (`New Rules Collection` — the sidebar's create-action name) — the
- * workbench's SaveToCollectionModal has room to ask for a destination;
- * the compact popover doesn't, and blocking the user's first rule on a
- * naming ceremony would be backwards.
+ * Destination resolution mints what the plan says is missing: a
+ * collection-less workspace gets `New Rules Collection` (the sidebar's
+ * create-action name), and a pending domain folder
+ * (`quick-rule-destination.ts`) is created under the collection root —
+ * the compact popover has no room for the workbench's
+ * SaveToCollectionModal ceremony, so Save does the organizing. A folder
+ * mint failure degrades to the collection root with a warning rather
+ * than blocking the rule.
  *
  * Per-type bodies supply `buildSeed` (reading their live form state via
  * a ref) and an optional `valid` gate on top of the always-on `!saving`
@@ -18,23 +22,33 @@
  * a valid draft.
  */
 
-import type { RuleSeed } from '@openheaders/core/utils';
+import { COLLECTION_ENTITY_TYPE } from '@openheaders/core/sync';
+import { generateUid, type RuleSeed, toFolderName } from '@openheaders/core/utils';
 import type { UseRuleMutatorApi } from '@openheaders/ui/shared/hooks/useRuleMutator';
 import { NEW_RULES_COLLECTION_NAME } from '@openheaders/ui/shared/naming';
 import { applyCollectionCreate } from '@openheaders/ui/shared/sync/collection-write-client';
+import { applyFolderCreate } from '@openheaders/ui/shared/sync/folder-write-client';
 import type { App } from 'antd';
 import { useState } from 'react';
 import { useSaveShortcut } from './use-save-shortcut';
 
 type MessageApi = ReturnType<typeof App.useApp>['message'];
 
+/** Where the rule lands — produced by `useQuickCreateDestination`. */
+export interface QuickCreateDestination {
+  /** Chosen collection — null when the workspace has none yet. */
+  collection: { uid: string; path: string } | null;
+  /** Existing folder to create into (inside the collection). */
+  folderPath: string | null;
+  /** Folder to mint at save time under the collection root. */
+  newFolderName: string | null;
+}
+
 interface UseQuickCreateSaveArgs {
   /** Builds the full rule seed from the CURRENT form state. */
   buildSeed: () => RuleSeed;
-  /** Destination collection path — null when the workspace has none
-   *  (Save then mints `New Rules Collection` and creates into it). */
-  parentPath: string | null;
-  /** Workspace the auto-minted collection lands in. */
+  destination: QuickCreateDestination;
+  /** Workspace any auto-minted collection/folder lands in. */
   workspaceId: string | null;
   /** Extra validity gate on top of `!saving`; defaults to true. */
   valid?: boolean;
@@ -52,7 +66,7 @@ export interface QuickCreateSaveApi {
 
 export function useQuickCreateSave({
   buildSeed,
-  parentPath,
+  destination,
   workspaceId,
   valid = true,
   mutator,
@@ -64,25 +78,43 @@ export function useQuickCreateSave({
   const handleSave = async () => {
     setSaving(true);
     try {
-      let destination = parentPath;
-      if (!destination) {
+      if (!workspaceId) {
+        message.error('No active workspace');
+        return;
+      }
+      const writeOpts = { workspaceId, surfaceId: 'devpanel' };
+
+      let collection = destination.collection;
+      if (!collection) {
         // First rule in a collection-less workspace: mint the default
         // collection instead of bouncing the user to the workbench.
-        if (!workspaceId) {
-          message.error('No active workspace');
-          return;
-        }
-        const collectionResult = await applyCollectionCreate(
-          { name: NEW_RULES_COLLECTION_NAME },
-          { workspaceId, surfaceId: 'devpanel' },
-        );
+        const collectionResult = await applyCollectionCreate({ name: NEW_RULES_COLLECTION_NAME }, writeOpts);
         if (!collectionResult.ok) {
           message.error('Failed to create a collection for the rule');
           return;
         }
-        destination = collectionResult.collection.path;
+        collection = { uid: collectionResult.collection.uid, path: collectionResult.collection.path };
       }
-      const created = await mutator.createRule(buildSeed(), destination);
+
+      let parentPath = destination.folderPath ?? collection.path;
+      if (!destination.folderPath && destination.newFolderName) {
+        const folderUid = generateUid();
+        const folderResult = await applyFolderCreate(
+          {
+            folderUid,
+            parent: { type: COLLECTION_ENTITY_TYPE, uid: collection.uid },
+            name: destination.newFolderName,
+          },
+          writeOpts,
+        );
+        if (folderResult.ok) {
+          parentPath = `${collection.path}/${toFolderName(destination.newFolderName, folderUid)}`;
+        } else {
+          message.warning(`Couldn’t create the “${destination.newFolderName}” folder — saving at the collection root.`);
+        }
+      }
+
+      const created = await mutator.createRule(buildSeed(), parentPath);
       if (!created.ok) {
         const detail = created.reason === 'other' ? created.message : undefined;
         message.error(detail ?? 'Failed to create rule');

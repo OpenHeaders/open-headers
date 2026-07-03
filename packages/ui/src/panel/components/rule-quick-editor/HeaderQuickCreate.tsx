@@ -30,8 +30,10 @@ import {
 } from '../../data/header-rule-create';
 import { stableStringify } from '@openheaders/ui/shared/forms';
 import { HEADER_OPERATION_OPTIONS } from './header-operation-options';
+import { QuickDestinationRow } from './QuickDestinationRow';
 import { QuickEditorShell } from './QuickEditorShell';
 import { useHeaderCreateSave } from './use-header-create-save';
+import { useQuickCreateDestination } from './use-quick-create-destination';
 
 export interface HeaderQuickCreateProps {
   anchorEl: HTMLElement;
@@ -57,7 +59,7 @@ export function HeaderQuickCreate({
   const { message } = App.useApp();
   const workspaceId = useActiveWorkspaceId();
   const mutator = useRuleMutator({ workspaceId, surfaceId: 'devpanel' });
-  const { rules, localCollections } = useRules();
+  const { rules } = useRules();
   const strategy = useSettingValue('rulesEngine.draftUrlStrategy');
 
   // Seed frozen per popover session (the host remounts per identity);
@@ -77,13 +79,8 @@ export function HeaderQuickCreate({
   };
   const isDirty = stableStringify(quick) !== stableStringify(seed);
 
-  // Context-less create falls back to the first collection — the same
-  // fallback `useTabOpeners.openCreateTab` applies in the workbench.
-  // Its uid also scopes `{{collection.X}}` suggestions to where the
-  // rule will actually live.
-  const destinationCollection = localCollections[0] ?? null;
-  const parentPath = destinationCollection?.path ?? null;
-  const collectionId = destinationCollection?.uid;
+  const dest = useQuickCreateDestination(draft.url);
+  const collectionId = dest.collectionId;
 
   const { saving, canSave, nameValidation, valueValidation, capability, handleSave, saveLabel } = useHeaderCreateSave({
     draft,
@@ -91,7 +88,7 @@ export function HeaderQuickCreate({
     quickRef,
     direction,
     name,
-    parentPath,
+    destination: dest.forSave,
     workspaceId,
     strategy,
     mutator,
@@ -114,6 +111,7 @@ export function HeaderQuickCreate({
       onRuleNameChange={setName}
       liveRuleUid={null}
       isDirty={isDirty}
+      destination={<QuickDestinationRow api={dest} />}
       tags={
         <Tag style={{ marginInlineEnd: 0, fontSize: 10 }} color={direction === 'response' ? 'purple' : 'blue'}>
           {direction === 'response' ? 'Response' : 'Request'}

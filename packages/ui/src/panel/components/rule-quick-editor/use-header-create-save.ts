@@ -19,7 +19,7 @@ import type { UseRuleMutatorApi } from '@openheaders/ui/shared/hooks/useRuleMuta
 import type { App } from 'antd';
 import type { RefObject } from 'react';
 import { buildHeaderRuleSeed, type HeaderDirection, type HeaderQuickDraft } from '../../data/header-rule-create';
-import { type QuickCreateSaveApi, useQuickCreateSave } from './use-quick-create-save';
+import { type QuickCreateDestination, type QuickCreateSaveApi, useQuickCreateSave } from './use-quick-create-save';
 
 type MessageApi = ReturnType<typeof App.useApp>['message'];
 
@@ -29,8 +29,7 @@ interface UseHeaderCreateSaveArgs {
   quickRef: RefObject<HeaderQuickDraft>;
   direction: HeaderDirection;
   name: string;
-  /** Destination collection path — null when the workspace has none. */
-  parentPath: string | null;
+  destination: QuickCreateDestination;
   workspaceId: string | null;
   strategy: DraftUrlStrategy;
   mutator: UseRuleMutatorApi;
@@ -50,7 +49,7 @@ export function useHeaderCreateSave({
   quickRef,
   direction,
   name,
-  parentPath,
+  destination,
   workspaceId,
   strategy,
   mutator,
@@ -74,7 +73,7 @@ export function useHeaderCreateSave({
 
   const save = useQuickCreateSave({
     buildSeed: () => buildHeaderRuleSeed(draft, quickRef.current, direction, name, strategy),
-    parentPath,
+    destination,
     workspaceId,
     valid:
       trimmedName.length > 0 && nameValidation.valid && valueValidation.valid && (!capability || capability.allowed),

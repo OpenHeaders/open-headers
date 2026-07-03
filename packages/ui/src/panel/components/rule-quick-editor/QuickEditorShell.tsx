@@ -77,6 +77,10 @@ export interface QuickEditorShellProps {
   snapshot?: ReactNode;
   /** Editor body (or the per-type fallback text). */
   children: ReactNode;
+  /** Destination row (create mode) — rendered between the body and the
+   *  footer so "where will this land" sits next to the Save that
+   *  commits it. */
+  destination?: ReactNode;
   onOpenInEditor: () => void;
   /** Footer-link gate. Defaults to `!!liveRule` (edit mode disables the
    *  link when the rule is gone); create mode passes `true` — there is
@@ -100,6 +104,7 @@ export function QuickEditorShell({
   tags,
   snapshot,
   children,
+  destination,
   onOpenInEditor,
   canOpenInEditor,
   save,
@@ -247,6 +252,8 @@ export function QuickEditorShell({
       {snapshot}
 
       {children}
+
+      {destination}
 
       <div
         style={{

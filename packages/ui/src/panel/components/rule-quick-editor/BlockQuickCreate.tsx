@@ -18,7 +18,9 @@ import { useState } from 'react';
 import { handOffRuleDraft } from '../../data/rule-draft-bridge';
 import { generateSmartRuleName } from '../../data/smart-rule-name';
 import { buildBlockRuleSeed } from '../../data/url-rule-create';
+import { QuickDestinationRow } from './QuickDestinationRow';
 import { QuickEditorShell } from './QuickEditorShell';
+import { useQuickCreateDestination } from './use-quick-create-destination';
 import { useQuickCreateSave } from './use-quick-create-save';
 
 const { Text } = Typography;
@@ -45,19 +47,17 @@ export function BlockQuickCreate({
   const { message } = App.useApp();
   const workspaceId = useActiveWorkspaceId();
   const mutator = useRuleMutator({ workspaceId, surfaceId: 'devpanel' });
-  const { rules, localCollections } = useRules();
+  const { rules } = useRules();
   const strategy = useSettingValue('rulesEngine.draftUrlStrategy');
 
   // Pre-filled from the capture; editable via the shell's title.
   const [name, setName] = useState(() => generateSmartRuleName({ kind: 'block', url: draft.url ?? '' }, rules));
 
-  // Context-less create falls back to the first collection — the same
-  // fallback `useTabOpeners.openCreateTab` applies in the workbench.
-  const parentPath = localCollections[0]?.path ?? null;
+  const dest = useQuickCreateDestination(draft.url);
 
   const { saving, canSave, handleSave, saveLabel } = useQuickCreateSave({
     buildSeed: () => buildBlockRuleSeed(draft, name, strategy),
-    parentPath,
+    destination: dest.forSave,
     workspaceId,
     mutator,
     message,
@@ -79,6 +79,7 @@ export function BlockQuickCreate({
       onRuleNameChange={setName}
       liveRuleUid={null}
       isDirty={false}
+      destination={<QuickDestinationRow api={dest} />}
       onOpenInEditor={openInEditor}
       canOpenInEditor
       save={{ saving, canSave, saveLabel, onSave: () => void handleSave() }}

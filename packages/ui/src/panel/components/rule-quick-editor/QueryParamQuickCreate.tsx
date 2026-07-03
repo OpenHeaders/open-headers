@@ -29,7 +29,9 @@ import {
 } from '../../data/payload-rule-create';
 import { handOffRuleDraft } from '../../data/rule-draft-bridge';
 import { generateSmartRuleName } from '../../data/smart-rule-name';
+import { QuickDestinationRow } from './QuickDestinationRow';
 import { QuickEditorShell } from './QuickEditorShell';
+import { useQuickCreateDestination } from './use-quick-create-destination';
 import { useQuickCreateSave } from './use-quick-create-save';
 
 const { Text } = Typography;
@@ -65,7 +67,7 @@ export function QueryParamQuickCreate({
   const { message } = App.useApp();
   const workspaceId = useActiveWorkspaceId();
   const mutator = useRuleMutator({ workspaceId, surfaceId: 'devpanel' });
-  const { rules, localCollections } = useRules();
+  const { rules } = useRules();
   const strategy = useSettingValue('rulesEngine.draftUrlStrategy');
 
   // Pre-filled from the capture; editable via the shell's title.
@@ -83,15 +85,12 @@ export function QueryParamQuickCreate({
     setRows((prev) => prev.filter((r) => r.uid !== uid));
   };
 
-  // Context-less create falls back to the first collection — the same
-  // fallback `useTabOpeners.openCreateTab` applies in the workbench.
-  const destinationCollection = localCollections[0] ?? null;
-  const parentPath = destinationCollection?.path ?? null;
-  const collectionId = destinationCollection?.uid;
+  const dest = useQuickCreateDestination(draft.url);
+  const collectionId = dest.collectionId;
 
   const { saving, canSave, handleSave, saveLabel } = useQuickCreateSave({
     buildSeed: () => buildQueryParamRuleSeed(draft, rowsRef.current, name, strategy),
-    parentPath,
+    destination: dest.forSave,
     workspaceId,
     valid: queryParamRowsValid(rows),
     mutator,
@@ -117,6 +116,7 @@ export function QueryParamQuickCreate({
       onRuleNameChange={setName}
       liveRuleUid={null}
       isDirty={isDirty}
+      destination={<QuickDestinationRow api={dest} />}
       onOpenInEditor={openInEditor}
       canOpenInEditor
       save={{ saving, canSave, saveLabel, onSave: () => void handleSave() }}
