@@ -198,17 +198,19 @@ const SortableTab: React.FC<SortableTabProps> = ({
           const color = s.kind === 'scratch' ? token.colorTextTertiary : token.colorText;
           // Each segment groups with its leading chevron into a single
           // nowrap inline-flex so wrap never breaks between a chevron
-          // and the label it precedes — breaks only happen between
-          // whole segments.
+          // and the label it precedes — breaks happen between whole
+          // segments, or inside a label longer than the tooltip's
+          // max-width (URL-bearing rule names), which wraps rather
+          // than overflowing past the tooltip edge.
           return (
             // biome-ignore lint/suspicious/noArrayIndexKey: path segments are inherently positional
             <span
               key={`${s.label}-${i}`}
-              style={{ display: 'inline-flex', alignItems: 'center', whiteSpace: 'nowrap', color }}
+              style={{ display: 'inline-flex', alignItems: 'center', whiteSpace: 'nowrap', color, minWidth: 0 }}
             >
               {i > 0 && <span style={{ color: token.colorTextTertiary, margin: '0 5px' }}>{'›'}</span>}
               {icon && <span style={{ display: 'inline-flex', alignItems: 'center', marginRight: 4 }}>{icon}</span>}
-              <span>{s.label}</span>
+              <span style={{ whiteSpace: 'normal', overflowWrap: 'anywhere' }}>{s.label}</span>
             </span>
           );
         })}
