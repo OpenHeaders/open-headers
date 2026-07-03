@@ -60,7 +60,9 @@ import {
 import type { RuleApplicability } from '../data/rule-create/rule-applicability';
 import { findRuleCollectionId } from '../data/rule-create/rule-collection';
 import { HEADER_OPERATION_OPTIONS } from './rule-quick-editor/header-operation-options';
+import { QuickConditionsRow } from './rule-quick-editor/QuickConditionsRow';
 import { QuickEditorShell, RULE_TYPE_LABEL } from './rule-quick-editor/QuickEditorShell';
+import { useConditionsDraft } from './rule-quick-editor/use-conditions-draft';
 import { isSnapshotResolutionReliable, ruleCtxFromAttribution, tagLabelFor, tagTitleFor } from './rule-hover-format';
 import { SnapshotBlock } from './SnapshotBlock';
 import { useModDraft } from './use-mod-draft';
@@ -173,12 +175,20 @@ export function RuleHoverPopover({
   // wired in below; the hook's effects fire post-render, by which time
   // the ref is populated. Same seam as `RuleEditor`'s `setBaselineRef`.
   const setConflictBaselineRef = useRef<(r: Rule) => void>(() => undefined);
-  const { draft, setDraft, draftRef, updateDraft, isDirty } = useModDraft({
+  const { draft, setDraft, draftRef, updateDraft, isDirty: modDirty } = useModDraft({
     currentMod,
     target,
     liveRule,
     setConflictBaselineRef,
   });
+
+  // Conditions row draft — canonical-primed, own derived dirty. Gated
+  // to the editable case so a deleted rule / detached mod never shows
+  // an editable conditions surface without a Save to commit it.
+  const condDraft = useConditionsDraft({
+    canonical: isHeader && liveRule?.type === 'header' && currentMod ? liveRule.conditions : null,
+  });
+  const isDirty = modDirty || condDraft.isDirty;
 
   const liveRuleUid = liveRule?.uid ?? null;
   // Devpanel popover edits one specific header mod. Identity is the mod's
@@ -219,6 +229,8 @@ export function RuleHoverPopover({
     draftRef,
     isDirty,
     editable,
+    conditionsRef: condDraft.conditionsRef,
+    conditionsDirty: condDraft.isDirty,
     mutator,
     message,
     clearDismissed: conflicts.clearDismissed,
@@ -294,6 +306,13 @@ export function RuleHoverPopover({
       isDirty={isDirty}
       tags={tags}
       snapshot={snapshot}
+      conditions={
+        editable ? (
+          <EntityScopeProvider entityType={RULE_ENTITY_TYPE} entityId={liveRuleUid}>
+            <QuickConditionsRow value={condDraft.conditions} onChange={condDraft.setConditions} />
+          </EntityScopeProvider>
+        ) : undefined
+      }
       onOpenInEditor={openInEditor}
       save={editable ? { saving, canSave, saveLabel, onSave: () => void handleSave() } : undefined}
       onMouseEnter={onMouseEnter}

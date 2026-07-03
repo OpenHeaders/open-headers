@@ -9,7 +9,7 @@
  * compact editor doesn't surface (source, body type, headers, filters).
  */
 
-import type { ResponseRule } from '@openheaders/core/types';
+import type { ResponseRule, RuleCondition } from '@openheaders/core/types';
 import { buildResponseRuleUpdate } from '@openheaders/ui/panel/data/rule-create/response-rule-edit';
 import { describe, expect, it } from 'vitest';
 
@@ -51,6 +51,21 @@ describe('buildResponseRuleUpdate — publication preservation', () => {
   it('leaves an explicitly-unpublished rule a draft', () => {
     const updates = buildResponseRuleUpdate(makeRule({ published: false }), DRAFT);
     expect('published' in updates).toBe(false);
+  });
+});
+
+describe('buildResponseRuleUpdate — conditions', () => {
+  const CONDITIONS: RuleCondition[] = [{ uid: 'c1', type: 'request-domains', values: ['openheaders.io'] }];
+
+  it('carries the edited conditions in the same batch when supplied', () => {
+    const updates = buildResponseRuleUpdate(makeRule({ published: true }), DRAFT, CONDITIONS);
+    expect(updates.conditions).toBe(CONDITIONS);
+    expect(updates.published).toBe(true);
+  });
+
+  it('omits conditions from the batch when not supplied (untouched row)', () => {
+    const updates = buildResponseRuleUpdate(makeRule(), DRAFT);
+    expect('conditions' in updates).toBe(false);
   });
 });
 

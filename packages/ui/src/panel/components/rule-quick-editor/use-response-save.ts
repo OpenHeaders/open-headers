@@ -6,7 +6,7 @@
  * gate so an atomic quick-edit keeps a published rule live.
  */
 
-import type { ResponseRule } from '@openheaders/core/types';
+import type { ResponseRule, RuleCondition } from '@openheaders/core/types';
 import type { RuleMutationResult, UseRuleMutatorApi } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import { useSaveShortcut } from '@openheaders/ui/shared/hooks/useSaveShortcut';
 import type { App } from 'antd';
@@ -20,6 +20,9 @@ interface UseResponseSaveArgs {
   draftRef: RefObject<ResponseQuickDraft>;
   isDirty: boolean;
   editable: boolean;
+  /** Conditions row draft — included in the batch only when dirty. */
+  conditionsRef: RefObject<RuleCondition[]>;
+  conditionsDirty: boolean;
   mutator: UseRuleMutatorApi;
   message: MessageApi;
   onClose: () => void;
@@ -37,6 +40,8 @@ export function useResponseSave({
   draftRef,
   isDirty,
   editable,
+  conditionsRef,
+  conditionsDirty,
   mutator,
   message,
   onClose,
@@ -47,7 +52,11 @@ export function useResponseSave({
     if (!responseRule) return;
     setSaving(true);
     try {
-      const updates = buildResponseRuleUpdate(responseRule, draftRef.current);
+      const updates = buildResponseRuleUpdate(
+        responseRule,
+        draftRef.current,
+        conditionsDirty ? conditionsRef.current : undefined,
+      );
       const result: RuleMutationResult = await mutator.updateRule(responseRule.uid, updates);
       surfaceResult(result, message, onClose);
     } finally {

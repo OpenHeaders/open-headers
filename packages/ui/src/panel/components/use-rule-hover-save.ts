@@ -7,7 +7,7 @@
  * `rule-hover-popover-save-gate.test.ts`.
  */
 
-import type { HeaderModification, HeaderRule } from '@openheaders/core/types';
+import type { HeaderModification, HeaderRule, RuleCondition } from '@openheaders/core/types';
 import {
   getHeaderOperationCapability,
   type HeaderNameValidation,
@@ -34,6 +34,9 @@ interface UseRuleHoverSaveArgs {
   draftRef: RefObject<ModDraft>;
   isDirty: boolean;
   editable: boolean;
+  /** Conditions row draft — included in the batch only when dirty. */
+  conditionsRef: RefObject<RuleCondition[]>;
+  conditionsDirty: boolean;
   mutator: UseRuleMutatorApi;
   message: MessageApi;
   clearDismissed: () => void;
@@ -58,6 +61,8 @@ export function useRuleHoverSave({
   draftRef,
   isDirty,
   editable,
+  conditionsRef,
+  conditionsDirty,
   mutator,
   message,
   clearDismissed,
@@ -70,7 +75,13 @@ export function useRuleHoverSave({
     const live = draftRef.current;
     setSaving(true);
     try {
-      const built = buildHeaderModUpdate(headerRule, target.direction, currentMod, live);
+      const built = buildHeaderModUpdate(
+        headerRule,
+        target.direction,
+        currentMod,
+        live,
+        conditionsDirty ? conditionsRef.current : undefined,
+      );
       if (!built.ok) {
         message.warning('Rule changed elsewhere — close and reopen the popover.');
         return;

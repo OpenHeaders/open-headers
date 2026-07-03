@@ -12,7 +12,7 @@
  * silently dropped the rule to draft and it stopped firing.
  */
 
-import type { HeaderModification, HeaderRule } from '@openheaders/core/types';
+import type { HeaderModification, HeaderRule, RuleCondition } from '@openheaders/core/types';
 import { buildHeaderModUpdate } from '@openheaders/ui/panel/data/rule-create/header-mod-edit';
 import { describe, expect, it } from 'vitest';
 
@@ -73,6 +73,28 @@ describe('buildHeaderModUpdate — publication preservation', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect('published' in result.updates).toBe(false);
+  });
+});
+
+describe('buildHeaderModUpdate — conditions', () => {
+  const CONDITIONS: RuleCondition[] = [{ uid: 'c1', type: 'request-domains', values: ['openheaders.io'] }];
+  const DRAFT = { operation: 'override' as const, headerName: 'x-debug', value: 'false' };
+
+  it('carries the edited conditions in the same batch when supplied', () => {
+    const rule = makeRule({ published: true });
+    const result = buildHeaderModUpdate(rule, 'request', rule.action.requestHeaders[0], DRAFT, CONDITIONS);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.updates.conditions).toBe(CONDITIONS);
+    expect(result.updates.published).toBe(true);
+  });
+
+  it('omits conditions from the batch when not supplied (untouched row)', () => {
+    const rule = makeRule();
+    const result = buildHeaderModUpdate(rule, 'request', rule.action.requestHeaders[0], DRAFT);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect('conditions' in result.updates).toBe(false);
   });
 });
 

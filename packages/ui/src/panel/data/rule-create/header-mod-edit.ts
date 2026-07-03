@@ -15,7 +15,7 @@
  * next request instead of silently dropping the rule to draft.
  */
 
-import type { HeaderModification, HeaderRule } from '@openheaders/core/types';
+import type { HeaderModification, HeaderRule, RuleCondition } from '@openheaders/core/types';
 
 export interface HeaderModDraft {
   operation: HeaderModification['operation'];
@@ -26,11 +26,15 @@ export interface HeaderModDraft {
 
 export type HeaderModUpdateResult = { ok: true; updates: Partial<HeaderRule> } | { ok: false; reason: 'mod-detached' };
 
+/** `conditions` joins the batch only when the popover's Conditions row
+ *  is dirty — an untouched row never clobbers a concurrent conditions
+ *  edit from another surface. */
 export function buildHeaderModUpdate(
   rule: HeaderRule,
   direction: 'request' | 'response',
   currentMod: HeaderModification,
   draft: HeaderModDraft,
+  conditions?: RuleCondition[],
 ): HeaderModUpdateResult {
   const list = direction === 'request' ? rule.action.requestHeaders : rule.action.responseHeaders;
   // Identity by reference: the popover holds the live mod object, so a
@@ -62,6 +66,7 @@ export function buildHeaderModUpdate(
       requestHeaders: direction === 'request' ? next : rule.action.requestHeaders,
       responseHeaders: direction === 'response' ? next : rule.action.responseHeaders,
     },
+    ...(conditions ? { conditions } : {}),
     // Keep a published rule published in the SAME batch (see file header).
     ...(rule.published === true ? { published: true } : {}),
   };

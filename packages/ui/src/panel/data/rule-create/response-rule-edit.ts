@@ -9,7 +9,7 @@
  * request instead of silently dropping the rule to draft.
  */
 
-import type { ResponseRule } from '@openheaders/core/types';
+import type { ResponseRule, RuleCondition } from '@openheaders/core/types';
 
 export interface ResponseQuickDraft {
   statusCode: number;
@@ -17,7 +17,14 @@ export interface ResponseQuickDraft {
   responseBody: string;
 }
 
-export function buildResponseRuleUpdate(rule: ResponseRule, draft: ResponseQuickDraft): Partial<ResponseRule> {
+/** `conditions` joins the batch only when the popover's Conditions row
+ *  is dirty — an untouched row never clobbers a concurrent conditions
+ *  edit from another surface. */
+export function buildResponseRuleUpdate(
+  rule: ResponseRule,
+  draft: ResponseQuickDraft,
+  conditions?: RuleCondition[],
+): Partial<ResponseRule> {
   return {
     action: {
       ...rule.action,
@@ -25,6 +32,7 @@ export function buildResponseRuleUpdate(rule: ResponseRule, draft: ResponseQuick
       contentType: draft.contentType,
       responseBody: draft.responseBody,
     },
+    ...(conditions ? { conditions } : {}),
     // Keep a published rule published in the SAME batch (see file header).
     ...(rule.published === true ? { published: true } : {}),
   };

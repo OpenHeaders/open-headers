@@ -13,8 +13,10 @@
  * mirroring the header popover's can't-pinpoint fallback.
  */
 
+import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { ResponseRule, Rule } from '@openheaders/core/types';
 import { useLiveRule } from '@openheaders/ui/context';
+import { EntityScopeProvider } from '@openheaders/ui/shared/awareness';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
@@ -22,8 +24,10 @@ import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 import { App, Tag, theme } from 'antd';
 import { useMemo } from 'react';
 import { findRuleCollectionId } from '../../data/rule-create/rule-collection';
+import { QuickConditionsRow } from './QuickConditionsRow';
 import { QuickEditorShell } from './QuickEditorShell';
 import { ResponseQuickFields } from './ResponseQuickFields';
+import { useConditionsDraft } from './use-conditions-draft';
 import { useResponseDraft } from './use-response-draft';
 import { useResponseSave } from './use-response-save';
 
@@ -67,15 +71,20 @@ export function ResponseQuickEditor({
   const isDynamic = responseRule?.action.bodyType === 'dynamic';
   const editable = !!responseRule && !isDynamic;
 
-  const { draft, draftRef, updateDraft, isDirty } = useResponseDraft({
+  const { draft, draftRef, updateDraft, isDirty: fieldsDirty } = useResponseDraft({
     currentAction: responseRule && !isDynamic ? responseRule.action : null,
   });
+
+  const condDraft = useConditionsDraft({ canonical: editable ? (responseRule?.conditions ?? null) : null });
+  const isDirty = fieldsDirty || condDraft.isDirty;
 
   const { saving, canSave, handleSave, saveLabel } = useResponseSave({
     responseRule,
     draftRef,
     isDirty,
     editable,
+    conditionsRef: condDraft.conditionsRef,
+    conditionsDirty: condDraft.isDirty,
     mutator,
     message,
     onClose,
@@ -101,6 +110,13 @@ export function ResponseQuickEditor({
             {isNetwork ? 'Modify' : 'Mock'}
           </Tag>
         )
+      }
+      conditions={
+        editable ? (
+          <EntityScopeProvider entityType={RULE_ENTITY_TYPE} entityId={liveRule.uid}>
+            <QuickConditionsRow value={condDraft.conditions} onChange={condDraft.setConditions} />
+          </EntityScopeProvider>
+        ) : undefined
       }
       onOpenInEditor={openInEditor}
       save={editable ? { saving, canSave, saveLabel, onSave: () => void handleSave() } : undefined}
