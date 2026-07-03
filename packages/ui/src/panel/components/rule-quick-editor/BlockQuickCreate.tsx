@@ -1,6 +1,6 @@
 /**
  * BlockQuickCreate — the block create-mode body of the shared
- * `QuickEditorShell`. Opened from the Headers tab's "Cancel request"
+ * `QuickEditorShell`. Opened from the Headers tab's "Block request"
  * CTA. Block rules carry no action configuration — the block itself is
  * the action — so the body is a fields-less confirm showing what the
  * rule will match; Save mints AND publishes it in one gesture. The

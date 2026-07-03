@@ -268,7 +268,7 @@ export function HeadersView({
           Delay request
         </button>
         <button type="button" className="dt-btn dt-btn-primary" onClick={(e) => onCreateCancel(e.currentTarget)} title="Block / cancel this request">
-          Cancel request
+          Block request
         </button>
       </div>
 
