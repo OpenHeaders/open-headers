@@ -25,12 +25,12 @@
 import { COLLECTION_ENTITY_TYPE } from '@openheaders/core/sync';
 import { generateUid, type RuleSeed, toFolderName } from '@openheaders/core/utils';
 import type { UseRuleMutatorApi } from '@openheaders/ui/shared/hooks/useRuleMutator';
+import { useSaveShortcut } from '@openheaders/ui/shared/hooks/useSaveShortcut';
 import { NEW_RULES_COLLECTION_NAME } from '@openheaders/ui/shared/naming';
 import { applyCollectionCreate } from '@openheaders/ui/shared/sync/collection-write-client';
 import { applyFolderCreate } from '@openheaders/ui/shared/sync/folder-write-client';
 import type { App } from 'antd';
 import { useState } from 'react';
-import { useSaveShortcut } from './use-save-shortcut';
 
 type MessageApi = ReturnType<typeof App.useApp>['message'];
 

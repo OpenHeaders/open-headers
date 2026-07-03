@@ -23,9 +23,8 @@ import type { VariableScope } from '@openheaders/core/types';
 import { App, Button, Dropdown, type GetRef, Input, type MenuProps, Tag, Tooltip, theme } from 'antd';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePopoverPlacement } from '@openheaders/ui/shared/popover';
-import { buildChordsFromEvent, useShortcutLabel } from '../../hooks/useWorkspaceShortcuts';
+import { useSaveShortcut } from '@openheaders/ui/shared/hooks/useSaveShortcut';
 import { useEnvSwitcher } from '../../services/env-switcher';
-import { useSettingValue } from '../../settings/hooks';
 import { type ScopeKey, scopeBadge } from '../shared/scope-colors';
 import {
   buildCreateOptions,
@@ -166,29 +165,13 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
 
   // Save-chord listener. While the popover is mounted, the user's
   // bound save chord (default Cmd/Ctrl+S) saves whatever is in the
-  // textarea regardless of focus. Capture phase + `stopPropagation`
-  // so the workspace-level save shortcut (which would save the
-  // underlying editor tab) doesn't also fire — popover edits take
-  // priority while open. Escape dismissal is handled by the host's
-  // `useDismiss`; we don't duplicate it here.
-  const saveLabel = useShortcutLabel('save');
-  const saveChord = useSettingValue('keyboard.save');
-  // Ref-mirror of `handleSave` so the keydown listener (which is set
-  // up once per popover mount) always calls the latest closure.
-  const handleSaveRef = useRef<(() => void) | null>(null);
-  useEffect(() => {
-    if (typeof saveChord !== 'string' || !saveChord) return;
-    const onKey = (e: KeyboardEvent) => {
-      const chords = buildChordsFromEvent(e);
-      if (chords.includes(saveChord)) {
-        e.preventDefault();
-        e.stopPropagation();
-        handleSaveRef.current?.();
-      }
-    };
-    window.addEventListener('keydown', onKey, true);
-    return () => window.removeEventListener('keydown', onKey, true);
-  }, [saveChord]);
+  // textarea regardless of focus. The shared claim stack makes this
+  // popover — the most recently mounted layer — the chord's sole
+  // owner, so the surface beneath (workspace editor tab or a rule
+  // quick-editor popover) never saves on the same keystroke. Escape
+  // dismissal is handled by the host's `useDismiss`; we don't
+  // duplicate it here.
+  const { saveLabel, handleSaveRef } = useSaveShortcut();
 
   const editable = candidate ? isCandidateEditable(candidate) : false;
   const resolvedScope: VariableScope | 'reserved' | 'none' = lookup.active?.scope ?? candidate?.scope ?? 'none';
