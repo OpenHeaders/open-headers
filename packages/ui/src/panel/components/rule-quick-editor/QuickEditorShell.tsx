@@ -30,7 +30,7 @@ import {
 } from '@openheaders/ui/shared/awareness';
 import { usePopoverPlacement } from '@openheaders/ui/shared/popover';
 import { buildRuleIcon } from '@openheaders/ui/workbench/components/shared/rule-icon';
-import { Button, Tag, Tooltip, theme } from 'antd';
+import { Button, Tooltip, theme } from 'antd';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -323,7 +323,6 @@ export function QuickEditorShell({
           <PresenceBadge entityType={RULE_ENTITY_TYPE} entityId={liveRuleUid} excludeInstanceId={localInstanceId} />
         )}
         {tags}
-        <Tag style={{ marginInlineEnd: 0, fontSize: 10 }}>{RULE_TYPE_LABEL[ruleType]}</Tag>
       </div>
 
       {snapshot}
