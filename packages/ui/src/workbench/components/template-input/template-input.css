@@ -111,6 +111,13 @@
   );
 }
 
+/* A flagged wrapper reserves a 14px right gutter for the unresolved
+ * dot (see `--flagged` above) — the editable's border ends there, so
+ * the grip must shift left with it to stay inside the field's corner. */
+.oh-template-input-wrapper--flagged .oh-template-input-resize-grip {
+  right: 16px;
+}
+
 .oh-template-input-resize-grip:hover {
   background: linear-gradient(
     135deg,
