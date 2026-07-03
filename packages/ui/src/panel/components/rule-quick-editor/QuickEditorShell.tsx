@@ -30,7 +30,7 @@ import {
 } from '@openheaders/ui/shared/awareness';
 import { usePopoverPlacement } from '@openheaders/ui/shared/popover';
 import { buildRuleIcon } from '@openheaders/ui/workbench/components/shared/rule-icon';
-import { Button, Input, Tag, Tooltip, theme } from 'antd';
+import { Button, Tag, Tooltip, theme } from 'antd';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -116,10 +116,11 @@ export function QuickEditorShell({
   const localInstanceId = useLocalInstanceId();
 
   // Create-mode rename: the title flips to an input on click; Enter or
-  // blur commits (empty reverts), Escape cancels.
+  // blur commits (empty reverts), Escape cancels. Newlines can only
+  // arrive via paste (the field swallows Enter) — flatten them.
   const [editingName, setEditingName] = useState(false);
   const commitName = (raw: string) => {
-    const next = raw.trim();
+    const next = raw.replace(/\s*\n\s*/g, ' ').trim();
     if (next && next !== ruleName) onRuleNameChange?.(next);
     setEditingName(false);
   };
@@ -210,15 +211,44 @@ export function QuickEditorShell({
           })}
         </span>
         {editingName && onRuleNameChange ? (
-          <Input
-            size="small"
+          // A single-line no-wrap textarea, not an <input>: inputs can't
+          // paint a scrollbar, so a long name would only be reachable by
+          // caret-scrubbing. This shows the panel's thin horizontal bar
+          // (shared `.dt-scrollbar`) when the name overflows.
+          <textarea
             defaultValue={ruleName}
             autoFocus
-            style={{ flex: 1, minWidth: 0, fontWeight: 600, fontSize: 13 }}
+            rows={1}
+            wrap="off"
+            spellCheck={false}
+            className="dt-scrollbar"
+            style={{
+              flex: 1,
+              minWidth: 0,
+              boxSizing: 'border-box',
+              height: 34,
+              padding: '3px 6px',
+              fontFamily: 'inherit',
+              fontWeight: 600,
+              fontSize: 13,
+              lineHeight: '18px',
+              whiteSpace: 'pre',
+              overflowX: 'auto',
+              overflowY: 'hidden',
+              resize: 'none',
+              border: `1px solid ${token.colorPrimary}`,
+              borderRadius: token.borderRadius,
+              background: token.colorBgContainer,
+              color: token.colorText,
+              outline: 'none',
+            }}
+            onFocus={(e) => e.currentTarget.select()}
             onBlur={(e) => commitName(e.target.value)}
-            onPressEnter={(e) => commitName((e.target as HTMLInputElement).value)}
             onKeyDown={(e) => {
-              if (e.key === 'Escape') {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                commitName(e.currentTarget.value);
+              } else if (e.key === 'Escape') {
                 e.stopPropagation();
                 setEditingName(false);
               }

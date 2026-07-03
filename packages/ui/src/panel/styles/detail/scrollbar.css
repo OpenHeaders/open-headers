@@ -7,12 +7,15 @@
  * always see there's more above/below.
  *
  * Applied (via className) to the inspector's edit popovers (header rule edit,
- * cookie edit), the shared value-expander readout, and the toolbar's View
- * menu + vertical filter pills. The context-menu's hover-reveal bar
- * (`.dt-ctx-menu-scroll`) is intentionally different and stays separate.
+ * cookie edit), the shared value-expander readout, the toolbar's View
+ * menu + vertical filter pills, and the quick-editor's rename field
+ * (horizontal — a long rule name scrolls under a thin bar instead of
+ * hiding). The context-menu's hover-reveal bar (`.dt-ctx-menu-scroll`)
+ * is intentionally different and stays separate.
  */
 .dt-scrollbar::-webkit-scrollbar {
   width: 8px;
+  height: 8px;
 }
 .dt-scrollbar::-webkit-scrollbar-track {
   background: transparent;
