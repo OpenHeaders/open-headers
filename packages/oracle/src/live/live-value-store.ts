@@ -36,7 +36,7 @@ import {
 import { logger } from '@openheaders/core/utils';
 import { requireActiveWorkspaceId } from '@openheaders/oracle/sync';
 import { LIVE_VALUE_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
-import type { LiveValueCache } from '@openheaders/oracle/sync/live-value-cache';
+import type { LiveValueCache } from '@openheaders/oracle/sync/caches/live-value-cache';
 import {
   getActiveCacheForRegistration,
   getOracleForWorkspace,

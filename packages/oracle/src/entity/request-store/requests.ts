@@ -5,8 +5,8 @@ import { buildAddBatch, buildDeleteBatch, buildUpdateBatch } from '@openheaders/
 import type { Collection, Request } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { REQUEST_COLLECTION_REGISTRATION, REQUEST_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
-import type { RequestCache } from '@openheaders/oracle/sync/request-cache';
-import type { RequestCollectionCache } from '@openheaders/oracle/sync/request-collection-cache';
+import type { RequestCache } from '@openheaders/oracle/sync/caches/request-cache';
+import type { RequestCollectionCache } from '@openheaders/oracle/sync/caches/request-collection-cache';
 import {
   getCacheForWorkspace,
   getOracleForCurrentWorkspace,

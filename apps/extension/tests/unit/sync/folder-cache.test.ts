@@ -13,7 +13,7 @@ import {
 import type { Collection } from '@openheaders/core/types';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
-import { createFolderCache } from '@openheaders/oracle/sync/folder-cache';
+import { createFolderCache } from '@openheaders/oracle/sync/caches/folder-cache';
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
 import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
 import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';

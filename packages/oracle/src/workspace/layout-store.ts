@@ -16,7 +16,7 @@
 import { logger } from '@openheaders/core/utils';
 import { hostStorage, type PersistedPanelLayout, wsKeys } from '@openheaders/oracle/storage';
 import { LAYOUT_STATE_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
-import type { LayoutStateCache } from '@openheaders/oracle/sync/layout-state-cache';
+import type { LayoutStateCache } from '@openheaders/oracle/sync/caches/layout-state-cache';
 import { getActiveCacheForRegistration } from '@openheaders/oracle/sync/service';
 import { requireActiveWorkspaceId } from '@openheaders/oracle/sync';
 

@@ -16,7 +16,7 @@ import type { PauseMarkerKind } from '@openheaders/core/sync';
 import { logger } from '@openheaders/core/utils';
 import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import { PAUSE_MARKERS_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
-import type { PauseMarkersCache } from '@openheaders/oracle/sync/pause-markers-cache';
+import type { PauseMarkersCache } from '@openheaders/oracle/sync/caches/pause-markers-cache';
 import { getActiveCacheForRegistration } from '@openheaders/oracle/sync/service';
 import { requireActiveWorkspaceId } from '@openheaders/oracle/sync';
 

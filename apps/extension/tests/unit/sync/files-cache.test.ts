@@ -9,7 +9,7 @@
 import { addFileRef, type FileRefSlot, removeFileRef } from '@openheaders/core/sync';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
-import { createFilesCache } from '@openheaders/oracle/sync/files-cache';
+import { createFilesCache } from '@openheaders/oracle/sync/caches/files-cache';
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
 import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
 import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';

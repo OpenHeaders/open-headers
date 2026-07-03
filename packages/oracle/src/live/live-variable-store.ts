@@ -36,7 +36,7 @@ import { generateUid, logger, toFolderName } from '@openheaders/core/utils';
 import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import { requireActiveWorkspaceId } from '@openheaders/oracle/sync';
 import { LIVE_VARIABLE_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
-import type { LiveVariableCache } from '@openheaders/oracle/sync/live-variable-cache';
+import type { LiveVariableCache } from '@openheaders/oracle/sync/caches/live-variable-cache';
 import {
   getActiveCacheForRegistration,
   getCacheForWorkspace,

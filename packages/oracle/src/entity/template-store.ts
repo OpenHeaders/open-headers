@@ -49,9 +49,9 @@ import {
   getOracleForCurrentWorkspace,
   nextSwMutatorContext,
 } from '@openheaders/oracle/sync/service';
-import type { TemplateCache } from '@openheaders/oracle/sync/template-cache';
-import type { TemplateCollectionCache } from '@openheaders/oracle/sync/template-collection-cache';
-import type { TemplateFolderCache } from '@openheaders/oracle/sync/template-folder-cache';
+import type { TemplateCache } from '@openheaders/oracle/sync/caches/template-cache';
+import type { TemplateCollectionCache } from '@openheaders/oracle/sync/caches/template-collection-cache';
+import type { TemplateFolderCache } from '@openheaders/oracle/sync/caches/template-folder-cache';
 import type { LocalFolder } from '@openheaders/oracle/entity/rule-store';
 import { driftRecorder } from '@openheaders/oracle/sync/storage-drift';
 import { requireActiveWorkspaceId } from '@openheaders/oracle/sync';

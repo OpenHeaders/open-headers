@@ -13,7 +13,7 @@ import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
 import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
 import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
-import { createTemplateCollectionCache } from '@openheaders/oracle/sync/template-collection-cache';
+import { createTemplateCollectionCache } from '@openheaders/oracle/sync/caches/template-collection-cache';
 import { buildDeleteTemplateCollectionBatch } from '@openheaders/core/sync-builders/mutations/template-collection-mutations';
 import {
   projectTemplateCollectionByUid,

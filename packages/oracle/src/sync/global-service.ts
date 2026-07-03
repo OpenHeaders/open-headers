@@ -42,7 +42,7 @@ import {
   GLOBAL_REGISTRY,
   singletonSnapshot,
 } from './entity-registry';
-import { type ExtensionWorkspaceCache, setActiveExtensionWorkspaceCache } from './extension-workspace-cache';
+import { type ExtensionWorkspaceCache, setActiveExtensionWorkspaceCache } from './caches/extension-workspace-cache';
 import { ruleOracleLockAcquirer } from './lock-adapter';
 import { InMemoryMutationLog, type MutationLog } from './mutation-log';
 import { EntityOracle, type LockAcquirer } from './oracle';

@@ -17,7 +17,7 @@ import {
   nextGlobalSwContext,
   snapshotExtensionWorkspacePostStates,
 } from '@openheaders/oracle/sync/global-service';
-import { getActiveExtensionWorkspaceCache } from '@openheaders/oracle/sync/extension-workspace-cache';
+import { getActiveExtensionWorkspaceCache } from '@openheaders/oracle/sync/caches/extension-workspace-cache';
 
 afterEach(() => {
   disposeGlobal();

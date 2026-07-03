@@ -15,7 +15,7 @@ import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
 import { EntityOracle, type LockAcquirer } from '@openheaders/oracle/sync/oracle';
 import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
-import { createVaultCache } from '@openheaders/oracle/sync/vault-cache';
+import { createVaultCache } from '@openheaders/oracle/sync/caches/vault-cache';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BrowserSecretCipher } from '@/host/browser-secret-cipher';
 import { ExtensionStorage } from '@/host/extension-storage';

@@ -31,11 +31,11 @@ import {
   VAULT_REGISTRATION,
   WORKSPACE_VARIABLES_REGISTRATION,
 } from '@openheaders/oracle/sync/entity-registry';
-import type { EnvironmentCache } from '@openheaders/oracle/sync/environment-cache';
+import type { EnvironmentCache } from '@openheaders/oracle/sync/caches/environment-cache';
 import { getActiveCacheForRegistration, getCacheForWorkspace } from '@openheaders/oracle/sync/service';
 import { driftRecorder } from '@openheaders/oracle/sync/storage-drift';
-import type { VaultCache } from '@openheaders/oracle/sync/vault-cache';
-import type { WorkspaceVariablesCache } from '@openheaders/oracle/sync/workspace-variables-cache';
+import type { VaultCache } from '@openheaders/oracle/sync/caches/vault-cache';
+import type { WorkspaceVariablesCache } from '@openheaders/oracle/sync/caches/workspace-variables-cache';
 
 // ── In-memory state ─────────────────────────────────────────────────
 

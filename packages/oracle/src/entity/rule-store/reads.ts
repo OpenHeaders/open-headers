@@ -2,7 +2,7 @@
 
 import { COLLECTION_ENTITY_TYPE, FOLDER_CHILDREN_PATH, FOLDER_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Collection, CollectionTree, Rule, TreeNode } from '@openheaders/core/types';
-import type { CollectionCache } from '@openheaders/oracle/sync/collection-cache';
+import type { CollectionCache } from '@openheaders/oracle/sync/caches/collection-cache';
 import { COLLECTION_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
 import { getCacheForWorkspace, getOracleForCurrentWorkspace } from '@openheaders/oracle/sync/service';
 import { collections, folders, type LocalFolder, rules } from './state';

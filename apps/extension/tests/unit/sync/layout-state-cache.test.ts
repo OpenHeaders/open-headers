@@ -6,7 +6,7 @@
 import { setLayoutState } from '@openheaders/core/sync';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
-import { createLayoutStateCache } from '@openheaders/oracle/sync/layout-state-cache';
+import { createLayoutStateCache } from '@openheaders/oracle/sync/caches/layout-state-cache';
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
 import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
 import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';

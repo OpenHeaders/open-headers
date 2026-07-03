@@ -1,14 +1,14 @@
 // ── Sync engine bridge ──────────────────────────────────────────────
 
 import { logger } from '@openheaders/core/utils';
-import type { CollectionCache } from '@openheaders/oracle/sync/collection-cache';
+import type { CollectionCache } from '@openheaders/oracle/sync/caches/collection-cache';
 import {
   COLLECTION_REGISTRATION,
   FOLDER_REGISTRATION,
   RULE_REGISTRATION,
 } from '@openheaders/oracle/sync/entity-registry';
-import type { FolderCache } from '@openheaders/oracle/sync/folder-cache';
-import type { RuleCache } from '@openheaders/oracle/sync/rule-cache';
+import type { FolderCache } from '@openheaders/oracle/sync/caches/folder-cache';
+import type { RuleCache } from '@openheaders/oracle/sync/caches/rule-cache';
 import { getActiveCacheForRegistration } from '@openheaders/oracle/sync/service';
 import {
   cacheUnsubscribe,

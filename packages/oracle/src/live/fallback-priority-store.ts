@@ -37,7 +37,7 @@ import {
 } from '@openheaders/core/sync-builders/projections/live-fallback-priority-projection';
 import { logger } from '@openheaders/core/utils';
 import { LIVE_FALLBACK_PRIORITY_REGISTRATION } from '../sync/entity-registry';
-import type { LiveFallbackPriorityCache } from '../sync/live-fallback-priority-cache';
+import type { LiveFallbackPriorityCache } from '../sync/caches/live-fallback-priority-cache';
 import { getCacheForWorkspace, getOracleForWorkspace, nextSwMutatorContextForWorkspace } from '../sync/service';
 import { workspaceHoldsExclusiveFallbackSeed } from './execution-policy-resolver';
 

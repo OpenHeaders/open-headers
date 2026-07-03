@@ -58,7 +58,7 @@ import {
 import type { ExtensionWorkspace, ExtensionWorkspaceKind } from '@openheaders/core/types';
 import { generateWorkspaceId, logger } from '@openheaders/core/utils';
 import { hostStorage, OH } from '../storage';
-import { type ExtensionWorkspaceCache, getActiveExtensionWorkspaceCache } from '../sync/extension-workspace-cache';
+import { type ExtensionWorkspaceCache, getActiveExtensionWorkspaceCache } from '../sync/caches/extension-workspace-cache';
 import { getGlobalOracle, nextGlobalSwContext } from '../sync/global-service';
 import { driftRecorder } from '../sync/storage-drift';
 

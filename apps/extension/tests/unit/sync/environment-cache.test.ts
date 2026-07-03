@@ -8,7 +8,7 @@ import { setEnvVar } from '@openheaders/core/sync';
 import type { Environment } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
-import { createEnvironmentCache } from '@openheaders/oracle/sync/environment-cache';
+import { createEnvironmentCache } from '@openheaders/oracle/sync/caches/environment-cache';
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
 import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
 import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';

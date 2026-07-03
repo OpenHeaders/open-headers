@@ -14,7 +14,7 @@ import type { MutationBatch } from '@openheaders/core/sync';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { InMemoryBroadcast } from '../../src/sync/broadcast';
 import type { EntityOracle } from '../../src/sync/oracle';
-import { createSingletonEntityCache, type SingletonEntityCacheConfig } from '../../src/sync/singleton-entity-cache';
+import { createSingletonEntityCache, type SingletonEntityCacheConfig } from '../../src/sync/caches/singleton-entity-cache';
 
 interface Snap {
   value: string;

@@ -11,7 +11,7 @@ import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
 import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
 import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
-import { createWorkspaceVariablesCache } from '@openheaders/oracle/sync/workspace-variables-cache';
+import { createWorkspaceVariablesCache } from '@openheaders/oracle/sync/caches/workspace-variables-cache';
 
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();
 

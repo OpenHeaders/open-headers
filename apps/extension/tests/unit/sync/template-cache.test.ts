@@ -16,7 +16,7 @@ import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
 import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
 import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
-import { createTemplateCache } from '@openheaders/oracle/sync/template-cache';
+import { createTemplateCache } from '@openheaders/oracle/sync/caches/template-cache';
 
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();
 

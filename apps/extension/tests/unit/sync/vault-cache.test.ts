@@ -10,7 +10,7 @@ import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
 import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
 import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
-import { createVaultCache } from '@openheaders/oracle/sync/vault-cache';
+import { createVaultCache } from '@openheaders/oracle/sync/caches/vault-cache';
 
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();
 

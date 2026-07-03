@@ -37,7 +37,7 @@ import {
 } from '@openheaders/core/sync-builders/mutations/oauth-bundle-mutations';
 import type { OAuthBundleSnapshot } from '@openheaders/core/sync-builders/projections/oauth-bundle-projection';
 import { OAUTH_BUNDLE_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
-import type { OAuthBundleCache } from '@openheaders/oracle/sync/oauth-bundle-cache';
+import type { OAuthBundleCache } from '@openheaders/oracle/sync/caches/oauth-bundle-cache';
 import { getActiveCacheForRegistration, getOracleForCurrentWorkspace, nextSwMutatorContext } from '@openheaders/oracle/sync/service';
 import { requireActiveWorkspaceId } from '@openheaders/oracle/sync';
 

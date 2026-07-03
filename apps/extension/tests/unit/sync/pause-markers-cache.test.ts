@@ -10,7 +10,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
 import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
-import { createPauseMarkersCache } from '@openheaders/oracle/sync/pause-markers-cache';
+import { createPauseMarkersCache } from '@openheaders/oracle/sync/caches/pause-markers-cache';
 import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
 
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();

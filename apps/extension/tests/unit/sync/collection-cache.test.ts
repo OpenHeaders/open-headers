@@ -8,7 +8,7 @@ import { setCollectionVar } from '@openheaders/core/sync';
 import type { Collection } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
-import { createCollectionCache } from '@openheaders/oracle/sync/collection-cache';
+import { createCollectionCache } from '@openheaders/oracle/sync/caches/collection-cache';
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
 import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
 import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';

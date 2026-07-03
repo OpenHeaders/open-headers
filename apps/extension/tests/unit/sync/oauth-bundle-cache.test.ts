@@ -8,7 +8,7 @@ import { setOAuthToken } from '@openheaders/core/sync';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
-import { createOAuthBundleCache } from '@openheaders/oracle/sync/oauth-bundle-cache';
+import { createOAuthBundleCache } from '@openheaders/oracle/sync/caches/oauth-bundle-cache';
 import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
 import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
 import type { OAuthBundleSnapshot } from '@openheaders/core/sync-builders/projections/oauth-bundle-projection';

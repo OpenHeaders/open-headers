@@ -28,7 +28,7 @@ import { logger } from '@openheaders/core/utils';
 import * as BlobStore from '@openheaders/oracle/files';
 import { buildAddFileRefBatch, buildRemoveFileRefBatch, buildRenameFileRefBatch } from '@openheaders/core/sync-builders/mutations/files-mutations';
 import { FILES_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
-import type { FilesCache } from '@openheaders/oracle/sync/files-cache';
+import type { FilesCache } from '@openheaders/oracle/sync/caches/files-cache';
 import {
   getActiveCacheForRegistration,
   getOracleForWorkspace,
