@@ -20,7 +20,7 @@ import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
 import {
   projectExtensionWorkspacePostState,
   projectExtensionWorkspaceSingleton,
-} from '@openheaders/oracle/sync/extension-workspace-post-state';
+} from '@openheaders/oracle/sync/post-state/extension-workspace-post-state';
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
 import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
 import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';

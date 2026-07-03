@@ -70,58 +70,58 @@ import {
 import { type BroadcastProjector, composeProjectors, type EntityPostState } from './bridge';
 import type { InMemoryBroadcast } from './broadcast';
 import { createCollectionCache } from './caches/collection-cache';
-import { projectCollectionByUid, projectCollectionPostState } from './collection-post-state';
-import { projectEnvironmentByUid, projectEnvironmentPostState } from './env-post-state';
+import { projectCollectionByUid, projectCollectionPostState } from './post-state/collection-post-state';
+import { projectEnvironmentByUid, projectEnvironmentPostState } from './post-state/env-post-state';
 import { createEnvironmentCache } from './caches/environment-cache';
 import { createExtensionWorkspaceCache } from './caches/extension-workspace-cache';
 import {
   projectExtensionWorkspacePostState,
   projectExtensionWorkspaceSingleton,
-} from './extension-workspace-post-state';
+} from './post-state/extension-workspace-post-state';
 import { createFilesCache } from './caches/files-cache';
-import { projectFilesPostState, projectFilesSingleton } from './files-post-state';
+import { projectFilesPostState, projectFilesSingleton } from './post-state/files-post-state';
 import { createFolderCache } from './caches/folder-cache';
-import { projectFolderByUid, projectFolderPostState } from './folder-post-state';
+import { projectFolderByUid, projectFolderPostState } from './post-state/folder-post-state';
 import { createLayoutStateCache } from './caches/layout-state-cache';
-import { projectLayoutStatePostState, projectLayoutStateSingleton } from './layout-state-post-state';
+import { projectLayoutStatePostState, projectLayoutStateSingleton } from './post-state/layout-state-post-state';
 import { createLiveFallbackPriorityCache } from './caches/live-fallback-priority-cache';
 import {
   projectLiveFallbackPriorityPostState,
   projectLiveFallbackPrioritySingleton,
-} from './live-fallback-priority-post-state';
+} from './post-state/live-fallback-priority-post-state';
 import { createLiveValueCache } from './caches/live-value-cache';
-import { projectLiveValuePostState, projectLiveValueSingleton } from './live-value-post-state';
+import { projectLiveValuePostState, projectLiveValueSingleton } from './post-state/live-value-post-state';
 import { createLiveVariableCache } from './caches/live-variable-cache';
-import { projectLiveVariableByUid, projectLiveVariablePostState } from './live-variable-post-state';
+import { projectLiveVariableByUid, projectLiveVariablePostState } from './post-state/live-variable-post-state';
 import { createLiveWorkflowCache } from './caches/live-workflow-cache';
-import { projectLiveWorkflowByUid, projectLiveWorkflowPostState } from './live-workflow-post-state';
+import { projectLiveWorkflowByUid, projectLiveWorkflowPostState } from './post-state/live-workflow-post-state';
 import { createOAuthBundleCache } from './caches/oauth-bundle-cache';
-import { projectOAuthBundlePostState, projectOAuthBundleSingleton } from './oauth-bundle-post-state';
+import { projectOAuthBundlePostState, projectOAuthBundleSingleton } from './post-state/oauth-bundle-post-state';
 import type { EntityOracle } from './oracle';
 import { createPauseMarkersCache } from './caches/pause-markers-cache';
-import { projectPauseMarkersPostState, projectPauseMarkersSingleton } from './pause-markers-post-state';
+import { projectPauseMarkersPostState, projectPauseMarkersSingleton } from './post-state/pause-markers-post-state';
 import { createRequestCache } from './caches/request-cache';
 import { createRequestCollectionCache } from './caches/request-collection-cache';
-import { projectRequestCollectionByUid, projectRequestCollectionPostState } from './request-collection-post-state';
+import { projectRequestCollectionByUid, projectRequestCollectionPostState } from './post-state/request-collection-post-state';
 import { createRequestFolderCache } from './caches/request-folder-cache';
-import { projectRequestFolderByUid, projectRequestFolderPostState } from './request-folder-post-state';
-import { projectRequestByUid, projectRequestPostState } from './request-post-state';
+import { projectRequestFolderByUid, projectRequestFolderPostState } from './post-state/request-folder-post-state';
+import { projectRequestByUid, projectRequestPostState } from './post-state/request-post-state';
 import { createRuleCache } from './caches/rule-cache';
-import { projectRuleByUid, projectRulePostState } from './rule-post-state';
+import { projectRuleByUid, projectRulePostState } from './post-state/rule-post-state';
 import type { SwContextHandle } from './sw-context';
 import { createTemplateCache } from './caches/template-cache';
 import { createTemplateCollectionCache } from './caches/template-collection-cache';
-import { projectTemplateCollectionByUid, projectTemplateCollectionPostState } from './template-collection-post-state';
+import { projectTemplateCollectionByUid, projectTemplateCollectionPostState } from './post-state/template-collection-post-state';
 import { createTemplateFolderCache } from './caches/template-folder-cache';
-import { projectTemplateFolderByUid, projectTemplateFolderPostState } from './template-folder-post-state';
-import { projectTemplateByUid, projectTemplatePostState } from './template-post-state';
+import { projectTemplateFolderByUid, projectTemplateFolderPostState } from './post-state/template-folder-post-state';
+import { projectTemplateByUid, projectTemplatePostState } from './post-state/template-post-state';
 import { createVaultCache } from './caches/vault-cache';
-import { projectVaultPostState, projectVaultSingleton } from './vault-post-state';
+import { projectVaultPostState, projectVaultSingleton } from './post-state/vault-post-state';
 import { createWorkspaceVariablesCache } from './caches/workspace-variables-cache';
 import {
   projectWorkspaceVariablesPostState,
   projectWorkspaceVariablesSingleton,
-} from './workspace-variables-post-state';
+} from './post-state/workspace-variables-post-state';
 
 // ── Types ────────────────────────────────────────────────────────────
 

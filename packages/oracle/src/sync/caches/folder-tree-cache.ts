@@ -21,10 +21,10 @@ import { type MutationBatch, type MutatorContext, newBatchId, type SideEffectInt
 import type { Collection, Folder } from '@openheaders/core/types';
 import { logger } from '@openheaders/core/utils';
 import { hostStorage, type PersistedLocalFolder, type StorageKey } from '@openheaders/oracle/storage';
-import { driftRecorder } from './storage-drift';
-import type { BroadcastEvent, InMemoryBroadcast } from './broadcast';
-import type { EntityOracle } from './oracle';
-import type { SwMutatorContextFactory } from './sw-context';
+import { driftRecorder } from '../storage-drift';
+import type { BroadcastEvent, InMemoryBroadcast } from '../broadcast';
+import type { EntityOracle } from '../oracle';
+import type { SwMutatorContextFactory } from '../sw-context';
 
 /**
  * Input shape for `buildCreateBatch`. Per-entity factories accept the

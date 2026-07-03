@@ -21,7 +21,7 @@ import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
 import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
 import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
-import { projectRequestByUid, projectRequestPostState } from '@openheaders/oracle/sync/request-post-state';
+import { projectRequestByUid, projectRequestPostState } from '@openheaders/oracle/sync/post-state/request-post-state';
 import { seedRequest } from '@openheaders/core/sync-builders/projections/request-projection';
 
 const wsId = 'ws-1';

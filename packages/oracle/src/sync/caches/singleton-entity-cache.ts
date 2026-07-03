@@ -28,9 +28,9 @@
 import type { GuardedRead } from '@openheaders/core/storage';
 import type { MutationBatch, MutatorContext } from '@openheaders/core/sync';
 import { logger } from '@openheaders/core/utils';
-import type { BroadcastEvent, InMemoryBroadcast } from './broadcast';
-import type { EntityOracle } from './oracle';
-import type { SwMutatorContextFactory } from './sw-context';
+import type { BroadcastEvent, InMemoryBroadcast } from '../broadcast';
+import type { EntityOracle } from '../oracle';
+import type { SwMutatorContextFactory } from '../sw-context';
 
 export interface SingletonEntityCacheConfig<T, I> {
   /** Broadcast filter — only events whose envelope body type matches

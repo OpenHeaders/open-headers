@@ -13,7 +13,7 @@ import {
 } from '@openheaders/core/sync';
 import { describe, expect, it } from 'vitest';
 import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
-import { projectFilesPostState, projectFilesSingleton } from '@openheaders/oracle/sync/files-post-state';
+import { projectFilesPostState, projectFilesSingleton } from '@openheaders/oracle/sync/post-state/files-post-state';
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
 import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
 import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';

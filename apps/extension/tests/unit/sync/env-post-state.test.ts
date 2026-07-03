@@ -16,7 +16,7 @@ import {
 import type { Environment } from '@openheaders/core/types';
 import { describe, expect, it } from 'vitest';
 import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
-import { projectEnvironmentByUid, projectEnvironmentPostState } from '@openheaders/oracle/sync/env-post-state';
+import { projectEnvironmentByUid, projectEnvironmentPostState } from '@openheaders/oracle/sync/post-state/env-post-state';
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
 import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
 import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';

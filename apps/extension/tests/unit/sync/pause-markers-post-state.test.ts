@@ -18,7 +18,7 @@ import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle
 import {
   projectPauseMarkersPostState,
   projectPauseMarkersSingleton,
-} from '@openheaders/oracle/sync/pause-markers-post-state';
+} from '@openheaders/oracle/sync/post-state/pause-markers-post-state';
 import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
 import { seedPauseMarkers } from '@openheaders/core/sync-builders/projections/pause-markers-projection';
 

@@ -24,11 +24,11 @@
 import { EXTENSION_WORKSPACE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
 import { seedExtensionWorkspaces } from '@openheaders/core/sync-builders/projections/extension-workspace-projection';
-import type { InMemoryBroadcast } from './broadcast';
-import { projectExtensionWorkspaceSingleton } from './extension-workspace-post-state';
-import type { EntityOracle } from './oracle';
+import type { InMemoryBroadcast } from '../broadcast';
+import { projectExtensionWorkspaceSingleton } from '../post-state/extension-workspace-post-state';
+import type { EntityOracle } from '../oracle';
 import { createSingletonEntityCache, type SingletonEntityCache } from './singleton-entity-cache';
-import type { SwMutatorContextFactory } from './sw-context';
+import type { SwMutatorContextFactory } from '../sw-context';
 
 export interface ExtensionWorkspaceSnapshot {
   workspaces: ExtensionWorkspace[];

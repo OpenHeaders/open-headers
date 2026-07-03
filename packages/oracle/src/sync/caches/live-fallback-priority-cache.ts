@@ -20,11 +20,11 @@ import {
 } from '@openheaders/core/sync-builders/projections/live-fallback-priority-projection';
 import type { LiveFallbackPriorityMember } from '@openheaders/core/types';
 import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
-import type { InMemoryBroadcast } from './broadcast';
-import { projectLiveFallbackPrioritySingleton } from './live-fallback-priority-post-state';
-import type { EntityOracle } from './oracle';
+import type { InMemoryBroadcast } from '../broadcast';
+import { projectLiveFallbackPrioritySingleton } from '../post-state/live-fallback-priority-post-state';
+import type { EntityOracle } from '../oracle';
 import { createSingletonEntityCache, type SingletonEntityCache } from './singleton-entity-cache';
-import type { SwMutatorContextFactory } from './sw-context';
+import type { SwMutatorContextFactory } from '../sw-context';
 
 const EMPTY_SNAPSHOT: LiveFallbackPrioritySnapshot = { schemaVersion: 5, members: {} };
 

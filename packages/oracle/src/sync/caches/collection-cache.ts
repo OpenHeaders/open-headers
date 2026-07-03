@@ -22,10 +22,10 @@ import type { Collection } from '@openheaders/core/types';
 import { logger } from '@openheaders/core/utils';
 import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import { projectCollection, seedCollection } from '@openheaders/core/sync-builders/projections/collection-projection';
-import { driftRecorder } from './storage-drift';
-import type { BroadcastEvent, InMemoryBroadcast } from './broadcast';
-import type { EntityOracle } from './oracle';
-import type { SwMutatorContextFactory } from './sw-context';
+import { driftRecorder } from '../storage-drift';
+import type { BroadcastEvent, InMemoryBroadcast } from '../broadcast';
+import type { EntityOracle } from '../oracle';
+import type { SwMutatorContextFactory } from '../sw-context';
 
 export type CollectionCacheListener = () => void;
 

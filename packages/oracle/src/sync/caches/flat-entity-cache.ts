@@ -20,9 +20,9 @@
 import type { MaterializedEntity, MutationBatch, MutatorContext } from '@openheaders/core/sync';
 import { logger } from '@openheaders/core/utils';
 import { hostStorage, type StorageKey } from '@openheaders/oracle/storage';
-import type { BroadcastEvent, InMemoryBroadcast } from './broadcast';
-import type { EntityOracle } from './oracle';
-import type { SwMutatorContextFactory } from './sw-context';
+import type { BroadcastEvent, InMemoryBroadcast } from '../broadcast';
+import type { EntityOracle } from '../oracle';
+import type { SwMutatorContextFactory } from '../sw-context';
 
 export interface FlatEntityCacheConfig<E extends { uid: string }, T extends string> {
   entityType: T;

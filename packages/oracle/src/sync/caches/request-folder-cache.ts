@@ -12,11 +12,11 @@ import {
 import type { Collection, Folder } from '@openheaders/core/types';
 import { type PersistedLocalFolder, wsKeys } from '@openheaders/oracle/storage';
 import { buildCreateRequestFolderBatch } from '@openheaders/core/sync-builders/mutations/request-folder-mutations';
-import type { InMemoryBroadcast } from './broadcast';
+import type { InMemoryBroadcast } from '../broadcast';
 import { createFolderTreeCache, type FolderTreeCacheConfig } from './folder-tree-cache';
-import type { EntityOracle } from './oracle';
-import { projectAllRequestFolders } from './request-folder-post-state';
-import type { SwMutatorContextFactory } from './sw-context';
+import type { EntityOracle } from '../oracle';
+import { projectAllRequestFolders } from '../post-state/request-folder-post-state';
+import type { SwMutatorContextFactory } from '../sw-context';
 
 export type RequestFolderCacheListener = () => void;
 

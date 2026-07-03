@@ -22,7 +22,7 @@ import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents
 import {
   projectWorkspaceVariablesPostState,
   projectWorkspaceVariablesSingleton,
-} from '@openheaders/oracle/sync/workspace-variables-post-state';
+} from '@openheaders/oracle/sync/post-state/workspace-variables-post-state';
 import { seedWorkspaceVariables } from '@openheaders/core/sync-builders/projections/workspace-variables-projection';
 
 const wsId = 'ws-1';

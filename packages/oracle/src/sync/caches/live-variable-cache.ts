@@ -8,11 +8,11 @@ import { LIVE_VARIABLE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { LiveVariable } from '@openheaders/core/types';
 import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import { projectLiveVariable, seedLiveVariable } from '@openheaders/core/sync-builders/projections/live-variable-projection';
-import { driftRecorder } from './storage-drift';
-import type { InMemoryBroadcast } from './broadcast';
+import { driftRecorder } from '../storage-drift';
+import type { InMemoryBroadcast } from '../broadcast';
 import { createFlatEntityCache } from './flat-entity-cache';
-import type { EntityOracle } from './oracle';
-import type { SwMutatorContextFactory } from './sw-context';
+import type { EntityOracle } from '../oracle';
+import type { SwMutatorContextFactory } from '../sw-context';
 
 export type LiveVariableCacheListener = () => void;
 

@@ -8,11 +8,11 @@ import { REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Request } from '@openheaders/core/types';
 import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import { projectRequest, seedRequest } from '@openheaders/core/sync-builders/projections/request-projection';
-import { driftRecorder } from './storage-drift';
-import type { InMemoryBroadcast } from './broadcast';
+import { driftRecorder } from '../storage-drift';
+import type { InMemoryBroadcast } from '../broadcast';
 import { createFlatEntityCache } from './flat-entity-cache';
-import type { EntityOracle } from './oracle';
-import type { SwMutatorContextFactory } from './sw-context';
+import type { EntityOracle } from '../oracle';
+import type { SwMutatorContextFactory } from '../sw-context';
 
 export type RequestCacheListener = () => void;
 

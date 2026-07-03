@@ -20,7 +20,7 @@ import { seedTemplateCollection } from '@openheaders/core/sync-builders/projecti
 import {
   projectTemplateFolderByUid,
   projectTemplateFolderPostState,
-} from '@openheaders/oracle/sync/template-folder-post-state';
+} from '@openheaders/oracle/sync/post-state/template-folder-post-state';
 import type { PersistedLocalFolder } from '@openheaders/oracle/storage';
 
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();

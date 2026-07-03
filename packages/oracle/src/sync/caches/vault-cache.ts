@@ -16,12 +16,12 @@ import { VAULT_ENTITY_TYPE } from '@openheaders/core/sync';
 import { seedVault } from '@openheaders/core/sync-builders/projections/vault-projection';
 import type { Vault } from '@openheaders/core/types';
 import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
-import type { InMemoryBroadcast } from './broadcast';
-import type { EntityOracle } from './oracle';
+import type { InMemoryBroadcast } from '../broadcast';
+import type { EntityOracle } from '../oracle';
 import { createSingletonEntityCache, type SingletonEntityCache } from './singleton-entity-cache';
-import { driftRecorder } from './storage-drift';
-import type { SwMutatorContextFactory } from './sw-context';
-import { projectVaultSingleton } from './vault-post-state';
+import { driftRecorder } from '../storage-drift';
+import type { SwMutatorContextFactory } from '../sw-context';
+import { projectVaultSingleton } from '../post-state/vault-post-state';
 
 const EMPTY_VAULT: Vault = {
   schemaVersion: 5,

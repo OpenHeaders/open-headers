@@ -21,7 +21,7 @@ import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents
 import {
   projectTemplateByUid,
   projectTemplatePostState,
-} from '@openheaders/oracle/sync/template-post-state';
+} from '@openheaders/oracle/sync/post-state/template-post-state';
 import { seedTemplate } from '@openheaders/core/sync-builders/projections/template-projection';
 
 const wsId = 'ws-1';

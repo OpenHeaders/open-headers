@@ -16,11 +16,11 @@ import {
   type PauseMarkersSnapshot,
   seedPauseMarkers,
 } from '@openheaders/core/sync-builders/projections/pause-markers-projection';
-import type { InMemoryBroadcast } from './broadcast';
-import type { EntityOracle } from './oracle';
-import { projectPauseMarkersSingleton } from './pause-markers-post-state';
+import type { InMemoryBroadcast } from '../broadcast';
+import type { EntityOracle } from '../oracle';
+import { projectPauseMarkersSingleton } from '../post-state/pause-markers-post-state';
 import { createSingletonEntityCache, type SingletonEntityCache } from './singleton-entity-cache';
-import type { SwMutatorContextFactory } from './sw-context';
+import type { SwMutatorContextFactory } from '../sw-context';
 
 export type PauseMarkersCacheListener = () => void;
 

@@ -22,11 +22,11 @@ import { LIVE_VALUE_ENTITY_TYPE } from '@openheaders/core/sync';
 import { type LiveValueSnapshot, seedLiveValues } from '@openheaders/core/sync-builders/projections/live-value-projection';
 import type { LiveValueRecord, WorkflowRunCache } from '@openheaders/core/types';
 import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
-import type { InMemoryBroadcast } from './broadcast';
-import { projectLiveValueSingleton } from './live-value-post-state';
-import type { EntityOracle } from './oracle';
+import type { InMemoryBroadcast } from '../broadcast';
+import { projectLiveValueSingleton } from '../post-state/live-value-post-state';
+import type { EntityOracle } from '../oracle';
 import { createSingletonEntityCache, type SingletonEntityCache } from './singleton-entity-cache';
-import type { SwMutatorContextFactory } from './sw-context';
+import type { SwMutatorContextFactory } from '../sw-context';
 
 const EMPTY_SNAPSHOT: LiveValueSnapshot = { schemaVersion: 5, values: {} };
 

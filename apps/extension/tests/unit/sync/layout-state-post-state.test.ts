@@ -15,7 +15,7 @@ import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
 import {
   projectLayoutStatePostState,
   projectLayoutStateSingleton,
-} from '@openheaders/oracle/sync/layout-state-post-state';
+} from '@openheaders/oracle/sync/post-state/layout-state-post-state';
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
 import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
 import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';

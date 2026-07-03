@@ -12,12 +12,12 @@ import { WORKSPACE_VARIABLES_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { WorkspaceVariables } from '@openheaders/core/types';
 import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import { seedWorkspaceVariables } from '@openheaders/core/sync-builders/projections/workspace-variables-projection';
-import { driftRecorder } from './storage-drift';
-import type { InMemoryBroadcast } from './broadcast';
-import type { EntityOracle } from './oracle';
+import { driftRecorder } from '../storage-drift';
+import type { InMemoryBroadcast } from '../broadcast';
+import type { EntityOracle } from '../oracle';
 import { createSingletonEntityCache, type SingletonEntityCache } from './singleton-entity-cache';
-import type { SwMutatorContextFactory } from './sw-context';
-import { projectWorkspaceVariablesSingleton } from './workspace-variables-post-state';
+import type { SwMutatorContextFactory } from '../sw-context';
+import { projectWorkspaceVariablesSingleton } from '../post-state/workspace-variables-post-state';
 
 const EMPTY_WORKSPACE_VARIABLES: WorkspaceVariables = {
   schemaVersion: 5,

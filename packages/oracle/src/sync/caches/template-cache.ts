@@ -8,11 +8,11 @@ import { TEMPLATE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Template } from '@openheaders/core/types';
 import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import { projectTemplate, seedTemplate } from '@openheaders/core/sync-builders/projections/template-projection';
-import { driftRecorder } from './storage-drift';
-import type { InMemoryBroadcast } from './broadcast';
+import { driftRecorder } from '../storage-drift';
+import type { InMemoryBroadcast } from '../broadcast';
 import { createFlatEntityCache } from './flat-entity-cache';
-import type { EntityOracle } from './oracle';
-import type { SwMutatorContextFactory } from './sw-context';
+import type { EntityOracle } from '../oracle';
+import type { SwMutatorContextFactory } from '../sw-context';
 
 export type TemplateCacheListener = () => void;
 

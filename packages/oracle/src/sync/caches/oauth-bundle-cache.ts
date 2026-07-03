@@ -18,11 +18,11 @@
 import { OAUTH_BUNDLE_ENTITY_TYPE } from '@openheaders/core/sync';
 import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import { type OAuthBundleSnapshot, seedOAuthBundle } from '@openheaders/core/sync-builders/projections/oauth-bundle-projection';
-import type { InMemoryBroadcast } from './broadcast';
-import { projectOAuthBundleSingleton } from './oauth-bundle-post-state';
-import type { EntityOracle } from './oracle';
+import type { InMemoryBroadcast } from '../broadcast';
+import { projectOAuthBundleSingleton } from '../post-state/oauth-bundle-post-state';
+import type { EntityOracle } from '../oracle';
 import { createSingletonEntityCache, type SingletonEntityCache } from './singleton-entity-cache';
-import type { SwMutatorContextFactory } from './sw-context';
+import type { SwMutatorContextFactory } from '../sw-context';
 
 const EMPTY_SNAPSHOT: OAuthBundleSnapshot = {
   schemaVersion: 5,

@@ -22,11 +22,11 @@ import type { FileRef } from '@openheaders/core/files';
 import { FILES_ENTITY_TYPE } from '@openheaders/core/sync';
 import * as BlobStore from '@openheaders/oracle/files';
 import { seedFiles } from '@openheaders/core/sync-builders/projections/files-projection';
-import type { InMemoryBroadcast } from './broadcast';
-import { projectFilesSingleton } from './files-post-state';
-import type { EntityOracle } from './oracle';
+import type { InMemoryBroadcast } from '../broadcast';
+import { projectFilesSingleton } from '../post-state/files-post-state';
+import type { EntityOracle } from '../oracle';
 import { createSingletonEntityCache, type SingletonEntityCache } from './singleton-entity-cache';
-import type { SwMutatorContextFactory } from './sw-context';
+import type { SwMutatorContextFactory } from '../sw-context';
 
 export interface FilesSnapshot {
   /** All currently-known FileRefs, in fileId order. */

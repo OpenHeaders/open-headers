@@ -18,7 +18,7 @@ import { buildDeleteTemplateCollectionBatch } from '@openheaders/core/sync-build
 import {
   projectTemplateCollectionByUid,
   projectTemplateCollectionPostState,
-} from '@openheaders/oracle/sync/template-collection-post-state';
+} from '@openheaders/oracle/sync/post-state/template-collection-post-state';
 
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();
 

@@ -16,7 +16,7 @@ import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
 import {
   projectOAuthBundlePostState,
   projectOAuthBundleSingleton,
-} from '@openheaders/oracle/sync/oauth-bundle-post-state';
+} from '@openheaders/oracle/sync/post-state/oauth-bundle-post-state';
 import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
 import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
 import {

@@ -24,7 +24,7 @@ import {
   projectAllFolders,
   projectFolderByUid,
   projectFolderPostState,
-} from '@openheaders/oracle/sync/folder-post-state';
+} from '@openheaders/oracle/sync/post-state/folder-post-state';
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
 import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
 import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
