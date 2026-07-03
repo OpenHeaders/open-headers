@@ -9,7 +9,7 @@
  * `keyBetween(prev, next)` at drop time.
  */
 
-import type { EntityOracle } from './oracle';
+import type { EntityOracle } from '../oracle';
 
 type Reads = Pick<EntityOracle, 'liveOrderedSetItems'>;
 

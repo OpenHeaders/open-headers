@@ -23,7 +23,7 @@
 import type { ActivityMuteEntry } from '@openheaders/core/sync';
 import type Database from 'better-sqlite3';
 
-import type { ActivityMuteStore } from '@openheaders/oracle/sync/activity-mute-store';
+import type { ActivityMuteStore } from '@openheaders/oracle/sync/activity/activity-mute-store';
 
 const SCHEMA_STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS activity_mute_store (

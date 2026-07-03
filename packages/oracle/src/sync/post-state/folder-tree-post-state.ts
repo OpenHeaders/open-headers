@@ -19,7 +19,7 @@
 import type { MaterializedEntity, MutationEnvelope } from '@openheaders/core/sync';
 import type { Collection, Folder } from '@openheaders/core/types';
 import { buildFolderChildrenOrderKeys } from './folder-children-order-keys';
-import type { EntityOracle } from './oracle';
+import type { EntityOracle } from '../oracle';
 
 type Reads = Pick<EntityOracle, 'materializeOne' | 'materializeAll' | 'liveSetItems' | 'liveOrderedSetItems'>;
 

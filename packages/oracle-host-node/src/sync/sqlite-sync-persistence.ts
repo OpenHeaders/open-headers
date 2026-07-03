@@ -25,8 +25,8 @@
 import Database from 'better-sqlite3';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { ActivityLog } from '@openheaders/oracle/sync/activity-log';
-import type { ActivityMuteStore } from '@openheaders/oracle/sync/activity-mute-store';
+import type { ActivityLog } from '@openheaders/oracle/sync/activity/activity-log';
+import type { ActivityMuteStore } from '@openheaders/oracle/sync/activity/activity-mute-store';
 import type { MutationLog } from '@openheaders/oracle/sync/mutation-log';
 import type { PendingIntents } from '@openheaders/oracle/sync/pending-intents';
 import type { PendingOutQueue } from '@openheaders/oracle/sync/pending-out-queue';

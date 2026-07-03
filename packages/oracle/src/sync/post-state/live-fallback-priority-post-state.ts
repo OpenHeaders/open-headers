@@ -21,7 +21,7 @@ import {
 import { orderFallbackPriorityMembers } from '@openheaders/core/sync-builders/projections/live-fallback-priority-projection';
 import type { LiveFallbackPriorityMember } from '@openheaders/core/types';
 import { makeSingletonEntityProjectors } from './flat-entity-post-state';
-import type { EntityOracle } from './oracle';
+import type { EntityOracle } from '../oracle';
 
 type Reads = Pick<EntityOracle, 'materializeOne' | 'liveSetItems'>;
 

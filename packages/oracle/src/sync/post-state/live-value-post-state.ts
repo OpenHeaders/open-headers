@@ -16,7 +16,7 @@ import type { SyncLiveValuePostState } from '@openheaders/core/protocol';
 import { LIVE_VALUE_ENTITY_TYPE, LIVE_VALUE_ID, LIVE_VALUE_VALUES_PATH } from '@openheaders/core/sync';
 import type { LiveValueRecord } from '@openheaders/core/types';
 import { makeSingletonEntityProjectors } from './flat-entity-post-state';
-import type { EntityOracle } from './oracle';
+import type { EntityOracle } from '../oracle';
 
 type Reads = Pick<EntityOracle, 'materializeOne' | 'liveSetItems'>;
 

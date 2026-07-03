@@ -15,7 +15,7 @@ import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Rule } from '@openheaders/core/types';
 import { projectRule } from '@openheaders/core/sync-builders/projections/rule-projection';
 import { buildSetMembersExtras, makeFlatEntityProjectors } from './flat-entity-post-state';
-import type { EntityOracle } from './oracle';
+import type { EntityOracle } from '../oracle';
 
 /** Set-modeled paths on a Rule — mirrors {@link rule-projection.SET_PATHS}. */
 const RULE_SET_PATHS = ['conditions', 'action.requestHeaders', 'action.responseHeaders'] as const;

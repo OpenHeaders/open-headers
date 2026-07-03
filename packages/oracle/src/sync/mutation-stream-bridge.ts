@@ -57,8 +57,8 @@ import {
 } from '@openheaders/core/sync';
 import { logger } from '@openheaders/core/utils';
 
-import { makeOracleInverseAccess } from './activity-inverse-builder';
-import { rememberPriorForMutation } from './activity-priors';
+import { makeOracleInverseAccess } from './activity/activity-inverse-builder';
+import { rememberPriorForMutation } from './activity/activity-priors';
 import {
   applySyncRequest,
   getOracleForWorkspace,

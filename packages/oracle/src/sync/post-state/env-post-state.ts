@@ -13,7 +13,7 @@ import { ENV_VARS_PATH, ENVIRONMENT_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Environment } from '@openheaders/core/types';
 import { projectEnvironment } from '@openheaders/core/sync-builders/projections/env-projection';
 import { buildVarNamesExtras, makeFlatEntityProjectors } from './flat-entity-post-state';
-import type { EntityOracle } from './oracle';
+import type { EntityOracle } from '../oracle';
 
 type Reads = Pick<EntityOracle, 'materializeOne' | 'liveSetItems'>;
 

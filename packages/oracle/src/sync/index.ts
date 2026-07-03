@@ -1,13 +1,13 @@
 export {
   type ClassifyActivityInput,
   classifyEnvelopeForActivity,
-} from './activity-classifier';
-export { makeOracleInverseAccess, type OracleInverseAccessInput } from './activity-inverse-builder';
+} from './activity/activity-classifier';
+export { makeOracleInverseAccess, type OracleInverseAccessInput } from './activity/activity-inverse-builder';
 export {
   type ActivityLog,
   type ActivityLogListOptions,
   InMemoryActivityLog,
-} from './activity-log';
+} from './activity/activity-log';
 export {
   __resetActivityMuteCacheForTests,
   type ActivityMuteChange,
@@ -19,18 +19,18 @@ export {
   setActivityMuteStore,
   subscribeActivityMuteChanges,
   unmuteActivityEntity,
-} from './activity-mute-cache';
+} from './activity/activity-mute-cache';
 export {
   type ActivityMuteStore,
   InMemoryActivityMuteStore,
-} from './activity-mute-store';
+} from './activity/activity-mute-store';
 export {
   __activityPriorsSizeForTests,
   __resetActivityPriorsForTests,
   consumePriorForMutation,
   type PriorCapture,
   rememberPriorForMutation,
-} from './activity-priors';
+} from './activity/activity-priors';
 export {
   ACTIVITY_PRUNE_DEFAULT_PERIOD_MS,
   ACTIVITY_PRUNE_DEFAULT_RETENTION_MS,
@@ -38,13 +38,13 @@ export {
   type ActivityPruneWorkspaceResult,
   type RunActivityPruneSweepInput,
   runActivityPruneSweep,
-} from './activity-prune-scheduler';
+} from './activity/activity-prune-scheduler';
 export {
   type GenerateInverseInput,
   type GenerateInverseReason,
   type GenerateInverseResult,
   generateInverseMutation,
-} from './activity-revert';
+} from './activity/activity-revert';
 export {
   type AuditLog,
   type AuditLogAppendInput,

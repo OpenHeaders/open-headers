@@ -11,7 +11,7 @@ import { LIVE_VARIABLE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { LiveVariable } from '@openheaders/core/types';
 import { projectLiveVariable } from '@openheaders/core/sync-builders/projections/live-variable-projection';
 import { makeFlatEntityProjectors } from './flat-entity-post-state';
-import type { EntityOracle } from './oracle';
+import type { EntityOracle } from '../oracle';
 
 type Reads = Pick<EntityOracle, 'materializeOne'>;
 

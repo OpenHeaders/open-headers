@@ -24,7 +24,7 @@ import {
 } from '@openheaders/core/sync';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
 import { makeSingletonEntityProjectors } from './flat-entity-post-state';
-import type { EntityOracle } from './oracle';
+import type { EntityOracle } from '../oracle';
 
 type Reads = Pick<EntityOracle, 'materializeOne' | 'liveOrderedSetItems'>;
 

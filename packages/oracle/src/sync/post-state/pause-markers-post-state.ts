@@ -18,7 +18,7 @@ import {
   type PauseMarkerSlot,
 } from '@openheaders/core/sync';
 import { makeSingletonEntityProjectors } from './flat-entity-post-state';
-import type { EntityOracle } from './oracle';
+import type { EntityOracle } from '../oracle';
 
 type Reads = Pick<EntityOracle, 'materializeOne' | 'liveSetItems'>;
 

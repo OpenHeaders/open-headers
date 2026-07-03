@@ -13,7 +13,7 @@ import { TEMPLATE_CONDITIONS_PATH, TEMPLATE_ENTITY_TYPE } from '@openheaders/cor
 import type { Template } from '@openheaders/core/types';
 import { projectTemplate } from '@openheaders/core/sync-builders/projections/template-projection';
 import { buildSetMembersExtras, makeFlatEntityProjectors } from './flat-entity-post-state';
-import type { EntityOracle } from './oracle';
+import type { EntityOracle } from '../oracle';
 
 const TEMPLATE_SET_PATHS = [TEMPLATE_CONDITIONS_PATH] as const;
 

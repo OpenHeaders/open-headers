@@ -15,7 +15,7 @@ import type { FileRef } from '@openheaders/core/files';
 import type { SyncFilesPostState } from '@openheaders/core/protocol';
 import { FILES_ENTITY_TYPE, FILES_ID, FILES_REFS_PATH, type FileRefSlot } from '@openheaders/core/sync';
 import { makeSingletonEntityProjectors } from './flat-entity-post-state';
-import type { EntityOracle } from './oracle';
+import type { EntityOracle } from '../oracle';
 
 type Reads = Pick<EntityOracle, 'materializeOne' | 'liveSetItems'>;
 

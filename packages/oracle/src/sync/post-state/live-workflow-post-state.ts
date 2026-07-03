@@ -11,7 +11,7 @@ import { LIVE_WORKFLOW_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { LiveWorkflow } from '@openheaders/core/types';
 import { projectLiveWorkflow } from '@openheaders/core/sync-builders/projections/live-workflow-projection';
 import { makeFlatEntityProjectors } from './flat-entity-post-state';
-import type { EntityOracle } from './oracle';
+import type { EntityOracle } from '../oracle';
 
 type Reads = Pick<EntityOracle, 'materializeOne'>;
 

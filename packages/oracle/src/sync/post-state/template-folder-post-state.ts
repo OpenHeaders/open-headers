@@ -20,7 +20,7 @@ import {
   projectFolderByUidGeneric,
   projectFolderPostStateGeneric,
 } from './folder-tree-post-state';
-import type { EntityOracle } from './oracle';
+import type { EntityOracle } from '../oracle';
 
 type Reads = Pick<EntityOracle, 'materializeOne' | 'materializeAll' | 'liveSetItems' | 'liveOrderedSetItems'>;
 

@@ -22,7 +22,7 @@ import {
   newMutationId,
 } from '@openheaders/core/sync';
 import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
-import { generateInverseMutation } from '@openheaders/oracle/sync/activity-revert';
+import { generateInverseMutation } from '@openheaders/oracle/sync/activity/activity-revert';
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
 import { EntityOracle, type LockAcquirer } from '@openheaders/oracle/sync/oracle';
 import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';

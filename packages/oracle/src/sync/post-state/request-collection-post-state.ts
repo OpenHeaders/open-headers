@@ -17,7 +17,7 @@ import type { Collection } from '@openheaders/core/types';
 import { projectRequestCollection } from '@openheaders/core/sync-builders/projections/request-collection-projection';
 import { buildVarNamesExtras, makeFlatEntityProjectors } from './flat-entity-post-state';
 import { buildFolderChildrenOrderKeys } from './folder-children-order-keys';
-import type { EntityOracle } from './oracle';
+import type { EntityOracle } from '../oracle';
 
 type Reads = Pick<EntityOracle, 'materializeOne' | 'liveSetItems' | 'liveOrderedSetItems'>;
 

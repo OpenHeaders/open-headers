@@ -15,7 +15,7 @@ import type { SyncVaultPostState } from '@openheaders/core/protocol';
 import { VAULT_ENTITY_TYPE, VAULT_ID, VAULT_PATH } from '@openheaders/core/sync';
 import { projectVault } from '@openheaders/core/sync-builders/projections/vault-projection';
 import { makeSingletonEntityProjectors } from './flat-entity-post-state';
-import type { EntityOracle } from './oracle';
+import type { EntityOracle } from '../oracle';
 
 type Reads = Pick<EntityOracle, 'materializeOne' | 'liveSetItems'>;
 

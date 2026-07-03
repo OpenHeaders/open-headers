@@ -15,7 +15,7 @@
 
 import type { ActivityMuteEntry } from '@openheaders/core/sync';
 
-import type { ActivityMuteStore } from '@openheaders/oracle/sync/activity-mute-store';
+import type { ActivityMuteStore } from '@openheaders/oracle/sync/activity/activity-mute-store';
 
 const DB_NAME = 'oh.sync.activity-mute';
 const DB_VERSION = 1;

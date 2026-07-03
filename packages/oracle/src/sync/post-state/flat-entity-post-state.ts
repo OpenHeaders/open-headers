@@ -32,7 +32,7 @@
  */
 
 import type { MaterializedEntity, MutationEnvelope } from '@openheaders/core/sync';
-import type { EntityOracle } from './oracle';
+import type { EntityOracle } from '../oracle';
 
 /** Minimum oracle surface every flat-entity projector needs. Extras
  *  builders widen this to include `liveSetItems` / `liveOrderedSetItems`

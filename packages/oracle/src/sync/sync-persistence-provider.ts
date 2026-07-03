@@ -19,8 +19,8 @@
  * this module so it stays host-neutral.
  */
 
-import type { ActivityLog } from './activity-log';
-import type { ActivityMuteStore } from './activity-mute-store';
+import type { ActivityLog } from './activity/activity-log';
+import type { ActivityMuteStore } from './activity/activity-mute-store';
 import type { MutationLog } from './mutation-log';
 import type { PendingIntents } from './pending-intents';
 import type { PendingOutQueue } from './pending-out-queue';

@@ -12,7 +12,7 @@ import { REQUEST_ENTITY_TYPE, REQUEST_HEADERS_PATH, REQUEST_PARAMS_PATH } from '
 import type { Request } from '@openheaders/core/types';
 import { projectRequest } from '@openheaders/core/sync-builders/projections/request-projection';
 import { buildSetMembersExtras, makeFlatEntityProjectors } from './flat-entity-post-state';
-import type { EntityOracle } from './oracle';
+import type { EntityOracle } from '../oracle';
 
 /** Set-modeled paths on a Request — mirrors {@link request-projection}'s SET_PATHS. */
 const REQUEST_SET_PATHS = [REQUEST_HEADERS_PATH, REQUEST_PARAMS_PATH] as const;
