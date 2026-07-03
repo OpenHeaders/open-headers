@@ -14,6 +14,7 @@ import type React from 'react';
 import { type ClipboardEvent, type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getCaretOffset, setCaretOffset } from './caret';
 import { type CreateTarget, detectCreateTarget } from './create-target';
+import { createEditableHistory, type EditableHistory, type EditableHistoryEntry } from './editable-history';
 import { type RefState, renderHighlightedHtml } from './highlight';
 import { detectMeasure, findExistingCloseEnd, PREFIX, SPLIT } from './measure';
 import { computePopoverCoords, type PopoverCoords } from './popover-coords';
@@ -50,6 +51,15 @@ export function useTemplateSuggestions({
   // the Enter/Tab key's own keyup doesn't immediately re-open the
   // suggestion list (a mouse click has no such keyup, hence it works).
   const suppressReopenRef = useRef(false);
+  // Own undo/redo stack — the innerHTML re-render on every keystroke
+  // destroys the browser's native undo history, so the field keeps its
+  // own (see `editable-history.ts`).
+  const historyRef = useRef<EditableHistory | null>(null);
+  if (!historyRef.current) historyRef.current = createEditableHistory(value ?? '');
+  const history = historyRef.current;
+  // One-shot: the next handleInput records as a boundary entry (paste,
+  // inserted newline) instead of coalescing with the typing burst.
+  const boundaryNextRef = useRef(false);
   // One-shot: set when `triggerCreate` opens the shared create popover.
   // `triggerCreate` sets `isOpen` false to dismiss the suggestion list,
   // which would otherwise fire the `[value, isOpen]` effect below and
@@ -178,6 +188,8 @@ export function useTemplateSuggestions({
   const handleInput = useCallback(() => {
     const root = editableRef.current;
     if (!root) return;
+    const boundary = boundaryNextRef.current;
+    boundaryNextRef.current = false;
     const caretPos = getCaretOffset(root);
     const text = root.textContent ?? '';
     // Strip `\n` injected by contentEditable when multiline is false.
@@ -186,6 +198,7 @@ export function useTemplateSuggestions({
       const adj = Math.min(caretPos, sanitized.length);
       root.innerHTML = renderHighlightedHtml(sanitized, adj, classify);
       setCaretOffset(root, adj);
+      history.record(sanitized, adj, { boundary });
       onChange?.(sanitized);
       updateMeasure(sanitized, adj);
       return;
@@ -197,9 +210,46 @@ export function useTemplateSuggestions({
       root.innerHTML = html;
       setCaretOffset(root, caretPos);
     }
+    history.record(text, caretPos, { boundary });
     onChange?.(text);
     updateMeasure(text, caretPos);
-  }, [editableRef, multiline, onChange, classify, updateMeasure]);
+  }, [editableRef, multiline, onChange, classify, updateMeasure, history]);
+
+  /** Insert plain text at the selection (replacing it), then run the
+   *  input pipeline. Shared by paste and the multiline Enter — both
+   *  must land as literal text nodes: a browser-minted `<br>`/`<div>`
+   *  wouldn't survive the textContent read-back. Records as a history
+   *  boundary. */
+  const insertPlainText = useCallback(
+    (text: string) => {
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) return;
+      sel.deleteFromDocument();
+      const node = document.createTextNode(text);
+      sel.getRangeAt(0).insertNode(node);
+      const range = document.createRange();
+      range.setStartAfter(node);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+      boundaryNextRef.current = true;
+      handleInput();
+    },
+    [handleInput],
+  );
+
+  /** Apply an undo/redo entry: re-render, restore caret, notify. */
+  const applyHistoryEntry = useCallback(
+    (entry: EditableHistoryEntry) => {
+      const root = editableRef.current;
+      if (!root) return;
+      root.innerHTML = renderHighlightedHtml(entry.text, entry.caret, classify);
+      setCaretOffset(root, entry.caret);
+      setIsOpen(false);
+      onChange?.(entry.text);
+    },
+    [editableRef, classify, onChange],
+  );
 
   const handleKeyUpOrMouseUp = useCallback(() => {
     if (suppressReopenRef.current) {
@@ -236,6 +286,7 @@ export function useTemplateSuggestions({
       const after = text.slice(consumeEnd);
       const insert = `${PREFIX}${suggestion.reference}${SPLIT}`;
       const next = `${before}${insert}${after}`;
+      history.record(next, measureStart + insert.length, { boundary: true });
       // A namespace scaffold (`{{scope.}}`) lands the caret INSIDE,
       // right after the dot, and reopens the popover scoped to that
       // namespace so the user keeps typing the variable name. A real
@@ -256,7 +307,7 @@ export function useTemplateSuggestions({
         .then(() => listRecents(activeWorkspaceId))
         .then((updated) => setRecents(updated));
     },
-    [editableRef, activeWorkspaceId, measureStart, onChange, classify, updateMeasure],
+    [editableRef, activeWorkspaceId, measureStart, onChange, classify, updateMeasure, history],
   );
 
   // When the caret sits in a scoped reference whose variable doesn't
@@ -322,6 +373,18 @@ export function useTemplateSuggestions({
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLDivElement>) => {
+      // Own undo/redo — the native stack is dead (every keystroke's
+      // innerHTML re-render clears it), so intercept before the browser
+      // attempts (and fails) its own.
+      const key = e.key.toLowerCase();
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && (key === 'z' || key === 'y')) {
+        e.preventDefault();
+        e.stopPropagation();
+        const isRedo = key === 'y' || e.shiftKey;
+        const entry = isRedo ? history.redo() : history.undo();
+        if (entry) applyHistoryEntry(entry);
+        return;
+      }
       if (isOpen && suggestions.length > 0) {
         if (e.key === 'ArrowDown') {
           e.preventDefault();
@@ -377,15 +440,34 @@ export function useTemplateSuggestions({
         }
       }
       // Enter handling outside the popover: single-line swallows,
-      // multiline leaves the browser to insert a `<br>`.
+      // multiline inserts a literal `\n` ourselves — the browser's
+      // `<br>`/`<div>` split wouldn't survive the textContent read-back
+      // that feeds the re-highlight, so the newline would vanish.
       if (e.key === 'Enter') {
-        if (!multiline && !e.shiftKey) {
-          e.preventDefault();
-          onPressEnter?.();
+        if (!multiline) {
+          if (!e.shiftKey) {
+            e.preventDefault();
+            onPressEnter?.();
+          }
+          return;
         }
+        e.preventDefault();
+        insertPlainText('\n');
       }
     },
-    [isOpen, suggestions, activeIndex, insertReference, multiline, onPressEnter, createTarget, triggerCreate],
+    [
+      isOpen,
+      suggestions,
+      activeIndex,
+      insertReference,
+      multiline,
+      onPressEnter,
+      createTarget,
+      triggerCreate,
+      history,
+      applyHistoryEntry,
+      insertPlainText,
+    ],
   );
 
   // Hover-over-{{ref}} → ask the shared popover host to open. Delegated
@@ -423,20 +505,19 @@ export function useTemplateSuggestions({
     (e: ClipboardEvent<HTMLDivElement>) => {
       e.preventDefault();
       const raw = e.clipboardData.getData('text/plain');
-      const text = multiline ? raw : raw.replace(/\r?\n/g, ' ');
-      const sel = window.getSelection();
-      if (!sel || sel.rangeCount === 0) return;
-      sel.deleteFromDocument();
-      const node = document.createTextNode(text);
-      sel.getRangeAt(0).insertNode(node);
-      const range = document.createRange();
-      range.setStartAfter(node);
-      range.collapse(true);
-      sel.removeAllRanges();
-      sel.addRange(range);
-      handleInput();
+      const text = multiline ? raw.replace(/\r\n?/g, '\n') : raw.replace(/\r?\n/g, ' ');
+      insertPlainText(text);
     },
-    [multiline, handleInput],
+    [multiline, insertPlainText],
+  );
+
+  // External `value` swaps (form reset, another surface's commit) enter
+  // the history as boundaries so undo can step back across them too.
+  const recordExternal = useCallback(
+    (text: string) => {
+      history.record(text, text.length, { boundary: true });
+    },
+    [history],
   );
 
   const closeSuggestions = useCallback(() => setIsOpen(false), []);
@@ -458,5 +539,6 @@ export function useTemplateSuggestions({
     handlePaste,
     handleEditableMouseOver,
     handleEditableMouseOut,
+    recordExternal,
   };
 }

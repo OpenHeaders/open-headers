@@ -38,5 +38,10 @@ export function renderHighlightedHtml(
     last = end;
   }
   if (last < value.length) out += escapeHtml(value.slice(last));
+  // With `white-space: pre-wrap`, a trailing `\n` doesn't open a visible
+  // last line on its own — the sentinel `<br>` makes it render (and gives
+  // the caret a landing spot) while contributing nothing to textContent,
+  // so the value read-back stays exact.
+  if (value.endsWith('\n')) out += '<br>';
   return out;
 }

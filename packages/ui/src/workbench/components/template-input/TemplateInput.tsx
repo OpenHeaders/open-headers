@@ -133,6 +133,7 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       handlePaste,
       handleEditableMouseOver,
       handleEditableMouseOut,
+      recordExternal,
     } = useTemplateSuggestions({
       editableRef,
       value,
@@ -152,6 +153,9 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       if (!root) return;
       const next = value ?? '';
       const current = root.textContent ?? '';
+      // A genuinely external swap (form reset, another surface's commit —
+      // NOT the round-trip of our own onChange) becomes an undo boundary.
+      if (current !== next) recordExternal(next);
       const focused = document.activeElement === root;
       const caretWas = focused ? getCaretOffset(root) : null;
       const html = renderHighlightedHtml(next, caretWas, classify);
@@ -165,7 +169,7 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
           setCaretOffset(root, next.length);
         }
       }
-    }, [value, classify]);
+    }, [value, classify, recordExternal]);
 
     // `autoFocus` equivalent — contentEditable doesn't honor the HTML
     // attribute, so we focus imperatively after mount.
