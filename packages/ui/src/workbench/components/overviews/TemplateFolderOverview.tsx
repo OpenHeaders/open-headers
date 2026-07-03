@@ -12,7 +12,7 @@
  */
 
 import { FileTextOutlined, FolderOutlined } from '@ant-design/icons';
-import { useRules } from '@openheaders/ui/shared/hooks/useRules';
+import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import type { CollectionTree, FolderNode, RuleType, TreeNode } from '@openheaders/core/types';
 import { Empty, Space, Table, Tag, theme } from 'antd';
 import type { ColumnsType } from 'antd/es/table';

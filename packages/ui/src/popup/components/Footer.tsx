@@ -4,7 +4,7 @@ import { hostNavigation } from '@openheaders/core/navigation';
 import { isFetchRealizableNow, isRuleComplete } from '@openheaders/core/utils';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { DebugModeDormantNotice, DebugModePill } from '@openheaders/ui/shared/debug-mode';
-import { useRules } from '@openheaders/ui/shared/hooks/useRules';
+import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import type { StatusPillProps } from '@openheaders/ui/shared/status';
 import { productStatusExtras, StatusPill } from '@openheaders/ui/shared/status';
 import { useSurface } from '@openheaders/ui/shared/surface';

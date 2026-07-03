@@ -10,7 +10,7 @@
 
 import type { LiveWorkflowRunSnapshot } from '@openheaders/core/bridge';
 import type { RefreshPolicy } from '@openheaders/core/types';
-import { useEnvironments } from '@openheaders/ui/shared/hooks/useEnvironments';
+import { useEnvironments } from '@openheaders/ui/shared/hooks/readers/useEnvironments';
 import { Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';

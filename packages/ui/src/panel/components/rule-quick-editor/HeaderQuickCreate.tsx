@@ -13,9 +13,9 @@
  */
 
 import type { HeaderRuleDraft } from '@openheaders/core/types';
-import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/useActiveWorkspaceId';
+import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
-import { useRules } from '@openheaders/ui/shared/hooks/useRules';
+import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { TemplateInput } from '@openheaders/ui/workbench/components/template-input';
 import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import { App, Button, Select, Tag, theme } from 'antd';

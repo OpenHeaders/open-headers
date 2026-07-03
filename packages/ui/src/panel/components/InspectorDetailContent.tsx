@@ -8,7 +8,7 @@
 import type { Page } from '@openheaders/core/page-stream';
 import type { LifecycleSource, RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { BlockRuleDraft, DelayRuleDraft, RedirectRuleDraft, Rule } from '@openheaders/core/types';
-import { useRules } from '@openheaders/ui/shared/hooks/useRules';
+import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { useEffect, useMemo, useRef } from 'react';
 import type { ConnectionReuseInfo } from '../data/connection-reuse';
 import { deriveFireEvidenceByRule } from '../data/fire-evidence';

@@ -26,7 +26,7 @@ import { useCallback, useMemo } from 'react';
 import type { ActivityEntry } from '@openheaders/core/sync';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
-import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/useActiveWorkspaceId';
+import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useActivityFeed } from '@openheaders/ui/shared/hooks/useActivityFeed';
 import { useActivityMutes } from '@openheaders/ui/shared/hooks/useActivityMutes';
 import { humanizeRevertReason, useActivityRevert } from '@openheaders/ui/shared/hooks/useActivityRevert';

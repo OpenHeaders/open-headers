@@ -23,11 +23,11 @@
  * corresponding feature.
  */
 
-import { useEnvVarVault } from '@openheaders/ui/shared/hooks/useEnvVarVault';
-import { useAllLiveCaches } from '@openheaders/ui/shared/hooks/useLiveCache';
-import { useLiveVariables } from '@openheaders/ui/shared/hooks/useLiveVariables';
-import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/useLiveWorkflows';
-import { useRules } from '@openheaders/ui/shared/hooks/useRules';
+import { useEnvVarVault } from '@openheaders/ui/shared/hooks/readers/useEnvVarVault';
+import { useAllLiveCaches } from '@openheaders/ui/shared/hooks/readers/useLiveCache';
+import { useLiveVariables } from '@openheaders/ui/shared/hooks/readers/useLiveVariables';
+import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/readers/useLiveWorkflows';
+import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { isLiveVariableDraft, isLiveVariableEffective } from '@openheaders/core/live';
 import type { ResolutionError } from '@openheaders/core/variables';
 import { VariableResolver } from '@openheaders/core/variables';

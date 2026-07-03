@@ -19,13 +19,6 @@
  * See `docs/VARIABLE_AUTOCOMPLETE_PLAN.md` Phase B.
  */
 
-import { useEnvVarVault } from './useEnvVarVault';
-import { useAllLiveCaches } from './useLiveCache';
-import { useLiveVariables } from './useLiveVariables';
-import { useLiveWorkflows } from './useLiveWorkflows';
-import { useRequests } from './useRequests';
-import { useRules } from './useRules';
-import { iterateAllCollections } from '@openheaders/ui/shared/variables';
 import { isLiveVariableEffective } from '@openheaders/core/live';
 import {
   buildSuggestions,
@@ -34,7 +27,14 @@ import {
   type SuggestionRegistries,
   type VariableSuggestion,
 } from '@openheaders/core/variables';
+import { iterateAllCollections } from '@openheaders/ui/shared/variables';
 import { useMemo } from 'react';
+import { useEnvVarVault } from './readers/useEnvVarVault';
+import { useAllLiveCaches } from './readers/useLiveCache';
+import { useLiveVariables } from './readers/useLiveVariables';
+import { useLiveWorkflows } from './readers/useLiveWorkflows';
+import { useRequests } from './readers/useRequests';
+import { useRules } from './readers/useRules';
 
 export interface UseVariableSuggestionsApi {
   suggestions: VariableSuggestion[];

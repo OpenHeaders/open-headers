@@ -15,9 +15,9 @@
 
 import type { ResponseRuleDraft } from '@openheaders/core/types';
 import { stableStringify } from '@openheaders/ui/shared/forms';
-import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/useActiveWorkspaceId';
+import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
-import { useRules } from '@openheaders/ui/shared/hooks/useRules';
+import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import { App, Tag } from 'antd';
 import { useRef, useState } from 'react';

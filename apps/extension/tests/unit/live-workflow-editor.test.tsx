@@ -74,7 +74,7 @@ const workflowFixture: LiveWorkflow = {
   ],
 };
 
-vi.mock('@openheaders/ui/shared/hooks/useLiveWorkflows', () => ({
+vi.mock('@openheaders/ui/shared/hooks/readers/useLiveWorkflows', () => ({
   useLiveWorkflows: () => ({
     workflows: [workflowFixture],
     isReady: true,
@@ -84,7 +84,7 @@ vi.mock('@openheaders/ui/shared/hooks/useLiveWorkflows', () => ({
     refreshNow: vi.fn(),
   }),
 }));
-vi.mock('@openheaders/ui/shared/hooks/useLiveVariables', () => ({
+vi.mock('@openheaders/ui/shared/hooks/readers/useLiveVariables', () => ({
   useLiveVariables: () => ({ variables: [], isReady: true }),
 }));
 function makeRequest(overrides: Partial<Request> = {}): Request {
@@ -112,13 +112,13 @@ let requestsState: { requests: Request[]; collectionTrees: unknown[]; isReady: b
   isReady: true,
 };
 
-vi.mock('@openheaders/ui/shared/hooks/useRequests', () => ({
+vi.mock('@openheaders/ui/shared/hooks/readers/useRequests', () => ({
   useRequests: () => requestsState,
 }));
-vi.mock('@openheaders/ui/shared/hooks/useEnvironments', () => ({
+vi.mock('@openheaders/ui/shared/hooks/readers/useEnvironments', () => ({
   useEnvironments: () => ({ activeEnvironmentId: null, environments: [], isReady: true }),
 }));
-vi.mock('@openheaders/ui/shared/hooks/useLiveCache', () => ({
+vi.mock('@openheaders/ui/shared/hooks/readers/useLiveCache', () => ({
   useLiveWorkflowCache: () => ({ runs: [], isReady: true, reload: vi.fn() }),
 }));
 

@@ -26,8 +26,8 @@
  */
 
 import { getActiveExtensionWorkspaceSyncMirror } from '@openheaders/ui/context';
-import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/useActiveWorkspaceId';
 import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-scope-view-state';
+import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useEffect, useState } from 'react';
 import type { WorkbenchViewState } from './useToolLayout';
 
@@ -39,7 +39,9 @@ import type { WorkbenchViewState } from './useToolLayout';
 function useWorkspaceExists(id: string | null): boolean {
   const [exists, setExists] = useState<boolean>(() => {
     if (!id) return false;
-    return getActiveExtensionWorkspaceSyncMirror().liveWorkspaces().some((w) => w.id === id);
+    return getActiveExtensionWorkspaceSyncMirror()
+      .liveWorkspaces()
+      .some((w) => w.id === id);
   });
 
   useEffect(() => {

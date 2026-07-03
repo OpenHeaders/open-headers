@@ -2,7 +2,7 @@ import { ExclamationCircleOutlined, FileTextOutlined, InfoCircleOutlined } from 
 import { resolvePauseState } from '@openheaders/core/utils';
 import { scheduleFrame } from '@openheaders/ui/shared/frame-scheduler';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
-import { useRules } from '@openheaders/ui/shared/hooks/useRules';
+import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { useTablePagination } from '@openheaders/ui/shared/hooks/useTablePagination';
 import { useSurface } from '@openheaders/ui/shared/surface';
 import type { PageInfo, RowActions } from '@openheaders/ui/shared/table-shared';

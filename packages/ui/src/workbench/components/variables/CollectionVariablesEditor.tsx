@@ -20,8 +20,8 @@
  * for sensitive values.
  */
 
-import { useRequests } from '@openheaders/ui/shared/hooks/useRequests';
-import { useRules } from '@openheaders/ui/shared/hooks/useRules';
+import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
+import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { useVariableMutator } from '@openheaders/ui/shared/hooks/mutators/useVariableMutator';
 import {
   COLLECTION_ENTITY_TYPE,

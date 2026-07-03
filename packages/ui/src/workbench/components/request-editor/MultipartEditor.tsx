@@ -19,7 +19,7 @@
  */
 
 import { CloseOutlined, DeleteOutlined, FileOutlined, PlusOutlined, WarningOutlined } from '@ant-design/icons';
-import { useFiles } from '@openheaders/ui/shared/hooks/useFiles';
+import { useFiles } from '@openheaders/ui/shared/hooks/readers/useFiles';
 import type { FileRef } from '@openheaders/core/files';
 import { isPlaceholderFileRef, placeholderFileRef } from '@openheaders/core/files';
 import type { MultipartPart } from '@openheaders/core/types';

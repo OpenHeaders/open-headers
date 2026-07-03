@@ -22,7 +22,7 @@ import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } 
 import { CSS } from '@dnd-kit/utilities';
 import type { LiveFallbackPriorityMember } from '@openheaders/core/types';
 import { getActiveRendererContext, getLiveFallbackPrioritySyncMirrorForWorkspace } from '@openheaders/ui/context';
-import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/useActiveWorkspaceId';
+import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useIdentitySnapshot } from '@openheaders/ui/shared/hooks/useIdentitySnapshot';
 import { App as AntApp, Button, Popconfirm, Tag, theme, Typography } from 'antd';
 import type React from 'react';

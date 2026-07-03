@@ -13,12 +13,12 @@
 
 import type { Request, Rule, Template } from '@openheaders/core/types';
 import type { ResolutionError } from '@openheaders/core/variables';
-import { useEnvVarVault } from '@openheaders/ui/shared/hooks/useEnvVarVault';
-import { useAllLiveCaches } from '@openheaders/ui/shared/hooks/useLiveCache';
-import { useLiveVariables } from '@openheaders/ui/shared/hooks/useLiveVariables';
-import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/useLiveWorkflows';
-import { useRequests } from '@openheaders/ui/shared/hooks/useRequests';
-import { useRules } from '@openheaders/ui/shared/hooks/useRules';
+import { useEnvVarVault } from '@openheaders/ui/shared/hooks/readers/useEnvVarVault';
+import { useAllLiveCaches } from '@openheaders/ui/shared/hooks/readers/useLiveCache';
+import { useLiveVariables } from '@openheaders/ui/shared/hooks/readers/useLiveVariables';
+import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/readers/useLiveWorkflows';
+import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
+import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { type CollectionFamilies, findCollectionByUid } from '@openheaders/ui/shared/variables';
 import { useMemo } from 'react';
 import type { WorkbenchTab } from '../../../types';

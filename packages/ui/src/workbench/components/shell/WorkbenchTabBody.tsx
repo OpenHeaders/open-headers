@@ -15,7 +15,7 @@
 import type { Collection, CollectionTree, ExtensionRuleType, LiveWorkflow } from '@openheaders/core/types';
 import type React from 'react';
 import { findFolderByUid } from '@openheaders/ui/shared/variables';
-import type { UseWorkspacesApi } from '@openheaders/ui/shared/hooks/useWorkspaces';
+import type { UseWorkspacesApi } from '@openheaders/ui/shared/hooks/readers/useWorkspaces';
 import CollectionOverview from '../overviews/CollectionOverview';
 import CollectionVariablesEditor from '../variables/CollectionVariablesEditor';
 import EnvironmentEditor from '../variables/EnvironmentEditor';

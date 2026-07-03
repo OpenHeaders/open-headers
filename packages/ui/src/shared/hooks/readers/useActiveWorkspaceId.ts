@@ -13,8 +13,8 @@
  * circuit writes while the workspace is unknown.
  */
 
-import { useEffect, useState } from 'react';
 import { getActiveExtensionWorkspaceSyncMirror } from '@openheaders/ui/context';
+import { useEffect, useState } from 'react';
 
 export function useActiveWorkspaceId(): string | null {
   const [workspaceId, setWorkspaceId] = useState<string | null>(() =>

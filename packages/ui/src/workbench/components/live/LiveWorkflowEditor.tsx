@@ -32,10 +32,10 @@
  */
 
 import { ReloadOutlined } from '@ant-design/icons';
-import { useEnvironments } from '@openheaders/ui/shared/hooks/useEnvironments';
-import { useLiveWorkflowCache } from '@openheaders/ui/shared/hooks/useLiveCache';
-import { useLiveVariables } from '@openheaders/ui/shared/hooks/useLiveVariables';
-import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/useLiveWorkflows';
+import { useEnvironments } from '@openheaders/ui/shared/hooks/readers/useEnvironments';
+import { useLiveWorkflowCache } from '@openheaders/ui/shared/hooks/readers/useLiveCache';
+import { useLiveVariables } from '@openheaders/ui/shared/hooks/readers/useLiveVariables';
+import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/readers/useLiveWorkflows';
 import {
   type DraftStep,
   type DraftWorkflow,

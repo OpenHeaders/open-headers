@@ -2,7 +2,7 @@ import { CheckOutlined, FolderTwoTone, SortAscendingOutlined } from '@ant-design
 import type { FolderNode, TreeNode } from '@openheaders/core/types';
 import { useRowActionRegistration } from '@openheaders/ui/shared/hooks/useRowActionRegistration';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
-import { useRules } from '@openheaders/ui/shared/hooks/useRules';
+import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { useVariableResolver } from '@openheaders/ui/shared/hooks/useVariableResolver';
 import { useSurface } from '@openheaders/ui/shared/surface';
 import type { PageInfo, RowActions } from '@openheaders/ui/shared/table-shared';

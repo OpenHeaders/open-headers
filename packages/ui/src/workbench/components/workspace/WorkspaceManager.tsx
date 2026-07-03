@@ -32,7 +32,7 @@ import type { ExtensionWorkspace } from '@openheaders/core/types';
 import { useBackendReach } from '@openheaders/ui/shared/hooks/useBackendReach';
 import { useIdentitySnapshot } from '@openheaders/ui/shared/hooks/useIdentitySnapshot';
 import { useOrgBindingPrefs } from '@openheaders/ui/shared/hooks/useOrgBindingPrefs';
-import type { UseWorkspacesApi } from '@openheaders/ui/shared/hooks/useWorkspaces';
+import type { UseWorkspacesApi } from '@openheaders/ui/shared/hooks/readers/useWorkspaces';
 import { OrgIcon } from '@openheaders/ui/shared/workspace-org/OrgIcon';
 import { App as AntApp, Button, Checkbox, Form, Input, Modal, Select, Space, Typography, theme } from 'antd';
 import type React from 'react';

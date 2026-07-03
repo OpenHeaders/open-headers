@@ -17,7 +17,7 @@
  */
 
 import { CodeOutlined, FolderOutlined, PlusOutlined } from '@ant-design/icons';
-import { useRequests } from '@openheaders/ui/shared/hooks/useRequests';
+import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import type { HttpMethod, TreeNode } from '@openheaders/core/types';
 import { Button, Empty, Space, Table, Tag, Tooltip, theme } from 'antd';
 import type { ColumnsType } from 'antd/es/table';

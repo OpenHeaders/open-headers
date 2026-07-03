@@ -19,12 +19,12 @@ import { RuleProvider } from '@openheaders/ui/context';
 import { useUiTheme } from '@openheaders/ui/context';
 import { VaultProvider } from '@openheaders/ui/context';
 import { WorkspaceVariablesProvider } from '@openheaders/ui/context';
-import { useEnvironments } from '@openheaders/ui/shared/hooks/useEnvironments';
-import { useLiveVariables } from '@openheaders/ui/shared/hooks/useLiveVariables';
-import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/useLiveWorkflows';
-import { useRequests } from '@openheaders/ui/shared/hooks/useRequests';
-import { useRules } from '@openheaders/ui/shared/hooks/useRules';
-import { useWorkspaces } from '@openheaders/ui/shared/hooks/useWorkspaces';
+import { useEnvironments } from '@openheaders/ui/shared/hooks/readers/useEnvironments';
+import { useLiveVariables } from '@openheaders/ui/shared/hooks/readers/useLiveVariables';
+import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/readers/useLiveWorkflows';
+import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
+import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
+import { useWorkspaces } from '@openheaders/ui/shared/hooks/readers/useWorkspaces';
 import {
   COLLECTION_ENTITY_TYPE,
   ENVIRONMENT_ENTITY_TYPE,

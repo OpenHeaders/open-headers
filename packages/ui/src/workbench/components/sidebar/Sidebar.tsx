@@ -16,12 +16,12 @@
 
 import { SearchOutlined } from '@ant-design/icons';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
-import { useEnvironments } from '@openheaders/ui/shared/hooks/useEnvironments';
-import { useAllLiveCaches } from '@openheaders/ui/shared/hooks/useLiveCache';
-import { useLiveVariables } from '@openheaders/ui/shared/hooks/useLiveVariables';
-import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/useLiveWorkflows';
-import { useRequests } from '@openheaders/ui/shared/hooks/useRequests';
-import { useRules } from '@openheaders/ui/shared/hooks/useRules';
+import { useEnvironments } from '@openheaders/ui/shared/hooks/readers/useEnvironments';
+import { useAllLiveCaches } from '@openheaders/ui/shared/hooks/readers/useLiveCache';
+import { useLiveVariables } from '@openheaders/ui/shared/hooks/readers/useLiveVariables';
+import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/readers/useLiveWorkflows';
+import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
+import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import { useVariableResolver } from '@openheaders/ui/shared/hooks/useVariableResolver';
 import { isRuleResolvable } from '@openheaders/core/utils';

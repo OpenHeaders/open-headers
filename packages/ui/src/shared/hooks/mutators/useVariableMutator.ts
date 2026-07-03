@@ -26,18 +26,18 @@
  * oracle. Per-batch all-or-nothing covers atomic replacement.
  */
 
-import { useEnvVarVault } from '../useEnvVarVault';
-import { useLiveVariables } from '../useLiveVariables';
-import { useRequests } from '../useRequests';
-import { useRules } from '../useRules';
 import type { LiveVariableOverride, Variable, VaultSecret } from '@openheaders/core/types';
-import { useCallback } from 'react';
 import { applyCollectionVariablesReplacement } from '@openheaders/ui/shared/sync/collection-write-client';
 import { applyEnvVariablesReplacement } from '@openheaders/ui/shared/sync/env-write-client';
 import { applyRequestCollectionVariablesReplacement } from '@openheaders/ui/shared/sync/request-collection-write-client';
 import { applyTemplateCollectionVariablesReplacement } from '@openheaders/ui/shared/sync/template-collection-write-client';
 import { applyVaultReplacement } from '@openheaders/ui/shared/sync/vault-write-client';
 import { applyWorkspaceVariablesReplacement } from '@openheaders/ui/shared/sync/workspace-variables-write-client';
+import { useCallback } from 'react';
+import { useEnvVarVault } from '../readers/useEnvVarVault';
+import { useLiveVariables } from '../readers/useLiveVariables';
+import { useRequests } from '../readers/useRequests';
+import { useRules } from '../readers/useRules';
 
 // ── Result shape ─────────────────────────────────────────────────────
 

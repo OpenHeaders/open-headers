@@ -11,7 +11,7 @@
  */
 
 import { DownOutlined, ThunderboltOutlined } from '@ant-design/icons';
-import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/useLiveWorkflows';
+import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/readers/useLiveWorkflows';
 import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
 import { Button, Dropdown, Tabs, Tag, Typography, theme } from 'antd';
 import type React from 'react';

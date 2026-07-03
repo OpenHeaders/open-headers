@@ -17,7 +17,7 @@ import {
   WorkspaceVariablesProvider,
 } from '@openheaders/ui/context';
 import { AwarenessIdentityProvider, type SurfaceIdentityHandle } from '@openheaders/ui/shared/awareness';
-import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/useActiveWorkspaceId';
+import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useSurface } from '@openheaders/ui/shared/surface';
 import { VariablePopoverProvider } from '@openheaders/ui/workbench/components/template-input/VariablePopoverHost';
 import { EnvSwitcherProvider } from '@openheaders/ui/workbench/services/env-switcher';

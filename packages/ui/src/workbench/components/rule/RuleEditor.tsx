@@ -19,7 +19,7 @@
 
 import { DownOutlined, FileOutlined, FolderOpenOutlined, FolderOpenTwoTone } from '@ant-design/icons';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
-import { useRules } from '@openheaders/ui/shared/hooks/useRules';
+import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { ExtensionRuleType, Rule, RuleDraft } from '@openheaders/core/types';
 import { isRuleComplete } from '@openheaders/core/utils';

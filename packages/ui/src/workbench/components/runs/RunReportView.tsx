@@ -33,7 +33,7 @@ import {
   MinusCircleTwoTone,
   WarningOutlined,
 } from '@ant-design/icons';
-import { useRules } from '@openheaders/ui/shared/hooks/useRules';
+import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import type { Rule } from '@openheaders/core/types';
 import { hostBridge } from '@openheaders/core/bridge';
 import { App, Button, Checkbox, Empty, Space, Spin, Tag, Tooltip, Typography, theme } from 'antd';

@@ -20,10 +20,10 @@
  */
 
 import { ReloadOutlined, UndoOutlined } from '@ant-design/icons';
-import { useEnvironments } from '@openheaders/ui/shared/hooks/useEnvironments';
-import { useRules } from '@openheaders/ui/shared/hooks/useRules';
-import { useAllLiveCaches } from '@openheaders/ui/shared/hooks/useLiveCache';
-import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/useLiveWorkflows';
+import { useEnvironments } from '@openheaders/ui/shared/hooks/readers/useEnvironments';
+import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
+import { useAllLiveCaches } from '@openheaders/ui/shared/hooks/readers/useLiveCache';
+import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/readers/useLiveWorkflows';
 import { hostBridge, type LiveWorkflowRunSnapshot } from '@openheaders/core/bridge';
 import type { RefreshPolicy } from '@openheaders/core/types';
 import { App, Badge, Button, Empty, Space, Tag, Tooltip, Typography, theme } from 'antd';

@@ -42,7 +42,7 @@
  * setActiveEnvironment` which is what those surfaces actually want.
  */
 
-import { useEnvironments } from '@openheaders/ui/shared/hooks/useEnvironments';
+import { useEnvironments } from '@openheaders/ui/shared/hooks/readers/useEnvironments';
 import type { Collection } from '@openheaders/core/types';
 import { type CollectionEnvAutoSwitchMode, resolveAutoSwitchTarget } from '@openheaders/core/utils';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef } from 'react';

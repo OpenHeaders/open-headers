@@ -24,7 +24,7 @@
  */
 
 import { useVariableMutator } from '@openheaders/ui/shared/hooks/mutators/useVariableMutator';
-import { useVault } from '@openheaders/ui/shared/hooks/useVault';
+import { useVault } from '@openheaders/ui/shared/hooks/readers/useVault';
 import { VAULT_ENTITY_TYPE, VAULT_ID } from '@openheaders/core/sync';
 import type { Vault, VaultSecret } from '@openheaders/core/types';
 import { Alert, App, Typography, theme } from 'antd';

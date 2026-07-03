@@ -9,17 +9,17 @@
  * don't parse (callers render a "Not defined" affordance themselves).
  */
 
-import { useEnvVarVault } from './useEnvVarVault';
-import { useAllLiveCaches } from './useLiveCache';
-import { useLiveVariables } from './useLiveVariables';
-import { useLiveWorkflows } from './useLiveWorkflows';
-import { useRequests } from './useRequests';
-import { useRules } from './useRules';
-import { useVariableResolver } from './useVariableResolver';
 import type { LiveVariable, LiveVariableOverride, Variable, VariableScope, VaultSecret } from '@openheaders/core/types';
 import { parseReference, parseStepRefName, type VariableNamespace } from '@openheaders/core/variables';
-import { useMemo } from 'react';
 import { findCollectionByUid } from '@openheaders/ui/shared/variables';
+import { useMemo } from 'react';
+import { useEnvVarVault } from './readers/useEnvVarVault';
+import { useAllLiveCaches } from './readers/useLiveCache';
+import { useLiveVariables } from './readers/useLiveVariables';
+import { useLiveWorkflows } from './readers/useLiveWorkflows';
+import { useRequests } from './readers/useRequests';
+import { useRules } from './readers/useRules';
+import { useVariableResolver } from './useVariableResolver';
 
 export type VariableCandidate =
   | {

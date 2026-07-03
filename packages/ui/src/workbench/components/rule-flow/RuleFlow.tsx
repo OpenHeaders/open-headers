@@ -7,7 +7,7 @@
  */
 
 import { closestCenter, DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-import { useRules } from '@openheaders/ui/shared/hooks/useRules';
+import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import type { FolderNode, Rule, TreeNode } from '@openheaders/core/types';
 import { isRuleComplete } from '@openheaders/core/utils';
 import { hostBridge } from '@openheaders/core/bridge';

@@ -10,7 +10,7 @@
  */
 
 import { describeOrg, orgCatalogue } from '@openheaders/core/identity';
-import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/useActiveWorkspaceId';
+import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
 import { App, Button, Dropdown, Space, Typography, theme } from 'antd';
 import type React from 'react';

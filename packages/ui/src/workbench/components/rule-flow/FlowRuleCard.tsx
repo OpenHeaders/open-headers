@@ -9,7 +9,7 @@
 import { DeleteOutlined, EditOutlined, HolderOutlined } from '@ant-design/icons';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { useRules } from '@openheaders/ui/shared/hooks/useRules';
+import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { hasCapability } from '@openheaders/core/capabilities';
 import type { Rule } from '@openheaders/core/types';
 import { getActionDetail, isFetchRealizableNow, isRuleComplete } from '@openheaders/core/utils';

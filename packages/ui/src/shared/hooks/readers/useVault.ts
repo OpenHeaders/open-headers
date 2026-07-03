@@ -12,7 +12,7 @@
  * in-context API.
  */
 
-import { type VaultContextValue, useVaultContext } from '@openheaders/ui/context';
+import { useVaultContext, type VaultContextValue } from '@openheaders/ui/context';
 
 export type UseVaultApi = VaultContextValue;
 

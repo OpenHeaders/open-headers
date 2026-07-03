@@ -17,7 +17,7 @@
  */
 
 import { DeleteOutlined, DownloadOutlined, FileOutlined } from '@ant-design/icons';
-import { useFiles } from '@openheaders/ui/shared/hooks/useFiles';
+import { useFiles } from '@openheaders/ui/shared/hooks/readers/useFiles';
 import { App, Button, Empty, Popconfirm, Space, Table, Tooltip, Typography, theme } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type React from 'react';

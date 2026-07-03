@@ -15,8 +15,8 @@
 
 import { SaveOutlined } from '@ant-design/icons';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
-import { useEnvVarVault } from '@openheaders/ui/shared/hooks/useEnvVarVault';
-import { useRules } from '@openheaders/ui/shared/hooks/useRules';
+import { useEnvVarVault } from '@openheaders/ui/shared/hooks/readers/useEnvVarVault';
+import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { useVariableLookup, type VariableCandidate } from '@openheaders/ui/shared/hooks/useVariableLookup';
 import { type MutationResult, useVariableMutator } from '@openheaders/ui/shared/hooks/mutators/useVariableMutator';
 import type { VariableScope } from '@openheaders/core/types';

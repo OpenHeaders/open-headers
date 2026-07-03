@@ -20,7 +20,7 @@
  * so the migration covers all writes.
  */
 
-import { useActiveWorkspaceId } from '../shared/hooks/useActiveWorkspaceId';
+import { useActiveWorkspaceId } from '../shared/hooks/readers/useActiveWorkspaceId';
 import type { PauseMarker } from '@openheaders/core/utils';
 import { resolvePauseState } from '@openheaders/core/utils';
 import type React from 'react';

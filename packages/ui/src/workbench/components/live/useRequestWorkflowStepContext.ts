@@ -18,8 +18,8 @@
  * no suggestions than wrong suggestions.
  */
 
-import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/useLiveWorkflows';
 import type { SuggestionContext } from '@openheaders/core/variables';
+import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/readers/useLiveWorkflows';
 import { useMemo } from 'react';
 
 export function useRequestWorkflowStepContext(

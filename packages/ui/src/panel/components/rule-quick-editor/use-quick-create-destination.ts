@@ -9,7 +9,7 @@
  */
 
 import type { CollectionTree } from '@openheaders/core/types';
-import { useRules } from '@openheaders/ui/shared/hooks/useRules';
+import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { NEW_RULES_COLLECTION_NAME } from '@openheaders/ui/shared/naming';
 import { useMemo, useState } from 'react';
 import {

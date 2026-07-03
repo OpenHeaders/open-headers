@@ -18,7 +18,7 @@
  * reorder + rename.
  */
 
-import { useWorkspaceVariables } from '@openheaders/ui/shared/hooks/useWorkspaceVariables';
+import { useWorkspaceVariables } from '@openheaders/ui/shared/hooks/readers/useWorkspaceVariables';
 import { useVariableMutator } from '@openheaders/ui/shared/hooks/mutators/useVariableMutator';
 import {
   WORKSPACE_VARIABLES_ENTITY_TYPE,

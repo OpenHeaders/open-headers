@@ -22,7 +22,7 @@
  * No § 4.1.c residual: every OAuth write is editing-scope by construction.
  */
 
-import { useActiveWorkspaceId } from '../shared/hooks/useActiveWorkspaceId';
+import { useActiveWorkspaceId } from '../shared/hooks/readers/useActiveWorkspaceId';
 import type { OAuth2TokenBundle } from '@openheaders/core/oauth';
 import type { OAuth2Auth } from '@openheaders/core/types';
 import { hostBridge } from '@openheaders/core/bridge';

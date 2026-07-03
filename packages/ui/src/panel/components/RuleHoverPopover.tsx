@@ -44,9 +44,9 @@ import {
   EntityScopeProvider,
   RULE_FIELD,
 } from '@openheaders/ui/shared/awareness';
-import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/useActiveWorkspaceId';
+import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
-import { useRules } from '@openheaders/ui/shared/hooks/useRules';
+import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 import { useRuleConflicts } from '@openheaders/ui/workbench/components/rule-fields/use-rule-conflicts';
 import { TemplateInput } from '@openheaders/ui/workbench/components/template-input';

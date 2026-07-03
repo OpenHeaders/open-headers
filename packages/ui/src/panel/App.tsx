@@ -34,8 +34,8 @@ import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-sc
 import DocsPanel from '@openheaders/ui/shared/docs/DocsPanel';
 import { InfoPopoverContainerProvider } from '@openheaders/ui/shared/info-popover';
 import { DocsNavProvider, useDocsNav } from '@openheaders/ui/shared/docs/use-docs-nav';
-import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/useActiveWorkspaceId';
-import { useEnvironments } from '@openheaders/ui/shared/hooks/useEnvironments';
+import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
+import { useEnvironments } from '@openheaders/ui/shared/hooks/readers/useEnvironments';
 import { VariablePopoverProvider } from '@openheaders/ui/workbench/components/template-input/VariablePopoverHost';
 import { EnvSwitcherProvider, useEnvSwitcher } from '@openheaders/ui/workbench/services/env-switcher';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';

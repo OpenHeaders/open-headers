@@ -21,7 +21,7 @@
 
 import type { Vault, VaultSecret } from '@openheaders/core/types';
 import { VaultSchema } from '@openheaders/core/schemas';
-import { useActiveWorkspaceId } from '../shared/hooks/useActiveWorkspaceId';
+import { useActiveWorkspaceId } from '../shared/hooks/readers/useActiveWorkspaceId';
 import { hostBridge } from '@openheaders/core/bridge';
 import type React from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';

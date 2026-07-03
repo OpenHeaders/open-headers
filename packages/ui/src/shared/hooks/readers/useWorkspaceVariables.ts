@@ -13,10 +13,7 @@
  * (existing `useWorkspaceVariablesMutator` callers stay on that path).
  */
 
-import {
-  type WorkspaceVariablesContextValue,
-  useWorkspaceVariablesContext,
-} from '@openheaders/ui/context';
+import { useWorkspaceVariablesContext, type WorkspaceVariablesContextValue } from '@openheaders/ui/context';
 
 export type UseWorkspaceVariablesApi = WorkspaceVariablesContextValue;
 

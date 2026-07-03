@@ -28,7 +28,7 @@
  */
 
 import { CaretRightOutlined, LoadingOutlined } from '@ant-design/icons';
-import { useRequests } from '@openheaders/ui/shared/hooks/useRequests';
+import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { ExecutedRequestSnapshot, Request } from '@openheaders/core/types';
 import { isRequestComplete } from '@openheaders/core/utils';

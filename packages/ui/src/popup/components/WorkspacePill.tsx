@@ -14,7 +14,7 @@
 import { DownOutlined } from '@ant-design/icons';
 import { describeOrg, orgCatalogue } from '@openheaders/core/identity';
 import { useIdentitySnapshot } from '@openheaders/ui/shared/hooks/useIdentitySnapshot';
-import { useWorkspaces } from '@openheaders/ui/shared/hooks/useWorkspaces';
+import { useWorkspaces } from '@openheaders/ui/shared/hooks/readers/useWorkspaces';
 import { useSurface } from '@openheaders/ui/shared/surface';
 import { WorkspaceDropdownBody } from '@openheaders/ui/shared/workspace-dropdown/WorkspaceDropdownBody';
 import { WorkspaceOrgBadge } from '@openheaders/ui/shared/workspace-org/WorkspaceOrgBadge';

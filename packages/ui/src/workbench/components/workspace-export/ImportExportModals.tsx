@@ -1,7 +1,7 @@
 import { hostBridge } from '@openheaders/core/bridge';
-import { useEnvironments } from '@openheaders/ui/shared/hooks/useEnvironments';
-import { useRequests } from '@openheaders/ui/shared/hooks/useRequests';
-import { useWorkspaces } from '@openheaders/ui/shared/hooks/useWorkspaces';
+import { useEnvironments } from '@openheaders/ui/shared/hooks/readers/useEnvironments';
+import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
+import { useWorkspaces } from '@openheaders/ui/shared/hooks/readers/useWorkspaces';
 import { App as AntApp } from 'antd';
 import type React from 'react';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';

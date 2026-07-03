@@ -10,7 +10,7 @@ import { type DraftStep, type DraftWorkflow, validateStepRequestsExist, validate
 import type { LiveWorkflow } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { LIVE_WORKFLOW_FIELD } from '@openheaders/ui/shared/awareness/live-paths';
-import { useRequests } from '@openheaders/ui/shared/hooks/useRequests';
+import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { Alert, Button, Switch, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo } from 'react';
