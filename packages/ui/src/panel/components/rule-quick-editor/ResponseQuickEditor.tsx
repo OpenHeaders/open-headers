@@ -5,8 +5,8 @@
  * the inspected request. Saving changes the rule for FUTURE requests;
  * the tab's Modified/Original capture stays exactly as it was.
  *
- * Compact by design: status select + content-type + a plain textarea
- * for the static body (shared with create mode via
+ * Compact by design: status select + content-type + a template-aware
+ * field for the static body (shared with create mode via
  * `ResponseQuickFields`) — heavy editing (dynamic JavaScript bodies,
  * response headers, GraphQL filters) belongs to the workbench, reached
  * via the footer link. Dynamic-body rules fall back to that link only,
@@ -17,8 +17,11 @@ import type { ResponseRule, Rule } from '@openheaders/core/types';
 import { useLiveRule } from '@openheaders/ui/context';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/useActiveWorkspaceId';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/useRuleMutator';
+import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 import { App, Tag, theme } from 'antd';
+import { useMemo } from 'react';
+import { findRuleCollectionId } from '../../data/rule-collection';
 import { QuickEditorShell } from './QuickEditorShell';
 import { ResponseQuickFields } from './ResponseQuickFields';
 import { useResponseDraft } from './use-response-draft';
@@ -53,6 +56,14 @@ export function ResponseQuickEditor({
   const liveRuleFromMirror = useLiveRule(rule.uid, workspaceId);
   const liveRule = liveRuleFromMirror ?? rule;
   const responseRule: ResponseRule | null = liveRule.type === 'response' ? liveRule : null;
+
+  // Collection that owns the rule — scopes the body's `{{collection.X}}`
+  // suggestions, same derivation as the header popover.
+  const { localCollections } = useRules();
+  const collectionId = useMemo(
+    () => findRuleCollectionId(liveRule, localCollections),
+    [liveRule, localCollections],
+  );
   const isDynamic = responseRule?.action.bodyType === 'dynamic';
   const editable = !!responseRule && !isDynamic;
 
@@ -98,7 +109,12 @@ export function ResponseQuickEditor({
       visible={visible}
     >
       {editable ? (
-        <ResponseQuickFields draft={draft} updateDraft={updateDraft} entityUid={liveRule.uid} />
+        <ResponseQuickFields
+          draft={draft}
+          updateDraft={updateDraft}
+          entityUid={liveRule.uid}
+          collectionId={collectionId}
+        />
       ) : (
         <div style={{ fontSize: 12, color: token.colorTextSecondary, lineHeight: 1.5 }}>
           {responseRule

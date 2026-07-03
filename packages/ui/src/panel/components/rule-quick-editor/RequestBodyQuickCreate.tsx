@@ -14,8 +14,9 @@ import { stableStringify } from '@openheaders/ui/shared/forms';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/useActiveWorkspaceId';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/useRuleMutator';
 import { useRules } from '@openheaders/ui/shared/hooks/useRules';
+import { TemplateInput } from '@openheaders/ui/workbench/components/template-input';
 import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
-import { App, Input, Tag, theme } from 'antd';
+import { App, Tag, theme } from 'antd';
 import { useRef, useState } from 'react';
 import {
   buildRequestBodyRuleSeed,
@@ -63,7 +64,11 @@ export function RequestBodyQuickCreate({
 
   // Context-less create falls back to the first collection — the same
   // fallback `useTabOpeners.openCreateTab` applies in the workbench.
-  const parentPath = localCollections[0]?.path ?? null;
+  // Its uid also scopes the body's `{{collection.X}}` suggestions to
+  // where the rule will actually live.
+  const destinationCollection = localCollections[0] ?? null;
+  const parentPath = destinationCollection?.path ?? null;
+  const collectionId = destinationCollection?.uid;
 
   const { saving, canSave, handleSave, saveLabel } = useQuickCreateSave({
     buildSeed: () => buildRequestBodyRuleSeed(draft, quickRef.current, name, strategy),
@@ -110,12 +115,19 @@ export function RequestBodyQuickCreate({
       visible={visible}
     >
       <div style={fieldLabelStyle}>Request Body</div>
-      <Input.TextArea
+      <TemplateInput
+        multiline
         value={quick.requestBody}
-        onChange={(e) => setQuick({ requestBody: e.target.value })}
+        onChange={(v) => setQuick({ requestBody: v })}
         placeholder={'{"query": "…", "variables": {}}'}
-        autoSize={{ minRows: 6, maxRows: 12 }}
-        style={{ fontFamily: token.fontFamilyCode, fontSize: 12 }}
+        suggestionContext={{ collectionId }}
+        style={{
+          width: '100%',
+          minHeight: 120,
+          maxHeight: 240,
+          fontFamily: token.fontFamilyCode,
+          fontSize: 12,
+        }}
       />
       <div style={{ marginTop: 6, fontSize: 11, color: token.colorTextTertiary, lineHeight: 1.4 }}>
         Matching requests are sent with this body instead of the page's.

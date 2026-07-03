@@ -71,7 +71,11 @@ export function ResponseQuickCreate({
 
   // Context-less create falls back to the first collection — the same
   // fallback `useTabOpeners.openCreateTab` applies in the workbench.
-  const parentPath = localCollections[0]?.path ?? null;
+  // Its uid also scopes the body's `{{collection.X}}` suggestions to
+  // where the rule will actually live.
+  const destinationCollection = localCollections[0] ?? null;
+  const parentPath = destinationCollection?.path ?? null;
+  const collectionId = destinationCollection?.uid;
 
   const { saving, canSave, handleSave, saveLabel } = useQuickCreateSave({
     buildSeed: () => buildResponseRuleSeed(draft, quickRef.current, name, strategy),
@@ -109,7 +113,7 @@ export function ResponseQuickCreate({
       onMouseLeave={onMouseLeave}
       visible={visible}
     >
-      <ResponseQuickFields draft={quick} updateDraft={updateQuick} />
+      <ResponseQuickFields draft={quick} updateDraft={updateQuick} collectionId={collectionId} />
     </QuickEditorShell>
   );
 }

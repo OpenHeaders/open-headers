@@ -1,16 +1,19 @@
 /**
  * ResponseQuickFields — the compact response form shared by the
  * quick-editor's edit and create bodies: status select (Keep-original
- * `0` sentinel + grouped codes), content-type autocomplete, plain
- * textarea body. Edit mode passes `entityUid` so each input publishes
- * field-focus awareness; create mode has no entity yet and renders the
- * bare inputs.
+ * `0` sentinel + grouped codes), content-type autocomplete, and a
+ * template-aware body (static bodies are `{{VAR}}` candidates at
+ * runtime — see `rule-templates.ts` — so the field gets the same
+ * highlight + suggestion UX as every other templated input). Edit mode
+ * passes `entityUid` so each input publishes field-focus awareness;
+ * create mode has no entity yet and renders the bare inputs.
  */
 
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import { EntityField, EntityScopeProvider, RULE_FIELD } from '@openheaders/ui/shared/awareness';
 import { CONTENT_TYPE_OPTIONS, STATUS_CODES } from '@openheaders/ui/workbench/components/rule-fields/status-codes';
-import { AutoComplete, Input, Select, theme } from 'antd';
+import { TemplateInput } from '@openheaders/ui/workbench/components/template-input';
+import { AutoComplete, Select, theme } from 'antd';
 import type { ReactNode } from 'react';
 import type { ResponseQuickDraft } from '../../data/response-rule-edit';
 
@@ -19,11 +22,14 @@ export interface ResponseQuickFieldsProps {
   updateDraft: (patch: Partial<ResponseQuickDraft>) => void;
   /** Live rule uid — wraps the inputs in awareness EntityFields. */
   entityUid?: string;
+  /** Collection that owns (or will own) the rule — scopes the body's
+   *  `{{collection.X}}` suggestions. */
+  collectionId?: string;
 }
 
 const STATUS_OPTIONS = [{ value: 0, label: 'Keep original status code' }, ...STATUS_CODES];
 
-export function ResponseQuickFields({ draft, updateDraft, entityUid }: ResponseQuickFieldsProps) {
+export function ResponseQuickFields({ draft, updateDraft, entityUid, collectionId }: ResponseQuickFieldsProps) {
   const { token } = theme.useToken();
 
   const fieldLabelStyle: React.CSSProperties = {
@@ -87,12 +93,19 @@ export function ResponseQuickFields({ draft, updateDraft, entityUid }: ResponseQ
         <div style={fieldLabelStyle}>Response Body</div>
         {field(
           RULE_FIELD.responseBody,
-          <Input.TextArea
+          <TemplateInput
+            multiline
             value={draft.responseBody}
-            onChange={(e) => updateDraft({ responseBody: e.target.value })}
+            onChange={(v) => updateDraft({ responseBody: v })}
             placeholder={'{"message": "custom response", "data": []}'}
-            autoSize={{ minRows: 6, maxRows: 12 }}
-            style={{ fontFamily: token.fontFamilyCode, fontSize: 12 }}
+            suggestionContext={{ collectionId }}
+            style={{
+              width: '100%',
+              minHeight: 120,
+              maxHeight: 240,
+              fontFamily: token.fontFamilyCode,
+              fontSize: 12,
+            }}
           />,
         )}
       </div>
