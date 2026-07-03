@@ -72,7 +72,7 @@ describe('buildSuggestions', () => {
         makeRegistries({ vault: [vault('GITHUB_TOKEN', 'ghp_abc123'), vault('AWS_KEY', 'AKIA...')] }),
         {},
       );
-      const refList = out.filter((s) => s.scope === 'vault').map((s) => s.reference);
+      const refList = out.filter((s) => s.scope === 'vault' && s.preview.kind !== 'namespace').map((s) => s.reference);
       expect(refList).toEqual(['vault.GITHUB_TOKEN', 'vault.AWS_KEY']);
     });
 
@@ -94,8 +94,9 @@ describe('buildSuggestions', () => {
         { collectionId: 'col-1' },
       );
       const colls = out.filter((s) => s.scope === 'collection');
-      expect(colls).toHaveLength(1);
-      expect(colls[0].reference).toBe('collection.BASE_PATH');
+      // The concrete entry PLUS the always-on "Add a collection variable"
+      // scaffold — the scaffold block is stable regardless of contents.
+      expect(refs(colls)).toEqual(['collection.BASE_PATH', 'collection.']);
     });
 
     it('hides step scope when no workflowStep in context', () => {
@@ -136,7 +137,7 @@ describe('buildSuggestions', () => {
         }),
         {},
       );
-      const envSuggestions = out.filter((s) => s.scope === 'env');
+      const envSuggestions = out.filter((s) => s.scope === 'env' && s.preview.kind !== 'namespace');
       // Active wins over default on name collision; default adds REGION.
       expect(refs(envSuggestions)).toEqual(['env.API_URL', 'env.DEBUG', 'env.REGION']);
       // Active entry's value is from dev env.
@@ -147,7 +148,7 @@ describe('buildSuggestions', () => {
     it('skips empty-string env values', () => {
       const devEnv = env('env-dev', 'dev', [v('API_URL', 'https://dev.openheaders.io'), v('BLANK', '')]);
       const out = buildSuggestions(makeRegistries({ environments: [devEnv], activeEnvironmentId: 'env-dev' }), {});
-      expect(refs(out.filter((s) => s.scope === 'env'))).toEqual(['env.API_URL']);
+      expect(refs(out.filter((s) => s.scope === 'env' && s.preview.kind !== 'namespace'))).toEqual(['env.API_URL']);
     });
 
     it('offers default env alone when no active env is selected', () => {
@@ -160,7 +161,7 @@ describe('buildSuggestions', () => {
         }),
         {},
       );
-      expect(refs(out.filter((s) => s.scope === 'env'))).toEqual(['env.HOST']);
+      expect(refs(out.filter((s) => s.scope === 'env' && s.preview.kind !== 'namespace'))).toEqual(['env.HOST']);
     });
 
     it('sorts active-env entries above fallback-env entries in natural order', () => {
@@ -350,8 +351,17 @@ describe('filterSuggestions', () => {
   it('empty query returns every candidate in natural order', () => {
     const all = threeScopes();
     const filtered = filterSuggestions(all, '');
-    // Vault (scope=0) first, then env (1), then workspace (3).
-    expect(refs(filtered)).toEqual(['vault.API_TOKEN', 'env.API_URL', 'env.DEBUG', 'workspace.api_host']);
+    // Concrete values first — vault (scope=0), env (1), workspace (3) —
+    // then the always-on scaffold block in the same scope order.
+    expect(refs(filtered)).toEqual([
+      'vault.API_TOKEN',
+      'env.API_URL',
+      'env.DEBUG',
+      'workspace.api_host',
+      'vault.',
+      'env.',
+      'workspace.',
+    ]);
   });
 
   it('exact-prefix matches rank above ci-prefix and ci-substring', () => {

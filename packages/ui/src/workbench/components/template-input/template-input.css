@@ -234,6 +234,24 @@
   overflow-y: auto;
 }
 
+/* Always-visible list scrollbar — styling `::-webkit-scrollbar` opts out
+ * of the platform overlay bar, so a scrollable list advertises itself
+ * instead of hiding the bar until mid-scroll. Same treatment as the
+ * expanded editable above. */
+.oh-template-popover-list::-webkit-scrollbar {
+  width: 6px;
+}
+.oh-template-popover-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.oh-template-popover-list::-webkit-scrollbar-thumb {
+  background: var(--ant-color-text-quaternary, rgba(0, 0, 0, 0.25));
+  border-radius: 4px;
+}
+.oh-template-popover-list::-webkit-scrollbar-thumb:hover {
+  background: var(--ant-color-text-tertiary, rgba(0, 0, 0, 0.45));
+}
+
 .oh-template-popover-row {
   padding: 4px 10px;
   cursor: pointer;

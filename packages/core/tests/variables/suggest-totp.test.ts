@@ -57,7 +57,7 @@ describe('buildSuggestions — vault TOTP entries', () => {
       },
       {},
     );
-    const refs = out.filter((s) => s.scope === 'vault').map((s) => s.reference);
+    const refs = out.filter((s) => s.scope === 'vault' && s.preview.kind !== 'namespace').map((s) => s.reference);
     expect(refs).toEqual(['vault.API_KEY', 'vault.GitHubTOTP']);
     const apiKey = out.find((s) => s.reference === 'vault.API_KEY');
     const totp = out.find((s) => s.reference === 'vault.GitHubTOTP');

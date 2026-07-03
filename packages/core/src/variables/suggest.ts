@@ -412,10 +412,12 @@ export function buildSuggestions(registries: SuggestionRegistries, context: Sugg
   }
 
   // Namespace scaffolds — every user-creatable scope the site allows
-  // surfaces even when it has no variables yet, so the scope stays
-  // discoverable. Only emitted for scopes that contributed no concrete
-  // entry above; picking one scaffolds `{{scope.}}` (see the input's
-  // insert handler). The set mirrors the "Add to" create scopes.
+  // surfaces UNCONDITIONALLY (even when the scope already contributed
+  // concrete entries above), so the bottom of the list is a stable
+  // "add a variable in scope X" block: the display tiers sort scaffolds
+  // below every concrete value and above the reserved rows. Picking one
+  // scaffolds `{{scope.}}` (see the input's insert handler). The set
+  // mirrors the "Add to" create scopes.
   const SCAFFOLD_SCOPES: Array<{ ns: ScopeNamespace; subtitle: string }> = [
     { ns: 'vault', subtitle: 'Add a secret' },
     { ns: 'env', subtitle: 'Add an environment variable' },
@@ -424,7 +426,6 @@ export function buildSuggestions(registries: SuggestionRegistries, context: Sugg
   ];
   for (const { ns, subtitle } of SCAFFOLD_SCOPES) {
     if (!scopeAllowed(ns, context)) continue;
-    if (out.some((s) => s.scope === ns)) continue;
     out.push({
       reference: `${ns}.`,
       scope: ns,
