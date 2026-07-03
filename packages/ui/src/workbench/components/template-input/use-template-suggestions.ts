@@ -152,6 +152,13 @@ export function useTemplateSuggestions({
       openingCreateRef.current = false;
       return;
     }
+    // This field may itself BE the variable popover's value editor.
+    // The host close exists for fields the popover was opened FROM
+    // (their re-render detaches the anchor span) — an inner field
+    // closing its own host would kill the popover as it opens (this
+    // effect also runs on mount) and again on every keystroke typed
+    // into it.
+    if (editableRef.current?.closest('[data-variable-popover-root]')) return;
     popoverHost.closeNow();
   }, [value, isOpen]);
 
