@@ -237,11 +237,11 @@ export function QuickEditorShell({
                 flex: 1,
                 minWidth: 0,
                 boxSizing: 'border-box',
-                height: 34,
+                height: 30,
                 padding: '3px 22px 3px 6px',
                 fontFamily: 'inherit',
                 fontWeight: 600,
-                fontSize: 13,
+                fontSize: 12,
                 lineHeight: '18px',
                 whiteSpace: 'pre',
                 overflowX: 'auto',
@@ -284,9 +284,11 @@ export function QuickEditorShell({
           </span>
         ) : (
           <span
+            className={onRuleNameChange ? 'dt-quick-rule-title' : undefined}
             style={{
               fontWeight: 600,
-              fontSize: 13,
+              fontSize: 12,
+              lineHeight: '20px',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',

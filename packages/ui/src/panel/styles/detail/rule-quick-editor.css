@@ -1,0 +1,19 @@
+/*
+ * rule-quick-editor.css — the in-panel rule quick-editor popover.
+ * The shell is inline-styled (portal-positioned); only hover states,
+ * which inline styles can't express, live here.
+ */
+
+/* Create-mode click-to-rename title: the hover wash signals editability
+   before the first click. Negative margins keep the wash from shifting
+   the text's optical position in the row. */
+.dt-quick-rule-title {
+  border-radius: 4px;
+  padding: 1px 4px;
+  margin: -1px -4px;
+  transition: background-color 0.15s;
+}
+
+.dt-quick-rule-title:hover {
+  background: var(--dt-row-hover);
+}
