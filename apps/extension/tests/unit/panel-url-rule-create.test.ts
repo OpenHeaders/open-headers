@@ -15,6 +15,7 @@ import {
   buildRedirectRuleSeed,
   mergeQuickIntoDelayDraft,
   mergeQuickIntoRedirectDraft,
+  redirectVarName,
   seedDelayQuickDraft,
   seedRedirectQuickDraft,
 } from '@openheaders/ui/panel/data/url-rule-create';
@@ -34,6 +35,17 @@ function makeBlockDraft(over: Partial<BlockRuleDraft> = {}): BlockRuleDraft {
   return { type: 'block', url: URL, ...over };
 }
 
+describe('redirectVarName', () => {
+  it('derives a domain-scoped variable name', () => {
+    expect(redirectVarName(URL)).toBe('redirect_url_openheaders_io');
+    expect(redirectVarName('http://localhost:5173/')).toBe('redirect_url_localhost');
+  });
+
+  it('returns null when the URL yields no domain', () => {
+    expect(redirectVarName('not a url')).toBeNull();
+  });
+});
+
 describe('seedRedirectQuickDraft', () => {
   it('seeds the target from the CTA variant draft', () => {
     expect(seedRedirectQuickDraft(makeRedirectDraft())).toEqual({
@@ -41,8 +53,25 @@ describe('seedRedirectQuickDraft', () => {
     });
   });
 
-  it('seeds empty for the plain Redirect URL variant', () => {
-    expect(seedRedirectQuickDraft(makeRedirectDraft({ redirectTo: undefined }))).toEqual({ redirectTo: '' });
+  it('seeds the domain redirect variable for the plain Redirect URL variant', () => {
+    expect(seedRedirectQuickDraft(makeRedirectDraft({ redirectTo: undefined }), 'redirect')).toEqual({
+      redirectTo: '{{redirect_url_openheaders_io}}',
+    });
+  });
+
+  it('keeps the pre-built target for the replace variants', () => {
+    expect(seedRedirectQuickDraft(makeRedirectDraft(), 'replace-url-part')).toEqual({
+      redirectTo: 'https://staging.openheaders.io/v1/users?page=2',
+    });
+    expect(
+      seedRedirectQuickDraft(makeRedirectDraft({ redirectTo: 'https://NEW_HOST/v1/users?page=2' }), 'replace-host'),
+    ).toEqual({ redirectTo: 'https://NEW_HOST/v1/users?page=2' });
+  });
+
+  it('seeds empty when the URL yields no variable name', () => {
+    expect(seedRedirectQuickDraft(makeRedirectDraft({ url: 'not a url', redirectTo: undefined }), 'redirect')).toEqual({
+      redirectTo: '',
+    });
   });
 });
 

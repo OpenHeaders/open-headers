@@ -17,6 +17,7 @@ import type {
 } from '@openheaders/core/types';
 import type { DraftUrlStrategy } from '@openheaders/core/utils';
 import { buildDraftConditions } from '@openheaders/ui/workbench/draft-conditions';
+import { domainFolderName } from './quick-rule-destination';
 
 export type RedirectRuleSeed = Omit<RedirectRule, 'uid' | 'path' | 'schemaVersion'>;
 export type DelayRuleSeed = Omit<DelayRule, 'uid' | 'path' | 'schemaVersion'>;
@@ -35,11 +36,31 @@ export interface RedirectQuickDraft {
   redirectTo: string;
 }
 
-/** Seed the editable field from the captured draft — the three CTA
- *  variants (Redirect URL / Replace host / Replace URL part) differ
- *  only in what `rule-draft-bridge` put here. */
-export function seedRedirectQuickDraft(draft: RedirectRuleDraft): RedirectQuickDraft {
-  return { redirectTo: draft.redirectTo ?? '' };
+/** Domain-scoped variable name for the plain Redirect URL variant's
+ *  seed — `redirect_url_openheaders_io` — so redirect targets are
+ *  reusable per domain and don't collide across rules for other sites. */
+export function redirectVarName(url: string): string | null {
+  const domain = domainFolderName(url);
+  if (!domain) return null;
+  return `redirect_url_${domain.replace(/[^a-zA-Z0-9]+/g, '_')}`;
+}
+
+/** Seed the editable field from the captured draft. The Replace host /
+ *  Replace URL part variants carry their pre-built target; the plain
+ *  Redirect URL variant (empty target) seeds a `{{redirect_url_<domain>}}`
+ *  reference instead — if the variable already exists it resolves
+ *  immediately (reuse), otherwise the popover's save gate holds until
+ *  the user creates it via the reference's create flow. */
+export function seedRedirectQuickDraft(
+  draft: RedirectRuleDraft,
+  variant: RedirectCreateVariant = 'redirect',
+): RedirectQuickDraft {
+  const captured = draft.redirectTo ?? '';
+  if (variant === 'redirect' && !captured) {
+    const varName = redirectVarName(draft.url ?? '');
+    if (varName) return { redirectTo: `{{${varName}}}` };
+  }
+  return { redirectTo: captured };
 }
 
 /** Fold the popover's edit back into the handoff draft so the "Open in

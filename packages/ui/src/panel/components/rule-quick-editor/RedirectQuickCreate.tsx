@@ -13,15 +13,17 @@ import { stableStringify } from '@openheaders/ui/shared/forms';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/useActiveWorkspaceId';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/useRuleMutator';
 import { useRules } from '@openheaders/ui/shared/hooks/useRules';
+import { useVariableResolver } from '@openheaders/ui/shared/hooks/useVariableResolver';
 import { TemplateInput } from '@openheaders/ui/workbench/components/template-input';
 import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import { App, Typography, theme } from 'antd';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { handOffRuleDraft } from '../../data/rule-draft-bridge';
 import { generateSmartRuleName } from '../../data/smart-rule-name';
 import {
   buildRedirectRuleSeed,
   mergeQuickIntoRedirectDraft,
+  type RedirectCreateVariant,
   type RedirectQuickDraft,
   seedRedirectQuickDraft,
   type UrlCreateVariant,
@@ -61,17 +63,14 @@ export function RedirectQuickCreate({
   const { rules } = useRules();
   const strategy = useSettingValue('rulesEngine.draftUrlStrategy');
 
+  const redirectVariant: RedirectCreateVariant =
+    variant === 'replace-host' || variant === 'replace-url-part' ? variant : 'redirect';
+
   // Pre-filled from the capture; editable via the shell's title.
   const [name, setName] = useState(() =>
-    generateSmartRuleName(
-      {
-        kind: variant === 'replace-host' || variant === 'replace-url-part' ? variant : 'redirect',
-        url: draft.url ?? '',
-      },
-      rules,
-    ),
+    generateSmartRuleName({ kind: redirectVariant, url: draft.url ?? '' }, rules),
   );
-  const [seed] = useState<RedirectQuickDraft>(() => seedRedirectQuickDraft(draft));
+  const [seed] = useState<RedirectQuickDraft>(() => seedRedirectQuickDraft(draft, redirectVariant));
   const [quick, setQuick] = useState<RedirectQuickDraft>(seed);
   const quickRef = useRef(quick);
   quickRef.current = quick;
@@ -80,11 +79,24 @@ export function RedirectQuickCreate({
   const dest = useQuickCreateDestination(draft.url);
   const collectionId = dest.collectionId;
 
+  // A target that doesn't resolve — the seeded `{{redirect_url_<domain>}}`
+  // before its variable exists, or any typed unresolved ref — gates Save:
+  // a published redirect with an unresolvable template would silently
+  // never fire, the worst outcome. The reference's create flow (click
+  // the red token / Enter inside it) lifts the gate live.
+  const resolver = useVariableResolver();
+  const trimmedTarget = quick.redirectTo.trim();
+  const targetResolves = useMemo(() => {
+    if (!trimmedTarget) return false;
+    const context = collectionId ? { collectionId } : undefined;
+    return resolver.resolveTemplate(trimmedTarget, context).errors.length === 0;
+  }, [resolver, trimmedTarget, collectionId]);
+
   const { saving, canSave, handleSave, saveLabel } = useQuickCreateSave({
     buildSeed: () => buildRedirectRuleSeed(draft, quickRef.current, name, strategy),
     destination: dest.forSave,
     workspaceId,
-    valid: quick.redirectTo.trim().length > 0,
+    valid: targetResolves,
     mutator,
     message,
     onClose,
@@ -124,12 +136,20 @@ export function RedirectQuickCreate({
           onChange={(v) => setQuick({ redirectTo: v })}
           placeholder="e.g. https://openheaders.io/redirected"
           suggestionContext={{ collectionId }}
+          flagUnresolved
           style={{ width: '100%', maxHeight: 'var(--oh-multiline-cap, 96px)', minHeight: 32 }}
         />
       </div>
-      <div style={{ marginTop: 6, fontSize: 11, color: token.colorTextTertiary, lineHeight: 1.4 }}>
-        Matching requests are sent to this URL before they reach the network.
-      </div>
+      {trimmedTarget && !targetResolves ? (
+        <div style={{ marginTop: 6, fontSize: 11, color: token.colorWarning, lineHeight: 1.4 }}>
+          The variable doesn’t exist yet — click the red reference to create it and set the target URL. Save enables
+          once it resolves.
+        </div>
+      ) : (
+        <div style={{ marginTop: 6, fontSize: 11, color: token.colorTextTertiary, lineHeight: 1.4 }}>
+          Matching requests are sent to this URL before they reach the network.
+        </div>
+      )}
     </QuickEditorShell>
   );
 }
