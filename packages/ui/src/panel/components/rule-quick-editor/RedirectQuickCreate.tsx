@@ -28,8 +28,10 @@ import {
   seedRedirectQuickDraft,
   type UrlCreateVariant,
 } from '../../data/rule-create/url-rule-create';
+import { QuickConditionsRow } from './QuickConditionsRow';
 import { QuickDestinationRow } from './QuickDestinationRow';
 import { QuickEditorShell } from './QuickEditorShell';
+import { useQuickCreateConditions } from './use-quick-create-conditions';
 import { useQuickCreateDestination } from './use-quick-create-destination';
 import { useQuickCreateSave } from './use-quick-create-save';
 
@@ -74,7 +76,10 @@ export function RedirectQuickCreate({
   const [quick, setQuick] = useState<RedirectQuickDraft>(seed);
   const quickRef = useRef(quick);
   quickRef.current = quick;
-  const isDirty = stableStringify(quick) !== stableStringify(seed);
+  const quickDirty = stableStringify(quick) !== stableStringify(seed);
+
+  const cond = useQuickCreateConditions(draft, strategy);
+  const isDirty = quickDirty || cond.isDirty;
 
   const dest = useQuickCreateDestination(draft.url);
   const collectionId = dest.collectionId;
@@ -93,7 +98,7 @@ export function RedirectQuickCreate({
   }, [resolver, trimmedTarget, collectionId]);
 
   const { saving, canSave, handleSave, saveLabel } = useQuickCreateSave({
-    buildSeed: () => buildRedirectRuleSeed(draft, quickRef.current, name, strategy),
+    buildSeed: () => buildRedirectRuleSeed(quickRef.current, name, cond.conditionsRef.current),
     destination: dest.forSave,
     workspaceId,
     valid: targetResolves,
@@ -118,6 +123,7 @@ export function RedirectQuickCreate({
       liveRuleUid={null}
       isDirty={isDirty}
       destination={<QuickDestinationRow api={dest} />}
+      conditions={<QuickConditionsRow value={cond.conditions} onChange={cond.setConditions} />}
       onOpenInEditor={openInEditor}
       canOpenInEditor
       save={{ saving, canSave, saveLabel, onSave: () => void handleSave() }}

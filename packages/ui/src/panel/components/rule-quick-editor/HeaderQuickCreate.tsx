@@ -30,9 +30,11 @@ import {
 } from '../../data/rule-create/header-rule-create';
 import { stableStringify } from '@openheaders/ui/shared/forms';
 import { HEADER_OPERATION_OPTIONS } from './header-operation-options';
+import { QuickConditionsRow } from './QuickConditionsRow';
 import { QuickDestinationRow } from './QuickDestinationRow';
 import { QuickEditorShell } from './QuickEditorShell';
 import { useHeaderCreateSave } from './use-header-create-save';
+import { useQuickCreateConditions } from './use-quick-create-conditions';
 import { useQuickCreateDestination } from './use-quick-create-destination';
 
 export interface HeaderQuickCreateProps {
@@ -77,20 +79,22 @@ export function HeaderQuickCreate({
   const updateQuick = (patch: Partial<HeaderQuickDraft>) => {
     setQuick((prev) => ({ ...prev, ...patch }));
   };
-  const isDirty = stableStringify(quick) !== stableStringify(seed);
+  const quickDirty = stableStringify(quick) !== stableStringify(seed);
+
+  const cond = useQuickCreateConditions(draft, strategy);
+  const isDirty = quickDirty || cond.isDirty;
 
   const dest = useQuickCreateDestination(draft.url);
   const collectionId = dest.collectionId;
 
   const { saving, canSave, nameValidation, valueValidation, capability, handleSave, saveLabel } = useHeaderCreateSave({
-    draft,
     quick,
     quickRef,
     direction,
     name,
     destination: dest.forSave,
     workspaceId,
-    strategy,
+    conditionsRef: cond.conditionsRef,
     mutator,
     message,
     onClose,
@@ -112,6 +116,7 @@ export function HeaderQuickCreate({
       liveRuleUid={null}
       isDirty={isDirty}
       destination={<QuickDestinationRow api={dest} />}
+      conditions={<QuickConditionsRow value={cond.conditions} onChange={cond.setConditions} />}
       tags={
         <Tag style={{ marginInlineEnd: 0, fontSize: 10 }} color={direction === 'response' ? 'purple' : 'blue'}>
           {direction === 'response' ? 'Response' : 'Request'}

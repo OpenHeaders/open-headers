@@ -29,8 +29,10 @@ import {
 } from '../../data/rule-create/payload-rule-create';
 import { handOffRuleDraft } from '../../data/rule-create/rule-draft-bridge';
 import { generateSmartRuleName } from '../../data/rule-create/smart-rule-name';
+import { QuickConditionsRow } from './QuickConditionsRow';
 import { QuickDestinationRow } from './QuickDestinationRow';
 import { QuickEditorShell } from './QuickEditorShell';
+import { useQuickCreateConditions } from './use-quick-create-conditions';
 import { useQuickCreateDestination } from './use-quick-create-destination';
 import { useQuickCreateSave } from './use-quick-create-save';
 
@@ -76,7 +78,10 @@ export function QueryParamQuickCreate({
   const [rows, setRows] = useState<QueryParamQuickRow[]>(seed);
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
-  const isDirty = stableStringify(rows) !== stableStringify(seed);
+  const rowsDirty = stableStringify(rows) !== stableStringify(seed);
+
+  const cond = useQuickCreateConditions(draft, strategy);
+  const isDirty = rowsDirty || cond.isDirty;
 
   const updateRow = (uid: string, patch: Partial<QueryParamQuickRow>) => {
     setRows((prev) => prev.map((r) => (r.uid === uid ? { ...r, ...patch } : r)));
@@ -89,7 +94,7 @@ export function QueryParamQuickCreate({
   const collectionId = dest.collectionId;
 
   const { saving, canSave, handleSave, saveLabel } = useQuickCreateSave({
-    buildSeed: () => buildQueryParamRuleSeed(draft, rowsRef.current, name, strategy),
+    buildSeed: () => buildQueryParamRuleSeed(rowsRef.current, name, cond.conditionsRef.current),
     destination: dest.forSave,
     workspaceId,
     valid: queryParamRowsValid(rows),
@@ -117,6 +122,7 @@ export function QueryParamQuickCreate({
       liveRuleUid={null}
       isDirty={isDirty}
       destination={<QuickDestinationRow api={dest} />}
+      conditions={<QuickConditionsRow value={cond.conditions} onChange={cond.setConditions} />}
       onOpenInEditor={openInEditor}
       canOpenInEditor
       save={{ saving, canSave, saveLabel, onSave: () => void handleSave() }}

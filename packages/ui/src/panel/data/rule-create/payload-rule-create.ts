@@ -3,8 +3,9 @@
  * mode — request-body and query-param. Counterpart of
  * `url-rule-create.ts` for the Payload tab's two CTAs: the popover's
  * Save is the publication gesture — the caller creates the rule from
- * this seed and publishes it in the same flow. Conditions derive from
- * the captured draft (URL per strategy + request methods).
+ * this seed and publishes it in the same flow. Conditions pass through
+ * unchanged from the popover's Conditions row (seeded via
+ * `buildDraftConditions`, edited in place).
  */
 
 import type {
@@ -13,9 +14,9 @@ import type {
   QueryParamRuleDraft,
   RequestBodyRule,
   RequestBodyRuleDraft,
+  RuleCondition,
 } from '@openheaders/core/types';
-import { type DraftUrlStrategy, generateUid } from '@openheaders/core/utils';
-import { buildDraftConditions } from '@openheaders/ui/workbench/draft-conditions';
+import { generateUid } from '@openheaders/core/utils';
 
 export type RequestBodyRuleSeed = Omit<RequestBodyRule, 'uid' | 'path' | 'schemaVersion'>;
 export type QueryParamRuleSeed = Omit<QueryParamRule, 'uid' | 'path' | 'schemaVersion'>;
@@ -44,13 +45,13 @@ export function buildRequestBodyRuleSeed(
   draft: RequestBodyRuleDraft,
   quick: RequestBodyQuickDraft,
   name: string,
-  strategy: DraftUrlStrategy,
+  conditions: RuleCondition[],
 ): RequestBodyRuleSeed {
   return {
     name,
     enabled: true,
     type: 'request-body',
-    conditions: buildDraftConditions(draft, strategy),
+    conditions,
     action: {
       bodyType: draft.bodyType ?? 'static',
       requestBody: quick.requestBody,
@@ -113,16 +114,15 @@ export function queryParamRowsValid(rows: readonly QueryParamQuickRow[]): boolea
 }
 
 export function buildQueryParamRuleSeed(
-  draft: QueryParamRuleDraft,
   rows: readonly QueryParamQuickRow[],
   name: string,
-  strategy: DraftUrlStrategy,
+  conditions: RuleCondition[],
 ): QueryParamRuleSeed {
   return {
     name,
     enabled: true,
     type: 'query-param',
-    conditions: buildDraftConditions(draft, strategy),
+    conditions,
     action: { params: rows.map((row) => ({ uid: row.uid, ...draftEntryFromRow(row) })) },
   };
 }

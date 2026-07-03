@@ -2,13 +2,13 @@
  * Inspector Payload-tab quick-editor CREATE seeds — `payload-rule-create`.
  *
  * Counterpart of `panel-url-rule-create.test.ts` for the Payload tab's
- * two CTAs: request-body and query-param seeds must derive conditions
- * from the captured draft, carry the edited action fields, mint row
- * identity on query-param entries, and honor the per-operation entry
- * shape (remove drops the value, remove-all drops param and value).
+ * two CTAs: request-body and query-param seeds must pass the popover's
+ * edited conditions through unchanged, carry the edited action fields,
+ * mint row identity on query-param entries, and honor the per-operation
+ * entry shape (remove drops the value, remove-all drops param and value).
  */
 
-import type { QueryParamRuleDraft, RequestBodyRuleDraft } from '@openheaders/core/types';
+import type { QueryParamRuleDraft, RequestBodyRuleDraft, RuleCondition } from '@openheaders/core/types';
 import {
   appendQueryParamQuickRow,
   buildQueryParamRuleSeed,
@@ -23,6 +23,11 @@ import {
 import { describe, expect, it } from 'vitest';
 
 const URL = 'https://api.openheaders.io/v1/users?page=2&sort=name';
+
+const CONDITIONS: RuleCondition[] = [
+  { uid: 'c1', type: 'url-filter', values: [URL] },
+  { uid: 'c2', type: 'request-methods', values: ['POST'] },
+];
 
 function makeBodyDraft(over: Partial<RequestBodyRuleDraft> = {}): RequestBodyRuleDraft {
   return {
@@ -66,17 +71,15 @@ describe('mergeQuickIntoRequestBodyDraft', () => {
 });
 
 describe('buildRequestBodyRuleSeed', () => {
-  it('derives conditions and carries the edited body with the captured shape', () => {
-    const seed = buildRequestBodyRuleSeed(makeBodyDraft(), { requestBody: '{"n":1}' }, 'Rule', 'exact');
+  it('passes conditions through and carries the edited body with the captured shape', () => {
+    const seed = buildRequestBodyRuleSeed(makeBodyDraft(), { requestBody: '{"n":1}' }, 'Rule', CONDITIONS);
     expect(seed.type).toBe('request-body');
-    expect(seed.conditions).toHaveLength(2);
-    expect(seed.conditions[0].values).toEqual([URL]);
-    expect(seed.conditions[1].values).toEqual(['POST']);
+    expect(seed.conditions).toBe(CONDITIONS);
     expect(seed.action).toEqual({ bodyType: 'static', requestBody: '{"n":1}', resourceType: 'rest' });
   });
 
   it('names the rule, enables it, and leaves publication to the write client', () => {
-    const seed = buildRequestBodyRuleSeed(makeBodyDraft(), { requestBody: '' }, 'Swap payload', 'exact');
+    const seed = buildRequestBodyRuleSeed(makeBodyDraft(), { requestBody: '' }, 'Swap payload', CONDITIONS);
     expect(seed.name).toBe('Swap payload');
     expect(seed.enabled).toBe(true);
     expect('published' in seed).toBe(false);
@@ -150,7 +153,7 @@ describe('appendQueryParamQuickRow', () => {
 describe('buildQueryParamRuleSeed', () => {
   it('carries row identity into the persisted entries', () => {
     const rows = seedQueryParamQuickRows(makeParamDraft());
-    const seed = buildQueryParamRuleSeed(makeParamDraft(), rows, 'Rule', 'exact');
+    const seed = buildQueryParamRuleSeed(rows, 'Rule', CONDITIONS);
     expect(seed.type).toBe('query-param');
     expect(seed.action.params).toHaveLength(2);
     expect(seed.action.params[0]).toEqual({ uid: rows[0].uid, operation: 'override', param: 'page', value: '2' });
@@ -161,16 +164,14 @@ describe('buildQueryParamRuleSeed', () => {
       { uid: 'u1', operation: 'remove', param: 'sort', value: 'stale' },
       { uid: 'u2', operation: 'remove-all', param: 'x', value: 'y' },
     ];
-    const seed = buildQueryParamRuleSeed(makeParamDraft(), rows, 'Rule', 'exact');
+    const seed = buildQueryParamRuleSeed(rows, 'Rule', CONDITIONS);
     expect(seed.action.params[0]).toEqual({ uid: 'u1', operation: 'remove', param: 'sort' });
     expect(seed.action.params[1]).toEqual({ uid: 'u2', operation: 'remove-all', param: '' });
   });
 
-  it('derives conditions and leaves publication to the write client', () => {
-    const seed = buildQueryParamRuleSeed(makeParamDraft(), seedQueryParamQuickRows(makeParamDraft()), 'Rule', 'exact');
-    expect(seed.conditions[0].type).toBe('url-filter');
-    expect(seed.conditions[0].values).toEqual([URL]);
-    expect(seed.conditions[1].values).toEqual(['GET']);
+  it('passes conditions through and leaves publication to the write client', () => {
+    const seed = buildQueryParamRuleSeed(seedQueryParamQuickRows(makeParamDraft()), 'Rule', CONDITIONS);
+    expect(seed.conditions).toBe(CONDITIONS);
     expect('published' in seed).toBe(false);
   });
 });

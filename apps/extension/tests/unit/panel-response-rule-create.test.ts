@@ -2,19 +2,22 @@
  * Inspector response quick-editor CREATE seed — `response-rule-create`.
  *
  * Counterpart of `panel-response-rule-edit.test.ts` for the create
- * mode: the seed must derive conditions from the captured draft (URL
- * per strategy + request methods), carry the captured action fields the
- * compact editor doesn't surface, apply the user's edits, and leave
- * publication to the write client (`applyRuleCreate` forces
- * `published: false`; the save flow publishes explicitly).
+ * mode: the popover SEEDS conditions from the captured draft (URL per
+ * strategy + request methods — `buildDraftConditions`, pinned here) and
+ * the seed passes the edited list through unchanged, carries the
+ * captured action fields the compact editor doesn't surface, applies
+ * the user's edits, and leaves publication to the write client
+ * (`applyRuleCreate` forces `published: false`; the save flow publishes
+ * explicitly).
  */
 
-import type { ResponseRuleDraft } from '@openheaders/core/types';
+import type { ResponseRuleDraft, RuleCondition } from '@openheaders/core/types';
 import {
   buildResponseRuleSeed,
   mergeQuickIntoResponseDraft,
   seedQuickDraft,
 } from '@openheaders/ui/panel/data/rule-create/response-rule-create';
+import { buildDraftConditions } from '@openheaders/ui/workbench/draft-conditions';
 import { describe, expect, it } from 'vitest';
 
 function makeDraft(over: Partial<ResponseRuleDraft> = {}): ResponseRuleDraft {
@@ -33,6 +36,11 @@ function makeDraft(over: Partial<ResponseRuleDraft> = {}): ResponseRuleDraft {
 }
 
 const QUICK = { statusCode: 404, contentType: 'text/plain', responseBody: 'not found' };
+
+const CONDITIONS: RuleCondition[] = [
+  { uid: 'c1', type: 'url-filter', values: ['https://api.openheaders.io/v1/users?page=2'] },
+  { uid: 'c2', type: 'request-methods', values: ['GET'] },
+];
 
 describe('seedQuickDraft', () => {
   it('seeds the editable fields from the captured draft', () => {
@@ -61,11 +69,11 @@ describe('mergeQuickIntoResponseDraft', () => {
   });
 });
 
-describe('buildResponseRuleSeed — conditions', () => {
-  it('derives an exact url-filter and request-methods condition', () => {
-    const seed = buildResponseRuleSeed(makeDraft(), QUICK, 'Rule', 'exact');
-    expect(seed.conditions).toHaveLength(2);
-    const [urlCond, methodCond] = seed.conditions;
+describe('conditions seeding (buildDraftConditions) + pass-through', () => {
+  it('seeds an exact url-filter and request-methods condition', () => {
+    const conditions = buildDraftConditions(makeDraft(), 'exact');
+    expect(conditions).toHaveLength(2);
+    const [urlCond, methodCond] = conditions;
     expect(urlCond.type).toBe('url-filter');
     expect(urlCond.values).toEqual(['https://api.openheaders.io/v1/users?page=2']);
     expect(urlCond.uid).toBeTruthy();
@@ -74,27 +82,32 @@ describe('buildResponseRuleSeed — conditions', () => {
   });
 
   it('honors the workspace draft-URL strategy', () => {
-    const seed = buildResponseRuleSeed(makeDraft(), QUICK, 'Rule', 'host-only');
-    expect(seed.conditions[0].values).toEqual(['https://api.openheaders.io/*']);
+    const conditions = buildDraftConditions(makeDraft(), 'host-only');
+    expect(conditions[0].values).toEqual(['https://api.openheaders.io/*']);
   });
 
   it('omits the methods condition when the capture carried none', () => {
-    const seed = buildResponseRuleSeed(makeDraft({ requestMethods: undefined }), QUICK, 'Rule', 'exact');
-    expect(seed.conditions).toHaveLength(1);
-    expect(seed.conditions[0].type).toBe('url-filter');
+    const conditions = buildDraftConditions(makeDraft({ requestMethods: undefined }), 'exact');
+    expect(conditions).toHaveLength(1);
+    expect(conditions[0].type).toBe('url-filter');
+  });
+
+  it('the seed passes the edited conditions through unchanged', () => {
+    const seed = buildResponseRuleSeed(makeDraft(), QUICK, 'Rule', CONDITIONS);
+    expect(seed.conditions).toBe(CONDITIONS);
   });
 });
 
 describe('buildResponseRuleSeed — action + identity', () => {
   it('applies the drafted status, content-type and body', () => {
-    const seed = buildResponseRuleSeed(makeDraft(), QUICK, 'Rule', 'exact');
+    const seed = buildResponseRuleSeed(makeDraft(), QUICK, 'Rule', CONDITIONS);
     expect(seed.action.statusCode).toBe(404);
     expect(seed.action.contentType).toBe('text/plain');
     expect(seed.action.responseBody).toBe('not found');
   });
 
   it('carries the captured fields the compact editor does not surface', () => {
-    const seed = buildResponseRuleSeed(makeDraft(), QUICK, 'Rule', 'exact');
+    const seed = buildResponseRuleSeed(makeDraft(), QUICK, 'Rule', CONDITIONS);
     expect(seed.action.responseSource).toBe('network');
     expect(seed.action.bodyType).toBe('static');
     expect(seed.action.resourceType).toBe('rest');
@@ -102,7 +115,7 @@ describe('buildResponseRuleSeed — action + identity', () => {
   });
 
   it('names the rule, enables it, and leaves publication to the write client', () => {
-    const seed = buildResponseRuleSeed(makeDraft(), QUICK, 'Mock users', 'exact');
+    const seed = buildResponseRuleSeed(makeDraft(), QUICK, 'Mock users', CONDITIONS);
     expect(seed.name).toBe('Mock users');
     expect(seed.enabled).toBe(true);
     expect(seed.type).toBe('response');
@@ -111,7 +124,7 @@ describe('buildResponseRuleSeed — action + identity', () => {
 
   it('falls back to mock/static/rest defaults for a bare draft', () => {
     const draft = makeDraft({ responseSource: undefined, bodyType: undefined, resourceType: undefined });
-    const seed = buildResponseRuleSeed(draft, QUICK, 'Rule', 'exact');
+    const seed = buildResponseRuleSeed(draft, QUICK, 'Rule', CONDITIONS);
     expect(seed.action.responseSource).toBe('mock');
     expect(seed.action.bodyType).toBe('static');
     expect(seed.action.resourceType).toBe('rest');

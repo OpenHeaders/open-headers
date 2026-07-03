@@ -3,20 +3,19 @@
  * — redirect, delay, and block. Counterpart of `header-rule-create.ts` /
  * `response-rule-create.ts` for the Headers tab's CTA row: the popover's
  * Save is the publication gesture — the caller creates the rule from
- * this seed and publishes it in the same flow. Conditions derive from
- * the captured draft (URL per strategy + request methods, when present).
+ * this seed and publishes it in the same flow. Conditions pass through
+ * unchanged from the popover's Conditions row (seeded via
+ * `buildDraftConditions`, edited in place).
  */
 
 import type {
   BlockRule,
-  BlockRuleDraft,
   DelayRule,
   DelayRuleDraft,
   RedirectRule,
   RedirectRuleDraft,
+  RuleCondition,
 } from '@openheaders/core/types';
-import type { DraftUrlStrategy } from '@openheaders/core/utils';
-import { buildDraftConditions } from '@openheaders/ui/workbench/draft-conditions';
 import { domainFolderName } from './quick-rule-destination';
 
 export type RedirectRuleSeed = Omit<RedirectRule, 'uid' | 'path' | 'schemaVersion'>;
@@ -108,16 +107,15 @@ export function mergeQuickIntoRedirectDraft(draft: RedirectRuleDraft, quick: Red
 }
 
 export function buildRedirectRuleSeed(
-  draft: RedirectRuleDraft,
   quick: RedirectQuickDraft,
   name: string,
-  strategy: DraftUrlStrategy,
+  conditions: RuleCondition[],
 ): RedirectRuleSeed {
   return {
     name,
     enabled: true,
     type: 'redirect',
-    conditions: buildDraftConditions(draft, strategy),
+    conditions,
     action: { redirectTo: quick.redirectTo },
   };
 }
@@ -137,17 +135,12 @@ export function mergeQuickIntoDelayDraft(draft: DelayRuleDraft, quick: DelayQuic
   return { ...draft, ...(quick.delayMs != null ? { delayMs: quick.delayMs } : {}) };
 }
 
-export function buildDelayRuleSeed(
-  draft: DelayRuleDraft,
-  delayMs: number,
-  name: string,
-  strategy: DraftUrlStrategy,
-): DelayRuleSeed {
+export function buildDelayRuleSeed(delayMs: number, name: string, conditions: RuleCondition[]): DelayRuleSeed {
   return {
     name,
     enabled: true,
     type: 'delay',
-    conditions: buildDraftConditions(draft, strategy),
+    conditions,
     action: { delayMs },
   };
 }
@@ -156,12 +149,12 @@ export function buildDelayRuleSeed(
 
 /** Block has no editable fields — the block itself is the action;
  *  conditions decide what gets blocked. */
-export function buildBlockRuleSeed(draft: BlockRuleDraft, name: string, strategy: DraftUrlStrategy): BlockRuleSeed {
+export function buildBlockRuleSeed(name: string, conditions: RuleCondition[]): BlockRuleSeed {
   return {
     name,
     enabled: true,
     type: 'block',
-    conditions: buildDraftConditions(draft, strategy),
+    conditions,
     action: {},
   };
 }

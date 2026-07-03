@@ -18,8 +18,10 @@ import { useState } from 'react';
 import { handOffRuleDraft } from '../../data/rule-create/rule-draft-bridge';
 import { generateSmartRuleName } from '../../data/rule-create/smart-rule-name';
 import { buildBlockRuleSeed } from '../../data/rule-create/url-rule-create';
+import { QuickConditionsRow } from './QuickConditionsRow';
 import { QuickDestinationRow } from './QuickDestinationRow';
 import { QuickEditorShell } from './QuickEditorShell';
+import { useQuickCreateConditions } from './use-quick-create-conditions';
 import { useQuickCreateDestination } from './use-quick-create-destination';
 import { useQuickCreateSave } from './use-quick-create-save';
 
@@ -53,10 +55,12 @@ export function BlockQuickCreate({
   // Pre-filled from the capture; editable via the shell's title.
   const [name, setName] = useState(() => generateSmartRuleName({ kind: 'block', url: draft.url ?? '' }, rules));
 
+  const cond = useQuickCreateConditions(draft, strategy);
+
   const dest = useQuickCreateDestination(draft.url);
 
   const { saving, canSave, handleSave, saveLabel } = useQuickCreateSave({
-    buildSeed: () => buildBlockRuleSeed(draft, name, strategy),
+    buildSeed: () => buildBlockRuleSeed(name, cond.conditionsRef.current),
     destination: dest.forSave,
     workspaceId,
     mutator,
@@ -78,8 +82,9 @@ export function BlockQuickCreate({
       ruleName={name}
       onRuleNameChange={setName}
       liveRuleUid={null}
-      isDirty={false}
+      isDirty={cond.isDirty}
       destination={<QuickDestinationRow api={dest} />}
+      conditions={<QuickConditionsRow value={cond.conditions} onChange={cond.setConditions} />}
       onOpenInEditor={openInEditor}
       canOpenInEditor
       save={{ saving, canSave, saveLabel, onSave: () => void handleSave() }}

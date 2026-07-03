@@ -2,13 +2,13 @@
  * Inspector URL-action quick-editor CREATE seeds — `url-rule-create`.
  *
  * Counterpart of `panel-header-rule-create.test.ts` for the Headers
- * tab's CTA row: redirect / delay / block seeds must derive conditions
- * from the captured draft, carry the edited action field, and leave
- * publication to the write client. Block has no action configuration —
- * the block itself is the action.
+ * tab's CTA row: redirect / delay / block seeds must pass the popover's
+ * edited conditions through unchanged, carry the edited action field,
+ * and leave publication to the write client. Block has no action
+ * configuration — the block itself is the action.
  */
 
-import type { BlockRuleDraft, DelayRuleDraft, RedirectRuleDraft } from '@openheaders/core/types';
+import type { DelayRuleDraft, RedirectRuleDraft, RuleCondition } from '@openheaders/core/types';
 import {
   buildBlockRuleSeed,
   buildDelayRuleSeed,
@@ -33,9 +33,7 @@ function makeDelayDraft(over: Partial<DelayRuleDraft> = {}): DelayRuleDraft {
   return { type: 'delay', url: URL, delayMs: 1000, ...over };
 }
 
-function makeBlockDraft(over: Partial<BlockRuleDraft> = {}): BlockRuleDraft {
-  return { type: 'block', url: URL, ...over };
-}
+const CONDITIONS: RuleCondition[] = [{ uid: 'c1', type: 'url-filter', values: [URL] }];
 
 describe('redirectVarName / newHostVarName', () => {
   it('derives a domain-scoped variable name', () => {
@@ -110,22 +108,15 @@ describe('merge back into the handoff draft', () => {
 });
 
 describe('buildRedirectRuleSeed', () => {
-  it('derives an exact url-filter condition and carries the edited target', () => {
-    const seed = buildRedirectRuleSeed(
-      makeRedirectDraft(),
-      { redirectTo: 'https://openheaders.io/next' },
-      'Rule',
-      'exact',
-    );
+  it('passes the edited conditions through and carries the edited target', () => {
+    const seed = buildRedirectRuleSeed({ redirectTo: 'https://openheaders.io/next' }, 'Rule', CONDITIONS);
     expect(seed.type).toBe('redirect');
-    expect(seed.conditions).toHaveLength(1);
-    expect(seed.conditions[0].type).toBe('url-filter');
-    expect(seed.conditions[0].values).toEqual([URL]);
+    expect(seed.conditions).toBe(CONDITIONS);
     expect(seed.action).toEqual({ redirectTo: 'https://openheaders.io/next' });
   });
 
   it('names the rule, enables it, and leaves publication to the write client', () => {
-    const seed = buildRedirectRuleSeed(makeRedirectDraft(), { redirectTo: 'x' }, 'Send to staging', 'exact');
+    const seed = buildRedirectRuleSeed({ redirectTo: 'x' }, 'Send to staging', CONDITIONS);
     expect(seed.name).toBe('Send to staging');
     expect(seed.enabled).toBe(true);
     expect('published' in seed).toBe(false);
@@ -134,20 +125,19 @@ describe('buildRedirectRuleSeed', () => {
 
 describe('buildDelayRuleSeed', () => {
   it('carries the edited delay in the action', () => {
-    const seed = buildDelayRuleSeed(makeDelayDraft(), 2500, 'Rule', 'exact');
+    const seed = buildDelayRuleSeed(2500, 'Rule', CONDITIONS);
     expect(seed.type).toBe('delay');
     expect(seed.action).toEqual({ delayMs: 2500 });
-    expect(seed.conditions[0].values).toEqual([URL]);
+    expect(seed.conditions).toBe(CONDITIONS);
   });
 });
 
 describe('buildBlockRuleSeed', () => {
-  it('builds a fields-less action with conditions from the capture', () => {
-    const seed = buildBlockRuleSeed(makeBlockDraft(), 'Rule', 'exact');
+  it('builds a fields-less action with the edited conditions', () => {
+    const seed = buildBlockRuleSeed('Rule', CONDITIONS);
     expect(seed.type).toBe('block');
     expect(seed.action).toEqual({});
-    expect(seed.conditions).toHaveLength(1);
-    expect(seed.conditions[0].values).toEqual([URL]);
+    expect(seed.conditions).toBe(CONDITIONS);
     expect('published' in seed).toBe(false);
   });
 });

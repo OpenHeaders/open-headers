@@ -8,9 +8,7 @@
  * the user's edits (status, content-type, body).
  */
 
-import type { ResponseRule, ResponseRuleDraft } from '@openheaders/core/types';
-import type { DraftUrlStrategy } from '@openheaders/core/utils';
-import { buildDraftConditions } from '@openheaders/ui/workbench/draft-conditions';
+import type { ResponseRule, ResponseRuleDraft, RuleCondition } from '@openheaders/core/types';
 import type { ResponseQuickDraft } from './response-rule-edit';
 
 export type ResponseRuleSeed = Omit<ResponseRule, 'uid' | 'path' | 'schemaVersion'>;
@@ -39,22 +37,21 @@ export function mergeQuickIntoResponseDraft(draft: ResponseRuleDraft, quick: Res
 }
 
 /**
- * Build the full rule seed for `applyRuleCreate`. Conditions derive
- * from the draft's URL (per the workspace's draft-URL strategy) and
- * captured request methods — the same derivation the workbench applies
- * to an inspector handoff draft.
+ * Build the full rule seed for `applyRuleCreate`. Conditions pass
+ * through unchanged from the popover's Conditions row (seeded via
+ * `buildDraftConditions`, edited in place).
  */
 export function buildResponseRuleSeed(
   draft: ResponseRuleDraft,
   quick: ResponseQuickDraft,
   name: string,
-  strategy: DraftUrlStrategy,
+  conditions: RuleCondition[],
 ): ResponseRuleSeed {
   return {
     name,
     enabled: true,
     type: 'response',
-    conditions: buildDraftConditions(draft, strategy),
+    conditions,
     action: {
       responseSource: draft.responseSource ?? 'mock',
       bodyType: draft.bodyType ?? 'static',

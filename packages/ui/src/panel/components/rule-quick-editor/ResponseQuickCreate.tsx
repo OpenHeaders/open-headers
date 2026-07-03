@@ -25,9 +25,11 @@ import { handOffRuleDraft } from '../../data/rule-create/rule-draft-bridge';
 import { generateSmartRuleName } from '../../data/rule-create/smart-rule-name';
 import { buildResponseRuleSeed, mergeQuickIntoResponseDraft, seedQuickDraft } from '../../data/rule-create/response-rule-create';
 import type { ResponseQuickDraft } from '../../data/rule-create/response-rule-edit';
+import { QuickConditionsRow } from './QuickConditionsRow';
 import { QuickDestinationRow } from './QuickDestinationRow';
 import { QuickEditorShell } from './QuickEditorShell';
 import { ResponseQuickFields } from './ResponseQuickFields';
+import { useQuickCreateConditions } from './use-quick-create-conditions';
 import { useQuickCreateDestination } from './use-quick-create-destination';
 import { useQuickCreateSave } from './use-quick-create-save';
 
@@ -67,13 +69,16 @@ export function ResponseQuickCreate({
   const updateQuick = (patch: Partial<ResponseQuickDraft>) => {
     setQuick((prev) => ({ ...prev, ...patch }));
   };
-  const isDirty = stableStringify(quick) !== stableStringify(seed);
+  const quickDirty = stableStringify(quick) !== stableStringify(seed);
+
+  const cond = useQuickCreateConditions(draft, strategy);
+  const isDirty = quickDirty || cond.isDirty;
 
   const dest = useQuickCreateDestination(draft.url);
   const collectionId = dest.collectionId;
 
   const { saving, canSave, handleSave, saveLabel } = useQuickCreateSave({
-    buildSeed: () => buildResponseRuleSeed(draft, quickRef.current, name, strategy),
+    buildSeed: () => buildResponseRuleSeed(draft, quickRef.current, name, cond.conditionsRef.current),
     destination: dest.forSave,
     workspaceId,
     mutator,
@@ -104,6 +109,7 @@ export function ResponseQuickCreate({
         </Tag>
       }
       destination={<QuickDestinationRow api={dest} />}
+      conditions={<QuickConditionsRow value={cond.conditions} onChange={cond.setConditions} />}
       onOpenInEditor={openInEditor}
       canOpenInEditor
       save={{ saving, canSave, saveLabel, onSave: () => void handleSave() }}

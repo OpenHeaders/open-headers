@@ -2,14 +2,15 @@
  * Inspector header quick-editor CREATE seed — `header-rule-create`.
  *
  * Counterpart of `panel-response-rule-create.test.ts` for the Headers
- * tab's server-row Override CTA: the seed must derive conditions from
- * the captured draft, mint row identity on the modification, place it
- * in the clicked direction, and honor the per-operation mod shape
+ * tab's server-row Override CTA: the seed must pass the popover's
+ * edited conditions through unchanged, mint row identity on the
+ * modification, place it in the clicked direction, and honor the
+ * per-operation mod shape
  * (remove carries no value, merge carries the separator) — the same
  * split `buildHeaderModUpdate` applies on the edit path.
  */
 
-import type { HeaderRuleDraft } from '@openheaders/core/types';
+import type { HeaderRuleDraft, RuleCondition } from '@openheaders/core/types';
 import {
   buildHeaderRuleSeed,
   mergeQuickIntoHeaderDraft,
@@ -26,6 +27,11 @@ function makeDraft(over: Partial<HeaderRuleDraft> = {}): HeaderRuleDraft {
     ...over,
   };
 }
+
+const CONDITIONS: RuleCondition[] = [
+  { uid: 'c1', type: 'url-filter', values: ['https://api.openheaders.io/v1/users?page=2'] },
+  { uid: 'c2', type: 'request-methods', values: ['GET'] },
+];
 
 describe('seedHeaderQuickDraft', () => {
   it('seeds from the first mod in the clicked direction', () => {
@@ -71,17 +77,13 @@ describe('mergeQuickIntoHeaderDraft', () => {
 describe('buildHeaderRuleSeed — conditions + identity', () => {
   const QUICK = { operation: 'override' as const, headerName: 'cache-control', value: 'no-store' };
 
-  it('derives an exact url-filter and request-methods condition', () => {
-    const seed = buildHeaderRuleSeed(makeDraft(), QUICK, 'response', 'Rule', 'exact');
-    expect(seed.conditions).toHaveLength(2);
-    expect(seed.conditions[0].type).toBe('url-filter');
-    expect(seed.conditions[0].values).toEqual(['https://api.openheaders.io/v1/users?page=2']);
-    expect(seed.conditions[1].type).toBe('request-methods');
-    expect(seed.conditions[1].values).toEqual(['GET']);
+  it('passes the edited conditions through unchanged', () => {
+    const seed = buildHeaderRuleSeed(QUICK, 'response', 'Rule', CONDITIONS);
+    expect(seed.conditions).toBe(CONDITIONS);
   });
 
   it('names the rule, enables it, and leaves publication to the write client', () => {
-    const seed = buildHeaderRuleSeed(makeDraft(), QUICK, 'response', 'Kill caching', 'exact');
+    const seed = buildHeaderRuleSeed(QUICK, 'response', 'Kill caching', CONDITIONS);
     expect(seed.name).toBe('Kill caching');
     expect(seed.enabled).toBe(true);
     expect(seed.type).toBe('header');
@@ -92,11 +94,10 @@ describe('buildHeaderRuleSeed — conditions + identity', () => {
 describe('buildHeaderRuleSeed — action', () => {
   it('places the mod in the clicked direction with a minted uid', () => {
     const seed = buildHeaderRuleSeed(
-      makeDraft(),
       { operation: 'override', headerName: 'cache-control', value: 'no-store' },
       'response',
       'Rule',
-      'exact',
+      CONDITIONS,
     );
     expect(seed.action.requestHeaders).toEqual([]);
     expect(seed.action.responseHeaders).toHaveLength(1);
@@ -107,11 +108,10 @@ describe('buildHeaderRuleSeed — action', () => {
 
   it('places a request-direction mod on the request side', () => {
     const seed = buildHeaderRuleSeed(
-      makeDraft({ requestHeaders: [{ operation: 'override', headerName: 'authorization', value: 'Bearer t' }] }),
       { operation: 'override', headerName: 'authorization', value: 'Bearer t' },
       'request',
       'Rule',
-      'exact',
+      CONDITIONS,
     );
     expect(seed.action.responseHeaders).toEqual([]);
     expect(seed.action.requestHeaders[0]).toMatchObject({ headerName: 'authorization' });
@@ -119,11 +119,10 @@ describe('buildHeaderRuleSeed — action', () => {
 
   it('builds a remove mod without a value', () => {
     const seed = buildHeaderRuleSeed(
-      makeDraft(),
       { operation: 'remove', headerName: 'x-powered-by', value: 'leftover' },
       'response',
       'Rule',
-      'exact',
+      CONDITIONS,
     );
     const mod = seed.action.responseHeaders[0];
     expect(mod.operation).toBe('remove');
@@ -132,11 +131,10 @@ describe('buildHeaderRuleSeed — action', () => {
 
   it('carries the merge separator on a merge mod', () => {
     const seed = buildHeaderRuleSeed(
-      makeDraft(),
       { operation: 'merge', headerName: 'vary', value: 'accept', mergeSeparator: ', ' },
       'response',
       'Rule',
-      'exact',
+      CONDITIONS,
     );
     expect(seed.action.responseHeaders[0]).toMatchObject({
       operation: 'merge',

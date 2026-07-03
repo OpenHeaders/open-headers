@@ -22,8 +22,10 @@ import {
   mergeQuickIntoDelayDraft,
   seedDelayQuickDraft,
 } from '../../data/rule-create/url-rule-create';
+import { QuickConditionsRow } from './QuickConditionsRow';
 import { QuickDestinationRow } from './QuickDestinationRow';
 import { QuickEditorShell } from './QuickEditorShell';
+import { useQuickCreateConditions } from './use-quick-create-conditions';
 import { useQuickCreateDestination } from './use-quick-create-destination';
 import { useQuickCreateSave } from './use-quick-create-save';
 
@@ -60,7 +62,10 @@ export function DelayQuickCreate({
   const [quick, setQuick] = useState<DelayQuickDraft>(seed);
   const quickRef = useRef(quick);
   quickRef.current = quick;
-  const isDirty = stableStringify(quick) !== stableStringify(seed);
+  const quickDirty = stableStringify(quick) !== stableStringify(seed);
+
+  const cond = useQuickCreateConditions(draft, strategy);
+  const isDirty = quickDirty || cond.isDirty;
 
   const dest = useQuickCreateDestination(draft.url);
 
@@ -68,7 +73,7 @@ export function DelayQuickCreate({
   const { saving, canSave, handleSave, saveLabel } = useQuickCreateSave({
     // The gate guarantees delayMs is set when Save is reachable; the
     // fallback only satisfies the narrower builder signature.
-    buildSeed: () => buildDelayRuleSeed(draft, quickRef.current.delayMs ?? 1000, name, strategy),
+    buildSeed: () => buildDelayRuleSeed(quickRef.current.delayMs ?? 1000, name, cond.conditionsRef.current),
     destination: dest.forSave,
     workspaceId,
     // min 1: a 0ms delay makes the rule a no-op (the compiler skips
@@ -95,6 +100,7 @@ export function DelayQuickCreate({
       liveRuleUid={null}
       isDirty={isDirty}
       destination={<QuickDestinationRow api={dest} />}
+      conditions={<QuickConditionsRow value={cond.conditions} onChange={cond.setConditions} />}
       onOpenInEditor={openInEditor}
       canOpenInEditor
       save={{ saving, canSave, saveLabel, onSave: () => void handleSave() }}

@@ -5,9 +5,8 @@
  * publish chain (`use-quick-create-save`).
  */
 
-import type { HeaderRuleDraft } from '@openheaders/core/types';
+import type { RuleCondition } from '@openheaders/core/types';
 import {
-  type DraftUrlStrategy,
   getHeaderOperationCapability,
   type HeaderNameValidation,
   type HeaderOperationCapability,
@@ -28,14 +27,13 @@ import { type QuickCreateDestination, type QuickCreateSaveApi, useQuickCreateSav
 type MessageApi = ReturnType<typeof App.useApp>['message'];
 
 interface UseHeaderCreateSaveArgs {
-  draft: HeaderRuleDraft;
   quick: HeaderQuickDraft;
   quickRef: RefObject<HeaderQuickDraft>;
   direction: HeaderDirection;
   name: string;
   destination: QuickCreateDestination;
   workspaceId: string | null;
-  strategy: DraftUrlStrategy;
+  conditionsRef: RefObject<RuleCondition[]>;
   mutator: UseRuleMutatorApi;
   message: MessageApi;
   onClose: () => void;
@@ -48,14 +46,13 @@ export interface HeaderCreateSaveApi extends QuickCreateSaveApi {
 }
 
 export function useHeaderCreateSave({
-  draft,
   quick,
   quickRef,
   direction,
   name,
   destination,
   workspaceId,
-  strategy,
+  conditionsRef,
   mutator,
   message,
   onClose,
@@ -82,7 +79,7 @@ export function useHeaderCreateSave({
       : null;
 
   const save = useQuickCreateSave({
-    buildSeed: () => buildHeaderRuleSeed(draft, quickRef.current, direction, name, strategy),
+    buildSeed: () => buildHeaderRuleSeed(quickRef.current, direction, name, conditionsRef.current),
     destination,
     workspaceId,
     valid:

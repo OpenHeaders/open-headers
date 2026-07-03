@@ -26,8 +26,10 @@ import {
 } from '../../data/rule-create/payload-rule-create';
 import { handOffRuleDraft } from '../../data/rule-create/rule-draft-bridge';
 import { generateSmartRuleName } from '../../data/rule-create/smart-rule-name';
+import { QuickConditionsRow } from './QuickConditionsRow';
 import { QuickDestinationRow } from './QuickDestinationRow';
 import { QuickEditorShell } from './QuickEditorShell';
+import { useQuickCreateConditions } from './use-quick-create-conditions';
 import { useQuickCreateDestination } from './use-quick-create-destination';
 import { useQuickCreateSave } from './use-quick-create-save';
 
@@ -62,13 +64,16 @@ export function RequestBodyQuickCreate({
   const [quick, setQuick] = useState<RequestBodyQuickDraft>(seed);
   const quickRef = useRef(quick);
   quickRef.current = quick;
-  const isDirty = stableStringify(quick) !== stableStringify(seed);
+  const quickDirty = stableStringify(quick) !== stableStringify(seed);
+
+  const cond = useQuickCreateConditions(draft, strategy);
+  const isDirty = quickDirty || cond.isDirty;
 
   const dest = useQuickCreateDestination(draft.url);
   const collectionId = dest.collectionId;
 
   const { saving, canSave, handleSave, saveLabel } = useQuickCreateSave({
-    buildSeed: () => buildRequestBodyRuleSeed(draft, quickRef.current, name, strategy),
+    buildSeed: () => buildRequestBodyRuleSeed(draft, quickRef.current, name, cond.conditionsRef.current),
     destination: dest.forSave,
     workspaceId,
     mutator,
@@ -100,6 +105,7 @@ export function RequestBodyQuickCreate({
       liveRuleUid={null}
       isDirty={isDirty}
       destination={<QuickDestinationRow api={dest} />}
+      conditions={<QuickConditionsRow value={cond.conditions} onChange={cond.setConditions} />}
       tags={
         draft.resourceType === 'graphql' ? (
           <Tag style={{ marginInlineEnd: 0, fontSize: 10 }} color="purple">

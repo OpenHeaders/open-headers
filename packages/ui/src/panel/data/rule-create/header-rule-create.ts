@@ -4,13 +4,19 @@
  * server-row Override CTA: the popover's Save is the publication
  * gesture — the caller creates the rule from this seed and publishes it
  * in the same flow. The seed carries one header modification in the
- * clicked row's direction; conditions derive from the captured draft
- * (URL per strategy + request methods).
+ * clicked row's direction; conditions come from the popover's editable
+ * conditions state (seeded via `buildDraftConditions`, edited in the
+ * Conditions row) and pass through unchanged.
  */
 
-import type { HeaderModification, HeaderRule, HeaderRuleDraft, HeaderRuleDraftHeader } from '@openheaders/core/types';
-import { type DraftUrlStrategy, generateUid, type HeaderDirection } from '@openheaders/core/utils';
-import { buildDraftConditions } from '@openheaders/ui/workbench/draft-conditions';
+import type {
+  HeaderModification,
+  HeaderRule,
+  HeaderRuleDraft,
+  HeaderRuleDraftHeader,
+  RuleCondition,
+} from '@openheaders/core/types';
+import { generateUid, type HeaderDirection } from '@openheaders/core/utils';
 
 export type HeaderRuleSeed = Omit<HeaderRule, 'uid' | 'path' | 'schemaVersion'>;
 
@@ -71,22 +77,21 @@ export function mergeQuickIntoHeaderDraft(
 /**
  * Build the full rule seed for `applyRuleCreate`: one modification in
  * the clicked direction (uid minted here — the persisted schema
- * requires row identity), conditions derived like the workbench does
- * for an inspector handoff draft.
+ * requires row identity), conditions passed through unchanged from the
+ * popover's Conditions row.
  */
 export function buildHeaderRuleSeed(
-  draft: HeaderRuleDraft,
   quick: HeaderQuickDraft,
   direction: HeaderDirection,
   name: string,
-  strategy: DraftUrlStrategy,
+  conditions: RuleCondition[],
 ): HeaderRuleSeed {
   const mod: HeaderModification = { uid: generateUid(), ...draftHeaderFromQuick(quick) };
   return {
     name,
     enabled: true,
     type: 'header',
-    conditions: buildDraftConditions(draft, strategy),
+    conditions,
     action: {
       requestHeaders: direction === 'request' ? [mod] : [],
       responseHeaders: direction === 'response' ? [mod] : [],
