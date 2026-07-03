@@ -60,8 +60,8 @@
   background: var(--dt-row-hover);
 }
 .dt-value-expand-tab--active {
-  background: var(--dt-link);
-  color: var(--dt-bg);
+  background: var(--dt-btn-primary-bg);
+  color: var(--dt-btn-primary-text);
 }
 .dt-value-jwt {
   display: flex;

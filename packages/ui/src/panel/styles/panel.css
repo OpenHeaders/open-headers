@@ -79,6 +79,13 @@
   --dt-accent-system: #9e9e9e;
   --dt-header-bg: #f1f1f1;
   --dt-link: #1a73e8;
+  /* Filled primary buttons (CTA rows). Separate from --dt-link: the link
+   * hue is tuned for TEXT on the page background, not as a fill behind
+   * white text. Hover darkens the fill (never opacity — fading a filled
+   * button toward the page background washes out its label). */
+  --dt-btn-primary-bg: #1a73e8;
+  --dt-btn-primary-bg-hover: #1765cc;
+  --dt-btn-primary-text: #fff;
   --dt-status-green: #00a800;
   --dt-status-red: #ff0000;
   --dt-status-orange: #e68a00;
@@ -126,6 +133,11 @@
   --dt-accent-system: #6a6a6a;
   --dt-header-bg: #292929;
   --dt-link: #8ab4f8;
+  /* Dark primary fill: a deep, muted blue with white text — the pastel
+   * --dt-link as a fill reads as a glaring light slab in dark UI. */
+  --dt-btn-primary-bg: #0e639c;
+  --dt-btn-primary-bg-hover: #1177bb;
+  --dt-btn-primary-text: #fff;
   --dt-status-green: #4caf50;
   --dt-status-red: #f44336;
   --dt-status-orange: #ffb74d;

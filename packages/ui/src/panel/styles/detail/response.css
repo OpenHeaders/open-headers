@@ -191,9 +191,9 @@
   background: var(--dt-row-hover);
 }
 .dt-response-toolbar-btn.active {
-  background: var(--dt-link);
-  color: #fff;
-  border-color: var(--dt-link);
+  background: var(--dt-btn-primary-bg);
+  color: var(--dt-btn-primary-text);
+  border-color: var(--dt-btn-primary-bg);
 }
 
 /* Override CTA — the same blue `dt-btn-primary` tag as the Headers

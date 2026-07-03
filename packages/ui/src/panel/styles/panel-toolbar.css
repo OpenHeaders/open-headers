@@ -558,9 +558,9 @@
 }
 .dt-sortmode-builder-apply {
   padding: 3px 10px;
-  border: 1px solid var(--dt-link);
-  background: var(--dt-link);
-  color: var(--dt-bg);
+  border: 1px solid var(--dt-btn-primary-bg);
+  background: var(--dt-btn-primary-bg);
+  color: var(--dt-btn-primary-text);
   font-size: 11px;
   border-radius: 3px;
   cursor: pointer;
@@ -788,13 +788,14 @@
 }
 
 .dt-btn-primary {
-  background: var(--dt-link);
-  color: #fff;
-  border-color: var(--dt-link);
+  background: var(--dt-btn-primary-bg);
+  color: var(--dt-btn-primary-text);
+  border-color: var(--dt-btn-primary-bg);
 }
 
 .dt-btn-primary:hover {
-  opacity: 0.85;
+  background: var(--dt-btn-primary-bg-hover);
+  border-color: var(--dt-btn-primary-bg-hover);
 }
 
 .dt-btn-primary:disabled {
