@@ -131,25 +131,29 @@ export default function App({ resolveIdentity }: AppProps) {
                               <FilesProvider>
                                 <OAuthBundlesProvider surfaceId="panel">
                                   <EnvSwitcherProvider>
-                                    <VariablePopoverProvider>
-                                      <RulePopoverProvider>
-                                        <DocsNavProvider>
-                                          <InfoPopoverContainerProvider
-                                            resolver={(trigger) =>
-                                              // A trigger inside the hover-anchored waterfall popover
-                                              // portals into that popover's overlay — hovering the
-                                              // nested info popover then still counts as hovering the
-                                              // outer content, so the outer popover stays open.
-                                              trigger.closest<HTMLElement>('.dt-waterfall-pop-overlay') ??
-                                              trigger.closest<HTMLElement>('.dt-panel-root') ??
-                                              null
-                                            }
-                                          >
+                                    {/* DocsNav must wrap the popover providers: the rule/variable
+                                        popover bodies render docs `(i)` affordances (ConditionEditor's
+                                        DocInfo), and the hover-host Provider renders them from ITS tree
+                                        position — below DocsNav or `useDocsNav` throws. */}
+                                    <DocsNavProvider>
+                                      <InfoPopoverContainerProvider
+                                        resolver={(trigger) =>
+                                          // A trigger inside the hover-anchored waterfall popover
+                                          // portals into that popover's overlay — hovering the
+                                          // nested info popover then still counts as hovering the
+                                          // outer content, so the outer popover stays open.
+                                          trigger.closest<HTMLElement>('.dt-waterfall-pop-overlay') ??
+                                          trigger.closest<HTMLElement>('.dt-panel-root') ??
+                                          null
+                                        }
+                                      >
+                                        <VariablePopoverProvider>
+                                          <RulePopoverProvider>
                                             <PanelContent />
-                                          </InfoPopoverContainerProvider>
-                                        </DocsNavProvider>
-                                      </RulePopoverProvider>
-                                    </VariablePopoverProvider>
+                                          </RulePopoverProvider>
+                                        </VariablePopoverProvider>
+                                      </InfoPopoverContainerProvider>
+                                    </DocsNavProvider>
                                   </EnvSwitcherProvider>
                                 </OAuthBundlesProvider>
                               </FilesProvider>
