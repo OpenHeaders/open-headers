@@ -1,237 +1,28 @@
 /**
- * Stateful HAR synthesis for the CDP correlator.
- *
- * A single `InspectorHarEntry` spans several CDP events
- * (`requestWillBeSent` → `responseReceived` → `loadingFinished`), so it
- * cannot be assembled by the pure per-event mapper. This builder
- * accumulates a partial entry per `(requestId, hopIndex)` and emits a
- * `har-attached` update once the response is known — first a partial at
- * `responseReceived`, then a refined one at `loadingFinished` carrying
- * `_transferSize` and the body-download (`receive`) leg. The store's
- * `setHopSlot` reducer overwrites the slot, so the re-attach is a clean
- * refinement (invariant 5 governs lifecycle fields, not HAR slot
- * contents).
- *
- * Redirect hops are synthesized from `requestWillBeSent.redirectResponse`:
- * each redirect carries the just-finished prior hop's full response, so
- * the prior hop's HAR lands at the builder's current hop cursor before
- * the cursor advances to the new hop. CDP reuses `requestId` across
- * hops, matching lifecycle invariants 1 and 4.
- *
- * The two `*ExtraInfo` events carry the on-the-wire header sets (the real
- * `Cookie` the page never sees; the `Set-Cookie` the cooked response
- * omits). They have no hop index and no guaranteed order vs their base
- * event, so the builder pairs them to a hop by ordinal — the k-th
- * request-extra to hop k, the k-th response-extra to hop k (hops finalize
- * strictly in order, so the response ordinal tracks the hop). An extra
- * that arrives before its hop is stashed and applied when the base event
- * creates the hop; one that arrives after re-emits a refined `har-attached`
- * immediately. The merged headers supersede the cooked base headers
- * wholesale for the section they cover (see {@link ./cdp-har-synth}).
- *
- * State posture mirrors the heuristic correlator's per-tab maps: scoped
- * by tab, cleared by {@link CdpHarBuilder.forgetTab}, bounded by a per-tab
- * cap on concurrent in-flight requests, and pruned by a lazy retention
- * sweep after a terminal event (no timers — the monotonic event
- * timestamp drives gc, keeping it deterministic under fake clocks and
- * SW-suspend-safe). The pure shape conversions live in
- * {@link ./cdp-har-synth}.
+ * The stateful builder class — folds CDP events into per-(tab, request)
+ * HAR accumulation state and emits `har-attached` / progress updates.
+ * Module docblock with the full synthesis contract rides `./index.ts`.
  */
 
 import type { RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle';
-import type { InspectorHarEntry } from '@openheaders/core/types';
 
+import { totalTimeMs, wallTimeToIso } from '../cdp-har-synth';
+import type { CdpWallClockResolver } from '../cdp-wall-clock';
+import { type CdpNetworkEvent, type CdpResponseParams, cdpStoreRequestId } from '../events';
+import { emitHop, requestHeaderUpdate } from './emit';
 import {
-  cdpBlockedTimings,
-  cdpInitiatorToHar,
-  cdpRawTiming,
-  cdpRequestToHar,
-  cdpResponseToHar,
-  cdpTimingToHar,
-  harTimeFromTimings,
-  headerRecordToHar,
-  totalTimeMs,
-  wallTimeToIso,
-} from './cdp-har-synth';
-import type { CdpWallClockResolver } from './cdp-wall-clock';
-import {
-  type CdpInitiator,
-  type CdpNetworkEvent,
-  type CdpRequestParams,
-  type CdpResponseParams,
-  cdpStoreRequestId,
-} from './events';
-
-/**
- * Per-tab cap on concurrently-tracked requests. Bounds the leak from
- * requests that never reach a terminal event (no `loadingFinished` /
- * `loadingFailed`); oldest-inserted evicts first. Same envelope as the
- * heuristic correlator's in-flight maps.
- */
-export const MAX_CDP_HAR_REQUESTS_PER_TAB = 5_000;
-
-/**
- * Window a finalized request's builder state is retained after its
- * terminal event, so a trailing/duplicate event still refines rather
- * than orphaning. Measured against the monotonic event timestamp.
- * Bounded — this holds per-request memory on exactly the high-volume
- * tabs CDP targets, so it stays capped, matching the heuristic's
- * retention envelope.
- */
-export const CDP_HAR_RETENTION_MS = 60_000;
-
-/**
- * Per-tab cap on retained body refs (see {@link CdpBodyRef}). Sized to the
- * store's per-tab lifecycle cap so a row still viewable in the panel always
- * resolves a ref — the lazy body fetch (Slice 8) is keyed off the same
- * identity. Refs are a handful of strings each, so this is cheap; unlike
- * the HAR partials they survive the {@link CDP_HAR_RETENTION_MS} gc, since
- * a body can be fetched long after its lifecycle finalized.
- */
-export const MAX_CDP_BODY_REFS_PER_TAB = 10_000;
-
-const secondsToMs = (t: number): number => Math.round(t * 1000);
-
-/**
- * HAR `_connectionId` (stringified physical connection id), or `undefined`
- * when there is none — CDP reports `0` for a request that opened no socket
- * (cache hits, data: URLs), which Chrome's exporter omits.
- */
-function connectionIdString(connectionId: number | undefined): string | undefined {
-  return connectionId === undefined || connectionId === 0 ? undefined : String(connectionId);
-}
-
-/**
- * Whether a response is a disk-cache hit — HAR `_fromCache: 'disk'`. Mirrors
- * Chrome's `cached()`: served from disk cache with nothing on the wire.
- * (Memory-cache detection needs the Resource Timing relay's signal, deferred.)
- */
-function isDiskCacheHit(response: CdpResponseParams | undefined, transferSize: number | undefined): boolean {
-  return Boolean(response?.fromDiskCache) && !transferSize;
-}
-
-/**
- * Synthetic status-0 response for a request that failed before any real
- * response (a blocked beacon). Chrome still exports a full entry for these
- * — request + a `status: 0` response carrying the `_error` — so we
- * reconstruct the same shape from the request alone.
- */
-function blockedResponse(url: string): CdpResponseParams {
-  return { url, status: 0, statusText: '' };
-}
-
-/**
- * The minimum a lazy body fetch needs to issue `Network.getResponseBody`
- * and shape the resulting `InspectorHarBody`: the raw CDP identity the
- * command targets, plus the source request's descriptive fields. Recorded
- * per store id at request time and kept past the HAR-partial gc — a body
- * may be opened long after the request finalized.
- */
-export interface CdpBodyRef {
-  /** The session the request lives on — `Network.getResponseBody` routes here. */
-  readonly sessionId: string;
-  /** The session-local CDP `requestId` (not the composite store id). */
-  readonly rawRequestId: string;
-  readonly method: string;
-  readonly url: string;
-  readonly startedDateTime: string;
-}
-
-/**
- * Everything a body fetch needs to pick its command and shape the result:
- * the {@link CdpBodyRef} identity, whether the request is still in flight
- * (no terminal event yet — routes the fetch to `streamResourceContent`,
- * the only command that serves an unfinished request's bytes-so-far; a
- * finished request routes to `getResponseBody`), and the current hop's
- * MIME type + charset, which decode a streamed raw-bytes body to text.
- * Composed at query time from the live HAR state; a request whose state
- * was retention-swept reads as finished (only finalized states are swept).
- */
-export interface CdpBodyFetchContext extends CdpBodyRef {
-  readonly inFlight: boolean;
-  readonly mimeType?: string;
-  readonly charset?: string;
-}
-
-interface HopPartial {
-  /** Wall-clock ISO start, stamped from this hop's `requestWillBeSent.wallTime`. */
-  readonly startedDateTime: string;
-  /** Monotonic issue time (`requestWillBeSent.timestamp`, seconds) — the base
-   *  for HAR `timings._blocked_queueing` against the timing's `requestTime`. */
-  readonly issuedSec: number;
-  readonly request: CdpRequestParams;
-  /** `Network.Initiator` for this hop — forwarded verbatim as HAR `_initiator`. */
-  readonly initiator?: CdpInitiator;
-  /** Set once the response (or `redirectResponse` for a prior hop) is known. */
-  response?: CdpResponseParams;
-  /** Wire bytes, known at the hop's terminal/redirect point — HAR `_transferSize`. */
-  transferSize?: number;
-  /** Decoded body bytes, summed from `dataReceived` — HAR `content.size`. */
-  contentSize?: number;
-  /** CDP `ResourceType` for this hop (`Media`, `XHR`, …) — HAR `_resourceType`, lowercased. */
-  readonly resourceType?: string;
-  /** Net-stack code from a terminal `loadingFailed` (`net::ERR_*`) — HAR `_error`. */
-  error?: string;
-  /** Total span in ms, computed at the hop's terminal/redirect point — HAR `time`. */
-  totalMs?: number;
-  /** Monotonic `responseReceived` event instant (seconds) — `_rawTiming`'s
-   *  wait-boundary clamp source. Absent on a redirect hop (no discrete event). */
-  responseReceivedSec?: number;
-  /** Monotonic terminal instant (seconds): `loadingFinished`/`loadingFailed`,
-   *  or the next hop's request for a redirect — `_rawTiming.endSec`. */
-  terminalSec?: number;
-}
-
-interface RequestHarState {
-  /** Hop index the live response events currently attribute to. */
-  hopCursor: number;
-  /** Dense per-hop partials; index = hop number. */
-  readonly hops: HopPartial[];
-  /** On-the-wire request headers per hop (ordinal-paired ExtraInfo); index = hop. */
-  readonly requestExtraByHop: Array<Readonly<Record<string, string>>>;
-  /** On-the-wire response headers per hop (ordinal-paired ExtraInfo); index = hop. */
-  readonly responseExtraByHop: Array<Readonly<Record<string, string>>>;
-  /** Next hop ordinal a `requestWillBeSentExtraInfo` attributes to. */
-  reqExtraCursor: number;
-  /** Next hop ordinal a `responseReceivedExtraInfo` attributes to. */
-  respExtraCursor: number;
-  /** Monotonic ms of the terminal event, once seen — drives retention gc. */
-  finalizedAtMs?: number;
-}
-
-function newRequestHarState(): RequestHarState {
-  return {
-    hopCursor: 0,
-    hops: [],
-    requestExtraByHop: [],
-    responseExtraByHop: [],
-    reqExtraCursor: 0,
-    respExtraCursor: 0,
-  };
-}
-
-/**
- * Move an on-the-wire header set ordinal-mis-paired to an internal-redirect
- * hop (`from`) onto the live hop (`to`). No-op unless `from` actually holds an
- * extra and `to` is still empty — so a correctly-paired set is never disturbed.
- */
-function shiftExtraToLiveHop(byHop: Array<Readonly<Record<string, string>>>, from: number, to: number): void {
-  const extra = byHop[from];
-  if (extra !== undefined && byHop[to] === undefined) {
-    byHop[to] = extra;
-    delete byHop[from];
-  }
-}
-
-/**
- * Default monotonic→wall resolver — treats the monotonic instant as wall ms
- * when no per-request offset is known, the same zero-offset degradation
- * {@link ../correlator-cdp/cdp-wall-clock.CdpWallClock} documents. Production
- * always injects the correlator's real resolver; this keeps the builder
- * independently constructible (HAR-synthesis tests that don't exercise the
- * wall clock) without a silent `undefined`.
- */
-const passThroughWallMs: CdpWallClockResolver = (_tabId, _sessionId, _requestId, monotonicSec) => monotonicSec * 1000;
+  blockedResponse,
+  CDP_HAR_RETENTION_MS,
+  type CdpBodyFetchContext,
+  type CdpBodyRef,
+  MAX_CDP_BODY_REFS_PER_TAB,
+  MAX_CDP_HAR_REQUESTS_PER_TAB,
+  newRequestHarState,
+  passThroughWallMs,
+  type RequestHarState,
+  secondsToMs,
+  shiftExtraToLiveHop,
+} from './state';
 
 export class CdpHarBuilder {
   /** Resolves a body chunk's monotonic `timestamp` to wall ms for the in-flight
@@ -401,7 +192,7 @@ export class CdpHarBuilder {
     // Surface the new hop's request headers immediately — cooked (provisional)
     // unless an early extra already supplied the on-the-wire set. This is the
     // only path that shows request headers before the response-gated HAR lands.
-    const headers = this.requestHeaderUpdate(event.tabId, requestId, state, state.hopCursor);
+    const headers = requestHeaderUpdate(event.tabId, requestId, state, state.hopCursor);
     if (headers !== undefined) updates.push(headers);
     return updates;
   }
@@ -419,36 +210,6 @@ export class CdpHarBuilder {
     shiftExtraToLiveHop(state.responseExtraByHop, internalHop, state.hopCursor);
     state.reqExtraCursor = Math.max(state.reqExtraCursor, state.hopCursor);
     state.respExtraCursor = Math.max(state.respExtraCursor, state.hopCursor);
-  }
-
-  /**
-   * A `phase` patch carrying the current hop's request headers + their
-   * provisional status, or `undefined` when there is no live hop to describe.
-   * Effective headers are the on-the-wire set once paired, else the cooked
-   * request set — the same `extra ?? cooked` precedence the HAR uses; provisional
-   * means the on-the-wire set has not arrived. Emitted only for the live hop
-   * cursor so a late lower-hop extra cannot patch a superseded hop's headers
-   * back onto the lifecycle's current hop.
-   */
-  private requestHeaderUpdate(
-    tabId: number,
-    requestId: string,
-    state: RequestHarState,
-    hopIndex: number,
-  ): RequestLifecycleUpdate | undefined {
-    if (hopIndex !== state.hopCursor) return undefined;
-    const hop = state.hops[hopIndex];
-    if (hop === undefined) return undefined;
-    const wire = state.requestExtraByHop[hopIndex];
-    return {
-      kind: 'phase',
-      tabId,
-      requestId,
-      patch: {
-        requestHeaders: headerRecordToHar(wire ?? hop.request.headers),
-        requestHeadersProvisional: wire === undefined,
-      },
-    };
   }
 
   /**
@@ -496,7 +257,7 @@ export class CdpHarBuilder {
     hop.totalMs =
       totalTimeMs(redirectResponse.timing, nextRequestSec) ?? Math.max(0, (nextRequestSec - hop.issuedSec) * 1000);
     hop.terminalSec = nextRequestSec;
-    return this.emitHop(tabId, requestId, state, hopIndex);
+    return emitHop(tabId, requestId, state, hopIndex);
   }
 
   private onResponse(
@@ -518,7 +279,7 @@ export class CdpHarBuilder {
     hop.response = response;
     hop.responseReceivedSec = timestampSec;
     if (response.encodedDataLength !== undefined) hop.transferSize = response.encodedDataLength;
-    return this.collect(this.emitHop(tabId, requestId, state, hopIndex));
+    return this.collect(emitHop(tabId, requestId, state, hopIndex));
   }
 
   /**
@@ -579,7 +340,7 @@ export class CdpHarBuilder {
     hop.transferSize = encodedDataLength;
     hop.totalMs = totalTimeMs(hop.response.timing, finishedSec);
     hop.terminalSec = finishedSec;
-    return this.collect(this.emitHop(tabId, requestId, state, hopIndex));
+    return this.collect(emitHop(tabId, requestId, state, hopIndex));
   }
 
   /**
@@ -617,7 +378,7 @@ export class CdpHarBuilder {
     } else {
       hop.totalMs = totalTimeMs(hop.response.timing, failedSec);
     }
-    return this.collect(this.emitHop(tabId, requestId, state, hopIndex));
+    return this.collect(emitHop(tabId, requestId, state, hopIndex));
   }
 
   // ── WebSocket HAR synthesis ──────────────────────────────────────────
@@ -663,7 +424,7 @@ export class CdpHarBuilder {
       issuedSec: event.timestamp,
       request: { ...hop.request, headers: event.headers },
     };
-    const headers = this.requestHeaderUpdate(event.tabId, requestId, state, 0);
+    const headers = requestHeaderUpdate(event.tabId, requestId, state, 0);
     return headers === undefined ? [] : [headers];
   }
 
@@ -687,10 +448,10 @@ export class CdpHarBuilder {
     const updates: RequestLifecycleUpdate[] = [];
     if (event.response.requestHeaders !== undefined) {
       state.requestExtraByHop[0] = event.response.requestHeaders;
-      const promoted = this.requestHeaderUpdate(event.tabId, requestId, state, 0);
+      const promoted = requestHeaderUpdate(event.tabId, requestId, state, 0);
       if (promoted !== undefined) updates.push(promoted);
     }
-    const emitted = this.emitHop(event.tabId, requestId, state, 0);
+    const emitted = emitHop(event.tabId, requestId, state, 0);
     if (emitted !== undefined) updates.push(emitted);
     return updates;
   }
@@ -705,7 +466,7 @@ export class CdpHarBuilder {
     if (state === undefined || hop === undefined || hop.response === undefined) return [];
     if (!Number.isNaN(hop.issuedSec)) hop.totalMs = (closedSec - hop.issuedSec) * 1000;
     hop.terminalSec = closedSec;
-    return this.collect(this.emitHop(tabId, requestId, state, 0));
+    return this.collect(emitHop(tabId, requestId, state, 0));
   }
 
   /**
@@ -729,7 +490,7 @@ export class CdpHarBuilder {
     // so an in-flight row stops showing provisional as soon as the real set is
     // known. A no-op when the base hop has not landed yet (extra-before-base):
     // `onRequest` will emit the non-provisional set when it adopts the stash.
-    const promoted = this.requestHeaderUpdate(tabId, requestId, state, hopIndex);
+    const promoted = requestHeaderUpdate(tabId, requestId, state, hopIndex);
     const reemit = this.reemitIfResponded(tabId, requestId, state, hopIndex);
     return promoted === undefined ? reemit : [promoted, ...reemit];
   }
@@ -757,85 +518,7 @@ export class CdpHarBuilder {
     // No hop yet, or no response yet: the stash applies when the response
     // lands (extra-before-base). Re-emit only once there is a HAR to refine.
     if (hop === undefined || hop.response === undefined) return [];
-    return this.collect(this.emitHop(tabId, requestId, state, hopIndex));
-  }
-
-  private emitHop(
-    tabId: number,
-    requestId: string,
-    state: RequestHarState,
-    hopIndex: number,
-  ): RequestLifecycleUpdate | undefined {
-    const hop = state.hops[hopIndex];
-    if (hop === undefined) return undefined;
-    const response = hop.response;
-    const requestExtra = state.requestExtraByHop[hopIndex];
-    const responseExtra = state.responseExtraByHop[hopIndex];
-    const connectionId = connectionIdString(response?.connectionId);
-    const timings =
-      response?.timing !== undefined
-        ? cdpTimingToHar(response.timing, hop.totalMs, hop.issuedSec)
-        : // A failed-before-response hop has no ResourceTiming; attribute the
-          // whole span to `blocked`, matching Chrome's no-response branch.
-          hop.error !== undefined && hop.totalMs !== undefined
-          ? cdpBlockedTimings(hop.totalMs)
-          : undefined;
-    // The unfolded raw instants behind the export-dialect `timings` — only a
-    // hop with real ResourceTiming carries them (a synthesized blocked
-    // response has no instants to unfold).
-    const rawTiming =
-      response?.timing !== undefined
-        ? cdpRawTiming(response.timing, hop.issuedSec, hop.responseReceivedSec, hop.terminalSec)
-        : undefined;
-    // `time` is the leg-sum once a terminal arrives (matching Chrome); a
-    // pre-terminal partial leaves it absent, the signal that it has not
-    // refined yet.
-    const time =
-      hop.totalMs === undefined ? undefined : timings !== undefined ? harTimeFromTimings(timings) : hop.totalMs;
-    const diskCacheHit = isDiskCacheHit(response, hop.transferSize);
-    // Key order mirrors Chrome's exporter (`EntryDTO`); `pageref` is
-    // appended downstream by the HAR exporter.
-    const har: InspectorHarEntry = {
-      _initiator: cdpInitiatorToHar(hop.initiator),
-      _priority: hop.request.initialPriority ?? null,
-      // Request side: `requestWillBeSentExtraInfo` carries the on-the-wire
-      // set, captured after the engine's rewrite — an applied modification
-      // is visible there. Response side: ground-truthed PRE-rewrite for a
-      // wire-crossing response — the fire-evidence probe
-      // (playground/scripts/probe-fire-evidence.mjs) observed
-      // `responseReceivedExtraInfo` holding the server's original header
-      // while the page received the DNR-rewritten value, so a response
-      // claim can never be judged against it and the section stays `raw`.
-      // A disk-cache hit never crossed the wire: its cooked response set is
-      // the SERVED one with the engine's rewrite re-applied (probe-observed
-      // carrying the rewritten value), so that case alone is `effective` —
-      // unless an ExtraInfo set landed anyway, which supersedes the cooked
-      // headers wholesale and is wire-raw by definition.
-      _ohHeaderCapture: {
-        request: requestExtra !== undefined ? 'effective' : 'raw',
-        response: diskCacheHit && responseExtra === undefined ? 'effective' : 'raw',
-      },
-      _ohEntrySource: 'cdp',
-      ...(hop.resourceType !== undefined ? { _resourceType: hop.resourceType.toLowerCase() } : {}),
-      // Empty object, HAR-spec-required and emitted on every Chrome entry.
-      cache: {},
-      ...(response?.remotePort !== undefined ? { connection: String(response.remotePort) } : {}),
-      request: cdpRequestToHar(hop.request, response?.protocol, requestExtra),
-      ...(response !== undefined
-        ? { response: cdpResponseToHar(response, hop.transferSize, hop.contentSize, hop.error, responseExtra) }
-        : {}),
-      // IPv6 normalization, matched verbatim to Chrome's exporter (it strips
-      // only an empty `[]` sequence; real bracketed addresses pass through).
-      // Always present, like Chrome (`''` when no peer address is known).
-      serverIPAddress: (response?.remoteIPAddress ?? '').replace(/\[\]/g, ''),
-      startedDateTime: hop.startedDateTime,
-      ...(time !== undefined ? { time } : {}),
-      ...(timings !== undefined ? { timings } : {}),
-      ...(isDiskCacheHit(response, hop.transferSize) ? { _fromCache: 'disk' } : {}),
-      ...(connectionId !== undefined ? { _connectionId: connectionId } : {}),
-      ...(rawTiming !== undefined ? { _rawTiming: rawTiming } : {}),
-    };
-    return { kind: 'har-attached', tabId, requestId, hopIndex, har };
+    return this.collect(emitHop(tabId, requestId, state, hopIndex));
   }
 
   private collect(update: RequestLifecycleUpdate | undefined): readonly RequestLifecycleUpdate[] {
