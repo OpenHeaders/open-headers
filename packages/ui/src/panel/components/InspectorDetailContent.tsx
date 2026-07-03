@@ -6,7 +6,7 @@
 
 import type { Page } from '@openheaders/core/page-stream';
 import type { LifecycleSource, RequestLifecycle } from '@openheaders/core/request-lifecycle';
-import type { Rule } from '@openheaders/core/types';
+import type { BlockRuleDraft, DelayRuleDraft, RedirectRuleDraft, Rule } from '@openheaders/core/types';
 import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ConnectionReuseInfo } from '../data/connection-reuse';
@@ -49,7 +49,7 @@ import PreviewView from './detail/PreviewView';
 import RawDataView from './detail/RawDataView';
 import TimingView from './detail/TimingView';
 import { ResponseBodyView } from './ResponseBodyView';
-import { useRulePopover } from './RulePopoverHost';
+import { type UrlCreateVariant, useRulePopover } from './RulePopoverHost';
 
 interface InspectorDetailContentProps {
   row: InspectorRowWithFires;
@@ -358,11 +358,24 @@ export function InspectorDetailContent({
       { pinned: true },
     );
   };
-  const createRedirect = (): void => void handOff(() => buildRedirectDraftFromRequest(lc));
-  const createReplaceHost = (): void => void handOff(() => buildReplaceHostDraftFromRequest(lc));
-  const createReplaceUrlPart = (): void => void handOff(() => buildReplaceUrlPartDraftFromRequest(lc));
-  const createDelay = (): void => void handOff(() => buildDelayDraftFromRequest(lc));
-  const createCancel = (): void => void handOff(() => buildBlockDraftFromRequest(lc));
+  // Headers-tab CTA row — each gesture opens the URL-action create
+  // popover pinned to its button, seeded like the workbench handoff was.
+  const openUrlCreate = (
+    draft: RedirectRuleDraft | DelayRuleDraft | BlockRuleDraft,
+    variant: UrlCreateVariant,
+    anchorEl: HTMLElement,
+  ): void => {
+    rulePopover.open({ mode: 'create-url', anchorEl, draft, variant, requestId: lc.requestId }, { pinned: true });
+  };
+  const createRedirect = (anchorEl: HTMLElement): void =>
+    openUrlCreate(buildRedirectDraftFromRequest(lc), 'redirect', anchorEl);
+  const createReplaceHost = (anchorEl: HTMLElement): void =>
+    openUrlCreate(buildReplaceHostDraftFromRequest(lc), 'replace-host', anchorEl);
+  const createReplaceUrlPart = (anchorEl: HTMLElement): void =>
+    openUrlCreate(buildReplaceUrlPartDraftFromRequest(lc), 'replace-url-part', anchorEl);
+  const createDelay = (anchorEl: HTMLElement): void => openUrlCreate(buildDelayDraftFromRequest(lc), 'delay', anchorEl);
+  const createCancel = (anchorEl: HTMLElement): void =>
+    openUrlCreate(buildBlockDraftFromRequest(lc), 'block', anchorEl);
   const createOverrideRequestBody = (): void =>
     void handOff(() => buildRequestBodyDraftFromRequest(lc, capturedRequestBodyDraftInput(lc, har)));
   const createOverrideQueryParams = (): void =>

@@ -6,12 +6,22 @@
  * `useDismiss`, fresh mount per session).
  */
 
-import type { HeaderRuleDraft, ResponseRuleDraft, Rule } from '@openheaders/core/types';
+import type {
+  BlockRuleDraft,
+  DelayRuleDraft,
+  HeaderRuleDraft,
+  RedirectRuleDraft,
+  ResponseRuleDraft,
+  Rule,
+} from '@openheaders/core/types';
 import type { HeaderDirection } from '@openheaders/core/utils';
 import { createHoverPopoverHost, type HoverPopoverBodyProps } from '@openheaders/ui/shared/popover';
 import type { HeaderAttribution } from '../data/header-attribution';
 import type { RuleApplicability } from '../data/rule-applicability';
+import { BlockQuickCreate } from './rule-quick-editor/BlockQuickCreate';
+import { DelayQuickCreate } from './rule-quick-editor/DelayQuickCreate';
 import { HeaderQuickCreate } from './rule-quick-editor/HeaderQuickCreate';
+import { RedirectQuickCreate } from './rule-quick-editor/RedirectQuickCreate';
 import { ResponseQuickCreate } from './rule-quick-editor/ResponseQuickCreate';
 import { ResponseQuickEditor } from './rule-quick-editor/ResponseQuickEditor';
 import { RuleHoverPopover, type RuleHoverPopoverTarget } from './RuleHoverPopover';
@@ -36,6 +46,22 @@ interface HeaderCreatePopoverState {
   direction: HeaderDirection;
   /** Inspected request — with the direction and the clicked header's
    *  name, the popover's session identity. */
+  requestId: string;
+}
+
+/** Which CTA opened a URL-action create session. The three redirect
+ *  variants share a rule type but seed different targets, so the
+ *  variant — not the type — is the per-request session discriminator. */
+export type UrlCreateVariant = 'redirect' | 'replace-host' | 'replace-url-part' | 'delay' | 'block';
+
+/** Create mode for the URL-action rules (redirect / delay / block) —
+ *  opened from the Headers tab's CTA row; Save mints + publishes. */
+interface UrlCreatePopoverState {
+  mode: 'create-url';
+  anchorEl: HTMLElement;
+  draft: RedirectRuleDraft | DelayRuleDraft | BlockRuleDraft;
+  variant: UrlCreateVariant;
+  /** Inspected request — with the variant, the popover's session identity. */
   requestId: string;
 }
 
@@ -66,7 +92,11 @@ interface RuleEditPopoverState {
   applicability?: RuleApplicability | null;
 }
 
-type RulePopoverState = RuleEditPopoverState | ResponseCreatePopoverState | HeaderCreatePopoverState;
+type RulePopoverState =
+  | RuleEditPopoverState
+  | ResponseCreatePopoverState
+  | HeaderCreatePopoverState
+  | UrlCreatePopoverState;
 
 const POPOVER_INSIDE_SELECTORS: ReadonlyArray<string> = [
   '[data-rule-popover-root]',
@@ -107,6 +137,18 @@ function RulePopoverBody({
         visible={visible}
       />
     );
+  }
+  if (state.mode === 'create-url') {
+    const common = {
+      anchorEl: state.anchorEl,
+      onClose,
+      onMouseEnter,
+      onMouseLeave,
+      visible,
+    };
+    if (state.draft.type === 'redirect') return <RedirectQuickCreate {...common} draft={state.draft} />;
+    if (state.draft.type === 'delay') return <DelayQuickCreate {...common} draft={state.draft} />;
+    return <BlockQuickCreate {...common} draft={state.draft} />;
   }
   if (state.mode === 'create-header') {
     return (
@@ -156,6 +198,7 @@ const host = createHoverPopoverHost<RulePopoverState>({
     // request the draft was captured from (plus, for headers, the
     // clicked row so each Override button is its own session).
     if (s.mode === 'create-response') return `create-response|${s.requestId}`;
+    if (s.mode === 'create-url') return `create-url|${s.requestId}|${s.variant}`;
     if (s.mode === 'create-header') {
       const mods = s.direction === 'request' ? s.draft.requestHeaders : s.draft.responseHeaders;
       return `create-header|${s.requestId}|${s.direction}|${mods?.[0]?.headerName ?? ''}`;

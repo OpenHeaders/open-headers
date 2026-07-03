@@ -22,11 +22,16 @@ import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import { App, Tag } from 'antd';
 import { useRef, useState } from 'react';
 import { handOffRuleDraft } from '../../data/rule-draft-bridge';
-import { generateResponseRuleName, mergeQuickIntoResponseDraft, seedQuickDraft } from '../../data/response-rule-create';
+import {
+  buildResponseRuleSeed,
+  generateResponseRuleName,
+  mergeQuickIntoResponseDraft,
+  seedQuickDraft,
+} from '../../data/response-rule-create';
 import type { ResponseQuickDraft } from '../../data/response-rule-edit';
 import { QuickEditorShell } from './QuickEditorShell';
 import { ResponseQuickFields } from './ResponseQuickFields';
-import { useResponseCreateSave } from './use-response-create-save';
+import { useQuickCreateSave } from './use-quick-create-save';
 
 export interface ResponseQuickCreateProps {
   anchorEl: HTMLElement;
@@ -68,12 +73,9 @@ export function ResponseQuickCreate({
   // fallback `useTabOpeners.openCreateTab` applies in the workbench.
   const parentPath = localCollections[0]?.path ?? null;
 
-  const { saving, canSave, handleSave, saveLabel } = useResponseCreateSave({
-    draft,
-    quickRef,
-    name,
+  const { saving, canSave, handleSave, saveLabel } = useQuickCreateSave({
+    buildSeed: () => buildResponseRuleSeed(draft, quickRef.current, name, strategy),
     parentPath,
-    strategy,
     mutator,
     message,
     onClose,

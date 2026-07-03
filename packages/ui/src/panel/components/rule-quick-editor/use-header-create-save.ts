@@ -1,10 +1,8 @@
 /**
  * Save subsystem for the header quick-editor's CREATE mode: validation
  * gate (same core validators as the edit popover's save hook — broken
- * mods never reach the rule store), seed build, create, and the
- * publication gate — the popover's Save IS the publication gesture.
- * Create Save needs no dirty gate (the user asked to override this
- * header), only a valid draft.
+ * mods never reach the rule store) on top of the shared create →
+ * publish chain (`use-quick-create-save`).
  */
 
 import type { HeaderRuleDraft } from '@openheaders/core/types';
@@ -19,9 +17,9 @@ import {
 } from '@openheaders/core/utils';
 import type { UseRuleMutatorApi } from '@openheaders/ui/shared/hooks/useRuleMutator';
 import type { App } from 'antd';
-import { type RefObject, useState } from 'react';
+import type { RefObject } from 'react';
 import { buildHeaderRuleSeed, type HeaderDirection, type HeaderQuickDraft } from '../../data/header-rule-create';
-import { useSaveShortcut } from './use-save-shortcut';
+import { type QuickCreateSaveApi, useQuickCreateSave } from './use-quick-create-save';
 
 type MessageApi = ReturnType<typeof App.useApp>['message'];
 
@@ -39,14 +37,10 @@ interface UseHeaderCreateSaveArgs {
   onClose: () => void;
 }
 
-export interface HeaderCreateSaveApi {
-  saving: boolean;
-  canSave: boolean;
+export interface HeaderCreateSaveApi extends QuickCreateSaveApi {
   nameValidation: HeaderNameValidation | { valid: true; message: string };
   valueValidation: HeaderValueValidation | { valid: true; message: string };
   capability: HeaderOperationCapability | null;
-  handleSave: () => Promise<void>;
-  saveLabel: string;
 }
 
 export function useHeaderCreateSave({
@@ -61,37 +55,6 @@ export function useHeaderCreateSave({
   message,
   onClose,
 }: UseHeaderCreateSaveArgs): HeaderCreateSaveApi {
-  const [saving, setSaving] = useState(false);
-
-  const handleSave = async () => {
-    if (!parentPath) {
-      message.error('Create a collection in the workspace first.');
-      return;
-    }
-    setSaving(true);
-    try {
-      const seed = buildHeaderRuleSeed(draft, quickRef.current, direction, name, strategy);
-      const created = await mutator.createRule(seed, parentPath);
-      if (!created.ok) {
-        const detail = created.reason === 'other' ? created.message : undefined;
-        message.error(detail ?? 'Failed to create rule');
-        return;
-      }
-      const published = await mutator.publishRule(created.rule.uid);
-      if (!published.ok) {
-        message.warning('Rule created as a draft — publish it from the workspace.');
-        onClose();
-        return;
-      }
-      message.success('Rule created');
-      onClose();
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const { saveLabel, handleSaveRef } = useSaveShortcut();
-
   // Same validators the edit popover and the workbench editor use.
   // Templates pass through (resolved at runtime; structural validity
   // isn't decidable at edit time).
@@ -107,13 +70,15 @@ export function useHeaderCreateSave({
       : { valid: true as const, message: '' };
   const capability = getHeaderOperationCapability(direction, quick.operation, quick.headerName);
 
-  const canSave =
-    !saving &&
-    trimmedName.length > 0 &&
-    nameValidation.valid &&
-    valueValidation.valid &&
-    (!capability || capability.allowed);
-  handleSaveRef.current = canSave ? () => void handleSave() : null;
+  const save = useQuickCreateSave({
+    buildSeed: () => buildHeaderRuleSeed(draft, quickRef.current, direction, name, strategy),
+    parentPath,
+    valid:
+      trimmedName.length > 0 && nameValidation.valid && valueValidation.valid && (!capability || capability.allowed),
+    mutator,
+    message,
+    onClose,
+  });
 
-  return { saving, canSave, nameValidation, valueValidation, capability, handleSave, saveLabel };
+  return { ...save, nameValidation, valueValidation, capability };
 }

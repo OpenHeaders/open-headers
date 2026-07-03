@@ -1,52 +1,52 @@
 /**
- * Save subsystem for the response quick-editor's CREATE mode: build the
- * seed, mint the entity, and cross the publication gate — the popover's
- * Save IS the publication gesture (parity with the workbench scratch
- * Save in `useSaveRuleFlow.persist`). Create Save is always meaningful
- * (the user asked to override this response), so the gate is just
- * !saving — no dirty tracking.
+ * Shared save chain for every quick-editor CREATE body: build the seed,
+ * mint the entity, and cross the publication gate — the popover's Save
+ * IS the publication gesture (parity with the workbench scratch Save in
+ * `useSaveRuleFlow.persist`). The write client forces `published:
+ * false` at creation; publishing is the explicit second step, and a
+ * publish failure degrades honestly to a draft.
+ *
+ * Per-type bodies supply `buildSeed` (reading their live form state via
+ * a ref) and an optional `valid` gate on top of the always-on `!saving`
+ * — create Save needs no dirty gate (the user asked for the rule), only
+ * a valid draft.
  */
 
-import type { ResponseRuleDraft } from '@openheaders/core/types';
-import type { DraftUrlStrategy } from '@openheaders/core/utils';
+import type { RuleSeed } from '@openheaders/core/utils';
 import type { UseRuleMutatorApi } from '@openheaders/ui/shared/hooks/useRuleMutator';
 import type { App } from 'antd';
-import { type RefObject, useState } from 'react';
-import { buildResponseRuleSeed } from '../../data/response-rule-create';
-import type { ResponseQuickDraft } from '../../data/response-rule-edit';
+import { useState } from 'react';
 import { useSaveShortcut } from './use-save-shortcut';
 
 type MessageApi = ReturnType<typeof App.useApp>['message'];
 
-interface UseResponseCreateSaveArgs {
-  draft: ResponseRuleDraft;
-  quickRef: RefObject<ResponseQuickDraft>;
-  name: string;
+interface UseQuickCreateSaveArgs {
+  /** Builds the full rule seed from the CURRENT form state. */
+  buildSeed: () => RuleSeed;
   /** Destination collection path — null when the workspace has none. */
   parentPath: string | null;
-  strategy: DraftUrlStrategy;
+  /** Extra validity gate on top of `!saving`; defaults to true. */
+  valid?: boolean;
   mutator: UseRuleMutatorApi;
   message: MessageApi;
   onClose: () => void;
 }
 
-export interface ResponseCreateSaveApi {
+export interface QuickCreateSaveApi {
   saving: boolean;
   canSave: boolean;
   handleSave: () => Promise<void>;
   saveLabel: string;
 }
 
-export function useResponseCreateSave({
-  draft,
-  quickRef,
-  name,
+export function useQuickCreateSave({
+  buildSeed,
   parentPath,
-  strategy,
+  valid = true,
   mutator,
   message,
   onClose,
-}: UseResponseCreateSaveArgs): ResponseCreateSaveApi {
+}: UseQuickCreateSaveArgs): QuickCreateSaveApi {
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -56,8 +56,7 @@ export function useResponseCreateSave({
     }
     setSaving(true);
     try {
-      const seed = buildResponseRuleSeed(draft, quickRef.current, name, strategy);
-      const created = await mutator.createRule(seed, parentPath);
+      const created = await mutator.createRule(buildSeed(), parentPath);
       if (!created.ok) {
         const detail = created.reason === 'other' ? created.message : undefined;
         message.error(detail ?? 'Failed to create rule');
@@ -78,7 +77,7 @@ export function useResponseCreateSave({
 
   const { saveLabel, handleSaveRef } = useSaveShortcut();
 
-  const canSave = !saving;
+  const canSave = !saving && valid;
   handleSaveRef.current = canSave ? () => void handleSave() : null;
 
   return { saving, canSave, handleSave, saveLabel };

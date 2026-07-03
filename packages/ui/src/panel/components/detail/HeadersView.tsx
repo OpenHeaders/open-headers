@@ -73,15 +73,15 @@ export interface HeadersViewProps {
     value: string | undefined,
     anchorEl: HTMLElement,
   ) => void;
-  /** Open the Create Rule editor pre-filled with a URL/block/delay action
-   *  for this request. The view never builds the draft itself — that
-   *  lives in `rule-draft-bridge.ts` — but it does need a callback per
-   *  CTA so the parent can surface errors uniformly. */
-  onCreateRedirect: () => void;
-  onCreateReplaceHost: () => void;
-  onCreateReplaceUrlPart: () => void;
-  onCreateDelay: () => void;
-  onCreateCancel: () => void;
+  /** Open the URL-action create popover (redirect/delay/block) for this
+   *  request, anchored to the clicked CTA button. The view never builds
+   *  the draft itself — that lives in `rule-draft-bridge.ts` — but it
+   *  does need a callback per CTA so the parent can seed each variant. */
+  onCreateRedirect: (anchorEl: HTMLElement) => void;
+  onCreateReplaceHost: (anchorEl: HTMLElement) => void;
+  onCreateReplaceUrlPart: (anchorEl: HTMLElement) => void;
+  onCreateDelay: (anchorEl: HTMLElement) => void;
+  onCreateCancel: (anchorEl: HTMLElement) => void;
   searchHighlight?: string;
   searchSection?: string;
   searchLineNumber?: number;
@@ -252,19 +252,19 @@ export function HeadersView({
       {/* Rule-creation CTA row — Headers tab is the primary surface for
         * "I see something I want to change → make a rule for it". */}
       <div className="dt-cta-row dt-header-cta-row">
-        <button type="button" className="dt-btn dt-btn-primary" onClick={onCreateRedirect} title="Redirect this URL elsewhere">
+        <button type="button" className="dt-btn dt-btn-primary" onClick={(e) => onCreateRedirect(e.currentTarget)} title="Redirect this URL elsewhere">
           Redirect URL
         </button>
-        <button type="button" className="dt-btn dt-btn-primary" onClick={onCreateReplaceHost} title="Redirect, keeping path and query but swapping the host">
+        <button type="button" className="dt-btn dt-btn-primary" onClick={(e) => onCreateReplaceHost(e.currentTarget)} title="Redirect, keeping path and query but swapping the host">
           Replace host
         </button>
-        <button type="button" className="dt-btn dt-btn-primary" onClick={onCreateReplaceUrlPart} title="Redirect with the URL pre-filled — edit any segment">
+        <button type="button" className="dt-btn dt-btn-primary" onClick={(e) => onCreateReplaceUrlPart(e.currentTarget)} title="Redirect with the URL pre-filled — edit any segment">
           Replace URL part
         </button>
-        <button type="button" className="dt-btn dt-btn-primary" onClick={onCreateDelay} title="Delay this request">
+        <button type="button" className="dt-btn dt-btn-primary" onClick={(e) => onCreateDelay(e.currentTarget)} title="Delay this request">
           Delay request
         </button>
-        <button type="button" className="dt-btn dt-btn-primary" onClick={onCreateCancel} title="Block / cancel this request">
+        <button type="button" className="dt-btn dt-btn-primary" onClick={(e) => onCreateCancel(e.currentTarget)} title="Block / cancel this request">
           Cancel request
         </button>
       </div>
