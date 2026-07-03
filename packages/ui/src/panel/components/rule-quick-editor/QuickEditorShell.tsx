@@ -220,7 +220,7 @@ export function QuickEditorShell({
           minHeight: 0,
           overflowY: 'auto',
           overflowX: 'hidden',
-          padding: '12px 12px 0',
+          padding: '12px 12px 8px',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, minWidth: 0 }}>
@@ -356,7 +356,7 @@ export function QuickEditorShell({
           alignItems: 'center',
           justifyContent: 'space-between',
           flexShrink: 0,
-          padding: '10px 12px 12px',
+          padding: '5px 12px 6px',
           gap: 8,
           borderTop: `1px solid ${token.colorBorderSecondary}`,
         }}
