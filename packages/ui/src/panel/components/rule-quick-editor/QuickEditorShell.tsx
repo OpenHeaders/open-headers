@@ -81,6 +81,10 @@ export interface QuickEditorShellProps {
    *  footer so "where will this land" sits next to the Save that
    *  commits it. */
   destination?: ReactNode;
+  /** Conditions row — rendered directly below the destination row (or
+   *  in its place in edit mode) so "when will this fire" sits next to
+   *  the Save too. */
+  conditions?: ReactNode;
   onOpenInEditor: () => void;
   /** Footer-link gate. Defaults to `!!liveRule` (edit mode disables the
    *  link when the rule is gone); create mode passes `true` — there is
@@ -105,6 +109,7 @@ export function QuickEditorShell({
   snapshot,
   children,
   destination,
+  conditions,
   onOpenInEditor,
   canOpenInEditor,
   save,
@@ -330,6 +335,8 @@ export function QuickEditorShell({
       {children}
 
       {destination}
+
+      {conditions}
 
       <div
         style={{
