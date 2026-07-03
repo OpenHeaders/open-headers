@@ -16,6 +16,10 @@
       "import": "./src/sync/index.ts",
       "default": "./dist/sync/index.js"
     },
+    "./sync/service": {
+      "import": "./src/sync/service/index.ts",
+      "default": "./dist/sync/service/index.js"
+    },
     "./sync/*": {
       "import": "./src/sync/*.ts",
       "default": "./dist/sync/*.js"
