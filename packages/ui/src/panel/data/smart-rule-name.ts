@@ -4,9 +4,10 @@
  * so the initial name is derived from what the rule actually does and
  * where (rule kind + captured URL, plus the header/operation or
  * response mode when known). The popover title is editable; this is
- * only the pre-fill. Deduped against existing rule names via the shared
- * `uniqueName` scheme; falls back to the old static bases when the URL
- * doesn't parse.
+ * only the pre-fill. The full host + path go into the name (display
+ * layers ellipsize visually; the value stays whole). Deduped against
+ * existing rule names via the shared `uniqueName` scheme; falls back to
+ * the old static bases when the URL doesn't parse.
  */
 
 import { uniqueName } from '@openheaders/ui/shared/naming';
@@ -52,17 +53,15 @@ const HEADER_OP_VERB: Record<NonNullable<SmartNameInput['headerOperation']>, str
   merge: 'Merge',
 };
 
-/** Longest path fragment a name carries — names must stay scannable in
- *  the sidebar, and the url-filter condition holds the full URL anyway. */
-const MAX_PATH_CHARS = 24;
-
+// The name carries the FULL host + path — truncation is the display
+// layer's job (the popover title and sidebar rows ellipsize visually);
+// baking an ellipsis into the value would mutilate the actual rule name
+// and make the rename input unable to show what the rule matches.
 function urlParts(url: string): { host: string; path: string } | null {
   try {
     const u = new URL(url);
     if (!u.host) return null;
-    const rawPath = u.pathname === '/' ? '' : u.pathname;
-    const path = rawPath.length > MAX_PATH_CHARS ? `${rawPath.slice(0, MAX_PATH_CHARS - 1)}…` : rawPath;
-    return { host: u.host, path };
+    return { host: u.host, path: u.pathname === '/' ? '' : u.pathname };
   } catch {
     return null;
   }

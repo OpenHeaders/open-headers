@@ -3,9 +3,10 @@
  *
  * The popover pre-fills the rule name from what the rule does and where
  * (kind + captured URL + header/operation/response mode), so the
- * sidebar reads meaningfully later. Pin the per-kind formulas, the path
- * shortening, the fallback to the old static bases on unparseable URLs,
- * and the `(2)` dedupe against existing names.
+ * sidebar reads meaningfully later. Pin the per-kind formulas, that the
+ * FULL path stays in the value (display layers ellipsize; the name is
+ * never mutilated), the fallback to the old static bases on unparseable
+ * URLs, and the `(2)` dedupe against existing names.
  */
 
 import { generateSmartRuleName } from '@openheaders/ui/panel/data/smart-rule-name';
@@ -63,12 +64,12 @@ describe('generateSmartRuleName — per-kind formulas', () => {
   });
 });
 
-describe('generateSmartRuleName — shortening, fallback, dedupe', () => {
-  it('truncates long paths with an ellipsis', () => {
+describe('generateSmartRuleName — full value, fallback, dedupe', () => {
+  it('keeps the FULL path in the name — truncation belongs to display layers', () => {
     const long = 'https://openheaders.io/api/very/long/path/that/keeps/going/forever';
-    const name = generateSmartRuleName({ kind: 'block', url: long }, []);
-    expect(name.endsWith('…')).toBe(true);
-    expect(name.length).toBeLessThan(`Block openheaders.io/api/very/long/path/that/keeps/going/forever`.length);
+    expect(generateSmartRuleName({ kind: 'block', url: long }, [])).toBe(
+      'Block openheaders.io/api/very/long/path/that/keeps/going/forever',
+    );
   });
 
   it('falls back to the static base when the URL does not parse', () => {
