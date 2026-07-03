@@ -224,7 +224,25 @@ export function QuickEditorShell({
           // (shared `.dt-scrollbar`) when the name overflows. Horizontal
           // scroll ONLY — the title row never grows vertically; the
           // embedded ✕ clears in place (blur/Enter on empty reverts).
-          <span style={{ position: 'relative', display: 'inline-flex', flex: 1, minWidth: 0 }}>
+          // The bordered box is the WRAPPER, not the textarea: its 22px
+          // right padding is the ✕'s reserved column, so the text (and
+          // its scrollbar) stop in front of the icon instead of sliding
+          // under it — right-padding inside a scrolling element doesn't
+          // survive at the scroll end.
+          <span
+            style={{
+              position: 'relative',
+              display: 'flex',
+              flex: 1,
+              minWidth: 0,
+              boxSizing: 'border-box',
+              height: 30,
+              paddingRight: 22,
+              border: `1px solid ${token.colorPrimary}`,
+              borderRadius: token.borderRadius,
+              background: token.colorBgContainer,
+            }}
+          >
             <textarea
               value={nameDraft}
               onChange={(e) => setNameDraft(e.target.value)}
@@ -237,8 +255,8 @@ export function QuickEditorShell({
                 flex: 1,
                 minWidth: 0,
                 boxSizing: 'border-box',
-                height: 30,
-                padding: '3px 22px 3px 6px',
+                height: '100%',
+                padding: '3px 0 3px 6px',
                 fontFamily: 'inherit',
                 fontWeight: 600,
                 fontSize: 12,
@@ -247,9 +265,8 @@ export function QuickEditorShell({
                 overflowX: 'auto',
                 overflowY: 'hidden',
                 resize: 'none',
-                border: `1px solid ${token.colorPrimary}`,
-                borderRadius: token.borderRadius,
-                background: token.colorBgContainer,
+                border: 'none',
+                background: 'transparent',
                 color: token.colorText,
                 outline: 'none',
               }}
