@@ -17,7 +17,7 @@ import {
   type QuickDestinationOverride,
   type QuickDestinationPlan,
   resolveQuickDestination,
-} from '../../data/quick-rule-destination';
+} from '../../data/rule-create/quick-rule-destination';
 import type { QuickCreateDestination } from './use-quick-create-save';
 
 export interface QuickCreateDestinationApi {

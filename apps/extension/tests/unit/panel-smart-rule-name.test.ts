@@ -9,7 +9,7 @@
  * URLs, and the `(2)` dedupe against existing names.
  */
 
-import { generateSmartRuleName } from '@openheaders/ui/panel/data/smart-rule-name';
+import { generateSmartRuleName } from '@openheaders/ui/panel/data/rule-create/smart-rule-name';
 import { describe, expect, it } from 'vitest';
 
 const URL = 'https://api.openheaders.io/v1/users?page=2';

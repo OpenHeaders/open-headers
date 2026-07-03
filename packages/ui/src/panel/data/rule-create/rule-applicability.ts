@@ -17,7 +17,7 @@
 import type { Rule } from '@openheaders/core/types';
 import { doesUrlMatchRule, getRuleMatchPatterns } from '@openheaders/core/utils';
 import { resolveRuleConditions, type VariableResolver } from '@openheaders/core/variables';
-import { findCurrentMod, type RuleAttributionContext } from './headers/header-attribution';
+import { findCurrentMod, type RuleAttributionContext } from '../headers/header-attribution';
 
 export type RuleApplicability =
   /** Rule + mod still exist, conditions match, name resolves cleanly.

@@ -14,9 +14,8 @@
 
 import { type PageWireMessage, pagePortName } from '@openheaders/core/page-stream';
 import { useRef, useSyncExternalStore } from 'react';
-
-import { PageClientStore, type PageClientSnapshot } from './page-client-store';
-import { useLifelineClient } from './use-lifeline-client';
+import { useLifelineClient } from '../use-lifeline-client';
+import { type PageClientSnapshot, PageClientStore } from './page-client-store';
 
 export interface UsePageClientResult {
   readonly snapshot: PageClientSnapshot;

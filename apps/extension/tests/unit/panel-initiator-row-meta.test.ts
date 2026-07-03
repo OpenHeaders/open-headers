@@ -1,6 +1,6 @@
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarEntry } from '@openheaders/core/types';
-import { computeInitiatorRowMeta } from '@openheaders/ui/panel/data/initiator-row-meta';
+import { computeInitiatorRowMeta } from '@openheaders/ui/panel/data/initiator/initiator-row-meta';
 import { describe, expect, it } from 'vitest';
 
 let _seq = 0;
@@ -52,20 +52,17 @@ describe('computeInitiatorRowMeta', () => {
   });
 
   it('normalizes initiator type (xmlhttprequest → xhr)', () => {
-    const m = computeInitiatorRowMeta(
-      lifecycle('https://openheaders.io/a', { initiatorType: 'xmlhttprequest' }),
-      null,
-    );
+    const m = computeInitiatorRowMeta(lifecycle('https://openheaders.io/a', { initiatorType: 'xmlhttprequest' }), null);
     expect(m.initiatorType).toBe('xhr');
   });
 
   it('passes through known initiator types', () => {
-    expect(computeInitiatorRowMeta(lifecycle('https://openheaders.io/a', { initiatorType: 'parser' }), null).initiatorType).toBe(
-      'parser',
-    );
-    expect(computeInitiatorRowMeta(lifecycle('https://openheaders.io/b', { initiatorType: 'preload' }), null).initiatorType).toBe(
-      'preload',
-    );
+    expect(
+      computeInitiatorRowMeta(lifecycle('https://openheaders.io/a', { initiatorType: 'parser' }), null).initiatorType,
+    ).toBe('parser');
+    expect(
+      computeInitiatorRowMeta(lifecycle('https://openheaders.io/b', { initiatorType: 'preload' }), null).initiatorType,
+    ).toBe('preload');
     expect(
       computeInitiatorRowMeta(lifecycle('https://openheaders.io/c', { initiatorType: 'redirect' }), null).initiatorType,
     ).toBe('redirect');
@@ -78,12 +75,12 @@ describe('computeInitiatorRowMeta', () => {
   });
 
   it('marks third-party when origin differs from pageOrigin', () => {
-    expect(
-      computeInitiatorRowMeta(lifecycle('https://cdn.example.com/a'), 'https://openheaders.io').isThirdParty,
-    ).toBe(true);
-    expect(
-      computeInitiatorRowMeta(lifecycle('https://openheaders.io/a'), 'https://openheaders.io').isThirdParty,
-    ).toBe(false);
+    expect(computeInitiatorRowMeta(lifecycle('https://cdn.example.com/a'), 'https://openheaders.io').isThirdParty).toBe(
+      true,
+    );
+    expect(computeInitiatorRowMeta(lifecycle('https://openheaders.io/a'), 'https://openheaders.io').isThirdParty).toBe(
+      false,
+    );
   });
 
   it('treats requests as same-origin when pageOrigin is unknown', () => {

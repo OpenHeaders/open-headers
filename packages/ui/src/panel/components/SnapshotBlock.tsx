@@ -13,7 +13,7 @@ import type { HeaderModification, Rule, RuleSnapshotHeaderMod } from '@openheade
 import { theme } from 'antd';
 import type { GlobalToken } from 'antd/es/theme/interface';
 import type { HeaderAttribution, RuleAttributionContext } from '../data/headers/header-attribution';
-import type { RuleApplicability } from '../data/rule-applicability';
+import type { RuleApplicability } from '../data/rule-create/rule-applicability';
 import { ResolvedHeaderValue } from './ResolvedHeaderValue';
 import {
   computeFutureKind,

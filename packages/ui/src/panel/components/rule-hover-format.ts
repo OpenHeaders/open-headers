@@ -8,7 +8,7 @@
 
 import type { HeaderModification, Rule, RuleSnapshotHeaderMod } from '@openheaders/core/types';
 import type { HeaderAttribution, RuleAttributionContext } from '../data/headers/header-attribution';
-import type { RuleApplicability } from '../data/rule-applicability';
+import type { RuleApplicability } from '../data/rule-create/rule-applicability';
 
 export function ruleCtxFromAttribution(attribution: HeaderAttribution | undefined): RuleAttributionContext | null {
   if (!attribution) return null;

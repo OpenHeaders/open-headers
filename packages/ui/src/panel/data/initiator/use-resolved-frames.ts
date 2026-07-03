@@ -15,9 +15,9 @@
  */
 
 import { useEffect, useReducer } from 'react';
-import { type CallFrameLike } from './call-frame-meta';
-import { getSourceMap, subscribeSourceMaps } from './source-map-cache';
+import type { CallFrameLike } from './call-frame-meta';
 import { lookupOriginalPosition } from './source-map';
+import { getSourceMap, subscribeSourceMaps } from './source-map-cache';
 
 /** Stable join key for a frame. */
 export function frameKey(frame: CallFrameLike): string {

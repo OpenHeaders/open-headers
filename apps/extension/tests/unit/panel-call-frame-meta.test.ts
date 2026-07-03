@@ -2,7 +2,7 @@ import {
   computeCallFrameMeta,
   computeFrameLocation,
   formatCallStackForCopy,
-} from '@openheaders/ui/panel/data/call-frame-meta';
+} from '@openheaders/ui/panel/data/initiator/call-frame-meta';
 import { describe, expect, it } from 'vitest';
 
 describe('computeCallFrameMeta', () => {
@@ -41,23 +41,22 @@ describe('computeCallFrameMeta', () => {
   });
 
   it('classifies third-party by origin diff', () => {
-    expect(
-      computeCallFrameMeta({ url: 'https://cdn.example.com/lib.js' }, 'https://openheaders.io').isThirdParty,
-    ).toBe(true);
-    expect(
-      computeCallFrameMeta({ url: 'https://openheaders.io/app.js' }, 'https://openheaders.io').isThirdParty,
-    ).toBe(false);
+    expect(computeCallFrameMeta({ url: 'https://cdn.example.com/lib.js' }, 'https://openheaders.io').isThirdParty).toBe(
+      true,
+    );
+    expect(computeCallFrameMeta({ url: 'https://openheaders.io/app.js' }, 'https://openheaders.io').isThirdParty).toBe(
+      false,
+    );
   });
 
   it('flags noise only when name is anon/minified AND url looks bundler-generated', () => {
-    expect(
-      computeCallFrameMeta({ url: 'https://cdn.example.com/chunk-7654.js' }, null).isLikelyNoise,
-    ).toBe(true); // anonymous + chunk-
+    expect(computeCallFrameMeta({ url: 'https://cdn.example.com/chunk-7654.js' }, null).isLikelyNoise).toBe(true); // anonymous + chunk-
     expect(
       computeCallFrameMeta({ functionName: 'a', url: 'https://cdn.example.com/chunk-7654.js' }, null).isLikelyNoise,
     ).toBe(true); // minified + chunk-
     expect(
-      computeCallFrameMeta({ functionName: 'handleClick', url: 'https://cdn.example.com/chunk-7654.js' }, null).isLikelyNoise,
+      computeCallFrameMeta({ functionName: 'handleClick', url: 'https://cdn.example.com/chunk-7654.js' }, null)
+        .isLikelyNoise,
     ).toBe(false); // real name protects
     expect(computeCallFrameMeta({ functionName: 'a', url: 'https://openheaders.io/app.js' }, null).isLikelyNoise).toBe(
       false,
@@ -66,7 +65,8 @@ describe('computeCallFrameMeta', () => {
 
   it('recognises hash-only bundle filenames as noise URLs', () => {
     expect(
-      computeCallFrameMeta({ url: 'https://github.githubassets.com/assets/2694-6e858cef002fd527.js' }, null).isLikelyNoise,
+      computeCallFrameMeta({ url: 'https://github.githubassets.com/assets/2694-6e858cef002fd527.js' }, null)
+        .isLikelyNoise,
     ).toBe(true);
   });
 });

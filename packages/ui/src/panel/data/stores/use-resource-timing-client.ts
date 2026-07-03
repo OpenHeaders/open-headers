@@ -16,9 +16,8 @@
 
 import { type ResourceTimingWireMessage, resourceTimingPortName } from '@openheaders/core/resource-timing';
 import { useRef, useSyncExternalStore } from 'react';
-
+import { useLifelineClient } from '../use-lifeline-client';
 import { type ResourceTimingClientSnapshot, ResourceTimingClientStore } from './resource-timing-client-store';
-import { useLifelineClient } from './use-lifeline-client';
 
 export interface UseResourceTimingClientResult {
   readonly snapshot: ResourceTimingClientSnapshot;

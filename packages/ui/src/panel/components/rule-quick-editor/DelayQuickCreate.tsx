@@ -14,14 +14,14 @@ import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import { App, InputNumber, Typography, theme } from 'antd';
 import { useRef, useState } from 'react';
-import { handOffRuleDraft } from '../../data/rule-draft-bridge';
-import { generateSmartRuleName } from '../../data/smart-rule-name';
+import { handOffRuleDraft } from '../../data/rule-create/rule-draft-bridge';
+import { generateSmartRuleName } from '../../data/rule-create/smart-rule-name';
 import {
   buildDelayRuleSeed,
   type DelayQuickDraft,
   mergeQuickIntoDelayDraft,
   seedDelayQuickDraft,
-} from '../../data/url-rule-create';
+} from '../../data/rule-create/url-rule-create';
 import { QuickDestinationRow } from './QuickDestinationRow';
 import { QuickEditorShell } from './QuickEditorShell';
 import { useQuickCreateDestination } from './use-quick-create-destination';

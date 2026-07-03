@@ -1,5 +1,5 @@
 import { matchesCascadeQuery, parseCascadeQuery } from '@openheaders/ui/panel/data/cascade/cascade-filter';
-import type { InitiatorRowMeta } from '@openheaders/ui/panel/data/initiator-row-meta';
+import type { InitiatorRowMeta } from '@openheaders/ui/panel/data/initiator/initiator-row-meta';
 import { describe, expect, it } from 'vitest';
 
 function meta(over: Partial<InitiatorRowMeta>): InitiatorRowMeta {

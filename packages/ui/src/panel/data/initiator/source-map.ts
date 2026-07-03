@@ -195,17 +195,13 @@ function findSegment(segments: readonly Segment[], genCol: number): Segment | nu
   return best >= 0 ? segments[best] : null;
 }
 
-export function lookupOriginalPosition(
-  map: ParsedSourceMap,
-  genLine: number,
-  genCol: number,
-): OriginalPosition | null {
+export function lookupOriginalPosition(map: ParsedSourceMap, genLine: number, genCol: number): OriginalPosition | null {
   if (genLine < 0 || genLine >= map.rawLines.length) return null;
   const segments = getDecodedLine(map, genLine);
   const seg = findSegment(segments, genCol);
   if (!seg) return null;
-  const source = seg.srcIdx != null ? map.sources[seg.srcIdx] ?? null : null;
-  const name = seg.nameIdx != null ? map.names[seg.nameIdx] ?? null : null;
+  const source = seg.srcIdx != null ? (map.sources[seg.srcIdx] ?? null) : null;
+  const name = seg.nameIdx != null ? (map.names[seg.nameIdx] ?? null) : null;
   return {
     source,
     line: seg.origLine ?? null,

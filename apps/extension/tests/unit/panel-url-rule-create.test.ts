@@ -13,14 +13,14 @@ import {
   buildBlockRuleSeed,
   buildDelayRuleSeed,
   buildRedirectRuleSeed,
-  mergeQuickIntoDelayDraft,
   localhostVarName,
+  mergeQuickIntoDelayDraft,
   mergeQuickIntoRedirectDraft,
   newHostVarName,
   redirectVarName,
   seedDelayQuickDraft,
   seedRedirectQuickDraft,
-} from '@openheaders/ui/panel/data/url-rule-create';
+} from '@openheaders/ui/panel/data/rule-create/url-rule-create';
 import { describe, expect, it } from 'vitest';
 
 const URL = 'https://api.openheaders.io/v1/users?page=2';

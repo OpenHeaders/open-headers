@@ -8,7 +8,7 @@
  */
 
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
-import { computeUpstreamChain } from '@openheaders/ui/panel/data/upstream-chain';
+import { computeUpstreamChain } from '@openheaders/ui/panel/data/initiator/upstream-chain';
 import { describe, expect, it } from 'vitest';
 import { makeLifecycle } from '../__factories__/lifecycle';
 

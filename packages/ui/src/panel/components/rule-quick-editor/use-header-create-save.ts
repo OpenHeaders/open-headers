@@ -18,7 +18,11 @@ import {
 import type { UseRuleMutatorApi } from '@openheaders/ui/shared/hooks/useRuleMutator';
 import type { App } from 'antd';
 import type { RefObject } from 'react';
-import { buildHeaderRuleSeed, type HeaderDirection, type HeaderQuickDraft } from '../../data/header-rule-create';
+import {
+  buildHeaderRuleSeed,
+  type HeaderDirection,
+  type HeaderQuickDraft,
+} from '../../data/rule-create/header-rule-create';
 import { type QuickCreateDestination, type QuickCreateSaveApi, useQuickCreateSave } from './use-quick-create-save';
 
 type MessageApi = ReturnType<typeof App.useApp>['message'];

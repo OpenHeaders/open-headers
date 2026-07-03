@@ -25,7 +25,7 @@ import { isTextMime } from '../data/mime';
 import { hasObservedResponseData, isPreservedUnknown, supersessionAnchorFromPages } from '../data/request-state';
 import { classifyBodyState } from '../data/response-body-state';
 import { classifyRowAnnotations, type RowAnnotation } from '../data/row-annotations';
-import { findRuleCollectionId } from '../data/rule-collection';
+import { findRuleCollectionId } from '../data/rule-create/rule-collection';
 import {
   buildBlockDraftFromRequest,
   buildDelayDraftFromRequest,
@@ -34,9 +34,9 @@ import {
   buildQueryParamDraftFromRequest,
   buildRequestBodyDraftFromRequest,
   buildResponseDraftFromRequest,
-} from '../data/rule-draft-bridge';
+} from '../data/rule-create/rule-draft-bridge';
 import type { RepeatStats } from '../data/timing/timing-repeats';
-import type { RulesByUid } from '../data/use-rules-lookup';
+import type { RulesByUid } from '../data/rule-create/use-rules-lookup';
 import CookiesView from './detail/CookiesView';
 import EventStreamView, { isEventStream } from './detail/EventStreamView';
 import { HeadersView } from './detail/HeadersView';

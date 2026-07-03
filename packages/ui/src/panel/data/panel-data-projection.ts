@@ -38,9 +38,8 @@ import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { InspectorNavTiming } from '@openheaders/core/types';
 
 import { type ConnectionReuseInfo, computeConnectionReuse } from './connection-reuse';
-import type { FireClientSnapshot } from './fire-client-store';
 import { rowFireTier } from './fire-evidence';
-import { buildInitiatorIndex, type InitiatorIndex } from './initiator-index';
+import { buildInitiatorIndex, type InitiatorIndex } from './initiator/initiator-index';
 import { type BuildInspectorRowsOptions, buildInspectorRows } from './inspector-facet';
 import {
   attachFiresToRows,
@@ -50,12 +49,13 @@ import {
   type InspectorRowWithFires,
   stampRedirectRewrites,
 } from './inspector-row-projection';
-import type { LifecycleClientSnapshot } from './lifecycle-client-store';
 import { synthesizeMemoryCacheLifecycles } from './memory-cache-rows';
 import { selectMainDocByLoader } from './page-anchor';
-import type { PageClientSnapshot } from './page-client-store';
 import { isInView, type PanelViewScope } from './panel-view-scope';
-import type { ResourceTimingClientSnapshot } from './resource-timing-client-store';
+import type { FireClientSnapshot } from './stores/fire-client-store';
+import type { LifecycleClientSnapshot } from './stores/lifecycle-client-store';
+import type { PageClientSnapshot } from './stores/page-client-store';
+import type { ResourceTimingClientSnapshot } from './stores/resource-timing-client-store';
 import { computeRepeatStats, type RepeatStats } from './timing/timing-repeats';
 import type { InspectorFire } from './types';
 import type { RecordingWindow } from './use-recording-windows';

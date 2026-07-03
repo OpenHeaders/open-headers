@@ -15,9 +15,8 @@
 
 import { type ConsoleStreamWireMessage, consoleStreamPortName } from '@openheaders/core/console-stream';
 import { useRef, useSyncExternalStore } from 'react';
-
+import { useLifelineClient } from '../use-lifeline-client';
 import { type ConsoleClientSnapshot, ConsoleClientStore } from './console-client-store';
-import { useLifelineClient } from './use-lifeline-client';
 
 export interface UseConsoleClientResult {
   readonly snapshot: ConsoleClientSnapshot;

@@ -13,7 +13,7 @@
  * after `'ready'`, and the upsert by key absorbs any duplication.
  */
 
-import type { InspectorFire } from './types';
+import type { InspectorFire } from '../types';
 import { createSnapshotPublisher } from './snapshot-publisher';
 
 function dedupKey(ruleUid: string, requestId: string | undefined, t: number): string {

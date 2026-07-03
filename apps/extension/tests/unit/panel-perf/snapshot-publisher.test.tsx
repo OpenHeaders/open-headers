@@ -12,7 +12,7 @@
 
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import { LifecycleClientStore } from '@openheaders/ui/panel/data/lifecycle';
-import { createManualNotifyScheduler, setNotifyScheduler } from '@openheaders/ui/panel/data/notify-scheduler';
+import { createManualNotifyScheduler, setNotifyScheduler } from '@openheaders/ui/panel/data/stores/notify-scheduler';
 import { act, render } from '@testing-library/react';
 import { useSyncExternalStore } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

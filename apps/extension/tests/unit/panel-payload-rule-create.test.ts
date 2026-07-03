@@ -19,7 +19,7 @@ import {
   queryParamRowsValid,
   seedQueryParamQuickRows,
   seedRequestBodyQuickDraft,
-} from '@openheaders/ui/panel/data/payload-rule-create';
+} from '@openheaders/ui/panel/data/rule-create/payload-rule-create';
 import { describe, expect, it } from 'vitest';
 
 const URL = 'https://api.openheaders.io/v1/users?page=2&sort=name';

@@ -9,8 +9,8 @@
  */
 
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
-import { currentHarEntry, lifecycleTransferredBytes } from './inspector-row-projection';
-import { classifyRequestState } from './request-state';
+import { currentHarEntry, lifecycleTransferredBytes } from '../inspector-row-projection';
+import { classifyRequestState } from '../request-state';
 
 export type InitiatorTypeLabel =
   | 'parser'

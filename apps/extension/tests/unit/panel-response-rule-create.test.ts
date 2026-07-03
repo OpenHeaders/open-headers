@@ -14,7 +14,7 @@ import {
   buildResponseRuleSeed,
   mergeQuickIntoResponseDraft,
   seedQuickDraft,
-} from '@openheaders/ui/panel/data/response-rule-create';
+} from '@openheaders/ui/panel/data/rule-create/response-rule-create';
 import { describe, expect, it } from 'vitest';
 
 function makeDraft(over: Partial<ResponseRuleDraft> = {}): ResponseRuleDraft {

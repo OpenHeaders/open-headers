@@ -57,11 +57,11 @@ export function newHostVarName(url: string): string | null {
 }
 
 /** Domain-scoped variable name for the Point-to-localhost variant's
- *  seed — `localhost_openheaders_io`, holding the local host:port
- *  (e.g. `localhost:5173`) — so every localhost rule for a domain
- *  shares one retargetable dev-server variable. */
-export function localhostVarName(url: string): string | null {
-  return domainVarName('localhost', url);
+ *  seed — `localhost_port_openheaders_io`, holding just the local port
+ *  (e.g. `5173`) — so every localhost rule for a domain shares one
+ *  retargetable dev-server port variable. */
+export function localhostPortVarName(url: string): string | null {
+  return domainVarName('localhost_port', url);
 }
 
 /** Seed the editable field from the captured draft. An empty target
@@ -69,11 +69,13 @@ export function localhostVarName(url: string): string | null {
  *  Redirect URL variant as the whole target (`{{redirect_url_<domain>}}`),
  *  Replace host as the host slot of the captured URL
  *  (`https://{{new_host_<domain>}}/path?query`) so path and query are
- *  preserved verbatim, and Point to localhost as the host slot over
- *  plain http (`http://{{localhost_<domain>}}/path?query`) — local dev
- *  servers rarely speak TLS. If the variable already exists it resolves
- *  immediately (reuse), otherwise the popover's save gate holds until
- *  the user creates it via the reference's create flow. */
+ *  preserved verbatim, and Point to localhost as a literal localhost
+ *  host with only the port templated
+ *  (`http://localhost:{{localhost_port_<domain>}}/path?query`) — the
+ *  host IS the menu entry's promise, the port is the only unknown, and
+ *  local dev servers rarely speak TLS. If the variable already exists
+ *  it resolves immediately (reuse), otherwise the popover's save gate
+ *  holds until the user creates it via the reference's create flow. */
 export function seedRedirectQuickDraft(
   draft: RedirectRuleDraft,
   variant: RedirectCreateVariant = 'redirect',
@@ -85,12 +87,12 @@ export function seedRedirectQuickDraft(
     if (varName) return { redirectTo: `{{${varName}}}` };
   }
   if (variant === 'replace-host' || variant === 'localhost') {
-    const varName = variant === 'localhost' ? localhostVarName(draft.url ?? '') : newHostVarName(draft.url ?? '');
+    const varName = variant === 'localhost' ? localhostPortVarName(draft.url ?? '') : newHostVarName(draft.url ?? '');
     if (varName) {
       try {
         const u = new URL(draft.url ?? '');
-        const scheme = variant === 'localhost' ? 'http:' : u.protocol;
-        return { redirectTo: `${scheme}//{{${varName}}}${u.pathname}${u.search}${u.hash}` };
+        const hostSlot = variant === 'localhost' ? `http://localhost:{{${varName}}}` : `${u.protocol}//{{${varName}}}`;
+        return { redirectTo: `${hostSlot}${u.pathname}${u.search}${u.hash}` };
       } catch {
         // non-URL captures fall through to the empty seed
       }

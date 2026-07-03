@@ -13,8 +13,8 @@ import {
 import { HEADER_CATEGORY_LABEL, type HeaderCategory } from '../../../data/headers/header-category';
 import type { HeaderRowMeta } from '../../../data/headers/header-filter';
 import { formatHeaderName, type HeaderNameCase } from '../../../data/headers/header-name-case';
-import { computeRuleApplicability, type RuleApplicability } from '../../../data/rule-applicability';
-import type { RulesByUid } from '../../../data/use-rules-lookup';
+import { computeRuleApplicability, type RuleApplicability } from '../../../data/rule-create/rule-applicability';
+import type { RulesByUid } from '../../../data/rule-create/use-rules-lookup';
 import { introspectWithAuthScheme } from '../../../data/auth-scheme';
 import { introspectionHasDepth } from '../../../data/value-introspect';
 import { ResolvedHeaderValue } from '../../ResolvedHeaderValue';

@@ -17,7 +17,7 @@
  * `is:third-party`) so the same matching path covers both code paths.
  */
 
-import type { InitiatorRowMeta } from '../initiator-row-meta';
+import type { InitiatorRowMeta } from '../initiator/initiator-row-meta';
 
 type Token =
   | { kind: 'text'; value: string; negated: boolean }

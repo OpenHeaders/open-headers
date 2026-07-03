@@ -6,7 +6,7 @@
 
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import { LifecycleClientStore } from '@openheaders/ui/panel/data/lifecycle';
-import { createSyncNotifyScheduler, setNotifyScheduler } from '@openheaders/ui/panel/data/notify-scheduler';
+import { createSyncNotifyScheduler, setNotifyScheduler } from '@openheaders/ui/panel/data/stores/notify-scheduler';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // These assert mutation→notify semantics (notify on real change, skip on

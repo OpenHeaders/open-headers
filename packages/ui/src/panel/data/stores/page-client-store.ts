@@ -31,10 +31,7 @@ const EMPTY_SNAPSHOT: PageClientSnapshot = Object.freeze({
 
 export class PageClientStore {
   private pages: readonly Page[] = EMPTY_SNAPSHOT.pages;
-  private readonly pub = createSnapshotPublisher<PageClientSnapshot>(
-    () => ({ pages: this.pages }),
-    EMPTY_SNAPSHOT,
-  );
+  private readonly pub = createSnapshotPublisher<PageClientSnapshot>(() => ({ pages: this.pages }), EMPTY_SNAPSHOT);
 
   apply(update: PageStreamUpdate): void {
     const next = reducePageUpdate(this.pages, update);

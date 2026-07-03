@@ -26,9 +26,9 @@ import {
   type QueryParamQuickRow,
   queryParamRowsValid,
   seedQueryParamQuickRows,
-} from '../../data/payload-rule-create';
-import { handOffRuleDraft } from '../../data/rule-draft-bridge';
-import { generateSmartRuleName } from '../../data/smart-rule-name';
+} from '../../data/rule-create/payload-rule-create';
+import { handOffRuleDraft } from '../../data/rule-create/rule-draft-bridge';
+import { generateSmartRuleName } from '../../data/rule-create/smart-rule-name';
 import { QuickDestinationRow } from './QuickDestinationRow';
 import { QuickEditorShell } from './QuickEditorShell';
 import { useQuickCreateDestination } from './use-quick-create-destination';

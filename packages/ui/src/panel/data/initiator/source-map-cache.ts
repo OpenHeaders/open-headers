@@ -29,7 +29,7 @@
  * just keeps showing raw V8 names).
  */
 
-import { parseSourceMap, type ParsedSourceMap } from './source-map';
+import { type ParsedSourceMap, parseSourceMap } from './source-map';
 
 /**
  * Host-installed fetcher. The renderer can't fetch cross-origin (panel

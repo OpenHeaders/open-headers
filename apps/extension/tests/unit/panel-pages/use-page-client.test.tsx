@@ -6,8 +6,8 @@
 import { type LifelinePort, type LifelineTransport, setLifelineTransport } from '@openheaders/core/awareness';
 import { type HostNavigation, setHostNavigation } from '@openheaders/core/navigation';
 import { pagePortName } from '@openheaders/core/page-stream';
-import { createSyncNotifyScheduler, setNotifyScheduler } from '@openheaders/ui/panel/data/notify-scheduler';
-import { usePageClient } from '@openheaders/ui/panel/data/use-page-client';
+import { createSyncNotifyScheduler, setNotifyScheduler } from '@openheaders/ui/panel/data/stores/notify-scheduler';
+import { usePageClient } from '@openheaders/ui/panel/data/stores/use-page-client';
 import { act, render } from '@testing-library/react';
 import type React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

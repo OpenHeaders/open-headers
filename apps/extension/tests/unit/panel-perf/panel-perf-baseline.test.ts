@@ -19,15 +19,15 @@
  * the batched total is one projection per frame.
  */
 
-import type { FireClientSnapshot } from '@openheaders/ui/panel/data/fire-client-store';
 import { LifecycleClientStore } from '@openheaders/ui/panel/data/lifecycle';
+import { projectPanelData } from '@openheaders/ui/panel/data/panel-data-projection';
+import type { FireClientSnapshot } from '@openheaders/ui/panel/data/stores/fire-client-store';
 import {
   createManualNotifyScheduler,
   createSyncNotifyScheduler,
   setNotifyScheduler,
-} from '@openheaders/ui/panel/data/notify-scheduler';
-import type { PageClientSnapshot } from '@openheaders/ui/panel/data/page-client-store';
-import { projectPanelData } from '@openheaders/ui/panel/data/panel-data-projection';
+} from '@openheaders/ui/panel/data/stores/notify-scheduler';
+import type { PageClientSnapshot } from '@openheaders/ui/panel/data/stores/page-client-store';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { synthesizeCapture } from './synthesize-capture';

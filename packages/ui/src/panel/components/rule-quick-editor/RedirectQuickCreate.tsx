@@ -18,8 +18,8 @@ import { TemplateInput } from '@openheaders/ui/workbench/components/template-inp
 import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import { App, Typography, theme } from 'antd';
 import { useMemo, useRef, useState } from 'react';
-import { handOffRuleDraft } from '../../data/rule-draft-bridge';
-import { generateSmartRuleName } from '../../data/smart-rule-name';
+import { handOffRuleDraft } from '../../data/rule-create/rule-draft-bridge';
+import { generateSmartRuleName } from '../../data/rule-create/smart-rule-name';
 import {
   buildRedirectRuleSeed,
   mergeQuickIntoRedirectDraft,
@@ -27,7 +27,7 @@ import {
   type RedirectQuickDraft,
   seedRedirectQuickDraft,
   type UrlCreateVariant,
-} from '../../data/url-rule-create';
+} from '../../data/rule-create/url-rule-create';
 import { QuickDestinationRow } from './QuickDestinationRow';
 import { QuickEditorShell } from './QuickEditorShell';
 import { useQuickCreateDestination } from './use-quick-create-destination';

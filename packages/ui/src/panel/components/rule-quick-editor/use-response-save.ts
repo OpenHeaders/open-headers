@@ -11,7 +11,7 @@ import type { RuleMutationResult, UseRuleMutatorApi } from '@openheaders/ui/shar
 import { useSaveShortcut } from '@openheaders/ui/shared/hooks/useSaveShortcut';
 import type { App } from 'antd';
 import { type RefObject, useState } from 'react';
-import { buildResponseRuleUpdate, type ResponseQuickDraft } from '../../data/response-rule-edit';
+import { buildResponseRuleUpdate, type ResponseQuickDraft } from '../../data/rule-create/response-rule-edit';
 
 type MessageApi = ReturnType<typeof App.useApp>['message'];
 

@@ -35,24 +35,16 @@ export function RedirectCtaMenu({
     if (triggerRef.current) fn(triggerRef.current);
   };
 
-  const itemStyle: React.CSSProperties = {
-    display: 'block',
-    width: '100%',
-    textAlign: 'left',
-    background: 'none',
-    border: 'none',
-    font: 'inherit',
-    cursor: 'pointer',
-  };
-
   return (
     <Popover
       content={
+        // `dt-morefilters-reset` is the panel's "button styled as a menu
+        // row" class — 12px font (same scale as the CTA buttons), hover
+        // wash, full button reset.
         <div className="dt-morefilters-menu dt-scrollbar" style={maxHeight != null ? { maxHeight } : undefined}>
           <button
             type="button"
-            className="dt-morefilters-item"
-            style={itemStyle}
+            className="dt-morefilters-reset"
             onClick={pick(onCreateRedirect)}
             title="Send matching requests to a different URL — the target seeds as a per-domain variable"
           >
@@ -60,8 +52,7 @@ export function RedirectCtaMenu({
           </button>
           <button
             type="button"
-            className="dt-morefilters-item"
-            style={itemStyle}
+            className="dt-morefilters-reset"
             onClick={pick(onCreateReplaceHost)}
             title="Keep path and query, swap the host — seeds a per-domain host variable"
           >
@@ -69,10 +60,9 @@ export function RedirectCtaMenu({
           </button>
           <button
             type="button"
-            className="dt-morefilters-item"
-            style={itemStyle}
+            className="dt-morefilters-reset"
             onClick={pick(onCreateLocalhost)}
-            title="Keep path and query, send to your local dev server over http — seeds a per-domain localhost variable"
+            title="Keep path and query, send to your local dev server over http — seeds a per-domain port variable"
           >
             Point to localhost…
           </button>

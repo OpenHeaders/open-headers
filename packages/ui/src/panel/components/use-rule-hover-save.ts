@@ -20,7 +20,7 @@ import type { RuleMutationResult, UseRuleMutatorApi } from '@openheaders/ui/shar
 import { useSaveShortcut } from '@openheaders/ui/shared/hooks/useSaveShortcut';
 import type { App } from 'antd';
 import { type RefObject, useState } from 'react';
-import { buildHeaderModUpdate } from '../data/header-mod-edit';
+import { buildHeaderModUpdate } from '../data/rule-create/header-mod-edit';
 import type { RuleHoverPopoverTarget } from './RuleHoverPopover';
 import type { ModDraft } from './use-mod-draft';
 

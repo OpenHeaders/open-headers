@@ -14,7 +14,7 @@ import {
   buildHeaderRuleSeed,
   mergeQuickIntoHeaderDraft,
   seedHeaderQuickDraft,
-} from '@openheaders/ui/panel/data/header-rule-create';
+} from '@openheaders/ui/panel/data/rule-create/header-rule-create';
 import { describe, expect, it } from 'vitest';
 
 function makeDraft(over: Partial<HeaderRuleDraft> = {}): HeaderRuleDraft {

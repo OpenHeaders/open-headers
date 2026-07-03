@@ -5,11 +5,11 @@
  * the replayed entries land.
  */
 
-import type { ConsoleEntry } from '@openheaders/core/console-stream';
 import { type LifelinePort, type LifelineTransport, setLifelineTransport } from '@openheaders/core/awareness';
+import type { ConsoleEntry } from '@openheaders/core/console-stream';
 import { type HostNavigation, setHostNavigation } from '@openheaders/core/navigation';
-import { createSyncNotifyScheduler, setNotifyScheduler } from '@openheaders/ui/panel/data/notify-scheduler';
-import { useConsoleClient } from '@openheaders/ui/panel/data/use-console-client';
+import { createSyncNotifyScheduler, setNotifyScheduler } from '@openheaders/ui/panel/data/stores/notify-scheduler';
+import { useConsoleClient } from '@openheaders/ui/panel/data/stores/use-console-client';
 import { act, render } from '@testing-library/react';
 import type React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

@@ -1,6 +1,6 @@
 import { matchesCascadeQuery, type parseCascadeQuery } from '../../../data/cascade/cascade-filter';
 import type { SubtreeStats } from '../../../data/cascade/cascade-summary';
-import { computeInitiatorRowMeta, type InitiatorRowMeta } from '../../../data/initiator-row-meta';
+import { computeInitiatorRowMeta, type InitiatorRowMeta } from '../../../data/initiator/initiator-row-meta';
 import { type InspectorRowWithFires, lifecycleTransferredBytes } from '../../../data/inspector-row-projection';
 
 export type SortMode = 'initiator' | 'chronological' | 'largest';

@@ -1,6 +1,6 @@
 import type { ConsoleEntry } from '@openheaders/core/console-stream';
-import { ConsoleClientStore } from '@openheaders/ui/panel/data/console-client-store';
-import { createSyncNotifyScheduler, setNotifyScheduler } from '@openheaders/ui/panel/data/notify-scheduler';
+import { ConsoleClientStore } from '@openheaders/ui/panel/data/stores/console-client-store';
+import { createSyncNotifyScheduler, setNotifyScheduler } from '@openheaders/ui/panel/data/stores/notify-scheduler';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Notify-on-mutate semantics are frame-independent; drive them

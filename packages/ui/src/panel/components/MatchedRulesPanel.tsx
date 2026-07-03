@@ -23,7 +23,7 @@ import {
 } from '../data/fire-evidence';
 import type { InspectorRowWithFires } from '../data/inspector-row-projection';
 import type { InspectorFire } from '../data/types';
-import type { RulesByUid } from '../data/use-rules-lookup';
+import type { RulesByUid } from '../data/rule-create/use-rules-lookup';
 import { useRulePopover } from './RulePopoverHost';
 
 interface MatchedRulesPanelProps {

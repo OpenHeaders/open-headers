@@ -19,10 +19,9 @@
 
 import { type RuleFireWireMessage, ruleFirePortName } from '@openheaders/core/rule-fire-stream';
 import { useRef, useSyncExternalStore } from 'react';
-
+import type { InspectorFire } from '../types';
+import { useLifelineClient } from '../use-lifeline-client';
 import { type FireClientSnapshot, FireClientStore } from './fire-client-store';
-import type { InspectorFire } from './types';
-import { useLifelineClient } from './use-lifeline-client';
 
 export interface UseFireClientResult {
   readonly snapshot: FireClientSnapshot;

@@ -13,7 +13,7 @@ import { type HeaderFilterToken, type HeaderRowMeta, matchesHeaderQuery } from '
 import { type HeaderNameCase, formatHeaderName } from '../../../data/headers/header-name-case';
 import type { InspectorRowWithFires } from '../../../data/inspector-row-projection';
 import { formatHeadersBlock, formatCurl, formatFetch } from '../../../data/request-formatters';
-import type { RulesByUid } from '../../../data/use-rules-lookup';
+import type { RulesByUid } from '../../../data/rule-create/use-rules-lookup';
 import { AttributedHeaderRow } from './HeaderRow';
 import { HiddenNoiseHint, type RowItem } from './HiddenNoiseHint';
 import type { HeaderLayoutMode, HeaderSortMode, SectionLabel } from './types';

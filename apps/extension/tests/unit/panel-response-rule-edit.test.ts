@@ -10,7 +10,7 @@
  */
 
 import type { ResponseRule } from '@openheaders/core/types';
-import { buildResponseRuleUpdate } from '@openheaders/ui/panel/data/response-rule-edit';
+import { buildResponseRuleUpdate } from '@openheaders/ui/panel/data/rule-create/response-rule-edit';
 import { describe, expect, it } from 'vitest';
 
 function makeRule(over: Partial<ResponseRule> = {}): ResponseRule {

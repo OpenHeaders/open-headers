@@ -1,8 +1,6 @@
-import { describe, expect, it } from 'vitest';
-
 import type { Page, PageStreamUpdate } from '@openheaders/core/page-stream';
-
-import { NOOP, reducePageUpdate } from '@openheaders/ui/panel/data/page-client-reducer';
+import { NOOP, reducePageUpdate } from '@openheaders/ui/panel/data/stores/page-client-reducer';
+import { describe, expect, it } from 'vitest';
 
 function page(over: Partial<Page> = {}): Page {
   return {

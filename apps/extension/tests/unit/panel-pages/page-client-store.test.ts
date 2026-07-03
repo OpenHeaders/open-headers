@@ -1,5 +1,5 @@
-import { createSyncNotifyScheduler, setNotifyScheduler } from '@openheaders/ui/panel/data/notify-scheduler';
-import { PageClientStore } from '@openheaders/ui/panel/data/page-client-store';
+import { createSyncNotifyScheduler, setNotifyScheduler } from '@openheaders/ui/panel/data/stores/notify-scheduler';
+import { PageClientStore } from '@openheaders/ui/panel/data/stores/page-client-store';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Notify-on-mutate semantics are frame-independent; drive them

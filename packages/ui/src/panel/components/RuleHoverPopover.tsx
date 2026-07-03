@@ -57,8 +57,8 @@ import {
   type HeaderAttribution,
   isAttributionEdited,
 } from '../data/headers/header-attribution';
-import type { RuleApplicability } from '../data/rule-applicability';
-import { findRuleCollectionId } from '../data/rule-collection';
+import type { RuleApplicability } from '../data/rule-create/rule-applicability';
+import { findRuleCollectionId } from '../data/rule-create/rule-collection';
 import { HEADER_OPERATION_OPTIONS } from './rule-quick-editor/header-operation-options';
 import { QuickEditorShell, RULE_TYPE_LABEL } from './rule-quick-editor/QuickEditorShell';
 import { isSnapshotResolutionReliable, ruleCtxFromAttribution, tagLabelFor, tagTitleFor } from './rule-hover-format';

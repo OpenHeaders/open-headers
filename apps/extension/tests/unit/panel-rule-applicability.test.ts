@@ -1,7 +1,7 @@
 import type { HeaderRule, Rule, RuleSnapshotHeaderMod } from '@openheaders/core/types';
 import { VariableResolver } from '@openheaders/core/variables';
 import type { RuleAttributionContext } from '@openheaders/ui/panel/data/headers/header-attribution';
-import { computeRuleApplicability } from '@openheaders/ui/panel/data/rule-applicability';
+import { computeRuleApplicability } from '@openheaders/ui/panel/data/rule-create/rule-applicability';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 function makeRule(overrides: Partial<HeaderRule> = {}): HeaderRule {

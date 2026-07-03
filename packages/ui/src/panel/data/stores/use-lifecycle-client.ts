@@ -39,9 +39,8 @@ import {
   lifecyclePortName,
 } from '@openheaders/core/request-lifecycle';
 import { useCallback, useRef, useState, useSyncExternalStore } from 'react';
-
+import { useLifelineClient } from '../use-lifeline-client';
 import { type LifecycleClientSnapshot, LifecycleClientStore } from './lifecycle-client-store';
-import { useLifelineClient } from './use-lifeline-client';
 
 export interface UseLifecycleClientResult {
   readonly snapshot: LifecycleClientSnapshot;

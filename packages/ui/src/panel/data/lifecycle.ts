@@ -11,11 +11,11 @@
  * `@openheaders/ui` for now).
  */
 
-export { buildInspectorRows, inspectorSortKey } from './inspector-facet';
 export type { BuildInspectorRowsOptions, InspectorRow } from './inspector-facet';
-export { NOOP, reduceClientUpdate } from './lifecycle-client-reducer';
-export type { ClientReducerResult } from './lifecycle-client-reducer';
-export { LifecycleClientStore } from './lifecycle-client-store';
-export type { LifecycleClientSnapshot } from './lifecycle-client-store';
-export { useLifecycleClient } from './use-lifecycle-client';
-export type { UseLifecycleClientResult } from './use-lifecycle-client';
+export { buildInspectorRows, inspectorSortKey } from './inspector-facet';
+export type { ClientReducerResult } from './stores/lifecycle-client-reducer';
+export { NOOP, reduceClientUpdate } from './stores/lifecycle-client-reducer';
+export type { LifecycleClientSnapshot } from './stores/lifecycle-client-store';
+export { LifecycleClientStore } from './stores/lifecycle-client-store';
+export type { UseLifecycleClientResult } from './stores/use-lifecycle-client';
+export { useLifecycleClient } from './stores/use-lifecycle-client';

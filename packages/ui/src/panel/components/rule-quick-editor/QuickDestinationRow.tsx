@@ -11,7 +11,7 @@
 import { DownOutlined, RightOutlined } from '@ant-design/icons';
 import { ConfigProvider, Select, Tag, theme } from 'antd';
 import { useState } from 'react';
-import { listFolderOptions, type QuickFolderChoice } from '../../data/quick-rule-destination';
+import { listFolderOptions, type QuickFolderChoice } from '../../data/rule-create/quick-rule-destination';
 import type { QuickCreateDestinationApi } from './use-quick-create-destination';
 
 const AUTO_VALUE = '__auto__';

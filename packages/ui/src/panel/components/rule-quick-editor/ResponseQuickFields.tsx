@@ -15,7 +15,7 @@ import { CONTENT_TYPE_OPTIONS, STATUS_CODES } from '@openheaders/ui/workbench/co
 import { TemplateInput } from '@openheaders/ui/workbench/components/template-input';
 import { AutoComplete, Select, theme } from 'antd';
 import type { ReactNode } from 'react';
-import type { ResponseQuickDraft } from '../../data/response-rule-edit';
+import type { ResponseQuickDraft } from '../../data/rule-create/response-rule-edit';
 
 export interface ResponseQuickFieldsProps {
   draft: ResponseQuickDraft;

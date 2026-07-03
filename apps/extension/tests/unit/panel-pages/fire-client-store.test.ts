@@ -1,5 +1,5 @@
-import { FireClientStore } from '@openheaders/ui/panel/data/fire-client-store';
-import { createSyncNotifyScheduler, setNotifyScheduler } from '@openheaders/ui/panel/data/notify-scheduler';
+import { FireClientStore } from '@openheaders/ui/panel/data/stores/fire-client-store';
+import { createSyncNotifyScheduler, setNotifyScheduler } from '@openheaders/ui/panel/data/stores/notify-scheduler';
 import type { InspectorFire } from '@openheaders/ui/panel/data/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 

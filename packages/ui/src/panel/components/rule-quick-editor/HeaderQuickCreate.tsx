@@ -20,14 +20,14 @@ import { TemplateInput } from '@openheaders/ui/workbench/components/template-inp
 import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import { App, Button, Select, Tag, theme } from 'antd';
 import { useRef, useState } from 'react';
-import { handOffRuleDraft } from '../../data/rule-draft-bridge';
-import { generateSmartRuleName } from '../../data/smart-rule-name';
+import { handOffRuleDraft } from '../../data/rule-create/rule-draft-bridge';
+import { generateSmartRuleName } from '../../data/rule-create/smart-rule-name';
 import {
   type HeaderDirection,
   type HeaderQuickDraft,
   mergeQuickIntoHeaderDraft,
   seedHeaderQuickDraft,
-} from '../../data/header-rule-create';
+} from '../../data/rule-create/header-rule-create';
 import { stableStringify } from '@openheaders/ui/shared/forms';
 import { HEADER_OPERATION_OPTIONS } from './header-operation-options';
 import { QuickDestinationRow } from './QuickDestinationRow';

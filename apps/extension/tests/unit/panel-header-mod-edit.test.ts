@@ -13,7 +13,7 @@
  */
 
 import type { HeaderModification, HeaderRule } from '@openheaders/core/types';
-import { buildHeaderModUpdate } from '@openheaders/ui/panel/data/header-mod-edit';
+import { buildHeaderModUpdate } from '@openheaders/ui/panel/data/rule-create/header-mod-edit';
 import { describe, expect, it } from 'vitest';
 
 function makeMod(over: Partial<HeaderModification> = {}): HeaderModification {

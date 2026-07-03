@@ -30,8 +30,8 @@
 
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import { urlChain } from '@openheaders/core/request-lifecycle';
+import { currentHarEntry } from '../inspector-row-projection';
 import { resolveInitiatorRootUrl } from './initiator-graph';
-import { currentHarEntry } from './inspector-row-projection';
 
 export interface UpstreamChainEntry {
   /** URL on this hop. May resolve to a known `RequestLifecycle`, or

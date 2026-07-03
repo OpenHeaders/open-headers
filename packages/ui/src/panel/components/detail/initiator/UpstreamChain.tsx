@@ -1,6 +1,6 @@
-import { computeInitiatorRowMeta } from '../../../data/initiator-row-meta';
+import { computeInitiatorRowMeta } from '../../../data/initiator/initiator-row-meta';
 import type { InspectorRowWithFires } from '../../../data/inspector-row-projection';
-import type { UpstreamChainEntry } from '../../../data/upstream-chain';
+import type { UpstreamChainEntry } from '../../../data/initiator/upstream-chain';
 import ResourceIcon from '../../traffic/ResourceIcon';
 import { RowChips } from './RowChips';
 

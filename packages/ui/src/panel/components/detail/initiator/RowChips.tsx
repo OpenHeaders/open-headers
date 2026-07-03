@@ -1,5 +1,5 @@
 import type { SubtreeStats } from '../../../data/cascade/cascade-summary';
-import type { InitiatorRowMeta } from '../../../data/initiator-row-meta';
+import type { InitiatorRowMeta } from '../../../data/initiator/initiator-row-meta';
 import { formatBytes, formatMs } from './utils';
 
 function Chip({

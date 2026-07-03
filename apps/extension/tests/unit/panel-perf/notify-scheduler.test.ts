@@ -13,7 +13,7 @@ import {
   getNotifyScheduler,
   type NotifyScheduler,
   setNotifyScheduler,
-} from '@openheaders/ui/panel/data/notify-scheduler';
+} from '@openheaders/ui/panel/data/stores/notify-scheduler';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /** Controllable rAF: callbacks queue until `flushFrame()` runs them. */

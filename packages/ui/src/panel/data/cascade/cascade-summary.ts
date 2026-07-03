@@ -16,7 +16,7 @@
  */
 
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
-import { isCascadeFailure } from '../initiator-row-meta';
+import { isCascadeFailure } from '../initiator/initiator-row-meta';
 import { currentHarEntry, lifecycleTransferredBytes } from '../inspector-row-projection';
 
 export interface SubtreeStats {

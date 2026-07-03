@@ -11,9 +11,9 @@
 
 import type { ResponseAction } from '@openheaders/core/types';
 import { stableStringify } from '@openheaders/ui/shared/forms';
-import { type Dispatch, type SetStateAction, useEffect, useMemo, useRef, useState } from 'react';
 import type { RefObject } from 'react';
-import type { ResponseQuickDraft } from '../../data/response-rule-edit';
+import { type Dispatch, type SetStateAction, useEffect, useMemo, useRef, useState } from 'react';
+import type { ResponseQuickDraft } from '../../data/rule-create/response-rule-edit';
 
 interface UseResponseDraftArgs {
   /** Live rule's action, or null when the rule is gone / not a response rule. */

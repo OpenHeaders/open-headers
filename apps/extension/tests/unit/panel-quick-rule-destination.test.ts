@@ -14,7 +14,7 @@ import {
   domainFolderName,
   listFolderOptions,
   resolveQuickDestination,
-} from '@openheaders/ui/panel/data/quick-rule-destination';
+} from '@openheaders/ui/panel/data/rule-create/quick-rule-destination';
 import { describe, expect, it } from 'vitest';
 
 const URL = 'https://api.openheaders.io/v1/users';

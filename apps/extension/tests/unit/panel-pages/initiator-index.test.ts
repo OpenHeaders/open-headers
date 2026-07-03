@@ -1,15 +1,22 @@
-import { describe, expect, it } from 'vitest';
-
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarEntry } from '@openheaders/core/types';
-
-import { buildInitiatorIndex } from '@openheaders/ui/panel/data/initiator-index';
+import { buildInitiatorIndex } from '@openheaders/ui/panel/data/initiator/initiator-index';
+import { describe, expect, it } from 'vitest';
 
 function harWithInitiator(url: string, initiatorUrl: string | null): InspectorHarEntry {
   return {
     startedDateTime: new Date(0).toISOString(),
     time: 0,
-    request: { method: 'GET', url, httpVersion: '', headers: [], queryString: [], cookies: [], headersSize: -1, bodySize: -1 },
+    request: {
+      method: 'GET',
+      url,
+      httpVersion: '',
+      headers: [],
+      queryString: [],
+      cookies: [],
+      headersSize: -1,
+      bodySize: -1,
+    },
     timings: { blocked: 0, dns: 0, connect: 0, send: 0, wait: 0, receive: 0 },
     ...(initiatorUrl ? { _initiator: { type: 'script', url: initiatorUrl } } : {}),
   } as InspectorHarEntry;

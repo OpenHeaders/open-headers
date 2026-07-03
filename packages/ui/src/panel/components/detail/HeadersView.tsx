@@ -38,7 +38,7 @@ import {
   lifecycleTransferredBytes,
 } from '../../data/inspector-row-projection';
 import type { RowAnnotation } from '../../data/row-annotations';
-import type { RulesByUid } from '../../data/use-rules-lookup';
+import type { RulesByUid } from '../../data/rule-create/use-rules-lookup';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import { GeneralRow } from './headers/GeneralRow';
 import { HeaderSection } from './headers/HeaderSection';

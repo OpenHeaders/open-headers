@@ -6,8 +6,8 @@ import {
   computeCallFrameMeta,
   computeFrameLocation,
   formatCallStackForCopy,
-} from '../../../data/call-frame-meta';
-import { frameKey, useResolvedFrames, type ResolvedFramePosition } from '../../../data/use-resolved-frames';
+} from '../../../data/initiator/call-frame-meta';
+import { frameKey, useResolvedFrames, type ResolvedFramePosition } from '../../../data/initiator/use-resolved-frames';
 import { basenameOfSource } from './utils';
 
 export interface CallFrame {

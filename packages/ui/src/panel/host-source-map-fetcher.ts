@@ -11,5 +11,5 @@
  * gets a stable importable path without reaching into `panel/data/`.
  */
 
-export { setSourceMapFetcher } from './data/source-map-cache';
-export type { SourceMapFetcher } from './data/source-map-cache';
+export type { SourceMapFetcher } from './data/initiator/source-map-cache';
+export { setSourceMapFetcher } from './data/initiator/source-map-cache';

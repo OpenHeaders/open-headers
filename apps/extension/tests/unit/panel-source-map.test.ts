@@ -1,4 +1,4 @@
-import { lookupOriginalPosition, parseSourceMap } from '@openheaders/ui/panel/data/source-map';
+import { lookupOriginalPosition, parseSourceMap } from '@openheaders/ui/panel/data/initiator/source-map';
 import { describe, expect, it } from 'vitest';
 
 describe('parseSourceMap', () => {

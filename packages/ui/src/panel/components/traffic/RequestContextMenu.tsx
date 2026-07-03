@@ -17,7 +17,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { currentResponseBody, type InspectorRowWithFires } from '../../data/inspector-row-projection';
 import { formatCurl, formatFetch, formatRequestHeaders, formatResponseHeaders } from '../../data/request-formatters';
-import { handOffRuleDraft } from '../../data/rule-draft-bridge';
+import { handOffRuleDraft } from '../../data/rule-create/rule-draft-bridge';
 
 export interface RequestContextMenuState {
   x: number;

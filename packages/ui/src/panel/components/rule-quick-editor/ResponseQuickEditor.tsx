@@ -21,7 +21,7 @@ import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 import { App, Tag, theme } from 'antd';
 import { useMemo } from 'react';
-import { findRuleCollectionId } from '../../data/rule-collection';
+import { findRuleCollectionId } from '../../data/rule-create/rule-collection';
 import { QuickEditorShell } from './QuickEditorShell';
 import { ResponseQuickFields } from './ResponseQuickFields';
 import { useResponseDraft } from './use-response-draft';

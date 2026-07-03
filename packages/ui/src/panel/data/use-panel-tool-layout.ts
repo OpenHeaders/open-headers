@@ -9,13 +9,13 @@
  * passes the resolved `perTab` into `usePanelToolLayout`.
  */
 
+import type { PersistedTabSession } from '@openheaders/core/storage';
 import type { DockLayoutApi, DockState, ToolLayoutState } from '@openheaders/ui/shared/dock-layout';
 import { normalizeDockLayout, useDockLayout } from '@openheaders/ui/shared/dock-layout';
 import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-scope-view-state';
 import { useEditingScopeViewState } from '@openheaders/ui/shared/editing-scope-view-state';
-import type { PersistedTabSession } from '@openheaders/core/storage';
-import { focusStore } from './focus-store';
 import type { InspectorTab } from './inspector-tab';
+import { focusStore } from './stores/focus-store';
 import { PANEL_TOOL_WINDOW_MAP, PANEL_TOOL_WINDOWS, type PanelToolWindowId } from './tool-windows';
 
 export type PanelToolLayoutApi = DockLayoutApi<PanelToolWindowId>;

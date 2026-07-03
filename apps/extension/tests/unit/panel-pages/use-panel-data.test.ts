@@ -12,9 +12,9 @@
 import type { Page } from '@openheaders/core/page-stream';
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarEntry } from '@openheaders/core/types';
-import type { FireClientSnapshot } from '@openheaders/ui/panel/data/fire-client-store';
-import type { LifecycleClientSnapshot } from '@openheaders/ui/panel/data/lifecycle-client-store';
-import type { PageClientSnapshot } from '@openheaders/ui/panel/data/page-client-store';
+import type { FireClientSnapshot } from '@openheaders/ui/panel/data/stores/fire-client-store';
+import type { LifecycleClientSnapshot } from '@openheaders/ui/panel/data/stores/lifecycle-client-store';
+import type { PageClientSnapshot } from '@openheaders/ui/panel/data/stores/page-client-store';
 import type { InspectorFire } from '@openheaders/ui/panel/data/types';
 import { usePanelData } from '@openheaders/ui/panel/data/use-panel-data';
 import { renderHook } from '@testing-library/react';

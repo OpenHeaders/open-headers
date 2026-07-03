@@ -19,7 +19,7 @@ import {
   currentHarEntry,
   type InspectorRowWithFires,
 } from '../../data/inspector-row-projection';
-import { computeUpstreamChain } from '../../data/upstream-chain';
+import { computeUpstreamChain } from '../../data/initiator/upstream-chain';
 import { CallStack, type StackTrace } from './initiator/CallStack';
 import { InitiatorTreeView } from './initiator/InitiatorTree';
 import { UpstreamChain } from './initiator/UpstreamChain';
