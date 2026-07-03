@@ -44,6 +44,10 @@
       "import": "./src/entity/*.ts",
       "default": "./dist/entity/*.js"
     },
+    "./live/live-cache-store": {
+      "import": "./src/live/live-cache-store/index.ts",
+      "default": "./dist/live/live-cache-store/index.js"
+    },
     "./live/*": {
       "import": "./src/live/*.ts",
       "default": "./dist/live/*.js"
