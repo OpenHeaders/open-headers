@@ -61,7 +61,7 @@ import type { RuleApplicability } from '../data/rule-create/rule-applicability';
 import { findRuleCollectionId } from '../data/rule-create/rule-collection';
 import { HEADER_OPERATION_OPTIONS } from './rule-quick-editor/header-operation-options';
 import { QuickConditionsRow } from './rule-quick-editor/QuickConditionsRow';
-import { QuickEditorShell, RULE_TYPE_LABEL } from './rule-quick-editor/QuickEditorShell';
+import { QuickEditorShell } from './rule-quick-editor/QuickEditorShell';
 import { useConditionsDraft } from './rule-quick-editor/use-conditions-draft';
 import { isSnapshotResolutionReliable, ruleCtxFromAttribution, tagLabelFor, tagTitleFor } from './rule-hover-format';
 import { SnapshotBlock } from './SnapshotBlock';
@@ -485,11 +485,9 @@ export function RuleHoverPopover({
         <div style={{ fontSize: 12, color: token.colorTextSecondary, lineHeight: 1.5 }}>
           {ruleDeleted
             ? 'This rule has been deleted. The capture above shows what it did when it fired.'
-            : ruleType === 'header' && !target
-              ? 'Open in workspace to inspect or change this rule.'
-              : ruleType === 'header'
-                ? 'The matching modification has been removed from the rule. Open in workspace to recreate or adjust it.'
-                : `${RULE_TYPE_LABEL[ruleType]} rules are edited in the workbench.`}
+            : ruleType === 'header' && target
+              ? 'The matching modification has been removed from the rule. Open in workspace to recreate or adjust it.'
+              : 'Open in workspace to inspect or change this rule.'}
         </div>
       )}
     </QuickEditorShell>

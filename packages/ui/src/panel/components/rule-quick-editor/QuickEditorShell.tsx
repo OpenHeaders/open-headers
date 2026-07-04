@@ -36,20 +36,6 @@ import { createPortal } from 'react-dom';
 
 export const QUICK_EDITOR_WIDTH = 480;
 
-export const RULE_TYPE_LABEL: Record<Rule['type'], string> = {
-  header: 'Header',
-  redirect: 'Redirect',
-  block: 'Block',
-  delay: 'Delay',
-  inject: 'Inject',
-  'request-body': 'Request Body',
-  response: 'Response',
-  'query-param': 'Query Param',
-  ws: 'WebSocket',
-  sse: 'SSE',
-  auth: 'Auth',
-};
-
 export interface QuickEditorSave {
   saving: boolean;
   canSave: boolean;
