@@ -9,6 +9,7 @@ import {
 import { classifyBodyState, classifyResponseSnapshot, snapshotMime } from '../data/response-body-state';
 import BodyStateView from './detail/BodyStateView';
 import OverrideBodyButton from './detail/OverrideBodyButton';
+import { RESPONSE_MODIFIED_LABEL, RESPONSE_ORIGINAL_LABEL } from './detail/override-labels';
 import Skeleton from './detail/Skeleton';
 import SplitBodyView from './detail/SplitBodyView';
 import { useRulePopover } from './RulePopoverHost';
@@ -138,7 +139,7 @@ export function ResponseBodyView({
 
     return (
       <SplitBodyView
-        startLabel="Modified · Open Headers"
+        startLabel={RESPONSE_MODIFIED_LABEL}
         start={
           <BodyStateView
             state={servedState}
@@ -150,7 +151,7 @@ export function ResponseBodyView({
             fallbackByteCount={fallbackBytes}
           />
         }
-        endLabel="Original · server"
+        endLabel={RESPONSE_ORIGINAL_LABEL}
         end={
           <BodyStateView
             state={originalState}

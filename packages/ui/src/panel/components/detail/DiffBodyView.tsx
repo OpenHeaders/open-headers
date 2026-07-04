@@ -24,6 +24,7 @@ import {
   RichDiffEditor,
 } from '@openheaders/ui/workbench/components/diff-viewer';
 import { canPrettyPrint, detectLanguage } from '../../data/mime';
+import { RESPONSE_MODIFIED_LABEL, RESPONSE_ORIGINAL_LABEL } from './override-labels';
 import { prettyPrintCode } from './pretty-print';
 import Skeleton from './Skeleton';
 
@@ -83,8 +84,8 @@ export default function DiffBodyView({
           showToolbar={false}
           header={
             <div className="dt-body-diff-labels">
-              <span>Original · server</span>
-              <span>Modified · Open Headers</span>
+              <span>{RESPONSE_ORIGINAL_LABEL}</span>
+              <span>{RESPONSE_MODIFIED_LABEL}</span>
             </div>
           }
         />

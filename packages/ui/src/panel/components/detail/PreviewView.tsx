@@ -4,6 +4,7 @@ import { currentHarEntry, type InspectorRowWithFires, lifecycleMimeType, lifecyc
 import { classifyBodyState, classifyResponseSnapshot, snapshotMime } from '../../data/response-body-state';
 import { useRulePopover } from '../RulePopoverHost';
 import OverrideBodyButton from './OverrideBodyButton';
+import { RESPONSE_MODIFIED_LABEL, RESPONSE_ORIGINAL_LABEL } from './override-labels';
 import PreviewPane from './PreviewPane';
 import SplitBodyView from './SplitBodyView';
 
@@ -60,9 +61,9 @@ export default function PreviewView({ row, buildOverrideDraft, firedResponseRule
     const originalMime = snapshotMime(original) || mime;
     return (
       <SplitBodyView
-        startLabel="Modified · Open Headers"
+        startLabel={RESPONSE_MODIFIED_LABEL}
         start={servedPane}
-        endLabel="Original · server"
+        endLabel={RESPONSE_ORIGINAL_LABEL}
         end={<PreviewPane state={classifyResponseSnapshot(original)} mime={originalMime} size={size} />}
       />
     );
