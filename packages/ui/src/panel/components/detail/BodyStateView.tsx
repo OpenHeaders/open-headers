@@ -17,6 +17,8 @@ interface BodyStateViewProps {
   /** Bottom-toolbar action (the Override Response CTA); omitted on the
    *  read-only original pane of a split. */
   readonly toolbarAction?: React.ReactNode;
+  /** Far-right toolbar controls (e.g. dual-view mode buttons). */
+  readonly toolbarTrailing?: React.ReactNode;
   /** Byte count to show when a binary body cannot be decoded. */
   readonly fallbackByteCount?: number;
 }
@@ -43,6 +45,7 @@ export default function BodyStateView({
   searchHighlight,
   searchMatchIndex,
   toolbarAction,
+  toolbarTrailing,
   fallbackByteCount,
 }: BodyStateViewProps) {
   const highlight = searchHighlight ?? '';
@@ -71,7 +74,12 @@ export default function BodyStateView({
   const shell = (content: React.ReactNode) => (
     <div className="dt-response-view">
       <div className="dt-response-view-content">{content}</div>
-      {toolbarAction && <div className="dt-response-toolbar">{toolbarAction}</div>}
+      {(toolbarAction || toolbarTrailing) && (
+        <div className="dt-response-toolbar">
+          <div className="dt-response-toolbar-left">{toolbarAction}</div>
+          {toolbarTrailing}
+        </div>
+      )}
     </div>
   );
 
@@ -111,6 +119,7 @@ export default function BodyStateView({
           searchQuery={highlight || undefined}
           searchMatchIndex={searchMatchIndex}
           toolbarAction={toolbarAction}
+          toolbarTrailing={toolbarTrailing}
         />
       );
     }
@@ -118,7 +127,12 @@ export default function BodyStateView({
     return (
       <div className="dt-response-view">
         <div className="dt-response-view-content">{content}</div>
-        <ResponseViewerToolbar mode={viewMode} onModeChange={setViewMode} action={toolbarAction} />
+        <ResponseViewerToolbar
+          mode={viewMode}
+          onModeChange={setViewMode}
+          action={toolbarAction}
+          trailing={toolbarTrailing}
+        />
       </div>
     );
   }
@@ -131,6 +145,7 @@ export default function BodyStateView({
       searchQuery={highlight || undefined}
       searchMatchIndex={searchMatchIndex}
       toolbarAction={toolbarAction}
+      toolbarTrailing={toolbarTrailing}
     />
   );
 }

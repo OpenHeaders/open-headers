@@ -4,9 +4,9 @@
  * page). Rendered through the shared {@link RichDiffEditor}, which owns
  * the Monaco diff lifecycle (dispose-order, model swaps). Its built-in
  * toolbar stays hidden — the panel idiom is a single bottom bar, so
- * this component renders one: the caller's mode buttons (Diff / Full
- * response), a hide-unchanged toggle (default on — only changed hunks
- * show), and the caller's override CTA.
+ * this component renders one: a hide-unchanged toggle (default on —
+ * only changed hunks show) and the caller's override CTA on the left,
+ * with the caller's mode buttons (Diff / Full response) right-aligned.
  *
  * Both sides are pretty-printed first when the language is known, so
  * the diff shows semantic changes rather than formatting noise
@@ -34,7 +34,8 @@ interface DiffBodyViewProps {
   modified: string;
   /** MIME driving syntax highlight + pretty-print eligibility. */
   declaredMime: string;
-  /** The caller's Diff / Full-response mode buttons — leads the bar. */
+  /** The caller's Diff / Full-response mode buttons — right-aligned at
+   *  the end of the bar. */
   modeButtons?: React.ReactNode;
   /** The caller's override CTA — trails the bar behind a divider. */
   overrideAction?: React.ReactNode;
@@ -89,20 +90,22 @@ export default function DiffBodyView({
         />
       </div>
       <div className="dt-body-dual-bar">
+        <div className="dt-response-toolbar-left">
+          <button
+            type="button"
+            className={`dt-response-toolbar-btn ${options.collapseUnchanged ? 'active' : ''}`}
+            onClick={() => setOptions({ ...options, collapseUnchanged: !options.collapseUnchanged })}
+          >
+            Hide unchanged
+          </button>
+          {overrideAction && (
+            <>
+              <span className="dt-toolbar-divider" aria-hidden="true" />
+              {overrideAction}
+            </>
+          )}
+        </div>
         {modeButtons}
-        <button
-          type="button"
-          className={`dt-response-toolbar-btn ${options.collapseUnchanged ? 'active' : ''}`}
-          onClick={() => setOptions({ ...options, collapseUnchanged: !options.collapseUnchanged })}
-        >
-          Hide unchanged
-        </button>
-        {overrideAction && (
-          <>
-            <span className="dt-toolbar-divider" aria-hidden="true" />
-            {overrideAction}
-          </>
-        )}
       </div>
     </>
   );

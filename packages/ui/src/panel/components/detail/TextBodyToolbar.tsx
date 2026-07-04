@@ -18,8 +18,11 @@ interface TextBodyToolbarProps {
   onApplyOverride?: (format: DetectedFormat) => void;
   onClearOverride?: () => void;
   /** Trailing action(s) after the controls, behind a divider (e.g. an
-   *  override CTA). The whole row stays left-aligned. */
+   *  override CTA). Stays with the left-aligned group. */
   action?: React.ReactNode;
+  /** Extra controls rendered at the far right (e.g. dual-view mode
+   *  buttons). */
+  trailing?: React.ReactNode;
 }
 
 export default function TextBodyToolbar({
@@ -31,6 +34,7 @@ export default function TextBodyToolbar({
   onApplyOverride,
   onClearOverride,
   action,
+  trailing,
 }: TextBodyToolbarProps) {
   return (
     <div className="dt-response-toolbar">
@@ -72,6 +76,7 @@ export default function TextBodyToolbar({
           </>
         )}
       </div>
+      {trailing}
     </div>
   );
 }

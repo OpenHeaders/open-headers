@@ -273,6 +273,7 @@
 .dt-body-dual-bar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
   padding: 0 8px;
   height: 22px;

@@ -36,6 +36,8 @@ interface TextBodyViewerProps {
   /** Trailing toolbar action behind a divider (e.g. an override CTA).
    *  Opt-in so consumers that don't want it keep a plain toolbar. */
   toolbarAction?: React.ReactNode;
+  /** Far-right toolbar controls (e.g. dual-view mode buttons). */
+  toolbarTrailing?: React.ReactNode;
 }
 
 export default function TextBodyViewer({
@@ -44,6 +46,7 @@ export default function TextBodyViewer({
   searchQuery,
   searchMatchIndex,
   toolbarAction,
+  toolbarTrailing,
 }: TextBodyViewerProps) {
   const sniffed = useSniffedContent(text, declaredMime);
   const lang = detectLanguage(sniffed.effectiveMime);
@@ -107,6 +110,7 @@ export default function TextBodyViewer({
           onApplyOverride={sniffed.applyOverride}
           onClearOverride={sniffed.clearOverride}
           action={toolbarAction}
+          trailing={toolbarTrailing}
         />
       </div>
     );
@@ -141,6 +145,7 @@ export default function TextBodyViewer({
         onApplyOverride={sniffed.applyOverride}
         onClearOverride={sniffed.clearOverride}
         action={toolbarAction}
+        trailing={toolbarTrailing}
       />
     </div>
   );

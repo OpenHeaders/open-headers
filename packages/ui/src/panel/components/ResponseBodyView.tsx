@@ -92,9 +92,9 @@ export function ResponseBodyView({
   // Two-sided: a network-source rule served a modified body over a real reply.
   // Show the real server response against the modified one — the original pane
   // is read-only (no Override CTA). One bottom row everywhere: in diff mode
-  // DiffBodyView renders the bar (modes + hide-unchanged + CTA); in
-  // full-response mode the mode buttons ride along in the modified pane's own
-  // toolbar instead of adding a second row.
+  // DiffBodyView renders the bar (hide-unchanged + CTA, modes right-aligned);
+  // in full-response mode the mode buttons ride right-aligned in the modified
+  // pane's own toolbar instead of adding a second row.
   const original = lc.responseOverride?.original;
   if (original) {
     const originalState = classifyResponseSnapshot(original);
@@ -145,21 +145,8 @@ export function ResponseBodyView({
             declaredMime={declaredMime}
             searchHighlight={searchHighlight}
             searchMatchIndex={searchMatchIndex}
-            toolbarAction={
-              modeButtons ? (
-                <>
-                  {modeButtons}
-                  {overrideAction && (
-                    <>
-                      <span className="dt-toolbar-divider" aria-hidden="true" />
-                      {overrideAction}
-                    </>
-                  )}
-                </>
-              ) : (
-                overrideAction
-              )
-            }
+            toolbarAction={overrideAction}
+            toolbarTrailing={modeButtons}
             fallbackByteCount={fallbackBytes}
           />
         }
