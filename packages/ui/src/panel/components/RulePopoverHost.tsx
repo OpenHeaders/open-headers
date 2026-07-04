@@ -21,11 +21,14 @@ import { createHoverPopoverHost, type HoverPopoverBodyProps } from '@openheaders
 import type { HeaderAttribution } from '../data/headers/header-attribution';
 import type { RuleApplicability } from '../data/rule-create/rule-applicability';
 import type { UrlCreateVariant } from '../data/rule-create/url-rule-create';
+import { AuthQuickEditor } from './rule-quick-editor/AuthQuickEditor';
 import { BlockQuickCreate } from './rule-quick-editor/BlockQuickCreate';
 import { BlockQuickEditor } from './rule-quick-editor/BlockQuickEditor';
 import { DelayQuickCreate } from './rule-quick-editor/DelayQuickCreate';
 import { DelayQuickEditor } from './rule-quick-editor/DelayQuickEditor';
 import { HeaderQuickCreate } from './rule-quick-editor/HeaderQuickCreate';
+import { InjectQuickEditor } from './rule-quick-editor/InjectQuickEditor';
+import { MessageQuickEditor } from './rule-quick-editor/MessageQuickEditor';
 import { QueryParamQuickCreate } from './rule-quick-editor/QueryParamQuickCreate';
 import { QueryParamQuickEditor } from './rule-quick-editor/QueryParamQuickEditor';
 import { RedirectQuickCreate } from './rule-quick-editor/RedirectQuickCreate';
@@ -35,6 +38,22 @@ import { RequestBodyQuickEditor } from './rule-quick-editor/RequestBodyQuickEdit
 import { ResponseQuickCreate } from './rule-quick-editor/ResponseQuickCreate';
 import { ResponseQuickEditor } from './rule-quick-editor/ResponseQuickEditor';
 import { RuleHoverPopover, type RuleHoverPopoverTarget } from './RuleHoverPopover';
+
+/** Per-type edit bodies. Every rule type except `header` has a typed
+ *  compact editor; header rules stay on `RuleHoverPopover`, which owns
+ *  the mod pinpointing, conflict chips and snapshot block. */
+const EDIT_BODIES: Record<Exclude<Rule['type'], 'header'>, typeof RedirectQuickEditor> = {
+  redirect: RedirectQuickEditor,
+  response: ResponseQuickEditor,
+  delay: DelayQuickEditor,
+  block: BlockQuickEditor,
+  'query-param': QueryParamQuickEditor,
+  'request-body': RequestBodyQuickEditor,
+  inject: InjectQuickEditor,
+  ws: MessageQuickEditor,
+  sse: MessageQuickEditor,
+  auth: AuthQuickEditor,
+};
 
 /** Create mode — no live rule yet; the popover edits a captured-response
  *  draft and Save mints + publishes the rule (`ResponseQuickCreate`). */
@@ -149,10 +168,10 @@ function RulePopoverBody({
   onMouseLeave,
   visible,
 }: HoverPopoverBodyProps<RulePopoverState>) {
-  // Per-type dispatch inside the one shared host: create mode gets the
-  // response quick-create body, fired response rules get the compact
-  // response quick-editor, and everything else stays on the header
-  // popover (which degrades to a summary for other rule types).
+  // Per-type dispatch inside the one shared host: create modes get
+  // their quick-create bodies, live non-header rules get their typed
+  // compact editor, and header rules (plus deleted-rule fallbacks) stay
+  // on the header popover.
   if (state.mode === 'create-response') {
     return (
       <ResponseQuickCreate
@@ -216,33 +235,8 @@ function RulePopoverBody({
       />
     );
   }
-  if (state.rule?.type === 'response') {
-    return (
-      <ResponseQuickEditor
-        anchorEl={state.anchorEl}
-        rule={state.rule}
-        onClose={onClose}
-        onMouseEnter={onMouseEnter}
-        onMouseLeave={onMouseLeave}
-        visible={visible}
-      />
-    );
-  }
-  if (
-    state.rule?.type === 'redirect' ||
-    state.rule?.type === 'delay' ||
-    state.rule?.type === 'block' ||
-    state.rule?.type === 'query-param' ||
-    state.rule?.type === 'request-body'
-  ) {
-    const editors = {
-      redirect: RedirectQuickEditor,
-      delay: DelayQuickEditor,
-      block: BlockQuickEditor,
-      'query-param': QueryParamQuickEditor,
-      'request-body': RequestBodyQuickEditor,
-    } as const;
-    const Editor = editors[state.rule.type];
+  if (state.rule && state.rule.type !== 'header') {
+    const Editor = EDIT_BODIES[state.rule.type];
     return (
       <Editor
         anchorEl={state.anchorEl}

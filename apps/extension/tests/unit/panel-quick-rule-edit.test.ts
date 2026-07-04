@@ -8,12 +8,28 @@
  * the batch only when supplied (dirty).
  */
 
-import type { BlockRule, DelayRule, QueryParamRule, RequestBodyRule, RuleCondition } from '@openheaders/core/types';
+import type {
+  AuthRule,
+  BlockRule,
+  DelayRule,
+  InjectRule,
+  QueryParamRule,
+  RequestBodyRule,
+  RuleCondition,
+  SseRule,
+  WsRule,
+} from '@openheaders/core/types';
 import {
+  buildAuthRuleUpdate,
   buildBlockRuleUpdate,
   buildDelayRuleUpdate,
+  buildInjectRuleUpdate,
   buildQueryParamRuleUpdate,
   buildRequestBodyRuleUpdate,
+  buildSseRuleUpdate,
+  buildWsRuleUpdate,
+  seedInjectDraft,
+  seedMessageDraft,
   seedQueryParamRowsFromAction,
 } from '@openheaders/ui/panel/data/rule-create/quick-rule-edit';
 import { describe, expect, it } from 'vitest';
@@ -133,5 +149,125 @@ describe('buildRequestBodyRuleUpdate', () => {
   it('does not surprise-publish a draft rule', () => {
     const updates = buildRequestBodyRuleUpdate(rule, { requestBody: '{"a":2}' });
     expect('published' in updates).toBe(false);
+  });
+});
+
+describe('inject — seed and rebuild', () => {
+  const codeRule: InjectRule = {
+    ...base('inject'),
+    action: { injectType: 'script', code: 'console.log(1);', source: 'code', position: 'head', bypassCSP: true },
+  };
+  const urlRule: InjectRule = {
+    ...base('inject'),
+    action: {
+      injectType: 'css',
+      code: '',
+      sourceUrl: 'https://openheaders.io/theme.css',
+      source: 'url',
+      position: 'body-end',
+    },
+  };
+
+  it('seeds only the field the code source uses', () => {
+    expect(seedInjectDraft(codeRule)).toEqual({ code: 'console.log(1);' });
+    expect(seedInjectDraft(urlRule)).toEqual({ sourceUrl: 'https://openheaders.io/theme.css' });
+  });
+
+  it('rebuilds a code-source action preserving type, position and CSP bypass', () => {
+    const updates = buildInjectRuleUpdate({ ...codeRule, published: true }, { code: 'console.log(2);' });
+    expect(updates.action).toEqual({
+      injectType: 'script',
+      code: 'console.log(2);',
+      source: 'code',
+      position: 'head',
+      bypassCSP: true,
+    });
+    expect(updates.published).toBe(true);
+  });
+
+  it('rebuilds a url-source action touching only the source URL', () => {
+    const updates = buildInjectRuleUpdate(urlRule, { sourceUrl: 'https://openheaders.io/other.css' });
+    expect(updates.action?.sourceUrl).toBe('https://openheaders.io/other.css');
+    expect(updates.action?.code).toBe('');
+    expect(updates.action?.injectType).toBe('css');
+    expect('published' in updates).toBe(false);
+  });
+
+  it('carries dirty conditions in the same batch', () => {
+    const updates = buildInjectRuleUpdate(codeRule, { code: 'console.log(2);' }, CONDITIONS);
+    expect(updates.conditions).toBe(CONDITIONS);
+  });
+});
+
+describe('ws/sse messages — seed and rebuild', () => {
+  const wsRule: WsRule = {
+    ...base('ws'),
+    action: {
+      operation: 'modify',
+      direction: 'receive',
+      messageFilter: { matchType: 'contains', value: 'heartbeat' },
+      payload: '{"type":"heartbeat"}',
+    },
+  };
+  const sseRule: SseRule = {
+    ...base('sse'),
+    action: { operation: 'inject', eventName: 'update', payload: '{"v":1}', injectTrigger: 'open' },
+  };
+  const dropRule: WsRule = {
+    ...base('ws'),
+    action: { operation: 'drop', direction: 'send' },
+  };
+
+  it('seeds the payload for modify/inject and null for drop', () => {
+    expect(seedMessageDraft(wsRule)).toEqual({ payload: '{"type":"heartbeat"}' });
+    expect(seedMessageDraft(sseRule)).toEqual({ payload: '{"v":1}' });
+    expect(seedMessageDraft(dropRule)).toEqual({ payload: null });
+  });
+
+  it('rebuilds the ws action preserving direction and filter', () => {
+    const updates = buildWsRuleUpdate({ ...wsRule, published: true }, { payload: '{"type":"ping"}' });
+    expect(updates.action).toEqual({
+      operation: 'modify',
+      direction: 'receive',
+      messageFilter: { matchType: 'contains', value: 'heartbeat' },
+      payload: '{"type":"ping"}',
+    });
+    expect(updates.published).toBe(true);
+  });
+
+  it('rebuilds the sse action preserving event name and inject trigger', () => {
+    const updates = buildSseRuleUpdate(sseRule, { payload: '{"v":2}' }, CONDITIONS);
+    expect(updates.action).toEqual({ operation: 'inject', eventName: 'update', payload: '{"v":2}', injectTrigger: 'open' });
+    expect(updates.conditions).toBe(CONDITIONS);
+  });
+
+  it('is conditions-only for a drop rule — the action is left untouched', () => {
+    const updates = buildWsRuleUpdate({ ...dropRule, published: true }, { payload: null }, CONDITIONS);
+    expect('action' in updates).toBe(false);
+    expect(updates.conditions).toBe(CONDITIONS);
+    expect(updates.published).toBe(true);
+  });
+});
+
+describe('buildAuthRuleUpdate', () => {
+  const rule: AuthRule = {
+    ...base('auth'),
+    action: { username: 'dev-user', password: '{{vault.STAGING_PW}}' },
+  };
+
+  it('applies both credentials and keeps a published rule published', () => {
+    const updates = buildAuthRuleUpdate({ ...rule, published: true }, { username: 'qa-user', password: '{{vault.QA_PW}}' });
+    expect(updates.action).toEqual({ username: 'qa-user', password: '{{vault.QA_PW}}' });
+    expect(updates.published).toBe(true);
+  });
+
+  it('does not surprise-publish a draft rule', () => {
+    const updates = buildAuthRuleUpdate(rule, { username: 'qa-user', password: '' });
+    expect('published' in updates).toBe(false);
+  });
+
+  it('carries dirty conditions in the same batch', () => {
+    const updates = buildAuthRuleUpdate(rule, { username: 'dev-user', password: 'x' }, CONDITIONS);
+    expect(updates.conditions).toBe(CONDITIONS);
   });
 });
