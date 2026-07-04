@@ -125,7 +125,9 @@ export function computeRuleApplicability({
 
 /**
  * Reports whether `template` contains a reference that wouldn't resolve
- * cleanly at SW compile time (DNR-bound `reject` mode).
+ * cleanly at SW compile time (DNR-bound `reject` mode). Also the gate
+ * for panel surfaces that need a CONCRETE value right now (e.g. a jar
+ * cookie write) rather than a template a later fire will resolve.
  *
  * The panel resolver runs in `defer` mode — deferred TOTP refs come
  * back as `{ value: '', deferred: true }` rather than null. That makes
@@ -140,7 +142,7 @@ export function computeRuleApplicability({
  *      literal — happens for parse-failures).
  *   3. Any `vault.*` ref came back as deferred (TOTP-class).
  */
-function containsUnresolvedRef(
+export function containsUnresolvedRef(
   resolver: VariableResolver,
   template: string,
   context: { collectionId: string } | undefined,

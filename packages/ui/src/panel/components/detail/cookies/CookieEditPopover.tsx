@@ -10,11 +10,18 @@
  * until something changed (edit) or the form is first valid (add).
  * HttpOnly is the headline capability — page JS can't set it, the
  * extension's cookies permission can.
+ *
+ * The Value accepts `{{var}}` templates, resolved ONCE at Save into the
+ * concrete string the jar stores (static — later variable changes never
+ * rewrite the jar; a Cookie override rule is the dynamic path). Save is
+ * resolve-gated with a live preview of what will be written.
  */
 
 import { useInfoPopoverContainer } from '@openheaders/ui/shared/info-popover';
+import { useVariableResolver } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
+import { TemplateInput } from '@openheaders/ui/workbench/components/template-input';
 import { Button, Input, Popover, Radio, Select, Switch } from 'antd';
-import { type ReactNode, useCallback, useState } from 'react';
+import { type ReactNode, useCallback, useMemo, useState } from 'react';
 import { usePopoverViewportFit } from '../../use-popover-viewport-fit';
 import {
   type CookieEditFormValues,
@@ -24,6 +31,7 @@ import {
   isEditFormValid,
 } from '../../../data/cookies/cookie-edit';
 import type { JarCookieEdit } from '../../../data/cookies/cookie-jar-cache';
+import { containsUnresolvedRef } from '../../../data/rule-create/rule-applicability';
 
 const SAME_SITE_OPTIONS: Array<{ value: CookieSameSiteValue; label: string }> = [
   { value: 'unspecified', label: 'Unspecified' },
@@ -68,9 +76,25 @@ function CookieEditFormBody({ mode, canonical, busy, maxHeight, onCancel, onSave
     setValues((prev) => ({ ...prev, [key]: val }));
   };
 
+  // The value accepts {{var}} templates but the jar needs a CONCRETE
+  // string — Save resolves once at click time (static; the jar never
+  // tracks later variable changes — a Cookie override rule does that).
+  // Unresolvable / deferred-vault refs gate Save: writing a literal
+  // `{{…}}` into the browser jar is always wrong.
+  const resolver = useVariableResolver();
+  const isTemplate = values.value.includes('{{');
+  const valueUnresolved = useMemo(
+    () => isTemplate && containsUnresolvedRef(resolver, values.value, undefined),
+    [resolver, isTemplate, values.value],
+  );
+  const resolvedValue = useMemo(
+    () => (isTemplate && !valueUnresolved ? resolver.resolveTemplate(values.value).result : values.value),
+    [resolver, isTemplate, valueUnresolved, values.value],
+  );
+
   const dirty = !editFormsEqual(values, canonical);
   const valid = isEditFormValid(values);
-  const canSave = valid && (mode === 'add' || dirty);
+  const canSave = valid && !valueUnresolved && (mode === 'add' || dirty);
 
   return (
     <div
@@ -93,13 +117,21 @@ function CookieEditFormBody({ mode, canonical, busy, maxHeight, onCancel, onSave
 
         <label className="dt-cookie-edit-field dt-cookie-edit-field--wide">
           <span className="dt-cookie-edit-label">Value</span>
-          <Input.TextArea
+          <TemplateInput
             value={values.value}
-            onChange={(e) => set('value', e.target.value)}
-            autoSize={{ minRows: 1, maxRows: 3 }}
-            disabled={busy}
+            onChange={(v) => set('value', v)}
+            wrap
+            maxRows={3}
             size="small"
+            placeholder="value or {{variable}}"
           />
+          {isTemplate && (
+            <span className={`dt-cookie-edit-resolved${valueUnresolved ? ' dt-cookie-edit-resolved--error' : ''}`}>
+              {valueUnresolved
+                ? 'Doesn’t resolve — create the variable or fix the reference.'
+                : `Writes: ${resolvedValue}`}
+            </span>
+          )}
         </label>
 
         <label className="dt-cookie-edit-field">
@@ -184,7 +216,7 @@ function CookieEditFormBody({ mode, canonical, busy, maxHeight, onCancel, onSave
         <Button
           size="small"
           type="primary"
-          onClick={() => onSave(formToEdit(values))}
+          onClick={() => onSave(formToEdit({ ...values, value: resolvedValue }))}
           disabled={!canSave}
           loading={busy}
         >

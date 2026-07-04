@@ -544,6 +544,19 @@
   font-weight: 500;
   color: var(--dt-text-muted);
 }
+/* Live resolution line under a templated Value — what Save will
+ * actually write to the jar (or why it can't). */
+.dt-cookie-edit-resolved {
+  font-size: 11px;
+  font-family: monospace;
+  color: var(--dt-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dt-cookie-edit-resolved--error {
+  color: var(--dt-status-red);
+}
 .dt-cookie-edit-datetime {
   margin-top: 4px;
   min-width: 0;

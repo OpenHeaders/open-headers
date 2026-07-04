@@ -106,7 +106,7 @@ const ADD_COOKIE_INFO: InfoPopoverContent = {
   summary:
     'Writes a real cookie into the browser jar — the same store the browser shows under Application → Cookies.',
   description:
-    'It persists beyond this request and the browser attaches it wherever its domain, path and flags match — no rule involved. This is also the way to create HttpOnly cookies, which page scripts can’t set.',
+    'It persists beyond this request and the browser attaches it wherever its domain, path and flags match — no rule involved. This is also the way to create HttpOnly cookies, which page scripts can’t set. The value accepts {{variable}} references, resolved once when you save — the jar keeps that snapshot even if the variable changes later; use Override Cookies when the value should track the variable.',
 };
 
 export default function CookiesView({ row, pageOrigin, onOverrideHeader }: CookiesViewProps) {
