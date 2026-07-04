@@ -243,7 +243,6 @@ export function MatchedRulesPanel({ row, rulesByUid, onClose }: MatchedRulesPane
         title={
           <>
             <strong>Request Rules</strong>
-            {row && <span className="dt-panel-title-sub">· {row.fires.length}</span>}
             {reqTab && (
               <span className="dt-matched-rules-req" title={reqTab.url}>
                 <span className="dt-method-badge" style={{ color: methodColor(reqTab.method) }}>
