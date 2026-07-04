@@ -21,22 +21,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { type EditorTabDragData, LayoutMenuIcon } from '@openheaders/ui/shared/dock-layout';
 import { useDragIntent } from '../data/drag-intent';
 import type { ClosedTab, InspectorTab } from '../data/inspector-tab';
-
-// ── Method badge ────────────────────────────────────────────────
-
-const METHOD_COLORS: Record<string, string> = {
-  GET: '#61affe',
-  POST: '#49cc90',
-  PUT: '#fca130',
-  PATCH: '#50e3c2',
-  DELETE: '#f93e3e',
-  HEAD: '#9012fe',
-  OPTIONS: '#0d5aa7',
-};
-
-function methodColor(method: string): string {
-  return METHOD_COLORS[method.toUpperCase()] ?? '#999';
-}
+import { methodColor } from './method-color';
 
 // ── Label helpers ───────────────────────────────────────────────
 

@@ -22,9 +22,11 @@ import {
   fireTier,
   hasCapturedOverride,
 } from '../data/fire-evidence';
+import { buildInspectorTab } from '../data/inspector-tab';
 import type { InspectorRowWithFires } from '../data/inspector-row-projection';
 import type { InspectorFire } from '../data/types';
 import type { RulesByUid } from '../data/rule-create/use-rules-lookup';
+import { methodColor } from './method-color';
 import { useRulePopover } from './RulePopoverHost';
 
 interface MatchedRulesPanelProps {
@@ -182,6 +184,12 @@ function FireRow({ fire, rule, lifecycle }: FireRowProps) {
 
 export function MatchedRulesPanel({ row, rulesByUid, onClose }: MatchedRulesPanelProps) {
   const wiring = useMemo(() => createPanelHeaderWiring({ onHide: onClose }), [onClose]);
+  // Same identity derivation as the inspector tab pill (`#N host/path`),
+  // so the panel names the request exactly like the tab it belongs to.
+  const reqTab = useMemo(
+    () => (row ? buildInspectorTab({ lifecycle: row.lifecycle, displayId: row.displayId }) : null),
+    [row],
+  );
   return (
     <div className="dt-panel dt-matched-rules-panel">
       <PanelHeader
@@ -189,7 +197,19 @@ export function MatchedRulesPanel({ row, rulesByUid, onClose }: MatchedRulesPane
         title={
           <>
             <strong>Matched Rules</strong>
-            {row && <span className="dt-panel-title-sub">· {row.lifecycle.method}</span>}
+            {reqTab && (
+              <span className="dt-matched-rules-req" title={reqTab.url}>
+                <span className="dt-method-badge" style={{ color: methodColor(reqTab.method) }}>
+                  {reqTab.method}
+                </span>
+                <span className="dt-editor-tab-label">{reqTab.label}</span>
+                {reqTab.statusCode != null && (
+                  <span className={`dt-editor-tab-status${reqTab.statusCode >= 400 ? ' error' : ''}`}>
+                    {reqTab.statusCode}
+                  </span>
+                )}
+              </span>
+            )}
           </>
         }
       />
