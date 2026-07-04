@@ -139,7 +139,7 @@ function CookieEditFormBody({ mode, canonical, busy, maxHeight, onCancel, onSave
     >
       <div className="dt-cookie-edit-popover-title">{mode === 'add' ? 'Add cookie' : 'Edit cookie'}</div>
       <div className="dt-cookie-edit-form">
-        <label className="dt-cookie-edit-field dt-cookie-edit-field--wide">
+        <div className="dt-cookie-edit-field dt-cookie-edit-field--wide">
           <span className="dt-cookie-edit-label">Name<CookieEditFieldInfo infoKey="name" /></span>
           <TemplateInput
             value={values.name}
@@ -148,9 +148,9 @@ function CookieEditFormBody({ mode, canonical, busy, maxHeight, onCancel, onSave
             placeholder="cookie name"
           />
           <ResolvedLine field={fields.name} />
-        </label>
+        </div>
 
-        <label className="dt-cookie-edit-field dt-cookie-edit-field--wide">
+        <div className="dt-cookie-edit-field dt-cookie-edit-field--wide">
           <span className="dt-cookie-edit-label">Value<CookieEditFieldInfo infoKey="value" /></span>
           <TemplateInput
             value={values.value}
@@ -161,9 +161,9 @@ function CookieEditFormBody({ mode, canonical, busy, maxHeight, onCancel, onSave
             placeholder="value or {{variable}}"
           />
           <ResolvedLine field={fields.value} />
-        </label>
+        </div>
 
-        <label className="dt-cookie-edit-field">
+        <div className="dt-cookie-edit-field">
           <span className="dt-cookie-edit-label">Domain<CookieEditFieldInfo infoKey="domain" /></span>
           <TemplateInput
             value={values.domain}
@@ -172,9 +172,9 @@ function CookieEditFormBody({ mode, canonical, busy, maxHeight, onCancel, onSave
             placeholder="openheaders.io"
           />
           <ResolvedLine field={fields.domain} />
-        </label>
+        </div>
 
-        <label className="dt-cookie-edit-field">
+        <div className="dt-cookie-edit-field">
           <span className="dt-cookie-edit-label">Path<CookieEditFieldInfo infoKey="path" /></span>
           <TemplateInput
             value={values.path}
@@ -183,7 +183,7 @@ function CookieEditFormBody({ mode, canonical, busy, maxHeight, onCancel, onSave
             placeholder="/"
           />
           <ResolvedLine field={fields.path} />
-        </label>
+        </div>
 
         <div className="dt-cookie-edit-field">
           <span className="dt-cookie-edit-label">Expires<CookieEditFieldInfo infoKey="expires" /></span>
@@ -209,7 +209,7 @@ function CookieEditFormBody({ mode, canonical, busy, maxHeight, onCancel, onSave
           )}
         </div>
 
-        <label className="dt-cookie-edit-field">
+        <div className="dt-cookie-edit-field">
           <span className="dt-cookie-edit-label">SameSite<CookieEditFieldInfo infoKey="samesite" /></span>
           <Select<CookieSameSiteValue>
             value={values.sameSite}
@@ -219,7 +219,7 @@ function CookieEditFormBody({ mode, canonical, busy, maxHeight, onCancel, onSave
             size="small"
             popupMatchSelectWidth={false}
           />
-        </label>
+        </div>
 
         <div className="dt-cookie-edit-toggles">
           <label className="dt-cookie-edit-toggle">
