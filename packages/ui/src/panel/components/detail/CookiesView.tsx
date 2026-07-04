@@ -51,6 +51,7 @@ import {
   type CookieInsightAction,
 } from '../../data/cookies/cookie-insights';
 import type { CookieRow as CookieRowModel } from '../../data/cookies/cookie-model';
+import { seedRequestCookieOverride, seedResponseCookieOverride } from '../../data/cookies/cookie-override-seed';
 import { currentHarEntry, type InspectorRowWithFires } from '../../data/inspector-row-projection';
 import { useCookieJar } from '../../data/cookies/use-cookie-jar';
 import { InfoTrigger, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
@@ -64,9 +65,9 @@ export interface CookiesViewProps {
   row: InspectorRowWithFires;
   pageOrigin: string | null;
   /** Open the in-panel create popover pre-filled with a Cookie /
-   *  Set-Cookie header rule, anchored to the clicked control. `value`
-   *  stays `undefined` for "override, value up to you" gestures and `''`
-   *  for the explicit empty override ("don't send any cookies"). */
+   *  Set-Cookie header rule, anchored to the clicked control. Override
+   *  gestures seed `value` from the capture (`cookie-override-seed`);
+   *  `''` is the explicit empty override ("don't send any cookies"). */
   onOverrideHeader: (
     direction: 'request' | 'response',
     headerName: string,
@@ -236,24 +237,29 @@ export default function CookiesView({ row, pageOrigin, onOverrideHeader }: Cooki
   const footprintText = footprintBits.join(' · ');
 
   // ── CTAs — all open the in-panel create popover anchored to the
-  //    clicked control. `undefined` value = "override, fill in the
-  //    value"; `''` = explicit empty override (send no cookies). ──────
+  //    clicked control. Override gestures seed the value from the
+  //    capture (real cookies, auth values as {{var}} references);
+  //    `''` = explicit empty override (send no cookies). ──────────────
+  const requestSeed = useMemo(() => seedRequestCookieOverride(requestRows, lc.url), [requestRows, lc.url]);
+  const responseSeed = useMemo(() => seedResponseCookieOverride(responseRows, lc.url), [responseRows, lc.url]);
   const onCreateCookieOverride = (anchorEl: HTMLElement): void =>
-    onOverrideHeader('request', 'Cookie', undefined, anchorEl);
+    onOverrideHeader('request', 'Cookie', requestSeed, anchorEl);
   const onCreateSetCookieOverride = (anchorEl: HTMLElement): void =>
-    onOverrideHeader('response', 'Set-Cookie', undefined, anchorEl);
+    onOverrideHeader('response', 'Set-Cookie', responseSeed, anchorEl);
   const onCreateRemoveAllCookies = (anchorEl: HTMLElement): void =>
     onOverrideHeader('request', 'Cookie', '', anchorEl);
 
   const handleInsightAction = (action: CookieInsightAction, anchorEl: HTMLElement): void => {
-    if (action.kind === 'override-set-cookie') onOverrideHeader('response', 'Set-Cookie', undefined, anchorEl);
+    if (action.kind === 'override-set-cookie') onOverrideHeader('response', 'Set-Cookie', responseSeed, anchorEl);
     else if (action.kind === 'remove-cookie') onOverrideHeader('request', 'Cookie', '', anchorEl);
-    else if (action.kind === 'override-cookie-header') onOverrideHeader('request', 'Cookie', undefined, anchorEl);
+    else if (action.kind === 'override-cookie-header') onOverrideHeader('request', 'Cookie', requestSeed, anchorEl);
   };
 
   const onMakeRule = (cookie: CookieRowModel, anchorEl: HTMLElement): void => {
-    if (cookie.direction === 'request') onOverrideHeader('request', 'Cookie', undefined, anchorEl);
-    else onOverrideHeader('response', 'Set-Cookie', undefined, anchorEl);
+    // Request direction seeds the whole Cookie bundle; a response row
+    // seeds ITS OWN Set-Cookie line (one header per cookie).
+    if (cookie.direction === 'request') onOverrideHeader('request', 'Cookie', requestSeed, anchorEl);
+    else onOverrideHeader('response', 'Set-Cookie', seedResponseCookieOverride([cookie], lc.url), anchorEl);
   };
 
   // ── Measured sticky offsets ────────────────────────────────────
