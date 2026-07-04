@@ -1,12 +1,18 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import type { RequestOverride } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarEntry, Rule } from '@openheaders/core/types';
 import { useRulePopover } from '../RulePopoverHost';
+import DualViewControls, { type DualMode } from './DualViewControls';
 import { HighlightedText } from './HighlightedText';
 import { REQUEST_MODIFIED_LABEL, REQUEST_ORIGINAL_LABEL } from './override-labels';
 import OverrideBodyButton from './OverrideBodyButton';
+import Skeleton from './Skeleton';
 import SplitBodyView from './SplitBodyView';
 import TextBodyViewer from './TextBodyViewer';
+
+// Lazy: keeps Monaco's diff bundle out of the panel's initial chunk —
+// it only loads when a two-sided override is actually inspected.
+const DiffBodyView = lazy(() => import('./DiffBodyView'));
 
 type QsViewMode = 'parsed' | 'source' | 'url-encoded';
 
@@ -55,6 +61,109 @@ function QsToggle({ mode, onModeChange }: { mode: QsViewMode; onModeChange: (m: 
   );
 }
 
+interface RequestBodyDualViewProps {
+  /** The page's body as composed, before the rule rewrote it. */
+  originalText: string;
+  /** The body that actually went to the server. */
+  sentText: string;
+  declaredMime: string;
+  searchQuery?: string;
+  dualMode: DualMode;
+  onDualModeChange: (mode: DualMode) => void;
+  swapped: boolean;
+  onSwapSides: () => void;
+}
+
+/**
+ * Two-sided request-body view (a request-body rule fired) — the same
+ * anatomy as the Response tab's dual view: Monaco diff by default
+ * (original-left convention), a "Full request" split leading with the
+ * modified body, and the swap-sides control in the bottom-right corner.
+ */
+function RequestBodyDualView({
+  originalText,
+  sentText,
+  declaredMime,
+  searchQuery,
+  dualMode,
+  onDualModeChange,
+  swapped,
+  onSwapSides,
+}: RequestBodyDualViewProps) {
+  const controls = (
+    <DualViewControls
+      mode={dualMode}
+      onModeChange={onDualModeChange}
+      splitModeLabel="Full request"
+      onSwapSides={onSwapSides}
+    />
+  );
+
+  if (dualMode === 'diff') {
+    const sides = swapped
+      ? {
+          original: sentText,
+          modified: originalText,
+          originalLabel: REQUEST_MODIFIED_LABEL,
+          modifiedLabel: REQUEST_ORIGINAL_LABEL,
+        }
+      : {
+          original: originalText,
+          modified: sentText,
+          originalLabel: REQUEST_ORIGINAL_LABEL,
+          modifiedLabel: REQUEST_MODIFIED_LABEL,
+        };
+    return (
+      <div className="dt-payload-body-wrap">
+        <div className="dt-body-dual">
+          <Suspense fallback={<Skeleton />}>
+            <DiffBodyView
+              original={sides.original}
+              modified={sides.modified}
+              originalLabel={sides.originalLabel}
+              modifiedLabel={sides.modifiedLabel}
+              declaredMime={declaredMime}
+              controls={controls}
+            />
+          </Suspense>
+        </div>
+      </div>
+    );
+  }
+
+  const modifiedPane = (rightmost: boolean) => (
+    <TextBodyViewer
+      text={sentText}
+      declaredMime={declaredMime}
+      searchQuery={searchQuery}
+      toolbarTrailing={rightmost ? controls : undefined}
+    />
+  );
+  const originalPane = (rightmost: boolean) => (
+    <TextBodyViewer text={originalText} declaredMime={declaredMime} toolbarTrailing={rightmost ? controls : undefined} />
+  );
+
+  return (
+    <div className="dt-payload-body-wrap">
+      {swapped ? (
+        <SplitBodyView
+          startLabel={REQUEST_ORIGINAL_LABEL}
+          start={originalPane(false)}
+          endLabel={REQUEST_MODIFIED_LABEL}
+          end={modifiedPane(true)}
+        />
+      ) : (
+        <SplitBodyView
+          startLabel={REQUEST_MODIFIED_LABEL}
+          start={modifiedPane(false)}
+          endLabel={REQUEST_ORIGINAL_LABEL}
+          end={originalPane(true)}
+        />
+      )}
+    </div>
+  );
+}
+
 interface PayloadViewProps {
   har: InspectorHarEntry;
   /** Query string the user just searched for. Highlighted in the
@@ -99,6 +208,8 @@ export default function PayloadView({
   const queryString = har.request?.queryString ?? [];
   const postData = har.request?.postData;
   const [qsMode, setQsMode] = useState<QsViewMode>('parsed');
+  const [dualMode, setDualMode] = useState<DualMode>('diff');
+  const [swapped, setSwapped] = useState(false);
   // Both override CTAs are rule scaffolds, not mirrors of the captured
   // data (same as the Headers tab's always-present Redirect/Delay/Cancel):
   // a request can take a query string or body it doesn't currently carry,
@@ -194,27 +305,20 @@ export default function PayloadView({
                 ))}
               </div>
             ) : requestOverride?.original?.body ? (
-              // A request-body rule fired: the page's original body beside what
-              // actually went to the server.
-              <div className="dt-payload-body-wrap">
-                <SplitBodyView
-                  startLabel={REQUEST_ORIGINAL_LABEL}
-                  start={
-                    <TextBodyViewer
-                      text={requestOverride.original.body.content}
-                      declaredMime={postData.mimeType ?? ''}
-                    />
-                  }
-                  endLabel={REQUEST_MODIFIED_LABEL}
-                  end={
-                    <TextBodyViewer
-                      text={requestOverride.sent.body?.content ?? postData.text ?? ''}
-                      declaredMime={postData.mimeType ?? ''}
-                      searchQuery={bodyHighlight}
-                    />
-                  }
-                />
-              </div>
+              // A request-body rule fired: the page's original body against
+              // what actually went to the server — same dual view as the
+              // Response tab (diff by default, Full request split, swap-sides
+              // in the corner).
+              <RequestBodyDualView
+                originalText={requestOverride.original.body.content}
+                sentText={requestOverride.sent.body?.content ?? postData.text ?? ''}
+                declaredMime={postData.mimeType ?? ''}
+                searchQuery={bodyHighlight}
+                dualMode={dualMode}
+                onDualModeChange={setDualMode}
+                swapped={swapped}
+                onSwapSides={() => setSwapped((s) => !s)}
+              />
             ) : (
               <div className="dt-payload-body-wrap">
                 <TextBodyViewer

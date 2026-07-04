@@ -1,12 +1,12 @@
 /**
- * Diff view for a two-sided response override — original (what the
- * server sent) against modified (what Open Headers served to the
- * page). Rendered through the shared {@link RichDiffEditor}, which owns
+ * Diff view for a two-sided body override — original (what the page /
+ * server produced) against modified (what actually travelled after the
+ * rule). Rendered through the shared {@link RichDiffEditor}, which owns
  * the Monaco diff lifecycle (dispose-order, model swaps). Its built-in
  * toolbar stays hidden — the panel idiom is a single bottom bar, so
  * this component renders one: a hide-unchanged toggle (default on —
  * only changed hunks show) and the caller's override CTA on the left,
- * with the caller's mode buttons (Diff / Full response) right-aligned.
+ * with the caller's controls (mode buttons + swap) right-aligned.
  *
  * Both sides are pretty-printed first when the language is known, so
  * the diff shows semantic changes rather than formatting noise
@@ -24,20 +24,23 @@ import {
   RichDiffEditor,
 } from '@openheaders/ui/workbench/components/diff-viewer';
 import { canPrettyPrint, detectLanguage } from '../../data/mime';
-import { RESPONSE_MODIFIED_LABEL, RESPONSE_ORIGINAL_LABEL } from './override-labels';
 import { prettyPrintCode } from './pretty-print';
 import Skeleton from './Skeleton';
 
 interface DiffBodyViewProps {
-  /** The server's untouched body. */
+  /** The untouched body (left side, `−` marks). */
   original: string;
-  /** The body the page actually received (post-rule). */
+  /** The post-rule body (right side, `+` marks). */
   modified: string;
+  /** Caption over the left (original) column. */
+  originalLabel: string;
+  /** Caption over the right (modified) column. */
+  modifiedLabel: string;
   /** MIME driving syntax highlight + pretty-print eligibility. */
   declaredMime: string;
-  /** The caller's Diff / Full-response mode buttons — right-aligned at
-   *  the end of the bar. */
-  modeButtons?: React.ReactNode;
+  /** The caller's right-aligned controls (mode buttons + swap sides) —
+   *  pinned at the end of the bar. */
+  controls?: React.ReactNode;
   /** The caller's override CTA — trails the bar behind a divider. */
   overrideAction?: React.ReactNode;
 }
@@ -45,8 +48,10 @@ interface DiffBodyViewProps {
 export default function DiffBodyView({
   original,
   modified,
+  originalLabel,
+  modifiedLabel,
   declaredMime,
-  modeButtons,
+  controls,
   overrideAction,
 }: DiffBodyViewProps) {
   const lang = detectLanguage(declaredMime);
@@ -84,8 +89,8 @@ export default function DiffBodyView({
           showToolbar={false}
           header={
             <div className="dt-body-diff-labels">
-              <span>{RESPONSE_ORIGINAL_LABEL}</span>
-              <span>{RESPONSE_MODIFIED_LABEL}</span>
+              <span>{originalLabel}</span>
+              <span>{modifiedLabel}</span>
             </div>
           }
         />
@@ -106,7 +111,7 @@ export default function DiffBodyView({
             </>
           )}
         </div>
-        {modeButtons}
+        {controls}
       </div>
     </>
   );

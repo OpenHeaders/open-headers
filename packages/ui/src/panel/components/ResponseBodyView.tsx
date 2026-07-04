@@ -8,6 +8,7 @@ import {
 } from '../data/inspector-row-projection';
 import { classifyBodyState, classifyResponseSnapshot, snapshotMime } from '../data/response-body-state';
 import BodyStateView from './detail/BodyStateView';
+import DualViewControls, { type DualMode } from './detail/DualViewControls';
 import OverrideBodyButton from './detail/OverrideBodyButton';
 import { RESPONSE_MODIFIED_LABEL, RESPONSE_ORIGINAL_LABEL } from './detail/override-labels';
 import Skeleton from './detail/Skeleton';
@@ -54,7 +55,8 @@ export function ResponseBodyView({
   const declaredMime = lifecycleMimeType(lc) ?? currentHarEntry(lc)?.response?.content?.mimeType ?? '';
   const servedState = useMemo(() => classifyBodyState(lc), [lc]);
   const fallbackBytes = lifecycleTransferredBytes(lc) ?? 0;
-  const [dualMode, setDualMode] = useState<'diff' | 'split'>('diff');
+  const [dualMode, setDualMode] = useState<DualMode>('diff');
+  const [swapped, setSwapped] = useState(false);
   // When a response rule fired on this request, the CTA edits THAT rule
   // in place (pinned quick-editor popover — Save affects the next
   // requests) instead of scaffolding a second rule over it. Otherwise
@@ -92,44 +94,51 @@ export function ResponseBodyView({
 
   // Two-sided: a network-source rule served a modified body over a real reply.
   // Show the real server response against the modified one — the original pane
-  // is read-only (no Override CTA). One bottom row everywhere, with the
-  // Diff / Full-response mode buttons pinned to the view's far right in both
-  // modes: DiffBodyView's bar right-aligns them, and the split view carries
-  // them in the original (rightmost) pane's own toolbar.
+  // is read-only (no Override CTA). One bottom row everywhere, with the mode
+  // buttons + swap-sides control pinned to the view's far right in both modes:
+  // DiffBodyView's bar right-aligns them, and the split view carries them in
+  // whichever pane sits rightmost. The diff defaults to the standard
+  // original-left convention; the split leads with the modified body; the
+  // swap control flips either.
   const original = lc.responseOverride?.original;
   if (original) {
     const originalState = classifyResponseSnapshot(original);
     const canDiff = servedState.kind === 'text' && originalState.kind === 'text';
     const showDiff = canDiff && dualMode === 'diff';
 
-    const modeButtons = canDiff ? (
-      <div className="dt-response-toolbar-modes">
-        <button
-          type="button"
-          className={`dt-response-toolbar-btn ${showDiff ? 'active' : ''}`}
-          onClick={() => setDualMode('diff')}
-        >
-          Diff
-        </button>
-        <button
-          type="button"
-          className={`dt-response-toolbar-btn ${showDiff ? '' : 'active'}`}
-          onClick={() => setDualMode('split')}
-        >
-          Full response
-        </button>
-      </div>
-    ) : null;
+    const controls = (
+      <DualViewControls
+        mode={canDiff ? dualMode : undefined}
+        onModeChange={canDiff ? setDualMode : undefined}
+        splitModeLabel="Full response"
+        onSwapSides={() => setSwapped((s) => !s)}
+      />
+    );
 
     if (showDiff && servedState.kind === 'text' && originalState.kind === 'text') {
+      const sides = swapped
+        ? {
+            original: servedState.content,
+            modified: originalState.content,
+            originalLabel: RESPONSE_MODIFIED_LABEL,
+            modifiedLabel: RESPONSE_ORIGINAL_LABEL,
+          }
+        : {
+            original: originalState.content,
+            modified: servedState.content,
+            originalLabel: RESPONSE_ORIGINAL_LABEL,
+            modifiedLabel: RESPONSE_MODIFIED_LABEL,
+          };
       return (
         <div className="dt-body-dual">
           <Suspense fallback={<Skeleton />}>
             <DiffBodyView
-              original={originalState.content}
-              modified={servedState.content}
+              original={sides.original}
+              modified={sides.modified}
+              originalLabel={sides.originalLabel}
+              modifiedLabel={sides.modifiedLabel}
               declaredMime={snapshotMime(original) || declaredMime}
-              modeButtons={modeButtons}
+              controls={controls}
               overrideAction={overrideAction}
             />
           </Suspense>
@@ -137,28 +146,39 @@ export function ResponseBodyView({
       );
     }
 
-    return (
+    const modifiedPane = (rightmost: boolean) => (
+      <BodyStateView
+        state={servedState}
+        declaredMime={declaredMime}
+        searchHighlight={searchHighlight}
+        searchMatchIndex={searchMatchIndex}
+        toolbarAction={overrideAction}
+        toolbarTrailing={rightmost ? controls : undefined}
+        fallbackByteCount={fallbackBytes}
+      />
+    );
+    const originalPane = (rightmost: boolean) => (
+      <BodyStateView
+        state={originalState}
+        declaredMime={snapshotMime(original) || declaredMime}
+        toolbarTrailing={rightmost ? controls : undefined}
+        fallbackByteCount={fallbackBytes}
+      />
+    );
+
+    return swapped ? (
+      <SplitBodyView
+        startLabel={RESPONSE_ORIGINAL_LABEL}
+        start={originalPane(false)}
+        endLabel={RESPONSE_MODIFIED_LABEL}
+        end={modifiedPane(true)}
+      />
+    ) : (
       <SplitBodyView
         startLabel={RESPONSE_MODIFIED_LABEL}
-        start={
-          <BodyStateView
-            state={servedState}
-            declaredMime={declaredMime}
-            searchHighlight={searchHighlight}
-            searchMatchIndex={searchMatchIndex}
-            toolbarAction={overrideAction}
-            fallbackByteCount={fallbackBytes}
-          />
-        }
+        start={modifiedPane(false)}
         endLabel={RESPONSE_ORIGINAL_LABEL}
-        end={
-          <BodyStateView
-            state={originalState}
-            declaredMime={snapshotMime(original) || declaredMime}
-            toolbarTrailing={modeButtons}
-            fallbackByteCount={fallbackBytes}
-          />
-        }
+        end={originalPane(true)}
       />
     );
   }

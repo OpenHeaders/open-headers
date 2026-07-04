@@ -168,8 +168,22 @@
   align-items: center;
   gap: 8px;
 }
+/* Right-aligned controls group (dual-view mode buttons + swap sides) —
+ * the far-right counterpart of `.dt-response-toolbar-left`. */
+.dt-response-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .dt-preview-meta-bar {
   gap: 16px;
+}
+/* Pushes the dual-view controls to the meta bar's right edge (the bar
+ * itself is a plain gap-spaced row, not space-between). */
+.dt-preview-meta-trailing {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
 }
 .dt-response-toolbar-info {
   color: var(--dt-text-muted);
@@ -194,6 +208,16 @@
   background: var(--dt-btn-primary-bg);
   color: var(--dt-btn-primary-text);
   border-color: var(--dt-btn-primary-bg);
+}
+/* Swap-sides icon button — corner control of a dual-view bar. */
+.dt-swap-sides-btn {
+  display: flex;
+  align-items: center;
+  padding: 1px 3px;
+}
+.dt-swap-sides-btn svg {
+  width: 13px;
+  height: 13px;
 }
 
 /* Override CTA — the same blue `dt-btn-primary` tag as the Headers

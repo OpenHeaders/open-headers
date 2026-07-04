@@ -1,8 +1,9 @@
 import type { ResponseRuleDraft, Rule } from '@openheaders/core/types';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { currentHarEntry, type InspectorRowWithFires, lifecycleMimeType, lifecycleTransferredBytes } from '../../data/inspector-row-projection';
 import { classifyBodyState, classifyResponseSnapshot, snapshotMime } from '../../data/response-body-state';
 import { useRulePopover } from '../RulePopoverHost';
+import DualViewControls from './DualViewControls';
 import OverrideBodyButton from './OverrideBodyButton';
 import { RESPONSE_MODIFIED_LABEL, RESPONSE_ORIGINAL_LABEL } from './override-labels';
 import PreviewPane from './PreviewPane';
@@ -27,6 +28,7 @@ interface PreviewViewProps {
 export default function PreviewView({ row, buildOverrideDraft, firedResponseRule }: PreviewViewProps) {
   const rulePopover = useRulePopover();
   const lc = row.lifecycle;
+  const [swapped, setSwapped] = useState(false);
   const har = currentHarEntry(lc);
   const mime = lifecycleMimeType(lc) ?? har?.response?.content?.mimeType ?? '';
   const size = lifecycleTransferredBytes(lc) ?? har?.response?.content?.size ?? 0;
@@ -56,15 +58,42 @@ export default function PreviewView({ row, buildOverrideDraft, firedResponseRule
 
   const servedPane = <PreviewPane state={servedState} mime={mime} size={size} action={overrideButton} />;
 
+  // Two-sided: modified leads by default, and the swap-sides control rides
+  // the rightmost pane's bottom bar (same corner as the Response tab).
   const original = lc.responseOverride?.original;
   if (original) {
     const originalMime = snapshotMime(original) || mime;
-    return (
+    const controls = <DualViewControls onSwapSides={() => setSwapped((s) => !s)} />;
+    const modifiedPane = (rightmost: boolean) => (
+      <PreviewPane
+        state={servedState}
+        mime={mime}
+        size={size}
+        action={overrideButton}
+        trailing={rightmost ? controls : undefined}
+      />
+    );
+    const originalPane = (rightmost: boolean) => (
+      <PreviewPane
+        state={classifyResponseSnapshot(original)}
+        mime={originalMime}
+        size={size}
+        trailing={rightmost ? controls : undefined}
+      />
+    );
+    return swapped ? (
+      <SplitBodyView
+        startLabel={RESPONSE_ORIGINAL_LABEL}
+        start={originalPane(false)}
+        endLabel={RESPONSE_MODIFIED_LABEL}
+        end={modifiedPane(true)}
+      />
+    ) : (
       <SplitBodyView
         startLabel={RESPONSE_MODIFIED_LABEL}
-        start={servedPane}
+        start={modifiedPane(false)}
         endLabel={RESPONSE_ORIGINAL_LABEL}
-        end={<PreviewPane state={classifyResponseSnapshot(original)} mime={originalMime} size={size} />}
+        end={originalPane(true)}
       />
     );
   }
