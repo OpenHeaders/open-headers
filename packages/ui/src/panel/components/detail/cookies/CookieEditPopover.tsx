@@ -266,12 +266,23 @@ interface Props {
 export function CookieEditPopover({ mode, canonical, onSubmit, placement = 'bottomRight', children }: Props) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  // Height-aware like the View / toolbar menus: measure the room beneath the
+  // Height-aware like the View / toolbar menus: measure the room around the
   // trigger on open and cap the form to it, so the popover stays pinned to its
-  // button and shrinks + scrolls inside as it nears the footer instead of
-  // overflowing. `autoAdjustOverflow={false}` keeps it on its anchor (no flip);
-  // the measured cap handles the overflow.
-  const { triggerRef, onOpenChange: onFitOpenChange, maxHeight } = usePopoverViewportFit<HTMLSpanElement>();
+  // button and shrinks + scrolls inside instead of overflowing.
+  // `autoAdjustOverflow={false}` keeps antd from sliding it off its anchor;
+  // the hook's `flip` handles the one adjustment a form this tall needs — a
+  // bottom-row trigger leaves no usable room below, so the popover opens
+  // ABOVE the pencil (top* twin placement) capped to the room up there.
+  const { triggerRef, onOpenChange: onFitOpenChange, maxHeight, flipUp } = usePopoverViewportFit<HTMLSpanElement>({
+    flip: true,
+  });
+  const effectivePlacement = flipUp
+    ? placement === 'bottomLeft'
+      ? 'topLeft'
+      : placement === 'bottomRight'
+        ? 'topRight'
+        : placement
+    : placement;
   // Portal into the inspector pane root (like View) so the root's
   // `overflow: hidden` clips the form and its footer covers any graze —
   // instead of floating in `<body>` where nothing contains it.
@@ -299,7 +310,7 @@ export function CookieEditPopover({ mode, canonical, onSubmit, placement = 'bott
           setOpen(next);
         }}
         trigger="click"
-        placement={placement}
+        placement={effectivePlacement}
         autoAdjustOverflow={false}
         destroyOnHidden
         {...(resolveContainer ? { getPopupContainer } : {})}
