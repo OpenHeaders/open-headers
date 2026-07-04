@@ -38,7 +38,7 @@ export const PANEL_TOOL_WINDOWS: readonly PanelToolWindowDef[] = [
   { id: 'docs', label: 'Docs', icon: <BookOutlined />, core: false, defaultSlot: 'right-top' },
   {
     id: 'matched-rules',
-    label: 'Matched Rules',
+    label: 'Request Rules',
     icon: <ThunderboltOutlined />,
     core: false,
     defaultSlot: 'bottom-right',

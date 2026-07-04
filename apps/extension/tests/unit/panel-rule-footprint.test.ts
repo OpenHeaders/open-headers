@@ -136,4 +136,20 @@ describe('computeRuleFootprint', () => {
     expect(f.ruleCount).toBe(0);
     expect(formatRuleFootprint(f)).toBe('');
   });
+
+  it('appends the future projection as its own +N segment', () => {
+    const rules = new Map<string, Rule>([['R1', redirectRule('R1', 'Redirect example.com')]]);
+    const f = computeRuleFootprint({
+      fires: [fire({ ruleUid: 'R1' })],
+      rulesByUid: rules,
+      header: emptyHeaderFootprint(),
+      futureCount: 2,
+    });
+    expect(formatRuleFootprint(f)).toBe('1 rule | 1 redirect | +2 future');
+  });
+
+  it('shows a future-only chip when nothing fired but a rule would match', () => {
+    const f = computeRuleFootprint({ fires: [], rulesByUid: new Map(), header: emptyHeaderFootprint(), futureCount: 1 });
+    expect(formatRuleFootprint(f)).toBe('+1 future');
+  });
 });

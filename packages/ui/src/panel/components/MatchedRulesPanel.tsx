@@ -1,13 +1,17 @@
 /**
- * Bottom-dock tool window listing every Open Headers rule that fired
- * on the currently-selected request.
+ * "Request Rules" — bottom-dock tool window for the currently-selected
+ * request, in two sections:
  *
- * Complements the inline per-header badges in the Headers tab:
- *   - Headers tab shows *what changed* about each individual header.
- *   - This panel shows *which rules* fired, each with its type, target
- *     headers, and match evidence. A rule may fire without changing
- *     any visible header (block / delay / pure-match rules), in which
- *     case it only shows up here.
+ *   - Matched: every rule that fired on the capture, with its match
+ *     evidence. Complements the inline per-header badges in the
+ *     Headers tab — a rule may fire without changing any visible
+ *     header (block / delay / pure-match rules), in which case it
+ *     only shows up here.
+ *   - Future matches: live rules that WOULD fire if the request were
+ *     made again but aren't in the snapshot — instant feedback for a
+ *     rule just created from the panel (see `future-matches.ts`).
+ *
+ * Rows in both sections hover-open the rule quick editor.
  */
 
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
@@ -22,6 +26,7 @@ import {
   fireTier,
   hasCapturedOverride,
 } from '../data/fire-evidence';
+import { useFutureMatches } from '../data/future-matches';
 import { buildInspectorTab } from '../data/inspector-tab';
 import type { InspectorRowWithFires } from '../data/inspector-row-projection';
 import type { InspectorFire } from '../data/types';
@@ -182,8 +187,31 @@ function FireRow({ fire, rule, lifecycle }: FireRowProps) {
   );
 }
 
+/** Projection row — a live rule that would fire on the next identical
+ *  request. No evidence badge (nothing happened yet); the same hover
+ *  opens the rule's quick editor. */
+function FutureRow({ rule }: { rule: Rule }) {
+  const rulePopover = useRulePopover();
+  return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: hover-only popover trigger; primary affordance remains the rule's full editor.
+    // biome-ignore lint/a11y/useKeyWithMouseEvents: hover-anchored popover; keyboard users use the existing list interactions in the panel.
+    <div
+      className="dt-matched-rule"
+      onMouseOver={(e) => rulePopover.open({ anchorEl: e.currentTarget, rule })}
+      onMouseOut={(e) => rulePopover.scheduleClose(e.relatedTarget)}
+    >
+      <div className="dt-matched-rule-head">
+        {buildRuleIcon({ ruleType: rule.type, rule, isActive: rule.enabled ?? true, compactArrow: true, size: 12 })}
+        <span className="dt-matched-rule-name">{rule.name}</span>
+        <span className="dt-matched-rule-future">would match</span>
+      </div>
+    </div>
+  );
+}
+
 export function MatchedRulesPanel({ row, rulesByUid, onClose }: MatchedRulesPanelProps) {
   const wiring = useMemo(() => createPanelHeaderWiring({ onHide: onClose }), [onClose]);
+  const futureMatches = useFutureMatches(row, rulesByUid);
   // Same identity derivation as the inspector tab pill (`#N host/path`),
   // so the panel names the request exactly like the tab it belongs to.
   const reqTab = useMemo(
@@ -196,7 +224,7 @@ export function MatchedRulesPanel({ row, rulesByUid, onClose }: MatchedRulesPane
         wiring={wiring}
         title={
           <>
-            <strong>Matched Rules</strong>
+            <strong>Request Rules</strong>
             {row && <span className="dt-panel-title-sub">· {row.fires.length}</span>}
             {reqTab && (
               <span className="dt-matched-rules-req" title={reqTab.url}>
@@ -217,17 +245,40 @@ export function MatchedRulesPanel({ row, rulesByUid, onClose }: MatchedRulesPane
       <div className="dt-matched-rules-panel-body">
         {!row && (
           <div className="dt-empty" style={{ fontSize: 11, padding: 12 }}>
-            Select a request to see matched rules.
+            Select a request to see its rules.
           </div>
         )}
-        {row && row.fires.length === 0 && (
-          <div className="dt-empty" style={{ fontSize: 11, padding: 12 }}>
-            No rules matched this request.
-          </div>
+        {row && (
+          <>
+            <details className="dt-section" open>
+              <summary>Matched · {row.fires.length}</summary>
+              {row.fires.length === 0 && (
+                <div className="dt-empty" style={{ fontSize: 11, padding: 12 }}>
+                  No rules matched this request.
+                </div>
+              )}
+              {row.fires.map((f, i) => (
+                <FireRow
+                  key={`${f.ruleUid}-${i}`}
+                  fire={f}
+                  rule={rulesByUid.get(f.ruleUid)}
+                  lifecycle={row.lifecycle}
+                />
+              ))}
+            </details>
+            <details className="dt-section" open>
+              <summary>Future matches · {futureMatches.length}</summary>
+              {futureMatches.length === 0 && (
+                <div className="dt-empty" style={{ fontSize: 11, padding: 12 }}>
+                  No other rules would match this request.
+                </div>
+              )}
+              {futureMatches.map((r) => (
+                <FutureRow key={r.uid} rule={r} />
+              ))}
+            </details>
+          </>
         )}
-        {row?.fires.map((f, i) => (
-          <FireRow key={`${f.ruleUid}-${i}`} fire={f} rule={rulesByUid.get(f.ruleUid)} lifecycle={row.lifecycle} />
-        ))}
       </div>
     </div>
   );

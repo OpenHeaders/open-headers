@@ -22,6 +22,9 @@ export interface RuleFootprint {
   typeCounts: ReadonlyArray<readonly [string, number]>;
   header: HeaderFootprint;
   ruleNames: readonly string[];
+  /** Live rules that would fire on the next identical request but are
+   *  not in the fire snapshot (see `future-matches.ts`). */
+  futureCount: number;
 }
 
 /** Chip wording per rule type — lowercase because the labels sit
@@ -46,9 +49,12 @@ interface RuleFootprintInputs {
    *  type/name so a renamed rule reads current. */
   rulesByUid: RulesByUid;
   header: HeaderFootprint;
+  /** Would-match-next-time projection count; defaults to 0 for callers
+   *  that don't compute it. */
+  futureCount?: number;
 }
 
-export function computeRuleFootprint({ fires, rulesByUid, header }: RuleFootprintInputs): RuleFootprint {
+export function computeRuleFootprint({ fires, rulesByUid, header, futureCount = 0 }: RuleFootprintInputs): RuleFootprint {
   const seen = new Set<string>();
   const names: string[] = [];
   const typeCounts = new Map<string, number>();
@@ -75,19 +81,24 @@ export function computeRuleFootprint({ fires, rulesByUid, header }: RuleFootprin
     if (!names.includes(name)) names.push(name);
   }
 
-  return { ruleCount, typeCounts: Array.from(typeCounts.entries()), header, ruleNames: names };
+  return { ruleCount, typeCounts: Array.from(typeCounts.entries()), header, ruleNames: names, futureCount };
 }
 
-/** Chip text — empty string when no rule touched the request, so the
- *  view hides the chip outright. Segments (total, each fired type, the
- *  header group) join with `|`; the header kind breakdown stays inside
- *  its segment (`3 headers: 1 added · 2 modified`). */
+/** Chip text — empty string when no rule touched (or would touch) the
+ *  request, so the view hides the chip outright. Segments (total, each
+ *  fired type, the header group, the future projection) join with `|`;
+ *  the header kind breakdown stays inside its segment (`3 headers:
+ *  1 added · 2 modified`). The future segment leads with `+` — it is a
+ *  projection, not a counted fire. */
 export function formatRuleFootprint(f: RuleFootprint): string {
-  if (f.ruleCount === 0) return '';
-  const segments: string[] = [`${f.ruleCount} rule${f.ruleCount === 1 ? '' : 's'}`];
-  for (const [label, count] of f.typeCounts) {
-    segments.push(`${count} ${label}`);
+  const segments: string[] = [];
+  if (f.ruleCount > 0) {
+    segments.push(`${f.ruleCount} rule${f.ruleCount === 1 ? '' : 's'}`);
+    for (const [label, count] of f.typeCounts) {
+      segments.push(`${count} ${label}`);
+    }
+    if (f.header.affectedRowCount > 0) segments.push(headerFootprintSegment(f.header));
   }
-  if (f.header.affectedRowCount > 0) segments.push(headerFootprintSegment(f.header));
+  if (f.futureCount > 0) segments.push(`+${f.futureCount} future`);
   return segments.join(' | ');
 }

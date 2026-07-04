@@ -23,6 +23,7 @@ import {
 } from '../../data/headers/header-attribution';
 import { type HeaderFilterToken, parseHeaderQuery } from '../../data/headers/header-filter';
 import { computeHeaderFootprint } from '../../data/headers/header-footprint';
+import { useFutureMatches } from '../../data/future-matches';
 import { computeRuleFootprint, formatRuleFootprint } from '../../data/rule-footprint';
 import { computeHeaderInsights, type HeaderInsight, type HeaderInsightAction } from '../../data/headers/header-insights';
 import { formatHttpVersion } from '../../data/http-version';
@@ -181,6 +182,7 @@ export function HeadersView({
     [lc.url, mime, lc.statusCode, requestHeaders, responseHeaders],
   );
 
+  const futureMatches = useFutureMatches(row, rulesByUid);
   const footprint = useMemo(
     () =>
       computeRuleFootprint({
@@ -191,8 +193,9 @@ export function HeadersView({
           responseRows: responseHeaders,
           driftedRows,
         }),
+        futureCount: futureMatches.length,
       }),
-    [row.fires, rulesByUid, requestHeaders, responseHeaders, driftedRows],
+    [row.fires, rulesByUid, requestHeaders, responseHeaders, driftedRows, futureMatches.length],
   );
   const footprintText = formatRuleFootprint(footprint);
 
@@ -287,13 +290,13 @@ export function HeadersView({
         <button
           type="button"
           className="dt-header-footprint dt-header-footprint--link"
-          title={`${footprint.ruleNames.join(', ')} — click to open Matched Rules`}
+          title={`${footprint.ruleNames.join(', ')} — click to open Request Rules`}
           onClick={onShowMatchedRules}
         >
           <span className="dt-header-footprint-dot" aria-hidden="true" />
           <span className="dt-header-footprint-text">{footprintText}</span>
           <span className="dt-header-footprint-open" aria-hidden="true">
-            Matched Rules →
+            Request Rules →
           </span>
         </button>
       )}

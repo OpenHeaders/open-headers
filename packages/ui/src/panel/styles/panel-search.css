@@ -69,6 +69,22 @@
   flex-shrink: 0;
 }
 
+/* Projection annotation on Future-matches rows — muted, right-aligned
+   like the evidence badge, but plain text: nothing happened yet. */
+.dt-matched-rule-future {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--dt-text-muted);
+}
+
+/* Section summaries inside the dock panel align with the 10px row
+   inset (the shared .dt-section summary carries no left padding for
+   the detail tabs). */
+.dt-matched-rules-panel-body .dt-section > summary {
+  padding-left: 10px;
+}
+
 .dt-matched-rule-pattern {
   margin-top: 2px;
   color: var(--dt-text-muted);
