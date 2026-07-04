@@ -193,6 +193,20 @@
   height: 16px;
   padding: 0 4px;
 }
+/* Rule-creation CTAs on the General summary — same compact scale as the
+ * header sections' summary controls. */
+.dt-header-general-ctas {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+.dt-header-general-ctas .dt-btn {
+  font-size: 10px;
+  height: 16px;
+  padding: 0 6px;
+}
 .dt-header-section-raw {
   margin-left: 6px;
   font-size: 10px;

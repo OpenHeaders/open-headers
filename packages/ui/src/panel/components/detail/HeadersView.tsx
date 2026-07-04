@@ -267,25 +267,6 @@ export function HeadersView({
         />
       </div>
 
-      {/* Rule-creation CTA row — Headers tab is the primary surface for
-        * "I see something I want to change → make a rule for it". */}
-      <div className="dt-cta-row dt-header-cta-row">
-        <RedirectCtaMenu
-          onCreateRedirect={onCreateRedirect}
-          onCreateReplaceHost={onCreateReplaceHost}
-          onCreateLocalhost={onCreateLocalhost}
-        />
-        <button type="button" className="dt-btn dt-btn-primary" onClick={(e) => onOverrideQueryParams(e.currentTarget)} title="Add, replace or remove this request's query parameters">
-          Override query params
-        </button>
-        <button type="button" className="dt-btn dt-btn-primary" onClick={(e) => onCreateDelay(e.currentTarget)} title="Delay this request">
-          Delay request
-        </button>
-        <button type="button" className="dt-btn dt-btn-primary" onClick={(e) => onCreateCancel(e.currentTarget)} title="Block / cancel this request">
-          Block request
-        </button>
-      </div>
-
       {footprintText && (
         <button
           type="button"
@@ -326,7 +307,53 @@ export function HeadersView({
       )}
 
       <details className="dt-section" open>
-        <summary ref={firstSummaryRef}>General</summary>
+        {/* Rule-creation CTAs live on the section summary (same pattern as
+          * the header sections' "+ Add Header") — the Headers tab is the
+          * primary surface for "I see something I want to change → make a
+          * rule for it". */}
+        <summary ref={firstSummaryRef}>
+          General
+          <span className="dt-header-general-ctas">
+            <RedirectCtaMenu
+              onCreateRedirect={onCreateRedirect}
+              onCreateReplaceHost={onCreateReplaceHost}
+              onCreateLocalhost={onCreateLocalhost}
+            />
+            <button
+              type="button"
+              className="dt-btn dt-btn-primary"
+              onClick={(e) => {
+                e.preventDefault();
+                onOverrideQueryParams(e.currentTarget);
+              }}
+              title="Add, replace or remove this request's query parameters"
+            >
+              Override query params
+            </button>
+            <button
+              type="button"
+              className="dt-btn dt-btn-primary"
+              onClick={(e) => {
+                e.preventDefault();
+                onCreateDelay(e.currentTarget);
+              }}
+              title="Delay this request"
+            >
+              Delay request
+            </button>
+            <button
+              type="button"
+              className="dt-btn dt-btn-primary"
+              onClick={(e) => {
+                e.preventDefault();
+                onCreateCancel(e.currentTarget);
+              }}
+              title="Block / cancel this request"
+            >
+              Block request
+            </button>
+          </span>
+        </summary>
         <GeneralRow label="Request URL" infoKey="request-url">
           <span className="dt-kv-val" style={{ wordBreak: 'break-all' }}>{lc.url}</span>
         </GeneralRow>
