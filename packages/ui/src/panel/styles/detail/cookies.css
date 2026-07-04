@@ -508,9 +508,13 @@
 .dt-cookie-edit-popover {
   width: 380px;
   max-width: 80vw;
-  /* maxHeight + inner scroll are applied inline from `usePopoverViewportFit`
-   * so the form shrinks to the room beneath its trigger and scrolls inside,
-   * staying anchored as it nears the footer (same as the toolbar menus). */
+  /* vh-based cap (NOT a JS-measured one): the popup's height must change
+   * synchronously with layout so the trigger library's realign pass — which
+   * runs inside the same resize/scroll event and glues a top-placed popup's
+   * BOTTOM edge to the trigger — always measures the final height. A React-
+   * state cap lands after that pass and leaves the popup one resize behind. */
+  max-height: calc(100vh - 80px);
+  overflow-y: auto;
 }
 .dt-cookie-edit-popover-title {
   font-weight: 600;
