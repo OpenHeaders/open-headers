@@ -62,7 +62,6 @@ function menuIconWrap(node: React.ReactNode): React.ReactNode {
 
 interface SortableTabProps {
   leafId: string;
-  isFocusedLeaf: boolean;
   tab: InspectorTab;
   isActive: boolean;
   contextMenu: { items: ItemType[] };
@@ -70,15 +69,7 @@ interface SortableTabProps {
   onClose: (id: string) => void;
 }
 
-const SortableTab: React.FC<SortableTabProps> = ({
-  leafId,
-  isFocusedLeaf,
-  tab,
-  isActive,
-  contextMenu,
-  onSwitch,
-  onClose,
-}) => {
+const SortableTab: React.FC<SortableTabProps> = ({ leafId, tab, isActive, contextMenu, onSwitch, onClose }) => {
   const dragIntent = useDragIntent();
   const data: EditorTabDragData = { kind: 'editor-tab', leafId, tabId: tab.id };
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -96,14 +87,7 @@ const SortableTab: React.FC<SortableTabProps> = ({
     ...(hidePlaceholder ? { visibility: 'hidden' as const } : null),
   };
 
-  const cls = [
-    'dt-editor-tab',
-    isActive ? 'active' : '',
-    isDragging ? 'dragging' : '',
-    isActive && isFocusedLeaf ? 'focused' : '',
-  ]
-    .filter(Boolean)
-    .join(' ');
+  const cls = ['dt-editor-tab', isActive ? 'active' : '', isDragging ? 'dragging' : ''].filter(Boolean).join(' ');
 
   const content = (
     <div
@@ -324,7 +308,6 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
 
 interface InspectorTabBarProps {
   leafId: string;
-  isFocusedLeaf: boolean;
   tabs: InspectorTab[];
   activeTabId: string | null;
   onSwitch: (tabId: string) => void;
@@ -357,7 +340,6 @@ interface InspectorTabBarProps {
 
 const InspectorTabBar: React.FC<InspectorTabBarProps> = ({
   leafId,
-  isFocusedLeaf,
   tabs,
   activeTabId,
   onSwitch,
@@ -566,7 +548,6 @@ const InspectorTabBar: React.FC<InspectorTabBarProps> = ({
               {insertionIndex === index && insertionTab && <CrossLeafInsertionMarker tab={insertionTab} />}
               <SortableTab
                 leafId={leafId}
-                isFocusedLeaf={isFocusedLeaf}
                 tab={tab}
                 isActive={tab.id === activeTabId}
                 contextMenu={buildContextMenu(tab, index)}

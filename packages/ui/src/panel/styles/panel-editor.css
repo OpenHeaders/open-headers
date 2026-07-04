@@ -113,13 +113,12 @@
   background: var(--dt-row-hover);
 }
 
+/* The active tab keeps the neutral text color in the focused leaf too —
+   a blue label read as a link and clashed with the method badge's own
+   color; the tinted pill background alone marks selection. */
 .dt-editor-tab.active {
   color: var(--dt-text);
   background: var(--dt-pill-active-bg);
-}
-
-.dt-editor-tab.active.focused {
-  color: var(--dt-link);
 }
 
 .dt-editor-tab.dragging {

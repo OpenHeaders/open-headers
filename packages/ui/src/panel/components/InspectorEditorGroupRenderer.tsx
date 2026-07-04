@@ -325,7 +325,6 @@ export const InspectorEditorGroupRenderer: React.FC<InspectorEditorGroupRenderer
       >
         <InspectorTabBar
           leafId={leaf.id}
-          isFocusedLeaf={isFocused}
           tabs={leaf.tabs}
           activeTabId={leaf.activeTabId}
           onSwitch={groups.switchTab}

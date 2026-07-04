@@ -26,16 +26,18 @@
   padding: 4px 0;
 }
 
-/* Request-identity tag in the panel header — same pill treatment (and
-   the same method/label/status chips) as the inspector tab it names. */
+/* Request-identity tag in the panel header — same method/label/status
+   chips as the inspector tab it names, but on a NEUTRAL outlined pill:
+   the active-tab tint here would read as a second selected tab. */
 .dt-matched-rules-req {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   margin-left: 8px;
-  padding: 2px 8px;
+  padding: 1px 8px;
+  border: 1px solid var(--dt-border);
   border-radius: 6px;
-  background: var(--dt-pill-active-bg);
+  background: transparent;
   color: var(--dt-text);
   font-size: 11px;
   font-weight: 400;
