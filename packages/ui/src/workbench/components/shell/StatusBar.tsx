@@ -33,10 +33,10 @@ interface StatusBarProps {
   autoRenameKey?: string | null;
 }
 
-const THEME_DISPLAY: Record<ThemeMode, { icon: React.ReactNode; text: string; color: string }> = {
-  light: { icon: <BulbOutlined style={{ fontSize: 12 }} />, text: 'Light', color: '#faad14' },
-  dark: { icon: <BulbFilled style={{ fontSize: 12 }} />, text: 'Dark', color: '#722ed1' },
-  auto: { icon: <span style={{ fontSize: 12 }}>&#x25D0;</span>, text: 'Auto', color: '#1890ff' },
+const THEME_DISPLAY: Record<ThemeMode, { icon: React.ReactNode; text: string }> = {
+  light: { icon: <BulbOutlined style={{ fontSize: 12 }} />, text: 'Light' },
+  dark: { icon: <BulbFilled style={{ fontSize: 12 }} />, text: 'Dark' },
+  auto: { icon: <span style={{ fontSize: 12 }}>&#x25D0;</span>, text: 'Auto' },
 };
 
 const StatusBar: React.FC<StatusBarProps> = ({
@@ -47,6 +47,15 @@ const StatusBar: React.FC<StatusBarProps> = ({
 }) => {
   const { token } = theme.useToken();
   const themeMode = useSettingValue('appearance.theme');
+
+  // Per-mode accents from the antd preset palettes — the active algorithm
+  // regenerates them per theme, so each hue stays readable on both
+  // backgrounds (unlike the fixed hex accents these replaced).
+  const themeModeColor: Record<ThemeMode, string> = {
+    light: token.gold7,
+    dark: token.purple7,
+    auto: token.colorPrimary,
+  };
   // Mirror TopBar: the footer's left padding expands/contracts with the
   // activity bar so the breadcrumb starts at the same X as "Open Headers"
   // above it, regardless of whether tool-window labels are on.
@@ -136,7 +145,7 @@ const StatusBar: React.FC<StatusBarProps> = ({
                   display: 'flex',
                   alignItems: 'center',
                   gap: 4,
-                  color: THEME_DISPLAY[themeMode as ThemeMode]?.color,
+                  color: themeModeColor[themeMode as ThemeMode] ?? token.colorPrimary,
                 }}
               >
                 {THEME_DISPLAY[themeMode as ThemeMode]?.icon}

@@ -19,10 +19,10 @@ declare const __APP_VERSION__: string;
 
 type ThemeMode = 'light' | 'dark' | 'auto';
 
-const THEME_DISPLAY: Record<ThemeMode, { icon: React.ReactNode; text: string; color: string }> = {
-  light: { icon: <BulbOutlined style={{ fontSize: 12 }} />, text: 'Light', color: '#faad14' },
-  dark: { icon: <BulbFilled style={{ fontSize: 12 }} />, text: 'Dark', color: '#722ed1' },
-  auto: { icon: <span style={{ fontSize: 12 }}>{'◐'}</span>, text: 'Auto', color: '#1890ff' },
+const THEME_DISPLAY: Record<ThemeMode, { icon: React.ReactNode; text: string }> = {
+  light: { icon: <BulbOutlined style={{ fontSize: 12 }} />, text: 'Light' },
+  dark: { icon: <BulbFilled style={{ fontSize: 12 }} />, text: 'Dark' },
+  auto: { icon: <span style={{ fontSize: 12 }}>{'◐'}</span>, text: 'Auto' },
 };
 
 /**
@@ -97,6 +97,15 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
 }) => {
   const { token } = theme.useToken();
   const { themeMode, setThemeMode } = useTheme();
+
+  // Per-mode accents from the antd preset palettes — the active algorithm
+  // regenerates them per theme, so each hue stays readable on both
+  // backgrounds (unlike the fixed hex accents these replaced).
+  const themeModeColor: Record<ThemeMode, string> = {
+    light: token.gold7,
+    dark: token.purple7,
+    auto: token.colorPrimary,
+  };
 
   // The DevTools panel can't host the workbench Docs panel itself, so the
   // pill (i) buttons open the workbench and scroll it to the section —
@@ -241,7 +250,7 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
                   display: 'flex',
                   alignItems: 'center',
                   gap: 4,
-                  color: THEME_DISPLAY[themeMode as ThemeMode]?.color,
+                  color: themeModeColor[themeMode as ThemeMode] ?? token.colorPrimary,
                 }}
               >
                 {THEME_DISPLAY[themeMode as ThemeMode]?.icon}
