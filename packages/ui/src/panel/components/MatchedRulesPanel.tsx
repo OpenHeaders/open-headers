@@ -137,17 +137,28 @@ const BADGE_CLASS: Record<FireDotTier, string> = {
   inferred: 'dt-exec-badge--inferred',
 };
 
+const RULE_STATE_TITLE: Record<'deleted' | 'disabled' | 'modified', string> = {
+  deleted: 'This rule has been deleted since it fired. The row shows what it did at fire time.',
+  disabled: 'This rule has been disabled since it fired — it will not apply to the next request.',
+  modified:
+    'This rule has been edited since it fired. The row shows what it did at fire time; hover to see the current rule.',
+};
+
 function FireRow({ fire, rule, lifecycle }: FireRowProps) {
   const label = rule?.name ?? fire.ruleSnapshot?.name ?? fire.ruleUid;
   const ruleType = rule?.type ?? fire.ruleSnapshot?.type ?? null;
   const actions = describeHeaderActions(fire, rule);
   // Rule-state tag next to the evidence badge — the snapshot is what
-  // fired; the live rule may have been deleted or edited since.
+  // fired; the live rule may have been deleted, disabled or edited
+  // since. Deleted/disabled win over modified: "won't fire next time"
+  // outranks "will fire differently".
   const ruleState = !rule
     ? 'deleted'
-    : fire.ruleSnapshot && isRuleEditedSinceSnapshot(rule, fire.ruleSnapshot)
-      ? 'modified'
-      : null;
+    : rule.enabled === false
+      ? 'disabled'
+      : fire.ruleSnapshot && isRuleEditedSinceSnapshot(rule, fire.ruleSnapshot)
+        ? 'modified'
+        : null;
   const evidence = deriveFireEvidence(lifecycle, fire);
   const tier = fireTier(lifecycle, fire);
   const rulePopover = useRulePopover();
@@ -183,14 +194,7 @@ function FireRow({ fire, rule, lifecycle }: FireRowProps) {
         <span className="dt-matched-rule-name">{label}</span>
         <span className="dt-matched-rule-badges">
           {ruleState && (
-            <span
-              className={`dt-exec-badge dt-exec-badge--rule-${ruleState}`}
-              title={
-                ruleState === 'deleted'
-                  ? 'This rule has been deleted since it fired. The row shows what it did at fire time.'
-                  : 'This rule has been edited since it fired. The row shows what it did at fire time; hover to see the current rule.'
-              }
-            >
+            <span className={`dt-exec-badge dt-exec-badge--rule-${ruleState}`} title={RULE_STATE_TITLE[ruleState]}>
               rule {ruleState}
             </span>
           )}

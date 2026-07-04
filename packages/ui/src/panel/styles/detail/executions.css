@@ -62,14 +62,16 @@
   background: color-mix(in srgb, var(--dt-status-orange) 12%, transparent);
 }
 
-/* Rule-state tags on Request Rules rows — the live rule diverged from
-   the fire snapshot (edited) or is gone (deleted). */
+/* Rule-state tags on Request Rules rows. Color language: muted =
+   won't fire next time (deleted / disabled); orange = will fire with
+   different behavior (modified). */
 .dt-exec-badge--rule-modified {
   color: var(--dt-status-orange);
   background: color-mix(in srgb, var(--dt-status-orange) 12%, transparent);
 }
 
-.dt-exec-badge--rule-deleted {
+.dt-exec-badge--rule-deleted,
+.dt-exec-badge--rule-disabled {
   color: var(--dt-text-muted);
   background: color-mix(in srgb, var(--dt-text-muted) 12%, transparent);
 }

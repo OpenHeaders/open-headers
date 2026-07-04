@@ -77,12 +77,29 @@ function HeaderInfoTrigger({
   return <InfoTrigger content={content} className="dt-header-info-trigger" />;
 }
 
-function EditedSinceFireChip({ kind }: { kind: 'rule' | 'value' }) {
-  const label = kind === 'rule' ? '· rule edited since' : '· variable changed since';
-  const title =
-    kind === 'rule'
-      ? 'Rule has been edited since this request — current rule applies only to future requests'
-      : 'A variable referenced by this rule resolves to a different value now — applies only to future requests';
+type SinceFireKind = 'deleted' | 'disabled' | 'rule' | 'value';
+
+const SINCE_FIRE_CHIP: Record<SinceFireKind, { label: string; title: string }> = {
+  deleted: {
+    label: '· rule deleted since',
+    title: 'Rule has been deleted since this request — it will not apply to future requests',
+  },
+  disabled: {
+    label: '· rule disabled since',
+    title: 'Rule has been disabled since this request — it will not apply to future requests',
+  },
+  rule: {
+    label: '· rule edited since',
+    title: 'Rule has been edited since this request — current rule applies only to future requests',
+  },
+  value: {
+    label: '· variable changed since',
+    title: 'A variable referenced by this rule resolves to a different value now — applies only to future requests',
+  },
+};
+
+function EditedSinceFireChip({ kind }: { kind: SinceFireKind }) {
+  const { label, title } = SINCE_FIRE_CHIP[kind];
   return (
     <span title={title} style={{ marginLeft: 8, fontSize: 10, fontStyle: 'italic', opacity: 0.7, userSelect: 'none' }}>
       {label}
@@ -202,7 +219,9 @@ export function AttributedHeaderRow({
     snapshotNameReliable &&
     currentResolvedName != null &&
     currentResolvedName !== ruleCtx.snapshotMod.headerName;
-  const editedSinceFire = (ruleEdited ?? false) || valueDrifted || nameDrifted;
+  const ruleDeleted = !!ruleCtx && !liveRule;
+  const ruleDisabled = !!ruleCtx && liveRule?.enabled === false;
+  const editedSinceFire = (ruleEdited ?? false) || ruleDisabled || valueDrifted || nameDrifted;
 
   // Edit opens the rule popover pinned — a click-opened editing session
   // stays open until outside-click / Escape / save, never closing on
@@ -241,7 +260,9 @@ export function AttributedHeaderRow({
   // the rule-colored background hugging just the header. Plain server rows
   // have no pill, so the tags stay inline after the value.
   const chips = showChips ? <ValueChips name={name} value={value} /> : null;
-  const editedChip = editedSinceFire ? <EditedSinceFireChip kind={ruleEdited ? 'rule' : 'value'} /> : null;
+  const editedChip = editedSinceFire ? (
+    <EditedSinceFireChip kind={ruleDeleted ? 'deleted' : ruleDisabled ? 'disabled' : ruleEdited ? 'rule' : 'value'} />
+  ) : null;
   const overrideTitle = isProtected
     ? `${displayName} is a protected header — the browser's Declarative Net Request engine refuses to let extensions override it. Common protected names include host, content-length, connection, sec-fetch-*, sec-ch-ua-*.`
     : kind === 'system'
