@@ -23,7 +23,9 @@ import { useInfoPopoverContainer } from '@openheaders/ui/shared/info-popover';
 import { useVariableResolver } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
 import { TemplateInput } from '@openheaders/ui/workbench/components/template-input';
 import { Button, Popover, Radio, Select, Switch } from 'antd';
-import { type ReactNode, useCallback, useMemo, useState } from 'react';
+import type { TooltipRef } from 'antd/es/tooltip';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { usePopoverViewportFit } from '../../use-popover-viewport-fit';
 import {
   type CookieEditFormValues,
   type CookieSameSiteValue,
@@ -80,13 +82,15 @@ interface FormBodyProps {
   mode: 'add' | 'edit';
   canonical: CookieEditFormValues;
   busy: boolean;
+  /** Viewport-fit cap (room beneath the trigger); the form scrolls inside it. */
+  maxHeight?: number;
   onCancel: () => void;
   onSave: (edit: JarCookieEdit) => void;
 }
 
 // Mounted fresh each time the popover opens (destroyOnHidden), so its
 // local state seeds from the current canonical without an effect.
-function CookieEditFormBody({ mode, canonical, busy, onCancel, onSave }: FormBodyProps) {
+function CookieEditFormBody({ mode, canonical, busy, maxHeight, onCancel, onSave }: FormBodyProps) {
   const [values, setValues] = useState<CookieEditFormValues>(canonical);
 
   const set = <K extends keyof CookieEditFormValues>(key: K, val: CookieEditFormValues[K]): void => {
@@ -129,7 +133,10 @@ function CookieEditFormBody({ mode, canonical, busy, onCancel, onSave }: FormBod
   const canSave = valid && !anyUnresolved && (mode === 'add' || dirty);
 
   return (
-    <div className="dt-cookie-edit-popover dt-scrollbar">
+    <div
+      className="dt-cookie-edit-popover dt-scrollbar"
+      style={maxHeight != null ? { maxHeight, overflowY: 'auto' } : undefined}
+    >
       <div className="dt-cookie-edit-popover-title">{mode === 'add' ? 'Add cookie' : 'Edit cookie'}</div>
       <div className="dt-cookie-edit-form">
         <label className="dt-cookie-edit-field dt-cookie-edit-field--wide">
@@ -260,13 +267,32 @@ interface Props {
 export function CookieEditPopover({ mode, canonical, onSubmit, placement = 'bottomRight', children }: Props) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  // Positioning is fully native: `autoAdjustOverflow` (default) flips the
-  // form above a bottom-row trigger and re-evaluates inside every realign
-  // pass (window resize, pane scroll), and the vh-based CSS max-height on
-  // `.dt-cookie-edit-popover` resizes synchronously with layout so a
-  // top-placed popup's bottom edge stays glued to its trigger. A JS-measured
-  // cap (the toolbar menus' `usePopoverViewportFit`) would land a render
-  // behind the realign and detach the flipped popup on every drag step.
+  // Height-aware like the View / toolbar menus: measure the room around the
+  // trigger on open and cap the form to it, so the popover stays pinned to its
+  // button and shrinks + scrolls inside instead of overflowing.
+  // `autoAdjustOverflow={false}` keeps antd from sliding it off its anchor;
+  // the hook's `flip` handles the one adjustment a form this tall needs — a
+  // bottom-row trigger leaves no usable room below, so the popover opens
+  // ABOVE the pencil (top* twin placement) capped to the room up there.
+  const { triggerRef, onOpenChange: onFitOpenChange, maxHeight, flipUp } = usePopoverViewportFit<HTMLSpanElement>({
+    flip: true,
+  });
+  const effectivePlacement = flipUp
+    ? placement === 'bottomLeft'
+      ? 'topLeft'
+      : placement === 'bottomRight'
+        ? 'topRight'
+        : placement
+    : placement;
+  // A top-placed popup is aligned by gluing its BOTTOM edge to the
+  // trigger, using the popup's height at align time — but the library's
+  // own realign (window resize / pane scroll) runs before React commits
+  // the re-measured `maxHeight`, so a flipped popup would land one
+  // resize behind. Re-align explicitly AFTER the new cap is in the DOM.
+  const popoverRef = useRef<TooltipRef | null>(null);
+  useEffect(() => {
+    if (open) popoverRef.current?.forceAlign();
+  }, [open, maxHeight, effectivePlacement]);
   // Portal into the inspector pane root (like View) so the root's
   // `overflow: hidden` clips the form and its footer covers any graze —
   // instead of floating in `<body>` where nothing contains it.
@@ -285,15 +311,18 @@ export function CookieEditPopover({ mode, canonical, onSubmit, placement = 'bott
   };
 
   return (
-    <span className="dt-cookie-edit-trigger">
+    <span ref={triggerRef} className="dt-cookie-edit-trigger">
       <Popover
+        ref={popoverRef}
         open={open}
         onOpenChange={(next) => {
           if (busy) return;
+          onFitOpenChange(next);
           setOpen(next);
         }}
         trigger="click"
-        placement={placement}
+        placement={effectivePlacement}
+        autoAdjustOverflow={false}
         destroyOnHidden
         {...(resolveContainer ? { getPopupContainer } : {})}
         // Content must be non-empty even while closed — antd refuses to open
@@ -305,6 +334,7 @@ export function CookieEditPopover({ mode, canonical, onSubmit, placement = 'bott
             mode={mode}
             canonical={canonical}
             busy={busy}
+            maxHeight={maxHeight}
             onCancel={() => setOpen(false)}
             onSave={handleSave}
           />
