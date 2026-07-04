@@ -530,6 +530,10 @@
 .dt-cookie-edit-actions {
   position: sticky;
   bottom: 0;
+  /* Above in-form controls that self-elevate — the checked antd Radio
+   * button carries z-index: 1 and would paint through the footer while
+   * the form scrolls under it. */
+  z-index: 2;
   display: flex;
   justify-content: flex-end;
   gap: 8px;
