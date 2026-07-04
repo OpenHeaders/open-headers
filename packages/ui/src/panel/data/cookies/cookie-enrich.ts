@@ -202,6 +202,9 @@ export function enrichCookies(input: EnrichmentInputs): EnrichmentResult {
       const j = jar[jarMatchIdx];
       const row = jarToRow(j, 'request', 'request-jar');
       row.id = `request:request-jar:${sentIdx}:${j.domain}${j.path}:${j.name}`;
+      // Keep the live jar entry reachable — the row's value below may be
+      // rewound to what the request CARRIED, but Edit targets the jar.
+      row.jarCookie = j;
       const wasEdited = input.editedKeys?.has(cookieEditKey(j.name, j.domain, j.path)) ?? false;
       if (wasEdited && j.value !== sent.value) {
         // The user changed this cookie from the panel after the request

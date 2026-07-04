@@ -70,10 +70,11 @@ export interface CookieRow {
   /** The value the request actually carried, kept for the tooltip when
    *  `value` is showing the (edited) live-jar value instead. */
   sentValue?: string;
-  /** The jar entry this response row corresponds to — attached when the
-   *  browser jar holds a cookie this Set-Cookie line maps to. The row's
-   *  columns keep showing what the HEADER said; Edit / Delete write THIS
-   *  entry (the jar's attribute defaults, not the parsed line). */
+  /** The LIVE jar entry this row corresponds to — attached to request
+   *  rows joined from the jar and to response rows whose Set-Cookie line
+   *  maps to one. The row's columns keep showing what the CAPTURE said
+   *  (sent value / header line); Edit / Delete write this entry, whose
+   *  value and attributes may have moved since. */
   jarCookie?: JarCookie;
 }
 

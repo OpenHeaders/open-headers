@@ -122,6 +122,9 @@ describe('enrichCookies', () => {
       httpOnly: true,
       attribution: 'request-jar',
     });
+    // The live entry stays reachable for Edit / Delete even though the
+    // row's value was rewound to what the request carried.
+    expect(result.request[0].jarCookie?.value).toBe('cached-value');
   });
 
   it('falls back to har-only attribution when no jar match', () => {

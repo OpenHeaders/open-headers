@@ -208,10 +208,15 @@ describe('editCanonicalForRow / deleteKeyForRow', () => {
     });
   });
 
-  it('falls back to the row itself for jar-backed request rows', () => {
+  it('falls back to the row itself for jar-less rows', () => {
     const row = makeRow({ sameSite: 'lax' });
     expect(editCanonicalForRow(row)).toEqual(rowToEditForm(row));
     expect(deleteKeyForRow(row)).toEqual(rowToKey(row));
+  });
+
+  it('opens on the LIVE jar value for a request row whose jar moved since the request', () => {
+    const row = makeRow({ value: 'sent-value', jarCookie: makeJarCookie({ value: 'live-value' }) });
+    expect(editCanonicalForRow(row).value).toBe('live-value');
   });
 });
 

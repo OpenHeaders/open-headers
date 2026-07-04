@@ -84,13 +84,18 @@ interface FormBodyProps {
   busy: boolean;
   /** Viewport-fit cap (room beneath the trigger); the form scrolls inside it. */
   maxHeight?: number;
+  /** Set when the edit opens on the LIVE jar value and the clicked row
+   *  captured a different one — renders the Request Rules-style "value
+   *  changed" tag in the title row, with this text as its tooltip (e.g.
+   *  "This response set: …" while newer traffic re-set the cookie). */
+  valueNote?: string;
   onCancel: () => void;
   onSave: (edit: JarCookieEdit) => void;
 }
 
 // Mounted fresh each time the popover opens (destroyOnHidden), so its
 // local state seeds from the current canonical without an effect.
-function CookieEditFormBody({ mode, canonical, busy, maxHeight, onCancel, onSave }: FormBodyProps) {
+function CookieEditFormBody({ mode, canonical, busy, maxHeight, valueNote, onCancel, onSave }: FormBodyProps) {
   const [values, setValues] = useState<CookieEditFormValues>(canonical);
 
   const set = <K extends keyof CookieEditFormValues>(key: K, val: CookieEditFormValues[K]): void => {
@@ -137,7 +142,14 @@ function CookieEditFormBody({ mode, canonical, busy, maxHeight, onCancel, onSave
       className="dt-cookie-edit-popover dt-scrollbar"
       style={maxHeight != null ? { maxHeight, overflowY: 'auto' } : undefined}
     >
-      <div className="dt-cookie-edit-popover-title">{mode === 'add' ? 'Add cookie' : 'Edit cookie'}</div>
+      <div className="dt-cookie-edit-popover-title">
+        {mode === 'add' ? 'Add cookie' : 'Edit cookie'}
+        {valueNote && (
+          <span className="dt-exec-badge dt-exec-badge--rule-modified" title={valueNote}>
+            value changed
+          </span>
+        )}
+      </div>
       <div className="dt-cookie-edit-form">
         <div className="dt-cookie-edit-field dt-cookie-edit-field--wide">
           <span className="dt-cookie-edit-label">Name<CookieEditFieldInfo infoKey="name" /></span>
@@ -258,13 +270,15 @@ function CookieEditFormBody({ mode, canonical, busy, maxHeight, onCancel, onSave
 interface Props {
   mode: 'add' | 'edit';
   canonical: CookieEditFormValues;
+  /** See {@link FormBodyProps.valueNote}. */
+  valueNote?: string;
   /** Persists the edit; resolves `true` on success so the popover closes. */
   onSubmit: (edit: JarCookieEdit) => Promise<boolean>;
   placement?: 'bottomRight' | 'bottomLeft' | 'leftTop';
   children: ReactNode;
 }
 
-export function CookieEditPopover({ mode, canonical, onSubmit, placement = 'bottomRight', children }: Props) {
+export function CookieEditPopover({ mode, canonical, valueNote, onSubmit, placement = 'bottomRight', children }: Props) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   // Height-aware like the View / toolbar menus: measure the room around the
@@ -335,6 +349,7 @@ export function CookieEditPopover({ mode, canonical, onSubmit, placement = 'bott
             canonical={canonical}
             busy={busy}
             maxHeight={maxHeight}
+            valueNote={valueNote}
             onCancel={() => setOpen(false)}
             onSave={handleSave}
           />

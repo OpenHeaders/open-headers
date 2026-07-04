@@ -96,6 +96,14 @@ export function CookieRow({
   onDelete,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
+  // Edit opens on the LIVE jar entry (that's what Save writes) — when
+  // its value differs from what this row captured, say so in the form
+  // instead of silently showing a value the row doesn't display.
+  const editCanonical = canEdit ? editCanonicalForRow(row) : null;
+  const editValueNote =
+    editCanonical && editCanonical.value !== row.value
+      ? `${row.direction === 'response' ? 'This response set' : 'This request sent'}: ${row.value} — the jar value has changed since.`
+      : undefined;
   // Every row with a value is expandable — depth values (JWT/JSON/…) show
   // their decoded view, plain values show the full raw value (useful when
   // the Value cell truncates a long one).
@@ -209,9 +217,9 @@ export function CookieRow({
             >
               Override
             </button>
-            {canEdit && (
+            {canEdit && editCanonical && (
               <>
-                <CookieEditPopover mode="edit" canonical={editCanonicalForRow(row)} onSubmit={onApplyEdit}>
+                <CookieEditPopover mode="edit" canonical={editCanonical} valueNote={editValueNote} onSubmit={onApplyEdit}>
                   <button
                     type="button"
                     className="dt-btn dt-btn-primary dt-cookie-action dt-cookie-action--icon"
