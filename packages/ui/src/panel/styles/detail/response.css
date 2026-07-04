@@ -204,10 +204,14 @@
 .dt-response-toolbar-btn:hover {
   background: var(--dt-row-hover);
 }
+/* Selected view toggle (Diff / Full response, Hide unchanged, Base64 /
+ * Hex / UTF-8, pretty-print). Tab-pill treatment — tinted background
+ * alone marks selection, text stays neutral — so these can't be read
+ * as the blue popover-opening CTAs (`.dt-body-override-cta`). */
 .dt-response-toolbar-btn.active {
-  background: var(--dt-btn-primary-bg);
-  color: var(--dt-btn-primary-text);
-  border-color: var(--dt-btn-primary-bg);
+  background: var(--dt-pill-active-bg);
+  color: var(--dt-text);
+  border-color: transparent;
 }
 /* Swap-sides icon button — corner control of a dual-view bar. */
 .dt-swap-sides-btn {
