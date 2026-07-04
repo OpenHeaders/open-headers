@@ -23,7 +23,10 @@
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 4px 0;
+  /* No top padding: the section summaries are sticky at top 0, and a
+     padding inset would let scrolled rows peek through the gap above
+     the stuck summary. */
+  padding: 0 0 4px;
 }
 
 /* Request-identity tag in the panel header — same method/label/status
