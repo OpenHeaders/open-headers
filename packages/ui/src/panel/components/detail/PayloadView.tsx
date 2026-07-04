@@ -3,6 +3,7 @@ import type { RequestOverride } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarEntry, Rule } from '@openheaders/core/types';
 import { useRulePopover } from '../RulePopoverHost';
 import { HighlightedText } from './HighlightedText';
+import { REQUEST_MODIFIED_LABEL, REQUEST_ORIGINAL_LABEL } from './override-labels';
 import OverrideBodyButton from './OverrideBodyButton';
 import SplitBodyView from './SplitBodyView';
 import TextBodyViewer from './TextBodyViewer';
@@ -197,14 +198,14 @@ export default function PayloadView({
               // actually went to the server.
               <div className="dt-payload-body-wrap">
                 <SplitBodyView
-                  startLabel="Original · page"
+                  startLabel={REQUEST_ORIGINAL_LABEL}
                   start={
                     <TextBodyViewer
                       text={requestOverride.original.body.content}
                       declaredMime={postData.mimeType ?? ''}
                     />
                   }
-                  endLabel="Sent · server"
+                  endLabel={REQUEST_MODIFIED_LABEL}
                   end={
                     <TextBodyViewer
                       text={requestOverride.sent.body?.content ?? postData.text ?? ''}
