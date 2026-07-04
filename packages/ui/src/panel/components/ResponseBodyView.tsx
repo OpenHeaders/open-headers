@@ -8,7 +8,7 @@ import {
 } from '../data/inspector-row-projection';
 import { classifyBodyState, classifyResponseSnapshot, snapshotMime } from '../data/response-body-state';
 import BodyStateView from './detail/BodyStateView';
-import DualViewControls, { type DualMode } from './detail/DualViewControls';
+import { type DualMode, DualModeButtons, SwapSidesButton } from './detail/DualViewControls';
 import OverrideBodyButton from './detail/OverrideBodyButton';
 import { RESPONSE_MODIFIED_LABEL, RESPONSE_ORIGINAL_LABEL } from './detail/override-labels';
 import Skeleton from './detail/Skeleton';
@@ -95,25 +95,21 @@ export function ResponseBodyView({
   // Two-sided: a network-source rule served a modified body over a real reply.
   // Show the real server response against the modified one — the original pane
   // is read-only (no Override CTA). One bottom row everywhere, with the mode
-  // buttons + swap-sides control pinned to the view's far right in both modes:
-  // DiffBodyView's bar right-aligns them, and the split view carries them in
-  // whichever pane sits rightmost. The diff defaults to the standard
-  // original-left convention; the split leads with the modified body; the
-  // swap control flips either.
+  // buttons pinned to the view's far right (DiffBodyView's bar right-aligns
+  // them; the split carries them in whichever pane sits rightmost) and the
+  // swap-sides control riding the caption row, next to the titles it flips.
+  // The diff defaults to the standard original-left convention; the split
+  // leads with the modified body; the swap control flips either.
   const original = lc.responseOverride?.original;
   if (original) {
     const originalState = classifyResponseSnapshot(original);
     const canDiff = servedState.kind === 'text' && originalState.kind === 'text';
     const showDiff = canDiff && dualMode === 'diff';
 
-    const controls = (
-      <DualViewControls
-        mode={canDiff ? dualMode : undefined}
-        onModeChange={canDiff ? setDualMode : undefined}
-        splitModeLabel="Full response"
-        onSwapSides={() => setSwapped((s) => !s)}
-      />
-    );
+    const onSwapSides = () => setSwapped((s) => !s);
+    const modeButtons = canDiff ? (
+      <DualModeButtons mode={dualMode} onModeChange={setDualMode} splitModeLabel="Full response" />
+    ) : undefined;
 
     if (showDiff && servedState.kind === 'text' && originalState.kind === 'text') {
       const sides = swapped
@@ -138,7 +134,8 @@ export function ResponseBodyView({
               originalLabel={sides.originalLabel}
               modifiedLabel={sides.modifiedLabel}
               declaredMime={snapshotMime(original) || declaredMime}
-              controls={controls}
+              controls={modeButtons}
+              onSwapSides={onSwapSides}
               overrideAction={overrideAction}
             />
           </Suspense>
@@ -153,7 +150,7 @@ export function ResponseBodyView({
         searchHighlight={searchHighlight}
         searchMatchIndex={searchMatchIndex}
         toolbarAction={overrideAction}
-        toolbarTrailing={rightmost ? controls : undefined}
+        toolbarTrailing={rightmost ? modeButtons : undefined}
         fallbackByteCount={fallbackBytes}
       />
     );
@@ -161,7 +158,7 @@ export function ResponseBodyView({
       <BodyStateView
         state={originalState}
         declaredMime={snapshotMime(original) || declaredMime}
-        toolbarTrailing={rightmost ? controls : undefined}
+        toolbarTrailing={rightmost ? modeButtons : undefined}
         fallbackByteCount={fallbackBytes}
       />
     );
@@ -172,6 +169,7 @@ export function ResponseBodyView({
         start={originalPane(false)}
         endLabel={RESPONSE_MODIFIED_LABEL}
         end={modifiedPane(true)}
+        headerAction={<SwapSidesButton onSwap={onSwapSides} />}
       />
     ) : (
       <SplitBodyView
@@ -179,6 +177,7 @@ export function ResponseBodyView({
         start={modifiedPane(false)}
         endLabel={RESPONSE_ORIGINAL_LABEL}
         end={originalPane(true)}
+        headerAction={<SwapSidesButton onSwap={onSwapSides} />}
       />
     );
   }

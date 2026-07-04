@@ -2,7 +2,7 @@ import { lazy, Suspense, useState } from 'react';
 import type { RequestOverride } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarEntry, Rule } from '@openheaders/core/types';
 import { useRulePopover } from '../RulePopoverHost';
-import DualViewControls, { type DualMode } from './DualViewControls';
+import { type DualMode, DualModeButtons, SwapSidesButton } from './DualViewControls';
 import { HighlightedText } from './HighlightedText';
 import { REQUEST_MODIFIED_LABEL, REQUEST_ORIGINAL_LABEL } from './override-labels';
 import OverrideBodyButton from './OverrideBodyButton';
@@ -78,7 +78,7 @@ interface RequestBodyDualViewProps {
  * Two-sided request-body view (a request-body rule fired) — the same
  * anatomy as the Response tab's dual view: Monaco diff by default
  * (original-left convention), a "Full request" split leading with the
- * modified body, and the swap-sides control in the bottom-right corner.
+ * modified body, and the swap-sides control on the caption row.
  */
 function RequestBodyDualView({
   originalText,
@@ -90,14 +90,7 @@ function RequestBodyDualView({
   swapped,
   onSwapSides,
 }: RequestBodyDualViewProps) {
-  const controls = (
-    <DualViewControls
-      mode={dualMode}
-      onModeChange={onDualModeChange}
-      splitModeLabel="Full request"
-      onSwapSides={onSwapSides}
-    />
-  );
+  const modeButtons = <DualModeButtons mode={dualMode} onModeChange={onDualModeChange} splitModeLabel="Full request" />;
 
   if (dualMode === 'diff') {
     const sides = swapped
@@ -123,7 +116,8 @@ function RequestBodyDualView({
               originalLabel={sides.originalLabel}
               modifiedLabel={sides.modifiedLabel}
               declaredMime={declaredMime}
-              controls={controls}
+              controls={modeButtons}
+              onSwapSides={onSwapSides}
             />
           </Suspense>
         </div>
@@ -136,12 +130,17 @@ function RequestBodyDualView({
       text={sentText}
       declaredMime={declaredMime}
       searchQuery={searchQuery}
-      toolbarTrailing={rightmost ? controls : undefined}
+      toolbarTrailing={rightmost ? modeButtons : undefined}
     />
   );
   const originalPane = (rightmost: boolean) => (
-    <TextBodyViewer text={originalText} declaredMime={declaredMime} toolbarTrailing={rightmost ? controls : undefined} />
+    <TextBodyViewer
+      text={originalText}
+      declaredMime={declaredMime}
+      toolbarTrailing={rightmost ? modeButtons : undefined}
+    />
   );
+  const headerAction = <SwapSidesButton onSwap={onSwapSides} />;
 
   return (
     <div className="dt-payload-body-wrap">
@@ -151,6 +150,7 @@ function RequestBodyDualView({
           start={originalPane(false)}
           endLabel={REQUEST_MODIFIED_LABEL}
           end={modifiedPane(true)}
+          headerAction={headerAction}
         />
       ) : (
         <SplitBodyView
@@ -158,6 +158,7 @@ function RequestBodyDualView({
           start={modifiedPane(false)}
           endLabel={REQUEST_ORIGINAL_LABEL}
           end={originalPane(true)}
+          headerAction={headerAction}
         />
       )}
     </div>

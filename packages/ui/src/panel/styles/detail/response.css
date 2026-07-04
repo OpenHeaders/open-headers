@@ -123,6 +123,10 @@
 }
 .dt-body-split-label {
   flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   padding: 3px 8px;
   font-size: 10px;
   font-weight: 600;
@@ -168,22 +172,8 @@
   align-items: center;
   gap: 8px;
 }
-/* Right-aligned controls group (dual-view mode buttons + swap sides) —
- * the far-right counterpart of `.dt-response-toolbar-left`. */
-.dt-response-toolbar-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
 .dt-preview-meta-bar {
   gap: 16px;
-}
-/* Pushes the dual-view controls to the meta bar's right edge (the bar
- * itself is a plain gap-spaced row, not space-between). */
-.dt-preview-meta-trailing {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
 }
 .dt-response-toolbar-info {
   color: var(--dt-text-muted);
@@ -312,10 +302,14 @@
   color: var(--dt-text-muted);
 }
 /* Column captions over the diff editor — mirrors .dt-body-split-label,
- * one caption per diff side. */
+ * one caption per diff side. The strip styling sits on the container so
+ * the swap-sides button at its right edge shares the same band. */
 .dt-body-diff-labels {
   display: flex;
+  align-items: center;
   flex-shrink: 0;
+  background: var(--dt-bg-alt);
+  border-bottom: 1px solid var(--dt-border);
 }
 .dt-body-diff-labels > span {
   flex: 1 1 0;
@@ -326,8 +320,9 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--dt-text-muted);
-  background: var(--dt-bg-alt);
-  border-bottom: 1px solid var(--dt-border);
+}
+.dt-body-diff-labels > .dt-swap-sides-btn {
+  margin-right: 4px;
 }
 .dt-codemirror-wrap > * {
   flex: 1;

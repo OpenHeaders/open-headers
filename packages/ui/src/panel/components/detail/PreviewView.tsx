@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { currentHarEntry, type InspectorRowWithFires, lifecycleMimeType, lifecycleTransferredBytes } from '../../data/inspector-row-projection';
 import { classifyBodyState, classifyResponseSnapshot, snapshotMime } from '../../data/response-body-state';
 import { useRulePopover } from '../RulePopoverHost';
-import DualViewControls from './DualViewControls';
+import { SwapSidesButton } from './DualViewControls';
 import OverrideBodyButton from './OverrideBodyButton';
 import { RESPONSE_MODIFIED_LABEL, RESPONSE_ORIGINAL_LABEL } from './override-labels';
 import PreviewPane from './PreviewPane';
@@ -59,41 +59,27 @@ export default function PreviewView({ row, buildOverrideDraft, firedResponseRule
   const servedPane = <PreviewPane state={servedState} mime={mime} size={size} action={overrideButton} />;
 
   // Two-sided: modified leads by default, and the swap-sides control rides
-  // the rightmost pane's bottom bar (same corner as the Response tab).
+  // the caption row next to the titles it flips (same as the Response tab).
   const original = lc.responseOverride?.original;
   if (original) {
     const originalMime = snapshotMime(original) || mime;
-    const controls = <DualViewControls onSwapSides={() => setSwapped((s) => !s)} />;
-    const modifiedPane = (rightmost: boolean) => (
-      <PreviewPane
-        state={servedState}
-        mime={mime}
-        size={size}
-        action={overrideButton}
-        trailing={rightmost ? controls : undefined}
-      />
-    );
-    const originalPane = (rightmost: boolean) => (
-      <PreviewPane
-        state={classifyResponseSnapshot(original)}
-        mime={originalMime}
-        size={size}
-        trailing={rightmost ? controls : undefined}
-      />
-    );
+    const headerAction = <SwapSidesButton onSwap={() => setSwapped((s) => !s)} />;
+    const originalPane = <PreviewPane state={classifyResponseSnapshot(original)} mime={originalMime} size={size} />;
     return swapped ? (
       <SplitBodyView
         startLabel={RESPONSE_ORIGINAL_LABEL}
-        start={originalPane(false)}
+        start={originalPane}
         endLabel={RESPONSE_MODIFIED_LABEL}
-        end={modifiedPane(true)}
+        end={servedPane}
+        headerAction={headerAction}
       />
     ) : (
       <SplitBodyView
         startLabel={RESPONSE_MODIFIED_LABEL}
-        start={modifiedPane(false)}
+        start={servedPane}
         endLabel={RESPONSE_ORIGINAL_LABEL}
-        end={originalPane(true)}
+        end={originalPane}
+        headerAction={headerAction}
       />
     );
   }

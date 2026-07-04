@@ -24,6 +24,7 @@ import {
   RichDiffEditor,
 } from '@openheaders/ui/workbench/components/diff-viewer';
 import { canPrettyPrint, detectLanguage } from '../../data/mime';
+import { SwapSidesButton } from './DualViewControls';
 import { prettyPrintCode } from './pretty-print';
 import Skeleton from './Skeleton';
 
@@ -38,9 +39,12 @@ interface DiffBodyViewProps {
   modifiedLabel: string;
   /** MIME driving syntax highlight + pretty-print eligibility. */
   declaredMime: string;
-  /** The caller's right-aligned controls (mode buttons + swap sides) —
-   *  pinned at the end of the bar. */
+  /** The caller's right-aligned controls (the mode buttons) — pinned at
+   *  the end of the bar. */
   controls?: React.ReactNode;
+  /** Flip the diff sides — renders the swap button on the caption row,
+   *  next to the titles it swaps. */
+  onSwapSides?: () => void;
   /** The caller's override CTA — trails the bar behind a divider. */
   overrideAction?: React.ReactNode;
 }
@@ -52,6 +56,7 @@ export default function DiffBodyView({
   modifiedLabel,
   declaredMime,
   controls,
+  onSwapSides,
   overrideAction,
 }: DiffBodyViewProps) {
   const lang = detectLanguage(declaredMime);
@@ -91,6 +96,7 @@ export default function DiffBodyView({
             <div className="dt-body-diff-labels">
               <span>{originalLabel}</span>
               <span>{modifiedLabel}</span>
+              {onSwapSides && <SwapSidesButton onSwap={onSwapSides} />}
             </div>
           }
         />

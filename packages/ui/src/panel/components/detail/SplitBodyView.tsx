@@ -21,9 +21,12 @@ interface SplitBodyViewProps {
   readonly start: React.ReactNode;
   readonly endLabel: string;
   readonly end: React.ReactNode;
+  /** Control rendered at the right edge of the end pane's label row
+   *  (the swap-sides button — next to the titles it flips). */
+  readonly headerAction?: React.ReactNode;
 }
 
-export default function SplitBodyView({ startLabel, start, endLabel, end }: SplitBodyViewProps) {
+export default function SplitBodyView({ startLabel, start, endLabel, end, headerAction }: SplitBodyViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const draggingRef = useRef(false);
   const [startFraction, setStartFraction] = useState(0.5);
@@ -74,7 +77,10 @@ export default function SplitBodyView({ startLabel, start, endLabel, end }: Spli
         onPointerUp={handlePointerUp}
       />
       <section className="dt-body-split-pane" style={{ flex: '1 1 0' }}>
-        <header className="dt-body-split-label">{endLabel}</header>
+        <header className="dt-body-split-label">
+          {endLabel}
+          {headerAction}
+        </header>
         {end}
       </section>
     </div>

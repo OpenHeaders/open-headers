@@ -115,9 +115,6 @@ interface PreviewPaneProps {
   /** Bottom-bar action (the Override Response CTA); omitted on a read-only
    *  original pane of a split. */
   readonly action?: React.ReactNode;
-  /** Far-right bottom-bar controls (e.g. the swap-sides button); carried
-   *  by whichever split pane sits rightmost. */
-  readonly trailing?: React.ReactNode;
 }
 
 /**
@@ -126,7 +123,7 @@ interface PreviewPaneProps {
  * renderer behind the Preview tab and each half of the split Served | Original
  * view; the row-level classification (which body) is the caller's.
  */
-export default function PreviewPane({ state, mime, size, action, trailing }: PreviewPaneProps) {
+export default function PreviewPane({ state, mime, size, action }: PreviewPaneProps) {
   const textContent = useMemo(() => {
     if (state.kind === 'text') return state.content;
     if (state.kind === 'binary') {
@@ -153,19 +150,13 @@ export default function PreviewPane({ state, mime, size, action, trailing }: Pre
           {action}
         </>
       )}
-      {trailing && <span className="dt-preview-meta-trailing">{trailing}</span>}
     </div>
   );
 
   const shell = (content: React.ReactNode) => (
     <div className="dt-response-view">
       <div className="dt-response-view-content">{content}</div>
-      {(action || trailing) && (
-        <div className="dt-response-toolbar">
-          <div className="dt-response-toolbar-left">{action}</div>
-          {trailing}
-        </div>
-      )}
+      {action && <div className="dt-response-toolbar">{action}</div>}
     </div>
   );
 
