@@ -34,6 +34,7 @@ import {
 } from '../../../data/cookies/cookie-edit';
 import type { JarCookieEdit } from '../../../data/cookies/cookie-jar-cache';
 import { containsUnresolvedRef } from '../../../data/rule-create/rule-applicability';
+import { CookieEditFieldInfo } from './CookieEditFieldInfo';
 
 const SAME_SITE_OPTIONS: Array<{ value: CookieSameSiteValue; label: string }> = [
   { value: 'unspecified', label: 'Unspecified' },
@@ -138,7 +139,7 @@ function CookieEditFormBody({ mode, canonical, busy, maxHeight, onCancel, onSave
       <div className="dt-cookie-edit-popover-title">{mode === 'add' ? 'Add cookie' : 'Edit cookie'}</div>
       <div className="dt-cookie-edit-form">
         <label className="dt-cookie-edit-field dt-cookie-edit-field--wide">
-          <span className="dt-cookie-edit-label">Name</span>
+          <span className="dt-cookie-edit-label">Name<CookieEditFieldInfo infoKey="name" /></span>
           <TemplateInput
             value={values.name}
             onChange={(v) => set('name', v)}
@@ -149,7 +150,7 @@ function CookieEditFormBody({ mode, canonical, busy, maxHeight, onCancel, onSave
         </label>
 
         <label className="dt-cookie-edit-field dt-cookie-edit-field--wide">
-          <span className="dt-cookie-edit-label">Value</span>
+          <span className="dt-cookie-edit-label">Value<CookieEditFieldInfo infoKey="value" /></span>
           <TemplateInput
             value={values.value}
             onChange={(v) => set('value', v)}
@@ -162,7 +163,7 @@ function CookieEditFormBody({ mode, canonical, busy, maxHeight, onCancel, onSave
         </label>
 
         <label className="dt-cookie-edit-field">
-          <span className="dt-cookie-edit-label">Domain</span>
+          <span className="dt-cookie-edit-label">Domain<CookieEditFieldInfo infoKey="domain" /></span>
           <TemplateInput
             value={values.domain}
             onChange={(v) => set('domain', v)}
@@ -173,7 +174,7 @@ function CookieEditFormBody({ mode, canonical, busy, maxHeight, onCancel, onSave
         </label>
 
         <label className="dt-cookie-edit-field">
-          <span className="dt-cookie-edit-label">Path</span>
+          <span className="dt-cookie-edit-label">Path<CookieEditFieldInfo infoKey="path" /></span>
           <TemplateInput
             value={values.path}
             onChange={(v) => set('path', v)}
@@ -184,7 +185,7 @@ function CookieEditFormBody({ mode, canonical, busy, maxHeight, onCancel, onSave
         </label>
 
         <div className="dt-cookie-edit-field">
-          <span className="dt-cookie-edit-label">Expires</span>
+          <span className="dt-cookie-edit-label">Expires<CookieEditFieldInfo infoKey="expires" /></span>
           <Radio.Group
             value={values.session ? 'session' : 'date'}
             onChange={(e) => set('session', e.target.value === 'session')}
@@ -208,7 +209,7 @@ function CookieEditFormBody({ mode, canonical, busy, maxHeight, onCancel, onSave
         </div>
 
         <label className="dt-cookie-edit-field">
-          <span className="dt-cookie-edit-label">SameSite</span>
+          <span className="dt-cookie-edit-label">SameSite<CookieEditFieldInfo infoKey="samesite" /></span>
           <Select<CookieSameSiteValue>
             value={values.sameSite}
             onChange={(v) => set('sameSite', v)}
@@ -222,15 +223,15 @@ function CookieEditFormBody({ mode, canonical, busy, maxHeight, onCancel, onSave
         <div className="dt-cookie-edit-toggles">
           <label className="dt-cookie-edit-toggle">
             <Switch checked={values.httpOnly} onChange={(v) => set('httpOnly', v)} size="small" disabled={busy} />
-            <span>HttpOnly</span>
+            <span>HttpOnly<CookieEditFieldInfo infoKey="httponly" /></span>
           </label>
           <label className="dt-cookie-edit-toggle">
             <Switch checked={values.secure} onChange={(v) => set('secure', v)} size="small" disabled={busy} />
-            <span>Secure</span>
+            <span>Secure<CookieEditFieldInfo infoKey="secure" /></span>
           </label>
           <label className="dt-cookie-edit-toggle">
             <Switch checked={values.hostOnly} onChange={(v) => set('hostOnly', v)} size="small" disabled={busy} />
-            <span>Host-only</span>
+            <span>Host-only<CookieEditFieldInfo infoKey="hostonly" /></span>
           </label>
         </div>
       </div>

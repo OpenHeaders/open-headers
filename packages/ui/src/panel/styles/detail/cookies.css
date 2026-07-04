@@ -544,6 +544,18 @@
   font-weight: 500;
   color: var(--dt-text-muted);
 }
+/* Field-label (i) — always discoverable inside the form (same
+ * treatment as the CTA-row triggers), spaced off the label text. */
+.dt-cookie-edit-info-trigger.dt-header-info-trigger {
+  opacity: 0.55;
+  margin-left: 3px;
+}
+.dt-cookie-edit-info-trigger.dt-header-info-trigger:hover,
+.dt-cookie-edit-info-trigger.dt-header-info-trigger:focus-visible,
+.dt-cookie-edit-info-trigger.dt-header-info-trigger[aria-expanded='true'] {
+  opacity: 1;
+}
+
 /* Live resolution line under a templated Value — what Save will
  * actually write to the jar (or why it can't). */
 .dt-cookie-edit-resolved {
