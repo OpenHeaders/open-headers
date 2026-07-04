@@ -29,6 +29,12 @@ export function CookieMoreFiltersMenu({
     (n, v) => n + (v ? 1 : 0),
     0,
   );
+  const reset = () => {
+    if (problemsOnly) onToggleProblemsOnly();
+    if (thirdPartyOnly) onToggleThirdPartyOnly();
+    if (ruleOnly) onToggleRuleOnly();
+    if (showFilteredOut) onToggleShowFilteredOut();
+  };
   return (
     <ToolbarMenuPopover label="More filters" activeCount={activeCount}>
       <label className="dt-morefilters-item">
@@ -48,6 +54,10 @@ export function CookieMoreFiltersMenu({
         <input type="checkbox" checked={showFilteredOut} onChange={onToggleShowFilteredOut} />
         Show filtered-out request cookies
       </label>
+      <div className="dt-morefilters-divider" />
+      <button type="button" className="dt-morefilters-reset" onClick={reset} disabled={activeCount === 0}>
+        Reset to default
+      </button>
     </ToolbarMenuPopover>
   );
 }
@@ -75,6 +85,15 @@ export function CookieViewMenu(props: CookieViewMenuProps) {
     (!props.showInsights ? 1 : 0) +
     (!props.showChips ? 1 : 0) +
     (!props.groupByRole ? 1 : 0);
+
+  const reset = () => {
+    if (props.sortMode !== 'az') props.onSortChange('az');
+    if (props.expiresFormat !== 'relative') props.onExpiresFormatChange('relative');
+    if (props.decodeValues) props.onToggleDecodeValues();
+    if (!props.groupByRole) props.onToggleGroupByRole();
+    if (!props.showChips) props.onToggleShowChips();
+    if (!props.showInsights) props.onToggleShowInsights();
+  };
 
   return (
     <ToolbarMenuPopover label="View" activeCount={activeCount}>
@@ -114,6 +133,10 @@ export function CookieViewMenu(props: CookieViewMenuProps) {
         <input type="checkbox" checked={props.showInsights} onChange={props.onToggleShowInsights} />
         Show suggestions
       </label>
+      <div className="dt-morefilters-divider" />
+      <button type="button" className="dt-morefilters-reset" onClick={reset} disabled={activeCount === 0}>
+        Reset to default
+      </button>
     </ToolbarMenuPopover>
   );
 }
