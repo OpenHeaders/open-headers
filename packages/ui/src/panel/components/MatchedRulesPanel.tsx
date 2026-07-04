@@ -13,6 +13,7 @@
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { Rule } from '@openheaders/core/types';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
+import { buildRuleIcon } from '@openheaders/ui/workbench/components/shared/rule-icon';
 import { useMemo } from 'react';
 import {
   type FireDotTier,
@@ -30,35 +31,6 @@ interface MatchedRulesPanelProps {
   row: InspectorRowWithFires | null;
   rulesByUid: RulesByUid;
   onClose: () => void;
-}
-
-function formatRuleType(rule: Rule): string {
-  return formatRuleTypeFromSnapshot(rule.type);
-}
-
-function formatRuleTypeFromSnapshot(type: Rule['type']): string {
-  switch (type) {
-    case 'header':
-      return 'Header';
-    case 'redirect':
-      return 'Redirect';
-    case 'block':
-      return 'Block';
-    case 'response':
-      return 'Response';
-    case 'request-body':
-      return 'Request Body';
-    case 'delay':
-      return 'Delay';
-    case 'inject':
-      return 'Inject';
-    case 'ws':
-      return 'WebSocket';
-    case 'sse':
-      return 'SSE';
-    default:
-      return type;
-  }
 }
 
 function describeHeaderActions(fire: InspectorFire, rule: Rule | undefined): string[] {
@@ -153,11 +125,7 @@ const BADGE_CLASS: Record<FireDotTier, string> = {
 
 function FireRow({ fire, rule, lifecycle }: FireRowProps) {
   const label = rule?.name ?? fire.ruleSnapshot?.name ?? fire.ruleUid;
-  const type = rule
-    ? formatRuleType(rule)
-    : fire.ruleSnapshot
-      ? formatRuleTypeFromSnapshot(fire.ruleSnapshot.type)
-      : '—';
+  const ruleType = rule?.type ?? fire.ruleSnapshot?.type ?? null;
   const actions = describeHeaderActions(fire, rule);
   const evidence = deriveFireEvidence(lifecycle, fire);
   const tier = fireTier(lifecycle, fire);
@@ -179,12 +147,26 @@ function FireRow({ fire, rule, lifecycle }: FireRowProps) {
       onMouseOut={rule ? handleMouseOut : undefined}
     >
       <div className="dt-matched-rule-head">
-        <span className={`dt-exec-badge ${BADGE_CLASS[tier]}`} title={evidenceTitle(fire, evidence, lifecycle)}>
-          {evidenceLabel(fire, evidence, lifecycle)}
-        </span>
-        <span className="dt-matched-rule-type">{type}</span>
+        {/* Same type code + direction arrow as the quick-editor popover's
+            title, so the row and the popover it opens read as one surface.
+            Deleted rules (snapshot-only) render the code in the inactive
+            gray. */}
+        {ruleType &&
+          buildRuleIcon({
+            ruleType,
+            rule,
+            isActive: rule?.enabled ?? false,
+            compactArrow: true,
+            size: 12,
+          })}
         <span className="dt-matched-rule-name">{label}</span>
         {!rule && <span className="dt-col-muted"> · rule deleted</span>}
+        <span
+          className={`dt-exec-badge ${BADGE_CLASS[tier]} dt-matched-rule-evidence`}
+          title={evidenceTitle(fire, evidence, lifecycle)}
+        >
+          {evidenceLabel(fire, evidence, lifecycle)}
+        </span>
       </div>
       {fire.pattern && <div className="dt-matched-rule-pattern">Pattern: {fire.pattern}</div>}
       {actions.length > 0 && (

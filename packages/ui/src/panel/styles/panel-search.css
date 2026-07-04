@@ -38,16 +38,16 @@
   flex-wrap: wrap;
 }
 
-.dt-matched-rule-type {
-  font-size: 10px;
-  color: var(--dt-text-muted);
-  padding: 1px 6px;
-  border: 1px solid var(--dt-border);
-  border-radius: 8px;
-}
-
 .dt-matched-rule-name {
   font-weight: 600;
+}
+
+/* Evidence verdict pinned to the row's right edge — the leading slot
+   belongs to the rule identity (type code + name), matching the
+   quick-editor popover's title layout. */
+.dt-matched-rule-evidence {
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .dt-matched-rule-pattern {
