@@ -11,16 +11,18 @@
  * HttpOnly is the headline capability — page JS can't set it, the
  * extension's cookies permission can.
  *
- * The Value accepts `{{var}}` templates, resolved ONCE at Save into the
- * concrete string the jar stores (static — later variable changes never
- * rewrite the jar; a Cookie override rule is the dynamic path). Save is
- * resolve-gated with a live preview of what will be written.
+ * Name, Value, Domain and Path accept `{{var}}` templates, resolved
+ * ONCE at Save into the concrete strings the jar stores (static — later
+ * variable changes never rewrite the jar; a Cookie override rule is the
+ * dynamic path). Save is resolve-gated per field with a live preview of
+ * what will be written. Expires / SameSite / flags are date, enum and
+ * boolean controls — nothing to template.
  */
 
 import { useInfoPopoverContainer } from '@openheaders/ui/shared/info-popover';
 import { useVariableResolver } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
 import { TemplateInput } from '@openheaders/ui/workbench/components/template-input';
-import { Button, Input, Popover, Radio, Select, Switch } from 'antd';
+import { Button, Popover, Radio, Select, Switch } from 'antd';
 import { type ReactNode, useCallback, useMemo, useState } from 'react';
 import { usePopoverViewportFit } from '../../use-popover-viewport-fit';
 import {
@@ -57,6 +59,23 @@ function fromLocalInput(s: string): number | undefined {
   return Number.isNaN(ms) ? undefined : Math.floor(ms / 1000);
 }
 
+interface ResolvedField {
+  isTemplate: boolean;
+  unresolved: boolean;
+  resolved: string;
+}
+
+/** What Save will actually write — shown only while the field holds a
+ *  `{{…}}` template. */
+function ResolvedLine({ field }: { field: ResolvedField }) {
+  if (!field.isTemplate) return null;
+  return (
+    <span className={`dt-cookie-edit-resolved${field.unresolved ? ' dt-cookie-edit-resolved--error' : ''}`}>
+      {field.unresolved ? 'Doesn’t resolve — create the variable or fix the reference.' : `Writes: ${field.resolved}`}
+    </span>
+  );
+}
+
 interface FormBodyProps {
   mode: 'add' | 'edit';
   canonical: CookieEditFormValues;
@@ -76,25 +95,40 @@ function CookieEditFormBody({ mode, canonical, busy, maxHeight, onCancel, onSave
     setValues((prev) => ({ ...prev, [key]: val }));
   };
 
-  // The value accepts {{var}} templates but the jar needs a CONCRETE
-  // string — Save resolves once at click time (static; the jar never
+  // The text fields accept {{var}} templates but the jar needs CONCRETE
+  // strings — Save resolves once at click time (static; the jar never
   // tracks later variable changes — a Cookie override rule does that).
-  // Unresolvable / deferred-vault refs gate Save: writing a literal
+  // Any unresolvable / deferred-vault ref gates Save: writing a literal
   // `{{…}}` into the browser jar is always wrong.
   const resolver = useVariableResolver();
-  const isTemplate = values.value.includes('{{');
-  const valueUnresolved = useMemo(
-    () => isTemplate && containsUnresolvedRef(resolver, values.value, undefined),
-    [resolver, isTemplate, values.value],
-  );
-  const resolvedValue = useMemo(
-    () => (isTemplate && !valueUnresolved ? resolver.resolveTemplate(values.value).result : values.value),
-    [resolver, isTemplate, valueUnresolved, values.value],
-  );
+  const fields = useMemo(() => {
+    const resolveField = (raw: string) => {
+      const isTemplate = raw.includes('{{');
+      const unresolved = isTemplate && containsUnresolvedRef(resolver, raw, undefined);
+      const resolved = isTemplate && !unresolved ? resolver.resolveTemplate(raw).result : raw;
+      return { isTemplate, unresolved, resolved };
+    };
+    return {
+      name: resolveField(values.name),
+      value: resolveField(values.value),
+      domain: resolveField(values.domain),
+      path: resolveField(values.path),
+    };
+  }, [resolver, values.name, values.value, values.domain, values.path]);
+  const anyUnresolved = fields.name.unresolved || fields.value.unresolved || fields.domain.unresolved || fields.path.unresolved;
+  const resolvedForm: CookieEditFormValues = {
+    ...values,
+    name: fields.name.resolved,
+    value: fields.value.resolved,
+    domain: fields.domain.resolved,
+    path: fields.path.resolved,
+  };
 
   const dirty = !editFormsEqual(values, canonical);
-  const valid = isEditFormValid(values);
-  const canSave = valid && !valueUnresolved && (mode === 'add' || dirty);
+  // Validity runs on the RESOLVED form — a `{{var}}` resolving to '' in
+  // Name / Domain must block like a literal empty would.
+  const valid = isEditFormValid(resolvedForm);
+  const canSave = valid && !anyUnresolved && (mode === 'add' || dirty);
 
   return (
     <div
@@ -105,14 +139,13 @@ function CookieEditFormBody({ mode, canonical, busy, maxHeight, onCancel, onSave
       <div className="dt-cookie-edit-form">
         <label className="dt-cookie-edit-field dt-cookie-edit-field--wide">
           <span className="dt-cookie-edit-label">Name</span>
-          <Input
+          <TemplateInput
             value={values.name}
-            onChange={(e) => set('name', e.target.value)}
-            placeholder="cookie name"
-            disabled={busy}
+            onChange={(v) => set('name', v)}
             size="small"
-            status={values.name.trim() === '' ? 'error' : undefined}
+            placeholder="cookie name"
           />
+          <ResolvedLine field={fields.name} />
         </label>
 
         <label className="dt-cookie-edit-field dt-cookie-edit-field--wide">
@@ -125,36 +158,29 @@ function CookieEditFormBody({ mode, canonical, busy, maxHeight, onCancel, onSave
             size="small"
             placeholder="value or {{variable}}"
           />
-          {isTemplate && (
-            <span className={`dt-cookie-edit-resolved${valueUnresolved ? ' dt-cookie-edit-resolved--error' : ''}`}>
-              {valueUnresolved
-                ? 'Doesn’t resolve — create the variable or fix the reference.'
-                : `Writes: ${resolvedValue}`}
-            </span>
-          )}
+          <ResolvedLine field={fields.value} />
         </label>
 
         <label className="dt-cookie-edit-field">
           <span className="dt-cookie-edit-label">Domain</span>
-          <Input
+          <TemplateInput
             value={values.domain}
-            onChange={(e) => set('domain', e.target.value)}
-            placeholder="openheaders.io"
-            disabled={busy}
+            onChange={(v) => set('domain', v)}
             size="small"
-            status={values.domain.trim() === '' ? 'error' : undefined}
+            placeholder="openheaders.io"
           />
+          <ResolvedLine field={fields.domain} />
         </label>
 
         <label className="dt-cookie-edit-field">
           <span className="dt-cookie-edit-label">Path</span>
-          <Input
+          <TemplateInput
             value={values.path}
-            onChange={(e) => set('path', e.target.value)}
-            placeholder="/"
-            disabled={busy}
+            onChange={(v) => set('path', v)}
             size="small"
+            placeholder="/"
           />
+          <ResolvedLine field={fields.path} />
         </label>
 
         <div className="dt-cookie-edit-field">
@@ -216,7 +242,7 @@ function CookieEditFormBody({ mode, canonical, busy, maxHeight, onCancel, onSave
         <Button
           size="small"
           type="primary"
-          onClick={() => onSave(formToEdit({ ...values, value: resolvedValue }))}
+          onClick={() => onSave(formToEdit(resolvedForm))}
           disabled={!canSave}
           loading={busy}
         >
