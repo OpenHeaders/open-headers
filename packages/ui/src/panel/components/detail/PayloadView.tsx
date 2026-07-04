@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { RequestOverride } from '@openheaders/core/request-lifecycle';
-import type { InspectorHarEntry } from '@openheaders/core/types';
+import type { InspectorHarEntry, Rule } from '@openheaders/core/types';
+import { useRulePopover } from '../RulePopoverHost';
 import { HighlightedText } from './HighlightedText';
 import OverrideBodyButton from './OverrideBodyButton';
 import SplitBodyView from './SplitBodyView';
@@ -70,6 +71,13 @@ interface PayloadViewProps {
   /** Open the query-param create popover pre-filled from the capture,
    *  anchored to the CTA button. */
   onOverrideQueryParams?: (anchorEl: HTMLElement) => void;
+  /** Live request-body rule that fired on this request — flips the CTA
+   *  from create ("Override request body") to edit (quick-edit popover
+   *  targeting this rule). Same flip as the Response tab. */
+  firedRequestBodyRule?: Rule | null;
+  /** Live query-param rule that fired on this request — same flip for
+   *  the query-params CTA. */
+  firedQueryParamRule?: Rule | null;
   /** Two-sided request-body capture (a request-body rule fired): the page's
    *  original body beside what actually went on the wire. Splits the Request
    *  Body section when present. */
@@ -82,8 +90,11 @@ export default function PayloadView({
   searchSection,
   onOverrideRequestBody,
   onOverrideQueryParams,
+  firedRequestBodyRule,
+  firedQueryParamRule,
   requestOverride,
 }: PayloadViewProps) {
+  const rulePopover = useRulePopover();
   const queryString = har.request?.queryString ?? [];
   const postData = har.request?.postData;
   const [qsMode, setQsMode] = useState<QsViewMode>('parsed');
@@ -91,15 +102,29 @@ export default function PayloadView({
   // data (same as the Headers tab's always-present Redirect/Delay/Cancel):
   // a request can take a query string or body it doesn't currently carry,
   // so we offer both whenever the handlers are wired and let the editor
-  // open empty when there's nothing to pre-fill.
-  const queryOverrideAction = onOverrideQueryParams ? (
+  // open empty when there's nothing to pre-fill. When a rule of that type
+  // already fired here, the CTA edits THAT rule in place instead of
+  // scaffolding a second one over it — same dispatch as the Response tab.
+  const queryOverrideAction = firedQueryParamRule ? (
+    <OverrideBodyButton
+      label="Edit query params override"
+      title="Edit the rule that rewrote these query parameters — changes apply to future requests"
+      onClick={(e) => rulePopover.open({ anchorEl: e.currentTarget, rule: firedQueryParamRule }, { pinned: true })}
+    />
+  ) : onOverrideQueryParams ? (
     <OverrideBodyButton
       label="Override query params"
       title="Create a rule that rewrites these query parameters"
       onClick={(e) => onOverrideQueryParams(e.currentTarget)}
     />
   ) : undefined;
-  const bodyOverrideAction = onOverrideRequestBody ? (
+  const bodyOverrideAction = firedRequestBodyRule ? (
+    <OverrideBodyButton
+      label="Edit request body override"
+      title="Edit the rule that replaced this request body — changes apply to future requests"
+      onClick={(e) => rulePopover.open({ anchorEl: e.currentTarget, rule: firedRequestBodyRule }, { pinned: true })}
+    />
+  ) : onOverrideRequestBody ? (
     <OverrideBodyButton
       label="Override request body"
       title="Create a rule that replaces this request body with an editable static body"

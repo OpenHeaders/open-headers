@@ -186,6 +186,19 @@ function capturedQueryParamsDraftInput(
   return { params: qs.map((q) => ({ param: decodeComponentSafe(q.name), value: decodeComponentSafe(q.value) })) };
 }
 
+/** First still-existing rule of the given type among this row's fires. */
+function firedRuleOfType(
+  fires: InspectorRowWithFires['fires'],
+  rulesByUid: RulesByUid,
+  type: Rule['type'],
+): Rule | null {
+  for (const fire of fires) {
+    const rule = rulesByUid.get(fire.ruleUid);
+    if (rule?.type === type) return rule;
+  }
+  return null;
+}
+
 export function InspectorDetailContent({
   row,
   rulesByUid,
@@ -284,17 +297,22 @@ export function InspectorDetailContent({
   // all read (see `fire-evidence.ts`).
   const fireEvidenceByRule = useMemo(() => deriveFireEvidenceByRule(lc, row.fires), [lc, row.fires]);
 
-  // Live response rule that fired on this request — flips the Response
-  // and Preview tabs' CTA from create ("Override Response") to edit
-  // ("Edit override"). Requires the rule to still exist; a deleted rule
-  // falls back to the create CTA.
-  const firedResponseRule = useMemo<Rule | null>(() => {
-    for (const fire of row.fires) {
-      const rule = rulesByUid.get(fire.ruleUid);
-      if (rule?.type === 'response') return rule;
-    }
-    return null;
-  }, [row.fires, rulesByUid]);
+  // Live rules that fired on this request, by type — flip the Response /
+  // Preview / Payload tabs' CTA from create ("Override …") to edit
+  // ("Edit … override" quick-edit popover targeting that rule). Requires
+  // the rule to still exist; a deleted rule falls back to the create CTA.
+  const firedResponseRule = useMemo<Rule | null>(
+    () => firedRuleOfType(row.fires, rulesByUid, 'response'),
+    [row.fires, rulesByUid],
+  );
+  const firedRequestBodyRule = useMemo<Rule | null>(
+    () => firedRuleOfType(row.fires, rulesByUid, 'request-body'),
+    [row.fires, rulesByUid],
+  );
+  const firedQueryParamRule = useMemo<Rule | null>(
+    () => firedRuleOfType(row.fires, rulesByUid, 'query-param'),
+    [row.fires, rulesByUid],
+  );
 
   // Before the response-gated HAR lands, the lifecycle carries the request
   // headers on their own (cooked/provisional, see `lc.requestHeaders`) so an
@@ -486,6 +504,8 @@ export function InspectorDetailContent({
             searchSection={searchSection}
             onOverrideRequestBody={createOverrideRequestBody}
             onOverrideQueryParams={createOverrideQueryParams}
+            firedRequestBodyRule={firedRequestBodyRule}
+            firedQueryParamRule={firedQueryParamRule}
             requestOverride={lc.requestOverride}
           />
         )}
