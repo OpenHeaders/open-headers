@@ -354,6 +354,7 @@
   opacity: 0;
 }
 .dt-kv-row:hover .dt-header-info-trigger,
+.dt-kv:hover > .dt-kv-key > .dt-header-info-trigger,
 .dt-header-info-trigger:focus-visible,
 .dt-header-info-trigger[aria-expanded='true'] {
   opacity: 1;
