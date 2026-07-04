@@ -233,6 +233,80 @@ describe('enrichCookies', () => {
     expect(result.response.map((r) => r.name).sort()).toEqual(['a', 'b']);
     expect(result.responseBytes).toBeGreaterThan(0);
   });
+
+  it('joins a response Set-Cookie row to its jar entry', () => {
+    const jarEntry = jar({ name: 'sid', value: 'live', domain: 'openheaders.io', hostOnly: true });
+    const result = enrichCookies({
+      url: 'https://openheaders.io/',
+      har: har({
+        response: {
+          status: 200,
+          statusText: 'OK',
+          httpVersion: '',
+          cookies: [],
+          content: { size: 0, mimeType: '' },
+          redirectURL: '',
+          headersSize: -1,
+          bodySize: -1,
+          headers: [{ name: 'Set-Cookie', value: 'sid=abc; Secure' }],
+        },
+      }),
+      jar: [jarEntry],
+      showFilteredOut: false,
+      now: NOW,
+    });
+    expect(result.response[0].jarCookie).toBe(jarEntry);
+    // Columns keep the header's own facts, not the jar's.
+    expect(result.response[0].value).toBe('abc');
+  });
+
+  it('matches the jar entry by domain (dot-insensitive) when the line names one', () => {
+    const wide = jar({ name: 'sid', domain: '.openheaders.io' });
+    const sub = jar({ name: 'sid', domain: 'app.openheaders.io', hostOnly: true });
+    const result = enrichCookies({
+      url: 'https://app.openheaders.io/',
+      har: har({
+        response: {
+          status: 200,
+          statusText: 'OK',
+          httpVersion: '',
+          cookies: [],
+          content: { size: 0, mimeType: '' },
+          redirectURL: '',
+          headersSize: -1,
+          bodySize: -1,
+          headers: [{ name: 'Set-Cookie', value: 'sid=x; Domain=openheaders.io' }],
+        },
+      }),
+      jar: [wide, sub],
+      showFilteredOut: false,
+      now: NOW,
+    });
+    expect(result.response[0].jarCookie).toBe(wide);
+  });
+
+  it('leaves the row jar-less when several jar cookies are plausible', () => {
+    const result = enrichCookies({
+      url: 'https://openheaders.io/',
+      har: har({
+        response: {
+          status: 200,
+          statusText: 'OK',
+          httpVersion: '',
+          cookies: [],
+          content: { size: 0, mimeType: '' },
+          redirectURL: '',
+          headersSize: -1,
+          bodySize: -1,
+          headers: [{ name: 'Set-Cookie', value: 'sid=x' }],
+        },
+      }),
+      jar: [jar({ name: 'sid', domain: '.openheaders.io' }), jar({ name: 'sid', domain: 'openheaders.io', hostOnly: true })],
+      showFilteredOut: false,
+      now: NOW,
+    });
+    expect(result.response[0].jarCookie).toBeUndefined();
+  });
 });
 
 describe('enrichCookies — edited cookies', () => {

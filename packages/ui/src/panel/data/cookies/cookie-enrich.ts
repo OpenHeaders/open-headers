@@ -127,6 +127,25 @@ function explainFilteredOut(c: JarCookie, parsedUrl: URL, now: number): string {
   return 'not sent';
 }
 
+/**
+ * Find the jar entry a Set-Cookie row maps to. Domain / path from the
+ * header narrow the match when present (leading dots stripped — the jar
+ * stores domain-wide cookies dotted, the header may write either form);
+ * a line that omitted them (host-only, default path) accepts any jar
+ * cookie of that name — unless several qualify, where guessing could
+ * point Edit / Delete at the wrong cookie, so no match is returned.
+ */
+function findResponseJarMatch(jar: readonly JarCookie[], row: CookieRow): JarCookie | undefined {
+  const norm = (d: string) => d.replace(/^\./, '');
+  const candidates = jar.filter(
+    (j) =>
+      j.name === row.name &&
+      (row.domain == null || norm(j.domain) === norm(row.domain)) &&
+      (row.path == null || j.path === row.path),
+  );
+  return candidates.length === 1 ? candidates[0] : undefined;
+}
+
 export interface EnrichmentInputs {
   url: string;
   har: InspectorHarEntry;
@@ -235,7 +254,14 @@ export function enrichCookies(input: EnrichmentInputs): EnrichmentResult {
   for (const h of har.response?.headers ?? []) {
     if (h.name.toLowerCase() !== 'set-cookie') continue;
     const row = parseSetCookieLine(h.value, now);
-    if (row) responseRows.push(row);
+    if (!row) continue;
+    // Join against the jar so the row's Edit / Delete can target the
+    // real entry this Set-Cookie produced (or the pre-existing cookie a
+    // rejected line failed to replace). The columns keep the header's
+    // own facts; only the affordances read the jar entry.
+    const jarMatch = jar ? findResponseJarMatch(jar, row) : undefined;
+    if (jarMatch) row.jarCookie = jarMatch;
+    responseRows.push(row);
   }
 
   // ── Sizes ────────────────────────────────────────────────────────

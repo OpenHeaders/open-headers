@@ -18,7 +18,7 @@
 
 import { CheckOutlined, CopyOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import { useState } from 'react';
-import { rowToEditForm } from '../../../data/cookies/cookie-edit';
+import { editCanonicalForRow } from '../../../data/cookies/cookie-edit';
 import { formatAbsoluteExpiry, formatRelativeExpiry, urlDecodeSafe } from '../../../data/cookies/cookie-format';
 import { cookieRowIndicator } from '../../../data/cookies/cookie-indicators';
 import type { JarCookieEdit } from '../../../data/cookies/cookie-jar-cache';
@@ -56,8 +56,9 @@ interface Props {
   onMakeRule: (anchorEl: HTMLElement) => void;
   /** A rule that fired on this request modifies this row's cookie header. */
   ruleTouched: boolean;
-  /** Jar-backed rows get Edit / Delete affordances; response Set-Cookie
-   *  lines and jar-less request rows don't (nothing to write). */
+  /** Jar-backed rows get Edit / Delete affordances — request rows joined
+   *  from the jar, and response rows whose Set-Cookie mapped to a jar
+   *  entry. Jar-less rows don't (nothing to write). */
   canEdit: boolean;
   /** Persists an edit from the row's popover; resolves `true` on success. */
   onApplyEdit: (edit: JarCookieEdit) => Promise<boolean>;
@@ -210,7 +211,7 @@ export function CookieRow({
             </button>
             {canEdit && (
               <>
-                <CookieEditPopover mode="edit" canonical={rowToEditForm(row)} onSubmit={onApplyEdit}>
+                <CookieEditPopover mode="edit" canonical={editCanonicalForRow(row)} onSubmit={onApplyEdit}>
                   <button
                     type="button"
                     className="dt-btn dt-btn-primary dt-cookie-action dt-cookie-action--icon"

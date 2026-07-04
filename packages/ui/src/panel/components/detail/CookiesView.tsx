@@ -32,7 +32,7 @@ import { App } from 'antd';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useMeasuredCssHeights } from '@openheaders/ui/shared/hooks/dom/useMeasuredStickyOffset';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
-import { emptyEditForm, rowToKey } from '../../data/cookies/cookie-edit';
+import { deleteKeyForRow, emptyEditForm } from '../../data/cookies/cookie-edit';
 import { enrichCookies } from '../../data/cookies/cookie-enrich';
 import { parseCookieQuery, type CookieFilterToken } from '../../data/cookies/cookie-filter';
 import { cookieHeaderRuleTouched } from '../../data/cookies/cookie-indicators';
@@ -174,7 +174,7 @@ export default function CookiesView({ row, pageOrigin, onOverrideHeader }: Cooki
         okText: 'Delete',
         okButtonProps: { danger: true },
         onOk: () =>
-          removeJarCookie(rowToKey(cookie)).then((ok) => {
+          removeJarCookie(deleteKeyForRow(cookie)).then((ok) => {
             if (ok) message.success(`Cookie “${cookie.name}” deleted`);
             else message.error(`Couldn’t delete cookie “${cookie.name}”`);
           }),

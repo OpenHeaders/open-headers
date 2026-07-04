@@ -1,5 +1,7 @@
 import {
   type CookieEditFormValues,
+  deleteKeyForRow,
+  editCanonicalForRow,
   editFormsEqual,
   emptyEditForm,
   formToEdit,
@@ -8,6 +10,7 @@ import {
   rowToEditForm,
   rowToKey,
 } from '@openheaders/ui/panel/data/cookies/cookie-edit';
+import type { JarCookie } from '@openheaders/ui/panel/host-cookie-jar';
 import type { CookieRow } from '@openheaders/ui/panel/data/cookies/cookie-model';
 import { describe, expect, it } from 'vitest';
 
@@ -153,9 +156,62 @@ describe('isJarEditableRow', () => {
     expect(isJarEditableRow(makeRow({ attribution: 'filtered-out' }))).toBe(true);
   });
 
-  it('rejects response Set-Cookie lines and jar-less request rows', () => {
+  it('rejects jar-less response Set-Cookie lines and jar-less request rows', () => {
     expect(isJarEditableRow(makeRow({ attribution: 'response-set', direction: 'response' }))).toBe(false);
     expect(isJarEditableRow(makeRow({ attribution: 'request-har' }))).toBe(false);
+  });
+
+  it('allows a response row joined to its jar entry', () => {
+    expect(
+      isJarEditableRow(makeRow({ attribution: 'response-set', direction: 'response', jarCookie: makeJarCookie() })),
+    ).toBe(true);
+  });
+});
+
+function makeJarCookie(over: Partial<JarCookie> = {}): JarCookie {
+  return {
+    name: 'sid',
+    value: 'live-value',
+    domain: '.openheaders.io',
+    path: '/account',
+    hostOnly: false,
+    httpOnly: true,
+    secure: true,
+    sameSite: 'strict',
+    session: false,
+    expirationDate: 4102444800,
+    ...over,
+  };
+}
+
+describe('editCanonicalForRow / deleteKeyForRow', () => {
+  it('edits and deletes the JOINED jar entry for a response row, not the parsed line', () => {
+    // Set-Cookie line omitted Domain/Path — the jar entry carries the truth.
+    const row = makeRow({
+      attribution: 'response-set',
+      direction: 'response',
+      domain: undefined,
+      path: undefined,
+      value: 'header-value',
+      jarCookie: makeJarCookie(),
+    });
+    const form = editCanonicalForRow(row);
+    expect(form.domain).toBe('.openheaders.io');
+    expect(form.path).toBe('/account');
+    expect(form.value).toBe('live-value');
+    expect(form.session).toBe(false);
+    expect(deleteKeyForRow(row)).toEqual({
+      name: 'sid',
+      domain: '.openheaders.io',
+      path: '/account',
+      secure: true,
+    });
+  });
+
+  it('falls back to the row itself for jar-backed request rows', () => {
+    const row = makeRow({ sameSite: 'lax' });
+    expect(editCanonicalForRow(row)).toEqual(rowToEditForm(row));
+    expect(deleteKeyForRow(row)).toEqual(rowToKey(row));
   });
 });
 

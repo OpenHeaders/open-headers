@@ -9,7 +9,7 @@
  */
 
 import type { JarCookieEdit, JarCookieKey } from './cookie-jar-cache';
-import type { CookieRow } from './cookie-model';
+import { jarToRow, type CookieRow } from './cookie-model';
 
 export type CookieSameSiteValue = 'unspecified' | 'no_restriction' | 'lax' | 'strict';
 
@@ -126,10 +126,29 @@ export function editFormsEqual(a: CookieEditFormValues, b: CookieEditFormValues)
 
 /** Add affordances and per-row Edit/Delete only make sense for cookies
  *  that actually live in the browser jar — request rows joined from the
- *  jar, or jar cookies shown as filtered-out. Response Set-Cookie lines
- *  and jar-less request rows aren't editable jar entries. */
+ *  jar, jar cookies shown as filtered-out, and response Set-Cookie rows
+ *  whose jar entry was found (`jarCookie`, joined in cookie-enrich).
+ *  Jar-less rows have nothing to write. */
 export function isJarEditableRow(row: CookieRow): boolean {
-  return row.attribution === 'request-jar' || row.attribution === 'filtered-out';
+  return row.attribution === 'request-jar' || row.attribution === 'filtered-out' || row.jarCookie != null;
+}
+
+/** The jar-truth row behind an editable row — response rows edit their
+ *  joined jar entry (the header line omits attributes the jar defaulted:
+ *  host-only domain, default path, …); jar-backed request rows ARE the
+ *  jar entry already. */
+function jarTruthRow(row: CookieRow): CookieRow {
+  return row.jarCookie ? jarToRow(row.jarCookie, row.direction, row.attribution) : row;
+}
+
+/** Canonical form values the Edit popover opens with. */
+export function editCanonicalForRow(row: CookieRow): CookieEditFormValues {
+  return rowToEditForm(jarTruthRow(row));
+}
+
+/** Identity the Delete gesture removes. */
+export function deleteKeyForRow(row: CookieRow): JarCookieKey {
+  return rowToKey(jarTruthRow(row));
 }
 
 /** Whether the form is complete enough to write. */
