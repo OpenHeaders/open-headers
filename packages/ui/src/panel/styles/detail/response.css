@@ -58,14 +58,6 @@
   font-weight: 600;
 }
 
-/* CTA buttons row. */
-.dt-cta-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding: 4px 0;
-}
-
 /* Response body search highlight. */
 .dt-body-pre mark {
   background: #fdd835;

@@ -293,6 +293,22 @@ export default function CookiesView({ row, pageOrigin, onOverrideHeader }: Cooki
           className="dt-header-filter-input"
           aria-label="Filter cookies"
         />
+        <CookieCtaMenu
+          onOverrideRequest={onCreateCookieOverride}
+          onOverrideResponse={onCreateSetCookieOverride}
+          onRemoveAll={onCreateRemoveAllCookies}
+        />
+        <InfoTrigger content={OVERRIDE_CTA_INFO} className="dt-header-info-trigger" />
+        {writable && (
+          <>
+            <CookieEditPopover mode="add" canonical={addCanonical} onSubmit={onApplyEdit}>
+              <button type="button" className="dt-btn" title="Add a cookie to the browser jar (including HttpOnly)">
+                Add cookie
+              </button>
+            </CookieEditPopover>
+            <InfoTrigger content={ADD_COOKIE_INFO} className="dt-header-info-trigger" />
+          </>
+        )}
         <CookieMoreFiltersMenu
           problemsOnly={problemsOnly}
           thirdPartyOnly={thirdPartyOnly}
@@ -317,25 +333,6 @@ export default function CookiesView({ row, pageOrigin, onOverrideHeader }: Cooki
           onToggleShowChips={toggleShowChips}
           onToggleGroupByRole={toggleGroupByRole}
         />
-      </div>
-
-      <div className="dt-cta-row dt-header-cta-row">
-        <CookieCtaMenu
-          onOverrideRequest={onCreateCookieOverride}
-          onOverrideResponse={onCreateSetCookieOverride}
-          onRemoveAll={onCreateRemoveAllCookies}
-        />
-        <InfoTrigger content={OVERRIDE_CTA_INFO} className="dt-header-info-trigger" />
-        {writable && (
-          <>
-            <CookieEditPopover mode="add" canonical={addCanonical} onSubmit={onApplyEdit} placement="bottomLeft">
-              <button type="button" className="dt-btn" title="Add a cookie to the browser jar (including HttpOnly)">
-                Add cookie
-              </button>
-            </CookieEditPopover>
-            <InfoTrigger content={ADD_COOKIE_INFO} className="dt-header-info-trigger" />
-          </>
-        )}
       </div>
 
       {footprintText && (

@@ -15,15 +15,18 @@
   --oh-cookies-sticky-offset: calc(var(--oh-cookies-toolbar-h, 30px) + var(--oh-cookies-summary-h, 24px));
 }
 
-/* CTA-row (i) triggers — always discoverable (focused content, unlike
- * the hover-revealed per-row ones): dimmed at rest, full on engage. */
-.dt-cta-row .dt-header-info-trigger {
+/* Toolbar CTA (i) triggers — always discoverable (focused content, unlike
+ * the hover-revealed per-row ones): dimmed at rest, full on engage. The
+ * negative margin pulls each trigger against its CTA so the pair reads as
+ * one control inside the toolbar's 8px gap. */
+.dt-cookies-pane .dt-header-filter .dt-header-info-trigger {
   align-self: center;
+  margin-left: -4px;
   opacity: 0.55;
 }
-.dt-cta-row .dt-header-info-trigger:hover,
-.dt-cta-row .dt-header-info-trigger:focus-visible,
-.dt-cta-row .dt-header-info-trigger[aria-expanded='true'] {
+.dt-cookies-pane .dt-header-filter .dt-header-info-trigger:hover,
+.dt-cookies-pane .dt-header-filter .dt-header-info-trigger:focus-visible,
+.dt-cookies-pane .dt-header-filter .dt-header-info-trigger[aria-expanded='true'] {
   opacity: 1;
 }
 

@@ -1,15 +1,6 @@
 /* Headers tab — pane wrapper, filter bar, footprint chip, insights,
  * category groups, value chips, raw view, More-filters popover. */
 
-/* Rule-creation CTA row. */
-.dt-header-cta-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding: 6px 12px;
-  border-bottom: 1px solid var(--dt-border);
-}
-
 /* Footprint chip. */
 .dt-header-footprint {
   display: flex;
