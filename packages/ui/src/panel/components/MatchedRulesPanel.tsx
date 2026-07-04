@@ -26,7 +26,7 @@ import {
   fireTier,
   hasCapturedOverride,
 } from '../data/fire-evidence';
-import { useFutureMatches } from '../data/future-matches';
+import { type FutureMatch, useFutureMatches } from '../data/future-matches';
 import { buildInspectorTab } from '../data/inspector-tab';
 import type { InspectorRowWithFires } from '../data/inspector-row-projection';
 import type { InspectorFire } from '../data/types';
@@ -40,6 +40,20 @@ interface MatchedRulesPanelProps {
   onClose: () => void;
 }
 
+/** Action lines from the LIVE rule — the fire-less variant used by the
+ *  Future-matches rows and as the snapshot fallback below. */
+function describeHeaderRuleActions(rule: Rule | undefined): string[] {
+  if (!rule || rule.type !== 'header') return [];
+  const lines: string[] = [];
+  for (const h of rule.action.requestHeaders) {
+    lines.push(`req ${h.operation} ${h.headerName}${h.value != null ? ` = ${h.value}` : ''}`);
+  }
+  for (const h of rule.action.responseHeaders) {
+    lines.push(`res ${h.operation} ${h.headerName}${h.value != null ? ` = ${h.value}` : ''}`);
+  }
+  return lines;
+}
+
 function describeHeaderActions(fire: InspectorFire, rule: Rule | undefined): string[] {
   const snapshot = fire.ruleSnapshot;
   if (snapshot && snapshot.type === 'header' && snapshot.headerMods) {
@@ -51,15 +65,7 @@ function describeHeaderActions(fire: InspectorFire, rule: Rule | undefined): str
     }
     return lines;
   }
-  if (!rule || rule.type !== 'header') return [];
-  const lines: string[] = [];
-  for (const h of rule.action.requestHeaders) {
-    lines.push(`req ${h.operation} ${h.headerName}${h.value != null ? ` = ${h.value}` : ''}`);
-  }
-  for (const h of rule.action.responseHeaders) {
-    lines.push(`res ${h.operation} ${h.headerName}${h.value != null ? ` = ${h.value}` : ''}`);
-  }
-  return lines;
+  return describeHeaderRuleActions(rule);
 }
 
 interface FireRowProps {
@@ -188,9 +194,13 @@ function FireRow({ fire, rule, lifecycle }: FireRowProps) {
 }
 
 /** Projection row — a live rule that would fire on the next identical
- *  request. No evidence badge (nothing happened yet); the same hover
- *  opens the rule's quick editor. */
-function FutureRow({ rule }: { rule: Rule }) {
+ *  request. Same row anatomy as a matched row (type code + name,
+ *  pattern line, header action lines) so the two sections read as one
+ *  list; the evidence slot says "would match" instead of a verdict
+ *  (nothing happened yet). The same hover opens the quick editor. */
+function FutureRow({ match }: { match: FutureMatch }) {
+  const { rule, pattern } = match;
+  const actions = describeHeaderRuleActions(rule);
   const rulePopover = useRulePopover();
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: hover-only popover trigger; primary affordance remains the rule's full editor.
@@ -205,6 +215,14 @@ function FutureRow({ rule }: { rule: Rule }) {
         <span className="dt-matched-rule-name">{rule.name}</span>
         <span className="dt-matched-rule-future">would match</span>
       </div>
+      {pattern && <div className="dt-matched-rule-pattern">Pattern: {pattern}</div>}
+      {actions.length > 0 && (
+        <ul className="dt-matched-rule-actions">
+          {actions.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
@@ -273,8 +291,8 @@ export function MatchedRulesPanel({ row, rulesByUid, onClose }: MatchedRulesPane
                   No other rules would match this request.
                 </div>
               )}
-              {futureMatches.map((r) => (
-                <FutureRow key={r.uid} rule={r} />
+              {futureMatches.map((m) => (
+                <FutureRow key={m.rule.uid} match={m} />
               ))}
             </details>
           </>

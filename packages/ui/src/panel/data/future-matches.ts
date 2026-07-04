@@ -16,7 +16,7 @@
  */
 
 import type { Collection, Rule, RuleCondition } from '@openheaders/core/types';
-import { doesHostMatchDomains, doesUrlMatchRule, getRuleMatchPatterns } from '@openheaders/core/utils';
+import { doesHostMatchDomains, doesUrlMatchEntry, getRuleMatchPatterns } from '@openheaders/core/utils';
 import { resolveRuleConditions, type VariableResolver } from '@openheaders/core/variables';
 import { useVariableResolver } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
@@ -24,6 +24,14 @@ import { useMemo } from 'react';
 import type { InspectorRowWithFires } from './inspector-row-projection';
 import { findRuleCollectionId } from './rule-create/rule-collection';
 import type { RulesByUid } from './rule-create/use-rules-lookup';
+
+export interface FutureMatch {
+  rule: Rule;
+  /** Resolved pattern that would admit this URL — the row's "Pattern:"
+   *  line, same slot the fire snapshot fills for matched rows. Null
+   *  when the rule has no URL conditions (matches every URL). */
+  pattern: string | null;
+}
 
 export interface FutureMatchInputs {
   /** Live rule registry (all rules, drafts included — gated below). */
@@ -44,8 +52,8 @@ export function computeFutureMatches({
   method,
   resolver,
   localCollections,
-}: FutureMatchInputs): Rule[] {
-  const out: Rule[] = [];
+}: FutureMatchInputs): FutureMatch[] {
+  const out: FutureMatch[] = [];
   for (const rule of rules) {
     if (firedRuleUids.has(rule.uid)) continue;
     // Only published + enabled rules reach the wire — same gate the SW
@@ -55,12 +63,18 @@ export function computeFutureMatches({
     const collectionId = findRuleCollectionId(rule, localCollections);
     const ctx = collectionId ? { collectionId } : undefined;
     const resolved = resolveRuleConditions(rule.conditions, resolver, ctx);
-    const ruleForMatcher = { ...rule, conditions: resolved };
-    // No URL conditions = the wire plane matches every URL; with
-    // conditions, the row's URL must hit one of them.
-    if (getRuleMatchPatterns(ruleForMatcher).length > 0 && !doesUrlMatchRule(url, ruleForMatcher)) continue;
     if (excludedByDomain(resolved, url)) continue;
-    out.push(rule);
+    // No URL conditions = the wire plane matches every URL; with
+    // conditions, the row's URL must hit one of them — the hit becomes
+    // the row's pattern line.
+    const patterns = getRuleMatchPatterns({ ...rule, conditions: resolved });
+    if (patterns.length === 0) {
+      out.push({ rule, pattern: null });
+      continue;
+    }
+    const hit = patterns.find((p) => doesUrlMatchEntry(url, p));
+    if (!hit) continue;
+    out.push({ rule, pattern: hit.pattern });
   }
   return out;
 }
@@ -86,7 +100,7 @@ function excludedByDomain(conditions: readonly RuleCondition[], url: string): bo
 
 /** Reactive projection for the selected row — recomputes as rules,
  *  variables or the selection change. */
-export function useFutureMatches(row: InspectorRowWithFires | null, rulesByUid: RulesByUid): Rule[] {
+export function useFutureMatches(row: InspectorRowWithFires | null, rulesByUid: RulesByUid): FutureMatch[] {
   const resolver = useVariableResolver();
   const { localCollections } = useRules();
   return useMemo(() => {

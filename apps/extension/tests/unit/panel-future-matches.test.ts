@@ -39,8 +39,10 @@ function compute(rules: Rule[], opts: { fired?: string[]; url?: string; method?:
 }
 
 describe('computeFutureMatches', () => {
-  it('projects a published, enabled rule whose conditions match the URL', () => {
-    expect(compute([delayRule('R1')]).map((r) => r.uid)).toEqual(['R1']);
+  it('projects a published, enabled rule whose conditions match the URL, with the admitting pattern', () => {
+    const matches = compute([delayRule('R1')]);
+    expect(matches.map((m) => m.rule.uid)).toEqual(['R1']);
+    expect(matches[0]?.pattern).toBe('*://api.openheaders.io/*');
   });
 
   it('excludes rules already in the fire snapshot', () => {
@@ -56,9 +58,11 @@ describe('computeFutureMatches', () => {
     expect(compute([delayRule('R1')], { url: 'https://example.org/' })).toEqual([]);
   });
 
-  it('matches everything when the rule has no URL conditions', () => {
+  it('matches everything (with no pattern line) when the rule has no URL conditions', () => {
     const rule = delayRule('R1', { conditions: [] });
-    expect(compute([rule], { url: 'https://example.org/' }).map((r) => r.uid)).toEqual(['R1']);
+    const matches = compute([rule], { url: 'https://example.org/' });
+    expect(matches.map((m) => m.rule.uid)).toEqual(['R1']);
+    expect(matches[0]?.pattern).toBeNull();
   });
 
   it('honors request-method conditions in both directions', () => {
@@ -71,7 +75,7 @@ describe('computeFutureMatches', () => {
     );
     expect(
       compute([delayRule('R2', { conditions: only('request-methods', ['get']) })], { method: 'GET' }).map(
-        (r) => r.uid,
+        (m) => m.rule.uid,
       ),
     ).toEqual(['R2']);
     expect(
@@ -84,7 +88,7 @@ describe('computeFutureMatches', () => {
       conditions: [{ uid: 'c1', type: 'exclude-request-domains', values: ['openheaders.io'] }],
     });
     expect(compute([rule])).toEqual([]);
-    expect(compute([rule], { url: 'https://example.org/' }).map((r) => r.uid)).toEqual(['R1']);
+    expect(compute([rule], { url: 'https://example.org/' }).map((m) => m.rule.uid)).toEqual(['R1']);
   });
 
   it('drops rules whose condition templates cannot resolve into a matching pattern', () => {
