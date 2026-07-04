@@ -263,6 +263,39 @@ export function isAttributionEdited(liveRule: Rule | null, ctx: RuleAttributionC
   return modsDiverge(ctx.snapshotMod, currentMod);
 }
 
+/**
+ * Whole-rule variant of {@link isAttributionEdited} for surfaces that
+ * hold a fire's `RuleSnapshot` rather than a per-mod attribution (the
+ * Request Rules panel's Matched rows). Compares the live rule against
+ * the frozen snapshot: rename, type change, or — for header rules —
+ * any structural change to the modification list. Non-header actions
+ * aren't snapshotted, so the name is their only observable edit signal.
+ * **Pure**; deleted rules are the caller's branch (`liveRule` null
+ * reads as edited for symmetry).
+ */
+export function isRuleEditedSinceSnapshot(liveRule: Rule | null, snapshot: RuleSnapshot): boolean {
+  if (!liveRule) return true;
+  if (liveRule.name !== snapshot.name) return true;
+  if (liveRule.type !== snapshot.type) return true;
+  if (liveRule.type !== 'header') return false;
+  const snapMods = snapshot.headerMods ?? [];
+  const liveMods = [
+    ...liveRule.action.requestHeaders.map((mod) => ({ direction: 'request' as const, mod })),
+    ...liveRule.action.responseHeaders.map((mod) => ({ direction: 'response' as const, mod })),
+  ];
+  if (snapMods.length !== liveMods.length) return true;
+  // Multiset match — order within a direction list may legitimately
+  // change without altering behavior for distinct headers; each
+  // snapshot mod must find one structurally-equal live counterpart.
+  const remaining = [...liveMods];
+  for (const sm of snapMods) {
+    const idx = remaining.findIndex((lm) => lm.direction === sm.direction && !modsDiverge(sm, lm.mod));
+    if (idx === -1) return true;
+    remaining.splice(idx, 1);
+  }
+  return false;
+}
+
 function modsDiverge(a: RuleSnapshotHeaderMod, b: HeaderModification): boolean {
   if (a.operation !== b.operation) return true;
   // Compare templates structurally: the snapshot's `headerName` is the

@@ -27,6 +27,7 @@ import {
   hasCapturedOverride,
 } from '../data/fire-evidence';
 import { type FutureMatch, useFutureMatches } from '../data/future-matches';
+import { isRuleEditedSinceSnapshot } from '../data/headers/header-attribution';
 import { buildInspectorTab } from '../data/inspector-tab';
 import type { InspectorRowWithFires } from '../data/inspector-row-projection';
 import type { InspectorFire } from '../data/types';
@@ -140,6 +141,13 @@ function FireRow({ fire, rule, lifecycle }: FireRowProps) {
   const label = rule?.name ?? fire.ruleSnapshot?.name ?? fire.ruleUid;
   const ruleType = rule?.type ?? fire.ruleSnapshot?.type ?? null;
   const actions = describeHeaderActions(fire, rule);
+  // Rule-state tag next to the evidence badge — the snapshot is what
+  // fired; the live rule may have been deleted or edited since.
+  const ruleState = !rule
+    ? 'deleted'
+    : fire.ruleSnapshot && isRuleEditedSinceSnapshot(rule, fire.ruleSnapshot)
+      ? 'modified'
+      : null;
   const evidence = deriveFireEvidence(lifecycle, fire);
   const tier = fireTier(lifecycle, fire);
   const rulePopover = useRulePopover();
@@ -173,12 +181,22 @@ function FireRow({ fire, rule, lifecycle }: FireRowProps) {
             size: 12,
           })}
         <span className="dt-matched-rule-name">{label}</span>
-        {!rule && <span className="dt-col-muted"> · rule deleted</span>}
-        <span
-          className={`dt-exec-badge ${BADGE_CLASS[tier]} dt-matched-rule-evidence`}
-          title={evidenceTitle(fire, evidence, lifecycle)}
-        >
-          {evidenceLabel(fire, evidence, lifecycle)}
+        <span className="dt-matched-rule-badges">
+          {ruleState && (
+            <span
+              className={`dt-exec-badge dt-exec-badge--rule-${ruleState}`}
+              title={
+                ruleState === 'deleted'
+                  ? 'This rule has been deleted since it fired. The row shows what it did at fire time.'
+                  : 'This rule has been edited since it fired. The row shows what it did at fire time; hover to see the current rule.'
+              }
+            >
+              rule {ruleState}
+            </span>
+          )}
+          <span className={`dt-exec-badge ${BADGE_CLASS[tier]}`} title={evidenceTitle(fire, evidence, lifecycle)}>
+            {evidenceLabel(fire, evidence, lifecycle)}
+          </span>
         </span>
       </div>
       {fire.pattern && <div className="dt-matched-rule-pattern">Pattern: {fire.pattern}</div>}

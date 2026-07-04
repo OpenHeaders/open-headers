@@ -11,6 +11,7 @@ import {
   attributeHeaders,
   findCurrentMod,
   isAttributionEdited,
+  isRuleEditedSinceSnapshot,
 } from '@openheaders/ui/panel/data/headers/header-attribution';
 import type { InspectorFire } from '@openheaders/ui/panel/data/types';
 import { describe, expect, it } from 'vitest';
@@ -877,5 +878,80 @@ describe('attributeHeaders — wire-aware rendering (corroboration verdicts)', (
       expect(result[0].attribution.originalValue).toBe('pre-rewrite');
       expect(result[0].attribution.ctx.verdict).toBe('unobservable');
     }
+  });
+});
+
+describe('isRuleEditedSinceSnapshot', () => {
+  const snapshot: RuleSnapshot = {
+    ruleUid: 'r1',
+    name: 'Debug headers',
+    type: 'header',
+    enabled: true,
+    headerMods: [
+      { direction: 'request', operation: 'override', headerName: 'X-Debug', valueTemplate: 'on' },
+      { direction: 'response', operation: 'remove', headerName: 'Server' },
+    ],
+  };
+  const liveMods: HeaderModification[] = [
+    { uid: 'm1', operation: 'override', headerName: 'X-Debug', value: 'on' },
+  ];
+  const removeMod: HeaderModification = { uid: 'm2', operation: 'remove', headerName: 'Server' };
+
+  function twoSidedRule(reqMods: HeaderModification[], resMods: HeaderModification[]): Rule {
+    const base = headerRule('r1', 'Debug headers', reqMods, 'request') as HeaderRule;
+    return { ...base, action: { ...base.action, responseHeaders: resMods } };
+  }
+
+  it('is clean when the live rule structurally matches the snapshot', () => {
+    expect(isRuleEditedSinceSnapshot(twoSidedRule(liveMods, [removeMod]), snapshot)).toBe(false);
+  });
+
+  it('reads deleted / renamed / retyped rules as edited', () => {
+    expect(isRuleEditedSinceSnapshot(null, snapshot)).toBe(true);
+    const renamed = { ...twoSidedRule(liveMods, [removeMod]), name: 'Debug headers v2' };
+    expect(isRuleEditedSinceSnapshot(renamed, snapshot)).toBe(true);
+  });
+
+  it('flags a changed value, a removed mod, and an added mod', () => {
+    const changed = twoSidedRule([{ ...liveMods[0]!, value: 'off' }], [removeMod]);
+    expect(isRuleEditedSinceSnapshot(changed, snapshot)).toBe(true);
+    expect(isRuleEditedSinceSnapshot(twoSidedRule(liveMods, []), snapshot)).toBe(true);
+    const added = twoSidedRule(
+      [...liveMods, { uid: 'm3', operation: 'add', headerName: 'X-More', value: '1' }],
+      [removeMod],
+    );
+    expect(isRuleEditedSinceSnapshot(added, snapshot)).toBe(true);
+  });
+
+  it('ignores reordering of distinct mods within a direction', () => {
+    const snap: RuleSnapshot = {
+      ...snapshot,
+      headerMods: [
+        { direction: 'request', operation: 'override', headerName: 'X-A', valueTemplate: '1' },
+        { direction: 'request', operation: 'override', headerName: 'X-B', valueTemplate: '2' },
+      ],
+    };
+    const reordered = twoSidedRule(
+      [
+        { uid: 'm2', operation: 'override', headerName: 'X-B', value: '2' },
+        { uid: 'm1', operation: 'override', headerName: 'X-A', value: '1' },
+      ],
+      [],
+    );
+    expect(isRuleEditedSinceSnapshot(reordered, snap)).toBe(false);
+  });
+
+  it('uses the name as the only edit signal for non-header rules', () => {
+    const snap: RuleSnapshot = { ruleUid: 'r1', name: 'Slow API', type: 'delay', enabled: true };
+    const delay = {
+      uid: 'r1',
+      type: 'delay',
+      name: 'Slow API',
+      enabled: true,
+      conditions: [],
+      action: { delayMs: 1000 },
+    } as unknown as Rule;
+    expect(isRuleEditedSinceSnapshot(delay, snap)).toBe(false);
+    expect(isRuleEditedSinceSnapshot({ ...delay, name: 'Slower API' }, snap)).toBe(true);
   });
 });
