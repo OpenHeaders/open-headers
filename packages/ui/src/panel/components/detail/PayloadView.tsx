@@ -72,6 +72,9 @@ interface RequestBodyDualViewProps {
   onDualModeChange: (mode: DualMode) => void;
   swapped: boolean;
   onSwapSides: () => void;
+  /** Override CTAs for the bottom toolbar — ride the modified pane in the
+   *  split (the original pane is read-only) and the diff's single bar. */
+  overrideAction?: React.ReactNode;
 }
 
 /**
@@ -89,6 +92,7 @@ function RequestBodyDualView({
   onDualModeChange,
   swapped,
   onSwapSides,
+  overrideAction,
 }: RequestBodyDualViewProps) {
   const modeButtons = <DualModeButtons mode={dualMode} onModeChange={onDualModeChange} splitModeLabel="Full request" />;
 
@@ -118,6 +122,7 @@ function RequestBodyDualView({
               declaredMime={declaredMime}
               controls={modeButtons}
               onSwapSides={onSwapSides}
+              overrideAction={overrideAction}
             />
           </Suspense>
         </div>
@@ -130,6 +135,7 @@ function RequestBodyDualView({
       text={sentText}
       declaredMime={declaredMime}
       searchQuery={searchQuery}
+      toolbarAction={overrideAction}
       toolbarTrailing={rightmost ? modeButtons : undefined}
     />
   );
@@ -254,6 +260,19 @@ export default function PayloadView({
   // Monaco viewer + theme + sniffer pill for misdeclared Content-Types.
   const hasStructuredPostData = postData?.params && postData.params.length > 0;
 
+  // Both CTAs ride the body viewer's bottom toolbar (after the cursor
+  // readout, behind its divider — same slot as the Response tab's
+  // Override CTA). The pinned footer only remains for layouts without
+  // that toolbar: the structured form-param table and the no-body case.
+  const toolbarCtas =
+    queryOverrideAction || bodyOverrideAction ? (
+      <>
+        {queryOverrideAction}
+        {bodyOverrideAction}
+      </>
+    ) : undefined;
+  const bodyHostsToolbarCtas = postData != null && !hasStructuredPostData;
+
   return (
     <div className="dt-payload-view">
       <div className="dt-payload-sections">
@@ -319,6 +338,7 @@ export default function PayloadView({
                 onDualModeChange={setDualMode}
                 swapped={swapped}
                 onSwapSides={() => setSwapped((s) => !s)}
+                overrideAction={toolbarCtas}
               />
             ) : (
               <div className="dt-payload-body-wrap">
@@ -326,6 +346,7 @@ export default function PayloadView({
                   text={postData.text ?? ''}
                   declaredMime={postData.mimeType ?? ''}
                   searchQuery={bodyHighlight}
+                  toolbarAction={toolbarCtas}
                 />
               </div>
             )}
@@ -333,13 +354,10 @@ export default function PayloadView({
         )}
       </div>
 
-      {/* Pinned bottom footer — one per-section override CTA, left-aligned,
-        * so the Payload tab reads like the Response/Preview tabs. */}
-      {(queryOverrideAction || bodyOverrideAction) && (
-        <div className="dt-response-toolbar dt-payload-footer">
-          {queryOverrideAction}
-          {bodyOverrideAction}
-        </div>
+      {/* Pinned bottom footer — fallback host for the CTAs when no body
+        * viewer toolbar is on screen to carry them. */}
+      {toolbarCtas && !bodyHostsToolbarCtas && (
+        <div className="dt-response-toolbar dt-payload-footer">{toolbarCtas}</div>
       )}
     </div>
   );
