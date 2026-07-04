@@ -107,7 +107,7 @@ describe('computeRuleFootprint', () => {
     });
     expect(f.ruleCount).toBe(2);
     expect(f.ruleNames).toEqual(['Redirect example.com', 'Header rule']);
-    expect(formatRuleFootprint(f)).toBe('2 rules · 1 redirect · 1 header · 1 modified');
+    expect(formatRuleFootprint(f)).toBe('2 rules · 1 redirect · 1 header modified');
   });
 
   it('does not double-count a header rule present in both fires and attribution', () => {
@@ -128,7 +128,7 @@ describe('computeRuleFootprint', () => {
     expect(f.ruleCount).toBe(1);
     expect(f.typeCounts).toEqual([]);
     expect(f.ruleNames).toEqual(['Header rule']);
-    expect(formatRuleFootprint(f)).toBe('1 rule · 1 header · 1 modified');
+    expect(formatRuleFootprint(f)).toBe('1 rule · 1 header modified');
   });
 
   it('hides the chip when nothing fired and nothing was attributed', () => {

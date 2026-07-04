@@ -76,15 +76,25 @@ export function computeHeaderFootprint(inputs: FootprintInputs): HeaderFootprint
 
 /** The header-row bits of the chip text (`N headers · X added · …`),
  *  without the leading rule count — shared between the header-only
- *  formatter below and the all-rule formatter in `rule-footprint.ts`. */
+ *  formatter below and the all-rule formatter in `rule-footprint.ts`.
+ *
+ *  When a single kind covers every affected row, the count and the
+ *  breakdown merge into one phrase (`1 header modified`, `2 headers
+ *  added`) — `1 header · 1 modified` says the same thing twice. */
 export function headerFootprintBits(f: HeaderFootprint): string[] {
+  const headerNoun = `${f.affectedRowCount} header${f.affectedRowCount === 1 ? '' : 's'}`;
+  const kinds: Array<[string, number]> = [];
+  if (f.addedCount > 0) kinds.push(['added', f.addedCount]);
+  if (f.modifiedCount > 0) kinds.push(['modified', f.modifiedCount]);
+  if (f.removedCount > 0) kinds.push(['removed', f.removedCount]);
+
   const bits: string[] = [];
-  bits.push(`${f.affectedRowCount} header${f.affectedRowCount === 1 ? '' : 's'}`);
-  const breakdown: string[] = [];
-  if (f.addedCount > 0) breakdown.push(`${f.addedCount} added`);
-  if (f.modifiedCount > 0) breakdown.push(`${f.modifiedCount} modified`);
-  if (f.removedCount > 0) breakdown.push(`${f.removedCount} removed`);
-  if (breakdown.length > 0) bits.push(breakdown.join(' · '));
+  if (kinds.length === 1 && kinds[0][1] === f.affectedRowCount) {
+    bits.push(`${headerNoun} ${kinds[0][0]}`);
+  } else {
+    bits.push(headerNoun);
+    for (const [kind, count] of kinds) bits.push(`${count} ${kind}`);
+  }
   if (f.driftedRowCount > 0) bits.push(`${f.driftedRowCount} drifted`);
   return bits;
 }
