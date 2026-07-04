@@ -214,6 +214,9 @@ export default function RawDataView({ row, requestHeaders, pages }: RawDataViewP
           </label>
 
           <span className="dt-rawdata-actions">
+            <button type="button" className="dt-payload-toggle-btn" onClick={copy}>
+              {copied ? 'Copied' : 'Copy'}
+            </button>
             <ToolbarMenuPopover label="View" activeCount={viewActiveCount}>
               <label className="dt-morefilters-item">
                 <input
@@ -270,12 +273,6 @@ export default function RawDataView({ row, requestHeaders, pages }: RawDataViewP
                 Reset to default
               </button>
             </ToolbarMenuPopover>
-            <button type="button" className="dt-payload-toggle-btn" onClick={copy}>
-              {copied ? 'Copied' : 'Copy'}
-            </button>
-            <button type="button" className="dt-payload-toggle-btn" onClick={downloadHar}>
-              Save as .har
-            </button>
           </span>
           </span>
         </summary>
@@ -301,7 +298,7 @@ export default function RawDataView({ row, requestHeaders, pages }: RawDataViewP
             onClick={(e) => e.stopPropagation()}
           >
             <button type="button" className="dt-payload-toggle-btn" onClick={copyHar}>
-              {harCopied ? 'Copied' : 'Copy JSON'}
+              {harCopied ? 'Copied' : 'Copy'}
             </button>
             <button type="button" className="dt-payload-toggle-btn" onClick={downloadHar}>
               Download .har
