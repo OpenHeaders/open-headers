@@ -111,6 +111,13 @@ export default function RawDataView({ row, requestHeaders, pages }: RawDataViewP
     (redact ? 0 : 1) +
     (ruleFired && ruleMode === 'original' ? 1 : 0);
 
+  const resetView = (): void => {
+    setIncludeHeaders(true);
+    setIncludeBody(true);
+    setRedact(true);
+    setRuleMode('post');
+  };
+
   const headersForSnippet = useMemo<HeaderPair[]>(() => {
     const base = ruleMode === 'original' ? deriveOriginalHeaders(requestHeaders) : derivePostRuleHeaders(har);
     return applyRedaction(base, redact);
@@ -253,6 +260,15 @@ export default function RawDataView({ row, requestHeaders, pages }: RawDataViewP
                   </label>
                 </>
               )}
+              <div className="dt-morefilters-divider" />
+              <button
+                type="button"
+                className="dt-morefilters-reset"
+                onClick={resetView}
+                disabled={viewActiveCount === 0}
+              >
+                Reset to default
+              </button>
             </ToolbarMenuPopover>
             <button type="button" className="dt-payload-toggle-btn" onClick={copy}>
               {copied ? 'Copied' : 'Copy'}

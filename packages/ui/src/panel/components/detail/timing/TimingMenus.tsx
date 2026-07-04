@@ -47,6 +47,15 @@ export function TimingViewMenu({
     !showRepeats,
     !showTransferRate,
   ].reduce((n, v) => n + (v ? 1 : 0), 0);
+  const reset = () => {
+    if (!showInsights) onToggleShowInsights();
+    if (!showContextStrip) onToggleShowContextStrip();
+    if (!showPhaseGroups) onToggleShowPhaseGroups();
+    if (!showTimingBar) onToggleShowTimingBar();
+    if (!showServerTiming) onToggleShowServerTiming();
+    if (!showRepeats) onToggleShowRepeats();
+    if (!showTransferRate) onToggleShowTransferRate();
+  };
   return (
     <ToolbarMenuPopover label="View" activeCount={activeCount}>
       <label className="dt-morefilters-item">
@@ -77,6 +86,10 @@ export function TimingViewMenu({
         <input type="checkbox" checked={showTransferRate} onChange={onToggleShowTransferRate} />
         Show transfer rate
       </label>
+      <div className="dt-morefilters-divider" />
+      <button type="button" className="dt-morefilters-reset" onClick={reset} disabled={activeCount === 0}>
+        Reset to default
+      </button>
     </ToolbarMenuPopover>
   );
 }

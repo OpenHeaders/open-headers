@@ -27,6 +27,12 @@ export function HeaderMoreFiltersMenu({
   onToggleHideNoise: () => void;
 }) {
   const activeCount = [ruleOnly, securityOnly, overridableOnly, hideNoise].reduce((n, v) => n + (v ? 1 : 0), 0);
+  const reset = () => {
+    if (ruleOnly) onToggleRuleOnly();
+    if (securityOnly) onToggleSecurityOnly();
+    if (overridableOnly) onToggleOverridableOnly();
+    if (hideNoise) onToggleHideNoise();
+  };
   return (
     <ToolbarMenuPopover label="More filters" activeCount={activeCount}>
       <label className="dt-morefilters-item">
@@ -45,6 +51,10 @@ export function HeaderMoreFiltersMenu({
         <input type="checkbox" checked={hideNoise} onChange={onToggleHideNoise} />
         Hide noise (Accept-*, Sec-Fetch-*, User-Agent, …)
       </label>
+      <div className="dt-morefilters-divider" />
+      <button type="button" className="dt-morefilters-reset" onClick={reset} disabled={activeCount === 0}>
+        Reset to default
+      </button>
     </ToolbarMenuPopover>
   );
 }
@@ -84,6 +94,13 @@ export function HeaderViewMenu({
     (nameCase !== 'train' ? 1 : 0) +
     (!showInsights ? 1 : 0) +
     (!showChips ? 1 : 0);
+  const reset = () => {
+    if (layout !== 'grouped') onLayoutChange('grouped');
+    if (sortMode !== 'original') onSortChange('original');
+    if (nameCase !== 'train') onNameCaseChange('train');
+    if (!showChips) onToggleShowChips();
+    if (!showInsights) onToggleShowInsights();
+  };
   return (
     <ToolbarMenuPopover label="View" activeCount={activeCount}>
       <label className="dt-morefilters-item dt-morefilters-item--select">
@@ -117,6 +134,10 @@ export function HeaderViewMenu({
         <input type="checkbox" checked={showInsights} onChange={onToggleShowInsights} />
         Show suggestions
       </label>
+      <div className="dt-morefilters-divider" />
+      <button type="button" className="dt-morefilters-reset" onClick={reset} disabled={activeCount === 0}>
+        Reset to default
+      </button>
     </ToolbarMenuPopover>
   );
 }
