@@ -7,7 +7,7 @@
  *     max-height, anchor-once static positioning) and the container's
  *     open/close animation styles
  *   - the title row: rule icon, name, presence badge, caller-supplied
- *     status tags, and the rule-type tag
+ *     status tags, and (edit mode) the instant enabled toggle
  *   - surface-awareness wiring (`ActiveTabEntity` while visible,
  *     `ActiveEditorDirty` from the caller's derived dirty flag)
  *   - the footer: "Open in workspace →" link and the Save button with
@@ -28,9 +28,11 @@ import {
   useLocalInstanceId,
   useSetActiveTabEntity,
 } from '@openheaders/ui/shared/awareness';
+import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
+import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import { usePopoverPlacement } from '@openheaders/ui/shared/popover';
 import { buildRuleIcon } from '@openheaders/ui/workbench/components/shared/rule-icon';
-import { Button, Tooltip, theme } from 'antd';
+import { App, Button, Switch, Tooltip, theme } from 'antd';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -104,7 +106,34 @@ export function QuickEditorShell({
   visible = true,
 }: QuickEditorShellProps) {
   const { token } = theme.useToken();
+  const { message } = App.useApp();
   const localInstanceId = useLocalInstanceId();
+
+  // Top-right enabled toggle — edit mode only (create bodies pass
+  // `liveRule: null`). Applies INSTANTLY via the dedicated toggle seam
+  // (same one the popup rule table uses): `enabled` is orthogonal to
+  // the publication gate, so it never rides the Save batch and never
+  // trips the streaming-edit auto-unpublish. The rule icon's color and
+  // the Matched-row "rule disabled" tag react through the live mirror.
+  const workspaceId = useActiveWorkspaceId();
+  const mutator = useRuleMutator({ workspaceId, surfaceId: 'devpanel' });
+  const [toggling, setToggling] = useState(false);
+  const handleToggleEnabled = async (enabled: boolean) => {
+    if (!liveRule) return;
+    setToggling(true);
+    try {
+      const result = await mutator.toggleRule(liveRule.uid, enabled);
+      if (!result.ok) {
+        message.error(
+          result.reason === 'not-found'
+            ? 'Rule not found — it may have been deleted.'
+            : (result.message ?? 'Could not toggle the rule'),
+        );
+      }
+    } finally {
+      setToggling(false);
+    }
+  };
 
   // Create-mode rename: the title flips to an input on click; Enter or
   // blur commits (empty reverts), Escape cancels. Newlines can only
@@ -325,6 +354,18 @@ export function QuickEditorShell({
             <PresenceBadge entityType={RULE_ENTITY_TYPE} entityId={liveRuleUid} excludeInstanceId={localInstanceId} />
           )}
           {tags}
+          {liveRule && (
+            <Switch
+              size="small"
+              checked={liveRule.enabled !== false}
+              checkedChildren="Enabled"
+              unCheckedChildren="Disabled"
+              loading={toggling}
+              onChange={(enabled) => void handleToggleEnabled(enabled)}
+              aria-label="Rule enabled"
+              style={{ flexShrink: 0 }}
+            />
+          )}
         </div>
 
         {snapshot}
