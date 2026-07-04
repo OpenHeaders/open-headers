@@ -1,6 +1,5 @@
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
-import { useCallback, useRef } from 'react';
-import { useMeasuredCssHeights } from '@openheaders/ui/shared/hooks/dom/useMeasuredStickyOffset';
+import { useCallback } from 'react';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import type { ConnectionReuseInfo } from '../../data/connection-reuse';
 import { formatTimeMs } from '../../data/timing/format-time';
@@ -72,30 +71,33 @@ export default function TimingView({ row, connectionReuse, repeatStats, baseline
     [showTransferRate, setShowTransferRate],
   );
 
-  const paneRef = useRef<HTMLDivElement | null>(null);
-  const toolbarRef = useRef<HTMLDivElement | null>(null);
-  useMeasuredCssHeights(paneRef, [{ ref: toolbarRef, cssVar: '--oh-timing-toolbar-h' }]);
-
-  const toolbar = (
-    <div className="dt-header-filter dt-timing-toolbar" ref={toolbarRef}>
-      <span className="dt-timing-toolbar-spacer" aria-hidden="true" />
-      <TimingViewMenu
-        showInsights={showInsights}
-        showContextStrip={showContextStrip}
-        showPhaseGroups={showPhaseGroups}
-        showTimingBar={showTimingBar}
-        showServerTiming={showServerTiming}
-        showRepeats={showRepeats}
-        showTransferRate={showTransferRate}
-        onToggleShowInsights={toggleShowInsights}
-        onToggleShowContextStrip={toggleShowContextStrip}
-        onToggleShowPhaseGroups={toggleShowPhaseGroups}
-        onToggleShowTimingBar={toggleShowTimingBar}
-        onToggleShowServerTiming={toggleShowServerTiming}
-        onToggleShowRepeats={toggleShowRepeats}
-        onToggleShowTransferRate={toggleShowTransferRate}
-      />
-    </div>
+  // Section header instead of a near-empty toolbar row: "Timing" reads
+  // like the sibling sections (Server Timing, Transfer rate) and the
+  // View menu rides its summary row, same as Raw Data's Export snippet.
+  const timingSummary = (
+    <summary>
+      <span className="dt-timing-summary-label">Timing</span>
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: stops summary toggle only; the menu is its own button. */}
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: same. */}
+      <span className="dt-timing-summary-controls" onClick={(e) => e.stopPropagation()}>
+        <TimingViewMenu
+          showInsights={showInsights}
+          showContextStrip={showContextStrip}
+          showPhaseGroups={showPhaseGroups}
+          showTimingBar={showTimingBar}
+          showServerTiming={showServerTiming}
+          showRepeats={showRepeats}
+          showTransferRate={showTransferRate}
+          onToggleShowInsights={toggleShowInsights}
+          onToggleShowContextStrip={toggleShowContextStrip}
+          onToggleShowPhaseGroups={toggleShowPhaseGroups}
+          onToggleShowTimingBar={toggleShowTimingBar}
+          onToggleShowServerTiming={toggleShowServerTiming}
+          onToggleShowRepeats={toggleShowRepeats}
+          onToggleShowTransferRate={toggleShowTransferRate}
+        />
+      </span>
+    </summary>
   );
 
   // One model across the popover + this tab: the ladder when a HAR has landed,
@@ -111,11 +113,13 @@ export default function TimingView({ row, connectionReuse, repeatStats, baseline
   // with no `timings` block).
   if (!ladder && !unfinished) {
     return (
-      <div className="dt-timing-view" ref={paneRef}>
-        {toolbar}
-        <span className="dt-col-muted" style={{ padding: 12 }}>
-          No timing data available.
-        </span>
+      <div className="dt-timing-view">
+        <details className="dt-section" open>
+          {timingSummary}
+          <span className="dt-col-muted" style={{ padding: 12, display: 'inline-block' }}>
+            No timing data available.
+          </span>
+        </details>
       </div>
     );
   }
@@ -124,10 +128,12 @@ export default function TimingView({ row, connectionReuse, repeatStats, baseline
   // / open Stalled) and the not-finished caution instead of an empty pane.
   if (!ladder) {
     return (
-      <div className="dt-timing-view" ref={paneRef}>
-        {toolbar}
-        {showContextStrip && <TimingContextStrip context={context} />}
-        <InFlightTiming lc={lc} baselineMs={baselineMs} />
+      <div className="dt-timing-view">
+        <details className="dt-section" open>
+          {timingSummary}
+          {showContextStrip && <TimingContextStrip context={context} />}
+          <InFlightTiming lc={lc} baselineMs={baselineMs} />
+        </details>
         {showRepeats && repeatStats && <RepeatStatsSection stats={repeatStats} url={lc.url} />}
       </div>
     );
@@ -163,8 +169,9 @@ export default function TimingView({ row, connectionReuse, repeatStats, baseline
   const transferRate = computeTransferRate(receiveMs, bodyBytes);
 
   return (
-    <div className="dt-timing-view" ref={paneRef}>
-      {toolbar}
+    <div className="dt-timing-view">
+      <details className="dt-section" open>
+      {timingSummary}
       {showInsights && bottleneck && (
         <div className="dt-timing-insight" data-kind="bottleneck">
           <span className="dt-timing-insight-icon" aria-hidden="true">
@@ -232,6 +239,7 @@ export default function TimingView({ row, connectionReuse, repeatStats, baseline
       {/* Streaming (response in, body still downloading): the host flags the
           unfinished request the same way. */}
       {unfinished && <div className="dt-timing-caution">CAUTION: request is not finished yet!</div>}
+      </details>
 
       {showServerTiming && serverTiming.length > 0 && <ServerTimingSection metrics={serverTiming} />}
 

@@ -2,27 +2,24 @@
 
 .dt-timing-view {
   padding: 4px 0;
-  /* Phase-group `<details>` summaries are sticky and slot below the
-   * View toolbar — `--oh-timing-toolbar-h` is published by
-   * `useMeasuredCssHeights` (see TimingView.tsx) so the join is flush. */
-  --dt-section-sticky-top: var(--oh-timing-toolbar-h, 30px);
 }
 
-/* Toolbar variant: reuses .dt-header-filter for the sticky bar but
- * Timing has no filter input. The input is what gives the Headers /
- * Cookies toolbars their ~30px height (padding + border on the
- * search box) — without it the row collapses to the dropdown button.
- * Pin a min-height matching the other tabs. `border-box` is required
- * because `.dt-header-filter` carries 4px vertical padding; without
- * it the min-height applies to the content area and stacks on top of
- * the padding, making the Timing toolbar visibly taller than Headers
- * / Cookies. The spacer right-aligns the View dropdown. */
-.dt-timing-toolbar {
-  box-sizing: border-box;
-  min-height: 30px;
+/* "Timing" section summary — the View menu rides the summary row's
+ * right edge (same absolute-controls pattern as Raw Data's Export
+ * snippet summary; sticky summaries are positioned, so the controls
+ * anchor to the row). */
+.dt-timing-summary-label {
+  white-space: nowrap;
 }
-.dt-timing-toolbar-spacer {
-  flex: 1 1 auto;
+.dt-timing-summary-controls {
+  position: absolute;
+  right: 8px;
+  top: 0;
+  bottom: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 400;
 }
 /* The shared horizontal ladder chart (same component as the Waterfall wide
  * popover). The chart owns its own padding + horizontal scroll; this wrapper
