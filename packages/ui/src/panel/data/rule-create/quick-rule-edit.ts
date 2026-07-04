@@ -20,6 +20,9 @@ import type {
   AuthRule,
   BlockRule,
   DelayRule,
+  HeaderModification,
+  HeaderOperation,
+  HeaderRule,
   InjectRule,
   QueryParamAction,
   QueryParamRule,
@@ -29,6 +32,13 @@ import type {
   SseRule,
   WsRule,
 } from '@openheaders/core/types';
+import {
+  generateUid,
+  getHeaderOperationCapability,
+  type HeaderDirection,
+  validateHeaderName,
+  validateHeaderValue,
+} from '@openheaders/core/utils';
 import { type QueryParamQuickRow, queryParamEntryFromRow } from './payload-rule-create';
 
 /** The shared tail of every quick-edit payload — the conditions-when-
@@ -197,4 +207,105 @@ export function buildAuthRuleUpdate(
     action: { username: draft.username, password: draft.password },
     ...quickEditBase(rule, conditions),
   };
+}
+
+// ── Header (whole-rule rows) ────────────────────────────────────────
+//
+// The Matched Rules hover has no header row to pinpoint one
+// modification (unlike the Headers-tab hover, which edits a single mod
+// via `buildHeaderModUpdate`), so its editor surfaces the rule's FULL
+// modification list as rows — same whole-list shape as the query-param
+// editor.
+
+export interface HeaderModQuickRow {
+  /** Persisted mod uid — carries through the edit so row identity (and
+   *  the HLC chain behind it) is preserved. Minted for added rows. */
+  uid: string;
+  direction: HeaderDirection;
+  operation: HeaderOperation;
+  headerName: string;
+  value: string;
+  mergeSeparator?: string;
+}
+
+export function seedHeaderModRows(action: HeaderRule['action']): HeaderModQuickRow[] {
+  const fromList = (list: HeaderModification[], direction: HeaderDirection): HeaderModQuickRow[] =>
+    list.map((m) => ({
+      uid: m.uid,
+      direction,
+      operation: m.operation,
+      headerName: m.headerName,
+      value: m.value ?? '',
+      ...(m.mergeSeparator != null ? { mergeSeparator: m.mergeSeparator } : {}),
+    }));
+  return [...fromList(action.requestHeaders, 'request'), ...fromList(action.responseHeaders, 'response')];
+}
+
+export function appendHeaderModRow(rows: HeaderModQuickRow[]): HeaderModQuickRow[] {
+  return [...rows, { uid: generateUid(), direction: 'request', operation: 'override', headerName: '', value: '' }];
+}
+
+/** Per-operation mod shape — same split `buildHeaderModUpdate` applies:
+ *  remove carries no value, merge carries the separator. */
+function headerModFromRow(row: HeaderModQuickRow): HeaderModification {
+  if (row.operation === 'remove') return { uid: row.uid, operation: 'remove', headerName: row.headerName };
+  if (row.operation === 'merge') {
+    return {
+      uid: row.uid,
+      operation: 'merge',
+      headerName: row.headerName,
+      value: row.value,
+      mergeSeparator: row.mergeSeparator,
+    };
+  }
+  return { uid: row.uid, operation: row.operation, headerName: row.headerName, value: row.value };
+}
+
+export function buildHeaderRuleUpdate(
+  rule: HeaderRule,
+  rows: readonly HeaderModQuickRow[],
+  conditions?: RuleCondition[],
+): Partial<HeaderRule> {
+  return {
+    action: {
+      requestHeaders: rows.filter((r) => r.direction === 'request').map(headerModFromRow),
+      responseHeaders: rows.filter((r) => r.direction === 'response').map(headerModFromRow),
+    },
+    ...quickEditBase(rule, conditions),
+  };
+}
+
+export interface HeaderModRowIssue {
+  /** Row the issue anchors to. */
+  uid: string;
+  message: string;
+  /** When the operation is the problem, the one-click alternative. */
+  suggestion?: HeaderOperation;
+}
+
+/** First broken row, or null when every row would save cleanly. Same
+ *  validators (and the same template pass-through — `{{…}}` resolves at
+ *  runtime) as the single-mod popover and the workbench editor. */
+export function firstHeaderModRowIssue(rows: readonly HeaderModQuickRow[]): HeaderModRowIssue | null {
+  for (const row of rows) {
+    const trimmed = row.headerName.trim();
+    if (!trimmed) return { uid: row.uid, message: 'Header name is required.' };
+    if (!trimmed.includes('{{')) {
+      const nameValidation = validateHeaderName(trimmed, row.direction === 'response');
+      if (!nameValidation.valid) {
+        return { uid: row.uid, message: nameValidation.message || 'Invalid header name.' };
+      }
+      const capability = getHeaderOperationCapability(row.direction, row.operation, row.headerName);
+      if (!capability.allowed) {
+        return { uid: row.uid, message: capability.reason, suggestion: capability.suggestion };
+      }
+    }
+    if (row.operation !== 'remove' && row.value && !row.value.includes('{{')) {
+      const valueValidation = validateHeaderValue(row.value, trimmed);
+      if (!valueValidation.valid) {
+        return { uid: row.uid, message: valueValidation.message || 'Invalid header value.' };
+      }
+    }
+  }
+  return null;
 }

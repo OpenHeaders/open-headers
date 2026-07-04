@@ -27,6 +27,7 @@ import { BlockQuickEditor } from './rule-quick-editor/BlockQuickEditor';
 import { DelayQuickCreate } from './rule-quick-editor/DelayQuickCreate';
 import { DelayQuickEditor } from './rule-quick-editor/DelayQuickEditor';
 import { HeaderQuickCreate } from './rule-quick-editor/HeaderQuickCreate';
+import { HeaderQuickEditor } from './rule-quick-editor/HeaderQuickEditor';
 import { InjectQuickEditor } from './rule-quick-editor/InjectQuickEditor';
 import { MessageQuickEditor } from './rule-quick-editor/MessageQuickEditor';
 import { QueryParamQuickCreate } from './rule-quick-editor/QueryParamQuickCreate';
@@ -39,9 +40,12 @@ import { ResponseQuickCreate } from './rule-quick-editor/ResponseQuickCreate';
 import { ResponseQuickEditor } from './rule-quick-editor/ResponseQuickEditor';
 import { RuleHoverPopover, type RuleHoverPopoverTarget } from './RuleHoverPopover';
 
-/** Per-type edit bodies. Every rule type except `header` has a typed
- *  compact editor; header rules stay on `RuleHoverPopover`, which owns
- *  the mod pinpointing, conflict chips and snapshot block. */
+/** Per-type edit bodies. Every rule type except `header` has one typed
+ *  compact editor; header rules split by caller — a Headers-tab hover
+ *  pinpoints one modification (`RuleHoverPopover`, with conflict chips
+ *  and the fire snapshot), while a Matched Rules hover has no row to
+ *  pinpoint and edits the whole modification list
+ *  (`HeaderQuickEditor`). */
 const EDIT_BODIES: Record<Exclude<Rule['type'], 'header'>, typeof RedirectQuickEditor> = {
   redirect: RedirectQuickEditor,
   response: ResponseQuickEditor,
@@ -169,9 +173,10 @@ function RulePopoverBody({
   visible,
 }: HoverPopoverBodyProps<RulePopoverState>) {
   // Per-type dispatch inside the one shared host: create modes get
-  // their quick-create bodies, live non-header rules get their typed
-  // compact editor, and header rules (plus deleted-rule fallbacks) stay
-  // on the header popover.
+  // their quick-create bodies, live rules get their typed compact
+  // editor (headers only when no row pinpoints a single mod), and
+  // pinpointed header rows plus deleted-rule fallbacks stay on the
+  // header popover.
   if (state.mode === 'create-response') {
     return (
       <ResponseQuickCreate
@@ -235,8 +240,8 @@ function RulePopoverBody({
       />
     );
   }
-  if (state.rule && state.rule.type !== 'header') {
-    const Editor = EDIT_BODIES[state.rule.type];
+  if (state.rule && (state.rule.type !== 'header' || !state.target)) {
+    const Editor = state.rule.type === 'header' ? HeaderQuickEditor : EDIT_BODIES[state.rule.type];
     return (
       <Editor
         anchorEl={state.anchorEl}

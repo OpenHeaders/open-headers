@@ -12,6 +12,7 @@ import type {
   AuthRule,
   BlockRule,
   DelayRule,
+  HeaderRule,
   InjectRule,
   QueryParamRule,
   RequestBodyRule,
@@ -23,11 +24,14 @@ import {
   buildAuthRuleUpdate,
   buildBlockRuleUpdate,
   buildDelayRuleUpdate,
+  buildHeaderRuleUpdate,
   buildInjectRuleUpdate,
   buildQueryParamRuleUpdate,
   buildRequestBodyRuleUpdate,
   buildSseRuleUpdate,
   buildWsRuleUpdate,
+  firstHeaderModRowIssue,
+  seedHeaderModRows,
   seedInjectDraft,
   seedMessageDraft,
   seedQueryParamRowsFromAction,
@@ -269,5 +273,64 @@ describe('buildAuthRuleUpdate', () => {
   it('carries dirty conditions in the same batch', () => {
     const updates = buildAuthRuleUpdate(rule, { username: 'dev-user', password: 'x' }, CONDITIONS);
     expect(updates.conditions).toBe(CONDITIONS);
+  });
+});
+
+describe('header rows — seed, rebuild and validation', () => {
+  const rule: HeaderRule = {
+    ...base('header'),
+    action: {
+      requestHeaders: [
+        { uid: 'm1', operation: 'override', headerName: 'X-Debug', value: 'on' },
+        { uid: 'm2', operation: 'remove', headerName: 'X-Trace' },
+      ],
+      responseHeaders: [
+        { uid: 'm3', operation: 'merge', headerName: 'Cache-Control', value: 'no-store', mergeSeparator: ', ' },
+      ],
+    },
+  };
+
+  it('seeds rows across both directions preserving mod uids', () => {
+    expect(seedHeaderModRows(rule.action)).toEqual([
+      { uid: 'm1', direction: 'request', operation: 'override', headerName: 'X-Debug', value: 'on' },
+      { uid: 'm2', direction: 'request', operation: 'remove', headerName: 'X-Trace', value: '' },
+      {
+        uid: 'm3',
+        direction: 'response',
+        operation: 'merge',
+        headerName: 'Cache-Control',
+        value: 'no-store',
+        mergeSeparator: ', ',
+      },
+    ]);
+  });
+
+  it('rebuilds both lists from rows, honoring per-operation shapes', () => {
+    const rows = seedHeaderModRows(rule.action);
+    const updates = buildHeaderRuleUpdate({ ...rule, published: true }, rows);
+    expect(updates.action).toEqual(rule.action);
+    expect(updates.published).toBe(true);
+  });
+
+  it('moves a row across directions when its direction changes', () => {
+    const rows = seedHeaderModRows(rule.action).map((r) =>
+      r.uid === 'm1' ? { ...r, direction: 'response' as const } : r,
+    );
+    const updates = buildHeaderRuleUpdate(rule, rows, CONDITIONS);
+    expect(updates.action?.requestHeaders.map((m) => m.uid)).toEqual(['m2']);
+    expect(updates.action?.responseHeaders.map((m) => m.uid)).toEqual(['m1', 'm3']);
+    expect(updates.conditions).toBe(CONDITIONS);
+    expect('published' in updates).toBe(false);
+  });
+
+  it('flags the first broken row and passes templates through', () => {
+    const rows = seedHeaderModRows(rule.action);
+    expect(firstHeaderModRowIssue(rows)).toBeNull();
+    expect(firstHeaderModRowIssue([{ ...rows[0]!, headerName: '' }])).toEqual({
+      uid: 'm1',
+      message: 'Header name is required.',
+    });
+    expect(firstHeaderModRowIssue([{ ...rows[0]!, headerName: 'bad name' }])?.uid).toBe('m1');
+    expect(firstHeaderModRowIssue([{ ...rows[0]!, headerName: '{{collection.HEADER}}' }])).toBeNull();
   });
 });
