@@ -53,6 +53,8 @@ import {
 import type { CookieRow as CookieRowModel } from '../../data/cookies/cookie-model';
 import { currentHarEntry, type InspectorRowWithFires } from '../../data/inspector-row-projection';
 import { useCookieJar } from '../../data/cookies/use-cookie-jar';
+import { InfoTrigger, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
+import { CookieCtaMenu } from './cookies/CookieCtaMenu';
 import { CookieEditPopover } from './cookies/CookieEditPopover';
 import { CookieInsightCard } from './cookies/CookieInsightCard';
 import { CookieMoreFiltersMenu, CookieViewMenu } from './cookies/CookieMenus';
@@ -76,6 +78,35 @@ export interface CookiesViewProps {
 // Empty HAR placeholder for lifecycles that haven't landed a HAR shell yet —
 // the cookie enrichment helpers expect a defined shape with optional fields.
 const EMPTY_HAR = { request: undefined, response: undefined } as unknown as InspectorHarEntry;
+
+// (i) content for the two CTA worlds — the override menu creates RULES
+// (virtual, rewrite matching requests in flight); Add cookie writes the
+// BROWSER JAR (a real cookie, same store as the browser's own cookie UI).
+const OVERRIDE_CTA_INFO: InfoPopoverContent = {
+  title: 'Override Cookies',
+  kicker: 'Rule',
+  summary:
+    'Creates a rule that rewrites the Cookie / Set-Cookie headers on matching requests while it fires. The browser cookie jar is untouched.',
+  sections: [
+    {
+      heading: 'Choices',
+      items: [
+        { label: 'Request cookies', desc: 'Replace the Cookie header the browser sends.' },
+        { label: 'Response cookies', desc: 'Replace a Set-Cookie header coming back from the server.' },
+        { label: 'Don’t send any cookies', desc: 'Drop the Cookie header entirely — the server sees a cookie-less request.' },
+      ],
+    },
+  ],
+};
+
+const ADD_COOKIE_INFO: InfoPopoverContent = {
+  title: 'Add Cookie',
+  kicker: 'Browser jar',
+  summary:
+    'Writes a real cookie into the browser jar — the same store the browser shows under Application → Cookies.',
+  description:
+    'It persists beyond this request and the browser attaches it wherever its domain, path and flags match — no rule involved. This is also the way to create HttpOnly cookies, which page scripts can’t set.',
+};
 
 export default function CookiesView({ row, pageOrigin, onOverrideHeader }: CookiesViewProps) {
   const lc = row.lifecycle;
@@ -283,21 +314,21 @@ export default function CookiesView({ row, pageOrigin, onOverrideHeader }: Cooki
       </div>
 
       <div className="dt-cta-row dt-header-cta-row">
-        <button type="button" className="dt-btn dt-btn-primary" onClick={(e) => onCreateCookieOverride(e.currentTarget)} title="Replace the Cookie header sent on this request">
-          Override Request Cookies
-        </button>
-        <button type="button" className="dt-btn dt-btn-primary" onClick={(e) => onCreateSetCookieOverride(e.currentTarget)} title="Replace a Set-Cookie header coming back from the server">
-          Override Response Cookies
-        </button>
-        <button type="button" className="dt-btn dt-btn-primary" onClick={(e) => onCreateRemoveAllCookies(e.currentTarget)} title="Drop the Cookie header entirely, so the server sees no cookies">
-          Don’t send any cookies
-        </button>
+        <CookieCtaMenu
+          onOverrideRequest={onCreateCookieOverride}
+          onOverrideResponse={onCreateSetCookieOverride}
+          onRemoveAll={onCreateRemoveAllCookies}
+        />
+        <InfoTrigger content={OVERRIDE_CTA_INFO} className="dt-header-info-trigger" />
         {writable && (
-          <CookieEditPopover mode="add" canonical={addCanonical} onSubmit={onApplyEdit} placement="bottomLeft">
-            <button type="button" className="dt-btn" title="Add a cookie to the browser jar (including HttpOnly)">
-              Add cookie
-            </button>
-          </CookieEditPopover>
+          <>
+            <CookieEditPopover mode="add" canonical={addCanonical} onSubmit={onApplyEdit} placement="bottomLeft">
+              <button type="button" className="dt-btn" title="Add a cookie to the browser jar (including HttpOnly)">
+                Add cookie
+              </button>
+            </CookieEditPopover>
+            <InfoTrigger content={ADD_COOKIE_INFO} className="dt-header-info-trigger" />
+          </>
         )}
       </div>
 
