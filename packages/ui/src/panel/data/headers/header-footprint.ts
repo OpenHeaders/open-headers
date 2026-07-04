@@ -74,34 +74,35 @@ export function computeHeaderFootprint(inputs: FootprintInputs): HeaderFootprint
   };
 }
 
-/** The header-row bits of the chip text (`N headers · X added · …`),
- *  without the leading rule count — shared between the header-only
- *  formatter below and the all-rule formatter in `rule-footprint.ts`.
+/** The header segment of the chip text (`N headers: X added · Y
+ *  modified`), without the leading rule count — shared between the
+ *  header-only formatter below and the all-rule formatter in
+ *  `rule-footprint.ts`. Chip segments join with `|`; the kind
+ *  breakdown stays INSIDE this segment behind a colon so the header
+ *  detail reads as one group.
  *
- *  When a single kind covers every affected row, the count and the
- *  breakdown merge into one phrase (`1 header modified`, `2 headers
- *  added`) — `1 header · 1 modified` says the same thing twice. */
-export function headerFootprintBits(f: HeaderFootprint): string[] {
+ *  When a single kind covers every affected row (and nothing drifted),
+ *  the count and the breakdown merge into one phrase (`1 header
+ *  modified`, `2 headers added`) — `1 header: 1 modified` says the
+ *  same thing twice. */
+export function headerFootprintSegment(f: HeaderFootprint): string {
   const headerNoun = `${f.affectedRowCount} header${f.affectedRowCount === 1 ? '' : 's'}`;
   const kinds: Array<[string, number]> = [];
   if (f.addedCount > 0) kinds.push(['added', f.addedCount]);
   if (f.modifiedCount > 0) kinds.push(['modified', f.modifiedCount]);
   if (f.removedCount > 0) kinds.push(['removed', f.removedCount]);
 
-  const bits: string[] = [];
-  if (kinds.length === 1 && kinds[0][1] === f.affectedRowCount) {
-    bits.push(`${headerNoun} ${kinds[0][0]}`);
-  } else {
-    bits.push(headerNoun);
-    for (const [kind, count] of kinds) bits.push(`${count} ${kind}`);
+  if (f.driftedRowCount === 0 && kinds.length === 1 && kinds[0][1] === f.affectedRowCount) {
+    return `${headerNoun} ${kinds[0][0]}`;
   }
-  if (f.driftedRowCount > 0) bits.push(`${f.driftedRowCount} drifted`);
-  return bits;
+  const parts = kinds.map(([kind, count]) => `${count} ${kind}`);
+  if (f.driftedRowCount > 0) parts.push(`${f.driftedRowCount} drifted`);
+  return parts.length > 0 ? `${headerNoun}: ${parts.join(' · ')}` : headerNoun;
 }
 
 /** Short text summary for the footprint chip — empty string when no
  *  rules touched the request, so the view can hide the chip outright. */
 export function formatHeaderFootprint(f: HeaderFootprint): string {
   if (f.ruleCount === 0) return '';
-  return [`${f.ruleCount} rule${f.ruleCount === 1 ? '' : 's'}`, ...headerFootprintBits(f)].join(' · ');
+  return [`${f.ruleCount} rule${f.ruleCount === 1 ? '' : 's'}`, headerFootprintSegment(f)].join(' | ');
 }

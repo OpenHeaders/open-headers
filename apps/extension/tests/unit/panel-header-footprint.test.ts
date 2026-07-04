@@ -51,14 +51,14 @@ describe('computeHeaderFootprint', () => {
     expect(f.removedCount).toBe(1);
     expect(f.driftedRowCount).toBe(1);
     expect(f.ruleNames).toEqual(['Rule One', 'Rule Two']);
-    expect(formatHeaderFootprint(f)).toBe('2 rules · 3 headers · 1 added · 1 modified · 1 removed · 1 drifted');
+    expect(formatHeaderFootprint(f)).toBe('2 rules | 3 headers: 1 added · 1 modified · 1 removed · 1 drifted');
   });
 
   it('merges the breakdown into the header noun when one kind covers every row', () => {
     const a = ctxFor('R1', 'Rule One');
     const r1 = row({ attribution: { kind: 'modified', operation: 'override', originalValue: 'x', ctx: a } });
     const f = computeHeaderFootprint({ requestRows: [r1], responseRows: [], driftedRows: new Set() });
-    expect(formatHeaderFootprint(f)).toBe('1 rule · 1 header modified');
+    expect(formatHeaderFootprint(f)).toBe('1 rule | 1 header modified');
   });
 
   it('ignores system-attributed rows', () => {

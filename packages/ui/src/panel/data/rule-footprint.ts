@@ -10,7 +10,7 @@
  */
 
 import type { Rule } from '@openheaders/core/types';
-import { type HeaderFootprint, headerFootprintBits } from './headers/header-footprint';
+import { type HeaderFootprint, headerFootprintSegment } from './headers/header-footprint';
 import type { RulesByUid } from './rule-create/use-rules-lookup';
 import type { InspectorFire } from './types';
 
@@ -25,7 +25,7 @@ export interface RuleFootprint {
 }
 
 /** Chip wording per rule type — lowercase because the labels sit
- *  mid-sentence ("2 rules · 1 redirect · …"). */
+ *  mid-sentence ("2 rules | 1 redirect | …"). */
 const TYPE_LABEL: Record<Rule['type'], string> = {
   header: 'header',
   redirect: 'redirect',
@@ -79,13 +79,15 @@ export function computeRuleFootprint({ fires, rulesByUid, header }: RuleFootprin
 }
 
 /** Chip text — empty string when no rule touched the request, so the
- *  view hides the chip outright. */
+ *  view hides the chip outright. Segments (total, each fired type, the
+ *  header group) join with `|`; the header kind breakdown stays inside
+ *  its segment (`3 headers: 1 added · 2 modified`). */
 export function formatRuleFootprint(f: RuleFootprint): string {
   if (f.ruleCount === 0) return '';
-  const bits: string[] = [`${f.ruleCount} rule${f.ruleCount === 1 ? '' : 's'}`];
+  const segments: string[] = [`${f.ruleCount} rule${f.ruleCount === 1 ? '' : 's'}`];
   for (const [label, count] of f.typeCounts) {
-    bits.push(`${count} ${label}`);
+    segments.push(`${count} ${label}`);
   }
-  if (f.header.affectedRowCount > 0) bits.push(...headerFootprintBits(f.header));
-  return bits.join(' · ');
+  if (f.header.affectedRowCount > 0) segments.push(headerFootprintSegment(f.header));
+  return segments.join(' | ');
 }
