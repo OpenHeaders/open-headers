@@ -1,38 +1,37 @@
 /**
- * ResponseQuickEditor — the response-rule plug-in body of the shared
- * `QuickEditorShell`. Edit mode: opened from the Response tab's "Edit
- * override" CTA (or the Matched Rules panel) on a rule that fired for
- * the inspected request. Saving changes the rule for FUTURE requests;
- * the tab's Modified/Original capture stays exactly as it was.
- *
- * Compact by design: status select + content-type + a template-aware
- * field for the static body (shared with create mode via
- * `ResponseQuickFields`) — heavy editing (dynamic JavaScript bodies,
- * response headers, GraphQL filters) belongs to the workbench, reached
- * via the footer link. Dynamic-body rules fall back to that link only,
- * mirroring the header popover's can't-pinpoint fallback.
+ * QueryParamQuickEditor — the query-param plug-in body of the shared
+ * `QuickEditorShell`. Edit mode: opened from the Matched Rules panel
+ * (or any fired-rule hover) on a query-param rule that fired for the
+ * inspected request. Rows shared with create mode via
+ * `QueryParamQuickRows`; entry uids carry through the edit so row
+ * identity is preserved.
  */
 
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { ResponseRule, Rule } from '@openheaders/core/types';
+import type { QueryParamRule, Rule } from '@openheaders/core/types';
 import { useLiveRule } from '@openheaders/ui/context';
 import { EntityScopeProvider } from '@openheaders/ui/shared/awareness';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
-import { App, Tag, theme } from 'antd';
+import { App, theme } from 'antd';
 import { useMemo } from 'react';
-import { buildResponseRuleUpdate, type ResponseQuickDraft } from '../../data/rule-create/response-rule-edit';
+import { type QueryParamQuickRow, queryParamRowsValid } from '../../data/rule-create/payload-rule-create';
+import { buildQueryParamRuleUpdate, seedQueryParamRowsFromAction } from '../../data/rule-create/quick-rule-edit';
 import { findRuleCollectionId } from '../../data/rule-create/rule-collection';
+import { QueryParamQuickRows } from './QueryParamQuickRows';
 import { QuickConditionsRow } from './QuickConditionsRow';
 import { QuickEditorShell } from './QuickEditorShell';
-import { ResponseQuickFields } from './ResponseQuickFields';
 import { useActionDraft } from './use-action-draft';
 import { useConditionsDraft } from './use-conditions-draft';
 import { useQuickEditSave } from './use-quick-edit-save';
 
-export interface ResponseQuickEditorProps {
+interface QueryParamRowsDraft {
+  rows: QueryParamQuickRow[];
+}
+
+export interface QueryParamQuickEditorProps {
   anchorEl: HTMLElement;
   /** Live rule at open time — refreshed from the sync mirror below. */
   rule: Rule;
@@ -42,65 +41,56 @@ export interface ResponseQuickEditorProps {
   visible?: boolean;
 }
 
-export function ResponseQuickEditor({
+export function QueryParamQuickEditor({
   anchorEl,
   rule,
   onClose,
   onMouseEnter,
   onMouseLeave,
   visible = true,
-}: ResponseQuickEditorProps) {
+}: QueryParamQuickEditorProps) {
   const { token } = theme.useToken();
   const { message } = App.useApp();
   const workspaceId = useActiveWorkspaceId();
   const mutator = useRuleMutator({ workspaceId, surfaceId: 'devpanel' });
 
-  // Reactive live rule — subscribes to the rule sync mirror so commits
-  // from any surface (workbench, popup, another devpanel) update the
-  // popover; the static prop only seeds the first render.
   const liveRuleFromMirror = useLiveRule(rule.uid, workspaceId);
   const liveRule = liveRuleFromMirror ?? rule;
-  const responseRule: ResponseRule | null = liveRule.type === 'response' ? liveRule : null;
+  const paramRule: QueryParamRule | null = liveRule.type === 'query-param' ? liveRule : null;
+  const editable = !!paramRule;
 
-  // Collection that owns the rule — scopes the body's `{{collection.X}}`
-  // suggestions, same derivation as the header popover.
   const { localCollections } = useRules();
   const collectionId = useMemo(
     () => findRuleCollectionId(liveRule, localCollections),
     [liveRule, localCollections],
   );
-  const isDynamic = responseRule?.action.bodyType === 'dynamic';
-  const editable = !!responseRule && !isDynamic;
 
-  const canonical = useMemo<ResponseQuickDraft | null>(
-    () =>
-      responseRule && !isDynamic
-        ? {
-            statusCode: responseRule.action.statusCode,
-            contentType: responseRule.action.contentType,
-            responseBody: responseRule.action.responseBody,
-          }
-        : null,
-    [responseRule, isDynamic],
+  const canonical = useMemo<QueryParamRowsDraft | null>(
+    () => (paramRule ? { rows: seedQueryParamRowsFromAction(paramRule.action) } : null),
+    [paramRule],
   );
-  const { draft, draftRef, updateDraft, isDirty: fieldsDirty } = useActionDraft({ canonical });
+  const { draft, setDraft, draftRef, isDirty: rowsDirty } = useActionDraft({ canonical });
+  const setRows = (updater: (prev: QueryParamQuickRow[]) => QueryParamQuickRow[]) => {
+    setDraft((prev) => ({ rows: updater(prev.rows) }));
+  };
 
-  const condDraft = useConditionsDraft({ canonical: editable ? (responseRule?.conditions ?? null) : null });
-  const isDirty = fieldsDirty || condDraft.isDirty;
+  const condDraft = useConditionsDraft({ canonical: paramRule?.conditions ?? null });
+  const isDirty = rowsDirty || condDraft.isDirty;
 
   const { saving, canSave, handleSave, saveLabel } = useQuickEditSave({
-    ruleUid: editable && responseRule ? responseRule.uid : null,
+    ruleUid: paramRule?.uid ?? null,
     // `ruleUid` gates the save flow, so the null branch is unreachable.
     buildUpdates: () =>
-      responseRule
-        ? buildResponseRuleUpdate(
-            responseRule,
-            draftRef.current,
+      paramRule
+        ? buildQueryParamRuleUpdate(
+            paramRule,
+            draftRef.current.rows,
             condDraft.isDirty ? condDraft.conditionsRef.current : undefined,
           )
         : {},
     isDirty,
     editable,
+    valid: queryParamRowsValid(draft.rows ?? []),
     mutator,
     message,
     onClose,
@@ -110,8 +100,6 @@ export function ResponseQuickEditor({
     void openWorkspace({ kind: 'edit-rule', uid: liveRule.uid }, 'devpanel').then(() => onClose());
   };
 
-  const isNetwork = responseRule?.action.responseSource === 'network';
-
   return (
     <QuickEditorShell
       anchorEl={anchorEl}
@@ -120,13 +108,6 @@ export function ResponseQuickEditor({
       ruleName={liveRule.name}
       liveRuleUid={liveRule.uid}
       isDirty={isDirty}
-      tags={
-        responseRule && (
-          <Tag style={{ marginInlineEnd: 0, fontSize: 10 }} color={isNetwork ? 'blue' : 'purple'}>
-            {isNetwork ? 'Modify' : 'Mock'}
-          </Tag>
-        )
-      }
       conditions={
         editable ? (
           <EntityScopeProvider entityType={RULE_ENTITY_TYPE} entityId={liveRule.uid}>
@@ -141,17 +122,12 @@ export function ResponseQuickEditor({
       visible={visible}
     >
       {editable ? (
-        <ResponseQuickFields
-          draft={draft}
-          updateDraft={updateDraft}
-          entityUid={liveRule.uid}
-          collectionId={collectionId}
-        />
+        <EntityScopeProvider entityType={RULE_ENTITY_TYPE} entityId={liveRule.uid}>
+          <QueryParamQuickRows rows={draft.rows ?? []} setRows={setRows} collectionId={collectionId} />
+        </EntityScopeProvider>
       ) : (
         <div style={{ fontSize: 12, color: token.colorTextSecondary, lineHeight: 1.5 }}>
-          {responseRule
-            ? 'This rule builds its response with JavaScript. Open in workspace to edit the script.'
-            : 'Open in workspace to inspect or change this rule.'}
+          Open in workspace to inspect or change this rule.
         </div>
       )}
     </QuickEditorShell>

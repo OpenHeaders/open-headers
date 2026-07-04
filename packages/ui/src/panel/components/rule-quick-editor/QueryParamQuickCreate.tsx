@@ -9,18 +9,15 @@
  * workbench for full options.
  */
 
-import { CloseOutlined, PlusOutlined } from '@ant-design/icons';
 import type { QueryParamRuleDraft } from '@openheaders/core/types';
 import { stableStringify } from '@openheaders/ui/shared/forms';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
-import { TemplateInput } from '@openheaders/ui/workbench/components/template-input';
 import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
-import { App, Button, Select, Typography, theme } from 'antd';
+import { App } from 'antd';
 import { useRef, useState } from 'react';
 import {
-  appendQueryParamQuickRow,
   buildQueryParamRuleSeed,
   mergeQuickIntoQueryParamDraft,
   type QueryParamQuickRow,
@@ -29,23 +26,13 @@ import {
 } from '../../data/rule-create/payload-rule-create';
 import { handOffRuleDraft } from '../../data/rule-create/rule-draft-bridge';
 import { generateSmartRuleName } from '../../data/rule-create/smart-rule-name';
+import { QueryParamQuickRows } from './QueryParamQuickRows';
 import { QuickConditionsRow } from './QuickConditionsRow';
 import { QuickDestinationRow } from './QuickDestinationRow';
 import { QuickEditorShell } from './QuickEditorShell';
 import { useQuickCreateConditions } from './use-quick-create-conditions';
 import { useQuickCreateDestination } from './use-quick-create-destination';
 import { useQuickCreateSave } from './use-quick-create-save';
-
-const { Text } = Typography;
-
-// Same casing + wording as the workbench editor so the cross-surface
-// UX stays consistent ("Replace Only" = skips URLs without the param).
-const OPERATION_OPTIONS = [
-  { value: 'add', label: 'Add / Replace' },
-  { value: 'override', label: 'Replace Only' },
-  { value: 'remove', label: 'Remove' },
-  { value: 'remove-all', label: 'Remove All' },
-] as const;
 
 export interface QueryParamQuickCreateProps {
   anchorEl: HTMLElement;
@@ -65,7 +52,6 @@ export function QueryParamQuickCreate({
   onMouseLeave,
   visible = true,
 }: QueryParamQuickCreateProps) {
-  const { token } = theme.useToken();
   const { message } = App.useApp();
   const workspaceId = useActiveWorkspaceId();
   const mutator = useRuleMutator({ workspaceId, surfaceId: 'devpanel' });
@@ -82,13 +68,6 @@ export function QueryParamQuickCreate({
 
   const cond = useQuickCreateConditions(draft, strategy);
   const isDirty = rowsDirty || cond.isDirty;
-
-  const updateRow = (uid: string, patch: Partial<QueryParamQuickRow>) => {
-    setRows((prev) => prev.map((r) => (r.uid === uid ? { ...r, ...patch } : r)));
-  };
-  const removeRow = (uid: string) => {
-    setRows((prev) => prev.filter((r) => r.uid !== uid));
-  };
 
   const dest = useQuickCreateDestination(draft.url);
   const collectionId = dest.collectionId;
@@ -109,9 +88,6 @@ export function QueryParamQuickCreate({
       .catch((err: Error) => message.error(err.message));
   };
 
-  const hasRemoveAll = rows.some((r) => r.operation === 'remove-all');
-  const hasOtherOps = rows.some((r) => r.operation !== 'remove-all');
-
   return (
     <QuickEditorShell
       anchorEl={anchorEl}
@@ -130,76 +106,7 @@ export function QueryParamQuickCreate({
       onMouseLeave={onMouseLeave}
       visible={visible}
     >
-      {rows.map((row) => (
-        <div key={row.uid} style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
-          <Select
-            size="small"
-            value={row.operation}
-            onChange={(op) => updateRow(row.uid, { operation: op })}
-            options={[...OPERATION_OPTIONS]}
-            style={{ width: 125, flexShrink: 0 }}
-            dropdownStyle={{ zIndex: 1090 }}
-          />
-          {row.operation === 'remove-all' ? (
-            <Text type="secondary" style={{ fontSize: 11, flex: 1 }}>
-              Removes all query parameters from the URL
-            </Text>
-          ) : (
-            <>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <TemplateInput
-                  size="small"
-                  wrap
-                  maxRows={4}
-                  resizable
-                  allowClear
-                  value={row.param}
-                  onChange={(v) => updateRow(row.uid, { param: v })}
-                  placeholder="Param Name"
-                  suggestionContext={{ collectionId }}
-                />
-              </div>
-              {row.operation !== 'remove' && (
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <TemplateInput
-                    size="small"
-                    wrap
-                    maxRows={4}
-                    resizable
-                    allowClear
-                    value={row.value}
-                    onChange={(v) => updateRow(row.uid, { value: v })}
-                    placeholder="Param Value"
-                    suggestionContext={{ collectionId }}
-                  />
-                </div>
-              )}
-            </>
-          )}
-          <Button
-            type="text"
-            size="small"
-            icon={<CloseOutlined style={{ fontSize: 10 }} />}
-            onClick={() => removeRow(row.uid)}
-            disabled={rows.length === 1}
-            style={{ color: token.colorTextTertiary, flexShrink: 0 }}
-          />
-        </div>
-      ))}
-      <Button
-        type="dashed"
-        onClick={() => setRows(appendQueryParamQuickRow)}
-        icon={<PlusOutlined />}
-        size="small"
-        style={{ fontSize: 12 }}
-      >
-        Add action
-      </Button>
-      {hasRemoveAll && hasOtherOps && (
-        <div style={{ marginTop: 6, fontSize: 11, color: token.colorWarning, lineHeight: 1.4 }}>
-          Remove All strips the entire query string — the other operations in this rule will be ignored.
-        </div>
-      )}
+      <QueryParamQuickRows rows={rows} setRows={setRows} collectionId={collectionId} />
     </QuickEditorShell>
   );
 }

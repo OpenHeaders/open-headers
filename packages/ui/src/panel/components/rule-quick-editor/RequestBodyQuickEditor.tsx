@@ -1,38 +1,31 @@
 /**
- * ResponseQuickEditor — the response-rule plug-in body of the shared
- * `QuickEditorShell`. Edit mode: opened from the Response tab's "Edit
- * override" CTA (or the Matched Rules panel) on a rule that fired for
- * the inspected request. Saving changes the rule for FUTURE requests;
- * the tab's Modified/Original capture stays exactly as it was.
- *
- * Compact by design: status select + content-type + a template-aware
- * field for the static body (shared with create mode via
- * `ResponseQuickFields`) — heavy editing (dynamic JavaScript bodies,
- * response headers, GraphQL filters) belongs to the workbench, reached
- * via the footer link. Dynamic-body rules fall back to that link only,
- * mirroring the header popover's can't-pinpoint fallback.
+ * RequestBodyQuickEditor — the request-body plug-in body of the shared
+ * `QuickEditorShell`. Edit mode: opened from the Matched Rules panel
+ * (or any fired-rule hover) on a request-body rule that fired for the
+ * inspected request. Static bodies only — dynamic (JavaScript) bodies
+ * fall back to the workbench link, mirroring `ResponseQuickEditor`.
  */
 
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { ResponseRule, Rule } from '@openheaders/core/types';
+import type { RequestBodyRule, Rule } from '@openheaders/core/types';
 import { useLiveRule } from '@openheaders/ui/context';
-import { EntityScopeProvider } from '@openheaders/ui/shared/awareness';
+import { EntityField, EntityScopeProvider, RULE_FIELD } from '@openheaders/ui/shared/awareness';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
+import { TemplateInput } from '@openheaders/ui/workbench/components/template-input';
 import { App, Tag, theme } from 'antd';
 import { useMemo } from 'react';
-import { buildResponseRuleUpdate, type ResponseQuickDraft } from '../../data/rule-create/response-rule-edit';
+import { buildRequestBodyRuleUpdate, type RequestBodyQuickEditDraft } from '../../data/rule-create/quick-rule-edit';
 import { findRuleCollectionId } from '../../data/rule-create/rule-collection';
 import { QuickConditionsRow } from './QuickConditionsRow';
 import { QuickEditorShell } from './QuickEditorShell';
-import { ResponseQuickFields } from './ResponseQuickFields';
 import { useActionDraft } from './use-action-draft';
 import { useConditionsDraft } from './use-conditions-draft';
 import { useQuickEditSave } from './use-quick-edit-save';
 
-export interface ResponseQuickEditorProps {
+export interface RequestBodyQuickEditorProps {
   anchorEl: HTMLElement;
   /** Live rule at open time — refreshed from the sync mirror below. */
   rule: Rule;
@@ -42,59 +35,47 @@ export interface ResponseQuickEditorProps {
   visible?: boolean;
 }
 
-export function ResponseQuickEditor({
+export function RequestBodyQuickEditor({
   anchorEl,
   rule,
   onClose,
   onMouseEnter,
   onMouseLeave,
   visible = true,
-}: ResponseQuickEditorProps) {
+}: RequestBodyQuickEditorProps) {
   const { token } = theme.useToken();
   const { message } = App.useApp();
   const workspaceId = useActiveWorkspaceId();
   const mutator = useRuleMutator({ workspaceId, surfaceId: 'devpanel' });
 
-  // Reactive live rule — subscribes to the rule sync mirror so commits
-  // from any surface (workbench, popup, another devpanel) update the
-  // popover; the static prop only seeds the first render.
   const liveRuleFromMirror = useLiveRule(rule.uid, workspaceId);
   const liveRule = liveRuleFromMirror ?? rule;
-  const responseRule: ResponseRule | null = liveRule.type === 'response' ? liveRule : null;
+  const bodyRule: RequestBodyRule | null = liveRule.type === 'request-body' ? liveRule : null;
+  const isDynamic = bodyRule?.action.bodyType === 'dynamic';
+  const editable = !!bodyRule && !isDynamic;
 
-  // Collection that owns the rule — scopes the body's `{{collection.X}}`
-  // suggestions, same derivation as the header popover.
   const { localCollections } = useRules();
   const collectionId = useMemo(
     () => findRuleCollectionId(liveRule, localCollections),
     [liveRule, localCollections],
   );
-  const isDynamic = responseRule?.action.bodyType === 'dynamic';
-  const editable = !!responseRule && !isDynamic;
 
-  const canonical = useMemo<ResponseQuickDraft | null>(
-    () =>
-      responseRule && !isDynamic
-        ? {
-            statusCode: responseRule.action.statusCode,
-            contentType: responseRule.action.contentType,
-            responseBody: responseRule.action.responseBody,
-          }
-        : null,
-    [responseRule, isDynamic],
+  const canonical = useMemo<RequestBodyQuickEditDraft | null>(
+    () => (bodyRule && !isDynamic ? { requestBody: bodyRule.action.requestBody } : null),
+    [bodyRule, isDynamic],
   );
-  const { draft, draftRef, updateDraft, isDirty: fieldsDirty } = useActionDraft({ canonical });
+  const { draft, draftRef, updateDraft, isDirty: fieldDirty } = useActionDraft({ canonical });
 
-  const condDraft = useConditionsDraft({ canonical: editable ? (responseRule?.conditions ?? null) : null });
-  const isDirty = fieldsDirty || condDraft.isDirty;
+  const condDraft = useConditionsDraft({ canonical: editable ? (bodyRule?.conditions ?? null) : null });
+  const isDirty = fieldDirty || condDraft.isDirty;
 
   const { saving, canSave, handleSave, saveLabel } = useQuickEditSave({
-    ruleUid: editable && responseRule ? responseRule.uid : null,
+    ruleUid: editable && bodyRule ? bodyRule.uid : null,
     // `ruleUid` gates the save flow, so the null branch is unreachable.
     buildUpdates: () =>
-      responseRule
-        ? buildResponseRuleUpdate(
-            responseRule,
+      bodyRule
+        ? buildRequestBodyRuleUpdate(
+            bodyRule,
             draftRef.current,
             condDraft.isDirty ? condDraft.conditionsRef.current : undefined,
           )
@@ -110,7 +91,13 @@ export function ResponseQuickEditor({
     void openWorkspace({ kind: 'edit-rule', uid: liveRule.uid }, 'devpanel').then(() => onClose());
   };
 
-  const isNetwork = responseRule?.action.responseSource === 'network';
+  const fieldLabelStyle: React.CSSProperties = {
+    fontSize: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    color: token.colorTextTertiary,
+    marginBottom: 2,
+  };
 
   return (
     <QuickEditorShell
@@ -121,11 +108,11 @@ export function ResponseQuickEditor({
       liveRuleUid={liveRule.uid}
       isDirty={isDirty}
       tags={
-        responseRule && (
-          <Tag style={{ marginInlineEnd: 0, fontSize: 10 }} color={isNetwork ? 'blue' : 'purple'}>
-            {isNetwork ? 'Modify' : 'Mock'}
+        bodyRule?.action.resourceType === 'graphql' ? (
+          <Tag style={{ marginInlineEnd: 0, fontSize: 10 }} color="purple">
+            GraphQL
           </Tag>
-        )
+        ) : undefined
       }
       conditions={
         editable ? (
@@ -141,16 +128,34 @@ export function ResponseQuickEditor({
       visible={visible}
     >
       {editable ? (
-        <ResponseQuickFields
-          draft={draft}
-          updateDraft={updateDraft}
-          entityUid={liveRule.uid}
-          collectionId={collectionId}
-        />
+        <EntityScopeProvider entityType={RULE_ENTITY_TYPE} entityId={liveRule.uid}>
+          <div style={fieldLabelStyle}>Request Body</div>
+          <EntityField path={RULE_FIELD.requestBody}>
+            <TemplateInput
+              multiline
+              maxRows={12}
+              resizable
+              allowClear
+              value={draft.requestBody ?? ''}
+              onChange={(v) => updateDraft({ requestBody: v })}
+              placeholder={'{"query": "…", "variables": {}}'}
+              suggestionContext={{ collectionId }}
+              style={{
+                width: '100%',
+                minHeight: 120,
+                fontFamily: token.fontFamilyCode,
+                fontSize: 12,
+              }}
+            />
+          </EntityField>
+          <div style={{ marginTop: 6, fontSize: 11, color: token.colorTextTertiary, lineHeight: 1.4 }}>
+            Matching requests are sent with this body instead of the page's.
+          </div>
+        </EntityScopeProvider>
       ) : (
         <div style={{ fontSize: 12, color: token.colorTextSecondary, lineHeight: 1.5 }}>
-          {responseRule
-            ? 'This rule builds its response with JavaScript. Open in workspace to edit the script.'
+          {bodyRule
+            ? 'This rule builds its body with JavaScript. Open in workspace to edit the script.'
             : 'Open in workspace to inspect or change this rule.'}
         </div>
       )}

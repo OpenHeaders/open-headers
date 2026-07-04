@@ -22,12 +22,16 @@ import type { HeaderAttribution } from '../data/headers/header-attribution';
 import type { RuleApplicability } from '../data/rule-create/rule-applicability';
 import type { UrlCreateVariant } from '../data/rule-create/url-rule-create';
 import { BlockQuickCreate } from './rule-quick-editor/BlockQuickCreate';
+import { BlockQuickEditor } from './rule-quick-editor/BlockQuickEditor';
 import { DelayQuickCreate } from './rule-quick-editor/DelayQuickCreate';
+import { DelayQuickEditor } from './rule-quick-editor/DelayQuickEditor';
 import { HeaderQuickCreate } from './rule-quick-editor/HeaderQuickCreate';
 import { QueryParamQuickCreate } from './rule-quick-editor/QueryParamQuickCreate';
+import { QueryParamQuickEditor } from './rule-quick-editor/QueryParamQuickEditor';
 import { RedirectQuickCreate } from './rule-quick-editor/RedirectQuickCreate';
 import { RedirectQuickEditor } from './rule-quick-editor/RedirectQuickEditor';
 import { RequestBodyQuickCreate } from './rule-quick-editor/RequestBodyQuickCreate';
+import { RequestBodyQuickEditor } from './rule-quick-editor/RequestBodyQuickEditor';
 import { ResponseQuickCreate } from './rule-quick-editor/ResponseQuickCreate';
 import { ResponseQuickEditor } from './rule-quick-editor/ResponseQuickEditor';
 import { RuleHoverPopover, type RuleHoverPopoverTarget } from './RuleHoverPopover';
@@ -224,9 +228,23 @@ function RulePopoverBody({
       />
     );
   }
-  if (state.rule?.type === 'redirect') {
+  if (
+    state.rule?.type === 'redirect' ||
+    state.rule?.type === 'delay' ||
+    state.rule?.type === 'block' ||
+    state.rule?.type === 'query-param' ||
+    state.rule?.type === 'request-body'
+  ) {
+    const editors = {
+      redirect: RedirectQuickEditor,
+      delay: DelayQuickEditor,
+      block: BlockQuickEditor,
+      'query-param': QueryParamQuickEditor,
+      'request-body': RequestBodyQuickEditor,
+    } as const;
+    const Editor = editors[state.rule.type];
     return (
-      <RedirectQuickEditor
+      <Editor
         anchorEl={state.anchorEl}
         rule={state.rule}
         onClose={onClose}

@@ -91,8 +91,13 @@ export function appendQueryParamQuickRow(rows: readonly QueryParamQuickRow[]): Q
 }
 
 /** Per-operation entry shape — remove drops the value, remove-all
- *  drops both (the whole query string goes). */
-function draftEntryFromRow(row: QueryParamQuickRow): { operation: QueryParamOperation; param: string; value?: string } {
+ *  drops both (the whole query string goes). Exported for the edit
+ *  popover's payload builder (`quick-rule-edit.ts`). */
+export function queryParamEntryFromRow(row: QueryParamQuickRow): {
+  operation: QueryParamOperation;
+  param: string;
+  value?: string;
+} {
   if (row.operation === 'remove-all') return { operation: 'remove-all', param: '' };
   if (row.operation === 'remove') return { operation: 'remove', param: row.param };
   return { operation: row.operation, param: row.param, value: row.value };
@@ -104,7 +109,7 @@ export function mergeQuickIntoQueryParamDraft(
   draft: QueryParamRuleDraft,
   rows: readonly QueryParamQuickRow[],
 ): QueryParamRuleDraft {
-  return { ...draft, params: rows.map(draftEntryFromRow) };
+  return { ...draft, params: rows.map(queryParamEntryFromRow) };
 }
 
 /** A row is savable when its operation needs no param (remove-all) or
@@ -123,6 +128,6 @@ export function buildQueryParamRuleSeed(
     enabled: true,
     type: 'query-param',
     conditions,
-    action: { params: rows.map((row) => ({ uid: row.uid, ...draftEntryFromRow(row) })) },
+    action: { params: rows.map((row) => ({ uid: row.uid, ...queryParamEntryFromRow(row) })) },
   };
 }

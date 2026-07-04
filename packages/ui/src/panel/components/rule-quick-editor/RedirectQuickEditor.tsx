@@ -22,12 +22,13 @@ import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 import { TemplateInput } from '@openheaders/ui/workbench/components/template-input';
 import { App, Typography, theme } from 'antd';
 import { useMemo } from 'react';
+import { buildRedirectRuleUpdate, type RedirectQuickEditDraft } from '../../data/rule-create/redirect-rule-edit';
 import { findRuleCollectionId } from '../../data/rule-create/rule-collection';
 import { QuickConditionsRow } from './QuickConditionsRow';
 import { QuickEditorShell } from './QuickEditorShell';
+import { useActionDraft } from './use-action-draft';
 import { useConditionsDraft } from './use-conditions-draft';
-import { useRedirectDraft } from './use-redirect-draft';
-import { useRedirectSave } from './use-redirect-save';
+import { useQuickEditSave } from './use-quick-edit-save';
 
 const { Text } = Typography;
 
@@ -70,9 +71,11 @@ export function RedirectQuickEditor({
   );
   const editable = !!redirectRule;
 
-  const { draft, draftRef, updateDraft, isDirty: fieldDirty } = useRedirectDraft({
-    currentAction: redirectRule?.action ?? null,
-  });
+  const canonical = useMemo<RedirectQuickEditDraft | null>(
+    () => (redirectRule ? { redirectTo: redirectRule.action.redirectTo } : null),
+    [redirectRule],
+  );
+  const { draft, draftRef, updateDraft, isDirty: fieldDirty } = useActionDraft({ canonical });
 
   const condDraft = useConditionsDraft({ canonical: redirectRule?.conditions ?? null });
   const isDirty = fieldDirty || condDraft.isDirty;
@@ -82,21 +85,27 @@ export function RedirectQuickEditor({
   // outcome. The reference's create flow (hover the red token) lifts the
   // gate live. Same gate as `RedirectQuickCreate`.
   const resolver = useVariableResolver();
-  const trimmedTarget = draft.redirectTo.trim();
+  const trimmedTarget = (draft.redirectTo ?? '').trim();
   const targetResolves = useMemo(() => {
     if (!trimmedTarget) return false;
     const context = collectionId ? { collectionId } : undefined;
     return resolver.resolveTemplate(trimmedTarget, context).errors.length === 0;
   }, [resolver, trimmedTarget, collectionId]);
 
-  const { saving, canSave, handleSave, saveLabel } = useRedirectSave({
-    redirectRule,
-    draftRef,
+  const { saving, canSave, handleSave, saveLabel } = useQuickEditSave({
+    ruleUid: redirectRule?.uid ?? null,
+    // `ruleUid` gates the save flow, so the null branch is unreachable.
+    buildUpdates: () =>
+      redirectRule
+        ? buildRedirectRuleUpdate(
+            redirectRule,
+            draftRef.current,
+            condDraft.isDirty ? condDraft.conditionsRef.current : undefined,
+          )
+        : {},
     isDirty,
     editable,
     valid: targetResolves,
-    conditionsRef: condDraft.conditionsRef,
-    conditionsDirty: condDraft.isDirty,
     mutator,
     message,
     onClose,
@@ -140,7 +149,7 @@ export function RedirectQuickEditor({
                 maxRows={4}
                 resizable
                 allowClear
-                value={draft.redirectTo}
+                value={draft.redirectTo ?? ''}
                 onChange={(v) => updateDraft({ redirectTo: v })}
                 placeholder="e.g. https://openheaders.io/redirected"
                 suggestionContext={{ collectionId }}

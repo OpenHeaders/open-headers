@@ -1,7 +1,7 @@
 /**
  * Conditions draft for the quick-editor EDIT bodies — the canonical
  * rule's condition list, editable in the Conditions row. Mirrors
- * `use-response-draft.ts`: dirty derives from draft-vs-baseline
+ * `use-action-draft.ts`: dirty derives from draft-vs-baseline
  * fingerprint equality (never an imperative flag), the baseline is
  * `lastPrimedFingerprint` so an external save landing mid-edit can't
  * wedge the form, and convergence with the canonical (manual revert /
