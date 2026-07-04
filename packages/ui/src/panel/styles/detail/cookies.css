@@ -517,11 +517,20 @@
   font-size: 12px;
   margin-bottom: 8px;
 }
+/* Sticky divided footer — pins to the scroller's bottom edge so the
+ * form scrolls above it (the popover body is the scroll context; see
+ * the inline maxHeight from `usePopoverViewportFit`). Opaque surface
+ * background so scrolled rows never ghost through. */
 .dt-cookie-edit-actions {
+  position: sticky;
+  bottom: 0;
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  margin-top: 12px;
+  margin-top: 8px;
+  padding: 8px 0;
+  background: var(--ant-color-bg-elevated, var(--dt-bg));
+  border-top: 1px solid var(--dt-border);
 }
 .dt-cookie-edit-form {
   display: grid;
