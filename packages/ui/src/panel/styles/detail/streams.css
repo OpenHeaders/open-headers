@@ -161,6 +161,12 @@
   cursor: default;
 }
 
+/* Row separators stop at the last frame — no dangling line under the
+   grid (the header keeps its border as the header/body divider). */
+.dt-ws-list .dt-ws-row:last-child:not(.dt-ws-row-header) {
+  border-bottom: none;
+}
+
 .dt-ws-data {
   white-space: nowrap;
   overflow: hidden;
