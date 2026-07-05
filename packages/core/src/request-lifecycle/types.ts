@@ -98,11 +98,19 @@ export interface WsStreamMessage {
  * ¹ Text frames only — a filterless modify/drop can take a binary
  *   frame, whose payload the wrapper does not serialize; `original` is
  *   then absent while the capture still records that the action ran.
+ *
+ * The EventSource wrapper relays the same shape for SSE events. SSE is
+ * receive-only — every action happens after wire capture (the wire
+ * holds the original) and injected events never cross the wire — so an
+ * SSE capture always carries `direction: 'receive'` plus `eventName`,
+ * the event type the wrapper acted on (`message` for default events).
  */
 export interface StreamMessageCapture {
   readonly ruleUid: string;
   readonly direction: 'send' | 'receive';
   readonly op: 'replaced' | 'dropped' | 'injected';
+  /** SSE captures only — the event type the wrapper acted on. */
+  readonly eventName?: string;
   readonly original?: string;
   readonly delivered?: string;
   /** Wall-clock ms at the wrapper (page clock). */

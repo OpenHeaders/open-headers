@@ -70,6 +70,35 @@ function sseInjectionFunc(cfg: SseConfig): void {
     (window as unknown as { __ohOrig?: OhOriginals }).__ohOrig?.fire(cfg.ruleUid, url, 'sse');
   }
 
+  // Relay the wire-invisible side of the action (see OhMessageCapture).
+  // SSE is receive-only: modify/drop act after wire capture (the wire
+  // holds the original) and injected events never cross the wire, so
+  // every capture is `receive` + the event type acted on. Optional-
+  // chained end to end: a document armed by an older setup may hold an
+  // __ohOrig without captureMessage — the action still runs.
+  function report(
+    url: string,
+    op: 'replaced' | 'dropped' | 'injected',
+    sides: { original?: unknown; delivered?: string },
+  ): void {
+    let abs = url;
+    try {
+      abs = new URL(url, document.baseURI).href;
+    } catch {
+      /* not resolvable — relay the raw value */
+    }
+    (window as unknown as { __ohOrig?: OhOriginals }).__ohOrig?.captureMessage?.({
+      ruleUid: cfg.ruleUid,
+      url: abs,
+      t: Date.now(),
+      direction: 'receive',
+      op,
+      eventName: cfg.eventName || 'message',
+      ...(typeof sides.original === 'string' ? { original: sides.original } : {}),
+      ...(sides.delivered !== undefined ? { delivered: sides.delivered } : {}),
+    });
+  }
+
   function originOf(url: string): string {
     // A real event's MessageEvent.origin is the stream's origin, not the
     // full endpoint URL — resolve relative endpoints against the page base
@@ -103,6 +132,11 @@ function sseInjectionFunc(cfg: SseConfig): void {
         if ((ev as SyntheticMessageEvent).__ohSynthetic) return;
         if (!matchesMessage(ev.data)) return;
         fire(urlStr);
+        if (cfg.operation === 'modify') {
+          report(urlStr, 'replaced', { original: ev.data, delivered: cfg.payload });
+        } else {
+          report(urlStr, 'dropped', { original: ev.data });
+        }
         ev.stopImmediatePropagation();
         if (cfg.operation === 'modify') deliver(es, cfg.payload, ev.origin, ev.lastEventId);
       });
@@ -112,6 +146,7 @@ function sseInjectionFunc(cfg: SseConfig): void {
       const injectSoon = (): void => {
         setTimeout(() => {
           fire(urlStr);
+          report(urlStr, 'injected', { delivered: cfg.payload });
           deliver(es, cfg.payload, originOf(urlStr), '');
         }, 0);
       };

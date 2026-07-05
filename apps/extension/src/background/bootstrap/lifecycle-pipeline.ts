@@ -228,15 +228,16 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   lifecycleHost.debuggerSource.subscribeBinding((fire) =>
     recordReportedFire(fire.tabId, fire.ruleUid, fire.url, fire.t),
   );
-  // Page-relayed ws frame captures: join each to the open socket's
-  // lifecycle by (tab, resolved endpoint URL, lifetime window). Never
-  // guessed — an ambiguous join (two same-URL sockets alive inside the
-  // window) drops the capture rather than polluting another socket's
-  // stream. Slack mirrors the fire hub's translation window: the capture
+  // Page-relayed ws frame / sse event captures: join each to the open
+  // stream's lifecycle by (tab, resolved endpoint URL, lifetime window).
+  // Never guessed — an ambiguous join (two same-URL streams alive inside
+  // the window) drops the capture rather than polluting another stream's
+  // list. Slack mirrors the fire hub's translation window: the capture
   // is stamped on the page clock, the lifecycle on the host clock.
   messageCaptureSource.subscribe(({ tabId, url, capture }) => {
     const candidates = lifecycleHost.store.snapshotTab(tabId).filter((lc) => {
-      if (lc.resourceType !== 'websocket' || lc.url !== url) return false;
+      if (lc.resourceType !== 'websocket' && lc.resourceType !== 'eventsource') return false;
+      if (lc.url !== url) return false;
       if (capture.atMs < lc.startedAtMs - MESSAGE_CAPTURE_JOIN_SLACK_MS) return false;
       return lc.completedAtMs == null || capture.atMs <= lc.completedAtMs + MESSAGE_CAPTURE_JOIN_SLACK_MS;
     });

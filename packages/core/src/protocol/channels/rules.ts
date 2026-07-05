@@ -137,9 +137,10 @@ export interface RuleRpc {
     };
     res: { success: boolean };
   };
-  // Per-frame WebSocket capture relayed by the ws wrapper — the side of a
-  // frame action the wire never carried. The background joins it to the
-  // open socket's lifecycle by (tabId, url, time window).
+  // Per-message capture relayed by the ws/sse wrappers — the side of a
+  // frame/event action the wire never carried. The background joins it to
+  // the open stream's lifecycle by (tabId, url, time window). SSE captures
+  // are always `receive` and carry the event type acted on.
   tabMessageCapture: {
     req: {
       ruleUid: string;
@@ -147,6 +148,7 @@ export interface RuleRpc {
       t: number;
       direction: 'send' | 'receive';
       op: 'replaced' | 'dropped' | 'injected';
+      eventName?: string;
       original?: string;
       delivered?: string;
     };

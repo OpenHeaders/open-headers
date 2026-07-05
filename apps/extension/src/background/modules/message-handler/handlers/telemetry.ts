@@ -60,9 +60,9 @@ export const telemetryHandlers: HandlerMap = {
     respond({ success: true });
   },
 
-  // Page-relayed WebSocket frame capture — the ws wrapper reports each
-  // frame it replaced/dropped/injected. The pipeline joins it to the open
-  // socket's lifecycle by `(tabId, url, time window)`.
+  // Page-relayed ws frame / sse event capture — the wrappers report each
+  // message they replaced/dropped/injected. The pipeline joins it to the
+  // open stream's lifecycle by `(tabId, url, time window)`.
   tabMessageCapture: ({ message, sender, respond }) => {
     const tabId = sender.tab?.id;
     if (typeof tabId === 'number') {
@@ -74,6 +74,7 @@ export const telemetryHandlers: HandlerMap = {
           direction: message.direction as 'send' | 'receive',
           op: message.op as 'replaced' | 'dropped' | 'injected',
           atMs: message.t as number,
+          ...(message.eventName !== undefined ? { eventName: message.eventName as string } : {}),
           ...(message.original !== undefined ? { original: message.original as string } : {}),
           ...(message.delivered !== undefined ? { delivered: message.delivered as string } : {}),
         },

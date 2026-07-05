@@ -118,10 +118,12 @@ export interface OhRequestCapture {
 }
 
 /**
- * One per-frame capture the WebSocket wrapper relays when it acts on a
- * frame — structurally the core `StreamMessageCapture` plus the join
- * keys the background needs (`url` = the resolved ws(s) endpoint, `t` =
- * the wrapper's wall clock) since the page never knows the requestId.
+ * One per-message capture the WebSocket / EventSource wrappers relay
+ * when they act on a frame/event — structurally the core
+ * `StreamMessageCapture` plus the join keys the background needs
+ * (`url` = the resolved endpoint, `t` = the wrapper's wall clock) since
+ * the page never knows the requestId. SSE captures are always
+ * `receive` and carry `eventName`, the event type acted on.
  */
 export interface OhMessageCapture {
   ruleUid: string;
@@ -129,6 +131,7 @@ export interface OhMessageCapture {
   t: number;
   direction: 'send' | 'receive';
   op: 'replaced' | 'dropped' | 'injected';
+  eventName?: string;
   original?: string;
   delivered?: string;
 }

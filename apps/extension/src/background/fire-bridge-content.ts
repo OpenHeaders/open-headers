@@ -59,6 +59,7 @@ interface OhMessageCapturePayload {
   t: number;
   direction: 'send' | 'receive';
   op: 'replaced' | 'dropped' | 'injected';
+  eventName?: string;
   original?: string;
   delivered?: string;
 }
@@ -126,6 +127,7 @@ interface OhMessageCapturePayload {
         t: cap.t,
         direction: cap.direction,
         op: cap.op,
+        ...(cap.eventName !== undefined ? { eventName: cap.eventName } : {}),
         ...(cap.original !== undefined ? { original: cap.original } : {}),
         ...(cap.delivered !== undefined ? { delivered: cap.delivered } : {}),
       }).catch(() => {
