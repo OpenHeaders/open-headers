@@ -108,7 +108,11 @@ function ensurePort(): chrome.runtime.Port {
   const next = chrome.runtime.connect({ name: harSourcePortName(tabId) });
   next.onDisconnect.addListener(() => {
     // Typically this fires when the background SW is evicted. The
-    // next forward call will lazy-reconnect.
+    // next forward call will lazy-reconnect. Reading lastError marks it
+    // checked — a connect that lands while the SW is restarting closes
+    // with "receiving end does not exist", which would otherwise surface
+    // as an Unchecked runtime.lastError in the extension's error log.
+    void chrome.runtime.lastError;
     if (port === next) port = null;
   });
   port = next;
