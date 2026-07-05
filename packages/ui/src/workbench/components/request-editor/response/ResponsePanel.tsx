@@ -23,7 +23,7 @@ import ResponseConsoleView from './ResponseConsoleView';
 import ResponseEmptyState from './ResponseEmptyState';
 import { formatBytes } from './response-format';
 import ResponseHeadersView from './ResponseHeadersView';
-import SplitLayoutToggle from '../../shared/SplitLayoutToggle';
+import { SplitLayoutToggle } from '@openheaders/ui/shared/split-layout';
 
 const { Text } = Typography;
 

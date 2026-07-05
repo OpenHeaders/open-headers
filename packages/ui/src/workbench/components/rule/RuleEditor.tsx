@@ -39,7 +39,7 @@ import { ConflictsProvider } from '@openheaders/ui/shared/conflicts/Field';
 import { useEditorShell } from '@openheaders/ui/shared/editor-shell';
 import { applyRuleCreate, applyRulePublish } from '@openheaders/ui/shared/sync/rule-write-client';
 import SectionInfo from '../shared/SectionInfo';
-import SplitLayoutToggle from '../shared/SplitLayoutToggle';
+import { SplitLayoutToggle } from '@openheaders/ui/shared/split-layout';
 import { useRuleEditorLayout } from './useRuleEditorLayout';
 import type { RuleDraftData } from '../../hooks/useSaveRuleFlow';
 import { formatString } from '../../languages/prettier';

@@ -7,9 +7,11 @@
  *   - Grid: Data | Length | Time. Time is the one sortable column,
  *     ascending by default; the list follows the tail while parked at
  *     the bottom (same pin semantics as the main traffic table).
- *   - Selecting a row opens the payload preview in a resizable pane
- *     below — JSON tree / verbatim text for text frames, a
- *     Base64 / Hex / UTF-8 viewer for binary frames.
+ *   - Selecting a row opens the payload preview in a resizable pane —
+ *     JSON tree / verbatim text for text frames, a Base64 / Hex / UTF-8
+ *     viewer for binary frames. The grid/payload split is a standard
+ *     Allotment sash; a toolbar toggle swaps stacked (default) for
+ *     side-by-side, same affordance as the workbench editors.
  *   - "Clear all" hides everything received so far for this request
  *     (view-local; the underlying lifecycle list is untouched).
  *
@@ -21,13 +23,14 @@
 
 import type { LifecycleSource, RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarEntry } from '@openheaders/core/types';
+import { Allotment } from 'allotment';
 import { useMemo, useRef, useState } from 'react';
 import MessagePreview from './streams/MessagePreview';
 import StreamGridToolbar, { type WsDirectionFilter } from './streams/StreamGridToolbar';
 import { compileStreamFilter } from './streams/stream-filter';
 import { formatStreamTime, streamTimeTooltip } from './streams/stream-time';
+import { useMessagesSplitLayout } from './streams/use-messages-split-layout';
 import { useStickToBottom } from './streams/use-stick-to-bottom';
-import { useVerticalSplit } from './streams/use-vertical-split';
 import {
   frameDataLabel,
   frameLengthLabel,
@@ -70,7 +73,7 @@ export default function MessagesView({ lifecycle, har, source }: MessagesViewPro
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 
   const listRef = useRef<HTMLDivElement>(null);
-  const split = useVerticalSplit(40);
+  const [layout, setLayout] = useMessagesSplitLayout();
 
   const all = useMemo(() => wsDisplayFrames(lifecycle, har), [lifecycle, har]);
 
@@ -117,80 +120,86 @@ export default function MessagesView({ lifecycle, har, source }: MessagesViewPro
   };
 
   return (
-    <div className="dt-ws-view" ref={split.containerRef}>
+    <div className="dt-ws-view">
       <StreamGridToolbar
         onClear={onClear}
         directionFilter={{ value: direction, onChange: setDirection }}
         filterText={filterText}
         onFilterTextChange={setFilterText}
         filterPlaceholder="Filter using regex (example: (web)?socket)"
+        layoutToggle={{ layout, onChange: setLayout }}
       />
       {dropped > 0 && (
         <div className="dt-ws-truncation">
           Showing the latest {all.length} frames — {dropped} older {dropped === 1 ? 'frame' : 'frames'} dropped.
         </div>
       )}
-      <div
-        className="dt-ws-list"
-        ref={listRef}
-        onScroll={onScroll}
-        role="listbox"
-        aria-label="WebSocket messages"
-        tabIndex={0}
-        onKeyDown={(e) => {
-          if (e.key === 'ArrowDown') {
-            e.preventDefault();
-            selectRelative(1);
-          } else if (e.key === 'ArrowUp') {
-            e.preventDefault();
-            selectRelative(-1);
-          }
-        }}
-      >
-        <div className="dt-ws-row dt-ws-row-header">
-          <span className="dt-ws-dir" aria-hidden="true" />
-          <span className="dt-ws-data">Data</span>
-          <span className="dt-ws-len">Length</span>
-          <button
-            type="button"
-            className="dt-ws-time dt-ws-sort-btn"
-            onClick={() => setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))}
-            title="Sort by time"
-          >
-            Time <span aria-hidden="true">{sortDir === 'asc' ? '▲' : '▼'}</span>
-          </button>
-        </div>
-        {visible.map((m) => {
-          const isSelected = m.index === selectedIndex;
-          return (
+      {/* Allotment captures its orientation at mount and ignores later
+        `vertical` prop changes, so remount on `layout` change via `key` —
+        same discipline as the workbench request editor. */}
+      <div className="dt-ws-split">
+        <Allotment key={layout} vertical={layout === 'vertical'} proportionalLayout separator>
+          <Allotment.Pane minSize={layout === 'vertical' ? 80 : 200} preferredSize="60%">
             <div
-              key={`ws-${m.index}`}
-              className={`dt-ws-row ${directionClass(m.type)}${isSelected ? ' dt-ws-row--selected' : ''}`}
-              title={opcodeDescription(m.opcode, m.mask)}
-              role="option"
-              aria-selected={isSelected}
-              onClick={() => setSelectedIndex(m.index)}
+              className="dt-ws-list"
+              ref={listRef}
+              onScroll={onScroll}
+              role="listbox"
+              aria-label="WebSocket messages"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'ArrowDown') {
+                  e.preventDefault();
+                  selectRelative(1);
+                } else if (e.key === 'ArrowUp') {
+                  e.preventDefault();
+                  selectRelative(-1);
+                }
+              }}
             >
-              <span className="dt-ws-dir" aria-hidden="true">
-                {directionArrow(m.type)}
-              </span>
-              <span className="dt-ws-data">{frameDataLabel(m)}</span>
-              <span className="dt-ws-len">{frameLengthLabel(m)}</span>
-              <span className="dt-ws-time" title={streamTimeTooltip(m.atMs)}>
-                {formatStreamTime(m.atMs)}
-              </span>
+              <div className="dt-ws-row dt-ws-row-header">
+                <span className="dt-ws-dir" aria-hidden="true" />
+                <span className="dt-ws-data">Data</span>
+                <span className="dt-ws-len">Length</span>
+                <button
+                  type="button"
+                  className="dt-ws-time dt-ws-sort-btn"
+                  onClick={() => setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))}
+                  title="Sort by time"
+                >
+                  Time <span aria-hidden="true">{sortDir === 'asc' ? '▲' : '▼'}</span>
+                </button>
+              </div>
+              {visible.map((m) => {
+                const isSelected = m.index === selectedIndex;
+                return (
+                  <div
+                    key={`ws-${m.index}`}
+                    className={`dt-ws-row ${directionClass(m.type)}${isSelected ? ' dt-ws-row--selected' : ''}`}
+                    title={opcodeDescription(m.opcode, m.mask)}
+                    role="option"
+                    aria-selected={isSelected}
+                    onClick={() => setSelectedIndex(m.index)}
+                  >
+                    <span className="dt-ws-dir" aria-hidden="true">
+                      {directionArrow(m.type)}
+                    </span>
+                    <span className="dt-ws-data">{frameDataLabel(m)}</span>
+                    <span className="dt-ws-len">{frameLengthLabel(m)}</span>
+                    <span className="dt-ws-time" title={streamTimeTooltip(m.atMs)}>
+                      {formatStreamTime(m.atMs)}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
-          );
-        })}
-      </div>
-      <div
-        className="dt-ws-split-divider"
-        role="separator"
-        aria-orientation="horizontal"
-        onPointerDown={split.onDividerPointerDown}
-      />
-      <div className="dt-ws-preview" style={{ height: `${split.bottomPct}%` }}>
-        <MessagePreview frame={selected} />
+          </Allotment.Pane>
+          <Allotment.Pane minSize={layout === 'vertical' ? 60 : 160}>
+            <div className="dt-ws-preview">
+              <MessagePreview frame={selected} />
+            </div>
+          </Allotment.Pane>
+        </Allotment>
       </div>
     </div>
   );

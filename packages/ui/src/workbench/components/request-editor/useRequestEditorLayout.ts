@@ -6,7 +6,7 @@
  * which the rule editor's actions/conditions split also uses.
  */
 
-import { createSplitLayoutPreference, type SplitLayout } from '../../hooks/useSplitLayoutPreference';
+import { createSplitLayoutPreference, type SplitLayout } from '@openheaders/ui/shared/split-layout';
 
 export type RequestEditorLayout = SplitLayout;
 

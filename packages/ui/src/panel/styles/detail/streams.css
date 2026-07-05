@@ -65,6 +65,12 @@
   border-color: var(--dt-tab-active-border);
 }
 
+.dt-stream-toolbar-layout {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+}
+
 /* ── WS frame grid ─────────────────────────────────────────────── */
 
 .dt-ws-row {
@@ -88,7 +94,7 @@
 }
 
 .dt-ws-list {
-  flex: 1;
+  height: 100%;
   overflow: auto;
   min-height: 0;
   outline: none;
@@ -168,22 +174,16 @@
 
 /* ── WS preview pane (grid / preview split) ─────────────────────── */
 
-.dt-ws-split-divider {
-  flex: none;
-  height: 4px;
-  margin-top: -2px;
-  cursor: row-resize;
-  border-top: 1px solid var(--dt-border);
-  touch-action: none;
-}
-
-.dt-ws-split-divider:hover {
-  background: var(--dt-tab-active-border);
+/* Hosts the Allotment grid/payload split — the same draggable sash the
+   rest of the app uses between panes. */
+.dt-ws-split {
+  flex: 1;
+  min-height: 0;
 }
 
 .dt-ws-preview {
-  flex: none;
-  min-height: 60px;
+  height: 100%;
+  min-height: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;

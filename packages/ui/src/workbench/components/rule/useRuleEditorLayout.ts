@@ -5,7 +5,7 @@
  * mechanism as the request editor's request/response split.
  */
 
-import { createSplitLayoutPreference, type SplitLayout } from '../../hooks/useSplitLayoutPreference';
+import { createSplitLayoutPreference, type SplitLayout } from '@openheaders/ui/shared/split-layout';
 
 export type RuleEditorLayout = SplitLayout;
 

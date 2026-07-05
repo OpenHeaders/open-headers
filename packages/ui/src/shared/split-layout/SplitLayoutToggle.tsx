@@ -1,15 +1,16 @@
 /**
  * Segmented icon toggle for a two-pane split orientation — used by the
- * request editor's request/response split and the rule editor's
- * actions/conditions split. Reuses the dock-layout split glyphs so the
- * affordance reads the same as the tab strip's "Split and Move" menu:
- * side-by-side (`split-right`) vs stacked (`split-down`).
+ * request editor's request/response split, the rule editor's
+ * actions/conditions split and the panel's message-stream grid/preview
+ * split. Reuses the dock-layout split glyphs so the affordance reads
+ * the same as the tab strip's "Split and Move" menu: side-by-side
+ * (`split-right`) vs stacked (`split-down`).
  */
 
+import { LayoutMenuIcon } from '@openheaders/ui/shared/dock-layout';
 import { Button, Tooltip, theme } from 'antd';
 import type React from 'react';
-import type { SplitLayout } from '../../hooks/useSplitLayoutPreference';
-import LayoutMenuIcon from '../shell/LayoutMenuIcon';
+import type { SplitLayout } from './use-split-layout-preference';
 
 interface SplitLayoutToggleProps {
   layout: SplitLayout;

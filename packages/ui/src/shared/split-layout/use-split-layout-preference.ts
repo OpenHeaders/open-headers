@@ -1,7 +1,8 @@
 /**
  * Factory for persisted split-orientation preferences — the mechanism
- * behind the request editor's request/response split and the rule
- * editor's actions/conditions split.
+ * behind the request editor's request/response split, the rule editor's
+ * actions/conditions split and the panel's message-stream grid/preview
+ * split.
  *
  *   - `'horizontal'` — panes side-by-side.
  *   - `'vertical'`   — panes stacked.
