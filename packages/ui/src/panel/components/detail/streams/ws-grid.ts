@@ -20,7 +20,9 @@ export interface WsColumnDef {
 
 export const WS_COLUMNS: readonly WsColumnDef[] = [
   { key: 'data', label: 'Data', defaultWidth: 140, minWidth: 100, stretch: true },
-  { key: 'length', label: 'Length', defaultWidth: 64, minWidth: 44 },
+  // Wide enough that the "Length" label never ellipsizes — the header
+  // cell reserves a lane for the hover (i) beside the label.
+  { key: 'length', label: 'Length', defaultWidth: 84, minWidth: 64 },
   { key: 'time', label: 'Time', defaultWidth: 92, minWidth: 64 },
 ];
 
