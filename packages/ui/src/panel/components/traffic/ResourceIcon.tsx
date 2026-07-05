@@ -91,7 +91,7 @@ export default function ResourceIcon({ type }: { type: string }) {
     );
   return (
     <svg className={cls} viewBox="0 0 12 12" width={12} height={12} aria-hidden="true">
-      <circle cx="6" cy="6" r="4.5" fill="none" stroke="currentColor" strokeWidth={1.2} />
+      <rect x="1.5" y="1.5" width="9" height="9" rx="1" fill="none" stroke="currentColor" strokeWidth={1.2} />
     </svg>
   );
 }
