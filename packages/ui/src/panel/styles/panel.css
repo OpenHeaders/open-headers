@@ -118,16 +118,16 @@
 
 /* ── Dark palette ───────────────────────────────────────── */
 [data-theme='dark'] {
-  --dt-frame-bg: #1a1a1a;
+  --dt-frame-bg: #262626;
   /* Matches the dark `colorBgContainer` card (#141414) exactly, same as
      the light palette's #fff — painted surfaces (tab bodies, sticky
      headers, menus) must blend into the dock card, sitting DARKER than
-     the #1a1a1a frame gutter like every workspace card does. */
+     the #262626 frame gutter like every workspace card does. */
   --dt-bg: #141414;
   --dt-bg-alt: #252525;
   --dt-text: #e0e0e0;
   --dt-text-muted: #888;
-  --dt-border: #3c3c3c;
+  --dt-border: #3d3d3d;
   --dt-row-hover: #2a2a2a;
   --dt-row-selected: #062e61;
   --dt-row-zebra: #222;
@@ -156,7 +156,7 @@
   --dt-fire-inferred: #e8b339;
   --dt-fire-contradicted: #e84749;
   --dt-input-bg: #2a2a2a;
-  --dt-input-border: #3c3c3c;
+  --dt-input-border: #4d4d4d;
 
   /* Stalled flips to white on dark; DNS lightens. The other waterfall-phase
    * tokens are theme-neutral and fall through from the light palette. */

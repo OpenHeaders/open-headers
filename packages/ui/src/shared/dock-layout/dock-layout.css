@@ -564,7 +564,7 @@
 }
 
 /* Hover / active states — black alphas on the light `#ececec` frame,
-   white alphas on the dark `#1a1a1a` frame. Grey-128 alpha was
+   white alphas on the dark `#262626` frame. Grey-128 alpha was
    near-invisible against either. */
 .rules-dock-tab:not(.active):hover {
   background: rgba(0, 0, 0, 0.06);
