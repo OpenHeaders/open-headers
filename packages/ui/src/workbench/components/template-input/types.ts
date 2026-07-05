@@ -7,6 +7,24 @@
 import type { SuggestionContext } from '@openheaders/core/variables';
 import type React from 'react';
 
+/**
+ * Horizontal-axis report from the resize grip. The grip applies the
+ * field's HEIGHT itself, but width belongs to the layout the field sits
+ * in — so horizontal pointer travel is only reported, and the layout
+ * owner (e.g. `useColumnSplit`) maps it onto its own geometry. `start`
+ * fires on grab, `move` carries the travel since the grab point, `end`
+ * fires on release, `reset` on double-click. `gripEl` lets the owner
+ * locate the row the drag came from.
+ */
+export interface GripResizeXEvent {
+  phase: 'start' | 'move' | 'end' | 'reset';
+  /** Horizontal pointer travel since `start`, in px. 0 for start/reset. */
+  deltaX: number;
+  gripEl: HTMLElement;
+}
+
+export type GripResizeXHandler = (e: GripResizeXEvent) => void;
+
 export interface TemplateInputProps {
   /** Controlled value. Optional so the component composes with AntD
    *  `<Form.Item>` (which injects value/onChange at clone time). */
@@ -51,6 +69,12 @@ export interface TemplateInputProps {
    *  returns to auto-grow. Only meaningful with `multiline` or
    *  `expandOnFocus`. */
   resizable?: boolean;
+  /** Horizontal-axis handler for the `resizable` grip. When set, the
+   *  grip becomes two-dimensional (`nwse-resize` cursor): vertical drag
+   *  still sets the field's own height, while horizontal travel is
+   *  reported here for the surrounding layout to apply — the field
+   *  never sets its own width. */
+  onResizeX?: GripResizeXHandler;
   /** AntD `Input`/`TextArea` parity: when true and the field has a
    *  value, show an ✕ at the right edge that clears it (top-right on
    *  an expanded surface, vertically centered on a single line). */

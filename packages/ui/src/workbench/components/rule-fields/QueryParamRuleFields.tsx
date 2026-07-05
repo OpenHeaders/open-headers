@@ -15,6 +15,7 @@ import { getDocId } from '../docs/doc-ids';
 import DocInfo from '../shared/DocInfo';
 import SectionInfo from '../shared/SectionInfo';
 import { TemplateInput } from '../template-input';
+import { useColumnSplit } from './use-column-split';
 
 const { Text } = Typography;
 
@@ -26,6 +27,9 @@ interface QueryParamRuleFieldsProps {
 
 const QueryParamRuleFields: React.FC<QueryParamRuleFieldsProps> = ({ ruleUid }) => {
   const paths = useActionPaths();
+  // Shared param/value column boundary — same primitive as header rows,
+  // driven by the TemplateInputs' two-axis corner grips.
+  const split = useColumnSplit({ minLeft: 140, minRight: 120 });
 
   return (
     <div style={{ marginBottom: 16 }}>
@@ -76,7 +80,7 @@ const QueryParamRuleFields: React.FC<QueryParamRuleFieldsProps> = ({ ruleUid }) 
                   const wrap = (leaf: 'param' | 'value' | 'operation', child: React.ReactNode) =>
                     rowUid ? <EntityField path={paths.queryParam(rowUid, leaf)}>{child}</EntityField> : child;
                   return (
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
+              <div {...split.rowProps} style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
                 {/*
                   Hidden Form.Item binds the row's persisted uid into the
                   form output (mirrors session 55 fix #4 for header mods).
@@ -153,33 +157,48 @@ const QueryParamRuleFields: React.FC<QueryParamRuleFieldsProps> = ({ ruleUid }) 
                     }
                     return (
                       <>
-                        {wrap(
-                          'param',
-                          <Form.Item {...field} name={[field.name, 'param']} style={{ marginBottom: 0, flex: 1 }}>
-                            <TemplateInput
-                              size="small"
-                              placeholder="Param Name"
-                              wrap
-                              maxRows={4}
-                              resizable
-                              allowClear
-                            />
-                          </Form.Item>,
-                        )}
-                        {op !== 'remove' &&
-                          wrap(
-                            'value',
-                            <Form.Item {...field} name={[field.name, 'value']} style={{ marginBottom: 0, flex: 1 }}>
+                        <div {...split.leftCellProps}>
+                          {wrap(
+                            'param',
+                            <Form.Item
+                              {...field}
+                              name={[field.name, 'param']}
+                              style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
+                            >
                               <TemplateInput
                                 size="small"
-                                placeholder="Param Value"
+                                placeholder="Param Name"
                                 wrap
                                 maxRows={4}
                                 resizable
+                                onResizeX={split.onResizeX}
                                 allowClear
                               />
                             </Form.Item>,
                           )}
+                        </div>
+                        {op !== 'remove' && (
+                          <div {...split.rightCellProps}>
+                            {wrap(
+                              'value',
+                              <Form.Item
+                                {...field}
+                                name={[field.name, 'value']}
+                                style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
+                              >
+                                <TemplateInput
+                                  size="small"
+                                  placeholder="Param Value"
+                                  wrap
+                                  maxRows={4}
+                                  resizable
+                                  onResizeX={split.onResizeX}
+                                  allowClear
+                                />
+                              </Form.Item>,
+                            )}
+                          </div>
+                        )}
                       </>
                     );
                   }}

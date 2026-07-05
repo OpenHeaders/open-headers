@@ -38,6 +38,8 @@ import DocInfo from '../shared/DocInfo';
 import SectionInfo from '../shared/SectionInfo';
 import { getDocId } from '../docs/doc-ids';
 import { TemplateInput } from '../template-input';
+import type { ColumnSplit } from './use-column-split';
+import { useColumnSplit } from './use-column-split';
 
 const { Text } = Typography;
 
@@ -63,9 +65,12 @@ interface ModificationListProps {
    *  drafts (create mode) — chips are entity-bound, drafts have no uid. */
   ruleUid?: string;
   excludeInstanceId?: string;
+  /** Shared name/value column boundary — owned by HeaderRuleFields so
+   *  the request and response tabs keep one split. */
+  split: ColumnSplit;
 }
 
-function ModificationList({ name, direction, ruleUid, excludeInstanceId }: ModificationListProps) {
+function ModificationList({ name, direction, ruleUid, excludeInstanceId, split }: ModificationListProps) {
   const { openDocs: openDocsInline } = useInspectorNav();
   const paths = useActionPaths();
   const form = Form.useFormInstance();
@@ -131,7 +136,7 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId }: Modif
                     rowUid ? <EntityField path={paths.headerMod(direction, rowUid, leaf)}>{child}</EntityField> : child;
                   return (
                     <SortableHeaderRow key={field.key} id={field.key}>
-                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <div {...split.rowProps} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                         {/* Hidden uid binding — preserves the row's persisted
                          *  identity through `getFieldsValue` so reorders /
                          *  edits don't churn itemIds on every save. Without
@@ -190,23 +195,28 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId }: Modif
                             // the same input was the worse UX, and template
                             // support for header names is the more frequently
                             // useful primitive.
-                            return wrap(
-                              'headerName',
-                              <Form.Item
-                                {...field}
-                                name={[field.name, 'headerName']}
-                                style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
-                                validateStatus={showWarning ? 'warning' : undefined}
-                              >
-                                <TemplateInput
-                                  size="small"
-                                  placeholder="Header Name"
-                                  wrap
-                                  maxRows={4}
-                                  resizable
-                                  allowClear
-                                />
-                              </Form.Item>,
+                            return (
+                              <div {...split.leftCellProps}>
+                                {wrap(
+                                  'headerName',
+                                  <Form.Item
+                                    {...field}
+                                    name={[field.name, 'headerName']}
+                                    style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
+                                    validateStatus={showWarning ? 'warning' : undefined}
+                                  >
+                                    <TemplateInput
+                                      size="small"
+                                      placeholder="Header Name"
+                                      wrap
+                                      maxRows={4}
+                                      resizable
+                                      onResizeX={split.onResizeX}
+                                      allowClear
+                                    />
+                                  </Form.Item>,
+                                )}
+                              </div>
                             );
                           }}
                         </Form.Item>
@@ -250,42 +260,50 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId }: Modif
                                       />
                                     </Form.Item>,
                                   )}
-                                  {wrap(
-                                    'value',
-                                    <Form.Item
-                                      {...field}
-                                      name={[field.name, 'value']}
-                                      style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
-                                    >
-                                      <TemplateInput
-                                        size="small"
-                                        placeholder="Value to append"
-                                        wrap
-                                        maxRows={4}
-                                        resizable
-                                        allowClear
-                                      />
-                                    </Form.Item>,
-                                  )}
+                                  <div {...split.rightCellProps}>
+                                    {wrap(
+                                      'value',
+                                      <Form.Item
+                                        {...field}
+                                        name={[field.name, 'value']}
+                                        style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
+                                      >
+                                        <TemplateInput
+                                          size="small"
+                                          placeholder="Value to append"
+                                          wrap
+                                          maxRows={4}
+                                          resizable
+                                          onResizeX={split.onResizeX}
+                                          allowClear
+                                        />
+                                      </Form.Item>,
+                                    )}
+                                  </div>
                                 </>
                               );
                             }
-                            return wrap(
-                              'value',
-                              <Form.Item
-                                {...field}
-                                name={[field.name, 'value']}
-                                style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
-                              >
-                                <TemplateInput
-                                  size="small"
-                                  placeholder="Header Value"
-                                  wrap
-                                  maxRows={4}
-                                  resizable
-                                  allowClear
-                                />
-                              </Form.Item>,
+                            return (
+                              <div {...split.rightCellProps}>
+                                {wrap(
+                                  'value',
+                                  <Form.Item
+                                    {...field}
+                                    name={[field.name, 'value']}
+                                    style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
+                                  >
+                                    <TemplateInput
+                                      size="small"
+                                      placeholder="Header Value"
+                                      wrap
+                                      maxRows={4}
+                                      resizable
+                                      onResizeX={split.onResizeX}
+                                      allowClear
+                                    />
+                                  </Form.Item>,
+                                )}
+                              </div>
                             );
                           }}
                         </Form.Item>
@@ -549,6 +567,9 @@ const HeaderRuleFields: React.FC<HeaderRuleFieldsProps> = ({
   const paths = useActionPaths();
   const scope = useEntityScope();
   const entityType = scope.entityType;
+  // One name/value boundary for both tabs — dragging any row's grip in
+  // either direction keeps every header row's columns aligned.
+  const split = useColumnSplit({ minLeft: 140, minRight: 120 });
 
   return (
     <div style={{ marginBottom: 16 }}>
@@ -603,6 +624,7 @@ const HeaderRuleFields: React.FC<HeaderRuleFieldsProps> = ({
                 direction="request"
                 ruleUid={ruleUid}
                 excludeInstanceId={excludeInstanceId}
+                split={split}
               />
             ),
           },
@@ -638,6 +660,7 @@ const HeaderRuleFields: React.FC<HeaderRuleFieldsProps> = ({
                 direction="response"
                 ruleUid={ruleUid}
                 excludeInstanceId={excludeInstanceId}
+                split={split}
               />
             ),
           },

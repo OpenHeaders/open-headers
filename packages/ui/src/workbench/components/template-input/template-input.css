@@ -111,6 +111,13 @@
   );
 }
 
+/* Two-dimensional grip (the host passed `onResizeX`): dragging also
+ * moves the column boundary the field sits against, so the cursor
+ * advertises both axes. */
+.oh-template-input-resize-grip--2d {
+  cursor: nwse-resize;
+}
+
 /* A flagged wrapper reserves a 14px right gutter for the unresolved
  * dot (see `--flagged` above) — the editable's border ends there, so
  * the grip must shift left with it to stay inside the field's corner. */

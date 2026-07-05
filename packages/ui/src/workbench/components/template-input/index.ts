@@ -12,5 +12,5 @@ export {
 } from './SuggestionContextProvider';
 export { default as SuggestionRow } from './SuggestionRow';
 export { default as TemplateInput } from './TemplateInput';
-export type { TemplateInputProps } from './types';
+export type { GripResizeXEvent, GripResizeXHandler, TemplateInputProps } from './types';
 export { useMonacoVariableCompletions } from './useMonacoVariableCompletions';

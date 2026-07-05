@@ -53,6 +53,7 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       expanded,
       maxRows = 5,
       resizable = false,
+      onResizeX,
       allowClear = false,
       placeholder = '',
       size = 'middle',
@@ -213,8 +214,8 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
     const displayExpanded = multiline || wrap || (expandOnFocus && expandActive);
     const displayCollapsed = expandOnFocus && !wrap && !expandActive;
 
-    const { manualHeight, setManualHeight, handleGripPointerDown, handleGripPointerMove, handleGripPointerUp } =
-      useGripResize(editableRef);
+    const { manualHeight, handleGripPointerDown, handleGripPointerMove, handleGripPointerUp, handleGripDoubleClick } =
+      useGripResize(editableRef, onResizeX);
 
     // AntD-parity clear affordance: clears both the DOM (covers
     // uncontrolled use) and the controlled value, keeping focus in the
@@ -277,11 +278,11 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
         />
         {resizable && (
           <div
-            className="oh-template-input-resize-grip"
+            className={`oh-template-input-resize-grip${onResizeX ? ' oh-template-input-resize-grip--2d' : ''}`}
             onPointerDown={handleGripPointerDown}
             onPointerMove={handleGripPointerMove}
             onPointerUp={handleGripPointerUp}
-            onDoubleClick={() => setManualHeight(null)}
+            onDoubleClick={handleGripDoubleClick}
             aria-hidden="true"
           />
         )}
