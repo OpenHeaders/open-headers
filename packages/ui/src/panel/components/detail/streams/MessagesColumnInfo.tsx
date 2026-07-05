@@ -97,9 +97,17 @@ export const WS_DIRECTION_INFO: InfoPopoverContent = {
     {
       heading: 'Arrows',
       items: [
-        { label: '⬆', desc: 'Sent — the page pushed this frame to the server. The row tints green.' },
-        { label: '⬇', desc: 'Received — the server pushed this frame to the page.' },
-        { label: '⚠', desc: 'Error — a transport failure ended the stream; the row reads red.' },
+        { label: '⬆', desc: 'Sent — the page pushed this frame to the server.', labelClassName: 'dt-ws-eg-dir--send' },
+        {
+          label: '⬇',
+          desc: 'Received — the server pushed this frame to the page.',
+          labelClassName: 'dt-ws-eg-dir--recv',
+        },
+        {
+          label: '⚠',
+          desc: 'Error — a transport failure ended the stream; the row reads red.',
+          labelClassName: 'dt-ws-eg-dir--error',
+        },
       ],
     },
   ],

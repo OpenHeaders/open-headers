@@ -111,6 +111,17 @@
   cursor: help;
 }
 
+/* Direction-info popover — the arrow labels carry their live row
+   colors instead of the copy naming the colors. */
+.dt-ws-eg-dir--send {
+  color: var(--dt-status-green);
+}
+
+.dt-ws-eg-dir--recv,
+.dt-ws-eg-dir--error {
+  color: var(--dt-status-red);
+}
+
 .dt-ws-list {
   height: 100%;
   overflow: auto;
@@ -139,12 +150,9 @@
   font-weight: 700;
 }
 
-/* Direction cues — outgoing frames tint the row and arrow, incoming
-   frames carry the red arrow, error frames read as a red row. */
-.dt-ws-row--send {
-  background: color-mix(in srgb, var(--dt-status-green) 12%, transparent);
-}
-
+/* Direction cues — the arrow alone carries the direction (green up =
+   sent, red down = received); no row tint, the colored glyph is enough.
+   Error frames still read as a red row. */
 .dt-ws-row--send .dt-ws-dir {
   color: var(--dt-status-green);
 }
