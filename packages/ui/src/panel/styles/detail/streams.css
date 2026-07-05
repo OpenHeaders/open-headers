@@ -105,10 +105,17 @@
 
 /* Direction rail header — a dimmed self-describing glyph at 20px where
    a label cannot fit; the whole cell is the info-popover hover target
-   (same idiom as the traffic table's rail headers). */
+   (same idiom as the traffic table's rail headers). Stretched so its
+   right border draws the same fine divider the `.dt-col-header-cell`s
+   carry, closing the rail | Data gap in the header band. */
 .dt-ws-dir-head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
   color: var(--dt-text-muted);
   cursor: help;
+  border-right: 1px solid var(--dt-border);
 }
 
 /* Direction-info popover — the arrow labels carry their live row
