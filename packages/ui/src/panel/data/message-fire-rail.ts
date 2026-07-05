@@ -1,5 +1,6 @@
 /**
- * Messages-grid fire rail — per-frame attribution of `ws` message rules.
+ * Stream-grid fire rail — per-frame attribution of `ws` message rules,
+ * plus the receive-only `sse` arm at the bottom of the module.
  *
  * Two evidence tiers feed it. A frame carrying a joined wrapper capture
  * (`FrameShape.capture` — see `ws-frames.ts`) has RECORDED attribution:
@@ -44,7 +45,7 @@
  */
 
 import type { StreamMessageCapture } from '@openheaders/core/request-lifecycle';
-import type { MessageFilter, Rule, WsRule } from '@openheaders/core/types';
+import type { MessageFilter, Rule, SseRule, WsRule } from '@openheaders/core/types';
 import type { FireDotTier } from './fire-evidence';
 import type { InspectorFire } from './types';
 
@@ -59,6 +60,19 @@ export function firedWsRules(fires: readonly InspectorFire[], rulesByUid: Readon
     seen.add(fire.ruleUid);
     const rule = rulesByUid.get(fire.ruleUid);
     if (rule?.type === 'ws') rules.push(rule);
+  }
+  return rules;
+}
+
+/** The `sse` twin — still-existing sse rules among the row's fires. */
+export function firedSseRules(fires: readonly InspectorFire[], rulesByUid: ReadonlyMap<string, Rule>): SseRule[] {
+  const seen = new Set<string>();
+  const rules: SseRule[] = [];
+  for (const fire of fires) {
+    if (seen.has(fire.ruleUid)) continue;
+    seen.add(fire.ruleUid);
+    const rule = rulesByUid.get(fire.ruleUid);
+    if (rule?.type === 'sse') rules.push(rule);
   }
   return rules;
 }
@@ -208,4 +222,75 @@ export function messageFrameAttribution(rules: readonly WsRule[], frame: FrameSh
  *  `applied` wins over `inferred`; `null` = no dot. */
 export function messageFireTier(rules: readonly WsRule[], frame: FrameShape): MessageFireTier | null {
   return messageFrameAttribution(rules, frame)?.tier ?? null;
+}
+
+// ── SSE arm ───────────────────────────────────────────────────────────
+//
+// The EventStream grid's twin of the frame derivation above. SSE is
+// receive-only, so the honesty caveats collapse to the receive side:
+// wire capture happens BEFORE the wrapper acts, the captured data IS
+// the original, and equality with a modify rule's replacement is
+// unreachable — a literal-payload match is only meaningful for inject.
+// The selector is the event-name gate (`message` when the rule omits
+// it) plus the data filter.
+
+interface SseEventShape {
+  readonly eventName: string;
+  readonly data: string;
+  /** Wrapper capture joined to the event — recorded proof that outranks
+   *  every selector inference below. */
+  readonly capture?: StreamMessageCapture;
+}
+
+/** Tier of one sse rule against one event — `null` when the rule cannot
+ *  account for it. */
+function sseRuleEventTier(rule: SseRule, event: SseEventShape): MessageFireTier | null {
+  const action = rule.action;
+  if ((action.eventName || 'message') !== event.eventName) return null;
+
+  if (action.operation === 'drop') {
+    // The wire captured the event before the wrapper stopped delivery,
+    // so a dropped event always has a row to mark.
+    return filterTakes(action.messageFilter, event.data) ? 'inferred' : null;
+  }
+
+  if (isLiteralPayload(action.payload)) {
+    // Strong for inject only: the event carries exactly what the rule
+    // writes. A modify's replacement never reaches the wire (capture
+    // sits before the wrapper), so equality there is meaningless.
+    if (action.operation === 'inject') return event.data === action.payload ? 'applied' : null;
+    return filterTakes(action.messageFilter, event.data) ? 'inferred' : null;
+  }
+
+  // Unresolved payload — equality is unavailable, selector only.
+  if (action.operation === 'inject') return 'inferred';
+  return filterTakes(action.messageFilter, event.data) ? 'inferred' : null;
+}
+
+function sseAttributionFor(tier: MessageFireTier, rule: SseRule): MessageFrameAttribution {
+  const action = rule.action;
+  const ruleUid = rule.uid;
+  if (action.operation === 'drop') {
+    return { tier, ruleUid, modification: { kind: 'dropped' } };
+  }
+  if (action.operation === 'modify' && isLiteralPayload(action.payload)) {
+    // Receive-only: the wire holds the original, the replacement was
+    // delivered in the page — `replaced-on-wire` is unreachable for sse.
+    return { tier, ruleUid, modification: { kind: 'replaced-in-page', modified: action.payload } };
+  }
+  return { tier, ruleUid, modification: null };
+}
+
+/** Attribution for one sse event — the joined capture when present
+ *  (proof), else across the row's fired `sse` rules: `applied` wins
+ *  over `inferred`; `null` = nothing accounts for the event. */
+export function sseEventAttribution(rules: readonly SseRule[], event: SseEventShape): MessageFrameAttribution | null {
+  if (event.capture !== undefined) return captureAttribution(event.capture);
+  let inferred: SseRule | null = null;
+  for (const rule of rules) {
+    const t = sseRuleEventTier(rule, event);
+    if (t === 'applied') return sseAttributionFor('applied', rule);
+    if (t === 'inferred' && inferred === null) inferred = rule;
+  }
+  return inferred === null ? null : sseAttributionFor('inferred', inferred);
 }

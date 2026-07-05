@@ -137,9 +137,10 @@ function BinaryPreview({ frame }: { frame: WsDisplayFrame }) {
  * replacement: a JSON tree when the payload parses (with a bottom
  * `JSON | Raw` mode switch — same toolbar anatomy as the Response
  * viewer, so the parsed view is an offer, not an assumption), verbatim
- * `pre` otherwise.
+ * `pre` otherwise. Exported for the EventStream preview twin — SSE
+ * payloads are always text, so this is its whole payload story.
  */
-function TextPayload({ text }: { text: string }) {
+export function TextPayload({ text }: { text: string }) {
   const json = useMemo(() => tryParseJson(text), [text]);
   const [raw, setRaw] = useState(false);
   const showJson = json !== undefined && !raw;

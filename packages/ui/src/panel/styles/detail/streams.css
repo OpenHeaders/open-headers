@@ -173,16 +173,18 @@
   text-overflow: ellipsis;
 }
 
-/* Split Data cell — a rule-modified frame shows the wire side and the
-   page side at a glance, divided like the preview pane's split. */
-.dt-ws-data--split {
+/* Split Data cell — a rule-modified frame/event shows the wire side and
+   the page side at a glance, divided like the preview pane's split. */
+.dt-ws-data--split,
+.dt-sse-data--split {
   display: flex;
   align-items: center;
   gap: 6px;
   min-width: 0;
 }
 
-.dt-ws-data-side {
+.dt-ws-data-side,
+.dt-sse-data-side {
   flex: 1 1 0;
   min-width: 0;
   white-space: nowrap;
@@ -190,16 +192,19 @@
   text-overflow: ellipsis;
 }
 
-.dt-ws-data-split-divider {
+.dt-ws-data-split-divider,
+.dt-sse-data-split-divider {
   flex: none;
   width: 1px;
   align-self: stretch;
   background: var(--dt-border);
 }
 
-/* Capture-minted synthetic rows — frames the wire never carried
-   (receive-inject, send-drop). Italic marks the page-only provenance. */
-.dt-ws-row--synthetic .dt-ws-data {
+/* Capture-minted synthetic rows — messages the wire never carried
+   (ws receive-inject / send-drop, sse inject). Italic marks the
+   page-only provenance. */
+.dt-ws-row--synthetic .dt-ws-data,
+.dt-sse-row--synthetic .dt-sse-data {
   font-style: italic;
 }
 
@@ -241,13 +246,15 @@
 
 /* Hover-revealed row actions — the same right-edge overlay the Headers
    and Cookies rows carry (Copy + rule action on a gradient scrim; no
-   reserved column, no displacement). Frame rows only: the header row
-   must keep its `position: sticky`, which this would override. */
-.dt-ws-list .dt-ws-row:not(.dt-ws-row-header) {
+   reserved column, no displacement). Frame/event rows only: the header
+   row must keep its `position: sticky`, which this would override. */
+.dt-ws-list .dt-ws-row:not(.dt-ws-row-header),
+.dt-sse-list .dt-sse-row:not(.dt-sse-row-header) {
   position: relative;
 }
 
-.dt-ws-row-actions {
+.dt-ws-row-actions,
+.dt-sse-row-actions {
   position: absolute;
   right: 6px;
   top: 50%;
@@ -269,7 +276,8 @@
   transition: opacity 80ms ease-out;
 }
 
-.dt-ws-list .dt-ws-row:not(.dt-ws-row-header):hover .dt-ws-row-actions {
+.dt-ws-list .dt-ws-row:not(.dt-ws-row-header):hover .dt-ws-row-actions,
+.dt-sse-list .dt-sse-row:not(.dt-sse-row-header):hover .dt-sse-row-actions {
   opacity: 1;
   pointer-events: auto;
 }
@@ -298,26 +306,10 @@
 }
 
 .dt-ws-list .dt-ws-row--selected,
-.dt-ws-list .dt-ws-row--selected:hover {
+.dt-ws-list .dt-ws-row--selected:hover,
+.dt-sse-list .dt-sse-row--selected,
+.dt-sse-list .dt-sse-row--selected:hover {
   background: var(--dt-row-selected);
-}
-
-/* Sortable header cells (both grids). */
-.dt-ws-sort-btn,
-.dt-sse-sort-btn {
-  border: none;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  font-weight: 600;
-  padding: 0;
-  cursor: pointer;
-  text-align: inherit;
-}
-
-.dt-ws-sort-btn:hover,
-.dt-sse-sort-btn:hover {
-  color: var(--dt-link);
 }
 
 /* ── WS preview pane (grid / preview split) ─────────────────────── */
@@ -406,7 +398,9 @@
 
 .dt-sse-row {
   display: grid;
-  grid-template-columns: 64px 96px 1fr 92px;
+  /* The track list is owned by EventStreamView (`sseGridTemplate`);
+     the fallback mirrors the no-override defaults. */
+  grid-template-columns: var(--dt-sse-cols, 14px 64px 96px minmax(140px, 1fr) 92px);
   gap: 8px;
   padding: 2px 8px;
   border-bottom: 1px solid var(--dt-border);
@@ -420,14 +414,41 @@
   font-weight: 600;
   position: sticky;
   top: 0;
-  z-index: 1;
+  /* Above the event rows' hover-action scrims (z-index 1), which paint
+     later in the DOM. */
+  z-index: 2;
   background: var(--dt-bg);
 }
 
+.dt-sse-row-header .dt-col-header-cell {
+  align-self: stretch;
+}
+
+/* Same single-column grid wrapper as `.dt-ws-list` — the header + rows
+   share one `max(max-content, viewport)` column so the Wide layout
+   stays column-aligned across a horizontal scroll. */
 .dt-sse-list {
-  flex: 1;
+  height: 100%;
   overflow: auto;
   min-height: 0;
+  outline: none;
+  display: grid;
+  grid-template-columns: minmax(max-content, 1fr);
+  grid-auto-rows: auto;
+  align-content: start;
+}
+
+.dt-sse-list--compact {
+  grid-template-columns: minmax(0, 1fr);
+  overflow-x: hidden;
+}
+
+.dt-sse-list .dt-sse-row {
+  cursor: default;
+}
+
+.dt-sse-list .dt-sse-row:last-child:not(.dt-sse-row-header) {
+  border-bottom: none;
 }
 
 .dt-sse-list .dt-sse-row:not(.dt-sse-row-header):hover {
@@ -440,7 +461,11 @@
   text-overflow: ellipsis;
 }
 
+.dt-sse-id,
 .dt-sse-time {
   color: var(--dt-text-muted);
+}
+
+.dt-sse-time {
   text-align: right;
 }
