@@ -118,7 +118,11 @@
 /* ── Dark palette ───────────────────────────────────────── */
 [data-theme='dark'] {
   --dt-frame-bg: #1a1a1a;
-  --dt-bg: #1e1e1e;
+  /* Matches the dark `colorBgContainer` card (#141414) exactly, same as
+     the light palette's #fff — painted surfaces (tab bodies, sticky
+     headers, menus) must blend into the dock card, sitting DARKER than
+     the #1a1a1a frame gutter like every workspace card does. */
+  --dt-bg: #141414;
   --dt-bg-alt: #252525;
   --dt-text: #e0e0e0;
   --dt-text-muted: #888;
