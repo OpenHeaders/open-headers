@@ -252,7 +252,6 @@ const TopBar: React.FC<TopBarProps> = ({
       style={
         {
           background: token.colorBgLayout,
-          borderBottom: `1px solid ${token.colorBorderSecondary}`,
           // Drives the grid column widths in rules.less — keeps the
           // topbar's outer slots exactly aligned with the activity bars.
           '--ab-width-left': `${activityBarWidthLeft}px`,
