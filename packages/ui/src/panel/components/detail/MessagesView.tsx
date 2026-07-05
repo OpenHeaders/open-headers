@@ -198,7 +198,7 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
       if (!regex) return true;
       if (regex.test(f.data)) return true;
       const modification = attributionByIndex.get(f.index)?.modification;
-      return modification?.captured === 'original' && regex.test(modification.modified);
+      return modification?.kind === 'replaced-in-page' && regex.test(modification.modified);
     };
     const filtered = afterClear.filter((f) => (direction === 'all' || f.type === direction) && takenByFilter(f));
     // Arrival order is time order; a stable index tiebreak keeps
@@ -339,7 +339,11 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
                       {fireTier !== null && (
                         <span
                           className={`dt-fire-dot ${FIRE_DOT_CLASS[fireTier]}`}
-                          title={FIRE_DOT_TITLE[fireTier]}
+                          title={
+                            modification?.kind === 'dropped'
+                              ? 'Rule dropped this frame — the page never received it'
+                              : FIRE_DOT_TITLE[fireTier]
+                          }
                         />
                       )}
                     </span>
@@ -351,18 +355,23 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
                     ) : (
                       // Original | Modified at a glance — the wire side and
                       // the page side of the rewrite, mirroring the preview
-                      // pane's split (the side never captured says so).
+                      // pane's split (a side the page/capture never saw
+                      // says so instead of pretending).
                       <span className="dt-ws-data dt-ws-data--split">
                         <span className="dt-ws-data-side">
-                          {modification.captured === 'original' ? (
-                            frameDataLabel(m)
-                          ) : (
+                          {modification.kind === 'replaced-on-wire' ? (
                             <span className="dt-col-muted">Not captured</span>
+                          ) : (
+                            frameDataLabel(m)
                           )}
                         </span>
                         <span className="dt-ws-data-split-divider" aria-hidden="true" />
                         <span className="dt-ws-data-side">
-                          {modification.captured === 'modified' ? frameDataLabel(m) : modification.modified}
+                          {modification.kind === 'replaced-in-page' && modification.modified}
+                          {modification.kind === 'replaced-on-wire' && frameDataLabel(m)}
+                          {modification.kind === 'dropped' && (
+                            <span className="dt-col-muted">Dropped — never delivered to the page</span>
+                          )}
                         </span>
                       </span>
                     )}

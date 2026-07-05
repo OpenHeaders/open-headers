@@ -8,11 +8,18 @@
  * captured frame. Two honesty caveats shape the tiers:
  *
  *   - A `modify` rule's `messageFilter` matched the ORIGINAL payload,
- *     but the captured frame holds the REPLACED one — so a filter match
- *     on captured data is weak evidence, while payload equality with
- *     the rule's replacement is strong for both `modify` and `inject`.
- *   - `drop` swallows frames before capture — a dropped frame has no
- *     row, so drop rules never earn a dot.
+ *     but a SEND frame's captured data holds the REPLACED one (the
+ *     wrapper swaps before `send`) — so a filter match on captured data
+ *     is weak evidence, while payload equality with the rule's
+ *     replacement is strong for both `modify` and `inject`. A RECEIVE
+ *     frame is the mirror: capture sits at the wire, before the
+ *     wrapper, so the captured data IS the original and equality with
+ *     the replacement is unreachable.
+ *   - `drop` is direction-split the same way: a dropped SEND frame
+ *     never crosses the wire (no row — and a send frame that IS on the
+ *     wire was not dropped, so send-drops never mark anything), while a
+ *     dropped RECEIVE frame has a row the page never received — marked
+ *     with the `dropped` modification view.
  *
  * Tier per frame (never `contradicted` — there is no claim to disprove):
  *
@@ -74,8 +81,15 @@ interface FrameShape {
  *  account for it. */
 function ruleFrameTier(rule: WsRule, frame: FrameShape): MessageFireTier | null {
   const action = rule.action;
-  if (action.operation === 'drop') return null;
   if (frame.type === 'error' || frame.type !== action.direction) return null;
+
+  if (action.operation === 'drop') {
+    // Only a receive frame can carry the dropped mark: the wire captured
+    // it before the wrapper stopped delivery. A send frame on the wire is
+    // one the drop did NOT take (a dropped send never crosses the wire).
+    if (action.direction !== 'receive') return null;
+    return filterTakes(action.messageFilter, frame.data) ? 'inferred' : null;
+  }
 
   if (isLiteralPayload(action.payload)) {
     // Strong: the frame carries exactly what the rule writes.
@@ -94,40 +108,44 @@ function ruleFrameTier(rule: WsRule, frame: FrameShape): MessageFireTier | null 
 }
 
 /**
- * Which side of a modify the captured frame holds, plus the derivable
- * counterpart. Direction decides where the capture plane sits relative
- * to the wrapper:
+ * What the wrapper did to the frame relative to what the wire captured.
+ * Direction decides where the capture plane sits relative to the wrapper:
  *
- *   - `captured: 'original'` — the wire recorded the pre-modify frame
+ *   - `replaced-in-page` — the wire recorded the pre-modify original
  *     (receive: the wrapper swaps delivery after capture). `modified`
  *     is the replacement the page received — the rule's literal
  *     payload, exact by the wrapper's contract, though whether THIS
  *     frame took it is only as strong as the tier says.
- *   - `captured: 'modified'` — the wire recorded the replacement
- *     (send: the wrapper swaps before `send`). The page-produced
- *     original never crossed any capture plane; there is nothing to
- *     derive it from.
+ *   - `replaced-on-wire` — the wire recorded the replacement (send: the
+ *     wrapper swaps before `send`). The page-produced original never
+ *     crossed any capture plane; there is nothing to derive it from.
+ *   - `dropped` — the wire recorded the frame but the wrapper stopped
+ *     delivery (receive only): the page never received it.
  */
 export type MessageModificationView =
-  | { readonly captured: 'original'; readonly modified: string }
-  | { readonly captured: 'modified' };
+  | { readonly kind: 'replaced-in-page'; readonly modified: string }
+  | { readonly kind: 'replaced-on-wire' }
+  | { readonly kind: 'dropped' };
 
 export interface MessageFrameAttribution {
   readonly tier: MessageFireTier;
   /** Both-sides view of the modification — `null` when the frame isn't
-   *  a derivable modify (inject frames are wholly rule-authored, an
-   *  unresolved `{{…}}` payload cannot be equality-anchored). */
+   *  a derivable modify/drop (inject frames are wholly rule-authored,
+   *  an unresolved `{{…}}` payload cannot be equality-anchored). */
   readonly modification: MessageModificationView | null;
 }
 
 function attributionFor(tier: MessageFireTier, rule: WsRule, frame: FrameShape): MessageFrameAttribution {
   const action = rule.action;
+  if (action.operation === 'drop') {
+    return { tier, modification: { kind: 'dropped' } };
+  }
   if (action.operation === 'modify' && isLiteralPayload(action.payload)) {
     // Applied ⇒ payload equality held ⇒ the captured data IS the
     // replacement; inferred ⇒ the captured data is the presumed original
     // and the replacement is the rule's literal payload.
     const modification: MessageModificationView =
-      tier === 'applied' ? { captured: 'modified' } : { captured: 'original', modified: action.payload };
+      tier === 'applied' ? { kind: 'replaced-on-wire' } : { kind: 'replaced-in-page', modified: action.payload };
     return { tier, modification };
   }
   return { tier, modification: null };

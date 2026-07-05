@@ -141,7 +141,9 @@ export const WS_FIRE_RAIL_INFO: InfoPopoverContent = {
       ],
     },
   ],
-  description: 'Dropped frames never reach the capture plane, so drop rules leave no dots.',
+  description:
+    'A dropped outgoing frame never crosses the wire, so it has no row at all. A dropped incoming frame was ' +
+    'captured on the wire first — its row stays, marked "Dropped — never delivered to the page".',
 };
 
 export function MessagesColumnInfo({ infoKey }: { infoKey: WsColumnKey }) {

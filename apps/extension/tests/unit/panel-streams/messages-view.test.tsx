@@ -192,7 +192,7 @@ describe('MessagesView — fire rail', () => {
     expect(rowDots(container)).toEqual([expect.stringContaining('dt-fire-dot--inferred'), null]);
   });
 
-  it('direction gates the dot; error frames and drop rules never dot', () => {
+  it('direction gates the dot; error frames never dot; a receive-drop marks its frame', () => {
     const modify = makeWsRule({ operation: 'modify', direction: 'send', payload: 'OUT' }, 'ws1');
     const drop = makeWsRule({ operation: 'drop', direction: 'receive' }, 'ws2');
     const { container } = renderView(
@@ -203,7 +203,21 @@ describe('MessagesView — fire rail', () => {
       ]),
       { fires: [makeFire('ws1'), makeFire('ws2')], rules: [modify, drop] },
     );
-    expect(rowDots(container)).toEqual([expect.stringContaining('dt-fire-dot--auth'), null, null]);
+    expect(rowDots(container)).toEqual([
+      expect.stringContaining('dt-fire-dot--auth'),
+      // The wire captured the receive frame before the wrapper dropped it.
+      expect.stringContaining('dt-fire-dot--inferred'),
+      null,
+    ]);
+  });
+
+  it('a send-drop never marks wire frames — a captured send was not dropped', () => {
+    const drop = makeWsRule({ operation: 'drop', direction: 'send' });
+    const { container } = renderView(makeWsLifecycle([ws({ type: 'send', data: 'OUT' })]), {
+      fires: [makeFire()],
+      rules: [drop],
+    });
+    expect(rowDots(container)).toEqual([null]);
   });
 
   it('an injected frame dots only on its exact payload', () => {
@@ -255,6 +269,39 @@ describe('MessagesView — Original | Modified split', () => {
     });
     const row = container.querySelector('[role="option"]') as HTMLElement;
     expect(splitSides(row)).toEqual(['Not captured', 'OUT']);
+  });
+
+  it('a receive-drop frame splits wire original | dropped notice', () => {
+    const rule = makeWsRule({
+      operation: 'drop',
+      direction: 'receive',
+      messageFilter: { matchType: 'contains', value: 'echo' },
+    });
+    const { container } = renderView(makeWsLifecycle([ws({ data: 'echo:hello' }), ws({ data: 'other' })]), {
+      fires: [makeFire()],
+      rules: [rule],
+    });
+    const rows = [...container.querySelectorAll('[role="option"]')];
+    expect(splitSides(rows[0])).toEqual(['echo:hello', 'Dropped — never delivered to the page']);
+    expect(rows[0].querySelector('.dt-fire-dot')?.getAttribute('title')).toContain('dropped this frame');
+    expect(splitSides(rows[1])).toBeNull();
+  });
+
+  it('selecting a dropped frame opens Original | Dropped with the inferred (i)', () => {
+    const rule = makeWsRule({
+      operation: 'drop',
+      direction: 'receive',
+      messageFilter: { matchType: 'contains', value: 'echo' },
+    });
+    const { container } = renderView(makeWsLifecycle([ws({ data: 'echo:hello' })]), {
+      fires: [makeFire()],
+      rules: [rule],
+    });
+    fireEvent.click(container.querySelector('[role="option"]') as HTMLElement);
+    expect(screen.getByText('Original · server → Open Headers')).toBeTruthy();
+    expect(screen.getByText('Dropped · never reached the page')).toBeTruthy();
+    expect(screen.getByText(/never delivered to the page\./)).toBeTruthy();
+    expect(screen.getByLabelText('About Dropped, inferred')).toBeTruthy();
   });
 
   it('inject and unresolved-payload frames never split', () => {

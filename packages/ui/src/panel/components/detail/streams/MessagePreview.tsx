@@ -24,6 +24,7 @@ import type { MessageFrameAttribution } from '../../../data/message-fire-rail';
 import { JsonTree } from '../../JsonTree';
 import HexViewer from '../HexViewer';
 import {
+  WS_RECV_DROPPED_LABEL,
   WS_RECV_MODIFIED_LABEL,
   WS_RECV_ORIGINAL_LABEL,
   WS_SEND_MODIFIED_LABEL,
@@ -49,6 +50,17 @@ const INFERRED_MODIFIED_INFO: InfoPopoverContent = {
   description:
     'The wire recorded the original frame; the modification happened inside the page after capture. That this ' +
     "exact frame took the replacement is inferred from the rule's frame selector, matching the amber fire dot.",
+};
+
+/** The Dropped caption's (i) — the drop, like the replacement, happens
+ *  inside the page after wire capture, so it is selector-inferred too. */
+const INFERRED_DROPPED_INFO: InfoPopoverContent = {
+  title: 'Dropped, inferred',
+  kicker: 'Messages',
+  summary: 'The wire recorded this frame, but the rule stopped its delivery inside the page.',
+  description:
+    "The drop happens after capture, so nothing can record the non-delivery itself. That this exact frame was " +
+    "dropped is inferred from the rule's frame selector, matching the amber fire dot.",
 };
 
 function tryParseJson(text: string): unknown | undefined {
@@ -158,8 +170,33 @@ export default function MessagePreview({ frame, attribution = null }: MessagePre
   const modification = attribution?.modification ?? null;
   if (modification) {
     const send = frame.type === 'send';
+    const inferredInfo =
+      attribution?.tier === 'inferred' ? (
+        <InfoTrigger content={modification.kind === 'dropped' ? INFERRED_DROPPED_INFO : INFERRED_MODIFIED_INFO} />
+      ) : undefined;
+
+    if (modification.kind === 'dropped') {
+      return (
+        <div className="dt-msg-preview-dual">
+          <SplitBodyView
+            startLabel={WS_RECV_ORIGINAL_LABEL}
+            start={<FramePayload frame={frame} />}
+            endLabel={WS_RECV_DROPPED_LABEL}
+            end={
+              <div className="dt-msg-preview-content">
+                <span className="dt-col-muted">
+                  The rule dropped this frame — it reached the browser but was never delivered to the page.
+                </span>
+              </div>
+            }
+            headerAction={inferredInfo}
+          />
+        </div>
+      );
+    }
+
     const originalPane =
-      modification.captured === 'original' ? (
+      modification.kind === 'replaced-in-page' ? (
         <FramePayload frame={frame} />
       ) : (
         <div className="dt-msg-preview-content">
@@ -169,7 +206,7 @@ export default function MessagePreview({ frame, attribution = null }: MessagePre
         </div>
       );
     const modifiedPane =
-      modification.captured === 'modified' ? (
+      modification.kind === 'replaced-on-wire' ? (
         <FramePayload frame={frame} />
       ) : (
         <TextPayload text={modification.modified} />
@@ -181,7 +218,7 @@ export default function MessagePreview({ frame, attribution = null }: MessagePre
           start={originalPane}
           endLabel={send ? WS_SEND_MODIFIED_LABEL : WS_RECV_MODIFIED_LABEL}
           end={modifiedPane}
-          headerAction={attribution?.tier === 'inferred' ? <InfoTrigger content={INFERRED_MODIFIED_INFO} /> : undefined}
+          headerAction={inferredInfo}
         />
       </div>
     );
