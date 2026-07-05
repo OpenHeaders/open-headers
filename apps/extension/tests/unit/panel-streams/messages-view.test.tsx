@@ -269,7 +269,7 @@ describe('MessagesView — Original | Modified split', () => {
     expect(splitSides(rows[1])).toBeNull();
   });
 
-  it('selecting a modified frame opens the labeled Original | Modified preview with the inferred note', () => {
+  it('selecting a modified frame opens the labeled Original | Modified preview with the inferred (i)', () => {
     const rule = makeWsRule({
       operation: 'modify',
       direction: 'receive',
@@ -286,10 +286,10 @@ describe('MessagesView — Original | Modified split', () => {
     const panes = container.querySelectorAll('.dt-body-split-pane');
     expect(panes[0].textContent).toContain('echo:hello');
     expect(panes[1].textContent).toContain('replaced');
-    expect(screen.getByText(/application inferred, not captured/)).toBeTruthy();
+    expect(screen.getByLabelText('About Derived, not captured')).toBeTruthy();
   });
 
-  it('an applied send-modify preview explains the uncaptured original and carries no note', () => {
+  it('an applied send-modify preview explains the uncaptured original and carries no inferred (i)', () => {
     const rule = makeWsRule({ operation: 'modify', direction: 'send', payload: 'OUT' });
     const { container } = renderView(makeWsLifecycle([ws({ type: 'send', data: 'OUT' })]), {
       fires: [makeFire()],
@@ -299,7 +299,25 @@ describe('MessagesView — Original | Modified split', () => {
     expect(screen.getByText('Original · page → Open Headers')).toBeTruthy();
     expect(screen.getByText('Modified · Open Headers → server')).toBeTruthy();
     expect(screen.getByText(/was not captured/)).toBeTruthy();
-    expect(screen.queryByText(/application inferred/)).toBeNull();
+    expect(screen.queryByLabelText('About Derived, not captured')).toBeNull();
+  });
+
+  it('the regex filter matches the derived modified side too', () => {
+    const rule = makeWsRule({
+      operation: 'modify',
+      direction: 'receive',
+      payload: '{"replaced":true}',
+      messageFilter: { matchType: 'contains', value: 'echo' },
+    });
+    const { container } = renderView(makeWsLifecycle([ws({ data: 'echo:hello' }), ws({ data: 'other' })]), {
+      fires: [makeFire()],
+      rules: [rule],
+    });
+    const input = screen.getByPlaceholderText('Filter using regex (example: (web)?socket)');
+    fireEvent.change(input, { target: { value: 'replaced' } });
+    const rows = [...container.querySelectorAll('[role="option"]')];
+    expect(rows).toHaveLength(1);
+    expect(rows[0].textContent).toContain('echo:hello');
   });
 
   it('an unmodified frame keeps the single-pane preview', () => {

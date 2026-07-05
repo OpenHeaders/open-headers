@@ -361,20 +361,13 @@
 }
 
 /* Original | Modified split for a rule-modified frame — hosts the shared
-   SplitBodyView shell plus the inferred-tier derivation note. */
+   SplitBodyView shell (the inferred-tier caveat rides the Modified
+   caption as an (i) popover). */
 .dt-msg-preview-dual {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
-}
-
-.dt-msg-preview-note {
-  flex: none;
-  padding: 3px 8px;
-  font-size: 11px;
-  color: var(--dt-text-muted);
-  border-top: 1px solid var(--dt-border);
 }
 
 /* Honest truncation banner — shown only once the ring bound dropped frames. */

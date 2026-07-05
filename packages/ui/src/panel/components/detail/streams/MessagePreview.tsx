@@ -13,10 +13,11 @@
  *     saw is either derived from the rule's replacement payload
  *     (receive: the wire holds the original) or honestly absent (send:
  *     only the replacement crossed the wire). An inferred-tier
- *     modification carries a derivation note — the split view never
- *     claims more than the fire rail does.
+ *     modification carries an (i) popover on the Modified caption — the
+ *     split view never claims more than the fire rail does.
  */
 
+import { type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { useMemo, useState } from 'react';
 import { base64ToBytes } from '../../../data/base64';
 import type { MessageFrameAttribution } from '../../../data/message-fire-rail';
@@ -38,6 +39,17 @@ interface MessagePreviewProps {
    *  flips the pane into the Original | Modified split. */
   attribution?: MessageFrameAttribution | null;
 }
+
+/** The Modified caption's (i) — shown only at the inferred tier, where
+ *  the split renders a derived payload rather than a captured one. */
+const INFERRED_MODIFIED_INFO: InfoPopoverContent = {
+  title: 'Derived, not captured',
+  kicker: 'Messages',
+  summary: "This side shows the rule's replacement payload — the capture plane only ever saw the wire frame.",
+  description:
+    'The wire recorded the original frame; the modification happened inside the page after capture. That this ' +
+    "exact frame took the replacement is inferred from the rule's frame selector, matching the amber fire dot.",
+};
 
 function tryParseJson(text: string): unknown | undefined {
   const trimmed = text.trim();
@@ -169,12 +181,8 @@ export default function MessagePreview({ frame, attribution = null }: MessagePre
           start={originalPane}
           endLabel={send ? WS_SEND_MODIFIED_LABEL : WS_RECV_MODIFIED_LABEL}
           end={modifiedPane}
+          headerAction={attribution?.tier === 'inferred' ? <InfoTrigger content={INFERRED_MODIFIED_INFO} /> : undefined}
         />
-        {attribution?.tier === 'inferred' && (
-          <div className="dt-msg-preview-note">
-            Modified side derived from the rule's replacement payload — application inferred, not captured.
-          </div>
-        )}
       </div>
     );
   }

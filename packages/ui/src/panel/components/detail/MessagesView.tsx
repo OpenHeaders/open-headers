@@ -3,7 +3,8 @@
  * matching the host's Messages tab:
  *
  *   - Toolbar: Clear all, All / Send / Receive direction filter, regex
- *     filter (invalid patterns degrade to a literal match), the
+ *     filter (invalid patterns degrade to a literal match; a modified
+ *     frame matches on either of its sides), the
  *     connection-scoped "Override message" create action, the
  *     grid/payload split toggle and the `View ▾` menu (compact / wide
  *     column layout, persisted via `devpanelNetwork.messagesLayout`).
@@ -191,16 +192,22 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
   const visible = useMemo(() => {
     const regex = compileStreamFilter(filterText, 'literal');
     const afterClear = clearedCount > 0 ? all.filter((f) => f.index >= clearedCount) : all;
-    const filtered = afterClear.filter(
-      (f) => (direction === 'all' || f.type === direction) && (!regex || regex.test(f.data)),
-    );
+    // A modified frame matches on either side — the captured wire data or
+    // the derived replacement the split cell renders next to it.
+    const takenByFilter = (f: WsDisplayFrame): boolean => {
+      if (!regex) return true;
+      if (regex.test(f.data)) return true;
+      const modification = attributionByIndex.get(f.index)?.modification;
+      return modification?.captured === 'original' && regex.test(modification.modified);
+    };
+    const filtered = afterClear.filter((f) => (direction === 'all' || f.type === direction) && takenByFilter(f));
     // Arrival order is time order; a stable index tiebreak keeps
     // equal-millisecond frames in wire order under both directions.
     if (sortDir === 'desc') {
       return [...filtered].sort((a, b) => b.atMs - a.atMs || b.index - a.index);
     }
     return filtered;
-  }, [all, clearedCount, direction, filterText, sortDir]);
+  }, [all, attributionByIndex, clearedCount, direction, filterText, sortDir]);
 
   const { onScroll } = useStickToBottom(listRef, visible.length);
 
