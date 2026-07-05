@@ -240,6 +240,28 @@
   color: var(--dt-text-muted);
 }
 
+/* Rail info popovers — the glyph labels carry their live rail colors
+ * instead of the copy naming the colors. */
+.dt-fire-eg--auth {
+  color: var(--dt-fire-auth);
+}
+
+.dt-fire-eg--inferred {
+  color: var(--dt-fire-inferred);
+}
+
+.dt-fire-eg--contradicted {
+  color: var(--dt-fire-contradicted);
+}
+
+.dt-annot-eg--warn {
+  color: var(--dt-status-orange);
+}
+
+.dt-annot-eg--info {
+  color: var(--dt-text-muted);
+}
+
 /* Rail header cells — each shows its column's own symbol, dimmed (a label
  * cannot fit in 14px); hover opens the explaining info popover. Stretched
  * (with a small vertical inset) so the right border draws the same
