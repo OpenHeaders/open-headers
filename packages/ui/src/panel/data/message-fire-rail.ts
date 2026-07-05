@@ -140,6 +140,10 @@ export type MessageModificationView =
 
 export interface MessageFrameAttribution {
   readonly tier: MessageFireTier;
+  /** The rule that accounts for THIS frame — the capture's recorded uid
+   *  or the winning rule of the selector derivation. Row actions target
+   *  it so "Edit rule" never points at a rule that took another frame. */
+  readonly ruleUid: string;
   /** Both-sides view of the modification — `null` when the frame isn't
    *  a derivable modify/drop (inject frames are wholly rule-authored,
    *  an unresolved `{{…}}` payload cannot be equality-anchored). */
@@ -148,8 +152,9 @@ export interface MessageFrameAttribution {
 
 function attributionFor(tier: MessageFireTier, rule: WsRule): MessageFrameAttribution {
   const action = rule.action;
+  const ruleUid = rule.uid;
   if (action.operation === 'drop') {
-    return { tier, modification: { kind: 'dropped' } };
+    return { tier, ruleUid, modification: { kind: 'dropped' } };
   }
   if (action.operation === 'modify' && isLiteralPayload(action.payload)) {
     // Applied ⇒ payload equality held ⇒ the captured data IS the
@@ -157,29 +162,31 @@ function attributionFor(tier: MessageFireTier, rule: WsRule): MessageFrameAttrib
     // and the replacement is the rule's literal payload.
     const modification: MessageModificationView =
       tier === 'applied' ? { kind: 'replaced-on-wire' } : { kind: 'replaced-in-page', modified: action.payload };
-    return { tier, modification };
+    return { tier, ruleUid, modification };
   }
-  return { tier, modification: null };
+  return { tier, ruleUid, modification: null };
 }
 
 /** Attribution from the frame's joined wrapper capture — recorded proof
  *  (`applied`, matching `isAppliedFire`'s in-page-reporter tier), so it
  *  needs no live rule and outranks every selector inference. */
 function captureAttribution(capture: StreamMessageCapture): MessageFrameAttribution {
+  const ruleUid = capture.ruleUid;
   if (capture.op === 'injected') {
     // The whole frame is rule-authored — there are no two sides to split.
-    return { tier: 'applied', modification: null };
+    return { tier: 'applied', ruleUid, modification: null };
   }
-  if (capture.op === 'dropped') return { tier: 'applied', modification: { kind: 'dropped' } };
+  if (capture.op === 'dropped') return { tier: 'applied', ruleUid, modification: { kind: 'dropped' } };
   return capture.direction === 'send'
     ? {
         tier: 'applied',
+        ruleUid,
         modification: {
           kind: 'replaced-on-wire',
           ...(capture.original !== undefined ? { original: capture.original } : {}),
         },
       }
-    : { tier: 'applied', modification: { kind: 'replaced-in-page', modified: capture.delivered ?? '' } };
+    : { tier: 'applied', ruleUid, modification: { kind: 'replaced-in-page', modified: capture.delivered ?? '' } };
 }
 
 /** Attribution for one frame — the joined capture when present (proof),

@@ -491,15 +491,33 @@ describe('MessagesView — Original | Modified split', () => {
 });
 
 describe('MessagesView — row actions', () => {
-  it('copy is always offered; the rule action reads Override until a ws rule fired', () => {
+  it('copy is always offered; the rule action reads Override until a ws rule accounts for the frame', () => {
     renderView(makeWsLifecycle([ws()]));
     expect(screen.getByTitle('Copy payload')).toBeTruthy();
     expect(screen.getByTitle('Create a message rule seeded from this frame').textContent).toBe('Override');
-    expect(screen.queryByTitle('Edit the message rule that fired on this request')).toBeNull();
+    expect(screen.queryByTitle('Edit the message rule that acted on this frame')).toBeNull();
     cleanup();
     renderView(makeWsLifecycle([ws()]), { fires: [makeFire()], rules: [makeWsRule()] });
-    expect(screen.getByTitle('Edit the message rule that fired on this request').textContent).toBe('Edit rule');
+    expect(screen.getByTitle('Edit the message rule that acted on this frame').textContent).toBe('Edit rule');
     expect(screen.queryByTitle('Create a message rule seeded from this frame')).toBeNull();
+  });
+
+  it('the edit action is per frame — an untouched frame keeps Override', () => {
+    // Receive-modify rule with an echo filter: it accounts for the
+    // receive frame only; the page's own send frame gets no rule action.
+    const rule = makeWsRule({
+      operation: 'modify',
+      direction: 'receive',
+      payload: '{"replaced":true}',
+      messageFilter: { matchType: 'contains', value: 'echo' },
+    });
+    const { container } = renderView(
+      makeWsLifecycle([ws({ type: 'send', data: 'hello', atMs: 1 }), ws({ data: 'echo:hello', atMs: 2 })]),
+      { fires: [makeFire()], rules: [rule] },
+    );
+    const rows = [...container.querySelectorAll('[role="option"]')];
+    expect(within(rows[0] as HTMLElement).getByTitle('Create a message rule seeded from this frame')).toBeTruthy();
+    expect(within(rows[1] as HTMLElement).getByTitle('Edit the message rule that acted on this frame')).toBeTruthy();
   });
 
   it('the toolbar offers the connection-scoped Override message action', () => {
@@ -509,7 +527,7 @@ describe('MessagesView — row actions', () => {
 
   it('a deleted rule degrades the action to Override', () => {
     renderView(makeWsLifecycle([ws()]), { fires: [makeFire('gone')], rules: [] });
-    expect(screen.queryByTitle('Edit the message rule that fired on this request')).toBeNull();
+    expect(screen.queryByTitle('Edit the message rule that acted on this frame')).toBeNull();
     expect(screen.getByTitle('Create a message rule seeded from this frame')).toBeTruthy();
   });
 });

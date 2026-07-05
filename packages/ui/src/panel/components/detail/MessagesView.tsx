@@ -22,8 +22,9 @@
  *     slice of a shared example frame.
  *   - Hovering a row reveals the right-edge actions (Headers-row
  *     idiom): copy the payload, and the rule action — "Edit rule" when
- *     a ws rule fired on this request, otherwise "Override" opening the
- *     quick-create popover seeded from the hovered frame.
+ *     a ws rule accounts for THIS frame (per-frame attribution),
+ *     otherwise "Override" opening the quick-create popover seeded from
+ *     the hovered frame.
  *   - Selecting a row opens the payload preview in a resizable pane —
  *     JSON tree / verbatim text for text frames, a Base64 / Hex / UTF-8
  *     viewer for binary frames. The grid/payload split is a standard
@@ -40,7 +41,7 @@
 
 import { CheckOutlined, CopyOutlined } from '@ant-design/icons';
 import type { LifecycleSource, RequestLifecycle } from '@openheaders/core/request-lifecycle';
-import type { InspectorHarEntry } from '@openheaders/core/types';
+import type { InspectorHarEntry, Rule } from '@openheaders/core/types';
 import { InfoPopover } from '@openheaders/ui/shared/info-popover';
 import { useResetSetting, useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import { Allotment } from 'allotment';
@@ -165,13 +166,20 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
     return map;
   }, [all, wsRules]);
 
-  // Hover row actions — copy the payload; edit the fired ws rule in the
-  // shared quick-edit popover (same host the Headers rows open), or —
-  // scaffold doctrine — create one seeded from the hovered frame.
+  // Hover row actions — copy the payload; edit THE rule that accounts
+  // for the hovered frame (per-frame attribution, so a frame no rule
+  // touched never offers another frame's rule) in the shared quick-edit
+  // popover, or — scaffold doctrine — create one seeded from the frame.
   const rulePopover = useRulePopover();
-  const editRule = wsRules[0] ?? null;
+  const editRuleForFrame = (frame: WsDisplayFrame): Rule | null => {
+    const ruleUid = attributionByIndex.get(frame.index)?.ruleUid;
+    if (ruleUid === undefined) return null;
+    const rule = rulesByUid.get(ruleUid);
+    return rule?.type === 'ws' ? rule : null;
+  };
   const openRuleAction = (e: ReactMouseEvent<HTMLButtonElement>, frame: WsDisplayFrame): void => {
     e.stopPropagation();
+    const editRule = editRuleForFrame(frame);
     if (editRule) {
       rulePopover.open({ anchorEl: e.currentTarget, rule: editRule }, { pinned: true });
       return;
@@ -432,13 +440,13 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
                         type="button"
                         className="dt-btn dt-btn-primary dt-ws-action"
                         title={
-                          editRule
-                            ? 'Edit the message rule that fired on this request'
+                          editRuleForFrame(m)
+                            ? 'Edit the message rule that acted on this frame'
                             : 'Create a message rule seeded from this frame'
                         }
                         onClick={(e) => openRuleAction(e, m)}
                       >
-                        {editRule ? 'Edit rule' : 'Override'}
+                        {editRuleForFrame(m) ? 'Edit rule' : 'Override'}
                       </button>
                     </span>
                   </div>
