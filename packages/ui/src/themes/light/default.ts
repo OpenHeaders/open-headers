@@ -9,9 +9,14 @@ export const lightDefault: ThemeVariant = {
   antdTokens: {
     borderRadius: 6,
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    // Slightly darker than antd's default so the gutter between the
-    // dock and the editor "cards" stays visible.
-    colorBgLayout: '#f0f0f0',
+    // Darker than antd's default so the gutter between the dock and
+    // the editor "cards" reads at a glance against white content.
+    colorBgLayout: '#e8e8e8',
+    // antd's light borders (#d9d9d9 / #f0f0f0) wash out on the white
+    // cards; darkened so hairlines and dividers stay visible.
+    colorBorder: '#c9c9c9',
+    colorBorderSecondary: '#dcdcdc',
+    colorSplit: '#dcdcdc',
   },
   monacoTheme: 'oh-light',
   monacoDefinition: {

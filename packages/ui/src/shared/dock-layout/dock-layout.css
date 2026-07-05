@@ -563,7 +563,7 @@
   border-radius: 3px;
 }
 
-/* Hover / active states — black alphas on the light `#ececec` frame,
+/* Hover / active states — black alphas on the light `#e8e8e8` frame,
    white alphas on the dark `#262626` frame. Grey-128 alpha was
    near-invisible against either. */
 .rules-dock-tab:not(.active):hover {
