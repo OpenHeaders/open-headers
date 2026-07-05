@@ -112,6 +112,7 @@ export interface NetworkCustomNestedLevel {
 declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
     'devpanelNetwork.layout': DevpanelNetworkLayoutSetting;
+    'devpanelNetwork.messagesLayout': DevpanelNetworkLayoutSetting;
     'devpanelNetwork.sortKind': DevpanelNetworkSortKindSetting;
     'devpanelNetwork.sortMode': DevpanelNetworkSortModeSetting;
     'devpanelNetwork.sortBy': DevpanelNetworkSortBySetting;
@@ -140,6 +141,24 @@ registerSetting({
   scope: 'user',
   enumOptions: [
     { value: 'compact', label: 'Compact', description: 'Stretchy columns absorb panel width.' },
+    { value: 'wide', label: 'Wide', description: 'Capped widths, scrolls horizontally when needed.' },
+  ],
+});
+
+registerSetting({
+  key: 'devpanelNetwork.messagesLayout',
+  type: 'enum',
+  default: 'compact',
+  schema: layoutSchema,
+  label: 'Messages Layout',
+  description:
+    'How the Messages frame grid absorbs horizontal space. Compact lets the Data column flex to fit the pane width so the grid never scrolls horizontally; Wide caps it and scrolls horizontally when needed.',
+  category: 'devpanelNetwork',
+  subcategory: 'View',
+  tags: ['messages', 'websocket', 'layout', 'compact', 'fit', 'devtools'],
+  scope: 'user',
+  enumOptions: [
+    { value: 'compact', label: 'Compact', description: 'The Data column absorbs the pane width.' },
     { value: 'wide', label: 'Wide', description: 'Capped widths, scrolls horizontally when needed.' },
   ],
 });

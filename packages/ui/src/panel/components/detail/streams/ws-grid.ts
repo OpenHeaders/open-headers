@@ -35,16 +35,27 @@ export const WS_FIRE_RAIL_PX = 14;
 /** Width of the direction rail (arrow glyphs). */
 export const WS_DIR_RAIL_PX = 20;
 
+/** View-menu layout for the grid — same vocabulary as the traffic
+ * table's `devpanelNetwork.layout` (and the shared setting schema). */
+export type WsGridLayout = 'compact' | 'wide';
+
 /**
  * The grid-template shared by the header row and every frame row. A
- * user-dragged column becomes a fixed pixel track; otherwise the Data
- * column stretches and Length / Time hold their defaults.
+ * user-dragged column becomes a fixed pixel track; otherwise the
+ * tracks mirror the traffic table's `columnTrack` per layout —
+ * `compact` fits every column inside the pane width (fixed columns
+ * shrink to their floors, Data absorbs the slack, never a horizontal
+ * scroll); `wide` holds the defaults and caps Data at 3× so the grid
+ * scrolls horizontally when the pane runs out.
  */
-export function wsGridTemplate(widths: Partial<Record<WsColumnKey, number>>): string {
+export function wsGridTemplate(widths: Partial<Record<WsColumnKey, number>>, layout: WsGridLayout): string {
   const tracks = WS_COLUMNS.map((c) => {
     const override = widths[c.key];
     if (override != null) return `${override}px`;
-    return c.stretch ? `minmax(${c.defaultWidth}px, 1fr)` : `${c.defaultWidth}px`;
+    if (layout === 'compact') {
+      return c.stretch ? `minmax(${c.minWidth}px, 1fr)` : `minmax(${c.minWidth}px, ${c.defaultWidth}px)`;
+    }
+    return c.stretch ? `minmax(${c.defaultWidth}px, ${c.defaultWidth * 3}px)` : `${c.defaultWidth}px`;
   });
   return `${WS_FIRE_RAIL_PX}px ${WS_DIR_RAIL_PX}px ${tracks.join(' ')}`;
 }

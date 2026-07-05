@@ -3,7 +3,9 @@
  * matching the host's Messages tab:
  *
  *   - Toolbar: Clear all, All / Send / Receive direction filter, regex
- *     filter (invalid patterns degrade to a literal match).
+ *     filter (invalid patterns degrade to a literal match), the
+ *     grid/payload split toggle and the `View ▾` menu (compact / wide
+ *     column layout, persisted via `devpanelNetwork.messagesLayout`).
  *   - Grid: fire rail | direction rail | Data | Length | Time. The fire
  *     rail mirrors the traffic table's — a per-frame dot where a fired
  *     `ws` rule accounts for the frame (see `message-fire-rail.ts`).
@@ -34,6 +36,7 @@ import { CheckOutlined, CopyOutlined } from '@ant-design/icons';
 import type { LifecycleSource, RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarEntry } from '@openheaders/core/types';
 import { InfoPopover } from '@openheaders/ui/shared/info-popover';
+import { useResetSetting, useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import { Allotment } from 'allotment';
 import { type CSSProperties, type MouseEvent as ReactMouseEvent, useMemo, useRef, useState } from 'react';
 import { firedWsRules, type MessageFireTier, messageFireTier } from '../../data/message-fire-rail';
@@ -43,6 +46,7 @@ import { useRulePopover } from '../RulePopoverHost';
 import { useColumnResize } from '../use-column-resize';
 import MessagePreview from './streams/MessagePreview';
 import { MessagesColumnInfo, WS_DIRECTION_INFO, WS_FIRE_RAIL_INFO } from './streams/MessagesColumnInfo';
+import { MessagesViewMenu } from './streams/MessagesViewMenu';
 import StreamGridToolbar, { type WsDirectionFilter } from './streams/StreamGridToolbar';
 import { compileStreamFilter } from './streams/stream-filter';
 import { formatStreamTime, streamTimeTooltip } from './streams/stream-time';
@@ -105,6 +109,8 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
 
   const listRef = useRef<HTMLDivElement>(null);
   const [layout, setLayout] = useMessagesSplitLayout();
+  const [gridLayout, setGridLayout] = useSetting('devpanelNetwork.messagesLayout');
+  const resetGridLayout = useResetSetting('devpanelNetwork.messagesLayout');
   const { columnWidths, registerCellRef, beginResize, resetColumnWidth } = useColumnResize(wsColumnMinWidth);
 
   const all = useMemo(() => wsDisplayFrames(lifecycle, har), [lifecycle, har]);
@@ -179,7 +185,7 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
   };
 
   return (
-    <div className="dt-ws-view" style={{ '--dt-ws-cols': wsGridTemplate(columnWidths) } as CSSProperties}>
+    <div className="dt-ws-view" style={{ '--dt-ws-cols': wsGridTemplate(columnWidths, gridLayout) } as CSSProperties}>
       <StreamGridToolbar
         onClear={onClear}
         directionFilter={{ value: direction, onChange: setDirection }}
@@ -187,6 +193,7 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
         onFilterTextChange={setFilterText}
         filterPlaceholder="Filter using regex (example: (web)?socket)"
         layoutToggle={{ layout, onChange: setLayout }}
+        viewMenu={<MessagesViewMenu layout={gridLayout} onLayoutChange={setGridLayout} onReset={resetGridLayout} />}
       />
       {dropped > 0 && (
         <div className="dt-ws-truncation">
@@ -200,7 +207,7 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
         <Allotment key={layout} vertical={layout === 'vertical'} proportionalLayout separator>
           <Allotment.Pane minSize={layout === 'vertical' ? 80 : 200} preferredSize="60%">
             <div
-              className="dt-ws-list"
+              className={`dt-ws-list${gridLayout === 'compact' ? ' dt-ws-list--compact' : ''}`}
               ref={listRef}
               onScroll={onScroll}
               role="listbox"
