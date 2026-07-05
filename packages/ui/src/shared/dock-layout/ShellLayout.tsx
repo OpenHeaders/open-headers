@@ -43,6 +43,7 @@ import type {
 import { useActivityBarSizing } from './use-activity-bar-sizing';
 import { useDockDrag } from './use-dock-drag';
 import type { DockLayoutApi } from './use-dock-layout';
+import { useNativeDragGuard } from './use-native-drag-guard';
 import VerticalActivityBar from './VerticalActivityBar';
 
 // ── Props ─────────────────────────────────────────────────────────────
@@ -136,6 +137,7 @@ function ShellLayoutInner<T extends string>({
   }, [bottomOpen, bottomPanelAlignment]);
 
   const shellRef = useRef<HTMLDivElement>(null);
+  useNativeDragGuard(shellRef);
   const [shellSize, setShellSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
   const [horizontalSizes, setHorizontalSizes] = useState<number[] | null>(null);
   const [verticalSizes, setVerticalSizes] = useState<number[] | null>(null);
