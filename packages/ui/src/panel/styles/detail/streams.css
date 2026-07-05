@@ -94,7 +94,9 @@
   font-weight: 600;
   position: sticky;
   top: 0;
-  z-index: 1;
+  /* Above the frame rows' hover-action scrims (z-index 1), which paint
+     later in the DOM. */
+  z-index: 2;
   background: var(--dt-bg);
 }
 
@@ -203,8 +205,9 @@
 
 /* Hover-revealed row actions — the same right-edge overlay the Headers
    and Cookies rows carry (Copy + rule action on a gradient scrim; no
-   reserved column, no displacement). */
-.dt-ws-list .dt-ws-row {
+   reserved column, no displacement). Frame rows only: the header row
+   must keep its `position: sticky`, which this would override. */
+.dt-ws-list .dt-ws-row:not(.dt-ws-row-header) {
   position: relative;
 }
 
