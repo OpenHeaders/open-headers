@@ -254,6 +254,8 @@ describe('validateConditionValues', () => {
         [],
       );
       expect(validateConditionValues(cond('url-filter', ['|https://openheaders.io/api?v=1']))).toEqual([]);
+      expect(validateConditionValues(cond('url-filter', ['openheaders.io/api?v=1']))).toEqual([]);
+      expect(validateConditionValues(cond('url-filter', ['*.openheaders.io:3000/echo?case=a+b']))).toEqual([]);
     });
 
     it('still warns on quantifiers outside a literal URL shape', () => {
