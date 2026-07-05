@@ -136,13 +136,15 @@ export function validateConditionValues(condition: RuleCondition): ConditionValu
 //   - looks like a regex (regex meta-chars in suspicious positions)
 
 /**
- * A value opening with a literal `scheme://` (or the `||` domain
- * anchor) is a URL typed literally — its `?` is the query separator
- * and `+` is data, not quantifiers. Regex authors flex the scheme
- * (`wss?://`, `https?://`) or anchor it (`^https://`), neither of
- * which this prefix matches.
+ * A value opening with a literal `scheme://`, the url-filter wildcard
+ * scheme `*://`, or the `||` domain anchor is a URL typed literally —
+ * its `?` is the query separator and `+` is data, not quantifiers.
+ * A leading `|` start anchor before the scheme keeps that shape. Regex
+ * authors flex the scheme (`wss?://`, `https?://`) or anchor it
+ * (`^https://`), neither of which this prefix matches — and a regex
+ * cannot open with `*`, so `*://` is unambiguously url-filter syntax.
  */
-const LITERAL_URL_PREFIX = /^(?:\|\||[a-z][a-z0-9+.-]*:\/\/)/i;
+const LITERAL_URL_PREFIX = /^(?:\|\||\|?(?:[a-z][a-z0-9+.-]*|\*):\/\/)/i;
 
 /** Unambiguous regex syntax — groups, classes, character-class escapes.
  *  All of these are literals in url-filter, none appear in real URLs. */

@@ -250,6 +250,10 @@ describe('validateConditionValues', () => {
       expect(validateConditionValues(cond('url-filter', ['ws://127.0.0.1:3000/?token=8pcEpUefMYuR']))).toEqual([]);
       expect(validateConditionValues(cond('url-filter', ['https://openheaders.io/search?q=a+b']))).toEqual([]);
       expect(validateConditionValues(cond('url-filter', ['||openheaders.io/api?v=1']))).toEqual([]);
+      expect(validateConditionValues(cond('url-filter', ['*://127.0.0.1:3000/net/ws-echo?case=ws-drop-recv']))).toEqual(
+        [],
+      );
+      expect(validateConditionValues(cond('url-filter', ['|https://openheaders.io/api?v=1']))).toEqual([]);
     });
 
     it('still warns on quantifiers outside a literal URL shape', () => {
