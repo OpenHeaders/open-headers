@@ -135,6 +135,29 @@ export function validateConditionValues(condition: RuleCondition): ConditionValu
 //   - non-ASCII (Chrome rejects)
 //   - looks like a regex (regex meta-chars in suspicious positions)
 
+/**
+ * A value opening with a literal `scheme://` (or the `||` domain
+ * anchor) is a URL typed literally — its `?` is the query separator
+ * and `+` is data, not quantifiers. Regex authors flex the scheme
+ * (`wss?://`, `https?://`) or anchor it (`^https://`), neither of
+ * which this prefix matches.
+ */
+const LITERAL_URL_PREFIX = /^(?:\|\||[a-z][a-z0-9+.-]*:\/\/)/i;
+
+/** Unambiguous regex syntax — groups, classes, character-class escapes.
+ *  All of these are literals in url-filter, none appear in real URLs. */
+const STRONG_REGEX_TELLS = /[()[\]]|\\[dwsbDWSB]/;
+
+/** `+` and `?` — regex quantifiers, but also legitimate URL characters
+ *  (query separator, plus-encoded spaces). Only tells outside a
+ *  literal-URL-shaped value. */
+const QUANTIFIER_TELLS = /[+?]/;
+
+function looksLikeRegex(value: string): boolean {
+  if (STRONG_REGEX_TELLS.test(value)) return true;
+  return !LITERAL_URL_PREFIX.test(value) && QUANTIFIER_TELLS.test(value);
+}
+
 function validateUrlFilter(values: readonly string[]): ConditionValueIssue[] {
   const out: ConditionValueIssue[] = [];
   for (let i = 0; i < values.length; i++) {
@@ -171,7 +194,7 @@ function validateUrlFilter(values: readonly string[]): ConditionValueIssue[] {
     // very common mistake — `(`, `)`, `[`, `]`, `\d`, `+`, `?` are all
     // LITERALS in url-filter, not regex meta-chars. Flag the obvious
     // tells so the user knows to switch to URL Regex.
-    if (/[()[\]+?]|\\[dwsbDWSB]/.test(trimmed)) {
+    if (looksLikeRegex(trimmed)) {
       out.push({
         valueIndex: i,
         raw,

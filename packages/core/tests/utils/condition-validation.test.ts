@@ -246,6 +246,22 @@ describe('validateConditionValues', () => {
       expect(issues[0].message).toContain('URL Regex');
     });
 
+    it('does not flag a literal URL whose query string carries ? or +', () => {
+      expect(validateConditionValues(cond('url-filter', ['ws://127.0.0.1:3000/?token=8pcEpUefMYuR']))).toEqual([]);
+      expect(validateConditionValues(cond('url-filter', ['https://openheaders.io/search?q=a+b']))).toEqual([]);
+      expect(validateConditionValues(cond('url-filter', ['||openheaders.io/api?v=1']))).toEqual([]);
+    });
+
+    it('still warns on quantifiers outside a literal URL shape', () => {
+      const issues = validateConditionValues(cond('url-filter', ['wss?://openheaders.io/live']));
+      expect(issues[0]).toMatchObject({ kind: 'invalid-url-filter', severity: 'warning' });
+    });
+
+    it('still warns on strong regex tells inside a literal URL shape', () => {
+      const issues = validateConditionValues(cond('url-filter', ['https://openheaders.io/(v1|v2)/api']));
+      expect(issues[0]).toMatchObject({ kind: 'invalid-url-filter', severity: 'warning' });
+    });
+
     it('does not lex template references', () => {
       expect(validateConditionValues(cond('url-filter', ['{{API_HOST}}']))).toEqual([]);
     });
