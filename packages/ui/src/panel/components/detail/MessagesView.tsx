@@ -4,6 +4,7 @@
  *
  *   - Toolbar: Clear all, All / Send / Receive direction filter, regex
  *     filter (invalid patterns degrade to a literal match), the
+ *     connection-scoped "Override message" create action, the
  *     grid/payload split toggle and the `View ▾` menu (compact / wide
  *     column layout, persisted via `devpanelNetwork.messagesLayout`).
  *   - Grid: fire rail | direction rail | Data | Length | Time. The fire
@@ -41,10 +42,10 @@ import { useResetSetting, useSetting } from '@openheaders/ui/workbench/settings/
 import { Allotment } from 'allotment';
 import { type CSSProperties, type MouseEvent as ReactMouseEvent, useMemo, useRef, useState } from 'react';
 import { firedWsRules, type MessageFireTier, messageFireTier } from '../../data/message-fire-rail';
-import { buildWsDraftFromFrame } from '../../data/rule-create/rule-draft-bridge';
+import { buildWsDraftFromConnection, buildWsDraftFromFrame } from '../../data/rule-create/rule-draft-bridge';
 import type { RulesByUid } from '../../data/rule-create/use-rules-lookup';
 import type { InspectorFire } from '../../data/types';
-import { useRulePopover } from '../RulePopoverHost';
+import { CONNECTION_FRAME, useRulePopover } from '../RulePopoverHost';
 import { useColumnResize } from '../use-column-resize';
 import MessagePreview from './streams/MessagePreview';
 import { MessagesColumnInfo, WS_DIRECTION_INFO, WS_FIRE_RAIL_INFO } from './streams/MessagesColumnInfo';
@@ -153,6 +154,21 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
       { pinned: true },
     );
   };
+  // Toolbar's connection-scoped create — no frame behind it, so the
+  // draft carries selector defaults and the session keys on the
+  // CONNECTION_FRAME sentinel instead of a frame index.
+  const openConnectionOverride = (e: ReactMouseEvent<HTMLButtonElement>): void => {
+    rulePopover.open(
+      {
+        mode: 'create-message',
+        anchorEl: e.currentTarget,
+        draft: buildWsDraftFromConnection(lifecycle),
+        requestId: lifecycle.requestId,
+        frameIndex: CONNECTION_FRAME,
+      },
+      { pinned: true },
+    );
+  };
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const handleCopy = (e: ReactMouseEvent<HTMLButtonElement>, frame: WsDisplayFrame): void => {
     e.stopPropagation();
@@ -212,6 +228,16 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
         filterText={filterText}
         onFilterTextChange={setFilterText}
         filterPlaceholder="Filter using regex (example: (web)?socket)"
+        action={
+          <button
+            type="button"
+            className="dt-btn dt-btn-primary"
+            title="Create a message rule for this connection"
+            onClick={openConnectionOverride}
+          >
+            Override message
+          </button>
+        }
         layoutToggle={{ layout, onChange: setLayout }}
         viewMenu={<MessagesViewMenu layout={gridLayout} onLayoutChange={setGridLayout} onReset={resetGridLayout} />}
       />

@@ -133,6 +133,14 @@ export function buildQueryParamDraftFromRequest(
   };
 }
 
+/** Build a ws message draft scoped to the CONNECTION, not a frame —
+ *  the Messages toolbar's "Override message" action. Selector defaults
+ *  only (`buildEmptyRule` parity: modify + receive); the popover is
+ *  where the user narrows it down. */
+export function buildWsDraftFromConnection(lc: RequestLifecycle): WsRuleDraft {
+  return { type: 'ws', url: lc.url, operation: 'modify', direction: 'receive' };
+}
+
 /** Cap on the seeded `contains` filter — a frame payload can be huge,
  *  and a substring prefix selects the same frames a full match would. */
 const WS_FILTER_SEED_MAX = 80;

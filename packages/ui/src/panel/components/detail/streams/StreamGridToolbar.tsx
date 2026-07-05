@@ -1,10 +1,10 @@
 /**
  * Toolbar above a message-stream grid — Clear all, an optional
- * direction filter (Messages only), the regex filter input and an
- * optional right-aligned group (Messages only): the grid/payload
- * split-orientation toggle plus the `View ▾` menu. Mirrors the host's
- * Messages / EventStream toolbars; the views own the filter state,
- * this renders the controls.
+ * direction filter (Messages only), the regex filter input, an
+ * optional action button right of it and an optional right-aligned
+ * group (Messages only): the grid/payload split-orientation toggle
+ * plus the `View ▾` menu. Mirrors the host's Messages / EventStream
+ * toolbars; the views own the filter state, this renders the controls.
  */
 
 import { type SplitLayout, SplitLayoutToggle } from '@openheaders/ui/shared/split-layout';
@@ -22,6 +22,9 @@ interface StreamGridToolbarProps {
   filterText: string;
   onFilterTextChange: (text: string) => void;
   filterPlaceholder: string;
+  /** Optional action button rendered right of the filter input —
+   *  the Messages tab's connection-scoped "Override message". */
+  action?: ReactNode;
   /** Present on the Messages tab only — grid/payload split orientation. */
   layoutToggle?: {
     layout: SplitLayout;
@@ -38,6 +41,7 @@ export default function StreamGridToolbar({
   filterText,
   onFilterTextChange,
   filterPlaceholder,
+  action,
   layoutToggle,
   viewMenu,
 }: StreamGridToolbarProps) {
@@ -75,6 +79,7 @@ export default function StreamGridToolbar({
         onChange={(e) => onFilterTextChange(e.target.value)}
         spellCheck={false}
       />
+      {action}
       {(layoutToggle || viewMenu) && (
         <span className="dt-stream-toolbar-layout">
           {layoutToggle && <SplitLayoutToggle layout={layoutToggle.layout} onChange={layoutToggle.onChange} />}

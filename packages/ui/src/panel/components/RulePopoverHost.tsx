@@ -115,14 +115,19 @@ interface QueryParamCreatePopoverState {
   requestId: string;
 }
 
+/** `frameIndex` sentinel for the Messages toolbar's connection-scoped
+ *  "Override message" — a create session with no frame behind it. */
+export const CONNECTION_FRAME = -1;
+
 /** Create mode for a ws message rule — opened from the Messages grid's
- *  per-frame "Add rule" action; Save mints + publishes. */
+ *  per-frame "Override" action or the toolbar's connection-scoped
+ *  "Override message"; Save mints + publishes. */
 interface MessageCreatePopoverState {
   mode: 'create-message';
   anchorEl: HTMLElement;
   draft: WsRuleDraft;
-  /** Inspected request — with the frame index, the popover's session
-   *  identity (each row's button keys its own session). */
+  /** Inspected request — with the frame index (or `CONNECTION_FRAME`),
+   *  the popover's session identity (each button keys its own session). */
   requestId: string;
   frameIndex: number;
 }

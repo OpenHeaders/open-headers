@@ -236,6 +236,11 @@ describe('MessagesView — row actions', () => {
     expect(screen.queryByTitle('Create a message rule seeded from this frame')).toBeNull();
   });
 
+  it('the toolbar offers the connection-scoped Override message action', () => {
+    renderView(makeWsLifecycle([ws()]));
+    expect(screen.getByTitle('Create a message rule for this connection').textContent).toBe('Override message');
+  });
+
   it('a deleted rule degrades the action to Override', () => {
     renderView(makeWsLifecycle([ws()]), { fires: [makeFire('gone')], rules: [] });
     expect(screen.queryByTitle('Edit the message rule that fired on this request')).toBeNull();
