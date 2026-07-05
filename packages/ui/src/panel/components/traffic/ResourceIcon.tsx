@@ -49,7 +49,14 @@ export default function ResourceIcon({ type }: { type: string }) {
   if (rt === 'websocket' || rt === 'ws')
     return (
       <svg className={cls} viewBox="0 0 12 12" width={12} height={12} aria-hidden="true">
-        <path d="M2 4l4 4 4-4" fill="none" stroke="currentColor" strokeWidth={1.5} />
+        <path
+          d="M10.5 3.5H2.5M4.7 1.5L2.5 3.5l2.2 2M1.5 8.5h8M7.3 6.5l2.2 2-2.2 2"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={1.1}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       </svg>
     );
   if (rt === 'fetch' || rt === 'xmlhttprequest' || rt === 'xhr')
