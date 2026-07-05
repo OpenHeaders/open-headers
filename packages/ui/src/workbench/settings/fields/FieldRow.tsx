@@ -92,14 +92,14 @@ const FieldRow: React.FC<FieldRowProps> = ({
         flexWrap: 'wrap',
         flexDirection: block ? 'column' : 'row',
         alignItems: 'flex-start',
-        columnGap: 16,
-        rowGap: 12,
-        padding: '14px 0',
+        columnGap: 12,
+        rowGap: 6,
+        padding: '7px 0',
         borderBottom: `1px solid ${token.colorBorderSecondary}`,
       }}
     >
       <div style={{ flex: block ? '1 1 100%' : '1 1 280px', minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {modified && (
             <Tooltip title="Modified from default">
               <span
@@ -115,14 +115,14 @@ const FieldRow: React.FC<FieldRowProps> = ({
               />
             </Tooltip>
           )}
-          <span style={{ fontWeight: 500, color: token.colorText }}>{label}</span>
+          <span style={{ fontSize: 13, fontWeight: 500, color: token.colorText }}>{label}</span>
           {experimental && (
             <Tooltip title="Experimental">
               <span
                 style={{
-                  fontSize: 10,
-                  padding: '1px 6px',
-                  borderRadius: 10,
+                  fontSize: 9,
+                  padding: '0 5px',
+                  borderRadius: 8,
                   background: token.colorWarningBg,
                   color: token.colorWarningText,
                   fontWeight: 500,
@@ -139,9 +139,9 @@ const FieldRow: React.FC<FieldRowProps> = ({
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: 3,
-                  fontSize: 10,
-                  padding: '1px 6px',
-                  borderRadius: 10,
+                  fontSize: 9,
+                  padding: '0 5px',
+                  borderRadius: 8,
                   background: gated ? token.colorErrorBg : token.colorInfoBg,
                   color: gated ? token.colorError : token.colorInfo,
                   fontWeight: 500,
@@ -155,10 +155,10 @@ const FieldRow: React.FC<FieldRowProps> = ({
         </div>
         <div
           style={{
-            marginTop: 4,
-            fontSize: 12,
+            marginTop: 2,
+            fontSize: 11.5,
             color: token.colorTextSecondary,
-            lineHeight: 1.5,
+            lineHeight: 1.45,
           }}
         >
           {description}

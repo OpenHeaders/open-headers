@@ -49,17 +49,17 @@ const SearchResultsPane: React.FC<SearchResultsPaneProps> = ({ results, query, o
   }
 
   return (
-    <div style={{ padding: '24px 28px 32px' }}>
-      <header style={{ marginBottom: 18 }}>
-        <h2 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: token.colorText, letterSpacing: -0.1 }}>
+    <div style={{ padding: '14px 18px 20px' }}>
+      <header style={{ marginBottom: 10 }}>
+        <h2 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: token.colorText, letterSpacing: -0.1 }}>
           Search results
         </h2>
-        <p style={{ margin: '2px 0 0', fontSize: 12, color: token.colorTextSecondary }}>
+        <p style={{ margin: '1px 0 0', fontSize: 11.5, color: token.colorTextSecondary }}>
           {results.length} {results.length === 1 ? 'match' : 'matches'} for <em>{query.trim()}</em>
         </p>
       </header>
       {grouped.map(({ cat, defs }) => (
-        <section key={cat.id} style={{ marginBottom: 20 }}>
+        <section key={cat.id} style={{ marginBottom: 12 }}>
           <button
             type="button"
             onClick={() => onJumpToCategory(cat.id)}
@@ -67,11 +67,11 @@ const SearchResultsPane: React.FC<SearchResultsPaneProps> = ({ results, query, o
               display: 'inline-flex',
               alignItems: 'center',
               gap: 6,
-              margin: '0 0 8px 4px',
+              margin: '0 0 5px 4px',
               padding: 0,
               border: 'none',
               background: 'transparent',
-              fontSize: 11,
+              fontSize: 10,
               fontWeight: 600,
               letterSpacing: 0.4,
               textTransform: 'uppercase',

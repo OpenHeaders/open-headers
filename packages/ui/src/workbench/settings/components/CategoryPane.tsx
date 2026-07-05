@@ -53,22 +53,22 @@ const CategoryPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
   const groups = useMemo(() => groupBySubcategory(category, defs), [category, defs]);
 
   return (
-    <div style={{ padding: '24px 28px 32px' }}>
-      <header style={{ marginBottom: 18 }}>
-        <h2 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: token.colorText, letterSpacing: -0.1 }}>
+    <div style={{ padding: '14px 18px 20px' }}>
+      <header style={{ marginBottom: 10 }}>
+        <h2 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: token.colorText, letterSpacing: -0.1 }}>
           {category.label}
         </h2>
         {category.description && (
-          <p style={{ margin: '2px 0 0', fontSize: 12, color: token.colorTextSecondary }}>{category.description}</p>
+          <p style={{ margin: '1px 0 0', fontSize: 11.5, color: token.colorTextSecondary }}>{category.description}</p>
         )}
       </header>
       {groups.map((group, i) => (
-        <section key={group.sub?.id ?? `_orphans_${i}`} style={{ marginBottom: 20 }}>
+        <section key={group.sub?.id ?? `_orphans_${i}`} style={{ marginBottom: 12 }}>
           {group.sub && (
             <h3
               style={{
-                margin: '0 0 8px 4px',
-                fontSize: 11,
+                margin: '0 0 5px 4px',
+                fontSize: 10,
                 fontWeight: 600,
                 letterSpacing: 0.4,
                 textTransform: 'uppercase',

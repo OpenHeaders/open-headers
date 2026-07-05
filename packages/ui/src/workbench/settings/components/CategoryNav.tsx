@@ -93,9 +93,9 @@ const CategoryNav = forwardRef<CategoryNavHandle, CategoryNavProps>(function Cat
         className="settings-category-nav"
         aria-label="Settings categories"
         style={{
-          width: showLabels ? 220 : 44,
+          width: showLabels ? 190 : 38,
           flexShrink: 0,
-          padding: showLabels ? 8 : 4,
+          padding: showLabels ? 6 : 4,
           borderRight: `1px solid ${token.colorBorderSecondary}`,
           overflowY: 'auto',
           background: token.colorBgContainer,
@@ -123,12 +123,12 @@ const CategoryNav = forwardRef<CategoryNavHandle, CategoryNavProps>(function Cat
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: showLabels ? 'flex-start' : 'center',
-                gap: showLabels ? 10 : 0,
+                gap: showLabels ? 8 : 0,
                 width: '100%',
-                padding: showLabels ? '6px 10px' : '8px 0',
+                padding: showLabels ? '4px 8px' : '6px 0',
                 marginBottom: 1,
                 border: 'none',
-                borderRadius: 6,
+                borderRadius: 5,
                 background: active ? `${token.colorPrimary}cc` : 'transparent',
                 color: dimmed
                   ? token.colorTextTertiary
@@ -137,7 +137,7 @@ const CategoryNav = forwardRef<CategoryNavHandle, CategoryNavProps>(function Cat
                     : token.colorTextSecondary,
                 cursor: 'pointer',
                 textAlign: 'left',
-                fontSize: 13,
+                fontSize: 12,
                 fontWeight: active ? 500 : 400,
                 transition: 'background 80ms ease, color 80ms ease',
               }}
@@ -148,7 +148,7 @@ const CategoryNav = forwardRef<CategoryNavHandle, CategoryNavProps>(function Cat
                 if (!active) e.currentTarget.style.background = 'transparent';
               }}
             >
-              <span style={{ fontSize: 14, opacity: 0.85, flex: 'none' }}>{cat.icon}</span>
+              <span style={{ fontSize: 13, opacity: 0.85, flex: 'none' }}>{cat.icon}</span>
               {showLabels && (
                 <span
                   style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
@@ -159,13 +159,13 @@ const CategoryNav = forwardRef<CategoryNavHandle, CategoryNavProps>(function Cat
               {isSearching && count > 0 && (
                 <span
                   style={{
-                    fontSize: 11,
+                    fontSize: 10,
                     fontWeight: 500,
                     color: token.colorTextSecondary,
                     background: token.colorFillSecondary,
-                    padding: showLabels ? '0 6px' : '0 4px',
-                    borderRadius: 8,
-                    lineHeight: '16px',
+                    padding: showLabels ? '0 5px' : '0 4px',
+                    borderRadius: 7,
+                    lineHeight: '14px',
                     minWidth: showLabels ? 18 : 14,
                     textAlign: 'center',
                     flex: 'none',

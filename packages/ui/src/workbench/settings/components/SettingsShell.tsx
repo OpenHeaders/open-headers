@@ -8,7 +8,7 @@
  */
 
 import { UndoOutlined } from '@ant-design/icons';
-import { Button, type InputRef, Popconfirm, Skeleton, theme } from 'antd';
+import { Button, ConfigProvider, type InputRef, Popconfirm, Skeleton, theme } from 'antd';
 import type React from 'react';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useModifiedCount, useResetAllSettings } from '../hooks';
@@ -145,107 +145,115 @@ const SettingsShell: React.FC<SettingsShellProps> = ({ initialSettingKey, initia
   };
 
   return (
-    <div
-      ref={rootRef}
-      className="settings-shell"
-      style={{ display: 'flex', flexDirection: 'column', height: '100%', background: token.colorBgLayout }}
-    >
-      <style>{`
-        .settings-card {
-          background: ${token.colorBgContainer};
-          border: 1px solid ${token.colorBorderSecondary};
-          border-radius: 10px;
-          overflow: hidden;
-        }
-        .settings-card .settings-field-row { border-bottom: none !important; padding-left: 16px !important; padding-right: 16px !important; }
-        .settings-card .settings-field-row + .settings-field-row { border-top: 1px solid ${token.colorBorderSecondary}; }
-      `}</style>
+    <ConfigProvider componentSize="small">
       <div
+        ref={rootRef}
+        className="settings-shell"
         style={{
           display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          padding: '10px 16px',
-          borderBottom: `1px solid ${token.colorBorderSecondary}`,
-          background: token.colorBgContainer,
+          flexDirection: 'column',
+          height: '100%',
+          background: token.colorBgLayout,
+          fontSize: 13,
         }}
       >
-        <SettingsSearch
-          query={query}
-          onQueryChange={setQuery}
-          inputRef={searchRef}
-          autoFocus
-          onArrowDown={focusSidebar}
-        />
-      </div>
-      <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
-        <CategoryNav
-          ref={navRef}
-          categories={orderedCategories.all}
-          activeCategoryId={isSearching ? null : activeId}
-          onSelect={handleSelectCategory}
-          matchCount={matchCount}
-          isSearching={isSearching}
-          onLeaveTop={focusSearch}
-        />
-        <div ref={paneRef} style={{ flex: 1, overflowY: 'auto', background: token.colorBgLayout }}>
-          {isSearching ? (
-            <SearchResultsPane results={results} query={query} onJumpToCategory={handleSelectCategory} />
-          ) : activeCategory ? (
-            (() => {
-              const Pane = activeCategory.renderPane ?? CategoryPane;
-              // `renderPane` may be a React.lazy component — categories
-              // that need heavy UI (Monaco / large form trees) defer
-              // their pane import so the settings-bootstrap path stays
-              // light. Wrap unconditionally; the default `CategoryPane`
-              // resolves synchronously and Suspense is a no-op for it.
-              return (
-                <Suspense fallback={<CategoryPaneSkeleton />}>
-                  <Pane category={activeCategory} defs={activeDefs} />
-                </Suspense>
-              );
-            })()
-          ) : (
-            <div style={{ padding: 64, textAlign: 'center', color: token.colorTextSecondary, fontSize: 13 }}>
-              No settings registered.
-            </div>
-          )}
+        <style>{`
+          .settings-card {
+            background: ${token.colorBgContainer};
+            border: 1px solid ${token.colorBorderSecondary};
+            border-radius: 8px;
+            overflow: hidden;
+          }
+          .settings-card .settings-field-row { border-bottom: none !important; padding-left: 12px !important; padding-right: 12px !important; }
+          .settings-card .settings-field-row + .settings-field-row { border-top: 1px solid ${token.colorBorderSecondary}; }
+        `}</style>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '6px 12px',
+            borderBottom: `1px solid ${token.colorBorderSecondary}`,
+            background: token.colorBgContainer,
+          }}
+        >
+          <SettingsSearch
+            query={query}
+            onQueryChange={setQuery}
+            inputRef={searchRef}
+            autoFocus
+            onArrowDown={focusSidebar}
+          />
         </div>
+        <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+          <CategoryNav
+            ref={navRef}
+            categories={orderedCategories.all}
+            activeCategoryId={isSearching ? null : activeId}
+            onSelect={handleSelectCategory}
+            matchCount={matchCount}
+            isSearching={isSearching}
+            onLeaveTop={focusSearch}
+          />
+          <div ref={paneRef} style={{ flex: 1, overflowY: 'auto', background: token.colorBgLayout }}>
+            {isSearching ? (
+              <SearchResultsPane results={results} query={query} onJumpToCategory={handleSelectCategory} />
+            ) : activeCategory ? (
+              (() => {
+                const Pane = activeCategory.renderPane ?? CategoryPane;
+                // `renderPane` may be a React.lazy component — categories
+                // that need heavy UI (Monaco / large form trees) defer
+                // their pane import so the settings-bootstrap path stays
+                // light. Wrap unconditionally; the default `CategoryPane`
+                // resolves synchronously and Suspense is a no-op for it.
+                return (
+                  <Suspense fallback={<CategoryPaneSkeleton />}>
+                    <Pane category={activeCategory} defs={activeDefs} />
+                  </Suspense>
+                );
+              })()
+            ) : (
+              <div style={{ padding: 64, textAlign: 'center', color: token.colorTextSecondary, fontSize: 13 }}>
+                No settings registered.
+              </div>
+            )}
+          </div>
+        </div>
+        <footer
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 16,
+            padding: '6px 14px',
+            borderTop: `1px solid ${token.colorBorderSecondary}`,
+            background: token.colorBgContainer,
+            fontSize: 11,
+            color: token.colorTextTertiary,
+            flex: 'none',
+          }}
+        >
+          <Hint keys={['/']} label="Search" />
+          <Hint keys={['↑', '↓']} label="Navigate" />
+          <Hint keys={['↵']} label="Select" />
+          <Hint keys={['Esc']} label="Clear / Close" />
+          <div style={{ flex: 1 }} />
+          <ResetAllButton />
+        </footer>
       </div>
-      <footer
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 16,
-          padding: '6px 14px',
-          borderTop: `1px solid ${token.colorBorderSecondary}`,
-          background: token.colorBgContainer,
-          fontSize: 11,
-          color: token.colorTextTertiary,
-          flex: 'none',
-        }}
-      >
-        <Hint keys={['/']} label="Search" />
-        <Hint keys={['↑', '↓']} label="Navigate" />
-        <Hint keys={['↵']} label="Select" />
-        <Hint keys={['Esc']} label="Clear / Close" />
-        <div style={{ flex: 1 }} />
-        <ResetAllButton />
-      </footer>
-    </div>
+    </ConfigProvider>
   );
 };
 
 const CategoryPaneSkeleton: React.FC = () => {
   const { token } = theme.useToken();
   return (
-    <div style={{ padding: '20px 24px 28px', maxWidth: 760 }}>
-      <Skeleton.Input active size="small" style={{ width: 140, marginBottom: 14 }} />
+    <div style={{ padding: '14px 18px 20px', maxWidth: 760 }}>
+      <Skeleton.Input active size="small" style={{ width: 140, marginBottom: 10 }} />
       <div
         style={{
           background: token.colorBgContainer,
           border: `1px solid ${token.colorBorderSecondary}`,
-          borderRadius: 10,
+          borderRadius: 8,
           padding: '12px 14px',
           marginBottom: 14,
         }}
@@ -268,7 +276,7 @@ const CategoryPaneSkeleton: React.FC = () => {
         style={{
           background: token.colorBgContainer,
           border: `1px solid ${token.colorBorderSecondary}`,
-          borderRadius: 10,
+          borderRadius: 8,
           padding: '14px 16px',
           marginBottom: 14,
         }}
@@ -279,7 +287,7 @@ const CategoryPaneSkeleton: React.FC = () => {
         style={{
           background: token.colorBgContainer,
           border: `1px solid ${token.colorBorderSecondary}`,
-          borderRadius: 10,
+          borderRadius: 8,
           padding: '14px 16px',
         }}
       >

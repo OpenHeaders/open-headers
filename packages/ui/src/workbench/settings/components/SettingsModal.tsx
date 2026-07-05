@@ -83,7 +83,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: 12,
-          padding: '10px 16px',
+          padding: '6px 12px',
           borderBottom: `1px solid ${token.colorBorderSecondary}`,
           background: token.colorBgElevated,
         }}
