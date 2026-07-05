@@ -109,6 +109,7 @@ const TYPE_ORDER: readonly string[] = [
   'xmlhttprequest',
   'xhr',
   'fetch',
+  'eventsource',
   'script',
   'js',
   'stylesheet',

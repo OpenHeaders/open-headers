@@ -5,6 +5,7 @@ export const RESOURCE_LABEL: Record<string, string> = {
   xmlhttprequest: 'xhr',
   xhr: 'xhr',
   fetch: 'fetch',
+  eventsource: 'eventsource',
   script: 'script',
   stylesheet: 'stylesheet',
   image: 'image',
@@ -23,6 +24,7 @@ const KNOWN_TYPES = new Set([
   'xmlhttprequest',
   'xhr',
   'fetch',
+  'eventsource',
   'script',
   'stylesheet',
   'image',
@@ -39,7 +41,7 @@ export function normalizeResourceType(raw: string | undefined): string {
 }
 
 function matchesCategory(rt: string, category: string): boolean {
-  if (category === 'xhr') return rt === 'xmlhttprequest' || rt === 'xhr' || rt === 'fetch';
+  if (category === 'xhr') return rt === 'xmlhttprequest' || rt === 'xhr' || rt === 'fetch' || rt === 'eventsource';
   if (category === 'doc') return rt === 'main_frame' || rt === 'sub_frame' || rt === 'document';
   if (category === 'js') return rt === 'script';
   if (category === 'css') return rt === 'stylesheet';
