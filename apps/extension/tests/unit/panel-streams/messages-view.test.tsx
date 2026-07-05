@@ -225,18 +225,21 @@ describe('MessagesView — fire rail', () => {
 });
 
 describe('MessagesView — row actions', () => {
-  it('copy is always offered; the rule action appears only when a ws rule fired', () => {
+  it('copy is always offered; the rule action reads Add rule until a ws rule fired', () => {
     renderView(makeWsLifecycle([ws()]));
     expect(screen.getByTitle('Copy payload')).toBeTruthy();
+    expect(screen.getByTitle('Create a message rule seeded from this frame').textContent).toBe('Add rule');
     expect(screen.queryByTitle('Edit the message rule that fired on this request')).toBeNull();
     cleanup();
     renderView(makeWsLifecycle([ws()]), { fires: [makeFire()], rules: [makeWsRule()] });
-    expect(screen.getByTitle('Edit the message rule that fired on this request')).toBeTruthy();
+    expect(screen.getByTitle('Edit the message rule that fired on this request').textContent).toBe('Edit rule');
+    expect(screen.queryByTitle('Create a message rule seeded from this frame')).toBeNull();
   });
 
-  it('a deleted rule drops the edit action', () => {
+  it('a deleted rule degrades the action to Add rule', () => {
     renderView(makeWsLifecycle([ws()]), { fires: [makeFire('gone')], rules: [] });
     expect(screen.queryByTitle('Edit the message rule that fired on this request')).toBeNull();
+    expect(screen.getByTitle('Create a message rule seeded from this frame')).toBeTruthy();
   });
 });
 

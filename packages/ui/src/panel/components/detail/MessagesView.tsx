@@ -16,8 +16,9 @@
  *     dividers and hover-revealed (i) popovers that each highlight one
  *     slice of a shared example frame.
  *   - Hovering a row reveals the right-edge actions (Headers-row
- *     idiom): copy the payload, and — when a ws rule fired on this
- *     request — edit it in the shared quick-edit popover.
+ *     idiom): copy the payload, and the rule action — "Edit rule" when
+ *     a ws rule fired on this request, otherwise "Add rule" opening the
+ *     quick-create popover seeded from the hovered frame.
  *   - Selecting a row opens the payload preview in a resizable pane —
  *     JSON tree / verbatim text for text frames, a Base64 / Hex / UTF-8
  *     viewer for binary frames. The grid/payload split is a standard
@@ -40,6 +41,7 @@ import { useResetSetting, useSetting } from '@openheaders/ui/workbench/settings/
 import { Allotment } from 'allotment';
 import { type CSSProperties, type MouseEvent as ReactMouseEvent, useMemo, useRef, useState } from 'react';
 import { firedWsRules, type MessageFireTier, messageFireTier } from '../../data/message-fire-rail';
+import { buildWsDraftFromFrame } from '../../data/rule-create/rule-draft-bridge';
 import type { RulesByUid } from '../../data/rule-create/use-rules-lookup';
 import type { InspectorFire } from '../../data/types';
 import { useRulePopover } from '../RulePopoverHost';
@@ -130,9 +132,27 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
   }, [all, wsRules]);
 
   // Hover row actions — copy the payload; edit the fired ws rule in the
-  // shared quick-edit popover (same host the Headers rows open).
+  // shared quick-edit popover (same host the Headers rows open), or —
+  // scaffold doctrine — create one seeded from the hovered frame.
   const rulePopover = useRulePopover();
   const editRule = wsRules[0] ?? null;
+  const openRuleAction = (e: ReactMouseEvent<HTMLButtonElement>, frame: WsDisplayFrame): void => {
+    e.stopPropagation();
+    if (editRule) {
+      rulePopover.open({ anchorEl: e.currentTarget, rule: editRule }, { pinned: true });
+      return;
+    }
+    rulePopover.open(
+      {
+        mode: 'create-message',
+        anchorEl: e.currentTarget,
+        draft: buildWsDraftFromFrame(lifecycle, frame),
+        requestId: lifecycle.requestId,
+        frameIndex: frame.index,
+      },
+      { pinned: true },
+    );
+  };
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const handleCopy = (e: ReactMouseEvent<HTMLButtonElement>, frame: WsDisplayFrame): void => {
     e.stopPropagation();
@@ -296,19 +316,18 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
                       >
                         {copiedIndex === m.index ? <CheckOutlined /> : <CopyOutlined />}
                       </button>
-                      {editRule && (
-                        <button
-                          type="button"
-                          className="dt-btn dt-btn-primary dt-ws-action"
-                          title="Edit the message rule that fired on this request"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            rulePopover.open({ anchorEl: e.currentTarget, rule: editRule }, { pinned: true });
-                          }}
-                        >
-                          Edit rule
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        className="dt-btn dt-btn-primary dt-ws-action"
+                        title={
+                          editRule
+                            ? 'Edit the message rule that fired on this request'
+                            : 'Create a message rule seeded from this frame'
+                        }
+                        onClick={(e) => openRuleAction(e, m)}
+                      >
+                        {editRule ? 'Edit rule' : 'Add rule'}
+                      </button>
                     </span>
                   </div>
                 );
