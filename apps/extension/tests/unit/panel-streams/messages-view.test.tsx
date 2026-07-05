@@ -298,7 +298,7 @@ describe('MessagesView — Original | Modified split', () => {
       rules: [rule],
     });
     fireEvent.click(container.querySelector('[role="option"]') as HTMLElement);
-    expect(screen.getByText('Original · server → Open Headers')).toBeTruthy();
+    expect(screen.getByText('Original · server → page')).toBeTruthy();
     expect(screen.getByText('Dropped · never reached the page')).toBeTruthy();
     expect(screen.getByText(/never delivered to the page\./)).toBeTruthy();
     expect(screen.getByLabelText('About Dropped, inferred')).toBeTruthy();
@@ -328,8 +328,8 @@ describe('MessagesView — Original | Modified split', () => {
       rules: [rule],
     });
     fireEvent.click(container.querySelector('[role="option"]') as HTMLElement);
-    expect(screen.getByText('Original · server → Open Headers')).toBeTruthy();
-    expect(screen.getByText('Modified · Open Headers → page')).toBeTruthy();
+    expect(screen.getByText('Original · server → page')).toBeTruthy();
+    expect(screen.getByText('Modified · server → Open Headers → page')).toBeTruthy();
     const panes = container.querySelectorAll('.dt-body-split-pane');
     expect(panes[0].textContent).toContain('echo:hello');
     expect(panes[1].textContent).toContain('replaced');
@@ -343,8 +343,8 @@ describe('MessagesView — Original | Modified split', () => {
       rules: [rule],
     });
     fireEvent.click(container.querySelector('[role="option"]') as HTMLElement);
-    expect(screen.getByText('Original · page → Open Headers')).toBeTruthy();
-    expect(screen.getByText('Modified · Open Headers → server')).toBeTruthy();
+    expect(screen.getByText('Original · page → server')).toBeTruthy();
+    expect(screen.getByText('Modified · page → Open Headers → server')).toBeTruthy();
     expect(screen.getByText(/was not captured/)).toBeTruthy();
     expect(screen.queryByLabelText('About Derived, not captured')).toBeNull();
   });

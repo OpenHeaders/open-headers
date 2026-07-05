@@ -24,11 +24,11 @@ import type { MessageFrameAttribution } from '../../../data/message-fire-rail';
 import { JsonTree } from '../../JsonTree';
 import HexViewer from '../HexViewer';
 import {
+  REQUEST_MODIFIED_LABEL,
+  REQUEST_ORIGINAL_LABEL,
+  RESPONSE_MODIFIED_LABEL,
+  RESPONSE_ORIGINAL_LABEL,
   WS_RECV_DROPPED_LABEL,
-  WS_RECV_MODIFIED_LABEL,
-  WS_RECV_ORIGINAL_LABEL,
-  WS_SEND_MODIFIED_LABEL,
-  WS_SEND_ORIGINAL_LABEL,
 } from '../override-labels';
 import ResponseViewerToolbar, { type ViewMode } from '../ResponseViewerToolbar';
 import SplitBodyView from '../SplitBodyView';
@@ -179,7 +179,7 @@ export default function MessagePreview({ frame, attribution = null }: MessagePre
       return (
         <div className="dt-msg-preview-dual">
           <SplitBodyView
-            startLabel={WS_RECV_ORIGINAL_LABEL}
+            startLabel={RESPONSE_ORIGINAL_LABEL}
             start={<FramePayload frame={frame} />}
             endLabel={WS_RECV_DROPPED_LABEL}
             end={
@@ -214,9 +214,9 @@ export default function MessagePreview({ frame, attribution = null }: MessagePre
     return (
       <div className="dt-msg-preview-dual">
         <SplitBodyView
-          startLabel={send ? WS_SEND_ORIGINAL_LABEL : WS_RECV_ORIGINAL_LABEL}
+          startLabel={send ? REQUEST_ORIGINAL_LABEL : RESPONSE_ORIGINAL_LABEL}
           start={originalPane}
-          endLabel={send ? WS_SEND_MODIFIED_LABEL : WS_RECV_MODIFIED_LABEL}
+          endLabel={send ? REQUEST_MODIFIED_LABEL : RESPONSE_MODIFIED_LABEL}
           end={modifiedPane}
           headerAction={inferredInfo}
         />
