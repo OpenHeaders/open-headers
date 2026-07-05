@@ -224,6 +224,92 @@ describe('MessagesView — fire rail', () => {
   });
 });
 
+describe('MessagesView — Original | Modified split', () => {
+  function splitSides(row: Element): string[] | null {
+    const split = row.querySelector('.dt-ws-data--split');
+    if (!split) return null;
+    return [...split.querySelectorAll('.dt-ws-data-side')].map((el) => el.textContent ?? '');
+  }
+
+  it('an inferred receive-modify frame splits wire original | derived replacement', () => {
+    const rule = makeWsRule({
+      operation: 'modify',
+      direction: 'receive',
+      payload: '{"replaced":true}',
+      messageFilter: { matchType: 'contains', value: 'echo' },
+    });
+    const { container } = renderView(makeWsLifecycle([ws({ data: 'echo:hello' }), ws({ data: 'other' })]), {
+      fires: [makeFire()],
+      rules: [rule],
+    });
+    const rows = [...container.querySelectorAll('[role="option"]')];
+    expect(splitSides(rows[0])).toEqual(['echo:hello', '{"replaced":true}']);
+    expect(splitSides(rows[1])).toBeNull();
+  });
+
+  it('an applied send-modify frame splits Not captured | wire replacement', () => {
+    const rule = makeWsRule({ operation: 'modify', direction: 'send', payload: 'OUT' });
+    const { container } = renderView(makeWsLifecycle([ws({ type: 'send', data: 'OUT' })]), {
+      fires: [makeFire()],
+      rules: [rule],
+    });
+    const row = container.querySelector('[role="option"]') as HTMLElement;
+    expect(splitSides(row)).toEqual(['Not captured', 'OUT']);
+  });
+
+  it('inject and unresolved-payload frames never split', () => {
+    const inject = makeWsRule({ operation: 'inject', direction: 'receive', payload: 'SYNTH' }, 'ws1');
+    const unresolved = makeWsRule({ operation: 'modify', direction: 'receive', payload: '{{env.x}}' }, 'ws2');
+    const { container } = renderView(makeWsLifecycle([ws({ data: 'SYNTH' }), ws({ data: 'organic' })]), {
+      fires: [makeFire('ws1'), makeFire('ws2')],
+      rules: [inject, unresolved],
+    });
+    const rows = [...container.querySelectorAll('[role="option"]')];
+    expect(splitSides(rows[0])).toBeNull();
+    expect(splitSides(rows[1])).toBeNull();
+  });
+
+  it('selecting a modified frame opens the labeled Original | Modified preview with the inferred note', () => {
+    const rule = makeWsRule({
+      operation: 'modify',
+      direction: 'receive',
+      payload: '{"replaced":true}',
+      messageFilter: { matchType: 'contains', value: 'echo' },
+    });
+    const { container } = renderView(makeWsLifecycle([ws({ data: 'echo:hello' })]), {
+      fires: [makeFire()],
+      rules: [rule],
+    });
+    fireEvent.click(container.querySelector('[role="option"]') as HTMLElement);
+    expect(screen.getByText('Original · server → Open Headers')).toBeTruthy();
+    expect(screen.getByText('Modified · Open Headers → page')).toBeTruthy();
+    const panes = container.querySelectorAll('.dt-body-split-pane');
+    expect(panes[0].textContent).toContain('echo:hello');
+    expect(panes[1].textContent).toContain('replaced');
+    expect(screen.getByText(/application inferred, not captured/)).toBeTruthy();
+  });
+
+  it('an applied send-modify preview explains the uncaptured original and carries no note', () => {
+    const rule = makeWsRule({ operation: 'modify', direction: 'send', payload: 'OUT' });
+    const { container } = renderView(makeWsLifecycle([ws({ type: 'send', data: 'OUT' })]), {
+      fires: [makeFire()],
+      rules: [rule],
+    });
+    fireEvent.click(container.querySelector('[role="option"]') as HTMLElement);
+    expect(screen.getByText('Original · page → Open Headers')).toBeTruthy();
+    expect(screen.getByText('Modified · Open Headers → server')).toBeTruthy();
+    expect(screen.getByText(/was not captured/)).toBeTruthy();
+    expect(screen.queryByText(/application inferred/)).toBeNull();
+  });
+
+  it('an unmodified frame keeps the single-pane preview', () => {
+    const { container } = renderView(makeWsLifecycle([ws({ data: 'plain' })]));
+    fireEvent.click(container.querySelector('[role="option"]') as HTMLElement);
+    expect(container.querySelector('.dt-msg-preview-dual')).toBeNull();
+    expect(container.querySelector('.dt-msg-preview-content pre')?.textContent).toBe('plain');
+  });
+});
+
 describe('MessagesView — row actions', () => {
   it('copy is always offered; the rule action reads Override until a ws rule fired', () => {
     renderView(makeWsLifecycle([ws()]));

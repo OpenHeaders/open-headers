@@ -10,3 +10,9 @@ export const RESPONSE_MODIFIED_LABEL = 'Modified · server → Open Headers → 
 
 export const REQUEST_ORIGINAL_LABEL = 'Original · page → server';
 export const REQUEST_MODIFIED_LABEL = 'Modified · page → Open Headers → server';
+
+/** WebSocket frame captions — per direction, since a frame travels one way. */
+export const WS_RECV_ORIGINAL_LABEL = 'Original · server → Open Headers';
+export const WS_RECV_MODIFIED_LABEL = 'Modified · Open Headers → page';
+export const WS_SEND_ORIGINAL_LABEL = 'Original · page → Open Headers';
+export const WS_SEND_MODIFIED_LABEL = 'Modified · Open Headers → server';

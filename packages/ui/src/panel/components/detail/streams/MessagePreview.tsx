@@ -7,17 +7,36 @@
  *     JSON, the verbatim text otherwise.
  *   - Binary frames → Base64 / Hex / UTF-8 viewer with a copy action
  *     (copies the current view's representation).
+ *   - A frame a `ws` rule modified → the Original | Modified split
+ *     (same {@link SplitBodyView} shell as the Response tab), each side
+ *     labeled with its delivery path. The side the capture plane never
+ *     saw is either derived from the rule's replacement payload
+ *     (receive: the wire holds the original) or honestly absent (send:
+ *     only the replacement crossed the wire). An inferred-tier
+ *     modification carries a derivation note — the split view never
+ *     claims more than the fire rail does.
  */
 
 import { useMemo, useState } from 'react';
 import { base64ToBytes } from '../../../data/base64';
+import type { MessageFrameAttribution } from '../../../data/message-fire-rail';
 import { JsonTree } from '../../JsonTree';
 import HexViewer from '../HexViewer';
+import {
+  WS_RECV_MODIFIED_LABEL,
+  WS_RECV_ORIGINAL_LABEL,
+  WS_SEND_MODIFIED_LABEL,
+  WS_SEND_ORIGINAL_LABEL,
+} from '../override-labels';
 import ResponseViewerToolbar, { type ViewMode } from '../ResponseViewerToolbar';
+import SplitBodyView from '../SplitBodyView';
 import { type WsDisplayFrame, WS_OPCODE_BINARY } from './ws-frames';
 
 interface MessagePreviewProps {
   frame: WsDisplayFrame | null;
+  /** Fire-rail attribution for the frame — a derivable modification
+   *  flips the pane into the Original | Modified split. */
+  attribution?: MessageFrameAttribution | null;
 }
 
 function tryParseJson(text: string): unknown | undefined {
@@ -88,12 +107,33 @@ function BinaryPreview({ frame }: { frame: WsDisplayFrame }) {
   );
 }
 
-export default function MessagePreview({ frame }: MessagePreviewProps) {
-  const json = useMemo(
-    () => (frame && frame.opcode !== WS_OPCODE_BINARY ? tryParseJson(frame.data) : undefined),
-    [frame],
+/** JSON tree when the text parses, verbatim `pre` otherwise — the text
+ *  rendering shared by the captured frame and the derived replacement. */
+function TextPayload({ text }: { text: string }) {
+  const json = useMemo(() => tryParseJson(text), [text]);
+  if (json !== undefined) {
+    return (
+      <div className="dt-msg-preview-content dt-msg-preview-json">
+        <JsonTree value={json} defaultExpandedDepth={2} />
+      </div>
+    );
+  }
+  return (
+    <div className="dt-msg-preview-content">
+      <pre className="dt-body-pre">{text}</pre>
+    </div>
   );
+}
 
+/** The single-frame payload rendering (binary viewer / JSON tree / text). */
+function FramePayload({ frame }: { frame: WsDisplayFrame }) {
+  if (frame.opcode === WS_OPCODE_BINARY && frame.type !== 'error') {
+    return <BinaryPreview frame={frame} />;
+  }
+  return <TextPayload text={frame.data} />;
+}
+
+export default function MessagePreview({ frame, attribution = null }: MessagePreviewProps) {
   if (!frame) {
     return (
       <div className="dt-msg-preview-empty">
@@ -103,21 +143,41 @@ export default function MessagePreview({ frame }: MessagePreviewProps) {
     );
   }
 
-  if (frame.opcode === WS_OPCODE_BINARY && frame.type !== 'error') {
-    return <BinaryPreview frame={frame} />;
-  }
-
-  if (json !== undefined) {
+  const modification = attribution?.modification ?? null;
+  if (modification) {
+    const send = frame.type === 'send';
+    const originalPane =
+      modification.captured === 'original' ? (
+        <FramePayload frame={frame} />
+      ) : (
+        <div className="dt-msg-preview-content">
+          <span className="dt-col-muted">
+            The frame the page produced was not captured — only the modified frame crossed the wire.
+          </span>
+        </div>
+      );
+    const modifiedPane =
+      modification.captured === 'modified' ? (
+        <FramePayload frame={frame} />
+      ) : (
+        <TextPayload text={modification.modified} />
+      );
     return (
-      <div className="dt-msg-preview-content dt-msg-preview-json">
-        <JsonTree value={json} defaultExpandedDepth={2} />
+      <div className="dt-msg-preview-dual">
+        <SplitBodyView
+          startLabel={send ? WS_SEND_ORIGINAL_LABEL : WS_RECV_ORIGINAL_LABEL}
+          start={originalPane}
+          endLabel={send ? WS_SEND_MODIFIED_LABEL : WS_RECV_MODIFIED_LABEL}
+          end={modifiedPane}
+        />
+        {attribution?.tier === 'inferred' && (
+          <div className="dt-msg-preview-note">
+            Modified side derived from the rule's replacement payload — application inferred, not captured.
+          </div>
+        )}
       </div>
     );
   }
 
-  return (
-    <div className="dt-msg-preview-content">
-      <pre className="dt-body-pre">{frame.data}</pre>
-    </div>
-  );
+  return <FramePayload frame={frame} />;
 }

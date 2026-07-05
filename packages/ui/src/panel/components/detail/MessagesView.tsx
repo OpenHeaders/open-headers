@@ -10,6 +10,9 @@
  *   - Grid: fire rail | direction rail | Data | Length | Time. The fire
  *     rail mirrors the traffic table's — a per-frame dot where a fired
  *     `ws` rule accounts for the frame (see `message-fire-rail.ts`).
+ *     A frame with a derivable modification renders its Data cell split
+ *     Original | Modified, and the preview pane mirrors the split with
+ *     labeled panes — the Response tab's two-sided idiom.
  *     Time is the one sortable column,
  *     ascending by default; the list follows the tail while parked at
  *     the bottom (same pin semantics as the main traffic table). The
@@ -41,7 +44,12 @@ import { InfoPopover } from '@openheaders/ui/shared/info-popover';
 import { useResetSetting, useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import { Allotment } from 'allotment';
 import { type CSSProperties, type MouseEvent as ReactMouseEvent, useMemo, useRef, useState } from 'react';
-import { firedWsRules, type MessageFireTier, messageFireTier } from '../../data/message-fire-rail';
+import {
+  firedWsRules,
+  type MessageFireTier,
+  type MessageFrameAttribution,
+  messageFrameAttribution,
+} from '../../data/message-fire-rail';
 import { buildWsDraftFromConnection, buildWsDraftFromFrame } from '../../data/rule-create/rule-draft-bridge';
 import type { RulesByUid } from '../../data/rule-create/use-rules-lookup';
 import type { InspectorFire } from '../../data/types';
@@ -120,16 +128,18 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
 
   const wsRules = useMemo(() => firedWsRules(fires, rulesByUid), [fires, rulesByUid]);
 
-  // Fire-rail tiers, derived per frame from the row's fired ws rules —
-  // see `message-fire-rail.ts` for the attribution-honesty contract.
-  const fireTierByIndex = useMemo(() => {
-    const tiers = new Map<number, MessageFireTier>();
-    if (wsRules.length === 0) return tiers;
+  // Fire-rail attribution, derived per frame from the row's fired ws
+  // rules — tier drives the dot, the modification view drives the
+  // Original | Modified split (see `message-fire-rail.ts` for the
+  // attribution-honesty contract).
+  const attributionByIndex = useMemo(() => {
+    const map = new Map<number, MessageFrameAttribution>();
+    if (wsRules.length === 0) return map;
     for (const frame of all) {
-      const tier = messageFireTier(wsRules, frame);
-      if (tier !== null) tiers.set(frame.index, tier);
+      const attribution = messageFrameAttribution(wsRules, frame);
+      if (attribution !== null) map.set(frame.index, attribution);
     }
-    return tiers;
+    return map;
   }, [all, wsRules]);
 
   // Hover row actions — copy the payload; edit the fired ws rule in the
@@ -306,7 +316,9 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
               </div>
               {visible.map((m) => {
                 const isSelected = m.index === selectedIndex;
-                const fireTier = fireTierByIndex.get(m.index) ?? null;
+                const attribution = attributionByIndex.get(m.index) ?? null;
+                const fireTier = attribution?.tier ?? null;
+                const modification = attribution?.modification ?? null;
                 return (
                   <div
                     key={`ws-${m.index}`}
@@ -327,7 +339,26 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
                     <span className="dt-ws-dir" aria-hidden="true">
                       {directionArrow(m.type)}
                     </span>
-                    <span className="dt-ws-data">{frameDataLabel(m)}</span>
+                    {modification === null ? (
+                      <span className="dt-ws-data">{frameDataLabel(m)}</span>
+                    ) : (
+                      // Original | Modified at a glance — the wire side and
+                      // the page side of the rewrite, mirroring the preview
+                      // pane's split (the side never captured says so).
+                      <span className="dt-ws-data dt-ws-data--split">
+                        <span className="dt-ws-data-side">
+                          {modification.captured === 'original' ? (
+                            frameDataLabel(m)
+                          ) : (
+                            <span className="dt-col-muted">Not captured</span>
+                          )}
+                        </span>
+                        <span className="dt-ws-data-split-divider" aria-hidden="true" />
+                        <span className="dt-ws-data-side">
+                          {modification.captured === 'modified' ? frameDataLabel(m) : modification.modified}
+                        </span>
+                      </span>
+                    )}
                     <span className="dt-ws-len">{frameLengthLabel(m)}</span>
                     <span className="dt-ws-time" title={streamTimeTooltip(m.atMs)}>
                       {formatStreamTime(m.atMs)}
@@ -362,7 +393,10 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
           </Allotment.Pane>
           <Allotment.Pane minSize={layout === 'vertical' ? 60 : 160}>
             <div className="dt-ws-preview">
-              <MessagePreview frame={selected} />
+              <MessagePreview
+                frame={selected}
+                attribution={selected !== null ? (attributionByIndex.get(selected.index) ?? null) : null}
+              />
             </div>
           </Allotment.Pane>
         </Allotment>

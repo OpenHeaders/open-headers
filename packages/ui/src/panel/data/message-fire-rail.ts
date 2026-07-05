@@ -93,14 +93,64 @@ function ruleFrameTier(rule: WsRule, frame: FrameShape): MessageFireTier | null 
   return filterTakes(action.messageFilter, frame.data) ? 'inferred' : null;
 }
 
+/**
+ * Which side of a modify the captured frame holds, plus the derivable
+ * counterpart. Direction decides where the capture plane sits relative
+ * to the wrapper:
+ *
+ *   - `captured: 'original'` — the wire recorded the pre-modify frame
+ *     (receive: the wrapper swaps delivery after capture). `modified`
+ *     is the replacement the page received — the rule's literal
+ *     payload, exact by the wrapper's contract, though whether THIS
+ *     frame took it is only as strong as the tier says.
+ *   - `captured: 'modified'` — the wire recorded the replacement
+ *     (send: the wrapper swaps before `send`). The page-produced
+ *     original never crossed any capture plane; there is nothing to
+ *     derive it from.
+ */
+export type MessageModificationView =
+  | { readonly captured: 'original'; readonly modified: string }
+  | { readonly captured: 'modified' };
+
+export interface MessageFrameAttribution {
+  readonly tier: MessageFireTier;
+  /** Both-sides view of the modification — `null` when the frame isn't
+   *  a derivable modify (inject frames are wholly rule-authored, an
+   *  unresolved `{{…}}` payload cannot be equality-anchored). */
+  readonly modification: MessageModificationView | null;
+}
+
+function attributionFor(tier: MessageFireTier, rule: WsRule, frame: FrameShape): MessageFrameAttribution {
+  const action = rule.action;
+  if (action.operation === 'modify' && isLiteralPayload(action.payload)) {
+    // Applied ⇒ payload equality held ⇒ the captured data IS the
+    // replacement; inferred ⇒ the captured data is the presumed original
+    // and the replacement is the rule's literal payload.
+    const modification: MessageModificationView =
+      tier === 'applied' ? { captured: 'modified' } : { captured: 'original', modified: action.payload };
+    return { tier, modification };
+  }
+  return { tier, modification: null };
+}
+
+/** Attribution for one frame across the row's fired `ws` rules —
+ *  `applied` wins over `inferred` (first rule of the winning tier
+ *  supplies the modification view); `null` = no rule accounts for it. */
+export function messageFrameAttribution(
+  rules: readonly WsRule[],
+  frame: FrameShape,
+): MessageFrameAttribution | null {
+  let inferred: WsRule | null = null;
+  for (const rule of rules) {
+    const t = ruleFrameTier(rule, frame);
+    if (t === 'applied') return attributionFor('applied', rule, frame);
+    if (t === 'inferred' && inferred === null) inferred = rule;
+  }
+  return inferred === null ? null : attributionFor('inferred', inferred, frame);
+}
+
 /** Rail tier for one frame across the row's fired `ws` rules —
  *  `applied` wins over `inferred`; `null` = no dot. */
 export function messageFireTier(rules: readonly WsRule[], frame: FrameShape): MessageFireTier | null {
-  let tier: MessageFireTier | null = null;
-  for (const rule of rules) {
-    const t = ruleFrameTier(rule, frame);
-    if (t === 'applied') return 'applied';
-    if (t === 'inferred') tier = 'inferred';
-  }
-  return tier;
+  return messageFrameAttribution(rules, frame)?.tier ?? null;
 }
