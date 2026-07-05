@@ -132,21 +132,51 @@ function BinaryPreview({ frame }: { frame: WsDisplayFrame }) {
   );
 }
 
-/** JSON tree when the text parses, verbatim `pre` otherwise — the text
- *  rendering shared by the captured frame and the derived replacement. */
+/**
+ * Text payload rendering shared by the captured frame and the derived
+ * replacement: a JSON tree when the payload parses (with a bottom
+ * `JSON | Raw` mode switch — same toolbar anatomy as the Response
+ * viewer, so the parsed view is an offer, not an assumption), verbatim
+ * `pre` otherwise.
+ */
 function TextPayload({ text }: { text: string }) {
   const json = useMemo(() => tryParseJson(text), [text]);
-  if (json !== undefined) {
-    return (
-      <div className="dt-msg-preview-content dt-msg-preview-json">
-        <JsonTree value={json} defaultExpandedDepth={2} />
-      </div>
-    );
-  }
+  const [raw, setRaw] = useState(false);
+  const showJson = json !== undefined && !raw;
   return (
-    <div className="dt-msg-preview-content">
-      <pre className="dt-body-pre">{text}</pre>
-    </div>
+    <>
+      {showJson ? (
+        <div className="dt-msg-preview-content dt-msg-preview-json">
+          <JsonTree value={json} defaultExpandedDepth={2} />
+        </div>
+      ) : (
+        <div className="dt-msg-preview-content">
+          <pre className="dt-body-pre">{text}</pre>
+        </div>
+      )}
+      {json !== undefined && (
+        <div className="dt-response-toolbar">
+          <div className="dt-response-toolbar-left">
+            <div className="dt-response-toolbar-modes">
+              <button
+                type="button"
+                className={`dt-response-toolbar-btn ${showJson ? 'active' : ''}`}
+                onClick={() => setRaw(false)}
+              >
+                JSON
+              </button>
+              <button
+                type="button"
+                className={`dt-response-toolbar-btn ${raw ? 'active' : ''}`}
+                onClick={() => setRaw(true)}
+              >
+                Raw
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

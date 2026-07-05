@@ -153,6 +153,22 @@ describe('MessagesView — preview pane', () => {
     expect(preview?.textContent).toContain('subscribe');
   });
 
+  it('a parseable payload offers JSON | Raw; Raw shows the verbatim text', () => {
+    const { container } = renderView(makeWsLifecycle([ws({ data: '{"op":"subscribe"}' })]));
+    fireEvent.click(container.querySelector('[role="option"]') as HTMLElement);
+    fireEvent.click(screen.getByRole('button', { name: 'Raw' }));
+    expect(container.querySelector('.dt-msg-preview-json')).toBeNull();
+    expect(container.querySelector('.dt-msg-preview-content pre')?.textContent).toBe('{"op":"subscribe"}');
+    fireEvent.click(screen.getByRole('button', { name: 'JSON' }));
+    expect(container.querySelector('.dt-msg-preview-json')).toBeTruthy();
+  });
+
+  it('a non-JSON payload gets no mode switch', () => {
+    const { container } = renderView(makeWsLifecycle([ws({ data: 'plain text' })]));
+    fireEvent.click(container.querySelector('[role="option"]') as HTMLElement);
+    expect(screen.queryByRole('button', { name: 'Raw' })).toBeNull();
+  });
+
   it('selecting a plain-text frame shows it verbatim', () => {
     const { container } = renderView(makeWsLifecycle([ws({ data: 'not json at all' })]));
     fireEvent.click(container.querySelector('[role="option"]') as HTMLElement);
