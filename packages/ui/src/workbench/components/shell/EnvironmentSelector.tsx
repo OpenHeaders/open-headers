@@ -624,7 +624,6 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
       placement="bottomRight"
     >
       <Button
-        type="text"
         size="small"
         aria-label={active ? `Active environment: ${active.name}` : 'No environment selected'}
         style={{
@@ -632,8 +631,6 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
           height: 28,
           display: 'inline-flex',
           alignItems: 'center',
-          border: `1px solid ${token.colorBorderSecondary}`,
-          background: token.colorBgContainer,
         }}
       >
         <Space size={6}>

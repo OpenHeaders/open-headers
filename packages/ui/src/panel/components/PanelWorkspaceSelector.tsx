@@ -69,7 +69,6 @@ export const PanelWorkspaceSelector: React.FC = () => {
       placement="bottomLeft"
     >
       <Button
-        type="text"
         size="small"
         aria-label={`Active workspace: ${activeWorkspace.name}`}
         style={{
@@ -77,8 +76,6 @@ export const PanelWorkspaceSelector: React.FC = () => {
           height: 24,
           display: 'inline-flex',
           alignItems: 'center',
-          border: `1px solid ${token.colorBorderSecondary}`,
-          background: token.colorBgContainer,
         }}
       >
         <Space size={4}>

@@ -9,6 +9,7 @@
  * trigger shows the selected workspace's Org badge.
  */
 
+import { DownOutlined } from '@ant-design/icons';
 import { describeOrg, orgCatalogue } from '@openheaders/core/identity';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
@@ -113,9 +114,6 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
             height: 28,
             display: 'inline-flex',
             alignItems: 'center',
-            border: 'none',
-            background: 'transparent',
-            boxShadow: 'none',
             color: token.colorText,
           }}
         >
@@ -127,6 +125,7 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
             {catalogue.length > 1 && (
               <WorkspaceOrgBadge descriptor={describeOrg(snapshot, selected.orgId)} compact />
             )}
+            <DownOutlined style={{ fontSize: 10, color: token.colorTextTertiary }} />
           </Space>
         </Button>
       </Dropdown>
