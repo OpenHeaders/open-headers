@@ -182,6 +182,63 @@
   background: var(--dt-row-hover);
 }
 
+/* Hover-revealed row actions — the same right-edge overlay the Headers
+   and Cookies rows carry (Copy + rule action on a gradient scrim; no
+   reserved column, no displacement). */
+.dt-ws-list .dt-ws-row {
+  position: relative;
+}
+
+.dt-ws-row-actions {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  white-space: nowrap;
+  padding: 2px 4px 2px 24px;
+  background: linear-gradient(
+    to right,
+    transparent 0,
+    var(--dt-row-hover) 20px,
+    var(--dt-row-hover) 100%
+  );
+  opacity: 0;
+  pointer-events: none;
+  z-index: 1;
+  transition: opacity 80ms ease-out;
+}
+
+.dt-ws-list .dt-ws-row:not(.dt-ws-row-header):hover .dt-ws-row-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.dt-ws-action.dt-btn {
+  font-size: 10px;
+  height: 18px;
+  line-height: 18px;
+  padding: 0 8px;
+  border-radius: 3px;
+  font-weight: 400;
+}
+
+/* Icon-only variant (Copy) — square, just the glyph. */
+.dt-ws-action--icon.dt-btn {
+  padding: 0;
+  width: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dt-ws-action--icon .anticon {
+  font-size: 11px;
+  line-height: 1;
+}
+
 .dt-ws-list .dt-ws-row--selected,
 .dt-ws-list .dt-ws-row--selected:hover {
   background: var(--dt-row-selected);

@@ -224,6 +224,22 @@ describe('MessagesView — fire rail', () => {
   });
 });
 
+describe('MessagesView — row actions', () => {
+  it('copy is always offered; the rule action appears only when a ws rule fired', () => {
+    renderView(makeWsLifecycle([ws()]));
+    expect(screen.getByTitle('Copy payload')).toBeTruthy();
+    expect(screen.queryByTitle('Edit the message rule that fired on this request')).toBeNull();
+    cleanup();
+    renderView(makeWsLifecycle([ws()]), { fires: [makeFire()], rules: [makeWsRule()] });
+    expect(screen.getByTitle('Edit the message rule that fired on this request')).toBeTruthy();
+  });
+
+  it('a deleted rule drops the edit action', () => {
+    renderView(makeWsLifecycle([ws()]), { fires: [makeFire('gone')], rules: [] });
+    expect(screen.queryByTitle('Edit the message rule that fired on this request')).toBeNull();
+  });
+});
+
 describe('MessagesView — empty states and truncation', () => {
   it('CDP leg with no frames yet', () => {
     renderView(makeWsLifecycle([]));

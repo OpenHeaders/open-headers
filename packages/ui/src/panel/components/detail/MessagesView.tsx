@@ -13,6 +13,9 @@
  *     headers reuse the traffic table's anatomy — drag-resizable
  *     dividers and hover-revealed (i) popovers that each highlight one
  *     slice of a shared example frame.
+ *   - Hovering a row reveals the right-edge actions (Headers-row
+ *     idiom): copy the payload, and — when a ws rule fired on this
+ *     request — edit it in the shared quick-edit popover.
  *   - Selecting a row opens the payload preview in a resizable pane —
  *     JSON tree / verbatim text for text frames, a Base64 / Hex / UTF-8
  *     viewer for binary frames. The grid/payload split is a standard
@@ -27,14 +30,16 @@
  * capture path (which can see neither) explains itself.
  */
 
+import { CheckOutlined, CopyOutlined } from '@ant-design/icons';
 import type { LifecycleSource, RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarEntry } from '@openheaders/core/types';
 import { InfoPopover } from '@openheaders/ui/shared/info-popover';
 import { Allotment } from 'allotment';
-import { type CSSProperties, useMemo, useRef, useState } from 'react';
+import { type CSSProperties, type MouseEvent as ReactMouseEvent, useMemo, useRef, useState } from 'react';
 import { firedWsRules, type MessageFireTier, messageFireTier } from '../../data/message-fire-rail';
 import type { RulesByUid } from '../../data/rule-create/use-rules-lookup';
 import type { InspectorFire } from '../../data/types';
+import { useRulePopover } from '../RulePopoverHost';
 import { useColumnResize } from '../use-column-resize';
 import MessagePreview from './streams/MessagePreview';
 import { MessagesColumnInfo, WS_DIRECTION_INFO, WS_FIRE_RAIL_INFO } from './streams/MessagesColumnInfo';
@@ -104,18 +109,32 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
 
   const all = useMemo(() => wsDisplayFrames(lifecycle, har), [lifecycle, har]);
 
+  const wsRules = useMemo(() => firedWsRules(fires, rulesByUid), [fires, rulesByUid]);
+
   // Fire-rail tiers, derived per frame from the row's fired ws rules —
   // see `message-fire-rail.ts` for the attribution-honesty contract.
   const fireTierByIndex = useMemo(() => {
     const tiers = new Map<number, MessageFireTier>();
-    const wsRules = firedWsRules(fires, rulesByUid);
     if (wsRules.length === 0) return tiers;
     for (const frame of all) {
       const tier = messageFireTier(wsRules, frame);
       if (tier !== null) tiers.set(frame.index, tier);
     }
     return tiers;
-  }, [all, fires, rulesByUid]);
+  }, [all, wsRules]);
+
+  // Hover row actions — copy the payload; edit the fired ws rule in the
+  // shared quick-edit popover (same host the Headers rows open).
+  const rulePopover = useRulePopover();
+  const editRule = wsRules[0] ?? null;
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const handleCopy = (e: ReactMouseEvent<HTMLButtonElement>, frame: WsDisplayFrame): void => {
+    e.stopPropagation();
+    void navigator.clipboard?.writeText(frame.data).then(() => {
+      setCopiedIndex(frame.index);
+      window.setTimeout(() => setCopiedIndex((v) => (v === frame.index ? null : v)), 1200);
+    });
+  };
 
   const visible = useMemo(() => {
     const regex = compileStreamFilter(filterText, 'literal');
@@ -259,6 +278,30 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
                     <span className="dt-ws-len">{frameLengthLabel(m)}</span>
                     <span className="dt-ws-time" title={streamTimeTooltip(m.atMs)}>
                       {formatStreamTime(m.atMs)}
+                    </span>
+                    <span className="dt-ws-row-actions">
+                      <button
+                        type="button"
+                        className="dt-btn dt-btn-primary dt-ws-action dt-ws-action--icon"
+                        title={copiedIndex === m.index ? 'Copied' : 'Copy payload'}
+                        aria-label={copiedIndex === m.index ? 'Copied' : 'Copy payload'}
+                        onClick={(e) => handleCopy(e, m)}
+                      >
+                        {copiedIndex === m.index ? <CheckOutlined /> : <CopyOutlined />}
+                      </button>
+                      {editRule && (
+                        <button
+                          type="button"
+                          className="dt-btn dt-btn-primary dt-ws-action"
+                          title="Edit the message rule that fired on this request"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            rulePopover.open({ anchorEl: e.currentTarget, rule: editRule }, { pinned: true });
+                          }}
+                        >
+                          Edit rule
+                        </button>
+                      )}
                     </span>
                   </div>
                 );
