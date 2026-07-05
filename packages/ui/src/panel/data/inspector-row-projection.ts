@@ -262,9 +262,14 @@ export function resolvePageref(lifecycle: RequestLifecycle, pages: readonly Page
  * Per-row fire attribution + dangling-fire partition.
  *
  * Fires carry `requestId`; join by exact match to the row's lifecycle
- * requestId. Dangling = fires whose requestId either is null
- * (scriptable-only) or matches no known row. Caller surfaces these in
- * the Rule Activity view.
+ * requestId. Fires the exact join leaves over get one fallback pass —
+ * the cross-id-space join for stream rows (see {@link streamRowTakesFire}):
+ * a confirmed scriptable fire (a ws/sse wrapper reporting per frame)
+ * carries a webRequest-adopted id or none, while a CDP-fed tab keys its
+ * rows by the CDP store id, so the exact key can never bind. Such a fire
+ * joins the stream row whose URL it reported, gated by the connection's
+ * lifetime and refused on ambiguity — never guessed. Dangling = whatever
+ * neither join claims. Caller surfaces these in the Rule Activity view.
  *
  * Pure: rows in, fires in, rows-with-fires + dangling out. Stable
  * reference identity is the caller's responsibility (useMemo).
@@ -283,6 +288,25 @@ export interface InspectorRowWithFires extends InspectorRow {
   readonly redirectRewrite?: RedirectRewriteKind;
 }
 
+/** Pairing slack between a scriptable fire's page clock and the row's
+ *  lifecycle clock — same posture as the fire hub's authoritative
+ *  translation window. */
+const STREAM_JOIN_SLACK_MS = 5_000;
+
+/**
+ * Whether a stream row (WebSocket / EventSource connection) accounts for
+ * a fire the exact requestId join left over: same endpoint URL, fire
+ * instant within the connection's lifetime (slack on both edges — the
+ * fire is stamped on the page clock, the lifecycle on the host clock).
+ */
+function streamRowTakesFire(row: InspectorRow, fire: InspectorFire): boolean {
+  const lc = row.lifecycle;
+  if (lc.resourceType !== 'websocket' && lc.resourceType !== 'eventsource') return false;
+  if (fire.url !== lc.url) return false;
+  if (fire.t < lc.startedAtMs - STREAM_JOIN_SLACK_MS) return false;
+  return lc.completedAtMs == null || fire.t <= lc.completedAtMs + STREAM_JOIN_SLACK_MS;
+}
+
 export function attachFiresToRows(rows: readonly InspectorRow[], fires: readonly InspectorFire[]): RowsWithFires {
   if (fires.length === 0) {
     return {
@@ -291,10 +315,10 @@ export function attachFiresToRows(rows: readonly InspectorRow[], fires: readonly
     };
   }
   const byRequestId = new Map<string, InspectorFire[]>();
-  const dangling: InspectorFire[] = [];
+  const unclaimed: InspectorFire[] = [];
   for (const fire of fires) {
     if (!fire.requestId) {
-      dangling.push(fire);
+      unclaimed.push(fire);
       continue;
     }
     const existing = byRequestId.get(fire.requestId);
@@ -302,20 +326,46 @@ export function attachFiresToRows(rows: readonly InspectorRow[], fires: readonly
     else byRequestId.set(fire.requestId, [fire]);
   }
 
+  const firesByRow = new Map<number, InspectorFire[]>();
   const claimed = new Set<string>();
-  const projected: InspectorRowWithFires[] = rows.map((row) => {
+  rows.forEach((row, i) => {
     const matched = byRequestId.get(row.lifecycle.requestId);
     if (matched) {
       claimed.add(row.lifecycle.requestId);
-      return { ...row, fires: matched };
+      firesByRow.set(i, matched.slice());
     }
-    return { ...row, fires: [] };
   });
-
   for (const [requestId, list] of byRequestId) {
-    if (!claimed.has(requestId)) dangling.push(...list);
+    if (!claimed.has(requestId)) unclaimed.push(...list);
   }
 
+  // Fallback pass — cross-id-space join for stream rows. Only a confirmed
+  // scriptable fire qualifies (an in-page wrapper reported the action ran);
+  // authoritative fires already have their own translation in the fire hub.
+  // Exactly one candidate row or the fire stays dangling.
+  const dangling: InspectorFire[] = [];
+  for (const fire of unclaimed) {
+    if (fire.authoritative || fire.evidence !== 'confirmed' || fire.url === undefined) {
+      dangling.push(fire);
+      continue;
+    }
+    let target = -1;
+    let ambiguous = false;
+    rows.forEach((row, i) => {
+      if (!streamRowTakesFire(row, fire)) return;
+      if (target !== -1) ambiguous = true;
+      target = i;
+    });
+    if (target === -1 || ambiguous) {
+      dangling.push(fire);
+      continue;
+    }
+    const list = firesByRow.get(target);
+    if (list) list.push(fire);
+    else firesByRow.set(target, [fire]);
+  }
+
+  const projected: InspectorRowWithFires[] = rows.map((row, i) => ({ ...row, fires: firesByRow.get(i) ?? [] }));
   return { rows: projected, dangling };
 }
 

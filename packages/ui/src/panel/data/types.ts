@@ -31,6 +31,11 @@ export interface InspectorFire {
   pattern: string;
   authoritative: boolean;
   requestId?: string;
+  /** URL the fire was observed/reported against — the request URL for
+   *  network-observed fires, the resolved endpoint a wrapper reported for
+   *  scriptable ones. The fallback join key when `requestId` lives in a
+   *  foreign id space (a wrapper fire on a CDP-fed tab). */
+  url?: string;
   shadowedBy?: RequestRecord['shadowedBy'];
   evidence: RequestRecord['evidence'];
   /** The observed request's resource type in the driver's webRequest

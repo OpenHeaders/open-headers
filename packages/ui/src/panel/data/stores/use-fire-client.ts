@@ -49,6 +49,7 @@ export function useFireClient(): UseFireClientResult {
         pattern: update.record.pattern,
         authoritative: update.authoritative,
         requestId: update.record.requestId,
+        url: update.record.url,
         shadowedBy: update.record.shadowedBy,
         evidence: update.record.evidence,
         resourceType: update.record.resourceType,

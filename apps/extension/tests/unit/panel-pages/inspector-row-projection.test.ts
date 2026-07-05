@@ -244,6 +244,68 @@ describe('attachFiresToRows', () => {
     const result = attachFiresToRows([r], fires);
     expect(result.rows[0].fires.map((f) => f.t)).toEqual([1, 2]);
   });
+
+  describe('stream-row fallback join', () => {
+    const wsUrl = 'ws://openheaders.io/net/ws-echo';
+    const wsRow = (over: Partial<RequestLifecycle> = {}) =>
+      row(lifecycle({ requestId: 'cdp:1', url: wsUrl, resourceType: 'websocket', startedAtMs: 1000, ...over }));
+    const wsFire = (over: Partial<InspectorFire> = {}) =>
+      fire({ requestId: undefined, url: wsUrl, authoritative: false, evidence: 'confirmed', t: 2000, ...over });
+
+    it('joins a confirmed scriptable fire to the stream row by URL', () => {
+      const result = attachFiresToRows([wsRow()], [wsFire()]);
+      expect(result.rows[0].fires).toHaveLength(1);
+      expect(result.dangling).toEqual([]);
+    });
+
+    it('joins a fire whose webRequest-adopted requestId matches no row', () => {
+      const result = attachFiresToRows([wsRow()], [wsFire({ requestId: 'wr:9' })]);
+      expect(result.rows[0].fires).toHaveLength(1);
+      expect(result.dangling).toEqual([]);
+    });
+
+    it('exact requestId join wins over the fallback', () => {
+      const result = attachFiresToRows([wsRow()], [wsFire({ requestId: 'cdp:1' })]);
+      expect(result.rows[0].fires).toHaveLength(1);
+      expect(result.dangling).toEqual([]);
+    });
+
+    it('refuses on ambiguity — two open connections to the same URL', () => {
+      const rows = [wsRow({ requestId: 'cdp:1' }), wsRow({ requestId: 'cdp:2' })];
+      const result = attachFiresToRows(rows, [wsFire()]);
+      expect(result.rows[0].fires).toEqual([]);
+      expect(result.rows[1].fires).toEqual([]);
+      expect(result.dangling).toHaveLength(1);
+    });
+
+    it('lifetime gate disambiguates a closed vs a live connection', () => {
+      const closed = wsRow({ requestId: 'cdp:1', startedAtMs: 1000, completedAtMs: 2000 });
+      const live = wsRow({ requestId: 'cdp:2', startedAtMs: 10_000 });
+      const result = attachFiresToRows([closed, live], [wsFire({ t: 20_000 })]);
+      expect(result.rows[0].fires).toEqual([]);
+      expect(result.rows[1].fires).toHaveLength(1);
+      expect(result.dangling).toEqual([]);
+    });
+
+    it('never joins a fire predating the connection', () => {
+      const result = attachFiresToRows([wsRow({ startedAtMs: 50_000 })], [wsFire({ t: 2000 })]);
+      expect(result.rows[0].fires).toEqual([]);
+      expect(result.dangling).toHaveLength(1);
+    });
+
+    it('never joins authoritative, unconfirmed, url-less, or non-stream candidates', () => {
+      const auth = attachFiresToRows([wsRow()], [wsFire({ authoritative: true })]);
+      expect(auth.dangling).toHaveLength(1);
+      const matched = attachFiresToRows([wsRow()], [wsFire({ evidence: 'matched' })]);
+      expect(matched.dangling).toHaveLength(1);
+      const urlless = attachFiresToRows([wsRow()], [wsFire({ url: undefined })]);
+      expect(urlless.dangling).toHaveLength(1);
+      const xhrRow = row(lifecycle({ requestId: 'cdp:1', url: wsUrl, startedAtMs: 1000 }));
+      const nonStream = attachFiresToRows([xhrRow], [wsFire()]);
+      expect(nonStream.rows[0].fires).toEqual([]);
+      expect(nonStream.dangling).toHaveLength(1);
+    });
+  });
 });
 
 describe('stampRedirectRewrites', () => {
