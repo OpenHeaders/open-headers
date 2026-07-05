@@ -25,7 +25,7 @@ import {
   startLifecycleHost,
 } from '../correlator-host';
 import { startDevtoolsSessionCoordinator } from '../devtools-session-coordinator';
-import { getRulesPaused } from '../dnr-manager';
+import { getRulesPaused, registerCdpRulesReplay } from '../dnr-manager';
 import { refreshInterceptorsForTab, setCdpControlQuery } from '../inject-manager';
 import { createPersistentWatchSessionFloors, startLifecyclePortHost } from '../lifecycle-port-host';
 import { isCacheBypassActive, registerCacheBypassReplay } from '../modules/net/cache-bypass';
@@ -182,6 +182,15 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
     replay: replayWithInjectionRefresh,
   });
   isTabInScope = (tabId) => cdpAttachController.isInScope(tabId);
+  // Rule changes replay the standing CDP state onto every attached tab —
+  // bootstrap scripts and Fetch patterns re-derive from the new rule set.
+  // Raw replay (no injection refresh): the current document's wrappers are
+  // already live-updated by inject-manager's own interceptor push.
+  registerCdpRulesReplay(() => {
+    for (const tabId of cdpAttachController.getState().attachedTabs) {
+      cdpControlReplay.replay(tabId);
+    }
+  });
   // Rule-driven interceptor (D2): each `Fetch.requestPaused` is re-checked
   // against the live rules and answered — static `response` → fulfill, static
   // `request-body` → request-body rewrite, everything else → pass-through —

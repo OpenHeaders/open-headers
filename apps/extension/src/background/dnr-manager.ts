@@ -63,6 +63,24 @@ import { refreshCachedTotpCodes } from './modules/totp-scheduler';
 
 let isPaused = false;
 
+// ── CDP standing-state replay ────────────────────────────────────
+
+/**
+ * Run after every committed rebuild (and on pause). The lifecycle
+ * pipeline registers a callback that re-derives the standing CDP
+ * control state — `Fetch.enable` patterns and the document-bootstrap
+ * scripts — for every attached tab. Without it, a rule created or
+ * edited after a tab attached would never reach that tab's fresh
+ * documents: the `onCommitted` path defers bootstrap-eligible wrappers
+ * to the bootstrap script, and the bootstrap would still carry the
+ * rule set from attach time.
+ */
+let cdpRulesReplay: (() => void) | null = null;
+
+export function registerCdpRulesReplay(fn: () => void): void {
+  cdpRulesReplay = fn;
+}
+
 /**
  * Dynamic-layer rule id → source Rule.uid. Rebuilt on every applyAllRules()
  * call. Used for telemetry lookups (e.g. getActiveRulesForTab).
@@ -367,6 +385,7 @@ async function rebuildAll(rawRules: Rule[]): Promise<void> {
     clearAllDynamicRules(declarativeNetRequest);
     clearAllSessionRules(declarativeNetRequest);
     updateScriptableRules([]);
+    cdpRulesReplay?.();
     reportStatus({
       subsystem: 'rules',
       state: 'green',
@@ -549,6 +568,10 @@ async function rebuildAll(rawRules: Rule[]): Promise<void> {
       return;
     }
     effectiveFireUids = liveUids;
+    // The DNR layers committed — re-derive the CDP standing state for
+    // attached tabs so bootstrap scripts / Fetch patterns follow the
+    // rule change without a re-attach.
+    cdpRulesReplay?.();
     // Report unresolved {{VAR}} references BEFORE cap/large-set checks.
     // A rule with a literal `{{TOKEN}}` left in its pattern is broken in
     // a way the user can't see from the cap/size numbers — it silently
