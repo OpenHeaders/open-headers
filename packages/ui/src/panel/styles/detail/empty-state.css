@@ -54,3 +54,10 @@
   display: flex;
   flex-direction: column;
 }
+/* Flush variant: sections that own their full surface (Messages /
+   EventStream) — no wrapper gutter, no wrapper scroll; the view's own
+   toolbar, grid and split sash run edge-to-edge and scroll internally. */
+.dt-tab-body--flush {
+  padding: 0;
+  overflow: hidden;
+}

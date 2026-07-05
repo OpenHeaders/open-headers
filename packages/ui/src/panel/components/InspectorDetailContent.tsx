@@ -469,8 +469,17 @@ export function InspectorDetailContent({
         // Payload's raw-text body fills the pane (Monaco owns the scroll,
         // toolbar pinned at the bottom — like Response), which needs the
         // tab body to be a flex column so `.dt-payload-view` can `flex: 1`.
+        // Messages / EventStream own their full surface edge-to-edge —
+        // toolbar, grid and split all span the pane, and the views manage
+        // their own scrolling — so they drop the wrapper's gutter too.
         // Other sections stay block-flow scroll containers.
-        className={section === 'payload' ? 'dt-tab-body dt-tab-body--fill' : 'dt-tab-body'}
+        className={
+          section === 'payload'
+            ? 'dt-tab-body dt-tab-body--fill'
+            : section === 'messages' || section === 'eventstream'
+              ? 'dt-tab-body dt-tab-body--fill dt-tab-body--flush'
+              : 'dt-tab-body'
+        }
         ref={tabBodyRef}
         style={section === 'preview' || section === 'response' ? { display: 'none' } : undefined}
       >
