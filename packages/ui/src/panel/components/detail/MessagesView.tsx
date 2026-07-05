@@ -4,7 +4,10 @@
  *
  *   - Toolbar: Clear all, All / Send / Receive direction filter, regex
  *     filter (invalid patterns degrade to a literal match).
- *   - Grid: Data | Length | Time. Time is the one sortable column,
+ *   - Grid: fire rail | direction rail | Data | Length | Time. The fire
+ *     rail mirrors the traffic table's — a per-frame dot where a fired
+ *     `ws` rule accounts for the frame (see `message-fire-rail.ts`).
+ *     Time is the one sortable column,
  *     ascending by default; the list follows the tail while parked at
  *     the bottom (same pin semantics as the main traffic table). The
  *     headers reuse the traffic table's anatomy — drag-resizable
@@ -29,9 +32,12 @@ import type { InspectorHarEntry } from '@openheaders/core/types';
 import { InfoPopover } from '@openheaders/ui/shared/info-popover';
 import { Allotment } from 'allotment';
 import { type CSSProperties, useMemo, useRef, useState } from 'react';
+import { firedWsRules, type MessageFireTier, messageFireTier } from '../../data/message-fire-rail';
+import type { RulesByUid } from '../../data/rule-create/use-rules-lookup';
+import type { InspectorFire } from '../../data/types';
 import { useColumnResize } from '../use-column-resize';
 import MessagePreview from './streams/MessagePreview';
-import { MessagesColumnInfo, WS_DIRECTION_INFO } from './streams/MessagesColumnInfo';
+import { MessagesColumnInfo, WS_DIRECTION_INFO, WS_FIRE_RAIL_INFO } from './streams/MessagesColumnInfo';
 import StreamGridToolbar, { type WsDirectionFilter } from './streams/StreamGridToolbar';
 import { compileStreamFilter } from './streams/stream-filter';
 import { formatStreamTime, streamTimeTooltip } from './streams/stream-time';
@@ -58,7 +64,20 @@ interface MessagesViewProps {
   har: InspectorHarEntry | null;
   /** Which correlator feeds the tab — drives the honest empty-state copy. */
   source: LifecycleSource;
+  /** The row's rule fires — narrowed to `ws` rules for the fire rail. */
+  fires: readonly InspectorFire[];
+  rulesByUid: RulesByUid;
 }
+
+const FIRE_DOT_CLASS: Record<MessageFireTier, string> = {
+  applied: 'dt-fire-dot--auth',
+  inferred: 'dt-fire-dot--inferred',
+};
+
+const FIRE_DOT_TITLE: Record<MessageFireTier, string> = {
+  applied: "Rule applied — the frame's payload matches the rule's payload",
+  inferred: 'Rule matched — application not verifiable for this frame',
+};
 
 function directionClass(type: WsDisplayFrame['type']): string {
   if (type === 'send') return 'dt-ws-row--send';
@@ -72,7 +91,7 @@ function directionArrow(type: WsDisplayFrame['type']): string {
   return '⬇';
 }
 
-export default function MessagesView({ lifecycle, har, source }: MessagesViewProps) {
+export default function MessagesView({ lifecycle, har, source, fires, rulesByUid }: MessagesViewProps) {
   const [direction, setDirection] = useState<WsDirectionFilter>('all');
   const [filterText, setFilterText] = useState('');
   const [sortDir, setSortDir] = useState<SortDirection>('asc');
@@ -84,6 +103,19 @@ export default function MessagesView({ lifecycle, har, source }: MessagesViewPro
   const { columnWidths, registerCellRef, beginResize, resetColumnWidth } = useColumnResize(wsColumnMinWidth);
 
   const all = useMemo(() => wsDisplayFrames(lifecycle, har), [lifecycle, har]);
+
+  // Fire-rail tiers, derived per frame from the row's fired ws rules —
+  // see `message-fire-rail.ts` for the attribution-honesty contract.
+  const fireTierByIndex = useMemo(() => {
+    const tiers = new Map<number, MessageFireTier>();
+    const wsRules = firedWsRules(fires, rulesByUid);
+    if (wsRules.length === 0) return tiers;
+    for (const frame of all) {
+      const tier = messageFireTier(wsRules, frame);
+      if (tier !== null) tiers.set(frame.index, tier);
+    }
+    return tiers;
+  }, [all, fires, rulesByUid]);
 
   const visible = useMemo(() => {
     const regex = compileStreamFilter(filterText, 'literal');
@@ -166,6 +198,11 @@ export default function MessagesView({ lifecycle, har, source }: MessagesViewPro
               }}
             >
               <div className="dt-ws-row dt-ws-row-header">
+                <InfoPopover content={WS_FIRE_RAIL_INFO} trigger="hover" placement="bottomLeft">
+                  <span className="dt-rail-head">
+                    <span className="dt-rail-head-dot" />
+                  </span>
+                </InfoPopover>
                 <InfoPopover content={WS_DIRECTION_INFO} trigger="hover" placement="bottomLeft">
                   <span className="dt-ws-dir dt-ws-dir-head">⇅</span>
                 </InfoPopover>
@@ -197,6 +234,7 @@ export default function MessagesView({ lifecycle, har, source }: MessagesViewPro
               </div>
               {visible.map((m) => {
                 const isSelected = m.index === selectedIndex;
+                const fireTier = fireTierByIndex.get(m.index) ?? null;
                 return (
                   <div
                     key={`ws-${m.index}`}
@@ -206,6 +244,14 @@ export default function MessagesView({ lifecycle, har, source }: MessagesViewPro
                     aria-selected={isSelected}
                     onClick={() => setSelectedIndex(m.index)}
                   >
+                    <span className="dt-col-dot">
+                      {fireTier !== null && (
+                        <span
+                          className={`dt-fire-dot ${FIRE_DOT_CLASS[fireTier]}`}
+                          title={FIRE_DOT_TITLE[fireTier]}
+                        />
+                      )}
+                    </span>
                     <span className="dt-ws-dir" aria-hidden="true">
                       {directionArrow(m.type)}
                     </span>

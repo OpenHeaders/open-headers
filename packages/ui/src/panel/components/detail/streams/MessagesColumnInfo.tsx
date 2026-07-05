@@ -113,6 +113,37 @@ export const WS_DIRECTION_INFO: InfoPopoverContent = {
   ],
 };
 
+/** The fire rail's whole-cell hover popover — honest about inference:
+ * frames carry no rule attribution, so the dot is derived from the
+ * request's rule fires × each rule's frame selector. */
+export const WS_FIRE_RAIL_INFO: InfoPopoverContent = {
+  title: 'Rule fires',
+  kicker: 'OpenHeaders',
+  summary:
+    'A dot marks each frame a WebSocket message rule acted on. Frames carry no rule attribution, so the dot is ' +
+    "derived: this request's fired message rules, each rule's frame selector re-run against the frame.",
+  sections: [
+    {
+      heading: 'Dot colors',
+      items: [
+        {
+          label: '●',
+          labelClassName: 'dt-fire-eg--auth',
+          desc: "Applied — the frame's payload equals the rule's replacement or injected payload.",
+        },
+        {
+          label: '●',
+          labelClassName: 'dt-fire-eg--inferred',
+          desc:
+            "Inferred — the rule's direction and message filter select this frame, but application is not " +
+            'verifiable (a modified frame no longer holds the payload the filter matched).',
+        },
+      ],
+    },
+  ],
+  description: 'Dropped frames never reach the capture plane, so drop rules leave no dots.',
+};
+
 export function MessagesColumnInfo({ infoKey }: { infoKey: WsColumnKey }) {
   return <InfoTrigger content={MESSAGES_COLUMN_INFO[infoKey]} className="dt-header-info-trigger dt-col-info-trigger" />;
 }

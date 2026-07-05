@@ -79,7 +79,7 @@
   /* The track list is owned by MessagesView (`wsGridTemplate`), which
      writes user column-resize overrides into the custom property; the
      fallback mirrors the no-override defaults. */
-  grid-template-columns: var(--dt-ws-cols, 20px minmax(140px, 1fr) 64px 92px);
+  grid-template-columns: var(--dt-ws-cols, 14px 20px minmax(140px, 1fr) 64px 92px);
   gap: 8px;
   padding: 2px 8px;
   border-bottom: 1px solid var(--dt-border);

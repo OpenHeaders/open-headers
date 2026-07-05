@@ -519,7 +519,9 @@ export function InspectorDetailContent({
           />
         )}
 
-        {section === 'messages' && showMessages && <MessagesView lifecycle={lc} har={har} source={source} />}
+        {section === 'messages' && showMessages && (
+          <MessagesView lifecycle={lc} har={har} source={source} fires={row.fires} rulesByUid={rulesByUid} />
+        )}
 
         {section === 'eventstream' && showEventStream && <EventStreamView row={row} />}
 

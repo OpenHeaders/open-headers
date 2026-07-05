@@ -29,7 +29,10 @@ export function wsColumnMinWidth(key: WsColumnKey): number {
   return def ? def.minWidth : 40;
 }
 
-/** Width of the leading direction rail (arrow glyphs). */
+/** Width of the leading fire-dot rail (same track as the traffic table's). */
+export const WS_FIRE_RAIL_PX = 14;
+
+/** Width of the direction rail (arrow glyphs). */
 export const WS_DIR_RAIL_PX = 20;
 
 /**
@@ -43,5 +46,5 @@ export function wsGridTemplate(widths: Partial<Record<WsColumnKey, number>>): st
     if (override != null) return `${override}px`;
     return c.stretch ? `minmax(${c.defaultWidth}px, 1fr)` : `${c.defaultWidth}px`;
   });
-  return `${WS_DIR_RAIL_PX}px ${tracks.join(' ')}`;
+  return `${WS_FIRE_RAIL_PX}px ${WS_DIR_RAIL_PX}px ${tracks.join(' ')}`;
 }

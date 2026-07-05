@@ -5,7 +5,9 @@
  */
 
 import type { RequestLifecycle, StreamMessage } from '@openheaders/core/request-lifecycle';
+import type { Rule, WsAction, WsRule } from '@openheaders/core/types';
 import MessagesView from '@openheaders/ui/panel/components/detail/MessagesView';
+import type { InspectorFire } from '@openheaders/ui/panel/data/types';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { makeLifecycle } from '../../__factories__/lifecycle';
@@ -26,8 +28,37 @@ function makeWsLifecycle(messages: readonly StreamMessage[], dropped = 0): Reque
   });
 }
 
-function renderView(lc: RequestLifecycle) {
-  return render(<MessagesView lifecycle={lc} har={null} source="cdp" />);
+function makeWsRule(action: Partial<WsAction> = {}, uid = 'ws1'): WsRule {
+  return {
+    schemaVersion: 5,
+    uid,
+    type: 'ws',
+    name: 'WS rule',
+    enabled: true,
+    path: 'collections/c1/rules',
+    conditions: [{ uid: 'tcd00040', type: 'request-domains', values: ['openheaders.io'] }],
+    action: { operation: 'modify', direction: 'receive', ...action },
+  } as WsRule;
+}
+
+function makeFire(ruleUid = 'ws1'): InspectorFire {
+  return { ruleUid, t: 1, pattern: 'wss://openheaders.io/*', authoritative: false, evidence: 'confirmed' };
+}
+
+interface RailFixture {
+  fires?: readonly InspectorFire[];
+  rules?: readonly Rule[];
+}
+
+function renderView(lc: RequestLifecycle, { fires = [], rules = [] }: RailFixture = {}) {
+  const rulesByUid = new Map(rules.map((r) => [r.uid, r]));
+  return render(<MessagesView lifecycle={lc} har={null} source="cdp" fires={fires} rulesByUid={rulesByUid} />);
+}
+
+function rowDots(container: HTMLElement): (string | null)[] {
+  return [...container.querySelectorAll('[role="option"]')].map(
+    (row) => row.querySelector('.dt-fire-dot')?.className ?? null,
+  );
 }
 
 function rowTexts(container: HTMLElement): string[] {
@@ -99,6 +130,8 @@ describe('MessagesView — toolbar filters', () => {
         lifecycle={makeWsLifecycle([ws({ atMs: 1, data: 'old' }), ws({ atMs: 2, data: 'new' })])}
         har={null}
         source="cdp"
+        fires={[]}
+        rulesByUid={new Map()}
       />,
     );
     expect(rowTexts(container)).toEqual(['new']);
@@ -127,6 +160,70 @@ describe('MessagesView — preview pane', () => {
   });
 });
 
+describe('MessagesView — fire rail', () => {
+  it('no fired ws rules ⇒ no dots', () => {
+    const { container } = renderView(makeWsLifecycle([ws()]));
+    expect(rowDots(container)).toEqual([null]);
+  });
+
+  it('payload equality earns the applied (blue) dot for modify', () => {
+    const rule = makeWsRule({ operation: 'modify', direction: 'receive', payload: 'REPLACED' });
+    const { container } = renderView(makeWsLifecycle([ws({ data: 'REPLACED' }), ws({ data: 'untouched' })]), {
+      fires: [makeFire()],
+      rules: [rule],
+    });
+    const dots = rowDots(container);
+    expect(dots[0]).toContain('dt-fire-dot--auth');
+    // No filter ⇒ the selector takes every receive frame — inferred only.
+    expect(dots[1]).toContain('dt-fire-dot--inferred');
+  });
+
+  it('selector match without payload equality reads inferred (amber)', () => {
+    const rule = makeWsRule({
+      operation: 'modify',
+      direction: 'receive',
+      payload: '{{env.replacement}}',
+      messageFilter: { matchType: 'contains', value: 'ping' },
+    });
+    const { container } = renderView(makeWsLifecycle([ws({ data: 'ping 4' }), ws({ data: 'pong 4' })]), {
+      fires: [makeFire()],
+      rules: [rule],
+    });
+    expect(rowDots(container)).toEqual([expect.stringContaining('dt-fire-dot--inferred'), null]);
+  });
+
+  it('direction gates the dot; error frames and drop rules never dot', () => {
+    const modify = makeWsRule({ operation: 'modify', direction: 'send', payload: 'OUT' }, 'ws1');
+    const drop = makeWsRule({ operation: 'drop', direction: 'receive' }, 'ws2');
+    const { container } = renderView(
+      makeWsLifecycle([
+        ws({ type: 'send', data: 'OUT' }),
+        ws({ type: 'receive', data: 'OUT' }),
+        ws({ type: 'error', data: 'closed', opcode: -1 }),
+      ]),
+      { fires: [makeFire('ws1'), makeFire('ws2')], rules: [modify, drop] },
+    );
+    expect(rowDots(container)).toEqual([expect.stringContaining('dt-fire-dot--auth'), null, null]);
+  });
+
+  it('an injected frame dots only on its exact payload', () => {
+    const rule = makeWsRule({ operation: 'inject', direction: 'receive', payload: 'SYNTH' });
+    const { container } = renderView(makeWsLifecycle([ws({ data: 'SYNTH' }), ws({ data: 'organic' })]), {
+      fires: [makeFire()],
+      rules: [rule],
+    });
+    expect(rowDots(container)).toEqual([expect.stringContaining('dt-fire-dot--auth'), null]);
+  });
+
+  it('a deleted rule leaves the rail empty', () => {
+    const { container } = renderView(makeWsLifecycle([ws({ data: 'REPLACED' })]), {
+      fires: [makeFire('gone')],
+      rules: [],
+    });
+    expect(rowDots(container)).toEqual([null]);
+  });
+});
+
 describe('MessagesView — empty states and truncation', () => {
   it('CDP leg with no frames yet', () => {
     renderView(makeWsLifecycle([]));
@@ -134,7 +231,7 @@ describe('MessagesView — empty states and truncation', () => {
   });
 
   it('heuristic leg explains the missing plane', () => {
-    render(<MessagesView lifecycle={makeWsLifecycle([])} har={null} source="heuristic" />);
+    render(<MessagesView lifecycle={makeWsLifecycle([])} har={null} source="heuristic" fires={[]} rulesByUid={new Map()} />);
     expect(screen.getByText('WebSocket frames are only visible with debug mode enabled for this tab.')).toBeTruthy();
   });
 
