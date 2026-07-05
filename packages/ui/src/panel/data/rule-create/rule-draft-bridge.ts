@@ -22,6 +22,7 @@ import type {
   RequestBodyRuleDraft,
   ResponseRuleDraft,
   RuleDraft,
+  WsRuleDraft,
 } from '@openheaders/core/types';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 
@@ -129,6 +130,37 @@ export function buildQueryParamDraftFromRequest(
     url: lc.url,
     ...(method ? { requestMethods: method } : {}),
     params: captured.params.map((p) => ({ operation: 'override' as const, param: p.param, value: p.value ?? '' })),
+  };
+}
+
+/** Cap on the seeded `contains` filter — a frame payload can be huge,
+ *  and a substring prefix selects the same frames a full match would. */
+const WS_FILTER_SEED_MAX = 80;
+
+/** Opcode 1 — the only frame kind whose data is an editable payload. */
+const WS_TEXT_OPCODE = 1;
+
+/** Build a ws message draft seeded from a captured frame. Direction
+ *  follows the frame; text frames additionally seed a `contains` filter
+ *  (truncated) and the replacement payload. Binary frames carry base64
+ *  and error frames a transport message — neither is a payload the rule
+ *  plane speaks, so they seed selector defaults only. */
+export function buildWsDraftFromFrame(
+  lc: RequestLifecycle,
+  frame: { type: 'send' | 'receive' | 'error'; opcode: number; data: string },
+): WsRuleDraft {
+  const base: WsRuleDraft = {
+    type: 'ws',
+    url: lc.url,
+    operation: 'modify',
+    direction: frame.type === 'send' ? 'send' : 'receive',
+  };
+  if (frame.type === 'error' || frame.opcode !== WS_TEXT_OPCODE) return base;
+  const filterValue = frame.data.trim().slice(0, WS_FILTER_SEED_MAX);
+  return {
+    ...base,
+    ...(filterValue ? { messageFilter: { matchType: 'contains', value: filterValue } } : {}),
+    payload: formatDraftBody(frame.data),
   };
 }
 

@@ -23,6 +23,8 @@ import {
   applyQueryParamDraftOverlay,
   applyRequestBodyDraftOverlay,
   applyResponseDraftOverlay,
+  applySseDraftOverlay,
+  applyWsDraftOverlay,
   buildDraftConditions,
   buildDraftHeaders,
 } from '../../../draft-conditions';
@@ -312,6 +314,10 @@ export function useRuleForm({
         applyRequestBodyDraftOverlay(overlay, initialDraft);
       } else if (initialDraft.type === 'query-param') {
         applyQueryParamDraftOverlay(overlay, initialDraft);
+      } else if (initialDraft.type === 'ws') {
+        applyWsDraftOverlay(overlay, initialDraft);
+      } else if (initialDraft.type === 'sse') {
+        applySseDraftOverlay(overlay, initialDraft);
       }
 
       if (Object.keys(overlay).length > 0) {
@@ -385,6 +391,10 @@ export function useRuleForm({
       applyRequestBodyDraftOverlay(overlay, initialDraft);
     } else if (initialDraft.type === 'query-param') {
       applyQueryParamDraftOverlay(overlay, initialDraft);
+    } else if (initialDraft.type === 'ws') {
+      applyWsDraftOverlay(overlay, initialDraft);
+    } else if (initialDraft.type === 'sse') {
+      applySseDraftOverlay(overlay, initialDraft);
     }
 
     if (Object.keys(overlay).length > 0) {

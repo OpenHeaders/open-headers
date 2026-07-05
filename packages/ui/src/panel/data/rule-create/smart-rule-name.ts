@@ -21,7 +21,9 @@ export type SmartNameKind =
   | 'header'
   | 'response'
   | 'request-body'
-  | 'query-param';
+  | 'query-param'
+  | 'ws'
+  | 'sse';
 
 export interface SmartNameInput {
   kind: SmartNameKind;
@@ -44,6 +46,8 @@ const FALLBACK_BASE: Record<SmartNameKind, string> = {
   response: 'New API Response Rule',
   'request-body': 'New API Request Body Rule',
   'query-param': 'New Query Param Rule',
+  ws: 'New WebSocket Message Rule',
+  sse: 'New SSE Message Rule',
 };
 
 const HEADER_OP_VERB: Record<NonNullable<SmartNameInput['headerOperation']>, string> = {
@@ -94,6 +98,10 @@ function baseName(input: SmartNameInput): string {
       return `Request body · ${hostPath}`;
     case 'query-param':
       return `Query params · ${hostPath}`;
+    case 'ws':
+      return `WS messages · ${hostPath}`;
+    case 'sse':
+      return `SSE events · ${hostPath}`;
   }
 }
 

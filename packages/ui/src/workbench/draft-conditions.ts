@@ -19,6 +19,8 @@ import type {
   ResponseRuleDraft,
   RuleCondition,
   RuleDraftBase,
+  SseRuleDraft,
+  WsRuleDraft,
 } from '@openheaders/core/types';
 import { type DraftUrlStrategy, deriveUrlFilter, generateUid } from '@openheaders/core/utils';
 
@@ -99,4 +101,35 @@ export function applyQueryParamDraftOverlay(overlay: Record<string, unknown>, dr
       operation: p.operation,
     }));
   }
+}
+
+/**
+ * Map a `WsRuleDraft`'s pre-fill fields onto the rule editor's ws form
+ * fields. Mutates `overlay` in place — same split the editor uses when
+ * populating from a saved rule (`wsFilterType: 'none'` means no filter).
+ */
+export function applyWsDraftOverlay(overlay: Record<string, unknown>, draft: WsRuleDraft): void {
+  if (draft.operation) overlay.wsOperation = draft.operation;
+  if (draft.direction) overlay.wsDirection = draft.direction;
+  if (draft.messageFilter) {
+    overlay.wsFilterType = draft.messageFilter.matchType;
+    overlay.wsFilterValue = draft.messageFilter.value;
+  }
+  if (draft.payload != null) overlay.wsPayload = draft.payload;
+  if (draft.injectTrigger) overlay.wsInjectTrigger = draft.injectTrigger;
+}
+
+/**
+ * Map an `SseRuleDraft`'s pre-fill fields onto the rule editor's sse
+ * form fields. Mutates `overlay` in place.
+ */
+export function applySseDraftOverlay(overlay: Record<string, unknown>, draft: SseRuleDraft): void {
+  if (draft.operation) overlay.sseOperation = draft.operation;
+  if (draft.eventName != null) overlay.sseEventName = draft.eventName;
+  if (draft.messageFilter) {
+    overlay.sseFilterType = draft.messageFilter.matchType;
+    overlay.sseFilterValue = draft.messageFilter.value;
+  }
+  if (draft.payload != null) overlay.ssePayload = draft.payload;
+  if (draft.injectTrigger) overlay.sseInjectTrigger = draft.injectTrigger;
 }
