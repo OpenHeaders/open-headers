@@ -197,6 +197,12 @@
   background: var(--dt-border);
 }
 
+/* Capture-minted synthetic rows — frames the wire never carried
+   (receive-inject, send-drop). Italic marks the page-only provenance. */
+.dt-ws-row--synthetic .dt-ws-data {
+  font-style: italic;
+}
+
 .dt-ws-len,
 .dt-ws-time {
   color: var(--dt-text-muted);
@@ -368,6 +374,15 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
+}
+
+/* Provenance banner over a synthetic injected frame's payload. */
+.dt-msg-preview-synthetic-note {
+  flex: none;
+  padding: 4px 8px;
+  font-size: 11px;
+  color: var(--dt-text-muted);
+  border-bottom: 1px solid var(--dt-border);
 }
 
 /* Honest truncation banner — shown only once the ring bound dropped frames. */

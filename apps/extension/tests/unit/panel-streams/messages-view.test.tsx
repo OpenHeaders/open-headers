@@ -304,6 +304,121 @@ describe('MessagesView — Original | Modified split', () => {
     expect(screen.getByLabelText('About Dropped, inferred')).toBeTruthy();
   });
 
+  describe('wrapper captures — recorded proof', () => {
+    it('a send-modify capture shows the REAL original next to the wire replacement (blue)', () => {
+      const lc = makeLifecycle({
+        url: 'wss://openheaders.io/live',
+        resourceType: 'websocket',
+        statusCode: 101,
+        messages: [ws({ type: 'send', data: 'patched', atMs: 1_000 })],
+        messageCaptures: [
+          {
+            ruleUid: 'ws1',
+            direction: 'send',
+            op: 'replaced',
+            original: 'original',
+            delivered: 'patched',
+            atMs: 1_000,
+          },
+        ],
+      });
+      const { container } = renderView(lc);
+      const row = container.querySelector('[role="option"]') as HTMLElement;
+      expect(splitSides(row)).toEqual(['original', 'patched']);
+      expect(rowDots(container)).toEqual([expect.stringContaining('dt-fire-dot--auth')]);
+      fireEvent.click(row);
+      const panes = container.querySelectorAll('.dt-body-split-pane');
+      expect(panes[0].textContent).toContain('original');
+      expect(panes[1].textContent).toContain('patched');
+      expect(screen.queryByText(/was not captured/)).toBeNull();
+    });
+
+    it('a receive-inject capture mints a synthetic frame row with the provenance banner', () => {
+      const lc = makeLifecycle({
+        url: 'wss://openheaders.io/live',
+        resourceType: 'websocket',
+        statusCode: 101,
+        messageCaptures: [
+          { ruleUid: 'ws1', direction: 'receive', op: 'injected', delivered: '{"injected":true}', atMs: 1_000 },
+        ],
+      });
+      const { container } = renderView(lc);
+      const rows = [...container.querySelectorAll('[role="option"]')];
+      expect(rows).toHaveLength(1);
+      expect(rows[0].className).toContain('dt-ws-row--synthetic');
+      expect(rows[0].textContent).toContain('{"injected":true}');
+      expect(rowDots(container)).toEqual([expect.stringContaining('dt-fire-dot--auth')]);
+      fireEvent.click(rows[0]);
+      expect(screen.getByText(/Synthetic frame — injected by a rule/)).toBeTruthy();
+    });
+
+    it('a receive-modify capture upgrades the split to proof — blue, no inferred (i)', () => {
+      const lc = makeLifecycle({
+        url: 'wss://openheaders.io/live',
+        resourceType: 'websocket',
+        statusCode: 101,
+        messages: [ws({ data: 'echo:hello', atMs: 1_000 })],
+        messageCaptures: [
+          {
+            ruleUid: 'ws1',
+            direction: 'receive',
+            op: 'replaced',
+            original: 'echo:hello',
+            delivered: '{"replaced":true}',
+            atMs: 1_000,
+          },
+        ],
+      });
+      const { container } = renderView(lc);
+      const row = container.querySelector('[role="option"]') as HTMLElement;
+      expect(splitSides(row)).toEqual(['echo:hello', '{"replaced":true}']);
+      expect(rowDots(container)).toEqual([expect.stringContaining('dt-fire-dot--auth')]);
+      fireEvent.click(row);
+      expect(screen.queryByLabelText('About Derived, not captured')).toBeNull();
+    });
+
+    it('a send-drop capture mints a synthetic row split original | dropped', () => {
+      const lc = makeLifecycle({
+        url: 'wss://openheaders.io/live',
+        resourceType: 'websocket',
+        statusCode: 101,
+        messageCaptures: [{ ruleUid: 'ws1', direction: 'send', op: 'dropped', original: 'secret', atMs: 1_000 }],
+      });
+      const { container } = renderView(lc);
+      const row = container.querySelector('[role="option"]') as HTMLElement;
+      expect(row.className).toContain('dt-ws-row--synthetic');
+      expect(splitSides(row)).toEqual(['secret', 'Dropped — never sent to the server']);
+      fireEvent.click(row);
+      expect(screen.getByText('Dropped · never reached the server')).toBeTruthy();
+    });
+
+    it('Clear all hides synthetic rows too and later wire frames still arrive', () => {
+      const lc = makeLifecycle({
+        url: 'wss://openheaders.io/live',
+        resourceType: 'websocket',
+        statusCode: 101,
+        messages: [ws({ data: 'first', atMs: 1_000 })],
+        messageCaptures: [
+          { ruleUid: 'ws1', direction: 'receive', op: 'injected', delivered: 'SYNTH', atMs: 1_500 },
+        ],
+      });
+      const { container, rerender } = renderView(lc);
+      expect(container.querySelectorAll('[role="option"]')).toHaveLength(2);
+      fireEvent.click(screen.getByTitle('Clear all'));
+      expect(container.querySelectorAll('[role="option"]')).toHaveLength(0);
+      rerender(
+        <MessagesView
+          lifecycle={{ ...lc, messages: [...(lc.messages ?? []), ws({ data: 'later', atMs: 2_000 })] }}
+          har={null}
+          source="cdp"
+          fires={[]}
+          rulesByUid={new Map()}
+        />,
+      );
+      expect(rowTexts(container)).toEqual(['later']);
+    });
+  });
+
   it('inject and unresolved-payload frames never split', () => {
     const inject = makeWsRule({ operation: 'inject', direction: 'receive', payload: 'SYNTH' }, 'ws1');
     const unresolved = makeWsRule({ operation: 'modify', direction: 'receive', payload: '{{env.x}}' }, 'ws2');

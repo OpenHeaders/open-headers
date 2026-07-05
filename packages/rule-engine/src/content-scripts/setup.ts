@@ -11,7 +11,7 @@
  */
 
 import type { FuncInjection } from '../builders/types';
-import type { OhOriginals, OhRequestCapture, OhResponseCapture } from './types';
+import type { OhMessageCapture, OhOriginals, OhRequestCapture, OhResponseCapture } from './types';
 
 /**
  * Name of the page-invisible fire channel. On a CDP-attached (in-scope) tab the
@@ -73,6 +73,13 @@ function ohSetupFunc(bindingName: string): void {
     captureRequest(capture: OhRequestCapture): void {
       try {
         window.postMessage({ __ohRequestCapture: true, ...capture }, '*');
+      } catch {
+        /* swallow */
+      }
+    },
+    captureMessage(capture: OhMessageCapture): void {
+      try {
+        window.postMessage({ __ohMessageCapture: true, ...capture }, '*');
       } catch {
         /* swallow */
       }

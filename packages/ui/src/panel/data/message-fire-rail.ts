@@ -1,11 +1,16 @@
 /**
  * Messages-grid fire rail — per-frame attribution of `ws` message rules.
  *
- * No per-frame rule attribution exists in the capture plane (a
- * `WsStreamMessage` records only direction, opcode, and payload), so the
- * dot is DERIVED at consume time: the row's fires narrowed to still-
- * existing `ws` rules, each rule's frame selector re-run against the
- * captured frame. Two honesty caveats shape the tiers:
+ * Two evidence tiers feed it. A frame carrying a joined wrapper capture
+ * (`FrameShape.capture` — see `ws-frames.ts`) has RECORDED attribution:
+ * the wrapper reported acting on that exact frame, so the verdict is
+ * proof-grade (`applied`) and both sides of the action are known. The
+ * wire plane alone records no per-frame attribution (a
+ * `WsStreamMessage` holds only direction, opcode, and payload), so
+ * capture-less frames fall back to a DERIVED dot: the row's fires
+ * narrowed to still-existing `ws` rules, each rule's frame selector
+ * re-run against the captured frame. Two honesty caveats shape the
+ * derived tiers:
  *
  *   - A `modify` rule's `messageFilter` matched the ORIGINAL payload,
  *     but a SEND frame's captured data holds the REPLACED one (the
@@ -38,6 +43,7 @@
  * the row points at.
  */
 
+import type { StreamMessageCapture } from '@openheaders/core/request-lifecycle';
 import type { MessageFilter, Rule, WsRule } from '@openheaders/core/types';
 import type { FireDotTier } from './fire-evidence';
 import type { InspectorFire } from './types';
@@ -75,6 +81,9 @@ function filterTakes(filter: MessageFilter | undefined, data: string): boolean {
 interface FrameShape {
   readonly type: 'send' | 'receive' | 'error';
   readonly data: string;
+  /** Wrapper capture joined to the frame — recorded proof that outranks
+   *  every selector inference below. */
+  readonly capture?: StreamMessageCapture;
 }
 
 /** Tier of one rule against one frame — `null` when the rule cannot
@@ -117,14 +126,16 @@ function ruleFrameTier(rule: WsRule, frame: FrameShape): MessageFireTier | null 
  *     payload, exact by the wrapper's contract, though whether THIS
  *     frame took it is only as strong as the tier says.
  *   - `replaced-on-wire` — the wire recorded the replacement (send: the
- *     wrapper swaps before `send`). The page-produced original never
- *     crossed any capture plane; there is nothing to derive it from.
- *   - `dropped` — the wire recorded the frame but the wrapper stopped
- *     delivery (receive only): the page never received it.
+ *     wrapper swaps before `send`). `original` is the page-produced
+ *     payload when the wrapper's capture recorded it; absent on the
+ *     selector-inferred path (nothing to derive it from).
+ *   - `dropped` — the frame was stopped by the wrapper: a receive drop
+ *     has a wire row the page never received; a send drop surfaces only
+ *     as a capture-minted synthetic row (nothing crossed the wire).
  */
 export type MessageModificationView =
   | { readonly kind: 'replaced-in-page'; readonly modified: string }
-  | { readonly kind: 'replaced-on-wire' }
+  | { readonly kind: 'replaced-on-wire'; readonly original?: string }
   | { readonly kind: 'dropped' };
 
 export interface MessageFrameAttribution {
@@ -135,7 +146,7 @@ export interface MessageFrameAttribution {
   readonly modification: MessageModificationView | null;
 }
 
-function attributionFor(tier: MessageFireTier, rule: WsRule, frame: FrameShape): MessageFrameAttribution {
+function attributionFor(tier: MessageFireTier, rule: WsRule): MessageFrameAttribution {
   const action = rule.action;
   if (action.operation === 'drop') {
     return { tier, modification: { kind: 'dropped' } };
@@ -151,20 +162,39 @@ function attributionFor(tier: MessageFireTier, rule: WsRule, frame: FrameShape):
   return { tier, modification: null };
 }
 
-/** Attribution for one frame across the row's fired `ws` rules —
- *  `applied` wins over `inferred` (first rule of the winning tier
- *  supplies the modification view); `null` = no rule accounts for it. */
-export function messageFrameAttribution(
-  rules: readonly WsRule[],
-  frame: FrameShape,
-): MessageFrameAttribution | null {
+/** Attribution from the frame's joined wrapper capture — recorded proof
+ *  (`applied`, matching `isAppliedFire`'s in-page-reporter tier), so it
+ *  needs no live rule and outranks every selector inference. */
+function captureAttribution(capture: StreamMessageCapture): MessageFrameAttribution {
+  if (capture.op === 'injected') {
+    // The whole frame is rule-authored — there are no two sides to split.
+    return { tier: 'applied', modification: null };
+  }
+  if (capture.op === 'dropped') return { tier: 'applied', modification: { kind: 'dropped' } };
+  return capture.direction === 'send'
+    ? {
+        tier: 'applied',
+        modification: {
+          kind: 'replaced-on-wire',
+          ...(capture.original !== undefined ? { original: capture.original } : {}),
+        },
+      }
+    : { tier: 'applied', modification: { kind: 'replaced-in-page', modified: capture.delivered ?? '' } };
+}
+
+/** Attribution for one frame — the joined capture when present (proof),
+ *  else across the row's fired `ws` rules: `applied` wins over
+ *  `inferred` (first rule of the winning tier supplies the modification
+ *  view); `null` = nothing accounts for the frame. */
+export function messageFrameAttribution(rules: readonly WsRule[], frame: FrameShape): MessageFrameAttribution | null {
+  if (frame.capture !== undefined) return captureAttribution(frame.capture);
   let inferred: WsRule | null = null;
   for (const rule of rules) {
     const t = ruleFrameTier(rule, frame);
-    if (t === 'applied') return attributionFor('applied', rule, frame);
+    if (t === 'applied') return attributionFor('applied', rule);
     if (t === 'inferred' && inferred === null) inferred = rule;
   }
-  return inferred === null ? null : attributionFor('inferred', inferred, frame);
+  return inferred === null ? null : attributionFor('inferred', inferred);
 }
 
 /** Rail tier for one frame across the row's fired `ws` rules —

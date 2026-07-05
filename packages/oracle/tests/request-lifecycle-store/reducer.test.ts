@@ -478,6 +478,65 @@ describe('reducer — message stream (message-appended)', () => {
   });
 });
 
+describe('reducer — wrapper captures (message-capture-appended)', () => {
+  const capture = (n: number) =>
+    ({
+      ruleUid: 'ws-rule-1',
+      direction: 'send',
+      op: 'replaced',
+      original: `original ${n}`,
+      delivered: 'patched',
+      atMs: 3_000 + n,
+    }) as const;
+
+  it('appends in arrival order on a tracked lifecycle', () => {
+    const prev = makeLifecycle({ phase: 'headers-received' });
+    const first = reduce(prev, {
+      kind: 'message-capture-appended',
+      tabId: 1,
+      requestId: 'req-1',
+      capture: capture(0),
+    });
+    if (first.kind !== 'update') throw new Error('expected update');
+    const second = reduce(first.next, {
+      kind: 'message-capture-appended',
+      tabId: 1,
+      requestId: 'req-1',
+      capture: capture(1),
+    });
+    if (second.kind !== 'update') throw new Error('expected update');
+    expect(second.next.messageCaptures).toEqual([capture(0), capture(1)]);
+    expect(second.next.messageCapturesDropped).toBeUndefined();
+  });
+
+  it('rejects a capture for an unknown lifecycle', () => {
+    const result = reduce(undefined, {
+      kind: 'message-capture-appended',
+      tabId: 1,
+      requestId: 'req-1',
+      capture: capture(0),
+    });
+    expect(result).toEqual({ kind: 'reject', reason: 'unknown-request' });
+  });
+
+  it('enforces the drop-oldest ring at the shared core bound', () => {
+    const atCap = makeLifecycle({
+      phase: 'headers-received',
+      messageCaptures: Array.from({ length: MAX_STREAM_MESSAGES_PER_REQUEST }, (_, i) => capture(i)),
+    });
+    const result = reduce(atCap, {
+      kind: 'message-capture-appended',
+      tabId: 1,
+      requestId: 'req-1',
+      capture: capture(MAX_STREAM_MESSAGES_PER_REQUEST),
+    });
+    if (result.kind !== 'update') throw new Error('expected update');
+    expect(result.next.messageCaptures).toHaveLength(MAX_STREAM_MESSAGES_PER_REQUEST);
+    expect(result.next.messageCaptures?.[0]).toEqual(capture(1));
+    expect(result.next.messageCapturesDropped).toBe(1);
+  });
+});
+
 describe('reducer — override-attached (served/original capture)', () => {
   it('sets responseOverride on the lifecycle (last write wins)', () => {
     const state = makeLifecycle({ phase: 'completed', statusCode: 200 });

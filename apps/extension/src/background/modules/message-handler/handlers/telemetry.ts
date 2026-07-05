@@ -2,6 +2,7 @@
 
 import type { InspectorRequestSnapshot, InspectorResponseSnapshot } from '@openheaders/core/request-lifecycle';
 import type { PerfResourceEntry } from '@/types/perf';
+import { messageCaptureSource } from '../../../correlator-host/message-capture-source';
 import { overrideEventSource } from '../../../correlator-host/override-source';
 import { getActiveRulesForTab, ingestPerfEntries } from '../../request-tracker';
 import { getTabSnapshot, recordReportedFire } from '../../tab-telemetry';
@@ -53,6 +54,28 @@ export const telemetryHandlers: HandlerMap = {
           ruleUid: message.ruleUid as string,
           served: message.served as InspectorResponseSnapshot,
           ...(original !== undefined ? { original } : {}),
+        },
+      });
+    }
+    respond({ success: true });
+  },
+
+  // Page-relayed WebSocket frame capture — the ws wrapper reports each
+  // frame it replaced/dropped/injected. The pipeline joins it to the open
+  // socket's lifecycle by `(tabId, url, time window)`.
+  tabMessageCapture: ({ message, sender, respond }) => {
+    const tabId = sender.tab?.id;
+    if (typeof tabId === 'number') {
+      messageCaptureSource.push({
+        tabId,
+        url: message.url as string,
+        capture: {
+          ruleUid: message.ruleUid as string,
+          direction: message.direction as 'send' | 'receive',
+          op: message.op as 'replaced' | 'dropped' | 'injected',
+          atMs: message.t as number,
+          ...(message.original !== undefined ? { original: message.original as string } : {}),
+          ...(message.delivered !== undefined ? { delivered: message.delivered as string } : {}),
         },
       });
     }

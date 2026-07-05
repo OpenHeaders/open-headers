@@ -114,6 +114,9 @@ export interface LifecycleOverrides {
   /** Message-stream plane (WS frames / SSE events). */
   messages?: RequestLifecycle['messages'];
   messagesDropped?: number;
+  /** Wrapper-capture plane (per-frame ws rule captures). */
+  messageCaptures?: RequestLifecycle['messageCaptures'];
+  messageCapturesDropped?: number;
   /**
    * Convenience for tests that only need to tweak a few fields on hop 0
    * without rebuilding the whole `har` array. Ignored when `har` is also
@@ -156,6 +159,8 @@ export function makeLifecycle(over: LifecycleOverrides = {}): RequestLifecycle {
     ...(over.error ? { error: over.error } : {}),
     ...(over.messages ? { messages: over.messages } : {}),
     ...(over.messagesDropped != null ? { messagesDropped: over.messagesDropped } : {}),
+    ...(over.messageCaptures ? { messageCaptures: over.messageCaptures } : {}),
+    ...(over.messageCapturesDropped != null ? { messageCapturesDropped: over.messageCapturesDropped } : {}),
     har,
     harBodyByHop: over.harBodyByHop ?? [],
   };

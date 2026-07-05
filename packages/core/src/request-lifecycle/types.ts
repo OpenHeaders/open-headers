@@ -79,6 +79,37 @@ export interface WsStreamMessage {
 }
 
 /**
+ * One per-frame capture relayed by the MAIN-world WebSocket wrapper —
+ * the side of a message rule's action the network capture can never
+ * see. The wire records a frame at the network layer; the wrapper acts
+ * in the page, so per direction one side of every action is wire-
+ * invisible: the replacement a receive-modify delivered, the original a
+ * send-modify rewrote, an injected receive frame (never on the wire at
+ * all), a dropped send frame (ditto). The wrapper holds both sides at
+ * the moment it acts and relays them here — recorded evidence, same
+ * posture as {@link ResponseOverride}.
+ *
+ *   op         | original                  | delivered
+ *   -----------|---------------------------|---------------------------
+ *   replaced   | pre-modify payload¹       | the replacement
+ *   dropped    | the swallowed payload¹    | —
+ *   injected   | —                         | the injected payload
+ *
+ * ¹ Text frames only — a filterless modify/drop can take a binary
+ *   frame, whose payload the wrapper does not serialize; `original` is
+ *   then absent while the capture still records that the action ran.
+ */
+export interface StreamMessageCapture {
+  readonly ruleUid: string;
+  readonly direction: 'send' | 'receive';
+  readonly op: 'replaced' | 'dropped' | 'injected';
+  readonly original?: string;
+  readonly delivered?: string;
+  /** Wall-clock ms at the wrapper (page clock). */
+  readonly atMs: number;
+}
+
+/**
  * One parsed Server-Sent Event, as the panel's EventStream tab renders
  * it. Parsed by the network stack (`event:` / `id:` / `data:` fields;
  * multi-line data already joined with `\n`); `eventName` is `message`
@@ -372,6 +403,18 @@ export interface RequestLifecycle {
   readonly messagesDropped?: number;
 
   /**
+   * Per-frame wrapper captures for this request (see
+   * {@link StreamMessageCapture}), in arrival order, appended by
+   * `message-capture-appended` updates. Populated only when a `ws`
+   * rule's MAIN-world wrapper acted on the connection; joined to
+   * {@link messages} at consume time (the wire and the wrapper report
+   * independently). Same ring bound as `messages`.
+   */
+  readonly messageCaptures?: readonly StreamMessageCapture[];
+  /** Ring-bound drop count for {@link messageCaptures}. */
+  readonly messageCapturesDropped?: number;
+
+  /**
    * Per-hop HAR shell forwarded from the devtools_page. Index = hop
    * number; hop 0 is the original request, hop N is the request after
    * the Nth redirect. Slots for hops whose HAR has not landed yet hold
@@ -499,6 +542,11 @@ export type RequestLifecycleUpdate =
    * ({@link MAX_STREAM_MESSAGES_PER_REQUEST}) identically on both sides.
    */
   | { kind: 'message-appended'; tabId: number; requestId: string; message: StreamMessage }
+  /**
+   * One wrapper capture appended to the lifecycle's capture stream —
+   * same ordering and shared ring-bound contract as `message-appended`.
+   */
+  | { kind: 'message-capture-appended'; tabId: number; requestId: string; capture: StreamMessageCapture }
   | { kind: 'gone'; tabId: number; requestId: string };
 
 /**

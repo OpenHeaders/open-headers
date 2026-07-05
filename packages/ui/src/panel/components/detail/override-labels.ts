@@ -15,3 +15,4 @@ export const REQUEST_MODIFIED_LABEL = 'Modified · page → Open Headers → ser
  *  way: a receive frame reads as a response (server → page), a send
  *  frame as a request (page → server), so those pairs are shared. */
 export const WS_RECV_DROPPED_LABEL = 'Dropped · never reached the page';
+export const WS_SEND_DROPPED_LABEL = 'Dropped · never reached the server';

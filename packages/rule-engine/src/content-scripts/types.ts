@@ -117,6 +117,22 @@ export interface OhRequestCapture {
   original?: OhRequestSnapshot;
 }
 
+/**
+ * One per-frame capture the WebSocket wrapper relays when it acts on a
+ * frame — structurally the core `StreamMessageCapture` plus the join
+ * keys the background needs (`url` = the resolved ws(s) endpoint, `t` =
+ * the wrapper's wall clock) since the page never knows the requestId.
+ */
+export interface OhMessageCapture {
+  ruleUid: string;
+  url: string;
+  t: number;
+  direction: 'send' | 'receive';
+  op: 'replaced' | 'dropped' | 'injected';
+  original?: string;
+  delivered?: string;
+}
+
 export interface OhOriginals {
   fetch: typeof window.fetch;
   xhrOpen: typeof XMLHttpRequest.prototype.open;
@@ -136,4 +152,9 @@ export interface OhOriginals {
   captureResponse: (capture: OhResponseCapture) => void;
   /** The request-side twin — a two-sided request-body capture. */
   captureRequest: (capture: OhRequestCapture) => void;
+  /** Per-frame WebSocket capture — the ws wrapper reports each frame it
+   *  replaced/dropped/injected so the panel can show the side the wire
+   *  never carried. Page-invisible `window.postMessage`, like the body
+   *  captures. */
+  captureMessage: (capture: OhMessageCapture) => void;
 }

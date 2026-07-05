@@ -17,7 +17,11 @@ import type {
   RequestLifecyclePatch,
   RequestLifecycleUpdate,
 } from '@openheaders/core/request-lifecycle';
-import { appendStreamMessage, deriveHopNetworkStartMs } from '@openheaders/core/request-lifecycle';
+import {
+  appendStreamMessage,
+  appendStreamMessageCapture,
+  deriveHopNetworkStartMs,
+} from '@openheaders/core/request-lifecycle';
 import type { InspectorHarBody, InspectorHarEntry } from '@openheaders/core/types';
 
 /** `prev` = noop, `null` = delete, anything else = new state. */
@@ -52,6 +56,8 @@ export function reduceClientUpdate(
       // The ring policy lives in core (`appendStreamMessage`) so this mirror
       // and the engine reducer can never diverge on the bound.
       return prev === undefined ? NOOP : appendStreamMessage(prev, update.message);
+    case 'message-capture-appended':
+      return prev === undefined ? NOOP : appendStreamMessageCapture(prev, update.capture);
     case 'gone':
       return prev === undefined ? NOOP : null;
   }

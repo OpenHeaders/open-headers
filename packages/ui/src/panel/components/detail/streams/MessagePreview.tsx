@@ -29,6 +29,7 @@ import {
   RESPONSE_MODIFIED_LABEL,
   RESPONSE_ORIGINAL_LABEL,
   WS_RECV_DROPPED_LABEL,
+  WS_SEND_DROPPED_LABEL,
 } from '../override-labels';
 import ResponseViewerToolbar, { type ViewMode } from '../ResponseViewerToolbar';
 import SplitBodyView from '../SplitBodyView';
@@ -179,13 +180,15 @@ export default function MessagePreview({ frame, attribution = null }: MessagePre
       return (
         <div className="dt-msg-preview-dual">
           <SplitBodyView
-            startLabel={RESPONSE_ORIGINAL_LABEL}
+            startLabel={send ? REQUEST_ORIGINAL_LABEL : RESPONSE_ORIGINAL_LABEL}
             start={<FramePayload frame={frame} />}
-            endLabel={WS_RECV_DROPPED_LABEL}
+            endLabel={send ? WS_SEND_DROPPED_LABEL : WS_RECV_DROPPED_LABEL}
             end={
               <div className="dt-msg-preview-content">
                 <span className="dt-col-muted">
-                  The rule dropped this frame — it reached the browser but was never delivered to the page.
+                  {send
+                    ? 'The rule dropped this frame — the page produced it, but it was never sent to the server.'
+                    : 'The rule dropped this frame — it reached the browser but was never delivered to the page.'}
                 </span>
               </div>
             }
@@ -198,6 +201,8 @@ export default function MessagePreview({ frame, attribution = null }: MessagePre
     const originalPane =
       modification.kind === 'replaced-in-page' ? (
         <FramePayload frame={frame} />
+      ) : modification.original !== undefined ? (
+        <TextPayload text={modification.original} />
       ) : (
         <div className="dt-msg-preview-content">
           <span className="dt-col-muted">
@@ -221,6 +226,19 @@ export default function MessagePreview({ frame, attribution = null }: MessagePre
           headerAction={inferredInfo}
         />
       </div>
+    );
+  }
+
+  // A synthetic injected frame has no two sides to split — the whole
+  // payload is rule-authored; the banner carries its provenance.
+  if (frame.synthetic) {
+    return (
+      <>
+        <div className="dt-msg-preview-synthetic-note">
+          Synthetic frame — injected by a rule inside the page; it never crossed the wire.
+        </div>
+        <FramePayload frame={frame} />
+      </>
     );
   }
 

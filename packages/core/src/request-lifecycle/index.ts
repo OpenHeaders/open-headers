@@ -25,7 +25,7 @@ export {
   refinesField,
   urlChain,
 } from './invariants';
-export { appendStreamMessage } from './stream-messages';
+export { appendStreamMessage, appendStreamMessageCapture } from './stream-messages';
 export type {
   InspectorOverrideBody,
   InspectorRequestSnapshot,
@@ -41,6 +41,7 @@ export type {
   ResponseOverride,
   SseStreamMessage,
   StreamMessage,
+  StreamMessageCapture,
   WsStreamMessage,
 } from './types';
 export { MATERIAL_DEBUG_PAUSE_MS, MAX_STREAM_MESSAGES_PER_REQUEST } from './types';

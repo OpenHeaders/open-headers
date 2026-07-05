@@ -52,6 +52,17 @@ interface OhRequestCapturePayload {
   original?: InspectorRequestSnapshot;
 }
 
+interface OhMessageCapturePayload {
+  __ohMessageCapture: true;
+  ruleUid: string;
+  url: string;
+  t: number;
+  direction: 'send' | 'receive';
+  op: 'replaced' | 'dropped' | 'injected';
+  original?: string;
+  delivered?: string;
+}
+
 (() => {
   window.addEventListener('message', (ev: MessageEvent) => {
     if (ev.source !== window) return;
@@ -59,12 +70,14 @@ interface OhRequestCapturePayload {
       | OhFirePayload
       | OhResponseCapturePayload
       | OhRequestCapturePayload
+      | OhMessageCapturePayload
       | null
       | undefined
     ) & {
       __ohFire?: true;
       __ohResponseCapture?: true;
       __ohRequestCapture?: true;
+      __ohMessageCapture?: true;
     };
     if (!data) return;
     // Fire-and-forget for both bridges: the background handlers resolve with
@@ -100,6 +113,21 @@ interface OhRequestCapturePayload {
         startedAt: cap.startedAt,
         sent: cap.sent,
         ...(cap.original !== undefined ? { original: cap.original } : {}),
+      }).catch(() => {
+        /* background service worker evicted or reloading — ignore */
+      });
+      return;
+    }
+    if (data.__ohMessageCapture === true) {
+      const cap = data as OhMessageCapturePayload;
+      call('tabMessageCapture', {
+        ruleUid: cap.ruleUid,
+        url: cap.url,
+        t: cap.t,
+        direction: cap.direction,
+        op: cap.op,
+        ...(cap.original !== undefined ? { original: cap.original } : {}),
+        ...(cap.delivered !== undefined ? { delivered: cap.delivered } : {}),
       }).catch(() => {
         /* background service worker evicted or reloading — ignore */
       });

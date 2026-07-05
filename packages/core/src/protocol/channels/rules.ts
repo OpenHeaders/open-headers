@@ -4,6 +4,7 @@
  * resolution.
  */
 
+import type { InspectorRequestSnapshot, InspectorResponseSnapshot } from '../../request-lifecycle';
 import type {
   ActiveRule,
   Collection,
@@ -15,7 +16,6 @@ import type {
   TabSystemOverrides,
   TabTelemetrySnapshot,
 } from '../../types';
-import type { InspectorRequestSnapshot, InspectorResponseSnapshot } from '../../request-lifecycle';
 import type { FolderDescriptor } from './common';
 
 export interface RuleRpc {
@@ -134,6 +134,21 @@ export interface RuleRpc {
       startedAt: number;
       sent: InspectorRequestSnapshot;
       original?: InspectorRequestSnapshot;
+    };
+    res: { success: boolean };
+  };
+  // Per-frame WebSocket capture relayed by the ws wrapper — the side of a
+  // frame action the wire never carried. The background joins it to the
+  // open socket's lifecycle by (tabId, url, time window).
+  tabMessageCapture: {
+    req: {
+      ruleUid: string;
+      url: string;
+      t: number;
+      direction: 'send' | 'receive';
+      op: 'replaced' | 'dropped' | 'injected';
+      original?: string;
+      delivered?: string;
     };
     res: { success: boolean };
   };

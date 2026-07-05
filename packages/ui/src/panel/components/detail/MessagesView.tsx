@@ -69,6 +69,7 @@ import {
   frameDataLabel,
   frameLengthLabel,
   opcodeDescription,
+  WS_SYNTHETIC_INDEX_BASE,
   type WsDisplayFrame,
   wsDisplayFrames,
 } from './streams/ws-frames';
@@ -100,6 +101,24 @@ const FIRE_DOT_TITLE: Record<MessageFireTier, string> = {
   inferred: 'Rule matched — application not verifiable for this frame',
 };
 
+/** Dot tooltip — a capture-backed dot states what the wrapper recorded;
+ *  the derived tiers keep the generic tier copy. */
+function fireDotTitle(
+  frame: WsDisplayFrame,
+  tier: MessageFireTier,
+  modification: MessageFrameAttribution['modification'],
+): string {
+  const op = frame.capture?.op;
+  if (op === 'injected') return 'Rule applied — this frame was injected by the rule';
+  if (op === 'replaced') return 'Rule applied — the rule replaced this frame';
+  if (op === 'dropped' || modification?.kind === 'dropped') {
+    return frame.type === 'send'
+      ? 'Rule dropped this frame — it was never sent to the server'
+      : 'Rule dropped this frame — the page never received it';
+  }
+  return FIRE_DOT_TITLE[tier];
+}
+
 function directionClass(type: WsDisplayFrame['type']): string {
   if (type === 'send') return 'dt-ws-row--send';
   if (type === 'error') return 'dt-ws-row--error';
@@ -116,7 +135,10 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
   const [direction, setDirection] = useState<WsDirectionFilter>('all');
   const [filterText, setFilterText] = useState('');
   const [sortDir, setSortDir] = useState<SortDirection>('asc');
-  const [clearedCount, setClearedCount] = useState(0);
+  // Clear-all floors — wire frames and capture-minted synthetic rows index
+  // in separate spaces (synthetic from WS_SYNTHETIC_INDEX_BASE), so each
+  // stream keeps its own "hide everything before" ordinal.
+  const [clearedFloors, setClearedFloors] = useState({ wire: 0, synth: 0 });
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 
   const listRef = useRef<HTMLDivElement>(null);
@@ -129,13 +151,13 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
 
   const wsRules = useMemo(() => firedWsRules(fires, rulesByUid), [fires, rulesByUid]);
 
-  // Fire-rail attribution, derived per frame from the row's fired ws
-  // rules — tier drives the dot, the modification view drives the
-  // Original | Modified split (see `message-fire-rail.ts` for the
-  // attribution-honesty contract).
+  // Fire-rail attribution per frame — a joined wrapper capture is
+  // recorded proof (needs no live rule); capture-less frames derive from
+  // the row's fired ws rules. Tier drives the dot, the modification view
+  // drives the Original | Modified split (see `message-fire-rail.ts` for
+  // the attribution-honesty contract).
   const attributionByIndex = useMemo(() => {
     const map = new Map<number, MessageFrameAttribution>();
-    if (wsRules.length === 0) return map;
     for (const frame of all) {
       const attribution = messageFrameAttribution(wsRules, frame);
       if (attribution !== null) map.set(frame.index, attribution);
@@ -191,7 +213,11 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
 
   const visible = useMemo(() => {
     const regex = compileStreamFilter(filterText, 'literal');
-    const afterClear = clearedCount > 0 ? all.filter((f) => f.index >= clearedCount) : all;
+    const cleared = (f: WsDisplayFrame): boolean =>
+      f.index >= WS_SYNTHETIC_INDEX_BASE
+        ? f.index - WS_SYNTHETIC_INDEX_BASE < clearedFloors.synth
+        : f.index < clearedFloors.wire;
+    const afterClear = clearedFloors.wire > 0 || clearedFloors.synth > 0 ? all.filter((f) => !cleared(f)) : all;
     // A modified frame matches on either side — the captured wire data or
     // the derived replacement the split cell renders next to it.
     const takenByFilter = (f: WsDisplayFrame): boolean => {
@@ -207,7 +233,7 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
       return [...filtered].sort((a, b) => b.atMs - a.atMs || b.index - a.index);
     }
     return filtered;
-  }, [all, attributionByIndex, clearedCount, direction, filterText, sortDir]);
+  }, [all, attributionByIndex, clearedFloors, direction, filterText, sortDir]);
 
   const { onScroll } = useStickToBottom(listRef, visible.length);
 
@@ -232,8 +258,14 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
   const selected = selectedIndex != null ? (all.find((f) => f.index === selectedIndex) ?? null) : null;
 
   const onClear = () => {
-    // Hide everything observed so far: the next frame's index is the floor.
-    setClearedCount(all.length > 0 ? all[all.length - 1].index + 1 : 0);
+    // Hide everything observed so far: each stream's next ordinal is its floor.
+    let wire = clearedFloors.wire;
+    let synth = clearedFloors.synth;
+    for (const f of all) {
+      if (f.index >= WS_SYNTHETIC_INDEX_BASE) synth = Math.max(synth, f.index - WS_SYNTHETIC_INDEX_BASE + 1);
+      else wire = Math.max(wire, f.index + 1);
+    }
+    setClearedFloors({ wire, synth });
     setSelectedIndex(null);
   };
 
@@ -333,11 +365,19 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
                 const attribution = attributionByIndex.get(m.index) ?? null;
                 const fireTier = attribution?.tier ?? null;
                 const modification = attribution?.modification ?? null;
+                const droppedCopy =
+                  m.type === 'send' ? 'Dropped — never sent to the server' : 'Dropped — never delivered to the page';
                 return (
                   <div
                     key={`ws-${m.index}`}
-                    className={`dt-ws-row ${directionClass(m.type)}${isSelected ? ' dt-ws-row--selected' : ''}`}
-                    title={opcodeDescription(m.opcode, m.mask)}
+                    className={`dt-ws-row ${directionClass(m.type)}${isSelected ? ' dt-ws-row--selected' : ''}${m.synthetic ? ' dt-ws-row--synthetic' : ''}`}
+                    title={
+                      m.synthetic
+                        ? m.capture?.op === 'dropped'
+                          ? 'Synthetic row — the page produced this frame; the rule dropped it before send'
+                          : 'Synthetic frame — injected by a rule inside the page; never crossed the wire'
+                        : opcodeDescription(m.opcode, m.mask)
+                    }
                     role="option"
                     aria-selected={isSelected}
                     onClick={() => setSelectedIndex(m.index)}
@@ -346,11 +386,7 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
                       {fireTier !== null && (
                         <span
                           className={`dt-fire-dot ${FIRE_DOT_CLASS[fireTier]}`}
-                          title={
-                            modification?.kind === 'dropped'
-                              ? 'Rule dropped this frame — the page never received it'
-                              : FIRE_DOT_TITLE[fireTier]
-                          }
+                          title={fireDotTitle(m, fireTier, modification)}
                         />
                       )}
                     </span>
@@ -366,19 +402,15 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
                       // says so instead of pretending).
                       <span className="dt-ws-data dt-ws-data--split">
                         <span className="dt-ws-data-side">
-                          {modification.kind === 'replaced-on-wire' ? (
-                            <span className="dt-col-muted">Not captured</span>
-                          ) : (
-                            frameDataLabel(m)
-                          )}
+                          {modification.kind === 'replaced-on-wire'
+                            ? (modification.original ?? <span className="dt-col-muted">Not captured</span>)
+                            : frameDataLabel(m)}
                         </span>
                         <span className="dt-ws-data-split-divider" aria-hidden="true" />
                         <span className="dt-ws-data-side">
                           {modification.kind === 'replaced-in-page' && modification.modified}
                           {modification.kind === 'replaced-on-wire' && frameDataLabel(m)}
-                          {modification.kind === 'dropped' && (
-                            <span className="dt-col-muted">Dropped — never delivered to the page</span>
-                          )}
+                          {modification.kind === 'dropped' && <span className="dt-col-muted">{droppedCopy}</span>}
                         </span>
                       </span>
                     )}

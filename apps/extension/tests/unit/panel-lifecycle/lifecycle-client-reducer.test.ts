@@ -368,3 +368,51 @@ describe('reduceClientUpdate — message-appended', () => {
     expect(result.messagesDropped).toBe(1);
   });
 });
+
+describe('reduceClientUpdate — message-capture-appended', () => {
+  const capture = (n: number) =>
+    ({
+      ruleUid: 'ws-rule-1',
+      direction: 'receive',
+      op: 'replaced',
+      original: `echo ${n}`,
+      delivered: '{"replaced":true}',
+      atMs: 3_000 + n,
+    }) as const;
+
+  it('appends through the shared core policy and noops for unknown requests', () => {
+    const prev = makeLifecycle();
+    const first = reduceClientUpdate(prev, {
+      kind: 'message-capture-appended',
+      tabId: prev.tabId,
+      requestId: prev.requestId,
+      capture: capture(0),
+    });
+    if (first === NOOP || first === null) throw new Error('expected state');
+    expect(first.messageCaptures).toEqual([capture(0)]);
+    expect(
+      reduceClientUpdate(undefined, {
+        kind: 'message-capture-appended',
+        tabId: 1,
+        requestId: 'req-1',
+        capture: capture(0),
+      }),
+    ).toBe(NOOP);
+  });
+
+  it('mirrors the engine ring bound exactly (drop-oldest + droppedCount)', () => {
+    const prev = makeLifecycle({
+      messageCaptures: Array.from({ length: MAX_STREAM_MESSAGES_PER_REQUEST }, (_, i) => capture(i)),
+    });
+    const result = reduceClientUpdate(prev, {
+      kind: 'message-capture-appended',
+      tabId: prev.tabId,
+      requestId: prev.requestId,
+      capture: capture(MAX_STREAM_MESSAGES_PER_REQUEST),
+    });
+    if (result === NOOP || result === null) throw new Error('expected state');
+    expect(result.messageCaptures).toHaveLength(MAX_STREAM_MESSAGES_PER_REQUEST);
+    expect(result.messageCaptures?.[0]).toEqual(capture(1));
+    expect(result.messageCapturesDropped).toBe(1);
+  });
+});

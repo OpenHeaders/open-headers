@@ -27,9 +27,11 @@ import type {
   RequestOverride,
   ResponseOverride,
   StreamMessage,
+  StreamMessageCapture,
 } from '@openheaders/core/request-lifecycle';
 import {
   appendStreamMessage,
+  appendStreamMessageCapture,
   deriveHopNetworkStartMs,
   isPhaseAdvance,
   isRedirectReset,
@@ -81,6 +83,8 @@ export function reduce(prev: RequestLifecycle | undefined, update: RequestLifecy
       return reduceRequestOverride(prev, update.override);
     case 'message-appended':
       return reduceMessageAppended(prev, update.message);
+    case 'message-capture-appended':
+      return reduceMessageCaptureAppended(prev, update.capture);
     case 'gone':
       return prev === undefined ? { kind: 'noop' } : { kind: 'delete' };
   }
@@ -198,6 +202,14 @@ function reduceRequestOverride(prev: RequestLifecycle | undefined, override: Req
 function reduceMessageAppended(prev: RequestLifecycle | undefined, message: StreamMessage): ReducerResult {
   if (prev === undefined) return { kind: 'reject', reason: 'unknown-request' };
   return { kind: 'update', next: appendStreamMessage(prev, message) };
+}
+
+function reduceMessageCaptureAppended(
+  prev: RequestLifecycle | undefined,
+  capture: StreamMessageCapture,
+): ReducerResult {
+  if (prev === undefined) return { kind: 'reject', reason: 'unknown-request' };
+  return { kind: 'update', next: appendStreamMessageCapture(prev, capture) };
 }
 
 // Per-hop slot copy-and-set. Pads with `null` for any skipped hop so

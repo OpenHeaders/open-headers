@@ -39,6 +39,11 @@ export function buildWsInjection(rule: WsRule): FuncInjection {
  * Binary frames: a content filter only matches string data, so filtered
  * modify/drop passes binary frames through untouched; with no filter,
  * every frame in the configured direction is acted on.
+ *
+ * Every action additionally relays a per-frame capture (`report`) — the
+ * side of the action the network capture can never see (replacement
+ * delivered in-page, original of a rewritten send, injected/dropped
+ * frames that never crossed the wire).
  */
 function wsInjectionFunc(cfg: WsConfig): void {
   const regexes = cfg.regexSources.map((s) => new RegExp(s, 'i'));
@@ -80,6 +85,25 @@ function wsInjectionFunc(cfg: WsConfig): void {
     (window as unknown as { __ohOrig?: OhOriginals }).__ohOrig?.fire(cfg.ruleUid, url, 'ws');
   }
 
+  // Relay the wire-invisible side of the action (see OhMessageCapture).
+  // Optional-chained end to end: a document armed by an older setup may
+  // hold an __ohOrig without captureMessage — the action still runs.
+  function report(
+    url: string,
+    op: 'replaced' | 'dropped' | 'injected',
+    sides: { original?: unknown; delivered?: string },
+  ): void {
+    (window as unknown as { __ohOrig?: OhOriginals }).__ohOrig?.captureMessage?.({
+      ruleUid: cfg.ruleUid,
+      url: resolveWsUrl(url),
+      t: Date.now(),
+      direction: cfg.direction,
+      op,
+      ...(typeof sides.original === 'string' ? { original: sides.original } : {}),
+      ...(sides.delivered !== undefined ? { delivered: sides.delivered } : {}),
+    });
+  }
+
   function originOf(url: string): string {
     // A real frame's MessageEvent.origin is the socket's origin, not the full
     // endpoint URL — resolve to the ws(s) form (as matches() does), then take
@@ -111,7 +135,11 @@ function wsInjectionFunc(cfg: WsConfig): void {
       ws.send = (data: Parameters<WebSocket['send']>[0]): void => {
         if (matchesMessage(data)) {
           fire(urlStr);
-          if (cfg.operation === 'drop') return;
+          if (cfg.operation === 'drop') {
+            report(urlStr, 'dropped', { original: data });
+            return;
+          }
+          report(urlStr, 'replaced', { original: data, delivered: cfg.payload });
           origSend(cfg.payload);
           return;
         }
@@ -124,6 +152,11 @@ function wsInjectionFunc(cfg: WsConfig): void {
         if ((ev as SyntheticMessageEvent).__ohSynthetic) return;
         if (!matchesMessage(ev.data)) return;
         fire(urlStr);
+        if (cfg.operation === 'modify') {
+          report(urlStr, 'replaced', { original: ev.data, delivered: cfg.payload });
+        } else {
+          report(urlStr, 'dropped', { original: ev.data });
+        }
         ev.stopImmediatePropagation();
         if (cfg.operation === 'modify') deliver(ws, cfg.payload, ev.origin);
       });
@@ -138,8 +171,12 @@ function wsInjectionFunc(cfg: WsConfig): void {
         setTimeout(() => {
           fire(urlStr);
           if (cfg.direction === 'send') {
-            if (ws.readyState === OrigWebSocket.OPEN) ws.send(cfg.payload);
+            if (ws.readyState === OrigWebSocket.OPEN) {
+              report(urlStr, 'injected', { delivered: cfg.payload });
+              ws.send(cfg.payload);
+            }
           } else {
+            report(urlStr, 'injected', { delivered: cfg.payload });
             deliver(ws, cfg.payload, originOf(urlStr));
           }
         }, 0);

@@ -24,6 +24,7 @@ import {
   startDevtoolsPortPresence,
   startLifecycleHost,
 } from '../correlator-host';
+import { messageCaptureSource } from '../correlator-host/message-capture-source';
 import { startDevtoolsSessionCoordinator } from '../devtools-session-coordinator';
 import { getRulesPaused, registerCdpRulesReplay } from '../dnr-manager';
 import { refreshInterceptorsForTab, setCdpControlQuery } from '../inject-manager';
@@ -40,6 +41,10 @@ import { startRuleEngineDriver } from '../rule-engine-driver';
 import { startRuleFirePortHost } from '../rule-fire-port-host';
 import { startTabTelemetrySource } from '../tab-telemetry-source';
 import { debouncedUpdateBadge } from './badge-update';
+
+/** Pairing window between a capture's page clock and the lifecycle's host
+ *  clock — the same posture as the fire hub's translation window. */
+const MESSAGE_CAPTURE_JOIN_SLACK_MS = 5_000;
 
 interface LifecyclePipelineHandles {
   lifecycleStore: ReturnType<typeof startLifecycleHost>['store'];
@@ -223,6 +228,26 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   lifecycleHost.debuggerSource.subscribeBinding((fire) =>
     recordReportedFire(fire.tabId, fire.ruleUid, fire.url, fire.t),
   );
+  // Page-relayed ws frame captures: join each to the open socket's
+  // lifecycle by (tab, resolved endpoint URL, lifetime window). Never
+  // guessed — an ambiguous join (two same-URL sockets alive inside the
+  // window) drops the capture rather than polluting another socket's
+  // stream. Slack mirrors the fire hub's translation window: the capture
+  // is stamped on the page clock, the lifecycle on the host clock.
+  messageCaptureSource.subscribe(({ tabId, url, capture }) => {
+    const candidates = lifecycleHost.store.snapshotTab(tabId).filter((lc) => {
+      if (lc.resourceType !== 'websocket' || lc.url !== url) return false;
+      if (capture.atMs < lc.startedAtMs - MESSAGE_CAPTURE_JOIN_SLACK_MS) return false;
+      return lc.completedAtMs == null || capture.atMs <= lc.completedAtMs + MESSAGE_CAPTURE_JOIN_SLACK_MS;
+    });
+    if (candidates.length !== 1) return;
+    lifecycleHost.store.apply({
+      kind: 'message-capture-appended',
+      tabId,
+      requestId: candidates[0].requestId,
+      capture,
+    });
+  });
   startDevtoolsPortPresence({
     onConnected: (tabId) => cdpAttachController.notePortConnected(tabId),
     onDisconnected: (tabId) => cdpAttachController.notePortDisconnected(tabId),

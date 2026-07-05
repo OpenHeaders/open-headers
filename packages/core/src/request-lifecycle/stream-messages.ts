@@ -8,7 +8,7 @@
  * panel's mirror from the engine after the bound is hit.
  */
 
-import type { RequestLifecycle, StreamMessage } from './types';
+import type { RequestLifecycle, StreamMessage, StreamMessageCapture } from './types';
 import { MAX_STREAM_MESSAGES_PER_REQUEST } from './types';
 
 export function appendStreamMessage(prev: RequestLifecycle, message: StreamMessage): RequestLifecycle {
@@ -19,5 +19,18 @@ export function appendStreamMessage(prev: RequestLifecycle, message: StreamMessa
     ...prev,
     messages: appended.slice(overflow),
     messagesDropped: (prev.messagesDropped ?? 0) + overflow,
+  };
+}
+
+/** The wrapper-capture twin of {@link appendStreamMessage} — same ring
+ *  policy on {@link RequestLifecycle.messageCaptures}. */
+export function appendStreamMessageCapture(prev: RequestLifecycle, capture: StreamMessageCapture): RequestLifecycle {
+  const appended = prev.messageCaptures === undefined ? [capture] : [...prev.messageCaptures, capture];
+  const overflow = appended.length - MAX_STREAM_MESSAGES_PER_REQUEST;
+  if (overflow <= 0) return { ...prev, messageCaptures: appended };
+  return {
+    ...prev,
+    messageCaptures: appended.slice(overflow),
+    messageCapturesDropped: (prev.messageCapturesDropped ?? 0) + overflow,
   };
 }
