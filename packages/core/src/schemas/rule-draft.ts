@@ -11,11 +11,15 @@ import {
   ApiResourceTypeSchema,
   HeaderOperationSchema,
   InjectSourceSchema,
+  InjectTriggerSchema,
   InjectTypeSchema,
+  MessageFilterSchema,
+  MessageOperationSchema,
   QueryParamOperationSchema,
   RequestBodyTypeSchema,
   ResponseBodyTypeSchema,
   ResponseSourceSchema,
+  WsDirectionSchema,
 } from './rule';
 
 // Shared draft base fields — carried by every rule-draft variant.
@@ -105,6 +109,26 @@ export const InjectRuleDraftSchema = v.object({
   bypassCSP: v.optional(v.boolean()),
 });
 
+export const WsRuleDraftSchema = v.object({
+  type: v.literal('ws'),
+  ...RuleDraftBaseFields,
+  operation: v.optional(MessageOperationSchema),
+  direction: v.optional(WsDirectionSchema),
+  messageFilter: v.optional(MessageFilterSchema),
+  payload: v.optional(v.string()),
+  injectTrigger: v.optional(InjectTriggerSchema),
+});
+
+export const SseRuleDraftSchema = v.object({
+  type: v.literal('sse'),
+  ...RuleDraftBaseFields,
+  operation: v.optional(MessageOperationSchema),
+  eventName: v.optional(v.string()),
+  messageFilter: v.optional(MessageFilterSchema),
+  payload: v.optional(v.string()),
+  injectTrigger: v.optional(InjectTriggerSchema),
+});
+
 export const RuleDraftSchema = v.variant('type', [
   HeaderRuleDraftSchema,
   RedirectRuleDraftSchema,
@@ -114,4 +138,6 @@ export const RuleDraftSchema = v.variant('type', [
   DelayRuleDraftSchema,
   QueryParamRuleDraftSchema,
   InjectRuleDraftSchema,
+  WsRuleDraftSchema,
+  SseRuleDraftSchema,
 ]);

@@ -32,6 +32,8 @@ import type {
   ResponseRuleDraftSchema,
   RuleDraftBaseSchema,
   RuleDraftSchema,
+  SseRuleDraftSchema,
+  WsRuleDraftSchema,
 } from '../schemas/rule-draft';
 
 export type RuleDraftBase = v.InferOutput<typeof RuleDraftBaseSchema>;
@@ -49,6 +51,9 @@ export type QueryParamDraftEntry = v.InferOutput<typeof QueryParamDraftEntrySche
 export type QueryParamRuleDraft = v.InferOutput<typeof QueryParamRuleDraftSchema>;
 
 export type InjectRuleDraft = v.InferOutput<typeof InjectRuleDraftSchema>;
+
+export type WsRuleDraft = v.InferOutput<typeof WsRuleDraftSchema>;
+export type SseRuleDraft = v.InferOutput<typeof SseRuleDraftSchema>;
 
 export type RuleDraft = v.InferOutput<typeof RuleDraftSchema>;
 

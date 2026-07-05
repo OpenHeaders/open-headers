@@ -210,6 +210,8 @@ export type {
   RuleDraft,
   RuleDraftBase,
   RuleDraftType,
+  SseRuleDraft,
+  WsRuleDraft,
 } from './rule-draft';
 // ── Shadow arbitration ─────────────────────────────────────────────
 export type { ShadowAttribution, ShadowKind } from './shadow';
