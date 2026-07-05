@@ -15,6 +15,7 @@ import type {
   RequestBodyRuleDraft,
   ResponseRuleDraft,
   Rule,
+  SseRuleDraft,
   WsRuleDraft,
 } from '@openheaders/core/types';
 import type { HeaderDirection } from '@openheaders/core/utils';
@@ -119,13 +120,13 @@ interface QueryParamCreatePopoverState {
  *  "Override message" — a create session with no frame behind it. */
 export const CONNECTION_FRAME = -1;
 
-/** Create mode for a ws message rule — opened from the Messages grid's
- *  per-frame "Override" action or the toolbar's connection-scoped
- *  "Override message"; Save mints + publishes. */
+/** Create mode for a ws/sse message rule — opened from the Messages or
+ *  EventStream grid's per-frame "Override" action or the toolbar's
+ *  connection-scoped "Override message"; Save mints + publishes. */
 interface MessageCreatePopoverState {
   mode: 'create-message';
   anchorEl: HTMLElement;
-  draft: WsRuleDraft;
+  draft: WsRuleDraft | SseRuleDraft;
   /** Inspected request — with the frame index (or `CONNECTION_FRAME`),
    *  the popover's session identity (each button keys its own session). */
   requestId: string;

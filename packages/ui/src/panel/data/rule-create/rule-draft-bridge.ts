@@ -22,6 +22,7 @@ import type {
   RequestBodyRuleDraft,
   ResponseRuleDraft,
   RuleDraft,
+  SseRuleDraft,
   WsRuleDraft,
 } from '@openheaders/core/types';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
@@ -141,9 +142,9 @@ export function buildWsDraftFromConnection(lc: RequestLifecycle): WsRuleDraft {
   return { type: 'ws', url: lc.url, operation: 'modify', direction: 'receive' };
 }
 
-/** Cap on the seeded `contains` filter — a frame payload can be huge,
- *  and a substring prefix selects the same frames a full match would. */
-const WS_FILTER_SEED_MAX = 80;
+/** Cap on the seeded `contains` filter — a frame/event payload can be
+ *  huge, and a substring prefix selects the same ones a full match would. */
+const MESSAGE_FILTER_SEED_MAX = 80;
 
 /** Opcode 1 — the only frame kind whose data is an editable payload. */
 const WS_TEXT_OPCODE = 1;
@@ -164,11 +165,36 @@ export function buildWsDraftFromFrame(
     direction: frame.type === 'send' ? 'send' : 'receive',
   };
   if (frame.type === 'error' || frame.opcode !== WS_TEXT_OPCODE) return base;
-  const filterValue = frame.data.trim().slice(0, WS_FILTER_SEED_MAX);
+  const filterValue = frame.data.trim().slice(0, MESSAGE_FILTER_SEED_MAX);
   return {
     ...base,
     ...(filterValue ? { messageFilter: { matchType: 'contains', value: filterValue } } : {}),
     payload: formatDraftBody(frame.data),
+  };
+}
+
+/** Build an sse message draft scoped to the STREAM, not an event —
+ *  the EventStream toolbar's "Override event" action. Selector defaults
+ *  only (`buildEmptyRule` parity: modify on default `message` events);
+ *  the popover is where the user narrows it down. */
+export function buildSseDraftFromConnection(lc: RequestLifecycle): SseRuleDraft {
+  return { type: 'sse', url: lc.url, operation: 'modify' };
+}
+
+/** Build an sse message draft seeded from a captured event. The event
+ *  name gates the rule when it isn't the default (`message` = the
+ *  wrapper's implicit target, so the draft omits it); the data seeds a
+ *  `contains` filter (truncated) and the replacement payload — SSE data
+ *  is always text, so every event is seedable. */
+export function buildSseDraftFromEvent(lc: RequestLifecycle, event: { eventName: string; data: string }): SseRuleDraft {
+  const filterValue = event.data.trim().slice(0, MESSAGE_FILTER_SEED_MAX);
+  return {
+    type: 'sse',
+    url: lc.url,
+    operation: 'modify',
+    ...(event.eventName && event.eventName !== 'message' ? { eventName: event.eventName } : {}),
+    ...(filterValue ? { messageFilter: { matchType: 'contains', value: filterValue } } : {}),
+    payload: formatDraftBody(event.data),
   };
 }
 
