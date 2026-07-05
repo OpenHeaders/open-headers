@@ -17,7 +17,7 @@
  *     slice of a shared example frame.
  *   - Hovering a row reveals the right-edge actions (Headers-row
  *     idiom): copy the payload, and the rule action — "Edit rule" when
- *     a ws rule fired on this request, otherwise "Add rule" opening the
+ *     a ws rule fired on this request, otherwise "Override" opening the
  *     quick-create popover seeded from the hovered frame.
  *   - Selecting a row opens the payload preview in a resizable pane —
  *     JSON tree / verbatim text for text frames, a Base64 / Hex / UTF-8
@@ -326,7 +326,7 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
                         }
                         onClick={(e) => openRuleAction(e, m)}
                       >
-                        {editRule ? 'Edit rule' : 'Add rule'}
+                        {editRule ? 'Edit rule' : 'Override'}
                       </button>
                     </span>
                   </div>
