@@ -15,6 +15,7 @@ import type {
   RequestBodyRuleDraft,
   ResponseRuleDraft,
   Rule,
+  WsRuleDraft,
 } from '@openheaders/core/types';
 import type { HeaderDirection } from '@openheaders/core/utils';
 import { createHoverPopoverHost, type HoverPopoverBodyProps } from '@openheaders/ui/shared/popover';
@@ -29,6 +30,7 @@ import { DelayQuickEditor } from './rule-quick-editor/DelayQuickEditor';
 import { HeaderQuickCreate } from './rule-quick-editor/HeaderQuickCreate';
 import { HeaderQuickEditor } from './rule-quick-editor/HeaderQuickEditor';
 import { InjectQuickEditor } from './rule-quick-editor/InjectQuickEditor';
+import { MessageQuickCreate } from './rule-quick-editor/MessageQuickCreate';
 import { MessageQuickEditor } from './rule-quick-editor/MessageQuickEditor';
 import { QueryParamQuickCreate } from './rule-quick-editor/QueryParamQuickCreate';
 import { QueryParamQuickEditor } from './rule-quick-editor/QueryParamQuickEditor';
@@ -113,6 +115,18 @@ interface QueryParamCreatePopoverState {
   requestId: string;
 }
 
+/** Create mode for a ws message rule — opened from the Messages grid's
+ *  per-frame "Add rule" action; Save mints + publishes. */
+interface MessageCreatePopoverState {
+  mode: 'create-message';
+  anchorEl: HTMLElement;
+  draft: WsRuleDraft;
+  /** Inspected request — with the frame index, the popover's session
+   *  identity (each row's button keys its own session). */
+  requestId: string;
+  frameIndex: number;
+}
+
 interface RuleEditPopoverState {
   mode?: 'edit';
   anchorEl: HTMLElement;
@@ -146,7 +160,8 @@ type RulePopoverState =
   | HeaderCreatePopoverState
   | UrlCreatePopoverState
   | RequestBodyCreatePopoverState
-  | QueryParamCreatePopoverState;
+  | QueryParamCreatePopoverState
+  | MessageCreatePopoverState;
 
 const POPOVER_INSIDE_SELECTORS: ReadonlyArray<string> = [
   '[data-rule-popover-root]',
@@ -227,6 +242,18 @@ function RulePopoverBody({
       />
     );
   }
+  if (state.mode === 'create-message') {
+    return (
+      <MessageQuickCreate
+        anchorEl={state.anchorEl}
+        draft={state.draft}
+        onClose={onClose}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+        visible={visible}
+      />
+    );
+  }
   if (state.mode === 'create-header') {
     return (
       <HeaderQuickCreate
@@ -279,6 +306,7 @@ const host = createHoverPopoverHost<RulePopoverState>({
     if (s.mode === 'create-url') return `create-url|${s.requestId}|${s.variant}`;
     if (s.mode === 'create-request-body') return `create-request-body|${s.requestId}`;
     if (s.mode === 'create-query-param') return `create-query-param|${s.requestId}`;
+    if (s.mode === 'create-message') return `create-message|${s.requestId}|${s.frameIndex}`;
     if (s.mode === 'create-header') {
       const mods = s.direction === 'request' ? s.draft.requestHeaders : s.draft.responseHeaders;
       return `create-header|${s.requestId}|${s.direction}|${mods?.[0]?.headerName ?? ''}`;
