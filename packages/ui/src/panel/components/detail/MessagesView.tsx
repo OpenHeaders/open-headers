@@ -212,11 +212,18 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
   const { onScroll } = useStickToBottom(listRef, visible.length);
 
   if (all.length === 0) {
+    // A receive-inject writes synthetic frames straight into the page —
+    // nothing crosses the wire, so an empty capture is expected. Say so
+    // instead of implying the connection was silent.
+    const syntheticOnly = wsRules.some((r) => r.action.operation === 'inject' && r.action.direction === 'receive');
     return (
       <div className="dt-empty" style={{ padding: 24 }}>
-        {source === 'cdp'
-          ? 'No WebSocket frames exchanged yet.'
-          : 'WebSocket frames are only visible with debug mode enabled for this tab.'}
+        {source !== 'cdp'
+          ? 'WebSocket frames are only visible with debug mode enabled for this tab.'
+          : syntheticOnly
+            ? 'No frames crossed the wire — an inject rule fired here, and injected frames are delivered ' +
+              'synthetically inside the page, invisible to the network capture.'
+            : 'No WebSocket frames exchanged yet.'}
       </div>
     );
   }

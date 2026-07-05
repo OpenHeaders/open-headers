@@ -410,6 +410,18 @@ describe('MessagesView — empty states and truncation', () => {
     expect(screen.getByText('WebSocket frames are only visible with debug mode enabled for this tab.')).toBeTruthy();
   });
 
+  it('a fired receive-inject explains the synthetic-only empty capture', () => {
+    const rule = makeWsRule({ operation: 'inject', direction: 'receive', payload: '{"injected":true}' });
+    renderView(makeWsLifecycle([]), { fires: [makeFire()], rules: [rule] });
+    expect(screen.getByText(/injected frames are delivered synthetically/)).toBeTruthy();
+  });
+
+  it('a fired send-inject keeps the plain empty state — its frames do cross the wire', () => {
+    const rule = makeWsRule({ operation: 'inject', direction: 'send', payload: 'SYNTH' });
+    renderView(makeWsLifecycle([]), { fires: [makeFire()], rules: [rule] });
+    expect(screen.getByText('No WebSocket frames exchanged yet.')).toBeTruthy();
+  });
+
   it('shows the ring-truncation banner when frames were dropped', () => {
     renderView(makeWsLifecycle([ws()], 3));
     expect(screen.getByText(/3 older frames dropped/)).toBeTruthy();
