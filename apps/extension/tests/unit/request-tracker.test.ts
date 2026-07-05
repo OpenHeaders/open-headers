@@ -230,6 +230,26 @@ describe('getActiveRulesForTab', () => {
     expect(result[0]!.id).toBe('rule-1');
   });
 
+  it('includes ws rules — a tracked socket URL makes them applicable', () => {
+    seedRules([
+      {
+        schemaVersion: 5,
+        uid: 'ws-rule-1',
+        path: 'rules/test',
+        name: 'WS Rule',
+        type: 'ws',
+        enabled: true,
+        conditions: [{ uid: 'tcd00042', type: 'url-filter', values: ['*://api.openheaders.io/net/ws-echo*'] }],
+        action: { operation: 'modify', direction: 'send', payload: 'patched' },
+      } as Rule,
+    ]);
+    addTrackedUrl(1, 'ws://api.openheaders.io/net/ws-echo?case=ws-send-mod', 'websocket');
+
+    const { activeRules: result } = getActiveRulesForTab(1, 'https://api.openheaders.io/app');
+    expect(result).toHaveLength(1);
+    expect(result[0]!.ruleType).toBe('ws');
+  });
+
   it('does not duplicate the rule when both tab URL and tracked resource match', () => {
     seedRules([
       makeHeaderRule({

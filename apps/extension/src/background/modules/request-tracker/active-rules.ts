@@ -65,6 +65,8 @@ export function getActiveRulesForTab(tabId: number | undefined, tabUrl: string):
     'delay',
     'request-body',
     'response',
+    'ws',
+    'sse',
   ]);
 
   const normalizedTabUrl = normalizeUrlForTracking(tabUrl);
