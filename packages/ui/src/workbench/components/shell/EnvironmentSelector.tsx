@@ -248,6 +248,8 @@ interface EnvironmentSelectorProps {
   onOpenCollectionVariables: () => void;
   onOpenVault: () => void;
   onSetCollectionPinnedEnvs: (collectionUid: string, pinnedIds: string[], defaultId: string | null) => Promise<boolean>;
+  /** Compact trigger — matches the devpanel toolbar's 24px workspace chip. */
+  compact?: boolean;
 }
 
 const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
@@ -263,6 +265,7 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
   onOpenCollectionVariables,
   onOpenVault,
   onSetCollectionPinnedEnvs,
+  compact = false,
 }) => {
   const { token } = theme.useToken();
   const [open, setOpen] = useState(false);
@@ -628,12 +631,12 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
         aria-label={active ? `Active environment: ${active.name}` : 'No environment selected'}
         style={{
           padding: '0 8px',
-          height: 28,
+          height: compact ? 24 : 28,
           display: 'inline-flex',
           alignItems: 'center',
         }}
       >
-        <Space size={6}>
+        <Space size={compact ? 4 : 6}>
           {active ? (
             scopeBadge('environment', 12)
           ) : (
@@ -641,17 +644,17 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
           )}
           <Text
             style={{
-              maxWidth: 140,
+              maxWidth: compact ? 120 : 140,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
               color: active ? token.colorText : token.colorTextSecondary,
-              fontSize: 13,
+              fontSize: compact ? 12 : 13,
             }}
           >
             {active?.name ?? 'No environment'}
           </Text>
-          <DownOutlined style={{ fontSize: 10, color: token.colorTextTertiary }} />
+          <DownOutlined style={{ fontSize: compact ? 9 : 10, color: token.colorTextTertiary }} />
         </Space>
       </Button>
     </Dropdown>

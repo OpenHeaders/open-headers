@@ -270,6 +270,7 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
           <div className="dt-toolbar-right">
           <PanelWorkspaceSelector />
           <EnvironmentSelector
+            compact
             environments={environments}
             activeEnvironmentId={activeEnvironmentId}
             onSwitch={onSwitchEnvironment}
