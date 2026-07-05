@@ -15,7 +15,6 @@
   gap: 6px;
   padding: 4px 8px;
   border-bottom: 1px solid var(--dt-border);
-  background: var(--dt-header-bg);
   flex: none;
 }
 
@@ -47,6 +46,8 @@
   font-size: 11px;
 }
 
+/* The toolbar row sits on the plain content background; the grey fill
+   lives inside the pill-shaped filter input only. */
 .dt-stream-toolbar-filter {
   flex: 1;
   min-width: 80px;
@@ -55,7 +56,7 @@
   padding: 0 8px;
   border: 1px solid var(--dt-input-border);
   border-radius: 11px;
-  background: var(--dt-input-bg);
+  background: var(--dt-header-bg);
   color: var(--dt-text);
   font-size: 11px;
   outline: none;
@@ -75,7 +76,10 @@
 
 .dt-ws-row {
   display: grid;
-  grid-template-columns: 20px 1fr 64px 92px;
+  /* The track list is owned by MessagesView (`wsGridTemplate`), which
+     writes user column-resize overrides into the custom property; the
+     fallback mirrors the no-override defaults. */
+  grid-template-columns: var(--dt-ws-cols, 20px minmax(140px, 1fr) 64px 92px);
   gap: 8px;
   padding: 2px 8px;
   border-bottom: 1px solid var(--dt-border);
@@ -91,6 +95,20 @@
   top: 0;
   z-index: 1;
   background: var(--dt-bg);
+}
+
+/* Header cells stretch to the row height so their fine right-border
+   dividers and resize grips span the full header band. */
+.dt-ws-row-header .dt-col-header-cell {
+  align-self: stretch;
+}
+
+/* Direction rail header — a dimmed self-describing glyph at 20px where
+   a label cannot fit; the whole cell is the info-popover hover target
+   (same idiom as the traffic table's rail headers). */
+.dt-ws-dir-head {
+  color: var(--dt-text-muted);
+  cursor: help;
 }
 
 .dt-ws-list {

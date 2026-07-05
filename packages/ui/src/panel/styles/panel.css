@@ -20,6 +20,7 @@
 @import './panel-shell.css';
 @import './panel-toolbar.css';
 @import './panel-traffic.css';
+@import './column-headers.css';
 @import './panel-detail.css';
 @import './panel-editor.css';
 @import './panel-search.css';

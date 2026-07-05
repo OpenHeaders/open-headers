@@ -15,7 +15,13 @@ import { supersessionAnchorFromPages } from '../data/request-state';
 import { pageMarkers, waterfallWindow } from '../data/timing/waterfall-geometry';
 import { ColumnHeaderContextMenu, type ColumnHeaderContextMenuState } from './traffic/ColumnHeaderContextMenu';
 import type { ColumnDef, ColumnKey } from './traffic/columns';
-import { ALL_COLUMN_KEYS, COLUMN_DEFS, columnTrack, DEFAULT_VISIBLE_COLUMNS } from './traffic/columns';
+import {
+  ALL_COLUMN_KEYS,
+  COLUMN_DEFS,
+  columnTrack,
+  DEFAULT_COLUMN_MIN_WIDTH,
+  DEFAULT_VISIBLE_COLUMNS,
+} from './traffic/columns';
 import { buildConnectionOpenerIndex } from '../data/connection-openers';
 import { extractName } from './traffic/formatters';
 import { NetworkPanelHeader } from './traffic/NetworkPanelHeader';
@@ -26,7 +32,7 @@ import { RequestContextMenu, type RequestContextMenuState } from './traffic/Requ
 import { NetworkColumnInfo } from './traffic/NetworkColumnInfo';
 import { sortIndicator } from './traffic/sort';
 import { TrafficRow } from './traffic/TrafficRow';
-import { useColumnResize } from './traffic/use-column-resize';
+import { useColumnResize } from './use-column-resize';
 import { useNetworkView } from './traffic/use-network-view';
 import { useRowWindow } from './traffic/use-row-window';
 import type { WaterfallScale } from './traffic/WaterfallBar';
@@ -125,7 +131,9 @@ export function TrafficList({
     handleSort,
     sortRows,
   } = useNetworkView();
-  const { columnWidths, registerCellRef, beginResize, resetColumnWidth, resetAllWidths } = useColumnResize();
+  const { columnWidths, registerCellRef, beginResize, resetColumnWidth, resetAllWidths } = useColumnResize(
+    (key: ColumnKey) => COLUMN_DEFS[key].minWidth ?? DEFAULT_COLUMN_MIN_WIDTH,
+  );
 
   const [rowMenu, setRowMenu] = useState<RequestContextMenuState | null>(null);
   const [colMenu, setColMenu] = useState<ColumnHeaderContextMenuState | null>(null);

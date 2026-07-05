@@ -6,7 +6,10 @@
  *     filter (invalid patterns degrade to a literal match).
  *   - Grid: Data | Length | Time. Time is the one sortable column,
  *     ascending by default; the list follows the tail while parked at
- *     the bottom (same pin semantics as the main traffic table).
+ *     the bottom (same pin semantics as the main traffic table). The
+ *     headers reuse the traffic table's anatomy — drag-resizable
+ *     dividers and hover-revealed (i) popovers that each highlight one
+ *     slice of a shared example frame.
  *   - Selecting a row opens the payload preview in a resizable pane —
  *     JSON tree / verbatim text for text frames, a Base64 / Hex / UTF-8
  *     viewer for binary frames. The grid/payload split is a standard
@@ -23,14 +26,18 @@
 
 import type { LifecycleSource, RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarEntry } from '@openheaders/core/types';
+import { InfoPopover } from '@openheaders/ui/shared/info-popover';
 import { Allotment } from 'allotment';
-import { useMemo, useRef, useState } from 'react';
+import { type CSSProperties, useMemo, useRef, useState } from 'react';
+import { useColumnResize } from '../use-column-resize';
 import MessagePreview from './streams/MessagePreview';
+import { MessagesColumnInfo, WS_DIRECTION_INFO } from './streams/MessagesColumnInfo';
 import StreamGridToolbar, { type WsDirectionFilter } from './streams/StreamGridToolbar';
 import { compileStreamFilter } from './streams/stream-filter';
 import { formatStreamTime, streamTimeTooltip } from './streams/stream-time';
 import { useMessagesSplitLayout } from './streams/use-messages-split-layout';
 import { useStickToBottom } from './streams/use-stick-to-bottom';
+import { WS_COLUMNS, wsColumnMinWidth, wsGridTemplate } from './streams/ws-grid';
 import {
   frameDataLabel,
   frameLengthLabel,
@@ -74,6 +81,7 @@ export default function MessagesView({ lifecycle, har, source }: MessagesViewPro
 
   const listRef = useRef<HTMLDivElement>(null);
   const [layout, setLayout] = useMessagesSplitLayout();
+  const { columnWidths, registerCellRef, beginResize, resetColumnWidth } = useColumnResize(wsColumnMinWidth);
 
   const all = useMemo(() => wsDisplayFrames(lifecycle, har), [lifecycle, har]);
 
@@ -120,7 +128,7 @@ export default function MessagesView({ lifecycle, har, source }: MessagesViewPro
   };
 
   return (
-    <div className="dt-ws-view">
+    <div className="dt-ws-view" style={{ '--dt-ws-cols': wsGridTemplate(columnWidths) } as CSSProperties}>
       <StreamGridToolbar
         onClear={onClear}
         directionFilter={{ value: direction, onChange: setDirection }}
@@ -158,17 +166,34 @@ export default function MessagesView({ lifecycle, har, source }: MessagesViewPro
               }}
             >
               <div className="dt-ws-row dt-ws-row-header">
-                <span className="dt-ws-dir" aria-hidden="true" />
-                <span className="dt-ws-data">Data</span>
-                <span className="dt-ws-len">Length</span>
-                <button
-                  type="button"
-                  className="dt-ws-time dt-ws-sort-btn"
-                  onClick={() => setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))}
-                  title="Sort by time"
-                >
-                  Time <span aria-hidden="true">{sortDir === 'asc' ? '▲' : '▼'}</span>
-                </button>
+                <InfoPopover content={WS_DIRECTION_INFO} trigger="hover" placement="bottomLeft">
+                  <span className="dt-ws-dir dt-ws-dir-head">⇅</span>
+                </InfoPopover>
+                {WS_COLUMNS.map((col) => (
+                  <div key={col.key} className="dt-col-header-cell" ref={registerCellRef(col.key)}>
+                    <MessagesColumnInfo infoKey={col.key} />
+                    <button
+                      type="button"
+                      className="dt-col-sort"
+                      disabled={col.key !== 'time'}
+                      title={col.key === 'time' ? 'Sort by time' : undefined}
+                      onClick={
+                        col.key === 'time' ? () => setSortDir((d) => (d === 'asc' ? 'desc' : 'asc')) : undefined
+                      }
+                    >
+                      {col.label}
+                      {col.key === 'time' && <span aria-hidden="true"> {sortDir === 'asc' ? '▲' : '▼'}</span>}
+                    </button>
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      className="dt-col-resizer"
+                      aria-label={`Resize ${col.label} column`}
+                      onPointerDown={(e) => beginResize(e, col.key)}
+                      onDoubleClick={() => resetColumnWidth(col.key)}
+                    />
+                  </div>
+                ))}
               </div>
               {visible.map((m) => {
                 const isSelected = m.index === selectedIndex;

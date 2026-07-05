@@ -13,7 +13,7 @@
  *     and container-resize so a boundary can be grabbed from any row.
  *
  * A custom resizer, NOT Allotment (mirrors the devtools panel's
- * `traffic/use-column-resize`): a table's columns must stay aligned
+ * `components/use-column-resize`): a table's columns must stay aligned
  * across every row, which a per-pane splitter can't coordinate.
  *
  * Overrides are in-memory (per mount).
