@@ -45,6 +45,8 @@ interface UseWorkspaceIntentRouterOptions {
   ) => void;
   openEditTab: (uid: string) => void;
   openDocs: (sectionId: string) => void;
+  /** `open-notifications` — activate the Notifications tool window. */
+  openNotifications: () => void;
   openRuleFlow: (scope: RuleFlowScope, entityId?: string, label?: string, tabUrl?: string) => void;
   openRunReport: (
     runId: string,
@@ -80,6 +82,7 @@ function isDataFreeIntent(intent: WorkspaceIntent): boolean {
   switch (intent.kind) {
     case 'open-workspace':
     case 'open-docs':
+    case 'open-notifications':
     case 'open-settings':
     case 'open-workspace-manager':
     case 'open-workspace-vars':
@@ -131,6 +134,9 @@ export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOption
           return;
         case 'open-docs':
           o.openDocs(intent.section);
+          return;
+        case 'open-notifications':
+          o.openNotifications();
           return;
         case 'open-settings': {
           const target = intent.target;
@@ -276,6 +282,7 @@ export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOption
     switch (pending.kind) {
       case 'open-workspace':
       case 'open-docs':
+      case 'open-notifications':
       case 'open-settings':
       case 'open-workspace-manager':
       case 'open-workspace-vars':

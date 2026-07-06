@@ -57,6 +57,11 @@ export const OpenDocsIntentSchema = v.object({
   section: DocsSectionIdSchema,
 });
 
+/** Open (or focus) the workbench and activate the Notifications tool window. */
+export const OpenNotificationsIntentSchema = v.object({
+  kind: v.literal('open-notifications'),
+});
+
 export const EditRuleIntentSchema = v.object({
   kind: v.literal('edit-rule'),
   uid: UidSchema,
@@ -205,6 +210,7 @@ export const CreateLiveVariableIntentSchema = v.object({
 export const WorkspaceIntentSchema = v.variant('kind', [
   OpenWorkspaceIntentSchema,
   OpenDocsIntentSchema,
+  OpenNotificationsIntentSchema,
   EditRuleIntentSchema,
   CreateRuleIntentSchema,
   EditEnvironmentIntentSchema,
@@ -236,6 +242,7 @@ export type WorkspaceIntent = v.InferOutput<typeof WorkspaceIntentSchema>;
 export const WORKSPACE_INTENT_KINDS = [
   'open-workspace',
   'open-docs',
+  'open-notifications',
   'edit-rule',
   'create-rule',
   'edit-environment',

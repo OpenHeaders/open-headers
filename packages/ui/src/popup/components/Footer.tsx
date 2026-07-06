@@ -1,6 +1,4 @@
-import { BugOutlined, GlobalOutlined, StarOutlined } from '@ant-design/icons';
-import { getCapability } from '@openheaders/core/capabilities';
-import { hostNavigation } from '@openheaders/core/navigation';
+import { BugOutlined } from '@ant-design/icons';
 import { isFetchRealizableNow, isRuleComplete } from '@openheaders/core/utils';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { DebugModeDormantNotice, DebugModePill } from '@openheaders/ui/shared/debug-mode';
@@ -33,13 +31,6 @@ const Footer: React.FC = () => {
 
   const helpLabel = usePopupShortcutLabel('toggle-shortcuts-help');
   const _workspaceLabel = usePopupShortcutLabel('open-workspace');
-
-  const handleOpenWebsite = async () => {
-    const openExternal = getCapability('openExternalUrl');
-    if (!openExternal) return;
-    const result = await openExternal('https://openheaders.io');
-    if (result.ok) getCapability('closeSurface')?.();
-  };
 
   const handleOpenWorkspace = useCallback(() => {
     void openWorkspace({ kind: 'open-workspace' }, surface.mode);
@@ -114,28 +105,6 @@ const Footer: React.FC = () => {
             renderSubsystemExtras={productStatusExtras}
             onOpenDocs={handleOpenDocs}
           />
-          <Tooltip title="Help us with a star on GitHub">
-            <Button
-              className="github-star-button"
-              type="text"
-              icon={<StarOutlined />}
-              onClick={() => {
-                hostNavigation.openUrl('https://github.com/OpenHeaders/open-headers-app');
-              }}
-              size="small"
-              style={{ padding: '0 4px', height: '20px', minWidth: 'auto' }}
-            />
-          </Tooltip>
-          <Tooltip title="Visit our website">
-            <Button
-              className="oh-decorative"
-              type="text"
-              icon={<GlobalOutlined />}
-              onClick={handleOpenWebsite}
-              size="small"
-              style={{ padding: '0 4px', height: '20px', minWidth: 'auto' }}
-            />
-          </Tooltip>
         </Space>
       </div>
       <DebugNetworkPanel open={debugNetworkOpen} onClose={() => setDebugNetworkOpen(false)} />

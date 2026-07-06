@@ -32,6 +32,7 @@ describe('WorkspaceIntentSchema — accepts every kind', () => {
   const cases: Array<[string, WorkspaceIntent]> = [
     ['open-workspace', { kind: 'open-workspace' }],
     ['open-docs', { kind: 'open-docs', section: 'doc-system-status' }],
+    ['open-notifications', { kind: 'open-notifications' }],
     ['edit-rule', { kind: 'edit-rule', uid: UID_A }],
     ['create-rule (no template/draft)', { kind: 'create-rule', ruleType: 'header' }],
     ['create-rule (template)', { kind: 'create-rule', ruleType: 'response', templateKey: 'my-tpl' }],
@@ -121,6 +122,7 @@ describe('WORKSPACE_INTENT_KINDS', () => {
     const minimal: Record<string, WorkspaceIntent> = {
       'open-workspace': { kind: 'open-workspace' },
       'open-docs': { kind: 'open-docs', section: 'x' },
+      'open-notifications': { kind: 'open-notifications' },
       'edit-rule': { kind: 'edit-rule', uid: UID_A },
       'create-rule': { kind: 'create-rule', ruleType: 'header' },
       'edit-environment': { kind: 'edit-environment', uid: UID_A },
@@ -161,6 +163,7 @@ describe('intentToHash / hashToIntent — round-trip', () => {
     { kind: 'open-workspace' },
     { kind: 'open-docs', section: 'doc-system-status' },
     { kind: 'open-docs', section: 'keyboard-shortcuts' },
+    { kind: 'open-notifications' },
     { kind: 'edit-rule', uid: UID_A },
     { kind: 'create-rule', ruleType: 'header' },
     { kind: 'create-rule', ruleType: 'response', templateKey: 'template-abc' },

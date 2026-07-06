@@ -1,4 +1,4 @@
-import { NodeExpandOutlined, SettingOutlined } from '@ant-design/icons';
+import { BellOutlined, NodeExpandOutlined, SettingOutlined } from '@ant-design/icons';
 import { hostAssets } from '@openheaders/core/assets';
 import { hostNavigation } from '@openheaders/core/navigation';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
@@ -163,6 +163,23 @@ const Header: React.FC = () => {
             size="small"
             icon={<SettingOutlined />}
             onClick={handleOpenSettings}
+            style={{
+              padding: '4px 8px',
+              height: 'auto',
+              display: 'flex',
+              alignItems: 'center',
+            }}
+          />
+        </Tooltip>
+        <Tooltip title="Notifications">
+          <Button
+            type="text"
+            size="small"
+            icon={<BellOutlined />}
+            onClick={() => {
+              void openWorkspace({ kind: 'open-notifications' }, surface.mode);
+            }}
+            aria-label="Open notifications"
             style={{
               padding: '4px 8px',
               height: 'auto',

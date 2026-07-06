@@ -656,6 +656,10 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     openCreateTab,
     openEditTab,
     openDocs,
+    openNotifications: () => {
+      if (tl.state.hidden.includes('notifications')) tl.restoreWindow('notifications');
+      tl.activateWindow('notifications');
+    },
     openRuleFlow,
     openRunReport,
     openSettings,

@@ -1,71 +1,99 @@
 /**
  * useSeedNotifications — baseline entries every surface starts its
- * notifications timeline with. Currently one: the Help-Us-Grow nudge
- * (same copy and icons as the onboarding tour's final step). Deduped
- * by key so re-mounts within a session never stack it.
+ * notifications timeline with: the Help-Us-Grow nudge (star the repo)
+ * and the Visit-Our-Website nudge, split so neither card gets heavy.
+ * Copy and icons mirror the onboarding tour's final step.
+ *
+ * Both are sticky: no dismiss affordance, immune to Clear all. Each
+ * retires itself permanently when its link is followed (persisted per
+ * nudge), and dedupe keys keep re-mounts within a session from
+ * stacking them.
  */
 
-import { LikeTwoTone, SmileTwoTone, StarTwoTone } from '@ant-design/icons';
+import { GlobalOutlined, LikeTwoTone, SmileTwoTone, StarTwoTone } from '@ant-design/icons';
 import { getCapability } from '@openheaders/core/capabilities';
 import { useEffect } from 'react';
 import { dismissByKey, pushNotification } from './store';
 
 const GITHUB_URL = 'https://github.com/OpenHeaders/open-headers-app';
+const WEBSITE_URL = 'https://openheaders.io';
 
-// Once the user follows the star link the nudge is done for good —
-// the flag stops future sessions from re-seeding it.
-const STARRED_KEY = 'oh.helpUsGrowStarred';
-
-function hasStarred(): boolean {
+function isDone(flag: string): boolean {
   try {
-    return window.localStorage.getItem(STARRED_KEY) === '1';
+    return window.localStorage.getItem(flag) === '1';
   } catch {
     return false;
   }
 }
 
-function rememberStarred(): void {
+function rememberDone(flag: string): void {
   try {
-    window.localStorage.setItem(STARRED_KEY, '1');
+    window.localStorage.setItem(flag, '1');
   } catch {
     // Storage unavailable — the nudge reappears next session.
   }
 }
 
+function openExternal(url: string): void {
+  const openUrl = getCapability('openExternalUrl');
+  if (openUrl) void openUrl(url);
+  else window.open(url, '_blank', 'noopener');
+}
+
 export function useSeedNotifications(): void {
   useEffect(() => {
-    if (hasStarred()) return;
-    pushNotification({
-      severity: 'info',
-      title: 'Help Us Grow',
-      description: (
-        <>
+    // Pushed first so Help Us Grow lands on top of the timeline.
+    if (!isDone('oh.websiteVisited')) {
+      pushNotification({
+        severity: 'info',
+        title: 'Discover Open Headers',
+        description: (
           <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <SmileTwoTone style={{ fontSize: 13 }} />
             Help us grow and reach more developers.
           </span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+        ),
+        dedupeKey: 'visit-website',
+        sticky: true,
+        actions: [
+          {
+            label: 'Visit our website',
+            icon: <GlobalOutlined style={{ fontSize: 13 }} />,
+            tooltip: 'Opens openheaders.io and dismisses this notification.',
+            run: () => {
+              openExternal(WEBSITE_URL);
+              rememberDone('oh.websiteVisited');
+              dismissByKey('visit-website');
+            },
+          },
+        ],
+      });
+    }
+    if (!isDone('oh.helpUsGrowStarred')) {
+      pushNotification({
+        severity: 'info',
+        title: 'Help Us Grow',
+        description: (
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <LikeTwoTone style={{ fontSize: 13 }} />
             Recommend us to your friends &amp; colleagues
           </span>
-        </>
-      ),
-      dedupeKey: 'help-us-grow',
-      sticky: true,
-      actions: [
-        {
-          label: 'Give us a star on GitHub',
-          icon: <StarTwoTone style={{ fontSize: 13 }} />,
-          tooltip: 'Opens the GitHub repository and dismisses this notification.',
-          run: () => {
-            const openUrl = getCapability('openExternalUrl');
-            if (openUrl) void openUrl(GITHUB_URL);
-            else window.open(GITHUB_URL, '_blank', 'noopener');
-            rememberStarred();
-            dismissByKey('help-us-grow');
+        ),
+        dedupeKey: 'help-us-grow',
+        sticky: true,
+        actions: [
+          {
+            label: 'Give us a star on GitHub',
+            icon: <StarTwoTone style={{ fontSize: 13 }} />,
+            tooltip: 'Opens the GitHub repository and dismisses this notification.',
+            run: () => {
+              openExternal(GITHUB_URL);
+              rememberDone('oh.helpUsGrowStarred');
+              dismissByKey('help-us-grow');
+            },
           },
-        },
-      ],
-    });
+        ],
+      });
+    }
   }, []);
 }

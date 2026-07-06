@@ -86,6 +86,9 @@ export function hashToIntent(rawHash: string): WorkspaceIntent | null {
       if (!rest[0]) return null;
       return buildIntent({ kind: 'open-docs', section: rest[0] });
 
+    case 'notifications':
+      return buildIntent({ kind: 'open-notifications' });
+
     case 'edit':
       if (!rest[0]) return null;
       return buildIntent({ kind: 'edit-rule', uid: rest[0] });
@@ -211,6 +214,9 @@ export function intentToHash(intent: WorkspaceIntent): string {
 
     case 'open-docs':
       return `#/docs/${encodeSegment(intent.section)}`;
+
+    case 'open-notifications':
+      return '#/notifications';
 
     case 'edit-rule':
       return `#/edit/${encodeSegment(intent.uid)}`;
