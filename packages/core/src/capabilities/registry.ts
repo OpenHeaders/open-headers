@@ -73,6 +73,16 @@ export type PairWithCodeResult =
     };
 
 /**
+ * A newer app build the host knows about. `version` is the display
+ * string ("2026.7.2"); `url` is where the user gets it (release page
+ * or direct installer download).
+ */
+export interface AppUpdateInfo {
+  readonly version: string;
+  readonly url: string;
+}
+
+/**
  * The universe of capabilities. Optional members (`name?:`) are
  * host-specific; required members are universal contracts every host
  * must implement.
@@ -153,6 +163,16 @@ export interface Capabilities {
    * formality so the capability is a typed function like the others.
    */
   cdpInspection?: () => boolean;
+
+  /**
+   * Report a newer app build than the one running, or `null` when
+   * up to date. Registered only by hosts that own their update story
+   * (the desktop app checking its release feed); extension surfaces
+   * update through the browser store and never register it, which
+   * hides every update affordance in shared UI (the settings gear's
+   * download item + attention dot).
+   */
+  getAppUpdate?: () => Promise<AppUpdateInfo | null>;
 }
 
 type CapabilityName = keyof Capabilities;

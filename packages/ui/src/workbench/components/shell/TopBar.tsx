@@ -6,7 +6,7 @@
  * Layout: [Logo] [Title + Workspace] | [⌘K Search] | [Env] [Layout cluster] [Settings]
  */
 
-import { LayoutOutlined, ReloadOutlined, SearchOutlined, SettingOutlined, ShareAltOutlined } from '@ant-design/icons';
+import { LayoutOutlined, ReloadOutlined, SearchOutlined, ShareAltOutlined } from '@ant-design/icons';
 import type { Collection, Environment, ExtensionWorkspace } from '@openheaders/core/types';
 import { Button, Dropdown, type MenuProps, Space, Tooltip, theme } from 'antd';
 import type React from 'react';
@@ -23,13 +23,14 @@ import { useSetting, useSettingValue } from '../../settings/hooks';
 import type { BottomPanelAlignmentSetting, SidebarLayoutVariantSetting } from '../../settings/schema/workspace-layout';
 import { DOCK_LABELS, TOOL_WINDOW_MAP } from '../../tool-windows';
 import EnvironmentSelector from './EnvironmentSelector';
+import SettingsGearMenu from './SettingsGearMenu';
 import WorkspaceSwitcher from '../workspace/WorkspaceSwitcher';
 
 interface TopBarProps {
   tl: ToolLayoutApi;
   perTab: EditingScopeViewStateApi<WorkbenchViewState>;
   onCommandPalette?: () => void;
-  onOpenSettings?: () => void;
+  onOpenSettings?: (target?: { settingKey?: string; categoryId?: string }) => void;
   workspaces: ExtensionWorkspace[];
   activeWorkspaceId: string | null;
   onSwitchWorkspace: (id: string, opts?: { makeActive?: boolean }) => void;
@@ -446,9 +447,7 @@ const TopBar: React.FC<TopBarProps> = ({
         className="rules-topbar-settings-slot"
         style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       >
-        <Tooltip title={<ShortcutHintTitle label={openSettingsLabel}>Settings</ShortcutHintTitle>}>
-          <Button size="small" type="text" icon={<SettingOutlined />} onClick={onOpenSettings} />
-        </Tooltip>
+        {onOpenSettings && <SettingsGearMenu onOpenSettings={onOpenSettings} openSettingsLabel={openSettingsLabel} />}
       </div>
     </div>
   );
