@@ -428,7 +428,7 @@ const TopBar: React.FC<TopBarProps> = ({
               open={layoutMenuOpen}
               onOpenChange={handleLayoutOpenChange}
             >
-              <Tooltip title="Layout options">
+              <Tooltip title="Layout options" open={layoutMenuOpen ? false : undefined}>
                 <div
                   className="rules-topbar-item rules-layout-toggle"
                   role="button"
