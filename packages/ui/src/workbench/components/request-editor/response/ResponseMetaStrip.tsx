@@ -10,6 +10,7 @@
  * breakdown.
  */
 
+import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
 import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
 import { InfoPopover, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { getStatusCodeInfoContent } from '@openheaders/ui/shared/info-popover/data/http-status';
@@ -131,57 +132,152 @@ function timingContent(response: ExecutedRequestSnapshot): InfoPopoverContent {
   };
 }
 
-function sizeContent(response: ExecutedRequestSnapshot): InfoPopoverContent {
+interface SizeStatRow {
+  label: string;
+  text: string;
+}
+
+/** One stat block: tinted direction icon + bold title with the total
+ *  right-aligned, then quiet label/value rows indented under it. */
+function SizeStatSection({
+  direction,
+  title,
+  totalText,
+  rows,
+}: {
+  direction: 'down' | 'up';
+  title: string;
+  totalText: string;
+  rows: SizeStatRow[];
+}) {
+  const { token } = theme.useToken();
+  const tintBg = direction === 'down' ? token.colorPrimaryBg : token.colorWarningBg;
+  const tintFg = direction === 'down' ? token.colorPrimary : token.colorWarning;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span
+          aria-hidden="true"
+          style={{
+            width: 18,
+            height: 18,
+            borderRadius: 4,
+            background: tintBg,
+            color: tintFg,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 10,
+            flexShrink: 0,
+          }}
+        >
+          {direction === 'down' ? <ArrowDownOutlined /> : <ArrowUpOutlined />}
+        </span>
+        <span style={{ fontWeight: 600, fontSize: 12 }}>{title}</span>
+        <span style={{ marginLeft: 'auto', fontWeight: 600, fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>
+          {totalText}
+        </span>
+      </div>
+      {rows.map((row) => (
+        <div
+          key={row.label}
+          style={{
+            display: 'flex',
+            alignItems: 'baseline',
+            paddingLeft: 26,
+            fontSize: 12,
+            color: token.colorTextSecondary,
+          }}
+        >
+          <span>{row.label}</span>
+          <span style={{ marginLeft: 'auto', fontVariantNumeric: 'tabular-nums' }}>{row.text}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** The Size popover body: response / request stat blocks in the
+ *  Postman-style table shape, with every honesty caveat demoted to
+ *  compact footnotes so the numbers stay scannable. */
+function SizeStats({ response }: { response: ExecutedRequestSnapshot }) {
+  const { token } = theme.useToken();
   const timing = response.timing;
   const wireSizesExposed = timing !== undefined && (timing.transferSize > 0 || timing.encodedBodySize > 0);
-  const responseItems: Array<{ label: string; desc: string }> = [
-    {
-      label: 'Body',
-      desc: `${formatBytes(response.bodyBytes)} — decoded text as read by the executor${response.bodyTruncated ? ' (view truncated, full size counted)' : ''}`,
-    },
-    {
-      label: 'Headers',
-      desc: `${formatBytes(serializedHeaderListBytes(response.headers))} — as visible; HTTP/2+ compresses header frames on the wire`,
-    },
+  const headersBytes = serializedHeaderListBytes(response.headers);
+
+  const responseRows: SizeStatRow[] = [
+    { label: 'Headers', text: formatBytes(headersBytes) },
+    { label: 'Body', text: formatBytes(response.bodyBytes) },
   ];
-  if (wireSizesExposed) {
-    if (timing.encodedBodySize > 0 && timing.encodedBodySize !== timing.decodedBodySize) {
-      responseItems.push({
-        label: 'Compressed',
-        desc: `${formatBytes(timing.encodedBodySize)} on the wire, ${formatBytes(timing.decodedBodySize)} decoded`,
-      });
-    }
-    if (timing.transferSize > 0) {
-      responseItems.push({
-        label: 'Transferred',
-        desc: `${formatBytes(timing.transferSize)} — total over the network, including headers`,
-      });
-    }
+  if (wireSizesExposed && timing.encodedBodySize > 0 && timing.encodedBodySize !== timing.decodedBodySize) {
+    responseRows.push({ label: 'Compressed', text: formatBytes(timing.encodedBodySize) });
   }
-  const sections = [{ heading: 'Response', items: responseItems }];
+  if (wireSizesExposed && timing.transferSize > 0) {
+    responseRows.push({ label: 'Transferred', text: formatBytes(timing.transferSize) });
+  }
+
+  const notes: string[] = ['Header bytes as visible — HTTP/2+ compresses them on the wire.'];
   if (response.requestSize) {
-    sections.push({
-      heading: 'Request',
-      items: [
-        {
-          label: 'Headers',
-          desc: `${formatBytes(response.requestSize.headersBytes)} — headers set by this request; the browser adds its own (Host, User-Agent, …)`,
-        },
-        {
-          label: 'Body',
-          desc: `${formatBytes(response.requestSize.bodyBytes)}${response.requestSize.bodyApproximate ? ' — approximate (multipart boundary is browser-generated)' : ''}`,
-        },
-      ],
-    });
+    notes.push('Request headers count only what this send set; the browser adds its own (Host, User-Agent, …).');
   }
+  if (response.bodyTruncated) notes.push('Body view truncated; the full size is counted.');
+  if (response.requestSize?.bodyApproximate) {
+    notes.push('Request body size is approximate — the multipart boundary is browser-generated.');
+  }
+  if (!wireSizesExposed) {
+    notes.push('Wire sizes (compressed, transferred) hidden: the server sent no Timing-Allow-Origin.');
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 220 }}>
+      <SizeStatSection
+        direction="down"
+        title="Response Size"
+        totalText={formatBytes(headersBytes + response.bodyBytes)}
+        rows={responseRows}
+      />
+      {response.requestSize && (
+        <div style={{ borderTop: `1px solid ${token.colorBorderSecondary}`, paddingTop: 10 }}>
+          <SizeStatSection
+            direction="up"
+            title="Request Size"
+            totalText={formatBytes(response.requestSize.headersBytes + response.requestSize.bodyBytes)}
+            rows={[
+              { label: 'Headers', text: formatBytes(response.requestSize.headersBytes) },
+              {
+                label: 'Body',
+                text: `${response.requestSize.bodyApproximate ? '≈ ' : ''}${formatBytes(response.requestSize.bodyBytes)}`,
+              },
+            ]}
+          />
+        </div>
+      )}
+      <div
+        style={{
+          borderTop: `1px solid ${token.colorBorderSecondary}`,
+          paddingTop: 8,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 3,
+        }}
+      >
+        {notes.map((note) => (
+          <span key={note} style={{ fontSize: 11, color: token.colorTextTertiary }}>
+            {note}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function sizeContent(response: ExecutedRequestSnapshot): InfoPopoverContent {
   return {
     title: 'Size',
     kicker: 'Response meta',
-    summary: `Response body: ${formatBytes(response.bodyBytes)}.`,
-    description: wireSizesExposed
-      ? undefined
-      : 'The server did not expose wire sizes to this cross-origin request (no Timing-Allow-Origin header), so compressed and transferred bytes are unavailable.',
-    sections,
+    summary: 'Bytes in each direction of this exchange.',
+    description: <SizeStats response={response} />,
   };
 }
 
