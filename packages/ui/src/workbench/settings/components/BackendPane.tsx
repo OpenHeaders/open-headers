@@ -95,7 +95,10 @@ const BackendPaneInner: React.FC<CategoryPaneProps> = ({ category, defs }) => {
   const previewingNonActive = previewMode !== mode;
 
   return (
-    <div style={{ padding: '0 24px 28px' }}>
+    // No bottom padding on the pane: the sticky ApplyBar is the last flow
+    // child, so any padding under it would make the bar jump up by that
+    // amount at scroll end. The bar's own band padding spaces the bottom.
+    <div style={{ padding: '0 24px' }}>
       {/* The identity row — title, intro, mode tiles — stays pinned to
           the pane top while the config rows below scroll, so the user
           never loses sight of which back-end they're configuring. The
@@ -109,7 +112,7 @@ const BackendPaneInner: React.FC<CategoryPaneProps> = ({ category, defs }) => {
           // Full-bleed band: cancel the pane's side padding so the grey
           // spans the whole row instead of stopping at the gutters.
           margin: '0 -24px',
-          padding: '20px 24px 10px',
+          padding: '8px 24px',
         }}
       >
         <header
@@ -118,10 +121,10 @@ const BackendPaneInner: React.FC<CategoryPaneProps> = ({ category, defs }) => {
             alignItems: 'baseline',
             justifyContent: 'space-between',
             gap: 12,
-            marginBottom: 14,
+            marginBottom: 8,
           }}
         >
-          <h2 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: token.colorText, letterSpacing: -0.1 }}>
+          <h2 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: token.colorText, letterSpacing: -0.1 }}>
             {category.label}
           </h2>
           <div style={{ fontSize: 12, color: token.colorTextSecondary }}>
