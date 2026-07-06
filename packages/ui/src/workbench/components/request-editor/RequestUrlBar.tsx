@@ -145,6 +145,10 @@ const RequestUrlBar: React.FC<RequestUrlBarProps> = ({ draft, setDraft, urlUnres
             )
           }
           showSearch
+          // Hide the selected label while a query is being typed — the
+          // search input and the label share the same box, and the
+          // colored label node otherwise stays painted under the text.
+          labelRender={({ label }) => <span style={{ opacity: methodSearch ? 0 : 1 }}>{label}</span>}
           searchValue={methodSearch}
           onSearch={(next) => setMethodSearch(next.toUpperCase())}
           filterOption={false}
