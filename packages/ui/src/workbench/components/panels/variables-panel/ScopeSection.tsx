@@ -10,7 +10,7 @@
 
 import { CaretRightOutlined } from '@ant-design/icons';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
-import { Tooltip, Typography, theme } from 'antd';
+import { Dropdown, Tooltip, Typography, theme } from 'antd';
 import { useMemo, useState } from 'react';
 import { scopeBadge } from '../../shared/scope-colors';
 import { buildScopeInfo } from './scope-info';
@@ -19,21 +19,31 @@ import { VariableTable } from './VariableTable';
 
 const { Text } = Typography;
 
+/**
+ * Hover affordance on the section title row. `run` executes directly
+ * (Edit / Create); `menu` swaps the click for an inline picker
+ * (Select — choose the active environment without leaving the panel).
+ */
+export interface ScopeHeaderAction {
+  label: string;
+  tooltip: string;
+  run?: () => void;
+  menu?: readonly { key: string; label: string; onClick: () => void }[];
+}
+
 interface ScopeSectionProps {
   scope: DisplayScope;
   variables: DisplayVariable[];
   subtitle?: string;
-  /** When non-null, the section title row exposes an "Edit" link that
-   *  opens this scope's editor. Null hides the affordance — used for
-   *  scopes with no editor available in the current context (e.g.,
-   *  Environment when no env is selected and there's no default). */
-  onOpenEditor?: (() => void) | null;
+  /** When non-null, the section title row exposes a context action on
+   *  hover (Edit / Create / Select). Null hides the affordance. */
+  action?: ScopeHeaderAction | null;
   /** Suppresses the bottom divider on the final section — a trailing
    *  separator with nothing below it is just noise. */
   isLast?: boolean;
 }
 
-export function ScopeSection({ scope, variables, subtitle, onOpenEditor, isLast }: ScopeSectionProps) {
+export function ScopeSection({ scope, variables, subtitle, action, isLast }: ScopeSectionProps) {
   const { token } = theme.useToken();
   const config = SCOPE_CONFIG[scope];
   const hasVariables = variables.length > 0;
@@ -102,28 +112,52 @@ export function ScopeSection({ scope, variables, subtitle, onOpenEditor, isLast 
             : {subtitle}
           </Text>
         )}
-        {onOpenEditor ? (
+        {action ? (
           <span style={{ marginLeft: 'auto', flexShrink: 0 }}>
-            <Tooltip title={`Open the ${config.label.toLowerCase()} variables editor`}>
-              <Text
-                className="vp-scope-reveal"
-                role="button"
-                tabIndex={0}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onOpenEditor();
+            {action.menu ? (
+              <Dropdown
+                menu={{
+                  items: action.menu.map((item) => ({ key: item.key, label: item.label, onClick: item.onClick })),
                 }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.stopPropagation();
-                    onOpenEditor();
-                  }
-                }}
-                style={{ fontSize: 10, color: token.colorPrimary, cursor: 'pointer' }}
+                trigger={['click']}
+                placement="bottomRight"
               >
-                Edit
-              </Text>
-            </Tooltip>
+                <Tooltip title={action.tooltip}>
+                  <Text
+                    className="vp-scope-reveal"
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                    }}
+                    style={{ fontSize: 10, color: token.colorPrimary, cursor: 'pointer' }}
+                  >
+                    {action.label}
+                  </Text>
+                </Tooltip>
+              </Dropdown>
+            ) : (
+              <Tooltip title={action.tooltip}>
+                <Text
+                  className="vp-scope-reveal"
+                  role="button"
+                  tabIndex={0}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    action.run?.();
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.stopPropagation();
+                      action.run?.();
+                    }
+                  }}
+                  style={{ fontSize: 10, color: token.colorPrimary, cursor: 'pointer' }}
+                >
+                  {action.label}
+                </Text>
+              </Tooltip>
+            )}
           </span>
         ) : null}
       </div>

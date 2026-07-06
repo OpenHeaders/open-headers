@@ -21,8 +21,10 @@ import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import { type CollectionFamilies, findCollectionByUid } from '@openheaders/ui/shared/variables';
 import { useMemo } from 'react';
+import { useEnvSwitcher } from '../../../services/env-switcher';
 import type { WorkbenchTab } from '../../../types';
 import { buildScopeEditorDispatch } from '../scope-editor-dispatch';
+import type { ScopeHeaderAction } from './ScopeSection';
 import { buildLiveRegistry } from './live-registry';
 import { resolveScopeContext } from './scope-context';
 import { getScopeKind } from './scope-kind';
@@ -46,6 +48,9 @@ export interface VariablesPanelHandlers {
   onOpenRuleCollectionVariables?: (uid: string, name: string) => void;
   onOpenRequestCollectionVariables?: (uid: string, name: string) => void;
   onOpenTemplateCollectionVariables?: (uid: string, name: string) => void;
+  /** Mint a new environment and open its editor — backs the Environment
+   *  section's "Create" affordance when no environments exist yet. */
+  onCreateEnvironment?: () => void;
 }
 
 export interface VariablesPanelViewModel {
@@ -59,6 +64,9 @@ export interface VariablesPanelViewModel {
   defaultEnvironmentName: string | null;
   activeCollectionName: string | null;
   openScopeEditor: (scope: DisplayScope) => (() => void) | null;
+  /** Environment section's context-dependent header affordance:
+   *  Edit (env selected) / Create (no envs) / Select (none active). */
+  environmentAction: ScopeHeaderAction | null;
 }
 
 export function useVariablesPanel(
@@ -73,7 +81,9 @@ export function useVariablesPanel(
     onOpenRuleCollectionVariables,
     onOpenRequestCollectionVariables,
     onOpenTemplateCollectionVariables,
+    onCreateEnvironment,
   } = handlers;
+  const { pickActiveEnvironment } = useEnvSwitcher();
 
   const { environments, activeEnvironmentId, defaultEnvironmentId, workspaceVariables, vault } = useEnvVarVault();
   const { rules, templates, localCollections, localCollectionTrees, templateCollections, templateCollectionTrees } =
@@ -181,6 +191,30 @@ export function useVariablesPanel(
     ],
   );
 
+  // Environment header affordance — one of three, by state:
+  //   Edit   → an environment is selected (opens its editor).
+  //   Create → no environments exist yet (mints the first one).
+  //   Select → environments exist but none is active (inline picker).
+  const environmentAction = useMemo<ScopeHeaderAction | null>(() => {
+    if (activeEnvironmentId) {
+      const run = openScopeEditor('environment');
+      return run ? { label: 'Edit', tooltip: 'Open the environment variables editor', run } : null;
+    }
+    if (environments.length === 0) {
+      if (!onCreateEnvironment) return null;
+      return { label: 'Create', tooltip: 'Create your first environment', run: onCreateEnvironment };
+    }
+    return {
+      label: 'Select',
+      tooltip: 'Choose the active environment',
+      menu: environments.map((env) => ({
+        key: env.uid,
+        label: env.name,
+        onClick: () => pickActiveEnvironment(env.uid),
+      })),
+    };
+  }, [activeEnvironmentId, environments, onCreateEnvironment, openScopeEditor, pickActiveEnvironment]);
+
   const { inContextVars, inContextErrors } = useMemo(
     () => buildInContextVariables({ contextEntity, activeCollectionId, resolver, liveVariables }),
     [contextEntity, activeCollectionId, resolver, liveVariables],
@@ -221,5 +255,6 @@ export function useVariablesPanel(
     defaultEnvironmentName,
     activeCollectionName,
     openScopeEditor,
+    environmentAction,
   };
 }

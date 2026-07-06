@@ -92,6 +92,7 @@ function ScopeInfoBody({ scope }: { scope: DisplayScope }) {
           </>
         )}
       </div>
+      <div style={{ height: 1, background: token.colorBorderSecondary }} />
       <div>
         <div style={{ color: token.colorTextSecondary, marginBottom: 4 }}>
           Bare <Code>{`{{${EXAMPLE}}}`}</Code> resolves by priority:

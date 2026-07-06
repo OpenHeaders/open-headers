@@ -61,6 +61,7 @@ interface WorkbenchToolWindowProps {
   openTemplateCollectionOverview: UseTabOpenersApi['openTemplateCollectionOverview'];
   openTemplateFolderOverview: UseTabOpenersApi['openTemplateFolderOverview'];
   openEnvironmentEdit: UseTabOpenersApi['openEnvironmentEdit'];
+  openCreateEnvironment: () => void;
   openWorkspaceVariables: UseTabOpenersApi['openWorkspaceVariables'];
   openVault: UseTabOpenersApi['openVault'];
   openLiveVariables: UseTabOpenersApi['openLiveVariables'];
@@ -116,6 +117,7 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
   openTemplateCollectionOverview,
   openTemplateFolderOverview,
   openEnvironmentEdit,
+  openCreateEnvironment,
   openWorkspaceVariables,
   openVault,
   openLiveVariables,
@@ -242,6 +244,7 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
           onOpenLiveVariables={openLiveVariables}
           onOpenLiveVariableEdit={openLiveVariableEdit}
           onOpenEnvironmentEdit={openEnvironmentEdit}
+          onCreateEnvironment={openCreateEnvironment}
           onOpenRuleCollectionVariables={openCollectionVariables}
           onOpenRequestCollectionVariables={openRequestCollectionVariables}
           onOpenTemplateCollectionVariables={openTemplateCollectionVariables}

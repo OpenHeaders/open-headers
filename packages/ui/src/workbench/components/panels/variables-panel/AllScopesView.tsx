@@ -1,11 +1,13 @@
 /**
  * "All" view — every scope's variables grouped by priority (vault →
  * environment → collection → workspace → live). Each scope renders as a
- * `ScopeSection`; this component only computes the per-scope subtitles.
+ * `ScopeSection`; this component only computes the per-scope subtitles
+ * and header actions (Edit everywhere; the environment section swaps in
+ * Create / Select when no env is active).
  */
 
-import { ScopeSection } from './ScopeSection';
-import type { AllScopeVariables, DisplayScope } from './types';
+import { type ScopeHeaderAction, ScopeSection } from './ScopeSection';
+import { SCOPE_CONFIG, type AllScopeVariables, type DisplayScope } from './types';
 
 interface AllScopesViewProps {
   allVars: AllScopeVariables;
@@ -13,6 +15,7 @@ interface AllScopesViewProps {
   defaultEnvironmentName: string | null;
   activeCollectionName: string | null;
   openScopeEditor: (scope: DisplayScope) => (() => void) | null;
+  environmentAction: ScopeHeaderAction | null;
 }
 
 export function AllScopesView({
@@ -21,6 +24,7 @@ export function AllScopesView({
   defaultEnvironmentName,
   activeCollectionName,
   openScopeEditor,
+  environmentAction,
 }: AllScopesViewProps) {
   // If a default env is configured and differs from the active one,
   // surface it in the environment-scope subtitle so users understand why
@@ -34,22 +38,28 @@ export function AllScopesView({
     return 'No environment';
   })();
 
+  const editAction = (scope: DisplayScope): ScopeHeaderAction | null => {
+    const run = openScopeEditor(scope);
+    if (!run) return null;
+    return { label: 'Edit', tooltip: `Open the ${SCOPE_CONFIG[scope].label.toLowerCase()} variables editor`, run };
+  };
+
   return (
     <>
-      <ScopeSection scope="vault" variables={allVars.vault} onOpenEditor={openScopeEditor('vault')} />
+      <ScopeSection scope="vault" variables={allVars.vault} action={editAction('vault')} />
       <ScopeSection
         scope="environment"
         variables={allVars.environment}
         subtitle={envSubtitle}
-        onOpenEditor={openScopeEditor('environment')}
+        action={environmentAction}
       />
       <ScopeSection
         scope="collection"
         variables={allVars.collection}
         subtitle={activeCollectionName ?? 'No active collection'}
-        onOpenEditor={openScopeEditor('collection')}
+        action={editAction('collection')}
       />
-      <ScopeSection scope="workspace" variables={allVars.workspace} onOpenEditor={openScopeEditor('workspace')} />
+      <ScopeSection scope="workspace" variables={allVars.workspace} action={editAction('workspace')} />
       <ScopeSection
         scope="live"
         variables={allVars.live}
@@ -58,7 +68,7 @@ export function AllScopesView({
             ? `${allVars.live.filter((v) => v.resolved).length}/${allVars.live.length} resolved`
             : 'no live variables defined'
         }
-        onOpenEditor={openScopeEditor('live')}
+        action={editAction('live')}
         isLast
       />
     </>

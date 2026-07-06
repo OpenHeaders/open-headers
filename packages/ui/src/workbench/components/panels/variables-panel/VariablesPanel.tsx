@@ -66,6 +66,7 @@ const VariablesPanel: React.FC<VariablesPanelProps> = (props) => {
             defaultEnvironmentName={vm.defaultEnvironmentName}
             activeCollectionName={vm.activeCollectionName}
             openScopeEditor={vm.openScopeEditor}
+            environmentAction={vm.environmentAction}
           />
         </PanelSection>
       </div>

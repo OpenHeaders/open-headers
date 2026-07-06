@@ -1043,6 +1043,9 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         openTemplateCollectionOverview={openTemplateCollectionOverview}
         openTemplateFolderOverview={openTemplateFolderOverview}
         openEnvironmentEdit={openEnvironmentEdit}
+        openCreateEnvironment={() => {
+          void handleCreateEnvironment();
+        }}
         openWorkspaceVariables={openWorkspaceVariables}
         openVault={openVault}
         openLiveVariables={openLiveVariables}
@@ -1088,6 +1091,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       openRunReport,
       activeTab,
       openEnvironmentEdit,
+      handleCreateEnvironment,
       openVault,
       openWorkspaceVariables,
       openLiveVariables,
