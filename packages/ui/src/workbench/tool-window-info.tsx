@@ -11,7 +11,9 @@
 
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { NOTIFICATIONS_PANEL_INFO } from '@openheaders/ui/shared/notifications';
+import { buildRuleIcon } from './components/shared/rule-icon';
 import { scopeBadge } from './components/shared/scope-colors';
+import { ALL_RULE_TYPES } from './rule-type-menu';
 import type { ToolWindowId } from './types';
 
 /** Inline `{{token}}` reference — code chip so the syntax reads as
@@ -36,6 +38,20 @@ const TOOL_WINDOW_INFO: Record<ToolWindowId, InfoPopoverContent> = {
     title: 'HTTP Rules',
     summary:
       'Author header rules that rewrite outgoing requests and incoming responses. Rules live in collections and can inject values from variables, the vault, and live workflows.',
+    sections: [
+      {
+        heading: 'Rule types',
+        // Single-sourced from the create-menu catalogue so the popover
+        // never drifts from what the picker actually offers. The lead
+        // icon is the same fixed-width type code rows render, so the
+        // labels form an aligned column.
+        items: ALL_RULE_TYPES.map((t) => ({
+          icon: buildRuleIcon({ ruleType: t.key, isActive: true }),
+          label: t.label,
+          desc: t.description,
+        })),
+      },
+    ],
   },
   workflows: {
     title: 'Workflows',
