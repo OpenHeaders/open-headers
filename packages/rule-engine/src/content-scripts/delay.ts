@@ -9,10 +9,11 @@ import { compileRuleForInjection } from '@openheaders/core/utils';
 import type { FuncInjection } from '../builders/types';
 import type { DelayConfig, OhOriginals } from './types';
 
-export function buildDelayInjection(rule: DelayRule): FuncInjection {
+export function buildDelayInjection(rule: DelayRule, terminalRegexSources: readonly string[] = []): FuncInjection {
   const config: DelayConfig = {
     ruleUid: rule.uid,
     regexSources: compileRuleForInjection(rule),
+    terminalRegexSources: [...terminalRegexSources],
     delayMs: Math.max(0, Math.min(rule.action.delayMs, 5000)),
   };
   return {
@@ -29,7 +30,8 @@ export function buildDelayInjection(rule: DelayRule): FuncInjection {
  */
 function delayInjectionFunc(cfg: DelayConfig): void {
   const regexes = cfg.regexSources.map((s) => new RegExp(s, 'i'));
-  function matches(url: string): boolean {
+  const terminals = cfg.terminalRegexSources.map((s) => new RegExp(s, 'i'));
+  function matchesAny(list: RegExp[], url: string): boolean {
     // Resolve relative / scheme-relative URLs against the page base so
     // `fetch('/api/x')` matches an absolute-URL pattern — the regexes are
     // compiled from absolute patterns, which is also what the network
@@ -40,10 +42,15 @@ function delayInjectionFunc(cfg: DelayConfig): void {
     } catch {
       /* not resolvable — match against the raw value */
     }
-    for (let i = 0; i < regexes.length; i++) {
-      if (regexes[i]!.test(abs)) return true;
+    for (let i = 0; i < list.length; i++) {
+      if (list[i]!.test(abs)) return true;
     }
     return false;
+  }
+  // Terminal shadow: a block rule owns this request — stand down (no
+  // delay, no fire) and let it proceed straight to its DNR block.
+  function takes(url: string): boolean {
+    return matchesAny(regexes, url) && !matchesAny(terminals, url);
   }
 
   function fire(url: string): void {
@@ -54,7 +61,7 @@ function delayInjectionFunc(cfg: DelayConfig): void {
   window.fetch = function (this: typeof window, ...args: Parameters<typeof fetch>): ReturnType<typeof fetch> {
     const input = args[0];
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : ((input as Request)?.url ?? '');
-    if (matches(url)) {
+    if (takes(url)) {
       fire(url);
       return new Promise((resolve) => {
         setTimeout(() => resolve(origFetch.apply(this, args)), cfg.delayMs);
@@ -81,7 +88,7 @@ function delayInjectionFunc(cfg: DelayConfig): void {
     ...args: Parameters<XMLHttpRequest['send']>
   ): void {
     const url = this.__ohUrl ?? '';
-    if (url && matches(url)) {
+    if (url && takes(url)) {
       fire(url);
       setTimeout(() => origXHRSend.apply(this, args), cfg.delayMs);
     } else {

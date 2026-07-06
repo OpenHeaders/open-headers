@@ -6,7 +6,19 @@
  * self-contained `Function.prototype.toString` form.
  */
 
-export interface DelayConfig {
+/**
+ * Terminal-shadow sources shared by the interceptor configs below: regex
+ * sources compiled from the effective block rules (see
+ * `terminal-shadow.ts`). A request the wrapper's own selector takes is
+ * FIRST tested against these — a hit means a block rule owns it, so the
+ * wrapper stands down (no action, no fire) and the request proceeds to
+ * its DNR fate. Empty = no shadow, act unconditionally.
+ */
+export interface TerminalShadow {
+  terminalRegexSources: string[];
+}
+
+export interface DelayConfig extends TerminalShadow {
   ruleUid: string;
   regexSources: string[];
   delayMs: number;
@@ -18,14 +30,14 @@ export interface GraphqlFilter {
   value: string;
 }
 
-export interface StaticBodyConfig {
+export interface StaticBodyConfig extends TerminalShadow {
   ruleUid: string;
   regexSources: string[];
   body: string;
   graphqlFilter?: GraphqlFilter;
 }
 
-export interface StaticResponseConfig {
+export interface StaticResponseConfig extends TerminalShadow {
   ruleUid: string;
   regexSources: string[];
   // 'mock' = synthetic reply, the request never leaves the browser;

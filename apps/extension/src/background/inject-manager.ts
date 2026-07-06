@@ -55,6 +55,7 @@ import {
   buildSetupInjection,
   buildSseInjection,
   buildWsInjection,
+  compileTerminalBlockSources,
   extractHeaderMerges,
 } from '@openheaders/rule-engine/content-scripts';
 import {
@@ -111,6 +112,12 @@ let activeInjectRules: InjectRule[] = [];
 let activeInterceptorRules: InterceptorRuleEntry[] = [];
 let activeHeaderMerges: HeaderMergeEntry[] = [];
 let activeMessageRules: MessageRuleEntry[] = [];
+// Terminal-shadow sources compiled from the live block rules — threaded
+// into every delay/request-body/response wrapper config so the wrapper
+// stands down on requests a block rule owns (cross-plane arbitration:
+// terminal DNR actions beat scriptable actions, mirroring DNR's own
+// priority ladder).
+let activeTerminalSources: string[] = [];
 
 // Signature of the live-pushable interceptor set (response/body/delay/
 // header-merge/ws/sse — NOT inject, which is navigation-only). When it
@@ -204,11 +211,15 @@ export const __testExtractHeaderMergeEntry = extractHeaderMergeEntry;
  * delay, body, response, header); header-merge entries are derived from header
  * rules internally so dnr-manager doesn't have to know about them.
  *
+ * `terminalRules` carries the LIVE block rules alongside — compiled into
+ * the terminal-shadow sources the interceptor wrappers consult so a
+ * request a block owns is never delayed / rewritten / mocked first.
+ *
  * Returns the uids that actually received an in-page artifact — a header
  * rule without merge operations installs nothing here. dnr-manager folds
  * the set into its effective-fire-uid snapshot.
  */
-export function updateScriptableRules(rules: Rule[]): ReadonlySet<string> {
+export function updateScriptableRules(rules: Rule[], terminalRules: readonly Rule[] = []): ReadonlySet<string> {
   const injectRules: InjectRule[] = [];
   const interceptorRules: InterceptorRuleEntry[] = [];
   const headerMerges: HeaderMergeEntry[] = [];
@@ -245,6 +256,7 @@ export function updateScriptableRules(rules: Rule[]): ReadonlySet<string> {
   activeInterceptorRules = interceptorRules;
   activeHeaderMerges = headerMerges;
   activeMessageRules = messageRules;
+  activeTerminalSources = compileTerminalBlockSources(terminalRules);
   const scriptableCount = injectRules.length + interceptorRules.length;
   if (scriptableCount > 0 || headerMerges.length > 0 || messageRules.length > 0) {
     const summary = [...injectRules, ...interceptorRules.map((e) => e.rule)]
@@ -261,7 +273,7 @@ export function updateScriptableRules(rules: Rule[]): ReadonlySet<string> {
   // Live-update already-open tabs when the interceptor set changes. Skip
   // the first call (boot): `null` signature means navigation will install
   // the current set as tabs load, so there's nothing stale to refresh.
-  const signature = interceptorSignature(interceptorRules, headerMerges, messageRules);
+  const signature = interceptorSignature(interceptorRules, headerMerges, messageRules, activeTerminalSources);
   if (lastInterceptorSignature !== null && signature !== lastInterceptorSignature) {
     void pushInterceptorUpdate();
   }
@@ -279,6 +291,7 @@ function interceptorSignature(
   interceptors: InterceptorRuleEntry[],
   headerMerges: HeaderMergeEntry[],
   messageRules: MessageRuleEntry[],
+  terminalSources: string[],
 ): string {
   const gate = (e: PageInstallGate) => ({
     r: e.regexSources,
@@ -289,6 +302,9 @@ function interceptorSignature(
     i: interceptors.map((e) => ({ u: e.rule.uid, a: e.rule.action, ...gate(e) })),
     h: headerMerges.map((e) => ({ u: e.rule.uid, q: e.requestMerges, s: e.responseMerges, ...gate(e) })),
     m: messageRules.map((e) => ({ u: e.rule.uid, a: e.rule.action, ...gate(e) })),
+    // Terminal shadow travels inside the wrapper configs, so a block-rule
+    // change must refresh open tabs' wrappers too.
+    t: terminalSources,
   });
 }
 
@@ -473,13 +489,13 @@ async function injectInterceptorsForTab(
     try {
       switch (rule.type) {
         case 'delay':
-          await applyInjection(tabId, buildDelayInjection(rule), rule.name);
+          await applyInjection(tabId, buildDelayInjection(rule, activeTerminalSources), rule.name);
           break;
         case 'request-body':
-          await applyInjection(tabId, buildRequestBodyInjection(rule), rule.name);
+          await applyInjection(tabId, buildRequestBodyInjection(rule, activeTerminalSources), rule.name);
           break;
         case 'response':
-          await applyInjection(tabId, buildResponseInjection(rule), rule.name);
+          await applyInjection(tabId, buildResponseInjection(rule, activeTerminalSources), rule.name);
           break;
       }
     } catch (error) {

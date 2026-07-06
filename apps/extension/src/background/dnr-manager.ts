@@ -465,7 +465,11 @@ async function rebuildAll(rawRules: Rule[]): Promise<void> {
   }
 
   const dynamicPromise = applyDynamicRules(declarativeNetRequest, dynamicToApply);
-  for (const uid of updateScriptableRules(scriptables)) liveUids.add(uid);
+  // Block rules that made it into the dynamic layer (post-cap) feed the
+  // wrappers' terminal shadow — a request a live block owns is never
+  // delayed / rewritten / mocked first.
+  const liveBlockRules = rules.filter((r) => r.type === 'block' && liveUids.has(r.uid));
+  for (const uid of updateScriptableRules(scriptables, liveBlockRules)) liveUids.add(uid);
 
   // ── Layer 2: session rules ──
   // Three subcategories:

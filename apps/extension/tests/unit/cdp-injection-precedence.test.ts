@@ -69,6 +69,7 @@ vi.mock('@openheaders/rule-engine/content-scripts', () => ({
   buildSseInjection: vi.fn(),
   buildSetupInjection: vi.fn(),
   buildResetInjection: vi.fn(),
+  compileTerminalBlockSources: vi.fn(() => []),
 }));
 
 import {
@@ -157,7 +158,7 @@ describe('D4 precedence — CDP owns realizable debug-tier rules exclusively', (
     updateScriptableRules([rule]);
 
     await __testInjectForUrl(PLAIN_TAB, PAGE);
-    expect(buildRequestBodyInjection).toHaveBeenCalledWith(rule);
+    expect(buildRequestBodyInjection).toHaveBeenCalledWith(rule, []);
     expect(buildRequestBodyInjection).toHaveBeenCalledTimes(1);
   });
 
@@ -234,7 +235,7 @@ describe('D4 precedence — CDP owns realizable debug-tier rules exclusively', (
     updateScriptableRules([rule]);
 
     await __testInjectForUrl(CDP_TAB, PAGE);
-    expect(buildDelayInjection).toHaveBeenCalledWith(rule);
+    expect(buildDelayInjection).toHaveBeenCalledWith(rule, []);
   });
 
   // X1: a debug-tier `response`/`request-body` carrying a condition NO Fetch
@@ -252,7 +253,7 @@ describe('D4 precedence — CDP owns realizable debug-tier rules exclusively', (
     updateScriptableRules([rule]);
 
     await __testInjectForUrl(CDP_TAB, PAGE);
-    expect(buildResponseInjection).toHaveBeenCalledWith(rule);
+    expect(buildResponseInjection).toHaveBeenCalledWith(rule, []);
   });
 
   it('keeps a domain-type-gated debug-tier response on injection (no Fetch stage evaluates domain-type)', async () => {
@@ -261,7 +262,7 @@ describe('D4 precedence — CDP owns realizable debug-tier rules exclusively', (
     updateScriptableRules([rule]);
 
     await __testInjectForUrl(CDP_TAB, PAGE);
-    expect(buildResponseInjection).toHaveBeenCalledWith(rule);
+    expect(buildResponseInjection).toHaveBeenCalledWith(rule, []);
   });
 
   it('still installs the delay wrapper on injection on the same tab NOT under CDP control', async () => {
@@ -269,7 +270,7 @@ describe('D4 precedence — CDP owns realizable debug-tier rules exclusively', (
     updateScriptableRules([rule]);
 
     await __testInjectForUrl(PLAIN_TAB, PAGE);
-    expect(buildDelayInjection).toHaveBeenCalledWith(rule);
+    expect(buildDelayInjection).toHaveBeenCalledWith(rule, []);
   });
 
   it('re-installs the delay wrapper on the CURRENT document refresh under CDP control (no mid-page loss)', async () => {
@@ -281,6 +282,6 @@ describe('D4 precedence — CDP owns realizable debug-tier rules exclusively', (
     // which a bootstrap script never reached — so the residual wrapper installs
     // here even though the fresh-document path suppresses it.
     await __testRefreshInterceptorsForTab(CDP_TAB);
-    expect(buildDelayInjection).toHaveBeenCalledWith(rule);
+    expect(buildDelayInjection).toHaveBeenCalledWith(rule, []);
   });
 });

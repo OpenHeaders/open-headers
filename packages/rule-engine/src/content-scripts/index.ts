@@ -39,4 +39,5 @@ export { buildRequestBodyInjection } from './request-body';
 export { buildResponseInjection } from './response';
 export { buildResetInjection, buildSetupInjection, OH_BINDING } from './setup';
 export { buildSseInjection } from './sse';
+export { compileTerminalBlockSources } from './terminal-shadow';
 export { buildWsInjection } from './ws';

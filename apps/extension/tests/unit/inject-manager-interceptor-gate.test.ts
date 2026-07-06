@@ -53,6 +53,7 @@ vi.mock('@openheaders/rule-engine/content-scripts', () => ({
   buildSseInjection: vi.fn(),
   buildSetupInjection: vi.fn(),
   buildResetInjection: vi.fn(),
+  compileTerminalBlockSources: vi.fn(() => []),
 }));
 
 import { __testInjectForUrl, __testPushInterceptorUpdate, updateScriptableRules } from '@/background/inject-manager';
@@ -92,7 +93,7 @@ describe('mock/body/delay interceptor install gate', () => {
     updateScriptableRules([rule]);
     await __testInjectForUrl(1, PLAYGROUND_PAGE);
 
-    expect(buildResponseInjection).toHaveBeenCalledWith(rule);
+    expect(buildResponseInjection).toHaveBeenCalledWith(rule, []);
     expect(buildResponseInjection).toHaveBeenCalledTimes(1);
   });
 
@@ -136,8 +137,8 @@ describe('mock/body/delay interceptor install gate', () => {
     updateScriptableRules([bodyRule, delayRule]);
     await __testInjectForUrl(1, PLAYGROUND_PAGE);
 
-    expect(buildRequestBodyInjection).toHaveBeenCalledWith(bodyRule);
-    expect(buildDelayInjection).toHaveBeenCalledWith(delayRule);
+    expect(buildRequestBodyInjection).toHaveBeenCalledWith(bodyRule, []);
+    expect(buildDelayInjection).toHaveBeenCalledWith(delayRule, []);
   });
 
   it('pushes interceptor updates to open tabs: reset then re-inject, inject rules excluded', async () => {
@@ -167,7 +168,7 @@ describe('mock/body/delay interceptor install gate', () => {
 
     // Reset fires first, then the interceptor re-injects.
     expect(spies.applyInjection).toHaveBeenCalledWith(7, undefined, 'oh-reset');
-    expect(spies.buildResponseInjection).toHaveBeenCalledWith(rule);
+    expect(spies.buildResponseInjection).toHaveBeenCalledWith(rule, []);
     // Inject rules are navigation-only — never part of the push.
     expect(injectScript).not.toHaveBeenCalled();
   });

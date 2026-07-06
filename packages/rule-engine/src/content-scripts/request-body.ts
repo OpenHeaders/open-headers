@@ -11,14 +11,15 @@ import type { Injection } from '../builders/types';
 import { GRAPHQL_MATCHER_CODE, TEST_BRIDGE_CODE, URL_MATCHER_CODE } from './inline-helpers';
 import type { GraphqlFilter, OhOriginals, StaticBodyConfig } from './types';
 
-export function buildRequestBodyInjection(rule: RequestBodyRule): Injection {
+export function buildRequestBodyInjection(rule: RequestBodyRule, terminalRegexSources: readonly string[] = []): Injection {
   const bodyType = rule.action.bodyType || 'static';
   if (bodyType === 'dynamic') {
-    return { kind: 'inline-script', code: generateDynamicRequestBodyScript(rule) };
+    return { kind: 'inline-script', code: generateDynamicRequestBodyScript(rule, terminalRegexSources) };
   }
   const config: StaticBodyConfig = {
     ruleUid: rule.uid,
     regexSources: compileRuleForInjection(rule),
+    terminalRegexSources: [...terminalRegexSources],
     body: rule.action.requestBody,
     graphqlFilter:
       rule.action.resourceType === 'graphql' && rule.action.graphqlFilter?.key ? rule.action.graphqlFilter : undefined,
@@ -32,7 +33,8 @@ export function buildRequestBodyInjection(rule: RequestBodyRule): Injection {
 
 function staticBodyInjectionFunc(cfg: StaticBodyConfig): void {
   const regexes = cfg.regexSources.map((s) => new RegExp(s, 'i'));
-  function matches(url: string): boolean {
+  const terminals = cfg.terminalRegexSources.map((s) => new RegExp(s, 'i'));
+  function matchesAny(list: RegExp[], url: string): boolean {
     // Resolve relative / scheme-relative URLs against the page base so
     // `fetch('/api/x')` matches an absolute-URL pattern — the regexes are
     // compiled from absolute patterns, which is also what the network
@@ -43,10 +45,15 @@ function staticBodyInjectionFunc(cfg: StaticBodyConfig): void {
     } catch {
       /* not resolvable — match against the raw value */
     }
-    for (let i = 0; i < regexes.length; i++) {
-      if (regexes[i]!.test(abs)) return true;
+    for (let i = 0; i < list.length; i++) {
+      if (list[i]!.test(abs)) return true;
     }
     return false;
+  }
+  // Terminal shadow: a block rule owns this request — stand down (no
+  // rewrite, no fire) and let it proceed straight to its DNR block.
+  function takes(url: string): boolean {
+    return matchesAny(regexes, url) && !matchesAny(terminals, url);
   }
 
   // GraphQL operation filter — see GRAPHQL_MATCHER_CODE for the
@@ -96,7 +103,7 @@ function staticBodyInjectionFunc(cfg: StaticBodyConfig): void {
   window.fetch = function (this: typeof window, ...args: Parameters<typeof fetch>): ReturnType<typeof fetch> {
     const input = args[0];
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : ((input as Request)?.url ?? '');
-    if (matches(url) && args[1]) {
+    if (takes(url) && args[1]) {
       const reqBody = (args[1] as RequestInit).body;
       const bodyStr = typeof reqBody === 'string' ? reqBody : reqBody == null ? '' : String(reqBody);
       if (!matchesGraphQL(bodyStr, cfg.graphqlFilter)) return origFetch.apply(this, args);
@@ -127,7 +134,7 @@ function staticBodyInjectionFunc(cfg: StaticBodyConfig): void {
     ...args: Parameters<XMLHttpRequest['send']>
   ): void {
     const url = this.__ohUrl ?? '';
-    if (url && matches(url)) {
+    if (url && takes(url)) {
       const reqBody = args[0];
       const bodyStr = typeof reqBody === 'string' ? reqBody : reqBody == null ? '' : String(reqBody);
       if (!matchesGraphQL(bodyStr, cfg.graphqlFilter)) {
@@ -152,10 +159,11 @@ function staticBodyInjectionFunc(cfg: StaticBodyConfig): void {
  * The body-present gate is `!= null` (not truthiness) so a present-but-empty body
  * (`body: ''` / `send('')`) is still a body — transformed and fired, never skipped.
  */
-function generateDynamicRequestBodyScript(rule: RequestBodyRule): string {
+function generateDynamicRequestBodyScript(rule: RequestBodyRule, terminalRegexSources: readonly string[]): string {
   const regexSources = compileRuleForInjection(rule);
   const { requestBody: userCode } = rule.action;
   const regexSourcesJSON = JSON.stringify(regexSources);
+  const terminalSourcesJSON = JSON.stringify(terminalRegexSources);
   const ruleUidLit = JSON.stringify(rule.uid);
   const graphqlFilter =
     rule.action.resourceType === 'graphql' && rule.action.graphqlFilter?.key ? rule.action.graphqlFilter : null;
@@ -167,6 +175,8 @@ ${URL_MATCHER_CODE}
 ${GRAPHQL_MATCHER_CODE}
 var RULE_UID = ${ruleUidLit};
 var REGEX_SOURCES = ${regexSourcesJSON};
+var TERMINAL_SOURCES = ${terminalSourcesJSON};
+function __ohTakes(url) { return __ohMatchesUrl(url, REGEX_SOURCES) && !__ohMatchesUrl(url, TERMINAL_SOURCES); }
 var GRAPHQL_FILTER = ${graphqlFilterJSON};
 
 function __ohAbs(u) { try { return new URL(u, document.baseURI).href; } catch (e) { return u; } }
@@ -186,7 +196,7 @@ var origFetch = window.fetch;
 window.fetch = function() {
   var args = Array.prototype.slice.call(arguments);
   var url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url) || '';
-  if (__ohMatchesUrl(url, REGEX_SOURCES) && args[1] && args[1].body != null) {
+  if (__ohTakes(url) && args[1] && args[1].body != null) {
     var bodyStr = typeof args[1].body === 'string' ? args[1].body : JSON.stringify(args[1].body);
     if (!__ohMatchesGraphQL(bodyStr, GRAPHQL_FILTER)) return origFetch.apply(this, args);
     __ohFire(RULE_UID, url, 'request-body');
@@ -211,7 +221,7 @@ XMLHttpRequest.prototype.open = function() {
   return origXHROpen.apply(this, arguments);
 };
 XMLHttpRequest.prototype.send = function(body) {
-  if (this.__ohUrl && __ohMatchesUrl(this.__ohUrl, REGEX_SOURCES) && body != null) {
+  if (this.__ohUrl && __ohTakes(this.__ohUrl) && body != null) {
     var bodyStr = typeof body === 'string' ? body : JSON.stringify(body);
     if (!__ohMatchesGraphQL(bodyStr, GRAPHQL_FILTER)) return origXHRSend.call(this, body);
     __ohFire(RULE_UID, this.__ohUrl, 'request-body');

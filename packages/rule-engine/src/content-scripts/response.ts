@@ -11,15 +11,16 @@ import type { Injection } from '../builders/types';
 import { GRAPHQL_MATCHER_CODE, TEST_BRIDGE_CODE, URL_MATCHER_CODE } from './inline-helpers';
 import type { GraphqlFilter, OhCaptureSnapshot, OhOriginals, StaticResponseConfig } from './types';
 
-export function buildResponseInjection(rule: ResponseRule): Injection {
+export function buildResponseInjection(rule: ResponseRule, terminalRegexSources: readonly string[] = []): Injection {
   const bodyType = rule.action.bodyType || 'static';
   if (bodyType === 'dynamic') {
-    return { kind: 'inline-script', code: generateDynamicResponseScript(rule) };
+    return { kind: 'inline-script', code: generateDynamicResponseScript(rule, terminalRegexSources) };
   }
   const { responseSource, statusCode, responseBody, contentType, responseHeaders } = rule.action;
   const config: StaticResponseConfig = {
     ruleUid: rule.uid,
     regexSources: compileRuleForInjection(rule),
+    terminalRegexSources: [...terminalRegexSources],
     source: responseSource,
     statusCode,
     body: responseBody,
@@ -37,7 +38,8 @@ export function buildResponseInjection(rule: ResponseRule): Injection {
 
 function staticResponseInjectionFunc(cfg: StaticResponseConfig): void {
   const regexes = cfg.regexSources.map((s) => new RegExp(s, 'i'));
-  function matches(url: string): boolean {
+  const terminals = cfg.terminalRegexSources.map((s) => new RegExp(s, 'i'));
+  function matchesAny(list: RegExp[], url: string): boolean {
     // Resolve relative / scheme-relative URLs against the page base so
     // `fetch('/api/x')` matches an absolute-URL pattern — the regexes are
     // compiled from absolute patterns, which is also what the network
@@ -48,10 +50,17 @@ function staticResponseInjectionFunc(cfg: StaticResponseConfig): void {
     } catch {
       /* not resolvable — match against the raw value */
     }
-    for (let i = 0; i < regexes.length; i++) {
-      if (regexes[i]!.test(abs)) return true;
+    for (let i = 0; i < list.length; i++) {
+      if (list[i]!.test(abs)) return true;
     }
     return false;
+  }
+  // Terminal shadow: a block rule owns this request — stand down (no
+  // mock, no rewrite, no fire) and let it proceed straight to its DNR
+  // block. Critical for mock: a mock never touches the network, so
+  // without this check it would silently defeat the block.
+  function takes(url: string): boolean {
+    return matchesAny(regexes, url) && !matchesAny(terminals, url);
   }
 
   function matchesGraphQL(bodyStr: unknown, filter: GraphqlFilter | undefined): boolean {
@@ -156,7 +165,7 @@ function staticResponseInjectionFunc(cfg: StaticResponseConfig): void {
   window.fetch = function (this: typeof window, ...args: Parameters<typeof fetch>): ReturnType<typeof fetch> {
     const input = args[0];
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : ((input as Request)?.url ?? '');
-    if (matches(url)) {
+    if (takes(url)) {
       const reqBody = (args[1] as RequestInit | undefined)?.body;
       const bodyStr = typeof reqBody === 'string' ? reqBody : reqBody == null ? '' : String(reqBody);
       if (!matchesGraphQL(bodyStr, cfg.graphqlFilter)) return origFetch.apply(this, args);
@@ -198,7 +207,7 @@ function staticResponseInjectionFunc(cfg: StaticResponseConfig): void {
     ...args: Parameters<XMLHttpRequest['send']>
   ): void {
     const url = this.__ohUrl ?? '';
-    if (url && matches(url)) {
+    if (url && takes(url)) {
       const reqBody = args[0];
       const bodyStr = typeof reqBody === 'string' ? reqBody : reqBody == null ? '' : String(reqBody);
       if (!matchesGraphQL(bodyStr, cfg.graphqlFilter)) {
@@ -283,8 +292,10 @@ function staticResponseInjectionFunc(cfg: StaticResponseConfig): void {
 //               nothing is fetched and a synthetic reply is built from the
 //               return value.
 
-function generateDynamicResponseScript(rule: ResponseRule): string {
-  return rule.action.responseSource === 'mock' ? dynamicMockResponseScript(rule) : dynamicNetworkResponseScript(rule);
+function generateDynamicResponseScript(rule: ResponseRule, terminalRegexSources: readonly string[]): string {
+  return rule.action.responseSource === 'mock'
+    ? dynamicMockResponseScript(rule, terminalRegexSources)
+    : dynamicNetworkResponseScript(rule, terminalRegexSources);
 }
 
 /**
@@ -292,10 +303,11 @@ function generateDynamicResponseScript(rule: ResponseRule): string {
  * user's modifyResponse(). CT/header overrides are merged onto the real
  * response headers (fetch only; XHR exposes no writable header surface).
  */
-function dynamicNetworkResponseScript(rule: ResponseRule): string {
+function dynamicNetworkResponseScript(rule: ResponseRule, terminalRegexSources: readonly string[]): string {
   const regexSources = compileRuleForInjection(rule);
   const { statusCode, responseBody, contentType, responseHeaders } = rule.action;
   const regexSourcesJSON = JSON.stringify(regexSources);
+  const terminalSourcesJSON = JSON.stringify(terminalRegexSources);
   const overrideStatus = statusCode || 0;
   const ruleUidLit = JSON.stringify(rule.uid);
   const contentTypeLit = JSON.stringify(contentType || '');
@@ -310,6 +322,8 @@ ${URL_MATCHER_CODE}
 ${GRAPHQL_MATCHER_CODE}
 var RULE_UID = ${ruleUidLit};
 var REGEX_SOURCES = ${regexSourcesJSON};
+var TERMINAL_SOURCES = ${terminalSourcesJSON};
+function __ohTakes(url) { return __ohMatchesUrl(url, REGEX_SOURCES) && !__ohMatchesUrl(url, TERMINAL_SOURCES); }
 var OVERRIDE_STATUS = ${overrideStatus};
 var CONTENT_TYPE = ${contentTypeLit};
 var EXTRA_HEADERS = ${headersJSON};
@@ -346,7 +360,7 @@ window.fetch = function() {
   var args = arguments;
   var self = this;
   var url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url) || '';
-  if (!__ohMatchesUrl(url, REGEX_SOURCES)) return origFetch.apply(self, args);
+  if (!__ohTakes(url)) return origFetch.apply(self, args);
   var __reqBody = (args[1] && args[1].body) || '';
   var __reqBodyStr = typeof __reqBody === 'string' ? __reqBody : (__reqBody == null ? '' : String(__reqBody));
   if (!__ohMatchesGraphQL(__reqBodyStr, GRAPHQL_FILTER)) return origFetch.apply(self, args);
@@ -400,7 +414,7 @@ XMLHttpRequest.prototype.open = function() {
 };
 XMLHttpRequest.prototype.send = function(body) {
   var self = this;
-  if (!this.__ohUrl || !__ohMatchesUrl(this.__ohUrl, REGEX_SOURCES)) {
+  if (!this.__ohUrl || !__ohTakes(this.__ohUrl)) {
     return origXHRSend.apply(this, arguments);
   }
   var __xhrBodyStr = typeof body === 'string' ? body : (body == null ? '' : String(body));
@@ -468,10 +482,11 @@ XMLHttpRequest.prototype.send = function(body) {
  * returns the body for a synthetic reply; status/CT/headers come from the
  * rule's static fields (statusCode falls back to 200, CT to JSON).
  */
-function dynamicMockResponseScript(rule: ResponseRule): string {
+function dynamicMockResponseScript(rule: ResponseRule, terminalRegexSources: readonly string[]): string {
   const regexSources = compileRuleForInjection(rule);
   const { statusCode, responseBody, contentType, responseHeaders } = rule.action;
   const regexSourcesJSON = JSON.stringify(regexSources);
+  const terminalSourcesJSON = JSON.stringify(terminalRegexSources);
   const status = statusCode || 200;
   const ruleUidLit = JSON.stringify(rule.uid);
   const contentTypeLit = JSON.stringify(contentType || 'application/json');
@@ -486,6 +501,8 @@ ${URL_MATCHER_CODE}
 ${GRAPHQL_MATCHER_CODE}
 var RULE_UID = ${ruleUidLit};
 var REGEX_SOURCES = ${regexSourcesJSON};
+var TERMINAL_SOURCES = ${terminalSourcesJSON};
+function __ohTakes(url) { return __ohMatchesUrl(url, REGEX_SOURCES) && !__ohMatchesUrl(url, TERMINAL_SOURCES); }
 var STATUS = ${status};
 var CONTENT_TYPE = ${contentTypeLit};
 var EXTRA_HEADERS = ${headersJSON};
@@ -505,7 +522,7 @@ window.fetch = function() {
   var args = arguments;
   var self = this;
   var url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url) || '';
-  if (!__ohMatchesUrl(url, REGEX_SOURCES)) return origFetch.apply(self, args);
+  if (!__ohTakes(url)) return origFetch.apply(self, args);
   var __reqBody = (args[1] && args[1].body) || '';
   var __reqBodyStr = typeof __reqBody === 'string' ? __reqBody : (__reqBody == null ? '' : String(__reqBody));
   if (!__ohMatchesGraphQL(__reqBodyStr, GRAPHQL_FILTER)) return origFetch.apply(self, args);
@@ -530,7 +547,7 @@ XMLHttpRequest.prototype.open = function() {
 };
 XMLHttpRequest.prototype.send = function(body) {
   var self = this;
-  if (!this.__ohUrl || !__ohMatchesUrl(this.__ohUrl, REGEX_SOURCES)) {
+  if (!this.__ohUrl || !__ohTakes(this.__ohUrl)) {
     return origXHRSend.apply(this, arguments);
   }
   var __xhrBodyStr = typeof body === 'string' ? body : (body == null ? '' : String(body));

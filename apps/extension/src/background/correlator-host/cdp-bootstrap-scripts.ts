@@ -32,6 +32,7 @@ import {
   buildSetupInjection,
   buildSseInjection,
   buildWsInjection,
+  compileTerminalBlockSources,
   extractHeaderMerges,
   type Injection,
 } from '@openheaders/rule-engine/content-scripts';
@@ -65,7 +66,7 @@ export function injectionToSource(injection: Injection): string {
  * matches nothing in-page (the `onCommitted` path's `shouldInstallForPage`
  * skips it for the same reason), so it produces no bootstrap script.
  */
-function bootstrapInjectionFor(rule: Rule): Injection | null {
+function bootstrapInjectionFor(rule: Rule, terminalSources: readonly string[]): Injection | null {
   if (rule.type === 'header') {
     const merges = extractHeaderMerges(rule);
     if (merges === null) return null;
@@ -76,11 +77,11 @@ function bootstrapInjectionFor(rule: Rule): Injection | null {
   if (compileRuleForInjection(rule).length === 0) return null;
   switch (rule.type) {
     case 'delay':
-      return buildDelayInjection(rule);
+      return buildDelayInjection(rule, terminalSources);
     case 'request-body':
-      return buildRequestBodyInjection(rule);
+      return buildRequestBodyInjection(rule, terminalSources);
     case 'response':
-      return buildResponseInjection(rule);
+      return buildResponseInjection(rule, terminalSources);
     case 'ws':
       return buildWsInjection(rule);
     case 'sse':
@@ -100,10 +101,13 @@ function bootstrapInjectionFor(rule: Rule): Injection | null {
  * set up — so a tab with only network-realized rules carries no bootstrap.
  */
 export function compileBootstrapScripts(rules: readonly Rule[]): CdpBootstrapScript[] {
+  // `rules` is the tab's full effective set, block rules included — the
+  // same terminal-shadow arbitration the onCommitted path applies.
+  const terminalSources = compileTerminalBlockSources(rules);
   const scripts: CdpBootstrapScript[] = [];
   for (const rule of rules) {
     if (!isBootstrapEligible(rule)) continue;
-    const injection = bootstrapInjectionFor(rule);
+    const injection = bootstrapInjectionFor(rule, terminalSources);
     if (injection === null) continue;
     scripts.push({ key: `${rule.type}:${rule.uid}`, source: injectionToSource(injection) });
   }
