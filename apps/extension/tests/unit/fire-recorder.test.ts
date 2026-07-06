@@ -19,20 +19,22 @@ vi.mock('@/background/modules/rules/shadow-arbitration', () => ({
 vi.mock('@/background/modules/tab-telemetry', () => ({
   isTracked: vi.fn(() => true),
   recordObservedFire: vi.fn(),
+  recordReportedFire: vi.fn(),
 }));
 
 import { getEffectiveFireUids } from '@/background/dnr-manager';
 import type { MatchingRule } from '@/background/modules/request-tracker';
 import { matchRulesToRequest } from '@/background/modules/request-tracker';
 import { arbitrateWithStrategy } from '@/background/modules/rules/shadow-arbitration';
-import { isTracked, recordObservedFire } from '@/background/modules/tab-telemetry';
-import { recordFiresForObservation } from '@/background/rule-engine-driver/fire-recorder';
+import { isTracked, recordObservedFire, recordReportedFire } from '@/background/modules/tab-telemetry';
+import { recordFiresForObservation, recordFiresForReport } from '@/background/rule-engine-driver/fire-recorder';
 
 const mockEffectiveUids = getEffectiveFireUids as ReturnType<typeof vi.fn>;
 const mockMatch = matchRulesToRequest as ReturnType<typeof vi.fn>;
 const mockArbitrate = arbitrateWithStrategy as ReturnType<typeof vi.fn>;
 const mockIsTracked = isTracked as ReturnType<typeof vi.fn>;
 const mockRecord = recordObservedFire as ReturnType<typeof vi.fn>;
+const mockRecordReported = recordReportedFire as ReturnType<typeof vi.fn>;
 
 function makeMatch(uid: string, overrides: Partial<MatchingRule> = {}): MatchingRule {
   return {
@@ -147,5 +149,54 @@ describe('fire-recorder — effective-uid gate', () => {
 
     expect(mockMatch).not.toHaveBeenCalled();
     expect(mockRecord).not.toHaveBeenCalled();
+  });
+});
+
+describe('fire-recorder — reported (wrapper) fires', () => {
+  const URL = 'https://api.openheaders.io/x';
+
+  it("annotates the reported fire with the reporting rule's arbitration verdict", () => {
+    const shadowedBy = { uid: 'bb222222', name: 'Rule bb222222', kind: 'mock-intercept' as const };
+    mockMatch.mockReturnValue([
+      makeMatch('aa111111', { type: 'request-body' }),
+      makeMatch('bb222222', { type: 'response' }),
+    ]);
+    mockArbitrate.mockImplementation((matches: MatchingRule[]) =>
+      matches.map((m) => (m.uid === 'aa111111' ? { ...m, shadowedBy } : m)),
+    );
+
+    recordFiresForReport(1, 'aa111111', URL, 100);
+
+    expect(mockRecordReported).toHaveBeenCalledWith(1, 'aa111111', URL, 100, shadowedBy);
+  });
+
+  it('passes no annotation when the reporting rule is unshadowed', () => {
+    mockMatch.mockReturnValue([makeMatch('aa111111', { type: 'response' })]);
+
+    recordFiresForReport(1, 'aa111111', URL, 100);
+
+    expect(mockRecordReported).toHaveBeenCalledWith(1, 'aa111111', URL, 100, undefined);
+  });
+
+  it('never gates the fire — an untracked tab still forwards, without arbitration', () => {
+    mockIsTracked.mockReturnValue(false);
+
+    recordFiresForReport(1, 'aa111111', URL, 100);
+
+    expect(mockMatch).not.toHaveBeenCalled();
+    expect(mockRecordReported).toHaveBeenCalledWith(1, 'aa111111', URL, 100, undefined);
+  });
+
+  it('arbitration only sees live matches — a dead mock cannot moot a wrapper fire', () => {
+    mockEffectiveUids.mockReturnValue(new Set(['aa111111']));
+    mockMatch.mockReturnValue([
+      makeMatch('aa111111', { type: 'request-body' }),
+      makeMatch('bb222222', { type: 'response' }),
+    ]);
+
+    recordFiresForReport(1, 'aa111111', URL, 100);
+
+    expect((mockArbitrate.mock.calls[0]?.[0] as MatchingRule[]).map((m) => m.uid)).toEqual(['aa111111']);
+    expect(mockRecordReported).toHaveBeenCalledWith(1, 'aa111111', URL, 100, undefined);
   });
 });

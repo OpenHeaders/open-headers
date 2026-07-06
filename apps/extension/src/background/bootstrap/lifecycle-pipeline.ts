@@ -32,12 +32,12 @@ import { createPersistentWatchSessionFloors, startLifecyclePortHost } from '../l
 import { isCacheBypassActive, registerCacheBypassReplay } from '../modules/net/cache-bypass';
 import { getNetworkConditionsForTab, registerNetworkConditionsReplay } from '../modules/net/network-conditions';
 import { setupOnRuleMatchedDebugBridge } from '../modules/rules/on-rule-matched-debug';
-import { recordReportedFire } from '../modules/tab-telemetry';
 import { getTabOverridesForTab, registerTabOverridesReplay } from '../modules/tabs/tab-overrides';
 import { startTabTelemetryFiresBridge } from '../modules/tabs/tab-telemetry-fires-bridge';
 import { startCdpPageBridge, startDevtoolsPageNavBridge, startPagePortHost } from '../page-port-host';
 import { startResourceTimingRelay } from '../resource-timing-relay';
 import { startRuleEngineDriver } from '../rule-engine-driver';
+import { recordFiresForReport } from '../rule-engine-driver/fire-recorder';
 import { startRuleFirePortHost } from '../rule-fire-port-host';
 import { startTabTelemetrySource } from '../tab-telemetry-source';
 import { debouncedUpdateBadge } from './badge-update';
@@ -226,7 +226,7 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
   // Route those binding fires into the SAME tab-telemetry plane the un-armed
   // postMessage path (`tabFire`) feeds — keyed by the tab the binding fired on.
   lifecycleHost.debuggerSource.subscribeBinding((fire) =>
-    recordReportedFire(fire.tabId, fire.ruleUid, fire.url, fire.t),
+    recordFiresForReport(fire.tabId, fire.ruleUid, fire.url, fire.t),
   );
   // Page-relayed ws frame / sse event captures: join each to the open
   // stream's lifecycle by (tab, resolved endpoint URL, lifetime window).

@@ -38,6 +38,14 @@ export interface ScriptableFireMeta {
    * twice. 0 / omitted for wrappers that dispatch the request immediately.
    */
   suppressForMs?: number;
+  /**
+   * Shadow arbitration result for this rule on this request. A wrapper
+   * report proves the rule RAN, but another rule can still moot its
+   * effect (a request-body rewrite on a request a mock response rule
+   * answered never reaches any wire). Same semantics as the observed
+   * meta: omitted means unshadowed.
+   */
+  shadowedBy?: ShadowAttribution;
 }
 
 export type TrackingReason = string;

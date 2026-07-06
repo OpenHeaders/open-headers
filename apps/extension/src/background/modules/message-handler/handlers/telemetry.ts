@@ -4,8 +4,9 @@ import type { InspectorRequestSnapshot, InspectorResponseSnapshot } from '@openh
 import type { PerfResourceEntry } from '@/types/perf';
 import { messageCaptureSource } from '../../../correlator-host/message-capture-source';
 import { overrideEventSource } from '../../../correlator-host/override-source';
+import { recordFiresForReport } from '../../../rule-engine-driver/fire-recorder';
 import { getActiveRulesForTab, ingestPerfEntries } from '../../request-tracker';
-import { getTabSnapshot, recordReportedFire } from '../../tab-telemetry';
+import { getTabSnapshot } from '../../tab-telemetry';
 import type { HandlerMap } from '../types';
 
 export const telemetryHandlers: HandlerMap = {
@@ -32,7 +33,7 @@ export const telemetryHandlers: HandlerMap = {
   tabFire: ({ message, sender, respond }) => {
     const tabId = sender.tab?.id;
     if (typeof tabId === 'number') {
-      recordReportedFire(tabId, message.ruleUid as string, message.url as string, message.t as number);
+      recordFiresForReport(tabId, message.ruleUid as string, message.url as string, message.t as number);
     }
     respond({ success: true });
   },

@@ -16,8 +16,8 @@ import { get as getSetting } from '@openheaders/ui/workbench/settings/store';
 import type { TrackedResourceType } from '@/types/browser';
 import { getEffectiveFireUids } from '../dnr-manager';
 import { matchRulesToRequest } from '../modules/request-tracker';
-import { arbitrateWithStrategy } from '../modules/rules/shadow-arbitration';
-import { isTracked as isTabTracked, recordObservedFire } from '../modules/tab-telemetry';
+import { arbitrateWithStrategy, type ShadowAttribution } from '../modules/rules/shadow-arbitration';
+import { isTracked as isTabTracked, recordObservedFire, recordReportedFire } from '../modules/tab-telemetry';
 import { isTrackableUrl, normalizeUrlForTracking } from '../modules/url-utils';
 
 export interface FireRecorderInput {
@@ -55,4 +55,27 @@ export function recordFiresForObservation(input: FireRecorderInput): void {
       shadowedBy: r.shadowedBy,
     });
   }
+}
+
+/**
+ * Record a wrapper-reported (fire-bridge / CDP binding) fire, annotated
+ * with the arbitration verdict for the reporting rule. The wrapper report
+ * proves the rule RAN (evidence=confirmed), but arbitration still decides
+ * whether another rule mooted its effect — a request-body rewrite on a
+ * request a mock response rule answered never reaches any wire. The
+ * verdict only annotates; it never gates the fire.
+ */
+export function recordFiresForReport(tabId: number, ruleUid: string, url: string, timestampMs: number): void {
+  const shadowedBy = isTabTracked(tabId) ? computeReportShadow(ruleUid, url) : undefined;
+  recordReportedFire(tabId, ruleUid, url, timestampMs, shadowedBy);
+}
+
+function computeReportShadow(ruleUid: string, url: string): ShadowAttribution | undefined {
+  if (!isTrackableUrl(url)) return undefined;
+  const matches = matchRulesToRequest(normalizeUrlForTracking(url));
+  if (matches.length === 0) return undefined;
+  const effective = getEffectiveFireUids();
+  const live = effective === null ? matches : matches.filter((m) => effective.has(m.uid));
+  const arbitrated = arbitrateWithStrategy(live, getSetting('rulesEngine.evaluationStrategy'));
+  return arbitrated.find((r) => r.uid === ruleUid)?.shadowedBy;
 }

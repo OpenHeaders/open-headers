@@ -10,6 +10,7 @@ import { doesUrlMatchEntry, getRuleMatchPatterns } from '@openheaders/core/utils
 import { getRules } from '@openheaders/oracle/entity/rule-store';
 import { getResolvedRules } from '@openheaders/oracle/rule-engine/variables-resolver';
 import { logger } from '@utils/logger';
+import type { ShadowAttribution } from '../rules/shadow-arbitration';
 import {
   emitFire,
   FALLBACK_WINDOW_MS,
@@ -231,6 +232,7 @@ export function recordScriptableFire(
     t,
     evidence: 'confirmed',
     ...(identity ? { requestId: identity.requestId } : {}),
+    ...(meta.shadowedBy ? { shadowedBy: meta.shadowedBy } : {}),
   };
   appendFire(state, record);
 }
@@ -241,9 +243,17 @@ export function recordScriptableFire(
  * `postMessage` fire-bridge (`tabFire`) on un-armed tabs, and the private
  * `Runtime.addBinding` channel (E4) on CDP-attached tabs. Always attributed
  * `xmlhttprequest` (these are fetch/XHR/ws/sse wrappers); a no-pattern match
- * falls back to `*`. No-op for untracked tabs.
+ * falls back to `*`. `shadowedBy` carries the arbitration verdict computed
+ * by the caller (fire-recorder) — this module records, it never arbitrates.
+ * No-op for untracked tabs.
  */
-export function recordReportedFire(tabId: number, ruleUid: string, url: string, t: number): void {
+export function recordReportedFire(
+  tabId: number,
+  ruleUid: string,
+  url: string,
+  t: number,
+  shadowedBy?: ShadowAttribution,
+): void {
   logger.info('TabFire', `tab ${tabId} scriptable ${ruleUid} ${url}`);
   const rule = findReportedRule(ruleUid);
   const pattern = (rule && findMatchingPattern(rule, url)) ?? '*';
@@ -252,7 +262,12 @@ export function recordReportedFire(tabId: number, ruleUid: string, url: string, 
   // scriptable-wins suppression must span that gap. 5000 mirrors the
   // wrapper's own clamp.
   const suppressForMs = rule?.type === 'delay' ? Math.max(0, Math.min(rule.action.delayMs, 5000)) : 0;
-  recordScriptableFire(tabId, ruleUid, url, t, { pattern, resourceType: 'xmlhttprequest', suppressForMs });
+  recordScriptableFire(tabId, ruleUid, url, t, {
+    pattern,
+    resourceType: 'xmlhttprequest',
+    suppressForMs,
+    ...(shadowedBy ? { shadowedBy } : {}),
+  });
 }
 
 /** Resolve a reported rule uid against the resolved-rules pool — raw
