@@ -6,6 +6,7 @@ vi.mock('@openheaders/ui/workbench/settings/store', () => ({
 
 vi.mock('@/background/dnr-manager', () => ({
   getEffectiveFireUids: vi.fn(() => null),
+  isDelayRedelivery: vi.fn(() => false),
 }));
 
 vi.mock('@/background/modules/request-tracker', () => ({
@@ -22,7 +23,7 @@ vi.mock('@/background/modules/tab-telemetry', () => ({
   recordReportedFire: vi.fn(),
 }));
 
-import { getEffectiveFireUids } from '@/background/dnr-manager';
+import { getEffectiveFireUids, isDelayRedelivery } from '@/background/dnr-manager';
 import type { MatchingRule } from '@/background/modules/request-tracker';
 import { matchRulesToRequest } from '@/background/modules/request-tracker';
 import { arbitrateWithStrategy } from '@/background/modules/rules/shadow-arbitration';
@@ -30,6 +31,7 @@ import { isTracked, recordObservedFire, recordReportedFire } from '@/background/
 import { recordFiresForObservation, recordFiresForReport } from '@/background/rule-engine-driver/fire-recorder';
 
 const mockEffectiveUids = getEffectiveFireUids as ReturnType<typeof vi.fn>;
+const mockIsDelayRedelivery = isDelayRedelivery as ReturnType<typeof vi.fn>;
 const mockMatch = matchRulesToRequest as ReturnType<typeof vi.fn>;
 const mockArbitrate = arbitrateWithStrategy as ReturnType<typeof vi.fn>;
 const mockIsTracked = isTracked as ReturnType<typeof vi.fn>;
@@ -61,6 +63,7 @@ beforeEach(() => {
   mockMatch.mockReturnValue([]);
   mockArbitrate.mockImplementation((matches: unknown[]) => matches);
   mockIsTracked.mockReturnValue(true);
+  mockIsDelayRedelivery.mockReturnValue(false);
 });
 
 describe('fire-recorder — effective-uid gate', () => {
@@ -149,6 +152,24 @@ describe('fire-recorder — effective-uid gate', () => {
 
     expect(mockMatch).not.toHaveBeenCalled();
     expect(mockRecord).not.toHaveBeenCalled();
+  });
+
+  it('skips sub-frame delay.html redeliveries — same logical navigation, already attributed', () => {
+    mockIsDelayRedelivery.mockReturnValue(true);
+    mockMatch.mockReturnValue([makeMatch('aa111111', { type: 'delay' })]);
+
+    recordFiresForObservation({ ...INPUT, resourceType: 'sub_frame' });
+
+    expect(mockRecord).not.toHaveBeenCalled();
+  });
+
+  it('main-frame redeliveries still attribute — the first observation never commits', () => {
+    mockIsDelayRedelivery.mockReturnValue(true);
+    mockMatch.mockReturnValue([makeMatch('aa111111', { type: 'delay' })]);
+
+    recordFiresForObservation({ ...INPUT, resourceType: 'main_frame' });
+
+    expect(mockRecord).toHaveBeenCalledTimes(1);
   });
 });
 

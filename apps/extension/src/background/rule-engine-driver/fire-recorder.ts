@@ -14,7 +14,7 @@
 
 import { get as getSetting } from '@openheaders/ui/workbench/settings/store';
 import type { TrackedResourceType } from '@/types/browser';
-import { getEffectiveFireUids } from '../dnr-manager';
+import { getEffectiveFireUids, isDelayRedelivery } from '../dnr-manager';
 import { matchRulesToRequest } from '../modules/request-tracker';
 import { arbitrateWithStrategy, type ShadowAttribution } from '../modules/rules/shadow-arbitration';
 import { isTracked as isTabTracked, recordObservedFire, recordReportedFire } from '../modules/tab-telemetry';
@@ -31,6 +31,11 @@ export interface FireRecorderInput {
 export function recordFiresForObservation(input: FireRecorderInput): void {
   if (input.tabId === -1 || !isTabTracked(input.tabId)) return;
   if (!isTrackableUrl(input.url)) return;
+  // delay.html redelivering a held navigation is the same logical request
+  // the rules already attributed on the first observation — except for
+  // main frames, where the first observation's commit never lands and the
+  // redelivery is the attribution carrier (see isDelayRedelivery).
+  if (input.resourceType !== 'main_frame' && isDelayRedelivery(input.tabId, input.url)) return;
   const normalized = normalizeUrlForTracking(input.url);
   const matches = matchRulesToRequest(normalized);
   if (matches.length === 0) return;

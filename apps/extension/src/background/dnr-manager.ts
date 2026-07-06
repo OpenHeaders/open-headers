@@ -237,6 +237,21 @@ export function forgetDelayBypassForTab(tabId: number): void {
   }
 }
 
+/**
+ * True while `url` is the pending delay-bypass target for `tabId` — i.e.
+ * the request is delay.html redelivering the navigation it just held.
+ * The redelivery is the same logical navigation as the request the delay
+ * rule already redirected; sub-frame attribution recorded the matching
+ * rules on that first observation, so the fire-recorder must not count
+ * the redelivery again. (Main-frame attribution is the inverse: the first
+ * observation's commit never lands, so the redelivery IS the carrier.)
+ */
+export function isDelayRedelivery(tabId: number, url: string): boolean {
+  const entry = pendingDelayBypass.get(tabId);
+  if (!entry || entry.expiresAt <= Date.now()) return false;
+  return urlsMatchForBypass(entry.targetUrl, url);
+}
+
 // ── Entry points ─────────────────────────────────────────────────
 
 export function updateNetworkRules(rules: Rule[]): void {
