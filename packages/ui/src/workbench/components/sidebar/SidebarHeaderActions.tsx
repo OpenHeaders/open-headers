@@ -147,7 +147,7 @@ const SidebarHeaderActions: React.FC<SidebarHeaderActionsProps> = ({
         </Dropdown>
       )}
       {view === 'variables' && (
-        <Tooltip title="New environment" placement="bottom">
+        <Tooltip title="Create new environment" placement="bottom">
           <span
             role="button"
             tabIndex={0}
@@ -156,7 +156,7 @@ const SidebarHeaderActions: React.FC<SidebarHeaderActionsProps> = ({
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') void createNewEnvironment();
             }}
-            aria-label="New environment"
+            aria-label="Create new environment"
           >
             <PlusOutlined />
           </span>

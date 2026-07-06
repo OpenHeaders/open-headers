@@ -344,9 +344,10 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
     minWidth: 220,
   };
 
-  // One segment of the compact scope-shortcut row (Vault | Workspace |
-  // Live) — equal-width, centered, same hover treatment as full rows.
-  const footerSegment = (scope: 'vault' | 'workspace' | 'live', label: string, onClick: () => void) => (
+  // One segment of the compact scope-shortcut row (Vault | Collection |
+  // Workspace | Live) — equal-width, centered, same hover treatment as
+  // full rows.
+  const footerSegment = (scope: 'vault' | 'collection' | 'workspace' | 'live', label: string, onClick: () => void) => (
     <div
       role="menuitem"
       className="oh-env-row"
@@ -610,28 +611,21 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
         }}
       >
         <PlusOutlined style={{ fontSize: 12 }} />
-        <Text style={{ fontSize: 13 }}>New environment</Text>
+        <Text style={{ fontSize: 13 }}>Create new environment</Text>
       </div>
-      {activeCollectionId && (
-        <div
-          role="menuitem"
-          className="oh-env-row"
-          style={{ ...rowStyle, color: token.colorTextSecondary }}
-          onClick={() => {
-            onOpenCollectionVariables();
-            handleClose();
-          }}
-        >
-          {scopeBadge('collection', 14)}
-          <Text style={{ fontSize: 13 }}>Collection variables</Text>
-        </div>
-      )}
       {/* Compact scope shortcuts — one row, segments split by vertical
-          dividers (Vault | Workspace | Live). Live only renders where
-          the host wires an opener (workbench; the devpanel routes by
+          dividers (Vault | Collection | Workspace | Live). Collection
+          joins only while a collection is active; Live only where the
+          host wires an opener (workbench; the devpanel routes by
           intent and has none for the LV list yet). */}
       <div style={{ display: 'flex', alignItems: 'stretch' }}>
         {footerSegment('vault', 'Vault', onOpenVault)}
+        {activeCollectionId && (
+          <>
+            <Divider type="vertical" style={{ height: 'auto', margin: '4px 0', alignSelf: 'stretch' }} />
+            {footerSegment('collection', 'Collection', onOpenCollectionVariables)}
+          </>
+        )}
         <Divider type="vertical" style={{ height: 'auto', margin: '4px 0', alignSelf: 'stretch' }} />
         {footerSegment('workspace', 'Workspace', onOpenWorkspaceVariables)}
         {onOpenLiveVariables && (

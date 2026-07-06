@@ -36,7 +36,7 @@ const EnvironmentsSection: React.FC<EnvironmentsSectionProps> = ({
         expanded={sectionsExpanded.environments}
         onToggle={() => toggleSection('environments')}
         actions={
-          <Tooltip title="New environment" placement="bottom">
+          <Tooltip title="Create new environment" placement="bottom">
             <PlusOutlined
               style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'pointer' }}
               onClick={(e) => {
