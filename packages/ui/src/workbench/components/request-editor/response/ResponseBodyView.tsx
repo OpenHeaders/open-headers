@@ -1,26 +1,27 @@
 /**
  * ResponseBodyView — the response body pane.
  *
- * Five view modes behind a segmented control:
- *   • Pretty — read-only Monaco with syntax highlighting; language
- *     auto-detected from Content-Type with a manual override picker.
- *     JSON re-indents, everything else renders highlighted verbatim.
- *   • Raw — the wire text verbatim in a plain <pre>. Cheap for large
- *     bodies, and the element e2e reads (`oh-response-body`).
- *   • Hex — offset / byte / ASCII dump of the body's UTF-8 bytes,
- *     capped (a full dump of the body cap would be a ~10 MB string).
- *   • Base64 — the same bytes base64-encoded.
- *   • Preview — HTML rendered in a fully sandboxed iframe (no scripts,
- *     no same-origin access); JSON rendered as a collapsible key/value
- *     tree. Offered only when one of those applies.
+ * One view picker (dropdown) + a Preview toggle:
+ *   • Languages above the picker's divider — choosing one renders the
+ *     highlighted (Pretty) view: read-only Monaco, language
+ *     auto-detected from Content-Type, JSON re-indented.
+ *   • Below the divider, byte-level views of the same body:
+ *     Raw — the wire text verbatim in a plain <pre>, cheap for large
+ *     bodies and the element e2e reads (`oh-response-body`);
+ *     Hex — offset / byte / ASCII dump of the UTF-8 bytes, capped (a
+ *     full dump of the body cap would be a ~10 MB string);
+ *     Base64 — the same bytes base64-encoded.
+ *   • Preview — separate toggle, offered when the body is HTML (fully
+ *     sandboxed iframe: no scripts, no same-origin access) or
+ *     parseable JSON (collapsible key/value tree).
  */
 
-import { CheckOutlined, CopyOutlined, DownloadOutlined } from '@ant-design/icons';
+import { CheckOutlined, CopyOutlined, DownOutlined, DownloadOutlined, EyeOutlined } from '@ant-design/icons';
 import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
-import { Button, Segmented, Select, Tooltip, Typography, theme } from 'antd';
+import { Button, Dropdown, type MenuProps, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
-import { LANGUAGE_LIST, type LanguageId } from '../../../languages/registry';
+import { getLanguage, LANGUAGE_LIST, type LanguageId } from '../../../languages/registry';
 import CodeEditor from '../../shared/CodeEditor';
 import ResponseJsonPreview from './ResponseJsonPreview';
 import { buildHexDump, encodeBodyBytes, toBase64 } from './response-encoding';
@@ -35,13 +36,47 @@ const BODY_CAP_BYTES = 2 * 1024 * 1024;
 
 type ViewMode = 'pretty' | 'raw' | 'hex' | 'base64' | 'preview';
 
-/** Override picker entries — every registry language a response body
- *  can plausibly be, i.e. all but graphql (no response media type and
- *  no Monaco grammar). */
+/** Language half of the picker — every registry language a response
+ *  body can plausibly be, i.e. all but graphql (no response media type
+ *  and no Monaco grammar). */
 const LANGUAGE_OPTIONS = LANGUAGE_LIST.filter((l) => l.id !== 'graphql').map((l) => ({
   value: l.id,
   label: l.label,
 }));
+
+const LANGUAGE_BY_KEY = new Map(LANGUAGE_OPTIONS.map((l) => [`lang:${l.value}`, l.value]));
+
+const ENCODING_VIEWS: ReadonlyArray<{ mode: 'raw' | 'hex' | 'base64'; label: string }> = [
+  { mode: 'raw', label: 'Raw' },
+  { mode: 'hex', label: 'Hex' },
+  { mode: 'base64', label: 'Base64' },
+];
+
+/** Monospace glyph prefixing each picker entry — the at-a-glance key
+ *  for languages above the divider and encoding views below it. */
+const VIEW_GLYPHS: Record<string, string> = {
+  json: '{}',
+  xml: '<>',
+  html: '</>',
+  javascript: 'JS',
+  css: '#.',
+  markdown: 'M↓',
+  text: 'Aa',
+  raw: '≡',
+  hex: '0x',
+  base64: '64',
+};
+
+function PickerLabel({ glyph, text }: { glyph: string | undefined; text: string }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+      <span style={{ fontFamily: "'SF Mono', 'Fira Code', monospace", fontSize: 10, opacity: 0.65, width: 22 }}>
+        {glyph}
+      </span>
+      {text}
+    </span>
+  );
+}
 
 const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ response }) => {
   const { token } = theme.useToken();
@@ -89,6 +124,37 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
     [mode, response.body],
   );
 
+  const pickerItems: MenuProps['items'] = [
+    ...LANGUAGE_OPTIONS.map((opt) => ({
+      key: `lang:${opt.value}`,
+      label: <PickerLabel glyph={VIEW_GLYPHS[opt.value]} text={opt.label} />,
+    })),
+    { type: 'divider' as const },
+    ...ENCODING_VIEWS.map((view) => ({
+      key: `view:${view.mode}`,
+      label: <PickerLabel glyph={VIEW_GLYPHS[view.mode]} text={view.label} />,
+    })),
+  ];
+
+  const onPickView: MenuProps['onClick'] = ({ key }) => {
+    const lang = LANGUAGE_BY_KEY.get(key);
+    if (lang) {
+      setLangOverride(lang);
+      setMode('pretty');
+      return;
+    }
+    const view = ENCODING_VIEWS.find((v) => key === `view:${v.mode}`);
+    if (view) setMode(view.mode);
+  };
+
+  // The picker reads as "how the body is rendered": the language while
+  // in Pretty (or Preview, which sits on top of it), the encoding view
+  // otherwise.
+  const activeEncoding = ENCODING_VIEWS.find((v) => v.mode === mode);
+  const pickerKey = activeEncoding ? `view:${activeEncoding.mode}` : `lang:${language}`;
+  const pickerGlyph = activeEncoding ? VIEW_GLYPHS[activeEncoding.mode] : VIEW_GLYPHS[language];
+  const pickerLabel = activeEncoding ? activeEncoding.label : getLanguage(language).label;
+
   const copyBody = () => {
     void navigator.clipboard.writeText(response.body).then(() => {
       setCopied(true);
@@ -128,28 +194,29 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
         </Text>
       )}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0' }}>
-        <Segmented
-          size="small"
-          value={mode}
-          onChange={(next) => setMode(next as ViewMode)}
-          options={[
-            { label: 'Pretty', value: 'pretty' },
-            { label: 'Raw', value: 'raw' },
-            { label: 'Hex', value: 'hex' },
-            { label: 'Base64', value: 'base64' },
-            ...(previewKind ? [{ label: 'Preview', value: 'preview' }] : []),
-          ]}
-        />
-        {mode === 'pretty' && (
-          <Select
+        <Dropdown
+          menu={{ items: pickerItems, onClick: onPickView, selectable: true, selectedKeys: [pickerKey] }}
+          trigger={['click']}
+        >
+          <Button size="small" data-testid="oh-response-view-picker" aria-label="Body view">
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontFamily: "'SF Mono', 'Fira Code', monospace", fontSize: 10, opacity: 0.65 }}>
+                {pickerGlyph}
+              </span>
+              {pickerLabel}
+              <DownOutlined style={{ fontSize: 9, opacity: 0.65 }} />
+            </span>
+          </Button>
+        </Dropdown>
+        {previewKind && (
+          <Button
             size="small"
-            aria-label="Body format"
-            value={language}
-            onChange={(next: LanguageId) => setLangOverride(next)}
-            options={LANGUAGE_OPTIONS}
-            style={{ width: 110 }}
-            popupMatchSelectWidth={false}
-          />
+            type={mode === 'preview' ? 'primary' : 'text'}
+            icon={<EyeOutlined />}
+            onClick={() => setMode(mode === 'preview' ? 'pretty' : 'preview')}
+          >
+            Preview
+          </Button>
         )}
         <Tooltip title={copied ? 'Copied' : 'Copy body'} placement="bottom">
           <Button

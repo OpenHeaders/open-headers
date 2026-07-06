@@ -241,16 +241,18 @@ export class WorkbenchPage {
    * exception as the status chip).
    */
   async responseEcho<T = unknown>(): Promise<T> {
-    // The Pretty/Raw switch is an Ant Segmented: its radio inputs are
-    // visually hidden (a `visible` role=radio filter matches nothing) —
-    // click the segmented item label instead.
-    const rawToggle = this.responseRegion()
-      .locator('.ant-segmented-item')
-      .filter({ hasText: /^Raw$/ })
+    // The view switch is a dropdown: open the picker button, then pick
+    // the Raw entry from the portal-rendered menu (its label carries a
+    // glyph prefix, so match on the trailing text).
+    const picker = this.page.getByTestId('oh-response-view-picker').filter({ visible: true }).first();
+    await picker.waitFor({ state: 'visible', timeout: 15000 });
+    await picker.click();
+    await this.page
+      .locator('.ant-dropdown-menu-item')
+      .filter({ hasText: /Raw$/ })
       .filter({ visible: true })
-      .first();
-    await rawToggle.waitFor({ state: 'visible', timeout: 15000 });
-    await rawToggle.click();
+      .first()
+      .click();
     const body = this.page.getByTestId('oh-response-body').filter({ visible: true });
     await body.waitFor({ state: 'visible', timeout: 15000 });
     const txt = (await body.textContent())?.trim() ?? '';
