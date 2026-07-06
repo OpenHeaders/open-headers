@@ -11,7 +11,9 @@ import {
   doesMethodMatchRule,
   doesRequestDomainMatchRule,
   doesResourceTypeMatchRule,
+  doesResponseHeaderMatchRule,
   getRuleMatchPatterns,
+  isResponseGatedRule,
   isRuleComplete,
   type MatchPattern,
 } from '@openheaders/core/utils';
@@ -147,6 +149,15 @@ export interface MatchingRule {
    * not attribute observed fires; the wrapper relay is the only source.
    */
   contentGated?: boolean;
+  /**
+   * True when the rule carries a `response-header` /
+   * `exclude-response-header` condition — a gate Chrome judges only when
+   * the reply arrives, so it is unjudgeable at request start. Same law as
+   * `contentGated`, different moment: the fire-recorder parks such rules
+   * at observation time and judges them against the actual response
+   * headers at the headers-received phase (promote or drop).
+   */
+  responseGated?: boolean;
 }
 
 /**
@@ -269,10 +280,27 @@ export function matchRulesToRequest(url: string, context?: MatchRequestContext):
         if ((rule.type === 'response' || rule.type === 'request-body') && rule.action.graphqlFilter?.key) {
           matching.contentGated = true;
         }
+        if (isResponseGatedRule(rule)) matching.responseGated = true;
         out.push(matching);
         break;
       }
     }
   }
   return out;
+}
+
+/**
+ * Judge a response-gated rule against the response headers that actually
+ * arrived — the moment Chrome itself evaluates the gate. Resolved fresh
+ * against the current rule pool (nothing is cached from observation
+ * time); a rule deleted or rewritten since the request started has no
+ * proof it acted and judges false.
+ */
+export function doesResponseHeaderGateApprove(
+  ruleUid: string,
+  headers: readonly { name: string; value: string }[],
+): boolean {
+  const rule = getRules().find((r) => r.uid === ruleUid);
+  if (!rule) return false;
+  return doesResponseHeaderMatchRule(headers, rule);
 }

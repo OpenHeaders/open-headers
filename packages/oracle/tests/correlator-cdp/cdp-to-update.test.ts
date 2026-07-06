@@ -174,6 +174,28 @@ describe('cdpEventToUpdates — canonical redirect + completion trace', () => {
     expect(u.patch.statusText).toBe('OK');
   });
 
+  it('responseReceived carries the response headers, splitting protocol-joined duplicates per instance', () => {
+    const withHeaders: CdpResponseReceived = {
+      ...responseReceived,
+      response: {
+        ...responseReceived.response,
+        headers: { 'X-OH-Echo': 'true', 'Set-Cookie': 'a=1\nb=2' },
+      },
+    };
+    const u = cdpEventToUpdates(withHeaders, toWallMs)[0];
+    expect(u?.kind).toBe('phase');
+    if (u?.kind !== 'phase') return;
+    expect(u.patch.responseHeaders).toEqual([
+      { name: 'X-OH-Echo', value: 'true' },
+      { name: 'Set-Cookie', value: 'a=1' },
+      { name: 'Set-Cookie', value: 'b=2' },
+    ]);
+    // Headerless event → field omitted, not an empty list.
+    const bare = cdpEventToUpdates(responseReceived, toWallMs)[0];
+    if (bare?.kind !== 'phase') return;
+    expect(bare.patch.responseHeaders).toBeUndefined();
+  });
+
   it('responseReceived stamps the wall network start from timing.requestTime', () => {
     // requestTime is the network start on CDP's monotonic clock; converting it
     // through the same offset as the wall start gives `hopNetworkStartMs`, the

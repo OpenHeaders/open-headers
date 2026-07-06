@@ -82,6 +82,7 @@ function applyPatch(prev: RequestLifecycle, patch: RequestLifecyclePatch): Reque
     ...(patch.requestHeadersProvisional !== undefined
       ? { requestHeadersProvisional: patch.requestHeadersProvisional }
       : {}),
+    ...(patch.responseHeaders !== undefined ? { responseHeaders: patch.responseHeaders } : {}),
   };
 }
 
@@ -114,6 +115,8 @@ function applyRedirect(prev: RequestLifecycle, hop: RedirectHop, nextUrl: string
     // Request headers are per-hop; the redirect target re-learns its own set.
     requestHeaders: undefined,
     requestHeadersProvisional: undefined,
+    // Response headers are per-hop too — each hop's reply carries its own.
+    responseHeaders: undefined,
   };
 }
 

@@ -88,10 +88,12 @@ export {
   doesMethodMatchRule,
   doesRequestDomainMatchRule,
   doesResourceTypeMatchRule,
+  doesResponseHeaderMatchRule,
   doesUrlMatchEntry,
   doesUrlMatchRule,
   formatUrlPattern,
   getRuleMatchPatterns,
+  isResponseGatedRule,
   MODEL_TO_DNR_RESOURCE_TYPE,
 } from './rule-matcher';
 export {

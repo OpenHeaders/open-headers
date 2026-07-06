@@ -34,6 +34,7 @@ import {
 import {
   addTrackedUrl,
   checkIfUrlMatchesAnyRule,
+  doesResponseHeaderGateApprove,
   getActiveRulesForTab,
   ingestPerfEntries,
   matchRulesToRequest,
@@ -175,7 +176,10 @@ describe('getActiveRulesForTab', () => {
     seedRules([
       makeHeaderRule({
         uid: 'draft-rule',
-        action: { requestHeaders: [{ uid: 'thm00078', operation: 'override', headerName: '', value: 'test' }], responseHeaders: [] },
+        action: {
+          requestHeaders: [{ uid: 'thm00078', operation: 'override', headerName: '', value: 'test' }],
+          responseHeaders: [],
+        },
         conditions: hostConditions([]),
       }),
     ]);
@@ -357,7 +361,8 @@ describe('matchRulesToRequest', () => {
         action: {
           requestHeaders: [
             {
-              uid: 'thm00080', operation: 'merge',
+              uid: 'thm00080',
+              operation: 'merge',
               headerName: 'X-Stacked',
               value: 'a',
               mergeSeparator: ',',
@@ -380,7 +385,8 @@ describe('matchRulesToRequest', () => {
           requestHeaders: [],
           responseHeaders: [
             {
-              uid: 'thm00081', operation: 'merge',
+              uid: 'thm00081',
+              operation: 'merge',
               headerName: 'X-Stacked',
               value: 'a',
               mergeSeparator: ',',
@@ -429,6 +435,56 @@ describe('matchRulesToRequest', () => {
     const result = matchRulesToRequest('https://api.openheaders.io/graphql');
     expect(result.find((r) => r.uid === 'rule-gql')?.contentGated).toBe(true);
     expect(result.find((r) => r.uid === 'rule-plain')?.contentGated).toBeUndefined();
+  });
+
+  it('marks rules with a configured response-header condition responseGated; unconfigured rows do not gate', () => {
+    seedRules([
+      makeHeaderRule({
+        uid: 'rule-rh',
+        conditions: [
+          ...hostConditions(['*.openheaders.io']),
+          { uid: 'tcd00042', type: 'response-header', headerName: 'X-OH-Echo', values: ['true'] },
+        ],
+      }),
+      makeHeaderRule({
+        uid: 'rule-exrh',
+        conditions: [
+          ...hostConditions(['*.openheaders.io']),
+          { uid: 'tcd00043', type: 'exclude-response-header', headerName: 'X-OH-Echo', values: [] },
+        ],
+      }),
+      makeHeaderRule({
+        uid: 'rule-nameless',
+        conditions: [
+          ...hostConditions(['*.openheaders.io']),
+          { uid: 'tcd00044', type: 'response-header', values: ['true'] },
+        ],
+      }),
+      makeHeaderRule({ uid: 'rule-plain' }),
+    ]);
+
+    const result = matchRulesToRequest('https://api.openheaders.io/v2');
+    expect(result.find((r) => r.uid === 'rule-rh')?.responseGated).toBe(true);
+    expect(result.find((r) => r.uid === 'rule-exrh')?.responseGated).toBe(true);
+    expect(result.find((r) => r.uid === 'rule-nameless')?.responseGated).toBeUndefined();
+    expect(result.find((r) => r.uid === 'rule-plain')?.responseGated).toBeUndefined();
+  });
+
+  it('doesResponseHeaderGateApprove judges against the current rule pool; a missing rule judges false', () => {
+    seedRules([
+      makeHeaderRule({
+        uid: 'rule-rh',
+        conditions: [
+          ...hostConditions(['*.openheaders.io']),
+          { uid: 'tcd00045', type: 'response-header', headerName: 'X-OH-Echo', values: ['true'] },
+        ],
+      }),
+    ]);
+
+    expect(doesResponseHeaderGateApprove('rule-rh', [{ name: 'X-OH-Echo', value: 'true' }])).toBe(true);
+    expect(doesResponseHeaderGateApprove('rule-rh', [{ name: 'X-OH-Echo', value: 'nope' }])).toBe(false);
+    expect(doesResponseHeaderGateApprove('rule-rh', [])).toBe(false);
+    expect(doesResponseHeaderGateApprove('rule-gone', [{ name: 'X-OH-Echo', value: 'true' }])).toBe(false);
   });
 
   it('excludes disabled rules from matchRulesToRequest', () => {

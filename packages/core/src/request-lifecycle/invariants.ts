@@ -146,6 +146,9 @@ export function patchRefines(prev: RequestLifecycle, patch: RequestLifecyclePatc
   ) {
     return false;
   }
+  if ('responseHeaders' in patch && patch.responseHeaders === undefined && prev.responseHeaders !== undefined) {
+    return false;
+  }
   return true;
 }
 

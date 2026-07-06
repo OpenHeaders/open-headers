@@ -395,6 +395,20 @@ export interface RequestLifecycle {
   readonly requestHeadersProvisional?: boolean;
 
   /**
+   * The current hop's response headers, known from the headers-received
+   * moment — independent of the response-gated {@link har}, so consumers
+   * that must act when the reply arrives (the rule engine's
+   * response-header condition judgment, an in-flight row's header pane)
+   * read them without waiting for a HAR entry. Sourced from the same
+   * events that advance the phase: `onHeadersReceived` on the heuristic
+   * path, `Network.responseReceived` on the CDP path (duplicate headers
+   * arrive `\n`-joined there and are split into per-instance entries at
+   * normalization). Resets per hop on redirect — each hop's reply carries
+   * its own set.
+   */
+  readonly responseHeaders?: readonly { name: string; value: string }[];
+
+  /**
    * The message stream — WebSocket frames / Server-Sent Events for this
    * request, in arrival order, appended by `message-appended` updates.
    * Bounded by {@link MAX_STREAM_MESSAGES_PER_REQUEST} (drop-oldest);
@@ -587,4 +601,7 @@ export interface RequestLifecyclePatch {
    * refinement). See the `RequestLifecycle` fields of the same names. */
   requestHeaders?: readonly { name: string; value: string }[];
   requestHeadersProvisional?: boolean;
+  /** The current hop's response headers, set with the `headers-received`
+   * phase. See the `RequestLifecycle` field of the same name. */
+  responseHeaders?: readonly { name: string; value: string }[];
 }

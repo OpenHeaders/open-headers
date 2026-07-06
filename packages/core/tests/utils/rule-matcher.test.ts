@@ -8,10 +8,12 @@ import {
   doesMethodMatchRule,
   doesRequestDomainMatchRule,
   doesResourceTypeMatchRule,
+  doesResponseHeaderMatchRule,
   doesUrlMatchEntry,
   doesUrlMatchRule,
   formatUrlPattern,
   getRuleMatchPatterns,
+  isResponseGatedRule,
 } from '../../src/utils/rule-matcher';
 
 // ── formatUrlPattern ─────────────────────────────────────────────
@@ -462,5 +464,144 @@ describe('doesHostMatchDomains', () => {
 
   it('returns false for an empty domain list', () => {
     expect(doesHostMatchDomains('openheaders.io', [])).toBe(false);
+  });
+});
+
+// ── isResponseGatedRule / doesResponseHeaderMatchRule ────────────
+
+describe('isResponseGatedRule', () => {
+  const withConditions = (conditions: HeaderRule['conditions']): HeaderRule => ({ ...baseRule, conditions });
+
+  it('false without any response-header condition', () => {
+    const rule = withConditions([{ uid: 'cnd00301', type: 'url-filter', values: ['*://openheaders.io/*'] }]);
+    expect(isResponseGatedRule(rule)).toBe(false);
+  });
+
+  it('true for response-header and exclude-response-header rows', () => {
+    expect(
+      isResponseGatedRule(
+        withConditions([{ uid: 'cnd00302', type: 'response-header', headerName: 'X-OH-Echo', values: [] }]),
+      ),
+    ).toBe(true);
+    expect(
+      isResponseGatedRule(
+        withConditions([{ uid: 'cnd00303', type: 'exclude-response-header', headerName: 'X-OH-Echo', values: [] }]),
+      ),
+    ).toBe(true);
+  });
+
+  it('a row without a header name is unconfigured and does not gate', () => {
+    const rule = withConditions([
+      { uid: 'cnd00304', type: 'response-header', values: ['true'] },
+      { uid: 'cnd00305', type: 'exclude-response-header', headerName: '   ', values: [] },
+    ]);
+    expect(isResponseGatedRule(rule)).toBe(false);
+  });
+});
+
+describe('doesResponseHeaderMatchRule', () => {
+  const withConditions = (conditions: HeaderRule['conditions']): HeaderRule => ({ ...baseRule, conditions });
+  const headers = (...pairs: [string, string][]) => pairs.map(([name, value]) => ({ name, value }));
+
+  it('matches every response when the rule has no response-header condition', () => {
+    const rule = withConditions([{ uid: 'cnd00310', type: 'url-filter', values: ['*://openheaders.io/*'] }]);
+    expect(doesResponseHeaderMatchRule(headers(['Content-Type', 'text/html']), rule)).toBe(true);
+    expect(doesResponseHeaderMatchRule([], rule)).toBe(true);
+  });
+
+  it('presence-only row (no values) matches when the header exists', () => {
+    const rule = withConditions([{ uid: 'cnd00311', type: 'response-header', headerName: 'X-OH-Echo', values: [] }]);
+    expect(doesResponseHeaderMatchRule(headers(['X-OH-Echo', 'true']), rule)).toBe(true);
+    expect(doesResponseHeaderMatchRule(headers(['Content-Type', 'text/html']), rule)).toBe(false);
+  });
+
+  it('header names compare case-insensitively', () => {
+    const rule = withConditions([{ uid: 'cnd00312', type: 'response-header', headerName: 'x-oh-echo', values: [] }]);
+    expect(doesResponseHeaderMatchRule(headers(['X-OH-Echo', 'true']), rule)).toBe(true);
+  });
+
+  it('values gate on the full header value, case-insensitively', () => {
+    const rule = withConditions([
+      { uid: 'cnd00313', type: 'response-header', headerName: 'X-OH-Echo', values: ['TRUE'] },
+    ]);
+    expect(doesResponseHeaderMatchRule(headers(['X-OH-Echo', 'true']), rule)).toBe(true);
+    expect(doesResponseHeaderMatchRule(headers(['X-OH-Echo', 'untrue']), rule)).toBe(false);
+    expect(doesResponseHeaderMatchRule(headers(['X-OH-Echo', 'nope']), rule)).toBe(false);
+  });
+
+  it('multiple values in one row OR together', () => {
+    const rule = withConditions([
+      { uid: 'cnd00314', type: 'response-header', headerName: 'X-OH-Echo', values: ['nope', 'true'] },
+    ]);
+    expect(doesResponseHeaderMatchRule(headers(['X-OH-Echo', 'true']), rule)).toBe(true);
+    expect(doesResponseHeaderMatchRule(headers(['X-OH-Echo', 'other']), rule)).toBe(false);
+  });
+
+  it('value patterns support * (any run) and ? (at most one character)', () => {
+    const star = withConditions([
+      { uid: 'cnd00315', type: 'response-header', headerName: 'Cache-Control', values: ['*no-store*'] },
+    ]);
+    expect(doesResponseHeaderMatchRule(headers(['Cache-Control', 'private, no-store']), star)).toBe(true);
+    expect(doesResponseHeaderMatchRule(headers(['Cache-Control', 'public']), star)).toBe(false);
+    const q = withConditions([{ uid: 'cnd00316', type: 'response-header', headerName: 'X-OH-Echo', values: ['tru?'] }]);
+    expect(doesResponseHeaderMatchRule(headers(['X-OH-Echo', 'true']), q)).toBe(true);
+    expect(doesResponseHeaderMatchRule(headers(['X-OH-Echo', 'tru']), q)).toBe(true);
+    expect(doesResponseHeaderMatchRule(headers(['X-OH-Echo', 'trues']), q)).toBe(false);
+  });
+
+  it('any instance of a repeated header can satisfy the value gate', () => {
+    const rule = withConditions([
+      { uid: 'cnd00317', type: 'response-header', headerName: 'Set-Cookie', values: ['session=*'] },
+    ]);
+    const hs = headers(['Set-Cookie', 'theme=dark'], ['Set-Cookie', 'session=abc123']);
+    expect(doesResponseHeaderMatchRule(hs, rule)).toBe(true);
+  });
+
+  it('multiple response-header rows OR together', () => {
+    const rule = withConditions([
+      { uid: 'cnd00318', type: 'response-header', headerName: 'X-Absent', values: [] },
+      { uid: 'cnd00319', type: 'response-header', headerName: 'X-OH-Echo', values: ['true'] },
+    ]);
+    expect(doesResponseHeaderMatchRule(headers(['X-OH-Echo', 'true']), rule)).toBe(true);
+  });
+
+  it('exclude-response-header rejects when the header is present', () => {
+    const rule = withConditions([
+      { uid: 'cnd00320', type: 'exclude-response-header', headerName: 'X-OH-Echo', values: [] },
+    ]);
+    expect(doesResponseHeaderMatchRule(headers(['X-OH-Echo', 'true']), rule)).toBe(false);
+    expect(doesResponseHeaderMatchRule(headers(['Content-Type', 'text/html']), rule)).toBe(true);
+    expect(doesResponseHeaderMatchRule([], rule)).toBe(true);
+  });
+
+  it('exclude with values rejects only matching values', () => {
+    const rule = withConditions([
+      { uid: 'cnd00321', type: 'exclude-response-header', headerName: 'X-OH-Echo', values: ['true'] },
+    ]);
+    expect(doesResponseHeaderMatchRule(headers(['X-OH-Echo', 'true']), rule)).toBe(false);
+    expect(doesResponseHeaderMatchRule(headers(['X-OH-Echo', 'other']), rule)).toBe(true);
+  });
+
+  it('include and exclude AND together — exclude wins on both matching', () => {
+    const rule = withConditions([
+      { uid: 'cnd00322', type: 'response-header', headerName: 'X-OH-Echo', values: [] },
+      { uid: 'cnd00323', type: 'exclude-response-header', headerName: 'Cache-Control', values: ['no-store'] },
+    ]);
+    expect(doesResponseHeaderMatchRule(headers(['X-OH-Echo', 'true']), rule)).toBe(true);
+    expect(doesResponseHeaderMatchRule(headers(['X-OH-Echo', 'true'], ['Cache-Control', 'no-store']), rule)).toBe(
+      false,
+    );
+  });
+
+  it('rows without a header name are skipped', () => {
+    const rule = withConditions([{ uid: 'cnd00324', type: 'response-header', values: ['true'] }]);
+    expect(doesResponseHeaderMatchRule([], rule)).toBe(true);
+  });
+
+  it('whitespace-only values collapse to presence-only', () => {
+    const rule = withConditions([
+      { uid: 'cnd00325', type: 'response-header', headerName: 'X-OH-Echo', values: ['  '] },
+    ]);
+    expect(doesResponseHeaderMatchRule(headers(['X-OH-Echo', 'anything']), rule)).toBe(true);
   });
 });

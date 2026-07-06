@@ -11,6 +11,7 @@ vi.mock('@/background/dnr-manager', () => ({
 
 vi.mock('@/background/modules/request-tracker', () => ({
   matchRulesToRequest: vi.fn(() => []),
+  doesResponseHeaderGateApprove: vi.fn(() => false),
 }));
 
 vi.mock('@/background/modules/rules/shadow-arbitration', () => ({
@@ -25,14 +26,22 @@ vi.mock('@/background/modules/tab-telemetry', () => ({
 
 import { getEffectiveFireUids, isDelayRedelivery } from '@/background/dnr-manager';
 import type { MatchingRule } from '@/background/modules/request-tracker';
-import { matchRulesToRequest } from '@/background/modules/request-tracker';
+import { doesResponseHeaderGateApprove, matchRulesToRequest } from '@/background/modules/request-tracker';
 import { arbitrateWithStrategy } from '@/background/modules/rules/shadow-arbitration';
 import { isTracked, recordObservedFire, recordReportedFire } from '@/background/modules/tab-telemetry';
-import { recordFiresForObservation, recordFiresForReport } from '@/background/rule-engine-driver/fire-recorder';
+import {
+  __resetFireRecorderForTests,
+  dropResponseGatedCandidates,
+  dropResponseGatedTab,
+  judgeResponseGatedCandidates,
+  recordFiresForObservation,
+  recordFiresForReport,
+} from '@/background/rule-engine-driver/fire-recorder';
 
 const mockEffectiveUids = getEffectiveFireUids as ReturnType<typeof vi.fn>;
 const mockIsDelayRedelivery = isDelayRedelivery as ReturnType<typeof vi.fn>;
 const mockMatch = matchRulesToRequest as ReturnType<typeof vi.fn>;
+const mockGateApprove = doesResponseHeaderGateApprove as ReturnType<typeof vi.fn>;
 const mockArbitrate = arbitrateWithStrategy as ReturnType<typeof vi.fn>;
 const mockIsTracked = isTracked as ReturnType<typeof vi.fn>;
 const mockRecord = recordObservedFire as ReturnType<typeof vi.fn>;
@@ -59,8 +68,10 @@ const INPUT = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  __resetFireRecorderForTests();
   mockEffectiveUids.mockReturnValue(null);
   mockMatch.mockReturnValue([]);
+  mockGateApprove.mockReturnValue(false);
   mockArbitrate.mockImplementation((matches: unknown[]) => matches);
   mockIsTracked.mockReturnValue(true);
   mockIsDelayRedelivery.mockReturnValue(false);
@@ -268,5 +279,178 @@ describe('fire-recorder — reported (wrapper) fires', () => {
 
     expect((mockArbitrate.mock.calls[0]?.[0] as MatchingRule[]).map((m) => m.uid)).toEqual(['aa111111']);
     expect(mockRecordReported).toHaveBeenCalledWith(1, 'aa111111', URL, 100, undefined);
+  });
+});
+
+describe('fire-recorder — response-gated deferred judgment', () => {
+  const HEADERS = [{ name: 'X-OH-Echo', value: 'true' }];
+
+  it('response-gated rules never claim fires nor enter arbitration at observation time', () => {
+    mockMatch.mockReturnValue([
+      makeMatch('aa111111', { type: 'block', responseGated: true }),
+      makeMatch('bb222222', { type: 'header' }),
+    ]);
+
+    recordFiresForObservation(INPUT);
+
+    expect((mockArbitrate.mock.calls[0]?.[0] as MatchingRule[]).map((m) => m.uid)).toEqual(['bb222222']);
+    expect(mockRecord).toHaveBeenCalledTimes(1);
+    expect(mockRecord.mock.calls[0]?.[1]).toBe('bb222222');
+  });
+
+  it('an approved candidate records at judgment with the ORIGINAL observation timestamp', () => {
+    mockMatch.mockReturnValue([makeMatch('aa111111', { type: 'block', responseGated: true })]);
+    recordFiresForObservation(INPUT);
+    expect(mockRecord).not.toHaveBeenCalled();
+
+    mockGateApprove.mockReturnValue(true);
+    judgeResponseGatedCandidates(1, 'req-1', HEADERS);
+
+    expect(mockGateApprove).toHaveBeenCalledWith('aa111111', HEADERS);
+    expect(mockRecord).toHaveBeenCalledTimes(1);
+    expect(mockRecord).toHaveBeenCalledWith(
+      1,
+      'aa111111',
+      'https://api.openheaders.io/x',
+      'req-1',
+      100,
+      expect.objectContaining({ pattern: '*://*.openheaders.io/*' }),
+    );
+  });
+
+  it('an unapproved candidate is dropped — no fire, ever', () => {
+    mockMatch.mockReturnValue([makeMatch('aa111111', { type: 'block', responseGated: true })]);
+    recordFiresForObservation(INPUT);
+
+    mockGateApprove.mockReturnValue(false);
+    judgeResponseGatedCandidates(1, 'req-1', HEADERS);
+
+    expect(mockRecord).not.toHaveBeenCalled();
+    // The park was consumed — a second judgment finds nothing.
+    mockGateApprove.mockReturnValue(true);
+    judgeResponseGatedCandidates(1, 'req-1', HEADERS);
+    expect(mockRecord).not.toHaveBeenCalled();
+  });
+
+  it('judgment re-runs the match live — a rule gone from the pool never records', () => {
+    mockMatch.mockReturnValue([makeMatch('aa111111', { type: 'block', responseGated: true })]);
+    recordFiresForObservation(INPUT);
+
+    mockMatch.mockReturnValue([]);
+    mockGateApprove.mockReturnValue(true);
+    judgeResponseGatedCandidates(1, 'req-1', HEADERS);
+
+    expect(mockRecord).not.toHaveBeenCalled();
+  });
+
+  it('judgment respects the effective-uid gate at the header moment', () => {
+    mockMatch.mockReturnValue([makeMatch('aa111111', { type: 'block', responseGated: true })]);
+    recordFiresForObservation(INPUT);
+
+    mockEffectiveUids.mockReturnValue(new Set());
+    mockGateApprove.mockReturnValue(true);
+    judgeResponseGatedCandidates(1, 'req-1', HEADERS);
+
+    expect(mockRecord).not.toHaveBeenCalled();
+  });
+
+  it('arbitration at approval pools the approved rule with the never-gated actors, recording only the approved', () => {
+    const gated = makeMatch('aa111111', { type: 'block', responseGated: true });
+    const plain = makeMatch('bb222222', { type: 'header' });
+    mockMatch.mockReturnValue([gated, plain]);
+    recordFiresForObservation(INPUT);
+    vi.mocked(mockArbitrate).mockClear();
+    vi.mocked(mockRecord).mockClear();
+
+    mockGateApprove.mockReturnValue(true);
+    judgeResponseGatedCandidates(1, 'req-1', HEADERS);
+
+    expect((mockArbitrate.mock.calls[0]?.[0] as MatchingRule[]).map((m) => m.uid)).toEqual(['aa111111', 'bb222222']);
+    // The plain rule already recorded at observation time — only the
+    // approved gated rule records here.
+    expect(mockRecord).toHaveBeenCalledTimes(1);
+    expect(mockRecord.mock.calls[0]?.[1]).toBe('aa111111');
+  });
+
+  it('a content-gated rule with a response-header condition still never records off observations', () => {
+    mockMatch.mockReturnValue([makeMatch('aa111111', { type: 'response', responseGated: true, contentGated: true })]);
+    recordFiresForObservation(INPUT);
+
+    mockGateApprove.mockReturnValue(true);
+    judgeResponseGatedCandidates(1, 'req-1', HEADERS);
+
+    expect(mockRecord).not.toHaveBeenCalled();
+  });
+
+  it('an approved main-frame candidate keeps main_frame routing meta', () => {
+    mockMatch.mockReturnValue([makeMatch('aa111111', { type: 'block', responseGated: true })]);
+    recordFiresForObservation({ ...INPUT, resourceType: 'main_frame' });
+
+    mockGateApprove.mockReturnValue(true);
+    judgeResponseGatedCandidates(1, 'req-1', HEADERS);
+
+    expect(mockRecord).toHaveBeenCalledTimes(1);
+    expect(mockRecord.mock.calls[0]?.[5]).toMatchObject({ resourceType: 'main_frame' });
+  });
+
+  it('a redirect hop re-observation replaces the parked candidate — the last hop judges', () => {
+    mockMatch.mockReturnValue([makeMatch('aa111111', { type: 'block', responseGated: true })]);
+    recordFiresForObservation(INPUT);
+    recordFiresForObservation({ ...INPUT, url: 'https://api.openheaders.io/ro', timestampMs: 200 });
+
+    mockGateApprove.mockReturnValue(true);
+    judgeResponseGatedCandidates(1, 'req-1', HEADERS);
+
+    expect(mockRecord).toHaveBeenCalledTimes(1);
+    expect(mockRecord.mock.calls[0]?.[2]).toBe('https://api.openheaders.io/ro');
+    expect(mockRecord.mock.calls[0]?.[4]).toBe(200);
+  });
+
+  it('dropResponseGatedCandidates clears the park (failed request → gate never judged)', () => {
+    mockMatch.mockReturnValue([makeMatch('aa111111', { type: 'block', responseGated: true })]);
+    recordFiresForObservation(INPUT);
+
+    dropResponseGatedCandidates(1, 'req-1');
+    mockGateApprove.mockReturnValue(true);
+    judgeResponseGatedCandidates(1, 'req-1', HEADERS);
+
+    expect(mockRecord).not.toHaveBeenCalled();
+  });
+
+  it('dropResponseGatedTab clears every park for the tab and only that tab', () => {
+    mockMatch.mockReturnValue([makeMatch('aa111111', { type: 'block', responseGated: true })]);
+    recordFiresForObservation(INPUT);
+    recordFiresForObservation({ ...INPUT, tabId: 2, requestId: 'req-2' });
+
+    dropResponseGatedTab(1);
+    mockGateApprove.mockReturnValue(true);
+    judgeResponseGatedCandidates(1, 'req-1', HEADERS);
+    expect(mockRecord).not.toHaveBeenCalled();
+
+    judgeResponseGatedCandidates(2, 'req-2', HEADERS);
+    expect(mockRecord).toHaveBeenCalledTimes(1);
+    expect(mockRecord.mock.calls[0]?.[0]).toBe(2);
+  });
+
+  it('judgment on an untracked tab consumes the park without recording', () => {
+    mockMatch.mockReturnValue([makeMatch('aa111111', { type: 'block', responseGated: true })]);
+    recordFiresForObservation(INPUT);
+
+    mockIsTracked.mockReturnValue(false);
+    mockGateApprove.mockReturnValue(true);
+    judgeResponseGatedCandidates(1, 'req-1', HEADERS);
+
+    expect(mockRecord).not.toHaveBeenCalled();
+  });
+
+  it('a response-gated rule other than the reporter never shadows a wrapper report', () => {
+    mockMatch.mockReturnValue([
+      makeMatch('aa111111', { type: 'request-body' }),
+      makeMatch('bb222222', { type: 'block', responseGated: true }),
+    ]);
+
+    recordFiresForReport(1, 'aa111111', 'https://api.openheaders.io/x', 100);
+
+    expect((mockArbitrate.mock.calls[0]?.[0] as MatchingRule[]).map((m) => m.uid)).toEqual(['aa111111']);
   });
 });

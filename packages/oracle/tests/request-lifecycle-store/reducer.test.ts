@@ -296,6 +296,43 @@ describe('reducer — in-flight progress (lastActivityAtMs / running byte counts
   });
 });
 
+describe('reducer — responseHeaders (headers-received carriage)', () => {
+  it('applies the response headers carried on a phase patch', () => {
+    const state = makeLifecycle({ phase: 'pending' });
+    const r = reduce(state, {
+      kind: 'phase',
+      tabId: 1,
+      requestId: 'req-1',
+      patch: { phase: 'headers-received', responseHeaders: [{ name: 'X-OH-Echo', value: 'true' }] },
+    });
+    expect(r.kind).toBe('update');
+    if (r.kind !== 'update') return;
+    expect(r.next.responseHeaders).toEqual([{ name: 'X-OH-Echo', value: 'true' }]);
+  });
+
+  it('resets the response headers on redirect (per-hop — each reply carries its own)', () => {
+    const state = makeLifecycle({
+      phase: 'headers-received',
+      responseHeaders: [{ name: 'Location', value: '/ro' }],
+    });
+    const r = reduce(state, {
+      kind: 'redirect',
+      tabId: 1,
+      requestId: 'req-1',
+      hop: {
+        sourceUrl: 'https://openheaders.io/',
+        redirectUrl: 'https://openheaders.io/ro',
+        statusCode: 302,
+        timestampMs: 1_500,
+      },
+      nextUrl: 'https://openheaders.io/ro',
+    });
+    expect(r.kind).toBe('update');
+    if (r.kind !== 'update') return;
+    expect(r.next.responseHeaders).toBeUndefined();
+  });
+});
+
 describe('reducer — pausedByDebugMs (CDP Fetch interception hold)', () => {
   it('applies the hold carried on a phase patch (the control-plane wire)', () => {
     const state = makeLifecycle({ phase: 'headers-received' });
@@ -561,7 +598,11 @@ describe('reducer — override-attached (served/original capture)', () => {
       kind: 'request-override-attached',
       tabId: 1,
       requestId: 'req-1',
-      override: { ruleUid: 'r1', sent: { body: { content: 'sent', encoding: '' } }, original: { body: { content: 'page', encoding: '' } } },
+      override: {
+        ruleUid: 'r1',
+        sent: { body: { content: 'sent', encoding: '' } },
+        original: { body: { content: 'page', encoding: '' } },
+      },
     });
     if (result.kind !== 'update') throw new Error('expected update');
     expect(result.next.requestOverride?.sent.body?.content).toBe('sent');

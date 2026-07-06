@@ -10,7 +10,7 @@ import type { RequestLifecycleStore } from '@openheaders/oracle/request-lifecycl
 import { isMainFrame } from '../correlator-host/main-frame-registry';
 
 import { triggerBadgeIfActive, type UpdateBadge } from './badge-trigger';
-import { recordFiresForObservation } from './fire-recorder';
+import { dropResponseGatedCandidates, judgeResponseGatedCandidates, recordFiresForObservation } from './fire-recorder';
 import { dropOnNetworkFailure, ingestMatchObservation } from './match-tracker';
 import { NETWORK_FAILURE_ERRORS } from './network-failure-errors';
 import { toTrackedResourceType } from './resource-type-map';
@@ -82,8 +82,20 @@ function onPhase(
   update: Extract<RequestLifecycleUpdate, { kind: 'phase' }>,
   options: LifecycleSubscriptionOptions,
 ): void {
+  // The headers-received moment is where Chrome judges response-header
+  // conditions — settle any response-gated candidates parked for this
+  // request against the reply's actual headers (promote or drop).
+  if (update.patch.phase === 'headers-received' && update.patch.responseHeaders !== undefined) {
+    judgeResponseGatedCandidates(update.tabId, update.requestId, update.patch.responseHeaders);
+    return;
+  }
+  if (update.patch.phase !== 'failed') return;
+  // A failed request's gate is never judged — an unjudged response-gated
+  // rule never claims a fire. (A response-header BLOCK cancels the reply
+  // AFTER headers arrive, so its judgment already ran above.)
+  dropResponseGatedCandidates(update.tabId, update.requestId);
   const code = update.patch.error?.code;
-  if (update.patch.phase !== 'failed' || code === undefined || !NETWORK_FAILURE_ERRORS.has(code)) return;
+  if (code === undefined || !NETWORK_FAILURE_ERRORS.has(code)) return;
   const lifecycle = options.store.get(update.tabId, update.requestId);
   if (!lifecycle) return;
   const removed = dropOnNetworkFailure({ tabId: lifecycle.tabId, url: lifecycle.url });

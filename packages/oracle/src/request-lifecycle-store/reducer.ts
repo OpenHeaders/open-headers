@@ -156,6 +156,8 @@ function reduceRedirect(prev: RequestLifecycle | undefined, hop: RedirectHop, ne
     // cooked → on-the-wire set from the new hop's request events.
     requestHeaders: undefined,
     requestHeadersProvisional: undefined,
+    // Response headers are per-hop too — each hop's reply carries its own.
+    responseHeaders: undefined,
   };
   return { kind: 'update', next };
 }
@@ -241,5 +243,6 @@ function applyPatch(prev: RequestLifecycle, patch: RequestLifecyclePatch): Reque
     ...(patch.requestHeadersProvisional !== undefined
       ? { requestHeadersProvisional: patch.requestHeadersProvisional }
       : {}),
+    ...(patch.responseHeaders !== undefined ? { responseHeaders: patch.responseHeaders } : {}),
   };
 }

@@ -6,7 +6,8 @@
  *   - `onBeforeRequest`     → `started`
  *   - `onSendHeaders`       → `phase` carrying the hop's request headers
  *                             (provisional until the response confirms it)
- *   - `onHeadersReceived`   → `phase: 'headers-received'` (+ drop the
+ *   - `onHeadersReceived`   → `phase: 'headers-received'` carrying the
+ *                             hop's response headers (+ drop the
  *                             request-headers provisional flag)
  *   - `onBeforeRedirect`    → `redirect`
  *   - `onCompleted`         → `phase: 'completed'`
@@ -101,7 +102,7 @@ function startedUpdate(event: Extract<WebRequestEvent, { method_kind: 'onBeforeR
 function requestHeadersUpdate(
   event: Extract<WebRequestEvent, { method_kind: 'onSendHeaders' }>,
 ): RequestLifecycleUpdate | undefined {
-  const headers = normalizeRequestHeaders(event.requestHeaders);
+  const headers = normalizeWireHeaders(event.requestHeaders);
   if (headers === undefined) return undefined;
   return {
     kind: 'phase',
@@ -117,6 +118,7 @@ function requestHeadersUpdate(
 function headersReceivedUpdate(
   event: Extract<WebRequestEvent, { method_kind: 'onHeadersReceived' }>,
 ): RequestLifecycleUpdate {
+  const responseHeaders = normalizeWireHeaders(event.responseHeaders);
   return {
     kind: 'phase',
     tabId: event.tabId,
@@ -129,6 +131,7 @@ function headersReceivedUpdate(
       // The response came back, so the request demonstrably crossed the
       // wire — the captured request headers are no longer provisional.
       requestHeadersProvisional: false,
+      ...(responseHeaders !== undefined ? { responseHeaders } : {}),
     },
   };
 }
@@ -178,12 +181,14 @@ function failedUpdate(event: Extract<WebRequestEvent, { method_kind: 'onErrorOcc
 }
 
 /**
- * webRequest headers carry an optional `value`; the lifecycle's request-header
+ * webRequest headers carry an optional `value`; the lifecycle's header
  * shape requires a string. Default a missing value to `''` (an empty-valued
- * header that was genuinely sent), and return `undefined` when no header list
- * was provided at all so the caller emits no update.
+ * header that was genuinely on the wire), and return `undefined` when no
+ * header list was provided at all so the caller omits the field. Shared by
+ * the request-side (`onSendHeaders`) and response-side (`onHeadersReceived`)
+ * projections.
  */
-function normalizeRequestHeaders(
+function normalizeWireHeaders(
   headers: readonly WebRequestHeader[] | undefined,
 ): readonly { name: string; value: string }[] | undefined {
   if (headers === undefined) return undefined;

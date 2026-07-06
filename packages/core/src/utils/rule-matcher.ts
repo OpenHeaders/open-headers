@@ -351,6 +351,91 @@ export function doesInitiatorMatchRule(initiatorHost: string, rule: Rule): boole
   return true;
 }
 
+// ── Response-header matching ─────────────────────────────────────
+
+/**
+ * True when the rule carries a configured `response-header` /
+ * `exclude-response-header` condition — a gate Chrome judges only when
+ * the response arrives, so a request-start observation cannot prove the
+ * rule acted. Rows without a header name are unconfigured and ship no
+ * DNR field, so they don't gate.
+ */
+export function isResponseGatedRule(rule: Rule): boolean {
+  return rule.conditions.some(
+    (c) => (c.type === 'response-header' || c.type === 'exclude-response-header') && (c.headerName ?? '').trim() !== '',
+  );
+}
+
+/**
+ * Test observed response headers against a rule's `response-header` /
+ * `exclude-response-header` conditions, mirroring Chrome DNR semantics:
+ *
+ *   - Header names compare case-insensitively; a condition with values
+ *     matches when ANY instance of the header matches ANY value pattern
+ *     (full-value, case-insensitive, `*` = any run, `?` = at most one
+ *     character, `\` escapes). No values = presence alone matches.
+ *   - Multiple `response-header` rows OR together (Chrome's
+ *     `responseHeaders[]` array matches on any entry); any matching
+ *     `exclude-response-header` row rejects.
+ *   - No configured response-header conditions → matches every response.
+ */
+export function doesResponseHeaderMatchRule(headers: readonly { name: string; value: string }[], rule: Rule): boolean {
+  let hasInclude = false;
+  let includeMatched = false;
+  for (const c of rule.conditions) {
+    if (c.type !== 'response-header' && c.type !== 'exclude-response-header') continue;
+    const name = (c.headerName ?? '').trim();
+    if (!name) continue;
+    const matched = headerConditionMatches(headers, name, c.values);
+    if (c.type === 'response-header') {
+      hasInclude = true;
+      if (matched) includeMatched = true;
+    } else if (matched) {
+      return false;
+    }
+  }
+  return hasInclude ? includeMatched : true;
+}
+
+function headerConditionMatches(
+  headers: readonly { name: string; value: string }[],
+  headerName: string,
+  values: string[],
+): boolean {
+  const target = headerName.toLowerCase();
+  const instances = headers.filter((h) => h.name.toLowerCase() === target);
+  if (instances.length === 0) return false;
+  const patterns = values.map((v) => v.trim()).filter(Boolean);
+  if (patterns.length === 0) return true;
+  return instances.some((h) => patterns.some((p) => matchesHeaderValuePattern(h.value, p)));
+}
+
+function matchesHeaderValuePattern(value: string, pattern: string): boolean {
+  let source = '';
+  for (let i = 0; i < pattern.length; i++) {
+    const ch = pattern[i];
+    if (ch === '\\' && i + 1 < pattern.length) {
+      source += escapeRegexChar(pattern[i + 1]);
+      i++;
+    } else if (ch === '*') {
+      source += '.*';
+    } else if (ch === '?') {
+      source += '.?';
+    } else {
+      source += escapeRegexChar(ch);
+    }
+  }
+  try {
+    return new RegExp(`^${source}$`, 'i').test(value);
+  } catch {
+    return false;
+  }
+}
+
+function escapeRegexChar(ch: string): string {
+  return /[.*+?^${}()|[\]\\]/.test(ch) ? `\\${ch}` : ch;
+}
+
 // ── Injection compilation ────────────────────────────────────────
 
 /**

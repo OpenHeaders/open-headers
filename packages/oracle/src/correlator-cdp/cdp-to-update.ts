@@ -166,6 +166,7 @@ function headersReceivedUpdate(
   toWallMs: CdpWallClockResolver,
 ): RequestLifecycleUpdate {
   const requestTime = event.response.timing?.requestTime;
+  const responseHeaders = headersRecordToEntries(event.response.headers);
   return {
     kind: 'phase',
     tabId: event.tabId,
@@ -178,8 +179,27 @@ function headersReceivedUpdate(
       ...(requestTime !== undefined
         ? { hopNetworkStartMs: toWallMs(event.tabId, event.sessionId, event.requestId, requestTime) }
         : {}),
+      ...(responseHeaders !== undefined ? { responseHeaders } : {}),
     },
   };
+}
+
+/**
+ * The wire's header map → the lifecycle's per-instance entry list. The
+ * protocol collapses duplicate headers into one key whose value joins the
+ * instances with `\n` — split them back so consumers that match per
+ * instance (the rule engine's response-header gate) see the same shape
+ * the heuristic path's header list carries.
+ */
+function headersRecordToEntries(
+  headers: Readonly<Record<string, string>> | undefined,
+): readonly { name: string; value: string }[] | undefined {
+  if (headers === undefined) return undefined;
+  const out: { name: string; value: string }[] = [];
+  for (const [name, joined] of Object.entries(headers)) {
+    for (const value of joined.split('\n')) out.push({ name, value });
+  }
+  return out;
 }
 
 // `loadingFinished` carries no status fields — `statusCode` / `statusText` /

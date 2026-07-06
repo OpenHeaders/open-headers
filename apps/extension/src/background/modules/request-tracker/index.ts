@@ -13,6 +13,7 @@ export type { ActiveRulesResult } from './active-rules';
 export { getActiveRulesForTab } from './active-rules';
 export {
   checkIfUrlMatchesAnyRule,
+  doesResponseHeaderGateApprove,
   type MatchingRule,
   type MatchingRuleHeaderOp,
   matchRulesToRequest,

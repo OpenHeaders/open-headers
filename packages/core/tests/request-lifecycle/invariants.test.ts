@@ -189,6 +189,13 @@ describe('invariant 5 — monotonic information content (fields refine, never di
     const prev = makeLifecycle({ pausedByDebugMs: 42 });
     expect(patchRefines(prev, { pausedByDebugMs: undefined } as unknown as RequestLifecyclePatch)).toBe(false);
   });
+
+  it('patchRefines: response headers refine on first set and reject a later clear', () => {
+    const headers = [{ name: 'X-OH-Echo', value: 'true' }];
+    expect(patchRefines(makeLifecycle(), { responseHeaders: headers })).toBe(true);
+    const prev = makeLifecycle({ responseHeaders: headers });
+    expect(patchRefines(prev, { responseHeaders: undefined } as unknown as RequestLifecyclePatch)).toBe(false);
+  });
 });
 
 describe('invariant 6 — redirect is the only retrograde transition', () => {

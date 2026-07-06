@@ -14,12 +14,13 @@
  * us directly.
  */
 
-import { logger } from '@utils/logger';
 import type { RequestLifecycleStore } from '@openheaders/oracle/request-lifecycle-store';
 import type { TabLifecycleBus } from '@openheaders/oracle/tab-lifecycle-bus';
 import { dropTab } from '@openheaders/oracle/tracking/tab-tracking-store';
+import { logger } from '@utils/logger';
 
-import { type UpdateBadge } from './badge-trigger';
+import type { UpdateBadge } from './badge-trigger';
+import { dropResponseGatedTab } from './fire-recorder';
 import { installLifecycleSubscription } from './lifecycle-subscription';
 import { installNavCleanup } from './nav-cleanup';
 
@@ -39,6 +40,7 @@ export function startRuleEngineDriver(options: RuleEngineDriverOptions): RuleEng
   const detachBus = options.bus.subscribe((event) => {
     if (event.kind !== 'tab-forgotten') return;
     dropTab(event.tabId);
+    dropResponseGatedTab(event.tabId);
   });
   logger.info('RuleEngineDriver', 'rule-engine driver online');
   return {

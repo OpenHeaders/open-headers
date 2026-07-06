@@ -131,6 +131,29 @@ describe('webRequestEventToUpdates — happy-path projection', () => {
     expect(u.patch.statusText).toBe('OK');
     expect(u.patch.fromCache).toBe(false);
     expect(u.patch.requestHeadersProvisional).toBe(false);
+    expect(u.patch.responseHeaders).toBeUndefined();
+  });
+
+  it('onHeadersReceived with headers → patch carries the response headers, missing values default to empty', () => {
+    const updates = webRequestEventToUpdates({
+      method_kind: 'onHeadersReceived',
+      tabId: TAB,
+      requestId: REQ,
+      url: URL_A,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: 1_700_000_000_020,
+      statusCode: 200,
+      statusLine: 'HTTP/1.1 200 OK',
+      fromCache: false,
+      responseHeaders: [{ name: 'X-OH-Echo', value: 'true' }, { name: 'X-Empty' }],
+    });
+    const u = updates[0];
+    if (u?.kind !== 'phase') throw new Error('expected phase');
+    expect(u.patch.responseHeaders).toEqual([
+      { name: 'X-OH-Echo', value: 'true' },
+      { name: 'X-Empty', value: '' },
+    ]);
   });
 
   it('onBeforeRedirect → redirect with sourceUrl and redirectUrl', () => {
