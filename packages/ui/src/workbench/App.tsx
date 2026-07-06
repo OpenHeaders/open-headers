@@ -1188,6 +1188,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
               }
             }}
             onOpenVault={openVault}
+            onOpenLiveVariables={openLiveVariables}
             activeCollectionId={activeTabCollectionId}
             allCollections={allCollectionsForEnv}
             onSetCollectionPinnedEnvs={envApi.setCollectionPinnedEnvs}

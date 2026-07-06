@@ -46,6 +46,7 @@ interface TopBarProps {
   onOpenWorkspaceVariables: () => void;
   onOpenCollectionVariables: () => void;
   onOpenVault: () => void;
+  onOpenLiveVariables: () => void;
   activeCollectionId: string | null;
   allCollections: Collection[];
   onSetCollectionPinnedEnvs: (collectionUid: string, pinnedIds: string[], defaultId: string | null) => Promise<boolean>;
@@ -71,6 +72,7 @@ const TopBar: React.FC<TopBarProps> = ({
   onOpenWorkspaceVariables,
   onOpenCollectionVariables,
   onOpenVault,
+  onOpenLiveVariables,
   activeCollectionId,
   allCollections,
   onSetCollectionPinnedEnvs,
@@ -329,6 +331,7 @@ const TopBar: React.FC<TopBarProps> = ({
           onOpenWorkspaceVariables={onOpenWorkspaceVariables}
           onOpenCollectionVariables={onOpenCollectionVariables}
           onOpenVault={onOpenVault}
+          onOpenLiveVariables={onOpenLiveVariables}
           activeCollectionId={activeCollectionId}
           activeCollectionPinnedEnvIds={
             allCollections.find((c) => c.uid === activeCollectionId)?.pinnedEnvironmentIds ?? []

@@ -248,6 +248,9 @@ interface EnvironmentSelectorProps {
   onOpenWorkspaceVariables: () => void;
   onOpenCollectionVariables: () => void;
   onOpenVault: () => void;
+  /** Opens the Live Variables list. Optional — the footer's "Live"
+   *  segment renders only where the host wires it (workbench). */
+  onOpenLiveVariables?: () => void;
   onSetCollectionPinnedEnvs: (collectionUid: string, pinnedIds: string[], defaultId: string | null) => Promise<boolean>;
   /** Compact trigger — matches the devpanel toolbar's 24px workspace chip. */
   compact?: boolean;
@@ -265,6 +268,7 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
   onOpenWorkspaceVariables,
   onOpenCollectionVariables,
   onOpenVault,
+  onOpenLiveVariables,
   onSetCollectionPinnedEnvs,
   compact = false,
 }) => {
@@ -339,6 +343,34 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
     borderRadius: token.borderRadiusSM,
     minWidth: 220,
   };
+
+  // One segment of the compact scope-shortcut row (Vault | Workspace |
+  // Live) — equal-width, centered, same hover treatment as full rows.
+  const footerSegment = (scope: 'vault' | 'workspace' | 'live', label: string, onClick: () => void) => (
+    <div
+      role="menuitem"
+      className="oh-env-row"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
+        flex: 1,
+        minWidth: 0,
+        padding: '5px 8px',
+        cursor: 'pointer',
+        borderRadius: token.borderRadiusSM,
+        color: token.colorTextSecondary,
+      }}
+      onClick={() => {
+        onClick();
+        handleClose();
+      }}
+    >
+      {scopeBadge(scope, 14)}
+      <Text style={{ fontSize: 13 }}>{label}</Text>
+    </div>
+  );
 
   const sectionLabelStyle: React.CSSProperties = {
     fontSize: 11,
@@ -580,18 +612,6 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
         <PlusOutlined style={{ fontSize: 12 }} />
         <Text style={{ fontSize: 13 }}>New environment</Text>
       </div>
-      <div
-        role="menuitem"
-        className="oh-env-row"
-        style={{ ...rowStyle, color: token.colorTextSecondary }}
-        onClick={() => {
-          onOpenVault();
-          handleClose();
-        }}
-      >
-        {scopeBadge('vault', 14)}
-        <Text style={{ fontSize: 13 }}>Vault</Text>
-      </div>
       {activeCollectionId && (
         <div
           role="menuitem"
@@ -606,17 +626,20 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
           <Text style={{ fontSize: 13 }}>Collection variables</Text>
         </div>
       )}
-      <div
-        role="menuitem"
-        className="oh-env-row"
-        style={{ ...rowStyle, color: token.colorTextSecondary }}
-        onClick={() => {
-          onOpenWorkspaceVariables();
-          handleClose();
-        }}
-      >
-        {scopeBadge('workspace', 14)}
-        <Text style={{ fontSize: 13 }}>Workspace variables</Text>
+      {/* Compact scope shortcuts — one row, segments split by vertical
+          dividers (Vault | Workspace | Live). Live only renders where
+          the host wires an opener (workbench; the devpanel routes by
+          intent and has none for the LV list yet). */}
+      <div style={{ display: 'flex', alignItems: 'stretch' }}>
+        {footerSegment('vault', 'Vault', onOpenVault)}
+        <Divider type="vertical" style={{ height: 'auto', margin: '4px 0', alignSelf: 'stretch' }} />
+        {footerSegment('workspace', 'Workspace', onOpenWorkspaceVariables)}
+        {onOpenLiveVariables && (
+          <>
+            <Divider type="vertical" style={{ height: 'auto', margin: '4px 0', alignSelf: 'stretch' }} />
+            {footerSegment('live', 'Live', onOpenLiveVariables)}
+          </>
+        )}
       </div>
     </div>
   );
