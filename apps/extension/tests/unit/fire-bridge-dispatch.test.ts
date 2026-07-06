@@ -75,6 +75,15 @@ describe('oh-setup fire dispatcher (E4)', () => {
     expect(target).toBe('*');
   });
 
+  it('resolves a relative URL against the page base before dispatch', () => {
+    installFunc(buildSetupInjection());
+
+    fire('dly00001', '/echo?case=relative', 'delay');
+
+    const [payload] = postMessageSpy.mock.calls[0] as [Record<string, unknown>];
+    expect(payload.url).toBe(new URL('/echo?case=relative', document.baseURI).href);
+  });
+
   it('in-scope tab: routes a fire through the Runtime binding, not postMessage', () => {
     const binding = vi.fn();
     ohWin[OH_BINDING] = binding;

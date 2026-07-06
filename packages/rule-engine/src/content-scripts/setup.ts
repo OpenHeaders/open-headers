@@ -51,11 +51,22 @@ function ohSetupFunc(bindingName: string): void {
     EventSource: window.EventSource,
     fire(ruleUid: string, url: string, kind: string): void {
       try {
+        // Resolve relative fetch/XHR/stream inputs against the page base —
+        // the SW dedups a scriptable fire against its observed network twin
+        // (and adopts its requestId) by URL, and the network layer only
+        // ever reports absolute URLs. A raw relative URL here would make
+        // the same action count twice.
+        let abs = url;
+        try {
+          abs = new URL(url, document.baseURI).href;
+        } catch {
+          /* not resolvable — report the raw value */
+        }
         if (fireBinding) {
-          fireBinding(JSON.stringify({ ruleUid, url, kind, t: Date.now() }));
+          fireBinding(JSON.stringify({ ruleUid, url: abs, kind, t: Date.now() }));
           return;
         }
-        window.postMessage({ __ohFire: true, ruleUid, url, kind, t: Date.now() }, '*');
+        window.postMessage({ __ohFire: true, ruleUid, url: abs, kind, t: Date.now() }, '*');
       } catch {
         /* swallow */
       }
