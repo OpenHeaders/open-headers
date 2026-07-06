@@ -18,6 +18,7 @@
 import { hostBridge } from '@openheaders/core/bridge';
 import { registerCapability } from '@openheaders/core/capabilities';
 import './install-cdp-capability';
+import './install-csp-exempt-capability';
 import { pairWithCode } from './pair-with-code';
 
 registerCapability('getActiveWorkspaceId', () =>

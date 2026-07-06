@@ -6,6 +6,7 @@ import '@/host/install-awareness-host';
 import '@/host/install-navigation-host';
 import '@/host/install-assets-host';
 import '@/host/install-cdp-capability';
+import '@/host/install-csp-exempt-capability';
 import { registerCapability } from '@openheaders/core/capabilities';
 import { eagerInitRendererMirrors, ThemeProvider } from '@openheaders/ui/context';
 import Workbench from '@openheaders/ui/workbench/App';

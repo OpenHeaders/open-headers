@@ -20,6 +20,7 @@ import type React from 'react';
 import { EntityField, useActionPaths } from '@openheaders/ui/shared/awareness';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import CodeEditor from '../shared/CodeEditor';
+import CspBypassHint from './CspBypassHint';
 import { getDocId } from '../docs/doc-ids';
 import SectionInfo from '../shared/SectionInfo';
 import ScalarConflictChip from '@openheaders/ui/shared/conflicts/ScalarConflictChip';
@@ -192,6 +193,16 @@ const InjectRuleFields: React.FC = () => {
         <Checkbox>
           <Text style={{ fontSize: 12 }}>Bypass Content-Security-Policy so injected scripts always execute</Text>
         </Checkbox>
+      </Form.Item>
+      {/* Degraded-coverage hint — JS only (CSS injection is CSP-exempt by itself). */}
+      <Form.Item
+        noStyle
+        shouldUpdate={(prev, cur) => prev.injectBypassCSP !== cur.injectBypassCSP || prev.injectType !== cur.injectType}
+      >
+        {({ getFieldValue }) => {
+          if (!getFieldValue('injectBypassCSP') || getFieldValue('injectType') === 'css') return null;
+          return <CspBypassHint />;
+        }}
       </Form.Item>
     </div>
   );

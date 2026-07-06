@@ -97,6 +97,15 @@ export interface RuleRpc {
     res: { success: boolean };
   };
 
+  // ── Host capability probes ─────────────────────────────────────
+  // Whether the SW can run bypassCSP inject code CSP-exempt (the
+  // browser's user-scripts privilege is granted right now). Backs the
+  // `cspExemptInjection` capability the rule editor's hint reads.
+  getCspExemptInjection: {
+    req: Record<string, never>;
+    res: { available: boolean };
+  };
+
   // ── Per-tab telemetry + active rules ───────────────────────────
   getActiveRulesForTab: {
     req: { tabId: number | undefined; tabUrl: string | undefined };

@@ -16,6 +16,7 @@ import {
   renameFolder,
 } from '@openheaders/oracle/entity/rule-store';
 import { pruneOrphanOwners } from '@openheaders/oracle/test-run/test-run-store';
+import { canExecuteCspExempt } from '@openheaders/rule-engine/inject';
 import { disableCacheBypassForTab, enableCacheBypassForTab } from '../../net/cache-bypass';
 import { getNetworkConditionsForTab, setNetworkConditionsForTab } from '../../net/network-conditions';
 import { setCdpTabPin } from '../../tabs/cdp-tab-pin';
@@ -121,6 +122,12 @@ export const ruleHandlers: HandlerMap = {
     // it triggers is the controller's own (async) job, surfaced on the pill.
     setCdpTabPin(tabId, pinned);
     respond({ success: true });
+  },
+
+  getCspExemptInjection: ({ respond }) => {
+    // Probed at call time — the user-scripts toggle can change between
+    // surface mounts, so the answer is never cached SW-side.
+    respond({ available: canExecuteCspExempt() });
   },
 
   getLocalRules: ({ respond }) => {

@@ -173,6 +173,20 @@ export interface Capabilities {
    * download item + attention dot).
    */
   getAppUpdate?: () => Promise<AppUpdateInfo | null>;
+
+  /**
+   * Whether the host can execute inject-rule code exempt from the page
+   * CSP (header AND `<meta>`). Registered only by extension surfaces
+   * whose manifest declares the `userScripts` permission (Chrome/Edge);
+   * the probe reflects the browser's per-extension "Allow user scripts"
+   * toggle at call time. When it resolves `false`, a bypassCSP inject
+   * rule degrades to the `<script>`-tag + header-strip path — header
+   * CSP is cleared but a `<meta http-equiv>` CSP still blocks the
+   * script — and the rule editor surfaces an inline hint. Hosts where
+   * the toggle doesn't exist (desktop, Firefox / Safari surfaces)
+   * leave it absent and the editor stays quiet.
+   */
+  cspExemptInjection?: () => Promise<boolean>;
 }
 
 type CapabilityName = keyof Capabilities;
