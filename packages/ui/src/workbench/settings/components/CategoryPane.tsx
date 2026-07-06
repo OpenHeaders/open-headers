@@ -63,22 +63,16 @@ const CategoryPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
         )}
       </header>
       {groups.map((group, i) => (
-        <section key={group.sub?.id ?? `_orphans_${i}`} style={{ marginBottom: 12 }}>
+        <section key={group.sub?.id ?? `_orphans_${i}`} style={{ marginBottom: 14 }}>
           {group.sub && (
-            <h3
-              style={{
-                margin: '0 0 5px 4px',
-                fontSize: 10,
-                fontWeight: 600,
-                letterSpacing: 0.4,
-                textTransform: 'uppercase',
-                color: token.colorTextTertiary,
-              }}
-            >
-              {group.sub.label}
-            </h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 4px' }}>
+              <h3 style={{ margin: 0, fontSize: 12, fontWeight: 600, color: token.colorText, flex: 'none' }}>
+                {group.sub.label}
+              </h3>
+              <div style={{ flex: 1, height: 1, background: token.colorBorderSecondary }} />
+            </div>
           )}
-          <div className="settings-card">
+          <div>
             {group.defs.map((def) => (
               <SettingRow key={def.key} def={def} />
             ))}

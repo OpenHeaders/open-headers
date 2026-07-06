@@ -16,6 +16,7 @@ const NumberField: React.FC<NumberFieldProps> = ({ def }) => {
 
   const control = isSlider ? (
     <Slider
+      style={{ width: 180, margin: '5px 6px' }}
       min={range.min}
       max={range.max}
       step={range.step ?? 1}
@@ -24,7 +25,7 @@ const NumberField: React.FC<NumberFieldProps> = ({ def }) => {
     />
   ) : (
     <InputNumber
-      style={{ width: '100%' }}
+      style={{ width: 110 }}
       min={range.min}
       max={range.max}
       step={range.step}

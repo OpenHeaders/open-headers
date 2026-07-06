@@ -1,4 +1,4 @@
-import { Switch } from 'antd';
+import { Checkbox } from 'antd';
 import type React from 'react';
 import { useUntypedSetting } from '../hooks';
 import type { SettingDef } from '../types';
@@ -19,8 +19,11 @@ const BooleanField: React.FC<BooleanFieldProps> = ({ def }) => {
       requiresConnection={def.requiresConnection}
       requiresCapability={def.requiresCapability}
       capabilityUnavailableHint={def.capabilityUnavailableHint}
+      labelInControl
     >
-      <Switch checked={Boolean(value)} onChange={(next) => setValue(next)} />
+      <Checkbox checked={Boolean(value)} onChange={(e) => setValue(e.target.checked)} style={{ fontSize: 13 }}>
+        {def.label}
+      </Checkbox>
     </FieldRow>
   );
 };

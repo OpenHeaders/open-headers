@@ -164,6 +164,7 @@ const FilesBrowserField: React.FC<FilesBrowserFieldProps> = ({ def }) => {
       experimental={def.experimental}
       requiresConnection={def.requiresConnection}
       resettable={false}
+      block
     >
       <div
         style={{

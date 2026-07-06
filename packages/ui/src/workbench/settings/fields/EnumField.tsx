@@ -41,7 +41,8 @@ const EnumField: React.FC<EnumFieldProps> = ({ def }) => {
       <Select
         value={value as string | number}
         onChange={(next) => setValue(next)}
-        style={{ width: '100%' }}
+        style={{ width: 200 }}
+        popupMatchSelectWidth={false}
         options={options.map((opt) => ({
           value: opt.value as string | number,
           label: opt.label,

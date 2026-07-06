@@ -38,7 +38,13 @@ const StringField: React.FC<StringFieldProps> = ({ def }) => {
       experimental={def.experimental}
       requiresConnection={def.requiresConnection}
     >
-      <Input value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={commit} onPressEnter={commit} />
+      <Input
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onPressEnter={commit}
+        style={{ width: 240 }}
+      />
     </FieldRow>
   );
 };

@@ -95,6 +95,7 @@ const BackendUrlField: React.FC<{ def: SettingDef }> = ({ def }) => {
       modified={dirty}
       onReset={discard}
       resetTooltip="Discard unapplied change"
+      block
     >
       <div style={{ width: '100%' }}>
         <Space.Compact style={{ width: '100%' }}>

@@ -83,7 +83,7 @@ const SearchResultsPane: React.FC<SearchResultsPaneProps> = ({ results, query, o
             <span style={{ fontSize: 12, opacity: 0.85 }}>{cat.icon}</span>
             <span>{cat.label}</span>
           </button>
-          <div className="settings-card">
+          <div>
             {defs.map((def) => (
               <SettingRow key={def.key} def={def} />
             ))}

@@ -182,6 +182,7 @@ const BackendModeFieldEditor: React.FC<{ def: SettingDef }> = ({ def }) => {
         description={def.description}
         experimental={def.experimental}
         requiresConnection={def.requiresConnection}
+        block
       >
         <Select<BackendMode>
           value={mode}

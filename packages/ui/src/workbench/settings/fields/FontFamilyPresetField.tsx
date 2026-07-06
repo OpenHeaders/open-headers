@@ -65,6 +65,7 @@ const FontFamilyPresetField: React.FC<FontFamilyPresetFieldProps> = ({ def }) =>
       description={def.description}
       experimental={def.experimental}
       requiresConnection={def.requiresConnection}
+      block
     >
       <Radio.Group
         value={value}

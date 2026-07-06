@@ -95,7 +95,7 @@ const BackendAuthTokenField: React.FC<{ def: SettingDef }> = ({ def }) => {
   const previewMode = useBackendPreviewMode();
 
   return (
-    <FieldRow settingKey={def.key} label={def.label} description={def.description}>
+    <FieldRow settingKey={def.key} label={def.label} description={def.description} block>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6, width: '100%' }}>
         {inCodeMode ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

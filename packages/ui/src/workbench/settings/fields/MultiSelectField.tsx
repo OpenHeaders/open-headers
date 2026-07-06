@@ -32,7 +32,8 @@ const MultiSelectField: React.FC<MultiSelectFieldProps> = ({ def }) => {
         mode="multiple"
         value={current as (string | number)[]}
         onChange={(next) => setValue(next)}
-        style={{ width: '100%' }}
+        style={{ minWidth: 240, maxWidth: 400, width: 280 }}
+        popupMatchSelectWidth={false}
         options={options.map((opt) => ({
           value: opt.value as string | number,
           label: opt.label,

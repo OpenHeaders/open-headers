@@ -52,6 +52,7 @@ const BackendBindPortField: React.FC<{ def: SettingDef }> = ({ def }) => {
       modified={dirty}
       onReset={discard}
       resetTooltip="Discard unapplied change"
+      block
     >
       <div style={{ width: '100%' }}>
         <InputNumber
