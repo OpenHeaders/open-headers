@@ -199,6 +199,18 @@ export interface CategoryDef {
   icon: ReactNode;
   /** Lower = earlier in the left nav. */
   order: number;
+  /**
+   * Id of the parent category. Children render indented under the
+   * parent's expand caret in the nav tree; everywhere else (search,
+   * panes, deep links) they behave as ordinary categories.
+   */
+  parent?: string;
+  /**
+   * Short label for the nav tree. Children drop the parent prefix here
+   * ("Network" under "DevTools Panel") while `label` keeps the full
+   * qualified name for pane headers and search breadcrumbs.
+   */
+  navLabel?: string;
   description?: string;
   subcategories?: readonly SubcategoryDef[];
   /**

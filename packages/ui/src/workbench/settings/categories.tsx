@@ -8,7 +8,6 @@
  */
 
 import {
-  ApiOutlined,
   BgColorsOutlined,
   BugOutlined,
   CloudDownloadOutlined,
@@ -22,6 +21,7 @@ import {
   SettingOutlined,
 } from '@ant-design/icons';
 import { lazy } from 'react';
+import DevPanelGlyph from './components/DevPanelGlyph';
 import { registerCategory } from './registry';
 
 // Lazy so the schema-bootstrap path stays free of Monaco / Ant Design
@@ -76,15 +76,28 @@ registerCategory({
 registerCategory({
   id: 'devpanelLayout',
   label: 'DevTools Panel Layout',
-  icon: <ApiOutlined />,
+  navLabel: 'DevTools Panel',
+  icon: <DevPanelGlyph />,
   order: 16,
   description: 'Tool-window shell behavior for the browser DevTools panel.',
 });
 
 registerCategory({
+  id: 'devpanelNetwork',
+  label: 'DevTools Panel · Network',
+  navLabel: 'Network',
+  parent: 'devpanelLayout',
+  icon: <DevPanelGlyph letter="N" />,
+  order: 16,
+  description: 'Defaults for the Network requests table in the DevTools panel — layout, sort, dot column.',
+});
+
+registerCategory({
   id: 'devpanelHeaders',
   label: 'DevTools Panel · Headers',
-  icon: <ApiOutlined />,
+  navLabel: 'Headers',
+  parent: 'devpanelLayout',
+  icon: <DevPanelGlyph letter="H" />,
   order: 17,
   description: 'Defaults for the Headers tab in the DevTools panel — layout, sort, filters, suggestions.',
 });
@@ -92,7 +105,9 @@ registerCategory({
 registerCategory({
   id: 'devpanelInitiator',
   label: 'DevTools Panel · Initiator',
-  icon: <ApiOutlined />,
+  navLabel: 'Initiator',
+  parent: 'devpanelLayout',
+  icon: <DevPanelGlyph letter="I" />,
   order: 18,
   description: 'Defaults for the Initiator tab in the DevTools panel — sort, filters, suggestions.',
 });
@@ -100,7 +115,9 @@ registerCategory({
 registerCategory({
   id: 'devpanelCookies',
   label: 'DevTools Panel · Cookies',
-  icon: <ApiOutlined />,
+  navLabel: 'Cookies',
+  parent: 'devpanelLayout',
+  icon: <DevPanelGlyph letter="C" />,
   order: 19,
   description: 'Defaults for the Cookies tab in the DevTools panel — columns, sort, filters, suggestions.',
 });
@@ -108,17 +125,11 @@ registerCategory({
 registerCategory({
   id: 'devpanelTiming',
   label: 'DevTools Panel · Timing',
-  icon: <ApiOutlined />,
+  navLabel: 'Timing',
+  parent: 'devpanelLayout',
+  icon: <DevPanelGlyph letter="T" />,
   order: 20,
   description: 'Defaults for the Timing tab in the DevTools panel — which bands are visible.',
-});
-
-registerCategory({
-  id: 'devpanelNetwork',
-  label: 'DevTools Panel · Network',
-  icon: <ApiOutlined />,
-  order: 16,
-  description: 'Defaults for the Network requests table in the DevTools panel — layout, sort, dot column.',
 });
 
 registerCategory({
