@@ -114,7 +114,15 @@ const TOOL_WINDOW_INFO: Record<ToolWindowId, InfoPopoverContent> = {
             desc: 'Defined on a collection; apply to the entities inside it.',
           },
           { icon: scopeBadge('workspace', 14), label: 'Workspace', desc: 'Shared across the whole workspace.' },
-          { icon: scopeBadge('live', 14), label: 'Live', desc: 'Workflow-produced values, referenced as {{live.*}}.' },
+          {
+            icon: scopeBadge('live', 14),
+            label: 'Live',
+            desc: (
+              <>
+                Workflow-produced values, referenced as <Code>{'{{live.*}}'}</Code>.
+              </>
+            ),
+          },
         ],
       },
     ],
