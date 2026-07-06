@@ -40,6 +40,12 @@ export interface NotificationEntry {
    * from one of the entry's own actions).
    */
   sticky?: boolean;
+  /**
+   * Whether the user has viewed this entry (panel close marks all).
+   * The bell dot derives from the unseen count, so removing an unseen
+   * entry retires the dot with it.
+   */
+  seen: boolean;
 }
 
 export interface PushNotificationInput {
@@ -53,11 +59,16 @@ export interface PushNotificationInput {
 }
 
 let entries: readonly NotificationEntry[] = [];
+// Derived from `entries` on every mutation — never counted separately,
+// so removing an unseen entry (action auto-dismiss, clear) retires the
+// bell dot with it.
 let unseen = 0;
 let seq = 0;
 const listeners = new Set<() => void>();
 
-function emit(): void {
+function commit(next: readonly NotificationEntry[]): void {
+  entries = next;
+  unseen = next.reduce((sum, e) => sum + (e.seen ? 0 : 1), 0);
   for (const fn of listeners) fn();
 }
 
@@ -73,41 +84,34 @@ export function pushNotification(input: PushNotificationInput): void {
     dedupeKey: input.dedupeKey,
     icon: input.icon,
     sticky: input.sticky,
+    seen: false,
     timestamp: Date.now(),
   };
-  entries = [entry, ...entries];
-  unseen += 1;
-  emit();
+  commit([entry, ...entries]);
 }
 
 export function dismissNotification(id: string): void {
   const next = entries.filter((e) => e.id !== id);
   if (next.length === entries.length) return;
-  entries = next;
-  emit();
+  commit(next);
 }
 
 /** Producer-side removal by dedupe key — the only way a sticky entry leaves. */
 export function dismissByKey(dedupeKey: string): void {
   const next = entries.filter((e) => e.dedupeKey !== dedupeKey);
   if (next.length === entries.length) return;
-  entries = next;
-  emit();
+  commit(next);
 }
 
 /** Clears the timeline except sticky entries, which only their producer removes. */
 export function clearAllNotifications(): void {
-  const next = entries.filter((e) => e.sticky);
-  if (next.length === entries.length && unseen === 0) return;
-  entries = next;
-  unseen = 0;
-  emit();
+  if (unseen === 0 && entries.every((e) => e.sticky)) return;
+  commit(entries.filter((e) => e.sticky).map((e) => (e.seen ? e : { ...e, seen: true })));
 }
 
 export function markAllNotificationsSeen(): void {
   if (unseen === 0) return;
-  unseen = 0;
-  emit();
+  commit(entries.map((e) => (e.seen ? e : { ...e, seen: true })));
 }
 
 function subscribe(fn: () => void): () => void {
