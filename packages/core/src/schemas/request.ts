@@ -8,7 +8,17 @@
 import * as v from 'valibot';
 import { RelativePathSchema, SchemaVersionSchema, UidSchema } from './common';
 
-export const HttpMethodSchema = v.picklist(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']);
+/**
+ * HTTP method — the standard verbs plus custom tokens (PROPFIND, PURGE,
+ * vendor verbs). Uppercase token characters, capped at 32 chars.
+ * CONNECT / TRACE / TRACK are rejected: `fetch()` forbids them, so
+ * accepting them would only defer the failure to send time.
+ */
+export const HttpMethodSchema = v.pipe(
+  v.string(),
+  v.regex(/^[A-Z][A-Z0-9-]{0,31}$/, 'Must be an uppercase HTTP method token (letters, digits, hyphens)'),
+  v.check((m) => !['CONNECT', 'TRACE', 'TRACK'].includes(m), 'This method cannot be sent from a browser'),
+);
 
 export const BodyTypeSchema = v.picklist(['none', 'json', 'xml', 'graphql', 'form', 'multipart', 'text']);
 

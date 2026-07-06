@@ -5,6 +5,7 @@ import {
   EnvironmentSchema,
   ExtensionWorkspaceSchema,
   FolderSchema,
+  HttpMethodSchema,
   parseEntity,
   parseEntityArray,
   RequestSchema,
@@ -15,6 +16,24 @@ import {
   WorkspaceSchema,
   WorkspaceVariablesSchema,
 } from '../../src/schemas';
+
+describe('HttpMethodSchema', () => {
+  it.each(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'])('accepts standard %s', (m) => {
+    expect(v.parse(HttpMethodSchema, m)).toBe(m);
+  });
+
+  it.each(['PROPFIND', 'PURGE', 'COPY', 'X-CUSTOM-1'])('accepts custom token %s', (m) => {
+    expect(v.parse(HttpMethodSchema, m)).toBe(m);
+  });
+
+  it.each(['get', 'Get', '', ' GET', 'GET POST', '1GET', 'A'.repeat(33)])('rejects malformed %j', (m) => {
+    expect(v.safeParse(HttpMethodSchema, m).success).toBe(false);
+  });
+
+  it.each(['CONNECT', 'TRACE', 'TRACK'])('rejects fetch-forbidden %s', (m) => {
+    expect(v.safeParse(HttpMethodSchema, m).success).toBe(false);
+  });
+});
 
 describe('VariableSchema', () => {
   it('accepts a default variable', () => {

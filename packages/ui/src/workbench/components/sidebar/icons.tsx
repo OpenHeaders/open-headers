@@ -6,14 +6,20 @@ export function iconEl(Icon: typeof StopOutlined, color: string, size = 12): Rea
   return createElement(Icon, { style: { color, fontSize: size } });
 }
 
+/**
+ * Method tint per HTTP verb. CSS variables so the hue can flip per
+ * theme: the fallbacks are the light-theme values — dark, saturated
+ * hues that hold contrast on white — and `[data-theme='dark']` in
+ * rules.less overrides them with brighter variants that read on dark.
+ */
 export const METHOD_COLORS: Record<string, string> = {
-  GET: '#61affe',
-  POST: '#49cc90',
-  PUT: '#fca130',
-  PATCH: '#50e3c2',
-  DELETE: '#f93e3e',
-  HEAD: '#9012fe',
-  OPTIONS: '#0d5aa7',
+  GET: 'var(--oh-method-get, #0a7d33)',
+  POST: 'var(--oh-method-post, #9c6f00)',
+  PUT: 'var(--oh-method-put, #0b5cad)',
+  PATCH: 'var(--oh-method-patch, #623497)',
+  DELETE: 'var(--oh-method-delete, #a4271c)',
+  HEAD: 'var(--oh-method-head, #0f766e)',
+  OPTIONS: 'var(--oh-method-options, #a12363)',
 };
 
 /** Compact method tag used as the leaf "icon" in the API Requests

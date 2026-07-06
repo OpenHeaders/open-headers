@@ -404,6 +404,19 @@ body {
   }
 }
 
+// HTTP method tints, dark theme — brighter variants of the dark
+// light-theme fallbacks baked into METHOD_COLORS (sidebar/icons.tsx),
+// which would drown on a dark background.
+[data-theme='dark'] {
+  --oh-method-get: #4ec776;
+  --oh-method-post: #e0b34c;
+  --oh-method-put: #5ea3f0;
+  --oh-method-patch: #b087e0;
+  --oh-method-delete: #f06a5e;
+  --oh-method-head: #45c4b8;
+  --oh-method-options: #e56bb1;
+}
+
 [data-theme='dark'] .rules-activity-icon:hover:not(.disabled) {
   background: rgba(255, 255, 255, 0.12);
 }
