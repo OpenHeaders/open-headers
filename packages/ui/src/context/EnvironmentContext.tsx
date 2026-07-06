@@ -44,8 +44,15 @@ import {
   applyRenameEnvironment,
 } from '../shared/sync/env-write-client';
 import { applySetPinnedAndDefault } from '../shared/sync/collection-write-client';
+import { applyRequestCollectionSetPinnedAndDefault } from '../shared/sync/request-collection-write-client';
+import { applyTemplateCollectionSetPinnedAndDefault } from '../shared/sync/template-collection-write-client';
 
 export type EnvironmentWriteResult = BridgeRpcResponse<'updateEnvironmentVariables'>;
+
+/** Which collection family a pinned-envs write targets — the three
+ *  families are separate entity types with separate mutator catalogs,
+ *  so the caller (which knows the uid's family) must say. */
+export type CollectionEnvFamily = 'rule' | 'request' | 'template';
 
 export interface EnvironmentContextValue {
   environments: Environment[];
@@ -65,7 +72,12 @@ export interface EnvironmentContextValue {
   setDefaultEnvironment: (uid: string | null) => Promise<boolean>;
   setManualEnv: (uid: string | null) => Promise<boolean>;
   setCollectionEnvOverride: (collectionId: string, envId: string | null | undefined) => Promise<void>;
-  setCollectionPinnedEnvs: (collectionUid: string, pinnedIds: string[], defaultId: string | null) => Promise<boolean>;
+  setCollectionPinnedEnvs: (
+    collectionUid: string,
+    pinnedIds: string[],
+    defaultId: string | null,
+    family?: CollectionEnvFamily,
+  ) => Promise<boolean>;
 }
 
 const defaultContextValue: EnvironmentContextValue = {
@@ -368,16 +380,25 @@ export const EnvironmentProvider: React.FC<EnvironmentProviderProps> = ({
   );
 
   const setCollectionPinnedEnvs = useCallback<EnvironmentContextValue['setCollectionPinnedEnvs']>(
-    async (collectionUid, pinnedIds, defaultId) => {
+    async (collectionUid, pinnedIds, defaultId, family = 'rule') => {
       if (isOverridden) {
         const wsId = activeWorkspaceIdOverride ?? null;
         if (!wsId) return false;
-        const result = await applySetPinnedAndDefault(
-          { collectionUid, pinnedEnvironmentIds: pinnedIds, defaultEnvironmentId: defaultId },
-          { workspaceId: wsId, surfaceId },
-        );
+        const input = { collectionUid, pinnedEnvironmentIds: pinnedIds, defaultEnvironmentId: defaultId };
+        const opts = { workspaceId: wsId, surfaceId };
+        const result =
+          family === 'request'
+            ? await applyRequestCollectionSetPinnedAndDefault(input, opts)
+            : family === 'template'
+              ? await applyTemplateCollectionSetPinnedAndDefault(input, opts)
+              : await applySetPinnedAndDefault(input, opts);
         return result.ok;
       }
+      // Legacy branch (system surfaces, runtime-active workspace) only
+      // routes rule collections — the SW handler resolves the uid in the
+      // rule-store. No system surface exposes pinned-env editing for the
+      // other families; the workbench (which does) is always overridden.
+      if (family !== 'rule') return false;
       const resp = await hostBridge.call('setCollectionPinnedEnvs', {
         collectionUid,
         pinnedEnvironmentIds: pinnedIds,

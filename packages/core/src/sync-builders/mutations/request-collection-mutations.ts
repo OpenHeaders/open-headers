@@ -21,6 +21,7 @@ import {
   REQUEST_COLLECTION_MUTATOR_VERSION,
   removeRequestCollectionVar,
   renameRequestCollection,
+  setRequestCollectionPinnedAndDefault,
   setRequestCollectionVar,
 } from '@openheaders/core/sync';
 import type { Variable } from '@openheaders/core/types';
@@ -68,6 +69,19 @@ export function buildRenameRequestCollectionBatch(
   ctx: MutatorContext,
 ): RequestCollectionMutationPayload {
   return renameRequestCollection(ctx, input);
+}
+
+export interface SetRequestCollectionPinnedAndDefaultInput {
+  collectionUid: string;
+  pinnedEnvironmentIds: readonly string[];
+  defaultEnvironmentId: string | null;
+}
+
+export function buildSetRequestCollectionPinnedAndDefaultBatch(
+  input: SetRequestCollectionPinnedAndDefaultInput,
+  ctx: MutatorContext,
+): RequestCollectionMutationPayload {
+  return setRequestCollectionPinnedAndDefault(ctx, input);
 }
 
 export interface SetRequestCollectionVarInput {

@@ -32,6 +32,7 @@ import {
   buildDeleteRequestCollectionBatch,
   buildRemoveRequestCollectionVarBatch,
   buildRenameRequestCollectionBatch,
+  buildSetRequestCollectionPinnedAndDefaultBatch,
   buildSetRequestCollectionVarBatch,
 } from '@openheaders/core/sync-builders/mutations/request-collection-mutations';
 import { seedRequestCollection } from '@openheaders/core/sync-builders/projections/request-collection-projection';
@@ -98,6 +99,24 @@ export async function applyRequestCollectionRename(
   }
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(buildRenameRequestCollectionBatch(input, ctx));
+}
+
+export interface ApplyRequestCollectionSetPinnedAndDefaultInput {
+  collectionUid: string;
+  pinnedEnvironmentIds: readonly string[];
+  defaultEnvironmentId: string | null;
+}
+
+/** Persist the env-selector's pinned + default picks on a request
+ *  collection. Mirrors `applySetPinnedAndDefault` (rule side). */
+export async function applyRequestCollectionSetPinnedAndDefault(
+  input: ApplyRequestCollectionSetPinnedAndDefaultInput,
+  opts: RequestCollectionWriteOptions,
+): Promise<RequestCollectionSimpleResult> {
+  const ctx = resolveRendererContext(opts).next({
+    batchId: opts.batchId ?? `req-coll-pinned-${input.collectionUid}`,
+  });
+  return applySyncPayload(buildSetRequestCollectionPinnedAndDefaultBatch(input, ctx));
 }
 
 export interface ApplyRequestCollectionDeleteInput {

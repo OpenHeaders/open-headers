@@ -18,6 +18,7 @@ import {
   PRE_BOOTSTRAP_ORG_ID,
   removeTemplateCollectionVar,
   renameTemplateCollection,
+  setTemplateCollectionPinnedAndDefault,
   setTemplateCollectionVar,
   TEMPLATE_COLLECTION_ENTITY_TYPE,
   TEMPLATE_COLLECTION_MUTATOR_VERSION,
@@ -67,6 +68,19 @@ export function buildRenameTemplateCollectionBatch(
   ctx: MutatorContext,
 ): TemplateCollectionMutationPayload {
   return renameTemplateCollection(ctx, input);
+}
+
+export interface SetTemplateCollectionPinnedAndDefaultInput {
+  collectionUid: string;
+  pinnedEnvironmentIds: readonly string[];
+  defaultEnvironmentId: string | null;
+}
+
+export function buildSetTemplateCollectionPinnedAndDefaultBatch(
+  input: SetTemplateCollectionPinnedAndDefaultInput,
+  ctx: MutatorContext,
+): TemplateCollectionMutationPayload {
+  return setTemplateCollectionPinnedAndDefault(ctx, input);
 }
 
 export interface SetTemplateCollectionVarInput {

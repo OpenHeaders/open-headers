@@ -703,6 +703,20 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
 
   const handleDeleteRule = useCallback((uid: string) => void deleteLocalRule(uid), [deleteLocalRule]);
 
+  // Pinned-envs writes are per-family entity mutations — resolve which
+  // family owns the uid here (the selector only knows the uid).
+  const setCollectionPinnedEnvsByFamily = useCallback(
+    (collectionUid: string, pinnedIds: string[], defaultId: string | null) => {
+      const family = requestsApi.collections.some((c) => c.uid === collectionUid)
+        ? ('request' as const)
+        : templateCollections.some((c) => c.uid === collectionUid)
+          ? ('template' as const)
+          : ('rule' as const);
+      return envApi.setCollectionPinnedEnvs(collectionUid, pinnedIds, defaultId, family);
+    },
+    [envApi.setCollectionPinnedEnvs, requestsApi.collections, templateCollections],
+  );
+
   // ── Active-tab derivations (entity, breadcrumbs, labels, env ctx) ─
   // Everything the shell reads off "which tab is focused right now" —
   // plus the shell's single `document.title` composer, whose only
@@ -1192,7 +1206,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
             onOpenLiveVariables={openLiveVariables}
             activeCollectionId={activeTabCollectionId}
             allCollections={allCollectionsForEnv}
-            onSetCollectionPinnedEnvs={envApi.setCollectionPinnedEnvs}
+            onSetCollectionPinnedEnvs={setCollectionPinnedEnvsByFamily}
           />
 
           <ShellLayout

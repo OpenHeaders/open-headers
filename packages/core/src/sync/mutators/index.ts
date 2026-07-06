@@ -206,7 +206,9 @@ export {
   type RenameRequestCollectionArgs,
   removeRequestCollectionVar,
   renameRequestCollection,
+  type SetRequestCollectionPinnedAndDefaultArgs,
   type SetRequestCollectionVarArgs,
+  setRequestCollectionPinnedAndDefault,
   setRequestCollectionVar,
 } from './request-collection';
 export {
@@ -259,7 +261,9 @@ export {
   type RenameTemplateCollectionArgs,
   removeTemplateCollectionVar,
   renameTemplateCollection,
+  type SetTemplateCollectionPinnedAndDefaultArgs,
   type SetTemplateCollectionVarArgs,
+  setTemplateCollectionPinnedAndDefault,
   setTemplateCollectionVar,
   TEMPLATE_COLLECTION_ENTITY_TYPE,
   TEMPLATE_COLLECTION_MUTATOR_VERSION,

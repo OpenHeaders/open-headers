@@ -31,6 +31,7 @@ import {
   buildDeleteTemplateCollectionBatch,
   buildRemoveTemplateCollectionVarBatch,
   buildRenameTemplateCollectionBatch,
+  buildSetTemplateCollectionPinnedAndDefaultBatch,
   buildSetTemplateCollectionVarBatch,
 } from '@openheaders/core/sync-builders/mutations/template-collection-mutations';
 import { seedTemplateCollection } from '@openheaders/core/sync-builders/projections/template-collection-projection';
@@ -97,6 +98,24 @@ export async function applyTemplateCollectionRename(
   }
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(buildRenameTemplateCollectionBatch(input, ctx));
+}
+
+export interface ApplyTemplateCollectionSetPinnedAndDefaultInput {
+  collectionUid: string;
+  pinnedEnvironmentIds: readonly string[];
+  defaultEnvironmentId: string | null;
+}
+
+/** Persist the env-selector's pinned + default picks on a template
+ *  collection. Mirrors `applySetPinnedAndDefault` (rule side). */
+export async function applyTemplateCollectionSetPinnedAndDefault(
+  input: ApplyTemplateCollectionSetPinnedAndDefaultInput,
+  opts: TemplateCollectionWriteOptions,
+): Promise<TemplateCollectionSimpleResult> {
+  const ctx = resolveRendererContext(opts).next({
+    batchId: opts.batchId ?? `tmpl-coll-pinned-${input.collectionUid}`,
+  });
+  return applySyncPayload(buildSetTemplateCollectionPinnedAndDefaultBatch(input, ctx));
 }
 
 export interface ApplyTemplateCollectionDeleteInput {

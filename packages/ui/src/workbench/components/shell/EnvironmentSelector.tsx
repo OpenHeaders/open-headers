@@ -65,6 +65,34 @@ const EnvRow: React.FC<EnvRowProps> = ({
   const { token } = theme.useToken();
   const isActive = env.uid === activeEnvironmentId;
   const isDefault = env.uid === activeCollectionDefaultEnvId;
+  const anyPinned = tabPinned || pinned;
+  const showPinAction = tabPinnable || activeCollectionId !== null;
+
+  // One row inside the pin flyout — "Pin to this tab" / "Pin to
+  // collection" share the layout; a check marks the active target.
+  const pinMenuRow = (label: string, description: string, checked: boolean, onClick: () => void) => (
+    <div
+      role="menuitem"
+      className="oh-env-row"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        padding: '5px 8px',
+        cursor: 'pointer',
+        borderRadius: token.borderRadiusSM,
+      }}
+      onClick={onClick}
+    >
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 12, lineHeight: 1.3 }}>{label}</div>
+        <Text type="secondary" style={{ fontSize: 11, lineHeight: 1.3, display: 'block', marginTop: 1 }}>
+          {description}
+        </Text>
+      </div>
+      {checked && <CheckCircleFilled style={{ fontSize: 12, color: token.colorPrimary, flexShrink: 0 }} />}
+    </div>
+  );
 
   return (
     <div
@@ -135,60 +163,49 @@ const EnvRow: React.FC<EnvRowProps> = ({
             <EditOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />
           </span>
         </Tooltip>
-        {tabPinnable && (
-          <Tooltip
-            title={
-              tabPinned
-                ? 'Unpin from this tab'
-                : 'Pin to this tab — switches to this environment whenever the tab is focused'
+        {showPinAction && (
+          <Popover
+            trigger="hover"
+            placement="bottomRight"
+            arrow={false}
+            getPopupContainer={(trigger) => trigger.parentElement ?? document.body}
+            content={
+              <div style={{ padding: 2, width: 240 }} onClick={(e) => e.stopPropagation()}>
+                {tabPinnable &&
+                  pinMenuRow(
+                    tabPinned ? 'Unpin from this tab' : 'Pin to this tab',
+                    'Switches to this environment whenever the tab is focused.',
+                    tabPinned,
+                    onToggleTabPin,
+                  )}
+                {activeCollectionId &&
+                  pinMenuRow(
+                    pinned ? 'Unpin from collection' : 'Pin to collection',
+                    'Shows this environment in the collection’s pinned list.',
+                    pinned,
+                    onTogglePin,
+                  )}
+              </div>
             }
-            placement="top"
-            mouseEnterDelay={0.5}
           >
             <span
               role="button"
               tabIndex={-1}
-              aria-label={tabPinned ? 'Unpin from this tab' : 'Pin to this tab'}
+              aria-label="Pin environment"
               className="oh-env-row-action"
-              style={tabPinned ? { opacity: 1 } : undefined}
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleTabPin();
-              }}
+              style={anyPinned ? { opacity: 1 } : undefined}
+              onClick={(e) => e.stopPropagation()}
             >
-              {tabPinned ? (
+              {anyPinned ? (
                 <PushpinFilled style={{ fontSize: 12, color: token.colorPrimary }} />
               ) : (
                 <PushpinOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />
               )}
             </span>
-          </Tooltip>
+          </Popover>
         )}
         {activeCollectionId && (
           <>
-            <Tooltip
-              title={pinned ? 'Unpin from collection' : 'Pin to collection'}
-              placement="top"
-              mouseEnterDelay={0.5}
-            >
-              <span
-                role="button"
-                tabIndex={-1}
-                aria-label={pinned ? 'Unpin from collection' : 'Pin to collection'}
-                className="oh-env-row-action"
-                style={pinned ? { opacity: 1 } : undefined}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onTogglePin();
-                }}
-              >
-                {pinned ? (
-                  <PushpinFilled style={{ fontSize: 12, color: token.colorPrimary }} />
-                ) : (
-                  <PushpinOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />
-                )}
-              </span>
-            </Tooltip>
             <Tooltip
               title={isDefault ? 'Clear collection default' : 'Set as collection default'}
               placement="top"
