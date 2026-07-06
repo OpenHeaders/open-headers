@@ -11,6 +11,7 @@
 
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { NOTIFICATIONS_PANEL_INFO } from '@openheaders/ui/shared/notifications';
+import { scopeBadge } from './components/shared/scope-colors';
 import type { ToolWindowId } from './types';
 
 const TOOL_WINDOW_INFO: Record<ToolWindowId, InfoPopoverContent> = {
@@ -37,15 +38,29 @@ const TOOL_WINDOW_INFO: Record<ToolWindowId, InfoPopoverContent> = {
       {
         heading: 'Priority order',
         items: [
-          { label: 'Vault', desc: 'Per-user secrets, never synced — highest priority.' },
-          { label: 'Environment', desc: 'The active environment, falling back to the default environment.' },
-          { label: 'Collection', desc: "The active entity's collection." },
-          { label: 'Workspace', desc: 'Shared across the workspace — lowest priority.' },
+          { icon: scopeBadge('vault', 14), label: 'Vault', desc: 'Per-user secrets, never synced — highest priority.' },
+          {
+            icon: scopeBadge('environment', 14),
+            label: 'Environment',
+            desc: 'The active environment, falling back to the default environment.',
+          },
+          { icon: scopeBadge('collection', 14), label: 'Collection', desc: "The active entity's collection." },
+          {
+            icon: scopeBadge('workspace', 14),
+            label: 'Workspace',
+            desc: 'Shared across the workspace — lowest priority.',
+          },
         ],
       },
       {
         heading: 'Namespaced',
-        items: [{ label: 'Live', desc: 'Workflow-backed; reached only via {{live.*}}, resolved from the latest run.' }],
+        items: [
+          {
+            icon: scopeBadge('live', 14),
+            label: 'Live',
+            desc: 'Workflow-backed; reached only via {{live.*}}, resolved from the latest run.',
+          },
+        ],
       },
     ],
   },

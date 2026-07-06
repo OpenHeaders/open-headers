@@ -97,6 +97,7 @@ function InfoPopoverBody({ content }: { content: InfoPopoverContent }) {
             <div className="oh-info-popover-section-heading">{section.heading}</div>
             {section.items.map((item) => (
               <div className="oh-info-popover-section-item" key={item.label}>
+                {item.icon && <span className="oh-info-popover-section-item-icon">{item.icon}</span>}
                 <code
                   className={`oh-info-popover-section-item-label${item.labelClassName ? ` ${item.labelClassName}` : ''}`}
                 >

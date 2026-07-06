@@ -128,6 +128,11 @@
   line-height: 1.5;
   padding: 1px 0;
 }
+.oh-info-popover-section-item-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-self: center;
+}
 .oh-info-popover-section-item-label {
   flex-shrink: 0;
   font-family: var(--ant-font-family-code, monospace);

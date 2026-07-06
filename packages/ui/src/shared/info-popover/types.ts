@@ -22,8 +22,10 @@ export interface InfoPopoverSection {
   heading: string;
   /** Structured rows — `label` renders as `<code>`, `desc` as plain text.
    *  `labelClassName` is an optional extra class on the label (e.g. to
-   *  tint it the same colour the value carries in its own column). */
-  items: ReadonlyArray<{ label: string; desc: string; labelClassName?: string }>;
+   *  tint it the same colour the value carries in its own column);
+   *  `icon` renders as a small glyph before the label (e.g. a scope
+   *  badge). */
+  items: ReadonlyArray<{ label: string; desc: string; labelClassName?: string; icon?: React.ReactNode }>;
 }
 
 export interface InfoPopoverAction {
