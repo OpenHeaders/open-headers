@@ -13,28 +13,19 @@ import { buildUrlDisplay, parseUrlQuery } from '@openheaders/core/utils';
 import { Select } from 'antd';
 import type React from 'react';
 import { ensureScheme, needsSchemeNormalization } from '@openheaders/ui/shared/fetch';
+import { METHOD_COLORS } from '../sidebar/icons';
 import { type Draft, draftParamsToQueryParams, mergeParamsFromUrl } from './draft';
 import { TemplateInput } from '../template-input';
 
-const METHOD_OPTIONS: { value: HttpMethod; label: string }[] = [
-  { value: 'GET', label: 'GET' },
-  { value: 'POST', label: 'POST' },
-  { value: 'PUT', label: 'PUT' },
-  { value: 'PATCH', label: 'PATCH' },
-  { value: 'DELETE', label: 'DELETE' },
-  { value: 'HEAD', label: 'HEAD' },
-  { value: 'OPTIONS', label: 'OPTIONS' },
-];
+const METHODS: readonly HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
 
-const METHOD_COLORS: Record<HttpMethod, string> = {
-  GET: '#61affe',
-  POST: '#49cc90',
-  PUT: '#fca130',
-  PATCH: '#50e3c2',
-  DELETE: '#f93e3e',
-  HEAD: '#9012fe',
-  OPTIONS: '#0d5aa7',
-};
+// Colored option labels so the dropdown menu reads like the tree and
+// the trigger — antd renders the same node in both places, so no
+// separate labelRender is needed.
+const METHOD_OPTIONS: { value: HttpMethod; label: React.ReactNode }[] = METHODS.map((m) => ({
+  value: m,
+  label: <span style={{ fontWeight: 700, color: METHOD_COLORS[m] ?? '#999', fontSize: 12 }}>{m}</span>,
+}));
 
 interface RequestUrlBarProps {
   draft: Draft;
@@ -46,8 +37,6 @@ interface RequestUrlBarProps {
 }
 
 const RequestUrlBar: React.FC<RequestUrlBarProps> = ({ draft, setDraft, urlUnresolved, onSend }) => {
-  const methodColor = METHOD_COLORS[draft.method] ?? '#999';
-
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
       <EntityField path={REQUEST_PATHS.method}>
@@ -58,7 +47,6 @@ const RequestUrlBar: React.FC<RequestUrlBarProps> = ({ draft, setDraft, urlUnres
           size="small"
           style={{ width: 96, flexShrink: 0 }}
           popupMatchSelectWidth={false}
-          labelRender={({ label }) => <span style={{ fontWeight: 700, color: methodColor, fontSize: 12 }}>{label}</span>}
         />
       </EntityField>
       <EntityField path={REQUEST_PATHS.url}>
