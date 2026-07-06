@@ -99,6 +99,7 @@ function InfoPopoverBody({ content }: { content: InfoPopoverContent }) {
               const label = (
                 <code
                   className={`oh-info-popover-section-item-label${item.labelClassName ? ` ${item.labelClassName}` : ''}`}
+                  style={item.labelStyle}
                 >
                   {item.label}
                 </code>

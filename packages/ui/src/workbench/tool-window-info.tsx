@@ -13,6 +13,7 @@ import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { NOTIFICATIONS_PANEL_INFO } from '@openheaders/ui/shared/notifications';
 import { buildRuleIcon } from './components/shared/rule-icon';
 import { scopeBadge } from './components/shared/scope-colors';
+import { METHOD_COLORS } from './components/sidebar/icons';
 import { ALL_RULE_TYPES } from './rule-type-menu';
 import type { ToolWindowId } from './types';
 
@@ -148,6 +149,26 @@ const TOOL_WINDOW_INFO: Record<ToolWindowId, InfoPopoverContent> = {
   'api-requests': {
     title: 'API Requests',
     summary: 'Saved API requests and the environments they run against, organized into collections and folders.',
+    sections: [
+      {
+        heading: 'Methods',
+        // Chip colors come from METHOD_COLORS — the same map that tints
+        // the method tags in the requests tree, so the legend and the
+        // rows always agree.
+        items: [
+          { label: 'GET', desc: 'Read a resource — no request body.' },
+          { label: 'POST', desc: 'Create or submit — carries a request body.' },
+          { label: 'PUT', desc: 'Replace a resource with the payload.' },
+          { label: 'PATCH', desc: 'Partially update a resource.' },
+          { label: 'DELETE', desc: 'Remove a resource.' },
+          { label: 'HEAD', desc: 'Headers only — no response body.' },
+          { label: 'OPTIONS', desc: 'Preflight — allowed methods and CORS.' },
+        ].map((item) => ({
+          ...item,
+          labelStyle: { color: METHOD_COLORS[item.label], fontWeight: 700 },
+        })),
+      },
+    ],
   },
   'deep-network-inspection': {
     title: 'Deep Network Inspection',

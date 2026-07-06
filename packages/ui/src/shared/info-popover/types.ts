@@ -32,7 +32,15 @@ export interface InfoPopoverSection {
    *  tint it the same colour the value carries in its own column);
    *  `icon` renders as a small glyph before the label (e.g. a scope
    *  badge). */
-  items: ReadonlyArray<{ label: string; desc: React.ReactNode; labelClassName?: string; icon?: React.ReactNode }>;
+  items: ReadonlyArray<{
+    label: string;
+    desc: React.ReactNode;
+    labelClassName?: string;
+    /** Inline tint for the label chip when the color comes from a JS
+     *  map (e.g. METHOD_COLORS) rather than a CSS class. */
+    labelStyle?: React.CSSProperties;
+    icon?: React.ReactNode;
+  }>;
 }
 
 export interface InfoPopoverAction {
