@@ -25,6 +25,7 @@ import { theme } from 'antd';
 import type React from 'react';
 import type { WorkbenchTab } from '../../types';
 import { buildRuleIcon } from '../shared/rule-icon';
+import { METHOD_COLORS } from '../sidebar/icons';
 import { scopeBadge } from '../shared/scope-colors';
 import { renderTwoToneIcon } from '../shared/TwoToneIconPicker';
 
@@ -137,7 +138,7 @@ export function tabIcon(
     const incomplete = request ? !isRequestComplete(request) : false;
     const unresolved = request ? unresolvableRequestUids.has(request.uid) : false;
     const muted = tab.mode === 'request-create' || incomplete || unresolved;
-    const color = muted ? TAB_ICON_GRAY : (REQUEST_METHOD_COLORS[method] ?? '#999');
+    const color = muted ? TAB_ICON_GRAY : (METHOD_COLORS[method] ?? 'var(--ant-color-text, #1a1a1a)');
     return (
       <span
         style={{
@@ -165,16 +166,6 @@ export function tabIcon(
   const isActive = rule ? rule.enabled && isRuleComplete(rule) && !paused && !unresolved : false;
   return buildRuleIcon({ ruleType: tab.ruleType, rule, isActive, paused, compactArrow: options?.compact });
 }
-
-const REQUEST_METHOD_COLORS: Record<string, string> = {
-  GET: '#61affe',
-  POST: '#49cc90',
-  PUT: '#fca130',
-  PATCH: '#50e3c2',
-  DELETE: '#f93e3e',
-  HEAD: '#9012fe',
-  OPTIONS: '#0d5aa7',
-};
 
 const TAB_LABEL_MAX = 20;
 /**

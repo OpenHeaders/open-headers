@@ -26,7 +26,11 @@ export const METHOD_COLORS: Record<string, string> = {
  *  tree — colored GET / POST / PUT label next to each request.
  *  `muted` greys the tag to signal an incomplete (draft) request. */
 export function methodTag(method: string, muted = false): React.ReactNode {
-  const color = muted ? 'var(--ant-color-text-tertiary, #999)' : (METHOD_COLORS[method] ?? '#999');
+  // Custom methods fall back to the full text color — NOT grey, which
+  // would read as the muted draft/unresolved state.
+  const color = muted
+    ? 'var(--ant-color-text-tertiary, #999)'
+    : (METHOD_COLORS[method] ?? 'var(--ant-color-text, #1a1a1a)');
   return createElement(
     'span',
     {

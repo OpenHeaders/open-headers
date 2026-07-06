@@ -52,9 +52,7 @@ function persistCustomMethods(methods: readonly string[]): void {
 // trigger — antd renders the same node in both places. Custom methods
 // fall back to the neutral secondary tint.
 const methodLabel = (m: string): React.ReactNode => (
-  <span style={{ fontWeight: 700, color: METHOD_COLORS[m] ?? 'var(--ant-color-text-secondary)', fontSize: 12 }}>
-    {m}
-  </span>
+  <span style={{ fontWeight: 700, color: METHOD_COLORS[m] ?? 'var(--ant-color-text)', fontSize: 12 }}>{m}</span>
 );
 
 interface MethodOption {
