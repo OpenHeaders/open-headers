@@ -520,7 +520,7 @@ export function DocLink({ to, children }: { to: string; children: React.ReactNod
 }
 
 /** Container for a schematic SVG diagram, with a small caption row. */
-export function DiagramFrame({ caption, children }: { caption?: string; children: React.ReactNode }) {
+export function DiagramFrame({ caption, children }: { caption?: React.ReactNode; children: React.ReactNode }) {
   return (
     <div
       style={{

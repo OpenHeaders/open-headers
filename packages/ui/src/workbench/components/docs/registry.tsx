@@ -123,7 +123,7 @@ export const DOC_GROUPS: DocGroup[] = [
       {
         id: 'variables',
         title: 'Variables',
-        summary: 'Five scopes of {{variables}} — vault, environment, collection, workspace, live — and how they resolve.',
+        summary: 'Five variable scopes — vault, environment, collection, workspace, live — and how references resolve.',
         group: 'concepts',
         icon: <FunctionOutlined />,
         Component: VariablesSection,

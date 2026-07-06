@@ -25,7 +25,7 @@ const NAMESPACED = [
  */
 export const VariablesResolutionLadderDiagram: React.FC = () => (
   <svg
-    viewBox="0 0 320 252"
+    viewBox="0 0 320 262"
     width="100%"
     style={{ maxWidth: 360 }}
     role="img"
@@ -115,8 +115,11 @@ export const VariablesResolutionLadderDiagram: React.FC = () => (
       never part of the bare walk
     </text>
 
-    <text x={160} y={240} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
-      {'{{vault.token}}, {{env.token}}, {{collection.token}}, {{workspace.token}} pin one scope.'}
+    <text x={160} y={238} textAnchor="middle" fontFamily="monospace" fontSize={8.5} fill={TEXT_DIM}>
+      {'{{vault.token}} · {{env.token}} · {{collection.token}}'}
+    </text>
+    <text x={160} y={252} textAnchor="middle" fontFamily="monospace" fontSize={8.5} fill={TEXT_DIM}>
+      {'{{workspace.token}} — the prefix pins one scope.'}
     </text>
   </svg>
 );

@@ -37,27 +37,27 @@ export const VariablesShadowingDiagram: React.FC = () => {
         ✓ wins
       </text>
       {/* Shadowed path */}
-      <line x1={180} y1={46} x2={228} y2={74} stroke={TEXT_DIM} strokeDasharray="3 3" />
+      <line x1={180} y1={46} x2={230} y2={74} stroke={TEXT_DIM} strokeDasharray="3 3" />
       <text x={228} y={58} fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
         shadowed
       </text>
 
       {/* Environment definition */}
-      <rect x={20} y={78} width={135} height={44} rx={4} fill={scopeBg('environment')} stroke={envColor} />
-      <text x={28} y={92} fontSize={9} fontWeight={600} fill={envColor}>
+      <rect x={16} y={78} width={140} height={44} rx={4} fill={scopeBg('environment')} stroke={envColor} />
+      <text x={24} y={92} fontSize={9} fontWeight={600} fill={envColor}>
         Environment · staging
       </text>
-      <text x={28} y={108} fontFamily="monospace" fontSize={8} fill={TEXT}>
-        api_host = stg.openheaders.io
+      <text x={24} y={108} fontFamily="monospace" fontSize={7.5} fill={TEXT}>
+        api_host=stg.openheaders.io
       </text>
 
       {/* Workspace definition */}
-      <rect x={165} y={78} width={135} height={44} rx={4} fill={scopeBg('workspace')} stroke={wsColor} />
-      <text x={173} y={92} fontSize={9} fontWeight={600} fill={wsColor}>
+      <rect x={164} y={78} width={140} height={44} rx={4} fill={scopeBg('workspace')} stroke={wsColor} />
+      <text x={172} y={92} fontSize={9} fontWeight={600} fill={wsColor}>
         Workspace
       </text>
-      <text x={173} y={108} fontFamily="monospace" fontSize={8} fill={TEXT}>
-        api_host = openheaders.io
+      <text x={172} y={108} fontFamily="monospace" fontSize={7.5} fill={TEXT}>
+        api_host=openheaders.io
       </text>
 
       {/* Namespaced escape hatch */}

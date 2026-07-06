@@ -80,13 +80,13 @@ export const VariablesLiveLifecycleDiagram: React.FC = () => {
 
       {/* Refresh loop back to the workflow */}
       <path
-        d="M 251 70 C 251 48, 180 42, 122 42 L 100 42"
+        d="M 251 70 C 251 46, 215 34, 152 38"
         fill="none"
         stroke={liveColor}
         strokeDasharray="3 3"
         markerEnd="url(#var-live-arrow)"
       />
-      <text x={214} y={38} textAnchor="middle" fontSize={7.5} fontStyle="italic" fill={TEXT_DIM}>
+      <text x={218} y={26} textAnchor="middle" fontSize={7.5} fontStyle="italic" fill={TEXT_DIM}>
         auto-refresh re-runs
       </text>
 

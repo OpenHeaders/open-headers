@@ -32,7 +32,7 @@ const ROWS: SidebarRow[] = [
  */
 export const VariablesCreationMapDiagram: React.FC = () => (
   <svg
-    viewBox="0 0 320 236"
+    viewBox="0 0 320 246"
     width="100%"
     style={{ maxWidth: 360 }}
     role="img"
@@ -108,8 +108,11 @@ export const VariablesCreationMapDiagram: React.FC = () => (
       );
     })}
 
-    <text x={160} y={226} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
-      Collections carry their own Variables page; the rest are sidebar entries.
+    <text x={160} y={224} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
+      Collections carry their own Variables page;
+    </text>
+    <text x={160} y={237} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
+      everything else is a sidebar entry.
     </text>
   </svg>
 );

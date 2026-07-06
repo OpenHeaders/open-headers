@@ -40,7 +40,14 @@ export const VariablesSection: React.FC = () => (
       and its own rank when the same name exists in more than one.
     </DocParagraph>
     <OnThisPage entries={VARIABLE_ANCHORS} />
-    <DiagramFrame caption="A bare {{token}} walks four scopes top-down and stops at the first hit. Live and the other namespaced scopes sit outside the walk.">
+    <DiagramFrame
+      caption={
+        <>
+          A bare <code>{'{{token}}'}</code> walks four scopes top-down and stops at the first hit. Live and the other
+          namespaced scopes sit outside the walk.
+        </>
+      }
+    >
       <VariablesResolutionLadderDiagram />
     </DiagramFrame>
 
@@ -84,7 +91,14 @@ export const VariablesSection: React.FC = () => (
       in-flight refresh value when a workspace or environment variable shares the name. Editing the workflow's recipe
       marks the published value stale until the next run.
     </DocParagraph>
-    <DiagramFrame caption="Run succeeds → exposed capture publishes as {{live.token}} → rules and requests consume it. The schedule re-runs the workflow.">
+    <DiagramFrame
+      caption={
+        <>
+          Run succeeds → exposed capture publishes as <code>{'{{live.token}}'}</code> → rules and requests consume it.
+          The schedule re-runs the workflow.
+        </>
+      }
+    >
       <VariablesLiveLifecycleDiagram />
     </DiagramFrame>
 
@@ -96,7 +110,14 @@ export const VariablesSection: React.FC = () => (
       environment (with default-environment fallback), then the collection, then the workspace — and stops at the
       first scope that defines the name. Lower definitions still exist; they're just shadowed.
     </DocParagraph>
-    <DiagramFrame caption="Environment beats workspace for the bare reference; {{workspace.api_host}} still reads the shadowed value.">
+    <DiagramFrame
+      caption={
+        <>
+          Environment beats workspace for the bare reference; <code>{'{{workspace.api_host}}'}</code> still reads the
+          shadowed value.
+        </>
+      }
+    >
       <VariablesShadowingDiagram />
     </DiagramFrame>
     <DocParagraph>
