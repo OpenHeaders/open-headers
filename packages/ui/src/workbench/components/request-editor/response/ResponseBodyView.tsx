@@ -18,7 +18,7 @@
 
 import { DownOutlined, EyeOutlined, FilterOutlined } from '@ant-design/icons';
 import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
-import { Button, ConfigProvider, Dropdown, Input, type MenuProps, Tooltip, Typography, theme } from 'antd';
+import { AutoComplete, Button, ConfigProvider, Dropdown, Input, type MenuProps, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { getLanguage, LANGUAGE_LIST, type LanguageId } from '../../../languages/registry';
@@ -26,7 +26,12 @@ import CodeEditor from '../../shared/CodeEditor';
 import ResponseJsonPreview from './ResponseJsonPreview';
 import { ViewPickerIcon, WrapLinesIcon } from './ViewPickerIcons';
 import { buildHexDump, encodeBodyBytes, toBase64 } from './response-encoding';
-import { evaluateJsonPath, evaluateXPath } from './response-filter';
+import {
+  evaluateJsonPath,
+  evaluateXPath,
+  suggestJsonPathCompletions,
+  suggestXPathCompletions,
+} from './response-filter';
 import { detectBodyLanguage, formatBytes, prettyBody } from './response-format';
 
 const { Text } = Typography;
@@ -119,6 +124,18 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
   useEffect(() => {
     if (!filterKind && filterOpen) setFilterOpen(false);
   }, [filterKind, filterOpen]);
+
+  // Contextual lookahead: the query up to its last separator is
+  // evaluated against the body and THAT level's members are offered,
+  // each suggestion a full replacement string.
+  const filterSuggestions = useMemo(() => {
+    if (!filterOpen || !filterKind) return [];
+    const paths =
+      filterKind === 'jsonpath'
+        ? suggestJsonPathCompletions(parsedJson, filterQuery)
+        : suggestXPathCompletions(response.body, language === 'xml' ? 'xml' : 'html', filterQuery);
+    return paths.map((p) => ({ value: p }));
+  }, [filterOpen, filterKind, filterQuery, parsedJson, response.body, language]);
 
   const filterApplied = filterOpen && filterKind !== null && filterQuery.trim() !== '';
   const filterResult = useMemo(() => {
@@ -275,22 +292,32 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
       </div>
       {filterOpen && filterKind && (
         <div style={{ paddingBottom: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <Input
-            size="small"
-            allowClear
-            autoFocus
+          <AutoComplete
             value={filterQuery}
-            onChange={(e) => setFilterQuery(e.target.value)}
-            placeholder={
-              filterKind === 'jsonpath'
-                ? "Filter with JSONPath — $.headers['content-type'], $.items[0], $..url"
-                : 'Filter with XPath — //item/name, /html/head/title'
-            }
-            aria-label="Filter body"
-            status={filterResult && !filterResult.ok ? 'error' : undefined}
-            prefix={<FilterOutlined style={{ color: token.colorTextTertiary }} />}
-            style={{ fontFamily: "'SF Mono', 'Fira Code', monospace", fontSize: 12 }}
-          />
+            onChange={(next) => setFilterQuery(next)}
+            options={filterSuggestions}
+            // Suggestions are already contextually filtered — the
+            // default substring re-filter would hide them (each option
+            // is a full path, not a fragment of the typed text).
+            filterOption={false}
+            style={{ width: '100%' }}
+            popupMatchSelectWidth={false}
+          >
+            <Input
+              size="small"
+              allowClear
+              autoFocus
+              placeholder={
+                filterKind === 'jsonpath'
+                  ? "Filter with JSONPath — $.headers['content-type'], $.items[0], $..url"
+                  : 'Filter with XPath — //item/name, /html/head/title'
+              }
+              aria-label="Filter body"
+              status={filterResult && !filterResult.ok ? 'error' : undefined}
+              prefix={<FilterOutlined style={{ color: token.colorTextTertiary }} />}
+              style={{ fontFamily: "'SF Mono', 'Fira Code', monospace", fontSize: 12 }}
+            />
+          </AutoComplete>
           {filterResult && !filterResult.ok && (
             <Text type="danger" style={{ fontSize: 11 }}>
               {filterKind === 'jsonpath'

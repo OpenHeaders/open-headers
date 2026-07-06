@@ -97,6 +97,120 @@ export function evaluateJsonPath(root: unknown, path: string): JsonPathResult {
   return { ok: true, matches: nodes };
 }
 
+/** Cap on lookahead suggestions — a completion list, not an index. */
+const SUGGEST_LIMIT = 50;
+
+const IDENTIFIER_KEY = /^[A-Za-z_$][\w$-]*$/;
+
+/**
+ * Contextual JSONPath completion: evaluate the query up to its last
+ * separator against the body, then offer THAT level's members — object
+ * keys (dot form when they fit the grammar, bracket-quoted otherwise)
+ * and `[0]` / `[*]` for arrays — filtered by the trailing fragment.
+ * Each suggestion is the full replacement string.
+ */
+export function suggestJsonPathCompletions(root: unknown, query: string): string[] {
+  const q = query.trim();
+  const lastDot = q.lastIndexOf('.');
+  const lastBracket = q.lastIndexOf('[');
+  const cut = Math.max(lastDot, lastBracket);
+  const bracketContext = lastBracket > lastDot;
+  let base = cut <= 0 ? '$' : q.slice(0, cut);
+  // A '..' recursive prefix leaves a dangling dot — trim so the base
+  // evaluates (completion then works from the non-recursive parent).
+  while (base.endsWith('.')) base = base.slice(0, -1);
+  if (base === '') base = '$';
+  const partial = (cut === -1 ? q.replace(/^\$/, '') : q.slice(cut + 1)).replace(/^['"]/, '').toLowerCase();
+
+  const evaluated = evaluateJsonPath(root, base);
+  if (!evaluated.ok) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const push = (full: string) => {
+    if (!seen.has(full) && out.length < SUGGEST_LIMIT) {
+      seen.add(full);
+      out.push(full);
+    }
+  };
+  for (const node of evaluated.matches) {
+    if (Array.isArray(node)) {
+      if (node.length === 0) continue;
+      for (const index of ['0', '*']) {
+        if (partial !== '' && !(bracketContext && index.startsWith(partial))) continue;
+        push(`${base}[${index}]`);
+      }
+    } else if (isRecord(node)) {
+      for (const key of Object.keys(node)) {
+        if (partial !== '' && !key.toLowerCase().startsWith(partial)) continue;
+        const safeKey = key.replaceAll("'", '');
+        push(bracketContext || !IDENTIFIER_KEY.test(key) ? `${base}['${safeKey}']` : `${base}.${key}`);
+      }
+    }
+    if (out.length >= SUGGEST_LIMIT) break;
+  }
+  return out;
+}
+
+/**
+ * Contextual XPath completion: element-name lookahead for the segment
+ * being typed. A bare fragment offers `//tag` over the document's
+ * distinct tags; after a `/` the base path is evaluated and its
+ * children's tags offered. Empty for a document that doesn't parse.
+ */
+export function suggestXPathCompletions(body: string, kind: 'xml' | 'html', query: string): string[] {
+  const doc = new DOMParser().parseFromString(body, kind === 'xml' ? 'text/xml' : 'text/html');
+  if ((kind === 'xml' && doc.getElementsByTagName('parsererror').length > 0) || !doc.documentElement) return [];
+  const q = query.trim();
+
+  const allTags = () => {
+    const tags = new Set<string>();
+    const walk = (el: Element) => {
+      if (tags.size >= SUGGEST_LIMIT) return;
+      tags.add(el.tagName.toLowerCase());
+      for (const child of Array.from(el.children)) walk(child);
+    };
+    walk(doc.documentElement);
+    return Array.from(tags);
+  };
+
+  const lastSlash = q.lastIndexOf('/');
+  if (lastSlash === -1) {
+    return allTags()
+      .filter((t) => t.startsWith(q.toLowerCase()))
+      .map((t) => `//${t}`)
+      .slice(0, SUGGEST_LIMIT);
+  }
+  const base = q.slice(0, lastSlash);
+  const partial = q.slice(lastSlash + 1).toLowerCase();
+
+  let candidates: string[];
+  let prefix: string;
+  if (base === '') {
+    candidates = [doc.documentElement.tagName.toLowerCase()];
+    prefix = '/';
+  } else if (base === '/') {
+    candidates = allTags();
+    prefix = '//';
+  } else {
+    try {
+      const result = doc.evaluate(base, doc, null, XPathResult.ORDERED_NODE_ITERATOR_TYPE, null);
+      const tags = new Set<string>();
+      for (let node = result.iterateNext(); node !== null; node = result.iterateNext()) {
+        if (node.nodeType !== Node.ELEMENT_NODE) continue;
+        for (const child of Array.from((node as Element).children)) tags.add(child.tagName.toLowerCase());
+      }
+      candidates = Array.from(tags);
+      prefix = `${base}/`;
+    } catch {
+      return [];
+    }
+  }
+  return candidates
+    .filter((t) => t.startsWith(partial))
+    .map((t) => `${prefix}${t}`)
+    .slice(0, SUGGEST_LIMIT);
+}
+
 export type XPathResultText = { ok: true; matches: string[] } | { ok: false };
 
 /**
