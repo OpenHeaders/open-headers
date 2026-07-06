@@ -113,6 +113,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
     'devpanelNetwork.layout': DevpanelNetworkLayoutSetting;
     'devpanelNetwork.messagesLayout': DevpanelNetworkLayoutSetting;
+    'devpanelNetwork.messagesShowPreview': boolean;
     'devpanelNetwork.sortKind': DevpanelNetworkSortKindSetting;
     'devpanelNetwork.sortMode': DevpanelNetworkSortModeSetting;
     'devpanelNetwork.sortBy': DevpanelNetworkSortBySetting;
@@ -161,6 +162,20 @@ registerSetting({
     { value: 'compact', label: 'Compact', description: 'The Data column absorbs the pane width.' },
     { value: 'wide', label: 'Wide', description: 'Capped widths, scrolls horizontally when needed.' },
   ],
+});
+
+registerSetting({
+  key: 'devpanelNetwork.messagesShowPreview',
+  type: 'boolean',
+  default: true,
+  schema: v.boolean(),
+  label: 'Show Payload Preview',
+  description:
+    'Show the payload preview pane under the Messages / EventStream grids — the resizable split where the selected frame or event renders as a JSON tree, raw text, or binary viewer. Turn off to give the grid the whole pane.',
+  category: 'devpanelNetwork',
+  subcategory: 'View',
+  tags: ['messages', 'websocket', 'sse', 'preview', 'payload', 'split', 'devtools'],
+  scope: 'user',
 });
 
 registerSetting({

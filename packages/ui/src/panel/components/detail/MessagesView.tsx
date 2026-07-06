@@ -146,6 +146,12 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
   const [layout, setLayout] = useMessagesSplitLayout();
   const [gridLayout, setGridLayout] = useSetting('devpanelNetwork.messagesLayout');
   const resetGridLayout = useResetSetting('devpanelNetwork.messagesLayout');
+  const [showPreview, setShowPreview] = useSetting('devpanelNetwork.messagesShowPreview');
+  const resetShowPreview = useResetSetting('devpanelNetwork.messagesShowPreview');
+  const resetViewMenu = () => {
+    resetGridLayout();
+    resetShowPreview();
+  };
   const { columnWidths, registerCellRef, beginResize, resetColumnWidth } = useColumnResize(wsColumnMinWidth);
 
   const all = useMemo(() => wsDisplayFrames(lifecycle, har), [lifecycle, har]);
@@ -302,8 +308,16 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
             Override message
           </button>
         }
-        layoutToggle={{ layout, onChange: setLayout }}
-        viewMenu={<MessagesViewMenu layout={gridLayout} onLayoutChange={setGridLayout} onReset={resetGridLayout} />}
+        layoutToggle={showPreview ? { layout, onChange: setLayout } : undefined}
+        viewMenu={
+          <MessagesViewMenu
+            layout={gridLayout}
+            showPreview={showPreview}
+            onLayoutChange={setGridLayout}
+            onToggleShowPreview={() => setShowPreview(!showPreview)}
+            onReset={resetViewMenu}
+          />
+        }
       />
       {dropped > 0 && (
         <div className="dt-ws-truncation">
@@ -454,13 +468,17 @@ export default function MessagesView({ lifecycle, har, source, fires, rulesByUid
               })}
             </div>
           </Allotment.Pane>
-          <Allotment.Pane minSize={layout === 'vertical' ? 60 : 160}>
-            <div className="dt-ws-preview">
-              <MessagePreview
-                frame={selected}
-                attribution={selected !== null ? (attributionByIndex.get(selected.index) ?? null) : null}
-              />
-            </div>
+          <Allotment.Pane minSize={layout === 'vertical' ? 60 : 160} visible={showPreview}>
+            {/* A hidden pane keeps its DOM mounted at size 0 — gate the
+              content too so the preview fully unmounts when toggled off. */}
+            {showPreview && (
+              <div className="dt-ws-preview">
+                <MessagePreview
+                  frame={selected}
+                  attribution={selected !== null ? (attributionByIndex.get(selected.index) ?? null) : null}
+                />
+              </div>
+            )}
           </Allotment.Pane>
         </Allotment>
       </div>

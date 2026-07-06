@@ -1,8 +1,9 @@
 /**
- * `View ▾` dropdown for the Messages frame grid — the same anatomy as
- * the network table's [[NetworkViewMenu]], scoped to the options this
- * grid has: the column layout (compact / wide). Sits at the right end
- * of the stream toolbar, after the split-orientation toggle.
+ * `View ▾` dropdown for the Messages / EventStream grids — the same
+ * anatomy as the network table's [[NetworkViewMenu]], scoped to the
+ * options these grids share: the column layout (compact / wide) and the
+ * payload-preview pane toggle. Sits at the right end of the stream
+ * toolbar, after the split-orientation toggle.
  */
 
 import type { DevpanelNetworkLayoutSetting } from '@openheaders/ui/workbench/settings/schema/devpanel-network';
@@ -10,15 +11,19 @@ import { ToolbarMenuPopover } from '../../ToolbarMenuPopover';
 
 export function MessagesViewMenu({
   layout,
+  showPreview,
   onLayoutChange,
+  onToggleShowPreview,
   onReset,
 }: {
   layout: DevpanelNetworkLayoutSetting;
+  showPreview: boolean;
   onLayoutChange: (mode: DevpanelNetworkLayoutSetting) => void;
+  onToggleShowPreview: () => void;
   /** Restore every View option to its registered default. */
   onReset: () => void;
 }) {
-  const activeBadgeCount = layout !== 'compact' ? 1 : 0;
+  const activeBadgeCount = (layout !== 'compact' ? 1 : 0) + (!showPreview ? 1 : 0);
 
   return (
     <ToolbarMenuPopover label="View" activeCount={activeBadgeCount} menuClassName="dt-messages-view-menu">
@@ -28,6 +33,11 @@ export function MessagesViewMenu({
           <option value="compact">Compact</option>
           <option value="wide">Wide</option>
         </select>
+      </label>
+      <div className="dt-morefilters-divider" />
+      <label className="dt-morefilters-item">
+        <input type="checkbox" checked={showPreview} onChange={onToggleShowPreview} />
+        Show payload preview
       </label>
       <div className="dt-morefilters-divider" />
       <button type="button" className="dt-morefilters-reset" onClick={onReset} disabled={activeBadgeCount === 0}>

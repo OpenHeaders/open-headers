@@ -12,8 +12,21 @@ import type { Rule, SseAction, SseRule } from '@openheaders/core/types';
 import EventStreamView from '@openheaders/ui/panel/components/detail/EventStreamView';
 import type { InspectorFire } from '@openheaders/ui/panel/data/types';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { makeLifecycle } from '../../__factories__/lifecycle';
+
+beforeAll(() => {
+  // Opening the View ▾ popover mounts rc-resize-observer.
+  class ResizeObserverStub implements ResizeObserver {
+    observe(): void {}
+    unobserve(): void {}
+    disconnect(): void {}
+  }
+  const scope = globalThis as unknown as { ResizeObserver?: typeof ResizeObserver };
+  if (typeof scope.ResizeObserver === 'undefined') {
+    scope.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
+  }
+});
 
 afterEach(cleanup);
 
@@ -410,6 +423,19 @@ describe('EventStreamView — preview pane', () => {
     fireEvent.click(container.querySelector('[role="option"]') as HTMLElement);
     expect(container.querySelector('.dt-msg-preview-content pre')?.textContent).toBe('not json at all');
     expect(screen.queryByRole('button', { name: 'Raw' })).toBeNull();
+  });
+
+  it('View ▾ hides the payload preview (and the orientation toggle with it); toggling back restores both', () => {
+    const { container } = renderView(makeSseLifecycle([sse()]));
+    expect(container.querySelector('.dt-ws-preview')).toBeTruthy();
+    expect(container.querySelectorAll('[aria-pressed]')).toHaveLength(2);
+    fireEvent.click(screen.getByRole('button', { name: 'View' }));
+    fireEvent.click(screen.getByLabelText('Show payload preview'));
+    expect(container.querySelector('.dt-ws-preview')).toBeNull();
+    expect(container.querySelectorAll('[aria-pressed]')).toHaveLength(0);
+    fireEvent.click(screen.getByLabelText('Show payload preview'));
+    expect(container.querySelector('.dt-ws-preview')).toBeTruthy();
+    expect(container.querySelectorAll('[aria-pressed]')).toHaveLength(2);
   });
 });
 
