@@ -283,12 +283,17 @@ export function useWorkbenchActiveTab({
   }, [activeTabCollectionId, allCollectionsForEnv]);
 
   // Tab pin plumbing — the pin lives on the tab itself (`pinnedEnvId`),
-  // so it persists with the tab session and rides Duplicate Tab. The
-  // env-switcher only ever writes the FOCUSED tab's pin (drop-invalid
-  // + re-point-on-pick); background-tab pins are written by the tab
-  // context menu through `updateTab` directly.
+  // so it persists with the tab session and rides Duplicate Tab. All
+  // pin writes go through the env-switcher's `setActiveTabPinnedEnv`
+  // (selector row action, drop-invalid, re-point-on-pick) and target
+  // the FOCUSED tab only.
   const activeTabId = activeTab?.id ?? null;
   const activeTabPinnedEnvId = activeTab?.pinnedEnvId;
+  const activeTabEnvPinnable =
+    activeTab?.mode === 'edit' ||
+    activeTab?.mode === 'rule-create' ||
+    activeTab?.mode === 'request-edit' ||
+    activeTab?.mode === 'request-create';
   const setActiveTabPinnedEnv = useCallback(
     (envId: string | null | undefined) => {
       if (activeTabId) updateTab(activeTabId, { pinnedEnvId: envId });
@@ -312,6 +317,7 @@ export function useWorkbenchActiveTab({
       // workspace change (diverged tab on X clears X's overrides), not
       // on global oracle change.
       activeWorkspaceId: editingScopeWorkspaceId,
+      activeTabEnvPinnable,
       activeTabPinnedEnvId,
       setActiveTabPinnedEnv,
     }),
@@ -321,6 +327,7 @@ export function useWorkbenchActiveTab({
       collectionEnvAutoSwitch,
       activeCollectionDefaultEnvId,
       editingScopeWorkspaceId,
+      activeTabEnvPinnable,
       activeTabPinnedEnvId,
       setActiveTabPinnedEnv,
     ],

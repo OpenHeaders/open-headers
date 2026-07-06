@@ -233,10 +233,6 @@ export interface EditorGroupRendererProps {
   /** Duplicate a rule/request tab into a fresh scratch — surfaced on
    *  the tab context menu, forwarded to each leaf's TabBar. */
   onDuplicate?: (tabId: string) => void;
-  /** Environments + pin writer for the context menu's "Pin Environment"
-   *  submenu — forwarded to each leaf's TabBar. */
-  environments?: ReadonlyArray<{ uid: string; name: string }>;
-  onPinEnvironment?: (tabId: string, envId: string | null | undefined) => void;
   onCloseTab: (tabId: string) => void;
   onCloseOther: (tabId: string) => void;
   onCloseAll: () => void;
@@ -269,8 +265,6 @@ export const EditorGroupRenderer: React.FC<EditorGroupRendererProps> = ({
   registerTabSearchToggle,
   onTabDoubleClick,
   onDuplicate,
-  environments,
-  onPinEnvironment,
   onCloseTab,
   onCloseOther,
   onCloseAll,
@@ -477,8 +471,6 @@ export const EditorGroupRenderer: React.FC<EditorGroupRendererProps> = ({
           onClose={onCloseTab}
           onTabDoubleClick={onTabDoubleClick}
           onDuplicate={onDuplicate}
-          environments={environments}
-          onPinEnvironment={onPinEnvironment}
           onCreateRule={onCreateRule}
           onCloseOther={onCloseOther}
           onCloseAll={onCloseAll}

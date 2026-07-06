@@ -71,12 +71,17 @@ export interface EnvSwitcherCollectionContext {
    *  switch (collection uids are workspace-scoped but the in-memory
    *  override map carries old-workspace entries by reference). */
   activeWorkspaceId: string | null;
+  /** True when the focused tab is an entity-editor tab that can carry
+   *  an env pin (rule/request, edit or scratch) — gates the selector's
+   *  per-row "Pin to this tab" action. */
+  activeTabEnvPinnable: boolean;
   /** The focused tab's pinned env. `undefined` = no pin, `null` =
    *  pinned to "No environment", string = env uid. */
   activeTabPinnedEnvId: string | null | undefined;
   /** Writes the focused tab's pin (`undefined` clears it). Used by the
-   *  auto-switch effect to drop invalid pins and by manual picks to
-   *  re-point the pin while a pinned tab is focused. */
+   *  selector's "Pin to this tab" action, the auto-switch effect to
+   *  drop invalid pins, and manual picks to re-point the pin while a
+   *  pinned tab is focused. */
   setActiveTabPinnedEnv: (envId: string | null | undefined) => void;
 }
 
@@ -97,6 +102,10 @@ export interface EnvSwitcherApi {
   /** Selector-side registration for {@link requestEnvSelectorOpen}.
    *  Returns the unsubscribe. */
   onEnvSelectorOpenRequest(listener: () => void): () => void;
+  /** True when the focused tab can carry an env pin — the selector
+   *  renders its per-row "Pin to this tab" action only then. False on
+   *  surfaces without a tab system (popup, devpanel). */
+  activeTabEnvPinnable: boolean;
   /** The focused tab's pinned env — `undefined` when the tab has no pin
    *  (or the surface has no tab system), `null` = pinned to "No
    *  environment", string = env uid. Surfaces read this to show the
@@ -110,6 +119,7 @@ const NOOP_API: EnvSwitcherApi = {
   pickActiveEnvironment: () => {},
   requestEnvSelectorOpen: () => {},
   onEnvSelectorOpenRequest: () => () => {},
+  activeTabEnvPinnable: false,
   activeTabPinnedEnvId: undefined,
   setActiveTabPinnedEnv: () => {},
 };
@@ -280,6 +290,7 @@ export const EnvSwitcherProvider: React.FC<EnvSwitcherProviderProps> = ({ collec
     };
   }, []);
 
+  const activeTabEnvPinnable = collectionContext?.activeTabEnvPinnable ?? false;
   const activeTabPinnedEnvId = collectionContext?.activeTabPinnedEnvId;
   const setActiveTabPinnedEnv = collectionContext?.setActiveTabPinnedEnv;
   const api = useMemo<EnvSwitcherApi>(
@@ -287,10 +298,18 @@ export const EnvSwitcherProvider: React.FC<EnvSwitcherProviderProps> = ({ collec
       pickActiveEnvironment,
       requestEnvSelectorOpen,
       onEnvSelectorOpenRequest,
+      activeTabEnvPinnable,
       activeTabPinnedEnvId,
       setActiveTabPinnedEnv: setActiveTabPinnedEnv ?? NOOP_API.setActiveTabPinnedEnv,
     }),
-    [pickActiveEnvironment, requestEnvSelectorOpen, onEnvSelectorOpenRequest, activeTabPinnedEnvId, setActiveTabPinnedEnv],
+    [
+      pickActiveEnvironment,
+      requestEnvSelectorOpen,
+      onEnvSelectorOpenRequest,
+      activeTabEnvPinnable,
+      activeTabPinnedEnvId,
+      setActiveTabPinnedEnv,
+    ],
   );
 
   return <EnvSwitcherContext.Provider value={api}>{children}</EnvSwitcherContext.Provider>;

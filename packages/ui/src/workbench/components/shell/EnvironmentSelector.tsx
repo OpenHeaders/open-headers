@@ -36,10 +36,16 @@ interface EnvRowProps {
   activeEnvironmentId: string | null;
   activeCollectionId: string | null;
   activeCollectionDefaultEnvId: string | null;
+  /** True when the focused tab can carry an env pin — renders the
+   *  "Pin to this tab" row action. */
+  tabPinnable: boolean;
+  /** True when this env is the focused tab's pin. */
+  tabPinned: boolean;
   onSelect: () => void;
   onOpen: () => void;
   onTogglePin: () => void;
   onSetDefault: () => void;
+  onToggleTabPin: () => void;
 }
 
 const EnvRow: React.FC<EnvRowProps> = ({
@@ -48,10 +54,13 @@ const EnvRow: React.FC<EnvRowProps> = ({
   activeEnvironmentId,
   activeCollectionId,
   activeCollectionDefaultEnvId,
+  tabPinnable,
+  tabPinned,
   onSelect,
   onOpen,
   onTogglePin,
   onSetDefault,
+  onToggleTabPin,
 }) => {
   const { token } = theme.useToken();
   const isActive = env.uid === activeEnvironmentId;
@@ -126,6 +135,35 @@ const EnvRow: React.FC<EnvRowProps> = ({
             <EditOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />
           </span>
         </Tooltip>
+        {tabPinnable && (
+          <Tooltip
+            title={
+              tabPinned
+                ? 'Unpin from this tab'
+                : 'Pin to this tab — switches to this environment whenever the tab is focused'
+            }
+            placement="top"
+            mouseEnterDelay={0.5}
+          >
+            <span
+              role="button"
+              tabIndex={-1}
+              aria-label={tabPinned ? 'Unpin from this tab' : 'Pin to this tab'}
+              className="oh-env-row-action"
+              style={tabPinned ? { opacity: 1 } : undefined}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleTabPin();
+              }}
+            >
+              {tabPinned ? (
+                <PushpinFilled style={{ fontSize: 12, color: token.colorPrimary }} />
+              ) : (
+                <PushpinOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />
+              )}
+            </span>
+          </Tooltip>
+        )}
         {activeCollectionId && (
           <>
             <Tooltip
@@ -281,12 +319,20 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
 
   // Other surfaces (Scope panel's "Select") open this dropdown through
   // the env-switcher service instead of mounting a picker of their own.
-  const { onEnvSelectorOpenRequest, activeTabPinnedEnvId, setActiveTabPinnedEnv } = useEnvSwitcher();
+  const { onEnvSelectorOpenRequest, activeTabEnvPinnable, activeTabPinnedEnvId, setActiveTabPinnedEnv } =
+    useEnvSwitcher();
   useEffect(() => onEnvSelectorOpenRequest(() => setOpen(true)), [onEnvSelectorOpenRequest]);
 
   // The focused tab pins the env — the trigger and dropdown surface it
   // so a tab-driven env change is legible ("why did the env just flip?").
   const pinnedByTab = activeTabPinnedEnvId !== undefined;
+
+  function handleToggleTabPin(env: Environment): void {
+    // Toggling on takes over the active env immediately (the switcher's
+    // auto-switch effect applies the new pin); toggling off falls back
+    // to normal collection-mode resolution.
+    setActiveTabPinnedEnv(activeTabPinnedEnvId === env.uid ? undefined : env.uid);
+  }
 
   const active = activeEnvironmentId ? (environments.find((e) => e.uid === activeEnvironmentId) ?? null) : null;
 
@@ -576,6 +622,8 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
                 activeEnvironmentId={activeEnvironmentId}
                 activeCollectionId={activeCollectionId}
                 activeCollectionDefaultEnvId={activeCollectionDefaultEnvId}
+                tabPinnable={activeTabEnvPinnable}
+                tabPinned={activeTabPinnedEnvId === env.uid}
                 onSelect={() => {
                   onSwitch(env.uid);
                   handleClose();
@@ -586,6 +634,7 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
                 }}
                 onTogglePin={() => handleTogglePin(env, true)}
                 onSetDefault={() => handleSetDefault(env)}
+                onToggleTabPin={() => handleToggleTabPin(env)}
               />
             ))}
           </div>
@@ -602,6 +651,8 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
                     activeEnvironmentId={activeEnvironmentId}
                     activeCollectionId={activeCollectionId}
                     activeCollectionDefaultEnvId={activeCollectionDefaultEnvId}
+                    tabPinnable={activeTabEnvPinnable}
+                    tabPinned={activeTabPinnedEnvId === env.uid}
                     onSelect={() => {
                       onSwitch(env.uid);
                       handleClose();
@@ -612,6 +663,7 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
                     }}
                     onTogglePin={() => handleTogglePin(env, false)}
                     onSetDefault={() => handleSetDefault(env)}
+                    onToggleTabPin={() => handleToggleTabPin(env)}
                   />
                 ))}
               </div>
@@ -630,6 +682,8 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
                 activeEnvironmentId={activeEnvironmentId}
                 activeCollectionId={activeCollectionId}
                 activeCollectionDefaultEnvId={activeCollectionDefaultEnvId}
+                tabPinnable={activeTabEnvPinnable}
+                tabPinned={activeTabPinnedEnvId === env.uid}
                 onSelect={() => {
                   onSwitch(env.uid);
                   handleClose();
@@ -640,6 +694,7 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
                 }}
                 onTogglePin={() => handleTogglePin(env, false)}
                 onSetDefault={() => handleSetDefault(env)}
+                onToggleTabPin={() => handleToggleTabPin(env)}
               />
             ))}
           </div>

@@ -6,7 +6,7 @@
  * without inlining ~180 lines of item config at the Dropdown site.
  */
 
-import { CheckOutlined, CopyOutlined, GlobalOutlined, PushpinOutlined } from '@ant-design/icons';
+import { CopyOutlined } from '@ant-design/icons';
 import type { ItemType } from 'antd/es/menu/interface';
 import type React from 'react';
 import type { WorkbenchTab } from '../../types';
@@ -32,13 +32,6 @@ interface BuildTabContextMenuOptions {
   tabIndex: number;
   tabCount: number;
   onDuplicate?: (tabId: string) => void;
-  /** Environments for the "Pin Environment" submenu. Absent / empty →
-   *  the submenu still renders with "No environment" so pin-to-none
-   *  stays reachable, but only when `onPinEnvironment` is wired. */
-  environments?: ReadonlyArray<{ uid: string; name: string }>;
-  /** Writes a tab's env pin: env uid, `null` = pin "No environment",
-   *  `undefined` = unpin. */
-  onPinEnvironment?: (tabId: string, envId: string | null | undefined) => void;
   onClose: (tabId: string) => void;
   onCloseOther: (tabId: string) => void;
   onCloseAll: () => void;
@@ -64,8 +57,6 @@ export function buildTabContextMenu({
   tabIndex,
   tabCount,
   onDuplicate,
-  environments,
-  onPinEnvironment,
   onClose,
   onCloseOther,
   onCloseAll,
@@ -94,48 +85,6 @@ export function buildTabContextMenu({
     tab.mode === 'rule-create' ||
     tab.mode === 'request-edit' ||
     tab.mode === 'request-create';
-  // "Pin Environment" applies to the same entity-editor modes: a pinned
-  // tab takes over the active environment while focused (clicking the
-  // currently pinned entry toggles it off). Distinct from the env
-  // selector's "pin to collection" — this one is tab-scoped.
-  const isPinnable = isDuplicable;
-  const pinItems: ItemType[] =
-    isPinnable && onPinEnvironment
-      ? [
-          {
-            key: 'pin-env',
-            label: 'Pin Environment',
-            icon: menuIconWrap(<PushpinOutlined />),
-            children: [
-              ...(environments ?? []).map(
-                (env) =>
-                  ({
-                    key: `pin-env-${env.uid}`,
-                    label: env.name,
-                    icon: menuIconWrap(tab.pinnedEnvId === env.uid ? <CheckOutlined /> : null),
-                    onClick: () => onPinEnvironment(tab.id, tab.pinnedEnvId === env.uid ? undefined : env.uid),
-                  }) satisfies ItemType,
-              ),
-              {
-                key: 'pin-env-none',
-                label: 'No environment',
-                icon: menuIconWrap(tab.pinnedEnvId === null ? <CheckOutlined /> : <GlobalOutlined />),
-                onClick: () => onPinEnvironment(tab.id, tab.pinnedEnvId === null ? undefined : null),
-              },
-              ...(tab.pinnedEnvId !== undefined
-                ? [
-                    { type: 'divider' as const },
-                    {
-                      key: 'pin-env-unpin',
-                      label: 'Unpin',
-                      onClick: () => onPinEnvironment(tab.id, undefined),
-                    } satisfies ItemType,
-                  ]
-                : []),
-            ],
-          } satisfies ItemType,
-        ]
-      : [];
   return {
     items: [
       ...(isDuplicable && onDuplicate
@@ -146,10 +95,9 @@ export function buildTabContextMenu({
               icon: menuIconWrap(<CopyOutlined />),
               onClick: () => onDuplicate(tab.id),
             } satisfies ItemType,
+            { type: 'divider' as const },
           ]
         : []),
-      ...pinItems,
-      ...((isDuplicable && onDuplicate) || pinItems.length > 0 ? [{ type: 'divider' as const }] : []),
       { key: 'close', label: menuItemLabel('Close', 'close-tab'), onClick: () => onClose(tab.id) },
       {
         key: 'close-other',

@@ -703,14 +703,6 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
 
   const handleDeleteRule = useCallback((uid: string) => void deleteLocalRule(uid), [deleteLocalRule]);
 
-  // Tab env pin — the context menu writes any tab's pin (including
-  // background tabs); the FOCUSED tab's pin is applied to the active
-  // env by the env-switcher's auto-switch effect.
-  const handlePinEnvironment = useCallback(
-    (tabId: string, envId: string | null | undefined) => updateTab(tabId, { pinnedEnvId: envId }),
-    [updateTab],
-  );
-
   // ── Active-tab derivations (entity, breadcrumbs, labels, env ctx) ─
   // Everything the shell reads off "which tab is focused right now" —
   // plus the shell's single `document.title` composer, whose only
@@ -1239,8 +1231,6 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
                 registerTabSearchToggle={registerTabSearchToggle}
                 onTabDoubleClick={tl.toggleZenMode}
                 onDuplicate={handleDuplicateTab}
-                environments={envApi.environments}
-                onPinEnvironment={handlePinEnvironment}
                 onCloseTab={handleCloseTab}
                 onCloseOther={handleCloseOther}
                 onCloseAll={handleCloseAll}

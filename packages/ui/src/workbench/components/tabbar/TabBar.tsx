@@ -80,11 +80,6 @@ interface TabBarProps {
    *  Absent / inert for non-rule/request tabs — the menu item only
    *  renders for duplicable modes. */
   onDuplicate?: (tabId: string) => void;
-  /** Environments for the context menu's "Pin Environment" submenu. */
-  environments?: ReadonlyArray<{ uid: string; name: string }>;
-  /** Writes a tab's env pin (uid / null = "No environment" /
-   *  undefined = unpin). The menu only renders when wired. */
-  onPinEnvironment?: (tabId: string, envId: string | null | undefined) => void;
   onCreateRule: (type: string) => void;
   onCloseOther: (tabId: string) => void;
   onCloseAll: () => void;
@@ -147,8 +142,6 @@ const TabBar: React.FC<TabBarProps> = ({
   onClose,
   onTabDoubleClick,
   onDuplicate,
-  environments,
-  onPinEnvironment,
   onCreateRule,
   onCloseOther,
   onCloseAll,
@@ -246,8 +239,6 @@ const TabBar: React.FC<TabBarProps> = ({
         tabIndex,
         tabCount: tabs.length,
         onDuplicate,
-        environments,
-        onPinEnvironment,
         onClose,
         onCloseOther,
         onCloseAll,
@@ -270,8 +261,6 @@ const TabBar: React.FC<TabBarProps> = ({
     [
       tabs.length,
       onDuplicate,
-      environments,
-      onPinEnvironment,
       onClose,
       onCloseOther,
       onCloseAll,
