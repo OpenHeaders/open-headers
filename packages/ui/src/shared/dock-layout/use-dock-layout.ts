@@ -122,9 +122,24 @@ export function normalizeDockLayout<T extends string>(
     hidden.push(id);
   }
 
+  // Windows the persisted state doesn't know yet (added in an update)
+  // land in their defaultSlot at their REGISTRY position among the
+  // slot's windows — not appended — so an existing profile shows them
+  // where a fresh profile would (e.g. notifications above docs).
   for (const def of windowDefs) {
     if (seen.has(def.id)) continue;
-    docks[def.defaultSlot].windows.push(def.id);
+    const slotOrder = windowDefs.filter((d) => d.defaultSlot === def.defaultSlot).map((d) => d.id);
+    const myOrder = slotOrder.indexOf(def.id);
+    const slotWindows = docks[def.defaultSlot].windows;
+    let insertAt = slotWindows.length;
+    for (let i = 0; i < slotWindows.length; i++) {
+      const existingOrder = slotOrder.indexOf(slotWindows[i]);
+      if (existingOrder !== -1 && existingOrder > myOrder) {
+        insertAt = i;
+        break;
+      }
+    }
+    slotWindows.splice(insertAt, 0, def.id);
     seen.add(def.id);
   }
 

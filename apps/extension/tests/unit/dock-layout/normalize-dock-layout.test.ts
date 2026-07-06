@@ -99,6 +99,34 @@ describe('normalizeDockLayout', () => {
     expect(out.docks['bottom-left'].windows).toEqual(['d']);
   });
 
+  it('inserts a newly-registered window at its registry position, not appended', () => {
+    // Registry: e before c, both right-top. Persisted state predates e.
+    type Id2 = Id | 'e';
+    const defs: readonly ToolWindowDef<Id2>[] = [
+      DEFS[0],
+      DEFS[1],
+      { id: 'e', label: 'E', icon: null, core: false, defaultSlot: 'right-top' },
+      DEFS[2],
+      DEFS[3],
+    ];
+    const map = defs.reduce(
+      (acc, d) => {
+        acc[d.id] = d;
+        return acc;
+      },
+      {} as Record<Id2, ToolWindowDef<Id2>>,
+    );
+    const docks = EMPTY_DOCKS() as ToolLayoutState<Id2>['docks'];
+    docks['left-top'] = { windows: ['a'], active: 'a' };
+    docks['left-bottom'] = { windows: ['b'], active: null };
+    docks['right-top'] = { windows: ['c'], active: 'c' };
+    docks['bottom-left'] = { windows: ['d'], active: null };
+    const out = normalizeDockLayout<Id2>({ docks, hidden: [] }, defs, map);
+
+    expect(out.docks['right-top'].windows).toEqual(['e', 'c']);
+    expect(out.docks['right-top'].active).toBe('c');
+  });
+
   it('clears active when it does not point to a window in its dock', () => {
     const docks = EMPTY_DOCKS();
     docks['left-top'] = { windows: ['a'], active: 'b' };
