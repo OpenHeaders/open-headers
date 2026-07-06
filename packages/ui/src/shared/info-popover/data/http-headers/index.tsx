@@ -5,8 +5,8 @@
  *
  * Adding a header:
  *   1. Append the entry to the right `./<category>.ts` file.
- *   2. Add the same name to `panel/data/header-category.ts` so the
- *      Headers tab groups the row under the matching category.
+ *   2. Add the same name to `./header-category.ts` so header rows
+ *      bucket the name under the matching category.
  *
  * `getHeaderInfoContentForRow(name, direction, rowCategory)` always
  * returns content — known headers get rich details, unknown ones get

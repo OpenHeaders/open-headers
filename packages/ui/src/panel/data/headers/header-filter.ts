@@ -27,7 +27,7 @@
  * `is:security`, …) so the same matching path covers both.
  */
 
-import type { HeaderCategory } from './header-category';
+import type { HeaderCategory } from '@openheaders/ui/shared/info-popover/data/http-headers/header-category';
 
 export type HeaderFilterToken =
   | { kind: 'text'; value: string; negated: boolean }

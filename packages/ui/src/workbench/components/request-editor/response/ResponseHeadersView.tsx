@@ -1,34 +1,190 @@
 /**
- * ResponseHeadersView — flat key/value listing of the response headers.
+ * ResponseHeadersView — aligned name/value grid over the response
+ * headers, matching the request-editor tab grids. Each row carries a
+ * hover-revealed (i) doc popover (shared http-headers corpus — every
+ * name gets content, unknown ones an honest fallback) and a hover
+ * copy of its `name: value` line; a filter box appears once the
+ * response has enough rows to need one. The tab label keeps the
+ * unfiltered count — filtering narrows the view, not the response.
  */
 
+import { CheckOutlined, CopyOutlined, SearchOutlined } from '@ant-design/icons';
 import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
-import { Typography, theme } from 'antd';
+import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
+import { getHeaderInfoContentForRow } from '@openheaders/ui/shared/info-popover/data/http-headers';
+import {
+  categorizeHeader,
+  HEADER_CATEGORY_LABEL,
+} from '@openheaders/ui/shared/info-popover/data/http-headers/header-category';
+import { Button, Input, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
+import { useEffect, useState } from 'react';
+import {
+  filterHeaderRows,
+  HEADER_FILTER_THRESHOLD,
+  type ResponseHeaderRow,
+  serializeHeaderLines,
+} from './response-headers';
+import './response-headers.css';
 
 const { Text } = Typography;
 
+const GRID_TEMPLATE = 'minmax(180px, 30%) 1fr 32px';
+
+const cellFont: React.CSSProperties = {
+  fontFamily: "'SF Mono', 'Fira Code', monospace",
+  fontSize: 12,
+};
+
+/** Copy-to-clipboard with the house check-swap feedback. */
+function useCopied(): [boolean, (text: string) => void] {
+  const [copied, setCopied] = useState(false);
+  const copy = (text: string) => {
+    void navigator.clipboard?.writeText(text).then(() => {
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    });
+  };
+  return [copied, copy];
+}
+
+function HeaderGridRow({ row }: { row: ResponseHeaderRow }) {
+  const { token } = theme.useToken();
+  const [copied, copy] = useCopied();
+  const content = getHeaderInfoContentForRow(row.key, 'response', HEADER_CATEGORY_LABEL[categorizeHeader(row.key)]);
+  return (
+    <div
+      className="oh-resp-hdr-row"
+      style={{
+        display: 'grid',
+        gridTemplateColumns: GRID_TEMPLATE,
+        alignItems: 'start',
+        borderBottom: `1px solid ${token.colorBorderSecondary}`,
+      }}
+    >
+      <span style={{ ...cellFont, padding: '6px 10px', display: 'flex', alignItems: 'baseline', minWidth: 0 }}>
+        <InfoTrigger content={content} className="oh-resp-hdr-info" />
+        <span style={{ fontWeight: 600, wordBreak: 'break-all' }}>{row.key}</span>
+      </span>
+      <span
+        style={{
+          ...cellFont,
+          padding: '6px 10px',
+          borderLeft: `1px solid ${token.colorBorderSecondary}`,
+          color: token.colorTextSecondary,
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-all',
+          minWidth: 0,
+        }}
+      >
+        {row.value}
+      </span>
+      <span style={{ display: 'flex', justifyContent: 'center', paddingTop: 2 }}>
+        <Button
+          className="oh-resp-hdr-copy"
+          size="small"
+          type="text"
+          icon={copied ? <CheckOutlined /> : <CopyOutlined />}
+          aria-label={copied ? 'Copied' : `Copy ${row.key}`}
+          title={copied ? 'Copied' : 'Copy header'}
+          onClick={() => copy(`${row.key}: ${row.value}`)}
+        />
+      </span>
+    </div>
+  );
+}
+
 const ResponseHeadersView: React.FC<{ headers: ExecutedRequestSnapshot['headers'] }> = ({ headers }) => {
   const { token } = theme.useToken();
+  const [query, setQuery] = useState('');
+  const [allCopied, copyAll] = useCopied();
+
+  // Each new response starts unfiltered — a filter typed against the
+  // previous send must not silently hide the next one's headers.
+  useEffect(() => {
+    setQuery('');
+  }, [headers]);
+
+  const visible = filterHeaderRows(headers, query);
+  const showFilter = headers.length > HEADER_FILTER_THRESHOLD;
+
+  if (headers.length === 0) {
+    return (
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 0 }}>
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          No headers
+        </Text>
+      </div>
+    );
+  }
+
   return (
-    <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
-      {headers.map((h) => (
-        <div key={`${h.key}:${h.value}`} style={{ display: 'flex', gap: 8, fontSize: 11, padding: '2px 0' }}>
-          <Text strong style={{ fontFamily: "'SF Mono', monospace", fontSize: 11, minWidth: 180 }}>
-            {h.key}
-          </Text>
-          <Text
-            style={{
-              fontFamily: "'SF Mono', monospace",
-              fontSize: 11,
-              wordBreak: 'break-all',
-              color: token.colorTextSecondary,
-            }}
-          >
-            {h.value}
-          </Text>
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', paddingBottom: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0' }}>
+        {showFilter && (
+          <Input
+            size="small"
+            allowClear
+            prefix={<SearchOutlined style={{ color: token.colorTextTertiary }} />}
+            placeholder="Filter headers"
+            aria-label="Filter headers"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            style={{ width: 220 }}
+          />
+        )}
+        <Tooltip title={allCopied ? 'Copied' : 'Copy all headers'} placement="bottom">
+          <Button
+            size="small"
+            type="text"
+            icon={allCopied ? <CheckOutlined /> : <CopyOutlined />}
+            aria-label="Copy all headers"
+            onClick={() => copyAll(serializeHeaderLines(headers))}
+            style={{ marginLeft: 'auto' }}
+          />
+        </Tooltip>
+      </div>
+      <div
+        style={{
+          flex: 1,
+          overflow: 'auto',
+          minHeight: 0,
+          border: `1px solid ${token.colorBorderSecondary}`,
+          borderRadius: 4,
+        }}
+      >
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: GRID_TEMPLATE,
+            alignItems: 'center',
+            // Opaque sticky header — same composite as the editable
+            // grids, so scrolled rows can't bleed through the tint.
+            background: `linear-gradient(${token.colorFillAlter}, ${token.colorFillAlter}), ${token.colorBgContainer}`,
+            borderBottom: `1px solid ${token.colorBorderSecondary}`,
+            fontSize: 12,
+            fontWeight: 500,
+            color: token.colorTextSecondary,
+            position: 'sticky',
+            top: 0,
+            zIndex: 2,
+          }}
+        >
+          <span style={{ padding: '6px 10px' }}>Name</span>
+          <span style={{ padding: '6px 10px', borderLeft: `1px solid ${token.colorBorderSecondary}` }}>Value</span>
+          <span />
         </div>
-      ))}
+        {visible.map((h, i) => (
+          <HeaderGridRow key={`${h.key}:${h.value}:${i}`} row={h} />
+        ))}
+        {visible.length === 0 && (
+          <div style={{ padding: '10px 12px' }}>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              No headers match “{query.trim()}”
+            </Text>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

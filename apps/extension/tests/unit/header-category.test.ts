@@ -3,7 +3,7 @@ import {
   HEADER_CATEGORY_LABEL,
   HEADER_CATEGORY_ORDER,
   type HeaderCategory,
-} from '@openheaders/ui/panel/data/headers/header-category';
+} from '@openheaders/ui/shared/info-popover/data/http-headers/header-category';
 import { describe, expect, it } from 'vitest';
 
 describe('categorizeHeader', () => {

@@ -1,0 +1,16 @@
+/* Hover-reveal affordances on the response headers grid: the (i)
+ * trigger and per-row copy keep their layout slot but stay invisible
+ * until the row is hovered, the control is keyboard-focused, or the
+ * popover it anchors is open. */
+
+.oh-resp-hdr-row .oh-resp-hdr-info,
+.oh-resp-hdr-row .oh-resp-hdr-copy {
+  opacity: 0;
+}
+.oh-resp-hdr-row:hover .oh-resp-hdr-info,
+.oh-resp-hdr-row .oh-resp-hdr-info:focus-visible,
+.oh-resp-hdr-row .oh-resp-hdr-info[aria-expanded='true'],
+.oh-resp-hdr-row:hover .oh-resp-hdr-copy,
+.oh-resp-hdr-row .oh-resp-hdr-copy:focus-visible {
+  opacity: 1;
+}

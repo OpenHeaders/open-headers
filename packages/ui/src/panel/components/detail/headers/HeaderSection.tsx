@@ -8,7 +8,7 @@ import {
   HEADER_CATEGORY_LABEL,
   HEADER_CATEGORY_ORDER,
   type HeaderCategory,
-} from '../../../data/headers/header-category';
+} from '@openheaders/ui/shared/info-popover/data/http-headers/header-category';
 import { type HeaderFilterToken, type HeaderRowMeta, matchesHeaderQuery } from '../../../data/headers/header-filter';
 import { type HeaderNameCase, formatHeaderName } from '../../../data/headers/header-name-case';
 import type { InspectorRowWithFires } from '../../../data/inspector-row-projection';

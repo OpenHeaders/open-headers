@@ -1,15 +1,15 @@
 /**
- * Categorize an HTTP header name into a small set of buckets that
- * organize the Headers tab into collapsible groups. The categories
- * mirror the *intent* a debugger has when scanning headers (auth,
- * cors, caching, security, …) rather than the IANA registry's formal
- * classification — pragmatism over taxonomy.
+ * Categorize an HTTP header name into a small set of buckets. The
+ * categories mirror the *intent* a debugger has when scanning headers
+ * (auth, cors, caching, security, …) rather than the IANA registry's
+ * formal classification — pragmatism over taxonomy. Consumed by the
+ * devtools panel's grouped Headers tab and by the workbench response
+ * headers grid (row category for the (i) popover fallback).
  *
- * The category set is kept in sync with the info-popover registry in
- * `@openheaders/ui/shared/info-popover/data/http-headers` so a header
- * the info popover documents under "Routing" appears in the Headers
- * tab's "Routing" group as well. When you add an entry to that
- * registry, add the corresponding `EXACT` row here.
+ * The category set is kept in sync with the header-docs registry in
+ * `./index` so a header the info popover documents under "Routing"
+ * is classified as `routing` here as well. When you add an entry to
+ * that registry, add the corresponding `EXACT` row here.
  *
  * Lookup is case-insensitive (RFC 9110 §5.1). Unknown headers fall
  * into `other`, which keeps the bucket non-empty for most requests

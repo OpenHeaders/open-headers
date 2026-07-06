@@ -10,7 +10,10 @@ import {
   findCurrentMod,
   isAttributionEdited,
 } from '../../../data/headers/header-attribution';
-import { HEADER_CATEGORY_LABEL, type HeaderCategory } from '../../../data/headers/header-category';
+import {
+  HEADER_CATEGORY_LABEL,
+  type HeaderCategory,
+} from '@openheaders/ui/shared/info-popover/data/http-headers/header-category';
 import type { HeaderRowMeta } from '../../../data/headers/header-filter';
 import { formatHeaderName, type HeaderNameCase } from '../../../data/headers/header-name-case';
 import { computeRuleApplicability, type RuleApplicability } from '../../../data/rule-create/rule-applicability';
