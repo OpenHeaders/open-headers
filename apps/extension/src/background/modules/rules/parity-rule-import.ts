@@ -27,6 +27,8 @@ import { addRule, deleteRule, ensureDefaultCollection } from '@openheaders/oracl
 import { logger } from '@utils/logger';
 import * as v from 'valibot';
 
+import { isParityHookEnabled } from './parity-hook';
+
 const SCOPE = 'ParityRuleImport';
 
 export type ParityImportResult =
@@ -41,11 +43,6 @@ export type ParityDeleteResult = { ok: true; deleted: number } | { ok: false; er
 declare global {
   var __OH_PARITY_IMPORT_RULES__: ((specs: unknown[]) => Promise<ParityImportResult>) | undefined;
   var __OH_PARITY_DELETE_RULES__: ((uids: unknown[]) => Promise<ParityDeleteResult>) | undefined;
-}
-
-async function isParityHookEnabled(): Promise<boolean> {
-  const result = await chrome.storage.local.get('__oh_parity_hook__');
-  return result.__oh_parity_hook__ === true;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

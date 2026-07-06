@@ -74,6 +74,7 @@ import { reconcileOAuthSchedules, startOAuthScheduler } from './modules/oauth-re
 import { hydrateObservabilityLog, recordLog } from './modules/observability-log';
 import { auditHostPermissions } from './modules/permissions-audit';
 import { precompileRulePatterns, rehydrateTabTracking, restoreTrackingState } from './modules/request-tracker';
+import { installParityFireReadback } from './modules/rules/parity-fire-readback';
 import { installParityRuleImport } from './modules/rules/parity-rule-import';
 import { scheduleUpdate } from './modules/rules/rule-engine';
 import { rehydrateFromStorage as rehydrateObserverFromStorage } from './modules/rules/rule-state-observer';
@@ -103,9 +104,10 @@ const handshake = setupSyncHandshake();
 installWsFrameRouting({ handshake });
 installStatusReporters({ handshake });
 installActivityBroadcasts();
-// Dev seam for the playground's fire-evidence probe — inert unless the
-// probe sets the parity-hook flag (see the module doc).
+// Dev seams for the playground's probes/runners — inert unless the
+// driver sets the parity-hook flag (see the module docs).
 installParityRuleImport();
+installParityFireReadback();
 
 // Workspaces are bootstrapped first because every per-workspace store
 // keys its reads off the active workspace id.
