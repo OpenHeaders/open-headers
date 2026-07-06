@@ -114,6 +114,12 @@ const NotificationCard: React.FC<{ entry: NotificationEntry }> = ({ entry }) => 
                     color: token.colorPrimary,
                     cursor: 'pointer',
                   }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.textDecoration = 'underline';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.textDecoration = 'none';
+                  }}
                 >
                   {action.icon}
                   {action.label}

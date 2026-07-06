@@ -10,7 +10,7 @@
  * stacking them.
  */
 
-import { GlobalOutlined, LikeTwoTone, SmileTwoTone, StarTwoTone } from '@ant-design/icons';
+import { LikeTwoTone, SmileTwoTone } from '@ant-design/icons';
 import { getCapability } from '@openheaders/core/capabilities';
 import { useEffect } from 'react';
 import { dismissByKey, pushNotification } from './store';
@@ -58,7 +58,6 @@ export function useSeedNotifications(): void {
         actions: [
           {
             label: 'Visit our website',
-            icon: <GlobalOutlined style={{ fontSize: 13 }} />,
             tooltip: 'Open website and clear notification',
             run: () => {
               openExternal(WEBSITE_URL);
@@ -84,7 +83,6 @@ export function useSeedNotifications(): void {
         actions: [
           {
             label: 'Give us a star on GitHub',
-            icon: <StarTwoTone style={{ fontSize: 13 }} />,
             tooltip: 'Open github and clear notification',
             run: () => {
               openExternal(GITHUB_URL);
