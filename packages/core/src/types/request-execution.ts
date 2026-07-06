@@ -5,6 +5,7 @@
 
 import type { ResourceTimingEntry } from '../resource-timing';
 import type { RequestMutation, ScriptConsoleEntry, TestAssertion } from '../scripts';
+import type { CredentialsMode } from './request';
 
 /**
  * Wire bytes the executor itself serialized for the request. Only what
@@ -20,6 +21,27 @@ export interface ExecutedRequestSize {
   /** True when `bodyBytes` is an estimate — multipart bodies use a
    *  browser-generated boundary we can't observe before send. */
   bodyApproximate?: boolean;
+}
+
+/**
+ * Facts observed at the network-interception layer for the executor's
+ * own fetch — things `fetch()` withholds (Set-Cookie is a forbidden
+ * response header; the remote address is never exposed). Captured by a
+ * heuristic join from the fetch window to the extension's own
+ * webRequest traffic; absent when the join found nothing or was
+ * ambiguous (more than one candidate chain). Nothing here caches live
+ * state — `credentialsMode` records the policy this send ran under.
+ */
+export interface ExecutedWireCapture {
+  /** Server IP the final hop was sent to. */
+  ip?: string;
+  /** Raw `Set-Cookie` values across the chain's redirect hops, in
+   *  arrival order. The response CARRIED these; whether the browser
+   *  stored them depends on `credentialsMode`. */
+  setCookieHeaders?: string[];
+  /** Cookie policy the request was sent under (`'omit'` = the browser
+   *  discarded any Set-Cookie it received). */
+  credentialsMode: CredentialsMode;
 }
 
 export interface ExecutedRequestSnapshot {
@@ -52,6 +74,9 @@ export interface ExecutedRequestSnapshot {
   /** Bytes the executor serialized onto the wire for the request —
    *  absent on error snapshots. */
   requestSize?: ExecutedRequestSize;
+  /** Wire-layer capture for this fetch (remote IP, raw Set-Cookie).
+   *  Absent when nothing was captured or the join was ambiguous. */
+  wire?: ExecutedWireCapture;
   /** Non-null when the request failed before producing a response. */
   error: string | null;
   /**

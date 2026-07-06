@@ -31,6 +31,7 @@ import { refreshInterceptorsForTab, setCdpControlQuery } from '../inject-manager
 import { createPersistentWatchSessionFloors, startLifecyclePortHost } from '../lifecycle-port-host';
 import { isCacheBypassActive, registerCacheBypassReplay } from '../modules/net/cache-bypass';
 import { getNetworkConditionsForTab, registerNetworkConditionsReplay } from '../modules/net/network-conditions';
+import { registerExtensionTrafficSource } from '../modules/request-executor/wire-capture';
 import { setupOnRuleMatchedDebugBridge } from '../modules/rules/on-rule-matched-debug';
 import { getTabOverridesForTab, registerTabOverridesReplay } from '../modules/tabs/tab-overrides';
 import { startTabTelemetryFiresBridge } from '../modules/tabs/tab-telemetry-fires-bridge';
@@ -83,6 +84,10 @@ interface LifecyclePipelineHandles {
 export function startLifecyclePipeline(): LifecyclePipelineHandles {
   const tabLifecycleBus = new TabLifecycleBus();
   const lifecycleHost = startLifecycleHost({ bus: tabLifecycleBus });
+  // The executor's wire capture (Set-Cookie / remote IP) reads the
+  // adapter's extension-traffic channel — the SW's own fetches, which
+  // the lifecycle pipeline itself never consumes.
+  registerExtensionTrafficSource((listener) => lifecycleHost.webRequestSource.subscribeExtensionTraffic(listener));
   startRuleEngineDriver({ store: lifecycleHost.store, updateBadge: debouncedUpdateBadge, bus: tabLifecycleBus });
   startTabTelemetrySource({ store: lifecycleHost.store, bus: tabLifecycleBus });
 

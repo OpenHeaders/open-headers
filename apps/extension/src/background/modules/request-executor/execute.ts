@@ -21,6 +21,7 @@ import {
   startTimingCapture,
   stringBodyBytes,
 } from './timing';
+import { startWireCapture } from './wire-capture';
 
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
 
@@ -199,6 +200,13 @@ export async function executeResolved(
   // Window-scoped observer for this fetch's resource-timing entry —
   // opened right at the mark so the pick can anchor on `startedAt`.
   const capture = startTimingCapture(startedAt);
+  // Wire-layer capture (Set-Cookie, remote IP) — same window pattern,
+  // joined against the extension-traffic webRequest channel.
+  const wireCapture = startWireCapture({
+    method: req.method,
+    url: req.url,
+    credentialsMode: req.credentialsMode,
+  });
   try {
     // Every user-facing fetch routes through withHostAccess — today a
     // pass-through, tomorrow the gate for a minimal-permissions SKU.
@@ -233,6 +241,7 @@ export async function executeResolved(
     // The entry queues once the body finishes downloading — which the
     // completed text() read implies — so settle after the read.
     const timing = await capture.settle({ submittedUrl: req.url, finalUrl: response.url || req.url });
+    const wire = await wireCapture.settle();
 
     return {
       status: response.status,
@@ -244,12 +253,14 @@ export async function executeResolved(
       bodyBytes: responseBodyBytes,
       durationMs,
       ...(timing ? { timing } : {}),
+      ...(wire ? { wire } : {}),
       requestSize,
       error: null,
       scripts: null,
     };
   } catch (err) {
     capture.cancel();
+    wireCapture.cancel();
     const durationMs = Math.round(performance.now() - startedAt);
     const rawMessage = err instanceof Error ? err.message : String(err);
     // Chromium's `fetch()` opaques every non-TLS network error — DNS

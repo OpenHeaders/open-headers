@@ -100,10 +100,16 @@ function TimingLadder({ phases, totalMs }: { phases: ResponsePhase[]; totalMs: n
 }
 
 function timingContent(response: ExecutedRequestSnapshot): InfoPopoverContent {
+  // Remote address rides the timing popover — it is a connection fact,
+  // observed at the wire by the executor's capture. Absent = the wire
+  // capture saw nothing for this fetch; no address is ever guessed.
+  const ip = response.wire?.ip;
+  const connection = ip !== undefined ? { sections: [{ heading: 'Connection', items: [{ label: 'Remote address', desc: ip }] }] } : {};
   const base = {
     title: 'Timing',
     kicker: 'Response meta',
     summary: `Measured around the fetch call: ${formatPhaseMs(response.durationMs)}.`,
+    ...connection,
   };
   if (!response.timing) {
     return {

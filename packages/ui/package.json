@@ -158,6 +158,10 @@
       "import": "./src/shared/info-popover/data/http-status/index.ts",
       "default": "./dist/shared/info-popover/data/http-status/index.js"
     },
+    "./shared/info-popover/data/cookie-attributes": {
+      "import": "./src/shared/info-popover/data/cookie-attributes/index.ts",
+      "default": "./dist/shared/info-popover/data/cookie-attributes/index.js"
+    },
     "./shared/info-popover/data/*": {
       "import": "./src/shared/info-popover/data/*",
       "default": "./dist/shared/info-popover/data/*.js"

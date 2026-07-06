@@ -20,6 +20,7 @@ import type { RequestEditorLayout } from '../useRequestEditorLayout';
 import ResponseAssertionsView from './ResponseAssertionsView';
 import ResponseBodyView from './ResponseBodyView';
 import ResponseConsoleView from './ResponseConsoleView';
+import ResponseCookiesView from './ResponseCookiesView';
 import ResponseEmptyState from './ResponseEmptyState';
 import ResponseHeadersView from './ResponseHeadersView';
 import ResponseMetaStrip from './ResponseMetaStrip';
@@ -27,7 +28,7 @@ import { SplitLayoutToggle } from '@openheaders/ui/shared/split-layout';
 
 const { Text } = Typography;
 
-type ResponseTabKey = 'body' | 'headers' | 'assertions' | 'script-log';
+type ResponseTabKey = 'body' | 'headers' | 'cookies' | 'assertions' | 'script-log';
 
 interface ResponsePanelProps {
   response: ExecutedRequestSnapshot | null;
@@ -68,6 +69,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
   const preLog = scripts?.preRequest?.consoleLog ?? [];
   const postLog = scripts?.postResponse?.consoleLog ?? [];
   const hasScriptLog = preLog.length > 0 || postLog.length > 0;
+  const setCookieCount = response?.wire?.setCookieHeaders?.length ?? 0;
   const [activeTab, setActiveTab] = useState<ResponseTabKey>('body');
 
   const statusColor =
@@ -186,6 +188,15 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
               label: `Headers (${response.headers.length})`,
               children: <ResponseHeadersView headers={response.headers} />,
             },
+            ...(setCookieCount > 0 && response.wire
+              ? [
+                  {
+                    key: 'cookies' as ResponseTabKey,
+                    label: `Cookies (${setCookieCount})`,
+                    children: <ResponseCookiesView wire={response.wire} />,
+                  },
+                ]
+              : []),
             ...(assertions.length > 0
               ? [
                   {
