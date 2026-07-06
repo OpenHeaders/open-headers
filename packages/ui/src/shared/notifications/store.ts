@@ -68,6 +68,48 @@ let unseen = 0;
 let seq = 0;
 const listeners = new Set<() => void>();
 
+// ── Cross-surface acknowledge (keyed entries only) ──────────────────
+//
+// Each surface (workbench tab, devtools panel, popup) runs its own
+// module store — entries hold React nodes and action closures, so they
+// can't be shared. What CAN be shared is the acknowledgment: every
+// extension page lives on one origin, so acked dedupe keys persist in
+// localStorage and `storage` events fan the ack out to the surfaces
+// that are already open. A keyed entry acked anywhere arrives
+// pre-seen everywhere else; un-keyed entries stay surface-local.
+const ACK_STORAGE_KEY = 'oh.notificationsAckedKeys';
+const ACK_CAP = 200;
+
+function readAckedKeys(): ReadonlySet<string> {
+  try {
+    const raw = window.localStorage.getItem(ACK_STORAGE_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(parsed) ? parsed.filter((k): k is string => typeof k === 'string') : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function persistAckedKeys(keys: Iterable<string>): void {
+  try {
+    const merged = new Set(readAckedKeys());
+    for (const k of keys) merged.add(k);
+    window.localStorage.setItem(ACK_STORAGE_KEY, JSON.stringify(Array.from(merged).slice(-ACK_CAP)));
+  } catch {
+    // Storage unavailable — acks stay surface-local this session.
+  }
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (e.key !== ACK_STORAGE_KEY) return;
+    const acked = readAckedKeys();
+    if (entries.some((en) => !en.seen && en.dedupeKey !== undefined && acked.has(en.dedupeKey))) {
+      commit(entries.map((en) => (!en.seen && en.dedupeKey && acked.has(en.dedupeKey) ? { ...en, seen: true } : en)));
+    }
+  });
+}
+
 function commit(next: readonly NotificationEntry[]): void {
   entries = next;
   unseen = next.reduce((sum, e) => sum + (e.seen ? 0 : 1), 0);
@@ -86,7 +128,8 @@ export function pushNotification(input: PushNotificationInput): void {
     dedupeKey: input.dedupeKey,
     icon: input.icon,
     sticky: input.sticky,
-    seen: false,
+    // Keyed entries acknowledged on another surface arrive pre-seen.
+    seen: input.dedupeKey !== undefined && readAckedKeys().has(input.dedupeKey),
     timestamp: Date.now(),
   };
   commit([entry, ...entries]);
@@ -108,11 +151,13 @@ export function dismissByKey(dedupeKey: string): void {
 /** Clears the timeline except sticky entries, which only their producer removes. */
 export function clearAllNotifications(): void {
   if (unseen === 0 && entries.every((e) => e.sticky)) return;
+  persistAckedKeys(entries.flatMap((e) => (e.dedupeKey !== undefined ? [e.dedupeKey] : [])));
   commit(entries.filter((e) => e.sticky).map((e) => (e.seen ? e : { ...e, seen: true })));
 }
 
 export function markAllNotificationsSeen(): void {
   if (unseen === 0) return;
+  persistAckedKeys(entries.flatMap((e) => (e.dedupeKey !== undefined ? [e.dedupeKey] : [])));
   commit(entries.map((e) => (e.seen ? e : { ...e, seen: true })));
 }
 

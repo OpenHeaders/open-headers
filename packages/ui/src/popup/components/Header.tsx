@@ -1,7 +1,8 @@
-import { BellOutlined, NodeExpandOutlined, SettingOutlined } from '@ant-design/icons';
+import { NodeExpandOutlined, SettingOutlined } from '@ant-design/icons';
 import { hostAssets } from '@openheaders/core/assets';
 import { hostNavigation } from '@openheaders/core/navigation';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
+import { NotificationsIcon } from '@openheaders/ui/shared/notifications';
 import { useSurface } from '@openheaders/ui/shared/surface';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 import { useSetting, useSettingsReady } from '@openheaders/ui/workbench/settings/hooks';
@@ -175,7 +176,7 @@ const Header: React.FC = () => {
           <Button
             type="text"
             size="small"
-            icon={<BellOutlined />}
+            icon={<NotificationsIcon />}
             onClick={() => {
               void openWorkspace({ kind: 'open-notifications' }, surface.mode);
             }}

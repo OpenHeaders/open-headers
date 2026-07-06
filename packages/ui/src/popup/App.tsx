@@ -18,6 +18,7 @@ import {
 } from '@openheaders/ui/context';
 import { AwarenessIdentityProvider, type SurfaceIdentityHandle } from '@openheaders/ui/shared/awareness';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
+import { useAppUpdateNotification, useSeedNotifications } from '@openheaders/ui/shared/notifications';
 import { useSurface } from '@openheaders/ui/shared/surface';
 import { VariablePopoverProvider } from '@openheaders/ui/workbench/components/template-input/VariablePopoverHost';
 import { EnvSwitcherProvider } from '@openheaders/ui/workbench/services/env-switcher';
@@ -44,6 +45,12 @@ const AppInner: React.FC<AppInnerProps> = ({ tourOpen, onTourClose }) => {
   const { isDarkMode } = useTheme();
   const surface = useSurface();
   const { containerRef, isShortcutsOverlayVisible, setIsShortcutsOverlayVisible } = useKeyboardNav();
+
+  // Populate the local notifications store so the header bell's unseen
+  // dot reflects the same pending nudges/updates as the workbench —
+  // cross-surface acknowledge rides the shared localStorage ack keys.
+  useAppUpdateNotification();
+  useSeedNotifications();
 
   return (
     <div
