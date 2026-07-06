@@ -16,11 +16,13 @@ export function useSeedNotifications(): void {
   useEffect(() => {
     pushNotification({
       severity: 'info',
-      icon: <SmileTwoTone />,
       title: 'Help Us Grow',
       description: (
         <>
-          Help us grow and reach more developers.
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <SmileTwoTone style={{ fontSize: 13 }} />
+            Help us grow and reach more developers.
+          </span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
             <LikeTwoTone style={{ fontSize: 13 }} />
             Recommend us to your friends &amp; colleagues
