@@ -43,7 +43,7 @@ const QueryParamRuleFields: React.FC<QueryParamRuleFieldsProps> = ({ ruleUid }) 
             title: 'Actions',
             summary: 'Adds, replaces, or removes query parameters on matching request URLs.',
             description:
-              'Remove All strips the entire query string — other operations in the same rule are ignored when it is present.',
+              'Remove All strips the entire query string; Add / Replace entries in the same rule then become the new query. Replace Only and Remove entries have nothing left to act on and are ignored alongside Remove All.',
           }}
           docId={getDocId('query-param', 'action')}
         />
@@ -52,14 +52,19 @@ const QueryParamRuleFields: React.FC<QueryParamRuleFieldsProps> = ({ ruleUid }) 
         {({ getFieldValue }) => {
           const rows = (getFieldValue('queryParams') as Array<{ operation: string }> | undefined) ?? [];
           const hasRemoveAll = rows.some((p) => p.operation === 'remove-all');
-          const hasOtherOps = rows.some((p) => p.operation !== 'remove-all');
-          if (!(hasRemoveAll && hasOtherOps)) return null;
+          // Add / Replace DOES compose with Remove All (the adds become the
+          // whole new query string), so only the genuinely inert combinations
+          // warn. A "separate rule" can NOT stack params after removal —
+          // overlapping URL-transform rules don't compose at the network
+          // layer — so the composition must live inside this rule.
+          const hasInertOps = rows.some((p) => p.operation === 'override' || p.operation === 'remove');
+          if (!(hasRemoveAll && hasInertOps)) return null;
           return (
             <Alert
               type="warning"
               showIcon
               style={{ marginBottom: 8, fontSize: 12 }}
-              message="Remove All will strip the entire query string. Other operations in this rule will be ignored. Use a separate rule to add params after removal."
+              message="Remove All strips the entire query string, so Replace Only and Remove entries have nothing to act on and are ignored. Add / Replace entries still apply — they become the new query."
             />
           );
         }}

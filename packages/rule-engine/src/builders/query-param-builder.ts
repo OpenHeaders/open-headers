@@ -67,7 +67,16 @@ export const queryParamCompiler: RuleCompiler<QueryParamRule> = {
     const cleanBase = stripResourceTypeFields(base);
 
     const redirect: DnrRule['action']['redirect'] = removeAll
-      ? { transform: { query: '' } }
+      ? (() => {
+          // Full-query replacement — the only DNR shape that composes
+          // remove-all with adds in ONE action: the query is cleared and
+          // the Add / Replace entries become the entire new query string.
+          // Replace Only and Remove entries have nothing left to act on.
+          const adds = addOrReplaceParams.filter((p) => !p.replaceOnly);
+          if (adds.length === 0) return { transform: { query: '' } };
+          const query = adds.map((p) => `${encodeURIComponent(p.key)}=${encodeURIComponent(p.value)}`).join('&');
+          return { transform: { query: `?${query}` } };
+        })()
       : (() => {
           const queryTransform: NonNullable<DnrRedirect['transform']>['queryTransform'] = {};
           if (addOrReplaceParams.length > 0) queryTransform.addOrReplaceParams = addOrReplaceParams;
