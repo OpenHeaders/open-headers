@@ -10,15 +10,10 @@
  *   - No log installed → entry dropped, count incremented.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
 import type { MaterializedEntity, MutationEnvelope } from '@openheaders/core/sync';
-import {
-  InMemoryActivityLog,
-  __resetActivityPriorsForTests,
-  rememberPriorForMutation,
-} from '@openheaders/oracle/sync';
 import type { OracleSyncBroadcastEvent } from '@openheaders/oracle/sync';
+import { __resetActivityPriorsForTests, InMemoryActivityLog, rememberPriorForMutation } from '@openheaders/oracle/sync';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const hasRecentlyAppliedMock = vi.fn<(id: string) => boolean>(() => false);
 const materializeOneMock = vi.fn<(type: string, id: string) => MaterializedEntity | null>(() => null);
@@ -111,14 +106,27 @@ describe('observeForActivityFeed (desktop)', () => {
     expect((await log.list(WS)).length).toBe(0);
   });
 
+  it('classifies MCP-surface envelopes into the feed despite being local emits', async () => {
+    const log = new InMemoryActivityLog();
+    setActivityLog(log);
+    hasRecentlyAppliedMock.mockReturnValue(false);
+
+    const mcpEvent = event('m1', { kind: 'create', type: 'rule', id: 'r1', payload: {} });
+    (mcpEvent.envelope.origin as { surfaceId: string }).surfaceId = 'mcp';
+    observeForActivityFeed(mcpEvent);
+    await Promise.resolve();
+
+    const rows = await log.list(WS);
+    expect(rows.length).toBe(1);
+    expect(rows[0].kind).toBe('create-entity');
+  });
+
   it('skips non-applied outcomes', async () => {
     const log = new InMemoryActivityLog();
     setActivityLog(log);
     hasRecentlyAppliedMock.mockReturnValue(true);
 
-    observeForActivityFeed(
-      event('m1', { kind: 'create', type: 'rule', id: 'r1', payload: {} }, 'superseded-by-hlc'),
-    );
+    observeForActivityFeed(event('m1', { kind: 'create', type: 'rule', id: 'r1', payload: {} }, 'superseded-by-hlc'));
     await Promise.resolve();
 
     expect((await log.list(WS)).length).toBe(0);

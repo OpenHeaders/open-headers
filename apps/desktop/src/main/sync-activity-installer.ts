@@ -19,24 +19,28 @@
  * Inbound detection rides the same wire-side seen-set the extension uses
  * (`hasRecentlyApplied`) — the mutation-stream bridge sets it for every
  * envelope routed from a peer over the WS server. Local-emit envelopes
- * never enter the set and are skipped by the classifier.
+ * never enter the set and are skipped by the classifier — with one
+ * exception: MCP-minted envelopes (`origin.surfaceId === MCP_SURFACE_ID`)
+ * are an agent surface, so they classify into the feed like a peer's
+ * (the MCP write path captures their priors + inverses so Revert works).
  *
  * Append is fire-and-forget so apply latency is unaffected by SQLite
  * latency; a failed write is logged but never crashes the apply path.
  */
 
+import { hostLogger as logger } from '@openheaders/core/logger';
 import type { ActivityEntry } from '@openheaders/core/sync';
 import {
+  type ActivityLog,
   classifyEnvelopeForActivity,
   consumePriorForMutation,
   ensureMutesLoaded,
   getOracleForWorkspace,
   hasRecentlyApplied,
   isMutedForActivityFeed,
-  type ActivityLog,
   type OracleSyncBroadcastEvent,
 } from '@openheaders/oracle/sync';
-import { hostLogger as logger } from '@openheaders/core/logger';
+import { MCP_SURFACE_ID } from '@openheaders/oracle-host-node/mcp';
 
 const SCOPE = 'SyncActivity';
 
@@ -93,7 +97,10 @@ export async function countUnreadActivityEntries(workspaceId: string): Promise<n
  * {@link setActivityLog}; entries are dropped + counted in that window.
  */
 export function observeForActivityFeed(event: OracleSyncBroadcastEvent): void {
-  const isInbound = hasRecentlyApplied(event.envelope.mutationId);
+  // Feed-worthy = wire-delivered from a peer OR minted by the MCP agent
+  // surface. Both are "someone other than this window's user changed the
+  // workspace"; both carry bridge-captured priors for classification.
+  const isInbound = hasRecentlyApplied(event.envelope.mutationId) || event.envelope.origin.surfaceId === MCP_SURFACE_ID;
   // Drain the prior unconditionally so it cannot leak when an envelope
   // turns out to be non-inbound or non-applied — the bridge captured it
   // speculatively for every wire-delivered envelope.

@@ -11,6 +11,7 @@ export { createMcpHttpHandler, type McpHttpHandler, type McpHttpHandlerOptions }
 export { gateMcpToolCall, McpPermissionDeniedError, type McpPolicy } from './policy';
 export {
   createMcpToolRegistry,
+  MCP_SURFACE_ID,
   type McpToolCallContext,
   type McpToolDefinition,
   McpToolInputError,
@@ -19,3 +20,4 @@ export {
 } from './registry';
 export { type CreateMcpServerOptions, createMcpServer, MCP_SERVER_NAME } from './server';
 export { createReadToolDefinitions } from './tools/read-tools';
+export { createWriteToolDefinitions } from './tools/write-tools';

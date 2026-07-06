@@ -1,6 +1,7 @@
 /**
  * Desktop MCP server install — engine-opaque wiring only. Builds the
- * read-tool registry, reads the MCP settings from `OH.settingsUser`
+ * tool registry (read + write tiers; tier gating is per call in the
+ * engine), reads the MCP settings from `OH.settingsUser`
  * (same dotted-key record the daemon bind supervisor reads), and hands
  * back the HTTP handler the daemon bind composes onto its socket.
  *
@@ -20,6 +21,7 @@ import {
   createMcpHttpHandler,
   createMcpToolRegistry,
   createReadToolDefinitions,
+  createWriteToolDefinitions,
   type McpHttpHandler,
   type McpPolicy,
   type McpToolTier,
@@ -48,7 +50,7 @@ export async function installMcpServer(): Promise<McpServerInstall> {
   });
 
   const handler = createMcpHttpHandler({
-    registry: createMcpToolRegistry(createReadToolDefinitions()),
+    registry: createMcpToolRegistry([...createReadToolDefinitions(), ...createWriteToolDefinitions()]),
     isEnabled: () => current.enabled,
     getPolicy: () => current.policy,
     serverVersion: app.getVersion(),

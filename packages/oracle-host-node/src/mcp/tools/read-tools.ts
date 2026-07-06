@@ -35,43 +35,7 @@ import {
 import { getSyncPersistenceProvider } from '@openheaders/oracle/sync/sync-persistence-provider';
 import { getActiveWorkspaceId, listWorkspaces } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { type McpToolDefinition, McpToolInputError } from '../registry';
-
-// ── Workspace resolution ────────────────────────────────────────────
-
-const WORKSPACE_ID_PROPERTY = {
-  workspaceId: {
-    type: 'string',
-    description: 'Target workspace id. Omit to use the active workspace (see workspaces_list).',
-  },
-} as const;
-
-function resolveWorkspaceIdArg(args: Record<string, unknown>): string | undefined {
-  const raw = args.workspaceId;
-  if (typeof raw === 'string' && raw.length > 0) return raw;
-  return peekActiveWorkspaceId() ?? undefined;
-}
-
-/**
- * Resolve + validate the workspace a tool call targets. Throws
- * agent-readable errors for the three failure shapes: no workspace
- * context at all, an id this host has never seen, and a known-but-not-
- * loaded workspace (snapshots would silently read `[]`).
- */
-function requireWorkspace(args: Record<string, unknown>): string {
-  const id = resolveWorkspaceIdArg(args);
-  if (id === undefined) {
-    throw new McpToolInputError('no active workspace on this host — pass workspaceId (see workspaces_list)');
-  }
-  if (getOracleForWorkspace(id) === null) {
-    const known = listWorkspaces().some((ws) => ws.id === id);
-    throw new McpToolInputError(
-      known
-        ? `workspace '${id}' exists but is not loaded on this host yet — open it in Open Headers first`
-        : `unknown workspace '${id}' — valid ids come from workspaces_list`,
-    );
-  }
-  return id;
-}
+import { requireWorkspace, resolveWorkspaceIdArg, WORKSPACE_ID_PROPERTY } from './common';
 
 // ── Secret-safe variable projection ────────────────────────────────
 

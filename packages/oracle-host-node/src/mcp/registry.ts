@@ -20,6 +20,14 @@ import type { Capability } from '@openheaders/core/identity';
  */
 export type McpToolTier = 'read' | 'write' | 'execute' | 'secrets';
 
+/**
+ * `MutatorContext.surfaceId` every MCP-minted envelope carries. Hosts
+ * key agent-surface behavior off it — notably the Activity Feed, which
+ * classifies MCP mutations like peer-sourced ones (a local UI emit is
+ * the user's own gesture; an agent's is worth surfacing + reverting).
+ */
+export const MCP_SURFACE_ID = 'mcp';
+
 /** Identity of the daemon token that authenticated the calling client. */
 export interface McpToolCallContext {
   readonly tokenId: string;

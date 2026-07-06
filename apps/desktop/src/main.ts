@@ -28,30 +28,36 @@
  */
 
 import { app } from 'electron';
-import { installRpcHost } from './main/install-rpc-host';
 import { installAboutPanel } from './main/bootstrap/about-panel';
 import { installApplicationMenu } from './main/bootstrap/application-menu';
 import { installChromiumSwitches } from './main/bootstrap/cli-switches';
 import { installExternalLinkHandler } from './main/bootstrap/external-links';
-import {
-  drainPendingProtocolUrls,
-  installProtocolHandler,
-  registerAsProtocolHandler,
-} from './main/bootstrap/protocol';
 import { createLogger, installMainLogger } from './main/bootstrap/logger';
 import { installProcessDiagnostics } from './main/bootstrap/process-diagnostics';
+import { drainPendingProtocolUrls, installProtocolHandler, registerAsProtocolHandler } from './main/bootstrap/protocol';
 import { markQuitting } from './main/bootstrap/quit-state';
 import { installRpcQueue } from './main/bootstrap/rpc-queue';
 import { enforceSingleInstanceLock } from './main/bootstrap/single-instance';
 import { installStartupDataBridge } from './main/bootstrap/startup-data-bridge';
 import { installTray } from './main/bootstrap/tray';
 import { createMainWindow, showMainWindow } from './main/bootstrap/window-manager';
+import { installRpcHost } from './main/install-rpc-host';
 
 const APP_DISPLAY_NAME = 'Open Headers';
 
 const logger = createLogger('main');
 
 // ── Eval-time wiring ──────────────────────────────────────────────
+
+// userData override — must land before ANY consumer of
+// `app.getPath('userData')`: the logger writes there, storage/persistence
+// key off it, and the single-instance lock is scoped to it (so an
+// overridden instance never races a real install). E2E harnesses point
+// this at a temp dir to run a fully isolated app.
+const userDataOverride = process.env.OPENHEADERS_USER_DATA_DIR;
+if (userDataOverride) {
+  app.setPath('userData', userDataOverride);
+}
 
 // Chromium command-line switches must precede `app` initialization —
 // they're consumed once at network-stack construction.
