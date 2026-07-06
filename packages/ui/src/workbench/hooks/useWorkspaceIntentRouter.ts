@@ -9,7 +9,7 @@
  *      intent (`hashToIntent`). Fresh workspace tabs opened from a
  *      popup/sidepanel navigator dispatch land here. Preserves the
  *      existing URL formats so bookmarks like `workbench.html#/docs/
- *      doc-system-status` still work byte-identically.
+ *      system-status` still work byte-identically.
  *   2. **Warm** — subscribe to `workspace-intent` broadcasts delivered
  *      via `chrome.tabs.sendMessage` by the SW navigator when this
  *      tab is reused (focus-or-create). The tab's layout is already

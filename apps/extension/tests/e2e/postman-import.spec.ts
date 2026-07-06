@@ -169,7 +169,6 @@ interface V5Collection {
   uid: string;
   name: string;
   path: string;
-  version: number;
 }
 
 interface V5Folder {
@@ -331,7 +330,7 @@ test.describe('Phase 11 — Postman import', () => {
 
       // ── Assert collection landed ────────────────────────────
       expect(collection.name).toBe('Phase 11 Test Collection');
-      expect(collection.version).toBe(1);
+      expect(collection.uid).toBeTruthy();
 
       // ── Assert folders landed in the right parent ──────────
       const folderResp = (await rpc(page, 'getLocalRequestFolders')) as { folders: V5Folder[] };

@@ -4,13 +4,14 @@
  * existing openers (docs scroll, rule editor, etc.).
  *
  * Scenarios from V5_FOUNDATION_PLAN.md §Phase 9 verification:
- *   • Cold start — navigate to `workbench.html#/docs/doc-system-status`
- *     → docs panel opens + auto-scrolls to the section.
+ *   • Cold start — navigate to `workbench.html#/docs/system-status`
+ *     → docs panel opens on that section (the panel is a paged
+ *     reader: the requested section becomes the active page).
  *   • Warm start — with a workspace tab already open, dispatch
  *     `{ type: 'workspace-intent', intent }` from the SW via
  *     `chrome.tabs.sendMessage` (the exact path the navigator's warm
  *     path uses) → renderer's intent router routes it through the
- *     same opener → docs panel opens + scrolls.
+ *     same opener → docs panel opens on the section.
  *
  * Requires `pnpm --filter @openheaders/extension build:chrome` before
  * running, same as the other e2e files.
@@ -56,61 +57,38 @@ async function openWorkspace(hash = ''): Promise<Page> {
 }
 
 async function expectDocsPanelVisible(page: Page): Promise<void> {
-  const docsPanel = page.locator('.workbench-right-panel--docs');
+  const docsPanel = page.locator('.rules-right-panel--docs');
   await expect(docsPanel).toBeVisible({ timeout: 10000 });
 }
 
 /**
- * Wait for a docs section to be scrolled into the visible viewport of
- * its scrolling container. The docs router's `pin` routine writes
- * `scrollTop` imperatively so we poll the section's bounding rect
- * against the panel's rect instead of relying on `scrollIntoView`
- * promises (which don't exist for imperative writes).
+ * Wait for the docs panel to show the requested section. The panel is
+ * a paged reader (one section at a time) and stamps the active section
+ * id on its root as `data-active-section`.
  */
-async function expectSectionInViewport(page: Page, sectionId: string): Promise<void> {
-  await expect
-    .poll(
-      async () =>
-        await page.evaluate((id: string) => {
-          const el = document.getElementById(id);
-          if (!el) return false;
-          // Find the nearest scrolling ancestor with vertical overflow —
-          // in practice this is the DocsPanel's body div.
-          let container: HTMLElement | null = el.parentElement;
-          while (container && container !== document.body) {
-            const style = window.getComputedStyle(container);
-            if (style.overflowY === 'auto' || style.overflowY === 'scroll') break;
-            container = container.parentElement;
-          }
-          if (!container) return false;
-          const panelRect = container.getBoundingClientRect();
-          const sectionRect = el.getBoundingClientRect();
-          // Section's top edge must sit inside the panel's box.
-          return sectionRect.top >= panelRect.top - 2 && sectionRect.top <= panelRect.bottom;
-        }, sectionId),
-      { timeout: 10000, message: `expected #${sectionId} to scroll into the docs panel viewport` },
-    )
-    .toBe(true);
+async function expectActiveSection(page: Page, sectionId: string): Promise<void> {
+  const panel = page.locator(`.rules-right-panel--docs[data-active-section="${sectionId}"]`);
+  await expect(panel).toBeVisible({ timeout: 10000 });
 }
 
 // ── Cold-start ──────────────────────────────────────────────────────
 
 test.describe('Workspace Intent — cold start', () => {
-  test('hash #/docs/doc-system-status opens the docs panel + scrolls to the section', async () => {
-    const page = await openWorkspace('#/docs/doc-system-status');
+  test('hash #/docs/system-status opens the docs panel on the section', async () => {
+    const page = await openWorkspace('#/docs/system-status');
     try {
       await expectDocsPanelVisible(page);
-      await expectSectionInViewport(page, 'doc-system-status');
+      await expectActiveSection(page, 'system-status');
     } finally {
       await page.close();
     }
   });
 
-  test('hash #/docs/doc-multi-tab opens the docs panel + scrolls to the new multi-tab section', async () => {
-    const page = await openWorkspace('#/docs/doc-multi-tab');
+  test('hash #/docs/multi-tab opens the docs panel on the multi-tab section', async () => {
+    const page = await openWorkspace('#/docs/multi-tab');
     try {
       await expectDocsPanelVisible(page);
-      await expectSectionInViewport(page, 'doc-multi-tab');
+      await expectActiveSection(page, 'multi-tab');
     } finally {
       await page.close();
     }
@@ -157,7 +135,7 @@ test.describe('Workspace Intent — warm path', () => {
             await new Promise<void>((resolve) => {
               chrome.tabs.sendMessage(
                 tabId,
-                { type: 'workspace-intent', intent: { kind: 'open-docs', section: 'doc-system-status' } },
+                { type: 'workspace-intent', intent: { kind: 'open-docs', section: 'system-status' } },
                 () => {
                   // Read lastError to quiet Chrome's "Unchecked
                   // runtime.lastError" warning; we don't care about
@@ -175,10 +153,10 @@ test.describe('Workspace Intent — warm path', () => {
       );
 
       // Step 3: the renderer's intent router received the message,
-      // called `openDocs('doc-system-status')`, the docs panel opened,
-      // and the scroll-pin effect brought the section into view.
+      // called `openDocs('system-status')`, and the docs panel opened
+      // on that section.
       await expectDocsPanelVisible(page);
-      await expectSectionInViewport(page, 'doc-system-status');
+      await expectActiveSection(page, 'system-status');
     } finally {
       await page.close();
     }
@@ -251,7 +229,7 @@ test.describe('Workspace Intent — multi-window navigator', () => {
             chrome.runtime.sendMessage(
               {
                 type: 'openWorkspaceIntent',
-                intent: { kind: 'open-docs', section: 'doc-multi-tab' },
+                intent: { kind: 'open-docs', section: 'multi-tab' },
                 callerContext: { callerWindowId },
               },
               (response) => {
@@ -267,21 +245,17 @@ test.describe('Workspace Intent — multi-window navigator', () => {
       // Sanity: navigator acknowledged delivery (warm path).
       expect(result).toMatchObject({ ok: true, path: 'warm' });
 
-      // page1 should have received the intent and scrolled its docs
-      // panel to the multi-tab section.
+      // page1 should have received the intent and opened its docs
+      // panel on the multi-tab section.
       await expectDocsPanelVisible(page1);
-      await expectSectionInViewport(page1, 'doc-multi-tab');
+      await expectActiveSection(page1, 'multi-tab');
 
-      // page2 in the other window must be untouched. Its docs panel
-      // should not be open (RuleContext defaults with docs closed),
-      // AND its #doc-multi-tab section — even if the panel WERE open —
-      // should not have been scrolled into view. The strict check:
-      // the panel is not in the visible DOM.
-      const page2DocsVisible = await page2
-        .locator('.workbench-right-panel--docs')
-        .isVisible()
-        .catch(() => false);
-      expect(page2DocsVisible).toBe(false);
+      // page2 in the other window must be untouched. The default
+      // layout opens the Docs dock on every fresh workbench, so
+      // "untouched" means the panel was never navigated: it must NOT
+      // be showing the dispatched section.
+      const page2Navigated = await page2.locator('.rules-right-panel--docs[data-active-section="multi-tab"]').count();
+      expect(page2Navigated).toBe(0);
     } finally {
       await page1.close();
       await page2.close();
@@ -346,7 +320,7 @@ test.describe('Workspace Intent — multi-window navigator', () => {
             chrome.runtime.sendMessage(
               {
                 type: 'openWorkspaceIntent',
-                intent: { kind: 'open-docs', section: 'doc-system-status' },
+                intent: { kind: 'open-docs', section: 'system-status' },
                 callerContext: { callerWindowId },
               },
               (response) => {

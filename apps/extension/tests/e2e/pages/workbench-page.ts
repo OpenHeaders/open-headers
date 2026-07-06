@@ -105,9 +105,12 @@ export class WorkbenchPage {
     await row.click();
   }
 
-  /** Click Send in the active (visible) request editor. */
+  /** Click Send in the active (visible) request editor. The name match
+   *  anchors on end-of-string: the accessible name is "caret-right Send"
+   *  (icon + label) and a bare substring 'Send' also matches the Settings
+   *  tab's "About Send browser cookies" info trigger. */
   async send(): Promise<void> {
-    await this.page.getByRole('button', { name: 'Send' }).filter({ visible: true }).click();
+    await this.page.getByRole('button', { name: /Send$/ }).filter({ visible: true }).click();
   }
 
   /** Wait for the response status chip in the active editor; return its text. */
@@ -238,8 +241,12 @@ export class WorkbenchPage {
    * exception as the status chip).
    */
   async responseEcho<T = unknown>(): Promise<T> {
+    // The Pretty/Raw switch is an Ant Segmented: its radio inputs are
+    // visually hidden (a `visible` role=radio filter matches nothing) —
+    // click the segmented item label instead.
     const rawToggle = this.responseRegion()
-      .getByRole('radio', { name: 'Raw', exact: true })
+      .locator('.ant-segmented-item')
+      .filter({ hasText: /^Raw$/ })
       .filter({ visible: true })
       .first();
     await rawToggle.waitFor({ state: 'visible', timeout: 15000 });

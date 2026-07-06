@@ -332,6 +332,7 @@ const DocsPanel: React.FC<DocsPanelProps> = ({ groups, defaultSectionId, info, o
       // biome-ignore lint/a11y/noNoninteractiveTabindex: keyboard pager listens on root via tabIndex
       tabIndex={-1}
       className="rules-right-panel rules-right-panel--docs"
+      data-active-section={activeId}
       style={{ display: 'flex', flexDirection: 'column', height: '100%', outline: 'none' }}
     >
       <PanelHeader wiring={wiring} title={<strong>Docs</strong>} info={info} />

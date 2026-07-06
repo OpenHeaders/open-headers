@@ -123,15 +123,19 @@ test.describe('Header', () => {
 // Footer
 // ---------------------------------------------------------------------------
 test.describe('Footer', () => {
-  test('displays version number in vX.Y.Z format', async () => {
-    const footer = page.locator('.footer');
-    const text = await footer.textContent();
-    expect(text).toMatch(/v\d+\.\d+\.\d+/);
+  test('has the Network Debug entry point', async () => {
+    const debugButton = page.locator('.footer .debug-network-button');
+    await expect(debugButton).toBeVisible();
   });
 
-  test('has website link (globe icon)', async () => {
-    const globeIcon = page.locator('.footer .anticon-global').first();
-    await expect(globeIcon).toBeVisible();
+  test('has the system-status pill', async () => {
+    const statusPill = page.locator('.footer .footer-system-status');
+    await expect(statusPill).toBeVisible();
+  });
+
+  test('has the keyboard-shortcuts help key', async () => {
+    const helpKey = page.locator('.footer .oh-help-shortcut');
+    await expect(helpKey).toBeVisible();
   });
 });
 
@@ -150,7 +154,6 @@ test.describe('Disconnected State', () => {
     const entriesList = page.locator('.entries-list');
     await expect(entriesList).toBeVisible();
   });
-
 });
 
 // ---------------------------------------------------------------------------
