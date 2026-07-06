@@ -51,8 +51,12 @@ const SEVERITY_ICON: Record<NotificationSeverity, React.ReactNode> = {
   error: <CloseCircleFilled style={{ color: '#ff4d4f' }} />,
 };
 
+// Fixed 24-hour clock: the browser locale reflects the Chrome UI
+// language (often en-US), not the OS region format, so locale-driven
+// formatting shows AM/PM to users whose system runs a 24-hour clock.
+// Log timestamps follow the devtools/IDE convention instead.
 function formatTime(ts: number): string {
-  return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
 }
 
 const NotificationCard: React.FC<{ entry: NotificationEntry }> = ({ entry }) => {
