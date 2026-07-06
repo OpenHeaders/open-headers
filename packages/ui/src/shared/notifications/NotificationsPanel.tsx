@@ -123,11 +123,16 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ info, onClose }
   const wiring = useMemo(() => createPanelHeaderWiring({ onHide: onClose }), [onClose]);
   const entries = useNotifications();
 
-  // Viewing the panel acknowledges everything, including entries that
-  // arrive while it stays open.
-  useEffect(() => {
-    markAllNotificationsSeen();
-  }, [entries]);
+  // Acknowledge on CLOSE, not on open: the bell dot stays lit while the
+  // panel is up (including for entries that arrive mid-view) and clears
+  // when the user leaves it — closing is the "I've seen these" gesture.
+  // A fresh entry after that re-lights the dot.
+  useEffect(
+    () => () => {
+      markAllNotificationsSeen();
+    },
+    [],
+  );
 
   return (
     <div

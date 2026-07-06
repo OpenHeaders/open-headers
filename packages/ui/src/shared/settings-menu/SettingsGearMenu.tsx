@@ -287,7 +287,9 @@ const SettingsGearMenu: React.FC<SettingsGearMenuProps> = ({ onOpenSettings, ope
       arrow={false}
       overlayInnerStyle={{ padding: 6 }}
     >
-      <Tooltip title="Settings" placement="bottomRight">
+      {/* Force-hide the tooltip while the menu is open — otherwise both
+          popups stack under the gear. */}
+      <Tooltip title="Settings" placement="bottomRight" open={open ? false : undefined}>
         <div style={{ position: 'relative', display: 'inline-flex' }}>
           <Button size="small" type="text" icon={<SettingOutlined />} aria-label="Settings menu" />
           {showDot && (
