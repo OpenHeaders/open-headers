@@ -11,3 +11,4 @@ export { MultiTabSection } from './multi-tab';
 export { RequestTrackingSection } from './request-tracking';
 export { ResourceTypeTable } from './resource-type-table';
 export { SystemStatusSection } from './system-status';
+export { VariablesSection } from './variables';

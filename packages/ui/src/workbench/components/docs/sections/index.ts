@@ -25,6 +25,7 @@ export {
   MultiTabSection,
   RequestTrackingSection,
   SystemStatusSection,
+  VariablesSection,
 } from './concepts';
 export { ConditionsSection } from './conditions';
 export { ComparisonSection, ParadigmSection, RoadmapSection } from './open-headers';

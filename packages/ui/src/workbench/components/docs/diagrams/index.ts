@@ -24,18 +24,18 @@ export {
   UrlRegexDiagram,
 } from './conditions';
 export {
+  DebugModeReachDiagram,
+  DebugModeScopeDiagram,
+  DebugModeStatesDiagram,
+  DebugModeSurfaceDiagram,
+} from './debug-mode';
+export {
   DelayNavDiagram,
   DelayRoutingDiagram,
   DelayUseCasesDiagram,
   DelayWontApplyDiagram,
   DelayXhrDiagram,
 } from './delay';
-export {
-  DebugModeReachDiagram,
-  DebugModeScopeDiagram,
-  DebugModeStatesDiagram,
-  DebugModeSurfaceDiagram,
-} from './debug-mode';
 export { DirectVsIndirectDiagram } from './direct-vs-indirect';
 export { ExecutionDnrReachDiagram, ExecutionScriptReachDiagram, ExecutionStackDiagram } from './execution';
 export {
@@ -140,3 +140,10 @@ export {
   VaultDriftDetailDiagram,
   VaultHydrationDiagram,
 } from './system-status';
+export {
+  VariablesConsumersDiagram,
+  VariablesCreationMapDiagram,
+  VariablesLiveLifecycleDiagram,
+  VariablesResolutionLadderDiagram,
+  VariablesShadowingDiagram,
+} from './variables';

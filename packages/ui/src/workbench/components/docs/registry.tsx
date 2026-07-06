@@ -23,6 +23,7 @@ import {
   DeploymentUnitOutlined,
   FilterOutlined,
   ForwardOutlined,
+  FunctionOutlined,
   KeyOutlined,
   LinkOutlined,
   ProfileOutlined,
@@ -63,6 +64,7 @@ import {
   ResourceTypesSection,
   RoadmapSection,
   SystemStatusSection,
+  VariablesSection,
 } from './sections';
 
 export type { DocGroup, DocSection };
@@ -117,6 +119,14 @@ export const DOC_GROUPS: DocGroup[] = [
         group: 'concepts',
         icon: <ThunderboltOutlined />,
         Component: ActionsSection,
+      },
+      {
+        id: 'variables',
+        title: 'Variables',
+        summary: 'Five scopes of {{variables}} — vault, environment, collection, workspace, live — and how they resolve.',
+        group: 'concepts',
+        icon: <FunctionOutlined />,
+        Component: VariablesSection,
       },
       {
         id: 'request-tracking',
