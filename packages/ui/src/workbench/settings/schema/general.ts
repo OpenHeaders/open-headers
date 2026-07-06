@@ -132,7 +132,7 @@ registerSetting({
 registerSetting({
   key: 'general.settingsShowCategoryLabels',
   type: 'boolean',
-  default: false,
+  default: true,
   schema: v.boolean(),
   label: 'Show Category Names in Settings Sidebar',
   description:
