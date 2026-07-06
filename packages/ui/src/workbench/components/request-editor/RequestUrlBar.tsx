@@ -85,20 +85,28 @@ const RequestUrlBar: React.FC<RequestUrlBarProps> = ({ draft, setDraft, urlUnres
     });
   };
 
-  // Default list = the seven verbs + saved customs. Searching widens the
-  // pool to the extended verbs; a typed token that matches nothing gets
-  // a trailing "Use …" entry so any custom method is one Enter away.
-  const methodOptions = useMemo<MethodOption[]>(() => {
-    const q = methodSearch.trim().toUpperCase();
-    const base: string[] = [...METHODS, ...customMethods.filter((m) => !METHODS.includes(m as HttpMethod))];
-    const pool = q ? [...base, ...EXTENDED_METHODS.filter((m) => !base.includes(m))] : base;
-    const visible = q ? pool.filter((m) => m.includes(q)) : pool;
-    const options: MethodOption[] = visible.map((m) => ({
+  // Default list = the seven verbs, then saved customs under their own
+  // group caption (the group border doubles as a divider). Searching
+  // flattens to one filtered list widened by the extended verbs; a
+  // typed token that matches nothing gets a trailing "Use …" entry so
+  // any custom method is one Enter away.
+  const methodOptions = useMemo<(MethodOption | { label: React.ReactNode; options: MethodOption[] })[]>(() => {
+    const toOption = (m: string): MethodOption => ({
       value: m,
       label: methodLabel(m),
       custom: customMethods.includes(m),
-    }));
-    if (q && METHOD_TOKEN.test(q) && !FORBIDDEN_METHODS.has(q) && !visible.includes(q)) {
+    });
+    const q = methodSearch.trim().toUpperCase();
+    const customs = customMethods.filter((m) => !METHODS.includes(m as HttpMethod));
+    if (!q) {
+      const standard: (MethodOption | { label: React.ReactNode; options: MethodOption[] })[] = METHODS.map(toOption);
+      if (customs.length > 0) standard.push({ label: 'Custom', options: customs.map(toOption) });
+      return standard;
+    }
+    const pool = [...METHODS, ...customs, ...EXTENDED_METHODS.filter((m) => !customs.includes(m))];
+    const visible = pool.filter((m) => m.includes(q));
+    const options: MethodOption[] = visible.map(toOption);
+    if (METHOD_TOKEN.test(q) && !FORBIDDEN_METHODS.has(q) && !visible.includes(q)) {
       options.push({
         value: q,
         label: (
@@ -126,7 +134,7 @@ const RequestUrlBar: React.FC<RequestUrlBarProps> = ({ draft, setDraft, urlUnres
           }}
           options={methodOptions}
           optionRender={(option) =>
-            option.data.custom ? (
+            'custom' in option.data && option.data.custom ? (
               <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                 {option.label}
                 {/* biome-ignore lint/a11y/noStaticElementInteractions: inline remove affordance inside an option row */}
