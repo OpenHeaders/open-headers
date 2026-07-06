@@ -134,6 +134,16 @@ describe('isRuleComplete', () => {
     ).toBe(false);
   });
 
+  it('query-param: complete with a nameless remove-all entry (the editor hides its name input)', () => {
+    expect(
+      isRuleComplete({
+        ...base,
+        type: 'query-param',
+        action: { params: [{ uid: 'qp000003', param: '', operation: 'remove-all' as const }] },
+      }),
+    ).toBe(true);
+  });
+
   // ── Inject ──────────────────────────────────────────────────────
 
   it('inject: complete with code', () => {

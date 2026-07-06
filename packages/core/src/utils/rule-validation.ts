@@ -100,7 +100,10 @@ export function isRuleComplete(rule: Rule | Omit<Rule, 'uid' | 'path'>): boolean
     case 'query-param': {
       const qr = rule as QueryParamRule | Omit<QueryParamRule, 'uid' | 'path'>;
       if (!qr.action.params || qr.action.params.length === 0) return false;
-      if (qr.action.params.every((p) => !p.param.trim())) return false;
+      // remove-all strips the whole query string and carries no param name
+      // (the editor hides the name input for it), so a remove-all entry
+      // alone makes the rule actionable.
+      if (qr.action.params.every((p) => p.operation !== 'remove-all' && !p.param.trim())) return false;
       return true;
     }
     case 'inject': {
