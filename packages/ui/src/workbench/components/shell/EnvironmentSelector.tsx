@@ -73,7 +73,7 @@ const EnvRow: React.FC<EnvRowProps> = ({
   // scope gold (same as the "C" badge). Both active → both small pins
   // side by side so the collapsed state stays unambiguous.
   const tabPinColor = token.colorPrimary;
-  const collectionPinColor = 'var(--scope-collection-color)';
+  const collectionPinColor = 'var(--scope-collection-pin)';
   const collapsedPinGlyph =
     tabPinned && pinned ? (
       <span style={{ display: 'inline-flex', alignItems: 'center' }}>
@@ -194,6 +194,10 @@ const EnvRow: React.FC<EnvRowProps> = ({
           <Popover
             trigger="hover"
             placement="bottomRight"
+            // Fixed side — auto-flip made the flyout jump between above
+            // and below the row depending on viewport space, which reads
+            // as inconsistent. The flyout is small; bottom always fits.
+            autoAdjustOverflow={false}
             arrow={false}
             getPopupContainer={(trigger) => trigger.parentElement ?? document.body}
             content={
@@ -655,7 +659,7 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
           <div style={sectionLabelStyle}>Pinned to this collection</div>
           {/* Cap each section at ~3 rows; taller lists scroll. Each row
            *  is ~32px (5px padding × 2 + 22px content). */}
-          <div style={{ maxHeight: 108, overflowY: 'auto' }}>
+          <div className="oh-env-scroll" style={{ maxHeight: 108 }}>
             {pinnedEnvs.map((env) => (
               <EnvRow
                 key={env.uid}
@@ -684,7 +688,7 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
             <>
               <Divider style={{ margin: '4px 0' }} />
               <div style={sectionLabelStyle}>Other environments</div>
-              <div style={{ maxHeight: 108, overflowY: 'auto' }}>
+              <div className="oh-env-scroll" style={{ maxHeight: 108 }}>
                 {otherEnvs.map((env) => (
                   <EnvRow
                     key={env.uid}
@@ -715,7 +719,7 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
       ) : (
         <>
           {filteredEnvs.length > 0 && <Divider style={{ margin: '4px 0' }} />}
-          <div style={{ maxHeight: 108, overflowY: 'auto' }}>
+          <div className="oh-env-scroll" style={{ maxHeight: 108 }}>
             {filteredEnvs.map((env) => (
               <EnvRow
                 key={env.uid}

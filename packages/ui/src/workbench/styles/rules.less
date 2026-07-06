@@ -687,6 +687,26 @@ body {
   }
 }
 
+// Env-selector list sections — persistent (non-overlay) scrollbar so a
+// capped list reads as scrollable at a glance instead of only revealing
+// the thumb mid-scroll (macOS overlay default).
+.oh-env-scroll {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(128, 128, 128, 0.4) transparent;
+
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: rgba(128, 128, 128, 0.35);
+    border-radius: 4px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
 .rules-sidebar-action-icon {
   font-size: 12px;
   padding: 2px 4px;
@@ -1982,6 +2002,10 @@ body {
   --scope-environment-bg:    #E5FFF1;
   --scope-collection-color:  #AD7A03;
   --scope-collection-bg:     #FFF4BE;
+  /* Collection pin accent — the standalone pin glyph has no tinted
+   * badge background behind it, so the badge foreground reads too
+   * dark; a lighter gold matches the "C" badge's perceived tone. */
+  --scope-collection-pin:    #E0A526;
   --scope-workspace-color:   #0053B8;
   --scope-workspace-bg:      #E7F0FF;
   --scope-live-color:        #531dab;
@@ -2009,6 +2033,7 @@ body {
   --scope-environment-bg:    #013614;
   --scope-collection-color:  #FFE47E;
   --scope-collection-bg:     #3d2800;
+  --scope-collection-pin:    #FFE47E;
   --scope-workspace-color:   #74AEF6;
   --scope-workspace-bg:      #112749;
   --scope-live-color:        #c084fc;
