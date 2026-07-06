@@ -41,10 +41,10 @@ function dispatch(update: RequestLifecycleUpdate, options: LifecycleSubscription
 }
 
 function onStarted(lifecycle: RequestLifecycle, options: LifecycleSubscriptionOptions): void {
-  const { tabId, requestId, url, startedAtMs } = lifecycle;
+  const { tabId, requestId, url, startedAtMs, method, initiator } = lifecycle;
   const rt = trackedResourceTypeFor(lifecycle);
   const matched = ingestMatchObservation({ tabId, url, resourceType: rt });
-  recordFiresForObservation({ tabId, url, requestId, timestampMs: startedAtMs, resourceType: rt });
+  recordFiresForObservation({ tabId, url, requestId, timestampMs: startedAtMs, resourceType: rt, method, initiator });
   if (matched) triggerBadgeIfActive(tabId, options.updateBadge);
 }
 
@@ -57,7 +57,15 @@ function onRedirect(
   if (!lifecycle) return;
   const rt = trackedResourceTypeFor(lifecycle);
   const matched = ingestMatchObservation({ tabId, url: nextUrl, resourceType: rt });
-  recordFiresForObservation({ tabId, url: nextUrl, requestId, timestampMs: hop.timestampMs, resourceType: rt });
+  recordFiresForObservation({
+    tabId,
+    url: nextUrl,
+    requestId,
+    timestampMs: hop.timestampMs,
+    resourceType: rt,
+    method: lifecycle.method,
+    initiator: lifecycle.initiator,
+  });
   if (matched) triggerBadgeIfActive(tabId, options.updateBadge);
 }
 

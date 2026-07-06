@@ -26,6 +26,9 @@ export interface FireRecorderInput {
   requestId: string;
   timestampMs: number;
   resourceType: TrackedResourceType;
+  method?: string;
+  /** Request initiator origin, when the observation carries one. */
+  initiator?: string;
 }
 
 export function recordFiresForObservation(input: FireRecorderInput): void {
@@ -37,7 +40,11 @@ export function recordFiresForObservation(input: FireRecorderInput): void {
   // redelivery is the attribution carrier (see isDelayRedelivery).
   if (input.resourceType !== 'main_frame' && isDelayRedelivery(input.tabId, input.url)) return;
   const normalized = normalizeUrlForTracking(input.url);
-  const matches = matchRulesToRequest(normalized);
+  const matches = matchRulesToRequest(normalized, {
+    method: input.method,
+    resourceType: input.resourceType,
+    initiator: input.initiator,
+  });
   if (matches.length === 0) return;
   const effective = getEffectiveFireUids();
   const live = effective === null ? matches : matches.filter((m) => effective.has(m.uid));

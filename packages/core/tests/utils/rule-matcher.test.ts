@@ -4,6 +4,10 @@ import {
   compilePatternToRegexSource,
   compileRuleForInjection,
   doesHostMatchDomains,
+  doesInitiatorMatchRule,
+  doesMethodMatchRule,
+  doesRequestDomainMatchRule,
+  doesResourceTypeMatchRule,
   doesUrlMatchEntry,
   doesUrlMatchRule,
   formatUrlPattern,
@@ -281,6 +285,144 @@ describe('compileRuleForInjection', () => {
     expect(re.test('https://github.com/manifest.json')).toBe(true);
     expect(re.test('https://github.com/')).toBe(true);
     expect(re.test('https://api.github.com/')).toBe(false);
+  });
+});
+
+// ── doesMethodMatchRule ──────────────────────────────────────────
+
+describe('doesMethodMatchRule', () => {
+  const withConditions = (conditions: HeaderRule['conditions']): HeaderRule => ({ ...baseRule, conditions });
+
+  it('matches every method when the rule has no method condition', () => {
+    const rule = withConditions([{ uid: 'cnd00101', type: 'url-filter', values: ['*://openheaders.io/*'] }]);
+    expect(doesMethodMatchRule('GET', rule)).toBe(true);
+    expect(doesMethodMatchRule('POST', rule)).toBe(true);
+  });
+
+  it('request-methods: only listed methods match, case-insensitively', () => {
+    const rule = withConditions([{ uid: 'cnd00102', type: 'request-methods', values: ['POST'] }]);
+    expect(doesMethodMatchRule('POST', rule)).toBe(true);
+    expect(doesMethodMatchRule('post', rule)).toBe(true);
+    expect(doesMethodMatchRule('GET', rule)).toBe(false);
+  });
+
+  it('exclude-request-methods: listed methods reject', () => {
+    const rule = withConditions([{ uid: 'cnd00103', type: 'exclude-request-methods', values: ['POST'] }]);
+    expect(doesMethodMatchRule('GET', rule)).toBe(true);
+    expect(doesMethodMatchRule('POST', rule)).toBe(false);
+  });
+
+  it('conditions AND together', () => {
+    const rule = withConditions([
+      { uid: 'cnd00104', type: 'request-methods', values: ['GET', 'POST'] },
+      { uid: 'cnd00105', type: 'exclude-request-methods', values: ['POST'] },
+    ]);
+    expect(doesMethodMatchRule('GET', rule)).toBe(true);
+    expect(doesMethodMatchRule('POST', rule)).toBe(false);
+    expect(doesMethodMatchRule('PUT', rule)).toBe(false);
+  });
+
+  it('an empty or blank method matches (no evidence to gate on)', () => {
+    const rule = withConditions([{ uid: 'cnd00106', type: 'request-methods', values: ['POST'] }]);
+    expect(doesMethodMatchRule('', rule)).toBe(true);
+    expect(doesMethodMatchRule('  ', rule)).toBe(true);
+  });
+});
+
+// ── doesResourceTypeMatchRule ────────────────────────────────────
+
+describe('doesResourceTypeMatchRule', () => {
+  const withConditions = (conditions: HeaderRule['conditions']): HeaderRule => ({ ...baseRule, conditions });
+
+  it('matches every type when the rule has no resource-type condition', () => {
+    const rule = withConditions([{ uid: 'cnd00107', type: 'url-filter', values: ['*://openheaders.io/*'] }]);
+    expect(doesResourceTypeMatchRule('image', rule)).toBe(true);
+    expect(doesResourceTypeMatchRule('xmlhttprequest', rule)).toBe(true);
+  });
+
+  it('resource-types: maps model vocab to DNR vocab (xhr → xmlhttprequest)', () => {
+    const rule = withConditions([{ uid: 'cnd00108', type: 'resource-types', values: ['xhr'] }]);
+    expect(doesResourceTypeMatchRule('xmlhttprequest', rule)).toBe(true);
+    expect(doesResourceTypeMatchRule('image', rule)).toBe(false);
+  });
+
+  it('resource-types: only listed types match', () => {
+    const rule = withConditions([{ uid: 'cnd00109', type: 'resource-types', values: ['image'] }]);
+    expect(doesResourceTypeMatchRule('image', rule)).toBe(true);
+    expect(doesResourceTypeMatchRule('xmlhttprequest', rule)).toBe(false);
+    expect(doesResourceTypeMatchRule('sub_frame', rule)).toBe(false);
+  });
+
+  it('exclude-resource-types: listed types reject', () => {
+    const rule = withConditions([{ uid: 'cnd00110', type: 'exclude-resource-types', values: ['xhr'] }]);
+    expect(doesResourceTypeMatchRule('xmlhttprequest', rule)).toBe(false);
+    expect(doesResourceTypeMatchRule('image', rule)).toBe(true);
+  });
+
+  it('values already in DNR vocab pass through unmapped', () => {
+    const rule = withConditions([{ uid: 'cnd00111', type: 'resource-types', values: ['xmlhttprequest'] }]);
+    expect(doesResourceTypeMatchRule('xmlhttprequest', rule)).toBe(true);
+  });
+
+  it('model "page" gates on main_frame', () => {
+    const rule = withConditions([{ uid: 'cnd00112', type: 'resource-types', values: ['page'] }]);
+    expect(doesResourceTypeMatchRule('main_frame', rule)).toBe(true);
+    expect(doesResourceTypeMatchRule('sub_frame', rule)).toBe(false);
+  });
+});
+
+// ── doesRequestDomainMatchRule / doesInitiatorMatchRule ──────────
+
+describe('doesRequestDomainMatchRule', () => {
+  const withConditions = (conditions: HeaderRule['conditions']): HeaderRule => ({ ...baseRule, conditions });
+
+  it('matches every URL when the rule has no domain condition', () => {
+    const rule = withConditions([{ uid: 'cnd00201', type: 'url-filter', values: ['*://*/api/*'] }]);
+    expect(doesRequestDomainMatchRule('https://openheaders.io/api/x', rule)).toBe(true);
+  });
+
+  it('request-domains ANDs with the URL filter — a host outside the list rejects', () => {
+    const rule = withConditions([
+      { uid: 'cnd00202', type: 'url-filter', values: ['*://*/api/*'] },
+      { uid: 'cnd00203', type: 'request-domains', values: ['openheaders.io'] },
+    ]);
+    expect(doesRequestDomainMatchRule('https://openheaders.io/api/x', rule)).toBe(true);
+    expect(doesRequestDomainMatchRule('https://app.openheaders.io/api/x', rule)).toBe(true);
+    expect(doesRequestDomainMatchRule('https://openheaders.dev/api/x', rule)).toBe(false);
+  });
+
+  it('supports wildcard domain values via the urlFilter form', () => {
+    const rule = withConditions([{ uid: 'cnd00208', type: 'request-domains', values: ['*.openheaders.io'] }]);
+    expect(doesRequestDomainMatchRule('https://api.openheaders.io/v2', rule)).toBe(true);
+    expect(doesRequestDomainMatchRule('https://openheaders.dev/v2', rule)).toBe(false);
+  });
+
+  it('exclude-request-domains rejects listed hosts', () => {
+    const rule = withConditions([{ uid: 'cnd00204', type: 'exclude-request-domains', values: ['openheaders.io'] }]);
+    expect(doesRequestDomainMatchRule('https://openheaders.io/x', rule)).toBe(false);
+    expect(doesRequestDomainMatchRule('https://openheaders.dev/x', rule)).toBe(true);
+  });
+});
+
+describe('doesInitiatorMatchRule', () => {
+  const withConditions = (conditions: HeaderRule['conditions']): HeaderRule => ({ ...baseRule, conditions });
+
+  it('matches every initiator when the rule has no initiator condition', () => {
+    const rule = withConditions([{ uid: 'cnd00205', type: 'url-filter', values: ['*://*/api/*'] }]);
+    expect(doesInitiatorMatchRule('openheaders.io', rule)).toBe(true);
+  });
+
+  it('initiator-domains: only listed initiators match (subdomains included)', () => {
+    const rule = withConditions([{ uid: 'cnd00206', type: 'initiator-domains', values: ['openheaders.io'] }]);
+    expect(doesInitiatorMatchRule('openheaders.io', rule)).toBe(true);
+    expect(doesInitiatorMatchRule('app.openheaders.io', rule)).toBe(true);
+    expect(doesInitiatorMatchRule('openheaders.dev', rule)).toBe(false);
+  });
+
+  it('exclude-initiator-domains: listed initiators reject', () => {
+    const rule = withConditions([{ uid: 'cnd00207', type: 'exclude-initiator-domains', values: ['openheaders.io'] }]);
+    expect(doesInitiatorMatchRule('openheaders.io', rule)).toBe(false);
+    expect(doesInitiatorMatchRule('openheaders.dev', rule)).toBe(true);
   });
 });
 

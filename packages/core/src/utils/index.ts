@@ -84,10 +84,15 @@ export {
   compilePatternToRegexSource,
   compileRuleForInjection,
   doesHostMatchDomains,
+  doesInitiatorMatchRule,
+  doesMethodMatchRule,
+  doesRequestDomainMatchRule,
+  doesResourceTypeMatchRule,
   doesUrlMatchEntry,
   doesUrlMatchRule,
   formatUrlPattern,
   getRuleMatchPatterns,
+  MODEL_TO_DNR_RESOURCE_TYPE,
 } from './rule-matcher';
 export {
   CDP_REQUEST_STAGE_CONDITIONS,

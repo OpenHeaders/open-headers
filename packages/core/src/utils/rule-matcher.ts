@@ -217,6 +217,70 @@ export function doesUrlMatchRule(url: string, rule: Rule): boolean {
   return false;
 }
 
+// ── Method matching ──────────────────────────────────────────────
+
+/**
+ * Test an HTTP method against a rule's `request-methods` /
+ * `exclude-request-methods` conditions. Mirrors Chrome DNR semantics:
+ * a rule with no method condition matches every method; comparison is
+ * case-insensitive. Conditions AND together — an include list the
+ * method is absent from, or an exclude list it appears in, rejects.
+ */
+export function doesMethodMatchRule(method: string, rule: Rule): boolean {
+  const m = method.trim().toLowerCase();
+  if (!m) return true;
+  for (const c of rule.conditions) {
+    if (c.type === 'request-methods') {
+      if (!c.values.some((v) => v.trim().toLowerCase() === m)) return false;
+    } else if (c.type === 'exclude-request-methods') {
+      if (c.values.some((v) => v.trim().toLowerCase() === m)) return false;
+    }
+  }
+  return true;
+}
+
+// ── Resource-type matching ───────────────────────────────────────
+
+/**
+ * Resource-type vocabulary map: the model's names → Chrome DNR names.
+ * Single source of truth — both DNR rule compilation and attribution
+ * matching use it so a resource-type condition gates identically on
+ * the wire and in the fire ledger.
+ */
+export const MODEL_TO_DNR_RESOURCE_TYPE: Record<string, string> = {
+  page: 'main_frame',
+  xhr: 'xmlhttprequest',
+  script: 'script',
+  stylesheet: 'stylesheet',
+  image: 'image',
+  font: 'font',
+  media: 'media',
+  websocket: 'websocket',
+  other: 'other',
+};
+
+/**
+ * Test an observed request's resource type (Chrome DNR/webRequest vocab,
+ * e.g. 'xmlhttprequest', 'image') against a rule's `resource-types` /
+ * `exclude-resource-types` conditions (model vocab, e.g. 'xhr', 'image').
+ * No resource-type condition → matches every type. Values already in DNR
+ * vocab pass through unmapped.
+ */
+export function doesResourceTypeMatchRule(resourceType: string, rule: Rule): boolean {
+  const toDnr = (v: string): string => {
+    const trimmed = v.trim();
+    return MODEL_TO_DNR_RESOURCE_TYPE[trimmed] ?? trimmed;
+  };
+  for (const c of rule.conditions) {
+    if (c.type === 'resource-types') {
+      if (!c.values.some((v) => toDnr(v) === resourceType)) return false;
+    } else if (c.type === 'exclude-resource-types') {
+      if (c.values.some((v) => toDnr(v) === resourceType)) return false;
+    }
+  }
+  return true;
+}
+
 // ── Initiator-domain matching ────────────────────────────────────
 
 /**
@@ -233,6 +297,58 @@ export function doesHostMatchDomains(host: string, domains: string[]): boolean {
     if (h === domain || h.endsWith(`.${domain}`)) return true;
   }
   return false;
+}
+
+// ── Domain-condition matching ────────────────────────────────────
+
+/**
+ * Test a request URL against a rule's `request-domains` /
+ * `exclude-request-domains` conditions. DNR ANDs `requestDomains` with
+ * the URL filter, while pattern extraction ORs them — this predicate
+ * restores the AND, and enforces the exclusion the pattern walk never
+ * sees. A domain value matches when the URL matches its urlFilter form
+ * (which supports `*.` wildcards) or when the hostname falls under it
+ * with DNR's subdomain semantics. No domain condition → matches every
+ * URL.
+ */
+export function doesRequestDomainMatchRule(url: string, rule: Rule): boolean {
+  let host: string | undefined;
+  try {
+    host = new URL(url).hostname;
+  } catch {
+    host = undefined;
+  }
+  const domainMatches = (v: string): boolean => {
+    const trimmed = v.trim();
+    if (!trimmed) return false;
+    if (doesUrlMatchEntry(url, { pattern: formatUrlPattern(trimmed), kind: 'url-filter' })) return true;
+    return host !== undefined && doesHostMatchDomains(host, [trimmed]);
+  };
+  for (const c of rule.conditions) {
+    if (c.type === 'request-domains') {
+      if (!c.values.some(domainMatches)) return false;
+    } else if (c.type === 'exclude-request-domains') {
+      if (c.values.some(domainMatches)) return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Test a request's initiator hostname against a rule's
+ * `initiator-domains` / `exclude-initiator-domains` conditions. Same
+ * subdomain semantics as {@link doesHostMatchDomains}. No initiator
+ * condition → matches every initiator.
+ */
+export function doesInitiatorMatchRule(initiatorHost: string, rule: Rule): boolean {
+  for (const c of rule.conditions) {
+    if (c.type === 'initiator-domains') {
+      if (!doesHostMatchDomains(initiatorHost, c.values)) return false;
+    } else if (c.type === 'exclude-initiator-domains') {
+      if (doesHostMatchDomains(initiatorHost, c.values)) return false;
+    }
+  }
+  return true;
 }
 
 // ── Injection compilation ────────────────────────────────────────

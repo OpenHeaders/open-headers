@@ -7,6 +7,10 @@
 import type { HeaderOperation, HeaderRule, ResponseSource, Rule } from '@openheaders/core/types';
 import {
   doesUrlMatchEntry as coreDoesUrlMatchEntry,
+  doesInitiatorMatchRule,
+  doesMethodMatchRule,
+  doesRequestDomainMatchRule,
+  doesResourceTypeMatchRule,
   getRuleMatchPatterns,
   isRuleComplete,
   type MatchPattern,
@@ -210,14 +214,37 @@ function extractHeaderOps(rule: HeaderRule): MatchingRuleHeaderOp[] {
  * can highlight which condition matched. `name` is included so shadow
  * arbitration can surface the shadowing rule's name in tooltips. `deferred`
  * is computed per-rule so header rules without merge operations don't end
- * up stranded in the scriptable fallback buffer.
+ * up stranded in the scriptable fallback buffer. `context` carries the
+ * observation's non-URL evidence: when present, request-methods and
+ * resource-types conditions gate the match — a condition-gated rule never
+ * touched a request outside its gate and must not attribute a fire off it.
  */
-export function matchRulesToRequest(url: string): MatchingRule[] {
+export interface MatchRequestContext {
+  method?: string;
+  resourceType?: string;
+  /** The request initiator (an origin string, e.g. 'http://openheaders.io'). */
+  initiator?: string;
+}
+
+function hostnameOf(url: string): string | undefined {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return undefined;
+  }
+}
+
+export function matchRulesToRequest(url: string, context?: MatchRequestContext): MatchingRule[] {
   const normalizedUrl = normalizeUrlForTracking(url);
+  const initiatorHost = context?.initiator === undefined ? undefined : hostnameOf(context.initiator);
   const unresolvable = getUnresolvableRuleUids();
   const out: MatchingRule[] = [];
   for (const rule of getRules()) {
     if (!rule.enabled || !isRuleComplete(rule)) continue;
+    if (context?.method !== undefined && !doesMethodMatchRule(context.method, rule)) continue;
+    if (context?.resourceType !== undefined && !doesResourceTypeMatchRule(context.resourceType, rule)) continue;
+    if (!doesRequestDomainMatchRule(normalizedUrl, rule)) continue;
+    if (initiatorHost !== undefined && !doesInitiatorMatchRule(initiatorHost, rule)) continue;
     // Rules with unresolved `{{ref}}`s aren't in Chrome's DNR set
     // (see `dnr-manager.rebuildAll`), so they don't participate in
     // arbitration either. Skipping here means shadow-warnings stay

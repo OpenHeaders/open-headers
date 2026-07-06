@@ -7,7 +7,12 @@
  */
 
 import type { Rule, RuleCondition, RuleType } from '@openheaders/core/types';
-import { CONDITION_META, logger, validateConditionStructure } from '@openheaders/core/utils';
+import {
+  CONDITION_META,
+  logger,
+  MODEL_TO_DNR_RESOURCE_TYPE,
+  validateConditionStructure,
+} from '@openheaders/core/utils';
 
 // ── DNR rule shape ───────────────────────────────────────────────
 
@@ -192,18 +197,9 @@ export interface RuleCompiler<T extends Rule> {
 
 // ── Condition builder ────────────────────────────────────────────
 
-/** Resource type mapping: our names → Chrome DNR names. */
-const RESOURCE_TYPE_MAP: Record<string, string> = {
-  page: 'main_frame',
-  xhr: 'xmlhttprequest',
-  script: 'script',
-  stylesheet: 'stylesheet',
-  image: 'image',
-  font: 'font',
-  media: 'media',
-  websocket: 'websocket',
-  other: 'other',
-};
+/** Resource type mapping: our names → Chrome DNR names. Lives in core so
+ *  attribution matching gates on the exact vocabulary compilation emits. */
+const RESOURCE_TYPE_MAP = MODEL_TO_DNR_RESOURCE_TYPE;
 
 /**
  * Convert RuleCondition[] into a Chrome DNR condition object.
