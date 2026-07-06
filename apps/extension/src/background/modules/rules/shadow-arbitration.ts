@@ -6,7 +6,7 @@
  *
  * ── Phases ─────────────────────────────────────────────────────────
  *
- * Phase 3 ships FIVE per-hop shadow patterns, applied in order; a rule
+ * Phase 3 ships FOUR per-hop shadow patterns, applied in order; a rule
  * carries at most one attribution (the first phase that claims it wins).
  * The ordering encodes precedence — a rule shadowed by a block is never
  * relabelled as "redirect-retargeted", because the block claim is a
@@ -38,13 +38,10 @@
  *      so Chrome's result is effectively non-deterministic. Flagged so
  *      the user can pick one rule as the source of truth.
  *
- *   5. **delay-page-intercept** — a delay rule rewrites the main-frame
- *      navigation to chrome-extension://delay.html. Inject rules in the
- *      matching set are conditioned on the *real* user URL, so they
- *      never get a chance to mount on delay.html. Detected statically:
- *      delay + inject in the same matching set → inject is shadowed.
- *      No session-wide commit inspection needed, because the outcome is
- *      deterministic from the rule set alone.
+ * There is deliberately NO delay-vs-inject shadow: a delay rule holds the
+ * navigation on the extension waiting page, but the waiting page then
+ * redelivers the REAL url, that document commits, and the inject mounts
+ * on it. The delay delays the inject; it never moots it.
  *
  * Anything else (redirect-chain "stale-pattern", request-body replaces response
  * + cookie mod ordering, etc.) is deliberately not modelled. The flow
@@ -67,11 +64,9 @@
  *   with block's request-terminal semantics (the response never comes if
  *   a block cancels), and they're not retargeted by redirects in a
  *   meaningful way (the CSP strip runs on whichever response survives).
- *   So they're treated as non-participating in the block and redirect
- *   phases. BUT a delay rule rewrites the committed *document URL* to
- *   chrome-extension://delay.html, and inject's content-script mount
- *   targets the user URL — so inject IS shadowable by delay on the same
- *   URL. The delay phase is the only one where inject participates.
+ *   So they're treated as non-participating in every phase. Their fire
+ *   records are commit-gated instead (see fire-recorder / tab-telemetry):
+ *   a document that never commits leaves no inject record at all.
  * - There is no `allow` action. That arbitration escape-hatch is N/A here.
  */
 
@@ -190,7 +185,6 @@ export function arbitrate(matching: MatchingRule[]): ArbitratedRule[] {
   applyBlockShadow(decorated);
   applyRedirectShadow(decorated);
   applyMockIntercept(decorated);
-  applyDelayPageShadow(decorated);
   applyHeaderStacking(decorated);
 
   return decorated;
@@ -350,37 +344,6 @@ function applyMockIntercept(decorated: ArbitratedRule[]): void {
 function hasResponseSideOp(r: ArbitratedRule): boolean {
   if (!r.headerOps) return false;
   return r.headerOps.some((op) => op.side === 'response');
-}
-
-// ── Phase 4: delay-page intercept ──────────────────────────────────
-
-/**
- * A delay rule rewrites main-frame / sub-frame navigations to
- * chrome-extension://delay.html (see dnr-builders/delay-builder.ts).
- * Inject rules mount content scripts on the *committed* document, so if
- * the document commits to delay.html the user's inject conditioned on
- * the real URL never runs — even though from the DNR priority ladder
- * they don't "conflict" (inject is priority 2000, delay is 2).
- *
- * This is the one phase where inject participates. Mark inject rules
- * in the matching set as shadowed by the delay rule when both match
- * the same URL. The arbitrator can't be 100% certain the delay page
- * will commit — the delay might redirect instantly, or the sub-resource
- * path might bypass delay.html entirely — but if the user has a delay
- * and an inject targeting the same URL, the expected outcome is
- * "inject doesn't run during the delay visit", and that's what the
- * test-results view should tell them.
- */
-function applyDelayPageShadow(decorated: ArbitratedRule[]): void {
-  const delay = decorated.find((r) => r.actionClass === 'delay');
-  if (!delay) return;
-
-  for (const r of decorated) {
-    if (r.shadowedBy) continue;
-    if (r.uid === delay.uid) continue;
-    if (r.actionClass !== 'inject-csp') continue;
-    r.shadowedBy = { uid: delay.uid, name: delay.name, kind: 'delay-page-intercept' };
-  }
 }
 
 // ── Phase 4: header-stacking ambiguity ─────────────────────────────

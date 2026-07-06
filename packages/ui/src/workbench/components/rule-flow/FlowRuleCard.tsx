@@ -41,8 +41,7 @@ export type RuleShadowKind =
   | 'redirect-retarget'
   | 'query-param-retarget'
   | 'mock-intercept'
-  | 'header-stacking-ambiguous'
-  | 'delay-page-intercept';
+  | 'header-stacking-ambiguous';
 
 export interface RuleShadowAttribution {
   uid: string;
@@ -83,7 +82,6 @@ const SHADOW_TAG_LABEL: Record<RuleShadowKind, string> = {
   'query-param-retarget': 'URL rewritten',
   'mock-intercept': 'Mocked',
   'header-stacking-ambiguous': 'Ambiguous',
-  'delay-page-intercept': 'Delayed',
 };
 
 const SHADOW_TAG_TOOLTIP: Record<RuleShadowKind, (name: string) => string> = {
@@ -92,7 +90,6 @@ const SHADOW_TAG_TOOLTIP: Record<RuleShadowKind, (name: string) => string> = {
   'query-param-retarget': (name) => `Would have been effective but ${name} rewrote the query string.`,
   'mock-intercept': (name) => `This rule's response-side effect is moot — ${name} fabricated the response.`,
   'header-stacking-ambiguous': (name) => `Ordering with ${name} on the same header is non-deterministic in Chrome.`,
-  'delay-page-intercept': (name) => `${name} redirected the navigation to the extension delay page.`,
 };
 
 interface FlowRuleCardProps {

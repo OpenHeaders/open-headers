@@ -11,11 +11,20 @@ export interface ObservedFireMeta {
   pattern: string;
   /**
    * True if the rule's type can *also* emit a scriptable fire (delay, body,
-   * response, inject, header with header-merge). Gates the 500ms buffer. Pure DNR
+   * response, header with header-merge). Gates the 500ms buffer. Pure DNR
    * types (block, redirect, query-param, plain header) pass false and are
-   * recorded immediately.
+   * recorded immediately. Inject is NOT deferred — it has no fire-bridge
+   * channel; its main-frame record is commit-gated instead.
    */
   deferred: boolean;
+  /**
+   * True when the rule's act is gated on the document actually committing
+   * (inject — mounted by inject-manager strictly after onCommitted). A
+   * failed main-frame navigation never commits, so a commit-gated record
+   * is dropped by onMainFrameError instead of promoted: the rule never
+   * acted on a document that never existed.
+   */
+  commitGated?: boolean;
   /**
    * Shadow arbitration result for this rule on this request. Propagated
    * into `RequestRecord.shadowedBy` verbatim. Omit to signal "our arbitrator

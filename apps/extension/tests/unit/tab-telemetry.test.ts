@@ -478,6 +478,35 @@ describe('tab-telemetry — page-context attribution', () => {
     expect(snap.fires[0]).toMatchObject({ ruleUid: 'rule-a', evidence: 'matched' });
     expect(snap.counters).toEqual({ 'rule-a': 1 });
   });
+
+  it('onMainFrameError drops commit-gated records — the rule acts only after a commit that never happened', () => {
+    startTracking(1, 'active-popup');
+    recordObservedFire(1, 'rule-block', 'https://openheaders.io/', 'req-1', 100, MAIN_FRAME_META);
+    recordObservedFire(1, 'rule-inject', 'https://openheaders.io/', 'req-1', 100, {
+      ...MAIN_FRAME_META,
+      commitGated: true,
+    });
+
+    onMainFrameError(1, 'req-1');
+
+    const snap = getTabSnapshot(1);
+    expect(snap.fires.map((f) => f.ruleUid)).toEqual(['rule-block']);
+    expect(snap.counters).toEqual({ 'rule-block': 1 });
+  });
+
+  it('onPageCommit still promotes commit-gated records — the commit is exactly when the rule acts', () => {
+    startTracking(1, 'active-popup');
+    recordObservedFire(1, 'rule-inject', 'https://openheaders.io/', 'req-1', 100, {
+      ...MAIN_FRAME_META,
+      commitGated: true,
+    });
+
+    onPageCommit(1, 'https://openheaders.io/', new Set(['req-1']));
+
+    const snap = getTabSnapshot(1);
+    expect(snap.fires).toHaveLength(1);
+    expect(snap.fires[0]).toMatchObject({ ruleUid: 'rule-inject', evidence: 'matched' });
+  });
 });
 
 // ── Scoped snapshot (test-runner) ────────────────────────────────────

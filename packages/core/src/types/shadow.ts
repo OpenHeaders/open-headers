@@ -12,8 +12,7 @@ export type ShadowKind =
   | 'redirect-retarget'
   | 'query-param-retarget'
   | 'mock-intercept'
-  | 'header-stacking-ambiguous'
-  | 'delay-page-intercept';
+  | 'header-stacking-ambiguous';
 
 /**
  * Attribution for a shadowed rule. `uid` / `name` point at the rule that

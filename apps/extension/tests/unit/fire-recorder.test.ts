@@ -165,6 +165,25 @@ describe('fire-recorder — effective-uid gate', () => {
     expect(mockRecord.mock.calls[0]?.[1]).toBe('aa111111');
   });
 
+  it('inject never claims observed fires off sub-resources — the frameId-0 commit is its only act', () => {
+    mockMatch.mockReturnValue([makeMatch('aa111111', { type: 'inject' }), makeMatch('bb222222', { type: 'header' })]);
+
+    recordFiresForObservation({ ...INPUT, resourceType: 'script' });
+
+    expect(mockRecord).toHaveBeenCalledTimes(1);
+    expect(mockRecord.mock.calls[0]?.[1]).toBe('bb222222');
+  });
+
+  it('inject main-frame observations record with commitGated meta', () => {
+    mockMatch.mockReturnValue([makeMatch('aa111111', { type: 'inject' }), makeMatch('bb222222', { type: 'header' })]);
+
+    recordFiresForObservation({ ...INPUT, resourceType: 'main_frame' });
+
+    expect(mockRecord).toHaveBeenCalledTimes(2);
+    expect(mockRecord.mock.calls[0]?.[5]).toMatchObject({ commitGated: true });
+    expect(mockRecord.mock.calls[1]?.[5]).toMatchObject({ commitGated: false });
+  });
+
   it('records nothing when the effective set is empty (engine paused)', () => {
     mockEffectiveUids.mockReturnValue(new Set());
     mockMatch.mockReturnValue([makeMatch('aa111111')]);

@@ -69,11 +69,22 @@ export function recordFiresForObservation(input: FireRecorderInput): void {
     // sub-resource observation with no wrapper report means the delay had
     // no handle on the request (streams, images, EventSource) — not an act.
     if (r.type === 'delay' && input.resourceType !== 'main_frame' && input.resourceType !== 'sub_frame') continue;
+    // Inject acts exactly once per document — inject-manager mounts it on
+    // the frameId-0 commit and nowhere else. A sub-resource that happens
+    // to match the rule's URL pattern (the page's own module script is
+    // the classic case) was never acted on, and inject has no wrapper
+    // report to correct the record, so the fallback buffer would promote
+    // the false fire unchallenged.
+    if (r.type === 'inject' && input.resourceType !== 'main_frame') continue;
     recordObservedFire(input.tabId, r.uid, normalized, input.requestId, input.timestampMs, {
       resourceType: input.resourceType,
       pattern: r.pattern,
       deferred: r.deferred,
       shadowedBy: r.shadowedBy,
+      // Inject's act happens strictly AFTER the commit; a main-frame
+      // navigation that fails never commits, so its buffered record must
+      // be dropped on error, not promoted (see onMainFrameError).
+      commitGated: r.type === 'inject',
     });
   }
 }

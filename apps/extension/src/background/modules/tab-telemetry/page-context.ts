@@ -97,11 +97,14 @@ export function onPageCommit(tabId: number, committedUrl: string, matchingReques
  * with a block rule on the target URL would surface the block as
  * `no-fire` because no commit ever lands and `onPageCommit` never runs.
  *
+ * Commit-gated records (inject) are the exception: their act happens
+ * strictly AFTER the commit, which a failed navigation never reaches —
+ * the rule did not act, so the record is dropped, not promoted.
  */
 export function onMainFrameError(tabId: number, requestId: string): void {
   const state = tabs.get(tabId);
   if (!state) return;
-  const promoted = state.pendingFires.filter((f) => f.requestId === requestId);
+  const promoted = state.pendingFires.filter((f) => f.requestId === requestId && !f.commitGated);
   state.pendingFires = state.pendingFires.filter((f) => f.requestId !== requestId);
   for (const p of promoted) {
     appendFire(state, p.record);

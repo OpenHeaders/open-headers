@@ -155,14 +155,15 @@ export interface MatchingRule {
  * operations flow through the MAIN-world fire-bridge, but plain
  * override/set/remove operations stay pure DNR. Passing the wrong flag
  * would strand plain header rules in the fallback buffer and surface them
- * as `matched-fallback` evidence, which is factually wrong.
+ * as `matched-fallback` evidence, which is factually wrong. Inject is NOT
+ * deferred: it has no fire-bridge channel at all — its only act is the
+ * frameId-0 injection after commit, carried by the main-frame record.
  */
 function computeDeferred(rule: Rule): boolean {
   switch (rule.type) {
     case 'delay':
     case 'request-body':
     case 'response':
-    case 'inject':
       return true;
     case 'header':
       return hasHeaderMergeAction(rule);

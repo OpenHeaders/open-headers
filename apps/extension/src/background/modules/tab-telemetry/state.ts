@@ -38,6 +38,9 @@ export const FALLBACK_WINDOW_MS = 500;
 export interface PendingFire {
   requestId: string;
   record: RequestRecord;
+  /** See ObservedFireMeta.commitGated — the record only exists if the
+   *  document commits; onMainFrameError drops it instead of promoting. */
+  commitGated?: boolean;
 }
 
 export interface PendingFallback {

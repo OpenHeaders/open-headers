@@ -284,23 +284,19 @@ describe('shadow-arbitration', () => {
     expect(result.find((r) => r.uid === 'h2')!.shadowedBy?.kind).toBe('block-terminal');
   });
 
-  // ── delay-page-intercept ──────────────────────────────────────
+  // ── delay never shadows inject ────────────────────────────────
 
-  it('delay shadows inject rules in the same matching set', () => {
+  it('delay does not shadow inject — the waiting page redelivers the real URL and the inject mounts on its commit', () => {
     const matching = [
       rule({ uid: 'delay-1', name: 'Slow api', type: 'delay' }),
       rule({ uid: 'inject-1', type: 'inject' }),
     ];
     const result = arbitrate(matching);
 
-    expect(result.find((r) => r.uid === 'inject-1')!.shadowedBy).toEqual({
-      uid: 'delay-1',
-      name: 'Slow api',
-      kind: 'delay-page-intercept',
-    });
+    expect(result.find((r) => r.uid === 'inject-1')!.shadowedBy).toBeUndefined();
   });
 
-  it('delay-page phase does not touch non-inject rules (they have other phases)', () => {
+  it('delay does not shadow non-inject rules either (they have other phases)', () => {
     const matching = [rule({ uid: 'delay-1', type: 'delay' }), rule({ uid: 'header-1', type: 'header' })];
     const result = arbitrate(matching);
     // header rule is not shadowed by delay — delay priority is 2, below header's 100.
@@ -325,7 +321,7 @@ describe('shadow-arbitration', () => {
     for (const uid of ['redirect-1', 'mock-1', 'delay-1', 'h1', 'h2']) {
       expect(result.find((r) => r.uid === uid)!.shadowedBy?.kind).toBe('block-terminal');
     }
-    // inject escapes block but gets delay-page-intercepted.
-    expect(result.find((r) => r.uid === 'inject-1')!.shadowedBy?.kind).toBe('delay-page-intercept');
+    // inject participates in no phase — its records are commit-gated instead.
+    expect(result.find((r) => r.uid === 'inject-1')!.shadowedBy).toBeUndefined();
   });
 });

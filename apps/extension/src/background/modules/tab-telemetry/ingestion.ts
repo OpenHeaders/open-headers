@@ -121,7 +121,7 @@ export function recordObservedFire(
   // doesn't apply here — main-frame navigations are already gated by commit
   // attribution, which is a much stronger signal than a wall-clock timer.
   if (meta.resourceType === 'main_frame') {
-    state.pendingFires.push({ requestId, record });
+    state.pendingFires.push({ requestId, record, ...(meta.commitGated ? { commitGated: true } : {}) });
     return;
   }
 

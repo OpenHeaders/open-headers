@@ -53,8 +53,7 @@ type ShadowKind =
   | 'redirect-retarget'
   | 'query-param-retarget'
   | 'mock-intercept'
-  | 'header-stacking-ambiguous'
-  | 'delay-page-intercept';
+  | 'header-stacking-ambiguous';
 
 interface ShadowAttribution {
   uid: string;
@@ -109,12 +108,6 @@ const SHADOW_REASON_COPY: Record<ShadowKind, { short: string; long: (name: strin
     long: (name) =>
       `${name} also modifies the same header on the same side. Chrome's evaluation order within a ` +
       'priority tier is undefined, so the effective header value is not deterministic.',
-  },
-  'delay-page-intercept': {
-    short: 'Delayed',
-    long: (name) =>
-      `${name} redirected the navigation to the extension delay page. This rule's content-script ` +
-      'injection targets the real URL, which never committed during the capture window.',
   },
 };
 
