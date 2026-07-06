@@ -356,8 +356,11 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
         alignItems: 'center',
         justifyContent: 'center',
         gap: 6,
+        // Equal-width segments that never wrap: the nowrap label sets
+        // each segment's min-content, so a crowded row widens the
+        // shrink-to-fit popup instead of breaking words.
         flex: 1,
-        minWidth: 0,
+        whiteSpace: 'nowrap',
         padding: '5px 8px',
         cursor: 'pointer',
         borderRadius: token.borderRadiusSM,
@@ -369,7 +372,7 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
       }}
     >
       {scopeBadge(scope, 14)}
-      <Text style={{ fontSize: 13 }}>{label}</Text>
+      <Text style={{ fontSize: 13, whiteSpace: 'nowrap' }}>{label}</Text>
     </div>
   );
 
