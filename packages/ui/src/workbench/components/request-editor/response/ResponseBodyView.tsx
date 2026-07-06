@@ -68,6 +68,7 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
   const { token } = theme.useToken();
   const [mode, setMode] = useState<ViewMode>('pretty');
   const [langOverride, setLangOverride] = useState<LanguageId | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
   // Each new response re-detects: a JSON override on the previous send
@@ -141,6 +142,19 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
   const pickerIcon = activeEncoding ? activeEncoding.mode : language;
   const pickerLabel = activeEncoding ? activeEncoding.label : getLanguage(language).label;
 
+  // Picker and Preview act as a two-way toggle: the active side carries
+  // a quiet selected fill, the other renders as plain text. While
+  // Preview holds the selection, the picker's first click only takes it
+  // back (no menu); the menu opens on a click while already selected.
+  const pickerSelected = mode !== 'preview';
+  const onPickerOpenChange = (next: boolean) => {
+    if (next && !pickerSelected) {
+      setMode('pretty');
+      return;
+    }
+    setPickerOpen(next);
+  };
+
   const copyBody = () => {
     void navigator.clipboard.writeText(response.body).then(() => {
       setCopied(true);
@@ -184,14 +198,22 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
           <Dropdown
             menu={{ items: pickerItems, onClick: onPickView, selectable: true, selectedKeys: [pickerKey] }}
             trigger={['click']}
+            open={pickerOpen}
+            onOpenChange={onPickerOpenChange}
           >
-            <Button size="small" data-testid="oh-response-view-picker" aria-label="Body view">
+            <Button
+              size="small"
+              type="text"
+              data-testid="oh-response-view-picker"
+              aria-label="Body view"
+              style={pickerSelected ? { background: token.colorBgTextActive } : undefined}
+            >
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ opacity: 0.75, display: 'inline-flex' }}>
                   <ViewPickerIcon id={pickerIcon} size={13} />
                 </span>
                 {pickerLabel}
-                <DownOutlined style={{ fontSize: 9, opacity: 0.65 }} />
+                {pickerSelected && <DownOutlined style={{ fontSize: 9, opacity: 0.65 }} />}
               </span>
             </Button>
           </Dropdown>
@@ -199,8 +221,9 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
         {previewKind && (
           <Button
             size="small"
-            type={mode === 'preview' ? 'primary' : 'text'}
+            type="text"
             icon={<EyeOutlined />}
+            style={mode === 'preview' ? { background: token.colorBgTextActive } : undefined}
             onClick={() => setMode(mode === 'preview' ? 'pretty' : 'preview')}
           >
             Preview
