@@ -128,6 +128,19 @@
   line-height: 1.5;
   padding: 1px 0;
 }
+.oh-info-popover-section-item--stacked {
+  display: block;
+  padding: 3px 0;
+}
+.oh-info-popover-section-item-head {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.oh-info-popover-section-item--stacked .oh-info-popover-section-item-desc {
+  display: block;
+  margin-top: 2px;
+}
 .oh-info-popover-section-item-icon {
   flex-shrink: 0;
   display: inline-flex;

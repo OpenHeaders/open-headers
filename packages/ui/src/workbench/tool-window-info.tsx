@@ -44,7 +44,9 @@ const TOOL_WINDOW_INFO: Record<ToolWindowId, InfoPopoverContent> = {
         // Single-sourced from the create-menu catalogue so the popover
         // never drifts from what the picker actually offers. The lead
         // icon is the same fixed-width type code rows render, so the
-        // labels form an aligned column.
+        // labels form an aligned column. Stacked layout: these labels
+        // are long, so descriptions get their own line.
+        layout: 'stacked',
         items: ALL_RULE_TYPES.map((t) => ({
           icon: buildRuleIcon({ ruleType: t.key, isActive: true }),
           label: t.label,

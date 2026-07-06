@@ -95,17 +95,34 @@ function InfoPopoverBody({ content }: { content: InfoPopoverContent }) {
         {content.sections?.map((section) => (
           <div className="oh-info-popover-section" key={section.heading}>
             <div className="oh-info-popover-section-heading">{section.heading}</div>
-            {section.items.map((item) => (
-              <div className="oh-info-popover-section-item" key={item.label}>
-                {item.icon && <span className="oh-info-popover-section-item-icon">{item.icon}</span>}
+            {section.items.map((item) => {
+              const label = (
                 <code
                   className={`oh-info-popover-section-item-label${item.labelClassName ? ` ${item.labelClassName}` : ''}`}
                 >
                   {item.label}
                 </code>
-                <span className="oh-info-popover-section-item-desc">{item.desc}</span>
-              </div>
-            ))}
+              );
+              const icon = item.icon && <span className="oh-info-popover-section-item-icon">{item.icon}</span>;
+              if (section.layout === 'stacked') {
+                return (
+                  <div className="oh-info-popover-section-item oh-info-popover-section-item--stacked" key={item.label}>
+                    <div className="oh-info-popover-section-item-head">
+                      {icon}
+                      {label}
+                    </div>
+                    <span className="oh-info-popover-section-item-desc">{item.desc}</span>
+                  </div>
+                );
+              }
+              return (
+                <div className="oh-info-popover-section-item" key={item.label}>
+                  {icon}
+                  {label}
+                  <span className="oh-info-popover-section-item-desc">{item.desc}</span>
+                </div>
+              );
+            })}
           </div>
         ))}
       </div>

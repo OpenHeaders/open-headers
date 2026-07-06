@@ -20,6 +20,13 @@ import type React from 'react';
 export interface InfoPopoverSection {
   /** Short heading rendered as a small all-caps label above the items. */
   heading: string;
+  /**
+   * Row layout. `inline` (default) puts the description beside the
+   * label — right for short glossary rows. `stacked` puts it on its own
+   * line under the icon + label — right when labels are long enough
+   * that side-by-side wrapping turns ragged.
+   */
+  layout?: 'inline' | 'stacked';
   /** Structured rows — `label` renders as `<code>`, `desc` as plain text.
    *  `labelClassName` is an optional extra class on the label (e.g. to
    *  tint it the same colour the value carries in its own column);
