@@ -81,6 +81,9 @@ const RequestUrlBar: React.FC<RequestUrlBarProps> = ({ draft, setDraft, urlUnres
       persistCustomMethods(next);
       return next;
     });
+    // Deleting the method that's currently selected falls back to GET
+    // right away — no phantom selection pointing at a removed entry.
+    setDraft((d) => (d.method === method ? { ...d, method: 'GET' } : d));
   };
 
   // Default list = the seven verbs, then saved customs under their own
