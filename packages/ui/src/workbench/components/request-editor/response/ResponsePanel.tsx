@@ -3,16 +3,17 @@
  *
  * Always mounted (so the divider + layout toggle are reachable before
  * the first Send); shows an empty-state until a response arrives. With
- * a response, the whole header is ONE row — the tab bar itself:
- * "Response" + tabs on the left, then meta strip, the "use response in
- * workflow" action, Clear, orientation toggle and a ⋯ menu (Copy /
- * Save body) on the right. Each tab's body is its own view component
+ * a response, the whole header is ONE row — the tab bar itself: tabs
+ * on the left, then meta strip, the "use response in workflow" action,
+ * orientation toggle and a ⋯ menu (Copy / Save body, Clear response)
+ * on the right. Each tab's body is its own view component
  * (Body · Headers · Cookies · Assertions · Console), the latter tabs
  * appearing only when the response carries that data.
  */
 
 import {
   CheckOutlined,
+  ClearOutlined,
   CopyOutlined,
   DownOutlined,
   DownloadOutlined,
@@ -183,9 +184,6 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
                     </Button>
                   </Dropdown>
                 )}
-                <Button size="small" type="text" onClick={onClear}>
-                  Clear
-                </Button>
                 <SplitLayoutToggle layout={layout} onChange={onLayoutChange} />
                 <Dropdown
                   trigger={['click']}
@@ -206,6 +204,13 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
                           : 'Save body to file',
                         disabled: !response.body,
                         onClick: saveBody,
+                      },
+                      { type: 'divider' },
+                      {
+                        key: 'clear',
+                        icon: <ClearOutlined />,
+                        label: 'Clear response',
+                        onClick: onClear,
                       },
                     ],
                   }}

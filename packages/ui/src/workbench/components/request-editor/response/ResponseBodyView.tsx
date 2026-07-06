@@ -16,13 +16,14 @@
  *     parseable JSON (collapsible key/value tree).
  */
 
-import { DownOutlined, EyeOutlined, FilterOutlined } from '@ant-design/icons';
+import { CheckOutlined, CopyOutlined, DownOutlined, EyeOutlined, FilterOutlined } from '@ant-design/icons';
 import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
-import { AutoComplete, Button, ConfigProvider, Dropdown, Input, type MenuProps, Tooltip, Typography, theme } from 'antd';
+import { Button, ConfigProvider, Dropdown, type MenuProps, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { getLanguage, LANGUAGE_LIST, type LanguageId } from '../../../languages/registry';
 import CodeEditor from '../../shared/CodeEditor';
+import ResponseFilterInput from './ResponseFilterInput';
 import ResponseJsonPreview from './ResponseJsonPreview';
 import { ViewPickerIcon, WrapLinesIcon } from './ViewPickerIcons';
 import { buildHexDump, encodeBodyBytes, toBase64 } from './response-encoding';
@@ -74,6 +75,7 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
   const [mode, setMode] = useState<ViewMode>('pretty');
   const [langOverride, setLangOverride] = useState<LanguageId | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
   // Wrap survives across sends (a viewing preference); the filter does
   // not (a path typed against the previous body).
   const [wrapLines, setWrapLines] = useState(true);
@@ -124,18 +126,6 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
   useEffect(() => {
     if (!filterKind && filterOpen) setFilterOpen(false);
   }, [filterKind, filterOpen]);
-
-  // Contextual lookahead: the query up to its last separator is
-  // evaluated against the body and THAT level's members are offered,
-  // each suggestion a full replacement string.
-  const filterSuggestions = useMemo(() => {
-    if (!filterOpen || !filterKind) return [];
-    const paths =
-      filterKind === 'jsonpath'
-        ? suggestJsonPathCompletions(parsedJson, filterQuery)
-        : suggestXPathCompletions(response.body, language === 'xml' ? 'xml' : 'html', filterQuery);
-    return paths.map((p) => ({ value: p }));
-  }, [filterOpen, filterKind, filterQuery, parsedJson, response.body, language]);
 
   const filterApplied = filterOpen && filterKind !== null && filterQuery.trim() !== '';
   const filterResult = useMemo(() => {
@@ -209,6 +199,15 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
       return;
     }
     setPickerOpen(next);
+  };
+
+  // Copies what the pane is showing: the filtered result while the
+  // filter matches, the wire body otherwise.
+  const copyBody = () => {
+    void navigator.clipboard.writeText(filteredDisplay ?? response.body).then(() => {
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    });
   };
 
   if (!response.body) {
@@ -289,35 +288,37 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
             />
           </Tooltip>
         )}
+        <span
+          aria-hidden="true"
+          style={{ width: 1, height: 16, background: token.colorBorderSecondary, margin: '0 2px' }}
+        />
+        <Tooltip title={copied ? 'Copied' : 'Copy body'} placement="bottom">
+          <Button
+            size="small"
+            type="text"
+            icon={copied ? <CheckOutlined /> : <CopyOutlined />}
+            onClick={copyBody}
+            aria-label="Copy body"
+          />
+        </Tooltip>
       </div>
       {filterOpen && filterKind && (
         <div style={{ paddingBottom: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <AutoComplete
+          <ResponseFilterInput
             value={filterQuery}
-            onChange={(next) => setFilterQuery(next)}
-            options={filterSuggestions}
-            // Suggestions are already contextually filtered — the
-            // default substring re-filter would hide them (each option
-            // is a full path, not a fragment of the typed text).
-            filterOption={false}
-            style={{ width: '100%' }}
-            popupMatchSelectWidth={false}
-          >
-            <Input
-              size="small"
-              allowClear
-              autoFocus
-              placeholder={
-                filterKind === 'jsonpath'
-                  ? "Filter with JSONPath — $.headers['content-type'], $.items[0], $..url"
-                  : 'Filter with XPath — //item/name, /html/head/title'
-              }
-              aria-label="Filter body"
-              status={filterResult && !filterResult.ok ? 'error' : undefined}
-              prefix={<FilterOutlined style={{ color: token.colorTextTertiary }} />}
-              style={{ fontFamily: "'SF Mono', 'Fira Code', monospace", fontSize: 12 }}
-            />
-          </AutoComplete>
+            onChange={setFilterQuery}
+            placeholder={
+              filterKind === 'jsonpath'
+                ? "Filter with JSONPath — $.headers['content-type'], $.items[0], $..url"
+                : 'Filter with XPath — //item/name, /html/head/title'
+            }
+            hasError={filterResult !== null && !filterResult.ok}
+            getSuggestions={(query) =>
+              filterKind === 'jsonpath'
+                ? suggestJsonPathCompletions(parsedJson, query)
+                : suggestXPathCompletions(response.body, language === 'xml' ? 'xml' : 'html', query)
+            }
+          />
           {filterResult && !filterResult.ok && (
             <Text type="danger" style={{ fontSize: 11 }}>
               {filterKind === 'jsonpath'
