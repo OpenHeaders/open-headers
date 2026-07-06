@@ -287,6 +287,30 @@ describe('tab-telemetry — deferred observed + 500ms scriptable fallback', () =
     expect(getTabSnapshot(1).counters['rule-mock']).toBe(1);
   });
 
+  it('suppressForMs stretches the window — a delay-held request observed after delayMs stays suppressed', () => {
+    startTracking(1, 'active-popup');
+    // A delay wrapper fires at fetch time but holds the request 600ms —
+    // the observed twin lands past the standard 500ms window.
+    recordScriptableFire(1, 'rule-delay', 'https://api.openheaders.io/x', 100, {
+      ...SCRIPTABLE_META,
+      suppressForMs: 600,
+    });
+
+    vi.advanceTimersByTime(600);
+    recordObservedFire(1, 'rule-delay', 'https://api.openheaders.io/x', 'req-1', 700, DEFERRED_META);
+    vi.advanceTimersByTime(1000);
+
+    // Still just the one scriptable fire — the stretched window covered it.
+    const snap = getTabSnapshot(1);
+    expect(snap.fires).toHaveLength(1);
+    expect(snap.counters['rule-delay']).toBe(1);
+
+    // A genuinely new request past the stretched window counts again.
+    recordObservedFire(1, 'rule-delay', 'https://api.openheaders.io/x', 'req-2', 1700, DEFERRED_META);
+    vi.advanceTimersByTime(__internals.FALLBACK_WINDOW_MS);
+    expect(getTabSnapshot(1).counters['rule-delay']).toBe(2);
+  });
+
   it('late scriptable (after fallback window): both records exist — fallback + confirmed', () => {
     startTracking(1, 'active-popup');
     recordObservedFire(1, 'rule-mock', 'https://api.openheaders.io/x', 'req-1', 100, DEFERRED_META);

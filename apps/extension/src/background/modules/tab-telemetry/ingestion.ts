@@ -5,7 +5,7 @@
  * append path that feeds counters + LRU uniques + the fire ring.
  */
 
-import type { Evidence, RequestRecord } from '@openheaders/core/types';
+import type { Evidence, RequestRecord, Rule } from '@openheaders/core/types';
 import { doesUrlMatchEntry, getRuleMatchPatterns } from '@openheaders/core/utils';
 import { getRules } from '@openheaders/oracle/entity/rule-store';
 import { getResolvedRules } from '@openheaders/oracle/rule-engine/variables-resolver';
@@ -217,8 +217,10 @@ export function recordScriptableFire(
     state.pendingFallback.delete(key);
   }
 
-  // Suppress any late observed fire for this key within the window.
-  state.recentScriptable.set(key, t + FALLBACK_WINDOW_MS);
+  // Suppress any late observed fire for this key within the window,
+  // stretched by however long the wrapper holds the request back before
+  // the network layer can observe it (delay rules).
+  state.recentScriptable.set(key, t + FALLBACK_WINDOW_MS + (meta.suppressForMs ?? 0));
 
   const identity = adoptNetworkIdentity(state, ruleUid, normalized, pending?.record);
   const record: RequestRecord = {
@@ -243,18 +245,27 @@ export function recordScriptableFire(
  */
 export function recordReportedFire(tabId: number, ruleUid: string, url: string, t: number): void {
   logger.info('TabFire', `tab ${tabId} scriptable ${ruleUid} ${url}`);
-  const pattern = findMatchingPattern(ruleUid, url) ?? '*';
-  recordScriptableFire(tabId, ruleUid, url, t, { pattern, resourceType: 'xmlhttprequest' });
+  const rule = findReportedRule(ruleUid);
+  const pattern = (rule && findMatchingPattern(rule, url)) ?? '*';
+  // A delay wrapper fires when the page issues the request but holds it
+  // back for delayMs before the network layer can observe it — the
+  // scriptable-wins suppression must span that gap. 5000 mirrors the
+  // wrapper's own clamp.
+  const suppressForMs = rule?.type === 'delay' ? Math.max(0, Math.min(rule.action.delayMs, 5000)) : 0;
+  recordScriptableFire(tabId, ruleUid, url, t, { pattern, resourceType: 'xmlhttprequest', suppressForMs });
 }
 
-/** Resolve the URL-condition pattern a scriptable rule matched against. Matches
- *  against the resolved rule — raw `{{VAR}}` URL tokens never match a real
- *  request URL — falling through to the raw store before the first compile. */
-function findMatchingPattern(ruleUid: string, url: string): string | undefined {
+/** Resolve a reported rule uid against the resolved-rules pool — raw
+ *  `{{VAR}}` URL tokens never match a real request URL — falling through
+ *  to the raw store before the first compile. */
+function findReportedRule(ruleUid: string): Rule | undefined {
   const resolved = getResolvedRules();
   const pool = resolved.length > 0 ? resolved : getRules();
-  const rule = pool.find((r) => r.uid === ruleUid);
-  if (!rule) return undefined;
+  return pool.find((r) => r.uid === ruleUid);
+}
+
+/** Resolve the URL-condition pattern a scriptable rule matched against. */
+function findMatchingPattern(rule: Rule, url: string): string | undefined {
   for (const entry of getRuleMatchPatterns(rule)) {
     if (doesUrlMatchEntry(url, entry)) return entry.pattern;
   }

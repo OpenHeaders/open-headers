@@ -29,6 +29,15 @@ export interface ObservedFireMeta {
 export interface ScriptableFireMeta {
   pattern: string;
   resourceType: TrackedResourceType;
+  /**
+   * Extra time (beyond the standard fallback window) a late observed fire
+   * for the same (rule, url) stays suppressed. A delay wrapper fires when
+   * the page calls fetch/XHR but holds the network request for the rule's
+   * `delayMs` — the observed twin arrives that much later, so the
+   * scriptable-wins window must span the delay or the same action counts
+   * twice. 0 / omitted for wrappers that dispatch the request immediately.
+   */
+  suppressForMs?: number;
 }
 
 export type TrackingReason = string;
