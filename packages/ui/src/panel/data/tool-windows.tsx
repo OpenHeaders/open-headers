@@ -21,8 +21,9 @@ import type {
   ToolRegion,
 } from '@openheaders/ui/shared/dock-layout';
 import { ALL_DOCK_SLOTS, DOCK_LABELS, dockRegion } from '@openheaders/ui/shared/dock-layout';
+import NotificationsIcon from '@openheaders/ui/shared/notifications/NotificationsIcon';
 
-export type PanelToolWindowId = 'network' | 'console' | 'rules' | 'search' | 'docs' | 'matched-rules';
+export type PanelToolWindowId = 'network' | 'console' | 'rules' | 'search' | 'notifications' | 'docs' | 'matched-rules';
 export type PanelDockSlot = DockSlot;
 export type PanelToolRegion = ToolRegion;
 export type PanelDockState = GenericDockState<PanelToolWindowId>;
@@ -35,6 +36,8 @@ export const PANEL_TOOL_WINDOWS: readonly PanelToolWindowDef[] = [
   { id: 'console', label: 'Console', icon: <CodeOutlined />, core: false, defaultSlot: 'left-bottom' },
   { id: 'rules', label: 'Rule Activity', icon: <AuditOutlined />, core: false, defaultSlot: 'left-bottom' },
   { id: 'search', label: 'Search', icon: <SearchOutlined />, core: false, defaultSlot: 'left-bottom' },
+  // `notifications` sits above `docs` in right-top tab order.
+  { id: 'notifications', label: 'Notifications', icon: <NotificationsIcon />, core: false, defaultSlot: 'right-top' },
   { id: 'docs', label: 'Docs', icon: <BookOutlined />, core: false, defaultSlot: 'right-top' },
   {
     id: 'matched-rules',

@@ -1,6 +1,5 @@
-import { LayoutOutlined, SettingOutlined } from '@ant-design/icons';
+import { LayoutOutlined } from '@ant-design/icons';
 import { hostAssets } from '@openheaders/core/assets';
-import { hostNavigation } from '@openheaders/core/navigation';
 import type { Environment } from '@openheaders/core/types';
 import type { DockLayoutApi } from '@openheaders/ui/shared/dock-layout';
 import { LayoutMenuIcon, RegionToggle } from '@openheaders/ui/shared/dock-layout';
@@ -9,9 +8,11 @@ import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 import EnvironmentSelector from '@openheaders/ui/workbench/components/shell/EnvironmentSelector';
 import { useSetting, useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
+import SettingsGearMenu from '@openheaders/ui/shared/settings-menu/SettingsGearMenu';
 import { Dropdown, type MenuProps, Tooltip, theme } from 'antd';
 import type React from 'react';
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
+
 import type { FilterConfig } from '../data/filter-engine';
 import type { PanelToolWindowId } from '../data/tool-windows';
 import type { PanelViewState } from '../data/use-panel-tool-layout';
@@ -28,6 +29,12 @@ import {
 } from './toolbar-layout-menu';
 import { MORE_FILTERS_INFO, VIEW_INFO } from './toolbar-menu-info';
 import { ExportMenu, MoreFiltersMenu, ViewMenu } from './toolbar-menus';
+
+// Lazy so the settings UI (Monaco via CodeField) stays out of the
+// panel's boot bundle; it loads on first gear-menu action.
+const SettingsModalLazy = lazy(() =>
+  import('@openheaders/ui/workbench/settings/ui').then((m) => ({ default: m.SettingsModal })),
+);
 
 function IconRecord({ active }: { active: boolean }) {
   return active ? (
@@ -133,6 +140,16 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
   onSwitchEnvironment,
 }) => {
   const { token } = theme.useToken();
+
+  // In-panel settings surface — the gear menu opens the shared modal
+  // right here instead of bouncing the user out to the workbench tab.
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsCategoryId, setSettingsCategoryId] = useState<string | undefined>(undefined);
+  const openSettings = (target?: { settingKey?: string; categoryId?: string }) => {
+    setSettingsCategoryId(target?.categoryId ?? 'devpanel');
+    setSettingsOpen(true);
+  };
+
   const showPanelToggles = useSettingValue('devpanelLayout.topbarShowPanelToggles');
   const showLayoutMenu = useSettingValue('devpanelLayout.topbarShowLayoutMenu');
   const [bottomPanelAlignment, setBottomPanelAlignment] = useSetting('devpanelLayout.bottomPanelAlignment');
@@ -401,18 +418,16 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
             </>
           )}
           <div className="dt-toolbar-separator" />
-          <Tooltip title="Open Settings in workspace" placement="bottom">
-            <button
-              type="button"
-              className="dt-toolbar-icon"
-              aria-label="Open settings"
-              onClick={() => {
-                hostNavigation.openUrl(hostAssets.resolveUrl('workbench.html#/settings'));
-              }}
-            >
-              <SettingOutlined style={{ fontSize: 14 }} />
-            </button>
-          </Tooltip>
+          <SettingsGearMenu onOpenSettings={openSettings} />
+          {settingsOpen && (
+            <Suspense fallback={null}>
+              <SettingsModalLazy
+                open={settingsOpen}
+                onClose={() => setSettingsOpen(false)}
+                initialCategoryId={settingsCategoryId}
+              />
+            </Suspense>
+          )}
           </div>
         </div>
       </div>
