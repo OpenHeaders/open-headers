@@ -427,7 +427,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
                     <Space orientation="vertical" size={4}>
                       <Text type="secondary">No rules yet</Text>
                       <Text type="secondary" style={{ fontSize: '12px' }}>
-                        Click "Add Rule" to create a local rule or use the desktop app
+                        Click "Add Rule" to modify live browser requests
                       </Text>
                     </Space>
                   )
