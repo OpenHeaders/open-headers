@@ -139,7 +139,10 @@ registerSetting({
 registerSetting({
   key: 'keyboard.toggleActivityFeed',
   type: 'keybinding',
-  default: 'mod+shift+a',
+  // NOT mod+shift+a — that chord belongs to keyboard.tabSearch; two
+  // actions on one default meant the later-registered handler silently
+  // won and "Search tabs" opened the Activity Feed instead.
+  default: 'shift+alt+a',
   schema: chordSchema,
   label: 'Toggle Activity Feed',
   description: 'Show or hide the Activity Feed panel.',

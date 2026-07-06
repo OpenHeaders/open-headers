@@ -89,7 +89,7 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
   // highlights (sensitive-field rotations, permission-scope expansions,
   // local-edit supersedes). Bottom-right slot pairs it with Deep Network Inspection
   // so both inbound surfaces sit together; `openByDefault` is false so
-  // the panel stays dormant until the user opens it via Ctrl+Shift+A or
+  // the panel stays dormant until the user opens it via Shift+Alt+A or
   // the bar icon — discoverability rides the badge instead.
   {
     id: 'activity',
