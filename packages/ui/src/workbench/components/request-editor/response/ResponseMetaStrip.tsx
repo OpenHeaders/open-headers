@@ -209,6 +209,17 @@ interface ResponseMetaStripProps {
   statusColor: string;
 }
 
+/** Tiny round separator between the strip's facts. */
+const MetaDot: React.FC = () => {
+  const { token } = theme.useToken();
+  return (
+    <span
+      aria-hidden="true"
+      style={{ width: 3, height: 3, borderRadius: '50%', flexShrink: 0, background: token.colorTextQuaternary }}
+    />
+  );
+};
+
 const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response, statusColor }) => {
   if (response.error !== null) {
     return (
@@ -220,7 +231,7 @@ const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response, statusC
   const versionLabel = response.timing ? httpVersionLabel(response.timing.nextHopProtocol) : null;
   const factStyle: React.CSSProperties = { fontSize: 11, whiteSpace: 'nowrap', cursor: 'help' };
   return (
-    <>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
       <InfoPopover content={getStatusCodeInfoContent(response.status, response.statusText)} trigger="hover">
         <Tag
           color="default"
@@ -232,24 +243,29 @@ const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response, statusC
           {response.status} {response.statusText}
         </Tag>
       </InfoPopover>
+      <MetaDot />
       <InfoPopover content={timingContent(response)} trigger="hover">
         <Text type="secondary" style={factStyle}>
           {response.durationMs} ms
         </Text>
       </InfoPopover>
+      <MetaDot />
       <InfoPopover content={sizeContent(response)} trigger="hover">
         <Text type="secondary" style={factStyle}>
           {formatBytes(response.bodyBytes)}
         </Text>
       </InfoPopover>
       {versionLabel && (
-        <InfoPopover content={httpVersionContent(versionLabel)} trigger="hover">
-          <Text type="secondary" style={factStyle}>
-            {versionLabel}
-          </Text>
-        </InfoPopover>
+        <>
+          <MetaDot />
+          <InfoPopover content={httpVersionContent(versionLabel)} trigger="hover">
+            <Text type="secondary" style={factStyle}>
+              {versionLabel}
+            </Text>
+          </InfoPopover>
+        </>
       )}
-    </>
+    </span>
   );
 };
 

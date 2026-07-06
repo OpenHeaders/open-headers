@@ -16,14 +16,7 @@
  *     parseable JSON (collapsible key/value tree).
  */
 
-import {
-  CheckOutlined,
-  CopyOutlined,
-  DownOutlined,
-  DownloadOutlined,
-  EyeOutlined,
-  FilterOutlined,
-} from '@ant-design/icons';
+import { DownOutlined, EyeOutlined, FilterOutlined } from '@ant-design/icons';
 import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
 import { Button, ConfigProvider, Dropdown, Input, type MenuProps, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
@@ -35,7 +28,6 @@ import { ViewPickerIcon, WrapLinesIcon } from './ViewPickerIcons';
 import { buildHexDump, encodeBodyBytes, toBase64 } from './response-encoding';
 import { evaluateJsonPath, evaluateXPath } from './response-filter';
 import { detectBodyLanguage, formatBytes, prettyBody } from './response-format';
-import { deriveSaveFilename } from './response-save';
 
 const { Text } = Typography;
 
@@ -77,7 +69,6 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
   const [mode, setMode] = useState<ViewMode>('pretty');
   const [langOverride, setLangOverride] = useState<LanguageId | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
   // Wrap survives across sends (a viewing preference); the filter does
   // not (a path typed against the previous body).
   const [wrapLines, setWrapLines] = useState(true);
@@ -203,27 +194,6 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
     setPickerOpen(next);
   };
 
-  const copyBody = () => {
-    void navigator.clipboard.writeText(response.body).then(() => {
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
-    });
-  };
-
-  // The workbench is an extension page, so a plain anchor download
-  // works — no downloads permission. Saves the body text we hold: a
-  // truncated body saves truncated (labeled in the tooltip), never
-  // re-fetched.
-  const saveBody = () => {
-    const blob = new Blob([response.body], { type: 'text/plain;charset=utf-8' });
-    const objectUrl = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = objectUrl;
-    anchor.download = deriveSaveFilename(response.url, language);
-    anchor.click();
-    URL.revokeObjectURL(objectUrl);
-  };
-
   if (!response.body) {
     return (
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 0 }}>
@@ -302,21 +272,6 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
             />
           </Tooltip>
         )}
-        <Tooltip title={copied ? 'Copied' : 'Copy body'} placement="bottom">
-          <Button
-            size="small"
-            type="text"
-            icon={copied ? <CheckOutlined /> : <CopyOutlined />}
-            onClick={copyBody}
-            aria-label="Copy body"
-          />
-        </Tooltip>
-        <Tooltip
-          title={response.bodyTruncated ? 'Save body to file (truncated body — saves what was kept)' : 'Save body to file'}
-          placement="bottom"
-        >
-          <Button size="small" type="text" icon={<DownloadOutlined />} onClick={saveBody} aria-label="Save body" />
-        </Tooltip>
       </div>
       {filterOpen && filterKind && (
         <div style={{ paddingBottom: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>

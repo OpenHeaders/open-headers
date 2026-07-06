@@ -1,7 +1,6 @@
 /**
- * Pure filename derivation for the Body toolbar's Save action. The
- * DOM side (Blob + anchor click) lives in `ResponseBodyView`; this
- * module owns everything unit-testable.
+ * Save-body support: pure filename derivation (unit-tested) plus the
+ * one DOM step that hands the text to the browser as a download.
  */
 
 import type { LanguageId } from '../../../languages/registry';
@@ -44,4 +43,20 @@ export function deriveSaveFilename(url: string, language: LanguageId): string {
   segment = segment.replace(/[^\w.-]+/g, '_').replace(/^[._]+/, '');
   if (!segment) segment = 'response';
   return HAS_EXTENSION.test(segment) ? segment : `${segment}.${SAVE_EXTENSIONS[language]}`;
+}
+
+/**
+ * Hand the body text to the browser as a download via a transient
+ * anchor — the workbench is an extension page, so no downloads
+ * permission is needed. Saves the text we hold: a truncated body saves
+ * truncated, never re-fetched.
+ */
+export function downloadBodyAsFile(body: string, url: string, language: LanguageId): void {
+  const blob = new Blob([body], { type: 'text/plain;charset=utf-8' });
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = objectUrl;
+  anchor.download = deriveSaveFilename(url, language);
+  anchor.click();
+  URL.revokeObjectURL(objectUrl);
 }

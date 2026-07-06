@@ -2,15 +2,23 @@
  * ResponsePanel — the response half of the request editor split.
  *
  * Always mounted (so the divider + layout toggle are reachable before
- * the first Send); shows an empty-state until a response arrives. This
- * module owns the header (status/timing meta, the "use response in
- * workflow" action, Clear, orientation toggle) and assembles the tab
- * set; each tab's body is its own view component (Body · Headers ·
- * Assertions · Console), with Assertions + Console appearing only when
- * the response carries that data.
+ * the first Send); shows an empty-state until a response arrives. With
+ * a response, the whole header is ONE row — the tab bar itself:
+ * "Response" + tabs on the left, then meta strip, the "use response in
+ * workflow" action, Clear, orientation toggle and a ⋯ menu (Copy /
+ * Save body) on the right. Each tab's body is its own view component
+ * (Body · Headers · Cookies · Assertions · Console), the latter tabs
+ * appearing only when the response carries that data.
  */
 
-import { DownOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import {
+  CheckOutlined,
+  CopyOutlined,
+  DownOutlined,
+  DownloadOutlined,
+  EllipsisOutlined,
+  ThunderboltOutlined,
+} from '@ant-design/icons';
 import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/readers/useLiveWorkflows';
 import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
 import { Button, Dropdown, Tabs, Typography, theme } from 'antd';
@@ -24,6 +32,8 @@ import ResponseCookiesView from './ResponseCookiesView';
 import ResponseEmptyState from './ResponseEmptyState';
 import ResponseHeadersView from './ResponseHeadersView';
 import ResponseMetaStrip from './ResponseMetaStrip';
+import { detectBodyLanguage } from './response-format';
+import { downloadBodyAsFile } from './response-save';
 import { SplitLayoutToggle } from '@openheaders/ui/shared/split-layout';
 
 const { Text } = Typography;
@@ -71,6 +81,19 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
   const hasScriptLog = preLog.length > 0 || postLog.length > 0;
   const setCookieCount = response?.wire?.setCookieHeaders?.length ?? 0;
   const [activeTab, setActiveTab] = useState<ResponseTabKey>('body');
+  const [bodyCopied, setBodyCopied] = useState(false);
+
+  const copyBody = () => {
+    if (!response) return;
+    void navigator.clipboard.writeText(response.body).then(() => {
+      setBodyCopied(true);
+      window.setTimeout(() => setBodyCopied(false), 1500);
+    });
+  };
+  const saveBody = () => {
+    if (!response) return;
+    downloadBodyAsFile(response.body, response.url, detectBodyLanguage(response.headers));
+  };
 
   const statusColor =
     !response || response.error !== null
@@ -95,81 +118,26 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
         background: token.colorBgContainer,
       }}
     >
-      {/* Header wraps as a whole — left meta group + right action group,
-        each nowrap — so in a narrow side-by-side pane the actions reflow
-        to a second line instead of the label collapsing to one glyph
-        per line. */}
-      <div
-        style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          gap: 8,
-          rowGap: 6,
-          padding: '6px 16px',
-          borderBottom: `1px solid ${token.colorBorderSecondary}`,
-        }}
-      >
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-          <Text strong style={{ fontSize: 12, whiteSpace: 'nowrap', flexShrink: 0 }}>
-            Response
-          </Text>
-          {response && <ResponseMetaStrip response={response} statusColor={statusColor} />}
-        </div>
-        <div
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            justifyContent: 'flex-end',
-            gap: 8,
-            rowGap: 6,
-            marginLeft: 'auto',
-          }}
-        >
-          {response && onExtractToWorkflow && !response.error && (
-            <Dropdown
-              trigger={['click']}
-              menu={{
-                items: [
-                  {
-                    key: 'new',
-                    icon: <ThunderboltOutlined />,
-                    label: 'Create new workflow',
-                    onClick: () => onExtractToWorkflow('new'),
-                  },
-                  {
-                    key: 'attach',
-                    icon: <ThunderboltOutlined />,
-                    label: 'Attach to existing workflow',
-                    disabled: liveWorkflows.length === 0,
-                    children:
-                      liveWorkflows.length === 0
-                        ? undefined
-                        : liveWorkflows.map((w) => ({
-                            key: `attach-${w.uid}`,
-                            label: w.name,
-                            onClick: () => onExtractToWorkflow({ workflowUid: w.uid }),
-                          })),
-                  },
-                ],
-              }}
-            >
-              <Button size="small">
-                Use response in workflow <DownOutlined style={{ fontSize: 10 }} />
-              </Button>
-            </Dropdown>
-          )}
-          {response && (
-            <Button size="small" type="text" onClick={onClear}>
-              Clear
-            </Button>
-          )}
-          <SplitLayoutToggle layout={layout} onChange={onLayoutChange} />
-        </div>
-      </div>
       {!response ? (
-        <ResponseEmptyState sending={sending} />
+        <>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '6px 16px',
+              borderBottom: `1px solid ${token.colorBorderSecondary}`,
+            }}
+          >
+            <Text strong style={{ fontSize: 12, whiteSpace: 'nowrap', flexShrink: 0 }}>
+              Response
+            </Text>
+            <div style={{ marginLeft: 'auto' }}>
+              <SplitLayoutToggle layout={layout} onChange={onLayoutChange} />
+            </div>
+          </div>
+          <ResponseEmptyState sending={sending} />
+        </>
       ) : (
         <Tabs
           size="small"
@@ -177,6 +145,81 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
           onChange={(k) => setActiveTab(k as ResponseTabKey)}
           className="rules-response-tabs"
           style={{ flex: 1, padding: '0 16px', display: 'flex', flexDirection: 'column', minHeight: 0 }}
+          tabBarStyle={{ marginBottom: 0 }}
+          tabBarExtraContent={{
+            right: (
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, paddingLeft: 12 }}>
+                <ResponseMetaStrip response={response} statusColor={statusColor} />
+                {onExtractToWorkflow && !response.error && (
+                  <Dropdown
+                    trigger={['click']}
+                    menu={{
+                      items: [
+                        {
+                          key: 'new',
+                          icon: <ThunderboltOutlined />,
+                          label: 'Create new workflow',
+                          onClick: () => onExtractToWorkflow('new'),
+                        },
+                        {
+                          key: 'attach',
+                          icon: <ThunderboltOutlined />,
+                          label: 'Attach to existing workflow',
+                          disabled: liveWorkflows.length === 0,
+                          children:
+                            liveWorkflows.length === 0
+                              ? undefined
+                              : liveWorkflows.map((w) => ({
+                                  key: `attach-${w.uid}`,
+                                  label: w.name,
+                                  onClick: () => onExtractToWorkflow({ workflowUid: w.uid }),
+                                })),
+                        },
+                      ],
+                    }}
+                  >
+                    <Button size="small">
+                      Use response in workflow <DownOutlined style={{ fontSize: 10 }} />
+                    </Button>
+                  </Dropdown>
+                )}
+                <Button size="small" type="text" onClick={onClear}>
+                  Clear
+                </Button>
+                <SplitLayoutToggle layout={layout} onChange={onLayoutChange} />
+                <Dropdown
+                  trigger={['click']}
+                  menu={{
+                    items: [
+                      {
+                        key: 'copy',
+                        icon: <CopyOutlined />,
+                        label: 'Copy body',
+                        disabled: !response.body,
+                        onClick: copyBody,
+                      },
+                      {
+                        key: 'save',
+                        icon: <DownloadOutlined />,
+                        label: response.bodyTruncated
+                          ? 'Save body to file (truncated — saves what was kept)'
+                          : 'Save body to file',
+                        disabled: !response.body,
+                        onClick: saveBody,
+                      },
+                    ],
+                  }}
+                >
+                  <Button
+                    size="small"
+                    type="text"
+                    icon={bodyCopied ? <CheckOutlined /> : <EllipsisOutlined />}
+                    aria-label="More response actions"
+                  />
+                </Dropdown>
+              </div>
+            ),
+          }}
           items={[
             {
               key: 'body',
