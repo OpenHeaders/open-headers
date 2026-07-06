@@ -59,7 +59,7 @@ export function useSeedNotifications(): void {
           {
             label: 'Visit our website',
             icon: <GlobalOutlined style={{ fontSize: 13 }} />,
-            tooltip: 'Opens openheaders.io and dismisses this notification.',
+            tooltip: 'Open website and clear notification',
             run: () => {
               openExternal(WEBSITE_URL);
               rememberDone('oh.websiteVisited');
@@ -85,7 +85,7 @@ export function useSeedNotifications(): void {
           {
             label: 'Give us a star on GitHub',
             icon: <StarTwoTone style={{ fontSize: 13 }} />,
-            tooltip: 'Opens the GitHub repository and dismisses this notification.',
+            tooltip: 'Open github and clear notification',
             run: () => {
               openExternal(GITHUB_URL);
               rememberDone('oh.helpUsGrowStarred');
