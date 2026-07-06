@@ -518,6 +518,20 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
         }}
       />
 
+      <Divider style={{ margin: '4px 0' }} />
+      <div
+        role="menuitem"
+        className="oh-env-row"
+        style={{ ...rowStyle, color: token.colorTextSecondary }}
+        onClick={() => {
+          onCreateEnvironment();
+          handleClose();
+        }}
+      >
+        <PlusOutlined style={{ fontSize: 12 }} />
+        <Text style={{ fontSize: 13 }}>Create new environment</Text>
+      </div>
+
       {hasPinnedSection ? (
         <>
           <Divider style={{ margin: '4px 0' }} />
@@ -604,18 +618,6 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
       )}
 
       <Divider style={{ margin: '4px 0' }} />
-      <div
-        role="menuitem"
-        className="oh-env-row"
-        style={{ ...rowStyle, color: token.colorTextSecondary }}
-        onClick={() => {
-          onCreateEnvironment();
-          handleClose();
-        }}
-      >
-        <PlusOutlined style={{ fontSize: 12 }} />
-        <Text style={{ fontSize: 13 }}>Create new environment</Text>
-      </div>
       {/* Compact scope shortcuts — one row, segments split by vertical
           dividers (Vault | Collection | Workspace | Live). Collection
           joins only while a collection is active; Live only where the
