@@ -103,6 +103,19 @@ export const DOC_ID_TO_SECTION: Record<string, string> = {
   // Redirect sub-anchors
   'redirect-url': 'redirect',
   'redirect-regex': 'redirect',
+  // Variables sub-anchors
+  'variables-scopes': 'variables',
+  'variables-vault': 'variables',
+  'variables-environment': 'variables',
+  'variables-collection': 'variables',
+  'variables-workspace': 'variables',
+  'variables-live': 'variables',
+  'variables-priority': 'variables',
+  'variables-rules': 'variables',
+  'variables-requests': 'variables',
+  'variables-workflows': 'variables',
+  'variables-namespaces': 'variables',
+  'variables-inspecting': 'variables',
 };
 
 export function resolveDocLink(docId: string): { section: string; anchor: string | null } {

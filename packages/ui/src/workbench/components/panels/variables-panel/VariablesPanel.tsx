@@ -50,7 +50,7 @@ const VariablesPanel: React.FC<VariablesPanelProps> = (props) => {
       <PanelHeader wiring={headerWiring} title={<strong>Scope</strong>} info={info} />
 
       <div style={{ padding: '0 12px', flex: 1, overflowY: 'auto' }}>
-        <PanelSection title={inContextTitle} info={IN_CONTEXT_INFO}>
+        <PanelSection title={inContextTitle} info={IN_CONTEXT_INFO} docId="variables-inspecting">
           <InContextView
             vars={vm.inContextVars}
             errors={vm.inContextErrors}
@@ -59,7 +59,7 @@ const VariablesPanel: React.FC<VariablesPanelProps> = (props) => {
           />
         </PanelSection>
 
-        <PanelSection title="All scopes" info={ALL_SCOPES_INFO} isLast>
+        <PanelSection title="All scopes" info={ALL_SCOPES_INFO} docId="variables-priority" isLast>
           <AllScopesView
             allVars={vm.allVars}
             activeEnvironmentName={vm.activeEnvironmentName}

@@ -19,12 +19,18 @@ export interface SectionInfoProps {
    *  script). Omit for topics that have no docs section yet — no link
    *  shows. */
   docId?: string | (() => string);
+  /** Passed through to the InfoTrigger — e.g. `vp-scope-reveal` for
+   *  hover-revealed triggers in the Scope panel. */
+  className?: string;
+  ariaLabel?: string;
 }
 
-const SectionInfo: React.FC<SectionInfoProps> = ({ content, docId }) => {
+const SectionInfo: React.FC<SectionInfoProps> = ({ content, docId, className, ariaLabel }) => {
   const { openDocs } = useInspectorNav();
   return (
     <InfoTrigger
+      className={className}
+      ariaLabel={ariaLabel}
       content={
         docId
           ? {

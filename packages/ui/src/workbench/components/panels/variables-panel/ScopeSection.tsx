@@ -9,10 +9,10 @@
  */
 
 import { CaretRightOutlined } from '@ant-design/icons';
-import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { Tooltip, Typography, theme } from 'antd';
 import { useMemo, useState } from 'react';
 import { scopeBadge } from '../../shared/scope-colors';
+import SectionInfo from '../../shared/SectionInfo';
 import { buildScopeInfo } from './scope-info';
 import { SCOPE_CONFIG, type DisplayScope, type DisplayVariable } from './types';
 import { VariableTable } from './VariableTable';
@@ -90,7 +90,12 @@ export function ScopeSection({ scope, variables, subtitle, action, isLast }: Sco
         <Text strong style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
           {config.label}
         </Text>
-        <InfoTrigger content={scopeInfo} className="vp-scope-reveal" ariaLabel={`About ${config.label} variables`} />
+        <SectionInfo
+          content={scopeInfo}
+          docId={`variables-${scope}`}
+          className="vp-scope-reveal"
+          ariaLabel={`About ${config.label} variables`}
+        />
         {subtitle && (
           <Text
             type="secondary"

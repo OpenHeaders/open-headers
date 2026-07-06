@@ -69,9 +69,11 @@ export const VariablesSection: React.FC = () => (
     <Anchor id="variables-scopes">
       <DocHeading level={3}>The five scopes</DocHeading>
     </Anchor>
-    <DocHeading level={4}>
-      <ScopeHeadingLabel scope="vault">Vault — secrets, this device only</ScopeHeadingLabel>
-    </DocHeading>
+    <Anchor id="variables-vault">
+      <DocHeading level={4}>
+        <ScopeHeadingLabel scope="vault">Vault — secrets, this device only</ScopeHeadingLabel>
+      </DocHeading>
+    </Anchor>
     <DocParagraph>
       The vault holds per-device secrets: API keys, passwords, TOTP seeds. Vault entries never sync and never leave the
       device — they stay out of workspace exports and git history. Two kinds exist: <em>string</em> entries resolve
@@ -88,9 +90,11 @@ export const VariablesSection: React.FC = () => (
     >
       <VariablesVaultRefDiagram />
     </DiagramFrame>
-    <DocHeading level={4}>
-      <ScopeHeadingLabel scope="environment">Environment — switchable value sets</ScopeHeadingLabel>
-    </DocHeading>
+    <Anchor id="variables-environment">
+      <DocHeading level={4}>
+        <ScopeHeadingLabel scope="environment">Environment — switchable value sets</ScopeHeadingLabel>
+      </DocHeading>
+    </Anchor>
     <DocParagraph>
       Environments are named sets of variables you swap as a unit — <code>staging</code>, <code>production</code>, a
       teammate's local setup. The active environment is picked in the header selector; a name the active environment
@@ -101,9 +105,11 @@ export const VariablesSection: React.FC = () => (
     <DiagramFrame caption="One name, a value per stage — switch the environment instead of duplicating rules.">
       <VariablesEnvironmentRefDiagram />
     </DiagramFrame>
-    <DocHeading level={4}>
-      <ScopeHeadingLabel scope="collection">Collection — scoped to one collection</ScopeHeadingLabel>
-    </DocHeading>
+    <Anchor id="variables-collection">
+      <DocHeading level={4}>
+        <ScopeHeadingLabel scope="collection">Collection — scoped to one collection</ScopeHeadingLabel>
+      </DocHeading>
+    </Anchor>
     <DocParagraph>
       Collection variables are defined on a collection and resolve only for the rules and requests that belong to it.
       They're the right home for values that are true of one API but not the whole workspace — a base URL, a tenant
@@ -112,9 +118,11 @@ export const VariablesSection: React.FC = () => (
     <DiagramFrame caption="Collection variables resolve only inside their own collection — elsewhere the walk passes them by.">
       <VariablesCollectionRefDiagram />
     </DiagramFrame>
-    <DocHeading level={4}>
-      <ScopeHeadingLabel scope="workspace">Workspace — shared with everyone</ScopeHeadingLabel>
-    </DocHeading>
+    <Anchor id="variables-workspace">
+      <DocHeading level={4}>
+        <ScopeHeadingLabel scope="workspace">Workspace — shared with everyone</ScopeHeadingLabel>
+      </DocHeading>
+    </Anchor>
     <DocParagraph>
       Workspace variables are the workspace-wide globals — visible to every rule, request, and workflow, and synced
       with the workspace. They rank lowest, which makes them the natural base layer: put the common value here and let
@@ -123,9 +131,11 @@ export const VariablesSection: React.FC = () => (
     <DiagramFrame caption="The base layer — for values true everywhere. Not for secrets, not for per-stage values.">
       <VariablesWorkspaceRefDiagram />
     </DiagramFrame>
-    <DocHeading level={4}>
-      <ScopeHeadingLabel scope="live">Live — published by a workflow run</ScopeHeadingLabel>
-    </DocHeading>
+    <Anchor id="variables-live">
+      <DocHeading level={4}>
+        <ScopeHeadingLabel scope="live">Live — published by a workflow run</ScopeHeadingLabel>
+      </DocHeading>
+    </Anchor>
     <DocParagraph>
       A live variable is backed by a Live Workflow — a chain of requests that signs in, fetches a token, and exposes a
       captured value. Saving the workflow activates it; a successful run (manual or scheduled) publishes the exposed

@@ -7,9 +7,10 @@
  */
 
 import { CaretRightOutlined } from '@ant-design/icons';
-import { InfoTrigger, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
+import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { Typography, theme } from 'antd';
 import { type ReactNode, useState } from 'react';
+import SectionInfo from '../../shared/SectionInfo';
 
 const { Text } = Typography;
 
@@ -17,13 +18,15 @@ interface PanelSectionProps {
   title: ReactNode;
   /** When set, a hover-revealed `(i)` next to the title opens this popover. */
   info?: InfoPopoverContent;
+  /** Docs anchor for the popover's "More information" header link. */
+  docId?: string;
   defaultExpanded?: boolean;
   /** Suppresses the bottom divider on the final section. */
   isLast?: boolean;
   children: ReactNode;
 }
 
-export function PanelSection({ title, info, defaultExpanded = true, isLast, children }: PanelSectionProps) {
+export function PanelSection({ title, info, docId, defaultExpanded = true, isLast, children }: PanelSectionProps) {
   const { token } = theme.useToken();
   const [expanded, setExpanded] = useState(defaultExpanded);
   const toggle = () => setExpanded((e) => !e);
@@ -68,7 +71,7 @@ export function PanelSection({ title, info, defaultExpanded = true, isLast, chil
           {title}
         </Text>
         {info && (
-          <InfoTrigger content={info} className="vp-scope-reveal" ariaLabel={`About ${info.title}`} />
+          <SectionInfo content={info} docId={docId} className="vp-scope-reveal" ariaLabel={`About ${info.title}`} />
         )}
       </div>
       {expanded && children}
