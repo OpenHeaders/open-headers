@@ -515,18 +515,6 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
         </>
       )}
 
-      <Divider style={{ margin: '4px 0' }} />
-
-      {/* Compact action shortcuts — one row, segments split by vertical
-          dividers (same treatment as the env selector's scope row). */}
-      <div style={{ display: 'flex', alignItems: 'stretch' }}>
-        {footerSegment(<ExportOutlined style={{ fontSize: 12 }} />, 'Export', onExport)}
-        <Divider type="vertical" style={{ height: 'auto', margin: '4px 0', alignSelf: 'stretch' }} />
-        {footerSegment(<SettingOutlined style={{ fontSize: 12 }} />, 'Manage workspaces', onOpenManager)}
-        <Divider type="vertical" style={{ height: 'auto', margin: '4px 0', alignSelf: 'stretch' }} />
-        {footerSegment(<ImportOutlined style={{ fontSize: 12 }} />, 'Import', onImport)}
-      </div>
-
       {reachRows.length > 0 && (
         <>
           <Divider style={{ margin: '4px 0' }} />
@@ -557,6 +545,20 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
           ))}
         </>
       )}
+
+      <Divider style={{ margin: '4px 0' }} />
+
+      {/* Compact action shortcuts — one row, segments split by vertical
+          dividers (same treatment as the env selector's scope row).
+          Deliberately the LAST row so the destructive-adjacent data
+          actions sit at the popup's edge, away from the switch rows. */}
+      <div style={{ display: 'flex', alignItems: 'stretch' }}>
+        {footerSegment(<ExportOutlined style={{ fontSize: 12 }} />, 'Export', onExport)}
+        <Divider type="vertical" style={{ height: 'auto', margin: '4px 0', alignSelf: 'stretch' }} />
+        {footerSegment(<SettingOutlined style={{ fontSize: 12 }} />, 'Manage workspaces', onOpenManager)}
+        <Divider type="vertical" style={{ height: 'auto', margin: '4px 0', alignSelf: 'stretch' }} />
+        {footerSegment(<ImportOutlined style={{ fontSize: 12 }} />, 'Import', onImport)}
+      </div>
     </div>
   );
 };
