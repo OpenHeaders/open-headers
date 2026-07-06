@@ -149,6 +149,19 @@ const RequestUrlBar: React.FC<RequestUrlBarProps> = ({ draft, setDraft, urlUnres
           // search input and the label share the same box, and the
           // colored label node otherwise stays painted under the text.
           labelRender={({ label }) => <span style={{ opacity: methodSearch ? 0 : 1 }}>{label}</span>}
+          // The list only comes up empty for a query the schema would
+          // reject — say why instead of a generic "No data".
+          notFoundContent={(() => {
+            const q = methodSearch.trim().toUpperCase();
+            if (FORBIDDEN_METHODS.has(q)) {
+              return (
+                <span style={{ fontSize: 12 }}>
+                  <strong>{q}</strong> can't be sent from a browser.
+                </span>
+              );
+            }
+            return <span style={{ fontSize: 12 }}>Methods use letters, digits, and hyphens (max 32).</span>;
+          })()}
           searchValue={methodSearch}
           onSearch={(next) => setMethodSearch(next.toUpperCase())}
           filterOption={false}
