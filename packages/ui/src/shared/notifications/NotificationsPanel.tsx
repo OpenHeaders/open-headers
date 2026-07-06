@@ -35,7 +35,7 @@ import {
 export const NOTIFICATIONS_PANEL_INFO: InfoPopoverContent = {
   title: 'Notifications',
   summary:
-    'Session timeline of app events — update availability, background task outcomes, and anything the app wants you to see without interrupting you.',
+    'Session timeline of app events — update availability, background task outcomes, and other notices, collected here instead of interrupting your work.',
 };
 
 interface NotificationsPanelProps {
@@ -68,7 +68,9 @@ const NotificationCard: React.FC<{ entry: NotificationEntry }> = ({ entry }) => 
         background: token.colorFillQuaternary,
       }}
     >
-      <span style={{ fontSize: 14, lineHeight: '20px', flex: 'none' }}>{SEVERITY_ICON[entry.severity]}</span>
+      <span style={{ fontSize: 14, lineHeight: '20px', flex: 'none' }}>
+        {entry.icon ?? SEVERITY_ICON[entry.severity]}
+      </span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
           <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 500, color: token.colorText }}>
@@ -91,6 +93,9 @@ const NotificationCard: React.FC<{ entry: NotificationEntry }> = ({ entry }) => 
                 type="button"
                 onClick={action.run}
                 style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
                   padding: 0,
                   border: 'none',
                   background: 'transparent',
@@ -99,6 +104,7 @@ const NotificationCard: React.FC<{ entry: NotificationEntry }> = ({ entry }) => 
                   cursor: 'pointer',
                 }}
               >
+                {action.icon}
                 {action.label}
               </button>
             ))}

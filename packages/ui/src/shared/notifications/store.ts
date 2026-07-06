@@ -10,6 +10,7 @@
  * until dismissed or cleared.
  */
 
+import type { ReactNode } from 'react';
 import { useSyncExternalStore } from 'react';
 
 export type NotificationSeverity = 'info' | 'success' | 'warning' | 'error';
@@ -17,26 +18,31 @@ export type NotificationSeverity = 'info' | 'success' | 'warning' | 'error';
 export interface NotificationAction {
   label: string;
   run: () => void;
+  /** Optional glyph rendered before the label. */
+  icon?: ReactNode;
 }
 
 export interface NotificationEntry {
   id: string;
   severity: NotificationSeverity;
   title: string;
-  description?: string;
+  description?: ReactNode;
   /** Epoch ms at push time. */
   timestamp: number;
   actions?: readonly NotificationAction[];
   /** Producer-supplied identity — a second push with the same key is dropped. */
   dedupeKey?: string;
+  /** Custom card glyph; falls back to the severity icon. */
+  icon?: ReactNode;
 }
 
 export interface PushNotificationInput {
   severity?: NotificationSeverity;
   title: string;
-  description?: string;
+  description?: ReactNode;
   actions?: readonly NotificationAction[];
   dedupeKey?: string;
+  icon?: ReactNode;
 }
 
 let entries: readonly NotificationEntry[] = [];
@@ -58,6 +64,7 @@ export function pushNotification(input: PushNotificationInput): void {
     description: input.description,
     actions: input.actions,
     dedupeKey: input.dedupeKey,
+    icon: input.icon,
     timestamp: Date.now(),
   };
   entries = [entry, ...entries];
