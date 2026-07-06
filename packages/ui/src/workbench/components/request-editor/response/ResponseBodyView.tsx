@@ -16,16 +16,24 @@
  *     parseable JSON (collapsible key/value tree).
  */
 
-import { CheckOutlined, CopyOutlined, DownOutlined, DownloadOutlined, EyeOutlined } from '@ant-design/icons';
+import {
+  CheckOutlined,
+  CopyOutlined,
+  DownOutlined,
+  DownloadOutlined,
+  EyeOutlined,
+  FilterOutlined,
+} from '@ant-design/icons';
 import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
-import { Button, ConfigProvider, Dropdown, type MenuProps, Tooltip, Typography, theme } from 'antd';
+import { Button, ConfigProvider, Dropdown, Input, type MenuProps, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { getLanguage, LANGUAGE_LIST, type LanguageId } from '../../../languages/registry';
 import CodeEditor from '../../shared/CodeEditor';
 import ResponseJsonPreview from './ResponseJsonPreview';
-import { ViewPickerIcon } from './ViewPickerIcons';
+import { ViewPickerIcon, WrapLinesIcon } from './ViewPickerIcons';
 import { buildHexDump, encodeBodyBytes, toBase64 } from './response-encoding';
+import { evaluateJsonPath, evaluateXPath } from './response-filter';
 import { detectBodyLanguage, formatBytes, prettyBody } from './response-format';
 import { deriveSaveFilename } from './response-save';
 
@@ -70,12 +78,19 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
   const [langOverride, setLangOverride] = useState<LanguageId | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  // Wrap survives across sends (a viewing preference); the filter does
+  // not (a path typed against the previous body).
+  const [wrapLines, setWrapLines] = useState(true);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [filterQuery, setFilterQuery] = useState('');
 
   // Each new response re-detects: a JSON override on the previous send
   // must not stick to the HTML page the next send returned.
   useEffect(() => {
     setMode('pretty');
     setLangOverride(null);
+    setFilterOpen(false);
+    setFilterQuery('');
   }, [response]);
 
   const language = langOverride ?? detectBodyLanguage(response.headers);
@@ -99,6 +114,39 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
   useEffect(() => {
     if (mode === 'preview' && !previewKind) setMode('pretty');
   }, [mode, previewKind]);
+
+  // Structural filter: JSONPath for parseable JSON, XPath for markup,
+  // nothing for languages without a query form (Find covers those).
+  const filterKind: 'jsonpath' | 'xpath' | null =
+    language === 'json' && parsedJson !== undefined
+      ? 'jsonpath'
+      : language === 'xml' || language === 'html'
+        ? 'xpath'
+        : null;
+
+  // A language override can take the filter away — close the bar.
+  useEffect(() => {
+    if (!filterKind && filterOpen) setFilterOpen(false);
+  }, [filterKind, filterOpen]);
+
+  const filterApplied = filterOpen && filterKind !== null && filterQuery.trim() !== '';
+  const filterResult = useMemo(() => {
+    if (!filterApplied || !filterKind) return null;
+    const query = filterQuery.trim();
+    if (filterKind === 'jsonpath') return evaluateJsonPath(parsedJson, query);
+    return evaluateXPath(response.body, query, language === 'xml' ? 'xml' : 'html');
+  }, [filterApplied, filterKind, filterQuery, parsedJson, response.body, language]);
+
+  // What Pretty shows while the filter matches: the single match, or
+  // the match list (JSON as an array, markup joined line-wise).
+  const filteredDisplay = useMemo(() => {
+    if (!filterResult?.ok) return null;
+    if (filterKind === 'jsonpath') {
+      const m = filterResult.matches;
+      return JSON.stringify(m.length === 1 ? m[0] : m, null, 2) ?? '';
+    }
+    return filterResult.matches.join('\n');
+  }, [filterResult, filterKind]);
 
   // Byte views are computed only while active — encoding is linear in
   // body size and wasted on every other mode.
@@ -229,6 +277,31 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
             Preview
           </Button>
         )}
+        <Tooltip title={wrapLines ? 'Unwrap lines' : 'Wrap lines'} placement="bottom">
+          <Button
+            size="small"
+            type="text"
+            icon={<WrapLinesIcon />}
+            onClick={() => setWrapLines((prev) => !prev)}
+            aria-label="Wrap lines"
+            style={{ marginLeft: 'auto', ...(wrapLines ? { background: token.colorBgTextActive } : {}) }}
+          />
+        </Tooltip>
+        {filterKind && (
+          <Tooltip title={filterKind === 'jsonpath' ? 'Filter body (JSONPath)' : 'Filter body (XPath)'} placement="bottom">
+            <Button
+              size="small"
+              type="text"
+              icon={<FilterOutlined />}
+              aria-label="Filter body"
+              style={filterOpen ? { background: token.colorBgTextActive } : undefined}
+              onClick={() => {
+                if (!filterOpen && mode !== 'pretty') setMode('pretty');
+                setFilterOpen((prev) => !prev);
+              }}
+            />
+          </Tooltip>
+        )}
         <Tooltip title={copied ? 'Copied' : 'Copy body'} placement="bottom">
           <Button
             size="small"
@@ -236,7 +309,6 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
             icon={copied ? <CheckOutlined /> : <CopyOutlined />}
             onClick={copyBody}
             aria-label="Copy body"
-            style={{ marginLeft: 'auto' }}
           />
         </Tooltip>
         <Tooltip
@@ -246,9 +318,48 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
           <Button size="small" type="text" icon={<DownloadOutlined />} onClick={saveBody} aria-label="Save body" />
         </Tooltip>
       </div>
+      {filterOpen && filterKind && (
+        <div style={{ paddingBottom: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <Input
+            size="small"
+            allowClear
+            autoFocus
+            value={filterQuery}
+            onChange={(e) => setFilterQuery(e.target.value)}
+            placeholder={
+              filterKind === 'jsonpath'
+                ? "Filter with JSONPath — $.headers['content-type'], $.items[0], $..url"
+                : 'Filter with XPath — //item/name, /html/head/title'
+            }
+            aria-label="Filter body"
+            status={filterResult && !filterResult.ok ? 'error' : undefined}
+            prefix={<FilterOutlined style={{ color: token.colorTextTertiary }} />}
+            style={{ fontFamily: "'SF Mono', 'Fira Code', monospace", fontSize: 12 }}
+          />
+          {filterResult && !filterResult.ok && (
+            <Text type="danger" style={{ fontSize: 11 }}>
+              {filterKind === 'jsonpath'
+                ? 'Invalid JSONPath expression.'
+                : 'Invalid XPath expression, or the document does not parse.'}
+            </Text>
+          )}
+          {filterResult?.ok && filterResult.matches.length === 0 && (
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              No matches for this path.
+            </Text>
+          )}
+        </div>
+      )}
       {mode === 'pretty' && (
         <div style={{ flex: 1, minHeight: 0 }}>
-          <CodeEditor value={pretty} language={language} readOnly fill variableAutoComplete={false} />
+          <CodeEditor
+            value={filteredDisplay ?? pretty}
+            language={language}
+            readOnly
+            fill
+            variableAutoComplete={false}
+            wordWrapOverride={wrapLines ? 'on' : 'off'}
+          />
         </div>
       )}
       {mode === 'raw' && (
@@ -262,8 +373,8 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
               fontFamily: "'SF Mono', 'Fira Code', monospace",
               fontSize: 12,
               margin: 0,
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word',
+              whiteSpace: wrapLines ? 'pre-wrap' : 'pre',
+              wordBreak: wrapLines ? 'break-word' : 'normal',
               color: token.colorText,
             }}
           >
@@ -300,8 +411,8 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
               fontFamily: "'SF Mono', 'Fira Code', monospace",
               fontSize: 12,
               margin: 0,
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-all',
+              whiteSpace: wrapLines ? 'pre-wrap' : 'pre',
+              wordBreak: wrapLines ? 'break-all' : 'normal',
               color: token.colorText,
             }}
           >

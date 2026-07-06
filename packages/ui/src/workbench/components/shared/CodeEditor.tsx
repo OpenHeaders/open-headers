@@ -67,6 +67,10 @@ interface CodeEditorProps {
    *  add their own actions (e.g. the Docs tab's markdown toolbar +
    *  formatting shortcuts). */
   onEditorMount?: (editor: monaco.editor.IStandaloneCodeEditor, monacoApi: Monaco) => void;
+  /** Per-pane wrap override — wins over the `editor.wordWrap` setting.
+   *  For hosts with their own Wrap Lines toggle (e.g. the response
+   *  body viewer); omit to follow the setting. */
+  wordWrapOverride?: 'on' | 'off';
 }
 
 const CodeEditor: React.FC<CodeEditorProps> = ({
@@ -79,6 +83,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   fill = false,
   variableAutoComplete = true,
   onEditorMount,
+  wordWrapOverride,
 }) => {
   const registerCompletions = useMonacoVariableCompletions();
   const { token } = theme.useToken();
@@ -180,7 +185,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     lineNumbers: lineNumbers ? 'on' : 'off',
     tabSize,
     insertSpaces,
-    wordWrap: wordWrap === 'off' ? 'off' : wordWrap === 'bounded' ? 'bounded' : 'on',
+    wordWrap: wordWrapOverride ?? (wordWrap === 'off' ? 'off' : wordWrap === 'bounded' ? 'bounded' : 'on'),
     automaticLayout: true,
     readOnly,
     scrollBeyondLastLine: false,

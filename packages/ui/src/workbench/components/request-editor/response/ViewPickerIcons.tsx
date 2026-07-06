@@ -93,3 +93,16 @@ export function ViewPickerIcon({ id, size = 16 }: { id: string; size?: number })
     </svg>
   );
 }
+
+/** Wrap-lines toggle mark: a full line, a line folding back under
+ *  itself with a return arrow, and the short continuation stub. */
+export function WrapLinesIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden="true" style={{ display: 'block', flexShrink: 0 }}>
+      <line x1={2.6} y1={4} x2={13.4} y2={4} {...STROKE} strokeWidth={1.3} />
+      <path d="M2.6 8.2 H10.4 A2.1 2.1 0 0 1 10.4 12.4 H7.6" {...STROKE} strokeWidth={1.3} />
+      <polyline points="9.3,10.7 7.4,12.4 9.3,14.1" {...STROKE} strokeWidth={1.3} />
+      <line x1={2.6} y1={12.4} x2={4.8} y2={12.4} {...STROKE} strokeWidth={1.3} />
+    </svg>
+  );
+}
