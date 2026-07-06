@@ -37,7 +37,7 @@ const TOOL_WINDOW_INFO: Record<ToolWindowId, InfoPopoverContent> = {
   'http-rules': {
     title: 'HTTP Rules',
     summary:
-      'Author header rules that rewrite outgoing requests and incoming responses. Rules live in collections and can inject values from variables, the vault, and live workflows.',
+      'Create rules that rewrite outgoing requests and incoming responses. Rules live in collections and can inject values from variables, the vault, and live workflows.',
     sections: [
       {
         heading: 'Rule types',
