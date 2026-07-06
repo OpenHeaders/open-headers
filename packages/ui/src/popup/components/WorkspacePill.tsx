@@ -20,7 +20,7 @@ import { WorkspaceDropdownBody } from '@openheaders/ui/shared/workspace-dropdown
 import { WorkspaceOrgBadge } from '@openheaders/ui/shared/workspace-org/WorkspaceOrgBadge';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 import { renderWorkspacePrefix } from '@openheaders/ui/workbench/components/workspace/workspace-prefix';
-import { Dropdown, theme } from 'antd';
+import { Button, Dropdown, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
 
@@ -70,20 +70,20 @@ const WorkspacePill: React.FC = () => {
       trigger={['click']}
       placement="bottomLeft"
     >
-      <button
-        type="button"
+      {/* Default antd Button (no type/border overrides) so the trigger
+          gets the same native hover as the workbench / devtools
+          workspace selectors. */}
+      <Button
+        size="small"
         className="oh-workspace-pill"
         aria-label={`Active workspace: ${activeWorkspace.name}`}
         style={{
           display: 'inline-flex',
           alignItems: 'center',
           gap: 6,
-          padding: '2px 8px',
+          padding: '0 8px',
           height: 22,
           borderRadius: 4,
-          border: `1px solid ${token.colorBorderSecondary}`,
-          background: token.colorBgContainer,
-          cursor: 'pointer',
           fontSize: 12,
           color: token.colorText,
           minWidth: 0,
@@ -112,7 +112,7 @@ const WorkspacePill: React.FC = () => {
           </span>
         )}
         <DownOutlined style={{ fontSize: 8, color: token.colorTextTertiary, flexShrink: 0 }} />
-      </button>
+      </Button>
     </Dropdown>
   );
 };
