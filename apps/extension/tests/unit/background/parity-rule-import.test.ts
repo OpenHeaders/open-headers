@@ -5,7 +5,8 @@
  * Pins:
  *   - inert without the parity-hook flag (refuses, no oracle write);
  *   - completes a V5-shaped spec: nested uids minted (conditions +
- *     header mods), `published` forced true, `enabled` respected;
+ *     header mods), `published` defaulted true (explicit false respected),
+ *     `enabled` respected;
  *   - validates against RuleSchema before any write — a malformed spec
  *     fails the whole batch with no partial import;
  *   - rules land via `addRule` under the default collection's path.
@@ -112,6 +113,14 @@ describe('parity rule import — spec completion', () => {
     const [rule] = addRuleMock.mock.calls[0] as [Record<string, unknown>];
     expect(rule.enabled).toBe(false);
     expect(rule.published).toBe(true);
+  });
+
+  it('respects published:false (the unpublished-draft negative is seedable)', async () => {
+    const result = await importSpecs([headerSpec({ published: false })]);
+    expect(result.ok).toBe(true);
+    const [rule] = addRuleMock.mock.calls[0] as [Record<string, unknown>];
+    expect(rule.published).toBe(false);
+    expect(rule.enabled).toBe(true);
   });
 
   it('returns the created uid + name + completeness per imported rule', async () => {

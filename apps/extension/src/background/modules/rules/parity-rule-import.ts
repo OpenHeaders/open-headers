@@ -15,9 +15,9 @@
  * in `playground/README.md` says the harness generates), validated
  * against `RuleSchema`, then written through the sync oracle via
  * `rule-store.addRule` — which derives the DNR recompile side-effects
- * the same way a popup save does. `published` is forced true (the probe
- * imports live rules, not drafts) while `enabled` is respected so
- * disabled-rule negatives can be seeded.
+ * the same way a popup save does. `published` defaults to true (the probe
+ * imports live rules, not drafts) but an explicit `published: false` is
+ * respected, like `enabled`, so gate negatives can be seeded.
  */
 
 import { RuleSchema } from '@openheaders/core/schemas';
@@ -63,7 +63,7 @@ function withMintedUids(entries: unknown): unknown {
 
 /**
  * Complete a playground `RuleSpec` into a full V5 rule candidate: nested
- * uids minted, `published` forced true. Entity-level uid/path/schemaVersion
+ * uids minted, `published` defaulted true. Entity-level uid/path/schemaVersion
  * are stamped afterwards (uid + path by `addRule` itself; placeholders here
  * exist only so `RuleSchema` can validate the complete shape up front).
  */
@@ -71,7 +71,7 @@ function completeSpec(spec: Record<string, unknown>): Record<string, unknown> {
   const completed: Record<string, unknown> = {
     ...spec,
     enabled: spec.enabled !== false,
-    published: true,
+    published: spec.published !== false,
     conditions: withMintedUids(spec.conditions),
   };
   const action = spec.action;
