@@ -155,7 +155,7 @@ const SettingsShell: React.FC<SettingsShellProps> = ({ initialSettingKey, initia
           display: 'flex',
           flexDirection: 'column',
           height: '100%',
-          background: token.colorBgLayout,
+          background: token.colorBgContainer,
           fontSize: 13,
         }}
       >
@@ -197,7 +197,7 @@ const SettingsShell: React.FC<SettingsShellProps> = ({ initialSettingKey, initia
             isSearching={isSearching}
             onLeaveTop={focusSearch}
           />
-          <div ref={paneRef} style={{ flex: 1, overflowY: 'auto', background: token.colorBgLayout }}>
+          <div ref={paneRef} style={{ flex: 1, overflowY: 'auto', background: token.colorBgContainer }}>
             {isSearching ? (
               <SearchResultsPane results={results} query={query} onJumpToCategory={handleSelectCategory} />
             ) : activeCategory ? (
