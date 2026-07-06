@@ -98,6 +98,26 @@ describe('fire-recorder — effective-uid gate', () => {
     expect((mockArbitrate.mock.calls[0]?.[0] as MatchingRule[]).map((m) => m.uid)).toEqual(['bb222222']);
   });
 
+  it('never records observed fires for ws/sse rules — the wrapper relay is their only fire source', () => {
+    mockMatch.mockReturnValue([
+      makeMatch('aa111111', { type: 'ws' }),
+      makeMatch('bb222222', { type: 'sse' }),
+      makeMatch('cc333333', { type: 'header' }),
+    ]);
+
+    recordFiresForObservation(INPUT);
+
+    // ws/sse still reach arbitration (they can be shadowed parties) but
+    // never claim an observed fire off the stream request itself.
+    expect((mockArbitrate.mock.calls[0]?.[0] as MatchingRule[]).map((m) => m.uid)).toEqual([
+      'aa111111',
+      'bb222222',
+      'cc333333',
+    ]);
+    expect(mockRecord).toHaveBeenCalledTimes(1);
+    expect(mockRecord.mock.calls[0]?.[1]).toBe('cc333333');
+  });
+
   it('records nothing when the effective set is empty (engine paused)', () => {
     mockEffectiveUids.mockReturnValue(new Set());
     mockMatch.mockReturnValue([makeMatch('aa111111')]);

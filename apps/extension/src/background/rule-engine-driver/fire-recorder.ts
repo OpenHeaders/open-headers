@@ -39,6 +39,12 @@ export function recordFiresForObservation(input: FireRecorderInput): void {
   if (live.length === 0) return;
   const arbitrated = arbitrateWithStrategy(live, getSetting('rulesEngine.evaluationStrategy'));
   for (const r of arbitrated) {
+    // ws/sse rules act per EVENT through the in-page wrapper relay — the
+    // network layer merely observing the stream request is not an action
+    // (a drop rule on a stream with no matching frames did nothing), and
+    // the observation often lands at stream close, past any suppression
+    // window. Their only fire source is the wrapper (evidence=confirmed).
+    if (r.type === 'ws' || r.type === 'sse') continue;
     recordObservedFire(input.tabId, r.uid, normalized, input.requestId, input.timestampMs, {
       resourceType: input.resourceType,
       pattern: r.pattern,
