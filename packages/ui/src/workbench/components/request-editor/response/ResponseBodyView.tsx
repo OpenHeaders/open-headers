@@ -18,12 +18,13 @@
 
 import { CheckOutlined, CopyOutlined, DownOutlined, DownloadOutlined, EyeOutlined } from '@ant-design/icons';
 import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
-import { Button, Dropdown, type MenuProps, Tooltip, Typography, theme } from 'antd';
+import { Button, ConfigProvider, Dropdown, type MenuProps, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { getLanguage, LANGUAGE_LIST, type LanguageId } from '../../../languages/registry';
 import CodeEditor from '../../shared/CodeEditor';
 import ResponseJsonPreview from './ResponseJsonPreview';
+import { ViewPickerIcon } from './ViewPickerIcons';
 import { buildHexDump, encodeBodyBytes, toBase64 } from './response-encoding';
 import { detectBodyLanguage, formatBytes, prettyBody } from './response-format';
 import { deriveSaveFilename } from './response-save';
@@ -52,26 +53,11 @@ const ENCODING_VIEWS: ReadonlyArray<{ mode: 'raw' | 'hex' | 'base64'; label: str
   { mode: 'base64', label: 'Base64' },
 ];
 
-/** Monospace glyph prefixing each picker entry — the at-a-glance key
- *  for languages above the divider and encoding views below it. */
-const VIEW_GLYPHS: Record<string, string> = {
-  json: '{}',
-  xml: '<>',
-  html: '</>',
-  javascript: 'JS',
-  css: '#.',
-  markdown: 'M↓',
-  text: 'Aa',
-  raw: '≡',
-  hex: '0x',
-  base64: '64',
-};
-
-function PickerLabel({ glyph, text }: { glyph: string | undefined; text: string }) {
+function PickerLabel({ icon, text }: { icon: string; text: string }) {
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-      <span style={{ fontFamily: "'SF Mono', 'Fira Code', monospace", fontSize: 10, opacity: 0.65, width: 22 }}>
-        {glyph}
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+      <span style={{ opacity: 0.75, display: 'inline-flex' }}>
+        <ViewPickerIcon id={icon} size={14} />
       </span>
       {text}
     </span>
@@ -127,12 +113,12 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
   const pickerItems: MenuProps['items'] = [
     ...LANGUAGE_OPTIONS.map((opt) => ({
       key: `lang:${opt.value}`,
-      label: <PickerLabel glyph={VIEW_GLYPHS[opt.value]} text={opt.label} />,
+      label: <PickerLabel icon={opt.value} text={opt.label} />,
     })),
     { type: 'divider' as const },
     ...ENCODING_VIEWS.map((view) => ({
       key: `view:${view.mode}`,
-      label: <PickerLabel glyph={VIEW_GLYPHS[view.mode]} text={view.label} />,
+      label: <PickerLabel icon={view.mode} text={view.label} />,
     })),
   ];
 
@@ -152,7 +138,7 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
   // otherwise.
   const activeEncoding = ENCODING_VIEWS.find((v) => v.mode === mode);
   const pickerKey = activeEncoding ? `view:${activeEncoding.mode}` : `lang:${language}`;
-  const pickerGlyph = activeEncoding ? VIEW_GLYPHS[activeEncoding.mode] : VIEW_GLYPHS[language];
+  const pickerIcon = activeEncoding ? activeEncoding.mode : language;
   const pickerLabel = activeEncoding ? activeEncoding.label : getLanguage(language).label;
 
   const copyBody = () => {
@@ -194,20 +180,22 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
         </Text>
       )}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0' }}>
-        <Dropdown
-          menu={{ items: pickerItems, onClick: onPickView, selectable: true, selectedKeys: [pickerKey] }}
-          trigger={['click']}
-        >
-          <Button size="small" data-testid="oh-response-view-picker" aria-label="Body view">
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontFamily: "'SF Mono', 'Fira Code', monospace", fontSize: 10, opacity: 0.65 }}>
-                {pickerGlyph}
+        <ConfigProvider theme={{ token: { fontSize: 12 }, components: { Dropdown: { paddingBlock: 3 } } }}>
+          <Dropdown
+            menu={{ items: pickerItems, onClick: onPickView, selectable: true, selectedKeys: [pickerKey] }}
+            trigger={['click']}
+          >
+            <Button size="small" data-testid="oh-response-view-picker" aria-label="Body view">
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ opacity: 0.75, display: 'inline-flex' }}>
+                  <ViewPickerIcon id={pickerIcon} size={13} />
+                </span>
+                {pickerLabel}
+                <DownOutlined style={{ fontSize: 9, opacity: 0.65 }} />
               </span>
-              {pickerLabel}
-              <DownOutlined style={{ fontSize: 9, opacity: 0.65 }} />
-            </span>
-          </Button>
-        </Dropdown>
+            </Button>
+          </Dropdown>
+        </ConfigProvider>
         {previewKind && (
           <Button
             size="small"
