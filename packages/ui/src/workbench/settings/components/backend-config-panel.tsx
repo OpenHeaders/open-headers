@@ -70,11 +70,13 @@ export const ConfigPanel: React.FC<{
         <Alert
           type="success"
           showIcon
-          message="Nothing outbound to configure"
+          message={<span style={{ fontSize: 13 }}>Nothing outbound to configure</span>}
           description={
-            mode === 'in-browser'
-              ? 'The browser service worker is the back-end. Workspaces, rules, and vault live in this browser only — no external host to point at.'
-              : 'The desktop app process is the back-end. Other localhost clients connect into it; there is no outbound wire to tune.'
+            <span style={{ fontSize: 12 }}>
+              {mode === 'in-browser'
+                ? 'The browser service worker is the back-end. Workspaces, rules, and vault live in this browser only — no external host to point at.'
+                : 'The desktop app process is the back-end. Other localhost clients connect into it; there is no outbound wire to tune.'}
+            </span>
           }
           style={{ marginBottom: 12 }}
         />
@@ -141,11 +143,13 @@ export const ConfigPanel: React.FC<{
         <Alert
           type="info"
           showIcon
-          message="Coming soon"
+          message={<span style={{ fontSize: 13 }}>Coming soon</span>}
           description={
-            mode === 'local-self-hosted'
-              ? 'The standalone local / LAN daemon is on the roadmap. Pre-selecting this mode is fine; the connection layer activates once the daemon ships.'
-              : 'Self-hosted remote back-ends are on the roadmap. Pre-selecting this mode is fine; the connection layer activates once the remote endpoint protocol ships.'
+            <span style={{ fontSize: 12 }}>
+              {mode === 'local-self-hosted'
+                ? 'The standalone local / LAN daemon is on the roadmap. Pre-selecting this mode is fine; the connection layer activates once the daemon ships.'
+                : 'Self-hosted remote back-ends are on the roadmap. Pre-selecting this mode is fine; the connection layer activates once the remote endpoint protocol ships.'}
+            </span>
           }
           style={{ marginBottom: 12 }}
         />

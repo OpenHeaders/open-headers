@@ -273,8 +273,13 @@ const RePairBanner: React.FC<{ mode: BackendMode; host: Host }> = ({ mode, host 
     <Alert
       type="warning"
       showIcon
-      message="Re-pair needed"
-      description="The back-end rejected this device's saved token. Pair again with a fresh code — your configured back-end address stays as is."
+      message={<span style={{ fontSize: 13 }}>Re-pair needed</span>}
+      description={
+        <span style={{ fontSize: 12 }}>
+          The back-end rejected this device's saved token. Pair again with a fresh code — your configured back-end
+          address stays as is.
+        </span>
+      }
       action={<PairPopover url={url} onPaired={setToken} buttonType="primary" />}
       style={{ marginBottom: 14 }}
     />
