@@ -135,6 +135,36 @@ describe('fire-recorder — effective-uid gate', () => {
     expect(mockRecord.mock.calls[0]?.[1]).toBe('bb222222');
   });
 
+  it('content-gated rules never enter arbitration — a declined filter cannot shadow', () => {
+    mockMatch.mockReturnValue([
+      makeMatch('aa111111', { type: 'response', contentGated: true }),
+      makeMatch('bb222222', { type: 'request-body' }),
+    ]);
+
+    recordFiresForObservation(INPUT);
+
+    expect((mockArbitrate.mock.calls[0]?.[0] as MatchingRule[]).map((m) => m.uid)).toEqual(['bb222222']);
+  });
+
+  it('delay never claims observed fires off sub-resources — frames are its only DNR plane', () => {
+    mockMatch.mockReturnValue([makeMatch('aa111111', { type: 'delay' }), makeMatch('bb222222', { type: 'header' })]);
+
+    recordFiresForObservation({ ...INPUT, resourceType: 'xmlhttprequest' });
+    expect(mockRecord).toHaveBeenCalledTimes(1);
+    expect(mockRecord.mock.calls[0]?.[1]).toBe('bb222222');
+
+    vi.clearAllMocks();
+    mockIsDelayRedelivery.mockReturnValue(false);
+    mockIsTracked.mockReturnValue(true);
+    mockEffectiveUids.mockReturnValue(null);
+    mockArbitrate.mockImplementation((matches: unknown[]) => matches);
+    mockMatch.mockReturnValue([makeMatch('aa111111', { type: 'delay' })]);
+
+    recordFiresForObservation({ ...INPUT, resourceType: 'sub_frame' });
+    expect(mockRecord).toHaveBeenCalledTimes(1);
+    expect(mockRecord.mock.calls[0]?.[1]).toBe('aa111111');
+  });
+
   it('records nothing when the effective set is empty (engine paused)', () => {
     mockEffectiveUids.mockReturnValue(new Set());
     mockMatch.mockReturnValue([makeMatch('aa111111')]);

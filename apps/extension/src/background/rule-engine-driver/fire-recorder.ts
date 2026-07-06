@@ -49,17 +49,26 @@ export function recordFiresForObservation(input: FireRecorderInput): void {
   const effective = getEffectiveFireUids();
   const live = effective === null ? matches : matches.filter((m) => effective.has(m.uid));
   if (live.length === 0) return;
-  const arbitrated = arbitrateWithStrategy(live, getSetting('rulesEngine.evaluationStrategy'));
+  // Content-gated rules (GraphQL operation filters) decline non-matching
+  // operations on the same URL, so a URL-only observation proves nothing —
+  // they neither claim observed fires NOR shadow other rules here (a shadow
+  // claim needs proof the shadower acted; only their wrapper report has it).
+  const arbitrable = live.filter((m) => !m.contentGated);
+  if (arbitrable.length === 0) return;
+  const arbitrated = arbitrateWithStrategy(arbitrable, getSetting('rulesEngine.evaluationStrategy'));
   for (const r of arbitrated) {
     // ws/sse rules act per EVENT through the in-page wrapper relay — the
     // network layer merely observing the stream request is not an action
     // (a drop rule on a stream with no matching frames did nothing), and
     // the observation often lands at stream close, past any suppression
-    // window. Content-gated rules (GraphQL operation filters) decline
-    // non-matching operations on the same URL, so a URL-only observation
-    // proves nothing either. For both, the wrapper relay is the only
-    // fire source (evidence=confirmed).
-    if (r.type === 'ws' || r.type === 'sse' || r.contentGated) continue;
+    // window. The wrapper relay is their only fire source
+    // (evidence=confirmed).
+    if (r.type === 'ws' || r.type === 'sse') continue;
+    // Delay acts on frames through the DNR waiting page and on fetch/XHR
+    // through the wrapper (which reports its own confirmed fires). A
+    // sub-resource observation with no wrapper report means the delay had
+    // no handle on the request (streams, images, EventSource) — not an act.
+    if (r.type === 'delay' && input.resourceType !== 'main_frame' && input.resourceType !== 'sub_frame') continue;
     recordObservedFire(input.tabId, r.uid, normalized, input.requestId, input.timestampMs, {
       resourceType: input.resourceType,
       pattern: r.pattern,
@@ -88,6 +97,11 @@ function computeReportShadow(ruleUid: string, url: string): ShadowAttribution | 
   if (matches.length === 0) return undefined;
   const effective = getEffectiveFireUids();
   const live = effective === null ? matches : matches.filter((m) => effective.has(m.uid));
-  const arbitrated = arbitrateWithStrategy(live, getSetting('rulesEngine.evaluationStrategy'));
+  // A content-gated rule other than the reporter proves nothing at URL
+  // level (its filter may have declined this operation) — it cannot
+  // shadow the rule that demonstrably acted. The reporter itself stays:
+  // its report IS the proof it acted.
+  const arbitrable = live.filter((m) => !m.contentGated || m.uid === ruleUid);
+  const arbitrated = arbitrateWithStrategy(arbitrable, getSetting('rulesEngine.evaluationStrategy'));
   return arbitrated.find((r) => r.uid === ruleUid)?.shadowedBy;
 }
