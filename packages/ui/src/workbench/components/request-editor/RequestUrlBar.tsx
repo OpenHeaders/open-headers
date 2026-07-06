@@ -92,13 +92,19 @@ const RequestUrlBar: React.FC<RequestUrlBarProps> = ({ draft, setDraft, urlUnres
   // typed token that matches nothing gets a trailing "Use …" entry so
   // any custom method is one Enter away.
   const methodOptions = useMemo<(MethodOption | { label: React.ReactNode; options: MethodOption[] })[]>(() => {
+    const customs = customMethods.filter((m) => !METHODS.includes(m as HttpMethod));
+    // The selected method must always be an option, even after its
+    // custom entry was removed from the saved list — otherwise the
+    // trigger renders blank on a request persisted with that method.
+    if (!METHODS.includes(draft.method as HttpMethod) && !customs.includes(draft.method)) {
+      customs.push(draft.method);
+    }
     const toOption = (m: string): MethodOption => ({
       value: m,
       label: methodLabel(m),
-      custom: customMethods.includes(m),
+      custom: customs.includes(m),
     });
     const q = methodSearch.trim().toUpperCase();
-    const customs = customMethods.filter((m) => !METHODS.includes(m as HttpMethod));
     if (!q) {
       const standard: (MethodOption | { label: React.ReactNode; options: MethodOption[] })[] = METHODS.map(toOption);
       if (customs.length > 0) standard.push({ label: 'Custom', options: customs.map(toOption) });
@@ -118,7 +124,7 @@ const RequestUrlBar: React.FC<RequestUrlBarProps> = ({ draft, setDraft, urlUnres
       });
     }
     return options;
-  }, [methodSearch, customMethods]);
+  }, [methodSearch, customMethods, draft.method]);
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
