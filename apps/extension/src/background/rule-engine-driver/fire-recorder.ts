@@ -43,8 +43,11 @@ export function recordFiresForObservation(input: FireRecorderInput): void {
     // network layer merely observing the stream request is not an action
     // (a drop rule on a stream with no matching frames did nothing), and
     // the observation often lands at stream close, past any suppression
-    // window. Their only fire source is the wrapper (evidence=confirmed).
-    if (r.type === 'ws' || r.type === 'sse') continue;
+    // window. Content-gated rules (GraphQL operation filters) decline
+    // non-matching operations on the same URL, so a URL-only observation
+    // proves nothing either. For both, the wrapper relay is the only
+    // fire source (evidence=confirmed).
+    if (r.type === 'ws' || r.type === 'sse' || r.contentGated) continue;
     recordObservedFire(input.tabId, r.uid, normalized, input.requestId, input.timestampMs, {
       resourceType: input.resourceType,
       pattern: r.pattern,

@@ -135,6 +135,14 @@ export interface MatchingRule {
    * shadows the response-side modifiers around it.
    */
   responseSource?: ResponseSource;
+  /**
+   * True when the rule's action is gated on request CONTENT (a GraphQL
+   * operation filter on response / request-body rules). A URL-only
+   * observation cannot prove such a rule acted — the wrapper declines
+   * non-matching operations on the same URL — so the fire-recorder must
+   * not attribute observed fires; the wrapper relay is the only source.
+   */
+  contentGated?: boolean;
 }
 
 /**
@@ -230,6 +238,9 @@ export function matchRulesToRequest(url: string): MatchingRule[] {
           if (ops.length > 0) matching.headerOps = ops;
         }
         if (rule.type === 'response') matching.responseSource = rule.action.responseSource;
+        if ((rule.type === 'response' || rule.type === 'request-body') && rule.action.graphqlFilter?.key) {
+          matching.contentGated = true;
+        }
         out.push(matching);
         break;
       }

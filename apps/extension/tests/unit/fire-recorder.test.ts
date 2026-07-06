@@ -118,6 +118,18 @@ describe('fire-recorder — effective-uid gate', () => {
     expect(mockRecord.mock.calls[0]?.[1]).toBe('cc333333');
   });
 
+  it('never records observed fires for content-gated rules — the wrapper decides per operation', () => {
+    mockMatch.mockReturnValue([
+      makeMatch('aa111111', { type: 'response', contentGated: true }),
+      makeMatch('bb222222', { type: 'response' }),
+    ]);
+
+    recordFiresForObservation(INPUT);
+
+    expect(mockRecord).toHaveBeenCalledTimes(1);
+    expect(mockRecord.mock.calls[0]?.[1]).toBe('bb222222');
+  });
+
   it('records nothing when the effective set is empty (engine paused)', () => {
     mockEffectiveUids.mockReturnValue(new Set());
     mockMatch.mockReturnValue([makeMatch('aa111111')]);

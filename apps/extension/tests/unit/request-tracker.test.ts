@@ -393,6 +393,44 @@ describe('matchRulesToRequest', () => {
     expect(result[0]!.deferred).toBe(true);
   });
 
+  it('marks graphql-filtered response rules contentGated; unfiltered ones stay attributable', () => {
+    const gqlAction = {
+      responseSource: 'mock' as const,
+      bodyType: 'static' as const,
+      responseBody: '{"data":{}}',
+      statusCode: 200,
+      contentType: 'application/json',
+      responseHeaders: {},
+      resourceType: 'graphql' as const,
+    };
+    seedRules([
+      {
+        schemaVersion: 5,
+        uid: 'rule-gql',
+        path: 'rules/test',
+        name: 'GQL mock',
+        type: 'response',
+        enabled: true,
+        conditions: hostConditions(['*.openheaders.io']),
+        action: { ...gqlAction, graphqlFilter: { key: 'operationName', operator: 'Equals', value: 'GetUser' } },
+      },
+      {
+        schemaVersion: 5,
+        uid: 'rule-plain',
+        path: 'rules/test',
+        name: 'Plain mock',
+        type: 'response',
+        enabled: true,
+        conditions: hostConditions(['*.openheaders.io']),
+        action: gqlAction,
+      },
+    ]);
+
+    const result = matchRulesToRequest('https://api.openheaders.io/graphql');
+    expect(result.find((r) => r.uid === 'rule-gql')?.contentGated).toBe(true);
+    expect(result.find((r) => r.uid === 'rule-plain')?.contentGated).toBeUndefined();
+  });
+
   it('excludes disabled rules from matchRulesToRequest', () => {
     seedRules([
       makeHeaderRule({
