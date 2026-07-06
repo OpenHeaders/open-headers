@@ -1,5 +1,6 @@
 import { hasCapability } from '@openheaders/core/capabilities';
 import { hostNavigation } from '@openheaders/core/navigation';
+import { isMac } from '@openheaders/ui/shared/platform';
 import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import { Typography } from 'antd';
 import type React from 'react';
@@ -31,8 +32,6 @@ interface ShortcutGroup {
   shortcuts: ShortcutEntry[];
   hint?: { label: string; onClick: () => void };
 }
-
-const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.userAgent);
 
 /**
  * Mapping from registry group to the visible column heading in the

@@ -17,7 +17,7 @@
 
 import { EyeInvisibleOutlined, EyeOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import type { AuthConfig, RequestBody } from '@openheaders/core/types';
-import { Button, Tooltip, Typography, theme } from 'antd';
+import { Button, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
 import { REQUEST_PATHS } from '@openheaders/ui/shared/awareness';
@@ -57,8 +57,6 @@ function headerTextToRows(text: string): KeyValueRow[] {
   }
   return out;
 }
-
-const { Text } = Typography;
 
 interface AutoHeaderDef {
   key: string;
@@ -175,9 +173,6 @@ const HeadersTab: React.FC<HeadersTabProps> = ({ rows, onChange, body, auth, con
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <Text strong style={{ fontSize: 13 }}>
-            Headers
-          </Text>
           <Button
             size="small"
             type="text"

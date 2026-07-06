@@ -77,6 +77,28 @@ function firefoxTsServiceStubPlugin(): Plugin {
 }
 
 /**
+ * `decode-named-character-reference` (a micromark dependency of
+ * react-markdown) resolves to `index.dom.js` under the `browser` export
+ * condition, which does `document.createElement('i')` at module scope.
+ * Rollup hoists it into the shared vendor chunk that the background
+ * service worker imports, and `document` doesn't exist there — the SW
+ * dies at evaluation. Swap in the package's `index.js` (a pure
+ * character-map lookup, same API) so the module is safe in any context.
+ */
+function domFreeEntityDecodePlugin(): Plugin {
+  return {
+    name: 'dom-free-entity-decode',
+    enforce: 'pre',
+    async resolveId(source, importer, options) {
+      if (source !== 'decode-named-character-reference') return null;
+      const resolved = await this.resolve(source, importer, { skipSelf: true, ...options });
+      if (!resolved) return null;
+      return resolved.id.replace(/index\.dom\.js$/, 'index.js');
+    },
+  };
+}
+
+/**
  * Vite plugin to ensure Chrome Web Store compliance.
  * Replaces webpack's Function constructor usage and removes source map references.
  */
@@ -260,6 +282,7 @@ function buildPerfObserverPlugin() {
 export default defineConfig({
   plugins: [
     ...(browser === 'firefox' ? [firefoxTsServiceStubPlugin()] : []),
+    domFreeEntityDecodePlugin(),
     react(),
     chromeSafePlugin(),
     copyAssetsPlugin(),

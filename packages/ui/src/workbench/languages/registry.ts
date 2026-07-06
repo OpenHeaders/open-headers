@@ -30,7 +30,7 @@
  *      `components/monaco/formatters.ts`.
  */
 
-export type LanguageId = 'javascript' | 'css' | 'json' | 'xml' | 'html' | 'text' | 'graphql';
+export type LanguageId = 'javascript' | 'css' | 'json' | 'xml' | 'html' | 'text' | 'graphql' | 'markdown';
 
 export interface LanguageDef {
   id: LanguageId;
@@ -45,6 +45,7 @@ export const LANGUAGES: Record<LanguageId, LanguageDef> = {
   html: { id: 'html', label: 'HTML' },
   text: { id: 'text', label: 'Text' },
   graphql: { id: 'graphql', label: 'GraphQL' },
+  markdown: { id: 'markdown', label: 'Markdown' },
 };
 
 /**

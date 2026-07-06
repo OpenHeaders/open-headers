@@ -5,8 +5,8 @@
  * Flips the two interactive Settings-tab switches through the editor →
  * Send → reads the result back, proving the toggle wires to the wire:
  *   • "Automatically follow redirects" off → a 3xx surfaces as status 0.
- *   • "Disable cookie jar" off (cookies on) → the seeded jar cookie rides
- *     the request and shows up in the echoed `cookie` header.
+ *   • "Send browser cookies" on → the seeded jar cookie rides the
+ *     request and shows up in the echoed `cookie` header.
  */
 
 import path from 'node:path';
@@ -95,10 +95,10 @@ test.describe('Request editor — Settings toggles reach the wire', () => {
     expect(await workbench.responseStatusText()).toBe('0');
   });
 
-  test("turning 'Disable cookie jar' off attaches the jar cookie", async () => {
+  test("turning 'Send browser cookies' on attaches the jar cookie", async () => {
     await workbench.openRequest(uids.get('settings-ui-cookie')!);
     await workbench.openEditorTab(/Settings/);
-    await workbench.toggleSwitch('Disable cookie jar'); // disabled (on) → off ⇒ credentialsMode 'include'
+    await workbench.toggleSwitch('Send browser cookies'); // off → on ⇒ credentialsMode 'include'
     await workbench.send();
     const echo = await workbench.responseEcho<Echo>();
     expect(String(echo.headers.cookie ?? '')).toContain('oh_cred=present');

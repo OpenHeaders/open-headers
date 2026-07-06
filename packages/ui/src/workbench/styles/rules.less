@@ -2114,3 +2114,30 @@ body {
   border-color: rgba(255, 255, 255, 0.15);
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05);
 }
+
+/*
+ * Request editor · Settings tab — full-row hover band that visually
+ * ties the right-aligned control back to its left-aligned label.
+ * Negative side margins keep the text column aligned while the band
+ * bleeds past it.
+ */
+.rules-settings-row {
+  padding: 0 8px;
+  margin: 0 -8px;
+  border-radius: 4px;
+
+  &:hover {
+    background: var(--ant-color-fill-tertiary);
+  }
+}
+
+/*
+ * Monaco's native empty-buffer placeholder is single-line by default
+ * (nowrap + ellipsis). Our hints can be multi-line (Docs tab), so honor
+ * \n and wrap within the buffer width.
+ */
+.rules-code-editor .monaco-editor .editorPlaceholder {
+  white-space: pre-line;
+  text-wrap: wrap;
+  max-width: 100%;
+}

@@ -1,9 +1,10 @@
 /**
- * ScriptsTab — lift the previous Pre-request / Post-response sibling
- * tabs into ONE tab with a left-rail picker + shared Monaco editor.
+ * ScriptsTab — Pre-request / Post-response scripts in ONE tab with a
+ * left-rail picker + shared Monaco editor. Each rail entry carries an
+ * `(i)` popover explaining when that script runs and its `oh.*` API —
+ * the editor pane itself stays chrome-free.
  *
- * The editor starts empty. A single-line ghost hint ("Use JavaScript
- * to write tests, visualize response, and more.") floats over the
+ * The editor starts empty. A single-line ghost hint floats over the
  * blank buffer so new authors aren't left staring at a raw line 1
  * marker, but the hint is NOT actual script content — the draft's
  * script stays empty until the user types, so the dirty fingerprint
@@ -11,12 +12,11 @@
  */
 
 import type { ScriptKind } from '@openheaders/core/scripts';
-import { Typography, theme } from 'antd';
+import { theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
+import { type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import ScriptEditor from '../script-editor/ScriptEditor';
-
-const { Text } = Typography;
 
 interface ScriptsTabProps {
   preRequestScript: string;
@@ -24,6 +24,33 @@ interface ScriptsTabProps {
   onPreRequestChange: (value: string) => void;
   onPostResponseChange: (value: string) => void;
 }
+
+const SCRIPT_INFO: Record<ScriptKind, InfoPopoverContent> = {
+  'pre-request': {
+    title: 'Pre-request script',
+    summary: 'Runs in a sandboxed iframe before the request is sent. Mutate the outgoing request with the oh API:',
+    sections: [
+      {
+        heading: 'API',
+        items: [
+          { label: 'oh.setHeader(name, value)', desc: 'add or replace a header' },
+          { label: 'oh.setUrl(url)', desc: 'rewrite the target URL' },
+          { label: 'oh.setBody(body)', desc: 'replace the request body' },
+        ],
+      },
+    ],
+  },
+  'post-response': {
+    title: 'Post-response script',
+    summary: 'Runs in a sandboxed iframe after the response arrives. Assertion results land in the Response panel:',
+    sections: [
+      {
+        heading: 'API',
+        items: [{ label: 'oh.test(name, fn)', desc: 'register an assertion' }],
+      },
+    ],
+  },
+};
 
 const ScriptsTab: React.FC<ScriptsTabProps> = ({
   preRequestScript,
@@ -44,36 +71,40 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
     const selected = active === kind;
     const hasScript = kind === 'pre-request' ? preRequestScript.trim() : postResponseScript.trim();
     return (
-      <button
-        type="button"
-        onClick={() => setActive(kind)}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          width: '100%',
-          padding: '8px 12px',
-          background: selected ? token.colorFillTertiary : 'transparent',
-          border: 'none',
-          borderRadius: 4,
-          cursor: 'pointer',
-          color: token.colorText,
-          fontSize: 13,
-          textAlign: 'left',
-        }}
-      >
-        <span>{label}</span>
-        {hasScript && (
-          <span
-            style={{
-              width: 6,
-              height: 6,
-              borderRadius: '50%',
-              background: token.colorPrimary,
-            }}
-          />
-        )}
-      </button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <button
+          type="button"
+          onClick={() => setActive(kind)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flex: 1,
+            minWidth: 0,
+            padding: '8px 12px',
+            background: selected ? token.colorFillTertiary : 'transparent',
+            border: 'none',
+            borderRadius: 4,
+            cursor: 'pointer',
+            color: token.colorText,
+            fontSize: 13,
+            textAlign: 'left',
+          }}
+        >
+          <span>{label}</span>
+          {hasScript && (
+            <span
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                background: token.colorPrimary,
+              }}
+            />
+          )}
+        </button>
+        <InfoTrigger content={SCRIPT_INFO[kind]} />
+      </div>
     );
   };
 
@@ -84,7 +115,7 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
           display: 'flex',
           flexDirection: 'column',
           gap: 4,
-          width: 180,
+          width: 190,
           paddingRight: 12,
           borderRight: `1px solid ${token.colorBorderSecondary}`,
           position: 'sticky',
@@ -95,13 +126,8 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
         <Rail kind="pre-request" label="Pre-request" />
         <Rail kind="post-response" label="Post-response" />
       </div>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 }}>
-        <Text type="secondary" style={{ fontSize: 11 }}>
-          {active === 'pre-request'
-            ? 'Runs in a sandboxed iframe before the request is sent. Use oh.setHeader / oh.setUrl / oh.setBody to mutate the outgoing request.'
-            : 'Runs in a sandboxed iframe after the response arrives. Register assertions with oh.test(name, fn).'}
-        </Text>
-        <div style={{ flex: 1, minHeight: 280 }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+        <div style={{ flex: 1, minHeight: 300 }}>
           <ScriptEditor kind={active} value={value} onChange={onChange} />
         </div>
       </div>

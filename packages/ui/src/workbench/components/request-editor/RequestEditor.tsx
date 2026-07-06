@@ -43,6 +43,7 @@ import { EntityConflictBanner, EntityConflictDialog, hasDialogOnlyConflict } fro
 import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell';
 import { ensureScheme, needsSchemeNormalization } from '@openheaders/ui/shared/fetch';
 import { isMac } from '@openheaders/ui/shared/platform';
+import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { stableStringify } from '@openheaders/ui/shared/forms';
 import { useWorkbenchEditingScopeWorkspaceId } from '../../hooks/EditingScopeWorkspaceContext';
 import type { DraftData } from '../../hooks/useSaveRequestFlow';
@@ -483,7 +484,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
       title={
         hasUnresolvedRefs
           ? 'Request has unresolved variables. Define them in vault, environment, collection, workspace, or a live workflow before sending.'
-          : `Send (${SEND_SHORTCUT})`
+          : <ShortcutHintTitle label={SEND_SHORTCUT}>Send</ShortcutHintTitle>
       }
     >
       <Button

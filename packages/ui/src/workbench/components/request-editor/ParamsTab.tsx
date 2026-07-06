@@ -9,7 +9,6 @@
  */
 
 import type { AuthConfig } from '@openheaders/core/types';
-import { Typography } from 'antd';
 import type React from 'react';
 import { useMemo } from 'react';
 import { REQUEST_PATHS } from '@openheaders/ui/shared/awareness';
@@ -20,8 +19,6 @@ import KeyValueTable, {
   makeKvRow,
   type SuggestionRow,
 } from './KeyValueTable';
-
-const { Text } = Typography;
 
 interface ParamsTabProps {
   rows: KeyValueRow[];
@@ -87,9 +84,6 @@ const ParamsTab: React.FC<ParamsTabProps> = ({ rows, onChange, auth, conflictBri
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <Text strong style={{ fontSize: 13 }}>
-        Query Params
-      </Text>
       <KeyValueTable
         rows={rows}
         onChange={(next) => onChange(annotateHasEquals(next))}

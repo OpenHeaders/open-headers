@@ -12,6 +12,7 @@ import type { AuthConfig } from '@openheaders/core/types';
 import { Select, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback } from 'react';
+import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import OAuth2AuthEditor from './OAuth2AuthEditor';
 import { TemplateInput } from '../template-input';
 
@@ -300,9 +301,18 @@ const OAuth2LeftRailControls: React.FC<{
         />
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <Text strong style={{ fontSize: 12 }}>
-          Provider preset
-        </Text>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Text strong style={{ fontSize: 12 }}>
+            Provider preset
+          </Text>
+          <InfoTrigger
+            content={{
+              title: 'Provider preset',
+              summary:
+                'Picking a provider pre-fills its authorization/token endpoints, default scopes, and recommended flow. Pick Custom to configure everything manually.',
+            }}
+          />
+        </div>
         <Select
           size="middle"
           value={auth.providerPresetId ?? 'custom'}
@@ -313,9 +323,6 @@ const OAuth2LeftRailControls: React.FC<{
           ]}
           style={{ width: '100%' }}
         />
-        <Text type="secondary" style={{ fontSize: 11 }}>
-          Pre-fills endpoints + default scopes. Custom = configure manually.
-        </Text>
       </div>
     </div>
   );

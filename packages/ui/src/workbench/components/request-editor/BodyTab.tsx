@@ -28,11 +28,11 @@
  * re-entry — purely local UI state, never persisted.
  */
 
-import { InfoCircleOutlined, ReloadOutlined, WarningFilled } from '@ant-design/icons';
 import type { RequestBody } from '@openheaders/core/types';
-import { Radio, Select, Tooltip, Typography, theme } from 'antd';
+import { Radio, Select, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useRef } from 'react';
+import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import CodeEditor from '../shared/CodeEditor';
 import MultipartEditor from './MultipartEditor';
 import FormEditor from './FormEditor';
@@ -169,18 +169,6 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
             popupMatchSelectWidth={false}
           />
         )}
-        {radio === 'graphql' && (
-          <GraphqlSchemaToolbar
-            mode="auto-fetch"
-            onModeChange={() => {
-              /* Reserved — schema fetching lands alongside GraphQL tooling. */
-            }}
-            onRefresh={() => {
-              /* Reserved — schema refresh invokes the remote introspection call. */
-            }}
-            warning="Schema auto-fetch is not wired yet — GraphQL runs as a plain POST until introspection lands."
-          />
-        )}
       </div>
 
       {body.type === 'none' && (
@@ -230,12 +218,26 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
           }}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
-            <Text
-              strong
-              style={{ fontSize: 11, letterSpacing: 0.5, color: token.colorTextSecondary, textTransform: 'uppercase' }}
-            >
-              Query
-            </Text>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Text
+                strong
+                style={{
+                  fontSize: 11,
+                  letterSpacing: 0.5,
+                  color: token.colorTextSecondary,
+                  textTransform: 'uppercase',
+                }}
+              >
+                Query
+              </Text>
+              <InfoTrigger
+                content={{
+                  title: 'GraphQL query',
+                  summary:
+                    'Sent as a plain POST with a JSON body of { query, variables }. Schema introspection and query autocomplete are not available yet.',
+                }}
+              />
+            </div>
             <div style={{ flex: 1, minHeight: 300 }}>
               <CodeEditor
                 value={body.content}
@@ -264,9 +266,12 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
               >
                 GraphQL Variables
               </Text>
-              <Tooltip title="Define variables in JSON format to use in the query">
-                <InfoCircleOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />
-              </Tooltip>
+              <InfoTrigger
+                content={{
+                  title: 'GraphQL variables',
+                  summary: 'Define variables in JSON format to reference from the query (e.g. $id).',
+                }}
+              />
             </div>
             <div style={{ flex: 1, minHeight: 300 }}>
               <CodeEditor
@@ -280,40 +285,6 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
             </div>
           </div>
         </div>
-      )}
-    </div>
-  );
-};
-
-interface GraphqlSchemaToolbarProps {
-  mode: 'auto-fetch' | 'no-schema';
-  onModeChange: (next: 'auto-fetch' | 'no-schema') => void;
-  onRefresh: () => void;
-  warning?: string;
-}
-
-const GraphqlSchemaToolbar: React.FC<GraphqlSchemaToolbarProps> = ({ mode, onModeChange, onRefresh, warning }) => {
-  const { token } = theme.useToken();
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <Select
-        size="small"
-        value={mode}
-        onChange={onModeChange}
-        options={[
-          { value: 'auto-fetch', label: 'Auto Fetch' },
-          { value: 'no-schema', label: 'No schema' },
-        ]}
-        style={{ width: 130, color: token.colorPrimary }}
-        popupMatchSelectWidth={false}
-      />
-      <Tooltip title="Refresh schema">
-        <ReloadOutlined onClick={onRefresh} style={{ color: token.colorTextTertiary, cursor: 'pointer' }} />
-      </Tooltip>
-      {warning && (
-        <Tooltip title={warning}>
-          <WarningFilled style={{ color: token.colorWarning }} />
-        </Tooltip>
       )}
     </div>
   );

@@ -1,3 +1,5 @@
+import { isMac } from '@openheaders/ui/shared/platform';
+
 export interface DevtoolsShortcut {
   keys: string[];
   platform: string;
@@ -9,8 +11,6 @@ export interface BrowserCopy {
   alternative: string;
   menuHint?: string;
 }
-
-export const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.userAgent);
 
 export function detectBrowser(): BrowserCopy {
   const ua = navigator.userAgent;

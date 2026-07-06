@@ -25,7 +25,9 @@ describe('http-headers info registry', () => {
     if (!content) return;
     expect(content.title).toBe('Cache-Control');
     expect(content.kicker).toMatch(/Caching/);
-    expect(content.summary.length).toBeGreaterThan(0);
+    // `summary` is typed ReactNode; the header registry always supplies a string.
+    expect(typeof content.summary).toBe('string');
+    expect(String(content.summary).length).toBeGreaterThan(0);
     // Cache-Control has a directives section.
     expect(content.sections?.some((s: InfoPopoverSection) => s.heading === 'Directives')).toBe(true);
   });

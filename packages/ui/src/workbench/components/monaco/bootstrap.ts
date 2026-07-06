@@ -57,6 +57,7 @@ import 'monaco-editor/esm/vs/basic-languages/typescript/typescript.contribution'
 import 'monaco-editor/esm/vs/basic-languages/css/css.contribution';
 import 'monaco-editor/esm/vs/basic-languages/html/html.contribution';
 import 'monaco-editor/esm/vs/basic-languages/xml/xml.contribution';
+import 'monaco-editor/esm/vs/basic-languages/markdown/markdown.contribution';
 // LSP contributions — JSON / CSS / HTML workers + semantic features. The
 // TS/JS language service lives in `./ts-language-service` so the Firefox
 // build can alias it to a no-op stub: its `ts.worker` (the bundled TS
@@ -64,8 +65,8 @@ import 'monaco-editor/esm/vs/basic-languages/xml/xml.contribution';
 import 'monaco-editor/esm/vs/language/json/monaco.contribution';
 import 'monaco-editor/esm/vs/language/css/monaco.contribution';
 import 'monaco-editor/esm/vs/language/html/monaco.contribution';
-import { type ChromeHoverOptions, HoverService } from 'monaco-editor/esm/vs/platform/hover/browser/hoverService';
 import { allVariants } from '@openheaders/ui/themes';
+import { type ChromeHoverOptions, HoverService } from 'monaco-editor/esm/vs/platform/hover/browser/hoverService';
 import { registerPrettierFormatters } from './formatters';
 import { configureTsLanguageService, loadTsWorker } from './ts-language-service';
 
