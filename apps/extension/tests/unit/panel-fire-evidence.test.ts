@@ -297,6 +297,32 @@ describe('fireTier / rowFireTier — dot semantics', () => {
     expect(fireTier(lc, snapshotFire([], { evidence: 'matched', authoritative: false }))).toBe('inferred');
   });
 
+  it('a stream message capture upgrades a page-reported fire to applied', () => {
+    const lc: RequestLifecycle = {
+      ...rawLc,
+      messageCaptures: [
+        {
+          ruleUid: 'r1',
+          direction: 'receive',
+          op: 'replaced',
+          eventName: 'message',
+          original: '{"seq":2}',
+          delivered: '{"replaced":true}',
+          atMs: 1_000,
+        },
+      ],
+    };
+    expect(fireTier(lc, snapshotFire([], { evidence: 'matched', authoritative: false }))).toBe('applied');
+  });
+
+  it('a message capture for a different rule does not upgrade the fire', () => {
+    const lc: RequestLifecycle = {
+      ...rawLc,
+      messageCaptures: [{ ruleUid: 'r2', direction: 'receive', op: 'dropped', original: 'x', atMs: 1_000 }],
+    };
+    expect(fireTier(lc, snapshotFire([], { evidence: 'matched', authoritative: false }))).toBe('inferred');
+  });
+
   it('rowFireTier: contradicted > applied > inferred; null without fires', () => {
     expect(rowFireTier(rawLc, [])).toBeNull();
     expect(rowFireTier(rawLc, [snapshotFire([mod()])])).toBe('inferred');

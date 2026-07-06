@@ -285,7 +285,12 @@ export function deriveFireEvidenceByRule(
 export function fireTier(lifecycle: RequestLifecycle, fire: InspectorFire): FireDotTier {
   const evidence = deriveFireEvidence(lifecycle, fire);
   if (evidence.verdict === 'contradicted') return 'contradicted';
-  if (evidence.verdict === 'corroborated' || isAppliedFire(fire) || hasCapturedOverride(lifecycle, fire.ruleUid)) {
+  if (
+    evidence.verdict === 'corroborated' ||
+    isAppliedFire(fire) ||
+    hasCapturedOverride(lifecycle, fire.ruleUid) ||
+    hasCapturedMessage(lifecycle, fire.ruleUid)
+  ) {
     return 'applied';
   }
   return 'inferred';
@@ -302,6 +307,19 @@ export function fireTier(lifecycle: RequestLifecycle, fire: InspectorFire): Fire
  */
 export function hasCapturedOverride(lifecycle: RequestLifecycle, ruleUid: string): boolean {
   return lifecycle.responseOverride?.ruleUid === ruleUid || lifecycle.requestOverride?.ruleUid === ruleUid;
+}
+
+/**
+ * Whether the stream wrapper captured this rule acting on the row — a
+ * per-frame / per-event `StreamMessageCapture` keyed to the fire's rule.
+ * The ws/sse analog of {@link hasCapturedOverride}: a message action is
+ * invisible to the wire (a modify's replacement never crosses it, an
+ * injected event never existed there), so its proof is the wrapper's
+ * recorded report. Present ⇒ verifiably applied — the same tier the
+ * stream grids' fire rails give a joined capture.
+ */
+export function hasCapturedMessage(lifecycle: RequestLifecycle, ruleUid: string): boolean {
+  return (lifecycle.messageCaptures ?? []).some((c) => c.ruleUid === ruleUid);
 }
 
 /** Row-level tier for the fire-rail dot: contradicted > applied > inferred.
