@@ -90,25 +90,45 @@ describe('shadow-arbitration', () => {
 
   // ── redirect-retarget ─────────────────────────────────────────
 
-  it('redirect retargets lower-priority modify rules (header, body, mock, delay)', () => {
+  it('redirect retargets only the DNR-plane header rule — scriptable wrappers survive at fetch scope', () => {
     const matching = [
       rule({ uid: 'redirect-1', name: 'Rewrite /v1 to /v2', type: 'redirect' }),
       rule({ uid: 'header-1', type: 'header' }),
       rule({ uid: 'body-1', type: 'request-body' }),
-      rule({ uid: 'mock-1', type: 'response', responseSource: 'mock' }),
+      rule({ uid: 'modify-1', type: 'response', responseSource: 'network' }),
       rule({ uid: 'delay-1', type: 'delay' }),
     ];
     const result = arbitrate(matching);
 
     expect(result.find((r) => r.uid === 'redirect-1')!.shadowedBy).toBeUndefined();
-    for (const uid of ['header-1', 'body-1', 'mock-1', 'delay-1']) {
-      const record = result.find((r) => r.uid === uid)!;
-      expect(record.shadowedBy).toEqual({
-        uid: 'redirect-1',
-        name: 'Rewrite /v1 to /v2',
-        kind: 'redirect-retarget',
-      });
+    expect(result.find((r) => r.uid === 'header-1')!.shadowedBy).toEqual({
+      uid: 'redirect-1',
+      name: 'Rewrite /v1 to /v2',
+      kind: 'redirect-retarget',
+    });
+    // A delay holds the whole exchange, a response wrapper sees the final
+    // (post-redirect) reply, a body wrapper rewrites the fetch the redirect
+    // then retargets — their effects survive the retargeting.
+    for (const uid of ['body-1', 'modify-1', 'delay-1']) {
+      expect(result.find((r) => r.uid === uid)!.shadowedBy).toBeUndefined();
     }
+  });
+
+  it('a mock answers before the redirect can run — never shadowed, and it still intercepts', () => {
+    const matching = [
+      rule({ uid: 'redirect-1', name: 'Rewrite', type: 'redirect' }),
+      rule({ uid: 'mock-1', name: 'Mock api', type: 'response', responseSource: 'mock' }),
+      rule({ uid: 'body-1', type: 'request-body' }),
+    ];
+    const result = arbitrate(matching);
+
+    expect(result.find((r) => r.uid === 'mock-1')!.shadowedBy).toBeUndefined();
+    // The body rule loses to the mock (mock-intercept), not to the redirect.
+    expect(result.find((r) => r.uid === 'body-1')!.shadowedBy).toEqual({
+      uid: 'mock-1',
+      name: 'Mock api',
+      kind: 'mock-intercept',
+    });
   });
 
   it('query-param retargets lower-priority modify rules with query-param-retarget kind', () => {

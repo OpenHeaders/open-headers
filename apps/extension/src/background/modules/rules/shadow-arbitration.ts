@@ -274,12 +274,18 @@ function applyBlockShadow(decorated: ArbitratedRule[]): void {
 // ── Phase 2: redirect / query-param retarget ───────────────────────
 
 /**
- * Redirect and query-param rules rewrite the request URL. Lower-priority
- * *modify* classes (header, request-body, response, delay) that matched the
- * pre-redirect URL are semantically shadowed: Chrome does run their
- * modifications on the pre-redirect request, but that request is
+ * Redirect and query-param rules rewrite the request URL. Only the
+ * DNR-plane modify class loses to a retarget: Chrome applies a header
+ * rule's modifications to the pre-redirect request, and that request is
  * discarded the moment the redirect fires, so the user never sees the
  * effect on the real response (which comes from the retargeted URL).
+ *
+ * Scriptable wrappers are NOT shadowed — they act at fetch scope, outside
+ * the DNR redirect chain entirely: a delay holds the whole exchange, a
+ * response wrapper sees the final (post-redirect) reply, a request-body
+ * wrapper rewrites the fetch the redirect then retargets, and a mock
+ * answers in-page before the redirect can run at all. Their effects
+ * survive (or pre-empt) the retargeting.
  *
  * Redirects don't shadow other redirects (users can stack them in a
  * pipeline), they don't shadow inject (response-side), and they don't
@@ -301,15 +307,7 @@ function applyRedirectShadow(decorated: ArbitratedRule[]): void {
   for (const r of decorated) {
     if (r.shadowedBy) continue;
     if (r.uid === topRetarget.uid) continue;
-    // Retargeters don't shadow each other — users stack them deliberately.
-    if (r.actionClass === 'redirect' || r.actionClass === 'query-param') continue;
-    // Inject (CSP strip) is response-side and survives the retargeting.
-    if (r.actionClass === 'inject-csp') continue;
-    // Block is not shadowed by retargeting — if block is present the block
-    // phase already ran and the retargeter itself would be shadowed first.
-    if (r.actionClass === 'block') continue;
-    // Only modify-class rules at strictly lower priority than the retargeter.
-    if (r.priority >= topRetarget.priority) continue;
+    if (r.actionClass !== 'header') continue;
     r.shadowedBy = { uid: topRetarget.uid, name: topRetarget.name, kind };
   }
 }
