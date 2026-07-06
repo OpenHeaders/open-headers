@@ -7,8 +7,11 @@
 import { CaretRightOutlined, LoadingOutlined } from '@ant-design/icons';
 import { Typography, theme } from 'antd';
 import type React from 'react';
+import { isMac } from '@openheaders/ui/shared/platform';
 
 const { Text } = Typography;
+
+const SEND_SHORTCUT = isMac ? '⌘ ↵' : 'Ctrl + Enter';
 
 const ResponseEmptyState: React.FC<{ sending: boolean }> = ({ sending }) => {
   const { token } = theme.useToken();
@@ -38,6 +41,9 @@ const ResponseEmptyState: React.FC<{ sending: boolean }> = ({ sending }) => {
           <CaretRightOutlined style={{ fontSize: 20, color: token.colorTextQuaternary }} />
           <Text type="secondary" style={{ fontSize: 12 }}>
             Send the request to see the response here.
+          </Text>
+          <Text keyboard type="secondary" style={{ fontSize: 11 }}>
+            {SEND_SHORTCUT}
           </Text>
         </>
       )}

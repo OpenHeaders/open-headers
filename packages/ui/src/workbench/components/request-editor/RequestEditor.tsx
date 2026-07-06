@@ -42,6 +42,7 @@ import { readFieldPath } from '@openheaders/ui/shared/awareness/field-path';
 import { EntityConflictBanner, EntityConflictDialog, hasDialogOnlyConflict } from '@openheaders/ui/shared/conflicts';
 import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell';
 import { ensureScheme, needsSchemeNormalization } from '@openheaders/ui/shared/fetch';
+import { isMac } from '@openheaders/ui/shared/platform';
 import { stableStringify } from '@openheaders/ui/shared/forms';
 import { useWorkbenchEditingScopeWorkspaceId } from '../../hooks/EditingScopeWorkspaceContext';
 import type { DraftData } from '../../hooks/useSaveRequestFlow';
@@ -69,6 +70,8 @@ import { useRequestConflicts } from './use-request-conflicts';
 import { useRequestConflictSurface } from './use-request-conflict-surface';
 
 const { Text } = Typography;
+
+const SEND_SHORTCUT = isMac ? '⌘↵' : 'Ctrl+Enter';
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -425,6 +428,19 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     setResponse(snapshot);
   }, [sending, summary, draftName, draft, execute, preferredCollectionId, preferredFolderPath, requestCollections]);
 
+  // ⌘/Ctrl+Enter sends from anywhere in the editor — same gate as the
+  // Send button. Bubble phase + `defaultPrevented` check so an inner
+  // surface that owns the chord (e.g. a Monaco keybinding) wins.
+  const handleEditorKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (e.key !== 'Enter' || !(e.metaKey || e.ctrlKey) || e.defaultPrevented) return;
+      e.preventDefault();
+      if (sending || hasUnresolvedRefs) return;
+      void handleSend();
+    },
+    [sending, hasUnresolvedRefs, handleSend],
+  );
+
   if (!isCreateMode && !summary) {
     return (
       <div style={{ padding: 24, textAlign: 'center' }}>
@@ -463,10 +479,11 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
 
   const headerActions = (
     <Tooltip
+      placement="bottom"
       title={
         hasUnresolvedRefs
           ? 'Request has unresolved variables. Define them in vault, environment, collection, workspace, or a live workflow before sending.'
-          : undefined
+          : `Send (${SEND_SHORTCUT})`
       }
     >
       <Button
@@ -488,6 +505,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
           style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}
           onFocusCapture={handleEditorFocusCapture}
           onBlurCapture={handleEditorBlurCapture}
+          onKeyDown={handleEditorKeyDown}
         >
           <EditorHeader title={headerTitle} actions={headerActions} shell={shell.headerProps} />
 
