@@ -92,16 +92,25 @@ export async function applyRuleUpdate(
   // canonical rule snapshot to find each row's content via uid lookup.
   // The synthesizer needs `(itemId, orderKey, item)` triplets to
   // distinguish pure-reorder from content edits.
-  const payload = buildUpdateBatch(ruleUid, entry.rule.type, augmented, ctx, (uid, path) => {
-    const orderKeys = mirror.liveOrderedSetItems(uid, path);
-    if (orderKeys.length === 0) return [];
-    const rule = mirror.getRuleMirror(uid)?.rule;
-    const rows = resolveRuleRows(rule, path);
-    if (!rows) return orderKeys.map((e) => ({ itemId: e.itemId, orderKey: e.orderKey, item: undefined }));
-    const byUid = new Map<string, unknown>();
-    for (const row of rows) byUid.set(row.uid, row);
-    return orderKeys.map((e) => ({ itemId: e.itemId, orderKey: e.orderKey, item: byUid.get(e.itemId) }));
-  });
+  const payload = buildUpdateBatch(
+    ruleUid,
+    entry.rule.type,
+    augmented,
+    ctx,
+    (uid, path) => {
+      const orderKeys = mirror.liveOrderedSetItems(uid, path);
+      if (orderKeys.length === 0) return [];
+      const rule = mirror.getRuleMirror(uid)?.rule;
+      const rows = resolveRuleRows(rule, path);
+      if (!rows) return orderKeys.map((e) => ({ itemId: e.itemId, orderKey: e.orderKey, item: undefined }));
+      const byUid = new Map<string, unknown>();
+      for (const row of rows) byUid.set(row.uid, row);
+      return orderKeys.map((e) => ({ itemId: e.itemId, orderKey: e.orderKey, item: byUid.get(e.itemId) }));
+    },
+    // Baseline for the non-header action per-leaf flatten-diff — the
+    // live materialized action from the same canonical snapshot.
+    (uid, path) => (path === 'action' ? mirror.getRuleMirror(uid)?.rule.action : undefined),
+  );
   const ack = await applySyncPayload(payload);
   if (ack.ok) {
     return { ok: true, rule: { ...entry.rule, ...augmented } as Rule };

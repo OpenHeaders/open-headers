@@ -98,9 +98,9 @@ const cases: Array<{ label: string; payload: MutatorIntent }> = [
   { label: 'rule.buildDeleteBatch', payload: buildDeleteBatch('rule-1', ctx()) },
   {
     label: 'rule.buildUpdateBatch',
-    payload: buildUpdateBatch('rule-1', 'header', { name: 'Renamed' }, ctx(), () => []),
+    payload: buildUpdateBatch('rule-1', 'header', { name: 'Renamed' }, ctx(), () => [], () => undefined),
   },
-  { label: 'rule.buildUpdateBatch (empty patch)', payload: buildUpdateBatch('rule-1', 'header', {}, ctx(), () => []) },
+  { label: 'rule.buildUpdateBatch (empty patch)', payload: buildUpdateBatch('rule-1', 'header', {}, ctx(), () => [], () => undefined) },
   {
     label: 'env.buildAddEnvironmentBatch (no vars)',
     payload: buildAddEnvironmentBatch({ environment: environment([]) }, ctx()),
@@ -155,7 +155,7 @@ describe('sync-builders side effects — content', () => {
     for (const payload of [
       buildAddBatch(headerRule(), ctx()),
       buildDeleteBatch('rule-1', ctx()),
-      buildUpdateBatch('rule-1', 'header', { name: 'Renamed' }, ctx(), () => []),
+      buildUpdateBatch('rule-1', 'header', { name: 'Renamed' }, ctx(), () => [], () => undefined),
     ]) {
       expect(payload.sideEffects.length).toBeGreaterThan(0);
       for (const intent of payload.sideEffects) {
@@ -165,7 +165,7 @@ describe('sync-builders side effects — content', () => {
   });
 
   it('an empty rule update derives no side effect', () => {
-    const payload = buildUpdateBatch('rule-1', 'header', {}, ctx(), () => []);
+    const payload = buildUpdateBatch('rule-1', 'header', {}, ctx(), () => [], () => undefined);
     expect(payload.batch.mutations).toEqual([]);
     expect(payload.sideEffects).toEqual([]);
   });

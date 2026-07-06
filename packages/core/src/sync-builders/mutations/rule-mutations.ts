@@ -30,7 +30,6 @@
 
 import {
   deriveSideEffectsForEnvelope,
-  flattenToLeaves,
   type MutationBatch,
   type MutationBody,
   type MutatorContext,
@@ -39,7 +38,7 @@ import {
   type SideEffectIntent,
   toggleEnabled,
 } from '@openheaders/core/sync';
-import { type LiveSetEntry, synthesizeSetDiff } from '@openheaders/core/sync-builders';
+import { type LiveSetEntry, synthesizeFieldDiff, synthesizeSetDiff } from '@openheaders/core/sync-builders';
 import type { Rule } from '@openheaders/core/types';
 import { seedRule } from '../projections/rule-projection';
 
@@ -58,6 +57,17 @@ export interface RuleMutationPayload {
  * combined with the rule snapshot for `item` resolution.
  */
 export type LiveSetEntries = (ruleUid: string, setPath: string) => ReadonlyArray<LiveSetEntry>;
+
+/**
+ * Current materialized value reader for object-valued scalar paths
+ * (non-header `action`). Threaded as the baseline for
+ * {@link synthesizeFieldDiff} so a leaf that vanishes from the patch
+ * (cleared event name, filter switched back to every-frame) is
+ * tombstoned instead of silently surviving as its create-time value.
+ * Returns `undefined` when the path has no live value yet — the diff
+ * then emits `setField` for every new leaf and no `unsetField`.
+ */
+export type LiveFieldValue = (ruleUid: string, path: string) => unknown;
 
 /** New rule → seed batch + DNR recompile intent. */
 export function buildAddBatch(rule: Rule, ctx: MutatorContext): RuleMutationPayload {
@@ -109,6 +119,7 @@ export function buildUpdateBatch(
   updates: Partial<Omit<Rule, 'uid' | 'path'>>,
   ctx: MutatorContext,
   liveSetEntries: LiveSetEntries,
+  liveFieldValue: LiveFieldValue,
 ): RuleMutationPayload {
   const bodies: MutationBody[] = [];
 
@@ -175,20 +186,20 @@ export function buildUpdateBatch(
     // action back as one `setField` at `action` would leave those
     // create-time leaves in place, and `unflattenLeaves` lets the stale
     // leaves clobber the edit at materialize time — the hazard
-    // rule-projection.ts warns about. Mirror create's granularity so
-    // per-leaf max-HLC-wins resolves the edit cleanly. Undefined leaves
-    // never travel on the wire (flatten module contract).
+    // rule-projection.ts warns about. Diff against the live action so
+    // edits mirror create's granularity AND a leaf absent from the new
+    // value (cleared event name, filter back to every-frame) tombstones
+    // via `unsetField` instead of surviving as its old value.
     if (key === 'action' && isPlainObject(value)) {
-      for (const leaf of flattenToLeaves(value)) {
-        if (leaf.value === undefined) continue;
-        bodies.push({
-          kind: 'setField',
+      bodies.push(
+        ...synthesizeFieldDiff({
           type: RULE_ENTITY_TYPE,
           id: ruleUid,
-          path: leaf.path ? `action.${leaf.path}` : 'action',
-          value: leaf.value,
-        });
-      }
+          basePath: 'action',
+          oldValue: liveFieldValue(ruleUid, 'action'),
+          newValue: value,
+        }),
+      );
       continue;
     }
 

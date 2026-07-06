@@ -16,7 +16,7 @@
 import { describe, expect, it } from 'vitest';
 import { InMemoryDocumentStore, type MutatorContext } from '../../src/sync';
 import { buildAddBatch, buildUpdateBatch, type RuleMutationPayload } from '../../src/sync-builders/mutations/rule-mutations';
-import type { RedirectRule, ResponseRule, Rule } from '../../src/types';
+import type { RedirectRule, ResponseRule, Rule, SseRule } from '../../src/types';
 
 const ctx = (physicalMs: number): MutatorContext => ({
   workspaceId: 'ws-1',
@@ -28,6 +28,13 @@ const ctx = (physicalMs: number): MutatorContext => ({
 
 function applyBatch(store: InMemoryDocumentStore, payload: RuleMutationPayload): void {
   for (const env of payload.batch.mutations) store.apply(env);
+}
+
+/** Live-action reader over the store — the diff baseline the renderer's
+ *  mirror supplies in production. */
+function liveAction(store: InMemoryDocumentStore) {
+  return (uid: string, path: string): unknown =>
+    path === 'action' ? (store.materializeOne('rule', uid)?.data as Rule | undefined)?.action : undefined;
 }
 
 const responseSeed: ResponseRule = {
@@ -65,7 +72,7 @@ describe('non-header rule action update round-trip', () => {
     };
     applyBatch(
       store,
-      buildUpdateBatch('rule-1', 'response', { action: editedAction }, ctx(2_000), () => []),
+      buildUpdateBatch('rule-1', 'response', { action: editedAction }, ctx(2_000), () => [], liveAction(store)),
     );
 
     const data = store.materializeOne('rule', 'rule-1')?.data as Rule;
@@ -93,6 +100,7 @@ describe('non-header rule action update round-trip', () => {
         { action: { ...responseSeed.action, statusCode: 0, bodyType: 'dynamic', responseBody: 'A' } },
         ctx(2_000),
         () => [],
+        liveAction(store),
       ),
     );
     applyBatch(
@@ -103,6 +111,7 @@ describe('non-header rule action update round-trip', () => {
         { action: { ...responseSeed.action, statusCode: 404, bodyType: 'static', responseBody: 'B' } },
         ctx(3_000),
         () => [],
+        liveAction(store),
       ),
     );
 
@@ -133,10 +142,50 @@ describe('non-header rule action update round-trip', () => {
         { action: { redirectTo: 'https://api.openheaders.io/v2' } },
         ctx(2_000),
         () => [],
+        liveAction(store),
       ),
     );
 
     const action = (store.materializeOne('rule', 'rule-2')?.data as RedirectRule).action;
     expect(action.redirectTo).toBe('https://api.openheaders.io/v2');
+  });
+
+  it('tombstones an action leaf that vanishes from the update (cleared sse event name)', () => {
+    const sseSeed: SseRule = {
+      schemaVersion: 5,
+      uid: 'rule-3',
+      path: 'rules/SSE',
+      name: 'SSE',
+      enabled: true,
+      type: 'sse',
+      conditions: [],
+      action: {
+        operation: 'modify',
+        eventName: 'message',
+        messageFilter: { matchType: 'contains', value: 'heartbeat' },
+        payload: '{"replaced":true}',
+      },
+    };
+    const store = new InMemoryDocumentStore();
+    applyBatch(store, buildAddBatch(sseSeed, ctx(1_000)));
+    // Editor clears the event name and switches the filter back to
+    // "every event" — both leaves vanish from the projected action.
+    applyBatch(
+      store,
+      buildUpdateBatch(
+        'rule-3',
+        'sse',
+        { action: { operation: 'modify', eventName: undefined, messageFilter: undefined, payload: '{"replaced":true}' } },
+        ctx(2_000),
+        () => [],
+        liveAction(store),
+      ),
+    );
+
+    const action = (store.materializeOne('rule', 'rule-3')?.data as SseRule).action;
+    expect('eventName' in action).toBe(false);
+    expect('messageFilter' in action).toBe(false);
+    expect(action.operation).toBe('modify');
+    expect(action.payload).toBe('{"replaced":true}');
   });
 });
