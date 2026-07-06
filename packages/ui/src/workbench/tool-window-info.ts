@@ -68,6 +68,26 @@ const TOOL_WINDOW_INFO: Record<ToolWindowId, InfoPopoverContent> = {
     title: 'Variables',
     summary:
       'The variable catalogue — everything defined across environments, collections, the workspace, and the vault. Use Scope to see what is actually in scope for the active tab.',
+    sections: [
+      {
+        heading: 'Variable types',
+        items: [
+          { icon: scopeBadge('vault', 14), label: 'Vault', desc: 'Per-user secrets — stored locally, never synced.' },
+          {
+            icon: scopeBadge('environment', 14),
+            label: 'Environment',
+            desc: 'Defined per environment; the active one supplies values.',
+          },
+          {
+            icon: scopeBadge('collection', 14),
+            label: 'Collection',
+            desc: 'Defined on a collection; apply to the entities inside it.',
+          },
+          { icon: scopeBadge('workspace', 14), label: 'Workspace', desc: 'Shared across the whole workspace.' },
+          { icon: scopeBadge('live', 14), label: 'Live', desc: 'Workflow-produced values, referenced as {{live.*}}.' },
+        ],
+      },
+    ],
   },
   'api-requests': {
     title: 'API Requests',
