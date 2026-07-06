@@ -228,6 +228,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, groups =
           <div
             className="rules-cmd-breadcrumb"
             style={{ borderBottom: `1px solid ${token.colorBorderSecondary}`, color: token.colorTextTertiary }}
+            onMouseDown={(e) => e.preventDefault()}
             onClick={drillBack}
           >
             <LeftOutlined style={{ fontSize: 10 }} />
@@ -252,7 +253,10 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, groups =
           style={{ borderBottom: `1px solid ${token.colorBorderSecondary}`, borderRadius: 0 }}
         />
 
-        <div ref={resultsRef} className="rules-cmd-results">
+        {/* Keep the search input focused through mouse interactions —
+            keyboard nav lives on the input's onKeyDown, so a click that
+            steals focus (e.g. drilling into a group) would kill arrow keys */}
+        <div ref={resultsRef} className="rules-cmd-results" onMouseDown={(e) => e.preventDefault()}>
           {selectable.length === 0 && (
             <div className="rules-cmd-empty" style={{ color: token.colorTextTertiary }}>
               {query ? 'No results found' : 'Type to search or > for commands'}
@@ -292,7 +296,9 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, groups =
                 >
                   {row.icon && <span className="rules-cmd-result-icon">{row.icon}</span>}
                   <span className="rules-cmd-result-label">{row.label}</span>
-                  <RightOutlined style={{ fontSize: 10, color: token.colorTextQuaternary, flexShrink: 0 }} />
+                  <RightOutlined
+                    style={{ fontSize: 10, color: token.colorTextQuaternary, flexShrink: 0, marginLeft: 'auto' }}
+                  />
                 </div>
               );
             }

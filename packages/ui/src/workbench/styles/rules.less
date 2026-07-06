@@ -1951,7 +1951,11 @@ body {
 }
 
 .rules-cmd-result-label {
-  flex: 1;
+  // The name has layout priority: it never shrinks below its content
+  // (capped at 55% of the row) while the scope/description column
+  // absorbs the squeeze and ellipsizes.
+  flex-shrink: 0;
+  max-width: 55%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1959,7 +1963,12 @@ body {
 
 .rules-cmd-result-scope {
   font-size: 11px;
-  flex-shrink: 0;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
 }
 
 .rules-cmd-result-shortcut {
@@ -1969,6 +1978,7 @@ body {
   border-radius: 3px;
   flex-shrink: 0;
   white-space: nowrap;
+  margin-left: auto;
 }
 
 .rules-cmd-footer {

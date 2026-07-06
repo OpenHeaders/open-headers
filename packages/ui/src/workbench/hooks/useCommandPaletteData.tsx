@@ -6,11 +6,12 @@
  * workspace component.
  */
 
-import { ApiOutlined, FolderOutlined, GlobalOutlined, LockOutlined, SettingOutlined } from '@ant-design/icons';
+import { ApiOutlined, FolderOutlined, SettingOutlined } from '@ant-design/icons';
 import type { CollectionTree, Environment, Rule, Template, TreeNode } from '@openheaders/core/types';
 import { useMemo } from 'react';
 import type { CommandPaletteGroup, CommandPaletteItem, CommandPaletteSection } from '../components/shell/CommandPalette';
 import { buildRuleIcon } from '../components/shared/rule-icon';
+import { scopeBadge } from '../components/shared/scope-colors';
 import { renderTwoToneIcon } from '../components/shared/TwoToneIconPicker';
 import { useShortcutLabel } from '../hooks/useWorkspaceShortcuts';
 import { TEMPLATES_BY_TYPE } from '../rule-templates';
@@ -315,19 +316,19 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
     const variableItems: CommandPaletteItem[] = [
       {
         id: 'cmd-open-workspace-vars',
-        icon: <SettingOutlined style={{ fontSize: 12 }} />,
+        icon: scopeBadge('workspace'),
         label: 'Open Workspace Variables',
         onSelect: openWorkspaceVariables,
       },
       {
         id: 'cmd-open-vault',
-        icon: <LockOutlined style={{ fontSize: 12 }} />,
+        icon: scopeBadge('vault'),
         label: 'Open Vault',
         onSelect: openVault,
       },
       ...environments.map((env) => ({
         id: `cmd-open-env-${env.uid}`,
-        icon: <GlobalOutlined style={{ fontSize: 12 }} />,
+        icon: scopeBadge('environment'),
         label: `Open Environment: ${env.name}`,
         onSelect: () => openEnvironmentEdit(env.uid, env.name),
       })),
