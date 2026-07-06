@@ -29,7 +29,7 @@ import './response-headers.css';
 
 const { Text } = Typography;
 
-const GRID_TEMPLATE = 'minmax(180px, 30%) 1fr 32px';
+const GRID_TEMPLATE = 'minmax(180px, 1fr) 1fr 32px';
 
 const cellFont: React.CSSProperties = {
   fontFamily: "'SF Mono', 'Fira Code', monospace",
@@ -62,9 +62,11 @@ function HeaderGridRow({ row }: { row: ResponseHeaderRow }) {
         borderBottom: `1px solid ${token.colorBorderSecondary}`,
       }}
     >
-      <span style={{ ...cellFont, padding: '6px 10px', display: 'flex', alignItems: 'baseline', minWidth: 0 }}>
-        <InfoTrigger content={content} className="oh-resp-hdr-info" />
-        <span style={{ fontWeight: 600, wordBreak: 'break-all' }}>{row.key}</span>
+      <span style={{ ...cellFont, padding: '6px 10px', display: 'flex', alignItems: 'baseline', gap: 6, minWidth: 0 }}>
+        <span style={{ fontWeight: 600, wordBreak: 'break-all', minWidth: 0 }}>{row.key}</span>
+        <span style={{ marginLeft: 'auto', display: 'inline-flex' }}>
+          <InfoTrigger content={content} className="oh-resp-hdr-info" />
+        </span>
       </span>
       <span
         style={{
