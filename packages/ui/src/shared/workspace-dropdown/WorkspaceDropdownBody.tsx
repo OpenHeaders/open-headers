@@ -270,6 +270,35 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
     onClose();
   };
 
+  // One segment of the compact action row (Export | Manage | Import) —
+  // equal-width, centered, non-wrapping so a crowded row widens the
+  // shrink-to-fit popup instead of breaking words.
+  const footerSegment = (icon: React.ReactNode, label: string, onClick: () => void) => (
+    <div
+      role="menuitem"
+      className="oh-env-row"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
+        flex: 1,
+        whiteSpace: 'nowrap',
+        padding: '5px 8px',
+        cursor: 'pointer',
+        borderRadius: token.borderRadiusSM,
+        color: token.colorTextSecondary,
+      }}
+      onClick={() => {
+        onClick();
+        handleClose();
+      }}
+    >
+      {icon}
+      <Text style={{ fontSize: 13, whiteSpace: 'nowrap' }}>{label}</Text>
+    </div>
+  );
+
   const pickWorkspace = (id: string, isSelected: boolean, isActive: boolean): void => {
     if (mode === 'workbench') {
       if (!isSelected) onSwitch?.(id);
@@ -488,41 +517,14 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
 
       <Divider style={{ margin: '4px 0' }} />
 
-      <div
-        role="menuitem"
-        className="oh-env-row"
-        style={{ ...baseRowStyle, color: token.colorTextSecondary }}
-        onClick={() => {
-          onExport();
-          handleClose();
-        }}
-      >
-        <ExportOutlined style={{ fontSize: 12 }} />
-        <Text style={{ fontSize: 13 }}>Export…</Text>
-      </div>
-      <div
-        role="menuitem"
-        className="oh-env-row"
-        style={{ ...baseRowStyle, color: token.colorTextSecondary }}
-        onClick={() => {
-          onImport();
-          handleClose();
-        }}
-      >
-        <ImportOutlined style={{ fontSize: 12 }} />
-        <Text style={{ fontSize: 13 }}>Import…</Text>
-      </div>
-      <div
-        role="menuitem"
-        className="oh-env-row"
-        style={{ ...baseRowStyle, color: token.colorTextSecondary }}
-        onClick={() => {
-          onOpenManager();
-          handleClose();
-        }}
-      >
-        <SettingOutlined style={{ fontSize: 12 }} />
-        <Text style={{ fontSize: 13 }}>Manage workspaces…</Text>
+      {/* Compact action shortcuts — one row, segments split by vertical
+          dividers (same treatment as the env selector's scope row). */}
+      <div style={{ display: 'flex', alignItems: 'stretch' }}>
+        {footerSegment(<ExportOutlined style={{ fontSize: 12 }} />, 'Export', onExport)}
+        <Divider type="vertical" style={{ height: 'auto', margin: '4px 0', alignSelf: 'stretch' }} />
+        {footerSegment(<SettingOutlined style={{ fontSize: 12 }} />, 'Manage workspaces', onOpenManager)}
+        <Divider type="vertical" style={{ height: 'auto', margin: '4px 0', alignSelf: 'stretch' }} />
+        {footerSegment(<ImportOutlined style={{ fontSize: 12 }} />, 'Import', onImport)}
       </div>
 
       {reachRows.length > 0 && (
