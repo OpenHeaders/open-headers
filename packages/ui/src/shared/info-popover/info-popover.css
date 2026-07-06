@@ -131,7 +131,11 @@
 .oh-info-popover-section-item-icon {
   flex-shrink: 0;
   display: inline-flex;
-  align-self: center;
+  /* Pin to the FIRST line: centering against the whole item floats
+     the badge between lines on wrapped rows. 1px optically centers
+     the 14px badge inside the ~16.5px first line box. */
+  align-self: flex-start;
+  margin-top: 1px;
 }
 .oh-info-popover-section-item-label {
   flex-shrink: 0;
