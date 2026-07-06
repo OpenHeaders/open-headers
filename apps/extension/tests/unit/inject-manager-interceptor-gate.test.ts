@@ -30,11 +30,14 @@ const spies = vi.hoisted(() => ({
   injectCSS: vi.fn(() => Promise.resolve()),
   injectScriptUrl: vi.fn(() => Promise.resolve()),
   injectCSSUrl: vi.fn(() => Promise.resolve()),
+  injectScriptCspExempt: vi.fn(() => Promise.resolve()),
+  canExecuteCspExempt: vi.fn(() => false),
   buildResponseInjection: vi.fn(),
   buildRequestBodyInjection: vi.fn(),
   buildDelayInjection: vi.fn(),
 }));
-const { injectScript, buildResponseInjection, buildRequestBodyInjection, buildDelayInjection } = spies;
+const { injectScript, injectScriptCspExempt, canExecuteCspExempt, buildResponseInjection, buildRequestBodyInjection, buildDelayInjection } =
+  spies;
 
 vi.mock('@openheaders/rule-engine/inject', () => ({
   applyInjection: spies.applyInjection,
@@ -42,6 +45,8 @@ vi.mock('@openheaders/rule-engine/inject', () => ({
   injectCSS: spies.injectCSS,
   injectScriptUrl: spies.injectScriptUrl,
   injectCSSUrl: spies.injectCSSUrl,
+  injectScriptCspExempt: spies.injectScriptCspExempt,
+  canExecuteCspExempt: spies.canExecuteCspExempt,
 }));
 
 vi.mock('@openheaders/rule-engine/content-scripts', () => ({
@@ -193,5 +198,44 @@ describe('mock/body/delay interceptor install gate', () => {
     // Page URL matches → inject runs.
     await __testInjectForUrl(1, 'https://app.openheaders.io/');
     expect(injectScript).toHaveBeenCalledTimes(1);
+  });
+
+  function bypassCspInjectRule(): InjectRule {
+    return {
+      schemaVersion: 5,
+      uid: 'cs111111',
+      path: 'rules/inject',
+      name: 'Bypass CSP inject',
+      type: 'inject',
+      enabled: true,
+      conditions: [{ uid: 'tcd00067', type: 'url-filter', values: ['*://app.openheaders.io/*'] }],
+      action: { injectType: 'script', source: 'code', code: 'window.__x = 1;', position: 'head', bypassCSP: true },
+    };
+  }
+
+  it('routes a bypassCSP script through the CSP-exempt path when available', async () => {
+    canExecuteCspExempt.mockReturnValue(true);
+    updateScriptableRules([bypassCspInjectRule()]);
+    await __testInjectForUrl(1, 'https://app.openheaders.io/');
+    expect(injectScriptCspExempt).toHaveBeenCalledWith(1, 'window.__x = 1;', 'head');
+    expect(injectScript).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the <script>-tag path when the CSP-exempt API is unavailable', async () => {
+    canExecuteCspExempt.mockReturnValue(false);
+    updateScriptableRules([bypassCspInjectRule()]);
+    await __testInjectForUrl(1, 'https://app.openheaders.io/');
+    expect(injectScript).toHaveBeenCalledWith(1, 'window.__x = 1;', 'head');
+    expect(injectScriptCspExempt).not.toHaveBeenCalled();
+  });
+
+  it('does NOT use the CSP-exempt path for a rule without bypassCSP', async () => {
+    canExecuteCspExempt.mockReturnValue(true);
+    const rule = bypassCspInjectRule();
+    rule.action.bypassCSP = false;
+    updateScriptableRules([rule]);
+    await __testInjectForUrl(1, 'https://app.openheaders.io/');
+    expect(injectScript).toHaveBeenCalledTimes(1);
+    expect(injectScriptCspExempt).not.toHaveBeenCalled();
   });
 });

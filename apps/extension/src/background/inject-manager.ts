@@ -60,9 +60,11 @@ import {
 } from '@openheaders/rule-engine/content-scripts';
 import {
   applyInjection,
+  canExecuteCspExempt,
   injectCSS,
   injectCSSUrl,
   injectScript,
+  injectScriptCspExempt,
   injectScriptUrl,
 } from '@openheaders/rule-engine/inject';
 import { logger } from '@utils/logger';
@@ -432,7 +434,16 @@ async function injectForUrl(tabId: number, url: string): Promise<void> {
           await injectScriptUrl(tabId, rule.action.sourceUrl);
         }
       } else if (rule.action.injectType === 'css') {
+        // insertCSS is a privileged extension API, not a <style> tag —
+        // already CSP-exempt, so bypassCSP needs nothing extra for CSS.
         await injectCSS(tabId, rule);
+      } else if (rule.action.bypassCSP && canExecuteCspExempt()) {
+        // bypassCSP JS: run via chrome.userScripts so a strict page CSP
+        // (header OR <meta>) can't block it. Falls through to the
+        // <script>-tag path when the API is unavailable — the rule's DNR
+        // header-strip still clears header CSP there; only meta CSP is
+        // then out of reach.
+        await injectScriptCspExempt(tabId, rule.action.code, rule.action.position);
       } else {
         await injectScript(tabId, rule.action.code, rule.action.position);
       }

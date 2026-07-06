@@ -78,6 +78,64 @@ export async function injectScript(tabId: number, code: string, position: Inject
   logger.debug('InjectEngine', `Injected script into tab ${tabId} (${position})`);
 }
 
+// ── CSP-exempt user-script execution (bypassCSP) ────────────────────
+//
+// `injectScript` above appends a `<script>` tag in the page, so it runs
+// under the page's own Content-Security-Policy — a strict policy blocks
+// it, and a `<meta http-equiv>` CSP cannot be stripped at the network
+// layer at all. `chrome.userScripts.execute` is the purpose-built MV3
+// path for user-authored code: the browser executes the string itself,
+// exempt from the page CSP (header AND meta). This is what a bypassCSP
+// inject rule needs to actually keep its promise.
+
+interface UserScriptsExecuteApi {
+  execute?: (injection: {
+    target: { tabId: number };
+    js: Array<{ code: string }>;
+    world: 'MAIN' | 'USER_SCRIPT';
+    injectImmediately?: boolean;
+  }) => Promise<unknown>;
+}
+
+function userScriptsApi(): UserScriptsExecuteApi | undefined {
+  return (browserAPI as unknown as { userScripts?: UserScriptsExecuteApi }).userScripts;
+}
+
+/**
+ * Whether the CSP-exempt execution path is usable. `chrome.userScripts`
+ * is defined only when the `userScripts` permission is granted AND the
+ * browser's user-scripts toggle is on (Chrome/Edge ≥135; admin policy
+ * `UserScriptsAllowed` for force-installed enterprise extensions). When
+ * false, a bypassCSP inject rule falls back to the `<script>`-tag path —
+ * which still clears header CSP via the rule's DNR strip, only meta CSP
+ * stays out of reach.
+ */
+export function canExecuteCspExempt(): boolean {
+  return typeof userScriptsApi()?.execute === 'function';
+}
+
+/**
+ * Execute user code in the page MAIN world via `chrome.userScripts` —
+ * CSP-exempt. Caller must gate on {@link canExecuteCspExempt}; this
+ * throws if the API is absent so a missing gate surfaces loudly rather
+ * than silently no-op'ing.
+ */
+export async function injectScriptCspExempt(
+  tabId: number,
+  code: string,
+  position: InjectAction['position'],
+): Promise<void> {
+  const api = userScriptsApi();
+  if (!api?.execute) throw new Error('userScripts.execute unavailable');
+  await api.execute({
+    target: { tabId },
+    js: [{ code }],
+    world: 'MAIN',
+    injectImmediately: position === 'head',
+  });
+  logger.debug('InjectEngine', `Injected CSP-exempt user script into tab ${tabId} (${position})`);
+}
+
 export async function injectCSS(tabId: number, rule: InjectRule): Promise<void> {
   await browserAPI.scripting.insertCSS({
     target: { tabId },

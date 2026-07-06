@@ -24,6 +24,7 @@
     "debugger",
     "activeTab",
     "scripting",
+    "userScripts",
     "cookies",
     "browsingData",
     "windows",
