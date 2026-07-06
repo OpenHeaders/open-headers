@@ -100,6 +100,10 @@ function defaultFontFamilyPreset(): string {
 }
 
 const themeSchema = v.picklist(['light', 'dark', 'auto']);
+// The browser locale reflects the browser's UI language, not the OS
+// region format, so hour-cycle can't be derived reliably — it's an
+// explicit user choice instead.
+const clockFormatSchema = v.picklist(['24h', '12h']);
 const densitySchema = v.picklist(['comfortable', 'compact']);
 const editorHeaderPositionSchema = v.picklist(['top', 'bottom']);
 const accentSchema = v.pipe(v.string(), v.regex(/^#[0-9a-fA-F]{6}$/, 'Must be a 6-digit hex color like #1677ff'));
@@ -111,6 +115,7 @@ const darkVariantSchema = v.picklist(DARK_VARIANT_IDS);
 const uiScaleSchema = v.picklist([0.7, 0.8, 0.9, 1, 1.1, 1.25]);
 
 export type Theme = v.InferOutput<typeof themeSchema>;
+export type ClockFormat = v.InferOutput<typeof clockFormatSchema>;
 export type Density = v.InferOutput<typeof densitySchema>;
 export type EditorHeaderPosition = v.InferOutput<typeof editorHeaderPositionSchema>;
 export type LightVariant = v.InferOutput<typeof lightVariantSchema>;
@@ -123,6 +128,7 @@ export type AppearanceFontFamilyPreset = v.InferOutput<typeof fontFamilyPresetSc
 declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
     'appearance.theme': Theme;
+    'appearance.clockFormat': ClockFormat;
     'appearance.density': Density;
     'appearance.accentColor': string;
     'appearance.lightVariant': LightVariant;
@@ -252,6 +258,23 @@ registerSetting({
   enumOptions: [
     { value: 'top', label: 'Top', description: 'Classic placement above the editor content.' },
     { value: 'bottom', label: 'Bottom', description: 'Docked below the editor content, above the status bar.' },
+  ],
+});
+
+registerSetting({
+  key: 'appearance.clockFormat',
+  type: 'enum',
+  default: '24h',
+  schema: clockFormatSchema,
+  label: 'Clock Format',
+  description:
+    'How timestamps render across the app (notifications, logs). Explicit because the browser locale follows the browser language, not your system region format.',
+  category: 'appearance',
+  tags: ['time', 'clock', '24-hour', '12-hour', 'am', 'pm', 'timestamp'],
+  scope: 'user',
+  enumOptions: [
+    { value: '24h', label: '24-hour', description: '13:41' },
+    { value: '12h', label: '12-hour', description: '01:41 PM' },
   ],
 });
 

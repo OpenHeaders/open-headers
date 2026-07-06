@@ -20,6 +20,7 @@ import { Button, Empty, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo } from 'react';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
+import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import {
   clearAllNotifications,
@@ -51,16 +52,21 @@ const SEVERITY_ICON: Record<NotificationSeverity, React.ReactNode> = {
   error: <CloseCircleFilled style={{ color: '#ff4d4f' }} />,
 };
 
-// Fixed 24-hour clock: the browser locale reflects the Chrome UI
-// language (often en-US), not the OS region format, so locale-driven
-// formatting shows AM/PM to users whose system runs a 24-hour clock.
-// Log timestamps follow the devtools/IDE convention instead.
-function formatTime(ts: number): string {
-  return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+// Hour cycle comes from `appearance.clockFormat` rather than the locale:
+// the browser locale reflects the Chrome UI language (often en-US), not
+// the OS region format, so locale-driven formatting shows AM/PM to
+// users whose system runs a 24-hour clock.
+function formatTime(ts: number, clockFormat: '24h' | '12h'): string {
+  return new Date(ts).toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: clockFormat === '24h' ? 'h23' : 'h12',
+  });
 }
 
 const NotificationCard: React.FC<{ entry: NotificationEntry }> = ({ entry }) => {
   const { token } = theme.useToken();
+  const clockFormat = useSettingValue('appearance.clockFormat');
   return (
     <div
       style={{
@@ -81,7 +87,7 @@ const NotificationCard: React.FC<{ entry: NotificationEntry }> = ({ entry }) => 
             {entry.title}
           </span>
           <span style={{ fontSize: 11, color: token.colorTextTertiary, flex: 'none' }}>
-            {formatTime(entry.timestamp)}
+            {formatTime(entry.timestamp, clockFormat)}
           </span>
         </div>
         {entry.description && (
