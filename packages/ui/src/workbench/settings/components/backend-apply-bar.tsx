@@ -184,7 +184,10 @@ export const ApplyBar: React.FC<{
         bottom: 0,
         zIndex: 1,
         background: token.colorBgLayout,
-        paddingTop: 14,
+        // Full-bleed like the sticky mode-picker band: cancel the pane's
+        // side padding so the grey mask spans the whole row.
+        margin: '0 -24px',
+        padding: '14px 24px 0',
       }}
     >
       <div
