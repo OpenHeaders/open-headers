@@ -12,7 +12,7 @@
  *     viewer language is HTML.
  */
 
-import { CheckOutlined, CopyOutlined } from '@ant-design/icons';
+import { CheckOutlined, CopyOutlined, DownloadOutlined } from '@ant-design/icons';
 import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
 import { Button, Segmented, Select, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
@@ -20,6 +20,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { LANGUAGE_LIST, type LanguageId } from '../../../languages/registry';
 import CodeEditor from '../../shared/CodeEditor';
 import { detectBodyLanguage, formatBytes, prettyBody } from './response-format';
+import { deriveSaveFilename } from './response-save';
 
 const { Text } = Typography;
 
@@ -58,6 +59,20 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1500);
     });
+  };
+
+  // The workbench is an extension page, so a plain anchor download
+  // works — no downloads permission. Saves the body text we hold: a
+  // truncated body saves truncated (labeled in the tooltip), never
+  // re-fetched.
+  const saveBody = () => {
+    const blob = new Blob([response.body], { type: 'text/plain;charset=utf-8' });
+    const objectUrl = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = objectUrl;
+    anchor.download = deriveSaveFilename(response.url, language);
+    anchor.click();
+    URL.revokeObjectURL(objectUrl);
   };
 
   if (!response.body) {
@@ -108,6 +123,12 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
             aria-label="Copy body"
             style={{ marginLeft: 'auto' }}
           />
+        </Tooltip>
+        <Tooltip
+          title={response.bodyTruncated ? 'Save body to file (truncated body — saves what was kept)' : 'Save body to file'}
+          placement="bottom"
+        >
+          <Button size="small" type="text" icon={<DownloadOutlined />} onClick={saveBody} aria-label="Save body" />
         </Tooltip>
       </div>
       {mode === 'pretty' && (
