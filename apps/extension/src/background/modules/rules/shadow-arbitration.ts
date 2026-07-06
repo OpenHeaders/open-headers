@@ -75,7 +75,7 @@
  * - There is no `allow` action. That arbitration escape-hatch is N/A here.
  */
 
-import type { Rule, ShadowAttribution, ShadowKind } from '@openheaders/core/types';
+import type { Rule, ShadowAttribution } from '@openheaders/core/types';
 import type { MatchingRule } from '../request-tracker';
 
 export type { ShadowAttribution, ShadowKind } from '@openheaders/core/types';
@@ -287,28 +287,26 @@ function applyBlockShadow(decorated: ArbitratedRule[]): void {
  * answers in-page before the redirect can run at all. Their effects
  * survive (or pre-empt) the retargeting.
  *
+ * Query-param transforms don't shadow headers either: the transformed
+ * request keeps the same endpoint, Chrome re-evaluates DNR against it,
+ * and a header rule that matched the original URL re-matches the
+ * transformed one — its modification lands on the request that actually
+ * ships. Only a redirect to a different URL discards the source-matched
+ * header rule's work.
+ *
  * Redirects don't shadow other redirects (users can stack them in a
  * pipeline), they don't shadow inject (response-side), and they don't
  * shadow block (block at the same priority tier just stacks above).
- *
- * We pick the highest-priority retargeting rule as the shadower. If
- * both a redirect and a query-param rule are present, priority is
- * equal (150) and insertion order decides — matches Chrome's own
- * undefined-order behavior.
  */
 function applyRedirectShadow(decorated: ArbitratedRule[]): void {
-  const retargeters = decorated.filter((r) => r.actionClass === 'redirect' || r.actionClass === 'query-param');
-  if (retargeters.length === 0) return;
-
-  // First retargeter wins attribution (stable insertion order).
-  const topRetarget = retargeters.reduce((hi, r) => (r.priority > hi.priority ? r : hi));
-  const kind: ShadowKind = topRetarget.actionClass === 'query-param' ? 'query-param-retarget' : 'redirect-retarget';
+  const redirect = decorated.find((r) => r.actionClass === 'redirect');
+  if (!redirect) return;
 
   for (const r of decorated) {
     if (r.shadowedBy) continue;
-    if (r.uid === topRetarget.uid) continue;
+    if (r.uid === redirect.uid) continue;
     if (r.actionClass !== 'header') continue;
-    r.shadowedBy = { uid: topRetarget.uid, name: topRetarget.name, kind };
+    r.shadowedBy = { uid: redirect.uid, name: redirect.name, kind: 'redirect-retarget' };
   }
 }
 
@@ -429,12 +427,20 @@ function applyHeaderStacking(decorated: ArbitratedRule[]): void {
     }
   }
 
-  for (const [, rulesInGroup] of groups) {
+  for (const [key, rulesInGroup] of groups) {
     if (rulesInGroup.length < 2) continue;
     // Any rule already shadowed by an earlier phase is irrelevant — its
     // effective contribution is already moot.
     const active = rulesInGroup.filter((r) => !r.shadowedBy);
     if (active.length < 2) continue;
+    // Per the matrix above: merge runs in the scriptable plane against
+    // whatever survives DNR, so a clash where every participant merges
+    // is deterministic — both values land, no ambiguity to flag.
+    const [side, name] = key.split(':');
+    const allMerge = active.every((r) =>
+      (r.headerOps ?? []).every((op) => op.side !== side || op.name !== name || op.operation === 'merge'),
+    );
+    if (allMerge) continue;
     // Flag every active rule with attribution pointing at a sibling.
     for (const r of active) {
       if (r.shadowedBy) continue;

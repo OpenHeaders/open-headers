@@ -131,18 +131,14 @@ describe('shadow-arbitration', () => {
     });
   });
 
-  it('query-param retargets lower-priority modify rules with query-param-retarget kind', () => {
+  it('query-param transforms never shadow headers — the transformed request re-matches them', () => {
     const matching = [
       rule({ uid: 'qp-1', name: 'Strip debug', type: 'query-param' }),
       rule({ uid: 'header-1', type: 'header' }),
     ];
     const result = arbitrate(matching);
 
-    expect(result.find((r) => r.uid === 'header-1')!.shadowedBy).toEqual({
-      uid: 'qp-1',
-      name: 'Strip debug',
-      kind: 'query-param-retarget',
-    });
+    expect(result.find((r) => r.uid === 'header-1')!.shadowedBy).toBeUndefined();
   });
 
   it('redirect does not shadow another redirect or a query-param rule', () => {
@@ -233,6 +229,25 @@ describe('shadow-arbitration', () => {
     ];
     const result = arbitrate(matching);
 
+    expect(result.find((r) => r.uid === 'h1')!.shadowedBy?.kind).toBe('header-stacking-ambiguous');
+    expect(result.find((r) => r.uid === 'h2')!.shadowedBy?.kind).toBe('header-stacking-ambiguous');
+  });
+
+  it('does not flag merge-vs-merge on the same header — deterministic in the scriptable plane', () => {
+    const matching = [
+      headerRule('h1', [{ side: 'request', operation: 'merge', name: 'x-custom' }]),
+      headerRule('h2', [{ side: 'request', operation: 'merge', name: 'x-custom' }]),
+    ];
+    const result = arbitrate(matching);
+    for (const r of result) expect(r.shadowedBy).toBeUndefined();
+  });
+
+  it('flags merge-vs-set on the same header — depends on which one Chrome applies first', () => {
+    const matching = [
+      headerRule('h1', [{ side: 'request', operation: 'merge', name: 'x-custom' }]),
+      headerRule('h2', [{ side: 'request', operation: 'set', name: 'x-custom' }]),
+    ];
+    const result = arbitrate(matching);
     expect(result.find((r) => r.uid === 'h1')!.shadowedBy?.kind).toBe('header-stacking-ambiguous');
     expect(result.find((r) => r.uid === 'h2')!.shadowedBy?.kind).toBe('header-stacking-ambiguous');
   });
