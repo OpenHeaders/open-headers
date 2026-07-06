@@ -2,6 +2,7 @@ export { default as NotificationsIcon } from './NotificationsIcon';
 export { default as NotificationsPanel, NOTIFICATIONS_PANEL_INFO } from './NotificationsPanel';
 export {
   clearAllNotifications,
+  dismissByKey,
   dismissNotification,
   markAllNotificationsSeen,
   type NotificationAction,

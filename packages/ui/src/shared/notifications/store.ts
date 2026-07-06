@@ -34,6 +34,12 @@ export interface NotificationEntry {
   dedupeKey?: string;
   /** Custom card glyph; falls back to the severity icon. */
   icon?: ReactNode;
+  /**
+   * Sticky entries have no dismiss affordance and survive Clear all —
+   * only the producer removes them (via {@link dismissByKey}, typically
+   * from one of the entry's own actions).
+   */
+  sticky?: boolean;
 }
 
 export interface PushNotificationInput {
@@ -43,6 +49,7 @@ export interface PushNotificationInput {
   actions?: readonly NotificationAction[];
   dedupeKey?: string;
   icon?: ReactNode;
+  sticky?: boolean;
 }
 
 let entries: readonly NotificationEntry[] = [];
@@ -65,6 +72,7 @@ export function pushNotification(input: PushNotificationInput): void {
     actions: input.actions,
     dedupeKey: input.dedupeKey,
     icon: input.icon,
+    sticky: input.sticky,
     timestamp: Date.now(),
   };
   entries = [entry, ...entries];
@@ -79,9 +87,19 @@ export function dismissNotification(id: string): void {
   emit();
 }
 
+/** Producer-side removal by dedupe key — the only way a sticky entry leaves. */
+export function dismissByKey(dedupeKey: string): void {
+  const next = entries.filter((e) => e.dedupeKey !== dedupeKey);
+  if (next.length === entries.length) return;
+  entries = next;
+  emit();
+}
+
+/** Clears the timeline except sticky entries, which only their producer removes. */
 export function clearAllNotifications(): void {
-  if (entries.length === 0 && unseen === 0) return;
-  entries = [];
+  const next = entries.filter((e) => e.sticky);
+  if (next.length === entries.length && unseen === 0) return;
+  entries = next;
   unseen = 0;
   emit();
 }

@@ -121,15 +121,17 @@ const NotificationCard: React.FC<{ entry: NotificationEntry }> = ({ entry }) => 
           </div>
         )}
       </div>
-      <Tooltip title="Dismiss">
-        <Button
-          size="small"
-          type="text"
-          icon={<CloseOutlined style={{ fontSize: 10 }} />}
-          onClick={() => dismissNotification(entry.id)}
-          style={{ width: 20, height: 20, minWidth: 20, color: token.colorTextTertiary, flex: 'none' }}
-        />
-      </Tooltip>
+      {!entry.sticky && (
+        <Tooltip title="Dismiss">
+          <Button
+            size="small"
+            type="text"
+            icon={<CloseOutlined style={{ fontSize: 10 }} />}
+            onClick={() => dismissNotification(entry.id)}
+            style={{ width: 20, height: 20, minWidth: 20, color: token.colorTextTertiary, flex: 'none' }}
+          />
+        </Tooltip>
+      )}
     </div>
   );
 };
@@ -163,7 +165,7 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ info, onClose }
             size="small"
             type="link"
             onClick={clearAllNotifications}
-            disabled={entries.length === 0}
+            disabled={entries.every((e) => e.sticky)}
             style={{ fontSize: 12, padding: 0, height: 'auto' }}
           >
             Clear all

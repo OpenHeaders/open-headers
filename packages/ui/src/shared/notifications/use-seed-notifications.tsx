@@ -8,12 +8,33 @@
 import { LikeTwoTone, SmileTwoTone, StarTwoTone } from '@ant-design/icons';
 import { getCapability } from '@openheaders/core/capabilities';
 import { useEffect } from 'react';
-import { pushNotification } from './store';
+import { dismissByKey, pushNotification } from './store';
 
 const GITHUB_URL = 'https://github.com/OpenHeaders/open-headers-app';
 
+// Once the user follows the star link the nudge is done for good —
+// the flag stops future sessions from re-seeding it.
+const STARRED_KEY = 'oh.helpUsGrowStarred';
+
+function hasStarred(): boolean {
+  try {
+    return window.localStorage.getItem(STARRED_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function rememberStarred(): void {
+  try {
+    window.localStorage.setItem(STARRED_KEY, '1');
+  } catch {
+    // Storage unavailable — the nudge reappears next session.
+  }
+}
+
 export function useSeedNotifications(): void {
   useEffect(() => {
+    if (hasStarred()) return;
     pushNotification({
       severity: 'info',
       title: 'Help Us Grow',
@@ -30,6 +51,7 @@ export function useSeedNotifications(): void {
         </>
       ),
       dedupeKey: 'help-us-grow',
+      sticky: true,
       actions: [
         {
           label: 'Give us a star on GitHub',
@@ -38,6 +60,8 @@ export function useSeedNotifications(): void {
             const openUrl = getCapability('openExternalUrl');
             if (openUrl) void openUrl(GITHUB_URL);
             else window.open(GITHUB_URL, '_blank', 'noopener');
+            rememberStarred();
+            dismissByKey('help-us-grow');
           },
         },
       ],
