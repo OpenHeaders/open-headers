@@ -141,9 +141,14 @@ export {
   VaultHydrationDiagram,
 } from './system-status';
 export {
+  VariablesCollectionRefDiagram,
   VariablesConsumersDiagram,
   VariablesCreationMapDiagram,
+  VariablesEnvironmentRefDiagram,
   VariablesLiveLifecycleDiagram,
+  VariablesLiveRefDiagram,
   VariablesResolutionLadderDiagram,
   VariablesShadowingDiagram,
+  VariablesVaultRefDiagram,
+  VariablesWorkspaceRefDiagram,
 } from './variables';

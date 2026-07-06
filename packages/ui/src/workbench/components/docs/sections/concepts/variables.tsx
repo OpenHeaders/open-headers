@@ -3,12 +3,18 @@
  */
 
 import type React from 'react';
+import { type ScopeKey, scopeBadge } from '../../../shared/scope-colors';
 import {
+  VariablesCollectionRefDiagram,
   VariablesConsumersDiagram,
   VariablesCreationMapDiagram,
+  VariablesEnvironmentRefDiagram,
   VariablesLiveLifecycleDiagram,
+  VariablesLiveRefDiagram,
   VariablesResolutionLadderDiagram,
   VariablesShadowingDiagram,
+  VariablesVaultRefDiagram,
+  VariablesWorkspaceRefDiagram,
 } from '../../diagrams';
 import {
   Anchor,
@@ -19,6 +25,15 @@ import {
   OnThisPage,
   SurfaceContext,
 } from '../../shared';
+
+/** Scope H4 title with the Scope panel's colored letter badge in front,
+ *  so the headings carry the same visual identity as the panel rows. */
+const ScopeHeadingLabel: React.FC<{ scope: ScopeKey; children: React.ReactNode }> = ({ scope, children }) => (
+  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+    {scopeBadge(scope)}
+    {children}
+  </span>
+);
 
 const VARIABLE_ANCHORS = [
   { id: 'variables-scopes', title: 'The five scopes' },
@@ -54,7 +69,9 @@ export const VariablesSection: React.FC = () => (
     <Anchor id="variables-scopes">
       <DocHeading level={3}>The five scopes</DocHeading>
     </Anchor>
-    <DocHeading level={4}>Vault — secrets, this device only</DocHeading>
+    <DocHeading level={4}>
+      <ScopeHeadingLabel scope="vault">Vault — secrets, this device only</ScopeHeadingLabel>
+    </DocHeading>
     <DocParagraph>
       The vault holds per-device secrets: API keys, passwords, TOTP seeds. Vault entries never sync and never leave the
       device — they stay out of workspace exports and git history. Two kinds exist: <em>string</em> entries resolve
@@ -62,7 +79,18 @@ export const VariablesSection: React.FC = () => (
       seed itself is never exposed through a template. Vault ranks highest, so a vault secret always wins a bare
       reference.
     </DocParagraph>
-    <DocHeading level={4}>Environment — switchable value sets</DocHeading>
+    <DiagramFrame
+      caption={
+        <>
+          Reference the secret with <code>{'{{vault.*}}'}</code> from synced entities — never paste the raw value.
+        </>
+      }
+    >
+      <VariablesVaultRefDiagram />
+    </DiagramFrame>
+    <DocHeading level={4}>
+      <ScopeHeadingLabel scope="environment">Environment — switchable value sets</ScopeHeadingLabel>
+    </DocHeading>
     <DocParagraph>
       Environments are named sets of variables you swap as a unit — <code>staging</code>, <code>production</code>, a
       teammate's local setup. The active environment is picked in the header selector; a name the active environment
@@ -70,19 +98,34 @@ export const VariablesSection: React.FC = () => (
       environment selected is a valid state — resolution simply skips the scope. Rows can be marked secret so their
       values render masked in the editor.
     </DocParagraph>
-    <DocHeading level={4}>Collection — scoped to one collection</DocHeading>
+    <DiagramFrame caption="One name, a value per stage — switch the environment instead of duplicating rules.">
+      <VariablesEnvironmentRefDiagram />
+    </DiagramFrame>
+    <DocHeading level={4}>
+      <ScopeHeadingLabel scope="collection">Collection — scoped to one collection</ScopeHeadingLabel>
+    </DocHeading>
     <DocParagraph>
       Collection variables are defined on a collection and resolve only for the rules and requests that belong to it.
       They're the right home for values that are true of one API but not the whole workspace — a base URL, a tenant
       id, a version prefix.
     </DocParagraph>
-    <DocHeading level={4}>Workspace — shared with everyone</DocHeading>
+    <DiagramFrame caption="Collection variables resolve only inside their own collection — elsewhere the walk passes them by.">
+      <VariablesCollectionRefDiagram />
+    </DiagramFrame>
+    <DocHeading level={4}>
+      <ScopeHeadingLabel scope="workspace">Workspace — shared with everyone</ScopeHeadingLabel>
+    </DocHeading>
     <DocParagraph>
       Workspace variables are the workspace-wide globals — visible to every rule, request, and workflow, and synced
       with the workspace. They rank lowest, which makes them the natural base layer: put the common value here and let
       an environment or collection override it where needed.
     </DocParagraph>
-    <DocHeading level={4}>Live — published by a workflow run</DocHeading>
+    <DiagramFrame caption="The base layer — for values true everywhere. Not for secrets, not for per-stage values.">
+      <VariablesWorkspaceRefDiagram />
+    </DiagramFrame>
+    <DocHeading level={4}>
+      <ScopeHeadingLabel scope="live">Live — published by a workflow run</ScopeHeadingLabel>
+    </DocHeading>
     <DocParagraph>
       A live variable is backed by a Live Workflow — a chain of requests that signs in, fetches a token, and exposes a
       captured value. Saving the workflow activates it; a successful run (manual or scheduled) publishes the exposed
@@ -91,6 +134,15 @@ export const VariablesSection: React.FC = () => (
       in-flight refresh value when a workspace or environment variable shares the name. Editing the workflow's recipe
       marks the published value stale until the next run.
     </DocParagraph>
+    <DiagramFrame
+      caption={
+        <>
+          Always the prefix — <code>{'{{live.token}}'}</code> — and always workflow-backed, never a pasted token.
+        </>
+      }
+    >
+      <VariablesLiveRefDiagram />
+    </DiagramFrame>
     <DiagramFrame
       caption={
         <>
