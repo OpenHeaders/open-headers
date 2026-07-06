@@ -14,6 +14,13 @@ import { logger } from '@utils/logger';
 import { withHostAccess } from '@/shared/fetch/with-host-access';
 import { recordLog } from '../observability-log';
 import type { ResolvedRequest } from './resolve';
+import {
+  estimateMultipartBytes,
+  type MultipartFieldSize,
+  serializedHeaderBytes,
+  startTimingCapture,
+  stringBodyBytes,
+} from './timing';
 
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
 
@@ -106,6 +113,8 @@ export async function executeResolved(
   // URLSearchParams (browser-set Content-Type); `multipart` produces
   // FormData (browser-set Content-Type with boundary); JSON / XML /
   // text / graphql produce raw strings using the resolved content.
+  let bodyBytes = 0;
+  let bodyApproximate = false;
   switch (req.body.type) {
     case 'none':
       break;
@@ -113,6 +122,7 @@ export async function executeResolved(
     case 'xml':
     case 'text':
       init.body = req.body.content;
+      bodyBytes = stringBodyBytes(req.body.content);
       break;
     case 'graphql': {
       // GraphQL HTTP transport (https://graphql.org/learn/serving-over-http/):
@@ -134,7 +144,9 @@ export async function executeResolved(
           // most accept as "no variables" rather than 400.
         }
       }
-      init.body = JSON.stringify(wire);
+      const wireText = JSON.stringify(wire);
+      init.body = wireText;
+      bodyBytes = stringBodyBytes(wireText);
       break;
     }
     case 'form': {
@@ -147,6 +159,7 @@ export async function executeResolved(
         params.append(p.key, p.value);
       }
       init.body = params;
+      bodyBytes = stringBodyBytes(params.toString());
       break;
     }
     case 'multipart': {
@@ -154,8 +167,10 @@ export async function executeResolved(
       // we resolve `fileRef.hash` to bytes via the BlobStore; dropped
       // parts (missing blob) land as a report entry in the response
       // snapshot so the user sees exactly what slipped through.
-      const form = await buildMultipartForm(req.body.multipartParts);
-      init.body = form;
+      const built = await buildMultipartForm(req.body.multipartParts);
+      init.body = built.form;
+      bodyBytes = built.bodyBytes;
+      bodyApproximate = true;
       // IMPORTANT: clear any user-set `Content-Type: multipart/form-data`
       // header. The browser MUST set its own Content-Type with the
       // generated boundary; a manually-set header omits the boundary
@@ -174,7 +189,16 @@ export async function executeResolved(
     }
   }
 
+  const requestSize = {
+    headersBytes: serializedHeaderBytes(fetchHeaders),
+    bodyBytes,
+    ...(bodyApproximate ? { bodyApproximate: true } : {}),
+  };
+
   const startedAt = performance.now();
+  // Window-scoped observer for this fetch's resource-timing entry —
+  // opened right at the mark so the pick can anchor on `startedAt`.
+  const capture = startTimingCapture(startedAt);
   try {
     // Every user-facing fetch routes through withHostAccess — today a
     // pass-through, tomorrow the gate for a minimal-permissions SKU.
@@ -202,9 +226,13 @@ export async function executeResolved(
     // Read body with size cap. For large responses we slice + flag so
     // the UI doesn't try to render megabytes of text.
     const bodyText = await response.text();
-    const bodyBytes = new TextEncoder().encode(bodyText).byteLength;
-    const truncated = bodyBytes > MAX_BODY_BYTES;
+    const responseBodyBytes = new TextEncoder().encode(bodyText).byteLength;
+    const truncated = responseBodyBytes > MAX_BODY_BYTES;
     const body = truncated ? bodyText.slice(0, MAX_BODY_BYTES) : bodyText;
+
+    // The entry queues once the body finishes downloading — which the
+    // completed text() read implies — so settle after the read.
+    const timing = await capture.settle({ submittedUrl: req.url, finalUrl: response.url || req.url });
 
     return {
       status: response.status,
@@ -213,12 +241,15 @@ export async function executeResolved(
       headers,
       body,
       bodyTruncated: truncated,
-      bodyBytes,
+      bodyBytes: responseBodyBytes,
       durationMs,
+      ...(timing ? { timing } : {}),
+      requestSize,
       error: null,
       scripts: null,
     };
   } catch (err) {
+    capture.cancel();
     const durationMs = Math.round(performance.now() - startedAt);
     const rawMessage = err instanceof Error ? err.message : String(err);
     // Chromium's `fetch()` opaques every non-TLS network error — DNS
@@ -319,12 +350,14 @@ function classifyFetchFailure(url: string, rawMessage: string): string {
  * A future dedicated Status-subsystem entry could surface this more
  * loudly once we have the UI affordance.
  */
-async function buildMultipartForm(parts: readonly MultipartPart[]): Promise<FormData> {
+async function buildMultipartForm(parts: readonly MultipartPart[]): Promise<{ form: FormData; bodyBytes: number }> {
   const form = new FormData();
+  const fields: MultipartFieldSize[] = [];
   for (const part of parts) {
     if (part.enabled === false) continue;
     if (part.kind === 'text') {
       form.append(part.name, part.value);
+      fields.push({ name: part.name, payloadBytes: stringBodyBytes(part.value) });
       continue;
     }
     // File parts hold a list — emit one FormData append per FileRef so
@@ -341,9 +374,10 @@ async function buildMultipartForm(parts: readonly MultipartPart[]): Promise<Form
       // for generic blobs, which some servers treat as opaque).
       const typed = blob.type === mimeType ? blob : new Blob([blob], { type: mimeType });
       form.append(part.name, typed, ref.filename);
+      fields.push({ name: part.name, filename: ref.filename, mimeType, payloadBytes: typed.size });
     }
   }
-  return form;
+  return { form, bodyBytes: estimateMultipartBytes(fields) };
 }
 
 export function errorSnapshot(message: string): ExecutedRequestSnapshot {

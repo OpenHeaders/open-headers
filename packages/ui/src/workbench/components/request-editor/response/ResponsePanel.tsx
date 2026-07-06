@@ -13,7 +13,7 @@
 import { DownOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/readers/useLiveWorkflows';
 import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
-import { Button, Dropdown, Tabs, Tag, Typography, theme } from 'antd';
+import { Button, Dropdown, Tabs, Typography, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import type { RequestEditorLayout } from '../useRequestEditorLayout';
@@ -21,8 +21,8 @@ import ResponseAssertionsView from './ResponseAssertionsView';
 import ResponseBodyView from './ResponseBodyView';
 import ResponseConsoleView from './ResponseConsoleView';
 import ResponseEmptyState from './ResponseEmptyState';
-import { formatBytes } from './response-format';
 import ResponseHeadersView from './ResponseHeadersView';
+import ResponseMetaStrip from './ResponseMetaStrip';
 import { SplitLayoutToggle } from '@openheaders/ui/shared/split-layout';
 
 const { Text } = Typography;
@@ -112,27 +112,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
           <Text strong style={{ fontSize: 12, whiteSpace: 'nowrap', flexShrink: 0 }}>
             Response
           </Text>
-          {response &&
-            (response.error ? (
-              <Tag color="error" style={{ marginInlineEnd: 0 }}>
-                {response.error}
-              </Tag>
-            ) : (
-              <>
-                <Tag
-                  color="default"
-                  // Styled status chip with no semantic role/name — the one
-                  // response-panel element e2e can't target via getByRole/text.
-                  data-testid="oh-response-status"
-                  style={{ color: statusColor, borderColor: statusColor, marginInlineEnd: 0 }}
-                >
-                  {response.status} {response.statusText}
-                </Tag>
-                <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
-                  {response.durationMs} ms · {formatBytes(response.bodyBytes)}
-                </Text>
-              </>
-            ))}
+          {response && <ResponseMetaStrip response={response} statusColor={statusColor} />}
         </div>
         <div
           style={{

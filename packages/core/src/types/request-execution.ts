@@ -3,7 +3,24 @@
  * to UI surfaces after running a Request through the executor.
  */
 
+import type { ResourceTimingEntry } from '../resource-timing';
 import type { RequestMutation, ScriptConsoleEntry, TestAssertion } from '../scripts';
+
+/**
+ * Wire bytes the executor itself serialized for the request. Only what
+ * we set is countable — the browser adds its own headers (Host,
+ * User-Agent, Accept-*, Content-Length, …) that fetch never exposes,
+ * so these are lower bounds, presented as such.
+ */
+export interface ExecutedRequestSize {
+  /** Serialized `key: value` bytes of the headers the executor set. */
+  headersBytes: number;
+  /** Body bytes as serialized for the wire. */
+  bodyBytes: number;
+  /** True when `bodyBytes` is an estimate — multipart bodies use a
+   *  browser-generated boundary we can't observe before send. */
+  bodyApproximate?: boolean;
+}
 
 export interface ExecutedRequestSnapshot {
   /** HTTP status (e.g. 200). `0` when the request never completed
@@ -22,6 +39,19 @@ export interface ExecutedRequestSnapshot {
   /** Bytes read from the wire before any truncation. */
   bodyBytes: number;
   durationMs: number;
+  /**
+   * Resource-timing entry the executor's own performance timeline
+   * recorded for this fetch. Absent when the platform recorded none
+   * (unsupported context, entry never matched). Connection legs and
+   * sizes are gated by `Timing-Allow-Origin` and read `0` when the
+   * server withholds them — consumers must treat `0` as "hidden",
+   * never as an instant step. HTTP version derives from
+   * `timing.nextHopProtocol` at consume time; it is not cached here.
+   */
+  timing?: ResourceTimingEntry;
+  /** Bytes the executor serialized onto the wire for the request —
+   *  absent on error snapshots. */
+  requestSize?: ExecutedRequestSize;
   /** Non-null when the request failed before producing a response. */
   error: string | null;
   /**

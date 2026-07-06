@@ -146,7 +146,7 @@ export type {
 } from './request';
 
 // ── Request execution ──────────────────────────────────────────────
-export type { ExecutedRequestSnapshot } from './request-execution';
+export type { ExecutedRequestSize, ExecutedRequestSnapshot } from './request-execution';
 // ── Rule ───────────────────────────────────────────────────────────
 export type {
   ApiResourceType,
