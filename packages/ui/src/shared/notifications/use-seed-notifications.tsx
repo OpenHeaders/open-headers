@@ -56,6 +56,7 @@ export function useSeedNotifications(): void {
         {
           label: 'Give us a star on GitHub',
           icon: <StarTwoTone style={{ fontSize: 13 }} />,
+          tooltip: 'Opens the GitHub repository and dismisses this notification.',
           run: () => {
             const openUrl = getCapability('openExternalUrl');
             if (openUrl) void openUrl(GITHUB_URL);

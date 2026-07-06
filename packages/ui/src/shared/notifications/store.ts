@@ -20,6 +20,8 @@ export interface NotificationAction {
   run: () => void;
   /** Optional glyph rendered before the label. */
   icon?: ReactNode;
+  /** Optional hover hint explaining what the action does. */
+  tooltip?: string;
 }
 
 export interface NotificationEntry {

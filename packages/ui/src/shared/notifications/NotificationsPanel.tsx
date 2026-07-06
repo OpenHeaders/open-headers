@@ -97,27 +97,36 @@ const NotificationCard: React.FC<{ entry: NotificationEntry }> = ({ entry }) => 
         )}
         {entry.actions && entry.actions.length > 0 && (
           <div style={{ marginTop: 4, display: 'flex', gap: 12 }}>
-            {entry.actions.map((action) => (
-              <button
-                key={action.label}
-                type="button"
-                onClick={action.run}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  padding: 0,
-                  border: 'none',
-                  background: 'transparent',
-                  fontSize: 12.5,
-                  color: token.colorPrimary,
-                  cursor: 'pointer',
-                }}
-              >
-                {action.icon}
-                {action.label}
-              </button>
-            ))}
+            {entry.actions.map((action) => {
+              const button = (
+                <button
+                  key={action.label}
+                  type="button"
+                  onClick={action.run}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: 0,
+                    border: 'none',
+                    background: 'transparent',
+                    fontSize: 12.5,
+                    color: token.colorPrimary,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {action.icon}
+                  {action.label}
+                </button>
+              );
+              return action.tooltip ? (
+                <Tooltip key={action.label} title={action.tooltip}>
+                  {button}
+                </Tooltip>
+              ) : (
+                button
+              );
+            })}
           </div>
         )}
       </div>
