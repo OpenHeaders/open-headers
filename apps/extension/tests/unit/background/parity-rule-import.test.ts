@@ -18,14 +18,20 @@ vi.mock('@utils/logger', () => ({
 }));
 
 const addRuleMock = vi.fn();
+const deleteRuleMock = vi.fn();
 const ensureDefaultCollectionMock = vi.fn();
 
 vi.mock('@openheaders/oracle/entity/rule-store', () => ({
   addRule: (...args: unknown[]) => addRuleMock(...args),
+  deleteRule: (...args: unknown[]) => deleteRuleMock(...args),
   ensureDefaultCollection: () => ensureDefaultCollectionMock(),
 }));
 
-import { installParityRuleImport, type ParityImportResult } from '@/background/modules/rules/parity-rule-import';
+import {
+  installParityRuleImport,
+  type ParityDeleteResult,
+  type ParityImportResult,
+} from '@/background/modules/rules/parity-rule-import';
 
 function headerSpec(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
@@ -54,8 +60,16 @@ async function importSpecs(specs: unknown[]): Promise<ParityImportResult> {
   return fn(specs);
 }
 
+async function deleteUids(uids: unknown[]): Promise<ParityDeleteResult> {
+  installParityRuleImport();
+  const fn = globalThis.__OH_PARITY_DELETE_RULES__;
+  if (!fn) throw new Error('global not installed');
+  return fn(uids);
+}
+
 beforeEach(() => {
   addRuleMock.mockReset();
+  deleteRuleMock.mockReset();
   ensureDefaultCollectionMock.mockReset();
   ensureDefaultCollectionMock.mockReturnValue({ uid: 'col00001', path: 'rules/my-rules-col00001', name: 'My Rules' });
   addRuleMock.mockImplementation(async (rule: Record<string, unknown>) => ({
@@ -130,5 +144,30 @@ describe('parity rule import — spec completion', () => {
   it('rejects non-object entries', async () => {
     const result = await importSpecs(['nope']);
     expect(result).toMatchObject({ ok: false, error: expect.stringContaining('spec[0]') });
+  });
+});
+
+describe('parity rule delete', () => {
+  it('refuses when the parity-hook flag is not set', async () => {
+    setParityFlag(false);
+    const result = await deleteUids(['ru000001']);
+    expect(result).toMatchObject({ ok: false, error: expect.stringContaining('parity hook') });
+    expect(deleteRuleMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects non-string entries without deleting anything', async () => {
+    setParityFlag(true);
+    const result = await deleteUids([42]);
+    expect(result).toMatchObject({ ok: false, error: expect.stringContaining('array of strings') });
+    expect(deleteRuleMock).not.toHaveBeenCalled();
+  });
+
+  it('deletes each uid through the store and counts only successful deletes', async () => {
+    setParityFlag(true);
+    deleteRuleMock.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+    const result = await deleteUids(['ru000001', 'ru000002']);
+    expect(deleteRuleMock).toHaveBeenNthCalledWith(1, 'ru000001');
+    expect(deleteRuleMock).toHaveBeenNthCalledWith(2, 'ru000002');
+    expect(result).toEqual({ ok: true, deleted: 1 });
   });
 });

@@ -23,7 +23,7 @@
 import { RuleSchema } from '@openheaders/core/schemas';
 import type { Rule } from '@openheaders/core/types';
 import { generateUid, isRuleComplete } from '@openheaders/core/utils';
-import { addRule, ensureDefaultCollection } from '@openheaders/oracle/entity/rule-store';
+import { addRule, deleteRule, ensureDefaultCollection } from '@openheaders/oracle/entity/rule-store';
 import { logger } from '@utils/logger';
 import * as v from 'valibot';
 
@@ -36,8 +36,11 @@ export type ParityImportResult =
    *  of chasing a fire that can never exist. */
   { ok: true; rules: Array<{ uid: string; name: string; complete: boolean }> } | { ok: false; error: string };
 
+export type ParityDeleteResult = { ok: true; deleted: number } | { ok: false; error: string };
+
 declare global {
   var __OH_PARITY_IMPORT_RULES__: ((specs: unknown[]) => Promise<ParityImportResult>) | undefined;
+  var __OH_PARITY_DELETE_RULES__: ((uids: unknown[]) => Promise<ParityDeleteResult>) | undefined;
 }
 
 async function isParityHookEnabled(): Promise<boolean> {
@@ -122,7 +125,31 @@ async function importParityRules(specs: unknown[]): Promise<ParityImportResult> 
   return { ok: true, rules: imported };
 }
 
-/** Install the SW-global import hook. Call once during background boot. */
+/**
+ * Delete previously imported rules by uid — the cleanup half of the seam,
+ * so the playground e2e runner can seed one page's rules, run its tests,
+ * and remove them before the next page (rules on shared endpoints like
+ * /echo* would otherwise cross-contaminate). Deletion goes through the
+ * production `deleteRule`, which derives the same DNR recompile
+ * side-effects as a popup delete.
+ */
+async function deleteParityRules(uids: unknown[]): Promise<ParityDeleteResult> {
+  if (!(await isParityHookEnabled())) {
+    return { ok: false, error: 'parity hook flag not set — refusing delete' };
+  }
+  if (!Array.isArray(uids) || uids.some((u) => typeof u !== 'string')) {
+    return { ok: false, error: 'uids must be an array of strings' };
+  }
+  let deleted = 0;
+  for (const uid of uids as string[]) {
+    if (await deleteRule(uid)) deleted++;
+  }
+  logger.info(SCOPE, `deleted ${deleted} rule(s) via the parity seam`);
+  return { ok: true, deleted };
+}
+
+/** Install the SW-global import + delete hooks. Call once during background boot. */
 export function installParityRuleImport(): void {
   globalThis.__OH_PARITY_IMPORT_RULES__ = importParityRules;
+  globalThis.__OH_PARITY_DELETE_RULES__ = deleteParityRules;
 }
