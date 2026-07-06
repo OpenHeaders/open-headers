@@ -10,7 +10,7 @@
  */
 
 import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
-import { NOTIFICATIONS_PANEL_INFO } from '@openheaders/ui/shared/notifications/NotificationsPanel';
+import { NOTIFICATIONS_PANEL_INFO } from '@openheaders/ui/shared/notifications';
 import type { ToolWindowId } from './types';
 
 const TOOL_WINDOW_INFO: Record<ToolWindowId, InfoPopoverContent> = {

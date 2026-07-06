@@ -21,7 +21,7 @@ import type {
   ToolRegion,
 } from '@openheaders/ui/shared/dock-layout';
 import { ALL_DOCK_SLOTS, DOCK_LABELS, dockRegion } from '@openheaders/ui/shared/dock-layout';
-import NotificationsIcon from '@openheaders/ui/shared/notifications/NotificationsIcon';
+import { NotificationsIcon } from '@openheaders/ui/shared/notifications';
 
 export type PanelToolWindowId = 'network' | 'console' | 'rules' | 'search' | 'notifications' | 'docs' | 'matched-rules';
 export type PanelDockSlot = DockSlot;

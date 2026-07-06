@@ -32,8 +32,12 @@ import {
 } from '@openheaders/ui/shared/dock-layout';
 import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-scope-view-state';
 import DocsPanel from '@openheaders/ui/shared/docs/DocsPanel';
-import NotificationsPanel, { NOTIFICATIONS_PANEL_INFO } from '@openheaders/ui/shared/notifications/NotificationsPanel';
-import { useAppUpdateNotification } from '@openheaders/ui/shared/notifications/use-app-update-notification';
+import {
+  NOTIFICATIONS_PANEL_INFO,
+  NotificationsPanel,
+  useAppUpdateNotification,
+  useSeedNotifications,
+} from '@openheaders/ui/shared/notifications';
 import { InfoPopoverContainerProvider } from '@openheaders/ui/shared/info-popover';
 import { DocsNavProvider, useDocsNav } from '@openheaders/ui/shared/docs/use-docs-nav';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/readers/useActiveWorkspaceId';
@@ -208,6 +212,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   // Host-reported app updates land in the Notifications timeline
   // (no-op on hosts without the getAppUpdate capability).
   useAppUpdateNotification();
+  useSeedNotifications();
   const ui = usePanelUiState({
     resettables: useMemo(
       // Lifecycle clears via `clearSession` (local mirror + engine session

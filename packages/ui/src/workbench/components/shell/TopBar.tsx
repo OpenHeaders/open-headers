@@ -23,7 +23,7 @@ import { useSetting, useSettingValue } from '../../settings/hooks';
 import type { BottomPanelAlignmentSetting, SidebarLayoutVariantSetting } from '../../settings/schema/workspace-layout';
 import { DOCK_LABELS, TOOL_WINDOW_MAP } from '../../tool-windows';
 import EnvironmentSelector from './EnvironmentSelector';
-import SettingsGearMenu from '@openheaders/ui/shared/settings-menu/SettingsGearMenu';
+import { SettingsGearMenu } from '@openheaders/ui/shared/settings-menu';
 import WorkspaceSwitcher from '../workspace/WorkspaceSwitcher';
 
 interface TopBarProps {

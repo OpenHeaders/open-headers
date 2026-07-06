@@ -106,7 +106,7 @@ import { useWorkbenchWorkspaceSlice } from './hooks/useWorkbenchWorkspaceSlice';
 import { useWorkspaceIntentRouter } from './hooks/useWorkspaceIntentRouter';
 import { useWorkspaceShortcuts } from './hooks/useWorkspaceShortcuts';
 import { useWorkspaceTabTitle } from './hooks/useWorkspaceTabTitle';
-import { useAppUpdateNotification } from '@openheaders/ui/shared/notifications/use-app-update-notification';
+import { useAppUpdateNotification, useSeedNotifications } from '@openheaders/ui/shared/notifications';
 import { EnvSwitcherProvider } from './services/env-switcher';
 import { ConnectionProvider } from './settings/ConnectionContext';
 import { get as getSetting } from './settings/store';
@@ -366,6 +366,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   // Host-reported app updates land in the Notifications timeline
   // (no-op on hosts without the getAppUpdate capability).
   useAppUpdateNotification();
+  useSeedNotifications();
 
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [createMenuOpen, setCreateMenuOpen] = useState(false);

@@ -23,7 +23,7 @@ import type { MutableRefObject, RefObject } from 'react';
 import WorkflowStatusPanel from '../live/WorkflowStatusPanel';
 import ActivityFeedPanel from '../panels/ActivityFeedPanel';
 import DocsPanel from '../panels/DocsPanel';
-import NotificationsPanel from '@openheaders/ui/shared/notifications/NotificationsPanel';
+import { NotificationsPanel } from '@openheaders/ui/shared/notifications';
 import VariablesPanel from '../panels/variables-panel';
 import BottomPanel, { type TestRunOwner } from '../runs/BottomPanel';
 import Sidebar from '../sidebar/Sidebar';

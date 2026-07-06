@@ -8,7 +8,7 @@ import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 import EnvironmentSelector from '@openheaders/ui/workbench/components/shell/EnvironmentSelector';
 import { useSetting, useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
-import SettingsGearMenu from '@openheaders/ui/shared/settings-menu/SettingsGearMenu';
+import { SettingsGearMenu } from '@openheaders/ui/shared/settings-menu';
 import { Dropdown, type MenuProps, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { lazy, Suspense, useState } from 'react';
