@@ -123,10 +123,7 @@ const EditorHeader: React.FC<EditorHeaderProps> = ({ title, actions, overflowIte
         {actions}
         {actions != null && <Divider type="vertical" style={{ margin: '0 4px', height: 20 }} />}
         {onSave && (
-          <Tooltip
-            title={<ShortcutHintTitle label={saveLabel}>{saveLabelText}</ShortcutHintTitle>}
-            placement={popupPlacement}
-          >
+          <Tooltip title={<ShortcutHintTitle label={saveLabel}>Save</ShortcutHintTitle>} placement={popupPlacement}>
             <Button
               size="small"
               type="primary"
