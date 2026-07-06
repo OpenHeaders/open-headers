@@ -7,7 +7,7 @@
  */
 
 import type { Rule, RuleCondition, RuleType } from '@openheaders/core/types';
-import { logger, validateConditionStructure } from '@openheaders/core/utils';
+import { CONDITION_META, logger, validateConditionStructure } from '@openheaders/core/utils';
 
 // ── DNR rule shape ───────────────────────────────────────────────
 
@@ -256,9 +256,10 @@ export function buildDnrCondition(conditions: RuleCondition[]): {
 
   for (const cond of conditions) {
     const vals = cond.values.map((v) => v.trim()).filter(Boolean);
-    // domain-type carries a single scalar in vals[0]; an empty vals[0]
-    // means the row hasn't been configured yet — skip it.
-    if (vals.length === 0 && cond.type !== 'domain-type') continue;
+    // domain-type carries a single scalar in vals[0]; per-header rows are
+    // legitimately value-less (a named header with no values means "any
+    // value"). Everything else with no values is an unconfigured row — skip.
+    if (vals.length === 0 && cond.type !== 'domain-type' && !CONDITION_META[cond.type]?.perHeader) continue;
 
     switch (cond.type) {
       // ── URL matching (one slot, mutex between url-filter / url-regex) ──

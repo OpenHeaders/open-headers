@@ -53,8 +53,22 @@ export const headerCompiler: RuleCompiler<HeaderRule> = {
     const reqMods: DnrHeaderModification[] = [];
     const resMods: DnrHeaderModification[] = [];
 
+    // Chrome evaluates response-header conditions only after the reply's
+    // headers arrive, so a rule matched on them can no longer modify
+    // REQUEST headers — emitting one rejects the ENTIRE updateDynamicRules
+    // batch atomically, killing every other compiled rule with it. Drop
+    // the request side of such rules instead of poisoning the batch.
+    const matchesOnResponseHeaders = base.responseHeaders !== undefined || base.excludedResponseHeaders !== undefined;
+
     for (const mod of rule.action.requestHeaders ?? []) {
       if (mod.operation === 'merge') continue; // handled by scriptable path above
+      if (matchesOnResponseHeaders) {
+        logger.warn(
+          'HeaderCompiler',
+          `Skipping request header "${mod.headerName}" in "${rule.name}" — a rule matching on response headers cannot modify request headers`,
+        );
+        continue;
+      }
       const built = buildMod(mod, false, rule.name);
       if (built) reqMods.push(built);
     }
@@ -85,7 +99,10 @@ export const headerCompiler: RuleCompiler<HeaderRule> = {
     //     reuse would hide the response modification.
     //   - Toggle: `rulesEngine.liveRulesMode` (default on). Advanced users
     //     can opt out.
-    if (ctx.settings.liveRulesMode) {
+    //   - Exemption: rules matched on response headers can't carry
+    //     request-side modifications at all (see above), so the injection
+    //     stands down for them.
+    if (ctx.settings.liveRulesMode && !matchesOnResponseHeaders) {
       const userTouchesCacheControl = reqMods.some((m) => m.header.toLowerCase() === 'cache-control');
       if (!userTouchesCacheControl) {
         reqMods.unshift(
