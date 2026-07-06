@@ -68,9 +68,36 @@ const EnvRow: React.FC<EnvRowProps> = ({
   const anyPinned = tabPinned || pinned;
   const showPinAction = tabPinnable || activeCollectionId !== null;
 
+  // Pin colors carry the target: tab pin = primary (same as the tab
+  // glyph and the topbar trigger), collection pin = the collection
+  // scope gold (same as the "C" badge). Both active → both small pins
+  // side by side so the collapsed state stays unambiguous.
+  const tabPinColor = token.colorPrimary;
+  const collectionPinColor = 'var(--scope-collection-color)';
+  const collapsedPinGlyph =
+    tabPinned && pinned ? (
+      <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+        <PushpinFilled style={{ fontSize: 10, color: tabPinColor }} />
+        <PushpinFilled style={{ fontSize: 10, color: collectionPinColor, marginLeft: -3 }} />
+      </span>
+    ) : tabPinned ? (
+      <PushpinFilled style={{ fontSize: 12, color: tabPinColor }} />
+    ) : pinned ? (
+      <PushpinFilled style={{ fontSize: 12, color: collectionPinColor }} />
+    ) : (
+      <PushpinOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />
+    );
+
   // One row inside the pin flyout — "Pin to this tab" / "Pin to
-  // collection" share the layout; a check marks the active target.
-  const pinMenuRow = (label: string, description: string, checked: boolean, onClick: () => void) => (
+  // collection" share the layout; a target-colored check marks the
+  // active one.
+  const pinMenuRow = (
+    label: string,
+    description: string,
+    checked: boolean,
+    checkColor: string,
+    onClick: () => void,
+  ) => (
     <div
       role="menuitem"
       className="oh-env-row"
@@ -90,7 +117,7 @@ const EnvRow: React.FC<EnvRowProps> = ({
           {description}
         </Text>
       </div>
-      {checked && <CheckCircleFilled style={{ fontSize: 12, color: token.colorPrimary, flexShrink: 0 }} />}
+      {checked && <CheckCircleFilled style={{ fontSize: 12, color: checkColor, flexShrink: 0 }} />}
     </div>
   );
 
@@ -176,6 +203,7 @@ const EnvRow: React.FC<EnvRowProps> = ({
                     tabPinned ? 'Unpin from this tab' : 'Pin to this tab',
                     'Switches to this environment whenever the tab is focused.',
                     tabPinned,
+                    tabPinColor,
                     onToggleTabPin,
                   )}
                 {activeCollectionId &&
@@ -183,6 +211,7 @@ const EnvRow: React.FC<EnvRowProps> = ({
                     pinned ? 'Unpin from collection' : 'Pin to collection',
                     'Shows this environment in the collection’s pinned list.',
                     pinned,
+                    collectionPinColor,
                     onTogglePin,
                   )}
               </div>
@@ -196,11 +225,7 @@ const EnvRow: React.FC<EnvRowProps> = ({
               style={anyPinned ? { opacity: 1 } : undefined}
               onClick={(e) => e.stopPropagation()}
             >
-              {anyPinned ? (
-                <PushpinFilled style={{ fontSize: 12, color: token.colorPrimary }} />
-              ) : (
-                <PushpinOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />
-              )}
+              {collapsedPinGlyph}
             </span>
           </Popover>
         )}
