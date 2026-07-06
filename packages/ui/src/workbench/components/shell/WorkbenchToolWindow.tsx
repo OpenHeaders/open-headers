@@ -23,6 +23,7 @@ import type { MutableRefObject, RefObject } from 'react';
 import WorkflowStatusPanel from '../live/WorkflowStatusPanel';
 import ActivityFeedPanel from '../panels/ActivityFeedPanel';
 import DocsPanel from '../panels/DocsPanel';
+import NotificationsPanel from '../panels/NotificationsPanel';
 import VariablesPanel from '../panels/variables-panel';
 import BottomPanel, { type TestRunOwner } from '../runs/BottomPanel';
 import Sidebar from '../sidebar/Sidebar';
@@ -219,6 +220,13 @@ const WorkbenchToolWindow: React.FC<WorkbenchToolWindowProps> = ({
           info={getToolWindowInfo('activity')}
           onClose={() => tl.toggleWindow('activity')}
           onViewEntity={handleViewActivityEntity}
+        />
+      );
+    case 'notifications':
+      return (
+        <NotificationsPanel
+          info={getToolWindowInfo('notifications')}
+          onClose={() => tl.toggleWindow('notifications')}
         />
       );
     case 'docs':

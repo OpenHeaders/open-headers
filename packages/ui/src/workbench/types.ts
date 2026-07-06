@@ -234,7 +234,8 @@ export type ToolWindowId =
   | 'var-scope'
   | 'deep-network-inspection'
   | 'test-runs'
-  | 'activity';
+  | 'activity'
+  | 'notifications';
 
 /** Runtime state for one dock, bound to workspace's ToolWindowId. */
 export type DockState = GenericDockState<ToolWindowId>;

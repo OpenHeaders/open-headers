@@ -21,6 +21,7 @@ import {
 } from '@ant-design/icons';
 import { DOCK_LABELS as _LABELS, type ToolWindowDef as GenericToolWindowDef } from '@openheaders/ui/shared/dock-layout';
 import ActivityFeedIcon from './components/panels/ActivityFeedIcon';
+import NotificationsIcon from './components/panels/NotificationsIcon';
 import type { ToolWindowId } from './types';
 
 export type ToolWindowDef = GenericToolWindowDef<ToolWindowId>;
@@ -49,9 +50,16 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
   // rather than a Variables sub-section.
   { id: 'workflows', label: 'Workflows', icon: <SisternodeOutlined />, core: false, defaultSlot: 'left-bottom' },
   // Right-top tab order matters — it is the slot's tab order on
-  // first open. `docs` sits first, then `var-scope` (active by
-  // default), then `variables`. `api-requests` lives alone on
-  // `right-bottom`.
+  // first open. `notifications` sits first, then `docs`, then
+  // `var-scope` (active by default), then `variables`. `api-requests`
+  // lives alone on `right-bottom`.
+  {
+    id: 'notifications',
+    label: 'Notifications',
+    icon: <NotificationsIcon />,
+    core: false,
+    defaultSlot: 'right-top',
+  },
   { id: 'docs', label: 'Docs', icon: <BookOutlined />, core: false, defaultSlot: 'right-top' },
   { id: 'var-scope', label: 'Scope', icon: <ScanOutlined />, core: false, defaultSlot: 'right-top' },
   { id: 'variables', label: 'Variables', icon: <CodeOutlined />, core: false, defaultSlot: 'right-top' },

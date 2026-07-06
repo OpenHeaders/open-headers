@@ -72,6 +72,11 @@ const TOOL_WINDOW_INFO: Record<ToolWindowId, InfoPopoverContent> = {
     summary:
       "Results of rule and request test runs — scoped to the active tab's owner (rule, folder, collection, or workspace), or browsed across all runs.",
   },
+  notifications: {
+    title: 'Notifications',
+    summary:
+      'Session timeline of app events — update availability, background task outcomes, and anything the app wants you to see without interrupting you.',
+  },
   activity: {
     title: 'Activity',
     summary:
