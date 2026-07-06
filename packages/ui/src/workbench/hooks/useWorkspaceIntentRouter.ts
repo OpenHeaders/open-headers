@@ -37,6 +37,13 @@ import type { RuleFlowScope } from '../types';
 
 interface UseWorkspaceIntentRouterOptions {
   isStatusLoaded: boolean;
+  /**
+   * Runs before every dispatch (cold and warm). The shell uses it to
+   * clear transient chrome that would sit on top of the intent's
+   * destination — e.g. an open settings modal covering the tab an
+   * external surface just navigated to.
+   */
+  onIntentDispatch?: (intent: WorkspaceIntent) => void;
   openCreateTab: (
     type: string,
     context?: { collectionId: string; folderPath?: string },
@@ -125,6 +132,7 @@ export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOption
   useEffect(() => {
     const dispatch = (intent: WorkspaceIntent): void => {
       const o = openersRef.current;
+      o.onIntentDispatch?.(intent);
       switch (intent.kind) {
         case 'open-workspace':
           // No-op — the workspace is already open. The intent exists so
