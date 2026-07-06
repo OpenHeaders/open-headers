@@ -50,7 +50,7 @@ export function useSeedNotifications(): void {
         description: (
           <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <SmileTwoTone style={{ fontSize: 13 }} />
-            Help us grow and reach more developers.
+            See all our features in a interactive way. And the latest information.
           </span>
         ),
         dedupeKey: 'visit-website',
