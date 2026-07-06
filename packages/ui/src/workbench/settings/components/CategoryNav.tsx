@@ -36,7 +36,7 @@ export interface CategoryNavHandle {
   focusActive: () => void;
 }
 
-const CARET_SLOT = 16;
+const CARET_SLOT = 20;
 
 const CategoryNav = forwardRef<CategoryNavHandle, CategoryNavProps>(function CategoryNav(
   { categories, activeCategoryId, onSelect, matchCount, isSearching, onLeaveTop },
@@ -173,6 +173,7 @@ const CategoryNav = forwardRef<CategoryNavHandle, CategoryNavProps>(function Cat
         }}
         type="button"
         onClick={() => onSelect(cat.id)}
+        onDoubleClick={hasKids ? () => toggleOpen(cat.id) : undefined}
         onKeyDown={(e) => handleKeyDown(e, cat.id)}
         aria-current={active ? 'true' : undefined}
         aria-expanded={hasKids ? open : undefined}
@@ -226,7 +227,7 @@ const CategoryNav = forwardRef<CategoryNavHandle, CategoryNavProps>(function Cat
           >
             <RightOutlined
               style={{
-                fontSize: 8,
+                fontSize: 10,
                 transform: open ? 'rotate(90deg)' : 'none',
                 transition: 'transform 100ms ease',
               }}

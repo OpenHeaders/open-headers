@@ -59,11 +59,13 @@ const SettingsShell: React.FC<SettingsShellProps> = ({ initialSettingKey, initia
   }, [results, isSearching]);
 
   // ── Active category (first non-empty, by category order) ────────────
+  // Categories with a custom pane stay selectable even with zero setting
+  // defs — group landing pages own no settings of their own.
   const orderedCategories = useMemo(() => {
     const cats = allCategories();
     const visible: CategoryDef[] = [];
     for (const cat of cats) {
-      if ((byCategory.get(cat.id)?.length ?? 0) > 0) visible.push(cat);
+      if ((byCategory.get(cat.id)?.length ?? 0) > 0 || cat.renderPane) visible.push(cat);
     }
     return { all: cats, visible };
   }, [byCategory]);
@@ -208,7 +210,7 @@ const SettingsShell: React.FC<SettingsShellProps> = ({ initialSettingKey, initia
                 // resolves synchronously and Suspense is a no-op for it.
                 return (
                   <Suspense fallback={<CategoryPaneSkeleton />}>
-                    <Pane category={activeCategory} defs={activeDefs} />
+                    <Pane category={activeCategory} defs={activeDefs} onSelectCategory={handleSelectCategory} />
                   </Suspense>
                 );
               })()

@@ -22,6 +22,7 @@ import {
 } from '@ant-design/icons';
 import { lazy } from 'react';
 import DevPanelGlyph from './components/DevPanelGlyph';
+import GroupLandingPane from './components/GroupLandingPane';
 import { registerCategory } from './registry';
 
 // Lazy so the schema-bootstrap path stays free of Monaco / Ant Design
@@ -74,11 +75,22 @@ registerCategory({
 });
 
 registerCategory({
-  id: 'devpanelLayout',
-  label: 'DevTools Panel Layout',
-  navLabel: 'DevTools Panel',
+  id: 'devpanel',
+  label: 'DevTools Panel',
   icon: <DevPanelGlyph />,
   order: 16,
+  description:
+    'Defaults for the browser DevTools panel — the tool-window shell and each tab of the requests surface.',
+  renderPane: GroupLandingPane,
+});
+
+registerCategory({
+  id: 'devpanelLayout',
+  label: 'DevTools Panel · Layout',
+  navLabel: 'Layout',
+  parent: 'devpanel',
+  icon: <DevPanelGlyph letter="L" />,
+  order: 15,
   description: 'Tool-window shell behavior for the browser DevTools panel.',
 });
 
@@ -86,7 +98,7 @@ registerCategory({
   id: 'devpanelNetwork',
   label: 'DevTools Panel · Network',
   navLabel: 'Network',
-  parent: 'devpanelLayout',
+  parent: 'devpanel',
   icon: <DevPanelGlyph letter="N" />,
   order: 16,
   description: 'Defaults for the Network requests table in the DevTools panel — layout, sort, dot column.',
@@ -96,7 +108,7 @@ registerCategory({
   id: 'devpanelHeaders',
   label: 'DevTools Panel · Headers',
   navLabel: 'Headers',
-  parent: 'devpanelLayout',
+  parent: 'devpanel',
   icon: <DevPanelGlyph letter="H" />,
   order: 17,
   description: 'Defaults for the Headers tab in the DevTools panel — layout, sort, filters, suggestions.',
@@ -106,7 +118,7 @@ registerCategory({
   id: 'devpanelInitiator',
   label: 'DevTools Panel · Initiator',
   navLabel: 'Initiator',
-  parent: 'devpanelLayout',
+  parent: 'devpanel',
   icon: <DevPanelGlyph letter="I" />,
   order: 18,
   description: 'Defaults for the Initiator tab in the DevTools panel — sort, filters, suggestions.',
@@ -116,7 +128,7 @@ registerCategory({
   id: 'devpanelCookies',
   label: 'DevTools Panel · Cookies',
   navLabel: 'Cookies',
-  parent: 'devpanelLayout',
+  parent: 'devpanel',
   icon: <DevPanelGlyph letter="C" />,
   order: 19,
   description: 'Defaults for the Cookies tab in the DevTools panel — columns, sort, filters, suggestions.',
@@ -126,7 +138,7 @@ registerCategory({
   id: 'devpanelTiming',
   label: 'DevTools Panel · Timing',
   navLabel: 'Timing',
-  parent: 'devpanelLayout',
+  parent: 'devpanel',
   icon: <DevPanelGlyph letter="T" />,
   order: 20,
   description: 'Defaults for the Timing tab in the DevTools panel — which bands are visible.',

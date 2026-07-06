@@ -191,6 +191,8 @@ export interface SubcategoryDef {
 export interface CategoryPaneProps {
   category: CategoryDef;
   defs: readonly SettingDef[];
+  /** Navigate the shell to another category (landing panes link to their children). */
+  onSelectCategory?: (categoryId: string) => void;
 }
 
 export interface CategoryDef {
