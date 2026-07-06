@@ -25,7 +25,7 @@ export interface InfoPopoverSection {
    *  tint it the same colour the value carries in its own column);
    *  `icon` renders as a small glyph before the label (e.g. a scope
    *  badge). */
-  items: ReadonlyArray<{ label: string; desc: string; labelClassName?: string; icon?: React.ReactNode }>;
+  items: ReadonlyArray<{ label: string; desc: React.ReactNode; labelClassName?: string; icon?: React.ReactNode }>;
 }
 
 export interface InfoPopoverAction {
@@ -46,8 +46,9 @@ export interface InfoPopoverContent {
    *  "More information" jumps into the full docs surface. */
   headerLink?: InfoPopoverAction;
   /** Required. One-sentence orientation, body-weight, above any longer
-   *  description. */
-  summary: string;
+   *  description. A node so inline `{{token}}` references can render
+   *  as code chips instead of plain text. */
+  summary: React.ReactNode;
   /** Optional rich body — paragraphs, lists, anything. Goes below
    *  summary. Use sparingly. */
   description?: React.ReactNode;
