@@ -11,7 +11,7 @@
  * footprint as a real tab.
  */
 
-import { CloseOutlined } from '@ant-design/icons';
+import { CloseOutlined, PushpinFilled } from '@ant-design/icons';
 import type React from 'react';
 import type { WorkbenchTab } from '../../types';
 import { type TabEntityLookups, isCreateDraftMode, isRuleDraftTab, renderTabLabel, tabIcon } from './tab-format';
@@ -60,6 +60,11 @@ const TabPillContent: React.FC<TabPillContentProps> = ({
       <span className="rules-tab-label" style={isRuleDraftTab(tab, rules) ? { fontStyle: 'italic' } : undefined}>
         {renderTabLabel(tab, displayLabel)}
       </span>
+      {/* Env-pin marker — this tab drives the active environment while
+          focused. Without it, env flapping between tabs reads as a bug. */}
+      {tab.pinnedEnvId !== undefined && (
+        <PushpinFilled className="rules-tab-env-pin" style={{ fontSize: 9, opacity: 0.65 }} aria-label="Environment pinned" />
+      )}
       {/* Gray dot signals a not-yet-persisted scratch tab (always wins
           over orange so the "scratch vs real entity" distinction reads
           regardless of dirty edits). Orange dot only fires on a

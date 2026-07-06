@@ -30,6 +30,15 @@
  *      Cleared on collection-leave, mode change, and workspace
  *      switch.
  *
+ *   4. **Tab pins**. A tab can pin an environment (`tab.pinnedEnvId`);
+ *      while that tab is focused the pin takes over the active env with
+ *      the highest precedence — above all three collection modes.
+ *      Leaving the tab falls back to normal mode resolution. A manual
+ *      pick made while a pinned tab is focused re-points the pin (it
+ *      does NOT touch the manual base or collection overrides — the
+ *      pick is tab-scoped by definition). Pins to deleted envs are
+ *      dropped when the tab is focused.
+ *
  * Surfaces consume the service via `useEnvSwitcher().pickActiveEnvironment`.
  * The raw `setActiveEnvironment` on `useEnvironments` stays exported
  * but is documented as "internal — service-only" — the only legit
@@ -62,6 +71,13 @@ export interface EnvSwitcherCollectionContext {
    *  switch (collection uids are workspace-scoped but the in-memory
    *  override map carries old-workspace entries by reference). */
   activeWorkspaceId: string | null;
+  /** The focused tab's pinned env. `undefined` = no pin, `null` =
+   *  pinned to "No environment", string = env uid. */
+  activeTabPinnedEnvId: string | null | undefined;
+  /** Writes the focused tab's pin (`undefined` clears it). Used by the
+   *  auto-switch effect to drop invalid pins and by manual picks to
+   *  re-point the pin while a pinned tab is focused. */
+  setActiveTabPinnedEnv: (envId: string | null | undefined) => void;
 }
 
 export interface EnvSwitcherApi {
@@ -81,12 +97,21 @@ export interface EnvSwitcherApi {
   /** Selector-side registration for {@link requestEnvSelectorOpen}.
    *  Returns the unsubscribe. */
   onEnvSelectorOpenRequest(listener: () => void): () => void;
+  /** The focused tab's pinned env — `undefined` when the tab has no pin
+   *  (or the surface has no tab system), `null` = pinned to "No
+   *  environment", string = env uid. Surfaces read this to show the
+   *  "env is pin-driven" state. */
+  activeTabPinnedEnvId: string | null | undefined;
+  /** Writes the focused tab's pin; `undefined` unpins. */
+  setActiveTabPinnedEnv(envId: string | null | undefined): void;
 }
 
 const NOOP_API: EnvSwitcherApi = {
   pickActiveEnvironment: () => {},
   requestEnvSelectorOpen: () => {},
   onEnvSelectorOpenRequest: () => () => {},
+  activeTabPinnedEnvId: undefined,
+  setActiveTabPinnedEnv: () => {},
 };
 
 const EnvSwitcherContext = createContext<EnvSwitcherApi>(NOOP_API);
@@ -138,6 +163,20 @@ export const EnvSwitcherProvider: React.FC<EnvSwitcherProviderProps> = ({ collec
 
     const knownEnvIds = new Set(envApi.environments.map((e) => e.uid));
 
+    // Tab pin — highest-precedence layer, above every collection mode.
+    // A pin to a deleted env is dropped so the tab falls back to normal
+    // mode resolution below.
+    const pin = collectionContext.activeTabPinnedEnvId;
+    if (pin !== undefined) {
+      if (pin === null || knownEnvIds.has(pin)) {
+        if (pin !== envApi.activeEnvironmentId) {
+          void envApi.setActiveEnvironment(pin);
+        }
+        return;
+      }
+      collectionContext.setActiveTabPinnedEnv(undefined);
+    }
+
     // apply-defaults: in-session pick wins over the resolver's
     // "default takes over" rule until the user leaves the collection.
     if (collectionEnvAutoSwitch === 'apply-defaults' && activeTabCollectionId) {
@@ -179,6 +218,7 @@ export const EnvSwitcherProvider: React.FC<EnvSwitcherProviderProps> = ({ collec
     collectionContext?.activeCollectionDefaultEnvId,
     collectionContext?.collectionEnvAutoSwitch,
     collectionContext?.allCollectionsForEnv,
+    collectionContext?.activeTabPinnedEnvId,
     envApi.isReady,
     envApi.environments,
     envApi.collectionEnvOverrides,
@@ -186,6 +226,15 @@ export const EnvSwitcherProvider: React.FC<EnvSwitcherProviderProps> = ({ collec
 
   const pickActiveEnvironment = useCallback<EnvSwitcherApi['pickActiveEnvironment']>(
     (uid) => {
+      if (collectionContext && collectionContext.activeTabPinnedEnvId !== undefined) {
+        // Focused tab pins the env — the pick re-points the pin and
+        // leaves the manual base + collection overrides untouched;
+        // it's tab-scoped by definition. The auto-switch effect sees
+        // the new pin on its next run and keeps it applied.
+        collectionContext.setActiveTabPinnedEnv(uid);
+        void envApi.setActiveEnvironment(uid);
+        return;
+      }
       if (collectionContext) {
         const { activeTabCollectionId, allCollectionsForEnv, collectionEnvAutoSwitch } = collectionContext;
         const col = activeTabCollectionId
@@ -231,9 +280,17 @@ export const EnvSwitcherProvider: React.FC<EnvSwitcherProviderProps> = ({ collec
     };
   }, []);
 
+  const activeTabPinnedEnvId = collectionContext?.activeTabPinnedEnvId;
+  const setActiveTabPinnedEnv = collectionContext?.setActiveTabPinnedEnv;
   const api = useMemo<EnvSwitcherApi>(
-    () => ({ pickActiveEnvironment, requestEnvSelectorOpen, onEnvSelectorOpenRequest }),
-    [pickActiveEnvironment, requestEnvSelectorOpen, onEnvSelectorOpenRequest],
+    () => ({
+      pickActiveEnvironment,
+      requestEnvSelectorOpen,
+      onEnvSelectorOpenRequest,
+      activeTabPinnedEnvId,
+      setActiveTabPinnedEnv: setActiveTabPinnedEnv ?? NOOP_API.setActiveTabPinnedEnv,
+    }),
+    [pickActiveEnvironment, requestEnvSelectorOpen, onEnvSelectorOpenRequest, activeTabPinnedEnvId, setActiveTabPinnedEnv],
   );
 
   return <EnvSwitcherContext.Provider value={api}>{children}</EnvSwitcherContext.Provider>;

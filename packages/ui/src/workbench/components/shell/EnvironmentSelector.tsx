@@ -281,8 +281,12 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
 
   // Other surfaces (Scope panel's "Select") open this dropdown through
   // the env-switcher service instead of mounting a picker of their own.
-  const { onEnvSelectorOpenRequest } = useEnvSwitcher();
+  const { onEnvSelectorOpenRequest, activeTabPinnedEnvId, setActiveTabPinnedEnv } = useEnvSwitcher();
   useEffect(() => onEnvSelectorOpenRequest(() => setOpen(true)), [onEnvSelectorOpenRequest]);
+
+  // The focused tab pins the env — the trigger and dropdown surface it
+  // so a tab-driven env change is legible ("why did the env just flip?").
+  const pinnedByTab = activeTabPinnedEnvId !== undefined;
 
   const active = activeEnvironmentId ? (environments.find((e) => e.uid === activeEnvironmentId) ?? null) : null;
 
@@ -510,6 +514,31 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
         </Popover>
       </div>
 
+      {pinnedByTab && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '3px 8px 5px',
+            userSelect: 'none',
+          }}
+        >
+          <PushpinFilled style={{ fontSize: 11, color: token.colorPrimary, flexShrink: 0 }} />
+          <Text type="secondary" style={{ fontSize: 11, flex: 1, lineHeight: 1.3 }}>
+            Pinned to the current tab — picking an environment moves the pin.
+          </Text>
+          <Button
+            type="link"
+            size="small"
+            style={{ fontSize: 11, padding: 0, height: 'auto' }}
+            onClick={() => setActiveTabPinnedEnv(undefined)}
+          >
+            Unpin
+          </Button>
+        </div>
+      )}
+
       <NoEnvRow
         activeEnvironmentId={activeEnvironmentId}
         onSelect={() => {
@@ -656,7 +685,11 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
     >
       <Button
         size="small"
-        aria-label={active ? `Active environment: ${active.name}` : 'No environment selected'}
+        aria-label={
+          active
+            ? `Active environment: ${active.name}${pinnedByTab ? ' (pinned by this tab)' : ''}`
+            : `No environment selected${pinnedByTab ? ' (pinned by this tab)' : ''}`
+        }
         style={{
           padding: '0 8px',
           height: compact ? 24 : 28,
@@ -665,6 +698,7 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
         }}
       >
         <Space size={compact ? 4 : 6}>
+          {pinnedByTab && <PushpinFilled style={{ fontSize: 10, color: token.colorPrimary }} />}
           {active ? (
             scopeBadge('environment', 12)
           ) : (

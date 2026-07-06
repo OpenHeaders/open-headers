@@ -104,15 +104,19 @@ export interface UseTabOpenersApi {
    * Open a fresh `rule-create` scratch seeded with another tab's current
    * rule content ("Duplicate Tab"). The copy is a scratch regardless of
    * whether the source was live or draft — nothing persists until the
-   * user saves and picks a destination.
+   * user saves and picks a destination. `opts.pinnedEnvId` carries the
+   * source tab's env pin onto the copy.
    */
-  openDuplicateRuleScratch: (content: Omit<Rule, 'uid' | 'path'>) => void;
+  openDuplicateRuleScratch: (content: Omit<Rule, 'uid' | 'path'>, opts?: { pinnedEnvId?: string | null }) => void;
   /**
    * Open a fresh `request-create` scratch seeded with another tab's
    * current request content ("Duplicate Tab"). Mirrors
    * {@link openDuplicateRuleScratch} for the request family.
    */
-  openDuplicateRequestScratch: (content: Omit<Request, 'uid' | 'path' | 'schemaVersion'>) => void;
+  openDuplicateRequestScratch: (
+    content: Omit<Request, 'uid' | 'path' | 'schemaVersion'>,
+    opts?: { pinnedEnvId?: string | null },
+  ) => void;
   /** Open an existing Live Variable in a dedicated edit tab. */
   openLiveVariableEdit: (uid: string, name: string) => void;
   /**

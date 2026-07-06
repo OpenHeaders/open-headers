@@ -77,6 +77,15 @@ export interface WorkbenchTab {
    */
   preferredCollectionId?: string;
   preferredFolderPath?: string;
+  /**
+   * Environment pinned to this tab. While the tab is focused the pinned
+   * env takes over the active environment with the highest precedence
+   * (above every collection auto-switch mode); leaving the tab falls
+   * back to normal mode resolution. `undefined` = no pin, `null` =
+   * pinned to "No environment", string = env uid. Duplicate Tab carries
+   * the pin; a pin to a deleted env is dropped on focus.
+   */
+  pinnedEnvId?: string | null;
   /** For edit tabs: the rule uid being edited. */
   ruleUid?: string;
   /** Auto-generated draft name for non-rule create tabs (request-create,

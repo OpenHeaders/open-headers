@@ -159,7 +159,7 @@ export function useRequestOpeners(
   );
 
   const openDuplicateRequestScratch = useCallback(
-    (content: Omit<Request, 'uid' | 'path' | 'schemaVersion'>) => {
+    (content: Omit<Request, 'uid' | 'path' | 'schemaVersion'>, opts?: { pinnedEnvId?: string | null }) => {
       const tabId = `req-create-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       addTab({
         id: tabId,
@@ -170,6 +170,9 @@ export function useRequestOpeners(
         mode: 'request-create',
         draftName: content.name,
         seedRequestContent: content,
+        // Duplicate carries the source tab's env pin — the prod/staging
+        // duplicate flow pins each copy to its own environment.
+        pinnedEnvId: opts?.pinnedEnvId,
       });
     },
     [addTab],

@@ -50,6 +50,9 @@ interface UseWorkbenchActiveTabOptions {
   liveWorkflows: LiveWorkflow[];
   workspaces: ExtensionWorkspace[];
   editingScopeWorkspaceId: string | null;
+  /** Tab patcher from `useEditorGroups` — backs the env-switcher's
+   *  `setActiveTabPinnedEnv` (tab pins live on the tab itself). */
+  updateTab: (tabId: string, updates: Partial<WorkbenchTab>) => void;
 }
 
 interface WorkbenchActiveTab {
@@ -87,6 +90,7 @@ export function useWorkbenchActiveTab({
   liveWorkflows,
   workspaces,
   editingScopeWorkspaceId,
+  updateTab,
 }: UseWorkbenchActiveTabOptions): WorkbenchActiveTab {
   // ── Tab-title composition (`#<n> Open Headers` when ≥2 tabs) ──
   // Must mount once at the shell; subsequent route-aware title
@@ -278,11 +282,26 @@ export function useWorkbenchActiveTab({
     return allCollectionsForEnv.find((c) => c.uid === activeTabCollectionId)?.defaultEnvironmentId ?? null;
   }, [activeTabCollectionId, allCollectionsForEnv]);
 
+  // Tab pin plumbing — the pin lives on the tab itself (`pinnedEnvId`),
+  // so it persists with the tab session and rides Duplicate Tab. The
+  // env-switcher only ever writes the FOCUSED tab's pin (drop-invalid
+  // + re-point-on-pick); background-tab pins are written by the tab
+  // context menu through `updateTab` directly.
+  const activeTabId = activeTab?.id ?? null;
+  const activeTabPinnedEnvId = activeTab?.pinnedEnvId;
+  const setActiveTabPinnedEnv = useCallback(
+    (envId: string | null | undefined) => {
+      if (activeTabId) updateTab(activeTabId, { pinnedEnvId: envId });
+    },
+    [activeTabId, updateTab],
+  );
+
   // Active-env policy lives in the env-switcher service. WorkbenchContent
   // hands it the workbench-specific inputs; the service owns the
-  // auto-switch effect, the apply-defaults session-override map, and
-  // exposes `pickActiveEnvironment` for every UI surface (sidebar,
-  // popover, env editor, command palette) via `useEnvSwitcher()`.
+  // auto-switch effect, the apply-defaults session-override map, the
+  // tab-pin layer, and exposes `pickActiveEnvironment` for every UI
+  // surface (sidebar, popover, env editor, command palette) via
+  // `useEnvSwitcher()`.
   const envSwitcherCollectionContext = useMemo<EnvSwitcherCollectionContext>(
     () => ({
       activeTabCollectionId,
@@ -293,6 +312,8 @@ export function useWorkbenchActiveTab({
       // workspace change (diverged tab on X clears X's overrides), not
       // on global oracle change.
       activeWorkspaceId: editingScopeWorkspaceId,
+      activeTabPinnedEnvId,
+      setActiveTabPinnedEnv,
     }),
     [
       activeTabCollectionId,
@@ -300,6 +321,8 @@ export function useWorkbenchActiveTab({
       collectionEnvAutoSwitch,
       activeCollectionDefaultEnvId,
       editingScopeWorkspaceId,
+      activeTabPinnedEnvId,
+      setActiveTabPinnedEnv,
     ],
   );
 

@@ -234,7 +234,7 @@ export function useRuleOpeners(
   );
 
   const openDuplicateRuleScratch = useCallback(
-    (content: Omit<Rule, 'uid' | 'path'>) => {
+    (content: Omit<Rule, 'uid' | 'path'>, opts?: { pinnedEnvId?: string | null }) => {
       const tabId = `rule-create-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       addTab({
         id: tabId,
@@ -244,6 +244,8 @@ export function useRuleOpeners(
         mode: 'rule-create',
         draftName: content.name,
         seedRuleContent: content,
+        // Duplicate carries the source tab's env pin.
+        pinnedEnvId: opts?.pinnedEnvId,
       });
     },
     [addTab],

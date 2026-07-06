@@ -23,8 +23,11 @@ interface UseEditorRegistrationsOptions {
   updateTab: (tabId: string, updates: Partial<WorkbenchTab>) => void;
   allTabs: WorkbenchTab[];
   rules: Rule[];
-  openDuplicateRuleScratch: (content: Omit<Rule, 'uid' | 'path'>) => void;
-  openDuplicateRequestScratch: (content: Omit<Request, 'uid' | 'path' | 'schemaVersion'>) => void;
+  openDuplicateRuleScratch: (content: Omit<Rule, 'uid' | 'path'>, opts?: { pinnedEnvId?: string | null }) => void;
+  openDuplicateRequestScratch: (
+    content: Omit<Request, 'uid' | 'path' | 'schemaVersion'>,
+    opts?: { pinnedEnvId?: string | null },
+  ) => void;
 }
 
 export interface EditorRegistrations {
@@ -96,12 +99,12 @@ export function useEditorRegistrations({
       if (!tab) return;
       if (tab.mode === 'edit' || tab.mode === 'rule-create') {
         const content = ruleDuplicateRefMap.current.get(tabId)?.();
-        if (content) openDuplicateRuleScratch(content);
+        if (content) openDuplicateRuleScratch(content, { pinnedEnvId: tab.pinnedEnvId });
         return;
       }
       if (tab.mode === 'request-edit' || tab.mode === 'request-create') {
         const content = requestDuplicateRefMap.current.get(tabId)?.();
-        if (content) openDuplicateRequestScratch(content);
+        if (content) openDuplicateRequestScratch(content, { pinnedEnvId: tab.pinnedEnvId });
       }
     },
     [allTabs, openDuplicateRuleScratch, openDuplicateRequestScratch],
