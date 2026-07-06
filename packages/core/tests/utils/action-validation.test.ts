@@ -239,6 +239,20 @@ describe('validateActionValues — inject (URL mode)', () => {
     ).toEqual([]);
   });
 
+  it('accepts a page-relative URL (the engine resolves it against the page base)', () => {
+    expect(
+      validateActionValues(
+        inject({
+          injectType: 'script',
+          source: 'url',
+          sourceUrl: '/assets/snippet.js',
+          code: '',
+          position: 'head',
+        }),
+      ),
+    ).toEqual([]);
+  });
+
   it('flags a non-URL', () => {
     const issues = validateActionValues(
       inject({

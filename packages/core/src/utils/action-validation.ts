@@ -282,13 +282,20 @@ function validateQueryParamAction(rule: QueryParamRule): ActionValueIssue[] {
 // ── inject ──────────────────────────────────────────────────────
 //
 // Code-mode injections are arbitrary user JS/CSS — we don't try to
-// parse them. URL-mode injections need a parseable absolute URL.
+// parse them. URL-mode injections need a parseable absolute URL or a
+// '/'-anchored page-relative path.
 
 function validateInjectAction(rule: InjectRule): ActionValueIssue[] {
   const out: ActionValueIssue[] = [];
   if (rule.action.source !== 'url') return out;
   const url = (rule.action.sourceUrl ?? '').trim();
   if (!url || url.includes('{{')) return out;
+  // Page-relative URLs are valid: the engine injects a literal
+  // <script src> / <link href> into the page, so the browser resolves
+  // them against the page base. Only the '/'-anchored form is accepted —
+  // a bare "example.com/x.js" is far more likely a scheme-less absolute
+  // URL typo than an intentional relative path.
+  if (url.startsWith('/')) return out;
   try {
     const u = new URL(url);
     if (u.protocol !== 'http:' && u.protocol !== 'https:' && u.protocol !== 'chrome-extension:') {
