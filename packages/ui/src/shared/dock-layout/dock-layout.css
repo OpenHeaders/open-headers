@@ -1278,3 +1278,15 @@
   --scope-dynamic-color:     #A3A3A3;
   --scope-dynamic-bg:        #262626;
 }
+
+/* Docs panel inline code — grey pill matching the (i) info-popover code
+ * chips, so {{token}} references read the same in prose and popovers.
+ * Scoped to inline code only; CodeBlock's <pre><code> keeps its own
+ * flat styling. */
+.rules-right-panel--docs :not(pre) > code {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 11px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: var(--ant-color-fill-tertiary);
+}
