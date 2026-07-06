@@ -10,3 +10,9 @@ export const WS_SERVER_URL = `ws://127.0.0.1:${WS_PORT}`;
 
 /** Custom protocol scheme for deep linking */
 export const PROTOCOL_NAME = 'openheaders';
+
+/**
+ * HTTP path the daemon's MCP endpoint is mounted on. Rides the same
+ * bound socket as the WS server + pairing surface (`backend.bindPort`).
+ */
+export const MCP_HTTP_PATH = '/mcp';

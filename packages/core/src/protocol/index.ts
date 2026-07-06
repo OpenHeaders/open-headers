@@ -17,6 +17,7 @@ export {
 export type { SyncAwarenessPresenceMessage } from './awareness-stream';
 export { SYNC_AWARENESS_PRESENCE_TYPE, SyncAwarenessPresenceMessageSchema } from './awareness-stream';
 export {
+  MCP_HTTP_PATH,
   PROTOCOL_NAME,
   WS_PORT,
   WS_SERVER_URL,

@@ -30,6 +30,10 @@
       "import": "./src/live/node-request-transport.ts",
       "default": "./dist/live/node-request-transport.js"
     },
+    "./mcp": {
+      "import": "./src/mcp/index.ts",
+      "default": "./dist/mcp/index.js"
+    },
     "./sync/*": {
       "import": "./src/sync/*.ts",
       "default": "./dist/sync/*.js"
@@ -42,6 +46,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@openheaders/core": "workspace:*",
     "@openheaders/oracle": "workspace:*",
     "better-sqlite3": "^12.10.0",

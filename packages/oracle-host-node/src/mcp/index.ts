@@ -1,0 +1,21 @@
+/**
+ * Open Headers MCP server — a third inbound surface into the unified
+ * oracle (alongside renderer IPC and the daemon WS server). Hosts wire
+ * {@link createMcpHttpHandler} onto the daemon's bound socket via the
+ * composable `httpRequestHandler` seam; tools read the same snapshots
+ * and (Phase 2) write through the same `applySyncRequest` path every
+ * other surface uses.
+ */
+
+export { createMcpHttpHandler, type McpHttpHandler, type McpHttpHandlerOptions } from './http-handler';
+export { gateMcpToolCall, McpPermissionDeniedError, type McpPolicy } from './policy';
+export {
+  createMcpToolRegistry,
+  type McpToolCallContext,
+  type McpToolDefinition,
+  McpToolInputError,
+  type McpToolRegistry,
+  type McpToolTier,
+} from './registry';
+export { type CreateMcpServerOptions, createMcpServer, MCP_SERVER_NAME } from './server';
+export { createReadToolDefinitions } from './tools/read-tools';

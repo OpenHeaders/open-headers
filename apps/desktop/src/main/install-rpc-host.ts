@@ -109,6 +109,7 @@ import { installActivityPruneScheduler } from './activity-prune-scheduler';
 import { type DaemonBindSupervisor, startDaemonBindSupervisor } from './daemon-bind-supervisor';
 import { installHostStorage } from './install-host-storage';
 import { installLifelineServer } from './install-lifeline-server';
+import { installMcpServer } from './install-mcp-server';
 import { listLanIpv4Addresses } from './lan-addresses';
 import { startDesktopLiveRunner, stopDesktopLiveRunner } from './live/live-refresh-scheduler';
 import { installObservabilityLog, type ObservabilityLogHandle } from './observability-log';
@@ -386,6 +387,12 @@ export async function installRpcHost(): Promise<void> {
   const pairingService = createDaemonPairingService();
   const pairingHttpHandler = createPairingHttpHandler({ pairing: pairingService });
 
+  // 4c. MCP endpoint (`/mcp`, MCP_SERVER_PLAN.md Phase 1). Read-tier
+  //     tools over stateless streamable HTTP, gated by the `mcp.enabled`
+  //     setting (default off) + a paired daemon token per request. Rides
+  //     the same bound socket as pairing via handler composition below.
+  const mcpInstall = await installMcpServer();
+
   // 5. IPC RPC dispatch. Pairing channels are intercepted ahead of
   //    `dispatchSyncRpc` — they're admin-only renderer RPCs, not part
   //    of the sync+awareness channels, so we don't pollute the
@@ -520,7 +527,7 @@ export async function installRpcHost(): Promise<void> {
         nodeId: `desktop-${randomUUID()}`,
         agent: `@openheaders/desktop@${app.getVersion()}`,
       },
-      httpRequestHandler: pairingHttpHandler,
+      httpRequestHandler: (req, res) => pairingHttpHandler(req, res) || mcpInstall.handler(req, res),
       onServerChange: (next) => {
         wsServer = next;
         setMutationForwarderWsServer(next);
@@ -555,6 +562,7 @@ export async function installRpcHost(): Promise<void> {
     setActivityLog(null);
     setActivityMuteStore(null);
     pairingService.dispose();
+    mcpInstall.dispose();
     syncStatusReporter.dispose();
     void bindSupervisor?.dispose();
     bindSupervisor = null;
