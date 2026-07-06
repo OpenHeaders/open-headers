@@ -106,7 +106,10 @@ const BackendPaneInner: React.FC<CategoryPaneProps> = ({ category, defs }) => {
           top: 0,
           zIndex: 2,
           background: token.colorBgLayout,
-          padding: '20px 0 10px',
+          // Full-bleed band: cancel the pane's side padding so the grey
+          // spans the whole row instead of stopping at the gutters.
+          margin: '0 -24px',
+          padding: '20px 24px 10px',
         }}
       >
         <header
