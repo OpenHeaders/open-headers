@@ -10,7 +10,7 @@
 
 import { CaretRightOutlined } from '@ant-design/icons';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
-import { Dropdown, Tooltip, Typography, theme } from 'antd';
+import { Tooltip, Typography, theme } from 'antd';
 import { useMemo, useState } from 'react';
 import { scopeBadge } from '../../shared/scope-colors';
 import { buildScopeInfo } from './scope-info';
@@ -19,16 +19,11 @@ import { VariableTable } from './VariableTable';
 
 const { Text } = Typography;
 
-/**
- * Hover affordance on the section title row. `run` executes directly
- * (Edit / Create); `menu` swaps the click for an inline picker
- * (Select — choose the active environment without leaving the panel).
- */
+/** Hover affordance on the section title row (Edit / Create / Select). */
 export interface ScopeHeaderAction {
   label: string;
   tooltip: string;
-  run?: () => void;
-  menu?: readonly { key: string; label: string; onClick: () => void }[];
+  run: () => void;
 }
 
 interface ScopeSectionProps {
@@ -114,50 +109,26 @@ export function ScopeSection({ scope, variables, subtitle, action, isLast }: Sco
         )}
         {action ? (
           <span style={{ marginLeft: 'auto', flexShrink: 0 }}>
-            {action.menu ? (
-              <Dropdown
-                menu={{
-                  items: action.menu.map((item) => ({ key: item.key, label: item.label, onClick: item.onClick })),
+            <Tooltip title={action.tooltip}>
+              <Text
+                className="vp-scope-reveal"
+                role="button"
+                tabIndex={0}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  action.run();
                 }}
-                trigger={['click']}
-                placement="bottomRight"
-              >
-                <Tooltip title={action.tooltip}>
-                  <Text
-                    className="vp-scope-reveal"
-                    role="button"
-                    tabIndex={0}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                    }}
-                    style={{ fontSize: 10, color: token.colorPrimary, cursor: 'pointer' }}
-                  >
-                    {action.label}
-                  </Text>
-                </Tooltip>
-              </Dropdown>
-            ) : (
-              <Tooltip title={action.tooltip}>
-                <Text
-                  className="vp-scope-reveal"
-                  role="button"
-                  tabIndex={0}
-                  onClick={(e) => {
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
                     e.stopPropagation();
-                    action.run?.();
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.stopPropagation();
-                      action.run?.();
-                    }
-                  }}
-                  style={{ fontSize: 10, color: token.colorPrimary, cursor: 'pointer' }}
-                >
-                  {action.label}
-                </Text>
-              </Tooltip>
-            )}
+                    action.run();
+                  }
+                }}
+                style={{ fontSize: 10, color: token.colorPrimary, cursor: 'pointer' }}
+              >
+                {action.label}
+              </Text>
+            </Tooltip>
           </span>
         ) : null}
       </div>

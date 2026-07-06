@@ -20,7 +20,8 @@ import type { Environment } from '@openheaders/core/types';
 import type { InputRef } from 'antd';
 import { Button, Divider, Dropdown, Input, Popover, Radio, Space, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEnvSwitcher } from '../../services/env-switcher';
 import { useSetting } from '../../settings/hooks';
 import { scopeBadge } from '../shared/scope-colors';
 
@@ -273,6 +274,11 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const searchRef = useRef<InputRef>(null);
   const [autoSwitchMode, setAutoSwitchMode] = useSetting('general.collectionEnvAutoSwitch');
+
+  // Other surfaces (Scope panel's "Select") open this dropdown through
+  // the env-switcher service instead of mounting a picker of their own.
+  const { onEnvSelectorOpenRequest } = useEnvSwitcher();
+  useEffect(() => onEnvSelectorOpenRequest(() => setOpen(true)), [onEnvSelectorOpenRequest]);
 
   const active = activeEnvironmentId ? (environments.find((e) => e.uid === activeEnvironmentId) ?? null) : null;
 

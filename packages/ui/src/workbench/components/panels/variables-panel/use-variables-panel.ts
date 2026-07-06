@@ -83,7 +83,7 @@ export function useVariablesPanel(
     onOpenTemplateCollectionVariables,
     onCreateEnvironment,
   } = handlers;
-  const { pickActiveEnvironment } = useEnvSwitcher();
+  const { requestEnvSelectorOpen } = useEnvSwitcher();
 
   const { environments, activeEnvironmentId, defaultEnvironmentId, workspaceVariables, vault } = useEnvVarVault();
   const { rules, templates, localCollections, localCollectionTrees, templateCollections, templateCollectionTrees } =
@@ -194,7 +194,8 @@ export function useVariablesPanel(
   // Environment header affordance — one of three, by state:
   //   Edit   → an environment is selected (opens its editor).
   //   Create → no environments exist yet (mints the first one).
-  //   Select → environments exist but none is active (inline picker).
+  //   Select → environments exist but none is active (opens the
+  //            topbar environment selector's dropdown).
   const environmentAction = useMemo<ScopeHeaderAction | null>(() => {
     if (activeEnvironmentId) {
       const run = openScopeEditor('environment');
@@ -204,16 +205,8 @@ export function useVariablesPanel(
       if (!onCreateEnvironment) return null;
       return { label: 'Create', tooltip: 'Create your first environment', run: onCreateEnvironment };
     }
-    return {
-      label: 'Select',
-      tooltip: 'Choose the active environment',
-      menu: environments.map((env) => ({
-        key: env.uid,
-        label: env.name,
-        onClick: () => pickActiveEnvironment(env.uid),
-      })),
-    };
-  }, [activeEnvironmentId, environments, onCreateEnvironment, openScopeEditor, pickActiveEnvironment]);
+    return { label: 'Select', tooltip: 'Choose the active environment', run: requestEnvSelectorOpen };
+  }, [activeEnvironmentId, environments.length, onCreateEnvironment, openScopeEditor, requestEnvSelectorOpen]);
 
   const { inContextVars, inContextErrors } = useMemo(
     () => buildInContextVariables({ contextEntity, activeCollectionId, resolver, liveVariables }),

@@ -74,9 +74,20 @@ export interface EnvSwitcherApi {
    *    - Set the active env in one go
    *  Pass `null` to enter "No environment" mode. */
   pickActiveEnvironment(uid: string | null): void;
+  /** Ask the surface's environment selector (the topbar trigger) to
+   *  open its dropdown — lets other surfaces (Scope panel's "Select")
+   *  reuse the one picker instead of growing their own. */
+  requestEnvSelectorOpen(): void;
+  /** Selector-side registration for {@link requestEnvSelectorOpen}.
+   *  Returns the unsubscribe. */
+  onEnvSelectorOpenRequest(listener: () => void): () => void;
 }
 
-const NOOP_API: EnvSwitcherApi = { pickActiveEnvironment: () => {} };
+const NOOP_API: EnvSwitcherApi = {
+  pickActiveEnvironment: () => {},
+  requestEnvSelectorOpen: () => {},
+  onEnvSelectorOpenRequest: () => () => {},
+};
 
 const EnvSwitcherContext = createContext<EnvSwitcherApi>(NOOP_API);
 
@@ -206,7 +217,24 @@ export const EnvSwitcherProvider: React.FC<EnvSwitcherProviderProps> = ({ collec
     [collectionContext, envApi],
   );
 
-  const api = useMemo<EnvSwitcherApi>(() => ({ pickActiveEnvironment }), [pickActiveEnvironment]);
+  // Open-request channel: the topbar selector registers a listener;
+  // other surfaces ask it to drop its dropdown open. Ref-held set so
+  // subscribing never re-renders the provider tree.
+  const openListenersRef = useRef<Set<() => void>>(new Set());
+  const requestEnvSelectorOpen = useCallback(() => {
+    for (const fn of openListenersRef.current) fn();
+  }, []);
+  const onEnvSelectorOpenRequest = useCallback((listener: () => void) => {
+    openListenersRef.current.add(listener);
+    return () => {
+      openListenersRef.current.delete(listener);
+    };
+  }, []);
+
+  const api = useMemo<EnvSwitcherApi>(
+    () => ({ pickActiveEnvironment, requestEnvSelectorOpen, onEnvSelectorOpenRequest }),
+    [pickActiveEnvironment, requestEnvSelectorOpen, onEnvSelectorOpenRequest],
+  );
 
   return <EnvSwitcherContext.Provider value={api}>{children}</EnvSwitcherContext.Provider>;
 };
