@@ -16,11 +16,12 @@
 
 import { AlignLeftOutlined, SearchOutlined, SwapOutlined } from '@ant-design/icons';
 import { useUiTheme } from '@openheaders/ui/context';
-import Editor from '@monaco-editor/react';
+import Editor, { type Monaco } from '@monaco-editor/react';
 import { Alert, Button, Tooltip, theme } from 'antd';
 import type * as monaco from 'monaco-editor';
 import type React from 'react';
 import { useCallback, useRef, useState } from 'react';
+import { isMac } from '@openheaders/ui/shared/platform';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { useShortcutLabel } from '../../hooks/useWorkspaceShortcuts';
 import { getLanguage, type LanguageId, toMonacoLanguage } from '../../languages/registry';
@@ -42,9 +43,8 @@ const MONACO_FORMATTABLE_LANGUAGES = new Set(['javascript', 'json', 'css', 'html
 
 // Monaco's own (fixed) keybindings for the find / replace widgets —
 // shown as tooltip hints on the corner action buttons.
-const IS_MAC = /Mac|iPhone|iPad|iPod/.test(navigator.userAgent);
-const FIND_SHORTCUT = IS_MAC ? '⌘F' : 'Ctrl+F';
-const REPLACE_SHORTCUT = IS_MAC ? '⌥⌘F' : 'Ctrl+H';
+const FIND_SHORTCUT = isMac ? '⌘F' : 'Ctrl+F';
+const REPLACE_SHORTCUT = isMac ? '⌥⌘F' : 'Ctrl+H';
 
 interface CodeEditorProps {
   value?: string;
@@ -53,12 +53,20 @@ interface CodeEditorProps {
   placeholder?: string;
   minHeight?: number;
   readOnly?: boolean;
+  /** Fill the parent's height instead of the fixed `minHeight` + manual
+   *  resize grip — for panes that own their vertical space (e.g. the
+   *  response body viewer). The parent must be a sized flex column. */
+  fill?: boolean;
   /** When true, register the cross-scope `{{VAR}}` completion
    *  provider on mount.
    *  Defaults to true for every host that doesn't opt out — callers
    *  that embed user scripts or SQL editors where `{{VAR}}` shouldn't
    *  expand can pass `variableAutoComplete={false}`. */
   variableAutoComplete?: boolean;
+  /** Hands the mounted Monaco instance to the host — for surfaces that
+   *  add their own actions (e.g. the Docs tab's markdown toolbar +
+   *  formatting shortcuts). */
+  onEditorMount?: (editor: monaco.editor.IStandaloneCodeEditor, monacoApi: Monaco) => void;
 }
 
 const CodeEditor: React.FC<CodeEditorProps> = ({
@@ -68,7 +76,9 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   placeholder,
   minHeight = 200,
   readOnly = false,
+  fill = false,
   variableAutoComplete = true,
+  onEditorMount,
 }) => {
   const registerCompletions = useMonacoVariableCompletions();
   const { token } = theme.useToken();
@@ -194,7 +204,11 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     // the jump is worse than the momentary overlap.
     find: { addExtraSpaceOnTop: false },
     renderWhitespace: renderWhitespace === 'all' ? 'all' : renderWhitespace === 'boundary' ? 'boundary' : 'none',
-    // Monaco's "fake" placeholder isn't native; we render our own overlay below.
+    // Native ghost hint on an empty buffer — positioned by Monaco at the
+    // true content origin so the caret sits at the text start, exactly
+    // like an empty <input>. Multi-line wrapping is enabled in
+    // `rules.less` (`.editorPlaceholder`); Monaco's default is one line.
+    placeholder,
   };
 
   const formatTooltip: React.ReactNode = readOnly ? (
@@ -204,8 +218,6 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   ) : (
     <ShortcutHintTitle label={formatShortcutLabel}>Format</ShortcutHintTitle>
   );
-
-  const showPlaceholder = !readOnly && placeholder && !value;
 
   return (
     <div
@@ -217,11 +229,21 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         // Matches every theme's `editor.background`, so the grip strip
         // below the editor reads as part of the editor surface.
         background: token.colorBgContainer,
+        ...(fill ? { height: '100%', display: 'flex', flexDirection: 'column' as const, minHeight: 0 } : {}),
       }}
       className="rules-code-editor"
     >
       <Editor
-        height={editorHeight}
+        height={fill ? '100%' : editorHeight}
+        // `wrapperProps.style` REPLACES the library's computed wrapper
+        // style (it spreads after), so the fill variant restates the
+        // defaults (flex + relative) and adds flex sizing so the editor
+        // stretches with the pane instead of the fixed height.
+        wrapperProps={
+          fill
+            ? { style: { display: 'flex', position: 'relative', textAlign: 'initial', flex: 1, minHeight: 0 } }
+            : undefined
+        }
         defaultLanguage={toMonacoLanguage(language)}
         language={toMonacoLanguage(language)}
         theme={monacoTheme}
@@ -234,6 +256,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           // custom keybinding registration is needed — Monaco dispatches
           // to the language's formatter provider on its own.
           if (variableAutoComplete) registerCompletions(monacoApi);
+          onEditorMount?.(ed, monacoApi);
         }}
         onChange={(next) => {
           if (formatError) setFormatError(null);
@@ -241,28 +264,6 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         }}
         options={options}
       />
-      {showPlaceholder && (
-        <div
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 52,
-            // Match Monaco's default line-height so the hint sits on the
-            // same vertical baseline as line 1's caret.
-            lineHeight: '19px',
-            maxWidth: 'calc(100% - 72px)',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            color: token.colorTextTertiary,
-            fontFamily,
-            fontSize,
-            pointerEvents: 'none',
-          }}
-        >
-          {placeholder}
-        </div>
-      )}
       {formatError && (
         <Alert
           type="error"
@@ -335,16 +336,19 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       </div>
       {/* Grip strip — reserved row below the editor so Monaco's vertical
           scrollbar (which spans only the Editor element) ends above the
-          grip instead of sharing its corner. */}
-      <div style={{ height: 12, position: 'relative' }} aria-hidden="true">
-        <div
-          className="rules-code-editor-resize-grip"
-          onPointerDown={handleGripPointerDown}
-          onPointerMove={handleGripPointerMove}
-          onPointerUp={handleGripPointerUp}
-          onDoubleClick={() => setManualHeight(null)}
-        />
-      </div>
+          grip instead of sharing its corner. Fill mode sizes from the
+          pane, so there is nothing to drag. */}
+      {!fill && (
+        <div style={{ height: 12, position: 'relative' }} aria-hidden="true">
+          <div
+            className="rules-code-editor-resize-grip"
+            onPointerDown={handleGripPointerDown}
+            onPointerMove={handleGripPointerMove}
+            onPointerUp={handleGripPointerUp}
+            onDoubleClick={() => setManualHeight(null)}
+          />
+        </div>
+      )}
     </div>
   );
 };

@@ -1,22 +1,42 @@
 /**
- * Pure formatters for the response panel: pretty-print a JSON body
- * (falling back to the raw text on parse failure) and humanize byte
- * counts.
+ * Pure formatters for the response panel: map a response Content-Type
+ * to a viewer language, pretty-print bodies for the Pretty view, and
+ * humanize byte counts.
  */
 
-import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
+import type { LanguageId } from '../../../languages/registry';
 
-export function formatBody(resp: ExecutedRequestSnapshot): string {
-  if (!resp.body) return '(empty body)';
-  const ct = resp.headers.find((h) => h.key.toLowerCase() === 'content-type')?.value ?? '';
-  if (ct.includes('json')) {
+/**
+ * Viewer language from the response `Content-Type`. Substring checks on
+ * purpose — media types arrive with parameters (`; charset=utf-8`),
+ * vendor prefixes (`application/vnd.api+json`) and suffixes (`+xml`),
+ * and all of those should light up the base grammar.
+ */
+export function detectBodyLanguage(headers: ReadonlyArray<{ key: string; value: string }>): LanguageId {
+  const ct = headers.find((h) => h.key.toLowerCase() === 'content-type')?.value.toLowerCase() ?? '';
+  if (ct.includes('json')) return 'json';
+  if (ct.includes('html')) return 'html';
+  if (ct.includes('xml')) return 'xml';
+  if (ct.includes('javascript') || ct.includes('ecmascript')) return 'javascript';
+  if (ct.includes('css')) return 'css';
+  if (ct.includes('markdown')) return 'markdown';
+  return 'text';
+}
+
+/**
+ * Body text for the Pretty view. JSON re-indents (falling back to the
+ * wire text on parse failure); every other language renders verbatim —
+ * Monaco's highlighting is the "pretty" part.
+ */
+export function prettyBody(body: string, language: LanguageId): string {
+  if (language === 'json') {
     try {
-      return JSON.stringify(JSON.parse(resp.body), null, 2);
+      return JSON.stringify(JSON.parse(body), null, 2);
     } catch {
-      return resp.body;
+      return body;
     }
   }
-  return resp.body;
+  return body;
 }
 
 export function formatBytes(n: number): string {

@@ -231,12 +231,19 @@ export class WorkbenchPage {
 
   /**
    * Read the rendered response body and parse it as the `/api/echo`
-   * reflection. The Body tab is active by default after a Send, and the
-   * body `<pre>` carries `data-testid="oh-response-body"` (the same
-   * role-less-element exception as the status chip), so we target it
-   * directly rather than guessing among the page's `<pre>` elements.
+   * reflection. The Body tab defaults to the Pretty view (Monaco, whose
+   * DOM virtualizes long buffers), so switch to Raw first — that view
+   * renders the verbatim wire text in a plain `<pre>` carrying
+   * `data-testid="oh-response-body"` (the same role-less-element
+   * exception as the status chip).
    */
   async responseEcho<T = unknown>(): Promise<T> {
+    const rawToggle = this.responseRegion()
+      .getByRole('radio', { name: 'Raw', exact: true })
+      .filter({ visible: true })
+      .first();
+    await rawToggle.waitFor({ state: 'visible', timeout: 15000 });
+    await rawToggle.click();
     const body = this.page.getByTestId('oh-response-body').filter({ visible: true });
     await body.waitFor({ state: 'visible', timeout: 15000 });
     const txt = (await body.textContent())?.trim() ?? '';
