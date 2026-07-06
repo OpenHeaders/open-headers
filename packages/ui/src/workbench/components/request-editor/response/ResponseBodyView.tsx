@@ -1,15 +1,18 @@
 /**
  * ResponseBodyView — the response body pane.
  *
- * Three view modes behind a segmented control:
+ * Five view modes behind a segmented control:
  *   • Pretty — read-only Monaco with syntax highlighting; language
  *     auto-detected from Content-Type with a manual override picker.
  *     JSON re-indents, everything else renders highlighted verbatim.
  *   • Raw — the wire text verbatim in a plain <pre>. Cheap for large
  *     bodies, and the element e2e reads (`oh-response-body`).
- *   • Preview — HTML responses rendered in a fully sandboxed iframe
- *     (no scripts, no same-origin access). Offered only when the
- *     viewer language is HTML.
+ *   • Hex — offset / byte / ASCII dump of the body's UTF-8 bytes,
+ *     capped (a full dump of the body cap would be a ~10 MB string).
+ *   • Base64 — the same bytes base64-encoded.
+ *   • Preview — HTML rendered in a fully sandboxed iframe (no scripts,
+ *     no same-origin access); JSON rendered as a collapsible key/value
+ *     tree. Offered only when one of those applies.
  */
 
 import { CheckOutlined, CopyOutlined, DownloadOutlined } from '@ant-design/icons';
@@ -19,6 +22,8 @@ import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { LANGUAGE_LIST, type LanguageId } from '../../../languages/registry';
 import CodeEditor from '../../shared/CodeEditor';
+import ResponseJsonPreview from './ResponseJsonPreview';
+import { buildHexDump, encodeBodyBytes, toBase64 } from './response-encoding';
 import { detectBodyLanguage, formatBytes, prettyBody } from './response-format';
 import { deriveSaveFilename } from './response-save';
 
@@ -28,7 +33,7 @@ const { Text } = Typography;
  *  truncation notice. */
 const BODY_CAP_BYTES = 2 * 1024 * 1024;
 
-type ViewMode = 'pretty' | 'raw' | 'preview';
+type ViewMode = 'pretty' | 'raw' | 'hex' | 'base64' | 'preview';
 
 /** Override picker entries — every registry language a response body
  *  can plausibly be, i.e. all but graphql (no response media type and
@@ -53,6 +58,36 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
 
   const language = langOverride ?? detectBodyLanguage(response.headers);
   const pretty = useMemo(() => prettyBody(response.body, language), [response.body, language]);
+
+  // Parsed body for the JSON tree preview — `undefined` when the viewer
+  // language isn't JSON or the body doesn't parse.
+  const parsedJson = useMemo<unknown>(() => {
+    if (language !== 'json') return undefined;
+    try {
+      return JSON.parse(response.body);
+    } catch {
+      return undefined;
+    }
+  }, [response.body, language]);
+
+  const previewKind: 'html' | 'json' | null = language === 'html' ? 'html' : parsedJson !== undefined ? 'json' : null;
+
+  // A language override can take Preview away while it's the active
+  // mode (e.g. HTML body overridden to Text) — fall back to Pretty.
+  useEffect(() => {
+    if (mode === 'preview' && !previewKind) setMode('pretty');
+  }, [mode, previewKind]);
+
+  // Byte views are computed only while active — encoding is linear in
+  // body size and wasted on every other mode.
+  const hexDump = useMemo(
+    () => (mode === 'hex' ? buildHexDump(encodeBodyBytes(response.body)) : null),
+    [mode, response.body],
+  );
+  const base64Body = useMemo(
+    () => (mode === 'base64' ? toBase64(encodeBodyBytes(response.body)) : null),
+    [mode, response.body],
+  );
 
   const copyBody = () => {
     void navigator.clipboard.writeText(response.body).then(() => {
@@ -100,7 +135,9 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
           options={[
             { label: 'Pretty', value: 'pretty' },
             { label: 'Raw', value: 'raw' },
-            ...(language === 'html' ? [{ label: 'Preview', value: 'preview' }] : []),
+            { label: 'Hex', value: 'hex' },
+            { label: 'Base64', value: 'base64' },
+            ...(previewKind ? [{ label: 'Preview', value: 'preview' }] : []),
           ]}
         />
         {mode === 'pretty' && (
@@ -156,7 +193,46 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
           </pre>
         </div>
       )}
-      {mode === 'preview' && (
+      {mode === 'hex' && hexDump && (
+        <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
+          {hexDump.capped && (
+            <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
+              Hex view shows the first {formatBytes(hexDump.shownBytes)} of {formatBytes(hexDump.totalBytes)}.
+            </Text>
+          )}
+          <pre
+            data-testid="oh-response-hex"
+            style={{
+              fontFamily: "'SF Mono', 'Fira Code', monospace",
+              fontSize: 12,
+              margin: 0,
+              whiteSpace: 'pre',
+              color: token.colorText,
+            }}
+          >
+            {hexDump.text}
+          </pre>
+        </div>
+      )}
+      {mode === 'base64' && base64Body !== null && (
+        <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
+          <pre
+            data-testid="oh-response-base64"
+            style={{
+              fontFamily: "'SF Mono', 'Fira Code', monospace",
+              fontSize: 12,
+              margin: 0,
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-all',
+              color: token.colorText,
+            }}
+          >
+            {base64Body}
+          </pre>
+        </div>
+      )}
+      {mode === 'preview' && previewKind === 'json' && <ResponseJsonPreview value={parsedJson} />}
+      {mode === 'preview' && previewKind === 'html' && (
         <iframe
           title="Response preview"
           sandbox=""
