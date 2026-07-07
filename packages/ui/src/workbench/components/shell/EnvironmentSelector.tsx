@@ -331,7 +331,7 @@ interface EnvironmentSelectorProps {
   onOpenCollectionVariables: () => void;
   onOpenVault: () => void;
   /** Opens the Live Variables list. Optional — the footer's "Live"
-   *  segment renders only where the host wires it (workbench). */
+   *  segment renders only where the host wires it. */
   onOpenLiveVariables?: () => void;
   onSetCollectionPinnedEnvs: (collectionUid: string, pinnedIds: string[], defaultId: string | null) => Promise<boolean>;
   /** Compact trigger — matches the devpanel toolbar's 24px workspace chip. */
@@ -764,8 +764,8 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
       {/* Compact scope shortcuts — one row, segments split by vertical
           dividers (Vault | Collection | Workspace | Live). Collection
           joins only while a collection is active; Live only where the
-          host wires an opener (workbench; the devpanel routes by
-          intent and has none for the LV list yet). */}
+          host wires an opener (workbench opens the list in place; the
+          devpanel routes there via the open-live-variables intent). */}
       <div style={{ display: 'flex', alignItems: 'stretch' }}>
         {footerSegment('vault', 'Vault', onOpenVault)}
         {activeCollectionId && (

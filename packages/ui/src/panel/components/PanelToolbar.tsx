@@ -309,6 +309,9 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
             onOpenVault={() => {
               void openWorkspace({ kind: 'open-vault' }, 'devpanel');
             }}
+            onOpenLiveVariables={() => {
+              void openWorkspace({ kind: 'open-live-variables' }, 'devpanel');
+            }}
           />
           {showPanelToggles && (
             <>

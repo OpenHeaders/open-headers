@@ -183,6 +183,15 @@ export const OpenRuleFlowIntentSchema = v.object({
 
 // ── Live Variables (Phase F) ───────────────────────────────────────
 
+/**
+ * Open the Live Variables list page. The list-level twin of
+ * `open-workspace-vars` / `open-vault` — dispatched by system surfaces
+ * (devpanel env selector footer) that have no LV surface of their own.
+ */
+export const OpenLiveVariablesIntentSchema = v.object({
+  kind: v.literal('open-live-variables'),
+});
+
 export const EditLiveVariableIntentSchema = v.object({
   kind: v.literal('edit-live-variable'),
   uid: UidSchema,
@@ -225,6 +234,7 @@ export const WorkspaceIntentSchema = v.variant('kind', [
   OpenVaultIntentSchema,
   OpenRunReportIntentSchema,
   OpenRuleFlowIntentSchema,
+  OpenLiveVariablesIntentSchema,
   EditLiveVariableIntentSchema,
   EditLiveWorkflowIntentSchema,
   CreateLiveVariableIntentSchema,
@@ -257,6 +267,7 @@ export const WORKSPACE_INTENT_KINDS = [
   'open-vault',
   'open-run-report',
   'open-rule-flow',
+  'open-live-variables',
   'edit-live-variable',
   'edit-live-workflow',
   'create-live-variable',

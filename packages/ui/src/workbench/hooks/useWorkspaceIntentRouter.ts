@@ -73,6 +73,8 @@ interface UseWorkspaceIntentRouterOptions {
   openRequestCollectionVariables: (uid: string, name: string) => void;
   openTemplateCollectionVariables: (uid: string, name: string) => void;
   openRequestEditTab: (uid: string, name: string, method?: string, autoRename?: boolean) => void;
+  /** `open-live-variables` — open the Live Variables list page. */
+  openLiveVariables: () => void;
   openLiveVariableEdit: (uid: string, name: string) => void;
   openLiveWorkflowEdit: (uid: string, name: string) => void;
   openCreateLiveVariable: () => void;
@@ -94,6 +96,7 @@ function isDataFreeIntent(intent: WorkspaceIntent): boolean {
     case 'open-workspace-manager':
     case 'open-workspace-vars':
     case 'open-vault':
+    case 'open-live-variables':
     case 'open-export-modal':
     case 'open-import-modal':
     case 'create-environment':
@@ -161,6 +164,9 @@ export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOption
           return;
         case 'open-vault':
           o.openVault();
+          return;
+        case 'open-live-variables':
+          o.openLiveVariables();
           return;
         case 'edit-rule':
           o.openEditTab(intent.uid);
@@ -295,6 +301,7 @@ export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOption
       case 'open-workspace-manager':
       case 'open-workspace-vars':
       case 'open-vault':
+      case 'open-live-variables':
         // Data-free intents shouldn't end up in the pending slot, but
         // be defensive: drop silently — the cold path already ran them.
         return;

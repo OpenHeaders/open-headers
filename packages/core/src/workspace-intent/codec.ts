@@ -31,6 +31,7 @@
  *   #/test/<runId>           → open-run-report
  *   #/flow/<scope>           → open-rule-flow
  *   #/flow/<scope>/<...url>  → open-rule-flow with url
+ *   #/live-variables         → open-live-variables
  *   #/live-variable/<uid>    → edit-live-variable
  *   #/live-workflow/<uid>    → edit-live-workflow
  *   #/create-live-variable   → create-live-variable (no seed)
@@ -172,6 +173,9 @@ export function hashToIntent(rawHash: string): WorkspaceIntent | null {
       return buildIntent(base);
     }
 
+    case 'live-variables':
+      return buildIntent({ kind: 'open-live-variables' });
+
     case 'live-variable':
       if (!rest[0]) return null;
       return buildIntent({ kind: 'edit-live-variable', uid: rest[0] });
@@ -282,6 +286,9 @@ export function intentToHash(intent: WorkspaceIntent): string {
       }
       return `#/${parts.join('/')}`;
     }
+
+    case 'open-live-variables':
+      return '#/live-variables';
 
     case 'edit-live-variable':
       return `#/live-variable/${encodeSegment(intent.uid)}`;

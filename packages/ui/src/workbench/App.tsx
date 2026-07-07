@@ -676,6 +676,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     openCreateEnvironment: handleCreateEnvironment,
     openWorkspaceVariables,
     openVault,
+    openLiveVariables,
     openCollectionVariables,
     openRequestCollectionVariables,
     openTemplateCollectionVariables,
