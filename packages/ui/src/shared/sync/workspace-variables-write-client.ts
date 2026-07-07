@@ -19,13 +19,16 @@ import type { Variable } from '@openheaders/core/types';
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,
+  resolveMirror,
   resolveRendererContext,
   type SyncSimpleResult,
 } from './apply-payload';
 import {
+  keyBetween,
   mintBatch,
   type MutationBody,
   type MutationEnvelope,
+  seedKey,
   type SideEffectIntent,
   WORKSPACE_VARIABLES_ENTITY_TYPE,
   WORKSPACE_VARIABLES_ID,
@@ -44,6 +47,7 @@ import {
 
 // Re-exported so tests can construct a mirror without going through the singleton.
 export { createWorkspaceVariablesSyncMirror } from '../../context/mirrors/workspace-variables-sync-mirror';
+export type { WorkspaceVariablesSyncMirror } from '../../context/mirrors/workspace-variables-sync-mirror';
 
 export type WorkspaceVariablesSimpleResult = SyncSimpleResult;
 
@@ -78,10 +82,19 @@ export async function applyWorkspaceVarRemove(
 }
 
 /**
- * Editor convenience: persist a complete variables list. Identity is
- * `variable.uid`. Adds + edits (rename / value / type) emit `addToSet`
- * against the same uid; deletions emit `removeFromSet` by uid. Empty
- * diff → empty batch.
+ * Editor convenience: persist a complete variables list, preserving the
+ * editor's row ORDER as fractional-index `orderKey`s (§23.5) so the set
+ * materializes back in the same order the user sees — not uid-sorted.
+ *
+ * Identity is `variable.uid`. Adds + content edits + reorders emit
+ * `addToSet`; deletions emit `removeFromSet` by uid. Each surviving row's
+ * `orderKey` is assigned LSEQ-style: reuse the row's current key while it
+ * keeps the running order monotonic, and mint a fresh `keyBetween` only
+ * where the order breaks (a moved row) or a row is new. A row unchanged in
+ * both content AND position emits nothing — so a plain value edit re-keys
+ * nothing and a pure content save no longer trips the order-sensitive
+ * dirty check. Empty diff → `{ ok: true }` (no fire). Mirrors
+ * `applyEnvVariablesReplacement`.
  */
 export async function applyWorkspaceVariablesReplacement(
   newVars: readonly Variable[],
@@ -90,17 +103,33 @@ export async function applyWorkspaceVariablesReplacement(
 ): Promise<WorkspaceVariablesSimpleResult> {
   const oldByUid = new Map<string, Variable>();
   for (const v of oldVars) oldByUid.set(v.uid, v);
-  const newByUid = new Map<string, Variable>();
-  for (const v of newVars) {
-    if (!v.name.trim()) continue;
-    newByUid.set(v.uid, v);
+  const survivors = newVars.filter((v) => v.name.trim());
+  const newUids = new Set(survivors.map((v) => v.uid));
+
+  // Current persisted order keys (fractional-index order). The write
+  // reuses them to keep unmoved rows byte-stable across saves.
+  const mirror = resolveMirror(opts, getWorkspaceVariablesSyncMirrorForWorkspace);
+  await mirror.hydrated;
+  const currentKeys = new Map(mirror.liveVarOrderKeys().map((e) => [e.itemId, e.orderKey] as const));
+
+  // Assign each survivor an orderKey in editor order: reuse the existing
+  // key when it stays strictly greater than the previous assignment,
+  // otherwise mint a fresh one after `prev` (seed for the first mint).
+  const assigned = new Map<string, string>();
+  let prevKey: string | null = null;
+  for (const v of survivors) {
+    const cur = currentKeys.get(v.uid);
+    const reuse = cur !== undefined && (prevKey === null || cur > prevKey);
+    const key: string = reuse ? cur : prevKey === null ? seedKey() : keyBetween(prevKey, null);
+    assigned.set(v.uid, key);
+    prevKey = key;
   }
 
   const ctx = resolveRendererContext(opts).next({ batchId: opts.batchId ?? `workspace-vars-replace` });
 
   const bodies: MutationBody[] = [];
   for (const [uid] of oldByUid) {
-    if (newByUid.has(uid)) continue;
+    if (newUids.has(uid)) continue;
     bodies.push({
       kind: 'removeFromSet',
       type: WORKSPACE_VARIABLES_ENTITY_TYPE,
@@ -109,23 +138,24 @@ export async function applyWorkspaceVariablesReplacement(
       itemId: uid,
     });
   }
-  for (const [uid, variable] of newByUid) {
-    const prev = oldByUid.get(uid);
-    if (
+  for (const variable of survivors) {
+    const prev = oldByUid.get(variable.uid);
+    const key = assigned.get(variable.uid)!;
+    const contentSame =
       prev &&
       prev.name === variable.name &&
       prev.value === variable.value &&
-      (prev.type ?? 'default') === (variable.type ?? 'default')
-    ) {
-      continue;
-    }
+      (prev.type ?? 'default') === (variable.type ?? 'default');
+    const keySame = currentKeys.get(variable.uid) === key;
+    if (contentSame && keySame) continue;
     bodies.push({
       kind: 'addToSet',
       type: WORKSPACE_VARIABLES_ENTITY_TYPE,
       id: WORKSPACE_VARIABLES_ID,
       path: WORKSPACE_VARIABLES_PATH,
-      itemId: uid,
+      itemId: variable.uid,
       item: variable,
+      orderKey: key,
     });
   }
 

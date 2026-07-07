@@ -115,5 +115,10 @@ describe('projectWorkspaceVariablesPostState', () => {
     );
     const projected = projectWorkspaceVariablesSingleton(oracle);
     expect(projected?.varUids.sort()).toEqual(live.map((e) => e.itemId).sort());
+    // setOrderKeys carries the per-uid fractional-index keys at the vars
+    // path — same uid set as varUids, each with a string orderKey.
+    const orderKeys = projected?.setOrderKeys[WORKSPACE_VARIABLES_PATH] ?? [];
+    expect(orderKeys.map((e) => e.itemId).sort()).toEqual(live.map((e) => e.itemId).sort());
+    for (const e of orderKeys) expect(typeof e.orderKey).toBe('string');
   });
 });

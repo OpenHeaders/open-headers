@@ -6,7 +6,7 @@
  * than per-environment.
  */
 
-import { WORKSPACE_VARIABLES_ENTITY_TYPE } from '@openheaders/core/sync';
+import { WORKSPACE_VARIABLES_ENTITY_TYPE, WORKSPACE_VARIABLES_PATH } from '@openheaders/core/sync';
 import type { WorkspaceVariables } from '@openheaders/core/types';
 import { hostBridge } from '@openheaders/core/bridge';
 import {
@@ -20,6 +20,10 @@ export interface WorkspaceVariablesMirrorEntry {
   /** Live variable uids. Set member identity is `variable.uid`; this
    *  array is the projected names list. */
   varUids: string[];
+  /** Per-uid order keys at each set path (the vars set, keyed by
+   *  `WORKSPACE_VARIABLES_PATH`). Feeds the editor's position-preserving
+   *  Save. */
+  setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;
 }
 
 export type WorkspaceVariablesMirrorListener = () => void;
@@ -27,6 +31,9 @@ export type WorkspaceVariablesMirrorListener = () => void;
 export interface WorkspaceVariablesSyncMirror {
   getMirror(): WorkspaceVariablesMirrorEntry | null;
   liveVarNames(): string[];
+  /** Live `(itemId, orderKey)` pairs for the vars set, in
+   *  fractional-index order. `[]` when the singleton is unknown. */
+  liveVarOrderKeys(): Array<{ itemId: string; orderKey: string }>;
   subscribeMirror(listener: WorkspaceVariablesMirrorListener): () => void;
   hydrated: Promise<void>;
   dispose(): void;
@@ -49,13 +56,18 @@ export function createWorkspaceVariablesSyncMirror(
         return {
           workspaceVariables: workspaceVariablesPostState.workspaceVariables,
           varUids: workspaceVariablesPostState.varUids,
+          setOrderKeys: workspaceVariablesPostState.setOrderKeys,
         };
       },
       fetchSnapshot: async () => {
         const resp = await hostBridge.call('oh.sync.snapshotWorkspaceVariables', { workspaceId });
         const first = resp.entries[0];
         return first
-          ? { workspaceVariables: first.workspaceVariables, varUids: first.varUids }
+          ? {
+              workspaceVariables: first.workspaceVariables,
+              varUids: first.varUids,
+              setOrderKeys: first.setOrderKeys,
+            }
           : null;
       },
     },
@@ -64,6 +76,7 @@ export function createWorkspaceVariablesSyncMirror(
   return {
     getMirror: core.get,
     liveVarNames: () => core.get()?.varUids ?? [],
+    liveVarOrderKeys: () => core.get()?.setOrderKeys[WORKSPACE_VARIABLES_PATH] ?? [],
     subscribeMirror: core.subscribe,
     hydrated: core.hydrated,
     dispose: core.dispose,

@@ -149,6 +149,14 @@ export interface SyncWorkspaceVariablesPostState {
   workspaceVariables: WorkspaceVariables;
   /** Live variable uids — the set-member identity (uid) for workspace vars. */
   varUids: string[];
+  /**
+   * Live `(itemId, orderKey)` pairs at the workspace variables set
+   * (§23.5). Renderer-side mirrors fold this so the editor's Save can
+   * preserve row position on a content edit (re-emit `addToSet` with the
+   * existing key) and compute `keyBetween(prev, next)` on reorder/insert.
+   * Parallel to {@link SyncEnvironmentPostState.setOrderKeys}.
+   */
+  setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;
 }
 
 /**

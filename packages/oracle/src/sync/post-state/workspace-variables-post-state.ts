@@ -13,10 +13,10 @@ import {
   WORKSPACE_VARIABLES_PATH,
 } from '@openheaders/core/sync';
 import { projectWorkspaceVariables } from '@openheaders/core/sync-builders/projections/workspace-variables-projection';
-import { makeSingletonEntityProjectors } from './flat-entity-post-state';
+import { buildSetMembersExtras, makeSingletonEntityProjectors } from './flat-entity-post-state';
 import type { EntityOracle } from '../oracle';
 
-type Reads = Pick<EntityOracle, 'materializeOne' | 'liveSetItems'>;
+type Reads = Pick<EntityOracle, 'materializeOne' | 'liveSetItems' | 'liveOrderedSetItems'>;
 
 const projectors = makeSingletonEntityProjectors<Reads, SyncWorkspaceVariablesPostState>({
   entityType: WORKSPACE_VARIABLES_ENTITY_TYPE,
@@ -27,7 +27,16 @@ const projectors = makeSingletonEntityProjectors<Reads, SyncWorkspaceVariablesPo
     const varUids = oracle
       .liveSetItems(WORKSPACE_VARIABLES_ENTITY_TYPE, WORKSPACE_VARIABLES_ID, WORKSPACE_VARIABLES_PATH)
       .map((entry) => entry.itemId);
-    return { workspaceVariables, varUids };
+    // Per-uid order keys at the vars set — the editor's Save reads these
+    // to preserve row position on content edits and to mint `keyBetween`
+    // positions on reorder/insert (§23.5).
+    const setOrderKeys = buildSetMembersExtras(
+      oracle,
+      WORKSPACE_VARIABLES_ENTITY_TYPE,
+      WORKSPACE_VARIABLES_ID,
+      [WORKSPACE_VARIABLES_PATH],
+    ).setOrderKeys;
+    return { workspaceVariables, varUids, setOrderKeys };
   },
 });
 
