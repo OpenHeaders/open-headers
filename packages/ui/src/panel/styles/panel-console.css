@@ -4,14 +4,21 @@
    (`.dt-header-filter-row`, `.dt-filter-input`, `.dt-filter-pills`,
    `.dt-toolbar-icon`), so only the log surface itself lives here. */
 
+/* Monospace is scoped to the log surface (rows + stack ladders), NOT the
+   whole body — the empty-state heroes and the capture-stopped banner are
+   prose and render in the UI font, same as the Network panel's. */
 .dt-console-body {
   flex: 1;
   min-height: 0;
   overflow: auto;
   display: flex;
   flex-direction: column;
-  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
   font-size: 11px;
+}
+
+.dt-console-row,
+.dt-console-stack {
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
 }
 
 /* Capture-stopped banner — pinned to the top of the scroll area so it stays
