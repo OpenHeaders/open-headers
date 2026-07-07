@@ -15,6 +15,21 @@ export type ResponseHeaderRow = ExecutedRequestSnapshot['headers'][number];
 export const HEADER_FILTER_THRESHOLD = 10;
 
 /**
+ * Merge the wire capture's raw `Set-Cookie` lines into the header rows.
+ * `Set-Cookie` is a forbidden response header for `fetch()`, so the
+ * snapshot's list never carries it — but the wire capture observed the
+ * lines verbatim. Appended at the end: the fetch order is the
+ * platform's sorted order and the true wire position is unknown.
+ */
+export function withWireCookieHeaders(
+  headers: readonly ResponseHeaderRow[],
+  setCookieHeaders: readonly string[] | undefined,
+): ResponseHeaderRow[] {
+  if (!setCookieHeaders || setCookieHeaders.length === 0) return [...headers];
+  return [...headers, ...setCookieHeaders.map((value) => ({ key: 'set-cookie', value }))];
+}
+
+/**
  * Case-insensitive substring filter over name and value. A blank (or
  * whitespace-only) query keeps every row.
  */

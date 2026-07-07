@@ -24,7 +24,7 @@ import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/readers/useLiveWo
 import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
 import { Button, Dropdown, Tabs, Typography, theme } from 'antd';
 import type React from 'react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { RequestEditorLayout } from '../useRequestEditorLayout';
 import ResponseAssertionsView from './ResponseAssertionsView';
 import ResponseBodyView from './ResponseBodyView';
@@ -34,6 +34,7 @@ import ResponseEmptyState from './ResponseEmptyState';
 import ResponseHeadersView from './ResponseHeadersView';
 import ResponseMetaStrip from './ResponseMetaStrip';
 import { detectBodyLanguage } from './response-format';
+import { withWireCookieHeaders } from './response-headers';
 import { downloadBodyAsFile } from './response-save';
 import { SplitLayoutToggle } from '@openheaders/ui/shared/split-layout';
 
@@ -81,6 +82,14 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
   const postLog = scripts?.postResponse?.consoleLog ?? [];
   const hasScriptLog = preLog.length > 0 || postLog.length > 0;
   const setCookieCount = response?.wire?.setCookieHeaders?.length ?? 0;
+  // The Headers grid shows the wire-captured Set-Cookie lines too —
+  // fetch strips them from the snapshot (forbidden response header),
+  // but they were genuinely on the wire. Memoized: the view's
+  // filter-reset effect keys on row identity.
+  const headerRows = useMemo(
+    () => (response ? withWireCookieHeaders(response.headers, response.wire?.setCookieHeaders) : []),
+    [response],
+  );
   const [activeTab, setActiveTab] = useState<ResponseTabKey>('body');
   const [bodyCopied, setBodyCopied] = useState(false);
 
@@ -233,8 +242,8 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
             },
             {
               key: 'headers',
-              label: `Headers (${response.headers.length})`,
-              children: <ResponseHeadersView headers={response.headers} />,
+              label: `Headers (${headerRows.length})`,
+              children: <ResponseHeadersView headers={headerRows} />,
             },
             ...(setCookieCount > 0 && response.wire
               ? [

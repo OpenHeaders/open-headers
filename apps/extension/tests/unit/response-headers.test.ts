@@ -2,6 +2,7 @@ import {
   filterHeaderRows,
   HEADER_FILTER_THRESHOLD,
   serializeHeaderLines,
+  withWireCookieHeaders,
 } from '@openheaders/ui/workbench/components/request-editor/response/response-headers';
 import { describe, expect, it } from 'vitest';
 
@@ -56,5 +57,24 @@ describe('serializeHeaderLines', () => {
 describe('HEADER_FILTER_THRESHOLD', () => {
   it('is the agreed ~10-row cutoff', () => {
     expect(HEADER_FILTER_THRESHOLD).toBe(10);
+  });
+});
+
+describe('withWireCookieHeaders', () => {
+  it('appends one set-cookie row per wire line, in arrival order', () => {
+    const merged = withWireCookieHeaders(HEADERS, [
+      'oh_cred=present; Path=/; SameSite=None; Secure',
+      'oh_hop=1; Path=/',
+    ]);
+    expect(merged).toHaveLength(HEADERS.length + 2);
+    expect(merged.slice(HEADERS.length)).toEqual([
+      { key: 'set-cookie', value: 'oh_cred=present; Path=/; SameSite=None; Secure' },
+      { key: 'set-cookie', value: 'oh_hop=1; Path=/' },
+    ]);
+  });
+
+  it('returns the rows unchanged when the capture saw no cookies', () => {
+    expect(withWireCookieHeaders(HEADERS, undefined)).toEqual(HEADERS);
+    expect(withWireCookieHeaders(HEADERS, [])).toEqual(HEADERS);
   });
 });
