@@ -94,12 +94,13 @@ export function clearDomStorageInPage(area: 'local' | 'session') {
 }
 
 /**
- * The one injection path every op rides: serialize `func` into the
+ * The one injection path every op rides (the IDB plane's too —
+ * `standard-plane-idb.ts` imports it): serialize `func` into the
  * scope's frame and hand back its return value, `null` on any failure
  * (frame navigated away, tab closed, page not injectable) — the panel
  * renders "unavailable" / a failure note and the next poll retries.
  */
-async function runInFrame<Args extends unknown[], R>(
+export async function runInFrame<Args extends unknown[], R>(
   tabId: number,
   frameId: number,
   func: (...args: Args) => R,

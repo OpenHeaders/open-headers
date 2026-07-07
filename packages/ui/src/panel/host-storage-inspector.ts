@@ -14,6 +14,10 @@ export type {
   DomStorageEntry,
   DomStorageFullValue,
   DomStorageSnapshot,
+  IdbDatabase,
+  IdbObjectStore,
+  IdbRecord,
+  IdbRecordsPage,
   StorageInspectorHost,
   StorageScope,
 } from './data/storage/storage-inspector-host';

@@ -26,6 +26,7 @@ import {
 import { useCookieJarSticky } from '../../data/cookies/use-cookie-jar';
 import type { DomStorageEntry } from '../../data/storage/storage-inspector-host';
 import { parseStorageKey } from '../../data/storage/storage-key';
+import { useIdbBrowser } from '../../data/storage/use-idb-browser';
 import {
   type StorageInspectorState,
   type StorageSection,
@@ -33,6 +34,7 @@ import {
 } from '../../data/storage/use-storage-inspector';
 import { CookieEditPopover } from '../detail/cookies/CookieEditPopover';
 import { CookiesSection } from './CookiesSection';
+import { IndexedDbSection } from './IndexedDbSection';
 import { StorageGrid } from './StorageGrid';
 
 interface StoragePanelProps {
@@ -43,6 +45,7 @@ const SECTIONS: ReadonlyArray<{ value: StorageSection; label: string }> = [
   { value: 'local', label: 'Local storage' },
   { value: 'session', label: 'Session storage' },
   { value: 'cookies', label: 'Cookies' },
+  { value: 'indexeddb', label: 'IndexedDB' },
 ];
 
 function areaName(section: StorageSection): string {
@@ -73,6 +76,9 @@ export function StoragePanel({ onHide }: StoragePanelProps) {
   // the browser reported one and it carries partition components.
   const selectedScope = inspector.scopes.find((s) => s.origin === inspector.selectedOrigin) ?? null;
   const partition = selectedScope?.storageKey ? parseStorageKey(selectedScope.storageKey) : null;
+
+  // ── IndexedDB section data (own hook, own poll) ────────────────────
+  const idb = useIdbBrowser(section === 'indexeddb', selectedScope?.frameId ?? null);
 
   // ── Cookies section data + write plumbing (jar plane reuse) ────────
   const scopeUrl = selectedScope?.url ?? '';
@@ -128,12 +134,16 @@ export function StoragePanel({ onHide }: StoragePanelProps) {
           sortedCookies ? `${filteredCookies.length} of ${sortedCookies.length} cookies` : '',
           cookieWriteFailed ? ' · write failed' : '',
         ].join('')
-      : [
-          inspector.snapshot ? `${filtered.length} of ${entries.length} items` : '',
-          inspector.snapshot?.truncated ? ' · list truncated' : '',
-          inspector.readFailed ? ' · read failed — showing last data' : '',
-          inspector.writeFailed ? ' · write failed' : '',
-        ].join('');
+      : section === 'indexeddb'
+        ? idb.databases
+          ? `${idb.databases.length} ${idb.databases.length === 1 ? 'database' : 'databases'}`
+          : ''
+        : [
+            inspector.snapshot ? `${filtered.length} of ${entries.length} items` : '',
+            inspector.snapshot?.truncated ? ' · list truncated' : '',
+            inspector.readFailed ? ' · read failed — showing last data' : '',
+            inspector.writeFailed ? ' · write failed' : '',
+          ].join('');
 
   return (
     <div className="dt-panel">
@@ -161,6 +171,16 @@ export function StoragePanel({ onHide }: StoragePanelProps) {
                   <PlusOutlined />
                 </button>
               </CookieEditPopover>
+            ) : section === 'indexeddb' ? (
+              <button
+                type="button"
+                className="dt-toolbar-icon"
+                disabled
+                title="IndexedDB is read-only here"
+                aria-label="IndexedDB is read-only"
+              >
+                <PlusOutlined />
+              </button>
             ) : (
               <button
                 type="button"
@@ -176,7 +196,10 @@ export function StoragePanel({ onHide }: StoragePanelProps) {
             <button
               type="button"
               className="dt-toolbar-icon"
-              onClick={inspector.refresh}
+              onClick={() => {
+                inspector.refresh();
+                if (section === 'indexeddb') idb.refresh();
+              }}
               title="Refresh"
               aria-label="Refresh storage"
             >
@@ -242,6 +265,17 @@ export function StoragePanel({ onHide }: StoragePanelProps) {
                 onApplyEdit={applyCookieEdit}
                 onDelete={deleteCookie}
               />
+            ) : section === 'indexeddb' ? (
+              inspector.available && inspector.scopes.length > 0 ? (
+                <IndexedDbSection idb={idb} filter={textFilter} />
+              ) : (
+                <div className="dt-empty-hero">
+                  <strong>No inspectable origins</strong>
+                  <span className="dt-empty-hero-sub">
+                    This tab has no http(s) frames — browser-internal pages can’t be inspected.
+                  </span>
+                </div>
+              )
             ) : (
               <StorageBody
                 inspector={inspector}

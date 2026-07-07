@@ -49,8 +49,9 @@ function scopesEqual(a: ReadonlyArray<StorageScope>, b: ReadonlyArray<StorageSco
 
 /** The storage types the tool window's navigation rail offers. Local
  *  and Session are the two DOM storage areas; Cookies rides the jar
- *  plane. Later slices add IndexedDB / Cache Storage / quota. */
-export type StorageSection = 'local' | 'session' | 'cookies';
+ *  plane; IndexedDB has its own browser hook (`use-idb-browser`). Later
+ *  slices add Cache Storage / quota. */
+export type StorageSection = 'local' | 'session' | 'cookies' | 'indexeddb';
 
 export interface StorageInspectorState {
   /** A host is installed and the inspected tab is resolvable. */
@@ -86,10 +87,10 @@ export function useStorageInspector(section: StorageSection): StorageInspectorSt
   const tabId = hostNavigation.inspectedTabId();
   const available = host !== null && tabId !== null;
 
-  // The two DOM areas map onto the read/write plane; the Cookies section
-  // parks it (no entry reads) while scope discovery keeps polling.
+  // The two DOM areas map onto the read/write plane; the other sections
+  // park it (no entry reads) while scope discovery keeps polling.
   const area: DomStorageArea = section === 'session' ? 'session' : 'local';
-  const domActive = section !== 'cookies';
+  const domActive = section === 'local' || section === 'session';
 
   const [scopes, setScopes] = useState<ReadonlyArray<StorageScope>>([]);
   const [selectedOrigin, setSelectedOrigin] = useState<string | null>(null);
@@ -152,13 +153,15 @@ export function useStorageInspector(section: StorageSection): StorageInspectorSt
   // What one poll tick does for the active section: DOM sections read
   // entries; Cookies invalidates the jar cache for the selected scope's
   // URL — the section's sticky jar hook refetches through the one jar
-  // path (invalidation, not a second read plane). Keyed on the URL
-  // PRIMITIVE for the same reason as `selectedFrameId` above.
+  // path (invalidation, not a second read plane). IndexedDB polls in its
+  // own hook. Keyed on the URL PRIMITIVE for the same reason as
+  // `selectedFrameId` above.
   const selectedUrl = selectedScope?.url ?? null;
+  const cookiesActive = section === 'cookies';
   const pollTick = useCallback(() => {
     if (domActive) void readEntries();
-    else if (selectedUrl !== null) invalidateJarCache(selectedUrl);
-  }, [domActive, readEntries, selectedUrl]);
+    else if (cookiesActive && selectedUrl !== null) invalidateJarCache(selectedUrl);
+  }, [domActive, cookiesActive, readEntries, selectedUrl]);
 
   // Mount → scope discovery; then the poll loop (section tick every
   // tick, scopes every SCOPES_POLL_TICKS) while the window is visible.

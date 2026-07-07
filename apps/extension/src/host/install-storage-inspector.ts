@@ -13,6 +13,8 @@ import type {
   DomStorageArea,
   DomStorageFullValue,
   DomStorageSnapshot,
+  IdbDatabase,
+  IdbRecordsPage,
   StorageScope,
 } from '@openheaders/ui/panel/host-storage-inspector';
 import { setStorageInspectorHost } from '@openheaders/ui/panel/host-storage-inspector';
@@ -87,6 +89,32 @@ setStorageInspectorHost({
     } catch (err) {
       logger.info('StorageInspectorHost', `clearDomStorage ✗ tab ${tabId}: ${(err as Error).message}`);
       return false;
+    }
+  },
+  async listIndexedDb(tabId: number, frameId: number): Promise<readonly IdbDatabase[] | null> {
+    try {
+      const res = await call('listIndexedDbDatabases', { tabId, frameId });
+      return res?.databases ?? null;
+    } catch (err) {
+      logger.info('StorageInspectorHost', `listIndexedDb ✗ tab ${tabId}: ${(err as Error).message}`);
+      return null;
+    }
+  },
+  async readIndexedDbRecords(
+    tabId: number,
+    frameId: number,
+    database: string,
+    store: string,
+    page: number,
+    pageSize: number,
+  ): Promise<IdbRecordsPage | null> {
+    try {
+      const res = await call('getIndexedDbRecords', { tabId, frameId, database, store, page, pageSize });
+      if (!res?.records) return null;
+      return { records: res.records, truncated: res.truncated ?? false };
+    } catch (err) {
+      logger.info('StorageInspectorHost', `readIndexedDbRecords ✗ tab ${tabId}: ${(err as Error).message}`);
+      return null;
     }
   },
 });

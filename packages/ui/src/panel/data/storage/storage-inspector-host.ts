@@ -49,6 +49,34 @@ export interface DomStorageFullValue {
   tooLarge: boolean;
 }
 
+/** One object store's shape; `keyPath` is a display string (composite
+ *  paths comma-joined), absent for out-of-line keys. */
+export interface IdbObjectStore {
+  name: string;
+  keyPath?: string;
+  autoIncrement: boolean;
+  indexNames: ReadonlyArray<string>;
+}
+
+export interface IdbDatabase {
+  name: string;
+  version: number;
+  objectStores: ReadonlyArray<IdbObjectStore>;
+}
+
+/** One record, preview-serialized in-page — never the value itself. */
+export interface IdbRecord {
+  keyPreview: string;
+  primaryKeyPreview: string;
+  valuePreview: string;
+}
+
+/** `truncated` means more records exist past this page. */
+export interface IdbRecordsPage {
+  records: ReadonlyArray<IdbRecord>;
+  truncated: boolean;
+}
+
 export interface StorageInspectorHost {
   listScopes(tabId: number): Promise<ReadonlyArray<StorageScope> | null>;
   readDomStorage(tabId: number, frameId: number, area: DomStorageArea): Promise<DomStorageSnapshot | null>;
@@ -62,6 +90,17 @@ export interface StorageInspectorHost {
   writeDomStorage(tabId: number, frameId: number, area: DomStorageArea, key: string, value: string): Promise<boolean>;
   removeDomStorage(tabId: number, frameId: number, area: DomStorageArea, key: string): Promise<boolean>;
   clearDomStorage(tabId: number, frameId: number, area: DomStorageArea): Promise<boolean>;
+  /** Enumerate the scope's IndexedDB databases; `null` when unreadable. */
+  listIndexedDb(tabId: number, frameId: number): Promise<ReadonlyArray<IdbDatabase> | null>;
+  /** Cursor-paged, preview-serialized read of one object store. */
+  readIndexedDbRecords(
+    tabId: number,
+    frameId: number,
+    database: string,
+    store: string,
+    page: number,
+    pageSize: number,
+  ): Promise<IdbRecordsPage | null>;
 }
 
 let host: StorageInspectorHost | null = null;

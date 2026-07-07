@@ -49,6 +49,9 @@ export type { FolderDescriptor, WorkspaceSnapshot } from './common';
 export type {
   DomStorageAreaWire,
   DomStorageEntryWire,
+  IdbDatabaseWire,
+  IdbObjectStoreWire,
+  IdbRecordWire,
   JarCookieEditWire,
   JarCookieKeyWire,
   JarCookieWire,

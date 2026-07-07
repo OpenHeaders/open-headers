@@ -89,6 +89,32 @@ export interface DomStorageEntryWire {
   clipped?: boolean;
 }
 
+/** One object store of an IndexedDB database. A composite keyPath is
+ *  serialized as a comma-joined display string; absent ⇒ out-of-line keys. */
+export interface IdbObjectStoreWire {
+  name: string;
+  keyPath?: string;
+  autoIncrement: boolean;
+  indexNames: ReadonlyArray<string>;
+}
+
+export interface IdbDatabaseWire {
+  name: string;
+  version: number;
+  objectStores: ReadonlyArray<IdbObjectStoreWire>;
+}
+
+/**
+ * One IndexedDB record, PREVIEW-SERIALIZED in-page (type-tagged,
+ * depth- and length-capped strings) — IDB values are structured-clone
+ * types, not JSON, and must never ride the bridge whole.
+ */
+export interface IdbRecordWire {
+  keyPreview: string;
+  primaryKeyPreview: string;
+  valuePreview: string;
+}
+
 export interface DevToolsRpc {
   // ── DevTools panel: source-map resolution ──────────────────────
   /**
@@ -235,5 +261,31 @@ export interface DevToolsRpc {
   clearDomStorage: {
     req: { tabId: number; frameId: number; area: DomStorageAreaWire };
     res: { ok: boolean };
+  };
+
+  /**
+   * Enumerate one scope's IndexedDB databases with their object-store
+   * shapes. Injection-only, like DOM storage — the CDP `IndexedDB`
+   * domain is not dispatched for extension debugger clients
+   * (docs/STORAGE_PANEL_PLAN.md §2.3); the reader rides
+   * `indexedDB.databases()` plus a versionless open per database.
+   * `databases` is `null` when injection fails or the page has no
+   * IndexedDB reach (opaque origin, API unavailable).
+   */
+  listIndexedDbDatabases: {
+    req: { tabId: number; frameId: number };
+    res: { databases: ReadonlyArray<IdbDatabaseWire> | null };
+  };
+
+  /**
+   * Cursor-paged read of one object store. `page` is zero-based;
+   * `pageSize` is clamped SW-side. Records arrive preview-serialized
+   * (see {@link IdbRecordWire}); `truncated` means more records exist
+   * past this page. `records` is `null` when injection fails or the
+   * database/store is gone.
+   */
+  getIndexedDbRecords: {
+    req: { tabId: number; frameId: number; database: string; store: string; page: number; pageSize: number };
+    res: { records: ReadonlyArray<IdbRecordWire> | null; truncated?: boolean };
   };
 }

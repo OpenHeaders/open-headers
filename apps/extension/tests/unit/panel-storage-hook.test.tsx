@@ -16,8 +16,9 @@ import {
   __seedCookieJarForTests,
   getJarCookiesForUrl,
 } from '@openheaders/ui/panel/data/cookies/cookie-jar-cache';
+import { useIdbBrowser } from '@openheaders/ui/panel/data/storage/use-idb-browser';
 import { type StorageSection, useStorageInspector } from '@openheaders/ui/panel/data/storage/use-storage-inspector';
-import type { StorageInspectorHost } from '@openheaders/ui/panel/host-storage-inspector';
+import type { IdbDatabase, IdbRecordsPage, StorageInspectorHost } from '@openheaders/ui/panel/host-storage-inspector';
 import { setStorageInspectorHost } from '@openheaders/ui/panel/host-storage-inspector';
 import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -38,13 +39,26 @@ const NAV: HostNavigation = {
 
 const SCOPE = { frameId: 0, origin: 'https://openheaders.io', url: 'https://openheaders.io/', isMainFrame: true };
 
+const IDB_DB: IdbDatabase = {
+  name: 'oh-app',
+  version: 1,
+  objectStores: [{ name: 'kv', keyPath: 'id', autoIncrement: false, indexNames: [] }],
+};
+
+const IDB_PAGE: IdbRecordsPage = {
+  records: [{ keyPreview: '1', primaryKeyPreview: '1', valuePreview: '{id: 1}' }],
+  truncated: false,
+};
+
 function installHost() {
-  // Fresh array + fresh scope objects on every call — exactly what the
-  // wire produces; the hook owns deduplication.
+  // Fresh arrays + fresh objects on every call — exactly what the wire
+  // produces; the hooks own deduplication.
   const listScopes = vi.fn(() => Promise.resolve([{ ...SCOPE }]));
   const readDomStorage = vi.fn(() =>
     Promise.resolve({ entries: [{ key: 'theme', value: 'dark', valueLength: 4 }], truncated: false }),
   );
+  const listIndexedDb = vi.fn(() => Promise.resolve([structuredClone(IDB_DB)]));
+  const readIndexedDbRecords = vi.fn(() => Promise.resolve(structuredClone(IDB_PAGE)));
   const host: StorageInspectorHost = {
     listScopes,
     readDomStorage,
@@ -52,9 +66,11 @@ function installHost() {
     writeDomStorage: vi.fn(() => Promise.resolve(true)),
     removeDomStorage: vi.fn(() => Promise.resolve(true)),
     clearDomStorage: vi.fn(() => Promise.resolve(true)),
+    listIndexedDb,
+    readIndexedDbRecords,
   };
   setStorageInspectorHost(host);
-  return { listScopes, readDomStorage };
+  return { listScopes, readDomStorage, listIndexedDb, readIndexedDbRecords };
 }
 
 async function flush(ms = 1): Promise<void> {
@@ -175,5 +191,59 @@ describe('useStorageInspector cookies section', () => {
     await flush();
     expect(result.current.snapshot?.entries).toEqual([{ key: 'theme', value: 'dark', valueLength: 4 }]);
     expect(result.current.loading).toBe(false);
+  });
+});
+
+describe('useIdbBrowser poll stability', () => {
+  it('does nothing while inactive', async () => {
+    const { listIndexedDb, readIndexedDbRecords } = installHost();
+    renderHook(() => useIdbBrowser(false, 0));
+
+    await flush(15_000);
+    expect(listIndexedDb).not.toHaveBeenCalled();
+    expect(readIndexedDbRecords).not.toHaveBeenCalled();
+  });
+
+  it('keeps state identities across unchanged re-lists and re-reads', async () => {
+    const { listIndexedDb, readIndexedDbRecords } = installHost();
+    const { result } = renderHook(() => useIdbBrowser(true, 0));
+
+    await flush();
+    await flush();
+    const databases = result.current.databases;
+    expect(databases).not.toBeNull();
+
+    act(() => {
+      result.current.selectStore('oh-app', 'kv');
+    });
+    await flush();
+    const page = result.current.recordsPage;
+    expect(page).not.toBeNull();
+
+    // Two poll ticks (5s each) return fresh-but-equal data — identities
+    // must hold, and reads must be one per tick, not a reset storm.
+    const listsBefore = listIndexedDb.mock.calls.length;
+    const readsBefore = readIndexedDbRecords.mock.calls.length;
+    await flush(10_000);
+    expect(result.current.databases).toBe(databases);
+    expect(result.current.recordsPage).toBe(page);
+    expect(listIndexedDb.mock.calls.length).toBe(listsBefore + 2);
+    expect(readIndexedDbRecords.mock.calls.length).toBe(readsBefore + 2);
+  });
+
+  it('drops the selection when a re-list no longer has the store', async () => {
+    const { listIndexedDb } = installHost();
+    const { result } = renderHook(() => useIdbBrowser(true, 0));
+
+    await flush();
+    act(() => {
+      result.current.selectStore('oh-app', 'kv');
+    });
+    await flush();
+    expect(result.current.selection).toEqual({ database: 'oh-app', store: 'kv' });
+
+    listIndexedDb.mockImplementation(() => Promise.resolve([]));
+    await flush(5000);
+    expect(result.current.selection).toBeNull();
   });
 });

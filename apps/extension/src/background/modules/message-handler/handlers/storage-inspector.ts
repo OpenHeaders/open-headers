@@ -1,4 +1,4 @@
-/** Storage tool-window RPCs — scope discovery + DOM storage reads/writes. */
+/** Storage tool-window RPCs — scope discovery + DOM storage reads/writes + IndexedDB reads. */
 
 import type { DomStorageAreaWire } from '@openheaders/core/bridge';
 import { logger } from '@utils/logger';
@@ -6,6 +6,8 @@ import {
   clearDomStorage as clearDomStorageHandler,
   getDomStorageEntries as getDomStorageEntriesHandler,
   getDomStorageValue as getDomStorageValueHandler,
+  getIndexedDbRecords as getIndexedDbRecordsHandler,
+  listIndexedDbDatabases as listIndexedDbDatabasesHandler,
   listStorageScopes as listStorageScopesHandler,
   removeDomStorageItem as removeDomStorageItemHandler,
   setDomStorageItem as setDomStorageItemHandler,
@@ -85,6 +87,33 @@ export const storageInspectorHandlers: HandlerMap = {
       .catch((err: Error) => {
         logger.info('StorageWrite', `handler threw: ${err.message}`);
         respond({ ok: false });
+      });
+    return true;
+  },
+
+  listIndexedDbDatabases: ({ message, respond }) => {
+    listIndexedDbDatabasesHandler(message.tabId as number, message.frameId as number)
+      .then((res) => respond(res))
+      .catch((err: Error) => {
+        logger.info('StorageIdb', `handler threw: ${err.message}`);
+        respond({ databases: null });
+      });
+    return true;
+  },
+
+  getIndexedDbRecords: ({ message, respond }) => {
+    getIndexedDbRecordsHandler(
+      message.tabId as number,
+      message.frameId as number,
+      message.database as string,
+      message.store as string,
+      message.page as number,
+      message.pageSize as number,
+    )
+      .then((res) => respond(res))
+      .catch((err: Error) => {
+        logger.info('StorageIdb', `handler threw: ${err.message}`);
+        respond({ records: null });
       });
     return true;
   },

@@ -185,6 +185,81 @@
   white-space: nowrap;
 }
 
+/* IndexedDB section — database groups with store rows, then the paged
+ * records grid (reuses the default two-column grid). */
+.dt-storage-idb-list {
+  font-size: 11px;
+  padding: 2px 0;
+}
+
+.dt-storage-idb-db-header {
+  padding: 3px 8px 1px;
+  color: var(--dt-text);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dt-storage-idb-store {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  width: 100%;
+  font: inherit;
+  text-align: left;
+  padding: 2px 8px 2px 20px;
+  border: none;
+  background: transparent;
+  color: var(--dt-text);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dt-storage-idb-store:hover {
+  background: var(--dt-row-hover);
+}
+
+.dt-storage-idb-meta {
+  margin-left: 6px;
+  color: var(--dt-text-muted);
+  font-weight: 400;
+}
+
+.dt-storage-idb-empty {
+  padding: 1px 8px 1px 20px;
+}
+
+.dt-storage-idb-crumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-bottom: 1px solid var(--dt-border);
+  font-size: 11px;
+}
+
+.dt-storage-idb-crumb-path {
+  color: var(--dt-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dt-storage-idb-pager {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dt-storage-idb-pager .dt-storage-action:disabled {
+  color: var(--dt-border);
+  cursor: default;
+}
+
 /* Hover action lane — floats over the value cell's right edge, revealed
  * on row hover (focused-content affordance stays reachable by keyboard:
  * focus-within reveals it too). Pinned variant (add/edit rows) is always
