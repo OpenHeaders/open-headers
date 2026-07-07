@@ -90,8 +90,9 @@ describe('toCookieGridRow', () => {
 });
 
 describe('hostOfUrl', () => {
-  it('returns the host with port, and empty for an unparseable URL', () => {
-    expect(hostOfUrl('https://api.openheaders.io:8443/v1/users')).toBe('api.openheaders.io:8443');
+  it('returns the host name without port (cookie domains have no port), empty for an unparseable URL', () => {
+    expect(hostOfUrl('https://api.openheaders.io:8443/v1/users')).toBe('api.openheaders.io');
+    expect(hostOfUrl('http://127.0.0.1:3000/api/redirect')).toBe('127.0.0.1');
     expect(hostOfUrl('not a url')).toBe('');
   });
 });

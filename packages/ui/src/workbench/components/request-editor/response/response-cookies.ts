@@ -92,10 +92,11 @@ export function toCookieGridRow(cookie: ParsedSetCookie, requestHost: string): C
   };
 }
 
-/** Host of the response's final URL — the Domain fallback. */
+/** Host name of the response's final URL — the Domain fallback. No
+ *  port: cookie domains scope by host name only (RFC 6265). */
 export function hostOfUrl(url: string): string {
   try {
-    return new URL(url).host;
+    return new URL(url).hostname;
   } catch {
     return '';
   }
