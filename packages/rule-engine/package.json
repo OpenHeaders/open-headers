@@ -1,6 +1,6 @@
 {
   "name": "@openheaders/rule-engine",
-  "version": "2026.7.0",
+  "version": "2026.7.1",
   "private": true,
   "description": "OpenHeaders rule engine — declarativeNetRequest compile pipeline, content-script generation, scripting injection",
   "type": "module",
