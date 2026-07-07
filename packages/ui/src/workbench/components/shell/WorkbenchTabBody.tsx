@@ -72,6 +72,7 @@ interface WorkbenchTabBodyProps {
   openLiveVariableEdit: UseTabOpenersApi['openLiveVariableEdit'];
   openCreateLiveVariable: UseTabOpenersApi['openCreateLiveVariable'];
   openCreateLiveWorkflow: UseTabOpenersApi['openCreateLiveWorkflow'];
+  openScriptPackages: UseTabOpenersApi['openScriptPackages'];
 
   // Shell-local handlers and slices.
   openTestRunsPanel: () => void;
@@ -116,6 +117,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
   openLiveVariableEdit,
   openCreateLiveVariable,
   openCreateLiveWorkflow,
+  openScriptPackages,
   openTestRunsPanel,
   handleRunReportDeleted,
   handleSwitchWorkspace,
@@ -342,6 +344,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
         mode="request-edit"
         requestUid={tab.requestUid}
         workspaceId={editingScopeWorkspaceId}
+        onOpenPackageLibrary={openScriptPackages}
         onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
         registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
         registerDuplicateRef={(fn) => registerRequestDuplicateRef(tab.id, fn)}
@@ -382,6 +385,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
         mode="request-create"
         draftName={tab.draftName ?? tab.label}
         workspaceId={editingScopeWorkspaceId}
+        onOpenPackageLibrary={openScriptPackages}
         seedRequestContent={tab.seedRequestContent}
         preferredCollectionId={tab.preferredCollectionId}
         preferredFolderPath={tab.preferredFolderPath}

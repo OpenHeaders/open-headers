@@ -106,6 +106,8 @@ interface RequestEditorProps {
   /** Editing-scope workspace — threaded to script-editor selection
    *  actions (Save to Package Library). */
   workspaceId?: string | null;
+  /** Open the Package Library tab (Scripts tab's Packages popover). */
+  onOpenPackageLibrary?: () => void;
 }
 
 /** Payload the request editor hands the extract action. */
@@ -130,6 +132,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   registerDuplicateRef,
   onExtractToWorkflow,
   workspaceId = null,
+  onOpenPackageLibrary,
 }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
@@ -612,6 +615,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
                         headerConflictBridge={isCreateMode ? undefined : headerConflictBridge}
                         paramConflictBridge={isCreateMode ? undefined : paramConflictBridge}
                         workspaceId={workspaceId}
+                        onOpenPackageLibrary={onOpenPackageLibrary}
                       />
                     </div>
                   </div>

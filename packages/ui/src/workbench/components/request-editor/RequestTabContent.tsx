@@ -25,6 +25,8 @@ interface RequestTabContentProps {
   /** Editing-scope workspace — target for script-editor selection
    *  actions (Save to Package Library). */
   workspaceId?: string | null;
+  /** Open the Package Library tab (Scripts tab's Packages popover). */
+  onOpenPackageLibrary?: () => void;
 }
 
 const RequestTabContent: React.FC<RequestTabContentProps> = ({
@@ -34,6 +36,7 @@ const RequestTabContent: React.FC<RequestTabContentProps> = ({
   headerConflictBridge,
   paramConflictBridge,
   workspaceId,
+  onOpenPackageLibrary,
 }) => {
   switch (tab) {
     case 'docs':
@@ -69,6 +72,7 @@ const RequestTabContent: React.FC<RequestTabContentProps> = ({
           onPreRequestChange={(preRequestScript) => setDraft((d) => ({ ...d, preRequestScript }))}
           onPostResponseChange={(postResponseScript) => setDraft((d) => ({ ...d, postResponseScript }))}
           workspaceId={workspaceId}
+          onOpenPackageLibrary={onOpenPackageLibrary}
         />
       );
     case 'settings':

@@ -22,6 +22,7 @@ import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import SaveToPackagePopover from '../script-editor/SaveToPackagePopover';
+import ScriptPackagesMenu from '../script-editor/ScriptPackagesMenu';
 import CodeEditor from '../shared/CodeEditor';
 import DismissLayer from '../template-input/DismissLayer';
 import ScriptSnippetsMenu from '../script-editor/ScriptSnippetsMenu';
@@ -35,6 +36,8 @@ interface ScriptsTabProps {
   onPostResponseChange: (value: string) => void;
   /** Editing-scope workspace — target for "Save to Package Library". */
   workspaceId?: string | null;
+  /** Open the Package Library tab (Packages popover footer). */
+  onOpenPackageLibrary?: () => void;
 }
 
 const SCRIPT_INFO: Record<ScriptKind, InfoPopoverContent> = {
@@ -80,6 +83,7 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
   onPreRequestChange,
   onPostResponseChange,
   workspaceId = null,
+  onOpenPackageLibrary,
 }) => {
   const { token } = theme.useToken();
   const [active, setActive] = useState<ScriptKind>('pre-request');
@@ -301,6 +305,8 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
             boxShadow: token.boxShadowTertiary,
           }}
         >
+          <ScriptPackagesMenu workspaceId={workspaceId} onInsert={insertSnippet} onOpenLibrary={onOpenPackageLibrary} />
+          <Divider type="vertical" style={{ margin: 0 }} />
           <ScriptSnippetsMenu kind={active} onInsert={insertSnippet} />
           <Divider type="vertical" style={{ margin: 0 }} />
           <Tooltip title="Format" placement="top">

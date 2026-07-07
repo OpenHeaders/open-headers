@@ -925,6 +925,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         openLiveVariableEdit={openLiveVariableEdit}
         openCreateLiveVariable={openCreateLiveVariable}
         openCreateLiveWorkflow={openCreateLiveWorkflow}
+        openScriptPackages={openScriptPackages}
         openTestRunsPanel={openTestRunsPanel}
         handleRunReportDeleted={handleRunReportDeleted}
         handleSwitchWorkspace={handleSwitchWorkspace}
