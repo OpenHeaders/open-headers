@@ -356,6 +356,11 @@ const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response, statusC
     );
   }
   const factStyle: React.CSSProperties = { fontSize: 11, whiteSpace: 'nowrap', cursor: 'help' };
+  // The strip leads with the on-wire size when the server exposes it
+  // (matches devtools' Size column); decoded bytes otherwise. The
+  // popover carries both figures either way.
+  const stripBytes =
+    response.timing && response.timing.transferSize > 0 ? response.timing.transferSize : response.bodyBytes;
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
       <InfoPopover content={getStatusCodeInfoContent(response.status, response.statusText)} trigger="hover">
@@ -378,7 +383,7 @@ const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response, statusC
       <MetaDot />
       <InfoPopover content={sizeContent(response)} trigger="hover">
         <Text type="secondary" style={factStyle}>
-          {formatBytes(response.bodyBytes)}
+          {formatBytes(stripBytes)}
         </Text>
       </InfoPopover>
       <MetaDot />
