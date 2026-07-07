@@ -31,6 +31,7 @@ const SECTION_VIEW_OWNERSHIP: Record<string, SidebarView | 'multi'> = {
   vault: 'variables',
   'workspace-vars': 'variables',
   'live-variables': 'variables',
+  'script-packages': 'api-requests',
   environments: 'multi',
 };
 
@@ -181,7 +182,7 @@ export function useSelectOpenedTab({
         containerRef.current?.querySelector(`[data-item-id="live-vars-row"]`)?.scrollIntoView({ block: 'nearest' });
       }, 50);
       return true;
-    } else if (activeTabId === 'script-packages' && view === 'variables') {
+    } else if (activeTabId === 'script-packages' && view === 'api-requests') {
       if (shouldAutoExpandSection('script-packages', view)) {
         setSectionsExpanded((prev) => ({ ...prev, 'script-packages': true }));
       }

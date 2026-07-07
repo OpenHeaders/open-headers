@@ -2,7 +2,7 @@
  * Sidebar — IDE-style tree panel, rendered as one of four view modes:
  *
  *   - `http-rules`   — RULES, TEMPLATES, ENVIRONMENTS
- *   - `api-requests` — API REQUESTS, ENVIRONMENTS
+ *   - `api-requests` — API REQUESTS, PACKAGE LIBRARY, ENVIRONMENTS
  *   - `variables`    — VAULT, WORKSPACE VARIABLES, LIVE VARIABLES, ENVIRONMENTS
  *   - `workflows`    — WORKFLOWS (scheduled-refresh value producers)
  *
@@ -34,6 +34,7 @@ import { useSettingValue } from '../../settings/hooks';
 import type { WorkbenchTab } from '../../types';
 import { buildCreateMenuItems, buildRequestImportMenuItems } from './build-sidebar-menus';
 import EnvironmentsSection from './EnvironmentsSection';
+import { SectionHeader } from './SectionHeader';
 import RequestsSection from './RequestsSection';
 import RulesSection from './RulesSection';
 import SidebarHeaderActions from './SidebarHeaderActions';
@@ -485,6 +486,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       if (sectionsExpanded.environments) items.push(...environmentNodes);
     } else if (view === 'api-requests') {
       if (sectionsExpanded['api-requests']) items.push(...requestNodes);
+      if (sectionsExpanded['script-packages']) items.push(scriptPackagesNode);
       if (sectionsExpanded.environments) items.push(...environmentNodes);
     } else if (view === 'workflows') {
       if (sectionsExpanded.workflows) items.push(...workflowNodes);
@@ -492,7 +494,6 @@ const Sidebar: React.FC<SidebarProps> = ({
       if (sectionsExpanded.vault) items.push(vaultNode);
       if (sectionsExpanded['workspace-vars']) items.push(workspaceVarsNode);
       if (sectionsExpanded['live-variables']) items.push(liveVarsNode);
-      if (sectionsExpanded['script-packages']) items.push(scriptPackagesNode);
       if (sectionsExpanded.environments) items.push(...environmentNodes);
     }
     return items;
@@ -636,15 +637,29 @@ const Sidebar: React.FC<SidebarProps> = ({
         style={{ outline: 'none' }}
       >
         {view === 'api-requests' && (
-          <RequestsSection
-            sectionsExpanded={sectionsExpanded}
-            toggleSection={toggleSection}
-            requestImportMenuItems={requestImportMenuItems}
-            requestNodes={requestNodes}
-            requestFolderDndConfig={requestFolderDndConfig}
-            createNewRequestCollection={createNewRequestCollection}
-            renderFolderDndNodes={renderFolderDndNodes}
-          />
+          <>
+            <RequestsSection
+              sectionsExpanded={sectionsExpanded}
+              toggleSection={toggleSection}
+              requestImportMenuItems={requestImportMenuItems}
+              requestNodes={requestNodes}
+              requestFolderDndConfig={requestFolderDndConfig}
+              createNewRequestCollection={createNewRequestCollection}
+              renderFolderDndNodes={renderFolderDndNodes}
+            />
+            {(!filterText || 'package library'.includes(filterText.toLowerCase())) && (
+              <>
+                <SectionHeader
+                  title="PACKAGE LIBRARY"
+                  expanded={sectionsExpanded['script-packages'] || filterText !== ''}
+                  onToggle={() => toggleSection('script-packages')}
+                />
+                {(sectionsExpanded['script-packages'] || filterText !== '') && (
+                  <div style={{ overflowY: 'auto' }}>{renderNodes([scriptPackagesNode])}</div>
+                )}
+              </>
+            )}
+          </>
         )}
 
         {view === 'http-rules' && (
@@ -673,7 +688,6 @@ const Sidebar: React.FC<SidebarProps> = ({
             vaultNode={vaultNode}
             workspaceVarsNode={workspaceVarsNode}
             liveVarsNode={liveVarsNode}
-            scriptPackagesNode={scriptPackagesNode}
             renderNodes={renderNodes}
           />
         )}

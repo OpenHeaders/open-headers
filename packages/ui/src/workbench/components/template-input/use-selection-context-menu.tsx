@@ -14,13 +14,12 @@
  * hover-create flow, sharing its scope + save machinery.
  */
 
-import type { MenuProps } from 'antd';
 import type React from 'react';
 import { useCallback, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { getSelectionOffsets, setCaretOffset } from './caret';
 import DismissLayer from './DismissLayer';
-import SelectionContextMenu from './SelectionContextMenu';
+import SelectionContextMenu, { type SelectionMenuRow } from './SelectionContextMenu';
 import SetAsVariablePopover from './SetAsVariablePopover';
 
 interface MenuSession {
@@ -104,7 +103,7 @@ export function useSelectionContextMenu({
   );
 
   const buildItems = useCallback(
-    (session: MenuSession): NonNullable<MenuProps['items']> => [
+    (session: MenuSession): SelectionMenuRow[] => [
       {
         key: 'set-as-variable',
         label: 'Set as variable',

@@ -140,13 +140,12 @@ const FACTORY_EDITOR_TABS: PersistedTabSession<WorkbenchTab> = { tabs: [], activ
 export const FACTORY_SIDEBAR_EXPANSIONS: SidebarExpansionsState = {
   sectionsExpanded: {
     'http-rules': { rules: false, templates: true, environments: false },
-    'api-requests': { 'api-requests': true, environments: false },
+    'api-requests': { 'api-requests': true, 'script-packages': true, environments: false },
     workflows: { workflows: true },
     variables: {
       vault: true,
       'workspace-vars': true,
       'live-variables': true,
-      'script-packages': true,
       environments: true,
     },
   },
