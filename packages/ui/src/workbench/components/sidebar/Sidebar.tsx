@@ -92,6 +92,7 @@ interface SidebarProps {
   onOpenWorkspaceVariables?: () => void;
   onOpenVault?: () => void;
   onOpenLiveVariables?: () => void;
+  onOpenScriptPackages?: () => void;
   /** Open the variables editor for a rule-collection (`⋯` action on a
    *  rule-collection sidebar row). */
   onOpenCollectionVariables?: (uid: string, name: string) => void;
@@ -150,6 +151,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onOpenWorkspaceVariables,
   onOpenVault,
   onOpenLiveVariables,
+  onOpenScriptPackages,
   onOpenCollectionVariables,
   onOpenRequestCollectionVariables,
   onOpenTemplateCollectionVariables,
@@ -445,10 +447,11 @@ const Sidebar: React.FC<SidebarProps> = ({
     onExportEntity,
   });
 
-  const { vaultNode, workspaceVarsNode, liveVarsNode } = useVariableSingletonNodes({
+  const { vaultNode, workspaceVarsNode, liveVarsNode, scriptPackagesNode } = useVariableSingletonNodes({
     onOpenVault,
     onOpenWorkspaceVariables,
     onOpenLiveVariables,
+    onOpenScriptPackages,
   });
 
   // ── Create-new entrypoints ─────────────────────────────────────
@@ -489,6 +492,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       if (sectionsExpanded.vault) items.push(vaultNode);
       if (sectionsExpanded['workspace-vars']) items.push(workspaceVarsNode);
       if (sectionsExpanded['live-variables']) items.push(liveVarsNode);
+      if (sectionsExpanded['script-packages']) items.push(scriptPackagesNode);
       if (sectionsExpanded.environments) items.push(...environmentNodes);
     }
     return items;
@@ -504,6 +508,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     requestNodes,
     vaultNode,
     workspaceVarsNode,
+    scriptPackagesNode,
   ]);
 
   // ── Selection / interaction subsystem ─────────────────────────
@@ -668,6 +673,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             vaultNode={vaultNode}
             workspaceVarsNode={workspaceVarsNode}
             liveVarsNode={liveVarsNode}
+            scriptPackagesNode={scriptPackagesNode}
             renderNodes={renderNodes}
           />
         )}

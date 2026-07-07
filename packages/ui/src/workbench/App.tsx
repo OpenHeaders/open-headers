@@ -470,6 +470,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     openEnvironmentEdit,
     openWorkspaceVariables,
     openVault,
+    openScriptPackages,
     openLiveVariables,
     openCollectionVariables,
     openRequestCollectionVariables,
@@ -817,6 +818,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     openEnvironmentEdit,
     openWorkspaceVariables,
     openVault,
+    openScriptPackages,
     openLiveVariables,
     onOpenCreateMenu: openCreateMenu,
     onTogglePanel: togglePanel,
@@ -1065,6 +1067,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         }}
         openWorkspaceVariables={openWorkspaceVariables}
         openVault={openVault}
+        openScriptPackages={openScriptPackages}
         openLiveVariables={openLiveVariables}
         openCollectionVariables={openCollectionVariables}
         openRequestCollectionVariables={openRequestCollectionVariables}

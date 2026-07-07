@@ -146,6 +146,7 @@ export const FACTORY_SIDEBAR_EXPANSIONS: SidebarExpansionsState = {
       vault: true,
       'workspace-vars': true,
       'live-variables': true,
+      'script-packages': true,
       environments: true,
     },
   },

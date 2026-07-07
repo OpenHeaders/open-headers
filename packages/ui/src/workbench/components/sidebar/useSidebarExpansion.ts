@@ -24,7 +24,7 @@ import type { SidebarView } from './types';
 // List every section the view renders, including the shared
 // ENVIRONMENTS footer.
 const TREELESS_VIEW_SECTIONS: Partial<Record<SidebarView, readonly string[]>> = {
-  variables: ['vault', 'workspace-vars', 'live-variables', 'environments'],
+  variables: ['vault', 'workspace-vars', 'live-variables', 'script-packages', 'environments'],
   workflows: ['workflows', 'environments'],
 };
 

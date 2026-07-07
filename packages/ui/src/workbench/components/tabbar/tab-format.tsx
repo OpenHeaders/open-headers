@@ -11,6 +11,7 @@
 import {
   ApartmentOutlined,
   AppstoreOutlined,
+  CodeSandboxOutlined,
   ExperimentOutlined,
   FileTextOutlined,
   FolderOpenOutlined,
@@ -98,6 +99,7 @@ export function tabIcon(
   if (tab.mode === 'env-edit') return scopeBadge('environment');
   if (tab.mode === 'workspace-vars') return scopeBadge('workspace');
   if (tab.mode === 'vault') return scopeBadge('vault');
+  if (tab.mode === 'script-packages') return <CodeSandboxOutlined style={{ fontSize: 12, color: TAB_ICON_GRAY }} />;
   if (tab.mode === 'live-vars' || tab.mode === 'live-variable-edit' || tab.mode === 'live-variable-create')
     return scopeBadge('live', 14, tab.mode === 'live-variable-create');
   if (tab.mode === 'live-workflow-edit' || tab.mode === 'live-workflow-create') {

@@ -54,6 +54,7 @@ export function computeBreadcrumbs(
   if (tab.mode === 'env-edit') return ['Environments', displayLabel];
   if (tab.mode === 'workspace-vars') return ['Workspace Variables'];
   if (tab.mode === 'vault') return ['Vault'];
+  if (tab.mode === 'script-packages') return ['Package Library'];
   if (tab.mode === 'collection-vars') {
     const col = tab.collectionUid ? localCollectionTrees.find((c) => c.uid === tab.collectionUid) : null;
     return col ? ['Rules', col.name, 'Variables'] : ['Variables'];

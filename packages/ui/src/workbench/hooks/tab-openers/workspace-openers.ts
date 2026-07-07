@@ -17,6 +17,7 @@ export type WorkspaceOpeners = Pick<
   | 'openEnvironmentEdit'
   | 'openWorkspaceVariables'
   | 'openVault'
+  | 'openScriptPackages'
 >;
 
 export function useWorkspaceOpeners({
@@ -163,6 +164,21 @@ export function useWorkspaceOpeners({
     });
   }, [allTabs, addTab, switchTab]);
 
+  const openScriptPackages = useCallback(() => {
+    const id = 'script-packages';
+    if (allTabs.some((t) => t.id === id)) {
+      switchTab(id);
+      return;
+    }
+    addTab({
+      id,
+      label: 'Package Library',
+      ruleType: '',
+      dirty: false,
+      mode: 'script-packages',
+    });
+  }, [allTabs, addTab, switchTab]);
+
   return {
     openRunReport,
     openRuleFlow,
@@ -171,5 +187,6 @@ export function useWorkspaceOpeners({
     openEnvironmentEdit,
     openWorkspaceVariables,
     openVault,
+    openScriptPackages,
   };
 }

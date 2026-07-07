@@ -20,6 +20,7 @@ interface VariablesSectionProps {
   vaultNode: TreeNode;
   workspaceVarsNode: TreeNode;
   liveVarsNode: TreeNode;
+  scriptPackagesNode: TreeNode;
   renderNodes: SidebarNodeRenderers['renderNodes'];
 }
 
@@ -30,6 +31,7 @@ const VariablesSection: React.FC<VariablesSectionProps> = ({
   vaultNode,
   workspaceVarsNode,
   liveVarsNode,
+  scriptPackagesNode,
   renderNodes,
 }) => {
   const lower = filterText.toLowerCase();
@@ -37,9 +39,11 @@ const VariablesSection: React.FC<VariablesSectionProps> = ({
   const showVault = matches('vault') || matches('Vault');
   const showWorkspace = matches('workspace variables');
   const showLive = matches('live variables');
+  const showPackages = matches('package library');
   const vaultOpen = sectionsExpanded.vault || (lower !== '' && showVault);
   const wsOpen = sectionsExpanded['workspace-vars'] || (lower !== '' && showWorkspace);
   const liveOpen = sectionsExpanded['live-variables'] || (lower !== '' && showLive);
+  const packagesOpen = sectionsExpanded['script-packages'] || (lower !== '' && showPackages);
   return (
     <>
       {showVault && (
@@ -64,6 +68,17 @@ const VariablesSection: React.FC<VariablesSectionProps> = ({
         <>
           <SectionHeader title="LIVE VARIABLES" expanded={liveOpen} onToggle={() => toggleSection('live-variables')} />
           {liveOpen && <div style={{ overflowY: 'auto' }}>{renderNodes([liveVarsNode])}</div>}
+        </>
+      )}
+
+      {showPackages && (
+        <>
+          <SectionHeader
+            title="PACKAGE LIBRARY"
+            expanded={packagesOpen}
+            onToggle={() => toggleSection('script-packages')}
+          />
+          {packagesOpen && <div style={{ overflowY: 'auto' }}>{renderNodes([scriptPackagesNode])}</div>}
         </>
       )}
     </>

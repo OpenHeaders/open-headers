@@ -181,6 +181,17 @@ export function useSelectOpenedTab({
         containerRef.current?.querySelector(`[data-item-id="live-vars-row"]`)?.scrollIntoView({ block: 'nearest' });
       }, 50);
       return true;
+    } else if (activeTabId === 'script-packages' && view === 'variables') {
+      if (shouldAutoExpandSection('script-packages', view)) {
+        setSectionsExpanded((prev) => ({ ...prev, 'script-packages': true }));
+      }
+      setFocusedId('script-packages-row');
+      setTimeout(() => {
+        containerRef.current
+          ?.querySelector(`[data-item-id="script-packages-row"]`)
+          ?.scrollIntoView({ block: 'nearest' });
+      }, 50);
+      return true;
     }
     if (!nodeId) return false;
 

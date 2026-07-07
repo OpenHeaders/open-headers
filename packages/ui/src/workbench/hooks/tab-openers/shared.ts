@@ -87,6 +87,7 @@ export interface UseTabOpenersApi {
   openEnvironmentEdit: (uid: string, name: string, autoRename?: boolean) => void;
   openWorkspaceVariables: () => void;
   openVault: () => void;
+  openScriptPackages: () => void;
   openLiveVariables: () => void;
   openCollectionVariables: (uid: string, name: string) => void;
   openRequestCollectionVariables: (uid: string, name: string) => void;

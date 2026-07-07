@@ -6,7 +6,7 @@
  * workspace component.
  */
 
-import { ApiOutlined, FolderOutlined, SettingOutlined } from '@ant-design/icons';
+import { ApiOutlined, CodeSandboxOutlined, FolderOutlined, SettingOutlined } from '@ant-design/icons';
 import type { CollectionTree, Environment, Rule, Template, TreeNode } from '@openheaders/core/types';
 import { useMemo } from 'react';
 import type { CommandPaletteGroup, CommandPaletteItem, CommandPaletteSection } from '../components/shell/CommandPalette';
@@ -34,6 +34,7 @@ interface UseCommandPaletteDataOptions {
   openEnvironmentEdit: (uid: string, name: string) => void;
   openWorkspaceVariables: () => void;
   openVault: () => void;
+  openScriptPackages: () => void;
   openLiveVariables: () => void;
   onOpenCreateMenu: () => void;
   onTogglePanel: (panel: 'sidebar' | 'bottomPanel' | 'inspector') => void;
@@ -62,6 +63,7 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
     openEnvironmentEdit,
     openWorkspaceVariables,
     openVault,
+    openScriptPackages,
     openLiveVariables,
     onOpenCreateMenu,
     onTogglePanel,
@@ -334,6 +336,12 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
         label: 'Open Live Variables',
         onSelect: openLiveVariables,
       },
+      {
+        id: 'cmd-open-script-packages',
+        icon: <CodeSandboxOutlined />,
+        label: 'Open Package Library',
+        onSelect: openScriptPackages,
+      },
       ...environments.map((env) => ({
         id: `cmd-open-env-${env.uid}`,
         icon: scopeBadge('environment'),
@@ -365,6 +373,7 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
     openEnvironmentEdit,
     openWorkspaceVariables,
     openVault,
+    openScriptPackages,
     openLiveVariables,
   ]);
 

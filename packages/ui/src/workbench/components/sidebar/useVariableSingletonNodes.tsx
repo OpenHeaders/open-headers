@@ -1,3 +1,4 @@
+import { CodeSandboxOutlined } from '@ant-design/icons';
 import { useMemo } from 'react';
 import { scopeBadge } from '../shared/scope-colors';
 import type { TreeNode } from './types';
@@ -6,11 +7,13 @@ interface UseVariableSingletonNodesParams {
   onOpenVault?: () => void;
   onOpenWorkspaceVariables?: () => void;
   onOpenLiveVariables?: () => void;
+  onOpenScriptPackages?: () => void;
 }
 
 /**
- * Vault / Workspace Variables / Live Variables — single-row openers
- * for the full editors. Clicking opens the corresponding editor tab.
+ * Vault / Workspace Variables / Live Variables / Package Library —
+ * single-row openers for the full editors. Clicking opens the
+ * corresponding editor tab.
  */
 export function useVariableSingletonNodes(p: UseVariableSingletonNodesParams) {
   const vaultNode = useMemo(
@@ -61,5 +64,21 @@ export function useVariableSingletonNodes(p: UseVariableSingletonNodesParams) {
     [p.onOpenLiveVariables],
   );
 
-  return { vaultNode, workspaceVarsNode, liveVarsNode };
+  const scriptPackagesNode = useMemo(
+    (): TreeNode => ({
+      id: 'script-packages-row',
+      kind: 'leaf',
+      label: 'Package Library',
+      depth: 0,
+      expandable: false,
+      icon: <CodeSandboxOutlined />,
+      canRename: false,
+      canDelete: false,
+      canAddChild: false,
+      onOpen: () => p.onOpenScriptPackages?.(),
+    }),
+    [p.onOpenScriptPackages],
+  );
+
+  return { vaultNode, workspaceVarsNode, liveVarsNode, scriptPackagesNode };
 }
