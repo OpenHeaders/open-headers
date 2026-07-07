@@ -178,6 +178,11 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
   const options: monaco.editor.IStandaloneEditorConstructionOptions = {
     minimap: { enabled: false },
+    // Render the context menu (and other context views) in the normal
+    // DOM instead of Monaco's default shadow root — our stylesheet can
+    // then decorate custom menu entries (the Save-to-Package icon),
+    // and e2e drives the menu without shadow-DOM piercing caveats.
+    useShadowDOM: false,
     fontFamily,
     fontSize,
     fontLigatures,

@@ -241,6 +241,111 @@ export class WorkbenchPage {
     await this.page.getByRole('button', { name: 'Format script' }).filter({ visible: true }).first().click();
   }
 
+  // ── Scripts tab — packages popover ──────────────────────────────
+
+  /** Toggle the Scripts tab's Packages popover (left of Snippets). */
+  async toggleScriptPackages(): Promise<void> {
+    await this.page.getByTestId('oh-script-packages').filter({ visible: true }).first().click();
+  }
+
+  /** The open Packages popover — anchored on its search field. */
+  scriptPackagesPopover(): Locator {
+    return this.page
+      .locator('.ant-popover')
+      .filter({ has: this.page.getByPlaceholder('Search packages') })
+      .filter({ visible: true })
+      .first();
+  }
+
+  /** Click a package entry — inserts `const <ident> = oh.require('<name>');`. */
+  async insertPackageRequire(name: string): Promise<void> {
+    await this.scriptPackagesPopover().getByRole('button', { name, exact: true }).click();
+  }
+
+  // ── Package Library tab ─────────────────────────────────────────
+
+  /** Open the Package Library tab from the API Requests view's sidebar
+   *  section (expanding the section header first if collapsed). */
+  async openPackageLibrary(): Promise<void> {
+    const row = this.page.locator('[data-item-id="script-packages-row"]');
+    if (!(await row.isVisible().catch(() => false))) {
+      await this.page.getByText('PACKAGE LIBRARY', { exact: true }).filter({ visible: true }).first().click();
+    }
+    await row.waitFor({ state: 'visible', timeout: 5000 });
+    await row.click();
+  }
+
+  /** Create a package through the Library tab. `source` must be a
+   *  single line (see {@link fillMonaco}). */
+  async createPackage(name: string, source: string): Promise<void> {
+    await this.page.getByRole('button', { name: /New$/ }).filter({ visible: true }).first().click();
+    await this.page.getByLabel('Package name').filter({ visible: true }).fill(name);
+    await this.fillMonaco(0, source);
+    await this.page.getByRole('button', { name: 'Save', exact: true }).filter({ visible: true }).first().click();
+  }
+
+  /** A package row in the Library tab's left list. */
+  packageRow(name: string): Locator {
+    return this.page.getByRole('button', { name, exact: true }).filter({ visible: true }).first();
+  }
+
+  // ── Monaco context menu (script editor selection actions) ────────
+
+  /** Select the whole buffer of the Nth visible Monaco editor. */
+  async selectAllInMonaco(index: number): Promise<void> {
+    const ed = this.page.locator('.monaco-editor').filter({ visible: true }).nth(index);
+    await ed.click();
+    await this.page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
+  }
+
+  /** Right-click INSIDE the current selection (first rendered line) so
+   *  Monaco keeps the selection and shows its context menu. */
+  async openMonacoContextMenu(index: number): Promise<void> {
+    const line = this.page
+      .locator('.monaco-editor')
+      .filter({ visible: true })
+      .nth(index)
+      .locator('.view-line')
+      .first();
+    await line.click({ button: 'right', position: { x: 10, y: 5 } });
+    await this.page.locator('.monaco-menu').first().waitFor({ state: 'visible', timeout: 5000 });
+  }
+
+  /** Click an entry in Monaco's open context menu by its exact label. */
+  async clickMonacoMenuItem(label: string): Promise<void> {
+    await this.page.locator('.monaco-menu').getByText(label, { exact: true }).first().click();
+  }
+
+  /** The Save-to-Package popover opened from the editor context menu. */
+  saveToPackagePopover(): Locator {
+    return this.page.getByRole('dialog').filter({ hasText: 'Save to Package Library' }).first();
+  }
+
+  /** The Set-as-variable popover (context menu on inputs + editor). */
+  setAsVariablePopover(): Locator {
+    return this.page.getByRole('dialog').filter({ hasText: 'Set as new variable' }).first();
+  }
+
+  // ── TemplateInput selection context menu ────────────────────────
+
+  /** The URL bar's contentEditable surface (TemplateInput). */
+  urlInput(): Locator {
+    return this.page.locator('[data-placeholder="Enter URL or paste text"]').filter({ visible: true }).first();
+  }
+
+  /** Select all text in a TemplateInput and open the custom selection
+   *  context menu on it. */
+  async openInputContextMenu(input: Locator): Promise<void> {
+    await input.click();
+    await this.page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
+    await input.click({ button: 'right' });
+  }
+
+  /** A row in the custom selection context menu. */
+  inputContextMenuItem(label: string): Locator {
+    return this.page.getByRole('menuitem', { name: label, exact: true }).filter({ visible: true }).first();
+  }
+
   /**
    * Read the visible text of the Nth VISIBLE Monaco editor. Short
    * buffers only — Monaco virtualizes long ones, so lines outside the
