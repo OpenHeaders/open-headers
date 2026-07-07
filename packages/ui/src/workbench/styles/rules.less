@@ -687,9 +687,10 @@ body {
   }
 }
 
-// Env-selector list sections — persistent (non-overlay) scrollbar so a
-// capped list reads as scrollable at a glance instead of only revealing
-// the thumb mid-scroll (macOS overlay default).
+// Capped list sections (env selector, snippets menu, …) — persistent
+// (non-overlay) scrollbar so the list reads as scrollable at a glance
+// instead of only revealing the thumb mid-scroll (macOS overlay default).
+.oh-persistent-scroll,
 .oh-env-scroll {
   overflow-y: auto;
   scrollbar-width: thin;

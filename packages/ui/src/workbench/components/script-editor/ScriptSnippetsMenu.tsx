@@ -29,7 +29,7 @@ const ScriptSnippetsMenu: React.FC<ScriptSnippetsMenuProps> = ({ kind, onInsert 
   };
 
   const content = (
-    <div style={{ width: 280, display: 'flex', flexDirection: 'column', gap: 4 }}>
+    <div style={{ width: 224, display: 'flex', flexDirection: 'column', gap: 4 }}>
       <Input
         size="small"
         autoFocus
@@ -41,8 +41,12 @@ const ScriptSnippetsMenu: React.FC<ScriptSnippetsMenuProps> = ({ kind, onInsert 
       />
       {/* Fixed height regardless of matches — the popover keeps its
           footprint while the user types, instead of collapsing around
-          a shrinking result list. */}
-      <div style={{ height: 320, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+          a shrinking result list. `scroll` (not `auto`) + the persistent
+          scrollbar class keep the gutter always visible as a cue. */}
+      <div
+        className="oh-persistent-scroll"
+        style={{ height: 240, overflowY: 'scroll', display: 'flex', flexDirection: 'column', paddingRight: 2 }}
+      >
         {groups.length === 0 && (
           <div
             style={{
@@ -51,7 +55,7 @@ const ScriptSnippetsMenu: React.FC<ScriptSnippetsMenuProps> = ({ kind, onInsert 
               alignItems: 'center',
               justifyContent: 'center',
               color: token.colorTextTertiary,
-              fontSize: 13,
+              fontSize: 12,
             }}
           >
             No snippet found
@@ -61,9 +65,9 @@ const ScriptSnippetsMenu: React.FC<ScriptSnippetsMenuProps> = ({ kind, onInsert 
           <div key={group.label} style={{ display: 'flex', flexDirection: 'column' }}>
             <div
               style={{
-                padding: '8px 4px 2px',
+                padding: '6px 4px 2px',
                 color: token.colorTextTertiary,
-                fontSize: 11,
+                fontSize: 10,
                 fontWeight: 600,
                 textTransform: 'uppercase',
                 letterSpacing: 0.4,
@@ -77,13 +81,13 @@ const ScriptSnippetsMenu: React.FC<ScriptSnippetsMenuProps> = ({ kind, onInsert 
                 type="button"
                 onClick={() => onInsert(snippet.code)}
                 style={{
-                  padding: '5px 4px',
+                  padding: '3px 4px',
                   background: 'transparent',
                   border: 'none',
                   borderRadius: 4,
                   cursor: 'pointer',
                   color: token.colorText,
-                  fontSize: 13,
+                  fontSize: 12,
                   textAlign: 'left',
                 }}
                 onMouseEnter={(e) => {
@@ -110,6 +114,7 @@ const ScriptSnippetsMenu: React.FC<ScriptSnippetsMenuProps> = ({ kind, onInsert 
       open={open}
       onOpenChange={setOpenAndReset}
       destroyOnHidden
+      styles={{ container: { padding: 8 } }}
     >
       <Button size="small" type="text" icon={<CodeOutlined />} data-testid="oh-script-snippets">
         Snippets
