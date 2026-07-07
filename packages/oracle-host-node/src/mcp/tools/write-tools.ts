@@ -38,7 +38,10 @@ import {
 import { buildSetCollectionVarBatch } from '@openheaders/core/sync-builders/mutations/collection-mutations';
 import { buildAddEnvironmentBatch } from '@openheaders/core/sync-builders/mutations/env-mutations';
 import { buildAddLiveVariableBatch } from '@openheaders/core/sync-builders/mutations/live-variable-mutations';
-import { buildAddLiveWorkflowBatch } from '@openheaders/core/sync-builders/mutations/live-workflow-mutations';
+import {
+  buildAddLiveWorkflowBatch,
+  buildUpdateLiveWorkflowBatch,
+} from '@openheaders/core/sync-builders/mutations/live-workflow-mutations';
 import { buildSetRequestCollectionVarBatch } from '@openheaders/core/sync-builders/mutations/request-collection-mutations';
 import {
   buildAddBatch as buildAddRequestBatch,
@@ -69,45 +72,24 @@ import {
   snapshotCollectionPostStates,
   snapshotEnvironmentPostStates,
   snapshotLiveVariablePostStates,
+  snapshotLiveWorkflowPostStates,
   snapshotRequestCollectionPostStates,
   snapshotRequestPostStates,
   snapshotRulePostStates,
   snapshotWorkspaceVariablesPostStates,
 } from '@openheaders/oracle/sync/service';
-import * as v from 'valibot';
 import { type McpToolDefinition, McpToolInputError } from '../registry';
 import {
   applyMcpMutation,
   findRequest,
   mintMcpContext,
+  parseOrThrow,
   requireStringArg,
   requireWorkspace,
   WORKSPACE_ID_PROPERTY,
 } from './common';
 
 // ── Shared helpers ──────────────────────────────────────────────────
-
-function schemaIssueSummary(issues: readonly v.BaseIssue<unknown>[]): string {
-  return issues
-    .slice(0, 5)
-    .map((issue) => {
-      const path = (issue.path ?? []).map((segment) => String(segment.key)).join('.');
-      return path ? `${path}: ${issue.message}` : issue.message;
-    })
-    .join('; ');
-}
-
-function parseOrThrow<TSchema extends v.BaseSchema<unknown, unknown, v.BaseIssue<unknown>>>(
-  schema: TSchema,
-  raw: unknown,
-  what: string,
-): v.InferOutput<TSchema> {
-  const result = v.safeParse(schema, raw);
-  if (!result.success) {
-    throw new McpToolInputError(`invalid ${what}: ${schemaIssueSummary(result.issues)}`);
-  }
-  return result.output;
-}
 
 function requireObjectArg(args: Record<string, unknown>, name: string): Record<string, unknown> {
   const raw = args[name];
@@ -247,9 +229,14 @@ async function resolveRuleParentPath(workspaceId: string, collectionUid: string 
 /**
  * Resolve the parent collection for a new request, minting the default
  * "My Requests" collection when the workspace has none yet — the same
- * ensure-on-demand shape the request store applies.
+ * ensure-on-demand shape the request store applies. Shared with
+ * `requests_import`, which commits parsed requests through the same
+ * create path.
  */
-async function resolveRequestParentPath(workspaceId: string, collectionUid: string | undefined): Promise<string> {
+export async function resolveRequestParentPath(
+  workspaceId: string,
+  collectionUid: string | undefined,
+): Promise<string> {
   const collections = snapshotRequestCollectionPostStates(workspaceId).map((ps) => ps.collection);
   if (collectionUid !== undefined) {
     const match = collections.find((c) => c.uid === collectionUid);
@@ -353,6 +340,50 @@ function withWorkflowRowUids(record: Record<string, unknown>): Record<string, un
   return { ...record, steps };
 }
 
+function findWorkflow(workspaceId: string, uid: string): LiveWorkflow {
+  const match = snapshotLiveWorkflowPostStates(workspaceId).find((ps) => ps.workflow.uid === uid);
+  if (!match) {
+    throw new McpToolInputError(`no workflow with uid '${uid}' in workspace '${workspaceId}' — see workflows_list`);
+  }
+  return match.workflow;
+}
+
+/** Canonical structural validation, shared by create and update. */
+function assertWorkflowStructure(workspaceId: string, workflow: LiveWorkflow): void {
+  const knownRequestUids = new Set(snapshotRequestPostStates(workspaceId).map((ps) => ps.request.uid));
+  const structural = [...validateWorkflowShape(workflow), ...validateStepRequestsExist(workflow, knownRequestUids)];
+  if (structural.length > 0) {
+    throw new McpToolInputError(
+      `invalid workflow: ${structural
+        .slice(0, 5)
+        .map((e) => e.message)
+        .join('; ')}`,
+    );
+  }
+}
+
+/**
+ * Update guard: a patch may not remove a step or capture that an
+ * existing live variable is bound to — that restructuring re-points
+ * bindings, which is Workbench territory.
+ */
+function assertBoundLiveVariablesIntact(workspaceId: string, merged: LiveWorkflow): void {
+  const orphaned = snapshotLiveVariablePostStates(workspaceId)
+    .map((ps) => ps.liveVariable)
+    .filter((lv) => lv.workflowUid === merged.uid)
+    .filter((lv) => {
+      const step = merged.steps.find((s) => s.id === lv.stepId);
+      return !step || !step.captures.some((c) => c.name === lv.captureName);
+    });
+  if (orphaned.length > 0) {
+    throw new McpToolInputError(
+      `this patch removes the step/capture behind ${orphaned
+        .map((lv) => `{{live.${lv.name}}}`)
+        .join(', ')} — restructure the workflow in Open Headers, where bindings can be re-pointed`,
+    );
+  }
+}
+
 interface ExposeInput {
   name: string;
   stepId: string;
@@ -406,6 +437,48 @@ function readExposeInputs(raw: unknown, workflow: LiveWorkflow, workspaceId: str
       ...(typeof record.description === 'string' && record.description ? { description: record.description } : {}),
     };
   });
+}
+
+/** Mint the {{live.*}} draft bindings a save call's `exposes[]` declares. */
+async function mintExposedLiveVariables(
+  workspaceId: string,
+  workflowUid: string,
+  exposes: ExposeInput[],
+): Promise<Array<{ name: string; reference: string }>> {
+  const liveVariables: Array<{ name: string; reference: string }> = [];
+  for (const expose of exposes) {
+    const lvUid = generateUid();
+    const liveVariable: LiveVariable = parseOrThrow(
+      LiveVariableSchema,
+      {
+        schemaVersion: 5,
+        uid: lvUid,
+        path: `live-variables/${toFolderName(expose.name, lvUid)}`,
+        name: expose.name,
+        ...(expose.description ? { description: expose.description } : {}),
+        workflowUid,
+        stepId: expose.stepId,
+        captureName: expose.captureName,
+        enabled: true,
+      },
+      'live variable',
+    );
+    await applyMcpMutation(buildAddLiveVariableBatch(liveVariable, mintMcpContext(workspaceId)));
+    liveVariables.push({ name: liveVariable.name, reference: `{{live.${liveVariable.name}}}` });
+  }
+  return liveVariables;
+}
+
+function projectWorkflowResult(workflow: LiveWorkflow): Record<string, unknown> {
+  return {
+    uid: workflow.uid,
+    name: workflow.name,
+    path: workflow.path,
+    stepCount: workflow.steps.length,
+    enabled: workflow.enabled,
+    published: workflow.published === true,
+    refresh: workflow.refresh,
+  };
 }
 
 const VARIABLE_INPUT_SCHEMA = {
@@ -884,24 +957,31 @@ export function createWriteToolDefinitions(): McpToolDefinition[] {
     },
     {
       name: 'workflows_save',
-      title: 'Create live workflow',
+      title: 'Save live workflow',
       description:
-        'Create a live workflow — a chained run of saved API requests that feeds {{live.*}} variables. ' +
-        'Each step references a saved request by requestUid and declares named captures (json-path, header, ' +
-        'body-regex, whole-body, or status-code extractors); later steps reference earlier captures as ' +
-        '{{step.<stepId>.<captureName>}}. exposes[] binds captures to {{live.<name>}} variables; a binding ' +
-        'goes live after its first successful run (workflows_run). New workflows start as drafts unless ' +
-        'published: true is passed — only published workflows are scheduled and resolvable. Saving never ' +
-        'sends traffic. Updating an existing workflow is not supported here yet — edit it in Open Headers.',
+        'Create or update a live workflow — a chained run of saved API requests that feeds {{live.*}} ' +
+        'variables. Each step references a saved request by requestUid and declares named captures ' +
+        '(json-path, header, body-regex, whole-body, or status-code extractors); later steps reference ' +
+        'earlier captures as {{step.<stepId>.<captureName>}}. exposes[] binds captures to {{live.<name>}} ' +
+        'variables; a binding goes live after its first successful run (workflows_run). New workflows start ' +
+        'as drafts unless published: true is passed — only published workflows are scheduled and resolvable. ' +
+        'Pass uid to patch an existing workflow: the call is one atomic gesture (a published workflow stays ' +
+        'published), and a patch may not remove a step or capture an existing {{live.*}} variable is bound ' +
+        'to — re-point those bindings in Open Headers. Saving never sends traffic.',
       inputSchema: {
         type: 'object',
         properties: {
+          uid: {
+            type: 'string',
+            description: 'Workflow uid from workflows_list — update when present, create when absent.',
+          },
           workflow: {
             type: 'object',
             description:
               'Workflow definition: name, steps[] ({ id, requestUid, captures[{ name, extractor }], ' +
               'dependsOn?, runIf? }), refresh ({ kind: manual } default, { kind: interval, seconds ≥ 30 }, ' +
-              'or expires-in / expires-at reading a capture), enabled, published.',
+              'or expires-in / expires-at reading a capture), enabled, published. On update, a partial ' +
+              'patch of these fields.',
           },
           exposes: {
             type: 'array',
@@ -928,6 +1008,27 @@ export function createWriteToolDefinitions(): McpToolDefinition[] {
         const workspaceId = requireWorkspace(args);
         const input = withWorkflowRowUids(requireObjectArg(args, 'workflow'));
         rejectEntityManagedFields(input);
+
+        if (typeof args.uid === 'string' && args.uid.length > 0) {
+          const existing = findWorkflow(workspaceId, args.uid);
+          const augmented: Record<string, unknown> =
+            existing.published === true && !('published' in input) ? { ...input, published: true } : input;
+          const merged = parseOrThrow(LiveWorkflowSchema, { ...existing, ...augmented }, 'workflow');
+          assertWorkflowStructure(workspaceId, merged);
+          assertBoundLiveVariablesIntact(workspaceId, merged);
+          const exposes = readExposeInputs(args.exposes, merged, workspaceId);
+
+          await applyMcpMutation(
+            buildUpdateLiveWorkflowBatch(
+              existing.uid,
+              augmented as Partial<Omit<LiveWorkflow, 'uid' | 'path'>>,
+              mintMcpContext(workspaceId),
+            ),
+          );
+          const liveVariables = await mintExposedLiveVariables(workspaceId, merged.uid, exposes);
+          return { workspaceId, workflow: projectWorkflowResult(merged), liveVariables };
+        }
+
         const uid = generateUid();
         const name = typeof input.name === 'string' && input.name.trim() ? input.name.trim() : 'Untitled Workflow';
         const created = parseOrThrow(
@@ -944,53 +1045,12 @@ export function createWriteToolDefinitions(): McpToolDefinition[] {
           },
           'workflow',
         );
-        const knownRequestUids = new Set(snapshotRequestPostStates(workspaceId).map((ps) => ps.request.uid));
-        const structural = [...validateWorkflowShape(created), ...validateStepRequestsExist(created, knownRequestUids)];
-        if (structural.length > 0) {
-          throw new McpToolInputError(
-            `invalid workflow: ${structural
-              .slice(0, 5)
-              .map((e) => e.message)
-              .join('; ')}`,
-          );
-        }
+        assertWorkflowStructure(workspaceId, created);
         const exposes = readExposeInputs(args.exposes, created, workspaceId);
 
         await applyMcpMutation(buildAddLiveWorkflowBatch(created, mintMcpContext(workspaceId)));
-        const liveVariables: Array<{ name: string; reference: string }> = [];
-        for (const expose of exposes) {
-          const lvUid = generateUid();
-          const liveVariable: LiveVariable = parseOrThrow(
-            LiveVariableSchema,
-            {
-              schemaVersion: 5,
-              uid: lvUid,
-              path: `live-variables/${toFolderName(expose.name, lvUid)}`,
-              name: expose.name,
-              ...(expose.description ? { description: expose.description } : {}),
-              workflowUid: created.uid,
-              stepId: expose.stepId,
-              captureName: expose.captureName,
-              enabled: true,
-            },
-            'live variable',
-          );
-          await applyMcpMutation(buildAddLiveVariableBatch(liveVariable, mintMcpContext(workspaceId)));
-          liveVariables.push({ name: liveVariable.name, reference: `{{live.${liveVariable.name}}}` });
-        }
-        return {
-          workspaceId,
-          workflow: {
-            uid: created.uid,
-            name: created.name,
-            path: created.path,
-            stepCount: created.steps.length,
-            enabled: created.enabled,
-            published: created.published === true,
-            refresh: created.refresh,
-          },
-          liveVariables,
-        };
+        const liveVariables = await mintExposedLiveVariables(workspaceId, created.uid, exposes);
+        return { workspaceId, workflow: projectWorkflowResult(created), liveVariables };
       },
     },
   ];

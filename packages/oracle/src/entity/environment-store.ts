@@ -172,6 +172,12 @@ export function getVaultForWorkspace(workspaceId: string): Vault {
   return cache ? cache.getVault() : { schemaVersion: 5, secrets: [] };
 }
 
+/** Per-workspace {@link isVaultLocked}; `false` when no cache is materialized. */
+export function isVaultLockedForWorkspace(workspaceId: string): boolean {
+  const cache = getCacheForWorkspace<VaultCache>(VAULT_REGISTRATION, workspaceId);
+  return cache?.isVaultLocked() ?? false;
+}
+
 export function getWorkspaceVariablesForWorkspace(workspaceId: string): WorkspaceVariables {
   const cache = getCacheForWorkspace<WorkspaceVariablesCache>(WORKSPACE_VARIABLES_REGISTRATION, workspaceId);
   return cache ? cache.getWorkspaceVariables() : { schemaVersion: 5, variables: [] };

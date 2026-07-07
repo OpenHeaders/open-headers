@@ -331,6 +331,75 @@ describe('workflows_save', () => {
       }),
     ).rejects.toThrow(/already taken/);
   });
+
+  it('patches scalar fields by uid and keeps a published workflow published', async () => {
+    const { workflowUid } = await saveWorkflow();
+
+    const result = (await call('workflows_save', {
+      uid: workflowUid,
+      workflow: { name: 'Renamed chain', refresh: { kind: 'interval', seconds: 60 } },
+    })) as { workflow: Record<string, unknown> };
+
+    expect(result.workflow.uid).toBe(workflowUid);
+    expect(result.workflow.name).toBe('Renamed chain');
+    expect(result.workflow.published).toBe(true);
+    expect(result.workflow.refresh).toEqual({ kind: 'interval', seconds: 60 });
+
+    const list = (await call('workflows_list', {})) as { workflows: Array<Record<string, unknown>> };
+    expect(list.workflows[0].name).toBe('Renamed chain');
+  });
+
+  it('applies a step patch that keeps bound captures intact', async () => {
+    const { workflowUid } = await saveWorkflow();
+    const otherRequestUid = await saveRequest({ name: 'Other source', url: `http://127.0.0.1:${port}/echo` });
+
+    const result = (await call('workflows_save', {
+      uid: workflowUid,
+      workflow: {
+        steps: [
+          {
+            id: 's1',
+            requestUid: otherRequestUid,
+            captures: [{ name: 'token', extractor: { kind: 'whole-body' } }],
+          },
+        ],
+      },
+    })) as { workflow: Record<string, unknown> };
+
+    expect(result.workflow.stepCount).toBe(1);
+  });
+
+  it('rejects a patch that would orphan a bound live variable', async () => {
+    const { workflowUid } = await saveWorkflow();
+    const requestUid = await saveRequest({ name: 'Src3', url: `http://127.0.0.1:${port}/echo` });
+
+    await expect(
+      call('workflows_save', {
+        uid: workflowUid,
+        workflow: { steps: [{ id: 's1', requestUid, captures: [] }] },
+      }),
+    ).rejects.toThrow(/\{\{live\.apiToken\}\}.*Open Headers/);
+  });
+
+  it('mints new draft live variables from exposes on update', async () => {
+    const { workflowUid } = await saveWorkflow();
+
+    const result = (await call('workflows_save', {
+      uid: workflowUid,
+      workflow: {},
+      exposes: [{ name: 'apiTokenCopy', stepId: 's1', captureName: 'token' }],
+    })) as Record<string, unknown>;
+
+    expect(result.liveVariables).toEqual([{ name: 'apiTokenCopy', reference: '{{live.apiTokenCopy}}' }]);
+    const list = (await call('workflows_list', {})) as { workflows: Array<Record<string, unknown>> };
+    expect(list.workflows[0].liveVariables).toEqual(expect.arrayContaining(['apiToken', 'apiTokenCopy']));
+  });
+
+  it('errors on an unknown workflow uid', async () => {
+    await expect(call('workflows_save', { uid: 'ghost', workflow: { name: 'X' } })).rejects.toThrow(
+      /see workflows_list/,
+    );
+  });
 });
 
 // ── workflows_history ────────────────────────────────────────────────

@@ -5,10 +5,10 @@ import { OH_GREEN, OH_GREEN_TINT } from './_shared';
 /**
  * Roadmap — MCP Server (tools catalog).
  *
- * 3×2 grid of domain cards. Each card lists the concrete tool names
- * the MCP server exposes to an AI agent, so the reader sees that this
- * is the full surface — not a thin shim. Numbers in the card header
- * give a quick "how big" signal.
+ * 3×2 grid of domain cards plus a full-width Activity strip. Each card
+ * lists the concrete tool names the MCP server exposes to an AI agent,
+ * so the reader sees that this is the full surface — not a thin shim.
+ * Numbers in the card header give a quick "how big" signal.
  */
 export const RoadmapMcpToolsDiagram: React.FC = () => {
   const W = 480;
@@ -25,17 +25,27 @@ export const RoadmapMcpToolsDiagram: React.FC = () => {
 
   type Domain = { name: string; sub: string; tools: string[] };
   const DOMAINS: Domain[] = [
-    { name: 'Rules', sub: 'header · block · redirect · mock', tools: ['list', 'create', 'update', 'toggle', 'delete'] },
-    { name: 'Requests', sub: 'API Catalog', tools: ['list', 'send', 'save', 'import'] },
-    { name: 'Environments', sub: 'per workspace', tools: ['list', 'switch', 'create', 'edit'] },
-    { name: 'Variables', sub: 'env · workspace · vault', tools: ['list', 'set', 'read', 'reveal-secret'] },
-    { name: 'Workflows', sub: 'chained API calls', tools: ['list', 'run', 'save', 'history'] },
-    { name: 'Workspaces', sub: 'multi-workspace', tools: ['list', 'switch', 'create', 'diff'] },
+    {
+      name: 'Rules',
+      sub: 'header · block · redirect · response',
+      tools: ['list', 'get', 'create', 'update', 'toggle', 'delete'],
+    },
+    { name: 'Requests', sub: 'API Catalog', tools: ['list', 'get', 'save', 'send', 'import'] },
+    { name: 'Environments', sub: 'per workspace', tools: ['list', 'create', 'edit', 'switch'] },
+    { name: 'Variables', sub: 'all scopes · vault', tools: ['list', 'set', 'reveal-secret'] },
+    { name: 'Workflows', sub: 'chained API calls', tools: ['list', 'save', 'run', 'history'] },
+    { name: 'Workspaces', sub: 'multi-workspace', tools: ['list', 'create', 'switch', 'diff'] },
   ];
 
-  const TOTAL_TOOLS = DOMAINS.reduce((s, d) => s + d.tools.length, 0);
+  // Seventh domain — the change feed gets a full-width strip instead of
+  // a card: one tool, but uniquely agent-shaped (see what changed
+  // before acting).
+  const ACTIVITY_Y = GRID_Y + ROWS * CARD_H + (ROWS - 1) * GAP + 8;
+  const ACTIVITY_H = 30;
 
-  const VERDICT_Y = GRID_Y + ROWS * CARD_H + (ROWS - 1) * GAP + 18;
+  const TOTAL_TOOLS = DOMAINS.reduce((s, d) => s + d.tools.length, 0) + 1;
+
+  const VERDICT_Y = ACTIVITY_Y + ACTIVITY_H + 10;
   const VERDICT_H = 38;
   const H = VERDICT_Y + VERDICT_H + 12;
   const CX = W / 2;
@@ -122,16 +132,51 @@ export const RoadmapMcpToolsDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 540 }}
       role="img"
-      aria-label={`Roadmap milestone — MCP Server tools catalog. Six domain cards exposing ${TOTAL_TOOLS} tools total: rules, requests, environments, variables, workflows, workspaces.`}
+      aria-label={`Roadmap milestone — MCP Server tools catalog. Seven domains exposing ${TOTAL_TOOLS} tools total: rules, requests, environments, variables, workflows, workspaces, activity.`}
     >
       <text x={CX} y={TITLE_Y} textAnchor="middle" fontSize={13} fontWeight={700} fill={TEXT}>
         What the AI agent can do
       </text>
       <text x={CX} y={SUBTITLE_Y} textAnchor="middle" fontSize={10} fontStyle="italic" fill={TEXT_DIM}>
-        Six domains — full CRUD where it makes sense, scoped read-only where it doesn't.
+        Seven domains — full CRUD where it makes sense, scoped read-only where it doesn't.
       </text>
 
       {DOMAINS.map((d, i) => renderCard(d, i % COLS, Math.floor(i / COLS)))}
+
+      {/* Activity strip — the change feed domain */}
+      <rect
+        x={PAD}
+        y={ACTIVITY_Y}
+        width={W - PAD * 2}
+        height={ACTIVITY_H}
+        rx={6}
+        fill="var(--ant-color-bg-container)"
+        stroke={STROKE_BLUE}
+        strokeWidth={1.2}
+      />
+      <text x={PAD + 10} y={ACTIVITY_Y + ACTIVITY_H / 2 + 3.5} fontSize={11} fontWeight={700} fill={TEXT}>
+        Activity
+      </text>
+      <text x={PAD + 62} y={ACTIVITY_Y + ACTIVITY_H / 2 + 3.5} fontFamily="monospace" fontSize={9.5} fontWeight={700} fill={OH_GREEN}>
+        ›
+      </text>
+      <text x={PAD + 72} y={ACTIVITY_Y + ACTIVITY_H / 2 + 3.5} fontFamily="monospace" fontSize={9.5} fontWeight={600} fill={TEXT}>
+        list
+      </text>
+      <text x={PAD + 110} y={ACTIVITY_Y + ACTIVITY_H / 2 + 3.5} fontSize={8.5} fontStyle="italic" fill={TEXT_DIM}>
+        the change feed — an agent sees what changed before acting
+      </text>
+      <text
+        x={W - PAD - 10}
+        y={ACTIVITY_Y + ACTIVITY_H / 2 + 3.5}
+        textAnchor="end"
+        fontSize={9}
+        fontWeight={800}
+        fill={OH_GREEN}
+        letterSpacing={0.4}
+      >
+        1 TOOL
+      </text>
 
       {/* Verdict */}
       <rect
@@ -145,7 +190,7 @@ export const RoadmapMcpToolsDiagram: React.FC = () => {
         strokeWidth={1.5}
       />
       <text x={CX} y={VERDICT_Y + VERDICT_H / 2 + 4} textAnchor="middle" fontSize={11} fontWeight={700} fill={OH_GREEN}>
-        {TOTAL_TOOLS} tools · six domains · the full Open Headers surface
+        {TOTAL_TOOLS} tools · seven domains · the full Open Headers surface
       </text>
     </svg>
   );

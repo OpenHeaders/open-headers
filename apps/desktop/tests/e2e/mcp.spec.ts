@@ -202,6 +202,7 @@ test('lists the read + write catalog with the write tier enabled', async () => {
     'variables_set',
     'requests_save',
     'workflows_save',
+    'requests_import',
     'workspaces_create',
     'workspaces_switch',
     'environments_switch',
@@ -420,6 +421,22 @@ test('creates and patches a saved request against the playground', async () => {
   expect(request.headers.map((h) => h.key)).toContain('X-Trace');
 });
 
+test('requests_import lands a parsed curl command as a saved request', async () => {
+  const { isError, payload } = await callTool('requests_import', {
+    format: 'curl',
+    content: "curl -X POST 'http://127.0.0.1:3000/api/echo' -H 'authorization: Bearer xyz'",
+  });
+  expect(isError).toBeFalsy();
+  const created = payload.created as Array<{ uid: string; method: string }>;
+  expect(created).toHaveLength(1);
+  expect(created[0].method).toBe('POST');
+
+  const get = await callTool('requests_get', { uid: created[0].uid });
+  const request = get.payload.request as { auth: { type: string }; url: string };
+  expect(request.url).toBe('http://127.0.0.1:3000/api/echo');
+  expect(request.auth.type).toBe('bearer');
+});
+
 test('records every mutation in the activity feed', async () => {
   const { payload } = await callTool('activity_list', {});
   expect((payload.entries as unknown[]).length).toBeGreaterThan(0);
@@ -523,6 +540,25 @@ test('workflows_history reports the run with capture names, not values', async (
   expect(runs[0].extractedAt).toBeGreaterThan(0);
 });
 
+test('workflows_save patches the workflow by uid and keeps it published', async () => {
+  const { isError, payload } = await callTool('workflows_save', {
+    uid: workflowUid,
+    workflow: { name: 'Echo probe (renamed)' },
+  });
+  expect(isError).toBeFalsy();
+  const workflow = payload.workflow as { uid: string; name: string; published: boolean };
+  expect(workflow.uid).toBe(workflowUid);
+  expect(workflow.name).toBe('Echo probe (renamed)');
+  expect(workflow.published).toBe(true);
+
+  const blocked = await callTool('workflows_save', {
+    uid: workflowUid,
+    workflow: { steps: [{ id: 's1', requestUid, captures: [] }] },
+  });
+  expect(blocked.isError).toBe(true);
+  expect(blocked.text).toContain('{{live.echoMethod}}');
+});
+
 test('workspaces_diff answers for a loaded pair and rejects unknown ids', async () => {
   const workspaces = await callTool('workspaces_list', {});
   const activeId = workspaces.payload.activeWorkspaceId as string;
@@ -537,6 +573,51 @@ test('workspaces_diff answers for a loaded pair and rejects unknown ids', async 
   const unknown = await callTool('workspaces_diff', { otherWorkspaceId: 'ghost' });
   expect(unknown.isError).toBe(true);
   expect(unknown.text).toContain('workspaces_list');
+});
+
+// ── Secrets tier ────────────────────────────────────────────────────
+
+test('variables_reveal_secret stays hidden and denied while mcp.allowSecrets is off', async () => {
+  const { json } = await rpc('tools/list', {});
+  const names = (json.result as { tools: Array<{ name: string }> }).tools.map((t) => t.name);
+  expect(names).not.toContain('variables_reveal_secret');
+
+  const denied = await callTool('variables_reveal_secret', { name: 'apiKey' });
+  expect(denied.isError).toBe(true);
+  expect(denied.text).toContain('Secrets tools are disabled');
+});
+
+test('flipping mcp.allowSecrets exposes the reveal tool without a restart', async () => {
+  await workbench.evaluate(async () => {
+    const bridge = (
+      window as unknown as {
+        oh: {
+          storage: {
+            get(req: { key: string }): Promise<{ value: unknown }>;
+            set(req: { key: string; value: unknown }): Promise<unknown>;
+          };
+        };
+      }
+    ).oh;
+    const current = await bridge.storage.get({ key: 'oh.settings.user' });
+    await bridge.storage.set({
+      key: 'oh.settings.user',
+      value: { ...((current.value as Record<string, unknown>) ?? {}), 'mcp.allowSecrets': true },
+    });
+  });
+
+  await expect
+    .poll(async () => {
+      const { json } = await rpc('tools/list', {});
+      return (json.result as { tools: Array<{ name: string }> }).tools.map((t) => t.name);
+    })
+    .toContain('variables_reveal_secret');
+
+  // The fresh workspace has no vault entries — the gate passes and the
+  // handler answers with the agent-readable miss, not a tier denial.
+  const miss = await callTool('variables_reveal_secret', { name: 'apiKey' });
+  expect(miss.isError).toBe(true);
+  expect(miss.text).toContain("no vault secret named 'apiKey'");
 });
 
 // ── stdio bridge ────────────────────────────────────────────────────
@@ -727,4 +808,69 @@ test('rules_delete tombstones the rule and the Workbench drops it live', async (
   const list = await callTool('rules_list', {});
   expect(list.payload.rules as unknown[]).toHaveLength(0);
   await expect(workbench.getByText('Agent header rule v2')).toHaveCount(0);
+});
+
+// ── LAN bind rebind ─────────────────────────────────────────────────
+//
+// Flipping `backend.bindAddress` live tears the daemon socket down and
+// rebinds it. The MCP surface must survive both directions with its
+// full admission chain — same composed handler, same token ledger.
+// Last in the suite: the rebind briefly drops the extension's WS pipe.
+
+async function setBindAddress(address: string): Promise<void> {
+  await workbench.evaluate(async (addr) => {
+    const bridge = (
+      window as unknown as {
+        oh: {
+          storage: {
+            get(req: { key: string }): Promise<{ value: unknown }>;
+            set(req: { key: string; value: unknown }): Promise<unknown>;
+          };
+        };
+      }
+    ).oh;
+    const current = await bridge.storage.get({ key: 'oh.settings.user' });
+    await bridge.storage.set({
+      key: 'oh.settings.user',
+      value: { ...((current.value as Record<string, unknown>) ?? {}), 'backend.bindAddress': addr },
+    });
+  }, address);
+}
+
+test('the MCP admission chain survives a live bindAddress rebind', async () => {
+  await setBindAddress('0.0.0.0');
+  await expect
+    .poll(
+      async () => {
+        try {
+          const { status } = await rpc('initialize', INITIALIZE_PARAMS);
+          return status;
+        } catch {
+          return 0;
+        }
+      },
+      { timeout: 15000 },
+    )
+    .toBe(200);
+
+  // Full posture on the wide bind: no token 401, Origin 403.
+  const missing = await fetch(MCP_URL, { method: 'POST', body: '{}' });
+  expect(missing.status).toBe(401);
+  const origin = await rpc('initialize', INITIALIZE_PARAMS, { headers: { origin: 'https://openheaders.io' } });
+  expect(origin.status).toBe(403);
+
+  await setBindAddress('127.0.0.1');
+  await expect
+    .poll(
+      async () => {
+        try {
+          const { status } = await rpc('initialize', INITIALIZE_PARAMS);
+          return status;
+        } catch {
+          return 0;
+        }
+      },
+      { timeout: 15000 },
+    )
+    .toBe(200);
 });

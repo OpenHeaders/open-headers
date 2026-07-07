@@ -34,6 +34,7 @@ import {
   snapshotRequestPostStates,
 } from '@openheaders/oracle/sync/service';
 import { listWorkspaces } from '@openheaders/oracle/workspace/extension-workspace-store';
+import * as v from 'valibot';
 import { MCP_SURFACE_ID, McpToolInputError } from '../registry';
 
 export const WORKSPACE_ID_PROPERTY = {
@@ -78,6 +79,29 @@ export function requireWorkspace(args: Record<string, unknown>): string {
   }
   assertWorkspaceLoaded(id);
   return id;
+}
+
+function schemaIssueSummary(issues: readonly v.BaseIssue<unknown>[]): string {
+  return issues
+    .slice(0, 5)
+    .map((issue) => {
+      const path = (issue.path ?? []).map((segment) => String(segment.key)).join('.');
+      return path ? `${path}: ${issue.message}` : issue.message;
+    })
+    .join('; ');
+}
+
+/** Canonical-schema parse with an agent-readable issue summary on failure. */
+export function parseOrThrow<TSchema extends v.BaseSchema<unknown, unknown, v.BaseIssue<unknown>>>(
+  schema: TSchema,
+  raw: unknown,
+  what: string,
+): v.InferOutput<TSchema> {
+  const result = v.safeParse(schema, raw);
+  if (!result.success) {
+    throw new McpToolInputError(`invalid ${what}: ${schemaIssueSummary(result.issues)}`);
+  }
+  return result.output;
 }
 
 /** Required-string argument reader with an agent-readable failure. */

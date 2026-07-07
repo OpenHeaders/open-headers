@@ -26,6 +26,8 @@ export {
   type McpWorkflowRunArgs,
   type McpWorkflowRunOutcome,
 } from './tools/execute-tools';
+export { createImportToolDefinitions } from './tools/import-tools';
 export { createReadToolDefinitions } from './tools/read-tools';
 export { createRuntimeToolDefinitions } from './tools/runtime-tools';
+export { createSecretToolDefinitions } from './tools/secret-tools';
 export { createWriteToolDefinitions } from './tools/write-tools';

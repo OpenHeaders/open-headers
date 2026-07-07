@@ -1,6 +1,6 @@
 /**
  * Desktop MCP server install — engine-opaque wiring only. Builds the
- * tool registry (read + write + execute tiers; tier gating is per call
+ * tool registry (read + write + execute + secrets tiers; tier gating is per call
  * in the engine), injects the desktop's execution capabilities (Node
  * transport + chain runner), reads the MCP settings from `OH.settingsUser`
  * (same dotted-key record the daemon bind supervisor reads), and hands
@@ -22,10 +22,12 @@ import { createNodeRequestTransport } from '@openheaders/oracle-host-node/live/n
 import {
   createDiffToolDefinitions,
   createExecuteToolDefinitions,
+  createImportToolDefinitions,
   createMcpHttpHandler,
   createMcpToolRegistry,
   createReadToolDefinitions,
   createRuntimeToolDefinitions,
+  createSecretToolDefinitions,
   createWriteToolDefinitions,
   type McpHttpHandler,
   type McpPolicy,
@@ -60,7 +62,9 @@ export async function installMcpServer(): Promise<McpServerInstall> {
       ...createReadToolDefinitions(),
       ...createDiffToolDefinitions(),
       ...createWriteToolDefinitions(),
+      ...createImportToolDefinitions(),
       ...createRuntimeToolDefinitions(),
+      ...createSecretToolDefinitions(),
       ...createExecuteToolDefinitions({
         transport: createNodeRequestTransport(),
         runWorkflow: runDesktopWorkflowRefresh,

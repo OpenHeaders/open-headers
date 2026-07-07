@@ -6,14 +6,16 @@
  * the SDK transport against a real bound socket.
  */
 
-import { createServer, type Server } from 'node:http';
+import { createServer, request as httpRequest, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { clearIdentitySnapshot, mintDaemonAuthToken } from '@openheaders/core/identity';
+import { networkInterfaces } from 'node:os';
+import { clearIdentitySnapshot, createDaemonPairingService, mintDaemonAuthToken } from '@openheaders/core/identity';
 import { setHostLogger } from '@openheaders/core/logger';
 import { MCP_HTTP_PATH } from '@openheaders/core/protocol';
 import { setHostStorage } from '@openheaders/core/storage';
 import { logger as consoleLogger } from '@openheaders/core/utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { createPairingHttpHandler } from '../../src/host-runtime/pairing-http';
 import { createMcpHttpHandler, type McpHttpHandler } from '../../src/mcp/http-handler';
 import type { McpPolicy } from '../../src/mcp/policy';
 import { createMcpToolRegistry, type McpToolDefinition } from '../../src/mcp/registry';
@@ -201,5 +203,132 @@ describe('MCP HTTP handler', () => {
     });
     expect(json.error).toBeDefined();
     expect((json.error as { message: string }).message).toContain('unknown tool');
+  });
+});
+
+// ── LAN / self-host matrix ──────────────────────────────────────────
+//
+// The `backend.bindAddress` toggle can put the daemon socket on
+// 0.0.0.0. The admission chain is bind-agnostic by design (no
+// loopback bypass exists), and this suite pins that: token required
+// from a genuinely non-loopback remote, Origin refused even with a
+// valid token, no Host-header branching, and the sibling pairing
+// surface composed on the same bind stays independent.
+
+/** First non-internal IPv4 address — the LAN vantage point. Suites
+ *  skip the remote legs on hosts with no external interface. */
+function lanAddress(): string | null {
+  for (const rows of Object.values(networkInterfaces())) {
+    for (const row of rows ?? []) {
+      if (row && !row.internal && row.family === 'IPv4') return row.address;
+    }
+  }
+  return null;
+}
+
+const LAN_IP = lanAddress();
+
+/** Raw request helper — `fetch` strips forbidden headers like `Host`,
+ *  so the Host-spoof leg needs `node:http` directly. */
+function rawRequest(port: number, headers: Record<string, string>, body: string): Promise<{ status: number }> {
+  return new Promise((resolve, reject) => {
+    const req = httpRequest({ host: '127.0.0.1', port, path: MCP_HTTP_PATH, method: 'POST', headers }, (res) => {
+      res.resume();
+      res.on('end', () => resolve({ status: res.statusCode ?? 0 }));
+    });
+    req.on('error', reject);
+    req.end(body);
+  });
+}
+
+describe('MCP HTTP handler on a 0.0.0.0 bind (LAN matrix)', () => {
+  let server: Server;
+  let port: number;
+  let secret: string;
+  let pairCode: string;
+
+  beforeEach(async () => {
+    setHostLogger(consoleLogger);
+    setHostStorage(createHostStorageFake());
+    clearIdentitySnapshot();
+    secret = (await mintDaemonAuthToken({ label: 'lan client' })).secret;
+
+    const pairing = createDaemonPairingService();
+    pairCode = pairing.startPair({ deviceLabel: 'lan peer' }).code;
+    const pairingHandler = createPairingHttpHandler({ pairing });
+    const mcpHandler = createMcpHttpHandler({
+      registry: createMcpToolRegistry([ECHO_TOOL]),
+      isEnabled: () => true,
+      getPolicy: () => ({ enabledTiers: new Set(['read']) }),
+      serverVersion: '2026.7.0',
+    });
+    // Same composition install-rpc-host wires onto the daemon bind.
+    server = createServer((req, res) => {
+      if (pairingHandler(req, res)) return;
+      if (mcpHandler(req, res)) return;
+      res.statusCode = 400;
+      res.end('fallback');
+    });
+    await new Promise<void>((resolve) => server.listen(0, '0.0.0.0', resolve));
+    port = (server.address() as AddressInfo).port;
+  });
+
+  afterEach(async () => {
+    await new Promise<void>((resolve, reject) => {
+      server.close((err) => (err ? reject(err) : resolve()));
+    });
+  });
+
+  it.skipIf(!LAN_IP)('requires the bearer token from a non-loopback remote', async () => {
+    const missing = await fetch(`http://${LAN_IP}:${port}${MCP_HTTP_PATH}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' },
+      body: rpcBody('initialize', INITIALIZE_PARAMS),
+    });
+    expect(missing.status).toBe(401);
+
+    const authed = await fetch(`http://${LAN_IP}:${port}${MCP_HTTP_PATH}`, {
+      method: 'POST',
+      headers: rpcHeaders(secret),
+      body: rpcBody('initialize', INITIALIZE_PARAMS),
+    });
+    expect(authed.status).toBe(200);
+  });
+
+  it.skipIf(!LAN_IP)('refuses Origin-bearing requests from the LAN even with a valid token', async () => {
+    const response = await fetch(`http://${LAN_IP}:${port}${MCP_HTTP_PATH}`, {
+      method: 'POST',
+      headers: { ...rpcHeaders(secret), origin: `http://${LAN_IP}:${port}` },
+      body: rpcBody('initialize', INITIALIZE_PARAMS),
+    });
+    expect(response.status).toBe(403);
+  });
+
+  it('admission ignores the Host header — a spoofed Host changes nothing', async () => {
+    const base = { 'content-type': 'application/json', accept: 'application/json, text/event-stream' };
+    const body = rpcBody('initialize', INITIALIZE_PARAMS);
+
+    const unauthenticated = await rawRequest(port, { ...base, host: 'evil.openheaders.io' }, body);
+    expect(unauthenticated.status).toBe(401);
+
+    const authed = await rawRequest(
+      port,
+      { ...base, host: 'evil.openheaders.io', authorization: `Bearer ${secret}` },
+      body,
+    );
+    expect(authed.status).toBe(200);
+  });
+
+  it('leaves the pairing surface intact on the shared bind', async () => {
+    const view = await fetch(`http://127.0.0.1:${port}/pair/${pairCode}`);
+    expect(view.status).toBe(200);
+    expect(await view.text()).toContain('Confirm pairing');
+
+    const unknownPath = await fetch(`http://127.0.0.1:${port}/somewhere-else`);
+    expect(unknownPath.status).toBe(400);
+    expect(await unknownPath.text()).toBe('fallback');
+
+    const mcp = await postRpc(`http://127.0.0.1:${port}`, secret, 'initialize', INITIALIZE_PARAMS);
+    expect(mcp.status).toBe(200);
   });
 });
