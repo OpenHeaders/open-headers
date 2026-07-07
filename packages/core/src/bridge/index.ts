@@ -11,6 +11,8 @@ export type {
   BridgeTabRequest,
   BridgeTabResponse,
   BridgeTabType,
+  DomStorageAreaWire,
+  DomStorageEntryWire,
   EnvironmentsSnapshot,
   FolderDescriptor,
   JarCookieEditWire,
@@ -19,6 +21,7 @@ export type {
   ListedTestRun,
   LiveWorkflowRunSnapshot,
   StartTestRunResult,
+  StorageScopeWire,
   WorkspaceSnapshot,
 } from '../protocol/channels';
 

@@ -1,0 +1,193 @@
+/**
+ * Storage tool window — application-storage inspector for the inspected
+ * tab. Slice 1 scope (STORAGE_PANEL_PLAN.md §5): origin scope picker +
+ * read-only Local/Session storage grid over the standard data plane
+ * (SW injection), refreshed by visibility-gated polling. Cookies /
+ * IndexedDB / Cache Storage / quota arrive in later slices.
+ */
+
+import { ReloadOutlined } from '@ant-design/icons';
+import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
+import { useMemo, useState } from 'react';
+import type { DomStorageArea, DomStorageEntry } from '../../data/storage/storage-inspector-host';
+import { useStorageInspector } from '../../data/storage/use-storage-inspector';
+
+interface StoragePanelProps {
+  onHide: () => void;
+}
+
+const AREAS: ReadonlyArray<{ value: DomStorageArea; label: string }> = [
+  { value: 'local', label: 'Local' },
+  { value: 'session', label: 'Session' },
+];
+
+function formatLength(chars: number): string {
+  if (chars < 1024) return `${chars} chars`;
+  return `${(chars / 1024).toFixed(1)}k chars`;
+}
+
+export function StoragePanel({ onHide }: StoragePanelProps) {
+  const wiring = useMemo(() => createPanelHeaderWiring({ onHide }), [onHide]);
+  const inspector = useStorageInspector();
+  const [textFilter, setTextFilter] = useState('');
+
+  const entries = inspector.snapshot?.entries ?? [];
+  const filtered = useMemo<ReadonlyArray<DomStorageEntry>>(() => {
+    const needle = textFilter.trim().toLowerCase();
+    if (!needle) return entries;
+    return entries.filter((e) => e.key.toLowerCase().includes(needle) || e.value.toLowerCase().includes(needle));
+  }, [entries, textFilter]);
+
+  return (
+    <div className="dt-panel">
+      <PanelHeader
+        wiring={wiring}
+        title={
+          <div className="dt-header-filter-row">
+            <input
+              type="text"
+              className="dt-filter-input dt-filter-input--grow"
+              placeholder="Filter"
+              value={textFilter}
+              onChange={(e) => setTextFilter(e.target.value)}
+            />
+            <div className="dt-filter-separator" />
+            <div className="dt-filter-pills">
+              {AREAS.map((a) => (
+                <button
+                  key={a.value}
+                  type="button"
+                  className="dt-filter-pill"
+                  data-active={inspector.area === a.value}
+                  onClick={() => inspector.setArea(a.value)}
+                >
+                  {a.label}
+                </button>
+              ))}
+            </div>
+            <div className="dt-filter-separator" />
+            <button
+              type="button"
+              className="dt-toolbar-icon"
+              onClick={inspector.refresh}
+              title="Refresh"
+              aria-label="Refresh storage"
+            >
+              <ReloadOutlined />
+            </button>
+          </div>
+        }
+      />
+
+      {inspector.scopes.length > 0 && (
+        <div className="dt-storage-scope-bar">
+          <select
+            className="dt-storage-scope-select"
+            value={inspector.selectedOrigin ?? ''}
+            onChange={(e) => inspector.selectOrigin(e.target.value)}
+            aria-label="Storage origin"
+          >
+            {inspector.scopes.map((s) => (
+              <option key={s.origin} value={s.origin}>
+                {s.origin}
+                {s.isMainFrame ? '' : ' (iframe)'}
+              </option>
+            ))}
+          </select>
+          <span className="dt-storage-scope-note">
+            {inspector.snapshot ? `${filtered.length} of ${entries.length} items` : ''}
+            {inspector.snapshot?.truncated ? ' · list truncated' : ''}
+            {inspector.readFailed ? ' · read failed — showing last data' : ''}
+          </span>
+        </div>
+      )}
+
+      <div className="dt-storage-body">
+        <StorageBody
+          available={inspector.available}
+          hasScopes={inspector.scopes.length > 0}
+          loading={inspector.loading}
+          hasSnapshot={inspector.snapshot !== null}
+          area={inspector.area}
+          origin={inspector.selectedOrigin}
+          entries={filtered}
+          totalCount={entries.length}
+        />
+      </div>
+    </div>
+  );
+}
+
+interface StorageBodyProps {
+  available: boolean;
+  hasScopes: boolean;
+  loading: boolean;
+  hasSnapshot: boolean;
+  area: DomStorageArea;
+  origin: string | null;
+  entries: ReadonlyArray<DomStorageEntry>;
+  totalCount: number;
+}
+
+function StorageBody({ available, hasScopes, loading, hasSnapshot, area, origin, entries, totalCount }: StorageBodyProps) {
+  if (!available) {
+    return (
+      <div className="dt-empty-hero">
+        <strong>Storage inspection isn’t available here</strong>
+        <span className="dt-empty-hero-sub">This host doesn’t expose the inspected tab’s application storage.</span>
+      </div>
+    );
+  }
+  if (!hasScopes) {
+    return (
+      <div className="dt-empty-hero">
+        <strong>No inspectable origins</strong>
+        <span className="dt-empty-hero-sub">
+          This tab has no http(s) frames with DOM storage — browser-internal pages can’t be inspected.
+        </span>
+      </div>
+    );
+  }
+  if (loading && !hasSnapshot) {
+    return <div className="dt-empty">Loading…</div>;
+  }
+  if (!hasSnapshot) {
+    return (
+      <div className="dt-empty-hero">
+        <strong>Storage unavailable</strong>
+        <span className="dt-empty-hero-sub">
+          The frame for {origin ?? 'this origin'} can’t be read right now — it may have navigated away.
+        </span>
+      </div>
+    );
+  }
+  if (totalCount === 0) {
+    return (
+      <div className="dt-empty">
+        No items in {area === 'local' ? 'localStorage' : 'sessionStorage'} for {origin}.
+      </div>
+    );
+  }
+  if (entries.length === 0) {
+    return <div className="dt-empty">No items match your filter.</div>;
+  }
+  return (
+    <div className="dt-storage-grid" role="table" aria-label="Storage entries">
+      <div className="dt-storage-grid-header" role="row">
+        <span role="columnheader">Key</span>
+        <span role="columnheader">Value</span>
+      </div>
+      {entries.map((e) => (
+        <div className="dt-storage-row" role="row" key={e.key}>
+          <span className="dt-storage-key" role="cell" title={e.key}>
+            {e.key}
+          </span>
+          <span className="dt-storage-value" role="cell" title={e.clipped ? undefined : e.value}>
+            {e.value}
+            {e.clipped && <span className="dt-storage-clip-note"> … clipped ({formatLength(e.valueLength)})</span>}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}

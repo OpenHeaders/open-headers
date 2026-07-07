@@ -25,6 +25,7 @@
 @import './panel-editor.css';
 @import './panel-search.css';
 @import './panel-console.css';
+@import './panel-storage.css';
 @import './panel-menus.css';
 @import './panel-dnd.css';
 /* Inter — bundled UI font available via the appearance.fontFamilyPreset

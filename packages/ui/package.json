@@ -55,6 +55,10 @@
       "import": "./src/panel/host-cookie-jar.ts",
       "default": "./dist/panel/host-cookie-jar.js"
     },
+    "./panel/host-storage-inspector": {
+      "import": "./src/panel/host-storage-inspector.ts",
+      "default": "./dist/panel/host-storage-inspector.js"
+    },
     "./panel/*": {
       "import": "./src/panel/*",
       "default": "./dist/panel/*.js"

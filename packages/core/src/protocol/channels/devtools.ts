@@ -55,6 +55,34 @@ export interface JarCookieKeyWire {
   storeId?: string;
 }
 
+/** Which DOM storage area a storage-inspector read targets. */
+export type DomStorageAreaWire = 'local' | 'session';
+
+/**
+ * One inspectable storage scope of the inspected tab — a frame whose
+ * http(s) origin owns DOM storage. Same-origin frames collapse to one
+ * scope (they share both storage areas within a tab); `frameId` is the
+ * topmost frame carrying that origin, used as the injection target.
+ */
+export interface StorageScopeWire {
+  frameId: number;
+  origin: string;
+  url: string;
+  isMainFrame: boolean;
+}
+
+/**
+ * One DOM storage entry. `value` is clipped to the wire preview cap
+ * (`clipped: true`, `valueLength` carries the full length) so a single
+ * multi-megabyte value can't swamp the bridge.
+ */
+export interface DomStorageEntryWire {
+  key: string;
+  value: string;
+  valueLength: number;
+  clipped?: boolean;
+}
+
 export interface DevToolsRpc {
   // ── DevTools panel: source-map resolution ──────────────────────
   /**
@@ -131,5 +159,37 @@ export interface DevToolsRpc {
   removeCookieForUrl: {
     req: JarCookieKeyWire;
     res: { ok: boolean };
+  };
+
+  // ── DevTools panel: application-storage inspector ───────────────
+  /**
+   * Enumerate the inspected tab's storage scopes — the distinct http(s)
+   * origins its frame tree holds, main frame first.
+   *
+   * Routed through the SW because frame enumeration
+   * (`chrome.webNavigation.getAllFrames`) is a background-only API.
+   * `scopes` is `null` when the tab can't be enumerated (closed,
+   * browser-internal page) so the panel renders its empty state.
+   */
+  listStorageScopes: {
+    req: { tabId: number };
+    res: { scopes: ReadonlyArray<StorageScopeWire> | null };
+  };
+
+  /**
+   * Read one scope's localStorage or sessionStorage. The SW injects a
+   * reader into the scope's frame (`chrome.scripting`, isolated world —
+   * DOM storage is shared per origin, so the isolated world sees the
+   * page's data); there is no extension API for DOM storage and the
+   * CDP `DOMStorage` domain is not dispatched for extension debugger
+   * clients (see docs/STORAGE_PANEL_PLAN.md §2.3).
+   *
+   * `entries` is `null` when injection fails (frame gone, page not
+   * injectable). `truncated` marks an entry-count cap hit; per-value
+   * clipping is flagged on the entry itself.
+   */
+  getDomStorageEntries: {
+    req: { tabId: number; frameId: number; area: DomStorageAreaWire };
+    res: { entries: ReadonlyArray<DomStorageEntryWire> | null; truncated?: boolean };
   };
 }

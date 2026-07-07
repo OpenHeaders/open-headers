@@ -6,6 +6,7 @@ import '@/host/install-awareness-host';
 import '@/host/install-navigation-host';
 import '@/host/install-source-map-fetcher';
 import '@/host/install-cookie-jar-fetcher';
+import '@/host/install-storage-inspector';
 import '@/host/install-assets-host';
 import '@/host/install-parity-bridge';
 import '@/host/install-capabilities';

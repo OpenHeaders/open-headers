@@ -1,0 +1,98 @@
+/*
+ * Storage tool window — scope bar + key/value grid.
+ */
+
+.dt-storage-scope-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--dt-border);
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.dt-storage-scope-select {
+  font: inherit;
+  font-size: 11px;
+  color: var(--dt-text);
+  background: var(--dt-input-bg);
+  border: 1px solid var(--dt-input-border);
+  border-radius: 4px;
+  padding: 1px 4px;
+  max-width: 60%;
+  min-width: 0;
+}
+
+.dt-storage-scope-note {
+  font-size: 11px;
+  color: var(--dt-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dt-storage-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.dt-storage-grid {
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  font-size: 11px;
+  min-width: 0;
+}
+
+.dt-storage-grid-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(120px, 30%) 1fr;
+  gap: 8px;
+  padding: 3px 8px;
+  background: var(--dt-header-bg);
+  border-bottom: 1px solid var(--dt-border);
+  color: var(--dt-text-muted);
+  font-family: var(--oh-ui-font-family, system-ui, sans-serif);
+  user-select: none;
+}
+
+.dt-storage-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 30%) 1fr;
+  gap: 8px;
+  padding: 2px 8px;
+  border-bottom: 1px solid var(--dt-border);
+  align-items: baseline;
+}
+
+.dt-storage-row:nth-child(even) {
+  background: var(--dt-row-zebra);
+}
+
+.dt-storage-row:hover {
+  background: var(--dt-row-hover);
+}
+
+.dt-storage-key {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--dt-text);
+}
+
+.dt-storage-value {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--dt-text-muted);
+}
+
+.dt-storage-clip-note {
+  color: var(--dt-text-muted);
+  font-style: italic;
+}
