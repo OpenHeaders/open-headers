@@ -103,6 +103,9 @@ interface RequestEditorProps {
    * the response's values into `{{live.*}}` captures.
    */
   onExtractToWorkflow?: (target: 'new' | { workflowUid: string }, seedStep: ExtractSeedStep) => void;
+  /** Editing-scope workspace — threaded to script-editor selection
+   *  actions (Save to Package Library). */
+  workspaceId?: string | null;
 }
 
 /** Payload the request editor hands the extract action. */
@@ -126,6 +129,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   onSaveDraft,
   registerDuplicateRef,
   onExtractToWorkflow,
+  workspaceId = null,
 }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
@@ -607,6 +611,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
                         setDraft={setDraft}
                         headerConflictBridge={isCreateMode ? undefined : headerConflictBridge}
                         paramConflictBridge={isCreateMode ? undefined : paramConflictBridge}
+                        workspaceId={workspaceId}
                       />
                     </div>
                   </div>

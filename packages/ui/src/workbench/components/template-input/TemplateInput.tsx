@@ -39,6 +39,7 @@ import { useAutoSuggestionContext } from './SuggestionContextProvider';
 import SuggestionPopover from './SuggestionPopover';
 import type { TemplateInputProps } from './types';
 import { useGripResize } from './use-grip-resize';
+import { useSelectionContextMenu } from './use-selection-context-menu';
 import { useTemplateSuggestions } from './use-template-suggestions';
 
 const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
@@ -217,6 +218,16 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
     const { manualHeight, handleGripPointerDown, handleGripPointerMove, handleGripPointerUp, handleGripDoubleClick } =
       useGripResize(editableRef, onResizeX);
 
+    // Right-click on a selection → custom menu (Set as variable,
+    // clipboard trio, Encode/Decode). A collapsed caret falls through
+    // to the browser's native menu.
+    const { handleContextMenu, contextMenuLayer } = useSelectionContextMenu({
+      editableRef,
+      value: value ?? '',
+      onChange,
+      collectionId: effectiveContext.collectionId,
+    });
+
     // AntD-parity clear affordance: clears both the DOM (covers
     // uncontrolled use) and the controlled value, keeping focus in the
     // field so the user can type the replacement straight away.
@@ -273,7 +284,9 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
           onBlur={handleBlur}
           onMouseOver={handleEditableMouseOver}
           onMouseOut={handleEditableMouseOut}
+          onContextMenu={handleContextMenu}
         />
+        {contextMenuLayer}
         {resizable && (
           <div
             className={`oh-template-input-resize-grip${onResizeX ? ' oh-template-input-resize-grip--2d' : ''}`}

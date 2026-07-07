@@ -19,15 +19,22 @@ import { Button, Divider, Tooltip, theme } from 'antd';
 import type * as monaco from 'monaco-editor';
 import type React from 'react';
 import { useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
-import ScriptSnippetsMenu from '../script-editor/ScriptSnippetsMenu';
+import SaveToPackagePopover from '../script-editor/SaveToPackagePopover';
 import CodeEditor from '../shared/CodeEditor';
+import DismissLayer from '../template-input/DismissLayer';
+import ScriptSnippetsMenu from '../script-editor/ScriptSnippetsMenu';
+import SetAsVariablePopover from '../template-input/SetAsVariablePopover';
+import { useAutoSuggestionContext } from '../template-input/SuggestionContextProvider';
 
 interface ScriptsTabProps {
   preRequestScript: string;
   postResponseScript: string;
   onPreRequestChange: (value: string) => void;
   onPostResponseChange: (value: string) => void;
+  /** Editing-scope workspace — target for "Save to Package Library". */
+  workspaceId?: string | null;
 }
 
 const SCRIPT_INFO: Record<ScriptKind, InfoPopoverContent> = {
@@ -72,10 +79,17 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
   postResponseScript,
   onPreRequestChange,
   onPostResponseChange,
+  workspaceId = null,
 }) => {
   const { token } = theme.useToken();
   const [active, setActive] = useState<ScriptKind>('pre-request');
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+  const suggestionContext = useAutoSuggestionContext();
+  // Selection-action popovers, opened from the editor's context menu.
+  // The anchor is the editor container — the popover places itself
+  // beside the editor pane.
+  const [varPopover, setVarPopover] = useState<{ text: string; anchorEl: HTMLElement } | null>(null);
+  const [pkgPopover, setPkgPopover] = useState<{ text: string; anchorEl: HTMLElement } | null>(null);
 
   const value = active === 'pre-request' ? preRequestScript : postResponseScript;
   const onChange = (v: string) => {
@@ -176,8 +190,97 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
           placeholder={SCRIPT_PLACEHOLDER[active]}
           onEditorMount={(editor) => {
             editorRef.current = editor;
+            const container = editor.getContainerDomNode();
+            const selectedText = (): string => {
+              const model = editor.getModel();
+              const selection = editor.getSelection();
+              if (!model || !selection || selection.isEmpty()) return '';
+              return model.getValueInRange(selection);
+            };
+            const replaceSelection = (transform: (text: string) => string): void => {
+              const selection = editor.getSelection();
+              const text = selectedText();
+              if (!selection || !text) return;
+              let next = text;
+              try {
+                next = transform(text);
+              } catch {
+                // Malformed escape sequence on decode — keep as-is.
+              }
+              editor.executeEdits('oh-selection-action', [{ range: selection, text: next }]);
+            };
+            // Custom entries on Monaco's built-in context menu — shown
+            // only while a selection exists.
+            editor.addAction({
+              id: 'oh.set-as-variable',
+              label: 'Set as variable',
+              contextMenuGroupId: '9_oh_actions',
+              contextMenuOrder: 1,
+              precondition: 'editorHasSelection',
+              run: () => {
+                const text = selectedText();
+                if (text) setVarPopover({ text, anchorEl: container });
+              },
+            });
+            editor.addAction({
+              id: 'oh.save-to-package',
+              label: 'Save to Package Library',
+              contextMenuGroupId: '9_oh_actions',
+              contextMenuOrder: 2,
+              precondition: 'editorHasSelection',
+              run: () => {
+                const text = selectedText();
+                if (text) setPkgPopover({ text, anchorEl: container });
+              },
+            });
+            editor.addAction({
+              id: 'oh.encode-uri-component',
+              label: 'EncodeURIComponent',
+              contextMenuGroupId: '9_oh_transform',
+              contextMenuOrder: 1,
+              precondition: 'editorHasSelection',
+              run: () => replaceSelection(encodeURIComponent),
+            });
+            editor.addAction({
+              id: 'oh.decode-uri-component',
+              label: 'DecodeURIComponent',
+              contextMenuGroupId: '9_oh_transform',
+              contextMenuOrder: 2,
+              precondition: 'editorHasSelection',
+              run: () => replaceSelection(decodeURIComponent),
+            });
+            editor.addAction({
+              id: 'oh.find-selection',
+              label: 'Find',
+              contextMenuGroupId: '9_oh_transform',
+              contextMenuOrder: 3,
+              precondition: 'editorHasSelection',
+              run: () => {
+                void editor.getAction('actions.find')?.run();
+              },
+            });
           }}
         />
+        {varPopover &&
+          createPortal(
+            <DismissLayer onClose={() => setVarPopover(null)}>
+              <SetAsVariablePopover
+                anchorEl={varPopover.anchorEl}
+                initialValue={varPopover.text}
+                collectionId={suggestionContext.collectionId}
+                onClose={() => setVarPopover(null)}
+              />
+            </DismissLayer>,
+            document.body,
+          )}
+        {pkgPopover && (
+          <SaveToPackagePopover
+            anchorEl={pkgPopover.anchorEl}
+            workspaceId={workspaceId}
+            selectionText={pkgPopover.text}
+            onClose={() => setPkgPopover(null)}
+          />
+        )}
         {/* Floating action bar INSIDE the editor surface, bottom-right —
             above Monaco's horizontal scrollbar and clear of the resize
             grip strip (12px) below the buffer. z-index 12 matches the

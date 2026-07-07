@@ -45,19 +45,14 @@ export function createScopeToColorKey(s: CreateScope): ScopeKey {
 }
 
 export function buildCreateOptions(
-  lookup: VariableLookupResult,
+  namespace: VariableLookupResult['namespace'],
   hasActiveEnv: boolean,
   hasCollection: boolean,
 ): CreateOption[] {
   // Reserved / runtime-only namespaces aren't creatable from the
   // popover — they need their dedicated editors (Live Variables, file
   // upload, workflow steps).
-  if (
-    lookup.namespace === 'live' ||
-    lookup.namespace === 'step' ||
-    lookup.namespace === 'file' ||
-    lookup.namespace === 'dynamic'
-  ) {
+  if (namespace === 'live' || namespace === 'step' || namespace === 'file' || namespace === 'dynamic') {
     return [];
   }
   // Show every creatable destination regardless of the reference's

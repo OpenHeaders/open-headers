@@ -22,6 +22,9 @@ interface RequestTabContentProps {
   setDraft: React.Dispatch<React.SetStateAction<Draft>>;
   headerConflictBridge?: KeyValueRowConflictBridge;
   paramConflictBridge?: KeyValueRowConflictBridge;
+  /** Editing-scope workspace — target for script-editor selection
+   *  actions (Save to Package Library). */
+  workspaceId?: string | null;
 }
 
 const RequestTabContent: React.FC<RequestTabContentProps> = ({
@@ -30,6 +33,7 @@ const RequestTabContent: React.FC<RequestTabContentProps> = ({
   setDraft,
   headerConflictBridge,
   paramConflictBridge,
+  workspaceId,
 }) => {
   switch (tab) {
     case 'docs':
@@ -64,6 +68,7 @@ const RequestTabContent: React.FC<RequestTabContentProps> = ({
           postResponseScript={draft.postResponseScript ?? ''}
           onPreRequestChange={(preRequestScript) => setDraft((d) => ({ ...d, preRequestScript }))}
           onPostResponseChange={(postResponseScript) => setDraft((d) => ({ ...d, postResponseScript }))}
+          workspaceId={workspaceId}
         />
       );
     case 'settings':

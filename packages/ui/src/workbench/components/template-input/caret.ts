@@ -18,6 +18,23 @@ export function getCaretOffset(root: HTMLElement): number {
   return pre.toString().length;
 }
 
+/** Current selection as flat char offsets within `root` (counting only
+ *  text nodes), or `null` when the selection lies outside `root`. A
+ *  collapsed caret returns `start === end`. */
+export function getSelectionOffsets(root: HTMLElement): { start: number; end: number } | null {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return null;
+  const range = sel.getRangeAt(0);
+  if (!root.contains(range.startContainer) || !root.contains(range.endContainer)) return null;
+  const pre = range.cloneRange();
+  pre.selectNodeContents(root);
+  pre.setEnd(range.startContainer, range.startOffset);
+  const start = pre.toString().length;
+  pre.setEnd(range.endContainer, range.endOffset);
+  const end = pre.toString().length;
+  return { start, end };
+}
+
 /** Place the caret at `offset` characters into `root`. Silently no-ops
  *  if the root is shorter than `offset` (we clamp to end). */
 export function setCaretOffset(root: HTMLElement, offset: number): void {

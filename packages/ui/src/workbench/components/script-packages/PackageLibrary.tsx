@@ -19,7 +19,7 @@ import type { ScriptPackage } from '@openheaders/core/types';
 import { App, Button, Empty, Input, Popconfirm, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { getScriptPackageSyncMirrorForWorkspace } from '../../../context/mirrors/script-package-sync-mirror';
+import { useScriptPackages } from '../../../shared/hooks/readers/useScriptPackages';
 import {
   applyScriptPackageCreate,
   applyScriptPackageDelete,
@@ -47,29 +47,6 @@ function draftsEqual(a: PackageDraft, b: PackageDraft): boolean {
   return a.name === b.name && a.description === b.description && a.source === b.source;
 }
 
-/** Live package list from the per-workspace sync mirror. */
-function useScriptPackagesList(workspaceId: string | null): ScriptPackage[] {
-  const [packages, setPackages] = useState<ScriptPackage[]>([]);
-  useEffect(() => {
-    if (!workspaceId) {
-      setPackages([]);
-      return;
-    }
-    const mirror = getScriptPackageSyncMirrorForWorkspace(workspaceId);
-    let alive = true;
-    const refresh = () => {
-      if (alive) setPackages(mirror.listScriptPackages());
-    };
-    void mirror.hydrated.then(refresh);
-    const unsubscribe = mirror.subscribeAny(refresh);
-    return () => {
-      alive = false;
-      unsubscribe();
-    };
-  }, [workspaceId]);
-  return packages;
-}
-
 interface PackageLibraryProps {
   workspaceId: string | null;
   onDirtyChange?: (dirty: boolean) => void;
@@ -81,7 +58,7 @@ type Selection = { kind: 'none' } | { kind: 'create' } | { kind: 'edit'; uid: st
 const PackageLibrary: React.FC<PackageLibraryProps> = ({ workspaceId, onDirtyChange, registerSaveRef }) => {
   const { token } = theme.useToken();
   const { message, modal } = App.useApp();
-  const packages = useScriptPackagesList(workspaceId);
+  const packages = useScriptPackages(workspaceId);
 
   const [selection, setSelection] = useState<Selection>({ kind: 'none' });
   const [draft, setDraft] = useState<PackageDraft>(EMPTY_DRAFT);

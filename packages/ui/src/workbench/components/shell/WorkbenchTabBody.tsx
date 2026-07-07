@@ -341,6 +341,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
       <RequestEditor
         mode="request-edit"
         requestUid={tab.requestUid}
+        workspaceId={editingScopeWorkspaceId}
         onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
         registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
         registerDuplicateRef={(fn) => registerRequestDuplicateRef(tab.id, fn)}
@@ -380,6 +381,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
       <RequestEditor
         mode="request-create"
         draftName={tab.draftName ?? tab.label}
+        workspaceId={editingScopeWorkspaceId}
         seedRequestContent={tab.seedRequestContent}
         preferredCollectionId={tab.preferredCollectionId}
         preferredFolderPath={tab.preferredFolderPath}

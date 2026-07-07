@@ -189,7 +189,7 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
   // Create-flow: only when the ref is unresolved AND the namespace
   // (if any) maps to a creatable scope.
   const isUnresolved = !lookup.active && !lookup.parseError;
-  const createOptions = isUnresolved ? buildCreateOptions(lookup, !!activeEnvironmentId, !!collectionId) : [];
+  const createOptions = isUnresolved ? buildCreateOptions(lookup.namespace, !!activeEnvironmentId, !!collectionId) : [];
   // The create flow (picker / committed scope / hint) is derived as one
   // view-model so the three can't drift. A namespaced reference locks the
   // scope to its prefix; a bare reference is a free choice.
