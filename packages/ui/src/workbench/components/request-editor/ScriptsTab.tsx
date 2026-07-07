@@ -90,10 +90,19 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const suggestionContext = useAutoSuggestionContext();
   // Selection-action popovers, opened from the editor's context menu.
-  // The anchor is the editor container — the popover places itself
-  // beside the editor pane.
-  const [varPopover, setVarPopover] = useState<{ text: string; anchorEl: HTMLElement } | null>(null);
-  const [pkgPopover, setPkgPopover] = useState<{ text: string; anchorEl: HTMLElement } | null>(null);
+  // They anchor to a tiny fixed-position marker planted at the
+  // selection's end coordinates — anchoring to the editor CONTAINER
+  // would push the popover below the whole pane (usually off-screen).
+  const [varPopover, setVarPopover] = useState<{ text: string } | null>(null);
+  const [pkgPopover, setPkgPopover] = useState<{ text: string } | null>(null);
+  const [anchorPoint, setAnchorPoint] = useState<{ x: number; y: number } | null>(null);
+  const [anchorNode, setAnchorNode] = useState<HTMLElement | null>(null);
+  const closeSelectionPopovers = () => {
+    setVarPopover(null);
+    setPkgPopover(null);
+    setAnchorPoint(null);
+    setAnchorNode(null);
+  };
 
   const value = active === 'pre-request' ? preRequestScript : postResponseScript;
   const onChange = (v: string) => {
@@ -215,6 +224,16 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
             };
             // Custom entries on Monaco's built-in context menu — shown
             // only while a selection exists.
+            // Viewport coords of the selection end — where the popover
+            // anchors. Falls back to the container's top edge when the
+            // selection has scrolled out of view.
+            const selectionAnchorPoint = (): { x: number; y: number } => {
+              const rect = container.getBoundingClientRect();
+              const selection = editor.getSelection();
+              const pos = selection ? editor.getScrolledVisiblePosition(selection.getEndPosition()) : null;
+              if (!pos) return { x: rect.left + 24, y: rect.top + 24 };
+              return { x: rect.left + pos.left, y: rect.top + pos.top + pos.height };
+            };
             editor.addAction({
               id: 'oh.set-as-variable',
               label: 'Set as variable',
@@ -223,7 +242,9 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
               precondition: 'editorHasSelection',
               run: () => {
                 const text = selectedText();
-                if (text) setVarPopover({ text, anchorEl: container });
+                if (!text) return;
+                setAnchorPoint(selectionAnchorPoint());
+                setVarPopover({ text });
               },
             });
             editor.addAction({
@@ -234,7 +255,9 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
               precondition: 'editorHasSelection',
               run: () => {
                 const text = selectedText();
-                if (text) setPkgPopover({ text, anchorEl: container });
+                if (!text) return;
+                setAnchorPoint(selectionAnchorPoint());
+                setPkgPopover({ text });
               },
             });
             editor.addAction({
@@ -265,24 +288,42 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
             });
           }}
         />
-        {varPopover &&
+        {(varPopover || pkgPopover) &&
+          anchorPoint &&
           createPortal(
-            <DismissLayer onClose={() => setVarPopover(null)}>
+            <span
+              ref={setAnchorNode}
+              aria-hidden
+              style={{
+                position: 'fixed',
+                top: anchorPoint.y,
+                left: anchorPoint.x,
+                width: 2,
+                height: 2,
+                pointerEvents: 'none',
+              }}
+            />,
+            document.body,
+          )}
+        {varPopover &&
+          anchorNode &&
+          createPortal(
+            <DismissLayer onClose={closeSelectionPopovers}>
               <SetAsVariablePopover
-                anchorEl={varPopover.anchorEl}
+                anchorEl={anchorNode}
                 initialValue={varPopover.text}
                 collectionId={suggestionContext.collectionId}
-                onClose={() => setVarPopover(null)}
+                onClose={closeSelectionPopovers}
               />
             </DismissLayer>,
             document.body,
           )}
-        {pkgPopover && (
+        {pkgPopover && anchorNode && (
           <SaveToPackagePopover
-            anchorEl={pkgPopover.anchorEl}
+            anchorEl={anchorNode}
             workspaceId={workspaceId}
             selectionText={pkgPopover.text}
-            onClose={() => setPkgPopover(null)}
+            onClose={closeSelectionPopovers}
           />
         )}
         {/* Floating action bar INSIDE the editor surface, bottom-right —
