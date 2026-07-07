@@ -22,6 +22,7 @@ import type {
   SyncRequestFolderPostState,
   SyncRequestPostState,
   SyncRulePostState,
+  SyncScriptPackagePostState,
   SyncTemplateCollectionPostState,
   SyncTemplateFolderPostState,
   SyncTemplatePostState,
@@ -185,6 +186,15 @@ export interface SyncEngineRpc {
   'oh.sync.snapshotLiveWorkflows': {
     req: { workspaceId?: string };
     res: { entries: SyncLiveWorkflowPostState[] };
+  };
+  /**
+   * Snapshot the active workspace's full script-package oracle state.
+   * Each entry carries `{ scriptPackage }` — fully flat-scalar so no
+   * itemId map rides along.
+   */
+  'oh.sync.snapshotScriptPackages': {
+    req: { workspaceId?: string };
+    res: { entries: SyncScriptPackagePostState[] };
   };
   /**
    * Snapshot the active workspace's singleton oauth-bundle oracle

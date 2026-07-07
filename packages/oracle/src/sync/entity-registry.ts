@@ -57,6 +57,7 @@ import {
   REQUEST_HEADERS_PATH,
   REQUEST_PARAMS_PATH,
   RULE_ENTITY_TYPE,
+  SCRIPT_PACKAGE_ENTITY_TYPE,
   TEMPLATE_COLLECTION_ENTITY_TYPE,
   TEMPLATE_COLLECTION_VARS_PATH,
   TEMPLATE_CONDITIONS_PATH,
@@ -108,6 +109,8 @@ import { projectRequestFolderByUid, projectRequestFolderPostState } from './post
 import { projectRequestByUid, projectRequestPostState } from './post-state/request-post-state';
 import { createRuleCache } from './caches/rule-cache';
 import { projectRuleByUid, projectRulePostState } from './post-state/rule-post-state';
+import { createScriptPackageCache } from './caches/script-package-cache';
+import { projectScriptPackageByUid, projectScriptPackagePostState } from './post-state/script-package-post-state';
 import type { SwContextHandle } from './sw-context';
 import { createTemplateCache } from './caches/template-cache';
 import { createTemplateCollectionCache } from './caches/template-collection-cache';
@@ -364,6 +367,14 @@ export const LIVE_VARIABLE_REGISTRATION = flatEntity({
   projectByUid: projectLiveVariableByUid,
 });
 
+export const SCRIPT_PACKAGE_REGISTRATION = flatEntity({
+  entityType: SCRIPT_PACKAGE_ENTITY_TYPE,
+  createCache: createScriptPackageCache,
+  postStateKey: 'scriptPackagePostState',
+  projectPostState: projectScriptPackagePostState,
+  projectByUid: projectScriptPackageByUid,
+});
+
 export const LIVE_WORKFLOW_REGISTRATION = flatEntity({
   entityType: LIVE_WORKFLOW_ENTITY_TYPE,
   createCache: createLiveWorkflowCache,
@@ -456,6 +467,7 @@ export const WORKSPACE_REGISTRY: EntityRegistration[] = [
   TEMPLATE_FOLDER_REGISTRATION,
   LIVE_VARIABLE_REGISTRATION,
   LIVE_WORKFLOW_REGISTRATION,
+  SCRIPT_PACKAGE_REGISTRATION,
   LIVE_VALUE_REGISTRATION,
   LIVE_FALLBACK_PRIORITY_REGISTRATION,
   OAUTH_BUNDLE_REGISTRATION,

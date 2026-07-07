@@ -19,6 +19,7 @@ import type {
   SyncRequestFolderPostState,
   SyncRequestPostState,
   SyncRulePostState,
+  SyncScriptPackagePostState,
   SyncTemplateCollectionPostState,
   SyncTemplateFolderPostState,
   SyncTemplatePostState,
@@ -42,6 +43,7 @@ import {
   REQUEST_FOLDER_REGISTRATION,
   REQUEST_REGISTRATION,
   RULE_REGISTRATION,
+  SCRIPT_PACKAGE_REGISTRATION,
   singletonSnapshot,
   TEMPLATE_COLLECTION_REGISTRATION,
   TEMPLATE_FOLDER_REGISTRATION,
@@ -139,6 +141,11 @@ export function snapshotTemplateFolderPostStates(workspaceId?: string): SyncTemp
 export function snapshotLiveVariablePostStates(workspaceId?: string): SyncLiveVariablePostState[] {
   const o = oracleForWorkspace(workspaceId);
   return o ? flatSnapshot(o, LIVE_VARIABLE_REGISTRATION) : [];
+}
+
+export function snapshotScriptPackagePostStates(workspaceId?: string): SyncScriptPackagePostState[] {
+  const o = oracleForWorkspace(workspaceId);
+  return o ? flatSnapshot(o, SCRIPT_PACKAGE_REGISTRATION) : [];
 }
 
 export function snapshotLiveWorkflowPostStates(workspaceId?: string): SyncLiveWorkflowPostState[] {

@@ -98,6 +98,7 @@ function perWorkspaceDataKeys(workspaceId: string): StorageKey<unknown>[] {
     k.settingsWorkspaceBehavioral,
     k.importReports,
     k.requestScriptsReviewPending,
+    k.scriptPackages,
   ];
 }
 

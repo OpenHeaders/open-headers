@@ -24,6 +24,7 @@ import type {
   OAuth2Auth,
   Request,
   Rule,
+  ScriptPackage,
   Template,
   Vault,
   WorkspaceVariables,
@@ -316,6 +317,14 @@ export interface SyncLiveWorkflowPostState {
 }
 
 /**
+ * Post-commit projection for a script-package envelope. Fully
+ * flat-scalar, so the payload carries only the projected entity.
+ */
+export interface SyncScriptPackagePostState {
+  scriptPackage: ScriptPackage;
+}
+
+/**
  * Post-commit projection for a live-value envelope. Singleton entity per
  * workspace — one materialized record at the fixed id `live-value`. The
  * single set-modeled path `values` is projected back into a Record keyed
@@ -567,6 +576,12 @@ export interface SyncBroadcastEvent {
    * batches leave it `undefined`.
    */
   liveWorkflowPostState?: SyncLiveWorkflowPostState;
+  /**
+   * Populated for script-package envelopes whose batch left a
+   * materialized package in place. Tombstoned packages and rolled-back
+   * batches leave it `undefined`.
+   */
+  scriptPackagePostState?: SyncScriptPackagePostState;
   /**
    * Populated for live-value envelopes whose batch left a materialized
    * record in place. Tombstoned (singleton deletion is a workspace-level

@@ -101,6 +101,7 @@ export {
   WsRuleSchema,
 } from './rule';
 export { RuleDraftSchema } from './rule-draft';
+export { ScriptPackageNameSchema, ScriptPackageSchema } from './script-package';
 export { TemplateIncludesSchema, TemplateSchema } from './template';
 export {
   EnvironmentSchema,

@@ -45,6 +45,7 @@ export type EntityPostState = Partial<
     | 'templateFolderPostState'
     | 'liveVariablePostState'
     | 'liveWorkflowPostState'
+    | 'scriptPackagePostState'
     | 'liveValuePostState'
     | 'liveFallbackPriorityPostState'
     | 'oauthBundlePostState'

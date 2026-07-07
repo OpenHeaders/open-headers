@@ -34,6 +34,7 @@ import type {
   Org,
   Request,
   Rule,
+  ScriptPackage,
   SyntheticIdentityRecord,
   Template,
   Vault,
@@ -315,6 +316,11 @@ export interface WorkspaceKeys {
    */
   liveVariables: StorageKey<LiveVariable[]>;
   /**
+   * Script packages — named, reusable script modules loaded from
+   * pre-request / post-response scripts via `oh.require('<name>')`.
+   */
+  scriptPackages: StorageKey<ScriptPackage[]>;
+  /**
    * Live workflow-run cache. Blob keyed by `(workflowUid, environmentId)`
    * holds the most recent extraction per workflow per active env.
    * Opaque at storage layer — shape in `live-cache-store.ts`.
@@ -448,6 +454,7 @@ export function wsKeys(workspaceId: string): WorkspaceKeys {
     oauth: storageKey<unknown>(`${p}.oauth`, { sensitive: true }),
     liveWorkflows: storageKey<LiveWorkflow[]>(`${p}.liveWorkflows`),
     liveVariables: storageKey<LiveVariable[]>(`${p}.liveVariables`),
+    scriptPackages: storageKey<ScriptPackage[]>(`${p}.scriptPackages`),
     liveCache: storageKey<unknown>(`${p}.liveCache`),
     liveFallbackPriority: storageKey<LiveFallbackPrioritySnapshot>(`${p}.liveFallbackPriority`),
     variableRecents: storageKey<unknown>(`${p}.variableRecents`),

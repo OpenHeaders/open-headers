@@ -213,6 +213,8 @@ export type {
   SseRuleDraft,
   WsRuleDraft,
 } from './rule-draft';
+// ── Script packages ────────────────────────────────────────────────
+export type { ScriptPackage } from './script-package';
 // ── Shadow arbitration ─────────────────────────────────────────────
 export type { ShadowAttribution, ShadowKind } from './shadow';
 // ── Subsystem status snapshot ──────────────────────────────────────

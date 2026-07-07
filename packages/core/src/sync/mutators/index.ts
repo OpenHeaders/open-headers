@@ -229,6 +229,19 @@ export {
 } from './request-folder';
 export * from './rule';
 export {
+  type CreateScriptPackageArgs,
+  createScriptPackage,
+  type DeleteScriptPackageArgs,
+  deleteScriptPackage,
+  SCRIPT_PACKAGE_ENTITY_TYPE,
+  SCRIPT_PACKAGE_MUTATOR_VERSION,
+  type ScriptPackageScalarPath,
+  type SetScriptPackageFieldArgs,
+  setScriptPackageField,
+  type UnsetScriptPackageFieldArgs,
+  unsetScriptPackageField,
+} from './script-package';
+export {
   makeVariableMutators,
   type RemoveVariableInput,
   type SetVariableInput,

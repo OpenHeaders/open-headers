@@ -74,6 +74,7 @@ export {
   snapshotRequestFolderPostStates,
   snapshotRequestPostStates,
   snapshotRulePostStates,
+  snapshotScriptPackagePostStates,
   snapshotTemplateCollectionPostStates,
   snapshotTemplateFolderPostStates,
   snapshotTemplatePostStates,

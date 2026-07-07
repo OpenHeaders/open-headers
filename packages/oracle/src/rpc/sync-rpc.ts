@@ -72,6 +72,7 @@ import {
   snapshotRequestFolderPostStates,
   snapshotRequestPostStates,
   snapshotRulePostStates,
+  snapshotScriptPackagePostStates,
   snapshotTemplateCollectionPostStates,
   snapshotTemplateFolderPostStates,
   snapshotTemplatePostStates,
@@ -147,7 +148,7 @@ const GATE_RULES: ReadonlyMap<string, GateRule> = new Map<string, GateRule>([
   // Canonical write entry point.
   ['oh.sync.apply', { capability: 'workspace.write', resolveWorkspaceId: APPLY_WORKSPACE_ID }],
 
-  // Per-workspace snapshot reads (the 19 entity types).
+  // Per-workspace snapshot reads (the 20 entity types).
   ...(
     [
       'oh.sync.snapshotRules',
@@ -164,6 +165,7 @@ const GATE_RULES: ReadonlyMap<string, GateRule> = new Map<string, GateRule>([
       'oh.sync.snapshotTemplateFolders',
       'oh.sync.snapshotLiveVariables',
       'oh.sync.snapshotLiveWorkflows',
+      'oh.sync.snapshotScriptPackages',
       'oh.sync.snapshotOAuthBundle',
       'oh.sync.snapshotPauseMarkers',
       'oh.sync.snapshotLayoutState',
@@ -267,6 +269,7 @@ const SYNC_SNAPSHOT_DISPATCH: Record<string, (workspaceId?: string) => { entries
   'oh.sync.snapshotTemplateCollections': (ws) => ({ entries: snapshotTemplateCollectionPostStates(ws) }),
   'oh.sync.snapshotTemplateFolders': (ws) => ({ entries: snapshotTemplateFolderPostStates(ws) }),
   'oh.sync.snapshotLiveVariables': (ws) => ({ entries: snapshotLiveVariablePostStates(ws) }),
+  'oh.sync.snapshotScriptPackages': (ws) => ({ entries: snapshotScriptPackagePostStates(ws) }),
   'oh.sync.snapshotLiveWorkflows': (ws) => ({ entries: snapshotLiveWorkflowPostStates(ws) }),
   'oh.sync.snapshotOAuthBundle': (ws) => ({ entries: snapshotOAuthBundlePostStates(ws) }),
   'oh.sync.snapshotPauseMarkers': (ws) => ({ entries: snapshotPauseMarkersPostStates(ws) }),

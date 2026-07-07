@@ -34,6 +34,7 @@ import type {
   SyncRequestFolderPostState,
   SyncRequestPostState,
   SyncRulePostState,
+  SyncScriptPackagePostState,
   SyncTemplateCollectionPostState,
   SyncTemplateFolderPostState,
   SyncTemplatePostState,
@@ -265,6 +266,11 @@ export interface BridgeBroadcastContract {
      * `steps` rides as a whole-array scalar — no itemId map.
      */
     liveWorkflowPostState?: SyncLiveWorkflowPostState;
+    /**
+     * Post-commit projection for script-package envelopes. Flat-scalar
+     * entity — no itemId map.
+     */
+    scriptPackagePostState?: SyncScriptPackagePostState;
     /**
      * Post-commit projection for live-value envelopes (WS-C C6).
      * Singleton entity. Sensitive — stripped from snapshots crossing a
