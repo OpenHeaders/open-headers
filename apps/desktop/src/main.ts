@@ -3,6 +3,9 @@
  * wiring lives under `./main/bootstrap/`.
  *
  * Eval-time ordering matters:
+ *   - `--mcp-stdio` branch            — decided before everything else;
+ *                                       a bridge run is a pipe, not an
+ *                                       app instance (no lock, no UI).
  *   - `installChromiumSwitches`       — must precede `app` init; Chromium
  *                                       reads switches once at network-stack
  *                                       construction.
@@ -42,67 +45,80 @@ import { installStartupDataBridge } from './main/bootstrap/startup-data-bridge';
 import { installTray } from './main/bootstrap/tray';
 import { createMainWindow, showMainWindow } from './main/bootstrap/window-manager';
 import { installRpcHost } from './main/install-rpc-host';
+import { runMcpStdioBridge } from './mcp-stdio';
 
 const APP_DISPLAY_NAME = 'Open Headers';
 
-const logger = createLogger('main');
-
 // ── Eval-time wiring ──────────────────────────────────────────────
 
-// userData override — must land before ANY consumer of
-// `app.getPath('userData')`: the logger writes there, storage/persistence
-// key off it, and the single-instance lock is scoped to it (so an
-// overridden instance never races a real install). E2E harnesses point
-// this at a temp dir to run a fully isolated app.
-const userDataOverride = process.env.OPENHEADERS_USER_DATA_DIR;
-if (userDataOverride) {
-  app.setPath('userData', userDataOverride);
+// `--mcp-stdio` runs the protocol bridge INSTEAD of the app — decided
+// before any app-level bootstrap so a bridge run never requests the
+// single-instance lock (it must coexist with the running instance it
+// pipes to) and never creates windows or a tray. The bridge exits the
+// process itself when the client closes the pipe.
+if (process.argv.includes('--mcp-stdio')) {
+  runMcpStdioBridge();
+} else {
+  bootstrapDesktopApp();
 }
 
-// Chromium command-line switches must precede `app` initialization —
-// they're consumed once at network-stack construction.
-installChromiumSwitches();
+function bootstrapDesktopApp(): void {
+  // userData override — must land before ANY consumer of
+  // `app.getPath('userData')`: the logger writes there, storage/persistence
+  // key off it, and the single-instance lock is scoped to it (so an
+  // overridden instance never races a real install). E2E harnesses point
+  // this at a temp dir to run a fully isolated app.
+  const userDataOverride = process.env.OPENHEADERS_USER_DATA_DIR;
+  if (userDataOverride) {
+    app.setPath('userData', userDataOverride);
+  }
 
-// Logger next so every subsequent bootstrap call lands in
-// `<userData>/logs/main.log`.
-installMainLogger();
+  // Chromium command-line switches must precede `app` initialization —
+  // they're consumed once at network-stack construction.
+  installChromiumSwitches();
 
-// Then process diagnostics — any throw in later bootstrap calls
-// surfaces in the same log file.
-installProcessDiagnostics();
+  // Logger next so every subsequent bootstrap call lands in
+  // `<userData>/logs/main.log`.
+  installMainLogger();
+  const logger = createLogger('main');
 
-// Must precede any UI surface that reads `app.getName()` — notably the
-// macOS application menu's app-menu label and the About panel.
-app.setName(APP_DISPLAY_NAME);
+  // Then process diagnostics — any throw in later bootstrap calls
+  // surfaces in the same log file.
+  installProcessDiagnostics();
 
-enforceSingleInstanceLock();
-installStartupDataBridge();
-const { signalEngineReady } = installRpcQueue();
-installExternalLinkHandler();
-installProtocolHandler();
+  // Must precede any UI surface that reads `app.getName()` — notably the
+  // macOS application menu's app-menu label and the About panel.
+  app.setName(APP_DISPLAY_NAME);
 
-void app.whenReady().then(() => {
-  registerAsProtocolHandler();
-  installAboutPanel();
-  installApplicationMenu();
+  enforceSingleInstanceLock();
+  installStartupDataBridge();
+  const { signalEngineReady } = installRpcQueue();
+  installExternalLinkHandler();
+  installProtocolHandler();
 
-  createMainWindow();
-  installTray();
-  drainPendingProtocolUrls();
+  void app.whenReady().then(() => {
+    registerAsProtocolHandler();
+    installAboutPanel();
+    installApplicationMenu();
 
-  // macOS: dock click re-shows the existing (hidden) window.
-  app.on('activate', showMainWindow);
+    createMainWindow();
+    installTray();
+    drainPendingProtocolUrls();
 
-  installRpcHost()
-    .catch((err) => {
-      logger.error('installRpcHost failed', err);
-    })
-    .finally(signalEngineReady);
-});
+    // macOS: dock click re-shows the existing (hidden) window.
+    app.on('activate', showMainWindow);
 
-app.on('before-quit', markQuitting);
+    installRpcHost()
+      .catch((err) => {
+        logger.error('installRpcHost failed', err);
+      })
+      .finally(signalEngineReady);
+  });
 
-// Tray-resident: explicit `app.quit()` (tray menu / `Cmd+Q`) is the only exit.
-app.on('window-all-closed', () => {});
+  app.on('before-quit', markQuitting);
+
+  // Tray-resident: explicit `app.quit()` (tray menu / `Cmd+Q`) is the only exit.
+  app.on('window-all-closed', () => {});
+}
 
 export type { StartupData } from './main/bootstrap/startup-data-bridge';

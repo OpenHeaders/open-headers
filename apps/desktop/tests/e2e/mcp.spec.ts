@@ -23,9 +23,12 @@
  * server is started by the playwright `webServer` block.
  */
 
+import { spawn } from 'node:child_process';
 import { mkdtemp, writeFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { createInterface } from 'node:readline';
 import {
   _electron,
   type BrowserContext,
@@ -461,6 +464,100 @@ test('workspaces_diff answers for a loaded pair and rejects unknown ids', async 
   const unknown = await callTool('workspaces_diff', { otherWorkspaceId: 'ghost' });
   expect(unknown.isError).toBe(true);
   expect(unknown.text).toContain('workspaces_list');
+});
+
+// ── stdio bridge ────────────────────────────────────────────────────
+
+// The same binary the packaged client configs point at: the electron
+// executable driving the built app dir, exactly like `_electron.launch`.
+const electronBinary = createRequire(__filename)('electron') as string;
+
+interface BridgeSession {
+  send(message: Record<string, unknown>): void;
+  /** Next JSON line the bridge writes to stdout. */
+  next(): Promise<Record<string, unknown>>;
+  end(): void;
+  exited: Promise<number | null>;
+}
+
+function spawnBridge(extraArgs: readonly string[]): BridgeSession {
+  const proc = spawn(electronBinary, [APP_ROOT, '--mcp-stdio', ...extraArgs]);
+  const buffered: Record<string, unknown>[] = [];
+  const waiters: Array<(msg: Record<string, unknown>) => void> = [];
+  const reader = createInterface({ input: proc.stdout });
+  reader.on('line', (line) => {
+    let message: Record<string, unknown>;
+    try {
+      message = JSON.parse(line) as Record<string, unknown>;
+    } catch {
+      return; // stray runtime noise on stdout is not protocol traffic
+    }
+    const waiter = waiters.shift();
+    if (waiter) waiter(message);
+    else buffered.push(message);
+  });
+  return {
+    send: (message) => {
+      proc.stdin.write(`${JSON.stringify(message)}\n`);
+    },
+    next: () => {
+      const head = buffered.shift();
+      if (head) return Promise.resolve(head);
+      return new Promise((resolve) => waiters.push(resolve));
+    },
+    end: () => proc.stdin.end(),
+    exited: new Promise((resolve) => proc.once('exit', (code) => resolve(code))),
+  };
+}
+
+test('the stdio bridge drives a full session end-to-end', async () => {
+  const bridge = spawnBridge(['--port', String(DAEMON_PORT), '--token', token]);
+
+  bridge.send({ jsonrpc: '2.0', id: 1, method: 'initialize', params: INITIALIZE_PARAMS });
+  const init = await bridge.next();
+  expect(init.id).toBe(1);
+  expect((init.result as { serverInfo: { name: string } }).serverInfo.name).toBe('open-headers');
+
+  // Notifications relay silently — the daemon answers 202, no stdout line.
+  bridge.send({ jsonrpc: '2.0', method: 'notifications/initialized' });
+
+  bridge.send({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} });
+  const listed = await bridge.next();
+  expect(listed.id).toBe(2);
+  const names = (listed.result as { tools: Array<{ name: string }> }).tools.map((t) => t.name);
+  expect(names).toContain('workspaces_list');
+
+  bridge.send({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'workspaces_list', arguments: {} } });
+  const called = await bridge.next();
+  expect(called.id).toBe(3);
+  const result = called.result as { content: Array<{ text: string }> };
+  const payload = JSON.parse(result.content[0]?.text ?? '{}') as { activeWorkspaceId: string };
+
+  // Parity with the HTTP leg — same endpoint, same answers.
+  const http = await callTool('workspaces_list', {});
+  expect(payload.activeWorkspaceId).toBe(http.payload.activeWorkspaceId);
+
+  bridge.end();
+  expect(await bridge.exited).toBe(0);
+});
+
+test('the stdio bridge relays daemon admission errors under the request id', async () => {
+  const bridge = spawnBridge(['--port', String(DAEMON_PORT), '--token', 'oh_not-a-real-token']);
+  bridge.send({ jsonrpc: '2.0', id: 1, method: 'initialize', params: INITIALIZE_PARAMS });
+  const rejected = await bridge.next();
+  expect(rejected.id).toBe(1);
+  expect((rejected.error as { message: string }).message).toContain('paired access token');
+  bridge.end();
+  await bridge.exited;
+});
+
+test('the stdio bridge fails fast when the app is not running', async () => {
+  const bridge = spawnBridge(['--port', '18999', '--token', 'oh_irrelevant']);
+  bridge.send({ jsonrpc: '2.0', id: 1, method: 'initialize', params: INITIALIZE_PARAMS });
+  const failed = await bridge.next();
+  expect(failed.id).toBe(1);
+  expect((failed.error as { message: string }).message).toBe('Open Headers is not running — start it from the tray');
+  expect(await bridge.exited).toBe(1);
 });
 
 // ── Extension round-trip ────────────────────────────────────────────
