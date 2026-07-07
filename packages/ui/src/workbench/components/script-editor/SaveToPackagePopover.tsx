@@ -200,6 +200,12 @@ const SaveToPackagePopover: React.FC<SaveToPackagePopoverProps> = ({
                   whiteSpace: 'nowrap',
                 }}
                 title={pkg.description || pkg.name}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = token.colorFillTertiary;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent';
+                }}
               >
                 {pkg.name}
               </button>

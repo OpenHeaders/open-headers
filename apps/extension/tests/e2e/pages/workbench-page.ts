@@ -315,9 +315,22 @@ export class WorkbenchPage {
     await this.page.waitForTimeout(150);
   }
 
-  /** Click an entry in Monaco's open context menu by its exact label. */
+  /** Click an entry in Monaco's open context menu by its exact label.
+   *  Monaco silently drops clicks that land before the item's mouse-up
+   *  listener is armed (100 ms scheduler), leaving the menu open —
+   *  retry until the menu actually closes. */
   async clickMonacoMenuItem(label: string): Promise<void> {
-    await this.page.locator('.monaco-menu').getByText(label, { exact: true }).first().click();
+    const menu = this.page.locator('.monaco-menu').first();
+    const item = menu.getByText(label, { exact: true }).first();
+    await item.click();
+    // Give a successful click's async menu teardown a beat, then retry
+    // ONLY while the menu is verifiably still up — a blind retry after
+    // close would land on whatever now occupies those coordinates.
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await this.page.waitForTimeout(200);
+      if (!(await menu.isVisible().catch(() => false))) return;
+      await item.click({ timeout: 2000 }).catch(() => {});
+    }
   }
 
   /** The Save-to-Package popover opened from the editor context menu. */
@@ -384,6 +397,10 @@ export class WorkbenchPage {
     await this.page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
     await this.page.keyboard.press('Backspace');
     await this.page.keyboard.insertText(text);
+    // Inserting identifier characters opens Monaco's suggest widget; a
+    // later click anywhere near it can ACCEPT a completion and corrupt
+    // the buffer (`c` → `clearInterval`). Dismiss it while it exists.
+    if (text.trim()) await this.page.keyboard.press('Escape');
   }
 
   // ── Response readback ───────────────────────────────────────────
