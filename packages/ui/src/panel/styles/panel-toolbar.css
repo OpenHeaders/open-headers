@@ -572,14 +572,14 @@
   cursor: default;
 }
 
-/* Filter row rendered inside the Network panel's PanelHeader title
-   slot — the input grows to fill, pills sit at the trailing edge
-   with a fine vertical separator between them. No background or
-   explicit height: the PanelHeader (32px) supplies those. The title
-   slot's default text-oriented rules (`overflow: hidden`, `nowrap`)
-   are overridden on the ancestor below so the flex children lay out
-   normally. */
-.dt-network-filter-row {
+/* Filter row rendered inside a tool-window PanelHeader title slot
+   (Network, Console) — the input grows to fill, pills sit at the
+   trailing edge with a fine vertical separator between them. No
+   background or explicit height: the PanelHeader (32px) supplies
+   those. The title slot's default text-oriented rules
+   (`overflow: hidden`, `nowrap`) are overridden on the ancestor below
+   so the flex children lay out normally. */
+.dt-header-filter-row {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -587,7 +587,7 @@
   min-width: 0;
 }
 
-.dt-network-filter-row .dt-filter-input-wrap {
+.dt-header-filter-row .dt-filter-input-wrap {
   flex: 1 1 0%;
   min-width: 80px;
 }
@@ -596,7 +596,7 @@
    assumes a text node (truncates with an ellipsis and forbids wrap).
    Those rules break flex children. When the title is our filter row,
    drop the text-only overflow + wrap so the child flex layout works. */
-.rules-panel-header-title:has(> .dt-network-filter-row) {
+.rules-panel-header-title:has(> .dt-header-filter-row) {
   overflow: visible;
   white-space: normal;
   text-overflow: clip;

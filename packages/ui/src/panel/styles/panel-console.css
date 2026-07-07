@@ -1,47 +1,8 @@
-/* Console tool window — per-tab console output + uncaught-exception stream. */
-
-.dt-console-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-}
-
-.dt-console-filter-input {
-  flex: 1 1 auto;
-  min-width: 60px;
-  height: 22px;
-  padding: 0 6px;
-  font-size: 11px;
-  color: var(--dt-text);
-  background: var(--dt-input-bg);
-  border: 1px solid var(--dt-input-border);
-  border-radius: 2px;
-  outline: none;
-}
-
-.dt-console-filter-input:focus {
-  border-color: var(--dt-tab-active-border);
-}
-
-.dt-console-clear-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  width: 22px;
-  height: 22px;
-  border: none;
-  background: transparent;
-  color: var(--dt-text-muted);
-  cursor: pointer;
-  border-radius: 2px;
-}
-
-.dt-console-clear-btn:hover {
-  background: var(--dt-row-hover);
-  color: var(--dt-text);
-}
+/* Console tool window — per-tab console output + uncaught-exception stream.
+   The header toolbar (filter input, level pills, clear button) is built
+   entirely from the shared header vocabulary in panel-toolbar.css
+   (`.dt-header-filter-row`, `.dt-filter-input`, `.dt-filter-pills`,
+   `.dt-toolbar-icon`), so only the log surface itself lives here. */
 
 .dt-console-body {
   flex: 1;

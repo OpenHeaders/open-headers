@@ -81,7 +81,7 @@ describe('ConsoleView list', () => {
 
   it('text filter narrows by message content', () => {
     const { container } = renderView(entries);
-    fireEvent.change(container.querySelector('.dt-console-filter-input') as HTMLInputElement, {
+    fireEvent.change(container.querySelector('.dt-filter-input') as HTMLInputElement, {
       target: { value: 'boom' },
     });
     const rows = container.querySelectorAll('.dt-console-row');
@@ -91,7 +91,7 @@ describe('ConsoleView list', () => {
 
   it('shows a no-match notice when the filter excludes everything', () => {
     const { container } = renderView(entries);
-    fireEvent.change(container.querySelector('.dt-console-filter-input') as HTMLInputElement, {
+    fireEvent.change(container.querySelector('.dt-filter-input') as HTMLInputElement, {
       target: { value: 'nothing-matches' },
     });
     expect(container.querySelectorAll('.dt-console-row')).toHaveLength(0);

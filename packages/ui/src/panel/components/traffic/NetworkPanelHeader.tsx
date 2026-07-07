@@ -46,7 +46,7 @@ export function NetworkPanelHeader({
     <PanelHeader
       wiring={headerWiring}
       title={
-        <div className="dt-network-filter-row">
+        <div className="dt-header-filter-row">
           <FilterInput
             value={urlFilter}
             onChange={onUrlFilterChange}

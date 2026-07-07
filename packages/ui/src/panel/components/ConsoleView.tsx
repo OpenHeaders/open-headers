@@ -19,7 +19,6 @@ import { ClearOutlined } from '@ant-design/icons';
 import type { ConsoleEntry, ConsoleLevel } from '@openheaders/core/console-stream';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
-import { Button, Segmented, Tooltip } from 'antd';
 import { useMemo, useRef, useState } from 'react';
 import { useStickToBottom } from './detail/streams/use-stick-to-bottom';
 import { formatClock } from '../data/timing/format-time';
@@ -33,6 +32,12 @@ interface ConsoleViewProps {
 }
 
 type LevelFilter = 'all' | 'warnings' | 'errors';
+
+const LEVEL_FILTERS: ReadonlyArray<{ value: LevelFilter; label: string }> = [
+  { value: 'all', label: 'All' },
+  { value: 'warnings', label: 'Warnings' },
+  { value: 'errors', label: 'Errors' },
+];
 
 /** Severity-threshold level filter: "Warnings" keeps warnings *and* errors. */
 function passesLevel(level: ConsoleLevel, filter: LevelFilter): boolean {
@@ -107,29 +112,38 @@ export function ConsoleView({ entries, onClear, onHide }: ConsoleViewProps) {
       <PanelHeader
         wiring={wiring}
         title={
-          <div className="dt-console-toolbar">
-            <Segmented<LevelFilter>
-              size="small"
-              value={levelFilter}
-              onChange={setLevelFilter}
-              options={[
-                { label: 'All', value: 'all' },
-                { label: 'Warnings', value: 'warnings' },
-                { label: 'Errors', value: 'errors' },
-              ]}
-            />
+          <div className="dt-header-filter-row">
             <input
               type="text"
-              className="dt-console-filter-input"
+              className="dt-filter-input dt-filter-input--grow"
               placeholder="Filter"
               value={textFilter}
               onChange={(e) => setTextFilter(e.target.value)}
             />
-            <Tooltip title="Clear console" placement="bottom">
-              <button type="button" className="dt-console-clear-btn" onClick={onClear} aria-label="Clear console">
-                <ClearOutlined />
-              </button>
-            </Tooltip>
+            <div className="dt-filter-separator" />
+            <div className="dt-filter-pills">
+              {LEVEL_FILTERS.map((f) => (
+                <button
+                  key={f.value}
+                  type="button"
+                  className="dt-filter-pill"
+                  data-active={levelFilter === f.value}
+                  onClick={() => setLevelFilter(f.value)}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+            <div className="dt-filter-separator" />
+            <button
+              type="button"
+              className="dt-toolbar-icon"
+              onClick={onClear}
+              title="Clear console"
+              aria-label="Clear console"
+            >
+              <ClearOutlined />
+            </button>
           </div>
         }
       />
@@ -153,9 +167,9 @@ export function ConsoleView({ entries, onClear, onHide }: ConsoleViewProps) {
                     : 'Debug mode is off. Showing the last captured output.'}
                 </span>
                 {canEnableDebug && (
-                  <Button size="small" type="link" onClick={enableDebug}>
+                  <button type="button" className="dt-btn" onClick={enableDebug}>
                     Enable Debug mode
-                  </Button>
+                  </button>
                 )}
               </div>
             )}
@@ -225,9 +239,9 @@ function ConsoleEmpty({ hasCdpCapability, cdpEnabled, capturing, onEnableDebug }
           Open Headers captures this tab’s console output and uncaught exceptions while Debug mode is on.
         </span>
         {onEnableDebug && (
-          <Button type="primary" onClick={onEnableDebug}>
+          <button type="button" className="dt-btn dt-btn-primary" onClick={onEnableDebug}>
             Enable Debug mode
-          </Button>
+          </button>
         )}
       </div>
     );
