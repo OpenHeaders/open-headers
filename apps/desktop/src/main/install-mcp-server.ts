@@ -1,7 +1,8 @@
 /**
  * Desktop MCP server install — engine-opaque wiring only. Builds the
- * tool registry (read + write tiers; tier gating is per call in the
- * engine), reads the MCP settings from `OH.settingsUser`
+ * tool registry (read + write + execute tiers; tier gating is per call
+ * in the engine), injects the desktop's execution capabilities (Node
+ * transport + chain runner), reads the MCP settings from `OH.settingsUser`
  * (same dotted-key record the daemon bind supervisor reads), and hands
  * back the HTTP handler the daemon bind composes onto its socket.
  *
@@ -17,7 +18,10 @@
  */
 
 import { hostStorage, OH } from '@openheaders/core/storage';
+import { createNodeRequestTransport } from '@openheaders/oracle-host-node/live/node-request-transport';
 import {
+  createDiffToolDefinitions,
+  createExecuteToolDefinitions,
   createMcpHttpHandler,
   createMcpToolRegistry,
   createReadToolDefinitions,
@@ -27,6 +31,7 @@ import {
   type McpToolTier,
 } from '@openheaders/oracle-host-node/mcp';
 import { app } from 'electron';
+import { runDesktopWorkflowRefresh } from './live/chain-runner';
 
 export interface McpServerInstall {
   readonly handler: McpHttpHandler;
@@ -50,7 +55,15 @@ export async function installMcpServer(): Promise<McpServerInstall> {
   });
 
   const handler = createMcpHttpHandler({
-    registry: createMcpToolRegistry([...createReadToolDefinitions(), ...createWriteToolDefinitions()]),
+    registry: createMcpToolRegistry([
+      ...createReadToolDefinitions(),
+      ...createDiffToolDefinitions(),
+      ...createWriteToolDefinitions(),
+      ...createExecuteToolDefinitions({
+        transport: createNodeRequestTransport(),
+        runWorkflow: runDesktopWorkflowRefresh,
+      }),
+    ]),
     isEnabled: () => current.enabled,
     getPolicy: () => current.policy,
     serverVersion: app.getVersion(),

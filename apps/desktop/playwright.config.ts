@@ -10,4 +10,13 @@ export default defineConfig({
   use: {
     trace: 'on-first-retry',
   },
+  // The MCP execute-tier tests send real requests at the playground.
+  webServer: {
+    command: 'pnpm --filter @openheaders/playground dev',
+    url: 'http://127.0.0.1:3000',
+    reuseExistingServer: !process.env.CI,
+    timeout: 30_000,
+    stdout: 'ignore',
+    stderr: 'pipe',
+  },
 });

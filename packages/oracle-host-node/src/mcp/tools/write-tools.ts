@@ -18,7 +18,14 @@
  * host-side on create and rejected in update patches.
  */
 
-import { EnvironmentSchema, RequestSchema, RuleSchema } from '@openheaders/core/schemas';
+import { validateStepRequestsExist, validateWorkflowShape } from '@openheaders/core/live';
+import {
+  EnvironmentSchema,
+  LiveVariableSchema,
+  LiveWorkflowSchema,
+  RequestSchema,
+  RuleSchema,
+} from '@openheaders/core/schemas';
 import {
   ENV_VARS_PATH,
   ENVIRONMENT_ENTITY_TYPE,
@@ -29,9 +36,10 @@ import {
   RULE_ENTITY_TYPE,
 } from '@openheaders/core/sync';
 import { buildAddEnvironmentBatch } from '@openheaders/core/sync-builders/mutations/env-mutations';
+import { buildAddLiveVariableBatch } from '@openheaders/core/sync-builders/mutations/live-variable-mutations';
+import { buildAddLiveWorkflowBatch } from '@openheaders/core/sync-builders/mutations/live-workflow-mutations';
 import {
   buildAddBatch as buildAddRequestBatch,
-  buildDeleteBatch as buildDeleteRequestBatch,
   buildUpdateBatch as buildUpdateRequestBatch,
 } from '@openheaders/core/sync-builders/mutations/request-mutations';
 import {
@@ -43,13 +51,22 @@ import {
 import { buildSetWorkspaceVarBatch } from '@openheaders/core/sync-builders/mutations/workspace-variables-mutations';
 import { seedCollection } from '@openheaders/core/sync-builders/projections/collection-projection';
 import { seedRequestCollection } from '@openheaders/core/sync-builders/projections/request-collection-projection';
-import type { Collection, Environment, Request, Rule, Variable } from '@openheaders/core/types';
+import type {
+  Collection,
+  Environment,
+  LiveVariable,
+  LiveWorkflow,
+  Request,
+  Rule,
+  Variable,
+} from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import type { EntityOracle } from '@openheaders/oracle/sync/oracle';
 import {
   getOracleForWorkspace,
   snapshotCollectionPostStates,
   snapshotEnvironmentPostStates,
+  snapshotLiveVariablePostStates,
   snapshotRequestCollectionPostStates,
   snapshotRequestPostStates,
   snapshotRulePostStates,
@@ -57,7 +74,14 @@ import {
 } from '@openheaders/oracle/sync/service';
 import * as v from 'valibot';
 import { type McpToolDefinition, McpToolInputError } from '../registry';
-import { applyMcpMutation, mintMcpContext, requireStringArg, requireWorkspace, WORKSPACE_ID_PROPERTY } from './common';
+import {
+  applyMcpMutation,
+  findRequest,
+  mintMcpContext,
+  requireStringArg,
+  requireWorkspace,
+  WORKSPACE_ID_PROPERTY,
+} from './common';
 
 // ── Shared helpers ──────────────────────────────────────────────────
 
@@ -252,14 +276,6 @@ async function resolveRequestParentPath(workspaceId: string, collectionUid: stri
   return collection.path;
 }
 
-function findRequest(workspaceId: string, uid: string): Request {
-  const match = snapshotRequestPostStates(workspaceId).find((ps) => ps.request.uid === uid);
-  if (!match) {
-    throw new McpToolInputError(`no request with uid '${uid}' in workspace '${workspaceId}' — see requests_list`);
-  }
-  return match.request;
-}
-
 // ── Environments / variables ────────────────────────────────────────
 
 function findEnvironment(workspaceId: string, uid: string): Environment {
@@ -300,6 +316,92 @@ function readVariableInputs(raw: unknown, argName: string): VariableInput[] {
       name: record.name.trim(),
       value: record.value,
       ...(record.type !== undefined ? { type: record.type as Variable['type'] } : {}),
+    };
+  });
+}
+
+// ── Live workflows ──────────────────────────────────────────────────
+
+/**
+ * Mint row uids across a workflow payload's nested set-modeled arrays:
+ * steps, each step's captures, and each step's `runIf.all` gate
+ * clauses. Same identity discipline as {@link withRowUids} — agents
+ * supply content, the host supplies identity; rows that already carry
+ * a uid keep it.
+ */
+function withWorkflowRowUids(record: Record<string, unknown>): Record<string, unknown> {
+  const mintRow = (row: unknown): unknown =>
+    typeof row === 'object' && row !== null && !Array.isArray(row)
+      ? { uid: generateUid(), ...(row as Record<string, unknown>) }
+      : row;
+
+  if (!Array.isArray(record.steps)) return record;
+  const steps = record.steps.map((raw) => {
+    const step = mintRow(raw);
+    if (typeof step !== 'object' || step === null) return step;
+    const next = step as Record<string, unknown>;
+    if (Array.isArray(next.captures)) next.captures = next.captures.map(mintRow);
+    const runIf = next.runIf;
+    if (typeof runIf === 'object' && runIf !== null && !Array.isArray(runIf)) {
+      const gate = runIf as Record<string, unknown>;
+      if (Array.isArray(gate.all)) next.runIf = { ...gate, all: gate.all.map(mintRow) };
+    }
+    return next;
+  });
+  return { ...record, steps };
+}
+
+interface ExposeInput {
+  name: string;
+  stepId: string;
+  captureName: string;
+  description?: string;
+}
+
+/**
+ * Validate the `exposes` bindings against the workflow they attach to:
+ * each must reference a declared step + capture, and names must be
+ * unique within the call and against the workspace's existing live
+ * variables (`{{live.<name>}}` is a workspace-wide namespace).
+ */
+function readExposeInputs(raw: unknown, workflow: LiveWorkflow, workspaceId: string): ExposeInput[] {
+  if (raw === undefined) return [];
+  if (!Array.isArray(raw)) {
+    throw new McpToolInputError("'exposes' must be an array of { name, stepId, captureName } records");
+  }
+  const existingNames = new Set(snapshotLiveVariablePostStates(workspaceId).map((ps) => ps.liveVariable.name));
+  const seen = new Set<string>();
+  return raw.map((entry, index) => {
+    if (typeof entry !== 'object' || entry === null) {
+      throw new McpToolInputError(`'exposes[${index}]' must be an object`);
+    }
+    const record = entry as Record<string, unknown>;
+    for (const field of ['name', 'stepId', 'captureName'] as const) {
+      if (typeof record[field] !== 'string' || record[field].length === 0) {
+        throw new McpToolInputError(`'exposes[${index}].${field}' is required`);
+      }
+    }
+    const name = record.name as string;
+    const stepId = record.stepId as string;
+    const captureName = record.captureName as string;
+    if (existingNames.has(name) || seen.has(name)) {
+      throw new McpToolInputError(`live variable name '${name}' is already taken — names are workspace-unique`);
+    }
+    seen.add(name);
+    const step = workflow.steps.find((s) => s.id === stepId);
+    if (!step) {
+      throw new McpToolInputError(`'exposes[${index}]' references unknown step '${stepId}'`);
+    }
+    if (!step.captures.some((c) => c.name === captureName)) {
+      throw new McpToolInputError(
+        `'exposes[${index}]' references unknown capture '${captureName}' on step '${stepId}'`,
+      );
+    }
+    return {
+      name,
+      stepId,
+      captureName,
+      ...(typeof record.description === 'string' && record.description ? { description: record.description } : {}),
     };
   });
 }
@@ -731,6 +833,117 @@ export function createWriteToolDefinitions(): McpToolDefinition[] {
             url: created.url,
             path: created.path,
           },
+        };
+      },
+    },
+    {
+      name: 'workflows_save',
+      title: 'Create live workflow',
+      description:
+        'Create a live workflow — a chained run of saved API requests that feeds {{live.*}} variables. ' +
+        'Each step references a saved request by requestUid and declares named captures (json-path, header, ' +
+        'body-regex, whole-body, or status-code extractors); later steps reference earlier captures as ' +
+        '{{step.<stepId>.<captureName>}}. exposes[] binds captures to {{live.<name>}} variables; a binding ' +
+        'goes live after its first successful run (workflows_run). New workflows start as drafts unless ' +
+        'published: true is passed — only published workflows are scheduled and resolvable. Saving never ' +
+        'sends traffic. Updating an existing workflow is not supported here yet — edit it in Open Headers.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          workflow: {
+            type: 'object',
+            description:
+              'Workflow definition: name, steps[] ({ id, requestUid, captures[{ name, extractor }], ' +
+              'dependsOn?, runIf? }), refresh ({ kind: manual } default, { kind: interval, seconds ≥ 30 }, ' +
+              'or expires-in / expires-at reading a capture), enabled, published.',
+          },
+          exposes: {
+            type: 'array',
+            description: 'Captures to expose as {{live.<name>}} variables.',
+            items: {
+              type: 'object',
+              properties: {
+                name: { type: 'string', description: 'Workspace-unique identifier used as {{live.<name>}}.' },
+                stepId: { type: 'string' },
+                captureName: { type: 'string' },
+                description: { type: 'string' },
+              },
+              required: ['name', 'stepId', 'captureName'],
+              additionalProperties: false,
+            },
+          },
+          ...WORKSPACE_ID_PROPERTY,
+        },
+        required: ['workflow'],
+        additionalProperties: false,
+      },
+      ...workspaceScoped,
+      handler: async (args) => {
+        const workspaceId = requireWorkspace(args);
+        const input = withWorkflowRowUids(requireObjectArg(args, 'workflow'));
+        rejectEntityManagedFields(input);
+        const uid = generateUid();
+        const name = typeof input.name === 'string' && input.name.trim() ? input.name.trim() : 'Untitled Workflow';
+        const created = parseOrThrow(
+          LiveWorkflowSchema,
+          {
+            refresh: { kind: 'manual' },
+            enabled: true,
+            ...input,
+            name,
+            schemaVersion: 5,
+            uid,
+            path: `live-workflows/${toFolderName(name, uid)}`,
+            published: input.published === true,
+          },
+          'workflow',
+        );
+        const knownRequestUids = new Set(snapshotRequestPostStates(workspaceId).map((ps) => ps.request.uid));
+        const structural = [...validateWorkflowShape(created), ...validateStepRequestsExist(created, knownRequestUids)];
+        if (structural.length > 0) {
+          throw new McpToolInputError(
+            `invalid workflow: ${structural
+              .slice(0, 5)
+              .map((e) => e.message)
+              .join('; ')}`,
+          );
+        }
+        const exposes = readExposeInputs(args.exposes, created, workspaceId);
+
+        await applyMcpMutation(buildAddLiveWorkflowBatch(created, mintMcpContext(workspaceId)));
+        const liveVariables: Array<{ name: string; reference: string }> = [];
+        for (const expose of exposes) {
+          const lvUid = generateUid();
+          const liveVariable: LiveVariable = parseOrThrow(
+            LiveVariableSchema,
+            {
+              schemaVersion: 5,
+              uid: lvUid,
+              path: `live-variables/${toFolderName(expose.name, lvUid)}`,
+              name: expose.name,
+              ...(expose.description ? { description: expose.description } : {}),
+              workflowUid: created.uid,
+              stepId: expose.stepId,
+              captureName: expose.captureName,
+              enabled: true,
+            },
+            'live variable',
+          );
+          await applyMcpMutation(buildAddLiveVariableBatch(liveVariable, mintMcpContext(workspaceId)));
+          liveVariables.push({ name: liveVariable.name, reference: `{{live.${liveVariable.name}}}` });
+        }
+        return {
+          workspaceId,
+          workflow: {
+            uid: created.uid,
+            name: created.name,
+            path: created.path,
+            stepCount: created.steps.length,
+            enabled: created.enabled,
+            published: created.published === true,
+            refresh: created.refresh,
+          },
+          liveVariables,
         };
       },
     },

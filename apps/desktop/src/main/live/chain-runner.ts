@@ -43,6 +43,7 @@ import type { LiveWorkflow } from '@openheaders/core/types';
 import { logger } from '@openheaders/core/utils';
 import { deriveExecutionPolicyForWorkflow } from '@openheaders/oracle/live/execution-policy-resolver';
 import { putWorkflowRunCache, recordRefreshError } from '@openheaders/oracle/live/live-cache-store';
+import { publishLiveVariablesProducedByRun } from '@openheaders/oracle/live/live-variable-store';
 import { buildChainFetchAdapter } from '@openheaders/oracle/live/request-exec/chain-adapter';
 import { createNodeRequestTransport } from '@openheaders/oracle-host-node/live/node-request-transport';
 
@@ -119,6 +120,13 @@ async function commitSuccess(
     },
     workspaceId,
   );
+
+  // A successful run is what brings an exposed binding live: publish any
+  // draft live var bound to this workflow whose capture just produced a
+  // value. Same publish-on-run contract as the browser adapter — the
+  // workflow's trigger (a cadence fire or an MCP workflows_run) produces
+  // the live var; Save only activates the workflow.
+  await publishLiveVariablesProducedByRun(workspaceId, workflow.uid, stepCaptures);
 }
 
 async function commitFailure(

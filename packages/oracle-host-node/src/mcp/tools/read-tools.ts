@@ -17,8 +17,17 @@
  */
 
 import type { ActivityEntry } from '@openheaders/core/sync';
-import type { Environment, LiveWorkflow, Request, Rule, Variable, VaultSecret } from '@openheaders/core/types';
+import type {
+  Environment,
+  LiveWorkflow,
+  Request,
+  Rule,
+  Variable,
+  VaultSecret,
+  WorkflowRunCache,
+} from '@openheaders/core/types';
 import { getActiveEnvironmentId, getDefaultEnvironmentId } from '@openheaders/oracle/entity/environment-store';
+import { listWorkflowRunCaches } from '@openheaders/oracle/live/live-cache-store';
 import { peekActiveWorkspaceId } from '@openheaders/oracle/sync';
 import {
   getOracleForWorkspace,
@@ -100,6 +109,33 @@ function projectWorkflowRow(workflow: LiveWorkflow, liveVariableNames: readonly 
     stepCount: workflow.steps.length,
     refresh: workflow.refresh,
     liveVariables: liveVariableNames,
+  };
+}
+
+/**
+ * Read-tier projection of a cached workflow run. Capture NAMES only —
+ * captured values often carry credentials (that is the live-variable
+ * use case) and belong to the execute tier's fresh-run result.
+ */
+function projectRunRecord(run: WorkflowRunCache): Record<string, unknown> {
+  const captureNames: Record<string, string[]> = {};
+  for (const [stepId, captures] of Object.entries(run.stepCaptures)) {
+    captureNames[stepId] = Object.keys(captures);
+  }
+  return {
+    workflowUid: run.workflowUid,
+    environmentId: run.environmentId,
+    extractedAt: run.extractedAt,
+    expiresAt: run.expiresAt,
+    captureNames,
+    stepResponseBytes: run.stepResponseBytes,
+    consecutiveFailures: run.consecutiveFailures,
+    lastErrorAt: run.lastErrorAt,
+    lastErrorMessage: run.lastErrorMessage,
+    lastErrorStepId: run.lastErrorStepId,
+    lastExtractorOk: run.lastExtractorOk,
+    refreshHealth: run.refreshHealth,
+    definitionallyStale: run.definitionallyStale,
   };
 }
 
@@ -327,6 +363,30 @@ export function createReadToolDefinitions(): McpToolDefinition[] {
             ),
           ),
         };
+      },
+    },
+    {
+      name: 'workflows_history',
+      title: 'Workflow run history',
+      description:
+        'Read the cached run records of live workflows: last successful extraction time, derived expiry, ' +
+        'consecutive failures, the last error (message + failing step), and refresh health. Reports the ' +
+        'capture NAMES each run produced per step, never the captured values (run a workflow via ' +
+        'workflows_run to obtain values). One record per workflow × environment.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          uid: { type: 'string', description: 'Optional workflow uid from workflows_list — omit for all.' },
+          ...WORKSPACE_ID_PROPERTY,
+        },
+        additionalProperties: false,
+      },
+      ...workspaceScoped,
+      handler: async (args) => {
+        const workspaceId = requireWorkspace(args);
+        const uid = typeof args.uid === 'string' && args.uid.length > 0 ? args.uid : null;
+        const runs = (await listWorkflowRunCaches(workspaceId)).filter((run) => !uid || run.workflowUid === uid);
+        return { workspaceId, runs: runs.map(projectRunRecord) };
       },
     },
     {

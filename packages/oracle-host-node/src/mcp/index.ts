@@ -19,5 +19,12 @@ export {
   type McpToolTier,
 } from './registry';
 export { type CreateMcpServerOptions, createMcpServer, MCP_SERVER_NAME } from './server';
+export { createDiffToolDefinitions } from './tools/diff-tools';
+export {
+  createExecuteToolDefinitions,
+  type McpExecuteToolDeps,
+  type McpWorkflowRunArgs,
+  type McpWorkflowRunOutcome,
+} from './tools/execute-tools';
 export { createReadToolDefinitions } from './tools/read-tools';
 export { createWriteToolDefinitions } from './tools/write-tools';

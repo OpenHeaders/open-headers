@@ -23,11 +23,15 @@ import {
   type MutatorContext,
   type SideEffectIntent,
 } from '@openheaders/core/sync';
+import type { Request } from '@openheaders/core/types';
+import { getActiveEnvironmentId } from '@openheaders/oracle/entity/environment-store';
 import { makeOracleInverseAccess, peekActiveWorkspaceId, rememberPriorForMutation } from '@openheaders/oracle/sync';
 import {
   applySyncRequest,
   getOracleForWorkspace,
   nextSwMutatorContextForWorkspace,
+  snapshotEnvironmentPostStates,
+  snapshotRequestPostStates,
 } from '@openheaders/oracle/sync/service';
 import { listWorkspaces } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { MCP_SURFACE_ID, McpToolInputError } from '../registry';
@@ -46,16 +50,11 @@ export function resolveWorkspaceIdArg(args: Record<string, unknown>): string | u
 }
 
 /**
- * Resolve + validate the workspace a tool call targets. Throws
- * agent-readable errors for the three failure shapes: no workspace
- * context at all, an id this host has never seen, and a known-but-not-
- * loaded workspace (snapshots would silently read `[]`).
+ * Assert a workspace id is materialized on this host, distinguishing
+ * "known but not loaded" (snapshots would silently read `[]`) from
+ * "never seen".
  */
-export function requireWorkspace(args: Record<string, unknown>): string {
-  const id = resolveWorkspaceIdArg(args);
-  if (id === undefined) {
-    throw new McpToolInputError('no active workspace on this host — pass workspaceId (see workspaces_list)');
-  }
+export function assertWorkspaceLoaded(id: string): void {
   if (getOracleForWorkspace(id) === null) {
     const known = listWorkspaces().some((ws) => ws.id === id);
     throw new McpToolInputError(
@@ -64,6 +63,20 @@ export function requireWorkspace(args: Record<string, unknown>): string {
         : `unknown workspace '${id}' — valid ids come from workspaces_list`,
     );
   }
+}
+
+/**
+ * Resolve + validate the workspace a tool call targets. Throws
+ * agent-readable errors for the three failure shapes: no workspace
+ * context at all, an id this host has never seen, and a known-but-not-
+ * loaded workspace.
+ */
+export function requireWorkspace(args: Record<string, unknown>): string {
+  const id = resolveWorkspaceIdArg(args);
+  if (id === undefined) {
+    throw new McpToolInputError('no active workspace on this host — pass workspaceId (see workspaces_list)');
+  }
+  assertWorkspaceLoaded(id);
   return id;
 }
 
@@ -74,6 +87,36 @@ export function requireStringArg(args: Record<string, unknown>, name: string): s
     throw new McpToolInputError(`'${name}' is required and must be a non-empty string`);
   }
   return raw;
+}
+
+/** Uid-keyed request lookup with the agent-readable miss copy. */
+export function findRequest(workspaceId: string, uid: string): Request {
+  const match = snapshotRequestPostStates(workspaceId).find((ps) => ps.request.uid === uid);
+  if (!match) {
+    throw new McpToolInputError(`no request with uid '${uid}' in workspace '${workspaceId}' — see requests_list`);
+  }
+  return match.request;
+}
+
+/**
+ * Resolve the environment an execution runs under. An explicit
+ * `environmentId` is validated against the workspace's environments;
+ * omitted, the runtime-active workspace's active environment applies
+ * (background workspaces run under "No environment" — their active-env
+ * pointer is not hydrated).
+ */
+export function resolveEnvironmentArg(workspaceId: string, args: Record<string, unknown>): string | null {
+  const raw = args.environmentId;
+  if (typeof raw === 'string' && raw.length > 0) {
+    const known = snapshotEnvironmentPostStates(workspaceId).some((ps) => ps.environment.uid === raw);
+    if (!known) {
+      throw new McpToolInputError(
+        `no environment with uid '${raw}' in workspace '${workspaceId}' — see environments_list`,
+      );
+    }
+    return raw;
+  }
+  return workspaceId === peekActiveWorkspaceId() ? (getActiveEnvironmentId() ?? null) : null;
 }
 
 /**

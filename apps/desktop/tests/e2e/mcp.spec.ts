@@ -10,12 +10,17 @@
  *      admission chain, initialize, tools/list, read + write tools.
  *   4. Assert an MCP-driven mutation lands LIVE in the open Workbench
  *      window (no reload) — the roadmap's "mutates → Workbench" arrow.
- *   5. Launch Chromium with the built browser extension, point its
+ *   5. Flip `mcp.allowExecute` live through the storage bridge and
+ *      drive the execute tier against the playground (`/api/echo`):
+ *      requests_send, workflows_save → workflows_run (publish-on-run),
+ *      workflows_history, workspaces_diff.
+ *   6. Launch Chromium with the built browser extension, point its
  *      backend at the app's daemon socket, and assert the same rule
  *      syncs into the browser — the extension round-trip.
  *
  * Requires both builds: `pnpm --filter @openheaders/desktop build` and
- * the extension `dist/chrome` (built separately).
+ * the extension `dist/chrome` (built separately). The playground dev
+ * server is started by the playwright `webServer` block.
  */
 
 import { mkdtemp, writeFile } from 'node:fs/promises';
@@ -182,7 +187,9 @@ test('lists the read + write catalog with the write tier enabled', async () => {
     'environments_list',
     'variables_list',
     'workflows_list',
+    'workflows_history',
     'activity_list',
+    'workspaces_diff',
     'rules_toggle',
     'rules_create',
     'rules_update',
@@ -191,6 +198,7 @@ test('lists the read + write catalog with the write tier enabled', async () => {
     'environments_edit',
     'variables_set',
     'requests_save',
+    'workflows_save',
   ]);
 });
 
@@ -315,12 +323,14 @@ test('upserts a workspace variable', async () => {
   expect(rows.find((row) => row.name === 'region')?.value).toBe('us-east');
 });
 
+let requestUid: string;
+
 test('creates and patches a saved request against the playground', async () => {
   const created = await callTool('requests_save', {
     request: { name: 'Echo', method: 'POST', url: 'http://127.0.0.1:3000/api/echo' },
   });
   expect(created.isError).toBeFalsy();
-  const requestUid = (created.payload.request as { uid: string }).uid;
+  requestUid = (created.payload.request as { uid: string }).uid;
 
   const patched = await callTool('requests_save', {
     uid: requestUid,
@@ -337,6 +347,120 @@ test('creates and patches a saved request against the playground', async () => {
 test('records every mutation in the activity feed', async () => {
   const { payload } = await callTool('activity_list', {});
   expect((payload.entries as unknown[]).length).toBeGreaterThan(0);
+});
+
+// ── Execute tier ────────────────────────────────────────────────────
+
+test('execute tools stay hidden and denied while mcp.allowExecute is off', async () => {
+  const { json } = await rpc('tools/list', {});
+  const names = (json.result as { tools: Array<{ name: string }> }).tools.map((t) => t.name);
+  expect(names).not.toContain('requests_send');
+  expect(names).not.toContain('workflows_run');
+
+  const denied = await callTool('requests_send', { uid: requestUid });
+  expect(denied.isError).toBe(true);
+  expect(denied.text).toContain('Execute tools are disabled');
+});
+
+test('flipping mcp.allowExecute exposes the execute tier without a restart', async () => {
+  await workbench.evaluate(async () => {
+    const bridge = (
+      window as unknown as {
+        oh: {
+          storage: {
+            get(req: { key: string }): Promise<{ value: unknown }>;
+            set(req: { key: string; value: unknown }): Promise<unknown>;
+          };
+        };
+      }
+    ).oh;
+    const current = await bridge.storage.get({ key: 'oh.settings.user' });
+    await bridge.storage.set({
+      key: 'oh.settings.user',
+      value: { ...((current.value as Record<string, unknown>) ?? {}), 'mcp.allowExecute': true },
+    });
+  });
+
+  await expect
+    .poll(async () => {
+      const { json } = await rpc('tools/list', {});
+      return (json.result as { tools: Array<{ name: string }> }).tools.map((t) => t.name);
+    })
+    .toContain('requests_send');
+});
+
+test('requests_send executes the saved request against the playground', async () => {
+  const { isError, payload } = await callTool('requests_send', { uid: requestUid });
+  expect(isError).toBeFalsy();
+  expect(payload.sent).toBe(true);
+
+  const response = payload.response as { status: number; body: string; bodyTruncated: boolean };
+  expect(response.status).toBe(200);
+  expect(response.bodyTruncated).toBe(false);
+  const echo = JSON.parse(response.body) as { method: string; headers: Record<string, string> };
+  expect(echo.method).toBe('POST');
+  expect(echo.headers['x-trace']).toBe('on');
+});
+
+let workflowUid: string;
+
+test('workflows_save creates a published workflow with an exposed live variable', async () => {
+  const { isError, payload } = await callTool('workflows_save', {
+    workflow: {
+      name: 'Echo probe',
+      published: true,
+      steps: [
+        {
+          id: 's1',
+          requestUid,
+          captures: [{ name: 'method', extractor: { kind: 'json-path', path: '$.method' } }],
+        },
+      ],
+    },
+    exposes: [{ name: 'echoMethod', stepId: 's1', captureName: 'method' }],
+  });
+  expect(isError).toBeFalsy();
+  workflowUid = (payload.workflow as { uid: string }).uid;
+  expect((payload.workflow as { published: boolean }).published).toBe(true);
+  expect(payload.liveVariables).toEqual([{ name: 'echoMethod', reference: '{{live.echoMethod}}' }]);
+});
+
+test('workflows_run executes the chain and publishes the exposed live variable', async () => {
+  const { isError, payload } = await callTool('workflows_run', { uid: workflowUid });
+  expect(isError).toBeFalsy();
+  expect(payload.ok).toBe(true);
+  expect(payload.liveVariables).toEqual([
+    { name: 'echoMethod', reference: '{{live.echoMethod}}', published: true, value: 'POST' },
+  ]);
+
+  // Publish-on-run must be visible on the read tier too.
+  const variables = await callTool('variables_list', {});
+  const live = variables.payload.live as Array<{ name: string; reference: string }>;
+  expect(live.map((row) => row.reference)).toContain('{{live.echoMethod}}');
+});
+
+test('workflows_history reports the run with capture names, not values', async () => {
+  const { payload } = await callTool('workflows_history', { uid: workflowUid });
+  const runs = payload.runs as Array<{ captureNames: Record<string, string[]>; extractedAt: number }>;
+  expect(runs).toHaveLength(1);
+  expect(runs[0].captureNames).toEqual({ s1: ['method'] });
+  expect(runs[0].extractedAt).toBeGreaterThan(0);
+});
+
+test('workspaces_diff answers for a loaded pair and rejects unknown ids', async () => {
+  const workspaces = await callTool('workspaces_list', {});
+  const activeId = workspaces.payload.activeWorkspaceId as string;
+
+  const identical = await callTool('workspaces_diff', { otherWorkspaceId: activeId });
+  expect(identical.isError).toBeFalsy();
+  const diff = identical.payload.diff as Record<string, { added: unknown[]; removed: unknown[]; changed: unknown[] }>;
+  for (const family of Object.values(diff)) {
+    expect(family).toEqual({ added: [], removed: [], changed: [] });
+  }
+
+  const unknown = await callTool('workspaces_diff', { otherWorkspaceId: 'ghost' });
+  expect(unknown.isError).toBe(true);
+  expect(unknown.text).toContain('workspaces_list');
 });
 
 // ── Extension round-trip ────────────────────────────────────────────
