@@ -10,7 +10,7 @@
  * breakdown.
  */
 
-import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
+import { ArrowDownOutlined, ArrowUpOutlined, GlobalOutlined } from '@ant-design/icons';
 import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
 import { InfoPopover, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { getStatusCodeInfoContent } from '@openheaders/ui/shared/info-popover/data/http-status';
@@ -101,16 +101,10 @@ function TimingLadder({ phases, totalMs }: { phases: ResponsePhase[]; totalMs: n
 }
 
 function timingContent(response: ExecutedRequestSnapshot): InfoPopoverContent {
-  // Remote address rides the timing popover — it is a connection fact,
-  // observed at the wire by the executor's capture. Absent = the wire
-  // capture saw nothing for this fetch; no address is ever guessed.
-  const ip = response.wire?.ip;
-  const connection = ip !== undefined ? { sections: [{ heading: 'Connection', items: [{ label: 'Remote address', desc: ip }] }] } : {};
   const base = {
     title: 'Timing',
     kicker: 'Response meta',
     summary: `Measured around the fetch call: ${formatPhaseMs(response.durationMs)}.`,
-    ...connection,
   };
   if (!response.timing) {
     return {
@@ -281,21 +275,57 @@ function sizeContent(response: ExecutedRequestSnapshot): InfoPopoverContent {
   };
 }
 
-function httpVersionContent(label: string): InfoPopoverContent {
+/** The globe popover's body: connection-level facts we can honestly
+ *  hold, with per-fact absence explained in footnotes. */
+function NetworkFacts({ response }: { response: ExecutedRequestSnapshot }) {
+  const { token } = theme.useToken();
+  const versionLabel = response.timing ? httpVersionLabel(response.timing.nextHopProtocol) : null;
+  const ip = response.wire?.ip;
+
+  const rows: Array<{ label: string; value: string }> = [
+    { label: 'HTTP Version', value: versionLabel ?? '—' },
+    { label: 'Remote Address', value: ip ?? '—' },
+  ];
+  const notes: string[] = [];
+  if (!versionLabel) notes.push('HTTP version hidden: the platform recorded no timing entry for this request.');
+  if (ip === undefined) notes.push('Remote address unavailable: the wire capture saw nothing for this fetch.');
+  notes.push('Local address, TLS and certificate details are not exposed to extension code on Chromium.');
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 220 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {rows.map((row) => (
+          <div key={row.label} style={{ display: 'flex', alignItems: 'baseline', gap: 12, fontSize: 12 }}>
+            <span style={{ width: 110, flexShrink: 0, color: token.colorTextSecondary }}>{row.label}</span>
+            <span style={{ fontVariantNumeric: 'tabular-nums', wordBreak: 'break-all' }}>{row.value}</span>
+          </div>
+        ))}
+      </div>
+      <div
+        style={{
+          borderTop: `1px solid ${token.colorBorderSecondary}`,
+          paddingTop: 8,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 3,
+        }}
+      >
+        {notes.map((note) => (
+          <span key={note} style={{ fontSize: 11, color: token.colorTextTertiary }}>
+            {note}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function networkContent(response: ExecutedRequestSnapshot): InfoPopoverContent {
   return {
-    title: label,
+    title: 'Network',
     kicker: 'Response meta',
-    summary: 'The HTTP protocol version this connection negotiated, picked at TLS time via ALPN.',
-    sections: [
-      {
-        heading: 'Common values',
-        items: [
-          { label: 'HTTP/1.1', desc: 'Text-based; one request at a time per connection by default.' },
-          { label: 'HTTP/2', desc: 'Binary and multiplexed over a single TCP connection.' },
-          { label: 'HTTP/3', desc: 'Runs on QUIC over UDP — faster handshakes, better loss recovery.' },
-        ],
-      },
-    ],
+    summary: 'Connection-level facts for this exchange.',
+    description: <NetworkFacts response={response} />,
   };
 }
 
@@ -317,6 +347,7 @@ const MetaDot: React.FC = () => {
 };
 
 const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response, statusColor }) => {
+  const { token } = theme.useToken();
   if (response.error !== null) {
     return (
       <Tag color="error" style={{ marginInlineEnd: 0 }}>
@@ -324,7 +355,6 @@ const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response, statusC
       </Tag>
     );
   }
-  const versionLabel = response.timing ? httpVersionLabel(response.timing.nextHopProtocol) : null;
   const factStyle: React.CSSProperties = { fontSize: 11, whiteSpace: 'nowrap', cursor: 'help' };
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
@@ -351,16 +381,20 @@ const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response, statusC
           {formatBytes(response.bodyBytes)}
         </Text>
       </InfoPopover>
-      {versionLabel && (
-        <>
-          <MetaDot />
-          <InfoPopover content={httpVersionContent(versionLabel)} trigger="hover">
-            <Text type="secondary" style={factStyle}>
-              {versionLabel}
-            </Text>
-          </InfoPopover>
-        </>
-      )}
+      <MetaDot />
+      <InfoPopover content={networkContent(response)} trigger="hover">
+        <span
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            cursor: 'help',
+            color: token.colorTextSecondary,
+            fontSize: 13,
+          }}
+        >
+          <GlobalOutlined />
+        </span>
+      </InfoPopover>
     </span>
   );
 };
