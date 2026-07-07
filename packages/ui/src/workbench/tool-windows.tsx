@@ -9,18 +9,16 @@
  */
 
 import {
-  ApiOutlined,
   BookOutlined,
-  CodeOutlined,
   DashboardOutlined,
   ExperimentOutlined,
-  FileTextOutlined,
   FundViewOutlined,
   ScanOutlined,
   SisternodeOutlined,
 } from '@ant-design/icons';
 import { DOCK_LABELS as _LABELS, type ToolWindowDef as GenericToolWindowDef } from '@openheaders/ui/shared/dock-layout';
 import ActivityFeedIcon from './components/panels/ActivityFeedIcon';
+import { ApiRequestsIcon, HttpRulesIcon, VariablesIcon } from './tool-window-icons';
 import { NotificationsIcon } from '@openheaders/ui/shared/notifications';
 import type { ToolWindowId } from './types';
 
@@ -42,7 +40,7 @@ export type ToolWindowDef = GenericToolWindowDef<ToolWindowId>;
  * actually in scope for the current tab.
  */
 export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
-  { id: 'http-rules', label: 'HTTP Rules', icon: <FileTextOutlined />, core: true, defaultSlot: 'left-top' },
+  { id: 'http-rules', label: 'HTTP Rules', icon: <HttpRulesIcon />, core: true, defaultSlot: 'left-top' },
   // A Workflow is the scheduled-refresh variable producer: a request
   // chain + extraction rule. Its output surfaces as a `{{live.X}}`
   // reference in the Scope panel's Live category via a Live Variable
@@ -62,8 +60,8 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
   },
   { id: 'docs', label: 'Docs', icon: <BookOutlined />, core: false, defaultSlot: 'right-top' },
   { id: 'var-scope', label: 'Scope', icon: <ScanOutlined />, core: false, defaultSlot: 'right-top' },
-  { id: 'variables', label: 'Variables', icon: <CodeOutlined />, core: false, defaultSlot: 'right-top' },
-  { id: 'api-requests', label: 'API Requests', icon: <ApiOutlined />, core: false, defaultSlot: 'right-bottom' },
+  { id: 'variables', label: 'Variables', icon: <VariablesIcon />, core: false, defaultSlot: 'right-top' },
+  { id: 'api-requests', label: 'API Requests', icon: <ApiRequestsIcon />, core: false, defaultSlot: 'right-bottom' },
   {
     id: 'deep-network-inspection',
     label: 'Deep Network Inspection',
