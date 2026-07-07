@@ -8,11 +8,10 @@
 
 import type { SyncCollectionPostState } from '@openheaders/core/protocol';
 import { COLLECTION_ENTITY_TYPE, COLLECTION_VARS_PATH, FOLDER_CHILDREN_PATH } from '@openheaders/core/sync';
-import type { Collection } from '@openheaders/core/types';
 import { projectCollection } from '@openheaders/core/sync-builders/projections/collection-projection';
-import { buildVarNamesExtras, makeFlatEntityProjectors } from './flat-entity-post-state';
-import { buildFolderChildrenOrderKeys } from './folder-children-order-keys';
+import type { Collection } from '@openheaders/core/types';
 import type { EntityOracle } from '../oracle';
+import { buildSetMembersExtras, buildVarNamesExtras, makeFlatEntityProjectors } from './flat-entity-post-state';
 
 type Reads = Pick<EntityOracle, 'materializeOne' | 'liveSetItems' | 'liveOrderedSetItems'>;
 
@@ -22,7 +21,12 @@ const projectors = makeFlatEntityProjectors<Reads, Collection, SyncCollectionPos
   composeResult: (collection, oracle, uid) => ({
     collection,
     ...buildVarNamesExtras(oracle, COLLECTION_ENTITY_TYPE, uid, COLLECTION_VARS_PATH),
-    setOrderKeys: buildFolderChildrenOrderKeys(oracle, COLLECTION_ENTITY_TYPE, uid, FOLDER_CHILDREN_PATH),
+    // Order keys for BOTH the parent-owned `folders` set (sidebar tree /
+    // dnd) and the `variables` set (editor's position-preserving Save).
+    setOrderKeys: buildSetMembersExtras(oracle, COLLECTION_ENTITY_TYPE, uid, [
+      FOLDER_CHILDREN_PATH,
+      COLLECTION_VARS_PATH,
+    ]).setOrderKeys,
   }),
 });
 

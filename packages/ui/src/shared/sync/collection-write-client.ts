@@ -18,6 +18,19 @@
 import { MIN_SCHEMA_VERSION } from '@openheaders/core/schemas';
 import type { MutationEnvelope } from '@openheaders/core/sync';
 import { COLLECTION_ENTITY_TYPE, COLLECTION_VARS_PATH } from '@openheaders/core/sync';
+import { buildVariablesReplacement } from '@openheaders/core/sync-builders';
+import {
+  buildDeleteCollectionBatch,
+  buildRemoveCollectionVarBatch,
+  buildRenameCollectionBatch,
+  buildSetCollectionVarBatch,
+  buildSetDefaultEnvironmentIdBatch,
+  buildSetPinnedAndDefaultBatch,
+  buildSetPinnedEnvironmentsBatch,
+} from '@openheaders/core/sync-builders/mutations/collection-mutations';
+import { buildDeleteFolderEntityBatch } from '@openheaders/core/sync-builders/mutations/folder-mutations';
+import { buildDeleteBatch as buildDeleteRuleBatch } from '@openheaders/core/sync-builders/mutations/rule-mutations';
+import { seedCollection } from '@openheaders/core/sync-builders/projections/collection-projection';
 import type { Collection, Variable } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import {
@@ -33,19 +46,6 @@ import {
   resolveRendererContext,
   type SyncSimpleResult,
 } from './apply-payload';
-import {
-  buildDeleteCollectionBatch,
-  buildRemoveCollectionVarBatch,
-  buildRenameCollectionBatch,
-  buildSetCollectionVarBatch,
-  buildSetDefaultEnvironmentIdBatch,
-  buildSetPinnedAndDefaultBatch,
-  buildSetPinnedEnvironmentsBatch,
-} from '@openheaders/core/sync-builders/mutations/collection-mutations';
-import { seedCollection } from '@openheaders/core/sync-builders/projections/collection-projection';
-import { buildDeleteFolderEntityBatch } from '@openheaders/core/sync-builders/mutations/folder-mutations';
-import { buildDeleteBatch as buildDeleteRuleBatch } from '@openheaders/core/sync-builders/mutations/rule-mutations';
-import { buildVariablesReplacement } from '@openheaders/core/sync-builders';
 
 export { createCollectionSyncMirror } from '../../context/mirrors/collection-sync-mirror';
 
@@ -242,6 +242,13 @@ export async function applyCollectionVariablesReplacement(
   oldVars: readonly Variable[],
   opts: CollectionWriteOptions,
 ): Promise<CollectionSimpleResult> {
+  // Current persisted vars order keys — the shared builder reuses them to
+  // keep unmoved rows byte-stable and persist row order (§23.5).
+  const mirror = resolveMirror(opts, getCollectionSyncMirrorForWorkspace);
+  await mirror.hydrated;
+  const currentKeys = new Map(
+    mirror.liveOrderedSetItems(collectionUid, COLLECTION_VARS_PATH).map((e) => [e.itemId, e.orderKey] as const),
+  );
   const ctx = resolveRendererContext(opts).next({ batchId: opts.batchId ?? `coll-replace-${collectionUid}` });
   const payload = buildVariablesReplacement(
     {
@@ -249,7 +256,7 @@ export async function applyCollectionVariablesReplacement(
       varsPath: COLLECTION_VARS_PATH,
     },
     ctx,
-    { entityUid: collectionUid, newVars, oldVars },
+    { entityUid: collectionUid, newVars, oldVars, currentKeys },
   );
   if (!payload) return { ok: true };
   return applySyncPayload(payload);

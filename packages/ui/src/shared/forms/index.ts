@@ -34,7 +34,7 @@
  * different insertion order compare equal.
  */
 
-export { stableStringify, unorderedSetSignature } from './fingerprint';
+export { stableStringify } from './fingerprint';
 export type {
   EntityReprimeHandle,
   EntityReprimeScope,

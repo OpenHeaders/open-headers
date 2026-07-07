@@ -13,6 +13,17 @@ import {
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_COLLECTION_VARS_PATH,
 } from '@openheaders/core/sync';
+import { buildVariablesReplacement } from '@openheaders/core/sync-builders';
+import {
+  buildDeleteRequestCollectionBatch,
+  buildRemoveRequestCollectionVarBatch,
+  buildRenameRequestCollectionBatch,
+  buildSetRequestCollectionPinnedAndDefaultBatch,
+  buildSetRequestCollectionVarBatch,
+} from '@openheaders/core/sync-builders/mutations/request-collection-mutations';
+import { buildDeleteRequestFolderEntityBatch } from '@openheaders/core/sync-builders/mutations/request-folder-mutations';
+import { buildDeleteBatch as buildDeleteRequestBatch } from '@openheaders/core/sync-builders/mutations/request-mutations';
+import { seedRequestCollection } from '@openheaders/core/sync-builders/projections/request-collection-projection';
 import type { Collection, Variable } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import {
@@ -28,17 +39,6 @@ import {
   resolveRendererContext,
   type SyncSimpleResult,
 } from './apply-payload';
-import {
-  buildDeleteRequestCollectionBatch,
-  buildRemoveRequestCollectionVarBatch,
-  buildRenameRequestCollectionBatch,
-  buildSetRequestCollectionPinnedAndDefaultBatch,
-  buildSetRequestCollectionVarBatch,
-} from '@openheaders/core/sync-builders/mutations/request-collection-mutations';
-import { seedRequestCollection } from '@openheaders/core/sync-builders/projections/request-collection-projection';
-import { buildDeleteRequestFolderEntityBatch } from '@openheaders/core/sync-builders/mutations/request-folder-mutations';
-import { buildDeleteBatch as buildDeleteRequestBatch } from '@openheaders/core/sync-builders/mutations/request-mutations';
-import { buildVariablesReplacement } from '@openheaders/core/sync-builders';
 
 export { createRequestCollectionSyncMirror } from '../../context/mirrors/request-collection-sync-mirror';
 
@@ -222,6 +222,13 @@ export async function applyRequestCollectionVariablesReplacement(
   oldVars: readonly Variable[],
   opts: RequestCollectionWriteOptions,
 ): Promise<RequestCollectionSimpleResult> {
+  // Current persisted vars order keys — the shared builder reuses them to
+  // keep unmoved rows byte-stable and persist row order (§23.5).
+  const mirror = resolveMirror(opts, getRequestCollectionSyncMirrorForWorkspace);
+  await mirror.hydrated;
+  const currentKeys = new Map(
+    mirror.liveOrderedSetItems(collectionUid, REQUEST_COLLECTION_VARS_PATH).map((e) => [e.itemId, e.orderKey] as const),
+  );
   const ctx = resolveRendererContext(opts).next({
     batchId: opts.batchId ?? `request-collection-vars-replace-${collectionUid}`,
   });
@@ -231,7 +238,7 @@ export async function applyRequestCollectionVariablesReplacement(
       varsPath: REQUEST_COLLECTION_VARS_PATH,
     },
     ctx,
-    { entityUid: collectionUid, newVars, oldVars },
+    { entityUid: collectionUid, newVars, oldVars, currentKeys },
   );
   if (!payload) return { ok: true };
   return applySyncPayload(payload);

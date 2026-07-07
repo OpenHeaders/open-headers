@@ -9,22 +9,25 @@ import {
   COLLECTION_VARS_PATH,
   createFolder,
   FOLDER_CHILDREN_PATH,
-  mintBatch,
-  moveFolder,
   type MutationEnvelope,
   type MutatorContext,
+  mintBatch,
+  moveFolder,
   RULE_ENTITY_TYPE,
   seedKey,
   setCollectionVar,
 } from '@openheaders/core/sync';
-import type { Collection } from '@openheaders/core/types';
-import { describe, expect, it } from 'vitest';
-import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
-import { projectCollectionByUid, projectCollectionPostState } from '@openheaders/oracle/sync/post-state/collection-post-state';
-import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
-import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
-import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
 import { seedCollection } from '@openheaders/core/sync-builders/projections/collection-projection';
+import type { Collection } from '@openheaders/core/types';
+import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
+import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
+import { EntityOracle, type LockAcquirer } from '@openheaders/oracle/sync/oracle';
+import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
+import {
+  projectCollectionByUid,
+  projectCollectionPostState,
+} from '@openheaders/oracle/sync/post-state/collection-post-state';
+import { describe, expect, it } from 'vitest';
 
 const wsId = 'ws-1';
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();
@@ -104,9 +107,7 @@ describe('projectCollectionPostState', () => {
     const oracle = newOracle();
     const coll = makeCollection('coll-2');
     await oracle.apply(seedCollection(coll, ctx(1)), []);
-    const deleteBatch = mintBatch(ctx(2), [
-      { kind: 'delete', type: COLLECTION_ENTITY_TYPE, id: coll.uid },
-    ]);
+    const deleteBatch = mintBatch(ctx(2), [{ kind: 'delete', type: COLLECTION_ENTITY_TYPE, id: coll.uid }]);
     await oracle.apply(deleteBatch, []);
     expect(projectCollectionByUid(oracle, coll.uid)).toBeNull();
   });
@@ -118,6 +119,11 @@ describe('projectCollectionPostState', () => {
     const live = oracle.liveSetItems(COLLECTION_ENTITY_TYPE, coll.uid, COLLECTION_VARS_PATH);
     const projected = projectCollectionByUid(oracle, coll.uid);
     expect(projected?.varUids.sort()).toEqual(live.map((e) => e.itemId).sort());
+    // setOrderKeys also carries the variables set now (not just folders) so
+    // the editor's Save can preserve row order — same uid set as varUids.
+    const varOrderKeys = projected?.setOrderKeys[COLLECTION_VARS_PATH] ?? [];
+    expect(varOrderKeys.map((e) => e.itemId).sort()).toEqual(live.map((e) => e.itemId).sort());
+    for (const e of varOrderKeys) expect(typeof e.orderKey).toBe('string');
   });
 
   it('carries setOrderKeys.folders matching the parent-set order, reflecting moveFolder', async () => {
@@ -145,10 +151,7 @@ describe('projectCollectionPostState', () => {
     );
 
     const before = projectCollectionByUid(oracle, coll.uid);
-    expect(before?.setOrderKeys[FOLDER_CHILDREN_PATH]?.map((s) => s.itemId)).toEqual([
-      'fold-a',
-      'fold-b',
-    ]);
+    expect(before?.setOrderKeys[FOLDER_CHILDREN_PATH]?.map((s) => s.itemId)).toEqual(['fold-a', 'fold-b']);
 
     // Move fold-b to before fold-a — orderKey lexicographically less than 'a0'.
     await oracle.apply(
@@ -161,10 +164,7 @@ describe('projectCollectionPostState', () => {
     );
 
     const after = projectCollectionByUid(oracle, coll.uid);
-    expect(after?.setOrderKeys[FOLDER_CHILDREN_PATH]?.map((s) => s.itemId)).toEqual([
-      'fold-b',
-      'fold-a',
-    ]);
+    expect(after?.setOrderKeys[FOLDER_CHILDREN_PATH]?.map((s) => s.itemId)).toEqual(['fold-b', 'fold-a']);
   });
 
   it('omits setOrderKeys.folders for collections with no child folders', async () => {

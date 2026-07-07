@@ -12,6 +12,17 @@ import {
   TEMPLATE_COLLECTION_ENTITY_TYPE,
   TEMPLATE_COLLECTION_VARS_PATH,
 } from '@openheaders/core/sync';
+import { buildVariablesReplacement } from '@openheaders/core/sync-builders';
+import {
+  buildDeleteTemplateCollectionBatch,
+  buildRemoveTemplateCollectionVarBatch,
+  buildRenameTemplateCollectionBatch,
+  buildSetTemplateCollectionPinnedAndDefaultBatch,
+  buildSetTemplateCollectionVarBatch,
+} from '@openheaders/core/sync-builders/mutations/template-collection-mutations';
+import { buildDeleteTemplateFolderEntityBatch } from '@openheaders/core/sync-builders/mutations/template-folder-mutations';
+import { buildDeleteBatch as buildDeleteTemplateBatch } from '@openheaders/core/sync-builders/mutations/template-mutations';
+import { seedTemplateCollection } from '@openheaders/core/sync-builders/projections/template-collection-projection';
 import type { Collection, Variable } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import {
@@ -27,17 +38,6 @@ import {
   resolveRendererContext,
   type SyncSimpleResult,
 } from './apply-payload';
-import {
-  buildDeleteTemplateCollectionBatch,
-  buildRemoveTemplateCollectionVarBatch,
-  buildRenameTemplateCollectionBatch,
-  buildSetTemplateCollectionPinnedAndDefaultBatch,
-  buildSetTemplateCollectionVarBatch,
-} from '@openheaders/core/sync-builders/mutations/template-collection-mutations';
-import { seedTemplateCollection } from '@openheaders/core/sync-builders/projections/template-collection-projection';
-import { buildDeleteTemplateFolderEntityBatch } from '@openheaders/core/sync-builders/mutations/template-folder-mutations';
-import { buildDeleteBatch as buildDeleteTemplateBatch } from '@openheaders/core/sync-builders/mutations/template-mutations';
-import { buildVariablesReplacement } from '@openheaders/core/sync-builders';
 
 export { createTemplateCollectionSyncMirror } from '../../context/mirrors/template-collection-sync-mirror';
 
@@ -210,6 +210,15 @@ export async function applyTemplateCollectionVariablesReplacement(
   oldVars: readonly Variable[],
   opts: TemplateCollectionWriteOptions,
 ): Promise<TemplateCollectionSimpleResult> {
+  // Current persisted vars order keys — the shared builder reuses them to
+  // keep unmoved rows byte-stable and persist row order (§23.5).
+  const mirror = resolveMirror(opts, getTemplateCollectionSyncMirrorForWorkspace);
+  await mirror.hydrated;
+  const currentKeys = new Map(
+    mirror
+      .liveOrderedSetItems(collectionUid, TEMPLATE_COLLECTION_VARS_PATH)
+      .map((e) => [e.itemId, e.orderKey] as const),
+  );
   const ctx = resolveRendererContext(opts).next({
     batchId: opts.batchId ?? `template-collection-vars-replace-${collectionUid}`,
   });
@@ -219,7 +228,7 @@ export async function applyTemplateCollectionVariablesReplacement(
       varsPath: TEMPLATE_COLLECTION_VARS_PATH,
     },
     ctx,
-    { entityUid: collectionUid, newVars, oldVars },
+    { entityUid: collectionUid, newVars, oldVars, currentKeys },
   );
   if (!payload) return { ok: true };
   return applySyncPayload(payload);

@@ -34,22 +34,3 @@ export function stableStringify(value: unknown): string {
     .sort();
   return `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify(rec[k])}`).join(',')}}`;
 }
-
-/**
- * Order-insensitive structural fingerprint for a `uid`-keyed set — the
- * dirty-check companion for editors backed by set-modeled storage
- * (environment / workspace / collection variables, vault secrets).
- *
- * Set members are persisted under a fractional-index key and materialize
- * back sorted by that key (uid as tie-break), NOT in the editor's
- * insertion order. A plain `stableStringify` preserves array order, so a
- * content-identical save whose persisted rows come back in a different
- * order would fingerprint as different from the draft — pinning the
- * editor permanently dirty even though nothing is left to save. Sorting
- * members by uid before stringifying compares set CONTENT independent of
- * order; genuine reorder intent is tracked separately by the conflict
- * adapter's set-reorder kind (via `formSetOrders`), not here.
- */
-export function unorderedSetSignature<T extends { uid: string }>(items: readonly T[]): string {
-  return stableStringify([...items].sort((a, b) => (a.uid < b.uid ? -1 : a.uid > b.uid ? 1 : 0)));
-}
