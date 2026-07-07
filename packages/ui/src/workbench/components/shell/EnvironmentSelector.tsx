@@ -21,6 +21,7 @@ import { Button, Divider, Dropdown, Input, Popover, Radio, Space, Tooltip, Typog
 import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useEnvSwitcher } from '../../services/env-switcher';
+import './EnvironmentSelector.css';
 import { useSetting } from '../../settings/hooks';
 import { neutralScopeBadge, scopeBadge } from '../shared/scope-colors';
 

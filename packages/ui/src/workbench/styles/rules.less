@@ -687,14 +687,16 @@ body {
   }
 }
 
-// Capped list sections (env selector, snippets menu, …) — persistent
+// Capped list sections (snippets menu, packages menu, …) — persistent
 // (non-overlay) scrollbar so the list reads as scrollable at a glance
 // instead of only revealing the thumb mid-scroll (macOS overlay default).
-.oh-persistent-scroll,
-.oh-env-scroll {
+// The env selector's `.oh-env-scroll` twin lives in
+// `components/shell/EnvironmentSelector.css` so non-workbench surfaces
+// get it too. `scrollbar-width` is gated to non-WebKit engines: any
+// non-auto value makes Chromium discard the `::-webkit-scrollbar`
+// styling and fall back to overlay auto-hide scrollbars.
+.oh-persistent-scroll {
   overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(128, 128, 128, 0.4) transparent;
 
   &::-webkit-scrollbar {
     width: 8px;
@@ -705,6 +707,11 @@ body {
   }
   &::-webkit-scrollbar-track {
     background: transparent;
+  }
+
+  @supports not selector(::-webkit-scrollbar) {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(128, 128, 128, 0.4) transparent;
   }
 }
 

@@ -1,0 +1,36 @@
+/* Capped env-list sections — clip + scroll with a persistent
+ * (non-overlay) scrollbar so the list reads as scrollable at a glance
+ * instead of only revealing the thumb mid-scroll (macOS overlay
+ * default). Colocated with EnvironmentSelector so every consuming
+ * surface (workbench, devpanel) picks it up without importing the
+ * workbench stylesheet.
+ *
+ * `scrollbar-width` is gated to non-WebKit engines on purpose:
+ * Chromium honors it too, but any non-auto value makes it discard the
+ * `::-webkit-scrollbar` styling below and fall back to overlay
+ * auto-hide scrollbars — exactly the behavior this rule exists to
+ * avoid. */
+
+.oh-env-scroll {
+  overflow-y: auto;
+}
+
+.oh-env-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.oh-env-scroll::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.35);
+  border-radius: 4px;
+}
+
+.oh-env-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  .oh-env-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(128, 128, 128, 0.4) transparent;
+  }
+}
