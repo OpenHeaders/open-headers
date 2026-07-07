@@ -21,6 +21,7 @@ import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
 import { Button, ConfigProvider, Dropdown, type MenuProps, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
+import { useOpenSettings } from '../../../hooks/OpenSettingsContext';
 import { getLanguage, LANGUAGE_LIST, type LanguageId } from '../../../languages/registry';
 import CodeEditor from '../../shared/CodeEditor';
 import ResponseFilterInput from './ResponseFilterInput';
@@ -72,6 +73,7 @@ function PickerLabel({ icon, text }: { icon: string; text: string }) {
 
 const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ response }) => {
   const { token } = theme.useToken();
+  const openSettings = useOpenSettings();
   const [mode, setMode] = useState<ViewMode>('pretty');
   const [langOverride, setLangOverride] = useState<LanguageId | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -223,10 +225,26 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', paddingBottom: 8 }}>
       {response.bodyTruncated && (
-        <Text type="warning" style={{ fontSize: 11, display: 'block', marginTop: 6 }}>
-          Response truncated at {formatBytes(response.bodyCapBytes ?? BODY_CAP_BYTES)} (original{' '}
-          {formatBytes(response.bodyBytes)}). The limit is adjustable in Settings → Requests.
-        </Text>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+          <Text type="warning" style={{ fontSize: 11 }}>
+            Response truncated at {formatBytes(response.bodyCapBytes ?? BODY_CAP_BYTES)} (original{' '}
+            {formatBytes(response.bodyBytes)}).
+          </Text>
+          {openSettings ? (
+            <Button
+              size="small"
+              type="link"
+              style={{ fontSize: 11, padding: 0, height: 'auto' }}
+              onClick={() => openSettings({ settingKey: 'requests.responseBodyCapMB' })}
+            >
+              Increase limit
+            </Button>
+          ) : (
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              The limit is adjustable in Settings → Requests.
+            </Text>
+          )}
+        </div>
       )}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0' }}>
         <ConfigProvider theme={{ token: { fontSize: 12 }, components: { Dropdown: { paddingBlock: 3 } } }}>

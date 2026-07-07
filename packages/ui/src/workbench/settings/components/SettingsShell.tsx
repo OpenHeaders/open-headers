@@ -128,9 +128,15 @@ const SettingsShell: React.FC<SettingsShellProps> = ({ initialSettingKey, initia
       const elRect = el.getBoundingClientRect();
       const offset = elRect.top - containerRect.top + pane.scrollTop - pane.clientHeight / 2 + elRect.height / 2;
       pane.scrollTo({ top: Math.max(0, offset), behavior: 'auto' });
+      // Hold the flash, then fade — long enough to survive the eye
+      // travel from wherever the deep link was clicked.
       el.animate(
-        [{ background: token.colorPrimaryBg }, { background: token.colorPrimaryBg }, { background: 'transparent' }],
-        { duration: 1400, easing: 'ease-out' },
+        [
+          { background: token.colorPrimaryBg, offset: 0 },
+          { background: token.colorPrimaryBg, offset: 0.85 },
+          { background: 'transparent', offset: 1 },
+        ],
+        { duration: 5000, easing: 'ease-out' },
       );
     });
     return () => window.cancelAnimationFrame(id);

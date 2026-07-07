@@ -77,6 +77,7 @@ import {
   EditingScopeWorkspaceProvider,
   useWorkbenchEditingScopeWorkspaceId,
 } from './hooks/EditingScopeWorkspaceContext';
+import { OpenSettingsProvider } from './hooks/OpenSettingsContext';
 import { useCommandPaletteData } from './hooks/useCommandPaletteData';
 import { useEditingScopeWorkspaceId } from './hooks/useEditingScopeWorkspaceId';
 import { useEditorGroups } from './hooks/useEditorGroups';
@@ -1134,6 +1135,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
 
   return (
     <EnvSwitcherProvider collectionContext={envSwitcherCollectionContext}>
+      <OpenSettingsProvider openSettings={openSettings}>
       <VariablePopoverProvider>
         <ActiveTabEntityWriter value={activeTabEntity} />
         {/* BC-MWPT-11 — awareness publishes editing-scope so peers see
@@ -1356,6 +1358,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
           </ConnectionProvider>
         </div>
       </VariablePopoverProvider>
+      </OpenSettingsProvider>
     </EnvSwitcherProvider>
   );
 };
