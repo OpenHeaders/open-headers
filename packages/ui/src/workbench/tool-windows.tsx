@@ -35,9 +35,9 @@ export type ToolWindowDef = GenericToolWindowDef<ToolWindowId>;
  *
  * `var-scope` is the inspector that shows variables referenced in the
  * active rule + all scopes resolved against current env/workspace/vault
- * state. Surfaced as "Scope" to disambiguate from the "Variables"
- * library — Variables is the catalogue (what exists), Scope is what's
- * actually in scope for the current tab.
+ * state. Surfaced as "Variable Scope" to disambiguate from the
+ * "Variables" library — Variables is the catalogue (what exists),
+ * Variable Scope is what's actually in scope for the current tab.
  */
 export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
   { id: 'http-rules', label: 'HTTP Rules', icon: <RequestRulesIcon />, core: true, defaultSlot: 'left-top' },
@@ -59,7 +59,7 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
     defaultSlot: 'right-top',
   },
   { id: 'docs', label: 'Docs', icon: <BookOutlined />, core: false, defaultSlot: 'right-top' },
-  { id: 'var-scope', label: 'Scope', icon: <ScanOutlined />, core: false, defaultSlot: 'right-top' },
+  { id: 'var-scope', label: 'Variable Scope', icon: <ScanOutlined />, core: false, defaultSlot: 'right-top' },
   { id: 'variables', label: 'Variables', icon: <VariablesIcon />, core: false, defaultSlot: 'right-top' },
   { id: 'api-requests', label: 'API Requests', icon: <ApiRequestsIcon />, core: false, defaultSlot: 'right-bottom' },
   {

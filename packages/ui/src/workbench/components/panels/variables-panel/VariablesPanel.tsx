@@ -1,6 +1,7 @@
 /**
  * VariablesPanel — right-pane live view of variable scopes (surfaced to
- * users as "Scope"). One scrolling panel with two collapsible sections:
+ * users as "Variable Scope"). One scrolling panel with two collapsible
+ * sections:
  *
  *   - "In ‹rule/request/template›" — the variables the focused entity
  *     references, resolved against every scope so the user sees the exact
@@ -47,7 +48,7 @@ const VariablesPanel: React.FC<VariablesPanelProps> = (props) => {
       className="rules-right-panel rules-right-panel--variables"
       style={{ display: 'flex', flexDirection: 'column', height: '100%' }}
     >
-      <PanelHeader wiring={headerWiring} title={<strong>Scope</strong>} info={info} />
+      <PanelHeader wiring={headerWiring} title={<strong>Variable Scope</strong>} info={info} />
 
       <div style={{ padding: '0 12px', flex: 1, overflowY: 'auto' }}>
         <PanelSection title={inContextTitle} info={IN_CONTEXT_INFO} docId="variables-inspecting">

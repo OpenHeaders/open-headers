@@ -70,7 +70,7 @@ const TOOL_WINDOW_INFO: Record<ToolWindowId, InfoPopoverContent> = {
       'In-app documentation for rules, variables, workflows, and the workbench itself — browse without leaving the app.',
   },
   'var-scope': {
-    title: 'Scope',
+    title: 'Variable Scope',
     summary: (
       <>
         The variables the active tab references and every scope they resolve against. A bare <Code>{'{{name}}'}</Code>{' '}
