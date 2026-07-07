@@ -309,7 +309,23 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           the cluster that launched it. */}
       <div
         className="rules-code-editor-actions"
-        style={{ position: 'absolute', top: 6, right: 14, zIndex: 12, display: 'flex', gap: 2 }}
+        style={{
+          position: 'absolute',
+          top: 6,
+          right: 14,
+          zIndex: 12,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 2,
+          // Elevated rounded rect (same chrome as the Scripts tab's
+          // Packages/Snippets bar) — the icons floated transparent over
+          // the buffer text and became unreadable on long first lines.
+          padding: '2px 4px',
+          background: token.colorBgElevated,
+          border: `1px solid ${token.colorBorderSecondary}`,
+          borderRadius: 8,
+          boxShadow: token.boxShadowTertiary,
+        }}
       >
         <Tooltip title={<ShortcutHintTitle label={FIND_SHORTCUT}>Find</ShortcutHintTitle>} placement="top">
           <Button
