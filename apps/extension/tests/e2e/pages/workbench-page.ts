@@ -309,6 +309,10 @@ export class WorkbenchPage {
       .first();
     await line.click({ button: 'right', position: { x: 10, y: 5 } });
     await this.page.locator('.monaco-menu').first().waitFor({ state: 'visible', timeout: 5000 });
+    // Monaco arms each menu item's mouse-up listener 100 ms AFTER the
+    // menu opens ("avoid accidental clicks" scheduler in menu.js) — a
+    // click landing earlier is silently dropped and the menu stays open.
+    await this.page.waitForTimeout(150);
   }
 
   /** Click an entry in Monaco's open context menu by its exact label. */

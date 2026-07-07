@@ -16,7 +16,7 @@
 import type { ScriptPackage } from '@openheaders/core/types';
 import { App, Button, Empty, Input, Typography, theme } from 'antd';
 import type React from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useScriptPackages } from '../../../shared/hooks/readers/useScriptPackages';
 import {
@@ -69,6 +69,18 @@ const SaveToPackagePopover: React.FC<SaveToPackagePopoverProps> = ({
     };
   }, [onClose]);
 
+  // Stable merged ref — an inline ref function would detach/re-attach on
+  // every render, and the placement hook resets `measured` on detach,
+  // permanently hiding the popover after the first async re-render
+  // (the package list hydrating) because the reveal effect runs once.
+  const mergedRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      rootRef.current = node;
+      (popoverRef as React.RefCallback<HTMLDivElement>)(node);
+    },
+    [popoverRef],
+  );
+
   const appendToExisting = async (pkg: ScriptPackage) => {
     if (!workspaceId || saving) return;
     setSaving(true);
@@ -112,10 +124,7 @@ const SaveToPackagePopover: React.FC<SaveToPackagePopoverProps> = ({
 
   return createPortal(
     <div
-      ref={(node) => {
-        rootRef.current = node;
-        (popoverRef as React.RefCallback<HTMLDivElement>)(node);
-      }}
+      ref={mergedRef}
       role="dialog"
       style={{
         position: 'fixed',
