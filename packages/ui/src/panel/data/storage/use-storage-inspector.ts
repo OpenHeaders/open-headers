@@ -20,6 +20,27 @@ import { getStorageInspectorHost } from './storage-inspector-host';
 const ENTRIES_POLL_MS = 2000;
 const SCOPES_POLL_TICKS = 5; // re-list scopes every N entry ticks
 
+/**
+ * Structural compare for a scope re-list. Every poll returns a FRESH
+ * array; adopting it unconditionally would change the `scopes` identity
+ * each time, cascade into a new `readEntries` callback, and re-fire the
+ * effects that reset the grid and restart the poll — an infinite
+ * blank-and-reload loop. Unchanged data keeps the previous state object.
+ */
+function scopesEqual(a: ReadonlyArray<StorageScope>, b: ReadonlyArray<StorageScope>): boolean {
+  if (a.length !== b.length) return false;
+  return a.every((s, i) => {
+    const o = b[i];
+    return (
+      s.frameId === o.frameId &&
+      s.origin === o.origin &&
+      s.url === o.url &&
+      s.isMainFrame === o.isMainFrame &&
+      s.storageKey === o.storageKey
+    );
+  });
+}
+
 export interface StorageInspectorState {
   /** A host is installed and the inspected tab is resolvable. */
   available: boolean;
@@ -77,17 +98,23 @@ export function useStorageInspector(): StorageInspectorState {
     if (!host || tabId === null) return;
     const next = await host.listScopes(tabId);
     if (next === null) return; // tab not enumerable right now — keep the last list
-    setScopes(next);
+    setScopes((prev) => (scopesEqual(prev, next) ? prev : next));
     setSelectedOrigin((prev) => {
       if (prev !== null && next.some((s) => s.origin === prev)) return prev;
       return next[0]?.origin ?? null;
     });
   }, [host, tabId]);
 
+  // Keyed on the frame id PRIMITIVE, not the scope object: a genuine
+  // scope-list change (new iframe, same-origin navigation) must not mint
+  // a new callback — and thereby reset the grid — while the selected
+  // frame is still the same one.
+  const selectedFrameId = selectedScope?.frameId ?? null;
+
   const readEntries = useCallback(async () => {
-    if (!host || tabId === null || !selectedScope) return;
+    if (!host || tabId === null || selectedFrameId === null) return;
     const token = ++fetchTokenRef.current;
-    const result = await host.readDomStorage(tabId, selectedScope.frameId, area);
+    const result = await host.readDomStorage(tabId, selectedFrameId, area);
     if (token !== fetchTokenRef.current) return;
     setLoading(false);
     if (result === null) {
@@ -98,7 +125,7 @@ export function useStorageInspector(): StorageInspectorState {
     }
     setReadFailed(false);
     setSnapshot(result);
-  }, [host, tabId, selectedScope, area]);
+  }, [host, tabId, selectedFrameId, area]);
 
   // Selection or area changed → drop the stale grid, read immediately.
   useEffect(() => {
@@ -136,44 +163,43 @@ export function useStorageInspector(): StorageInspectorState {
 
   const applyEdit = useCallback(
     async (originalKey: string | null, key: string, value: string): Promise<boolean> => {
-      if (!host || tabId === null || !selectedScope) return false;
-      const { frameId } = selectedScope;
-      let ok = await host.writeDomStorage(tabId, frameId, area, key, value);
+      if (!host || tabId === null || selectedFrameId === null) return false;
+      let ok = await host.writeDomStorage(tabId, selectedFrameId, area, key, value);
       if (ok && originalKey !== null && originalKey !== key) {
-        ok = await host.removeDomStorage(tabId, frameId, area, originalKey);
+        ok = await host.removeDomStorage(tabId, selectedFrameId, area, originalKey);
       }
       setWriteFailed(!ok);
       void readEntries();
       return ok;
     },
-    [host, tabId, selectedScope, area, readEntries],
+    [host, tabId, selectedFrameId, area, readEntries],
   );
 
   const removeEntry = useCallback(
     async (key: string): Promise<boolean> => {
-      if (!host || tabId === null || !selectedScope) return false;
-      const ok = await host.removeDomStorage(tabId, selectedScope.frameId, area, key);
+      if (!host || tabId === null || selectedFrameId === null) return false;
+      const ok = await host.removeDomStorage(tabId, selectedFrameId, area, key);
       setWriteFailed(!ok);
       void readEntries();
       return ok;
     },
-    [host, tabId, selectedScope, area, readEntries],
+    [host, tabId, selectedFrameId, area, readEntries],
   );
 
   const clearArea = useCallback(async (): Promise<boolean> => {
-    if (!host || tabId === null || !selectedScope) return false;
-    const ok = await host.clearDomStorage(tabId, selectedScope.frameId, area);
+    if (!host || tabId === null || selectedFrameId === null) return false;
+    const ok = await host.clearDomStorage(tabId, selectedFrameId, area);
     setWriteFailed(!ok);
     void readEntries();
     return ok;
-  }, [host, tabId, selectedScope, area, readEntries]);
+  }, [host, tabId, selectedFrameId, area, readEntries]);
 
   const fetchFullValue = useCallback(
     async (key: string): Promise<DomStorageFullValue | null> => {
-      if (!host || tabId === null || !selectedScope) return null;
-      return host.readDomStorageValue(tabId, selectedScope.frameId, area, key);
+      if (!host || tabId === null || selectedFrameId === null) return null;
+      return host.readDomStorageValue(tabId, selectedFrameId, area, key);
     },
-    [host, tabId, selectedScope, area],
+    [host, tabId, selectedFrameId, area],
   );
 
   const selectOrigin = useCallback((origin: string) => {
