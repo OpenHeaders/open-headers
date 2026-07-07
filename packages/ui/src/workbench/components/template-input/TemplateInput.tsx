@@ -239,8 +239,6 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
       showClear,
       displayExpanded,
       displayCollapsed,
-      expandOnFocus,
-      expandActive,
       resizable,
       manualHeight,
       maxRows,
@@ -337,12 +335,12 @@ const TemplateInput = forwardRef<HTMLDivElement, TemplateInputProps>(
                     ? {
                         label: createTarget.scopeLabel ? (
                           <>
-                            Create “{createTarget.name}” in {createTarget.scopeLabel}
+                            Create “{createTarget.name}” variable in {createTarget.scopeLabel}
                           </>
                         ) : (
                           // Bare reference — the create popover's "Add to"
                           // picker chooses the destination scope.
-                          <>Create “{createTarget.name}”…</>
+                          <>Create “{createTarget.name}” variable</>
                         ),
                         onSelect: triggerCreate,
                       }

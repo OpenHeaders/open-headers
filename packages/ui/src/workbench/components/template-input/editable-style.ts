@@ -6,6 +6,13 @@
 import type { GlobalToken } from 'antd';
 import type React from 'react';
 
+// The editable's unitless line-height, in every display mode. Exported
+// so callers that vertically center the collapsed line inside a taller
+// cell can do it with symmetric padding computed from the same metrics
+// — a taller caller `line-height` would snap back to this value on
+// expand and visibly shift the text.
+export const TEMPLATE_INPUT_LINE_HEIGHT = 1.5714;
+
 // Split the caller's `style` between the two elements. Layout keys
 // (flex sizing, width) belong on the WRAPPER — the element that
 // participates in the parent's flex/grid layout — while surface
@@ -45,8 +52,6 @@ interface EditableStyleParams {
   showClear: boolean;
   displayExpanded: boolean;
   displayCollapsed: boolean;
-  expandOnFocus: boolean;
-  expandActive: boolean;
   resizable: boolean;
   manualHeight: number | null;
   maxRows: number;
@@ -62,8 +67,6 @@ export function buildEditableStyle({
   showClear,
   displayExpanded,
   displayCollapsed,
-  expandOnFocus,
-  expandActive,
   resizable,
   manualHeight,
   maxRows,
@@ -88,7 +91,7 @@ export function buildEditableStyle({
     // Reserve just enough room that the last characters don't slide
     // under the ✕ (12px icon + its inset + a 2px gap).
     ...(showClear ? { paddingRight: displayExpanded ? 26 : 22 } : null),
-    lineHeight: 1.5714,
+    lineHeight: TEMPLATE_INPUT_LINE_HEIGHT,
     fontSize: size === 'small' ? 12 : size === 'large' ? 16 : 14,
     fontFamily: 'inherit',
     color: token.colorText,
@@ -120,16 +123,11 @@ export function buildEditableStyle({
       displayExpanded && resizable && manualHeight != null
         ? 'none'
         : displayExpanded
-          ? `${(maxRows * 1.5714 + 0.9).toFixed(2)}em`
+          ? `${(maxRows * TEMPLATE_INPUT_LINE_HEIGHT + 0.9).toFixed(2)}em`
           : undefined,
     wordBreak: displayExpanded ? 'break-word' : 'normal',
     transition: 'border-color 0.2s, box-shadow 0.2s',
     boxShadow: isFocused && variant !== 'borderless' ? focusShadow : undefined,
     ...surfaceStyle,
-    // An expand-on-focus caller sets a tall `line-height` to vertically
-    // center the single collapsed line in the cell; once it expands,
-    // force the normal line-height so the wrapped multi-line editor
-    // isn't loosely spaced. (After the style spread so it wins.)
-    ...(expandOnFocus && expandActive ? { lineHeight: 1.5714 } : null),
   };
 }

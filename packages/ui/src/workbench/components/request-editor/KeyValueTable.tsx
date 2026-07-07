@@ -14,7 +14,7 @@
 import { generateUid } from '@openheaders/core/utils';
 import { theme } from 'antd';
 import type React from 'react';
-import { TemplateInput } from '../template-input';
+import { TEMPLATE_INPUT_LINE_HEIGHT, TemplateInput } from '../template-input';
 import {
   type BulkEditConfig,
   EditableGridTable,
@@ -94,6 +94,13 @@ const cellFont: React.CSSProperties = {
   fontSize: 12,
 };
 
+// Center the collapsed single line inside the 32px cell with symmetric
+// padding. Padding (unlike a taller line-height) keeps the line box
+// metrics identical between the collapsed and focus-expanded states, so
+// the text doesn't shift vertically when a click expands the row.
+const CELL_LINE_PX = 12 * TEMPLATE_INPUT_LINE_HEIGHT;
+const CELL_VERTICAL_PADDING = (32 - CELL_LINE_PX) / 2;
+
 const KeyValueTable: React.FC<KeyValueTableProps> = ({
   rows,
   onChange,
@@ -138,12 +145,7 @@ const KeyValueTable: React.FC<KeyValueTableProps> = ({
         style={{
           ...cellFont,
           flex: 1,
-          padding: '4px 6px',
-          // Fill the cell's content box (32px min-height − 8px vertical
-          // padding) so the single collapsed line sits vertically
-          // centered; TemplateInput reverts to the normal line-height
-          // once the field expands.
-          lineHeight: '24px',
+          padding: `${CELL_VERTICAL_PADDING}px 6px`,
           color: ctx.dim ? token.colorTextQuaternary : token.colorText,
         }}
       />

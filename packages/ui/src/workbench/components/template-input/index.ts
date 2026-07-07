@@ -10,6 +10,7 @@ export {
   type SuggestionContextProviderProps,
   useAutoSuggestionContext,
 } from './SuggestionContextProvider';
+export { TEMPLATE_INPUT_LINE_HEIGHT } from './editable-style';
 export { default as SuggestionRow } from './SuggestionRow';
 export { default as TemplateInput } from './TemplateInput';
 export type { GripResizeXEvent, GripResizeXHandler, TemplateInputProps } from './types';

@@ -64,11 +64,11 @@ describe('SuggestionPopover empty state + create action', () => {
         activeIndex={0}
         onActiveIndexChange={() => {}}
         onSelect={() => {}}
-        createAction={{ label: 'Create “whatever”…', onSelect }}
+        createAction={{ label: 'Create “whatever” variable', onSelect }}
       />,
     );
     const empty = getByText('No matches');
-    const create = getByText('Create “whatever”…');
+    const create = getByText('Create “whatever” variable');
     expect(empty).toBeTruthy();
     // Empty state precedes the create row in document order.
     expect(empty.compareDocumentPosition(create) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();

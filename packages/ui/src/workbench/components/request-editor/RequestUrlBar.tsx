@@ -17,7 +17,7 @@ import { useMemo, useState } from 'react';
 import { ensureScheme, needsSchemeNormalization } from '@openheaders/ui/shared/fetch';
 import { METHOD_COLORS } from '../sidebar/icons';
 import { type Draft, draftParamsToQueryParams, mergeParamsFromUrl } from './draft';
-import { TemplateInput } from '../template-input';
+import { TEMPLATE_INPUT_LINE_HEIGHT, TemplateInput } from '../template-input';
 
 const METHODS: readonly HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
 
@@ -214,10 +214,11 @@ const RequestUrlBar: React.FC<RequestUrlBarProps> = ({ draft, setDraft, urlUnres
             minWidth: 0,
             fontFamily: "'SF Mono', monospace",
             fontSize: 12,
-            // Fill the 24px min-height so the text sits on the vertical
-            // center. The component's default `lineHeight: 1.5714` combined
-            // with monospace metrics pushes glyphs slightly above center.
-            lineHeight: '22px',
+            // Center the collapsed line inside the 24px min-height with
+            // symmetric padding — padding (unlike a taller line-height)
+            // keeps the line box identical collapsed vs focus-expanded,
+            // so the text doesn't shift vertically on click.
+            padding: `${(24 - 12 * TEMPLATE_INPUT_LINE_HEIGHT) / 2}px 7px`,
           }}
           onPressEnter={onSend}
           onBlur={() => {
