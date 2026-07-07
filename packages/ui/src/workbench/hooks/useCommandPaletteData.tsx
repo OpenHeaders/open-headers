@@ -262,7 +262,7 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
       items: [
         {
           id: 'cmd-create-rule',
-          label: 'Create Rule...',
+          label: 'Create Item...',
           shortcut: newRuleLabel,
           onSelect: onOpenCreateMenu,
         },

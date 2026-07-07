@@ -21,6 +21,7 @@ import type { ItemType } from 'antd/es/menu/interface';
 import type React from 'react';
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
+import { ApiRequestsIcon } from '@openheaders/ui/shared/icons';
 import { useDragIntent } from '../../drag-intent';
 import { useShortcutLabel } from '../../hooks/useWorkspaceShortcuts';
 import { buildRuleTypeMenuItems } from '../../rule-type-menu';
@@ -81,6 +82,8 @@ interface TabBarProps {
    *  renders for duplicable modes. */
   onDuplicate?: (tabId: string) => void;
   onCreateRule: (type: string) => void;
+  /** "Create API Request" row at the top of the + create menu. */
+  onCreateRequest: () => void;
   onCloseOther: (tabId: string) => void;
   onCloseAll: () => void;
   onCloseUnmodified: () => void;
@@ -143,6 +146,7 @@ const TabBar: React.FC<TabBarProps> = ({
   onTabDoubleClick,
   onDuplicate,
   onCreateRule,
+  onCreateRequest,
   onCloseOther,
   onCloseAll,
   onCloseUnmodified,
@@ -282,7 +286,22 @@ const TabBar: React.FC<TabBarProps> = ({
     ],
   );
 
-  const createMenuItems = buildRuleTypeMenuItems(onCreateRule);
+  // "Create API Request" leads the menu; the fixed-width icon slot
+  // matches the rule rows' 48px code badges so labels stay aligned.
+  const createMenuItems: ItemType[] = [
+    {
+      key: 'api-request',
+      icon: (
+        <span style={{ display: 'inline-flex', width: 48, flexShrink: 0 }}>
+          <ApiRequestsIcon />
+        </span>
+      ),
+      label: 'Create API Request',
+      onClick: onCreateRequest,
+    },
+    { type: 'divider' },
+    ...buildRuleTypeMenuItems(onCreateRule),
+  ];
   const sortableIds = tabs.map((t) => `${leafId}::${t.id}`);
 
   // Track whether the tabs strip is actually overflowing so the
@@ -393,7 +412,7 @@ const TabBar: React.FC<TabBarProps> = ({
         onOpenChange={(v) => onCreateMenuOpenChange?.(v)}
       >
         <Tooltip
-          title={<ShortcutHintTitle label={newRuleLabel}>New rule</ShortcutHintTitle>}
+          title={<ShortcutHintTitle label={newRuleLabel}>Create item</ShortcutHintTitle>}
           placement="bottom"
           open={createMenuOpen ? false : undefined}
         >

@@ -1248,6 +1248,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
                 getDisplayLabel={getTabDisplayLabel}
                 renderEmpty={renderEmpty}
                 onCreateRule={openCreateTab}
+                onCreateRequest={() => openCreateRequestTab()}
                 createMenuOpen={createMenuOpen}
                 onCreateMenuOpenChange={setCreateMenuOpen}
                 registerTabSearchToggle={registerTabSearchToggle}

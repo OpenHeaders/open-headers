@@ -157,11 +157,11 @@ registerSetting({
   type: 'keybinding',
   default: 'alt+n',
   schema: chordSchema,
-  label: 'New Rule',
-  description: 'Create a new rule in the current workspace.',
+  label: 'Create Item',
+  description: 'Open the create menu for rules and API requests.',
   category: 'keyboard',
   subcategory: 'workbench-general',
-  tags: ['new', 'rule', 'create'],
+  tags: ['new', 'rule', 'request', 'item', 'create'],
   scope: 'user',
 });
 

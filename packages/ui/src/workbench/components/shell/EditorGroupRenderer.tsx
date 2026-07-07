@@ -225,6 +225,8 @@ export interface EditorGroupRendererProps {
    *  imperative sync hook. See `tab-display.ts`. */
   getDisplayLabel?: (tab: WorkbenchTab) => string;
   onCreateRule: (type: string) => void;
+  /** "Create API Request" row on each leaf's + create menu. */
+  onCreateRequest: () => void;
   createMenuOpen?: boolean;
   onCreateMenuOpenChange?: (open: boolean) => void;
   /** Forwarded to the focused leaf's TabBar so App.tsx can reach the tab-search toggle. */
@@ -260,6 +262,7 @@ export const EditorGroupRenderer: React.FC<EditorGroupRendererProps> = ({
   getTabPath,
   getDisplayLabel,
   onCreateRule,
+  onCreateRequest,
   createMenuOpen,
   onCreateMenuOpenChange,
   registerTabSearchToggle,
@@ -472,6 +475,7 @@ export const EditorGroupRenderer: React.FC<EditorGroupRendererProps> = ({
           onTabDoubleClick={onTabDoubleClick}
           onDuplicate={onDuplicate}
           onCreateRule={onCreateRule}
+          onCreateRequest={onCreateRequest}
           onCloseOther={onCloseOther}
           onCloseAll={onCloseAll}
           onCloseUnmodified={onCloseUnmodified}

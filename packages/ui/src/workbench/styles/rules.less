@@ -996,15 +996,20 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 100%;
+  width: 26px;
+  // Fixed height instead of 100% so the hover pill floats in the bar
+  // (the bar's `align-items: center` keeps it vertically centered) —
+  // same chip-in-a-bar rhythm as the tab hover pill above.
+  height: 22px;
+  border-radius: 6px;
   cursor: pointer;
   flex-shrink: 0;
   opacity: 0.7;
-  transition: opacity 0.12s;
+  transition: opacity 0.12s, background 0.12s;
 
   &:hover {
     opacity: 1;
+    background: rgba(128, 128, 128, 0.14);
   }
 }
 

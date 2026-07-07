@@ -224,7 +224,7 @@ export const SHORTCUTS: readonly ShortcutDef[] = [
   },
   {
     id: 'new-rule',
-    label: 'New rule',
+    label: 'Create item',
     settingKey: 'keyboard.newRule',
     category: 'actions',
     handler: { kind: 'direct', name: 'onNewRule' },
