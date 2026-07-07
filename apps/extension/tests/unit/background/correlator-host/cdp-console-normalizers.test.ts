@@ -1,17 +1,25 @@
 /**
- * `normalizeConsoleApiCalled` / `normalizeExceptionThrown` — raw CDP Runtime
- * console params → host-neutral `ConsoleEntry` (Phase G console capture).
+ * `normalizeConsoleApiCalled` / `normalizeExceptionThrown` /
+ * `normalizeLogEntryAdded` — raw CDP console params → host-neutral
+ * `ConsoleEntry` (Phase G console capture).
  *
  * Coverage: level bucketing, primitive + preview arg rendering (no
  * `Runtime.getProperties` round-trip), exception message + location
- * resolution, and the stack-top-frame location.
+ * resolution, the stack-top-frame location, and the browser-plane Log
+ * entry's category/text/location mapping.
  */
 
 import { describe, expect, it } from 'vitest';
-import { normalizeConsoleApiCalled, normalizeExceptionThrown } from '@/background/correlator-host/cdp-normalizers';
+import {
+  normalizeConsoleApiCalled,
+  normalizeExceptionThrown,
+  normalizeLogEntryAdded,
+} from '@/background/correlator-host/cdp-normalizers';
 import type {
   RawConsoleApiCalled,
   RawExceptionThrown,
+  RawLogEntry,
+  RawLogEntryAdded,
   RawRemoteObject,
 } from '@/background/correlator-host/cdp-raw-payloads';
 
@@ -310,5 +318,86 @@ describe('normalizeExceptionThrown', () => {
     });
     expect(entry.url).toBe('https://app.openheaders.io/frame.js');
     expect(entry.lineNumber).toBe(20);
+  });
+});
+
+describe('normalizeLogEntryAdded', () => {
+  function logEntryAdded(over: Partial<RawLogEntry> = {}): RawLogEntryAdded {
+    return {
+      entry: {
+        source: 'network',
+        level: 'error',
+        text: 'POST https://collector.openheaders.io/collect net::ERR_BLOCKED_BY_CLIENT',
+        timestamp: 1900,
+        ...over,
+      },
+    };
+  }
+
+  it('renders a blocked-network entry as a browser-sourced error carrying its category', () => {
+    const entry = normalizeLogEntryAdded(logEntryAdded());
+    expect(entry.source).toBe('browser');
+    expect(entry.category).toBe('network');
+    expect(entry.level).toBe('error');
+    expect(entry.timestamp).toBe(1900);
+    expect(entry.args).toEqual([
+      { type: 'string', text: 'POST https://collector.openheaders.io/collect net::ERR_BLOCKED_BY_CLIENT' },
+    ]);
+  });
+
+  it.each([
+    ['error', 'error'],
+    ['warning', 'warning'],
+    ['info', 'info'],
+    ['verbose', 'debug'],
+    ['unheard-of', 'log'],
+  ] as const)('buckets log level %s → level %s', (raw, level) => {
+    expect(normalizeLogEntryAdded(logEntryAdded({ level: raw })).level).toBe(level);
+  });
+
+  it('passes an unrecognized category through verbatim (open vocabulary)', () => {
+    expect(normalizeLogEntryAdded(logEntryAdded({ source: 'recommendation' })).category).toBe('recommendation');
+  });
+
+  it('prefers the initiating stack frame over the resource url', () => {
+    const entry = normalizeLogEntryAdded(
+      logEntryAdded({
+        url: 'https://collector.openheaders.io/collect',
+        stackTrace: {
+          callFrames: [
+            {
+              functionName: 'send',
+              scriptId: '3',
+              url: 'https://app.openheaders.io/analytics.ts',
+              lineNumber: 119,
+              columnNumber: 6,
+            },
+          ],
+        },
+      }),
+    );
+    expect(entry.url).toBe('https://app.openheaders.io/analytics.ts');
+    expect(entry.lineNumber).toBe(119);
+    expect(entry.columnNumber).toBe(6);
+  });
+
+  it('falls back to the resource url/line when no stack is carried', () => {
+    const entry = normalizeLogEntryAdded(
+      logEntryAdded({ source: 'deprecation', url: 'https://app.openheaders.io/legacy.js', lineNumber: 12 }),
+    );
+    expect(entry.url).toBe('https://app.openheaders.io/legacy.js');
+    expect(entry.lineNumber).toBe(12);
+    expect(entry.columnNumber).toBeUndefined();
+  });
+
+  it('appends structured args after the text and uses them alone when the text is empty', () => {
+    const args = [{ type: 'number', value: 7 }];
+    const withText = normalizeLogEntryAdded(logEntryAdded({ text: 'retry count', args }));
+    expect(withText.args).toEqual([
+      { type: 'string', text: 'retry count' },
+      { type: 'number', text: '7' },
+    ]);
+    const textless = normalizeLogEntryAdded(logEntryAdded({ text: '', args }));
+    expect(textless.args).toEqual([{ type: 'number', text: '7' }]);
   });
 });

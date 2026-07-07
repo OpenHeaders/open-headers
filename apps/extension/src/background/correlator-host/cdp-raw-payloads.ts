@@ -278,6 +278,30 @@ export interface RawExceptionThrown {
   readonly exceptionDetails: RawExceptionDetails;
 }
 
+/**
+ * `Log.LogEntry` (subset) — one browser-generated console message
+ * (failed/blocked network request, deprecation, violation, …). `source` is
+ * the browser's category label; `level` is `verbose`/`info`/`warning`/
+ * `error`; `timestamp` is wall-clock ms. `url`/`lineNumber` locate the
+ * resource the entry is about; `stackTrace`, when present, points at the
+ * initiating code. `args`, when present, supplement the rendered `text`.
+ */
+export interface RawLogEntry {
+  readonly source: string;
+  readonly level: string;
+  readonly text: string;
+  readonly timestamp: number;
+  readonly url?: string;
+  readonly lineNumber?: number;
+  readonly stackTrace?: RawStackTrace;
+  readonly args?: readonly RawRemoteObject[];
+}
+
+/** `Log.entryAdded` — a browser-generated log entry. */
+export interface RawLogEntryAdded {
+  readonly entry: RawLogEntry;
+}
+
 /** `Network.getResponseBody` result — body text + whether it is base64. */
 export interface RawGetResponseBody {
   readonly body: string;

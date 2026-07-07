@@ -1235,6 +1235,66 @@ describe('ChromeDebuggerEventSource — Runtime console capture (Phase G)', () =
     expect(out).toHaveLength(0);
   });
 
+  const onSession = (method: string, sessionId?: string) =>
+    chromeMock.debugger.sendCommand.mock.calls.find(
+      (c) => c[1] === method && (c[0] as chrome.debugger.DebuggerSession).sessionId === sessionId,
+    );
+
+  it('attach enables the Log domain on the page target and on kept children (browser plane)', async () => {
+    source = new ChromeDebuggerEventSource();
+    await source.attach(TAB);
+
+    emitRoot('Target.attachedToTarget', attachedToTarget(CHILD_SESSION, 'iframe'));
+    emitRoot('Target.attachedToTarget', attachedToTarget('child-worker-1', 'worker'));
+
+    // Log.enable both turns on entryAdded delivery and replays the target's
+    // retained backlog, so pre-attach history reaches the panel.
+    expect(onSession('Log.enable', undefined)).toBeDefined();
+    expect(onSession('Log.enable', CHILD_SESSION)).toBeDefined();
+    expect(onSession('Log.enable', 'child-worker-1')).toBeDefined();
+  });
+
+  it('routes a Log.entryAdded on the root by tabId as a browser-sourced entry', async () => {
+    source = new ChromeDebuggerEventSource();
+    const out: Array<{ tabId: number; entry: ConsoleEntry }> = [];
+    source.subscribeConsole((tabId, entry) => out.push({ tabId, entry }));
+    await source.attach(TAB);
+
+    emitRoot('Log.entryAdded', {
+      entry: {
+        source: 'network',
+        level: 'error',
+        text: 'POST https://collector.openheaders.io/collect net::ERR_BLOCKED_BY_CLIENT',
+        timestamp: 1900,
+        url: 'https://collector.openheaders.io/collect',
+      },
+    });
+
+    expect(out).toHaveLength(1);
+    expect(out[0].tabId).toBe(TAB);
+    expect(out[0].entry.source).toBe('browser');
+    expect(out[0].entry.category).toBe('network');
+    expect(out[0].entry.level).toBe('error');
+    expect(out[0].entry.args[0].text).toContain('net::ERR_BLOCKED_BY_CLIENT');
+  });
+
+  it('routes a Log.entryAdded on a kept child by the owning tabId and drops one from an unkept child', async () => {
+    source = new ChromeDebuggerEventSource();
+    const out: Array<{ tabId: number; entry: ConsoleEntry }> = [];
+    source.subscribeConsole((tabId, entry) => out.push({ tabId, entry }));
+    await source.attach(TAB);
+
+    emitRoot('Target.attachedToTarget', attachedToTarget(CHILD_SESSION, 'iframe'));
+    emitRoot('Target.attachedToTarget', attachedToTarget('sw-session', 'service_worker'));
+    const entry = { source: 'deprecation', level: 'warning', text: 'Deprecated API', timestamp: 1910 };
+    emitChild(CHILD_SESSION, 'Log.entryAdded', { entry });
+    emitChild('sw-session', 'Log.entryAdded', { entry });
+
+    expect(out).toHaveLength(1);
+    expect(out[0].tabId).toBe(TAB);
+    expect(out[0].entry.category).toBe('deprecation');
+  });
+
   it('console capture does not perturb the fire bridge — bindingCalled still routes (E4 regression guard)', async () => {
     source = new ChromeDebuggerEventSource();
     const fires: CdpBindingFire[] = [];

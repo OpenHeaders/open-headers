@@ -33,6 +33,8 @@ import type {
   RawInitiator,
   RawLoadingFailed,
   RawLoadingFinished,
+  RawLogEntry,
+  RawLogEntryAdded,
   RawObjectPreview,
   RawPageFrame,
   RawPageLifecycleTimestamp,
@@ -445,6 +447,63 @@ export function normalizeExceptionThrown(p: RawExceptionThrown): ConsoleEntry {
     args: [{ type: 'error', subtype: 'error', text: exceptionText(d) }],
     timestamp: p.timestamp,
     ...exceptionLocation(d),
+  };
+}
+
+/**
+ * `Log.entryAdded` → a browser-sourced {@link ConsoleEntry}. These are the
+ * browser's own console messages — failed/blocked network requests,
+ * deprecations, CSP violations, interventions — the third stream Chrome's
+ * console merges alongside `console.*` calls and uncaught exceptions. The
+ * entry's category label passes through verbatim; the rendered `text` leads
+ * the args, with any structured args appended after it. Location prefers the
+ * initiating code (the stack's top frame) over the entry's own `url`, which
+ * for a network entry is the failed request, not the caller.
+ */
+export function normalizeLogEntryAdded(p: RawLogEntryAdded): ConsoleEntry {
+  const entry = p.entry;
+  return {
+    source: 'browser',
+    level: logEntryLevel(entry.level),
+    args: logEntryArgs(entry),
+    timestamp: entry.timestamp,
+    category: entry.source,
+    ...logEntryLocation(entry),
+  };
+}
+
+/** Bucket the `Log` entry level onto the display-level union — `verbose` is
+ *  the browser's debug tier; an unknown level falls to `log`. */
+function logEntryLevel(level: string): ConsoleLevel {
+  switch (level) {
+    case 'error':
+      return 'error';
+    case 'warning':
+      return 'warning';
+    case 'info':
+      return 'info';
+    case 'verbose':
+      return 'debug';
+    default:
+      return 'log';
+  }
+}
+
+/** The entry's rendered text leads; structured args (rare) append after it. */
+function logEntryArgs(entry: RawLogEntry): ConsoleArg[] {
+  const rendered = (entry.args ?? []).map(renderRemoteObject);
+  if (entry.text.length === 0 && rendered.length > 0) return rendered;
+  return [{ type: 'string', text: entry.text }, ...rendered];
+}
+
+/** Log-entry location — the initiating stack's top frame, else the entry's
+ *  own resource `url`/`lineNumber`. */
+function logEntryLocation(entry: RawLogEntry): Pick<ConsoleEntry, 'url' | 'lineNumber' | 'columnNumber'> {
+  const fromStack = topFrameLocation(entry.stackTrace);
+  if (fromStack.lineNumber !== undefined) return fromStack;
+  return {
+    ...(entry.url !== undefined && entry.url.length > 0 ? { url: entry.url } : {}),
+    ...(entry.lineNumber !== undefined ? { lineNumber: entry.lineNumber } : {}),
   };
 }
 

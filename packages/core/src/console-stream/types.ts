@@ -3,8 +3,10 @@
  *
  * Sibling of `@openheaders/core/rule-fire-stream` and
  * `@openheaders/core/page-stream`. The engine captures a CDP-attached tab's
- * console output (`Runtime.consoleAPICalled`) and uncaught exceptions
- * (`Runtime.exceptionThrown`), normalizes each into a host-neutral
+ * console output (`Runtime.consoleAPICalled`), uncaught exceptions
+ * (`Runtime.exceptionThrown`), and browser-generated log entries
+ * (`Log.entryAdded` — failed/blocked network requests, deprecations, CSP
+ * violations, interventions, …), normalizes each into a host-neutral
  * {@link ConsoleEntry}, and fans it out as an append-only stream. Console
  * output is observation-only — there is no dedup or merge (every call is a
  * distinct event), unlike the rule-fire stream.
@@ -16,9 +18,10 @@
  */
 
 /**
- * Display severity, bucketed from the CDP `consoleAPICalled` type. Unknown
- * types (`dir`/`table`/`trace`/`group`/…) fall to `log`; an uncaught
- * exception is always `error`. The raw CDP type is not preserved in v1 —
+ * Display severity, bucketed from the CDP `consoleAPICalled` type or the
+ * `Log` entry level. Unknown types (`dir`/`table`/`trace`/`group`/…) fall to
+ * `log`; an uncaught exception is always `error`; a browser log entry's
+ * `verbose` maps to `debug`. The raw CDP type is not preserved in v1 —
  * richer type fidelity is a later refinement.
  */
 export type ConsoleLevel = 'log' | 'info' | 'warning' | 'error' | 'debug';
@@ -38,20 +41,32 @@ export interface ConsoleArg {
 }
 
 /**
- * One captured console line — a `console.*` call or an uncaught
- * exception/rejection on a CDP-attached tab. Host-neutral + JSON-safe (it
- * crosses the runtime port to the panel). Routed by `tabId` at the envelope
- * level ({@link ConsoleStreamUpdate}), so identity is positional (arrival
- * order), not a field on the entry.
+ * One captured console line — a `console.*` call, an uncaught
+ * exception/rejection, or a browser-generated log entry on a CDP-attached
+ * tab. Host-neutral + JSON-safe (it crosses the runtime port to the panel).
+ * Routed by `tabId` at the envelope level ({@link ConsoleStreamUpdate}), so
+ * identity is positional (arrival order), not a field on the entry.
  */
 export interface ConsoleEntry {
-  /** Capture origin: a `console.*` call, or an uncaught exception/rejection. */
-  readonly source: 'console-api' | 'exception';
+  /**
+   * Capture origin: a `console.*` call, an uncaught exception/rejection, or
+   * a browser-generated log entry (the browser's own console messages —
+   * failed/blocked network requests, deprecations, violations, …).
+   */
+  readonly source: 'console-api' | 'exception' | 'browser';
   readonly level: ConsoleLevel;
-  /** Rendered args (a `console.*` call) or the single exception message. */
+  /** Rendered args (a `console.*` call) or the single message text. */
   readonly args: readonly ConsoleArg[];
-  /** CDP wall-clock ms (`Runtime` event timestamp). */
+  /** CDP wall-clock ms (`Runtime`/`Log` event timestamp). */
   readonly timestamp: number;
+  /**
+   * Browser log-entry category — the engine passes the browser's own source
+   * label through verbatim (`network`/`deprecation`/`violation`/`security`/
+   * `intervention`/`rendering`/…). Present only on `source: 'browser'`
+   * entries; kept open (not a closed union) so a new browser category flows
+   * through without a protocol change.
+   */
+  readonly category?: string;
   /** Top stack-frame location, when the event carried a stack. */
   readonly url?: string;
   readonly lineNumber?: number;

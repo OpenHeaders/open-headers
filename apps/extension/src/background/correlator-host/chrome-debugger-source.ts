@@ -56,6 +56,7 @@ import {
   normalizeFrameStoppedLoading,
   normalizeLoadingFailed,
   normalizeLoadingFinished,
+  normalizeLogEntryAdded,
   normalizePageLifecycle,
   normalizeRequestPaused,
   normalizeRequestWillBeSent,
@@ -85,6 +86,7 @@ import type {
   RawGetResponseBody,
   RawLoadingFailed,
   RawLoadingFinished,
+  RawLogEntryAdded,
   RawPageLifecycleTimestamp,
   RawRequestPaused,
   RawRequestWillBeSent,
@@ -222,12 +224,14 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
 
   /**
    * Subscribe to captured console output (Phase G) — a CDP-attached tab's
-   * `console.*` calls + uncaught exceptions, delivered as host-neutral
-   * {@link ConsoleEntry}s already routed by `tabId` (root + kept
-   * worker/OOPIF children). Rides E4's standing `Runtime.enable`; observation
-   * only (no page effect). NOT part of the oracle `CdpEventSource` interface —
-   * console is a host concern, so the pipeline consumes this directly off the
-   * chrome adapter (mirror of `subscribeBinding`).
+   * `console.*` calls + uncaught exceptions (riding E4's standing
+   * `Runtime.enable`) and the browser's own log entries (`Log.entryAdded` —
+   * failed/blocked network requests, deprecations, violations, …), delivered
+   * as host-neutral {@link ConsoleEntry}s already routed by `tabId` (root +
+   * kept worker/OOPIF children). Observation only (no page effect). NOT part
+   * of the oracle `CdpEventSource` interface — console is a host concern, so
+   * the pipeline consumes this directly off the chrome adapter (mirror of
+   * `subscribeBinding`).
    */
   subscribeConsole(listener: ConsoleListener): () => void {
     this.consoleListeners.add(listener);
@@ -393,6 +397,12 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
     // through instead of window.postMessage — page-invisible. Fanned to kept
     // children too (handleTargetAttached) so an OOPIF wrapper's fire reaches us.
     await this.enableRuntimeBinding({ tabId });
+    // Console capture, browser plane (Phase G): the Log domain carries the
+    // browser's own console entries (failed/blocked network requests,
+    // deprecations, violations, …), which never surface on the Runtime
+    // events. Enabling also replays the target's retained backlog, so the
+    // Console tool window shows history from before Debug mode attached.
+    await this.enableLog({ tabId });
     // Seed the main-frame registry before any navigation: the first
     // navigation's requestWillBeSent precedes its frameNavigated, so
     // without the seed the main/sub document split misses the first nav.
@@ -511,6 +521,17 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
       } else if (method === 'Runtime.exceptionThrown') {
         this.fanConsole(tabId, normalizeExceptionThrown(params as RawExceptionThrown));
       }
+      return;
+    }
+    if (method === 'Log.entryAdded') {
+      // Phase G console capture, browser plane: the browser's own log entries
+      // (failed/blocked network requests, deprecations, violations, …) — the
+      // third stream Chrome's console merges alongside console.*/exceptions.
+      // Same tabId routing + session gating as the Runtime console events.
+      if (params === undefined) return;
+      const logChildSessionId = source.sessionId;
+      if (logChildSessionId !== undefined && !this.childSessions.has(logChildSessionId)) return;
+      this.fanConsole(tabId, normalizeLogEntryAdded(params as RawLogEntryAdded));
       return;
     }
     if (!method.startsWith('Network.') || params === undefined) return;
@@ -652,6 +673,11 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
     // moot for now (no worker wrapper exists yet; the deferred reach), but the
     // transport is in place for when one lands.
     void this.enableRuntimeBinding(session);
+    // Browser-plane console entries fan from every kept child too — an OOPIF
+    // or worker owns its own Log domain (its blocked fetches / deprecations
+    // report there, not on the root). A child type without the domain just
+    // fails the enable, which `send` tolerates.
+    void this.enableLog(session);
     for (const listener of this.childAttachListeners) listener(tabId, childSessionId, kind);
   }
 
@@ -682,6 +708,15 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
 
   private enablePage(session: chrome.debugger.DebuggerSession): Promise<void> {
     return this.send(session, 'Page.enable');
+  }
+
+  /**
+   * Enable the Log domain on a session (Phase G, browser plane). Delivery
+   * requires the enable, and the enable itself replays the target's retained
+   * log backlog as `Log.entryAdded` events — history capture is free.
+   */
+  private enableLog(session: chrome.debugger.DebuggerSession): Promise<void> {
+    return this.send(session, 'Log.enable');
   }
 
   /**
