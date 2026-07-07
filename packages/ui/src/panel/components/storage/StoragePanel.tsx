@@ -1,40 +1,66 @@
 /**
  * Storage tool window — application-storage inspector for the inspected
- * tab. Origin scope picker + Local/Session storage grid over the
- * standard data plane (SW injection), refreshed by visibility-gated
- * polling; writes ride the same plane and refetch through the read path
- * (STORAGE_PANEL_PLAN.md §5, slice 2). Cookies / IndexedDB / Cache
- * Storage / quota arrive in later slices.
+ * tab. The locked layout (STORAGE_PANEL_PLAN.md §4) is a storage-type
+ * rail on the left and the active section's view on the right; the
+ * scope bar (origin select + partition chip) is shared across sections.
+ *
+ * DOM storage rides the standard data plane (SW injection) with
+ * visibility-gated polling; writes ride the same plane and refetch
+ * through the read path. Cookies reuse the shipped jar plane — the poll
+ * tick invalidates the jar cache and the sticky hook refetches.
+ * IndexedDB / Cache Storage / quota arrive in later slices.
  */
 
 import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
-import { useEffect, useMemo, useState } from 'react';
-import type { DomStorageArea, DomStorageEntry } from '../../data/storage/storage-inspector-host';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { emptyEditForm, jarCookieToKey } from '../../data/cookies/cookie-edit';
+import {
+  isCookieJarReadable,
+  isCookieJarWritable,
+  type JarCookie,
+  type JarCookieEdit,
+  removeJarCookie,
+  writeJarCookie,
+} from '../../data/cookies/cookie-jar-cache';
+import { useCookieJarSticky } from '../../data/cookies/use-cookie-jar';
+import type { DomStorageEntry } from '../../data/storage/storage-inspector-host';
 import { parseStorageKey } from '../../data/storage/storage-key';
-import { type StorageInspectorState, useStorageInspector } from '../../data/storage/use-storage-inspector';
+import {
+  type StorageInspectorState,
+  type StorageSection,
+  useStorageInspector,
+} from '../../data/storage/use-storage-inspector';
+import { CookieEditPopover } from '../detail/cookies/CookieEditPopover';
+import { CookiesSection } from './CookiesSection';
 import { StorageGrid } from './StorageGrid';
 
 interface StoragePanelProps {
   onHide: () => void;
 }
 
-const AREAS: ReadonlyArray<{ value: DomStorageArea; label: string }> = [
-  { value: 'local', label: 'Local' },
-  { value: 'session', label: 'Session' },
+const SECTIONS: ReadonlyArray<{ value: StorageSection; label: string }> = [
+  { value: 'local', label: 'Local storage' },
+  { value: 'session', label: 'Session storage' },
+  { value: 'cookies', label: 'Cookies' },
 ];
+
+function areaName(section: StorageSection): string {
+  return section === 'session' ? 'sessionStorage' : 'localStorage';
+}
 
 export function StoragePanel({ onHide }: StoragePanelProps) {
   const wiring = useMemo(() => createPanelHeaderWiring({ onHide }), [onHide]);
-  const inspector = useStorageInspector();
+  const [section, setSection] = useState<StorageSection>('local');
+  const inspector = useStorageInspector(section);
   const [textFilter, setTextFilter] = useState('');
   const [adding, setAdding] = useState(false);
 
-  // Selection or area moved out from under an open add row — drop it.
+  // Selection or section moved out from under an open add row — drop it.
   // biome-ignore lint/correctness/useExhaustiveDependencies: selection identity is the reset trigger
   useEffect(() => {
     setAdding(false);
-  }, [inspector.selectedOrigin, inspector.area]);
+  }, [inspector.selectedOrigin, section]);
 
   const entries = inspector.snapshot?.entries ?? [];
   const filtered = useMemo<ReadonlyArray<DomStorageEntry>>(() => {
@@ -43,12 +69,71 @@ export function StoragePanel({ onHide }: StoragePanelProps) {
     return entries.filter((e) => e.key.toLowerCase().includes(needle) || e.value.toLowerCase().includes(needle));
   }, [entries, textFilter]);
 
-  const canWrite = inspector.available && inspector.scopes.length > 0 && inspector.snapshot !== null;
-
   // Partition evidence (CDP tier): the selected scope's storage key, when
   // the browser reported one and it carries partition components.
   const selectedScope = inspector.scopes.find((s) => s.origin === inspector.selectedOrigin) ?? null;
   const partition = selectedScope?.storageKey ? parseStorageKey(selectedScope.storageKey) : null;
+
+  // ── Cookies section data + write plumbing (jar plane reuse) ────────
+  const scopeUrl = selectedScope?.url ?? '';
+  const jar = useCookieJarSticky(section === 'cookies' ? scopeUrl : '');
+  const sortedCookies = useMemo<ReadonlyArray<JarCookie> | null>(() => {
+    if (!jar) return jar;
+    return [...jar].sort(
+      (a, b) => a.name.localeCompare(b.name) || a.domain.localeCompare(b.domain) || a.path.localeCompare(b.path),
+    );
+  }, [jar]);
+  const filteredCookies = useMemo<ReadonlyArray<JarCookie>>(() => {
+    if (!sortedCookies) return [];
+    const needle = textFilter.trim().toLowerCase();
+    if (!needle) return sortedCookies;
+    return sortedCookies.filter(
+      (c) =>
+        c.name.toLowerCase().includes(needle) ||
+        c.value.toLowerCase().includes(needle) ||
+        c.domain.toLowerCase().includes(needle),
+    );
+  }, [sortedCookies, textFilter]);
+
+  const cookiesWritable = isCookieJarWritable() && inspector.scopes.length > 0;
+  const [cookieWriteFailed, setCookieWriteFailed] = useState(false);
+
+  const applyCookieEdit = useCallback(async (edit: JarCookieEdit): Promise<boolean> => {
+    const result = await writeJarCookie(edit);
+    setCookieWriteFailed(result === null);
+    return result !== null;
+  }, []);
+
+  const deleteCookie = useCallback((cookie: JarCookie) => {
+    void removeJarCookie(jarCookieToKey(cookie)).then((ok) => {
+      setCookieWriteFailed(!ok);
+    });
+  }, []);
+
+  const addCookieCanonical = useMemo(() => {
+    let domain = '';
+    try {
+      domain = new URL(scopeUrl).hostname;
+    } catch {
+      domain = '';
+    }
+    return emptyEditForm({ domain, secure: scopeUrl.startsWith('https:') });
+  }, [scopeUrl]);
+
+  const canWrite = inspector.available && inspector.scopes.length > 0 && inspector.snapshot !== null;
+
+  const scopeNote =
+    section === 'cookies'
+      ? [
+          sortedCookies ? `${filteredCookies.length} of ${sortedCookies.length} cookies` : '',
+          cookieWriteFailed ? ' · write failed' : '',
+        ].join('')
+      : [
+          inspector.snapshot ? `${filtered.length} of ${entries.length} items` : '',
+          inspector.snapshot?.truncated ? ' · list truncated' : '',
+          inspector.readFailed ? ' · read failed — showing last data' : '',
+          inspector.writeFailed ? ' · write failed' : '',
+        ].join('');
 
   return (
     <div className="dt-panel">
@@ -64,30 +149,30 @@ export function StoragePanel({ onHide }: StoragePanelProps) {
               onChange={(e) => setTextFilter(e.target.value)}
             />
             <div className="dt-filter-separator" />
-            <div className="dt-filter-pills">
-              {AREAS.map((a) => (
+            {section === 'cookies' ? (
+              <CookieEditPopover mode="add" canonical={addCookieCanonical} onSubmit={applyCookieEdit}>
                 <button
-                  key={a.value}
                   type="button"
-                  className="dt-filter-pill"
-                  data-active={inspector.area === a.value}
-                  onClick={() => inspector.setArea(a.value)}
+                  className="dt-toolbar-icon"
+                  disabled={!cookiesWritable}
+                  title="Add a cookie to the browser jar (including HttpOnly)"
+                  aria-label="Add cookie"
                 >
-                  {a.label}
+                  <PlusOutlined />
                 </button>
-              ))}
-            </div>
-            <div className="dt-filter-separator" />
-            <button
-              type="button"
-              className="dt-toolbar-icon"
-              onClick={() => setAdding(true)}
-              disabled={!canWrite}
-              title="Add entry"
-              aria-label="Add storage entry"
-            >
-              <PlusOutlined />
-            </button>
+              </CookieEditPopover>
+            ) : (
+              <button
+                type="button"
+                className="dt-toolbar-icon"
+                onClick={() => setAdding(true)}
+                disabled={!canWrite}
+                title="Add entry"
+                aria-label="Add storage entry"
+              >
+                <PlusOutlined />
+              </button>
+            )}
             <button
               type="button"
               className="dt-toolbar-icon"
@@ -101,61 +186,89 @@ export function StoragePanel({ onHide }: StoragePanelProps) {
         }
       />
 
-      {inspector.scopes.length > 0 && (
-        <div className="dt-storage-scope-bar">
-          <select
-            className="dt-storage-scope-select"
-            value={inspector.selectedOrigin ?? ''}
-            onChange={(e) => inspector.selectOrigin(e.target.value)}
-            aria-label="Storage origin"
-          >
-            {inspector.scopes.map((s) => (
-              <option key={s.origin} value={s.origin}>
-                {s.origin}
-                {s.isMainFrame ? '' : ' (iframe)'}
-              </option>
-            ))}
-          </select>
-          {partition?.partitioned && (
-            <span
-              className="dt-storage-partition-chip"
-              title={`Partitioned storage — this origin's data here is keyed under ${partition.topLevelSite ?? 'a partition'}.\nStorage key: ${partition.raw}`}
+      <div className="dt-storage-layout">
+        <nav className="dt-storage-nav" aria-label="Storage type">
+          {SECTIONS.map((s) => (
+            <button
+              key={s.value}
+              type="button"
+              className="dt-storage-nav-item"
+              data-active={section === s.value}
+              onClick={() => setSection(s.value)}
             >
-              partitioned{partition.topLevelSite ? ` · ${partition.topLevelSite}` : ''}
-            </span>
-          )}
-          <span className="dt-storage-scope-note">
-            {inspector.snapshot ? `${filtered.length} of ${entries.length} items` : ''}
-            {inspector.snapshot?.truncated ? ' · list truncated' : ''}
-            {inspector.readFailed ? ' · read failed — showing last data' : ''}
-            {inspector.writeFailed ? ' · write failed' : ''}
-          </span>
-          {canWrite && entries.length > 0 && <ClearAllButton area={inspector.area} onClear={inspector.clearArea} />}
-        </div>
-      )}
+              {s.label}
+            </button>
+          ))}
+        </nav>
 
-      <div className="dt-storage-body">
-        <StorageBody
-          inspector={inspector}
-          entries={filtered}
-          totalCount={entries.length}
-          adding={adding}
-          onCloseAdd={() => setAdding(false)}
-        />
+        <div className="dt-storage-main">
+          {inspector.scopes.length > 0 && (
+            <div className="dt-storage-scope-bar">
+              <select
+                className="dt-storage-scope-select"
+                value={inspector.selectedOrigin ?? ''}
+                onChange={(e) => inspector.selectOrigin(e.target.value)}
+                aria-label="Storage origin"
+              >
+                {inspector.scopes.map((s) => (
+                  <option key={s.origin} value={s.origin}>
+                    {s.origin}
+                    {s.isMainFrame ? '' : ' (iframe)'}
+                  </option>
+                ))}
+              </select>
+              {partition?.partitioned && (
+                <span
+                  className="dt-storage-partition-chip"
+                  title={`Partitioned storage — this origin's data here is keyed under ${partition.topLevelSite ?? 'a partition'}.\nStorage key: ${partition.raw}`}
+                >
+                  partitioned{partition.topLevelSite ? ` · ${partition.topLevelSite}` : ''}
+                </span>
+              )}
+              <span className="dt-storage-scope-note">{scopeNote}</span>
+              {section !== 'cookies' && canWrite && entries.length > 0 && (
+                <ClearAllButton section={section} onClear={inspector.clearArea} />
+              )}
+            </div>
+          )}
+
+          <div className="dt-storage-body">
+            {section === 'cookies' ? (
+              <CookiesBody
+                inspector={inspector}
+                cookies={sortedCookies}
+                filteredCookies={filteredCookies}
+                writable={cookiesWritable}
+                onApplyEdit={applyCookieEdit}
+                onDelete={deleteCookie}
+              />
+            ) : (
+              <StorageBody
+                inspector={inspector}
+                section={section}
+                entries={filtered}
+                totalCount={entries.length}
+                adding={adding}
+                onCloseAdd={() => setAdding(false)}
+              />
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
 /** Two-step inline confirm — first click arms, second commits. */
-function ClearAllButton({ area, onClear }: { area: DomStorageArea; onClear: () => Promise<boolean> }) {
+function ClearAllButton({ section, onClear }: { section: StorageSection; onClear: () => Promise<boolean> }) {
   const [armed, setArmed] = useState(false);
-  const areaName = area === 'local' ? 'localStorage' : 'sessionStorage';
   return (
     <button
       type="button"
       className={`dt-storage-clear${armed ? ' dt-storage-clear--armed' : ''}`}
-      title={armed ? `Deletes every ${areaName} entry for this origin` : `Clear all ${areaName} entries`}
+      title={
+        armed ? `Deletes every ${areaName(section)} entry for this origin` : `Clear all ${areaName(section)} entries`
+      }
       onClick={() => {
         if (!armed) {
           setArmed(true);
@@ -173,14 +286,15 @@ function ClearAllButton({ area, onClear }: { area: DomStorageArea; onClear: () =
 
 interface StorageBodyProps {
   inspector: StorageInspectorState;
+  section: StorageSection;
   entries: ReadonlyArray<DomStorageEntry>;
   totalCount: number;
   adding: boolean;
   onCloseAdd: () => void;
 }
 
-function StorageBody({ inspector, entries, totalCount, adding, onCloseAdd }: StorageBodyProps) {
-  const { available, loading, area, selectedOrigin: origin } = inspector;
+function StorageBody({ inspector, section, entries, totalCount, adding, onCloseAdd }: StorageBodyProps) {
+  const { available, loading, selectedOrigin: origin } = inspector;
   const hasScopes = inspector.scopes.length > 0;
   const hasSnapshot = inspector.snapshot !== null;
 
@@ -218,7 +332,7 @@ function StorageBody({ inspector, entries, totalCount, adding, onCloseAdd }: Sto
   if (totalCount === 0 && !adding) {
     return (
       <div className="dt-empty">
-        No items in {area === 'local' ? 'localStorage' : 'sessionStorage'} for {origin}.
+        No items in {areaName(section)} for {origin}.
       </div>
     );
   }
@@ -235,4 +349,47 @@ function StorageBody({ inspector, entries, totalCount, adding, onCloseAdd }: Sto
       fetchFullValue={inspector.fetchFullValue}
     />
   );
+}
+
+interface CookiesBodyProps {
+  inspector: StorageInspectorState;
+  /** `null` while the first jar lookup for this scope is in flight. */
+  cookies: ReadonlyArray<JarCookie> | null;
+  filteredCookies: ReadonlyArray<JarCookie>;
+  writable: boolean;
+  onApplyEdit: (edit: JarCookieEdit) => Promise<boolean>;
+  onDelete: (cookie: JarCookie) => void;
+}
+
+function CookiesBody({ inspector, cookies, filteredCookies, writable, onApplyEdit, onDelete }: CookiesBodyProps) {
+  const hasScopes = inspector.scopes.length > 0;
+
+  if (!isCookieJarReadable()) {
+    return (
+      <div className="dt-empty-hero">
+        <strong>Cookies aren’t available here</strong>
+        <span className="dt-empty-hero-sub">This host doesn’t expose the browser cookie jar.</span>
+      </div>
+    );
+  }
+  if (!inspector.available || !hasScopes) {
+    return (
+      <div className="dt-empty-hero">
+        <strong>No inspectable origins</strong>
+        <span className="dt-empty-hero-sub">
+          This tab has no http(s) frames — browser-internal pages carry no site cookies.
+        </span>
+      </div>
+    );
+  }
+  if (cookies === null) {
+    return <div className="dt-empty">Loading…</div>;
+  }
+  if (cookies.length === 0) {
+    return <div className="dt-empty">No cookies for {inspector.selectedOrigin}.</div>;
+  }
+  if (filteredCookies.length === 0) {
+    return <div className="dt-empty">No cookies match your filter.</div>;
+  }
+  return <CookiesSection cookies={filteredCookies} writable={writable} onApplyEdit={onApplyEdit} onDelete={onDelete} />;
 }

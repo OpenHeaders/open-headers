@@ -1,5 +1,5 @@
 /**
- * State + fetch loop for the Storage tool window's DOM storage view.
+ * State + fetch loop for the Storage tool window.
  *
  * The tool window only mounts while visible (the shell renders the
  * active window per dock), so mounting this hook IS the visibility
@@ -8,12 +8,18 @@
  * skips ticks. Standard-plane reads have no change events to ride
  * (see STORAGE_PANEL_PLAN.md §2.1), so polling is the live tier here.
  *
+ * The Cookies section rides the same loop with the invalidation
+ * discipline: a tick doesn't read anything, it invalidates the shipped
+ * jar cache for the selected scope's URL and lets the section's
+ * `useCookieJarSticky` refetch through the one jar path.
+ *
  * Every fetch is token-guarded: a response landing after selection or
  * navigation changed is dropped, never rendered.
  */
 
 import { hostNavigation } from '@openheaders/core/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { invalidateJarCache } from '../cookies/cookie-jar-cache';
 import type { DomStorageArea, DomStorageFullValue, DomStorageSnapshot, StorageScope } from './storage-inspector-host';
 import { getStorageInspectorHost } from './storage-inspector-host';
 
@@ -41,14 +47,17 @@ function scopesEqual(a: ReadonlyArray<StorageScope>, b: ReadonlyArray<StorageSco
   });
 }
 
+/** The storage types the tool window's navigation rail offers. Local
+ *  and Session are the two DOM storage areas; Cookies rides the jar
+ *  plane. Later slices add IndexedDB / Cache Storage / quota. */
+export type StorageSection = 'local' | 'session' | 'cookies';
+
 export interface StorageInspectorState {
   /** A host is installed and the inspected tab is resolvable. */
   available: boolean;
   scopes: ReadonlyArray<StorageScope>;
   selectedOrigin: string | null;
   selectOrigin: (origin: string) => void;
-  area: DomStorageArea;
-  setArea: (area: DomStorageArea) => void;
   /** `null` until the first read lands, or when the read failed. */
   snapshot: DomStorageSnapshot | null;
   /** True while no read for the current selection has settled yet. */
@@ -72,14 +81,18 @@ export interface StorageInspectorState {
   fetchFullValue: (key: string) => Promise<DomStorageFullValue | null>;
 }
 
-export function useStorageInspector(): StorageInspectorState {
+export function useStorageInspector(section: StorageSection): StorageInspectorState {
   const host = getStorageInspectorHost();
   const tabId = hostNavigation.inspectedTabId();
   const available = host !== null && tabId !== null;
 
+  // The two DOM areas map onto the read/write plane; the Cookies section
+  // parks it (no entry reads) while scope discovery keeps polling.
+  const area: DomStorageArea = section === 'session' ? 'session' : 'local';
+  const domActive = section !== 'cookies';
+
   const [scopes, setScopes] = useState<ReadonlyArray<StorageScope>>([]);
   const [selectedOrigin, setSelectedOrigin] = useState<string | null>(null);
-  const [area, setArea] = useState<DomStorageArea>('local');
   const [snapshot, setSnapshot] = useState<DomStorageSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [readFailed, setReadFailed] = useState(false);
@@ -112,7 +125,7 @@ export function useStorageInspector(): StorageInspectorState {
   const selectedFrameId = selectedScope?.frameId ?? null;
 
   const readEntries = useCallback(async () => {
-    if (!host || tabId === null || selectedFrameId === null) return;
+    if (!host || tabId === null || selectedFrameId === null || !domActive) return;
     const token = ++fetchTokenRef.current;
     const result = await host.readDomStorage(tabId, selectedFrameId, area);
     if (token !== fetchTokenRef.current) return;
@@ -125,7 +138,7 @@ export function useStorageInspector(): StorageInspectorState {
     }
     setReadFailed(false);
     setSnapshot(result);
-  }, [host, tabId, selectedFrameId, area]);
+  }, [host, tabId, selectedFrameId, area, domActive]);
 
   // Selection or area changed → drop the stale grid, read immediately.
   useEffect(() => {
@@ -136,8 +149,19 @@ export function useStorageInspector(): StorageInspectorState {
     void readEntries();
   }, [readEntries]);
 
-  // Mount → scope discovery; then the poll loop (entries every tick,
-  // scopes every SCOPES_POLL_TICKS) while the window is visible.
+  // What one poll tick does for the active section: DOM sections read
+  // entries; Cookies invalidates the jar cache for the selected scope's
+  // URL — the section's sticky jar hook refetches through the one jar
+  // path (invalidation, not a second read plane). Keyed on the URL
+  // PRIMITIVE for the same reason as `selectedFrameId` above.
+  const selectedUrl = selectedScope?.url ?? null;
+  const pollTick = useCallback(() => {
+    if (domActive) void readEntries();
+    else if (selectedUrl !== null) invalidateJarCache(selectedUrl);
+  }, [domActive, readEntries, selectedUrl]);
+
+  // Mount → scope discovery; then the poll loop (section tick every
+  // tick, scopes every SCOPES_POLL_TICKS) while the window is visible.
   useEffect(() => {
     if (!available) return;
     void listScopes();
@@ -145,16 +169,16 @@ export function useStorageInspector(): StorageInspectorState {
     const timer = setInterval(() => {
       if (typeof document !== 'undefined' && document.hidden) return;
       tick++;
-      void readEntries();
+      pollTick();
       if (tick % SCOPES_POLL_TICKS === 0) void listScopes();
     }, ENTRIES_POLL_MS);
     return () => clearInterval(timer);
-  }, [available, listScopes, readEntries]);
+  }, [available, listScopes, pollTick]);
 
   const refresh = useCallback(() => {
     void listScopes();
-    void readEntries();
-  }, [listScopes, readEntries]);
+    pollTick();
+  }, [listScopes, pollTick]);
 
   // Writes ride the invalidation discipline: commit through the host,
   // then refetch through the SAME read path — the grid never renders
@@ -211,8 +235,6 @@ export function useStorageInspector(): StorageInspectorState {
     scopes,
     selectedOrigin,
     selectOrigin,
-    area,
-    setArea,
     snapshot,
     loading,
     readFailed,

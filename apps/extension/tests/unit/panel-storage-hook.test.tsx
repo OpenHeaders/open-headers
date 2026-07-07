@@ -11,7 +11,12 @@
 
 import type { HostNavigation } from '@openheaders/core/navigation';
 import { setHostNavigation } from '@openheaders/core/navigation';
-import { useStorageInspector } from '@openheaders/ui/panel/data/storage/use-storage-inspector';
+import {
+  __resetCookieJarCacheForTests,
+  __seedCookieJarForTests,
+  getJarCookiesForUrl,
+} from '@openheaders/ui/panel/data/cookies/cookie-jar-cache';
+import { type StorageSection, useStorageInspector } from '@openheaders/ui/panel/data/storage/use-storage-inspector';
 import type { StorageInspectorHost } from '@openheaders/ui/panel/host-storage-inspector';
 import { setStorageInspectorHost } from '@openheaders/ui/panel/host-storage-inspector';
 import { act, cleanup, renderHook } from '@testing-library/react';
@@ -61,17 +66,19 @@ async function flush(ms = 1): Promise<void> {
 beforeEach(() => {
   vi.useFakeTimers();
   setHostNavigation(NAV);
+  __resetCookieJarCacheForTests();
 });
 
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+  __resetCookieJarCacheForTests();
 });
 
 describe('useStorageInspector poll stability', () => {
   it('settles after mount instead of re-listing scopes in a loop', async () => {
     const { listScopes } = installHost();
-    const { result } = renderHook(() => useStorageInspector());
+    const { result } = renderHook(() => useStorageInspector('local'));
 
     await flush();
     await flush();
@@ -88,7 +95,7 @@ describe('useStorageInspector poll stability', () => {
 
   it('keeps the snapshot rendered across an unchanged scope re-list', async () => {
     const { listScopes, readDomStorage } = installHost();
-    const { result } = renderHook(() => useStorageInspector());
+    const { result } = renderHook(() => useStorageInspector('local'));
 
     await flush();
     await flush();
@@ -103,5 +110,70 @@ describe('useStorageInspector poll stability', () => {
     expect(readDomStorage.mock.calls.length).toBe(readsBefore + 5);
     expect(result.current.loading).toBe(false);
     expect(result.current.snapshot?.entries).toEqual([{ key: 'theme', value: 'dark', valueLength: 4 }]);
+  });
+});
+
+describe('useStorageInspector cookies section', () => {
+  const COOKIE = {
+    name: 'sid',
+    value: 'abc',
+    domain: 'openheaders.io',
+    path: '/',
+    hostOnly: true,
+    httpOnly: false,
+    secure: true,
+    session: true,
+  };
+
+  it('parks the DOM plane — no entry reads while cookies is the active section', async () => {
+    const { listScopes, readDomStorage } = installHost();
+    renderHook(() => useStorageInspector('cookies'));
+
+    await flush();
+    await flush();
+    await flush(10_000);
+
+    expect(listScopes).toHaveBeenCalled();
+    expect(readDomStorage).not.toHaveBeenCalled();
+  });
+
+  it('invalidates the jar cache for the selected scope URL on each poll tick', async () => {
+    installHost();
+    renderHook(() => useStorageInspector('cookies'));
+
+    await flush();
+    await flush();
+    __seedCookieJarForTests(SCOPE.url, [COOKIE]);
+    expect(getJarCookiesForUrl(SCOPE.url)).toEqual([COOKIE]);
+
+    // One entry tick — the cookies section's tick clears the jar entry so
+    // the next lookup refetches (invalidation, not a data push).
+    await flush(2000);
+    expect(getJarCookiesForUrl(SCOPE.url)).toBeNull();
+  });
+
+  it('does not blank or storm when switching between DOM and cookies sections', async () => {
+    const { readDomStorage } = installHost();
+    const { result, rerender } = renderHook(
+      ({ section }: { section: StorageSection }) => useStorageInspector(section),
+      {
+        initialProps: { section: 'local' as StorageSection },
+      },
+    );
+
+    await flush();
+    await flush();
+    expect(result.current.snapshot).not.toBeNull();
+    const readsBefore = readDomStorage.mock.calls.length;
+
+    rerender({ section: 'cookies' });
+    await flush(4000);
+    expect(readDomStorage.mock.calls.length).toBe(readsBefore);
+
+    rerender({ section: 'local' });
+    await flush();
+    await flush();
+    expect(result.current.snapshot?.entries).toEqual([{ key: 'theme', value: 'dark', valueLength: 4 }]);
+    expect(result.current.loading).toBe(false);
   });
 });

@@ -7,11 +7,13 @@ import {
   formToEdit,
   isEditFormValid,
   isJarEditableRow,
+  jarCookieToEditForm,
+  jarCookieToKey,
   rowToEditForm,
   rowToKey,
 } from '@openheaders/ui/panel/data/cookies/cookie-edit';
-import type { JarCookie } from '@openheaders/ui/panel/host-cookie-jar';
 import type { CookieRow } from '@openheaders/ui/panel/data/cookies/cookie-model';
+import type { JarCookie } from '@openheaders/ui/panel/host-cookie-jar';
 import { describe, expect, it } from 'vitest';
 
 function makeRow(over: Partial<CookieRow> = {}): CookieRow {
@@ -217,6 +219,54 @@ describe('editCanonicalForRow / deleteKeyForRow', () => {
   it('opens on the LIVE jar value for a request row whose jar moved since the request', () => {
     const row = makeRow({ value: 'sent-value', jarCookie: makeJarCookie({ value: 'live-value' }) });
     expect(editCanonicalForRow(row).value).toBe('live-value');
+  });
+});
+
+describe('jarCookieToEditForm / jarCookieToKey (Storage tool window)', () => {
+  it('maps a jar cookie to canonical form values with the same derivation rules as rows', () => {
+    const form = jarCookieToEditForm(makeJarCookie());
+    expect(form).toEqual<CookieEditFormValues>({
+      name: 'sid',
+      value: 'live-value',
+      domain: '.openheaders.io',
+      path: '/account',
+      hostOnly: false,
+      httpOnly: true,
+      secure: true,
+      sameSite: 'strict',
+      session: false,
+      expirationDate: 4102444800,
+    });
+  });
+
+  it('derives session=true and normalises sameSite when the jar entry has neither', () => {
+    const form = jarCookieToEditForm(makeJarCookie({ expirationDate: undefined, session: true, sameSite: undefined }));
+    expect(form.session).toBe(true);
+    expect(form.expirationDate).toBeUndefined();
+    expect(form.sameSite).toBe('unspecified');
+  });
+
+  it('carries partitionKey and storeId through form and key', () => {
+    const jar = makeJarCookie({ partitionKey: 'https://embed.openheaders.io', storeId: '1' });
+    expect(jarCookieToEditForm(jar).partitionKey).toBe('https://embed.openheaders.io');
+    expect(jarCookieToEditForm(jar).storeId).toBe('1');
+    expect(jarCookieToKey(jar)).toEqual({
+      name: 'sid',
+      domain: '.openheaders.io',
+      path: '/account',
+      secure: true,
+      partitionKey: 'https://embed.openheaders.io',
+      storeId: '1',
+    });
+  });
+
+  it('builds the delete identity from name + domain + path + secure', () => {
+    expect(jarCookieToKey(makeJarCookie())).toEqual({
+      name: 'sid',
+      domain: '.openheaders.io',
+      path: '/account',
+      secure: true,
+    });
   });
 });
 

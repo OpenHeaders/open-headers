@@ -8,8 +8,8 @@
  * the seam in `cookie-jar-cache` does the write.
  */
 
-import type { JarCookieEdit, JarCookieKey } from './cookie-jar-cache';
-import { jarToRow, type CookieRow } from './cookie-model';
+import type { JarCookie, JarCookieEdit, JarCookieKey } from './cookie-jar-cache';
+import { type CookieRow, jarToRow } from './cookie-model';
 
 export type CookieSameSiteValue = 'unspecified' | 'no_restriction' | 'lax' | 'strict';
 
@@ -58,6 +58,38 @@ export function rowToEditForm(row: CookieRow): CookieEditFormValues {
     session: row.expirationDate == null,
     ...(row.expirationDate != null ? { expirationDate: row.expirationDate } : {}),
     ...(row.partitionKey ? { partitionKey: row.partitionKey } : {}),
+  };
+}
+
+/** Canonical form values for a jar cookie edited outside a request
+ *  context (the Storage tool window's Cookies section) — same derivation
+ *  rules as {@link rowToEditForm}, straight off the jar entry. */
+export function jarCookieToEditForm(c: JarCookie): CookieEditFormValues {
+  return {
+    name: c.name,
+    value: c.value,
+    domain: c.domain,
+    path: c.path || '/',
+    hostOnly: c.hostOnly,
+    httpOnly: c.httpOnly,
+    secure: c.secure,
+    sameSite: normalizeSameSite(c.sameSite),
+    session: c.expirationDate == null,
+    ...(c.expirationDate != null ? { expirationDate: c.expirationDate } : {}),
+    ...(c.partitionKey ? { partitionKey: c.partitionKey } : {}),
+    ...(c.storeId ? { storeId: c.storeId } : {}),
+  };
+}
+
+/** Identity a jar cookie's Delete gesture removes. */
+export function jarCookieToKey(c: JarCookie): JarCookieKey {
+  return {
+    name: c.name,
+    domain: c.domain,
+    path: c.path || '/',
+    secure: c.secure,
+    ...(c.partitionKey ? { partitionKey: c.partitionKey } : {}),
+    ...(c.storeId ? { storeId: c.storeId } : {}),
   };
 }
 

@@ -9,9 +9,17 @@
  * long-form breakdown for accessibility / copy.
  */
 
-import type { CookieRow } from '../../../data/cookies/cookie-model';
-
 type Tone = 'on' | 'off' | 'good' | 'warn' | 'err';
+
+/** The security-relevant slice of a cookie — `CookieRow` and `JarCookie`
+ *  both satisfy it, so the glyph cell serves the request-context tab and
+ *  the jar-only Storage section alike. */
+export interface SecurityGlyphSubject {
+  name: string;
+  secure?: boolean;
+  httpOnly?: boolean;
+  sameSite?: string;
+}
 
 interface GlyphSpec {
   letter: string;
@@ -19,7 +27,7 @@ interface GlyphSpec {
   title: string;
 }
 
-function secureSpec(row: CookieRow): GlyphSpec {
+function secureSpec(row: SecurityGlyphSubject): GlyphSpec {
   const sameSiteNone =
     row.sameSite === 'no_restriction' || String(row.sameSite ?? '').toLowerCase() === 'none';
   const prefixDemandsSecure = row.name.startsWith('__Secure-') || row.name.startsWith('__Host-');
@@ -29,12 +37,12 @@ function secureSpec(row: CookieRow): GlyphSpec {
   return { letter: 'S', tone: 'off', title: 'No Secure attribute.' };
 }
 
-function httpOnlySpec(row: CookieRow): GlyphSpec {
+function httpOnlySpec(row: SecurityGlyphSubject): GlyphSpec {
   if (row.httpOnly) return { letter: 'H', tone: 'good', title: 'HttpOnly — not readable from JavaScript.' };
   return { letter: 'H', tone: 'off', title: 'Readable from JavaScript (no HttpOnly).' };
 }
 
-function sameSiteSpec(row: CookieRow): GlyphSpec {
+function sameSiteSpec(row: SecurityGlyphSubject): GlyphSpec {
   const raw = String(row.sameSite ?? '').toLowerCase();
   if (raw === 'strict') return { letter: 'L', tone: 'good', title: 'SameSite=Strict — only sent on same-site navigations.' };
   if (raw === 'lax') return { letter: 'L', tone: 'warn', title: 'SameSite=Lax — sent on cross-site top-level GETs.' };
@@ -49,7 +57,7 @@ function toneClass(t: Tone): string {
   return `dt-cookie-glyph dt-cookie-glyph--${t}`;
 }
 
-export function SecurityGlyphs({ row }: { row: CookieRow }) {
+export function SecurityGlyphs({ row }: { row: SecurityGlyphSubject }) {
   const s = secureSpec(row);
   const h = httpOnlySpec(row);
   const l = sameSiteSpec(row);
