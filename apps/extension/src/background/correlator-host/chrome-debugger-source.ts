@@ -531,7 +531,7 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
       if (params === undefined) return;
       const logChildSessionId = source.sessionId;
       if (logChildSessionId !== undefined && !this.childSessions.has(logChildSessionId)) return;
-      this.fanConsole(tabId, normalizeLogEntryAdded(params as RawLogEntryAdded));
+      this.fanConsole(tabId, normalizeLogEntryAdded(logChildSessionId ?? ROOT_SESSION_ID, params as RawLogEntryAdded));
       return;
     }
     if (!method.startsWith('Network.') || params === undefined) return;

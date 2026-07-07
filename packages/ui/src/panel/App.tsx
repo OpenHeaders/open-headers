@@ -56,10 +56,12 @@ import { PanelToolbar } from './components/PanelToolbar';
 import { RuleExecutions } from './components/RuleExecutions';
 import { RulePopoverProvider } from './components/RulePopoverHost';
 import { SearchPanel } from './components/SearchPanel';
+import { StoragePanel } from './components/storage/StoragePanel';
 import { TrafficList } from './components/TrafficList';
 import type { ColumnKey } from './components/traffic/columns';
 import { DEFAULT_VISIBLE_COLUMNS } from './components/traffic/columns';
 import { matchesPanelFilters } from './components/traffic/row-filter';
+import { type ConsoleRequestJoin, consoleRequestJoin } from './data/console-request-join';
 import type { FilterConfig } from './data/filter-engine';
 import { DEFAULT_FILTER_CONFIG, hasFilterError, parseFilter } from './data/filter-engine';
 import { focusStore, setFocusedDock, setFocusedRegion } from './data/stores/focus-store';
@@ -496,6 +498,16 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
     pages: data.pages,
   });
 
+  // Exact console↔network join: a browser console entry carries the same
+  // session-namespaced request id the lifecycle rows are keyed by.
+  const resolveConsoleRequest = useCallback(
+    (requestId: string): ConsoleRequestJoin | null => {
+      const row = data.lookupByRequestId.get(requestId);
+      return row ? consoleRequestJoin(row.lifecycle) : null;
+    },
+    [data.lookupByRequestId],
+  );
+
   // ── Tool window content ────────────────────────────────────
   const renderToolWindow = useCallback(
     (windowId: PanelToolWindowId, _slot: DockSlot): React.ReactNode => {
@@ -536,10 +548,14 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
           return (
             <ConsoleView
               entries={consoleClient.snapshot.entries}
+              resolveRequest={resolveConsoleRequest}
+              onRequestClick={handleCrossNav}
               onClear={() => consoleClient.store.clear()}
               onHide={() => tl.toggleWindow('console')}
             />
           );
+        case 'storage':
+          return <StoragePanel onHide={() => tl.toggleWindow('storage')} />;
         case 'rules':
           return (
             <RuleExecutions
@@ -592,6 +608,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       data.lookupByRequestId,
       data.pages,
       consoleClient,
+      resolveConsoleRequest,
       lifecycleClient.source,
       selectedId,
       handleSelect,

@@ -1267,6 +1267,7 @@ describe('ChromeDebuggerEventSource — Runtime console capture (Phase G)', () =
         text: 'POST https://collector.openheaders.io/collect net::ERR_BLOCKED_BY_CLIENT',
         timestamp: 1900,
         url: 'https://collector.openheaders.io/collect',
+        networkRequestId: '77.3',
       },
     });
 
@@ -1276,6 +1277,9 @@ describe('ChromeDebuggerEventSource — Runtime console capture (Phase G)', () =
     expect(out[0].entry.category).toBe('network');
     expect(out[0].entry.level).toBe('error');
     expect(out[0].entry.args[0].text).toContain('net::ERR_BLOCKED_BY_CLIENT');
+    // The join id is namespaced with the ROOT session, matching the store
+    // key the correlator mints for the same request.
+    expect(out[0].entry.requestId).toBe('page::77.3');
   });
 
   it('routes a Log.entryAdded on a kept child by the owning tabId and drops one from an unkept child', async () => {
@@ -1286,13 +1290,21 @@ describe('ChromeDebuggerEventSource — Runtime console capture (Phase G)', () =
 
     emitRoot('Target.attachedToTarget', attachedToTarget(CHILD_SESSION, 'iframe'));
     emitRoot('Target.attachedToTarget', attachedToTarget('sw-session', 'service_worker'));
-    const entry = { source: 'deprecation', level: 'warning', text: 'Deprecated API', timestamp: 1910 };
+    const entry = {
+      source: 'deprecation',
+      level: 'warning',
+      text: 'Deprecated API',
+      timestamp: 1910,
+      networkRequestId: '9.1',
+    };
     emitChild(CHILD_SESSION, 'Log.entryAdded', { entry });
     emitChild('sw-session', 'Log.entryAdded', { entry });
 
     expect(out).toHaveLength(1);
     expect(out[0].tabId).toBe(TAB);
     expect(out[0].entry.category).toBe('deprecation');
+    // Child entries join under the child's own session namespace.
+    expect(out[0].entry.requestId).toBe(`${CHILD_SESSION}::9.1`);
   });
 
   it('console capture does not perturb the fire bridge — bindingCalled still routes (E4 regression guard)', async () => {

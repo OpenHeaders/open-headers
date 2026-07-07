@@ -21,7 +21,26 @@ vi.mock('@openheaders/ui/workbench/settings/hooks', () => ({
   useSetting: () => [false, setCdpEnabledSpy],
 }));
 
+import type { HostNavigation } from '@openheaders/core/navigation';
+import { setHostNavigation } from '@openheaders/core/navigation';
 import { ConsoleView } from '@openheaders/ui/panel/components/ConsoleView';
+import type { ConsoleRequestJoin } from '@openheaders/ui/panel/data/console-request-join';
+
+function installNavigation(openResource: HostNavigation['openResource']): void {
+  setHostNavigation({
+    switchViewMode: () => Promise.resolve({ opened: false }),
+    currentWindowId: () => Promise.resolve(undefined),
+    activeTabUrl: () => Promise.resolve(undefined),
+    openUrl: () => {},
+    openShortcutSettings: () => {},
+    getActiveTab: () => Promise.resolve(null),
+    observeActiveTabContext: () => () => {},
+    inspectedTabId: () => null,
+    reloadInspectedTab: () => {},
+    getInspectedHar: () => Promise.resolve(null),
+    openResource,
+  });
+}
 
 function entry(text: string, over: Partial<ConsoleEntry> = {}): ConsoleEntry {
   return {
@@ -33,8 +52,21 @@ function entry(text: string, over: Partial<ConsoleEntry> = {}): ConsoleEntry {
   };
 }
 
-function renderView(entries: readonly ConsoleEntry[]) {
-  return render(<ConsoleView entries={entries} onClear={vi.fn()} onHide={vi.fn()} />);
+interface RenderOptions {
+  resolveRequest?: (requestId: string) => ConsoleRequestJoin | null;
+  onRequestClick?: (requestId: string) => void;
+}
+
+function renderView(entries: readonly ConsoleEntry[], options: RenderOptions = {}) {
+  return render(
+    <ConsoleView
+      entries={entries}
+      resolveRequest={options.resolveRequest ?? (() => null)}
+      onRequestClick={options.onRequestClick ?? vi.fn()}
+      onClear={vi.fn()}
+      onHide={vi.fn()}
+    />,
+  );
 }
 
 beforeEach(() => {
@@ -96,6 +128,92 @@ describe('ConsoleView list', () => {
     });
     expect(container.querySelectorAll('.dt-console-row')).toHaveLength(0);
     expect(container.textContent).toContain('No console entries match your filter');
+  });
+});
+
+describe('ConsoleView network join (browser-plane entries)', () => {
+  const blocked = entry('Failed to load resource: net::ERR_BLOCKED_BY_CLIENT', {
+    source: 'browser',
+    level: 'error',
+    category: 'network',
+    requestId: 'page::77.3',
+    url: 'https://collector.openheaders.io/collect',
+  });
+  const join: ConsoleRequestJoin = {
+    method: 'POST',
+    url: 'https://collector.openheaders.io/collect',
+    stack: [
+      { functionName: 'sendEvent', url: 'https://openheaders.io/analytics.ts', lineNumber: 119, columnNumber: 6 },
+      { functionName: '', url: 'https://openheaders.io/reducer.ts', lineNumber: 1151, columnNumber: 0 },
+    ],
+  };
+
+  it('renders the joined entry as METHOD + url link + error text with the initiator location', () => {
+    const { container } = renderView([blocked], { resolveRequest: () => join });
+    const row = container.querySelector('.dt-console-row') as HTMLElement;
+    expect(row.textContent).toContain('POST');
+    expect(row.textContent).toContain('https://collector.openheaders.io/collect');
+    expect(row.textContent).toContain('net::ERR_BLOCKED_BY_CLIENT');
+    expect(row.textContent).not.toContain('Failed to load resource');
+    // Location shows the initiating frame (1-based), not the request URL.
+    expect(row.querySelector('.dt-console-loc')?.textContent).toBe('analytics.ts:120');
+  });
+
+  it('cross-navigates to the request when the URL is clicked', () => {
+    const onRequestClick = vi.fn();
+    const { container } = renderView([blocked], { resolveRequest: () => join, onRequestClick });
+    fireEvent.click(container.querySelector('.dt-console-req-link') as HTMLElement);
+    expect(onRequestClick).toHaveBeenCalledWith('page::77.3');
+  });
+
+  it('expands the initiator stack ladder behind the caret', () => {
+    const { container } = renderView([blocked], { resolveRequest: () => join });
+    expect(container.querySelector('.dt-console-stack')).toBeNull();
+    fireEvent.click(container.querySelector('button.dt-console-caret') as HTMLElement);
+    const frames = container.querySelectorAll('.dt-console-frame');
+    expect(frames).toHaveLength(2);
+    expect(frames[0].textContent).toContain('sendEvent');
+    expect(frames[0].textContent).toContain('analytics.ts:120');
+    expect(frames[1].textContent).toContain('(anonymous)');
+    fireEvent.click(container.querySelector('button.dt-console-caret') as HTMLElement);
+    expect(container.querySelector('.dt-console-stack')).toBeNull();
+  });
+
+  it('falls back to the raw text and request-url location when the join misses (pre-attach backlog)', () => {
+    const { container } = renderView([blocked]);
+    const row = container.querySelector('.dt-console-row') as HTMLElement;
+    expect(row.textContent).toContain('Failed to load resource: net::ERR_BLOCKED_BY_CLIENT');
+    expect(row.querySelector('.dt-console-req-link')).toBeNull();
+    expect(row.querySelector('.dt-console-loc')?.textContent).toBe('collect');
+    // No stack from either side — the caret slot is a spacer, not a button.
+    expect(container.querySelector('button.dt-console-caret')).toBeNull();
+  });
+
+  it('expands an entry-carried stack (console.* / exception) without any join', () => {
+    const withStack = entry('boom', {
+      level: 'error',
+      source: 'exception',
+      stackTrace: [{ functionName: 'f', url: 'https://openheaders.io/app.js', lineNumber: 41, columnNumber: 2 }],
+    });
+    const { container } = renderView([withStack]);
+    fireEvent.click(container.querySelector('button.dt-console-caret') as HTMLElement);
+    expect(container.querySelector('.dt-console-frame')?.textContent).toContain('app.js:42');
+  });
+
+  it('opens the Sources panel from the location column and from a stack frame', () => {
+    const openResource = vi.fn();
+    installNavigation(openResource);
+    const { container } = renderView([blocked], { resolveRequest: () => join });
+
+    // Row location column — the initiating frame (0-based coords on the wire).
+    fireEvent.click(container.querySelector('button.dt-console-loc') as HTMLElement);
+    expect(openResource).toHaveBeenCalledWith('https://openheaders.io/analytics.ts', 119, 6);
+
+    // A frame inside the expanded ladder.
+    fireEvent.click(container.querySelector('button.dt-console-caret') as HTMLElement);
+    const frameLinks = container.querySelectorAll('button.dt-console-frame-loc');
+    fireEvent.click(frameLinks[1] as HTMLElement);
+    expect(openResource).toHaveBeenCalledWith('https://openheaders.io/reducer.ts', 1151, 0);
   });
 });
 

@@ -62,6 +62,39 @@
   background: var(--dt-status-red);
 }
 
+/* Disclosure caret — reserved on every row (an empty span when there is no
+   stack) so message columns align whether or not a row can expand. */
+.dt-console-caret {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 10px;
+  height: 10px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--dt-text-muted);
+}
+
+button.dt-console-caret {
+  cursor: pointer;
+}
+
+button.dt-console-caret:hover {
+  color: var(--dt-text);
+}
+
+.dt-console-caret svg {
+  width: 7px;
+  height: 7px;
+  transition: transform 0.1s ease;
+}
+
+.dt-console-caret[data-expanded='true'] svg {
+  transform: rotate(90deg);
+}
+
 .dt-console-time {
   flex: 0 0 auto;
   color: var(--dt-text-muted);
@@ -87,13 +120,81 @@
   text-align: right;
 }
 
+/* Location links — open the host's Sources panel at the frame (same
+   affordance as the Network Initiator column: plain at rest, underline on
+   hover). Applied to the row's right-edge location and the expanded stack
+   ladder's `file:line` targets. */
+.dt-console-loc--link {
+  appearance: none;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.dt-console-loc--link:hover {
+  text-decoration: underline;
+  color: var(--dt-text);
+}
+
+/* Cross-navigation link on a joined network entry — the URL in
+   `METHOD url error` jumps to the request's Network row. */
+.dt-console-req-link {
+  display: inline;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  color: var(--dt-link);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* Expanded stack ladder under a row — `function @ file:line` per frame,
+   indented past the caret column, tinted with the owning row's severity. */
+.dt-console-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 1px 8px 3px 40px;
+  border-bottom: 1px solid var(--dt-row-zebra);
+}
+
+.dt-console-frame {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+}
+
+.dt-console-frame-fn {
+  flex: 0 0 auto;
+  color: var(--dt-text);
+}
+
+.dt-console-frame-at {
+  flex: 0 0 auto;
+  color: var(--dt-text-muted);
+}
+
+.dt-console-frame-loc {
+  color: var(--dt-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Severity tint for problem rows — soft background plus colored message, so
-   errors and warnings read at a glance against the plain log/info rows. */
-.dt-console-row[data-level='warning'] {
+   errors and warnings read at a glance against the plain log/info rows. The
+   expanded stack ladder carries its owning row's tint so the block reads as
+   one message. */
+.dt-console-row[data-level='warning'],
+.dt-console-stack[data-level='warning'] {
   background: color-mix(in srgb, var(--dt-status-orange) 8%, transparent);
 }
 
-.dt-console-row[data-level='error'] {
+.dt-console-row[data-level='error'],
+.dt-console-stack[data-level='error'] {
   background: color-mix(in srgb, var(--dt-status-red) 8%, transparent);
 }
 

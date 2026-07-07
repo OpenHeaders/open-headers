@@ -41,6 +41,18 @@ export interface ConsoleArg {
 }
 
 /**
+ * One frame of a captured stack trace — the expandable "who logged this"
+ * ladder behind a console row. Line/column are 0-based (the CDP convention
+ * everywhere else in the stream); consumers display them 1-based.
+ */
+export interface ConsoleStackFrame {
+  readonly functionName: string;
+  readonly url: string;
+  readonly lineNumber: number;
+  readonly columnNumber: number;
+}
+
+/**
  * One captured console line — a `console.*` call, an uncaught
  * exception/rejection, or a browser-generated log entry on a CDP-attached
  * tab. Host-neutral + JSON-safe (it crosses the runtime port to the panel).
@@ -67,6 +79,15 @@ export interface ConsoleEntry {
    * through without a protocol change.
    */
   readonly category?: string;
+  /**
+   * Correlation key into the tab's request-lifecycle plane — the same
+   * request id the network rows carry — present on browser network entries.
+   * Lets a consumer join the entry to its request (method, full URL,
+   * initiator stack) exactly, no heuristics.
+   */
+  readonly requestId?: string;
+  /** Full stack trace, when the event carried one (expandable in the UI). */
+  readonly stackTrace?: readonly ConsoleStackFrame[];
   /** Top stack-frame location, when the event carried a stack. */
   readonly url?: string;
   readonly lineNumber?: number;

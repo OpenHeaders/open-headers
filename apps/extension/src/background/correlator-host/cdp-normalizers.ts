@@ -6,7 +6,8 @@
  * synthetic root session id (page timings are a main-frame, root-only concern).
  */
 
-import type { ConsoleArg, ConsoleEntry, ConsoleLevel } from '@openheaders/core/console-stream';
+import type { ConsoleArg, ConsoleEntry, ConsoleLevel, ConsoleStackFrame } from '@openheaders/core/console-stream';
+import { cdpStoreRequestId } from '@openheaders/oracle/correlator-cdp';
 import type {
   CdpAuthRequired,
   CdpCallFrame,
@@ -350,6 +351,7 @@ export function normalizeConsoleApiCalled(p: RawConsoleApiCalled): ConsoleEntry 
     level: consoleApiLevel(p.type),
     args: renderConsoleArgs(p.args),
     timestamp: p.timestamp,
+    ...stackTraceFrames(p.stackTrace),
     ...topFrameLocation(p.stackTrace),
   };
 }
@@ -446,6 +448,7 @@ export function normalizeExceptionThrown(p: RawExceptionThrown): ConsoleEntry {
     level: 'error',
     args: [{ type: 'error', subtype: 'error', text: exceptionText(d) }],
     timestamp: p.timestamp,
+    ...stackTraceFrames(d.stackTrace),
     ...exceptionLocation(d),
   };
 }
@@ -459,8 +462,13 @@ export function normalizeExceptionThrown(p: RawExceptionThrown): ConsoleEntry {
  * the args, with any structured args appended after it. Location prefers the
  * initiating code (the stack's top frame) over the entry's own `url`, which
  * for a network entry is the failed request, not the caller.
+ *
+ * A `network` entry's `networkRequestId` is session-scoped, so it is minted
+ * into the same session-namespaced id the correlator keys its lifecycle rows
+ * by ({@link cdpStoreRequestId}) — the consumer joins the entry to its
+ * request (method, full URL, initiator stack) exactly, no heuristics.
  */
-export function normalizeLogEntryAdded(p: RawLogEntryAdded): ConsoleEntry {
+export function normalizeLogEntryAdded(sessionId: string, p: RawLogEntryAdded): ConsoleEntry {
   const entry = p.entry;
   return {
     source: 'browser',
@@ -468,6 +476,10 @@ export function normalizeLogEntryAdded(p: RawLogEntryAdded): ConsoleEntry {
     args: logEntryArgs(entry),
     timestamp: entry.timestamp,
     category: entry.source,
+    ...(entry.networkRequestId !== undefined
+      ? { requestId: cdpStoreRequestId(sessionId, entry.networkRequestId) }
+      : {}),
+    ...stackTraceFrames(entry.stackTrace),
     ...logEntryLocation(entry),
   };
 }
@@ -583,6 +595,24 @@ function exceptionText(d: RawExceptionDetails): string {
     if (rendered.length > 0) return rendered;
   }
   return d.text;
+}
+
+/**
+ * The full captured stack as {@link ConsoleStackFrame}s — the expandable
+ * ladder behind a console row. Async parent chains are flattened in order
+ * (the browser's console renders the same ladder); frames with no url
+ * (native/internal) are dropped, mirroring {@link topFrameLocation}'s
+ * url-bearing preference. Empty/absent stacks yield no field at all.
+ */
+function stackTraceFrames(stack: RawStackTrace | undefined): Pick<ConsoleEntry, 'stackTrace'> {
+  const frames: ConsoleStackFrame[] = [];
+  for (let s: RawStackTrace | undefined = stack; s !== undefined; s = s.parent) {
+    for (const f of s.callFrames) {
+      if (f.url.length === 0) continue;
+      frames.push({ functionName: f.functionName, url: f.url, lineNumber: f.lineNumber, columnNumber: f.columnNumber });
+    }
+  }
+  return frames.length > 0 ? { stackTrace: frames } : {};
 }
 
 /** Top stack frame's source location, when the event carried a stack. */

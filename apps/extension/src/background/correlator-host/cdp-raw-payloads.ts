@@ -294,6 +294,8 @@ export interface RawLogEntry {
   readonly url?: string;
   readonly lineNumber?: number;
   readonly stackTrace?: RawStackTrace;
+  /** Session-scoped CDP request id, present on `network`-source entries. */
+  readonly networkRequestId?: string;
   readonly args?: readonly RawRemoteObject[];
 }
 

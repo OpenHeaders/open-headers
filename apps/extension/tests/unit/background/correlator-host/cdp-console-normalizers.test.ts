@@ -169,6 +169,10 @@ describe('normalizeConsoleApiCalled — arg rendering', () => {
     expect(entry.url).toBe('https://app.openheaders.io/m.js');
     expect(entry.lineNumber).toBe(11);
     expect(entry.columnNumber).toBe(4);
+    // The full ladder rides along for the expandable stack view.
+    expect(entry.stackTrace).toEqual([
+      { functionName: 'doThing', url: 'https://app.openheaders.io/m.js', lineNumber: 11, columnNumber: 4 },
+    ]);
   });
 });
 
@@ -335,7 +339,7 @@ describe('normalizeLogEntryAdded', () => {
   }
 
   it('renders a blocked-network entry as a browser-sourced error carrying its category', () => {
-    const entry = normalizeLogEntryAdded(logEntryAdded());
+    const entry = normalizeLogEntryAdded('page', logEntryAdded());
     expect(entry.source).toBe('browser');
     expect(entry.category).toBe('network');
     expect(entry.level).toBe('error');
@@ -352,15 +356,26 @@ describe('normalizeLogEntryAdded', () => {
     ['verbose', 'debug'],
     ['unheard-of', 'log'],
   ] as const)('buckets log level %s → level %s', (raw, level) => {
-    expect(normalizeLogEntryAdded(logEntryAdded({ level: raw })).level).toBe(level);
+    expect(normalizeLogEntryAdded('page', logEntryAdded({ level: raw })).level).toBe(level);
   });
 
   it('passes an unrecognized category through verbatim (open vocabulary)', () => {
-    expect(normalizeLogEntryAdded(logEntryAdded({ source: 'recommendation' })).category).toBe('recommendation');
+    expect(normalizeLogEntryAdded('page', logEntryAdded({ source: 'recommendation' })).category).toBe(
+      'recommendation',
+    );
+  });
+
+  it('mints the session-namespaced request join id from networkRequestId', () => {
+    const root = normalizeLogEntryAdded('page', logEntryAdded({ networkRequestId: '123.45' }));
+    expect(root.requestId).toBe('page::123.45');
+    const child = normalizeLogEntryAdded('child-iframe-1', logEntryAdded({ networkRequestId: '123.45' }));
+    expect(child.requestId).toBe('child-iframe-1::123.45');
+    expect(normalizeLogEntryAdded('page', logEntryAdded()).requestId).toBeUndefined();
   });
 
   it('prefers the initiating stack frame over the resource url', () => {
     const entry = normalizeLogEntryAdded(
+      'page',
       logEntryAdded({
         url: 'https://collector.openheaders.io/collect',
         stackTrace: {
@@ -381,23 +396,48 @@ describe('normalizeLogEntryAdded', () => {
     expect(entry.columnNumber).toBe(6);
   });
 
+  it('carries the full stack, flattening async parent chains and dropping url-less frames', () => {
+    const entry = normalizeLogEntryAdded(
+      'page',
+      logEntryAdded({
+        stackTrace: {
+          callFrames: [
+            { functionName: 'send', scriptId: '3', url: 'https://app.openheaders.io/a.ts', lineNumber: 1, columnNumber: 2 },
+            { functionName: 'native', scriptId: '4', url: '', lineNumber: 0, columnNumber: 0 },
+          ],
+          parent: {
+            callFrames: [
+              { functionName: 'boot', scriptId: '5', url: 'https://app.openheaders.io/b.ts', lineNumber: 9, columnNumber: 0 },
+            ],
+          },
+        },
+      }),
+    );
+    expect(entry.stackTrace).toEqual([
+      { functionName: 'send', url: 'https://app.openheaders.io/a.ts', lineNumber: 1, columnNumber: 2 },
+      { functionName: 'boot', url: 'https://app.openheaders.io/b.ts', lineNumber: 9, columnNumber: 0 },
+    ]);
+  });
+
   it('falls back to the resource url/line when no stack is carried', () => {
     const entry = normalizeLogEntryAdded(
+      'page',
       logEntryAdded({ source: 'deprecation', url: 'https://app.openheaders.io/legacy.js', lineNumber: 12 }),
     );
     expect(entry.url).toBe('https://app.openheaders.io/legacy.js');
     expect(entry.lineNumber).toBe(12);
     expect(entry.columnNumber).toBeUndefined();
+    expect(entry.stackTrace).toBeUndefined();
   });
 
   it('appends structured args after the text and uses them alone when the text is empty', () => {
     const args = [{ type: 'number', value: 7 }];
-    const withText = normalizeLogEntryAdded(logEntryAdded({ text: 'retry count', args }));
+    const withText = normalizeLogEntryAdded('page', logEntryAdded({ text: 'retry count', args }));
     expect(withText.args).toEqual([
       { type: 'string', text: 'retry count' },
       { type: 'number', text: '7' },
     ]);
-    const textless = normalizeLogEntryAdded(logEntryAdded({ text: '', args }));
+    const textless = normalizeLogEntryAdded('page', logEntryAdded({ text: '', args }));
     expect(textless.args).toEqual([{ type: 'number', text: '7' }]);
   });
 });
