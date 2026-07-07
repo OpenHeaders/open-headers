@@ -89,7 +89,18 @@ async function runScript(req: ScriptExecutionRequest): Promise<ScriptExecutionRe
 
   const capturingConsole = buildConsole(consoleLog, stamp);
   const oh = buildScriptApi(req, assertions, (next) => {
-    mutation = mergeMutation(mutation, next);
+    // Every flush is a COMPLETE diff against the original request, so
+    // each one replaces the pending mutation outright. Merging field-wise
+    // would resurrect a change a later call reverted (setHeader then
+    // removeHeader must end as "no header mutation"). All-empty diffs
+    // normalize to undefined so a net-unchanged request reports none.
+    const hasChange =
+      next.method !== undefined ||
+      next.url !== undefined ||
+      next.headers !== undefined ||
+      next.params !== undefined ||
+      next.body !== undefined;
+    mutation = hasChange ? next : undefined;
   });
 
   try {
@@ -132,6 +143,12 @@ async function runScript(req: ScriptExecutionRequest): Promise<ScriptExecutionRe
 
 // ── oh.* API ──────────────────────────────────────────────────────
 
+/** What `oh.sendRequest` accepts from user code — headers / params /
+ *  body are optional (the ambient `oh.d.ts` advertises them as such)
+ *  and get defaulted before the snapshot crosses to the host. */
+type AdHocRequestInput = Pick<RequestSnapshot, 'method' | 'url'> &
+  Partial<Pick<RequestSnapshot, 'headers' | 'params' | 'body'>>;
+
 interface ScriptApi {
   request: RequestSnapshot;
   response?: import('@openheaders/core/scripts').ResponseSnapshot;
@@ -142,7 +159,7 @@ interface ScriptApi {
   vault: {
     get(ref: string): Promise<string | null>;
   };
-  sendRequest(request: RequestSnapshot): Promise<import('@openheaders/core/scripts').ResponseSnapshot>;
+  sendRequest(request: AdHocRequestInput): Promise<import('@openheaders/core/scripts').ResponseSnapshot>;
   test(name: string, fn: () => void | Promise<void>): Promise<void>;
   expect(actual: unknown): Expectation;
   setUrl(url: string): void;
@@ -218,13 +235,22 @@ function buildScriptApi(
   };
 
   const hostSendRequest = async (
-    request: RequestSnapshot,
+    request: AdHocRequestInput,
   ): Promise<import('@openheaders/core/scripts').ResponseSnapshot> => {
+    // Normalize at the user-input boundary — the host's protocol type
+    // requires the full snapshot shape.
+    const snapshot: RequestSnapshot = {
+      method: request.method,
+      url: request.url,
+      headers: request.headers ?? [],
+      params: request.params ?? [],
+      body: request.body ?? { type: 'none' },
+    };
     const response = await sendHostRequest({
       executionId: req.executionId,
       rpcId: nextRpcId(req.executionId),
       op: 'sendRequest',
-      request,
+      request: snapshot,
     });
     if (!response.ok) throw new Error(`oh.sendRequest failed: ${response.error}`);
     return response.value as import('@openheaders/core/scripts').ResponseSnapshot;
@@ -402,17 +428,6 @@ function bodyChanged(a: RequestSnapshot['body'], b: RequestSnapshot['body']): bo
   // is accurate enough — bodies are pure data and the diff path runs
   // once per script mutation (not in a hot loop).
   return JSON.stringify(a) !== JSON.stringify(b);
-}
-
-function mergeMutation(prev: RequestMutation | undefined, next: RequestMutation): RequestMutation {
-  if (!prev) return next;
-  return {
-    method: next.method ?? prev.method,
-    url: next.url ?? prev.url,
-    headers: next.headers ?? prev.headers,
-    params: next.params ?? prev.params,
-    body: next.body ?? prev.body,
-  };
 }
 
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {

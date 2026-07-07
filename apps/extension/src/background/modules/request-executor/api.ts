@@ -15,6 +15,7 @@ import {
 } from '@openheaders/oracle/entity/totp-cooldown-store';
 import { __setExecuteRequestDraft, isOffscreenSupported, runScript } from '../offscreen-host';
 import { getActiveWorkspaceId } from '../workspace/workspace-store';
+import { defaultContentType } from './body';
 import { errorSnapshot, executeResolved } from './execute';
 import { type ResolvedRequest, type ResolvedRequestOutcome, resolveRequest, UnresolvedRequestError } from './resolve';
 
@@ -219,5 +220,15 @@ function applyMutation(target: ResolvedRequest, mutation: RequestMutation): void
   // Body mutations are discriminated unions in their own right — assign
   // the whole new shape rather than cherry-picking fields. Any field
   // not on the chosen variant simply doesn't exist on the new value.
-  if (mutation.body) target.body = mutation.body;
+  if (mutation.body) {
+    target.body = mutation.body;
+    // Content-Type was derived from the PRE-script body during resolve —
+    // re-derive it for the script-set shape (same skip rules: form gets
+    // it from the URLSearchParams path, multipart from the browser's
+    // boundary) unless an explicit header is present.
+    if (!target.headers.some((h) => h.key.toLowerCase() === 'content-type')) {
+      const ct = defaultContentType(mutation.body);
+      if (ct) target.headers.push({ key: 'Content-Type', value: ct });
+    }
+  }
 }

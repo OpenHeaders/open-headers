@@ -43,15 +43,25 @@ vi.mock('@openheaders/oracle/entity/rule-store', () => ({
   getCollections: vi.fn(() => [] as Collection[]),
 }));
 
+// Pre-request scripts run through the offscreen sandbox — stub the
+// bridge so mutation handling is testable without an offscreen doc.
+// Partial mock: only requests carrying a preRequestScript reach it.
+const mockRunScript = vi.fn();
+vi.mock('@/background/modules/offscreen-host', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  isOffscreenSupported: vi.fn(() => true),
+  runScript: (req: unknown) => mockRunScript(req),
+}));
+
 import {
   getActiveEnvironmentId,
   getEnvironments,
   getVault,
   getWorkspaceVariables,
 } from '@openheaders/oracle/entity/environment-store';
-import { ensureScheme, executeRequestDraft } from '@/background/modules/request-executor';
 import { getRequestCollections } from '@openheaders/oracle/entity/request-store';
 import { needsSchemeNormalization } from '@openheaders/ui/shared/fetch';
+import { ensureScheme, executeRequestDraft } from '@/background/modules/request-executor';
 
 const mockEnvs = getEnvironments as ReturnType<typeof vi.fn>;
 const mockActiveEnvId = getActiveEnvironmentId as ReturnType<typeof vi.fn>;
@@ -510,5 +520,44 @@ describe('fetch-failure classification', () => {
         return Promise.resolve(new Response('ok', { status: 200 }));
       });
     }
+  });
+});
+
+describe('pre-request script mutations', () => {
+  beforeEach(() => {
+    fetchMock.mockReset();
+    mockRunScript.mockReset();
+  });
+
+  function scriptResult(mutation: unknown) {
+    return {
+      executionId: 'e1',
+      succeeded: true,
+      mutation,
+      assertions: [],
+      consoleLog: [],
+      durationMs: 1,
+    };
+  }
+
+  it('re-derives Content-Type when a script sets a JSON body on a body-less request', async () => {
+    mockRunScript.mockResolvedValue(scriptResult({ body: { type: 'json', content: '{"name":"value"}' } }));
+    const req = makeRequest({ method: 'POST', preRequestScript: `oh.setBody({ type: 'json', content: '…' });` });
+    await executeRequestDraft(req, {});
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect((init.headers as Headers).get('content-type')).toBe('application/json');
+    expect(init.body).toBe('{"name":"value"}');
+  });
+
+  it('keeps an explicit Content-Type header over the derived one', async () => {
+    mockRunScript.mockResolvedValue(scriptResult({ body: { type: 'json', content: '{}' } }));
+    const req = makeRequest({
+      method: 'POST',
+      headers: [{ uid: 'h1', key: 'Content-Type', value: 'application/vnd.openheaders+json', enabled: true }],
+      preRequestScript: 'x',
+    });
+    await executeRequestDraft(req, {});
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect((init.headers as Headers).get('content-type')).toBe('application/vnd.openheaders+json');
   });
 });

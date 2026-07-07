@@ -138,9 +138,12 @@ export class WorkbenchPage {
 
   /** The response panel's tab region. Scope text assertions here so they
    *  can't also match the request editor — e.g. a post-response script's
-   *  own source still renders in the Monaco buffer above. */
+   *  own source still renders in the Monaco buffer above. Visible-only:
+   *  editors of previously opened requests stay mounted in background
+   *  tabs, and their response panels would otherwise strict-mode-collide
+   *  (two PASS/FAIL badges once two script tests have run). */
   responseRegion(): Locator {
-    return this.page.locator('.rules-response-tabs');
+    return this.page.locator('.rules-response-tabs').filter({ visible: true });
   }
 
   // ── Key/value tables (Params / Headers) via Bulk Edit ───────────
@@ -203,6 +206,50 @@ export class WorkbenchPage {
   /** Pick which script the Scripts tab's shared editor edits. */
   async selectScriptRail(label: 'Pre-request' | 'Post-response'): Promise<void> {
     await this.page.getByRole('button', { name: label, exact: true }).click();
+  }
+
+  // ── Scripts tab — snippets popover ──────────────────────────────
+
+  /** Toggle the Scripts tab's floating snippets popover (the `</>`
+   *  Snippets button in the editor's bottom-right action bar). */
+  async toggleScriptSnippets(): Promise<void> {
+    await this.page.getByTestId('oh-script-snippets').filter({ visible: true }).first().click();
+  }
+
+  /** The open snippets popover — anchored on its search field so the
+   *  locator can't match other popovers. */
+  scriptSnippetsPopover(): Locator {
+    return this.page
+      .locator('.ant-popover')
+      .filter({ has: this.page.getByPlaceholder('Search snippets') })
+      .filter({ visible: true })
+      .first();
+  }
+
+  async searchScriptSnippets(query: string): Promise<void> {
+    await this.scriptSnippetsPopover().getByPlaceholder('Search snippets').fill(query);
+  }
+
+  /** Click a snippet entry by its exact label. Inserts at the editor
+   *  cursor; the popover intentionally stays open. */
+  async insertScriptSnippet(label: string): Promise<void> {
+    await this.scriptSnippetsPopover().getByRole('button', { name: label, exact: true }).click();
+  }
+
+  /** Run the Scripts tab action bar's Format (beautify) button. */
+  async formatScript(): Promise<void> {
+    await this.page.getByRole('button', { name: 'Format script' }).filter({ visible: true }).first().click();
+  }
+
+  /**
+   * Read the visible text of the Nth VISIBLE Monaco editor. Short
+   * buffers only — Monaco virtualizes long ones, so lines outside the
+   * viewport wouldn't be in the DOM. Monaco renders spaces as NBSP;
+   * normalize them back.
+   */
+  async monacoText(index: number): Promise<string> {
+    const ed = this.page.locator('.monaco-editor').filter({ visible: true }).nth(index);
+    return (await ed.locator('.view-lines').innerText()).replace(/\u00a0/g, ' ');
   }
 
   /** Toggle a Settings-tab switch by its accessible name (aria-label). */

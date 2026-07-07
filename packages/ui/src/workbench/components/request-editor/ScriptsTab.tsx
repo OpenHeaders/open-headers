@@ -93,10 +93,15 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
     }
     const lineContent = model.getLineContent(selection.startLineNumber);
     const prefix = lineContent.slice(0, selection.startColumn - 1).trim() ? '\n' : '';
-    editor.executeEdits('snippets', [{ range: selection, text: `${prefix}${code}\n` }]);
+    const text = `${prefix}${code}\n`;
+    editor.executeEdits('snippets', [{ range: selection, text }]);
+    // Monaco keeps the cursor at the edit START without an explicit
+    // end-cursor state — a second insert would then land BEFORE the
+    // first. Pin it to the line after the inserted block.
+    const endLine = selection.startLineNumber + text.split('\n').length - 1;
+    editor.setPosition({ lineNumber: endLine, column: 1 });
     editor.focus();
-    const position = editor.getPosition();
-    if (position) editor.revealPositionInCenterIfOutsideViewport(position);
+    editor.revealPositionInCenterIfOutsideViewport({ lineNumber: endLine, column: 1 });
   };
 
   const Rail: React.FC<{ kind: ScriptKind; label: string }> = ({ kind, label }) => {
