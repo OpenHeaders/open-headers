@@ -69,6 +69,12 @@ export interface StorageScopeWire {
   origin: string;
   url: string;
   isMainFrame: boolean;
+  /**
+   * The scope's serialized storage key (`Storage.getStorageKey`), stamped
+   * only while the tab is CDP-attached — the standard plane can't observe
+   * partitioning. Display-only: reads and writes stay keyed by frame.
+   */
+  storageKey?: string;
 }
 
 /**

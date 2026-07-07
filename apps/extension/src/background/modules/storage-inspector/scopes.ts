@@ -14,6 +14,7 @@
 
 import type { StorageScopeWire } from '@openheaders/core/bridge';
 import { logger } from '@utils/logger';
+import { stampStorageKeys } from './cdp-tier';
 
 export async function listStorageScopes(tabId: number): Promise<{ scopes: StorageScopeWire[] | null }> {
   if (typeof tabId !== 'number' || !chrome.webNavigation?.getAllFrames) return { scopes: null };
@@ -48,5 +49,5 @@ export async function listStorageScopes(tabId: number): Promise<{ scopes: Storag
   const scopes = [...byOrigin.values()].sort((a, b) =>
     a.isMainFrame !== b.isMainFrame ? (a.isMainFrame ? -1 : 1) : a.origin.localeCompare(b.origin),
   );
-  return { scopes };
+  return { scopes: await stampStorageKeys(tabId, scopes) };
 }

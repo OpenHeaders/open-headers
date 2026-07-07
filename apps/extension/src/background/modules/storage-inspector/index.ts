@@ -6,6 +6,7 @@
  * tracking.
  */
 
+export { registerStorageCdpAccess, type StorageCdpAccess } from './cdp-tier';
 export { listStorageScopes } from './scopes';
 export {
   clearDomStorage,

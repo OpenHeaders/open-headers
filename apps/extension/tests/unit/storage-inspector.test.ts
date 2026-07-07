@@ -1,4 +1,9 @@
-import { beforeEach, describe, expect, it, type vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, type vi } from 'vitest';
+import {
+  __resetStorageCdpAccessForTests,
+  registerStorageCdpAccess,
+  type StorageCdpAccess,
+} from '@/background/modules/storage-inspector/cdp-tier';
 import { listStorageScopes } from '@/background/modules/storage-inspector/scopes';
 import {
   clearDomStorage,
@@ -38,6 +43,10 @@ function frame(overrides: Partial<chrome.webNavigation.GetAllFrameResultDetails>
 beforeEach(() => {
   getAllFramesSpy().mockReset();
   executeScriptSpy().mockReset();
+});
+
+afterEach(() => {
+  __resetStorageCdpAccessForTests();
 });
 
 describe('listStorageScopes', () => {
@@ -135,6 +144,90 @@ describe('readDomStorageInPage (injected reader)', () => {
       expect(res.entries).toHaveLength(2);
       expect(res.truncated).toBe(true);
     });
+  });
+});
+
+describe('storage-key stamping (CDP tier)', () => {
+  const FRAMES = [
+    frame({ frameId: 0, url: 'https://app.openheaders.io/dashboard' }),
+    frame({ frameId: 3, url: 'https://cdn.openheaders.io/embed', frameType: 'sub_frame' }),
+  ];
+  const TREE = {
+    frameTree: {
+      frame: { id: 'F-MAIN', url: 'https://app.openheaders.io/dashboard' },
+      childFrames: [{ frame: { id: 'F-CDN', url: 'https://cdn.openheaders.io/embed' } }],
+    },
+  };
+  const KEYS: Record<string, string> = {
+    'F-MAIN': 'https://app.openheaders.io/',
+    'F-CDN': 'https://cdn.openheaders.io/^0https://app.openheaders.io',
+  };
+
+  function fakeAccess(overrides: Partial<StorageCdpAccess> = {}): StorageCdpAccess {
+    return {
+      isAttached: () => true,
+      send: (_tabId, method, params) => {
+        if (method === 'Page.getFrameTree') return Promise.resolve(TREE);
+        if (method === 'Storage.getStorageKey') {
+          return Promise.resolve({ storageKey: KEYS[params?.frameId as string] });
+        }
+        return Promise.reject(new Error(`unexpected ${method}`));
+      },
+      ...overrides,
+    };
+  }
+
+  it('stamps each scope with its storage key when the tab is attached', async () => {
+    getAllFramesSpy().mockResolvedValue(FRAMES);
+    registerStorageCdpAccess(fakeAccess());
+
+    const { scopes } = await listStorageScopes(42);
+    expect(scopes?.map((s) => s.storageKey)).toEqual([
+      'https://app.openheaders.io/',
+      'https://cdn.openheaders.io/^0https://app.openheaders.io',
+    ]);
+  });
+
+  it('leaves scopes unstamped when the tab is not attached', async () => {
+    getAllFramesSpy().mockResolvedValue(FRAMES);
+    registerStorageCdpAccess(fakeAccess({ isAttached: () => false }));
+
+    const { scopes } = await listStorageScopes(42);
+    expect(scopes?.every((s) => s.storageKey === undefined)).toBe(true);
+  });
+
+  it('leaves scopes unstamped when the frame tree is unavailable', async () => {
+    getAllFramesSpy().mockResolvedValue(FRAMES);
+    registerStorageCdpAccess(fakeAccess({ send: () => Promise.reject(new Error('detached')) }));
+
+    const { scopes } = await listStorageScopes(42);
+    expect(scopes).toHaveLength(2);
+    expect(scopes?.every((s) => s.storageKey === undefined)).toBe(true);
+  });
+
+  it('leaves only the failing scope unstamped on a per-frame command error', async () => {
+    getAllFramesSpy().mockResolvedValue(FRAMES);
+    registerStorageCdpAccess(
+      fakeAccess({
+        send: (_tabId, method, params) => {
+          if (method === 'Page.getFrameTree') return Promise.resolve(TREE);
+          if (params?.frameId === 'F-CDN') return Promise.reject(new Error('frame gone'));
+          return Promise.resolve({ storageKey: KEYS[params?.frameId as string] });
+        },
+      }),
+    );
+
+    const { scopes } = await listStorageScopes(42);
+    expect(scopes?.find((s) => s.origin === 'https://app.openheaders.io')?.storageKey).toBe(
+      'https://app.openheaders.io/',
+    );
+    expect(scopes?.find((s) => s.origin === 'https://cdn.openheaders.io')?.storageKey).toBeUndefined();
+  });
+
+  it('is a no-op without a registered access seam', async () => {
+    getAllFramesSpy().mockResolvedValue(FRAMES);
+    const { scopes } = await listStorageScopes(42);
+    expect(scopes?.every((s) => s.storageKey === undefined)).toBe(true);
   });
 });
 

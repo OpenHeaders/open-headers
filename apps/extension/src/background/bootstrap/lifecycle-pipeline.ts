@@ -19,6 +19,7 @@ import {
   createCdpControlReplay,
   deriveTabControlState,
   installCdpPinTabCleanup,
+  ROOT_SESSION_ID,
   startCdpActiveTab,
   startCdpFetchInterceptor,
   startDevtoolsPortPresence,
@@ -33,6 +34,7 @@ import { isCacheBypassActive, registerCacheBypassReplay } from '../modules/net/c
 import { getNetworkConditionsForTab, registerNetworkConditionsReplay } from '../modules/net/network-conditions';
 import { registerExtensionTrafficSource } from '../modules/request-executor/wire-capture';
 import { setupOnRuleMatchedDebugBridge } from '../modules/rules/on-rule-matched-debug';
+import { registerStorageCdpAccess } from '../modules/storage-inspector';
 import { getTabOverridesForTab, registerTabOverridesReplay } from '../modules/tabs/tab-overrides';
 import { startTabTelemetryFiresBridge } from '../modules/tabs/tab-telemetry-fires-bridge';
 import { startCdpPageBridge, startDevtoolsPageNavBridge, startPagePortHost } from '../page-port-host';
@@ -192,6 +194,12 @@ export function startLifecyclePipeline(): LifecyclePipelineHandles {
     replay: replayWithInjectionRefresh,
   });
   isTabInScope = (tabId) => cdpAttachController.isInScope(tabId);
+  // Storage inspector's CDP tier (storage-key stamping): asks the committed
+  // attach state and rides the root-session sender — never attaches itself.
+  registerStorageCdpAccess({
+    isAttached: (tabId) => cdpAttachController.getState().attachedTabs.includes(tabId),
+    send: (tabId, method, params) => lifecycleHost.debuggerSource.sendOnSession(tabId, ROOT_SESSION_ID, method, params),
+  });
   // Rule changes replay the standing CDP state onto every attached tab —
   // bootstrap scripts and Fetch patterns re-derive from the new rule set.
   // Raw replay (no injection refresh): the current document's wrappers are

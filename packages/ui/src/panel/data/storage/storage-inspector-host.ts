@@ -20,6 +20,9 @@ export interface StorageScope {
   origin: string;
   url: string;
   isMainFrame: boolean;
+  /** Serialized storage key — present only while the host's CDP tier can
+   *  observe it (attached tab). Display-only partition evidence. */
+  storageKey?: string;
 }
 
 /** One DOM storage entry; `clipped` marks a preview-capped value. */

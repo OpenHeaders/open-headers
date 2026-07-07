@@ -24,6 +24,19 @@
   min-width: 0;
 }
 
+.dt-storage-partition-chip {
+  flex: 0 0 auto;
+  font-size: 10px;
+  color: var(--dt-pill-active-text);
+  background: var(--dt-pill-active-bg);
+  border-radius: 8px;
+  padding: 0 6px;
+  white-space: nowrap;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .dt-storage-scope-note {
   font-size: 11px;
   color: var(--dt-text-muted);

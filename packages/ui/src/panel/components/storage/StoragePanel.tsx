@@ -11,6 +11,7 @@ import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import { useEffect, useMemo, useState } from 'react';
 import type { DomStorageArea, DomStorageEntry } from '../../data/storage/storage-inspector-host';
+import { parseStorageKey } from '../../data/storage/storage-key';
 import { type StorageInspectorState, useStorageInspector } from '../../data/storage/use-storage-inspector';
 import { StorageGrid } from './StorageGrid';
 
@@ -43,6 +44,11 @@ export function StoragePanel({ onHide }: StoragePanelProps) {
   }, [entries, textFilter]);
 
   const canWrite = inspector.available && inspector.scopes.length > 0 && inspector.snapshot !== null;
+
+  // Partition evidence (CDP tier): the selected scope's storage key, when
+  // the browser reported one and it carries partition components.
+  const selectedScope = inspector.scopes.find((s) => s.origin === inspector.selectedOrigin) ?? null;
+  const partition = selectedScope?.storageKey ? parseStorageKey(selectedScope.storageKey) : null;
 
   return (
     <div className="dt-panel">
@@ -110,6 +116,14 @@ export function StoragePanel({ onHide }: StoragePanelProps) {
               </option>
             ))}
           </select>
+          {partition?.partitioned && (
+            <span
+              className="dt-storage-partition-chip"
+              title={`Partitioned storage — this origin's data here is keyed under ${partition.topLevelSite ?? 'a partition'}.\nStorage key: ${partition.raw}`}
+            >
+              partitioned{partition.topLevelSite ? ` · ${partition.topLevelSite}` : ''}
+            </span>
+          )}
           <span className="dt-storage-scope-note">
             {inspector.snapshot ? `${filtered.length} of ${entries.length} items` : ''}
             {inspector.snapshot?.truncated ? ' · list truncated' : ''}
