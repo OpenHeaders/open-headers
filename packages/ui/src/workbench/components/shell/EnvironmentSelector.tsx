@@ -397,7 +397,11 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
     [filteredEnvs, activeCollectionPinnedEnvIds],
   );
 
-  const hasPinnedSection = activeCollectionId !== null && pinnedEnvs.length > 0;
+  // Grouping is decided on the UNFILTERED lists — searching narrows the
+  // rows inside each group but never collapses the grouped layout, so
+  // the user can still tell which group a match belongs to.
+  const hasPinnedSection = activeCollectionId !== null && environments.some((e) => pinnedSet.has(e.uid));
+  const hasOtherSection = environments.some((e) => !pinnedSet.has(e.uid));
 
   function handleTogglePin(env: Environment, currentlyPinned: boolean): void {
     if (!activeCollectionId) return;
@@ -476,6 +480,14 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
     padding: '4px 8px 2px',
     userSelect: 'none',
   };
+
+  // Shown inside a group the active search filtered down to nothing —
+  // the header stays put so the grouped layout never jumps mid-search.
+  const noMatchesHint = (
+    <Text type="secondary" style={{ fontSize: 12, display: 'block', padding: '3px 8px 5px', userSelect: 'none' }}>
+      No matching environments
+    </Text>
+  );
 
   const dropdownContent = (
     <div
@@ -657,6 +669,7 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
           <div style={sectionLabelStyle}>Pinned to this collection</div>
           {/* Cap each section at ~3 rows; taller lists scroll. Each row
            *  is ~32px (5px padding × 2 + 22px content). */}
+          {pinnedEnvs.length === 0 && noMatchesHint}
           <div className="oh-env-scroll" style={{ maxHeight: 108 }}>
             {pinnedEnvs.map((env) => (
               <EnvRow
@@ -682,10 +695,11 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
               />
             ))}
           </div>
-          {otherEnvs.length > 0 && (
+          {hasOtherSection && (
             <>
               <Divider style={{ margin: '4px 0' }} />
               <div style={sectionLabelStyle}>Other environments</div>
+              {otherEnvs.length === 0 && noMatchesHint}
               <div className="oh-env-scroll" style={{ maxHeight: 108 }}>
                 {otherEnvs.map((env) => (
                   <EnvRow
@@ -716,7 +730,8 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
         </>
       ) : (
         <>
-          {filteredEnvs.length > 0 && <Divider style={{ margin: '4px 0' }} />}
+          {environments.length > 0 && <Divider style={{ margin: '4px 0' }} />}
+          {environments.length > 0 && filteredEnvs.length === 0 && noMatchesHint}
           <div className="oh-env-scroll" style={{ maxHeight: 108 }}>
             {filteredEnvs.map((env) => (
               <EnvRow
