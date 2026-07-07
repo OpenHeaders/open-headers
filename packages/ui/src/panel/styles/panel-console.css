@@ -211,9 +211,15 @@ button.dt-console-caret:hover {
 
 .dt-console-row[data-level='error'],
 .dt-console-stack[data-level='error'] {
-  background: color-mix(in srgb, var(--dt-status-red) 8%, transparent);
+  background: var(--dt-console-error-bg);
 }
 
 .dt-console-row[data-level='error'] .dt-console-msg {
-  color: var(--dt-status-red);
+  color: var(--dt-console-error-text);
+}
+
+/* Links inside an error row carry the row's error text color (with their
+   underline affordance), matching the browser's console. */
+.dt-console-row[data-level='error'] .dt-console-req-link {
+  color: inherit;
 }

@@ -12,7 +12,7 @@ export default function ResourceIcon({ type, failed }: { type: string; failed?: 
         height={12}
         aria-hidden="true"
       >
-        <circle cx="6" cy="6" r="6" fill="var(--dt-status-red)" />
+        <circle cx="6" cy="6" r="6" fill="var(--dt-icon-error)" />
         <path d="M3.8 3.8 L8.2 8.2 M8.2 3.8 L3.8 8.2" stroke="#fff" strokeWidth={1.4} strokeLinecap="round" />
       </svg>
     );

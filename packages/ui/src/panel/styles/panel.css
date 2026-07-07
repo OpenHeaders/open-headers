@@ -89,7 +89,13 @@
   --dt-btn-primary-bg-hover: #1765cc;
   --dt-btn-primary-text: #fff;
   --dt-status-green: #00a800;
-  --dt-status-red: #ff0000;
+  /* Error reds mirror the browser's own devtools palette — three distinct
+     roles: row/status text, the filled ✕ badge (a step brighter), and
+     console error text sitting on its tinted row surface. */
+  --dt-status-red: #b3261e;
+  --dt-icon-error: #dc362e;
+  --dt-console-error-text: #410e0b;
+  --dt-console-error-bg: #fcebeb;
   --dt-status-orange: #e68a00;
   --dt-sidebar-bg: #f5f5f5;
   --dt-sidebar-active: #e8f0fe;
@@ -145,7 +151,12 @@
   --dt-btn-primary-bg-hover: #1177bb;
   --dt-btn-primary-text: #fff;
   --dt-status-green: #4caf50;
-  --dt-status-red: #f44336;
+  /* Dark error reds — soft salmon text, a warmer mid red for the ✕ badge,
+     pale pink console text on a muted maroon surface (browser parity). */
+  --dt-status-red: #f2b8b5;
+  --dt-icon-error: #e46962;
+  --dt-console-error-text: #f9dedc;
+  --dt-console-error-bg: #4e3534;
   --dt-status-orange: #ffb74d;
   --dt-sidebar-bg: #252525;
   --dt-sidebar-active: #062e61;
