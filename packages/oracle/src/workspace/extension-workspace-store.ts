@@ -58,7 +58,10 @@ import {
 import type { ExtensionWorkspace, ExtensionWorkspaceKind } from '@openheaders/core/types';
 import { generateWorkspaceId, logger } from '@openheaders/core/utils';
 import { hostStorage, OH } from '../storage';
-import { type ExtensionWorkspaceCache, getActiveExtensionWorkspaceCache } from '../sync/caches/extension-workspace-cache';
+import {
+  type ExtensionWorkspaceCache,
+  getActiveExtensionWorkspaceCache,
+} from '../sync/caches/extension-workspace-cache';
 import { getGlobalOracle, nextGlobalSwContext } from '../sync/global-service';
 import { driftRecorder } from '../sync/storage-drift';
 
@@ -177,6 +180,11 @@ export interface CreateWorkspaceInput {
   orgId?: string;
 }
 
+export interface WorkspaceWriteOptions {
+  /** Envelope attribution — defaults to `'sw'`; agent surfaces pass their own (e.g. `'mcp'`). */
+  surfaceId?: string;
+}
+
 /**
  * SW-internal workspace creation. Used by `workspace-orchestrator`
  * (`duplicateWorkspace`) and `workspace-import-orchestrator` to mint a
@@ -187,7 +195,10 @@ export interface CreateWorkspaceInput {
  * `extension-workspace-write-client.ts`; this helper is intentionally
  * not bridge-exposed.
  */
-export async function createWorkspace(input: CreateWorkspaceInput): Promise<ExtensionWorkspace> {
+export async function createWorkspace(
+  input: CreateWorkspaceInput,
+  opts: WorkspaceWriteOptions = {},
+): Promise<ExtensionWorkspace> {
   const now = new Date().toISOString();
   const id = generateWorkspaceId();
   // Per §6.4 new workspaces default to the user's home-org. Falls back
@@ -210,6 +221,7 @@ export async function createWorkspace(input: CreateWorkspaceInput): Promise<Exte
   await applyExtensionWorkspaceMutationOrThrow(
     (ctx) => buildSetExtensionWorkspaceBatch({ slot, orderKey }, ctx),
     'createWorkspace',
+    opts.surfaceId,
   );
   const created = getWorkspace(id);
   if (!created) {
@@ -292,7 +304,7 @@ export async function deleteWorkspace(id: string): Promise<DeleteWorkspaceResult
  * the caller (the join-adopt wiring) only calls this once the target
  * has synced down, so an unknown id is a real bug worth surfacing.
  */
-export async function setActiveWorkspaceById(id: string): Promise<void> {
+export async function setActiveWorkspaceById(id: string, opts: WorkspaceWriteOptions = {}): Promise<void> {
   if (!workspaces.some((w) => w.id === id)) {
     throw new Error(`WorkspaceStore.setActiveWorkspaceById: unknown workspace ${id}`);
   }
@@ -300,6 +312,7 @@ export async function setActiveWorkspaceById(id: string): Promise<void> {
   await applyExtensionWorkspaceMutationOrThrow(
     (ctx) => buildSetActiveExtensionWorkspaceBatch({ id }, ctx),
     'setActiveWorkspaceById',
+    opts.surfaceId,
   );
   logger.info('WorkspaceStore', `Promoted workspace ${id} to active`);
 }
@@ -309,12 +322,13 @@ export async function setActiveWorkspaceById(id: string): Promise<void> {
 async function applyExtensionWorkspaceMutationOrThrow(
   factory: (ctx: MutatorContext) => { batch: MutationBatch; sideEffects: SideEffectIntent[] },
   op: string,
+  surfaceId = 'sw',
 ): Promise<void> {
   const oracle = getGlobalOracle();
   if (!oracle) {
     throw new Error(`WorkspaceStore.${op}: global sync service not initialized`);
   }
-  const ctx = nextGlobalSwContext({ surfaceId: 'sw' });
+  const ctx = nextGlobalSwContext({ surfaceId });
   const { batch, sideEffects } = factory(ctx);
   if (batch.mutations.length === 0) return;
   const result = await oracle.apply(batch, sideEffects);

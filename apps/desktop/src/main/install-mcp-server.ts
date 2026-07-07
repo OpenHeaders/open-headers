@@ -25,6 +25,7 @@ import {
   createMcpHttpHandler,
   createMcpToolRegistry,
   createReadToolDefinitions,
+  createRuntimeToolDefinitions,
   createWriteToolDefinitions,
   type McpHttpHandler,
   type McpPolicy,
@@ -59,6 +60,7 @@ export async function installMcpServer(): Promise<McpServerInstall> {
       ...createReadToolDefinitions(),
       ...createDiffToolDefinitions(),
       ...createWriteToolDefinitions(),
+      ...createRuntimeToolDefinitions(),
       ...createExecuteToolDefinitions({
         transport: createNodeRequestTransport(),
         runWorkflow: runDesktopWorkflowRefresh,

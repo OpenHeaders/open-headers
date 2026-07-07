@@ -26,16 +26,16 @@ import { generateUid, logger } from '@openheaders/core/utils';
 import { entityLockName, withLock } from '@openheaders/oracle/coordination';
 import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import { requireActiveWorkspaceId } from '@openheaders/oracle/sync';
+import type { EnvironmentCache } from '@openheaders/oracle/sync/caches/environment-cache';
+import type { VaultCache } from '@openheaders/oracle/sync/caches/vault-cache';
+import type { WorkspaceVariablesCache } from '@openheaders/oracle/sync/caches/workspace-variables-cache';
 import {
   ENVIRONMENT_REGISTRATION,
   VAULT_REGISTRATION,
   WORKSPACE_VARIABLES_REGISTRATION,
 } from '@openheaders/oracle/sync/entity-registry';
-import type { EnvironmentCache } from '@openheaders/oracle/sync/caches/environment-cache';
 import { getActiveCacheForRegistration, getCacheForWorkspace } from '@openheaders/oracle/sync/service';
 import { driftRecorder } from '@openheaders/oracle/sync/storage-drift';
-import type { VaultCache } from '@openheaders/oracle/sync/caches/vault-cache';
-import type { WorkspaceVariablesCache } from '@openheaders/oracle/sync/caches/workspace-variables-cache';
 
 // ── In-memory state ─────────────────────────────────────────────────
 
@@ -123,6 +123,15 @@ export function getCollectionEnvOverrides(): Readonly<Record<string, string | nu
 
 export function getManualEnvId(): string | null {
   return manualEnvId;
+}
+
+/**
+ * The workspace this store's mirrors are currently hydrated for.
+ * `null` before first hydration. Lets runtime-switch callers (the MCP
+ * workspace tools) observe when the per-workspace swap has settled.
+ */
+export function getLoadedWorkspaceId(): string | null {
+  return loadedWorkspaceId;
 }
 
 export function getWorkspaceVariables(): WorkspaceVariables {

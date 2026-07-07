@@ -202,6 +202,9 @@ test('lists the read + write catalog with the write tier enabled', async () => {
     'variables_set',
     'requests_save',
     'workflows_save',
+    'workspaces_create',
+    'workspaces_switch',
+    'environments_switch',
   ]);
 });
 
@@ -324,6 +327,76 @@ test('upserts a workspace variable', async () => {
   const rows = list.payload.workspace as Array<{ name: string; value?: string }>;
   expect(rows.filter((row) => row.name === 'region')).toHaveLength(1);
   expect(rows.find((row) => row.name === 'region')?.value).toBe('us-east');
+});
+
+test('variables_set targets a collection scope by collectionId', async () => {
+  // Collection uids come from variables_list — empty collections are
+  // listed too, so the FIRST variable of a collection is reachable.
+  const list = await callTool('variables_list', {});
+  const collections = list.payload.collections as Array<{ uid: string; name: string; scope: string }>;
+  const myRules = collections.find((c) => c.name === 'My Rules' && c.scope === 'rules');
+  expect(myRules).toBeTruthy();
+
+  const set = await callTool('variables_set', { collectionId: myRules?.uid, name: 'apiKey', value: 'abc' });
+  expect(set.isError).toBeFalsy();
+  expect(set.payload.scope).toBe('collection:rules');
+
+  const after = await callTool('variables_list', {});
+  const updated = (
+    after.payload.collections as Array<{ uid: string; variables: Array<{ name: string; value?: string }> }>
+  ).find((c) => c.uid === myRules?.uid);
+  expect(updated?.variables.find((v) => v.name === 'apiKey')?.value).toBe('abc');
+});
+
+// ── Runtime tools: workspace + environment switching ────────────────
+
+test('environments_switch flips the active environment and back to "No environment"', async () => {
+  const envs = await callTool('environments_list', {});
+  const staging = (envs.payload.environments as Array<{ uid: string; name: string }>).find((e) => e.name === 'Staging');
+  expect(staging).toBeTruthy();
+
+  const switched = await callTool('environments_switch', { environmentId: staging?.uid });
+  expect(switched.isError).toBeFalsy();
+  expect((switched.payload.environment as { name: string }).name).toBe('Staging');
+
+  const active = await callTool('environments_list', {});
+  expect(active.payload.activeEnvironmentId).toBe(staging?.uid);
+
+  const cleared = await callTool('environments_switch', { environmentId: null });
+  expect(cleared.isError).toBeFalsy();
+  expect(cleared.payload.activeEnvironmentId).toBeNull();
+  const final = await callTool('environments_list', {});
+  expect(final.payload.activeEnvironmentId).toBeNull();
+});
+
+test('workspaces_create + workspaces_switch round-trip', async () => {
+  const original = (await callTool('workspaces_list', {})).payload.activeWorkspaceId as string;
+
+  const created = await callTool('workspaces_create', { name: 'Agent Workspace' });
+  expect(created.isError).toBeFalsy();
+  const ws = created.payload.workspace as { id: string; active: boolean; loaded: boolean };
+  expect(ws.active).toBe(false);
+
+  const switched = await callTool('workspaces_switch', { workspaceId: ws.id });
+  expect(switched.isError).toBeFalsy();
+  expect(switched.payload.activeWorkspaceId).toBe(ws.id);
+  expect((switched.payload.workspace as { loaded: boolean }).loaded).toBe(true);
+
+  // Workspace-scoped tools now default to the fresh workspace. The open
+  // Workbench window intentionally does NOT retarget — windows bind to
+  // the workspace they were opened on; the runtime-active pointer moves
+  // underneath them.
+  const rules = await callTool('rules_list', {});
+  expect(rules.payload.rules as unknown[]).toHaveLength(0);
+
+  // Restore the original workspace for the rest of the suite.
+  const restored = await callTool('workspaces_switch', { workspaceId: original });
+  expect(restored.payload.activeWorkspaceId).toBe(original);
+
+  // Background workspaces keep no active-env pointer — agent-readable error.
+  const denied = await callTool('environments_switch', { workspaceId: ws.id, environmentId: null });
+  expect(denied.isError).toBe(true);
+  expect(denied.text).toContain('workspaces_switch');
 });
 
 let requestUid: string;

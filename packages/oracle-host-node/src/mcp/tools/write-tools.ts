@@ -35,9 +35,11 @@ import {
   REQUEST_ENTITY_TYPE,
   RULE_ENTITY_TYPE,
 } from '@openheaders/core/sync';
+import { buildSetCollectionVarBatch } from '@openheaders/core/sync-builders/mutations/collection-mutations';
 import { buildAddEnvironmentBatch } from '@openheaders/core/sync-builders/mutations/env-mutations';
 import { buildAddLiveVariableBatch } from '@openheaders/core/sync-builders/mutations/live-variable-mutations';
 import { buildAddLiveWorkflowBatch } from '@openheaders/core/sync-builders/mutations/live-workflow-mutations';
+import { buildSetRequestCollectionVarBatch } from '@openheaders/core/sync-builders/mutations/request-collection-mutations';
 import {
   buildAddBatch as buildAddRequestBatch,
   buildUpdateBatch as buildUpdateRequestBatch,
@@ -709,16 +711,21 @@ export function createWriteToolDefinitions(): McpToolDefinition[] {
     },
     {
       name: 'variables_set',
-      title: 'Set workspace variable',
+      title: 'Set workspace or collection variable',
       description:
-        'Upsert a workspace-scoped variable by name (the lowest-priority scope: Vault > Environment > ' +
-        "Collection > Workspace). type: 'secret' masks the value in every read projection.",
+        'Upsert a variable by name in the workspace scope (the lowest-priority scope: Vault > Environment > ' +
+        'Collection > Workspace), or pass collectionId (a collection uid from variables_list) to upsert it ' +
+        "in that collection's scope instead. type: 'secret' masks the value in every read projection.",
       inputSchema: {
         type: 'object',
         properties: {
           name: { type: 'string' },
           value: { type: 'string' },
           type: { type: 'string', enum: ['default', 'secret'] },
+          collectionId: {
+            type: 'string',
+            description: 'Collection uid from variables_list — targets that collection scope instead of workspace.',
+          },
           ...WORKSPACE_ID_PROPERTY,
         },
         required: ['name', 'value'],
@@ -728,6 +735,44 @@ export function createWriteToolDefinitions(): McpToolDefinition[] {
       handler: async (args) => {
         const workspaceId = requireWorkspace(args);
         const [entry] = readVariableInputs([{ name: args.name, value: args.value, type: args.type }], 'variable');
+        const collectionId =
+          typeof args.collectionId === 'string' && args.collectionId.length > 0 ? args.collectionId : undefined;
+
+        if (collectionId !== undefined) {
+          const ruleCollection = snapshotCollectionPostStates(workspaceId).find(
+            (ps) => ps.collection.uid === collectionId,
+          )?.collection;
+          const requestCollection = ruleCollection
+            ? undefined
+            : snapshotRequestCollectionPostStates(workspaceId).find((ps) => ps.collection.uid === collectionId)
+                ?.collection;
+          const target = ruleCollection ?? requestCollection;
+          if (!target) {
+            throw new McpToolInputError(
+              `no collection with uid '${collectionId}' in workspace '${workspaceId}' — see variables_list`,
+            );
+          }
+          const existing = target.variables.find((row) => row.name === entry.name);
+          const variable: Variable = {
+            uid: existing?.uid ?? generateUid(),
+            name: entry.name,
+            value: entry.value,
+            type: entry.type ?? existing?.type ?? 'default',
+          };
+          const ctx = mintMcpContext(workspaceId);
+          await applyMcpMutation(
+            ruleCollection
+              ? buildSetCollectionVarBatch({ collectionUid: collectionId, variable }, ctx)
+              : buildSetRequestCollectionVarBatch({ requestCollectionUid: collectionId, variable }, ctx),
+          );
+          return {
+            workspaceId,
+            scope: ruleCollection ? 'collection:rules' : 'collection:requests',
+            collection: { uid: target.uid, name: target.name },
+            variable: { name: variable.name, type: variable.type, updated: existing !== undefined },
+          };
+        }
+
         const existing = snapshotWorkspaceVariablesPostStates(workspaceId)
           .flatMap((ps) => ps.workspaceVariables.variables)
           .find((row) => row.name === entry.name);
@@ -740,6 +785,7 @@ export function createWriteToolDefinitions(): McpToolDefinition[] {
         await applyMcpMutation(buildSetWorkspaceVarBatch({ variable }, mintMcpContext(workspaceId)));
         return {
           workspaceId,
+          scope: 'workspace',
           variable: { name: variable.name, type: variable.type, updated: existing !== undefined },
         };
       },

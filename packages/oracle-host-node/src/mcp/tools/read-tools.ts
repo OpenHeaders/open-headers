@@ -297,7 +297,8 @@ export function createReadToolDefinitions(): McpToolDefinition[] {
       description:
         'List every variable scope in a workspace in resolution-priority order: vault (names only, values ' +
         'never returned), environment, collection, and workspace variables, plus live variables ' +
-        '(referenced as {{live.<name>}}, produced by workflows). Secret-typed values are masked.',
+        '(referenced as {{live.<name>}}, produced by workflows). Secret-typed values are masked. ' +
+        'Collection uids listed here feed the collectionId argument of variables_set.',
       inputSchema: {
         type: 'object',
         properties: { ...WORKSPACE_ID_PROPERTY },
@@ -318,14 +319,14 @@ export function createReadToolDefinitions(): McpToolDefinition[] {
             scope: 'requests',
             collection: ps.collection,
           })),
-        ]
-          .filter(({ collection }) => collection.variables.length > 0)
-          .map(({ scope, collection }) => ({
-            uid: collection.uid,
-            name: collection.name,
-            scope,
-            variables: collection.variables.map(projectVariable),
-          }));
+          // Empty collections stay listed — their uid is how an agent
+          // targets a collection scope for its FIRST variable.
+        ].map(({ scope, collection }) => ({
+          uid: collection.uid,
+          name: collection.name,
+          scope,
+          variables: collection.variables.map(projectVariable),
+        }));
         const workspaceVariables = snapshotWorkspaceVariablesPostStates(workspaceId).flatMap((ps) =>
           ps.workspaceVariables.variables.map(projectVariable),
         );

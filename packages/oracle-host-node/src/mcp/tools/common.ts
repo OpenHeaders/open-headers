@@ -59,7 +59,7 @@ export function assertWorkspaceLoaded(id: string): void {
     const known = listWorkspaces().some((ws) => ws.id === id);
     throw new McpToolInputError(
       known
-        ? `workspace '${id}' exists but is not loaded on this host yet — open it in Open Headers first`
+        ? `workspace '${id}' exists but is not loaded on this host yet — activate it with workspaces_switch`
         : `unknown workspace '${id}' — valid ids come from workspaces_list`,
     );
   }
@@ -129,7 +129,7 @@ export function mintMcpContext(workspaceId: string): MutatorContext {
   const ctx = nextSwMutatorContextForWorkspace(workspaceId, { surfaceId: MCP_SURFACE_ID });
   if (!ctx) {
     throw new McpToolInputError(
-      `workspace '${workspaceId}' is not loaded on this host — open it in Open Headers first`,
+      `workspace '${workspaceId}' is not loaded on this host — activate it with workspaces_switch`,
     );
   }
   return ctx;
