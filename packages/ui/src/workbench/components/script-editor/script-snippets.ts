@@ -70,9 +70,21 @@ const GET_VAULT_SECRET: ScriptSnippet = {
   code: `const secret = await oh.vault.get('secret_name');`,
 };
 
+const USE_PACKAGE: ScriptSnippet = {
+  id: 'use-package',
+  label: 'Use a package',
+  code: `const pkg = oh.require('package_name');
+console.log(pkg);`,
+};
+
 const WORKFLOWS_GROUP: ScriptSnippetGroup = {
   label: 'Workflows',
   snippets: [SEND_REQUEST, SEND_REQUEST_WITH_BODY],
+};
+
+const PACKAGES_GROUP: ScriptSnippetGroup = {
+  label: 'Packages',
+  snippets: [USE_PACKAGE],
 };
 
 const PRE_REQUEST_GROUPS: ScriptSnippetGroup[] = [
@@ -120,6 +132,7 @@ const PRE_REQUEST_GROUPS: ScriptSnippetGroup[] = [
     ],
   },
   WORKFLOWS_GROUP,
+  PACKAGES_GROUP,
   {
     label: 'Variables',
     snippets: [GET_VARIABLE, SET_VARIABLE, GET_VAULT_SECRET],
@@ -177,6 +190,7 @@ const POST_RESPONSE_GROUPS: ScriptSnippetGroup[] = [
     ],
   },
   WORKFLOWS_GROUP,
+  PACKAGES_GROUP,
   {
     label: 'Variables',
     snippets: [

@@ -111,6 +111,17 @@ export interface ScriptConsoleEntry {
 // ── Outer envelopes ────────────────────────────────────────────────
 
 /**
+ * One workspace script package shipped alongside an execution so
+ * `oh.require('<name>')` resolves synchronously inside the sandbox.
+ * The module source assigns its public surface to `module.exports`;
+ * packages cannot require other packages.
+ */
+export interface ScriptPackageModule {
+  name: string;
+  source: string;
+}
+
+/**
  * Host → sandbox: run this script.
  *
  * `workspaceId` is echoed back on every host-RPC reply so the host can
@@ -128,6 +139,8 @@ export interface ScriptExecutionRequest {
   credentialRef?: string;
   /** Hard timeout for this script (default: 5000 ms). */
   timeoutMs?: number;
+  /** Workspace script packages available to `oh.require` (active workspace). */
+  packages?: ScriptPackageModule[];
 }
 
 /**

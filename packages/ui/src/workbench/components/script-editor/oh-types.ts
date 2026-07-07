@@ -147,6 +147,11 @@ interface OpenHeaders {
   readonly variables: OhVariables;
   readonly vault: OhVault;
 
+  /** Load a workspace script package by name (synchronous). Returns the
+   *  package's \`module.exports\`. Packages come from the Package
+   *  Library and cannot require other packages. */
+  require(name: string): any;
+
   /** Fire an ad-hoc HTTP request through the executor. Respects the
    *  workspace's host-access, cookie-jar, and proxy settings. */
   sendRequest(request: OhAdHocRequest): Promise<OhAdHocResponse>;

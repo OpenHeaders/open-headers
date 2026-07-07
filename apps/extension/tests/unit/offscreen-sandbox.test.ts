@@ -5,7 +5,12 @@
  * `script.host-request` messages, and resolves on `script.result`.
  */
 
-import type { RequestSnapshot, ScriptExecutionResult, ScriptHostRequest } from '@openheaders/core/scripts';
+import type {
+  RequestSnapshot,
+  ScriptExecutionResult,
+  ScriptHostRequest,
+  ScriptPackageModule,
+} from '@openheaders/core/scripts';
 import { describe, expect, it } from 'vitest';
 import '@/offscreen/sandbox';
 
@@ -22,6 +27,7 @@ let nextExecution = 0;
 function runInSandbox(
   source: string,
   onHostRequest: (req: ScriptHostRequest) => unknown,
+  packages?: ScriptPackageModule[],
 ): Promise<{ result: ScriptExecutionResult; hostRequests: ScriptHostRequest[] }> {
   nextExecution += 1;
   const executionId = `exec-${nextExecution}`;
@@ -58,7 +64,7 @@ function runInSandbox(
     window.postMessage(
       {
         type: 'script.execute',
-        request: { executionId, kind: 'pre-request', source, request: BASE_REQUEST },
+        request: { executionId, kind: 'pre-request', source, request: BASE_REQUEST, packages },
       },
       '*',
     );
@@ -86,6 +92,70 @@ describe('sandbox request mutations', () => {
     expect(result.succeeded).toBe(true);
     expect(result.mutation?.headers).toBeUndefined();
     expect(result.mutation?.params).toEqual([{ key: 'page', value: '1' }]);
+  });
+});
+
+describe('sandbox oh.require', () => {
+  const UTILS_PACKAGE: ScriptPackageModule = {
+    name: 'utils',
+    source: `console.log('utils evaluated');
+function add(a, b) { return a + b; }
+module.exports = { add };`,
+  };
+
+  it('loads a package and exposes its module.exports', async () => {
+    const { result } = await runInSandbox(
+      `const utils = oh.require('utils');
+       console.log('sum', utils.add(2, 3));`,
+      () => null,
+      [UTILS_PACKAGE],
+    );
+    expect(result.succeeded).toBe(true);
+    expect(result.consoleLog.some((e) => e.args.join(' ').includes('sum 5'))).toBe(true);
+  });
+
+  it('memoizes the package body within one execution', async () => {
+    const { result } = await runInSandbox(
+      `oh.require('utils');
+       oh.require('utils');`,
+      () => null,
+      [UTILS_PACKAGE],
+    );
+    expect(result.succeeded).toBe(true);
+    const evaluations = result.consoleLog.filter((e) => e.args.join(' ').includes('utils evaluated'));
+    expect(evaluations).toHaveLength(1);
+  });
+
+  it('fails with the available package names when the name is unknown', async () => {
+    const { result } = await runInSandbox(`oh.require('missing');`, () => null, [UTILS_PACKAGE]);
+    expect(result.succeeded).toBe(false);
+    expect(result.error?.message).toContain('"missing" not found');
+    expect(result.error?.message).toContain('utils');
+  });
+
+  it('refuses oh.require inside a package body', async () => {
+    const { result } = await runInSandbox(`oh.require('outer');`, () => null, [
+      UTILS_PACKAGE,
+      { name: 'outer', source: `module.exports = oh.require('utils');` },
+    ]);
+    expect(result.succeeded).toBe(false);
+    expect(result.error?.message).toContain('not available inside packages');
+  });
+
+  it('lets package code drive the oh.* mutators against the live draft', async () => {
+    const { result } = await runInSandbox(
+      `const auth = oh.require('auth');
+       auth.sign('token-123');`,
+      () => null,
+      [
+        {
+          name: 'auth',
+          source: `module.exports = { sign(token) { oh.setHeader('Authorization', 'Bearer ' + token); } };`,
+        },
+      ],
+    );
+    expect(result.succeeded).toBe(true);
+    expect(result.mutation?.headers).toEqual([{ key: 'Authorization', value: 'Bearer token-123' }]);
   });
 });
 

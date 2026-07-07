@@ -88,7 +88,7 @@ async function runScript(req: ScriptExecutionRequest): Promise<ScriptExecutionRe
   const stamp = (): number => Math.round(performance.now() - startedAt);
 
   const capturingConsole = buildConsole(consoleLog, stamp);
-  const oh = buildScriptApi(req, assertions, (next) => {
+  const oh = buildScriptApi(req, assertions, capturingConsole, (next) => {
     // Every flush is a COMPLETE diff against the original request, so
     // each one replaces the pending mutation outright. Merging field-wise
     // would resurrect a change a later call reverted (setHeader then
@@ -159,6 +159,7 @@ interface ScriptApi {
   vault: {
     get(ref: string): Promise<string | null>;
   };
+  require(name: string): unknown;
   sendRequest(request: AdHocRequestInput): Promise<import('@openheaders/core/scripts').ResponseSnapshot>;
   test(name: string, fn: () => void | Promise<void>): Promise<void>;
   expect(actual: unknown): Expectation;
@@ -183,6 +184,7 @@ interface Expectation {
 function buildScriptApi(
   req: ScriptExecutionRequest,
   assertions: TestAssertion[],
+  capturingConsole: Console,
   emitMutation: (m: RequestMutation) => void,
 ): ScriptApi {
   const draftHeaders: Array<{ key: string; value: string }> = [...req.request.headers];
@@ -234,6 +236,37 @@ function buildScriptApi(
     return (response.value as string | null) ?? null;
   };
 
+  // ── oh.require ──────────────────────────────────────────────────
+  // Packages arrive pre-resolved on the execution request, so require
+  // is synchronous. Each package compiles lazily on first require and
+  // memoizes its `module.exports` for the rest of THIS execution —
+  // fresh scope per run, same as the top-level script. Packages see
+  // the full `oh` surface except `require` itself (no package-to-
+  // package imports), through `packageApi` below.
+  const compiledPackages = new Map<string, unknown>();
+  const requirePackage = (name: string): unknown => {
+    if (compiledPackages.has(name)) return compiledPackages.get(name);
+    const pkg = req.packages?.find((p) => p.name === name);
+    if (!pkg) {
+      const known = (req.packages ?? []).map((p) => p.name);
+      throw new Error(
+        `oh.require: package "${name}" not found${known.length > 0 ? ` — available: ${known.join(', ')}` : ' — no packages in this workspace'}`,
+      );
+    }
+    const module = { exports: {} as unknown };
+    // Package bodies run synchronously (no async wrapper) — require
+    // must return `module.exports` in the same tick.
+    const fn = new Function('module', 'exports', 'oh', 'console', `"use strict";\n${pkg.source}\n`) as (
+      module: { exports: unknown },
+      exports: unknown,
+      oh: ScriptApi,
+      console: Console,
+    ) => void;
+    fn(module, module.exports, packageApi, capturingConsole);
+    compiledPackages.set(name, module.exports);
+    return module.exports;
+  };
+
   const hostSendRequest = async (
     request: AdHocRequestInput,
   ): Promise<import('@openheaders/core/scripts').ResponseSnapshot> => {
@@ -277,6 +310,7 @@ function buildScriptApi(
     vault: {
       get: hostVault,
     },
+    require: requirePackage,
     sendRequest: hostSendRequest,
     async test(name, fn) {
       const t0 = performance.now();
@@ -333,6 +367,18 @@ function buildScriptApi(
       flushMutation();
     },
   };
+
+  // The `oh` handed to PACKAGE bodies: identical surface (the getter
+  // walks the prototype chain, so `oh.request` stays the live draft
+  // view) except `require`, which refuses — packages can't require
+  // other packages.
+  const packageApi: ScriptApi = Object.create(api, {
+    require: {
+      value: () => {
+        throw new Error('oh.require is not available inside packages — packages cannot require other packages');
+      },
+    },
+  }) as ScriptApi;
 
   return api;
 }

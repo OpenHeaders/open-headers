@@ -36,6 +36,7 @@ import type {
   ScriptHostRequest,
   ScriptHostResponse,
   ScriptKind,
+  ScriptPackageModule,
 } from '@openheaders/core/scripts';
 import type { Request } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
@@ -50,15 +51,13 @@ import { recordLog } from './observability-log';
 // producing a temporal-dead-zone reference. The getter defers the
 // binding until first use — by then the executor module has finished
 // initializing.
-let executeRequestDraftRef:
-  | ((req: Request) => Promise<import('./request-executor').ExecutedRequestSnapshot>)
-  | null = null;
+let executeRequestDraftRef: ((req: Request) => Promise<import('./request-executor').ExecutedRequestSnapshot>) | null =
+  null;
 export function __setExecuteRequestDraft(fn: typeof executeRequestDraftRef): void {
   executeRequestDraftRef = fn;
 }
 
 import { buildSetWorkspaceVarBatch } from '@openheaders/core/sync-builders/mutations/workspace-variables-mutations';
-import { getOracleForCurrentWorkspace, nextSwMutatorContext } from '@openheaders/oracle/sync/service';
 import {
   getActiveEnvironmentId,
   getDefaultEnvironmentId,
@@ -69,6 +68,13 @@ import {
 import { getTokenBundle as getOAuthTokenBundle } from '@openheaders/oracle/entity/oauth-token-store';
 import { getRequestCollections } from '@openheaders/oracle/entity/request-store';
 import { getCollections as getRuleCollections } from '@openheaders/oracle/entity/rule-store';
+import type { ScriptPackageCache } from '@openheaders/oracle/sync/caches/script-package-cache';
+import { SCRIPT_PACKAGE_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
+import {
+  getActiveCacheForRegistration,
+  getOracleForCurrentWorkspace,
+  nextSwMutatorContext,
+} from '@openheaders/oracle/sync/service';
 
 const OFFSCREEN_URL = 'offscreen.html';
 const IDLE_CLOSE_MS = 30_000;
@@ -202,6 +208,7 @@ export async function runScript(opts: RunScriptOptions): Promise<ScriptExecution
   }
   inFlight += 1;
 
+  const packages = listActiveScriptPackages();
   const request: ScriptExecutionRequest = {
     executionId: nextExecutionId(),
     kind: opts.kind,
@@ -210,6 +217,7 @@ export async function runScript(opts: RunScriptOptions): Promise<ScriptExecution
     response: opts.response,
     credentialRef: opts.credentialRef,
     timeoutMs: opts.timeoutMs,
+    packages: packages.length > 0 ? packages : undefined,
   };
 
   try {
@@ -219,6 +227,18 @@ export async function runScript(opts: RunScriptOptions): Promise<ScriptExecution
     inFlight -= 1;
     if (inFlight <= 0) scheduleIdleClose();
   }
+}
+
+/**
+ * Snapshot the ACTIVE workspace's script packages for `oh.require` —
+ * same workspace posture as the host RPCs (variables / vault). Reads
+ * the in-memory sync cache; an unhydrated or missing service yields
+ * no packages rather than blocking the execution.
+ */
+function listActiveScriptPackages(): ScriptPackageModule[] {
+  const cache = getActiveCacheForRegistration<ScriptPackageCache>(SCRIPT_PACKAGE_REGISTRATION);
+  if (!cache) return [];
+  return cache.getScriptPackages().map((p) => ({ name: p.name, source: p.source }));
 }
 
 async function sendExecuteToOffscreen(request: ScriptExecutionRequest): Promise<ScriptExecutionResult> {

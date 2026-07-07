@@ -42,6 +42,7 @@ const SCRIPT_INFO: Record<ScriptKind, InfoPopoverContent> = {
           { label: 'oh.setQueryParam(name, value)', desc: 'add or replace a query parameter' },
           { label: 'oh.setUrl(url)', desc: 'rewrite the target URL' },
           { label: 'oh.setBody(body)', desc: 'replace the request body' },
+          { label: 'oh.require(name)', desc: 'load a script package from the Package Library' },
         ],
       },
     ],
@@ -52,7 +53,10 @@ const SCRIPT_INFO: Record<ScriptKind, InfoPopoverContent> = {
     sections: [
       {
         heading: 'API',
-        items: [{ label: 'oh.test(name, fn)', desc: 'register an assertion' }],
+        items: [
+          { label: 'oh.test(name, fn)', desc: 'register an assertion' },
+          { label: 'oh.require(name)', desc: 'load a script package from the Package Library' },
+        ],
       },
     ],
   },
