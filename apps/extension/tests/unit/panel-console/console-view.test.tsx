@@ -8,14 +8,24 @@ import type { ConsoleEntry } from '@openheaders/core/console-stream';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockScope, setCdpEnabledSpy } = vi.hoisted(() => ({
+const { mockScope, setCdpEnabledSpy, resolvedFramesMock } = vi.hoisted(() => ({
   mockScope: { hasCdpCapability: true, cdpEnabled: true, cdpOwned: true },
   setCdpEnabledSpy: vi.fn(),
+  resolvedFramesMock: {
+    map: new Map<string, { name: string | null; source: string | null; line: number | null; column: number | null }>(),
+  },
 }));
 
 vi.mock('@openheaders/ui/panel/data/use-inspected-tab-cdp', () => ({
   useInspectedTabCdp: () => mockScope,
 }));
+
+// Source-map resolution is exercised through a controllable map; frameKey /
+// sourceFileLabel stay real.
+vi.mock('@openheaders/ui/panel/data/initiator/use-resolved-frames', async (importOriginal) => {
+  const real = await importOriginal<typeof import('@openheaders/ui/panel/data/initiator/use-resolved-frames')>();
+  return { ...real, useResolvedFrames: () => resolvedFramesMock.map };
+});
 
 vi.mock('@openheaders/ui/workbench/settings/hooks', () => ({
   useSetting: () => [false, setCdpEnabledSpy],
@@ -74,6 +84,7 @@ beforeEach(() => {
   mockScope.cdpEnabled = true;
   mockScope.cdpOwned = true;
   setCdpEnabledSpy.mockClear();
+  resolvedFramesMock.map.clear();
 });
 
 afterEach(cleanup);
@@ -198,6 +209,25 @@ describe('ConsoleView network join (browser-plane entries)', () => {
     const { container } = renderView([withStack]);
     fireEvent.click(container.querySelector('button.dt-console-caret') as HTMLElement);
     expect(container.querySelector('.dt-console-frame')?.textContent).toContain('app.js:42');
+  });
+
+  it('labels locations and frames with the source-map original when resolved', () => {
+    resolvedFramesMock.map.set('https://openheaders.io/analytics.ts|119|6', {
+      name: 'sendEvent',
+      source: 'webpack:///./src/hydro-analytics.ts',
+      line: 119,
+      column: 5,
+    });
+    const { container } = renderView([blocked], { resolveRequest: () => join });
+    // Row location column reads the ORIGINAL position, extension kept.
+    expect(container.querySelector('.dt-console-loc')?.textContent).toBe('hydro-analytics.ts:120');
+    // The expanded ladder shows the resolved name + original file:line.
+    fireEvent.click(container.querySelector('button.dt-console-caret') as HTMLElement);
+    const frames = container.querySelectorAll('.dt-console-frame');
+    expect(frames[0].textContent).toContain('sendEvent');
+    expect(frames[0].textContent).toContain('hydro-analytics.ts:120');
+    // The unresolved second frame keeps its generated label.
+    expect(frames[1].textContent).toContain('reducer.ts:1152');
   });
 
   it('opens the Sources panel from the location column and from a stack frame', () => {

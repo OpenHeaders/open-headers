@@ -30,6 +30,12 @@ import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/doc
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ConsoleRequestJoin } from '../data/console-request-join';
+import {
+  frameKey,
+  type ResolvedFramePosition,
+  sourceFileLabel,
+  useResolvedFrames,
+} from '../data/initiator/use-resolved-frames';
 import { useStickToBottom } from './detail/streams/use-stick-to-bottom';
 import { formatClock } from '../data/timing/format-time';
 import { useInspectedTabCdp } from '../data/use-inspected-tab-cdp';
@@ -83,6 +89,36 @@ function frameLocation(frame: ConsoleStackFrame): ConsoleSourceLocation {
     lineNumber: frame.lineNumber,
     columnNumber: frame.columnNumber,
   };
+}
+
+type ResolvedFrames = ReadonlyMap<string, ResolvedFramePosition>;
+
+/**
+ * A frame's display location, source-map resolved when the map is in — the
+ * browser's console shows `hydro-analytics.ts:120`, not the generated
+ * `environment-…js:2`. The click target stays the GENERATED position: the
+ * host's Sources panel applies the source map itself (same contract as the
+ * Network call-stack view).
+ */
+function resolvedFrameLocation(frame: ConsoleStackFrame, resolved: ResolvedFrames): ConsoleSourceLocation {
+  const pos = resolved.get(frameKey(frame));
+  if (pos?.source != null && pos.line != null) {
+    return {
+      short: `${sourceFileLabel(pos.source)}:${pos.line + 1}`,
+      full: `${pos.source}:${pos.line + 1} (generated: ${frame.url}:${frame.lineNumber + 1}:${frame.columnNumber + 1})`,
+      url: frame.url,
+      lineNumber: frame.lineNumber,
+      columnNumber: frame.columnNumber,
+    };
+  }
+  return frameLocation(frame);
+}
+
+/** A frame's display name — the source-map original when resolved, else the
+ *  V8 name, else `(anonymous)`. */
+function resolvedFrameName(frame: ConsoleStackFrame, resolved: ResolvedFrames): string {
+  const pos = resolved.get(frameKey(frame));
+  return pos?.name ?? (frame.functionName || '(anonymous)');
 }
 
 /** Open a location in the host's Sources panel. */
@@ -178,6 +214,19 @@ export function ConsoleView({ entries, resolveRequest, onRequestClick, onClear, 
     }
     return result;
   }, [entries, levelFilter, textFilter, resolveRequest]);
+
+  // Source-map resolution over every distinct frame the visible rows carry —
+  // the same cache + host fetcher the Network call-stack view uses, so
+  // labels read `hydro-analytics.ts:120`, not the generated bundle position.
+  const allFrames = useMemo<ConsoleStackFrame[]>(() => {
+    const byKey = new Map<string, ConsoleStackFrame>();
+    for (const row of rows) {
+      if (row.stack === null) continue;
+      for (const frame of row.stack) byKey.set(frameKey(frame), frame);
+    }
+    return [...byKey.values()];
+  }, [rows]);
+  const resolvedFrames = useResolvedFrames(allFrames);
 
   // Expansion is keyed by entry index; a cleared stream restarts at 0, so
   // stale keys must not pre-expand fresh entries.
@@ -276,6 +325,7 @@ export function ConsoleView({ entries, resolveRequest, onRequestClick, onClear, 
                 <ConsoleRowView
                   key={row.entryIndex}
                   row={row}
+                  resolvedFrames={resolvedFrames}
                   expanded={expanded.has(row.entryIndex)}
                   onToggleExpanded={toggleExpanded}
                   onRequestClick={onRequestClick}
@@ -291,19 +341,29 @@ export function ConsoleView({ entries, resolveRequest, onRequestClick, onClear, 
 
 interface ConsoleRowViewProps {
   row: ConsoleRow;
+  resolvedFrames: ResolvedFrames;
   expanded: boolean;
   onToggleExpanded: (entryIndex: number) => void;
   onRequestClick: (requestId: string) => void;
 }
 
-function ConsoleRowView({ row, expanded, onToggleExpanded, onRequestClick }: ConsoleRowViewProps) {
-  const { entry, stack, request, location } = row;
+function ConsoleRowView({ row, resolvedFrames, expanded, onToggleExpanded, onRequestClick }: ConsoleRowViewProps) {
+  const { entry, stack, request } = row;
   const requestId = entry.requestId;
   const expandable = stack !== null && stack.length > 0;
+  const location = expandable ? resolvedFrameLocation(stack[0], resolvedFrames) : row.location;
   return (
     <>
       <div className="dt-console-row" data-level={entry.level} data-source={entry.source}>
-        <span className="dt-console-dot" />
+        {entry.level === 'error' ? (
+          // Chrome's error badge: a red disc with a white ✕.
+          <svg className="dt-console-dot dt-console-dot--error" viewBox="0 0 12 12" role="img" aria-hidden="true">
+            <circle cx="6" cy="6" r="6" fill="var(--dt-status-red)" />
+            <path d="M3.8 3.8 L8.2 8.2 M8.2 3.8 L3.8 8.2" stroke="#fff" strokeWidth="1.4" strokeLinecap="round" />
+          </svg>
+        ) : (
+          <span className="dt-console-dot" />
+        )}
         {expandable ? (
           <button
             type="button"
@@ -348,10 +408,10 @@ function ConsoleRowView({ row, expanded, onToggleExpanded, onRequestClick }: Con
       {expandable && expanded && (
         <div className="dt-console-stack" data-level={entry.level}>
           {stack.map((frame, i) => {
-            const loc = frameLocation(frame);
+            const loc = resolvedFrameLocation(frame, resolvedFrames);
             return (
               <div key={`${frame.url}:${frame.lineNumber}:${i}`} className="dt-console-frame">
-                <span className="dt-console-frame-fn">{frame.functionName || '(anonymous)'}</span>
+                <span className="dt-console-frame-fn">{resolvedFrameName(frame, resolvedFrames)}</span>
                 <span className="dt-console-frame-at">@</span>
                 <button
                   type="button"

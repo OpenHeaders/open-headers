@@ -39,6 +39,7 @@ const CTX: CellContext = {
   superseded: { latestNavStartedAtMs: NAV_AT, navStartsMs: [NAV_AT] },
   cdpEnhanced: true,
   connectionOpeners: new Map(),
+  resolvedInitiators: new Map(),
   annotationCtx: { anchor: { latestNavStartedAtMs: NAV_AT, navStartsMs: [NAV_AT] }, source: 'cdp' },
   onAnnotationJump: () => {},
 };

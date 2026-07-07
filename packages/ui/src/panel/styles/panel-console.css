@@ -69,6 +69,15 @@
   background: var(--dt-status-red);
 }
 
+/* Error rows carry the browser's badge — a red disc with a white ✕ — drawn
+   as an inline SVG, so the span-background sizing above is overridden. */
+.dt-console-row[data-level='error'] svg.dt-console-dot--error {
+  width: 10px;
+  height: 10px;
+  background: transparent;
+  border-radius: 0;
+}
+
 /* Disclosure caret — reserved on every row (an empty span when there is no
    stack) so message columns align whether or not a row can expand. */
 .dt-console-caret {

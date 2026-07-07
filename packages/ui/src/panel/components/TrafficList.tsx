@@ -9,7 +9,7 @@ import {
   useState,
 } from 'react';
 import type { FilterConfig } from '../data/filter-engine';
-import type { InspectorRowWithFires } from '../data/inspector-row-projection';
+import { currentHarEntry, type InspectorRowWithFires } from '../data/inspector-row-projection';
 import { WATERFALL_METRIC_ABBR, waterfallSortValue } from '../data/network-columns';
 import { supersessionAnchorFromPages } from '../data/request-state';
 import { pageMarkers, waterfallWindow } from '../data/timing/waterfall-geometry';
@@ -23,7 +23,9 @@ import {
   DEFAULT_VISIBLE_COLUMNS,
 } from './traffic/columns';
 import { buildConnectionOpenerIndex } from '../data/connection-openers';
-import { extractName } from './traffic/formatters';
+import type { CallFrameLike } from '../data/initiator/call-frame-meta';
+import { frameKey, useResolvedFrames } from '../data/initiator/use-resolved-frames';
+import { extractName, getInitiatorFrame } from './traffic/formatters';
 import { NetworkPanelHeader } from './traffic/NetworkPanelHeader';
 import { AnnotationRailHeader, FireRailHeader } from './traffic/RailHeaders';
 import { derivePreflightPairs } from './traffic/preflight-pairs';
@@ -374,6 +376,20 @@ export function TrafficList({
   // reused-connection row can name its opener even when that row is scrolled out.
   const connectionOpeners = useMemo(() => buildConnectionOpenerIndex(rows), [rows]);
 
+  // Source-map resolution for the Initiator column — the browser's column
+  // shows the resolved original position (`hydro-analytics.ts:120`), not the
+  // generated bundle line. One distinct top frame per script position across
+  // the visible rows; the cache re-renders us as maps arrive.
+  const initiatorFrames = useMemo<CallFrameLike[]>(() => {
+    const byKey = new Map<string, CallFrameLike>();
+    for (const row of sorted) {
+      const frame = getInitiatorFrame(currentHarEntry(row.lifecycle)?._initiator);
+      if (frame) byKey.set(frameKey(frame), frame);
+    }
+    return [...byKey.values()];
+  }, [sorted]);
+  const resolvedInitiators = useResolvedFrames(initiatorFrames);
+
   // Stable per-row render context — referentially constant across a pure
   // scroll so the memoized rows on screen skip re-render.
   const cellContext = useMemo<CellContext>(
@@ -384,10 +400,20 @@ export function TrafficList({
       superseded,
       cdpEnhanced,
       connectionOpeners,
+      resolvedInitiators,
       annotationCtx: { anchor: superseded, source: cdpEnhanced ? 'cdp' : 'heuristic' },
       onAnnotationJump,
     }),
-    [waterfallScale, preflight, handleJumpTo, superseded, cdpEnhanced, connectionOpeners, onAnnotationJump],
+    [
+      waterfallScale,
+      preflight,
+      handleJumpTo,
+      superseded,
+      cdpEnhanced,
+      connectionOpeners,
+      resolvedInitiators,
+      onAnnotationJump,
+    ],
   );
 
   const toggleColumn = (key: ColumnKey) => {

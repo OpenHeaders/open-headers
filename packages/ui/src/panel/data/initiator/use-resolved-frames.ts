@@ -24,6 +24,15 @@ export function frameKey(frame: CallFrameLike): string {
   return `${frame.url ?? ''}|${frame.lineNumber ?? -1}|${frame.columnNumber ?? -1}`;
 }
 
+/** Last path segment of a source-map source, extension kept
+ *  (`webpack:///./src/hydro-analytics.ts` → `hydro-analytics.ts`) — the
+ *  browser's console/Initiator-column label for a resolved position. */
+export function sourceFileLabel(source: string): string {
+  const stripped = source.replace(/^[^:]+:\/+/, '');
+  const parts = stripped.split('/').filter(Boolean);
+  return parts[parts.length - 1] ?? stripped;
+}
+
 export interface ResolvedFramePosition {
   /** Original function/identifier name from the source-map `names` array. */
   name: string | null;

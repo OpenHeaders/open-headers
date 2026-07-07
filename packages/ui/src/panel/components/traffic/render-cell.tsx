@@ -11,6 +11,11 @@ import {
   statusCellText,
   statusCellTitle,
 } from '../../data/request-state';
+import {
+  frameKey,
+  type ResolvedFramePosition,
+  sourceFileLabel,
+} from '../../data/initiator/use-resolved-frames';
 import type { RowAnnotationContext } from '../../data/row-annotations';
 import { formatBytesToKb, formatSizeInfo, type SizeInfo } from '../../data/size-info';
 import type { ColumnDef } from './columns';
@@ -38,6 +43,10 @@ export interface CellContext {
   /** Physical connection id → the request that opened it, so a reused-connection
    *  row's Waterfall popover can attribute the socket to its opener. */
   connectionOpeners: ReadonlyMap<string, ConnectionOpener>;
+  /** Source-map-resolved initiator top frames (keyed by `frameKey`) — the
+   *  Initiator column labels the original position when the map is in,
+   *  matching the browser's column. */
+  resolvedInitiators: ReadonlyMap<string, ResolvedFramePosition>;
   /** Classifier context for the OH annotation rail — the same supersession
    *  anchor plus provenance, bundled once per render pass. */
   annotationCtx: RowAnnotationContext;
@@ -150,12 +159,21 @@ export function renderCell(col: ColumnDef, row: InspectorRowWithFires, sizeInfo:
       );
     }
     // JS-initiated rows: render the call-site as a clickable link that
-    // opens the host's Sources panel at the right line.
+    // opens the host's Sources panel at the right line. The label prefers
+    // the source-map-resolved original position (`hydro-analytics.ts:120`)
+    // over the generated bundle line, matching the browser's column; the
+    // click target stays the generated position — Sources applies the map.
     const har = currentHarEntry(lc);
     const initiator = har?._initiator;
     const frame = getInitiatorFrame(initiator);
     if (frame) {
-      const label = formatInitiator(initiator);
+      const resolved = ctx.resolvedInitiators.get(frameKey(frame));
+      const label =
+        resolved?.source != null && resolved.line != null
+          ? `${sourceFileLabel(resolved.source)}:${resolved.line + 1}`
+          : formatInitiator(initiator);
+      const title =
+        resolved?.source != null ? `${resolved.source} (generated: ${frame.url})` : frame.url;
       return (
         <span className="dt-col-muted">
           <button
@@ -165,7 +183,7 @@ export function renderCell(col: ColumnDef, row: InspectorRowWithFires, sizeInfo:
               e.stopPropagation();
               hostNavigation.openResource(frame.url, frame.lineNumber, frame.columnNumber);
             }}
-            title={frame.url}
+            title={title}
           >
             {label}
           </button>
