@@ -139,6 +139,13 @@
   color: var(--dt-text);
 }
 
+.dt-toolbar-icon:disabled {
+  opacity: 0.45;
+  cursor: default;
+  background: transparent;
+  color: var(--dt-text-muted);
+}
+
 .dt-toolbar-icon[data-active='true'] {
   color: var(--dt-link);
 }

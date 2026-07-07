@@ -39,7 +39,7 @@ import {
 import { useStickToBottom } from './detail/streams/use-stick-to-bottom';
 import { formatClock } from '../data/timing/format-time';
 import { useInspectedTabCdp } from '../data/use-inspected-tab-cdp';
-import { IconClear } from './toolbar-icons';
+import { IconClear, IconCollapseAll, IconExpandAll } from './toolbar-icons';
 
 interface ConsoleViewProps {
   entries: readonly ConsoleEntry[];
@@ -246,6 +246,17 @@ export function ConsoleView({ entries, resolveRequest, onRequestClick, onClear, 
     });
   };
 
+  // Expand-all / collapse-all toggle over the visible rows that carry a
+  // stack — the browser's single toolbar button beside Clear.
+  const expandableIndexes = useMemo(
+    () => rows.filter((row) => row.stack !== null && row.stack.length > 0).map((row) => row.entryIndex),
+    [rows],
+  );
+  const allExpanded = expandableIndexes.length > 0 && expandableIndexes.every((i) => expanded.has(i));
+  const toggleAllExpanded = (): void => {
+    setExpanded(allExpanded ? new Set() : new Set(expandableIndexes));
+  };
+
   const { onScroll } = useStickToBottom(bodyRef, rows.length);
 
   // Capture is live only on a CDP-attached, in-scope tab. "Debug mode off" is
@@ -270,6 +281,16 @@ export function ConsoleView({ entries, resolveRequest, onRequestClick, onClear, 
               aria-label="Clear console"
             >
               <IconClear />
+            </button>
+            <button
+              type="button"
+              className="dt-toolbar-icon"
+              onClick={toggleAllExpanded}
+              disabled={expandableIndexes.length === 0}
+              title={allExpanded ? 'Collapse all' : 'Expand all'}
+              aria-label={allExpanded ? 'Collapse all' : 'Expand all'}
+            >
+              {allExpanded ? <IconCollapseAll /> : <IconExpandAll />}
             </button>
             <div className="dt-filter-separator" />
             <input

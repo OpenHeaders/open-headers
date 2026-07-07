@@ -230,6 +230,26 @@ describe('ConsoleView network join (browser-plane entries)', () => {
     expect(frames[1].textContent).toContain('reducer.ts:1152');
   });
 
+  it('expand-all opens every stack ladder and flips to collapse-all', () => {
+    const second = entry('boom', {
+      level: 'error',
+      source: 'exception',
+      stackTrace: [{ functionName: 'f', url: 'https://openheaders.io/app.js', lineNumber: 41, columnNumber: 2 }],
+    });
+    const { container } = renderView([blocked, second], { resolveRequest: () => join });
+    const toggle = screen.getByRole('button', { name: 'Expand all' });
+    fireEvent.click(toggle);
+    expect(container.querySelectorAll('.dt-console-stack')).toHaveLength(2);
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse all' }));
+    expect(container.querySelectorAll('.dt-console-stack')).toHaveLength(0);
+  });
+
+  it('disables the expand-all toggle when no visible row carries a stack', () => {
+    renderView([entry('plain log')]);
+    const toggle = screen.getByRole('button', { name: 'Expand all' }) as HTMLButtonElement;
+    expect(toggle.disabled).toBe(true);
+  });
+
   it('opens the Sources panel from the location column and from a stack frame', () => {
     const openResource = vi.fn();
     installNavigation(openResource);
