@@ -29,12 +29,3 @@ export function formatMs(ms: number): string {
   return `${(ms / 1000).toFixed(2)} s`;
 }
 
-// Webpack-style sources look like `webpack:///./src/runtime/load_script.js`.
-// Strip protocol + path, keep the trailing filename, drop trailing `.js`/`.ts`.
-// Matches Chrome's `load_script:64` rendering when the file is `load_script.js`.
-export function basenameOfSource(source: string): string {
-  const stripped = source.replace(/^[^:]+:\/+/, '');
-  const parts = stripped.split('/');
-  const last = parts[parts.length - 1] || stripped;
-  return last.replace(/\.[a-z]+$/i, '');
-}

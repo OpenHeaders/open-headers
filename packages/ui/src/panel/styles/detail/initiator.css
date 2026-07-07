@@ -3,15 +3,22 @@
 .dt-initiator-view {
   padding: 4px 0;
 }
+/* The section is the grid; each frame spans it via subgrid so the `@`
+   location column lines up ACROSS rows (the browser's two-column stack
+   layout), not per-row. `fit-content` caps a pathological function name
+   at half the panel instead of pushing every location off-screen. */
 .dt-initiator-stack {
   padding: 2px 0 2px 12px;
   font-family: monospace;
   font-size: 11px;
   line-height: 1.8;
+  display: grid;
+  grid-template-columns: fit-content(50%) 1fr;
 }
 .dt-initiator-frame {
+  grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: minmax(0, max-content) 1fr;
+  grid-template-columns: subgrid;
   gap: 10px;
   align-items: baseline;
   padding: 0 8px;
@@ -42,8 +49,10 @@
 .dt-initiator-fn--third-party {
   color: var(--dt-text-muted);
 }
+/* Location column starts at the shared `@` column edge (browser layout),
+   instead of hugging the panel's right edge. */
 .dt-initiator-loc {
-  justify-self: end;
+  justify-self: start;
   color: var(--dt-text-muted);
   font-size: 11px;
   font-family: monospace;
@@ -52,6 +61,11 @@
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
+}
+.dt-initiator-loc-at {
+  color: var(--dt-text-muted);
+  margin-right: 5px;
+  flex-shrink: 0;
 }
 .dt-initiator-loc-file {
   color: var(--dt-link);

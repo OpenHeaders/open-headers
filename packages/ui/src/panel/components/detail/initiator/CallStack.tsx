@@ -7,8 +7,12 @@ import {
   computeFrameLocation,
   formatCallStackForCopy,
 } from '../../../data/initiator/call-frame-meta';
-import { frameKey, useResolvedFrames, type ResolvedFramePosition } from '../../../data/initiator/use-resolved-frames';
-import { basenameOfSource } from './utils';
+import {
+  frameKey,
+  type ResolvedFramePosition,
+  sourceFileLabel,
+  useResolvedFrames,
+} from '../../../data/initiator/use-resolved-frames';
 
 export interface CallFrame {
   functionName?: string;
@@ -36,21 +40,16 @@ function FrameRow({
   const meta = computeCallFrameMeta(frame, pageOrigin);
   const loc = computeFrameLocation(frame);
 
-  // Display-name policy (matches Chrome's panel):
-  //
-  //   - When source-map resolution gave us a source file at this
-  //     position, show `(anonymous)`. The V8 name describes the
-  //     *generated* code (post-minify, post-bundle); pairing it with
-  //     the resolved *original* file mixes two different worlds and
-  //     reads as a contradiction (`b.l (requestAnimationFrame) @
-  //     lazy-define:53` — three identifiers for the same callable).
-  //   - When source-map resolution failed, fall back to the V8 name
-  //     (already de-property-accessed by `computeCallFrameMeta` — see
-  //     the `(anonymous)` treatment for `b.l`-style names).
+  // Display-name policy (matches the browser's panel): prefer the source
+  // map's ORIGINAL name when resolution yielded one, else keep the V8 name —
+  // the browser pairs the generated function name with the resolved file
+  // (`sendEvent @ hydro-analytics.ts:120`), so we do too. `(anonymous)` only
+  // when neither side names the frame (V8 property-access names already
+  // collapse to `(anonymous)` in `computeCallFrameMeta`).
   const hasResolvedFile = resolved?.source != null;
-  const displayName = hasResolvedFile ? '(anonymous)' : meta.displayName;
+  const displayName = resolved?.name ?? meta.displayName;
   const treatAsAnonymous = displayName === '(anonymous)';
-  const treatAsMinified = !treatAsAnonymous && meta.isMinifiedName;
+  const treatAsMinified = !treatAsAnonymous && resolved?.name == null && meta.isMinifiedName;
   const nameClass = [
     'dt-initiator-fn',
     treatAsAnonymous ? 'dt-initiator-fn--anonymous' : null,
@@ -61,14 +60,16 @@ function FrameRow({
     .filter(Boolean)
     .join(' ');
 
-  // Right column: prefer resolved file:line when we have one (Chrome's
-  // approach), else fall back to the generated URL filename:line[:col].
-  // We intentionally drop the column on resolved positions — original
-  // sources have meaningful line numbers, and the column adds visual
-  // clutter without helping the user. For the unresolved fallback we
-  // keep the column because minified single-line bundles are all
-  // line=1 so the column is the only differentiator.
-  const resolvedFile = hasResolvedFile && resolved?.source ? basenameOfSource(resolved.source) : null;
+  // Right column: prefer resolved file:line when we have one (the
+  // browser's approach), else fall back to the generated URL
+  // filename:line[:col]. The resolved label is the source's last path
+  // segment VERBATIM — extension kept (`hydro-analytics.ts:120`), exactly
+  // as the browser renders it. We intentionally drop the column on
+  // resolved positions — original sources have meaningful line numbers,
+  // and the column adds visual clutter without helping the user. For the
+  // unresolved fallback we keep the column because minified single-line
+  // bundles are all line=1 so the column is the only differentiator.
+  const resolvedFile = hasResolvedFile && resolved?.source ? sourceFileLabel(resolved.source) : null;
   const resolvedLineSuffix = resolved?.line != null ? `:${resolved.line + 1}` : '';
   const displayFile = resolvedFile ?? loc.filename;
   const displayLineSuffix = resolvedFile ? resolvedLineSuffix : loc.lineSuffix;
@@ -92,17 +93,33 @@ function FrameRow({
             title={hasResolvedFile ? `${frame.url} (original: ${resolved?.source ?? ''})` : frame.url}
             onClick={handleOpen}
           >
+            <span className="dt-initiator-loc-at">@</span>
             <span className="dt-initiator-loc-file">{displayFile}</span>
             <span className="dt-initiator-loc-line">{displayLineSuffix}</span>
           </button>
         ) : (
           <span className="dt-initiator-loc" title={frame.url}>
+            <span className="dt-initiator-loc-at">@</span>
             <span className="dt-initiator-loc-file">{displayFile}</span>
             <span className="dt-initiator-loc-line">{displayLineSuffix}</span>
           </span>
         ))}
     </div>
   );
+}
+
+/**
+ * Async-boundary label for a section. The wire description for an await
+ * boundary is the bare `await`; the browser's panel names the async
+ * function whose continuation sits directly above the boundary (the last
+ * frame of the preceding section) — `await in listModels` — so we do too.
+ */
+function asyncSectionLabel(description: string | undefined, previous: CopyStackInput | undefined): string {
+  const base = description ?? 'Async call';
+  if (base !== 'await') return base;
+  const frames = previous?.callFrames ?? [];
+  const name = frames[frames.length - 1]?.functionName?.trim();
+  return name ? `await in ${name}` : base;
 }
 
 /** Flattens an async-stack chain into a `[{ description, callFrames }]`
@@ -114,7 +131,7 @@ function flattenStack(stack: StackTrace): CopyStackInput[] {
   let isFirst = true;
   while (cur) {
     out.push({
-      description: isFirst ? undefined : cur.description ?? 'Async call',
+      description: isFirst ? undefined : asyncSectionLabel(cur.description, out[out.length - 1]),
       callFrames: cur.callFrames ?? [],
     });
     cur = cur.parent;
