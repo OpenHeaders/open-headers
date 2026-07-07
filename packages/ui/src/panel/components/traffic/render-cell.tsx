@@ -2,6 +2,7 @@ import { hostNavigation } from '@openheaders/core/navigation';
 import type { ConnectionOpener } from '../../data/connection-openers';
 import { currentHarEntry, effectiveResourceType, type InspectorRowWithFires } from '../../data/inspector-row-projection';
 import {
+  classifyRequestState,
   hasObservedResponseData,
   isDimStatusCell,
   isPreservedUnknown,
@@ -67,9 +68,13 @@ export function renderCell(col: ColumnDef, row: InspectorRowWithFires, sizeInfo:
   if (col.key === 'name') {
     const rawType = normalizeResourceType(effectiveResourceType(lc));
     const { name } = extractName(lc.url);
+    // Blocked / net-failed / HTTP-error rows swap the type icon for the
+    // browser's red ✕ badge (same rule as its Name column and console rows).
+    const state = classifyRequestState(lc);
+    const failed = state.kind === 'blocked' || state.kind === 'failed' || state.kind === 'httpError';
     return (
       <span className="dt-col-name">
-        <ResourceIcon type={rawType} />
+        <ResourceIcon type={rawType} failed={failed} />
         <span className="dt-col-name-text">{name}</span>
       </span>
     );

@@ -1,6 +1,21 @@
-export default function ResourceIcon({ type }: { type: string }) {
+export default function ResourceIcon({ type, failed }: { type: string; failed?: boolean }) {
   const rt = type.toLowerCase();
   const cls = `dt-resource-icon dt-resource-icon--${rt}`;
+  // A failed request replaces its type icon with the browser's error badge —
+  // the same red disc + white ✕ its console rows carry.
+  if (failed)
+    return (
+      <svg
+        className={`${cls} dt-resource-icon--failed`}
+        viewBox="0 0 12 12"
+        width={12}
+        height={12}
+        aria-hidden="true"
+      >
+        <circle cx="6" cy="6" r="6" fill="var(--dt-status-red)" />
+        <path d="M3.8 3.8 L8.2 8.2 M8.2 3.8 L3.8 8.2" stroke="#fff" strokeWidth={1.4} strokeLinecap="round" />
+      </svg>
+    );
   if (rt === 'document' || rt === 'main_frame' || rt === 'sub_frame')
     return (
       <svg className={cls} viewBox="0 0 12 12" width={12} height={12} aria-hidden="true">
