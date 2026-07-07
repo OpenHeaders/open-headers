@@ -9,7 +9,7 @@
  * for the resolved mode.
  *
  * The variant also publishes a Monaco theme id (`monacoTheme`) so
- * editor surfaces — CodeEditor, ScriptEditor, CodeViewer, MergePane,
+ * editor surfaces — CodeEditor, CodeViewer, MergePane,
  * RichDiffEditor — switch in lockstep with the surrounding UI.
  *
  * The `useTheme()` API surface stays compatible with existing callers:

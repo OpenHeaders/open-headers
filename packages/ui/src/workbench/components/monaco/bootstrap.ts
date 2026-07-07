@@ -1,6 +1,6 @@
 /**
  * One-time Monaco initialization shared by every editor surface
- * (ScriptEditor, CodeEditor, CodeViewer). Monaco ships in
+ * (CodeEditor, CodeViewer). Monaco ships in
  * `node_modules/monaco-editor` via package.json — we do NOT fetch
  * anything over the network. We just tell `@monaco-editor/react`
  * to use the bundled copy instead of its default AMD bootstrap, and

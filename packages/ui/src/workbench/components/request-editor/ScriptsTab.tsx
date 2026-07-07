@@ -4,19 +4,24 @@
  * `(i)` popover explaining when that script runs and its `oh.*` API —
  * the editor pane itself stays chrome-free.
  *
- * The editor starts empty. A single-line ghost hint floats over the
- * blank buffer so new authors aren't left staring at a raw line 1
- * marker, but the hint is NOT actual script content — the draft's
- * script stays empty until the user types, so the dirty fingerprint
- * and the Save path don't have to treat example code as meaningful.
+ * The editor is the shared CodeEditor host (Find / Replace / Format
+ * corner actions, Prettier-backed `editor.action.formatDocument`) with
+ * a native Monaco ghost placeholder — the hint is NOT actual script
+ * content, so the draft stays empty until the user types and the dirty
+ * fingerprint never sees example code. A floating action bar inside the
+ * editor's bottom-right corner hosts the snippets menu (ready-made
+ * `oh.*` examples, inserted at the cursor) and a Format shortcut.
  */
 
+import { AlignLeftOutlined } from '@ant-design/icons';
 import type { ScriptKind } from '@openheaders/core/scripts';
-import { theme } from 'antd';
+import { Button, Divider, Tooltip, theme } from 'antd';
+import type * as monaco from 'monaco-editor';
 import type React from 'react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
-import ScriptEditor from '../script-editor/ScriptEditor';
+import ScriptSnippetsMenu from '../script-editor/ScriptSnippetsMenu';
+import CodeEditor from '../shared/CodeEditor';
 
 interface ScriptsTabProps {
   preRequestScript: string;
@@ -34,6 +39,7 @@ const SCRIPT_INFO: Record<ScriptKind, InfoPopoverContent> = {
         heading: 'API',
         items: [
           { label: 'oh.setHeader(name, value)', desc: 'add or replace a header' },
+          { label: 'oh.setQueryParam(name, value)', desc: 'add or replace a query parameter' },
           { label: 'oh.setUrl(url)', desc: 'rewrite the target URL' },
           { label: 'oh.setBody(body)', desc: 'replace the request body' },
         ],
@@ -52,6 +58,11 @@ const SCRIPT_INFO: Record<ScriptKind, InfoPopoverContent> = {
   },
 };
 
+const SCRIPT_PLACEHOLDER: Record<ScriptKind, string> = {
+  'pre-request': 'Use JavaScript to modify this request before it is sent.',
+  'post-response': 'Use JavaScript to test and read this response after it arrives.',
+};
+
 const ScriptsTab: React.FC<ScriptsTabProps> = ({
   preRequestScript,
   postResponseScript,
@@ -60,11 +71,32 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
 }) => {
   const { token } = theme.useToken();
   const [active, setActive] = useState<ScriptKind>('pre-request');
+  const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
 
   const value = active === 'pre-request' ? preRequestScript : postResponseScript;
   const onChange = (v: string) => {
     if (active === 'pre-request') onPreRequestChange(v);
     else onPostResponseChange(v);
+  };
+
+  // Insert at the cursor, always starting on its own line: if the caret
+  // sits mid-line the snippet gets a leading newline, and a trailing one
+  // so typing resumes below it. Falls back to appending through the
+  // draft when Monaco hasn't mounted yet.
+  const insertSnippet = (code: string) => {
+    const editor = editorRef.current;
+    const model = editor?.getModel();
+    const selection = editor?.getSelection();
+    if (!editor || !model || !selection) {
+      onChange(value.trim() ? `${value.replace(/\n$/, '')}\n${code}\n` : `${code}\n`);
+      return;
+    }
+    const lineContent = model.getLineContent(selection.startLineNumber);
+    const prefix = lineContent.slice(0, selection.startColumn - 1).trim() ? '\n' : '';
+    editor.executeEdits('snippets', [{ range: selection, text: `${prefix}${code}\n` }]);
+    editor.focus();
+    const position = editor.getPosition();
+    if (position) editor.revealPositionInCenterIfOutsideViewport(position);
   };
 
   const Rail: React.FC<{ kind: ScriptKind; label: string }> = ({ kind, label }) => {
@@ -126,9 +158,50 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
         <Rail kind="pre-request" label="Pre-request" />
         <Rail kind="post-response" label="Post-response" />
       </div>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        <div style={{ flex: 1, minHeight: 300 }}>
-          <ScriptEditor kind={active} value={value} onChange={onChange} />
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, position: 'relative' }}>
+        <CodeEditor
+          language="javascript"
+          value={value}
+          onChange={onChange}
+          minHeight={300}
+          placeholder={SCRIPT_PLACEHOLDER[active]}
+          onEditorMount={(editor) => {
+            editorRef.current = editor;
+          }}
+        />
+        {/* Floating action bar INSIDE the editor surface, bottom-right —
+            above Monaco's horizontal scrollbar and clear of the resize
+            grip strip (12px) below the buffer. z-index 12 matches the
+            editor's corner action cluster. */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 34,
+            right: 26,
+            zIndex: 12,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
+            padding: '2px 4px',
+            background: token.colorBgElevated,
+            border: `1px solid ${token.colorBorderSecondary}`,
+            borderRadius: 8,
+            boxShadow: token.boxShadowTertiary,
+          }}
+        >
+          <ScriptSnippetsMenu kind={active} onInsert={insertSnippet} />
+          <Divider type="vertical" style={{ margin: 0 }} />
+          <Tooltip title="Format" placement="top">
+            <Button
+              size="small"
+              type="text"
+              icon={<AlignLeftOutlined />}
+              aria-label="Format script"
+              onClick={() => {
+                void editorRef.current?.getAction('editor.action.formatDocument')?.run();
+              }}
+            />
+          </Tooltip>
         </div>
       </div>
     </div>

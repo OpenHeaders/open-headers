@@ -163,6 +163,10 @@ interface OpenHeaders {
   setMethod(method: OhHttpMethod): void;
   setHeader(key: string, value: string): void;
   removeHeader(key: string): void;
+  /** Query-param keys are case-sensitive (unlike header names) —
+   *  replaces the first row with that exact key, else appends. */
+  setQueryParam(key: string, value: string): void;
+  removeQueryParam(key: string): void;
   setBody(body: OhBodyInit): void;
 }
 
