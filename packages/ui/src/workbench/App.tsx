@@ -817,6 +817,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     openEnvironmentEdit,
     openWorkspaceVariables,
     openVault,
+    openLiveVariables,
     onOpenCreateMenu: openCreateMenu,
     onTogglePanel: togglePanel,
     onToggleActivityFeed: () => tl.toggleWindow('activity'),

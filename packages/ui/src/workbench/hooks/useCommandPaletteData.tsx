@@ -34,6 +34,7 @@ interface UseCommandPaletteDataOptions {
   openEnvironmentEdit: (uid: string, name: string) => void;
   openWorkspaceVariables: () => void;
   openVault: () => void;
+  openLiveVariables: () => void;
   onOpenCreateMenu: () => void;
   onTogglePanel: (panel: 'sidebar' | 'bottomPanel' | 'inspector') => void;
   onToggleActivityFeed: () => void;
@@ -61,6 +62,7 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
     openEnvironmentEdit,
     openWorkspaceVariables,
     openVault,
+    openLiveVariables,
     onOpenCreateMenu,
     onTogglePanel,
     onToggleActivityFeed,
@@ -326,6 +328,12 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
         label: 'Open Vault',
         onSelect: openVault,
       },
+      {
+        id: 'cmd-open-live-vars',
+        icon: scopeBadge('live'),
+        label: 'Open Live Variables',
+        onSelect: openLiveVariables,
+      },
       ...environments.map((env) => ({
         id: `cmd-open-env-${env.uid}`,
         icon: scopeBadge('environment'),
@@ -357,6 +365,7 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
     openEnvironmentEdit,
     openWorkspaceVariables,
     openVault,
+    openLiveVariables,
   ]);
 
   return { groups, sections };

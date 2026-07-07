@@ -64,6 +64,33 @@ export function scopeBadge(scope: ScopeKey, size = 14, muted = false): React.Rea
   );
 }
 
+/** Grey-filled variant of `scopeBadge` — same letter and footprint,
+ *  neutral palette. Used for "none selected" states (e.g. the
+ *  "No environment" row keeps the "E" glyph but drops the green). */
+export function neutralScopeBadge(scope: ScopeKey, size = 14): React.ReactNode {
+  const { letter } = SCOPE_COLORS[scope];
+  return createElement(
+    'span',
+    {
+      style: {
+        width: size,
+        height: size,
+        borderRadius: Math.round(size * 0.25),
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: size * 0.65,
+        fontWeight: 700,
+        color: 'var(--scope-neutral-color)',
+        background: 'var(--scope-neutral-bg)',
+        flexShrink: 0,
+        lineHeight: 1,
+      },
+    },
+    letter,
+  );
+}
+
 /** Neutral "?" badge for a reference that resolved to no scope. Same
  *  footprint as `scopeBadge` so it lines up in a glyph column; styled
  *  like the muted variant (gray outline, no fill). */

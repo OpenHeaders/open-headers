@@ -1258,6 +1258,8 @@
   --scope-file-bg:           #E2E8F0;
   --scope-dynamic-color:     #737373;
   --scope-dynamic-bg:        #F5F5F4;
+  --scope-neutral-color:     #595959;
+  --scope-neutral-bg:        #F0F0F0;
 }
 
 [data-theme='dark'] {
@@ -1277,6 +1279,8 @@
   --scope-file-bg:           #1E293B;
   --scope-dynamic-color:     #A3A3A3;
   --scope-dynamic-bg:        #262626;
+  --scope-neutral-color:     #A6A6A6;
+  --scope-neutral-bg:        #333333;
 }
 
 /* Docs panel inline code — grey pill matching the (i) info-popover code

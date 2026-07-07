@@ -10,7 +10,6 @@ import {
   EditOutlined,
   FolderOpenFilled,
   FolderOpenOutlined,
-  GlobalOutlined,
   PlusOutlined,
   PushpinFilled,
   PushpinOutlined,
@@ -23,7 +22,7 @@ import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useEnvSwitcher } from '../../services/env-switcher';
 import { useSetting } from '../../settings/hooks';
-import { scopeBadge } from '../shared/scope-colors';
+import { neutralScopeBadge, scopeBadge } from '../shared/scope-colors';
 
 const { Text } = Typography;
 
@@ -298,9 +297,7 @@ const NoEnvRow: React.FC<NoEnvRowProps> = ({ activeEnvironmentId, onSelect }) =>
       onMouseLeave={() => setHovered(false)}
       onClick={onSelect}
     >
-      <GlobalOutlined
-        style={{ fontSize: 14, color: isActive ? token.colorPrimaryText : token.colorTextQuaternary }}
-      />
+      {neutralScopeBadge('environment', 14)}
       <Text
         style={{
           flex: 1,
@@ -800,11 +797,14 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
       >
         <Space size={compact ? 4 : 6}>
           {pinnedByTab && <PushpinFilled style={{ fontSize: 10, color: token.colorPrimary }} />}
-          {active ? (
-            scopeBadge('environment', 12)
-          ) : (
-            <GlobalOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />
-          )}
+          {/* Optical lift: flex centers the badge against the text's full
+            * line box (descender leading included), so a mathematically
+            * centered badge reads low next to the cap glyphs. Relative
+            * offset, not margin — margin on the sole child of a centered
+            * flex item is swallowed by re-centering. */}
+          <span style={{ display: 'inline-flex', position: 'relative', top: -1 }}>
+            {active ? scopeBadge('environment', 12) : neutralScopeBadge('environment', 12)}
+          </span>
           <Text
             style={{
               maxWidth: compact ? 120 : 140,
