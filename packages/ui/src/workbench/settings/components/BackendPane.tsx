@@ -25,6 +25,7 @@ import { useEffect, useState } from 'react';
 import { hasCapability } from '@openheaders/core/capabilities';
 import { getCurrentHost, type Host } from '../../../shared/host-vocabulary';
 import { useOptionalInspectorNav } from '../../hooks/useInspectorNav';
+import { useOptionalSettingsHost } from './settings-host-context';
 import type { BackendMode } from '../schema/backend';
 import { backendModeIsPending } from '../schema/backend';
 import { useSetting, useSettingValue } from '../hooks';
@@ -292,15 +293,18 @@ const RePairBanner: React.FC<{ mode: BackendMode; host: Host }> = ({ mode, host 
  * "Learn more" link to the back-end diagram in the docs. When the
  * inspector-nav provider isn't mounted (e.g. settings opened from a
  * surface that doesn't host the docs panel), the link silently hides.
+ * A modal host is dismissed on click — the docs open behind it.
  */
 const DocsLink: React.FC = () => {
   const nav = useOptionalInspectorNav();
+  const host = useOptionalSettingsHost();
   if (!nav) return null;
   return (
     <Typography.Link
       onClick={(e) => {
         e.preventDefault();
         nav.openDocs('paradigm');
+        host?.close();
       }}
       style={{ fontSize: 12, whiteSpace: 'nowrap' }}
     >

@@ -15,8 +15,9 @@
 import { CloseOutlined, ExportOutlined, FullscreenExitOutlined, FullscreenOutlined } from '@ant-design/icons';
 import { Button, Modal, Tooltip, theme } from 'antd';
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import SettingsShell from './SettingsShell';
+import { SettingsHostContext } from './settings-host-context';
 
 interface SettingsModalProps {
   open: boolean;
@@ -42,6 +43,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   onPromoteToTab,
 }) => {
   const { token } = theme.useToken();
+  const host = useMemo(() => ({ close: onClose }), [onClose]);
   const [maximized, setMaximized] = useState(initialMaximized);
   useEffect(() => {
     if (open) setMaximized(initialMaximized);
@@ -118,7 +120,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
       </div>
       <div style={{ flex: 1, minHeight: 0 }}>
-        <SettingsShell initialSettingKey={initialSettingKey} initialCategoryId={initialCategoryId} />
+        <SettingsHostContext.Provider value={host}>
+          <SettingsShell initialSettingKey={initialSettingKey} initialCategoryId={initialCategoryId} />
+        </SettingsHostContext.Provider>
       </div>
     </Modal>
   );
