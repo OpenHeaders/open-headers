@@ -241,7 +241,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
                   {
                     key: 'cookies' as ResponseTabKey,
                     label: `Cookies (${setCookieCount})`,
-                    children: <ResponseCookiesView wire={response.wire} />,
+                    children: <ResponseCookiesView wire={response.wire} url={response.url} />,
                   },
                 ]
               : []),

@@ -6,8 +6,10 @@
 import { getCookieAttributeInfoContent } from '@openheaders/ui/shared/info-popover/data/cookie-attributes';
 import {
   cookiePersistenceNote,
+  hostOfUrl,
   parseSetCookieLine,
   parseSetCookieLines,
+  toCookieGridRow,
 } from '@openheaders/ui/workbench/components/request-editor/response/response-cookies';
 import { describe, expect, it } from 'vitest';
 
@@ -49,6 +51,48 @@ describe('cookiePersistenceNote', () => {
   it('says discarded under omit and possibly stored under include', () => {
     expect(cookiePersistenceNote('omit')).toContain('discarded');
     expect(cookiePersistenceNote('include')).toContain('stored');
+  });
+});
+
+describe('toCookieGridRow', () => {
+  it('fills RFC defaults: host-only Domain, root Path, Session expiry', () => {
+    const row = toCookieGridRow(parseSetCookieLine('oh_cred=present; SameSite=None; Secure'), 'api.openheaders.io');
+    expect(row).toEqual({
+      name: 'oh_cred',
+      value: 'present',
+      domain: 'api.openheaders.io',
+      path: '/',
+      expires: 'Session',
+      httpOnly: false,
+      secure: true,
+      sameSite: 'None',
+      raw: 'oh_cred=present; SameSite=None; Secure',
+    });
+  });
+
+  it('keeps explicit attributes verbatim, case-insensitively', () => {
+    const row = toCookieGridRow(
+      parseSetCookieLine('sid=1; domain=.openheaders.io; path=/app; expires=Wed, 08 Jul 2026 00:00:00 GMT; httponly'),
+      'api.openheaders.io',
+    );
+    expect(row.domain).toBe('.openheaders.io');
+    expect(row.path).toBe('/app');
+    expect(row.expires).toBe('Wed, 08 Jul 2026 00:00:00 GMT');
+    expect(row.httpOnly).toBe(true);
+    expect(row.secure).toBe(false);
+    expect(row.sameSite).toBe('—');
+  });
+
+  it('reports Max-Age when Expires is absent', () => {
+    const row = toCookieGridRow(parseSetCookieLine('sid=1; Max-Age=3600'), 'openheaders.io');
+    expect(row.expires).toBe('Max-Age=3600');
+  });
+});
+
+describe('hostOfUrl', () => {
+  it('returns the host with port, and empty for an unparseable URL', () => {
+    expect(hostOfUrl('https://api.openheaders.io:8443/v1/users')).toBe('api.openheaders.io:8443');
+    expect(hostOfUrl('not a url')).toBe('');
   });
 });
 

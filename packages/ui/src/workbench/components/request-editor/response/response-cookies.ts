@@ -49,6 +49,58 @@ export function parseSetCookieLines(lines: readonly string[]): ParsedSetCookie[]
   return lines.map(parseSetCookieLine);
 }
 
+/** Columnar view of one cookie, derived at consume from the raw line —
+ *  the shape the grid renders (one attribute per column, RFC defaults
+ *  filled in explicitly). */
+export interface CookieGridRow {
+  name: string;
+  value: string;
+  domain: string;
+  path: string;
+  /** `Expires` verbatim, else `Max-Age` as `Max-Age=n`, else `Session`. */
+  expires: string;
+  httpOnly: boolean;
+  secure: boolean;
+  sameSite: string;
+  /** The wire line verbatim — what copy copies. */
+  raw: string;
+}
+
+function attributeValue(cookie: ParsedSetCookie, key: string): string | undefined {
+  const hit = cookie.attributes.find((a) => a.key.toLowerCase() === key.toLowerCase());
+  return hit ? (hit.value ?? '') : undefined;
+}
+
+/**
+ * Derive the grid columns for one parsed cookie. `requestHost` fills
+ * the Domain column when the line carries no `Domain` attribute — per
+ * RFC 6265 such a cookie is host-only, scoped to the request host.
+ */
+export function toCookieGridRow(cookie: ParsedSetCookie, requestHost: string): CookieGridRow {
+  const maxAge = attributeValue(cookie, 'Max-Age');
+  const expiresAttr = attributeValue(cookie, 'Expires');
+  return {
+    name: cookie.name,
+    value: cookie.value,
+    domain: attributeValue(cookie, 'Domain') || requestHost,
+    path: attributeValue(cookie, 'Path') || '/',
+    expires: expiresAttr || (maxAge !== undefined ? `Max-Age=${maxAge}` : 'Session'),
+    httpOnly: attributeValue(cookie, 'HttpOnly') !== undefined,
+    secure: attributeValue(cookie, 'Secure') !== undefined,
+    sameSite: attributeValue(cookie, 'SameSite') || '—',
+    raw: cookie.raw,
+  };
+}
+
+/** Host of the response's final URL — the Domain fallback. */
+export function hostOfUrl(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return '';
+  }
+}
+
 /**
  * Honest persistence line under the grid: what the browser DID with
  * these cookies, which depends on the send's cookie policy, not on the

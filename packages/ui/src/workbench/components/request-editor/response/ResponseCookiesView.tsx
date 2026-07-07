@@ -1,10 +1,13 @@
 /**
- * ResponseCookiesView — grid over the raw `Set-Cookie` lines the wire
- * capture observed for this response, in the headers-grid visual
- * language. Each attribute carries a hover-revealed (i) doc popover
- * (shared cookie-attributes corpus); each row hover-copies its wire
- * line verbatim. A persistence note above the grid says honestly what
- * the browser did with the cookies under this send's credentials mode.
+ * ResponseCookiesView — columnar grid over the raw `Set-Cookie` lines
+ * the wire capture observed: one attribute per column (Domain / Path /
+ * Expires / HttpOnly / Secure / SameSite), derived at consume from the
+ * wire line with RFC defaults filled in explicitly (host-only Domain,
+ * `/` Path, `Session` expiry). Attribute docs (shared cookie-attributes
+ * corpus) ride the column headers as hover-revealed (i); each row
+ * hover-copies its wire line verbatim. A persistence note above the
+ * grid says honestly what the browser did with the cookies under this
+ * send's credentials mode.
  */
 
 import { CheckOutlined, CopyOutlined } from '@ant-design/icons';
@@ -14,12 +17,19 @@ import { getCookieAttributeInfoContent } from '@openheaders/ui/shared/info-popov
 import { Button, Typography, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
-import { cookiePersistenceNote, type ParsedSetCookie, parseSetCookieLines } from './response-cookies';
+import {
+  type CookieGridRow,
+  cookiePersistenceNote,
+  hostOfUrl,
+  parseSetCookieLines,
+  toCookieGridRow,
+} from './response-cookies';
 import './response-headers.css';
 
 const { Text } = Typography;
 
-const GRID_TEMPLATE = 'minmax(120px, 20%) minmax(140px, 1fr) minmax(180px, 38%) 32px';
+const GRID_TEMPLATE =
+  'minmax(80px, 1fr) minmax(100px, 1.4fr) minmax(90px, 1fr) minmax(68px, 0.6fr) minmax(96px, 1fr) 96px 86px 102px 32px';
 
 const cellFont: React.CSSProperties = {
   fontFamily: "'SF Mono', 'Fira Code', monospace",
@@ -38,7 +48,26 @@ function useCopied(): [boolean, (text: string) => void] {
   return [copied, copy];
 }
 
-function CookieGridRow({ cookie }: { cookie: ParsedSetCookie }) {
+function Cell({ children, first = false }: { children: React.ReactNode; first?: boolean }) {
+  const { token } = theme.useToken();
+  return (
+    <span
+      style={{
+        ...cellFont,
+        padding: '6px 10px',
+        color: first ? undefined : token.colorTextSecondary,
+        fontWeight: first ? 600 : undefined,
+        borderLeft: first ? undefined : `1px solid ${token.colorBorderSecondary}`,
+        wordBreak: 'break-all',
+        minWidth: 0,
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
+function CookieRow({ row }: { row: CookieGridRow }) {
   const { token } = theme.useToken();
   const [copied, copy] = useCopied();
   return (
@@ -51,65 +80,55 @@ function CookieGridRow({ cookie }: { cookie: ParsedSetCookie }) {
         borderBottom: `1px solid ${token.colorBorderSecondary}`,
       }}
     >
-      <span style={{ ...cellFont, padding: '6px 10px', fontWeight: 600, wordBreak: 'break-all', minWidth: 0 }}>
-        {cookie.name}
-      </span>
-      <span
-        style={{
-          ...cellFont,
-          padding: '6px 10px',
-          borderLeft: `1px solid ${token.colorBorderSecondary}`,
-          color: token.colorTextSecondary,
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-all',
-          minWidth: 0,
-        }}
-      >
-        {cookie.value}
-      </span>
-      <span
-        style={{
-          ...cellFont,
-          padding: '6px 10px',
-          borderLeft: `1px solid ${token.colorBorderSecondary}`,
-          color: token.colorTextSecondary,
-          display: 'flex',
-          flexWrap: 'wrap',
-          columnGap: 10,
-          rowGap: 2,
-          minWidth: 0,
-        }}
-      >
-        {cookie.attributes.map((attr, i) => (
-          <span
-            key={`${attr.key}:${i}`}
-            style={{ display: 'inline-flex', alignItems: 'baseline', whiteSpace: 'nowrap' }}
-          >
-            <InfoTrigger content={getCookieAttributeInfoContent(attr.key)} className="oh-resp-hdr-info" />
-            <span style={{ wordBreak: 'break-all', whiteSpace: 'normal' }}>
-              {attr.value !== undefined ? `${attr.key}=${attr.value}` : attr.key}
-            </span>
-          </span>
-        ))}
-      </span>
+      <Cell first>{row.name}</Cell>
+      <Cell>{row.value}</Cell>
+      <Cell>{row.domain}</Cell>
+      <Cell>{row.path}</Cell>
+      <Cell>{row.expires}</Cell>
+      <Cell>{String(row.httpOnly)}</Cell>
+      <Cell>{String(row.secure)}</Cell>
+      <Cell>{row.sameSite}</Cell>
       <span style={{ display: 'flex', justifyContent: 'center', paddingTop: 2 }}>
         <Button
           className="oh-resp-hdr-copy"
           size="small"
           type="text"
           icon={copied ? <CheckOutlined /> : <CopyOutlined />}
-          aria-label={copied ? 'Copied' : `Copy Set-Cookie for ${cookie.name}`}
+          aria-label={copied ? 'Copied' : `Copy Set-Cookie for ${row.name}`}
           title={copied ? 'Copied' : 'Copy Set-Cookie line'}
-          onClick={() => copy(cookie.raw)}
+          onClick={() => copy(row.raw)}
         />
       </span>
     </div>
   );
 }
 
-const ResponseCookiesView: React.FC<{ wire: ExecutedWireCapture }> = ({ wire }) => {
+/** Header cell — attribute columns carry the doc (i) for their
+ *  attribute, revealed on header-row hover. */
+function HeaderCell({ label, attrKey, first = false }: { label: string; attrKey?: string; first?: boolean }) {
   const { token } = theme.useToken();
-  const cookies = parseSetCookieLines(wire.setCookieHeaders ?? []);
+  return (
+    <span
+      style={{
+        padding: '6px 10px',
+        borderLeft: first ? undefined : `1px solid ${token.colorBorderSecondary}`,
+        display: 'flex',
+        alignItems: 'baseline',
+        gap: 2,
+        minWidth: 0,
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {label}
+      {attrKey && <InfoTrigger content={getCookieAttributeInfoContent(attrKey)} className="oh-resp-hdr-info" />}
+    </span>
+  );
+}
+
+const ResponseCookiesView: React.FC<{ wire: ExecutedWireCapture; url: string }> = ({ wire, url }) => {
+  const { token } = theme.useToken();
+  const requestHost = hostOfUrl(url);
+  const rows = parseSetCookieLines(wire.setCookieHeaders ?? []).map((c) => toCookieGridRow(c, requestHost));
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', paddingBottom: 8 }}>
@@ -128,6 +147,7 @@ const ResponseCookiesView: React.FC<{ wire: ExecutedWireCapture }> = ({ wire }) 
         }}
       >
         <div
+          className="oh-resp-hdr-row"
           style={{
             display: 'grid',
             gridTemplateColumns: GRID_TEMPLATE,
@@ -142,13 +162,18 @@ const ResponseCookiesView: React.FC<{ wire: ExecutedWireCapture }> = ({ wire }) 
             zIndex: 2,
           }}
         >
-          <span style={{ padding: '6px 10px' }}>Name</span>
-          <span style={{ padding: '6px 10px', borderLeft: `1px solid ${token.colorBorderSecondary}` }}>Value</span>
-          <span style={{ padding: '6px 10px', borderLeft: `1px solid ${token.colorBorderSecondary}` }}>Attributes</span>
+          <HeaderCell label="Name" first />
+          <HeaderCell label="Value" />
+          <HeaderCell label="Domain" attrKey="Domain" />
+          <HeaderCell label="Path" attrKey="Path" />
+          <HeaderCell label="Expires" attrKey="Expires" />
+          <HeaderCell label="HttpOnly" attrKey="HttpOnly" />
+          <HeaderCell label="Secure" attrKey="Secure" />
+          <HeaderCell label="SameSite" attrKey="SameSite" />
           <span />
         </div>
-        {cookies.map((cookie, i) => (
-          <CookieGridRow key={`${cookie.raw}:${i}`} cookie={cookie} />
+        {rows.map((row, i) => (
+          <CookieRow key={`${row.raw}:${i}`} row={row} />
         ))}
       </div>
     </div>
