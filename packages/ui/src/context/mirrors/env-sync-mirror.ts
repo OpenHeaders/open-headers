@@ -8,12 +8,10 @@
  * synchronously without a SW round-trip per write (§19.4).
  */
 
-import type { Environment } from '@openheaders/core/types';
 import { hostBridge } from '@openheaders/core/bridge';
-import {
-  createFlatEntityMirror,
-  type CreateFlatMirrorOptions,
-} from './flat-entity-mirror';
+import { ENV_VARS_PATH } from '@openheaders/core/sync';
+import type { Environment } from '@openheaders/core/types';
+import { type CreateFlatMirrorOptions, createFlatEntityMirror } from './flat-entity-mirror';
 import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
 
 export interface EnvironmentMirrorEntry {
@@ -22,6 +20,9 @@ export interface EnvironmentMirrorEntry {
    *  array is the projected names list (used by the resolver + DNR
    *  recompile dependency tracking). */
   varUids: string[];
+  /** Per-uid order keys at each set path (the vars set, keyed by
+   *  `ENV_VARS_PATH`). Feeds the editor's position-preserving Save. */
+  setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;
 }
 
 export type EnvironmentMirrorListener = (envId: string) => void;
@@ -30,6 +31,9 @@ export interface EnvSyncMirror {
   getEnvironmentMirror(envId: string): EnvironmentMirrorEntry | null;
   /** Live variable uids at the env, `[]` when unknown. */
   liveVarNames(envId: string): string[];
+  /** Live `(itemId, orderKey)` pairs for the env's variables set, in
+   *  fractional-index order. `[]` when the env is unknown. */
+  liveVarOrderKeys(envId: string): Array<{ itemId: string; orderKey: string }>;
   subscribeEnvironmentMirror(envId: string, listener: EnvironmentMirrorListener): () => void;
   hydrated: Promise<void>;
   dispose(): void;
@@ -37,10 +41,7 @@ export interface EnvSyncMirror {
 
 export type CreateEnvSyncMirrorOptions = CreateFlatMirrorOptions;
 
-export function createEnvSyncMirror(
-  workspaceId: string,
-  options: CreateEnvSyncMirrorOptions = {},
-): EnvSyncMirror {
+export function createEnvSyncMirror(workspaceId: string, options: CreateEnvSyncMirrorOptions = {}): EnvSyncMirror {
   const core = createFlatEntityMirror<EnvironmentMirrorEntry>(
     {
       loggerTag: 'EnvSyncMirror',
@@ -55,6 +56,7 @@ export function createEnvSyncMirror(
           entry: {
             environment: environmentPostState.environment,
             varUids: environmentPostState.varUids,
+            setOrderKeys: environmentPostState.setOrderKeys,
           },
         };
       },
@@ -62,7 +64,7 @@ export function createEnvSyncMirror(
         const resp = await hostBridge.call('oh.sync.snapshotEnvironments', { workspaceId });
         return resp.entries.map((e) => ({
           uid: e.environment.uid,
-          entry: { environment: e.environment, varUids: e.varUids },
+          entry: { environment: e.environment, varUids: e.varUids, setOrderKeys: e.setOrderKeys },
         }));
       },
     },
@@ -71,6 +73,7 @@ export function createEnvSyncMirror(
   return {
     getEnvironmentMirror: core.get,
     liveVarNames: (envId) => core.get(envId)?.varUids ?? [],
+    liveVarOrderKeys: (envId) => core.get(envId)?.setOrderKeys[ENV_VARS_PATH] ?? [],
     subscribeEnvironmentMirror: core.subscribe,
     hydrated: core.hydrated,
     dispose: core.dispose,
@@ -87,8 +90,8 @@ export function createEnvSyncMirror(
 // `oh.sync.snapshotX, { workspaceId }` (M-1). Cross-workspace
 // contamination is structurally inexpressible.
 
-const envSyncMirrorRegistry = createWorkspaceMirrorRegistry<EnvSyncMirror>(
-  (workspaceId) => createEnvSyncMirror(workspaceId),
+const envSyncMirrorRegistry = createWorkspaceMirrorRegistry<EnvSyncMirror>((workspaceId) =>
+  createEnvSyncMirror(workspaceId),
 );
 
 export function getEnvSyncMirrorForWorkspace(workspaceId: string): EnvSyncMirror {

@@ -21,7 +21,6 @@ import type {
   LiveValueRecord,
   LiveVariable,
   LiveWorkflow,
-  OAuth2Auth,
   Request,
   Rule,
   ScriptPackage,
@@ -107,6 +106,13 @@ export interface SyncEnvironmentPostState {
   environment: Environment;
   /** Live variable uids — the set-member identity (uid) for env vars. */
   varUids: string[];
+  /**
+   * Live `(itemId, orderKey)` pairs at the env variables set (§23.5).
+   * Renderer-side mirrors fold this so the environment editor's Save can
+   * preserve row position on a content edit (re-emit `addToSet` with the
+   * existing key) and compute `keyBetween(prev, next)` on reorder/insert.
+   */
+  setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;
 }
 
 /**

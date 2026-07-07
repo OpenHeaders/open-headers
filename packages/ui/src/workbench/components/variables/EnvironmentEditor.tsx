@@ -55,11 +55,11 @@ const EMPTY_VARS: Variable[] = [];
 
 const SURFACE_ID = 'workbench';
 
-// Order-sensitive signature — `stableStringify` preserves array order
-// while sorting object keys, so reorder shows up as a real edit (it's a
-// user-visible change you'd save). Reorder convergence is tracked
-// separately by the conflict adapter via `formSetOrders` for the
-// set-reorder kind.
+// Order-SENSITIVE signature — env variables now persist their row order as
+// fractional-index keys (see `applyEnvVariablesReplacement`), so the
+// materialized order matches the editor's. Order-sensitivity is therefore
+// correct AND load-bearing: a drag-reorder shifts the fingerprint, flips
+// `isDirty`, and Save persists the new order.
 function variablesSignature(vars: readonly Variable[]): string {
   return stableStringify(vars);
 }

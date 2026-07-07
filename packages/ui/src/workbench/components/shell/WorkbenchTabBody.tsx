@@ -448,7 +448,7 @@ const WorkbenchTabBody: React.FC<WorkbenchTabBodyProps> = ({
         registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
         onCreated={(wf) =>
           replaceTab(tab.id, {
-            id: `live-workflow-${wf.uid}`,
+            id: `live-wf-${wf.uid}`,
             label: wf.name,
             ruleType: '',
             dirty: false,

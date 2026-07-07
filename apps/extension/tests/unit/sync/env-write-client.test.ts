@@ -17,12 +17,7 @@
  */
 
 import type { MutationBatch, MutatorContext, SideEffectIntent } from '@openheaders/core/sync';
-import {
-  advanceHlc,
-  ENV_VARS_PATH,
-  ENVIRONMENT_ENTITY_TYPE,
-  initialHlc,
-} from '@openheaders/core/sync';
+import { advanceHlc, ENV_VARS_PATH, ENVIRONMENT_ENTITY_TYPE, initialHlc } from '@openheaders/core/sync';
 import type { Variable } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -42,6 +37,7 @@ vi.mock('@utils/logger', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
+import type { RendererContextHandle } from '@openheaders/ui/context';
 import {
   applyEnvironmentCreate,
   applyEnvironmentDelete,
@@ -49,8 +45,23 @@ import {
   applyEnvSetVar,
   applyEnvVariablesReplacement,
   applyRenameEnvironment,
+  type EnvSyncMirror,
 } from '@openheaders/ui/shared/sync/env-write-client';
-import type { RendererContextHandle } from '@openheaders/ui/context';
+
+/** Minimal EnvSyncMirror stub — supplies the current per-uid order keys
+ *  the replacement helper reads to preserve row position. Keys are a
+ *  monotonic single-char sequence in the given uid order. */
+function mockMirror(orderedUids: readonly string[]): EnvSyncMirror {
+  const entries = orderedUids.map((uid, i) => ({ itemId: uid, orderKey: String.fromCharCode(0x6d + i) }));
+  return {
+    hydrated: Promise.resolve(),
+    liveVarOrderKeys: () => entries,
+    getEnvironmentMirror: () => null,
+    liveVarNames: () => [],
+    subscribeEnvironmentMirror: () => () => undefined,
+    dispose: () => undefined,
+  };
+}
 
 function makeContextHandle(workspaceId = 'ws-1', surfaceId = 'workbench'): RendererContextHandle {
   let hlc = initialHlc(`${surfaceId}-test`, 0);
@@ -217,6 +228,7 @@ describe('applyEnvVariablesReplacement', () => {
       workspaceId: 'ws-1',
       surfaceId: 'workbench',
       context: makeContextHandle(),
+      mirror: mockMirror(['v1']),
     });
     expect(result).toEqual({ ok: true });
     expect(mockCall).not.toHaveBeenCalled();
@@ -224,11 +236,7 @@ describe('applyEnvVariablesReplacement', () => {
 
   it('emits removeFromSet per vanished uid + addToSet per added uid + addToSet per same-uid edit', async () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
-    const oldVars = [
-      variable('v1', 'KEEP', 'keep'),
-      variable('v2', 'GONE', 'gone'),
-      variable('v3', 'RENAMED', 'val'),
-    ];
+    const oldVars = [variable('v1', 'KEEP', 'keep'), variable('v2', 'GONE', 'gone'), variable('v3', 'RENAMED', 'val')];
     const newVars = [
       // v1 untouched
       variable('v1', 'KEEP', 'keep'),
@@ -241,6 +249,7 @@ describe('applyEnvVariablesReplacement', () => {
       workspaceId: 'ws-1',
       surfaceId: 'workbench',
       context: makeContextHandle(),
+      mirror: mockMirror(['v1', 'v2', 'v3']),
     });
     expect(result).toEqual({ ok: true });
     const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
@@ -248,6 +257,51 @@ describe('applyEnvVariablesReplacement', () => {
     const adds = batch.mutations.filter((m) => m.body.kind === 'addToSet');
     expect(removes.map((m) => (m.body as { itemId: string }).itemId)).toEqual(['v2']);
     expect(adds.map((m) => (m.body as { itemId: string }).itemId).sort()).toEqual(['v3', 'v4']);
+  });
+
+  it('a content edit re-emits the row with its EXISTING orderKey (position preserved)', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    const oldVars = [variable('v1', 'A', 'a'), variable('v2', 'B', 'b')];
+    const newVars = [variable('v1', 'A', 'a2'), variable('v2', 'B', 'b')]; // edit v1's value only
+    await applyEnvVariablesReplacement('env-1', newVars, oldVars, {
+      workspaceId: 'ws-1',
+      surfaceId: 'workbench',
+      context: makeContextHandle(),
+      mirror: mockMirror(['v1', 'v2']), // v1='m', v2='n'
+    });
+    const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
+    const adds = batch.mutations.filter((m) => m.body.kind === 'addToSet');
+    expect(adds).toHaveLength(1);
+    expect(adds[0].body).toMatchObject({ itemId: 'v1', orderKey: 'm' });
+  });
+
+  it('a reorder persists the new row order — materialized key order follows the editor', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    const rows = (order: string[]) => order.map((u) => variable(u, u.toUpperCase(), u));
+    const oldVars = rows(['v1', 'v2', 'v3']);
+    const newVars = rows(['v3', 'v1', 'v2']); // drag v3 to the top
+    await applyEnvVariablesReplacement('env-1', newVars, oldVars, {
+      workspaceId: 'ws-1',
+      surfaceId: 'workbench',
+      context: makeContextHandle(),
+      mirror: mockMirror(['v1', 'v2', 'v3']), // v1='m' < v2='n' < v3='o'
+    });
+    const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
+    const adds = batch.mutations.filter((m) => m.body.kind === 'addToSet');
+    for (const m of adds) expect(typeof (m.body as { orderKey?: string }).orderKey).toBe('string');
+    // Reconstruct the final per-uid key (mirror keys overridden by emitted
+    // ones) and confirm the lex sort matches the editor's row order.
+    const finalKeys = new Map<string, string>([
+      ['v1', 'm'],
+      ['v2', 'n'],
+      ['v3', 'o'],
+    ]);
+    for (const m of adds) {
+      const body = m.body as { itemId: string; orderKey: string };
+      finalKeys.set(body.itemId, body.orderKey);
+    }
+    const materialized = [...finalKeys.entries()].sort((a, b) => (a[1] < b[1] ? -1 : 1)).map(([uid]) => uid);
+    expect(materialized).toEqual(['v3', 'v1', 'v2']);
   });
 
   it('drops new entries whose trimmed name is empty', async () => {
@@ -258,6 +312,7 @@ describe('applyEnvVariablesReplacement', () => {
       workspaceId: 'ws-1',
       surfaceId: 'workbench',
       context: makeContextHandle(),
+      mirror: mockMirror([]),
     });
     const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
     const ids = batch.mutations

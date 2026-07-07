@@ -37,7 +37,7 @@ import {
   useAutoMergeForm,
 } from '@openheaders/ui/shared/conflicts';
 import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell';
-import { stableStringify } from '@openheaders/ui/shared/forms';
+import { unorderedSetSignature } from '@openheaders/ui/shared/forms';
 import EditorHeader from '../shell/EditorHeader';
 import VariableTable, { type VariableTableConflictBridge } from '../panels/VariableTable';
 import { scopeBadge } from '../shared/scope-colors';
@@ -53,8 +53,11 @@ interface WorkspaceVariablesEditorProps {
 
 const EMPTY_VARS: Variable[] = [];
 
+// Order-insensitive: workspace vars persist as a uid-keyed set that
+// materializes back in fractional-index (not insertion) order, so the
+// dirty-check compares set CONTENT, not row order.
 function variablesSignature(vars: readonly Variable[]): string {
-  return stableStringify(vars);
+  return unorderedSetSignature(vars);
 }
 
 const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onDirtyChange, registerSaveRef }) => {

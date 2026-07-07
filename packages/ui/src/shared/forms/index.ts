@@ -34,10 +34,10 @@
  * different insertion order compare equal.
  */
 
-export { useEntityReprime } from './use-entity-reprime';
+export { stableStringify, unorderedSetSignature } from './fingerprint';
 export type {
   EntityReprimeHandle,
   EntityReprimeScope,
   UseEntityReprimeOptions,
 } from './use-entity-reprime';
-export { stableStringify } from './fingerprint';
+export { useEntityReprime } from './use-entity-reprime';

@@ -39,7 +39,7 @@ import {
   useAutoMergeForm,
 } from '@openheaders/ui/shared/conflicts';
 import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell';
-import { stableStringify } from '@openheaders/ui/shared/forms';
+import { unorderedSetSignature } from '@openheaders/ui/shared/forms';
 import EditorHeader from '../shell/EditorHeader';
 import VariableTable, { type VariableTableConflictBridge } from '../panels/VariableTable';
 import { scopeBadge } from '../shared/scope-colors';
@@ -55,8 +55,11 @@ interface VaultEditorProps {
 
 const EMPTY_SECRETS: VaultSecret[] = [];
 
+// Order-insensitive: vault secrets persist as a uid-keyed set that
+// materializes back in fractional-index (not insertion) order, so the
+// dirty-check compares set CONTENT, not row order.
 function secretsSignature(secrets: readonly VaultSecret[]): string {
-  return stableStringify(secrets);
+  return unorderedSetSignature(secrets);
 }
 
 const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRef }) => {

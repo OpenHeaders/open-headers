@@ -24,20 +24,13 @@ import {
   ENV_VARS_PATH,
   ENVIRONMENT_ENTITY_TYPE,
   invalidateResolverIntent,
+  keyBetween,
   type MutationBody,
   type MutationEnvelope,
   mintBatch,
   type SideEffectIntent,
+  seedKey,
 } from '@openheaders/core/sync';
-import type { Environment, Variable } from '@openheaders/core/types';
-import { generateUid } from '@openheaders/core/utils';
-import type { EnvSyncMirror } from '../../context/mirrors/env-sync-mirror';
-import {
-  applySyncPayload,
-  type BaseSyncWriteOptions,
-  resolveRendererContext,
-  type SyncSimpleResult,
-} from './apply-payload';
 import {
   buildAddEnvironmentBatch,
   buildDeleteEnvironmentBatch,
@@ -45,7 +38,18 @@ import {
   buildRenameEnvironmentBatch,
   buildSetEnvVarBatch,
 } from '@openheaders/core/sync-builders/mutations/env-mutations';
+import type { Environment, Variable } from '@openheaders/core/types';
+import { generateUid } from '@openheaders/core/utils';
+import { type EnvSyncMirror, getEnvSyncMirrorForWorkspace } from '../../context/mirrors/env-sync-mirror';
+import {
+  applySyncPayload,
+  type BaseSyncWriteOptions,
+  resolveMirror,
+  resolveRendererContext,
+  type SyncSimpleResult,
+} from './apply-payload';
 
+export type { EnvSyncMirror } from '../../context/mirrors/env-sync-mirror';
 // `createEnvSyncMirror` is re-exported so tests can construct a mirror
 // without going through the singleton.
 export { createEnvSyncMirror } from '../../context/mirrors/env-sync-mirror';
@@ -95,11 +99,18 @@ export async function applyRenameEnvironment(
 }
 
 /**
- * Editor convenience: persist a complete variables list. Identity is
- * `variable.uid` — the diff finds same-uid pairs to detect edits
- * (rename / value / type all on the same uid), uid-only-in-old to
- * detect deletions, and uid-only-in-new to detect adds. Empty diff →
- * empty batch (no broadcast, no recompile).
+ * Editor convenience: persist a complete variables list, preserving the
+ * editor's row ORDER as fractional-index `orderKey`s (§23.5) so the set
+ * materializes back in the same order the user sees — not uid-sorted.
+ *
+ * Identity is `variable.uid`. The diff emits `removeFromSet` for deleted
+ * uids and `addToSet` for adds / content edits / reorders. Each surviving
+ * row's `orderKey` is assigned LSEQ-style: reuse the row's current key
+ * while it keeps the running order monotonic, and mint a fresh
+ * `keyBetween` only where the order breaks (a moved row) or a row is new.
+ * A row unchanged in both content AND position emits nothing — so a plain
+ * value edit re-keys nothing and a pure content save no longer trips the
+ * order-sensitive dirty check. Empty diff → `{ ok: true }` (no fire).
  */
 export async function applyEnvVariablesReplacement(
   envId: string,
@@ -109,10 +120,26 @@ export async function applyEnvVariablesReplacement(
 ): Promise<EnvSimpleResult> {
   const oldByUid = new Map<string, Variable>();
   for (const v of oldVars) oldByUid.set(v.uid, v);
-  const newByUid = new Map<string, Variable>();
-  for (const v of newVars) {
-    if (!v.name.trim()) continue;
-    newByUid.set(v.uid, v);
+  const survivors = newVars.filter((v) => v.name.trim());
+  const newUids = new Set(survivors.map((v) => v.uid));
+
+  // Current persisted order keys (fractional-index order). The write
+  // reuses them to keep unmoved rows byte-stable across saves.
+  const mirror = resolveMirror(opts, getEnvSyncMirrorForWorkspace);
+  await mirror.hydrated;
+  const currentKeys = new Map(mirror.liveVarOrderKeys(envId).map((e) => [e.itemId, e.orderKey] as const));
+
+  // Assign each survivor an orderKey in editor order: reuse the existing
+  // key when it stays strictly greater than the previous assignment,
+  // otherwise mint a fresh one after `prev` (seed for the first mint).
+  const assigned = new Map<string, string>();
+  let prevKey: string | null = null;
+  for (const v of survivors) {
+    const cur = currentKeys.get(v.uid);
+    const reuse = cur !== undefined && (prevKey === null || cur > prevKey);
+    const key: string = reuse ? cur : prevKey === null ? seedKey() : keyBetween(prevKey, null);
+    assigned.set(v.uid, key);
+    prevKey = key;
   }
 
   const ctx = resolveRendererContext(opts).next({ batchId: opts.batchId ?? `env-replace-${envId}` });
@@ -120,7 +147,7 @@ export async function applyEnvVariablesReplacement(
   const bodies: MutationBody[] = [];
   // Removals: any uid in old but not in new.
   for (const [uid] of oldByUid) {
-    if (newByUid.has(uid)) continue;
+    if (newUids.has(uid)) continue;
     bodies.push({
       kind: 'removeFromSet',
       type: ENVIRONMENT_ENTITY_TYPE,
@@ -129,24 +156,25 @@ export async function applyEnvVariablesReplacement(
       itemId: uid,
     });
   }
-  // Adds + edits (rename / value / type): replace via addToSet (per-uid LWW).
-  for (const [uid, variable] of newByUid) {
-    const prev = oldByUid.get(uid);
-    if (
+  // Adds + edits + reorders: emit only rows whose content OR key changed.
+  for (const variable of survivors) {
+    const prev = oldByUid.get(variable.uid);
+    const key = assigned.get(variable.uid)!;
+    const contentSame =
       prev &&
       prev.name === variable.name &&
       prev.value === variable.value &&
-      (prev.type ?? 'default') === (variable.type ?? 'default')
-    ) {
-      continue;
-    }
+      (prev.type ?? 'default') === (variable.type ?? 'default');
+    const keySame = currentKeys.get(variable.uid) === key;
+    if (contentSame && keySame) continue;
     bodies.push({
       kind: 'addToSet',
       type: ENVIRONMENT_ENTITY_TYPE,
       id: envId,
       path: ENV_VARS_PATH,
-      itemId: uid,
+      itemId: variable.uid,
       item: variable,
+      orderKey: key,
     });
   }
 
