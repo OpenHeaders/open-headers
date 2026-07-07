@@ -8,6 +8,7 @@
  */
 
 import {
+  ApiOutlined,
   BgColorsOutlined,
   BugOutlined,
   CloudDownloadOutlined,
@@ -175,6 +176,14 @@ registerCategory({
   icon: <EditOutlined />,
   order: 20,
   description: 'Font, indentation, and view options for code editing surfaces.',
+});
+
+registerCategory({
+  id: 'requests',
+  label: 'Requests',
+  icon: <ApiOutlined />,
+  order: 21,
+  description: 'HTTP request sending and response handling.',
 });
 
 registerCategory({

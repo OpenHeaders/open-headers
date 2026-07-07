@@ -58,6 +58,10 @@ export interface ExecutedRequestSnapshot {
   body: string;
   /** True when the body exceeded the wire byte cap and was truncated. */
   bodyTruncated: boolean;
+  /** The cap the executor applied when it truncated — present only
+   *  when `bodyTruncated`, so the UI labels the actual limit (a user
+   *  setting) instead of assuming a constant. */
+  bodyCapBytes?: number;
   /** Bytes read from the wire before any truncation. */
   bodyBytes: number;
   durationMs: number;

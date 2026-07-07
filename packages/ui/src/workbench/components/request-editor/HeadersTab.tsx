@@ -94,8 +94,8 @@ const BASE_AUTO_HEADERS: AutoHeaderDef[] = [
   },
   {
     key: 'User-Agent',
-    value: 'OpenHeadersRuntime/5',
-    hint: 'The User-Agent identifies the client. The browser supplies one by default; you can add your own User-Agent row below to override.',
+    value: typeof navigator !== 'undefined' ? navigator.userAgent : '<browser user agent>',
+    hint: 'The User-Agent identifies the client. Requests go out with the browser’s own User-Agent; add your own User-Agent row below to override it.',
   },
   {
     key: 'Accept',

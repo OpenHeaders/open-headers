@@ -21,6 +21,7 @@ import './devpanel-timing';
 import './devpanel-network';
 import './inspection';
 import './editor';
+import './requests';
 import './rules-engine';
 import './backend';
 import './mcp';

@@ -37,8 +37,8 @@ import { detectBodyLanguage, formatBytes, prettyBody } from './response-format';
 
 const { Text } = Typography;
 
-/** Body cap the runner applies before truncating — surfaced in the
- *  truncation notice. */
+/** Fallback for snapshots that predate the cap stamp — the executor's
+ *  default body cap (the `requests.responseBodyCapMB` setting). */
 const BODY_CAP_BYTES = 2 * 1024 * 1024;
 
 type ViewMode = 'pretty' | 'raw' | 'hex' | 'base64' | 'preview';
@@ -224,7 +224,8 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', paddingBottom: 8 }}>
       {response.bodyTruncated && (
         <Text type="warning" style={{ fontSize: 11, display: 'block', marginTop: 6 }}>
-          Response truncated at {formatBytes(BODY_CAP_BYTES)} (original {formatBytes(response.bodyBytes)}).
+          Response truncated at {formatBytes(response.bodyCapBytes ?? BODY_CAP_BYTES)} (original{' '}
+          {formatBytes(response.bodyBytes)}). The limit is adjustable in Settings → Requests.
         </Text>
       )}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0' }}>

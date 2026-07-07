@@ -10,6 +10,7 @@ import { appendQueryParams } from '@openheaders/core/utils';
 import { getFileBlob } from '@openheaders/oracle/entity/files-store';
 import { ensureScheme } from '@openheaders/ui/shared/fetch';
 import { report as reportStatus } from '@openheaders/ui/shared/status';
+import { get as getSetting } from '@openheaders/ui/workbench/settings/store';
 import { logger } from '@utils/logger';
 import { withHostAccess } from '@/shared/fetch/with-host-access';
 import { recordLog } from '../observability-log';
@@ -23,7 +24,10 @@ import {
 } from './timing';
 import { startWireCapture } from './wire-capture';
 
-const MAX_BODY_BYTES = 2 * 1024 * 1024;
+/** Body cap in bytes — a user setting (MB), read per send. */
+function maxBodyBytes(): number {
+  return getSetting('requests.responseBodyCapMB') * 1024 * 1024;
+}
 
 export async function executeResolved(
   req: ResolvedRequest,
@@ -235,8 +239,9 @@ export async function executeResolved(
     // the UI doesn't try to render megabytes of text.
     const bodyText = await response.text();
     const responseBodyBytes = new TextEncoder().encode(bodyText).byteLength;
-    const truncated = responseBodyBytes > MAX_BODY_BYTES;
-    const body = truncated ? bodyText.slice(0, MAX_BODY_BYTES) : bodyText;
+    const capBytes = maxBodyBytes();
+    const truncated = responseBodyBytes > capBytes;
+    const body = truncated ? bodyText.slice(0, capBytes) : bodyText;
 
     // The entry queues once the body finishes downloading — which the
     // completed text() read implies — so settle after the read.
@@ -250,6 +255,7 @@ export async function executeResolved(
       headers,
       body,
       bodyTruncated: truncated,
+      ...(truncated ? { bodyCapBytes: capBytes } : {}),
       bodyBytes: responseBodyBytes,
       durationMs,
       ...(timing ? { timing } : {}),
