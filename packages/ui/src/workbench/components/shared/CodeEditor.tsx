@@ -208,6 +208,10 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     // widget doesn't cover the first lines; in these compact editors
     // the jump is worse than the momentary overlap.
     find: { addExtraSpaceOnTop: false },
+    // Doc hovers open BELOW the hovered token. The default 'above'
+    // clips at the editor's top border for the first lines — where the
+    // hover target usually is in these short buffers.
+    hover: { above: false },
     renderWhitespace: renderWhitespace === 'all' ? 'all' : renderWhitespace === 'boundary' ? 'boundary' : 'none',
     // Native ghost hint on an empty buffer — positioned by Monaco at the
     // true content origin so the caret sits at the text start, exactly
