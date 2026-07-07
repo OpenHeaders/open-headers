@@ -10,24 +10,6 @@ import type React from 'react';
 
 type SvgProps = React.SVGProps<SVGSVGElement>;
 
-/** Opposing request/response arrows — traffic modified in both directions. */
-const HttpRulesSvg: React.FC<SvgProps> = (props) => (
-  <svg
-    {...props}
-    viewBox="0 0 16 16"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth={1.5}
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M2.5 4.75h10.25" />
-    <path d="m10 2 3 2.75L10 7.5" />
-    <path d="M13.5 11.25H3.25" />
-    <path d="m6 8.5-3 2.75L6 14" />
-  </svg>
-);
-
 /** Paper plane — send a request. */
 const ApiRequestsSvg: React.FC<SvgProps> = (props) => (
   <svg
@@ -62,6 +44,5 @@ const VariablesSvg: React.FC<SvgProps> = (props) => (
   </svg>
 );
 
-export const HttpRulesIcon: React.FC = () => <Icon component={HttpRulesSvg} />;
 export const ApiRequestsIcon: React.FC = () => <Icon component={ApiRequestsSvg} />;
 export const VariablesIcon: React.FC = () => <Icon component={VariablesSvg} />;

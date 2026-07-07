@@ -26,24 +26,4 @@ const ConsoleSvg: React.FC<SvgProps> = (props) => (
   </svg>
 );
 
-/** Target with center hit — rules matched against the selected request. */
-const MatchedRulesSvg: React.FC<SvgProps> = (props) => (
-  <svg
-    {...props}
-    viewBox="0 0 16 16"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth={1.5}
-    strokeLinecap="round"
-  >
-    <circle cx="8" cy="8" r="4.25" />
-    <circle cx="8" cy="8" r="1.4" fill="currentColor" stroke="none" />
-    <path d="M8 1v2.25" />
-    <path d="M8 12.75V15" />
-    <path d="M1 8h2.25" />
-    <path d="M12.75 8H15" />
-  </svg>
-);
-
 export const ConsoleIcon: React.FC = () => <Icon component={ConsoleSvg} />;
-export const MatchedRulesIcon: React.FC = () => <Icon component={MatchedRulesSvg} />;

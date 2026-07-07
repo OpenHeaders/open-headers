@@ -18,7 +18,8 @@ import {
 } from '@ant-design/icons';
 import { DOCK_LABELS as _LABELS, type ToolWindowDef as GenericToolWindowDef } from '@openheaders/ui/shared/dock-layout';
 import ActivityFeedIcon from './components/panels/ActivityFeedIcon';
-import { ApiRequestsIcon, HttpRulesIcon, VariablesIcon } from './tool-window-icons';
+import { RequestRulesIcon } from '@openheaders/ui/shared/icons';
+import { ApiRequestsIcon, VariablesIcon } from './tool-window-icons';
 import { NotificationsIcon } from '@openheaders/ui/shared/notifications';
 import type { ToolWindowId } from './types';
 
@@ -40,7 +41,7 @@ export type ToolWindowDef = GenericToolWindowDef<ToolWindowId>;
  * actually in scope for the current tab.
  */
 export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
-  { id: 'http-rules', label: 'HTTP Rules', icon: <HttpRulesIcon />, core: true, defaultSlot: 'left-top' },
+  { id: 'http-rules', label: 'HTTP Rules', icon: <RequestRulesIcon />, core: true, defaultSlot: 'left-top' },
   // A Workflow is the scheduled-refresh variable producer: a request
   // chain + extraction rule. Its output surfaces as a `{{live.X}}`
   // reference in the Scope panel's Live category via a Live Variable

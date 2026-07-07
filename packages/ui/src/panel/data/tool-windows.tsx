@@ -14,8 +14,9 @@ import type {
   ToolRegion,
 } from '@openheaders/ui/shared/dock-layout';
 import { ALL_DOCK_SLOTS, DOCK_LABELS, dockRegion } from '@openheaders/ui/shared/dock-layout';
+import { RequestRulesIcon } from '@openheaders/ui/shared/icons';
 import { NotificationsIcon } from '@openheaders/ui/shared/notifications';
-import { ConsoleIcon, MatchedRulesIcon } from './tool-window-icons';
+import { ConsoleIcon } from './tool-window-icons';
 
 export type PanelToolWindowId =
   | 'network'
@@ -45,7 +46,7 @@ export const PANEL_TOOL_WINDOWS: readonly PanelToolWindowDef[] = [
   {
     id: 'matched-rules',
     label: 'Request Rules',
-    icon: <MatchedRulesIcon />,
+    icon: <RequestRulesIcon />,
     core: false,
     defaultSlot: 'bottom-right',
   },
