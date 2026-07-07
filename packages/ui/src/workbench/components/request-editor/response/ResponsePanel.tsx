@@ -18,7 +18,7 @@ import {
   DownOutlined,
   DownloadOutlined,
   EllipsisOutlined,
-  ThunderboltOutlined,
+  SisternodeOutlined,
 } from '@ant-design/icons';
 import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/readers/useLiveWorkflows';
 import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
@@ -167,13 +167,11 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
                       items: [
                         {
                           key: 'new',
-                          icon: <ThunderboltOutlined />,
                           label: 'Create new workflow',
                           onClick: () => onExtractToWorkflow('new'),
                         },
                         {
                           key: 'attach',
-                          icon: <ThunderboltOutlined />,
                           label: 'Attach to existing workflow',
                           disabled: liveWorkflows.length === 0,
                           children:
@@ -188,7 +186,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
                       ],
                     }}
                   >
-                    <Button size="small">
+                    <Button size="small" icon={<SisternodeOutlined />}>
                       Use response in workflow <DownOutlined style={{ fontSize: 10 }} />
                     </Button>
                   </Dropdown>
