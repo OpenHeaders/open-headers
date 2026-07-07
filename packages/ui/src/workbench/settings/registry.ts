@@ -60,8 +60,27 @@ export function allDefs(): readonly SettingDef[] {
   return Array.from(defs.values());
 }
 
+/**
+ * Categories in canonical presentation order: top-level entries sorted by
+ * `order`, each immediately followed by its children sorted by `order`.
+ * `order` is only meaningful between siblings — a raw global sort would
+ * interleave a child above its parent whenever their scales differ.
+ */
 export function allCategories(): readonly CategoryDef[] {
-  return Array.from(categories.values()).sort((a, b) => a.order - b.order);
+  const sorted = Array.from(categories.values()).sort((a, b) => a.order - b.order);
+  const ids = new Set(sorted.map((c) => c.id));
+  const top: CategoryDef[] = [];
+  const children = new Map<string, CategoryDef[]>();
+  for (const cat of sorted) {
+    if (cat.parent && ids.has(cat.parent)) {
+      const list = children.get(cat.parent);
+      if (list) list.push(cat);
+      else children.set(cat.parent, [cat]);
+    } else {
+      top.push(cat);
+    }
+  }
+  return top.flatMap((cat) => [cat, ...(children.get(cat.id) ?? [])]);
 }
 
 export function getCategory(id: string): CategoryDef | undefined {

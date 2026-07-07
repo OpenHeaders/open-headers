@@ -80,6 +80,14 @@ describe('settings registry', () => {
     expect(cats.map((c) => c.id)).toEqual(['a', 'm', 'z']);
   });
 
+  it('allCategories places children right after their parent regardless of order scale', () => {
+    registerCategory({ id: 'group', label: 'Group', icon: null, order: 16 });
+    registerCategory({ id: 'kid-low', label: 'Kid Low', icon: null, order: 15, parent: 'group' });
+    registerCategory({ id: 'kid-high', label: 'Kid High', icon: null, order: 20, parent: 'group' });
+    registerCategory({ id: 'next-top', label: 'Next Top', icon: null, order: 17 });
+    expect(allCategories().map((c) => c.id)).toEqual(['group', 'kid-low', 'kid-high', 'next-top']);
+  });
+
   it('getCategory returns one category by id', () => {
     registerCategory({ id: 'appearance', label: 'Appearance', icon: null, order: 10 });
     expect(getCategory('appearance')?.label).toBe('Appearance');
