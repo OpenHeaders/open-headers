@@ -2182,22 +2182,3 @@ body {
   max-width: 100%;
 }
 
-/*
- * Monaco context menu — prefix icon on the "Save to Package Library"
- * entry (matches the Packages action-bar button). `addAction()` has no
- * icon API for context-menu items, so the badge rides on the item's
- * aria-label. currentColor via mask so it follows the menu theme.
- */
-.monaco-menu .action-label[aria-label^='Save to Package Library']::before {
-  content: '';
-  display: inline-block;
-  width: 13px;
-  height: 13px;
-  margin-right: 6px;
-  vertical-align: -1px;
-  background-color: currentColor;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.3'%3E%3Cpath d='M8 1.5 14 4.75v6.5L8 14.5 2 11.25v-6.5L8 1.5z'/%3E%3Cpath d='M2 4.75 8 8l6-3.25M8 8v6.5'/%3E%3C/svg%3E")
-    no-repeat center / contain;
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.3'%3E%3Cpath d='M8 1.5 14 4.75v6.5L8 14.5 2 11.25v-6.5L8 1.5z'/%3E%3Cpath d='M2 4.75 8 8l6-3.25M8 8v6.5'/%3E%3C/svg%3E")
-    no-repeat center / contain;
-}

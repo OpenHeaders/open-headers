@@ -21,6 +21,7 @@ import type React from 'react';
 import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { type InfoPopoverContent, InfoTrigger } from '@openheaders/ui/shared/info-popover';
+import { installMenuIconInjector } from '../script-editor/monaco-menu-icons';
 import SaveToPackagePopover from '../script-editor/SaveToPackagePopover';
 import ScriptPackagesMenu from '../script-editor/ScriptPackagesMenu';
 import CodeEditor from '../shared/CodeEditor';
@@ -203,6 +204,7 @@ const ScriptsTab: React.FC<ScriptsTabProps> = ({
           placeholder={SCRIPT_PLACEHOLDER[active]}
           onEditorMount={(editor) => {
             editorRef.current = editor;
+            installMenuIconInjector(editor);
             const container = editor.getContainerDomNode();
             const selectedText = (): string => {
               const model = editor.getModel();
