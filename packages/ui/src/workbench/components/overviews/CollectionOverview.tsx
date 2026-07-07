@@ -7,13 +7,13 @@
 
 import {
   ApartmentOutlined,
-  CodeOutlined,
   ExperimentOutlined,
   FolderOutlined,
   PauseCircleOutlined,
   PlayCircleOutlined,
   PlusOutlined,
 } from '@ant-design/icons';
+import { VariablesIcon } from '@openheaders/ui/shared/icons';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import type { TreeNode } from '@openheaders/core/types';
 import { isRuleComplete, isRuleDraft, resolvePauseState } from '@openheaders/core/utils';
@@ -275,7 +275,7 @@ const CollectionOverview: React.FC<CollectionOverviewProps> = ({
           <Tooltip title="Edit variables scoped to this collection">
             <Button
               size="small"
-              icon={<CodeOutlined />}
+              icon={<VariablesIcon />}
               onClick={() => onOpenCollectionVariables(collectionUid, collection.name)}
             >
               Variables

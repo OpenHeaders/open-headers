@@ -1,14 +1,15 @@
 /**
  * RequestRulesIcon — opposing request/response arrows, traffic modified in
- * both directions. Shared glyph for the rules-on-requests concept: the
- * workbench HTTP Rules tab and the panel Request Rules tab render the same
- * drawing so the two surfaces read as one feature. Drawn on a 16x16 grid
- * with 1.5px strokes and wrapped in antd's Icon so it inherits `.anticon`
- * sizing and currentColor like every stock tab icon.
+ * both directions. Shared glyph for the rules-on-requests concept so every
+ * surface (workbench HTTP Rules tab, panel Request Rules tab, empty states)
+ * renders the same drawing. Drawn on a 16x16 grid with 1.5px strokes and
+ * wrapped in antd's Icon so it inherits `.anticon` sizing and currentColor
+ * like every stock icon.
  */
 
 import Icon from '@ant-design/icons';
 import type React from 'react';
+import type { GlyphIconProps } from './types';
 
 const RequestRulesSvg: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   <svg
@@ -27,4 +28,4 @@ const RequestRulesSvg: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   </svg>
 );
 
-export const RequestRulesIcon: React.FC = () => <Icon component={RequestRulesSvg} />;
+export const RequestRulesIcon: React.FC<GlyphIconProps> = (props) => <Icon component={RequestRulesSvg} {...props} />;

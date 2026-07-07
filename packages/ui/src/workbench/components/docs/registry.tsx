@@ -24,7 +24,6 @@ import {
   FilterOutlined,
   ForwardOutlined,
   FunctionOutlined,
-  KeyOutlined,
   LinkOutlined,
   ProfileOutlined,
   RadarChartOutlined,
@@ -36,6 +35,7 @@ import {
   ThunderboltOutlined,
   WarningOutlined,
 } from '@ant-design/icons';
+import { KeyboardIcon } from '@openheaders/ui/shared/icons';
 import {
   buildSectionIndex,
   type DocGroup,
@@ -269,7 +269,7 @@ export const DOC_GROUPS: DocGroup[] = [
         title: 'Keyboard Shortcuts',
         summary: 'Every workbench shortcut, grouped by surface — panels, tabs, navigation, actions.',
         group: 'reference',
-        icon: <KeyOutlined />,
+        icon: <KeyboardIcon />,
         Component: KeyboardShortcutsSection,
       },
       {

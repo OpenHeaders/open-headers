@@ -6,7 +6,8 @@
  * workspace component.
  */
 
-import { ApiOutlined, CodeSandboxOutlined, FolderOutlined, SettingOutlined } from '@ant-design/icons';
+import { CodeSandboxOutlined, FolderOutlined, SettingOutlined } from '@ant-design/icons';
+import { ApiRequestsIcon } from '@openheaders/ui/shared/icons';
 import type { CollectionTree, Environment, Rule, Template, TreeNode } from '@openheaders/core/types';
 import { useMemo } from 'react';
 import type { CommandPaletteGroup, CommandPaletteItem, CommandPaletteSection } from '../components/shell/CommandPalette';
@@ -170,7 +171,7 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
           if (node.type === 'request') {
             requestItems.push({
               id: `req-${node.uid}`,
-              icon: <ApiOutlined style={{ fontSize: 12 }} />,
+              icon: <ApiRequestsIcon style={{ fontSize: 12 }} />,
               label: node.name,
               scope: node.method,
               onSelect: () => openRequestEditTab(node.uid, node.name, node.method),
@@ -184,7 +185,7 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
       if (requestItems.length > 0) {
         result.push({
           id: `req-col-${col.uid}`,
-          icon: <ApiOutlined style={{ fontSize: 12 }} />,
+          icon: <ApiRequestsIcon style={{ fontSize: 12 }} />,
           label: col.name,
           children: [{ id: `reqs-in-${col.uid}`, title: 'Requests', items: requestItems }],
         });

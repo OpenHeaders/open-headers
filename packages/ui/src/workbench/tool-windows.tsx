@@ -18,8 +18,7 @@ import {
 } from '@ant-design/icons';
 import { DOCK_LABELS as _LABELS, type ToolWindowDef as GenericToolWindowDef } from '@openheaders/ui/shared/dock-layout';
 import ActivityFeedIcon from './components/panels/ActivityFeedIcon';
-import { RequestRulesIcon } from '@openheaders/ui/shared/icons';
-import { ApiRequestsIcon, VariablesIcon } from './tool-window-icons';
+import { ApiRequestsIcon, RequestRulesIcon, VariablesIcon } from '@openheaders/ui/shared/icons';
 import { NotificationsIcon } from '@openheaders/ui/shared/notifications';
 import type { ToolWindowId } from './types';
 

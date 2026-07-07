@@ -16,7 +16,8 @@
  * collection precedent.
  */
 
-import { CodeOutlined, FolderOutlined, PlusOutlined } from '@ant-design/icons';
+import { FolderOutlined, PlusOutlined } from '@ant-design/icons';
+import { VariablesIcon } from '@openheaders/ui/shared/icons';
 import { useRequests } from '@openheaders/ui/shared/hooks/readers/useRequests';
 import type { HttpMethod, TreeNode } from '@openheaders/core/types';
 import { Button, Empty, Space, Table, Tag, Tooltip, theme } from 'antd';
@@ -201,7 +202,7 @@ const RequestCollectionOverview: React.FC<RequestCollectionOverviewProps> = ({
         <Tooltip title="Edit variables scoped to this request collection">
           <Button
             size="small"
-            icon={<CodeOutlined />}
+            icon={<VariablesIcon />}
             onClick={() => onOpenCollectionVariables(collectionUid, collection.name)}
           >
             Variables

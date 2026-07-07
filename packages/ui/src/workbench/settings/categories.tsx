@@ -8,7 +8,6 @@
  */
 
 import {
-  ApiOutlined,
   BgColorsOutlined,
   BugOutlined,
   CloudDownloadOutlined,
@@ -17,11 +16,11 @@ import {
   EditOutlined,
   FunctionOutlined,
   InfoCircleOutlined,
-  KeyOutlined,
   LayoutOutlined,
   RobotOutlined,
   SettingOutlined,
 } from '@ant-design/icons';
+import { ApiRequestsIcon, KeyboardIcon } from '@openheaders/ui/shared/icons';
 import { lazy } from 'react';
 import { getCurrentHost } from '../../shared/host-vocabulary';
 import DevPanelGlyph from './components/DevPanelGlyph';
@@ -181,7 +180,7 @@ registerCategory({
 registerCategory({
   id: 'requests',
   label: 'API Requests',
-  icon: <ApiOutlined />,
+  icon: <ApiRequestsIcon />,
   order: 21,
   description: 'HTTP request sending and response handling.',
 });
@@ -197,7 +196,7 @@ registerCategory({
 registerCategory({
   id: 'keyboard',
   label: 'Keyboard',
-  icon: <KeyOutlined />,
+  icon: <KeyboardIcon />,
   order: 80,
   description: 'Customize keyboard shortcuts.',
   subcategories: [

@@ -1,4 +1,5 @@
-import { ExclamationCircleOutlined, FileTextOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { ExclamationCircleOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { RequestRulesIcon } from '@openheaders/ui/shared/icons';
 import { resolvePauseState } from '@openheaders/core/utils';
 import { scheduleFrame } from '@openheaders/ui/shared/frame-scheduler';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/mutators/useRuleMutator';
@@ -402,7 +403,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
               />
             ) : (
               <Empty
-                image={<FileTextOutlined style={{ fontSize: 28, color: 'var(--text-tertiary)' }} />}
+                image={<RequestRulesIcon style={{ fontSize: 28, color: 'var(--text-tertiary)' }} />}
                 description={
                   <Space orientation="vertical" size={4}>
                     <Text type="secondary">No rules match this page</Text>

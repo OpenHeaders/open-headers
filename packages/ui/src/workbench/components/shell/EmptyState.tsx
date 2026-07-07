@@ -7,8 +7,9 @@
  * surfaces.
  */
 
-import { ApiOutlined, CodeOutlined, FileTextOutlined, RightOutlined, SisternodeOutlined } from '@ant-design/icons';
+import { RightOutlined, SisternodeOutlined } from '@ant-design/icons';
 import { hostAssets } from '@openheaders/core/assets';
+import { ApiRequestsIcon, RequestRulesIcon, VariablesIcon } from '@openheaders/ui/shared/icons';
 import { Dropdown, type MenuProps, Tooltip, Typography } from 'antd';
 import type React from 'react';
 import { forwardRef } from 'react';
@@ -113,7 +114,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
       <div className="oh-empty-actions">
         <Dropdown menu={{ items: buildRuleTypeMenuItems(onCreateRule) }} trigger={['click']}>
           <ActionRow
-            icon={<FileTextOutlined />}
+            icon={<RequestRulesIcon />}
             label="Create rule"
             description="Headers, redirects, blocking, and more"
             showDescription={showHints}
@@ -122,7 +123,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
         </Dropdown>
         <Dropdown menu={{ items: buildVariableScopeMenuItems(onCreateVariable) }} trigger={['click']}>
           <ActionRow
-            icon={<CodeOutlined />}
+            icon={<VariablesIcon />}
             label="Create variable"
             description="Environment, workspace, live, and more"
             showDescription={showHints}
@@ -130,7 +131,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
           />
         </Dropdown>
         <ActionRow
-          icon={<ApiOutlined />}
+          icon={<ApiRequestsIcon />}
           label="Create API request"
           description="Build, send, and save HTTP requests"
           showDescription={showHints}

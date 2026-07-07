@@ -9,7 +9,8 @@
  * variables can be edited matching session 48 + 49's pipeline).
  */
 
-import { CodeOutlined, FolderOutlined } from '@ant-design/icons';
+import { FolderOutlined } from '@ant-design/icons';
+import { VariablesIcon } from '@openheaders/ui/shared/icons';
 import { useRules } from '@openheaders/ui/shared/hooks/readers/useRules';
 import type { RuleType, TreeNode } from '@openheaders/core/types';
 import { Button, Empty, Space, Table, Tag, Tooltip, theme } from 'antd';
@@ -168,7 +169,7 @@ const TemplateCollectionOverview: React.FC<TemplateCollectionOverviewProps> = ({
     <Tooltip title="Edit variables scoped to this template collection">
       <Button
         size="small"
-        icon={<CodeOutlined />}
+        icon={<VariablesIcon />}
         onClick={() => onOpenCollectionVariables(collectionUid, collection.name)}
       >
         Variables

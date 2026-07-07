@@ -1,4 +1,5 @@
-import { ExperimentOutlined, FileTextOutlined, PlusOutlined, SortAscendingOutlined } from '@ant-design/icons';
+import { ExperimentOutlined, PlusOutlined, SortAscendingOutlined } from '@ant-design/icons';
+import { RequestRulesIcon } from '@openheaders/ui/shared/icons';
 import type { ExtensionRuleType } from '@openheaders/core/types';
 import { resolvePauseState } from '@openheaders/core/utils';
 import { useRowActionRegistration } from '@openheaders/ui/shared/hooks/dom/useRowActionRegistration';
@@ -419,7 +420,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
           locale={{
             emptyText: (
               <Empty
-                image={<FileTextOutlined style={{ fontSize: 28, color: 'var(--text-tertiary)' }} />}
+                image={<RequestRulesIcon style={{ fontSize: 28, color: 'var(--text-tertiary)' }} />}
                 description={
                   searchText ? (
                     <Text type="secondary">No matching rules found</Text>
