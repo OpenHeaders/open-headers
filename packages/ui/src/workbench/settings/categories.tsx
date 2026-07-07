@@ -18,9 +18,11 @@ import {
   InfoCircleOutlined,
   KeyOutlined,
   LayoutOutlined,
+  RobotOutlined,
   SettingOutlined,
 } from '@ant-design/icons';
 import { lazy } from 'react';
+import { getCurrentHost } from '../../shared/host-vocabulary';
 import DevPanelGlyph from './components/DevPanelGlyph';
 import GroupLandingPane from './components/GroupLandingPane';
 import { registerCategory } from './registry';
@@ -31,6 +33,7 @@ import { registerCategory } from './registry';
 // every test that touches the settings registry, breaking jsdom-based
 // suites on `document.queryCommandSupported`.
 const BackendPane = lazy(() => import('./components/BackendPane'));
+const McpPane = lazy(() => import('./components/mcp-pane'));
 
 registerCategory({
   id: 'backend',
@@ -48,6 +51,19 @@ registerCategory({
     { id: 'notifications', label: 'Notifications', order: 30 },
     { id: 'lan-peers', label: 'LAN peers', order: 40 },
   ],
+});
+
+registerCategory({
+  id: 'mcp',
+  label: 'MCP',
+  icon: <RobotOutlined />,
+  order: 4,
+  description:
+    'Let AI agents and other MCP clients read and control this app. Access is tiered — reading, writing, executing, and secret reveal are separate switches, all off by default.',
+  renderPane: McpPane,
+  // The desktop app is the only host that runs the MCP server; the
+  // `when` is read at render time, after the host seam is installed.
+  when: () => getCurrentHost() === 'desktop',
 });
 
 registerCategory({

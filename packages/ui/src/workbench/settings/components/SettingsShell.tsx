@@ -62,7 +62,7 @@ const SettingsShell: React.FC<SettingsShellProps> = ({ initialSettingKey, initia
   // Categories with a custom pane stay selectable even with zero setting
   // defs — group landing pages own no settings of their own.
   const orderedCategories = useMemo(() => {
-    const cats = allCategories();
+    const cats = allCategories().filter((c) => c.when?.() !== false);
     const visible: CategoryDef[] = [];
     for (const cat of cats) {
       if ((byCategory.get(cat.id)?.length ?? 0) > 0 || cat.renderPane) visible.push(cat);

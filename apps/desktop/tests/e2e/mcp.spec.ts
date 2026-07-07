@@ -560,6 +560,27 @@ test('the stdio bridge fails fast when the app is not running', async () => {
   expect(await bridge.exited).toBe(1);
 });
 
+// ── Settings → MCP page ─────────────────────────────────────────────
+
+test('the Settings → MCP page surfaces tiers, tokens, and client snippets', async () => {
+  await workbench.getByRole('button', { name: 'Settings menu' }).click();
+  await workbench.getByText('Settings…', { exact: true }).click();
+  await workbench.getByRole('button', { name: 'MCP', exact: true }).click();
+
+  await expect(workbench.getByText('Enable MCP server')).toBeVisible();
+  await expect(workbench.getByText('Allow write tools')).toBeVisible();
+  await expect(workbench.getByText('Allow execute tools')).toBeVisible();
+  await expect(workbench.getByText('Allow secret reveal')).toBeVisible();
+  await expect(workbench.getByText('Paired devices')).toBeVisible();
+  await expect(workbench.getByText('Connect a client')).toBeVisible();
+
+  // The suite runs off the default port — the snippets must carry it.
+  await workbench.getByRole('tab', { name: 'HTTP', exact: true }).click();
+  await expect(workbench.getByText(`http://127.0.0.1:${DAEMON_PORT}/mcp`)).toBeVisible();
+
+  await workbench.keyboard.press('Escape');
+});
+
 // ── Extension round-trip ────────────────────────────────────────────
 
 test('the MCP-created rule syncs into a connected browser extension', async () => {

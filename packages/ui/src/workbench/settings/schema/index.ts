@@ -23,6 +23,7 @@ import './inspection';
 import './editor';
 import './rules-engine';
 import './backend';
+import './mcp';
 import './keyboard';
 import './keyboard-popup';
 import './workspace-sharing';

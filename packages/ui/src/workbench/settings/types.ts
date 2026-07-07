@@ -216,6 +216,14 @@ export interface CategoryDef {
   description?: string;
   subcategories?: readonly SubcategoryDef[];
   /**
+   * Conditional visibility for the whole category. Returning false
+   * removes it from the nav and the pane rotation on this host —
+   * setting-level `when` still governs individual rows reached through
+   * search. Evaluated at render time, so boot-injected host signals
+   * (e.g. `getCurrentHost()`) are safe to read here.
+   */
+  when?: () => boolean;
+  /**
    * Optional custom renderer for the right-hand pane. When omitted the
    * default `CategoryPane` (rows-in-cards) is used. Categories with
    * UX requirements beyond a flat field list register their own —
