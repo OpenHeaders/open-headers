@@ -5,7 +5,7 @@
  * non-syncing in v1 (§12.3); this channel is local-only.
  */
 
-import { VAULT_ENTITY_TYPE } from '@openheaders/core/sync';
+import { VAULT_ENTITY_TYPE, VAULT_PATH } from '@openheaders/core/sync';
 import type { Vault } from '@openheaders/core/types';
 import { hostBridge } from '@openheaders/core/bridge';
 import {
@@ -19,6 +19,9 @@ export interface VaultMirrorEntry {
   /** Live secret uids. Set member identity is `secret.uid`; this
    *  array is the projected names list. */
   secretUids: string[];
+  /** Per-uid order keys at each set path (the secrets set, keyed by
+   *  `VAULT_PATH`). Feeds the editor's position-preserving Save. */
+  setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;
 }
 
 export type VaultMirrorListener = () => void;
@@ -26,6 +29,9 @@ export type VaultMirrorListener = () => void;
 export interface VaultSyncMirror {
   getMirror(): VaultMirrorEntry | null;
   liveSecretNames(): string[];
+  /** Live `(itemId, orderKey)` pairs for the secrets set, in
+   *  fractional-index order. `[]` when the singleton is unknown. */
+  liveSecretOrderKeys(): Array<{ itemId: string; orderKey: string }>;
   subscribeMirror(listener: VaultMirrorListener): () => void;
   hydrated: Promise<void>;
   dispose(): void;
@@ -45,12 +51,18 @@ export function createVaultSyncMirror(
         const { envelope, vaultPostState } = event;
         if (envelope.body.type !== VAULT_ENTITY_TYPE) return null;
         if (!vaultPostState) return 'tombstone';
-        return { vault: vaultPostState.vault, secretUids: vaultPostState.secretUids };
+        return {
+          vault: vaultPostState.vault,
+          secretUids: vaultPostState.secretUids,
+          setOrderKeys: vaultPostState.setOrderKeys,
+        };
       },
       fetchSnapshot: async () => {
         const resp = await hostBridge.call('oh.sync.snapshotVault', { workspaceId });
         const first = resp.entries[0];
-        return first ? { vault: first.vault, secretUids: first.secretUids } : null;
+        return first
+          ? { vault: first.vault, secretUids: first.secretUids, setOrderKeys: first.setOrderKeys }
+          : null;
       },
     },
     options,
@@ -58,6 +70,7 @@ export function createVaultSyncMirror(
   return {
     getMirror: core.get,
     liveSecretNames: () => core.get()?.secretUids ?? [],
+    liveSecretOrderKeys: () => core.get()?.setOrderKeys[VAULT_PATH] ?? [],
     subscribeMirror: core.subscribe,
     hydrated: core.hydrated,
     dispose: core.dispose,

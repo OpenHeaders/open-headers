@@ -14,10 +14,10 @@
 import type { SyncVaultPostState } from '@openheaders/core/protocol';
 import { VAULT_ENTITY_TYPE, VAULT_ID, VAULT_PATH } from '@openheaders/core/sync';
 import { projectVault } from '@openheaders/core/sync-builders/projections/vault-projection';
-import { makeSingletonEntityProjectors } from './flat-entity-post-state';
+import { buildSetMembersExtras, makeSingletonEntityProjectors } from './flat-entity-post-state';
 import type { EntityOracle } from '../oracle';
 
-type Reads = Pick<EntityOracle, 'materializeOne' | 'liveSetItems'>;
+type Reads = Pick<EntityOracle, 'materializeOne' | 'liveSetItems' | 'liveOrderedSetItems'>;
 
 const projectors = makeSingletonEntityProjectors<Reads, SyncVaultPostState>({
   entityType: VAULT_ENTITY_TYPE,
@@ -26,7 +26,11 @@ const projectors = makeSingletonEntityProjectors<Reads, SyncVaultPostState>({
     const vault = projectVault(materialized);
     if (!vault) return null;
     const secretUids = oracle.liveSetItems(VAULT_ENTITY_TYPE, VAULT_ID, VAULT_PATH).map((entry) => entry.itemId);
-    return { vault, secretUids };
+    // Per-uid order keys at the secrets set — the editor's Save reads these
+    // to preserve row position on content edits and to mint `keyBetween`
+    // positions on reorder/insert (§23.5).
+    const setOrderKeys = buildSetMembersExtras(oracle, VAULT_ENTITY_TYPE, VAULT_ID, [VAULT_PATH]).setOrderKeys;
+    return { vault, secretUids, setOrderKeys };
   },
 });
 

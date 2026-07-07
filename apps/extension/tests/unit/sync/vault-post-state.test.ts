@@ -133,5 +133,10 @@ describe('projectVaultPostState', () => {
     const live = oracle.liveSetItems(VAULT_ENTITY_TYPE, VAULT_ID, VAULT_PATH);
     const projected = projectVaultSingleton(oracle);
     expect(projected?.secretUids.sort()).toEqual(live.map((e) => e.itemId).sort());
+    // setOrderKeys carries the per-uid fractional-index keys at the secrets
+    // path — same uid set as secretUids, each with a string orderKey.
+    const orderKeys = projected?.setOrderKeys[VAULT_PATH] ?? [];
+    expect(orderKeys.map((e) => e.itemId).sort()).toEqual(live.map((e) => e.itemId).sort());
+    for (const e of orderKeys) expect(typeof e.orderKey).toBe('string');
   });
 });

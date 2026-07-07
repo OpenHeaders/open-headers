@@ -177,6 +177,14 @@ export interface SyncVaultPostState {
   vault: Vault;
   /** Live secret uids — the set-member identity (uid) for vault entries. */
   secretUids: string[];
+  /**
+   * Live `(itemId, orderKey)` pairs at the vault secrets set (§23.5).
+   * Renderer-side mirrors fold this so the editor's Save can preserve row
+   * position on a content edit (re-emit `addToSet` with the existing key)
+   * and compute `keyBetween(prev, next)` on reorder/insert. Parallel to
+   * {@link SyncWorkspaceVariablesPostState.setOrderKeys}.
+   */
+  setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;
 }
 
 /**

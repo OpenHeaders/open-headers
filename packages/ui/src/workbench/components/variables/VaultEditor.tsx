@@ -39,7 +39,7 @@ import {
   useAutoMergeForm,
 } from '@openheaders/ui/shared/conflicts';
 import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell';
-import { unorderedSetSignature } from '@openheaders/ui/shared/forms';
+import { stableStringify } from '@openheaders/ui/shared/forms';
 import EditorHeader from '../shell/EditorHeader';
 import VariableTable, { type VariableTableConflictBridge } from '../panels/VariableTable';
 import { scopeBadge } from '../shared/scope-colors';
@@ -55,11 +55,13 @@ interface VaultEditorProps {
 
 const EMPTY_SECRETS: VaultSecret[] = [];
 
-// Order-insensitive: vault secrets persist as a uid-keyed set that
-// materializes back in fractional-index (not insertion) order, so the
-// dirty-check compares set CONTENT, not row order.
+// Order-SENSITIVE signature — vault secrets now persist their row order as
+// fractional-index keys (see `applyVaultReplacement`), so the materialized
+// order matches the editor's. Order-sensitivity is therefore correct AND
+// load-bearing: a drag-reorder shifts the fingerprint, flips `isDirty`,
+// and Save persists the new order.
 function secretsSignature(secrets: readonly VaultSecret[]): string {
-  return unorderedSetSignature(secrets);
+  return stableStringify(secrets);
 }
 
 const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRef }) => {
