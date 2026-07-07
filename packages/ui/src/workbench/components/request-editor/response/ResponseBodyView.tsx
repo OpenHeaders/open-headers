@@ -241,7 +241,7 @@ const ResponseBodyView: React.FC<{ response: ExecutedRequestSnapshot }> = ({ res
             </Button>
           ) : (
             <Text type="secondary" style={{ fontSize: 11 }}>
-              The limit is adjustable in Settings → Requests.
+              The limit is adjustable in Settings → API Requests.
             </Text>
           )}
         </div>

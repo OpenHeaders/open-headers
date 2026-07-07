@@ -180,7 +180,7 @@ registerCategory({
 
 registerCategory({
   id: 'requests',
-  label: 'Requests',
+  label: 'API Requests',
   icon: <ApiOutlined />,
   order: 21,
   description: 'HTTP request sending and response handling.',
