@@ -430,12 +430,15 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   }, [sending, summary, draftName, draft, execute, preferredCollectionId, preferredFolderPath, requestCollections]);
 
   // ⌘/Ctrl+Enter sends from anywhere in the editor — same gate as the
-  // Send button. Bubble phase + `defaultPrevented` check so an inner
-  // surface that owns the chord (e.g. a Monaco keybinding) wins.
+  // Send button. Capture phase so Send owns the chord even when focus
+  // sits inside a Monaco surface (script editors, the response body
+  // view, the filter input), all of which would otherwise claim
+  // ⌘+Enter for insert-line-below and starve the shortcut.
   const handleEditorKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
-      if (e.key !== 'Enter' || !(e.metaKey || e.ctrlKey) || e.defaultPrevented) return;
+      if (e.key !== 'Enter' || !(e.metaKey || e.ctrlKey)) return;
       e.preventDefault();
+      e.stopPropagation();
       if (sending || hasUnresolvedRefs) return;
       void handleSend();
     },
@@ -502,11 +505,17 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   return (
     <EntityScopeProvider shell={shell.scopeProps}>
       <SuggestionContextProvider value={suggestionContext}>
+        {/* tabIndex -1: clicks on non-focusable space inside the editor
+            (e.g. the response empty state) land focus on this root
+            instead of falling out to <body>, so the ⌘/Ctrl+Enter Send
+            chord keeps working anywhere within the panel — and only
+            within it. */}
         <div
-          style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}
+          tabIndex={-1}
+          style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', outline: 'none' }}
           onFocusCapture={handleEditorFocusCapture}
           onBlurCapture={handleEditorBlurCapture}
-          onKeyDown={handleEditorKeyDown}
+          onKeyDownCapture={handleEditorKeyDown}
         >
           <EditorHeader title={headerTitle} actions={headerActions} shell={shell.headerProps} />
 
