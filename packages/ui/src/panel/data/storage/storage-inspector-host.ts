@@ -35,9 +35,30 @@ export interface DomStorageSnapshot {
   truncated: boolean;
 }
 
+/**
+ * A clipped entry's full value, fetched lazily before an edit.
+ * `value: null` with `tooLarge` means the value is past the host's
+ * sanity ceiling and can't be edited; `null` without it means the key
+ * is gone or the frame can't be read.
+ */
+export interface DomStorageFullValue {
+  value: string | null;
+  tooLarge: boolean;
+}
+
 export interface StorageInspectorHost {
   listScopes(tabId: number): Promise<ReadonlyArray<StorageScope> | null>;
   readDomStorage(tabId: number, frameId: number, area: DomStorageArea): Promise<DomStorageSnapshot | null>;
+  readDomStorageValue(
+    tabId: number,
+    frameId: number,
+    area: DomStorageArea,
+    key: string,
+  ): Promise<DomStorageFullValue | null>;
+  /** Add or overwrite one entry; resolves `false` on failure (quota, frame gone). */
+  writeDomStorage(tabId: number, frameId: number, area: DomStorageArea, key: string, value: string): Promise<boolean>;
+  removeDomStorage(tabId: number, frameId: number, area: DomStorageArea, key: string): Promise<boolean>;
+  clearDomStorage(tabId: number, frameId: number, area: DomStorageArea): Promise<boolean>;
 }
 
 let host: StorageInspectorHost | null = null;

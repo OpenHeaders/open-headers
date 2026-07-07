@@ -1,10 +1,19 @@
 import { beforeEach, describe, expect, it, type vi } from 'vitest';
 import { listStorageScopes } from '@/background/modules/storage-inspector/scopes';
 import {
+  clearDomStorage,
+  clearDomStorageInPage,
+  DOM_STORAGE_FULL_VALUE_MAX,
   DOM_STORAGE_MAX_ENTRIES,
   DOM_STORAGE_VALUE_PREVIEW_MAX,
   getDomStorageEntries,
+  getDomStorageValue,
   readDomStorageInPage,
+  readDomStorageValueInPage,
+  removeDomStorageInPage,
+  removeDomStorageItem,
+  setDomStorageItem,
+  writeDomStorageInPage,
 } from '@/background/modules/storage-inspector/standard-plane';
 
 const getAllFramesSpy = (): ReturnType<typeof vi.fn> =>
@@ -126,6 +135,133 @@ describe('readDomStorageInPage (injected reader)', () => {
       expect(res.entries).toHaveLength(2);
       expect(res.truncated).toBe(true);
     });
+  });
+});
+
+describe('injected writers', () => {
+  function mutableStorage(items: Record<string, string>): Storage {
+    return {
+      get length() {
+        return Object.keys(items).length;
+      },
+      key: (i: number) => Object.keys(items)[i] ?? null,
+      getItem: (k: string) => items[k] ?? null,
+      setItem: (k: string, v: string) => {
+        items[k] = v;
+      },
+      removeItem: (k: string) => {
+        delete items[k];
+      },
+      clear: () => {
+        for (const k of Object.keys(items)) delete items[k];
+      },
+    } as Storage;
+  }
+
+  function withWindowAreas(local: Storage, session: Storage, run: () => void): void {
+    const g = globalThis as { window?: unknown };
+    const prev = g.window;
+    g.window = { localStorage: local, sessionStorage: session };
+    try {
+      run();
+    } finally {
+      if (prev === undefined) delete g.window;
+      else g.window = prev;
+    }
+  }
+
+  it('writeDomStorageInPage sets the entry on the requested area', () => {
+    const local: Record<string, string> = {};
+    const session: Record<string, string> = {};
+    withWindowAreas(mutableStorage(local), mutableStorage(session), () => {
+      expect(writeDomStorageInPage('session', 'theme', 'dark')).toEqual({ ok: true });
+      expect(session).toEqual({ theme: 'dark' });
+      expect(local).toEqual({});
+    });
+  });
+
+  it('writeDomStorageInPage reports a quota failure as ok: false', () => {
+    const throwing = {
+      setItem: () => {
+        throw new DOMException('quota', 'QuotaExceededError');
+      },
+    } as unknown as Storage;
+    withWindowAreas(throwing, mutableStorage({}), () => {
+      expect(writeDomStorageInPage('local', 'big', 'x')).toEqual({ ok: false });
+    });
+  });
+
+  it('removeDomStorageInPage deletes the key; clearDomStorageInPage empties the area', () => {
+    const local: Record<string, string> = { a: '1', b: '2' };
+    withWindowAreas(mutableStorage(local), mutableStorage({}), () => {
+      expect(removeDomStorageInPage('local', 'a')).toEqual({ ok: true });
+      expect(local).toEqual({ b: '2' });
+      expect(clearDomStorageInPage('local')).toEqual({ ok: true });
+      expect(local).toEqual({});
+    });
+  });
+
+  it('readDomStorageValueInPage returns the full value under the ceiling', () => {
+    withWindowAreas(mutableStorage({ big: 'x'.repeat(50) }), mutableStorage({}), () => {
+      expect(readDomStorageValueInPage('local', 'big', 100)).toEqual({ value: 'x'.repeat(50) });
+    });
+  });
+
+  it('readDomStorageValueInPage gates a value past the ceiling with tooLarge', () => {
+    withWindowAreas(mutableStorage({ big: 'x'.repeat(50) }), mutableStorage({}), () => {
+      expect(readDomStorageValueInPage('local', 'big', 10)).toEqual({ value: null, tooLarge: true });
+    });
+  });
+
+  it('readDomStorageValueInPage returns null (no tooLarge) for a missing key', () => {
+    withWindowAreas(mutableStorage({}), mutableStorage({}), () => {
+      expect(readDomStorageValueInPage('local', 'gone', 10)).toEqual({ value: null });
+    });
+  });
+});
+
+describe('write wrappers', () => {
+  it('setDomStorageItem targets the frame and forwards key + value', async () => {
+    executeScriptSpy().mockResolvedValue([{ result: { ok: true } }]);
+    const res = await setDomStorageItem(42, 7, 'session', 'theme', 'dark');
+    expect(res).toEqual({ ok: true });
+    const call = executeScriptSpy().mock.calls[0][0];
+    expect(call.target).toEqual({ tabId: 42, frameIds: [7] });
+    expect(call.args).toEqual(['session', 'theme', 'dark']);
+  });
+
+  it('setDomStorageItem is ok: false when injection fails or reports failure', async () => {
+    executeScriptSpy().mockRejectedValue(new Error('No frame with id 7'));
+    expect(await setDomStorageItem(42, 7, 'local', 'k', 'v')).toEqual({ ok: false });
+
+    executeScriptSpy().mockResolvedValue([{ result: { ok: false } }]);
+    expect(await setDomStorageItem(42, 0, 'local', 'k', 'v')).toEqual({ ok: false });
+  });
+
+  it('removeDomStorageItem and clearDomStorage forward their args', async () => {
+    executeScriptSpy().mockResolvedValue([{ result: { ok: true } }]);
+    expect(await removeDomStorageItem(42, 3, 'local', 'a')).toEqual({ ok: true });
+    expect(executeScriptSpy().mock.calls[0][0].args).toEqual(['local', 'a']);
+
+    executeScriptSpy().mockClear();
+    executeScriptSpy().mockResolvedValue([{ result: { ok: true } }]);
+    expect(await clearDomStorage(42, 3, 'session')).toEqual({ ok: true });
+    expect(executeScriptSpy().mock.calls[0][0].args).toEqual(['session']);
+  });
+
+  it('getDomStorageValue forwards the key with the full-value ceiling', async () => {
+    executeScriptSpy().mockResolvedValue([{ result: { value: 'v' } }]);
+    const res = await getDomStorageValue(42, 0, 'local', 'k');
+    expect(res).toEqual({ value: 'v' });
+    expect(executeScriptSpy().mock.calls[0][0].args).toEqual(['local', 'k', DOM_STORAGE_FULL_VALUE_MAX]);
+  });
+
+  it('getDomStorageValue surfaces tooLarge and injection failure distinctly', async () => {
+    executeScriptSpy().mockResolvedValue([{ result: { value: null, tooLarge: true } }]);
+    expect(await getDomStorageValue(42, 0, 'local', 'big')).toEqual({ value: null, tooLarge: true });
+
+    executeScriptSpy().mockRejectedValue(new Error('gone'));
+    expect(await getDomStorageValue(42, 0, 'local', 'k')).toEqual({ value: null });
   });
 });
 

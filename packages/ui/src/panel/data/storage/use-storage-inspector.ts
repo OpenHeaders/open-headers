@@ -14,7 +14,7 @@
 
 import { hostNavigation } from '@openheaders/core/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { DomStorageArea, DomStorageSnapshot, StorageScope } from './storage-inspector-host';
+import type { DomStorageArea, DomStorageFullValue, DomStorageSnapshot, StorageScope } from './storage-inspector-host';
 import { getStorageInspectorHost } from './storage-inspector-host';
 
 const ENTRIES_POLL_MS = 2000;
@@ -34,7 +34,21 @@ export interface StorageInspectorState {
   loading: boolean;
   /** The latest read failed (frame gone / page not injectable). */
   readFailed: boolean;
+  /** The latest write failed (quota / frame gone); cleared by the next success. */
+  writeFailed: boolean;
   refresh: () => void;
+  /**
+   * Commit an add or edit against the selected scope+area. `originalKey`
+   * is `null` for an add; a changed key is a rename — Storage has no
+   * rename, so the new entry is written FIRST and the old key removed
+   * only after that write succeeded (a failure never loses the original).
+   * Resolves `true` on success, after the grid refetched.
+   */
+  applyEdit: (originalKey: string | null, key: string, value: string) => Promise<boolean>;
+  removeEntry: (key: string) => Promise<boolean>;
+  clearArea: () => Promise<boolean>;
+  /** Fetch a clipped entry's full value before editing it. */
+  fetchFullValue: (key: string) => Promise<DomStorageFullValue | null>;
 }
 
 export function useStorageInspector(): StorageInspectorState {
@@ -115,6 +129,53 @@ export function useStorageInspector(): StorageInspectorState {
     void readEntries();
   }, [listScopes, readEntries]);
 
+  // Writes ride the invalidation discipline: commit through the host,
+  // then refetch through the SAME read path — the grid never renders
+  // data a write pushed, only what the next read observed.
+  const [writeFailed, setWriteFailed] = useState(false);
+
+  const applyEdit = useCallback(
+    async (originalKey: string | null, key: string, value: string): Promise<boolean> => {
+      if (!host || tabId === null || !selectedScope) return false;
+      const { frameId } = selectedScope;
+      let ok = await host.writeDomStorage(tabId, frameId, area, key, value);
+      if (ok && originalKey !== null && originalKey !== key) {
+        ok = await host.removeDomStorage(tabId, frameId, area, originalKey);
+      }
+      setWriteFailed(!ok);
+      void readEntries();
+      return ok;
+    },
+    [host, tabId, selectedScope, area, readEntries],
+  );
+
+  const removeEntry = useCallback(
+    async (key: string): Promise<boolean> => {
+      if (!host || tabId === null || !selectedScope) return false;
+      const ok = await host.removeDomStorage(tabId, selectedScope.frameId, area, key);
+      setWriteFailed(!ok);
+      void readEntries();
+      return ok;
+    },
+    [host, tabId, selectedScope, area, readEntries],
+  );
+
+  const clearArea = useCallback(async (): Promise<boolean> => {
+    if (!host || tabId === null || !selectedScope) return false;
+    const ok = await host.clearDomStorage(tabId, selectedScope.frameId, area);
+    setWriteFailed(!ok);
+    void readEntries();
+    return ok;
+  }, [host, tabId, selectedScope, area, readEntries]);
+
+  const fetchFullValue = useCallback(
+    async (key: string): Promise<DomStorageFullValue | null> => {
+      if (!host || tabId === null || !selectedScope) return null;
+      return host.readDomStorageValue(tabId, selectedScope.frameId, area, key);
+    },
+    [host, tabId, selectedScope, area],
+  );
+
   const selectOrigin = useCallback((origin: string) => {
     setSelectedOrigin(origin);
   }, []);
@@ -129,6 +190,11 @@ export function useStorageInspector(): StorageInspectorState {
     snapshot,
     loading,
     readFailed,
+    writeFailed,
     refresh,
+    applyEdit,
+    removeEntry,
+    clearArea,
+    fetchFullValue,
   };
 }

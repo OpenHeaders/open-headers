@@ -192,4 +192,42 @@ export interface DevToolsRpc {
     req: { tabId: number; frameId: number; area: DomStorageAreaWire };
     res: { entries: ReadonlyArray<DomStorageEntryWire> | null; truncated?: boolean };
   };
+
+  /**
+   * Fetch one entry's FULL value, past the preview clip — the panel needs
+   * it before editing a clipped entry (saving a clipped preview back would
+   * corrupt the value). Still bounded: a value past the sanity ceiling
+   * returns `value: null` with `tooLarge: true` and the panel blocks the
+   * edit instead. `value` is also `null` when the key is gone or the
+   * injection failed (`tooLarge` absent).
+   */
+  getDomStorageValue: {
+    req: { tabId: number; frameId: number; area: DomStorageAreaWire; key: string };
+    res: { value: string | null; tooLarge?: boolean };
+  };
+
+  /**
+   * Write one DOM storage entry (add or overwrite — Storage has no
+   * distinction). Same injection transport as the reads: the isolated
+   * world shares the page origin's storage, and the CDP `DOMStorage`
+   * domain is blocked for extension debugger clients, so injection is
+   * the only write path in BOTH inspection modes. `ok` is `false` when
+   * the injection failed or the write threw (quota exceeded).
+   */
+  setDomStorageItem: {
+    req: { tabId: number; frameId: number; area: DomStorageAreaWire; key: string; value: string };
+    res: { ok: boolean };
+  };
+
+  /** Remove one DOM storage entry by key. */
+  removeDomStorageItem: {
+    req: { tabId: number; frameId: number; area: DomStorageAreaWire; key: string };
+    res: { ok: boolean };
+  };
+
+  /** Clear the whole area for the scope's origin. */
+  clearDomStorage: {
+    req: { tabId: number; frameId: number; area: DomStorageAreaWire };
+    res: { ok: boolean };
+  };
 }

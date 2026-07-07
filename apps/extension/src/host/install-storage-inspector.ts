@@ -9,7 +9,12 @@
  * Imported once from `apps/extension/src/panel/index.tsx` at panel boot.
  */
 
-import type { DomStorageArea, DomStorageSnapshot, StorageScope } from '@openheaders/ui/panel/host-storage-inspector';
+import type {
+  DomStorageArea,
+  DomStorageFullValue,
+  DomStorageSnapshot,
+  StorageScope,
+} from '@openheaders/ui/panel/host-storage-inspector';
 import { setStorageInspectorHost } from '@openheaders/ui/panel/host-storage-inspector';
 import { call } from '@utils/bridge';
 import { logger } from '@utils/logger';
@@ -34,6 +39,54 @@ setStorageInspectorHost({
     } catch (err) {
       logger.info('StorageInspectorHost', `readDomStorage ✗ tab ${tabId}: ${(err as Error).message}`);
       return null;
+    }
+  },
+  async readDomStorageValue(
+    tabId: number,
+    frameId: number,
+    area: DomStorageArea,
+    key: string,
+  ): Promise<DomStorageFullValue | null> {
+    try {
+      const res = await call('getDomStorageValue', { tabId, frameId, area, key });
+      if (!res) return null;
+      return { value: res.value, tooLarge: res.tooLarge ?? false };
+    } catch (err) {
+      logger.info('StorageInspectorHost', `readDomStorageValue ✗ tab ${tabId}: ${(err as Error).message}`);
+      return null;
+    }
+  },
+  async writeDomStorage(
+    tabId: number,
+    frameId: number,
+    area: DomStorageArea,
+    key: string,
+    value: string,
+  ): Promise<boolean> {
+    try {
+      const res = await call('setDomStorageItem', { tabId, frameId, area, key, value });
+      return res?.ok === true;
+    } catch (err) {
+      logger.info('StorageInspectorHost', `writeDomStorage ✗ tab ${tabId}: ${(err as Error).message}`);
+      return false;
+    }
+  },
+  async removeDomStorage(tabId: number, frameId: number, area: DomStorageArea, key: string): Promise<boolean> {
+    try {
+      const res = await call('removeDomStorageItem', { tabId, frameId, area, key });
+      return res?.ok === true;
+    } catch (err) {
+      logger.info('StorageInspectorHost', `removeDomStorage ✗ tab ${tabId}: ${(err as Error).message}`);
+      return false;
+    }
+  },
+  async clearDomStorage(tabId: number, frameId: number, area: DomStorageArea): Promise<boolean> {
+    try {
+      const res = await call('clearDomStorage', { tabId, frameId, area });
+      return res?.ok === true;
+    } catch (err) {
+      logger.info('StorageInspectorHost', `clearDomStorage ✗ tab ${tabId}: ${(err as Error).message}`);
+      return false;
     }
   },
 });
