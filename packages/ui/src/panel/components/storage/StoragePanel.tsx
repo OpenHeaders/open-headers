@@ -1,16 +1,18 @@
 /**
  * Storage tool window — application-storage inspector for the inspected
- * tab. Slice 1 scope (STORAGE_PANEL_PLAN.md §5): origin scope picker +
- * read-only Local/Session storage grid over the standard data plane
- * (SW injection), refreshed by visibility-gated polling. Cookies /
- * IndexedDB / Cache Storage / quota arrive in later slices.
+ * tab. Origin scope picker + Local/Session storage grid over the
+ * standard data plane (SW injection), refreshed by visibility-gated
+ * polling; writes ride the same plane and refetch through the read path
+ * (STORAGE_PANEL_PLAN.md §5, slice 2). Cookies / IndexedDB / Cache
+ * Storage / quota arrive in later slices.
  */
 
-import { ReloadOutlined } from '@ant-design/icons';
+import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { DomStorageArea, DomStorageEntry } from '../../data/storage/storage-inspector-host';
-import { useStorageInspector } from '../../data/storage/use-storage-inspector';
+import { type StorageInspectorState, useStorageInspector } from '../../data/storage/use-storage-inspector';
+import { StorageGrid } from './StorageGrid';
 
 interface StoragePanelProps {
   onHide: () => void;
@@ -21,15 +23,17 @@ const AREAS: ReadonlyArray<{ value: DomStorageArea; label: string }> = [
   { value: 'session', label: 'Session' },
 ];
 
-function formatLength(chars: number): string {
-  if (chars < 1024) return `${chars} chars`;
-  return `${(chars / 1024).toFixed(1)}k chars`;
-}
-
 export function StoragePanel({ onHide }: StoragePanelProps) {
   const wiring = useMemo(() => createPanelHeaderWiring({ onHide }), [onHide]);
   const inspector = useStorageInspector();
   const [textFilter, setTextFilter] = useState('');
+  const [adding, setAdding] = useState(false);
+
+  // Selection or area moved out from under an open add row — drop it.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: selection identity is the reset trigger
+  useEffect(() => {
+    setAdding(false);
+  }, [inspector.selectedOrigin, inspector.area]);
 
   const entries = inspector.snapshot?.entries ?? [];
   const filtered = useMemo<ReadonlyArray<DomStorageEntry>>(() => {
@@ -37,6 +41,8 @@ export function StoragePanel({ onHide }: StoragePanelProps) {
     if (!needle) return entries;
     return entries.filter((e) => e.key.toLowerCase().includes(needle) || e.value.toLowerCase().includes(needle));
   }, [entries, textFilter]);
+
+  const canWrite = inspector.available && inspector.scopes.length > 0 && inspector.snapshot !== null;
 
   return (
     <div className="dt-panel">
@@ -69,6 +75,16 @@ export function StoragePanel({ onHide }: StoragePanelProps) {
             <button
               type="button"
               className="dt-toolbar-icon"
+              onClick={() => setAdding(true)}
+              disabled={!canWrite}
+              title="Add entry"
+              aria-label="Add storage entry"
+            >
+              <PlusOutlined />
+            </button>
+            <button
+              type="button"
+              className="dt-toolbar-icon"
               onClick={inspector.refresh}
               title="Refresh"
               aria-label="Refresh storage"
@@ -98,38 +114,62 @@ export function StoragePanel({ onHide }: StoragePanelProps) {
             {inspector.snapshot ? `${filtered.length} of ${entries.length} items` : ''}
             {inspector.snapshot?.truncated ? ' · list truncated' : ''}
             {inspector.readFailed ? ' · read failed — showing last data' : ''}
+            {inspector.writeFailed ? ' · write failed' : ''}
           </span>
+          {canWrite && entries.length > 0 && <ClearAllButton area={inspector.area} onClear={inspector.clearArea} />}
         </div>
       )}
 
       <div className="dt-storage-body">
         <StorageBody
-          available={inspector.available}
-          hasScopes={inspector.scopes.length > 0}
-          loading={inspector.loading}
-          hasSnapshot={inspector.snapshot !== null}
-          area={inspector.area}
-          origin={inspector.selectedOrigin}
+          inspector={inspector}
           entries={filtered}
           totalCount={entries.length}
+          adding={adding}
+          onCloseAdd={() => setAdding(false)}
         />
       </div>
     </div>
   );
 }
 
-interface StorageBodyProps {
-  available: boolean;
-  hasScopes: boolean;
-  loading: boolean;
-  hasSnapshot: boolean;
-  area: DomStorageArea;
-  origin: string | null;
-  entries: ReadonlyArray<DomStorageEntry>;
-  totalCount: number;
+/** Two-step inline confirm — first click arms, second commits. */
+function ClearAllButton({ area, onClear }: { area: DomStorageArea; onClear: () => Promise<boolean> }) {
+  const [armed, setArmed] = useState(false);
+  const areaName = area === 'local' ? 'localStorage' : 'sessionStorage';
+  return (
+    <button
+      type="button"
+      className={`dt-storage-clear${armed ? ' dt-storage-clear--armed' : ''}`}
+      title={armed ? `Deletes every ${areaName} entry for this origin` : `Clear all ${areaName} entries`}
+      onClick={() => {
+        if (!armed) {
+          setArmed(true);
+          return;
+        }
+        setArmed(false);
+        void onClear();
+      }}
+      onBlur={() => setArmed(false)}
+    >
+      {armed ? 'Confirm clear?' : 'Clear all'}
+    </button>
+  );
 }
 
-function StorageBody({ available, hasScopes, loading, hasSnapshot, area, origin, entries, totalCount }: StorageBodyProps) {
+interface StorageBodyProps {
+  inspector: StorageInspectorState;
+  entries: ReadonlyArray<DomStorageEntry>;
+  totalCount: number;
+  adding: boolean;
+  onCloseAdd: () => void;
+}
+
+function StorageBody({ inspector, entries, totalCount, adding, onCloseAdd }: StorageBodyProps) {
+  const { available, loading, area, selectedOrigin: origin } = inspector;
+  const hasScopes = inspector.scopes.length > 0;
+  const hasSnapshot = inspector.snapshot !== null;
+
   if (!available) {
     return (
       <div className="dt-empty-hero">
@@ -161,33 +201,24 @@ function StorageBody({ available, hasScopes, loading, hasSnapshot, area, origin,
       </div>
     );
   }
-  if (totalCount === 0) {
+  if (totalCount === 0 && !adding) {
     return (
       <div className="dt-empty">
         No items in {area === 'local' ? 'localStorage' : 'sessionStorage'} for {origin}.
       </div>
     );
   }
-  if (entries.length === 0) {
+  if (entries.length === 0 && !adding) {
     return <div className="dt-empty">No items match your filter.</div>;
   }
   return (
-    <div className="dt-storage-grid" role="table" aria-label="Storage entries">
-      <div className="dt-storage-grid-header" role="row">
-        <span role="columnheader">Key</span>
-        <span role="columnheader">Value</span>
-      </div>
-      {entries.map((e) => (
-        <div className="dt-storage-row" role="row" key={e.key}>
-          <span className="dt-storage-key" role="cell" title={e.key}>
-            {e.key}
-          </span>
-          <span className="dt-storage-value" role="cell" title={e.clipped ? undefined : e.value}>
-            {e.value}
-            {e.clipped && <span className="dt-storage-clip-note"> … clipped ({formatLength(e.valueLength)})</span>}
-          </span>
-        </div>
-      ))}
-    </div>
+    <StorageGrid
+      entries={entries}
+      adding={adding}
+      onCloseAdd={onCloseAdd}
+      onCommit={inspector.applyEdit}
+      onRemove={inspector.removeEntry}
+      fetchFullValue={inspector.fetchFullValue}
+    />
   );
 }

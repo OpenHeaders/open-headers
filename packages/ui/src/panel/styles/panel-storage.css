@@ -62,6 +62,7 @@
 }
 
 .dt-storage-row {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(120px, 30%) 1fr;
   gap: 8px;
@@ -95,4 +96,98 @@
 .dt-storage-clip-note {
   color: var(--dt-text-muted);
   font-style: italic;
+}
+
+/* Hover action lane — floats over the value cell's right edge, revealed
+ * on row hover (focused-content affordance stays reachable by keyboard:
+ * focus-within reveals it too). Pinned variant (add/edit rows) is always
+ * visible. */
+.dt-storage-row-actions {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: none;
+  align-items: center;
+  gap: 2px;
+  padding-left: 6px;
+  background: var(--dt-row-hover);
+}
+
+.dt-storage-row:hover .dt-storage-row-actions,
+.dt-storage-row:focus-within .dt-storage-row-actions,
+.dt-storage-row-actions--pinned {
+  display: inline-flex;
+}
+
+.dt-storage-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--dt-text-muted);
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.dt-storage-action:hover {
+  background: var(--dt-pill-active-bg);
+  color: var(--dt-text);
+}
+
+.dt-storage-row--editing {
+  background: var(--dt-row-selected);
+  align-items: center;
+  padding-right: 30px;
+}
+
+.dt-storage-cell-input {
+  font: inherit;
+  font-size: 11px;
+  color: var(--dt-text);
+  background: var(--dt-input-bg);
+  border: 1px solid var(--dt-input-border);
+  border-radius: 3px;
+  padding: 1px 4px;
+  min-width: 0;
+}
+
+.dt-storage-cell-input:disabled {
+  color: var(--dt-text-muted);
+}
+
+.dt-storage-edit-note {
+  font-size: 11px;
+  color: var(--dt-status-orange);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dt-storage-clear {
+  margin-left: auto;
+  flex: 0 0 auto;
+  font: inherit;
+  font-size: 11px;
+  color: var(--dt-text-muted);
+  background: transparent;
+  border: 1px solid var(--dt-input-border);
+  border-radius: 4px;
+  padding: 1px 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dt-storage-clear:hover {
+  color: var(--dt-text);
+}
+
+.dt-storage-clear--armed {
+  color: var(--dt-status-red);
+  border-color: var(--dt-status-red);
 }
