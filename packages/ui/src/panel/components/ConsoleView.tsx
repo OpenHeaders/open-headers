@@ -153,12 +153,16 @@ function sourceLocation(entry: ConsoleEntry): ConsoleSourceLocation | null {
 
 /**
  * The browser's network log text is "Failed to load resource: <error>"; once
- * the entry is joined to its request the method + URL replace that prefix
- * (Chrome renders `POST https://… net::ERR_BLOCKED_BY_CLIENT`).
+ * the entry is joined to its request, the browser's console replaces that
+ * whole text with `METHOD url <failure>` — `POST https://…
+ * net::ERR_BLOCKED_BY_CLIENT` for a blocked request, `GET https://… 404
+ * (Not Found)` for an HTTP error. Reduce the wire text to that failure tail.
  */
 function networkErrorTail(text: string): string {
-  const match = /^Failed to load resource:?\s*(.*)$/.exec(text);
-  return match ? match[1] : text;
+  const status = /^Failed to load resource: the server responded with a status of (.*)$/.exec(text);
+  if (status) return status[1];
+  const failure = /^Failed to load resource:?\s*(.*)$/.exec(text);
+  return failure ? failure[1] : text;
 }
 
 interface ConsoleRow {

@@ -109,17 +109,24 @@ function FrameRow({
 }
 
 /**
- * Async-boundary label for a section. The wire description for an await
- * boundary is the bare `await`; the browser's panel names the async
- * function whose continuation sits directly above the boundary (the last
- * frame of the preceding section) — `await in listModels` — so we do too.
+ * Async-boundary label for a section, matching the browser's panel: the
+ * wire description for an await boundary is the bare `await`, and the label
+ * names the async function whose continuation sits directly above the
+ * boundary (the last frame of the preceding section) — `await in
+ * listModels`, or `await in (anonymous)` when that frame is unnamed. The
+ * Promise wire descriptions get their friendly forms; anything else passes
+ * through verbatim.
  */
 function asyncSectionLabel(description: string | undefined, previous: CopyStackInput | undefined): string {
-  const base = description ?? 'Async call';
-  if (base !== 'await') return base;
-  const frames = previous?.callFrames ?? [];
-  const name = frames[frames.length - 1]?.functionName?.trim();
-  return name ? `await in ${name}` : base;
+  if (!description) return 'Async Call';
+  if (description === 'Promise.resolve') return 'Promise resolved (async)';
+  if (description === 'Promise.reject') return 'Promise rejected (async)';
+  if (description === 'await') {
+    const frames = previous?.callFrames ?? [];
+    const last = frames[frames.length - 1];
+    if (last) return `await in ${last.functionName?.trim() || '(anonymous)'}`;
+  }
+  return description;
 }
 
 /** Flattens an async-stack chain into a `[{ description, callFrames }]`
