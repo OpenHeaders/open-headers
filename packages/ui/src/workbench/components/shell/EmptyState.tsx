@@ -10,6 +10,7 @@
 import { RightOutlined, SisternodeOutlined } from '@ant-design/icons';
 import { hostAssets } from '@openheaders/core/assets';
 import { ApiRequestsIcon, RequestRulesIcon, VariablesIcon } from '@openheaders/ui/shared/icons';
+import { usePopoverViewportFit } from '@openheaders/ui/shared/popover';
 import { Dropdown, type MenuProps, Tooltip, Typography } from 'antd';
 import type React from 'react';
 import { forwardRef } from 'react';
@@ -105,6 +106,11 @@ const EmptyState: React.FC<EmptyStateProps> = ({
   onCreateVariable,
 }) => {
   const showHints = useSettingValue('general.showEmptyStateHints');
+  // Viewport fit for the two dropdown menus — caps each menu to the room
+  // below its trigger so it shrinks + scrolls internally (persistent
+  // scrollbar) instead of getting clipped on short windows.
+  const ruleMenuFit = usePopoverViewportFit<HTMLButtonElement>();
+  const variableMenuFit = usePopoverViewportFit<HTMLButtonElement>();
   return (
     <div className="oh-empty-state">
       <img src={hostAssets.resolveUrl('images/logo-pixel.svg')} alt="" aria-hidden="true" className="oh-empty-logo" />
@@ -112,8 +118,18 @@ const EmptyState: React.FC<EmptyStateProps> = ({
           breathing room above the actions. */}
       <div className="oh-empty-heading-spacer" aria-hidden="true" />
       <div className="oh-empty-actions">
-        <Dropdown menu={{ items: buildRuleTypeMenuItems(onCreateRule) }} trigger={['click']}>
+        <Dropdown
+          menu={{
+            items: buildRuleTypeMenuItems(onCreateRule),
+            className: 'oh-persistent-scroll',
+            style: ruleMenuFit.maxHeight != null ? { maxHeight: ruleMenuFit.maxHeight } : undefined,
+          }}
+          trigger={['click']}
+          autoAdjustOverflow={false}
+          onOpenChange={ruleMenuFit.onOpenChange}
+        >
           <ActionRow
+            ref={ruleMenuFit.triggerRef}
             icon={<RequestRulesIcon />}
             label="Create rule"
             description="Headers, redirects, blocking, and more"
@@ -121,8 +137,18 @@ const EmptyState: React.FC<EmptyStateProps> = ({
             hasMenu
           />
         </Dropdown>
-        <Dropdown menu={{ items: buildVariableScopeMenuItems(onCreateVariable) }} trigger={['click']}>
+        <Dropdown
+          menu={{
+            items: buildVariableScopeMenuItems(onCreateVariable),
+            className: 'oh-persistent-scroll',
+            style: variableMenuFit.maxHeight != null ? { maxHeight: variableMenuFit.maxHeight } : undefined,
+          }}
+          trigger={['click']}
+          autoAdjustOverflow={false}
+          onOpenChange={variableMenuFit.onOpenChange}
+        >
           <ActionRow
+            ref={variableMenuFit.triggerRef}
             icon={<VariablesIcon />}
             label="Create variable"
             description="Environment, workspace, live, and more"

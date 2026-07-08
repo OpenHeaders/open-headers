@@ -23,7 +23,7 @@ import type React from 'react';
 import { useCallback, useState } from 'react';
 import { LOCALE_OPTIONS, TIMEZONE_OPTIONS } from '../data/system-override-options';
 import { buildOverridesInfo } from './debug-controls-info';
-import { usePopoverViewportFit } from './use-popover-viewport-fit';
+import { usePopoverViewportFit } from '@openheaders/ui/shared/popover';
 
 export interface OverridesControlProps {
   /** The active override bag, or `null` when the tab uses its real system. */

@@ -22,6 +22,7 @@ import type React from 'react';
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { ApiRequestsIcon } from '@openheaders/ui/shared/icons';
+import { usePopoverViewportFit } from '@openheaders/ui/shared/popover';
 import { useDragIntent } from '../../drag-intent';
 import { useShortcutLabel } from '../../hooks/useWorkspaceShortcuts';
 import { buildRuleTypeMenuItems } from '../../rule-type-menu';
@@ -286,6 +287,20 @@ const TabBar: React.FC<TabBarProps> = ({
     ],
   );
 
+  // Viewport fit for the create menu — caps the menu to the room below
+  // the `+` trigger so it shrinks + scrolls internally (persistent
+  // scrollbar) instead of getting clipped on short windows. Measured via
+  // effect (not the Dropdown's onOpenChange) because the menu can also
+  // be opened externally through the `createMenuOpen` prop.
+  const {
+    triggerRef: createTriggerRef,
+    onOpenChange: measureCreateMenu,
+    maxHeight: createMenuMaxHeight,
+  } = usePopoverViewportFit<HTMLDivElement>();
+  useEffect(() => {
+    measureCreateMenu(createMenuOpen === true);
+  }, [createMenuOpen, measureCreateMenu]);
+
   // "Create API Request" leads the menu; the fixed-width icon slot
   // matches the rule rows' 48px code badges so labels stay aligned.
   const createMenuItems: ItemType[] = [
@@ -405,9 +420,14 @@ const TabBar: React.FC<TabBarProps> = ({
           last tab; when tabs overflow, the strip shrinks and + stays
           anchored at the strip's right edge (visually "sticky"). */}
       <Dropdown
-        menu={{ items: createMenuItems }}
+        menu={{
+          items: createMenuItems,
+          className: 'oh-persistent-scroll',
+          style: createMenuMaxHeight != null ? { maxHeight: createMenuMaxHeight } : undefined,
+        }}
         trigger={['click']}
         placement="bottomRight"
+        autoAdjustOverflow={false}
         open={createMenuOpen}
         onOpenChange={(v) => onCreateMenuOpenChange?.(v)}
       >
@@ -416,7 +436,11 @@ const TabBar: React.FC<TabBarProps> = ({
           placement="bottom"
           open={createMenuOpen ? false : undefined}
         >
-          <div className="rules-tab-action rules-tab-action-create" style={{ color: token.colorTextSecondary }}>
+          <div
+            className="rules-tab-action rules-tab-action-create"
+            ref={createTriggerRef}
+            style={{ color: token.colorTextSecondary }}
+          >
             <PlusOutlined style={{ fontSize: 12 }} />
           </div>
         </Tooltip>

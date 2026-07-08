@@ -25,7 +25,7 @@ import { TemplateInput } from '@openheaders/ui/workbench/components/template-inp
 import { Button, Popover, Radio, Select, Switch } from 'antd';
 import type { TooltipRef } from 'antd/es/tooltip';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { usePopoverViewportFit } from '../../use-popover-viewport-fit';
+import { usePopoverViewportFit } from '@openheaders/ui/shared/popover';
 import {
   type CookieEditFormValues,
   type CookieSameSiteValue,

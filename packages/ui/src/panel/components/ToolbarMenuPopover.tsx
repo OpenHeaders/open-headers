@@ -1,7 +1,7 @@
 import { useInfoPopoverContainer } from '@openheaders/ui/shared/info-popover';
 import { Popover } from 'antd';
 import { type ReactNode, useCallback } from 'react';
-import { usePopoverViewportFit } from './use-popover-viewport-fit';
+import { usePopoverViewportFit } from '@openheaders/ui/shared/popover';
 
 /**
  * Shared toolbar-style click-dropdown menu used across the Network panel —

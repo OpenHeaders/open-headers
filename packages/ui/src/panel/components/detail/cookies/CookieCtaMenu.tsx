@@ -1,7 +1,7 @@
 import { useInfoPopoverContainer } from '@openheaders/ui/shared/info-popover';
 import { Popover } from 'antd';
 import { useCallback, useState } from 'react';
-import { usePopoverViewportFit } from '../../use-popover-viewport-fit';
+import { usePopoverViewportFit } from '@openheaders/ui/shared/popover';
 
 /**
  * `Override Cookies ▾` CTA — one primary button for every cookie-rule

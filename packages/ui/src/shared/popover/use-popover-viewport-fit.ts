@@ -1,9 +1,9 @@
 import { type RefObject, useCallback, useEffect, useRef, useState } from 'react';
 
-/** Reserve below the trigger: clears the 24px footer status bar plus the
- * popover's own offset + inner padding (~8px) and a breathing gap, so the
- * menu's bottom edge lands just above the footer's grey zone instead of
- * overlapping it. */
+/** Reserve below the trigger: clears the host surface's ~24px footer
+ * status bar plus the popover's own offset + inner padding (~8px) and a
+ * breathing gap, so the menu's bottom edge lands just above the footer
+ * instead of overlapping it. */
 const BOTTOM_RESERVE_PX = 64;
 
 /** Reserve above the trigger when a flipped popover opens upward — clears
@@ -21,14 +21,13 @@ const MIN_MENU_PX = 24;
 const FLIP_MIN_PX = 400;
 
 /**
- * Caps a toolbar-style popover (`.dt-morefilters-menu`) to the room beneath its
+ * Caps a toolbar-style popover/dropdown menu to the room beneath its
  * trigger, so it stays anchored to the button and shrinks + scrolls internally
- * as the panel gets shorter — the same behaviour the top-toolbar popovers get
- * for free from the static `calc(100vh - 96px)` cap, but correct for a popover
- * that opens lower in the detail pane (where a fixed reserve would either
- * overrun the viewport or, with antd's auto-adjust, slide the menu off its
- * anchor). The trigger offset is re-read on open and on panel resize, so the
- * cap tracks the live panel height.
+ * as the surface gets shorter — correct for a popover that opens at any
+ * vertical position (where a fixed reserve would either overrun the viewport
+ * or, with antd's auto-adjust, slide the menu off its anchor). The trigger
+ * offset is re-read on open and on window resize, so the cap tracks the live
+ * surface height.
  *
  * `flip: true` (for form-sized popovers triggered from arbitrary rows, e.g.
  * the cookie jar editor) also measures the room ABOVE the trigger: when the
@@ -37,7 +36,9 @@ const FLIP_MIN_PX = 400;
  * and `maxHeight` caps to the room above instead. Menus triggered from the
  * top toolbars never need this and keep the plain below-only behaviour.
  */
-export function usePopoverViewportFit<T extends HTMLElement = HTMLElement>(options?: { flip?: boolean }): {
+export function usePopoverViewportFit<T extends HTMLElement = HTMLElement>(options?: {
+  flip?: boolean;
+}): {
   triggerRef: RefObject<T | null>;
   onOpenChange: (open: boolean) => void;
   maxHeight: number | undefined;
