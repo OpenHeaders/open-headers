@@ -64,11 +64,17 @@ export interface IdbDatabase {
   objectStores: ReadonlyArray<IdbObjectStore>;
 }
 
-/** One record, preview-serialized in-page — never the value itself. */
+/**
+ * One record, preview-serialized in-page — never the value itself.
+ * `primaryKeyWire` is the host's opaque lossless key encoding, present
+ * only when the primary key round-trips exactly; a record without one
+ * can't be deleted.
+ */
 export interface IdbRecord {
   keyPreview: string;
   primaryKeyPreview: string;
   valuePreview: string;
+  primaryKeyWire?: string;
 }
 
 /** `truncated` means more records exist past this page. */
@@ -101,6 +107,17 @@ export interface StorageInspectorHost {
     page: number,
     pageSize: number,
   ): Promise<IdbRecordsPage | null>;
+  /** Delete one record by its opaque wire key; `false` on any failure. */
+  deleteIndexedDbRecord(
+    tabId: number,
+    frameId: number,
+    database: string,
+    store: string,
+    primaryKeyWire: string,
+  ): Promise<boolean>;
+  clearIndexedDbStore(tabId: number, frameId: number, database: string, store: string): Promise<boolean>;
+  /** `false` covers errors AND a blocked delete (page holds connections). */
+  deleteIndexedDbDatabase(tabId: number, frameId: number, database: string): Promise<boolean>;
 }
 
 let host: StorageInspectorHost | null = null;

@@ -1,16 +1,24 @@
 /**
- * Standard-plane IndexedDB READS — `chrome.scripting` injection into the
- * scope's frame, same transport rationale as DOM storage: there is no
- * extension API and the CDP `IndexedDB` domain is not dispatched for
- * extension debugger clients (STORAGE_PANEL_PLAN.md §2.3). Reads only in
- * this slice; deletes and CDP `trackIndexedDBForStorageKey` invalidation
- * wiring trail it, and record editing is out of v1 entirely.
+ * Standard-plane IndexedDB READS and DELETES — `chrome.scripting`
+ * injection into the scope's frame, same transport rationale as DOM
+ * storage: there is no extension API and the CDP `IndexedDB` domain is
+ * not dispatched for extension debugger clients (STORAGE_PANEL_PLAN.md
+ * §2.3). Record EDITING stays out of v1 entirely.
  *
  * Payload discipline: cursor-paged reads with a clamped page size, and
  * every key/value PREVIEW-SERIALIZED in-page — IDB values are
  * structured-clone types (Dates, ArrayBuffers, Blobs, Maps, cycles…),
  * so a type-tagged, depth- and length-capped string is what rides the
  * bridge, never the value itself.
+ *
+ * Record identity for deletes: previews are lossy, so each record also
+ * carries `primaryKeyWire`, a LOSSLESS tagged-JSON encoding of its
+ * primary key — the IDB key space (string / finite number / Date /
+ * arrays of those) round-trips exactly; binary keys and non-finite
+ * numbers get no wire key and render undeletable. The string is opaque
+ * outside this file: encoded in-page on read, decoded in-page on
+ * delete (the key must be rebuilt in the page realm — injection args
+ * are JSON-only).
  */
 
 import type { IdbDatabaseWire, IdbRecordWire } from '@openheaders/core/bridge';
@@ -29,6 +37,16 @@ interface InjectedDatabase {
   version: number;
   objectStores: Array<{ name: string; keyPath: string | null; autoIncrement: boolean; indexNames: string[] }>;
 }
+
+interface InjectedIdbRecord {
+  keyPreview: string;
+  primaryKeyPreview: string;
+  valuePreview: string;
+  primaryKeyWire?: string;
+}
+
+/** Tagged node of the lossless primary-key wire encoding. */
+type IdbKeyWireNode = { s: string } | { n: number } | { d: string } | { a: IdbKeyWireNode[] };
 
 /**
  * The injected funcs run INSIDE the target frame and are serialized by
@@ -97,7 +115,7 @@ export async function readIdbRecordsInPage(
   pageSize: number,
   previewMax: number,
 ): Promise<{
-  records: Array<{ keyPreview: string; primaryKeyPreview: string; valuePreview: string }> | null;
+  records: InjectedIdbRecord[] | null;
   truncated: boolean;
 }> {
   if (typeof indexedDB === 'undefined') return { records: null, truncated: false };
@@ -150,6 +168,30 @@ export async function readIdbRecordsInPage(
     return s.length > previewMax ? `${s.slice(0, previewMax)}…` : s;
   }
 
+  // Lossless tagged encoding of a primary key — total over the IDB key
+  // space except binary keys and non-finite numbers, which return
+  // `undefined` (the record renders undeletable).
+  function encodeKeyNode(k: unknown): IdbKeyWireNode | undefined {
+    if (typeof k === 'string') return { s: k };
+    if (typeof k === 'number') return Number.isFinite(k) ? { n: k } : undefined;
+    if (k instanceof Date) return Number.isNaN(k.getTime()) ? undefined : { d: k.toISOString() };
+    if (Array.isArray(k)) {
+      const items: IdbKeyWireNode[] = [];
+      for (const item of k) {
+        const node = encodeKeyNode(item);
+        if (node === undefined) return undefined;
+        items.push(node);
+      }
+      return { a: items };
+    }
+    return undefined;
+  }
+
+  function encodeKey(k: unknown): string | undefined {
+    const node = encodeKeyNode(k);
+    return node === undefined ? undefined : JSON.stringify(node);
+  }
+
   try {
     const db = await new Promise<IDBDatabase | null>((resolve) => {
       const req = indexedDB.open(database);
@@ -170,10 +212,10 @@ export async function readIdbRecordsInPage(
     }
 
     const result = await new Promise<{
-      records: Array<{ keyPreview: string; primaryKeyPreview: string; valuePreview: string }> | null;
+      records: InjectedIdbRecord[] | null;
       truncated: boolean;
     }>((resolve) => {
-      const records: Array<{ keyPreview: string; primaryKeyPreview: string; valuePreview: string }> = [];
+      const records: InjectedIdbRecord[] = [];
       let advanced = page <= 0;
       try {
         const tx = db.transaction(store, 'readonly');
@@ -194,10 +236,12 @@ export async function readIdbRecordsInPage(
             resolve({ records, truncated: true });
             return;
           }
+          const primaryKeyWire = encodeKey(cursor.primaryKey);
           records.push({
             keyPreview: clip(preview(cursor.key, 3)),
             primaryKeyPreview: clip(preview(cursor.primaryKey, 3)),
             valuePreview: clip(preview(cursor.value, 3)),
+            ...(primaryKeyWire !== undefined ? { primaryKeyWire } : {}),
           });
           cursor.continue();
         };
@@ -211,6 +255,148 @@ export async function readIdbRecordsInPage(
   } catch {
     return { records: null, truncated: false };
   }
+}
+
+export async function deleteIdbRecordInPage(
+  database: string,
+  store: string,
+  primaryKeyWire: string,
+): Promise<{ ok: boolean }> {
+  if (typeof indexedDB === 'undefined') return { ok: false };
+
+  // Decode the tagged wire key back into a real IDB key. Wrapped so a
+  // valid falsy key (0, '') is distinguishable from failure.
+  function decodeKeyNode(node: unknown): { key: IDBValidKey } | null {
+    if (!node || typeof node !== 'object') return null;
+    const tagged = node as { s?: unknown; n?: unknown; d?: unknown; a?: unknown };
+    if (typeof tagged.s === 'string') return { key: tagged.s };
+    if (typeof tagged.n === 'number' && Number.isFinite(tagged.n)) return { key: tagged.n };
+    if (typeof tagged.d === 'string') {
+      const date = new Date(tagged.d);
+      return Number.isNaN(date.getTime()) ? null : { key: date };
+    }
+    if (Array.isArray(tagged.a)) {
+      const items: IDBValidKey[] = [];
+      for (const item of tagged.a) {
+        const decoded = decodeKeyNode(item);
+        if (decoded === null) return null;
+        items.push(decoded.key);
+      }
+      return { key: items };
+    }
+    return null;
+  }
+
+  let decoded: { key: IDBValidKey } | null;
+  try {
+    decoded = decodeKeyNode(JSON.parse(primaryKeyWire));
+  } catch {
+    return { ok: false };
+  }
+  if (decoded === null) return { ok: false };
+  const key = decoded.key;
+
+  try {
+    const db = await new Promise<IDBDatabase | null>((resolve) => {
+      const req = indexedDB.open(database);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => resolve(null);
+      req.onblocked = () => resolve(null);
+      // Deleted since enumeration — abort instead of creating a ghost.
+      req.onupgradeneeded = () => {
+        req.transaction?.abort();
+        resolve(null);
+      };
+    });
+    if (!db) return { ok: false };
+    if (!Array.from(db.objectStoreNames).includes(store)) {
+      db.close();
+      return { ok: false };
+    }
+    return await new Promise<{ ok: boolean }>((resolve) => {
+      try {
+        const tx = db.transaction(store, 'readwrite');
+        tx.objectStore(store).delete(key);
+        tx.oncomplete = () => {
+          db.close();
+          resolve({ ok: true });
+        };
+        tx.onerror = () => {
+          db.close();
+          resolve({ ok: false });
+        };
+        tx.onabort = () => {
+          db.close();
+          resolve({ ok: false });
+        };
+      } catch {
+        db.close();
+        resolve({ ok: false });
+      }
+    });
+  } catch {
+    return { ok: false };
+  }
+}
+
+export async function clearIdbStoreInPage(database: string, store: string): Promise<{ ok: boolean }> {
+  if (typeof indexedDB === 'undefined') return { ok: false };
+  try {
+    const db = await new Promise<IDBDatabase | null>((resolve) => {
+      const req = indexedDB.open(database);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => resolve(null);
+      req.onblocked = () => resolve(null);
+      req.onupgradeneeded = () => {
+        req.transaction?.abort();
+        resolve(null);
+      };
+    });
+    if (!db) return { ok: false };
+    if (!Array.from(db.objectStoreNames).includes(store)) {
+      db.close();
+      return { ok: false };
+    }
+    return await new Promise<{ ok: boolean }>((resolve) => {
+      try {
+        const tx = db.transaction(store, 'readwrite');
+        tx.objectStore(store).clear();
+        tx.oncomplete = () => {
+          db.close();
+          resolve({ ok: true });
+        };
+        tx.onerror = () => {
+          db.close();
+          resolve({ ok: false });
+        };
+        tx.onabort = () => {
+          db.close();
+          resolve({ ok: false });
+        };
+      } catch {
+        db.close();
+        resolve({ ok: false });
+      }
+    });
+  } catch {
+    return { ok: false };
+  }
+}
+
+export async function deleteIdbDatabaseInPage(database: string): Promise<{ ok: boolean }> {
+  if (typeof indexedDB === 'undefined') return { ok: false };
+  return new Promise<{ ok: boolean }>((resolve) => {
+    try {
+      const req = indexedDB.deleteDatabase(database);
+      req.onsuccess = () => resolve({ ok: true });
+      req.onerror = () => resolve({ ok: false });
+      // The page holds open connections — the delete would hang until
+      // they close; report failure instead of spinning.
+      req.onblocked = () => resolve({ ok: false });
+    } catch {
+      resolve({ ok: false });
+    }
+  });
 }
 
 export async function listIndexedDbDatabases(
@@ -254,4 +440,39 @@ export async function getIndexedDbRecords(
   ]);
   if (!result || !Array.isArray(result.records)) return { records: null };
   return { records: result.records, ...(result.truncated ? { truncated: true } : {}) };
+}
+
+export async function deleteIndexedDbRecord(
+  tabId: number,
+  frameId: number,
+  database: string,
+  store: string,
+  primaryKeyWire: string,
+): Promise<{ ok: boolean }> {
+  if (typeof database !== 'string' || typeof store !== 'string' || typeof primaryKeyWire !== 'string') {
+    return { ok: false };
+  }
+  const result = await runInFrame(tabId, frameId, deleteIdbRecordInPage, [database, store, primaryKeyWire]);
+  return { ok: result?.ok === true };
+}
+
+export async function clearIndexedDbStore(
+  tabId: number,
+  frameId: number,
+  database: string,
+  store: string,
+): Promise<{ ok: boolean }> {
+  if (typeof database !== 'string' || typeof store !== 'string') return { ok: false };
+  const result = await runInFrame(tabId, frameId, clearIdbStoreInPage, [database, store]);
+  return { ok: result?.ok === true };
+}
+
+export async function deleteIndexedDbDatabase(
+  tabId: number,
+  frameId: number,
+  database: string,
+): Promise<{ ok: boolean }> {
+  if (typeof database !== 'string') return { ok: false };
+  const result = await runInFrame(tabId, frameId, deleteIdbDatabaseInPage, [database]);
+  return { ok: result?.ok === true };
 }

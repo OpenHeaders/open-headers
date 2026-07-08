@@ -117,4 +117,37 @@ setStorageInspectorHost({
       return null;
     }
   },
+  async deleteIndexedDbRecord(
+    tabId: number,
+    frameId: number,
+    database: string,
+    store: string,
+    primaryKeyWire: string,
+  ): Promise<boolean> {
+    try {
+      const res = await call('deleteIndexedDbRecord', { tabId, frameId, database, store, primaryKeyWire });
+      return res?.ok === true;
+    } catch (err) {
+      logger.info('StorageInspectorHost', `deleteIndexedDbRecord ✗ tab ${tabId}: ${(err as Error).message}`);
+      return false;
+    }
+  },
+  async clearIndexedDbStore(tabId: number, frameId: number, database: string, store: string): Promise<boolean> {
+    try {
+      const res = await call('clearIndexedDbStore', { tabId, frameId, database, store });
+      return res?.ok === true;
+    } catch (err) {
+      logger.info('StorageInspectorHost', `clearIndexedDbStore ✗ tab ${tabId}: ${(err as Error).message}`);
+      return false;
+    }
+  },
+  async deleteIndexedDbDatabase(tabId: number, frameId: number, database: string): Promise<boolean> {
+    try {
+      const res = await call('deleteIndexedDbDatabase', { tabId, frameId, database });
+      return res?.ok === true;
+    } catch (err) {
+      logger.info('StorageInspectorHost', `deleteIndexedDbDatabase ✗ tab ${tabId}: ${(err as Error).message}`);
+      return false;
+    }
+  },
 });

@@ -59,6 +59,9 @@ function installHost() {
   );
   const listIndexedDb = vi.fn(() => Promise.resolve([structuredClone(IDB_DB)]));
   const readIndexedDbRecords = vi.fn(() => Promise.resolve(structuredClone(IDB_PAGE)));
+  const deleteIndexedDbRecord = vi.fn(() => Promise.resolve(true));
+  const clearIndexedDbStore = vi.fn(() => Promise.resolve(true));
+  const deleteIndexedDbDatabase = vi.fn(() => Promise.resolve(true));
   const host: StorageInspectorHost = {
     listScopes,
     readDomStorage,
@@ -68,9 +71,20 @@ function installHost() {
     clearDomStorage: vi.fn(() => Promise.resolve(true)),
     listIndexedDb,
     readIndexedDbRecords,
+    deleteIndexedDbRecord,
+    clearIndexedDbStore,
+    deleteIndexedDbDatabase,
   };
   setStorageInspectorHost(host);
-  return { listScopes, readDomStorage, listIndexedDb, readIndexedDbRecords };
+  return {
+    listScopes,
+    readDomStorage,
+    listIndexedDb,
+    readIndexedDbRecords,
+    deleteIndexedDbRecord,
+    clearIndexedDbStore,
+    deleteIndexedDbDatabase,
+  };
 }
 
 async function flush(ms = 1): Promise<void> {

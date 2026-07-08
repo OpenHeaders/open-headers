@@ -15,4 +15,10 @@ export {
   removeDomStorageItem,
   setDomStorageItem,
 } from './standard-plane';
-export { getIndexedDbRecords, listIndexedDbDatabases } from './standard-plane-idb';
+export {
+  clearIndexedDbStore,
+  deleteIndexedDbDatabase,
+  deleteIndexedDbRecord,
+  getIndexedDbRecords,
+  listIndexedDbDatabases,
+} from './standard-plane-idb';

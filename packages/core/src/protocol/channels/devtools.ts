@@ -108,11 +108,19 @@ export interface IdbDatabaseWire {
  * One IndexedDB record, PREVIEW-SERIALIZED in-page (type-tagged,
  * depth- and length-capped strings) — IDB values are structured-clone
  * types, not JSON, and must never ride the bridge whole.
+ *
+ * `primaryKeyWire` is a LOSSLESS encoding of the record's primary key
+ * (JSON of tagged nodes: `{s}` string / `{n}` finite number / `{d}` ISO
+ * Date / `{a}` array), present only when the key is exactly encodable —
+ * binary keys and non-finite numbers omit it, which marks the record
+ * undeletable. Opaque to the panel: encoded in-page on read, passed
+ * back verbatim on `deleteIndexedDbRecord`, decoded in-page again.
  */
 export interface IdbRecordWire {
   keyPreview: string;
   primaryKeyPreview: string;
   valuePreview: string;
+  primaryKeyWire?: string;
 }
 
 export interface DevToolsRpc {
@@ -287,5 +295,32 @@ export interface DevToolsRpc {
   getIndexedDbRecords: {
     req: { tabId: number; frameId: number; database: string; store: string; page: number; pageSize: number };
     res: { records: ReadonlyArray<IdbRecordWire> | null; truncated?: boolean };
+  };
+
+  /**
+   * Delete one record by its exact primary key. `primaryKeyWire` is the
+   * lossless key encoding the read RPC returned (see {@link IdbRecordWire});
+   * a record without one can't be deleted. `ok: false` covers injection
+   * failure, a gone database/store, and an undecodable key.
+   */
+  deleteIndexedDbRecord: {
+    req: { tabId: number; frameId: number; database: string; store: string; primaryKeyWire: string };
+    res: { ok: boolean };
+  };
+
+  /** Clear every record of one object store. */
+  clearIndexedDbStore: {
+    req: { tabId: number; frameId: number; database: string; store: string };
+    res: { ok: boolean };
+  };
+
+  /**
+   * Delete a whole database. `ok: false` when the request reports an
+   * error OR blocks — a page holding open connections blocks the delete
+   * indefinitely, so the panel surfaces failure rather than spinning.
+   */
+  deleteIndexedDbDatabase: {
+    req: { tabId: number; frameId: number; database: string };
+    res: { ok: boolean };
   };
 }

@@ -1,9 +1,12 @@
-/** Storage tool-window RPCs — scope discovery + DOM storage reads/writes + IndexedDB reads. */
+/** Storage tool-window RPCs — scope discovery + DOM storage reads/writes + IndexedDB reads/deletes. */
 
 import type { DomStorageAreaWire } from '@openheaders/core/bridge';
 import { logger } from '@utils/logger';
 import {
   clearDomStorage as clearDomStorageHandler,
+  clearIndexedDbStore as clearIndexedDbStoreHandler,
+  deleteIndexedDbDatabase as deleteIndexedDbDatabaseHandler,
+  deleteIndexedDbRecord as deleteIndexedDbRecordHandler,
   getDomStorageEntries as getDomStorageEntriesHandler,
   getDomStorageValue as getDomStorageValueHandler,
   getIndexedDbRecords as getIndexedDbRecordsHandler,
@@ -114,6 +117,47 @@ export const storageInspectorHandlers: HandlerMap = {
       .catch((err: Error) => {
         logger.info('StorageIdb', `handler threw: ${err.message}`);
         respond({ records: null });
+      });
+    return true;
+  },
+
+  deleteIndexedDbRecord: ({ message, respond }) => {
+    deleteIndexedDbRecordHandler(
+      message.tabId as number,
+      message.frameId as number,
+      message.database as string,
+      message.store as string,
+      message.primaryKeyWire as string,
+    )
+      .then((res) => respond(res))
+      .catch((err: Error) => {
+        logger.info('StorageIdb', `handler threw: ${err.message}`);
+        respond({ ok: false });
+      });
+    return true;
+  },
+
+  clearIndexedDbStore: ({ message, respond }) => {
+    clearIndexedDbStoreHandler(
+      message.tabId as number,
+      message.frameId as number,
+      message.database as string,
+      message.store as string,
+    )
+      .then((res) => respond(res))
+      .catch((err: Error) => {
+        logger.info('StorageIdb', `handler threw: ${err.message}`);
+        respond({ ok: false });
+      });
+    return true;
+  },
+
+  deleteIndexedDbDatabase: ({ message, respond }) => {
+    deleteIndexedDbDatabaseHandler(message.tabId as number, message.frameId as number, message.database as string)
+      .then((res) => respond(res))
+      .catch((err: Error) => {
+        logger.info('StorageIdb', `handler threw: ${err.message}`);
+        respond({ ok: false });
       });
     return true;
   },

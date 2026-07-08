@@ -1,15 +1,21 @@
 /**
- * IndexedDB read plane (STORAGE_PANEL_PLAN.md §5, slice 4) — the
- * injected enumeration/cursor funcs run against fake-indexeddb (real
- * IDB semantics: versionless opens, upgrade events, cursors), plus the
- * SW wrapper's paging clamps and wire mapping over the mocked
- * `chrome.scripting` transport.
+ * IndexedDB read + delete planes (STORAGE_PANEL_PLAN.md §5, slice 4) —
+ * the injected enumeration/cursor/delete funcs run against
+ * fake-indexeddb (real IDB semantics: versionless opens, upgrade
+ * events, cursors, blocked deletes), plus the SW wrappers' clamps and
+ * wire mapping over the mocked `chrome.scripting` transport.
  */
 
 import { IDBFactory } from 'fake-indexeddb';
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it, type vi } from 'vitest';
 import {
+  clearIdbStoreInPage,
+  clearIndexedDbStore,
+  deleteIdbDatabaseInPage,
+  deleteIdbRecordInPage,
+  deleteIndexedDbDatabase,
+  deleteIndexedDbRecord,
   getIndexedDbRecords,
   IDB_PAGE_SIZE_DEFAULT,
   IDB_PAGE_SIZE_MAX,
@@ -163,6 +169,103 @@ describe('readIdbRecordsInPage', () => {
   });
 });
 
+describe('primary-key wire encoding', () => {
+  it('encodes string / number / Date / array keys losslessly and skips non-finite numbers', async () => {
+    await seedDb('oh-app', 1, (db) => db.createObjectStore('kv'));
+    await putRecords('oh-app', 'kv', [
+      { key: 'str-key', value: 1 },
+      { key: 42.5, value: 2 },
+      { key: new Date('2026-07-08T10:20:30.456Z'), value: 3 },
+      { key: ['tenant', 7, new Date('2026-01-01T00:00:00.000Z')], value: 4 },
+      { key: Number.POSITIVE_INFINITY, value: 5 },
+    ]);
+
+    const { records } = await readIdbRecordsInPage('oh-app', 'kv', 0, 50, 1024);
+    expect(records).toHaveLength(5);
+    const wires = (records ?? []).map((r) => r.primaryKeyWire);
+    expect(JSON.parse(wires.find((w) => w?.includes('str-key')) as string)).toEqual({ s: 'str-key' });
+    expect(JSON.parse(wires.find((w) => w?.includes('42.5')) as string)).toEqual({ n: 42.5 });
+    expect(JSON.parse(wires.find((w) => w?.includes('10:20:30')) as string)).toEqual({
+      d: '2026-07-08T10:20:30.456Z',
+    });
+    expect(JSON.parse(wires.find((w) => w?.includes('tenant')) as string)).toEqual({
+      a: [{ s: 'tenant' }, { n: 7 }, { d: '2026-01-01T00:00:00.000Z' }],
+    });
+    // Infinity is a valid IDB key but not JSON-encodable — undeletable.
+    const infinity = records?.find((r) => r.keyPreview === 'Infinity');
+    expect(infinity).toBeDefined();
+    expect(infinity?.primaryKeyWire).toBeUndefined();
+  });
+});
+
+describe('injected delete plane', () => {
+  it('deletes one record by its wire key for every encodable key type', async () => {
+    await seedDb('oh-app', 1, (db) => db.createObjectStore('kv'));
+    await putRecords('oh-app', 'kv', [
+      { key: 'str-key', value: 'a' },
+      { key: 7, value: 'b' },
+      { key: new Date('2026-07-08T00:00:00.000Z'), value: 'c' },
+      { key: [1, 'two'], value: 'd' },
+    ]);
+
+    const { records } = await readIdbRecordsInPage('oh-app', 'kv', 0, 50, 1024);
+    expect(records).toHaveLength(4);
+    for (const record of records ?? []) {
+      const result = await deleteIdbRecordInPage('oh-app', 'kv', record.primaryKeyWire as string);
+      expect(result.ok).toBe(true);
+    }
+    const after = await readIdbRecordsInPage('oh-app', 'kv', 0, 50, 1024);
+    expect(after.records).toHaveLength(0);
+  });
+
+  it('rejects an undecodable wire key', async () => {
+    await seedDb('oh-app', 1, (db) => db.createObjectStore('kv'));
+    expect((await deleteIdbRecordInPage('oh-app', 'kv', 'not-json')).ok).toBe(false);
+    expect((await deleteIdbRecordInPage('oh-app', 'kv', '{"x":1}')).ok).toBe(false);
+  });
+
+  it('reports a missing store as failure and never creates a ghost database', async () => {
+    await seedDb('oh-app', 1, (db) => db.createObjectStore('kv'));
+    expect((await deleteIdbRecordInPage('oh-app', 'gone', '{"s":"k"}')).ok).toBe(false);
+    expect((await deleteIdbRecordInPage('oh-ghost', 'kv', '{"s":"k"}')).ok).toBe(false);
+    expect((await clearIdbStoreInPage('oh-ghost', 'kv')).ok).toBe(false);
+    const names = (await indexedDB.databases()).map((d) => d.name);
+    expect(names).toEqual(['oh-app']);
+  });
+
+  it('clears a whole store', async () => {
+    await seedDb('oh-app', 1, (db) => db.createObjectStore('kv'));
+    await putRecords(
+      'oh-app',
+      'kv',
+      Array.from({ length: 5 }, (_, i) => ({ key: i, value: `v${i}` })),
+    );
+    expect((await clearIdbStoreInPage('oh-app', 'kv')).ok).toBe(true);
+    const after = await readIdbRecordsInPage('oh-app', 'kv', 0, 50, 1024);
+    expect(after.records).toHaveLength(0);
+  });
+
+  it('deletes a whole database', async () => {
+    await seedDb('oh-app', 1, (db) => db.createObjectStore('kv'));
+    await seedDb('oh-keep', 1, (db) => db.createObjectStore('kv'));
+    expect((await deleteIdbDatabaseInPage('oh-app')).ok).toBe(true);
+    const names = (await indexedDB.databases()).map((d) => d.name);
+    expect(names).toEqual(['oh-keep']);
+  });
+
+  it('reports a blocked database delete as failure', async () => {
+    await seedDb('oh-app', 1, (db) => db.createObjectStore('kv'));
+    // A held connection with no versionchange handler blocks the delete.
+    const held = await new Promise<IDBDatabase>((resolve, reject) => {
+      const req = indexedDB.open('oh-app');
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    expect((await deleteIdbDatabaseInPage('oh-app')).ok).toBe(false);
+    held.close();
+  });
+});
+
 describe('SW wrappers over the injection transport', () => {
   it('clamps page and pageSize before injecting', async () => {
     executeScriptSpy().mockResolvedValue([{ result: { records: [], truncated: false } }]);
@@ -202,5 +305,27 @@ describe('SW wrappers over the injection transport', () => {
     expect((await listIndexedDbDatabases(1, 0)).databases).toBeNull();
     executeScriptSpy().mockRejectedValue(new Error('No frame with id'));
     expect((await getIndexedDbRecords(1, 0, 'a', 'b', 0, 50)).records).toBeNull();
+  });
+
+  it('reports delete-op injection failure and bad args as { ok: false }', async () => {
+    executeScriptSpy().mockRejectedValue(new Error('No frame with id'));
+    expect((await deleteIndexedDbRecord(1, 0, 'a', 'b', '{"s":"k"}')).ok).toBe(false);
+    executeScriptSpy().mockRejectedValue(new Error('No frame with id'));
+    expect((await clearIndexedDbStore(1, 0, 'a', 'b')).ok).toBe(false);
+    executeScriptSpy().mockRejectedValue(new Error('No frame with id'));
+    expect((await deleteIndexedDbDatabase(1, 0, 'a')).ok).toBe(false);
+
+    executeScriptSpy().mockClear();
+    expect((await deleteIndexedDbRecord(1, 0, 'a', 'b', undefined as unknown as string)).ok).toBe(false);
+    expect((await clearIndexedDbStore(1, 0, 'a', undefined as unknown as string)).ok).toBe(false);
+    expect((await deleteIndexedDbDatabase(1, 0, undefined as unknown as string)).ok).toBe(false);
+    expect(executeScriptSpy()).not.toHaveBeenCalled();
+  });
+
+  it('relays a successful injected delete as { ok: true }', async () => {
+    executeScriptSpy().mockResolvedValue([{ result: { ok: true } }]);
+    expect((await deleteIndexedDbRecord(1, 0, 'a', 'b', '{"s":"k"}')).ok).toBe(true);
+    const [{ args }] = executeScriptSpy().mock.calls[0] as [{ args: unknown[] }];
+    expect(args).toEqual(['a', 'b', '{"s":"k"}']);
   });
 });
