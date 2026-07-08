@@ -1,9 +1,8 @@
 /**
- * Probe-result → notification copy. Shared by the two surfaces that run
- * a connection probe: the BackendPane "Test connection" button and the
- * Switch gate (`useBackendModeSwitch`). Keeping the mapping here means
- * both speak with one voice — a reachable-but-auth-required back-end
- * reads the same whether the user tested it or tried to switch to it.
+ * Probe-result → notification copy. Shared by every surface that runs
+ * a connection probe (the enable gate, `useBackendEnableSwitch`, today).
+ * Keeping the mapping here means they all speak with one voice — a
+ * reachable-but-auth-required back-end reads the same everywhere.
  *
  * Pure: maps a {@link ProbeConnectionResult} to a level + title + body.
  * The caller fires it through whatever notification API it holds.

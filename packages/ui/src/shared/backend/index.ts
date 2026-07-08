@@ -1,11 +1,10 @@
 export {
-  applyBackendMode,
-  applyBackendModeForCurrentHost,
-  ensurePrimaryBackendHydrated,
+  ensureBackendsHydrated,
   primaryBackendUrl,
+  useBackends,
   usePrimaryBackend,
   usePrimaryBackendUrl,
-} from './primary-backend';
+} from './backend-registry';
 export type {
   ProbeConnectionResult,
   ProbeFailure,

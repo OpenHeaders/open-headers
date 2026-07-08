@@ -1,20 +1,18 @@
 /**
  * Authentication field with in-app pairing (WS-A2).
  *
- * Editor for the primary `OH.backends` record's paired token
- * (registry-backed since the multi-backend Phase-1 settings
- * retirement). Two ways to supply the credential, with the friendlier
- * one shown first and a quiet text link to switch (the Stripe
- * one-time-code idiom):
+ * Editor for one `OH.backends` record's paired token, resolved through
+ * the row-editor's record context. Two ways to supply the credential,
+ * with the friendlier one shown first and a quiet text link to switch
+ * (the one-time-code idiom):
  *
  *   - **Code** (default) — type the 6-digit code the daemon displayed
  *     into an OTP input; the last digit triggers a `pairWithCode`
- *     exchange that mints a token and writes it into the setting. On
+ *     exchange that mints a token and writes it onto the record. On
  *     success we DON'T flip views or fire a toast — pairing is auth
  *     setup, not activation, so we stay put and show a calm inline
- *     "Paired" line. The user still explicitly Switches the back-end.
- *   - **Token** — paste / edit a long-lived token directly (same
- *     draft-commit semantics as the generic StringField).
+ *     "Paired" line. The user still explicitly enables the back-end.
+ *   - **Token** — paste / edit a long-lived token directly.
  *
  * The code path only exists when the running host registered the
  * `pairWithCode` capability (the extension surfaces do; a host that pairs
@@ -22,16 +20,16 @@
  * token input with no switch link.
  */
 
-import { updatePrimaryBackend } from '@openheaders/core/backends';
 import { CheckCircleFilled } from '@ant-design/icons';
 import { App as AntApp, Button, Input, theme, Typography } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { getCapability, hasCapability } from '@openheaders/core/capabilities';
-import { usePrimaryBackend, usePrimaryBackendUrl } from '../../../shared/backend';
+import { getCurrentHost } from '../../../shared/host-vocabulary';
+import { deriveBackendMode } from '../schema/backend';
 import FieldRow from '../fields/FieldRow';
-import { BackendIcon } from './backend-icons';
-import { backendModeIcon, useBackendPreviewMode } from './backend-preview-context';
+import { BackendIcon, backendModeIcon } from './backend-icons';
+import { useBackendRecord } from './backend-record-context';
 import { humanizePairFailure } from './pair-popover';
 
 type AuthMode = 'token' | 'code';
@@ -41,15 +39,12 @@ const FIELD_LABEL = 'Authentication';
 const FIELD_DESCRIPTION =
   'How this device proves itself to the back-end. Pair with a code, or paste a token directly.';
 
-function setToken(next: string): void {
-  void updatePrimaryBackend({ authToken: next });
-}
-
 const BackendAuthTokenField: React.FC = () => {
   const { token: themeToken } = theme.useToken();
   const { message } = AntApp.useApp();
-  const token = usePrimaryBackend()?.authToken ?? '';
-  const url = usePrimaryBackendUrl();
+  const handle = useBackendRecord();
+  const token = handle?.record.authToken ?? '';
+  const url = handle?.record.url ?? '';
   const [draft, setDraft] = useState(token);
   const canPair = hasCapability('pairWithCode');
   const hasToken = token.trim().length > 0;
@@ -69,9 +64,16 @@ const BackendAuthTokenField: React.FC = () => {
     if (!token) setCode('');
   }, [token]);
 
+  const setToken = useCallback(
+    (next: string) => {
+      if (handle) void handle.patch({ authToken: next });
+    },
+    [handle],
+  );
+
   const commit = useCallback(() => {
     if (draft !== token) setToken(draft);
-  }, [draft, token]);
+  }, [draft, token, setToken]);
 
   const pair = useCallback(
     async (value: string) => {
@@ -92,17 +94,18 @@ const BackendAuthTokenField: React.FC = () => {
       // mistyped digit the user can fix in place, not a reason to retype all six.
       message.error(humanizePairFailure(result, url));
     },
-    [url, message],
+    [url, message, setToken],
   );
+
+  if (!handle) return null;
 
   const inCodeMode = canPair && authMode === 'code';
   // Pairing is done once a token exists — lock the code input and the
   // method toggle. The row's reset (undo) is the way to override.
   const locked = inCodeMode && hasToken;
-  // The back-end-tier glyph for the mode being paired — same icon the
-  // picker tiles use, so the code input reads as "pairing with THIS
-  // back-end". Null in settings search (no preview), where it's omitted.
-  const previewMode = useBackendPreviewMode();
+  // The back-end-tier glyph for the record being paired — classified off
+  // its URL, so the code input reads as "pairing with THIS back-end".
+  const icon = backendModeIcon(deriveBackendMode(getCurrentHost(), { ...handle.record, enabled: true }));
 
   return (
     <FieldRow
@@ -119,11 +122,9 @@ const BackendAuthTokenField: React.FC = () => {
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6, width: '100%' }}>
         {inCodeMode ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {previewMode && (
-              <span style={{ flex: 'none', display: 'inline-flex' }} aria-hidden>
-                <BackendIcon kind={backendModeIcon(previewMode)} size={24} />
-              </span>
-            )}
+            <span style={{ flex: 'none', display: 'inline-flex' }} aria-hidden>
+              <BackendIcon kind={icon} size={24} />
+            </span>
             <Input.OTP
               length={CODE_LENGTH}
               value={code}

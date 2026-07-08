@@ -16,8 +16,22 @@
 import type React from 'react';
 import { FILL_BLUE, FILL_PURPLE, STROKE_BLUE, STROKE_PURPLE } from '../../components/docs/diagrams/_shared';
 import { OH_GREEN } from '../../components/docs/diagrams/open-headers/_shared';
+import type { BackendMode } from '../schema/backend';
 
 export type BackendIconKey = 'browser' | 'desktop' | 'laptop' | 'daemon' | 'vm' | 'cli' | 'web';
+
+const MODE_ICON: Record<BackendMode, BackendIconKey> = {
+  'in-browser': 'browser',
+  'desktop-app': 'desktop',
+  'local-self-hosted': 'daemon',
+  'remote-self-hosted': 'vm',
+};
+
+/** The back-end-tier glyph for a derived mode — one icon vocabulary
+ *  across the tier-zero card, the connection rows, and the docs. */
+export function backendModeIcon(mode: BackendMode): BackendIconKey {
+  return MODE_ICON[mode];
+}
 
 const STROKE = STROKE_BLUE;
 const FILL = FILL_BLUE;

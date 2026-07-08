@@ -1,19 +1,19 @@
 /**
- * Back-end Switch gate — `useBackendModeSwitch.attemptChange`.
+ * Probe-gated enable toggle — `useBackendEnableSwitch.setEnabled`.
  *
- * Pins the verify-then-switch flow over the `OH.backends` registry:
- *   - a probe failure HARD-ABORTS — the registry is NOT committed;
- *   - a probe success enables the primary record after the overlay dwell
- *     (the mode itself is derived presentation, never stored);
- *   - modes that need no wire (`in-browser`) skip the probe and disable
- *     the record without forgetting its config.
+ * Pins the verify-then-enable flow over the `OH.backends` registry:
+ *   - a probe failure HARD-ABORTS — the record is NOT enabled;
+ *   - a probe success enables the record after the overlay dwell;
+ *   - disabling never probes and never forgets config (kill switch);
+ *   - the probe presents the record's own URL + paired token.
  */
 
 import {
   __clearBackendsForTests,
-  getPrimaryBackend,
+  createBackend,
+  getBackend,
   refreshBackendsFromHostStorage,
-  updatePrimaryBackend,
+  updateBackend,
 } from '@openheaders/core/backends';
 import { type HostStorage, setHostStorage } from '@openheaders/core/storage';
 import { setCurrentHost } from '@openheaders/ui/shared/host-vocabulary';
@@ -28,7 +28,7 @@ vi.mock('@openheaders/ui/shared/backend', async (importOriginal) => {
   return { ...actual, probeBackendConnection: (...args: unknown[]) => mockProbe(...args) };
 });
 
-import { useBackendModeSwitch } from '@openheaders/ui/workbench/settings/components/backend-mode-switch';
+import { useBackendEnableSwitch } from '@openheaders/ui/workbench/settings/components/use-backend-enable-switch';
 
 function createHostStorageFake(): HostStorage {
   const map = new Map<string, unknown>();
@@ -69,67 +69,76 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('useBackendModeSwitch.attemptChange', () => {
-  it('hard-aborts and does NOT commit when the probe fails', async () => {
+describe('useBackendEnableSwitch.setEnabled', () => {
+  it('hard-aborts and does NOT enable when the probe fails', async () => {
+    const record = await createBackend({ url: 'ws://127.0.0.1:8137' });
     mockProbe.mockResolvedValue({ ok: false, reason: 'timeout' });
-    const { result } = renderHook(() => useBackendModeSwitch(), { wrapper });
+    const { result } = renderHook(() => useBackendEnableSwitch(), { wrapper });
 
     await act(async () => {
-      await result.current.attemptChange('desktop-app');
+      await result.current.setEnabled(record, true);
     });
 
     expect(mockProbe).toHaveBeenCalledTimes(1);
-    expect(getPrimaryBackend()).toBeNull();
-    expect(result.current.mode).toBe('in-browser');
+    expect(getBackend(record.id)?.enabled).toBe(false);
   });
 
-  it('enables the primary record after the overlay dwell when the probe passes', async () => {
+  it('enables the record after the overlay dwell when the probe passes', async () => {
+    const record = await createBackend({ url: 'ws://127.0.0.1:8137' });
     mockProbe.mockResolvedValue({ ok: true, latencyMs: 5, protocolVersion: 1, role: 'extension', agent: 'x' });
     vi.useFakeTimers();
-    const { result } = renderHook(() => useBackendModeSwitch(), { wrapper });
+    const { result } = renderHook(() => useBackendEnableSwitch(), { wrapper });
 
     await act(async () => {
-      const pending = result.current.attemptChange('desktop-app');
+      const pending = result.current.setEnabled(record, true);
       await vi.advanceTimersByTimeAsync(1_000);
       await pending;
     });
 
     expect(mockProbe).toHaveBeenCalledTimes(1);
-    expect(getPrimaryBackend()?.enabled).toBe(true);
-    expect(result.current.mode).toBe('desktop-app');
-    expect(result.current.disabled).toBe(false);
+    expect(getBackend(record.id)?.enabled).toBe(true);
+    expect(result.current.busy).toBe(false);
   });
 
-  it('skips the probe for a mode with no wire (in-browser), disabling without forgetting config', async () => {
-    await updatePrimaryBackend({ enabled: true, authToken: 'kept-token' });
-    vi.useFakeTimers();
-    const { result } = renderHook(() => useBackendModeSwitch(), { wrapper });
+  it('disables without a probe and without forgetting config (kill switch)', async () => {
+    const created = await createBackend({ url: 'ws://127.0.0.1:8137', authToken: 'kept-token' });
+    const record = await updateBackend(created.id, { enabled: true });
+    const { result } = renderHook(() => useBackendEnableSwitch(), { wrapper });
 
     await act(async () => {
-      const pending = result.current.attemptChange('in-browser');
-      await vi.advanceTimersByTimeAsync(1_000);
-      await pending;
+      if (record) await result.current.setEnabled(record, false);
     });
 
     expect(mockProbe).not.toHaveBeenCalled();
-    expect(getPrimaryBackend()?.enabled).toBe(false);
-    // Kill switch, not amnesia: the paired token survives the switch.
-    expect(getPrimaryBackend()?.authToken).toBe('kept-token');
-    expect(result.current.mode).toBe('in-browser');
+    expect(getBackend(created.id)?.enabled).toBe(false);
+    // Kill switch, not amnesia: the paired token survives the disable.
+    expect(getBackend(created.id)?.authToken).toBe('kept-token');
   });
 
-  it('presents the configured URL + auth token to the probe', async () => {
-    await updatePrimaryBackend({ url: 'ws://127.0.0.1:9999', authToken: 'tok-123' });
+  it('presents the record own URL + auth token to the probe', async () => {
+    const record = await createBackend({ url: 'ws://127.0.0.1:9999', authToken: 'tok-123' });
     mockProbe.mockResolvedValue({ ok: false, reason: 'timeout' });
-    const { result } = renderHook(() => useBackendModeSwitch(), { wrapper });
+    const { result } = renderHook(() => useBackendEnableSwitch(), { wrapper });
 
     await act(async () => {
-      await result.current.attemptChange('desktop-app');
+      await result.current.setEnabled(record, true);
     });
 
     expect(mockProbe).toHaveBeenCalledWith(
       'ws://127.0.0.1:9999',
       expect.objectContaining({ authToken: 'tok-123', role: 'extension' }),
     );
+  });
+
+  it('a same-state flip is a no-op', async () => {
+    const record = await createBackend({ url: 'ws://127.0.0.1:8137' });
+    const { result } = renderHook(() => useBackendEnableSwitch(), { wrapper });
+
+    await act(async () => {
+      await result.current.setEnabled(record, false);
+    });
+
+    expect(mockProbe).not.toHaveBeenCalled();
+    expect(getBackend(record.id)?.enabled).toBe(false);
   });
 });

@@ -1,23 +1,21 @@
 /**
  * Backend-URL field with a uniform connect affordance (WS-A3).
  *
- * Editor for the primary `OH.backends` record's URL (registry-backed
- * since the multi-backend Phase-1 settings retirement). The persisted
- * value stays the single canonical `ws://host:port` string every dialer
- * reads (websocket, probe, backend-target, pair-with-code), but the
- * user edits it as the three parts they actually think in: scheme,
- * Address, Port. This is the `lan-peers-toggle` idiom — persist the
- * literal, present the friendlier affordance.
+ * Editor for one `OH.backends` record's URL, resolved through the
+ * row-editor's record context. The persisted value stays the single
+ * canonical `ws://host:port` string every dialer reads (websocket,
+ * probe, backend-target, pair-with-code), but the user edits it as the
+ * three parts they actually think in: scheme, Address, Port. This is
+ * the `lan-peers-toggle` idiom — persist the literal, present the
+ * friendlier affordance.
  *
  * Scheme stays editable because it carries the reach: `ws://` for local
  * / LAN hosts, `wss://` for a remote self-hosted back-end.
  *
- * Edits are STAGED, not committed: every part flows into the
- * connection-draft layer (`useConnectionField`), and the persisted URL
- * only changes when the user hits "Apply & reconnect" in the ApplyBar —
- * so tabbing out of a half-typed address can't silently move the live
- * connection. Outside the BackendPane (settings search) there's no draft
- * provider, so the hook falls back to plain auto-apply.
+ * Commits on blur/enter are safe here: the row editor only mounts the
+ * connection fields while the record is DISABLED, so a half-typed
+ * address can never move a live connection — the wire is only earned
+ * through the probe-gated enable afterwards.
  */
 
 import { Input, Select, Space } from 'antd';
@@ -25,7 +23,7 @@ import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { type PortValidation, validatePort } from '@openheaders/core/utils';
 import FieldRow from '../fields/FieldRow';
-import { useConnectionField } from './connection-draft';
+import { useBackendRecord } from './backend-record-context';
 import PortHint from './port-hint';
 
 const FIELD_LABEL = 'Backend address';
@@ -68,7 +66,8 @@ function portVerdict(port: string): PortValidation {
 }
 
 const BackendUrlField: React.FC = () => {
-  const { value: url, setValue: setUrl, dirty, discard } = useConnectionField('backend.url');
+  const handle = useBackendRecord();
+  const url = handle?.record.url ?? '';
   const [parts, setParts] = useState<UrlParts>(() => parseUrl(url));
 
   useEffect(() => {
@@ -84,21 +83,15 @@ const BackendUrlField: React.FC = () => {
       // can't be persisted while the address change rides along.
       if (portVerdict(next.port).level === 'reject') return;
       const built = buildUrl(next);
-      if (built !== url) setUrl(built);
+      if (handle && built !== url) void handle.patch({ url: built });
     },
-    [url, setUrl],
+    [url, handle],
   );
 
+  if (!handle) return null;
+
   return (
-    <FieldRow
-      settingKey="backend.url"
-      label={FIELD_LABEL}
-      description={FIELD_DESCRIPTION}
-      modified={dirty}
-      onReset={discard}
-      resetTooltip="Discard unapplied change"
-      block
-    >
+    <FieldRow settingKey="backend.url" label={FIELD_LABEL} description={FIELD_DESCRIPTION} block>
       <div style={{ width: '100%' }}>
         <Space.Compact style={{ width: '100%' }}>
           <Select

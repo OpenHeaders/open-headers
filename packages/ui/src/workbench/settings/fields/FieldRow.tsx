@@ -52,13 +52,12 @@ interface FieldRowProps {
    */
   labelInControl?: boolean;
   /**
-   * Override the store-derived "modified from default" signal. Staged
-   * fields (the connection-draft editors) pass their own draft-vs-persisted
-   * dirty flag so the dot means "edited, not yet applied" instead.
+   * Override the store-derived "modified from default" signal.
+   * Registry-backed fields pass their own flag — the store can't derive
+   * one for values that live on an `OH.backends` record.
    */
   modified?: boolean;
-  /** Override the reset handler. Pairs with `modified` for staged fields,
-   *  where reset discards the pending edit rather than resetting to default. */
+  /** Override the reset handler. Pairs with `modified` for registry-backed fields. */
   onReset?: () => void;
   /** Reset-button tooltip. Defaults to the reset-to-default meaning. */
   resetTooltip?: string;

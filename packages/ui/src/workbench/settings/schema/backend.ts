@@ -87,25 +87,6 @@ export function backendModeNeedsConnection(mode: BackendMode): boolean {
   return mode !== 'in-browser';
 }
 
-/** Modes that aren't fully implemented yet — the UI marks them "Coming soon". */
-export function backendModeIsPending(mode: BackendMode): boolean {
-  return mode === 'local-self-hosted' || mode === 'remote-self-hosted';
-}
-
-/**
- * True when the host IS the back-end for this mode. There's nothing to
- * configure, no wire to test, no peer to reach — the local process is
- * the source of truth. Used to suppress connection-tier UI (URL field,
- * Test connection button) and to skip the Switch gate's probe on those
- * (host, mode) pairs.
- */
-export function hostIsTheBackend(mode: BackendMode, host: Host): boolean {
-  if (host === 'extension' && mode === 'in-browser') return true;
-  if (host === 'desktop' && mode === 'desktop-app') return true;
-  if (host === 'web' && mode === 'desktop-app') return false; // web is always a client
-  return false;
-}
-
 const bindAddressSchema = v.picklist(BACKEND_BIND_ADDRESSES);
 
 declare module '@openheaders/ui/workbench/settings/types' {
@@ -142,11 +123,10 @@ registerSetting({
   ],
   // Surface only on the desktop host while the derived mode is
   // `desktop-app` — the only (host, mode) pair where this process IS the
-  // daemon. BackendPane strips `when` from its field list because the
-  // pane renders the previewed-mode's config; the daemon-side toggle is
-  // rendered out of the dedicated "host IS the back-end" branch instead
-  // (see BackendPane's `hostIsTheBackend` arm). The `when` is still
-  // honored by search hits and by SettingRow's own visibility check.
+  // daemon. The tier-zero card strips `when` from the lan-peers rows it
+  // renders (the card itself establishes the daemon context); the `when`
+  // is still honored by search hits and by SettingRow's own visibility
+  // check.
   when: () => getCurrentHost() === 'desktop' && currentBackendMode() === 'desktop-app',
   // Custom editor surfaces the boolean-shaped affordance (a single
   // Switch) and the first-flip confirmation dialog. The underlying
@@ -174,8 +154,8 @@ registerSetting({
   scope: 'user',
   // Same (host, mode) gate as the LAN-peers toggle — surfaced only on the
   // desktop host while `desktop-app` is active, the one pair where this
-  // process IS the daemon. BackendPane strips `when` for the daemon-side
-  // section it renders; search hits + SettingRow still honor it.
+  // process IS the daemon. The tier-zero card strips `when` for the
+  // daemon-side rows it renders; search hits + SettingRow still honor it.
   when: () => getCurrentHost() === 'desktop' && currentBackendMode() === 'desktop-app',
   customEditor: BackendBindPortFieldEditor,
 });
