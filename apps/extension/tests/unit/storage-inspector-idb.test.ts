@@ -339,6 +339,8 @@ describe('readIdbRecordDocumentInPage', () => {
     const root = rich?.preview;
     if (root?.kind !== 'container') throw new Error('expected a container root');
     expect(root.label).toBe('{5}');
+    // Alphabetical property order — browser object-view parity.
+    expect(root.entries.map((e) => e.key)).toEqual(['"items": ', '"lookup": ', '"missing": ', '"tags": ', '"when": ']);
     const byKey = new Map(root.entries.map((e) => [e.key, e.node]));
 
     expect(byKey.get('"when": ')).toEqual({ kind: 'atom', type: 'tag', text: 'Date("2026-07-08T00:00:00.000Z")' });

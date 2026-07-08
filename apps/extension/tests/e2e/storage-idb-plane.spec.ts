@@ -257,14 +257,62 @@ test('IndexedDB reads, previews, key wire, writes and deletes ride the plane end
   expect(richText).toContain('y'.repeat(2000));
 
   // The read-only document also carries the bounded preview tree —
-  // real structured-clone types against a REAL browser.
+  // real structured-clone types against a REAL browser. Property order
+  // is alphabetical (browser object-view parity), and binary/Blob nodes
+  // expand into their bytes/elements plus structural fields.
   const richPreview = richDoc.document?.preview;
   expect(richPreview?.kind).toBe('container');
   if (richPreview?.kind === 'container') {
+    expect(richPreview.entries.map((e) => e.key)).toEqual([
+      '"blob": ',
+      '"buf": ',
+      '"long": ',
+      '"map": ',
+      '"set": ',
+      '"view": ',
+      '"when": ',
+    ]);
     const byKey = new Map(richPreview.entries.map((e) => [e.key, e.node]));
     expect(byKey.get('"when": ')).toEqual({ kind: 'atom', type: 'tag', text: 'Date("2026-03-04T05:06:07.000Z")' });
-    expect(byKey.get('"buf": ')).toEqual({ kind: 'atom', type: 'tag', text: 'ArrayBuffer(8 B)' });
-    expect(byKey.get('"view": ')).toEqual({ kind: 'atom', type: 'tag', text: 'Uint8Array(3 B)' });
+
+    const bufNode = byKey.get('"buf": ');
+    expect(bufNode?.kind).toBe('container');
+    if (bufNode?.kind === 'container') {
+      expect(bufNode.label).toBe('ArrayBuffer(8 B)');
+      expect(bufNode.entries).toHaveLength(9);
+      expect(bufNode.entries[0]).toEqual({ key: '0: ', node: { kind: 'atom', type: 'number', text: '0' } });
+      expect(bufNode.entries[8]).toEqual({
+        key: 'byteLength: ',
+        node: { kind: 'atom', type: 'number', text: '8' },
+      });
+    }
+
+    const viewNode = byKey.get('"view": ');
+    expect(viewNode?.kind).toBe('container');
+    if (viewNode?.kind === 'container') {
+      expect(viewNode.label).toBe('Uint8Array(3 B)');
+      expect(viewNode.entries.slice(0, 3)).toEqual([
+        { key: '0: ', node: { kind: 'atom', type: 'number', text: '9' } },
+        { key: '1: ', node: { kind: 'atom', type: 'number', text: '8' } },
+        { key: '2: ', node: { kind: 'atom', type: 'number', text: '7' } },
+      ]);
+      const fieldKeys = viewNode.entries.slice(3).map((e) => e.key);
+      expect(fieldKeys).toEqual(['buffer: ', 'byteLength: ', 'byteOffset: ', 'length: ']);
+      const buffer = viewNode.entries[3]?.node;
+      expect(buffer?.kind).toBe('container');
+      if (buffer?.kind === 'container') expect(buffer.label).toBe('ArrayBuffer(3 B)');
+    }
+
+    const blobNode = byKey.get('"blob": ');
+    expect(blobNode?.kind).toBe('container');
+    if (blobNode?.kind === 'container') {
+      expect(blobNode.label).toBe('Blob(10 B, text/plain)');
+      expect(blobNode.entries).toEqual([
+        { key: 'size: ', node: { kind: 'atom', type: 'number', text: '10' } },
+        { key: 'type: ', node: { kind: 'atom', type: 'string', text: 'text/plain' } },
+      ]);
+    }
+
     const mapNode = byKey.get('"map": ');
     expect(mapNode?.kind).toBe('container');
     if (mapNode?.kind === 'container') {

@@ -497,19 +497,66 @@ export async function readIdbRecordDocumentInPage(
         text: `Date(${Number.isNaN(v.getTime()) ? 'invalid' : JSON.stringify(v.toISOString())})`,
       };
     }
+    // Binary and Blob nodes expand like the browser's own object view —
+    // indexed byte/element entries plus their structural fields, capped
+    // by the same entry/depth/node budgets as ordinary containers.
+    function scalarEntry(key: string, value: unknown): IdbRecordPreviewEntryWire {
+      return { key: `${key}: `, node: toPreview(value, depth + 1, seen, budget) };
+    }
+    function indexedEntries(length: number, at: (i: number) => unknown): IdbRecordPreviewEntryWire[] {
+      const limit = Math.min(length, PREVIEW_ENTRIES_MAX);
+      const entries: IdbRecordPreviewEntryWire[] = [];
+      for (let i = 0; i < limit; i++) entries.push({ key: `${i}: `, node: toPreview(at(i), depth + 1, seen, budget) });
+      if (length > PREVIEW_ENTRIES_MAX) {
+        entries.push({ key: '', node: { kind: 'atom', type: 'tag', text: `… +${length - PREVIEW_ENTRIES_MAX} more` } });
+      }
+      return entries;
+    }
+    function binaryContainer(label: string, build: () => IdbRecordPreviewEntryWire[]): IdbRecordPreviewNodeWire {
+      if (depth >= PREVIEW_DEPTH_MAX || budget.left <= 0) return { kind: 'atom', type: 'tag', text: label };
+      return { kind: 'container', label, entries: build() };
+    }
+
     if (Object.prototype.toString.call(v) === '[object ArrayBuffer]') {
-      return { kind: 'atom', type: 'tag', text: `ArrayBuffer(${(v as ArrayBuffer).byteLength} B)` };
+      const buf = v as ArrayBuffer;
+      return binaryContainer(`ArrayBuffer(${buf.byteLength} B)`, () => {
+        const bytes = new Uint8Array(buf);
+        return [...indexedEntries(bytes.length, (i) => bytes[i]), scalarEntry('byteLength', buf.byteLength)];
+      });
     }
     if (ArrayBuffer.isView(v)) {
-      return { kind: 'atom', type: 'tag', text: `${v.constructor.name}(${(v as ArrayBufferView).byteLength} B)` };
+      const view = v as ArrayBufferView;
+      const label = `${v.constructor.name}(${view.byteLength} B)`;
+      return binaryContainer(label, () => {
+        if (typeof DataView !== 'undefined' && v instanceof DataView) {
+          return [
+            scalarEntry('buffer', view.buffer),
+            scalarEntry('byteLength', view.byteLength),
+            scalarEntry('byteOffset', view.byteOffset),
+          ];
+        }
+        const arr = v as unknown as { readonly length: number; [i: number]: unknown };
+        return [
+          ...indexedEntries(arr.length, (i) => arr[i]),
+          scalarEntry('buffer', view.buffer),
+          scalarEntry('byteLength', view.byteLength),
+          scalarEntry('byteOffset', view.byteOffset),
+          scalarEntry('length', arr.length),
+        ];
+      });
     }
     if (typeof Blob !== 'undefined' && v instanceof Blob) {
-      const name = typeof File !== 'undefined' && v instanceof File ? `${JSON.stringify(v.name)}, ` : '';
-      return {
-        kind: 'atom',
-        type: 'tag',
-        text: `${v.constructor.name}(${name}${v.size} B${v.type ? `, ${v.type}` : ''})`,
-      };
+      const blob = v;
+      const name = typeof File !== 'undefined' && blob instanceof File ? `${JSON.stringify(blob.name)}, ` : '';
+      const label = `${blob.constructor.name}(${name}${blob.size} B${blob.type ? `, ${blob.type}` : ''})`;
+      return binaryContainer(label, () => {
+        const entries: IdbRecordPreviewEntryWire[] = [];
+        if (typeof File !== 'undefined' && blob instanceof File) {
+          entries.push(scalarEntry('name', blob.name), scalarEntry('lastModified', blob.lastModified));
+        }
+        entries.push(scalarEntry('size', blob.size), scalarEntry('type', blob.type));
+        return entries;
+      });
     }
     if (v instanceof RegExp) return { kind: 'atom', type: 'tag', text: String(v) };
     const obj = v as object;
@@ -562,7 +609,9 @@ export async function readIdbRecordDocumentInPage(
         return entries;
       });
     }
-    const keys = Object.keys(obj);
+    // Alphabetical like the browser's object view (the Source rendering
+    // keeps insertion order — it mirrors the stored value).
+    const keys = Object.keys(obj).sort();
     const proto = Object.getPrototypeOf(obj);
     const ctorName =
       proto !== Object.prototype && proto !== null && proto?.constructor?.name && proto.constructor.name !== 'Object'
