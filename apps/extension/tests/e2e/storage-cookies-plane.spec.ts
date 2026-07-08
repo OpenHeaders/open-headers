@@ -201,3 +201,51 @@ test('cookie jar reads and writes ride the plane end-to-end, HttpOnly included',
   await page.evaluate(() => window.ohStorage.reset());
   await page.close();
 });
+
+test('a cookie identity move (set new, then remove old) leaves exactly the renamed cookie', async () => {
+  test.setTimeout(slowMo > 0 ? 600_000 : 60_000);
+  const page = await context.newPage();
+  await page.goto(`${STORAGE_PAGE_URL}${pagePace}`);
+
+  await page.evaluate(async () => {
+    await window.ohStorage.reset();
+    await window.ohStorage.seedCookies();
+  });
+
+  // The cookie editor-tab's identity change: write the new identity
+  // FIRST (a failed set must leave the original untouched)…
+  const written = await rpc<{ cookie: JarCookie | null }>('setCookieForUrl', {
+    cookie: {
+      name: 'oh_store_js_moved',
+      value: 'doc-cookie',
+      domain: '127.0.0.1',
+      path: '/',
+      hostOnly: true,
+      httpOnly: false,
+      secure: false,
+    },
+  });
+  expect(written.cookie?.name).toBe('oh_store_js_moved');
+
+  // …then remove the original identity.
+  const removed = await rpc<{ ok: boolean }>('removeCookieForUrl', {
+    name: 'oh_store_js',
+    domain: '127.0.0.1',
+    path: '/',
+    secure: false,
+  });
+  expect(removed.ok).toBe(true);
+
+  // Jar truth: old gone, new present with the carried value.
+  const jar = await fetchJar(STORAGE_PAGE_URL);
+  expect(jar.some((c) => c.name === 'oh_store_js')).toBe(false);
+  expect(jar.some((c) => c.name === 'oh_store_js_moved' && c.value === 'doc-cookie')).toBe(true);
+
+  // Page-side truth: document.cookie observes the move too.
+  const docCookie = await page.evaluate(() => document.cookie);
+  expect(docCookie).not.toContain('oh_store_js=');
+  expect(docCookie).toContain('oh_store_js_moved=doc-cookie');
+
+  await page.evaluate(() => window.ohStorage.reset());
+  await page.close();
+});

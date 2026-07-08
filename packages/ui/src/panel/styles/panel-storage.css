@@ -506,6 +506,25 @@
   display: none;
 }
 
+/* Cookie document body — the shared attribute grid, padded and
+ * scrollable so a short pane never clips the toggles row. */
+.dt-storagedoc-cookieform {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px 12px;
+}
+
+.dt-storagedoc-cookieform .dt-cookie-edit-form {
+  max-width: 560px;
+}
+
+/* Read-only render of a text field (hosts without a jar write path). */
+.dt-cookie-edit-static {
+  font-size: 12px;
+  word-break: break-all;
+}
+
 /* Drill-in chrome shared by the IndexedDB and Cache Storage sections —
  * breadcrumb back to the listing plus the ‹ › pager. */
 .dt-storage-crumb {

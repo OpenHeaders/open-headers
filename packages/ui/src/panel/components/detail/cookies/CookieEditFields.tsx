@@ -1,0 +1,236 @@
+/**
+ * Shared attribute-field grid for editing one jar cookie — the inline
+ * quick-edit popover and the full editor-tab document both render it,
+ * so the two surfaces can never drift on field vocabulary or template
+ * semantics.
+ *
+ * Name, Value, Domain and Path accept `{{var}}` templates, resolved
+ * ONCE at Save into the concrete strings the jar stores (static — later
+ * variable changes never rewrite the jar; a Cookie override rule is the
+ * dynamic path). `useCookieFieldResolution` derives the per-field
+ * resolution + the resolved form both surfaces gate Save on. A
+ * `readOnly` render keeps the same grid but swaps the text fields for
+ * static values — hosts without a jar write path show the document
+ * honestly instead of a dead form.
+ */
+
+import { useVariableResolver } from '@openheaders/ui/shared/hooks/variables/useVariableResolver';
+import { TemplateInput } from '@openheaders/ui/workbench/components/template-input';
+import { Radio, Select, Switch } from 'antd';
+import { useMemo } from 'react';
+import type { CookieEditFormValues, CookieSameSiteValue } from '../../../data/cookies/cookie-edit';
+import { containsUnresolvedRef } from '../../../data/rule-create/rule-applicability';
+import { CookieEditFieldInfo } from './CookieEditFieldInfo';
+
+const SAME_SITE_OPTIONS: Array<{ value: CookieSameSiteValue; label: string }> = [
+  { value: 'unspecified', label: 'Unspecified' },
+  { value: 'no_restriction', label: 'None (cross-site)' },
+  { value: 'lax', label: 'Lax' },
+  { value: 'strict', label: 'Strict' },
+];
+
+function pad(n: number): string {
+  return String(n).padStart(2, '0');
+}
+
+/** Unix seconds → `datetime-local` value in the user's local zone. */
+function toLocalInput(sec: number | undefined): string {
+  if (sec == null) return '';
+  const d = new Date(sec * 1000);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function fromLocalInput(s: string): number | undefined {
+  if (!s) return undefined;
+  const ms = new Date(s).getTime();
+  return Number.isNaN(ms) ? undefined : Math.floor(ms / 1000);
+}
+
+export interface ResolvedField {
+  isTemplate: boolean;
+  unresolved: boolean;
+  resolved: string;
+}
+
+export interface CookieFieldResolution {
+  fields: { name: ResolvedField; value: ResolvedField; domain: ResolvedField; path: ResolvedField };
+  anyUnresolved: boolean;
+  /** The form with every templated text field resolved — what Save
+   *  actually writes (validity runs on this, never the raw drafts). */
+  resolvedForm: CookieEditFormValues;
+}
+
+/** Per-field template resolution over the four text fields. Any
+ *  unresolvable / deferred-vault ref gates Save: writing a literal
+ *  `{{…}}` into the browser jar is always wrong. */
+export function useCookieFieldResolution(values: CookieEditFormValues): CookieFieldResolution {
+  const resolver = useVariableResolver();
+  const fields = useMemo(() => {
+    const resolveField = (raw: string): ResolvedField => {
+      const isTemplate = raw.includes('{{');
+      const unresolved = isTemplate && containsUnresolvedRef(resolver, raw, undefined);
+      const resolved = isTemplate && !unresolved ? resolver.resolveTemplate(raw).result : raw;
+      return { isTemplate, unresolved, resolved };
+    };
+    return {
+      name: resolveField(values.name),
+      value: resolveField(values.value),
+      domain: resolveField(values.domain),
+      path: resolveField(values.path),
+    };
+  }, [resolver, values.name, values.value, values.domain, values.path]);
+  const anyUnresolved =
+    fields.name.unresolved || fields.value.unresolved || fields.domain.unresolved || fields.path.unresolved;
+  const resolvedForm: CookieEditFormValues = {
+    ...values,
+    name: fields.name.resolved,
+    value: fields.value.resolved,
+    domain: fields.domain.resolved,
+    path: fields.path.resolved,
+  };
+  return { fields, anyUnresolved, resolvedForm };
+}
+
+/** What Save will actually write — shown only while the field holds a
+ *  `{{…}}` template. */
+function ResolvedLine({ field }: { field: ResolvedField }) {
+  if (!field.isTemplate) return null;
+  return (
+    <span className={`dt-cookie-edit-resolved${field.unresolved ? ' dt-cookie-edit-resolved--error' : ''}`}>
+      {field.unresolved ? 'Doesn’t resolve — create the variable or fix the reference.' : `Writes: ${field.resolved}`}
+    </span>
+  );
+}
+
+interface CookieEditFieldsProps {
+  values: CookieEditFormValues;
+  fields: CookieFieldResolution['fields'];
+  set: <K extends keyof CookieEditFormValues>(key: K, val: CookieEditFormValues[K]) => void;
+  busy: boolean;
+  /** Static render — text fields become plain values, controls disable. */
+  readOnly?: boolean;
+}
+
+export function CookieEditFields({ values, fields, set, busy, readOnly = false }: CookieEditFieldsProps) {
+  const textField = (
+    key: 'name' | 'value' | 'domain' | 'path',
+    placeholder: string,
+    extra: { wrap?: boolean; maxRows?: number } = {},
+  ) =>
+    readOnly ? (
+      <span className="dt-cookie-edit-static">{values[key]}</span>
+    ) : (
+      <>
+        <TemplateInput
+          value={values[key]}
+          onChange={(v) => set(key, v)}
+          size="small"
+          placeholder={placeholder}
+          {...extra}
+        />
+        <ResolvedLine field={fields[key]} />
+      </>
+    );
+
+  return (
+    <div className="dt-cookie-edit-form">
+      <div className="dt-cookie-edit-field dt-cookie-edit-field--wide">
+        <span className="dt-cookie-edit-label">
+          Name
+          <CookieEditFieldInfo infoKey="name" />
+        </span>
+        {textField('name', 'cookie name')}
+      </div>
+
+      <div className="dt-cookie-edit-field dt-cookie-edit-field--wide">
+        <span className="dt-cookie-edit-label">
+          Value
+          <CookieEditFieldInfo infoKey="value" />
+        </span>
+        {textField('value', 'value or {{variable}}', { wrap: true, maxRows: 3 })}
+      </div>
+
+      <div className="dt-cookie-edit-field">
+        <span className="dt-cookie-edit-label">
+          Domain
+          <CookieEditFieldInfo infoKey="domain" />
+        </span>
+        {textField('domain', 'openheaders.io')}
+      </div>
+
+      <div className="dt-cookie-edit-field">
+        <span className="dt-cookie-edit-label">
+          Path
+          <CookieEditFieldInfo infoKey="path" />
+        </span>
+        {textField('path', '/')}
+      </div>
+
+      <div className="dt-cookie-edit-field">
+        <span className="dt-cookie-edit-label">
+          Expires
+          <CookieEditFieldInfo infoKey="expires" />
+        </span>
+        <Radio.Group
+          value={values.session ? 'session' : 'date'}
+          onChange={(e) => set('session', e.target.value === 'session')}
+          disabled={busy || readOnly}
+          options={[
+            { value: 'session', label: 'Session' },
+            { value: 'date', label: 'On date' },
+          ]}
+          optionType="button"
+          size="small"
+        />
+        {!values.session && (
+          <input
+            type="datetime-local"
+            className="dt-cookie-edit-datetime"
+            value={toLocalInput(values.expirationDate)}
+            onChange={(e) => set('expirationDate', fromLocalInput(e.target.value))}
+            disabled={busy || readOnly}
+          />
+        )}
+      </div>
+
+      <div className="dt-cookie-edit-field">
+        <span className="dt-cookie-edit-label">
+          SameSite
+          <CookieEditFieldInfo infoKey="samesite" />
+        </span>
+        <Select<CookieSameSiteValue>
+          value={values.sameSite}
+          onChange={(v) => set('sameSite', v)}
+          options={SAME_SITE_OPTIONS}
+          disabled={busy || readOnly}
+          size="small"
+          popupMatchSelectWidth={false}
+        />
+      </div>
+
+      <div className="dt-cookie-edit-toggles">
+        <label className="dt-cookie-edit-toggle">
+          <Switch checked={values.httpOnly} onChange={(v) => set('httpOnly', v)} size="small" disabled={busy || readOnly} />
+          <span>
+            HttpOnly
+            <CookieEditFieldInfo infoKey="httponly" />
+          </span>
+        </label>
+        <label className="dt-cookie-edit-toggle">
+          <Switch checked={values.secure} onChange={(v) => set('secure', v)} size="small" disabled={busy || readOnly} />
+          <span>
+            Secure
+            <CookieEditFieldInfo infoKey="secure" />
+          </span>
+        </label>
+        <label className="dt-cookie-edit-toggle">
+          <Switch checked={values.hostOnly} onChange={(v) => set('hostOnly', v)} size="small" disabled={busy || readOnly} />
+          <span>
+            Host-only
+            <CookieEditFieldInfo infoKey="hostonly" />
+          </span>
+        </label>
+      </div>
+    </div>
+  );
+}

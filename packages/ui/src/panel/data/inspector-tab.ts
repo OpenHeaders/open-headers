@@ -1,4 +1,5 @@
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
+import type { JarCookieKey } from './cookies/cookie-jar-cache';
 import type { DomStorageArea } from './storage/storage-inspector-host';
 
 export type DetailSection =
@@ -21,7 +22,11 @@ export type TabSource = 'network' | 'rules';
  * needs to render (and re-fetch) independently of the tool window it
  * was opened from.
  */
-export type InspectorTab = RequestInspectorTab | IdbRecordInspectorTab | DomStorageEntryInspectorTab;
+export type InspectorTab =
+  | RequestInspectorTab
+  | IdbRecordInspectorTab
+  | DomStorageEntryInspectorTab
+  | CookieInspectorTab;
 
 export interface RequestInspectorTab {
   kind: 'request';
@@ -72,16 +77,37 @@ export interface DomStorageEntryInspectorTab {
   dirty?: boolean;
 }
 
+/** One browser-jar cookie opened as a full-editor document. */
+export interface CookieInspectorTab {
+  kind: 'cookie';
+  id: string;
+  label: string;
+  /** The cookie's jar identity — the fetch key. A committed identity
+   *  change (name / domain / path) patches it (and the id) in place via
+   *  `cookieKey`. */
+  cookieKey: JarCookieKey;
+  /** Site-jar lookup URL captured at open time — the re-fetch scope. */
+  scopeUrl: string;
+  timestamp: number;
+  /** Mirror of the editor body's unsaved-draft state — drives the tab
+   *  pill's dirty dot and the close guard. Never persisted (drafts are
+   *  component state and don't survive a reload). */
+  dirty?: boolean;
+}
+
 /** Per-tab view state callers patch in place. Each field applies to
  *  matching tab kinds only (`activeSection` → request, `dirty` →
- *  document kinds, `entryKey` → dom-storage-entry); the tree transform
- *  drops fields foreign to the tab's kind. */
+ *  document kinds, `entryKey` → dom-storage-entry, `cookieKey` →
+ *  cookie); the tree transform drops fields foreign to the tab's kind. */
 export interface InspectorTabPatch {
   activeSection?: DetailSection;
   dirty?: boolean;
   /** Committed rename: rewrites the entry key AND the identity-derived
    *  id/label so re-opens and row highlights keep matching. */
   entryKey?: string;
+  /** Committed cookie identity change — same identity-move semantics
+   *  as `entryKey`, over the jar key. */
+  cookieKey?: JarCookieKey;
 }
 
 /** Does this tab carry an unsaved editor draft? (Request tabs never do.) */
@@ -190,6 +216,31 @@ export function buildDomStorageEntryTab(input: BuildDomStorageEntryTabInput): Do
   };
 }
 
+export interface BuildCookieTabInput {
+  cookieKey: JarCookieKey;
+  scopeUrl: string;
+  timestamp: number;
+}
+
+/** Cookie identity IS the tab identity — shared with the Storage window
+ *  so an open cookie's row can light up in the Cookies section. */
+export function cookieTabId(key: JarCookieKey): string {
+  return `cookie:${key.name}:${key.domain}:${key.path}:${key.partitionKey ?? ''}`;
+}
+
+export function buildCookieTab(input: BuildCookieTabInput): CookieInspectorTab {
+  return {
+    kind: 'cookie',
+    // Re-opening the same cookie activates the existing tab instead of
+    // spawning a duplicate.
+    id: cookieTabId(input.cookieKey),
+    label: input.cookieKey.name,
+    cookieKey: input.cookieKey,
+    scopeUrl: input.scopeUrl,
+    timestamp: input.timestamp,
+  };
+}
+
 /** The DOM storage area's display name (`localStorage` / `sessionStorage`). */
 export function domStorageAreaName(area: DomStorageArea): string {
   return area === 'session' ? 'sessionStorage' : 'localStorage';
@@ -199,6 +250,7 @@ export function domStorageAreaName(area: DomStorageArea): string {
 export function tabTitle(tab: InspectorTab): string {
   if (tab.kind === 'request') return tab.url;
   if (tab.kind === 'idb-record') return `${tab.database} › ${tab.store} › ${tab.keyPreview}`;
+  if (tab.kind === 'cookie') return `${tab.cookieKey.domain}${tab.cookieKey.path} › ${tab.cookieKey.name}`;
   return `${domStorageAreaName(tab.area)} › ${tab.entryKey}`;
 }
 
@@ -211,5 +263,6 @@ export function tabPillLabel(tab: InspectorTab): string {
 export function tabSearchText(tab: InspectorTab): string {
   if (tab.kind === 'request') return tab.url;
   if (tab.kind === 'idb-record') return `${tab.database} ${tab.store} ${tab.keyPreview}`;
+  if (tab.kind === 'cookie') return `${tab.cookieKey.name} ${tab.cookieKey.domain} ${tab.cookieKey.path}`;
   return `${domStorageAreaName(tab.area)} ${tab.entryKey}`;
 }

@@ -56,10 +56,12 @@ import { PanelToolbar } from './components/PanelToolbar';
 import { RuleExecutions } from './components/RuleExecutions';
 import { RulePopoverProvider } from './components/RulePopoverHost';
 import { SearchPanel } from './components/SearchPanel';
+import { CookieEditorTab } from './components/storage/CookieEditorTab';
 import { DomStorageEntryEditorTab } from './components/storage/DomStorageEntryEditorTab';
 import { IdbRecordEditorTab } from './components/storage/IdbRecordEditorTab';
 import type { OpenIdbRecordRequest } from './components/storage/IndexedDbSection';
 import {
+  type OpenCookieRequest,
   type OpenDomStorageEntryRequest,
   StoragePanel,
   type StorageRevealRequest,
@@ -73,7 +75,14 @@ import type { FilterConfig } from './data/filter-engine';
 import { DEFAULT_FILTER_CONFIG, hasFilterError, parseFilter } from './data/filter-engine';
 import { focusStore, setFocusedDock, setFocusedRegion } from './data/stores/focus-store';
 import type { InspectorRowWithFires } from './data/inspector-row-projection';
-import { buildDomStorageEntryTab, buildIdbRecordTab, type InspectorTab, tabPillLabel } from './data/inspector-tab';
+import {
+  buildCookieTab,
+  buildDomStorageEntryTab,
+  buildIdbRecordTab,
+  type InspectorTab,
+  tabPillLabel,
+} from './data/inspector-tab';
+import { jarCookieToKey } from './data/cookies/cookie-edit';
 import type { DomStorageArea } from './data/storage/storage-inspector-host';
 import { tabBadge } from './components/method-color';
 import { useParityDebugHook } from './data/parity-debug-hook';
@@ -450,6 +459,18 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
     },
     [groups],
   );
+  const openCookieDocument = useCallback(
+    (request: OpenCookieRequest) => {
+      groups.addTab(
+        buildCookieTab({
+          cookieKey: jarCookieToKey(request.cookie),
+          scopeUrl: request.scopeUrl,
+          timestamp: Date.now(),
+        }),
+      );
+    },
+    [groups],
+  );
   // The ACTIVE editor tab's document identity — the Storage window
   // highlights exactly that one row, tracking tab switches.
   const activeStorageTabId = useMemo(() => {
@@ -474,6 +495,10 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
     },
     [showStorageWindow],
   );
+  const revealCookiesInStorage = useCallback(() => {
+    showStorageWindow();
+    setRevealStorage({ kind: 'cookies' });
+  }, [showStorageWindow]);
   const handleRevealConsumed = useCallback(() => setRevealStorage(null), []);
 
   // ── Editor group tab body ──────────────────────────────────
@@ -501,6 +526,22 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
             // A committed rename moved the entry — re-key the tab so its
             // id/label follow (the body remounts and re-fetches).
             onRenamed={(newKey) => groups.updateTab(tab.id, { entryKey: newKey, dirty: false })}
+            registerSave={(save) => {
+              if (save) storageSaveRefs.current.set(tab.id, save);
+              else storageSaveRefs.current.delete(tab.id);
+            }}
+          />
+        );
+      }
+      if (tab.kind === 'cookie') {
+        return (
+          <CookieEditorTab
+            tab={tab}
+            onRevealInStorage={revealCookiesInStorage}
+            onDirtyChange={(dirty) => groups.updateTab(tab.id, { dirty })}
+            // A committed identity change moved the cookie — re-key the
+            // tab so its id/label follow (the body remounts and re-fetches).
+            onRekeyed={(newKey) => groups.updateTab(tab.id, { cookieKey: newKey, dirty: false })}
             registerSave={(save) => {
               if (save) storageSaveRefs.current.set(tab.id, save);
               else storageSaveRefs.current.delete(tab.id);
@@ -561,6 +602,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       showMatchedRules,
       revealInStorage,
       revealDomInStorage,
+      revealCookiesInStorage,
       searchHighlight,
       searchSection,
       searchLineNumber,
@@ -645,6 +687,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
               onHide={() => tl.toggleWindow('storage')}
               onOpenIdbRecord={openIdbRecord}
               onOpenDomEntry={openDomStorageEntry}
+              onOpenCookie={openCookieDocument}
               reveal={revealStorage}
               onRevealConsumed={handleRevealConsumed}
               activeStorageTabId={activeStorageTabId}
@@ -718,6 +761,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       handleAnnotationJump,
       openIdbRecord,
       openDomStorageEntry,
+      openCookieDocument,
       revealStorage,
       handleRevealConsumed,
       activeStorageTabId,

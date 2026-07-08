@@ -28,7 +28,7 @@ import {
   writeJarCookie,
 } from '../../data/cookies/cookie-jar-cache';
 import { useSiteCookieJarSticky } from '../../data/cookies/use-cookie-jar';
-import { domStorageEntryTabId, idbRecordTabId } from '../../data/inspector-tab';
+import { cookieTabId, domStorageEntryTabId, idbRecordTabId } from '../../data/inspector-tab';
 import type { DomStorageArea, DomStorageEntry } from '../../data/storage/storage-inspector-host';
 import { parseStorageKey } from '../../data/storage/storage-key';
 import { useCacheBrowser } from '../../data/storage/use-cache-browser';
@@ -48,10 +48,12 @@ import { CookieIcon, DatabaseIcon, TableIcon, UsagePieIcon } from './StorageNavI
 import { StorageQuotaCard } from './StorageQuotaCard';
 
 /** An editor-tab "Reveal in Storage" jump target — back to the record's
- *  IndexedDB store or the entry's DOM storage area. */
+ *  IndexedDB store, the entry's DOM storage area, or the Cookies
+ *  section. */
 export type StorageRevealRequest =
   | { kind: 'idb'; database: string; store: string }
-  | { kind: 'dom'; area: DomStorageArea };
+  | { kind: 'dom'; area: DomStorageArea }
+  | { kind: 'cookies' };
 
 /** What an editor-tab open needs from a DOM storage row (plus the
  *  scope's frame, which the panel shell adds). */
@@ -60,12 +62,22 @@ export interface OpenDomStorageEntryRequest {
   entryKey: string;
 }
 
+/** What an editor-tab open needs from a cookie row — the jar cookie
+ *  plus the scope URL its site-jar lookup rode (the tab's re-fetch
+ *  scope). */
+export interface OpenCookieRequest {
+  cookie: SiteJarCookie;
+  scopeUrl: string;
+}
+
 interface StoragePanelProps {
   onHide: () => void;
   /** Open one IndexedDB record as an editor tab (scope frame attached). */
   onOpenIdbRecord: (request: OpenIdbRecordRequest & { frameId: number }) => void;
   /** Open one localStorage/sessionStorage entry as an editor tab. */
   onOpenDomEntry: (request: OpenDomStorageEntryRequest & { frameId: number }) => void;
+  /** Open one jar cookie as an editor tab. */
+  onOpenCookie: (request: OpenCookieRequest) => void;
   /** Pending editor-tab jump back into a storage section — consumed
    *  exactly once via `onRevealConsumed` (a re-mount or section
    *  round-trip must not replay it). */
@@ -99,6 +111,7 @@ export function StoragePanel({
   onHide,
   onOpenIdbRecord,
   onOpenDomEntry,
+  onOpenCookie,
   reveal,
   onRevealConsumed,
   activeStorageTabId,
@@ -137,7 +150,8 @@ export function StoragePanel({
   // as consumed. Two effects because activating a section resets the
   // idb hook's selection (its own scope-reset effect runs first — hook
   // call order — so the select lands after it).
-  const revealSection: StorageSection | null = reveal === null ? null : reveal.kind === 'idb' ? 'indexeddb' : reveal.area;
+  const revealSection: StorageSection | null =
+    reveal === null ? null : reveal.kind === 'idb' ? 'indexeddb' : reveal.kind === 'cookies' ? 'cookies' : reveal.area;
   useEffect(() => {
     if (revealSection !== null) setSection(revealSection);
   }, [revealSection]);
@@ -181,6 +195,16 @@ export function StoragePanel({
 
   // ── Cookies section data + write plumbing (jar plane reuse) ────────
   const scopeUrl = selectedScope?.url ?? '';
+  const openCookie = useCallback(
+    (cookie: SiteJarCookie) => {
+      onOpenCookie({ cookie, scopeUrl });
+    },
+    [onOpenCookie, scopeUrl],
+  );
+  const isCookieActive = useCallback(
+    (cookie: SiteJarCookie) => activeStorageTabId != null && activeStorageTabId === cookieTabId(jarCookieToKey(cookie)),
+    [activeStorageTabId],
+  );
   const jar = useSiteCookieJarSticky(section === 'cookies' ? scopeUrl : '');
   const sortedCookies = useMemo<ReadonlyArray<SiteJarCookie> | null>(() => {
     if (!jar) return jar;
@@ -383,6 +407,8 @@ export function StoragePanel({
                 writable={cookiesWritable}
                 onApplyEdit={applyCookieEdit}
                 onDelete={deleteCookie}
+                onOpen={openCookie}
+                isActive={isCookieActive}
               />
             ) : section === 'indexeddb' || section === 'cachestorage' || section === 'quota' ? (
               inspector.available && inspector.scopes.length > 0 ? (
@@ -538,6 +564,8 @@ interface CookiesBodyProps {
   writable: boolean;
   onApplyEdit: (edit: JarCookieEdit) => Promise<boolean>;
   onDelete: (cookie: JarCookie) => void;
+  onOpen: (cookie: SiteJarCookie) => void;
+  isActive: (cookie: SiteJarCookie) => boolean;
 }
 
 function CookiesBody({
@@ -548,6 +576,8 @@ function CookiesBody({
   writable,
   onApplyEdit,
   onDelete,
+  onOpen,
+  isActive,
 }: CookiesBodyProps) {
   const hasScopes = inspector.scopes.length > 0;
 
@@ -585,6 +615,8 @@ function CookiesBody({
       writable={writable}
       onApplyEdit={onApplyEdit}
       onDelete={onDelete}
+      onOpen={onOpen}
+      isActive={isActive}
     />
   );
 }

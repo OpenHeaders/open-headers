@@ -18,6 +18,11 @@ interface CookiesSectionProps {
   writable: boolean;
   onApplyEdit: (edit: JarCookieEdit) => Promise<boolean>;
   onDelete: (cookie: JarCookie) => void;
+  /** Open one cookie as an editor-tab document (single-click gesture). */
+  onOpen?: (cookie: SiteJarCookie) => void;
+  /** Whether a cookie is the ACTIVE editor tab's document — exactly
+   *  that row renders highlighted, tracking tab switches. */
+  isActive?: (cookie: SiteJarCookie) => boolean;
 }
 
 function rowKey(c: JarCookie): string {
@@ -32,7 +37,15 @@ function safeParseUrl(url: string): URL | null {
   }
 }
 
-export function CookiesSection({ cookies, scopeUrl, writable, onApplyEdit, onDelete }: CookiesSectionProps) {
+export function CookiesSection({
+  cookies,
+  scopeUrl,
+  writable,
+  onApplyEdit,
+  onDelete,
+  onOpen,
+  isActive,
+}: CookiesSectionProps) {
   const now = Date.now();
   const parsedScope = safeParseUrl(scopeUrl);
   return (
@@ -51,6 +64,8 @@ export function CookiesSection({ cookies, scopeUrl, writable, onApplyEdit, onDel
           writable={writable}
           now={now}
           notSentReason={!c.sendable && parsedScope ? explainFilteredOut(c, parsedScope, now) : undefined}
+          active={isActive?.(c)}
+          onOpen={onOpen ? () => onOpen(c) : undefined}
           onApplyEdit={onApplyEdit}
           onDelete={onDelete}
         />

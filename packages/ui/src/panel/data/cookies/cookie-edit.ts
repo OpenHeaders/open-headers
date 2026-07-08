@@ -126,6 +126,38 @@ export function formToEdit(v: CookieEditFormValues): JarCookieEdit {
   };
 }
 
+/**
+ * The jar identity a Save of this form will land on. Mirrors the
+ * writer's rules: a host-only cookie is pinned to the bare host (any
+ * leading dot dropped), a domain cookie is stored with a leading dot
+ * (the browser prepends one when the attribute lacks it).
+ */
+export function predictedJarKey(v: CookieEditFormValues): JarCookieKey {
+  const domain = v.domain.trim();
+  const stored = v.hostOnly ? domain.replace(/^\./, '') : domain.startsWith('.') ? domain : `.${domain}`;
+  return {
+    name: v.name.trim(),
+    domain: stored,
+    path: v.path.trim() || '/',
+    secure: v.secure,
+    ...(v.partitionKey ? { partitionKey: v.partitionKey } : {}),
+    ...(v.storeId ? { storeId: v.storeId } : {}),
+  };
+}
+
+/** Identity equality the jar dedupes on (name · domain · path ·
+ *  partition · store) — `secure` only rebuilds the write URL and never
+ *  distinguishes two cookies. */
+export function jarKeysSameCookie(a: JarCookieKey, b: JarCookieKey): boolean {
+  return (
+    a.name === b.name &&
+    a.domain === b.domain &&
+    a.path === b.path &&
+    (a.partitionKey ?? '') === (b.partitionKey ?? '') &&
+    (a.storeId ?? '') === (b.storeId ?? '')
+  );
+}
+
 /** Identity for delete — domain / path / secure rebuild the URL SW-side. */
 export function rowToKey(row: CookieRow): JarCookieKey {
   return {

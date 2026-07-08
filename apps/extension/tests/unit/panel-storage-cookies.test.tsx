@@ -21,9 +21,9 @@ import {
   invalidateJarCache,
   isCookieJarSiteClearable,
   type JarCookie,
+  type SiteJarCookie,
   setCookieJarFetcher,
   setCookieJarWriter,
-  type SiteJarCookie,
 } from '@openheaders/ui/panel/data/cookies/cookie-jar-cache';
 import { useCookieJarSticky, useSiteCookieJarSticky } from '@openheaders/ui/panel/data/cookies/use-cookie-jar';
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
@@ -106,6 +106,49 @@ describe('CookiesSection rows', () => {
     expect(screen.getByLabelText('Edit cookie sid')).toBeTruthy();
     fireEvent.click(screen.getByLabelText('Delete cookie sid'));
     expect(onDelete).toHaveBeenCalledWith(cookie);
+  });
+});
+
+describe('CookiesSection editor-tab gestures', () => {
+  it('opens a cookie document on a row click; the action lane never opens', () => {
+    const onOpen = vi.fn();
+    const cookie = makeCookie();
+    render(
+      <CookiesSection
+        cookies={[cookie]}
+        scopeUrl={URL_MAIN}
+        writable={true}
+        onApplyEdit={vi.fn().mockResolvedValue(true)}
+        onDelete={vi.fn()}
+        onOpen={onOpen}
+        isActive={() => false}
+      />,
+    );
+
+    fireEvent.click(screen.getByText('sid'));
+    expect(onOpen).toHaveBeenCalledTimes(1);
+    expect(onOpen).toHaveBeenCalledWith(cookie);
+
+    fireEvent.click(screen.getByLabelText('Delete cookie sid'));
+    expect(onOpen).toHaveBeenCalledTimes(1);
+  });
+
+  it('highlights exactly the active document row', () => {
+    render(
+      <CookiesSection
+        cookies={[makeCookie(), makeCookie({ name: 'theme' })]}
+        scopeUrl={URL_MAIN}
+        writable={false}
+        onApplyEdit={vi.fn().mockResolvedValue(true)}
+        onDelete={vi.fn()}
+        onOpen={vi.fn()}
+        isActive={(c) => c.name === 'theme'}
+      />,
+    );
+
+    const rows = screen.getAllByRole('row').slice(1); // drop the header
+    expect(rows[0].className).not.toContain('dt-storage-row--active');
+    expect(rows[1].className).toContain('dt-storage-row--active');
   });
 });
 

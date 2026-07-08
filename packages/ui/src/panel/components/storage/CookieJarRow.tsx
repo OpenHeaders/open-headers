@@ -4,7 +4,8 @@
  * direction, HAR joins, attribution chips or override CTA; those only
  * mean something on a captured request). Columns: Name · Value ·
  * Domain·Path · Expires · Sec, with the grid's hover edit/delete lane.
- * Edits reuse the shipped CookieEditPopover + jar write path.
+ * A single click opens the cookie as a full editor-tab document; the
+ * pencil's CookieEditPopover stays for quick edits.
  */
 
 import { DeleteOutlined, EditOutlined, WarningOutlined } from '@ant-design/icons';
@@ -21,15 +22,34 @@ interface CookieJarRowProps {
   /** Set on site-jar rows the browser would NOT attach to a request to
    *  the inspected scope — renders the not-sent badge with this reason. */
   notSentReason?: string;
+  /** This cookie is the ACTIVE editor tab's document — the row renders
+   *  highlighted. */
+  active?: boolean;
+  /** Open the cookie as an editor-tab document (single-click gesture). */
+  onOpen?: (cookie: JarCookie) => void;
   onApplyEdit: (edit: JarCookieEdit) => Promise<boolean>;
   onDelete: (cookie: JarCookie) => void;
 }
 
-export function CookieJarRow({ cookie, writable, now, notSentReason, onApplyEdit, onDelete }: CookieJarRowProps) {
+export function CookieJarRow({
+  cookie,
+  writable,
+  now,
+  notSentReason,
+  active,
+  onOpen,
+  onApplyEdit,
+  onDelete,
+}: CookieJarRowProps) {
   const scope = `${cookie.domain}${cookie.path && cookie.path !== '/' ? ` ${cookie.path}` : ''}`;
   const scopeTitle = `${cookie.domain}${cookie.path || '/'}${cookie.partitionKey ? `\nPartitioned under ${cookie.partitionKey}` : ''}`;
   return (
-    <div className="dt-storage-row" role="row">
+    // biome-ignore lint/a11y/noNoninteractiveElementInteractions: grid row doubles as the open affordance
+    <div
+      className={`dt-storage-row${active ? ' dt-storage-row--active' : ''}`}
+      role="row"
+      onClick={() => onOpen?.(cookie)}
+    >
       <span className="dt-storage-key" role="cell" title={cookie.name}>
         {notSentReason !== undefined && (
           <WarningOutlined
@@ -57,7 +77,8 @@ export function CookieJarRow({ cookie, writable, now, notSentReason, onApplyEdit
         <SecurityGlyphs row={cookie} />
       </span>
       {writable && (
-        <span className="dt-storage-row-actions">
+        // biome-ignore lint/a11y/noStaticElementInteractions: swallows row-open clicks under the action lane
+        <span className="dt-storage-row-actions" onClick={(ev) => ev.stopPropagation()}>
           <CookieEditPopover mode="edit" canonical={jarCookieToEditForm(cookie)} onSubmit={onApplyEdit}>
             <button
               type="button"

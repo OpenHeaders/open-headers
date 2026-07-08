@@ -7,7 +7,7 @@
  * tree. Same architectural pattern as the workspace editor-groups.
  */
 
-import { domStorageEntryTabId, type InspectorTab, type InspectorTabPatch } from './inspector-tab';
+import { cookieTabId, domStorageEntryTabId, type InspectorTab, type InspectorTabPatch } from './inspector-tab';
 
 export type EditorOrientation = 'horizontal' | 'vertical';
 
@@ -143,7 +143,11 @@ export function updateTabInLeaf(
     if (tab.kind === 'request') {
       if (updates.activeSection === undefined || tab.activeSection === updates.activeSection) return leaf;
       nextTab = { ...tab, activeSection: updates.activeSection };
-    } else if (tab.kind === 'dom-storage-entry' && updates.entryKey !== undefined && updates.entryKey !== tab.entryKey) {
+    } else if (
+      tab.kind === 'dom-storage-entry' &&
+      updates.entryKey !== undefined &&
+      updates.entryKey !== tab.entryKey
+    ) {
       // A committed rename moves the tab's identity: the id and label
       // derive from the entry key, so re-opens and the grid's
       // active-row highlight keep matching the renamed entry.
@@ -153,6 +157,23 @@ export function updateTabInLeaf(
         entryKey: updates.entryKey,
         label: updates.entryKey,
         id: domStorageEntryTabId(tab.frameId, tab.area, updates.entryKey),
+      };
+      const renamedTabs = leaf.tabs.slice();
+      renamedTabs[idx] = nextTab;
+      return {
+        ...leaf,
+        tabs: renamedTabs,
+        activeTabId: leaf.activeTabId === tab.id ? nextTab.id : leaf.activeTabId,
+      };
+    } else if (tab.kind === 'cookie' && updates.cookieKey !== undefined && cookieTabId(updates.cookieKey) !== tab.id) {
+      // Same identity-move semantics over the jar key: a committed
+      // name / domain / path change re-keys the tab in place.
+      nextTab = {
+        ...tab,
+        ...(updates.dirty !== undefined ? { dirty: updates.dirty } : {}),
+        cookieKey: updates.cookieKey,
+        label: updates.cookieKey.name,
+        id: cookieTabId(updates.cookieKey),
       };
       const renamedTabs = leaf.tabs.slice();
       renamedTabs[idx] = nextTab;
