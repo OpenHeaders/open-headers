@@ -164,20 +164,29 @@ describe('CacheStorageSection entries view', () => {
     expect(await screen.findByText(/can’t be read/)).toBeDefined();
   });
 
-  it('filters entries by URL', () => {
-    const cache = makeCache({
-      selectedCache: 'oh-assets-v1',
-      entriesPage: {
-        entries: [
-          { url: 'https://openheaders.io/asset-0.js', method: 'GET' },
-          { url: 'https://openheaders.io/api/data', method: 'GET' },
-        ],
-        truncated: false,
-      },
-    });
-    render(<CacheStorageSection cache={cache} filter="api" />);
+  it('filters entries across URL, method and the headers preview', () => {
+    const entriesPage = {
+      entries: [
+        { url: 'https://openheaders.io/asset-0.js', method: 'GET', headersPreview: 'accept: text/javascript' },
+        { url: 'https://openheaders.io/api/data', method: 'POST' },
+      ],
+      truncated: false,
+    };
 
+    render(<CacheStorageSection cache={makeCache({ selectedCache: 'oh-assets-v1', entriesPage })} filter="api" />);
     expect(screen.queryByText('https://openheaders.io/asset-0.js')).toBeNull();
     expect(screen.getByText('https://openheaders.io/api/data')).toBeDefined();
+    cleanup();
+
+    render(<CacheStorageSection cache={makeCache({ selectedCache: 'oh-assets-v1', entriesPage })} filter="post" />);
+    expect(screen.queryByText('https://openheaders.io/asset-0.js')).toBeNull();
+    expect(screen.getByText('https://openheaders.io/api/data')).toBeDefined();
+    cleanup();
+
+    render(
+      <CacheStorageSection cache={makeCache({ selectedCache: 'oh-assets-v1', entriesPage })} filter="javascript" />,
+    );
+    expect(screen.getByText('https://openheaders.io/asset-0.js')).toBeDefined();
+    expect(screen.queryByText('https://openheaders.io/api/data')).toBeNull();
   });
 });

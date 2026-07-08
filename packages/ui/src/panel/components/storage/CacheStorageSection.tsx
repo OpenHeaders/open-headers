@@ -115,7 +115,12 @@ function EntriesView({ cache, filter }: CacheStorageSectionProps) {
   const needle = filter.trim().toLowerCase();
   const entries = pageData
     ? needle
-      ? pageData.entries.filter((e) => e.url.toLowerCase().includes(needle))
+      ? pageData.entries.filter(
+          (e) =>
+            e.url.toLowerCase().includes(needle) ||
+            e.method.toLowerCase().includes(needle) ||
+            (e.headersPreview?.toLowerCase().includes(needle) ?? false),
+        )
       : pageData.entries
     : [];
 
