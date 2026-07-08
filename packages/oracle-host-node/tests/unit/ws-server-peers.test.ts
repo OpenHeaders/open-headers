@@ -236,6 +236,12 @@ describe('OracleWsServer — peer registry', () => {
     });
     expect(welcome.accepted).toBe(false);
     expect(welcome.reason).toBe('auth-required');
+    // Auth refusal is retriable — 1008, never the 4001 protocol-mismatch
+    // code the client latches on and stops redialing.
+    const closeCode = await new Promise<number>((resolve) => {
+      client.once('close', (code) => resolve(code));
+    });
+    expect(closeCode).toBe(1008);
     expect(server.connectedCount()).toBe(0);
   });
 

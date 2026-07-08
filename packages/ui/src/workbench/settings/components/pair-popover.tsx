@@ -14,6 +14,11 @@
  * The button label / type are caller-tunable so the banner can render a
  * primary "Pair with a code" call-to-action while the field keeps the
  * neutral default.
+ *
+ * Two entry modes, because the back-end hands out credentials in two
+ * shapes: a 6-digit pairing code (exchanged for a token over
+ * `pairWithCode`) and the raw token itself (a rotation shows the new
+ * secret once, to be pasted here directly — no exchange).
  */
 
 import { App as AntApp, Button, type ButtonProps, Input, Popover, Space, Typography } from 'antd';
@@ -44,15 +49,31 @@ export const PairPopover: React.FC<{
 }> = ({ url, onPaired, buttonLabel = 'Pair with a code', buttonType }) => {
   const { message } = AntApp.useApp();
   const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<'code' | 'token'>('code');
   const [code, setCode] = useState('');
+  const [token, setToken] = useState('');
   const [deviceLabel, setDeviceLabel] = useState('');
   const [pairing, setPairing] = useState(false);
 
   const reset = useCallback(() => {
+    setMode('code');
     setCode('');
+    setToken('');
     setDeviceLabel('');
     setPairing(false);
   }, []);
+
+  const submitToken = useCallback(() => {
+    const trimmed = token.trim();
+    if (!trimmed) {
+      message.error('Paste the token the back-end displayed.');
+      return;
+    }
+    onPaired(trimmed);
+    message.success('Auth token saved.');
+    setOpen(false);
+    reset();
+  }, [token, onPaired, message, reset]);
 
   const submit = useCallback(async () => {
     const exchange = getCapability('pairWithCode');
@@ -85,34 +106,65 @@ export const PairPopover: React.FC<{
       trigger="click"
       placement="topLeft"
       destroyTooltipOnHide
-      title="Pair with a code"
+      title={mode === 'code' ? 'Pair with a code' : 'Paste a token'}
       content={
         <div style={{ width: 280 }}>
-          <Typography.Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 8 }}>
-            Enter the code the back-end displayed. We'll exchange it for an
-            auth token and connect this browser.
-          </Typography.Paragraph>
-          <Space direction="vertical" size={8} style={{ width: '100%' }}>
-            <Input
-              autoFocus
-              value={code}
-              placeholder="6-digit code"
-              inputMode="numeric"
-              maxLength={12}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-              onPressEnter={() => void submit()}
-            />
-            <Input
-              value={deviceLabel}
-              placeholder="Device name (optional)"
-              maxLength={64}
-              onChange={(e) => setDeviceLabel(e.target.value)}
-              onPressEnter={() => void submit()}
-            />
-            <Button type="primary" block loading={pairing} onClick={() => void submit()}>
-              Pair
-            </Button>
-          </Space>
+          {mode === 'code' ? (
+            <>
+              <Typography.Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 8 }}>
+                Enter the code the back-end displayed. We'll exchange it for an
+                auth token and connect this browser.
+              </Typography.Paragraph>
+              <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                <Input
+                  autoFocus
+                  value={code}
+                  placeholder="6-digit code"
+                  inputMode="numeric"
+                  maxLength={12}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+                  onPressEnter={() => void submit()}
+                />
+                <Input
+                  value={deviceLabel}
+                  placeholder="Device name (optional)"
+                  maxLength={64}
+                  onChange={(e) => setDeviceLabel(e.target.value)}
+                  onPressEnter={() => void submit()}
+                />
+                <Button type="primary" block loading={pairing} onClick={() => void submit()}>
+                  Pair
+                </Button>
+              </Space>
+            </>
+          ) : (
+            <>
+              <Typography.Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 8 }}>
+                Paste the token the back-end displayed — a rotation shows the
+                new secret once. It's saved as this browser's credential.
+              </Typography.Paragraph>
+              <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                <Input.Password
+                  autoFocus
+                  value={token}
+                  placeholder="oh_…"
+                  onChange={(e) => setToken(e.target.value)}
+                  onPressEnter={submitToken}
+                />
+                <Button type="primary" block onClick={submitToken}>
+                  Save token
+                </Button>
+              </Space>
+            </>
+          )}
+          <Button
+            type="link"
+            size="small"
+            style={{ padding: 0, marginTop: 8, fontSize: 12 }}
+            onClick={() => setMode(mode === 'code' ? 'token' : 'code')}
+          >
+            {mode === 'code' ? 'Have a token? Paste it instead' : 'Have a pairing code instead?'}
+          </Button>
         </div>
       }
     >
