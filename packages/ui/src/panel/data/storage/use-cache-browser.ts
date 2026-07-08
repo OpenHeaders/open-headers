@@ -33,7 +33,13 @@ function cacheEntriesPageEqual(a: CacheEntriesPage, b: CacheEntriesPage): boolea
   if (a.truncated !== b.truncated || a.entries.length !== b.entries.length) return false;
   return a.entries.every((e, i) => {
     const o = b.entries[i];
-    return e.url === o.url && e.method === o.method && e.headersPreview === o.headersPreview;
+    return (
+      e.url === o.url &&
+      e.method === o.method &&
+      e.headersPreview === o.headersPreview &&
+      e.contentLength === o.contentLength &&
+      e.responseTimeMs === o.responseTimeMs
+    );
   });
 }
 

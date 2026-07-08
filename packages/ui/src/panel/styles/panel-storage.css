@@ -160,11 +160,11 @@
   font-style: italic;
 }
 
-/* Cache Storage entries — same grid family, two columns:
- * Request URL (wide) · Method. */
+/* Cache Storage entries — same grid family, four columns:
+ * Request URL (wide) · Method · Size · Time. */
 .dt-storage-grid--caches .dt-storage-grid-header,
 .dt-storage-grid--caches .dt-storage-row {
-  grid-template-columns: minmax(0, 1fr) 60px;
+  grid-template-columns: minmax(0, 1fr) 52px 64px minmax(120px, auto);
 }
 
 /* Cookies section — same grid family, five columns:

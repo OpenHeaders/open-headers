@@ -159,15 +159,21 @@ export interface CacheStorageCacheWire {
 }
 
 /**
- * One Cache Storage entry, derived from the cache's `Request` keys only —
- * the entry list never touches the stored responses (a response preview
- * is a separate lazy fetch). `headersPreview` is a bounded `name: value`
- * join of the request headers, omitted when the request carries none.
+ * One Cache Storage entry — request metadata plus two response-METADATA
+ * columns (a response body preview stays the separate lazy fetch).
+ * `headersPreview` is a bounded `name: value` join of the request
+ * headers, omitted when the request carries none. `contentLength` is the
+ * stored response's `content-length` header value, omitted when the
+ * header is absent; `responseTimeMs` is the response's storage wall time
+ * (epoch ms), present only on the CDP transport — the page-side Cache
+ * API doesn't expose it.
  */
 export interface CacheEntryWire {
   url: string;
   method: string;
   headersPreview?: string;
+  contentLength?: number;
+  responseTimeMs?: number;
 }
 
 /**

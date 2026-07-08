@@ -103,14 +103,20 @@ export interface CacheSummary {
 }
 
 /**
- * One Cache Storage entry — request metadata only (the list never
- * touches stored responses). `headersPreview` is a bounded join of the
- * request headers, absent when the request carries none.
+ * One Cache Storage entry — request metadata plus two response-metadata
+ * columns (the list never touches stored response bodies).
+ * `headersPreview` is a bounded join of the request headers, absent when
+ * the request carries none; `contentLength` mirrors the stored
+ * response's `content-length` header, absent when the header is;
+ * `responseTimeMs` is the response's storage wall time, present only
+ * when the host's CDP tier answered.
  */
 export interface CacheEntry {
   url: string;
   method: string;
   headersPreview?: string;
+  contentLength?: number;
+  responseTimeMs?: number;
 }
 
 /** `truncated` means more entries exist past this page. */

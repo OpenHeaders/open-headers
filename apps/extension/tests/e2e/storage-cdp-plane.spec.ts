@@ -78,6 +78,8 @@ interface CacheEntryWireShape {
   url: string;
   method: string;
   headersPreview?: string;
+  contentLength?: number;
+  responseTimeMs?: number;
 }
 
 interface PreviewWireShape {
@@ -177,6 +179,14 @@ test('CDP tier: stamping, breakdown, CDP cache ops, invalidation pushes, detach 
   const echoUrl = 'http://127.0.0.1:3000/api/echo?seed=one&kind=json';
   expect(entries.entries?.some((e) => e.url === echoUrl && e.method === 'GET')).toBe(true);
 
+  // Response-metadata columns ride the CDP entry list: size from the
+  // fetched response's content-length header, time from the cache's own
+  // storage wall clock (epoch ms, sane recency).
+  const echoEntry = entries.entries?.find((e) => e.url === echoUrl);
+  expect(echoEntry?.contentLength).toBeGreaterThan(0);
+  expect(echoEntry?.responseTimeMs).toBeGreaterThan(Date.now() - 60 * 60 * 1000);
+  expect(echoEntry?.responseTimeMs).toBeLessThan(Date.now() + 60 * 1000);
+
   // Textual preview via requestCachedResponse, re-capped SW-side.
   const echoPreview = await rpc<{ preview: PreviewWireShape | null }>('getCacheStorageEntryResponse', {
     ...base,
@@ -258,6 +268,11 @@ test('CDP tier: stamping, breakdown, CDP cache ops, invalidation pushes, detach 
     pageSize: 50,
   });
   expect(degradedEntries.entries?.some((e) => e.url === echoUrl)).toBe(true);
+  // The injected leg keeps the size column (headers-only match) but the
+  // Cache API has no storage wall clock — the time column degrades away.
+  const degradedEcho = degradedEntries.entries?.find((e) => e.url === echoUrl);
+  expect(degradedEcho?.contentLength).toBeGreaterThan(0);
+  expect(degradedEcho?.responseTimeMs).toBeUndefined();
 
   await page.evaluate(() => window.ohStorage.reset());
   await page.close();

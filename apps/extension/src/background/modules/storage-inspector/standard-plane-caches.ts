@@ -11,10 +11,14 @@
  * an error.
  *
  * Payload discipline: the entry list is derived from the cache's
- * `Request` keys only — bounded url/method/header-preview strings, paged
- * with a clamped page size. The list NEVER calls `cache.match`; a stored
- * response's preview is the separate lazy fetch below, byte-capped and
- * serialized in-page (text for textual content types, base64 otherwise).
+ * `Request` keys — bounded url/method/header-preview strings, paged with
+ * a clamped page size — plus one headers-only `cache.match` per page row
+ * for the size column's `content-length` header (bodies stay untouched;
+ * the page clamp bounds the match count). A stored response's BODY
+ * preview is the separate lazy fetch below, byte-capped and serialized
+ * in-page (text for textual content types, base64 otherwise). The time
+ * column has no injected leg at all — the Cache API doesn't expose a
+ * stored response's wall time; only the CDP transport carries it.
  *
  * `caches.open()` CREATES a missing cache, so every entry read is
  * guarded by `caches.has()` first — a cache deleted since enumeration
@@ -39,6 +43,7 @@ interface InjectedCacheEntry {
   url: string;
   method: string;
   headersPreview?: string;
+  contentLength?: number;
 }
 
 /**
@@ -74,19 +79,31 @@ export async function readCacheEntriesInPage(
     const start = page * pageSize;
     const slice = requests.slice(start, start + pageSize + 1);
     const truncated = slice.length > pageSize;
-    const entries = slice.slice(0, pageSize).map((request) => {
-      const pairs: string[] = [];
-      request.headers.forEach((value, name) => {
-        pairs.push(`${name}: ${value}`);
-      });
-      const joined = pairs.join(', ');
-      const headersPreview = joined.length > headersPreviewMax ? `${joined.slice(0, headersPreviewMax)}…` : joined;
-      return {
-        url: request.url,
-        method: request.method,
-        ...(headersPreview.length > 0 ? { headersPreview } : {}),
-      };
-    });
+    const entries = await Promise.all(
+      slice.slice(0, pageSize).map(async (request) => {
+        const pairs: string[] = [];
+        request.headers.forEach((value, name) => {
+          pairs.push(`${name}: ${value}`);
+        });
+        const joined = pairs.join(', ');
+        const headersPreview = joined.length > headersPreviewMax ? `${joined.slice(0, headersPreviewMax)}…` : joined;
+        // Headers-only match for the content-length column — the body is
+        // never read; an unmatchable or header-less response omits it.
+        let contentLength = Number.NaN;
+        try {
+          const response = await opened.match(request, { ignoreMethod: request.method !== 'GET' });
+          contentLength = Number(response?.headers.get('content-length') ?? Number.NaN);
+        } catch {
+          // Column stays absent.
+        }
+        return {
+          url: request.url,
+          method: request.method,
+          ...(headersPreview.length > 0 ? { headersPreview } : {}),
+          ...(Number.isFinite(contentLength) && contentLength >= 0 ? { contentLength } : {}),
+        };
+      }),
+    );
     return { entries, truncated };
   } catch {
     return { entries: null, truncated: false };

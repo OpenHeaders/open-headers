@@ -64,6 +64,8 @@ interface CacheEntryWireShape {
   url: string;
   method: string;
   headersPreview?: string;
+  contentLength?: number;
+  responseTimeMs?: number;
 }
 
 interface PreviewWireShape {
@@ -89,7 +91,11 @@ test('Cache Storage reads, response preview, deletes, quota and clear ride the p
     const api = await caches.open('oh-e2e-api');
     await api.put(
       new Request('http://127.0.0.1:3000/api/data'),
-      new Response('{"a":1}', { status: 200, statusText: 'OK', headers: { 'content-type': 'application/json' } }),
+      new Response('{"a":1}', {
+        status: 200,
+        statusText: 'OK',
+        headers: { 'content-type': 'application/json', 'content-length': '7' },
+      }),
     );
     await api.put(new Request('http://127.0.0.1:3000/api/other'), new Response('plain', { status: 200 }));
     await caches.open('oh-e2e-assets');
@@ -121,6 +127,14 @@ test('Cache Storage reads, response preview, deletes, quota and clear ride the p
   });
   expect(entries.entries?.some((e) => e.url === 'http://127.0.0.1:3000/api/data' && e.method === 'GET')).toBe(true);
   expect(entries.truncated).toBeFalsy();
+
+  // Size column rides the stored content-length header (headers-only
+  // match); the time column has no injected leg — absent while detached.
+  const dataEntry = entries.entries?.find((e) => e.url === 'http://127.0.0.1:3000/api/data');
+  expect(dataEntry?.contentLength).toBe(7);
+  expect(dataEntry?.responseTimeMs).toBeUndefined();
+  const otherEntry = entries.entries?.find((e) => e.url === 'http://127.0.0.1:3000/api/other');
+  expect(otherEntry?.contentLength).toBeUndefined();
 
   // ── Lazy stored-response preview (the separate RPC) ────────────────
   const previewed = await rpc<{ preview: PreviewWireShape | null }>('getCacheStorageEntryResponse', {

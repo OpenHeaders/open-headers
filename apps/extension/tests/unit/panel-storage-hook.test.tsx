@@ -63,7 +63,9 @@ const IDB_PAGE: IdbRecordsPage = {
 const CACHE_LIST = [{ name: 'oh-assets-v1' }];
 
 const CACHE_PAGE: CacheEntriesPage = {
-  entries: [{ url: 'https://openheaders.io/asset-0.js', method: 'GET' }],
+  entries: [
+    { url: 'https://openheaders.io/asset-0.js', method: 'GET', contentLength: 128, responseTimeMs: 1_770_000_000_500 },
+  ],
   truncated: false,
 };
 
@@ -510,6 +512,26 @@ describe('useCacheBrowser poll stability', () => {
     expect(result.current.entriesPage).toBe(page);
     expect(listCaches.mock.calls.length).toBe(listsBefore + 2);
     expect(readCacheEntries.mock.calls.length).toBe(readsBefore + 2);
+  });
+
+  it('adopts a re-read whose only change is a response-metadata column', async () => {
+    const { readCacheEntries } = installHost();
+    const { result } = renderHook(() => useCacheBrowser(true, 0));
+
+    await flush();
+    act(() => {
+      result.current.selectCache('oh-assets-v1');
+    });
+    await flush();
+    const page = result.current.entriesPage;
+    expect(page?.entries[0]?.contentLength).toBe(128);
+
+    const grown = structuredClone(CACHE_PAGE);
+    grown.entries = [{ ...grown.entries[0], contentLength: 256 }];
+    readCacheEntries.mockImplementation(() => Promise.resolve(structuredClone(grown)));
+    await flush(5000);
+    expect(result.current.entriesPage).not.toBe(page);
+    expect(result.current.entriesPage?.entries[0]?.contentLength).toBe(256);
   });
 
   it('renders unreadable (null) as terminal once loading settles, keeping the last list on later failures', async () => {

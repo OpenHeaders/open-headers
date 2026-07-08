@@ -33,6 +33,8 @@ interface RawCdpCacheEntry {
   requestURL: string;
   requestMethod: string;
   requestHeaders?: RawCdpHeader[];
+  /** Storage wall time in epoch SECONDS (converted to ms on the wire). */
+  responseTime?: number;
   responseStatus?: number;
   responseStatusText?: string;
   responseHeaders?: RawCdpHeader[];
@@ -86,10 +88,16 @@ export async function getCacheEntriesViaCdp(
       const joined = (entry.requestHeaders ?? []).map((h) => `${h.name}: ${h.value}`).join(', ');
       const headersPreview =
         joined.length > CACHE_HEADERS_PREVIEW_MAX ? `${joined.slice(0, CACHE_HEADERS_PREVIEW_MAX)}…` : joined;
+      const lengthHeader = (entry.responseHeaders ?? []).find((h) => h.name.toLowerCase() === 'content-length');
+      const contentLength = lengthHeader === undefined ? Number.NaN : Number(lengthHeader.value);
       return {
         url: entry.requestURL,
         method: entry.requestMethod,
         ...(headersPreview.length > 0 ? { headersPreview } : {}),
+        ...(Number.isFinite(contentLength) && contentLength >= 0 ? { contentLength } : {}),
+        ...(typeof entry.responseTime === 'number' && entry.responseTime > 0
+          ? { responseTimeMs: Math.round(entry.responseTime * 1000) }
+          : {}),
       };
     });
     // `returnCount` is the total matching the query, not the page.

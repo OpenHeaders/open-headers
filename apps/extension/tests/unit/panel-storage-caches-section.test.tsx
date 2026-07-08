@@ -90,6 +90,27 @@ describe('CacheStorageSection entries view', () => {
     expect(cache.closeCache).toHaveBeenCalled();
   });
 
+  it('renders size and time columns from the response metadata, em-dash when absent', () => {
+    const storedAt = 1_770_000_000_500;
+    const cache = makeCache({
+      selectedCache: 'oh-assets-v1',
+      entriesPage: {
+        entries: [
+          { url: 'https://openheaders.io/asset-0.js', method: 'GET', contentLength: 20_000, responseTimeMs: storedAt },
+          { url: 'https://openheaders.io/api/data', method: 'POST' },
+        ],
+        truncated: false,
+      },
+    });
+    render(<CacheStorageSection cache={cache} filter="" />);
+
+    expect(screen.getByText('Size')).toBeDefined();
+    expect(screen.getByText('Time')).toBeDefined();
+    expect(screen.getByText('20.0 kB')).toBeDefined();
+    expect(screen.getByText(new Date(storedAt).toLocaleString())).toBeDefined();
+    expect(screen.getAllByText('—')).toHaveLength(2);
+  });
+
   it('deletes an entry single-click through the hover lane', () => {
     const cache = makeCache({
       selectedCache: 'oh-assets-v1',

@@ -54,7 +54,8 @@ function installCachesStub(
       const requests = store.get(name) as Request[];
       return Promise.resolve({
         keys: () => Promise.resolve([...requests]),
-        match: (url: string, options?: { ignoreMethod?: boolean }) => {
+        match: (query: Request | string, options?: { ignoreMethod?: boolean }) => {
+          const url = typeof query === 'string' ? query : query.url;
           const found = requests.find(
             (request) => request.url === url && (options?.ignoreMethod || request.method === 'GET'),
           );
@@ -140,6 +141,26 @@ describe('readCacheEntriesInPage', () => {
 
     const clipped = await readCacheEntriesInPage('oh-api-v2', 0, 50, 10);
     expect(clipped.entries?.[0]?.headersPreview).toBe('accept: ap…');
+  });
+
+  it('derives the size column from the stored response content-length header, absent otherwise', async () => {
+    const sized = new Request('https://openheaders.io/api/data');
+    const headerless = new Request('https://openheaders.io/api/plain');
+    const unmatched = new Request('https://openheaders.io/api/orphan', { method: 'POST' });
+    const posted = new Request('https://openheaders.io/api/submit', { method: 'POST' });
+    const responses = new Map([
+      [sized, new Response('{"a":1}', { status: 200, headers: { 'content-length': '7' } })],
+      [headerless, new Response('plain', { status: 200 })],
+      [posted, new Response('ok', { status: 201, headers: { 'content-length': '2' } })],
+    ]);
+    installCachesStub({ 'oh-api-v2': [sized, headerless, unmatched, posted] }, responses);
+
+    const { entries } = await readCacheEntriesInPage('oh-api-v2', 0, 50, 512);
+    expect(entries?.[0]?.contentLength).toBe(7);
+    expect(entries?.[1]?.contentLength).toBeUndefined();
+    expect(entries?.[2]?.contentLength).toBeUndefined();
+    // The non-GET row needs the method check relaxed to match at all.
+    expect(entries?.[3]?.contentLength).toBe(2);
   });
 
   it('reports a missing cache as unreadable and never creates a ghost', async () => {
@@ -376,7 +397,7 @@ describe('arbitrated RPC surface — CDP transport (attached)', () => {
     expect(executeScriptSpy()).not.toHaveBeenCalled();
   });
 
-  it('reads entries through requestEntries with native paging and total-count truncation', async () => {
+  it('reads entries through requestEntries with native paging, truncation and response-metadata columns', async () => {
     const calls = installCdp((_tabId, method) => {
       if (method === 'CacheStorage.requestCacheNames') return Promise.resolve({ caches: RAW_CACHES });
       if (method === 'CacheStorage.requestEntries') {
@@ -386,6 +407,12 @@ describe('arbitrated RPC surface — CDP transport (attached)', () => {
               requestURL: 'https://openheaders.io/a.js',
               requestMethod: 'GET',
               requestHeaders: [{ name: 'accept', value: '*/*' }],
+              responseTime: 1_770_000_000.5,
+              responseHeaders: [{ name: 'Content-Length', value: '128' }],
+            },
+            {
+              requestURL: 'https://openheaders.io/bare.js',
+              requestMethod: 'GET',
             },
           ],
           returnCount: 7,
@@ -396,7 +423,14 @@ describe('arbitrated RPC surface — CDP transport (attached)', () => {
 
     const page = await getCacheStorageEntries(1, 0, 'oh-assets-v1', 2, 1);
     expect(page.entries).toEqual([
-      { url: 'https://openheaders.io/a.js', method: 'GET', headersPreview: 'accept: */*' },
+      {
+        url: 'https://openheaders.io/a.js',
+        method: 'GET',
+        headersPreview: 'accept: */*',
+        contentLength: 128,
+        responseTimeMs: 1_770_000_000_500,
+      },
+      { url: 'https://openheaders.io/bare.js', method: 'GET' },
     ]);
     expect(page.truncated).toBe(true);
     expect(calls.find((c) => c.method === 'CacheStorage.requestEntries')?.params).toEqual({

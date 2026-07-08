@@ -1,8 +1,12 @@
 /**
  * The Storage tool window's Cache Storage section. Two levels: the
  * scope's named caches, then an opened cache's paged entry grid —
- * request metadata only (URL + method + a bounded request-headers
- * preview), never the stored responses. Deletes are in scope: a whole
+ * request metadata (URL + method + a bounded request-headers preview)
+ * plus the stored response's size and storage-time columns (metadata
+ * only; bodies stay behind the lazy eye-preview). Either column renders
+ * an em dash when the host couldn't derive it — size needs a
+ * `content-length` header, time exists only on attached tabs. Deletes
+ * are in scope: a whole
  * cache uses the two-step arm/confirm idiom (bulk destruction); an
  * entry is a single-click hover lane like the DOM grid's.
  *
@@ -14,7 +18,7 @@ import { DeleteOutlined, EyeOutlined, LeftOutlined, RightOutlined } from '@ant-d
 import { useEffect, useRef, useState } from 'react';
 import type { CacheEntryResponsePreview } from '../../data/storage/storage-inspector-host';
 import type { CacheBrowserState } from '../../data/storage/use-cache-browser';
-import { formatSize } from '../traffic/formatters';
+import { formatDateTime, formatSize } from '../traffic/formatters';
 import { ArmedIconButton } from './ArmedIconButton';
 
 interface CacheStorageSectionProps {
@@ -177,6 +181,8 @@ function EntriesView({ cache, filter }: CacheStorageSectionProps) {
           <div className="dt-storage-grid-header" role="row">
             <span role="columnheader">Request</span>
             <span role="columnheader">Method</span>
+            <span role="columnheader">Size</span>
+            <span role="columnheader">Time</span>
           </div>
           {entries.map((e, i) => {
             const expanded = expandedKey === `${e.url}\n${e.method}`;
@@ -191,6 +197,12 @@ function EntriesView({ cache, filter }: CacheStorageSectionProps) {
                 </span>
                 <span className="dt-storage-value" role="cell">
                   {e.method}
+                </span>
+                <span className="dt-storage-value" role="cell">
+                  {formatSize(e.contentLength) || '—'}
+                </span>
+                <span className="dt-storage-value" role="cell">
+                  {formatDateTime(e.responseTimeMs) || '—'}
                 </span>
                 <span className="dt-storage-row-actions">
                   <button

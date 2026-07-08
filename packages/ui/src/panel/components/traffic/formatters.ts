@@ -20,6 +20,15 @@ export function formatDuration(ms: number | undefined): string {
   return `${(ms / 1000).toFixed(2)} s`;
 }
 
+/**
+ * Full locale date + time — the reading a browser's own storage surfaces
+ * give a stored-response timestamp. Empty for an absent value.
+ */
+export function formatDateTime(epochMs: number | undefined): string {
+  if (epochMs == null || epochMs <= 0) return '';
+  return new Date(epochMs).toLocaleString();
+}
+
 export function formatTimestamp(ms: number): string {
   const d = new Date(ms);
   const hh = String(d.getHours()).padStart(2, '0');
