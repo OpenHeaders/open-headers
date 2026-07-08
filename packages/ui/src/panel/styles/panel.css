@@ -213,3 +213,10 @@ body {
 .ant-tooltip.ant-zoom-big-fast-leave {
   display: none;
 }
+
+/* Tooltips are purely informational: pointer-transparent so sweeping the
+   mouse onto the popup can't hold it open or intercept clicks meant for
+   the content beneath. */
+.ant-tooltip {
+  pointer-events: none;
+}
