@@ -1,5 +1,6 @@
 /**
- * Outbound mutation forwarder — Phase C C7 / C15.
+ * Outbound mutation forwarder — Phase C C7 / C15, generalized to the
+ * N-backend connection plane (MULTI_BACKEND_PLAN.md §3).
  *
  * Every envelope the local SW oracle commits flows through here:
  *
@@ -9,31 +10,38 @@
  *   3. {@link forwardMutationToBackend} runs the envelope through the
  *      shared outbound transport gate (`evaluateOutboundEnvelope` —
  *      echo guard / consumed-Org tenancy / `workspace.write` authz),
- *      then writes it to the backend WS via `sendViaWebSocket`. On
- *      send failure the envelope is enqueued in the persistent
- *      pending-out queue (C13).
+ *      resolves its target from the Org binding — an envelope goes to
+ *      exactly the backend whose Org set contains its `orgId`; home-Org
+ *      envelopes were already withheld by the tenancy layer (routing
+ *      invariant 1) — then writes it to that backend's wire. On send
+ *      failure the envelope is enqueued under that backend's pending-out
+ *      cursor (C13; invariant 3 — one log, one cursor per backend).
  *
- * Reconnect-flush ({@link flushPendingOutToBackend}, C15) drains the
- * queue in HLC order, re-runs the same gate, re-sends each allowed
- * envelope, and acks on success. An envelope the gate now withholds
- * (echo / own-Org / revoked privilege) is ack-dropped rather than
- * re-flushed forever. Wire-side dedup (C11) makes the replay safe even
+ * Reconnect-flush ({@link flushPendingOutToBackend}, C15) drains one
+ * backend's cursor in HLC order, re-runs the same gate, re-sends each
+ * allowed envelope on that backend's wire, and acks on success. An
+ * envelope the gate now withholds (echo / own-Org / revoked privilege)
+ * is ack-dropped rather than re-flushed forever; one whose Org binding
+ * moved to another backend (a re-minted connection record) is re-routed
+ * to its new cursor. Wire-side dedup (C11) makes the replay safe even
  * if the backend already received the envelope before the disconnect.
  *
  * **Threading.** `broadcastSyncEvent` fires synchronously from
  * applies, but enqueue + flush are async. The forwarder uses a
  * fire-and-forget pattern for enqueue (preserves apply latency); a
- * single in-flight `flush` promise prevents concurrent drains from
- * stepping on each other across reconnect storms.
+ * single in-flight `flush` promise per backend prevents concurrent
+ * drains from stepping on each other across reconnect storms, while
+ * two backends' flushes proceed independently.
  */
 
+import { getOrgBackendBindings } from '@openheaders/core/identity';
 import { SYNC_MUTATION_TYPE, type SyncMutationMessage } from '@openheaders/core/protocol';
-import type { StateVector } from '@openheaders/core/sync';
+import type { MutationEnvelope, StateVector } from '@openheaders/core/sync';
 import type { OracleSyncBroadcastEvent, PendingOutQueue } from '@openheaders/oracle/sync';
-import { DEFAULT_REMOTE_ID, evaluateOutboundEnvelope, prunePendingOutByPeerVector } from '@openheaders/oracle/sync';
+import { evaluateOutboundEnvelope, prunePendingOutByPeerVector } from '@openheaders/oracle/sync';
 
 import { logger } from '@utils/logger';
-import { isWebSocketConnected, sendViaWebSocket } from './websocket';
+import { isBackendConnected, sendToBackend } from './websocket';
 
 const SCOPE = 'SyncForwarder';
 
@@ -51,13 +59,13 @@ export function setPendingOutQueue(queue: PendingOutQueue | null): void {
 
 let droppedNoQueue = 0;
 let loggedDropOnce = false;
-let inflightFlush: Promise<void> | null = null;
+const inflightFlushes = new Map<string, Promise<void>>();
 
-function envelopeToFrame(event: OracleSyncBroadcastEvent): SyncMutationMessage {
+function envelopeToFrame(envelope: MutationEnvelope): SyncMutationMessage {
   return {
     type: SYNC_MUTATION_TYPE,
-    workspaceId: event.envelope.workspaceId,
-    envelope: event.envelope,
+    workspaceId: envelope.workspaceId,
+    envelope,
   };
 }
 
@@ -72,12 +80,21 @@ export function forwardMutationToBackend(event: OracleSyncBroadcastEvent): void 
     }
     return;
   }
-  const frame = envelopeToFrame(event);
-  const sent = sendViaWebSocket(frame as unknown as Record<string, unknown>);
+  // Routing invariant 1: exactly the backend bound to the envelope's
+  // Org. The tenancy layer above only passes consumed Orgs, and every
+  // consumed (snapshot-folded) Org has a binding — a miss means the
+  // binding raced a registry removal; drop, the resolver-side filters
+  // would refuse it everywhere anyway.
+  const backendId = getOrgBackendBindings().get(event.envelope.orgId);
+  if (!backendId) {
+    logger.debug(SCOPE, `outbound envelope for Org ${event.envelope.orgId} has no backend binding — dropped`);
+    return;
+  }
+  const sent = sendToBackend(backendId, envelopeToFrame(event.envelope) as unknown as Record<string, unknown>);
   if (sent) return;
 
   if (pendingQueue) {
-    void pendingQueue.enqueue(DEFAULT_REMOTE_ID, event.envelope).catch((err) => {
+    void pendingQueue.enqueue(backendId, event.envelope).catch((err) => {
       logger.warn(SCOPE, 'enqueue to pending-out queue failed', err);
     });
     return;
@@ -92,22 +109,25 @@ export function forwardMutationToBackend(event: OracleSyncBroadcastEvent): void 
 }
 
 /**
- * Drain the pending-out queue in HLC order and re-send each
- * envelope. Acks on successful send so a partial drain (WS dies
- * mid-flush) leaves the remainder intact for the next flush. Safe
- * to call repeatedly; concurrent calls coalesce onto one in-flight
- * promise.
+ * Drain one backend's pending-out cursor in HLC order and re-send each
+ * envelope on its wire. Acks on successful send so a partial drain (WS
+ * dies mid-flush) leaves the remainder intact for the next flush. Safe
+ * to call repeatedly; concurrent calls for the same backend coalesce
+ * onto one in-flight promise, while different backends flush
+ * independently (invariant 3 — offline edits to backend A's workspace
+ * flush to A on A's reconnect, regardless of B's state).
  */
-export function flushPendingOutToBackend(): Promise<void> {
-  if (inflightFlush) return inflightFlush;
-  inflightFlush = (async () => {
+export function flushPendingOutToBackend(backendId: string): Promise<void> {
+  const inflight = inflightFlushes.get(backendId);
+  if (inflight) return inflight;
+  const flush = (async () => {
     try {
       if (!pendingQueue) return;
-      if (!isWebSocketConnected()) return;
+      if (!isBackendConnected(backendId)) return;
 
       const acked: string[] = [];
-      for await (const env of pendingQueue.drain(DEFAULT_REMOTE_ID)) {
-        if (!isWebSocketConnected()) break;
+      for await (const env of pendingQueue.drain(backendId)) {
+        if (!isBackendConnected(backendId)) break;
         const verdict = evaluateOutboundEnvelope(env);
         if (!verdict.allow) {
           // The gate now withholds this envelope — it echoes a frame the
@@ -117,39 +137,42 @@ export function flushPendingOutToBackend(): Promise<void> {
           acked.push(env.mutationId);
           continue;
         }
-        const frame: SyncMutationMessage = {
-          type: SYNC_MUTATION_TYPE,
-          workspaceId: env.workspaceId,
-          envelope: env,
-        };
-        const sent = sendViaWebSocket(frame as unknown as Record<string, unknown>);
+        const boundTo = getOrgBackendBindings().get(env.orgId);
+        if (boundTo !== backendId) {
+          // The Org re-bound (its connection record was re-minted while
+          // this envelope sat queued). Re-route to the owning backend's
+          // cursor and ack it out of this one.
+          if (boundTo) await pendingQueue.enqueue(boundTo, env);
+          acked.push(env.mutationId);
+          continue;
+        }
+        const sent = sendToBackend(backendId, envelopeToFrame(env) as unknown as Record<string, unknown>);
         if (!sent) break;
         acked.push(env.mutationId);
       }
       if (acked.length > 0) {
-        await pendingQueue.ackAll(DEFAULT_REMOTE_ID, acked);
+        await pendingQueue.ackAll(backendId, acked);
         logger.info(SCOPE, `flushed ${acked.length} pending envelope(s) to backend`);
       }
     } catch (err) {
       logger.warn(SCOPE, 'pending-out flush failed mid-drain', err);
     } finally {
-      inflightFlush = null;
+      inflightFlushes.delete(backendId);
     }
   })();
-  return inflightFlush;
+  inflightFlushes.set(backendId, flush);
+  return flush;
 }
 
 /**
- * Apply a peer's state vector to the pending-out queue (Phase C C16):
- * envelopes the peer already has are dropped from the queue so the
- * subsequent flush doesn't re-send them. Called by the handshake
- * post-SYNCED hook once STATE_VECTOR wiring is live; today it's a
- * directly callable function so tests + future call sites can drive
- * it explicitly. No-op when no queue is installed.
+ * Apply a peer's state vector to its backend's pending-out cursor
+ * (Phase C C16): envelopes the peer already has are dropped so the
+ * subsequent flush doesn't re-send them. Called by the per-wire
+ * handshake's post-SYNCED hook. No-op when no queue is installed.
  */
-export async function applyPeerStateVectorToPendingOut(peerVector: StateVector): Promise<void> {
+export async function applyPeerStateVectorToPendingOut(backendId: string, peerVector: StateVector): Promise<void> {
   if (!pendingQueue) return;
-  await prunePendingOutByPeerVector(pendingQueue, DEFAULT_REMOTE_ID, peerVector);
+  await prunePendingOutByPeerVector(pendingQueue, backendId, peerVector);
 }
 
 /** Test-only — counts envelopes dropped because no queue was installed. */
@@ -162,5 +185,5 @@ export function __resetMutationForwarderForTests(): void {
   pendingQueue = null;
   droppedNoQueue = 0;
   loggedDropOnce = false;
-  inflightFlush = null;
+  inflightFlushes.clear();
 }

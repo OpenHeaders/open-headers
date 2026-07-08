@@ -7,8 +7,8 @@
  *     blob read throws if it runs first.
  *   - oracle-host-hooks must be in place before bootSyncEngine runs so the
  *     first envelope finds the broadcast / recordLog / reportStatus hooks.
- *   - sync-handshake creates the initiator that ws-frame-routing and
- *     status-reporters both reference.
+ *   - ws-frame-routing installs the per-wire sync wiring whose handshake
+ *     registry status-reporters and the probes below reference.
  *
  * The deep wiring lives under `./bootstrap/`. This file sequences it and
  * owns the public lifecycle entry points (`runtime.onStartup`/`onInstalled`).
@@ -21,11 +21,7 @@ import '@/host/install-cdp-capability';
 import '@/host/install-lifeline-server';
 import './modules/live-chain-adapter';
 
-import {
-  getPrimaryBackend,
-  refreshBackendsFromHostStorage,
-  watchBackendsInHostStorage,
-} from '@openheaders/core/backends';
+import { getBackends, refreshBackendsFromHostStorage, watchBackendsInHostStorage } from '@openheaders/core/backends';
 import { getIdentitySnapshot } from '@openheaders/core/identity';
 import { getHostStorage, OH } from '@openheaders/core/storage';
 import { getActiveEnvironmentId } from '@openheaders/oracle/entity/environment-store';
@@ -59,7 +55,6 @@ import { installOracleHostHooks } from './bootstrap/oracle-host-hooks';
 import { installStatusReporters } from './bootstrap/status-reporters';
 import { installStorageListeners } from './bootstrap/storage-listeners';
 import { installStoreBroadcasts } from './bootstrap/store-broadcasts';
-import { setupSyncHandshake } from './bootstrap/sync-handshake';
 import { installWsFrameRouting } from './bootstrap/ws-frame-routing';
 import { setRulesPaused } from './dnr-manager';
 import { setupInjectListener } from './inject-manager';
@@ -105,9 +100,8 @@ import {
 
 installHostAdapters();
 installOracleHostHooks();
-const handshake = setupSyncHandshake();
-installWsFrameRouting({ handshake });
-installStatusReporters({ handshake });
+const syncWiring = installWsFrameRouting();
+installStatusReporters({ syncWiring });
 installActivityBroadcasts();
 // Dev seams for the playground's probes/runners — inert unless the
 // driver sets the parity-hook flag (see the module docs).
@@ -191,8 +185,8 @@ async function initializeExtension(): Promise<void> {
   setupTestRunnerPorts({ lifecycleStore });
 
   installStoreBroadcasts({
-    refreshFanOut: () => handshake.initiator.refreshFanOut(),
-    tryAdoptPendingWorkspace: handshake.tryAdoptPendingWorkspace,
+    refreshFanOut: () => syncWiring.refreshFanOut(),
+    tryAdoptPendingWorkspace: () => syncWiring.tryAdoptPendingWorkspaces(),
   });
 
   // OAuth scheduler reads tokens directly from storage so it can reconcile
@@ -221,7 +215,7 @@ async function initializeExtension(): Promise<void> {
   // token), not because it's unreachable. A revoked peer must NOT self-elect
   // an exclusive cred against the still-live backend — it banners + re-pairs
   // instead. Sticky across the reconnect-backoff flap (see `isBackendEvicting`).
-  setBackendEvictedProbe(() => handshake.isBackendEvicting());
+  setBackendEvictedProbe(() => syncWiring.isAnyBackendEvicting());
   // Offline fallback (WS-C C14): give the live scheduler a read of the
   // workspace's frozen priority list + this host's identity so an
   // *exclusive* workflow whose configured backend is offline runs on
@@ -231,7 +225,7 @@ async function initializeExtension(): Promise<void> {
   // An empty `order` is the safe default (no host elected → "reconnect the
   // desktop" banner, never a race).
   setFallbackPriorityProbe((workspaceId) => {
-    if (!getPrimaryBackend()?.enabled) return null;
+    if (!getBackends().some((b) => b.enabled)) return null;
     return {
       order: getFallbackPriorityForWorkspace(workspaceId),
       selfPrincipalId: getIdentitySnapshot()?.principal.id ?? null,
@@ -245,7 +239,7 @@ async function initializeExtension(): Promise<void> {
   // running this on every (re)connect is sufficient — the enlist itself is
   // idempotent (a no-op when already listed or ineligible).
   const enlistActiveWorkspaceFallbackPriority = (): void => {
-    if (!getPrimaryBackend()?.enabled) return;
+    if (!getBackends().some((b) => b.enabled)) return;
     if (!isWebSocketConnected()) return;
     void maybeEnlistSelfInFallbackPriority(getActiveWorkspaceId(), selfHostLabel()).catch((err: unknown) =>
       logger.warn('Background', 'Fallback-priority enlist failed', err),
@@ -321,7 +315,7 @@ async function initializeExtension(): Promise<void> {
 
   if (shouldAttemptBackendConnection()) {
     await connectWebSocket();
-  } else if (!getPrimaryBackend()?.enabled) {
+  } else if (!getBackends().some((b) => b.enabled)) {
     logger.info('Background', 'no back-end connection configured — service worker is the back-end, no wire to open');
   } else {
     logger.info('Background', 'auto-connect is off — skipping initial connect');

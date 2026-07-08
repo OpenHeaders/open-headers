@@ -13,7 +13,7 @@ import {
 import { IdbBlobBackend } from '@openheaders/oracle-host-browser/files/idb-blob-backend';
 import { createIdbSyncPersistenceProvider } from '@openheaders/oracle-host-browser/sync/idb-sync-persistence';
 import { installActivityPruneScheduler } from '../activity-prune-scheduler';
-import { isLoopbackBackend } from '../backend-target';
+import { isOrgBackendOffDevice } from '../backend-target';
 import { recordLog } from '../modules/observability-log';
 import { listWorkspaces } from '../modules/workspace/workspace-store';
 import { setActivityLog } from '../sync-activity-installer';
@@ -33,8 +33,9 @@ export function installHostAdapters(): void {
 
   // Reach guard (WS-B B1): never push a same-device-only mutation (vault
   // root secret) up to a non-loopback backend. A loopback backend is the
-  // same device, where vault crossing is sanctioned.
-  setOutboundReachGuard(() => !isLoopbackBackend());
+  // same device, where vault crossing is sanctioned. Per-Org — the
+  // envelope routes to the backend its Org is bound to.
+  setOutboundReachGuard(isOrgBackendOffDevice);
 
   const pendingOutQueue = getSyncPersistenceProvider().createPendingOutQueue?.() ?? null;
   setPendingOutQueue(pendingOutQueue);

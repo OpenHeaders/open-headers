@@ -1,8 +1,8 @@
 /**
  * Phase C M2c.2 — pins the WS request/response correlation helper.
  *
- *   - resolves on a matching `:response` frame
- *   - rejects with `not-connected` when sendViaWebSocket reports failure
+ *   - resolves on a matching `:response` frame from the same backend
+ *   - rejects with `not-connected` when the send reports failure
  *   - rejects with the server-supplied `__error`
  *   - rejects with `timeout` when no response arrives in `timeoutMs`
  *   - pairs requests of the same type in FIFO order
@@ -11,12 +11,20 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const sendMock = vi.fn<(data: Record<string, unknown>) => boolean>(() => true);
-const registeredHandlers: Array<(frame: unknown) => boolean | Promise<boolean>> = [];
+interface FakeWire {
+  backendId: string;
+}
+
+const DEFAULT_BACKEND_ID = 'backend-default';
+
+const sendMock = vi.fn<(backendId: string, data: Record<string, unknown>) => boolean>(() => true);
+type Handler = (frame: unknown, wire: FakeWire) => boolean | Promise<boolean>;
+const registeredHandlers: Handler[] = [];
 
 vi.mock('@/background/websocket', () => ({
-  sendViaWebSocket: (data: Record<string, unknown>) => sendMock(data),
-  registerInboundFrameHandler: (handler: (frame: unknown) => boolean | Promise<boolean>) => {
+  sendToBackend: (backendId: string, data: Record<string, unknown>) => sendMock(backendId, data),
+  getDefaultWireBackendId: () => DEFAULT_BACKEND_ID,
+  registerInboundFrameHandler: (handler: Handler) => {
     registeredHandlers.push(handler);
     return () => {
       const idx = registeredHandlers.indexOf(handler);
@@ -32,9 +40,9 @@ vi.mock('@openheaders/core/utils', async (importActual) => ({
 
 import { __resetWsRequestForTests, wsRequest } from '../../src/background/ws-request';
 
-async function deliver(frame: unknown): Promise<boolean> {
+async function deliver(frame: unknown, backendId = DEFAULT_BACKEND_ID): Promise<boolean> {
   for (const handler of [...registeredHandlers]) {
-    const handled = await handler(frame);
+    const handled = await handler(frame, { backendId });
     if (handled) return true;
   }
   return false;
@@ -54,13 +62,13 @@ afterEach(() => {
 describe('wsRequest', () => {
   it('resolves on a matching :response frame and forwards the payload', async () => {
     const promise = wsRequest<{ workspaces: string[] }>({ type: 'oh.demo.q' });
-    expect(sendMock).toHaveBeenCalledWith({ type: 'oh.demo.q' });
+    expect(sendMock).toHaveBeenCalledWith(DEFAULT_BACKEND_ID, { type: 'oh.demo.q' });
     const claimed = await deliver({ type: 'oh.demo.q:response', payload: { workspaces: ['ws-a'] } });
     expect(claimed).toBe(true);
     expect(await promise).toEqual({ workspaces: ['ws-a'] });
   });
 
-  it('rejects with not-connected when sendViaWebSocket returns false', async () => {
+  it('rejects with not-connected when the send returns false', async () => {
     sendMock.mockReturnValueOnce(false);
     await expect(wsRequest({ type: 'oh.demo.q' })).rejects.toThrow('not-connected');
   });
@@ -90,6 +98,21 @@ describe('wsRequest', () => {
   it('ignores response frames that have no pending request', async () => {
     const claimed = await deliver({ type: 'oh.unknown.q:response', payload: { ignored: true } });
     expect(claimed).toBe(false);
+  });
+
+  it("never settles a request with another backend's response", async () => {
+    const promise = wsRequest<{ tag: string }>({ type: 'oh.demo.q' });
+    const claimed = await deliver({ type: 'oh.demo.q:response', payload: { tag: 'cross' } }, 'backend-other');
+    expect(claimed).toBe(false);
+    await deliver({ type: 'oh.demo.q:response', payload: { tag: 'own' } });
+    expect(await promise).toEqual({ tag: 'own' });
+  });
+
+  it('targets an explicit backendId and pairs on its connection', async () => {
+    const promise = wsRequest<{ tag: string }>({ type: 'oh.demo.q' }, { backendId: 'backend-b' });
+    expect(sendMock).toHaveBeenCalledWith('backend-b', { type: 'oh.demo.q' });
+    await deliver({ type: 'oh.demo.q:response', payload: { tag: 'b' } }, 'backend-b');
+    expect(await promise).toEqual({ tag: 'b' });
   });
 
   it('ignores frames that are not `:response` suffixed', async () => {

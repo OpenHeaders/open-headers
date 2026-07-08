@@ -1,11 +1,11 @@
 /**
  * websocket.ts — sync Status subsystem wiring.
  *
- * The transport state machine is a module-level singleton, so each case
+ * The connection manager's wire map is module-level state, so each case
  * `resetModules()` + re-imports `websocket.ts` and the status module
- * together: a fresh import graph means a fresh transport + a status
- * snapshot the re-imported `websocket.ts` writes into the same instance
- * the test reads back.
+ * together: a fresh import graph means fresh wires + a status snapshot
+ * the re-imported manager writes (via the per-backend aggregate) into
+ * the same instance the test reads back.
  */
 import type { BackendConnection } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -19,9 +19,10 @@ vi.mock('@openheaders/ui/workbench/settings/store', () => ({
 }));
 
 vi.mock('@openheaders/core/backends', () => ({
-  getPrimaryBackend: vi.fn(() => primary),
+  getBackends: vi.fn(() => (primary ? [primary] : [])),
+  isLoopbackBackendUrl: vi.fn((url: string) => /127\.|localhost|\[?::1\]?/.test(url)),
   subscribeBackends: vi.fn(() => () => undefined),
-  updatePrimaryBackend: vi.fn(() => Promise.resolve(primary)),
+  updateBackend: vi.fn(() => Promise.resolve(primary)),
 }));
 
 function makePrimary(overrides: Partial<BackendConnection> = {}): BackendConnection {

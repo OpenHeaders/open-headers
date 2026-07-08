@@ -18,11 +18,13 @@
  * side ages out stale rows).
  */
 
+import { getOrgBackendBindings } from '@openheaders/core/identity';
 import { hostLogger as logger } from '@openheaders/core/logger';
 import type { AwarenessState } from '@openheaders/core/protocol';
 import { SYNC_AWARENESS_PRESENCE_TYPE } from '@openheaders/core/protocol';
 import { peekActiveWorkspaceId, snapshotAwarenessPresence } from '@openheaders/oracle/sync';
-import { sendViaWebSocket } from './websocket';
+import { getWorkspace } from './modules/workspace/workspace-store';
+import { sendToBackend } from './websocket';
 
 const SCOPE = 'AwarenessForwarder';
 
@@ -41,7 +43,14 @@ export function forwardAwarenessToBackend(event: AwarenessForwarderEvent): void 
   // and we shouldn't overwrite peer state with our own absence.
   if (localOnly.length === 0 && event.presence.length > 0) return;
 
-  const ok = sendViaWebSocket({
+  // Awareness routes like any other Org-scoped frame: to the backend
+  // the workspace's Org is bound to. A home-Org workspace binds to no
+  // backend — no peer knows it, nothing to forward.
+  const orgId = getWorkspace(event.workspaceId)?.orgId;
+  const backendId = orgId ? getOrgBackendBindings().get(orgId) : undefined;
+  if (!backendId) return;
+
+  const ok = sendToBackend(backendId, {
     type: SYNC_AWARENESS_PRESENCE_TYPE,
     workspaceId: event.workspaceId,
     presence: localOnly,

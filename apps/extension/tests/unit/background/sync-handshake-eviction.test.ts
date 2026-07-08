@@ -1,5 +1,5 @@
 /**
- * `setupSyncHandshake` — sticky backend-eviction signal (audit X-1).
+ * `createSyncHandshakeForWire` — sticky backend-eviction signal (audit X-1).
  *
  * The offline-fallback election must distinguish "backend is down" from
  * "backend rejected this peer" (revoked/rotated token). The FSM's live
@@ -35,7 +35,7 @@ vi.mock('@/background/sync-mutation-forwarder', () => ({
 vi.mock('@/background/awareness-forwarder', () => ({
   forwardCurrentAwarenessOnConnect: vi.fn(),
 }));
-vi.mock('@/background/websocket', () => ({ sendViaWebSocket: vi.fn() }));
+vi.mock('@/background/websocket', () => ({ sendToBackend: vi.fn() }));
 
 // Module-level imports referenced only by closures the test never invokes —
 // stubbed so the SUT loads in isolation (no heavy oracle/ui graph).
@@ -46,11 +46,9 @@ vi.mock('@openheaders/oracle/sync/service', () => ({
   getOrCreateWorkspaceService: () => ({ context: { nodeId: 'n', next: () => ({}) }, hydrated: Promise.resolve() }),
   releaseWorkspaceService: vi.fn(),
 }));
-vi.mock('@openheaders/core/backends', () => ({ getPrimaryBackend: () => null }));
 vi.mock('@openheaders/core/identity', () => ({
-  consumedOrgIds: () => new Set<string>(),
-  getIdentitySnapshot: () => null,
-  recordJoinedOrg: vi.fn(async () => ({ firstJoin: false })),
+  claimJoinedOrg: vi.fn(async () => ({ outcome: 'joined', snapshot: null, firstJoin: false })),
+  getOrgBackendBindings: () => new Map<string, string>(),
 }));
 vi.mock('@openheaders/core/storage', () => ({ getHostStorage: () => null, OH: { backendReach: 'oh.backendReach' } }));
 vi.mock('@/background/modules/workspace/workspace-store', () => ({
@@ -62,14 +60,29 @@ vi.mock('@/background/modules/workspace/workspace-store', () => ({
 
 const { AUTH_REQUIRED, WORKSPACE_UNKNOWN, PROTOCOL_TOO_OLD } = HANDSHAKE_REJECT_REASONS;
 
-describe('setupSyncHandshake — isBackendEvicting (audit X-1)', () => {
+describe('createSyncHandshakeForWire — isBackendEvicting (audit X-1)', () => {
   let handles: { isBackendEvicting: () => boolean };
 
   beforeEach(async () => {
     vi.resetModules();
     capturedConfig = {};
     const mod = await import('@/background/bootstrap/sync-handshake');
-    handles = mod.setupSyncHandshake();
+    handles = mod.createSyncHandshakeForWire({
+      backendId: 'backend-evict-test',
+      record: () => ({
+        id: 'backend-evict-test',
+        label: '',
+        url: 'ws://127.0.0.1:59210',
+        authToken: '',
+        autoConnect: true,
+        enabled: true,
+        addedAt: '2026-07-01T00:00:00.000Z',
+        lastConnectedAt: null,
+      }),
+      isLoopback: () => true,
+      isConnected: () => true,
+      send: () => true,
+    });
   });
 
   it('starts not-evicting before any handshake outcome', () => {

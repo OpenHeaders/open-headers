@@ -1,27 +1,29 @@
 /**
  * Backend-target classification — derived purely from the connection
- * registry, with no connection-module side effects (kept separate from
- * `websocket.ts` so the inbound mutation receiver can consult it
- * without dragging the WS layer's import-time wiring into its unit
+ * registry + Org bindings, with no connection-module side effects (kept
+ * separate from `websocket.ts` so the outbound gate wiring can consult
+ * it without dragging the WS layer's import-time wiring into its unit
  * surface).
  */
 
-import { getPrimaryBackend, isLoopbackBackendUrl } from '@openheaders/core/backends';
+import { getBackend, isLoopbackBackendUrl } from '@openheaders/core/backends';
+import { getOrgBackendBindings } from '@openheaders/core/identity';
 
 /**
- * Is the configured backend reachable over the loopback interface — i.e.
- * the desktop app on this same machine? Drives the active-workspace
- * mirroring gate: a loopback desktop's active-workspace changes mirror
- * down to this browser's extension, but a LAN/WAN peer's never do (the
- * active pointer is a per-device operative-view preference, not synced
- * identity state). Derived from the primary record's URL — the URL the
- * extension itself dialed, so the network edge is known with certainty.
+ * Is the backend an Org's envelopes route to off-device (non-loopback)?
+ * Drives the outbound reach floor: a same-device-only mutation (vault
+ * root secret) may cross a loopback socket to the desktop on this
+ * machine but never to a LAN/WAN peer. Per-Org because the connection
+ * plane routes each envelope by its Org binding — one backend being
+ * off-device says nothing about another.
  *
- * No enabled backend means no wire at all; treated as loopback (the SW
- * is the backend, on this machine) though no inbound frames ever arrive.
+ * An unbound Org (the home Org, or a binding that raced a registry
+ * removal) routes nowhere; treated as same-device (the SW is the
+ * backend), and no wire exists for the envelope to cross anyway.
  */
-export function isLoopbackBackend(): boolean {
-  const primary = getPrimaryBackend();
-  if (!primary?.enabled) return true;
-  return isLoopbackBackendUrl(primary.url);
+export function isOrgBackendOffDevice(orgId: string): boolean {
+  const backendId = getOrgBackendBindings().get(orgId);
+  if (!backendId) return false;
+  const record = getBackend(backendId);
+  return record ? !isLoopbackBackendUrl(record.url) : false;
 }

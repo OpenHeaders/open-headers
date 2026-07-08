@@ -11,7 +11,7 @@
  * (paused, disconnected) override and are shown with their own glyph.
  */
 
-import { getPrimaryBackend } from '@openheaders/core/backends';
+import { getBackends } from '@openheaders/core/backends';
 import { get as getSetting } from '@openheaders/ui/workbench/settings/store';
 import { logger } from '@utils/logger';
 import type { BadgeState } from '@/types/browser';
@@ -56,15 +56,14 @@ export async function updateExtensionBadge(input: BadgeUpdateInput): Promise<voi
   // Determine badge state and count
   let badgeState: BadgeState = 'none';
   // The "back-end disconnected" badge only applies when there's a
-  // back-end to be disconnected FROM. With no enabled backend record,
-  // the SW IS the back-end and the concept doesn't exist.
-  const primary = getPrimaryBackend();
+  // back-end to be disconnected FROM. With no enabled auto-connect
+  // record, the SW IS the back-end and the concept doesn't exist.
+  const wantsBackend = getBackends().some((b) => b.enabled && b.autoConnect);
   const showDisconnected =
     !connected &&
     reconnectAttempts >= DISCONNECTED_BADGE_THRESHOLD &&
-    primary?.enabled === true &&
-    getSetting('backend.showBadgeWhenDisconnected') &&
-    primary.autoConnect;
+    wantsBackend &&
+    getSetting('backend.showBadgeWhenDisconnected');
 
   // Priority: paused > disconnected > active > none. "Active" means at
   // least one of the user's active rules has matched a request on this tab.

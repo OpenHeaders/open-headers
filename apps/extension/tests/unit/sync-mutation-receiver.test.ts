@@ -1,34 +1,14 @@
 /**
  * Phase C C8 — inbound mutation-stream receiver.
  *
- * Validates the parse → apply → seen-set flow without touching the
- * WS layer (the receiver is a pure function of `applySyncRequest`).
+ * Validates the parse → gate → apply → seen-set flow without touching
+ * the WS layer: the receiver is a pure function of the frame plus the
+ * delivering connection's handle. The per-connection gates
+ * (MULTI_BACKEND_PLAN.md §3, invariants 2 + 4) are pinned here: a
+ * connection delivers only envelopes stamped with an Org bound to ITS
+ * backend record, and local-only envelopes (active-workspace pointer,
+ * vault) pass only over a loopback wire.
  */
-
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
-// The receiver consults `isLoopbackBackend` (→ the primary `OH.backends`
-// record) to gate inbound active-workspace pointer envelopes. Mock the
-// registry mirror so the loopback verdict is controllable per test;
-// default to loopback so the pre-existing cases keep their behavior.
-let backendUrl = 'ws://127.0.0.1:59210';
-
-vi.mock('@openheaders/core/backends', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@openheaders/core/backends')>();
-  return {
-    ...actual,
-    getPrimaryBackend: vi.fn(() => ({
-      id: 'backend-1',
-      label: '',
-      url: backendUrl,
-      authToken: '',
-      autoConnect: true,
-      enabled: true,
-      addedAt: '2026-07-01T00:00:00.000Z',
-      lastConnectedAt: null,
-    })),
-  };
-});
 
 import { getIdentitySnapshot } from '@openheaders/core/identity';
 import { SYNC_MUTATION_BATCH_TYPE, SYNC_MUTATION_TYPE } from '@openheaders/core/protocol';
@@ -41,7 +21,7 @@ import {
   VAULT_ID,
 } from '@openheaders/core/sync';
 import { seedRule } from '@openheaders/core/sync-builders/projections/rule-projection';
-import type { Rule } from '@openheaders/core/types';
+import type { BackendConnection, Org, Rule } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import {
   __resetMutationStreamBridgeForTests,
@@ -54,24 +34,47 @@ import {
   dispose as disposeSyncService,
   getOracleForCurrentWorkspace,
 } from '@openheaders/oracle/sync/service';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { handleIncomingMutationFrame } from '../../src/background/sync-mutation-receiver';
-import { installSyntheticIdentityForTests } from './sync/_identity-test-setup';
+import type { BackendWireHandle } from '../../src/background/websocket';
+import { installSyntheticIdentityForTests, TEST_BACKEND_ID } from './sync/_identity-test-setup';
 
 const wsId = 'ws-recv';
 
-// Captured from the installed synthetic identity in `beforeEach`. The
-// receiver's org filter (UNIFIED_ORACLE_MODEL.md §6.1 / §6.3) drops
-// inbound envelopes outside the host's authorized Org set, so the ctx
-// must stamp envelopes with the host's own home-org — the in-trust-zone
-// case where extension and desktop share the user's home Org.
-let homeOrgId = '';
+// The receiver's per-connection Org gate accepts only envelopes whose
+// Org is bound to the delivering wire's backend record, so the ctx
+// stamps envelopes with an Org joined from the test backend.
+const BOUND_ORG: Org = { id: 'org-recv-backend', name: 'Backend Org', hostKind: 'desktop', isPrivate: false };
 
 const ctx = (ms: number, nodeId = 'peer'): MutatorContext => ({
   workspaceId: wsId,
-  orgId: homeOrgId,
+  orgId: BOUND_ORG.id,
   hlc: { physicalMs: ms, logical: 0, nodeId },
   surfaceId: 's',
   deviceId: 'peer-device',
+});
+
+// The delivering connection. Loopback by default so the local-only
+// gates are no-ops for the plain apply/dedup cases.
+let wireLoopback = true;
+
+const wire = (overrides: Partial<BackendWireHandle> = {}): BackendWireHandle => ({
+  backendId: TEST_BACKEND_ID,
+  record: () =>
+    ({
+      id: TEST_BACKEND_ID,
+      label: '',
+      url: wireLoopback ? 'ws://127.0.0.1:59210' : 'ws://192.168.1.50:59210',
+      authToken: '',
+      autoConnect: true,
+      enabled: true,
+      addedAt: '2026-07-01T00:00:00.000Z',
+      lastConnectedAt: null,
+    }) as BackendConnection,
+  isLoopback: () => wireLoopback,
+  isConnected: () => true,
+  send: () => true,
+  ...overrides,
 });
 
 const makeRule = (uid: string, name: string): Rule =>
@@ -92,11 +95,8 @@ const makeRule = (uid: string, name: string): Rule =>
 let teardownIdentity: () => void = () => undefined;
 
 beforeEach(async () => {
-  // Loopback backend by default — the active-workspace pointer gate is a
-  // no-op, so the pre-existing cases below behave exactly as before.
-  backendUrl = 'ws://127.0.0.1:59210';
-  teardownIdentity = await installSyntheticIdentityForTests([]);
-  homeOrgId = getIdentitySnapshot()?.user.homeOrgId ?? '';
+  wireLoopback = true;
+  teardownIdentity = await installSyntheticIdentityForTests([], [BOUND_ORG]);
   __initSyncServiceForTests(wsId);
   __resetMutationStreamBridgeForTests();
 });
@@ -109,7 +109,7 @@ afterEach(() => {
 
 describe('handleIncomingMutationFrame', () => {
   it('ignores non-mutation-stream frames', async () => {
-    const handled = await handleIncomingMutationFrame({ type: 'pong', t: 123 });
+    const handled = await handleIncomingMutationFrame({ type: 'pong', t: 123 }, wire());
     expect(handled).toBe(false);
   });
 
@@ -118,11 +118,14 @@ describe('handleIncomingMutationFrame', () => {
     const batch = seedRule(r, ctx(1_000));
     const envelope = batch.mutations[0]!;
 
-    const handled = await handleIncomingMutationFrame({
-      type: SYNC_MUTATION_TYPE,
-      workspaceId: wsId,
-      envelope,
-    });
+    const handled = await handleIncomingMutationFrame(
+      {
+        type: SYNC_MUTATION_TYPE,
+        workspaceId: wsId,
+        envelope,
+      },
+      wire(),
+    );
     expect(handled).toBe(true);
     expect(hasRecentlyApplied(envelope.mutationId)).toBe(true);
   });
@@ -131,7 +134,7 @@ describe('handleIncomingMutationFrame', () => {
     const r = makeRule(generateUid(), 'two');
     const batch = seedRule(r, ctx(2_000));
 
-    await handleIncomingMutationFrame({ type: SYNC_MUTATION_BATCH_TYPE, workspaceId: wsId, batch });
+    await handleIncomingMutationFrame({ type: SYNC_MUTATION_BATCH_TYPE, workspaceId: wsId, batch }, wire());
     for (const env of batch.mutations) expect(hasRecentlyApplied(env.mutationId)).toBe(true);
 
     const oracle = getOracleForCurrentWorkspace();
@@ -143,13 +146,13 @@ describe('handleIncomingMutationFrame', () => {
     const batch = seedRule(r, ctx(3_000));
     const envelope = batch.mutations[0]!;
 
-    await handleIncomingMutationFrame({ type: SYNC_MUTATION_TYPE, workspaceId: wsId, envelope });
+    await handleIncomingMutationFrame({ type: SYNC_MUTATION_TYPE, workspaceId: wsId, envelope }, wire());
     const seenAfterFirst = __seenMutationStreamCountForTests();
 
     // Same envelope re-delivered — should not grow the seen set or
     // re-apply (idempotent at the oracle layer too, but the receiver
     // short-circuits before the round-trip).
-    await handleIncomingMutationFrame({ type: SYNC_MUTATION_TYPE, workspaceId: wsId, envelope });
+    await handleIncomingMutationFrame({ type: SYNC_MUTATION_TYPE, workspaceId: wsId, envelope }, wire());
     expect(__seenMutationStreamCountForTests()).toBe(seenAfterFirst);
   });
 
@@ -157,60 +160,120 @@ describe('handleIncomingMutationFrame', () => {
     const r = makeRule(generateUid(), 'short');
     const batch = seedRule(r, ctx(4_000));
 
-    await handleIncomingMutationFrame({ type: SYNC_MUTATION_BATCH_TYPE, workspaceId: wsId, batch });
+    await handleIncomingMutationFrame({ type: SYNC_MUTATION_BATCH_TYPE, workspaceId: wsId, batch }, wire());
     const before = __seenMutationStreamCountForTests();
 
-    await handleIncomingMutationFrame({ type: SYNC_MUTATION_BATCH_TYPE, workspaceId: wsId, batch });
+    await handleIncomingMutationFrame({ type: SYNC_MUTATION_BATCH_TYPE, workspaceId: wsId, batch }, wire());
     expect(__seenMutationStreamCountForTests()).toBe(before);
   });
 
   it('drops malformed frames without throwing', async () => {
-    const handled = await handleIncomingMutationFrame({ type: SYNC_MUTATION_TYPE, workspaceId: 'x' });
+    const handled = await handleIncomingMutationFrame({ type: SYNC_MUTATION_TYPE, workspaceId: 'x' }, wire());
     expect(handled).toBe(true); // matched the type, then dropped after parse failure
   });
 
+  it('drops an envelope stamped with an Org not bound to the delivering connection (invariant 2)', async () => {
+    const r = makeRule(generateUid(), 'cross');
+    const batch = seedRule(r, ctx(5_500));
+    const envelope = batch.mutations[0]!;
+
+    const handled = await handleIncomingMutationFrame(
+      { type: SYNC_MUTATION_TYPE, workspaceId: wsId, envelope },
+      wire({ backendId: 'backend-other' }),
+    );
+    expect(handled).toBe(true);
+    // Gated before the bridge — a misbehaving backend cannot inject
+    // into another backend's Orgs.
+    expect(hasRecentlyApplied(envelope.mutationId)).toBe(false);
+  });
+
+  it('drops an envelope stamped with the home Org — no connection owns it', async () => {
+    const homeOrgId = getIdentitySnapshot()!.user.homeOrgId;
+    const r = makeRule(generateUid(), 'home');
+    const batch = seedRule(r, { ...ctx(5_600), orgId: homeOrgId });
+    const envelope = batch.mutations[0]!;
+
+    const handled = await handleIncomingMutationFrame(
+      { type: SYNC_MUTATION_TYPE, workspaceId: wsId, envelope },
+      wire(),
+    );
+    expect(handled).toBe(true);
+    expect(hasRecentlyApplied(envelope.mutationId)).toBe(false);
+  });
+
+  it('strips cross-Org envelopes from a batch, applying the rest', async () => {
+    const homeOrgId = getIdentitySnapshot()!.user.homeOrgId;
+    const r = makeRule(generateUid(), 'mixed-org');
+    const ruleBatch = seedRule(r, ctx(5_700));
+    const homeBatch = mintBatch({ ...ctx(5_800), orgId: homeOrgId }, [
+      { kind: 'delete', type: RULE_ENTITY_TYPE, id: 'r-injected' },
+    ]);
+    const injected = homeBatch.mutations[0]!;
+
+    await handleIncomingMutationFrame(
+      {
+        type: SYNC_MUTATION_BATCH_TYPE,
+        workspaceId: wsId,
+        batch: { batchId: 'mixed-org-1', mutations: [...ruleBatch.mutations, injected] },
+      },
+      wire(),
+    );
+
+    for (const env of ruleBatch.mutations) expect(hasRecentlyApplied(env.mutationId)).toBe(true);
+    expect(hasRecentlyApplied(injected.mutationId)).toBe(false);
+  });
+
   it('drops an inbound active-workspace pointer envelope from a non-loopback backend', async () => {
-    backendUrl = 'ws://192.168.1.50:59210';
+    wireLoopback = false;
     const { batch } = setActiveExtensionWorkspace(ctx(6_000), { id: 'ws-from-lan-peer' });
     const pointer = batch.mutations[0]!;
 
-    const handled = await handleIncomingMutationFrame({
-      type: SYNC_MUTATION_TYPE,
-      workspaceId: wsId,
-      envelope: pointer,
-    });
+    const handled = await handleIncomingMutationFrame(
+      {
+        type: SYNC_MUTATION_TYPE,
+        workspaceId: wsId,
+        envelope: pointer,
+      },
+      wire(),
+    );
     expect(handled).toBe(true);
     // Gated before the bridge — never applied, never recorded as seen.
     expect(hasRecentlyApplied(pointer.mutationId)).toBe(false);
   });
 
   it('strips only the pointer from a non-loopback batch, applying the rest', async () => {
-    backendUrl = 'ws://10.0.0.7:59210';
+    wireLoopback = false;
     const r = makeRule(generateUid(), 'mixed');
     const ruleBatch = seedRule(r, ctx(7_000));
     const { batch: pointerBatch } = setActiveExtensionWorkspace(ctx(7_100), { id: 'ws-from-lan-peer' });
     const pointer = pointerBatch.mutations[0]!;
 
-    await handleIncomingMutationFrame({
-      type: SYNC_MUTATION_BATCH_TYPE,
-      workspaceId: wsId,
-      batch: { batchId: 'mixed-1', mutations: [...ruleBatch.mutations, pointer] },
-    });
+    await handleIncomingMutationFrame(
+      {
+        type: SYNC_MUTATION_BATCH_TYPE,
+        workspaceId: wsId,
+        batch: { batchId: 'mixed-1', mutations: [...ruleBatch.mutations, pointer] },
+      },
+      wire(),
+    );
 
     for (const env of ruleBatch.mutations) expect(hasRecentlyApplied(env.mutationId)).toBe(true);
     expect(hasRecentlyApplied(pointer.mutationId)).toBe(false);
   });
 
   it('drops an inbound same-device-only (vault) mutation from a non-loopback backend', async () => {
-    backendUrl = 'ws://192.168.1.50:59210';
+    wireLoopback = false;
     const batch = mintBatch(ctx(8_000), [{ kind: 'delete', type: VAULT_ENTITY_TYPE, id: VAULT_ID }]);
     const vault = batch.mutations[0]!;
 
-    const handled = await handleIncomingMutationFrame({
-      type: SYNC_MUTATION_TYPE,
-      workspaceId: wsId,
-      envelope: vault,
-    });
+    const handled = await handleIncomingMutationFrame(
+      {
+        type: SYNC_MUTATION_TYPE,
+        workspaceId: wsId,
+        envelope: vault,
+      },
+      wire(),
+    );
     expect(handled).toBe(true);
     // The backend strips the vault host-side; this receive-side mirror gates
     // it before the bridge so a buggy/hostile LAN backend can't push a seed.
@@ -218,17 +281,20 @@ describe('handleIncomingMutationFrame', () => {
   });
 
   it('strips the vault from a non-loopback batch, applying the rest', async () => {
-    backendUrl = 'ws://10.0.0.7:59210';
+    wireLoopback = false;
     const r = makeRule(generateUid(), 'mixed-vault');
     const ruleBatch = seedRule(r, ctx(8_100));
     const vaultBatch = mintBatch(ctx(8_200), [{ kind: 'delete', type: VAULT_ENTITY_TYPE, id: VAULT_ID }]);
     const vault = vaultBatch.mutations[0]!;
 
-    await handleIncomingMutationFrame({
-      type: SYNC_MUTATION_BATCH_TYPE,
-      workspaceId: wsId,
-      batch: { batchId: 'mixed-vault-1', mutations: [...ruleBatch.mutations, vault] },
-    });
+    await handleIncomingMutationFrame(
+      {
+        type: SYNC_MUTATION_BATCH_TYPE,
+        workspaceId: wsId,
+        batch: { batchId: 'mixed-vault-1', mutations: [...ruleBatch.mutations, vault] },
+      },
+      wire(),
+    );
 
     for (const env of ruleBatch.mutations) expect(hasRecentlyApplied(env.mutationId)).toBe(true);
     expect(hasRecentlyApplied(vault.mutationId)).toBe(false);

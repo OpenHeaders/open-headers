@@ -1,5 +1,4 @@
-import { getPrimaryBackend } from '@openheaders/core/backends';
-import { consumedOrgIds, getIdentitySnapshot, recordJoinedOrg } from '@openheaders/core/identity';
+import { claimJoinedOrg, getOrgBackendBindings } from '@openheaders/core/identity';
 import { type HandshakeRejectReason, isBackendEvictingReason } from '@openheaders/core/protocol';
 import { getHostStorage, OH } from '@openheaders/core/storage';
 import { applyWorkspaceSnapshot, readWorkspaceStateVector } from '@openheaders/oracle/sync';
@@ -15,7 +14,7 @@ import {
 } from '../modules/workspace/workspace-store';
 import { createSyncHandshakeInitiator } from '../sync-handshake-initiator';
 import { applyPeerStateVectorToPendingOut, flushPendingOutToBackend } from '../sync-mutation-forwarder';
-import { sendViaWebSocket } from '../websocket';
+import type { BackendWireHandle } from '../websocket';
 
 export interface SyncHandshakeHandles {
   initiator: ReturnType<typeof createSyncHandshakeInitiator>;
@@ -33,7 +32,14 @@ export interface SyncHandshakeHandles {
   isBackendEvicting: () => boolean;
 }
 
-export function setupSyncHandshake(): SyncHandshakeHandles {
+/**
+ * Build the handshake coordinator for one backend wire — one initiator
+ * instance per connection (MULTI_BACKEND_PLAN.md §3). Everything that
+ * used to read the singular primary record reads the wire instead: the
+ * send path, the auth token, the Org provenance stamp, and the fan-out
+ * enumeration (only workspaces whose Org is bound to THIS backend).
+ */
+export function createSyncHandshakeForWire(wire: BackendWireHandle): SyncHandshakeHandles {
   // Backend's active workspace id from WELCOME, held until that workspace
   // syncs down. The handshake fires before the joined Org's workspaces
   // arrive, so adoption is deferred to a later workspace-store change.
@@ -57,7 +63,7 @@ export function setupSyncHandshake(): SyncHandshakeHandles {
   };
 
   const initiator = createSyncHandshakeInitiator({
-    send: (frame) => sendViaWebSocket(frame as Record<string, unknown>),
+    send: (frame) => wire.send(frame as Record<string, unknown>),
     getActiveWorkspaceId: () => peekActiveWorkspaceId(),
     getExtensionNodeId: (workspaceId) => {
       const svc = getOrCreateWorkspaceService(workspaceId);
@@ -69,17 +75,19 @@ export function setupSyncHandshake(): SyncHandshakeHandles {
     },
     getExtensionAgent: () => `@openheaders/extension@${runtime.getManifest().version}`,
     getAuthToken: () => {
-      const raw = getPrimaryBackend()?.authToken;
+      const raw = wire.record().authToken;
       return raw && raw.length > 0 ? raw : null;
     },
     readStateVector: (workspaceId) => readWorkspaceStateVector(workspaceId),
-    // Adopted workspace is sequenced first so a mid-fan-out SW death still
-    // leaves the user on a synced workspace.
+    // Only workspaces whose Org is bound to THIS backend — the fan-out
+    // never pulls another backend's scopes over this wire (routing
+    // invariant 1's read-side mirror). Adopted workspace is sequenced
+    // first so a mid-fan-out SW death still leaves the user on a synced
+    // workspace.
     listConsumedWorkspaceIds: () => {
-      const consumed = consumedOrgIds(getIdentitySnapshot());
-      if (consumed.size === 0) return [];
+      const bindings = getOrgBackendBindings();
       const ids = listWorkspaces()
-        .filter((ws) => consumed.has(ws.orgId))
+        .filter((ws) => bindings.get(ws.orgId) === wire.backendId)
         .map((ws) => ws.id);
       if (pendingAdoptWorkspaceId && ids.includes(pendingAdoptWorkspaceId)) {
         const adopt = pendingAdoptWorkspaceId;
@@ -101,8 +109,8 @@ export function setupSyncHandshake(): SyncHandshakeHandles {
       // eviction so the offline election treats a later partition as a
       // genuine outage again (audit X-1).
       lastRejectReason = null;
-      await applyPeerStateVectorToPendingOut(peerVector);
-      await flushPendingOutToBackend();
+      await applyPeerStateVectorToPendingOut(wire.backendId, peerVector);
+      await flushPendingOutToBackend(wire.backendId);
       tryAdoptPendingWorkspace();
       // Awareness is ephemeral and only flows on local publish events.
       // Push the current snapshot now so the peer folds extension surfaces
@@ -124,17 +132,20 @@ export function setupSyncHandshake(): SyncHandshakeHandles {
     // re-sent WELCOME would overwrite a local active-workspace switch
     // the user made since.
     onJoinedOrg: async (org, backendActiveWorkspaceId) => {
-      // Provenance: the WELCOME rode the primary connection, so the Org
-      // binds to that registry record (MULTI_BACKEND_PLAN.md §2). A
-      // WELCOME with no record on file can't happen through this
-      // dialer; refuse rather than bind to nothing.
-      const backend = getPrimaryBackend();
-      if (!backend) {
-        logger.warn('Background', `joined Org ${org.id} arrived with no backend record on file — ignored`);
+      // Provenance: the WELCOME rode this wire, so the Org binds to its
+      // registry record (MULTI_BACKEND_PLAN.md §2). The claim enforces
+      // Org uniqueness: an Org already bound to a different, still-
+      // present backend is refused — never re-bound, never
+      // double-consumed.
+      const result = await claimJoinedOrg(org, wire.backendId);
+      if (result.outcome === 'refused') {
+        logger.warn(
+          'Background',
+          `backend ${wire.backendId} claims Org ${org.id}, already provided by backend ${result.boundBackendId} — join refused`,
+        );
         return;
       }
-      const { firstJoin } = await recordJoinedOrg(org, backend.id);
-      if (firstJoin && backendActiveWorkspaceId) {
+      if (result.firstJoin && backendActiveWorkspaceId) {
         pendingAdoptWorkspaceId = backendActiveWorkspaceId;
         tryAdoptPendingWorkspace();
       }

@@ -9,7 +9,6 @@ import {
   connectWebSocket,
   getReconnectAttempts,
   isWebSocketConnected,
-  isWebSocketConnecting,
   shouldAttemptBackendConnection,
 } from '../websocket';
 import { backgroundReady } from './background-ready';
@@ -39,15 +38,18 @@ export function installAlarmDispatch(): void {
   alarms!.onAlarm.addListener(async (alarm: chrome.alarms.Alarm) => {
     if (alarm.name === WS_RECONNECT_ALARM) {
       if (!shouldAttemptBackendConnection()) return;
-      if (!isWebSocketConnected() && !isWebSocketConnecting()) {
+      // `connectWebSocket` ensures every wanted wire; each transport
+      // coalesces to a no-op when already live or mid-attempt, so a
+      // partially-connected fleet still gets its down wires redialed.
+      if (!isWebSocketConnected()) {
         const attempts = getReconnectAttempts();
         const log = attempts <= 1 ? logger.info : logger.debug;
         log.call(logger, 'Background', 'WebSocket disconnected, reconnecting...');
-        try {
-          await connectWebSocket();
-        } catch (error) {
-          logger.debug('Background', 'Failed to reconnect:', (error as Error).message);
-        }
+      }
+      try {
+        await connectWebSocket();
+      } catch (error) {
+        logger.debug('Background', 'Failed to reconnect:', (error as Error).message);
       }
       return;
     }

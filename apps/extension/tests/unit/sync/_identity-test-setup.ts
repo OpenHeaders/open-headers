@@ -23,7 +23,13 @@ const NOW = '2026-05-19T00:00:00.000Z';
 /** The `OH.backends` record test joins bind to (fold-by-presence). */
 export const TEST_BACKEND_ID = '01900000-0000-7000-8000-00000000feed';
 
-function makeTestBackend(): BackendConnection {
+/** A join seeded against a specific backend record (multi-backend cases). */
+export interface JoinedOrgSeed {
+  org: Org;
+  backendId: string;
+}
+
+export function makeTestBackend(overrides: Partial<BackendConnection> = {}): BackendConnection {
   return {
     id: TEST_BACKEND_ID,
     label: '',
@@ -33,6 +39,7 @@ function makeTestBackend(): BackendConnection {
     enabled: true,
     addedAt: NOW,
     lastConnectedAt: null,
+    ...overrides,
   };
 }
 
@@ -63,7 +70,7 @@ function createHostStorageFake(): HostStorage {
 
 export async function installSyntheticIdentityForTests(
   workspaceIds: readonly string[] = [],
-  joinedOrgs: readonly Org[] = [],
+  joinedOrgs: readonly (Org | JoinedOrgSeed)[] = [],
 ): Promise<() => void> {
   clearIdentitySnapshot();
   setHostStorage(createHostStorageFake());
@@ -73,13 +80,22 @@ export async function installSyntheticIdentityForTests(
   }
   // Phase U5.2 — fold in Orgs joined from other backends so tests can
   // exercise the consumed-Org transport paths (outbound gate, receiver
-  // filter). Joins bind to a seeded `OH.backends` record — the snapshot
-  // refresh folds only Orgs whose backend record exists.
-  if (joinedOrgs.length > 0) {
-    await hostStorage.set(OH.backends, [makeTestBackend()]);
+  // filter, connection-plane routing). Joins bind to seeded
+  // `OH.backends` records — the snapshot refresh folds only Orgs whose
+  // backend record exists. A bare `Org` binds to {@link TEST_BACKEND_ID};
+  // a {@link JoinedOrgSeed} binds to its own record (multi-backend cases).
+  const seeds: JoinedOrgSeed[] = joinedOrgs.map((entry) =>
+    'backendId' in entry ? entry : { org: entry, backendId: TEST_BACKEND_ID },
+  );
+  if (seeds.length > 0) {
+    const backendIds = [...new Set(seeds.map((s) => s.backendId))];
+    await hostStorage.set(
+      OH.backends,
+      backendIds.map((id) => makeTestBackend({ id })),
+    );
   }
-  for (const org of joinedOrgs) {
-    await recordJoinedOrg(org, TEST_BACKEND_ID);
+  for (const seed of seeds) {
+    await recordJoinedOrg(seed.org, seed.backendId);
   }
   await refreshIdentitySnapshotFromHostStorage();
   return () => {
