@@ -14,7 +14,7 @@ import { Badge, Button, Dropdown, Input, Space, Tooltip, Typography } from 'antd
 import type { GlobalToken } from 'antd/es/theme/interface';
 import type { SorterResult } from 'antd/es/table/interface';
 import type React from 'react';
-import type { Dispatch, SetStateAction } from 'react';
+import { type Dispatch, type SetStateAction, useState } from 'react';
 import { ALL_RESOURCE_TYPES, RESOURCE_TYPE_LABEL, RESOURCE_TYPE_TOOLTIP } from './format';
 import { buildSortOrderMenuItems } from './sort-order-menu';
 import type { ActiveRule, CurrentTabInfo, SortMode, TableRecord } from './types';
@@ -77,6 +77,9 @@ const ThisPageToolbar: React.FC<ThisPageToolbarProps> = ({
   sortedFilteredRules,
   uniqueRequestCount,
 }) => {
+  // Suppress the sort button's tooltip while its menu is open so the
+  // two popups never overlap on the same trigger.
+  const [sortMenuOpen, setSortMenuOpen] = useState(false);
   return (
     <div className="table-toolbar">
       <div className="header-rules-title">
@@ -179,8 +182,9 @@ const ThisPageToolbar: React.FC<ThisPageToolbarProps> = ({
               }}
               placement="bottomRight"
               trigger={['click']}
+              onOpenChange={setSortMenuOpen}
             >
-              <Tooltip title="Sort order">
+              <Tooltip title="Sort order" open={sortMenuOpen ? false : undefined}>
                 <Button className="oh-toolbar-secondary" type="text" size="small" icon={<SortAscendingOutlined />} />
               </Tooltip>
             </Dropdown>

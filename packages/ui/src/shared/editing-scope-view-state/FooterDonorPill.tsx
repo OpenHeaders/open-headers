@@ -9,6 +9,7 @@
 import { ReloadOutlined, ShareAltOutlined } from '@ant-design/icons';
 import { Button, Popover, Space, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
+import { useState } from 'react';
 import { instanceLabel, instanceLabelPlural } from '@openheaders/ui/shared/host-vocabulary';
 import type { EditingScopeViewStateApi } from './types';
 
@@ -22,6 +23,9 @@ const TOOLTIP_NON_DONOR = `Another ${instanceLabel()} is the default donor — n
 export function FooterDonorPill<T>({ perTab }: FooterDonorPillProps<T>): React.ReactElement {
   const { token } = theme.useToken();
   const { isDonor } = perTab;
+  // Suppress the hover tooltip while the click popover is open so the
+  // two popups never overlap on the same trigger.
+  const [popoverOpen, setPopoverOpen] = useState(false);
 
   const litStyle: React.CSSProperties = {
     background: token.colorPrimaryBg,
@@ -50,8 +54,12 @@ export function FooterDonorPill<T>({ perTab }: FooterDonorPillProps<T>): React.R
   );
 
   return (
-    <Popover content={popoverContent} placement="topRight" trigger={['click']}>
-      <Tooltip title={isDonor ? TOOLTIP_DONOR : TOOLTIP_NON_DONOR} placement="top">
+    <Popover content={popoverContent} placement="topRight" trigger={['click']} onOpenChange={setPopoverOpen}>
+      <Tooltip
+        title={isDonor ? TOOLTIP_DONOR : TOOLTIP_NON_DONOR}
+        placement="top"
+        open={popoverOpen ? false : undefined}
+      >
         <span
           className="rules-statusbar-item"
           role="button"

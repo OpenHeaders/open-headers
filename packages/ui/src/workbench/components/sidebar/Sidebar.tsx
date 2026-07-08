@@ -34,7 +34,7 @@ import { useSettingValue } from '../../settings/hooks';
 import type { WorkbenchTab } from '../../types';
 import { buildCreateMenuItems, buildRequestImportMenuItems } from './build-sidebar-menus';
 import EnvironmentsSection from './EnvironmentsSection';
-import { SectionHeader } from './SectionHeader';
+import { SectionOpenerRow } from './SectionHeader';
 import RequestsSection from './RequestsSection';
 import RulesSection from './RulesSection';
 import SidebarHeaderActions from './SidebarHeaderActions';
@@ -486,7 +486,6 @@ const Sidebar: React.FC<SidebarProps> = ({
       if (sectionsExpanded.environments) items.push(...environmentNodes);
     } else if (view === 'api-requests') {
       if (sectionsExpanded['api-requests']) items.push(...requestNodes);
-      if (sectionsExpanded['script-packages']) items.push(scriptPackagesNode);
       if (sectionsExpanded.environments) items.push(...environmentNodes);
     } else if (view === 'workflows') {
       if (sectionsExpanded.workflows) items.push(...workflowNodes);
@@ -503,7 +502,6 @@ const Sidebar: React.FC<SidebarProps> = ({
     environmentNodes,
     workflowNodes,
     requestNodes,
-    scriptPackagesNode,
   ]);
 
   // ── Selection / interaction subsystem ─────────────────────────
@@ -642,16 +640,11 @@ const Sidebar: React.FC<SidebarProps> = ({
               renderFolderDndNodes={renderFolderDndNodes}
             />
             {(!filterText || 'package library'.includes(filterText.toLowerCase())) && (
-              <>
-                <SectionHeader
-                  title="PACKAGE LIBRARY"
-                  expanded={sectionsExpanded['script-packages'] || filterText !== ''}
-                  onToggle={() => toggleSection('script-packages')}
-                />
-                {(sectionsExpanded['script-packages'] || filterText !== '') && (
-                  <div style={{ overflowY: 'auto' }}>{renderNodes([scriptPackagesNode])}</div>
-                )}
-              </>
+              <SectionOpenerRow
+                title="PACKAGE LIBRARY"
+                node={scriptPackagesNode}
+                selected={isSelected(scriptPackagesNode.id)}
+              />
             )}
           </>
         )}

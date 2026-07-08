@@ -241,6 +241,12 @@ const SortableTab: React.FC<SortableTabProps> = ({
         arrow={false}
         mouseEnterDelay={0.5}
         mouseLeaveDelay={0}
+        // No open/close motion: the zoom-fade could paint a frame before
+        // alignment (tooltip flashing at the viewport corner when moving
+        // across tabs quickly), and the fade-out lingered on mouse leave.
+        // Empty motionName renders the tooltip statically — appear in
+        // place, vanish instantly.
+        motion={{ motionName: '' }}
         destroyTooltipOnHide
         open={contextMenuOpen || tooltipSuppressed ? false : undefined}
       >

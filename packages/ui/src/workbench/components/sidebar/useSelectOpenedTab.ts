@@ -28,7 +28,6 @@ const SECTION_VIEW_OWNERSHIP: Record<string, SidebarView | 'multi'> = {
   templates: 'http-rules',
   'api-requests': 'api-requests',
   workflows: 'workflows',
-  'script-packages': 'api-requests',
   environments: 'multi',
 };
 
@@ -169,10 +168,6 @@ export function useSelectOpenedTab({
       }, 50);
       return true;
     } else if (activeTabId === 'script-packages' && view === 'api-requests') {
-      if (shouldAutoExpandSection('script-packages', view)) {
-        setSectionsExpanded((prev) => ({ ...prev, 'script-packages': true }));
-      }
-      setFocusedId('script-packages-row');
       setTimeout(() => {
         containerRef.current
           ?.querySelector(`[data-item-id="script-packages-row"]`)

@@ -126,6 +126,10 @@ export const StatusPill: React.FC<StatusPillProps> = ({
 }) => {
   const { token } = theme.useToken();
   const { snapshot, worst } = useStatus();
+  // In `row` density each subsystem pill carries its own hover tooltip
+  // while the whole row triggers the click popover — suppress the
+  // tooltips while the popover is open so the two never overlap.
+  const [popoverOpen, setPopoverOpen] = React.useState(false);
   const hasEntries = Object.values(snapshot).some(Boolean);
   const color = worst === 'red' ? token.colorError : worst === 'yellow' ? token.colorWarning : token.colorSuccess;
   const summary = buildSummary(snapshot, worst);
@@ -173,7 +177,13 @@ export const StatusPill: React.FC<StatusPillProps> = ({
 
   if (density === 'row') {
     return (
-      <Popover placement={effectivePlacement} trigger={['click']} content={body} title={titleNode}>
+      <Popover
+        placement={effectivePlacement}
+        trigger={['click']}
+        content={body}
+        title={titleNode}
+        onOpenChange={setPopoverOpen}
+      >
         <span
           className={className ?? 'rules-statusbar-item'}
           role="status"
@@ -181,7 +191,7 @@ export const StatusPill: React.FC<StatusPillProps> = ({
           style={{ cursor: hasEntries ? 'pointer' : 'default', display: 'inline-flex', alignItems: 'center', gap: 8 }}
         >
           {SUBSYSTEM_ORDER.map((sub) => (
-            <SubsystemPill key={sub} subsystem={sub} snapshot={snapshot} token={token} />
+            <SubsystemPill key={sub} subsystem={sub} snapshot={snapshot} token={token} suppressTooltip={popoverOpen} />
           ))}
         </span>
       </Popover>
@@ -252,6 +262,8 @@ interface SubsystemPillProps {
   subsystem: StatusSubsystem;
   snapshot: StatusSnapshot;
   token: ReturnType<typeof theme.useToken>['token'];
+  /** Force-close the pill's tooltip while the shared popover is open. */
+  suppressTooltip?: boolean;
 }
 
 /**
@@ -260,7 +272,7 @@ interface SubsystemPillProps {
  * The whole row shares one Popover — this component renders only the
  * label + dot, and a per-subsystem tooltip with the latest message.
  */
-const SubsystemPill: React.FC<SubsystemPillProps> = ({ subsystem, snapshot, token }) => {
+const SubsystemPill: React.FC<SubsystemPillProps> = ({ subsystem, snapshot, token, suppressTooltip }) => {
   const entry = snapshot[subsystem];
   const state: StatusLevel | null = entry?.state ?? null;
   const dotColor =
@@ -273,7 +285,7 @@ const SubsystemPill: React.FC<SubsystemPillProps> = ({ subsystem, snapshot, toke
           : token.colorTextTertiary;
   const tipBody = entry?.message ?? 'No events yet';
   return (
-    <Tooltip title={tipBody} placement="top">
+    <Tooltip title={tipBody} placement="top" open={suppressTooltip ? false : undefined}>
       <span
         style={{
           display: 'inline-flex',

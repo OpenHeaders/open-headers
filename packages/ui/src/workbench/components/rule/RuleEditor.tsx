@@ -149,6 +149,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   const [form] = Form.useForm();
   const [_saving, setSaving] = useState(false);
   const [saveAsTemplateOpen, setSaveAsTemplateOpen] = useState(false);
+  const [templatesMenuOpen, setTemplatesMenuOpen] = useState(false);
   // Header-preview tab + badge state, lifted from HeaderRuleFields so the
   // parent owns the truth (useWatch has first-render timing issues).
   const {
@@ -619,8 +620,15 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       <Dropdown
         menu={{ items: templatesMenuItems, selectable: true, selectedKeys: [selectedMenuKey] }}
         trigger={['click']}
+        onOpenChange={setTemplatesMenuOpen}
       >
-        <Tooltip title={selectedDescription} placement="bottomLeft" mouseEnterDelay={0.5}>
+        {/* Suppress the tooltip while the menu is open so they never overlap. */}
+        <Tooltip
+          title={selectedDescription}
+          placement="bottomLeft"
+          mouseEnterDelay={0.5}
+          open={templatesMenuOpen ? false : undefined}
+        >
           <Button size="small">
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
               <FolderOpenOutlined style={{ fontSize: 13 }} />

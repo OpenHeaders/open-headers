@@ -23,6 +23,7 @@ import type { InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import type { MenuProps } from 'antd';
 import { Dropdown, Tooltip, theme } from 'antd';
 import type React from 'react';
+import { useState } from 'react';
 import type { SidebarExportEntity } from '../workspace-export/build-export-scope';
 import type { SidebarView } from './types';
 
@@ -91,6 +92,10 @@ const SidebarHeaderActions: React.FC<SidebarHeaderActionsProps> = ({
   setAlwaysSelectOpened,
 }) => {
   const { token } = theme.useToken();
+  // Suppress the trigger's tooltip while its create menu is open so the
+  // two popups never overlap. One flag serves both dropdowns — only one
+  // renders per view.
+  const [createMenuOpen, setCreateMenuOpen] = useState(false);
 
   // ── Header chrome — PanelHeader (name + actions + options + hide) on
   // top, filter input row below. PanelHeader is mandatory per the dock-
@@ -129,8 +134,13 @@ const SidebarHeaderActions: React.FC<SidebarHeaderActionsProps> = ({
   const headerActions = (
     <>
       {view === 'http-rules' && (
-        <Dropdown menu={{ items: createMenuItems }} trigger={['click']} placement="bottomRight">
-          <Tooltip title="New rule" placement="bottom">
+        <Dropdown
+          menu={{ items: createMenuItems }}
+          trigger={['click']}
+          placement="bottomRight"
+          onOpenChange={setCreateMenuOpen}
+        >
+          <Tooltip title="New rule" placement="bottom" open={createMenuOpen ? false : undefined}>
             <span role="button" tabIndex={0} className="rules-panel-header-action" aria-label="New rule">
               <PlusOutlined />
             </span>
@@ -138,8 +148,13 @@ const SidebarHeaderActions: React.FC<SidebarHeaderActionsProps> = ({
         </Dropdown>
       )}
       {view === 'api-requests' && (
-        <Dropdown menu={{ items: requestImportMenuItems }} trigger={['click']} placement="bottomRight">
-          <Tooltip title="Add request" placement="bottom">
+        <Dropdown
+          menu={{ items: requestImportMenuItems }}
+          trigger={['click']}
+          placement="bottomRight"
+          onOpenChange={setCreateMenuOpen}
+        >
+          <Tooltip title="Add request" placement="bottom" open={createMenuOpen ? false : undefined}>
             <span role="button" tabIndex={0} className="rules-panel-header-action" aria-label="Add request">
               <PlusOutlined />
             </span>

@@ -70,6 +70,9 @@ const RulesTable: React.FC<RulesTableProps> = ({
 
   const [searchText, setSearchText] = useState(uiState?.tableState?.searchText || '');
   const [sortMode, setSortMode] = useState<SortMode>((uiState?.tableState?.sortMode as SortMode) || 'status');
+  // Suppress the sort button's tooltip while its menu is open so the
+  // two popups never overlap on the same trigger.
+  const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [filteredInfo, setFilteredInfo] = useState<Record<string, FilterValue | null>>(
     (uiState?.tableState?.filteredInfo as Record<string, FilterValue | null>) || {},
   );
@@ -375,8 +378,13 @@ const RulesTable: React.FC<RulesTableProps> = ({
                   }
                 }}
               />
-              <Dropdown menu={{ items: sortMenuItems }} placement="bottomRight" trigger={['click']}>
-                <Tooltip title="Sort order">
+              <Dropdown
+                menu={{ items: sortMenuItems }}
+                placement="bottomRight"
+                trigger={['click']}
+                onOpenChange={setSortMenuOpen}
+              >
+                <Tooltip title="Sort order" open={sortMenuOpen ? false : undefined}>
                   <Button className="oh-toolbar-secondary" type="text" size="small" icon={<SortAscendingOutlined />} />
                 </Tooltip>
               </Dropdown>

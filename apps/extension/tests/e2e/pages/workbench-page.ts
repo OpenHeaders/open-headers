@@ -265,12 +265,9 @@ export class WorkbenchPage {
   // ── Package Library tab ─────────────────────────────────────────
 
   /** Open the Package Library tab from the API Requests view's sidebar
-   *  section (expanding the section header first if collapsed). */
+   *  opener row (always visible — no section to expand). */
   async openPackageLibrary(): Promise<void> {
     const row = this.page.locator('[data-item-id="script-packages-row"]');
-    if (!(await row.isVisible().catch(() => false))) {
-      await this.page.getByText('PACKAGE LIBRARY', { exact: true }).filter({ visible: true }).first().click();
-    }
     await row.waitFor({ state: 'visible', timeout: 5000 });
     await row.click();
   }

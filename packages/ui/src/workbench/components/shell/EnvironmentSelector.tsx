@@ -605,7 +605,12 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
             </div>
           }
         >
-          <Tooltip title="Environment switching behavior" placement="top" mouseEnterDelay={0.3}>
+          <Tooltip
+            title="Environment switching behavior"
+            placement="top"
+            mouseEnterDelay={0.3}
+            open={settingsOpen ? false : undefined}
+          >
             <Button
               type="text"
               size="small"
