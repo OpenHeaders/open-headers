@@ -11,15 +11,15 @@ export const STORAGE_PAGE_URL = 'http://127.0.0.1:3000/src/storage/index.html';
 export interface OhStorageApi {
   reset(): Promise<void>;
   seedAll(): Promise<void>;
-  seedDom(): void;
+  seedDom(): Promise<void>;
   seedCookies(): Promise<void>;
   seedIdb(): Promise<void>;
   seedCaches(): Promise<void>;
-  mutateDom(key: string, value: string): void;
+  mutateDom(key: string, value: string): Promise<void>;
   writeIdb(key: string, value: string): Promise<void>;
   putCache(cache: string, url: string): Promise<void>;
   holdIdbOpen(database: string): Promise<boolean>;
-  releaseIdbHold(): void;
+  releaseIdbHold(): Promise<void>;
 }
 
 declare global {

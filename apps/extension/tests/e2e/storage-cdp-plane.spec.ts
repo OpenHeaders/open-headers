@@ -16,12 +16,17 @@ import { STORAGE_PAGE_URL } from './pages/storage-matrix-page';
 
 const extensionPath = path.resolve(__dirname, '../../dist/chrome');
 
+/** Opt-in demo pacing: OH_E2E_SLOWMO=<ms> delays every RPC and page op. */
+const slowMo = Number(process.env.OH_E2E_SLOWMO ?? '0') || 0;
+const pagePace = slowMo > 0 ? `?pace=${slowMo}` : '';
+
 let context: BrowserContext;
 let rpcPage: Page;
 
 test.beforeAll(async () => {
   context = await chromium.launchPersistentContext('', {
     headless: false,
+    slowMo,
     args: [
       `--disable-extensions-except=${extensionPath}`,
       `--load-extension=${extensionPath}`,
@@ -34,7 +39,7 @@ test.beforeAll(async () => {
   const extensionId = sw.url().split('/')[2]!;
 
   rpcPage = await context.newPage();
-  await rpcPage.goto(`chrome-extension://${extensionId}/popup.html`);
+  await rpcPage.goto(`chrome-extension://${extensionId}/workbench.html`);
   await rpcPage.waitForFunction(
     () => {
       const root = document.getElementById('root');
@@ -49,6 +54,7 @@ test.afterAll(async () => {
 });
 
 async function rpc<T = unknown>(type: string, payload: Record<string, unknown> = {}): Promise<T> {
+  if (slowMo > 0) await new Promise((resolve) => setTimeout(resolve, slowMo));
   return rpcPage.evaluate(
     ({ type: t, payload: p }: { type: string; payload: Record<string, unknown> }) =>
       new Promise((resolve) => {
@@ -108,9 +114,9 @@ async function pollMainScope(tabId: number, until: (scope: ScopeWire) => boolean
 }
 
 test('CDP tier: stamping, breakdown, CDP cache ops, invalidation pushes, detach degrade', async () => {
-  test.setTimeout(120_000);
+  test.setTimeout(slowMo > 0 ? 600_000 : 120_000);
   const page = await context.newPage();
-  await page.goto(STORAGE_PAGE_URL);
+  await page.goto(`${STORAGE_PAGE_URL}${pagePace}`);
 
   await page.evaluate(async () => {
     await window.ohStorage.reset();
