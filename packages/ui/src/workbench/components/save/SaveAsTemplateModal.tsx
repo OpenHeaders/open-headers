@@ -133,6 +133,10 @@ const SaveAsTemplateModal: React.FC<SaveAsTemplateModalProps> = ({
       cancelText="Cancel"
       onOk={handleMetadataNext}
       onCancel={onCancel}
+      // Unmount on close so the icon picker's popover state can't go
+      // stale — Esc closes the modal without an outside mousedown, and a
+      // kept-mounted picker would reopen (or linger) on the next open.
+      destroyOnHidden
       okButtonProps={{ disabled: !name.trim() }}
       width={440}
     >

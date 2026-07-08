@@ -430,6 +430,7 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
   function handleClose(): void {
     setOpen(false);
     setSearchText('');
+    setSettingsOpen(false);
   }
 
   const rowStyle: React.CSSProperties = {
@@ -796,7 +797,13 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
-        if (!next) setSearchText('');
+        if (!next) {
+          setSearchText('');
+          // Reset the nested settings popover too — an outside click closes
+          // both visually, but only the dropdown's state updates; a stale
+          // `settingsOpen` would flash the settings popover on reopen.
+          setSettingsOpen(false);
+        }
       }}
       popupRender={() => dropdownContent}
       trigger={['click']}
