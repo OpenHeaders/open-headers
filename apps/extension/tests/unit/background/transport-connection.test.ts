@@ -5,10 +5,14 @@
  * orphan socket racing the live one (the double-socket bug behind the
  * ~7s clean-install join latency).
  */
-import { PROTOCOL_INCOMPATIBLE_CLOSE_CODE } from '@openheaders/core/protocol';
+import { HANDSHAKE_REJECT_CLOSE_CODE, PROTOCOL_INCOMPATIBLE_CLOSE_CODE } from '@openheaders/core/protocol';
 import { describe, expect, it, vi } from 'vitest';
 
-import { createTransportConnection, type TransportConnectionDeps } from '@/background/transport-connection';
+import {
+  createTransportConnection,
+  STABLE_CONNECTION_MS,
+  type TransportConnectionDeps,
+} from '@/background/transport-connection';
 
 class FakeSocket {
   readyState = 0; // CONNECTING
@@ -189,7 +193,9 @@ describe('createTransportConnection', () => {
     h.sockets[0].fireClose(PROTOCOL_INCOMPATIBLE_CLOSE_CODE, 'too new');
 
     expect(h.transport.state()).toBe('idle');
-    expect(h.onClose).toHaveBeenCalledWith(expect.objectContaining({ wasOpen: true, protocolIncompatible: true }));
+    expect(h.onClose).toHaveBeenCalledWith(
+      expect.objectContaining({ wasOpen: true, protocolIncompatible: true, peerRefused: true }),
+    );
     expect(h.timers.count()).toBe(0); // no backoff scheduled
 
     // The latch survives a bare ensureConnected()…
@@ -198,6 +204,69 @@ describe('createTransportConnection', () => {
     // …but reconnect() clears it.
     h.transport.reconnect();
     expect(h.transport.state()).toBe('probing');
+  });
+
+  it('an evicting handshake reject (1008 auth-required) latches idle like a protocol mismatch', async () => {
+    const h = makeHarness();
+    h.transport.ensureConnected();
+    await Promise.resolve();
+    h.sockets[0].fireOpen();
+    h.sockets[0].fireClose(HANDSHAKE_REJECT_CLOSE_CODE, 'auth-required');
+
+    expect(h.transport.state()).toBe('idle');
+    expect(h.onClose).toHaveBeenCalledWith(
+      expect.objectContaining({
+        wasOpen: true,
+        protocolIncompatible: false,
+        peerRefused: true,
+        rejectReason: 'auth-required',
+      }),
+    );
+    expect(h.timers.count()).toBe(0); // no redial — the peer would refuse it again
+
+    h.transport.ensureConnected();
+    expect(h.transport.state()).toBe('idle');
+    // A credential change re-dials through reconnect().
+    h.transport.reconnect();
+    expect(h.transport.state()).toBe('probing');
+  });
+
+  it('a non-evicting 1008 (workspace-unknown) backs off normally', async () => {
+    const h = makeHarness();
+    h.transport.ensureConnected();
+    await Promise.resolve();
+    h.sockets[0].fireOpen();
+    h.sockets[0].fireClose(HANDSHAKE_REJECT_CLOSE_CODE, 'workspace-unknown');
+
+    expect(h.onClose).toHaveBeenCalledWith(
+      expect.objectContaining({ peerRefused: false, rejectReason: 'workspace-unknown' }),
+    );
+    expect(h.transport.state()).toBe('backoff');
+  });
+
+  it('open→drop flaps keep growing the backoff; a stable connection resets it', async () => {
+    let clock = 0;
+    const h = makeHarness({ now: () => clock });
+
+    // Two open→immediate-drop cycles: attempts keep climbing.
+    h.transport.ensureConnected();
+    await Promise.resolve();
+    h.sockets[0].fireOpen();
+    h.sockets[0].fireClose(1006);
+    expect(h.transport.reconnectAttempts()).toBe(1);
+    h.timers.runAll();
+    await Promise.resolve();
+    h.sockets[1].fireOpen();
+    h.sockets[1].fireClose(1006);
+    expect(h.transport.reconnectAttempts()).toBe(2);
+
+    // A connection that survives past the stability window resets it.
+    h.timers.runAll();
+    await Promise.resolve();
+    h.sockets[2].fireOpen();
+    clock += STABLE_CONNECTION_MS;
+    h.sockets[2].fireClose(1006);
+    expect(h.transport.reconnectAttempts()).toBe(1); // fresh backoff run
   });
 
   it('an ordinary close while open backs off for a fresh socket', async () => {

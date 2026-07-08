@@ -62,6 +62,17 @@ export const HANDSHAKE_REJECT_REASONS = {
 export type HandshakeRejectReason = (typeof HANDSHAKE_REJECT_REASONS)[keyof typeof HANDSHAKE_REJECT_REASONS];
 
 /**
+ * Narrow an untyped value (a WS close reason, a logged string) to a
+ * {@link HandshakeRejectReason}, or null when it is none of them.
+ */
+export function parseHandshakeRejectReason(value: unknown): HandshakeRejectReason | null {
+  for (const reason of Object.values(HANDSHAKE_REJECT_REASONS)) {
+    if (value === reason) return reason;
+  }
+  return null;
+}
+
+/**
  * True when a handshake rejection means "the backend is alive and
  * authoritative but is refusing *this* peer" — as opposed to the backend
  * being unreachable. The distinction is load-bearing for the offline

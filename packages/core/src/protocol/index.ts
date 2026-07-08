@@ -40,6 +40,7 @@ export {
   HANDSHAKE_REJECT_REASONS,
   HANDSHAKE_ROLES,
   isBackendEvictingReason,
+  parseHandshakeRejectReason,
   StateVectorSchema,
   SYNC_HELLO_TYPE,
   SYNC_STATE_VECTOR_TYPE,
@@ -114,6 +115,7 @@ export type {
 export { SYNC_APPLY_TYPE, SYNC_BROADCAST_TYPE } from './sync-bridge';
 export type { IncompatibleProtocolReason } from './version';
 export {
+  HANDSHAKE_REJECT_CLOSE_CODE,
   isCompatibleProtocol,
   MIN_COMPATIBLE_PROTOCOL,
   PROTOCOL_INCOMPATIBLE_CLOSE_CODE,

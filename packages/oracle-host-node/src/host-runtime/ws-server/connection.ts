@@ -5,6 +5,7 @@ import type { IncomingMessage } from 'node:http';
 import { hostLogger as logger } from '@openheaders/core/logger';
 import {
   type BackendReach,
+  HANDSHAKE_REJECT_CLOSE_CODE,
   PROTOCOL_INCOMPATIBLE_CLOSE_CODE,
   SYNC_HELLO_TYPE,
   SYNC_STATE_VECTOR_TYPE,
@@ -142,14 +143,14 @@ export function handleConnection(socket: WebSocket, request: IncomingMessage, de
         send(socket, outcome.welcome);
         if (outcome.kind === 'reject') {
           logger.info(SCOPE, `HELLO rejected: ${outcome.reason}`);
-          // 4001 is reserved for protocol mismatches — clients latch on
-          // it and stop redialing. An auth / workspace refusal closes
-          // with 1008 (policy violation) so the peer keeps its backoff
-          // redial and renders the in-band WELCOME reason instead.
+          // 4001 is reserved for protocol mismatches; every other
+          // refusal closes with the policy-violation code and carries
+          // the reject reason as the close reason, matching the in-band
+          // WELCOME the peer already received.
           const closeCode =
             outcome.reason === 'protocol-too-old' || outcome.reason === 'protocol-too-new'
               ? PROTOCOL_INCOMPATIBLE_CLOSE_CODE
-              : 1008;
+              : HANDSHAKE_REJECT_CLOSE_CODE;
           try {
             socket.close(closeCode, outcome.reason);
           } catch {

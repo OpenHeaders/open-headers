@@ -31,7 +31,7 @@ import { isSafari } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { adaptWebSocketUrl, safariPreCheck } from './safari-websocket-adapter';
 import { dropBackendSyncStatus, refreshSyncStatusAggregate, reportBackendSyncStatus } from './sync-status-aggregate';
-import type { SyncStatusEntry } from './sync-status-reporter';
+import { handshakeRejectEntry, type SyncStatusEntry } from './sync-status-reporter';
 import { createTransportConnection, type TransportConnection } from './transport-connection';
 
 // ── Wire handles ──────────────────────────────────────────────────
@@ -244,12 +244,14 @@ function createWire(rec: BackendConnection): ManagedWire {
     onClose: (info) => {
       logger.info('WebSocket', 'Connection closed');
       broadcastConnectionStatus();
-      if (info.protocolIncompatible) {
-        reportBackendSyncStatus(backendId, {
-          state: 'red',
-          message: 'Desktop app speaks a newer protocol — update extension',
-          context: { closeCode: info.code, reason: info.reason },
-        });
+      if (info.peerRefused) {
+        // The transport latched idle — this entry is the slot's final
+        // word until a credential/URL change re-dials, so it must carry
+        // the reject reason (the row's re-pair CTA keys off it), not
+        // the wire-level "Connecting…" that would otherwise overwrite
+        // the in-band WELCOME rejection on every reconnect flap.
+        const reason = info.rejectReason ?? (info.protocolIncompatible ? 'protocol-too-old' : null);
+        reportBackendSyncStatus(backendId, handshakeRejectEntry(reason));
       } else {
         reportWireStatus(managed);
       }

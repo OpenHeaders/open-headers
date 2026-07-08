@@ -3,10 +3,19 @@
  *
  * One instance owns exactly one logical connection to the backend: the
  * reachability probe, the socket, the keep-alive ping, exponential
- * reconnect backoff, and the protocol-incompatibility latch. It is the
- * single authority over "is there a socket, and should there be one" —
- * callers express *intent* (`ensureConnected` / `reconnect`) and the
- * machine coalesces concurrent requests down to one live socket.
+ * reconnect backoff, and the peer-refusal latch. It is the single
+ * authority over "is there a socket, and should there be one" — callers
+ * express *intent* (`ensureConnected` / `reconnect`) and the machine
+ * coalesces concurrent requests down to one live socket.
+ *
+ * Peer refusal vs outage. A close with the protocol-incompatible code
+ * (4001), or the handshake-reject code (1008) carrying an evicting
+ * reason (revoked/rotated token, protocol mismatch), means the peer is
+ * ALIVE and actively refusing this device — redialing can only produce
+ * the same refusal, so the machine latches idle instead of backing off.
+ * Only `reconnect()` clears the latch; the connection manager calls it
+ * exactly when the record's connection shape (URL / token) changes,
+ * i.e. when a retry could genuinely succeed.
  *
  * States
  *
@@ -25,13 +34,30 @@
  * and the loser's failed HELLO wedged the shared handshake FSM.
  */
 
-import { PROTOCOL_INCOMPATIBLE_CLOSE_CODE } from '@openheaders/core/protocol';
+import {
+  HANDSHAKE_REJECT_CLOSE_CODE,
+  type HandshakeRejectReason,
+  isBackendEvictingReason,
+  PROTOCOL_INCOMPATIBLE_CLOSE_CODE,
+  parseHandshakeRejectReason,
+} from '@openheaders/core/protocol';
 import { logger } from '@utils/logger';
 
 const SCOPE = 'Transport';
 
 /** Budget between socket construction and the `open` event. */
 export const CONNECT_TIMEOUT_MS = 3000;
+
+/**
+ * A connection that stayed open at least this long counts as having
+ * been healthy: its eventual close resets the backoff so the redial is
+ * prompt. Anything shorter is a flap (open → handshake-reject → close
+ * cycles included) and keeps growing the exponential backoff — without
+ * this, the attempt counter reset at `open` and a peer that accepts the
+ * socket but drops it right after was redialed at the base delay
+ * forever.
+ */
+export const STABLE_CONNECTION_MS = 30_000;
 
 export type TransportState = 'idle' | 'probing' | 'opening' | 'open' | 'backoff';
 
@@ -41,6 +67,14 @@ export interface TransportCloseInfo {
   readonly wasOpen: boolean;
   /** True when the peer rejected this build's protocol version. */
   readonly protocolIncompatible: boolean;
+  /**
+   * True when the peer actively refused this device (protocol mismatch
+   * or an evicting handshake reject) — the machine latched idle and no
+   * redial is scheduled until `reconnect()`.
+   */
+  readonly peerRefused: boolean;
+  /** The handshake reject reason carried in the close reason, if any. */
+  readonly rejectReason: HandshakeRejectReason | null;
   readonly code?: number;
   readonly reason?: string;
 }
@@ -70,6 +104,8 @@ export interface TransportConnectionDeps {
   /** Test seam — swap setTimeout / clearTimeout for fake timers. */
   readonly setTimer?: (fn: () => void, ms: number) => unknown;
   readonly clearTimer?: (handle: unknown) => void;
+  /** Test seam — monotonic-enough clock for the stable-connection check. */
+  readonly now?: () => number;
 }
 
 export interface TransportConnection {
@@ -85,8 +121,8 @@ export interface TransportConnection {
   ensureConnected(): void;
   /**
    * Tear down any current socket + in-flight attempt, clear the
-   * protocol-incompatibility latch, and start a fresh connection if one
-   * is still wanted. Used when `backend.url` / `mode` / `authToken` /
+   * peer-refusal latch, and start a fresh connection if one is still
+   * wanted. Used when `backend.url` / `mode` / `authToken` /
    * `autoConnect` changes at runtime.
    */
   reconnect(): void;
@@ -108,6 +144,7 @@ interface ConnectAttempt {
 export function createTransportConnection(deps: TransportConnectionDeps): TransportConnection {
   const setTimer = deps.setTimer ?? ((fn, ms) => setTimeout(fn, ms));
   const clearTimer = deps.clearTimer ?? ((h) => clearTimeout(h as ReturnType<typeof setTimeout>));
+  const now = deps.now ?? (() => Date.now());
 
   let state: TransportState = 'idle';
   let socket: WebSocket | null = null;
@@ -116,10 +153,14 @@ export function createTransportConnection(deps: TransportConnectionDeps): Transp
   let connectTimeoutTimer: unknown = null;
   let pingTimer: ReturnType<typeof setInterval> | null = null;
   let reconnectAttempts = 0;
-  // Latched when the peer rejects this build's protocol version.
-  // Suppresses every retry until `reconnect()` clears it (a url / mode
-  // change, or an extension restart).
-  let protocolIncompatible = false;
+  // When the current socket reached `open` — drives the stable-connection
+  // backoff reset at close time.
+  let openedAtMs: number | null = null;
+  // Latched when the peer actively refuses this device: a protocol-
+  // incompatible close, or a handshake reject with an evicting reason
+  // (revoked/rotated token). Suppresses every retry until `reconnect()`
+  // clears it (a url / token change, or an extension restart).
+  let peerRefused = false;
 
   function setState(next: TransportState): void {
     if (state === next) return;
@@ -190,7 +231,7 @@ export function createTransportConnection(deps: TransportConnectionDeps): Transp
 
   function scheduleBackoff(): void {
     clearReconnectTimer();
-    if (!deps.shouldConnect() || protocolIncompatible) {
+    if (!deps.shouldConnect() || peerRefused) {
       setState('idle');
       return;
     }
@@ -208,7 +249,7 @@ export function createTransportConnection(deps: TransportConnectionDeps): Transp
     // Coalesce — a live socket or an attempt already covers this.
     if (state === 'probing' || state === 'opening' || state === 'open') return;
     clearReconnectTimer();
-    if (protocolIncompatible || !deps.shouldConnect()) {
+    if (peerRefused || !deps.shouldConnect()) {
       setState('idle');
       return;
     }
@@ -275,7 +316,10 @@ export function createTransportConnection(deps: TransportConnectionDeps): Transp
         return;
       }
       logger.info(SCOPE, 'connected');
-      reconnectAttempts = 0;
+      // Backoff is NOT reset here — an open socket proves nothing yet
+      // (a refusing peer accepts then drops). The close handler resets
+      // it once the connection proved stable.
+      openedAtMs = now();
       startPing();
       setState('open');
       deps.onOpen();
@@ -295,19 +339,32 @@ export function createTransportConnection(deps: TransportConnectionDeps): Transp
       clearConnectTimeout();
       if (attempt.cancelled) return;
       const incompatible = event?.code === PROTOCOL_INCOMPATIBLE_CLOSE_CODE;
+      const rejectReason = parseHandshakeRejectReason(event?.reason);
+      const refused =
+        incompatible || (event?.code === HANDSHAKE_REJECT_CLOSE_CODE && isBackendEvictingReason(rejectReason));
       const wasOpen = state === 'open';
+      const stable = wasOpen && openedAtMs !== null && now() - openedAtMs >= STABLE_CONNECTION_MS;
+      openedAtMs = null;
       clearPing();
       if (socket === ws) socket = null;
       currentAttempt = null;
-      if (incompatible) {
-        logger.warn(SCOPE, `peer rejected protocol: ${event?.reason || 'no reason'}`);
-        protocolIncompatible = true;
+      if (stable) reconnectAttempts = 0;
+      if (refused) {
+        logger.warn(SCOPE, `peer refused this device (${event?.code}): ${event?.reason || 'no reason'}`);
+        peerRefused = true;
         reconnectAttempts = 0;
         clearReconnectTimer();
         setState('idle');
       }
-      deps.onClose({ wasOpen, protocolIncompatible: incompatible, code: event?.code, reason: event?.reason });
-      if (!incompatible) scheduleBackoff();
+      deps.onClose({
+        wasOpen,
+        protocolIncompatible: incompatible,
+        peerRefused: refused,
+        rejectReason,
+        code: event?.code,
+        reason: event?.reason,
+      });
+      if (!refused) scheduleBackoff();
     };
   }
 
@@ -320,7 +377,7 @@ export function createTransportConnection(deps: TransportConnectionDeps): Transp
       beginAttempt();
     },
     reconnect: () => {
-      protocolIncompatible = false;
+      peerRefused = false;
       teardownSocket();
       clearReconnectTimer();
       reconnectAttempts = 0;

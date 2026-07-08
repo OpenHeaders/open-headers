@@ -19,15 +19,21 @@ export const PROTOCOL_VERSION = 1;
 export const MIN_COMPATIBLE_PROTOCOL = 1;
 
 export function isCompatibleProtocol(peerVersion: number): boolean {
-  return (
-    Number.isInteger(peerVersion) &&
-    peerVersion >= MIN_COMPATIBLE_PROTOCOL &&
-    peerVersion <= PROTOCOL_VERSION
-  );
+  return Number.isInteger(peerVersion) && peerVersion >= MIN_COMPATIBLE_PROTOCOL && peerVersion <= PROTOCOL_VERSION;
 }
 
 /** WebSocket close code reserved for incompatible-protocol rejections. */
 export const PROTOCOL_INCOMPATIBLE_CLOSE_CODE = 4001;
+
+/**
+ * WebSocket close code for every other refused handshake (RFC 6455
+ * policy violation). The close *reason* carries the
+ * `HandshakeRejectReason` string; the in-band WELCOME carried the same
+ * reason first. Distinct from 4001 so a client can tell "this build
+ * can never talk to that peer" (latch, stop dialing) from "this device
+ * was refused" (recoverable by re-pairing).
+ */
+export const HANDSHAKE_REJECT_CLOSE_CODE = 1008;
 
 export interface IncompatibleProtocolReason {
   type: 'incompatible-protocol';

@@ -71,11 +71,7 @@ export function describeHandshakeStatus(
         context: { phase: state },
       };
     case 'rejected':
-      return {
-        state: 'red',
-        message: rejectMessage(rejectReason),
-        context: { phase: state, reason: rejectReason },
-      };
+      return handshakeRejectEntry(rejectReason);
     case 'timed-out':
       return {
         state: 'red',
@@ -106,6 +102,21 @@ function rejectMessage(reason: HandshakeRejectReason | null): string {
   }
 }
 
+/**
+ * The `sync` slot entry for a refused handshake. Shared by the
+ * FSM-driven reporter above and the connection manager's refusal-close
+ * path — the two observe the same rejection through different signals
+ * (the in-band WELCOME vs the close code), and must write identical
+ * entries so the last write is indistinguishable from the first.
+ */
+export function handshakeRejectEntry(reason: HandshakeRejectReason | null): SyncStatusEntry {
+  return {
+    state: 'red',
+    message: rejectMessage(reason),
+    context: { phase: 'rejected', reason },
+  };
+}
+
 export interface InstallHandshakeStatusReporterDeps {
   readonly initiator: SyncHandshakeInitiator;
   /**
@@ -123,11 +134,7 @@ export interface InstallHandshakeStatusReporterDeps {
  */
 export function installHandshakeStatusReporter(deps: InstallHandshakeStatusReporterDeps): () => void {
   return deps.initiator.subscribe((state) => {
-    const entry = describeHandshakeStatus(
-      state,
-      deps.initiator.rejectReason(),
-      deps.initiator.failureDetail(),
-    );
+    const entry = describeHandshakeStatus(state, deps.initiator.rejectReason(), deps.initiator.failureDetail());
     if (entry) deps.report(entry);
   });
 }
