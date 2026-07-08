@@ -4,13 +4,12 @@
  * label, address, the Orgs consumed from it, the auto-connect and
  * enabled toggles, re-pair, edit, remove.
  *
- * Life of a record: **Add** appends it disabled with loopback defaults
- * and opens its editor; the user configures the address and pairs; the
- * **enabled toggle is the probe gate** — off→on verifies reachability +
- * auth and hard-aborts without committing on failure, so nothing
- * connects until the probe passes. The connection fields only render
- * while the record is disabled (an edit can never move a live wire);
- * disable first to reconfigure.
+ * Life of a record: **Add** creates it disabled with loopback defaults
+ * and opens the wizard (`backend-wizard.tsx`: scenario → connect → pair
+ * → turn on); the row's Edit reopens the same wizard. The **enabled
+ * toggle is the probe gate** — off→on verifies reachability + auth and
+ * hard-aborts without committing on failure, so nothing connects until
+ * the probe passes; an enabled record's wizard goes disable-first.
  *
  * Remove delegates to `backend-remove-flow.tsx`: a Popconfirm for
  * records with no consumed Orgs, the Keep-local-copies / Discard
@@ -18,7 +17,7 @@
  */
 
 import { EditOutlined, PlusOutlined } from '@ant-design/icons';
-import { Button, Checkbox, Input, Switch, Tooltip, theme } from 'antd';
+import { Button, Checkbox, Switch, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import { type BackendConnectionPatch, createBackend, updateBackend } from '@openheaders/core/backends';
@@ -28,16 +27,10 @@ import { useBackends } from '../../../shared/backend';
 import { getCurrentHost, type Host } from '../../../shared/host-vocabulary';
 import { useIdentitySnapshot } from '../../../shared/hooks/useIdentitySnapshot';
 import { deriveBackendMode } from '../schema/backend';
-import FieldRow from '../fields/FieldRow';
-import BackendAuthTokenField from './backend-auth-token-field';
 import { BackendIcon, backendModeIcon } from './backend-icons';
-import {
-  BackendRecordProvider,
-  backendDisplayLabel,
-  useBackendRecord,
-} from './backend-record-context';
+import { backendDisplayLabel } from './backend-record-context';
 import { BackendRemoveButton } from './backend-remove-flow';
-import BackendUrlField from './backend-url-field';
+import { BackendWizard, type BackendWizardTarget } from './backend-wizard';
 import { PairPopover } from './pair-popover';
 import { type BackendEnableSwitchHandle, useBackendEnableSwitch } from './use-backend-enable-switch';
 import { type BackendRowStatus, useBackendRowStatus } from './use-backend-row-status';
@@ -46,11 +39,11 @@ export const BackendConnectionsList: React.FC<{ host: Host }> = ({ host }) => {
   const { token } = theme.useToken();
   const backends = useBackends();
   const enableSwitch = useBackendEnableSwitch();
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [wizard, setWizard] = useState<BackendWizardTarget | null>(null);
 
   const add = async (): Promise<void> => {
     const created = await createBackend();
-    setExpandedId(created.id);
+    setWizard({ recordId: created.id, mode: 'add' });
   };
 
   return (
@@ -107,15 +100,14 @@ export const BackendConnectionsList: React.FC<{ host: Host }> = ({ host }) => {
             <ConnectionRow
               key={record.id}
               record={record}
-              host={host}
               enableSwitch={enableSwitch}
-              expanded={expandedId === record.id}
-              onToggleExpanded={() => setExpandedId(expandedId === record.id ? null : record.id)}
-              onRemoved={() => setExpandedId(null)}
+              onEdit={() => setWizard({ recordId: record.id, mode: 'edit' })}
+              onRemoved={() => setWizard(null)}
             />
           ))}
         </div>
       )}
+      {wizard && <BackendWizard target={wizard} enableSwitch={enableSwitch} onClose={() => setWizard(null)} />}
       {enableSwitch.overlayElement}
     </section>
   );
@@ -131,12 +123,10 @@ const STATUS_LABEL: Record<BackendRowStatus, string> = {
 
 const ConnectionRow: React.FC<{
   record: BackendConnection;
-  host: Host;
   enableSwitch: BackendEnableSwitchHandle;
-  expanded: boolean;
-  onToggleExpanded: () => void;
+  onEdit: () => void;
   onRemoved: () => void;
-}> = ({ record, host, enableSwitch, expanded, onToggleExpanded, onRemoved }) => {
+}> = ({ record, enableSwitch, onEdit, onRemoved }) => {
   const { token } = theme.useToken();
   const status = useBackendRowStatus(record);
   const consumedOrgs = useConsumedOrgs(record.id);
@@ -204,15 +194,8 @@ const ConnectionRow: React.FC<{
         <Checkbox checked={record.autoConnect} onChange={(e) => patch({ autoConnect: e.target.checked })}>
           <span style={{ fontSize: 12, color: token.colorTextSecondary }}>Auto-connect</span>
         </Checkbox>
-        <Tooltip title={record.enabled ? 'Disable to edit the connection' : undefined}>
-          <Button
-            size="small"
-            type={expanded ? 'primary' : 'default'}
-            icon={<EditOutlined />}
-            disabled={record.enabled}
-            aria-label={`Edit ${label}`}
-            onClick={onToggleExpanded}
-          />
+        <Tooltip title={record.enabled ? 'Edit (disconnects first)' : 'Edit'}>
+          <Button size="small" icon={<EditOutlined />} aria-label={`Edit ${label}`} onClick={onEdit} />
         </Tooltip>
         <BackendRemoveButton record={record} label={label} consumedOrgs={consumedOrgs} onRemoved={onRemoved} />
         <Tooltip title={record.enabled ? 'Disconnect (settings are kept)' : 'Verify and connect'}>
@@ -226,50 +209,7 @@ const ConnectionRow: React.FC<{
           />
         </Tooltip>
       </div>
-      {expanded && !record.enabled && (
-        <div style={{ borderTop: `1px solid ${token.colorBorderSecondary}` }}>
-          <BackendRecordProvider record={record}>
-            <BackendLabelField />
-            <BackendUrlField />
-            <BackendAuthTokenField />
-          </BackendRecordProvider>
-          <div style={{ padding: '8px 12px', fontSize: 11, color: token.colorTextTertiary }}>
-            {host === 'desktop'
-              ? 'Configure, then flip the switch — the connection is verified before it turns on.'
-              : 'Configure and pair, then flip the switch — the connection is verified before it turns on.'}
-          </div>
-        </div>
-      )}
     </div>
-  );
-};
-
-/** Display-name editor for the record — bookkeeping, never re-dials. */
-const BackendLabelField: React.FC = () => {
-  const handle = useBackendRecord();
-  const [draft, setDraft] = useState(handle?.record.label ?? '');
-  if (!handle) return null;
-  const commit = (): void => {
-    if (draft !== handle.record.label) void handle.patch({ label: draft });
-  };
-  return (
-    <FieldRow
-      settingKey="backend.label"
-      label="Name"
-      description="What this back-end is called across the app. Defaults to its address."
-      block
-    >
-      <Input
-        style={{ width: '100%' }}
-        value={draft}
-        placeholder="Work VM"
-        aria-label="Back-end name"
-        maxLength={64}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={commit}
-        onPressEnter={commit}
-      />
-    </FieldRow>
   );
 };
 

@@ -43,8 +43,9 @@ export interface BackendEnableSwitchHandle {
   /**
    * Flip a record's `enabled` flag. Off→on runs the probe gate and
    * aborts without committing on failure; on→off commits directly.
+   * Resolves true when the flip committed, false on a probe abort.
    */
-  setEnabled: (record: BackendConnection, next: boolean) => Promise<void>;
+  setEnabled: (record: BackendConnection, next: boolean) => Promise<boolean>;
   /** A flip is in flight — callers disable their toggles meanwhile. */
   busy: boolean;
   /**
@@ -62,13 +63,13 @@ export function useBackendEnableSwitch(): BackendEnableSwitchHandle {
   // follow global active by design), so those skip the re-pin.
   const adoptActiveWorkspaceIntoSurface = useSurfaceWorkspaceAdopt();
 
-  const setEnabled = async (record: BackendConnection, next: boolean): Promise<void> => {
-    if (overlay) return;
-    if (record.enabled === next) return;
+  const setEnabled = async (record: BackendConnection, next: boolean): Promise<boolean> => {
+    if (overlay) return false;
+    if (record.enabled === next) return true;
 
     if (!next) {
       await updateBackend(record.id, { enabled: false });
-      return;
+      return true;
     }
 
     const host = getCurrentHost();
@@ -86,7 +87,7 @@ export function useBackendEnableSwitch(): BackendEnableSwitchHandle {
       // Same copy as Test connection — and HARD-ABORT, don't commit.
       const notice = describeProbeResult(result, toLabel);
       notification[notice.level]({ message: notice.message, description: notice.description });
-      return;
+      return false;
     }
 
     setOverlay({ toLabel });
@@ -100,6 +101,7 @@ export function useBackendEnableSwitch(): BackendEnableSwitchHandle {
     ]);
     setOverlay(null);
     message.success(`Connected to ${toLabel}.`);
+    return true;
   };
 
   const overlayElement = overlay ? <SwitchingOverlay open toLabel={overlay.toLabel} /> : null;
