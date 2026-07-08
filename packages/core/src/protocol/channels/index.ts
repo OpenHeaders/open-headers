@@ -55,6 +55,7 @@ export type {
   IdbDatabaseWire,
   IdbObjectStoreWire,
   IdbRecordWire,
+  IdbValueNodeWire,
   JarCookieEditWire,
   JarCookieKeyWire,
   JarCookieWire,

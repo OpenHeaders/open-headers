@@ -17,11 +17,16 @@ import {
   deleteIndexedDbDatabase,
   deleteIndexedDbRecord,
   getIndexedDbRecords,
+  getIndexedDbRecordValue,
   IDB_PAGE_SIZE_DEFAULT,
   IDB_PAGE_SIZE_MAX,
+  IDB_TREE_CHILDREN_MAX,
+  IDB_TREE_DEPTH_MAX,
+  IDB_VALUE_PREVIEW_MAX,
   listIdbDatabasesInPage,
   listIndexedDbDatabases,
   readIdbRecordsInPage,
+  readIdbRecordValueInPage,
 } from '@/background/modules/storage-inspector/standard-plane-idb';
 
 const executeScriptSpy = (): ReturnType<typeof vi.fn> =>
@@ -232,6 +237,80 @@ describe('primary-key wire encoding', () => {
   });
 });
 
+describe('readIdbRecordValueInPage', () => {
+  it('ships a bounded, type-tagged tree with labels, kinds and caps', async () => {
+    await seedDb('oh-app', 1, (db) => db.createObjectStore('kv'));
+    await putRecords('oh-app', 'kv', [
+      {
+        key: 'rich',
+        value: {
+          when: new Date('2026-07-08T00:00:00.000Z'),
+          items: [1, 'two'],
+          lookup: new Map<string, number>([['a', 1]]),
+          tags: new Set(['x']),
+          nested: { deep: { deeper: 1 } },
+          long: 'y'.repeat(80),
+        },
+      },
+    ]);
+
+    const { value } = await readIdbRecordValueInPage('oh-app', 'kv', '{"s":"rich"}', 4, 10, 40);
+    expect(value?.kind).toBe('object');
+    expect(value?.label).toBeUndefined();
+    const byLabel = new Map((value?.children ?? []).map((c) => [c.label, c]));
+
+    expect(byLabel.get('when')?.kind).toBe('date');
+    expect(byLabel.get('when')?.preview).toBe('Date(2026-07-08T00:00:00.000Z)');
+    expect(byLabel.get('items')?.kind).toBe('array');
+    expect(byLabel.get('items')?.children?.map((c) => [c.label, c.preview])).toEqual([
+      ['0', '1'],
+      ['1', '"two"'],
+    ]);
+    expect(byLabel.get('lookup')?.kind).toBe('map');
+    expect(byLabel.get('lookup')?.children?.[0]).toMatchObject({ label: '"a"', preview: '1' });
+    expect(byLabel.get('tags')?.kind).toBe('set');
+    expect(byLabel.get('tags')?.children?.[0]).toMatchObject({ label: '0', preview: '"x"' });
+    // The 80-char string clips at the 40-char cap.
+    expect(byLabel.get('long')?.preview.length).toBe(41);
+    expect(byLabel.get('long')?.preview.endsWith('…')).toBe(true);
+    // Depth 4 reaches `deeper`, which is a leaf.
+    expect(byLabel.get('nested')?.children?.[0]?.children?.[0]).toMatchObject({ label: 'deeper', preview: '1' });
+  });
+
+  it('caps children per node and counts the dropped rest', async () => {
+    await seedDb('oh-app', 1, (db) => db.createObjectStore('kv'));
+    await putRecords('oh-app', 'kv', [{ key: 'wide', value: Array.from({ length: 12 }, (_, i) => i) }]);
+
+    const { value } = await readIdbRecordValueInPage('oh-app', 'kv', '{"s":"wide"}', 4, 5, 1024);
+    expect(value?.kind).toBe('array');
+    expect(value?.children).toHaveLength(5);
+    expect(value?.dropped).toBe(7);
+  });
+
+  it('stops descending past the depth cap', async () => {
+    await seedDb('oh-app', 1, (db) => db.createObjectStore('kv'));
+    await putRecords('oh-app', 'kv', [{ key: 'deep', value: { a: { b: { c: 1 } } } }]);
+
+    const { value } = await readIdbRecordValueInPage('oh-app', 'kv', '{"s":"deep"}', 2, 10, 1024);
+    const a = value?.children?.[0];
+    const b = a?.children?.[0];
+    expect(b?.kind).toBe('object');
+    expect(b?.preview).toBe('{…1}');
+    expect(b?.children).toBeUndefined();
+  });
+
+  it('reports a gone record, an undecodable key and a ghost database as null', async () => {
+    await seedDb('oh-app', 1, (db) => db.createObjectStore('kv'));
+    await putRecords('oh-app', 'kv', [{ key: 'present', value: 1 }]);
+
+    expect((await readIdbRecordValueInPage('oh-app', 'kv', '{"s":"gone"}', 4, 10, 1024)).value).toBeNull();
+    expect((await readIdbRecordValueInPage('oh-app', 'kv', 'not-json', 4, 10, 1024)).value).toBeNull();
+    expect((await readIdbRecordValueInPage('oh-ghost', 'kv', '{"s":"present"}', 4, 10, 1024)).value).toBeNull();
+    const names = (await indexedDB.databases()).map((d) => d.name);
+    expect(names).toEqual(['oh-app']);
+  });
+});
+
 describe('injected delete plane', () => {
   it('deletes one record by its wire key for every encodable key type', async () => {
     await seedDb('oh-app', 1, (db) => db.createObjectStore('kv'));
@@ -369,6 +448,28 @@ describe('SW wrappers over the injection transport', () => {
     expect((await clearIndexedDbStore(1, 0, 'a', undefined as unknown as string)).ok).toBe(false);
     expect((await deleteIndexedDbDatabase(1, 0, undefined as unknown as string)).ok).toBe(false);
     expect(executeScriptSpy()).not.toHaveBeenCalled();
+  });
+
+  it('relays the value-tree read with its caps and rejects bad args', async () => {
+    executeScriptSpy().mockResolvedValue([{ result: { value: { kind: 'number', preview: '1' } } }]);
+    const { value } = await getIndexedDbRecordValue(1, 0, 'oh-app', 'kv', '{"s":"k"}');
+    expect(value).toEqual({ kind: 'number', preview: '1' });
+    const [{ args }] = executeScriptSpy().mock.calls[0] as [{ args: unknown[] }];
+    expect(args).toEqual([
+      'oh-app',
+      'kv',
+      '{"s":"k"}',
+      IDB_TREE_DEPTH_MAX,
+      IDB_TREE_CHILDREN_MAX,
+      IDB_VALUE_PREVIEW_MAX,
+    ]);
+
+    executeScriptSpy().mockClear();
+    expect((await getIndexedDbRecordValue(1, 0, 'oh-app', 'kv', undefined as unknown as string)).value).toBeNull();
+    expect(executeScriptSpy()).not.toHaveBeenCalled();
+
+    executeScriptSpy().mockRejectedValue(new Error('No frame with id'));
+    expect((await getIndexedDbRecordValue(1, 0, 'oh-app', 'kv', '{"s":"k"}')).value).toBeNull();
   });
 
   it('relays a successful injected delete as { ok: true }', async () => {

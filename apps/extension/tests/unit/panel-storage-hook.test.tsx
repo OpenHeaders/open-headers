@@ -25,6 +25,7 @@ import type {
   CacheEntryResponsePreview,
   IdbDatabase,
   IdbRecordsPage,
+  IdbValueNode,
   StorageInspectorHost,
   StorageQuota,
 } from '@openheaders/ui/panel/host-storage-inspector';
@@ -88,13 +89,16 @@ function installHost() {
   );
   const listIndexedDb = vi.fn(() => Promise.resolve([structuredClone(IDB_DB)]));
   const readIndexedDbRecords = vi.fn(() => Promise.resolve(structuredClone(IDB_PAGE)));
+  const readIndexedDbRecordValue = vi.fn(
+    (): Promise<IdbValueNode | null> => Promise.resolve({ kind: 'object', preview: '{…1}' }),
+  );
   const deleteIndexedDbRecord = vi.fn(() => Promise.resolve(true));
   const clearIndexedDbStore = vi.fn(() => Promise.resolve(true));
   const deleteIndexedDbDatabase = vi.fn(() => Promise.resolve(true));
   const listCaches = vi.fn((): Promise<Array<{ name: string }> | null> => Promise.resolve(structuredClone(CACHE_LIST)));
   const readCacheEntries = vi.fn(() => Promise.resolve(structuredClone(CACHE_PAGE)));
-  const readCacheEntryResponse = vi.fn((): Promise<CacheEntryResponsePreview | null> =>
-    Promise.resolve(structuredClone(RESPONSE_PREVIEW)),
+  const readCacheEntryResponse = vi.fn(
+    (): Promise<CacheEntryResponsePreview | null> => Promise.resolve(structuredClone(RESPONSE_PREVIEW)),
   );
   const deleteCache = vi.fn(() => Promise.resolve(true));
   const deleteCacheEntry = vi.fn(() => Promise.resolve(true));
@@ -110,6 +114,7 @@ function installHost() {
     clearDomStorage: vi.fn(() => Promise.resolve(true)),
     listIndexedDb,
     readIndexedDbRecords,
+    readIndexedDbRecordValue,
     deleteIndexedDbRecord,
     clearIndexedDbStore,
     deleteIndexedDbDatabase,
@@ -133,6 +138,7 @@ function installHost() {
     readDomStorage,
     listIndexedDb,
     readIndexedDbRecords,
+    readIndexedDbRecordValue,
     deleteIndexedDbRecord,
     clearIndexedDbStore,
     deleteIndexedDbDatabase,
@@ -363,6 +369,21 @@ describe('useIdbBrowser poll stability', () => {
     expect(readIndexedDbRecords.mock.calls.length).toBe(readsBefore + 2);
   });
 
+  it('routes the one-shot value read through the host with the selection context', async () => {
+    const { readIndexedDbRecordValue } = installHost();
+    const { result } = renderHook(() => useIdbBrowser(true, 0));
+
+    await flush();
+    act(() => {
+      result.current.selectStore('oh-app', 'kv');
+    });
+    await flush();
+
+    const value = await result.current.readRecordValue('{"n":1}');
+    expect(readIndexedDbRecordValue).toHaveBeenCalledWith(42, 0, 'oh-app', 'kv', '{"n":1}');
+    expect(value).toEqual({ kind: 'object', preview: '{…1}' });
+  });
+
   it('scopes reads to a selected index and prunes it when the schema drops it', async () => {
     const { listIndexedDb, readIndexedDbRecords } = installHost();
     listIndexedDb.mockImplementation(() =>
@@ -562,7 +583,13 @@ describe('useCacheBrowser poll stability', () => {
     await flush();
     const preview = await result.current.readEntryResponse('https://openheaders.io/asset-0.js', 'GET');
     expect(preview).toEqual(RESPONSE_PREVIEW);
-    expect(readCacheEntryResponse).toHaveBeenCalledWith(42, 0, 'oh-assets-v1', 'https://openheaders.io/asset-0.js', 'GET');
+    expect(readCacheEntryResponse).toHaveBeenCalledWith(
+      42,
+      0,
+      'oh-assets-v1',
+      'https://openheaders.io/asset-0.js',
+      'GET',
+    );
   });
 
   it('routes deletes through the host and refetches via the same read path', async () => {

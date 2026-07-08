@@ -35,6 +35,7 @@ function makeIdb(overrides: Partial<IdbBrowserState> = {}): IdbBrowserState {
     setPage: vi.fn(),
     recordsPage: null,
     refresh: vi.fn(),
+    readRecordValue: vi.fn(() => Promise.resolve(null)),
     mutationFailed: false,
     deleteRecord: vi.fn(),
     clearStore: vi.fn(),
@@ -65,6 +66,57 @@ describe('IndexedDbSection records view', () => {
     expect(screen.queryByLabelText('Delete record Infinity')).toBeNull();
     fireEvent.click(screen.getByLabelText('Delete record "simple"'));
     expect(idb.deleteRecord).toHaveBeenCalledWith('{"s":"simple"}');
+  });
+});
+
+describe('IndexedDbSection value tree', () => {
+  it('expands a row into its one-shot value tree and collapses it again', async () => {
+    const readRecordValue = vi.fn(() =>
+      Promise.resolve({
+        kind: 'object',
+        preview: '{…1}',
+        children: [{ kind: 'string', preview: '"deep"', label: 'note' }],
+      }),
+    );
+    const idb = makeIdb({
+      selection: { database: 'oh-app', store: 'kv' },
+      readRecordValue,
+      recordsPage: {
+        records: [
+          {
+            keyPreview: '"simple"',
+            primaryKeyPreview: '"simple"',
+            valuePreview: '{…1}',
+            primaryKeyWire: '{"s":"simple"}',
+          },
+        ],
+        truncated: false,
+      },
+    });
+    render(<IndexedDbSection idb={idb} filter="" />);
+
+    fireEvent.click(screen.getByLabelText('Expand value for "simple"'));
+    expect(readRecordValue).toHaveBeenCalledWith('{"s":"simple"}');
+    expect(await screen.findByText('note:')).toBeTruthy();
+    expect(screen.getByText('"deep"')).toBeTruthy();
+
+    fireEvent.click(screen.getByLabelText('Expand value for "simple"'));
+    expect(screen.queryByText('note:')).toBeNull();
+    expect(readRecordValue).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders the failure note when the record value is gone', async () => {
+    const idb = makeIdb({
+      selection: { database: 'oh-app', store: 'kv' },
+      recordsPage: {
+        records: [{ keyPreview: '1', primaryKeyPreview: '1', valuePreview: '1', primaryKeyWire: '{"n":1}' }],
+        truncated: false,
+      },
+    });
+    render(<IndexedDbSection idb={idb} filter="" />);
+
+    fireEvent.click(screen.getByLabelText('Expand value for 1'));
+    expect(await screen.findByText(/can’t be read/)).toBeTruthy();
   });
 });
 

@@ -31,5 +31,6 @@ export {
   deleteIndexedDbDatabase,
   deleteIndexedDbRecord,
   getIndexedDbRecords,
+  getIndexedDbRecordValue,
   listIndexedDbDatabases,
 } from './standard-plane-idb';

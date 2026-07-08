@@ -15,6 +15,7 @@ import {
   getDomStorageEntries as getDomStorageEntriesHandler,
   getDomStorageValue as getDomStorageValueHandler,
   getIndexedDbRecords as getIndexedDbRecordsHandler,
+  getIndexedDbRecordValue as getIndexedDbRecordValueHandler,
   getStorageQuota as getStorageQuotaHandler,
   listCacheStorageCaches as listCacheStorageCachesHandler,
   listIndexedDbDatabases as listIndexedDbDatabasesHandler,
@@ -125,6 +126,22 @@ export const storageInspectorHandlers: HandlerMap = {
       .catch((err: Error) => {
         logger.info('StorageIdb', `handler threw: ${err.message}`);
         respond({ records: null });
+      });
+    return true;
+  },
+
+  getIndexedDbRecordValue: ({ message, respond }) => {
+    getIndexedDbRecordValueHandler(
+      message.tabId as number,
+      message.frameId as number,
+      message.database as string,
+      message.store as string,
+      message.primaryKeyWire as string,
+    )
+      .then((res) => respond(res))
+      .catch((err: Error) => {
+        logger.info('StorageIdb', `handler threw: ${err.message}`);
+        respond({ value: null });
       });
     return true;
   },

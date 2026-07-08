@@ -2,14 +2,18 @@
  * The Storage tool window's IndexedDB section. Two levels: the scope's
  * databases with their object stores, then a selected store's
  * cursor-paged records grid of in-page-serialized previews (StorageGrid
- * idiom). Deletes are in scope — record (rows carrying a lossless wire
- * key), store clear, whole database — record EDITING stays out of v1.
- * Bulk gestures (clear / database delete) use the two-step arm/confirm
+ * idiom), readable through the store's primary cursor or any of its
+ * indexes. A row expands into the record's bounded value tree — a lazy
+ * one-shot fetch like the caches' response preview, never polled.
+ * Deletes are in scope — record (rows carrying a lossless wire key),
+ * store clear, whole database — record EDITING stays out of v1. Bulk
+ * gestures (clear / database delete) use the two-step arm/confirm
  * idiom; a record delete is single-click like the DOM grid's.
  */
 
-import { ClearOutlined, DeleteOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons';
-import type { IdbDatabase } from '../../data/storage/storage-inspector-host';
+import { ClearOutlined, DeleteOutlined, DownOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons';
+import { useEffect, useRef, useState } from 'react';
+import type { IdbDatabase, IdbValueNode } from '../../data/storage/storage-inspector-host';
 import type { IdbBrowserState } from '../../data/storage/use-idb-browser';
 import { ArmedIconButton } from './ArmedIconButton';
 
@@ -98,13 +102,48 @@ export function IndexedDbSection({ idb, filter }: IndexedDbSectionProps) {
   );
 }
 
+type ValueSlot = 'loading' | 'failed' | IdbValueNode;
+
 function RecordsView({ idb, filter }: IndexedDbSectionProps) {
+  // The expanded record's value tree — a lazy one-shot fetch held here,
+  // keyed on the record's wire key; never polled state. The ref mirrors
+  // the key so a late fetch for a since-collapsed row drops.
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  const [valueSlot, setValueSlot] = useState<ValueSlot | null>(null);
+  const expandedRef = useRef<string | null>(null);
+
   const selection = idb.selection;
+  const database = selection?.database ?? null;
+  const store = selection?.store ?? null;
+  const { readRecordValue } = idb;
+
+  // Store, page or cursor change → the expanded row is gone.
+  useEffect(() => {
+    expandedRef.current = null;
+    setExpandedKey(null);
+    setValueSlot(null);
+  }, [database, store, idb.page, idb.index]);
+
   if (!selection) return null;
   const storeShape = idb.databases
     ?.find((d) => d.name === selection.database)
     ?.objectStores.find((s) => s.name === selection.store);
   const pageData = idb.recordsPage;
+
+  const toggleValue = (wireKey: string) => {
+    if (expandedKey === wireKey) {
+      expandedRef.current = null;
+      setExpandedKey(null);
+      setValueSlot(null);
+      return;
+    }
+    expandedRef.current = wireKey;
+    setExpandedKey(wireKey);
+    setValueSlot('loading');
+    void readRecordValue(wireKey).then((result) => {
+      if (expandedRef.current === wireKey) setValueSlot(result ?? 'failed');
+    });
+  };
   const needle = filter.trim().toLowerCase();
   const records = pageData
     ? needle
@@ -180,6 +219,7 @@ function RecordsView({ idb, filter }: IndexedDbSectionProps) {
           </div>
           {records.map((r, i) => {
             const wireKey = r.primaryKeyWire;
+            const expanded = wireKey !== undefined && expandedKey === wireKey;
             return (
               <div className="dt-storage-row" role="row" key={`${idb.page}:${i}:${r.primaryKeyPreview}`}>
                 <span className="dt-storage-key" role="cell" title={`Key: ${r.keyPreview}\nPrimary key: ${r.primaryKeyPreview}`}>
@@ -193,6 +233,16 @@ function RecordsView({ idb, filter }: IndexedDbSectionProps) {
                     <button
                       type="button"
                       className="dt-storage-action"
+                      title={expanded ? 'Collapse the record value' : 'Expand the record value'}
+                      aria-label={`Expand value for ${r.primaryKeyPreview}`}
+                      aria-expanded={expanded}
+                      onClick={() => toggleValue(wireKey)}
+                    >
+                      {expanded ? <DownOutlined /> : <RightOutlined />}
+                    </button>
+                    <button
+                      type="button"
+                      className="dt-storage-action"
                       title="Delete this record"
                       aria-label={`Delete record ${r.primaryKeyPreview}`}
                       onClick={() => idb.deleteRecord(wireKey)}
@@ -201,11 +251,73 @@ function RecordsView({ idb, filter }: IndexedDbSectionProps) {
                     </button>
                   </span>
                 )}
+                {expanded && valueSlot !== null ? <IdbValueStrip slot={valueSlot} /> : null}
               </div>
             );
           })}
         </div>
       )}
     </>
+  );
+}
+
+/** The expanded record's value tree, or its loading/failure note. */
+function IdbValueStrip({ slot }: { slot: ValueSlot }) {
+  if (slot === 'loading') {
+    return <div className="dt-storage-response-strip dt-storage-response-note">Loading…</div>;
+  }
+  if (slot === 'failed') {
+    return (
+      <div className="dt-storage-response-strip dt-storage-response-note">
+        The record value can’t be read — the record may be gone.
+      </div>
+    );
+  }
+  return (
+    <div className="dt-storage-response-strip dt-storage-idb-tree" aria-label="Record value">
+      <IdbValueTreeNode node={slot} depth={0} />
+    </div>
+  );
+}
+
+/**
+ * One tree node: disclosure toggle (containers only, root open by
+ * default), the property/slot label, and the node's own preview.
+ * The tree is already bounded host-side; toggles are pure UI state.
+ */
+function IdbValueTreeNode({ node, depth }: { node: IdbValueNode; depth: number }) {
+  const [open, setOpen] = useState(depth === 0);
+  const hasChildren = (node.children?.length ?? 0) > 0 || (node.dropped ?? 0) > 0;
+  return (
+    <div className="dt-storage-idb-tree-node">
+      <div className="dt-storage-idb-tree-line" style={{ paddingLeft: depth * 14 }}>
+        {hasChildren ? (
+          <button
+            type="button"
+            className="dt-storage-idb-tree-toggle"
+            aria-expanded={open}
+            aria-label={`${open ? 'Collapse' : 'Expand'} ${node.label ?? 'value'}`}
+            onClick={() => setOpen((o) => !o)}
+          >
+            {open ? <DownOutlined /> : <RightOutlined />}
+          </button>
+        ) : (
+          <span className="dt-storage-idb-tree-toggle" aria-hidden="true" />
+        )}
+        {node.label !== undefined && <span className="dt-storage-idb-tree-label">{node.label}:</span>}
+        <span className="dt-storage-idb-tree-preview" title={node.preview}>
+          {node.preview}
+        </span>
+      </div>
+      {open &&
+        node.children?.map((child, i) => (
+          <IdbValueTreeNode key={`${i}:${child.label ?? ''}`} node={child} depth={depth + 1} />
+        ))}
+      {open && (node.dropped ?? 0) > 0 && (
+        <div className="dt-storage-idb-tree-line dt-storage-idb-tree-more" style={{ paddingLeft: (depth + 1) * 14 }}>
+          … +{node.dropped} more
+        </div>
+      )}
+    </div>
   );
 }

@@ -136,6 +136,23 @@ export interface IdbRecordWire {
   primaryKeyWire?: string;
 }
 
+/**
+ * One node of a record value's bounded, type-tagged tree — serialized
+ * in-page (the value itself never rides the bridge), capped by depth,
+ * per-node child count and string length. `kind` mirrors the preview
+ * serializer's tag vocabulary (string / number / date / binary / blob /
+ * map / set / array / object / …); `label` is the property key or
+ * collection slot, absent on the root; `dropped` counts children cut by
+ * the caps.
+ */
+export interface IdbValueNodeWire {
+  kind: string;
+  preview: string;
+  label?: string;
+  children?: ReadonlyArray<IdbValueNodeWire>;
+  dropped?: number;
+}
+
 /** One named cache of a scope's Cache Storage. */
 export interface CacheStorageCacheWire {
   name: string;
@@ -396,6 +413,19 @@ export interface DevToolsRpc {
       index?: string;
     };
     res: { records: ReadonlyArray<IdbRecordWire> | null; truncated?: boolean };
+  };
+
+  /**
+   * Lazy one-shot fetch of one record's value as a bounded, type-tagged
+   * tree (see {@link IdbValueNodeWire}) — the record-list previews stay
+   * flat strings; this is the drill-in a row expansion pays for.
+   * `primaryKeyWire` is the record identity the read RPC returned.
+   * `value` is `null` when injection fails, the database/store/record
+   * is gone, or the key can't be decoded.
+   */
+  getIndexedDbRecordValue: {
+    req: { tabId: number; frameId: number; database: string; store: string; primaryKeyWire: string };
+    res: { value: IdbValueNodeWire | null };
   };
 
   /**

@@ -90,6 +90,14 @@ interface RecordsResult {
   truncated?: boolean;
 }
 
+interface ValueNodeWire {
+  kind: string;
+  preview: string;
+  label?: string;
+  children?: ValueNodeWire[];
+  dropped?: number;
+}
+
 test('IndexedDB reads, previews, key wire and deletes ride the plane end-to-end', async () => {
   test.setTimeout(slowMo > 0 ? 600_000 : 120_000);
   const page = await context.newPage();
@@ -221,6 +229,35 @@ test('IndexedDB reads, previews, key wire and deletes ride the plane end-to-end'
     index: 'gone',
   });
   expect(missingIndex.records).toBeNull();
+
+  // ── Value tree: lazy one-shot read of one record's full structure ──
+  const richWire = rich.records?.[0]?.primaryKeyWire;
+  expect(richWire).toBeDefined();
+  const tree = await rpc<{ value: ValueNodeWire | null }>('getIndexedDbRecordValue', {
+    ...base,
+    database: 'oh-store-app',
+    store: 'rich',
+    primaryKeyWire: richWire,
+  });
+  expect(tree.value?.kind).toBe('object');
+  const treeByLabel = new Map((tree.value?.children ?? []).map((c) => [c.label, c]));
+  expect(treeByLabel.get('when')).toMatchObject({ kind: 'date', preview: 'Date(2026-03-04T05:06:07.000Z)' });
+  expect(treeByLabel.get('buf')).toMatchObject({ kind: 'binary', preview: 'ArrayBuffer(8 B)' });
+  expect(treeByLabel.get('view')).toMatchObject({ kind: 'binary', preview: 'Uint8Array(3 B)' });
+  expect(treeByLabel.get('blob')?.kind).toBe('blob');
+  expect(treeByLabel.get('map')?.children?.[0]).toMatchObject({ label: '"a"', preview: '1' });
+  expect(treeByLabel.get('set')?.children?.[0]).toMatchObject({ label: '0', preview: '"x"' });
+  // The 2000-char member clips at the 1024 string cap (quotes included).
+  expect(treeByLabel.get('long')?.preview.length).toBe(1025);
+  expect(treeByLabel.get('long')?.preview.endsWith('…')).toBe(true);
+
+  const goneValue = await rpc<{ value: ValueNodeWire | null }>('getIndexedDbRecordValue', {
+    ...base,
+    database: 'oh-store-app',
+    store: 'rich',
+    primaryKeyWire: '{"n":999}',
+  });
+  expect(goneValue.value).toBeNull();
 
   // ── Record deletes: string, falsy, binary and ±Infinity keys ───────
   for (const keyPreview of ['"alpha"', '0', 'Infinity', '-Infinity', 'ArrayBuffer(3 B)']) {

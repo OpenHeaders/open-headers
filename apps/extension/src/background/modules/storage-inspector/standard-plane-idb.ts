@@ -9,7 +9,10 @@
  * every key/value PREVIEW-SERIALIZED in-page — IDB values are
  * structured-clone types (Dates, ArrayBuffers, Blobs, Maps, cycles…),
  * so a type-tagged, depth- and length-capped string is what rides the
- * bridge, never the value itself.
+ * bridge, never the value itself. A row expansion pays for more with a
+ * lazy one-shot value read that ships a bounded, type-tagged TREE —
+ * still serialized in-page, still capped (depth, per-node children,
+ * string length, total nodes).
  *
  * Record identity for deletes: previews are lossy, so each record also
  * carries `primaryKeyWire`, a LOSSLESS tagged-JSON encoding of its
@@ -20,7 +23,7 @@
  * injection args are JSON-only).
  */
 
-import type { IdbDatabaseWire, IdbRecordWire } from '@openheaders/core/bridge';
+import type { IdbDatabaseWire, IdbRecordWire, IdbValueNodeWire } from '@openheaders/core/bridge';
 import { runInFrame } from './standard-plane';
 
 /** Database-count cap per enumeration (an origin rarely has more). */
@@ -30,6 +33,9 @@ export const IDB_PAGE_SIZE_MAX = 200;
 export const IDB_PAGE_SIZE_DEFAULT = 50;
 /** Per-record preview cap (chars), applied to key and value previews. */
 export const IDB_VALUE_PREVIEW_MAX = 1024;
+/** Value-tree caps: nesting depth and children kept per node. */
+export const IDB_TREE_DEPTH_MAX = 6;
+export const IDB_TREE_CHILDREN_MAX = 50;
 
 interface InjectedDatabase {
   name: string;
@@ -42,6 +48,14 @@ interface InjectedIdbRecord {
   primaryKeyPreview: string;
   valuePreview: string;
   primaryKeyWire?: string;
+}
+
+interface InjectedIdbValueNode {
+  kind: string;
+  preview: string;
+  label?: string;
+  children?: InjectedIdbValueNode[];
+  dropped?: number;
 }
 
 /** Tagged node of the lossless primary-key wire encoding. */
@@ -289,6 +303,168 @@ export async function readIdbRecordsInPage(
   }
 }
 
+export async function readIdbRecordValueInPage(
+  database: string,
+  store: string,
+  primaryKeyWire: string,
+  depthMax: number,
+  childrenMax: number,
+  previewMax: number,
+): Promise<{ value: InjectedIdbValueNode | null }> {
+  if (typeof indexedDB === 'undefined') return { value: null };
+
+  // Total-node backstop under the per-node caps — a wide, deep value
+  // can't ship an unbounded tree.
+  const NODE_BUDGET = 2000;
+  const budget = { nodes: 0 };
+
+  function decodeKeyNode(node: unknown): { key: IDBValidKey } | null {
+    if (!node || typeof node !== 'object') return null;
+    const tagged = node as { s?: unknown; n?: unknown; d?: unknown; b?: unknown; inf?: unknown; a?: unknown };
+    if (typeof tagged.s === 'string') return { key: tagged.s };
+    if (typeof tagged.n === 'number' && Number.isFinite(tagged.n)) return { key: tagged.n };
+    if (typeof tagged.d === 'string') {
+      const date = new Date(tagged.d);
+      return Number.isNaN(date.getTime()) ? null : { key: date };
+    }
+    if (typeof tagged.b === 'string') {
+      try {
+        const bin = atob(tagged.b);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        return { key: bytes.buffer };
+      } catch {
+        return null;
+      }
+    }
+    if (tagged.inf === 1) return { key: Number.POSITIVE_INFINITY };
+    if (tagged.inf === -1) return { key: Number.NEGATIVE_INFINITY };
+    if (Array.isArray(tagged.a)) {
+      const items: IDBValidKey[] = [];
+      for (const item of tagged.a) {
+        const decoded = decodeKeyNode(item);
+        if (decoded === null) return null;
+        items.push(decoded.key);
+      }
+      return { key: items };
+    }
+    return null;
+  }
+
+  function clip(s: string): string {
+    return s.length > previewMax ? `${s.slice(0, previewMax)}…` : s;
+  }
+
+  // One node's own kind + flat preview — the same tag vocabulary as the
+  // list previews, containers as size stubs (children carry the rest).
+  function describe(v: unknown): { kind: string; preview: string } {
+    if (v === null) return { kind: 'null', preview: 'null' };
+    if (v === undefined) return { kind: 'undefined', preview: 'undefined' };
+    const t = typeof v;
+    if (t === 'string') return { kind: 'string', preview: JSON.stringify(v) };
+    if (t === 'number' || t === 'boolean' || t === 'bigint') return { kind: t, preview: String(v) };
+    if (v instanceof Date) {
+      return { kind: 'date', preview: `Date(${Number.isNaN(v.getTime()) ? 'invalid' : v.toISOString()})` };
+    }
+    if (Object.prototype.toString.call(v) === '[object ArrayBuffer]') {
+      return { kind: 'binary', preview: `ArrayBuffer(${(v as ArrayBuffer).byteLength} B)` };
+    }
+    if (ArrayBuffer.isView(v)) {
+      return { kind: 'binary', preview: `${v.constructor.name}(${(v as ArrayBufferView).byteLength} B)` };
+    }
+    if (typeof Blob !== 'undefined' && v instanceof Blob) {
+      const name = typeof File !== 'undefined' && v instanceof File ? `${JSON.stringify(v.name)}, ` : '';
+      return { kind: 'blob', preview: `${v.constructor.name}(${name}${v.size} B${v.type ? `, ${v.type}` : ''})` };
+    }
+    if (v instanceof RegExp) return { kind: 'regexp', preview: String(v) };
+    if (Array.isArray(v)) return { kind: 'array', preview: `Array(${v.length})` };
+    if (v instanceof Map) return { kind: 'map', preview: `Map(${v.size})` };
+    if (v instanceof Set) return { kind: 'set', preview: `Set(${v.size})` };
+    if (t === 'object') return { kind: 'object', preview: `{…${Object.keys(v as object).length}}` };
+    return { kind: 'other', preview: Object.prototype.toString.call(v) };
+  }
+
+  function entriesOf(v: unknown, kind: string): Array<[string, unknown]> | null {
+    if (kind === 'array') return (v as unknown[]).map((item, i) => [String(i), item]);
+    if (kind === 'map') {
+      return Array.from((v as Map<unknown, unknown>).entries()).map(([k, val]) => [clip(describe(k).preview), val]);
+    }
+    if (kind === 'set') return Array.from((v as Set<unknown>).values()).map((item, i) => [String(i), item]);
+    if (kind === 'object') {
+      return Object.keys(v as object).map((k) => [k, (v as Record<string, unknown>)[k]]);
+    }
+    return null;
+  }
+
+  function toNode(label: string | undefined, v: unknown, depth: number): InjectedIdbValueNode {
+    budget.nodes++;
+    const { kind, preview } = describe(v);
+    const node: InjectedIdbValueNode = { kind, preview: clip(preview) };
+    if (label !== undefined) node.label = label;
+    if (depth <= 0) return node;
+    const entries = entriesOf(v, kind);
+    if (!entries || entries.length === 0) return node;
+    const children: InjectedIdbValueNode[] = [];
+    let dropped = 0;
+    for (const [entryLabel, entryValue] of entries) {
+      if (children.length >= childrenMax || budget.nodes >= NODE_BUDGET) {
+        dropped++;
+        continue;
+      }
+      children.push(toNode(entryLabel, entryValue, depth - 1));
+    }
+    if (children.length > 0) node.children = children;
+    if (dropped > 0) node.dropped = dropped;
+    return node;
+  }
+
+  let decoded: { key: IDBValidKey } | null;
+  try {
+    decoded = decodeKeyNode(JSON.parse(primaryKeyWire));
+  } catch {
+    return { value: null };
+  }
+  if (decoded === null) return { value: null };
+  const key = decoded.key;
+
+  try {
+    const db = await new Promise<IDBDatabase | null>((resolve) => {
+      const req = indexedDB.open(database);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => resolve(null);
+      req.onblocked = () => resolve(null);
+      // Deleted since enumeration — abort instead of creating a ghost.
+      req.onupgradeneeded = () => {
+        req.transaction?.abort();
+        resolve(null);
+      };
+    });
+    if (!db) return { value: null };
+    if (!Array.from(db.objectStoreNames).includes(store)) {
+      db.close();
+      return { value: null };
+    }
+    const result = await new Promise<{ value: InjectedIdbValueNode | null }>((resolve) => {
+      try {
+        // A cursor instead of get(): a stored value of literal
+        // `undefined` stays distinguishable from a gone record.
+        const cursorReq = db.transaction(store, 'readonly').objectStore(store).openCursor(IDBKeyRange.only(key));
+        cursorReq.onsuccess = () => {
+          const cursor = cursorReq.result;
+          resolve(cursor ? { value: toNode(undefined, cursor.value, depthMax) } : { value: null });
+        };
+        cursorReq.onerror = () => resolve({ value: null });
+      } catch {
+        resolve({ value: null });
+      }
+    });
+    db.close();
+    return result;
+  } catch {
+    return { value: null };
+  }
+}
+
 export async function deleteIdbRecordInPage(
   database: string,
   store: string,
@@ -487,6 +663,27 @@ export async function getIndexedDbRecords(
   ]);
   if (!result || !Array.isArray(result.records)) return { records: null };
   return { records: result.records, ...(result.truncated ? { truncated: true } : {}) };
+}
+
+export async function getIndexedDbRecordValue(
+  tabId: number,
+  frameId: number,
+  database: string,
+  store: string,
+  primaryKeyWire: string,
+): Promise<{ value: IdbValueNodeWire | null }> {
+  if (typeof database !== 'string' || typeof store !== 'string' || typeof primaryKeyWire !== 'string') {
+    return { value: null };
+  }
+  const result = await runInFrame(tabId, frameId, readIdbRecordValueInPage, [
+    database,
+    store,
+    primaryKeyWire,
+    IDB_TREE_DEPTH_MAX,
+    IDB_TREE_CHILDREN_MAX,
+    IDB_VALUE_PREVIEW_MAX,
+  ]);
+  return { value: result?.value ?? null };
 }
 
 export async function deleteIndexedDbRecord(

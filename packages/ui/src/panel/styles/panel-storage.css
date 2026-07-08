@@ -283,6 +283,56 @@
   max-width: 40%;
 }
 
+/* Expanded record value tree — rides the response-strip chrome. */
+.dt-storage-idb-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.dt-storage-idb-tree-line {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.dt-storage-idb-tree-toggle {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--dt-text-muted);
+  cursor: pointer;
+  font-size: 8px;
+}
+
+span.dt-storage-idb-tree-toggle {
+  cursor: default;
+}
+
+.dt-storage-idb-tree-label {
+  flex: 0 0 auto;
+  color: var(--dt-text);
+}
+
+.dt-storage-idb-tree-preview {
+  color: var(--dt-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dt-storage-idb-tree-more {
+  color: var(--dt-text-muted);
+  font-style: italic;
+}
+
 /* Drill-in chrome shared by the IndexedDB and Cache Storage sections —
  * breadcrumb back to the listing plus the ‹ › pager. */
 .dt-storage-crumb {

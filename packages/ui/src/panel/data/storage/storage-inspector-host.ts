@@ -83,6 +83,20 @@ export interface IdbRecordsPage {
   truncated: boolean;
 }
 
+/**
+ * One node of a record value's bounded, type-tagged tree, serialized
+ * host-side (the value itself never crosses the seam). `label` is the
+ * property key or collection slot, absent on the root; `dropped` counts
+ * children cut by the host's caps.
+ */
+export interface IdbValueNode {
+  kind: string;
+  preview: string;
+  label?: string;
+  children?: ReadonlyArray<IdbValueNode>;
+  dropped?: number;
+}
+
 /** One named cache of the scope's Cache Storage. */
 export interface CacheSummary {
   name: string;
@@ -170,6 +184,15 @@ export interface StorageInspectorHost {
     pageSize: number,
     index?: string,
   ): Promise<IdbRecordsPage | null>;
+  /** Lazy one-shot fetch of one record's value as a bounded tree;
+   *  `null` when the record is gone or the frame can't be read. */
+  readIndexedDbRecordValue(
+    tabId: number,
+    frameId: number,
+    database: string,
+    store: string,
+    primaryKeyWire: string,
+  ): Promise<IdbValueNode | null>;
   /** Delete one record by its opaque wire key; `false` on any failure. */
   deleteIndexedDbRecord(
     tabId: number,
