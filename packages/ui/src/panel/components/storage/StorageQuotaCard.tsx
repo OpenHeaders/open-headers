@@ -1,14 +1,15 @@
 /**
  * The Storage tool window's Usage section — the scope's storage usage
  * against its origin quota, with the per-type breakdown when the host's
- * CDP tier answered (attached tabs). Read-only in this slice; the
- * clear-site-data gesture lands on this card next.
+ * CDP tier answered (attached tabs), and the clear-site-data gesture
+ * (bulk destruction ⇒ the two-step arm/confirm idiom, blur disarms).
  *
  * `navigator.storage` is a secure-context API, so an http: scope
  * legitimately has no reach — that renders as an explanatory empty
  * state, not an error.
  */
 
+import { useState } from 'react';
 import type { StorageQuotaState } from '../../data/storage/use-storage-quota';
 import { formatSize } from '../traffic/formatters';
 
@@ -89,6 +90,37 @@ export function StorageQuotaCard({ quota }: StorageQuotaCardProps) {
             : 'Enable Debug mode to see the per-type breakdown.'}
         </div>
       )}
+      <div className="dt-storage-quota-actions">
+        <ClearSiteDataButton onClear={quota.clearSiteData} />
+        {quota.clearFailed && <span className="dt-storage-quota-clear-failed">clear failed</span>}
+      </div>
     </div>
+  );
+}
+
+/** Two-step inline confirm — first click arms, second commits. */
+function ClearSiteDataButton({ onClear }: { onClear: () => void }) {
+  const [armed, setArmed] = useState(false);
+  return (
+    <button
+      type="button"
+      className={`dt-storage-clear${armed ? ' dt-storage-clear--armed' : ''}`}
+      title={
+        armed
+          ? 'Deletes cookies, DOM storage, IndexedDB, Cache Storage and service workers for this origin'
+          : 'Clear all site data for this origin'
+      }
+      onClick={() => {
+        if (!armed) {
+          setArmed(true);
+          return;
+        }
+        setArmed(false);
+        onClear();
+      }}
+      onBlur={() => setArmed(false)}
+    >
+      {armed ? 'Confirm clear?' : 'Clear site data'}
+    </button>
   );
 }

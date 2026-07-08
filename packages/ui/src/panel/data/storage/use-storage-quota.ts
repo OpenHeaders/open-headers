@@ -32,6 +32,10 @@ export interface StorageQuotaState {
   quota: StorageQuota | null;
   loading: boolean;
   refresh: () => void;
+  /** The last clear failed — cleared by the next successful one. */
+  clearFailed: boolean;
+  /** Clear the scope origin's site data, then refetch the usage. */
+  clearSiteData: () => void;
 }
 
 export function useStorageQuota(active: boolean, frameId: number | null): StorageQuotaState {
@@ -40,6 +44,7 @@ export function useStorageQuota(active: boolean, frameId: number | null): Storag
 
   const [quota, setQuota] = useState<StorageQuota | null>(null);
   const [loading, setLoading] = useState(true);
+  const [clearFailed, setClearFailed] = useState(false);
   const tokenRef = useRef(0);
 
   // Scope or activation change → drop the old scope's snapshot.
@@ -48,6 +53,7 @@ export function useStorageQuota(active: boolean, frameId: number | null): Storag
     tokenRef.current++;
     setQuota(null);
     setLoading(true);
+    setClearFailed(false);
   }, [active, frameId]);
 
   const readQuota = useCallback(async () => {
@@ -74,5 +80,17 @@ export function useStorageQuota(active: boolean, frameId: number | null): Storag
     void readQuota();
   }, [readQuota]);
 
-  return { quota, loading, refresh };
+  // The clear rides the invalidation discipline: commit through the
+  // host, then refetch through the SAME read path — the card only ever
+  // shows what the next read observed. The other sections' hooks refetch
+  // on their own next activation/poll.
+  const clearSiteData = useCallback(() => {
+    if (!host || tabId === null || frameId === null) return;
+    void host.clearSiteData(tabId, frameId).then((ok) => {
+      setClearFailed(!ok);
+      void readQuota();
+    });
+  }, [host, tabId, frameId, readQuota]);
+
+  return { quota, loading, refresh, clearFailed, clearSiteData };
 }

@@ -8,7 +8,7 @@
 
 import { StorageQuotaCard } from '@openheaders/ui/panel/components/storage/StorageQuotaCard';
 import type { StorageQuotaState } from '@openheaders/ui/panel/data/storage/use-storage-quota';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 afterEach(() => {
@@ -20,6 +20,8 @@ function makeQuota(overrides: Partial<StorageQuotaState> = {}): StorageQuotaStat
     quota: { usage: 4096, quota: 120 * 1024 * 1024 },
     loading: false,
     refresh: vi.fn(),
+    clearFailed: false,
+    clearSiteData: vi.fn(),
     ...overrides,
   };
 }
@@ -63,5 +65,27 @@ describe('StorageQuotaCard', () => {
   it('renders a loading note while the first read is in flight', () => {
     render(<StorageQuotaCard quota={makeQuota({ quota: null, loading: true })} />);
     expect(screen.getByText('Loading…')).toBeDefined();
+  });
+
+  it('clears site data only on the second (armed) click, and blur disarms', () => {
+    const quota = makeQuota();
+    render(<StorageQuotaCard quota={quota} />);
+
+    const clear = screen.getByText('Clear site data');
+    fireEvent.click(clear);
+    expect(quota.clearSiteData).not.toHaveBeenCalled();
+    expect(screen.getByText('Confirm clear?')).toBeDefined();
+
+    fireEvent.blur(clear);
+    fireEvent.click(clear);
+    expect(quota.clearSiteData).not.toHaveBeenCalled();
+
+    fireEvent.click(clear);
+    expect(quota.clearSiteData).toHaveBeenCalledTimes(1);
+  });
+
+  it('notes a failed clear', () => {
+    render(<StorageQuotaCard quota={makeQuota({ clearFailed: true })} />);
+    expect(screen.getByText('clear failed')).toBeDefined();
   });
 });

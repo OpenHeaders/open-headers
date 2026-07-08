@@ -394,6 +394,18 @@ export interface DevToolsRpc {
     res: { quota: StorageQuotaWire | null };
   };
 
+  /**
+   * Clear the scope's site data — cookies, DOM storage, IndexedDB,
+   * Cache Storage and service worker registrations for its origin. Rides
+   * the browser's own origin-scoped clearing API (a background-only
+   * surface), so it works in both inspection modes; `ok` is `false` when
+   * the origin can't be derived or the API is unavailable/denied.
+   */
+  clearSiteData: {
+    req: { tabId: number; frameId: number };
+    res: { ok: boolean };
+  };
+
   /** Delete a whole named cache. */
   deleteCacheStorageCache: {
     req: { tabId: number; frameId: number; cache: string };

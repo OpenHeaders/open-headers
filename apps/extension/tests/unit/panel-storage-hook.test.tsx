@@ -88,6 +88,7 @@ function installHost() {
   const deleteCache = vi.fn(() => Promise.resolve(true));
   const deleteCacheEntry = vi.fn(() => Promise.resolve(true));
   const readQuota = vi.fn((): Promise<StorageQuota | null> => Promise.resolve(structuredClone(QUOTA)));
+  const clearSiteData = vi.fn(() => Promise.resolve(true));
   const invalidationListeners = { indexeddb: new Set<() => void>(), cachestorage: new Set<() => void>() };
   const host: StorageInspectorHost = {
     listScopes,
@@ -104,6 +105,7 @@ function installHost() {
     listCaches,
     readCacheEntries,
     readQuota,
+    clearSiteData,
     deleteCache,
     deleteCacheEntry,
     subscribeStorageInvalidations: (_tabId: number, kind: 'indexeddb' | 'cachestorage', listener: () => void) => {
@@ -125,6 +127,7 @@ function installHost() {
     listCaches,
     readCacheEntries,
     readQuota,
+    clearSiteData,
     deleteCache,
     deleteCacheEntry,
     pushInvalidation: (kind: 'indexeddb' | 'cachestorage') => {
@@ -576,6 +579,37 @@ describe('useStorageQuota poll stability', () => {
     readQuota.mockImplementation(() => Promise.resolve(null));
     await flush(10_000);
     expect(result.current.quota).toEqual(QUOTA);
+  });
+
+  it('routes the clear through the host and refetches via the same read path', async () => {
+    const { readQuota, clearSiteData } = installHost();
+    const { result } = renderHook(() => useStorageQuota(true, 0));
+
+    await flush();
+    await flush();
+    expect(result.current.quota).toEqual(QUOTA);
+
+    const readsBefore = readQuota.mock.calls.length;
+    act(() => {
+      result.current.clearSiteData();
+    });
+    await flush();
+    expect(clearSiteData).toHaveBeenCalledWith(42, 0);
+    expect(readQuota.mock.calls.length).toBe(readsBefore + 1);
+    expect(result.current.clearFailed).toBe(false);
+  });
+
+  it('flags a failed clear', async () => {
+    const { clearSiteData } = installHost();
+    clearSiteData.mockImplementation(() => Promise.resolve(false));
+    const { result } = renderHook(() => useStorageQuota(true, 0));
+
+    await flush();
+    act(() => {
+      result.current.clearSiteData();
+    });
+    await flush();
+    expect(result.current.clearFailed).toBe(true);
   });
 
   it('drops the old scope snapshot when the frame changes', async () => {

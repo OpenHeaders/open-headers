@@ -5,6 +5,7 @@ import { logger } from '@utils/logger';
 import {
   clearDomStorage as clearDomStorageHandler,
   clearIndexedDbStore as clearIndexedDbStoreHandler,
+  clearSiteData as clearSiteDataHandler,
   deleteCacheStorageCache as deleteCacheStorageCacheHandler,
   deleteCacheStorageEntry as deleteCacheStorageEntryHandler,
   deleteIndexedDbDatabase as deleteIndexedDbDatabaseHandler,
@@ -209,6 +210,16 @@ export const storageInspectorHandlers: HandlerMap = {
       .catch((err: Error) => {
         logger.info('StorageQuota', `handler threw: ${err.message}`);
         respond({ quota: null });
+      });
+    return true;
+  },
+
+  clearSiteData: ({ message, respond }) => {
+    clearSiteDataHandler(message.tabId as number, message.frameId as number)
+      .then((res) => respond(res))
+      .catch((err: Error) => {
+        logger.info('StorageQuota', `handler threw: ${err.message}`);
+        respond({ ok: false });
       });
     return true;
   },

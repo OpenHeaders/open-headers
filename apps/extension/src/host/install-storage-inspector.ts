@@ -188,6 +188,15 @@ setStorageInspectorHost({
       return null;
     }
   },
+  async clearSiteData(tabId: number, frameId: number): Promise<boolean> {
+    try {
+      const res = await call('clearSiteData', { tabId, frameId });
+      return res?.ok === true;
+    } catch (err) {
+      logger.info('StorageInspectorHost', `clearSiteData ✗ tab ${tabId}: ${(err as Error).message}`);
+      return false;
+    }
+  },
   async deleteCache(tabId: number, frameId: number, cache: string): Promise<boolean> {
     try {
       const res = await call('deleteCacheStorageCache', { tabId, frameId, cache });

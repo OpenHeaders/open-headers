@@ -174,6 +174,9 @@ export interface StorageInspectorHost {
   /** Read the scope's storage usage against its origin quota; `null`
    *  when neither transport can answer (non-secure context, frame gone). */
   readQuota(tabId: number, frameId: number): Promise<StorageQuota | null>;
+  /** Clear the scope origin's site data (cookies, DOM storage,
+   *  IndexedDB, Cache Storage, service workers); `false` on any failure. */
+  clearSiteData(tabId: number, frameId: number): Promise<boolean>;
   /** Delete a whole named cache; `false` on any failure. */
   deleteCache(tabId: number, frameId: number, cache: string): Promise<boolean>;
   /** Delete one cache entry by its request URL (+ method, see the read shape). */

@@ -206,6 +206,9 @@ export const chrome = {
   scripting: {
     executeScript: vi.fn(() => Promise.resolve([])),
   },
+  browsingData: {
+    remove: vi.fn(() => Promise.resolve()),
+  },
   system: {
     display: {
       getInfo: vi.fn((callback) => callback?.([])),

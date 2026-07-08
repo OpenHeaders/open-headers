@@ -6,6 +6,10 @@
  * injected `navigator.storage.estimate()`, which reports totals only.
  * The origin is derived SW-side through `frame-origin.ts` — never
  * trusted from the panel.
+ *
+ * Clear-site-data rides `browsingData.remove({ origins })` — an
+ * extension API (permission already held), so ONE transport that works
+ * in both inspection modes; no CDP leg needed.
  */
 
 import type { StorageQuotaBreakdownWire, StorageQuotaWire } from '@openheaders/core/bridge';
@@ -33,6 +37,28 @@ async function getQuotaViaCdp(send: CdpSend, origin: string): Promise<StorageQuo
     return { usage: res.usage, quota: res.quota, ...(breakdown.length > 0 ? { breakdown } : {}) };
   } catch {
     return null;
+  }
+}
+
+/** The origin-scoped site-data types one clear removes (plan §5 row 6). */
+const SITE_DATA_TO_REMOVE = {
+  cacheStorage: true,
+  cookies: true,
+  indexedDB: true,
+  localStorage: true,
+  serviceWorkers: true,
+} as const;
+
+export async function clearSiteData(tabId: number, frameId: number): Promise<{ ok: boolean }> {
+  if (!chrome.browsingData?.remove) return { ok: false };
+  const origin = await frameSecurityOrigin(tabId, frameId);
+  if (origin === null) return { ok: false };
+  try {
+    await chrome.browsingData.remove({ origins: [origin] }, SITE_DATA_TO_REMOVE);
+    return { ok: true };
+  } catch {
+    // Permission denied / enterprise policy — surfaced as a failed clear.
+    return { ok: false };
   }
 }
 

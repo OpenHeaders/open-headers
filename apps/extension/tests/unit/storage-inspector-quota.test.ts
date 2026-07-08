@@ -13,13 +13,15 @@ import {
   registerStorageCdpAccess,
   type StorageCdpAccess,
 } from '@/background/modules/storage-inspector/cdp-tier';
-import { getStorageQuota } from '@/background/modules/storage-inspector/quota';
+import { clearSiteData, getStorageQuota } from '@/background/modules/storage-inspector/quota';
 import { readStorageEstimateInPage } from '@/background/modules/storage-inspector/standard-plane-quota';
 
 const executeScriptSpy = (): ReturnType<typeof vi.fn> =>
   chrome.scripting.executeScript as unknown as ReturnType<typeof vi.fn>;
 const getFrameSpy = (): ReturnType<typeof vi.fn> =>
   chrome.webNavigation.getFrame as unknown as ReturnType<typeof vi.fn>;
+const browsingDataRemoveSpy = (): ReturnType<typeof vi.fn> =>
+  chrome.browsingData.remove as unknown as ReturnType<typeof vi.fn>;
 
 function installNavigatorStorage(estimate: (() => Promise<StorageEstimate>) | undefined): void {
   Object.defineProperty(globalThis, 'navigator', {
@@ -37,6 +39,8 @@ beforeEach(() => {
   executeScriptSpy().mockReset();
   getFrameSpy().mockReset();
   getFrameSpy().mockResolvedValue(null);
+  browsingDataRemoveSpy().mockReset();
+  browsingDataRemoveSpy().mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -77,6 +81,28 @@ describe('arbitrated RPC surface — injected transport (detached)', () => {
 
     executeScriptSpy().mockResolvedValue([{ result: null }]);
     expect((await getStorageQuota(1, 0)).quota).toBeNull();
+  });
+});
+
+describe('clearSiteData', () => {
+  it('clears the origin-scoped site-data types through browsingData.remove', async () => {
+    getFrameSpy().mockResolvedValue({ url: 'https://openheaders.io/app' });
+    expect(await clearSiteData(1, 0)).toEqual({ ok: true });
+    expect(browsingDataRemoveSpy()).toHaveBeenCalledWith(
+      { origins: ['https://openheaders.io'] },
+      { cacheStorage: true, cookies: true, indexedDB: true, localStorage: true, serviceWorkers: true },
+    );
+  });
+
+  it('fails without touching the API when the origin cannot be derived', async () => {
+    expect(await clearSiteData(1, 0)).toEqual({ ok: false });
+    expect(browsingDataRemoveSpy()).not.toHaveBeenCalled();
+  });
+
+  it('surfaces a rejected remove as a failed clear', async () => {
+    getFrameSpy().mockResolvedValue({ url: 'https://openheaders.io/app' });
+    browsingDataRemoveSpy().mockRejectedValue(new Error('policy denied'));
+    expect(await clearSiteData(1, 0)).toEqual({ ok: false });
   });
 });
 

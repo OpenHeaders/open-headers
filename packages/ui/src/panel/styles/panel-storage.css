@@ -421,6 +421,23 @@
   color: var(--dt-text-muted);
 }
 
+.dt-storage-quota-actions {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* The shared clear button floats right in the scope bar; on the card it
+ * sits with the flow. */
+.dt-storage-quota-actions .dt-storage-clear {
+  margin-left: 0;
+}
+
+.dt-storage-quota-clear-failed {
+  color: var(--dt-status-red);
+}
+
 /* Hover action lane — floats over the value cell's right edge, revealed
  * on row hover (focused-content affordance stays reachable by keyboard:
  * focus-within reveals it too). Pinned variant (add/edit rows) is always

@@ -16,7 +16,7 @@ export {
   listCacheStorageCaches,
 } from './caches';
 export { armStorageTracking, registerStorageCdpAccess, type StorageCdpAccess } from './cdp-tier';
-export { getStorageQuota } from './quota';
+export { clearSiteData, getStorageQuota } from './quota';
 export { listStorageScopes } from './scopes';
 export {
   clearDomStorage,
