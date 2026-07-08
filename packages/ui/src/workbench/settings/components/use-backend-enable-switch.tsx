@@ -21,6 +21,7 @@
  */
 
 import { updateBackend } from '@openheaders/core/backends';
+import { getOrgBackendBindings } from '@openheaders/core/identity';
 import type { BackendConnection } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { App as AntApp } from 'antd';
@@ -91,13 +92,17 @@ export function useBackendEnableSwitch(): BackendEnableSwitchHandle {
     }
 
     setOverlay({ toLabel });
+    // Adoption happens on FIRST join only — a re-enable of a record whose
+    // Orgs are already bound reconnects without repointing the active
+    // workspace, so waiting would just burn the adopt settle timeout.
+    const isRejoin = [...getOrgBackendBindings().values()].includes(record.id);
     await updateBackend(record.id, { enabled: true });
     // First join promotes the backend's active workspace; hold the
     // overlay until this surface has followed onto it so the user never
     // sees the previous workspace flash through.
     await Promise.all([
       sleep(MIN_OVERLAY_MS),
-      adoptActiveWorkspaceIntoSurface ? adoptActiveWorkspaceIntoSurface() : Promise.resolve(),
+      adoptActiveWorkspaceIntoSurface && !isRejoin ? adoptActiveWorkspaceIntoSurface() : Promise.resolve(),
     ]);
     setOverlay(null);
     message.success(`Connected to ${toLabel}.`);
