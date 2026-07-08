@@ -39,6 +39,7 @@ import { Divider, Input, Popover, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { renderWorkspacePrefix } from '../../workbench/components/workspace/workspace-prefix';
+import { type OrgSyncAnnotation, orphanedOrgAnnotation, useOrgSyncAnnotations } from '../backend';
 import { useBackendReach } from '../hooks/useBackendReach';
 import { OrgIcon } from '../workspace-org/OrgIcon';
 import { WorkspaceOrgBadge } from '../workspace-org/WorkspaceOrgBadge';
@@ -147,6 +148,7 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
 }) => {
   const { token } = theme.useToken();
   const reach = useBackendReach();
+  const annotateOrg = useOrgSyncAnnotations();
   const [searchText, setSearchText] = useState('');
   const searchRef = useRef<InputRef>(null);
 
@@ -408,7 +410,10 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
   };
 
   const renderOrgHeader = (orgId: string, descriptor: OrgDescriptor | null): React.ReactNode => {
-    const label = descriptor ? orgFullLabel(descriptor, reach) : 'Other workspaces';
+    // A null descriptor in grouped mode means the Org left the identity
+    // snapshot — its backend record was removed with local copies kept.
+    const label = descriptor ? orgFullLabel(descriptor, reach) : 'No longer syncing';
+    const annotation: OrgSyncAnnotation | null = descriptor ? annotateOrg(orgId) : orphanedOrgAnnotation();
     // Name the workspace the switch lands on — the header shows the Org's
     // intent; the tooltip makes the concrete consequence visible.
     const targetWs = resolveOrgTarget(orgId);
@@ -448,6 +453,21 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
           >
             {label}
           </Text>
+          {annotation && (
+            <Text
+              style={{
+                fontSize: 10,
+                color: annotation.tone === 'warning' ? token.colorWarningText : token.colorTextTertiary,
+                maxWidth: 190,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+              }}
+            >
+              {annotation.text}
+            </Text>
+          )}
         </div>
       </Tooltip>
     );

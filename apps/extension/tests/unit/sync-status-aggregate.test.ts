@@ -9,16 +9,20 @@
  *   - subscribers fire on every report and drop with the full map.
  */
 
-import type { BackendSyncStatusSnapshot } from '@openheaders/core/types';
+import { __clearBackendsForTests, refreshBackendsFromHostStorage } from '@openheaders/core/backends';
+import { hostStorage, OH } from '@openheaders/core/storage';
+import type { BackendSyncStatusSnapshot, Org } from '@openheaders/core/types';
 import { __resetStatusForTests, getStatusSnapshot } from '@openheaders/ui/shared/status';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   __resetSyncStatusAggregateForTests,
   dropBackendSyncStatus,
   getBackendSyncStatusSnapshot,
+  refreshSyncStatusAggregate,
   reportBackendSyncStatus,
   subscribeBackendSyncStatus,
 } from '../../src/background/sync-status-aggregate';
+import { installSyntheticIdentityForTests, makeTestBackend, TEST_BACKEND_ID } from './sync/_identity-test-setup';
 
 beforeEach(() => {
   __resetSyncStatusAggregateForTests();
@@ -80,5 +84,63 @@ describe('sync-status aggregate', () => {
     expect(seen).toHaveLength(2);
     expect(Object.keys(seen[0])).toEqual(['backend-a']);
     expect(seen[1]).toEqual({});
+  });
+});
+
+describe('disabled-but-bound backends', () => {
+  const JOINED_ORG: Org = {
+    id: 'org-backend',
+    name: 'Johns-MacBook-Pro',
+    hostKind: 'desktop',
+    isPrivate: false,
+  };
+  let teardownIdentity: (() => void) | null = null;
+
+  afterEach(() => {
+    teardownIdentity?.();
+    teardownIdentity = null;
+    __clearBackendsForTests();
+  });
+
+  it('a disabled record still binding a joined Org turns the pill yellow', async () => {
+    teardownIdentity = await installSyntheticIdentityForTests([], [{ org: JOINED_ORG, backendId: TEST_BACKEND_ID }]);
+    await hostStorage.set(OH.backends, [makeTestBackend({ enabled: false, label: 'Desktop application' })]);
+    await refreshBackendsFromHostStorage();
+
+    refreshSyncStatusAggregate();
+
+    const sync = getStatusSnapshot().sync;
+    expect(sync?.state).toBe('yellow');
+    expect(sync?.message).toBe("Desktop application is off — its workspaces aren't syncing");
+    expect(sync?.context).toEqual({ reason: 'backend-off', backendId: TEST_BACKEND_ID });
+    // Roll-up only — the per-backend slot feed stays pure wire truth.
+    expect(getBackendSyncStatusSnapshot()).toEqual({});
+  });
+
+  it('a live report outranks the synthetic candidate within the same state', async () => {
+    teardownIdentity = await installSyntheticIdentityForTests([], [{ org: JOINED_ORG, backendId: TEST_BACKEND_ID }]);
+    await hostStorage.set(OH.backends, [
+      makeTestBackend({ enabled: false, label: 'Desktop application' }),
+      makeTestBackend({ id: 'backend-b', enabled: true }),
+    ]);
+    await refreshBackendsFromHostStorage();
+
+    reportBackendSyncStatus('backend-b', { state: 'yellow', message: 'Handshaking with back-end…' });
+
+    const sync = getStatusSnapshot().sync;
+    expect(sync?.state).toBe('yellow');
+    expect(sync?.message).toBe('Handshaking with back-end…');
+  });
+
+  it('a disabled record with no bound Orgs keeps the in-browser resting state', async () => {
+    teardownIdentity = await installSyntheticIdentityForTests();
+    await hostStorage.set(OH.backends, [makeTestBackend({ enabled: false, label: 'Desktop application' })]);
+    await refreshBackendsFromHostStorage();
+
+    refreshSyncStatusAggregate();
+
+    const sync = getStatusSnapshot().sync;
+    expect(sync?.state).toBe('green');
+    expect(sync?.message).toBe('Running in this browser');
   });
 });

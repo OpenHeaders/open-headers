@@ -11,7 +11,9 @@
  * worst state wins the pill (red > yellow > green); ties go to the most
  * recently reported so a single backend behaves byte-identically to the
  * pre-manager wiring. Zero slots means no enabled backend — the SW is
- * the back-end.
+ * the back-end — but a disabled record that still BINDS joined Orgs
+ * contributes a synthetic yellow candidate: its local workspaces exist
+ * and aren't syncing, which is a warning, not a healthy green.
  *
  * The slots themselves are also observable per backend
  * ({@link getBackendSyncStatusSnapshot} / {@link subscribeBackendSyncStatus})
@@ -19,6 +21,8 @@
  * `backendSyncStatusUpdated`.
  */
 
+import { getBackends } from '@openheaders/core/backends';
+import { getOrgBackendBindings } from '@openheaders/core/identity';
 import type { BackendSyncStatusSnapshot } from '@openheaders/core/types';
 import { report as reportStatus } from '@openheaders/ui/shared/status';
 import type { SyncStatusEntry } from './sync-status-reporter';
@@ -76,11 +80,38 @@ export function subscribeBackendSyncStatus(fn: (snapshot: BackendSyncStatusSnaps
   };
 }
 
+/**
+ * Synthetic pill candidates for backends that are DISABLED but still
+ * BOUND (joined Orgs whose local workspaces silently stopped syncing).
+ * A wire-less record contributes no slot, so without these the pill
+ * would read green "Running in this browser" while joined data goes
+ * stale. Yellow, seq 0 — any live report of equal rank wins the tie.
+ * Roll-up only: the per-backend snapshot stays pure wire truth, and the
+ * row dot already renders a disabled record as "Off".
+ */
+function disabledBoundCandidates(): Slot[] {
+  const boundBackendIds = new Set(getOrgBackendBindings().values());
+  const candidates: Slot[] = [];
+  for (const record of getBackends()) {
+    if (record.enabled || !boundBackendIds.has(record.id)) continue;
+    const label = record.label.trim() || record.url;
+    candidates.push({
+      entry: {
+        state: 'yellow',
+        message: `${label} is off — its workspaces aren't syncing`,
+        context: { reason: 'backend-off', backendId: record.id },
+      },
+      seq: 0,
+    });
+  }
+  return candidates;
+}
+
 function publish(): void {
   const perBackend = getBackendSyncStatusSnapshot();
   for (const fn of [...slotSubscribers]) fn(perBackend);
   let chosen: Slot | null = null;
-  for (const slot of slots.values()) {
+  for (const slot of [...slots.values(), ...disabledBoundCandidates()]) {
     if (
       !chosen ||
       RANK[slot.entry.state] > RANK[chosen.entry.state] ||
