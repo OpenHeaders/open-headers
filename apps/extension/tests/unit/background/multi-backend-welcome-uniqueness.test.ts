@@ -19,7 +19,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 type OnJoinedOrg = (org: unknown, backendActiveWorkspaceId?: string) => Promise<void>;
 const capturedConfigs: Array<{ onJoinedOrg?: OnJoinedOrg }> = [];
 
-vi.mock('@/background/sync-handshake-initiator', () => ({
+vi.mock('@openheaders/oracle/sync/client/sync-handshake-initiator', () => ({
   createSyncHandshakeInitiator: (config: { onJoinedOrg?: OnJoinedOrg }) => {
     capturedConfigs.push(config);
     return { refreshFanOut: vi.fn(), reset: vi.fn() };

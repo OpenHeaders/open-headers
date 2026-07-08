@@ -13,9 +13,8 @@ import {
   SYNC_WELCOME_TYPE,
   type SyncWelcomeAccept,
 } from '@openheaders/core/protocol';
+import { createSyncHandshakeInitiator } from '@openheaders/oracle/sync/client/sync-handshake-initiator';
 import { describe, expect, it, vi } from 'vitest';
-
-import { createSyncHandshakeInitiator } from '@/background/sync-handshake-initiator';
 import {
   describeHandshakeStatus,
   installHandshakeStatusReporter,

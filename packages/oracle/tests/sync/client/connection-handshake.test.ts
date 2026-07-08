@@ -16,7 +16,7 @@ import {
 } from '@openheaders/core/protocol';
 import { describe, expect, it, vi } from 'vitest';
 
-import { createConnectionHandshake } from '@/background/connection-handshake';
+import { createConnectionHandshake } from '../../../src/sync/client/connection-handshake';
 
 const welcomeAccept: SyncWelcomeAccept = {
   type: SYNC_WELCOME_TYPE,

@@ -43,10 +43,9 @@ import {
 import { EXTENSION_WORKSPACE_GLOBAL_SCOPE, type MutationEnvelope } from '@openheaders/core/sync';
 import type { Org } from '@openheaders/core/types';
 import { __resetOutboundGateForTests, evaluateOutboundEnvelope } from '@openheaders/oracle/sync';
+import { createSyncHandshakeInitiator } from '@openheaders/oracle/sync/client/sync-handshake-initiator';
 import fc from 'fast-check';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-
-import { createSyncHandshakeInitiator } from '@/background/sync-handshake-initiator';
 import { installSyntheticIdentityForTests } from './_identity-test-setup';
 import { stressNumRuns } from './property-stress';
 

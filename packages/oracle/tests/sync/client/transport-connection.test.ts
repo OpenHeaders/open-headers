@@ -12,7 +12,7 @@ import {
   createTransportConnection,
   STABLE_CONNECTION_MS,
   type TransportConnectionDeps,
-} from '@/background/transport-connection';
+} from '../../../src/sync/client/transport-connection';
 
 class FakeSocket {
   readyState = 0; // CONNECTING

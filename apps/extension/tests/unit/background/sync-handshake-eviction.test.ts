@@ -20,7 +20,7 @@ let capturedConfig: {
   onSynced?: (scope: unknown, peerVector: unknown) => Promise<void>;
 } = {};
 
-vi.mock('@/background/sync-handshake-initiator', () => ({
+vi.mock('@openheaders/oracle/sync/client/sync-handshake-initiator', () => ({
   createSyncHandshakeInitiator: (config: typeof capturedConfig) => {
     capturedConfig = config;
     return { refreshFanOut: vi.fn() };

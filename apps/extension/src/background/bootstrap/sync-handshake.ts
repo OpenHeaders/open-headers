@@ -7,6 +7,7 @@ import {
 import { claimJoinedOrg, getOrgBackendBindings } from '@openheaders/core/identity';
 import { type HandshakeRejectReason, isBackendEvictingReason } from '@openheaders/core/protocol';
 import { applyWorkspaceSnapshot, readWorkspaceStateVector } from '@openheaders/oracle/sync';
+import { createSyncHandshakeInitiator } from '@openheaders/oracle/sync/client/sync-handshake-initiator';
 import { getOrCreateWorkspaceService, releaseWorkspaceService } from '@openheaders/oracle/sync/service';
 import { runtime } from '@utils/browser-api';
 import { logger } from '@utils/logger';
@@ -17,7 +18,6 @@ import {
   peekActiveWorkspaceId,
   setActiveWorkspaceById,
 } from '../modules/workspace/workspace-store';
-import { createSyncHandshakeInitiator } from '../sync-handshake-initiator';
 import { applyPeerStateVectorToPendingOut, flushPendingOutToBackend } from '../sync-mutation-forwarder';
 import { reportBackendSyncStatus } from '../sync-status-aggregate';
 import type { BackendWireHandle } from '../websocket';

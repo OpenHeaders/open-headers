@@ -34,7 +34,7 @@ import {
   SyncWelcomeMessageSchema,
 } from '@openheaders/core/protocol';
 import type { Org } from '@openheaders/core/types';
-import { logger } from '@utils/logger';
+import { logger } from '@openheaders/core/utils';
 import * as v from 'valibot';
 
 const SCOPE = 'ConnectionHandshake';

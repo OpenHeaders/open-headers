@@ -33,7 +33,7 @@ import {
   type WorkspaceSnapshot,
 } from '@openheaders/core/protocol';
 import type { StateVector } from '@openheaders/core/sync';
-import { logger } from '@utils/logger';
+import { logger } from '@openheaders/core/utils';
 import * as v from 'valibot';
 
 const SCOPE = 'ScopeCatchupDriver';

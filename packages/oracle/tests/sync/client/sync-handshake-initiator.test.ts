@@ -27,7 +27,7 @@ import {
 import { EXTENSION_WORKSPACE_GLOBAL_SCOPE } from '@openheaders/core/sync';
 import { describe, expect, it, vi } from 'vitest';
 
-import { createSyncHandshakeInitiator } from '@/background/sync-handshake-initiator';
+import { createSyncHandshakeInitiator } from '../../../src/sync/client/sync-handshake-initiator';
 
 const GLOBAL = EXTENSION_WORKSPACE_GLOBAL_SCOPE;
 

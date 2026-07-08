@@ -15,7 +15,7 @@ import {
 } from '@openheaders/core/protocol';
 import { describe, expect, it, vi } from 'vitest';
 
-import { createScopeCatchupDriver } from '@/background/scope-catchup-driver';
+import { createScopeCatchupDriver } from '../../../src/sync/client/scope-catchup-driver';
 
 function emptySnapshot(workspaceId: string): WorkspaceSnapshot {
   return {

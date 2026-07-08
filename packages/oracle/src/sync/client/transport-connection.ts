@@ -41,7 +41,7 @@ import {
   PROTOCOL_INCOMPATIBLE_CLOSE_CODE,
   parseHandshakeRejectReason,
 } from '@openheaders/core/protocol';
-import { logger } from '@utils/logger';
+import { logger } from '@openheaders/core/utils';
 
 const SCOPE = 'Transport';
 

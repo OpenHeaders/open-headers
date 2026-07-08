@@ -25,6 +25,10 @@
 
 import { getBackends, isLoopbackBackendUrl, subscribeBackends, updateBackend } from '@openheaders/core/backends';
 import type { BackendConnection } from '@openheaders/core/types';
+import {
+  createTransportConnection,
+  type TransportConnection,
+} from '@openheaders/oracle/sync/client/transport-connection';
 import { get as getSetting, subscribeKey } from '@openheaders/ui/workbench/settings/store';
 import { broadcast } from '@utils/bridge';
 import { isSafari } from '@utils/browser-api';
@@ -32,7 +36,6 @@ import { logger } from '@utils/logger';
 import { adaptWebSocketUrl, safariPreCheck } from './safari-websocket-adapter';
 import { dropBackendSyncStatus, refreshSyncStatusAggregate, reportBackendSyncStatus } from './sync-status-aggregate';
 import { handshakeRejectEntry, type SyncStatusEntry } from './sync-status-reporter';
-import { createTransportConnection, type TransportConnection } from './transport-connection';
 
 // ── Wire handles ──────────────────────────────────────────────────
 

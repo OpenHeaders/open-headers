@@ -34,7 +34,7 @@ import type { BackendReach, HandshakeRejectReason, WorkspaceSnapshot } from '@op
 import type { StateVector } from '@openheaders/core/sync';
 import { EXTENSION_WORKSPACE_GLOBAL_SCOPE } from '@openheaders/core/sync';
 import type { Org } from '@openheaders/core/types';
-import { logger } from '@utils/logger';
+import { logger } from '@openheaders/core/utils';
 
 import { type ConnectionState, createConnectionHandshake } from './connection-handshake';
 import { type CatchupState, createScopeCatchupDriver } from './scope-catchup-driver';

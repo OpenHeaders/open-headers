@@ -28,7 +28,7 @@
  */
 import type { HandshakeRejectReason } from '@openheaders/core/protocol';
 
-import type { InitiatorState, SyncHandshakeInitiator } from './sync-handshake-initiator';
+import type { InitiatorState, SyncHandshakeInitiator } from '@openheaders/oracle/sync/client/sync-handshake-initiator';
 
 export interface SyncStatusEntry {
   readonly state: 'green' | 'yellow' | 'red';
