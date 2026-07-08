@@ -123,10 +123,11 @@ export interface IdbDatabaseWire {
  *
  * `primaryKeyWire` is a LOSSLESS encoding of the record's primary key
  * (JSON of tagged nodes: `{s}` string / `{n}` finite number / `{d}` ISO
- * Date / `{a}` array), present only when the key is exactly encodable —
- * binary keys and non-finite numbers omit it, which marks the record
- * undeletable. Opaque to the panel: encoded in-page on read, passed
- * back verbatim on `deleteIndexedDbRecord`, decoded in-page again.
+ * Date / `{b}` base64 binary / `{inf}` ±Infinity / `{a}` array) — total
+ * over the practical IDB key space; the rare corner the codec can't
+ * encode omits it, which marks the record undeletable. Opaque to the
+ * panel: encoded in-page on read, passed back verbatim on
+ * `deleteIndexedDbRecord`, decoded in-page again.
  */
 export interface IdbRecordWire {
   keyPreview: string;

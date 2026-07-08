@@ -13,12 +13,11 @@
  *
  * Record identity for deletes: previews are lossy, so each record also
  * carries `primaryKeyWire`, a LOSSLESS tagged-JSON encoding of its
- * primary key — the IDB key space (string / finite number / Date /
- * arrays of those) round-trips exactly; binary keys and non-finite
- * numbers get no wire key and render undeletable. The string is opaque
- * outside this file: encoded in-page on read, decoded in-page on
- * delete (the key must be rebuilt in the page realm — injection args
- * are JSON-only).
+ * primary key — total over the practical IDB key space (string / number
+ * including ±Infinity / Date / binary as base64 / arrays of those). The
+ * string is opaque outside this file: encoded in-page on read, decoded
+ * in-page on delete (the key must be rebuilt in the page realm —
+ * injection args are JSON-only).
  */
 
 import type { IdbDatabaseWire, IdbRecordWire } from '@openheaders/core/bridge';
@@ -46,7 +45,13 @@ interface InjectedIdbRecord {
 }
 
 /** Tagged node of the lossless primary-key wire encoding. */
-type IdbKeyWireNode = { s: string } | { n: number } | { d: string } | { a: IdbKeyWireNode[] };
+type IdbKeyWireNode =
+  | { s: string }
+  | { n: number }
+  | { d: string }
+  | { b: string }
+  | { inf: 1 | -1 }
+  | { a: IdbKeyWireNode[] };
 
 /**
  * The injected funcs run INSIDE the target frame and are serialized by
@@ -168,13 +173,34 @@ export async function readIdbRecordsInPage(
     return s.length > previewMax ? `${s.slice(0, previewMax)}…` : s;
   }
 
-  // Lossless tagged encoding of a primary key — total over the IDB key
-  // space except binary keys and non-finite numbers, which return
-  // `undefined` (the record renders undeletable).
+  // Lossless tagged encoding of a primary key — total over the
+  // practical IDB key space: strings, numbers (±Infinity as a tagged
+  // sign), Dates, binary keys (base64 of the bytes — IDB compares them
+  // by bytes), and arrays of those. `undefined` marks the rare corner
+  // the codec can't encode; the record renders undeletable.
   function encodeKeyNode(k: unknown): IdbKeyWireNode | undefined {
+    function bytesToBase64(bytes: Uint8Array): string {
+      let bin = '';
+      for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i] as number);
+      return btoa(bin);
+    }
     if (typeof k === 'string') return { s: k };
-    if (typeof k === 'number') return Number.isFinite(k) ? { n: k } : undefined;
+    if (typeof k === 'number') {
+      if (Number.isFinite(k)) return { n: k };
+      if (k === Number.POSITIVE_INFINITY) return { inf: 1 };
+      if (k === Number.NEGATIVE_INFINITY) return { inf: -1 };
+      return undefined;
+    }
     if (k instanceof Date) return Number.isNaN(k.getTime()) ? undefined : { d: k.toISOString() };
+    // toString-tag check instead of instanceof: a binary key can be a
+    // cross-realm ArrayBuffer, whose identity instanceof can't see.
+    if (Object.prototype.toString.call(k) === '[object ArrayBuffer]') {
+      return { b: bytesToBase64(new Uint8Array(k as ArrayBuffer)) };
+    }
+    if (ArrayBuffer.isView(k)) {
+      const view = k as ArrayBufferView;
+      return { b: bytesToBase64(new Uint8Array(view.buffer, view.byteOffset, view.byteLength)) };
+    }
     if (Array.isArray(k)) {
       const items: IdbKeyWireNode[] = [];
       for (const item of k) {
@@ -268,13 +294,25 @@ export async function deleteIdbRecordInPage(
   // valid falsy key (0, '') is distinguishable from failure.
   function decodeKeyNode(node: unknown): { key: IDBValidKey } | null {
     if (!node || typeof node !== 'object') return null;
-    const tagged = node as { s?: unknown; n?: unknown; d?: unknown; a?: unknown };
+    const tagged = node as { s?: unknown; n?: unknown; d?: unknown; b?: unknown; inf?: unknown; a?: unknown };
     if (typeof tagged.s === 'string') return { key: tagged.s };
     if (typeof tagged.n === 'number' && Number.isFinite(tagged.n)) return { key: tagged.n };
     if (typeof tagged.d === 'string') {
       const date = new Date(tagged.d);
       return Number.isNaN(date.getTime()) ? null : { key: date };
     }
+    if (typeof tagged.b === 'string') {
+      try {
+        const bin = atob(tagged.b);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        return { key: bytes.buffer };
+      } catch {
+        return null;
+      }
+    }
+    if (tagged.inf === 1) return { key: Number.POSITIVE_INFINITY };
+    if (tagged.inf === -1) return { key: Number.NEGATIVE_INFINITY };
     if (Array.isArray(tagged.a)) {
       const items: IDBValidKey[] = [];
       for (const item of tagged.a) {

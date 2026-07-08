@@ -67,8 +67,8 @@ export interface IdbDatabase {
 /**
  * One record, preview-serialized in-page — never the value itself.
  * `primaryKeyWire` is the host's opaque lossless key encoding, present
- * only when the primary key round-trips exactly; a record without one
- * can't be deleted.
+ * for every practical primary key; the rare record without one can't
+ * be deleted.
  */
 export interface IdbRecord {
   keyPreview: string;

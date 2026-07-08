@@ -170,7 +170,7 @@ describe('readIdbRecordsInPage', () => {
 });
 
 describe('primary-key wire encoding', () => {
-  it('encodes string / number / Date / array keys losslessly and skips non-finite numbers', async () => {
+  it('encodes string / number / Date / array / ±Infinity keys losslessly', async () => {
     await seedDb('oh-app', 1, (db) => db.createObjectStore('kv'));
     await putRecords('oh-app', 'kv', [
       { key: 'str-key', value: 1 },
@@ -178,10 +178,11 @@ describe('primary-key wire encoding', () => {
       { key: new Date('2026-07-08T10:20:30.456Z'), value: 3 },
       { key: ['tenant', 7, new Date('2026-01-01T00:00:00.000Z')], value: 4 },
       { key: Number.POSITIVE_INFINITY, value: 5 },
+      { key: Number.NEGATIVE_INFINITY, value: 6 },
     ]);
 
     const { records } = await readIdbRecordsInPage('oh-app', 'kv', 0, 50, 1024);
-    expect(records).toHaveLength(5);
+    expect(records).toHaveLength(6);
     const wires = (records ?? []).map((r) => r.primaryKeyWire);
     expect(JSON.parse(wires.find((w) => w?.includes('str-key')) as string)).toEqual({ s: 'str-key' });
     expect(JSON.parse(wires.find((w) => w?.includes('42.5')) as string)).toEqual({ n: 42.5 });
@@ -191,10 +192,19 @@ describe('primary-key wire encoding', () => {
     expect(JSON.parse(wires.find((w) => w?.includes('tenant')) as string)).toEqual({
       a: [{ s: 'tenant' }, { n: 7 }, { d: '2026-01-01T00:00:00.000Z' }],
     });
-    // Infinity is a valid IDB key but not JSON-encodable — undeletable.
     const infinity = records?.find((r) => r.keyPreview === 'Infinity');
-    expect(infinity).toBeDefined();
-    expect(infinity?.primaryKeyWire).toBeUndefined();
+    expect(JSON.parse(infinity?.primaryKeyWire as string)).toEqual({ inf: 1 });
+    const negInfinity = records?.find((r) => r.keyPreview === '-Infinity');
+    expect(JSON.parse(negInfinity?.primaryKeyWire as string)).toEqual({ inf: -1 });
+  });
+
+  it('encodes binary keys as base64 bytes', async () => {
+    await seedDb('oh-app', 1, (db) => db.createObjectStore('kv'));
+    await putRecords('oh-app', 'kv', [{ key: new Uint8Array([1, 2, 3]).buffer, value: 'bin' }]);
+
+    const { records } = await readIdbRecordsInPage('oh-app', 'kv', 0, 50, 1024);
+    expect(records).toHaveLength(1);
+    expect(JSON.parse(records?.[0]?.primaryKeyWire as string)).toEqual({ b: 'AQID' });
   });
 });
 
@@ -206,10 +216,13 @@ describe('injected delete plane', () => {
       { key: 7, value: 'b' },
       { key: new Date('2026-07-08T00:00:00.000Z'), value: 'c' },
       { key: [1, 'two'], value: 'd' },
+      { key: Number.POSITIVE_INFINITY, value: 'e' },
+      { key: Number.NEGATIVE_INFINITY, value: 'f' },
+      { key: new Uint8Array([9, 8]).buffer, value: 'g' },
     ]);
 
     const { records } = await readIdbRecordsInPage('oh-app', 'kv', 0, 50, 1024);
-    expect(records).toHaveLength(4);
+    expect(records).toHaveLength(7);
     for (const record of records ?? []) {
       const result = await deleteIdbRecordInPage('oh-app', 'kv', record.primaryKeyWire as string);
       expect(result.ok).toBe(true);

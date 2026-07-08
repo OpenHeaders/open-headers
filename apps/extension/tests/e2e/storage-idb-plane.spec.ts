@@ -139,6 +139,7 @@ test('IndexedDB reads, previews, key wire and deletes ride the plane end-to-end'
   expect(kv.truncated).toBeFalsy();
   const kvKeys = (kv.records ?? []).map((r) => r.keyPreview);
   expect(kvKeys).toEqual([
+    '-Infinity',
     '0',
     'Infinity',
     'Date(2026-01-02T03:04:05.000Z)',
@@ -150,12 +151,11 @@ test('IndexedDB reads, previews, key wire and deletes ride the plane end-to-end'
   const kvByKey = new Map((kv.records ?? []).map((r) => [r.keyPreview, r]));
   expect(kvByKey.get('"alpha"')?.valuePreview).toBe('{tag: "string-key"}');
   expect(kvByKey.get('0')?.valuePreview).toBe('"zero-key"');
-  // Encodable keys carry the lossless wire; binary and non-finite don't.
-  for (const deletable of ['0', 'Date(2026-01-02T03:04:05.000Z)', '""', '"alpha"', '["user-1", 7]']) {
-    expect(kvByKey.get(deletable)?.primaryKeyWire).toBeDefined();
+  // The key codec is total over the practical key space — every row,
+  // binary and ±Infinity included, carries the lossless wire.
+  for (const keyPreview of kvKeys) {
+    expect(kvByKey.get(keyPreview)?.primaryKeyWire).toBeDefined();
   }
-  expect(kvByKey.get('Infinity')?.primaryKeyWire).toBeUndefined();
-  expect(kvByKey.get('ArrayBuffer(3 B)')?.primaryKeyWire).toBeUndefined();
 
   // ── rich store: structured-clone previews against a REAL browser ───
   const rich = await rpc<RecordsResult>('getIndexedDbRecords', {
@@ -200,8 +200,8 @@ test('IndexedDB reads, previews, key wire and deletes ride the plane end-to-end'
   expect(page1.truncated).toBeFalsy();
   expect(page1.records?.[0]?.valuePreview).toBe('{id: 50, label: "bulk-50"}');
 
-  // ── Record deletes: string key, falsy key, composite array key ─────
-  for (const keyPreview of ['"alpha"', '0']) {
+  // ── Record deletes: string, falsy, binary and ±Infinity keys ───────
+  for (const keyPreview of ['"alpha"', '0', 'Infinity', '-Infinity', 'ArrayBuffer(3 B)']) {
     const wire = kvByKey.get(keyPreview)?.primaryKeyWire;
     const deleted = await rpc<{ ok: boolean }>('deleteIndexedDbRecord', {
       ...base,
@@ -246,7 +246,7 @@ test('IndexedDB reads, previews, key wire and deletes ride the plane end-to-end'
         };
       }),
   );
-  expect(counts.kv).toBe(5);
+  expect(counts.kv).toBe(3);
   expect(counts.orders).toBe(1);
 
   // ── Store clear ────────────────────────────────────────────────────
