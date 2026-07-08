@@ -299,10 +299,10 @@
   white-space: nowrap;
 }
 
-/* A record open as an editor tab keeps its row lit — findable when
- * switching between tabs and the Storage window. */
-.dt-storage-grid--idb .dt-storage-row--open,
-.dt-storage-grid--idb .dt-storage-row--open:hover {
+/* The ACTIVE editor tab's record keeps its row lit — exactly one row,
+ * tracking tab switches. */
+.dt-storage-grid--idb .dt-storage-row--active,
+.dt-storage-grid--idb .dt-storage-row--active:hover {
   background: var(--dt-row-selected);
 }
 
@@ -465,6 +465,18 @@
   overflow: auto;
   padding: 6px 10px;
   font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+}
+
+/* Preview-tree rows stay one line each — a long string scrolls
+ * horizontally on its key's row instead of wrapping below it. */
+.dt-idbdoc-preview--tree {
+  white-space: nowrap;
+}
+
+/* The inline first-level summary reads best collapsed; once a node is
+ * expanded its children replace it. */
+.dt-idbdoc-preview--tree details[open] > summary > .dt-idbpreview-inline {
+  display: none;
 }
 
 /* Drill-in chrome shared by the IndexedDB and Cache Storage sections —

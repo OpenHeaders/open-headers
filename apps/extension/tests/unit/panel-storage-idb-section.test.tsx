@@ -88,17 +88,17 @@ describe('IndexedDbSection records view', () => {
     expect(onOpenRecord).not.toHaveBeenCalled();
   });
 
-  it('highlights the rows whose records are open as editor tabs', () => {
+  it('highlights exactly the active editor tab’s record row', () => {
     const idb = makeIdb({ selection: { database: 'oh-app', store: 'kv' }, recordsPage: RECORDS_PAGE });
-    const isRecordOpen = vi.fn(
+    const isRecordActive = vi.fn(
       (database: string, store: string, wire: string) =>
         database === 'oh-app' && store === 'kv' && wire === '{"s":"simple"}',
     );
-    render(<IndexedDbSection idb={idb} filter="" onOpenRecord={vi.fn()} isRecordOpen={isRecordOpen} />);
+    render(<IndexedDbSection idb={idb} filter="" onOpenRecord={vi.fn()} isRecordActive={isRecordActive} />);
 
     const rows = screen.getAllByRole('row').filter((r) => r.classList.contains('dt-storage-row'));
-    expect(rows[0]?.classList.contains('dt-storage-row--open')).toBe(true);
-    expect(rows[1]?.classList.contains('dt-storage-row--open')).toBe(false);
+    expect(rows[0]?.classList.contains('dt-storage-row--active')).toBe(true);
+    expect(rows[1]?.classList.contains('dt-storage-row--active')).toBe(false);
   });
 });
 

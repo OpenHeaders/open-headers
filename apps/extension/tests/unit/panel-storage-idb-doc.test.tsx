@@ -176,7 +176,8 @@ describe('IdbRecordEditorTab', () => {
     expect(screen.queryByTestId('code-viewer')).toBeNull();
 
     // Browser parity: only the root starts expanded; every container's
-    // summary carries an inline first-level preview with unquoted names.
+    // summary carries an inline first-level preview with unquoted names
+    // (CSS hides it while the node is expanded — jsdom keeps it in DOM).
     const details = container.querySelectorAll('details');
     expect(details[0]?.open).toBe(true);
     expect(details[1]?.open).toBe(false);

@@ -226,7 +226,10 @@ export function IdbRecordEditorTab({ tab, onRevealInStorage, onDirtyChange, regi
           </span>
         </div>
       ) : effectiveMode === 'preview' ? (
-        <div className="dt-idbdoc-preview" aria-label="Record value tree">
+        <div
+          className={`dt-idbdoc-preview${previewValue === undefined ? ' dt-idbdoc-preview--tree' : ''}`}
+          aria-label="Record value tree"
+        >
           {previewValue !== undefined ? (
             <JsonTree value={previewValue} defaultExpandedDepth={2} />
           ) : slot.preview !== undefined ? (

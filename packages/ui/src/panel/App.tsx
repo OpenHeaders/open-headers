@@ -438,11 +438,12 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
     },
     [groups],
   );
-  // Open-record identity for the Storage window's row highlight.
-  const openIdbTabIds = useMemo(
-    () => new Set(groups.allTabs.filter((t) => t.kind === 'idb-record').map((t) => t.id)),
-    [groups.allTabs],
-  );
+  // The ACTIVE editor tab's record identity — the Storage window
+  // highlights exactly that one row, tracking tab switches.
+  const activeIdbTabId = useMemo(() => {
+    const active = groups.focusedLeaf.tabs.find((t) => t.id === groups.activeTabId);
+    return active?.kind === 'idb-record' ? active.id : null;
+  }, [groups.focusedLeaf, groups.activeTabId]);
   const revealInStorage = useCallback(
     (database: string, store: string) => {
       if (tl.state.hidden.includes('storage')) tl.restoreWindow('storage');
@@ -606,7 +607,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
               onOpenIdbRecord={openIdbRecord}
               revealIdb={revealIdb}
               onRevealConsumed={handleRevealConsumed}
-              openIdbTabIds={openIdbTabIds}
+              activeIdbTabId={activeIdbTabId}
             />
           );
         case 'rules':
@@ -678,7 +679,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       openIdbRecord,
       revealIdb,
       handleRevealConsumed,
-      openIdbTabIds,
+      activeIdbTabId,
       tl,
       iconState,
       visibleColumns,

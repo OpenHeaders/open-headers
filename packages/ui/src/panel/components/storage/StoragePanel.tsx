@@ -62,9 +62,9 @@ interface StoragePanelProps {
    *  round-trip must not replay it). */
   revealIdb: IdbRevealRequest | null;
   onRevealConsumed: () => void;
-  /** Ids of the open idb-record editor tabs — record rows whose
-   *  document is open render highlighted in the record list. */
-  openIdbTabIds?: ReadonlySet<string>;
+  /** Id of the ACTIVE idb-record editor tab (null when the active tab
+   *  is another kind) — exactly that record's row renders highlighted. */
+  activeIdbTabId?: string | null;
 }
 
 const SECTIONS: ReadonlyArray<{ value: StorageSection; label: string; icon: React.ReactNode }> = [
@@ -86,7 +86,13 @@ const READ_ONLY_ADD_TITLES = {
   quota: 'Usage is read-only',
 } as const;
 
-export function StoragePanel({ onHide, onOpenIdbRecord, revealIdb, onRevealConsumed, openIdbTabIds }: StoragePanelProps) {
+export function StoragePanel({
+  onHide,
+  onOpenIdbRecord,
+  revealIdb,
+  onRevealConsumed,
+  activeIdbTabId,
+}: StoragePanelProps) {
   const wiring = useMemo(() => createPanelHeaderWiring({ onHide }), [onHide]);
   const [section, setSection] = useState<StorageSection>('local');
   const inspector = useStorageInspector(section);
@@ -139,11 +145,12 @@ export function StoragePanel({ onHide, onOpenIdbRecord, revealIdb, onRevealConsu
     },
     [onOpenIdbRecord, selectedFrameId],
   );
-  const isIdbRecordOpen = useCallback(
+  const isIdbRecordActive = useCallback(
     (database: string, store: string, primaryKeyWire: string) =>
       selectedFrameId !== null &&
-      (openIdbTabIds?.has(idbRecordTabId(selectedFrameId, database, store, primaryKeyWire)) ?? false),
-    [openIdbTabIds, selectedFrameId],
+      activeIdbTabId != null &&
+      activeIdbTabId === idbRecordTabId(selectedFrameId, database, store, primaryKeyWire),
+    [activeIdbTabId, selectedFrameId],
   );
 
   // ── Cookies section data + write plumbing (jar plane reuse) ────────
@@ -358,7 +365,7 @@ export function StoragePanel({ onHide, onOpenIdbRecord, revealIdb, onRevealConsu
                     idb={idb}
                     filter={textFilter}
                     onOpenRecord={openIdbRecord}
-                    isRecordOpen={isIdbRecordOpen}
+                    isRecordActive={isIdbRecordActive}
                   />
                 ) : section === 'cachestorage' ? (
                   <CacheStorageSection cache={cacheStorage} filter={textFilter} />

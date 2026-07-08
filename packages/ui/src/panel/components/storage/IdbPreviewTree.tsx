@@ -66,7 +66,9 @@ function InlinePreview({ node }: { node: ContainerNode }) {
   const shown = visible.slice(0, INLINE_ENTRIES_MAX);
   const overflow = visible.length > shown.length || visible.length !== node.entries.length;
   return (
-    <span style={MUTED_STYLE}>
+    // The class hides the summary while the node is expanded — the
+    // children replace it (`details[open]` rule in panel-storage.css).
+    <span className="dt-idbpreview-inline" style={MUTED_STYLE}>
       {' '}
       {arrayLike ? '[' : '{'}
       {shown.map((entry, i) => (
