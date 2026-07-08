@@ -87,6 +87,7 @@ import { createSqliteSyncPersistence } from '../sync/sqlite-sync-persistence';
 import { observeForActivityFeed, setActivityLog, subscribeActivityEntries } from './activity-installer';
 import { installActivityPruneScheduler } from './activity-prune-scheduler';
 import { type DaemonBindSupervisor, startDaemonBindSupervisor } from './bind-supervisor';
+import { createHealthzHandler } from './healthz';
 import { listLanIpv4Addresses } from './lan-addresses';
 import { startLiveRunner, stopLiveRunner } from './live/live-refresh-scheduler';
 import { installMcpServer } from './mcp-install';
@@ -339,6 +340,11 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   const pairingService = createDaemonPairingService();
   const pairingHttpHandler = createPairingHttpHandler({ pairing: pairingService });
 
+  // 4b'. `/healthz` — unauthenticated, data-free liveness for ops
+  //      probes (DAEMON_PLAN.md §3). First in the composition below so a
+  //      probe never touches the pairing/MCP routing.
+  const healthzHandler = createHealthzHandler();
+
   // 4c. MCP endpoint (`/mcp`, MCP_SERVER_PLAN.md Phase 1). Read-tier
   //     tools over stateless streamable HTTP, gated by the `mcp.enabled`
   //     setting (default off) + a paired daemon token per request. Rides
@@ -472,7 +478,8 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   try {
     bindSupervisor = await startDaemonBindSupervisor({
       handshakeIdentity: config.handshakeIdentity,
-      httpRequestHandler: (req, res) => pairingHttpHandler(req, res) || mcpInstall.handler(req, res),
+      httpRequestHandler: (req, res) =>
+        healthzHandler(req, res) || pairingHttpHandler(req, res) || mcpInstall.handler(req, res),
       onServerChange: (next) => {
         wsServer = next;
         setMutationForwarderWsServer(next);

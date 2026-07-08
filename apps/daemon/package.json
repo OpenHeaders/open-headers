@@ -1,0 +1,26 @@
+{
+  "name": "@openheaders/daemon",
+  "version": "2026.7.0",
+  "private": true,
+  "description": "Standalone Open Headers daemon — the headless back-end distribution of the shared boot spine",
+  "type": "module",
+  "sideEffects": false,
+  "scripts": {
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@openheaders/core": "workspace:*",
+    "@openheaders/oracle": "workspace:*",
+    "@openheaders/oracle-host-node": "workspace:*",
+    "better-sqlite3": "^12.10.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.15",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1",
+    "vitest": "^4.1.0"
+  }
+}
