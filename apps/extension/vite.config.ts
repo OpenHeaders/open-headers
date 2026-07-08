@@ -302,8 +302,8 @@ export default defineConfig({
     emptyOutDir: true,
     // All MV3 browsers (Chrome 109+, Firefox 109+, Edge 109+, Safari 16.4+) support ES2022
     target: 'es2022',
-    // Vendor chunk is large (React + Ant Design) — this is expected for a popup-only bundle
-    chunkSizeWarningLimit: 1200,
+    // Vendor (React + Ant Design) and Monaco chunks are large by design — all deps are statically bundled
+    chunkSizeWarningLimit: 4600,
     // Dev: skip minification for fast rebuilds
     // Production: Terser with preserved class/function names for Chrome Web Store compliance
     minify: isDev ? false : 'terser',
