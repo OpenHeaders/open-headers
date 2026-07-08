@@ -42,4 +42,7 @@ export function regionDocks(region: ToolRegion): [DockSlot, DockSlot] {
 // [BAR_LABELED_MIN, BAR_LABELED_MAX] driven by the user's settings.
 export const BAR_COMPACT_WIDTH = 36;
 export const BAR_LABELED_MIN = 64;
-export const BAR_LABELED_MAX = 160;
+// Wide enough that the longest tool-window label ("Deep Network
+// Inspection") renders untruncated after rail + tab padding, with slack
+// for larger UI scales. 160 clipped it even at full stretch.
+export const BAR_LABELED_MAX = 280;

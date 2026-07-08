@@ -5,6 +5,7 @@
  * and user overrides independent of the workspace tab.
  */
 
+import { BAR_LABELED_MAX, BAR_LABELED_MIN } from '@openheaders/ui/shared/dock-layout';
 import * as v from 'valibot';
 import { registerSetting } from '../registry';
 
@@ -36,7 +37,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
   }
 }
 
-const activityBarWidthSchema = v.pipe(v.number(), v.minValue(64), v.maxValue(160));
+const activityBarWidthSchema = v.pipe(v.number(), v.minValue(BAR_LABELED_MIN), v.maxValue(BAR_LABELED_MAX));
 
 // ── Footer visibility ────────────────────────────────────────────────
 

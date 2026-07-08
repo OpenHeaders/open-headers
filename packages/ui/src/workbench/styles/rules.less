@@ -1599,7 +1599,11 @@ body {
 
   &.rules-dock-tab--vertical {
     box-sizing: border-box;
-    width: 68px;
+    // Full strip width (NOT a fixed px) so labels grow with the rail when
+    // the user widens it — mirrors the shared dock-layout.css rule, which
+    // this later-imported block otherwise overrides back to a fixed width
+    // that ellipsizes long labels regardless of rail width.
+    width: 100%;
     min-height: 32px;
     padding: 6px 4px 4px;
     flex-direction: column;

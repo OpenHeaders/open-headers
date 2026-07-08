@@ -1,4 +1,4 @@
-export { ALL_DOCK_SLOTS, DOCK_LABELS, dockRegion, regionDocks } from './constants';
+export { ALL_DOCK_SLOTS, BAR_LABELED_MAX, BAR_LABELED_MIN, DOCK_LABELS, dockRegion, regionDocks } from './constants';
 export { default as DockSlotIcon } from './DockSlotIcon';
 export type { DockTabStripProps } from './DockTabStrip';
 export { default as DockTabStrip } from './DockTabStrip';
