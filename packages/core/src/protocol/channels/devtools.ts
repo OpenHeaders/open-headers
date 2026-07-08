@@ -137,20 +137,19 @@ export interface IdbRecordWire {
 }
 
 /**
- * One node of a record value's bounded, type-tagged tree — serialized
- * in-page (the value itself never rides the bridge), capped by depth,
- * per-node child count and string length. `kind` mirrors the preview
- * serializer's tag vocabulary (string / number / date / binary / blob /
- * map / set / array / object / …); `label` is the property key or
- * collection slot, absent on the root; `dropped` counts children cut by
- * the caps.
+ * One record's value as a full text document, serialized in-page.
+ * A strictly JSON-safe value (the common case) ships as canonical
+ * pretty-printed JSON with `editable: true` — the text round-trips
+ * exactly through `JSON.parse`. A value carrying non-JSON
+ * structured-clone types (Date, Map, Set, binary, Blob, `undefined`,
+ * cycles…) ships as a readable JSON-ish rendering with
+ * `editable: false` — never silently coerced into lossy JSON.
+ * `truncated` marks a document cut at the size cap (always read-only).
  */
-export interface IdbValueNodeWire {
-  kind: string;
-  preview: string;
-  label?: string;
-  children?: ReadonlyArray<IdbValueNodeWire>;
-  dropped?: number;
+export interface IdbRecordDocumentWire {
+  text: string;
+  editable: boolean;
+  truncated?: boolean;
 }
 
 /** One named cache of a scope's Cache Storage. */
@@ -428,16 +427,16 @@ export interface DevToolsRpc {
   };
 
   /**
-   * Lazy one-shot fetch of one record's value as a bounded, type-tagged
-   * tree (see {@link IdbValueNodeWire}) — the record-list previews stay
-   * flat strings; this is the drill-in a row expansion pays for.
+   * Lazy one-shot fetch of one record's value as a full text document
+   * (see {@link IdbRecordDocumentWire}) — the record-list previews stay
+   * flat strings; this is what an editor-tab open pays for.
    * `primaryKeyWire` is the record identity the read RPC returned.
-   * `value` is `null` when injection fails, the database/store/record
+   * `document` is `null` when injection fails, the database/store/record
    * is gone, or the key can't be decoded.
    */
-  getIndexedDbRecordValue: {
+  getIndexedDbRecordDocument: {
     req: { tabId: number; frameId: number; database: string; store: string; primaryKeyWire: string };
-    res: { value: IdbValueNodeWire | null };
+    res: { document: IdbRecordDocumentWire | null };
   };
 
   /**

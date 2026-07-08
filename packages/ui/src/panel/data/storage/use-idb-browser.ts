@@ -14,7 +14,7 @@
 
 import { hostNavigation } from '@openheaders/core/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { IdbDatabase, IdbRecordsPage, IdbValueNode } from './storage-inspector-host';
+import type { IdbDatabase, IdbRecordsPage } from './storage-inspector-host';
 import { getStorageInspectorHost } from './storage-inspector-host';
 
 const IDB_POLL_MS = 5000;
@@ -75,9 +75,6 @@ export interface IdbBrowserState {
   /** `null` while the selected store's page is in flight. */
   recordsPage: IdbRecordsPage | null;
   refresh: () => void;
-  /** Lazy one-shot fetch of one SELECTED-store record's value tree —
-   *  the component owns the expanded state; never polled. */
-  readRecordValue: (primaryKeyWire: string) => Promise<IdbValueNode | null>;
   /** Last delete/clear failed — cleared by the next successful one. */
   mutationFailed: boolean;
   /** Delete one record of the SELECTED store by its opaque wire key. */
@@ -223,14 +220,6 @@ export function useIdbBrowser(active: boolean, frameId: number | null): IdbBrows
     void readRecords();
   }, [listDatabases, readRecords]);
 
-  const readRecordValue = useCallback(
-    async (primaryKeyWire: string): Promise<IdbValueNode | null> => {
-      if (!host || tabId === null || frameId === null || database === null || store === null) return null;
-      return host.readIndexedDbRecordValue(tabId, frameId, database, store, primaryKeyWire);
-    },
-    [host, tabId, frameId, database, store],
-  );
-
   // Every mutation refetches through the same read path (invalidation
   // discipline) — the grid never trusts a delete's local outcome.
   const deleteRecord = useCallback(
@@ -280,7 +269,6 @@ export function useIdbBrowser(active: boolean, frameId: number | null): IdbBrows
     setPage,
     recordsPage,
     refresh,
-    readRecordValue,
     mutationFailed,
     deleteRecord,
     clearStore,

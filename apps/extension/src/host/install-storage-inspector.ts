@@ -17,8 +17,8 @@ import type {
   DomStorageFullValue,
   DomStorageSnapshot,
   IdbDatabase,
+  IdbRecordDocument,
   IdbRecordsPage,
-  IdbValueNode,
   SiteDataType,
   StorageInvalidationKind,
   StorageQuota,
@@ -125,18 +125,18 @@ setStorageInspectorHost({
       return null;
     }
   },
-  async readIndexedDbRecordValue(
+  async readIndexedDbRecordDocument(
     tabId: number,
     frameId: number,
     database: string,
     store: string,
     primaryKeyWire: string,
-  ): Promise<IdbValueNode | null> {
+  ): Promise<IdbRecordDocument | null> {
     try {
-      const res = await call('getIndexedDbRecordValue', { tabId, frameId, database, store, primaryKeyWire });
-      return res?.value ?? null;
+      const res = await call('getIndexedDbRecordDocument', { tabId, frameId, database, store, primaryKeyWire });
+      return res?.document ?? null;
     } catch (err) {
-      logger.info('StorageInspectorHost', `readIndexedDbRecordValue ✗ tab ${tabId}: ${(err as Error).message}`);
+      logger.info('StorageInspectorHost', `readIndexedDbRecordDocument ✗ tab ${tabId}: ${(err as Error).message}`);
       return null;
     }
   },

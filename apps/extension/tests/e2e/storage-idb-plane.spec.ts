@@ -90,12 +90,10 @@ interface RecordsResult {
   truncated?: boolean;
 }
 
-interface ValueNodeWire {
-  kind: string;
-  preview: string;
-  label?: string;
-  children?: ValueNodeWire[];
-  dropped?: number;
+interface RecordDocumentWire {
+  text: string;
+  editable: boolean;
+  truncated?: boolean;
 }
 
 test('IndexedDB reads, previews, key wire and deletes ride the plane end-to-end', async () => {
@@ -230,34 +228,47 @@ test('IndexedDB reads, previews, key wire and deletes ride the plane end-to-end'
   });
   expect(missingIndex.records).toBeNull();
 
-  // ── Value tree: lazy one-shot read of one record's full structure ──
+  // ── Record document: lazy one-shot read of one record's full text ──
+  // The rich record carries structured-clone extras ⇒ a readable
+  // JSON-ish rendering, honestly read-only.
   const richWire = rich.records?.[0]?.primaryKeyWire;
   expect(richWire).toBeDefined();
-  const tree = await rpc<{ value: ValueNodeWire | null }>('getIndexedDbRecordValue', {
+  const richDoc = await rpc<{ document: RecordDocumentWire | null }>('getIndexedDbRecordDocument', {
     ...base,
     database: 'oh-store-app',
     store: 'rich',
     primaryKeyWire: richWire,
   });
-  expect(tree.value?.kind).toBe('object');
-  const treeByLabel = new Map((tree.value?.children ?? []).map((c) => [c.label, c]));
-  expect(treeByLabel.get('when')).toMatchObject({ kind: 'date', preview: 'Date(2026-03-04T05:06:07.000Z)' });
-  expect(treeByLabel.get('buf')).toMatchObject({ kind: 'binary', preview: 'ArrayBuffer(8 B)' });
-  expect(treeByLabel.get('view')).toMatchObject({ kind: 'binary', preview: 'Uint8Array(3 B)' });
-  expect(treeByLabel.get('blob')?.kind).toBe('blob');
-  expect(treeByLabel.get('map')?.children?.[0]).toMatchObject({ label: '"a"', preview: '1' });
-  expect(treeByLabel.get('set')?.children?.[0]).toMatchObject({ label: '0', preview: '"x"' });
-  // The 2000-char member clips at the 1024 string cap (quotes included).
-  expect(treeByLabel.get('long')?.preview.length).toBe(1025);
-  expect(treeByLabel.get('long')?.preview.endsWith('…')).toBe(true);
+  expect(richDoc.document?.editable).toBe(false);
+  expect(richDoc.document?.truncated).toBeFalsy();
+  const richText = richDoc.document?.text ?? '';
+  expect(richText).toContain('"when": Date("2026-03-04T05:06:07.000Z")');
+  expect(richText).toContain('"buf": ArrayBuffer(8 B)');
+  expect(richText).toContain('"view": Uint8Array(3 B)');
+  expect(richText).toContain('"blob": Blob(10 B, text/plain)');
+  expect(richText).toContain('"a" => 1');
+  expect(richText).toContain('Set(2) {');
+  // The full document carries the whole 2000-char member — no preview clip.
+  expect(richText).toContain('y'.repeat(2000));
 
-  const goneValue = await rpc<{ value: ValueNodeWire | null }>('getIndexedDbRecordValue', {
+  // A plain-JSON record ⇒ exact pretty JSON that round-trips (editable).
+  const bulkWire = page0.records?.[0]?.primaryKeyWire;
+  const bulkDoc = await rpc<{ document: RecordDocumentWire | null }>('getIndexedDbRecordDocument', {
+    ...base,
+    database: 'oh-store-app',
+    store: 'bulk',
+    primaryKeyWire: bulkWire,
+  });
+  expect(bulkDoc.document?.editable).toBe(true);
+  expect(JSON.parse(bulkDoc.document?.text ?? '')).toEqual({ id: 0, label: 'bulk-0' });
+
+  const goneDoc = await rpc<{ document: RecordDocumentWire | null }>('getIndexedDbRecordDocument', {
     ...base,
     database: 'oh-store-app',
     store: 'rich',
     primaryKeyWire: '{"n":999}',
   });
-  expect(goneValue.value).toBeNull();
+  expect(goneDoc.document).toBeNull();
 
   // ── Record deletes: string, falsy, binary and ±Infinity keys ───────
   for (const keyPreview of ['"alpha"', '0', 'Infinity', '-Infinity', 'ArrayBuffer(3 B)']) {

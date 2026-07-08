@@ -24,8 +24,8 @@ import type {
   CacheEntriesPage,
   CacheEntryResponsePreview,
   IdbDatabase,
+  IdbRecordDocument,
   IdbRecordsPage,
-  IdbValueNode,
   StorageInspectorHost,
   StorageQuota,
 } from '@openheaders/ui/panel/host-storage-inspector';
@@ -91,8 +91,8 @@ function installHost() {
   );
   const listIndexedDb = vi.fn(() => Promise.resolve([structuredClone(IDB_DB)]));
   const readIndexedDbRecords = vi.fn(() => Promise.resolve(structuredClone(IDB_PAGE)));
-  const readIndexedDbRecordValue = vi.fn(
-    (): Promise<IdbValueNode | null> => Promise.resolve({ kind: 'object', preview: '{…1}' }),
+  const readIndexedDbRecordDocument = vi.fn(
+    (): Promise<IdbRecordDocument | null> => Promise.resolve({ text: '{\n  "id": 1\n}', editable: true }),
   );
   const deleteIndexedDbRecord = vi.fn(() => Promise.resolve(true));
   const clearIndexedDbStore = vi.fn(() => Promise.resolve(true));
@@ -117,7 +117,7 @@ function installHost() {
     clearDomStorage: vi.fn(() => Promise.resolve(true)),
     listIndexedDb,
     readIndexedDbRecords,
-    readIndexedDbRecordValue,
+    readIndexedDbRecordDocument,
     deleteIndexedDbRecord,
     clearIndexedDbStore,
     deleteIndexedDbDatabase,
@@ -142,7 +142,7 @@ function installHost() {
     readDomStorage,
     listIndexedDb,
     readIndexedDbRecords,
-    readIndexedDbRecordValue,
+    readIndexedDbRecordDocument,
     deleteIndexedDbRecord,
     clearIndexedDbStore,
     deleteIndexedDbDatabase,
@@ -372,21 +372,6 @@ describe('useIdbBrowser poll stability', () => {
     await flush();
     expect(clearIndexedDbStore).toHaveBeenCalledWith(42, 0, 'oh-app', 'kv');
     expect(readIndexedDbRecords.mock.calls.length).toBe(readsBefore + 2);
-  });
-
-  it('routes the one-shot value read through the host with the selection context', async () => {
-    const { readIndexedDbRecordValue } = installHost();
-    const { result } = renderHook(() => useIdbBrowser(true, 0));
-
-    await flush();
-    act(() => {
-      result.current.selectStore('oh-app', 'kv');
-    });
-    await flush();
-
-    const value = await result.current.readRecordValue('{"n":1}');
-    expect(readIndexedDbRecordValue).toHaveBeenCalledWith(42, 0, 'oh-app', 'kv', '{"n":1}');
-    expect(value).toEqual({ kind: 'object', preview: '{…1}' });
   });
 
   it('scopes reads to a selected index and prunes it when the schema drops it', async () => {

@@ -7,7 +7,7 @@
  * tree. Same architectural pattern as the workspace editor-groups.
  */
 
-import type { InspectorTab } from './inspector-tab';
+import type { InspectorTab, InspectorTabPatch } from './inspector-tab';
 
 export type EditorOrientation = 'horizontal' | 'vertical';
 
@@ -132,14 +132,16 @@ export function updateTabInLeaf(
   root: EditorNode,
   leafId: string,
   tabId: string,
-  updates: Partial<InspectorTab>,
+  updates: InspectorTabPatch,
 ): EditorNode {
   return mapLeaf(root, leafId, (leaf) => {
     const idx = leaf.tabs.findIndex((t) => t.id === tabId);
     if (idx < 0) return leaf;
     const tab = leaf.tabs[idx];
+    // Patch fields exist on request tabs only — other kinds are inert.
+    if (tab.kind !== 'request') return leaf;
     let hasChange = false;
-    for (const key of Object.keys(updates) as Array<keyof InspectorTab>) {
+    for (const key of Object.keys(updates) as Array<keyof InspectorTabPatch>) {
       if (tab[key] !== updates[key]) {
         hasChange = true;
         break;

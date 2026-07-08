@@ -56,7 +56,9 @@ import { PanelToolbar } from './components/PanelToolbar';
 import { RuleExecutions } from './components/RuleExecutions';
 import { RulePopoverProvider } from './components/RulePopoverHost';
 import { SearchPanel } from './components/SearchPanel';
-import { StoragePanel } from './components/storage/StoragePanel';
+import { IdbRecordEditorTab } from './components/storage/IdbRecordEditorTab';
+import type { OpenIdbRecordRequest } from './components/storage/IndexedDbSection';
+import { type IdbRevealRequest, StoragePanel } from './components/storage/StoragePanel';
 import { TrafficList } from './components/TrafficList';
 import type { ColumnKey } from './components/traffic/columns';
 import { DEFAULT_VISIBLE_COLUMNS } from './components/traffic/columns';
@@ -66,7 +68,8 @@ import type { FilterConfig } from './data/filter-engine';
 import { DEFAULT_FILTER_CONFIG, hasFilterError, parseFilter } from './data/filter-engine';
 import { focusStore, setFocusedDock, setFocusedRegion } from './data/stores/focus-store';
 import type { InspectorRowWithFires } from './data/inspector-row-projection';
-import { buildInspectorTab } from './data/inspector-tab';
+import { buildIdbRecordTab, type InspectorTab, tabPillLabel } from './data/inspector-tab';
+import { tabBadge } from './components/method-color';
 import { useParityDebugHook } from './data/parity-debug-hook';
 import { PANEL_TOOL_WINDOW_MAP, type PanelToolWindowId } from './data/tool-windows';
 import { useConsoleClient } from './data/stores/use-console-client';
@@ -422,9 +425,30 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
     searchMatchIndex,
   } = useInspectorTabJumps({ lookupByRequestId: data.lookupByRequestId, groups, tl });
 
+  // ── Storage-record editor tabs (open + reveal-back) ───────
+  const [revealIdb, setRevealIdb] = useState<IdbRevealRequest | null>(null);
+  const openIdbRecord = useCallback(
+    (request: OpenIdbRecordRequest & { frameId: number }) => {
+      groups.addTab(buildIdbRecordTab({ ...request, timestamp: Date.now() }));
+    },
+    [groups],
+  );
+  const revealInStorage = useCallback(
+    (database: string, store: string) => {
+      if (tl.state.hidden.includes('storage')) tl.restoreWindow('storage');
+      tl.activateWindow('storage');
+      setRevealIdb({ database, store });
+    },
+    [tl],
+  );
+  const handleRevealConsumed = useCallback(() => setRevealIdb(null), []);
+
   // ── Editor group tab body ──────────────────────────────────
   const renderTabBody = useCallback(
-    ({ tab }: { tab: ReturnType<typeof buildInspectorTab>; leafId: string; isFocusedLeaf: boolean }) => {
+    ({ tab }: { tab: InspectorTab; leafId: string; isFocusedLeaf: boolean }) => {
+      if (tab.kind === 'idb-record') {
+        return <IdbRecordEditorTab tab={tab} onRevealInStorage={revealInStorage} />;
+      }
       const row = data.lookupByRequestId.get(tab.requestId);
       if (!row) {
         return <div className="dt-editor-empty">Request no longer available (cleared or navigated away)</div>;
@@ -476,6 +500,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       lifecycleClient.source,
       lifecycleClient.requestResponseBody,
       showMatchedRules,
+      revealInStorage,
       searchHighlight,
       searchSection,
       searchLineNumber,
@@ -489,7 +514,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   );
 
   const activeTab = groups.focusedLeaf.tabs.find((t) => t.id === groups.activeTabId);
-  const selectedId = activeTab?.requestId ?? null;
+  const selectedId = activeTab?.kind === 'request' ? activeTab.requestId : null;
   const footer = useFooterSummary(data, filteredRows);
 
   // ── HAR export helpers ─────────────────────────────────────
@@ -555,7 +580,14 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
             />
           );
         case 'storage':
-          return <StoragePanel onHide={() => tl.toggleWindow('storage')} />;
+          return (
+            <StoragePanel
+              onHide={() => tl.toggleWindow('storage')}
+              onOpenIdbRecord={openIdbRecord}
+              revealIdb={revealIdb}
+              onRevealConsumed={handleRevealConsumed}
+            />
+          );
         case 'rules':
           return (
             <RuleExecutions
@@ -622,6 +654,9 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       handleCrossNav,
       handleSearchResult,
       handleAnnotationJump,
+      openIdbRecord,
+      revealIdb,
+      handleRevealConsumed,
       tl,
       iconState,
       visibleColumns,
@@ -655,17 +690,13 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
     (tabId: string): React.ReactNode => {
       const tab = groups.allTabs.find((t) => t.id === tabId);
       if (!tab) return null;
+      const badge = tabBadge(tab);
       return (
         <div className="dt-editor-tab active" style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.2)', opacity: 0.9 }}>
-          <span
-            className="dt-method-badge"
-            style={{
-              color: tab.method === 'GET' ? '#61affe' : tab.method === 'POST' ? '#49cc90' : '#fca130',
-            }}
-          >
-            {tab.method}
+          <span className="dt-method-badge" style={{ color: badge.color }}>
+            {badge.text}
           </span>
-          <span className="dt-editor-tab-label">{tab.label.replace(/^[A-Z]+ /, '')}</span>
+          <span className="dt-editor-tab-label">{tabPillLabel(tab)}</span>
         </div>
       );
     },

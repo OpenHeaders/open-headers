@@ -84,17 +84,16 @@ export interface IdbRecordsPage {
 }
 
 /**
- * One node of a record value's bounded, type-tagged tree, serialized
- * host-side (the value itself never crosses the seam). `label` is the
- * property key or collection slot, absent on the root; `dropped` counts
- * children cut by the host's caps.
+ * One record's value as a full text document, serialized host-side (the
+ * value itself never crosses the seam). `editable: true` means the text
+ * is exact JSON that round-trips through `JSON.parse`; `false` marks a
+ * readable JSON-ish rendering of non-JSON structured-clone content.
+ * `truncated` marks a document cut at the host's size cap.
  */
-export interface IdbValueNode {
-  kind: string;
-  preview: string;
-  label?: string;
-  children?: ReadonlyArray<IdbValueNode>;
-  dropped?: number;
+export interface IdbRecordDocument {
+  text: string;
+  editable: boolean;
+  truncated?: boolean;
 }
 
 /** One named cache of the scope's Cache Storage. */
@@ -195,15 +194,15 @@ export interface StorageInspectorHost {
     pageSize: number,
     index?: string,
   ): Promise<IdbRecordsPage | null>;
-  /** Lazy one-shot fetch of one record's value as a bounded tree;
+  /** Lazy one-shot fetch of one record's value as a full text document;
    *  `null` when the record is gone or the frame can't be read. */
-  readIndexedDbRecordValue(
+  readIndexedDbRecordDocument(
     tabId: number,
     frameId: number,
     database: string,
     store: string,
     primaryKeyWire: string,
-  ): Promise<IdbValueNode | null>;
+  ): Promise<IdbRecordDocument | null>;
   /** Delete one record by its opaque wire key; `false` on any failure. */
   deleteIndexedDbRecord(
     tabId: number,

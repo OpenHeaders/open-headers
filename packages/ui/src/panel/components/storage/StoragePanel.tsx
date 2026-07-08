@@ -40,12 +40,25 @@ import {
 import { CookieEditPopover } from '../detail/cookies/CookieEditPopover';
 import { CacheStorageSection } from './CacheStorageSection';
 import { CookiesSection } from './CookiesSection';
-import { IndexedDbSection } from './IndexedDbSection';
+import { IndexedDbSection, type OpenIdbRecordRequest } from './IndexedDbSection';
 import { StorageGrid } from './StorageGrid';
 import { StorageQuotaCard } from './StorageQuotaCard';
 
+/** An editor-tab "Reveal in Storage" jump target. */
+export interface IdbRevealRequest {
+  database: string;
+  store: string;
+}
+
 interface StoragePanelProps {
   onHide: () => void;
+  /** Open one IndexedDB record as an editor tab (scope frame attached). */
+  onOpenIdbRecord: (request: OpenIdbRecordRequest & { frameId: number }) => void;
+  /** Pending editor-tab jump back into the IndexedDB section — consumed
+   *  exactly once via `onRevealConsumed` (a re-mount or section
+   *  round-trip must not replay it). */
+  revealIdb: IdbRevealRequest | null;
+  onRevealConsumed: () => void;
 }
 
 const SECTIONS: ReadonlyArray<{ value: StorageSection; label: string }> = [
@@ -67,7 +80,7 @@ const READ_ONLY_ADD_TITLES = {
   quota: 'Usage is read-only',
 } as const;
 
-export function StoragePanel({ onHide }: StoragePanelProps) {
+export function StoragePanel({ onHide, onOpenIdbRecord, revealIdb, onRevealConsumed }: StoragePanelProps) {
   const wiring = useMemo(() => createPanelHeaderWiring({ onHide }), [onHide]);
   const [section, setSection] = useState<StorageSection>('local');
   const inspector = useStorageInspector(section);
@@ -96,6 +109,30 @@ export function StoragePanel({ onHide }: StoragePanelProps) {
   const idb = useIdbBrowser(section === 'indexeddb', selectedScope?.frameId ?? null);
   const cacheStorage = useCacheBrowser(section === 'cachestorage', selectedScope?.frameId ?? null);
   const quota = useStorageQuota(section === 'quota', selectedScope?.frameId ?? null);
+
+  // Editor-tab "Reveal in Storage": switch to the IndexedDB section,
+  // then select the target store and hand the request back as consumed.
+  // Two effects because activating the section resets the idb hook's
+  // selection (its own scope-reset effect runs first — hook call order —
+  // so the select lands after it).
+  useEffect(() => {
+    if (revealIdb) setSection('indexeddb');
+  }, [revealIdb]);
+  const selectIdbStore = idb.selectStore;
+  useEffect(() => {
+    if (!revealIdb || section !== 'indexeddb') return;
+    selectIdbStore(revealIdb.database, revealIdb.store);
+    onRevealConsumed();
+  }, [revealIdb, section, selectIdbStore, onRevealConsumed]);
+
+  const selectedFrameId = selectedScope?.frameId ?? null;
+  const openIdbRecord = useCallback(
+    (request: OpenIdbRecordRequest) => {
+      if (selectedFrameId === null) return;
+      onOpenIdbRecord({ ...request, frameId: selectedFrameId });
+    },
+    [onOpenIdbRecord, selectedFrameId],
+  );
 
   // ── Cookies section data + write plumbing (jar plane reuse) ────────
   const scopeUrl = selectedScope?.url ?? '';
@@ -304,7 +341,7 @@ export function StoragePanel({ onHide }: StoragePanelProps) {
             ) : section === 'indexeddb' || section === 'cachestorage' || section === 'quota' ? (
               inspector.available && inspector.scopes.length > 0 ? (
                 section === 'indexeddb' ? (
-                  <IndexedDbSection idb={idb} filter={textFilter} />
+                  <IndexedDbSection idb={idb} filter={textFilter} onOpenRecord={openIdbRecord} />
                 ) : section === 'cachestorage' ? (
                   <CacheStorageSection cache={cacheStorage} filter={textFilter} />
                 ) : (

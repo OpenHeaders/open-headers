@@ -283,54 +283,104 @@
   max-width: 40%;
 }
 
-/* Expanded record value tree — rides the response-strip chrome. */
-.dt-storage-idb-tree {
+/* Record rows open in the editor — the whole row is the affordance. */
+.dt-storage-grid--idb .dt-storage-row {
+  cursor: pointer;
+}
+
+/* IndexedDB record opened as a full editor-tab document. */
+.dt-idbdoc {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  height: 100%;
+  min-height: 0;
+  font-size: 11px;
 }
 
-.dt-storage-idb-tree-line {
+.dt-idbdoc-toolbar {
   display: flex;
   align-items: center;
-  gap: 4px;
-  min-width: 0;
-}
-
-.dt-storage-idb-tree-toggle {
+  gap: 6px;
+  padding: 3px 8px;
+  border-bottom: 1px solid var(--dt-border);
   flex: 0 0 auto;
-  width: 14px;
-  height: 14px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--dt-text-muted);
-  cursor: pointer;
-  font-size: 8px;
 }
 
-span.dt-storage-idb-tree-toggle {
-  cursor: default;
-}
-
-.dt-storage-idb-tree-label {
-  flex: 0 0 auto;
-  color: var(--dt-text);
-}
-
-.dt-storage-idb-tree-preview {
+.dt-idbdoc-crumb {
   color: var(--dt-text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.dt-storage-idb-tree-more {
+.dt-idbdoc-crumb-key {
+  color: var(--dt-text);
+}
+
+.dt-idbdoc-toolbar-spacer {
+  flex: 1 1 auto;
+}
+
+.dt-idbdoc-modes {
+  display: inline-flex;
+  border: 1px solid var(--dt-border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.dt-idbdoc-mode {
+  font: inherit;
+  padding: 1px 8px;
+  border: none;
+  background: transparent;
+  color: var(--dt-text-muted);
+  cursor: pointer;
+}
+
+.dt-idbdoc-mode[data-active='true'] {
+  background: var(--dt-row-selected);
+  color: var(--dt-text);
+}
+
+.dt-idbdoc-mode:disabled {
+  color: var(--dt-border);
+  cursor: default;
+}
+
+.dt-idbdoc-reveal {
+  font: inherit;
+  padding: 1px 8px;
+  border: 1px solid var(--dt-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--dt-text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dt-idbdoc-reveal:hover {
+  background: var(--dt-row-hover);
+}
+
+.dt-idbdoc-note {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  border-bottom: 1px solid var(--dt-border);
   color: var(--dt-text-muted);
   font-style: italic;
+}
+
+.dt-idbdoc-source {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.dt-idbdoc-preview {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 6px 10px;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
 }
 
 /* Drill-in chrome shared by the IndexedDB and Cache Storage sections —

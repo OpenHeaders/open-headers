@@ -21,7 +21,8 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { type EditorTabDragData, LayoutMenuIcon } from '@openheaders/ui/shared/dock-layout';
 import { useDragIntent } from '../data/drag-intent';
 import type { ClosedTab, InspectorTab } from '../data/inspector-tab';
-import { methodColor } from './method-color';
+import { tabPillLabel, tabSearchText, tabTitle } from '../data/inspector-tab';
+import { tabBadge } from './method-color';
 
 // ── Label helpers ───────────────────────────────────────────────
 
@@ -100,17 +101,17 @@ const SortableTab: React.FC<SortableTabProps> = ({ leafId, tab, isActive, contex
       role="tab"
       tabIndex={0}
       aria-selected={isActive}
-      title={tab.url}
+      title={tabTitle(tab)}
       onClick={() => onSwitch(tab.id)}
       onKeyDown={(e) => {
         if (e.key === 'Enter') onSwitch(tab.id);
       }}
     >
-      <span className="dt-method-badge" style={{ color: methodColor(tab.method) }}>
-        {tab.method}
+      <span className="dt-method-badge" style={{ color: tabBadge(tab).color }}>
+        {tabBadge(tab).text}
       </span>
-      <span className="dt-editor-tab-label">{truncateMiddle(tab.label.replace(/^[A-Z]+ /, ''), TAB_LABEL_MAX)}</span>
-      {tab.statusCode != null && (
+      <span className="dt-editor-tab-label">{truncateMiddle(tabPillLabel(tab), TAB_LABEL_MAX)}</span>
+      {tab.kind === 'request' && tab.statusCode != null && (
         <span className={`dt-editor-tab-status${tab.statusCode >= 400 ? ' error' : ''}`}>{tab.statusCode}</span>
       )}
       <button
@@ -143,11 +144,11 @@ const SortableTab: React.FC<SortableTabProps> = ({ leafId, tab, isActive, contex
 
 const CrossLeafInsertionMarker: React.FC<{ tab: InspectorTab }> = ({ tab }) => (
   <div aria-hidden="true" className="dt-editor-tab dt-editor-tab-insertion" style={{ pointerEvents: 'none' }}>
-    <span className="dt-method-badge" style={{ color: methodColor(tab.method), visibility: 'hidden' }}>
-      {tab.method}
+    <span className="dt-method-badge" style={{ color: tabBadge(tab).color, visibility: 'hidden' }}>
+      {tabBadge(tab).text}
     </span>
     <span className="dt-editor-tab-label" style={{ visibility: 'hidden' }}>
-      {truncateMiddle(tab.label.replace(/^[A-Z]+ /, ''), TAB_LABEL_MAX)}
+      {truncateMiddle(tabPillLabel(tab), TAB_LABEL_MAX)}
     </span>
   </div>
 );
@@ -190,9 +191,11 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
   if (!open) return null;
 
   const lc = search.toLowerCase();
-  const filtered = tabs.filter((t) => t.label.toLowerCase().includes(lc) || t.url.toLowerCase().includes(lc));
+  const filtered = tabs.filter(
+    (t) => t.label.toLowerCase().includes(lc) || tabSearchText(t).toLowerCase().includes(lc),
+  );
   const filteredClosed = recentlyClosed.filter(
-    (c) => c.tab.label.toLowerCase().includes(lc) || c.tab.url.toLowerCase().includes(lc),
+    (c) => c.tab.label.toLowerCase().includes(lc) || tabSearchText(c.tab).toLowerCase().includes(lc),
   );
   const total = filtered.length + (closedExpanded ? filteredClosed.length : 0);
 
@@ -258,8 +261,8 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
                 onClose();
               }}
             >
-              <span className="dt-method-badge" style={{ color: methodColor(tab.method), fontSize: 9 }}>
-                {tab.method}
+              <span className="dt-method-badge" style={{ color: tabBadge(tab).color, fontSize: 9 }}>
+                {tabBadge(tab).text}
               </span>
               <span className="dt-tab-search-item-label">{tab.label}</span>
             </div>
@@ -286,8 +289,8 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
                         onClose();
                       }}
                     >
-                      <span className="dt-method-badge" style={{ color: methodColor(closed.tab.method), fontSize: 9 }}>
-                        {closed.tab.method}
+                      <span className="dt-method-badge" style={{ color: tabBadge(closed.tab).color, fontSize: 9 }}>
+                        {tabBadge(closed.tab).text}
                       </span>
                       <span className="dt-tab-search-item-label">{closed.tab.label}</span>
                     </div>

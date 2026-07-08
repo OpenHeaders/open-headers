@@ -5,6 +5,8 @@
  * everywhere.
  */
 
+import type { InspectorTab } from '../data/inspector-tab';
+
 const METHOD_COLORS: Record<string, string> = {
   GET: '#61affe',
   POST: '#49cc90',
@@ -17,4 +19,11 @@ const METHOD_COLORS: Record<string, string> = {
 
 export function methodColor(method: string): string {
   return METHOD_COLORS[method.toUpperCase()] ?? '#999';
+}
+
+/** The compact chip a tab pill leads with — HTTP method for request
+ *  tabs, a document-kind tag for everything else. */
+export function tabBadge(tab: InspectorTab): { text: string; color: string } {
+  if (tab.kind === 'idb-record') return { text: 'IDB', color: '#b180d7' };
+  return { text: tab.method, color: methodColor(tab.method) };
 }

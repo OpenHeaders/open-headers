@@ -29,7 +29,7 @@ import {
   unsplitLeaf,
   updateTabInLeaf,
 } from './editor-groups';
-import type { ClosedTab, InspectorTab } from './inspector-tab';
+import type { ClosedTab, InspectorTab, InspectorTabPatch } from './inspector-tab';
 import type { PanelViewState, PersistedInspectorTabSession } from './use-panel-tool-layout';
 
 const SESSION_DEBOUNCE_MS = 500;
@@ -92,7 +92,7 @@ export interface UseInspectorEditorGroupsApi {
   addTab: (tab: InspectorTab) => void;
   closeTab: (tabId: string) => void;
   switchTab: (tabId: string) => void;
-  updateTab: (tabId: string, updates: Partial<InspectorTab>) => void;
+  updateTab: (tabId: string, updates: InspectorTabPatch) => void;
   reorderTab: (fromId: string, toId: string) => void;
   reopenTab: (closed: ClosedTab) => void;
 
@@ -275,7 +275,7 @@ export function useInspectorEditorGroups({
   );
 
   const updateTab = useCallback(
-    (tabId: string, updates: Partial<InspectorTab>) => {
+    (tabId: string, updates: InspectorTabPatch) => {
       transform((prev) => {
         const leaf = locateTab(prev.root, tabId);
         if (!leaf) return prev;

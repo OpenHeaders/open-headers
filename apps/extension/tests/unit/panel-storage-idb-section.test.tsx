@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 /**
- * IndexedDbSection delete affordances — record deletes are gated on the
- * lossless wire key (a record without one renders no delete), and the
- * bulk gestures (store clear, database delete) use the two-step
+ * IndexedDbSection affordances — clicking a record row opens it as an
+ * editor-tab document (gated on the lossless wire key; a row without
+ * one is inert), record deletes stop the click from also opening, and
+ * the bulk gestures (store clear, database delete) use the two-step
  * arm/confirm idiom: the first click must never commit.
  */
 
@@ -35,7 +36,6 @@ function makeIdb(overrides: Partial<IdbBrowserState> = {}): IdbBrowserState {
     setPage: vi.fn(),
     recordsPage: null,
     refresh: vi.fn(),
-    readRecordValue: vi.fn(() => Promise.resolve(null)),
     mutationFailed: false,
     deleteRecord: vi.fn(),
     clearStore: vi.fn(),
@@ -45,78 +45,47 @@ function makeIdb(overrides: Partial<IdbBrowserState> = {}): IdbBrowserState {
 }
 
 describe('IndexedDbSection records view', () => {
-  it('shows a delete only on rows carrying a wire key and routes it through', () => {
-    const idb = makeIdb({
-      selection: { database: 'oh-app', store: 'kv' },
-      recordsPage: {
-        records: [
-          {
-            keyPreview: '"simple"',
-            primaryKeyPreview: '"simple"',
-            valuePreview: '1',
-            primaryKeyWire: '{"s":"simple"}',
-          },
-          { keyPreview: 'Infinity', primaryKeyPreview: 'Infinity', valuePreview: '2' },
-        ],
-        truncated: false,
+  const RECORDS_PAGE = {
+    records: [
+      {
+        keyPreview: '"simple"',
+        primaryKeyPreview: '"simple"',
+        valuePreview: '1',
+        primaryKeyWire: '{"s":"simple"}',
       },
+      { keyPreview: 'Infinity', primaryKeyPreview: 'Infinity', valuePreview: '2' },
+    ],
+    truncated: false,
+  };
+
+  it('opens a record as an editor document on row click, gated on the wire key', () => {
+    const onOpenRecord = vi.fn();
+    const idb = makeIdb({ selection: { database: 'oh-app', store: 'kv' }, recordsPage: RECORDS_PAGE });
+    render(<IndexedDbSection idb={idb} filter="" onOpenRecord={onOpenRecord} />);
+
+    fireEvent.click(screen.getByTitle('Open this record in the editor'));
+    expect(onOpenRecord).toHaveBeenCalledWith({
+      database: 'oh-app',
+      store: 'kv',
+      primaryKeyWire: '{"s":"simple"}',
+      keyPreview: '"simple"',
     });
-    render(<IndexedDbSection idb={idb} filter="" />);
+
+    // The wire-less row is inert — no open request fires.
+    onOpenRecord.mockClear();
+    fireEvent.click(screen.getByText('Infinity'));
+    expect(onOpenRecord).not.toHaveBeenCalled();
+  });
+
+  it('shows a delete only on rows carrying a wire key, and deleting never also opens', () => {
+    const onOpenRecord = vi.fn();
+    const idb = makeIdb({ selection: { database: 'oh-app', store: 'kv' }, recordsPage: RECORDS_PAGE });
+    render(<IndexedDbSection idb={idb} filter="" onOpenRecord={onOpenRecord} />);
 
     expect(screen.queryByLabelText('Delete record Infinity')).toBeNull();
     fireEvent.click(screen.getByLabelText('Delete record "simple"'));
     expect(idb.deleteRecord).toHaveBeenCalledWith('{"s":"simple"}');
-  });
-});
-
-describe('IndexedDbSection value tree', () => {
-  it('expands a row into its one-shot value tree and collapses it again', async () => {
-    const readRecordValue = vi.fn(() =>
-      Promise.resolve({
-        kind: 'object',
-        preview: '{…1}',
-        children: [{ kind: 'string', preview: '"deep"', label: 'note' }],
-      }),
-    );
-    const idb = makeIdb({
-      selection: { database: 'oh-app', store: 'kv' },
-      readRecordValue,
-      recordsPage: {
-        records: [
-          {
-            keyPreview: '"simple"',
-            primaryKeyPreview: '"simple"',
-            valuePreview: '{…1}',
-            primaryKeyWire: '{"s":"simple"}',
-          },
-        ],
-        truncated: false,
-      },
-    });
-    render(<IndexedDbSection idb={idb} filter="" />);
-
-    fireEvent.click(screen.getByLabelText('Expand value for "simple"'));
-    expect(readRecordValue).toHaveBeenCalledWith('{"s":"simple"}');
-    expect(await screen.findByText('note:')).toBeTruthy();
-    expect(screen.getByText('"deep"')).toBeTruthy();
-
-    fireEvent.click(screen.getByLabelText('Expand value for "simple"'));
-    expect(screen.queryByText('note:')).toBeNull();
-    expect(readRecordValue).toHaveBeenCalledTimes(1);
-  });
-
-  it('renders the failure note when the record value is gone', async () => {
-    const idb = makeIdb({
-      selection: { database: 'oh-app', store: 'kv' },
-      recordsPage: {
-        records: [{ keyPreview: '1', primaryKeyPreview: '1', valuePreview: '1', primaryKeyWire: '{"n":1}' }],
-        truncated: false,
-      },
-    });
-    render(<IndexedDbSection idb={idb} filter="" />);
-
-    fireEvent.click(screen.getByLabelText('Expand value for 1'));
-    expect(await screen.findByText(/can’t be read/)).toBeTruthy();
+    expect(onOpenRecord).not.toHaveBeenCalled();
   });
 });
 
@@ -132,7 +101,7 @@ describe('IndexedDbSection index cursor selector', () => {
       selection: { database: 'oh-app', store: 'kv' },
       recordsPage: { records: [], truncated: false },
     });
-    render(<IndexedDbSection idb={idb} filter="" />);
+    render(<IndexedDbSection idb={idb} filter="" onOpenRecord={vi.fn()} />);
 
     const select = screen.getByLabelText('Record cursor');
     fireEvent.change(select, { target: { value: 'by-user' } });
@@ -146,7 +115,7 @@ describe('IndexedDbSection index cursor selector', () => {
       selection: { database: 'oh-app', store: 'kv' },
       recordsPage: { records: [], truncated: false },
     });
-    render(<IndexedDbSection idb={idb} filter="" />);
+    render(<IndexedDbSection idb={idb} filter="" onOpenRecord={vi.fn()} />);
     expect(screen.queryByLabelText('Record cursor')).toBeNull();
   });
 });
@@ -154,7 +123,7 @@ describe('IndexedDbSection index cursor selector', () => {
 describe('IndexedDbSection bulk deletes', () => {
   it('clears a store only on the second (armed) click', () => {
     const idb = makeIdb();
-    render(<IndexedDbSection idb={idb} filter="" />);
+    render(<IndexedDbSection idb={idb} filter="" onOpenRecord={vi.fn()} />);
 
     const clear = screen.getByLabelText('Clear store kv');
     fireEvent.click(clear);
@@ -165,7 +134,7 @@ describe('IndexedDbSection bulk deletes', () => {
 
   it('deletes a database only on the second click, and blur disarms', () => {
     const idb = makeIdb();
-    render(<IndexedDbSection idb={idb} filter="" />);
+    render(<IndexedDbSection idb={idb} filter="" onOpenRecord={vi.fn()} />);
 
     const del = screen.getByLabelText('Delete database oh-app');
     fireEvent.click(del);
