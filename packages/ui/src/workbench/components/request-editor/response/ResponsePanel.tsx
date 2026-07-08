@@ -31,6 +31,7 @@ import ResponseBodyView from './ResponseBodyView';
 import ResponseConsoleView from './ResponseConsoleView';
 import ResponseCookiesView from './ResponseCookiesView';
 import ResponseEmptyState from './ResponseEmptyState';
+import ResponseErrorState from './ResponseErrorState';
 import ResponseHeadersView from './ResponseHeadersView';
 import ResponseMetaStrip from './ResponseMetaStrip';
 import { detectBodyLanguage } from './response-format';
@@ -106,8 +107,8 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
   };
 
   const statusColor =
-    !response || response.error !== null
-      ? token.colorError
+    !response
+      ? token.colorTextSecondary
       : response.status >= 500
         ? token.colorError
         : response.status >= 400
@@ -128,7 +129,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
         background: token.colorBgContainer,
       }}
     >
-      {!response ? (
+      {!response || response.error !== null ? (
         <>
           <div
             style={{
@@ -142,11 +143,22 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
             <Text strong style={{ fontSize: 12, whiteSpace: 'nowrap', flexShrink: 0 }}>
               Response
             </Text>
-            <div style={{ marginLeft: 'auto' }}>
+            <div style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              {response && (
+                <Button size="small" type="text" icon={<ClearOutlined />} onClick={onClear}>
+                  Clear
+                </Button>
+              )}
               <SplitLayoutToggle layout={layout} onChange={onLayoutChange} />
             </div>
           </div>
-          <ResponseEmptyState sending={sending} />
+          {/* While a retry is in flight, the pane goes back to "Sending…"
+              instead of leaving the stale failure on screen. */}
+          {response && !sending ? (
+            <ResponseErrorState error={response.error ?? ''} />
+          ) : (
+            <ResponseEmptyState sending={sending} />
+          )}
         </>
       ) : (
         <Tabs
@@ -160,7 +172,7 @@ const ResponsePanel: React.FC<ResponsePanelProps> = ({
             right: (
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, paddingLeft: 12 }}>
                 <ResponseMetaStrip response={response} statusColor={statusColor} />
-                {onExtractToWorkflow && !response.error && (
+                {onExtractToWorkflow && (
                   <Dropdown
                     trigger={['click']}
                     menu={{

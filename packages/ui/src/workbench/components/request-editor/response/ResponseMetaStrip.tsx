@@ -348,13 +348,6 @@ const MetaDot: React.FC = () => {
 
 const ResponseMetaStrip: React.FC<ResponseMetaStripProps> = ({ response, statusColor }) => {
   const { token } = theme.useToken();
-  if (response.error !== null) {
-    return (
-      <Tag color="error" style={{ marginInlineEnd: 0 }}>
-        {response.error}
-      </Tag>
-    );
-  }
   const factStyle: React.CSSProperties = { fontSize: 11, whiteSpace: 'nowrap', cursor: 'help' };
   // The strip leads with the on-wire size when the server exposes it
   // (matches devtools' Size column); decoded bytes otherwise. The
