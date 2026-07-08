@@ -84,6 +84,7 @@ import type {
   RawFrameStoppedLoading,
   RawGetFrameTree,
   RawGetResponseBody,
+  RawIndexedDbUpdated,
   RawLoadingFailed,
   RawLoadingFinished,
   RawLogEntryAdded,
@@ -117,6 +118,7 @@ type DetachListener = (tabId: number, reason: string) => void;
 type ChildSessionListener = (tabId: number, sessionId: string, kind: ChildTargetKind) => void;
 type BindingListener = (fire: CdpBindingFire) => void;
 type ConsoleListener = (tabId: number, entry: ConsoleEntry) => void;
+type IdbTrackingListener = (tabId: number, storageKey: string) => void;
 type DebuggerApi = BrowserAPI['debugger'];
 
 /** Protocol version handed to `chrome.debugger.attach`. */
@@ -168,6 +170,7 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
   private readonly childDetachListeners = new Set<ChildSessionListener>();
   private readonly bindingListeners = new Set<BindingListener>();
   private readonly consoleListeners = new Set<ConsoleListener>();
+  private readonly idbTrackingListeners = new Set<IdbTrackingListener>();
   /** Root (page-target) tabs we hold a `chrome.debugger` attachment for. */
   private readonly attachedTabs = new Set<number>();
   /**
@@ -237,6 +240,24 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
     this.consoleListeners.add(listener);
     return () => {
       this.consoleListeners.delete(listener);
+    };
+  }
+
+  /**
+   * Subscribe to IndexedDB tracking updates (storage-panel slice 4) —
+   * `Storage.indexedDBListUpdated` / `indexedDBContentUpdated` for a
+   * storage key the storage inspector armed via
+   * `Storage.trackIndexedDBForStorageKey` on the tab's root session.
+   * Pure invalidation input: the panel refetches through its injected
+   * read plane (the CDP `IndexedDB` read domain stays blocked — see
+   * STORAGE_PANEL_PLAN.md §2.3). NOT part of the oracle `CdpEventSource`
+   * interface — storage inspection is a host concern (mirror of
+   * `subscribeConsole`).
+   */
+  subscribeIdbTracking(listener: IdbTrackingListener): () => void {
+    this.idbTrackingListeners.add(listener);
+    return () => {
+      this.idbTrackingListeners.delete(listener);
     };
   }
 
@@ -443,6 +464,7 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
     this.childDetachListeners.clear();
     this.bindingListeners.clear();
     this.consoleListeners.clear();
+    this.idbTrackingListeners.clear();
     this.attachedTabs.clear();
     this.childSessions.clear();
   }
@@ -532,6 +554,15 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
       const logChildSessionId = source.sessionId;
       if (logChildSessionId !== undefined && !this.childSessions.has(logChildSessionId)) return;
       this.fanConsole(tabId, normalizeLogEntryAdded(logChildSessionId ?? ROOT_SESSION_ID, params as RawLogEntryAdded));
+      return;
+    }
+    if (method === 'Storage.indexedDBListUpdated' || method === 'Storage.indexedDBContentUpdated') {
+      // Tracking is armed on the root session only (storage-panel slice
+      // 4), so that is where its events arrive; a child session never
+      // emits them.
+      if (params === undefined || source.sessionId !== undefined) return;
+      const updated = params as RawIndexedDbUpdated;
+      if (typeof updated.storageKey === 'string') this.fanIdbTracking(tabId, updated.storageKey);
       return;
     }
     if (!method.startsWith('Network.') || params === undefined) return;
@@ -811,6 +842,10 @@ export class ChromeDebuggerEventSource implements CdpEventSource {
 
   private fanConsole(tabId: number, entry: ConsoleEntry): void {
     for (const listener of this.consoleListeners) listener(tabId, entry);
+  }
+
+  private fanIdbTracking(tabId: number, storageKey: string): void {
+    for (const listener of this.idbTrackingListeners) listener(tabId, storageKey);
   }
 
   private api(): DebuggerApi | undefined {

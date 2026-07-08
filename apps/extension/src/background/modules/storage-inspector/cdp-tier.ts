@@ -2,17 +2,25 @@
  * CDP tier of the storage inspector — additive, never required
  * (STORAGE_PANEL_PLAN.md §2.3). When the inspected tab is CDP-attached,
  * scope listing upgrades each scope with its partitioned storage key via
- * `Storage.getStorageKey`; detached tabs just skip the stamp.
+ * `Storage.getStorageKey`, and arms `Storage.trackIndexedDBForStorageKey`
+ * per stamped key so IDB changes push an invalidation note to the panel
+ * (which refetches through the injected read plane — the CDP `IndexedDB`
+ * read domain stays blocked). Detached tabs skip both.
  *
  * The access seam is registered by the lifecycle pipeline (which owns
  * the attach reconciler and the debugger source) — this module NEVER
  * attaches or names `chrome.debugger` itself; it only asks the existing
- * attach state and rides the existing session sender. Storage keys come
- * only from the browser (`Storage.getStorageKey`) — never recomputed
- * here.
+ * attach state and rides the existing session sender + event fan.
+ * Storage keys come only from the browser (`Storage.getStorageKey`) —
+ * never recomputed here.
+ *
+ * Tracking subscriptions are DERIVED state (plan §7): the armed set
+ * lives in module memory, dies with the SW or a detach, and re-arms on
+ * the next scope listing of an attached tab — never persisted.
  */
 
 import type { StorageScopeWire } from '@openheaders/core/bridge';
+import { broadcast } from '@utils/bridge';
 import { logger } from '@utils/logger';
 
 export interface StorageCdpAccess {
@@ -20,17 +28,42 @@ export interface StorageCdpAccess {
   isAttached(tabId: number): boolean;
   /** Issue one CDP command on the tab's root session. */
   send(tabId: number, method: string, params?: Record<string, unknown>): Promise<unknown>;
+  /** Observe IDB tracking updates for an armed storage key. Returns unsubscribe. */
+  subscribeIdbUpdated(listener: (tabId: number, storageKey: string) => void): () => void;
+  /** Observe a tab's CDP detach. Returns unsubscribe. */
+  onDetach(listener: (tabId: number) => void): () => void;
 }
 
 let access: StorageCdpAccess | null = null;
+let accessUnsubscribers: Array<() => void> = [];
+/** Storage keys with a live tracking subscription, per attached tab. */
+const armedIdbKeys = new Map<number, Set<string>>();
 
 /** Registered once by the lifecycle pipeline. Idempotent (SW re-init). */
 export function registerStorageCdpAccess(next: StorageCdpAccess): void {
+  for (const off of accessUnsubscribers) off();
+  accessUnsubscribers = [];
+  armedIdbKeys.clear();
   access = next;
+  accessUnsubscribers.push(
+    // Relay only for a tab this module armed — the panel treats the note
+    // as WHAT went stale, never as data.
+    next.subscribeIdbUpdated((tabId) => {
+      if (armedIdbKeys.has(tabId)) broadcast('idbStorageInvalidated', { tabId });
+    }),
+    // The browser drops tracking subscriptions with the attachment; drop
+    // the bookkeeping too so a re-attach re-arms on its next listing.
+    next.onDetach((tabId) => {
+      armedIdbKeys.delete(tabId);
+    }),
+  );
 }
 
 /** Test-only — drop the registration so tests start from a clean seam. */
 export function __resetStorageCdpAccessForTests(): void {
+  for (const off of accessUnsubscribers) off();
+  accessUnsubscribers = [];
+  armedIdbKeys.clear();
   access = null;
 }
 
@@ -99,4 +132,29 @@ export async function stampStorageKeys(tabId: number, scopes: StorageScopeWire[]
       }
     }),
   );
+}
+
+/**
+ * Arm IDB change tracking for each stamped storage key not yet armed on
+ * the tab. Rides the scope listing (the moment the panel is actually
+ * looking, with the frame-tree walk already paid) — fire-and-forget:
+ * a failed arm just stays un-armed and the next listing retries.
+ */
+export async function armIdbTracking(tabId: number, scopes: StorageScopeWire[]): Promise<void> {
+  if (!access || !access.isAttached(tabId)) return;
+  for (const scope of scopes) {
+    const storageKey = scope.storageKey;
+    if (typeof storageKey !== 'string' || armedIdbKeys.get(tabId)?.has(storageKey)) continue;
+    try {
+      await access.send(tabId, 'Storage.trackIndexedDBForStorageKey', { storageKey });
+      let armed = armedIdbKeys.get(tabId);
+      if (!armed) {
+        armed = new Set();
+        armedIdbKeys.set(tabId, armed);
+      }
+      armed.add(storageKey);
+    } catch (e) {
+      logger.info('StorageCdpTier', `trackIndexedDB ✗ tab ${tabId}: ${(e as Error).message}`);
+    }
+  }
 }

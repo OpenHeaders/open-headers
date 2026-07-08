@@ -62,6 +62,7 @@ function installHost() {
   const deleteIndexedDbRecord = vi.fn(() => Promise.resolve(true));
   const clearIndexedDbStore = vi.fn(() => Promise.resolve(true));
   const deleteIndexedDbDatabase = vi.fn(() => Promise.resolve(true));
+  const idbInvalidationListeners = new Set<() => void>();
   const host: StorageInspectorHost = {
     listScopes,
     readDomStorage,
@@ -74,6 +75,12 @@ function installHost() {
     deleteIndexedDbRecord,
     clearIndexedDbStore,
     deleteIndexedDbDatabase,
+    subscribeIdbInvalidations: (_tabId: number, listener: () => void) => {
+      idbInvalidationListeners.add(listener);
+      return () => {
+        idbInvalidationListeners.delete(listener);
+      };
+    },
   };
   setStorageInspectorHost(host);
   return {
@@ -84,6 +91,9 @@ function installHost() {
     deleteIndexedDbRecord,
     clearIndexedDbStore,
     deleteIndexedDbDatabase,
+    pushIdbInvalidation: () => {
+      for (const listener of idbInvalidationListeners) listener();
+    },
   };
 }
 
@@ -243,6 +253,34 @@ describe('useIdbBrowser poll stability', () => {
     expect(result.current.recordsPage).toBe(page);
     expect(listIndexedDb.mock.calls.length).toBe(listsBefore + 2);
     expect(readIndexedDbRecords.mock.calls.length).toBe(readsBefore + 2);
+  });
+
+  it('coalesces a host invalidation burst into one refetch pass with stable identities', async () => {
+    const { listIndexedDb, readIndexedDbRecords, pushIdbInvalidation } = installHost();
+    const { result } = renderHook(() => useIdbBrowser(true, 0));
+
+    await flush();
+    act(() => {
+      result.current.selectStore('oh-app', 'kv');
+    });
+    await flush();
+    const databases = result.current.databases;
+    const page = result.current.recordsPage;
+    expect(page).not.toBeNull();
+
+    const listsBefore = listIndexedDb.mock.calls.length;
+    const readsBefore = readIndexedDbRecords.mock.calls.length;
+    act(() => {
+      pushIdbInvalidation();
+      pushIdbInvalidation();
+      pushIdbInvalidation();
+    });
+    await flush(300);
+    expect(listIndexedDb.mock.calls.length).toBe(listsBefore + 1);
+    expect(readIndexedDbRecords.mock.calls.length).toBe(readsBefore + 1);
+    // Fresh-but-equal payloads must keep their identities (no storm).
+    expect(result.current.databases).toBe(databases);
+    expect(result.current.recordsPage).toBe(page);
   });
 
   it('routes deletes through the host and refetches via the same read path', async () => {

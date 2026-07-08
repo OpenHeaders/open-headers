@@ -118,6 +118,14 @@ export interface StorageInspectorHost {
   clearIndexedDbStore(tabId: number, frameId: number, database: string, store: string): Promise<boolean>;
   /** `false` covers errors AND a blocked delete (page holds connections). */
   deleteIndexedDbDatabase(tabId: number, frameId: number, database: string): Promise<boolean>;
+  /**
+   * Subscribe to host-pushed IndexedDB invalidations for the tab (fired
+   * while the host's CDP tier tracks it; never fired on a fetcher-less
+   * or detached host — the poll stays the fallback). The note carries no
+   * data: the consumer refetches through the read methods above.
+   * Returns an unsubscribe function.
+   */
+  subscribeIdbInvalidations(tabId: number, listener: () => void): () => void;
 }
 
 let host: StorageInspectorHost | null = null;

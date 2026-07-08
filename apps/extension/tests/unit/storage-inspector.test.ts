@@ -171,8 +171,11 @@ describe('storage-key stamping (CDP tier)', () => {
         if (method === 'Storage.getStorageKey') {
           return Promise.resolve({ storageKey: KEYS[params?.frameId as string] });
         }
+        if (method === 'Storage.trackIndexedDBForStorageKey') return Promise.resolve({});
         return Promise.reject(new Error(`unexpected ${method}`));
       },
+      subscribeIdbUpdated: () => () => {},
+      onDetach: () => () => {},
       ...overrides,
     };
   }
@@ -228,6 +231,118 @@ describe('storage-key stamping (CDP tier)', () => {
     getAllFramesSpy().mockResolvedValue(FRAMES);
     const { scopes } = await listStorageScopes(42);
     expect(scopes?.every((s) => s.storageKey === undefined)).toBe(true);
+  });
+});
+
+describe('idb tracking invalidations (CDP tier)', () => {
+  const FRAMES = [frame({ frameId: 0, url: 'https://app.openheaders.io/dashboard' })];
+  const TREE = { frameTree: { frame: { id: 'F-MAIN', url: 'https://app.openheaders.io/dashboard' } } };
+  const KEY = 'https://app.openheaders.io/';
+
+  const sendMessageSpy = (): ReturnType<typeof vi.fn> =>
+    chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
+
+  function trackingHarness(overrides: Partial<StorageCdpAccess> = {}) {
+    const trackCalls: Array<Record<string, unknown> | undefined> = [];
+    let fireUpdate: (tabId: number, storageKey: string) => void = () => {};
+    let fireDetach: (tabId: number) => void = () => {};
+    registerStorageCdpAccess({
+      isAttached: () => true,
+      send: (_tabId, method, params) => {
+        if (method === 'Page.getFrameTree') return Promise.resolve(TREE);
+        if (method === 'Storage.getStorageKey') return Promise.resolve({ storageKey: KEY });
+        if (method === 'Storage.trackIndexedDBForStorageKey') {
+          trackCalls.push(params);
+          return Promise.resolve({});
+        }
+        return Promise.reject(new Error(`unexpected ${method}`));
+      },
+      subscribeIdbUpdated: (listener) => {
+        fireUpdate = listener;
+        return () => {};
+      },
+      onDetach: (listener) => {
+        fireDetach = listener;
+        return () => {};
+      },
+      ...overrides,
+    });
+    return {
+      trackCalls,
+      fireUpdate: (tabId: number, key: string) => fireUpdate(tabId, key),
+      fireDetach: (tabId: number) => fireDetach(tabId),
+    };
+  }
+
+  async function settle(): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+
+  beforeEach(() => {
+    sendMessageSpy().mockClear();
+  });
+
+  it('arms tracking once per stamped key across repeated listings', async () => {
+    getAllFramesSpy().mockResolvedValue(FRAMES);
+    const { trackCalls } = trackingHarness();
+
+    await listStorageScopes(42);
+    await settle();
+    expect(trackCalls).toEqual([{ storageKey: KEY }]);
+
+    await listStorageScopes(42);
+    await settle();
+    expect(trackCalls).toHaveLength(1);
+  });
+
+  it('arms nothing on a detached tab', async () => {
+    getAllFramesSpy().mockResolvedValue(FRAMES);
+    const { trackCalls } = trackingHarness({ isAttached: () => false });
+
+    await listStorageScopes(42);
+    await settle();
+    expect(trackCalls).toHaveLength(0);
+  });
+
+  it('relays a tracking update for an armed tab as one invalidation broadcast', async () => {
+    getAllFramesSpy().mockResolvedValue(FRAMES);
+    const { fireUpdate } = trackingHarness();
+
+    await listStorageScopes(42);
+    await settle();
+    sendMessageSpy().mockClear();
+
+    fireUpdate(42, KEY);
+    expect(sendMessageSpy()).toHaveBeenCalledTimes(1);
+    expect(sendMessageSpy()).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'idbStorageInvalidated', tabId: 42 }),
+    );
+  });
+
+  it('never relays for a tab it did not arm', async () => {
+    const { fireUpdate } = trackingHarness();
+    fireUpdate(7, KEY);
+    expect(sendMessageSpy()).not.toHaveBeenCalled();
+  });
+
+  it('drops the armed set on detach so a re-attach re-arms and relays again', async () => {
+    getAllFramesSpy().mockResolvedValue(FRAMES);
+    const { trackCalls, fireUpdate, fireDetach } = trackingHarness();
+
+    await listStorageScopes(42);
+    await settle();
+    expect(trackCalls).toHaveLength(1);
+
+    fireDetach(42);
+    sendMessageSpy().mockClear();
+    fireUpdate(42, KEY);
+    expect(sendMessageSpy()).not.toHaveBeenCalled();
+
+    await listStorageScopes(42);
+    await settle();
+    expect(trackCalls).toHaveLength(2);
+    fireUpdate(42, KEY);
+    expect(sendMessageSpy()).toHaveBeenCalledTimes(1);
   });
 });
 

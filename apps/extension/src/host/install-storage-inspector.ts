@@ -18,7 +18,7 @@ import type {
   StorageScope,
 } from '@openheaders/ui/panel/host-storage-inspector';
 import { setStorageInspectorHost } from '@openheaders/ui/panel/host-storage-inspector';
-import { call } from '@utils/bridge';
+import { call, subscribe } from '@utils/bridge';
 import { logger } from '@utils/logger';
 
 logger.info('StorageInspectorHost', 'installed');
@@ -149,5 +149,10 @@ setStorageInspectorHost({
       logger.info('StorageInspectorHost', `deleteIndexedDbDatabase ✗ tab ${tabId}: ${(err as Error).message}`);
       return false;
     }
+  },
+  subscribeIdbInvalidations(tabId: number, listener: () => void): () => void {
+    return subscribe('idbStorageInvalidated', (payload) => {
+      if (payload.tabId === tabId) listener();
+    });
   },
 });

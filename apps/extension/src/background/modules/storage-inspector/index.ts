@@ -6,7 +6,7 @@
  * CDP-backed invalidation tracking.
  */
 
-export { registerStorageCdpAccess, type StorageCdpAccess } from './cdp-tier';
+export { armIdbTracking, registerStorageCdpAccess, type StorageCdpAccess } from './cdp-tier';
 export { listStorageScopes } from './scopes';
 export {
   clearDomStorage,

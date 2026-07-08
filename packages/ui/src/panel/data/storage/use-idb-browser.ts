@@ -19,6 +19,8 @@ import { getStorageInspectorHost } from './storage-inspector-host';
 
 const IDB_POLL_MS = 5000;
 const IDB_PAGE_SIZE = 50;
+/** Host invalidation notes can burst (one per write); coalesce the refetch. */
+const IDB_INVALIDATION_COALESCE_MS = 250;
 
 function idbDatabasesEqual(a: ReadonlyArray<IdbDatabase>, b: ReadonlyArray<IdbDatabase>): boolean {
   if (a.length !== b.length) return false;
@@ -153,6 +155,27 @@ export function useIdbBrowser(active: boolean, frameId: number | null): IdbBrows
     }, IDB_POLL_MS);
     return () => clearInterval(timer);
   }, [active, listDatabases, readRecords]);
+
+  // Host-pushed invalidations (CDP tracking, attached tabs) — refetch
+  // through the SAME read paths the poll uses, coalesced against event
+  // bursts. Purely additive over the poll; a host that never pushes
+  // just leaves this idle.
+  useEffect(() => {
+    if (!active || !host || tabId === null) return;
+    let coalesce: ReturnType<typeof setTimeout> | null = null;
+    const unsubscribe = host.subscribeIdbInvalidations(tabId, () => {
+      if (coalesce !== null) return;
+      coalesce = setTimeout(() => {
+        coalesce = null;
+        void listDatabases();
+        void readRecords();
+      }, IDB_INVALIDATION_COALESCE_MS);
+    });
+    return () => {
+      unsubscribe();
+      if (coalesce !== null) clearTimeout(coalesce);
+    };
+  }, [active, host, tabId, listDatabases, readRecords]);
 
   const selectStore = useCallback((db: string, storeName: string) => {
     setSelection({ database: db, store: storeName });

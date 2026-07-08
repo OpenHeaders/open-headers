@@ -61,6 +61,13 @@ export interface BridgeBroadcastContract {
   connectionStatus: { connected: boolean };
   trackedUrlsUpdated: { tabId?: number };
   /**
+   * Storage tool window: a CDP-attached tab's tracked IndexedDB changed
+   * (`Storage.indexedDBListUpdated` / `indexedDBContentUpdated`).
+   * Invalidation only — it says WHAT went stale; the panel refetches
+   * through the same read RPCs it polls with.
+   */
+  idbStorageInvalidated: { tabId: number };
+  /**
    * Fires on any workspace list mutation (create/rename/delete/reorder)
    * AND on active-workspace switch. UI surfaces re-read rules, templates,
    * environments, and pause markers on this event — one atomic refetch

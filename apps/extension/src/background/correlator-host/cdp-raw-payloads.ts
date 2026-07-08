@@ -359,3 +359,10 @@ export interface RawPageLifecycleTimestamp {
 export interface RawFrameStoppedLoading {
   readonly frameId: string;
 }
+
+/** `Storage.indexedDBListUpdated` / `Storage.indexedDBContentUpdated` —
+ *  the shared fields the storage inspector consumes. */
+export interface RawIndexedDbUpdated {
+  readonly origin: string;
+  readonly storageKey: string;
+}
