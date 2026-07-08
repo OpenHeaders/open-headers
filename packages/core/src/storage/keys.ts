@@ -254,12 +254,15 @@ export const OH = {
   /**
    * Long-lived peer access tokens recognized by this daemon (U3.2,
    * `UNIFIED_ORACLE_MODEL.md` §4.2 + `DATA_PLANE_TOPOLOGIES.md` §11.4).
-   * Stores only hashes — the raw secret is returned to the admin exactly
-   * once at mint time. Used exclusively when the daemon binds non-loopback
-   * (`backend.bindAddress === '0.0.0.0'`); loopback handshakes stay
-   * trust-by-process and never consult this list.
+   * Consulted on every HELLO and every `/mcp` request, loopback and LAN
+   * alike. Stores only SHA-256 hashes of high-entropy random secrets —
+   * the raw secret is returned to the admin exactly once at mint time
+   * and is never recoverable from this ledger. Deliberately NOT a
+   * sensitive slot: the ledger is integrity data, not secret material,
+   * and it must stay read/writable on hosts without a secret cipher
+   * (the headless daemon) or pairing and token validation break.
    */
-  daemonAuthTokens: storageKey<DaemonAuthToken[]>('oh.daemonAuthTokens', { sensitive: true }),
+  daemonAuthTokens: storageKey<DaemonAuthToken[]>('oh.daemonAuthTokens'),
   /**
    * Per-user org-binding preferences (UNIFIED_ORACLE_MODEL.md §6.2 / U3.6)
    * — the two-personal-Orgs onboarding acknowledgement + the default Org
