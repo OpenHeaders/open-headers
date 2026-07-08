@@ -1,0 +1,80 @@
+/**
+ * Service-unit rendering — pure text generation for the two service
+ * managers the daemon installs under (DAEMON_PLAN.md §6): a launchd
+ * user LaunchAgent on macOS and a systemd user unit on Linux. No I/O
+ * here; `service-manager.ts` owns paths and process control.
+ *
+ * The unit execs the plain-Node entry (`node dist/main.js`) directly —
+ * absolute binary + absolute script, so the service survives PATH and
+ * cwd differences between login shells and the service manager.
+ */
+
+export const LAUNCHD_LABEL = 'io.openheaders.daemon';
+export const SYSTEMD_UNIT_NAME = 'oh-daemon.service';
+
+export interface ServiceDefinition {
+  /** Absolute path to the Node binary (`process.execPath`). */
+  nodeBin: string;
+  /** Absolute path to the daemon entry (`dist/main.js`). */
+  mainJs: string;
+  /** Config flags baked into the unit (already resolved/absolute). */
+  args: readonly string[];
+  /** Absolute path the daemon's stdout/stderr append to. */
+  logFile: string;
+}
+
+function xmlEscape(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+export function renderLaunchdPlist(def: ServiceDefinition): string {
+  const programArguments = [def.nodeBin, def.mainJs, ...def.args]
+    .map((arg) => `    <string>${xmlEscape(arg)}</string>`)
+    .join('\n');
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>${LAUNCHD_LABEL}</string>
+  <key>ProgramArguments</key>
+  <array>
+${programArguments}
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <dict>
+    <key>SuccessfulExit</key>
+    <false/>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>${xmlEscape(def.logFile)}</string>
+  <key>StandardErrorPath</key>
+  <string>${xmlEscape(def.logFile)}</string>
+</dict>
+</plist>
+`;
+}
+
+/** Quote for a systemd ExecStart= line when the value needs it. */
+function systemdQuote(arg: string): string {
+  if (/^[A-Za-z0-9_@%+=:,./-]+$/.test(arg)) return arg;
+  return `"${arg.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
+export function renderSystemdUnit(def: ServiceDefinition): string {
+  const execStart = [def.nodeBin, def.mainJs, ...def.args].map(systemdQuote).join(' ');
+  return `[Unit]
+Description=Open Headers daemon
+
+[Service]
+ExecStart=${execStart}
+Restart=on-failure
+StandardOutput=append:${def.logFile}
+StandardError=append:${def.logFile}
+
+[Install]
+WantedBy=default.target
+`;
+}

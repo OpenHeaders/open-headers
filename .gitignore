@@ -4,6 +4,7 @@ node_modules/
 # Build output
 dist/
 dist-webpack/
+dist-package/
 packages/core/dist/
 .turbo/
 .electron-vite/

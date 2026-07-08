@@ -1,10 +1,15 @@
 /**
- * Daemon shell build — one Node bundle at `dist/main.js`.
+ * Daemon shell build — two Node bundles: `dist/main.js` (the daemon)
+ * and `dist/cli.js` (the `oh` lifecycle CLI, shebanged for the bin
+ * entry). Shared modules (config, no-cipher) split into chunks both
+ * import.
  *
  * Everything is statically packed (workspace packages included) except
  * `better-sqlite3`, whose native binding must load from `node_modules`
- * for the running Node's ABI. No CDN, no runtime fetch, no remote code
- * — the enterprise packing constraint applies to every distribution.
+ * for the running Node's ABI — only `main.js` reaches it; the CLI
+ * stays sqlite-free by construction. No CDN, no runtime fetch, no
+ * remote code — the enterprise packing constraint applies to every
+ * distribution.
  */
 
 import { defineConfig } from 'vite';
@@ -12,14 +17,20 @@ import { defineConfig } from 'vite';
 export default defineConfig({
   build: {
     target: 'node22',
-    ssr: 'src/main.ts',
+    ssr: true,
     outDir: 'dist',
     emptyOutDir: true,
     minify: false,
     rollupOptions: {
+      input: {
+        main: 'src/main.ts',
+        cli: 'src/cli.ts',
+      },
       external: ['better-sqlite3'],
       output: {
-        entryFileNames: 'main.js',
+        entryFileNames: '[name].js',
+        chunkFileNames: 'chunks/[name]-[hash].js',
+        banner: (chunk) => (chunk.name === 'cli' ? '#!/usr/bin/env node\n' : ''),
       },
     },
   },

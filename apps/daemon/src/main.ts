@@ -26,30 +26,15 @@ import * as path from 'node:path';
 import { setHostLogger } from '@openheaders/core/logger';
 import { OH } from '@openheaders/core/storage';
 import { logger as consoleLogger } from '@openheaders/core/utils';
-import type { SecretCipher } from '@openheaders/oracle/host-storage';
 import { bootDaemonSpine } from '@openheaders/oracle-host-node/daemon';
 import { FileBackedHostStorage } from '@openheaders/oracle-host-node/host-storage';
 import { resolveDaemonConfig } from './config';
+import { noCipherYet } from './no-cipher';
 import { createDaemonStatusStore } from './status-store';
 
 const SCOPE = 'oh-daemon';
 
 const appVersion: string = (createRequire(import.meta.url)('../package.json') as { version: string }).version;
-
-/**
- * No cipher until the daemon grows a passphrase/keychain story: report
- * unavailable so `FileBackedHostStorage` refuses sensitive slots
- * instead of downgrading them to plaintext on disk.
- */
-const noCipherYet: SecretCipher = {
-  isAvailable: () => false,
-  encrypt() {
-    throw new Error('secret cipher not configured');
-  },
-  decrypt() {
-    throw new Error('secret cipher not configured');
-  },
-};
 
 function safeOsUsername(): string {
   try {

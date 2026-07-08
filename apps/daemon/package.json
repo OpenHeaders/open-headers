@@ -5,11 +5,15 @@
   "description": "Standalone Open Headers daemon — the headless back-end distribution of the shared boot spine",
   "type": "module",
   "sideEffects": false,
+  "bin": {
+    "oh": "./dist/cli.js"
+  },
   "scripts": {
     "build": "vite build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "clean": "rm -rf dist"
+    "pack": "vite build && node scripts/pack.mjs",
+    "clean": "rm -rf dist dist-package"
   },
   "dependencies": {
     "@openheaders/core": "workspace:*",

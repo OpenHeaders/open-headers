@@ -10,6 +10,10 @@
       "import": "./src/daemon/index.ts",
       "default": "./dist/daemon/index.js"
     },
+    "./daemon/lan-addresses": {
+      "import": "./src/daemon/lan-addresses.ts",
+      "default": "./dist/daemon/lan-addresses.js"
+    },
     "./host-runtime/pairing-http": {
       "import": "./src/host-runtime/pairing-http.ts",
       "default": "./dist/host-runtime/pairing-http.js"
