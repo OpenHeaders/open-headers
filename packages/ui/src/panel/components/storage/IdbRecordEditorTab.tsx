@@ -142,10 +142,9 @@ export function IdbRecordEditorTab({ tab, onRevealInStorage, onDirtyChange, regi
   return (
     <div className="dt-idbdoc">
       <div className="dt-idbdoc-toolbar">
-        <span className="dt-idbdoc-crumb" title={`${database} › ${store} › ${tab.keyPreview}`}>
-          {database} › {store} › <span className="dt-idbdoc-crumb-key">{tab.keyPreview}</span>
-        </span>
-        <span className="dt-idbdoc-toolbar-spacer" />
+        {/* View modes live LEFT with the document identity; the action
+            cluster (Save/Refresh/Reveal) stays right — different
+            domains, different sides. */}
         <span className="dt-idbdoc-modes" role="tablist" aria-label="Record view mode">
           <button
             type="button"
@@ -171,6 +170,10 @@ export function IdbRecordEditorTab({ tab, onRevealInStorage, onDirtyChange, regi
             Source
           </button>
         </span>
+        <span className="dt-idbdoc-crumb" title={`${database} › ${store} › ${tab.keyPreview}`}>
+          {database} › {store} › <span className="dt-idbdoc-crumb-key">{tab.keyPreview}</span>
+        </span>
+        <span className="dt-idbdoc-toolbar-spacer" />
         {doc?.editable === true && (
           <button
             type="button"
