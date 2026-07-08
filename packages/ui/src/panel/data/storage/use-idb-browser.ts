@@ -1,9 +1,9 @@
 /**
  * State + fetch loop for the Storage tool window's IndexedDB section:
- * database/store enumeration and cursor-paged record reads over the
- * host seam. Mounted alongside `useStorageInspector` and gated by
- * `active` (hooks can't be conditional); inactive means no fetches and
- * no polling.
+ * database/store enumeration, cursor-paged record reads, and the delete
+ * ops (record / store clear / database) over the host seam. Mounted
+ * alongside `useStorageInspector` and gated by `active` (hooks can't be
+ * conditional); inactive means no fetches and no polling.
  *
  * Standard-plane IDB has no change events, so this polls while active —
  * on a slower cadence than DOM storage (enumeration opens every
@@ -70,6 +70,12 @@ export interface IdbBrowserState {
   /** `null` while the selected store's page is in flight. */
   recordsPage: IdbRecordsPage | null;
   refresh: () => void;
+  /** Last delete/clear failed — cleared by the next successful one. */
+  mutationFailed: boolean;
+  /** Delete one record of the SELECTED store by its opaque wire key. */
+  deleteRecord: (primaryKeyWire: string) => void;
+  clearStore: (database: string, store: string) => void;
+  deleteDatabase: (database: string) => void;
 }
 
 export function useIdbBrowser(active: boolean, frameId: number | null): IdbBrowserState {
@@ -81,6 +87,7 @@ export function useIdbBrowser(active: boolean, frameId: number | null): IdbBrows
   const [selection, setSelection] = useState<IdbSelection | null>(null);
   const [page, setPage] = useState(0);
   const [recordsPage, setRecordsPage] = useState<IdbRecordsPage | null>(null);
+  const [mutationFailed, setMutationFailed] = useState(false);
   const tokenRef = useRef(0);
 
   // Scope or activation change → drop everything from the old scope.
@@ -92,6 +99,7 @@ export function useIdbBrowser(active: boolean, frameId: number | null): IdbBrows
     setSelection(null);
     setPage(0);
     setRecordsPage(null);
+    setMutationFailed(false);
   }, [active, frameId]);
 
   const listDatabases = useCallback(async () => {
@@ -161,6 +169,43 @@ export function useIdbBrowser(active: boolean, frameId: number | null): IdbBrows
     void readRecords();
   }, [listDatabases, readRecords]);
 
+  // Every mutation refetches through the same read path (invalidation
+  // discipline) — the grid never trusts a delete's local outcome.
+  const deleteRecord = useCallback(
+    (primaryKeyWire: string) => {
+      if (!host || tabId === null || frameId === null || database === null || store === null) return;
+      void host.deleteIndexedDbRecord(tabId, frameId, database, store, primaryKeyWire).then((ok) => {
+        setMutationFailed(!ok);
+        void readRecords();
+      });
+    },
+    [host, tabId, frameId, database, store, readRecords],
+  );
+
+  const clearStore = useCallback(
+    (db: string, storeName: string) => {
+      if (!host || tabId === null || frameId === null) return;
+      void host.clearIndexedDbStore(tabId, frameId, db, storeName).then((ok) => {
+        setMutationFailed(!ok);
+        void readRecords();
+      });
+    },
+    [host, tabId, frameId, readRecords],
+  );
+
+  const deleteDatabase = useCallback(
+    (db: string) => {
+      if (!host || tabId === null || frameId === null) return;
+      void host.deleteIndexedDbDatabase(tabId, frameId, db).then((ok) => {
+        setMutationFailed(!ok);
+        // The stale-selection effect prunes a selection inside the
+        // deleted database once the re-list lands.
+        void listDatabases();
+      });
+    },
+    [host, tabId, frameId, listDatabases],
+  );
+
   return {
     databases,
     loading,
@@ -171,5 +216,9 @@ export function useIdbBrowser(active: boolean, frameId: number | null): IdbBrows
     setPage,
     recordsPage,
     refresh,
+    mutationFailed,
+    deleteRecord,
+    clearStore,
+    deleteDatabase,
   };
 }

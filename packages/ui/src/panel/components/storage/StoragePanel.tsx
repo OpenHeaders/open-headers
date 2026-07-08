@@ -135,9 +135,10 @@ export function StoragePanel({ onHide }: StoragePanelProps) {
           cookieWriteFailed ? ' · write failed' : '',
         ].join('')
       : section === 'indexeddb'
-        ? idb.databases
-          ? `${idb.databases.length} ${idb.databases.length === 1 ? 'database' : 'databases'}`
-          : ''
+        ? [
+            idb.databases ? `${idb.databases.length} ${idb.databases.length === 1 ? 'database' : 'databases'}` : '',
+            idb.mutationFailed ? ' · delete failed' : '',
+          ].join('')
         : [
             inspector.snapshot ? `${filtered.length} of ${entries.length} items` : '',
             inspector.snapshot?.truncated ? ' · list truncated' : '',

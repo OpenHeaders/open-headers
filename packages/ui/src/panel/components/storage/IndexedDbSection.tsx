@@ -1,12 +1,15 @@
 /**
- * The Storage tool window's IndexedDB section — read-only in this slice
- * (record editing is out of v1; deletes trail with the CDP invalidation
- * wiring). Two levels: the scope's databases with their object stores,
- * then a selected store's cursor-paged records grid of in-page-serialized
- * previews (StorageGrid idiom, no edit lane).
+ * The Storage tool window's IndexedDB section. Two levels: the scope's
+ * databases with their object stores, then a selected store's
+ * cursor-paged records grid of in-page-serialized previews (StorageGrid
+ * idiom). Deletes are in scope — record (rows carrying a lossless wire
+ * key), store clear, whole database — record EDITING stays out of v1.
+ * Bulk gestures (clear / database delete) use the two-step arm/confirm
+ * idiom; a record delete is single-click like the DOM grid's.
  */
 
-import { LeftOutlined, RightOutlined } from '@ant-design/icons';
+import { ClearOutlined, DeleteOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons';
+import { useState } from 'react';
 import type { IdbDatabase } from '../../data/storage/storage-inspector-host';
 import type { IdbBrowserState } from '../../data/storage/use-idb-browser';
 
@@ -18,6 +21,42 @@ interface IndexedDbSectionProps {
 function storeMeta(store: IdbDatabase['objectStores'][number]): string {
   const key = store.keyPath ? `key: ${store.keyPath}` : store.autoIncrement ? 'auto-increment keys' : 'out-of-line keys';
   return store.indexNames.length > 0 ? `${key} · ${store.indexNames.length} ${store.indexNames.length === 1 ? 'index' : 'indexes'}` : key;
+}
+
+/** Two-step icon button — first click arms (red), second commits. */
+function ArmedIconButton({
+  icon,
+  title,
+  confirmTitle,
+  ariaLabel,
+  onConfirm,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  confirmTitle: string;
+  ariaLabel: string;
+  onConfirm: () => void;
+}) {
+  const [armed, setArmed] = useState(false);
+  return (
+    <button
+      type="button"
+      className={`dt-storage-action${armed ? ' dt-storage-action--armed' : ''}`}
+      title={armed ? confirmTitle : title}
+      aria-label={armed ? `${ariaLabel} — click again to confirm` : ariaLabel}
+      onClick={() => {
+        if (!armed) {
+          setArmed(true);
+          return;
+        }
+        setArmed(false);
+        onConfirm();
+      }}
+      onBlur={() => setArmed(false)}
+    >
+      {icon}
+    </button>
+  );
 }
 
 export function IndexedDbSection({ idb, filter }: IndexedDbSectionProps) {
@@ -52,23 +91,40 @@ export function IndexedDbSection({ idb, filter }: IndexedDbSectionProps) {
         if (needle && stores.length === 0) return null;
         return (
           <div key={db.name} className="dt-storage-idb-db">
-            <div className="dt-storage-idb-db-header" title={db.name}>
-              {db.name}
+            <div className="dt-storage-idb-db-header">
+              <span className="dt-storage-idb-db-name" title={db.name}>
+                {db.name}
+              </span>
               <span className="dt-storage-idb-meta">
                 v{db.version} · {db.objectStores.length} {db.objectStores.length === 1 ? 'store' : 'stores'}
               </span>
+              <ArmedIconButton
+                icon={<DeleteOutlined />}
+                title={`Delete the ${db.name} database`}
+                confirmTitle={`Deletes ${db.name} and every store in it — a page holding it open blocks the delete`}
+                ariaLabel={`Delete database ${db.name}`}
+                onConfirm={() => idb.deleteDatabase(db.name)}
+              />
             </div>
             {stores.map((s) => (
-              <button
-                key={s.name}
-                type="button"
-                className="dt-storage-idb-store"
-                onClick={() => idb.selectStore(db.name, s.name)}
-                title={`Open ${db.name} › ${s.name}`}
-              >
-                {s.name}
-                <span className="dt-storage-idb-meta">{storeMeta(s)}</span>
-              </button>
+              <div key={s.name} className="dt-storage-idb-store-row">
+                <button
+                  type="button"
+                  className="dt-storage-idb-store"
+                  onClick={() => idb.selectStore(db.name, s.name)}
+                  title={`Open ${db.name} › ${s.name}`}
+                >
+                  {s.name}
+                  <span className="dt-storage-idb-meta">{storeMeta(s)}</span>
+                </button>
+                <ArmedIconButton
+                  icon={<ClearOutlined />}
+                  title={`Clear all records in ${s.name}`}
+                  confirmTitle={`Deletes every record in ${db.name} › ${s.name}`}
+                  ariaLabel={`Clear store ${s.name}`}
+                  onConfirm={() => idb.clearStore(db.name, s.name)}
+                />
+              </div>
             ))}
             {db.objectStores.length === 0 && <div className="dt-storage-idb-meta dt-storage-idb-empty">no object stores</div>}
           </div>
@@ -139,16 +195,32 @@ function RecordsView({ idb, filter }: IndexedDbSectionProps) {
             <span role="columnheader">Key</span>
             <span role="columnheader">Value</span>
           </div>
-          {records.map((r, i) => (
-            <div className="dt-storage-row" role="row" key={`${idb.page}:${i}:${r.primaryKeyPreview}`}>
-              <span className="dt-storage-key" role="cell" title={`Key: ${r.keyPreview}\nPrimary key: ${r.primaryKeyPreview}`}>
-                {r.keyPreview}
-              </span>
-              <span className="dt-storage-value" role="cell" title={r.valuePreview}>
-                {r.valuePreview}
-              </span>
-            </div>
-          ))}
+          {records.map((r, i) => {
+            const wireKey = r.primaryKeyWire;
+            return (
+              <div className="dt-storage-row" role="row" key={`${idb.page}:${i}:${r.primaryKeyPreview}`}>
+                <span className="dt-storage-key" role="cell" title={`Key: ${r.keyPreview}\nPrimary key: ${r.primaryKeyPreview}`}>
+                  {r.keyPreview}
+                </span>
+                <span className="dt-storage-value" role="cell" title={r.valuePreview}>
+                  {r.valuePreview}
+                </span>
+                {wireKey !== undefined && (
+                  <span className="dt-storage-row-actions">
+                    <button
+                      type="button"
+                      className="dt-storage-action"
+                      title="Delete this record"
+                      aria-label={`Delete record ${r.primaryKeyPreview}`}
+                      onClick={() => idb.deleteRecord(wireKey)}
+                    >
+                      <DeleteOutlined />
+                    </button>
+                  </span>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </>

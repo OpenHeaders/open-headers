@@ -245,6 +245,61 @@ describe('useIdbBrowser poll stability', () => {
     expect(readIndexedDbRecords.mock.calls.length).toBe(readsBefore + 2);
   });
 
+  it('routes deletes through the host and refetches via the same read path', async () => {
+    const { readIndexedDbRecords, deleteIndexedDbRecord, clearIndexedDbStore } = installHost();
+    const { result } = renderHook(() => useIdbBrowser(true, 0));
+
+    await flush();
+    act(() => {
+      result.current.selectStore('oh-app', 'kv');
+    });
+    await flush();
+    expect(result.current.recordsPage).not.toBeNull();
+
+    const readsBefore = readIndexedDbRecords.mock.calls.length;
+    act(() => {
+      result.current.deleteRecord('{"n":1}');
+    });
+    await flush();
+    expect(deleteIndexedDbRecord).toHaveBeenCalledWith(42, 0, 'oh-app', 'kv', '{"n":1}');
+    expect(readIndexedDbRecords.mock.calls.length).toBe(readsBefore + 1);
+    expect(result.current.mutationFailed).toBe(false);
+
+    act(() => {
+      result.current.clearStore('oh-app', 'kv');
+    });
+    await flush();
+    expect(clearIndexedDbStore).toHaveBeenCalledWith(42, 0, 'oh-app', 'kv');
+    expect(readIndexedDbRecords.mock.calls.length).toBe(readsBefore + 2);
+  });
+
+  it('flags a failed delete and re-lists after a database delete', async () => {
+    const { listIndexedDb, deleteIndexedDbRecord, deleteIndexedDbDatabase } = installHost();
+    deleteIndexedDbRecord.mockImplementation(() => Promise.resolve(false));
+    const { result } = renderHook(() => useIdbBrowser(true, 0));
+
+    await flush();
+    act(() => {
+      result.current.selectStore('oh-app', 'kv');
+    });
+    await flush();
+
+    act(() => {
+      result.current.deleteRecord('{"n":1}');
+    });
+    await flush();
+    expect(result.current.mutationFailed).toBe(true);
+
+    const listsBefore = listIndexedDb.mock.calls.length;
+    act(() => {
+      result.current.deleteDatabase('oh-app');
+    });
+    await flush();
+    expect(deleteIndexedDbDatabase).toHaveBeenCalledWith(42, 0, 'oh-app');
+    expect(listIndexedDb.mock.calls.length).toBe(listsBefore + 1);
+    expect(result.current.mutationFailed).toBe(false);
+  });
+
   it('drops the selection when a re-list no longer has the store', async () => {
     const { listIndexedDb } = installHost();
     const { result } = renderHook(() => useIdbBrowser(true, 0));

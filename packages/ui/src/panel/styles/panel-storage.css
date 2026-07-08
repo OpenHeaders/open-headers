@@ -193,19 +193,54 @@
 }
 
 .dt-storage-idb-db-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   padding: 3px 8px 1px;
   color: var(--dt-text);
   font-weight: 600;
   white-space: nowrap;
+}
+
+.dt-storage-idb-db-name {
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+/* Delete/clear lanes on database headers and store rows — same
+ * reveal-on-hover posture as the grid's row actions, kept
+ * keyboard-reachable via focus-within (visibility, not display, so the
+ * buttons stay focusable). */
+.dt-storage-idb-db-header > .dt-storage-action,
+.dt-storage-idb-store-row > .dt-storage-action {
+  visibility: hidden;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.dt-storage-idb-db-header:hover > .dt-storage-action,
+.dt-storage-idb-db-header:focus-within > .dt-storage-action,
+.dt-storage-idb-store-row:hover > .dt-storage-action,
+.dt-storage-idb-store-row:focus-within > .dt-storage-action {
+  visibility: visible;
+}
+
+.dt-storage-idb-store-row {
+  display: flex;
+  align-items: center;
+  padding-right: 8px;
+}
+
+.dt-storage-idb-store-row:hover {
+  background: var(--dt-row-hover);
+}
+
 .dt-storage-idb-store {
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
   align-items: baseline;
   gap: 6px;
-  width: 100%;
   font: inherit;
   text-align: left;
   padding: 2px 8px 2px 20px;
@@ -216,10 +251,6 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.dt-storage-idb-store:hover {
-  background: var(--dt-row-hover);
 }
 
 .dt-storage-idb-meta {
@@ -300,6 +331,13 @@
 .dt-storage-action:hover {
   background: var(--dt-pill-active-bg);
   color: var(--dt-text);
+}
+
+/* Armed state of a two-step icon button (first click arms, second
+ * commits) — destructive red until blur disarms it. */
+.dt-storage-action--armed,
+.dt-storage-action--armed:hover {
+  color: var(--dt-status-red);
 }
 
 .dt-storage-row--editing {
