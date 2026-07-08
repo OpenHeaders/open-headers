@@ -12,22 +12,16 @@
  * while the record is disabled (an edit can never move a live wire);
  * disable first to reconfigure.
  *
- * Remove is available here only for records with no consumed Orgs — a
- * bound record's removal must resolve what happens to its Orgs'
- * workspaces (the Keep local copies / Discard flow), which ships with
- * the add/edit wizard.
+ * Remove delegates to `backend-remove-flow.tsx`: a Popconfirm for
+ * records with no consumed Orgs, the Keep-local-copies / Discard
+ * outcome dialog for bound records.
  */
 
-import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
-import { App as AntApp, Button, Checkbox, Input, Popconfirm, Switch, Tooltip, theme } from 'antd';
+import { EditOutlined, PlusOutlined } from '@ant-design/icons';
+import { Button, Checkbox, Input, Switch, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
-import {
-  type BackendConnectionPatch,
-  createBackend,
-  removeBackend,
-  updateBackend,
-} from '@openheaders/core/backends';
+import { type BackendConnectionPatch, createBackend, updateBackend } from '@openheaders/core/backends';
 import { getOrgBackendBindings } from '@openheaders/core/identity';
 import type { BackendConnection, Org } from '@openheaders/core/types';
 import { useBackends } from '../../../shared/backend';
@@ -42,6 +36,7 @@ import {
   backendDisplayLabel,
   useBackendRecord,
 } from './backend-record-context';
+import { BackendRemoveButton } from './backend-remove-flow';
 import BackendUrlField from './backend-url-field';
 import { PairPopover } from './pair-popover';
 import { type BackendEnableSwitchHandle, useBackendEnableSwitch } from './use-backend-enable-switch';
@@ -143,7 +138,6 @@ const ConnectionRow: React.FC<{
   onRemoved: () => void;
 }> = ({ record, host, enableSwitch, expanded, onToggleExpanded, onRemoved }) => {
   const { token } = theme.useToken();
-  const { message } = AntApp.useApp();
   const status = useBackendRowStatus(record);
   const consumedOrgs = useConsumedOrgs(record.id);
 
@@ -152,12 +146,6 @@ const ConnectionRow: React.FC<{
 
   const patch = (next: BackendConnectionPatch): void => {
     void updateBackend(record.id, next);
-  };
-
-  const remove = async (): Promise<void> => {
-    await removeBackend(record.id);
-    onRemoved();
-    message.success(`Removed ${label}.`);
   };
 
   return (
@@ -226,7 +214,7 @@ const ConnectionRow: React.FC<{
             onClick={onToggleExpanded}
           />
         </Tooltip>
-        <RemoveButton label={label} consumedOrgCount={consumedOrgs.length} onRemove={remove} />
+        <BackendRemoveButton record={record} label={label} consumedOrgs={consumedOrgs} onRemoved={onRemoved} />
         <Tooltip title={record.enabled ? 'Disconnect (settings are kept)' : 'Verify and connect'}>
           <Switch
             checked={record.enabled}
@@ -253,33 +241,6 @@ const ConnectionRow: React.FC<{
         </div>
       )}
     </div>
-  );
-};
-
-const RemoveButton: React.FC<{ label: string; consumedOrgCount: number; onRemove: () => Promise<void> }> = ({
-  label,
-  consumedOrgCount,
-  onRemove,
-}) => {
-  if (consumedOrgCount > 0) {
-    return (
-      <Tooltip
-        title="This back-end provides Orgs with synced workspaces. Removal (with keep-or-discard options for that data) ships next; disable the connection to stop syncing meanwhile."
-      >
-        <Button size="small" icon={<DeleteOutlined />} disabled aria-label={`Remove ${label}`} />
-      </Tooltip>
-    );
-  }
-  return (
-    <Popconfirm
-      title={`Remove ${label}?`}
-      description="Its address and pairing are forgotten. Nothing was synced from it yet."
-      okText="Remove"
-      okButtonProps={{ danger: true }}
-      onConfirm={() => void onRemove()}
-    >
-      <Button size="small" danger icon={<DeleteOutlined />} aria-label={`Remove ${label}`} />
-    </Popconfirm>
   );
 };
 

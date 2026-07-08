@@ -35,6 +35,7 @@ import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import type { ExportSelection } from '@openheaders/core/types';
 import { hostBridge } from '@openheaders/core/bridge';
+import { downloadYaml } from './download-yaml';
 
 const { Text, Paragraph } = Typography;
 
@@ -77,21 +78,6 @@ function buildFilename(workspaceName: string, scope: ExportModalScope): string {
   const slug = slugify(workspaceName) || 'workspace';
   const suffix = scope.kind === 'workspace' ? 'workspace' : scope.slug || 'selection';
   return `${slug}-${suffix}.openheaders.yaml`;
-}
-
-function downloadYaml(filename: string, yaml: string): void {
-  const blob = new Blob([yaml], { type: 'application/yaml;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  try {
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  } finally {
-    setTimeout(() => URL.revokeObjectURL(url), 1_000);
-  }
 }
 
 /**
