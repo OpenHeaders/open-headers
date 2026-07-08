@@ -1,14 +1,14 @@
 /**
- * Tab-side safety net for RPCs the Phase-4a stub bridge rejects.
+ * Tab-side safety net for RPCs the web host doesn't implement —
+ * browser-integration channels (chrome.tabs, DNR, CDP, …) that only
+ * the extension or desktop shells answer.
  *
  * Several `packages/ui` hooks fire RPCs as `void hostBridge.call(...)`
  * without a `.catch()` — fine on hosts whose adapter always resolves,
- * but unhandled rejections in DevTools against the stub bridge. This
- * filter recognizes the stub's "not implemented" error string, logs
- * each unique RPC name once at INFO, and suppresses the console noise
- * for repeats. Every other rejection stays untouched — real bugs still
- * surface. Delete alongside the stub bridge when the Phase-4b tab
- * oracle lands.
+ * but unhandled rejections in DevTools here. This filter recognizes
+ * the bridge's "not implemented" error string, logs each unique RPC
+ * name once at INFO, and suppresses the console noise for repeats.
+ * Every other rejection stays untouched — real bugs still surface.
  */
 
 import { hostLogger as logger } from '@openheaders/core/logger';

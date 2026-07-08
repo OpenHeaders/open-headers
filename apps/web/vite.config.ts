@@ -38,9 +38,10 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
     target: 'es2022',
-    // Vendor chunk is large (React + Ant Design) — expected for a
-    // single-page Workbench bundle.
-    chunkSizeWarningLimit: 1200,
+    // Vendor (React + Ant Design) and index (Workbench + tab oracle)
+    // chunks are large — expected for a single-page Workbench bundle
+    // that hosts its own engine.
+    chunkSizeWarningLimit: 2200,
     sourcemap: false,
     rollupOptions: {
       output: {
