@@ -306,7 +306,11 @@
   flex: 0 0 auto;
 }
 
+/* The crumb absorbs all shrink (long keys truncate with an ellipsis);
+ * every control right of it keeps its intrinsic width. */
 .dt-idbdoc-crumb {
+  flex: 0 1 auto;
+  min-width: 0;
   color: var(--dt-text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -322,10 +326,15 @@
 }
 
 .dt-idbdoc-modes {
+  flex: 0 0 auto;
   display: inline-flex;
   border: 1px solid var(--dt-border);
   border-radius: 4px;
   overflow: hidden;
+}
+
+.dt-idbdoc-toolbar > .dt-storage-action {
+  flex: 0 0 auto;
 }
 
 .dt-idbdoc-mode {
@@ -348,6 +357,7 @@
 }
 
 .dt-idbdoc-reveal {
+  flex: 0 0 auto;
   font: inherit;
   padding: 1px 8px;
   border: 1px solid var(--dt-border);
