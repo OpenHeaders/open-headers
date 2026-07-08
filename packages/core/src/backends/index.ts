@@ -20,3 +20,9 @@ export {
   updatePrimaryBackend,
   watchBackendsInHostStorage,
 } from './registry';
+export {
+  clearBackendOrgConflict,
+  pruneBackendOrgConflictsForBackend,
+  type RecordBackendOrgConflictInput,
+  recordBackendOrgConflict,
+} from './org-conflicts';

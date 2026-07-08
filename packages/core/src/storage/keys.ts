@@ -149,6 +149,24 @@ export interface JoinedOrgRecord {
   backendId: string;
 }
 
+/**
+ * One persisted row of `OH.backendOrgConflicts` — a WELCOME refused
+ * under the Org-uniqueness invariant (one Org, one backend). Keyed by
+ * `(backendId, orgId)`; the writers live in
+ * `@openheaders/core/backends` (`org-conflicts.ts`). `orgName` is
+ * persisted because a refused Org never enters the identity snapshot;
+ * `boundBackendId` stays an id — consumers resolve the provider's label
+ * against the live registry at render time.
+ */
+export interface BackendOrgConflict {
+  backendId: string;
+  orgId: string;
+  orgName: string;
+  boundBackendId: string;
+  /** ISO timestamp of the most recent refusal. */
+  at: string;
+}
+
 export interface PersistedLocalFolder {
   /** Persisted format version for each `_folder.yaml` once the codec lands. */
   schemaVersion: number;
@@ -273,6 +291,14 @@ export const OH = {
    * `useBackendReach`) to render accurate "extend your reach" guidance.
    */
   backendReach: storageKey<BackendReach | null>('oh.backendReach'),
+  /**
+   * Durable Org-conflict rows ({@link BackendOrgConflict}) — WELCOMEs
+   * refused because the claimed Org is bound to another backend. One row
+   * per `(backendId, orgId)`; written on refusal, cleared on that
+   * backend's later successful claim, pruned on record removal. Rendered
+   * by the connections list under the refused backend's row.
+   */
+  backendOrgConflicts: storageKey<BackendOrgConflict[]>('oh.backendOrgConflicts'),
 } as const;
 
 // ── UI-global keys (not workspace-scoped by design) ─────────────────

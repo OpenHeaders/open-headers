@@ -20,11 +20,13 @@ import { EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { Button, Checkbox, Switch, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
-import { type BackendConnectionPatch, createBackend, updateBackend } from '@openheaders/core/backends';
+import { type BackendConnectionPatch, createBackend, getBackend, updateBackend } from '@openheaders/core/backends';
 import { getOrgBackendBindings } from '@openheaders/core/identity';
+import type { BackendOrgConflict } from '@openheaders/core/storage';
 import type { BackendConnection, Org } from '@openheaders/core/types';
 import { useBackends } from '../../../shared/backend';
 import { getCurrentHost, type Host } from '../../../shared/host-vocabulary';
+import { useBackendOrgConflicts } from '../../../shared/hooks/useBackendOrgConflicts';
 import { useIdentitySnapshot } from '../../../shared/hooks/useIdentitySnapshot';
 import { deriveBackendMode } from '../schema/backend';
 import { BackendIcon, backendModeIcon } from './backend-icons';
@@ -38,6 +40,7 @@ import { type BackendRowStatus, useBackendRowStatus } from './use-backend-row-st
 export const BackendConnectionsList: React.FC<{ host: Host }> = ({ host }) => {
   const { token } = theme.useToken();
   const backends = useBackends();
+  const orgConflicts = useBackendOrgConflicts();
   const enableSwitch = useBackendEnableSwitch();
   const [wizard, setWizard] = useState<BackendWizardTarget | null>(null);
 
@@ -100,6 +103,7 @@ export const BackendConnectionsList: React.FC<{ host: Host }> = ({ host }) => {
             <ConnectionRow
               key={record.id}
               record={record}
+              orgConflicts={orgConflicts.filter((c) => c.backendId === record.id)}
               enableSwitch={enableSwitch}
               onEdit={() => setWizard({ recordId: record.id, mode: 'edit' })}
               onRemoved={() => setWizard(null)}
@@ -123,10 +127,11 @@ const STATUS_LABEL: Record<BackendRowStatus, string> = {
 
 const ConnectionRow: React.FC<{
   record: BackendConnection;
+  orgConflicts: BackendOrgConflict[];
   enableSwitch: BackendEnableSwitchHandle;
   onEdit: () => void;
   onRemoved: () => void;
-}> = ({ record, enableSwitch, onEdit, onRemoved }) => {
+}> = ({ record, orgConflicts, enableSwitch, onEdit, onRemoved }) => {
   const { token } = theme.useToken();
   const { status, detail } = useBackendRowStatus(record);
   const consumedOrgs = useConsumedOrgs(record.id);
@@ -209,6 +214,40 @@ const ConnectionRow: React.FC<{
           />
         </Tooltip>
       </div>
+      {orgConflicts.map((conflict) => (
+        <OrgConflictNotice key={conflict.orgId} conflict={conflict} />
+      ))}
+    </div>
+  );
+};
+
+/**
+ * One durable Org-conflict row under a backend's status line — this
+ * backend's WELCOME claimed an Org another record already provides
+ * (`OH.backendOrgConflicts`). Stays visible until the claim succeeds or
+ * the record is removed; the provider's label resolves against the live
+ * registry so a rename shows through and a removed provider degrades to
+ * a neutral phrase.
+ */
+const OrgConflictNotice: React.FC<{ conflict: BackendOrgConflict }> = ({ conflict }) => {
+  const { token } = theme.useToken();
+  const provider = getBackend(conflict.boundBackendId);
+  const providerLabel = provider ? provider.label.trim() || provider.url : 'a removed back-end';
+  return (
+    <div
+      role="alert"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        padding: '5px 12px 5px 30px',
+        fontSize: 11,
+        color: token.colorWarningText,
+        background: token.colorWarningBg,
+        borderTop: `1px solid ${token.colorBorderSecondary}`,
+      }}
+    >
+      Org “{conflict.orgName}” is already provided by {providerLabel} — not joined
     </div>
   );
 };

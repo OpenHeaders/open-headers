@@ -7,6 +7,7 @@ export {
   setHostStorage,
 } from './host-storage';
 export {
+  type BackendOrgConflict,
   isSensitiveKey,
   type JoinedOrgRecord,
   OH,

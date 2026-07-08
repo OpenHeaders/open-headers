@@ -1,4 +1,4 @@
-import { getBackend } from '@openheaders/core/backends';
+import { clearBackendOrgConflict, getBackend, recordBackendOrgConflict } from '@openheaders/core/backends';
 import { claimJoinedOrg, getOrgBackendBindings } from '@openheaders/core/identity';
 import { type HandshakeRejectReason, isBackendEvictingReason } from '@openheaders/core/protocol';
 import { getHostStorage, OH } from '@openheaders/core/storage';
@@ -152,12 +152,24 @@ export function createSyncHandshakeForWire(wire: BackendWireHandle): SyncHandsha
           message: `Org "${org.name}" is already provided by ${providerLabel} — not joined`,
           context: { reason: 'org-conflict', orgId: org.id, boundBackendId: result.boundBackendId },
         });
+        // Durable twin of the slot report — persists until this backend
+        // successfully claims the Org or its record is removed, so the
+        // connections list keeps the conflict visible under the row.
+        await recordBackendOrgConflict({
+          backendId: wire.backendId,
+          orgId: org.id,
+          orgName: org.name,
+          boundBackendId: result.boundBackendId,
+        });
         logger.warn(
           'Background',
           `backend ${wire.backendId} claims Org ${org.id}, already provided by backend ${result.boundBackendId} — join refused`,
         );
         return;
       }
+      // Accepted — a durable conflict row for this (backend, Org) pair is
+      // resolved (the old binding was stale, or the provider was removed).
+      await clearBackendOrgConflict(wire.backendId, org.id);
       if (result.firstJoin && backendActiveWorkspaceId) {
         pendingAdoptWorkspaceId = backendActiveWorkspaceId;
         tryAdoptPendingWorkspace();

@@ -22,6 +22,7 @@
  */
 
 import { pruneJoinedOrgsForBackend } from '../identity/registry';
+import { pruneBackendOrgConflictsForBackend } from './org-conflicts';
 import { WS_SERVER_URL } from '../protocol';
 import { hostStorage } from '../storage/host-storage';
 import { OH } from '../storage/keys';
@@ -170,6 +171,7 @@ export async function removeBackend(id: string): Promise<boolean> {
   });
   if (!removed) return false;
   await pruneJoinedOrgsForBackend(id);
+  await pruneBackendOrgConflictsForBackend(id);
   return true;
 }
 

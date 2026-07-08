@@ -134,6 +134,16 @@ describe('WELCOME Org-uniqueness guard (per-wire onJoinedOrg)', () => {
     await joinedOrgOf(1)(ORG); // B's WELCOME claims the same Org
     expect(getOrgBackendBindings().get(ORG.id)).toBe(BACKEND_A);
     expect((await hostStorage.get(OH.joinedOrgs))?.map((r) => r.backendId)).toEqual([BACKEND_A]);
+    // The refusal also lands durably — one (backendId, orgId) row the
+    // connections list renders under B until the conflict resolves.
+    const conflicts = (await hostStorage.get(OH.backendOrgConflicts)) ?? [];
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0]).toMatchObject({
+      backendId: BACKEND_B,
+      orgId: ORG.id,
+      orgName: ORG.name,
+      boundBackendId: BACKEND_A,
+    });
   });
 
   it('accepts distinct Orgs on distinct wires', async () => {
@@ -152,11 +162,16 @@ describe('WELCOME Org-uniqueness guard (per-wire onJoinedOrg)', () => {
     createSyncHandshakeForWire(makeWire(BACKEND_B));
 
     await joinedOrgOf(0)(ORG);
+    // B's claim while A is present is refused and recorded durably.
+    await joinedOrgOf(1)(ORG);
+    expect((await hostStorage.get(OH.backendOrgConflicts)) ?? []).toHaveLength(1);
     // A's record is removed (Phase-3 remove flow); B later serves the Org.
     await hostStorage.set(OH.backends, [makeRecord(BACKEND_B)]);
     await joinedOrgOf(1)(ORG);
 
     expect(getOrgBackendBindings().get(ORG.id)).toBe(BACKEND_B);
+    // The successful claim resolves B's durable conflict row.
+    expect((await hostStorage.get(OH.backendOrgConflicts)) ?? []).toHaveLength(0);
   });
 
   it('a reconnect re-sending WELCOME over the same wire stays idempotent', async () => {
