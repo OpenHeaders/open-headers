@@ -89,9 +89,13 @@
 /* ── Tab pill ───────────────────────────────────────────────
    Matches the workspace TabBar pill treatment: rounded pill,
    tinted bg for active, neutral grey on hover, no underline. */
+/* Baseline-align the text spans — the 9px monospace badge and 11px label
+   have different font metrics, so center-aligning their line boxes leaves
+   the badge visually off the label's baseline. Non-text items (close
+   button, dirty dot) re-center via align-self. */
 .dt-editor-tab {
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
   gap: 4px;
   padding: 4px 10px;
   cursor: pointer;
@@ -165,6 +169,7 @@
   border-radius: 50%;
   background: #ff7875;
   flex-shrink: 0;
+  align-self: center;
 }
 
 .dt-editor-tab-close {
@@ -182,6 +187,7 @@
   cursor: pointer;
   padding: 0;
   flex-shrink: 0;
+  align-self: center;
   opacity: 0;
 }
 

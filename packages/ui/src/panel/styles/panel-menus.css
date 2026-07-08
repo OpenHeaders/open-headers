@@ -224,7 +224,7 @@
 
 .dt-tab-search-item {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 6px;
   padding: 3px 8px;
   cursor: pointer;
