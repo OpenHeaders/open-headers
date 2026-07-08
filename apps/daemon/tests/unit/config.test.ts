@@ -107,6 +107,17 @@ describe('resolveDaemonConfig — precedence', () => {
       }).allowedHosts,
     ).toEqual(['c.openheaders.io', 'd.openheaders.io']);
   });
+
+  it('resolves webRoot through the chain as an absolute path, defaulting to null', () => {
+    expect(resolve().webRoot).toBeNull();
+    const file = writeConfigFile({ webRoot: '/srv/oh-web' });
+    expect(resolve(['--config', file]).webRoot).toBe('/srv/oh-web');
+    expect(resolve(['--config', file], { OH_DAEMON_WEB_ROOT: '/opt/web' }).webRoot).toBe('/opt/web');
+    expect(resolve(['--config', file, '--web-root', '/var/web'], { OH_DAEMON_WEB_ROOT: '/opt/web' }).webRoot).toBe(
+      '/var/web',
+    );
+    expect(path.isAbsolute(resolve(['--web-root', 'relative/web']).webRoot ?? '')).toBe(true);
+  });
 });
 
 describe('resolveDaemonConfig — validation', () => {
@@ -129,6 +140,11 @@ describe('resolveDaemonConfig — validation', () => {
 
   it('rejects a malformed trusted-proxy env value', () => {
     expect(() => resolve([], { OH_DAEMON_TRUSTED_PROXY: 'yes' })).toThrow(/trusted proxy/);
+  });
+
+  it('rejects a non-string webRoot in the config file', () => {
+    const file = writeConfigFile({ webRoot: 42 });
+    expect(() => resolve(['--config', file])).toThrow(/webRoot/);
   });
 
   it('rejects URL-shaped allowed hosts rather than never matching them', () => {

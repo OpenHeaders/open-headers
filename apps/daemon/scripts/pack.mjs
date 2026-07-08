@@ -14,7 +14,7 @@
  */
 
 import { spawn, spawnSync } from 'node:child_process';
-import { chmodSync, cpSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, cpSync, existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -40,6 +40,13 @@ function fail(message) {
 rmSync(stageDir, { recursive: true, force: true });
 cpSync(path.join(packageRoot, 'dist'), path.join(stageDir, 'dist'), { recursive: true });
 chmodSync(path.join(stageDir, 'dist', 'cli.js'), 0o755);
+// Web bundle (Phase 4a) — loose coupling: staged into dist/web when the
+// web app has been built (`files: ['dist']` keeps the tarball whitelist
+// intact), skipped otherwise. The daemon serves it when present.
+const webDist = path.join(repoRoot, 'apps', 'web', 'dist');
+const webStaged = existsSync(path.join(webDist, 'index.html'));
+if (webStaged) cpSync(webDist, path.join(stageDir, 'dist', 'web'), { recursive: true });
+else console.log('pack: apps/web/dist not built — staging without the web ui');
 cpSync(path.join(packageRoot, 'README.md'), path.join(stageDir, 'README.md'));
 cpSync(path.join(repoRoot, 'LICENSE.md'), path.join(stageDir, 'LICENSE.md'));
 writeFileSync(
@@ -106,6 +113,14 @@ if (!healthy) {
   daemon.kill('SIGKILL');
   console.error(daemonLog.join(''));
   fail('daemon never answered /healthz under the system node');
+}
+
+if (webStaged) {
+  const index = await fetch(`http://127.0.0.1:${VERIFY_PORT}/`, { signal: AbortSignal.timeout(1000) });
+  if (index.status !== 200 || !(index.headers.get('content-type') ?? '').includes('text/html')) {
+    daemon.kill('SIGKILL');
+    fail(`staged web ui not served: / answered ${index.status} ${index.headers.get('content-type')}`);
+  }
 }
 
 const status = spawnSync(process.execPath, ['dist/cli.js', 'daemon', 'status', '--bind-port', String(VERIFY_PORT)], {

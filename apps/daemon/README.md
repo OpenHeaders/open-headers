@@ -59,17 +59,29 @@ Precedence, highest first: argv → env → `daemon.json` → defaults.
 | `--log-level` | `OH_DAEMON_LOG_LEVEL` | `logLevel` | `info` |
 | `--trusted-proxy` | `OH_DAEMON_TRUSTED_PROXY` | `trustedProxy` | `false` |
 | `--allowed-host` (repeatable) | `OH_DAEMON_ALLOWED_HOSTS` (comma-separated) | `allowedHosts` | none |
+| `--web-root` | `OH_DAEMON_WEB_ROOT` | `webRoot` | `web/` beside the daemon bundle |
 | `--config` | `OH_DAEMON_CONFIG` | — | `<data dir>/daemon.json` |
 
 Everything the daemon persists (`storage.json`, `oracle.db`, blobs) lives under
 the data dir.
+
+## Web app
+
+The daemon serves the Open Headers web app — the same Workbench UI the
+desktop app and extension run — as static files on its bind: open
+`http://<daemon-host>:8137/` in a browser. Distributions built with the web
+bundle serve it out of the box; point `--web-root` at a different built bundle
+to serve that instead. An explicitly configured web root must contain an
+`index.html`, or the daemon refuses to boot; without any web root the daemon
+runs headless-only and `/` answers 400 as before.
 
 ## Admission and rate limits
 
 Every route on the bind enforces its own Origin/Host posture: `/mcp` refuses
 any browser-originated request outright; the WebSocket sync route accepts
 browser-extension origins and the daemon's own served origin; the pairing
-pages accept only same-origin form posts; `/healthz` stays open. Requests
+pages accept only same-origin form posts; the web app pages accept top-level
+navigations and same-origin fetches; `/healthz` stays open. Requests
 addressed by a hostname the daemon doesn't answer as are refused on the
 browser-facing routes — IP addresses, `localhost`, and mDNS `*.local` names
 always work; anything else (a reverse-proxy domain, an intranet name) must be

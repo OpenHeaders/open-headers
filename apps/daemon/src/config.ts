@@ -1,9 +1,10 @@
 /**
  * Daemon configuration — one `daemon.json` file plus env/argv overrides
  * (DAEMON_PLAN.md §6). Precedence, highest first: argv → env → config
- * file → defaults. Carries the bind, data dir, log level, and the
- * Phase-3 reverse-proxy posture (`trustedProxy`, `allowedHosts`);
- * native TLS certs stay optional and later.
+ * file → defaults. Carries the bind, data dir, log level, the Phase-3
+ * reverse-proxy posture (`trustedProxy`, `allowedHosts`), and the
+ * Phase-4a web bundle root (`webRoot`); native TLS certs stay optional
+ * and later.
  *
  * The data dir defaults to the platform state dir and holds everything
  * the daemon persists (`storage.json`, `oracle.db`, `blobs/`). The
@@ -43,6 +44,13 @@ export interface DaemonConfig {
    * (DNS-rebinding guard).
    */
   allowedHosts: string[];
+  /**
+   * Directory holding the built Workbench web bundle the daemon serves
+   * on its bind (Phase 4a). `null` = not explicitly configured; the
+   * entry point then falls back to the `web/` dir shipped beside the
+   * daemon bundle, or serves nothing when that is absent too.
+   */
+  webRoot: string | null;
   /** The `daemon.json` path that was consulted (whether or not it existed). */
   configPath: string;
 }
@@ -55,6 +63,7 @@ interface ConfigFile {
   logLevel?: string;
   trustedProxy?: boolean;
   allowedHosts?: string[];
+  webRoot?: string;
 }
 
 export interface ResolveConfigInput {
@@ -155,6 +164,10 @@ function readConfigFile(configPath: string): ConfigFile {
     }
     out.allowedHosts = record.allowedHosts.filter((h): h is string => typeof h === 'string');
   }
+  if (record.webRoot !== undefined) {
+    if (typeof record.webRoot !== 'string') throw new Error(`${configPath}: webRoot must be a string`);
+    out.webRoot = record.webRoot;
+  }
   return out;
 }
 
@@ -176,6 +189,7 @@ export function resolveDaemonConfig(input: ResolveConfigInput): DaemonConfig {
       'log-level': { type: 'string' },
       'trusted-proxy': { type: 'boolean' },
       'allowed-host': { type: 'string', multiple: true },
+      'web-root': { type: 'string' },
     },
   });
 
@@ -215,5 +229,8 @@ export function resolveDaemonConfig(input: ResolveConfigInput): DaemonConfig {
     [];
   const allowedHosts = rawAllowedHosts.map((h) => parseAllowedHost(h, 'allowed host'));
 
-  return { dataDir, bindAddress, bindPort, logLevel, trustedProxy, allowedHosts, configPath };
+  const rawWebRoot = values['web-root'] ?? input.env.OH_DAEMON_WEB_ROOT ?? file.webRoot;
+  const webRoot = rawWebRoot === undefined ? null : path.resolve(rawWebRoot);
+
+  return { dataDir, bindAddress, bindPort, logLevel, trustedProxy, allowedHosts, webRoot, configPath };
 }

@@ -19,10 +19,11 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { promises as fs } from 'node:fs';
+import { existsSync, promises as fs } from 'node:fs';
 import { createRequire } from 'node:module';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { type HostLogger, setHostLogger } from '@openheaders/core/logger';
 import { OH } from '@openheaders/core/storage';
 import { bootDaemonSpine } from '@openheaders/oracle-host-node/daemon';
@@ -56,6 +57,26 @@ function safeOsHostname(): string {
   }
 }
 
+/**
+ * The directory the static web route serves, or undefined for no route.
+ * An explicitly configured root must hold an `index.html` — a typo'd
+ * path refuses to boot rather than silently serving 404s. Without
+ * config, the `web/` dir shipped beside the daemon bundle is served
+ * when present (the packed distribution stages the web app there); a
+ * bare dev build has none and the daemon runs web-less, exactly as
+ * before Phase 4a.
+ */
+function resolveStaticWebRoot(configured: string | null): { rootDir: string } | undefined {
+  if (configured !== null) {
+    if (!existsSync(path.join(configured, 'index.html'))) {
+      throw new Error(`web root ${configured} does not contain an index.html`);
+    }
+    return { rootDir: configured };
+  }
+  const bundled = path.join(path.dirname(fileURLToPath(import.meta.url)), 'web');
+  return existsSync(path.join(bundled, 'index.html')) ? { rootDir: bundled } : undefined;
+}
+
 async function main(): Promise<void> {
   const config = resolveDaemonConfig({ argv: process.argv.slice(2), env: process.env });
   log = createDaemonLogger({ level: config.logLevel });
@@ -77,11 +98,14 @@ async function main(): Promise<void> {
     'backend.bindPort': config.bindPort,
   });
 
+  const staticWeb = resolveStaticWebRoot(config.webRoot);
+
   const proxyNote = config.trustedProxy ? ', behind trusted proxy' : '';
   const hostsNote = config.allowedHosts.length > 0 ? `, allowed hosts ${config.allowedHosts.join(' ')}` : '';
+  const webNote = staticWeb ? `, web ui from ${staticWeb.rootDir}` : '';
   log.info(
     SCOPE,
-    `starting v${appVersion} — data dir ${config.dataDir}, bind ${config.bindAddress}:${config.bindPort}${proxyNote}${hostsNote}`,
+    `starting v${appVersion} — data dir ${config.dataDir}, bind ${config.bindAddress}:${config.bindPort}${proxyNote}${hostsNote}${webNote}`,
   );
 
   const spine = await bootDaemonSpine({
@@ -104,6 +128,7 @@ async function main(): Promise<void> {
       trustedProxy: config.trustedProxy,
       allowedHosts: config.allowedHosts,
     },
+    staticWeb,
     broadcastLocal: () => {
       // No same-process surfaces yet — the served web app (Phase 4)
       // joins over the WS sync protocol like every other peer.

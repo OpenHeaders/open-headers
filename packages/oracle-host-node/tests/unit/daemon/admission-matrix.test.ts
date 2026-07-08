@@ -36,6 +36,16 @@ describe('routePostureFor', () => {
     expect(routePostureFor(facts({ upgrade: true, path: '/' })).route).toBe('ws-upgrade');
   });
 
+  it('web-enabled composition claims unclaimed paths without touching the named routes', () => {
+    const webEnabled = { webEnabled: true } as const;
+    expect(routePostureFor(facts({ path: '/' }), webEnabled).route).toBe('web');
+    expect(routePostureFor(facts({ path: '/assets/index-abc123.js' }), webEnabled).route).toBe('web');
+    expect(routePostureFor(facts({ path: '/healthz' }), webEnabled).route).toBe('healthz');
+    expect(routePostureFor(facts({ path: '/pair/123456' }), webEnabled).route).toBe('pairing');
+    expect(routePostureFor(facts({ path: MCP_HTTP_PATH }), webEnabled).route).toBe('mcp');
+    expect(routePostureFor(facts({ upgrade: true, path: '/' }), webEnabled).route).toBe('ws-upgrade');
+  });
+
   it('marks the brute-force routes and their failure statuses', () => {
     expect(routePostureFor(facts({ path: '/healthz' })).rateLimited).toBe(false);
     expect(routePostureFor(facts({ path: '/pair/1' })).failureStatuses).toEqual([404]);
@@ -90,6 +100,24 @@ describe('origin posture', () => {
       ok: false,
       reason: 'origin-forbidden',
     });
+  });
+
+  it('web route accepts navigations and the own origin, rejects foreign pages', () => {
+    const webEnabled = { webEnabled: true } as const;
+    expect(evaluateAdmission(facts({ path: '/' }), [], webEnabled).ok).toBe(true);
+    expect(evaluateAdmission(facts({ path: '/', origin: 'http://192.168.1.20:8137' }), [], webEnabled).ok).toBe(true);
+    expect(evaluateAdmission(facts({ path: '/', origin: 'https://evil.example.com' }), [], webEnabled)).toMatchObject({
+      ok: false,
+      reason: 'origin-forbidden',
+    });
+    // Host guard applies to the front door like every browser-facing route.
+    expect(evaluateAdmission(facts({ path: '/', host: 'rebound.example.com' }), [], webEnabled)).toMatchObject({
+      ok: false,
+      reason: 'host-forbidden',
+    });
+    expect(
+      evaluateAdmission(facts({ path: '/', host: 'oh.openheaders.io' }), ['oh.openheaders.io'], webEnabled).ok,
+    ).toBe(true);
   });
 
   it('default routes reject browser origins', () => {

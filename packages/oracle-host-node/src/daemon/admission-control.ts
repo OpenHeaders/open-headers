@@ -43,6 +43,8 @@ export interface AdmissionControlOptions {
   trustedProxy?: boolean;
   /** Hostnames (beyond IP literals / localhost / `*.local`) the daemon answers as. */
   allowedHosts?: readonly string[];
+  /** The daemon serves the web bundle — unclaimed paths take the `web` posture. */
+  webEnabled?: boolean;
   /** Limiter tuning override — tests only; production takes the defaults. */
   limiter?: RateLimiterOptions;
 }
@@ -66,6 +68,7 @@ function factsFromRequest(req: IncomingMessage, upgrade: boolean): AdmissionRequ
 export function createAdmissionControl(options: AdmissionControlOptions = {}): AdmissionControl {
   const trustedProxy = options.trustedProxy ?? false;
   const allowedHosts = options.allowedHosts ?? [];
+  const matrixOptions = { webEnabled: options.webEnabled ?? false };
   const limiter: PeerRateLimiter = createPeerRateLimiter(options.limiter);
 
   function resolvePeer(req: IncomingMessage): string {
@@ -111,13 +114,13 @@ export function createAdmissionControl(options: AdmissionControlOptions = {}): A
     wrapHttpHandler(next) {
       return (req, res) => {
         const facts = factsFromRequest(req, false);
-        const posture = routePostureFor(facts);
+        const posture = routePostureFor(facts, matrixOptions);
         const peer = resolvePeer(req);
         if (posture.rateLimited && limiter.isBlocked(peer)) {
           respondTooMany(res, peer);
           return true;
         }
-        const verdict = evaluateAdmission(facts, allowedHosts);
+        const verdict = evaluateAdmission(facts, allowedHosts, matrixOptions);
         if (!verdict.ok) {
           logger.info(
             SCOPE,
@@ -139,7 +142,7 @@ export function createAdmissionControl(options: AdmissionControlOptions = {}): A
         const facts = factsFromRequest(request, true);
         const peer = resolvePeer(request);
         if (limiter.isBlocked(peer)) return { ok: false, reason: 'rate-limited' };
-        const verdict = evaluateAdmission(facts, allowedHosts);
+        const verdict = evaluateAdmission(facts, allowedHosts, matrixOptions);
         if (!verdict.ok) return { ok: false, reason: verdict.reason };
         return { ok: true };
       },

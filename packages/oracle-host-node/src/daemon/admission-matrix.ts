@@ -17,8 +17,13 @@
  *                      forged confirms.
  *   - `/mcp`         — native processes only; any Origin ⇒ reject
  *                      (pinned in the MCP epic, don't re-open).
- *   - everything else — no legitimate browser caller until the Phase 4
- *                      web routes claim their paths; reject browser
+ *   - web (Phase 4a) — when the daemon serves the web bundle, every
+ *                      path not claimed above is the static front door:
+ *                      top-level navigations (no Origin) and the own
+ *                      served origin's fetches pass; foreign browser
+ *                      origins are drive-by pages.
+ *   - everything else — with no web bundle configured there is no
+ *                      legitimate browser caller; reject browser
  *                      origins, let the 400 fallback answer the rest.
  *
  * The Host side guards the browser-facing routes against DNS rebinding
@@ -49,7 +54,13 @@ export interface AdmissionRequestFacts {
   readonly host: string | undefined;
 }
 
-export type AdmissionRoute = 'healthz' | 'ws-upgrade' | 'pairing' | 'mcp' | 'default';
+export type AdmissionRoute = 'healthz' | 'ws-upgrade' | 'pairing' | 'mcp' | 'web' | 'default';
+
+/** Matrix-wide switches derived from the daemon's composition, not per-request facts. */
+export interface AdmissionMatrixOptions {
+  /** The daemon serves the web bundle — unclaimed paths are the browser-facing `web` route. */
+  readonly webEnabled?: boolean;
+}
 
 export type OriginPosture =
   /** Any Origin (or none) is acceptable. */
@@ -96,15 +107,19 @@ const ROUTE_POSTURES: Record<AdmissionRoute, RoutePosture> = {
   // user racing the 5-minute window, not an attack signal.
   pairing: { route: 'pairing', origin: 'own', host: 'known', rateLimited: true, failureStatuses: [404] },
   mcp: { route: 'mcp', origin: 'non-browser', host: 'any', rateLimited: true, failureStatuses: [401] },
+  // Static misses are ordinary navigation noise, not auth signals — no
+  // failure statuses; the rate limit still holds the front door against
+  // peers already blocked for real failures elsewhere.
+  web: { route: 'web', origin: 'own', host: 'known', rateLimited: true, failureStatuses: [] },
   default: { route: 'default', origin: 'non-browser', host: 'any', rateLimited: false, failureStatuses: [] },
 };
 
-export function routePostureFor(facts: AdmissionRequestFacts): RoutePosture {
+export function routePostureFor(facts: AdmissionRequestFacts, options: AdmissionMatrixOptions = {}): RoutePosture {
   if (facts.upgrade) return ROUTE_POSTURES['ws-upgrade'];
   if (facts.path === HEALTHZ_PATH) return ROUTE_POSTURES.healthz;
   if (facts.path.startsWith(PAIRING_PATH_PREFIX)) return ROUTE_POSTURES.pairing;
   if (facts.path === MCP_HTTP_PATH || facts.path === `${MCP_HTTP_PATH}/`) return ROUTE_POSTURES.mcp;
-  return ROUTE_POSTURES.default;
+  return options.webEnabled ? ROUTE_POSTURES.web : ROUTE_POSTURES.default;
 }
 
 export type AdmissionRejectReason = 'origin-forbidden' | 'host-forbidden';
@@ -185,8 +200,12 @@ function hostAccepted(posture: HostPosture, facts: AdmissionRequestFacts, allowe
   return isKnownHost(facts.host, allowedHosts);
 }
 
-export function evaluateAdmission(facts: AdmissionRequestFacts, allowedHosts: readonly string[]): AdmissionVerdict {
-  const posture = routePostureFor(facts);
+export function evaluateAdmission(
+  facts: AdmissionRequestFacts,
+  allowedHosts: readonly string[],
+  options: AdmissionMatrixOptions = {},
+): AdmissionVerdict {
+  const posture = routePostureFor(facts, options);
   if (!originAccepted(posture.origin, facts)) return { ok: false, posture, reason: 'origin-forbidden' };
   if (!hostAccepted(posture.host, facts, allowedHosts)) return { ok: false, posture, reason: 'host-forbidden' };
   return { ok: true, posture };

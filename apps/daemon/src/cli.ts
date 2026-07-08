@@ -33,6 +33,7 @@ const CONFIG_OPTIONS = {
   'log-level': { type: 'string' },
   'trusted-proxy': { type: 'boolean' },
   'allowed-host': { type: 'string', multiple: true },
+  'web-root': { type: 'string' },
 } as const;
 
 const USAGE = `oh v${cliVersion} — Open Headers command line
@@ -57,6 +58,8 @@ Options (install / status / show-token):
                            address from X-Forwarded-For (never set without one)
   --allowed-host <name>    Hostname the daemon answers as (repeatable) — e.g.
                            the reverse proxy's domain; IPs/localhost always work
+  --web-root <path>        Directory with the built web app to serve at /
+                           (default: the web/ dir shipped beside the daemon)
   --label <text>           show-token only: label for the minted token
 `;
 
@@ -72,6 +75,7 @@ interface ConfigFlagValues {
   'log-level'?: string;
   'trusted-proxy'?: boolean;
   'allowed-host'?: string[];
+  'web-root'?: string;
 }
 
 interface ParsedConfigCommand {
@@ -84,7 +88,7 @@ function resolveConfigFlags(values: ConfigFlagValues): ParsedConfigCommand {
   // Re-issue only the config flags — `resolveDaemonConfig` parses
   // strictly and must not see command-specific ones like --label.
   const configArgv: string[] = [];
-  for (const flag of ['config', 'data-dir', 'bind-address', 'bind-port', 'log-level'] as const) {
+  for (const flag of ['config', 'data-dir', 'bind-address', 'bind-port', 'log-level', 'web-root'] as const) {
     const value = values[flag];
     if (typeof value === 'string') configArgv.push(`--${flag}`, value);
   }
@@ -101,6 +105,7 @@ function resolveConfigFlags(values: ConfigFlagValues): ParsedConfigCommand {
   if (values['allowed-host'] !== undefined) {
     for (const host of config.allowedHosts) unitArgs.push('--allowed-host', host);
   }
+  if (values['web-root'] !== undefined && config.webRoot !== null) unitArgs.push('--web-root', config.webRoot);
   return { config, unitArgs };
 }
 

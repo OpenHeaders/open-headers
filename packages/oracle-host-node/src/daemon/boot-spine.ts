@@ -95,6 +95,7 @@ import { installMcpServer } from './mcp-install';
 import { forwardMutationToWsPeers, setMutationForwarderWsServer } from './mutation-forwarder';
 import { installObservabilityLog, type ObservabilityLogHandle } from './observability-log';
 import { singleProcessLockRuntime } from './single-process-lock-runtime';
+import { createStaticWebHandler } from './static-web';
 import type { SpineStatusStore } from './status-seam';
 import { installSyncStatusReporter, type SyncStatusReporter } from './sync-status-reporter';
 
@@ -142,6 +143,14 @@ export interface DaemonSpineConfig {
     trustedProxy?: boolean;
     /** Hostnames the daemon answers as (a reverse-proxy domain, an intranet name). */
     allowedHosts?: readonly string[];
+  };
+  /**
+   * Serve the Workbench web bundle from this directory on the composed
+   * bind (Phase 4a) — `/` + assets, composed after every claimed route.
+   * Absent = no static route; unclaimed paths keep the 400 fallback.
+   */
+  staticWeb?: {
+    rootDir: string;
   };
 }
 
@@ -352,6 +361,7 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   const admission = createAdmissionControl({
     trustedProxy: config.admission?.trustedProxy,
     allowedHosts: config.admission?.allowedHosts,
+    webEnabled: config.staticWeb !== undefined,
   });
 
   // 4b. Daemon device-flow pairing surface (U3.3). One service instance
@@ -374,6 +384,12 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     serverVersion: config.appVersion,
     resolvePeer: admission.resolvePeer,
   });
+
+  // 4c'. Static web bundle (Phase 4a) — the Workbench front door,
+  //      composed LAST so every claimed route (healthz, pairing, mcp)
+  //      wins its path first. Absent config = no route; the 400
+  //      fallback keeps answering unclaimed paths.
+  const staticWebHandler = config.staticWeb ? createStaticWebHandler({ rootDir: config.staticWeb.rootDir }) : null;
 
   // 5. RPC dispatch for local surfaces. Pairing channels are intercepted
   //    ahead of `dispatchSyncRpc` — they're admin-only surface RPCs, not
@@ -503,7 +519,11 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
     bindSupervisor = await startDaemonBindSupervisor({
       handshakeIdentity: config.handshakeIdentity,
       httpRequestHandler: admission.wrapHttpHandler(
-        (req, res) => healthzHandler(req, res) || pairingHttpHandler(req, res) || mcpInstall.handler(req, res),
+        (req, res) =>
+          healthzHandler(req, res) ||
+          pairingHttpHandler(req, res) ||
+          mcpInstall.handler(req, res) ||
+          (staticWebHandler?.(req, res) ?? false),
       ),
       admission: admission.wsHooks,
       onServerChange: (next) => {
