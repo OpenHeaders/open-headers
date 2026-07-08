@@ -6,6 +6,10 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
+    "./daemon": {
+      "import": "./src/daemon/index.ts",
+      "default": "./dist/daemon/index.js"
+    },
     "./host-runtime/pairing-http": {
       "import": "./src/host-runtime/pairing-http.ts",
       "default": "./dist/host-runtime/pairing-http.js"

@@ -1,15 +1,16 @@
 /**
- * Desktop main Activity Feed installer — Phase C F2.
+ * Node-host Activity Feed installer — Phase C F2.
  *
  * Mirror of {@link apps/extension/src/background/sync-activity-installer.ts}
- * for the desktop main process. Wires the oracle's `broadcastSyncEvent`
- * host hook to the SQLite-backed activity log so workbench-side broadcasts
- * feed the same workspace-wide feed the extension SW already populates.
+ * for Node hosts (desktop main, standalone daemon). Wires the oracle's
+ * `broadcastSyncEvent` host hook to the SQLite-backed activity log so
+ * host-side broadcasts feed the same workspace-wide feed the extension
+ * SW already populates.
  *
  * Two transports, one log per host:
  *
  *   1. Per envelope the local oracle commits, the host hook in
- *      {@link install-rpc-host} forwards the event to
+ *      the boot spine forwards the event to
  *      {@link observeForActivityFeed}.
  *   2. The observer asks {@link classifyEnvelopeForActivity} for one or
  *      more {@link ActivityEntry} rows (gated on inbound + applied);
@@ -40,7 +41,7 @@ import {
   isMutedForActivityFeed,
   type OracleSyncBroadcastEvent,
 } from '@openheaders/oracle/sync';
-import { MCP_SURFACE_ID } from '@openheaders/oracle-host-node/mcp';
+import { MCP_SURFACE_ID } from '../mcp';
 
 const SCOPE = 'SyncActivity';
 

@@ -1,7 +1,7 @@
 /**
- * Desktop MCP server install — engine-opaque wiring only. Builds the
- * tool registry (read + write + execute + secrets tiers; tier gating is per call
- * in the engine), injects the desktop's execution capabilities (Node
+ * MCP server install — engine-opaque wiring only. Builds the tool
+ * registry (read + write + execute + secrets tiers; tier gating is per call
+ * in the engine), injects the Node host's execution capabilities (Node
  * transport + chain runner), reads the MCP settings from `OH.settingsUser`
  * (same dotted-key record the daemon bind supervisor reads), and hands
  * back the HTTP handler the daemon bind composes onto its socket.
@@ -18,7 +18,7 @@
  */
 
 import { hostStorage, OH } from '@openheaders/core/storage';
-import { createNodeRequestTransport } from '@openheaders/oracle-host-node/live/node-request-transport';
+import { createNodeRequestTransport } from '../live/node-request-transport';
 import {
   createDiffToolDefinitions,
   createExecuteToolDefinitions,
@@ -32,9 +32,8 @@ import {
   type McpHttpHandler,
   type McpPolicy,
   type McpToolTier,
-} from '@openheaders/oracle-host-node/mcp';
-import { app } from 'electron';
-import { runDesktopWorkflowRefresh } from './live/chain-runner';
+} from '../mcp';
+import { runWorkflowRefresh } from './live/chain-runner';
 
 export interface McpServerInstall {
   readonly handler: McpHttpHandler;
@@ -50,7 +49,12 @@ function policyFromSettings(values: Record<string, unknown> | undefined): { enab
   return { enabled, policy: { enabledTiers: tiers } };
 }
 
-export async function installMcpServer(): Promise<McpServerInstall> {
+export interface InstallMcpServerOptions {
+  /** Reported in the MCP `initialize` result — the host app's version. */
+  serverVersion: string;
+}
+
+export async function installMcpServer(options: InstallMcpServerOptions): Promise<McpServerInstall> {
   let current = policyFromSettings((await hostStorage.get(OH.settingsUser)) ?? {});
 
   const unsubscribe = hostStorage.subscribe(OH.settingsUser, (next) => {
@@ -67,12 +71,12 @@ export async function installMcpServer(): Promise<McpServerInstall> {
       ...createSecretToolDefinitions(),
       ...createExecuteToolDefinitions({
         transport: createNodeRequestTransport(),
-        runWorkflow: runDesktopWorkflowRefresh,
+        runWorkflow: runWorkflowRefresh,
       }),
     ]),
     isEnabled: () => current.enabled,
     getPolicy: () => current.policy,
-    serverVersion: app.getVersion(),
+    serverVersion: options.serverVersion,
   });
 
   return {

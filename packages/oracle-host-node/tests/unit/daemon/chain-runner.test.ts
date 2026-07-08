@@ -1,9 +1,9 @@
 /**
- * Desktop live chain runner (WS-C C1/C4 glue).
+ * Node-host live chain runner (WS-C C1/C4 glue).
  *
  * `runChain` + `buildChainFetchAdapter` + the Node transport are mocked
  * — those are exhaustively covered at the core/oracle level. These tests
- * pin the desktop-specific glue: that a success commits the mapped
+ * pin the host-specific glue: that a success commits the mapped
  * captures with the policy-derived `expiresAt`, and that a failure routes
  * to `recordRefreshError` with the right `extractorOk` and never writes a
  * partial cache row.
@@ -33,7 +33,7 @@ vi.mock('@openheaders/core/live', async (importOriginal) => ({
 vi.mock('@openheaders/oracle/live/request-exec/chain-adapter', () => ({
   buildChainFetchAdapter: vi.fn(() => ({ executeStep: vi.fn() })),
 }));
-vi.mock('@openheaders/oracle-host-node/live/node-request-transport', () => ({
+vi.mock('../../../src/live/node-request-transport', () => ({
   createNodeRequestTransport: vi.fn(() => ({ send: vi.fn() })),
 }));
 vi.mock('@openheaders/oracle/live/live-cache-store', () => ({
@@ -47,7 +47,7 @@ vi.mock('@openheaders/core/utils', () => ({
   logger: { warn: vi.fn(), info: vi.fn(), debug: vi.fn(), error: vi.fn() },
 }));
 
-import { runDesktopWorkflowRefresh } from '../../../../src/main/live/chain-runner';
+import { runWorkflowRefresh } from '../../../src/daemon/live/chain-runner';
 
 function makeWorkflow(overrides: Partial<LiveWorkflow> = {}): LiveWorkflow {
   return {
@@ -80,12 +80,12 @@ beforeEach(() => {
   h.recordRefreshError.mockResolvedValue(undefined);
 });
 
-describe('runDesktopWorkflowRefresh — success commit', () => {
+describe('runWorkflowRefresh — success commit', () => {
   it('maps captures + derives interval expiry, then writes the cache', async () => {
     h.runChain.mockResolvedValue(successOutcome());
     const workflow = makeWorkflow({ refresh: { kind: 'interval', seconds: 60 } });
 
-    const result = await runDesktopWorkflowRefresh({ workspaceId: 'ws-1', workflow, environmentId: null });
+    const result = await runWorkflowRefresh({ workspaceId: 'ws-1', workflow, environmentId: null });
 
     expect(result).toEqual({ ok: true, skippedStepIds: [] });
     expect(h.recordRefreshError).not.toHaveBeenCalled();
@@ -108,7 +108,7 @@ describe('runDesktopWorkflowRefresh — success commit', () => {
       refresh: { kind: 'expires-in', stepId: 's1', captureName: 'ttl', leadSeconds: 0 },
     });
 
-    await runDesktopWorkflowRefresh({ workspaceId: 'ws-1', workflow, environmentId: 'env-1' });
+    await runWorkflowRefresh({ workspaceId: 'ws-1', workflow, environmentId: 'env-1' });
 
     expect(h.putWorkflowRunCache.mock.calls[0][0].expiresAt).toBe(1_000 + 90 * 1000);
   });
@@ -117,13 +117,13 @@ describe('runDesktopWorkflowRefresh — success commit', () => {
     h.runChain.mockResolvedValue(successOutcome());
     const workflow = makeWorkflow({ refresh: { kind: 'manual' } });
 
-    await runDesktopWorkflowRefresh({ workspaceId: 'ws-1', workflow, environmentId: null });
+    await runWorkflowRefresh({ workspaceId: 'ws-1', workflow, environmentId: null });
 
     expect(h.putWorkflowRunCache.mock.calls[0][0].expiresAt).toBeNull();
   });
 });
 
-describe('runDesktopWorkflowRefresh — failure commit', () => {
+describe('runWorkflowRefresh — failure commit', () => {
   it('records an extractor failure (extractorOk=false) and never writes captures', async () => {
     h.runChain.mockResolvedValue({
       ok: false,
@@ -134,7 +134,7 @@ describe('runDesktopWorkflowRefresh — failure commit', () => {
     });
     const workflow = makeWorkflow({ refresh: { kind: 'interval', seconds: 60 } });
 
-    const result = await runDesktopWorkflowRefresh({ workspaceId: 'ws-1', workflow, environmentId: null });
+    const result = await runWorkflowRefresh({ workspaceId: 'ws-1', workflow, environmentId: null });
 
     expect(result).toEqual({ ok: false, failedStepId: 's1', failedPhase: 'extract', message: 'bad json path' });
     expect(h.putWorkflowRunCache).not.toHaveBeenCalled();
@@ -161,7 +161,7 @@ describe('runDesktopWorkflowRefresh — failure commit', () => {
     });
     const workflow = makeWorkflow({ refresh: { kind: 'interval', seconds: 60 } });
 
-    await runDesktopWorkflowRefresh({ workspaceId: 'ws-1', workflow, environmentId: null });
+    await runWorkflowRefresh({ workspaceId: 'ws-1', workflow, environmentId: null });
 
     expect(h.recordRefreshError.mock.calls[0][0].extractorOk).toBe(true);
     expect(h.recordRefreshError.mock.calls[0][0].refreshHealth).toBe('source-failing');
@@ -177,7 +177,7 @@ describe('runDesktopWorkflowRefresh — failure commit', () => {
     });
     const workflow = makeWorkflow({ refresh: { kind: 'interval', seconds: 60 } });
 
-    await runDesktopWorkflowRefresh({ workspaceId: 'ws-1', workflow, environmentId: null });
+    await runWorkflowRefresh({ workspaceId: 'ws-1', workflow, environmentId: null });
 
     expect(h.recordRefreshError.mock.calls[0][0].refreshHealth).toBe('auth-failing');
   });

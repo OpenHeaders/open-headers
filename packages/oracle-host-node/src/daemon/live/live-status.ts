@@ -1,13 +1,13 @@
 /**
- * Desktop live Status pill — aggregate the active workspace's cached
+ * Node-host live Status pill — aggregate the active workspace's cached
  * workflow runs into one `live` Status entry.
  *
- * The main-process counterpart to the extension's `recomputeLiveStatus`
+ * The host-process counterpart to the extension's `recomputeLiveStatus`
  * (`apps/extension/src/background/modules/live-refresh-scheduler.ts`).
  * Same color rules, same active-workspace-only scope, same value-blind
- * reporting — only the host wiring differs: the desktop reports into the
- * shared store that `install-rpc-host` already broadcasts to renderers
- * over the `statusUpdated` channel.
+ * reporting — only the host wiring differs: the report function is
+ * injected by the boot spine, which broadcasts snapshot changes to local
+ * surfaces over the `statusUpdated` channel.
  *
  * Color rules (plan §Observability → Status pill):
  *   green  — every run that has run at least once is fresh: no
@@ -29,9 +29,9 @@
 import { logger } from '@openheaders/core/utils';
 import { listWorkflowRunCaches } from '@openheaders/oracle/live/live-cache-store';
 import { getActiveWorkspaceId } from '@openheaders/oracle/workspace/extension-workspace-store';
-import { report as reportStatus } from '@openheaders/ui/shared/status/store';
+import type { SpineStatusReporter } from '../status-seam';
 
-const LOG = 'DesktopLiveRunner';
+const LOG = 'HostLiveRunner';
 
 /** `consecutiveFailures` at or above this flips the run — and the pill — red. */
 const RED_FAILURE_THRESHOLD = 5;
@@ -43,7 +43,7 @@ const RED_FAILURE_THRESHOLD = 5;
  * flipping it to a misleading state. `report` is idempotent, so an
  * unchanged result fans no broadcast.
  */
-export async function recomputeDesktopLiveStatus(): Promise<void> {
+export async function recomputeLiveStatus(reportStatus: SpineStatusReporter): Promise<void> {
   const workspaceId = getActiveWorkspaceId();
   if (!workspaceId) return; // no active workspace yet — nothing to aggregate
 

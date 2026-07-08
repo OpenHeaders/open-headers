@@ -1,10 +1,10 @@
 /**
- * Desktop live refresh scheduler (WS-C C3) — provider + timer plumbing
+ * Node-host live refresh scheduler (WS-C C3) — provider + timer plumbing
  * over the shared `RefreshScheduler` core (which runs UNMOCKED here,
  * with its in-memory `setTimeout` adapter under fake timers).
  *
  * The cadence/circuit math (`computeNextFireAt`, `canAttempt`) and every
- * store are mocked: this isolates the desktop module's own job — feed
+ * store are mocked: this isolates the host module's own job — feed
  * the core active-workspace entries, fire the runner on cadence, and
  * tear everything down on stop. The math is covered at the core level;
  * the scheduler core's truth table lives in the oracle suite.
@@ -12,7 +12,7 @@
 
 import type { LiveWorkflow } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { startDesktopLiveRunner, stopDesktopLiveRunner } from '../../../../src/main/live/live-refresh-scheduler';
+import { startLiveRunner, stopLiveRunner } from '../../../src/daemon/live/live-refresh-scheduler';
 
 const h = vi.hoisted(() => ({
   // core/live
@@ -41,14 +41,14 @@ const h = vi.hoisted(() => ({
   onRequestStoreChange: vi.fn(),
   // lifted scheduling gate + host-neutral definitional-freshness module
   // (the latter is exhaustively covered by the extension suite; here it
-  // is stubbed so the desktop scheduler test stays on its own plumbing).
+  // is stubbed so the host scheduler test stays on its own plumbing).
   canScheduleWorkflow: vi.fn(),
   startDefinitionalFreshness: vi.fn(),
   stopDefinitionalFreshness: vi.fn(),
   // runner
-  runDesktopWorkflowRefresh: vi.fn(),
+  runWorkflowRefresh: vi.fn(),
   // status
-  recomputeDesktopLiveStatus: vi.fn(),
+  recomputeLiveStatus: vi.fn(),
 }));
 
 vi.mock('@openheaders/core/live', () => ({
@@ -97,12 +97,14 @@ vi.mock('@openheaders/oracle/live/definitional-freshness', () => ({
   startDefinitionalFreshness: h.startDefinitionalFreshness,
   stopDefinitionalFreshness: h.stopDefinitionalFreshness,
 }));
-vi.mock('../../../../src/main/live/chain-runner', () => ({
-  runDesktopWorkflowRefresh: h.runDesktopWorkflowRefresh,
+vi.mock('../../../src/daemon/live/chain-runner', () => ({
+  runWorkflowRefresh: h.runWorkflowRefresh,
 }));
-vi.mock('../../../../src/main/live/live-status', () => ({
-  recomputeDesktopLiveStatus: h.recomputeDesktopLiveStatus,
+vi.mock('../../../src/daemon/live/live-status', () => ({
+  recomputeLiveStatus: h.recomputeLiveStatus,
 }));
+
+const reportStatus = vi.fn();
 
 const WF: LiveWorkflow = {
   schemaVersion: 5,
@@ -154,19 +156,19 @@ beforeEach(() => {
   ]) {
     on.mockReturnValue(() => {});
   }
-  h.runDesktopWorkflowRefresh.mockResolvedValue({ ok: true, skippedStepIds: [] });
-  h.recomputeDesktopLiveStatus.mockResolvedValue(undefined);
+  h.runWorkflowRefresh.mockResolvedValue({ ok: true, skippedStepIds: [] });
+  h.recomputeLiveStatus.mockResolvedValue(undefined);
 });
 
 afterEach(() => {
-  stopDesktopLiveRunner();
+  stopLiveRunner();
   vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
-describe('startDesktopLiveRunner', () => {
+describe('startLiveRunner', () => {
   it('subscribes to every store-change source exactly once', () => {
-    startDesktopLiveRunner();
+    startLiveRunner({ reportStatus });
     expect(h.onWorkspaceStoreChange).toHaveBeenCalledTimes(1);
     expect(h.onLiveWorkflowStoreChange).toHaveBeenCalledTimes(1);
     expect(h.onLiveVariableStoreChange).toHaveBeenCalledTimes(1);
@@ -176,13 +178,13 @@ describe('startDesktopLiveRunner', () => {
   });
 
   it('arms a timer that fires the runner for the active workspace entry on cadence', async () => {
-    startDesktopLiveRunner();
+    startLiveRunner({ reportStatus });
     await vi.advanceTimersByTimeAsync(0); // settle the initial reconcile
-    expect(h.runDesktopWorkflowRefresh).not.toHaveBeenCalled();
+    expect(h.runWorkflowRefresh).not.toHaveBeenCalled();
 
     await vi.advanceTimersByTimeAsync(1000); // reach the cadence target
-    expect(h.runDesktopWorkflowRefresh).toHaveBeenCalledTimes(1);
-    expect(h.runDesktopWorkflowRefresh).toHaveBeenCalledWith({
+    expect(h.runWorkflowRefresh).toHaveBeenCalledTimes(1);
+    expect(h.runWorkflowRefresh).toHaveBeenCalledWith({
       workspaceId: 'ws-1',
       workflow: WF,
       environmentId: null,
@@ -190,36 +192,36 @@ describe('startDesktopLiveRunner', () => {
   });
 
   it('recomputes the live status pill on each reconcile pass', async () => {
-    startDesktopLiveRunner();
+    startLiveRunner({ reportStatus });
     await vi.advanceTimersByTimeAsync(0); // settle the initial reconcile
-    expect(h.recomputeDesktopLiveStatus).toHaveBeenCalledTimes(1);
+    expect(h.recomputeLiveStatus).toHaveBeenCalledTimes(1);
 
     // A store-change event drives a debounced reconcile → second recompute.
     const onCache = h.onLiveCacheStoreChange.mock.calls[0]?.[0] as () => void;
     onCache();
     await vi.advanceTimersByTimeAsync(50);
-    expect(h.recomputeDesktopLiveStatus).toHaveBeenCalledTimes(2);
+    expect(h.recomputeLiveStatus).toHaveBeenCalledTimes(2);
   });
 
   it('does not schedule an ineffective workflow', async () => {
     h.canScheduleWorkflow.mockReturnValue(false);
-    startDesktopLiveRunner();
+    startLiveRunner({ reportStatus });
     await vi.advanceTimersByTimeAsync(5000);
-    expect(h.runDesktopWorkflowRefresh).not.toHaveBeenCalled();
+    expect(h.runWorkflowRefresh).not.toHaveBeenCalled();
   });
 });
 
-describe('stopDesktopLiveRunner', () => {
+describe('stopLiveRunner', () => {
   it('tears down timers + subscriptions so no further fire happens', async () => {
     const unsub = vi.fn();
     h.onWorkspaceStoreChange.mockReturnValue(unsub);
-    startDesktopLiveRunner();
+    startLiveRunner({ reportStatus });
     await vi.advanceTimersByTimeAsync(0);
 
-    stopDesktopLiveRunner();
+    stopLiveRunner();
     expect(unsub).toHaveBeenCalledTimes(1);
 
     await vi.advanceTimersByTimeAsync(10_000);
-    expect(h.runDesktopWorkflowRefresh).not.toHaveBeenCalled();
+    expect(h.runWorkflowRefresh).not.toHaveBeenCalled();
   });
 });

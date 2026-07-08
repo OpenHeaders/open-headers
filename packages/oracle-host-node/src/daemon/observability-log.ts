@@ -1,5 +1,5 @@
 /**
- * Observability Log — main-process owner of the structured event ring.
+ * Observability Log — Node-host owner of the structured event ring.
  *
  * Sibling to the extension SW's observability-log module: same {@link LogEntry}
  * shape, same FIFO-with-capacity discipline, same "no telemetry ever leaves
@@ -10,7 +10,7 @@
  * the capacity, the oldest rows are deleted. Reads return the current ring
  * (oldest first) via a single SELECT.
  *
- * Wired by `install-rpc-host` once the sync persistence handle is open.
+ * Wired by the boot spine once the sync persistence handle is open.
  * Subsystem call sites (sync, rules, requests, …) follow in their own
  * slices; this module is the seam.
  */
@@ -50,7 +50,7 @@ interface Statements {
 export interface InstallObservabilityLogOpts {
   db: Database.Database;
   appVersion: string;
-  /** Fan-out hook — main calls this on every record/clear so renderers refresh. */
+  /** Fan-out hook — the host calls this on every record/clear so local surfaces refresh. */
   broadcast: (type: 'observabilityLogUpdated', payload: { size: number }) => void;
 }
 
@@ -101,14 +101,7 @@ export function installObservabilityLog(opts: InstallObservabilityLogOpts): Obse
       ...entry.context,
       extensionVersion: entry.context.extensionVersion ?? appVersion,
     };
-    stmts.insert.run(
-      Date.now(),
-      entry.subsystem,
-      entry.op,
-      entry.level,
-      entry.message,
-      JSON.stringify(context),
-    );
+    stmts.insert.run(Date.now(), entry.subsystem, entry.op, entry.level, entry.message, JSON.stringify(context));
     const count = currentCount();
     if (count > CAPACITY) {
       stmts.trim.run(count - CAPACITY);

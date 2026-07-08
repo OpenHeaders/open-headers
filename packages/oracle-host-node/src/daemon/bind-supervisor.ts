@@ -1,5 +1,5 @@
 /**
- * Desktop daemon WS-bind supervisor — Phase U3.1
+ * Daemon WS-bind supervisor — Phase U3.1
  * (`UNIFIED_ORACLE_MODEL.md` §4.2 / `DATA_PLANE_TOPOLOGIES.md` §11.4).
  *
  * Owns the {@link OracleWsServer} handle and reacts to the user-controlled
@@ -20,11 +20,7 @@ import { hostLogger as logger } from '@openheaders/core/logger';
 import { WS_PORT } from '@openheaders/core/protocol';
 import { hostStorage, OH } from '@openheaders/core/storage';
 import { validatePort } from '@openheaders/core/utils';
-import {
-  type OracleWsServer,
-  type OracleWsServerOptions,
-  startOracleWsServer,
-} from '@openheaders/oracle-host-node/host-runtime/ws-server';
+import { type OracleWsServer, type OracleWsServerOptions, startOracleWsServer } from '../host-runtime/ws-server';
 
 const SCOPE = 'DaemonBindSupervisor';
 

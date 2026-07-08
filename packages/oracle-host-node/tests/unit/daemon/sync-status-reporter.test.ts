@@ -1,10 +1,12 @@
 /**
- * Sync status reporter (desktop main).
+ * Sync status reporter (Node host).
  *
  * Pins the reporter's two-input state machine — bind lifecycle folded
- * with the active server's peer set — against the real `sync` status
- * store. No sockets: a typed in-memory fake server stands in for the
- * `OracleWsServer`, so we can drive peer changes deterministically.
+ * with the active server's peer set — against an injected in-memory
+ * status store (a last-report-per-subsystem map, matching the host
+ * store's overwrite semantics). No sockets: a typed in-memory fake
+ * server stands in for the `OracleWsServer`, so we can drive peer
+ * changes deterministically.
  *
  * Covered:
  *   - bind lifecycle → status colour (binding/restarting → yellow,
@@ -13,15 +15,18 @@
  *   - peer-change re-emission, detach, and dispose semantics
  */
 
-import type {
-  OracleWsServer,
-  PeerChangeListener,
-  PeerSummary,
-} from '@openheaders/oracle-host-node/host-runtime/ws-server';
-import { __resetForTests, getStatusSnapshot } from '@openheaders/ui/shared/status/store';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import type { SpineStatusReport } from '../../../src/daemon/status-seam';
+import { installSyncStatusReporter as installReporter } from '../../../src/daemon/sync-status-reporter';
+import type { OracleWsServer, PeerChangeListener, PeerSummary } from '../../../src/host-runtime/ws-server';
 
-import { installSyncStatusReporter } from '../../src/main/sync-status-reporter';
+const snapshot = new Map<string, SpineStatusReport>();
+
+function installSyncStatusReporter() {
+  return installReporter((input) => {
+    snapshot.set(input.subsystem, input);
+  });
+}
 
 interface FakeServer extends OracleWsServer {
   /** Replace the connected-peer set and fire every peer-change listener. */
@@ -85,15 +90,11 @@ function addrInUseError(): Error {
 }
 
 function syncEntry() {
-  return getStatusSnapshot().sync;
+  return snapshot.get('sync');
 }
 
 beforeEach(() => {
-  __resetForTests();
-});
-
-afterEach(() => {
-  __resetForTests();
+  snapshot.clear();
 });
 
 describe('sync-status-reporter — bind lifecycle', () => {

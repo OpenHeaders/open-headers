@@ -1,10 +1,10 @@
 /**
- * Desktop live-workflow refresh scheduler (WS-C C3).
+ * Node-host live-workflow refresh scheduler (WS-C C3).
  *
- * The main-process counterpart to the extension's alarm-driven live
+ * The host-process counterpart to the extension's alarm-driven live
  * scheduler: a thin provider over the SAME host-neutral
  * `RefreshScheduler` core (`@openheaders/oracle/scheduling`) the
- * extension's live + OAuth schedulers run on. Because the desktop
+ * extension's live + OAuth schedulers run on. Because a Node host
  * process is always-on, its timer substrate is the in-memory
  * `setTimeout` adapter (`createInMemoryRefreshTimer`) — no alarm-name
  * persistence, no reconcile-on-wake or SW-eviction recovery; that
@@ -27,7 +27,7 @@
  * the chained-workflow cascade) is host-neutral in
  * `@openheaders/oracle/live/definitional-freshness` and wired here via
  * the `refreshNow` seam — the core's gated `handleFire`: now that the
- * desktop is a value PRODUCER for deferring peers (C6+), a request /
+ * host is a value PRODUCER for deferring peers (C6+), a request /
  * variable / definition / upstream edit must re-mint this host's value
  * immediately rather than propagating a wrong-recipe token until the
  * next cadence tick.
@@ -70,10 +70,11 @@ import {
   RefreshScheduler,
 } from '@openheaders/oracle/scheduling';
 import { getActiveWorkspaceId, onWorkspaceStoreChange } from '@openheaders/oracle/workspace/extension-workspace-store';
-import { runDesktopWorkflowRefresh } from './chain-runner';
-import { recomputeDesktopLiveStatus } from './live-status';
+import type { SpineStatusReporter } from '../status-seam';
+import { runWorkflowRefresh } from './chain-runner';
+import { recomputeLiveStatus } from './live-status';
 
-const LOG = 'DesktopLiveRunner';
+const LOG = 'HostLiveRunner';
 
 /** Collapse a burst of store-change events into one reconcile pass. */
 const RECONCILE_DEBOUNCE_MS = 50;
@@ -162,7 +163,7 @@ async function collectEntries(): Promise<LiveEntry[]> {
   return out;
 }
 
-// ── Provider — fills in the desktop-specific bits ─────────────────
+// ── Provider — fills in the host-specific bits ────────────────────
 
 /**
  * Sentinel thrown when `gateCircuitForFire` refuses a dispatch (OPEN
@@ -219,7 +220,7 @@ const provider: RefreshProvider<LiveKeyPayload, LiveEntry, WorkflowRunCache | nu
     // recorded error) and only throws on an unexpected fault. A
     // per-fire success log would be pure noise on an always-on host,
     // so `onSucceeded` below is silent.
-    await runDesktopWorkflowRefresh({
+    await runWorkflowRefresh({
       workspaceId: entry.workspaceId,
       workflow: entry.workflow,
       environmentId: entry.environmentId,
@@ -285,12 +286,15 @@ const scheduler = new RefreshScheduler(provider, LOG, timer, { reconcileDebounce
 // store-change events recomputes the pill once.
 
 let statusTimer: ReturnType<typeof setTimeout> | null = null;
+let statusReporter: SpineStatusReporter | null = null;
 
 function scheduleStatusRecompute(): void {
   if (statusTimer) clearTimeout(statusTimer);
   statusTimer = setTimeout(() => {
     statusTimer = null;
-    void recomputeDesktopLiveStatus().catch((e) =>
+    const report = statusReporter;
+    if (!report) return;
+    void recomputeLiveStatus(report).catch((e) =>
       logger.warn(LOG, `live status recompute failed: ${(e as Error).message}`),
     );
   }, RECONCILE_DEBOUNCE_MS);
@@ -300,20 +304,26 @@ function scheduleStatusRecompute(): void {
 
 let started = false;
 
+export interface StartLiveRunnerOptions {
+  /** Receives the aggregated `live` status entry on every recompute. */
+  reportStatus: SpineStatusReporter;
+}
+
 /**
- * Start the desktop live runner. Subscribes to the host-neutral store
+ * Start the host live runner. Subscribes to the host-neutral store
  * events that drive reconciliation and primes one reconcile from the
  * already-hydrated stores. Idempotent — a second call is a no-op.
  */
-export function startDesktopLiveRunner(): void {
+export function startLiveRunner(options: StartLiveRunnerOptions): void {
   if (started) return;
   started = true;
+  statusReporter = options.reportStatus;
   scheduler.start();
   // The host-neutral definitional-freshness detectors (LF1–LF4) own
   // their own store subscriptions; the only host-specific seam is
   // `refreshNow` — the core's gated `handleFire`, so an edit-triggered
   // active-env refresh carries the same circuit handling + cache-write
-  // discipline as a cadence fire. Now that the desktop is a value
+  // discipline as a cadence fire. Now that the host is a value
   // PRODUCER for deferring peers (C6+), it must self-correct a
   // wrong-recipe value on edit rather than propagating it until the
   // next cadence tick.
@@ -323,14 +333,15 @@ export function startDesktopLiveRunner(): void {
   });
   void scheduler
     .reconcile()
-    .then(() => recomputeDesktopLiveStatus())
+    .then(() => recomputeLiveStatus(options.reportStatus))
     .catch((e) => logger.warn(LOG, `initial reconcile failed: ${(e as Error).message}`));
 }
 
-/** Tear down all timers + subscriptions (called on `before-quit`). */
-export function stopDesktopLiveRunner(): void {
+/** Tear down all timers + subscriptions (called at host shutdown). */
+export function stopLiveRunner(): void {
   if (!started) return;
   started = false;
+  statusReporter = null;
   stopDefinitionalFreshness();
   scheduler.stop();
   timer.clearAll();

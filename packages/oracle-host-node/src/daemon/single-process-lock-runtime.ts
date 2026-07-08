@@ -1,12 +1,12 @@
 /**
- * Single-process FIFO lock runtime for the desktop main — Stage 2.
+ * Single-process FIFO lock runtime for Node hosts — Stage 2.
  *
  * The oracle's `withLock` wrapper expects a `navigator.locks`-shaped
- * `LockRuntime`; in a browser context that's the Web Locks API. The
- * main process runs in Node — no `navigator.locks` — so we install a
- * Map-of-promise-chains keyed by lock name. Single-process scope is
- * enough: the oracle lives only in main, and the renderer reaches it
- * over IPC which is already serialized through ipcMain.handle.
+ * `LockRuntime`; in a browser context that's the Web Locks API. A Node
+ * host has no `navigator.locks`, so we install a Map-of-promise-chains
+ * keyed by lock name. Single-process scope is enough: the oracle lives
+ * only in the host process, and local surfaces reach it over a transport
+ * that is already serialized per call.
  *
  * Matches the test-runtime semantics in `service.ts`'s
  * `__initSyncServiceForTests` deps (`(_ws, _type, _id, fn) => fn()`),
@@ -25,11 +25,7 @@ interface Slot {
 const slots = new Map<string, Slot>();
 
 export const singleProcessLockRuntime: LockRuntime = {
-  async request<T>(
-    name: string,
-    options: { signal?: AbortSignal },
-    callback: () => Promise<T> | T,
-  ): Promise<T> {
+  async request<T>(name: string, options: { signal?: AbortSignal }, callback: () => Promise<T> | T): Promise<T> {
     if (options.signal?.aborted) {
       // Caller already gave up before we started — surface the abort
       // immediately rather than waiting for the lock.

@@ -1,5 +1,5 @@
 /**
- * Desktop daemon WS-bind supervisor — bind lifecycle signalling.
+ * Daemon WS-bind supervisor — bind lifecycle signalling.
  *
  * Pins the `onBindStateChange` contract that the sync status reporter
  * depends on: a healthy boot emits binding→bound, a failed bind emits
@@ -13,7 +13,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { type DaemonBindState, startDaemonBindSupervisor } from '../../src/main/daemon-bind-supervisor';
+import { type DaemonBindState, startDaemonBindSupervisor } from '../../../src/daemon/bind-supervisor';
 
 vi.mock('@openheaders/core/logger', () => ({
   hostLogger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -43,7 +43,7 @@ interface FakeServer {
 
 const startMock = vi.fn<(opts: { host: string; port: number }) => Promise<FakeServer>>();
 
-vi.mock('@openheaders/oracle-host-node/host-runtime/ws-server', () => ({
+vi.mock('../../../src/host-runtime/ws-server', () => ({
   startOracleWsServer: (opts: { host: string; port: number }) => startMock(opts),
 }));
 

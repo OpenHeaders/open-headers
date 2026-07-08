@@ -1,5 +1,5 @@
 /**
- * Phase C F7 — desktop main activity-prune scheduler wiring.
+ * Phase C F7 — Node-host activity-prune scheduler wiring.
  *
  * Pins:
  *   - setInterval drives a sweep at the configured period;
@@ -7,16 +7,15 @@
  *   - stop() halts further ticks.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
-import { activityEntryId, type ActivityEntry } from '@openheaders/core/sync';
+import { type ActivityEntry, activityEntryId } from '@openheaders/core/sync';
 import { InMemoryActivityLog } from '@openheaders/oracle/sync';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@openheaders/core/logger', () => ({
   hostLogger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-import { installActivityPruneScheduler } from '@/main/activity-prune-scheduler';
+import { installActivityPruneScheduler } from '../../../src/daemon/activity-prune-scheduler';
 
 const WS = '0193a8ff-c000-7000-8000-000000000001';
 const NOW = 1_700_000_000_000;
@@ -39,7 +38,7 @@ function makeEntry(overrides: Partial<ActivityEntry>): ActivityEntry {
   return { ...base, id: activityEntryId(base) };
 }
 
-describe('desktop activity-prune scheduler', () => {
+describe('node-host activity-prune scheduler', () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -100,9 +99,7 @@ describe('desktop activity-prune scheduler', () => {
   it('picks up new workspaces on each tick (no re-install)', async () => {
     const log = new InMemoryActivityLog();
     await log.append(makeEntry({ workspaceId: WS, mutationId: 'a-old', observedAt: NOW - RETENTION_MS - 1 }));
-    await log.append(
-      makeEntry({ workspaceId: 'other', mutationId: 'b-old', observedAt: NOW - RETENTION_MS - 1 }),
-    );
+    await log.append(makeEntry({ workspaceId: 'other', mutationId: 'b-old', observedAt: NOW - RETENTION_MS - 1 }));
     const pruneSpy = vi.spyOn(log, 'prune');
 
     let workspaces: readonly string[] = [WS];

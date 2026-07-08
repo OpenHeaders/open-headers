@@ -1,15 +1,15 @@
 /**
- * Desktop live-workflow chain runner — the main-process counterpart to
- * the extension's `live-chain-adapter.ts`.
+ * Node-host live-workflow chain runner — the host-process counterpart
+ * to the extension's `live-chain-adapter.ts`.
  *
  * Boundaries (identical split to the extension):
  *   - The scheduler (`./live-refresh-scheduler`) owns WHEN to fire.
  *   - The host-neutral engine (`@openheaders/core/live` `runChain` +
  *     `@openheaders/oracle/live/request-exec` `buildChainFetchAdapter`)
  *     owns HOW to resolve + execute each step. This is the C1 lift —
- *     the desktop reuses the exact same resolve→execute core the
+ *     a Node host reuses the exact same resolve→execute core the
  *     browser SW runs, differing only in the injected transport.
- *   - This module owns the thin desktop glue: pick the Node transport,
+ *   - This module owns the thin Node-host glue: pick the Node transport,
  *     run the chain, and commit the result to the host-neutral live
  *     cache (success → `putWorkflowRunCache`; failure →
  *     `recordRefreshError`).
@@ -18,7 +18,7 @@
  * DNR engine and no `chrome.identity`:
  *   - `prepareRequest` is omitted — there is no `X-OH-Live-Bypass`
  *     header to stamp (no DNR rules to dodge).
- *   - `refreshOAuth` is omitted — the desktop attaches the last-synced
+ *   - `refreshOAuth` is omitted — the host attaches the last-synced
  *     OAuth bundle as-is; refresh-on-expired over Node is a later slice.
  *   - No manual-bypass path — the scheduler fires on cadence only; the
  *     user-triggered "Refresh now" bypass is an extension surface today.
@@ -45,20 +45,20 @@ import { deriveExecutionPolicyForWorkflow } from '@openheaders/oracle/live/execu
 import { putWorkflowRunCache, recordRefreshError } from '@openheaders/oracle/live/live-cache-store';
 import { publishLiveVariablesProducedByRun } from '@openheaders/oracle/live/live-variable-store';
 import { buildChainFetchAdapter } from '@openheaders/oracle/live/request-exec/chain-adapter';
-import { createNodeRequestTransport } from '@openheaders/oracle-host-node/live/node-request-transport';
+import { createNodeRequestTransport } from '../../live/node-request-transport';
 
 /** One Node transport for the whole process — stateless, so a singleton
  *  avoids rebuilding the `fetch` wrapper on every step fetch. */
 const nodeTransport = createNodeRequestTransport();
 
-export interface DesktopRefreshArgs {
+export interface WorkflowRefreshArgs {
   workspaceId: string;
   workflow: LiveWorkflow;
   /** `null` = "No environment". */
   environmentId: string | null;
 }
 
-export type DesktopRefreshResult =
+export type WorkflowRefreshResult =
   | { ok: true; skippedStepIds: readonly string[] }
   | { ok: false; failedStepId: string; failedPhase: ChainRunFailure['failedPhase']; message: string };
 
@@ -70,7 +70,7 @@ export type DesktopRefreshResult =
  * unexpected store/engine fault, which the scheduler's `fire` catch
  * folds into a warn + re-arm.
  */
-export async function runDesktopWorkflowRefresh(args: DesktopRefreshArgs): Promise<DesktopRefreshResult> {
+export async function runWorkflowRefresh(args: WorkflowRefreshArgs): Promise<WorkflowRefreshResult> {
   const { workspaceId, workflow, environmentId } = args;
   const adapter = buildChainFetchAdapter({ workspaceId, environmentId, transport: nodeTransport });
   const outcome: ChainRunOutcome = await runChain({
@@ -157,7 +157,7 @@ async function commitFailure(
     workspaceId,
   );
   logger.warn(
-    'DesktopLiveRunner',
+    'HostLiveRunner',
     `Workflow ${workflow.uid} refresh failed at step ${outcome.failedStepId} (${outcome.failedPhase}): ${outcome.failedReason}`,
   );
 }

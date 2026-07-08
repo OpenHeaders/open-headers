@@ -4,119 +4,49 @@
  * Architectural invariant: the app runs ≥99% of the time in the
  * background with no renderer window open. The engine boot here is
  * unconditional — main process owns workspaces, rules, sync state,
- * broadcasting, and (Stage 2 commit 10) the WS server. The renderer is
- * a thin subscriber that hydrates from main via `oh.sync.snapshot*`
- * when its window mounts. Broadcasts to absent renderers silently
- * no-op; the engine keeps running.
+ * broadcasting, and the WS server. The renderer is a thin subscriber
+ * that hydrates from main via `oh.sync.snapshot*` when its window
+ * mounts. Broadcasts to absent renderers silently no-op; the engine
+ * keeps running.
  *
- * Composes the four cross-host seams the oracle expects (host storage,
- * lock runtime, sync persistence, host logger) with the desktop's
- * interim in-memory backends, registers the `OracleHostHooks`, boots
- * the host runtime (bootstrap workspaces → hydrate stores → init sync
- * engine → bridges → coord runner), and registers the IPC RPC + broadcast
- * relay so the renderer's `HostBridge` can drive the engine.
- *
- * Backends installed here:
+ * The engine boot itself is the host-neutral daemon spine
+ * (`@openheaders/oracle-host-node/daemon`) — the same core the
+ * standalone daemon distribution runs. This module is the Electron
+ * shell around it, owning exactly the desktop-specific edges:
  *
  *   - `HostStorage`: file-backed (`<userData>/storage.json`) with Electron
  *     `safeStorage` encrypting slots flagged `sensitive: true`. Renderers
  *     reach it via the `oh:storage:*` IPC channels (`installHostStorage`).
- *   - `SyncPersistenceProvider`: SQLite-backed (`<userData>/oracle.db`),
- *     better-sqlite3 with WAL journal; per-scope `MutationLog` and
- *     `PendingIntents` share one database handle.
- *   - `LockRuntime`: single-process FIFO mutex (final shape for main).
  *   - `LifelineServer`: IPC adapter (`installLifelineServer`) — each
  *     renderer surface holds one long-lived port; webContents destroy
  *     and renderer-initiated close both fan out as `onDisconnect` to
  *     oracle's `setupAwarenessLifelinePorts`.
- *   - `BlobBackend`: filesystem-backed (`<userData>/blobs/<wsId>/<fileId>.bin`)
- *     with metadata living in the same `oracle.db` SQLite handle as the
- *     sync persistence layer.
+ *   - Local broadcast: oracle events fan out to every open renderer via
+ *     `webContents.send`; the spine forwards to WS peers itself.
+ *   - Status store: the shared `@openheaders/ui` store both hosts and
+ *     renderers read; handed to the spine through its status seam.
+ *   - Paths + lifecycle: `<userData>` as the data dir; `before-quit`
+ *     drives the spine's dispose.
  *
  * Inbound wires:
  *
- *   - `ipcMain.handle('oh:rpc', payload)` → `dispatchSyncRpc` for the
- *     sync+awareness channels (renderer ↔ main).
- *   - `startDaemonBindSupervisor` on the user-controlled `backend.bindPort`
- *     (default `:8137`), bound to either `127.0.0.1` or `0.0.0.0` per the
- *     `backend.bindAddress` setting
- *     (U3.1, `UNIFIED_ORACLE_MODEL.md` §4.2) → same `dispatchSyncRpc` for
- *     connected extension SWs / future daemons / future remote surfaces.
- *     Handshake validates protocol version against
- *     `@openheaders/core/protocol`'s `PROTOCOL_VERSION`, and flips into
- *     auth-required mode whenever the bind isn't loopback.
- *
- * Outbound (oracle → world):
- *
- *   - Oracle broadcasts (`syncBroadcast`, `awarenessBroadcast`) fan out
- *     to every open renderer via `webContents.send` AND to every WS
- *     peer past handshake. One oracle event, two transports, same
- *     payload shape.
+ *   - `ipcMain.handle('oh:rpc', payload)` → the spine's `dispatchRpc`
+ *     for the sync+awareness channels (renderer ↔ main).
+ *   - The spine's bind supervisor on the user-controlled
+ *     `backend.bindPort` (default `:8137`), bound to either `127.0.0.1`
+ *     or `0.0.0.0` per the `backend.bindAddress` setting → connected
+ *     extension SWs / future daemons / future remote surfaces.
  */
 
 import { randomUUID } from 'node:crypto';
 import * as os from 'node:os';
-import * as path from 'node:path';
-import { setHostBridge } from '@openheaders/core/bridge';
-import {
-  createDaemonPairingService,
-  ensureSyntheticIdentity,
-  ensureWorkspaceRoleAssignments,
-  getIdentitySnapshot,
-  mintDaemonAuthToken,
-  refreshIdentitySnapshotFromHostStorage,
-  revokeDaemonAuthToken,
-} from '@openheaders/core/identity';
 import { setHostLogger } from '@openheaders/core/logger';
-import type { AwarenessState } from '@openheaders/core/protocol';
-import { SYNC_AWARENESS_PRESENCE_TYPE, WS_PORT } from '@openheaders/core/protocol';
-import { setHostStorage } from '@openheaders/core/storage';
-import {
-  EXTENSION_WORKSPACE_GLOBAL_SCOPE,
-  invalidateAllWorkspaceOrgCache,
-  setWorkspaceOrgResolver,
-} from '@openheaders/core/sync';
 import { logger as consoleLogger } from '@openheaders/core/utils';
-import { setLockRuntime } from '@openheaders/oracle/coordination';
-import { setBlobBackend } from '@openheaders/oracle/files';
-import { bootSyncEngine } from '@openheaders/oracle/host-runtime';
-import { dispatchSyncRpc } from '@openheaders/oracle/rpc';
-import { setActivityMuteStore, setOracleHostHooks, subscribeActivityMuteChanges } from '@openheaders/oracle/sync';
-import { setSyncPersistenceProvider } from '@openheaders/oracle/sync/sync-persistence-provider';
-import {
-  bootstrap as bootstrapWorkspaces,
-  getActiveWorkspaceId,
-  getWorkspace,
-  listWorkspaces,
-  onWorkspaceStoreChange,
-  peekActiveWorkspaceId,
-} from '@openheaders/oracle/workspace/extension-workspace-store';
-import { hydrateActiveWorkspaceStores } from '@openheaders/oracle/workspace/workspace-coordinator';
-// Node-only backends live in `@openheaders/oracle-host-node`; oracle
-// itself is host-neutral and ships no `node:*` / `better-sqlite3` / `ws`
-// runtime dependency.
-import { FileSystemBlobBackend } from '@openheaders/oracle-host-node/files/fs-blob-backend';
-import { createPairingHttpHandler } from '@openheaders/oracle-host-node/host-runtime/pairing-http';
-import type { OracleWsServer } from '@openheaders/oracle-host-node/host-runtime/ws-server';
-import { createSqliteSyncPersistence } from '@openheaders/oracle-host-node/sync/sqlite-sync-persistence';
-import {
-  clearStatus as clearStatusStore,
-  getStatusSnapshot as peekStatusSnapshot,
-  subscribe as subscribeStatusStore,
-} from '@openheaders/ui/shared/status/store';
+import { bootDaemonSpine } from '@openheaders/oracle-host-node/daemon';
+import { clearStatus, getStatusSnapshot, report, subscribe } from '@openheaders/ui/shared/status/store';
 import { app, BrowserWindow } from 'electron';
-import { installActivityPruneScheduler } from './activity-prune-scheduler';
-import { type DaemonBindSupervisor, startDaemonBindSupervisor } from './daemon-bind-supervisor';
 import { installHostStorage } from './install-host-storage';
 import { installLifelineServer } from './install-lifeline-server';
-import { installMcpServer } from './install-mcp-server';
-import { listLanIpv4Addresses } from './lan-addresses';
-import { startDesktopLiveRunner, stopDesktopLiveRunner } from './live/live-refresh-scheduler';
-import { installObservabilityLog, type ObservabilityLogHandle } from './observability-log';
-import { singleProcessLockRuntime } from './single-process-lock-runtime';
-import { observeForActivityFeed, setActivityLog, subscribeActivityEntries } from './sync-activity-installer';
-import { forwardMutationToWsPeers, setMutationForwarderWsServer } from './sync-mutation-forwarder';
-import { installSyncStatusReporter, type SyncStatusReporter } from './sync-status-reporter';
 
 const BROADCAST_CHANNEL = 'oh:broadcast';
 
@@ -159,18 +89,6 @@ function safeOsHostname(): string {
   }
 }
 
-// Captured at boot. The host-hook closures below fan to both renderers
-// and connected WS peers; the WS server is null until `startOracleWsServer`
-// resolves (early-fire broadcasts hit renderers only, which is harmless —
-// no peer has handshook yet).
-let wsServer: OracleWsServer | null = null;
-
-// The port the WS server is actually bound on right now — driven by the
-// supervisor's bind lifecycle (`backend.bindPort`, default WS_PORT). The
-// pairing surface reads this so the codes it hands out point at the live
-// port, not the hardcoded default, after the user moves the daemon.
-let boundPort: number = WS_PORT;
-
 function broadcastToAllRenderers(type: string, payload: unknown): void {
   // Fan out to every open BrowserWindow. Single-window desktop today;
   // safe-by-construction for multi-window down the line.
@@ -185,387 +103,50 @@ function broadcastToAllRenderers(type: string, payload: unknown): void {
   }
 }
 
-function broadcastEverywhere(type: string, payload: unknown): void {
-  broadcastToAllRenderers(type, payload);
-  wsServer?.broadcast(type, payload);
-}
-
 /**
- * Wire seams + boot oracle. Idempotent across multiple calls within the
- * same process (e.g. test harness), but production should call once.
+ * Wire the Electron edges + boot the daemon spine. Idempotent across
+ * multiple calls within the same process (e.g. test harness), but
+ * production should call once.
  */
 export async function installRpcHost(): Promise<void> {
-  // 1. Cross-host seams. Order: logger first (so subsequent installs
-  //    can log), then storage (file-backed, safeStorage-encrypted for
-  //    sensitive slots, IPC-served to the renderer), lock, persistence.
+  // Logger first so the storage + lifeline installs below can log; the
+  // spine re-installs the same adapter, which is a no-op.
   setHostLogger(consoleLogger);
   const { backend: hostStorage } = installHostStorage();
-  setHostStorage(hostStorage);
-  // U1.6 / U1.7 — materialize the synthetic identity-row tuple before
-  // any privileged-path code runs (UNIFIED_ORACLE_MODEL.md §5.2 / §12
-  // step 2). Idempotent across boots; first-boot mints the
-  // host-install-id seed too. `hostKind: 'desktop'` + the machine name
-  // as the local-org name make this host's Org distinguishable from a
-  // joined peer's. Display name seeds the synthetic User row's
-  // `displayName` on first boot only — promotion (§5.4 step 1)
-  // overwrites it without touching `User.id`. Failures are logged, not
-  // fatal: a hard throw here would abort the whole host install (no
-  // oracle, no WS server). The resolver denies privileged sync actions
-  // while the snapshot is absent; the next boot re-runs this idempotently.
-  await ensureSyntheticIdentity({
-    hostKind: 'desktop',
-    displayName: safeOsUsername(),
-    orgName: safeOsHostname(),
-  }).catch((err: unknown) => {
-    consoleLogger.warn('install-rpc-host', 'ensureSyntheticIdentity failed', err);
-  });
-  setLockRuntime(singleProcessLockRuntime);
   installLifelineServer();
-  const syncPersistence = createSqliteSyncPersistence({
-    dbPath: path.join(app.getPath('userData'), 'oracle.db'),
-  });
-  setSyncPersistenceProvider(syncPersistence);
-  // Structured observability log — rides the same SQLite handle so a bug
-  // report filed days after the event still contains the triage context.
-  // Subsystem call sites land in their own slices; this is the seam.
-  const observabilityLog: ObservabilityLogHandle = installObservabilityLog({
-    db: syncPersistence.db,
+
+  const spine = await bootDaemonSpine({
+    dataDir: app.getPath('userData'),
     appVersion: app.getVersion(),
-    broadcast: (type, payload) => broadcastToAllRenderers(type, payload),
-  });
-  // Status snapshot — the shared store in `@openheaders/ui/shared/status`
-  // is the single vocabulary for both hosts. Main owns the writes (no
-  // subsystems wired yet), renderer mirrors via `useStatus` over the
-  // `statusUpdated` broadcast.
-  const unsubscribeStatus = subscribeStatusStore((snapshot) => {
-    broadcastToAllRenderers('statusUpdated', snapshot);
-  });
-  // Activity Feed log — workspace-wide, SQLite-backed. The installer
-  // tolerates a missing log (counts drops) until this resolves, so
-  // ordering here is for readability rather than correctness.
-  const activityLog = syncPersistence.createActivityLog?.() ?? null;
-  setActivityLog(activityLog);
-  // F7 — auto-decay. Hourly setInterval prunes every resident workspace
-  // down to the 7-day retention window. Listing workspaces lazily at
-  // tick time picks up additions/removals without a re-install.
-  const stopActivityPruneScheduler = installActivityPruneScheduler({
-    getLog: () => activityLog,
-    listWorkspaceIds: () => listWorkspaces().map((ws) => ws.id),
-  });
-  // F6.b — per-entity mute store. The cache module is the runtime
-  // source of truth; the persisted store rehydrates it per workspace
-  // lazily on first observation inside the installer.
-  setActivityMuteStore(syncPersistence.createActivityMuteStore?.() ?? null);
-  // F5 — live tail for the panel. Each classified entry the installer
-  // produces is also pushed onto the renderer bridge so the panel can
-  // prepend without re-fetching.
-  subscribeActivityEntries((entry) => {
-    broadcastToAllRenderers('activityEntry', entry);
-  });
-  // F6.b — fan out mute/unmute observations so every open renderer
-  // surface keeps its muted-state badges in lockstep without polling.
-  subscribeActivityMuteChanges((change) => {
-    broadcastToAllRenderers('activityMuteChanged', change);
-  });
-  // Blob bytes live on the filesystem alongside the SQLite metadata so
-  // large files don't bloat the DB and incremental backups stay
-  // straightforward. The metadata table rides on the same handle as the
-  // sync persistence — `oracle.db` already opens once at boot.
-  setBlobBackend(
-    new FileSystemBlobBackend({
-      rootDir: path.join(app.getPath('userData'), 'blobs'),
-      db: syncPersistence.db,
-    }),
-  );
-  app.on('before-quit', () => {
-    syncPersistence.close();
-  });
-
-  // 2. Oracle host hooks. Desktop has no DNR engine, no resolver-state
-  //    runner, no rule-state-observer cache invalidation. All optional
-  //    hooks the oracle calls degrade gracefully when absent.
-  setOracleHostHooks({
-    getActiveWorkspaceId,
-    peekActiveWorkspaceId,
-    broadcastSyncEvent: (event) => {
-      // Renderers keep the legacy `syncBroadcast` IPC channel — they
-      // consume the full `OracleSyncBroadcastEvent` (envelope +
-      // outcome + per-entity post-states) to fold into mirrors.
-      // Cross-host WS peers get the flat `oh.sync.mutation` wire
-      // shape from the C10 forwarder (with echo-prevention via the
-      // shared seen-set).
-      broadcastToAllRenderers('syncBroadcast', event);
-      forwardMutationToWsPeers(event);
-      observeForActivityFeed(event);
+    identity: {
+      // `hostKind: 'desktop'` + the machine name as the local-org name
+      // make this host's Org distinguishable from a joined peer's.
+      hostKind: 'desktop',
+      displayName: safeOsUsername(),
+      orgName: safeOsHostname(),
     },
-    broadcastAwareness: (event) => {
-      // Renderers in this process: legacy IPC channel for the
-      // existing awareness mirror (`packages/ui/src/context/
-      // awareness-mirror.ts` subscribes to `awarenessBroadcast`).
-      broadcastToAllRenderers('awarenessBroadcast', event);
-      // Cross-host: forward only DESKTOP-originated presence onto the
-      // wire. Peer-received states (e.g. extension surfaces folded into
-      // the local store from an inbound frame) are filtered out by
-      // `identity.appId` so the wire never loops.
-      const localOnly = event.presence.filter((s: AwarenessState) => s.identity.appId === 'desktop');
-      if (localOnly.length > 0 || event.presence.length === 0) {
-        wsServer?.broadcastFrame({
-          type: SYNC_AWARENESS_PRESENCE_TYPE,
-          workspaceId: event.workspaceId,
-          presence: localOnly,
-        });
-      }
+    handshakeIdentity: {
+      role: 'desktop',
+      // HLC writer identity for the main process. Distinct from any
+      // renderer's surfaceId; lives only for this process lifetime so
+      // a per-boot UUID is sufficient. Phase D persists a stable
+      // deviceId at the host-settings layer.
+      nodeId: `desktop-${randomUUID()}`,
+      agent: `@openheaders/desktop@${app.getVersion()}`,
     },
+    localAppId: 'desktop',
+    hostStorage,
+    status: { report, getSnapshot: getStatusSnapshot, subscribe, clear: clearStatus },
+    broadcastLocal: broadcastToAllRenderers,
   });
 
-  // 3. The main process drives writes through the same `hostBridge`
-  //    proxy the renderer uses — for now wire it to a no-op surface
-  //    so any oracle code that reaches for `hostBridge.broadcast` in
-  //    the main process doesn't crash. Renderer-bound broadcasts run
-  //    through the host-hook wired above; this is just defensive.
-  setHostBridge({
-    call: () => Promise.reject(new Error('main-process hostBridge.call is not implemented')),
-    broadcast: (type, ...args: unknown[]) => broadcastToAllRenderers(String(type), args[0]),
-    subscribe: () => () => undefined,
-    presence: () => () => undefined,
-  });
+  rpcDispatcher = spine.dispatchRpc;
 
-  // 4. Boot sequence — workspace bootstrap, hydrate active workspace,
-  //    init sync engine + bridges + coord runner + lifeline.
-  await bootstrapWorkspaces();
-  // U1.8 — every workspace owns an owner-role WRA for the synthetic
-  // principal. Reconcile once after `bootstrapWorkspaces` resolves
-  // the list; the subscription below covers creates / deletes during
-  // the process lifetime. Errors are logged but non-fatal — the next
-  // mutation re-fires the reconcile.
-  await ensureWorkspaceRoleAssignments(listWorkspaces().map((ws) => ws.id)).catch((err: unknown) => {
-    consoleLogger.warn('install-rpc-host', 'ensureWorkspaceRoleAssignments failed', err);
-  });
-  // U2.1 — hydrate the in-memory identity snapshot the resolver reads
-  // from. One refresh after both ensure-* runs is sufficient at boot;
-  // the workspace-store listener below repeats it on changes.
-  await refreshIdentitySnapshotFromHostStorage().catch((err: unknown) => {
-    consoleLogger.warn('install-rpc-host', 'refreshIdentitySnapshotFromHostStorage failed', err);
-  });
-  // U2.6 — install the workspaceId → orgId resolver consulted by every
-  // envelope mint site (UNIFIED_ORACLE_MODEL.md §6.1). Per-workspace
-  // mutations resolve through `workspace.orgId`; global-scope metadata
-  // mutations ride the user's home-org channel per §6.5. The resolver
-  // is invalidated on every workspace-store change.
-  setWorkspaceOrgResolver((workspaceId) => {
-    const snapshot = getIdentitySnapshot();
-    if (workspaceId === EXTENSION_WORKSPACE_GLOBAL_SCOPE) {
-      return snapshot?.user.homeOrgId;
-    }
-    return getWorkspace(workspaceId)?.orgId ?? snapshot?.user.homeOrgId;
-  });
-  onWorkspaceStoreChange(() => {
-    void ensureWorkspaceRoleAssignments(listWorkspaces().map((ws) => ws.id))
-      .then(() => refreshIdentitySnapshotFromHostStorage())
-      .catch((err: unknown) => {
-        consoleLogger.warn('install-rpc-host', 'ensureWorkspaceRoleAssignments reconcile failed', err);
-      });
-    invalidateAllWorkspaceOrgCache();
-  });
-  await hydrateActiveWorkspaceStores();
-  await bootSyncEngine();
-
-  // 4a. WS-C C3/C4 — desktop live runner. With the active workspace's
-  //     stores hydrated and the sync engine up, start the cadence
-  //     scheduler: a `setTimeout` map keyed by (workspace, workflow, env)
-  //     that warms THIS host's own live-workflow cache on a timer —
-  //     reusing the C1 host-neutral resolve→execute core over the Node
-  //     transport — and reconciles off the oracle store-change events.
-  //     Lights real data into the desktop `live` status pill (C5). Torn
-  //     down on `before-quit` (step 7).
-  startDesktopLiveRunner();
-
-  // 4b. Daemon device-flow pairing surface (U3.3). One service instance
-  //     per process; the HTTP handler is rebuilt with that service and
-  //     handed to every bind the supervisor opens. Polling-only IPC
-  //     contract — see `BridgeRpcContract['oh.daemon.pairing.*']`.
-  const pairingService = createDaemonPairingService();
-  const pairingHttpHandler = createPairingHttpHandler({ pairing: pairingService });
-
-  // 4c. MCP endpoint (`/mcp`, MCP_SERVER_PLAN.md Phase 1). Read-tier
-  //     tools over stateless streamable HTTP, gated by the `mcp.enabled`
-  //     setting (default off) + a paired daemon token per request. Rides
-  //     the same bound socket as pairing via handler composition below.
-  const mcpInstall = await installMcpServer();
-
-  // 5. IPC RPC dispatch. Pairing channels are intercepted ahead of
-  //    `dispatchSyncRpc` — they're admin-only renderer RPCs, not part
-  //    of the sync+awareness channels, so we don't pollute the
-  //    sync dispatcher with surface-specific routes.
-  rpcDispatcher = async (raw: unknown) => {
-    const message = (raw ?? {}) as Record<string, unknown>;
-    const type = message.type;
-    // Host-neutral capability backing — shared `@openheaders/ui` calls
-    // this from `eagerInitRendererMirrors`. Returns the runtime-active
-    // workspace id (or null on a fresh install).
-    if (type === 'getActiveWorkspaceId') {
-      return { activeWorkspaceId: getActiveWorkspaceId() ?? null };
-    }
-    // Universal host-bridge RPCs — desktop genuinely has these, so they
-    // ride the same seam as the extension SW (no capability gating).
-    if (type === 'getStatusSnapshot') {
-      return { snapshot: peekStatusSnapshot() };
-    }
-    if (type === 'getObservabilityLog') {
-      return { entries: observabilityLog.getAll() };
-    }
-    if (type === 'clearObservabilityLog') {
-      observabilityLog.clear();
-      return { success: true };
-    }
-    if (type === 'oh.daemon.pairing.start') {
-      try {
-        const deviceLabel =
-          typeof message.deviceLabel === 'string' ? message.deviceLabel.trim() || undefined : undefined;
-        const { code, expiresAt } = pairingService.startPair({ deviceLabel });
-        const addresses = listLanIpv4Addresses();
-        const pairingUrls = [
-          { host: '127.0.0.1', url: `http://127.0.0.1:${boundPort}/pair/${code}` },
-          ...addresses.map((a) => ({
-            host: a.host,
-            iface: a.iface,
-            url: `http://${a.host}:${boundPort}/pair/${code}`,
-          })),
-        ];
-        return { ok: true, code, expiresAt, port: boundPort, pairingUrls };
-      } catch (err) {
-        return { ok: false, error: (err as Error).message };
-      }
-    }
-    if (type === 'oh.daemon.pairing.list') {
-      return {
-        pairs: pairingService.list().map((p) => ({
-          code: p.code,
-          deviceLabel: p.deviceLabel,
-          createdAt: p.createdAt,
-          expiresAt: p.expiresAt,
-          status: p.status,
-        })),
-      };
-    }
-    if (type === 'oh.daemon.pairing.cancel') {
-      const code = typeof message.code === 'string' ? message.code : '';
-      if (code) pairingService.cancel(code);
-      return { ok: true };
-    }
-    if (type === 'oh.daemon.tokens.connected') {
-      // Live ws-server state, not hostStorage — projected for the
-      // "Known devices" admin surface (U3.4). Empty while loopback-only
-      // (`wsServer` non-null but no LAN peers) or mid-rebind (null).
-      const ids = wsServer?.connectedTokenIds();
-      return { tokenIds: ids ? [...ids] : [] };
-    }
-    if (type === 'oh.daemon.tokens.mint') {
-      // Mint in main so the persist shares this realm's token-store mutex
-      // with HELLO validation (the renderer's separate mutex can't).
-      try {
-        const label = typeof message.label === 'string' ? message.label.trim() || undefined : undefined;
-        const minted = await mintDaemonAuthToken({ label });
-        return { ok: true, tokenId: minted.record.id, secret: minted.secret };
-      } catch (err) {
-        return { ok: false, error: (err as Error).message };
-      }
-    }
-    if (type === 'oh.daemon.tokens.revoke') {
-      const tokenId = typeof message.tokenId === 'string' ? message.tokenId : '';
-      if (!tokenId) return { ok: false, error: 'missing tokenId' };
-      try {
-        // Persist the revoke BEFORE evicting the live socket: a peer that
-        // reconnects in the eviction window then re-validates against the
-        // already-revoked ledger and is rejected, rather than slipping a
-        // fresh connection past a not-yet-written revoke.
-        await revokeDaemonAuthToken(tokenId);
-        wsServer?.closePeersByTokenId(tokenId);
-        return { ok: true };
-      } catch (err) {
-        return { ok: false, error: (err as Error).message };
-      }
-    }
-    const result = dispatchSyncRpc(message);
-    if (result === null) {
-      // Anything outside the sync+awareness channels — chrome.tabs,
-      // chrome.identity, etc. — has no desktop implementation yet.
-      // Surface a clear error so the renderer can degrade with intent
-      // rather than hang waiting for a response.
-      return {
-        __error: `desktop main: RPC '${String(message.type)}' is not implemented`,
-      };
-    }
-    if (result.kind === 'sync') return result.response;
-    return await result.promise;
-  };
-
-  // 6. WS server — the extension-as-client pipe. The supervisor owns
-  //    the bind lifecycle so the user-controlled `backend.bindAddress`
-  //    setting can flip between loopback and LAN at runtime without an
-  //    app restart (U3.1, `UNIFIED_ORACLE_MODEL.md` §4.2). The browser
-  //    SW connects here on boot; same `dispatchSyncRpc` routes its
-  //    messages, and oracle broadcasts fan out to every connected peer
-  //    via `broadcastEverywhere`. Failure to bind (another instance
-  //    running, port held by something else) is logged but not fatal;
-  //    the IPC engine keeps serving the renderer, and the supervisor
-  //    retries on the next setting change.
-  let bindSupervisor: DaemonBindSupervisor | null = null;
-  // One long-lived reporter for the whole boot. It folds the supervisor's
-  // bind lifecycle (binding / bound / failed) and the active server's peer
-  // set into a single `sync` status entry, so a failed bind shows RED and
-  // a healthy rebind shows a transient YELLOW rather than going silent.
-  const syncStatusReporter: SyncStatusReporter = installSyncStatusReporter();
-  try {
-    bindSupervisor = await startDaemonBindSupervisor({
-      handshakeIdentity: {
-        role: 'desktop',
-        // HLC writer identity for the main process. Distinct from any
-        // renderer's surfaceId; lives only for this process lifetime so
-        // a per-boot UUID is sufficient. Phase D persists a stable
-        // deviceId at the host-settings layer.
-        nodeId: `desktop-${randomUUID()}`,
-        agent: `@openheaders/desktop@${app.getVersion()}`,
-      },
-      httpRequestHandler: (req, res) => pairingHttpHandler(req, res) || mcpInstall.handler(req, res),
-      onServerChange: (next) => {
-        wsServer = next;
-        setMutationForwarderWsServer(next);
-        if (next) syncStatusReporter.attachServer(next);
-        else syncStatusReporter.detachServer();
-      },
-      onBindStateChange: (state) => {
-        // Track the live port so the pairing surface hands out codes for
-        // wherever the daemon is actually listening, not the default.
-        if (state.kind === 'bound') boundPort = state.port;
-        syncStatusReporter.setBindState(state);
-      },
-    });
-  } catch (err) {
-    consoleLogger.error(
-      'install-rpc-host',
-      'WS supervisor failed to start; continuing without the extension pipe',
-      err,
-    );
-  }
-
-  // 7. Clean up engine-owned resources on app quit. The `oh:rpc` channel
-  //    is registered in `main.ts` (so it can queue pre-engine calls) and
-  //    is removed there.
+  // Clean up engine-owned resources on app quit. The `oh:rpc` channel
+  // is registered in `main.ts` (so it can queue pre-engine calls) and
+  // is removed there.
   app.on('before-quit', () => {
-    stopDesktopLiveRunner();
-    stopActivityPruneScheduler();
-    unsubscribeStatus();
-    clearStatusStore();
     rpcDispatcher = null;
-    setMutationForwarderWsServer(null);
-    setActivityLog(null);
-    setActivityMuteStore(null);
-    pairingService.dispose();
-    mcpInstall.dispose();
-    syncStatusReporter.dispose();
-    void bindSupervisor?.dispose();
-    bindSupervisor = null;
-    wsServer = null;
+    void spine.dispose();
   });
 }

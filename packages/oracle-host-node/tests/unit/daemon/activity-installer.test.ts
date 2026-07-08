@@ -1,9 +1,8 @@
 /**
- * Phase C F2 — desktop activity installer wiring.
+ * Phase C F2 — Node-host activity installer wiring.
  *
- * Mirrors the extension installer test against the desktop main-process
- * module. Pins the same three behaviours independent of any host
- * plumbing:
+ * Mirrors the extension installer test against the Node-host module.
+ * Pins the same three behaviours independent of any host plumbing:
  *
  *   - Inbound + applied envelope → write to the activity log.
  *   - Outbound (local) envelope → skipped.
@@ -41,7 +40,7 @@ import {
   setActivityClockForTests,
   setActivityLog,
   subscribeActivityEntries,
-} from '../../src/main/sync-activity-installer';
+} from '../../../src/daemon/activity-installer';
 
 const WS = '0193a8ff-c000-7000-8000-000000000001';
 
@@ -79,7 +78,7 @@ afterEach(() => {
   __resetActivityPriorsForTests();
 });
 
-describe('observeForActivityFeed (desktop)', () => {
+describe('observeForActivityFeed (node host)', () => {
   it('writes an entry for an inbound applied envelope', async () => {
     const log = new InMemoryActivityLog();
     setActivityLog(log);

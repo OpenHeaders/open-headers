@@ -1,9 +1,9 @@
 /**
- * Sync status reporter (desktop main).
+ * Sync status reporter (Node host).
  *
  * Sibling to the extension SW's handshake-status reporter — same `sync`
  * subsystem, opposite vantage point. The extension reports whether IT
- * is talking to a back-end; the desktop reports how reachable IT is and
+ * is talking to a back-end; a Node host reports how reachable IT is and
  * how many extensions (same-device vs LAN) are talking to it.
  *
  * The reporter is long-lived (one instance per boot) and folds two
@@ -19,17 +19,17 @@
  *        - N peers, all loopback → green "Connected to N … on this device"
  *        - N peers with one or more LAN → green "Connected to N … (L on LAN)"
  *
- * "Idle" stays green: the desktop app can be used standalone, so an
+ * "Idle" stays green: the host can be used standalone, so an
  * empty peer set is a healthy steady state — not a degraded one.
  *
- * Wiring (see install-rpc-host): the supervisor's `onServerChange` drives
+ * Wiring (see the boot spine): the supervisor's `onServerChange` drives
  * {@link SyncStatusReporter.attachServer} / `detachServer`, and its
  * `onBindStateChange` drives {@link SyncStatusReporter.setBindState}.
  */
 
-import type { OracleWsServer } from '@openheaders/oracle-host-node/host-runtime/ws-server';
-import { report as reportStatus } from '@openheaders/ui/shared/status/store';
-import type { DaemonBindState } from './daemon-bind-supervisor';
+import type { OracleWsServer } from '../host-runtime/ws-server';
+import type { DaemonBindState } from './bind-supervisor';
+import type { SpineStatusReporter } from './status-seam';
 
 export interface SyncStatusReporter {
   /** Apply a bind lifecycle transition from the supervisor. */
@@ -42,7 +42,7 @@ export interface SyncStatusReporter {
   dispose(): void;
 }
 
-export function installSyncStatusReporter(): SyncStatusReporter {
+export function installSyncStatusReporter(reportStatus: SpineStatusReporter): SyncStatusReporter {
   let disposed = false;
   let bindState: DaemonBindState | null = null;
   let server: OracleWsServer | null = null;

@@ -1,8 +1,8 @@
 /**
- * Desktop main side of Activity Feed auto-decay (Phase C F7).
+ * Node-host side of Activity Feed auto-decay (Phase C F7).
  *
  * Mirror of {@link apps/extension/src/background/activity-prune-scheduler.ts}
- * for the main process. The main process is long-lived (no SW eviction
+ * for Node hosts. The host process is long-lived (no SW eviction
  * to mask) so a plain `setInterval` is sufficient — chrome.alarms isn't
  * available outside the SW host anyway. Both hosts delegate to the same
  * {@link runActivityPruneSweep} core so retention semantics stay
@@ -10,11 +10,7 @@
  */
 
 import { hostLogger as logger } from '@openheaders/core/logger';
-import {
-  ACTIVITY_PRUNE_DEFAULT_PERIOD_MS,
-  runActivityPruneSweep,
-  type ActivityLog,
-} from '@openheaders/oracle/sync';
+import { ACTIVITY_PRUNE_DEFAULT_PERIOD_MS, type ActivityLog, runActivityPruneSweep } from '@openheaders/oracle/sync';
 
 const SCOPE = 'ActivityPrune';
 

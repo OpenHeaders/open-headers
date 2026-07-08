@@ -1,18 +1,17 @@
 /**
- * Desktop main outbound mutation forwarder — Phase C C10.
+ * Host outbound mutation forwarder — Phase C C10.
  *
  * Mirror of the extension SW's outbound path. Every envelope the
  * local oracle commits flows through here; the forwarder writes it
  * to every connected WS peer (extension, future daemon clients) as a
  * top-level `oh.sync.mutation` frame.
  *
- * Two reasons this lives in `apps/desktop/` and not the oracle:
+ * Two reasons this lives in the Node host layer and not the oracle:
  *
  * 1. The forwarder needs the WS server handle, which is owned by
- *    the desktop's boot wiring. Each host that has WS peers will
- *    have its own forwarder (extension SW already does; future
- *    daemon will too) with the same shape but different transport
- *    glue.
+ *    the boot spine's bind wiring. Each host that has WS peers has
+ *    its own forwarder (the extension SW does) with the same shape
+ *    but different transport glue.
  * 2. The IPC fan-out to renderers stays on the legacy `syncBroadcast`
  *    channel; only the cross-host wire gets the new `oh.sync.mutation`
  *    framing. Splitting routes here keeps that mapping explicit.
@@ -29,7 +28,7 @@ import { SYNC_MUTATION_TYPE, type SyncMutationMessage } from '@openheaders/core/
 import { isSameDeviceOnlyMutation } from '@openheaders/core/sync';
 import type { OracleSyncBroadcastEvent } from '@openheaders/oracle/sync';
 import { hasRecentlyApplied } from '@openheaders/oracle/sync';
-import type { OracleWsServer } from '@openheaders/oracle-host-node/host-runtime/ws-server';
+import type { OracleWsServer } from '../host-runtime/ws-server';
 
 let wsServer: OracleWsServer | null = null;
 
