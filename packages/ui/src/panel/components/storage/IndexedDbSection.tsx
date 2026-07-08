@@ -101,6 +101,9 @@ export function IndexedDbSection({ idb, filter }: IndexedDbSectionProps) {
 function RecordsView({ idb, filter }: IndexedDbSectionProps) {
   const selection = idb.selection;
   if (!selection) return null;
+  const storeShape = idb.databases
+    ?.find((d) => d.name === selection.database)
+    ?.objectStores.find((s) => s.name === selection.store);
   const pageData = idb.recordsPage;
   const needle = filter.trim().toLowerCase();
   const records = pageData
@@ -120,6 +123,22 @@ function RecordsView({ idb, filter }: IndexedDbSectionProps) {
         <span className="dt-storage-crumb-path" title={`${selection.database} › ${selection.store}`}>
           {selection.database} › {selection.store}
         </span>
+        {storeShape !== undefined && storeShape.indexNames.length > 0 && (
+          <select
+            className="dt-storage-scope-select dt-storage-idb-index-select"
+            value={idb.index ?? ''}
+            onChange={(e) => idb.setIndex(e.target.value === '' ? null : e.target.value)}
+            aria-label="Record cursor"
+            title="Read the store through one of its indexes — the key column becomes the index key"
+          >
+            <option value="">primary key</option>
+            {storeShape.indexNames.map((n) => (
+              <option key={n} value={n}>
+                index: {n}
+              </option>
+            ))}
+          </select>
+        )}
         <span className="dt-storage-pager">
           <button
             type="button"

@@ -124,6 +124,30 @@ describe('readIdbRecordsInPage', () => {
     expect(result.records).toBeNull();
   });
 
+  it('reads through an index: key column is the index key, identity stays the primary key', async () => {
+    await seedDb('oh-app', 1, (db) => {
+      const orders = db.createObjectStore('orders', { keyPath: 'id' });
+      orders.createIndex('by-user', 'user');
+    });
+    await putRecords('oh-app', 'orders', [{ value: { id: 1, user: 'zoe' } }, { value: { id: 2, user: 'amy' } }]);
+
+    const viaIndex = await readIdbRecordsInPage('oh-app', 'orders', 0, 50, 1024, 'by-user');
+    expect(viaIndex.records?.map((r) => r.keyPreview)).toEqual(['"amy"', '"zoe"']);
+    expect(viaIndex.records?.map((r) => r.primaryKeyPreview)).toEqual(['2', '1']);
+
+    // A delete from the index view rides the same primary-key wire.
+    const wire = viaIndex.records?.[0]?.primaryKeyWire;
+    expect((await deleteIdbRecordInPage('oh-app', 'orders', wire as string)).ok).toBe(true);
+    const after = await readIdbRecordsInPage('oh-app', 'orders', 0, 50, 1024);
+    expect(after.records?.map((r) => r.keyPreview)).toEqual(['1']);
+  });
+
+  it('reports a missing index as unreadable', async () => {
+    await seedDb('oh-app', 1, (db) => db.createObjectStore('kv'));
+    const result = await readIdbRecordsInPage('oh-app', 'kv', 0, 50, 1024, 'gone');
+    expect(result.records).toBeNull();
+  });
+
   it('does not CREATE a database that was deleted since enumeration', async () => {
     await seedDb('oh-app', 1, (db) => db.createObjectStore('kv'));
     const result = await readIdbRecordsInPage('oh-ghost', 'kv', 0, 50, 1024);
@@ -286,6 +310,7 @@ describe('SW wrappers over the injection transport', () => {
     const [{ args }] = executeScriptSpy().mock.calls[0] as [{ args: unknown[] }];
     expect(args[2]).toBe(0);
     expect(args[3]).toBe(IDB_PAGE_SIZE_MAX);
+    expect(args[5]).toBeNull();
 
     executeScriptSpy().mockClear();
     executeScriptSpy().mockResolvedValue([{ result: { records: [], truncated: false } }]);
@@ -293,6 +318,17 @@ describe('SW wrappers over the injection transport', () => {
     const [{ args: args2 }] = executeScriptSpy().mock.calls[0] as [{ args: unknown[] }];
     expect(args2[2]).toBe(2);
     expect(args2[3]).toBe(IDB_PAGE_SIZE_DEFAULT);
+  });
+
+  it('passes the index through to the injected reader and rejects a non-string one', async () => {
+    executeScriptSpy().mockResolvedValue([{ result: { records: [], truncated: false } }]);
+    await getIndexedDbRecords(1, 0, 'oh-app', 'kv', 0, 50, 'by-user');
+    const [{ args }] = executeScriptSpy().mock.calls[0] as [{ args: unknown[] }];
+    expect(args[5]).toBe('by-user');
+
+    executeScriptSpy().mockClear();
+    expect((await getIndexedDbRecords(1, 0, 'oh-app', 'kv', 0, 50, 7 as unknown as string)).records).toBeNull();
+    expect(executeScriptSpy()).not.toHaveBeenCalled();
   });
 
   it('maps the injected database list to the wire shape (null keyPath omitted)', async () => {

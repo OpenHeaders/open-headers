@@ -119,6 +119,7 @@ export async function readIdbRecordsInPage(
   page: number,
   pageSize: number,
   previewMax: number,
+  index: string | null = null,
 ): Promise<{
   records: InjectedIdbRecord[] | null;
   truncated: boolean;
@@ -245,7 +246,12 @@ export async function readIdbRecordsInPage(
       let advanced = page <= 0;
       try {
         const tx = db.transaction(store, 'readonly');
-        const cursorReq = tx.objectStore(store).openCursor();
+        // An index-scoped read walks the index's cursor: `cursor.key` is
+        // the index key, `cursor.primaryKey` stays the record identity
+        // (deletes keep working from an index view). A gone index throws
+        // here and reports unreadable.
+        const source = index === null ? tx.objectStore(store) : tx.objectStore(store).index(index);
+        const cursorReq = source.openCursor();
         cursorReq.onsuccess = () => {
           const cursor = cursorReq.result;
           if (!cursor) {
@@ -464,8 +470,10 @@ export async function getIndexedDbRecords(
   store: string,
   page: number,
   pageSize: number,
+  index?: string,
 ): Promise<{ records: IdbRecordWire[] | null; truncated?: boolean }> {
   if (typeof database !== 'string' || typeof store !== 'string') return { records: null };
+  if (index !== undefined && typeof index !== 'string') return { records: null };
   const safePage = Number.isInteger(page) && page > 0 ? page : 0;
   const safePageSize =
     Number.isInteger(pageSize) && pageSize > 0 ? Math.min(pageSize, IDB_PAGE_SIZE_MAX) : IDB_PAGE_SIZE_DEFAULT;
@@ -475,6 +483,7 @@ export async function getIndexedDbRecords(
     safePage,
     safePageSize,
     IDB_VALUE_PREVIEW_MAX,
+    index ?? null,
   ]);
   if (!result || !Array.isArray(result.records)) return { records: null };
   return { records: result.records, ...(result.truncated ? { truncated: true } : {}) };

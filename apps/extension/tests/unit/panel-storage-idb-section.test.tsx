@@ -29,6 +29,8 @@ function makeIdb(overrides: Partial<IdbBrowserState> = {}): IdbBrowserState {
     selection: null,
     selectStore: vi.fn(),
     closeStore: vi.fn(),
+    index: null,
+    setIndex: vi.fn(),
     page: 0,
     setPage: vi.fn(),
     recordsPage: null,
@@ -63,6 +65,37 @@ describe('IndexedDbSection records view', () => {
     expect(screen.queryByLabelText('Delete record Infinity')).toBeNull();
     fireEvent.click(screen.getByLabelText('Delete record "simple"'));
     expect(idb.deleteRecord).toHaveBeenCalledWith('{"s":"simple"}');
+  });
+});
+
+describe('IndexedDbSection index cursor selector', () => {
+  const INDEXED_DB: IdbDatabase = {
+    ...DB,
+    objectStores: [{ name: 'kv', keyPath: 'id', autoIncrement: false, indexNames: ['by-user'] }],
+  };
+
+  it('offers the store indexes as cursor choices and routes the selection', () => {
+    const idb = makeIdb({
+      databases: [INDEXED_DB],
+      selection: { database: 'oh-app', store: 'kv' },
+      recordsPage: { records: [], truncated: false },
+    });
+    render(<IndexedDbSection idb={idb} filter="" />);
+
+    const select = screen.getByLabelText('Record cursor');
+    fireEvent.change(select, { target: { value: 'by-user' } });
+    expect(idb.setIndex).toHaveBeenCalledWith('by-user');
+    fireEvent.change(select, { target: { value: '' } });
+    expect(idb.setIndex).toHaveBeenCalledWith(null);
+  });
+
+  it('renders no cursor selector for a store without indexes', () => {
+    const idb = makeIdb({
+      selection: { database: 'oh-app', store: 'kv' },
+      recordsPage: { records: [], truncated: false },
+    });
+    render(<IndexedDbSection idb={idb} filter="" />);
+    expect(screen.queryByLabelText('Record cursor')).toBeNull();
   });
 });
 

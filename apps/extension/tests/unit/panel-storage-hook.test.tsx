@@ -363,6 +363,53 @@ describe('useIdbBrowser poll stability', () => {
     expect(readIndexedDbRecords.mock.calls.length).toBe(readsBefore + 2);
   });
 
+  it('scopes reads to a selected index and prunes it when the schema drops it', async () => {
+    const { listIndexedDb, readIndexedDbRecords } = installHost();
+    listIndexedDb.mockImplementation(() =>
+      Promise.resolve([
+        {
+          name: 'oh-app',
+          version: 1,
+          objectStores: [{ name: 'orders', keyPath: 'id', autoIncrement: false, indexNames: ['by-user'] }],
+        },
+      ]),
+    );
+    const { result } = renderHook(() => useIdbBrowser(true, 0));
+
+    await flush();
+    act(() => {
+      result.current.selectStore('oh-app', 'orders');
+    });
+    await flush();
+    act(() => {
+      result.current.setPage(1);
+    });
+    await flush();
+    act(() => {
+      result.current.setIndex('by-user');
+    });
+    await flush();
+    // The index change resets the page and the read carries the index.
+    expect(result.current.index).toBe('by-user');
+    expect(result.current.page).toBe(0);
+    expect(readIndexedDbRecords.mock.calls.at(-1)).toEqual([42, 0, 'oh-app', 'orders', 0, 50, 'by-user']);
+
+    // A re-list that drops the index falls back to the primary cursor.
+    listIndexedDb.mockImplementation(() =>
+      Promise.resolve([
+        {
+          name: 'oh-app',
+          version: 2,
+          objectStores: [{ name: 'orders', keyPath: 'id', autoIncrement: false, indexNames: [] }],
+        },
+      ]),
+    );
+    await flush(5_000);
+    await flush();
+    expect(result.current.index).toBeNull();
+    expect(readIndexedDbRecords.mock.calls.at(-1)).toEqual([42, 0, 'oh-app', 'orders', 0, 50, undefined]);
+  });
+
   it('flags a failed delete and re-lists after a database delete', async () => {
     const { listIndexedDb, deleteIndexedDbRecord, deleteIndexedDbDatabase } = installHost();
     deleteIndexedDbRecord.mockImplementation(() => Promise.resolve(false));

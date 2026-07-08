@@ -119,6 +119,7 @@ export const storageInspectorHandlers: HandlerMap = {
       message.store as string,
       message.page as number,
       message.pageSize as number,
+      message.index as string | undefined,
     )
       .then((res) => respond(res))
       .catch((err: Error) => {

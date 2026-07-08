@@ -157,7 +157,10 @@ export interface StorageInspectorHost {
   clearDomStorage(tabId: number, frameId: number, area: DomStorageArea): Promise<boolean>;
   /** Enumerate the scope's IndexedDB databases; `null` when unreadable. */
   listIndexedDb(tabId: number, frameId: number): Promise<ReadonlyArray<IdbDatabase> | null>;
-  /** Cursor-paged, preview-serialized read of one object store. */
+  /** Cursor-paged, preview-serialized read of one object store;
+   *  `index` scopes the read to one of the store's indexes (the key
+   *  column becomes the index key, record identity stays the primary
+   *  key). */
   readIndexedDbRecords(
     tabId: number,
     frameId: number,
@@ -165,6 +168,7 @@ export interface StorageInspectorHost {
     store: string,
     page: number,
     pageSize: number,
+    index?: string,
   ): Promise<IdbRecordsPage | null>;
   /** Delete one record by its opaque wire key; `false` on any failure. */
   deleteIndexedDbRecord(

@@ -278,6 +278,11 @@
   padding: 1px 8px 1px 20px;
 }
 
+.dt-storage-idb-index-select {
+  flex: 0 1 auto;
+  max-width: 40%;
+}
+
 /* Drill-in chrome shared by the IndexedDB and Cache Storage sections —
  * breadcrumb back to the listing plus the ‹ › pager. */
 .dt-storage-crumb {

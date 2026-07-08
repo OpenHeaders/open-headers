@@ -112,9 +112,10 @@ setStorageInspectorHost({
     store: string,
     page: number,
     pageSize: number,
+    index?: string,
   ): Promise<IdbRecordsPage | null> {
     try {
-      const res = await call('getIndexedDbRecords', { tabId, frameId, database, store, page, pageSize });
+      const res = await call('getIndexedDbRecords', { tabId, frameId, database, store, page, pageSize, index });
       if (!res?.records) return null;
       return { records: res.records, truncated: res.truncated ?? false };
     } catch (err) {

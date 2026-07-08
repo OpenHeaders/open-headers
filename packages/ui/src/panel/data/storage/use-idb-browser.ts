@@ -67,6 +67,9 @@ export interface IdbBrowserState {
   selection: IdbSelection | null;
   selectStore: (database: string, store: string) => void;
   closeStore: () => void;
+  /** Index the records view is scoped to; `null` = the primary cursor. */
+  index: string | null;
+  setIndex: (index: string | null) => void;
   page: number;
   setPage: (page: number) => void;
   /** `null` while the selected store's page is in flight. */
@@ -87,6 +90,7 @@ export function useIdbBrowser(active: boolean, frameId: number | null): IdbBrows
   const [databases, setDatabases] = useState<ReadonlyArray<IdbDatabase> | null>(null);
   const [loading, setLoading] = useState(true);
   const [selection, setSelection] = useState<IdbSelection | null>(null);
+  const [index, setIndexState] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [recordsPage, setRecordsPage] = useState<IdbRecordsPage | null>(null);
   const [mutationFailed, setMutationFailed] = useState(false);
@@ -99,6 +103,7 @@ export function useIdbBrowser(active: boolean, frameId: number | null): IdbBrows
     setDatabases(null);
     setLoading(true);
     setSelection(null);
+    setIndexState(null);
     setPage(0);
     setRecordsPage(null);
     setMutationFailed(false);
@@ -123,11 +128,19 @@ export function useIdbBrowser(active: boolean, frameId: number | null): IdbBrows
   const readRecords = useCallback(async () => {
     if (!active || !host || tabId === null || frameId === null || database === null || store === null) return;
     const token = tokenRef.current;
-    const result = await host.readIndexedDbRecords(tabId, frameId, database, store, page, IDB_PAGE_SIZE);
+    const result = await host.readIndexedDbRecords(
+      tabId,
+      frameId,
+      database,
+      store,
+      page,
+      IDB_PAGE_SIZE,
+      index ?? undefined,
+    );
     if (token !== tokenRef.current) return;
     if (result === null) return; // transient failure — keep the last page
     setRecordsPage((prev) => (prev && idbRecordsPageEqual(prev, result) ? prev : result));
-  }, [active, host, tabId, frameId, database, store, page]);
+  }, [active, host, tabId, frameId, database, store, index, page]);
 
   // Selection or page change → drop the stale grid, read immediately.
   useEffect(() => {
@@ -135,15 +148,23 @@ export function useIdbBrowser(active: boolean, frameId: number | null): IdbBrows
     void readRecords();
   }, [readRecords]);
 
-  // A re-list can drop the selected database/store (deleted page-side).
+  // A re-list can drop the selected database/store — or the scoped
+  // index (schema change page-side).
   useEffect(() => {
     if (!selection || !databases) return;
     const db = databases.find((d) => d.name === selection.database);
-    if (!db?.objectStores.some((s) => s.name === selection.store)) {
+    const storeShape = db?.objectStores.find((s) => s.name === selection.store);
+    if (!storeShape) {
       setSelection(null);
+      setIndexState(null);
+      setPage(0);
+      return;
+    }
+    if (index !== null && !storeShape.indexNames.includes(index)) {
+      setIndexState(null);
       setPage(0);
     }
-  }, [databases, selection]);
+  }, [databases, selection, index]);
 
   useEffect(() => {
     if (!active) return;
@@ -179,11 +200,18 @@ export function useIdbBrowser(active: boolean, frameId: number | null): IdbBrows
 
   const selectStore = useCallback((db: string, storeName: string) => {
     setSelection({ database: db, store: storeName });
+    setIndexState(null);
     setPage(0);
   }, []);
 
   const closeStore = useCallback(() => {
     setSelection(null);
+    setIndexState(null);
+    setPage(0);
+  }, []);
+
+  const setIndex = useCallback((next: string | null) => {
+    setIndexState(next);
     setPage(0);
   }, []);
 
@@ -235,6 +263,8 @@ export function useIdbBrowser(active: boolean, frameId: number | null): IdbBrows
     selection,
     selectStore,
     closeStore,
+    index,
+    setIndex,
     page,
     setPage,
     recordsPage,

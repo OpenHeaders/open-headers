@@ -200,6 +200,28 @@ test('IndexedDB reads, previews, key wire and deletes ride the plane end-to-end'
   expect(page1.truncated).toBeFalsy();
   expect(page1.records?.[0]?.valuePreview).toBe('{id: 50, label: "bulk-50"}');
 
+  // ── Index-scoped read: the cursor walks the index (key column = the
+  // index key); record identity stays the primary key ────────────────
+  const byUser = await rpc<RecordsResult>('getIndexedDbRecords', {
+    ...base,
+    database: 'oh-store-app',
+    store: 'orders',
+    page: 0,
+    pageSize: 50,
+    index: 'by-user',
+  });
+  expect(byUser.records?.map((r) => r.keyPreview)).toEqual(['"user-1"', '"user-2"']);
+  expect(byUser.records?.map((r) => r.primaryKeyPreview)).toEqual(['["user-1", 1]', '["user-2", 1]']);
+  const missingIndex = await rpc<RecordsResult>('getIndexedDbRecords', {
+    ...base,
+    database: 'oh-store-app',
+    store: 'orders',
+    page: 0,
+    pageSize: 50,
+    index: 'gone',
+  });
+  expect(missingIndex.records).toBeNull();
+
   // ── Record deletes: string, falsy, binary and ±Infinity keys ───────
   for (const keyPreview of ['"alpha"', '0', 'Infinity', '-Infinity', 'ArrayBuffer(3 B)']) {
     const wire = kvByKey.get(keyPreview)?.primaryKeyWire;
@@ -211,14 +233,9 @@ test('IndexedDB reads, previews, key wire and deletes ride the plane end-to-end'
     });
     expect(deleted.ok).toBe(true);
   }
-  const orders = await rpc<RecordsResult>('getIndexedDbRecords', {
-    ...base,
-    database: 'oh-store-app',
-    store: 'orders',
-    page: 0,
-    pageSize: 50,
-  });
-  const orderWire = orders.records?.[0]?.primaryKeyWire;
+  // A composite-array primary key, deleted with the wire the INDEX view
+  // returned — the identity channel survives the cursor swap.
+  const orderWire = byUser.records?.[0]?.primaryKeyWire;
   expect(orderWire).toBeDefined();
   const orderDeleted = await rpc<{ ok: boolean }>('deleteIndexedDbRecord', {
     ...base,

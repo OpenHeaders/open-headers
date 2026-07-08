@@ -377,13 +377,24 @@ export interface DevToolsRpc {
 
   /**
    * Cursor-paged read of one object store. `page` is zero-based;
-   * `pageSize` is clamped SW-side. Records arrive preview-serialized
-   * (see {@link IdbRecordWire}); `truncated` means more records exist
-   * past this page. `records` is `null` when injection fails or the
-   * database/store is gone.
+   * `pageSize` is clamped SW-side. `index` scopes the read to one of the
+   * store's indexes — the cursor walks the index, `keyPreview` becomes
+   * the index key, and `primaryKeyWire` keeps carrying the record
+   * identity so deletes work from an index view. Records arrive
+   * preview-serialized (see {@link IdbRecordWire}); `truncated` means
+   * more records exist past this page. `records` is `null` when
+   * injection fails or the database/store/index is gone.
    */
   getIndexedDbRecords: {
-    req: { tabId: number; frameId: number; database: string; store: string; page: number; pageSize: number };
+    req: {
+      tabId: number;
+      frameId: number;
+      database: string;
+      store: string;
+      page: number;
+      pageSize: number;
+      index?: string;
+    };
     res: { records: ReadonlyArray<IdbRecordWire> | null; truncated?: boolean };
   };
 
