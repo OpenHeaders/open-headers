@@ -522,6 +522,13 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
           trigger="click"
           placement="bottomRight"
           arrow={false}
+          // No open/close motion and unmount when closed: the popover lives
+          // inside the env dropdown's overlay, so the dropdown can hide it
+          // mid-leave-animation — the interrupted close then replays as a
+          // ghost flash on the next dropdown open. Static + destroyed means
+          // it vanishes instantly and nothing stale can replay.
+          motion={{ motionName: '' }}
+          destroyOnHidden
           getPopupContainer={(trigger) => trigger.parentElement ?? document.body}
           content={
             <div style={{ padding: 2, width: 320 }} onClick={(e) => e.stopPropagation()}>
