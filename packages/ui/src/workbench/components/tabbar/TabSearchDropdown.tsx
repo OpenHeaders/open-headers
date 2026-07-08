@@ -73,6 +73,13 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
   const filteredClosed = recentlyClosed.filter((c) => getDisplayLabel(c.tab).toLowerCase().includes(lowerSearch));
   const totalItems = filteredTabs.length + (closedExpanded ? filteredClosed.length : 0);
 
+  const emptyStateStyle: React.CSSProperties = {
+    padding: '8px',
+    fontSize: 11,
+    color: token.colorTextTertiary,
+    textAlign: 'center',
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
       onClose();
@@ -212,6 +219,12 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
             );
           })}
 
+          {/* Open-tabs empty state — the region must always answer the
+              search, even when only closed tabs (or nothing) match. */}
+          {filteredTabs.length === 0 && (
+            <div style={emptyStateStyle}>{search ? 'No open tabs match your search' : 'No open tabs'}</div>
+          )}
+
           {/* Recently closed section */}
           {recentlyClosed.length > 0 && (
             <>
@@ -223,7 +236,9 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
                 onClick={() => setClosedExpanded((v) => !v)}
               >
                 <span style={{ fontSize: 9, marginRight: 4 }}>{closedExpanded ? '\u25BC' : '\u25B6'}</span>
-                Recently Closed ({recentlyClosed.length})
+                {/* While searching, surface the match count in the header so
+                    the collapsed section still answers the query. */}
+                Recently Closed ({search ? `${filteredClosed.length} of ${recentlyClosed.length}` : recentlyClosed.length})
               </div>
               {closedExpanded &&
                 filteredClosed.map((closed, idx) => {
@@ -305,13 +320,11 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
                     </div>
                   );
                 })}
+              {/* Closed-region empty state — mirrors the open region's. */}
+              {closedExpanded && filteredClosed.length === 0 && (
+                <div style={emptyStateStyle}>No closed tabs match your search</div>
+              )}
             </>
-          )}
-
-          {filteredTabs.length === 0 && filteredClosed.length === 0 && (
-            <div style={{ padding: '12px 8px', fontSize: 12, color: token.colorTextTertiary, textAlign: 'center' }}>
-              No matching tabs
-            </div>
           )}
         </div>
       </div>
