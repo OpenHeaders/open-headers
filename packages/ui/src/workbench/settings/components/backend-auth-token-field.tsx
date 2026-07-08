@@ -1,9 +1,11 @@
 /**
  * Authentication field with in-app pairing (WS-A2).
  *
- * Custom editor for `backend.authToken`. Two ways to supply the
- * credential, with the friendlier one shown first and a quiet text link
- * to switch (the Stripe one-time-code idiom):
+ * Editor for the primary `OH.backends` record's paired token
+ * (registry-backed since the multi-backend Phase-1 settings
+ * retirement). Two ways to supply the credential, with the friendlier
+ * one shown first and a quiet text link to switch (the Stripe
+ * one-time-code idiom):
  *
  *   - **Code** (default) — type the 6-digit code the daemon displayed
  *     into an OTP input; the last digit triggers a `pairWithCode`
@@ -20,13 +22,13 @@
  * token input with no switch link.
  */
 
+import { updatePrimaryBackend } from '@openheaders/core/backends';
 import { CheckCircleFilled } from '@ant-design/icons';
 import { App as AntApp, Button, Input, theme, Typography } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { getCapability, hasCapability } from '@openheaders/core/capabilities';
-import { useSetting, useSettingValue } from '../hooks';
-import type { SettingDef } from '../types';
+import { usePrimaryBackend, usePrimaryBackendUrl } from '../../../shared/backend';
 import FieldRow from '../fields/FieldRow';
 import { BackendIcon } from './backend-icons';
 import { backendModeIcon, useBackendPreviewMode } from './backend-preview-context';
@@ -35,11 +37,19 @@ import { humanizePairFailure } from './pair-popover';
 type AuthMode = 'token' | 'code';
 const CODE_LENGTH = 6;
 
-const BackendAuthTokenField: React.FC<{ def: SettingDef }> = ({ def }) => {
+const FIELD_LABEL = 'Authentication';
+const FIELD_DESCRIPTION =
+  'How this device proves itself to the back-end. Pair with a code, or paste a token directly.';
+
+function setToken(next: string): void {
+  void updatePrimaryBackend({ authToken: next });
+}
+
+const BackendAuthTokenField: React.FC = () => {
   const { token: themeToken } = theme.useToken();
   const { message } = AntApp.useApp();
-  const [token, setToken] = useSetting('backend.authToken');
-  const url = useSettingValue('backend.url');
+  const token = usePrimaryBackend()?.authToken ?? '';
+  const url = usePrimaryBackendUrl();
   const [draft, setDraft] = useState(token);
   const canPair = hasCapability('pairWithCode');
   const hasToken = token.trim().length > 0;
@@ -61,7 +71,7 @@ const BackendAuthTokenField: React.FC<{ def: SettingDef }> = ({ def }) => {
 
   const commit = useCallback(() => {
     if (draft !== token) setToken(draft);
-  }, [draft, token, setToken]);
+  }, [draft, token]);
 
   const pair = useCallback(
     async (value: string) => {
@@ -82,7 +92,7 @@ const BackendAuthTokenField: React.FC<{ def: SettingDef }> = ({ def }) => {
       // mistyped digit the user can fix in place, not a reason to retype all six.
       message.error(humanizePairFailure(result, url));
     },
-    [url, setToken, message],
+    [url, message],
   );
 
   const inCodeMode = canPair && authMode === 'code';
@@ -95,7 +105,17 @@ const BackendAuthTokenField: React.FC<{ def: SettingDef }> = ({ def }) => {
   const previewMode = useBackendPreviewMode();
 
   return (
-    <FieldRow settingKey={def.key} label={def.label} description={def.description} block>
+    <FieldRow
+      settingKey="backend.authToken"
+      label={FIELD_LABEL}
+      description={FIELD_DESCRIPTION}
+      // Registry-backed: the store can't derive modified/reset for this
+      // field. A saved token shows the dot; reset clears it — the
+      // documented override for a locked (paired) code input.
+      modified={hasToken}
+      onReset={() => setToken('')}
+      block
+    >
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6, width: '100%' }}>
         {inCodeMode ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

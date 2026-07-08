@@ -7,16 +7,28 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// The receiver consults `isLoopbackBackend` (→ the settings store) to
-// gate inbound active-workspace pointer envelopes. Mock the store so the
-// loopback verdict is controllable per test; default to loopback so the
-// pre-existing cases keep their behavior.
-let settingsStore: Record<string, unknown> = {};
+// The receiver consults `isLoopbackBackend` (→ the primary `OH.backends`
+// record) to gate inbound active-workspace pointer envelopes. Mock the
+// registry mirror so the loopback verdict is controllable per test;
+// default to loopback so the pre-existing cases keep their behavior.
+let backendUrl = 'ws://127.0.0.1:59210';
 
-vi.mock('@openheaders/ui/workbench/settings/store', () => ({
-  get: vi.fn((key: string) => settingsStore[key]),
-  subscribeKey: vi.fn(() => () => undefined),
-}));
+vi.mock('@openheaders/core/backends', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@openheaders/core/backends')>();
+  return {
+    ...actual,
+    getPrimaryBackend: vi.fn(() => ({
+      id: 'backend-1',
+      label: '',
+      url: backendUrl,
+      authToken: '',
+      autoConnect: true,
+      enabled: true,
+      addedAt: '2026-07-01T00:00:00.000Z',
+      lastConnectedAt: null,
+    })),
+  };
+});
 
 import { getIdentitySnapshot } from '@openheaders/core/identity';
 import { SYNC_MUTATION_BATCH_TYPE, SYNC_MUTATION_TYPE } from '@openheaders/core/protocol';
@@ -82,7 +94,7 @@ let teardownIdentity: () => void = () => undefined;
 beforeEach(async () => {
   // Loopback backend by default — the active-workspace pointer gate is a
   // no-op, so the pre-existing cases below behave exactly as before.
-  settingsStore = { 'backend.mode': 'desktop-app', 'backend.url': 'ws://127.0.0.1:59210' };
+  backendUrl = 'ws://127.0.0.1:59210';
   teardownIdentity = await installSyntheticIdentityForTests([]);
   homeOrgId = getIdentitySnapshot()?.user.homeOrgId ?? '';
   __initSyncServiceForTests(wsId);
@@ -158,7 +170,7 @@ describe('handleIncomingMutationFrame', () => {
   });
 
   it('drops an inbound active-workspace pointer envelope from a non-loopback backend', async () => {
-    settingsStore['backend.url'] = 'ws://192.168.1.50:59210';
+    backendUrl = 'ws://192.168.1.50:59210';
     const { batch } = setActiveExtensionWorkspace(ctx(6_000), { id: 'ws-from-lan-peer' });
     const pointer = batch.mutations[0]!;
 
@@ -173,7 +185,7 @@ describe('handleIncomingMutationFrame', () => {
   });
 
   it('strips only the pointer from a non-loopback batch, applying the rest', async () => {
-    settingsStore['backend.url'] = 'ws://10.0.0.7:59210';
+    backendUrl = 'ws://10.0.0.7:59210';
     const r = makeRule(generateUid(), 'mixed');
     const ruleBatch = seedRule(r, ctx(7_000));
     const { batch: pointerBatch } = setActiveExtensionWorkspace(ctx(7_100), { id: 'ws-from-lan-peer' });
@@ -190,7 +202,7 @@ describe('handleIncomingMutationFrame', () => {
   });
 
   it('drops an inbound same-device-only (vault) mutation from a non-loopback backend', async () => {
-    settingsStore['backend.url'] = 'ws://192.168.1.50:59210';
+    backendUrl = 'ws://192.168.1.50:59210';
     const batch = mintBatch(ctx(8_000), [{ kind: 'delete', type: VAULT_ENTITY_TYPE, id: VAULT_ID }]);
     const vault = batch.mutations[0]!;
 
@@ -206,7 +218,7 @@ describe('handleIncomingMutationFrame', () => {
   });
 
   it('strips the vault from a non-loopback batch, applying the rest', async () => {
-    settingsStore['backend.url'] = 'ws://10.0.0.7:59210';
+    backendUrl = 'ws://10.0.0.7:59210';
     const r = makeRule(generateUid(), 'mixed-vault');
     const ruleBatch = seedRule(r, ctx(8_100));
     const vaultBatch = mintBatch(ctx(8_200), [{ kind: 'delete', type: VAULT_ENTITY_TYPE, id: VAULT_ID }]);

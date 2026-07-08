@@ -22,6 +22,7 @@
 
 import type { BackendReach } from '../protocol';
 import type {
+  BackendConnection,
   Collection,
   DaemonAuthToken,
   DaemonConfig,
@@ -135,6 +136,19 @@ export interface OrgBindingPrefs {
   defaultNewWorkspaceOrgId: string | null;
 }
 
+/**
+ * One persisted row of `OH.joinedOrgs` — an Org consumed from another
+ * backend, stamped with the {@link OH.backends} record it was consumed
+ * from (MULTI_BACKEND_PLAN.md §2 — Org provenance). The Org is the
+ * routing key of the multi-backend model: every joined Org is
+ * authoritative on exactly one backend.
+ */
+export interface JoinedOrgRecord {
+  org: Org;
+  /** `OH.backends` record id this Org was consumed from. */
+  backendId: string;
+}
+
 export interface PersistedLocalFolder {
   /** Persisted format version for each `_folder.yaml` once the codec lands. */
   schemaVersion: number;
@@ -224,12 +238,23 @@ export const OH = {
    * Orgs this host joined by connecting to other backends (Phase U5.2 —
    * "consume-first join"). The handshake WELCOME carries the target
    * backend's home `Org`; `recordJoinedOrg` (in `../identity`) appends
-   * it here, and `refreshIdentitySnapshotFromHostStorage` folds the set
-   * into `IdentitySnapshot.orgs` so `authorizedOrgIds` lets the joined
+   * it here as a {@link JoinedOrgRecord} stamped with the delivering
+   * backend's {@link OH.backends} id, and
+   * `refreshIdentitySnapshotFromHostStorage` folds the set into
+   * `IdentitySnapshot.orgs` so `authorizedOrgIds` lets the joined
    * backend's workspaces sync down. The private home Org is NOT
    * stored here — it already rides {@link OH.syntheticIdentity}.
    */
-  joinedOrgs: storageKey<Org[]>('oh.joinedOrgs'),
+  joinedOrgs: storageKey<JoinedOrgRecord[]>('oh.joinedOrgs'),
+  /**
+   * Registry of back-ends this app instance has joined
+   * (MULTI_BACKEND_PLAN.md §2). Ordered records; the Phase-1 cap-1
+   * adapter reads entry #0 as "the" backend until the N-socket
+   * connection plane lands. The local host engine is tier zero and is
+   * never stored here. Sensitive: each record carries its per-backend
+   * paired token.
+   */
+  backends: storageKey<BackendConnection[]>('oh.backends', { sensitive: true }),
   /**
    * Per-Org remembered active workspace — `orgId → workspaceId` (Phase
    * U5.9, the org switcher). Each Org keeps its own last-active

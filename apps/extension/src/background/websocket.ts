@@ -5,12 +5,13 @@
  * socket lifecycle: probe, open, ping, backoff, the protocol latch.
  * This module owns everything *around* the socket — inbound frame
  * routing, the open/close subscriber fan-out, sync-status reporting —
- * and is the single owner of the settings that decide *whether* a
- * connection is wanted (`backend.url` / `mode` / `authToken` /
- * `autoConnect`). Every one of those funnels through `scheduleReconnect`
- * here; no other module opens sockets.
+ * and is the single owner of the connection registry state that decides
+ * *whether* a connection is wanted (the primary `OH.backends` record's
+ * url / authToken / enabled / autoConnect). Every one of those funnels
+ * through `scheduleReconnect` here; no other module opens sockets.
  */
 
+import { getPrimaryBackend, subscribeBackends, updatePrimaryBackend } from '@openheaders/core/backends';
 import { report as reportStatus } from '@openheaders/ui/shared/status';
 import { get as getSetting, subscribeKey } from '@openheaders/ui/workbench/settings/store';
 import { broadcast } from '@utils/bridge';
@@ -19,10 +20,10 @@ import { logger } from '@utils/logger';
 import { adaptWebSocketUrl, safariPreCheck } from './safari-websocket-adapter';
 import { createTransportConnection } from './transport-connection';
 
-// ── Configuration (live from settings store) ─────────────────────
+// ── Configuration (live from the backend registry mirror) ─────────
 
 function getWsServerUrl(): string {
-  return getSetting('backend.url');
+  return getPrimaryBackend()?.url ?? '';
 }
 
 // ── Connection status ─────────────────────────────────────────────
@@ -115,7 +116,7 @@ async function routeInboundFrame(frame: unknown): Promise<void> {
  * Mirror the socket's state into the `sync` Status subsystem.
  *
  * Semantic intent vs actual state:
- *   - mode = in-browser → green "Running in this browser" (the SW IS the back-end)
+ *   - no enabled backend → green "Running in this browser" (the SW IS the back-end)
  *   - autoConnect OFF   → green "Back-end sync disabled" (user opted out, not a failure)
  *   - autoConnect ON + connected → green "Connected to back-end"
  *   - autoConnect ON + URL rejected → yellow "Desktop URL rejected by settings"
@@ -123,7 +124,8 @@ async function routeInboundFrame(frame: unknown): Promise<void> {
  *   - autoConnect ON + disconnected + attempts>0 → yellow "Reconnecting (attempt N)"
  */
 function reportSyncStatus(): void {
-  if (getSetting('backend.mode') === 'in-browser') {
+  const primary = getPrimaryBackend();
+  if (!primary?.enabled) {
     reportStatus({
       subsystem: 'sync',
       state: 'green',
@@ -131,7 +133,7 @@ function reportSyncStatus(): void {
     });
     return;
   }
-  if (!getSetting('backend.autoConnect')) {
+  if (!primary.autoConnect) {
     reportStatus({
       subsystem: 'sync',
       state: 'green',
@@ -194,6 +196,11 @@ const transport = createTransportConnection({
   createSocket: (url) => new WebSocket(isSafari ? adaptWebSocketUrl(url) : url),
   onOpen: () => {
     logger.info('WebSocket', 'Connected successfully');
+    // Registry bookkeeping only — `lastConnectedAt` is not part of the
+    // connection-shaping key below, so this write never re-dials.
+    void updatePrimaryBackend({ lastConnectedAt: new Date().toISOString() }).catch(() => {
+      /* best-effort */
+    });
     broadcastConnectionStatus();
     reportSyncStatus();
     // Subscribers fire after status reporting so any handler reading
@@ -256,11 +263,11 @@ export function reconnectWebSocket(): void {
   transport.reconnect();
 }
 
-// A mode-switch commit writes `backend.mode` + `backend.url` (+
-// `backend.authToken`) in one synchronous burst; reconnecting per key
-// would tear down and re-open two or three sockets back-to-back.
-// Coalesce the burst into a single reconnect on the microtask after
-// the writes settle.
+// A switch commit can land the enabled flag + URL (+ token) in one
+// burst of registry writes; reconnecting per notification would tear
+// down and re-open two or three sockets back-to-back. Coalesce the
+// burst into a single reconnect on the microtask after the writes
+// settle.
 let reconnectQueued = false;
 function scheduleReconnect(): void {
   if (reconnectQueued) return;
@@ -280,28 +287,35 @@ function onConnectionSettingsChanged(): void {
   scheduleReconnect();
 }
 
-// Single owner of every connection-triggering setting. `backend.url` /
-// `mode` / `authToken` invalidate the current endpoint; `autoConnect`
-// flips whether a connection is wanted at all — `transport.reconnect`
-// handles both directions (it re-evaluates `shouldConnect` and stays
-// idle when the answer is "no"). Previously `autoConnect` was owned by
-// a second subscriber in `background.ts` that *also* opened sockets, so
-// a `backend.mode` change raced two connect paths into two sockets.
-subscribeKey('backend.url', onConnectionSettingsChanged);
-subscribeKey('backend.authToken', onConnectionSettingsChanged);
-subscribeKey('backend.mode', onConnectionSettingsChanged);
-subscribeKey('backend.autoConnect', onConnectionSettingsChanged);
+// Single owner of every connection-triggering registry field. The
+// primary record's `url` / `authToken` invalidate the current endpoint;
+// `enabled` / `autoConnect` flip whether a connection is wanted at all —
+// `transport.reconnect` handles both directions (it re-evaluates
+// `shouldConnect` and stays idle when the answer is "no"). Registry
+// bookkeeping (`lastConnectedAt`, label) is excluded via the shape key
+// so stamping a successful connect never re-dials it.
+function connectionShapeKey(): string {
+  const p = getPrimaryBackend();
+  return p ? JSON.stringify([p.url, p.authToken, p.enabled, p.autoConnect]) : '';
+}
+let lastConnectionShape = connectionShapeKey();
+subscribeBackends(() => {
+  const next = connectionShapeKey();
+  if (next === lastConnectionShape) return;
+  lastConnectionShape = next;
+  onConnectionSettingsChanged();
+});
 // Ping cadence changes take effect on the next tick without a reconnect.
 subscribeKey('backend.pingIntervalMs', () => transport.restartPing());
 
 /**
  * Should the extension attempt a real back-end connection given the
- * current settings? `in-browser` mode means there's nothing to connect
+ * registry? No enabled primary record means there's nothing to connect
  * to; `autoConnect=false` means the user opted out.
  */
 export function shouldAttemptBackendConnection(): boolean {
-  if (getSetting('backend.mode') === 'in-browser') return false;
-  return Boolean(getSetting('backend.autoConnect'));
+  const primary = getPrimaryBackend();
+  return Boolean(primary?.enabled && primary.autoConnect);
 }
 
 export function isWebSocketConnected(): boolean {

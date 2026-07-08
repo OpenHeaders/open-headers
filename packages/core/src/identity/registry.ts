@@ -10,7 +10,7 @@
  */
 
 import { hostStorage } from '../storage/host-storage';
-import { OH } from '../storage/keys';
+import { type JoinedOrgRecord, OH } from '../storage/keys';
 import type { Org, SyntheticIdentityRecord, WorkspaceRoleAssignment } from '../types';
 import { createMutex } from '../utils/mutex';
 import type { IdentitySnapshot } from './resolver';
@@ -67,7 +67,7 @@ export function clearIdentitySnapshot(): void {
 
 /**
  * Serializes `refreshIdentitySnapshotFromHostStorage`. The refresh is a
- * three-`get`-then-`installIdentitySnapshot` sequence with no atomicity,
+ * multi-`get`-then-`installIdentitySnapshot` sequence with no atomicity,
  * and all three snapshot writers — boot, the WRA reconcile, and
  * `recordJoinedOrg` — funnel into it. Two concurrent refreshes can
  * interleave: a refresh that read `OH.joinedOrgs` *before* a join write
@@ -93,7 +93,15 @@ export function refreshIdentitySnapshotFromHostStorage(): Promise<IdentitySnapsh
       return null;
     }
     const wras = (await hostStorage.get(OH.workspaceRoleAssignments)) ?? [];
-    const joinedOrgs = (await hostStorage.get(OH.joinedOrgs)) ?? [];
+    const joinedRecords = (await hostStorage.get(OH.joinedOrgs)) ?? [];
+    const backendIds = new Set(((await hostStorage.get(OH.backends)) ?? []).map((b) => b.id));
+    // Fold-by-presence: an Org stays folded while its backend record
+    // exists in `OH.backends`, enabled or not — the kill switch stops
+    // the wire, never the local usability of already-synced workspaces.
+    // Unbinding is the deliberate remove flow, which deletes the record
+    // (and Phase 3 prunes the joined rows with it). Rows whose backend
+    // is gone — or malformed pre-provenance rows — are not folded.
+    const joinedOrgs = joinedRecords.filter((row) => row?.org && backendIds.has(row.backendId)).map((row) => row.org);
     return installIdentitySnapshot({ record, wras, joinedOrgs });
   });
 }
@@ -144,8 +152,16 @@ export interface RecordJoinedOrgResult {
  * renamed Org. The `OH.joinedOrgs` read-modify-write is serialized
  * through {@link withJoinedOrgsLock} so concurrent joins of distinct
  * Orgs can't clobber each other.
+ *
+ * `backendId` is the `OH.backends` record the WELCOME arrived over —
+ * the Org's provenance (MULTI_BACKEND_PLAN.md §2). The Org-uniqueness
+ * guard ("an Org already bound to another backend is refused, never
+ * re-bound") is the caller's WELCOME-processing gate, not this
+ * registry's: under the Phase-1 cap there is only one backend, so a
+ * differing stored `backendId` here can only be the same connection
+ * record and is drift-updated in place.
  */
-export async function recordJoinedOrg(org: Org): Promise<RecordJoinedOrgResult> {
+export async function recordJoinedOrg(org: Org, backendId: string): Promise<RecordJoinedOrgResult> {
   const record = await hostStorage.get(OH.syntheticIdentity);
   if (record && record.org.id === org.id) {
     // The joiner's own home-org — nothing to record, not a join. Reached
@@ -154,20 +170,26 @@ export async function recordJoinedOrg(org: Org): Promise<RecordJoinedOrgResult> 
   }
   // Normalize: joined Orgs are never private by definition.
   const normalized: Org = org.isPrivate ? { ...org, isPrivate: false } : org;
+  const nextRow: JoinedOrgRecord = { org: normalized, backendId };
   let firstJoin = false;
   await withJoinedOrgsLock(async () => {
     const existing = (await hostStorage.get(OH.joinedOrgs)) ?? [];
-    const known = existing.find((o) => o.id === normalized.id);
+    const known = existing.find((row) => row?.org?.id === normalized.id);
     if (!known) {
       firstJoin = true;
-      await hostStorage.set(OH.joinedOrgs, [...existing, normalized]);
-    } else if (known.name !== normalized.name || known.isPrivate !== normalized.isPrivate) {
-      // The backend renamed its Org, OR the persisted row predates
-      // boundary-normalization (legacy `isPrivate: true`). Either way,
-      // re-store with the freshest normalized copy.
+      await hostStorage.set(OH.joinedOrgs, [...existing, nextRow]);
+    } else if (
+      known.org.name !== normalized.name ||
+      known.org.isPrivate !== normalized.isPrivate ||
+      known.backendId !== backendId
+    ) {
+      // The backend renamed its Org, the persisted row predates
+      // boundary-normalization (legacy `isPrivate: true`), or the
+      // connection record was re-minted. Either way, re-store the
+      // freshest normalized copy under the delivering backend.
       await hostStorage.set(
         OH.joinedOrgs,
-        existing.map((o) => (o.id === normalized.id ? normalized : o)),
+        existing.map((row) => (row?.org?.id === normalized.id ? nextRow : row)),
       );
     }
   });

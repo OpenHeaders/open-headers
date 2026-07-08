@@ -46,7 +46,7 @@ vi.mock('@openheaders/oracle/sync/service', () => ({
   getOrCreateWorkspaceService: () => ({ context: { nodeId: 'n', next: () => ({}) }, hydrated: Promise.resolve() }),
   releaseWorkspaceService: vi.fn(),
 }));
-vi.mock('@openheaders/ui/workbench/settings/store', () => ({ get: () => null }));
+vi.mock('@openheaders/core/backends', () => ({ getPrimaryBackend: () => null }));
 vi.mock('@openheaders/core/identity', () => ({
   consumedOrgIds: () => new Set<string>(),
   getIdentitySnapshot: () => null,

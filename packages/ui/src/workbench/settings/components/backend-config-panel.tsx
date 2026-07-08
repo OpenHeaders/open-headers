@@ -5,6 +5,9 @@ import type { BackendMode } from '../schema/backend';
 import { hostIsTheBackend } from '../schema/backend';
 import SettingRow from '../fields/SettingRow';
 import type { CategoryDef, SettingDef, SubcategoryDef } from '../types';
+import BackendAuthTokenField from './backend-auth-token-field';
+import BackendAutoConnectField from './backend-auto-connect-field';
+import BackendUrlField from './backend-url-field';
 import { isModeValidForHost, SCENARIOS } from './backend-scenarios';
 import DaemonTokensSection from './daemon-tokens-section';
 import OfflineFallbackOrderSection from './offline-fallback-order-section';
@@ -20,6 +23,23 @@ const SUBSECTION_BLURB: Record<string, string> = {
   reliability: 'Auto-connect and reconnection behavior over an unstable wire.',
   notifications: 'Visual cues when the link is down.',
   'lan-peers': 'Who outside this machine can reach the daemon.',
+};
+
+/**
+ * Registry-backed rows rendered at the head of their sections. The
+ * connection identity (address, token) and per-backend autoConnect
+ * retired from the settings schema onto `OH.backends`
+ * (MULTI_BACKEND_PLAN.md §2), so they no longer arrive through `defs` —
+ * but the pane keeps rendering them in the same card slots.
+ */
+const REGISTRY_ROWS: Record<string, React.ReactNode> = {
+  connection: (
+    <>
+      <BackendUrlField />
+      <BackendAuthTokenField />
+    </>
+  ),
+  reliability: <BackendAutoConnectField />,
 };
 
 export const ConfigPanel: React.FC<{
@@ -155,7 +175,7 @@ export const ConfigPanel: React.FC<{
         />
       )}
       {grouped.map(({ id, label, defs: groupDefs }) =>
-        groupDefs.length === 0 ? null : (
+        groupDefs.length === 0 && !REGISTRY_ROWS[id] ? null : (
           <section key={id} style={{ marginBottom: 12 }}>
             <header style={{ marginBottom: 6, padding: '0 2px' }}>
               <h3
@@ -185,6 +205,7 @@ export const ConfigPanel: React.FC<{
                 overflow: 'hidden',
               }}
             >
+              {REGISTRY_ROWS[id]}
               {groupDefs.map((def) => (
                 <SettingRow key={def.key} def={def} />
               ))}

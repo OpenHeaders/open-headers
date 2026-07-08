@@ -1,8 +1,8 @@
 /**
- * backend-mode-switch — machinery for editing the `backend.mode` setting.
+ * backend-mode-switch — machinery for switching the active back-end.
  *
- * Switching a back-end is a clean, non-destructive act. Every write to
- * `backend.mode` routes through {@link useBackendModeSwitch}, which:
+ * Switching a back-end is a clean, non-destructive act. Every mode
+ * change routes through {@link useBackendModeSwitch}, which:
  *
  *   1. Verifies the wire first — a reachability + auth probe against the
  *      target (the same {@link probeBackendConnection} "Test connection"
@@ -11,33 +11,33 @@
  *      Modes that need no connection (`in-browser`, or where the host IS
  *      the back-end) skip the probe.
  *   2. Shows a brief, non-closable "Switching to <X>…" overlay (min 1s).
- *   3. Commits `backend.mode`.
+ *   3. Commits the change onto the `OH.backends` registry
+ *      (`applyBackendMode` — the enabled flag on entry #0; the mode
+ *      itself is derived presentation, never stored).
  *   4. Ends with a success toast.
  *
  * Switching never moves data: the user's workspaces stay on-device under
  * their own Org; the target's workspaces sync down and become active
  * (consume-only). Cleanup, if wanted, is a deliberate per-workspace
  * delete in the Workspace Manager — not a switch-time choice.
- *
- * Two consumers share the same hook:
- *   - BackendPane: full-bleed picker UI.
- *   - BackendModeFieldEditor: FieldRow-wrapped Select for the generic
- *     settings/search path.
  */
 
-import { App as AntApp, Select } from 'antd';
+import { getPrimaryBackend } from '@openheaders/core/backends';
+import { App as AntApp } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import { generateUid } from '@openheaders/core/utils';
-import { describeProbeResult, probeBackendConnection } from '../../../shared/backend';
+import {
+  applyBackendMode,
+  describeProbeResult,
+  primaryBackendUrl,
+  probeBackendConnection,
+} from '../../../shared/backend';
+import { useBackendMode } from '../../../shared/hooks/useBackendMode';
 import { getCurrentHost, type Host } from '../../../shared/host-vocabulary';
-import { get as getSettingValue } from '../store';
-import { useSetting } from '../hooks';
-import FieldRow from '../fields/FieldRow';
 import type { BackendMode } from '../schema/backend';
 import { backendModeIsPending, backendModeNeedsConnection, hostIsTheBackend } from '../schema/backend';
 import { useSurfaceWorkspaceAdopt } from '../../hooks/SurfaceWorkspaceAdoptContext';
-import type { SettingDef } from '../types';
 import SwitchingOverlay from './SwitchingOverlay';
 
 interface ModeDescriptor {
@@ -83,7 +83,7 @@ export interface BackendModeSwitchHandle {
  * via Ant's App notification / message APIs.
  */
 export function useBackendModeSwitch(): BackendModeSwitchHandle {
-  const [mode, setMode] = useSetting('backend.mode');
+  const mode = useBackendMode();
   const { message, notification } = AntApp.useApp();
   const [overlay, setOverlay] = useState<{ toLabel: string } | null>(null);
   // Re-pin THIS workbench surface to the new host's active workspace once
@@ -105,13 +105,13 @@ export function useBackendModeSwitch(): BackendModeSwitchHandle {
       backendModeNeedsConnection(next) && !hostIsTheBackend(next, host) && !backendModeIsPending(next);
     if (needsProbe) {
       const role = host === 'desktop' ? 'desktop' : host === 'web' ? 'web' : 'extension';
-      const result = await probeBackendConnection(getSettingValue('backend.url'), {
+      const result = await probeBackendConnection(primaryBackendUrl(), {
         agent: `${role}-switch-probe`,
         nodeId: `probe-${generateUid()}`,
         workspaceId: `probe-${generateUid()}`,
         role,
         // The daemon gates every HELLO on a paired token (loopback included).
-        authToken: getSettingValue('backend.authToken'),
+        authToken: getPrimaryBackend()?.authToken ?? '',
       });
       if (!result.ok) {
         // Same copy as Test connection — and HARD-ABORT, don't commit.
@@ -122,7 +122,7 @@ export function useBackendModeSwitch(): BackendModeSwitchHandle {
     }
 
     setOverlay({ toLabel });
-    setMode(next);
+    await applyBackendMode(host, next);
     // A connection-backed switch makes the new host promote its workspace
     // to ACTIVE on first join (the data plane's adoption). Hold the
     // overlay until that lands and this surface has followed onto it, so
@@ -147,56 +147,3 @@ export function useBackendModeSwitch(): BackendModeSwitchHandle {
   };
 }
 
-/**
- * Options for the Active back-end Select. Pending modes (daemon / VM)
- * stay selectable so users can pre-stage them; only host-incompatible
- * modes are hard-disabled.
- */
-export function backendModeSelectOptions(
-  host: Host,
-): { value: BackendMode; label: string; disabled: boolean }[] {
-  return MODE_DESCRIPTORS.map((d) => {
-    const pending = backendModeIsPending(d.mode);
-    return {
-      value: d.mode,
-      label: `${d.title}${pending ? ' · coming soon' : ''}`,
-      disabled: !d.validHosts.includes(host),
-    };
-  });
-}
-
-/**
- * Custom editor for `backend.mode` in the generic settings/search path.
- * Wraps the switch-aware Select in the standard FieldRow chrome so it
- * visually matches other settings, while still routing every write
- * through `useBackendModeSwitch`.
- */
-const BackendModeFieldEditor: React.FC<{ def: SettingDef }> = ({ def }) => {
-  const host = getCurrentHost();
-  const { mode, attemptChange, disabled, overlayElement } = useBackendModeSwitch();
-  return (
-    <>
-      <FieldRow
-        settingKey={def.key}
-        label={def.label}
-        description={def.description}
-        experimental={def.experimental}
-        requiresConnection={def.requiresConnection}
-        block
-      >
-        <Select<BackendMode>
-          value={mode}
-          disabled={disabled}
-          onChange={(next) => {
-            void attemptChange(next);
-          }}
-          style={{ width: '100%' }}
-          options={backendModeSelectOptions(host)}
-        />
-      </FieldRow>
-      {overlayElement}
-    </>
-  );
-};
-
-export default BackendModeFieldEditor;

@@ -1,13 +1,19 @@
 /**
  * Coverage for the identity-snapshot registry — `installIdentitySnapshot`,
  * `refreshIdentitySnapshotFromHostStorage`, and `recordJoinedOrg`
- * (Phase U5.2 "consume-first join", UNIFIED_ORACLE_MODEL.md §6.2).
+ * (Phase U5.2 "consume-first join", UNIFIED_ORACLE_MODEL.md §6.2;
+ * provenance + fold-by-presence per MULTI_BACKEND_PLAN.md §2).
  *
  * Pinned invariants:
  *   - The snapshot's `orgs` map always carries the home Org;
  *     `installIdentitySnapshot` folds any `joinedOrgs` in alongside it.
- *   - `recordJoinedOrg` persists the backend's Org under `OH.joinedOrgs`,
- *     deduplicated by id, and the refreshed snapshot authorizes it.
+ *   - `recordJoinedOrg` persists the backend's Org under `OH.joinedOrgs`
+ *     stamped with the delivering `OH.backends` record id, deduplicated
+ *     by Org id, and the refreshed snapshot authorizes it.
+ *   - Fold-by-presence: the refresh folds a joined Org only while its
+ *     backend record exists in `OH.backends` — a DISABLED record still
+ *     folds (the kill switch stops the wire, not local usability); a
+ *     deleted record unbinds.
  *   - Joined Orgs are normalized to `isPrivate: false` at the registry
  *     boundary — anything that crossed a wire to get here is no longer
  *     "stays on this device."
@@ -28,8 +34,8 @@ import {
   renameHomeOrg,
 } from '../../src/identity';
 import { hostStorage, setHostStorage } from '../../src/storage/host-storage';
-import { OH } from '../../src/storage/keys';
-import type { Org } from '../../src/types';
+import { type JoinedOrgRecord, OH } from '../../src/storage/keys';
+import type { BackendConnection, Org } from '../../src/types';
 import { createHostStorageFake, type HostStorageFake } from './_host-storage-fake';
 
 const NOW = '2026-05-20T00:00:00.000Z';
@@ -52,8 +58,30 @@ const OTHER_ORG: Org = {
   isPrivate: true,
 };
 
+const BACKEND_A = '01900000-0000-7000-8000-00000000aaaa';
+const BACKEND_B = '01900000-0000-7000-8000-00000000abab';
+
+function makeBackend(id: string, overrides: Partial<BackendConnection> = {}): BackendConnection {
+  return {
+    id,
+    label: '',
+    url: 'ws://127.0.0.1:8137',
+    authToken: '',
+    autoConnect: true,
+    enabled: true,
+    addedAt: NOW,
+    lastConnectedAt: null,
+    ...overrides,
+  };
+}
+
+function seedBackends(backends: BackendConnection[]): Promise<void> {
+  return hostStorage.set(OH.backends, backends);
+}
+
 /** The receiver-side projection of a joined Org — `isPrivate` stripped. */
 const normalized = (org: Org): Org => ({ ...org, isPrivate: false });
+const joinedRow = (org: Org, backendId: string): JoinedOrgRecord => ({ org: normalized(org), backendId });
 
 describe('identity registry — joined-Org folding (U5.2)', () => {
   let fake: HostStorageFake;
@@ -71,101 +99,138 @@ describe('identity registry — joined-Org folding (U5.2)', () => {
     expect(authorizedOrgIds(snapshot).has(BACKEND_ORG.id)).toBe(true);
   });
 
-  it('recordJoinedOrg persists the backend Org and authorizes it on refresh', async () => {
+  it('recordJoinedOrg persists the backend Org with provenance and authorizes it on refresh', async () => {
     await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
+    await seedBackends([makeBackend(BACKEND_A)]);
     await refreshIdentitySnapshotFromHostStorage();
 
-    const result = await recordJoinedOrg(BACKEND_ORG);
+    const result = await recordJoinedOrg(BACKEND_ORG, BACKEND_A);
     expect(result.snapshot).not.toBeNull();
     expect(authorizedOrgIds(result.snapshot).has(BACKEND_ORG.id)).toBe(true);
-    // Persisted form has `isPrivate: false` regardless of inbound value.
-    expect(await hostStorage.get(OH.joinedOrgs)).toEqual([normalized(BACKEND_ORG)]);
+    // Persisted form has `isPrivate: false` regardless of inbound value,
+    // stamped with the delivering backend record.
+    expect(await hostStorage.get(OH.joinedOrgs)).toEqual([joinedRow(BACKEND_ORG, BACKEND_A)]);
   });
 
   it('reports firstJoin true on a new backend, false on every reconnect', async () => {
     await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
+    await seedBackends([makeBackend(BACKEND_A), makeBackend(BACKEND_B)]);
     await refreshIdentitySnapshotFromHostStorage();
 
-    expect((await recordJoinedOrg(BACKEND_ORG)).firstJoin).toBe(true);
+    expect((await recordJoinedOrg(BACKEND_ORG, BACKEND_A)).firstJoin).toBe(true);
     // A reconnect re-sends the same WELCOME — not a first join.
-    expect((await recordJoinedOrg(BACKEND_ORG)).firstJoin).toBe(false);
+    expect((await recordJoinedOrg(BACKEND_ORG, BACKEND_A)).firstJoin).toBe(false);
     // A renamed-in-place reconnect is still a reconnect.
-    expect((await recordJoinedOrg({ ...BACKEND_ORG, name: 'Renamed' })).firstJoin).toBe(false);
+    expect((await recordJoinedOrg({ ...BACKEND_ORG, name: 'Renamed' }, BACKEND_A)).firstJoin).toBe(false);
     // A distinct backend is its own first join.
-    expect((await recordJoinedOrg(OTHER_ORG)).firstJoin).toBe(true);
+    expect((await recordJoinedOrg(OTHER_ORG, BACKEND_B)).firstJoin).toBe(true);
   });
 
   it('reports firstJoin false for the joiner own home-org', async () => {
     const record = await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
-    expect((await recordJoinedOrg(record.org)).firstJoin).toBe(false);
+    expect((await recordJoinedOrg(record.org, BACKEND_A)).firstJoin).toBe(false);
   });
 
   it('survives a snapshot rebuild — the joined Org is read back from storage', async () => {
     await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
-    await recordJoinedOrg(BACKEND_ORG);
+    await seedBackends([makeBackend(BACKEND_A)]);
+    await recordJoinedOrg(BACKEND_ORG, BACKEND_A);
     clearIdentitySnapshot();
 
     const rebuilt = await refreshIdentitySnapshotFromHostStorage();
     expect(authorizedOrgIds(rebuilt).has(BACKEND_ORG.id)).toBe(true);
   });
 
+  it('folds a joined Org while its backend record exists — enabled or not', async () => {
+    await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
+    await seedBackends([makeBackend(BACKEND_A)]);
+    await recordJoinedOrg(BACKEND_ORG, BACKEND_A);
+
+    // Kill switch off: the wire stops, the Org stays folded — synced
+    // workspaces remain usable local data.
+    await seedBackends([makeBackend(BACKEND_A, { enabled: false })]);
+    const disabled = await refreshIdentitySnapshotFromHostStorage();
+    expect(authorizedOrgIds(disabled).has(BACKEND_ORG.id)).toBe(true);
+
+    // Record deleted: the Org unbinds and drops out of the snapshot.
+    await seedBackends([]);
+    const removed = await refreshIdentitySnapshotFromHostStorage();
+    expect(authorizedOrgIds(removed).has(BACKEND_ORG.id)).toBe(false);
+  });
+
+  it('does not fold malformed pre-provenance rows', async () => {
+    await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
+    await seedBackends([makeBackend(BACKEND_A)]);
+    // A legacy row written before provenance landed — a bare Org, no
+    // wrapper. The refresh skips it rather than crashing or folding it.
+    await hostStorage.set(OH.joinedOrgs, [{ ...BACKEND_ORG } as unknown as JoinedOrgRecord]);
+    const snapshot = await refreshIdentitySnapshotFromHostStorage();
+    expect(authorizedOrgIds(snapshot).has(BACKEND_ORG.id)).toBe(false);
+  });
+
   it('is idempotent — re-joining the same backend does not duplicate the row', async () => {
     await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
-    await recordJoinedOrg(BACKEND_ORG);
-    await recordJoinedOrg(BACKEND_ORG);
-    expect(await hostStorage.get(OH.joinedOrgs)).toEqual([normalized(BACKEND_ORG)]);
+    await seedBackends([makeBackend(BACKEND_A)]);
+    await recordJoinedOrg(BACKEND_ORG, BACKEND_A);
+    await recordJoinedOrg(BACKEND_ORG, BACKEND_A);
+    expect(await hostStorage.get(OH.joinedOrgs)).toEqual([joinedRow(BACKEND_ORG, BACKEND_A)]);
   });
 
   it('accumulates distinct backends', async () => {
     await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
-    await recordJoinedOrg(BACKEND_ORG);
-    const result = await recordJoinedOrg(OTHER_ORG);
-    expect(await hostStorage.get(OH.joinedOrgs)).toEqual([normalized(BACKEND_ORG), normalized(OTHER_ORG)]);
+    await seedBackends([makeBackend(BACKEND_A), makeBackend(BACKEND_B)]);
+    await recordJoinedOrg(BACKEND_ORG, BACKEND_A);
+    const result = await recordJoinedOrg(OTHER_ORG, BACKEND_B);
+    expect(await hostStorage.get(OH.joinedOrgs)).toEqual([
+      joinedRow(BACKEND_ORG, BACKEND_A),
+      joinedRow(OTHER_ORG, BACKEND_B),
+    ]);
     expect(authorizedOrgIds(result.snapshot).has(BACKEND_ORG.id)).toBe(true);
     expect(authorizedOrgIds(result.snapshot).has(OTHER_ORG.id)).toBe(true);
   });
 
   it('refreshes a renamed backend Org in place rather than appending', async () => {
     await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
-    await recordJoinedOrg(BACKEND_ORG);
+    await seedBackends([makeBackend(BACKEND_A)]);
+    await recordJoinedOrg(BACKEND_ORG, BACKEND_A);
     const renamed: Org = { ...BACKEND_ORG, name: 'Backend Org (renamed)' };
-    await recordJoinedOrg(renamed);
-    expect(await hostStorage.get(OH.joinedOrgs)).toEqual([normalized(renamed)]);
+    await recordJoinedOrg(renamed, BACKEND_A);
+    expect(await hostStorage.get(OH.joinedOrgs)).toEqual([joinedRow(renamed, BACKEND_A)]);
+  });
+
+  it('re-stamps provenance in place when the connection record was re-minted', async () => {
+    await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
+    await seedBackends([makeBackend(BACKEND_A)]);
+    await recordJoinedOrg(BACKEND_ORG, BACKEND_A);
+    // Same Org, different record id (the cap-1 record was recreated).
+    await recordJoinedOrg(BACKEND_ORG, BACKEND_B);
+    expect(await hostStorage.get(OH.joinedOrgs)).toEqual([joinedRow(BACKEND_ORG, BACKEND_B)]);
   });
 
   it('normalizes joined Orgs to isPrivate: false at the registry boundary', async () => {
     await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
     // Inbound carries isPrivate: true (sender's home Org has no notion of
     // who's listening); receiver-side normalization strips it.
-    await recordJoinedOrg(BACKEND_ORG);
+    await recordJoinedOrg(BACKEND_ORG, BACKEND_A);
     const stored = await hostStorage.get(OH.joinedOrgs);
-    expect(stored?.[0].isPrivate).toBe(false);
-  });
-
-  it('corrects a legacy stored row that still reads isPrivate: true on next reconnect', async () => {
-    await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
-    // Simulate a pre-normalization row written by an older code path.
-    await hostStorage.set(OH.joinedOrgs, [{ ...BACKEND_ORG }]); // isPrivate: true
-    // The reconnect's drift-update branch catches the stale flag and
-    // rewrites the row in place.
-    await recordJoinedOrg(BACKEND_ORG);
-    expect(await hostStorage.get(OH.joinedOrgs)).toEqual([normalized(BACKEND_ORG)]);
+    expect(stored?.[0].org.isPrivate).toBe(false);
   });
 
   it('never stores the joiner own home-org as a joined Org', async () => {
     const record = await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
-    await recordJoinedOrg(record.org);
+    await recordJoinedOrg(record.org, BACKEND_A);
     expect(await hostStorage.get(OH.joinedOrgs)).toBeUndefined();
   });
 
   it('serializes concurrent joins of distinct backends — neither write is clobbered', async () => {
     await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
+    await seedBackends([makeBackend(BACKEND_A), makeBackend(BACKEND_B)]);
     // Both calls race the same empty `OH.joinedOrgs` slot. Without the
     // RMW serializer each reads `[]`, appends its own Org, and the last
     // write drops the other join.
-    await Promise.all([recordJoinedOrg(BACKEND_ORG), recordJoinedOrg(OTHER_ORG)]);
+    await Promise.all([recordJoinedOrg(BACKEND_ORG, BACKEND_A), recordJoinedOrg(OTHER_ORG, BACKEND_B)]);
     const stored = (await hostStorage.get(OH.joinedOrgs)) ?? [];
-    expect(stored.map((o) => o.id).sort()).toEqual([BACKEND_ORG.id, OTHER_ORG.id].sort());
+    expect(stored.map((row) => row.org.id).sort()).toEqual([BACKEND_ORG.id, OTHER_ORG.id].sort());
   });
 
   it('serializes concurrent snapshot refreshes — their reads never interleave', async () => {
@@ -186,13 +251,13 @@ describe('identity registry — joined-Org folding (U5.2)', () => {
     };
     await Promise.all([refreshIdentitySnapshotFromHostStorage(), refreshIdentitySnapshotFromHostStorage()]);
     // Each refresh reads syntheticIdentity → workspaceRoleAssignments →
-    // joinedOrgs. Serialized: the first refresh's three reads form a
-    // contiguous block, identical to the second's.
-    expect(reads.length).toBe(6);
-    expect(reads.slice(0, 3)).toEqual(reads.slice(3, 6));
-    // The first key reappears at index 3 (block boundary), not index 1
+    // joinedOrgs → backends. Serialized: the first refresh's four reads
+    // form a contiguous block, identical to the second's.
+    expect(reads.length).toBe(8);
+    expect(reads.slice(0, 4)).toEqual(reads.slice(4, 8));
+    // The first key reappears at index 4 (block boundary), not index 1
     // (which an interleaved pair of refreshes would produce).
-    expect(reads.indexOf(reads[0], 1)).toBe(3);
+    expect(reads.indexOf(reads[0], 1)).toBe(4);
   });
 });
 

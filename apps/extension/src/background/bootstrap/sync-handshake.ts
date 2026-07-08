@@ -1,9 +1,9 @@
+import { getPrimaryBackend } from '@openheaders/core/backends';
 import { consumedOrgIds, getIdentitySnapshot, recordJoinedOrg } from '@openheaders/core/identity';
 import { type HandshakeRejectReason, isBackendEvictingReason } from '@openheaders/core/protocol';
 import { getHostStorage, OH } from '@openheaders/core/storage';
 import { applyWorkspaceSnapshot, readWorkspaceStateVector } from '@openheaders/oracle/sync';
 import { getOrCreateWorkspaceService, releaseWorkspaceService } from '@openheaders/oracle/sync/service';
-import { get as getSetting } from '@openheaders/ui/workbench/settings/store';
 import { runtime } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { forwardCurrentAwarenessOnConnect } from '../awareness-forwarder';
@@ -69,7 +69,7 @@ export function setupSyncHandshake(): SyncHandshakeHandles {
     },
     getExtensionAgent: () => `@openheaders/extension@${runtime.getManifest().version}`,
     getAuthToken: () => {
-      const raw = getSetting('backend.authToken');
+      const raw = getPrimaryBackend()?.authToken;
       return raw && raw.length > 0 ? raw : null;
     },
     readStateVector: (workspaceId) => readWorkspaceStateVector(workspaceId),
@@ -124,7 +124,16 @@ export function setupSyncHandshake(): SyncHandshakeHandles {
     // re-sent WELCOME would overwrite a local active-workspace switch
     // the user made since.
     onJoinedOrg: async (org, backendActiveWorkspaceId) => {
-      const { firstJoin } = await recordJoinedOrg(org);
+      // Provenance: the WELCOME rode the primary connection, so the Org
+      // binds to that registry record (MULTI_BACKEND_PLAN.md §2). A
+      // WELCOME with no record on file can't happen through this
+      // dialer; refuse rather than bind to nothing.
+      const backend = getPrimaryBackend();
+      if (!backend) {
+        logger.warn('Background', `joined Org ${org.id} arrived with no backend record on file — ignored`);
+        return;
+      }
+      const { firstJoin } = await recordJoinedOrg(org, backend.id);
       if (firstJoin && backendActiveWorkspaceId) {
         pendingAdoptWorkspaceId = backendActiveWorkspaceId;
         tryAdoptPendingWorkspace();

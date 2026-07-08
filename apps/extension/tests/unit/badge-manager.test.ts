@@ -10,12 +10,26 @@ vi.mock('@openheaders/ui/workbench/settings/store', () => ({
     switch (key) {
       case 'backend.showBadgeWhenDisconnected':
         return true;
-      case 'backend.autoConnect':
-        return true;
       default:
         return undefined;
     }
   }),
+}));
+
+// The disconnected branch consults the backend registry (a badge only
+// makes sense when there IS an enabled back-end to be disconnected
+// from) — pin an enabled, auto-connecting primary record.
+vi.mock('@openheaders/core/backends', () => ({
+  getPrimaryBackend: vi.fn(() => ({
+    id: 'backend-1',
+    label: '',
+    url: 'ws://127.0.0.1:8137',
+    authToken: '',
+    autoConnect: true,
+    enabled: true,
+    addedAt: '2026-07-01T00:00:00.000Z',
+    lastConnectedAt: null,
+  })),
 }));
 
 import type { BadgeUpdateInput } from '@/background/modules/badge-manager';

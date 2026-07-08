@@ -21,6 +21,11 @@ import '@/host/install-cdp-capability';
 import '@/host/install-lifeline-server';
 import './modules/live-chain-adapter';
 
+import {
+  getPrimaryBackend,
+  refreshBackendsFromHostStorage,
+  watchBackendsInHostStorage,
+} from '@openheaders/core/backends';
 import { getIdentitySnapshot } from '@openheaders/core/identity';
 import { getHostStorage, OH } from '@openheaders/core/storage';
 import { getActiveEnvironmentId } from '@openheaders/oracle/entity/environment-store';
@@ -115,19 +120,26 @@ const workspacesReady = bootstrapWorkspaces();
 
 // Settings load before the rule engine compiles so persisted knobs
 // (`rulesEngine.paused`, `maxActiveRules`, `evaluationStrategy`) are live
-// before the first DNR rebuild.
-const settingsReady = workspacesReady.then(bootstrapSettings).then(() => {
-  markBootPhase('settings-ready');
-  setRulesPaused(getSetting('rulesEngine.paused'));
-  subscribeKey('rulesEngine.paused', () => {
+// before the first DNR rebuild. The backend registry hydrates in the
+// same phase — its mirror must be warm before the connection plane
+// (websocket / alarm-dispatch / handshake) evaluates whether a wire is
+// wanted, and its watch keeps cross-context settings-pane edits live.
+const settingsReady = workspacesReady
+  .then(bootstrapSettings)
+  .then(() => refreshBackendsFromHostStorage())
+  .then(() => {
+    watchBackendsInHostStorage();
+    markBootPhase('settings-ready');
     setRulesPaused(getSetting('rulesEngine.paused'));
-    scheduleUpdate('pause', { immediate: true });
-    debouncedUpdateBadge();
+    subscribeKey('rulesEngine.paused', () => {
+      setRulesPaused(getSetting('rulesEngine.paused'));
+      scheduleUpdate('pause', { immediate: true });
+      debouncedUpdateBadge();
+    });
+    const rebuildOnPrefChange = (): void => scheduleUpdate('prefs', { immediate: true });
+    subscribeKey('rulesEngine.maxActiveRules', rebuildOnPrefChange);
+    subscribeKey('rulesEngine.evaluationStrategy', rebuildOnPrefChange);
   });
-  const rebuildOnPrefChange = (): void => scheduleUpdate('prefs', { immediate: true });
-  subscribeKey('rulesEngine.maxActiveRules', rebuildOnPrefChange);
-  subscribeKey('rulesEngine.evaluationStrategy', rebuildOnPrefChange);
-});
 
 // ── Initialization ────────────────────────────────────────────────
 
@@ -219,7 +231,7 @@ async function initializeExtension(): Promise<void> {
   // An empty `order` is the safe default (no host elected → "reconnect the
   // desktop" banner, never a race).
   setFallbackPriorityProbe((workspaceId) => {
-    if (getSetting('backend.mode') === 'in-browser') return null;
+    if (!getPrimaryBackend()?.enabled) return null;
     return {
       order: getFallbackPriorityForWorkspace(workspaceId),
       selfPrincipalId: getIdentitySnapshot()?.principal.id ?? null,
@@ -233,7 +245,7 @@ async function initializeExtension(): Promise<void> {
   // running this on every (re)connect is sufficient — the enlist itself is
   // idempotent (a no-op when already listed or ineligible).
   const enlistActiveWorkspaceFallbackPriority = (): void => {
-    if (getSetting('backend.mode') === 'in-browser') return;
+    if (!getPrimaryBackend()?.enabled) return;
     if (!isWebSocketConnected()) return;
     void maybeEnlistSelfInFallbackPriority(getActiveWorkspaceId(), selfHostLabel()).catch((err: unknown) =>
       logger.warn('Background', 'Fallback-priority enlist failed', err),
@@ -309,10 +321,10 @@ async function initializeExtension(): Promise<void> {
 
   if (shouldAttemptBackendConnection()) {
     await connectWebSocket();
-  } else if (getSetting('backend.mode') === 'in-browser') {
-    logger.info('Background', 'backend.mode = in-browser — service worker is the back-end, no wire to open');
+  } else if (!getPrimaryBackend()?.enabled) {
+    logger.info('Background', 'no back-end connection configured — service worker is the back-end, no wire to open');
   } else {
-    logger.info('Background', 'backend.autoConnect is off — skipping initial connect');
+    logger.info('Background', 'auto-connect is off — skipping initial connect');
   }
 
   // Fallback: storage had no rules AND no WebSocket — flush any stale DNR

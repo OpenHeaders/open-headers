@@ -16,26 +16,61 @@
  *                             Reach anywhere with the same data.
  *                             *Coming soon.*
  *
+ * Since the multi-backend Phase-1 retirement (MULTI_BACKEND_PLAN.md §2)
+ * the mode is no longer a stored setting: the connection identity lives
+ * in the `OH.backends` registry (`@openheaders/core/backends`), and
+ * `BackendMode` survives purely as presentation vocabulary DERIVED from
+ * that registry via {@link deriveBackendMode}. The keys that remain
+ * registered here are the daemon-side bind (this process as a server)
+ * and the global reliability/notification knobs that apply to every
+ * connection.
+ *
  * Schema docs page: see `workbench/components/docs/sections/open-headers.tsx`
  * "Local-first by design" and "What we're building next".
  */
 
+import { getPrimaryBackend, isLoopbackBackendUrl } from '@openheaders/core/backends';
 import { WS_PORT } from '@openheaders/core/protocol';
+import type { BackendConnection } from '@openheaders/core/types';
 import { lazy } from 'react';
 import * as v from 'valibot';
 import { getCurrentHost, type Host } from '../../../shared/host-vocabulary';
 import { registerSetting } from '../registry';
 
-// Lazy import breaks the schema → component → schema cycle (the editor
-// re-imports BackendMode/backendModeIsPending from this file).
-const BackendModeFieldEditor = lazy(() => import('../components/backend-mode-switch'));
 const LanPeersToggleEditor = lazy(() => import('../components/lan-peers-toggle'));
 const BackendBindPortFieldEditor = lazy(() => import('../components/backend-bind-port-field'));
-const BackendUrlFieldEditor = lazy(() => import('../components/backend-url-field'));
-const BackendAuthTokenFieldEditor = lazy(() => import('../components/backend-auth-token-field'));
 
 export const BACKEND_MODES = ['in-browser', 'desktop-app', 'local-self-hosted', 'remote-self-hosted'] as const;
 export type BackendMode = (typeof BACKEND_MODES)[number];
+
+/**
+ * The mode of tier zero — the local host engine that is always on and
+ * never a registry entry: the extension's SW, or the desktop app's
+ * embedded back-end (a web bundle is always a client of the desktop it
+ * was served by, so its no-connection state reads the same way).
+ */
+export function tierZeroMode(host: Host): BackendMode {
+  return host === 'extension' ? 'in-browser' : 'desktop-app';
+}
+
+/**
+ * Derive the presentation mode from the connection registry — "kind" is
+ * read off the record, never stored (MULTI_BACKEND_PLAN.md §1). No
+ * enabled entry means tier zero; an enabled entry classifies by URL:
+ * `wss` is a remote back-end, a loopback address dialed from a browser
+ * host is the desktop app, anything else is a local / LAN daemon.
+ */
+export function deriveBackendMode(host: Host, primary: BackendConnection | null): BackendMode {
+  if (!primary?.enabled) return tierZeroMode(host);
+  if (/^wss:/i.test(primary.url)) return 'remote-self-hosted';
+  if (host !== 'desktop' && isLoopbackBackendUrl(primary.url)) return 'desktop-app';
+  return 'local-self-hosted';
+}
+
+/** {@link deriveBackendMode} over the live registry mirror for this host. */
+export function currentBackendMode(): BackendMode {
+  return deriveBackendMode(getCurrentHost(), getPrimaryBackend());
+}
 
 /**
  * Bind address for the desktop daemon's WebSocket server (UNIFIED_ORACLE_MODEL.md §4.2).
@@ -71,18 +106,12 @@ export function hostIsTheBackend(mode: BackendMode, host: Host): boolean {
   return false;
 }
 
-const modeSchema = v.picklist(BACKEND_MODES);
 const bindAddressSchema = v.picklist(BACKEND_BIND_ADDRESSES);
-const urlSchema = v.pipe(v.string(), v.regex(/^wss?:\/\//i, 'Must start with ws:// or wss://'));
 
 declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
-    'backend.mode': BackendMode;
     'backend.bindAddress': BackendBindAddress;
     'backend.bindPort': number;
-    'backend.url': string;
-    'backend.authToken': string;
-    'backend.autoConnect': boolean;
     'backend.reconnectDelayMs': number;
     'backend.maxReconnectDelayMs': number;
     'backend.pingIntervalMs': number;
@@ -90,51 +119,6 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'backend.showDiagrams': boolean;
   }
 }
-
-registerSetting({
-  key: 'backend.mode',
-  type: 'enum',
-  default: 'in-browser',
-  // Schema default is `in-browser` (only valid on the extension host).
-  // On desktop / web the back-end can't live inside a service worker, so
-  // the host-aware default falls back to `desktop-app`, which is valid
-  // everywhere. Drives `isModified` comparison and Reset behavior.
-  getDefault: () => (getCurrentHost() === 'extension' ? 'in-browser' : 'desktop-app'),
-  schema: modeSchema,
-  label: 'Backend mode',
-  description: 'Where your workspaces live. Pick the host that matches your reach.',
-  category: 'backend',
-  tags: ['mode', 'host', 'in-browser', 'desktop', 'daemon', 'self-hosted'],
-  scope: 'user',
-  enumOptions: [
-    {
-      value: 'in-browser',
-      label: 'In this browser',
-      description: 'Service worker — zero setup. No cross-browser, no cross-device.',
-    },
-    {
-      value: 'desktop-app',
-      label: 'Desktop app on this machine',
-      description: 'Any browser + the Open Headers desktop app see the same data.',
-    },
-    {
-      value: 'local-self-hosted',
-      label: 'Local / LAN daemon',
-      description: 'Standalone back-end on this machine or your LAN. Coming soon.',
-    },
-    {
-      value: 'remote-self-hosted',
-      label: 'Remote (self-hosted)',
-      description: 'A back-end you host on your own VM. Reach anywhere. Coming soon.',
-    },
-  ],
-  // The custom editor routes every write through the verify-then-switch
-  // probe gate (reachability + auth, then a brief overlay) so a write
-  // from a settings-search hit can't bypass it. Switching is non-
-  // destructive — workspaces stay; cleanup is a deliberate per-workspace
-  // delete in the Workspace Manager.
-  customEditor: BackendModeFieldEditor,
-});
 
 registerSetting({
   key: 'backend.bindAddress',
@@ -156,14 +140,14 @@ registerSetting({
       description: 'Other devices on the local network can connect. Requires the auth token from U3.2.',
     },
   ],
-  // Surface only on the desktop host while previewing/active mode is
+  // Surface only on the desktop host while the derived mode is
   // `desktop-app` — the only (host, mode) pair where this process IS the
   // daemon. BackendPane strips `when` from its field list because the
   // pane renders the previewed-mode's config; the daemon-side toggle is
   // rendered out of the dedicated "host IS the back-end" branch instead
   // (see BackendPane's `hostIsTheBackend` arm). The `when` is still
   // honored by search hits and by SettingRow's own visibility check.
-  when: (get) => getCurrentHost() === 'desktop' && get('backend.mode') === 'desktop-app',
+  when: () => getCurrentHost() === 'desktop' && currentBackendMode() === 'desktop-app',
   // Custom editor surfaces the boolean-shaped affordance (a single
   // Switch) and the first-flip confirmation dialog. The underlying
   // value remains the explicit address string so future deliverables
@@ -192,66 +176,8 @@ registerSetting({
   // desktop host while `desktop-app` is active, the one pair where this
   // process IS the daemon. BackendPane strips `when` for the daemon-side
   // section it renders; search hits + SettingRow still honor it.
-  when: (get) => getCurrentHost() === 'desktop' && get('backend.mode') === 'desktop-app',
+  when: () => getCurrentHost() === 'desktop' && currentBackendMode() === 'desktop-app',
   customEditor: BackendBindPortFieldEditor,
-});
-
-registerSetting({
-  key: 'backend.url',
-  type: 'string',
-  default: 'ws://127.0.0.1:8137',
-  schema: urlSchema,
-  label: 'Backend address',
-  description: 'Where this client dials the back-end. `ws://` for local / LAN hosts, `wss://` for remote.',
-  category: 'backend',
-  subcategory: 'connection',
-  tags: ['url', 'websocket', 'address', 'port', 'host'],
-  scope: 'user',
-  when: (get) => backendModeNeedsConnection(get('backend.mode')),
-  // Custom editor splits the canonical `ws://host:port` string into the
-  // scheme / Address / Port parts the user thinks in, while persisting
-  // the literal URL every dialer reads (WS-A3).
-  customEditor: BackendUrlFieldEditor,
-});
-
-registerSetting({
-  key: 'backend.authToken',
-  type: 'string',
-  default: '',
-  // Empty string is the pre-pairing state — the field exists before the
-  // user holds a token. It is no longer a valid *connected* state: the
-  // daemon now requires a paired token on every HELLO (loopback
-  // included), so an empty token yields an `auth-required` reject. We
-  // don't constrain the format here because tokens may be pasted from a
-  // future device-flow surface (U3.3) whose shape this client doesn't
-  // dictate.
-  schema: v.string(),
-  label: 'Authentication',
-  description: 'How this device proves itself to the back-end. Pair with a code, or paste a token directly.',
-  category: 'backend',
-  subcategory: 'connection',
-  tags: ['auth', 'token', 'pair', 'daemon', 'secret'],
-  scope: 'user',
-  when: (get) => backendModeNeedsConnection(get('backend.mode')),
-  // Custom editor adds the in-app "Pair with a code" affordance (WS-A2)
-  // beside the raw token input — typing the daemon's 6-digit code
-  // exchanges it for a token through the `pairWithCode` capability and
-  // writes the result straight into this setting.
-  customEditor: BackendAuthTokenFieldEditor,
-});
-
-registerSetting({
-  key: 'backend.autoConnect',
-  type: 'boolean',
-  default: true,
-  schema: v.boolean(),
-  label: 'Auto-connect',
-  description: 'Connect to the back-end automatically whenever the extension starts.',
-  category: 'backend',
-  subcategory: 'reliability',
-  tags: ['auto', 'connect', 'startup'],
-  scope: 'user',
-  when: (get) => backendModeNeedsConnection(get('backend.mode')),
 });
 
 registerSetting({
@@ -266,7 +192,7 @@ registerSetting({
   tags: ['reconnect', 'backoff', 'delay'],
   scope: 'user',
   numberRange: { min: 100, max: 60000, step: 100 },
-  when: (get) => backendModeNeedsConnection(get('backend.mode')),
+  when: () => backendModeNeedsConnection(currentBackendMode()),
 });
 
 registerSetting({
@@ -281,7 +207,7 @@ registerSetting({
   tags: ['reconnect', 'backoff', 'max', 'ceiling'],
   scope: 'user',
   numberRange: { min: 500, max: 300000, step: 500 },
-  when: (get) => backendModeNeedsConnection(get('backend.mode')),
+  when: () => backendModeNeedsConnection(currentBackendMode()),
 });
 
 registerSetting({
@@ -296,7 +222,7 @@ registerSetting({
   tags: ['ping', 'keep-alive', 'heartbeat'],
   scope: 'user',
   numberRange: { min: 1000, max: 600000, step: 1000 },
-  when: (get) => backendModeNeedsConnection(get('backend.mode')),
+  when: () => backendModeNeedsConnection(currentBackendMode()),
 });
 
 registerSetting({
@@ -310,7 +236,7 @@ registerSetting({
   subcategory: 'notifications',
   tags: ['badge', 'status', 'icon', 'indicator'],
   scope: 'user',
-  when: (get) => backendModeNeedsConnection(get('backend.mode')),
+  when: () => backendModeNeedsConnection(currentBackendMode()),
 });
 
 registerSetting({

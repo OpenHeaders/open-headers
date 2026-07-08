@@ -8,6 +8,7 @@ export {
 } from './host-storage';
 export {
   isSensitiveKey,
+  type JoinedOrgRecord,
   OH,
   type OrgBindingPrefs,
   type PersistedLocalFolder,

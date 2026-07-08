@@ -1,13 +1,13 @@
 /**
  * Backend-URL field with a uniform connect affordance (WS-A3).
  *
- * Custom editor for `backend.url`. The persisted value stays the single
- * canonical `ws://host:port` string every dialer reads (websocket,
- * probe, backend-target, pair-with-code), but the user edits it as the
- * three parts they actually think in: scheme, Address, Port. This is the
- * `lan-peers-toggle` idiom — persist the literal, present the friendlier
- * affordance — so `isModified` / Reset keep deriving from the canonical
- * string with no extra schema keys.
+ * Editor for the primary `OH.backends` record's URL (registry-backed
+ * since the multi-backend Phase-1 settings retirement). The persisted
+ * value stays the single canonical `ws://host:port` string every dialer
+ * reads (websocket, probe, backend-target, pair-with-code), but the
+ * user edits it as the three parts they actually think in: scheme,
+ * Address, Port. This is the `lan-peers-toggle` idiom — persist the
+ * literal, present the friendlier affordance.
  *
  * Scheme stays editable because it carries the reach: `ws://` for local
  * / LAN hosts, `wss://` for a remote self-hosted back-end.
@@ -24,10 +24,12 @@ import { Input, Select, Space } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { type PortValidation, validatePort } from '@openheaders/core/utils';
-import type { SettingDef } from '../types';
 import FieldRow from '../fields/FieldRow';
 import { useConnectionField } from './connection-draft';
 import PortHint from './port-hint';
+
+const FIELD_LABEL = 'Backend address';
+const FIELD_DESCRIPTION = 'Where this client dials the back-end. `ws://` for local / LAN hosts, `wss://` for remote.';
 
 type Scheme = 'ws' | 'wss';
 interface UrlParts {
@@ -65,7 +67,7 @@ function portVerdict(port: string): PortValidation {
   return validatePort(Number(port));
 }
 
-const BackendUrlField: React.FC<{ def: SettingDef }> = ({ def }) => {
+const BackendUrlField: React.FC = () => {
   const { value: url, setValue: setUrl, dirty, discard } = useConnectionField('backend.url');
   const [parts, setParts] = useState<UrlParts>(() => parseUrl(url));
 
@@ -89,9 +91,9 @@ const BackendUrlField: React.FC<{ def: SettingDef }> = ({ def }) => {
 
   return (
     <FieldRow
-      settingKey={def.key}
-      label={def.label}
-      description={def.description}
+      settingKey="backend.url"
+      label={FIELD_LABEL}
+      description={FIELD_DESCRIPTION}
       modified={dirty}
       onReset={discard}
       resetTooltip="Discard unapplied change"

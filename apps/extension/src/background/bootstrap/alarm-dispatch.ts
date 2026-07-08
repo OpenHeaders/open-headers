@@ -1,4 +1,4 @@
-import { subscribeKey } from '@openheaders/ui/workbench/settings/store';
+import { subscribeBackends } from '@openheaders/core/backends';
 import { alarms } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { handleActivityPruneAlarm, isActivityPruneAlarm } from '../activity-prune-scheduler';
@@ -32,8 +32,9 @@ export function installAlarmDispatch(): void {
   const syncWsReconnectAlarm = (): void => {
     applyWsReconnectAlarm(shouldAttemptBackendConnection());
   };
-  subscribeKey('backend.autoConnect', syncWsReconnectAlarm);
-  subscribeKey('backend.mode', syncWsReconnectAlarm);
+  // Any registry change re-evaluates whether the safety-net alarm is
+  // wanted (enabled / autoConnect live on the primary record now).
+  subscribeBackends(syncWsReconnectAlarm);
 
   alarms!.onAlarm.addListener(async (alarm: chrome.alarms.Alarm) => {
     if (alarm.name === WS_RECONNECT_ALARM) {

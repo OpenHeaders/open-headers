@@ -1,14 +1,15 @@
+import { updatePrimaryBackend } from '@openheaders/core/backends';
 import { ExperimentOutlined, ReloadOutlined, SwapOutlined, UndoOutlined } from '@ant-design/icons';
 import { App as AntApp, Button, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { generateUid } from '@openheaders/core/utils';
+import { usePrimaryBackend, usePrimaryBackendUrl } from '../../../shared/backend';
 import { probeBackendConnection } from '../../../shared/backend/probe-connection';
 import { describeProbeResult } from '../../../shared/backend/probe-notify';
 import type { Host } from '../../../shared/host-vocabulary';
 import type { BackendMode } from '../schema/backend';
 import { backendModeIsPending, backendModeNeedsConnection, hostIsTheBackend } from '../schema/backend';
-import { useSettingValue } from '../hooks';
 import { set as setSettingValue } from '../store';
 import { type ConnectionDraftSnapshot, useConnectionDraft } from './connection-draft';
 import { isModeValidForHost } from './backend-scenarios';
@@ -40,7 +41,7 @@ export const ApplyBar: React.FC<{
   useEffect(() => {
     if (connectionDirty) setRevertTarget(null);
   }, [connectionDirty]);
-  const persistedUrl = useSettingValue('backend.url');
+  const persistedUrl = usePrimaryBackendUrl();
   // Probe + apply act on the STAGED url so the user can test an address
   // before adopting it — the whole point of decoupling edit from apply.
   const url = draft ? draft.effective('backend.url') : persistedUrl;
@@ -48,7 +49,7 @@ export const ApplyBar: React.FC<{
   // back-end — used to tell the user that pairing is done and the only
   // step left is the explicit Switch (pairing is auth setup, not activation).
   // The probe must also PRESENT it, or the daemon rejects every HELLO.
-  const authToken = useSettingValue('backend.authToken');
+  const authToken = usePrimaryBackend()?.authToken ?? '';
   const hasAuthToken = authToken.trim().length > 0;
   const [testing, setTesting] = useState(false);
   const isActive = previewMode === activeMode;
@@ -101,7 +102,7 @@ export const ApplyBar: React.FC<{
   };
   const revert = (): void => {
     if (!revertTarget) return;
-    if (revertTarget['backend.url'] !== undefined) setSettingValue('backend.url', revertTarget['backend.url']);
+    if (revertTarget['backend.url'] !== undefined) void updatePrimaryBackend({ url: revertTarget['backend.url'] });
     if (revertTarget['backend.bindPort'] !== undefined)
       setSettingValue('backend.bindPort', revertTarget['backend.bindPort']);
     setRevertTarget(null);

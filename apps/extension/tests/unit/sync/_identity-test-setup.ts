@@ -15,10 +15,26 @@ import {
   recordJoinedOrg,
   refreshIdentitySnapshotFromHostStorage,
 } from '@openheaders/core/identity';
-import { type HostStorage, setHostStorage } from '@openheaders/core/storage';
-import type { Org } from '@openheaders/core/types';
+import { type HostStorage, hostStorage, OH, setHostStorage } from '@openheaders/core/storage';
+import type { BackendConnection, Org } from '@openheaders/core/types';
 
 const NOW = '2026-05-19T00:00:00.000Z';
+
+/** The `OH.backends` record test joins bind to (fold-by-presence). */
+export const TEST_BACKEND_ID = '01900000-0000-7000-8000-00000000feed';
+
+function makeTestBackend(): BackendConnection {
+  return {
+    id: TEST_BACKEND_ID,
+    label: '',
+    url: 'ws://127.0.0.1:8137',
+    authToken: '',
+    autoConnect: true,
+    enabled: true,
+    addedAt: NOW,
+    lastConnectedAt: null,
+  };
+}
 
 function createHostStorageFake(): HostStorage {
   const map = new Map<string, unknown>();
@@ -57,9 +73,13 @@ export async function installSyntheticIdentityForTests(
   }
   // Phase U5.2 — fold in Orgs joined from other backends so tests can
   // exercise the consumed-Org transport paths (outbound gate, receiver
-  // filter). `recordJoinedOrg` rebuilds the snapshot on each call.
+  // filter). Joins bind to a seeded `OH.backends` record — the snapshot
+  // refresh folds only Orgs whose backend record exists.
+  if (joinedOrgs.length > 0) {
+    await hostStorage.set(OH.backends, [makeTestBackend()]);
+  }
   for (const org of joinedOrgs) {
-    await recordJoinedOrg(org);
+    await recordJoinedOrg(org, TEST_BACKEND_ID);
   }
   await refreshIdentitySnapshotFromHostStorage();
   return () => {

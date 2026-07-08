@@ -20,7 +20,14 @@ import { useIsModified, useResetSetting } from '../hooks';
 import type { SettingKey } from '../types';
 
 interface FieldRowProps {
-  settingKey: SettingKey;
+  /**
+   * Registered `SettingKey`, or a registry-backed field id (the
+   * connection fields retired from the settings schema by the
+   * multi-backend epic). Unregistered ids read as never-modified and
+   * their reset is a no-op, so such fields pass their own `modified` /
+   * `onReset` overrides.
+   */
+  settingKey: SettingKey | (string & {});
   label: string;
   description: string;
   experimental?: boolean;
@@ -74,8 +81,10 @@ const FieldRow: React.FC<FieldRowProps> = ({
   resetTooltip = 'Reset to default',
 }) => {
   const { token } = theme.useToken();
-  const storeModified = useIsModified(settingKey);
-  const storeReset = useResetSetting(settingKey);
+  // Unregistered ids are tolerated by the store hooks (never modified,
+  // no-op reset) — the same key-narrowing cast `useUntypedSetting` makes.
+  const storeModified = useIsModified(settingKey as SettingKey);
+  const storeReset = useResetSetting(settingKey as SettingKey);
   const modified = modifiedOverride ?? storeModified;
   const reset = onReset ?? storeReset;
   const { isConnected } = useSettingsConnection();

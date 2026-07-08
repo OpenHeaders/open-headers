@@ -7,14 +7,36 @@
  * snapshot the re-imported `websocket.ts` writes into the same instance
  * the test reads back.
  */
+import type { BackendConnection } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 let settingsStore: Record<string, unknown> = {};
+let primary: BackendConnection | null = null;
 
 vi.mock('@openheaders/ui/workbench/settings/store', () => ({
   get: vi.fn((key: string) => settingsStore[key]),
   subscribeKey: vi.fn(() => () => undefined),
 }));
+
+vi.mock('@openheaders/core/backends', () => ({
+  getPrimaryBackend: vi.fn(() => primary),
+  subscribeBackends: vi.fn(() => () => undefined),
+  updatePrimaryBackend: vi.fn(() => Promise.resolve(primary)),
+}));
+
+function makePrimary(overrides: Partial<BackendConnection> = {}): BackendConnection {
+  return {
+    id: 'backend-1',
+    label: '',
+    url: 'ws://127.0.0.1:8137',
+    authToken: '',
+    autoConnect: true,
+    enabled: true,
+    addedAt: '2026-07-01T00:00:00.000Z',
+    lastConnectedAt: null,
+    ...overrides,
+  };
+}
 
 vi.mock('@utils/browser-api', () => ({
   isChrome: true,
@@ -97,13 +119,11 @@ async function flushMicrotasks(): Promise<void> {
 describe('websocket sync Status subsystem', () => {
   beforeEach(() => {
     settingsStore = {
-      'backend.autoConnect': true,
-      'backend.mode': 'desktop-app',
-      'backend.url': 'ws://127.0.0.1:8137',
       'backend.reconnectDelayMs': 1000,
       'backend.maxReconnectDelayMs': 30000,
       'backend.pingIntervalMs': 0,
     };
+    primary = makePrimary();
     vi.clearAllMocks();
   });
 
@@ -112,8 +132,17 @@ describe('websocket sync Status subsystem', () => {
     status.__resetStatusForTests();
   });
 
+  it('reports green "Running in this browser" when no backend is enabled', async () => {
+    primary = null;
+    const { connectWebSocket, syncEntry } = await loadWebsocket();
+    const result = await connectWebSocket();
+    expect(result).toBe(false);
+    expect(syncEntry()?.state).toBe('green');
+    expect(syncEntry()?.message).toBe('Running in this browser');
+  });
+
   it('reports green "Back-end sync disabled" when autoConnect is off', async () => {
-    settingsStore['backend.autoConnect'] = false;
+    primary = makePrimary({ autoConnect: false });
     const { connectWebSocket, syncEntry } = await loadWebsocket();
     const result = await connectWebSocket();
     expect(result).toBe(false);
@@ -121,8 +150,8 @@ describe('websocket sync Status subsystem', () => {
     expect(syncEntry()?.message).toBe('Back-end sync disabled');
   });
 
-  it('reports yellow "URL rejected" when settings returns an empty url', async () => {
-    settingsStore['backend.url'] = '';
+  it('reports yellow "URL rejected" when the primary record has an empty url', async () => {
+    primary = makePrimary({ url: '' });
     const { connectWebSocket, syncEntry } = await loadWebsocket();
     const result = await connectWebSocket();
     expect(result).toBe(false);

@@ -22,13 +22,15 @@ import { ArrowRightOutlined } from '@ant-design/icons';
 import { Alert, Checkbox, theme, Typography } from 'antd';
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import { updatePrimaryBackend } from '@openheaders/core/backends';
 import { hasCapability } from '@openheaders/core/capabilities';
+import { usePrimaryBackendUrl } from '../../../shared/backend';
 import { getCurrentHost, type Host } from '../../../shared/host-vocabulary';
 import { useOptionalInspectorNav } from '../../hooks/useInspectorNav';
 import { useOptionalSettingsHost } from './settings-host-context';
 import type { BackendMode } from '../schema/backend';
 import { backendModeIsPending } from '../schema/backend';
-import { useSetting, useSettingValue } from '../hooks';
+import { useSetting } from '../hooks';
 import { ConnectionDraftProvider } from './connection-draft';
 import { ApplyBar } from './backend-apply-bar';
 import { BackendPreviewModeProvider } from './backend-preview-context';
@@ -90,7 +92,7 @@ const BackendPaneInner: React.FC<CategoryPaneProps> = ({ category, defs }) => {
 
   const activeScenario = SCENARIOS.find((s) => s.mode === mode) ?? SCENARIOS[0];
   const previewScenario = SCENARIOS.find((s) => s.mode === previewMode) ?? activeScenario;
-  const fieldDefs = defs.filter((d) => d.key !== 'backend.mode' && d.key !== 'backend.showDiagrams');
+  const fieldDefs = defs.filter((d) => d.key !== 'backend.showDiagrams');
   const previewPending = backendModeIsPending(previewScenario.mode);
   const liveBackend = useBackendLive(activeScenario.mode, host);
   const previewingNonActive = previewMode !== mode;
@@ -267,8 +269,10 @@ const DetailFrame: React.FC<{ children: React.ReactNode; previewingNonActive: bo
  */
 const RePairBanner: React.FC<{ mode: BackendMode; host: Host }> = ({ mode, host }) => {
   const authRequired = useBackendAuthRequired(mode, host);
-  const url = useSettingValue('backend.url');
-  const [, setToken] = useSetting('backend.authToken');
+  const url = usePrimaryBackendUrl();
+  const setToken = (token: string): void => {
+    void updatePrimaryBackend({ authToken: token });
+  };
   if (!authRequired || !hasCapability('pairWithCode')) return null;
   return (
     <Alert
