@@ -24,6 +24,8 @@ function makeConfig(overrides: Partial<DaemonConfig> = {}): DaemonConfig {
     bindAddress: '127.0.0.1',
     bindPort: 8137,
     logLevel: 'info',
+    trustedProxy: false,
+    allowedHosts: [],
     configPath: path.join(dataDir, 'daemon.json'),
     ...overrides,
   };

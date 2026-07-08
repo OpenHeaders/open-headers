@@ -1,8 +1,9 @@
 /**
  * Daemon configuration — one `daemon.json` file plus env/argv overrides
  * (DAEMON_PLAN.md §6). Precedence, highest first: argv → env → config
- * file → defaults. Carries the bind, data dir, and log level; TLS
- * joins in Phase 3.
+ * file → defaults. Carries the bind, data dir, log level, and the
+ * Phase-3 reverse-proxy posture (`trustedProxy`, `allowedHosts`);
+ * native TLS certs stay optional and later.
  *
  * The data dir defaults to the platform state dir and holds everything
  * the daemon persists (`storage.json`, `oracle.db`, `blobs/`). The
@@ -28,6 +29,20 @@ export interface DaemonConfig {
   bindPort: number;
   /** Minimum level the daemon logger emits. */
   logLevel: LogLevel;
+  /**
+   * A trusted reverse proxy fronts this daemon (Phase 3 TLS posture) —
+   * peer identity for auth logs and brute-force limits comes from the
+   * last `X-Forwarded-For` entry instead of the socket address. Never
+   * enable without a proxy: clients could spoof the header.
+   */
+  trustedProxy: boolean;
+  /**
+   * Hostnames the daemon may be addressed as, beyond the always-allowed
+   * IP literals / `localhost` / `*.local` — e.g. the reverse proxy's
+   * domain. Anything else on the browser-facing routes is refused
+   * (DNS-rebinding guard).
+   */
+  allowedHosts: string[];
   /** The `daemon.json` path that was consulted (whether or not it existed). */
   configPath: string;
 }
@@ -38,6 +53,8 @@ interface ConfigFile {
   bindAddress?: string;
   bindPort?: number;
   logLevel?: string;
+  trustedProxy?: boolean;
+  allowedHosts?: string[];
 }
 
 export interface ResolveConfigInput {
@@ -80,6 +97,25 @@ function parseLogLevel(raw: string, source: string): LogLevel {
   throw new Error(`${source}: log level must be one of error, warn, info, debug — got '${raw}'`);
 }
 
+function parseBooleanEnv(raw: string, source: string): boolean {
+  if (raw === '1' || raw === 'true') return true;
+  if (raw === '0' || raw === 'false') return false;
+  throw new Error(`${source}: expected 1/0/true/false, got '${raw}'`);
+}
+
+/**
+ * One allowed host = a bare hostname — no scheme, port, path, or
+ * wildcard. Refuse anything URL-shaped so `https://oh.example.com`
+ * pasted into the config fails loudly instead of never matching.
+ */
+function parseAllowedHost(raw: string, source: string): string {
+  const trimmed = raw.trim().toLowerCase();
+  if (!trimmed || /[/:@#?*\s]/.test(trimmed)) {
+    throw new Error(`${source}: allowed host must be a bare hostname (e.g. oh.example.com), got '${raw}'`);
+  }
+  return trimmed;
+}
+
 function readConfigFile(configPath: string): ConfigFile {
   let text: string;
   try {
@@ -109,6 +145,16 @@ function readConfigFile(configPath: string): ConfigFile {
     if (typeof record.logLevel !== 'string') throw new Error(`${configPath}: logLevel must be a string`);
     out.logLevel = record.logLevel;
   }
+  if (record.trustedProxy !== undefined) {
+    if (typeof record.trustedProxy !== 'boolean') throw new Error(`${configPath}: trustedProxy must be a boolean`);
+    out.trustedProxy = record.trustedProxy;
+  }
+  if (record.allowedHosts !== undefined) {
+    if (!Array.isArray(record.allowedHosts) || record.allowedHosts.some((h) => typeof h !== 'string')) {
+      throw new Error(`${configPath}: allowedHosts must be an array of strings`);
+    }
+    out.allowedHosts = record.allowedHosts.filter((h): h is string => typeof h === 'string');
+  }
   return out;
 }
 
@@ -128,6 +174,8 @@ export function resolveDaemonConfig(input: ResolveConfigInput): DaemonConfig {
       'bind-address': { type: 'string' },
       'bind-port': { type: 'string' },
       'log-level': { type: 'string' },
+      'trusted-proxy': { type: 'boolean' },
+      'allowed-host': { type: 'string', multiple: true },
     },
   });
 
@@ -152,5 +200,20 @@ export function resolveDaemonConfig(input: ResolveConfigInput): DaemonConfig {
   const rawLevel = values['log-level'] ?? input.env.OH_DAEMON_LOG_LEVEL ?? file.logLevel;
   const logLevel = rawLevel === undefined ? 'info' : parseLogLevel(rawLevel, 'log level');
 
-  return { dataDir, bindAddress, bindPort, logLevel, configPath };
+  const envTrustedProxy = input.env.OH_DAEMON_TRUSTED_PROXY;
+  const trustedProxy =
+    values['trusted-proxy'] ??
+    (envTrustedProxy !== undefined ? parseBooleanEnv(envTrustedProxy, 'trusted proxy') : undefined) ??
+    file.trustedProxy ??
+    false;
+
+  const envAllowedHosts = input.env.OH_DAEMON_ALLOWED_HOSTS;
+  const rawAllowedHosts =
+    values['allowed-host'] ??
+    (envAllowedHosts !== undefined ? envAllowedHosts.split(',').filter((h) => h.trim() !== '') : undefined) ??
+    file.allowedHosts ??
+    [];
+  const allowedHosts = rawAllowedHosts.map((h) => parseAllowedHost(h, 'allowed host'));
+
+  return { dataDir, bindAddress, bindPort, logLevel, trustedProxy, allowedHosts, configPath };
 }

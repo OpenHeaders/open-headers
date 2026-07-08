@@ -191,7 +191,10 @@ function reportWireStatus(wire: ManagedWire): void {
 
 async function checkServerReachable(wsUrl: string): Promise<boolean> {
   try {
-    const httpUrl = wsUrl.replace('ws://', 'http://');
+    // Scheme-preserving probe: a wss:// backend (TLS-terminating reverse
+    // proxy) must be probed over https, or fetch rejects the URL outright
+    // and the wire never dials.
+    const httpUrl = wsUrl.replace(/^ws:/i, 'http:').replace(/^wss:/i, 'https:');
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 500);
     await fetch(httpUrl, { method: 'GET', signal: controller.signal, mode: 'no-cors' });

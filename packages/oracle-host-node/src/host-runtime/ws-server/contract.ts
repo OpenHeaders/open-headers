@@ -1,7 +1,26 @@
 // ── Public contract — options + server API + peer snapshots ────────
 
+import type { IncomingMessage } from 'node:http';
 import type { LocalHandshakeIdentity } from '@openheaders/oracle/rpc';
 import type { PairingHttpHandler } from '../pairing-http';
+
+export type WsUpgradeVerdict = { readonly ok: true } | { readonly ok: false; readonly reason: string };
+
+/**
+ * Admission seam for accepted upgrades — declared structurally here so
+ * the transport stays independent of the daemon spine's admission
+ * module (same discipline as `SpineStatusStore`). When present, every
+ * accepted socket is admitted before its HELLO gate runs, and
+ * `auth-required` HELLO rejects feed the caller's brute-force limiter.
+ */
+export interface WsAdmissionHooks {
+  /** Refuse (close 1008) or admit one accepted upgrade before HELLO. */
+  admitUpgrade(request: IncomingMessage): WsUpgradeVerdict;
+  /** Count one failed HELLO authentication for this peer. */
+  recordAuthFailure(request: IncomingMessage): void;
+  /** Peer address for log lines — trusted-proxy-aware when configured. */
+  resolvePeer(request: IncomingMessage): string;
+}
 
 export interface OracleWsServerOptions {
   /** Bind address — `127.0.0.1` for local-only, `0.0.0.0` for LAN. */
@@ -24,6 +43,13 @@ export interface OracleWsServerOptions {
    * without spinning a second port. See {@link createPairingHttpHandler}.
    */
   httpRequestHandler?: PairingHttpHandler;
+  /**
+   * Optional admission seam — Origin/Host matrix + brute-force limiter
+   * evaluated per accepted upgrade, before the HELLO gate. Absent (test
+   * harnesses, legacy callers) every upgrade is admitted, matching the
+   * pre-Phase-3 behavior.
+   */
+  admission?: WsAdmissionHooks;
   /**
    * Override the per-connection loopback classification. Defaults to
    * `isLoopbackRemote` over the socket's remote address. A real

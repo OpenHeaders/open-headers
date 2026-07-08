@@ -73,6 +73,12 @@ interface SupervisorOptions {
    */
   httpRequestHandler?: OracleWsServerOptions['httpRequestHandler'];
   /**
+   * Optional admission seam (Phase 3) — Origin/Host matrix + brute-force
+   * limiter applied to every WS upgrade. Passes straight through to
+   * `startOracleWsServer` on every bind the supervisor opens.
+   */
+  admission?: OracleWsServerOptions['admission'];
+  /**
    * Receives every up-to-date server handle (or null while a rebind is
    * in flight). Wires onto `setMutationForwarderWsServer` and the
    * boot-wiring's local `wsServer` reference.
@@ -158,6 +164,7 @@ export async function startDaemonBindSupervisor(options: SupervisorOptions): Pro
         port: target.port,
         handshakeIdentity: options.handshakeIdentity,
         httpRequestHandler: options.httpRequestHandler,
+        admission: options.admission,
       });
       if (disposed) {
         await next.close().catch(() => undefined);

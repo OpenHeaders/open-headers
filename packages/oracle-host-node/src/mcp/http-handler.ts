@@ -47,6 +47,12 @@ export interface McpHttpHandlerOptions {
   readonly getPolicy: () => McpPolicy;
   /** Host app version, announced in the MCP `initialize` response. */
   readonly serverVersion: string;
+  /**
+   * Peer address for rejection log lines. Defaults to the socket's
+   * remote address; the daemon spine injects a trusted-proxy-aware
+   * resolver so logs behind a reverse proxy carry the real client.
+   */
+  readonly resolvePeer?: (req: IncomingMessage) => string;
 }
 
 /** Same contract as `PairingHttpHandler` — `true` = response owned. */
@@ -89,7 +95,7 @@ function readBearerSecret(req: IncomingMessage): string | undefined {
 }
 
 export function createMcpHttpHandler(options: McpHttpHandlerOptions): McpHttpHandler {
-  const { registry, isEnabled, getPolicy, serverVersion } = options;
+  const { registry, isEnabled, getPolicy, serverVersion, resolvePeer } = options;
 
   return (req, res) => {
     if (!isMcpPath(req.url)) return false;
@@ -99,7 +105,7 @@ export function createMcpHttpHandler(options: McpHttpHandlerOptions): McpHttpHan
       return true;
     }
 
-    const remoteAddress = req.socket.remoteAddress ?? 'unknown';
+    const remoteAddress = resolvePeer?.(req) ?? req.socket.remoteAddress ?? 'unknown';
     if (req.headers.origin !== undefined) {
       logger.info(
         SCOPE,

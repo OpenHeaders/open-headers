@@ -17,6 +17,7 @@
  * flip applies immediately — no rebind, no app restart.
  */
 
+import type { IncomingMessage } from 'node:http';
 import { hostStorage, OH } from '@openheaders/core/storage';
 import { createNodeRequestTransport } from '../live/node-request-transport';
 import {
@@ -52,6 +53,8 @@ function policyFromSettings(values: Record<string, unknown> | undefined): { enab
 export interface InstallMcpServerOptions {
   /** Reported in the MCP `initialize` result — the host app's version. */
   serverVersion: string;
+  /** Trusted-proxy-aware peer resolver for rejection log lines (Phase 3). */
+  resolvePeer?: (req: IncomingMessage) => string;
 }
 
 export async function installMcpServer(options: InstallMcpServerOptions): Promise<McpServerInstall> {
@@ -77,6 +80,7 @@ export async function installMcpServer(options: InstallMcpServerOptions): Promis
     isEnabled: () => current.enabled,
     getPolicy: () => current.policy,
     serverVersion: options.serverVersion,
+    resolvePeer: options.resolvePeer,
   });
 
   return {

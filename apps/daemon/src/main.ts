@@ -77,9 +77,11 @@ async function main(): Promise<void> {
     'backend.bindPort': config.bindPort,
   });
 
+  const proxyNote = config.trustedProxy ? ', behind trusted proxy' : '';
+  const hostsNote = config.allowedHosts.length > 0 ? `, allowed hosts ${config.allowedHosts.join(' ')}` : '';
   log.info(
     SCOPE,
-    `starting v${appVersion} — data dir ${config.dataDir}, bind ${config.bindAddress}:${config.bindPort}`,
+    `starting v${appVersion} — data dir ${config.dataDir}, bind ${config.bindAddress}:${config.bindPort}${proxyNote}${hostsNote}`,
   );
 
   const spine = await bootDaemonSpine({
@@ -98,6 +100,10 @@ async function main(): Promise<void> {
     localAppId: 'daemon',
     hostStorage,
     status: createDaemonStatusStore(),
+    admission: {
+      trustedProxy: config.trustedProxy,
+      allowedHosts: config.allowedHosts,
+    },
     broadcastLocal: () => {
       // No same-process surfaces yet — the served web app (Phase 4)
       // joins over the WS sync protocol like every other peer.

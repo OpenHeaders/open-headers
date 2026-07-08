@@ -85,6 +85,28 @@ describe('resolveDaemonConfig — precedence', () => {
     expect(resolve(['--config', file], { OH_DAEMON_LOG_LEVEL: 'warn' }).logLevel).toBe('warn');
     expect(resolve(['--config', file, '--log-level', 'debug'], { OH_DAEMON_LOG_LEVEL: 'warn' }).logLevel).toBe('debug');
   });
+
+  it('resolves trustedProxy through the chain, defaulting to off', () => {
+    expect(resolve().trustedProxy).toBe(false);
+    const file = writeConfigFile({ trustedProxy: true });
+    expect(resolve(['--config', file]).trustedProxy).toBe(true);
+    expect(resolve(['--config', file], { OH_DAEMON_TRUSTED_PROXY: 'false' }).trustedProxy).toBe(false);
+    expect(resolve(['--trusted-proxy'], { OH_DAEMON_TRUSTED_PROXY: 'false' }).trustedProxy).toBe(true);
+  });
+
+  it('resolves allowedHosts through the chain, lower-cased, defaulting to none', () => {
+    expect(resolve().allowedHosts).toEqual([]);
+    const file = writeConfigFile({ allowedHosts: ['oh.openheaders.io'] });
+    expect(resolve(['--config', file]).allowedHosts).toEqual(['oh.openheaders.io']);
+    expect(
+      resolve(['--config', file], { OH_DAEMON_ALLOWED_HOSTS: 'A.openheaders.io,b.openheaders.io' }).allowedHosts,
+    ).toEqual(['a.openheaders.io', 'b.openheaders.io']);
+    expect(
+      resolve(['--allowed-host', 'c.openheaders.io', '--allowed-host', 'd.openheaders.io'], {
+        OH_DAEMON_ALLOWED_HOSTS: 'a.openheaders.io',
+      }).allowedHosts,
+    ).toEqual(['c.openheaders.io', 'd.openheaders.io']);
+  });
 });
 
 describe('resolveDaemonConfig — validation', () => {
@@ -103,5 +125,15 @@ describe('resolveDaemonConfig — validation', () => {
 
   it('rejects an unknown log level', () => {
     expect(() => resolve(['--log-level', 'verbose'])).toThrow(/log level/);
+  });
+
+  it('rejects a malformed trusted-proxy env value', () => {
+    expect(() => resolve([], { OH_DAEMON_TRUSTED_PROXY: 'yes' })).toThrow(/trusted proxy/);
+  });
+
+  it('rejects URL-shaped allowed hosts rather than never matching them', () => {
+    expect(() => resolve(['--allowed-host', 'https://oh.openheaders.io'])).toThrow(/bare hostname/);
+    expect(() => resolve(['--allowed-host', 'oh.openheaders.io:443'])).toThrow(/bare hostname/);
+    expect(() => resolve(['--allowed-host', '*.openheaders.io'])).toThrow(/bare hostname/);
   });
 });

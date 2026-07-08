@@ -86,6 +86,7 @@ import type { OracleWsServer, OracleWsServerOptions } from '../host-runtime/ws-s
 import { createSqliteSyncPersistence } from '../sync/sqlite-sync-persistence';
 import { observeForActivityFeed, setActivityLog, subscribeActivityEntries } from './activity-installer';
 import { installActivityPruneScheduler } from './activity-prune-scheduler';
+import { createAdmissionControl } from './admission-control';
 import { type DaemonBindSupervisor, startDaemonBindSupervisor } from './bind-supervisor';
 import { createHealthzHandler } from './healthz';
 import { listLanIpv4Addresses } from './lan-addresses';
@@ -130,6 +131,18 @@ export interface DaemonSpineConfig {
    * NOT the caller's concern — the spine forwards to them itself.
    */
   broadcastLocal: (type: string, payload: unknown) => void;
+  /**
+   * WAN-hardening posture (Phase 3). Absent = defaults: no trusted
+   * proxy, no extra allowed hosts — the matrix still admits IP
+   * literals, `localhost`, and `*.local`, which covers every direct
+   * loopback/LAN deployment (the desktop host passes nothing).
+   */
+  admission?: {
+    /** A trusted reverse proxy fronts the bind — peer identity comes from `X-Forwarded-For`. */
+    trustedProxy?: boolean;
+    /** Hostnames the daemon answers as (a reverse-proxy domain, an intranet name). */
+    allowedHosts?: readonly string[];
+  };
 }
 
 export interface DaemonSpineHandle {
@@ -333,6 +346,14 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   //     into the host's `live` status pill (C5). Torn down in dispose.
   startLiveRunner({ reportStatus: status.report });
 
+  // 4a'. Phase-3 admission — one Origin/Host matrix + brute-force
+  //      limiter for every plane on the composed bind. Wraps the HTTP
+  //      chain below and gates WS upgrades through the supervisor.
+  const admission = createAdmissionControl({
+    trustedProxy: config.admission?.trustedProxy,
+    allowedHosts: config.admission?.allowedHosts,
+  });
+
   // 4b. Daemon device-flow pairing surface (U3.3). One service instance
   //     per process; the HTTP handler is rebuilt with that service and
   //     handed to every bind the supervisor opens. Polling-only local
@@ -349,7 +370,10 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   //     tools over stateless streamable HTTP, gated by the `mcp.enabled`
   //     setting (default off) + a paired daemon token per request. Rides
   //     the same bound socket as pairing via handler composition below.
-  const mcpInstall = await installMcpServer({ serverVersion: config.appVersion });
+  const mcpInstall = await installMcpServer({
+    serverVersion: config.appVersion,
+    resolvePeer: admission.resolvePeer,
+  });
 
   // 5. RPC dispatch for local surfaces. Pairing channels are intercepted
   //    ahead of `dispatchSyncRpc` — they're admin-only surface RPCs, not
@@ -478,8 +502,10 @@ export async function bootDaemonSpine(config: DaemonSpineConfig): Promise<Daemon
   try {
     bindSupervisor = await startDaemonBindSupervisor({
       handshakeIdentity: config.handshakeIdentity,
-      httpRequestHandler: (req, res) =>
-        healthzHandler(req, res) || pairingHttpHandler(req, res) || mcpInstall.handler(req, res),
+      httpRequestHandler: admission.wrapHttpHandler(
+        (req, res) => healthzHandler(req, res) || pairingHttpHandler(req, res) || mcpInstall.handler(req, res),
+      ),
+      admission: admission.wsHooks,
       onServerChange: (next) => {
         wsServer = next;
         setMutationForwarderWsServer(next);

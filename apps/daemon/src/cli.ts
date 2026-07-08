@@ -31,6 +31,8 @@ const CONFIG_OPTIONS = {
   'bind-address': { type: 'string' },
   'bind-port': { type: 'string' },
   'log-level': { type: 'string' },
+  'trusted-proxy': { type: 'boolean' },
+  'allowed-host': { type: 'string', multiple: true },
 } as const;
 
 const USAGE = `oh v${cliVersion} — Open Headers command line
@@ -51,6 +53,10 @@ Options (install / status / show-token):
   --bind-address <addr>    127.0.0.1 (loopback) or 0.0.0.0 (LAN)
   --bind-port <port>       Sync/HTTP port (default 8137)
   --log-level <level>      error | warn | info | debug (default info)
+  --trusted-proxy          A reverse proxy fronts the daemon; take the peer
+                           address from X-Forwarded-For (never set without one)
+  --allowed-host <name>    Hostname the daemon answers as (repeatable) — e.g.
+                           the reverse proxy's domain; IPs/localhost always work
   --label <text>           show-token only: label for the minted token
 `;
 
@@ -64,6 +70,8 @@ interface ConfigFlagValues {
   'bind-address'?: string;
   'bind-port'?: string;
   'log-level'?: string;
+  'trusted-proxy'?: boolean;
+  'allowed-host'?: string[];
 }
 
 interface ParsedConfigCommand {
@@ -80,6 +88,8 @@ function resolveConfigFlags(values: ConfigFlagValues): ParsedConfigCommand {
     const value = values[flag];
     if (typeof value === 'string') configArgv.push(`--${flag}`, value);
   }
+  if (values['trusted-proxy']) configArgv.push('--trusted-proxy');
+  for (const host of values['allowed-host'] ?? []) configArgv.push('--allowed-host', host);
   const config = resolveDaemonConfig({ argv: configArgv, env: process.env });
   const unitArgs: string[] = [];
   if (values.config !== undefined) unitArgs.push('--config', config.configPath);
@@ -87,6 +97,10 @@ function resolveConfigFlags(values: ConfigFlagValues): ParsedConfigCommand {
   if (values['bind-address'] !== undefined) unitArgs.push('--bind-address', config.bindAddress);
   if (values['bind-port'] !== undefined) unitArgs.push('--bind-port', String(config.bindPort));
   if (values['log-level'] !== undefined) unitArgs.push('--log-level', config.logLevel);
+  if (values['trusted-proxy'] !== undefined && config.trustedProxy) unitArgs.push('--trusted-proxy');
+  if (values['allowed-host'] !== undefined) {
+    for (const host of config.allowedHosts) unitArgs.push('--allowed-host', host);
+  }
   return { config, unitArgs };
 }
 

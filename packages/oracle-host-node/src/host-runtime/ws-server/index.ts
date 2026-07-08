@@ -61,5 +61,7 @@ export type {
   PeerChangeKind,
   PeerChangeListener,
   PeerSummary,
+  WsAdmissionHooks,
+  WsUpgradeVerdict,
 } from './contract';
 export { startOracleWsServer } from './server';

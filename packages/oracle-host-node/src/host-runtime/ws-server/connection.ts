@@ -6,6 +6,7 @@ import { hostLogger as logger } from '@openheaders/core/logger';
 import {
   type BackendReach,
   HANDSHAKE_REJECT_CLOSE_CODE,
+  HANDSHAKE_REJECT_REASONS,
   PROTOCOL_INCOMPATIBLE_CLOSE_CODE,
   SYNC_HELLO_TYPE,
   SYNC_STATE_VECTOR_TYPE,
@@ -18,7 +19,7 @@ import {
   type LocalHandshakeIdentity,
 } from '@openheaders/oracle/rpc';
 import { type RawData, WebSocket } from 'ws';
-import type { PeerSummary } from './contract';
+import type { PeerSummary, WsAdmissionHooks } from './contract';
 import type { PeerRegistry } from './peer-registry';
 import { SCOPE } from './shared';
 
@@ -53,6 +54,8 @@ export interface ConnectionDeps {
   /** This server's bind-reach tier — advertised through the HELLO gate. */
   reach: BackendReach;
   classifyLoopback: (remoteAddress: string | undefined) => boolean;
+  /** Optional Phase-3 admission seam — see {@link WsAdmissionHooks}. */
+  admission?: WsAdmissionHooks;
 }
 
 /**
@@ -61,15 +64,32 @@ export interface ConnectionDeps {
  * cleanup. All shared state lives in `deps.registry`.
  */
 export function handleConnection(socket: WebSocket, request: IncomingMessage, deps: ConnectionDeps): void {
-  const { registry, handshakeIdentity, reach, classifyLoopback } = deps;
+  const { registry, handshakeIdentity, reach, classifyLoopback, admission } = deps;
   const { ready, peerBySocket, summaryBySocket, alive } = registry;
   // Auth is mandatory on every connection. Loopback is reachable
   // cross-user on a shared box and TCP blocks OS peer-cred, so
   // trust-by-process is not a sound floor — every peer presents a
   // paired token. `isLoopback` is kept for reporting + reach, not auth.
   const isLoopback = classifyLoopback(request.socket.remoteAddress);
-  const remoteAddress = request.socket.remoteAddress ?? 'unknown';
+  const remoteAddress = admission?.resolvePeer(request) ?? request.socket.remoteAddress ?? 'unknown';
   const requireAuth = true;
+  // Phase-3 admission — Origin/Host matrix + brute-force throttle,
+  // evaluated before any protocol state exists. `ws` has already
+  // completed the 101 by the time `'connection'` fires, so a refusal is
+  // a policy-violation close rather than an HTTP status; the peer never
+  // reaches the HELLO gate.
+  if (admission) {
+    const verdict = admission.admitUpgrade(request);
+    if (!verdict.ok) {
+      logger.info(SCOPE, `upgrade rejected: ${verdict.reason} (peer=${remoteAddress})`);
+      try {
+        socket.close(1008, verdict.reason);
+      } catch {
+        // ignore
+      }
+      return;
+    }
+  }
   // Heartbeat bookkeeping — a fresh socket is alive; a protocol-level
   // pong reply re-arms it (the message handler below re-arms on any
   // application frame too).
@@ -146,6 +166,12 @@ export function handleConnection(socket: WebSocket, request: IncomingMessage, de
           // One line per rejection with reason + peer — the auth-log
           // contract log scanners (fail2ban) match against.
           logger.info(SCOPE, `HELLO rejected: ${outcome.reason} (peer=${remoteAddress})`);
+          // Only authentication failures feed the brute-force limiter —
+          // a protocol-band or workspace mismatch is a version skew, not
+          // a guessing attack.
+          if (outcome.reason === HANDSHAKE_REJECT_REASONS.AUTH_REQUIRED) {
+            admission?.recordAuthFailure(request);
+          }
           // 4001 is reserved for protocol mismatches; every other
           // refusal closes with the policy-violation code and carries
           // the reject reason as the close reason, matching the in-band

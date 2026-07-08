@@ -111,7 +111,13 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
   let closed = false;
 
   wss.on('connection', (socket, request) => {
-    handleConnection(socket, request, { registry, handshakeIdentity, reach, classifyLoopback });
+    handleConnection(socket, request, {
+      registry,
+      handshakeIdentity,
+      reach,
+      classifyLoopback,
+      admission: options.admission,
+    });
   });
 
   // Server-driven liveness sweep. A peer that answered neither the prior
