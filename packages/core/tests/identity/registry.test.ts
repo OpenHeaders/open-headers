@@ -31,6 +31,7 @@ import {
   getOrgBackendBindings,
   installIdentitySnapshot,
   MAX_ORG_NAME_LENGTH,
+  pruneJoinedOrgsForBackend,
   recordJoinedOrg,
   refreshIdentitySnapshotFromHostStorage,
   renameHomeOrg,
@@ -222,6 +223,31 @@ describe('identity registry — joined-Org folding (U5.2)', () => {
     const record = await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
     await recordJoinedOrg(record.org, BACKEND_A);
     expect(await hostStorage.get(OH.joinedOrgs)).toBeUndefined();
+  });
+
+  it('pruneJoinedOrgsForBackend drops that backend rows, refreshes the snapshot, and reports the unbound Orgs', async () => {
+    await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
+    await seedBackends([makeBackend(BACKEND_A), makeBackend(BACKEND_B)]);
+    await recordJoinedOrg(BACKEND_ORG, BACKEND_A);
+    await recordJoinedOrg(OTHER_ORG, BACKEND_B);
+    const pruned = await pruneJoinedOrgsForBackend(BACKEND_A);
+    expect(pruned).toEqual([normalized(BACKEND_ORG)]);
+    expect(await hostStorage.get(OH.joinedOrgs)).toEqual([joinedRow(OTHER_ORG, BACKEND_B)]);
+    // The snapshot rebuilt without the pruned Org; the other binding survives.
+    const snapshot = getIdentitySnapshot();
+    expect(snapshot?.orgs.has(BACKEND_ORG.id)).toBe(false);
+    expect(snapshot?.orgs.has(OTHER_ORG.id)).toBe(true);
+    expect(getOrgBackendBindings().get(OTHER_ORG.id)).toBe(BACKEND_B);
+    expect(getOrgBackendBindings().has(BACKEND_ORG.id)).toBe(false);
+  });
+
+  it('pruneJoinedOrgsForBackend is a no-write no-op when nothing is bound to that backend', async () => {
+    await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
+    await seedBackends([makeBackend(BACKEND_A)]);
+    await recordJoinedOrg(BACKEND_ORG, BACKEND_A);
+    const before = await hostStorage.get(OH.joinedOrgs);
+    expect(await pruneJoinedOrgsForBackend(BACKEND_B)).toEqual([]);
+    expect(await hostStorage.get(OH.joinedOrgs)).toEqual(before);
   });
 
   it('serializes concurrent joins of distinct backends — neither write is clobbered', async () => {

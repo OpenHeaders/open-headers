@@ -21,6 +21,7 @@
  * record shape doesn't change.
  */
 
+import { pruneJoinedOrgsForBackend } from '../identity/registry';
 import { WS_SERVER_URL } from '../protocol';
 import { hostStorage } from '../storage/host-storage';
 import { OH } from '../storage/keys';
@@ -128,6 +129,48 @@ export function updatePrimaryBackend(patch: BackendConnectionPatch): Promise<Bac
     install(list);
     return next;
   });
+}
+
+/** Caller-suppliable fields of a new record; everything else is minted. */
+export type CreateBackendInput = Partial<Pick<BackendConnection, 'label' | 'url' | 'authToken' | 'autoConnect'>>;
+
+/**
+ * Append a new backend record. Born DISABLED regardless of input — a
+ * record only earns its wire through the explicit probe-gated enable
+ * (MULTI_BACKEND_PLAN.md §4: nothing connects until the probe passes).
+ * Unspecified fields take the same defaults as the cap-1 first write.
+ */
+export function createBackend(input: CreateBackendInput = {}): Promise<BackendConnection> {
+  return withBackendsLock(async () => {
+    const stored = (await hostStorage.get(OH.backends)) ?? [];
+    const next: BackendConnection = { ...freshBackendConnection(), ...input, enabled: false };
+    const list = [...stored, next];
+    await hostStorage.set(OH.backends, list);
+    install(list);
+    return next;
+  });
+}
+
+/**
+ * Delete the record with `id` and prune its `OH.joinedOrgs` rows — the
+ * deliberate unbind (fold-by-presence drops the Orgs the moment the
+ * record is gone; the prune keeps the persisted rows from lingering as
+ * tolerated orphans). Returns false when no such record existed. Each
+ * store runs under its own lock; the prune follows the removal so a
+ * concurrent refresh never re-folds the pruned rows.
+ */
+export async function removeBackend(id: string): Promise<boolean> {
+  const removed = await withBackendsLock(async () => {
+    const stored = (await hostStorage.get(OH.backends)) ?? [];
+    const list = stored.filter((b) => b.id !== id);
+    if (list.length === stored.length) return false;
+    await hostStorage.set(OH.backends, list);
+    install(list);
+    return true;
+  });
+  if (!removed) return false;
+  await pruneJoinedOrgsForBackend(id);
+  return true;
 }
 
 /**

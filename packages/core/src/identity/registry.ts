@@ -267,6 +267,27 @@ export async function claimJoinedOrg(org: Org, backendId: string): Promise<Claim
   return { outcome: 'joined', snapshot: await refreshIdentitySnapshotFromHostStorage(), firstJoin };
 }
 
+/**
+ * Drop every `OH.joinedOrgs` row bound to `backendId`, then rebuild the
+ * snapshot. The designated cleaner behind the backend remove flow
+ * (MULTI_BACKEND_PLAN.md §4): the fold already tolerates orphan rows by
+ * presence-filtering them out, but removing the record is the moment the
+ * unbind becomes deliberate, so the rows go with it. Returns the pruned
+ * Orgs so the remove flow can name what was unbound.
+ */
+export async function pruneJoinedOrgsForBackend(backendId: string): Promise<readonly Org[]> {
+  let pruned: Org[] = [];
+  await withJoinedOrgsLock(async () => {
+    const existing = (await hostStorage.get(OH.joinedOrgs)) ?? [];
+    const kept = existing.filter((row) => row?.backendId !== backendId);
+    if (kept.length === existing.length) return;
+    pruned = existing.filter((row) => row?.backendId === backendId && row.org).map((row) => row.org);
+    await hostStorage.set(OH.joinedOrgs, kept);
+  });
+  await refreshIdentitySnapshotFromHostStorage();
+  return pruned;
+}
+
 /** Longest accepted home-Org name; the rename UI caps its input to match. */
 export const MAX_ORG_NAME_LENGTH = 60;
 

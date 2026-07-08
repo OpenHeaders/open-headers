@@ -17,11 +17,13 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   __clearBackendsForTests,
+  createBackend,
   getBackend,
   getBackends,
   getPrimaryBackend,
   isLoopbackBackendUrl,
   refreshBackendsFromHostStorage,
+  removeBackend,
   subscribeBackends,
   updateBackend,
   updatePrimaryBackend,
@@ -140,6 +142,47 @@ describe('backends registry — mirror + cap-1 writer', () => {
     await refreshBackendsFromHostStorage();
     expect(await updateBackend('missing', { label: 'ghost' })).toBeNull();
     expect(await hostStorage.get(OH.backends)).toEqual([STORED]);
+  });
+
+  it('createBackend appends a record born disabled, defaults filled', async () => {
+    await hostStorage.set(OH.backends, [STORED]);
+    await refreshBackendsFromHostStorage();
+    const created = await createBackend({ label: 'LAN box', url: 'ws://192.168.1.20:8137' });
+    expect(created.label).toBe('LAN box');
+    expect(created.url).toBe('ws://192.168.1.20:8137');
+    // Born disabled — the wire is earned through the probe-gated
+    // enable, never at creation (the input type can't even carry it).
+    expect(created.enabled).toBe(false);
+    expect(created.authToken).toBe('');
+    expect(created.autoConnect).toBe(true);
+    expect(created.id).not.toBe(STORED.id);
+    expect(await hostStorage.get(OH.backends)).toEqual([STORED, created]);
+    expect(getBackend(created.id)).toEqual(created);
+  });
+
+  it('removeBackend deletes exactly that record and reports a miss', async () => {
+    const second: BackendConnection = { ...STORED, id: '01900000-0000-7000-8000-0000000000bb', label: 'LAN' };
+    await hostStorage.set(OH.backends, [STORED, second]);
+    await refreshBackendsFromHostStorage();
+    expect(await removeBackend(second.id)).toBe(true);
+    expect(await hostStorage.get(OH.backends)).toEqual([STORED]);
+    expect(getBackend(second.id)).toBeNull();
+    expect(await removeBackend(second.id)).toBe(false);
+    expect(await hostStorage.get(OH.backends)).toEqual([STORED]);
+  });
+
+  it('removeBackend prunes the joined-Org rows bound to the removed record only', async () => {
+    const second: BackendConnection = { ...STORED, id: '01900000-0000-7000-8000-0000000000bb', label: 'LAN' };
+    await hostStorage.set(OH.backends, [STORED, second]);
+    const orgA = { id: 'org-a', name: 'Org A', hostKind: 'desktop', isPrivate: false } as const;
+    const orgB = { id: 'org-b', name: 'Org B', hostKind: 'daemon', isPrivate: false } as const;
+    await hostStorage.set(OH.joinedOrgs, [
+      { org: orgA, backendId: STORED.id },
+      { org: orgB, backendId: second.id },
+    ]);
+    await refreshBackendsFromHostStorage();
+    expect(await removeBackend(second.id)).toBe(true);
+    expect(await hostStorage.get(OH.joinedOrgs)).toEqual([{ org: orgA, backendId: STORED.id }]);
   });
 
   it('classifies loopback URLs', () => {
