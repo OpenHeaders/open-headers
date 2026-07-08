@@ -5,6 +5,22 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**", "dist-webpack/**"]
     },
+    "build:chrome": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/chrome/**"]
+    },
+    "build:firefox": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/firefox/**"]
+    },
+    "build:edge": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/edge/**"]
+    },
+    "build:safari": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/safari/**"]
+    },
     "typecheck": {
       "dependsOn": ["^build"]
     },
