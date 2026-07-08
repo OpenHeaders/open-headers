@@ -70,8 +70,11 @@ export {
 } from './org-catalogue';
 export { resolveOrgActiveWorkspace } from './org-workspace';
 export {
+  type ClaimJoinedOrgResult,
+  claimJoinedOrg,
   clearIdentitySnapshot,
   getIdentitySnapshot,
+  getOrgBackendBindings,
   type InstallIdentitySnapshotInput,
   installIdentitySnapshot,
   MAX_ORG_NAME_LENGTH,

@@ -7,11 +7,13 @@
 export {
   __clearBackendsForTests,
   type BackendConnectionPatch,
+  getBackend,
   getBackends,
   getPrimaryBackend,
   isLoopbackBackendUrl,
   refreshBackendsFromHostStorage,
   subscribeBackends,
+  updateBackend,
   updatePrimaryBackend,
   watchBackendsInHostStorage,
 } from './registry';

@@ -17,6 +17,22 @@ import type { IdentitySnapshot } from './resolver';
 
 let current: IdentitySnapshot | null = null;
 
+/**
+ * Org-id → `OH.backends` record id for every joined Org the snapshot
+ * folds (same presence filter as the fold itself). This is the routing
+ * key of the multi-backend connection plane (MULTI_BACKEND_PLAN.md §3):
+ * outbound envelopes go to exactly the backend bound to their `orgId`,
+ * and each connection's inbound gate accepts only its own Orgs. Kept in
+ * lockstep with the snapshot by the refresh path — every joined-org
+ * writer funnels through it.
+ */
+let orgBackendBindings: ReadonlyMap<string, string> = new Map();
+
+/** Synchronous read of the joined-Org → backend-record bindings. */
+export function getOrgBackendBindings(): ReadonlyMap<string, string> {
+  return orgBackendBindings;
+}
+
 export interface InstallIdentitySnapshotInput {
   record: SyntheticIdentityRecord;
   wras: ReadonlyArray<WorkspaceRoleAssignment>;
@@ -63,6 +79,7 @@ export function getIdentitySnapshot(): IdentitySnapshot | null {
 /** Drop the in-memory snapshot. Test-only. */
 export function clearIdentitySnapshot(): void {
   current = null;
+  orgBackendBindings = new Map();
 }
 
 /**
@@ -90,6 +107,7 @@ export function refreshIdentitySnapshotFromHostStorage(): Promise<IdentitySnapsh
     const record = await hostStorage.get(OH.syntheticIdentity);
     if (!record) {
       current = null;
+      orgBackendBindings = new Map();
       return null;
     }
     const wras = (await hostStorage.get(OH.workspaceRoleAssignments)) ?? [];
@@ -101,8 +119,9 @@ export function refreshIdentitySnapshotFromHostStorage(): Promise<IdentitySnapsh
     // Unbinding is the deliberate remove flow, which deletes the record
     // (and Phase 3 prunes the joined rows with it). Rows whose backend
     // is gone — or malformed pre-provenance rows — are not folded.
-    const joinedOrgs = joinedRecords.filter((row) => row?.org && backendIds.has(row.backendId)).map((row) => row.org);
-    return installIdentitySnapshot({ record, wras, joinedOrgs });
+    const foldedRows = joinedRecords.filter((row) => row?.org && backendIds.has(row.backendId));
+    orgBackendBindings = new Map(foldedRows.map((row) => [row.org.id, row.backendId]));
+    return installIdentitySnapshot({ record, wras, joinedOrgs: foldedRows.map((row) => row.org) });
   });
 }
 
@@ -154,12 +173,10 @@ export interface RecordJoinedOrgResult {
  * Orgs can't clobber each other.
  *
  * `backendId` is the `OH.backends` record the WELCOME arrived over —
- * the Org's provenance (MULTI_BACKEND_PLAN.md §2). The Org-uniqueness
- * guard ("an Org already bound to another backend is refused, never
- * re-bound") is the caller's WELCOME-processing gate, not this
- * registry's: under the Phase-1 cap there is only one backend, so a
- * differing stored `backendId` here can only be the same connection
- * record and is drift-updated in place.
+ * the Org's provenance (MULTI_BACKEND_PLAN.md §2). This writer does NOT
+ * enforce Org uniqueness — a differing stored `backendId` is
+ * drift-updated in place. WELCOME processing goes through
+ * {@link claimJoinedOrg}, which layers the uniqueness guard on top.
  */
 export async function recordJoinedOrg(org: Org, backendId: string): Promise<RecordJoinedOrgResult> {
   const record = await hostStorage.get(OH.syntheticIdentity);
@@ -173,27 +190,81 @@ export async function recordJoinedOrg(org: Org, backendId: string): Promise<Reco
   const nextRow: JoinedOrgRecord = { org: normalized, backendId };
   let firstJoin = false;
   await withJoinedOrgsLock(async () => {
-    const existing = (await hostStorage.get(OH.joinedOrgs)) ?? [];
-    const known = existing.find((row) => row?.org?.id === normalized.id);
-    if (!known) {
-      firstJoin = true;
-      await hostStorage.set(OH.joinedOrgs, [...existing, nextRow]);
-    } else if (
-      known.org.name !== normalized.name ||
-      known.org.isPrivate !== normalized.isPrivate ||
-      known.backendId !== backendId
-    ) {
-      // The backend renamed its Org, the persisted row predates
-      // boundary-normalization (legacy `isPrivate: true`), or the
-      // connection record was re-minted. Either way, re-store the
-      // freshest normalized copy under the delivering backend.
-      await hostStorage.set(
-        OH.joinedOrgs,
-        existing.map((row) => (row?.org?.id === normalized.id ? nextRow : row)),
-      );
-    }
+    firstJoin = await upsertJoinedOrgRowLocked(nextRow);
   });
   return { snapshot: await refreshIdentitySnapshotFromHostStorage(), firstJoin };
+}
+
+/**
+ * Upsert one `OH.joinedOrgs` row. Caller MUST hold
+ * {@link withJoinedOrgsLock}. Returns true when the Org was newly
+ * recorded (a first join, not a reconnect).
+ */
+async function upsertJoinedOrgRowLocked(nextRow: JoinedOrgRecord): Promise<boolean> {
+  const existing = (await hostStorage.get(OH.joinedOrgs)) ?? [];
+  const known = existing.find((row) => row?.org?.id === nextRow.org.id);
+  if (!known) {
+    await hostStorage.set(OH.joinedOrgs, [...existing, nextRow]);
+    return true;
+  }
+  if (
+    known.org.name !== nextRow.org.name ||
+    known.org.isPrivate !== nextRow.org.isPrivate ||
+    known.backendId !== nextRow.backendId
+  ) {
+    // The backend renamed its Org, the persisted row predates
+    // boundary-normalization (legacy `isPrivate: true`), or the
+    // connection record was re-minted. Either way, re-store the
+    // freshest normalized copy under the delivering backend.
+    await hostStorage.set(
+      OH.joinedOrgs,
+      existing.map((row) => (row?.org?.id === nextRow.org.id ? nextRow : row)),
+    );
+  }
+  return false;
+}
+
+/** Outcome of {@link claimJoinedOrg}. */
+export type ClaimJoinedOrgResult =
+  | ({ outcome: 'joined' } & RecordJoinedOrgResult)
+  | { outcome: 'refused'; boundBackendId: string };
+
+/**
+ * The Org-uniqueness-guarded join writer (MULTI_BACKEND_PLAN.md §2): an
+ * Org is authoritative on exactly one backend. A claim for an Org
+ * already bound to a *different, still-present* `OH.backends` record is
+ * refused — never silently re-bound, never double-consumed; the caller
+ * surfaces it. A binding pointing at a deleted connection record is
+ * stale and rebinds to the claimant (the same drift-update
+ * {@link recordJoinedOrg} performs under the Phase-1 cap). The guard
+ * and the upsert run under one lock so two concurrent WELCOMEs claiming
+ * the same Org serialize — the loser observes the winner's binding.
+ */
+export async function claimJoinedOrg(org: Org, backendId: string): Promise<ClaimJoinedOrgResult> {
+  const record = await hostStorage.get(OH.syntheticIdentity);
+  if (record && record.org.id === org.id) {
+    // The joiner's own home-org — nothing to record, not a join.
+    return { outcome: 'joined', snapshot: await refreshIdentitySnapshotFromHostStorage(), firstJoin: false };
+  }
+  const normalized: Org = org.isPrivate ? { ...org, isPrivate: false } : org;
+  let boundBackendId: string | null = null;
+  let firstJoin = false;
+  await withJoinedOrgsLock(async () => {
+    const existing = (await hostStorage.get(OH.joinedOrgs)) ?? [];
+    const known = existing.find((row) => row?.org?.id === normalized.id);
+    if (known && known.backendId !== backendId) {
+      const backends = (await hostStorage.get(OH.backends)) ?? [];
+      if (backends.some((b) => b.id === known.backendId)) {
+        boundBackendId = known.backendId;
+        return;
+      }
+    }
+    firstJoin = await upsertJoinedOrgRowLocked({ org: normalized, backendId });
+  });
+  if (boundBackendId !== null) {
+    return { outcome: 'refused', boundBackendId };
+  }
+  return { outcome: 'joined', snapshot: await refreshIdentitySnapshotFromHostStorage(), firstJoin };
 }
 
 /** Longest accepted home-Org name; the rename UI caps its input to match. */

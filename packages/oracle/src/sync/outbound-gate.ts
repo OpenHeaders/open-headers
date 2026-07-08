@@ -62,19 +62,22 @@ export function setOutboundEchoGuard(predicate: (mutationId: string) => boolean)
 }
 
 /**
- * Predicate: is the backend this host pushes to off-device (non-loopback)?
- * Host-coupled — the extension SW wires `() => !isLoopbackBackend()`. A
+ * Predicate: is the backend the envelope's `orgId` routes to off-device
+ * (non-loopback)? Host-coupled — the extension SW wires the Org-binding
+ * lookup (envelope Org → `OH.backends` record → loopback URL test). A
  * same-device-only mutation (vault root secret) must never cross to an
  * off-device backend; it may cross a loopback socket to the same device
  * (sanctioned by plan §B.2 — the same allowance the host-side gate makes
- * for a loopback peer). Defaults to "same-device" so an unwired host /
- * test harness never withholds — the reach drop engages only once a host
- * opts in by declaring its backend can be off-device.
+ * for a loopback peer). Per-Org because the multi-backend connection
+ * plane routes each envelope by its Org binding — one backend being
+ * off-device says nothing about another. Defaults to "same-device" so an
+ * unwired host / test harness never withholds — the reach drop engages
+ * only once a host opts in by declaring its backends can be off-device.
  */
-let isBackendOffDevice: () => boolean = () => false;
+let isBackendOffDevice: (orgId: string) => boolean = () => false;
 
 /** Install the backend-reach predicate. Called once by host boot wiring. */
-export function setOutboundReachGuard(predicate: () => boolean): void {
+export function setOutboundReachGuard(predicate: (orgId: string) => boolean): void {
   isBackendOffDevice = predicate;
 }
 
@@ -90,7 +93,7 @@ export function evaluateOutboundEnvelope(envelope: MutationEnvelope): OutboundVe
   // mirror of the host-side loopbackOnly broadcast + offDevicePeer catch-up
   // gates. Cheapest + strongest (entity-type + a host predicate, no
   // snapshot), so it runs first.
-  if (isSameDeviceOnlyMutation(envelope) && isBackendOffDevice()) {
+  if (isSameDeviceOnlyMutation(envelope) && isBackendOffDevice(envelope.orgId)) {
     return { allow: false, layer: 'reach', reason: `${envelope.body.type} is same-device-only` };
   }
 

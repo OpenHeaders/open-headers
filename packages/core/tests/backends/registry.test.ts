@@ -17,11 +17,13 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   __clearBackendsForTests,
+  getBackend,
   getBackends,
   getPrimaryBackend,
   isLoopbackBackendUrl,
   refreshBackendsFromHostStorage,
   subscribeBackends,
+  updateBackend,
   updatePrimaryBackend,
 } from '../../src/backends';
 import { hostStorage, setHostStorage } from '../../src/storage/host-storage';
@@ -111,6 +113,33 @@ describe('backends registry — mirror + cap-1 writer', () => {
     expect(stored[0].authToken).toBe('tok');
     expect(stored[0].enabled).toBe(false);
     expect(stored[0].id).toBe(STORED.id);
+  });
+
+  it('getBackend resolves any record by id', async () => {
+    const second: BackendConnection = { ...STORED, id: '01900000-0000-7000-8000-0000000000bb', label: 'LAN' };
+    await hostStorage.set(OH.backends, [STORED, second]);
+    await refreshBackendsFromHostStorage();
+    expect(getBackend(STORED.id)).toEqual(STORED);
+    expect(getBackend(second.id)).toEqual(second);
+    expect(getBackend('missing')).toBeNull();
+  });
+
+  it('updateBackend patches any record in place, preserving id and addedAt', async () => {
+    const second: BackendConnection = { ...STORED, id: '01900000-0000-7000-8000-0000000000bb', label: 'LAN' };
+    await hostStorage.set(OH.backends, [STORED, second]);
+    await refreshBackendsFromHostStorage();
+    const next = await updateBackend(second.id, { lastConnectedAt: '2026-07-08T00:00:00.000Z' });
+    expect(next).toEqual({ ...second, lastConnectedAt: '2026-07-08T00:00:00.000Z' });
+    const stored = (await hostStorage.get(OH.backends)) ?? [];
+    expect(stored[0]).toEqual(STORED);
+    expect(stored[1]).toEqual(next);
+  });
+
+  it('updateBackend never creates — a patch racing a remove returns null', async () => {
+    await hostStorage.set(OH.backends, [STORED]);
+    await refreshBackendsFromHostStorage();
+    expect(await updateBackend('missing', { label: 'ghost' })).toBeNull();
+    expect(await hostStorage.get(OH.backends)).toEqual([STORED]);
   });
 
   it('classifies loopback URLs', () => {

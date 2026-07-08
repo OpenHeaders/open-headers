@@ -53,6 +53,11 @@ export function getPrimaryBackend(): BackendConnection | null {
   return current[0] ?? null;
 }
 
+/** The record with `id`, or null when no such backend is registered. */
+export function getBackend(id: string): BackendConnection | null {
+  return current.find((b) => b.id === id) ?? null;
+}
+
 /** Subscribe to registry changes. Returned function unregisters. */
 export function subscribeBackends(fn: () => void): () => void {
   listeners.add(fn);
@@ -119,6 +124,26 @@ export function updatePrimaryBackend(patch: BackendConnectionPatch): Promise<Bac
     const base = stored[0] ?? freshBackendConnection();
     const next: BackendConnection = { ...base, ...patch };
     const list = [next, ...stored.slice(1)];
+    await hostStorage.set(OH.backends, list);
+    install(list);
+    return next;
+  });
+}
+
+/**
+ * Patch the record with `id` in place (id/addedAt preserved). Unlike
+ * {@link updatePrimaryBackend} this never creates — a patch for a
+ * record that no longer exists returns null (it raced a remove). The
+ * connection manager's bookkeeping writer (`lastConnectedAt` stamps on
+ * every wire, not just entry #0).
+ */
+export function updateBackend(id: string, patch: BackendConnectionPatch): Promise<BackendConnection | null> {
+  return withBackendsLock(async () => {
+    const stored = (await hostStorage.get(OH.backends)) ?? [];
+    const base = stored.find((b) => b.id === id);
+    if (!base) return null;
+    const next: BackendConnection = { ...base, ...patch, id: base.id, addedAt: base.addedAt };
+    const list = stored.map((b) => (b.id === id ? next : b));
     await hostStorage.set(OH.backends, list);
     install(list);
     return next;
