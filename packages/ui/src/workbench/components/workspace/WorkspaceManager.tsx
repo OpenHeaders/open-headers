@@ -16,7 +16,14 @@
  * addition to being rejected by the orchestrator.
  */
 
-import { CopyOutlined, DeleteOutlined, EditOutlined, HolderOutlined, PlusOutlined } from '@ant-design/icons';
+import {
+  CloudUploadOutlined,
+  CopyOutlined,
+  DeleteOutlined,
+  EditOutlined,
+  HolderOutlined,
+  PlusOutlined,
+} from '@ant-design/icons';
 import { DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -29,6 +36,7 @@ import {
 } from '@openheaders/core/identity';
 import type { BackendReach } from '@openheaders/core/protocol';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
+import { usePublishTargets } from '@openheaders/ui/shared/backend';
 import { useBackendReach } from '@openheaders/ui/shared/hooks/useBackendReach';
 import { useIdentitySnapshot } from '@openheaders/ui/shared/hooks/useIdentitySnapshot';
 import { useOrgBindingPrefs } from '@openheaders/ui/shared/hooks/useOrgBindingPrefs';
@@ -38,6 +46,7 @@ import { App as AntApp, Button, Checkbox, Form, Input, Modal, Select, Space, Typ
 import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import HomeOrgIdentityCard from './HomeOrgIdentityCard';
+import PublishWorkspaceModal from './PublishWorkspaceModal';
 import WorkspaceIdentityPicker, { type WorkspaceIdentity } from './WorkspaceIdentityPicker';
 import { DEFAULT_WORKSPACE_ICON } from './workspace-colors';
 
@@ -66,6 +75,7 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
   const [createOpen, setCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<ExtensionWorkspace | null>(null);
   const [duplicateTarget, setDuplicateTarget] = useState<ExtensionWorkspace | null>(null);
+  const [publishSource, setPublishSource] = useState<ExtensionWorkspace | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
   const canDelete = api.workspaces.length > 1;
@@ -75,6 +85,15 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
   // host's OWN bind tier (self entry).
   const { self: reach } = useBackendReach();
   const catalogue = useMemo(() => orgCatalogue(snapshot), [snapshot]);
+
+  // Publish = Duplicate-into pointed at a joined Org. A workspace's own
+  // Org is not a target (that's plain Duplicate); with no joined Orgs
+  // there is no publish surface at all.
+  const publishTargets = usePublishTargets();
+  const publishTargetsFor = useCallback(
+    (workspace: ExtensionWorkspace) => publishTargets.filter((t) => t.orgId !== workspace.orgId),
+    [publishTargets],
+  );
 
   // Org is the top-level container — group the workspace list by Org so a
   // foreign-Org workspace never reads as belonging to the home-Org card.
@@ -147,6 +166,7 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
       onEdit={() => setEditTarget(w)}
       onDelete={() => handleDelete(w)}
       onDuplicate={() => handleDuplicate(w)}
+      onPublish={publishTargetsFor(w).length > 0 ? () => setPublishSource(w) : null}
       onSwitch={() => onSwitch(w.id)}
       onIdentityChange={(identity) => {
         // Coerce undefined icon → null so the backend's "clear" path
@@ -225,6 +245,23 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
             return false;
           }
           message.success(`Duplicated "${duplicateTarget.name}" → "${created.name}"`);
+          return true;
+        }}
+      />
+
+      <PublishWorkspaceModal
+        source={publishSource}
+        targets={publishSource ? publishTargetsFor(publishSource) : []}
+        onCancel={() => setPublishSource(null)}
+        onSubmit={async (values) => {
+          if (!publishSource) return false;
+          const created = await api.duplicateWorkspace(publishSource.id, values);
+          if (!created) {
+            message.error('Failed to publish workspace');
+            return false;
+          }
+          const target = publishTargets.find((t) => t.orgId === values.targetOrgId);
+          message.success(`Published "${created.name}" to ${target?.orgName ?? 'the selected Org'}`);
           return true;
         }}
       />
@@ -349,6 +386,8 @@ interface SortableRowProps {
   onEdit: () => void;
   onDelete: () => void;
   onDuplicate: () => void;
+  /** Null when no publishable target exists — the button doesn't render. */
+  onPublish: (() => void) | null;
   onSwitch: () => void;
   onIdentityChange: (next: WorkspaceIdentity) => void;
   tokenColorBorder: string;
@@ -363,6 +402,7 @@ const SortableRow: React.FC<SortableRowProps> = ({
   onEdit,
   onDelete,
   onDuplicate,
+  onPublish,
   onSwitch,
   onIdentityChange,
   tokenColorBorder,
@@ -457,6 +497,14 @@ const SortableRow: React.FC<SortableRowProps> = ({
         )}
         <Button size="small" icon={<EditOutlined />} onClick={onEdit} aria-label="Rename workspace" />
         <Button size="small" icon={<CopyOutlined />} onClick={onDuplicate} aria-label="Duplicate workspace" />
+        {onPublish && (
+          <Button
+            size="small"
+            icon={<CloudUploadOutlined />}
+            onClick={onPublish}
+            aria-label="Publish workspace to a back-end"
+          />
+        )}
         <Button
           size="small"
           icon={<DeleteOutlined />}

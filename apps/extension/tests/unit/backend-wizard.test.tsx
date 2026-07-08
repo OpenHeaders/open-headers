@@ -159,6 +159,29 @@ describe('BackendWizard', () => {
     });
   });
 
+  it('adding a backend beyond the first explains what an additional back-end changes', async () => {
+    await createBackend({ url: 'ws://127.0.0.1:8137', label: 'First desktop' });
+    const second = await createBackend({ url: 'ws://127.0.0.1:8138', authToken: 'tok' });
+    renderWizard(second.id, 'add', createEnableSwitchStub());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+    expect(screen.getByText(/This is an additional back-end/)).toBeTruthy();
+  });
+
+  it('the first add carries no additional-back-end note', async () => {
+    const record = await createBackend({ url: 'ws://127.0.0.1:8137', authToken: 'tok' });
+    renderWizard(record.id, 'add', createEnableSwitchStub());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+    expect(screen.queryByText(/This is an additional back-end/)).toBeNull();
+  });
+
   it('a probe abort keeps the wizard open', async () => {
     const record = await createBackend({ url: 'ws://127.0.0.1:8137', authToken: 'tok' });
     const enableSwitch = createEnableSwitchStub(false);

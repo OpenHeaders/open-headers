@@ -74,6 +74,10 @@ const WizardDialog: React.FC<{
 }> = ({ record, mode, enableSwitch, onClose }) => {
   const host = getCurrentHost();
   const scenarios = scenariosForHost(host);
+  const backends = useBackends();
+  // An add beyond the first record (the fresh record itself counts) —
+  // worth a word on what a second back-end changes.
+  const isAdditionalBackend = mode === 'add' && backends.length > 1;
   // Edit lands on the connect step with the scenario derived from the
   // record; add starts at the scenario choice.
   const derivedMode = deriveBackendMode(host, { ...record, enabled: true });
@@ -169,6 +173,9 @@ const WizardDialog: React.FC<{
           <StepIntro
             text={`Ready: ${label} at ${record.url}${hasToken ? ', paired' : ' — NOT paired yet'}. Turning it on verifies reachability and authentication first; on success its workspaces sync down and stay usable offline.`}
           />
+          {isAdditionalBackend && (
+            <StepIntro text="This is an additional back-end. Its Orgs appear as new groups in the workspace switcher, the status popover gains a row per back-end, and each Org syncs from exactly one back-end — an Org already provided by another connection won't join twice." />
+          )}
         </div>
       )}
     </Modal>

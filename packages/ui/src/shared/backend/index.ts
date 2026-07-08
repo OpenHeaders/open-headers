@@ -7,6 +7,8 @@ export {
 } from './backend-registry';
 export type { OrgSyncAnnotation } from './org-sync-annotation';
 export { deriveOrgSyncAnnotation, orphanedOrgAnnotation, useOrgSyncAnnotations } from './org-sync-annotation';
+export type { PublishTarget } from './publish-targets';
+export { derivePublishTargets, usePublishTargets } from './publish-targets';
 export type {
   ProbeConnectionResult,
   ProbeFailure,
