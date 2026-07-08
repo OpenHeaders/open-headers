@@ -1,34 +1,39 @@
 /**
- * Per-row connection status for the Back-end connections list.
- *
- * Interim derivation: the `sync` Status entry the SW broadcasts is the
- * WORST-OF aggregate across backends (`sync-status-aggregate.ts`), so a
- * row can only be attributed exactly while at most one backend is
- * enabled — true for every state reachable from today's UI. The real
- * per-backend feed (the aggregate's slots mirrored over a dedicated
- * broadcast, same idiom as `statusUpdated`) is designed and lands with
- * the Phase-4 surfaces work; this hook is its single swap point.
+ * Per-row connection status for the Back-end connections list, read
+ * from the per-backend `sync` slot feed (`useBackendSyncStatus` — the
+ * aggregate's slots mirrored over the `backendSyncStatusUpdated`
+ * broadcast), so each row attributes state exactly even with several
+ * backends enabled.
  */
 
-import type { BackendConnection } from '@openheaders/core/types';
-import { useStatus } from '../../../shared/hooks/useStatus';
-import type { StatusEntry } from '../../../shared/status';
+import type { BackendConnection, BackendSyncStatus } from '@openheaders/core/types';
+import { useBackendSyncStatus } from '../../../shared/hooks/useBackendSyncStatus';
 
 export type BackendRowStatus = 'connected' | 'connecting' | 'auth-required' | 'error' | 'off';
 
-export function useBackendRowStatus(record: BackendConnection): BackendRowStatus {
-  const { snapshot } = useStatus();
-  return deriveRowStatus(record, snapshot.sync);
+export interface BackendRowStatusApi {
+  status: BackendRowStatus;
+  /** The slot's live message (e.g. an Org-conflict notice) for the dot
+   *  tooltip; null before the wire has spoken or while disabled. */
+  detail: string | null;
 }
 
-function deriveRowStatus(record: BackendConnection, sync: StatusEntry | undefined): BackendRowStatus {
+export function useBackendRowStatus(record: BackendConnection): BackendRowStatusApi {
+  const { snapshot } = useBackendSyncStatus();
+  const entry = snapshot[record.id];
+  return {
+    status: deriveRowStatus(record, entry),
+    detail: record.enabled ? (entry?.message ?? null) : null,
+  };
+}
+
+function deriveRowStatus(record: BackendConnection, entry: BackendSyncStatus | undefined): BackendRowStatus {
   if (!record.enabled) return 'off';
-  // No report yet, or the aggregate still shows the zero-slot resting
-  // state — the wire for this record hasn't spoken.
-  if (!sync || sync.message === 'Running in this browser') return 'connecting';
-  if (sync.state === 'green') return 'connected';
-  if (sync.state === 'red') {
-    return sync.context?.reason === 'auth-required' ? 'auth-required' : 'error';
+  // No slot yet — the wire for this record hasn't spoken.
+  if (!entry) return 'connecting';
+  if (entry.state === 'green') return 'connected';
+  if (entry.state === 'red') {
+    return entry.context?.reason === 'auth-required' ? 'auth-required' : 'error';
   }
   return 'connecting';
 }

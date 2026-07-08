@@ -3,6 +3,7 @@
 import type { JarCookieEditWire, JarCookieKeyWire } from '@openheaders/core/bridge';
 import { getStatusSnapshot } from '@openheaders/ui/shared/status';
 import { logger } from '@utils/logger';
+import { getBackendSyncStatusSnapshot } from '../../../sync-status-aggregate';
 import {
   fetchCookieJarForUrl as fetchCookieJarForUrlHandler,
   removeCookieForUrl as removeCookieForUrlHandler,
@@ -62,5 +63,9 @@ export const miscHandlers: HandlerMap = {
 
   getStatusSnapshot: ({ respond }) => {
     respond({ snapshot: getStatusSnapshot() });
+  },
+
+  getBackendSyncStatusSnapshot: ({ respond }) => {
+    respond({ snapshot: getBackendSyncStatusSnapshot() });
   },
 };

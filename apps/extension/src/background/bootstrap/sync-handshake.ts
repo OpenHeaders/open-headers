@@ -1,3 +1,4 @@
+import { getBackend } from '@openheaders/core/backends';
 import { claimJoinedOrg, getOrgBackendBindings } from '@openheaders/core/identity';
 import { type HandshakeRejectReason, isBackendEvictingReason } from '@openheaders/core/protocol';
 import { getHostStorage, OH } from '@openheaders/core/storage';
@@ -14,6 +15,7 @@ import {
 } from '../modules/workspace/workspace-store';
 import { createSyncHandshakeInitiator } from '../sync-handshake-initiator';
 import { applyPeerStateVectorToPendingOut, flushPendingOutToBackend } from '../sync-mutation-forwarder';
+import { reportBackendSyncStatus } from '../sync-status-aggregate';
 import type { BackendWireHandle } from '../websocket';
 
 export interface SyncHandshakeHandles {
@@ -139,6 +141,17 @@ export function createSyncHandshakeForWire(wire: BackendWireHandle): SyncHandsha
       // double-consumed.
       const result = await claimJoinedOrg(org, wire.backendId);
       if (result.outcome === 'refused') {
+        // Surface the conflict on this backend's row (dot + tooltip).
+        // Temporal like every slot write — a later synced report for the
+        // wire's own Orgs overwrites it; the refused Org simply never
+        // appears among the row's consumed Orgs.
+        const provider = getBackend(result.boundBackendId);
+        const providerLabel = provider ? provider.label.trim() || provider.url : 'another back-end';
+        reportBackendSyncStatus(wire.backendId, {
+          state: 'yellow',
+          message: `Org "${org.name}" is already provided by ${providerLabel} — not joined`,
+          context: { reason: 'org-conflict', orgId: org.id, boundBackendId: result.boundBackendId },
+        });
         logger.warn(
           'Background',
           `backend ${wire.backendId} claims Org ${org.id}, already provided by backend ${result.boundBackendId} — join refused`,

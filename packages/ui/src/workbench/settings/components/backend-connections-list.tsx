@@ -128,7 +128,7 @@ const ConnectionRow: React.FC<{
   onRemoved: () => void;
 }> = ({ record, enableSwitch, onEdit, onRemoved }) => {
   const { token } = theme.useToken();
-  const status = useBackendRowStatus(record);
+  const { status, detail } = useBackendRowStatus(record);
   const consumedOrgs = useConsumedOrgs(record.id);
 
   const label = backendDisplayLabel(record);
@@ -148,7 +148,7 @@ const ConnectionRow: React.FC<{
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px' }}>
-        <StatusDot status={status} />
+        <StatusDot status={status} detail={detail} />
         <span style={{ flex: 'none', display: 'inline-flex' }} aria-hidden>
           <BackendIcon kind={icon} size={24} />
         </span>
@@ -213,7 +213,7 @@ const ConnectionRow: React.FC<{
   );
 };
 
-const StatusDot: React.FC<{ status: BackendRowStatus }> = ({ status }) => {
+const StatusDot: React.FC<{ status: BackendRowStatus; detail: string | null }> = ({ status, detail }) => {
   const { token } = theme.useToken();
   const color: Record<BackendRowStatus, string> = {
     connected: token.colorSuccess,
@@ -223,7 +223,7 @@ const StatusDot: React.FC<{ status: BackendRowStatus }> = ({ status }) => {
     off: token.colorTextQuaternary,
   };
   return (
-    <Tooltip title={STATUS_LABEL[status]}>
+    <Tooltip title={detail ?? STATUS_LABEL[status]}>
       <span
         role="status"
         aria-label={STATUS_LABEL[status]}

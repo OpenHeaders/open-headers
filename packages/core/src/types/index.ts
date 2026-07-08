@@ -220,7 +220,14 @@ export type { ScriptPackage } from './script-package';
 // ── Shadow arbitration ─────────────────────────────────────────────
 export type { ShadowAttribution, ShadowKind } from './shadow';
 // ── Subsystem status snapshot ──────────────────────────────────────
-export type { StatusEntry, StatusLevel, StatusSnapshot, StatusSubsystem } from './status';
+export type {
+  BackendSyncStatus,
+  BackendSyncStatusSnapshot,
+  StatusEntry,
+  StatusLevel,
+  StatusSnapshot,
+  StatusSubsystem,
+} from './status';
 // ── Storage ────────────────────────────────────────────────────────
 export { GITIGNORE } from './storage';
 // ── Telemetry ──────────────────────────────────────────────────────

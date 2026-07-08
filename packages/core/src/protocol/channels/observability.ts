@@ -3,7 +3,7 @@
  * cross-subsystem status snapshot.
  */
 
-import type { LogEntry as ObservabilityLogEntry, StatusSnapshot } from '../../types';
+import type { BackendSyncStatusSnapshot, LogEntry as ObservabilityLogEntry, StatusSnapshot } from '../../types';
 
 export interface ObservabilityRpc {
   // ── Observability log ────────────────────────────────────────────
@@ -20,5 +20,10 @@ export interface ObservabilityRpc {
   getStatusSnapshot: {
     req: Record<string, never>;
     res: { snapshot: StatusSnapshot };
+  };
+  /** Mount-time read behind the `backendSyncStatusUpdated` broadcast. */
+  getBackendSyncStatusSnapshot: {
+    req: Record<string, never>;
+    res: { snapshot: BackendSyncStatusSnapshot };
   };
 }

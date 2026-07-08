@@ -7,6 +7,7 @@
 import type { FileRef } from '../../files';
 import type { ActivityEntry, MutationEnvelope, MutatorOutcome } from '../../sync';
 import type {
+  BackendSyncStatusSnapshot,
   LiveVariable,
   LiveWorkflow,
   Request,
@@ -96,6 +97,13 @@ export interface BridgeBroadcastContract {
    * listeners don't have to re-query after each event.
    */
   statusUpdated: StatusSnapshot;
+  /**
+   * Fires on every per-backend `sync` slot change (report or drop) —
+   * the connections-list row dots' feed. Payload is the full slot map
+   * so listeners never have to re-query; the worst-of roll-up still
+   * arrives via `statusUpdated`.
+   */
+  backendSyncStatusUpdated: BackendSyncStatusSnapshot;
 
   /**
    * Phase C F5 — live tail for the Activity Feed panel. Fires per

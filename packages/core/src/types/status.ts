@@ -41,3 +41,20 @@ export interface StatusEntry {
 
 /** Snapshot of every subsystem. Absent subsystems render as the default 'green · no data yet'. */
 export type StatusSnapshot = Partial<Record<StatusSubsystem, StatusEntry>>;
+
+/**
+ * One backend's contribution to the `sync` subsystem — the slot the
+ * per-connection reporters write before the aggregate rolls worst-of
+ * into {@link StatusSnapshot}. Crosses the bridge per backend so the
+ * connections-list row dots can attribute state exactly, which the
+ * worst-of aggregate can't once two backends are enabled.
+ */
+export interface BackendSyncStatus {
+  state: StatusLevel;
+  message: string;
+  context?: Record<string, unknown>;
+}
+
+/** Per-backend `sync` slots, keyed by `OH.backends` record id. A
+ *  torn-down backend's slot is absent, not stale. */
+export type BackendSyncStatusSnapshot = Record<string, BackendSyncStatus>;
