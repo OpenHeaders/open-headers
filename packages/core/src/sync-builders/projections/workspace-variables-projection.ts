@@ -16,27 +16,25 @@
  * singletons don't have one to thread.
  */
 
-import type { WorkspaceVariables } from '@openheaders/core/types';
 import {
   type MaterializedEntity,
-  mintBatch,
   type MutationBatch,
   type MutationBody,
   type MutatorContext,
+  mintBatch,
+  orderKeyMinter,
   WORKSPACE_VARIABLES_ENTITY_TYPE,
   WORKSPACE_VARIABLES_ID,
   WORKSPACE_VARIABLES_PATH,
 } from '@openheaders/core/sync';
+import type { WorkspaceVariables } from '@openheaders/core/types';
 
 /**
  * Convert a persisted `WorkspaceVariables` into a `MutationBatch`
  * of one `create` for the scalar shell plus one `addToSet` per
  * variable. All-or-nothing under the oracle's per-entity lock.
  */
-export function seedWorkspaceVariables(
-  workspaceVars: WorkspaceVariables,
-  ctx: MutatorContext,
-): MutationBatch {
+export function seedWorkspaceVariables(workspaceVars: WorkspaceVariables, ctx: MutatorContext): MutationBatch {
   const shell = stripVariables(workspaceVars);
 
   const bodies: MutationBody[] = [
@@ -47,6 +45,10 @@ export function seedWorkspaceVariables(
       payload: shell,
     },
   ];
+  // Sequential orderKeys — a keyless addToSet defaults every row to the
+  // same seedKey(), collapsing creation order to the uid tie-break at
+  // materialize time.
+  const nextKey = orderKeyMinter();
   for (const variable of workspaceVars.variables) {
     bodies.push({
       kind: 'addToSet',
@@ -55,6 +57,7 @@ export function seedWorkspaceVariables(
       path: WORKSPACE_VARIABLES_PATH,
       itemId: variable.uid,
       item: variable,
+      orderKey: nextKey(),
     });
   }
   return mintBatch(ctx, bodies);
@@ -65,9 +68,7 @@ export function seedWorkspaceVariables(
  * singleton) back into a `WorkspaceVariables`. Returns `null` when
  * the materialized data fails basic shape checks.
  */
-export function projectWorkspaceVariables(
-  materialized: MaterializedEntity,
-): WorkspaceVariables | null {
+export function projectWorkspaceVariables(materialized: MaterializedEntity): WorkspaceVariables | null {
   if (materialized.type !== WORKSPACE_VARIABLES_ENTITY_TYPE) return null;
   const data = materialized.data;
   if (!isPlainObject(data)) return null;

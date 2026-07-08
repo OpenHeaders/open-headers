@@ -27,16 +27,17 @@
  * within either would need branch-aware paths).
  */
 
-import type { Template } from '@openheaders/core/types';
 import {
   type MaterializedEntity,
-  mintBatch,
   type MutationBatch,
   type MutationBody,
+  type MutatorContext,
+  mintBatch,
+  orderKeyMinter,
   TEMPLATE_CONDITIONS_PATH,
   TEMPLATE_ENTITY_TYPE,
-  type MutatorContext,
 } from '@openheaders/core/sync';
+import type { Template } from '@openheaders/core/types';
 
 /**
  * Convert a persisted Template into a `MutationBatch` of one `create`
@@ -50,6 +51,10 @@ export function seedTemplate(template: Template, ctx: MutatorContext): MutationB
   const bodies: MutationBody[] = [
     { kind: 'create', type: TEMPLATE_ENTITY_TYPE, id: template.uid, payload: scalarShell },
   ];
+  // Sequential orderKeys — a keyless addToSet defaults every row to the
+  // same seedKey(), collapsing creation order to the uid tie-break at
+  // materialize time.
+  const nextKey = orderKeyMinter();
   for (const item of conditions) {
     const itemId = readUid(item);
     bodies.push({
@@ -59,6 +64,7 @@ export function seedTemplate(template: Template, ctx: MutatorContext): MutationB
       path: TEMPLATE_CONDITIONS_PATH,
       itemId,
       item,
+      orderKey: nextKey(),
     });
   }
   return mintBatch(ctx, bodies);

@@ -15,7 +15,7 @@ import {
   renameEnvironment,
   updateEnvironmentVariables,
 } from '@openheaders/oracle/entity/environment-store';
-import { updateCollectionPinnedEnvs, updateCollectionVariables } from '@openheaders/oracle/entity/rule-store';
+import { updateCollectionPinnedEnvs } from '@openheaders/oracle/entity/rule-store';
 import type { HandlerMap } from '../types';
 
 export const environmentHandlers: HandlerMap = {
@@ -73,24 +73,5 @@ export const environmentHandlers: HandlerMap = {
 
   getVault: ({ respond }) => {
     respond({ vault: getVault(), vaultLocked: isVaultLocked() });
-  },
-
-  updateCollectionVariables: ({ message, respond, ctx }) => {
-    updateCollectionVariables(message.collectionUid as string, message.variables as Variable[])
-      .then((result) => {
-        if (result.ok) {
-          // Collection-scoped variable edits change resolved DNR output;
-          // the resolver-invalidate runner consumes the same intent
-          // emitted by the catalog factory, so the recompile fires
-          // through the broadcast path. The legacy `scheduleUpdate`
-          // call here was the pre-Phase-B route — retained as a
-          // belt-and-braces guarantee that the bridge dispatch path
-          // doesn't depend on broadcast ordering.
-          ctx.scheduleUpdate('vars', { immediate: true });
-        }
-        respond(result);
-      })
-      .catch((err: Error) => respond({ ok: false, reason: 'other', message: err.message }));
-    return true;
   },
 };

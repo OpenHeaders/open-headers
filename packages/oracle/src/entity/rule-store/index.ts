@@ -25,7 +25,6 @@ export {
   ensureDefaultCollection,
   renameCollection,
   updateCollectionPinnedEnvs,
-  updateCollectionVariables,
 } from './collections';
 export { createFolder, deleteFolder, renameFolder } from './folders';
 export { hydrateFromStorage, switchToWorkspace } from './hydration';

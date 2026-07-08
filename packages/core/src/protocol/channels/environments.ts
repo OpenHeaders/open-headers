@@ -4,7 +4,7 @@
  * 4-scope payload the `environmentsChanged` broadcast carries.
  */
 
-import type { Collection, Environment, Variable, Vault, WorkspaceVariables } from '../../types';
+import type { Environment, Variable, Vault, WorkspaceVariables } from '../../types';
 
 /**
  * Snapshot of every variable-scoped state the UI cares about. Emitted
@@ -83,15 +83,5 @@ export interface EnvironmentRpc {
   getVault: {
     req: Record<string, never>;
     res: { vault: Vault; vaultLocked?: boolean };
-  };
-  updateCollectionVariables: {
-    req: {
-      collectionUid: string;
-      variables: Variable[];
-    };
-    res:
-      | { ok: true; collection: Collection }
-      | { ok: false; reason: 'not-found' }
-      | { ok: false; reason: 'other'; message: string };
   };
 }

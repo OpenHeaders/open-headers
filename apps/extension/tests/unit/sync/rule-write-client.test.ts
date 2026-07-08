@@ -32,14 +32,13 @@ vi.mock('@utils/logger', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
+import type { RendererContextHandle, RuleSyncMirror } from '@openheaders/ui/context';
 import {
   applyRuleCreate,
   applyRuleDelete,
   applyRuleToggle,
   applyRuleUpdate,
 } from '@openheaders/ui/shared/sync/rule-write-client';
-import type { RuleSyncMirror } from '@openheaders/ui/context';
-import type { RendererContextHandle } from '@openheaders/ui/context';
 
 const headerRule: HeaderRule = {
   schemaVersion: 5,
@@ -66,12 +65,10 @@ function makeMirror(
     resolvedOrderKeys[path] = ids.map((itemId, i) => ({ itemId, orderKey: `m${i}` }));
   }
   return {
-    getRuleMirror: (uid) =>
-      rule && rule.uid === uid ? { rule, setItemIds, setOrderKeys: resolvedOrderKeys } : null,
+    getRuleMirror: (uid) => (rule && rule.uid === uid ? { rule, setItemIds, setOrderKeys: resolvedOrderKeys } : null),
     listRules: () => (rule ? [rule] : []),
     liveSetItems: (uid, path) => (rule && rule.uid === uid ? (setItemIds[path] ?? []) : []),
-    liveOrderedSetItems: (uid, path) =>
-      rule && rule.uid === uid ? (resolvedOrderKeys[path] ?? []) : [],
+    liveOrderedSetItems: (uid, path) => (rule && rule.uid === uid ? (resolvedOrderKeys[path] ?? []) : []),
     subscribeRuleMirror: () => () => undefined,
     hydrated: Promise.resolve(),
     dispose: () => undefined,
@@ -392,6 +389,31 @@ describe('applyRuleCreate', () => {
     expect(adds).toHaveLength(2);
     const paths = adds.map((m) => (m.body as { path: string }).path).sort();
     expect(paths).toEqual(['action.requestHeaders', 'conditions']);
+  });
+
+  it('seeds multi-row conditions with strictly increasing orderKeys (creation order survives materialize)', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    const seedWithConds: typeof createSeed = {
+      ...createSeed,
+      conditions: ['c1', 'c2', 'c3'].map((uid) => ({
+        uid,
+        type: 'request-domains' as const,
+        values: [`${uid}.openheaders.io`],
+      })),
+    };
+    await applyRuleCreate(
+      { rule: seedWithConds, parentPath: 'rules/c-1' },
+      { workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle() },
+    );
+    const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
+    const keys = batch.mutations
+      .filter((m) => m.body.kind === 'addToSet')
+      .map((m) => m.body as { itemId: string; orderKey?: string });
+    expect(keys.map((k) => k.itemId)).toEqual(['c1', 'c2', 'c3']);
+    for (const k of keys) expect(typeof k.orderKey).toBe('string');
+    for (let i = 1; i < keys.length; i++) {
+      expect(keys[i - 1].orderKey! < keys[i].orderKey!).toBe(true);
+    }
   });
 
   it('returns the bridge error as `other` on transport failure', async () => {

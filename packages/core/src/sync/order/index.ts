@@ -1,1 +1,1 @@
-export { keyBetween, seedKey } from './fractional';
+export { keyBetween, orderKeyMinter, seedKey } from './fractional';

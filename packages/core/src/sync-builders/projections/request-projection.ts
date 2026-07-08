@@ -22,17 +22,18 @@
  * is Phase D scope.
  */
 
-import type { QueryParam, Request, RequestHeader } from '@openheaders/core/types';
 import {
   type MaterializedEntity,
-  mintBatch,
   type MutationBatch,
   type MutationBody,
+  type MutatorContext,
+  mintBatch,
+  orderKeyMinter,
   REQUEST_ENTITY_TYPE,
   REQUEST_HEADERS_PATH,
   REQUEST_PARAMS_PATH,
-  type MutatorContext,
 } from '@openheaders/core/sync';
+import type { QueryParam, Request, RequestHeader } from '@openheaders/core/types';
 
 /**
  * Set-modeled field paths on a Request. The mutator catalog
@@ -65,10 +66,14 @@ export function seedRequest(request: Request, ctx: MutatorContext): MutationBatc
   const setMembers: SetMember[] = [];
   const scalarShell = stripSetFields(request, setMembers);
 
-  const bodies: MutationBody[] = [
-    { kind: 'create', type: REQUEST_ENTITY_TYPE, id: request.uid, payload: scalarShell },
-  ];
+  const bodies: MutationBody[] = [{ kind: 'create', type: REQUEST_ENTITY_TYPE, id: request.uid, payload: scalarShell }];
+  // Sequential orderKeys per set path — a keyless addToSet defaults every
+  // row to the same seedKey(), collapsing creation order to the uid
+  // tie-break at materialize time.
+  const mint: Partial<Record<SetPath, () => string>> = {};
   for (const { path, itemId, item } of setMembers) {
+    mint[path] ??= orderKeyMinter();
+    const nextKey = mint[path];
     bodies.push({
       kind: 'addToSet',
       type: REQUEST_ENTITY_TYPE,
@@ -76,6 +81,7 @@ export function seedRequest(request: Request, ctx: MutatorContext): MutationBatc
       path,
       itemId,
       item,
+      orderKey: nextKey(),
     });
   }
   return mintBatch(ctx, bodies);

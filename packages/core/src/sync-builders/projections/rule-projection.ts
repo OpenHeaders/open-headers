@@ -31,15 +31,16 @@
  * the saved row uids. Mirrors `seedRequest` (session 39).
  */
 
-import type { Rule } from '@openheaders/core/types';
 import {
   type MaterializedEntity,
-  mintBatch,
   type MutationBatch,
   type MutationBody,
-  RULE_ENTITY_TYPE,
   type MutatorContext,
+  mintBatch,
+  orderKeyMinter,
+  RULE_ENTITY_TYPE,
 } from '@openheaders/core/sync';
+import type { Rule } from '@openheaders/core/types';
 
 /**
  * Set-modeled field paths on a Rule. The mutator catalog
@@ -61,11 +62,15 @@ export function seedRule(rule: Rule, ctx: MutatorContext): MutationBatch {
   const setItems: Array<{ path: SetPath; item: unknown }> = [];
   const scalarShell = stripSetFields(rule, setItems);
 
-  const bodies: MutationBody[] = [
-    { kind: 'create', type: RULE_ENTITY_TYPE, id: rule.uid, payload: scalarShell },
-  ];
+  const bodies: MutationBody[] = [{ kind: 'create', type: RULE_ENTITY_TYPE, id: rule.uid, payload: scalarShell }];
+  // Sequential orderKeys per set path — a keyless addToSet defaults every
+  // row to the same seedKey(), collapsing creation order to the uid
+  // tie-break at materialize time.
+  const mint: Partial<Record<SetPath, () => string>> = {};
   for (const { path, item } of setItems) {
     const itemId = readUid(item);
+    mint[path] ??= orderKeyMinter();
+    const nextKey = mint[path];
     bodies.push({
       kind: 'addToSet',
       type: RULE_ENTITY_TYPE,
@@ -73,6 +78,7 @@ export function seedRule(rule: Rule, ctx: MutatorContext): MutationBatch {
       path,
       itemId,
       item,
+      orderKey: nextKey(),
     });
   }
   return mintBatch(ctx, bodies);

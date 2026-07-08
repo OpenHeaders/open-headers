@@ -14,17 +14,18 @@
  * have one to thread.
  */
 
-import type { Vault } from '@openheaders/core/types';
 import {
   type MaterializedEntity,
-  mintBatch,
   type MutationBatch,
   type MutationBody,
   type MutatorContext,
+  mintBatch,
+  orderKeyMinter,
   VAULT_ENTITY_TYPE,
   VAULT_ID,
   VAULT_PATH,
 } from '@openheaders/core/sync';
+import type { Vault } from '@openheaders/core/types';
 
 /**
  * Convert a persisted `Vault` into a `MutationBatch` of one `create`
@@ -42,6 +43,10 @@ export function seedVault(vault: Vault, ctx: MutatorContext): MutationBatch {
       payload: shell,
     },
   ];
+  // Sequential orderKeys — a keyless addToSet defaults every row to the
+  // same seedKey(), collapsing creation order to the uid tie-break at
+  // materialize time.
+  const nextKey = orderKeyMinter();
   for (const secret of vault.secrets) {
     bodies.push({
       kind: 'addToSet',
@@ -50,6 +55,7 @@ export function seedVault(vault: Vault, ctx: MutatorContext): MutationBatch {
       path: VAULT_PATH,
       itemId: secret.uid,
       item: secret,
+      orderKey: nextKey(),
     });
   }
   return mintBatch(ctx, bodies);

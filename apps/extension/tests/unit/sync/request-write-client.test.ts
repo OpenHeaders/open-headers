@@ -281,6 +281,25 @@ describe('applyRequestCreate', () => {
     expect(adds).toHaveLength(1);
     expect(adds[0].body).toMatchObject({ path: 'headers', itemId: 'h1' });
   });
+
+  it('seeds multi-row sets with strictly increasing orderKeys (creation order survives materialize)', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    const request = baseRequest([header('h1', 'X-A', '1'), header('h2', 'X-B', '2'), header('h3', 'X-C', '3')]);
+    await applyRequestCreate(request, {
+      workspaceId: 'ws-1',
+      surfaceId: 'workbench',
+      context: makeContextHandle(),
+    });
+    const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
+    const keys = batch.mutations
+      .filter((m) => m.body.kind === 'addToSet')
+      .map((m) => m.body as { itemId: string; orderKey?: string });
+    expect(keys.map((k) => k.itemId)).toEqual(['h1', 'h2', 'h3']);
+    for (const k of keys) expect(typeof k.orderKey).toBe('string');
+    for (let i = 1; i < keys.length; i++) {
+      expect(keys[i - 1].orderKey! < keys[i].orderKey!).toBe(true);
+    }
+  });
 });
 
 describe('applyRequestDelete', () => {

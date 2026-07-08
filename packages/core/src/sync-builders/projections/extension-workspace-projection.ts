@@ -15,17 +15,16 @@
  */
 
 import {
-  type ExtensionWorkspaceSlot,
   EXTENSION_WORKSPACE_ACTIVE_ID_PATH,
   EXTENSION_WORKSPACE_ENTITY_TYPE,
   EXTENSION_WORKSPACE_ID,
   EXTENSION_WORKSPACES_SET_PATH,
-  keyBetween,
-  mintBatch,
+  type ExtensionWorkspaceSlot,
   type MutationBatch,
   type MutationBody,
   type MutatorContext,
-  seedKey,
+  mintBatch,
+  orderKeyMinter,
 } from '@openheaders/core/sync';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
 /**
@@ -53,10 +52,8 @@ export function seedExtensionWorkspaces(
       payload: {},
     },
   ];
-  let prevKey: string | undefined;
+  const nextKey = orderKeyMinter();
   for (const ws of sorted) {
-    const orderKey = prevKey === undefined ? seedKey() : keyBetween(prevKey, null);
-    prevKey = orderKey;
     const slot: ExtensionWorkspaceSlot = {
       id: ws.id,
       kind: ws.kind,
@@ -76,7 +73,7 @@ export function seedExtensionWorkspaces(
       path: EXTENSION_WORKSPACES_SET_PATH,
       itemId: ws.id,
       item: slot,
-      orderKey,
+      orderKey: nextKey(),
     });
   }
   if (activeWorkspaceId) {

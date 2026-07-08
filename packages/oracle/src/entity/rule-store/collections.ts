@@ -1,13 +1,6 @@
 // ── Collections ─────────────────────────────────────────────────────
 
 import {
-  COLLECTION_ENTITY_TYPE,
-  COLLECTION_VARS_PATH,
-  collectionInvalidateResolverIntent,
-  type MutationBody,
-  mintBatch as mintCollectionBatch,
-} from '@openheaders/core/sync';
-import {
   buildDeleteCollectionBatch,
   buildRenameCollectionBatch,
   buildSetPinnedAndDefaultBatch,
@@ -15,7 +8,7 @@ import {
 import { buildDeleteFolderEntityBatch } from '@openheaders/core/sync-builders/mutations/folder-mutations';
 import { buildDeleteBatch } from '@openheaders/core/sync-builders/mutations/rule-mutations';
 import { seedCollection } from '@openheaders/core/sync-builders/projections/collection-projection';
-import type { Collection, Variable } from '@openheaders/core/types';
+import type { Collection } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { entityLockName, withLock } from '@openheaders/oracle/coordination';
 import { applyCollectionMutationOrThrow, applyFolderMutationOrThrow, applyRuleMutationOrThrow } from './apply';
@@ -130,31 +123,6 @@ export async function deleteCollection(uid: string): Promise<boolean> {
   );
 }
 
-/**
- * Replace a collection's scoped variables. SW entry point used by the
- * legacy `updateCollectionVariables` bridge dispatch; the renderer
- * goes through `applyCollectionVariablesReplacement` directly via
- * `useVariableMutator` / `useCollectionMutator`. Both paths converge
- * through the same oracle.
- */
-export async function updateCollectionVariables(uid: string, variables: Variable[]): Promise<CollectionWriteResult> {
-  assertLoaded();
-  const existing = collections.find((c) => c.uid === uid);
-  if (!existing) return { ok: false, reason: 'not-found' };
-
-  await applyCollectionMutationOrThrow((ctx) => {
-    const replaceCtx = { ...ctx, batchId: ctx.batchId ?? `coll-replace-${uid}` };
-    const bodies = buildVariableReplacementBodies(uid, existing.variables, variables);
-    if (bodies.length === 0) return { batch: mintCollectionBatch(replaceCtx, []), sideEffects: [] };
-    return {
-      batch: mintCollectionBatch(replaceCtx, bodies),
-      sideEffects: [collectionInvalidateResolverIntent(uid, replaceCtx.hlc)],
-    };
-  }, 'updateCollectionVariables');
-
-  return { ok: true, collection: { ...existing, variables } };
-}
-
 export async function updateCollectionPinnedEnvs(
   collectionUid: string,
   pinnedEnvironmentIds: string[],
@@ -174,45 +142,4 @@ export async function updateCollectionPinnedEnvs(
     'updateCollectionPinnedEnvs',
   );
   return true;
-}
-
-function buildVariableReplacementBodies(
-  collectionUid: string,
-  oldVars: readonly Variable[],
-  newVars: readonly Variable[],
-): MutationBody[] {
-  const oldByName = new Map<string, Variable>();
-  for (const v of oldVars) oldByName.set(v.name, v);
-  const newByName = new Map<string, Variable>();
-  for (const v of newVars) {
-    if (!v.name.trim()) continue;
-    newByName.set(v.name, v);
-  }
-
-  const bodies: MutationBody[] = [];
-  for (const [name] of oldByName) {
-    if (newByName.has(name)) continue;
-    bodies.push({
-      kind: 'removeFromSet',
-      type: COLLECTION_ENTITY_TYPE,
-      id: collectionUid,
-      path: COLLECTION_VARS_PATH,
-      itemId: name,
-    });
-  }
-  for (const [name, variable] of newByName) {
-    const prev = oldByName.get(name);
-    if (prev && prev.value === variable.value && (prev.type ?? 'default') === (variable.type ?? 'default')) {
-      continue;
-    }
-    bodies.push({
-      kind: 'addToSet',
-      type: COLLECTION_ENTITY_TYPE,
-      id: collectionUid,
-      path: COLLECTION_VARS_PATH,
-      itemId: name,
-      item: { name, value: variable.value, type: variable.type ?? 'default' },
-    });
-  }
-  return bodies;
 }

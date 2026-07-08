@@ -9,16 +9,17 @@
  * is the inverse.
  */
 
-import type { Collection } from '@openheaders/core/types';
 import {
   COLLECTION_ENTITY_TYPE,
   COLLECTION_VARS_PATH,
   type MaterializedEntity,
-  mintBatch,
   type MutationBatch,
   type MutationBody,
   type MutatorContext,
+  mintBatch,
+  orderKeyMinter,
 } from '@openheaders/core/sync';
+import type { Collection } from '@openheaders/core/types';
 
 /**
  * Convert a persisted `Collection` into a `MutationBatch` of one
@@ -28,9 +29,11 @@ import {
 export function seedCollection(collection: Collection, ctx: MutatorContext): MutationBatch {
   const shell = stripVariables(collection);
 
-  const bodies: MutationBody[] = [
-    { kind: 'create', type: COLLECTION_ENTITY_TYPE, id: collection.uid, payload: shell },
-  ];
+  const bodies: MutationBody[] = [{ kind: 'create', type: COLLECTION_ENTITY_TYPE, id: collection.uid, payload: shell }];
+  // Sequential orderKeys — a keyless addToSet defaults every row to the
+  // same seedKey(), collapsing creation order to the uid tie-break at
+  // materialize time.
+  const nextKey = orderKeyMinter();
   for (const variable of collection.variables) {
     bodies.push({
       kind: 'addToSet',
@@ -39,6 +42,7 @@ export function seedCollection(collection: Collection, ctx: MutatorContext): Mut
       path: COLLECTION_VARS_PATH,
       itemId: variable.uid,
       item: variable,
+      orderKey: nextKey(),
     });
   }
   return mintBatch(ctx, bodies);

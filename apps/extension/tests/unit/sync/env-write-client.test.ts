@@ -143,6 +143,11 @@ describe('applyEnvironmentCreate', () => {
     expect(adds).toHaveLength(2);
     const ids = adds.map((m) => (m.body as { itemId: string }).itemId).sort();
     expect(ids).toEqual(['v1', 'v2']);
+    // Seeded rows carry strictly increasing orderKeys so a multi-row
+    // create materializes in creation order, not the uid tie-break.
+    const keys = adds.map((m) => (m.body as { orderKey?: string }).orderKey);
+    for (const k of keys) expect(typeof k).toBe('string');
+    expect(keys[0]! < keys[1]!).toBe(true);
     // A seeded variable invalidates the resolver — single-sourced from
     // the addToSet envelopes the seed batch carries.
     expect(payload.sideEffects.length).toBeGreaterThan(0);

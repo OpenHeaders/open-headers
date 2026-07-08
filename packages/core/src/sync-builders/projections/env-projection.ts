@@ -14,16 +14,17 @@
  * `name` is just another field on the LWW item body).
  */
 
-import type { Environment } from '@openheaders/core/types';
 import {
   ENV_VARS_PATH,
   ENVIRONMENT_ENTITY_TYPE,
   type MaterializedEntity,
-  mintBatch,
   type MutationBatch,
   type MutationBody,
   type MutatorContext,
+  mintBatch,
+  orderKeyMinter,
 } from '@openheaders/core/sync';
+import type { Environment } from '@openheaders/core/types';
 
 /**
  * Convert a persisted `Environment` into a `MutationBatch` of one
@@ -34,9 +35,11 @@ import {
 export function seedEnvironment(env: Environment, ctx: MutatorContext): MutationBatch {
   const shell = stripVariables(env);
 
-  const bodies: MutationBody[] = [
-    { kind: 'create', type: ENVIRONMENT_ENTITY_TYPE, id: env.uid, payload: shell },
-  ];
+  const bodies: MutationBody[] = [{ kind: 'create', type: ENVIRONMENT_ENTITY_TYPE, id: env.uid, payload: shell }];
+  // Sequential orderKeys — a keyless addToSet defaults every row to the
+  // same seedKey(), collapsing creation order to the uid tie-break at
+  // materialize time.
+  const nextKey = orderKeyMinter();
   for (const variable of env.variables) {
     bodies.push({
       kind: 'addToSet',
@@ -45,6 +48,7 @@ export function seedEnvironment(env: Environment, ctx: MutatorContext): Mutation
       path: ENV_VARS_PATH,
       itemId: variable.uid,
       item: variable,
+      orderKey: nextKey(),
     });
   }
   return mintBatch(ctx, bodies);

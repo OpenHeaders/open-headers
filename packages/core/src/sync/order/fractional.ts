@@ -23,6 +23,22 @@ const SEED = 'm';
 export const seedKey = (): string => SEED;
 
 /**
+ * Stateful key mint for seeding an ordered set in one batch: the first
+ * call returns `seedKey()`, every subsequent call a key strictly after
+ * the previous one. Seed builders walk this per set path so a multi-row
+ * create materializes in creation order — a keyless `addToSet` defaults
+ * every row to the same `seedKey()`, collapsing the order to the uid
+ * tie-break.
+ */
+export function orderKeyMinter(): () => string {
+  let prev: string | undefined;
+  return () => {
+    prev = prev === undefined ? SEED : keyAfter(prev);
+    return prev;
+  };
+}
+
+/**
  * Mint a key strictly between `low` and `high`. `null` on either side
  * means "no bound." Throws if `low >= high` or if no representable key
  * exists (never the case with the unbounded charset we use).

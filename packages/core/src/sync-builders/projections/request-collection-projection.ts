@@ -18,10 +18,11 @@
 
 import {
   type MaterializedEntity,
-  mintBatch,
   type MutationBatch,
   type MutationBody,
   type MutatorContext,
+  mintBatch,
+  orderKeyMinter,
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_COLLECTION_VARS_PATH,
 } from '@openheaders/core/sync';
@@ -32,15 +33,16 @@ import type { Collection } from '@openheaders/core/types';
  * plus one `addToSet` per variable. All-or-nothing under the oracle's
  * per-entity lock.
  */
-export function seedRequestCollection(
-  collection: Collection,
-  ctx: MutatorContext,
-): MutationBatch {
+export function seedRequestCollection(collection: Collection, ctx: MutatorContext): MutationBatch {
   const shell = stripVariables(collection);
 
   const bodies: MutationBody[] = [
     { kind: 'create', type: REQUEST_COLLECTION_ENTITY_TYPE, id: collection.uid, payload: shell },
   ];
+  // Sequential orderKeys — a keyless addToSet defaults every row to the
+  // same seedKey(), collapsing creation order to the uid tie-break at
+  // materialize time.
+  const nextKey = orderKeyMinter();
   for (const variable of collection.variables) {
     bodies.push({
       kind: 'addToSet',
@@ -49,6 +51,7 @@ export function seedRequestCollection(
       path: REQUEST_COLLECTION_VARS_PATH,
       itemId: variable.uid,
       item: variable,
+      orderKey: nextKey(),
     });
   }
   return mintBatch(ctx, bodies);
@@ -59,9 +62,7 @@ export function seedRequestCollection(
  * snapshot) back into a `Collection`. Returns `null` when the
  * materialized data fails basic shape checks.
  */
-export function projectRequestCollection(
-  materialized: MaterializedEntity,
-): Collection | null {
+export function projectRequestCollection(materialized: MaterializedEntity): Collection | null {
   if (materialized.type !== REQUEST_COLLECTION_ENTITY_TYPE) return null;
   const data = materialized.data;
   if (!isPlainObject(data)) return null;
