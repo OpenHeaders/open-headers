@@ -1,8 +1,8 @@
 /**
  * Daemon configuration — one `daemon.json` file plus env/argv overrides
  * (DAEMON_PLAN.md §6). Precedence, highest first: argv → env → config
- * file → defaults. Phase 1 carries the bind + data dir; TLS and log
- * level join in later phases.
+ * file → defaults. Carries the bind, data dir, and log level; TLS
+ * joins in Phase 3.
  *
  * The data dir defaults to the platform state dir and holds everything
  * the daemon persists (`storage.json`, `oracle.db`, `blobs/`). The
@@ -16,7 +16,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { parseArgs } from 'node:util';
 import { WS_PORT } from '@openheaders/core/protocol';
-import { validatePort } from '@openheaders/core/utils';
+import { isValidLogLevel, type LogLevel, validatePort } from '@openheaders/core/utils';
 
 export type BindAddress = '127.0.0.1' | '0.0.0.0';
 
@@ -26,6 +26,8 @@ export interface DaemonConfig {
   /** `127.0.0.1` (loopback-only) or `0.0.0.0` (LAN). Same contract as the settings key. */
   bindAddress: BindAddress;
   bindPort: number;
+  /** Minimum level the daemon logger emits. */
+  logLevel: LogLevel;
   /** The `daemon.json` path that was consulted (whether or not it existed). */
   configPath: string;
 }
@@ -35,6 +37,7 @@ interface ConfigFile {
   dataDir?: string;
   bindAddress?: string;
   bindPort?: number;
+  logLevel?: string;
 }
 
 export interface ResolveConfigInput {
@@ -72,6 +75,11 @@ function parseBindPort(raw: number, source: string): number {
   return raw;
 }
 
+function parseLogLevel(raw: string, source: string): LogLevel {
+  if (isValidLogLevel(raw)) return raw;
+  throw new Error(`${source}: log level must be one of error, warn, info, debug — got '${raw}'`);
+}
+
 function readConfigFile(configPath: string): ConfigFile {
   let text: string;
   try {
@@ -97,6 +105,10 @@ function readConfigFile(configPath: string): ConfigFile {
     if (typeof record.bindPort !== 'number') throw new Error(`${configPath}: bindPort must be a number`);
     out.bindPort = record.bindPort;
   }
+  if (record.logLevel !== undefined) {
+    if (typeof record.logLevel !== 'string') throw new Error(`${configPath}: logLevel must be a string`);
+    out.logLevel = record.logLevel;
+  }
   return out;
 }
 
@@ -115,6 +127,7 @@ export function resolveDaemonConfig(input: ResolveConfigInput): DaemonConfig {
       'data-dir': { type: 'string' },
       'bind-address': { type: 'string' },
       'bind-port': { type: 'string' },
+      'log-level': { type: 'string' },
     },
   });
 
@@ -136,5 +149,8 @@ export function resolveDaemonConfig(input: ResolveConfigInput): DaemonConfig {
   const rawPort = argvPort !== undefined ? Number(argvPort) : file.bindPort;
   const bindPort = rawPort === undefined ? WS_PORT : parseBindPort(rawPort, 'bind port');
 
-  return { dataDir, bindAddress, bindPort, configPath };
+  const rawLevel = values['log-level'] ?? input.env.OH_DAEMON_LOG_LEVEL ?? file.logLevel;
+  const logLevel = rawLevel === undefined ? 'info' : parseLogLevel(rawLevel, 'log level');
+
+  return { dataDir, bindAddress, bindPort, logLevel, configPath };
 }

@@ -23,18 +23,22 @@ import { promises as fs } from 'node:fs';
 import { createRequire } from 'node:module';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { setHostLogger } from '@openheaders/core/logger';
+import { type HostLogger, setHostLogger } from '@openheaders/core/logger';
 import { OH } from '@openheaders/core/storage';
-import { logger as consoleLogger } from '@openheaders/core/utils';
 import { bootDaemonSpine } from '@openheaders/oracle-host-node/daemon';
 import { FileBackedHostStorage } from '@openheaders/oracle-host-node/host-storage';
 import { resolveDaemonConfig } from './config';
+import { createDaemonLogger } from './logger';
 import { noCipherYet } from './no-cipher';
 import { createDaemonStatusStore } from './status-store';
 
 const SCOPE = 'oh-daemon';
 
 const appVersion: string = (createRequire(import.meta.url)('../package.json') as { version: string }).version;
+
+// Boot-failure lines must land somewhere even when config resolution
+// itself throws; the resolved level replaces this default in `main`.
+let log: HostLogger = createDaemonLogger({ level: 'info' });
 
 function safeOsUsername(): string {
   try {
@@ -53,14 +57,15 @@ function safeOsHostname(): string {
 }
 
 async function main(): Promise<void> {
-  setHostLogger(consoleLogger);
   const config = resolveDaemonConfig({ argv: process.argv.slice(2), env: process.env });
+  log = createDaemonLogger({ level: config.logLevel });
+  setHostLogger(log);
   await fs.mkdir(config.dataDir, { recursive: true });
 
   const hostStorage = new FileBackedHostStorage({
     filePath: path.join(config.dataDir, 'storage.json'),
     secretCipher: noCipherYet,
-    log: (level, msg, ...rest) => consoleLogger[level](SCOPE, msg, ...rest),
+    log: (level, msg, ...rest) => log[level](SCOPE, msg, ...rest),
   });
 
   // Seed the bind the supervisor watches. The config file/argv is the
@@ -72,7 +77,7 @@ async function main(): Promise<void> {
     'backend.bindPort': config.bindPort,
   });
 
-  consoleLogger.info(
+  log.info(
     SCOPE,
     `starting v${appVersion} — data dir ${config.dataDir}, bind ${config.bindAddress}:${config.bindPort}`,
   );
@@ -103,11 +108,11 @@ async function main(): Promise<void> {
   const shutdown = (signal: NodeJS.Signals): void => {
     if (shuttingDown) return;
     shuttingDown = true;
-    consoleLogger.info(SCOPE, `${signal} — shutting down`);
+    log.info(SCOPE, `${signal} — shutting down`);
     void spine
       .dispose()
       .catch((err: unknown) => {
-        consoleLogger.error(SCOPE, 'dispose failed', err);
+        log.error(SCOPE, 'dispose failed', err);
       })
       .finally(() => {
         process.exit(0);
@@ -118,6 +123,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err: unknown) => {
-  consoleLogger.error(SCOPE, 'boot failed', err);
+  log.error(SCOPE, 'boot failed', err);
   process.exit(1);
 });

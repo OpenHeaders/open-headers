@@ -8,6 +8,7 @@
  * system Node resolves the prebuilt binding for ITS ABI (or falls back
  * to node-gyp) — then verifies the result boots headless under plain
  * `node`: /healthz answers, `oh daemon status` sees it, SIGTERM exits 0.
+ * A verified stage is finally packed into the npm-publishable tarball.
  *
  * Run via `pnpm --filter @openheaders/daemon pack` (builds first).
  */
@@ -20,6 +21,7 @@ import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const repoRoot = path.resolve(packageRoot, '..', '..');
 const stageDir = path.join(packageRoot, 'dist-package');
 const require = createRequire(path.join(packageRoot, 'package.json'));
 const manifest = require('./package.json');
@@ -38,6 +40,8 @@ function fail(message) {
 rmSync(stageDir, { recursive: true, force: true });
 cpSync(path.join(packageRoot, 'dist'), path.join(stageDir, 'dist'), { recursive: true });
 chmodSync(path.join(stageDir, 'dist', 'cli.js'), 0o755);
+cpSync(path.join(packageRoot, 'README.md'), path.join(stageDir, 'README.md'));
+cpSync(path.join(repoRoot, 'LICENSE.md'), path.join(stageDir, 'LICENSE.md'));
 writeFileSync(
   path.join(stageDir, 'package.json'),
   `${JSON.stringify(
@@ -45,10 +49,21 @@ writeFileSync(
       name: manifest.name,
       version: manifest.version,
       description: manifest.description,
+      license: 'MIT',
+      homepage: 'https://openheaders.io',
       type: 'module',
       bin: { oh: './dist/cli.js' },
+      files: ['dist'],
       engines: { node: '>=22' },
       dependencies: { 'better-sqlite3': sqliteVersion },
+      // Publish gates: a release is a deliberate act. `prepublishOnly`
+      // refuses without OH_RELEASE=1, and access stays restricted so a
+      // forced attempt still can't land public by accident.
+      publishConfig: { access: 'restricted' },
+      scripts: {
+        prepublishOnly:
+          'node -e "if(process.env.OH_RELEASE!==\'1\'){console.error(\'refusing to publish: set OH_RELEASE=1 for a deliberate release\');process.exit(1)}"',
+      },
     },
     null,
     2,
@@ -108,4 +123,25 @@ if (exitCode !== 0) {
 }
 
 console.log(`pack: verified — /healthz 200, status OK, SIGTERM exit 0 (node ${process.version})`);
+
+// ── Tarball: the npm-publishable artifact (verified stage only) ──────
+// `npm pack` honors `files` — dist + README/LICENSE/package.json land
+// in the tarball; the stage's own node_modules never does. The end
+// user's `npm install` resolves better-sqlite3 for THEIR machine.
+
+const packed = spawnSync('npm', ['pack', '--json'], { cwd: stageDir, encoding: 'utf-8' });
+if (packed.status !== 0) fail(`npm pack exited ${packed.status}: ${packed.stderr}`);
+const [tarball] = JSON.parse(packed.stdout);
+
+// Leak gate: the tarball may contain ONLY the curated set — the built
+// bundles plus the three manifest/docs files. Source maps and anything
+// npm's default includes might sweep in (logs, dotfiles, lockfiles)
+// fail the pack outright.
+const allowedTop = new Set(['package.json', 'README.md', 'LICENSE.md']);
+const contraband = tarball.files
+  .map((entry) => entry.path)
+  .filter((file) => !(allowedTop.has(file) || (file.startsWith('dist/') && !file.endsWith('.map'))));
+if (contraband.length > 0) fail(`tarball contains unexpected files: ${contraband.join(', ')}`);
+
 console.log(`pack: distribution ready at ${stageDir}`);
+console.log(`pack: tarball ${path.join(stageDir, tarball.filename)} (${tarball.files.length} files, leak gate clean)`);

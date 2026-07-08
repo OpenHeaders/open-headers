@@ -68,6 +68,7 @@ export function handleConnection(socket: WebSocket, request: IncomingMessage, de
   // trust-by-process is not a sound floor — every peer presents a
   // paired token. `isLoopback` is kept for reporting + reach, not auth.
   const isLoopback = classifyLoopback(request.socket.remoteAddress);
+  const remoteAddress = request.socket.remoteAddress ?? 'unknown';
   const requireAuth = true;
   // Heartbeat bookkeeping — a fresh socket is alive; a protocol-level
   // pong reply re-arms it (the message handler below re-arms on any
@@ -142,7 +143,9 @@ export function handleConnection(socket: WebSocket, request: IncomingMessage, de
         }
         send(socket, outcome.welcome);
         if (outcome.kind === 'reject') {
-          logger.info(SCOPE, `HELLO rejected: ${outcome.reason}`);
+          // One line per rejection with reason + peer — the auth-log
+          // contract log scanners (fail2ban) match against.
+          logger.info(SCOPE, `HELLO rejected: ${outcome.reason} (peer=${remoteAddress})`);
           // 4001 is reserved for protocol mismatches; every other
           // refusal closes with the policy-violation code and carries
           // the reject reason as the close reason, matching the in-band

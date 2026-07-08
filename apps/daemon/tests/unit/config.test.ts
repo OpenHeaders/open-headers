@@ -77,6 +77,14 @@ describe('resolveDaemonConfig — precedence', () => {
     expect(config.dataDir).toBe('/srv/oh');
     expect(config.configPath).toBe(file);
   });
+
+  it('resolves the log level through the same chain, defaulting to info', () => {
+    expect(resolve().logLevel).toBe('info');
+    const file = writeConfigFile({ logLevel: 'error' });
+    expect(resolve(['--config', file]).logLevel).toBe('error');
+    expect(resolve(['--config', file], { OH_DAEMON_LOG_LEVEL: 'warn' }).logLevel).toBe('warn');
+    expect(resolve(['--config', file, '--log-level', 'debug'], { OH_DAEMON_LOG_LEVEL: 'warn' }).logLevel).toBe('debug');
+  });
 });
 
 describe('resolveDaemonConfig — validation', () => {
@@ -91,5 +99,9 @@ describe('resolveDaemonConfig — validation', () => {
   it('rejects a malformed config file rather than guessing', () => {
     const file = writeConfigFile('[1,2,3]');
     expect(() => resolve(['--config', file])).toThrow(/JSON object/);
+  });
+
+  it('rejects an unknown log level', () => {
+    expect(() => resolve(['--log-level', 'verbose'])).toThrow(/log level/);
   });
 });

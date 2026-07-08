@@ -99,8 +99,12 @@ export function createMcpHttpHandler(options: McpHttpHandlerOptions): McpHttpHan
       return true;
     }
 
+    const remoteAddress = req.socket.remoteAddress ?? 'unknown';
     if (req.headers.origin !== undefined) {
-      logger.info(SCOPE, `rejected browser-originated request (origin=${String(req.headers.origin)})`);
+      logger.info(
+        SCOPE,
+        `rejected browser-originated request (origin=${String(req.headers.origin)} peer=${remoteAddress})`,
+      );
       jsonError(res, 403, 'browser-originated requests are not accepted on this endpoint');
       return true;
     }
@@ -109,7 +113,7 @@ export function createMcpHttpHandler(options: McpHttpHandlerOptions): McpHttpHan
       try {
         const validation = await validateDaemonAuthToken(readBearerSecret(req));
         if (!validation.ok) {
-          logger.info(SCOPE, `rejected request: ${validation.reason}`);
+          logger.info(SCOPE, `rejected request: ${validation.reason} (peer=${remoteAddress})`);
           jsonError(res, 401, 'a paired access token is required — mint one in Open Headers → Settings → MCP', {
             'WWW-Authenticate': 'Bearer',
           });

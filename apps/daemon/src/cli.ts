@@ -30,6 +30,7 @@ const CONFIG_OPTIONS = {
   'data-dir': { type: 'string' },
   'bind-address': { type: 'string' },
   'bind-port': { type: 'string' },
+  'log-level': { type: 'string' },
 } as const;
 
 const USAGE = `oh v${cliVersion} — Open Headers command line
@@ -49,6 +50,7 @@ Options (install / status / show-token):
   --data-dir <path>        Data directory (storage.json, oracle.db, blobs/)
   --bind-address <addr>    127.0.0.1 (loopback) or 0.0.0.0 (LAN)
   --bind-port <port>       Sync/HTTP port (default 8137)
+  --log-level <level>      error | warn | info | debug (default info)
   --label <text>           show-token only: label for the minted token
 `;
 
@@ -61,6 +63,7 @@ interface ConfigFlagValues {
   'data-dir'?: string;
   'bind-address'?: string;
   'bind-port'?: string;
+  'log-level'?: string;
 }
 
 interface ParsedConfigCommand {
@@ -73,7 +76,7 @@ function resolveConfigFlags(values: ConfigFlagValues): ParsedConfigCommand {
   // Re-issue only the config flags — `resolveDaemonConfig` parses
   // strictly and must not see command-specific ones like --label.
   const configArgv: string[] = [];
-  for (const flag of ['config', 'data-dir', 'bind-address', 'bind-port'] as const) {
+  for (const flag of ['config', 'data-dir', 'bind-address', 'bind-port', 'log-level'] as const) {
     const value = values[flag];
     if (typeof value === 'string') configArgv.push(`--${flag}`, value);
   }
@@ -83,6 +86,7 @@ function resolveConfigFlags(values: ConfigFlagValues): ParsedConfigCommand {
   if (values['data-dir'] !== undefined) unitArgs.push('--data-dir', config.dataDir);
   if (values['bind-address'] !== undefined) unitArgs.push('--bind-address', config.bindAddress);
   if (values['bind-port'] !== undefined) unitArgs.push('--bind-port', String(config.bindPort));
+  if (values['log-level'] !== undefined) unitArgs.push('--log-level', config.logLevel);
   return { config, unitArgs };
 }
 
