@@ -28,6 +28,7 @@ import {
   writeJarCookie,
 } from '../../data/cookies/cookie-jar-cache';
 import { useSiteCookieJarSticky } from '../../data/cookies/use-cookie-jar';
+import { idbRecordTabId } from '../../data/inspector-tab';
 import type { DomStorageEntry } from '../../data/storage/storage-inspector-host';
 import { parseStorageKey } from '../../data/storage/storage-key';
 import { useCacheBrowser } from '../../data/storage/use-cache-browser';
@@ -61,6 +62,9 @@ interface StoragePanelProps {
    *  round-trip must not replay it). */
   revealIdb: IdbRevealRequest | null;
   onRevealConsumed: () => void;
+  /** Ids of the open idb-record editor tabs — record rows whose
+   *  document is open render highlighted in the record list. */
+  openIdbTabIds?: ReadonlySet<string>;
 }
 
 const SECTIONS: ReadonlyArray<{ value: StorageSection; label: string; icon: React.ReactNode }> = [
@@ -82,7 +86,7 @@ const READ_ONLY_ADD_TITLES = {
   quota: 'Usage is read-only',
 } as const;
 
-export function StoragePanel({ onHide, onOpenIdbRecord, revealIdb, onRevealConsumed }: StoragePanelProps) {
+export function StoragePanel({ onHide, onOpenIdbRecord, revealIdb, onRevealConsumed, openIdbTabIds }: StoragePanelProps) {
   const wiring = useMemo(() => createPanelHeaderWiring({ onHide }), [onHide]);
   const [section, setSection] = useState<StorageSection>('local');
   const inspector = useStorageInspector(section);
@@ -134,6 +138,12 @@ export function StoragePanel({ onHide, onOpenIdbRecord, revealIdb, onRevealConsu
       onOpenIdbRecord({ ...request, frameId: selectedFrameId });
     },
     [onOpenIdbRecord, selectedFrameId],
+  );
+  const isIdbRecordOpen = useCallback(
+    (database: string, store: string, primaryKeyWire: string) =>
+      selectedFrameId !== null &&
+      (openIdbTabIds?.has(idbRecordTabId(selectedFrameId, database, store, primaryKeyWire)) ?? false),
+    [openIdbTabIds, selectedFrameId],
   );
 
   // ── Cookies section data + write plumbing (jar plane reuse) ────────
@@ -344,7 +354,12 @@ export function StoragePanel({ onHide, onOpenIdbRecord, revealIdb, onRevealConsu
             ) : section === 'indexeddb' || section === 'cachestorage' || section === 'quota' ? (
               inspector.available && inspector.scopes.length > 0 ? (
                 section === 'indexeddb' ? (
-                  <IndexedDbSection idb={idb} filter={textFilter} onOpenRecord={openIdbRecord} />
+                  <IndexedDbSection
+                    idb={idb}
+                    filter={textFilter}
+                    onOpenRecord={openIdbRecord}
+                    isRecordOpen={isIdbRecordOpen}
+                  />
                 ) : section === 'cachestorage' ? (
                   <CacheStorageSection cache={cacheStorage} filter={textFilter} />
                 ) : (

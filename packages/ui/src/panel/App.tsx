@@ -438,6 +438,11 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
     },
     [groups],
   );
+  // Open-record identity for the Storage window's row highlight.
+  const openIdbTabIds = useMemo(
+    () => new Set(groups.allTabs.filter((t) => t.kind === 'idb-record').map((t) => t.id)),
+    [groups.allTabs],
+  );
   const revealInStorage = useCallback(
     (database: string, store: string) => {
       if (tl.state.hidden.includes('storage')) tl.restoreWindow('storage');
@@ -601,6 +606,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
               onOpenIdbRecord={openIdbRecord}
               revealIdb={revealIdb}
               onRevealConsumed={handleRevealConsumed}
+              openIdbTabIds={openIdbTabIds}
             />
           );
         case 'rules':
@@ -672,6 +678,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       openIdbRecord,
       revealIdb,
       handleRevealConsumed,
+      openIdbTabIds,
       tl,
       iconState,
       visibleColumns,

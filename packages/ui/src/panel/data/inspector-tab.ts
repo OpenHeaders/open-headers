@@ -114,12 +114,18 @@ export interface BuildIdbRecordTabInput {
   timestamp: number;
 }
 
+/** Record identity IS the tab identity — shared with the Storage window
+ *  so an open record's row can light up in the store's record list. */
+export function idbRecordTabId(frameId: number, database: string, store: string, primaryKeyWire: string): string {
+  return `idb:${frameId}:${database}:${store}:${primaryKeyWire}`;
+}
+
 export function buildIdbRecordTab(input: BuildIdbRecordTabInput): IdbRecordInspectorTab {
   return {
     kind: 'idb-record',
-    // Record identity IS the tab identity — re-opening the same record
-    // activates the existing tab instead of spawning a duplicate.
-    id: `idb:${input.frameId}:${input.database}:${input.store}:${input.primaryKeyWire}`,
+    // Re-opening the same record activates the existing tab instead of
+    // spawning a duplicate.
+    id: idbRecordTabId(input.frameId, input.database, input.store, input.primaryKeyWire),
     label: input.keyPreview,
     frameId: input.frameId,
     database: input.database,

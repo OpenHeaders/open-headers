@@ -87,6 +87,19 @@ describe('IndexedDbSection records view', () => {
     expect(idb.deleteRecord).toHaveBeenCalledWith('{"s":"simple"}');
     expect(onOpenRecord).not.toHaveBeenCalled();
   });
+
+  it('highlights the rows whose records are open as editor tabs', () => {
+    const idb = makeIdb({ selection: { database: 'oh-app', store: 'kv' }, recordsPage: RECORDS_PAGE });
+    const isRecordOpen = vi.fn(
+      (database: string, store: string, wire: string) =>
+        database === 'oh-app' && store === 'kv' && wire === '{"s":"simple"}',
+    );
+    render(<IndexedDbSection idb={idb} filter="" onOpenRecord={vi.fn()} isRecordOpen={isRecordOpen} />);
+
+    const rows = screen.getAllByRole('row').filter((r) => r.classList.contains('dt-storage-row'));
+    expect(rows[0]?.classList.contains('dt-storage-row--open')).toBe(true);
+    expect(rows[1]?.classList.contains('dt-storage-row--open')).toBe(false);
+  });
 });
 
 describe('IndexedDbSection index cursor selector', () => {

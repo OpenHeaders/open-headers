@@ -5,17 +5,18 @@
  * idiom), readable through the store's primary cursor or any of its
  * indexes. Clicking a record opens it as a full editor-tab document —
  * the same gesture that opens a request from the Network list; the
- * narrow grid keeps only the one-line previews. Deletes are in scope —
- * record (rows carrying a lossless wire key), store clear, whole
- * database — record EDITING stays out of v1. Bulk gestures (clear /
- * database delete) use the two-step arm/confirm idiom; a record delete
- * is single-click like the DOM grid's.
+ * narrow grid keeps only the one-line previews, and a row whose record
+ * is open as a tab renders highlighted. Deletes are in scope — record
+ * (rows carrying a lossless wire key), store clear, whole database.
+ * Bulk gestures (clear / database delete) use the two-step arm/confirm
+ * idiom; a record delete is single-click like the DOM grid's.
  */
 
 import { ClearOutlined, DeleteOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons';
 import type { IdbDatabase, IdbRecord } from '../../data/storage/storage-inspector-host';
 import type { IdbBrowserState } from '../../data/storage/use-idb-browser';
 import { ArmedIconButton } from './ArmedIconButton';
+import { DatabaseIcon, TableIcon } from './StorageNavIcons';
 
 /** What an editor-tab open needs from a record row (plus the scope's
  *  frame, which the panel shell adds). */
@@ -30,6 +31,9 @@ interface IndexedDbSectionProps {
   idb: IdbBrowserState;
   filter: string;
   onOpenRecord: (request: OpenIdbRecordRequest) => void;
+  /** Whether a record is currently open as an editor tab — its row
+   *  renders highlighted so the open document is findable in the list. */
+  isRecordOpen?: (database: string, store: string, primaryKeyWire: string) => boolean;
 }
 
 function storeMeta(store: IdbDatabase['objectStores'][number]): string {
@@ -37,9 +41,9 @@ function storeMeta(store: IdbDatabase['objectStores'][number]): string {
   return store.indexNames.length > 0 ? `${key} · ${store.indexNames.length} ${store.indexNames.length === 1 ? 'index' : 'indexes'}` : key;
 }
 
-export function IndexedDbSection({ idb, filter, onOpenRecord }: IndexedDbSectionProps) {
+export function IndexedDbSection({ idb, filter, onOpenRecord, isRecordOpen }: IndexedDbSectionProps) {
   if (idb.selection) {
-    return <RecordsView idb={idb} filter={filter} onOpenRecord={onOpenRecord} />;
+    return <RecordsView idb={idb} filter={filter} onOpenRecord={onOpenRecord} isRecordOpen={isRecordOpen} />;
   }
   if (idb.databases === null) {
     return idb.loading ? (
@@ -70,11 +74,17 @@ export function IndexedDbSection({ idb, filter, onOpenRecord }: IndexedDbSection
         return (
           <div key={db.name} className="dt-storage-idb-db">
             <div className="dt-storage-idb-db-header">
+              <span className="dt-storage-idb-icon">
+                <DatabaseIcon />
+              </span>
               <span className="dt-storage-idb-db-name" title={db.name}>
                 {db.name}
               </span>
+              <span className="dt-storage-idb-version" title={`Database version ${db.version}`}>
+                v{db.version}
+              </span>
               <span className="dt-storage-meta">
-                v{db.version} · {db.objectStores.length} {db.objectStores.length === 1 ? 'store' : 'stores'}
+                {db.objectStores.length} {db.objectStores.length === 1 ? 'store' : 'stores'}
               </span>
               <ArmedIconButton
                 icon={<DeleteOutlined />}
@@ -92,6 +102,9 @@ export function IndexedDbSection({ idb, filter, onOpenRecord }: IndexedDbSection
                   onClick={() => idb.selectStore(db.name, s.name)}
                   title={`Open ${db.name} › ${s.name}`}
                 >
+                  <span className="dt-storage-idb-icon">
+                    <TableIcon />
+                  </span>
                   {s.name}
                   <span className="dt-storage-meta">{storeMeta(s)}</span>
                 </button>
@@ -112,7 +125,7 @@ export function IndexedDbSection({ idb, filter, onOpenRecord }: IndexedDbSection
   );
 }
 
-function RecordsView({ idb, filter, onOpenRecord }: IndexedDbSectionProps) {
+function RecordsView({ idb, filter, onOpenRecord, isRecordOpen }: IndexedDbSectionProps) {
   const selection = idb.selection;
   if (!selection) return null;
   const storeShape = idb.databases
@@ -204,11 +217,15 @@ function RecordsView({ idb, filter, onOpenRecord }: IndexedDbSectionProps) {
           </div>
           {records.map((r, i) => {
             const wireKey = r.primaryKeyWire;
+            const open =
+              wireKey !== undefined && isRecordOpen !== undefined
+                ? isRecordOpen(selection.database, selection.store, wireKey)
+                : false;
             return (
               // biome-ignore lint/a11y/useKeyWithClickEvents: row carries its own key handler
               // biome-ignore lint/a11y/noNoninteractiveElementInteractions: grid row doubles as the open affordance
               <div
-                className="dt-storage-row"
+                className={`dt-storage-row${open ? ' dt-storage-row--open' : ''}`}
                 role="row"
                 key={`${idb.page}:${i}:${r.primaryKeyPreview}`}
                 tabIndex={wireKey !== undefined ? 0 : undefined}
