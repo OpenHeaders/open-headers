@@ -751,29 +751,49 @@ test('the MCP-created rule syncs into a connected browser extension', async () =
   await popup.goto(`chrome-extension://${extensionId}/popup.html`);
   const serviceWorker = extensionContext.serviceWorkers()[0] ?? (await extensionContext.waitForEvent('serviceworker'));
 
-  // Point the extension's backend at the e2e app's daemon socket with
-  // the minted token (the daemon requires a token even on loopback).
-  // The settings store subscribes to these keys, so the SW redials live.
+  // Point the extension at the e2e app's daemon socket with the minted
+  // token (the daemon requires a token even on loopback). The connection
+  // identity lives on the `oh.backends` registry (a sensitive slot), so
+  // the seed encrypts the record with the SW's own at-rest key — same
+  // blob format as `browser-secret-cipher` — and the registry mirror's
+  // storage subscription makes the connection manager dial it live.
   await serviceWorker.evaluate(
-    async ({ backendUrl, authToken }) =>
-      new Promise<void>((resolve) => {
-        chrome.storage.local.get(['oh.settings.user'], (items) => {
-          const current = (items['oh.settings.user'] as Record<string, unknown> | undefined) ?? {};
-          chrome.storage.local.set(
-            {
-              onboardingCompleted: true,
-              'oh.settings.user': {
-                ...current,
-                'backend.mode': 'desktop-app',
-                'backend.url': backendUrl,
-                'backend.authToken': authToken,
-                'backend.autoConnect': true,
-              },
-            },
-            () => resolve(),
-          );
-        });
-      }),
+    async ({ backendUrl, authToken }) => {
+      const key = await new Promise<CryptoKey>((resolve, reject) => {
+        const open = indexedDB.open('oh-secret-cipher', 1);
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+          const db = open.result;
+          const request = db.transaction('keys', 'readonly').objectStore('keys').get('at-rest-aes-gcm-v1');
+          request.onerror = () => reject(request.error);
+          request.onsuccess = () => resolve(request.result as CryptoKey);
+        };
+      });
+      const record = {
+        id: 'e2e-desktop-backend',
+        label: 'e2e desktop',
+        url: backendUrl,
+        authToken,
+        autoConnect: true,
+        enabled: true,
+        addedAt: new Date().toISOString(),
+        lastConnectedAt: null,
+      };
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const ciphertext = await crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv },
+        key,
+        new TextEncoder().encode(JSON.stringify([record])),
+      );
+      const packed = new Uint8Array(iv.length + ciphertext.byteLength);
+      packed.set(iv, 0);
+      packed.set(new Uint8Array(ciphertext), iv.length);
+      let binary = '';
+      for (const byte of packed) binary += String.fromCharCode(byte);
+      await new Promise<void>((resolve) => {
+        chrome.storage.local.set({ onboardingCompleted: true, 'oh.backends': `v1:${btoa(binary)}` }, () => resolve());
+      });
+    },
     { backendUrl: `ws://127.0.0.1:${DAEMON_PORT}`, authToken: token },
   );
 
