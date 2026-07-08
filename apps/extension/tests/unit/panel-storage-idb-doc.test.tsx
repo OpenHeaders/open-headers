@@ -165,15 +165,24 @@ describe('IdbRecordEditorTab', () => {
         }),
       ),
     );
-    render(<IdbRecordEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+    const { container } = render(<IdbRecordEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
 
     const preview = await screen.findByRole('tab', { name: 'Preview' });
     expect(preview.hasAttribute('disabled')).toBe(false);
     fireEvent.click(preview);
-    expect(screen.getByText('Date("2026-07-08T00:00:00.000Z")')).toBeTruthy();
-    expect(screen.getByText('Map(1)')).toBeTruthy();
-    expect(screen.getByText('"a" =>')).toBeTruthy();
+    expect(screen.getAllByText('Date("2026-07-08T00:00:00.000Z")').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Map(1)').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('"a" =>').length).toBeGreaterThan(0);
     expect(screen.queryByTestId('code-viewer')).toBeNull();
+
+    // Browser parity: only the root starts expanded; every container's
+    // summary carries an inline first-level preview with unquoted names.
+    const details = container.querySelectorAll('details');
+    expect(details[0]?.open).toBe(true);
+    expect(details[1]?.open).toBe(false);
+    const rootSummary = container.querySelector('summary');
+    expect(rootSummary?.textContent).toContain('when: Date("2026-07-08T00:00:00.000Z")');
+    expect(rootSummary?.textContent).toContain('lookup: Map(1)');
   });
 
   it('mirrors dirty up through onDirtyChange and registers its save action', async () => {

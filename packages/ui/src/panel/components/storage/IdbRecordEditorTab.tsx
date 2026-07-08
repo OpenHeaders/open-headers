@@ -230,7 +230,7 @@ export function IdbRecordEditorTab({ tab, onRevealInStorage, onDirtyChange, regi
           {previewValue !== undefined ? (
             <JsonTree value={previewValue} defaultExpandedDepth={2} />
           ) : slot.preview !== undefined ? (
-            <IdbPreviewTree node={slot.preview} defaultExpandedDepth={2} />
+            <IdbPreviewTree node={slot.preview} />
           ) : null}
         </div>
       ) : (
