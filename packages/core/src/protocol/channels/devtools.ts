@@ -152,6 +152,17 @@ export interface IdbRecordDocumentWire {
   truncated?: boolean;
 }
 
+/**
+ * Why a record write was rejected: `parse` — the text isn't valid JSON
+ * (checked before any transaction); `key-changed` — the store keeps its
+ * key inside the value and the edited value's key no longer matches the
+ * record's (saving would create a NEW record, never silently allowed);
+ * `gone` — the database/store/record coordinates can't be reached
+ * (deleted, undecodable key, frame unreadable); `write` — the put
+ * transaction itself failed (quota, constraint).
+ */
+export type IdbRecordWriteFailureWire = 'parse' | 'key-changed' | 'gone' | 'write';
+
 /** One named cache of a scope's Cache Storage. */
 export interface CacheStorageCacheWire {
   name: string;
@@ -437,6 +448,22 @@ export interface DevToolsRpc {
   getIndexedDbRecordDocument: {
     req: { tabId: number; frameId: number; database: string; store: string; primaryKeyWire: string };
     res: { document: IdbRecordDocumentWire | null };
+  };
+
+  /**
+   * Write one record's value back from its edited document text —
+   * same-key only. `valueText` must be exact JSON (only documents the
+   * read RPC marked `editable: true` qualify; JSON-ish renderings never
+   * gain a write path). The value is parsed and put in-page: a store
+   * with an in-value keyPath rejects an edit whose key differs from the
+   * record's (`key-changed`) instead of silently creating a duplicate;
+   * out-of-line keys put with the decoded wire key. `reason` explains a
+   * failure (see {@link IdbRecordWriteFailureWire}), absent on invalid
+   * arguments.
+   */
+  putIndexedDbRecord: {
+    req: { tabId: number; frameId: number; database: string; store: string; primaryKeyWire: string; valueText: string };
+    res: { ok: boolean; reason?: IdbRecordWriteFailureWire };
   };
 
   /**

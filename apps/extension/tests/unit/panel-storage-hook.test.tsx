@@ -118,6 +118,7 @@ function installHost() {
     listIndexedDb,
     readIndexedDbRecords,
     readIndexedDbRecordDocument,
+    writeIndexedDbRecord: vi.fn(() => Promise.resolve({ ok: true })),
     deleteIndexedDbRecord,
     clearIndexedDbStore,
     deleteIndexedDbDatabase,

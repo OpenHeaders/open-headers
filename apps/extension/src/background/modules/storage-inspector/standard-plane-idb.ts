@@ -1,9 +1,9 @@
 /**
- * Standard-plane IndexedDB READS and DELETES — `chrome.scripting`
- * injection into the scope's frame, same transport rationale as DOM
- * storage: there is no extension API and the CDP `IndexedDB` domain is
- * not dispatched for extension debugger clients (STORAGE_PANEL_PLAN.md
- * §2.3). Record EDITING stays out of v1 entirely.
+ * Standard-plane IndexedDB READS, WRITES and DELETES —
+ * `chrome.scripting` injection into the scope's frame, same transport
+ * rationale as DOM storage: there is no extension API and the CDP
+ * `IndexedDB` domain is not dispatched for extension debugger clients
+ * (STORAGE_PANEL_PLAN.md §2.3).
  *
  * Payload discipline: cursor-paged reads with a clamped page size, and
  * every key/value PREVIEW-SERIALIZED in-page — IDB values are
@@ -14,6 +14,10 @@
  * value ships as exact pretty JSON (`editable: true`); anything
  * carrying non-JSON types ships as a readable JSON-ish rendering,
  * honestly read-only. Both legs are serialized in-page and size-capped.
+ * The write leg is the inverse, SAME-KEY ONLY: the edited text is
+ * parsed in-page and put back; a store keeping its key inside the value
+ * rejects an edit whose key drifted (`key-changed`) — never a silent
+ * duplicate — while out-of-line keys put with the decoded wire key.
  *
  * Record identity for deletes: previews are lossy, so each record also
  * carries `primaryKeyWire`, a LOSSLESS tagged-JSON encoding of its
@@ -24,7 +28,12 @@
  * injection args are JSON-only).
  */
 
-import type { IdbDatabaseWire, IdbRecordDocumentWire, IdbRecordWire } from '@openheaders/core/bridge';
+import type {
+  IdbDatabaseWire,
+  IdbRecordDocumentWire,
+  IdbRecordWire,
+  IdbRecordWriteFailureWire,
+} from '@openheaders/core/bridge';
 import { runInFrame } from './standard-plane';
 
 /** Database-count cap per enumeration (an origin rarely has more). */
@@ -512,6 +521,134 @@ export async function readIdbRecordDocumentInPage(
   }
 }
 
+export async function putIdbRecordInPage(
+  database: string,
+  store: string,
+  primaryKeyWire: string,
+  valueText: string,
+): Promise<{ ok: boolean; reason?: 'parse' | 'key-changed' | 'gone' | 'write' }> {
+  if (typeof indexedDB === 'undefined') return { ok: false, reason: 'gone' };
+
+  function decodeKeyNode(node: unknown): { key: IDBValidKey } | null {
+    if (!node || typeof node !== 'object') return null;
+    const tagged = node as { s?: unknown; n?: unknown; d?: unknown; b?: unknown; inf?: unknown; a?: unknown };
+    if (typeof tagged.s === 'string') return { key: tagged.s };
+    if (typeof tagged.n === 'number' && Number.isFinite(tagged.n)) return { key: tagged.n };
+    if (typeof tagged.d === 'string') {
+      const date = new Date(tagged.d);
+      return Number.isNaN(date.getTime()) ? null : { key: date };
+    }
+    if (typeof tagged.b === 'string') {
+      try {
+        const bin = atob(tagged.b);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        return { key: bytes.buffer };
+      } catch {
+        return null;
+      }
+    }
+    if (tagged.inf === 1) return { key: Number.POSITIVE_INFINITY };
+    if (tagged.inf === -1) return { key: Number.NEGATIVE_INFINITY };
+    if (Array.isArray(tagged.a)) {
+      const items: IDBValidKey[] = [];
+      for (const item of tagged.a) {
+        const decoded = decodeKeyNode(item);
+        if (decoded === null) return null;
+        items.push(decoded.key);
+      }
+      return { key: items };
+    }
+    return null;
+  }
+
+  // A keyPath member walks dotted paths ("a.b") into the value.
+  function extractByPath(v: unknown, path: string): unknown {
+    let cur: unknown = v;
+    for (const part of path.split('.')) {
+      if (cur === null || typeof cur !== 'object' || Array.isArray(cur)) return undefined;
+      cur = (cur as Record<string, unknown>)[part];
+    }
+    return cur;
+  }
+
+  // Parse failure never opens a transaction.
+  let value: unknown;
+  try {
+    value = JSON.parse(valueText);
+  } catch {
+    return { ok: false, reason: 'parse' };
+  }
+
+  let decoded: { key: IDBValidKey } | null;
+  try {
+    decoded = decodeKeyNode(JSON.parse(primaryKeyWire));
+  } catch {
+    return { ok: false, reason: 'gone' };
+  }
+  if (decoded === null) return { ok: false, reason: 'gone' };
+  const key = decoded.key;
+
+  try {
+    const db = await new Promise<IDBDatabase | null>((resolve) => {
+      const req = indexedDB.open(database);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => resolve(null);
+      req.onblocked = () => resolve(null);
+      // Deleted since enumeration — abort instead of creating a ghost.
+      req.onupgradeneeded = () => {
+        req.transaction?.abort();
+        resolve(null);
+      };
+    });
+    if (!db) return { ok: false, reason: 'gone' };
+    if (!Array.from(db.objectStoreNames).includes(store)) {
+      db.close();
+      return { ok: false, reason: 'gone' };
+    }
+    const result = await new Promise<{ ok: boolean; reason?: 'parse' | 'key-changed' | 'gone' | 'write' }>(
+      (resolve) => {
+        try {
+          const tx = db.transaction(store, 'readwrite');
+          const objectStore = tx.objectStore(store);
+          tx.oncomplete = () => resolve({ ok: true });
+          tx.onerror = () => resolve({ ok: false, reason: 'write' });
+          tx.onabort = () => resolve({ ok: false, reason: 'write' });
+          const keyPath = objectStore.keyPath;
+          if (keyPath !== null) {
+            // In-value key: the edited value must carry the SAME key —
+            // composite paths compared element-wise via indexedDB.cmp; a
+            // missing or invalid extracted key counts as changed too.
+            const extracted = Array.isArray(keyPath)
+              ? keyPath.map((p) => extractByPath(value, p))
+              : extractByPath(value, keyPath);
+            let sameKey = false;
+            try {
+              sameKey = indexedDB.cmp(extracted as IDBValidKey, key) === 0;
+            } catch {
+              sameKey = false;
+            }
+            if (!sameKey) {
+              resolve({ ok: false, reason: 'key-changed' });
+              tx.abort();
+              return;
+            }
+            objectStore.put(value);
+          } else {
+            objectStore.put(value, key);
+          }
+        } catch {
+          resolve({ ok: false, reason: 'write' });
+        }
+      },
+    );
+    db.close();
+    return result;
+  } catch {
+    return { ok: false, reason: 'gone' };
+  }
+}
+
 export async function deleteIdbRecordInPage(
   database: string,
   store: string,
@@ -729,6 +866,28 @@ export async function getIndexedDbRecordDocument(
     IDB_DOCUMENT_TEXT_MAX,
   ]);
   return { document: result?.document ?? null };
+}
+
+export async function putIndexedDbRecord(
+  tabId: number,
+  frameId: number,
+  database: string,
+  store: string,
+  primaryKeyWire: string,
+  valueText: string,
+): Promise<{ ok: boolean; reason?: IdbRecordWriteFailureWire }> {
+  if (
+    typeof database !== 'string' ||
+    typeof store !== 'string' ||
+    typeof primaryKeyWire !== 'string' ||
+    typeof valueText !== 'string'
+  ) {
+    return { ok: false };
+  }
+  const result = await runInFrame(tabId, frameId, putIdbRecordInPage, [database, store, primaryKeyWire, valueText]);
+  if (!result) return { ok: false, reason: 'gone' };
+  if (result.ok === true) return { ok: true };
+  return { ok: false, ...(result.reason ? { reason: result.reason } : {}) };
 }
 
 export async function deleteIndexedDbRecord(

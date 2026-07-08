@@ -96,6 +96,22 @@ export interface IdbRecordDocument {
   truncated?: boolean;
 }
 
+/**
+ * Why a record write was rejected: `parse` — the edited text isn't
+ * valid JSON; `key-changed` — the store keeps its key inside the value
+ * and the edit moved it (saving would create a new record);
+ * `gone` — the database/store/record can't be reached; `write` — the
+ * put transaction itself failed (quota, constraint).
+ */
+export type IdbRecordWriteFailure = 'parse' | 'key-changed' | 'gone' | 'write';
+
+/** Outcome of a record write; `reason` explains a failure when the
+ *  host can tell (absent ⇒ generic failure). */
+export interface IdbRecordWriteResult {
+  ok: boolean;
+  reason?: IdbRecordWriteFailure;
+}
+
 /** One named cache of the scope's Cache Storage. */
 export interface CacheSummary {
   name: string;
@@ -203,6 +219,16 @@ export interface StorageInspectorHost {
     store: string,
     primaryKeyWire: string,
   ): Promise<IdbRecordDocument | null>;
+  /** Write one record's value back from its edited document text —
+   *  same-key only, exact-JSON documents only (see the wire contract). */
+  writeIndexedDbRecord(
+    tabId: number,
+    frameId: number,
+    database: string,
+    store: string,
+    primaryKeyWire: string,
+    valueText: string,
+  ): Promise<IdbRecordWriteResult>;
   /** Delete one record by its opaque wire key; `false` on any failure. */
   deleteIndexedDbRecord(
     tabId: number,

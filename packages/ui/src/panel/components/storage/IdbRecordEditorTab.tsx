@@ -6,16 +6,24 @@
  * exact JSON (or the read-only JSON-ish rendering for non-JSON values),
  * Preview is a collapsible tree over the parsed JSON. The breadcrumb's
  * "Reveal in Storage" links back to the originating store.
+ *
+ * Editing: exact-JSON documents (`editable: true`) edit in place in the
+ * Source view. Dirty derives from draft-vs-document equality; Save puts
+ * the draft back through the host seam (same-key only — the host
+ * rejects a key change instead of creating a duplicate) and re-fetches
+ * through the read path. Refresh while dirty arms first — a confirm
+ * discards the draft, never silently.
  */
 
 import { ReloadOutlined } from '@ant-design/icons';
 import { hostNavigation } from '@openheaders/core/navigation';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { IdbRecordInspectorTab } from '../../data/inspector-tab';
-import type { IdbRecordDocument } from '../../data/storage/storage-inspector-host';
+import type { IdbRecordDocument, IdbRecordWriteFailure } from '../../data/storage/storage-inspector-host';
 import { getStorageInspectorHost } from '../../data/storage/storage-inspector-host';
 import Skeleton from '../detail/Skeleton';
 import { JsonTree } from '../JsonTree';
+import { ArmedIconButton } from './ArmedIconButton';
 
 // Lazy like every other Monaco consumer — a static import here would
 // pull Monaco back into the panel's initial chunk.
@@ -25,6 +33,13 @@ type DocumentSlot = 'loading' | 'unavailable' | IdbRecordDocument;
 
 type ViewMode = 'source' | 'preview';
 
+const WRITE_FAILURE_NOTES: Record<IdbRecordWriteFailure, string> = {
+  parse: 'Not valid JSON — fix the syntax and save again.',
+  'key-changed': 'The key changed — saving would create a new record. Restore the original key.',
+  gone: 'The record can’t be reached — it may have been deleted. Refresh re-checks.',
+  write: 'Save failed — the write was rejected.',
+};
+
 interface IdbRecordEditorTabProps {
   tab: IdbRecordInspectorTab;
   onRevealInStorage: (database: string, store: string) => void;
@@ -33,6 +48,10 @@ interface IdbRecordEditorTabProps {
 export function IdbRecordEditorTab({ tab, onRevealInStorage }: IdbRecordEditorTabProps) {
   const [slot, setSlot] = useState<DocumentSlot>('loading');
   const [mode, setMode] = useState<ViewMode>('source');
+  // The Source edit buffer; null ⇒ pristine (mirrors the document).
+  const [draftText, setDraftText] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<IdbRecordWriteFailure | null>(null);
   const fetchTokenRef = useRef(0);
 
   const { frameId, database, store, primaryKeyWire } = tab;
@@ -49,6 +68,8 @@ export function IdbRecordEditorTab({ tab, onRevealInStorage }: IdbRecordEditorTa
     const doc = await host.readIndexedDbRecordDocument(tabId, frameId, database, store, primaryKeyWire);
     if (token !== fetchTokenRef.current) return;
     setSlot(doc ?? 'unavailable');
+    setDraftText(null);
+    setSaveError(null);
   }, [frameId, database, store, primaryKeyWire]);
 
   useEffect(() => {
@@ -56,16 +77,35 @@ export function IdbRecordEditorTab({ tab, onRevealInStorage }: IdbRecordEditorTa
   }, [fetchDocument]);
 
   const doc = slot !== 'loading' && slot !== 'unavailable' ? slot : null;
+  const sourceText = draftText ?? doc?.text ?? '';
+  const dirty = doc?.editable === true && draftText !== null && draftText !== doc.text;
 
-  // Preview parses the document — only exact-JSON documents qualify.
+  const handleSave = useCallback(async () => {
+    const host = getStorageInspectorHost();
+    const tabId = hostNavigation.inspectedTabId();
+    if (!host || tabId === null || draftText === null) return;
+    setSaving(true);
+    const result = await host.writeIndexedDbRecord(tabId, frameId, database, store, primaryKeyWire, draftText);
+    setSaving(false);
+    if (result.ok) {
+      // Commit-then-refetch through the read path — the document becomes
+      // the store's truth again (the list poll picks up the preview).
+      await fetchDocument();
+    } else {
+      setSaveError(result.reason ?? 'write');
+    }
+  }, [draftText, frameId, database, store, primaryKeyWire, fetchDocument]);
+
+  // Preview parses what's on screen — the draft while editing — so it
+  // never shows stale content; mid-edit invalid JSON just disables it.
   const previewValue = useMemo<unknown>(() => {
     if (!doc?.editable) return undefined;
     try {
-      return JSON.parse(doc.text) as unknown;
+      return JSON.parse(sourceText) as unknown;
     } catch {
       return undefined;
     }
-  }, [doc]);
+  }, [doc, sourceText]);
   const canPreview = doc !== null && previewValue !== undefined;
   const effectiveMode: ViewMode = mode === 'preview' && canPreview ? 'preview' : 'source';
 
@@ -77,6 +117,7 @@ export function IdbRecordEditorTab({ tab, onRevealInStorage }: IdbRecordEditorTa
         : doc.editable
           ? null
           : 'Contains non-JSON types (Date, Map, binary, …) — shown as a read-only rendering.';
+  const errorNote = saveError === null ? null : WRITE_FAILURE_NOTES[saveError];
 
   return (
     <div className="dt-idbdoc">
@@ -110,15 +151,36 @@ export function IdbRecordEditorTab({ tab, onRevealInStorage }: IdbRecordEditorTa
             Source
           </button>
         </span>
-        <button
-          type="button"
-          className="dt-storage-action"
-          title="Re-read the record"
-          aria-label="Refresh record"
-          onClick={() => void fetchDocument()}
-        >
-          <ReloadOutlined />
-        </button>
+        {doc?.editable === true && (
+          <button
+            type="button"
+            className="dt-idbdoc-save"
+            disabled={!dirty || saving}
+            title={dirty ? 'Write the edited value back to the record' : 'No changes to save'}
+            onClick={() => void handleSave()}
+          >
+            Save
+          </button>
+        )}
+        {dirty ? (
+          <ArmedIconButton
+            icon={<ReloadOutlined />}
+            title="Re-read the record"
+            confirmTitle="Discards your edits — click again to refresh"
+            ariaLabel="Refresh record"
+            onConfirm={() => void fetchDocument()}
+          />
+        ) : (
+          <button
+            type="button"
+            className="dt-storage-action"
+            title="Re-read the record"
+            aria-label="Refresh record"
+            onClick={() => void fetchDocument()}
+          >
+            <ReloadOutlined />
+          </button>
+        )}
         <button
           type="button"
           className="dt-idbdoc-reveal"
@@ -129,6 +191,11 @@ export function IdbRecordEditorTab({ tab, onRevealInStorage }: IdbRecordEditorTa
         </button>
       </div>
       {note !== null && <div className="dt-idbdoc-note">{note}</div>}
+      {errorNote !== null && (
+        <div className="dt-idbdoc-note dt-idbdoc-note--error" role="alert">
+          {errorNote}
+        </div>
+      )}
       {slot === 'loading' ? (
         <div className="dt-empty">Loading…</div>
       ) : slot === 'unavailable' ? (
@@ -145,7 +212,19 @@ export function IdbRecordEditorTab({ tab, onRevealInStorage }: IdbRecordEditorTa
       ) : (
         <div className="dt-idbdoc-source">
           <Suspense fallback={<Skeleton />}>
-            <CodeViewer value={slot.text} language={slot.editable ? 'json' : 'javascript'} />
+            <CodeViewer
+              value={sourceText}
+              language={slot.editable ? 'json' : 'javascript'}
+              readOnly={!slot.editable}
+              onChange={
+                slot.editable
+                  ? (next) => {
+                      setDraftText(next);
+                      setSaveError(null);
+                    }
+                  : undefined
+              }
+            />
           </Suspense>
         </div>
       )}

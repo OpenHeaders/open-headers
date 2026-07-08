@@ -23,6 +23,8 @@ import {
   IDB_PAGE_SIZE_MAX,
   listIdbDatabasesInPage,
   listIndexedDbDatabases,
+  putIdbRecordInPage,
+  putIndexedDbRecord,
   readIdbRecordDocumentInPage,
   readIdbRecordsInPage,
 } from '@/background/modules/storage-inspector/standard-plane-idb';
@@ -323,6 +325,127 @@ describe('readIdbRecordDocumentInPage', () => {
   });
 });
 
+describe('putIdbRecordInPage', () => {
+  function readValue(name: string, store: string, key: IDBValidKey): Promise<unknown> {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(name);
+      req.onsuccess = () => {
+        const db = req.result;
+        const get = db.transaction(store, 'readonly').objectStore(store).get(key);
+        get.onsuccess = () => {
+          db.close();
+          resolve(get.result);
+        };
+        get.onerror = () => reject(get.error);
+      };
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  function countRecords(name: string, store: string): Promise<number> {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(name);
+      req.onsuccess = () => {
+        const db = req.result;
+        const count = db.transaction(store, 'readonly').objectStore(store).count();
+        count.onsuccess = () => {
+          db.close();
+          resolve(count.result);
+        };
+        count.onerror = () => reject(count.error);
+      };
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  it('round-trips an edited value for an in-value keyPath store', async () => {
+    await seedDb('oh-app', 1, (db) => db.createObjectStore('bulk', { keyPath: 'id' }));
+    await putRecords('oh-app', 'bulk', [{ value: { id: 7, label: 'orig' } }]);
+
+    const text = JSON.stringify({ id: 7, label: 'edited', extra: true });
+    expect(await putIdbRecordInPage('oh-app', 'bulk', '{"n":7}', text)).toEqual({ ok: true });
+    expect(await readValue('oh-app', 'bulk', 7)).toEqual({ id: 7, label: 'edited', extra: true });
+    expect(await countRecords('oh-app', 'bulk')).toBe(1);
+  });
+
+  it('rejects text that is not valid JSON before touching the store', async () => {
+    await seedDb('oh-app', 1, (db) => db.createObjectStore('bulk', { keyPath: 'id' }));
+    await putRecords('oh-app', 'bulk', [{ value: { id: 7, label: 'orig' } }]);
+
+    expect(await putIdbRecordInPage('oh-app', 'bulk', '{"n":7}', '{not json')).toEqual({
+      ok: false,
+      reason: 'parse',
+    });
+    expect(await readValue('oh-app', 'bulk', 7)).toEqual({ id: 7, label: 'orig' });
+  });
+
+  it('rejects an in-value key that changed or went missing — no silent duplicate', async () => {
+    await seedDb('oh-app', 1, (db) => db.createObjectStore('bulk', { keyPath: 'id' }));
+    await putRecords('oh-app', 'bulk', [{ value: { id: 7, label: 'orig' } }]);
+
+    expect(await putIdbRecordInPage('oh-app', 'bulk', '{"n":7}', '{"id":8,"label":"moved"}')).toEqual({
+      ok: false,
+      reason: 'key-changed',
+    });
+    expect(await putIdbRecordInPage('oh-app', 'bulk', '{"n":7}', '{"label":"keyless"}')).toEqual({
+      ok: false,
+      reason: 'key-changed',
+    });
+    expect(await countRecords('oh-app', 'bulk')).toBe(1);
+    expect(await readValue('oh-app', 'bulk', 7)).toEqual({ id: 7, label: 'orig' });
+  });
+
+  it('compares a composite keyPath element-wise', async () => {
+    await seedDb('oh-app', 1, (db) => db.createObjectStore('orders', { keyPath: ['user', 'seq'] }));
+    await putRecords('oh-app', 'orders', [{ value: { user: 'user-1', seq: 1, total: 10 } }]);
+    const wire = '{"a":[{"s":"user-1"},{"n":1}]}';
+
+    expect(await putIdbRecordInPage('oh-app', 'orders', wire, '{"user":"user-1","seq":2,"total":10}')).toEqual({
+      ok: false,
+      reason: 'key-changed',
+    });
+    expect(await putIdbRecordInPage('oh-app', 'orders', wire, '{"user":"user-1","seq":1,"total":99}')).toEqual({
+      ok: true,
+    });
+    expect(await readValue('oh-app', 'orders', ['user-1', 1])).toEqual({ user: 'user-1', seq: 1, total: 99 });
+    expect(await countRecords('oh-app', 'orders')).toBe(1);
+  });
+
+  it('walks a dotted keyPath into the value', async () => {
+    await seedDb('oh-app', 1, (db) => db.createObjectStore('nested', { keyPath: 'meta.id' }));
+    await putRecords('oh-app', 'nested', [{ value: { meta: { id: 'k1' }, label: 'orig' } }]);
+
+    expect(await putIdbRecordInPage('oh-app', 'nested', '{"s":"k1"}', '{"meta":{"id":"k2"},"label":"x"}')).toEqual({
+      ok: false,
+      reason: 'key-changed',
+    });
+    expect(await putIdbRecordInPage('oh-app', 'nested', '{"s":"k1"}', '{"meta":{"id":"k1"},"label":"edited"}')).toEqual(
+      { ok: true },
+    );
+    expect(await readValue('oh-app', 'nested', 'k1')).toEqual({ meta: { id: 'k1' }, label: 'edited' });
+  });
+
+  it('puts with the decoded wire key for out-of-line keys', async () => {
+    await seedDb('oh-app', 1, (db) => db.createObjectStore('kv'));
+    await putRecords('oh-app', 'kv', [{ key: 'plain', value: { tag: 'orig' } }]);
+
+    expect(await putIdbRecordInPage('oh-app', 'kv', '{"s":"plain"}', '{"tag":"edited"}')).toEqual({ ok: true });
+    expect(await readValue('oh-app', 'kv', 'plain')).toEqual({ tag: 'edited' });
+    expect(await countRecords('oh-app', 'kv')).toBe(1);
+  });
+
+  it('reports a gone store, an undecodable key and a ghost database honestly', async () => {
+    await seedDb('oh-app', 1, (db) => db.createObjectStore('kv'));
+
+    expect(await putIdbRecordInPage('oh-app', 'gone', '{"s":"k"}', '{}')).toEqual({ ok: false, reason: 'gone' });
+    expect(await putIdbRecordInPage('oh-app', 'kv', 'not-json', '{}')).toEqual({ ok: false, reason: 'gone' });
+    expect(await putIdbRecordInPage('oh-app', 'kv', '{"x":1}', '{}')).toEqual({ ok: false, reason: 'gone' });
+    expect(await putIdbRecordInPage('oh-ghost', 'kv', '{"s":"k"}', '{}')).toEqual({ ok: false, reason: 'gone' });
+    const names = (await indexedDB.databases()).map((d) => d.name);
+    expect(names).toEqual(['oh-app']);
+  });
+});
+
 describe('injected delete plane', () => {
   it('deletes one record by its wire key for every encodable key type', async () => {
     await seedDb('oh-app', 1, (db) => db.createObjectStore('kv'));
@@ -477,6 +600,34 @@ describe('SW wrappers over the injection transport', () => {
 
     executeScriptSpy().mockRejectedValue(new Error('No frame with id'));
     expect((await getIndexedDbRecordDocument(1, 0, 'oh-app', 'kv', '{"s":"k"}')).document).toBeNull();
+  });
+
+  it('relays the record put with its args and passes the failure reason through', async () => {
+    executeScriptSpy().mockResolvedValue([{ result: { ok: false, reason: 'key-changed' } }]);
+    expect(await putIndexedDbRecord(1, 0, 'oh-app', 'bulk', '{"n":7}', '{"id":8}')).toEqual({
+      ok: false,
+      reason: 'key-changed',
+    });
+    const [{ args }] = executeScriptSpy().mock.calls[0] as [{ args: unknown[] }];
+    expect(args).toEqual(['oh-app', 'bulk', '{"n":7}', '{"id":8}']);
+
+    executeScriptSpy().mockClear();
+    executeScriptSpy().mockResolvedValue([{ result: { ok: true } }]);
+    expect(await putIndexedDbRecord(1, 0, 'oh-app', 'bulk', '{"n":7}', '{"id":7}')).toEqual({ ok: true });
+  });
+
+  it('reports put injection failure as gone and rejects bad args without injecting', async () => {
+    executeScriptSpy().mockRejectedValue(new Error('No frame with id'));
+    expect(await putIndexedDbRecord(1, 0, 'oh-app', 'bulk', '{"n":7}', '{}')).toEqual({ ok: false, reason: 'gone' });
+
+    executeScriptSpy().mockClear();
+    expect(await putIndexedDbRecord(1, 0, 'oh-app', 'bulk', '{"n":7}', undefined as unknown as string)).toEqual({
+      ok: false,
+    });
+    expect(await putIndexedDbRecord(1, 0, 'oh-app', undefined as unknown as string, '{"n":7}', '{}')).toEqual({
+      ok: false,
+    });
+    expect(executeScriptSpy()).not.toHaveBeenCalled();
   });
 
   it('relays a successful injected delete as { ok: true }', async () => {

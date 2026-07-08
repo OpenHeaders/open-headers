@@ -19,6 +19,7 @@ import type {
   IdbDatabase,
   IdbRecordDocument,
   IdbRecordsPage,
+  IdbRecordWriteResult,
   SiteDataType,
   StorageInvalidationKind,
   StorageQuota,
@@ -138,6 +139,23 @@ setStorageInspectorHost({
     } catch (err) {
       logger.info('StorageInspectorHost', `readIndexedDbRecordDocument ✗ tab ${tabId}: ${(err as Error).message}`);
       return null;
+    }
+  },
+  async writeIndexedDbRecord(
+    tabId: number,
+    frameId: number,
+    database: string,
+    store: string,
+    primaryKeyWire: string,
+    valueText: string,
+  ): Promise<IdbRecordWriteResult> {
+    try {
+      const res = await call('putIndexedDbRecord', { tabId, frameId, database, store, primaryKeyWire, valueText });
+      if (!res) return { ok: false };
+      return res.ok === true ? { ok: true } : { ok: false, ...(res.reason ? { reason: res.reason } : {}) };
+    } catch (err) {
+      logger.info('StorageInspectorHost', `writeIndexedDbRecord ✗ tab ${tabId}: ${(err as Error).message}`);
+      return { ok: false };
     }
   },
   async deleteIndexedDbRecord(

@@ -96,7 +96,7 @@ interface RecordDocumentWire {
   truncated?: boolean;
 }
 
-test('IndexedDB reads, previews, key wire and deletes ride the plane end-to-end', async () => {
+test('IndexedDB reads, previews, key wire, writes and deletes ride the plane end-to-end', async () => {
   test.setTimeout(slowMo > 0 ? 600_000 : 120_000);
   const page = await context.newPage();
   await page.goto(`${STORAGE_PAGE_URL}${pagePace}`);
@@ -269,6 +269,120 @@ test('IndexedDB reads, previews, key wire and deletes ride the plane end-to-end'
     primaryKeyWire: '{"n":999}',
   });
   expect(goneDoc.document).toBeNull();
+
+  // ── Record writes: the editable document round-trips back ──────────
+  // Same-key edit of an in-value keyPath record; asserted PAGE-SIDE.
+  const editedBulk = { ...(JSON.parse(bulkDoc.document?.text ?? '{}') as { id: number }), label: 'bulk-0-edited' };
+  const bulkPut = await rpc<{ ok: boolean; reason?: string }>('putIndexedDbRecord', {
+    ...base,
+    database: 'oh-store-app',
+    store: 'bulk',
+    primaryKeyWire: bulkWire,
+    valueText: JSON.stringify(editedBulk, null, 2),
+  });
+  expect(bulkPut).toEqual({ ok: true });
+  const bulkAfter = await page.evaluate(
+    () =>
+      new Promise<unknown>((resolve, reject) => {
+        const req = indexedDB.open('oh-store-app');
+        req.onerror = () => reject(req.error);
+        req.onsuccess = () => {
+          const db = req.result;
+          const get = db.transaction('bulk', 'readonly').objectStore('bulk').get(0);
+          get.onsuccess = () => {
+            db.close();
+            resolve(get.result);
+          };
+          get.onerror = () => reject(get.error);
+        };
+      }),
+  );
+  expect(bulkAfter).toEqual({ id: 0, label: 'bulk-0-edited' });
+
+  // A key change is rejected honestly — never a silent new record.
+  const keyChanged = await rpc<{ ok: boolean; reason?: string }>('putIndexedDbRecord', {
+    ...base,
+    database: 'oh-store-app',
+    store: 'bulk',
+    primaryKeyWire: bulkWire,
+    valueText: '{"id":999,"label":"moved"}',
+  });
+  expect(keyChanged).toEqual({ ok: false, reason: 'key-changed' });
+
+  // Invalid JSON never opens a transaction.
+  const parseFail = await rpc<{ ok: boolean; reason?: string }>('putIndexedDbRecord', {
+    ...base,
+    database: 'oh-store-app',
+    store: 'bulk',
+    primaryKeyWire: bulkWire,
+    valueText: '{not json',
+  });
+  expect(parseFail).toEqual({ ok: false, reason: 'parse' });
+  const bulkState = await page.evaluate(
+    () =>
+      new Promise<{ count: number; ghost: unknown }>((resolve, reject) => {
+        const req = indexedDB.open('oh-store-app');
+        req.onerror = () => reject(req.error);
+        req.onsuccess = () => {
+          const db = req.result;
+          const tx = db.transaction('bulk', 'readonly');
+          const count = tx.objectStore('bulk').count();
+          const ghost = tx.objectStore('bulk').get(999);
+          tx.oncomplete = () => {
+            db.close();
+            resolve({ count: count.result, ghost: ghost.result });
+          };
+        };
+      }),
+  );
+  expect(bulkState.count).toBe(65);
+  expect(bulkState.ghost).toBeUndefined();
+
+  // Out-of-line key: the put rides the decoded wire key.
+  const alphaWire = kvByKey.get('"alpha"')?.primaryKeyWire;
+  const kvPut = await rpc<{ ok: boolean; reason?: string }>('putIndexedDbRecord', {
+    ...base,
+    database: 'oh-store-app',
+    store: 'kv',
+    primaryKeyWire: alphaWire,
+    valueText: '{"tag":"edited-alpha"}',
+  });
+  expect(kvPut).toEqual({ ok: true });
+  const alphaAfter = await page.evaluate(
+    () =>
+      new Promise<unknown>((resolve, reject) => {
+        const req = indexedDB.open('oh-store-app');
+        req.onerror = () => reject(req.error);
+        req.onsuccess = () => {
+          const db = req.result;
+          const get = db.transaction('kv', 'readonly').objectStore('kv').get('alpha');
+          get.onsuccess = () => {
+            db.close();
+            resolve(get.result);
+          };
+          get.onerror = () => reject(get.error);
+        };
+      }),
+  );
+  expect(alphaAfter).toEqual({ tag: 'edited-alpha' });
+
+  // Composite in-value key: same-key edit passes, element drift rejects.
+  const orderPut = await rpc<{ ok: boolean; reason?: string }>('putIndexedDbRecord', {
+    ...base,
+    database: 'oh-store-app',
+    store: 'orders',
+    primaryKeyWire: byUser.records?.[0]?.primaryKeyWire,
+    valueText: '{"user":"user-1","seq":1,"total":123}',
+  });
+  expect(orderPut).toEqual({ ok: true });
+  const orderMoved = await rpc<{ ok: boolean; reason?: string }>('putIndexedDbRecord', {
+    ...base,
+    database: 'oh-store-app',
+    store: 'orders',
+    primaryKeyWire: byUser.records?.[0]?.primaryKeyWire,
+    valueText: '{"user":"user-1","seq":2,"total":123}',
+  });
+  expect(orderMoved).toEqual({ ok: false, reason: 'key-changed' });
 
   // ── Record deletes: string, falsy, binary and ±Infinity keys ───────
   for (const keyPreview of ['"alpha"', '0', 'Infinity', '-Infinity', 'ArrayBuffer(3 B)']) {

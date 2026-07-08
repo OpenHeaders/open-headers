@@ -372,12 +372,41 @@
   background: var(--dt-row-hover);
 }
 
+.dt-idbdoc-save {
+  flex: 0 0 auto;
+  font: inherit;
+  padding: 1px 10px;
+  border: 1px solid var(--dt-btn-primary-bg);
+  border-radius: 4px;
+  background: var(--dt-btn-primary-bg);
+  color: var(--dt-btn-primary-text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dt-idbdoc-save:hover:not(:disabled) {
+  border-color: var(--dt-btn-primary-bg-hover);
+  background: var(--dt-btn-primary-bg-hover);
+}
+
+.dt-idbdoc-save:disabled {
+  border-color: var(--dt-border);
+  background: transparent;
+  color: var(--dt-text-muted);
+  cursor: default;
+}
+
 .dt-idbdoc-note {
   flex: 0 0 auto;
   padding: 3px 8px;
   border-bottom: 1px solid var(--dt-border);
   color: var(--dt-text-muted);
   font-style: italic;
+}
+
+.dt-idbdoc-note--error {
+  color: var(--dt-status-red);
+  font-style: normal;
 }
 
 /* Flex column so the Monaco wrapper child (`.dt-codemirror-wrap`,

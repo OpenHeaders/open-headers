@@ -33,4 +33,5 @@ export {
   getIndexedDbRecordDocument,
   getIndexedDbRecords,
   listIndexedDbDatabases,
+  putIndexedDbRecord,
 } from './standard-plane-idb';

@@ -1,5 +1,7 @@
 /**
- * Monaco-backed read-only body viewer for the DevTools panel.
+ * Monaco-backed body viewer for the DevTools panel — read-only by
+ * default; a caller that passes `readOnly={false}` + `onChange` gets an
+ * editable buffer (the IndexedDB record editor's write path).
  *
  * Features:
  *   • Line numbers + fold gutter via Monaco defaults.
@@ -23,6 +25,8 @@ const FIND_TITLE = `Find (${IS_MAC ? '⌘F' : 'Ctrl+F'})`;
 interface CodeViewerProps {
   value: string;
   language: 'json' | 'css' | 'javascript' | 'html';
+  readOnly?: boolean;
+  onChange?: (value: string) => void;
   onCursorChange?: (line: number, col: number) => void;
   searchQuery?: string;
   /**
@@ -36,6 +40,8 @@ interface CodeViewerProps {
 export default function CodeViewer({
   value,
   language,
+  readOnly = true,
+  onChange,
   onCursorChange,
   searchQuery,
   searchMatchIndex,
@@ -114,6 +120,7 @@ export default function CodeViewer({
         language={language}
         theme={monacoTheme}
         value={value}
+        onChange={onChange ? (next) => onChange(next ?? '') : undefined}
         onMount={(ed, m) => {
           editorRef.current = ed;
           monacoRef.current = m as unknown as typeof monaco;
@@ -126,7 +133,7 @@ export default function CodeViewer({
           }
         }}
         options={{
-          readOnly: true,
+          readOnly,
           minimap: { enabled: false },
           lineNumbers: 'on',
           folding: true,

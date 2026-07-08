@@ -1,4 +1,4 @@
-/** Storage tool-window RPCs — scope discovery + DOM storage reads/writes + IndexedDB reads/deletes + Cache Storage reads + quota. */
+/** Storage tool-window RPCs — scope discovery + DOM storage reads/writes + IndexedDB reads/writes/deletes + Cache Storage reads + quota. */
 
 import type { DomStorageAreaWire, SiteDataTypeWire } from '@openheaders/core/bridge';
 import { logger } from '@utils/logger';
@@ -20,6 +20,7 @@ import {
   listCacheStorageCaches as listCacheStorageCachesHandler,
   listIndexedDbDatabases as listIndexedDbDatabasesHandler,
   listStorageScopes as listStorageScopesHandler,
+  putIndexedDbRecord as putIndexedDbRecordHandler,
   removeDomStorageItem as removeDomStorageItemHandler,
   setDomStorageItem as setDomStorageItemHandler,
   setQuotaOverride as setQuotaOverrideHandler,
@@ -143,6 +144,23 @@ export const storageInspectorHandlers: HandlerMap = {
       .catch((err: Error) => {
         logger.info('StorageIdb', `handler threw: ${err.message}`);
         respond({ document: null });
+      });
+    return true;
+  },
+
+  putIndexedDbRecord: ({ message, respond }) => {
+    putIndexedDbRecordHandler(
+      message.tabId as number,
+      message.frameId as number,
+      message.database as string,
+      message.store as string,
+      message.primaryKeyWire as string,
+      message.valueText as string,
+    )
+      .then((res) => respond(res))
+      .catch((err: Error) => {
+        logger.info('StorageIdb', `handler threw: ${err.message}`);
+        respond({ ok: false });
       });
     return true;
   },
