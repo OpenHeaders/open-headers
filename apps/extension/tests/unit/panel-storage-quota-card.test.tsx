@@ -29,8 +29,8 @@ function makeQuota(overrides: Partial<StorageQuotaState> = {}): StorageQuotaStat
 describe('StorageQuotaCard', () => {
   it('renders the usage-vs-quota totals', () => {
     render(<StorageQuotaCard quota={makeQuota()} />);
-    expect(screen.getByText('4.0 kB used')).toBeDefined();
-    expect(screen.getByText(/of 120\.0 MB/)).toBeDefined();
+    expect(screen.getByText('4.1 kB used')).toBeDefined();
+    expect(screen.getByText(/of 126 MB/)).toBeDefined();
   });
 
   it('renders per-type rows for the breakdown, dropping zero-usage types', () => {

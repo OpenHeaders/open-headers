@@ -1,9 +1,17 @@
+/**
+ * Decimal (1000-byte) units, one decimal under 100 of a unit and a
+ * thousands-separated integer above, capped at MB — the same reading a
+ * browser's own storage/network surfaces give the identical byte count.
+ */
 export function formatSize(bytes: number | undefined): string {
   if (bytes == null || bytes < 0) return '';
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} kB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+  if (bytes < 1000) return `${bytes} B`;
+  const kilobytes = bytes / 1000;
+  if (kilobytes < 100) return `${kilobytes.toFixed(1)} kB`;
+  if (kilobytes < 1000) return `${Math.round(kilobytes).toLocaleString()} kB`;
+  const megabytes = kilobytes / 1000;
+  if (megabytes < 100) return `${megabytes.toFixed(1)} MB`;
+  return `${Math.round(megabytes).toLocaleString()} MB`;
 }
 
 export function formatDuration(ms: number | undefined): string {
