@@ -56,7 +56,7 @@ export interface ToolWindowDef<TWindowId extends string = string> {
    * spell out the full meaning for discoverability.
    */
   tooltip?: string;
-  /** Core tool windows cannot be hidden — the Hide menu entry is disabled. */
+  /** Core tool windows cannot be hidden — the Hide menu entry is omitted. */
   core: boolean;
   /** Initial dock slot on a fresh profile; also the restore target for Hide → Show. */
   defaultSlot: DockSlot;

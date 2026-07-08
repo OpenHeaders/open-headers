@@ -11,7 +11,7 @@
 import { Dropdown, theme } from 'antd';
 import type { ItemType } from 'antd/es/menu/interface';
 import type React from 'react';
-import { useLayoutEffect, useRef } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { regionDocks } from './constants';
 import DockTabStrip, { type DockTabStripProps } from './DockTabStrip';
 import type { FocusStore } from './focus-store';
@@ -231,10 +231,21 @@ function VerticalActivityBar<T extends string>({
   const barRef = useRef<HTMLDivElement | null>(null);
   useDynamicActivityMirror(sidebarLayout === 'dynamic', side, barRef, activeSignal);
 
+  // Controlled so a right-click on a dock tab can dismiss it. The tabs
+  // live INSIDE this bar — the bar is the menu's trigger element, so a
+  // tab right-click counts as "inside" and never auto-closes the bar
+  // menu, while the tab's stopPropagation (correctly) keeps the bar menu
+  // from re-opening. Result without this: both menus shown at once.
+  const [barMenuOpen, setBarMenuOpen] = useState(false);
   const barMenu: ItemType[] = [
     {
       key: 'labels',
-      label: showLabels ? 'Hide Tool Window Names' : 'Show Tool Window Names',
+      label: (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ width: 12, display: 'inline-block' }}>{showLabels ? '✓' : ''}</span>
+          Show Tool Window Names
+        </span>
+      ),
       onClick: onToggleLabels,
     },
   ];
@@ -258,9 +269,23 @@ function VerticalActivityBar<T extends string>({
   );
 
   return (
-    <Dropdown menu={{ items: barMenu }} trigger={['contextMenu']}>
+    <Dropdown
+      menu={{ items: barMenu }}
+      trigger={['contextMenu']}
+      open={barMenuOpen}
+      // Checkbox-style toggle: clicking the item flips the setting but
+      // keeps the menu open so the checkmark visibly reflects the change;
+      // only an outside click (or a tab right-click) dismisses.
+      onOpenChange={(o, info) => {
+        if (!o && info.source === 'menu') return;
+        setBarMenuOpen(o);
+      }}
+    >
       <div
         ref={barRef}
+        onContextMenuCapture={(e) => {
+          if ((e.target as HTMLElement).closest('.rules-dock-tab')) setBarMenuOpen(false);
+        }}
         className={`rules-activity-bar rules-activity-bar--${side} ${showLabels ? '' : 'rules-activity-bar--compact'} rules-activity-bar--layout-${sidebarLayout}${lowerEmpty ? ' rules-activity-bar--lower-empty' : ''}`}
         style={{ background: token.colorBgLayout }}
         data-side={side}

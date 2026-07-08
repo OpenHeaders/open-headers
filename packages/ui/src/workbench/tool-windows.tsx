@@ -55,7 +55,9 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
     id: 'notifications',
     label: 'Notifications',
     icon: <NotificationsIcon />,
-    core: false,
+    // Core: notifications must stay reachable — hiding the tab would
+    // silently cut the user off from surfaced problems.
+    core: true,
     defaultSlot: 'right-top',
   },
   { id: 'docs', label: 'Docs', icon: <BookOutlined />, core: false, defaultSlot: 'right-top' },

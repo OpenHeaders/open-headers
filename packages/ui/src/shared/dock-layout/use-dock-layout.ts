@@ -117,6 +117,10 @@ export function normalizeDockLayout<T extends string>(
   const rawHidden = raw?.hidden ?? [];
   for (const id of rawHidden) {
     if (!windowMap[id]) continue;
+    // Core windows can't be hidden. A profile persisted before a window
+    // became core may still list it here — leave it unseen so the
+    // reconciliation loop below restores it to its defaultSlot.
+    if (windowMap[id].core) continue;
     if (seen.has(id)) continue;
     seen.add(id);
     hidden.push(id);

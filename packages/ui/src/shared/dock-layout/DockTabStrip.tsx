@@ -68,6 +68,7 @@ function SortableDockTab<T extends string>({
 }: SortableDockTabProps<T>) {
   const { token } = theme.useToken();
   const [tooltipOpen, setTooltipOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `tw:${id}`,
     data: { kind: 'tool-window' as const, toolWindowId: id, fromSlot: slot },
@@ -147,7 +148,24 @@ function SortableDockTab<T extends string>({
   if (isDragging) return content;
 
   return (
-    <Dropdown menu={{ items: contextMenu }} trigger={['contextMenu']} onOpenChange={(o) => o && setTooltipOpen(false)}>
+    <Dropdown
+      menu={{
+        items: contextMenu,
+        // Action items (Hide, Move to) close the menu; the checkbox-style
+        // labels toggle keeps it open so the checkmark visibly flips —
+        // only an outside click dismisses it (matches the bar-level menu).
+        onClick: (info) => {
+          if (info.key !== 'labels') setMenuOpen(false);
+        },
+      }}
+      trigger={['contextMenu']}
+      open={menuOpen}
+      onOpenChange={(o, info) => {
+        if (!o && info.source === 'menu') return;
+        setMenuOpen(o);
+        if (o) setTooltipOpen(false);
+      }}
+    >
       <Tooltip
         title={def.tooltip ?? def.label}
         open={tooltipOpen}
@@ -187,12 +205,17 @@ function DockTabStripInner<T extends string>({
   const buildMenu = (id: T): ItemType[] => {
     const def = windowMap[id];
     const items: ItemType[] = [
-      {
-        key: 'hide',
-        label: 'Hide',
-        disabled: def.core,
-        onClick: () => onHide(id),
-      },
+      // Core windows can't be hidden — omit the entry rather than grey
+      // it out, so the menu only offers actions that actually work.
+      ...(def.core
+        ? []
+        : [
+            {
+              key: 'hide',
+              label: 'Hide',
+              onClick: () => onHide(id),
+            },
+          ]),
       {
         key: 'move',
         label: 'Move to',
