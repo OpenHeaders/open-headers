@@ -161,6 +161,61 @@ describe('applyRuleUpdate', () => {
     expect(kinds.filter((k) => k === 'addToSet')).toHaveLength(1);
   });
 
+  it('a pure requestHeaders reorder emits a single moveBefore (LIS-optimal)', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    const mods: HeaderModification[] = ['h1', 'h2', 'h3'].map((uid) => ({
+      uid,
+      operation: 'override',
+      headerName: `X-${uid}`,
+      value: uid,
+    }));
+    const ruleWithMods: HeaderRule = {
+      ...headerRule,
+      action: { requestHeaders: mods, responseHeaders: [] },
+    };
+    const mirror = makeMirror(ruleWithMods, { 'action.requestHeaders': ['h1', 'h2', 'h3'] });
+    await applyRuleUpdate(
+      ruleWithMods.uid,
+      // Drag h3 to the top — content untouched.
+      { action: { requestHeaders: [mods[2], mods[0], mods[1]], responseHeaders: [] } },
+      { workspaceId: 'ws-1', surfaceId: 'workbench', mirror, context: makeContextHandle() },
+    );
+    const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
+    // h1+h2 form the LIS and stay put — only the dragged row moves.
+    expect(batch.mutations).toHaveLength(1);
+    expect(batch.mutations[0].body).toMatchObject({
+      kind: 'moveBefore',
+      path: 'action.requestHeaders',
+      itemId: 'h3',
+    });
+    const movedKey = (batch.mutations[0].body as { orderKey: string }).orderKey;
+    expect(movedKey < 'm0').toBe(true); // lands before h1's live key
+  });
+
+  it('a pure conditions reorder emits a single moveBefore (LIS-optimal)', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    const conds = ['c1', 'c2', 'c3'].map((uid) => ({
+      uid,
+      type: 'request-domains' as const,
+      values: [`${uid}.openheaders.io`],
+    }));
+    const ruleWithConds: HeaderRule = { ...headerRule, conditions: conds };
+    const mirror = makeMirror(ruleWithConds, { conditions: ['c1', 'c2', 'c3'] });
+    await applyRuleUpdate(
+      ruleWithConds.uid,
+      // Drag c3 to the top — content untouched.
+      { conditions: [conds[2], conds[0], conds[1]] },
+      { workspaceId: 'ws-1', surfaceId: 'workbench', mirror, context: makeContextHandle() },
+    );
+    const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
+    expect(batch.mutations).toHaveLength(1);
+    expect(batch.mutations[0].body).toMatchObject({
+      kind: 'moveBefore',
+      path: 'conditions',
+      itemId: 'c3',
+    });
+  });
+
   it('surfaces oh.sync.apply transport rejection as `other`', async () => {
     mockCall.mockResolvedValue({
       ok: false,
