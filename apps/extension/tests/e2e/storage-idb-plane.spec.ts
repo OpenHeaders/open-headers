@@ -1,0 +1,290 @@
+/**
+ * IndexedDB plane e2e (STORAGE_PANEL_PLAN.md §5, slice 4) — drives the
+ * SW storage-inspector handlers end-to-end over the real bridge against
+ * a REAL browser IndexedDB (the unit tier rides fake-indexeddb, whose
+ * structured clone loses ArrayBuffer/Blob identity — the binary preview
+ * tags and binary-key legs only execute here). Seeding rides the storage
+ * matrix playground page's `window.ohStorage` API; every mutation is
+ * asserted PAGE-SIDE.
+ */
+
+import path from 'node:path';
+import { type BrowserContext, chromium, expect, type Page, test } from '@playwright/test';
+import { STORAGE_PAGE_URL } from './pages/storage-matrix-page';
+
+const extensionPath = path.resolve(__dirname, '../../dist/chrome');
+
+let context: BrowserContext;
+let rpcPage: Page;
+
+test.beforeAll(async () => {
+  context = await chromium.launchPersistentContext('', {
+    headless: false,
+    args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`, '--no-sandbox'],
+  });
+  const sw = context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker'));
+  const extensionId = sw.url().split('/')[2]!;
+
+  rpcPage = await context.newPage();
+  await rpcPage.goto(`chrome-extension://${extensionId}/popup.html`);
+  await rpcPage.waitForFunction(
+    () => {
+      const root = document.getElementById('root');
+      return root !== null && root.children.length > 0;
+    },
+    { timeout: 15000 },
+  );
+});
+
+test.afterAll(async () => {
+  await context.close();
+});
+
+async function rpc<T = unknown>(type: string, payload: Record<string, unknown> = {}): Promise<T> {
+  return rpcPage.evaluate(
+    ({ type: t, payload: p }: { type: string; payload: Record<string, unknown> }) =>
+      new Promise((resolve) => {
+        chrome.runtime.sendMessage({ type: t, ...p }, (response) => {
+          void chrome.runtime.lastError;
+          resolve(response);
+        });
+      }),
+    { type, payload },
+  ) as Promise<T>;
+}
+
+interface ScopeWire {
+  frameId: number;
+  origin: string;
+  isMainFrame: boolean;
+}
+
+interface StoreWire {
+  name: string;
+  keyPath?: string;
+  autoIncrement: boolean;
+  indexNames: string[];
+}
+
+interface DatabaseWire {
+  name: string;
+  version: number;
+  objectStores: StoreWire[];
+}
+
+interface RecordWire {
+  keyPreview: string;
+  primaryKeyPreview: string;
+  valuePreview: string;
+  primaryKeyWire?: string;
+}
+
+interface RecordsResult {
+  records: RecordWire[] | null;
+  truncated?: boolean;
+}
+
+test('IndexedDB reads, previews, key wire and deletes ride the plane end-to-end', async () => {
+  test.setTimeout(120_000);
+  const page = await context.newPage();
+  await page.goto(STORAGE_PAGE_URL);
+
+  await page.evaluate(async () => {
+    await window.ohStorage.reset();
+    await window.ohStorage.seedIdb();
+  });
+
+  const tabId = await rpcPage.evaluate(async (url) => {
+    const [tab] = await chrome.tabs.query({ url: `${url}*` });
+    return tab?.id ?? null;
+  }, STORAGE_PAGE_URL);
+  expect(tabId).not.toBeNull();
+
+  const { scopes } = await rpc<{ scopes: ScopeWire[] | null }>('listStorageScopes', { tabId });
+  const scope = scopes?.find((s) => s.isMainFrame);
+  expect(scope).toBeDefined();
+  const base = { tabId, frameId: scope?.frameId };
+
+  // ── Enumeration: shapes, versions, keyPaths, indexes ───────────────
+  const listed = await rpc<{ databases: DatabaseWire[] | null }>('listIndexedDbDatabases', base);
+  const app = listed.databases?.find((d) => d.name === 'oh-store-app');
+  const aux = listed.databases?.find((d) => d.name === 'oh-store-aux');
+  expect(app?.version).toBe(1);
+  expect(aux?.version).toBe(3);
+
+  const storesByName = new Map((app?.objectStores ?? []).map((s) => [s.name, s]));
+  expect([...storesByName.keys()].sort()).toEqual(['bulk', 'kv', 'orders', 'rich']);
+  expect(storesByName.get('kv')?.keyPath).toBeUndefined();
+  expect(storesByName.get('kv')?.autoIncrement).toBe(false);
+  expect(storesByName.get('rich')?.autoIncrement).toBe(true);
+  expect(storesByName.get('orders')?.keyPath).toBe('user, seq');
+  expect(storesByName.get('orders')?.indexNames).toEqual(['by-user']);
+  expect(storesByName.get('bulk')?.keyPath).toBe('id');
+
+  // ── kv store: real cursor order + previews + lossless key wire ─────
+  // IDB key order across types: number < date < string < binary < array.
+  const kv = await rpc<RecordsResult>('getIndexedDbRecords', {
+    ...base,
+    database: 'oh-store-app',
+    store: 'kv',
+    page: 0,
+    pageSize: 50,
+  });
+  expect(kv.truncated).toBeFalsy();
+  const kvKeys = (kv.records ?? []).map((r) => r.keyPreview);
+  expect(kvKeys).toEqual([
+    '0',
+    'Infinity',
+    'Date(2026-01-02T03:04:05.000Z)',
+    '""',
+    '"alpha"',
+    'ArrayBuffer(3 B)',
+    '["user-1", 7]',
+  ]);
+  const kvByKey = new Map((kv.records ?? []).map((r) => [r.keyPreview, r]));
+  expect(kvByKey.get('"alpha"')?.valuePreview).toBe('{tag: "string-key"}');
+  expect(kvByKey.get('0')?.valuePreview).toBe('"zero-key"');
+  // Encodable keys carry the lossless wire; binary and non-finite don't.
+  for (const deletable of ['0', 'Date(2026-01-02T03:04:05.000Z)', '""', '"alpha"', '["user-1", 7]']) {
+    expect(kvByKey.get(deletable)?.primaryKeyWire).toBeDefined();
+  }
+  expect(kvByKey.get('Infinity')?.primaryKeyWire).toBeUndefined();
+  expect(kvByKey.get('ArrayBuffer(3 B)')?.primaryKeyWire).toBeUndefined();
+
+  // ── rich store: structured-clone previews against a REAL browser ───
+  const rich = await rpc<RecordsResult>('getIndexedDbRecords', {
+    ...base,
+    database: 'oh-store-app',
+    store: 'rich',
+    page: 0,
+    pageSize: 50,
+  });
+  const richValue = rich.records?.[0]?.valuePreview ?? '';
+  expect(rich.records?.[0]?.keyPreview).toBe('1');
+  expect(richValue).toContain('when: Date(2026-03-04T05:06:07.000Z)');
+  expect(richValue).toContain('buf: ArrayBuffer(8 B)');
+  expect(richValue).toContain('view: Uint8Array(3 B)');
+  expect(richValue).toContain('blob: Blob(10 B, text/plain)');
+  expect(richValue).toContain('map: Map(1) {"a" => 1}');
+  expect(richValue).toContain('set: Set(2) {"x", "y"}');
+  // The 2000-char member pushes the preview past the 1024 clip.
+  expect(richValue.endsWith('…')).toBe(true);
+  expect(richValue.length).toBe(1025);
+
+  // ── bulk store: real cursor paging with the one-past probe ─────────
+  const page0 = await rpc<RecordsResult>('getIndexedDbRecords', {
+    ...base,
+    database: 'oh-store-app',
+    store: 'bulk',
+    page: 0,
+    pageSize: 50,
+  });
+  expect(page0.records?.length).toBe(50);
+  expect(page0.truncated).toBe(true);
+  expect(page0.records?.[0]?.valuePreview).toBe('{id: 0, label: "bulk-0"}');
+
+  const page1 = await rpc<RecordsResult>('getIndexedDbRecords', {
+    ...base,
+    database: 'oh-store-app',
+    store: 'bulk',
+    page: 1,
+    pageSize: 50,
+  });
+  expect(page1.records?.length).toBe(15);
+  expect(page1.truncated).toBeFalsy();
+  expect(page1.records?.[0]?.valuePreview).toBe('{id: 50, label: "bulk-50"}');
+
+  // ── Record deletes: string key, falsy key, composite array key ─────
+  for (const keyPreview of ['"alpha"', '0']) {
+    const wire = kvByKey.get(keyPreview)?.primaryKeyWire;
+    const deleted = await rpc<{ ok: boolean }>('deleteIndexedDbRecord', {
+      ...base,
+      database: 'oh-store-app',
+      store: 'kv',
+      primaryKeyWire: wire,
+    });
+    expect(deleted.ok).toBe(true);
+  }
+  const orders = await rpc<RecordsResult>('getIndexedDbRecords', {
+    ...base,
+    database: 'oh-store-app',
+    store: 'orders',
+    page: 0,
+    pageSize: 50,
+  });
+  const orderWire = orders.records?.[0]?.primaryKeyWire;
+  expect(orderWire).toBeDefined();
+  const orderDeleted = await rpc<{ ok: boolean }>('deleteIndexedDbRecord', {
+    ...base,
+    database: 'oh-store-app',
+    store: 'orders',
+    primaryKeyWire: orderWire,
+  });
+  expect(orderDeleted.ok).toBe(true);
+
+  // Page-side truth: exactly the deleted records are gone.
+  const counts = await page.evaluate(
+    () =>
+      new Promise<{ kv: number; orders: number }>((resolve, reject) => {
+        const req = indexedDB.open('oh-store-app');
+        req.onerror = () => reject(req.error);
+        req.onsuccess = () => {
+          const db = req.result;
+          const tx = db.transaction(['kv', 'orders'], 'readonly');
+          const kvCount = tx.objectStore('kv').count();
+          const ordersCount = tx.objectStore('orders').count();
+          tx.oncomplete = () => {
+            db.close();
+            resolve({ kv: kvCount.result, orders: ordersCount.result });
+          };
+        };
+      }),
+  );
+  expect(counts.kv).toBe(5);
+  expect(counts.orders).toBe(1);
+
+  // ── Store clear ────────────────────────────────────────────────────
+  const cleared = await rpc<{ ok: boolean }>('clearIndexedDbStore', {
+    ...base,
+    database: 'oh-store-app',
+    store: 'orders',
+  });
+  expect(cleared.ok).toBe(true);
+  const clearedRead = await rpc<RecordsResult>('getIndexedDbRecords', {
+    ...base,
+    database: 'oh-store-app',
+    store: 'orders',
+    page: 0,
+    pageSize: 50,
+  });
+  expect(clearedRead.records).toEqual([]);
+
+  // ── Database delete: blocked while the page holds a connection ─────
+  const held = await page.evaluate(() => window.ohStorage.holdIdbOpen('oh-store-app'));
+  expect(held).toBe(true);
+  const blocked = await rpc<{ ok: boolean }>('deleteIndexedDbDatabase', { ...base, database: 'oh-store-app' });
+  expect(blocked.ok).toBe(false);
+  await page.evaluate(() => window.ohStorage.releaseIdbHold());
+
+  const auxDeleted = await rpc<{ ok: boolean }>('deleteIndexedDbDatabase', { ...base, database: 'oh-store-aux' });
+  expect(auxDeleted.ok).toBe(true);
+  expect(await page.evaluate(async () => (await indexedDB.databases()).map((d) => d.name))).not.toContain(
+    'oh-store-aux',
+  );
+
+  // ── Ghost guard: reading the deleted database never recreates it ───
+  const ghost = await rpc<RecordsResult>('getIndexedDbRecords', {
+    ...base,
+    database: 'oh-store-aux',
+    store: 'notes',
+    page: 0,
+    pageSize: 50,
+  });
+  expect(ghost.records).toBeNull();
+  expect(await page.evaluate(async () => (await indexedDB.databases()).map((d) => d.name))).not.toContain(
+    'oh-store-aux',
+  );
+
+  await page.evaluate(() => window.ohStorage.reset());
+  await page.close();
+});
