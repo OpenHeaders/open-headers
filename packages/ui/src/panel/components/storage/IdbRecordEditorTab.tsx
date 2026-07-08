@@ -140,15 +140,15 @@ export function IdbRecordEditorTab({ tab, onRevealInStorage, onDirtyChange, regi
   const errorNote = saveError === null ? null : WRITE_FAILURE_NOTES[saveError];
 
   return (
-    <div className="dt-idbdoc">
-      <div className="dt-idbdoc-toolbar">
+    <div className="dt-storagedoc">
+      <div className="dt-storagedoc-toolbar">
         {/* View modes live LEFT with the document identity; the action
             cluster (Save/Refresh/Reveal) stays right — different
             domains, different sides. */}
-        <span className="dt-idbdoc-modes" role="tablist" aria-label="Record view mode">
+        <span className="dt-storagedoc-modes" role="tablist" aria-label="Record view mode">
           <button
             type="button"
-            className="dt-idbdoc-mode"
+            className="dt-storagedoc-mode"
             role="tab"
             aria-selected={effectiveMode === 'preview'}
             data-active={effectiveMode === 'preview'}
@@ -160,7 +160,7 @@ export function IdbRecordEditorTab({ tab, onRevealInStorage, onDirtyChange, regi
           </button>
           <button
             type="button"
-            className="dt-idbdoc-mode"
+            className="dt-storagedoc-mode"
             role="tab"
             aria-selected={effectiveMode === 'source'}
             data-active={effectiveMode === 'source'}
@@ -170,14 +170,14 @@ export function IdbRecordEditorTab({ tab, onRevealInStorage, onDirtyChange, regi
             Source
           </button>
         </span>
-        <span className="dt-idbdoc-crumb" title={`${database} › ${store} › ${tab.keyPreview}`}>
-          {database} › {store} › <span className="dt-idbdoc-crumb-key">{tab.keyPreview}</span>
+        <span className="dt-storagedoc-crumb" title={`${database} › ${store} › ${tab.keyPreview}`}>
+          {database} › {store} › <span className="dt-storagedoc-crumb-key">{tab.keyPreview}</span>
         </span>
-        <span className="dt-idbdoc-toolbar-spacer" />
+        <span className="dt-storagedoc-toolbar-spacer" />
         {doc?.editable === true && (
           <button
             type="button"
-            className="dt-idbdoc-save"
+            className="dt-storagedoc-save"
             disabled={!dirty || saving}
             title={dirty ? 'Write the edited value back to the record' : 'No changes to save'}
             onClick={() => void handleSave()}
@@ -206,16 +206,16 @@ export function IdbRecordEditorTab({ tab, onRevealInStorage, onDirtyChange, regi
         )}
         <button
           type="button"
-          className="dt-idbdoc-reveal"
+          className="dt-storagedoc-reveal"
           title={`Open ${database} › ${store} in the Storage tool window`}
           onClick={() => onRevealInStorage(database, store)}
         >
           Reveal in Storage
         </button>
       </div>
-      {note !== null && <div className="dt-idbdoc-note">{note}</div>}
+      {note !== null && <div className="dt-storagedoc-note">{note}</div>}
       {errorNote !== null && (
-        <div className="dt-idbdoc-note dt-idbdoc-note--error" role="alert">
+        <div className="dt-storagedoc-note dt-storagedoc-note--error" role="alert">
           {errorNote}
         </div>
       )}
@@ -230,7 +230,7 @@ export function IdbRecordEditorTab({ tab, onRevealInStorage, onDirtyChange, regi
         </div>
       ) : effectiveMode === 'preview' ? (
         <div
-          className={`dt-idbdoc-preview${previewValue === undefined ? ' dt-idbdoc-preview--tree' : ''}`}
+          className={`dt-storagedoc-preview${previewValue === undefined ? ' dt-storagedoc-preview--tree' : ''}`}
           aria-label="Record value tree"
         >
           {previewValue !== undefined ? (
@@ -240,7 +240,7 @@ export function IdbRecordEditorTab({ tab, onRevealInStorage, onDirtyChange, regi
           ) : null}
         </div>
       ) : (
-        <div className="dt-idbdoc-source">
+        <div className="dt-storagedoc-source">
           <Suspense fallback={<Skeleton />}>
             <CodeViewer
               value={sourceText}

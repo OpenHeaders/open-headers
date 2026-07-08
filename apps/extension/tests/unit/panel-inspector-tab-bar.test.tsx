@@ -10,7 +10,12 @@
 import { DndContext } from '@dnd-kit/core';
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import InspectorTabBar from '@openheaders/ui/panel/components/InspectorTabBar';
-import { buildIdbRecordTab, buildInspectorTab, type InspectorTab } from '@openheaders/ui/panel/data/inspector-tab';
+import {
+  buildDomStorageEntryTab,
+  buildIdbRecordTab,
+  buildInspectorTab,
+  type InspectorTab,
+} from '@openheaders/ui/panel/data/inspector-tab';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -51,6 +56,13 @@ const IDB_TAB = buildIdbRecordTab({
   store: 'queries',
   primaryKeyWire: '{"s":"global-nav-[\\"deferred\\"]"}',
   keyPreview: '"global-nav-[\\"deferred\\"]"',
+  timestamp: 1_770_000_000_000,
+});
+
+const DOM_TAB = buildDomStorageEntryTab({
+  frameId: 0,
+  area: 'session',
+  entryKey: 'oh-session-state',
   timestamp: 1_770_000_000_000,
 });
 
@@ -96,5 +108,12 @@ describe('InspectorTabBar tab kinds', () => {
     cleanup();
     renderBar([IDB_TAB, REQUEST_TAB], REQUEST_TAB.id);
     expect(screen.queryByLabelText('Unsaved changes')).toBeNull();
+  });
+
+  it('renders the DOM-storage pill with its area chip, key label and dirty dot', () => {
+    renderBar([{ ...DOM_TAB, dirty: true }, REQUEST_TAB], REQUEST_TAB.id);
+    expect(screen.getByText('SS')).toBeTruthy();
+    expect(screen.getByText('oh-session-state')).toBeTruthy();
+    expect(screen.getByLabelText('Unsaved changes')).toBeTruthy();
   });
 });

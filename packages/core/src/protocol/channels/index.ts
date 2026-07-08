@@ -52,6 +52,7 @@ export type {
   CacheStorageCacheWire,
   DomStorageAreaWire,
   DomStorageEntryWire,
+  DomStorageRenameFailureWire,
   IdbDatabaseWire,
   IdbObjectStoreWire,
   IdbRecordDocumentWire,

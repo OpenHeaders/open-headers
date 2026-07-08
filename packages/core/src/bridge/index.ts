@@ -16,6 +16,7 @@ export type {
   CacheStorageCacheWire,
   DomStorageAreaWire,
   DomStorageEntryWire,
+  DomStorageRenameFailureWire,
   EnvironmentsSnapshot,
   FolderDescriptor,
   IdbDatabaseWire,

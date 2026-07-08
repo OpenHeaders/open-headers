@@ -1,4 +1,5 @@
 import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
+import type { DomStorageArea } from './storage/storage-inspector-host';
 
 export type DetailSection =
   | 'headers'
@@ -20,7 +21,7 @@ export type TabSource = 'network' | 'rules';
  * needs to render (and re-fetch) independently of the tool window it
  * was opened from.
  */
-export type InspectorTab = RequestInspectorTab | IdbRecordInspectorTab;
+export type InspectorTab = RequestInspectorTab | IdbRecordInspectorTab | DomStorageEntryInspectorTab;
 
 export interface RequestInspectorTab {
   kind: 'request';
@@ -54,12 +55,38 @@ export interface IdbRecordInspectorTab {
   dirty?: boolean;
 }
 
-/** Per-tab view state callers patch in place. Each field applies to one
- *  tab kind only (`activeSection` → request, `dirty` → idb-record);
- *  the tree transform drops fields foreign to the tab's kind. */
+/** One localStorage / sessionStorage entry opened as a full-editor document. */
+export interface DomStorageEntryInspectorTab {
+  kind: 'dom-storage-entry';
+  id: string;
+  label: string;
+  frameId: number;
+  area: DomStorageArea;
+  /** The entry's storage key — the fetch identity. A committed rename
+   *  patches it (and the id) in place via `entryKey`. */
+  entryKey: string;
+  timestamp: number;
+  /** Mirror of the editor body's unsaved-draft state — drives the tab
+   *  pill's dirty dot and the close guard. Never persisted (drafts are
+   *  component state and don't survive a reload). */
+  dirty?: boolean;
+}
+
+/** Per-tab view state callers patch in place. Each field applies to
+ *  matching tab kinds only (`activeSection` → request, `dirty` →
+ *  document kinds, `entryKey` → dom-storage-entry); the tree transform
+ *  drops fields foreign to the tab's kind. */
 export interface InspectorTabPatch {
   activeSection?: DetailSection;
   dirty?: boolean;
+  /** Committed rename: rewrites the entry key AND the identity-derived
+   *  id/label so re-opens and row highlights keep matching. */
+  entryKey?: string;
+}
+
+/** Does this tab carry an unsaved editor draft? (Request tabs never do.) */
+export function tabIsDirty(tab: InspectorTab): boolean {
+  return tab.kind !== 'request' && tab.dirty === true;
 }
 
 export interface ClosedTab {
@@ -136,9 +163,43 @@ export function buildIdbRecordTab(input: BuildIdbRecordTabInput): IdbRecordInspe
   };
 }
 
+export interface BuildDomStorageEntryTabInput {
+  frameId: number;
+  area: DomStorageArea;
+  entryKey: string;
+  timestamp: number;
+}
+
+/** Entry identity IS the tab identity — shared with the Storage window
+ *  so an open entry's row can light up in the grid. */
+export function domStorageEntryTabId(frameId: number, area: DomStorageArea, entryKey: string): string {
+  return `dom:${frameId}:${area}:${entryKey}`;
+}
+
+export function buildDomStorageEntryTab(input: BuildDomStorageEntryTabInput): DomStorageEntryInspectorTab {
+  return {
+    kind: 'dom-storage-entry',
+    // Re-opening the same entry activates the existing tab instead of
+    // spawning a duplicate.
+    id: domStorageEntryTabId(input.frameId, input.area, input.entryKey),
+    label: input.entryKey,
+    frameId: input.frameId,
+    area: input.area,
+    entryKey: input.entryKey,
+    timestamp: input.timestamp,
+  };
+}
+
+/** The DOM storage area's display name (`localStorage` / `sessionStorage`). */
+export function domStorageAreaName(area: DomStorageArea): string {
+  return area === 'session' ? 'sessionStorage' : 'localStorage';
+}
+
 /** Full-detail hover title for a tab pill. */
 export function tabTitle(tab: InspectorTab): string {
-  return tab.kind === 'request' ? tab.url : `${tab.database} › ${tab.store} › ${tab.keyPreview}`;
+  if (tab.kind === 'request') return tab.url;
+  if (tab.kind === 'idb-record') return `${tab.database} › ${tab.store} › ${tab.keyPreview}`;
+  return `${domStorageAreaName(tab.area)} › ${tab.entryKey}`;
 }
 
 /** The pill's short label (request labels drop their method prefix). */
@@ -148,5 +209,7 @@ export function tabPillLabel(tab: InspectorTab): string {
 
 /** Haystack the tab-search dropdown matches against. */
 export function tabSearchText(tab: InspectorTab): string {
-  return tab.kind === 'request' ? tab.url : `${tab.database} ${tab.store} ${tab.keyPreview}`;
+  if (tab.kind === 'request') return tab.url;
+  if (tab.kind === 'idb-record') return `${tab.database} ${tab.store} ${tab.keyPreview}`;
+  return `${domStorageAreaName(tab.area)} ${tab.entryKey}`;
 }

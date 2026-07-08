@@ -1,0 +1,337 @@
+// @vitest-environment jsdom
+/**
+ * DomStorageEntryEditorTab — one localStorage/sessionStorage entry
+ * opened as a full editor-tab document. One-shot full-value fetch over
+ * the host seam, key + value editing with derived dirty across both
+ * fields, value-only saves riding the plain write, key changes riding
+ * the collision-guarded rename (re-keying the tab via onRenamed),
+ * reasoned failure notes, the too-large read-only gate, and the honest
+ * empty state with a Refresh retry.
+ */
+
+import type { HostNavigation } from '@openheaders/core/navigation';
+import { setHostNavigation } from '@openheaders/core/navigation';
+import { DomStorageEntryEditorTab } from '@openheaders/ui/panel/components/storage/DomStorageEntryEditorTab';
+import { buildDomStorageEntryTab } from '@openheaders/ui/panel/data/inspector-tab';
+import type { DomStorageFullValue, StorageInspectorHost } from '@openheaders/ui/panel/host-storage-inspector';
+import { setStorageInspectorHost } from '@openheaders/ui/panel/host-storage-inspector';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('@openheaders/ui/panel/components/detail/CodeViewer', () => ({
+  default: ({
+    value,
+    language,
+    readOnly,
+    onChange,
+  }: {
+    value: string;
+    language: string;
+    readOnly?: boolean;
+    onChange?: (value: string) => void;
+  }) => (
+    <textarea
+      data-testid="code-viewer"
+      data-language={language}
+      readOnly={readOnly !== false}
+      value={value}
+      onChange={(e) => onChange?.(e.target.value)}
+    />
+  ),
+}));
+
+const NAV: HostNavigation = {
+  switchViewMode: () => Promise.resolve({ opened: false }),
+  currentWindowId: () => Promise.resolve(undefined),
+  activeTabUrl: () => Promise.resolve(undefined),
+  openUrl: () => {},
+  openShortcutSettings: () => {},
+  getActiveTab: () => Promise.resolve(null),
+  observeActiveTabContext: () => () => {},
+  inspectedTabId: () => 42,
+  reloadInspectedTab: () => {},
+  getInspectedHar: () => Promise.resolve(null),
+  openResource: () => {},
+};
+
+function installHost(
+  readDomStorageValue: StorageInspectorHost['readDomStorageValue'],
+  writeDomStorage: StorageInspectorHost['writeDomStorage'] = vi.fn(() => Promise.resolve(false)),
+  renameDomStorage: StorageInspectorHost['renameDomStorage'] = vi.fn(() => Promise.resolve({ ok: false })),
+) {
+  const host: StorageInspectorHost = {
+    listScopes: vi.fn(() => Promise.resolve(null)),
+    readDomStorage: vi.fn(() => Promise.resolve(null)),
+    readDomStorageValue,
+    writeDomStorage,
+    renameDomStorage,
+    removeDomStorage: vi.fn(() => Promise.resolve(false)),
+    clearDomStorage: vi.fn(() => Promise.resolve(false)),
+    listIndexedDb: vi.fn(() => Promise.resolve(null)),
+    readIndexedDbRecords: vi.fn(() => Promise.resolve(null)),
+    readIndexedDbRecordDocument: vi.fn(() => Promise.resolve(null)),
+    writeIndexedDbRecord: vi.fn(() => Promise.resolve({ ok: false })),
+    deleteIndexedDbRecord: vi.fn(() => Promise.resolve(false)),
+    clearIndexedDbStore: vi.fn(() => Promise.resolve(false)),
+    deleteIndexedDbDatabase: vi.fn(() => Promise.resolve(false)),
+    listCaches: vi.fn(() => Promise.resolve(null)),
+    readCacheEntries: vi.fn(() => Promise.resolve(null)),
+    readCacheEntryResponse: vi.fn(() => Promise.resolve(null)),
+    readQuota: vi.fn(() => Promise.resolve(null)),
+    clearSiteData: vi.fn(() => Promise.resolve(false)),
+    setQuotaOverride: vi.fn(() => Promise.resolve(false)),
+    deleteCache: vi.fn(() => Promise.resolve(false)),
+    deleteCacheEntry: vi.fn(() => Promise.resolve(false)),
+    subscribeStorageInvalidations: () => () => {},
+  };
+  setStorageInspectorHost(host);
+}
+
+function fullValue(value: string): Promise<DomStorageFullValue | null> {
+  return Promise.resolve({ value, tooLarge: false });
+}
+
+const TAB = buildDomStorageEntryTab({
+  frameId: 0,
+  area: 'local',
+  entryKey: 'oh-theme',
+  timestamp: 1_770_000_000_000,
+});
+
+beforeEach(() => {
+  setHostNavigation(NAV);
+});
+
+afterEach(() => {
+  cleanup();
+});
+
+describe('DomStorageEntryEditorTab', () => {
+  it('fetches the full value with the tab coordinates and renders it editable', async () => {
+    const read = vi.fn(() => fullValue('dark'));
+    installHost(read);
+    render(<DomStorageEntryEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+
+    const viewer = (await screen.findByTestId('code-viewer')) as HTMLTextAreaElement;
+    expect(read).toHaveBeenCalledWith(42, 0, 'local', 'oh-theme');
+    expect(viewer.value).toBe('dark');
+    expect(viewer.readOnly).toBe(false);
+    expect(viewer.getAttribute('data-language')).toBe('plaintext');
+    expect((screen.getByLabelText('Entry key') as HTMLInputElement).value).toBe('oh-theme');
+  });
+
+  it('keys the language and Preview off a JSON value', async () => {
+    installHost(vi.fn(() => fullValue('{"mode": "dark"}')));
+    render(<DomStorageEntryEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+
+    const viewer = await screen.findByTestId('code-viewer');
+    expect(viewer.getAttribute('data-language')).toBe('json');
+    const preview = screen.getByRole('tab', { name: 'Preview' });
+    expect(preview.hasAttribute('disabled')).toBe(false);
+    fireEvent.click(preview);
+    expect(screen.getByLabelText('Entry value tree')).toBeTruthy();
+    expect(screen.getByText('"mode"')).toBeTruthy();
+    expect(screen.queryByTestId('code-viewer')).toBeNull();
+  });
+
+  it('disables Preview for a non-JSON value', async () => {
+    installHost(vi.fn(() => fullValue('plain text')));
+    render(<DomStorageEntryEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+
+    await screen.findByTestId('code-viewer');
+    expect(screen.getByRole('tab', { name: 'Preview' }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it('derives dirty from the VALUE draft and gates Save on it', async () => {
+    installHost(vi.fn(() => fullValue('dark')));
+    render(<DomStorageEntryEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+
+    const viewer = (await screen.findByTestId('code-viewer')) as HTMLTextAreaElement;
+    const save = screen.getByRole('button', { name: 'Save' });
+    expect(save.hasAttribute('disabled')).toBe(true);
+
+    fireEvent.change(viewer, { target: { value: 'light' } });
+    expect(save.hasAttribute('disabled')).toBe(false);
+
+    fireEvent.change(viewer, { target: { value: 'dark' } });
+    expect(save.hasAttribute('disabled')).toBe(true);
+  });
+
+  it('derives dirty from the KEY draft — and an empty key keeps Save disabled', async () => {
+    installHost(vi.fn(() => fullValue('dark')));
+    render(<DomStorageEntryEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+
+    await screen.findByTestId('code-viewer');
+    const keyInput = screen.getByLabelText('Entry key') as HTMLInputElement;
+    const save = screen.getByRole('button', { name: 'Save' });
+
+    fireEvent.change(keyInput, { target: { value: 'oh-appearance' } });
+    expect(save.hasAttribute('disabled')).toBe(false);
+
+    fireEvent.change(keyInput, { target: { value: '' } });
+    expect(save.hasAttribute('disabled')).toBe(true);
+
+    fireEvent.change(keyInput, { target: { value: 'oh-theme' } });
+    expect(save.hasAttribute('disabled')).toBe(true);
+  });
+
+  it('saves a value-only edit through the plain write and re-fetches', async () => {
+    const read = vi
+      .fn()
+      .mockResolvedValueOnce({ value: 'dark', tooLarge: false })
+      .mockResolvedValue({ value: 'light', tooLarge: false } as DomStorageFullValue | null);
+    const write = vi.fn(() => Promise.resolve(true));
+    installHost(read, write);
+    render(<DomStorageEntryEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+
+    const viewer = (await screen.findByTestId('code-viewer')) as HTMLTextAreaElement;
+    fireEvent.change(viewer, { target: { value: 'light' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(write).toHaveBeenCalledWith(42, 0, 'local', 'oh-theme', 'light');
+    await waitFor(() => expect(read).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Save' }).hasAttribute('disabled')).toBe(true));
+  });
+
+  it('commits a key change through the rename and re-keys the tab via onRenamed', async () => {
+    const rename = vi.fn(() => Promise.resolve({ ok: true }));
+    const write = vi.fn(() => Promise.resolve(true));
+    const onRenamed = vi.fn();
+    installHost(
+      vi.fn(() => fullValue('dark')),
+      write,
+      rename,
+    );
+    render(<DomStorageEntryEditorTab tab={TAB} onRevealInStorage={vi.fn()} onRenamed={onRenamed} />);
+
+    const viewer = (await screen.findByTestId('code-viewer')) as HTMLTextAreaElement;
+    fireEvent.change(viewer, { target: { value: 'light' } });
+    fireEvent.change(screen.getByLabelText('Entry key'), { target: { value: 'oh-appearance' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(onRenamed).toHaveBeenCalledWith('oh-appearance'));
+    expect(rename).toHaveBeenCalledWith(42, 0, 'local', 'oh-theme', 'oh-appearance', 'light');
+    expect(write).not.toHaveBeenCalled();
+  });
+
+  it('renders the reasoned collision note, keeps the drafts, and clears the note on edit', async () => {
+    const rename = vi.fn(() => Promise.resolve({ ok: false, reason: 'collision' as const }));
+    installHost(
+      vi.fn(() => fullValue('dark')),
+      undefined,
+      rename,
+    );
+    render(<DomStorageEntryEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+
+    await screen.findByTestId('code-viewer');
+    const keyInput = screen.getByLabelText('Entry key') as HTMLInputElement;
+    fireEvent.change(keyInput, { target: { value: 'oh-existing' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(await screen.findByText(/already exists/)).toBeTruthy();
+    expect(keyInput.value).toBe('oh-existing');
+
+    fireEvent.change(keyInput, { target: { value: 'oh-existing-2' } });
+    expect(screen.queryByText(/already exists/)).toBeNull();
+  });
+
+  it('notes an unreasoned value-write failure', async () => {
+    installHost(
+      vi.fn(() => fullValue('dark')),
+      vi.fn(() => Promise.resolve(false)),
+    );
+    render(<DomStorageEntryEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+
+    const viewer = (await screen.findByTestId('code-viewer')) as HTMLTextAreaElement;
+    fireEvent.change(viewer, { target: { value: 'light' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(await screen.findByText(/write was rejected/)).toBeTruthy();
+    expect(viewer.value).toBe('light');
+  });
+
+  it('gates a value past the edit ceiling as a read-only too-large state', async () => {
+    installHost(vi.fn(() => Promise.resolve({ value: null, tooLarge: true })));
+    render(<DomStorageEntryEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+
+    expect(await screen.findByText('Too large to open')).toBeTruthy();
+    expect(screen.queryByTestId('code-viewer')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+    expect(screen.queryByLabelText('Entry key')).toBeNull();
+  });
+
+  it('degrades to the honest empty state when the entry is gone, and Refresh retries', async () => {
+    const read = vi
+      .fn()
+      .mockResolvedValueOnce({ value: null, tooLarge: false })
+      .mockResolvedValue({ value: 'back', tooLarge: false } as DomStorageFullValue | null);
+    installHost(read);
+    render(<DomStorageEntryEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+
+    expect(await screen.findByText('Entry no longer available')).toBeTruthy();
+    fireEvent.click(screen.getByLabelText('Refresh entry'));
+    const viewer = await screen.findByTestId('code-viewer');
+    expect((viewer as HTMLTextAreaElement).value).toBe('back');
+    expect(read).toHaveBeenCalledTimes(2);
+  });
+
+  it('arms Refresh while dirty — only the confirm discards the drafts', async () => {
+    const read = vi.fn(() => fullValue('dark'));
+    installHost(read);
+    render(<DomStorageEntryEditorTab tab={TAB} onRevealInStorage={vi.fn()} />);
+
+    const viewer = (await screen.findByTestId('code-viewer')) as HTMLTextAreaElement;
+    fireEvent.change(viewer, { target: { value: 'light' } });
+
+    fireEvent.click(screen.getByLabelText('Refresh entry'));
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(viewer.value).toBe('light');
+
+    fireEvent.click(screen.getByLabelText('Refresh entry — click again to confirm'));
+    await waitFor(() => expect(read).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect((screen.getByTestId('code-viewer') as HTMLTextAreaElement).value).toBe('dark'));
+  });
+
+  it('mirrors dirty up through onDirtyChange and registers its save action', async () => {
+    const write = vi.fn(() => Promise.resolve(true));
+    installHost(
+      vi.fn(() => fullValue('dark')),
+      write,
+    );
+    const onDirtyChange = vi.fn();
+    const saves = new Map<string, () => Promise<boolean>>();
+    render(
+      <DomStorageEntryEditorTab
+        tab={TAB}
+        onRevealInStorage={vi.fn()}
+        onDirtyChange={onDirtyChange}
+        registerSave={(save) => {
+          if (save) saves.set(TAB.id, save);
+          else saves.delete(TAB.id);
+        }}
+      />,
+    );
+
+    const viewer = (await screen.findByTestId('code-viewer')) as HTMLTextAreaElement;
+    expect(onDirtyChange).toHaveBeenLastCalledWith(false);
+    fireEvent.change(viewer, { target: { value: 'light' } });
+    expect(onDirtyChange).toHaveBeenLastCalledWith(true);
+
+    const save = saves.get(TAB.id);
+    expect(save).toBeDefined();
+    const ok = save ? await save() : false;
+    expect(ok).toBe(true);
+    expect(write).toHaveBeenCalledWith(42, 0, 'local', 'oh-theme', 'light');
+    await waitFor(() => expect(onDirtyChange).toHaveBeenLastCalledWith(false));
+  });
+
+  it('routes Reveal in Storage back to the originating area', async () => {
+    installHost(vi.fn(() => fullValue('dark')));
+    const onReveal = vi.fn();
+    render(<DomStorageEntryEditorTab tab={TAB} onRevealInStorage={onReveal} />);
+
+    await screen.findByTestId('code-viewer');
+    fireEvent.click(screen.getByText('Reveal in Storage'));
+    expect(onReveal).toHaveBeenCalledWith('local');
+  });
+});

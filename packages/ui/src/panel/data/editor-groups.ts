@@ -7,7 +7,7 @@
  * tree. Same architectural pattern as the workspace editor-groups.
  */
 
-import type { InspectorTab, InspectorTabPatch } from './inspector-tab';
+import { domStorageEntryTabId, type InspectorTab, type InspectorTabPatch } from './inspector-tab';
 
 export type EditorOrientation = 'horizontal' | 'vertical';
 
@@ -138,11 +138,29 @@ export function updateTabInLeaf(
     const idx = leaf.tabs.findIndex((t) => t.id === tabId);
     if (idx < 0) return leaf;
     const tab = leaf.tabs[idx];
-    // Each patch field applies to one tab kind — foreign fields drop.
+    // Each patch field applies to matching tab kinds — foreign fields drop.
     let nextTab: InspectorTab;
     if (tab.kind === 'request') {
       if (updates.activeSection === undefined || tab.activeSection === updates.activeSection) return leaf;
       nextTab = { ...tab, activeSection: updates.activeSection };
+    } else if (tab.kind === 'dom-storage-entry' && updates.entryKey !== undefined && updates.entryKey !== tab.entryKey) {
+      // A committed rename moves the tab's identity: the id and label
+      // derive from the entry key, so re-opens and the grid's
+      // active-row highlight keep matching the renamed entry.
+      nextTab = {
+        ...tab,
+        ...(updates.dirty !== undefined ? { dirty: updates.dirty } : {}),
+        entryKey: updates.entryKey,
+        label: updates.entryKey,
+        id: domStorageEntryTabId(tab.frameId, tab.area, updates.entryKey),
+      };
+      const renamedTabs = leaf.tabs.slice();
+      renamedTabs[idx] = nextTab;
+      return {
+        ...leaf,
+        tabs: renamedTabs,
+        activeTabId: leaf.activeTabId === tab.id ? nextTab.id : leaf.activeTabId,
+      };
     } else {
       if (updates.dirty === undefined || (tab.dirty ?? false) === updates.dirty) return leaf;
       nextTab = { ...tab, dirty: updates.dirty };

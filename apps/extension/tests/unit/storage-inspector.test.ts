@@ -17,6 +17,8 @@ import {
   readDomStorageValueInPage,
   removeDomStorageInPage,
   removeDomStorageItem,
+  renameDomStorageInPage,
+  renameDomStorageItem,
   setDomStorageItem,
   writeDomStorageInPage,
 } from '@/background/modules/storage-inspector/standard-plane';
@@ -465,6 +467,53 @@ describe('injected writers', () => {
       expect(readDomStorageValueInPage('local', 'gone', 10)).toEqual({ value: null });
     });
   });
+
+  it('renameDomStorageInPage moves the entry — new key present with the value, old key gone', () => {
+    const local: Record<string, string> = { theme: 'dark', other: 'x' };
+    withWindowAreas(mutableStorage(local), mutableStorage({}), () => {
+      expect(renameDomStorageInPage('local', 'theme', 'appearance', 'light')).toEqual({ ok: true });
+      expect(local).toEqual({ appearance: 'light', other: 'x' });
+    });
+  });
+
+  it('renameDomStorageInPage rejects a collision without touching either entry', () => {
+    const local: Record<string, string> = { a: '1', b: '2' };
+    withWindowAreas(mutableStorage(local), mutableStorage({}), () => {
+      expect(renameDomStorageInPage('local', 'a', 'b', '9')).toEqual({ ok: false, reason: 'collision' });
+      expect(local).toEqual({ a: '1', b: '2' });
+    });
+  });
+
+  it('renameDomStorageInPage reports a vanished original as gone', () => {
+    withWindowAreas(mutableStorage({}), mutableStorage({}), () => {
+      expect(renameDomStorageInPage('local', 'missing', 'next', 'v')).toEqual({ ok: false, reason: 'gone' });
+    });
+  });
+
+  it('renameDomStorageInPage reports a write throw as quota, original intact', () => {
+    const items: Record<string, string> = { a: '1' };
+    const local = {
+      getItem: (k: string) => items[k] ?? null,
+      setItem: () => {
+        throw new DOMException('quota', 'QuotaExceededError');
+      },
+      removeItem: (k: string) => {
+        delete items[k];
+      },
+    } as unknown as Storage;
+    withWindowAreas(local, mutableStorage({}), () => {
+      expect(renameDomStorageInPage('local', 'a', 'b', 'x'.repeat(50))).toEqual({ ok: false, reason: 'quota' });
+      expect(items).toEqual({ a: '1' });
+    });
+  });
+
+  it('renameDomStorageInPage degrades a same-key call to a plain value write', () => {
+    const local: Record<string, string> = { a: '1' };
+    withWindowAreas(mutableStorage(local), mutableStorage({}), () => {
+      expect(renameDomStorageInPage('local', 'a', 'a', '2')).toEqual({ ok: true });
+      expect(local).toEqual({ a: '2' });
+    });
+  });
 });
 
 describe('write wrappers', () => {
@@ -483,6 +532,29 @@ describe('write wrappers', () => {
 
     executeScriptSpy().mockResolvedValue([{ result: { ok: false } }]);
     expect(await setDomStorageItem(42, 0, 'local', 'k', 'v')).toEqual({ ok: false });
+  });
+
+  it('renameDomStorageItem targets the frame and forwards key, newKey and value', async () => {
+    executeScriptSpy().mockResolvedValue([{ result: { ok: true } }]);
+    const res = await renameDomStorageItem(42, 7, 'local', 'old', 'new', 'v');
+    expect(res).toEqual({ ok: true });
+    const call = executeScriptSpy().mock.calls[0][0];
+    expect(call.target).toEqual({ tabId: 42, frameIds: [7] });
+    expect(call.args).toEqual(['local', 'old', 'new', 'v']);
+  });
+
+  it('renameDomStorageItem relays the reasoned rejection and maps injection failure to gone', async () => {
+    executeScriptSpy().mockResolvedValue([{ result: { ok: false, reason: 'collision' } }]);
+    expect(await renameDomStorageItem(42, 0, 'local', 'a', 'b', 'v')).toEqual({ ok: false, reason: 'collision' });
+
+    executeScriptSpy().mockRejectedValue(new Error('No frame with id 0'));
+    expect(await renameDomStorageItem(42, 0, 'local', 'a', 'b', 'v')).toEqual({ ok: false, reason: 'gone' });
+  });
+
+  it('renameDomStorageItem rejects an empty new key without injecting', async () => {
+    executeScriptSpy().mockClear();
+    expect(await renameDomStorageItem(42, 0, 'local', 'a', '', 'v')).toEqual({ ok: false });
+    expect(executeScriptSpy()).not.toHaveBeenCalled();
   });
 
   it('removeDomStorageItem and clearDomStorage forward their args', async () => {

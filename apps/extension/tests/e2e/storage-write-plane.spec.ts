@@ -130,6 +130,44 @@ test('DOM storage writes ride the injection plane end-to-end', async () => {
   expect(full.tooLarge).toBeFalsy();
   expect(full.value?.length).toBe(20_000);
 
+  // ── Rename moves the entry in one leg: old key gone, new key carries
+  //    the (possibly edited) value ─────────────────────────────────────
+  await page.evaluate(() => {
+    localStorage.setItem('oh-e2e-rename', 'original');
+  });
+  const renamed = await rpc<{ ok: boolean; reason?: string }>('renameDomStorageItem', {
+    ...base,
+    key: 'oh-e2e-rename',
+    newKey: 'oh-e2e-renamed',
+    value: 'edited',
+  });
+  expect(renamed).toEqual({ ok: true });
+  expect(await page.evaluate(() => localStorage.getItem('oh-e2e-rename'))).toBeNull();
+  expect(await page.evaluate(() => localStorage.getItem('oh-e2e-renamed'))).toBe('edited');
+
+  // ── Rename onto an existing key is an honest rejection — both intact ─
+  await page.evaluate(() => {
+    localStorage.setItem('oh-e2e-target', 'keep');
+  });
+  const collided = await rpc<{ ok: boolean; reason?: string }>('renameDomStorageItem', {
+    ...base,
+    key: 'oh-e2e-renamed',
+    newKey: 'oh-e2e-target',
+    value: 'stomp',
+  });
+  expect(collided).toEqual({ ok: false, reason: 'collision' });
+  expect(await page.evaluate(() => localStorage.getItem('oh-e2e-renamed'))).toBe('edited');
+  expect(await page.evaluate(() => localStorage.getItem('oh-e2e-target'))).toBe('keep');
+
+  // ── Renaming a vanished key reports gone ──────────────────────────
+  const vanished = await rpc<{ ok: boolean; reason?: string }>('renameDomStorageItem', {
+    ...base,
+    key: 'oh-e2e-never-existed',
+    newKey: 'oh-e2e-any',
+    value: 'v',
+  });
+  expect(vanished).toEqual({ ok: false, reason: 'gone' });
+
   // ── Clear empties ONLY the addressed area ─────────────────────────
   const cleared = await rpc<{ ok: boolean }>('clearDomStorage', { ...base, area: 'session' });
   expect(cleared.ok).toBe(true);

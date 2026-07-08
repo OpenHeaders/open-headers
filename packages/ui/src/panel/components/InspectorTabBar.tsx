@@ -21,7 +21,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { type EditorTabDragData, LayoutMenuIcon } from '@openheaders/ui/shared/dock-layout';
 import { useDragIntent } from '../data/drag-intent';
 import type { ClosedTab, InspectorTab } from '../data/inspector-tab';
-import { tabPillLabel, tabSearchText, tabTitle } from '../data/inspector-tab';
+import { tabIsDirty, tabPillLabel, tabSearchText, tabTitle } from '../data/inspector-tab';
 import { tabBadge } from './method-color';
 
 // ── Label helpers ───────────────────────────────────────────────
@@ -115,7 +115,7 @@ const SortableTab: React.FC<SortableTabProps> = ({ leafId, tab, isActive, contex
         <span className={`dt-editor-tab-status${tab.statusCode >= 400 ? ' error' : ''}`}>{tab.statusCode}</span>
       )}
       {/* Unsaved-draft dot — same signal as the workspace tab bar. */}
-      {tab.kind === 'idb-record' && tab.dirty && <span className="dt-editor-tab-dirty" aria-label="Unsaved changes" />}
+      {tabIsDirty(tab) && <span className="dt-editor-tab-dirty" aria-label="Unsaved changes" />}
       <button
         type="button"
         className="dt-editor-tab-close"
@@ -267,9 +267,7 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
                 {tabBadge(tab).text}
               </span>
               <span className="dt-tab-search-item-label">{tab.label}</span>
-              {tab.kind === 'idb-record' && tab.dirty && (
-                <span className="dt-editor-tab-dirty" aria-label="Unsaved changes" />
-              )}
+              {tabIsDirty(tab) && <span className="dt-editor-tab-dirty" aria-label="Unsaved changes" />}
             </div>
           ))}
           {recentlyClosed.length > 0 && (

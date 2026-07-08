@@ -1,7 +1,7 @@
 /**
  * useTabCloseGuard — dirty-close confirmation for the panel's editor
- * tabs, mirroring the workspace tab bar's lifecycle: a dirty tab (an
- * IndexedDB record document with an unsaved draft) prompts
+ * tabs, mirroring the workspace tab bar's lifecycle: a dirty tab (a
+ * storage document with an unsaved draft) prompts
  * Save / Don't save / Cancel before closing; batch closes confirm each
  * dirty tab in turn and abort on Cancel. Clean tabs close straight
  * through. "Save changes" routes through the save action the editor
@@ -14,7 +14,7 @@ import type React from 'react';
 import { useCallback } from 'react';
 import { findLeaf } from './editor-groups';
 import type { InspectorTab } from './inspector-tab';
-import { tabPillLabel } from './inspector-tab';
+import { tabIsDirty, tabPillLabel } from './inspector-tab';
 import type { UseInspectorEditorGroupsApi } from './use-inspector-editor-groups';
 
 export type TabSaveRefMap = Map<string, () => Promise<boolean>>;
@@ -25,10 +25,6 @@ export interface TabCloseGuardApi {
   closeAllTabs: () => void;
   closeTabsToLeft: (tabId: string) => void;
   closeTabsToRight: (tabId: string) => void;
-}
-
-function isDirty(tab: InspectorTab): boolean {
-  return tab.kind === 'idb-record' && tab.dirty === true;
 }
 
 export function useTabCloseGuard(
@@ -96,7 +92,7 @@ export function useTabCloseGuard(
   // One tab through the guard; resolves whether it actually closed.
   const guardAndClose = useCallback(
     async (tab: InspectorTab): Promise<boolean> => {
-      if (!isDirty(tab)) {
+      if (!tabIsDirty(tab)) {
         groups.closeTab(tab.id);
         return true;
       }
@@ -121,8 +117,8 @@ export function useTabCloseGuard(
     async (tabs: InspectorTab[]) => {
       // Clean tabs close immediately; dirty ones confirm one by one and
       // a Cancel (or failed save) aborts the rest — workspace parity.
-      for (const tab of tabs.filter((t) => !isDirty(t))) groups.closeTab(tab.id);
-      for (const tab of tabs.filter(isDirty)) {
+      for (const tab of tabs.filter((t) => !tabIsDirty(t))) groups.closeTab(tab.id);
+      for (const tab of tabs.filter(tabIsDirty)) {
         if (!(await guardAndClose(tab))) return;
       }
     },

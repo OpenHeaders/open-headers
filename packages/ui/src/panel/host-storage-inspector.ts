@@ -17,6 +17,8 @@ export type {
   DomStorageArea,
   DomStorageEntry,
   DomStorageFullValue,
+  DomStorageRenameFailure,
+  DomStorageRenameResult,
   DomStorageSnapshot,
   IdbDatabase,
   IdbObjectStore,

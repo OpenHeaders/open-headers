@@ -101,6 +101,15 @@ export interface DomStorageEntryWire {
   clipped?: boolean;
 }
 
+/**
+ * Why a DOM storage rename was rejected: `collision` — an entry already
+ * exists under the new key (renaming would silently overwrite it, never
+ * allowed); `gone` — the original key no longer exists or the frame
+ * can't be reached; `quota` — writing the new entry threw (the original
+ * entry is left intact).
+ */
+export type DomStorageRenameFailureWire = 'collision' | 'gone' | 'quota';
+
 /** One object store of an IndexedDB database. A composite keyPath is
  *  serialized as a comma-joined display string; absent ⇒ out-of-line keys. */
 export interface IdbObjectStoreWire {
@@ -414,6 +423,22 @@ export interface DevToolsRpc {
   setDomStorageItem: {
     req: { tabId: number; frameId: number; area: DomStorageAreaWire; key: string; value: string };
     res: { ok: boolean };
+  };
+
+  /**
+   * Rename one DOM storage entry — one injection performs the whole
+   * move (Storage has no rename primitive and no transactions, so a
+   * single in-page pass is the honest transport): the original key must
+   * still exist (`gone` otherwise), the new key must be free
+   * (`collision` — never a silent overwrite), then the entry is written
+   * under `newKey` with `value` (the editor's current draft, so a
+   * combined key+value edit commits as one save) and the original key
+   * removed. A write throw reports `quota` with the original entry left
+   * intact.
+   */
+  renameDomStorageItem: {
+    req: { tabId: number; frameId: number; area: DomStorageAreaWire; key: string; newKey: string; value: string };
+    res: { ok: boolean; reason?: DomStorageRenameFailureWire };
   };
 
   /** Remove one DOM storage entry by key. */

@@ -299,10 +299,11 @@
   white-space: nowrap;
 }
 
-/* The ACTIVE editor tab's record keeps its row lit — exactly one row,
- * tracking tab switches. */
-.dt-storage-grid--idb .dt-storage-row--active,
-.dt-storage-grid--idb .dt-storage-row--active:hover {
+/* The ACTIVE editor tab's document keeps its row lit — exactly one row
+ * across the IDB record list and the DOM storage grid, tracking tab
+ * switches. */
+.dt-storage-grid .dt-storage-row--active,
+.dt-storage-grid .dt-storage-row--active:hover {
   background: var(--dt-row-selected);
 }
 
@@ -321,13 +322,19 @@
   max-width: 40%;
 }
 
-/* Record rows open in the editor — the whole row is the affordance. */
-.dt-storage-grid--idb .dt-storage-row {
+/* Rows open in the editor — the whole row is the affordance (IDB
+ * records and DOM storage entries alike). */
+.dt-storage-grid .dt-storage-row {
   cursor: pointer;
 }
 
-/* IndexedDB record opened as a full editor-tab document. */
-.dt-idbdoc {
+.dt-storage-grid .dt-storage-row--editing {
+  cursor: default;
+}
+
+/* A storage row (IndexedDB record, DOM storage entry) opened as a full
+ * editor-tab document — shared chrome for every document kind. */
+.dt-storagedoc {
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -335,7 +342,7 @@
   font-size: 11px;
 }
 
-.dt-idbdoc-toolbar {
+.dt-storagedoc-toolbar {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -346,7 +353,7 @@
 
 /* The crumb absorbs all shrink (long keys truncate with an ellipsis);
  * every control right of it keeps its intrinsic width. */
-.dt-idbdoc-crumb {
+.dt-storagedoc-crumb {
   flex: 0 1 auto;
   min-width: 0;
   color: var(--dt-text-muted);
@@ -355,15 +362,15 @@
   text-overflow: ellipsis;
 }
 
-.dt-idbdoc-crumb-key {
+.dt-storagedoc-crumb-key {
   color: var(--dt-text);
 }
 
-.dt-idbdoc-toolbar-spacer {
+.dt-storagedoc-toolbar-spacer {
   flex: 1 1 auto;
 }
 
-.dt-idbdoc-modes {
+.dt-storagedoc-modes {
   flex: 0 0 auto;
   display: inline-flex;
   border: 1px solid var(--dt-border);
@@ -371,11 +378,11 @@
   overflow: hidden;
 }
 
-.dt-idbdoc-toolbar > .dt-storage-action {
+.dt-storagedoc-toolbar > .dt-storage-action {
   flex: 0 0 auto;
 }
 
-.dt-idbdoc-mode {
+.dt-storagedoc-mode {
   font: inherit;
   padding: 1px 8px;
   border: none;
@@ -384,17 +391,17 @@
   cursor: pointer;
 }
 
-.dt-idbdoc-mode[data-active='true'] {
+.dt-storagedoc-mode[data-active='true'] {
   background: var(--dt-row-selected);
   color: var(--dt-text);
 }
 
-.dt-idbdoc-mode:disabled {
+.dt-storagedoc-mode:disabled {
   color: var(--dt-border);
   cursor: default;
 }
 
-.dt-idbdoc-reveal {
+.dt-storagedoc-reveal {
   flex: 0 0 auto;
   font: inherit;
   padding: 1px 8px;
@@ -406,13 +413,13 @@
   white-space: nowrap;
 }
 
-.dt-idbdoc-reveal:hover {
+.dt-storagedoc-reveal:hover {
   background: var(--dt-row-hover);
 }
 
 /* Enabled ⇔ dirty, so the fill is the app-wide unsaved-changes orange
  * (the workbench Save accent), not the primary blue. */
-.dt-idbdoc-save {
+.dt-storagedoc-save {
   flex: 0 0 auto;
   font: inherit;
   padding: 1px 10px;
@@ -424,19 +431,19 @@
   white-space: nowrap;
 }
 
-.dt-idbdoc-save:hover:not(:disabled) {
+.dt-storagedoc-save:hover:not(:disabled) {
   border-color: #e2621f;
   background: #e2621f;
 }
 
-.dt-idbdoc-save:disabled {
+.dt-storagedoc-save:disabled {
   border-color: var(--dt-border);
   background: transparent;
   color: var(--dt-text-muted);
   cursor: default;
 }
 
-.dt-idbdoc-note {
+.dt-storagedoc-note {
   flex: 0 0 auto;
   padding: 3px 8px;
   border-bottom: 1px solid var(--dt-border);
@@ -444,22 +451,42 @@
   font-style: italic;
 }
 
-.dt-idbdoc-note--error {
+.dt-storagedoc-note--error {
   color: var(--dt-status-red);
   font-style: normal;
+}
+
+/* Identity row for document kinds with an editable key — sits under
+ * the toolbar so a rename commits through the same Save as the value. */
+.dt-storagedoc-key-row {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-bottom: 1px solid var(--dt-border);
+}
+
+.dt-storagedoc-key-label {
+  flex: 0 0 auto;
+  color: var(--dt-text-muted);
+}
+
+.dt-storagedoc-key-row .dt-storage-cell-input {
+  flex: 1 1 auto;
 }
 
 /* Flex column so the Monaco wrapper child (`.dt-codemirror-wrap`,
  * `flex: 1`) actually fills the pane — same rule the Response view
  * needs; without it Monaco's `height: 100%` collapses to nothing. */
-.dt-idbdoc-source {
+.dt-storagedoc-source {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
 }
 
-.dt-idbdoc-preview {
+.dt-storagedoc-preview {
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
@@ -469,13 +496,13 @@
 
 /* Preview-tree rows stay one line each — a long string scrolls
  * horizontally on its key's row instead of wrapping below it. */
-.dt-idbdoc-preview--tree {
+.dt-storagedoc-preview--tree {
   white-space: nowrap;
 }
 
 /* The inline first-level summary reads best collapsed; once a node is
  * expanded its children replace it. */
-.dt-idbdoc-preview--tree details[open] > summary > .dt-idbpreview-inline {
+.dt-storagedoc-preview--tree details[open] > summary > .dt-idbpreview-inline {
   display: none;
 }
 

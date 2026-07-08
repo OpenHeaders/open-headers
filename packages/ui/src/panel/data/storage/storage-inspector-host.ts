@@ -49,6 +49,21 @@ export interface DomStorageFullValue {
   tooLarge: boolean;
 }
 
+/**
+ * Why a DOM storage rename was rejected: `collision` — an entry already
+ * exists under the new key (never a silent overwrite); `gone` — the
+ * original key no longer exists or the frame can't be reached;
+ * `quota` — writing the new entry threw, original left intact.
+ */
+export type DomStorageRenameFailure = 'collision' | 'gone' | 'quota';
+
+/** Outcome of a DOM storage rename; `reason` explains a failure when
+ *  the host can tell (absent ⇒ generic failure). */
+export interface DomStorageRenameResult {
+  ok: boolean;
+  reason?: DomStorageRenameFailure;
+}
+
 /** One object store's shape; `keyPath` is a display string (composite
  *  paths comma-joined), absent for out-of-line keys. */
 export interface IdbObjectStore {
@@ -213,6 +228,16 @@ export interface StorageInspectorHost {
   ): Promise<DomStorageFullValue | null>;
   /** Add or overwrite one entry; resolves `false` on failure (quota, frame gone). */
   writeDomStorage(tabId: number, frameId: number, area: DomStorageArea, key: string, value: string): Promise<boolean>;
+  /** Move one entry to a new key (writing `value` under it) in a single
+   *  host-side pass — collision-guarded, never a silent overwrite. */
+  renameDomStorage(
+    tabId: number,
+    frameId: number,
+    area: DomStorageArea,
+    key: string,
+    newKey: string,
+    value: string,
+  ): Promise<DomStorageRenameResult>;
   removeDomStorage(tabId: number, frameId: number, area: DomStorageArea, key: string): Promise<boolean>;
   clearDomStorage(tabId: number, frameId: number, area: DomStorageArea): Promise<boolean>;
   /** Enumerate the scope's IndexedDB databases; `null` when unreadable. */

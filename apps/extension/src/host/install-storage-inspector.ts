@@ -15,6 +15,7 @@ import type {
   CacheSummary,
   DomStorageArea,
   DomStorageFullValue,
+  DomStorageRenameResult,
   DomStorageSnapshot,
   IdbDatabase,
   IdbRecordDocument,
@@ -79,6 +80,23 @@ setStorageInspectorHost({
     } catch (err) {
       logger.info('StorageInspectorHost', `writeDomStorage ✗ tab ${tabId}: ${(err as Error).message}`);
       return false;
+    }
+  },
+  async renameDomStorage(
+    tabId: number,
+    frameId: number,
+    area: DomStorageArea,
+    key: string,
+    newKey: string,
+    value: string,
+  ): Promise<DomStorageRenameResult> {
+    try {
+      const res = await call('renameDomStorageItem', { tabId, frameId, area, key, newKey, value });
+      if (!res) return { ok: false };
+      return res.ok === true ? { ok: true } : { ok: false, ...(res.reason ? { reason: res.reason } : {}) };
+    } catch (err) {
+      logger.info('StorageInspectorHost', `renameDomStorage ✗ tab ${tabId}: ${(err as Error).message}`);
+      return { ok: false };
     }
   },
   async removeDomStorage(tabId: number, frameId: number, area: DomStorageArea, key: string): Promise<boolean> {

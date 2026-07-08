@@ -28,8 +28,8 @@ import {
   writeJarCookie,
 } from '../../data/cookies/cookie-jar-cache';
 import { useSiteCookieJarSticky } from '../../data/cookies/use-cookie-jar';
-import { idbRecordTabId } from '../../data/inspector-tab';
-import type { DomStorageEntry } from '../../data/storage/storage-inspector-host';
+import { domStorageEntryTabId, idbRecordTabId } from '../../data/inspector-tab';
+import type { DomStorageArea, DomStorageEntry } from '../../data/storage/storage-inspector-host';
 import { parseStorageKey } from '../../data/storage/storage-key';
 import { useCacheBrowser } from '../../data/storage/use-cache-browser';
 import { useIdbBrowser } from '../../data/storage/use-idb-browser';
@@ -47,24 +47,33 @@ import { StorageGrid } from './StorageGrid';
 import { CookieIcon, DatabaseIcon, TableIcon, UsagePieIcon } from './StorageNavIcons';
 import { StorageQuotaCard } from './StorageQuotaCard';
 
-/** An editor-tab "Reveal in Storage" jump target. */
-export interface IdbRevealRequest {
-  database: string;
-  store: string;
+/** An editor-tab "Reveal in Storage" jump target — back to the record's
+ *  IndexedDB store or the entry's DOM storage area. */
+export type StorageRevealRequest =
+  | { kind: 'idb'; database: string; store: string }
+  | { kind: 'dom'; area: DomStorageArea };
+
+/** What an editor-tab open needs from a DOM storage row (plus the
+ *  scope's frame, which the panel shell adds). */
+export interface OpenDomStorageEntryRequest {
+  area: DomStorageArea;
+  entryKey: string;
 }
 
 interface StoragePanelProps {
   onHide: () => void;
   /** Open one IndexedDB record as an editor tab (scope frame attached). */
   onOpenIdbRecord: (request: OpenIdbRecordRequest & { frameId: number }) => void;
-  /** Pending editor-tab jump back into the IndexedDB section — consumed
+  /** Open one localStorage/sessionStorage entry as an editor tab. */
+  onOpenDomEntry: (request: OpenDomStorageEntryRequest & { frameId: number }) => void;
+  /** Pending editor-tab jump back into a storage section — consumed
    *  exactly once via `onRevealConsumed` (a re-mount or section
    *  round-trip must not replay it). */
-  revealIdb: IdbRevealRequest | null;
+  reveal: StorageRevealRequest | null;
   onRevealConsumed: () => void;
-  /** Id of the ACTIVE idb-record editor tab (null when the active tab
-   *  is another kind) — exactly that record's row renders highlighted. */
-  activeIdbTabId?: string | null;
+  /** Id of the ACTIVE storage-document editor tab (null when the active
+   *  tab is another kind) — exactly that row renders highlighted. */
+  activeStorageTabId?: string | null;
 }
 
 const SECTIONS: ReadonlyArray<{ value: StorageSection; label: string; icon: React.ReactNode }> = [
@@ -89,9 +98,10 @@ const READ_ONLY_ADD_TITLES = {
 export function StoragePanel({
   onHide,
   onOpenIdbRecord,
-  revealIdb,
+  onOpenDomEntry,
+  reveal,
   onRevealConsumed,
-  activeIdbTabId,
+  activeStorageTabId,
 }: StoragePanelProps) {
   const wiring = useMemo(() => createPanelHeaderWiring({ onHide }), [onHide]);
   const [section, setSection] = useState<StorageSection>('local');
@@ -122,20 +132,21 @@ export function StoragePanel({
   const cacheStorage = useCacheBrowser(section === 'cachestorage', selectedScope?.frameId ?? null);
   const quota = useStorageQuota(section === 'quota', selectedScope?.frameId ?? null);
 
-  // Editor-tab "Reveal in Storage": switch to the IndexedDB section,
-  // then select the target store and hand the request back as consumed.
-  // Two effects because activating the section resets the idb hook's
-  // selection (its own scope-reset effect runs first — hook call order —
-  // so the select lands after it).
+  // Editor-tab "Reveal in Storage": switch to the target section, then
+  // (for IndexedDB) select the target store and hand the request back
+  // as consumed. Two effects because activating a section resets the
+  // idb hook's selection (its own scope-reset effect runs first — hook
+  // call order — so the select lands after it).
+  const revealSection: StorageSection | null = reveal === null ? null : reveal.kind === 'idb' ? 'indexeddb' : reveal.area;
   useEffect(() => {
-    if (revealIdb) setSection('indexeddb');
-  }, [revealIdb]);
+    if (revealSection !== null) setSection(revealSection);
+  }, [revealSection]);
   const selectIdbStore = idb.selectStore;
   useEffect(() => {
-    if (!revealIdb || section !== 'indexeddb') return;
-    selectIdbStore(revealIdb.database, revealIdb.store);
+    if (!reveal || section !== revealSection) return;
+    if (reveal.kind === 'idb') selectIdbStore(reveal.database, reveal.store);
     onRevealConsumed();
-  }, [revealIdb, section, selectIdbStore, onRevealConsumed]);
+  }, [reveal, revealSection, section, selectIdbStore, onRevealConsumed]);
 
   const selectedFrameId = selectedScope?.frameId ?? null;
   const openIdbRecord = useCallback(
@@ -148,9 +159,24 @@ export function StoragePanel({
   const isIdbRecordActive = useCallback(
     (database: string, store: string, primaryKeyWire: string) =>
       selectedFrameId !== null &&
-      activeIdbTabId != null &&
-      activeIdbTabId === idbRecordTabId(selectedFrameId, database, store, primaryKeyWire),
-    [activeIdbTabId, selectedFrameId],
+      activeStorageTabId != null &&
+      activeStorageTabId === idbRecordTabId(selectedFrameId, database, store, primaryKeyWire),
+    [activeStorageTabId, selectedFrameId],
+  );
+  const domArea: DomStorageArea = section === 'session' ? 'session' : 'local';
+  const openDomEntry = useCallback(
+    (entryKey: string) => {
+      if (selectedFrameId === null) return;
+      onOpenDomEntry({ area: domArea, entryKey, frameId: selectedFrameId });
+    },
+    [onOpenDomEntry, selectedFrameId, domArea],
+  );
+  const isDomEntryActive = useCallback(
+    (entryKey: string) =>
+      selectedFrameId !== null &&
+      activeStorageTabId != null &&
+      activeStorageTabId === domStorageEntryTabId(selectedFrameId, domArea, entryKey),
+    [activeStorageTabId, selectedFrameId, domArea],
   );
 
   // ── Cookies section data + write plumbing (jar plane reuse) ────────
@@ -388,6 +414,8 @@ export function StoragePanel({
                 totalCount={entries.length}
                 adding={adding}
                 onCloseAdd={() => setAdding(false)}
+                onOpenEntry={openDomEntry}
+                isEntryActive={isDomEntryActive}
               />
             )}
           </div>
@@ -428,9 +456,20 @@ interface StorageBodyProps {
   totalCount: number;
   adding: boolean;
   onCloseAdd: () => void;
+  onOpenEntry: (key: string) => void;
+  isEntryActive: (key: string) => boolean;
 }
 
-function StorageBody({ inspector, section, entries, totalCount, adding, onCloseAdd }: StorageBodyProps) {
+function StorageBody({
+  inspector,
+  section,
+  entries,
+  totalCount,
+  adding,
+  onCloseAdd,
+  onOpenEntry,
+  isEntryActive,
+}: StorageBodyProps) {
   const { available, loading, selectedOrigin: origin } = inspector;
   const hasScopes = inspector.scopes.length > 0;
   const hasSnapshot = inspector.snapshot !== null;
@@ -484,6 +523,8 @@ function StorageBody({ inspector, section, entries, totalCount, adding, onCloseA
       onCommit={inspector.applyEdit}
       onRemove={inspector.removeEntry}
       fetchFullValue={inspector.fetchFullValue}
+      onOpenEntry={onOpenEntry}
+      isEntryActive={isEntryActive}
     />
   );
 }

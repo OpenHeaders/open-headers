@@ -24,7 +24,7 @@ const FIND_TITLE = `Find (${IS_MAC ? '⌘F' : 'Ctrl+F'})`;
 
 interface CodeViewerProps {
   value: string;
-  language: 'json' | 'css' | 'javascript' | 'html';
+  language: 'json' | 'css' | 'javascript' | 'html' | 'plaintext';
   readOnly?: boolean;
   onChange?: (value: string) => void;
   onCursorChange?: (line: number, col: number) => void;

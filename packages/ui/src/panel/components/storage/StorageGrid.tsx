@@ -3,6 +3,8 @@
  * an add row (pinned under the header while adding), inline row editing
  * (double-click or the pencil — key change = rename, committed as
  * write-new-then-remove-old by the hook), and a per-row hover delete.
+ * A single click on a row opens the entry as a full editor-tab document
+ * (IDB-record parity); the inline edit stays for quick tweaks.
  *
  * A clipped entry's edit starts with the lazy full-value fetch — saving
  * the 16k preview back would corrupt the value — and blocks with a note
@@ -35,9 +37,23 @@ interface StorageGridProps {
   onCommit: (originalKey: string | null, key: string, value: string) => Promise<boolean>;
   onRemove: (key: string) => Promise<boolean>;
   fetchFullValue: (key: string) => Promise<DomStorageFullValue | null>;
+  /** Open one entry as an editor-tab document (single-click gesture). */
+  onOpenEntry?: (key: string) => void;
+  /** Whether an entry is the ACTIVE editor tab's document — exactly
+   *  that row renders highlighted, tracking tab switches. */
+  isEntryActive?: (key: string) => boolean;
 }
 
-export function StorageGrid({ entries, adding, onCloseAdd, onCommit, onRemove, fetchFullValue }: StorageGridProps) {
+export function StorageGrid({
+  entries,
+  adding,
+  onCloseAdd,
+  onCommit,
+  onRemove,
+  fetchFullValue,
+  onOpenEntry,
+  isEntryActive,
+}: StorageGridProps) {
   const [editing, setEditing] = useState<EditState | null>(null);
 
   const startEdit = (entry: DomStorageEntry): void => {
@@ -88,7 +104,14 @@ export function StorageGrid({ entries, adding, onCloseAdd, onCommit, onRemove, f
             onCancel={() => setEditing(null)}
           />
         ) : (
-          <div className="dt-storage-row" role="row" key={e.key} onDoubleClick={() => startEdit(e)}>
+          // biome-ignore lint/a11y/noNoninteractiveElementInteractions: grid row doubles as the open affordance
+          <div
+            className={`dt-storage-row${isEntryActive?.(e.key) ? ' dt-storage-row--active' : ''}`}
+            role="row"
+            key={e.key}
+            onClick={() => onOpenEntry?.(e.key)}
+            onDoubleClick={() => startEdit(e)}
+          >
             <span className="dt-storage-key" role="cell" title={e.key}>
               {e.key}
             </span>
@@ -102,7 +125,10 @@ export function StorageGrid({ entries, adding, onCloseAdd, onCommit, onRemove, f
                 className="dt-storage-action"
                 title="Edit this entry"
                 aria-label={`Edit ${e.key}`}
-                onClick={() => startEdit(e)}
+                onClick={(ev) => {
+                  ev.stopPropagation();
+                  startEdit(e);
+                }}
               >
                 <EditOutlined />
               </button>
@@ -111,7 +137,10 @@ export function StorageGrid({ entries, adding, onCloseAdd, onCommit, onRemove, f
                 className="dt-storage-action"
                 title="Delete this entry"
                 aria-label={`Delete ${e.key}`}
-                onClick={() => void onRemove(e.key)}
+                onClick={(ev) => {
+                  ev.stopPropagation();
+                  void onRemove(e.key);
+                }}
               >
                 <DeleteOutlined />
               </button>

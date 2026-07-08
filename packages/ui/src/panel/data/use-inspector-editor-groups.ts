@@ -29,7 +29,7 @@ import {
   unsplitLeaf,
   updateTabInLeaf,
 } from './editor-groups';
-import type { ClosedTab, InspectorTab, InspectorTabPatch } from './inspector-tab';
+import { type ClosedTab, type InspectorTab, type InspectorTabPatch, tabIsDirty } from './inspector-tab';
 import type { PanelViewState, PersistedInspectorTabSession } from './use-panel-tool-layout';
 
 const SESSION_DEBOUNCE_MS = 500;
@@ -184,7 +184,7 @@ export function useInspectorEditorGroups({
       const projection: PersistedInspectorTabSession = {
         // Dirty mirrors an in-memory draft — a reload can't restore the
         // draft, so a persisted dot would lie.
-        tabs: treeAllTabs(state.root).map((t) => (t.kind === 'idb-record' && t.dirty ? { ...t, dirty: false } : t)),
+        tabs: treeAllTabs(state.root).map((t) => (tabIsDirty(t) ? { ...t, dirty: false } : t)),
         activeTabId: findLeaf(state.root, state.focusedLeafId)?.activeTabId ?? null,
         sessionToken: liveSessionTokenRef.current ?? undefined,
       };

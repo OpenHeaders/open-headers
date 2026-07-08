@@ -13,7 +13,7 @@
  * the lazy full-value fetch, itself bounded by a sanity ceiling.
  */
 
-import type { DomStorageAreaWire, DomStorageEntryWire } from '@openheaders/core/bridge';
+import type { DomStorageAreaWire, DomStorageEntryWire, DomStorageRenameFailureWire } from '@openheaders/core/bridge';
 import { logger } from '@utils/logger';
 
 /** Entry-count cap per read; overflow sets `truncated`. */
@@ -79,6 +79,33 @@ export function writeDomStorageInPage(area: 'local' | 'session', key: string, va
     // Quota exceeded — the only setItem failure mode.
     return { ok: false };
   }
+}
+
+/**
+ * Rename (and rewrite) one entry in a single in-page pass — Storage has
+ * no rename primitive and no transactions, so one injection doing
+ * exists-check → collision-check → set-new → remove-old is the closest
+ * honest equivalent: nothing of ours interleaves between the steps, and
+ * a set failure leaves the original entry intact. `value` is the
+ * caller's current draft so a combined key+value edit commits as one
+ * save. A same-key call degrades to a plain value write.
+ */
+export function renameDomStorageInPage(
+  area: 'local' | 'session',
+  key: string,
+  newKey: string,
+  value: string,
+): { ok: boolean; reason?: 'collision' | 'gone' | 'quota' } {
+  const storage = area === 'local' ? window.localStorage : window.sessionStorage;
+  if (storage.getItem(key) === null) return { ok: false, reason: 'gone' };
+  if (newKey !== key && storage.getItem(newKey) !== null) return { ok: false, reason: 'collision' };
+  try {
+    storage.setItem(newKey, value);
+  } catch {
+    return { ok: false, reason: 'quota' };
+  }
+  if (newKey !== key) storage.removeItem(key);
+  return { ok: true };
 }
 
 export function removeDomStorageInPage(area: 'local' | 'session', key: string) {
@@ -166,6 +193,24 @@ export async function setDomStorageItem(
   if (typeof key !== 'string' || typeof value !== 'string') return { ok: false };
   const result = await runInFrame(tabId, frameId, writeDomStorageInPage, [coerceArea(area), key, value]);
   return { ok: result?.ok === true };
+}
+
+export async function renameDomStorageItem(
+  tabId: number,
+  frameId: number,
+  area: DomStorageAreaWire,
+  key: string,
+  newKey: string,
+  value: string,
+): Promise<{ ok: boolean; reason?: DomStorageRenameFailureWire }> {
+  if (typeof key !== 'string' || typeof newKey !== 'string' || typeof value !== 'string' || newKey.length === 0) {
+    return { ok: false };
+  }
+  const result = await runInFrame(tabId, frameId, renameDomStorageInPage, [coerceArea(area), key, newKey, value]);
+  // Injection failure means the frame itself is unreachable — same
+  // honesty bucket as a deleted entry.
+  if (!result) return { ok: false, reason: 'gone' };
+  return result.ok === true ? { ok: true } : { ok: false, ...(result.reason ? { reason: result.reason } : {}) };
 }
 
 export async function removeDomStorageItem(

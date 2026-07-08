@@ -56,9 +56,14 @@ import { PanelToolbar } from './components/PanelToolbar';
 import { RuleExecutions } from './components/RuleExecutions';
 import { RulePopoverProvider } from './components/RulePopoverHost';
 import { SearchPanel } from './components/SearchPanel';
+import { DomStorageEntryEditorTab } from './components/storage/DomStorageEntryEditorTab';
 import { IdbRecordEditorTab } from './components/storage/IdbRecordEditorTab';
 import type { OpenIdbRecordRequest } from './components/storage/IndexedDbSection';
-import { type IdbRevealRequest, StoragePanel } from './components/storage/StoragePanel';
+import {
+  type OpenDomStorageEntryRequest,
+  StoragePanel,
+  type StorageRevealRequest,
+} from './components/storage/StoragePanel';
 import { TrafficList } from './components/TrafficList';
 import type { ColumnKey } from './components/traffic/columns';
 import { DEFAULT_VISIBLE_COLUMNS } from './components/traffic/columns';
@@ -68,7 +73,8 @@ import type { FilterConfig } from './data/filter-engine';
 import { DEFAULT_FILTER_CONFIG, hasFilterError, parseFilter } from './data/filter-engine';
 import { focusStore, setFocusedDock, setFocusedRegion } from './data/stores/focus-store';
 import type { InspectorRowWithFires } from './data/inspector-row-projection';
-import { buildIdbRecordTab, type InspectorTab, tabPillLabel } from './data/inspector-tab';
+import { buildDomStorageEntryTab, buildIdbRecordTab, type InspectorTab, tabPillLabel } from './data/inspector-tab';
+import type { DomStorageArea } from './data/storage/storage-inspector-host';
 import { tabBadge } from './components/method-color';
 import { useParityDebugHook } from './data/parity-debug-hook';
 import { PANEL_TOOL_WINDOW_MAP, type PanelToolWindowId } from './data/tool-windows';
@@ -426,33 +432,49 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
     searchMatchIndex,
   } = useInspectorTabJumps({ lookupByRequestId: data.lookupByRequestId, groups, tl });
 
-  // ── Storage-record editor tabs (open + reveal-back) ───────
+  // ── Storage-document editor tabs (open + reveal-back) ───────
   // Save actions the editor bodies register — the close guard's
   // "Save changes" path routes through them.
-  const idbSaveRefs = useRef<TabSaveRefMap>(new Map());
-  const closeGuard = useTabCloseGuard(groups, idbSaveRefs);
-  const [revealIdb, setRevealIdb] = useState<IdbRevealRequest | null>(null);
+  const storageSaveRefs = useRef<TabSaveRefMap>(new Map());
+  const closeGuard = useTabCloseGuard(groups, storageSaveRefs);
+  const [revealStorage, setRevealStorage] = useState<StorageRevealRequest | null>(null);
   const openIdbRecord = useCallback(
     (request: OpenIdbRecordRequest & { frameId: number }) => {
       groups.addTab(buildIdbRecordTab({ ...request, timestamp: Date.now() }));
     },
     [groups],
   );
-  // The ACTIVE editor tab's record identity — the Storage window
+  const openDomStorageEntry = useCallback(
+    (request: OpenDomStorageEntryRequest & { frameId: number }) => {
+      groups.addTab(buildDomStorageEntryTab({ ...request, timestamp: Date.now() }));
+    },
+    [groups],
+  );
+  // The ACTIVE editor tab's document identity — the Storage window
   // highlights exactly that one row, tracking tab switches.
-  const activeIdbTabId = useMemo(() => {
+  const activeStorageTabId = useMemo(() => {
     const active = groups.focusedLeaf.tabs.find((t) => t.id === groups.activeTabId);
-    return active?.kind === 'idb-record' ? active.id : null;
+    return active !== undefined && active.kind !== 'request' ? active.id : null;
   }, [groups.focusedLeaf, groups.activeTabId]);
+  const showStorageWindow = useCallback(() => {
+    if (tl.state.hidden.includes('storage')) tl.restoreWindow('storage');
+    tl.activateWindow('storage');
+  }, [tl]);
   const revealInStorage = useCallback(
     (database: string, store: string) => {
-      if (tl.state.hidden.includes('storage')) tl.restoreWindow('storage');
-      tl.activateWindow('storage');
-      setRevealIdb({ database, store });
+      showStorageWindow();
+      setRevealStorage({ kind: 'idb', database, store });
     },
-    [tl],
+    [showStorageWindow],
   );
-  const handleRevealConsumed = useCallback(() => setRevealIdb(null), []);
+  const revealDomInStorage = useCallback(
+    (area: DomStorageArea) => {
+      showStorageWindow();
+      setRevealStorage({ kind: 'dom', area });
+    },
+    [showStorageWindow],
+  );
+  const handleRevealConsumed = useCallback(() => setRevealStorage(null), []);
 
   // ── Editor group tab body ──────────────────────────────────
   const renderTabBody = useCallback(
@@ -464,8 +486,24 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
             onRevealInStorage={revealInStorage}
             onDirtyChange={(dirty) => groups.updateTab(tab.id, { dirty })}
             registerSave={(save) => {
-              if (save) idbSaveRefs.current.set(tab.id, save);
-              else idbSaveRefs.current.delete(tab.id);
+              if (save) storageSaveRefs.current.set(tab.id, save);
+              else storageSaveRefs.current.delete(tab.id);
+            }}
+          />
+        );
+      }
+      if (tab.kind === 'dom-storage-entry') {
+        return (
+          <DomStorageEntryEditorTab
+            tab={tab}
+            onRevealInStorage={revealDomInStorage}
+            onDirtyChange={(dirty) => groups.updateTab(tab.id, { dirty })}
+            // A committed rename moved the entry — re-key the tab so its
+            // id/label follow (the body remounts and re-fetches).
+            onRenamed={(newKey) => groups.updateTab(tab.id, { entryKey: newKey, dirty: false })}
+            registerSave={(save) => {
+              if (save) storageSaveRefs.current.set(tab.id, save);
+              else storageSaveRefs.current.delete(tab.id);
             }}
           />
         );
@@ -522,6 +560,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       lifecycleClient.requestResponseBody,
       showMatchedRules,
       revealInStorage,
+      revealDomInStorage,
       searchHighlight,
       searchSection,
       searchLineNumber,
@@ -605,9 +644,10 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
             <StoragePanel
               onHide={() => tl.toggleWindow('storage')}
               onOpenIdbRecord={openIdbRecord}
-              revealIdb={revealIdb}
+              onOpenDomEntry={openDomStorageEntry}
+              reveal={revealStorage}
               onRevealConsumed={handleRevealConsumed}
-              activeIdbTabId={activeIdbTabId}
+              activeStorageTabId={activeStorageTabId}
             />
           );
         case 'rules':
@@ -677,9 +717,10 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       handleSearchResult,
       handleAnnotationJump,
       openIdbRecord,
-      revealIdb,
+      openDomStorageEntry,
+      revealStorage,
       handleRevealConsumed,
-      activeIdbTabId,
+      activeStorageTabId,
       tl,
       iconState,
       visibleColumns,

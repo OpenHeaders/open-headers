@@ -24,6 +24,7 @@ export {
   getDomStorageEntries,
   getDomStorageValue,
   removeDomStorageItem,
+  renameDomStorageItem,
   setDomStorageItem,
 } from './standard-plane';
 export {

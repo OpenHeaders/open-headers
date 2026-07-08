@@ -61,6 +61,7 @@ function installHost(
     readDomStorage: vi.fn(() => Promise.resolve(null)),
     readDomStorageValue: vi.fn(() => Promise.resolve(null)),
     writeDomStorage: vi.fn(() => Promise.resolve(false)),
+    renameDomStorage: vi.fn(() => Promise.resolve({ ok: false })),
     removeDomStorage: vi.fn(() => Promise.resolve(false)),
     clearDomStorage: vi.fn(() => Promise.resolve(false)),
     listIndexedDb: vi.fn(() => Promise.resolve(null)),

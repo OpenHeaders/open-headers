@@ -7,8 +7,8 @@
  * ceiling blocks with a note instead of committing.
  */
 
-import type { DomStorageEntry, DomStorageFullValue } from '@openheaders/ui/panel/data/storage/storage-inspector-host';
 import { StorageGrid } from '@openheaders/ui/panel/components/storage/StorageGrid';
+import type { DomStorageEntry, DomStorageFullValue } from '@openheaders/ui/panel/data/storage/storage-inspector-host';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -25,6 +25,8 @@ interface Handlers {
   onCommit?: (originalKey: string | null, key: string, value: string) => Promise<boolean>;
   onRemove?: (key: string) => Promise<boolean>;
   fetchFullValue?: (key: string) => Promise<DomStorageFullValue | null>;
+  onOpenEntry?: (key: string) => void;
+  isEntryActive?: (key: string) => boolean;
 }
 
 function renderGrid(entries: DomStorageEntry[], adding = false, handlers: Handlers = {}) {
@@ -32,6 +34,7 @@ function renderGrid(entries: DomStorageEntry[], adding = false, handlers: Handle
   const onRemove = handlers.onRemove ?? vi.fn().mockResolvedValue(true);
   const fetchFullValue = handlers.fetchFullValue ?? vi.fn().mockResolvedValue(null);
   const onCloseAdd = handlers.onCloseAdd ?? vi.fn();
+  const onOpenEntry = handlers.onOpenEntry ?? vi.fn();
   render(
     <StorageGrid
       entries={entries}
@@ -40,9 +43,11 @@ function renderGrid(entries: DomStorageEntry[], adding = false, handlers: Handle
       onCommit={onCommit}
       onRemove={onRemove}
       fetchFullValue={fetchFullValue}
+      onOpenEntry={onOpenEntry}
+      isEntryActive={handlers.isEntryActive}
     />,
   );
-  return { onCommit, onRemove, fetchFullValue, onCloseAdd };
+  return { onCommit, onRemove, fetchFullValue, onCloseAdd, onOpenEntry };
 }
 
 describe('StorageGrid', () => {
@@ -119,6 +124,37 @@ describe('StorageGrid', () => {
 
     fireEvent.click(screen.getByLabelText('Delete a'));
     expect(onRemove).toHaveBeenCalledWith('a');
+  });
+
+  it('opens an entry as an editor tab on a single row click', () => {
+    const onOpenEntry = vi.fn();
+    renderGrid([entry({ key: 'theme', value: 'dark', valueLength: 4 })], false, { onOpenEntry });
+
+    fireEvent.click(screen.getByTitle('theme'));
+    expect(onOpenEntry).toHaveBeenCalledWith('theme');
+  });
+
+  it('keeps the action lane clicks off the open gesture', () => {
+    const onOpenEntry = vi.fn();
+    const onRemove = vi.fn().mockResolvedValue(true);
+    renderGrid([entry({ key: 'a', value: '1', valueLength: 1 })], false, { onOpenEntry, onRemove });
+
+    // Delete first — the Edit click swaps the row for its edit form.
+    fireEvent.click(screen.getByLabelText('Delete a'));
+    fireEvent.click(screen.getByLabelText('Edit a'));
+    expect(onOpenEntry).not.toHaveBeenCalled();
+  });
+
+  it('highlights exactly the active editor tab’s row', () => {
+    renderGrid(
+      [entry({ key: 'open', value: '1', valueLength: 1 }), entry({ key: 'other', value: '2', valueLength: 1 })],
+      false,
+      { isEntryActive: (key) => key === 'open' },
+    );
+
+    const rows = screen.getAllByRole('row').filter((r) => r.className.includes('dt-storage-row'));
+    expect(rows[0]?.className).toContain('dt-storage-row--active');
+    expect(rows[1]?.className).not.toContain('dt-storage-row--active');
   });
 
   it('cancels an edit on Escape without committing', () => {

@@ -22,6 +22,7 @@ import {
   listStorageScopes as listStorageScopesHandler,
   putIndexedDbRecord as putIndexedDbRecordHandler,
   removeDomStorageItem as removeDomStorageItemHandler,
+  renameDomStorageItem as renameDomStorageItemHandler,
   setDomStorageItem as setDomStorageItemHandler,
   setQuotaOverride as setQuotaOverrideHandler,
 } from '../../storage-inspector';
@@ -69,6 +70,23 @@ export const storageInspectorHandlers: HandlerMap = {
       message.frameId as number,
       message.area as DomStorageAreaWire,
       message.key as string,
+      message.value as string,
+    )
+      .then((res) => respond(res))
+      .catch((err: Error) => {
+        logger.info('StorageWrite', `handler threw: ${err.message}`);
+        respond({ ok: false });
+      });
+    return true;
+  },
+
+  renameDomStorageItem: ({ message, respond }) => {
+    renameDomStorageItemHandler(
+      message.tabId as number,
+      message.frameId as number,
+      message.area as DomStorageAreaWire,
+      message.key as string,
+      message.newKey as string,
       message.value as string,
     )
       .then((res) => respond(res))
